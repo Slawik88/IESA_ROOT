@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+
+{% block title %}{{ user_obj.get_full_name|default:user_obj.username }} — Profile | IESA_ROOT{% endblock %}
+
+{% block content %}
+<div class="container-limited">
+  <div class="row justify-content-center">
+    <div class="col-md-8">
+      <div class="card card-modern p-4">
+        <div class="d-flex gap-3 align-items-center">
+          {% if user_obj.avatar %}
+            <img src="{{ user_obj.avatar.url }}" class="rounded-circle" style="width:96px;height:96px;object-fit:cover;" />
+          {% else %}
+            <i class="fas fa-user-circle fa-5x text-muted"></i>
+          {% endif %}
+          <div>
+            <h2 class="mb-0">{{ user_obj.get_full_name|default:user_obj.username }}</h2>
+            <p class="text-muted mb-1">@{{ user_obj.username }}</p>
+            {% if user_obj.permanent_id %}
+              <div class="small text-muted">ID: <code id="permanent-{{ user_obj.permanent_id }}">{{ user_obj.permanent_id }}</code>
+                <button class="btn btn-link btn-sm p-0 ms-2 copy-id" data-copy="#permanent-{{ user_obj.permanent_id }}" title="Copy ID"><i class="far fa-copy"></i></button>
+              </div>
+            {% endif %}
+            {% if user_obj.is_verified %}<span class="badge bg-success">Verified</span>{% endif %}
+            {% if user_obj.card_active %}<span class="badge bg-info">Card active</span>{% endif %}
+          </div>
+        </div>
+        <hr>
+        <p><strong>About</strong></p>
+        <p>{{ user_obj.first_name }} {{ user_obj.last_name }}</p>
+        <p class="small text-muted">Member since {{ user_obj.date_joined|date:"d M Y" }}</p>
+        {% if request.user.is_staff %}
+          <div class="mt-2">
+            <a href="/admin/users/user/{{ user_obj.pk }}/change/" class="btn btn-sm btn-outline-secondary">Open in admin panel</a>
+          </div>
+        {% endif %}
+
+        <hr>
+        <!-- QR code: show when user has an active card -->
+        {% if user_obj.card_active and user_obj.permanent_id %}
+          <div class="text-center mb-3">
+            <a href="{% url 'profile_by_card' permanent_id=user_obj.permanent_id %}" title="Open profile by card">
+              <img src="{% url 'user_qr' permanent_id=user_obj.permanent_id %}" alt="QR for {{ user_obj.username }}" style="width:140px;height:140px;object-fit:contain;border:1px solid #e9e9e9;padding:8px;background:white;border-radius:8px;" />
+            </a>
+            <div class="d-flex justify-content-center gap-2 mt-2">
+              {% if request.user.is_authenticated and request.user.id == user_obj.id %}
+                <a class="btn btn-sm btn-outline-secondary" href="{% url 'user_qr' permanent_id=user_obj.permanent_id %}?download=1">Download QR</a>
+              {% elif request.user.is_authenticated and request.user.is_staff %}
+                <a class="btn btn-sm btn-outline-secondary" href="{% url 'user_qr' permanent_id=user_obj.permanent_id %}?download=1">Download QR</a>
+              {% endif %}
+              <div class="small text-muted mt-2">Scan to open profile</div>
+            </div>
+          </div>
+          <hr>
+        {% endif %}
+        
+        <!-- Social links -->
+        {% if user_obj.github_url or user_obj.website_url or user_obj.telegram_url or user_obj.discord_url or user_obj.other_links %}
+          <div class="mb-3">
+            <h6>Links</h6>
+            <div class="d-flex gap-2 flex-wrap">
+              {% if user_obj.github_url %}<a class="btn btn-outline-dark btn-sm" href="{{ user_obj.github_url }}" target="_blank"><i class="fab fa-github me-1"></i>GitHub</a>{% endif %}
+              {% if user_obj.website_url %}<a class="btn btn-outline-primary btn-sm" href="{{ user_obj.website_url }}" target="_blank"><i class="fas fa-link me-1"></i>Website</a>{% endif %}
+              {% if user_obj.telegram_url %}<a class="btn btn-outline-info btn-sm" href="{{ user_obj.telegram_url }}" target="_blank"><i class="fab fa-telegram me-1"></i>Telegram</a>{% endif %}
+              {% if user_obj.discord_url %}<a class="btn btn-outline-secondary btn-sm" href="{{ user_obj.discord_url }}" target="_blank"><i class="fab fa-discord me-1"></i>Discord</a>{% endif %}
+            </div>
+            {% if other_links_list %}
+              <div class="mt-2 small text-muted">Other: {% for line in other_links_list %}<a href="{{ line }}" target="_blank">{{ line }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}</div>
+            {% endif %}
+          </div>
+          <hr>
+        {% endif %}
+
+        <h5>Published posts</h5>
+        <div class="list-group">
+          {% for p in user_posts %}
+            <a href="{{ p.get_absolute_url }}" class="list-group-item list-group-item-action">
+              <div class="d-flex w-100 justify-content-between">
+                <h6 class="mb-1">{{ p.title }}</h6>
+                <small class="text-muted">{{ p.created_at|date:"d M Y" }}</small>
+              </div>
+              <p class="mb-1 small text-muted">{{ p.text|truncatewords:20|striptags }}</p>
+            </a>
+          {% empty %}
+            <div class="list-group-item">No published posts yet.</div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

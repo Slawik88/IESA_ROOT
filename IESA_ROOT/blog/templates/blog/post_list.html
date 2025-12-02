@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+
+{% block title %}Community & Blog | IESA_ROOT{% endblock %}
+
+{% block content %}
+<div class="container-limited">
+    <div class="mb-5">
+        <h1 class="fw-bold mb-2 text-center">Community</h1>
+        <p class="text-center text-muted">Share ideas, events and news with the community.</p>
+    </div>
+
+    {% if not user.is_authenticated %}
+        <div class="alert alert-warning card-modern mb-4 d-flex justify-content-between align-items-center">
+            <div>
+                <strong><i class="fas fa-lock me-2"></i>Sign in or register to access the community.</strong>
+                <p class="mb-0 mt-1 text-muted">Join our community to create posts, comment and engage with members.</p>
+            </div>
+            <div class="ms-3">
+                <a href="{% url 'login' %}" class="btn btn-primary btn-modern btn-sm me-2">Sign In</a>
+                <a href="{% url 'register' %}" class="btn btn-outline-primary btn-modern btn-sm">Register</a>
+            </div>
+        </div>
+    {% endif %}
+
+    <div class="d-flex justify-content-between align-items-center mb-4 p-3 bg-white card-modern">
+        <nav class="nav nav-pills">
+            <a class="nav-link active" href="{% url 'post_list' %}">All posts</a>
+            <a class="nav-link" href="{% url 'event_list' %}">Events</a>
+        </nav>
+        <div class="ms-3 flex-fill">
+            <form id="post-search-form" class="d-flex" hx-get="{% url 'post_search' %}" hx-target="#search-results" hx-trigger="keyup changed delay:400ms">
+                <input name="q" class="form-control form-control-sm me-2" placeholder="Search posts..." aria-label="Search posts">
+                <button type="submit" class="btn btn-sm btn-outline-secondary">Search</button>
+            </form>
+        </div>
+        {% if user.is_authenticated %}
+            <a href="{% url 'post_create' %}" class="btn btn-primary btn-modern">
+                    <i class="fas fa-plus me-1"></i> Create post
+                </a>
+        {% endif %}
+    </div>
+
+    {% if posts %}
+        <div id="search-results">
+            <div class="row g-4">
+            {% for post in posts %}
+                <div class="col-md-6">
+                    <div class="card card-modern h-100">
+                        {% if post.preview_image %}
+                            <img src="{{ post.preview_image.url }}" class="card-modern__image" alt="{{ post.title }}">
+                        {% endif %}
+                        <div class="card-body d-flex flex-column">
+                            <h5 class="card-title fw-bold text-primary">{{ post.title }}</h5>
+                            <p class="card-text text-muted">{{ post.text|truncatewords:25 }}</p>
+                            <div class="mt-auto pt-3 border-top">
+                                <small class="text-secondary me-3"><i class="fas fa-eye me-1"></i> {{ post.views_count }}</small>
+                                <small class="text-secondary me-3"><i class="fas fa-comment me-1"></i> {{ post.comments.count }}</small>
+                                <small class="text-secondary me-3"><i class="fas fa-heart me-1"></i> {{ post.likes.count }}</small>
+                            </div>
+                        </div>
+                        <div class="card-footer bg-white border-0 pt-0">
+                             <a href="{% url 'post_detail' pk=post.pk %}" class="btn btn-sm btn-primary btn-modern">Read more</a>
+                             <small class="text-muted float-end mt-2">Author: {{ post.author.username }}</small>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+            </div>
+        </div>
+
+        <!-- Pagination -->
+        {% if is_paginated %}
+            <nav class="mt-4">
+                <ul class="pagination justify-content-center">
+                    {% if page_obj.has_previous %}
+                        <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}">Previous</a></li>
+                    {% else %}
+                        <li class="page-item disabled"><span class="page-link">Previous</span></li>
+                    {% endif %}
+                    
+                    <li class="page-item active"><span class="page-link">{{ page_obj.number }}</span></li>
+                    
+                    {% if page_obj.has_next %}
+                        <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}">Next</a></li>
+                    {% else %}
+                        <li class="page-item disabled"><span class="page-link">Next</span></li>
+                    {% endif %}
+                </ul>
+            </nav>
+        {% endif %}
+
+    {% else %}
+        <div class="alert alert-info text-center card-modern">
+            No posts yet. Be the first!
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,17 @@
+{% load static %}
+<div class="container-fluid">
+  <div class="row">
+    <div class="col-md-5 text-center">
+      {% if partner.logo %}
+      <img src="{{ partner.logo.url }}" alt="{{ partner.name }}" class="img-fluid" style="max-height:320px;object-fit:contain;"/>
+      {% endif %}
+    </div>
+    <div class="col-md-7">
+      <h3>{{ partner.name }}</h3>
+      <p class="text-muted small">{{ partner.description }}</p>
+      {% if partner.website %}
+      <p><a class="btn btn-primary" href="{{ partner.website }}" target="_blank" rel="noopener">Visit partner website</a></p>
+      {% endif %}
+    </div>
+  </div>
+</div>

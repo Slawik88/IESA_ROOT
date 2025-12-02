@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+
+{% block title %}Sign In | IESA_ROOT{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center py-5">
+    <div class="col-md-6 col-lg-5 col-xl-4">
+        <div class="card card-modern p-5 shadow-xl bg-white">
+            <h2 class="fw-bold mb-4 text-center">🔐 Sign in to your account</h2>
+            <p class="text-center text-muted mb-4">Access your profile and connect with the community.</p>
+
+            {% if form.errors %}
+                <div class="alert alert-danger alert-dismissible fade show mb-4" role="alert">
+                    <i class="fas fa-exclamation-circle me-2"></i>
+                    <strong>Sign in failed!</strong> Invalid username or password. Please try again.
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endif %}
+            
+            <form method="post" novalidate>
+                {% csrf_token %}
+
+                {% for field in form %}
+                    <div class="mb-3">
+                        <label for="{{ field.id_for_label }}" class="form-label fw-500">{{ field.label }}</label>
+                        {% with field_class="form-control" %}
+                            {% if field.errors %}
+                                {% with field_class="form-control is-invalid" %}
+                                    {{ field }}
+                                {% endwith %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in field.errors %}
+                                        <i class="fas fa-times-circle me-1"></i>{{ error }}<br>
+                                    {% endfor %}
+                                </div>
+                            {% else %}
+                                {{ field }}
+                            {% endif %}
+                        {% endwith %}
+                    </div>
+                {% endfor %}
+                
+                <input type="hidden" name="next" value="{{ next }}">
+
+                <button type="submit" class="btn btn-primary btn-modern w-100 mt-4 py-2">
+                    <i class="fas fa-sign-in-alt me-2"></i>Sign In
+                </button>
+            </form>
+            
+            <hr class="my-4">
+            
+            <p class="text-center text-muted mb-0">
+                Don't have an account? 
+                <a href="{% url 'register' %}" class="fw-bold text-decoration-none">Register here</a>
+            </p>
+        </div>
+    </div>
+</div>
+
+<style>
+    .form-label { font-weight: 500; color: #333; }
+    .fw-500 { font-weight: 500; }
+    .form-control { border: 2px solid #e0e0e0; border-radius: 8px; padding: 0.75rem 1rem; }
+    .form-control:focus { border-color: #007bff; box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25); }
+    .form-control.is-invalid { border-color: #dc3545; }
+    .form-control.is-invalid:focus { box-shadow: 0 0 0 0.2rem rgba(220,53,69,.25); }
+    .invalid-feedback { color: #dc3545; font-size: 0.875rem; margin-top: 0.25rem; }
+    .card-modern { border: none; border-radius: 12px; }
+    .btn-modern { border-radius: 8px; font-weight: 500; }
+</style>
+{% endblock %}

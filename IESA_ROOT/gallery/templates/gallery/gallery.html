@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+
+{% block title %}Gallery | IESA_ROOT{% endblock %}
+
+{% block content %}
+<h1 class="fw-bold mb-4 text-center">Photo gallery</h1>
+<p class="text-center text-muted mb-5">See how we work and relax.</p>
+
+{% if photos %}
+    <!-- Using a simple grid system with custom classes for a polished layout -->
+        <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 g-4 gallery-grid">
+                {% for photo in photos %}
+                        <div class="col">
+                                <a href="#" class="gallery-grid__item" data-index="{{ forloop.counter0 }}" data-src="{{ photo.image.url }}" data-caption="{{ photo.caption|default:'' }}">
+                                        <img src="{{ photo.image.url }}" class="img-fluid rounded" alt="{{ photo.caption|default:'Photo' }}" style="cursor: pointer; transition: transform 0.2s;">
+                                </a>
+                        </div>
+                {% endfor %}
+        </div>
+
+        <!-- Modal gallery -->
+        <div class="modal fade" id="galleryModal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-xl modal-dialog-centered">
+                <div class="modal-content bg-transparent border-0">
+                    <div class="modal-body p-0 position-relative">
+                        <button type="button" class="btn-close position-absolute top-0 end-0 m-3 text-white bg-dark rounded-circle p-2" data-bs-dismiss="modal" aria-label="Close"></button>
+                        <div class="d-flex align-items-center justify-content-center" style="min-height:60vh; background: rgba(0,0,0,0.8);">
+                            <button class="btn btn-light btn-lg me-3" id="galleryPrev"><i class="fas fa-chevron-left"></i></button>
+                            <div class="flex-fill text-center">
+                                <img id="galleryModalImage" src="" class="img-fluid" style="max-height:75vh;" alt="">
+                                <div id="galleryModalCaption" class="mt-2 text-white small"></div>
+                            </div>
+                            <button class="btn btn-light btn-lg ms-3" id="galleryNext"><i class="fas fa-chevron-right"></i></button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <script>
+        (function(){
+            const items = Array.from(document.querySelectorAll('.gallery-grid__item'));
+            if (!items.length) return;
+            const modalEl = document.getElementById('galleryModal');
+            const imgEl = document.getElementById('galleryModalImage');
+            const capEl = document.getElementById('galleryModalCaption');
+            let current = 0;
+
+            function show(index){
+                const it = items[index];
+                imgEl.src = it.dataset.src;
+                capEl.textContent = it.dataset.caption || '';
+                current = index;
+                const bs = bootstrap.Modal.getOrCreateInstance(modalEl);
+                bs.show();
+            }
+
+            items.forEach((it, idx)=>{
+                it.addEventListener('click', function(e){
+                    e.preventDefault();
+                    show(idx);
+                });
+            });
+
+            document.getElementById('galleryPrev').addEventListener('click', function(){
+                show((current - 1 + items.length) % items.length);
+            });
+            document.getElementById('galleryNext').addEventListener('click', function(){
+                show((current + 1) % items.length);
+            });
+        })();
+        </script>
+
+    <!-- Pagination -->
+    {% if is_paginated %}
+        <nav class="mt-4">
+            <ul class="pagination justify-content-center">
+                {% if page_obj.has_previous %}
+                    <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}">Previous</a></li>
+                {% else %}
+                    <li class="page-item disabled"><span class="page-link">Previous</span></li>
+                {% endif %}
+                
+                <li class="page-item active"><span class="page-link">{{ page_obj.number }}</span></li>
+                
+                {% if page_obj.has_next %}
+                    <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}">Next</a></li>
+                {% else %}
+                    <li class="page-item disabled"><span class="page-link">Next</span></li>
+                {% endif %}
+            </ul>
+        </nav>
+    {% endif %}
+
+{% else %}
+    <div class="alert alert-info text-center card-modern">
+        No photos uploaded yet. More will be added soon!
+    </div>
+{% endif %}
+{% endblock %}

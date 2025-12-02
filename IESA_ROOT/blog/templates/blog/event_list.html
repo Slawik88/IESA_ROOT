@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block title %}Events | IESA_ROOT{% endblock %}
+
+{% block content %}
+<div class="container-limited">
+    <h1 class="fw-bold mb-4 text-center">Upcoming events</h1>
+
+    <div class="d-flex justify-content-between align-items-center mb-4 p-3 bg-white card-modern">
+        <nav class="nav nav-pills">
+            <a class="nav-link" href="{% url 'post_list' %}">All posts</a>
+            <a class="nav-link active" href="{% url 'event_list' %}">Events</a>
+        </nav>
+        <a href="{% url 'post_list' %}" class="btn btn-outline-secondary btn-modern">Back to blog</a>
+    </div>
+
+    {% if events %}
+        <div class="row g-4">
+            {% for event in events %}
+                <div class="col-md-6">
+                    <div class="card card-modern h-100">
+                        <div class="row g-0">
+                            <div class="col-md-4">
+                                {% if event.image %}
+                                    <img src="{{ event.image.url }}" class="card-modern__image w-100 h-100" alt="{{ event.title }}">
+                                {% endif %}
+                            </div>
+                            <div class="col-md-8">
+                                <div class="card-body">
+                                    <h5 class="card-title fw-bold text-primary">{{ event.title }}</h5>
+                                    <p class="card-text mb-2"><i class="fas fa-calendar-alt me-2"></i> {{ event.date|date:"d M Y, H:i" }}</p>
+                                    <p class="card-text mb-2"><i class="fas fa-map-marker-alt me-2"></i> {{ event.location }}</p>
+                                    <p class="card-text text-muted">{{ event.description|truncatewords:20 }}</p>
+                                    <a href="{% url 'event_detail' event.pk %}" class="btn btn-sm btn-primary btn-modern mt-2">Details</a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="alert alert-info text-center card-modern">
+            No upcoming events have been scheduled yet. Stay tuned for updates!
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

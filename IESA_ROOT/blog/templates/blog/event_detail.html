@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ event.title }} | Events | IESA_ROOT{% endblock %}
+
+{% block content %}
+<div class="container-limited">
+    <div class="row py-5">
+        <!-- Event Image -->
+        {% if event.image %}
+        <div class="col-lg-6 mb-4 mb-lg-0">
+            <img src="{{ event.image.url }}" alt="{{ event.title }}" class="img-fluid rounded" style="width:100%;object-fit:cover;">
+        </div>
+        {% endif %}
+        
+        <!-- Event Details -->
+        <div class="col-lg-6">
+            <h1 class="fw-bold mb-3 text-primary">{{ event.title }}</h1>
+            
+            <div class="mb-4">
+                <div class="mb-3 d-flex align-items-center">
+                    <i class="fas fa-calendar-alt me-3 text-primary" style="font-size:1.3rem;"></i>
+                    <div>
+                        <strong>Date & time:</strong>
+                        <p class="mb-0">{{ event.date|date:"d MMMM Y, H:i" }}</p>
+                    </div>
+                </div>
+                
+                <div class="mb-3 d-flex align-items-center">
+                    <i class="fas fa-map-marker-alt me-3 text-primary" style="font-size:1.3rem;"></i>
+                    <div>
+                        <strong>Location:</strong>
+                        <p class="mb-0">{{ event.location }}</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Description -->
+            <div class="card card-modern mb-4">
+                <div class="card-body">
+                    <h3 class="card-title mb-3">Description</h3>
+                    <p class="card-text">{{ event.description }}</p>
+                </div>
+            </div>
+            
+            <!-- Action Buttons -->
+            <div class="d-flex gap-2">
+                <a href="{% url 'event_list' %}" class="btn btn-outline-secondary btn-modern">
+                    <i class="fas fa-arrow-left me-2"></i> Back to events
+                </a>
+                <button class="btn btn-primary btn-modern" data-bs-toggle="modal" data-bs-target="#registerModal">
+                    <i class="fas fa-check-circle me-2"></i> Register
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Registration Modal -->
+<div class="modal fade" id="registerModal" tabindex="-1" aria-labelledby="registerModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header border-bottom-0">
+                <h5 class="modal-title fw-bold" id="registerModalLabel">
+                    <i class="fas fa-calendar-check me-2" style="color:var(--primary);"></i>Register for Event
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center py-4">
+                <p class="mb-4">Thank you for your interest! Please contact us via:</p>
+                
+                <div class="row g-3">
+                    <!-- SMS Contact -->
+                    <div class="col-12">
+                        <a href="tel:+41795718887" class="btn btn-outline-primary w-100" style="padding:1rem;">
+                            <i class="fas fa-mobile-alt me-2"></i>
+                            Call/SMS: +41 79 571 8887
+                        </a>
+                    </div>
+                    
+                    <!-- Telegram Contact -->
+                    <div class="col-12">
+                        <a href="https://t.me/+41795718887" target="_blank" class="btn btn-info w-100" style="padding:1rem;color:white;">
+                            <i class="fab fa-telegram me-2"></i>
+                            Message on Telegram
+                        </a>
+                    </div>
+                </div>
+                
+                <p class="text-muted mt-4 small">
+                    We'll get back to you as soon as possible!
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

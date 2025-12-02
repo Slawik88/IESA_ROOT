@@ -1,0 +1,34 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# --- Django ---
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+
+# Папка с медиа-файлами (пользовательские фото не должны лететь в гит)
+media/
+staticfiles/
+
+# --- Virtual Environment ---
+venv/
+env/
+.env
+
+# --- VS Code (Editor) ---
+.vscode/
+*.code-workspace
+
+# --- KDE / Linux System Files ---
+.directory
+.Trash-*
+.DS_Store
+
+# --- Pytest / Coverage (на будущее) ---
+.pytest_cache/
+.coverage
+htmlcov/

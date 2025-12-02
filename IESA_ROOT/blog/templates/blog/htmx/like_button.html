@@ -1,0 +1,10 @@
+<div id="like-button-container">
+    <button class="btn btn-sm {% if is_liked %}btn-danger{% else %}btn-outline-danger{% endif %}"
+            hx-post="{% url 'like_post' pk=post.pk %}"
+            hx-target="#like-button-container"
+            hx-swap="outerHTML">
+        <i class="fas fa-heart me-1"></i>
+        <span class="visually-hidden">like</span>
+        <span class="ms-1">{{ like_count }}</span>
+    </button>
+</div>

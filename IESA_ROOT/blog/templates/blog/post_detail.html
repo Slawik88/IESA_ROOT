@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+
+{% block title %}{{ post.title }} | IESA_ROOT{% endblock %}
+
+{% block content %}
+<div class="container-limited">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <!-- Post Content -->
+            <article class="card card-modern p-4 p-md-5 mb-4">
+                <div class="mb-3">
+                    <span class="badge bg-primary">{{ post.get_status_display }}</span>
+                </div>
+                <h1 class="fw-bold mb-3">{{ post.title }}</h1>
+                <div class="d-flex align-items-center flex-wrap text-muted mb-4 border-bottom pb-3 gap-3">
+                    <p class="mb-0"><i class="fas fa-user-circle me-1"></i> Author: <strong><a href="{% url 'profile_public_username' username=post.author.username %}" class="text-decoration-none">{{ post.author.username }}</a></strong></p>
+                    <p class="mb-0"><i class="fas fa-calendar-alt me-1"></i> {{ post.created_at|date:"d M Y" }}</p>
+                    <p class="mb-0"><i class="fas fa-eye me-1"></i> {{ post.views_count }}</p>
+                    <!-- HTMX Like Button Component -->
+                    <div id="like-button-container" 
+                         hx-get="{% url 'like_post' pk=post.pk %}" 
+                         hx-trigger="load, like-event from:body" 
+                         hx-swap="outerHTML">
+                        <!-- Loads htmx/like_button.html -->
+                    </div>
+                    <!-- HTMX Subscribe Button Component -->
+                    <div id="subscribe-button-container" 
+                         hx-get="{% url 'toggle_subscription' author_pk=post.author.pk %}" 
+                         hx-trigger="load" 
+                         hx-swap="outerHTML">
+                        <!-- Loads htmx/subscribe_button.html -->
+                    </div>
+                </div>
+                
+                {% if post.preview_image %}
+                    <img src="{{ post.preview_image.url }}" class="img-fluid rounded-lg mb-4" alt="{{ post.title }}" style="max-height: 400px; object-fit: cover;">
+                {% endif %}
+
+                <div class="post-content" style="font-size:1.05rem;line-height:1.8;">
+                    {{ post.text|safe }}
+                </div>
+            </article>
+
+            <!-- Comments Section -->
+            <section id="comments" class="mb-5">
+                <h3 class="fw-bold mb-4">Comments ({{ post.comments.count }})</h3>
+                
+                <!-- Comment Form (Only for authenticated users) -->
+                {% if user.is_authenticated %}
+                    <div class="card card-modern p-4 mb-4">
+                        <h5 class="mb-3">Leave a comment</h5>
+                        <form hx-post="{% url 'comment_create' pk=post.pk %}"
+                              hx-target="#comments-container"
+                              hx-swap="innerHTML"
+                                 hx-on::after-swap="document.querySelector('textarea[name=text]').value = ''"
+                              method="post">
+                            {% csrf_token %}
+                            <div class="mb-3">
+                                    <textarea name="text" class="form-control" id="comment-textarea" rows="3" placeholder="Your comment..." required></textarea>
+                            </div>
+                            <button type="submit" class="btn btn-primary btn-modern">Send</button>
+                        </form>
+                    </div>
+                {% else %}
+                    <div class="alert alert-warning card-modern mb-4">
+                        To comment, please <a href="{% url 'login' %}?next={{ request.path }}">sign in</a> or <a href="{% url 'register' %}">register</a>.
+                    </div>
+                {% endif %}
+
+                <!-- Comments List (loaded via HTMX) -->
+                <div id="comments-container" 
+                     hx-get="{% url 'comment_list' pk=post.pk %}"
+                     hx-trigger="load">
+                    <!-- Loaded by HTMX -->
+                </div>
+            </section>
+
+            <!-- Recommended Posts Section -->
+            {% if recommended_posts %}
+            <section class="mb-5">
+                <h3 class="fw-bold mb-4">📚 Recommended Posts</h3>
+                <div class="row g-3">
+                    {% for post_rec in recommended_posts %}
+                    <div class="col-md-6">
+                        <div class="card card-modern h-100">
+                            {% if post_rec.preview_image %}
+                                <img src="{{ post_rec.preview_image.url }}" class="card-img-top" alt="{{ post_rec.title }}" style="height:150px;object-fit:cover;">
+                            {% else %}
+                                <div class="card-img-top" style="height:150px;background:#f0f0f0;display:flex;align-items:center;justify-content:center;color:#999;">
+                                    <i class="fas fa-image fa-3x"></i>
+                                </div>
+                            {% endif %}
+                            <div class="card-body">
+                                <h6 class="card-title fw-bold text-truncate"><a href="{% url 'post_detail' post_rec.pk %}" class="text-decoration-none text-dark">{{ post_rec.title }}</a></h6>
+                                <p class="card-text small text-muted mb-2">
+                                    <i class="fas fa-user-circle me-1"></i> {{ post_rec.author.username }}
+                                    <br>
+                                    <i class="fas fa-calendar-alt me-1"></i> {{ post_rec.created_at|date:"d M Y" }}
+                                </p>
+                                <p class="card-text small" style="line-height:1.4;">
+                                    {{ post_rec.text|truncatewords:15|striptags }}
+                                </p>
+                            </div>
+                            <div class="card-footer bg-light d-flex justify-content-between align-items-center text-muted small">
+                                <span><i class="fas fa-heart me-1"></i> {{ post_rec.likes.count }}</span>
+                                <span><i class="fas fa-comment me-1"></i> {{ post_rec.comments.count }}</span>
+                                <span><i class="fas fa-eye me-1"></i> {{ post_rec.views_count }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </section>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

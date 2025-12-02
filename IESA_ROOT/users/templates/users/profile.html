@@ -1,0 +1,190 @@
+{% extends "base.html" %}
+
+{% block title %}My Profile | IESA_ROOT{% endblock %}
+
+{% block content %}
+<div class="container-limited">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <!-- Profile Header -->
+            <div class="card card-modern p-4 p-md-5 mb-5">
+                <div class="text-center mb-5">
+                    <!-- User avatar -->
+                    {% if profile_user.avatar %}
+                        <img src="{{ profile_user.avatar.url }}" alt="{{ profile_user.username }} Avatar" 
+                             class="rounded-circle mb-3" 
+                             style="width: 120px; height: 120px; object-fit: cover; border: 4px solid var(--primary);">
+                    {% else %}
+                        <div class="d-inline-block rounded-circle bg-primary text-white fw-bold d-flex align-items-center justify-content-center mb-3"
+                             style="width: 120px; height: 120px; font-size: 3rem;">
+                            {{ profile_user.username|slice:":1"|upper }}
+                        </div>
+                    {% endif %}
+                    
+                    <h1 class="fw-bold mb-1 text-primary">{{ profile_user.username }}</h1>
+                    <p class="text-muted mb-3">{{ profile_user.email }}</p>
+                                        {% if profile_user.permanent_id %}
+                                            <div class="small text-muted">ID: <code id="permanent-{{ profile_user.permanent_id }}">{{ profile_user.permanent_id }}</code>
+                                                <button class="btn btn-link btn-sm p-0 ms-2 copy-id" data-copy="#permanent-{{ profile_user.permanent_id }}" title="Copy ID"><i class="far fa-copy"></i></button>
+                                            </div>
+                                        {% endif %}
+
+                    <!-- QR Code for card (если карта активна) -->
+                    {% if profile_user.card_active and profile_user.permanent_id %}
+                    <div class="my-4 p-3 bg-light rounded-3" style="display: inline-block; border: 2px solid var(--primary);">
+                        {# Use the QR serving view as image src so missing files are generated on demand #}
+                        <a href="{% url 'profile_by_card' permanent_id=profile_user.permanent_id %}" title="Open profile by card">
+                            <img src="{% url 'user_qr' permanent_id=profile_user.permanent_id %}" 
+                                 alt="Your QR Card" 
+                                 style="width: 150px; height: 150px; object-fit: contain; display:block;">
+                        </a>
+                        <div class="d-flex justify-content-center gap-2 mt-2">
+                            {% if user.is_authenticated and user.id == profile_user.id %}
+                                <a class="btn btn-sm btn-outline-secondary" href="{% url 'user_qr' permanent_id=profile_user.permanent_id %}?download=1">Download QR</a>
+                            {% endif %}
+                            <p class="small text-muted mt-1 mb-0">Scan to view your profile</p>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Edit button -->
+                    {% if user.is_authenticated and user.id == profile_user.id %}
+                        <div class="mt-4">
+                            <a href="{% url 'profile_edit' %}" class="btn btn-outline-primary btn-modern">
+                                <i class="fas fa-edit me-2"></i>Edit profile
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+
+                <!-- Profile details -->
+                <div class="row text-center">
+                    <div class="col-md-3">
+                        <h5 class="text-muted mb-1">First name</h5>
+                        <p class="fw-bold">{{ profile_user.first_name|default:"—" }}</p>
+                    </div>
+                    <div class="col-md-3">
+                        <h5 class="text-muted mb-1">Last name</h5>
+                        <p class="fw-bold">{{ profile_user.last_name|default:"—" }}</p>
+                    </div>
+                    <div class="col-md-3">
+                        <h5 class="text-muted mb-1">Date of birth</h5>
+                        <p class="fw-bold">{{ profile_user.date_of_birth|date:"d.m.Y"|default:"—" }}</p>
+                    </div>
+                    <div class="col-md-3">
+                        <h5 class="text-muted mb-1">Member since</h5>
+                        <p class="fw-bold">{{ profile_user.date_joined|date:"d M Y" }}</p>
+                    </div>
+                </div>
+                
+                                <!-- Social links -->
+                                <div class="mt-4 text-center">
+                                        {% if profile_user.github_url or profile_user.website_url or profile_user.telegram_url or profile_user.discord_url or profile_user.other_links %}
+                                                <h6 class="text-muted mb-2">Find me</h6>
+                                                <div class="d-flex justify-content-center gap-2 flex-wrap">
+                                                        {% if profile_user.github_url %}
+                                                            <a href="{{ profile_user.github_url }}" target="_blank" class="btn btn-outline-dark btn-sm"><i class="fab fa-github me-1"></i>GitHub</a>
+                                                        {% endif %}
+                                                        {% if profile_user.website_url %}
+                                                            <a href="{{ profile_user.website_url }}" target="_blank" class="btn btn-outline-primary btn-sm"><i class="fas fa-link me-1"></i>Website</a>
+                                                        {% endif %}
+                                                        {% if profile_user.telegram_url %}
+                                                            <a href="{{ profile_user.telegram_url }}" target="_blank" class="btn btn-outline-info btn-sm"><i class="fab fa-telegram me-1"></i>Telegram</a>
+                                                        {% endif %}
+                                                        {% if profile_user.discord_url %}
+                                                            <a href="{{ profile_user.discord_url }}" target="_blank" class="btn btn-outline-secondary btn-sm"><i class="fab fa-discord me-1"></i>Discord</a>
+                                                        {% endif %}
+                                                </div>
+                                                {% if profile_user.other_links %}
+                                                        <div class="mt-2 small text-muted">Other: {% for line in profile_user.other_links.splitlines %}<a href="{{ line }}" target="_blank">{{ line }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}</div>
+                                                {% endif %}
+                                        {% endif %}
+                                </div>
+            </div>
+
+            <!-- Post Statistics (if user's own profile) -->
+            {% if user.is_authenticated and user.id == profile_user.id %}
+            <div class="row g-3 mb-5">
+                <div class="col-md-4">
+                    <div class="card card-modern text-center p-4">
+                        <div style="font-size:2rem;color:var(--primary);" class="mb-2"><i class="fas fa-file-alt"></i></div>
+                        <h5 class="text-muted mb-1">Total posts</h5>
+                        <p class="fw-bold" style="font-size:1.8rem;">{{ user_posts.count }}</p>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card card-modern text-center p-4">
+                        <div style="font-size:2rem;color:#ffc107;" class="mb-2"><i class="fas fa-clock"></i></div>
+                        <h5 class="text-muted mb-1">Pending review</h5>
+                        <p class="fw-bold" style="font-size:1.8rem;color:#ffc107;">{{ pending_count }}</p>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card card-modern text-center p-4">
+                        <div style="font-size:2rem;color:#28a745;" class="mb-2"><i class="fas fa-check-circle"></i></div>
+                        <h5 class="text-muted mb-1">Published</h5>
+                        <p class="fw-bold" style="font-size:1.8rem;color:#28a745;">{{ published_count }}</p>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Posts Section -->
+            <div class="card card-modern p-4">
+                <h3 class="fw-bold mb-4">
+                    <i class="fas fa-list me-2"></i>Your posts
+                </h3>
+                
+                {% if user_posts %}
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Title</th>
+                                    <th>Status</th>
+                                    <th>Created</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for post in user_posts %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ post.title|truncatewords:8 }}</strong>
+                                    </td>
+                                    <td>
+                                        {% if post.status == 'published' %}
+                                            <span class="badge bg-success"><i class="fas fa-check-circle me-1"></i>Published</span>
+                                        {% elif post.status == 'pending' %}
+                                            <span class="badge bg-warning text-dark"><i class="fas fa-clock me-1"></i>Pending review</span>
+                                        {% elif post.status == 'rejected' %}
+                                            <span class="badge bg-danger"><i class="fas fa-times-circle me-1"></i>Rejected</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">{{ post.get_status_display }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <small class="text-muted">{{ post.created_at|date:"d M Y" }}</small>
+                                    </td>
+                                    <td>
+                                        {% if post.status == 'published' %}
+                                            <a href="{% url 'post_detail' post.pk %}" class="btn btn-sm btn-outline-primary" title="View">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="alert alert-info mb-0">
+                        <i class="fas fa-info-circle me-2"></i>You have no posts yet. <a href="{% url 'post_create' %}">Create your first post</a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+
+{% block title %}Create a new post | IESA_ROOT{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-10 col-xl-8">
+        <div class="card card-modern p-5 shadow-lg">
+            <h1 class="fw-bold mb-5 text-center text-primary-dark">Publish a new article or announcement</h1>
+            
+            <form method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+
+                <!-- Post creation form -->
+                {# Better editor: if CKEditor is available, PostForm will use it; otherwise we provide Quill as a lightweight WYSIWYG #}
+                <div class="mb-4">
+                    <label class="form-label text-gray-700 fw-semibold">{{ form.title.label }}</label>
+                    {{ form.title }}
+                    {% if form.title.errors %}<div class="text-danger small mt-1">{{ form.title.errors }}</div>{% endif %}
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label text-gray-700 fw-semibold">{{ form.text.label }}</label>
+                    {# If widget is a plain textarea (no CKEditor), initialize Quill below via JS and sync to textarea on submit #}
+                    {{ form.text }}
+                    {% if form.text.errors %}<div class="text-danger small mt-1">{{ form.text.errors }}</div>{% endif %}
+                    <small class="form-text text-muted">Supports rich formatting. Use toolbar to style text (bold, lists, links).</small>
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label text-gray-700 fw-semibold">{{ form.preview_image.label }}</label>
+                    {{ form.preview_image }}
+                    {% if form.preview_image.errors %}<div class="text-danger small mt-1">{{ form.preview_image.errors }}</div>{% endif %}
+                </div>
+                
+                <div class="d-flex gap-2">
+                    <button type="button" id="preview-btn" class="btn btn-outline-secondary btn-modern flex-fill">Preview</button>
+                    <button type="submit" class="btn btn-primary btn-modern flex-fill">Create and submit for review</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+<!-- Quill fallback (loaded only if CKEditor absent). We add a basic toolbar and sync content to textarea on submit -->
+<link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+<script src="https://cdn.quilljs.com/1.3.6/quill.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+    // If admin/CKEditor not present, enhance the textarea
+    var ta = document.querySelector('textarea[name="text"]');
+    if (!ta) return;
+    // If CKEditor is active it will replace the textarea; detect by checking CKEDITOR global
+    if (window.CKEDITOR) return;
+
+    // Hide native textarea but keep it for form submission
+    ta.style.display = 'none';
+
+    // Create Quill container
+    var container = document.createElement('div');
+    container.id = 'quill-editor';
+    container.style.minHeight = '220px';
+    ta.parentNode.insertBefore(container, ta);
+
+    var quill = new Quill('#quill-editor', {
+        theme: 'snow',
+        modules: { toolbar: [['bold','italic','underline'], [{ 'list': 'ordered'}, { 'list': 'bullet' }], ['link'] ] }
+    });
+
+    // If textarea has initial value, populate Quill
+    if (ta.value) quill.root.innerHTML = ta.value;
+
+    // On form submit, copy HTML back to textarea
+    var form = ta.closest('form');
+        if (form) {
+                form.addEventListener('submit', function(){
+                        ta.value = quill.root.innerHTML;
+                });
+                // Preview button
+                var previewBtn = document.getElementById('preview-btn');
+                if (previewBtn) previewBtn.addEventListener('click', function(){
+                        var html = quill.root.innerHTML;
+                        var previewBody = document.getElementById('post-preview-body');
+                        if (previewBody) previewBody.innerHTML = html;
+                        var modal = new bootstrap.Modal(document.getElementById('postPreviewModal'));
+                        modal.show();
+                });
+        }
+});
+</script>
+
+<!-- Modal for preview -->
+<div class="modal fade" id="postPreviewModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Post preview</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="post-preview-body" style="min-height:200px;"></div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

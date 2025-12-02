@@ -1,0 +1,15 @@
+<!-- Subscribe Button Component (HTMX-powered) -->
+{% if request.user.is_authenticated and request.user != author %}
+<form hx-post="{% url 'toggle_subscription' author_pk=author.pk %}" hx-swap="outerHTML">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-sm {% if is_subscribed %}btn-primary btn-modern{% else %}btn-outline-primary btn-modern{% endif %}" title="Subscribe to {{ author.username }}'s blog">
+        <i class="fas fa-bell {% if is_subscribed %}fa-solid{% else %}fa-regular{% endif %} me-1"></i>
+        <span class="d-none d-sm-inline">
+            {% if is_subscribed %}Subscribed{% else %}Subscribe{% endif %}
+        </span>
+        <span class="d-sm-none">
+            <i class="fas fa-bell"></i>
+        </span>
+    </button>
+</form>
+{% endif %}

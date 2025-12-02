@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% block title %}Product Catalog | IESA_ROOT{% endblock %}
+
+{% block content %}
+<h1 class="fw-bold mb-4 text-center">Product Catalog</h1>
+<p class="text-center text-muted mb-5">Everything our association offers to members.</p>
+
+{% if products %}
+    <div class="row row-cols-1 row-cols-md-3 g-4">
+        {% for product in products %}
+            <div class="col">
+                <div class="card card-modern h-100">
+                    {% if product.image %}
+                        <img src="{{ product.image.url }}" class="card-modern__image" alt="{{ product.name }}">
+                    {% endif %}
+                    <div class="card-body">
+                        <h5 class="card-title fw-bold">{{ product.name }}</h5>
+                        <p class="card-text text-muted">{{ product.description|truncatewords:30 }}</p>
+                    </div>
+                    <div class="card-footer bg-white border-0 d-flex justify-content-between align-items-center">
+                        <span class="fw-bold text-primary fs-5">{{ product.price }} USD</span>
+                        <a href="#" class="btn btn-sm btn-primary btn-modern" disabled>Purchase (Temporarily unavailable)</a>
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+
+    <!-- Pagination -->
+    {% if is_paginated %}
+        <nav class="mt-4">
+            <ul class="pagination justify-content-center">
+                {% if page_obj.has_previous %}
+                    <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}">Previous</a></li>
+                {% else %}
+                    <li class="page-item disabled"><span class="page-link">Previous</span></li>
+                {% endif %}
+                
+                <li class="page-item active"><span class="page-link">{{ page_obj.number }}</span></li>
+                
+                {% if page_obj.has_next %}
+                    <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}">Next</a></li>
+                {% else %}
+                    <li class="page-item disabled"><span class="page-link">Next</span></li>
+                {% endif %}
+            </ul>
+        </nav>
+    {% endif %}
+    
+{% else %}
+    <div class="alert alert-info text-center card-modern">
+        Catalog is empty. We're working on adding items!
+    </div>
+{% endif %}
+{% endblock %}

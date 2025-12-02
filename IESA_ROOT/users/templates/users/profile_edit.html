@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Edit profile | IESA_ROOT{% endblock %}
+
+{% block content %}
+<div class="container-limited">
+    <div class="row justify-content-center py-5">
+        <div class="col-lg-6">
+            <div class="card card-modern">
+                <div class="card-body p-4">
+                    <h2 class="mb-4 fw-bold text-primary">Edit profile</h2>
+                    
+                    <form method="post" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label for="id_first_name" class="form-label">First name</label>
+                            {{ form.first_name }}
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="id_last_name" class="form-label">Last name</label>
+                            {{ form.last_name }}
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="id_email" class="form-label">Email</label>
+                            {{ form.email }}
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="id_date_of_birth" class="form-label">Date of birth (DD.MM.YYYY)</label>
+                            {{ form.date_of_birth }}
+                            <small class="form-text text-muted d-block mt-1">Введите дату в формате: ДД.ММ.ГГГГ (например: 18.10.2004)</small>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="id_avatar" class="form-label">Avatar</label>
+                            {% if form.avatar.value %}
+                                <div class="mb-2">
+                                    <img src="{{ form.avatar.value.url }}" alt="Current avatar" class="rounded-circle" style="width:80px;height:80px;object-fit:cover;">
+                                </div>
+                            {% endif %}
+                            {{ form.avatar }}
+                        </div>
+
+                        <hr>
+                        <h5 class="mb-3">Social & links</h5>
+                        <div class="mb-3">
+                            <label for="id_github_url" class="form-label">GitHub</label>
+                            {{ form.github_url }}
+                        </div>
+                        <div class="mb-3">
+                            <label for="id_discord_url" class="form-label">Discord</label>
+                            {{ form.discord_url }}
+                        </div>
+                        <div class="mb-3">
+                            <label for="id_telegram_url" class="form-label">Telegram</label>
+                            {{ form.telegram_url }}
+                        </div>
+                        <div class="mb-3">
+                            <label for="id_website_url" class="form-label">Website</label>
+                            {{ form.website_url }}
+                        </div>
+                        <div class="mb-3">
+                            <label for="id_other_links" class="form-label">Other links (one per line)</label>
+                            {{ form.other_links }}
+                            <small class="form-text text-muted">You can paste several links separated by new lines (e.g., forums, alternate profiles).</small>
+                        </div>
+                        
+                        {% if form.non_field_errors %}
+                            <div class="alert alert-danger" role="alert">
+                                {% for error in form.non_field_errors %}
+                                    <p>{{ error }}</p>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                        
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-primary btn-modern">Save changes</button>
+                            <a href="{% url 'profile' %}" class="btn btn-outline-secondary btn-modern">Cancel</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
