@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block title %}User search — IESA_ROOT{% endblock %}
+
+{% block content %}
+<div class="container-limited">
+  <h3 class="mb-3">Search results for "{{ query }}"</h3>
+
+  <style>
+    @keyframes fadeInUpSmall {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .search-item {
+      animation: fadeInUpSmall .32s ease both;
+      will-change: transform, opacity;
+    }
+    mark {
+      background-color: #fff3cd;
+      color: #333;
+      font-weight: 500;
+      padding: 1px 3px;
+      border-radius: 2px;
+    }
+  </style>
+
+  <div class="list-group">
+    {% for item in results %}
+      {% with u=item.user %}
+      <a href="{% url 'profile_public_username' username=u.username %}" class="list-group-item list-group-item-action d-flex align-items-center search-item" style="animation-delay: calc({{ forloop.counter0 }} * 35ms);">
+        {% if u.avatar %}
+          <img src="{{ u.avatar.url }}" style="width:48px;height:48px;object-fit:cover;border-radius:6px;margin-right:12px;" />
+        {% else %}
+          <i class="fas fa-user-circle fa-2x text-muted me-3"></i>
+        {% endif %}
+        <div>
+          <div><strong>{{ u.get_full_name|default:u.username }}</strong> <small class="text-muted">@{{ item.username_html|safe }}</small></div>
+          <div class="small text-muted">{{ item.email_html|safe }} • <code>{{ item.permanent_id_html|safe }}</code></div>
+        </div>
+      </a>
+      {% endwith %}
+    {% empty %}
+      <div class="list-group-item">No users found.</div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}
