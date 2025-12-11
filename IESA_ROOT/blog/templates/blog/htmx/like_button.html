@@ -1,10 +1,10 @@
-<div id="like-button-container">
-    <button class="btn btn-sm {% if is_liked %}btn-danger{% else %}btn-outline-danger{% endif %}"
+<div id="like-button-container" class="engage-chip">
+    <button class="btn engage-btn {% if is_liked %}engage-btn--active{% endif %}"
             hx-post="{% url 'like_post' pk=post.pk %}"
             hx-target="#like-button-container"
             hx-swap="outerHTML">
-        <i class="fas fa-heart me-1"></i>
-        <span class="visually-hidden">like</span>
-        <span class="ms-1">{{ like_count }}</span>
+        <span class="engage-icon"><i class="fas fa-heart"></i></span>
+        <span class="engage-label">Like</span>
+        <span class="engage-count">{{ like_count }}</span>
     </button>
 </div>

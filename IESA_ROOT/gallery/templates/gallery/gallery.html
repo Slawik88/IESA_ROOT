@@ -8,15 +8,20 @@
 
 {% if photos %}
     <!-- Using a simple grid system with custom classes for a polished layout -->
-        <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 g-4 gallery-grid">
-                {% for photo in photos %}
-                        <div class="col">
-                                <a href="#" class="gallery-grid__item" data-index="{{ forloop.counter0 }}" data-src="{{ photo.image.url }}" data-caption="{{ photo.caption|default:'' }}">
-                                        <img src="{{ photo.image.url }}" class="img-fluid rounded" alt="{{ photo.caption|default:'Photo' }}" style="cursor: pointer; transition: transform 0.2s;">
-                                </a>
+    <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 g-4 gallery-grid">
+        {% for photo in photos %}
+            <div class="col">
+                <a href="#" class="gallery-grid__item" data-index="{{ forloop.counter0 }}" data-src="{{ photo.image.url }}" data-caption="{{ photo.caption|default:'' }}">
+                    <div class="gallery-thumb">
+                        <img src="{{ photo.image.url }}" class="img-fluid rounded" alt="{{ photo.caption|default:'Photo' }}">
+                        <div class="gallery-thumb__overlay">
+                        <span class="small text-white">{{ photo.caption|default:'View photo' }}</span>
                         </div>
-                {% endfor %}
-        </div>
+                    </div>
+                </a>
+            </div>
+        {% endfor %}
+    </div>
 
         <!-- Modal gallery -->
         <div class="modal fade" id="galleryModal" tabindex="-1" aria-hidden="true">
@@ -28,7 +33,10 @@
                             <button class="btn btn-light btn-lg me-3" id="galleryPrev"><i class="fas fa-chevron-left"></i></button>
                             <div class="flex-fill text-center">
                                 <img id="galleryModalImage" src="" class="img-fluid" style="max-height:75vh;" alt="">
-                                <div id="galleryModalCaption" class="mt-2 text-white small"></div>
+                                <div class="d-flex justify-content-center gap-3 mt-2 text-white small">
+                                    <div id="galleryModalCaption" class="opacity-85"></div>
+                                    <span id="galleryCounter" class="badge bg-dark bg-opacity-50"></span>
+                                </div>
                             </div>
                             <button class="btn btn-light btn-lg ms-3" id="galleryNext"><i class="fas fa-chevron-right"></i></button>
                         </div>
@@ -44,12 +52,14 @@
             const modalEl = document.getElementById('galleryModal');
             const imgEl = document.getElementById('galleryModalImage');
             const capEl = document.getElementById('galleryModalCaption');
+            const counterEl = document.getElementById('galleryCounter');
             let current = 0;
 
             function show(index){
                 const it = items[index];
                 imgEl.src = it.dataset.src;
                 capEl.textContent = it.dataset.caption || '';
+                if (counterEl) counterEl.textContent = (index + 1) + ' / ' + items.length;
                 current = index;
                 const bs = bootstrap.Modal.getOrCreateInstance(modalEl);
                 bs.show();
@@ -93,8 +103,11 @@
     {% endif %}
 
 {% else %}
-    <div class="alert alert-info text-center card-modern">
-        No photos uploaded yet. More will be added soon!
+    <div class="empty-state">
+        <div class="empty-emoji">📸</div>
+        <h5>No photos yet</h5>
+        <p class="text-muted mb-3">Добавьте фото мероприятий или проектов, чтобы вдохновить участников.</p>
+        <a href="{% url 'post_list' %}" class="btn btn-outline-primary btn-modern">Go to community</a>
     </div>
 {% endif %}
 {% endblock %}

@@ -10,17 +10,27 @@
     <div class="row row-cols-1 row-cols-md-3 g-4">
         {% for product in products %}
             <div class="col">
-                <div class="card card-modern h-100">
+                <div class="card card-modern product-card h-100">
                     {% if product.image %}
-                        <img src="{{ product.image.url }}" class="card-modern__image" alt="{{ product.name }}">
+                        <div class="product-thumb">
+                            <img src="{{ product.image.url }}" class="card-modern__image" alt="{{ product.name }}">
+                            <span class="badge bg-primary-subtle text-primary product-badge">Featured</span>
+                        </div>
                     {% endif %}
                     <div class="card-body">
-                        <h5 class="card-title fw-bold">{{ product.name }}</h5>
-                        <p class="card-text text-muted">{{ product.description|truncatewords:30 }}</p>
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <h5 class="card-title fw-bold mb-0">{{ product.name }}</h5>
+                            <span class="price-chip">{{ product.price }} USD</span>
+                        </div>
+                        <p class="card-text text-muted">{{ product.description|truncatewords:26 }}</p>
+                        <div class="d-flex flex-wrap gap-2 mt-3">
+                            <span class="pill">Digital</span>
+                            <span class="pill pill--soft">Members</span>
+                        </div>
                     </div>
                     <div class="card-footer bg-white border-0 d-flex justify-content-between align-items-center">
-                        <span class="fw-bold text-primary fs-5">{{ product.price }} USD</span>
-                        <a href="#" class="btn btn-sm btn-primary btn-modern" disabled>Purchase (Temporarily unavailable)</a>
+                        <button class="btn btn-outline-primary btn-modern btn-sm flex-grow-1 me-2" disabled>Notify me</button>
+                        <button class="btn btn-primary btn-modern btn-sm flex-grow-1" disabled>Purchase</button>
                     </div>
                 </div>
             </div>
@@ -49,8 +59,11 @@
     {% endif %}
     
 {% else %}
-    <div class="alert alert-info text-center card-modern">
-        Catalog is empty. We're working on adding items!
+    <div class="empty-state">
+        <div class="empty-emoji">🛍️</div>
+        <h5>Catalog is empty</h5>
+        <p class="text-muted mb-3">Мы готовим товары и услуги для членов ассоциации.</p>
+        <a href="{% url 'home' %}#products-section" class="btn btn-outline-primary btn-modern">View highlights</a>
     </div>
 {% endif %}
 {% endblock %}

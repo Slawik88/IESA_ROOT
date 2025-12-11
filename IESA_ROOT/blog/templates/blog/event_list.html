@@ -4,6 +4,7 @@
 
 {% block content %}
 <div class="container-limited">
+    {% now "U" as now_ts %}
     <h1 class="fw-bold mb-4 text-center">Upcoming events</h1>
 
     <div class="d-flex justify-content-between align-items-center mb-4 p-3 bg-white card-modern">
@@ -17,8 +18,13 @@
     {% if events %}
         <div class="row g-4">
             {% for event in events %}
+                {% with event_ts=event.date|date:"U" %}
                 <div class="col-md-6">
-                    <div class="card card-modern h-100">
+                    <div class="card card-modern h-100 event-card">
+                        <div class="event-date-chip">
+                            <div class="event-date-day">{{ event.date|date:"d" }}</div>
+                            <div class="event-date-month">{{ event.date|date:"b" }}</div>
+                        </div>
                         <div class="row g-0">
                             <div class="col-md-4">
                                 {% if event.image %}
@@ -27,21 +33,38 @@
                             </div>
                             <div class="col-md-8">
                                 <div class="card-body">
-                                    <h5 class="card-title fw-bold text-primary">{{ event.title }}</h5>
-                                    <p class="card-text mb-2"><i class="fas fa-calendar-alt me-2"></i> {{ event.date|date:"d M Y, H:i" }}</p>
+                                    <div class="d-flex justify-content-between align-items-start mb-2">
+                                        <h5 class="card-title fw-bold text-primary mb-0">{{ event.title }}</h5>
+                                        <span class="badge {% if event_ts|add:'0' > now_ts|add:'0' %}bg-success-subtle text-success{% else %}bg-secondary-subtle text-secondary{% endif %}">
+                                            {% if event_ts|add:'0' > now_ts|add:'0' %}Upcoming{% else %}Past{% endif %}
+                                        </span>
+                                    </div>
+                                    <p class="card-text mb-2"><i class="fas fa-clock me-2"></i>{{ event.date|date:"d M Y, H:i" }}</p>
                                     <p class="card-text mb-2"><i class="fas fa-map-marker-alt me-2"></i> {{ event.location }}</p>
                                     <p class="card-text text-muted">{{ event.description|truncatewords:20 }}</p>
-                                    <a href="{% url 'event_detail' event.pk %}" class="btn btn-sm btn-primary btn-modern mt-2">Details</a>
+                                    <div class="d-flex gap-2 mt-2">
+                                        <span class="pill">In-person</span>
+                                        <span class="pill pill--soft">Registration</span>
+                                    </div>
+                                    <a href="{% url 'event_detail' event.pk %}" class="btn btn-sm btn-primary btn-modern mt-3">Details</a>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
+                {% endwith %}
             {% endfor %}
         </div>
     {% else %}
-        <div class="alert alert-info text-center card-modern">
-            No upcoming events have been scheduled yet. Stay tuned for updates!
+        <div class="empty-state">
+            <div class="empty-emoji">📅</div>
+            <h5>No upcoming events</h5>
+            <p class="text-muted mb-3">Расскажите об активностях или запланируйте встречу.</p>
+            {% if user.is_staff %}
+                <a href="{% url 'post_create' %}" class="btn btn-primary btn-modern">Create event post</a>
+            {% else %}
+                <a href="{% url 'post_list' %}" class="btn btn-outline-primary btn-modern">Back to community</a>
+            {% endif %}
         </div>
     {% endif %}
 </div>

@@ -90,8 +90,15 @@
         {% endif %}
 
     {% else %}
-        <div class="alert alert-info text-center card-modern">
-            No posts yet. Be the first!
+        <div class="empty-state">
+            <div class="empty-emoji">📝</div>
+            <h5>No posts yet</h5>
+            <p class="text-muted mb-3">Будьте первым, кто поделится новостью или идеей.</p>
+            {% if user.is_authenticated %}
+                <a href="{% url 'post_create' %}" class="btn btn-primary btn-modern">Create post</a>
+            {% else %}
+                <a href="{% url 'register' %}" class="btn btn-outline-primary btn-modern">Join community</a>
+            {% endif %}
         </div>
     {% endif %}
 </div>

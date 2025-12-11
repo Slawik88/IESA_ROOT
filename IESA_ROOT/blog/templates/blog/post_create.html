@@ -6,9 +6,10 @@
 <div class="row justify-content-center">
     <div class="col-lg-10 col-xl-8">
         <div class="card card-modern p-5 shadow-lg">
-            <h1 class="fw-bold mb-5 text-center text-primary-dark">Publish a new article or announcement</h1>
+            <h1 class="fw-bold mb-4 text-center text-primary-dark">Publish a new article or announcement</h1>
+            <p class="text-center text-muted mb-5">Используйте расширенный редактор: шрифты, цвета, списки, цитаты и превью перед публикацией.</p>
             
-            <form method="post" enctype="multipart/form-data">
+            <form method="post" enctype="multipart/form-data" id="post-create-form">
                 {% csrf_token %}
 
                 <!-- Post creation form -->
@@ -24,7 +25,7 @@
                     {# If widget is a plain textarea (no CKEditor), initialize Quill below via JS and sync to textarea on submit #}
                     {{ form.text }}
                     {% if form.text.errors %}<div class="text-danger small mt-1">{{ form.text.errors }}</div>{% endif %}
-                    <small class="form-text text-muted">Supports rich formatting. Use toolbar to style text (bold, lists, links).</small>
+                    <small class="form-text text-muted">Rich formatting: заголовки, списки, ссылки, цитаты, цвета текста и фона.</small>
                 </div>
 
                 <div class="mb-4">
@@ -38,6 +39,23 @@
                     <button type="submit" class="btn btn-primary btn-modern flex-fill">Create and submit for review</button>
                 </div>
             </form>
+
+            <div class="mt-5">
+                <h5 class="fw-bold mb-3">Live preview</h5>
+                <div class="card card-modern overflow-hidden" id="post-live-preview">
+                    <div class="position-relative">
+                        <img id="preview-image-output" class="w-100" style="max-height:260px; object-fit:cover; display:none;" alt="Preview image" />
+                        <div class="preview-placeholder text-muted text-center py-5" id="preview-image-placeholder">Добавьте изображение для превью</div>
+                        <span class="badge bg-primary position-absolute top-0 start-0 m-3">Draft preview</span>
+                    </div>
+                    <div class="p-4">
+                        <h3 id="preview-title" class="mb-3">Заголовок поста</h3>
+                        <div id="preview-body" class="text-muted" style="min-height:120px;">
+                            Описание появится здесь после редактирования.
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -63,7 +81,16 @@ document.addEventListener('DOMContentLoaded', function(){
 
     var quill = new Quill('#quill-editor', {
         theme: 'snow',
-        modules: { toolbar: [['bold','italic','underline'], [{ 'list': 'ordered'}, { 'list': 'bullet' }], ['link'] ] }
+        modules: { 
+            toolbar: [
+                [{ 'font': [] }, { 'header': [1,2,3,4,false] }],
+                ['bold','italic','underline','strike'],
+                [{ 'color': [] }, { 'background': [] }],
+                [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                ['blockquote','link','code-block'],
+                ['clean']
+            ]
+        }
     });
 
     // If textarea has initial value, populate Quill
@@ -72,18 +99,49 @@ document.addEventListener('DOMContentLoaded', function(){
     // On form submit, copy HTML back to textarea
     var form = ta.closest('form');
         if (form) {
-                form.addEventListener('submit', function(){
-                        ta.value = quill.root.innerHTML;
+            form.addEventListener('submit', function(){
+                ta.value = quill.root.innerHTML;
+            });
+
+            // Live preview sync
+            var previewTitle = document.getElementById('preview-title');
+            var previewBody = document.getElementById('preview-body');
+            var titleInput = form.querySelector('input[name="title"]');
+            function syncPreview(){
+                if (previewTitle && titleInput) previewTitle.textContent = titleInput.value || 'Заголовок поста';
+                if (previewBody) previewBody.innerHTML = quill.root.innerHTML || 'Описание появится здесь после редактирования.';
+            }
+            quill.on('text-change', syncPreview);
+            if (titleInput) titleInput.addEventListener('input', syncPreview);
+            syncPreview();
+
+            // Image preview
+            var imageInput = form.querySelector('input[type="file"][name="preview_image"]');
+            var previewImg = document.getElementById('preview-image-output');
+            var previewPlaceholder = document.getElementById('preview-image-placeholder');
+            if (imageInput && previewImg) {
+                imageInput.addEventListener('change', function(ev){
+                    const file = ev.target.files?.[0];
+                    if (!file) return;
+                    const reader = new FileReader();
+                    reader.onload = function(e){
+                        previewImg.src = e.target.result;
+                        previewImg.style.display = 'block';
+                        if (previewPlaceholder) previewPlaceholder.style.display = 'none';
+                    };
+                    reader.readAsDataURL(file);
                 });
-                // Preview button
-                var previewBtn = document.getElementById('preview-btn');
-                if (previewBtn) previewBtn.addEventListener('click', function(){
-                        var html = quill.root.innerHTML;
-                        var previewBody = document.getElementById('post-preview-body');
-                        if (previewBody) previewBody.innerHTML = html;
-                        var modal = new bootstrap.Modal(document.getElementById('postPreviewModal'));
-                        modal.show();
-                });
+            }
+
+            // Preview modal
+            var previewBtn = document.getElementById('preview-btn');
+            if (previewBtn) previewBtn.addEventListener('click', function(){
+                var html = quill.root.innerHTML;
+                var previewBodyModal = document.getElementById('post-preview-body');
+                if (previewBodyModal) previewBodyModal.innerHTML = html;
+                var modal = new bootstrap.Modal(document.getElementById('postPreviewModal'));
+                modal.show();
+            });
         }
 });
 </script>

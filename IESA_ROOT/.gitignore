@@ -1,0 +1,91 @@
+# VS Code specific
+.vscode/
+
+# Django specific
+*.log
+*.pot
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
+db.sqlite3
+*.sqlite3
+*.log
+*.bak
+*.swp
+*.swo
+
+# Virtual environment
+venv/
+env/
+.venv/
+ENV/
+
+# Python
+*.egg-info/
+*.manifest
+*.spec
+
+# Static and media files
+/static/
+/media/
+
+# Django migrations
+*/migrations/*
+
+# Python bytecode
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
+
+# IDE files
+.idea/
+
+# OS-specific files
+.DS_Store  # macOS
+Thumbs.db  # Windows
+
+# Log files
+*.log
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Nginx/Apache/Other server-related files (if used)
+nginx/
+apache/
+
+# Frontend build artifacts
+/dist/
+build/
+node_modules/
+
+# Yarn and npm log files
+npm-debug.log
+yarn-debug.log
+yarn-error.log
+package-lock.json
+
+# Temporary files
+*.swp
+*.swo
+*.swn
+*.bak
+*.tmp
+
+# Coverage and testing
+coverage/
+nosetests.xml
+*.cover
+*.hypothesis/
+*.tox/
+
+# Docker (if used)
+Dockerfile
+docker-compose.yml
+
+# .env files (containing sensitive data)
+.env

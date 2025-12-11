@@ -1,17 +1,27 @@
 {% load static %}
-<div class="container-fluid">
-  <div class="row">
-    <div class="col-md-5 text-center">
+<div class="partner-modal">
+  <div class="partner-hero">
+    <div class="partner-logo">
       {% if partner.logo %}
-      <img src="{{ partner.logo.url }}" alt="{{ partner.name }}" class="img-fluid" style="max-height:320px;object-fit:contain;"/>
+        <img src="{{ partner.logo.url }}" alt="{{ partner.name }}">
+      {% else %}
+        <div class="placeholder-logo">{{ partner.name|slice:":2"|upper }}</div>
       {% endif %}
     </div>
-    <div class="col-md-7">
-      <h3>{{ partner.name }}</h3>
-      <p class="text-muted small">{{ partner.description }}</p>
-      {% if partner.website %}
-      <p><a class="btn btn-primary" href="{{ partner.website }}" target="_blank" rel="noopener">Visit partner website</a></p>
-      {% endif %}
+    <div>
+      <p class="badge bg-primary-subtle text-primary fw-semibold mb-2">Partner</p>
+      <h3 class="mb-2">{{ partner.name }}</h3>
+      <p class="text-muted mb-0">{{ partner.description }}</p>
     </div>
+  </div>
+
+  <div class="partner-body">
+    {% if partner.website %}
+      <a class="btn btn-primary btn-modern" href="{{ partner.website }}" target="_blank" rel="noopener">
+        <i class="fas fa-link me-2"></i>Visit website
+      </a>
+    {% else %}
+      <span class="text-muted">Website will be added soon.</span>
+    {% endif %}
   </div>
 </div>

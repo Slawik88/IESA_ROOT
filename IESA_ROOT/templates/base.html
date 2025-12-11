@@ -57,7 +57,6 @@
                                                                 {% endif %}
                             </ul>
                         </li>
-                        <li class="nav-item"><a class="nav-link fw-500" href="{% url 'event_list' %}">Events</a></li>
                     </ul>
                     <div class="d-flex align-items-center gap-2">
                         <!-- Community search (global, HTMX live results) -->
@@ -116,13 +115,42 @@
         </main>
 
         <!-- Footer Section -->
-    <footer class="bg-dark text-white py-4 mt-auto">
-        <div class="container-limited text-center">
-            <p class="mb-0">&copy; {{ "now"|date:"Y" }} IESA_ROOT Association. All rights reserved.</p>
-            <div class="mt-2">
-                <a href="#" class="text-white mx-2"><i class="fab fa-facebook-f"></i></a>
-                <a href="#" class="text-white mx-2"><i class="fab fa-twitter"></i></a>
-                <a href="#" class="text-white mx-2"><i class="fab fa-instagram"></i></a>
+    <footer class="footer-enhanced mt-auto">
+        <div class="container-limited py-5">
+            <div class="row g-4">
+                <div class="col-12 col-md-4">
+                    <h6 class="footer-title">About</h6>
+                    <p class="footer-text">IESA_ROOT объединяет лидеров и партнеров спорта, создавая пространство для роста, проектов и событий.</p>
+                    <p class="footer-text small mb-0">&copy; {{ "now"|date:"Y" }} IESA_ROOT Association.</p>
+                </div>
+                <div class="col-6 col-md-2">
+                    <h6 class="footer-title">Links</h6>
+                    <ul class="list-unstyled footer-links">
+                        <li><a href="{% url 'home' %}">Home</a></li>
+                        <li><a href="{% url 'post_list' %}">Community</a></li>
+                        <li><a href="{% url 'product_list' %}">Catalog</a></li>
+                        <li><a href="{% url 'gallery' %}">Gallery</a></li>
+                        <li><a href="{% url 'event_list' %}">Events</a></li>
+                    </ul>
+                </div>
+                <div class="col-6 col-md-3">
+                    <h6 class="footer-title">Contacts</h6>
+                    <ul class="list-unstyled footer-links">
+                        <li><i class="fas fa-envelope me-2"></i><a href="mailto:contact@iesasport.ch">contact@iesasport.ch</a></li>
+                        <li><i class="fas fa-phone me-2"></i><a href="tel:+41795718887">+41 79 571 8887</a></li>
+                        <li><i class="fas fa-location-dot me-2"></i><span class="footer-text">Switzerland</span></li>
+                    </ul>
+                </div>
+                <div class="col-12 col-md-3">
+                    <h6 class="footer-title">Social</h6>
+                    <div class="d-flex flex-wrap gap-2">
+                        <a class="footer-social" href="https://facebook.com" target="_blank" rel="noopener"><i class="fab fa-facebook-f"></i></a>
+                        <a class="footer-social" href="https://www.linkedin.com" target="_blank" rel="noopener"><i class="fab fa-linkedin-in"></i></a>
+                        <a class="footer-social" href="https://www.instagram.com" target="_blank" rel="noopener"><i class="fab fa-instagram"></i></a>
+                        <a class="footer-social" href="https://www.youtube.com" target="_blank" rel="noopener"><i class="fab fa-youtube"></i></a>
+                        <a class="footer-social" href="https://t.me" target="_blank" rel="noopener"><i class="fab fa-telegram"></i></a>
+                    </div>
+                </div>
             </div>
         </div>
     </footer>

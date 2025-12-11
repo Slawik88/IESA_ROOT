@@ -4,8 +4,21 @@
 
 {% block content %}
 <div class="row justify-content-center py-5">
-    <div class="col-md-6 col-lg-5 col-xl-4">
-        <div class="card card-modern p-5 shadow-xl bg-white">
+    <div class="col-lg-10">
+        <div class="card card-modern shadow-xl overflow-hidden auth-card">
+            <div class="row g-0">
+                <div class="col-lg-5 d-none d-lg-block" style="background: linear-gradient(135deg, #0d6efd, #1e3a8a); color: #fff;">
+                    <div class="h-100 d-flex flex-column justify-content-center p-5 text-white">
+                        <h3 class="fw-bold mb-3">Welcome back</h3>
+                        <p class="mb-4 text-white-50">Войдите, чтобы управлять профилем, создавать посты и находить события.</p>
+                        <ul class="list-unstyled small text-white-50">
+                            <li class="mb-2"><i class="fas fa-check-circle me-2"></i>Быстрый вход</li>
+                            <li class="mb-2"><i class="fas fa-check-circle me-2"></i>Доступ к сообществу</li>
+                            <li class="mb-2"><i class="fas fa-check-circle me-2"></i>Обновления событий</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="col-lg-7 p-5 bg-white">
             <h2 class="fw-bold mb-4 text-center">🔐 Sign in to your account</h2>
             <p class="text-center text-muted mb-4">Access your profile and connect with the community.</p>
 
@@ -53,19 +66,9 @@
                 Don't have an account? 
                 <a href="{% url 'register' %}" class="fw-bold text-decoration-none">Register here</a>
             </p>
+                </div>
+            </div>
         </div>
     </div>
 </div>
-
-<style>
-    .form-label { font-weight: 500; color: #333; }
-    .fw-500 { font-weight: 500; }
-    .form-control { border: 2px solid #e0e0e0; border-radius: 8px; padding: 0.75rem 1rem; }
-    .form-control:focus { border-color: #007bff; box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25); }
-    .form-control.is-invalid { border-color: #dc3545; }
-    .form-control.is-invalid:focus { box-shadow: 0 0 0 0.2rem rgba(220,53,69,.25); }
-    .invalid-feedback { color: #dc3545; font-size: 0.875rem; margin-top: 0.25rem; }
-    .card-modern { border: none; border-radius: 12px; }
-    .btn-modern { border-radius: 8px; font-weight: 500; }
-</style>
 {% endblock %}
