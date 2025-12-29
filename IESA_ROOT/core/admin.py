@@ -1,7 +1,15 @@
 from django.contrib import admin
 from django.utils.html import format_html
-from .models import Partner, AssociationMember
+from .models import Partner, AssociationMember, President
 
+
+@admin.register(President)
+class PresidentAdmin(admin.ModelAdmin):
+	list_display = ('name', 'position')
+	fieldsets = (
+		('Info', {'fields': ('name', 'position', 'photo')}),
+		('Message', {'fields': ('description',)}),
+	)
 
 @admin.register(Partner)
 class PartnerAdmin(admin.ModelAdmin):

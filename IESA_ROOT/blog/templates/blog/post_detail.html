@@ -26,13 +26,15 @@
                          hx-swap="outerHTML">
                         <!-- Loads htmx/like_button.html -->
                     </div>
-                    <!-- HTMX Subscribe Button Component -->
+                    <!-- HTMX Subscribe Button Component (only if not own post) -->
+                    {% if user.is_authenticated and user != post.author %}
                     <div id="subscribe-button-container" 
                          hx-get="{% url 'toggle_subscription' author_pk=post.author.pk %}" 
                          hx-trigger="load" 
                          hx-swap="outerHTML">
                         <!-- Loads htmx/subscribe_button.html -->
                     </div>
+                    {% endif %}
                 </div>
                 
                 {% if post.preview_image %}

@@ -2,9 +2,10 @@ from django.db import models
 from django.conf import settings
 from django.urls import reverse
 
-# Try to use CKEditor RichTextField when available, otherwise fall back to TextField
+# Try to use CKEditor 5 RichTextField when available, otherwise fall back to TextField
 try:
-    from ckeditor.fields import RichTextField
+    from django_ckeditor_5.fields import CKEditor5Field
+    RichTextField = CKEditor5Field
 except Exception:
     RichTextField = models.TextField
 
@@ -20,8 +21,8 @@ class Post(models.Model):
     ]
     
     title = models.CharField(max_length=255, verbose_name='Заголовок')
-    # Use a RichTextField when ckeditor is installed; otherwise a normal TextField
-    text = RichTextField(verbose_name='Текст поста')
+    # Use a RichTextField with extended config when ckeditor is installed; otherwise a normal TextField
+    text = RichTextField(config_name='extends', verbose_name='Текст поста')
     author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='blog_posts', verbose_name='Автор')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата создания')
     preview_image = models.ImageField(upload_to='blog/previews/', blank=True, null=True, verbose_name='Изображение превью')
@@ -71,7 +72,7 @@ class Comment(models.Model):
     Комментарии под постом с поддержкой ответов (replies).
     """
     post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name='comments', verbose_name='Post')
-    author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, verbose_name='Author')
+    author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='comments_authored', verbose_name='Author')
     text = models.TextField(verbose_name='Comment text')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='Creation date')
     
@@ -140,21 +141,88 @@ class PostView(models.Model):
 
 class Event(models.Model):
     """
-    Модель для событий ассоциации.
+    Model for association events with improved functionality.
     """
-    title = models.CharField(max_length=255, verbose_name='Название события')
-    description = models.TextField(verbose_name='Описание')
-    date = models.DateTimeField(verbose_name='Дата и время проведения')
-    location = models.CharField(max_length=255, verbose_name='Место проведения')
-    image = models.ImageField(upload_to='events/', blank=True, null=True, verbose_name='Изображение')
+    STATUS_CHOICES = [
+        ('upcoming', 'Upcoming'),
+        ('ongoing', 'Ongoing'),
+        ('completed', 'Completed'),
+        ('cancelled', 'Cancelled'),
+    ]
+    
+    title = models.CharField(max_length=255, verbose_name='Event Title')
+    description = models.TextField(verbose_name='Description')
+    date = models.DateTimeField(verbose_name='Event Date & Time')
+    end_date = models.DateTimeField(null=True, blank=True, verbose_name='End Date & Time')
+    location = models.CharField(max_length=255, verbose_name='Location')
+    image = models.ImageField(upload_to='events/', blank=True, null=True, verbose_name='Event Image')
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='upcoming', verbose_name='Status')
+    max_participants = models.PositiveIntegerField(null=True, blank=True, verbose_name='Max Participants')
+    registration_deadline = models.DateTimeField(null=True, blank=True, verbose_name='Registration Deadline')
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='created_events', verbose_name='Created by')
+    created_at = models.DateTimeField(auto_now_add=True, null=True, verbose_name='Created at')
+    updated_at = models.DateTimeField(auto_now=True, null=True, verbose_name='Updated at')
     
     class Meta:
         ordering = ['date']
-        verbose_name = 'Событие'
-        verbose_name_plural = 'События'
+        verbose_name = 'Event'
+        verbose_name_plural = 'Events'
+        indexes = [
+            models.Index(fields=['date', 'status']),
+        ]
         
     def __str__(self):
         return self.title
+    
+    @property
+    def is_registration_open(self):
+        """Check if registration is still open"""
+        from django.utils import timezone
+        if self.registration_deadline:
+            return timezone.now() < self.registration_deadline
+        return self.status == 'upcoming'
+    
+    @property
+    def is_full(self):
+        """Check if event is at capacity"""
+        if self.max_participants:
+            return self.registrations.filter(status='confirmed').count() >= self.max_participants
+        return False
+    
+    @property
+    def available_spots(self):
+        """Get number of available spots"""
+        if self.max_participants:
+            confirmed = self.registrations.filter(status='confirmed').count()
+            return max(0, self.max_participants - confirmed)
+        return None
+
+
+class EventRegistration(models.Model):
+    """
+    Event registration tracking.
+    """
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('confirmed', 'Confirmed'),
+        ('cancelled', 'Cancelled'),
+        ('attended', 'Attended'),
+    ]
+    
+    event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name='registrations', verbose_name='Event')
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='event_registrations', verbose_name='User')
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='confirmed', verbose_name='Status')
+    registered_at = models.DateTimeField(auto_now_add=True, verbose_name='Registered at')
+    notes = models.TextField(blank=True, verbose_name='Notes')
+    
+    class Meta:
+        unique_together = ('event', 'user')
+        verbose_name = 'Event Registration'
+        verbose_name_plural = 'Event Registrations'
+        ordering = ['-registered_at']
+    
+    def __str__(self):
+        return f'{self.user.username} - {self.event.title}'
 
 
 class BlogSubscription(models.Model):

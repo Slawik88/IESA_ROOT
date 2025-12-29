@@ -28,10 +28,10 @@
     {% for item in results %}
       {% with u=item.user %}
       <a href="{% url 'profile_public_username' username=u.username %}" class="list-group-item list-group-item-action d-flex align-items-center search-item" style="animation-delay: calc({{ forloop.counter0 }} * 35ms);">
-        {% if u.avatar %}
-          <img src="{{ u.avatar.url }}" style="width:48px;height:48px;object-fit:cover;border-radius:6px;margin-right:12px;" />
+        {% if u.avatar and u.avatar.name != 'avatars/default.png' %}
+          <span class="avatar avatar-sm me-3"><img src="{{ u.avatar.url }}" alt="{{ u.username }}"></span>
         {% else %}
-          <i class="fas fa-user-circle fa-2x text-muted me-3"></i>
+          <span class="avatar avatar-sm avatar-fallback me-3">{{ u.username|slice:":1"|upper }}</span>
         {% endif %}
         <div>
           <div><strong>{{ u.get_full_name|default:u.username }}</strong> <small class="text-muted">@{{ item.username_html|safe }}</small></div>

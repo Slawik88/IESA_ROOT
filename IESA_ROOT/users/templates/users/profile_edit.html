@@ -32,16 +32,18 @@
                         <div class="mb-3">
                             <label for="id_date_of_birth" class="form-label">Date of birth (DD.MM.YYYY)</label>
                             {{ form.date_of_birth }}
-                            <small class="form-text text-muted d-block mt-1">Введите дату в формате: ДД.ММ.ГГГГ (например: 18.10.2004)</small>
+                            <small class="form-text text-muted d-block mt-1">Enter date in format: DD.MM.YYYY (example: 18.10.2004)</small>
                         </div>
                         
                         <div class="mb-3">
                             <label for="id_avatar" class="form-label">Avatar</label>
-                            {% if form.avatar.value %}
-                                <div class="mb-2">
-                                    <img src="{{ form.avatar.value.url }}" alt="Current avatar" class="rounded-circle" style="width:80px;height:80px;object-fit:cover;">
-                                </div>
-                            {% endif %}
+                            <div class="mb-2">
+                                {% if form.instance.avatar and form.instance.avatar.name != 'avatars/default.png' %}
+                                    <span class="avatar avatar-lg"><img src="{{ form.instance.avatar.url }}" alt="Current avatar"></span>
+                                {% else %}
+                                    <span class="avatar avatar-lg avatar-fallback">{{ request.user.username|slice:":1"|upper }}</span>
+                                {% endif %}
+                            </div>
                             {{ form.avatar }}
                         </div>
 

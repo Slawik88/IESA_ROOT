@@ -5,10 +5,10 @@
     <div class="card mb-3 comment-card" data-comment-id="{{ comment.pk }}" data-delete-url="{% url 'delete_comment' pk=post.pk comment_pk=comment.pk %}" {% if comment.pk == just_posted_id %}data-just-posted="true"{% endif %}>
             <div class="card-body">
                 <div class="d-flex align-items-center mb-2">
-                    {% if comment.author.avatar %}
-                        <img src="{{ comment.author.avatar.url }}" class="rounded-circle me-2" style="width: 30px; height: 30px; object-fit: cover;">
+                    {% if comment.author.avatar and comment.author.avatar.name != 'avatars/default.png' %}
+                        <span class="avatar avatar-sm me-2"><img src="{{ comment.author.avatar.url }}" alt="{{ comment.author.username }}"></span>
                     {% else %}
-                        <div class="avatar-placeholder me-2" style="width:30px;height:30px;font-size:0.8rem;">{{ comment.author.username|slice:":1"|upper }}</div>
+                        <span class="avatar avatar-sm avatar-fallback me-2">{{ comment.author.username|slice:":1"|upper }}</span>
                     {% endif %}
                     <strong class="me-auto">{{ comment.author.username }}</strong>
                     <small class="text-muted">{{ comment.created_at|date:"d M Y H:i" }}</small>
@@ -22,10 +22,10 @@
                             <div class="card card-modern mb-2 reply-card">
                                 <div class="card-body p-3">
                                     <div class="d-flex align-items-center mb-2">
-                                        {% if reply.author.avatar %}
-                                            <img src="{{ reply.author.avatar.url }}" class="rounded-circle me-2" style="width: 24px; height: 24px; object-fit: cover;">
+                                        {% if reply.author.avatar and reply.author.avatar.name != 'avatars/default.png' %}
+                                            <span class="avatar avatar-sm me-2" style="width:24px;height:24px;"><img src="{{ reply.author.avatar.url }}" alt="{{ reply.author.username }}"></span>
                                         {% else %}
-                                            <div class="avatar-placeholder me-2" style="width:24px;height:24px;font-size:0.75rem;">{{ reply.author.username|slice:":1"|upper }}</div>
+                                            <span class="avatar avatar-sm avatar-fallback me-2" style="width:24px;height:24px;font-size:0.7rem;">{{ reply.author.username|slice:":1"|upper }}</span>
                                         {% endif %}
                                         <strong class="me-auto" style="font-size:0.9rem;">{{ reply.author.username }}</strong>
                                         <small class="text-muted">{{ reply.created_at|date:"d M Y H:i" }}</small>

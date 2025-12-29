@@ -5,8 +5,8 @@
 {% block content %}
 <div class="container-limited">
     <!-- HERO Section -->
-    <section class="section-padding text-center bg-white card-modern p-5 mb-5">
-        <h1 class="display-4 fw-bold text-primary">Welcome to the IESA_ROOT Association!</h1>
+    <section class="section-padding text-center bg-white card-modern p-5 mb-5" aria-labelledby="hero-title">
+        <h1 id="hero-title" class="display-4 fw-bold text-primary">Welcome to the IESA_ROOT Association!</h1>
         <p class="lead mt-3 mb-4 text-secondary">Bringing leaders together and shaping the future. Our mission is to support and grow the community.</p>
         <a href="{% url 'register' %}" class="btn btn-primary btn-lg btn-modern me-3">Join as a member</a>
         <a href="{% url 'post_list' %}" class="btn btn-outline-secondary btn-lg btn-modern">Go to Community</a>
@@ -22,7 +22,7 @@
                     <div class="col">
                         <div class="card card-modern h-100">
                             {% if product.image %}
-                                <img src="{{ product.image.url }}" class="card-modern__image" alt="{{ product.name }}">
+                                <img src="{{ product.image.url }}" class="card-modern__image" alt="{{ product.name }} product image">
                             {% endif %}
                             <div class="card-body">
                                 <h5 class="card-title fw-bold">{{ product.name }}</h5>
@@ -65,23 +65,6 @@
                     <p class="text-muted">{{ president.description|safe }}</p>
                 </div>
             </div>
-            {% if partners_page_obj and partners_page_obj.has_other_pages %}
-            <nav class="mt-3">
-                <ul class="pagination justify-content-center">
-                    {% if partners_page_obj.has_previous %}
-                        <li class="page-item"><a class="page-link" href="?partners_page={{ partners_page_obj.previous_page_number }}#partners-section">Previous</a></li>
-                    {% else %}
-                        <li class="page-item disabled"><span class="page-link">Previous</span></li>
-                    {% endif %}
-                    <li class="page-item active"><span class="page-link">{{ partners_page_obj.number }}</span></li>
-                    {% if partners_page_obj.has_next %}
-                        <li class="page-item"><a class="page-link" href="?partners_page={{ partners_page_obj.next_page_number }}#partners-section">Next</a></li>
-                    {% else %}
-                        <li class="page-item disabled"><span class="page-link">Next</span></li>
-                    {% endif %}
-                </ul>
-            </nav>
-        {% endif %}
         {% endif %}
 
         <!-- Association Members -->
@@ -107,36 +90,64 @@
         {% endif %}
     </section>
     
-    <!-- Partners Section -->
-    <section class="section-padding">
-    <h2 class="text-center mb-5 fw-bold">Our partners</h2>
-        {% if partners %}
-            <div class="row row-cols-1 row-cols-sm-2 row-cols-md-4 g-4 align-items-stretch justify-content-center">
-                {% for partner in partners %}
-                    <div class="col">
-                        <div class="card card-modern h-100 p-3 d-flex flex-column partner-card" data-tone="{{ forloop.counter0|add:1 }}">
-                            <div class="d-flex align-items-center gap-3 mb-3">
-                                {% if partner.logo %}
-                                    <img src="{{ partner.logo.url }}" alt="{{ partner.name }}" style="height:64px;object-fit:contain;"/>
-                                {% else %}
-                                    <div class="partner-placeholder">{{ partner.name|slice:":2"|upper }}</div>
+        <!-- Partners Section -->
+        <section class="section-padding" id="partners-section">
+            <h2 class="text-center mb-5 fw-bold">Our partners</h2>
+            {% if partners %}
+                <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 g-4 align-items-stretch justify-content-center">
+                    {% for partner in partners %}
+                        <div class="col d-flex">
+                            <div class="partner-card-enhanced w-100">
+                                {% if partner.contract %}
+                                    <span class="partner-contract-badge"><i class="fas fa-file-contract me-1"></i>Contract</span>
                                 {% endif %}
-                                <div class="flex-fill text-start">
-                                    <h6 class="mb-0 fw-bold">{{ partner.name }}</h6>
-                                    <small class="text-muted">{{ partner.description|truncatechars:80 }}</small>
+                                <div class="partner-logo-area">
+                                    {% if partner.logo %}
+                                        <img src="{{ partner.logo.url }}" alt="{{ partner.name }}">
+                                    {% else %}
+                                        <div class="partner-placeholder-lg">{{ partner.name|slice:":2"|upper }}</div>
+                                    {% endif %}
+                                </div>
+                                <div class="flex-grow-1">
+                                    <h6 class="mb-1 fw-bold text-dark">{{ partner.name }}</h6>
+                                    <p class="partner-desc clamp-3">{{ partner.description|striptags|truncatewords:40 }}</p>
+                                </div>
+                                <div class="d-flex gap-2 mt-auto">
+                                    <a href="#"
+                                         hx-get="{% url 'partner_detail' pk=partner.pk %}"
+                                         hx-target="#partner-modal-body"
+                                         data-bs-toggle="modal" data-bs-target="#partnerModal"
+                                         class="btn btn-sm btn-outline-primary flex-fill">Details</a>
+                                    {% if partner.link %}
+                                        <a href="{{ partner.link }}" target="_blank" class="btn btn-sm btn-primary flex-fill">Visit</a>
+                                    {% endif %}
                                 </div>
                             </div>
-                            <div class="mt-auto d-flex justify-content-end">
-                                <a href="#" hx-get="{% url 'partner_detail' pk=partner.pk %}" hx-target="#partner-modal-body" data-bs-toggle="modal" data-bs-target="#partnerModal" class="btn btn-sm btn-outline-primary">Details</a>
-                            </div>
                         </div>
-                    </div>
-                {% endfor %}
-            </div>
-        {% else %}
-            <p class="text-center text-muted">We are looking for new partners!</p>
-        {% endif %}
-    </section>
+                    {% endfor %}
+                </div>
+
+                {% if partners_page_obj and partners_page_obj.has_other_pages %}
+                    <nav class="mt-4">
+                        <ul class="pagination justify-content-center">
+                            {% if partners_page_obj.has_previous %}
+                                <li class="page-item"><a class="page-link" href="?partners_page={{ partners_page_obj.previous_page_number }}#partners-section">Previous</a></li>
+                            {% else %}
+                                <li class="page-item disabled"><span class="page-link">Previous</span></li>
+                            {% endif %}
+                            <li class="page-item active"><span class="page-link">{{ partners_page_obj.number }}</span></li>
+                            {% if partners_page_obj.has_next %}
+                                <li class="page-item"><a class="page-link" href="?partners_page={{ partners_page_obj.next_page_number }}#partners-section">Next</a></li>
+                            {% else %}
+                                <li class="page-item disabled"><span class="page-link">Next</span></li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                {% endif %}
+            {% else %}
+                <p class="text-center text-muted">We are looking for new partners!</p>
+            {% endif %}
+        </section>
 
     <!-- Donate Section -->
     <section class="section-padding">
@@ -144,7 +155,7 @@
             <div class="row g-4 align-items-center">
                 <div class="col-md-7">
                     <h2 class="fw-bold mb-3">Support our association</h2>
-                    <p class="lead mb-4">Ваша поддержка помогает запускать новые проекты, проводить события и развивать сообщество.</p>
+                    <p class="lead mb-4">Your support helps us launch new projects, organize events and grow the community.</p>
                     <div class="donation-progress bg-white bg-opacity-10 rounded-3 p-3 mb-3">
                         <div class="d-flex justify-content-between small text-white-50 mb-1">
                             <span>Current goal</span>
@@ -155,9 +166,9 @@
                         </div>
                     </div>
                     <button class="btn btn-light btn-lg btn-modern fw-bold" disabled>
-                        <i class="fas fa-hand-holding-usd me-2"></i> Make a donation (Stripe soon)
+                        <i class="fas fa-hand-holding-usd me-2"></i> Make a donation (Coming soon)
                     </button>
-                    <p class="mt-3 text-white-75"><small>Интеграция Stripe появится здесь. Пока что секция — визуальный мок.</small></p>
+                    <p class="mt-3 text-white-75"><small>Stripe integration coming soon. This is a preview section.</small></p>
                 </div>
                 <div class="col-md-5 text-md-end text-center">
                     <div class="donation-badge shadow-lg">

@@ -2,10 +2,11 @@ from django.contrib import admin
 from django.utils.html import format_html
 from django.urls import reverse
 from django.utils.safestring import mark_safe
-from .models import Post, Comment, Like, Event, PostView, CommentLike, BlogSubscription
+from .models import Post, Comment, Like, Event, PostView, CommentLike, BlogSubscription, EventRegistration
 from django.db import models as django_models
 try:
-    from ckeditor.widgets import CKEditorWidget
+    from django_ckeditor_5.widgets import CKEditor5Widget
+    CKEditorWidget = CKEditor5Widget
 except Exception:
     CKEditorWidget = None
 
@@ -179,15 +180,51 @@ class PostViewAdmin(admin.ModelAdmin):
 
 @admin.register(Event)
 class EventAdmin(admin.ModelAdmin):
-    list_display = ('title', 'date', 'location', 'image_tag')
-    list_filter = ('date',)
+    list_display = ('title', 'date', 'location', 'status', 'participants_count', 'image_tag')
+    list_filter = ('status', 'date', 'created_at')
     search_fields = ('title', 'location', 'description')
+    readonly_fields = ('created_at', 'updated_at', 'participants_count')
+    
+    fieldsets = (
+        ('Event Information', {
+            'fields': ('title', 'description', 'image')
+        }),
+        ('Date & Time', {
+            'fields': ('date', 'end_date', 'registration_deadline')
+        }),
+        ('Location & Capacity', {
+            'fields': ('location', 'max_participants', 'status')
+        }),
+        ('System', {
+            'fields': ('created_by', 'created_at', 'updated_at', 'participants_count'),
+            'classes': ('collapse',)
+        }),
+    )
 
     def image_tag(self, obj):
         if obj.image:
             return format_html('<img src="{}" style="width:100px;height:60px;object-fit:cover;border-radius:6px;"/>', obj.image.url)
         return '-'
     image_tag.short_description = 'Image'
+    
+    def participants_count(self, obj):
+        confirmed = obj.registrations.filter(status='confirmed').count()
+        if obj.max_participants:
+            return format_html(
+                '<span style="font-weight:bold;">{}/{}</span>',
+                confirmed, obj.max_participants
+            )
+        return confirmed
+    participants_count.short_description = 'Participants'
+
+
+@admin.register(EventRegistration)
+class EventRegistrationAdmin(admin.ModelAdmin):
+    list_display = ('user', 'event', 'status', 'registered_at')
+    list_filter = ('status', 'registered_at', 'event')
+    search_fields = ('user__username', 'event__title')
+    readonly_fields = ('registered_at',)
+    ordering = ('-registered_at',)
 
 
 @admin.register(BlogSubscription)

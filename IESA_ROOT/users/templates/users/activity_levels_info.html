@@ -1,0 +1,203 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Activity Levels | IESA_ROOT{% endblock %}
+
+{% block content %}
+<div class="container-limited py-5">
+    <!-- Header -->
+    <div class="text-center mb-5">
+        <h1 class="fw-bold mb-3">
+            <i class="fas fa-chart-line text-primary me-2"></i>Activity Levels
+        </h1>
+        <p class="lead text-muted">Understand how to progress through our community achievement levels</p>
+    </div>
+
+    <!-- Points Breakdown -->
+    <div class="row g-3 mb-5">
+        <div class="col-md-4">
+            <div class="card card-modern text-center p-4 h-100">
+                <div style="font-size:2.5rem;color:#0d6efd;" class="mb-3"><i class="fas fa-file-alt"></i></div>
+                <h5 class="fw-bold mb-2">Create a Post</h5>
+                <p class="text-primary fw-bold" style="font-size:1.5rem;">+{{ points_breakdown.post }} points</p>
+                <p class="text-muted small">Every published post contributes to your level</p>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card card-modern text-center p-4 h-100">
+                <div style="font-size:2.5rem;color:#dc3545;" class="mb-3"><i class="fas fa-heart"></i></div>
+                <h5 class="fw-bold mb-2">Get a Like</h5>
+                <p class="text-danger fw-bold" style="font-size:1.5rem;">+{{ points_breakdown.like }} points</p>
+                <p class="text-muted small">Received from community members</p>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card card-modern text-center p-4 h-100">
+                <div style="font-size:2.5rem;color:#28a745;" class="mb-3"><i class="fas fa-comment"></i></div>
+                <h5 class="fw-bold mb-2">Post a Comment</h5>
+                <p class="text-success fw-bold" style="font-size:1.5rem;">+{{ points_breakdown.comment }} point</p>
+                <p class="text-muted small">Each meaningful comment counts</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Activity Levels -->
+    <div class="mb-5">
+        <h2 class="fw-bold mb-4">Achievement Levels</h2>
+        
+        {% for level in activity_levels %}
+        <div class="card card-modern mb-4 overflow-hidden activity-level-card" data-level="{{ level.name|lower }}">
+            <div class="card-header p-4" style="background: linear-gradient(135deg, #f8fbff 0%, #f0f6ff 100%); border-bottom: 2px solid #e3ecf5;">
+                <div class="d-flex align-items-center gap-3">
+                    <!-- Level Icon -->
+                    <div class="level-icon" style="background: linear-gradient(135deg, #0d6efd 0%, #7aa5ff 100%); 
+                                                     color: white; 
+                                                     width: 80px; 
+                                                     height: 80px; 
+                                                     border-radius: 16px; 
+                                                     display: flex; 
+                                                     align-items: center; 
+                                                     justify-content: center;">
+                        <i class="fas fa-{{ level.icon }}" style="font-size: 2rem;"></i>
+                    </div>
+                    
+                    <!-- Level Info -->
+                    <div class="flex-grow-1">
+                        <div class="d-flex align-items-center gap-2 mb-2">
+                            <h3 class="fw-bold mb-0">{{ level.name }}</h3>
+                            <span class="badge bg-{{ level.color }}">
+                                {% if level.max_points == 'Unlimited' %}
+                                    {{ level.min_points }}+ points
+                                {% else %}
+                                    {{ level.min_points }}-{{ level.max_points }} points
+                                {% endif %}
+                            </span>
+                        </div>
+                        <p class="text-muted mb-0">{{ level.description }}</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card-body p-4">
+                <h6 class="fw-bold text-muted text-uppercase mb-3">
+                    <i class="fas fa-lightbulb me-2"></i>How to reach {{ level.name }}
+                </h6>
+                <ul class="list-unstyled">
+                    {% for tip in level.tips %}
+                    <li class="mb-2 ps-3">
+                        <i class="fas fa-check-circle text-primary me-2" style="margin-left: -1.25rem;"></i>
+                        <span>{{ tip }}</span>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Additional Info -->
+    <div class="card card-modern p-5 mb-5" style="background: linear-gradient(135deg, #f8fbff 0%, #f0f6ff 100%); border: 2px solid #e3ecf5;">
+        <h3 class="fw-bold mb-4">
+            <i class="fas fa-info-circle text-primary me-2"></i>Additional Information
+        </h3>
+        
+        <div class="row g-4">
+            <div class="col-md-6">
+                <h5 class="fw-bold mb-2">How Points are Calculated</h5>
+                <p class="text-muted mb-3">
+                    Your activity level is determined by a combination of contributions:
+                </p>
+                <ul class="list-unstyled">
+                    <li class="mb-2"><strong>Posts:</strong> 10 points per published post</li>
+                    <li class="mb-2"><strong>Likes Received:</strong> 2 points per like on your posts</li>
+                    <li class="mb-2"><strong>Comments:</strong> 1 point per comment you make</li>
+                </ul>
+                <p class="small text-muted mt-3">
+                    <i class="fas fa-star text-warning me-1"></i>
+                    Points are recalculated daily and reflect your current activity.
+                </p>
+            </div>
+            <div class="col-md-6">
+                <h5 class="fw-bold mb-2">Tips for Advancement</h5>
+                <ul class="list-unstyled">
+                    <li class="mb-2">
+                        <i class="fas fa-check text-success me-2"></i>
+                        <strong>Quality over Quantity:</strong> Focus on meaningful posts
+                    </li>
+                    <li class="mb-2">
+                        <i class="fas fa-check text-success me-2"></i>
+                        <strong>Engage Regularly:</strong> Consistent participation builds reputation
+                    </li>
+                    <li class="mb-2">
+                        <i class="fas fa-check text-success me-2"></i>
+                        <strong>Support Others:</strong> Comments and feedback help the community
+                    </li>
+                    <li class="mb-2">
+                        <i class="fas fa-check text-success me-2"></i>
+                        <strong>Be Authentic:</strong> Share genuine insights and experiences
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Call to Action -->
+    {% if user.is_authenticated %}
+    <div class="card card-modern p-5 text-center" style="background: linear-gradient(135deg, #0d6efd 0%, #0854ca 100%); color: white; border: none;">
+        <h3 class="fw-bold mb-3">Ready to Grow Your Level?</h3>
+        <p class="mb-4" style="font-size: 1.1rem;">
+            Check your current activity level and start accumulating points today!
+        </p>
+        <a href="{% url 'profile' %}" class="btn btn-light btn-lg fw-bold">
+            <i class="fas fa-user me-2"></i>View Your Profile
+        </a>
+    </div>
+    {% else %}
+    <div class="card card-modern p-5 text-center" style="background: linear-gradient(135deg, #0d6efd 0%, #0854ca 100%); color: white; border: none;">
+        <h3 class="fw-bold mb-3">Join Our Community Today!</h3>
+        <p class="mb-4" style="font-size: 1.1rem;">
+            Create an account and start your journey to becoming a legend.
+        </p>
+        <a href="{% url 'register' %}" class="btn btn-light btn-lg fw-bold">
+            <i class="fas fa-user-plus me-2"></i>Sign Up Now
+        </a>
+    </div>
+    {% endif %}
+</div>
+
+<style>
+.activity-level-card {
+    transition: all 0.3s ease;
+    border: 2px solid #e3ecf5;
+}
+
+.activity-level-card:hover {
+    transform: translateY(-4px);
+    border-color: #0d6efd;
+    box-shadow: 0 12px 28px rgba(13, 110, 253, 0.15);
+}
+
+.level-icon {
+    box-shadow: 0 4px 12px rgba(13, 110, 253, 0.3);
+}
+
+@media (max-width: 768px) {
+    .activity-level-card .card-header {
+        text-align: center;
+    }
+    
+    .activity-level-card .d-flex {
+        flex-direction: column;
+    }
+    
+    .level-icon {
+        width: 60px;
+        height: 60px;
+    }
+    
+    .level-icon i {
+        font-size: 1.5rem !important;
+    }
+}
+</style>
+{% endblock %}

@@ -3,10 +3,11 @@
 {% block title %}Product Catalog | IESA_ROOT{% endblock %}
 
 {% block content %}
-<h1 class="fw-bold mb-4 text-center">Product Catalog</h1>
-<p class="text-center text-muted mb-5">Everything our association offers to members.</p>
-
+<div class="container-limited">
 {% if products %}
+    <h1 class="fw-bold mb-4 text-center">Product Catalog</h1>
+    <p class="text-center text-muted mb-5">Everything our association offers to members.</p>
+
     <div class="row row-cols-1 row-cols-md-3 g-4">
         {% for product in products %}
             <div class="col">
@@ -57,7 +58,6 @@
             </ul>
         </nav>
     {% endif %}
-    
 {% else %}
     <div class="empty-state">
         <div class="empty-emoji">🛍️</div>
@@ -66,4 +66,5 @@
         <a href="{% url 'home' %}#products-section" class="btn btn-outline-primary btn-modern">View highlights</a>
     </div>
 {% endif %}
+</div>
 {% endblock %}

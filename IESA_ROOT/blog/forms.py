@@ -2,8 +2,9 @@ from django import forms
 from .models import Post
 
 try:
-    # CKEditor widget (works for django-ckeditor)
-    from ckeditor.widgets import CKEditorWidget
+    # CKEditor 5 widget (безопасная версия)
+    from django_ckeditor_5.widgets import CKEditor5Widget
+    CKEditorWidget = CKEditor5Widget
 except Exception:
     CKEditorWidget = None
 

@@ -1,43 +1,169 @@
 {% load static %}
 {% load i18n %}
 
-<div class="container py-3" id="partners-section">
-  <h3 class="mb-3">Our partners</h3>
-  <div class="row g-3">
+<div class="container py-5" id="partners-section">
+  <div class="text-center mb-5">
+    <h2 class="fw-bold mb-2">Our Strategic Partners</h2>
+    <p class="text-muted lead">Trusted organizations collaborating with us to advance sports excellence globally</p>
+  </div>
+  
+  <div class="row g-4">
     {% for partner in partners %}
-    <div class="col-12 col-sm-6 col-md-4">
-      <div class="card shadow-sm h-100">
-        {% if partner.logo %}
-        <img src="{{ partner.logo.url }}" class="card-img-top" style="object-fit:contain;height:140px;background:#fff;padding:16px;" alt="{{ partner.name }}">
-        {% endif %}
-        <div class="card-body d-flex flex-column">
-          <h5 class="card-title">{{ partner.name }}</h5>
-          <p class="card-text text-muted small">{{ partner.description|truncatechars:140 }}</p>
-          <div class="mt-auto d-flex justify-content-between align-items-center">
-            <a href="#" class="btn btn-outline-primary btn-sm" hx-get="{% url 'partner_detail' partner.id %}" hx-target="#partner-modal-body" hx-trigger="click" data-bs-toggle="modal" data-bs-target="#partnerModal">Details</a>
-            {% if partner.website %}
-            <a href="{{ partner.website }}" target="_blank" rel="noopener" class="btn btn-sm btn-primary">Visit</a>
-            {% endif %}
-          </div>
+    <div class="col-12 col-sm-6 col-md-6 col-lg-4">
+      <div class="partner-card-enhanced h-100 d-flex flex-column">
+        <!-- Partner Header with Logo -->
+        <div class="partner-card-header">
+          {% if partner.logo %}
+            <img src="{{ partner.logo.url }}" alt="{{ partner.name }}" class="partner-card-logo">
+          {% else %}
+            <div class="partner-logo-placeholder">
+              <span>{{ partner.name|truncatechars:3|upper }}</span>
+            </div>
+          {% endif %}
+        </div>
+
+        <!-- Partner Content -->
+        <div class="partner-card-body flex-grow-1">
+          <h5 class="partner-card-title">{{ partner.name }}</h5>
+          <p class="partner-card-description">{{ partner.description }}</p>
+        </div>
+
+        <!-- Partner Footer Actions -->
+        <div class="partner-card-footer">
+          <button 
+            class="btn btn-primary btn-sm w-100"
+            hx-get="{% url 'partner_detail' partner.id %}" 
+            hx-target="#partner-modal-body" 
+            data-bs-toggle="modal" 
+            data-bs-target="#partnerModal"
+            type="button">
+            <i class="fas fa-info-circle me-2"></i>View Details
+          </button>
         </div>
       </div>
     </div>
     {% endfor %}
   </div>
+
+  {% if not partners %}
+  <div class="empty-state">
+    <div class="empty-emoji">🤝</div>
+    <h5>No Partners Yet</h5>
+    <p class="text-muted">We're working on establishing partnerships. Check back soon!</p>
+  </div>
+  {% endif %}
 </div>
 
-<!-- Modal (body replaced via HTMX) -->
+<!-- Partner Details Modal -->
 <div class="modal fade" id="partnerModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg modal-dialog-centered">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title">Partner</h5>
+        <h5 class="modal-title">Partner Details</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body" id="partner-modal-body">
         <!-- HTMX will load content here -->
-        <div class="text-center py-5 text-muted">Loading…</div>
+        <div class="text-center py-5">
+          <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading…</span>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 </div>
+
+<style>
+.partner-card-enhanced {
+  background: linear-gradient(180deg, #f8fbff 0%, #f0f6ff 100%);
+  border: 2px solid #e3ecf5;
+  border-radius: 16px;
+  overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 12px rgba(13, 110, 253, 0.08);
+  display: flex;
+  flex-direction: column;
+}
+
+.partner-card-enhanced:hover {
+  border-color: #0d6efd;
+  transform: translateY(-8px);
+  box-shadow: 0 12px 28px rgba(13, 110, 253, 0.15);
+}
+
+.partner-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 160px;
+  background: linear-gradient(135deg, #ffffff 0%, #f5faff 100%);
+  border-bottom: 2px solid #e3ecf5;
+  padding: 24px 16px;
+}
+
+.partner-card-logo {
+  max-width: 100%;
+  max-height: 120px;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.08));
+}
+
+.partner-logo-placeholder {
+  width: 100px;
+  height: 100px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #0d6efd 0%, #0854ca 100%);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 1.5rem;
+  box-shadow: 0 4px 12px rgba(13, 110, 253, 0.3);
+}
+
+.partner-card-body {
+  padding: 20px 18px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.partner-card-title {
+  font-weight: 700;
+  color: #0d2868;
+  font-size: 1.1rem;
+  margin-bottom: 10px;
+  line-height: 1.3;
+}
+
+.partner-card-description {
+  color: #526070;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  margin: 0;
+  flex: 1;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
+
+.partner-card-footer {
+  padding: 16px 18px;
+  border-top: 2px solid #e3ecf5;
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.partner-card-footer .btn {
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  transition: all 0.2s ease;
+}
+
+.partner-card-footer .btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(13, 110, 253, 0.3);
+}
+</style>

@@ -1,6 +1,6 @@
 from django.views.generic import TemplateView
 from products.models import Product
-from core.models import Partner, AssociationMember
+from core.models import Partner, AssociationMember, President
 from django.shortcuts import get_object_or_404, render
 from django.core.paginator import Paginator
 
@@ -22,22 +22,21 @@ class IndexView(TemplateView):
         # 1. Продукты (предположим, 3 последних)
         context['products'] = Product.objects.all().order_by('-id')[:3]
         
-        # 2. Члены ассоциации
+        # 2. Президент (отдельная модель)
+        try:
+            context['president'] = President.objects.first()
+        except President.DoesNotExist:
+            context['president'] = None
+        
+        # 3. Члены ассоциации
         context['members'] = AssociationMember.objects.all().order_by('id')
         
-        # 3. Партнеры
+        # 4. Партнеры с пагинацией
         partners_qs = Partner.objects.all().order_by('name')
-        # Paginate partners on the homepage (query param: partners_page)
         paginator = Paginator(partners_qs, 12)
         page = self.request.GET.get('partners_page') or 1
         partners_page = paginator.get_page(page)
         context['partners'] = partners_page.object_list
         context['partners_page_obj'] = partners_page
-        
-        # 4. Данные о президенте (для простоты возьмем первого члена ассоциации, 
-        # но в реальном проекте это была бы отдельная модель или флаг)
-        if context['members']:
-            context['president'] = context['members'].first()
-            context['members'] = context['members'][1:] # Остальные члены
         
         return context

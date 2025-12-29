@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+
+{% block title %}Notifications | IESA_ROOT{% endblock %}
+
+{% block content %}
+<div class="container-limited">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="fw-bold">Notifications</h1>
+        {% if unread_count > 0 %}
+        <a href="{% url 'mark_all_read' %}" class="btn btn-sm btn-outline-primary">Mark all as read</a>
+        {% endif %}
+    </div>
+
+    {% if notifications %}
+        <div class="notifications-container">
+            {% for notification in notifications %}
+            <div class="notification-card {% if not notification.is_read %}unread{% endif %}">
+                <div class="notification-icon {% if notification.notification_type == 'post_approved' %}success{% elif notification.notification_type == 'post_rejected' %}danger{% elif notification.notification_type == 'new_like' %}warning{% else %}info{% endif %}">
+                    {% if notification.notification_type == 'post_approved' %}
+                        ✓
+                    {% elif notification.notification_type == 'post_rejected' %}
+                        ✗
+                    {% elif notification.notification_type == 'new_comment' or notification.notification_type == 'comment_reply' %}
+                        💬
+                    {% elif notification.notification_type == 'new_like' %}
+                        ❤️
+                    {% elif notification.notification_type == 'new_follower' %}
+                        👤
+                    {% elif notification.notification_type == 'event_reminder' %}
+                        📅
+                    {% else %}
+                        🔔
+                    {% endif %}
+                </div>
+                <div class="notification-content">
+                    <div class="notification-title">{{ notification.get_notification_type_display }}</div>
+                    <div class="notification-text">{{ notification.message }}</div>
+                    <div class="notification-time">{{ notification.created_at|timesince }} ago</div>
+                    {% if notification.link %}
+                    <a href="{{ notification.link }}" class="btn btn-sm btn-link p-0 mt-1">View</a>
+                    {% endif %}
+                </div>
+                {% if not notification.is_read %}
+                <div class="ms-auto">
+                    <span class="badge bg-primary">New</span>
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+
+        {% if notifications.has_other_pages %}
+        <nav aria-label="Notifications pagination" class="mt-4">
+            <ul class="pagination justify-content-center">
+                {% if notifications.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ notifications.previous_page_number }}">Previous</a>
+                </li>
+                {% endif %}
+                
+                {% for num in notifications.paginator.page_range %}
+                    {% if notifications.number == num %}
+                    <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                    {% elif num > notifications.number|add:'-3' and num < notifications.number|add:'3' %}
+                    <li class="page-item"><a class="page-link" href="?page={{ num }}">{{ num }}</a></li>
+                    {% endif %}
+                {% endfor %}
+
+                {% if notifications.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ notifications.next_page_number }}">Next</a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+    {% else %}
+        <div class="empty-state">
+            <div class="empty-emoji">🔔</div>
+            <h5>No notifications yet</h5>
+            <p class="text-muted">You'll see notifications here when someone interacts with your content.</p>
+            <a href="{% url 'post_list' %}" class="btn btn-primary btn-modern">Explore Posts</a>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

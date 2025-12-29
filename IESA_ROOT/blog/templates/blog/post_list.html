@@ -51,7 +51,7 @@
                         {% endif %}
                         <div class="card-body d-flex flex-column">
                             <h5 class="card-title fw-bold text-primary">{{ post.title }}</h5>
-                            <p class="card-text text-muted">{{ post.text|truncatewords:25 }}</p>
+                            <p class="card-text text-muted">{{ post.text|striptags|truncatewords:18 }}</p>
                             <div class="mt-auto pt-3 border-top">
                                 <small class="text-secondary me-3"><i class="fas fa-eye me-1"></i> {{ post.views_count }}</small>
                                 <small class="text-secondary me-3"><i class="fas fa-comment me-1"></i> {{ post.comments.count }}</small>
@@ -93,7 +93,7 @@
         <div class="empty-state">
             <div class="empty-emoji">📝</div>
             <h5>No posts yet</h5>
-            <p class="text-muted mb-3">Будьте первым, кто поделится новостью или идеей.</p>
+            <p class="text-muted mb-3">Be the first to share news or ideas with the community.</p>
             {% if user.is_authenticated %}
                 <a href="{% url 'post_create' %}" class="btn btn-primary btn-modern">Create post</a>
             {% else %}

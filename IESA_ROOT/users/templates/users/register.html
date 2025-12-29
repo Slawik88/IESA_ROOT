@@ -9,7 +9,7 @@
             <h2 class="fw-bold mb-4 text-center">🎯 Register a new member</h2>
             <p class="text-center text-muted mb-4">Join the IESA community and start sharing!</p>
             
-            <!-- Форм-ошибки если есть -->
+            <!-- Form errors if any -->
             {% if form.non_field_errors %}
                 <div class="alert alert-danger alert-dismissible fade show mb-4" role="alert">
                     <i class="fas fa-exclamation-circle me-2"></i>
@@ -31,7 +31,7 @@
                             {% if field.field.required %}<span class="text-danger">*</span>{% endif %}
                         </label>
                         
-                        <!-- Чекбокс отдельно -->
+                        <!-- Checkbox separately -->
                         {% if field.field.widget.input_type == "checkbox" %}
                             <div class="form-check">
                                 {{ field }}

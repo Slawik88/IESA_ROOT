@@ -18,6 +18,8 @@ urlpatterns = [
     path('qr/<uuid:permanent_id>/', views.qr_image, name='user_qr'),
     # User search
     path('search/', views.users_search, name='users_search'),
+    # Activity levels info
+    path('activity-levels/', views.activity_levels_info, name='activity_levels_info'),
     # Admin impersonation
     path('impersonate/<int:pk>/', views.impersonate_user, name='impersonate_user'),
 ]

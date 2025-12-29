@@ -20,6 +20,12 @@ urlpatterns = [
     
     # Products app
     path('products/', include('products.urls')),
+    
+    # Notifications app
+    path('notifications/', include('notifications.urls')),
+    
+    # CKEditor 5 upload path
+    path('ckeditor5/', include('django_ckeditor_5.urls')),
 ]
 
 # Добавляем маршруты для медиа-файлов в режиме разработки

@@ -7,10 +7,12 @@ from django.urls import reverse_lazy
 from django.utils import timezone
 from django.contrib import messages
 from django import forms
+from django.utils.decorators import method_decorator
 from .models import Post, Comment, Like, Event, PostView, BlogSubscription
 from core.models import Partner
 from .forms import PostForm
 from users.search_utils import highlight_text, normalize_search_query
+from users.ratelimit_utils import post_create_ratelimit, comment_ratelimit, search_ratelimit
 
 
 class CommentForm(forms.ModelForm):
@@ -114,6 +116,7 @@ def partner_list(request):
     # Not used anymore: partners are shown on the homepage (core app)
     return redirect('home')
 
+@method_decorator(post_create_ratelimit, name='dispatch')
 class PostCreateView(LoginRequiredMixin, CreateView):
     """
     Форма для создания нового поста (уходит на модерацию).
@@ -191,6 +194,8 @@ def like_post(request, pk):
     return render(request, 'blog/htmx/like_button.html', context)
 
 @login_required
+@login_required
+@comment_ratelimit
 def comment_create(request, pk):
     """
     Handle comment creation via HTMX (without page reload).
@@ -269,9 +274,11 @@ from django.db import models as django_models
 def post_search(request):
     """
     HTMX endpoint for searching posts, events, partners AND users.
-    Returns results grouped by category with highlighted matches.
+    Returns results grouped by category with highlighted matches and relevance ranking.
     """
     from django.contrib.auth import get_user_model
+    from django.db.models import Q, Value, CharField, Case, When, IntegerField
+    from django.db.models.functions import Length
     User = get_user_model()
     
     q = request.GET.get('q', '').strip()
@@ -284,40 +291,70 @@ def post_search(request):
     }
     
     if normalized_q:
-        # Search posts
-        from django.db import models as django_models
-        posts = list(Post.objects.filter(
-            django_models.Q(title__icontains=normalized_q) | django_models.Q(text__icontains=normalized_q), 
+        # Search posts with relevance ranking
+        # Title matches get higher priority than content matches
+        posts = Post.objects.filter(
+            Q(title__icontains=normalized_q) | Q(text__icontains=normalized_q), 
             status='published'
-        ).order_by('-created_at')[:12])
+        ).annotate(
+            relevance=Case(
+                When(title__icontains=normalized_q, then=Value(10)),
+                default=Value(1),
+                output_field=IntegerField()
+            )
+        ).order_by('-relevance', '-created_at')[:12]
+        
         results['posts'] = [{'post': p, 'title_html': highlight_text(p.title, normalized_q)} for p in posts]
         
         # Search users (by username, first_name, last_name, email, permanent_id)
-        users = list(User.objects.filter(
-            django_models.Q(username__icontains=normalized_q) | 
-            django_models.Q(first_name__icontains=normalized_q) | 
-            django_models.Q(last_name__icontains=normalized_q) | 
-            django_models.Q(email__icontains=normalized_q) | 
-            django_models.Q(permanent_id__icontains=normalized_q)
-        ).order_by('username')[:8])
+        users = User.objects.filter(
+            Q(username__icontains=normalized_q) | 
+            Q(first_name__icontains=normalized_q) | 
+            Q(last_name__icontains=normalized_q) | 
+            Q(email__icontains=normalized_q) | 
+            Q(permanent_id__icontains=normalized_q)
+        ).annotate(
+            relevance=Case(
+                When(username__iexact=normalized_q, then=Value(20)),
+                When(username__istartswith=normalized_q, then=Value(15)),
+                When(username__icontains=normalized_q, then=Value(10)),
+                default=Value(5),
+                output_field=IntegerField()
+            )
+        ).order_by('-relevance', 'username')[:8]
+        
         results['users'] = [{
             'user': u,
             'username_html': highlight_text(u.username, normalized_q),
             'email_html': highlight_text(u.email, normalized_q)
         } for u in users]
         
-        # Search events
-        events = list(Event.objects.filter(
-            django_models.Q(title__icontains=normalized_q) | 
-            django_models.Q(description__icontains=normalized_q)
-        ).order_by('-date')[:6])
+        # Search events with date relevance
+        events = Event.objects.filter(
+            Q(title__icontains=normalized_q) | 
+            Q(description__icontains=normalized_q)
+        ).annotate(
+            relevance=Case(
+                When(title__icontains=normalized_q, then=Value(10)),
+                default=Value(1),
+                output_field=IntegerField()
+            )
+        ).order_by('-relevance', '-date')[:6]
+        
         results['events'] = [{'event': e, 'title_html': highlight_text(e.title, normalized_q)} for e in events]
         
         # Search partners
-        partners = list(Partner.objects.filter(
-            django_models.Q(name__icontains=normalized_q) | 
-            django_models.Q(description__icontains=normalized_q)
-        ).order_by('name')[:8])
+        partners = Partner.objects.filter(
+            Q(name__icontains=normalized_q) | 
+            Q(description__icontains=normalized_q)
+        ).annotate(
+            relevance=Case(
+                When(name__icontains=normalized_q, then=Value(10)),
+                default=Value(1),
+                output_field=IntegerField()
+            )
+        ).order_by('-relevance', 'name')[:8]
+        
         results['partners'] = [{'partner': p, 'name_html': highlight_text(p.name, normalized_q)} for p in partners]
 
     context = {'query': q, 'results': results}

@@ -15,6 +15,7 @@ import os
 from django.conf import settings
 from .qr_utils import generate_qr_code_for_user
 from .search_utils import highlight_text, normalize_search_query
+from .ratelimit_utils import login_ratelimit, register_ratelimit, search_ratelimit
 
 
 def logout_view(request):
@@ -25,6 +26,7 @@ def logout_view(request):
 
 
 # View для регистрации
+@method_decorator(register_ratelimit, name='dispatch')
 class RegisterView(CreateView):
     model = User
     form_class = CustomUserCreationForm
@@ -36,6 +38,7 @@ class RegisterView(CreateView):
 
 
 # View для логина (используем стандартный Django)
+@method_decorator(login_ratelimit, name='dispatch')
 class LoginView(auth_views.LoginView):
     template_name = 'users/login.html'
 
@@ -51,19 +54,34 @@ class ProfileView(DetailView):
     model = User
     template_name = 'users/profile.html'
     context_object_name = 'profile_user'
+    paginate_by = 12  # Pagination for user posts
 
     def get_object(self, queryset=None):
         # Показываем данные текущего авторизованного пользователя
         return self.request.user
     
     def get_context_data(self, **kwargs):
+        from django.core.paginator import Paginator
         context = super().get_context_data(**kwargs)
-        # Добавляем посты пользователя (все статусы)
-        context['user_posts'] = Post.objects.filter(author=self.request.user).order_by('-created_at')
+        
+        # Get all posts by user
+        all_posts = Post.objects.filter(author=self.request.user).order_by('-created_at')
+        
+        # Paginate posts
+        paginator = Paginator(all_posts, self.paginate_by)
+        page_number = self.request.GET.get('page')
+        page_obj = paginator.get_page(page_number)
+        
+        context['user_posts'] = page_obj
+        context['page_obj'] = page_obj
+        context['is_paginated'] = page_obj.has_other_pages()
+        
         # Подсчитываем по статусам
         context['pending_count'] = Post.objects.filter(author=self.request.user, status='pending').count()
         context['published_count'] = Post.objects.filter(author=self.request.user, status='published').count()
         context['rejected_count'] = Post.objects.filter(author=self.request.user, status='rejected').count()
+        context['draft_count'] = Post.objects.filter(author=self.request.user, status='draft').count()
+        
         return context
 
 
@@ -176,6 +194,87 @@ def qr_image(request, permanent_id):
         # Inline display
         response['Content-Disposition'] = f'inline; filename=qr_{user_obj.username}.png'
     return response
+
+
+def activity_levels_info(request):
+    """Display information about activity levels and how to earn them"""
+    activity_levels = [
+        {
+            'name': 'Beginner',
+            'icon': 'leaf',
+            'color': 'secondary',
+            'min_points': 0,
+            'max_points': 50,
+            'description': 'Just starting your journey in the IESA community',
+            'tips': [
+                'Create your first blog post (10 points)',
+                'Leave comments on other posts (1 point each)',
+                'Engage with the community',
+            ]
+        },
+        {
+            'name': 'Intermediate',
+            'icon': 'fire',
+            'color': 'success',
+            'min_points': 50,
+            'max_points': 200,
+            'description': 'You\'re becoming an active member',
+            'tips': [
+                'Publish 5-10 quality posts (10 points each)',
+                'Receive 50+ likes on your posts (2 points each)',
+                'Participate in discussions',
+            ]
+        },
+        {
+            'name': 'Advanced',
+            'icon': 'rocket',
+            'color': 'info',
+            'min_points': 200,
+            'max_points': 500,
+            'description': 'You\'re a valuable contributor',
+            'tips': [
+                'Publish 15-25 popular posts',
+                'Accumulate 100+ total likes',
+                'Build a strong reputation',
+            ]
+        },
+        {
+            'name': 'Expert',
+            'icon': 'star',
+            'color': 'warning',
+            'min_points': 500,
+            'max_points': 1000,
+            'description': 'You\'re a recognized authority',
+            'tips': [
+                'Publish 50+ high-quality posts',
+                'Achieve 300+ total likes',
+                'Mentor other members',
+            ]
+        },
+        {
+            'name': 'Legend',
+            'icon': 'crown',
+            'color': 'danger',
+            'min_points': 1000,
+            'max_points': 'Unlimited',
+            'description': 'You\'re a pillar of the IESA community',
+            'tips': [
+                'Maintain extraordinary engagement',
+                'Lead by example',
+                'Shape the future of IESA',
+            ]
+        },
+    ]
+    
+    context = {
+        'activity_levels': activity_levels,
+        'points_breakdown': {
+            'post': 10,
+            'like': 2,
+            'comment': 1,
+        }
+    }
+    return render(request, 'users/activity_levels_info.html', context)
 
 
 @user_passes_test(lambda u: u.is_staff)

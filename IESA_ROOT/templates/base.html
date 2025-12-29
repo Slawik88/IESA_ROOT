@@ -6,6 +6,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}IESA ROOT{% endblock %}</title>
     
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="{% static 'img/favicon.png' %}">
+    
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
 
@@ -26,7 +29,6 @@
 
 </head>
 <body>
-
 {% load static %}
     <!-- Header Section -->
     <header class="shadow-sm bg-white sticky-top">
@@ -61,7 +63,7 @@
                     <div class="d-flex align-items-center gap-2">
                         <!-- Community search (global, HTMX live results) -->
                         <div class="me-2 dropdown">
-                            <button class="btn btn-light btn-sm" id="communitySearchToggle" data-bs-toggle="dropdown" aria-expanded="false" title="Search community">
+                            <button class="btn btn-light btn-sm" id="communitySearchToggle" data-bs-toggle="dropdown" aria-expanded="false" title="Search community" aria-label="Open search menu">
                                 <i class="fas fa-search"></i>
                             </button>
                             <div class="dropdown-menu dropdown-menu-end p-3" style="min-width:340px;">
@@ -74,11 +76,20 @@
                             </div>
                         </div>
                         {% if user.is_authenticated %}
+                            <!-- Notifications button -->
+                            <a href="{% url 'notification_list' %}" class="btn btn-light btn-sm position-relative" title="Notifications">
+                                <i class="fas fa-bell"></i>
+                                {% if unread_notifications_count > 0 %}
+                                <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="font-size:0.65rem;">
+                                    {{ unread_notifications_count }}
+                                </span>
+                                {% endif %}
+                            </a>
                             <a href="{% url 'profile' %}" class="btn btn-outline-primary btn-modern d-flex align-items-center" style="padding:.5rem .8rem;font-size:.9rem;">
-                                {% if user.avatar %}
-                                    <img src="{{ user.avatar.url }}" alt="Avatar" class="rounded-circle me-2" style="width: 24px; height: 24px; object-fit: cover;">
+                                {% if user.avatar and user.avatar.name != 'avatars/default.png' %}
+                                    <span class="avatar avatar-sm me-2"><img src="{{ user.avatar.url }}" alt="Avatar"></span>
                                 {% else %}
-                                    <i class="fas fa-user-circle me-2"></i>
+                                    <span class="avatar avatar-sm avatar-fallback me-2">{{ user.username|slice:":1"|upper }}</span>
                                 {% endif %}
                                 <span class="d-none d-sm-inline">Profile</span>
                             </a>
@@ -94,7 +105,7 @@
     </header>
 
     <!-- Main Content -->
-    <main class="py-5">
+    <main class="py-5" id="main-content">
         {% if messages %}
             <div class="container-limited">
                 {% for message in messages %}
@@ -120,8 +131,8 @@
             <div class="row g-4">
                 <div class="col-12 col-md-4">
                     <h6 class="footer-title">About</h6>
-                    <p class="footer-text">IESA_ROOT объединяет лидеров и партнеров спорта, создавая пространство для роста, проектов и событий.</p>
-                    <p class="footer-text small mb-0">&copy; {{ "now"|date:"Y" }} IESA_ROOT Association.</p>
+                    <p class="footer-text">IESA_ROOT connects sports leaders and partners, creating a space for growth, projects and events worldwide.</p>
+                    <p class="footer-text small mb-0">&copy; {{ "now"|date:"Y" }} IESA_ROOT Association. All rights reserved.</p>
                 </div>
                 <div class="col-6 col-md-2">
                     <h6 class="footer-title">Links</h6>
@@ -269,7 +280,7 @@
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <div class="modal-body">
-                        <p>Вы уверены, что хотите выйти из аккаунта?</p>
+                        <p>Are you sure you want to log out?</p>
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
@@ -297,5 +308,16 @@
                 </div>
             </div>
         </div>
+    </div>
+
+    <script>
+        // Initialize Bootstrap popovers
+        document.addEventListener('DOMContentLoaded', function() {
+            const popoverTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="popover"]'));
+            popoverTriggerList.map(function(popoverTriggerEl) {
+                return new bootstrap.Popover(popoverTriggerEl);
+            });
+        });
+    </script>
 </body>
 </html>

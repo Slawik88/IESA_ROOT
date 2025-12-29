@@ -59,7 +59,7 @@
         <div class="empty-state">
             <div class="empty-emoji">📅</div>
             <h5>No upcoming events</h5>
-            <p class="text-muted mb-3">Расскажите об активностях или запланируйте встречу.</p>
+            <p class="text-muted mb-3">There are no scheduled events at the moment. Check back soon!</p>
             {% if user.is_staff %}
                 <a href="{% url 'post_create' %}" class="btn btn-primary btn-modern">Create event post</a>
             {% else %}
