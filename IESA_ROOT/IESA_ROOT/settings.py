@@ -74,6 +74,7 @@ INSTALLED_APPS = [
     'django_cleanup.apps.CleanupConfig', # Для удаления старых файлов при замене
     'django_ckeditor_5', # Безопасный WYSIWYG редактор CKEditor 5
     'imagekit', # Image optimization and thumbnails
+    'storages',  # For DigitalOcean Spaces / S3 storage
 ]
 
 # Dev-only HTTPS server support (optional): add sslserver in DEBUG
@@ -206,9 +207,26 @@ if not DEBUG:
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
-# IMPORTANT: In production, media files should be served from object storage (S3, DO Spaces)
-# For temporary SQLite setup, we'll serve media through Django (NOT recommended for production)
-# TODO: Migrate to DigitalOcean Spaces for media files
+# DigitalOcean Spaces configuration for media files
+# В production используем Spaces, в development - локальное хранилище
+USE_SPACES = os.getenv('USE_SPACES', 'False').lower() in ('true', '1', 'yes')
+
+if USE_SPACES and not DEBUG:
+    # AWS S3 settings (DigitalOcean Spaces совместим с S3 API)
+    AWS_ACCESS_KEY_ID = os.getenv('SPACES_KEY')
+    AWS_SECRET_ACCESS_KEY = os.getenv('SPACES_SECRET')
+    AWS_STORAGE_BUCKET_NAME = os.getenv('SPACES_BUCKET')
+    AWS_S3_ENDPOINT_URL = os.getenv('SPACES_ENDPOINT', 'https://fra1.digitaloceanspaces.com')
+    AWS_S3_OBJECT_PARAMETERS = {
+        'CacheControl': 'max-age=86400',
+    }
+    AWS_LOCATION = 'media'
+    AWS_DEFAULT_ACL = 'public-read'
+    AWS_S3_CUSTOM_DOMAIN = f'{AWS_STORAGE_BUCKET_NAME}.fra1.digitaloceanspaces.com'
+    
+    # Media files storage
+    DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
+    MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/{AWS_LOCATION}/'
 
 # CKEditor 5 настройки - современный безопасный редактор
 customColorPalette = [
