@@ -233,11 +233,11 @@ if spaces_key and spaces_secret and spaces_bucket and not DEBUG:
     AWS_S3_OBJECT_PARAMETERS = {
         'CacheControl': 'max-age=86400',
     }
+    AWS_DEFAULT_ACL = None  # DigitalOcean Spaces uses bucket-level ACL
+    AWS_QUERYSTRING_AUTH = False  # Don't use query string auth for public files
+    AWS_S3_CUSTOM_DOMAIN = f'{AWS_STORAGE_BUCKET_NAME}.fra1.digitaloceanspaces.com'
     # IMPORTANT: Do NOT use AWS_LOCATION - models use upload_to='media/...'
     # AWS_LOCATION would add extra prefix and break URLs
-    AWS_DEFAULT_ACL = None  # DigitalOcean Spaces uses bucket-level ACL
-    AWS_QUERYSTRING_AUTH = False
-    AWS_S3_CUSTOM_DOMAIN = f'{AWS_STORAGE_BUCKET_NAME}.fra1.digitaloceanspaces.com'
     
     # Enable boto3 debug logging
     import logging
@@ -255,6 +255,9 @@ if spaces_key and spaces_secret and spaces_bucket and not DEBUG:
     STORAGES = {
         "default": {
             "BACKEND": "storages.backends.s3boto3.S3Boto3Storage",
+            "OPTIONS": {
+                "file_overwrite": True,  # Overwrite files with same name
+            },
         },
         "staticfiles": {
             "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
