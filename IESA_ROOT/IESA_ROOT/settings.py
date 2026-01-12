@@ -235,12 +235,24 @@ if spaces_key and spaces_secret and spaces_bucket and not DEBUG:
     AWS_QUERYSTRING_AUTH = False
     AWS_S3_CUSTOM_DOMAIN = f'{AWS_STORAGE_BUCKET_NAME}.fra1.digitaloceanspaces.com'
     
+    # Enable boto3 debug logging
+    import logging
+    logging.basicConfig(level=logging.DEBUG)
+    boto3_logger = logging.getLogger('boto3')
+    boto3_logger.setLevel(logging.DEBUG)
+    botocore_logger = logging.getLogger('botocore')
+    botocore_logger.setLevel(logging.DEBUG)
+    s3transfer_logger = logging.getLogger('s3transfer')
+    s3transfer_logger.setLevel(logging.DEBUG)
+    
     # Media files storage
     DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
     MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/{AWS_LOCATION}/'
     
     print(f"✅ SPACES ACTIVATED - Bucket: {AWS_STORAGE_BUCKET_NAME}")
     print(f"✅ MEDIA_URL: {MEDIA_URL}")
+    print(f"✅ ENDPOINT: {AWS_S3_ENDPOINT_URL}")
+    print(f"✅ BOTO3 DEBUG LOGGING ENABLED")
     print("=" * 80)
 else:
     print("❌ SPACES NOT ACTIVATED - Using local storage")
