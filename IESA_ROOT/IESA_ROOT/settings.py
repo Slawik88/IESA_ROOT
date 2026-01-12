@@ -209,17 +209,16 @@ MEDIA_ROOT = BASE_DIR / 'media'
 
 # DigitalOcean Spaces configuration for media files
 # В production используем Spaces вместо локального хранилища
-import logging
-logger = logging.getLogger(__name__)
-
 spaces_key = os.getenv('SPACES_KEY')
 spaces_secret = os.getenv('SPACES_SECRET')
 spaces_bucket = os.getenv('SPACES_BUCKET')
 
-logger.info(f"[SPACES CONFIG] DEBUG={DEBUG}")
-logger.info(f"[SPACES CONFIG] SPACES_KEY={'SET' if spaces_key else 'NOT SET'}")
-logger.info(f"[SPACES CONFIG] SPACES_SECRET={'SET' if spaces_secret else 'NOT SET'}")
-logger.info(f"[SPACES CONFIG] SPACES_BUCKET={spaces_bucket}")
+print("=" * 80)
+print(f"[SPACES CONFIG] DEBUG = {DEBUG}")
+print(f"[SPACES CONFIG] SPACES_KEY = {'SET' if spaces_key else 'NOT SET'}")
+print(f"[SPACES CONFIG] SPACES_SECRET = {'SET' if spaces_secret else 'NOT SET'}")
+print(f"[SPACES CONFIG] SPACES_BUCKET = {spaces_bucket}")
+print("=" * 80)
 
 if spaces_key and spaces_secret and spaces_bucket and not DEBUG:
     # AWS S3 settings (DigitalOcean Spaces совместим с S3 API)
@@ -240,10 +239,12 @@ if spaces_key and spaces_secret and spaces_bucket and not DEBUG:
     DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
     MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/{AWS_LOCATION}/'
     
-    logger.info(f"[SPACES CONFIG] ✅ ACTIVATED - Bucket: {AWS_STORAGE_BUCKET_NAME}")
-    logger.info(f"[SPACES CONFIG] MEDIA_URL: {MEDIA_URL}")
+    print(f"✅ SPACES ACTIVATED - Bucket: {AWS_STORAGE_BUCKET_NAME}")
+    print(f"✅ MEDIA_URL: {MEDIA_URL}")
+    print("=" * 80)
 else:
-    logger.warning(f"[SPACES CONFIG] ❌ NOT ACTIVATED - Using local storage")
+    print("❌ SPACES NOT ACTIVATED - Using local storage")
+    print("=" * 80)
     # Development or incomplete config - use local storage
     pass
 
