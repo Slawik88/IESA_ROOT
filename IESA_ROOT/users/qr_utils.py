@@ -34,23 +34,15 @@ def generate_qr_code_for_user(user, request=None):
 
     img = qr.make_image(fill_color="black", back_color="white")
 
-    # Имя файла на основе permanent_id
-    filename = f"cards/{str(user.permanent_id)}.png"
-
     # Сохраняем в BytesIO
     img_io = BytesIO()
     img.save(img_io, format='PNG')
     img_io.seek(0)
 
-    # Сохраняем в MEDIA_ROOT через Django
-    # (используя save() метод для работы с FileField)
-    # Но так как это не FileField на модели, сохраняем напрямую на диск
-
     # Сохраняем через Django storage (поддерживает S3 и локальный диск)
     from django.core.files.storage import default_storage
-    filename = f"cards/{str(user.permanent_id)}.png"
-    img_io.seek(0)
+    filename = f"media/cards/{str(user.permanent_id)}.png"
     filepath = default_storage.save(filename, ContentFile(img_io.getvalue()))
 
     # Возвращаем медиа URL для отображения в админке
-    return f"{settings.MEDIA_URL}cards/{str(user.permanent_id)}.png"
+    return f"{settings.MEDIA_URL}{filepath}"

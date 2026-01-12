@@ -5,7 +5,7 @@ class President(models.Model):
     Association president model (only one should exist).
     """
     name = models.CharField(max_length=255, verbose_name='Full Name')
-    photo = models.ImageField(upload_to='members/', verbose_name='Photo')
+    photo = models.ImageField(upload_to='media/members/', verbose_name='Photo')
     position = models.CharField(max_length=255, default='President', verbose_name='Position')
     description = models.TextField(verbose_name='Bio/Message')
     
@@ -27,10 +27,10 @@ class Partner(models.Model):
     Association partner model.
     """
     name = models.CharField(max_length=255, verbose_name='Partner Name')
-    logo = models.ImageField(upload_to='partners/', verbose_name='Logo')
+    logo = models.ImageField(upload_to='media/partners/', verbose_name='Logo')
     link = models.URLField(blank=True, verbose_name='Website Link')
     description = models.TextField(blank=True, verbose_name='Description', help_text='Max 300 chars for better display')
-    contract = models.ImageField(upload_to='partners/contracts/', blank=True, null=True, verbose_name='Contract Document/Photo')
+    contract = models.ImageField(upload_to='media/partners/contracts/', blank=True, null=True, verbose_name='Contract Document/Photo')
     
     class Meta:
         verbose_name = 'Partner'
@@ -44,7 +44,7 @@ class AssociationMember(models.Model):
     Association member model (excluding president).
     """
     name = models.CharField(max_length=255, verbose_name='Full Name')
-    photo = models.ImageField(upload_to='members/', verbose_name='Photo')
+    photo = models.ImageField(upload_to='media/members/', verbose_name='Photo')
     position = models.CharField(max_length=255, verbose_name='Position')
     description = models.TextField(verbose_name='Short Bio/Description')
     
