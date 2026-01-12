@@ -209,11 +209,23 @@ MEDIA_ROOT = BASE_DIR / 'media'
 
 # DigitalOcean Spaces configuration for media files
 # В production используем Spaces вместо локального хранилища
-if os.getenv('SPACES_KEY') and os.getenv('SPACES_SECRET') and os.getenv('SPACES_BUCKET') and not DEBUG:
+import logging
+logger = logging.getLogger(__name__)
+
+spaces_key = os.getenv('SPACES_KEY')
+spaces_secret = os.getenv('SPACES_SECRET')
+spaces_bucket = os.getenv('SPACES_BUCKET')
+
+logger.info(f"[SPACES CONFIG] DEBUG={DEBUG}")
+logger.info(f"[SPACES CONFIG] SPACES_KEY={'SET' if spaces_key else 'NOT SET'}")
+logger.info(f"[SPACES CONFIG] SPACES_SECRET={'SET' if spaces_secret else 'NOT SET'}")
+logger.info(f"[SPACES CONFIG] SPACES_BUCKET={spaces_bucket}")
+
+if spaces_key and spaces_secret and spaces_bucket and not DEBUG:
     # AWS S3 settings (DigitalOcean Spaces совместим с S3 API)
-    AWS_ACCESS_KEY_ID = os.getenv('SPACES_KEY')
-    AWS_SECRET_ACCESS_KEY = os.getenv('SPACES_SECRET')
-    AWS_STORAGE_BUCKET_NAME = os.getenv('SPACES_BUCKET')
+    AWS_ACCESS_KEY_ID = spaces_key
+    AWS_SECRET_ACCESS_KEY = spaces_secret
+    AWS_STORAGE_BUCKET_NAME = spaces_bucket
     AWS_S3_ENDPOINT_URL = os.getenv('SPACES_ENDPOINT', 'https://fra1.digitaloceanspaces.com')
     AWS_S3_REGION_NAME = 'fra1'
     AWS_S3_OBJECT_PARAMETERS = {
@@ -227,7 +239,11 @@ if os.getenv('SPACES_KEY') and os.getenv('SPACES_SECRET') and os.getenv('SPACES_
     # Media files storage
     DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
     MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/{AWS_LOCATION}/'
+    
+    logger.info(f"[SPACES CONFIG] ✅ ACTIVATED - Bucket: {AWS_STORAGE_BUCKET_NAME}")
+    logger.info(f"[SPACES CONFIG] MEDIA_URL: {MEDIA_URL}")
 else:
+    logger.warning(f"[SPACES CONFIG] ❌ NOT ACTIVATED - Using local storage")
     # Development or incomplete config - use local storage
     pass
 
