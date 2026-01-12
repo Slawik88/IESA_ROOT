@@ -30,7 +30,9 @@ logs/
 *.spec
 
 # Static and media files
-/static/
+# Note: /static/ - source files, should be tracked
+# /staticfiles/ - collected files, should be ignored
+/staticfiles/
 /media/
 
 # Django migrations
