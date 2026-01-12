@@ -247,22 +247,13 @@ if spaces_key and spaces_secret and spaces_bucket and not DEBUG:
     storages_logger = logging.getLogger('storages')
     storages_logger.setLevel(logging.DEBUG)
     
-    # Media files storage - use STORAGES setting (Django 4.2+)
-    STORAGES = {
-        "default": {
-            "BACKEND": "storages.backends.s3boto3.S3Boto3Storage",
-        },
-        "staticfiles": {
-            "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
-        },
-    }
-    
+    # Media files storage
+    DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
     MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/{AWS_LOCATION}/'
     
     print(f"✅ SPACES ACTIVATED - Bucket: {AWS_STORAGE_BUCKET_NAME}")
     print(f"✅ MEDIA_URL: {MEDIA_URL}")
     print(f"✅ ENDPOINT: {AWS_S3_ENDPOINT_URL}")
-    print(f"✅ STORAGES configured with S3Boto3Storage")
     print("=" * 80)
 else:
     print("❌ SPACES NOT ACTIVATED - Using local storage")
