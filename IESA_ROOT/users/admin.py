@@ -49,35 +49,44 @@ class UserAdmin(BaseUserAdmin):
     def card_qr_with_actions(self, obj):
         """Вывести QR код с кнопками действий."""
         if not obj.permanent_id:
-            return format_html('<p>Permanent ID не установлен</p>')
+            return format_html(
+                '<div style="padding:10px; background:var(--body-bg); color:var(--body-fg);">'
+                'Permanent ID не установлен'
+                '</div>'
+            )
         
         # Путь к сохранённому QR коду
         qr_path = f"{settings.MEDIA_URL}media/cards/{str(obj.permanent_id)}.png"
         
-        # URL для действий
-        regenerate_url = reverse('admin:regenerate_qr', args=[obj.pk])
-        new_id_url = reverse('admin:new_permanent_id', args=[obj.pk])
+        # URL для действий (используем правильный формат с admin namespace)
+        regenerate_url = f"/admin/users/user/{obj.pk}/regenerate-qr/"
+        new_id_url = f"/admin/users/user/{obj.pk}/new-permanent-id/"
         
         return format_html(
             '''
-            <div style="border:1px solid #ddd; padding:15px; border-radius:8px; background:#f9f9f9;">
-                <div style="text-align:center; margin-bottom:10px;">
-                    <img src="{}" style="width:150px;height:150px;object-fit:contain;border:1px solid #ddd;border-radius:4px;background:white;"/>
+            <div style="padding:15px; border-radius:8px; background:var(--darkened-bg); border:1px solid var(--border-color);">
+                <div style="text-align:center; margin-bottom:15px;">
+                    <img src="{}" style="width:150px;height:150px;object-fit:contain;border:1px solid var(--border-color);border-radius:4px;background:white;padding:5px;"/>
                 </div>
-                <div style="margin-bottom:8px;">
-                    <strong>Permanent ID:</strong> <code>{}</code>
+                <div style="margin-bottom:12px; color:var(--body-fg);">
+                    <strong>Permanent ID:</strong> 
+                    <code style="background:var(--darkened-bg);padding:4px 8px;border-radius:4px;border:1px solid var(--border-color);">{}</code>
                 </div>
-                <div style="display:flex; gap:8px; flex-wrap:wrap;">
-                    <a href="{}" class="button" style="flex:1; text-align:center; min-width:180px;">
-                        🔄 Перегенерировать QR
+                <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:10px;">
+                    <a href="{}" 
+                       class="button" 
+                       style="flex:1; text-align:center; min-width:150px; padding:10px 15px; background:#417690; color:white; text-decoration:none; border-radius:4px; font-weight:500; display:inline-block; box-sizing:border-box;">
+                        🔄 Обновить QR
                     </a>
-                    <a href="{}" class="button" style="flex:1; text-align:center; min-width:180px; background:#dc3545; color:white;">
-                        🆕 Новый ID (потеря карты)
+                    <a href="{}" 
+                       class="button" 
+                       style="flex:1; text-align:center; min-width:150px; padding:10px 15px; background:#ba2121; color:white; text-decoration:none; border-radius:4px; font-weight:500; display:inline-block; box-sizing:border-box;">
+                        🆕 Новая карта
                     </a>
                 </div>
-                <div style="margin-top:8px; font-size:11px; color:#666;">
-                    <strong>🔄 Перегенерировать QR:</strong> Создаёт новый QR с тем же ID (если QR повреждён)<br>
-                    <strong>🆕 Новый ID:</strong> Создаёт новый permanent_id и новый QR (при потере карты)
+                <div style="font-size:11px; color:var(--body-quiet-color); line-height:1.5;">
+                    <strong>🔄 Обновить QR:</strong> Тот же ID, новый QR (повреждён)<br>
+                    <strong>🆕 Новая карта:</strong> Новый ID + QR (потеря карты)
                 </div>
             </div>
             ''',
