@@ -141,6 +141,34 @@ document.addEventListener('DOMContentLoaded', function(){
             var previewBtn = document.getElementById('preview-btn');
             if (previewBtn) previewBtn.addEventListener('click', function(){
                 syncPreview();
+                
+                // Fill modal with preview content
+                var previewBody = document.getElementById('post-preview-body');
+                if (previewBody) {
+                    var previewTitle = document.getElementById('preview-title');
+                    var previewBodyContent = document.getElementById('preview-body');
+                    var previewImg = document.getElementById('preview-image-output');
+                    
+                    var modalContent = '';
+                    
+                    // Add image if present
+                    if (previewImg && previewImg.style.display !== 'none' && previewImg.src) {
+                        modalContent += '<div class="mb-3"><img src="' + previewImg.src + '" class="img-fluid rounded" alt="Preview"/></div>';
+                    }
+                    
+                    // Add title
+                    if (previewTitle) {
+                        modalContent += '<h2 class="mb-3">' + previewTitle.textContent + '</h2>';
+                    }
+                    
+                    // Add content
+                    if (previewBodyContent) {
+                        modalContent += '<div class="post-content">' + previewBodyContent.innerHTML + '</div>';
+                    }
+                    
+                    previewBody.innerHTML = modalContent;
+                }
+                
                 var modal = document.getElementById('postPreviewModal');
                 if (modal && typeof bootstrap !== 'undefined') {
                     var bsModal = new bootstrap.Modal(modal);
