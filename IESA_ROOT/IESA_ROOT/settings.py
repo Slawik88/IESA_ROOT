@@ -254,6 +254,18 @@ if spaces_key and spaces_secret and spaces_bucket and not DEBUG:
     print(f"✅ SPACES ACTIVATED - Bucket: {AWS_STORAGE_BUCKET_NAME}")
     print(f"✅ MEDIA_URL: {MEDIA_URL}")
     print(f"✅ ENDPOINT: {AWS_S3_ENDPOINT_URL}")
+    print(f"✅ DEFAULT_FILE_STORAGE = {DEFAULT_FILE_STORAGE}")
+    
+    # Явно импортируем storage class чтобы проверить что он доступен
+    try:
+        from storages.backends.s3boto3 import S3Boto3Storage
+        print(f"✅ S3Boto3Storage imported successfully")
+        # Создаем тестовый instance чтобы убедиться что настройки работают
+        test_storage = S3Boto3Storage()
+        print(f"✅ S3Boto3Storage instance created: bucket={test_storage.bucket_name}")
+    except Exception as e:
+        print(f"❌ S3Boto3Storage ERROR: {e}")
+    
     print("=" * 80)
 else:
     print("❌ SPACES NOT ACTIVATED - Using local storage")
