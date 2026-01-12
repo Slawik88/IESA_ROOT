@@ -37,6 +37,7 @@ SITE_DOMAIN = os.getenv('SITE_DOMAIN', 'iesasport.ch')
 CSRF_TRUSTED_ORIGINS = [
     'https://iesasport.ch',
     'https://www.iesasport.ch',
+    'https://iesaroot-app-8kuyb.ondigitalocean.app',  # DigitalOcean App Platform
 ]
 
 # Для локальной разработки добавляем HTTP адреса
@@ -204,6 +205,10 @@ if not DEBUG:
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+
+# IMPORTANT: In production, media files should be served from object storage (S3, DO Spaces)
+# For temporary SQLite setup, we'll serve media through Django (NOT recommended for production)
+# TODO: Migrate to DigitalOcean Spaces for media files
 
 # CKEditor 5 настройки - современный безопасный редактор
 customColorPalette = [

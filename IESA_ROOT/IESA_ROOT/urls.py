@@ -40,3 +40,7 @@ urlpatterns = [
 # Добавляем маршруты для медиа-файлов в режиме разработки
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+else:
+    # In production with SQLite (temporary), serve media files through Django
+    # TODO: Move to DigitalOcean Spaces for production
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
