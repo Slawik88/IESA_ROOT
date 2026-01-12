@@ -1,0 +1,686 @@
+/* ================================================
+   MOBILE RESPONSIVE STYLES FOR IESA
+   Comprehensive mobile-first adaptive design
+   ================================================ */
+
+/* Base Mobile Styles - All Devices */
+@media (max-width: 768px) {
+    /* Typography Scaling */
+    html { font-size: 14px; }
+    body { font-size: 1rem; line-height: 1.6; }
+    
+    h1 { font-size: 1.75rem !important; line-height: 1.3; }
+    h2 { font-size: 1.5rem !important; line-height: 1.3; }
+    h3 { font-size: 1.3rem !important; line-height: 1.4; }
+    h4 { font-size: 1.15rem !important; }
+    h5, h6 { font-size: 1rem !important; }
+    
+    /* Container & Spacing */
+    .container, .container-fluid {
+        padding-left: 12px !important;
+        padding-right: 12px !important;
+    }
+    
+    .card-modern, .card {
+        padding: 12px !important;
+        margin-bottom: 12px !important;
+    }
+    
+    /* Touch-Friendly Buttons */
+    .btn {
+        min-height: 44px;
+        padding: 12px 18px !important;
+        font-size: 0.95rem !important;
+        width: 100%;
+        margin-bottom: 8px;
+    }
+    
+    .btn-group .btn {
+        width: 100%;
+        margin-right: 0 !important;
+        border-radius: 0.25rem !important;
+    }
+    
+    .d-flex.gap-2 {
+        flex-direction: column !important;
+        gap: 8px !important;
+    }
+    
+    /* Forms - Prevent Zoom on iOS */
+    input, select, textarea, .form-control {
+        font-size: 16px !important;
+        min-height: 44px;
+        padding: 12px !important;
+    }
+    
+    .form-label {
+        font-size: 0.9rem;
+        font-weight: 600;
+        margin-bottom: 6px;
+    }
+    
+    /* Images & Media */
+    img { max-width: 100%; height: auto; }
+    
+    .img-fluid {
+        width: 100%;
+        height: auto;
+    }
+    
+    /* Grid System - Force Single Column */
+    .row > [class*="col-"] {
+        flex: 0 0 100%;
+        max-width: 100%;
+        margin-bottom: 15px;
+    }
+    
+    /* Modals */
+    .modal-dialog {
+        margin: 8px !important;
+        max-width: calc(100% - 16px) !important;
+    }
+    
+    .modal-content {
+        border-radius: 12px;
+    }
+    
+    .modal-body {
+        padding: 15px !important;
+        max-height: 70vh;
+        overflow-y: auto;
+    }
+    
+    .modal-header {
+        padding: 12px 15px !important;
+    }
+}
+
+/* ================================================
+   NAVIGATION MOBILE
+   ================================================ */
+@media (max-width: 768px) {
+    .navbar {
+        padding: 8px 12px !important;
+    }
+    
+    .navbar-brand {
+        font-size: 1.15rem !important;
+    }
+    
+    .navbar-brand img {
+        max-height: 35px;
+    }
+    
+    .navbar-toggler {
+        padding: 6px 10px;
+        border: none;
+    }
+    
+    .navbar-collapse {
+        background: var(--bs-body-bg, white);
+        margin-top: 10px;
+        padding: 15px;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    
+    .nav-link {
+        padding: 12px 15px !important;
+        border-bottom: 1px solid rgba(0,0,0,0.05);
+        font-size: 1rem !important;
+    }
+    
+    .nav-link:last-child {
+        border-bottom: none;
+    }
+    
+    .dropdown-menu {
+        border: none !important;
+        box-shadow: none !important;
+        padding: 0 !important;
+        margin-top: 0 !important;
+    }
+    
+    .dropdown-item {
+        padding: 10px 20px !important;
+        font-size: 0.95rem !important;
+    }
+}
+
+/* ================================================
+   BLOG POSTS - MOBILE
+   ================================================ */
+@media (max-width: 768px) {
+    /* Post List */
+    .post-card {
+        margin-bottom: 15px !important;
+    }
+    
+    .post-card img,
+    .post-card .preview-image {
+        max-height: 180px !important;
+        width: 100%;
+        object-fit: cover;
+    }
+    
+    .post-card .card-body {
+        padding: 12px !important;
+    }
+    
+    .post-card h3,
+    .post-card .post-title {
+        font-size: 1.2rem !important;
+        margin-bottom: 8px !important;
+        line-height: 1.4;
+    }
+    
+    .post-meta,
+    .post-card .text-muted {
+        font-size: 0.8rem !important;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+    
+    .post-meta span {
+        display: inline-block;
+        margin-right: 10px;
+    }
+    
+    /* Post Detail */
+    .post-detail {
+        padding: 12px !important;
+    }
+    
+    .post-content {
+        font-size: 1rem !important;
+        line-height: 1.7;
+    }
+    
+    .post-content img {
+        width: 100% !important;
+        height: auto !important;
+        margin: 15px 0;
+        border-radius: 8px;
+    }
+    
+    .post-content table {
+        font-size: 0.85rem !important;
+        display: block;
+        overflow-x: auto;
+    }
+    
+    /* Comments */
+    .comment {
+        padding: 10px !important;
+        margin-bottom: 10px !important;
+    }
+    
+    .comment-avatar {
+        width: 35px !important;
+        height: 35px !important;
+    }
+    
+    .comment-author {
+        font-size: 0.9rem !important;
+        font-weight: 600;
+    }
+    
+    .comment-text {
+        font-size: 0.9rem !important;
+        line-height: 1.5;
+    }
+    
+    .comment-form textarea {
+        min-height: 100px !important;
+    }
+}
+
+/* ================================================
+   POST CREATE FORM - MOBILE
+   ================================================ */
+@media (max-width: 768px) {
+    #post-create-form {
+        padding: 0 !important;
+    }
+    
+    #post-create-form .mb-4 {
+        margin-bottom: 15px !important;
+    }
+    
+    /* Quill Editor */
+    #quill-editor {
+        min-height: 180px !important;
+        font-size: 1rem !important;
+    }
+    
+    .ql-toolbar {
+        position: sticky;
+        top: 0;
+        background: white;
+        z-index: 100;
+        padding: 8px !important;
+        border-radius: 8px 8px 0 0 !important;
+    }
+    
+    .ql-toolbar button {
+        width: 28px !important;
+        height: 28px !important;
+    }
+    
+    .ql-container {
+        font-size: 1rem !important;
+    }
+    
+    /* Preview Section */
+    #post-live-preview {
+        margin-top: 20px !important;
+    }
+    
+    #preview-image-output {
+        max-height: 180px !important;
+    }
+    
+    .preview-placeholder {
+        padding: 30px 15px !important;
+        font-size: 0.9rem !important;
+    }
+}
+
+/* ================================================
+   PROFILE - MOBILE
+   ================================================ */
+@media (max-width: 768px) {
+    .profile-header {
+        flex-direction: column !important;
+        text-align: center !important;
+        gap: 15px;
+    }
+    
+    .profile-avatar {
+        width: 100px !important;
+        height: 100px !important;
+        margin: 0 auto 10px !important;
+    }
+    
+    .profile-info {
+        margin-left: 0 !important;
+        text-align: center !important;
+    }
+    
+    .profile-stats {
+        display: grid !important;
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 8px !important;
+        margin-top: 15px;
+    }
+    
+    .profile-stat-item {
+        text-align: center;
+        padding: 12px 8px !important;
+        background: #f8f9fa;
+        border-radius: 8px;
+    }
+    
+    .profile-stat-item .stat-number {
+        font-size: 1.4rem !important;
+        font-weight: 700;
+        display: block;
+    }
+    
+    .profile-stat-item .stat-label {
+        font-size: 0.75rem !important;
+        color: #666;
+    }
+    
+    /* QR Code */
+    .qr-code-container {
+        max-width: 220px !important;
+        margin: 0 auto !important;
+    }
+    
+    .qr-code-container img {
+        width: 100% !important;
+        height: auto !important;
+    }
+}
+
+/* ================================================
+   GALLERY - MOBILE
+   ================================================ */
+@media (max-width: 768px) {
+    .gallery-grid {
+        display: grid !important;
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 8px !important;
+    }
+    
+    .gallery-item {
+        height: 140px !important;
+        border-radius: 8px;
+        overflow: hidden;
+    }
+    
+    .gallery-item img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    
+    /* Gallery modal */
+    .gallery-modal .modal-body {
+        padding: 0 !important;
+    }
+    
+    .gallery-modal img {
+        width: 100%;
+        height: auto;
+    }
+}
+
+/* ================================================
+   PRODUCTS - MOBILE
+   ================================================ */
+@media (max-width: 768px) {
+    .product-grid {
+        display: grid !important;
+        grid-template-columns: 1fr !important;
+        gap: 12px !important;
+    }
+    
+    .product-card {
+        display: flex !important;
+        flex-direction: row !important;
+        gap: 12px;
+        padding: 12px !important;
+    }
+    
+    .product-card img {
+        width: 90px !important;
+        height: 90px !important;
+        object-fit: cover;
+        border-radius: 8px;
+        flex-shrink: 0;
+    }
+    
+    .product-card .card-body {
+        flex: 1;
+        padding: 0 !important;
+    }
+    
+    .product-card h5 {
+        font-size: 1.05rem !important;
+        margin-bottom: 4px !important;
+    }
+    
+    .product-card .price {
+        font-size: 1.1rem !important;
+        font-weight: 700;
+    }
+}
+
+/* ================================================
+   EVENTS - MOBILE
+   ================================================ */
+@media (max-width: 768px) {
+    .event-card {
+        margin-bottom: 12px !important;
+    }
+    
+    .event-image {
+        max-height: 160px !important;
+        width: 100%;
+        object-fit: cover;
+    }
+    
+    .event-date {
+        font-size: 0.8rem !important;
+        padding: 6px 10px !important;
+    }
+    
+    .event-details {
+        padding: 12px !important;
+    }
+    
+    .event-title {
+        font-size: 1.15rem !important;
+        line-height: 1.4;
+    }
+    
+    .event-description {
+        font-size: 0.9rem !important;
+        line-height: 1.5;
+    }
+}
+
+/* ================================================
+   SEARCH - MOBILE
+   ================================================ */
+@media (max-width: 768px) {
+    .search-bar {
+        width: 100% !important;
+        margin-bottom: 12px;
+    }
+    
+    .search-bar input {
+        font-size: 16px !important;
+        padding: 12px 15px !important;
+        border-radius: 8px !important;
+    }
+    
+    .search-results {
+        padding: 8px !important;
+    }
+    
+    .search-result-item {
+        padding: 12px !important;
+        margin-bottom: 8px !important;
+        border-radius: 8px;
+    }
+    
+    .search-result-title {
+        font-size: 1.05rem !important;
+        margin-bottom: 4px;
+    }
+    
+    .search-result-meta {
+        font-size: 0.8rem !important;
+    }
+    
+    .search-filters {
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 8px !important;
+    }
+    
+    .search-filter-btn {
+        width: 100% !important;
+        padding: 10px !important;
+    }
+}
+
+/* ================================================
+   TABLES - MOBILE RESPONSIVE
+   ================================================ */
+@media (max-width: 768px) {
+    table {
+        font-size: 0.85rem !important;
+        border: 0 !important;
+    }
+    
+    table thead {
+        display: none;
+    }
+    
+    table, table tbody, table tr, table td {
+        display: block;
+        width: 100%;
+    }
+    
+    table tr {
+        margin-bottom: 12px;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        padding: 12px;
+        background: white;
+    }
+    
+    table td {
+        text-align: left !important;
+        padding: 8px 0 !important;
+        position: relative;
+        padding-left: 45% !important;
+        border: none !important;
+    }
+    
+    table td:before {
+        content: attr(data-label);
+        position: absolute;
+        left: 0;
+        font-weight: 600;
+        color: #555;
+        white-space: nowrap;
+    }
+    
+    table td:first-child {
+        padding-top: 0 !important;
+    }
+    
+    table td:last-child {
+        padding-bottom: 0 !important;
+    }
+}
+
+/* ================================================
+   FOOTER - MOBILE
+   ================================================ */
+@media (max-width: 768px) {
+    footer {
+        padding: 25px 15px !important;
+        text-align: center !important;
+    }
+    
+    footer .row {
+        flex-direction: column !important;
+    }
+    
+    footer [class*="col-"] {
+        margin-bottom: 20px !important;
+    }
+    
+    footer h5 {
+        font-size: 1.05rem !important;
+        margin-bottom: 10px !important;
+    }
+    
+    footer ul {
+        padding: 0 !important;
+        list-style: none;
+    }
+    
+    footer li {
+        margin-bottom: 8px;
+    }
+    
+    footer a {
+        font-size: 0.9rem !important;
+        color: inherit;
+    }
+}
+
+/* ================================================
+   UTILITY CLASSES - MOBILE
+   ================================================ */
+@media (max-width: 768px) {
+    .mobile-hide { display: none !important; }
+    .mobile-show { display: block !important; }
+    .mobile-text-center { text-align: center !important; }
+    .mobile-full-width { width: 100% !important; }
+    
+    .p-5 { padding: 1.5rem !important; }
+    .p-4 { padding: 1rem !important; }
+    .mb-5 { margin-bottom: 1.5rem !important; }
+    .mb-4 { margin-bottom: 1rem !important; }
+    
+    .gap-3 { gap: 0.75rem !important; }
+    .gap-4 { gap: 1rem !important; }
+}
+
+/* ================================================
+   TOUCH OPTIMIZATIONS
+   ================================================ */
+@media (max-width: 768px) {
+    /* Increase all clickable areas */
+    a, button, .btn, .nav-link, label {
+        min-height: 44px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    /* Better tap feedback */
+    * {
+        -webkit-tap-highlight-color: rgba(65, 118, 144, 0.2);
+    }
+    
+    /* Smooth scrolling */
+    html {
+        scroll-behavior: smooth;
+    }
+    
+    /* Remove hover effects on touch devices */
+    .btn:hover, 
+    a:hover {
+        transform: none !important;
+    }
+}
+
+/* ================================================
+   DARK MODE SUPPORT
+   ================================================ */
+@media (prefers-color-scheme: dark) {
+    @media (max-width: 768px) {
+        .navbar-collapse {
+            background: #2d3748 !important;
+            color: #e2e8f0 !important;
+        }
+        
+        .card, .post-card, .event-card {
+            background: #2d3748 !important;
+            color: #e2e8f0 !important;
+        }
+        
+        table tr {
+            background: #2d3748 !important;
+            border-color: #4a5568 !important;
+        }
+        
+        .ql-toolbar {
+            background: #374151 !important;
+            border-color: #4b5563 !important;
+        }
+        
+        .profile-stat-item {
+            background: #374151 !important;
+            color: #e2e8f0 !important;
+        }
+    }
+}
+
+/* ================================================
+   LANDSCAPE MODE ADJUSTMENTS
+   ================================================ */
+@media (max-width: 768px) and (orientation: landscape) {
+    .modal-body {
+        max-height: 60vh !important;
+    }
+    
+    .navbar-collapse {
+        max-height: 70vh;
+        overflow-y: auto;
+    }
+    
+    #quill-editor {
+        min-height: 120px !important;
+    }
+}
