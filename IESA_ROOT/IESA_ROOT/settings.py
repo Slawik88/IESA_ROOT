@@ -233,7 +233,8 @@ if spaces_key and spaces_secret and spaces_bucket and not DEBUG:
     AWS_S3_OBJECT_PARAMETERS = {
         'CacheControl': 'max-age=86400',
     }
-    AWS_LOCATION = 'media'
+    # IMPORTANT: Do NOT use AWS_LOCATION - models use upload_to='media/...'
+    # AWS_LOCATION would add extra prefix and break URLs
     AWS_DEFAULT_ACL = None  # DigitalOcean Spaces uses bucket-level ACL
     AWS_QUERYSTRING_AUTH = False
     AWS_S3_CUSTOM_DOMAIN = f'{AWS_STORAGE_BUCKET_NAME}.fra1.digitaloceanspaces.com'
@@ -260,12 +261,14 @@ if spaces_key and spaces_secret and spaces_bucket and not DEBUG:
         },
     }
     
-    MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/{AWS_LOCATION}/'
+    # MEDIA_URL points to CDN without extra 'media/' prefix (models use upload_to='...')
+    MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/'
     
-    print(f"✅ SPACES ACTIVATED - Bucket: {AWS_STORAGE_BUCKET_NAME}")
+    print(f"✅ SPACES ACTIVATED")
+    print(f"✅ Bucket: {AWS_STORAGE_BUCKET_NAME}")
     print(f"✅ MEDIA_URL: {MEDIA_URL}")
-    print(f"✅ ENDPOINT: {AWS_S3_ENDPOINT_URL}")
-    print(f"✅ STORAGES configured for Django 5.x")
+    print(f"✅ Endpoint: {AWS_S3_ENDPOINT_URL}")
+    print(f"✅ All files will be stored at: https://{AWS_S3_CUSTOM_DOMAIN}/<model_upload_to>/<filename>")
     
     print("=" * 80)
 else:
