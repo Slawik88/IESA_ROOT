@@ -231,7 +231,7 @@ if spaces_key and spaces_secret and spaces_bucket and not DEBUG:
         'CacheControl': 'max-age=86400',
     }
     AWS_LOCATION = 'media'
-    AWS_DEFAULT_ACL = 'public-read'
+    AWS_DEFAULT_ACL = None  # DigitalOcean Spaces uses bucket-level ACL
     AWS_QUERYSTRING_AUTH = False
     AWS_S3_CUSTOM_DOMAIN = f'{AWS_STORAGE_BUCKET_NAME}.fra1.digitaloceanspaces.com'
     
