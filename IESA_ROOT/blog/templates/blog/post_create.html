@@ -102,80 +102,83 @@ document.addEventListener('DOMContentLoaded', function(){
 
     // On form submit, copy HTML back to textarea
     var form = ta.closest('form');
-        if (form) {
-            form.addEventListener('submit', function(){
-                ta.value = quill.root.innerHTML;
-            });
+    if (form) {
+        form.addEventListener('submit', function(e){
+            // Синхронизируем Quill контент с textarea перед отправкой
+            ta.value = quill.root.innerHTML;
+            // Разрешаем отправку формы
+            return true;
+        });
 
-            // Live preview sync
-            var previewTitle = document.getElementById('preview-title');
-            var previewBody = document.getElementById('preview-body');
-            var titleInput = form.querySelector('input[name="title"]');
-            function syncPreview(){
-                if (previewTitle && titleInput) previewTitle.textContent = titleInput.value || 'Заголовок поста';
-                if (previewBody) previewBody.innerHTML = quill.root.innerHTML || 'Описание появится здесь после редактирования.';
-            }
-            quill.on('text-change', syncPreview);
-            if (titleInput) titleInput.addEventListener('input', syncPreview);
-            syncPreview();
+        // Live preview sync
+        var previewTitle = document.getElementById('preview-title');
+        var previewBody = document.getElementById('preview-body');
+        var titleInput = form.querySelector('input[name="title"]');
+        function syncPreview(){
+            if (previewTitle && titleInput) previewTitle.textContent = titleInput.value || 'Заголовок поста';
+            if (previewBody) previewBody.innerHTML = quill.root.innerHTML || 'Описание появится здесь после редактирования.';
+        }
+        quill.on('text-change', syncPreview);
+        if (titleInput) titleInput.addEventListener('input', syncPreview);
+        syncPreview();
 
-            // Image preview
-            var imageInput = form.querySelector('input[type="file"][name="preview_image"]');
-            var previewImg = document.getElementById('preview-image-output');
-            var previewPlaceholder = document.getElementById('preview-image-placeholder');
-            if (imageInput && previewImg) {
-                imageInput.addEventListener('change', function(ev){
-                    const file = ev.target.files?.[0];
-                    if (!file) return;
-                    const reader = new FileReader();
-                    reader.onload = function(e){
-                        previewImg.src = e.target.result;
-                        previewImg.style.display = 'block';
-                        if (previewPlaceholder) previewPlaceholder.style.display = 'none';
-                    };
-                    reader.readAsDataURL(file);
-                });
-            }
-
-            // Preview modal
-            var previewBtn = document.getElementById('preview-btn');
-            if (previewBtn) previewBtn.addEventListener('click', function(){
-                syncPreview();
-                
-                // Fill modal with preview content
-                var previewBody = document.getElementById('post-preview-body');
-                if (previewBody) {
-                    var previewTitle = document.getElementById('preview-title');
-                    var previewBodyContent = document.getElementById('preview-body');
-                    var previewImg = document.getElementById('preview-image-output');
-                    
-                    var modalContent = '';
-                    
-                    // Add image if present
-                    if (previewImg && previewImg.style.display !== 'none' && previewImg.src) {
-                        modalContent += '<div class="mb-3"><img src="' + previewImg.src + '" class="img-fluid rounded" alt="Preview"/></div>';
-                    }
-                    
-                    // Add title
-                    if (previewTitle) {
-                        modalContent += '<h2 class="mb-3">' + previewTitle.textContent + '</h2>';
-                    }
-                    
-                    // Add content
-                    if (previewBodyContent) {
-                        modalContent += '<div class="post-content">' + previewBodyContent.innerHTML + '</div>';
-                    }
-                    
-                    previewBody.innerHTML = modalContent;
-                }
-                
-                var modal = document.getElementById('postPreviewModal');
-                if (modal && typeof bootstrap !== 'undefined') {
-                    var bsModal = new bootstrap.Modal(modal);
-                    bsModal.show();
-                }
+        // Image preview
+        var imageInput = form.querySelector('input[type="file"][name="preview_image"]');
+        var previewImg = document.getElementById('preview-image-output');
+        var previewPlaceholder = document.getElementById('preview-image-placeholder');
+        if (imageInput && previewImg) {
+            imageInput.addEventListener('change', function(ev){
+                const file = ev.target.files?.[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = function(e){
+                    previewImg.src = e.target.result;
+                    previewImg.style.display = 'block';
+                    if (previewPlaceholder) previewPlaceholder.style.display = 'none';
+                };
+                reader.readAsDataURL(file);
             });
         }
+
+        // Preview modal
+        var previewBtn = document.getElementById('preview-btn');
+        if (previewBtn) previewBtn.addEventListener('click', function(){
+            syncPreview();
+            
+            // Fill modal with preview content
+            var previewBody = document.getElementById('post-preview-body');
+            if (previewBody) {
+                var previewTitle = document.getElementById('preview-title');
+                var previewBodyContent = document.getElementById('preview-body');
+                var previewImg = document.getElementById('preview-image-output');
+                
+                var modalContent = '';
+                
+                // Add image if present
+                if (previewImg && previewImg.style.display !== 'none' && previewImg.src) {
+                    modalContent += '<div class="mb-3"><img src="' + previewImg.src + '" class="img-fluid rounded" alt="Preview"/></div>';
+                }
+                
+                // Add title
+                if (previewTitle) {
+                    modalContent += '<h2 class="mb-3">' + previewTitle.textContent + '</h2>';
+                }
+                
+                // Add content
+                if (previewBodyContent) {
+                    modalContent += '<div class="post-content">' + previewBodyContent.innerHTML + '</div>';
+                }
+                
+                previewBody.innerHTML = modalContent;
+            }
+            
+            var modal = document.getElementById('postPreviewModal');
+            if (modal && typeof bootstrap !== 'undefined') {
+                var bsModal = new bootstrap.Modal(modal);
+                bsModal.show();
+            }
+        });
+    }
 });
 </script>
 
