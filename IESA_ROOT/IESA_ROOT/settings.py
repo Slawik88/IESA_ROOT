@@ -205,7 +205,10 @@ if not DEBUG:
     STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
+if DEBUG:
+    MEDIA_ROOT = BASE_DIR / 'media'
+else:
+    MEDIA_ROOT = None  # Not used with S3 storage
 
 # DigitalOcean Spaces configuration for media files
 # В production используем Spaces вместо локального хранилища
