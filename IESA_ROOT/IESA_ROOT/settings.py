@@ -247,24 +247,22 @@ if spaces_key and spaces_secret and spaces_bucket and not DEBUG:
     storages_logger = logging.getLogger('storages')
     storages_logger.setLevel(logging.DEBUG)
     
-    # Media files storage
-    DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
+    # STORAGES dict (Django 5.x format) - заменяет DEFAULT_FILE_STORAGE
+    STORAGES = {
+        "default": {
+            "BACKEND": "storages.backends.s3boto3.S3Boto3Storage",
+        },
+        "staticfiles": {
+            "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+        },
+    }
+    
     MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/{AWS_LOCATION}/'
     
     print(f"✅ SPACES ACTIVATED - Bucket: {AWS_STORAGE_BUCKET_NAME}")
     print(f"✅ MEDIA_URL: {MEDIA_URL}")
     print(f"✅ ENDPOINT: {AWS_S3_ENDPOINT_URL}")
-    print(f"✅ DEFAULT_FILE_STORAGE = {DEFAULT_FILE_STORAGE}")
-    
-    # Явно импортируем storage class чтобы проверить что он доступен
-    try:
-        from storages.backends.s3boto3 import S3Boto3Storage
-        print(f"✅ S3Boto3Storage imported successfully")
-        # Создаем тестовый instance чтобы убедиться что настройки работают
-        test_storage = S3Boto3Storage()
-        print(f"✅ S3Boto3Storage instance created: bucket={test_storage.bucket_name}")
-    except Exception as e:
-        print(f"❌ S3Boto3Storage ERROR: {e}")
+    print(f"✅ STORAGES configured for Django 5.x")
     
     print("=" * 80)
 else:
