@@ -27,6 +27,7 @@ else:
         'www.iesasport.ch',
         '162.159.140.98',  # DigitalOcean static IP 1
         '172.66.0.96',     # DigitalOcean static IP 2
+        'iesaroot-app-8kuyb.ondigitalocean.app'  # DigitalOcean App Platform domain
     ]
 
 # Site domain для QR кодов и других URL построений
