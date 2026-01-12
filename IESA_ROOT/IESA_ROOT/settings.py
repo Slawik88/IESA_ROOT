@@ -25,6 +25,8 @@ else:
         '127.0.0.1',
         'iesasport.ch',
         'www.iesasport.ch',
+        '162.159.140.98',  # DigitalOcean static IP 1
+        '172.66.0.96',     # DigitalOcean static IP 2
     ]
 
 # Site domain для QR кодов и других URL построений
@@ -45,7 +47,7 @@ if DEBUG:
         'http://localhost:8001',
         'https://127.0.0.1:8443',
         'https://localhost:8443',
-    ]  
+    ]
 
 # Регистрация всех приложений и HTMX
 INSTALLED_APPS = [
