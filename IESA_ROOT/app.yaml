@@ -4,32 +4,20 @@ services:
   github:
     branch: master
     repo: Slawik88/IESA_ROOT
-  build_command: pip install -r requirements.txt && python manage.py migrate && python
-    manage.py collectstatic --clear --noinput && python manage.py populate_fake_data
+  source_dir: IESA_ROOT
+  build_command: |
+    pip install -r requirements.txt && \
+    python manage.py migrate && \
+    python manage.py collectstatic --clear --noinput && \
+    python manage.py populate_fake_data --users=12 --posts=15 --products=18 --events=12
+  run_command: gunicorn IESA_ROOT.wsgi:application --bind 0.0.0.0:8080 --workers=2
+  http_port: 8080
+  instance_count: 1
+  instance_size_slug: basic-xs
   envs:
   - key: DEBUG
     value: "False"
   - key: ALLOWED_HOSTS
-    value: iesa.app
+    value: "*.ondigitalocean.app,iesa.app"
   - key: DATABASE_URL
     value: ${db.connection_string}
-  http_port: 8080
-  instance_count: 1
-  instance_size_slug: basic-xs
-  run_command: gunicorn IESA_ROOT.wsgi:application --bind 0.0.0.0:8080
-  source_dir: IESA_ROOT
-
-databases:
-- name: db
-  engine: MYSQL
-  version: "8"
-  production: true
-
-jobs:
-- name: populate-data
-  github:
-    branch: master
-    repo: Slawik88/IESA_ROOT
-  build_command: pip install -r requirements.txt && python manage.py migrate
-  run_command: python manage.py populate_fake_data
-  source_dir: IESA_ROOT
