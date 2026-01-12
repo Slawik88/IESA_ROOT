@@ -7,8 +7,8 @@
     <title>{% block title %}IESA ROOT{% endblock %}</title>
     
     <!-- SEO Meta Tags -->
-    <meta name="description" content="{% block meta_description %}IESA - Международная ассоциация студентов и выпускников. События, блог, галерея и товары для членов сообщества.{% endblock %}">
-    <meta name="keywords" content="{% block meta_keywords %}IESA, студенты, события, блог, галерея, сообщество{% endblock %}">
+    <meta name="description" content="{% block meta_description %}IESA - Extreme Sports Community. Kitesurfing in Egypt, Boxing, Adventure Travel & Sauna Experiences. Join our international athletes and enthusiasts.{% endblock %}">
+    <meta name="keywords" content="{% block meta_keywords %}extreme sports, kitesurfing Egypt, boxing, adventure travel, sauna, community, athletes{% endblock %}">
     <meta name="author" content="IESA">
     <link rel="canonical" href="{% block canonical_url %}{{ request.build_absolute_uri }}{% endblock %}">
     
@@ -16,7 +16,7 @@
     <meta property="og:type" content="{% block og_type %}website{% endblock %}">
     <meta property="og:url" content="{% block og_url %}{{ request.build_absolute_uri }}{% endblock %}">
     <meta property="og:title" content="{% block og_title %}IESA ROOT{% endblock %}">
-    <meta property="og:description" content="{% block og_description %}IESA - Международная ассоциация студентов и выпускников. События, блог, галерея и товары для членов сообщества.{% endblock %}">
+    <meta property="og:description" content="{% block og_description %}IESA - Extreme Sports Community. Experience kitesurfing in Egypt, boxing, adventure travel and exclusive sauna access. Join international athletes.{% endblock %}">
     <meta property="og:image" content="{% block og_image %}{% static 'img/og-default.jpg' %}{% endblock %}">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
@@ -27,7 +27,7 @@
     <meta name="twitter:card" content="{% block twitter_card %}summary_large_image{% endblock %}">
     <meta name="twitter:url" content="{% block twitter_url %}{{ request.build_absolute_uri }}{% endblock %}">
     <meta name="twitter:title" content="{% block twitter_title %}IESA ROOT{% endblock %}">
-    <meta name="twitter:description" content="{% block twitter_description %}IESA - Международная ассоциация студентов и выпускников. События, блог, галерея и товары для членов сообщества.{% endblock %}">
+    <meta name="twitter:description" content="{% block twitter_description %}IESA - Extreme Sports Community. Kitesurfing in Egypt, Boxing, Adventure Travel & Sauna for Athletes.{% endblock %}">
     <meta name="twitter:image" content="{% block twitter_image %}{% static 'img/og-default.jpg' %}{% endblock %}">
     
     <!-- Favicon -->
@@ -204,8 +204,8 @@
     <!-- Bootstrap JS (bundle includes Popper) -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     
-    <!-- HTMX CDN -->
-    <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+    <!-- HTMX Local (fixed Tracking Prevention issues) -->
+    <script src="{% static 'js/htmx.min.js' %}"></script>
 
     <!-- Lightbox JS -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/lightbox2/2.11.3/js/lightbox-plus-jquery.min.js"></script>
