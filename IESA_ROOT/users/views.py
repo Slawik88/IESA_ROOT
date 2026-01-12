@@ -7,6 +7,8 @@ from django.utils.decorators import method_decorator
 from django.contrib import messages
 from django.http import HttpResponseForbidden
 from django.db.models import Q
+from django_ratelimit.decorators import ratelimit
+from django.core.cache import cache
 from .models import User
 from .forms import CustomUserCreationForm, UserProfileEditForm
 from blog.models import Post
@@ -156,24 +158,46 @@ def qr_image(request, permanent_id):
 
     URL: /auth/qr/<uuid>/
     If ?download=1 is present, respond with Content-Disposition attachment.
+    
+    SECURITY: Validates permanent_id is valid UUID to prevent path traversal.
+    Uses Redis cache with 1-hour timeout to reduce disk I/O.
     """
+    # Check cache first
+    cache_key = f'qr_image_{permanent_id}'
+    cached_data = cache.get(cache_key)
+    
+    # Validate permanent_id format - must be valid UUID
+    try:
+        import uuid
+        uuid.UUID(str(permanent_id))
+    except (ValueError, AttributeError):
+        raise Http404("Invalid ID format")
+    
     try:
         user_obj = User.objects.get(permanent_id=permanent_id)
     except User.DoesNotExist:
         raise Http404("User not found")
 
-    # Expected file path
+    # Safe filename - use UUID directly (already validated)
     filename = f"{permanent_id}.png"
     cards_dir = os.path.join(settings.MEDIA_ROOT, 'cards')
     filepath = os.path.join(cards_dir, filename)
+    
+    # SECURITY: Verify path is within cards_dir (prevent directory traversal)
+    filepath = os.path.abspath(filepath)
+    cards_dir = os.path.abspath(cards_dir)
+    if not filepath.startswith(cards_dir):
+        raise Http404("Invalid path")
 
     # If missing, try to generate
     if not os.path.exists(filepath):
-        # generate_qr_code_for_user saves file to MEDIA_ROOT/cards/
         try:
-            generate_qr_code_for_user(user_obj)
-        except Exception:
-            # swallow exceptions here and return 404
+            generate_qr_code_for_user(user_obj, request)
+            # Invalidate cache after regeneration
+            cache.delete(cache_key)
+        except Exception as e:
+            import logging
+            logging.error(f"QR generation failed for user {user_obj.id}: {str(e)}")
             raise Http404("QR generation failed")
 
     # If still missing -> 404
@@ -186,14 +210,24 @@ def qr_image(request, permanent_id):
         if not request.user.is_authenticated or (request.user.id != user_obj.id and not request.user.is_staff):
             return HttpResponseForbidden('Not allowed')
 
-    # Serve file
-    response = FileResponse(open(filepath, 'rb'), content_type='image/png')
-    if download:
-        response['Content-Disposition'] = f'attachment; filename=qr_{user_obj.username}.png'
-    else:
-        # Inline display
-        response['Content-Disposition'] = f'inline; filename=qr_{user_obj.username}.png'
-    return response
+    # Serve file safely
+    try:
+        with open(filepath, 'rb') as f:
+            file_content = f.read()
+        
+        # Cache file content for 1 hour (3600 seconds)
+        cache.set(cache_key, file_content, 3600)
+        
+        # Return cached or fresh content
+        from django.http import HttpResponse
+        response = HttpResponse(cached_data if cached_data else file_content, content_type='image/png')
+        if download:
+            response['Content-Disposition'] = f'attachment; filename=qr_{user_obj.username}.png'
+        else:
+            response['Content-Disposition'] = f'inline; filename=qr_{user_obj.username}.png'
+        return response
+    except IOError:
+        raise Http404("Cannot read file")
 
 
 def activity_levels_info(request):

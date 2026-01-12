@@ -2,9 +2,15 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
+from django.contrib.sitemaps.views import sitemap
+from blog.sitemaps import sitemaps
+from .protected_media_views import serve_protected_media
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    
+    # Protected media files (requires authentication)
+    path('protected/<path:file_path>', serve_protected_media, name='serve_protected_media'),
     
     # Core app (Главная страница)
     path('', include('core.urls')),
@@ -23,6 +29,9 @@ urlpatterns = [
     
     # Notifications app
     path('notifications/', include('notifications.urls')),
+    
+    # Sitemap
+    path('sitemap.xml', sitemap, {'sitemaps': sitemaps}, name='django.contrib.sitemaps.views.sitemap'),
     
     # CKEditor 5 upload path
     path('ckeditor5/', include('django_ckeditor_5.urls')),

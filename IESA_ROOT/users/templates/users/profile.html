@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}My Profile | IESA_ROOT{% endblock %}
+{% block title %}My Profile | IESA{% endblock %}
 
 {% block content %}
 <div class="container-limited">
@@ -34,8 +34,8 @@
                         {# Use the QR serving view as image src so missing files are generated on demand #}
                         <a href="{% url 'profile_by_card' permanent_id=profile_user.permanent_id %}" title="Open profile by card">
                             <img src="{% url 'user_qr' permanent_id=profile_user.permanent_id %}" 
-                                 alt="Your QR Card" 
-                                 style="width: 150px; height: 150px; object-fit: contain; display:block;">
+                                 alt="QR код профиля {{ profile_user.username }}" 
+                                 style="width: 150px; height: 150px; object-fit: contain; display:block;" loading="lazy">
                         </a>
                         <div class="d-flex justify-content-center gap-2 mt-2">
                             {% if user.is_authenticated and user.id == profile_user.id %}
@@ -76,33 +76,57 @@
                     </div>
                 </div>
 
-                <!-- Activity Level Badge -->
-                <div class="text-center mb-4 p-3 bg-light rounded-3">
-                    <div class="d-inline-block">
-                        {% with level=profile_user.get_achievement_level %}
-                        <div class="d-flex align-items-center gap-3">
-                            <div>
-                                <h6 class="text-muted mb-1">Activity Level</h6>
-                                <div class="d-flex gap-2 align-items-center">
-                                    {% if level == "Legend" %}
-                                        <span class="badge bg-danger fs-6"><i class="fas fa-crown me-1"></i>Legend</span>
-                                    {% elif level == "Expert" %}
-                                        <span class="badge bg-warning fs-6"><i class="fas fa-star me-1"></i>Expert</span>
-                                    {% elif level == "Advanced" %}
-                                        <span class="badge bg-info fs-6"><i class="fas fa-rocket me-1"></i>Advanced</span>
-                                    {% elif level == "Intermediate" %}
-                                        <span class="badge bg-success fs-6"><i class="fas fa-fire me-1"></i>Intermediate</span>
-                                    {% else %}
-                                        <span class="badge bg-secondary fs-6"><i class="fas fa-leaf me-1"></i>Beginner</span>
-                                    {% endif %}
+                <!-- Activity Level Badge with Points -->
+                <div class="mb-4 p-4 bg-light rounded-3">
+                    {% with level_info=profile_user.get_achievement_level %}
+                    <div class="row align-items-center">
+                        <div class="col-md-6 text-center text-md-start mb-3 mb-md-0">
+                            <div class="d-flex align-items-center justify-content-center justify-content-md-start gap-3">
+                                <div>
+                                    <h6 class="text-muted mb-1">Activity Level</h6>
+                                    <div class="d-flex gap-2 align-items-center">
+                                        {% if level_info.level == "Legend" %}
+                                            <span class="badge bg-danger fs-5"><i class="fas fa-crown me-1"></i>Legend</span>
+                                        {% elif level_info.level == "Expert" %}
+                                            <span class="badge bg-warning fs-5"><i class="fas fa-star me-1"></i>Expert</span>
+                                        {% elif level_info.level == "Advanced" %}
+                                            <span class="badge bg-info fs-5"><i class="fas fa-rocket me-1"></i>Advanced</span>
+                                        {% elif level_info.level == "Intermediate" %}
+                                            <span class="badge bg-success fs-5"><i class="fas fa-fire me-1"></i>Intermediate</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary fs-5"><i class="fas fa-leaf me-1"></i>Beginner</span>
+                                        {% endif %}
+                                    </div>
                                 </div>
+                                <a href="{% url 'activity_levels_info' %}" class="btn btn-link btn-sm text-primary" title="Learn about activity levels">
+                                    <i class="fas fa-question-circle"></i>
+                                </a>
                             </div>
-                            <a href="{% url 'activity_levels_info' %}" class="btn btn-link btn-sm text-primary" title="Learn about activity levels">
-                                <i class="fas fa-question-circle"></i>
-                            </a>
                         </div>
-                        {% endwith %}
+                        <div class="col-md-6 text-center text-md-end">
+                            <div class="mb-2">
+                                <span class="fs-3 fw-bold text-primary">{{ profile_user.activity_points }}</span>
+                                <span class="text-muted ms-1">Activity Points</span>
+                            </div>
+                            {% if level_info.next_level %}
+                            <div class="small text-muted">
+                                Progress to {{ level_info.next_level }}:
+                                <div class="progress mt-1" style="height: 8px;">
+                                    <div class="progress-bar bg-{{ level_info.color }}" role="progressbar" 
+                                         style="width: {{ level_info.progress }}%" 
+                                         aria-valuenow="{{ level_info.progress }}" aria-valuemin="0" aria-valuemax="100">
+                                    </div>
+                                </div>
+                                <small>{{ level_info.progress }}%</small>
+                            </div>
+                            {% else %}
+                            <div class="small text-warning">
+                                <i class="fas fa-trophy"></i> Maximum level achieved!
+                            </div>
+                            {% endif %}
+                        </div>
                     </div>
+                    {% endwith %}
                 </div>
 
                                 <!-- Social links -->

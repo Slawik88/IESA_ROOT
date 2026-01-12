@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}{{ user_obj.get_full_name|default:user_obj.username }} — Profile | IESA_ROOT{% endblock %}
+{% block title %}{{ user_obj.get_full_name|default:user_obj.username }} — Profile | IESA{% endblock %}
 
 {% block content %}
 <div class="container-limited">
@@ -60,7 +60,19 @@
             </div>
           </div>
           <div class="mt-2 text-center">
-            <span class="badge bg-secondary">{{ user_obj.get_achievement_level }} Level</span>
+            {% with level_info=user_obj.get_achievement_level %}
+            {% if level_info.level == "Legend" %}
+              <span class="badge bg-danger"><i class="fas fa-crown me-1"></i>{{ level_info.level }}</span>
+            {% elif level_info.level == "Expert" %}
+              <span class="badge bg-warning"><i class="fas fa-star me-1"></i>{{ level_info.level }}</span>
+            {% elif level_info.level == "Advanced" %}
+              <span class="badge bg-info"><i class="fas fa-rocket me-1"></i>{{ level_info.level }}</span>
+            {% elif level_info.level == "Intermediate" %}
+              <span class="badge bg-success"><i class="fas fa-fire me-1"></i>{{ level_info.level }}</span>
+            {% else %}
+              <span class="badge bg-secondary"><i class="fas fa-leaf me-1"></i>{{ level_info.level }}</span>
+            {% endif %}
+            {% endwith %}
           </div>
         </div>
         

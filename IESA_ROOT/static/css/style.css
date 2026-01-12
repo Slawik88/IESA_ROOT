@@ -96,11 +96,13 @@ a {
   color: var(--primary);
   text-decoration: none;
   transition: var(--transition);
+  border-bottom: none; /* Убираем черную линию */
 }
 
 a:hover {
   color: var(--primary-dark);
   text-decoration: none;
+  border-bottom: none; /* Убираем черную линию при наведении */
 }
 
 /* ============================================================

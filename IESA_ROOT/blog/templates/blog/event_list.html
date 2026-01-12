@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Events | IESA_ROOT{% endblock %}
+{% block title %}Events | IESA{% endblock %}
 
 {% block content %}
 <div class="container-limited">
@@ -12,7 +12,21 @@
             <a class="nav-link" href="{% url 'post_list' %}">All posts</a>
             <a class="nav-link active" href="{% url 'event_list' %}">Events</a>
         </nav>
-        <a href="{% url 'post_list' %}" class="btn btn-outline-secondary btn-modern">Back to blog</a>
+        <div class="ms-3 flex-fill d-flex gap-2">
+            <input type="text" id="event-search" class="form-control form-control-sm" placeholder="Search events..." aria-label="Search events">
+            <select id="event-filter-type" class="form-select form-select-sm" style="max-width: 120px;">
+                <option value="">All types</option>
+                <option value="webinar">Webinar</option>
+                <option value="workshop">Workshop</option>
+                <option value="conference">Conference</option>
+            </select>
+            <select id="event-filter-status" class="form-select form-select-sm" style="max-width: 140px;">
+                <option value="upcoming">Upcoming</option>
+                <option value="all">All events</option>
+                <option value="past">Past</option>
+            </select>
+        </div>
+        <a href="{% url 'post_list' %}" class="btn btn-outline-secondary btn-modern ms-3">Back to blog</a>
     </div>
 
     {% if events %}
@@ -20,7 +34,7 @@
             {% for event in events %}
                 {% with event_ts=event.date|date:"U" %}
                 <div class="col-md-6">
-                    <div class="card card-modern h-100 event-card">
+                    <div class="card card-modern h-100 event-card" data-event-card data-event-title="{{ event.title }}" data-event-location="{{ event.location }}" data-event-type="webinar" data-event-ts="{{ event_ts }}">
                         <div class="event-date-chip">
                             <div class="event-date-day">{{ event.date|date:"d" }}</div>
                             <div class="event-date-month">{{ event.date|date:"b" }}</div>
@@ -28,7 +42,7 @@
                         <div class="row g-0">
                             <div class="col-md-4">
                                 {% if event.image %}
-                                    <img src="{{ event.image.url }}" class="card-modern__image w-100 h-100" alt="{{ event.title }}">
+                                    <img src="{{ event.image.url }}" class="card-modern__image w-100 h-100" alt="{{ event.title }}" loading="lazy">
                                 {% endif %}
                             </div>
                             <div class="col-md-8">
@@ -55,6 +69,51 @@
                 {% endwith %}
             {% endfor %}
         </div>
+        
+        <script>
+        document.addEventListener('DOMContentLoaded', function(){
+            const searchInput = document.getElementById('event-search');
+            const filterType = document.getElementById('event-filter-type');
+            const filterStatus = document.getElementById('event-filter-status');
+            const eventCards = document.querySelectorAll('[data-event-card]');
+            
+            function filterEvents(){
+                const query = searchInput.value.toLowerCase();
+                const type = filterType.value;
+                const status = filterStatus.value;
+                const now = new Date().getTime() / 1000;
+                
+                eventCards.forEach(card => {
+                    let show = true;
+                    
+                    // Search filter
+                    if (query) {
+                        const title = card.dataset.eventTitle?.toLowerCase() || '';
+                        const location = card.dataset.eventLocation?.toLowerCase() || '';
+                        show = title.includes(query) || location.includes(query);
+                    }
+                    
+                    // Type filter
+                    if (show && type) {
+                        show = card.dataset.eventType === type;
+                    }
+                    
+                    // Status filter
+                    if (show && status !== '') {
+                        const eventTime = parseInt(card.dataset.eventTs || 0);
+                        if (status === 'upcoming') show = eventTime > now;
+                        else if (status === 'past') show = eventTime <= now;
+                    }
+                    
+                    card.parentElement.style.display = show ? '' : 'none';
+                });
+            }
+            
+            searchInput.addEventListener('keyup', filterEvents);
+            filterType.addEventListener('change', filterEvents);
+            filterStatus.addEventListener('change', filterEvents);
+        });
+        </script>
     {% else %}
         <div class="empty-state">
             <div class="empty-emoji">📅</div>
@@ -68,4 +127,60 @@
         </div>
     {% endif %}
 </div>
+
+<style>
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.event-card-animate {
+    opacity: 0;
+}
+
+.event-card-animate.animated {
+    animation: fadeInUp 0.6s ease-out forwards;
+}
+
+.event-card-animate:nth-child(1) { animation-delay: 0.1s; }
+.event-card-animate:nth-child(2) { animation-delay: 0.15s; }
+.event-card-animate:nth-child(3) { animation-delay: 0.2s; }
+.event-card-animate:nth-child(4) { animation-delay: 0.25s; }
+.event-card-animate:nth-child(5) { animation-delay: 0.3s; }
+.event-card-animate:nth-child(6) { animation-delay: 0.35s; }
+.event-card-animate:nth-child(7) { animation-delay: 0.4s; }
+.event-card-animate:nth-child(8) { animation-delay: 0.45s; }
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const observerOptions = {
+        threshold: 0.1,
+        rootMargin: '0px 0px -50px 0px'
+    };
+    
+    const observer = new IntersectionObserver(function(entries) {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.classList.add('animated');
+                observer.unobserve(entry.target);
+            }
+        });
+    }, observerOptions);
+    
+    // Анимация для карточек событий
+    const eventCards = document.querySelectorAll('.col-md-6');
+    eventCards.forEach(card => {
+        card.classList.add('event-card-animate');
+        observer.observe(card);
+    });
+});
+</script>
+
 {% endblock %}

@@ -44,6 +44,9 @@ class User(AbstractUser):
     total_posts = models.PositiveIntegerField(default=0, verbose_name='Total Posts Published')
     total_likes_received = models.PositiveIntegerField(default=0, verbose_name='Total Likes Received')
     total_comments_made = models.PositiveIntegerField(default=0, verbose_name='Total Comments Made')
+    
+    # Activity points for gamification
+    activity_points = models.PositiveIntegerField(default=0, verbose_name='Activity Points')
 
     class Meta:
         verbose_name = 'User'
@@ -52,6 +55,14 @@ class User(AbstractUser):
     def __str__(self):
         return self.username
     
+    def calculate_activity_points(self):
+        """Calculate total activity points based on user actions"""
+        points = 0
+        points += self.total_posts * 10  # 10 points per post
+        points += self.total_likes_received * 2  # 2 points per like received
+        points += self.total_comments_made * 1  # 1 point per comment
+        return points
+    
     def update_statistics(self):
         """Update cached statistics from database"""
         from blog.models import Post, Like, Comment
@@ -59,19 +70,20 @@ class User(AbstractUser):
         self.total_posts = Post.objects.filter(author=self, status='published').count()
         self.total_likes_received = Like.objects.filter(post__author=self).count()
         self.total_comments_made = Comment.objects.filter(author=self).count()
-        self.save(update_fields=['total_posts', 'total_likes_received', 'total_comments_made'])
+        self.activity_points = self.calculate_activity_points()
+        self.save(update_fields=['total_posts', 'total_likes_received', 'total_comments_made', 'activity_points'])
     
     def get_achievement_level(self):
-        """Return achievement level based on activity"""
-        score = (self.total_posts * 10) + (self.total_likes_received * 2) + (self.total_comments_made * 1)
+        """Return achievement level based on activity points"""
+        score = self.activity_points
         
         if score >= 1000:
-            return 'Legend'
+            return {'level': 'Legend', 'color': 'gold', 'next_level': None, 'progress': 100}
         elif score >= 500:
-            return 'Expert'
+            return {'level': 'Expert', 'color': 'purple', 'next_level': 'Legend', 'progress': int((score - 500) / 500 * 100)}
         elif score >= 200:
-            return 'Advanced'
+            return {'level': 'Advanced', 'color': 'blue', 'next_level': 'Expert', 'progress': int((score - 200) / 300 * 100)}
         elif score >= 50:
-            return 'Intermediate'
+            return {'level': 'Intermediate', 'color': 'green', 'next_level': 'Advanced', 'progress': int((score - 50) / 150 * 100)}
         else:
-            return 'Beginner'
+            return {'level': 'Beginner', 'color': 'gray', 'next_level': 'Intermediate', 'progress': int(score / 50 * 100)}

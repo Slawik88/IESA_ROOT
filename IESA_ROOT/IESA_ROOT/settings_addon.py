@@ -1,7 +1,13 @@
 # Additional settings for logging and email
 # This file is imported at the end of settings.py
 
+import os
+
 # Logging configuration
+# In production (DEBUG=False), use only console logging (ephemeral filesystem)
+# In development (DEBUG=True), use both console and file logging
+DEBUG_MODE = os.getenv('DEBUG', 'True') == 'True'
+
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
@@ -19,32 +25,43 @@ LOGGING = {
         'console': {
             'level': 'INFO',
             'class': 'logging.StreamHandler',
-            'formatter': 'simple',
-        },
-        'file': {
-            'level': 'WARNING',
-            'class': 'logging.handlers.RotatingFileHandler',
-            'filename': 'logs/django.log',
-            'maxBytes': 1024 * 1024 * 10,  # 10 MB
-            'backupCount': 5,
-            'formatter': 'verbose',
+            'formatter': 'verbose' if not DEBUG_MODE else 'simple',
         },
     },
     'loggers': {
         'django': {
-            'handlers': ['console', 'file'],
+            'handlers': ['console'],
             'level': 'INFO',
         },
         'blog': {
-            'handlers': ['console', 'file'],
+            'handlers': ['console'],
             'level': 'INFO',
         },
         'users': {
-            'handlers': ['console', 'file'],
+            'handlers': ['console'],
             'level': 'INFO',
         },
     },
 }
+
+# Add file handler only in development
+if DEBUG_MODE:
+    import os
+    log_dir = 'logs'
+    if not os.path.exists(log_dir):
+        os.makedirs(log_dir)
+    
+    LOGGING['handlers']['file'] = {
+        'level': 'WARNING',
+        'class': 'logging.handlers.RotatingFileHandler',
+        'filename': os.path.join(log_dir, 'django.log'),
+        'maxBytes': 1024 * 1024 * 10,  # 10 MB
+        'backupCount': 5,
+        'formatter': 'verbose',
+    }
+    # Add file handler to loggers
+    for logger in LOGGING['loggers'].values():
+        logger['handlers'].append('file')
 
 # Email Configuration (placeholder - configure in .env when ready)
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'  # For development

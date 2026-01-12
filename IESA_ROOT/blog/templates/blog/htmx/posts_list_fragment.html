@@ -1,0 +1,28 @@
+{% if posts %}
+    <div class="row g-4">
+    {% for post in posts %}
+        <div class="col-md-6">
+            <div class="card card-modern h-100">
+                {% if post.preview_image %}
+                    <img src="{{ post.preview_image.url }}" class="card-modern__image" alt="{{ post.title }}">
+                {% endif %}
+                <div class="card-body d-flex flex-column">
+                    <h5 class="card-title fw-bold text-primary">{{ post.title }}</h5>
+                    <p class="card-text text-muted">{{ post.text|striptags|truncatewords:18 }}</p>
+                    <div class="mt-auto pt-3 border-top">
+                        <small class="text-secondary me-3"><i class="fas fa-eye me-1"></i> {{ post.views_count }}</small>
+                        <small class="text-secondary me-3"><i class="fas fa-comment me-1"></i> {{ post.comments.count }}</small>
+                        <small class="text-secondary me-3"><i class="fas fa-heart me-1"></i> {{ post.likes.count }}</small>
+                    </div>
+                </div>
+                <div class="card-footer bg-white border-0 pt-0">
+                     <a href="{% url 'post_detail' pk=post.pk %}" class="btn btn-sm btn-primary btn-modern">Read more</a>
+                     <small class="text-muted float-end mt-2">Author: {{ post.author.username }}</small>
+                </div>
+            </div>
+        </div>
+    {% endfor %}
+    </div>
+{% else %}
+    <div class="alert alert-info"><i class="fas fa-search me-2"></i> No posts found</div>
+{% endif %}

@@ -11,18 +11,41 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Секретный ключ берется из .env
 SECRET_KEY = os.getenv('SECRET_KEY_DJANGO')
 
-# DEBUG установлен в False в продакшене, но для разработки оставим True
-DEBUG = True
+# DEBUG установлен в False в продакшене, для разработки можно True
+DEBUG = os.getenv('DEBUG', 'False').lower() in ('true', '1', 'yes')
 
-ALLOWED_HOSTS = []
+# SECURITY: Явно установить разрешённые хосты
+# Production: загружаем из переменной окружения ALLOWED_HOSTS (разделённые запятыми)
+# Development: используем localhost
+if 'ALLOWED_HOSTS' in os.environ:
+    ALLOWED_HOSTS = [host.strip() for host in os.getenv('ALLOWED_HOSTS', '').split(',')]
+else:
+    ALLOWED_HOSTS = [
+        'localhost',
+        '127.0.0.1',
+        'iesasport.ch',
+        'www.iesasport.ch',
+    ]
+
+# Site domain для QR кодов и других URL построений
+SITE_DOMAIN = os.getenv('SITE_DOMAIN', 'iesasport.ch')
 
 # CSRF trusted origins for production
 CSRF_TRUSTED_ORIGINS = [
     'https://iesasport.ch',
     'https://www.iesasport.ch',
-    'http://127.0.0.1:8001',
-    'http://localhost:8001',
 ]
+
+# Для локальной разработки добавляем HTTP адреса
+if DEBUG:
+    CSRF_TRUSTED_ORIGINS += [
+        'http://127.0.0.1:8000',
+        'http://localhost:8000',
+        'http://127.0.0.1:8001',
+        'http://localhost:8001',
+        'https://127.0.0.1:8443',
+        'https://localhost:8443',
+    ]  
 
 # Регистрация всех приложений и HTMX
 INSTALLED_APPS = [
@@ -32,6 +55,7 @@ INSTALLED_APPS = [
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.staticfiles',
+    'django.contrib.sitemaps',
 
     # Наши приложения
     'core',
@@ -48,9 +72,14 @@ INSTALLED_APPS = [
     'imagekit', # Image optimization and thumbnails
 ]
 
+# Dev-only HTTPS server support (optional): add sslserver in DEBUG
+if DEBUG:
+    INSTALLED_APPS.append('sslserver')
+
 # Наше кастомное Middleware для обновления статуса пользователя
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',  # Static files for production
     'django.contrib.sessions.middleware.SessionMiddleware',
     # Force Russian locale for admin panel via custom middleware
     'users.middleware.AdminLocaleMiddleware',
@@ -95,6 +124,14 @@ DATABASES = {
     }
 }
 
+# Production database configuration (PostgreSQL via DATABASE_URL)
+if 'DATABASE_URL' in os.environ:
+    import dj_database_url
+    DATABASES['default'] = dj_database_url.config(
+        conn_max_age=600,
+        ssl_require=True
+    )
+
 # Парольная валидация
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -122,6 +159,32 @@ TIME_ZONE = 'Europe/Zurich'
 USE_I18N = True
 USE_TZ = True
 
+# SECURITY: HTTPS and Security Headers
+# Для локальной разработки (DEBUG=True) - все HTTPS настройки ОТКЛЮЧЕНЫ
+# Для production (DEBUG=False) - все HTTPS настройки ВКЛЮЧЕНЫ
+
+# SSL Redirect
+_SECURE_SSL_REDIRECT_ENV = os.getenv('SECURE_SSL_REDIRECT')
+if _SECURE_SSL_REDIRECT_ENV is not None:
+    SECURE_SSL_REDIRECT = _SECURE_SSL_REDIRECT_ENV.lower() in ('true', '1', 'yes')
+else:
+    SECURE_SSL_REDIRECT = False if DEBUG else True  # Отключено для DEBUG=True
+
+# Secure Cookies
+SESSION_COOKIE_SECURE = False if DEBUG else True  # Отключено для DEBUG=True
+CSRF_COOKIE_SECURE = False if DEBUG else True  # Отключено для DEBUG=True
+
+# HTTP Strict Transport Security (HSTS) - ОТКЛЮЧЕНО для разработки
+SECURE_HSTS_SECONDS = 0 if DEBUG else 31536000  # 0 для DEBUG=True
+SECURE_HSTS_INCLUDE_SUBDOMAINS = False if DEBUG else True
+SECURE_HSTS_PRELOAD = False if DEBUG else True
+
+# Базовые security headers (работают и на HTTP)
+SECURE_BROWSER_XSS_FILTER = True
+SECURE_CONTENT_TYPE_NOSNIFF = True
+X_FRAME_OPTIONS = 'DENY'
+SESSION_COOKIE_HTTPONLY = True
+CSRF_COOKIE_HTTPONLY = True
 
 # Настройки статических и медиа-файлов
 
@@ -131,6 +194,10 @@ USE_TZ = True
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_DIRS = [BASE_DIR / 'static']
+
+# Whitenoise configuration for production static files
+if not DEBUG:
+    STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
@@ -210,6 +277,19 @@ CKEDITOR_5_FILE_UPLOAD_PERMISSION = 'staff'
 
 # Кастомная модель пользователя
 AUTH_USER_MODEL = 'users.User'
+
+# Redis Cache Configuration
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.redis.RedisCache' if not DEBUG else 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': os.getenv('REDIS_URL', 'redis://127.0.0.1:6379/1'),
+        'OPTIONS': {
+            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+        },
+        'KEY_PREFIX': 'iesa',
+        'TIMEOUT': 3600,  # 1 hour default
+    }
+}
 
 # Настройки авторизации/перенаправления
 LOGIN_URL = 'login'

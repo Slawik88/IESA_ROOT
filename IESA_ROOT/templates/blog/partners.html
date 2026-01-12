@@ -25,7 +25,7 @@
         <!-- Partner Content -->
         <div class="partner-card-body flex-grow-1">
           <h5 class="partner-card-title">{{ partner.name }}</h5>
-          <p class="partner-card-description">{{ partner.description }}</p>
+          <p class="partner-card-description">{{ partner.description|striptags|truncatewords:40 }}</p>
         </div>
 
         <!-- Partner Footer Actions -->

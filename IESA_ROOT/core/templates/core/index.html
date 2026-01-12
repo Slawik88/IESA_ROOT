@@ -1,19 +1,65 @@
 {% extends "base.html" %}
 
-{% block title %}Home | IESA_ROOT{% endblock %}
+{% block title %}Home | IESA{% endblock %}
 
 {% block content %}
 <div class="container-limited">
     <!-- HERO Section -->
     <section class="section-padding text-center bg-white card-modern p-5 mb-5" aria-labelledby="hero-title">
-        <h1 id="hero-title" class="display-4 fw-bold text-primary">Welcome to the IESA_ROOT Association!</h1>
+        <h1 id="hero-title" class="display-4 fw-bold text-primary">Welcome to the IESA Association!</h1>
         <p class="lead mt-3 mb-4 text-secondary">Bringing leaders together and shaping the future. Our mission is to support and grow the community.</p>
         <a href="{% url 'register' %}" class="btn btn-primary btn-lg btn-modern me-3">Join as a member</a>
         <a href="{% url 'post_list' %}" class="btn btn-outline-secondary btn-lg btn-modern">Go to Community</a>
     </section>
 
+    <!-- Upcoming Events Section -->
+    {% if upcoming_events %}
+    <section class="section-padding" id="events-section" aria-labelledby="events-title">
+        <h2 id="events-title" class="text-center mb-5 fw-bold">📅 Upcoming Events</h2>
+        <div class="row g-4">
+            {% for event in upcoming_events %}
+            <article class="col-md-4">
+                <a href="{% url 'event_detail' event.pk %}" class="text-decoration-none" style="color: inherit;">
+                    <div class="card card-modern h-100" style="cursor: pointer; transition: transform 0.2s, box-shadow 0.2s;" onmouseover="this.style.transform='translateY(-5px)'; this.style.boxShadow='0 8px 24px rgba(0,0,0,0.15)';" onmouseout="this.style.transform=''; this.style.boxShadow='';">
+                        {% if event.image %}
+                            <img src="{{ event.image.url }}" class="card-img-top" alt="{{ event.title }}" style="height:180px;object-fit:cover;" loading="lazy">
+                        {% else %}
+                            <div class="card-img-top bg-primary bg-gradient text-white d-flex align-items-center justify-content-center" style="height:180px;">
+                                <i class="fas fa-calendar-alt fa-4x opacity-50"></i>
+                            </div>
+                        {% endif %}
+                        <div class="card-body">
+                            <div class="d-flex align-items-center mb-2">
+                                <span class="badge bg-primary me-2">
+                                    <i class="far fa-calendar me-1"></i>{{ event.date|date:"d M Y" }}
+                                </span>
+                                {% if event.location %}
+                                <span class="badge bg-secondary">
+                                    <i class="fas fa-map-marker-alt me-1"></i>{{ event.location|truncatewords:2 }}
+                                </span>
+                                {% endif %}
+                            </div>
+                            <h5 class="card-title fw-bold text-dark">{{ event.title }}</h5>
+                            <p class="card-text text-muted small">{{ event.description|striptags|truncatewords:20 }}</p>
+                        </div>
+                        <footer class="card-footer bg-light">
+                            <span class="btn btn-sm btn-outline-primary w-100">Learn More →</span>
+                        </footer>
+                    </div>
+                </a>
+            </article>
+            {% endfor %}
+        </div>
+        <nav class="text-center mt-4">
+            <a href="{% url 'event_list' %}" class="btn btn-primary btn-modern">
+                View All Events <i class="fas fa-arrow-right ms-2"></i>
+            </a>
+        </nav>
+    </section>
+    {% endif %}
+
     <!-- Products Section -->
-    <section id="products-section" class="section-padding">
+    <section id="products-section" class="section-padding bg-light">
         <h2 class="text-center mb-5 fw-bold">Our products</h2>
         
         {% if products %}
@@ -22,7 +68,7 @@
                     <div class="col">
                         <div class="card card-modern h-100">
                             {% if product.image %}
-                                <img src="{{ product.image.url }}" class="card-modern__image" alt="{{ product.name }} product image">
+                                <img src="{{ product.image.url }}" class="card-modern__image" alt="{{ product.name }} product image" loading="lazy">
                             {% endif %}
                             <div class="card-body">
                                 <h5 class="card-title fw-bold">{{ product.name }}</h5>
@@ -45,15 +91,15 @@
     </section>
 
     <!-- About Section: President & Members -->
-    <section id="about-section" class="section-padding bg-white card-modern p-5 my-5">
-        <h2 class="text-center mb-5 fw-bold">About the Association</h2>
+    <section id="about-section" class="section-padding bg-white card-modern p-5 my-5" aria-labelledby="about-title">
+        <h2 id="about-title" class="text-center mb-5 fw-bold">About the Association</h2>
 
         {% if president %}
             <!-- About President -->
-            <div class="row align-items-center mb-5 pb-5 border-bottom">
+            <article class="row align-items-center mb-5 pb-5 border-bottom">
                 <div class="col-md-4 text-center">
                     {% if president.photo %}
-                        <img src="{{ president.photo.url }}" class="rounded-circle shadow-lg" alt="{{ president.name }}" style="width: 200px; height: 200px; object-fit: cover;">
+                        <img src="{{ president.photo.url }}" class="rounded-circle shadow-lg" alt="{{ president.name }}" style="width: 200px; height: 200px; object-fit: cover;" loading="lazy">
                     {% else %}
                         <div class="rounded-circle bg-light d-inline-flex justify-content-center align-items-center" style="width: 200px; height: 200px;"><i class="fas fa-user-tie fa-4x text-secondary"></i></div>
                     {% endif %}
@@ -64,7 +110,7 @@
                     <h4 class="fw-bold">A word from the President</h4>
                     <p class="text-muted">{{ president.description|safe }}</p>
                 </div>
-            </div>
+            </article>
         {% endif %}
 
         <!-- Association Members -->
@@ -75,7 +121,7 @@
                     <div class="col">
                         <div class="card card-modern p-3 h-100">
                             {% if member.photo %}
-                                <img src="{{ member.photo.url }}" class="rounded-circle mx-auto mb-3" alt="{{ member.name }}" style="width: 100px; height: 100px; object-fit: cover;">
+                                <img src="{{ member.photo.url }}" class="rounded-circle mx-auto mb-3" alt="{{ member.name }}" style="width: 100px; height: 100px; object-fit: cover;" loading="lazy">
                             {% else %}
                                 <div class="rounded-circle bg-light mx-auto mb-3 d-flex justify-content-center align-items-center" style="width: 100px; height: 100px;"><i class="fas fa-user-alt text-secondary"></i></div>
                             {% endif %}
@@ -103,7 +149,7 @@
                                 {% endif %}
                                 <div class="partner-logo-area">
                                     {% if partner.logo %}
-                                        <img src="{{ partner.logo.url }}" alt="{{ partner.name }}">
+                                        <img src="{{ partner.logo.url }}" alt="{{ partner.name }}" loading="lazy">
                                     {% else %}
                                         <div class="partner-placeholder-lg">{{ partner.name|slice:":2"|upper }}</div>
                                     {% endif %}
@@ -180,4 +226,161 @@
         </div>
     </section>
 </div>
+
+<style>
+/* Animation для hero секции */
+@keyframes fadeInDown {
+    from {
+        opacity: 0;
+        transform: translateY(-30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Animation для карточек (события, продукты) */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Animation для About секции */
+@keyframes slideInLeft {
+    from {
+        opacity: 0;
+        transform: translateX(-50px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+/* Animation для партнеров */
+@keyframes scaleIn {
+    from {
+        opacity: 0;
+        transform: scale(0.9);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+/* Классы для применения анимаций */
+.animate-on-scroll {
+    opacity: 0;
+}
+
+.animate-on-scroll.animated {
+    animation-duration: 0.8s;
+    animation-fill-mode: both;
+}
+
+/* Специфичные анимации для разных элементов */
+.hero-animate.animated {
+    animation-name: fadeInDown;
+    animation-duration: 1s;
+}
+
+.card-animate.animated {
+    animation-name: fadeInUp;
+}
+
+.about-animate.animated {
+    animation-name: slideInLeft;
+}
+
+.partner-animate.animated {
+    animation-name: scaleIn;
+}
+
+/* Задержки для поэтапного появления карточек */
+.card-animate:nth-child(1) { animation-delay: 0.1s; }
+.card-animate:nth-child(2) { animation-delay: 0.2s; }
+.card-animate:nth-child(3) { animation-delay: 0.3s; }
+.card-animate:nth-child(4) { animation-delay: 0.4s; }
+.card-animate:nth-child(5) { animation-delay: 0.5s; }
+.card-animate:nth-child(6) { animation-delay: 0.6s; }
+
+/* Задержки для партнеров */
+.partner-animate:nth-child(1) { animation-delay: 0.05s; }
+.partner-animate:nth-child(2) { animation-delay: 0.1s; }
+.partner-animate:nth-child(3) { animation-delay: 0.15s; }
+.partner-animate:nth-child(4) { animation-delay: 0.2s; }
+.partner-animate:nth-child(5) { animation-delay: 0.25s; }
+.partner-animate:nth-child(6) { animation-delay: 0.3s; }
+.partner-animate:nth-child(7) { animation-delay: 0.35s; }
+.partner-animate:nth-child(8) { animation-delay: 0.4s; }
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Анимация hero при загрузке страницы
+    const heroSection = document.querySelector('.section-padding.text-center.bg-white');
+    if (heroSection) {
+        heroSection.classList.add('animate-on-scroll', 'hero-animate', 'animated');
+    }
+    
+    // IntersectionObserver для остальных элементов
+    const observerOptions = {
+        threshold: 0.1,
+        rootMargin: '0px 0px -50px 0px'
+    };
+    
+    const observer = new IntersectionObserver(function(entries) {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.classList.add('animated');
+                observer.unobserve(entry.target);
+            }
+        });
+    }, observerOptions);
+    
+    // Анимация для карточек событий
+    const eventCards = document.querySelectorAll('#events-section .col-md-4');
+    eventCards.forEach(card => {
+        card.classList.add('animate-on-scroll', 'card-animate');
+        observer.observe(card);
+    });
+    
+    // Анимация для карточек продуктов
+    const productCards = document.querySelectorAll('#products-section .col');
+    productCards.forEach(card => {
+        card.classList.add('animate-on-scroll', 'card-animate');
+        observer.observe(card);
+    });
+    
+    // Анимация для About секции
+    const aboutSection = document.querySelector('#about-section');
+    if (aboutSection) {
+        aboutSection.classList.add('animate-on-scroll', 'about-animate');
+        observer.observe(aboutSection);
+    }
+    
+    // Анимация для карточек членов
+    const memberCards = document.querySelectorAll('#members-section .col-md-3');
+    memberCards.forEach(card => {
+        card.classList.add('animate-on-scroll', 'card-animate');
+        observer.observe(card);
+    });
+    
+    // Анимация для партнеров
+    const partnerCards = document.querySelectorAll('#partners-section .col');
+    partnerCards.forEach(card => {
+        card.classList.add('animate-on-scroll', 'partner-animate');
+        observer.observe(card);
+    });
+});
+</script>
+
 {% endblock %}

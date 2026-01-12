@@ -6,6 +6,30 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}IESA ROOT{% endblock %}</title>
     
+    <!-- SEO Meta Tags -->
+    <meta name="description" content="{% block meta_description %}IESA - Международная ассоциация студентов и выпускников. События, блог, галерея и товары для членов сообщества.{% endblock %}">
+    <meta name="keywords" content="{% block meta_keywords %}IESA, студенты, события, блог, галерея, сообщество{% endblock %}">
+    <meta name="author" content="IESA">
+    <link rel="canonical" href="{% block canonical_url %}{{ request.build_absolute_uri }}{% endblock %}">
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="{% block og_type %}website{% endblock %}">
+    <meta property="og:url" content="{% block og_url %}{{ request.build_absolute_uri }}{% endblock %}">
+    <meta property="og:title" content="{% block og_title %}IESA ROOT{% endblock %}">
+    <meta property="og:description" content="{% block og_description %}IESA - Международная ассоциация студентов и выпускников. События, блог, галерея и товары для членов сообщества.{% endblock %}">
+    <meta property="og:image" content="{% block og_image %}{% static 'img/og-default.jpg' %}{% endblock %}">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:site_name" content="IESA">
+    <meta property="og:locale" content="ru_RU">
+    
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="{% block twitter_card %}summary_large_image{% endblock %}">
+    <meta name="twitter:url" content="{% block twitter_url %}{{ request.build_absolute_uri }}{% endblock %}">
+    <meta name="twitter:title" content="{% block twitter_title %}IESA ROOT{% endblock %}">
+    <meta name="twitter:description" content="{% block twitter_description %}IESA - Международная ассоциация студентов и выпускников. События, блог, галерея и товары для членов сообщества.{% endblock %}">
+    <meta name="twitter:image" content="{% block twitter_image %}{% static 'img/og-default.jpg' %}{% endblock %}">
+    
     <!-- Favicon -->
     <link rel="icon" type="image/png" href="{% static 'img/favicon.png' %}">
     
@@ -26,6 +50,15 @@
     
     <!-- WYSIWYG content styling (for CKEditor post rendering) -->
     <link rel="stylesheet" href="{% static 'css/wysiwyg.css' %}">
+    
+    <!-- Text Ellipsis Utilities -->
+    <link rel="stylesheet" href="{% static 'css/ellipsis.css' %}">
+    
+    <!-- HTMX Loading States -->
+    <link rel="stylesheet" href="{% static 'css/htmx-loading.css' %}">
+    
+    <!-- Mobile Responsive Styles -->
+    <link rel="stylesheet" href="{% static 'css/mobile.css' %}">
 
 </head>
 <body>
@@ -33,14 +66,14 @@
     <!-- Header Section -->
     <header class="shadow-sm bg-white sticky-top">
         <div class="container-limited">
-            <nav class="navbar navbar-expand-lg navbar-light py-2">
-                <a class="navbar-brand fw-bold fs-4" href="{% url 'home' %}">
+            <nav class="navbar navbar-expand-lg navbar-light py-2" aria-label="Main navigation">
+                <a class="navbar-brand fw-bold fs-4" href="{% url 'home' %}" aria-label="IESA Home">
                     <img src="{% static 'img/logo.png' %}" alt="IESA Logo" style="height:40px;margin-right:10px;vertical-align:middle;">
                 </a>
                 <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
                     <span class="navbar-toggler-icon"></span>
                 </button>
-                <div class="collapse navbar-collapse" id="navbarNav">
+                <nav class="collapse navbar-collapse" id="navbarNav">
                     <ul class="navbar-nav mx-auto">
                         <li class="nav-item"><a class="nav-link fw-500" href="{% url 'home' %}#products-section">Products</a></li>
                         <li class="nav-item"><a class="nav-link fw-500" href="{% url 'home' %}#about-section">About</a></li>
@@ -70,9 +103,11 @@
                                 <label class="form-label small mb-1">
                                     <i class="fas fa-search me-2"></i>Search
                                 </label>
-                                                                <input type="search" name="q" id="global-community-search" class="form-control mb-2" placeholder="Posts, users, events..." 
-                                  hx-get="{% url 'post_search' %}" hx-trigger="keyup changed delay:400ms" hx-target="#community-search-results" hx-include="#global-community-search">
-                                                                <div id="community-search-results" class="mt-2" style="max-height:360px;overflow:auto; transition: transform .22s ease, opacity .22s ease; transform-origin: top center;"></div>
+                                <input type="search" name="q" id="global-community-search" class="form-control mb-2" placeholder="Posts, users, events..." 
+                                  hx-get="{% url 'global_search' %}" 
+                                  hx-trigger="keyup changed delay:400ms" 
+                                  hx-target="#community-search-results">
+                                <div id="community-search-results" class="mt-2" style="max-height:360px;overflow:auto; transition: transform .22s ease, opacity .22s ease; transform-origin: top center;"></div>
                             </div>
                         </div>
                         {% if user.is_authenticated %}
@@ -99,13 +134,13 @@
                             <a href="{% url 'register' %}" class="btn btn-primary btn-modern" style="padding:.5rem .8rem;font-size:.9rem;">Register</a>
                         {% endif %}
                     </div>
-                </div>
+                </nav>
             </nav>
         </div>
     </header>
 
     <!-- Main Content -->
-    <main class="py-5" id="main-content">
+    <main class="py-5" id="main-content" role="main">
         {% if messages %}
             <div class="container-limited">
                 {% for message in messages %}
@@ -131,8 +166,8 @@
             <div class="row g-4">
                 <div class="col-12 col-md-4">
                     <h6 class="footer-title">About</h6>
-                    <p class="footer-text">IESA_ROOT connects sports leaders and partners, creating a space for growth, projects and events worldwide.</p>
-                    <p class="footer-text small mb-0">&copy; {{ "now"|date:"Y" }} IESA_ROOT Association. All rights reserved.</p>
+                    <p class="footer-text">IESA connects sports leaders and partners, creating a space for growth, projects and events worldwide.</p>
+                    <p class="footer-text small mb-0">&copy; {{ "now"|date:"Y" }} IESA Association. All rights reserved.</p>
                 </div>
                 <div class="col-6 col-md-2">
                     <h6 class="footer-title">Links</h6>

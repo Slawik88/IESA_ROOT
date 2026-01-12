@@ -1,6 +1,19 @@
 {% extends "base.html" %}
 
-{% block title %}{{ post.title }} | IESA_ROOT{% endblock %}
+{% block title %}{{ post.title }} | IESA{% endblock %}
+
+{% block meta_description %}{{ post.text|striptags|truncatewords:30 }}{% endblock %}
+{% block meta_keywords %}{{ post.title }}, IESA, блог, посты{% endblock %}
+
+{% block og_type %}article{% endblock %}
+{% block og_title %}{{ post.title }}{% endblock %}
+{% block og_description %}{{ post.text|striptags|truncatewords:30 }}{% endblock %}
+{% block og_image %}{% if post.preview_image %}{{ request.scheme }}://{{ request.get_host }}{{ post.preview_image.url }}{% else %}{% load static %}{{ request.scheme }}://{{ request.get_host }}{% static 'img/og-default.jpg' %}{% endif %}{% endblock %}
+
+{% block twitter_card %}summary_large_image{% endblock %}
+{% block twitter_title %}{{ post.title }}{% endblock %}
+{% block twitter_description %}{{ post.text|striptags|truncatewords:30 }}{% endblock %}
+{% block twitter_image %}{% if post.preview_image %}{{ request.scheme }}://{{ request.get_host }}{{ post.preview_image.url }}{% else %}{% load static %}{{ request.scheme }}://{{ request.get_host }}{% static 'img/og-default.jpg' %}{% endif %}{% endblock %}
 
 {% block content %}
 <div class="container-limited">
@@ -13,7 +26,16 @@
                 </div>
                 <h1 class="fw-bold mb-3">{{ post.title }}</h1>
                 <div class="d-flex align-items-center flex-wrap text-muted mb-4 border-bottom pb-3 gap-3">
-                    <p class="mb-0"><i class="fas fa-user-circle me-1"></i> Author: <strong><a href="{% url 'profile_public_username' username=post.author.username %}" class="text-decoration-none">{{ post.author.username }}</a></strong></p>
+                    <p class="mb-0">
+                        <i class="fas fa-user-circle me-1"></i> Author: 
+                        <strong>
+                            {% if post.author.username %}
+                                <a href="{% url 'profile_public_username' username=post.author.username %}" class="text-decoration-none">{{ post.author.username }}</a>
+                            {% else %}
+                                Anonymous
+                            {% endif %}
+                        </strong>
+                    </p>
                     <p class="mb-0"><i class="fas fa-calendar-alt me-1"></i> {{ post.created_at|date:"d M Y" }}</p>
                     <p class="mb-0"><i class="fas fa-eye me-1"></i> {{ post.views_count }}</p>
                 </div>
@@ -38,7 +60,7 @@
                 </div>
                 
                 {% if post.preview_image %}
-                    <img src="{{ post.preview_image.url }}" class="img-fluid rounded-lg mb-4" alt="{{ post.title }}" style="max-height: 400px; object-fit: cover;">
+                    <img src="{{ post.preview_image.url }}" class="img-fluid rounded-lg mb-4" alt="{{ post.title }}" style="max-height: 400px; object-fit: cover;" loading="lazy">
                 {% endif %}
 
                 <div class="post-content" style="font-size:1.05rem;line-height:1.8;">
@@ -87,31 +109,33 @@
                 <div class="row g-3">
                     {% for post_rec in recommended_posts %}
                     <div class="col-md-6">
-                        <div class="card card-modern h-100">
-                            {% if post_rec.preview_image %}
-                                <img src="{{ post_rec.preview_image.url }}" class="card-img-top" alt="{{ post_rec.title }}" style="height:150px;object-fit:cover;">
-                            {% else %}
-                                <div class="card-img-top" style="height:150px;background:#f0f0f0;display:flex;align-items:center;justify-content:center;color:#999;">
-                                    <i class="fas fa-image fa-3x"></i>
+                        <a href="{% url 'post_detail' post_rec.pk %}" class="text-decoration-none" style="color: inherit;">
+                            <div class="card card-modern h-100" style="cursor: pointer; transition: transform 0.2s, box-shadow 0.2s;" onmouseover="this.style.transform='translateY(-5px)'; this.style.boxShadow='0 8px 24px rgba(0,0,0,0.15)';" onmouseout="this.style.transform=''; this.style.boxShadow='';">
+                                {% if post_rec.preview_image %}
+                                    <img src="{{ post_rec.preview_image.url }}" class="card-img-top" alt="{{ post_rec.title }}" style="height:150px;object-fit:cover;" loading="lazy">
+                                {% else %}
+                                    <div class="card-img-top" style="height:150px;background:#f0f0f0;display:flex;align-items:center;justify-content:center;color:#999;">
+                                        <i class="fas fa-image fa-3x"></i>
+                                    </div>
+                                {% endif %}
+                                <div class="card-body">
+                                    <h6 class="card-title fw-bold text-truncate text-dark">{{ post_rec.title }}</h6>
+                                    <p class="card-text small text-muted mb-2">
+                                        <i class="fas fa-user-circle me-1"></i> {{ post_rec.author.username }}
+                                        <br>
+                                        <i class="fas fa-calendar-alt me-1"></i> {{ post_rec.created_at|date:"d M Y" }}
+                                    </p>
+                                    <p class="card-text small text-muted" style="line-height:1.4;">
+                                        {{ post_rec.text|truncatewords:15|striptags }}
+                                    </p>
                                 </div>
-                            {% endif %}
-                            <div class="card-body">
-                                <h6 class="card-title fw-bold text-truncate"><a href="{% url 'post_detail' post_rec.pk %}" class="text-decoration-none text-dark">{{ post_rec.title }}</a></h6>
-                                <p class="card-text small text-muted mb-2">
-                                    <i class="fas fa-user-circle me-1"></i> {{ post_rec.author.username }}
-                                    <br>
-                                    <i class="fas fa-calendar-alt me-1"></i> {{ post_rec.created_at|date:"d M Y" }}
-                                </p>
-                                <p class="card-text small" style="line-height:1.4;">
-                                    {{ post_rec.text|truncatewords:15|striptags }}
-                                </p>
+                                <div class="card-footer bg-light d-flex justify-content-between align-items-center text-muted small">
+                                    <span><i class="fas fa-heart me-1"></i> {{ post_rec.likes.count }}</span>
+                                    <span><i class="fas fa-comment me-1"></i> {{ post_rec.comments.count }}</span>
+                                    <span><i class="fas fa-eye me-1"></i> {{ post_rec.views_count }}</span>
+                                </div>
                             </div>
-                            <div class="card-footer bg-light d-flex justify-content-between align-items-center text-muted small">
-                                <span><i class="fas fa-heart me-1"></i> {{ post_rec.likes.count }}</span>
-                                <span><i class="fas fa-comment me-1"></i> {{ post_rec.comments.count }}</span>
-                                <span><i class="fas fa-eye me-1"></i> {{ post_rec.views_count }}</span>
-                            </div>
-                        </div>
+                        </a>
                     </div>
                     {% endfor %}
                 </div>

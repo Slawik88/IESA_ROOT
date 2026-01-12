@@ -68,12 +68,14 @@ set_as_draft.short_description = '📝 Move to draft'
 
 @admin.register(Post)
 class PostAdmin(admin.ModelAdmin):
-    list_display = ('title', 'author', 'status_badge', 'engagement_score', 'created_at', 'view_on_site_link', 'preview_tag')
+    list_display = ('id', 'title', 'author_with_link', 'status_badge', 'created_at', 'engagement_score', 'preview_tag', 'view_on_site_link')
     list_filter = (StatusFilter, AuthorFilter, 'created_at')
-    search_fields = ('title', 'text', 'author__username')
-    readonly_fields = ('created_at', 'views_count', 'preview_link')
+    search_fields = ('id', 'title', 'text', 'author__username', 'author__email', 'author__first_name', 'author__last_name')
+    readonly_fields = ('created_at', 'views_count', 'preview_link', 'engagement_details')
     ordering = ('-created_at',)
     actions = [publish_posts, reject_posts, set_as_draft]
+    list_per_page = 25
+    date_hierarchy = 'created_at'
 
     # If ckeditor is available, use CKEditorWidget for the text field in admin
     if CKEditorWidget:
@@ -89,10 +91,39 @@ class PostAdmin(admin.ModelAdmin):
             'fields': ('status', 'created_at')
         }),
         ('Statistics', {
-            'fields': ('views_count',),
+            'fields': ('views_count', 'engagement_details'),
             'classes': ('collapse',),
         }),
     )
+
+    def author_with_link(self, obj):
+        """Display author name with link to user profile"""
+        url = reverse('admin:users_user_change', args=[obj.author.id])
+        return format_html(
+            '<a href="{}" title="{}">👤 {}</a>',
+            url,
+            obj.author.email,
+            obj.author.username
+        )
+    author_with_link.short_description = 'Author'
+    author_with_link.admin_order_field = 'author__username'
+
+    def engagement_details(self, obj):
+        """Detailed engagement statistics"""
+        likes = obj.likes.count()
+        comments = obj.comments.count()
+        views = obj.views_count
+        score = likes * 2 + comments * 3 + views
+        return format_html(
+            '<div style="padding:10px;background:#f8f9fa;border-radius:8px;">'
+            '<p><strong>Engagement Score:</strong> {}</p>'
+            '<p>❤️ Likes: {} (2 points each)</p>'
+            '<p>💬 Comments: {} (3 points each)</p>'
+            '<p>👁️ Views: {} (1 point each)</p>'
+            '</div>',
+            score, likes, comments, views
+        )
+    engagement_details.short_description = 'Engagement Details'
 
     def status_badge(self, obj):
         """Display status as a colored badge"""

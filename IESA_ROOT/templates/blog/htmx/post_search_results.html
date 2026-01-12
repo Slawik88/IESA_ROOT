@@ -1,78 +1,225 @@
-{% if not results.posts and not results.events and not results.partners and not results.users %}
-  <div class="text-muted small">No results.</div>
-{% else %}
+{% if query %}
+<div class="search-results">
   <style>
     @keyframes fadeInSmall { from { opacity:0; transform: translateY(6px); } to { opacity:1; transform: translateY(0); } }
-    .hx-item { animation: fadeInSmall .28s ease both; border: 1px solid #eef1f7; margin-bottom: 6px; border-radius: 10px; padding: 10px 12px; }
-    .hx-item:hover { background: #f6f8ff; border-color: #dbe4ff; }
-    .hx-type { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; color: #5c6c94; }
-    mark { background-color: #fff3cd; color: #333; font-weight: 500; padding: 1px 3px; border-radius: 2px; }
+    .hx-item { animation: fadeInSmall .28s ease both; }
+    .search-section { margin-bottom: 1.5rem; }
+    .section-title { 
+      font-size: 0.875rem; 
+      font-weight: 600; 
+      color: #6c757d; 
+      text-transform: uppercase; 
+      letter-spacing: 0.05em; 
+      margin-bottom: 0.75rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .search-item {
+      border: 1px solid #e9ecef;
+      border-radius: 12px;
+      margin-bottom: 0.5rem;
+      padding: 0.875rem 1rem;
+      transition: all 0.2s ease;
+    }
+    .search-item:hover {
+      background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+      border-color: #0d6efd;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(13, 110, 253, 0.15);
+    }
   </style>
-  <div class="list-group border-0">
 
-    {% if results.users %}
-      {% for item in results.users %}
-        {% with user=item.user %}
-        <a href="{% url 'profile_public_username' username=user.username %}" class="list-group-item list-group-item-action d-flex align-items-center hx-item" style="animation-delay: calc({{ forloop.counter0 }} * 22ms);">
-            {% if user.avatar and user.avatar.name != 'avatars/default.png' %}
-              <span class="avatar avatar-sm me-3"><img src="{{ user.avatar.url }}" alt="{{ user.username }}"></span>
+  <!-- Users Section -->
+  {% if results.users %}
+  <div class="search-section">
+    <div class="section-title">
+      <i class="fas fa-users text-primary"></i>
+      <span>Пользователи ({{ results.users|length }})</span>
+    </div>
+    <div class="list-group">
+      {% for user in results.users %}
+        {% if user.username and user.username|length > 0 %}
+        <a href="{% url 'profile_public_username' username=user.username %}" 
+           class="list-group-item list-group-item-action search-item d-flex align-items-center hx-item" 
+           style="animation-delay: calc({{ forloop.counter0 }} * 35ms);">
+          {% if user.avatar %}
+            <img src="{{ user.avatar.url }}" 
+                 class="rounded-circle me-3" 
+                 style="width: 48px; height: 48px; object-fit: cover;" 
+                 alt="{{ user.username }}">
+          {% else %}
+            <div class="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center me-3 fw-bold"
+                 style="width: 48px; height: 48px; font-size: 1.25rem;">
+              {{ user.username|slice:":1"|upper }}
+            </div>
+          {% endif %}
+          <div class="flex-grow-1">
+            <div class="fw-bold text-dark">{{ user.get_full_name|default:user.username }}</div>
+            <small class="text-muted">
+              <i class="fas fa-at"></i> {{ user.username }}
+              {% if user.email %}
+                • <i class="fas fa-envelope"></i> {{ user.email }}
+              {% endif %}
+            </small>
+          </div>
+          <i class="fas fa-chevron-right text-muted"></i>
+        </a>
+        {% endif %}
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Posts Section -->
+  {% if results.posts %}
+  <div class="search-section">
+    <div class="section-title">
+      <i class="fas fa-file-alt text-success"></i>
+      <span>Посты ({{ results.posts|length }})</span>
+    </div>
+    <div class="list-group">
+      {% for post in results.posts %}
+        {% if post.pk %}
+        <a href="{% url 'post_detail' pk=post.pk %}" 
+           class="list-group-item list-group-item-action search-item hx-item" 
+           style="animation-delay: calc({{ forloop.counter0 }} * 35ms);">
+          <div class="d-flex w-100 justify-content-between align-items-start">
+            <div class="flex-grow-1">
+              <h6 class="mb-1 fw-bold text-dark">
+                <i class="fas fa-file-alt text-success me-2"></i>{{ post.title }}
+              </h6>
+              <p class="mb-2 text-muted small" style="line-height: 1.5;">
+                {{ post.text|striptags|truncatewords:25 }}
+              </p>
+              <div class="d-flex align-items-center gap-3 text-muted small">
+                <span>
+                  <i class="fas fa-user me-1"></i>
+                  {% if post.author.get_full_name %}
+                    {{ post.author.get_full_name }}
+                  {% elif post.author.username %}
+                    {{ post.author.username }}
+                  {% else %}
+                    Anonymous
+                  {% endif %}
+                </span>
+                <span><i class="fas fa-calendar me-1"></i>{{ post.created_at|date:"d M Y" }}</span>
+                <span><i class="fas fa-eye me-1"></i>{{ post.views_count }}</span>
+              </div>
+            </div>
+            {% if post.preview_image %}
+            <img src="{{ post.preview_image.url }}" 
+                 class="rounded ms-3" 
+                 style="width: 80px; height: 80px; object-fit: cover;" 
+                 alt="{{ post.title }}">
+            {% endif %}
+          </div>
+        </a>
+        {% endif %}
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Events Section -->
+  {% if results.events %}
+  <div class="search-section">
+    <div class="section-title">
+      <i class="fas fa-calendar-check text-warning"></i>
+      <span>События ({{ results.events|length }})</span>
+    </div>
+    <div class="list-group">
+      {% for event in results.events %}
+        {% if event.pk %}
+        <a href="{% url 'event_detail' pk=event.pk %}" 
+           class="list-group-item list-group-item-action search-item hx-item" 
+           style="animation-delay: calc({{ forloop.counter0 }} * 35ms);">
+          <div class="d-flex w-100 justify-content-between align-items-start">
+            <div class="flex-grow-1">
+              <h6 class="mb-1 fw-bold text-dark">
+                <i class="fas fa-calendar-check text-warning me-2"></i>{{ event.title }}
+              </h6>
+              <p class="mb-2 text-muted small">{{ event.description|striptags|truncatewords:20 }}</p>
+              <div class="d-flex align-items-center gap-3 text-muted small">
+                <span><i class="fas fa-clock me-1"></i>{{ event.date|date:"d M Y, H:i" }}</span>
+                {% if event.location %}
+                <span><i class="fas fa-map-marker-alt me-1"></i>{{ event.location|truncatewords:4 }}</span>
+                {% endif %}
+              </div>
+            </div>
+            {% if event.image %}
+            <img src="{{ event.image.url }}" 
+                 class="rounded ms-3" 
+                 style="width: 80px; height: 80px; object-fit: cover;" 
+                 alt="{{ event.title }}">
+            {% endif %}
+          </div>
+        </a>
+        {% endif %}
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Partners Section -->
+  {% if results.partners %}
+  <div class="search-section">
+    <div class="section-title">
+      <i class="fas fa-handshake text-info"></i>
+      <span>Партнёры ({{ results.partners|length }})</span>
+    </div>
+    <div class="list-group">
+      {% for partner in results.partners %}
+        {% if partner.pk %}
+        <a href="#" 
+           hx-get="{% url 'partner_detail' pk=partner.pk %}" 
+           hx-target="#partner-modal-body" 
+           data-bs-toggle="modal" 
+           data-bs-target="#partnerModal"
+           class="list-group-item list-group-item-action search-item hx-item" 
+           style="animation-delay: calc({{ forloop.counter0 }} * 35ms);">
+          <div class="d-flex w-100 align-items-center">
+            {% if partner.logo %}
+            <img src="{{ partner.logo.url }}" 
+                 class="rounded me-3" 
+                 style="width: 56px; height: 56px; object-fit: contain; border: 1px solid #e9ecef; padding: 4px;" 
+                 alt="{{ partner.name }}">
             {% else %}
-              <span class="avatar avatar-sm avatar-fallback me-3">{{ user.username|slice:":1"|upper }}</span>
+            <div class="rounded bg-info bg-opacity-10 text-info d-flex align-items-center justify-content-center me-3 fw-bold"
+                 style="width: 56px; height: 56px; font-size: 1.5rem; border: 1px solid #e9ecef;">
+              {{ partner.name|slice:":1"|upper }}
+            </div>
             {% endif %}
             <div class="flex-grow-1">
-                <div class="d-flex align-items-center gap-2">
-                    <strong>{{ user.get_full_name|default:user.username }}</strong>
-                    <span class="hx-type">User</span>
-                </div>
-                <small class="text-muted">@{{ item.username_html|safe }} · {{ item.email_html|safe }}</small>
+              <h6 class="mb-1 fw-bold text-dark">
+                <i class="fas fa-handshake text-info me-2"></i>{{ partner.name }}
+              </h6>
+              <p class="mb-0 text-muted small">{{ partner.description|striptags|truncatewords:15 }}</p>
             </div>
+            <i class="fas fa-chevron-right text-muted"></i>
+          </div>
         </a>
-        {% endwith %}
+        {% endif %}
       {% endfor %}
-    {% endif %}
-
-    {% for item in results.posts %}
-      {% with post=item.post %}
-      <a href="{{ post.get_absolute_url }}" class="list-group-item list-group-item-action hx-item" style="animation-delay: calc({{ forloop.counter0 }} * 22ms);">
-        <div class="d-flex w-100 justify-content-between align-items-center">
-          <div class="d-flex align-items-center gap-2">
-            <span class="hx-type">Post</span>
-            <h6 class="mb-0 small">{{ item.title_html|safe }}</h6>
-          </div>
-          <small class="text-muted">{{ post.created_at|date:"M d, Y" }}</small>
-        </div>
-        <p class="mb-1 small text-truncate text-muted">{{ post.text|striptags|truncatechars:120 }}</p>
-      </a>
-      {% endwith %}
-    {% endfor %}
-
-    {% for item in results.events %}
-      {% with event=item.event %}
-      <a href="{% url 'event_detail' pk=event.pk %}" class="list-group-item list-group-item-action hx-item" style="animation-delay: calc({{ forloop.counter0 }} * 22ms);">
-        <div class="d-flex w-100 justify-content-between align-items-center">
-          <div class="d-flex align-items-center gap-2">
-            <span class="hx-type">Event</span>
-            <h6 class="mb-0 small">{{ item.title_html|safe }}</h6>
-          </div>
-          <small class="text-muted">{{ event.date|date:"M d, Y" }}</small>
-        </div>
-        <p class="mb-1 small text-truncate text-muted">{{ event.description|striptags|truncatechars:120 }}</p>
-      </a>
-      {% endwith %}
-    {% endfor %}
-
-    {% for item in results.partners %}
-      {% with partner=item.partner %}
-      <a href="#" hx-get="{% url 'partner_detail' pk=partner.pk %}" hx-target="#partner-modal-body" data-bs-toggle="modal" data-bs-target="#partnerModal" data-partner-name="{{ partner.name }}" class="list-group-item list-group-item-action partner-result hx-item" style="animation-delay: calc({{ forloop.counter0 }} * 22ms);">
-        <div class="d-flex w-100 justify-content-between align-items-center">
-          <div class="d-flex align-items-center gap-2">
-            <span class="hx-type">Partner</span>
-            <h6 class="mb-0 small">{{ item.name_html|safe }}</h6>
-          </div>
-        </div>
-        <p class="mb-1 small text-truncate text-muted">{{ partner.description|striptags|truncatechars:120 }}</p>
-      </a>
-      {% endwith %}
-    {% endfor %}
+    </div>
   </div>
+  {% endif %}
+
+  <!-- No Results -->
+  {% if not results.users and not results.posts and not results.events and not results.partners %}
+  <div class="text-center py-5">
+    <i class="fas fa-search fa-3x mb-3 text-muted" style="opacity: 0.3;"></i>
+    <h5 class="text-muted mb-2">Ничего не найдено</h5>
+    <p class="text-muted mb-0">Попробуйте изменить поисковый запрос "<strong>{{ query }}</strong>"</p>
+    {% if query|length < 2 %}
+    <small class="text-muted d-block mt-2">Минимум 2 символа для поиска</small>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+{% else %}
+<div class="text-center py-4 text-muted">
+  <i class="fas fa-search fa-2x mb-2" style="opacity: 0.3;"></i>
+  <p class="mb-0">Начните вводить для поиска...</p>
+</div>
 {% endif %}

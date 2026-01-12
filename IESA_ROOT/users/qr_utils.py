@@ -5,7 +5,7 @@ from django.core.files.base import ContentFile
 from django.conf import settings
 
 
-def generate_qr_code_for_user(user):
+def generate_qr_code_for_user(user, request=None):
     """
     Генерирует QR код для пользователя на основе его permanent_id.
     QR код ведёт на маршрут /auth/card/<permanent_id>/
@@ -16,9 +16,11 @@ def generate_qr_code_for_user(user):
     if not user.permanent_id:
         return None
 
-    # URL, который кодируется в QR
-    profile_url = f"http://127.0.0.1:8000/auth/card/{user.permanent_id}/"
-    # В production: использовать настоящий домен из settings
+    # URL, который кодируется в QR - используем правильный домен
+    # Prefer request host/scheme in runtime if available, else fallback to settings
+    domain = (request.get_host() if request is not None else getattr(settings, 'SITE_DOMAIN', 'iesasport.ch'))
+    protocol = (getattr(request, 'scheme', None) or ('https' if not settings.DEBUG else 'http'))
+    profile_url = f"{protocol}://{domain}/auth/card/{user.permanent_id}/"
 
     # Создаём QR
     qr = qrcode.QRCode(

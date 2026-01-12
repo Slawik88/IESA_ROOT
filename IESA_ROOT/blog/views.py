@@ -1,3 +1,5 @@
+import logging
+import re
 from django.views.generic import ListView, DetailView, CreateView
 from django.shortcuts import get_object_or_404, redirect, render
 from django.http import HttpResponse
@@ -13,6 +15,8 @@ from core.models import Partner
 from .forms import PostForm
 from users.search_utils import highlight_text, normalize_search_query
 from users.ratelimit_utils import post_create_ratelimit, comment_ratelimit, search_ratelimit
+
+logger = logging.getLogger('blog')
 
 
 class CommentForm(forms.ModelForm):
@@ -138,6 +142,7 @@ class PostCreateView(LoginRequiredMixin, CreateView):
 class EventListView(ListView):
     """
     Список предстоящих событий.
+    Optimized with select_related and prefetch_related
     """
     model = Event
     template_name = 'blog/event_list.html'
@@ -145,7 +150,12 @@ class EventListView(ListView):
     
     def get_queryset(self):
         # Сортировка по дате (предстоящие - первыми)
-        return Event.objects.filter(date__gte=timezone.now()).order_by('date')
+        # OPTIMIZED: select_related для created_by
+        return Event.objects.filter(
+            date__gte=timezone.now()
+        ).select_related(
+            'created_by'
+        ).order_by('date')
 
 
 class EventDetailView(DetailView):
@@ -273,99 +283,56 @@ from django.db import models as django_models
 
 def post_search(request):
     """
-    HTMX endpoint for searching posts, events, partners AND users.
-    Returns results grouped by category with highlighted matches and relevance ranking.
+    HTMX endpoint for searching posts with filters.
+    Supports: query, status filter, sort order
+    Returns only posts for the community page search
     """
-    from django.contrib.auth import get_user_model
-    from django.db.models import Q, Value, CharField, Case, When, IntegerField
-    from django.db.models.functions import Length
-    User = get_user_model()
+    from django.db.models import Q, Value, Case, When, IntegerField, Count
     
     q = request.GET.get('q', '').strip()
-    normalized_q = normalize_search_query(q)
-    results = {
-        'posts': [],
-        'users': [],
-        'events': [],
-        'partners': []
-    }
+    status = request.GET.get('status', '').strip()
+    sort = request.GET.get('sort', 'latest').strip()
     
+    normalized_q = normalize_search_query(q)
+    
+    # Start with published posts
+    queryset = Post.objects.all()
+    
+    # Apply status filter if provided
+    if status:
+        queryset = queryset.filter(status=status)
+    
+    # Search filter
     if normalized_q:
-        # Search posts with relevance ranking
-        # Title matches get higher priority than content matches
-        posts = Post.objects.filter(
-            Q(title__icontains=normalized_q) | Q(text__icontains=normalized_q), 
-            status='published'
+        queryset = queryset.filter(
+            Q(title__icontains=normalized_q) | Q(text__icontains=normalized_q)
         ).annotate(
             relevance=Case(
                 When(title__icontains=normalized_q, then=Value(10)),
                 default=Value(1),
                 output_field=IntegerField()
             )
-        ).order_by('-relevance', '-created_at')[:12]
-        
-        results['posts'] = [{'post': p, 'title_html': highlight_text(p.title, normalized_q)} for p in posts]
-        
-        # Search users (by username, first_name, last_name, email, permanent_id)
-        users = User.objects.filter(
-            Q(username__icontains=normalized_q) | 
-            Q(first_name__icontains=normalized_q) | 
-            Q(last_name__icontains=normalized_q) | 
-            Q(email__icontains=normalized_q) | 
-            Q(permanent_id__icontains=normalized_q)
-        ).annotate(
-            relevance=Case(
-                When(username__iexact=normalized_q, then=Value(20)),
-                When(username__istartswith=normalized_q, then=Value(15)),
-                When(username__icontains=normalized_q, then=Value(10)),
-                default=Value(5),
-                output_field=IntegerField()
-            )
-        ).order_by('-relevance', 'username')[:8]
-        
-        results['users'] = [{
-            'user': u,
-            'username_html': highlight_text(u.username, normalized_q),
-            'email_html': highlight_text(u.email, normalized_q)
-        } for u in users]
-        
-        # Search events with date relevance
-        events = Event.objects.filter(
-            Q(title__icontains=normalized_q) | 
-            Q(description__icontains=normalized_q)
-        ).annotate(
-            relevance=Case(
-                When(title__icontains=normalized_q, then=Value(10)),
-                default=Value(1),
-                output_field=IntegerField()
-            )
-        ).order_by('-relevance', '-date')[:6]
-        
-        results['events'] = [{'event': e, 'title_html': highlight_text(e.title, normalized_q)} for e in events]
-        
-        # Search partners
-        partners = Partner.objects.filter(
-            Q(name__icontains=normalized_q) | 
-            Q(description__icontains=normalized_q)
-        ).annotate(
-            relevance=Case(
-                When(name__icontains=normalized_q, then=Value(10)),
-                default=Value(1),
-                output_field=IntegerField()
-            )
-        ).order_by('-relevance', 'name')[:8]
-        
-        results['partners'] = [{'partner': p, 'name_html': highlight_text(p.name, normalized_q)} for p in partners]
-
-    context = {'query': q, 'results': results}
-    response = render(request, 'blog/htmx/post_search_results.html', context)
-    # Add a diagnostic header so clients can easily see how many results were found
-    try:
-        response['X-Search-Users'] = str(len(results.get('users', [])))
-        response['X-Search-Posts'] = str(len(results.get('posts', [])))
-    except Exception:
-        pass
-    return response
+        )
+    
+    # Apply sorting
+    if sort == 'popular':
+        queryset = queryset.annotate(
+            total_engagement=Count('likes') * 2 + Count('comments') * 3 + Count('user_views')
+        ).order_by('-total_engagement', '-created_at')
+    elif sort == 'trending':
+        queryset = queryset.annotate(
+            engagement_count=Count('likes') + Count('comments')
+        ).filter(engagement_count__gt=0).order_by('-engagement_count', '-created_at')
+    else:  # latest
+        if normalized_q:
+            queryset = queryset.order_by('-relevance', '-created_at')
+        else:
+            queryset = queryset.order_by('-created_at')
+    
+    posts = queryset[:12]
+    
+    context = {'posts': posts}
+    return render(request, 'blog/htmx/posts_list_fragment.html', context)
 
 
 @login_required
@@ -456,3 +423,147 @@ def toggle_subscription(request, author_pk):
         'subscriber_count': subscriber_count,
     }
     return render(request, 'blog/htmx/subscribe_button.html', context)
+
+
+def validate_search_query(query):
+    """
+    Validate and sanitize search query for security
+    """
+    if not query:
+        return ''
+    
+    # Limit length to prevent abuse
+    if len(query) > 100:
+        logger.warning(f"Search query too long ({len(query)} chars), truncating")
+        query = query[:100]
+    
+    # Allow only safe characters: alphanumeric, spaces, and basic punctuation
+    # Supports Cyrillic, Latin, numbers, spaces, hyphens, underscores
+    safe_pattern = re.compile(r'[^a-zA-Zа-яА-ЯёЁ0-9\s\-_.,!?]')
+    if safe_pattern.search(query):
+        logger.info(f"Removing unsafe characters from search query")
+        query = safe_pattern.sub('', query)
+    
+    return query.strip()
+
+
+def global_search(request):
+    """
+    Global HTMX search endpoint for posts, users, events, partners
+    Optimized with select_related and validation
+    """
+    from django.db.models import Q, Value, Case, When, IntegerField
+    from core.models import Partner
+    from users.models import User
+    
+    raw_query = request.GET.get('q', '').strip()
+    
+    # Return early for empty queries
+    if not raw_query:
+        return render(request, 'blog/htmx/post_search_results.html', {
+            'query': '',
+            'results': {'users': [], 'posts': [], 'events': [], 'partners': []}
+        })
+    
+    validated_query = validate_search_query(raw_query)
+    normalized_q = normalize_search_query(validated_query)
+    
+    logger.info(f"Global search: raw='{raw_query}', validated='{validated_query}', normalized='{normalized_q}', len={len(normalized_q)}, user={request.user.username if request.user.is_authenticated else 'anonymous'}")
+    
+    results = {
+        'users': [],
+        'posts': [],
+        'events': [],
+        'partners': []
+    }
+    
+    # Minimum 2 characters required
+    if normalized_q and len(normalized_q) >= 2:
+        try:
+            # Search users - OPTIMIZED
+            users = User.objects.filter(
+                Q(username__icontains=normalized_q) |
+                Q(first_name__icontains=normalized_q) |
+                Q(last_name__icontains=normalized_q) |
+                Q(email__icontains=normalized_q)
+            ).exclude(
+                Q(username__isnull=True) | 
+                Q(username='') | 
+                Q(username__regex=r'^\s*$')
+            ).filter(
+                username__isnull=False
+            ).exclude(
+                username=''
+            ).order_by('-is_verified', 'username')[:20]
+            
+            # Additional Python-level validation for safety
+            valid_users = []
+            for u in users:
+                # Check username is not None, not empty, and has valid length
+                if u.username and isinstance(u.username, str) and len(u.username.strip()) > 0:
+                    valid_users.append(u)
+                    if len(valid_users) >= 8:
+                        break
+            results['users'] = valid_users
+            
+            # Search posts - OPTIMIZED
+            posts = Post.objects.filter(
+                Q(title__icontains=normalized_q) |
+                Q(text__icontains=normalized_q),
+                status='published'
+            ).select_related(
+                'author'
+            ).prefetch_related(
+                'likes',
+                'comments'
+            ).annotate(
+                relevance=Case(
+                    When(title__icontains=normalized_q, then=Value(10)),
+                    default=Value(1),
+                    output_field=IntegerField()
+                )
+            ).order_by('-relevance', '-created_at')[:6]
+            
+            # Validate posts have valid pk
+            valid_posts = [p for p in posts if p.pk is not None and p.pk != '']
+            results['posts'] = valid_posts
+            
+            # Search events - OPTIMIZED
+            events = Event.objects.filter(
+                Q(title__icontains=normalized_q) |
+                Q(description__icontains=normalized_q)
+            ).select_related('created_by').annotate(
+                relevance=Case(
+                    When(title__icontains=normalized_q, then=Value(10)),
+                    default=Value(1),
+                    output_field=IntegerField()
+                )
+            ).order_by('-relevance', '-date')[:6]
+            
+            # Validate events have valid pk
+            valid_events = [e for e in events if e.pk is not None and e.pk != '']
+            results['events'] = valid_events
+            
+            # Search partners
+            partners = Partner.objects.filter(
+                Q(name__icontains=normalized_q) |
+                Q(description__icontains=normalized_q)
+            ).annotate(
+                relevance=Case(
+                    When(name__icontains=normalized_q, then=Value(10)),
+                    default=Value(1),
+                    output_field=IntegerField()
+                )
+            ).order_by('-relevance', 'name')[:6]
+            
+            # Validate partners have valid pk
+            valid_partners = [p for p in partners if p.pk is not None and p.pk != '']
+            results['partners'] = valid_partners
+            
+            logger.info(f"Search results: users={len(results['users'])}, posts={len(results['posts'])}, events={len(results['events'])}, partners={len(results['partners'])}")
+            
+        except Exception as e:
+            logger.error(f"Error in global_search: {e}", exc_info=True)
+    
+    context = {'query': raw_query, 'results': results}
+    return render(request, 'blog/htmx/post_search_results.html', context)

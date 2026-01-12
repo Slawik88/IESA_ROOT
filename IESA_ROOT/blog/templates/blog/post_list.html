@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Community & Blog | IESA_ROOT{% endblock %}
+{% block title %}Community & Blog | IESA{% endblock %}
 
 {% block content %}
 <div class="container-limited">
@@ -28,26 +28,36 @@
             <a class="nav-link" href="{% url 'event_list' %}">Events</a>
         </nav>
         <div class="ms-3 flex-fill">
-            <form id="post-search-form" class="d-flex" hx-get="{% url 'post_search' %}" hx-target="#search-results" hx-trigger="keyup changed delay:400ms">
-                <input name="q" class="form-control form-control-sm me-2" placeholder="Search posts..." aria-label="Search posts">
+            <form id="post-search-form" class="d-flex gap-2" hx-get="{% url 'post_search' %}" hx-target="#posts-container" hx-trigger="keyup changed from:[name='q'] delay:400ms, change from:select">
+                <input name="q" class="form-control form-control-sm" placeholder="Search posts..." aria-label="Search posts">
+                <select name="status" class="form-select form-select-sm" style="max-width: 150px;">
+                    <option value="">All statuses</option>
+                    <option value="published">Published</option>
+                    <option value="pending">Pending</option>
+                </select>
+                <select name="sort" class="form-select form-select-sm" style="max-width: 120px;">
+                    <option value="latest">Latest</option>
+                    <option value="popular">Popular</option>
+                    <option value="trending">Trending</option>
+                </select>
                 <button type="submit" class="btn btn-sm btn-outline-secondary">Search</button>
             </form>
         </div>
         {% if user.is_authenticated %}
-            <a href="{% url 'post_create' %}" class="btn btn-primary btn-modern">
+            <a href="{% url 'post_create' %}" class="btn btn-primary btn-modern ms-3">
                     <i class="fas fa-plus me-1"></i> Create post
                 </a>
         {% endif %}
     </div>
 
+    <div id="posts-container">
     {% if posts %}
-        <div id="search-results">
             <div class="row g-4">
             {% for post in posts %}
                 <div class="col-md-6">
                     <div class="card card-modern h-100">
                         {% if post.preview_image %}
-                            <img src="{{ post.preview_image.url }}" class="card-modern__image" alt="{{ post.title }}">
+                            <img src="{{ post.preview_image.url }}" class="card-modern__image" alt="{{ post.title }}" loading="lazy">
                         {% endif %}
                         <div class="card-body d-flex flex-column">
                             <h5 class="card-title fw-bold text-primary">{{ post.title }}</h5>
@@ -102,4 +112,60 @@
         </div>
     {% endif %}
 </div>
+
+<style>
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.post-card-animate {
+    opacity: 0;
+}
+
+.post-card-animate.animated {
+    animation: fadeInUp 0.6s ease-out forwards;
+}
+
+.post-card-animate:nth-child(1) { animation-delay: 0.1s; }
+.post-card-animate:nth-child(2) { animation-delay: 0.15s; }
+.post-card-animate:nth-child(3) { animation-delay: 0.2s; }
+.post-card-animate:nth-child(4) { animation-delay: 0.25s; }
+.post-card-animate:nth-child(5) { animation-delay: 0.3s; }
+.post-card-animate:nth-child(6) { animation-delay: 0.35s; }
+.post-card-animate:nth-child(7) { animation-delay: 0.4s; }
+.post-card-animate:nth-child(8) { animation-delay: 0.45s; }
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const observerOptions = {
+        threshold: 0.1,
+        rootMargin: '0px 0px -50px 0px'
+    };
+    
+    const observer = new IntersectionObserver(function(entries) {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.classList.add('animated');
+                observer.unobserve(entry.target);
+            }
+        });
+    }, observerOptions);
+    
+    // Анимация для карточек постов
+    const postCards = document.querySelectorAll('.col-md-6');
+    postCards.forEach(card => {
+        card.classList.add('post-card-animate');
+        observer.observe(card);
+    });
+});
+</script>
+
 {% endblock %}

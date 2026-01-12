@@ -1,8 +1,10 @@
 from django.views.generic import TemplateView
 from products.models import Product
 from core.models import Partner, AssociationMember, President
+from blog.models import Event
 from django.shortcuts import get_object_or_404, render
 from django.core.paginator import Paginator
+from django.utils import timezone
 
 
 def partner_detail(request, pk):
@@ -38,5 +40,11 @@ class IndexView(TemplateView):
         partners_page = paginator.get_page(page)
         context['partners'] = partners_page.object_list
         context['partners_page_obj'] = partners_page
+        
+        # 5. Ближайшие события (максимум 6 для главной)
+        upcoming_events = Event.objects.filter(
+            date__gte=timezone.now()
+        ).order_by('date')[:6]
+        context['upcoming_events'] = upcoming_events
         
         return context

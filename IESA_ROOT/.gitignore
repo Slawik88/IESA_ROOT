@@ -21,6 +21,9 @@ env/
 .venv/
 ENV/
 
+# Logs directory
+logs/
+
 # Python
 *.egg-info/
 *.manifest
