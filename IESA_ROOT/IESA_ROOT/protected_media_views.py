@@ -1,12 +1,16 @@
 """
 Protected media file serving with permission checks.
 Serves files from /protected/ path only to authorized users.
+
+Note: In production with S3/Spaces, files can be served directly from CDN
+with appropriate CORS and ACL settings. This view is mainly for local development.
 """
 
 from django.http import FileResponse, Http404, HttpResponseForbidden
 from django.contrib.auth.decorators import login_required
 from django.conf import settings
 import os
+from io import BytesIO
 
 
 @login_required
@@ -22,17 +26,18 @@ def serve_protected_media(request, file_path):
     - Cards: Owner or staff  
     - Other files: Staff only (default)
     """
-    # Security: Validate path is within protected directory
-    protected_root = os.path.join(settings.MEDIA_ROOT, 'protected')
-    full_path = os.path.join(protected_root, file_path)
-    full_path = os.path.abspath(full_path)
+    # Use Django storage (supports both local and S3)
+    from django.core.files.storage import default_storage
     
-    # Prevent directory traversal
-    if not full_path.startswith(protected_root):
+    # Build the full path - always use prefixed path for safety
+    full_path = f'protected/{file_path}'
+    
+    # Security: Basic check that path doesn't contain ../ for traversal
+    if '..' in file_path or file_path.startswith('/'):
         raise Http404("Invalid path")
     
-    # Check file exists
-    if not os.path.exists(full_path):
+    # Check file exists in storage
+    if not default_storage.exists(full_path):
         raise Http404("File not found")
     
     # Permission checks based on file type
@@ -40,7 +45,6 @@ def serve_protected_media(request, file_path):
     
     # Avatars - owner or staff can access
     if file_path.startswith('avatars/'):
-        # Extract username or user ID from path if needed
         # For now, allow authenticated users to view avatars
         pass
     
@@ -54,9 +58,10 @@ def serve_protected_media(request, file_path):
         if not user.is_staff:
             return HttpResponseForbidden("You don't have permission to access this file")
     
-    # Serve file
+    # Serve file from storage
     try:
-        response = FileResponse(open(full_path, 'rb'))
+        file_obj = default_storage.open(full_path, 'rb')
+        response = FileResponse(file_obj)
         
         # Set content type based on extension
         content_types = {
@@ -68,7 +73,7 @@ def serve_protected_media(request, file_path):
             '.txt': 'text/plain',
         }
         
-        ext = os.path.splitext(full_path)[1].lower()
+        ext = os.path.splitext(file_path)[1].lower()
         if ext in content_types:
             response['Content-Type'] = content_types[ext]
         

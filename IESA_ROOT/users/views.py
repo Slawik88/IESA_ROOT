@@ -5,14 +5,14 @@ from django.urls import reverse_lazy
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.utils.decorators import method_decorator
 from django.contrib import messages
-from django.http import HttpResponseForbidden
+from django.http import HttpResponseForbidden, FileResponse, Http404
 from django.db.models import Q
 from django_ratelimit.decorators import ratelimit
 from django.core.cache import cache
+from io import BytesIO
 from .models import User
 from .forms import CustomUserCreationForm, UserProfileEditForm
 from blog.models import Post
-from django.http import FileResponse, Http404
 import os
 from django.conf import settings
 from .qr_utils import generate_qr_code_for_user
@@ -162,10 +162,6 @@ def qr_image(request, permanent_id):
     SECURITY: Validates permanent_id is valid UUID to prevent path traversal.
     Uses Redis cache with 1-hour timeout to reduce disk I/O.
     """
-    # Check cache first
-    cache_key = f'qr_image_{permanent_id}'
-    cached_data = cache.get(cache_key)
-    
     # Validate permanent_id format - must be valid UUID
     try:
         import uuid
@@ -178,30 +174,28 @@ def qr_image(request, permanent_id):
     except User.DoesNotExist:
         raise Http404("User not found")
 
-    # Safe filename - use UUID directly (already validated)
-    filename = f"{permanent_id}.png"
-    cards_dir = os.path.join(settings.MEDIA_ROOT, 'cards')
-    filepath = os.path.join(cards_dir, filename)
+    # Use Django storage (works with S3 and local)
+    from django.core.files.storage import default_storage
+    filename = f"cards/{permanent_id}.png"
     
-    # SECURITY: Verify path is within cards_dir (prevent directory traversal)
-    filepath = os.path.abspath(filepath)
-    cards_dir = os.path.abspath(cards_dir)
-    if not filepath.startswith(cards_dir):
-        raise Http404("Invalid path")
-
-    # If missing, try to generate
-    if not os.path.exists(filepath):
+    # Check cache first
+    cache_key = f'qr_image_{permanent_id}'
+    cached_data = cache.get(cache_key)
+    if cached_data:
+        # Return from cache if available
+        return FileResponse(BytesIO(cached_data), content_type='image/png')
+    
+    # If file doesn't exist, try to generate
+    if not default_storage.exists(filename):
         try:
             generate_qr_code_for_user(user_obj, request)
-            # Invalidate cache after regeneration
-            cache.delete(cache_key)
         except Exception as e:
             import logging
             logging.error(f"QR generation failed for user {user_obj.id}: {str(e)}")
             raise Http404("QR generation failed")
 
     # If still missing -> 404
-    if not os.path.exists(filepath):
+    if not default_storage.exists(filename):
         raise Http404("QR not available")
 
     # If download requested, ensure only owner or staff can download
@@ -210,17 +204,17 @@ def qr_image(request, permanent_id):
         if not request.user.is_authenticated or (request.user.id != user_obj.id and not request.user.is_staff):
             return HttpResponseForbidden('Not allowed')
 
-    # Serve file safely
+    # Read file from storage (works with S3 and local)
     try:
-        with open(filepath, 'rb') as f:
-            file_content = f.read()
+        from io import BytesIO
+        file_content = default_storage.open(filename, 'rb').read()
         
         # Cache file content for 1 hour (3600 seconds)
         cache.set(cache_key, file_content, 3600)
         
         # Return cached or fresh content
         from django.http import HttpResponse
-        response = HttpResponse(cached_data if cached_data else file_content, content_type='image/png')
+        response = HttpResponse(file_content, content_type='image/png')
         if download:
             response['Content-Disposition'] = f'attachment; filename=qr_{user_obj.username}.png'
         else:
