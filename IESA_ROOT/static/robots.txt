@@ -1,0 +1,18 @@
+User-agent: *
+Allow: /
+
+# Disallow admin and auth pages
+Disallow: /admin/
+Disallow: /auth/login/
+Disallow: /auth/register/
+Disallow: /auth/password/
+Disallow: /auth/profile/edit/
+
+# Disallow search results
+Disallow: /blog/search/
+
+# Allow media files
+Allow: /media/
+
+# Sitemap
+Sitemap: https://iesasport.ch/sitemap.xml

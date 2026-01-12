@@ -104,8 +104,26 @@ document.addEventListener('DOMContentLoaded', function(){
     var form = ta.closest('form');
     if (form) {
         form.addEventListener('submit', function(e){
+            // Get content from Quill
+            var quillContent = quill.root.innerHTML.trim();
+            var titleContent = form.querySelector('input[name="title"]').value.trim();
+            
+            // Validate: both title and text required
+            if (!titleContent) {
+                e.preventDefault();
+                alert('Please enter a post title');
+                return false;
+            }
+            
+            if (!quillContent || quillContent === '<p><br></p>') {
+                e.preventDefault();
+                alert('Please enter post content');
+                return false;
+            }
+            
             // Синхронизируем Quill контент с textarea перед отправкой
-            ta.value = quill.root.innerHTML;
+            ta.value = quillContent;
+            
             // Разрешаем отправку формы
             return true;
         });

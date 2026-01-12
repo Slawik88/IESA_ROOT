@@ -1,0 +1,277 @@
+/* HTMX Loading States and Indicators */
+
+/* ========================================
+   LOADING INDICATORS
+   ======================================== */
+
+/* Default HTMX Indicator (hidden by default) */
+.htmx-indicator {
+    display: none;
+}
+
+/* Show indicator when HTMX is loading */
+.htmx-request .htmx-indicator,
+.htmx-request.htmx-indicator {
+    display: inline-block;
+}
+
+/* Spinner Animation */
+.spinner {
+    border: 3px solid #f3f3f3;
+    border-top: 3px solid #007bff;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    animation: spin 1s linear infinite;
+    display: inline-block;
+    vertical-align: middle;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Larger Spinner for Main Content */
+.spinner-lg {
+    width: 48px;
+    height: 48px;
+    border-width: 4px;
+}
+
+/* Small Spinner for Buttons */
+.spinner-sm {
+    width: 16px;
+    height: 16px;
+    border-width: 2px;
+}
+
+/* ========================================
+   SKELETON LOADERS
+   ======================================== */
+
+.skeleton {
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    animation: skeleton-loading 1.5s ease-in-out infinite;
+    border-radius: 4px;
+}
+
+@keyframes skeleton-loading {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+/* Skeleton Card */
+.skeleton-card {
+    height: 300px;
+    margin-bottom: 20px;
+}
+
+/* Skeleton Text Lines */
+.skeleton-text {
+    height: 16px;
+    margin-bottom: 10px;
+}
+
+.skeleton-text-sm {
+    height: 12px;
+    width: 60%;
+}
+
+/* Skeleton Avatar */
+.skeleton-avatar {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+}
+
+/* ========================================
+   BUTTON LOADING STATES
+   ======================================== */
+
+/* Disable button during HTMX request */
+.htmx-request button[type="submit"],
+.htmx-request .btn-submit {
+    opacity: 0.7;
+    pointer-events: none;
+    cursor: not-allowed;
+}
+
+/* Button with loading spinner */
+.btn-loading {
+    position: relative;
+    color: transparent !important;
+    pointer-events: none;
+}
+
+.btn-loading::after {
+    content: "";
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    top: 50%;
+    left: 50%;
+    margin-left: -8px;
+    margin-top: -8px;
+    border: 2px solid #ffffff;
+    border-radius: 50%;
+    border-top-color: transparent;
+    animation: spin 0.6s linear infinite;
+}
+
+/* Dark button variant */
+.btn-dark.btn-loading::after,
+.btn-outline-dark.btn-loading::after {
+    border-color: #000000;
+    border-top-color: transparent;
+}
+
+/* ========================================
+   FORM LOADING STATES
+   ======================================== */
+
+/* Disable form inputs during submission */
+.htmx-request input,
+.htmx-request textarea,
+.htmx-request select {
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+/* ========================================
+   SEARCH LOADING STATE
+   ======================================== */
+
+#search-loading {
+    text-align: center;
+    padding: 20px;
+}
+
+/* Search Results Skeleton */
+.search-skeleton {
+    padding: 15px;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.search-skeleton-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: inline-block;
+    vertical-align: middle;
+    margin-right: 10px;
+}
+
+.search-skeleton-text {
+    display: inline-block;
+    width: calc(100% - 60px);
+    vertical-align: middle;
+}
+
+/* ========================================
+   PROGRESS BAR
+   ======================================== */
+
+/* HTMX Progress Bar (top of page) */
+.htmx-progress {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 3px;
+    background: #007bff;
+    z-index: 9999;
+    transition: width 0.3s ease;
+    width: 0;
+}
+
+.htmx-request .htmx-progress {
+    width: 70%;
+}
+
+.htmx-swapping .htmx-progress {
+    width: 100%;
+}
+
+/* ========================================
+   OVERLAY LOADING
+   ======================================== */
+
+.loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 9998;
+}
+
+.htmx-request .loading-overlay {
+    display: flex;
+}
+
+.loading-overlay .spinner-lg {
+    border-color: #ffffff;
+    border-top-color: transparent;
+}
+
+/* ========================================
+   PULSE ANIMATION
+   ======================================== */
+
+.pulse {
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+/* ========================================
+   SPECIFIC COMPONENT LOADING STATES
+   ======================================== */
+
+/* Like Button Loading */
+.like-btn.htmx-request {
+    opacity: 0.6;
+}
+
+/* Comment Form Loading */
+#comment-form.htmx-request textarea {
+    opacity: 0.7;
+}
+
+/* Post Search Loading */
+#post-search.htmx-request {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24'%3E%3Cpath fill='%23007bff' d='M12,4a8,8,0,0,1,7.89,6.7A1.53,1.53,0,0,0,21.38,12h0a1.5,1.5,0,0,0,1.48-1.75,11,11,0,0,0-21.72,0A1.5,1.5,0,0,0,2.62,12h0a1.53,1.53,0,0,0,1.49-1.3A8,8,0,0,1,12,4Z'%3E%3CanimateTransform attributeName='transform' dur='0.75s' repeatCount='indefinite' type='rotate' values='0 12 12;360 12 12'/%3E%3C/path%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 15px center;
+    background-size: 20px;
+}
+
+/* ========================================
+   UTILITY CLASSES
+   ======================================== */
+
+/* Hide element during HTMX request */
+.hide-on-request {
+    display: block;
+}
+
+.htmx-request .hide-on-request {
+    display: none;
+}
+
+/* Show element during HTMX request */
+.show-on-request {
+    display: none;
+}
+
+.htmx-request .show-on-request {
+    display: block;
+}
