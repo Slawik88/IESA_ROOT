@@ -25,7 +25,7 @@ class Post(models.Model):
     text = RichTextField(config_name='extends', verbose_name='Текст поста')
     author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='blog_posts', verbose_name='Автор')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата создания')
-    preview_image = models.ImageField(upload_to='blog/previews/', blank=True, null=True, verbose_name='Изображение превью')
+    preview_image = models.ImageField(upload_to='media/blog/previews/', blank=True, null=True, verbose_name='Изображение превью')
     
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending', verbose_name='Статус')
     views_count = models.PositiveIntegerField(default=0, verbose_name='Просмотры')
@@ -155,7 +155,7 @@ class Event(models.Model):
     date = models.DateTimeField(verbose_name='Event Date & Time')
     end_date = models.DateTimeField(null=True, blank=True, verbose_name='End Date & Time')
     location = models.CharField(max_length=255, verbose_name='Location')
-    image = models.ImageField(upload_to='events/', blank=True, null=True, verbose_name='Event Image')
+    image = models.ImageField(upload_to='media/events/', blank=True, null=True, verbose_name='Event Image')
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='upcoming', verbose_name='Status')
     max_participants = models.PositiveIntegerField(null=True, blank=True, verbose_name='Max Participants')
     registration_deadline = models.DateTimeField(null=True, blank=True, verbose_name='Registration Deadline')

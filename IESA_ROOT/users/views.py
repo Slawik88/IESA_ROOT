@@ -176,7 +176,7 @@ def qr_image(request, permanent_id):
 
     # Use Django storage (works with S3 and local)
     from django.core.files.storage import default_storage
-    filename = f"cards/{permanent_id}.png"
+    filename = f"media/cards/{permanent_id}.png"
     
     # Check cache first
     cache_key = f'qr_image_{permanent_id}'
