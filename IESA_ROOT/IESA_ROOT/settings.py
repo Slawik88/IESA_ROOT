@@ -367,6 +367,24 @@ CACHES = {
     }
 }
 
+# Session Configuration - Support multiple devices/sessions per user
+# Using Django's default database-backed sessions
+SESSION_ENGINE = 'django.contrib.sessions.backends.db'
+
+# Session timeout (in seconds): 30 days
+SESSION_COOKIE_AGE = 30 * 24 * 60 * 60
+
+# Allow multiple concurrent sessions from different devices
+# By default, Django allows this - each device gets its own session ID
+SESSION_EXPIRE_AT_BROWSER_CLOSE = False
+
+# Additional CSRF settings for mobile compatibility
+CSRF_COOKIE_AGE = 31449600  # 1 year
+CSRF_HEADER_NAME = 'HTTP_X_CSRFTOKEN'
+
+# Allow CSRF from same site
+CSRF_USE_SESSIONS = False
+
 # Настройки авторизации/перенаправления
 LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = 'profile'
