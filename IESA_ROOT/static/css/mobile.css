@@ -787,22 +787,12 @@
 }
 
 /* ================================================
-   FOOTER - MOBILE (LIGHT THEME)
+   FOOTER - MOBILE (KEEP DARK THEME)
    ================================================ */
 @media (max-width: 768px) {
     footer {
-        background: #f5f7fa !important;
-        border-top: 1px solid #e9ecef !important;
         padding: 25px 15px !important;
         text-align: center !important;
-        margin-top: 40px !important;
-    }
-    
-    .footer-enhanced {
-        background: #f5f7fa !important;
-        color: #2c3e50 !important;
-        border-top: 1px solid #e9ecef !important;
-        box-shadow: none !important;
     }
     
     footer .row {
@@ -813,25 +803,9 @@
         margin-bottom: 20px !important;
     }
     
-    .footer-title {
-        text-transform: uppercase;
-        letter-spacing: 0.08em;
-        font-size: 0.75rem;
-        color: #667eea;
-        margin-bottom: 12px;
-        font-weight: 700;
-    }
-    
-    .footer-text {
-        color: #7f8c8d !important;
-        font-size: 0.85rem;
-        line-height: 1.6;
-    }
-    
     footer h5 {
         font-size: 1rem !important;
         margin-bottom: 10px !important;
-        color: #2c3e50 !important;
     }
     
     footer ul {
@@ -844,46 +818,12 @@
     }
     
     .footer-links a {
-        color: #2c3e50 !important;
         display: inline-flex;
         align-items: center;
         gap: 0.35rem;
         padding: 0.2rem 0;
         font-size: 0.85rem;
         text-decoration: none;
-    }
-    
-    .footer-links a:hover {
-        color: #667eea !important;
-        text-decoration: none;
-    }
-    
-    .footer-social {
-        width: 38px;
-        height: 38px;
-        border-radius: 8px;
-        border: 1px solid #e9ecef;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        color: #667eea;
-        transition: all 0.25s ease;
-        background: #ffffff;
-    }
-    
-    .footer-social:hover {
-        color: #ffffff;
-        background: #667eea;
-        border-color: #667eea;
-        transform: translateY(-2px);
-    }
-    
-    /* Contact section improvements */
-    footer .col-12:first-child {
-        text-align: center;
-        border-bottom: 1px solid #e9ecef;
-        padding-bottom: 20px;
-        margin-bottom: 20px;
     }
 }
 
