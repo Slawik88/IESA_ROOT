@@ -51,12 +51,41 @@
         font-size: 16px !important;
         min-height: 44px;
         padding: 12px !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
     }
     
     .form-label {
         font-size: 0.9rem;
         font-weight: 600;
         margin-bottom: 6px;
+    }
+    
+    /* Login/Register Forms */
+    .login-container,
+    .register-container,
+    .auth-container {
+        padding: 15px !important;
+        margin: 15px auto !important;
+        max-width: 100% !important;
+    }
+    
+    .form-group {
+        margin-bottom: 15px !important;
+    }
+    
+    .form-control:focus {
+        border-color: #0d6efd !important;
+        box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25) !important;
+    }
+    
+    .btn-primary {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+        border: none !important;
+        font-weight: 600 !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.5px !important;
     }
     
     /* Images & Media */
@@ -139,11 +168,53 @@
         box-shadow: none !important;
         padding: 0 !important;
         margin-top: 0 !important;
+        position: static !important;
+        width: 100% !important;
+        max-width: 100% !important;
     }
     
     .dropdown-item {
         padding: 10px 20px !important;
         font-size: 0.95rem !important;
+    }
+    
+    /* Search Form - FIX */
+    .navbar .search-form,
+    .search-container,
+    #search-form {
+        width: 100% !important;
+        max-width: 100% !important;
+        margin: 10px 0 !important;
+        padding: 0 !important;
+    }
+    
+    .navbar input[type="search"],
+    .navbar .form-control,
+    .search-input {
+        width: 100% !important;
+        max-width: 100% !important;
+        font-size: 16px !important;
+        padding: 10px 12px !important;
+        margin-bottom: 8px;
+        box-sizing: border-box !important;
+    }
+    
+    .navbar .input-group {
+        width: 100% !important;
+        max-width: 100% !important;
+        flex-wrap: nowrap !important;
+    }
+    
+    .navbar .input-group > * {
+        flex-shrink: 1 !important;
+    }
+    
+    .navbar .btn-search,
+    .search-btn {
+        flex-shrink: 0 !important;
+        padding: 10px 15px !important;
+        min-width: auto !important;
+        width: auto !important;
     }
 }
 
