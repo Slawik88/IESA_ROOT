@@ -357,14 +357,11 @@ CKEDITOR_5_FILE_UPLOAD_PERMISSION = 'staff'
 # Кастомная модель пользователя
 AUTH_USER_MODEL = 'users.User'
 
-# Redis Cache Configuration
+# Cache Configuration - Use local memory cache (no Redis required)
 CACHES = {
     'default': {
-        'BACKEND': 'django.core.cache.backends.redis.RedisCache' if not DEBUG else 'django.core.cache.backends.locmem.LocMemCache',
-        'LOCATION': os.getenv('REDIS_URL', 'redis://127.0.0.1:6379/1'),
-        'OPTIONS': {
-            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
-        },
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'unique-snowflake',
         'KEY_PREFIX': 'iesa',
         'TIMEOUT': 3600,  # 1 hour default
     }
