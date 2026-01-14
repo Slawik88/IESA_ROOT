@@ -24,7 +24,7 @@ def is_author_subscribed(author, user):
     if not user.is_authenticated:
         return False
     from ..models import BlogSubscription
-    return BlogSubscription.objects.filter(subscriber=user, author=author).exists()
+    return BlogSubscription.objects.filter(user=user, author=author).exists()
 
 
 def get_comment_likes_map(post, user):
