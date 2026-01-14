@@ -4,7 +4,21 @@
 
 {% block content %}
 <div class="container-limited">
-  <h3 class="mb-3">Search results for "{{ query }}"</h3>
+  <h3 class="mb-4">Search Members</h3>
+
+  <!-- Search form -->
+  <form method="get" action="{% url 'users_search' %}" class="mb-4">
+    <div class="input-group">
+      <input type="search" name="q" class="form-control" placeholder="Search by name, username, email or ID..." value="{{ query }}" autofocus>
+      <button type="submit" class="btn btn-primary">
+        <i class="fas fa-search"></i> Search
+      </button>
+    </div>
+  </form>
+
+  {% if query %}
+  <h5 class="mb-3 text-muted">Results for "{{ query }}"</h5>
+  {% endif %}
 
   <style>
     @keyframes fadeInUpSmall {

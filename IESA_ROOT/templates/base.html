@@ -99,14 +99,15 @@
                             <button class="btn btn-light btn-sm" id="communitySearchToggle" data-bs-toggle="dropdown" aria-expanded="false" title="Search community" aria-label="Open search menu">
                                 <i class="fas fa-search"></i>
                             </button>
-                            <div class="dropdown-menu dropdown-menu-end p-3" style="min-width:340px;">
+                            <div class="dropdown-menu dropdown-menu-end p-3" style="min-width:340px;" onclick="event.stopPropagation();">
                                 <label class="form-label small mb-1">
                                     <i class="fas fa-search me-2"></i>Search
                                 </label>
                                 <input type="search" name="q" id="global-community-search" class="form-control mb-2" placeholder="Posts, users, events..." 
                                   hx-get="{% url 'global_search' %}" 
                                   hx-trigger="keyup changed delay:400ms" 
-                                  hx-target="#community-search-results">
+                                  hx-target="#community-search-results"
+                                  autocomplete="off">
                                 <div id="community-search-results" class="mt-2" style="max-height:360px;overflow:auto; transition: transform .22s ease, opacity .22s ease; transform-origin: top center;"></div>
                             </div>
                         </div>
