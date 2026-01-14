@@ -1,6 +1,6 @@
 from django.views.generic import TemplateView
 from products.models import Product
-from core.models import Partner, AssociationMember, President
+from core.models import Partner, AssociationMember, President, SocialNetwork
 from blog.models import Event
 from django.shortcuts import get_object_or_404, render
 from django.core.paginator import Paginator

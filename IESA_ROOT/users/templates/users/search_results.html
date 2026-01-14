@@ -4,13 +4,17 @@
 
 {% block content %}
 <div class="container-limited">
-  <h3 class="mb-4">Search Members</h3>
+  <div class="text-center mb-5">
+    <h6 class="section-title mb-4" style="display: block;">MEMBER DIRECTORY</h6>
+    <h3 class="fw-bold mb-2" style="color: var(--color-gray-900);">Find & Connect With Members</h3>
+    <p class="text-muted">Search our community by name, username, email or ID</p>
+  </div>
 
   <!-- Search form -->
   <form method="get" action="{% url 'users_search' %}" class="mb-4">
     <div class="input-group">
       <input type="search" name="q" class="form-control" placeholder="Search by name, username, email or ID..." value="{{ query }}" autofocus>
-      <button type="submit" class="btn btn-primary">
+      <button type="submit" class="btn btn-primary btn-modern">
         <i class="fas fa-search"></i> Search
       </button>
     </div>

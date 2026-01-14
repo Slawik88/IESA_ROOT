@@ -3,8 +3,13 @@
 {% block title %}Gallery | IESA{% endblock %}
 
 {% block content %}
-<h1 class="fw-bold mb-4 text-center">Photo gallery</h1>
-<p class="text-center text-muted mb-5">See how we work and relax.</p>
+<div class="container-limited">
+    <div class="text-center mb-5">
+        <h6 class="section-title mb-4" style="display: block;">PHOTO GALLERY</h6>
+        <h1 class="fw-bold mb-2" style="color: var(--color-gray-900);">Moments From Our Community</h1>
+        <p class="text-muted">See how we work, train and create memories together</p>
+    </div>
+</div>
 
 {% if photos %}
     <!-- Using a simple grid system with custom classes for a polished layout -->

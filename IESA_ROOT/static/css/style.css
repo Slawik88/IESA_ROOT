@@ -252,6 +252,75 @@ header {
   border-radius: 2px;
 }
 
+/* ============================================================
+   SECTION TITLE - UNIVERSAL STYLE (LIKE FOOTER)
+   Элегантные заголовки секций с градиентным подчеркиванием
+   ============================================================ */
+
+.section-title {
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 0.875rem;
+  color: #7aa5ff;
+  font-weight: 800;
+  margin-bottom: 1.5rem;
+  position: relative;
+  display: inline-block;
+}
+
+.section-title::after {
+  content: '';
+  position: absolute;
+  bottom: -8px;
+  left: 0;
+  width: 40px;
+  height: 3px;
+  background: linear-gradient(90deg, #7aa5ff, rgba(122,165,255,0.3));
+  border-radius: 2px;
+}
+
+/* Вариант для больших заголовков */
+.section-title-lg {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 1rem;
+  color: #7aa5ff;
+  font-weight: 800;
+  margin-bottom: 1.5rem;
+  position: relative;
+  display: inline-block;
+}
+
+.section-title-lg::after {
+  content: '';
+  position: absolute;
+  bottom: -10px;
+  left: 0;
+  width: 50px;
+  height: 3px;
+  background: linear-gradient(90deg, #7aa5ff, rgba(122,165,255,0.4));
+  border-radius: 2px;
+}
+
+/* Вариант для h2/h3 с подчеркиванием */
+.heading-underline {
+  position: relative;
+  display: inline-block;
+  padding-bottom: 12px;
+  margin-bottom: 1.5rem;
+}
+
+.heading-underline::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 60px;
+  height: 3px;
+  background: linear-gradient(90deg, #ef4444, rgba(239,68,68,0.2));
+  border-radius: 2px;
+}
+
 .footer-text {
   color: #cbd5e1;
   font-size: 0.9375rem;
@@ -300,24 +369,50 @@ header {
 }
 
 .footer-social {
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
-  border: 1px solid rgba(255,255,255,0.15);
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  border: 2px solid rgba(122,165,255,0.25);
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: #e8edf7;
-  transition: all 0.2s ease;
-  backdrop-filter: blur(8px);
-  background: rgba(255,255,255,0.03);
+  color: #7aa5ff;
+  font-size: 1.125rem;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  backdrop-filter: blur(10px);
+  background: linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(122,165,255,0.05) 100%);
+  position: relative;
+  overflow: hidden;
+}
+
+.footer-social::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, rgba(122,165,255,0.15), transparent);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
 }
 
 .footer-social:hover {
   color: #ffffff;
-  background: rgba(122,165,255,0.2);
-  border-color: rgba(122,165,255,0.4);
-  box-shadow: 0 4px 12px rgba(122,165,255,0.2);
+  background: linear-gradient(135deg, #7aa5ff, #5a88e6);
+  border-color: #7aa5ff;
+  box-shadow: 0 8px 20px rgba(122,165,255,0.35);
+  transform: translateY(-3px);
+}
+
+.footer-social:hover::before {
+  opacity: 1;
+}
+
+.footer-social:active {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(122,165,255,0.25);
 }
 
 /* Partner modal */

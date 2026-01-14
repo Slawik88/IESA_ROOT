@@ -1626,15 +1626,26 @@
         transform: translateX(3px);
     }
     
-    /* Social icons */
+    /* Social icons - Улучшенные */
     .footer-social {
-        width: 38px !important;
-        height: 38px !important;
-        font-size: 0.95rem !important;
+        width: 46px !important;
+        height: 46px !important;
+        font-size: 1.05rem !important;
+        border-radius: 12px !important;
+        border: 2px solid rgba(122,165,255,0.3) !important;
+        background: linear-gradient(135deg, rgba(122,165,255,0.12) 0%, rgba(90,136,230,0.08) 100%) !important;
+        color: #7aa5ff !important;
+        box-shadow: 0 2px 8px rgba(122,165,255,0.15) !important;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    }
+    
+    .footer-social:active {
+        transform: scale(0.95) !important;
+        box-shadow: 0 2px 6px rgba(122,165,255,0.2) !important;
     }
     
     footer .d-flex.flex-wrap {
-        gap: 10px !important;
+        gap: 12px !important;
         justify-content: flex-start !important;
     }
 }
