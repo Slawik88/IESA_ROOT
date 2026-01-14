@@ -55,8 +55,9 @@ class UserAdmin(BaseUserAdmin):
                 '</div>'
             )
         
-        # Путь к сохранённому QR коду (БЕЗ дублирования media/)
-        qr_path = f"{settings.MEDIA_URL}cards/{str(obj.permanent_id)}.png"
+        # Используем динамическую генерацию QR через view
+        from django.urls import reverse
+        qr_url = reverse('user_qr', kwargs={'permanent_id': obj.permanent_id})
         
         # URL для действий (используем правильный формат с admin namespace)
         regenerate_url = f"/admin/users/user/{obj.pk}/regenerate-qr/"
@@ -92,7 +93,7 @@ class UserAdmin(BaseUserAdmin):
                 </div>
             </div>
             ''',
-            qr_path,
+            qr_url,
             obj.permanent_id,
             regenerate_url,
             new_id_url
@@ -100,15 +101,16 @@ class UserAdmin(BaseUserAdmin):
     card_qr_with_actions.short_description = 'Card QR & Actions'
     
     def card_qr(self, obj):
-        """Вывести сгенерированный QR код из media/cards/.
+        """Вывести сгенерированный QR код через динамический view.
         
-        QR ведёт на /auth/card/<permanent_id>/ и хранится локально.
+        QR генерируется динамически через /auth/qr/<permanent_id>/.
         """
         if not obj.permanent_id:
             return '-'
-        # Путь к сохранённому QR коду
-        qr_path = f"{settings.MEDIA_URL}media/cards/{str(obj.permanent_id)}.png"
-        return format_html('<img src="{}" style="width:80px;height:80px;object-fit:contain;border:1px solid #ddd;border-radius:4px;"/>', qr_path)
+        # Используем динамическую генерацию QR
+        from django.urls import reverse
+        qr_url = reverse('user_qr', kwargs={'permanent_id': obj.permanent_id})
+        return format_html('<img src="{}" style="width:80px;height:80px;object-fit:contain;border:1px solid #ddd;border-radius:4px;"/>', qr_url)
     card_qr.short_description = 'Card QR'
 
     def regenerate_qr_same_id(self, request, queryset):
