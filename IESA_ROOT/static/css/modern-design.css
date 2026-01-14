@@ -347,23 +347,45 @@ a:hover {
   width: 100%;
 }
 
-/* ===== КАРТОЧКИ - НОВЫЙ ДИЗАЙН ===== */
+/* ===== КАРТОЧКИ - ЭЛЕГАНТНЫЙ ПРЕМИУМ ДИЗАЙН ===== */
 .card {
-  background: var(--color-white);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow);
+  background: linear-gradient(145deg, #ffffff 0%, #fafafa 100%);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.06);
   overflow: hidden;
-  transition: all var(--transition);
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+}
+
+.card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(239, 68, 68, 0.3), transparent);
+  opacity: 0;
+  transition: opacity 0.4s ease;
 }
 
 .card:hover {
-  box-shadow: var(--shadow-lg);
-  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08), 0 4px 8px rgba(0, 0, 0, 0.04);
+  transform: translateY(-4px);
+  border-color: rgba(239, 68, 68, 0.15);
+}
+
+.card:hover::before {
+  opacity: 1;
 }
 
 .card-header {
   padding: var(--space-6);
-  border-bottom: 1px solid var(--color-gray-200);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  font-weight: 600;
+  background: linear-gradient(180deg, rgba(255,255,255,0.8) 0%, rgba(249,250,251,0.4) 100%);
+  backdrop-filter: blur(10px);
 }
 
 .card-body {
@@ -372,8 +394,9 @@ a:hover {
 
 .card-footer {
   padding: var(--space-6);
-  border-top: 1px solid var(--color-gray-200);
-  background: var(--color-gray-50);
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
+  background: linear-gradient(180deg, rgba(249,250,251,0.4) 0%, rgba(243,244,246,0.6) 100%);
+  backdrop-filter: blur(10px);
 }
 
 /* Компактная карточка */
@@ -387,10 +410,42 @@ a:hover {
 .card-flat {
   box-shadow: none;
   border: 1px solid var(--color-gray-200);
+  background: var(--color-white);
 }
 
 .card-flat:hover {
-  box-shadow: var(--shadow);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  border-color: var(--color-gray-300);
+  transform: translateY(-2px);
+}
+
+/* Премиум карточка с акцентом */
+.card-premium {
+  background: linear-gradient(145deg, #ffffff 0%, #fafafa 100%);
+  border-radius: 24px;
+  padding: var(--space-8);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.06), 0 2px 4px rgba(0, 0, 0, 0.04);
+  position: relative;
+  overflow: visible;
+}
+
+.card-premium::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: 24px;
+  padding: 2px;
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.5), rgba(220, 38, 38, 0.5));
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+  z-index: -1;
+}
+
+.card-premium:hover::before {
+  opacity: 1;
 }
 
 /* ===== ФОРМЫ - СОВРЕМЕННЫЙ ДИЗАЙН ===== */
@@ -1239,4 +1294,42 @@ select.form-control {
     box-shadow: none;
     border: 1px solid #ddd;
   }
+}
+
+/* ===== ELEGANT PROFILE HOVER EFFECTS ===== */
+.card[style*="cursor: pointer"]:hover {
+    transform: translateY(-8px) !important;
+    box-shadow: 0 12px 32px rgba(0,0,0,0.12), 0 4px 12px rgba(0,0,0,0.08) !important;
+}
+
+.card[style*="background: linear-gradient(135deg, rgba(239,68,68"]:hover {
+    background: linear-gradient(135deg, rgba(239,68,68,0.06) 0%, rgba(220,38,38,0.09) 100%) !important;
+    border-color: rgba(239,68,68,0.18) !important;
+}
+
+.card[style*="background: linear-gradient(135deg, rgba(59,130,246"]:hover {
+    background: linear-gradient(135deg, rgba(59,130,246,0.06) 0%, rgba(37,99,235,0.09) 100%) !important;
+    border-color: rgba(59,130,246,0.18) !important;
+}
+
+.card[style*="background: linear-gradient(135deg, rgba(245,158,11"]:hover {
+    background: linear-gradient(135deg, rgba(245,158,11,0.06) 0%, rgba(217,119,6,0.09) 100%) !important;
+    border-color: rgba(245,158,11,0.18) !important;
+}
+
+.card[style*="background: linear-gradient(135deg, rgba(16,185,129"]:hover {
+    background: linear-gradient(135deg, rgba(16,185,129,0.06) 0%, rgba(5,150,105,0.09) 100%) !important;
+    border-color: rgba(16,185,129,0.18) !important;
+}
+
+.btn-outline-dark:hover,
+.btn-outline-primary:hover,
+.btn-outline-info:hover,
+.btn-outline-secondary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0,0,0,0.15);
+}
+
+.table-hover tbody tr:hover {
+    background: rgba(239,68,68,0.02) !important;
 }
