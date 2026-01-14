@@ -154,15 +154,14 @@ def users_search(request):
 
 
 def qr_image(request, permanent_id):
-    """Serve user QR image; generate if missing.
-
-    URL: /auth/qr/<uuid>/
-    If ?download=1 is present, respond with Content-Disposition attachment.
-    
-    SECURITY: Validates permanent_id is valid UUID to prevent path traversal.
-    Uses Redis cache with 1-hour timeout to reduce disk I/O.
     """
-    # Validate permanent_id format - must be valid UUID
+    Генерирует QR-код динамически в памяти без сохранения на диск.
+    Работает с S3 Spaces и локальным хранилищем.
+    
+    URL: /auth/qr/<uuid>/
+    ?download=1 - скачать файл
+    """
+    # Validate permanent_id format
     try:
         import uuid
         uuid.UUID(str(permanent_id))
@@ -174,68 +173,69 @@ def qr_image(request, permanent_id):
     except User.DoesNotExist:
         raise Http404("User not found")
 
-    # Use Django storage (works with S3 and local)
-    from django.core.files.storage import default_storage
-    # НЕ добавляем media/ - это добавится автоматически
-    filename = f"cards/{permanent_id}.png"
-    
     # Check cache first
     cache_key = f'qr_image_{permanent_id}'
     cached_data = cache.get(cache_key)
-    if cached_data:
-        # Return from cache if available
-        return FileResponse(BytesIO(cached_data), content_type='image/png')
     
-    # If file doesn't exist, try to generate
-    if not default_storage.exists(filename):
+    if not cached_data:
+        # Генерируем QR динамически в памяти
         try:
-            generate_qr_code_for_user(user_obj, request)
+            import qrcode
+            from io import BytesIO
+            from django.conf import settings
+            
+            # Определяем URL профиля
+            if request:
+                domain = request.get_host()
+                protocol = 'https' if request.is_secure() else 'http'
+            else:
+                domain = getattr(settings, 'SITE_DOMAIN', 'iesasport.ch')
+                protocol = 'http' if settings.DEBUG else 'https'
+            
+            profile_url = f"{protocol}://{domain}/auth/card/{permanent_id}/"
+            
+            # Создаем QR код
+            qr = qrcode.QRCode(
+                version=1,
+                error_correction=qrcode.constants.ERROR_CORRECT_L,
+                box_size=10,
+                border=4,
+            )
+            qr.add_data(profile_url)
+            qr.make(fit=True)
+            
+            # Генерируем изображение в памяти
+            img = qr.make_image(fill_color="black", back_color="white")
+            img_io = BytesIO()
+            img.save(img_io, format='PNG')
+            cached_data = img_io.getvalue()
+            
+            # Кэшируем на 1 час
+            cache.set(cache_key, cached_data, 3600)
+            
         except Exception as e:
             import logging
             logging.error(f"QR generation failed for user {user_obj.id}: {str(e)}")
             raise Http404("QR generation failed")
 
-    # If download requested, ensure only owner or staff can download
+    # Если download запрошен - проверяем права
     download = request.GET.get('download') in ['1', 'true', 'yes']
     if download:
         if not request.user.is_authenticated or (request.user.id != user_obj.id and not request.user.is_staff):
             return HttpResponseForbidden('Not allowed')
 
-    # Read file from storage (works with S3 and local)
-    try:
-        from io import BytesIO
-        file_content = default_storage.open(filename, 'rb').read()
-        
-        # Cache file content for 1 hour (3600 seconds)
-        cache.set(cache_key, file_content, 3600)
-        
-        # Return cached or fresh content
-        from django.http import HttpResponse
-        response = HttpResponse(file_content, content_type='image/png')
-        if download:
-            response['Content-Disposition'] = f'attachment; filename=qr_{user_obj.username}.png'
-        else:
-            response['Content-Disposition'] = f'inline; filename=qr_{user_obj.username}.png'
-        return response
-    except IOError as e:
-        # Если не удалось прочитать - попробуем сгенерировать ещё раз
-        import logging
-        logging.error(f"IOError reading QR for {permanent_id}: {str(e)}")
-        try:
-            generate_qr_code_for_user(user_obj, request)
-            # Попытка 2: прочитать после генерации
-            file_content = default_storage.open(filename, 'rb').read()
-            cache.set(cache_key, file_content, 3600)
-            from django.http import HttpResponse
-            response = HttpResponse(file_content, content_type='image/png')
-            if download:
-                response['Content-Disposition'] = f'attachment; filename=qr_{user_obj.username}.png'
-            else:
-                response['Content-Disposition'] = f'inline; filename=qr_{user_obj.username}.png'
-            return response
-        except Exception as retry_error:
-            logging.error(f"QR retry failed for {permanent_id}: {str(retry_error)}")
-            raise Http404("QR not available")
+    # Возвращаем изображение
+    from django.http import HttpResponse
+    response = HttpResponse(cached_data, content_type='image/png')
+    if download:
+        response['Content-Disposition'] = f'attachment; filename=qr_{user_obj.username}.png'
+    else:
+        response['Content-Disposition'] = f'inline; filename=qr_{user_obj.username}.png'
+    
+    # Кэш на стороне браузера на 1 час
+    response['Cache-Control'] = 'public, max-age=3600'
+    
+    return response
 
 
 def activity_levels_info(request):

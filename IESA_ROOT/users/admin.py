@@ -26,7 +26,7 @@ class UserAdmin(BaseUserAdmin):
     fieldsets = (
         (None, {'fields': ('username', 'password')}),
         ('Персональная информация', {'fields': ('first_name', 'last_name', 'email', 'avatar', 'date_of_birth')}),
-        ('Card QR & Actions', {'fields': ('card_qr_with_actions', 'has_physical_card', 'card_active', 'card_issued_at')}),
+        ('Card QR & Actions', {'fields': ('card_qr_with_actions', 'card_active', 'card_issued_at')}),
         ('Разрешения', {'fields': ('is_verified', 'is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions')}),
         ('Важные даты', {'fields': ('last_login', 'date_joined', 'last_online')}),
     )
