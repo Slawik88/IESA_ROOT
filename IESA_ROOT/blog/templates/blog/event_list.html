@@ -30,37 +30,41 @@
     </div>
 
     {% if events %}
-        <div class="row g-4">
+        <div class="row g-3">
             {% for event in events %}
                 {% with event_ts=event.date|date:"U" %}
-                <div class="col-md-6">
-                    <div class="card card-modern h-100 event-card" data-event-card data-event-title="{{ event.title }}" data-event-location="{{ event.location }}" data-event-type="webinar" data-event-ts="{{ event_ts }}">
-                        <div class="event-date-chip">
-                            <div class="event-date-day">{{ event.date|date:"d" }}</div>
-                            <div class="event-date-month">{{ event.date|date:"b" }}</div>
-                        </div>
-                        <div class="row g-0">
-                            <div class="col-md-4">
+                <div class="col-12">
+                    <div class="card card-modern event-card-compact" data-event-card data-event-title="{{ event.title }}" data-event-location="{{ event.location }}" data-event-type="webinar" data-event-ts="{{ event_ts }}">
+                        <div class="row g-0 align-items-center">
+                            <div class="col-auto">
+                                <div class="event-date-chip-compact">
+                                    <div class="event-date-day">{{ event.date|date:"d" }}</div>
+                                    <div class="event-date-month">{{ event.date|date:"M" }}</div>
+                                </div>
+                            </div>
+                            <div class="col-md-3 col-4">
                                 {% if event.image %}
-                                    <img src="{{ event.image.url }}" class="card-modern__image w-100 h-100" alt="{{ event.title }}" loading="lazy">
+                                    <img src="{{ event.image.url }}" class="event-image-compact" alt="{{ event.title }}" loading="lazy">
+                                {% else %}
+                                    <div class="event-image-placeholder">
+                                        <i class="fas fa-calendar-alt fa-2x"></i>
+                                    </div>
                                 {% endif %}
                             </div>
-                            <div class="col-md-8">
-                                <div class="card-body">
-                                    <div class="d-flex justify-content-between align-items-start mb-2">
-                                        <h5 class="card-title fw-bold text-primary mb-0">{{ event.title }}</h5>
-                                        <span class="badge {% if event_ts|add:'0' > now_ts|add:'0' %}bg-success-subtle text-success{% else %}bg-secondary-subtle text-secondary{% endif %}">
+                            <div class="col">
+                                <div class="card-body py-3">
+                                    <div class="d-flex justify-content-between align-items-start mb-1">
+                                        <h6 class="card-title fw-bold text-primary mb-0">{{ event.title }}</h6>
+                                        <span class="badge badge-sm {% if event_ts|add:'0' > now_ts|add:'0' %}bg-success-subtle text-success{% else %}bg-secondary-subtle text-secondary{% endif %}">
                                             {% if event_ts|add:'0' > now_ts|add:'0' %}Upcoming{% else %}Past{% endif %}
                                         </span>
                                     </div>
-                                    <p class="card-text mb-2"><i class="fas fa-clock me-2"></i>{{ event.date|date:"d M Y, H:i" }}</p>
-                                    <p class="card-text mb-2"><i class="fas fa-map-marker-alt me-2"></i> {{ event.location }}</p>
-                                    <p class="card-text text-muted">{{ event.description|truncatewords:20 }}</p>
-                                    <div class="d-flex gap-2 mt-2">
-                                        <span class="pill">In-person</span>
-                                        <span class="pill pill--soft">Registration</span>
+                                    <div class="event-meta">
+                                        <span class="me-3"><i class="fas fa-clock me-1"></i>{{ event.date|date:"d M Y, H:i" }}</span>
+                                        <span><i class="fas fa-map-marker-alt me-1"></i>{{ event.location }}</span>
                                     </div>
-                                    <a href="{% url 'event_detail' event.pk %}" class="btn btn-sm btn-primary btn-modern mt-3">Details</a>
+                                    <p class="card-text text-muted small mb-2">{{ event.description|truncatewords:15 }}</p>
+                                    <a href="{% url 'event_detail' event.pk %}" class="btn btn-sm btn-outline-primary">Details</a>
                                 </div>
                             </div>
                         </div>

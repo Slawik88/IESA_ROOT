@@ -58,38 +58,6 @@
     </section>
     {% endif %}
 
-    <!-- Products Section -->
-    <section id="products-section" class="section-padding bg-light">
-        <h2 class="text-center mb-5 fw-bold">Our products</h2>
-        
-        {% if products %}
-            <div class="row row-cols-1 row-cols-md-3 g-4">
-                {% for product in products %}
-                    <div class="col">
-                        <div class="card card-modern h-100">
-                            {% if product.image %}
-                                <img src="{{ product.image.url }}" class="card-modern__image" alt="{{ product.name }} product image" loading="lazy">
-                            {% endif %}
-                            <div class="card-body">
-                                <h5 class="card-title fw-bold">{{ product.name }}</h5>
-                                <p class="card-text text-muted">{{ product.description|truncatewords:15 }}</p>
-                            </div>
-                            <div class="card-footer bg-white border-0 d-flex justify-content-between align-items-center">
-                                <span class="fw-bold text-primary fs-5">{{ product.price }} USD</span>
-                                <a href="#" class="btn btn-sm btn-outline-primary btn-modern">Details</a>
-                            </div>
-                        </div>
-                    </div>
-                {% endfor %}
-            </div>
-            <div class="text-center mt-4">
-                <a href="{% url 'product_list' %}" class="btn btn-outline-dark btn-modern">View full catalog</a>
-            </div>
-        {% else %}
-            <p class="text-center text-muted">Products coming soon.</p>
-        {% endif %}
-    </section>
-
     <!-- About Section: President & Members -->
     <section id="about-section" class="section-padding bg-white card-modern p-5 my-5" aria-labelledby="about-title">
         <h2 id="about-title" class="text-center mb-5 fw-bold">About the Association</h2>

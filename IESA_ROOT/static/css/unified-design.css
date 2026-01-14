@@ -24,18 +24,18 @@
   --gray-800: #343a40;
   --gray-900: #212529;
   
-  /* АКЦЕНТНЫЕ ЦВЕТА - СВЕТЛЫЕ ВЕРСИИ */
-  --primary-light: #e7f1ff;
-  --primary-50: #e3f2fd;
-  --primary-100: #bbdefb;
-  --primary-200: #90caf9;
-  --primary-300: #64b5f6;
-  --primary-400: #42a5f5;
-  --primary: #2196f3;
-  --primary-600: #1e88e5;
-  --primary-700: #1976d2;
-  --primary-800: #1565c0;
-  --primary-900: #0d47a1;
+  /* АКЦЕНТНЫЕ ЦВЕТА - КРАСНЫЙ (ВТОРОСТЕПЕННЫЙ) */
+  --primary-light: #ffebee;
+  --primary-50: #ffebee;
+  --primary-100: #ffcdd2;
+  --primary-200: #ef9a9a;
+  --primary-300: #e57373;
+  --primary-400: #ef5350;
+  --primary: #f44336;
+  --primary-600: #e53935;
+  --primary-700: #d32f2f;
+  --primary-800: #c62828;
+  --primary-900: #b71c1c;
   
   /* УСПЕХ - МЯГКИЙ ЗЕЛЕНЫЙ */
   --success-light: #e8f5e9;
@@ -375,45 +375,59 @@ header {
    ============================================================ */
 
 .footer-enhanced {
-  background: linear-gradient(135deg, var(--gray-100) 0%, var(--white) 100%) !important;
-  color: var(--text-secondary) !important;
-  border-top: 1px solid var(--border) !important;
-  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.03) !important;
+  background: linear-gradient(135deg, #1a1a2e 0%, #0f0f1e 100%) !important;
+  color: #e8edf7 !important;
+  border-top: 1px solid rgba(255,255,255,0.1) !important;
+  box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.3) !important;
 }
 
 .footer-title {
-  color: var(--text-primary) !important;
+  color: #ffffff !important;
   font-weight: 700 !important;
   font-size: 0.9rem !important;
   text-transform: uppercase !important;
   letter-spacing: 0.05em !important;
+  margin-bottom: 1rem !important;
 }
 
 .footer-text {
-  color: var(--text-secondary) !important;
+  color: #cfd8e3 !important;
+  line-height: 1.6 !important;
 }
 
 .footer-links a {
-  color: var(--text-secondary) !important;
+  color: #e8edf7 !important;
   transition: var(--transition) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  padding: 0.25rem 0 !important;
 }
 
 .footer-links a:hover {
-  color: var(--primary-600) !important;
+  color: var(--primary-300) !important;
+  text-decoration: none !important;
 }
 
 .footer-social {
-  background: var(--white) !important;
-  border: 1px solid var(--border) !important;
-  color: var(--primary-500) !important;
+  background: rgba(255, 255, 255, 0.1) !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  color: #ffffff !important;
   box-shadow: var(--shadow-xs) !important;
+  width: 42px !important;
+  height: 42px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 10px !important;
+  transition: var(--transition) !important;
 }
 
 .footer-social:hover {
-  background: var(--primary-500) !important;
-  border-color: var(--primary-500) !important;
+  background: var(--primary-600) !important;
+  border-color: var(--primary-600) !important;
   color: var(--white) !important;
-  box-shadow: var(--shadow-sm) !important;
+  transform: translateY(-3px) !important;
+  box-shadow: 0 4px 12px rgba(244, 67, 54, 0.4) !important;
 }
 
 /* ============================================================
@@ -508,6 +522,113 @@ header {
   background: var(--white) !important;
   color: var(--primary-700) !important;
   border: 1px solid var(--primary-200) !important;
+}
+
+/* ============================================================
+   КОМПАКТНЫЕ КАРТОЧКИ СОБЫТИЙ
+   ============================================================ */
+
+.event-card-compact {
+  background: var(--white) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius-lg) !important;
+  overflow: hidden !important;
+  transition: var(--transition) !important;
+  box-shadow: var(--shadow-xs) !important;
+}
+
+.event-card-compact:hover {
+  box-shadow: var(--shadow-md) !important;
+  transform: translateY(-2px) !important;
+  border-color: var(--primary-200) !important;
+}
+
+.event-date-chip-compact {
+  background: linear-gradient(135deg, var(--primary-600) 0%, var(--primary-700) 100%) !important;
+  color: var(--white) !important;
+  border-radius: var(--radius-md) !important;
+  padding: 0.75rem 1rem !important;
+  text-align: center !important;
+  min-width: 70px !important;
+  margin: 0.75rem !important;
+  box-shadow: var(--shadow-sm) !important;
+}
+
+.event-date-day {
+  font-size: 1.5rem !important;
+  font-weight: 800 !important;
+  line-height: 1 !important;
+}
+
+.event-date-month {
+  font-size: 0.75rem !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.05em !important;
+  opacity: 0.9 !important;
+  margin-top: 0.25rem !important;
+}
+
+.event-image-compact {
+  width: 100% !important;
+  height: 120px !important;
+  object-fit: cover !important;
+  border-radius: 0 !important;
+}
+
+.event-image-placeholder {
+  width: 100% !important;
+  height: 120px !important;
+  background: linear-gradient(135deg, var(--gray-100) 0%, var(--gray-200) 100%) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  color: var(--text-tertiary) !important;
+}
+
+.event-meta {
+  font-size: 0.85rem !important;
+  color: var(--text-secondary) !important;
+  margin-bottom: 0.5rem !important;
+}
+
+.event-meta i {
+  color: var(--primary-500) !important;
+}
+
+.badge-sm {
+  font-size: 0.7rem !important;
+  padding: 0.25rem 0.5rem !important;
+}
+
+/* Мобильная адаптация компактных карточек */
+@media (max-width: 768px) {
+  .event-card-compact .col-md-3 {
+    max-width: 100px !important;
+  }
+  
+  .event-image-compact {
+    height: 100px !important;
+  }
+  
+  .event-date-chip-compact {
+    min-width: 60px !important;
+    padding: 0.6rem 0.75rem !important;
+  }
+  
+  .event-date-day {
+    font-size: 1.25rem !important;
+  }
+  
+  .card-body {
+    padding: 0.75rem 1rem !important;
+  }
+  
+  .event-meta {
+    font-size: 0.75rem !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 0.25rem !important;
+  }
 }
 
 /* ============================================================
