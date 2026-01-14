@@ -14,7 +14,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            background: linear-gradient(135deg, #0d6efd 0%, #7aa5ff 100%);
             color: white;
             text-align: center;
             padding: 20px;
@@ -33,12 +33,11 @@
             font-size: 80px;
             margin-bottom: 30px;
             opacity: 0.9;
-            animation: shake 0.5s ease-in-out infinite;
+            animation: pulse 2s ease-in-out infinite;
         }
-        @keyframes shake {
-            0%, 100% { transform: rotate(0deg); }
-            25% { transform: rotate(-5deg); }
-            75% { transform: rotate(5deg); }
+        @keyframes pulse {
+            0%, 100% { opacity: 0.9; transform: scale(1); }
+            50% { opacity: 1; transform: scale(1.05); }
         }
         .error-title {
             font-size: 32px;
@@ -52,9 +51,9 @@
         }
         .btn-home {
             background: white;
-            color: #f5576c;
+            color: #0d6efd;
             padding: 12px 30px;
-            border-radius: 50px;
+            border-radius: 12px;
             font-weight: 600;
             text-decoration: none;
             display: inline-block;
@@ -63,9 +62,9 @@
             margin: 0 10px;
         }
         .btn-home:hover {
-            transform: translateY(-3px);
+            transform: translateY(-2px);
             box-shadow: 0 6px 20px rgba(0,0,0,0.3);
-            color: #f093fb;
+            color: #7aa5ff;
         }
         .support-info {
             margin-top: 40px;
