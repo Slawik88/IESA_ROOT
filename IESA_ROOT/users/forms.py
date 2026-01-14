@@ -46,7 +46,7 @@ class CustomUserChangeForm(UserChangeForm):
     
     class Meta:
         model = User
-        fields = ('username', 'email', 'first_name', 'last_name', 'date_of_birth', 'avatar', 'is_verified', 'is_active', 'is_staff', 'is_superuser', 'has_physical_card', 'github_url', 'discord_url', 'telegram_url', 'website_url', 'other_links')
+        fields = ('username', 'email', 'first_name', 'last_name', 'date_of_birth', 'avatar', 'is_verified', 'is_active', 'is_staff', 'is_superuser', 'github_url', 'discord_url', 'telegram_url', 'website_url', 'other_links')
 
 
 class UserProfileEditForm(forms.ModelForm):
