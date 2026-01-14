@@ -1,4 +1,7 @@
 {% if query %}
+    <!-- DEBUG INFO (remove in production) -->
+    <!-- Query: '{{ query }}' | Users: {{ results.users|length }} | Posts: {{ results.posts|length }} | Events: {{ results.events|length }} | Partners: {{ results.partners|length }} -->
+    
     <div class="search-results">
         <style>
             @keyframes fadeInSmall { from { opacity:0; transform: translateY(6px); } to { opacity:1; transform: translateY(0); } }
