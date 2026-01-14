@@ -22,14 +22,15 @@
                     
                     <h1 class="fw-bold mb-1 text-primary">{{ profile_user.username }}</h1>
                     <p class="text-muted mb-3">{{ profile_user.email }}</p>
-                                        {% if profile_user.permanent_id %}
-                                            <div class="small text-muted">ID: <code id="permanent-{{ profile_user.permanent_id }}">{{ profile_user.permanent_id }}</code>
-                                                <button class="btn btn-link btn-sm p-0 ms-2 copy-id" data-copy="#permanent-{{ profile_user.permanent_id }}" title="Copy ID"><i class="far fa-copy"></i></button>
-                                            </div>
-                                        {% endif %}
+                    {# ID виден только в своем кабинете #}
+                    {% if user.is_authenticated and user.id == profile_user.id and profile_user.permanent_id %}
+                        <div class="small text-muted">ID: <code id="permanent-{{ profile_user.permanent_id }}">{{ profile_user.permanent_id }}</code>
+                            <button class="btn btn-link btn-sm p-0 ms-2 copy-id" data-copy="#permanent-{{ profile_user.permanent_id }}" title="Copy ID"><i class="far fa-copy"></i></button>
+                        </div>
+                    {% endif %}
 
-                    <!-- QR Code for card (if card is active) -->
-                    {% if profile_user.card_active and profile_user.permanent_id %}
+                    {# QR код виден только в своем кабинете #}
+                    {% if user.is_authenticated and user.id == profile_user.id and profile_user.permanent_id %}
                     <div class="my-4 p-3 bg-light rounded-3" style="display: inline-block; border: 2px solid var(--primary);">
                         {# Use the QR serving view as image src so missing files are generated on demand #}
                         <a href="{% url 'profile_by_card' permanent_id=profile_user.permanent_id %}" title="Open profile by card">
@@ -38,9 +39,7 @@
                                  style="width: 150px; height: 150px; object-fit: contain; display:block;" loading="lazy">
                         </a>
                         <div class="d-flex justify-content-center gap-2 mt-2">
-                            {% if user.is_authenticated and user.id == profile_user.id %}
-                                <a class="btn btn-sm btn-outline-secondary" href="{% url 'user_qr' permanent_id=profile_user.permanent_id %}?download=1">Download QR</a>
-                            {% endif %}
+                            <a class="btn btn-sm btn-outline-secondary" href="{% url 'user_qr' permanent_id=profile_user.permanent_id %}?download=1">Download QR</a>
                             <p class="small text-muted mt-1 mb-0">Scan to view your profile</p>
                         </div>
                     </div>

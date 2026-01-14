@@ -10,14 +10,13 @@ from .qr_utils import generate_qr_code_for_user
 @receiver(post_save, sender=User)
 def ensure_qr_on_card_activation(sender, instance, created, **kwargs):
     """
-    Генерирует QR код, если у пользователя активирована карта (card_active=True)
-    и файл с QR отсутствует на диске.
-
-    Это покрывает случай: пользователь был создан без выдачи карты, а затем
-    через админку поставили галочку "card_active" и сохранили — QR должен быть создан.
+    Генерирует QR код автоматически для ВСЕХ пользователей.
+    QR код и идентификатор создаются при создании пользователя.
+    Физическая карта (has_physical_card) - это просто отметка в админке.
     """
     try:
-        if instance.card_active and instance.permanent_id:
+        # Для всех пользователей с permanent_id создаем QR код если его нет
+        if instance.permanent_id:
             cards_dir = os.path.join(settings.MEDIA_ROOT, 'cards')
             filepath = os.path.join(cards_dir, f"{str(instance.permanent_id)}.png")
             # Если файл не существует — генерируем
