@@ -2370,6 +2370,237 @@
 }
 
 /* ================================================
+   ACCORDIONS & COLLAPSE
+   ================================================ */
+@media (max-width: 768px) {
+    .accordion {
+        border-radius: 10px;
+        overflow: hidden;
+        border: 1px solid #e9ecef;
+    }
+
+    .accordion-item {
+        border: none !important;
+        border-bottom: 1px solid #e9ecef !important;
+        background: #ffffff !important;
+    }
+
+    .accordion-item:first-child {
+        border-radius: 10px 10px 0 0;
+    }
+
+    .accordion-item:last-child {
+        border-bottom: none !important;
+        border-radius: 0 0 10px 10px;
+    }
+
+    .accordion-button {
+        padding: 14px 16px !important;
+        font-weight: 600;
+        font-size: 0.95rem;
+        color: #2c3e50 !important;
+        background: #ffffff !important;
+        border: none !important;
+        transition: all 0.2s ease;
+        text-align: left;
+    }
+
+    .accordion-button:hover {
+        background: #f5f7fa !important;
+        color: #667eea !important;
+    }
+
+    .accordion-button.collapsed {
+        background: #ffffff !important;
+        color: #2c3e50 !important;
+    }
+
+    .accordion-button:not(.collapsed) {
+        background: #eff0ff !important;
+        color: #667eea !important;
+        box-shadow: none !important;
+    }
+
+    .accordion-button::after {
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='none' stroke='%23667eea' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3E%3C/svg%3E") !important;
+        transform: rotate(-90deg);
+        transition: transform 0.2s ease;
+    }
+
+    .accordion-button:not(.collapsed)::after {
+        transform: rotate(0deg);
+    }
+
+    .accordion-body {
+        padding: 14px 16px !important;
+        border-top: 1px solid #e9ecef !important;
+        color: #2c3e50;
+        line-height: 1.6;
+    }
+
+    /* Collapse transitions */
+    .collapse {
+        transition: all 0.2s ease;
+    }
+}
+
+/* ================================================
+   SPECIAL ENHANCEMENTS
+   ================================================ */
+@media (max-width: 768px) {
+    /* Smooth scroll behavior */
+    html {
+        scroll-behavior: smooth;
+    }
+
+    /* Selection styling */
+    ::selection {
+        background: #667eea;
+        color: white;
+    }
+
+    ::-moz-selection {
+        background: #667eea;
+        color: white;
+    }
+
+    /* Placeholder styling */
+    ::placeholder {
+        color: #a0aec0;
+        opacity: 1;
+    }
+
+    ::-moz-placeholder {
+        color: #a0aec0;
+        opacity: 1;
+    }
+
+    ::-webkit-input-placeholder {
+        color: #a0aec0;
+    }
+
+    /* Scrollbar styling */
+    ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+        background: #f5f7fa;
+    }
+
+    ::-webkit-scrollbar-thumb {
+        background: #667eea;
+        border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+        background: #764ba2;
+    }
+
+    /* Code blocks */
+    code,
+    pre {
+        background: #f5f7fa !important;
+        border: 1px solid #e9ecef !important;
+        border-radius: 6px !important;
+        padding: 2px 6px !important;
+        font-family: 'Monaco', 'Courier New', monospace;
+        font-size: 0.85rem;
+        color: #2c3e50;
+    }
+
+    pre {
+        padding: 12px !important;
+        overflow-x: auto;
+        margin-bottom: 12px;
+        line-height: 1.5;
+    }
+
+    pre code {
+        background: transparent !important;
+        border: none !important;
+        padding: 0 !important;
+    }
+
+    /* Blockquote styling */
+    blockquote {
+        border-left: 4px solid #667eea;
+        padding-left: 12px;
+        margin-left: 0;
+        margin-bottom: 16px;
+        color: #7f8c8d;
+        font-style: italic;
+        font-size: 0.95rem;
+    }
+
+    /* HR styling */
+    hr {
+        border: none;
+        border-top: 1px solid #e9ecef;
+        margin: 16px 0;
+    }
+
+    /* Definition list */
+    dt {
+        font-weight: 700;
+        color: #667eea;
+        margin-top: 8px;
+    }
+
+    dd {
+        margin-left: 0;
+        padding-left: 16px;
+        margin-bottom: 8px;
+        color: #2c3e50;
+        position: relative;
+    }
+
+    dd::before {
+        content: '▸';
+        position: absolute;
+        left: 0;
+        color: #e9ecef;
+    }
+
+    /* Abbreviation */
+    abbr {
+        text-decoration: underline dotted #667eea;
+        cursor: help;
+    }
+
+    /* Marks */
+    mark {
+        background: #fffbeb;
+        color: #92400e;
+        padding: 2px 4px;
+        border-radius: 2px;
+    }
+
+    /* Small text */
+    small {
+        font-size: 0.875rem;
+        color: #7f8c8d;
+    }
+
+    /* Subscript/Superscript */
+    sub, sup {
+        position: relative;
+        font-size: 0.75rem;
+        line-height: 0;
+        vertical-align: baseline;
+    }
+
+    sup {
+        top: -0.5em;
+    }
+
+    sub {
+        bottom: -0.25em;
+    }
+}
+
+/* ================================================
    LANDSCAPE MODE ADJUSTMENTS
    ================================================ */
 @media (max-width: 768px) and (orientation: landscape) {
