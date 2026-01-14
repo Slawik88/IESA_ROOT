@@ -76,7 +76,8 @@
                 {% if user.is_authenticated %}
                     <div class="card card-modern p-4 mb-4">
                         <h5 class="mb-3">Leave a comment</h5>
-                        <form hx-post="{% url 'comment_create' pk=post.pk %}"
+                        <form action="{% url 'comment_create' pk=post.pk %}"
+                            hx-post="{% url 'comment_create' pk=post.pk %}"
                               hx-target="#comments-container"
                               hx-swap="innerHTML"
                                  hx-on::after-swap="document.querySelector('textarea[name=text]').value = ''"

@@ -469,10 +469,10 @@ def global_search(request):
             'results': {'users': [], 'posts': [], 'events': [], 'partners': []}
         })
     
-    validated_query = validate_search_query(raw_query)
-    normalized_q = normalize_search_query(validated_query)
+    # Use normalize_search_query; no separate validator available
+    normalized_q = normalize_search_query(raw_query)
     
-    logger.info(f"Global search: raw='{raw_query}', validated='{validated_query}', normalized='{normalized_q}', len={len(normalized_q)}, user={request.user.username if request.user.is_authenticated else 'anonymous'}")
+    logger.info(f"Global search: raw='{raw_query}', normalized='{normalized_q}', len={len(normalized_q)}, user={request.user.username if request.user.is_authenticated else 'anonymous'}")
     
     results = {
         'users': [],

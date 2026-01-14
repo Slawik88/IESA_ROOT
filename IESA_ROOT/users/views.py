@@ -195,10 +195,6 @@ def qr_image(request, permanent_id):
             logging.error(f"QR generation failed for user {user_obj.id}: {str(e)}")
             raise Http404("QR generation failed")
 
-    # If still missing -> 404
-    if not default_storage.exists(filename):
-        raise Http404("QR not available")
-
     # If download requested, ensure only owner or staff can download
     download = request.GET.get('download') in ['1', 'true', 'yes']
     if download:
@@ -221,8 +217,25 @@ def qr_image(request, permanent_id):
         else:
             response['Content-Disposition'] = f'inline; filename=qr_{user_obj.username}.png'
         return response
-    except IOError:
-        raise Http404("Cannot read file")
+    except IOError as e:
+        # Если не удалось прочитать - попробуем сгенерировать ещё раз
+        import logging
+        logging.error(f"IOError reading QR for {permanent_id}: {str(e)}")
+        try:
+            generate_qr_code_for_user(user_obj, request)
+            # Попытка 2: прочитать после генерации
+            file_content = default_storage.open(filename, 'rb').read()
+            cache.set(cache_key, file_content, 3600)
+            from django.http import HttpResponse
+            response = HttpResponse(file_content, content_type='image/png')
+            if download:
+                response['Content-Disposition'] = f'attachment; filename=qr_{user_obj.username}.png'
+            else:
+                response['Content-Disposition'] = f'inline; filename=qr_{user_obj.username}.png'
+            return response
+        except Exception as retry_error:
+            logging.error(f"QR retry failed for {permanent_id}: {str(retry_error)}")
+            raise Http404("QR not available")
 
 
 def activity_levels_info(request):
