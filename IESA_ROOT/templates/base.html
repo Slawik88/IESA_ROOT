@@ -232,8 +232,10 @@
                 });
             });
             
-            // Фильтр для шаблонов: получить значение из словаря по ключу
-            Htmx.config.globalViewTransitions = true;
+            // HTMX глобальная конфигурация
+            if (typeof htmx !== 'undefined') {
+                htmx.config.globalViewTransitions = true;
+            }
         </script>
         
         <!-- Django template filter для доступа к элементам словаря в шаблонах -->
