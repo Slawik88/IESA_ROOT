@@ -28,8 +28,15 @@
             <a class="nav-link" href="{% url 'event_list' %}">Events</a>
         </nav>
         <div class="ms-3 flex-fill">
-            <form id="post-search-form" class="d-flex gap-2" hx-get="{% url 'post_search' %}" hx-target="#posts-container" hx-trigger="keyup changed from:[name='q'] delay:400ms, change from:select">
-                <input name="q" class="form-control form-control-sm" placeholder="Search posts..." aria-label="Search posts">
+            <div style="background: lightblue; padding: 5px; margin-bottom: 5px; font-size: 11px;">
+                <strong>DEBUG: Search form</strong> | Target: #posts-container | URL: {% url 'post_search' %}
+            </div>
+            <form id="post-search-form" class="d-flex gap-2" 
+                  hx-get="{% url 'post_search' %}" 
+                  hx-target="#posts-container" 
+                  hx-trigger="keyup changed from:[name='q'] delay:400ms, change from:select"
+                  hx-indicator=".htmx-indicator">
+                <input name="q" class="form-control form-control-sm" placeholder="Search posts..." aria-label="Search posts" id="search-input">
                 <select name="status" class="form-select form-select-sm" style="max-width: 150px;">
                     <option value="">All statuses</option>
                     <option value="published">Published</option>
@@ -41,6 +48,7 @@
                     <option value="trending">Trending</option>
                 </select>
                 <button type="submit" class="btn btn-sm btn-outline-secondary">Search</button>
+                <span class="htmx-indicator spinner-border spinner-border-sm" role="status"></span>
             </form>
         </div>
         {% if user.is_authenticated %}
@@ -51,7 +59,12 @@
     </div>
 
     <!-- Posts container for HTMX updates -->
-    <div id="posts-container">
+    <div id="posts-container" style="border: 3px solid red; padding: 10px; min-height: 200px;">
+        <div style="background: yellow; padding: 10px; margin-bottom: 10px;">
+            <strong>DEBUG: posts-container</strong><br>
+            Posts in context: {{ posts|length }}<br>
+            User: {{ user }}<br>
+        </div>
         {% if posts %}
             {% include "blog/htmx/posts_list_fragment.html" %}
         {% else %}
@@ -120,6 +133,22 @@ document.addEventListener('DOMContentLoaded', function() {
     postCards.forEach(card => {
         card.classList.add('post-card-animate');
         observer.observe(card);
+    });
+    
+    // DEBUG: HTMX events logging
+    console.log('=== HTMX DEBUG INITIALIZED ===');
+    document.body.addEventListener('htmx:beforeRequest', function(evt) {
+        console.log('HTMX BEFORE REQUEST:', evt.detail);
+    });
+    document.body.addEventListener('htmx:afterRequest', function(evt) {
+        console.log('HTMX AFTER REQUEST:', evt.detail);
+        console.log('Response:', evt.detail.xhr.responseText.substring(0, 200));
+    });
+    document.body.addEventListener('htmx:beforeSwap', function(evt) {
+        console.log('HTMX BEFORE SWAP:', evt.detail.target.id, 'New content length:', evt.detail.xhr.responseText.length);
+    });
+    document.body.addEventListener('htmx:afterSwap', function(evt) {
+        console.log('HTMX AFTER SWAP:', evt.detail.target.id);
     });
 });
 </script>
