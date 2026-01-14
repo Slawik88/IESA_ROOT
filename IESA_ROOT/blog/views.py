@@ -5,6 +5,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.http import HttpResponse
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.decorators import login_required
+from django.views.decorators.http import require_POST
 from django.urls import reverse_lazy
 from django.utils import timezone
 from django.contrib import messages
@@ -204,7 +205,6 @@ def like_post(request, pk):
     return render(request, 'blog/htmx/like_button.html', context)
 
 @login_required
-@login_required
 @comment_ratelimit
 def comment_create(request, pk):
     """
@@ -212,43 +212,47 @@ def comment_create(request, pk):
     """
     post = get_object_or_404(Post, pk=pk)
     
-    if request.method == 'POST':
-        text = request.POST.get('text')
-        parent_id = request.POST.get('parent_id')
-        parent = None
+    # Разрешаем только POST
+    if request.method != 'POST':
+        return HttpResponse(status=405, content='Method Not Allowed. Use POST.')
+    
+    text = request.POST.get('text')
+    parent_id = request.POST.get('parent_id')
+    parent = None
+    
+    if parent_id:
+        parent = get_object_or_404(Comment, pk=parent_id, post=post)
+    
+    if text:
+        comment = Comment.objects.create(
+            post=post,
+            author=request.user,
+            text=text,
+            parent=parent
+        )
         
-        if parent_id:
-            parent = get_object_or_404(Comment, pk=parent_id, post=post)
+        # Return HTMX template with updated comments section
+        if request.htmx:
+            # Подготавливаем мап лайков
+            from .models import CommentLike
+            liked_comment_ids = CommentLike.objects.filter(
+                comment__post=post,
+                user=request.user
+            ).values_list('comment_id', flat=True)
+            comment_likes_map = {cid: True for cid in liked_comment_ids}
+            
+            context = {
+                'post': post,
+                'comments': post.comments.filter(parent__isnull=True),  # Only root comments
+                'comment_form': CommentForm(),
+                'just_posted_id': comment.pk,  # mark which comment was just created
+                'comment_likes_map': comment_likes_map,
+            }
+            return render(request, 'blog/htmx/comments_section.html', context)
         
-        if text:
-            comment = Comment.objects.create(
-                post=post,
-                author=request.user,
-                text=text,
-                parent=parent
-            )
-            
-            # Return HTMX template with updated comments section
-            if request.htmx:
-                # Подготавливаем мап лайков
-                from .models import CommentLike
-                liked_comment_ids = CommentLike.objects.filter(
-                    comment__post=post,
-                    user=request.user
-                ).values_list('comment_id', flat=True)
-                comment_likes_map = {cid: True for cid in liked_comment_ids}
-                
-                context = {
-                    'post': post,
-                    'comments': post.comments.filter(parent__isnull=True),  # Only root comments
-                    'comment_form': CommentForm(),
-                    'just_posted_id': comment.pk,  # mark which comment was just created
-                    'comment_likes_map': comment_likes_map,
-                }
-                return render(request, 'blog/htmx/comments_section.html', context)
-            
-            return redirect('post_detail', pk=pk)
-            
+        return redirect('post_detail', pk=pk)
+    
+    # Если нет текста - просто редирект
     return redirect('post_detail', pk=pk)
 
 
