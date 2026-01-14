@@ -1,5 +1,5 @@
 from django import forms
-from .models import Post
+from .models import Post, Comment
 
 try:
     # CKEditor 5 widget (безопасная версия)
@@ -23,3 +23,17 @@ class PostForm(forms.ModelForm):
         # Remove 'required' from text field to prevent validation errors on hidden textarea
         # Validation will be done on frontend via JavaScript in Quill editor
         self.fields['text'].required = False
+
+
+class CommentForm(forms.ModelForm):
+    """Форма создания комментария"""
+    class Meta:
+        model = Comment
+        fields = ['text']
+        widgets = {
+            'text': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 3,
+                'placeholder': 'Напишите комментарий...'
+            })
+        }
