@@ -7,22 +7,25 @@ from django.conf import settings
 
 def generate_qr_code_for_user(user, request=None):
     """
-    Генерирует QR код для пользователя на основе его permanent_id.
-    QR код ведёт на маршрут /auth/card/<permanent_id>/
-
-    Сохраняет PNG в MEDIA_ROOT/cards/ и возвращает путь файла.
-    Если QR уже существует — обновляет.
+    Создаёт QR-код для карты пользователя
+    
+    QR ведёт на: {protocol}://{domain}/auth/card/{permanent_id}/
+    Сохраняет PNG в S3/локально через Django storage
     """
     if not user.permanent_id:
         return None
 
-    # URL, который кодируется в QR - используем правильный домен
-    # Prefer request host/scheme in runtime if available, else fallback to settings
-    domain = (request.get_host() if request is not None else getattr(settings, 'SITE_DOMAIN', 'iesasport.ch'))
-    protocol = (getattr(request, 'scheme', None) or ('https' if not settings.DEBUG else 'http'))
+    # Определяем URL для QR-кода
+    if request:
+        domain = request.get_host()
+        protocol = getattr(request, 'scheme', 'https')
+    else:
+        domain = getattr(settings, 'SITE_DOMAIN', 'iesasport.ch')
+        protocol = 'http' if settings.DEBUG else 'https'
+    
     profile_url = f"{protocol}://{domain}/auth/card/{user.permanent_id}/"
 
-    # Создаём QR
+    # Генерируем QR-код
     qr = qrcode.QRCode(
         version=1,
         error_correction=qrcode.constants.ERROR_CORRECT_L,
@@ -31,24 +34,23 @@ def generate_qr_code_for_user(user, request=None):
     )
     qr.add_data(profile_url)
     qr.make(fit=True)
-
     img = qr.make_image(fill_color="black", back_color="white")
 
-    # Сохраняем в BytesIO
+    # Конвертируем в байты
     img_io = BytesIO()
     img.save(img_io, format='PNG')
     img_io.seek(0)
 
-    # Сохраняем через Django storage (поддерживает S3 и локальный диск)
+    # Сохраняем через Django storage (S3 или локально)
     from django.core.files.storage import default_storage
-    # НЕ добавляем media/ в начало - это добавится автоматически через MEDIA_URL
+    
     filename = f"cards/{str(user.permanent_id)}.png"
     
-    # Удаляем старый файл если существует
+    # Удаляем старый файл
     if default_storage.exists(filename):
         default_storage.delete(filename)
     
+    # Сохраняем новый
     filepath = default_storage.save(filename, ContentFile(img_io.getvalue()))
 
-    # Возвращаем медиа URL для отображения в админке
     return f"{settings.MEDIA_URL}{filepath}"

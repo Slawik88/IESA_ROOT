@@ -207,53 +207,51 @@ def like_post(request, pk):
 @login_required
 @comment_ratelimit
 def comment_create(request, pk):
-    """
-    Handle comment creation via HTMX (without page reload).
-    """
+    """Создание комментария через HTMX"""
     post = get_object_or_404(Post, pk=pk)
     
-    # Разрешаем только POST
+    # Только POST
     if request.method != 'POST':
         return HttpResponse(status=405, content='Method Not Allowed. Use POST.')
     
-    text = request.POST.get('text')
+    text = request.POST.get('text', '').strip()
     parent_id = request.POST.get('parent_id')
-    parent = None
     
+    if not text:
+        return redirect('post_detail', pk=pk)
+    
+    # Создаём комментарий
+    parent = None
     if parent_id:
         parent = get_object_or_404(Comment, pk=parent_id, post=post)
     
-    if text:
-        comment = Comment.objects.create(
-            post=post,
-            author=request.user,
-            text=text,
-            parent=parent
-        )
-        
-        # Return HTMX template with updated comments section
-        if request.htmx:
-            # Подготавливаем мап лайков
-            from .models import CommentLike
-            liked_comment_ids = CommentLike.objects.filter(
-                comment__post=post,
-                user=request.user
-            ).values_list('comment_id', flat=True)
-            comment_likes_map = {cid: True for cid in liked_comment_ids}
-            
-            context = {
-                'post': post,
-                'comments': post.comments.filter(parent__isnull=True),  # Only root comments
-                'comment_form': CommentForm(),
-                'just_posted_id': comment.pk,  # mark which comment was just created
-                'comment_likes_map': comment_likes_map,
-            }
-            return render(request, 'blog/htmx/comments_section.html', context)
-        
-        return redirect('post_detail', pk=pk)
+    comment = Comment.objects.create(
+        post=post,
+        author=request.user,
+        text=text,
+        parent=parent
+    )
     
-    # Если нет текста - просто редирект
+    # Если HTMX - возвращаем обновлённый список комментариев
+    if request.htmx:
+        from .models import CommentLike
+        
+        # Какие комментарии лайкнул текущий юзер
+        liked_ids = CommentLike.objects.filter(
+            comment__post=post,
+            user=request.user
+        ).values_list('comment_id', flat=True)
+        
+        return render(request, 'blog/htmx/comments_section.html', {
+            'post': post,
+            'comments': post.comments.filter(parent__isnull=True),
+            'comment_form': CommentForm(),
+            'just_posted_id': comment.pk,
+            'comment_likes_map': {cid: True for cid in liked_ids},
+        })
+    
     return redirect('post_detail', pk=pk)
+
 
 
 def comment_list(request, pk):
@@ -286,57 +284,41 @@ from django.db import models as django_models
 
 
 def post_search(request):
-    """
-    HTMX endpoint for searching posts with filters.
-    Supports: query, status filter, sort order
-    Returns only posts for the community page search
-    """
-    from django.db.models import Q, Value, Case, When, IntegerField, Count
+    """Поиск постов с фильтрами через HTMX"""
+    from django.db.models import Q, Count
     
-    q = request.GET.get('q', '').strip()
+    query = request.GET.get('q', '').strip()
     status = request.GET.get('status', '').strip()
     sort = request.GET.get('sort', 'latest').strip()
     
-    normalized_q = normalize_search_query(q)
+    # Базовый queryset
+    posts = Post.objects.all()
     
-    # Start with published posts
-    queryset = Post.objects.all()
-    
-    # Apply status filter if provided
+    # Фильтр по статусу
     if status:
-        queryset = queryset.filter(status=status)
+        posts = posts.filter(status=status)
     
-    # Search filter
-    if normalized_q:
-        queryset = queryset.filter(
-            Q(title__icontains=normalized_q) | Q(text__icontains=normalized_q)
-        ).annotate(
-            relevance=Case(
-                When(title__icontains=normalized_q, then=Value(10)),
-                default=Value(1),
-                output_field=IntegerField()
-            )
-        )
+    # Поиск по тексту
+    if query:
+        normalized = normalize_search_query(query)
+        posts = posts.filter(Q(title__icontains=normalized) | Q(text__icontains=normalized))
     
-    # Apply sorting
+    # Сортировка
     if sort == 'popular':
-        queryset = queryset.annotate(
-            total_engagement=Count('likes') * 2 + Count('comments') * 3 + Count('user_views')
-        ).order_by('-total_engagement', '-created_at')
+        posts = posts.annotate(
+            engagement=Count('likes') * 2 + Count('comments') * 3
+        ).order_by('-engagement', '-created_at')
     elif sort == 'trending':
-        queryset = queryset.annotate(
-            engagement_count=Count('likes') + Count('comments')
-        ).filter(engagement_count__gt=0).order_by('-engagement_count', '-created_at')
+        posts = posts.annotate(
+            engagement=Count('likes') + Count('comments')
+        ).filter(engagement__gt=0).order_by('-engagement', '-created_at')
     else:  # latest
-        if normalized_q:
-            queryset = queryset.order_by('-relevance', '-created_at')
-        else:
-            queryset = queryset.order_by('-created_at')
+        posts = posts.order_by('-created_at')
     
-    posts = queryset[:12]
-    
-    context = {'posts': posts}
-    return render(request, 'blog/htmx/posts_list_fragment.html', context)
+    return render(request, 'blog/htmx/posts_list_fragment.html', {
+        'posts': posts[:12]
+    })
+
 
 
 @login_required
@@ -452,122 +434,66 @@ def validate_search_query(query):
 
 
 def global_search(request):
-    """
-    Global HTMX search endpoint for posts, users, events, partners
-    Optimized with select_related and validation
-    """
-    from django.db.models import Q, Value, Case, When, IntegerField
+    """Глобальный поиск по всему сайту через HTMX"""
+    from django.db.models import Q
     from core.models import Partner
     from users.models import User
     
-    raw_query = request.GET.get('q', '').strip()
+    query = request.GET.get('q', '').strip()
     
-    # Return early for empty queries
-    if not raw_query:
+    # Пустой запрос - возвращаем пустые результаты
+    if not query:
         return render(request, 'blog/htmx/post_search_results.html', {
             'query': '',
             'results': {'users': [], 'posts': [], 'events': [], 'partners': []}
         })
     
-    # Use normalize_search_query; no separate validator available
-    normalized_q = normalize_search_query(raw_query)
+    # Нормализуем запрос (удаляем @ в начале и т.д.)
+    normalized = normalize_search_query(query)
     
-    logger.info(f"Global search: raw='{raw_query}', normalized='{normalized_q}', len={len(normalized_q)}, user={request.user.username if request.user.is_authenticated else 'anonymous'}")
+    # Логируем поиск
+    logger.info(f"Search: '{query}' (normalized: '{normalized}') by {request.user.username if request.user.is_authenticated else 'anon'}")
     
-    results = {
-        'users': [],
-        'posts': [],
-        'events': [],
-        'partners': []
-    }
+    results = {'users': [], 'posts': [], 'events': [], 'partners': []}
     
-    # Minimum 2 characters required
-    if normalized_q and len(normalized_q) >= 2:
-        try:
-            # Search users - OPTIMIZED
-            users = User.objects.filter(
-                Q(username__icontains=normalized_q) |
-                Q(first_name__icontains=normalized_q) |
-                Q(last_name__icontains=normalized_q) |
-                Q(email__icontains=normalized_q)
-            ).exclude(
-                Q(username__isnull=True) | 
-                Q(username='') | 
-                Q(username__regex=r'^\s*$')
-            ).filter(
-                username__isnull=False
-            ).exclude(
-                username=''
-            ).order_by('-is_verified', 'username')[:20]
-            
-            # Additional Python-level validation for safety
-            valid_users = []
-            for u in users:
-                # Check username is not None, not empty, and has valid length
-                if u.username and isinstance(u.username, str) and len(u.username.strip()) > 0:
-                    valid_users.append(u)
-                    if len(valid_users) >= 8:
-                        break
-            results['users'] = valid_users
-            
-            # Search posts - OPTIMIZED
-            posts = Post.objects.filter(
-                Q(title__icontains=normalized_q) |
-                Q(text__icontains=normalized_q),
-                status='published'
-            ).select_related(
-                'author'
-            ).prefetch_related(
-                'likes',
-                'comments'
-            ).annotate(
-                relevance=Case(
-                    When(title__icontains=normalized_q, then=Value(10)),
-                    default=Value(1),
-                    output_field=IntegerField()
-                )
-            ).order_by('-relevance', '-created_at')[:6]
-            
-            # Validate posts have valid pk
-            valid_posts = [p for p in posts if p.pk is not None and p.pk != '']
-            results['posts'] = valid_posts
-            
-            # Search events - OPTIMIZED
-            events = Event.objects.filter(
-                Q(title__icontains=normalized_q) |
-                Q(description__icontains=normalized_q)
-            ).select_related('created_by').annotate(
-                relevance=Case(
-                    When(title__icontains=normalized_q, then=Value(10)),
-                    default=Value(1),
-                    output_field=IntegerField()
-                )
-            ).order_by('-relevance', '-date')[:6]
-            
-            # Validate events have valid pk
-            valid_events = [e for e in events if e.pk is not None and e.pk != '']
-            results['events'] = valid_events
-            
-            # Search partners
-            partners = Partner.objects.filter(
-                Q(name__icontains=normalized_q) |
-                Q(description__icontains=normalized_q)
-            ).annotate(
-                relevance=Case(
-                    When(name__icontains=normalized_q, then=Value(10)),
-                    default=Value(1),
-                    output_field=IntegerField()
-                )
-            ).order_by('-relevance', 'name')[:6]
-            
-            # Validate partners have valid pk
-            valid_partners = [p for p in partners if p.pk is not None and p.pk != '']
-            results['partners'] = valid_partners
-            
-            logger.info(f"Search results: users={len(results['users'])}, posts={len(results['posts'])}, events={len(results['events'])}, partners={len(results['partners'])}")
-            
-        except Exception as e:
-            logger.error(f"Error in global_search: {e}", exc_info=True)
+    # Минимум 2 символа для поиска
+    if len(normalized) < 2:
+        return render(request, 'blog/htmx/post_search_results.html', {
+            'query': query,
+            'results': results
+        })
     
-    context = {'query': raw_query, 'results': results}
-    return render(request, 'blog/htmx/post_search_results.html', context)
+    try:
+        # Поиск пользователей (только с валидным username)
+        results['users'] = User.objects.filter(
+            Q(username__icontains=normalized) |
+            Q(first_name__icontains=normalized) |
+            Q(last_name__icontains=normalized) |
+            Q(email__icontains=normalized)
+        ).exclude(username='').order_by('-is_verified', 'username')[:8]
+        
+        # Поиск постов (только опубликованные)
+        results['posts'] = Post.objects.filter(
+            Q(title__icontains=normalized) | Q(text__icontains=normalized),
+            status='published'
+        ).select_related('author').order_by('-created_at')[:6]
+        
+        # Поиск событий
+        results['events'] = Event.objects.filter(
+            Q(title__icontains=normalized) | Q(description__icontains=normalized)
+        ).select_related('created_by').order_by('-date')[:6]
+        
+        # Поиск партнёров
+        results['partners'] = Partner.objects.filter(
+            Q(name__icontains=normalized) | Q(description__icontains=normalized)
+        ).order_by('name')[:6]
+        
+        logger.info(f"Found: {len(results['users'])} users, {len(results['posts'])} posts, {len(results['events'])} events, {len(results['partners'])} partners")
+        
+    except Exception as e:
+        logger.error(f"Search error: {e}", exc_info=True)
+    
+    return render(request, 'blog/htmx/post_search_results.html', {
+        'query': query,
+        'results': results
+    })
