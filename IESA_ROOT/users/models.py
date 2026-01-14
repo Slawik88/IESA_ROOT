@@ -9,8 +9,8 @@ class User(AbstractUser):
     Custom user model with additional fields.
     """
     avatar = models.ImageField(
-        upload_to='media/avatars/', 
-        default='media/avatars/default.png', 
+        upload_to='avatars/', 
+        default='avatars/default.png', 
         blank=True, 
         verbose_name='Avatar'
     )
