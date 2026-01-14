@@ -1298,8 +1298,8 @@ select.form-control {
 
 /* ===== ELEGANT PROFILE HOVER EFFECTS ===== */
 .card[style*="cursor: pointer"]:hover {
-    transform: translateY(-8px) !important;
-    box-shadow: 0 12px 32px rgba(0,0,0,0.12), 0 4px 12px rgba(0,0,0,0.08) !important;
+    transform: translateY(-2px) !important;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.08), 0 2px 6px rgba(0,0,0,0.04) !important;
 }
 
 .card[style*="background: linear-gradient(135deg, rgba(239,68,68"]:hover {
@@ -1326,8 +1326,7 @@ select.form-control {
 .btn-outline-primary:hover,
 .btn-outline-info:hover,
 .btn-outline-secondary:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 16px rgba(0,0,0,0.15);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.12);
 }
 
 .table-hover tbody tr:hover {
