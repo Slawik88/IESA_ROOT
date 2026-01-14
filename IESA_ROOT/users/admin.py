@@ -55,8 +55,8 @@ class UserAdmin(BaseUserAdmin):
                 '</div>'
             )
         
-        # Путь к сохранённому QR коду
-        qr_path = f"{settings.MEDIA_URL}media/cards/{str(obj.permanent_id)}.png"
+        # Путь к сохранённому QR коду (БЕЗ дублирования media/)
+        qr_path = f"{settings.MEDIA_URL}cards/{str(obj.permanent_id)}.png"
         
         # URL для действий (используем правильный формат с admin namespace)
         regenerate_url = f"/admin/users/user/{obj.pk}/regenerate-qr/"
@@ -74,12 +74,14 @@ class UserAdmin(BaseUserAdmin):
                 </div>
                 <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:10px;">
                     <a href="{}" 
-                       class="button" 
+                       class="button qr-regenerate-btn" 
+                       onclick="return confirm('⚠️ Вы уверены, что хотите обновить QR-код?\\n\\nЭто создаст новый QR-код с тем же ID.\\nСтарый QR будет удалён.\\n\\nПродолжить?');"
                        style="flex:1; text-align:center; min-width:150px; padding:10px 15px; background:#417690; color:white; text-decoration:none; border-radius:4px; font-weight:500; display:inline-block; box-sizing:border-box;">
                         🔄 Обновить QR
                     </a>
                     <a href="{}" 
-                       class="button" 
+                       class="button qr-newid-btn" 
+                       onclick="return confirm('🚨 ВНИМАНИЕ! Это создаст НОВУЮ ФИЗИЧЕСКУЮ КАРТУ!\\n\\n• Старая карта перестанет работать\\n• Создастся новый Permanent ID\\n• Потребуется напечатать новую карту\\n\\nВы УВЕРЕНЫ, что хотите продолжить?');"
                        style="flex:1; text-align:center; min-width:150px; padding:10px 15px; background:#ba2121; color:white; text-decoration:none; border-radius:4px; font-weight:500; display:inline-block; box-sizing:border-box;">
                         🆕 Новая карта
                     </a>
@@ -194,9 +196,9 @@ class UserAdmin(BaseUserAdmin):
         if not user.permanent_id:
             messages.error(request, f'❌ У пользователя {user.username} нет permanent_id')
         else:
-            # Удаляем старый QR из S3
+            # Удаляем старый QR из S3 (БЕЗ префикса media/)
             try:
-                old_key = f'media/cards/{user.permanent_id}.png'
+                old_key = f'cards/{user.permanent_id}.png'
                 if default_storage.exists(old_key):
                     default_storage.delete(old_key)
             except Exception as e:
@@ -233,10 +235,10 @@ class UserAdmin(BaseUserAdmin):
         
         old_id = user.permanent_id
         
-        # Удаляем старый QR из S3
+        # Удаляем старый QR из S3 (БЕЗ префикса media/)
         if old_id:
             try:
-                old_key = f'media/cards/{old_id}.png'
+                old_key = f'cards/{old_id}.png'
                 if default_storage.exists(old_key):
                     default_storage.delete(old_key)
             except Exception as e:

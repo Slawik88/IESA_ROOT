@@ -41,7 +41,13 @@ def generate_qr_code_for_user(user, request=None):
 
     # Сохраняем через Django storage (поддерживает S3 и локальный диск)
     from django.core.files.storage import default_storage
-    filename = f"media/cards/{str(user.permanent_id)}.png"
+    # НЕ добавляем media/ в начало - это добавится автоматически через MEDIA_URL
+    filename = f"cards/{str(user.permanent_id)}.png"
+    
+    # Удаляем старый файл если существует
+    if default_storage.exists(filename):
+        default_storage.delete(filename)
+    
     filepath = default_storage.save(filename, ContentFile(img_io.getvalue()))
 
     # Возвращаем медиа URL для отображения в админке
