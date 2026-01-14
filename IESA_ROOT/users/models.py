@@ -33,6 +33,8 @@ class User(AbstractUser):
     # Indicates whether the physical card is currently active/issued
     card_active = models.BooleanField(default=False, verbose_name=_('Card active'))
     card_issued_at = models.DateTimeField(null=True, blank=True, verbose_name=_('Card issued at'))
+    # Indicates if user has physical card (admin marks this)
+    has_physical_card = models.BooleanField(default=False, verbose_name=_('Has physical card'))
 
     # Social / contact links (optional)
     github_url = models.URLField(blank=True, max_length=255, verbose_name='GitHub')

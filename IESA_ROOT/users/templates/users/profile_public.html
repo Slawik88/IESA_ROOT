@@ -16,7 +16,8 @@
           <div>
             <h2 class="mb-0">{{ user_obj.get_full_name|default:user_obj.username }}</h2>
             <p class="text-muted mb-1">@{{ user_obj.username }}</p>
-            {% if user_obj.permanent_id %}
+            {# ID виден только владельцу #}
+            {% if request.user.is_authenticated and request.user.id == user_obj.id and user_obj.permanent_id %}
               <div class="small text-muted">ID: <code id="permanent-{{ user_obj.permanent_id }}">{{ user_obj.permanent_id }}</code>
                 <button class="btn btn-link btn-sm p-0 ms-2 copy-id" data-copy="#permanent-{{ user_obj.permanent_id }}" title="Copy ID"><i class="far fa-copy"></i></button>
               </div>
@@ -83,19 +84,16 @@
         {% endif %}
 
         <hr>
-        <!-- QR code: show when user has an active card -->
-        {% if user_obj.card_active and user_obj.permanent_id %}
+        {# QR код виден только владельцу профиля #}
+        {% if request.user.is_authenticated and request.user.id == user_obj.id and user_obj.permanent_id %}
           <div class="text-center mb-3">
+            <p class="text-muted"><strong>Ваш QR код</strong></p>
             <a href="{% url 'profile_by_card' permanent_id=user_obj.permanent_id %}" title="Open profile by card">
               <img src="{% url 'user_qr' permanent_id=user_obj.permanent_id %}" alt="QR for {{ user_obj.username }}" style="width:140px;height:140px;object-fit:contain;border:1px solid #e9e9e9;padding:8px;background:white;border-radius:8px;" />
             </a>
             <div class="d-flex justify-content-center gap-2 mt-2">
-              {% if request.user.is_authenticated and request.user.id == user_obj.id %}
-                <a class="btn btn-sm btn-outline-secondary" href="{% url 'user_qr' permanent_id=user_obj.permanent_id %}?download=1">Download QR</a>
-              {% elif request.user.is_authenticated and request.user.is_staff %}
-                <a class="btn btn-sm btn-outline-secondary" href="{% url 'user_qr' permanent_id=user_obj.permanent_id %}?download=1">Download QR</a>
-              {% endif %}
-              <div class="small text-muted mt-2">Scan to open profile</div>
+              <a class="btn btn-sm btn-outline-secondary" href="{% url 'user_qr' permanent_id=user_obj.permanent_id %}?download=1">Download QR</a>
+              <div class="small text-muted mt-2">Scan to open your profile</div>
             </div>
           </div>
           <hr>
