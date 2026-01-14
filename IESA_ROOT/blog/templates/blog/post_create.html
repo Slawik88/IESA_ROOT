@@ -9,9 +9,13 @@
 {% block content %}
 <div class="row justify-content-center">
     <div class="col-lg-10 col-xl-8">
+        <div class="text-center mb-5">
+            <h6 class="section-title mb-4" style="display: block;">CREATE CONTENT</h6>
+            <h1 class="fw-bold mb-2" style="color: var(--color-gray-900);">Publish New Article or Announcement</h1>
+            <p class="text-muted">Use our advanced editor: fonts, colors, lists, quotes and preview before publishing</p>
+        </div>
+        
         <div class="card card-modern p-5 shadow-lg">
-            <h1 class="fw-bold mb-4 text-center text-primary-dark">Publish a new article or announcement</h1>
-            <p class="text-center text-muted mb-5">Используйте расширенный редактор: шрифты, цвета, списки, цитаты и превью перед публикацией.</p>
             
             <form method="post" enctype="multipart/form-data" id="post-create-form">
                 {% csrf_token %}

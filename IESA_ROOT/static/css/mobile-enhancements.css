@@ -51,8 +51,12 @@
     }
     
     .footer-social {
-        width: 40px !important;
-        height: 40px !important;
+        width: 46px !important;
+        height: 46px !important;
+        border-radius: 12px !important;
+        border: 2px solid rgba(122,165,255,0.3) !important;
+        background: linear-gradient(135deg, rgba(122,165,255,0.12), rgba(90,136,230,0.08)) !important;
+        box-shadow: 0 2px 8px rgba(122,165,255,0.15) !important;
     }
 }
 

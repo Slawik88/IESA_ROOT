@@ -196,11 +196,11 @@
                 <div class="col-12 col-md-6 col-lg-3">
                     <h6 class="footer-title mb-3">SOCIAL</h6>
                     <div class="d-flex flex-row flex-wrap gap-3">
-                        <a class="footer-social" href="https://facebook.com" target="_blank" rel="noopener" title="Facebook"><i class="fab fa-facebook-f"></i></a>
-                        <a class="footer-social" href="https://www.linkedin.com" target="_blank" rel="noopener" title="LinkedIn"><i class="fab fa-linkedin-in"></i></a>
-                        <a class="footer-social" href="https://www.instagram.com" target="_blank" rel="noopener" title="Instagram"><i class="fab fa-instagram"></i></a>
-                        <a class="footer-social" href="https://www.youtube.com" target="_blank" rel="noopener" title="YouTube"><i class="fab fa-youtube"></i></a>
-                        <a class="footer-social" href="https://t.me" target="_blank" rel="noopener" title="Telegram"><i class="fab fa-telegram"></i></a>
+                        {% for sn in social_networks %}
+                        <a class="footer-social" href="{{ sn.url }}" target="_blank" rel="noopener" title="{{ sn.get_name_display }}">
+                            <i class="{{ sn.get_icon }}"></i>
+                        </a>
+                        {% endfor %}
                     </div>
                 </div>
             </div>

@@ -132,10 +132,28 @@ body {
   min-height: 100vh;
 }
 
-/* ===== КОНТЕЙНЕРЫ ===== */
+/* ===== КОНТЕЙНЕРЫ - ОПТИМИЗИРОВАНЫ ДЛЯ ЭЛЕГАНТНОГО ВИДА ===== */
 .container {
   width: 100%;
-  max-width: 1280px;
+  max-width: 1320px;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: var(--space-4);
+  padding-right: var(--space-4);
+}
+
+.container-limited {
+  width: 100%;
+  max-width: 1140px;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: var(--space-4);
+  padding-right: var(--space-4);
+}
+
+.container-narrow {
+  width: 100%;
+  max-width: 860px;
   margin-left: auto;
   margin-right: auto;
   padding-left: var(--space-4);
@@ -143,9 +161,20 @@ body {
 }
 
 @media (min-width: 640px) {
-  .container {
+  .container,
+  .container-limited,
+  .container-narrow {
     padding-left: var(--space-6);
     padding-right: var(--space-6);
+  }
+}
+
+@media (min-width: 1024px) {
+  .container,
+  .container-limited,
+  .container-narrow {
+    padding-left: var(--space-8);
+    padding-right: var(--space-8);
   }
 }
 
@@ -219,23 +248,25 @@ a:hover {
   text-decoration: underline;
 }
 
-/* ===== КНОПКИ - ПОЛНОСТЬЮ ПЕРЕРАБОТАНЫ ===== */
+/* ===== КНОПКИ - ЭЛЕГАНТНЫЕ И ПРОПОРЦИОНАЛЬНЫЕ ===== */
 .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: var(--space-2);
-  padding: var(--space-3) var(--space-6);
-  font-size: var(--text-base);
-  font-weight: var(--font-medium);
-  line-height: 1;
+  padding: 12px 28px;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.4;
   border: none;
-  border-radius: var(--radius);
+  border-radius: 12px;
   cursor: pointer;
-  transition: all var(--transition);
+  transition: all 0.2s ease;
   text-decoration: none;
   white-space: nowrap;
   user-select: none;
+  max-width: fit-content;
+  min-width: 120px;
 }
 
 .btn:disabled {
@@ -246,40 +277,41 @@ a:hover {
 
 /* Размеры кнопок */
 .btn-sm {
-  padding: var(--space-2) var(--space-4);
-  font-size: var(--text-sm);
-  border-radius: var(--radius-sm);
+  padding: 8px 20px;
+  font-size: 0.875rem;
+  border-radius: 10px;
+  min-width: 100px;
 }
 
 .btn-lg {
-  padding: var(--space-4) var(--space-8);
-  font-size: var(--text-lg);
-  border-radius: var(--radius-md);
+  padding: 14px 36px;
+  font-size: 1rem;
+  border-radius: 14px;
+  min-width: 160px;
 }
 
 .btn-xl {
-  padding: var(--space-5) var(--space-10);
-  font-size: var(--text-xl);
-  border-radius: var(--radius-lg);
+  padding: 16px 44px;
+  font-size: 1.125rem;
+  border-radius: 16px;
+  min-width: 200px;
 }
 
 /* Варианты кнопок */
 .btn-primary {
-  background: var(--color-primary);
+  background: linear-gradient(135deg, var(--color-primary), #dc2626);
   color: var(--color-white);
-  box-shadow: var(--shadow-sm);
+  box-shadow: 0 4px 12px rgba(239,68,68,0.25);
 }
 
 .btn-primary:hover {
-  background: var(--color-primary-hover);
-  box-shadow: var(--shadow-md);
+  background: linear-gradient(135deg, #dc2626, #b91c1c);
+  box-shadow: 0 6px 16px rgba(239,68,68,0.35);
   text-decoration: none;
-  transform: translateY(-1px);
 }
 
 .btn-primary:active {
-  transform: translateY(0);
-  box-shadow: var(--shadow-sm);
+  box-shadow: 0 2px 6px rgba(239,68,68,0.3);
 }
 
 .btn-secondary {
@@ -354,7 +386,7 @@ a:hover {
   border-radius: 16px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.06);
   overflow: hidden;
-  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.3s ease;
   position: relative;
 }
 
@@ -367,13 +399,12 @@ a:hover {
   height: 1px;
   background: linear-gradient(90deg, transparent, rgba(239, 68, 68, 0.3), transparent);
   opacity: 0;
-  transition: opacity 0.4s ease;
+  transition: opacity 0.3s ease;
 }
 
 .card:hover {
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08), 0 4px 8px rgba(0, 0, 0, 0.04);
-  transform: translateY(-4px);
-  border-color: rgba(239, 68, 68, 0.15);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08), 0 2px 6px rgba(0, 0, 0, 0.04);
+  border-color: rgba(239, 68, 68, 0.12);
 }
 
 .card:hover::before {
@@ -416,7 +447,6 @@ a:hover {
 .card-flat:hover {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
   border-color: var(--color-gray-300);
-  transform: translateY(-2px);
 }
 
 /* Премиум карточка с акцентом */
@@ -1331,4 +1361,379 @@ select.form-control {
 
 .table-hover tbody tr:hover {
     background: rgba(239,68,68,0.02) !important;
+}
+
+/* ============================================================
+   PARTNER CARDS - CATEGORY-SPECIFIC DESIGNS
+   ============================================================ */
+
+/* SPONSOR - Red/Gold gradient */
+.card-partner-sponsor {
+    border-radius: 18px;
+    background: linear-gradient(135deg, rgba(239,68,68,0.05) 0%, rgba(220,38,38,0.08) 100%);
+    border: 1px solid rgba(239,68,68,0.15);
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.card-partner-sponsor:hover {
+    background: linear-gradient(135deg, rgba(239,68,68,0.08) 0%, rgba(220,38,38,0.11) 100%);
+    border-color: rgba(239,68,68,0.25);
+    box-shadow: 0 8px 16px rgba(239,68,68,0.1);
+    transform: translateY(-2px);
+}
+
+.badge-partner-sponsor {
+    background: rgba(239,68,68,0.15) !important;
+    color: #dc2626 !important;
+    padding: 6px 12px !important;
+    border-radius: 8px !important;
+    font-weight: 600 !important;
+    font-size: 0.75rem !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.05em !important;
+}
+
+.btn-partner-sponsor {
+    background: linear-gradient(135deg, #ef4444, #dc2626) !important;
+    color: white !important;
+    border: none !important;
+    border-radius: 12px !important;
+    font-weight: 600 !important;
+    transition: all 0.2s ease !important;
+    flex: 1;
+}
+
+.btn-partner-sponsor:hover {
+    background: linear-gradient(135deg, #dc2626, #b91c1c) !important;
+    box-shadow: 0 4px 12px rgba(239,68,68,0.3) !important;
+}
+
+.btn-partner-outline-sponsor {
+    background: linear-gradient(135deg, rgba(239,68,68,0.15), rgba(220,38,38,0.2)) !important;
+    color: #dc2626 !important;
+    border: 1px solid rgba(239,68,68,0.2) !important;
+    border-radius: 12px !important;
+    font-weight: 600 !important;
+    transition: all 0.2s ease !important;
+    flex: 1;
+}
+
+.btn-partner-outline-sponsor:hover {
+    background: linear-gradient(135deg, rgba(239,68,68,0.2), rgba(220,38,38,0.3)) !important;
+    border-color: rgba(239,68,68,0.3) !important;
+}
+
+.card-partner-sponsor .logo-container {
+    min-height: 100px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.card-partner-sponsor .logo-placeholder {
+    width: 100px;
+    height: 100px;
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+    color: white;
+    font-weight: bold;
+    font-size: 1.75rem;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* MEDIA - Blue gradient */
+.card-partner-media {
+    border-radius: 18px;
+    background: linear-gradient(135deg, rgba(59,130,246,0.05) 0%, rgba(37,99,235,0.08) 100%);
+    border: 1px solid rgba(59,130,246,0.15);
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.card-partner-media:hover {
+    background: linear-gradient(135deg, rgba(59,130,246,0.08) 0%, rgba(37,99,235,0.11) 100%);
+    border-color: rgba(59,130,246,0.25);
+    box-shadow: 0 8px 16px rgba(59,130,246,0.1);
+    transform: translateY(-2px);
+}
+
+.badge-partner-media {
+    background: rgba(59,130,246,0.15) !important;
+    color: #2563eb !important;
+    padding: 6px 12px !important;
+    border-radius: 8px !important;
+    font-weight: 600 !important;
+    font-size: 0.75rem !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.05em !important;
+}
+
+.btn-partner-media {
+    background: linear-gradient(135deg, #3b82f6, #2563eb) !important;
+    color: white !important;
+    border: none !important;
+    border-radius: 12px !important;
+    font-weight: 600 !important;
+    transition: all 0.2s ease !important;
+    flex: 1;
+}
+
+.btn-partner-media:hover {
+    background: linear-gradient(135deg, #2563eb, #1d4ed8) !important;
+    box-shadow: 0 4px 12px rgba(59,130,246,0.3) !important;
+}
+
+.btn-partner-outline-media {
+    background: linear-gradient(135deg, rgba(59,130,246,0.15), rgba(37,99,235,0.2)) !important;
+    color: #2563eb !important;
+    border: 1px solid rgba(59,130,246,0.2) !important;
+    border-radius: 12px !important;
+    font-weight: 600 !important;
+    transition: all 0.2s ease !important;
+    flex: 1;
+}
+
+.btn-partner-outline-media:hover {
+    background: linear-gradient(135deg, rgba(59,130,246,0.2), rgba(37,99,235,0.3)) !important;
+    border-color: rgba(59,130,246,0.3) !important;
+}
+
+.card-partner-media .logo-placeholder {
+    width: 100px;
+    height: 100px;
+    background: linear-gradient(135deg, #3b82f6, #2563eb);
+    color: white;
+    font-weight: bold;
+    font-size: 1.75rem;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* TECH - Purple/Cyan gradient */
+.card-partner-tech {
+    border-radius: 18px;
+    background: linear-gradient(135deg, rgba(139,92,246,0.05) 0%, rgba(109,40,217,0.08) 100%);
+    border: 1px solid rgba(139,92,246,0.15);
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.card-partner-tech:hover {
+    background: linear-gradient(135deg, rgba(139,92,246,0.08) 0%, rgba(109,40,217,0.11) 100%);
+    border-color: rgba(139,92,246,0.25);
+    box-shadow: 0 8px 16px rgba(139,92,246,0.1);
+    transform: translateY(-2px);
+}
+
+.badge-partner-tech {
+    background: rgba(139,92,246,0.15) !important;
+    color: #6d28d9 !important;
+    padding: 6px 12px !important;
+    border-radius: 8px !important;
+    font-weight: 600 !important;
+    font-size: 0.75rem !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.05em !important;
+}
+
+.btn-partner-tech {
+    background: linear-gradient(135deg, #8b5cf6, #6d28d9) !important;
+    color: white !important;
+    border: none !important;
+    border-radius: 12px !important;
+    font-weight: 600 !important;
+    transition: all 0.2s ease !important;
+    flex: 1;
+}
+
+.btn-partner-tech:hover {
+    background: linear-gradient(135deg, #6d28d9, #581c87) !important;
+    box-shadow: 0 4px 12px rgba(139,92,246,0.3) !important;
+}
+
+.btn-partner-outline-tech {
+    background: linear-gradient(135deg, rgba(139,92,246,0.15), rgba(109,40,217,0.2)) !important;
+    color: #6d28d9 !important;
+    border: 1px solid rgba(139,92,246,0.2) !important;
+    border-radius: 12px !important;
+    font-weight: 600 !important;
+    transition: all 0.2s ease !important;
+    flex: 1;
+}
+
+.btn-partner-outline-tech:hover {
+    background: linear-gradient(135deg, rgba(139,92,246,0.2), rgba(109,40,217,0.3)) !important;
+    border-color: rgba(139,92,246,0.3) !important;
+}
+
+.card-partner-tech .logo-placeholder {
+    width: 100px;
+    height: 100px;
+    background: linear-gradient(135deg, #8b5cf6, #6d28d9);
+    color: white;
+    font-weight: bold;
+    font-size: 1.75rem;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* VENUE - Green gradient */
+.card-partner-venue {
+    border-radius: 18px;
+    background: linear-gradient(135deg, rgba(16,185,129,0.05) 0%, rgba(5,150,105,0.08) 100%);
+    border: 1px solid rgba(16,185,129,0.15);
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.card-partner-venue:hover {
+    background: linear-gradient(135deg, rgba(16,185,129,0.08) 0%, rgba(5,150,105,0.11) 100%);
+    border-color: rgba(16,185,129,0.25);
+    box-shadow: 0 8px 16px rgba(16,185,129,0.1);
+    transform: translateY(-2px);
+}
+
+.badge-partner-venue {
+    background: rgba(16,185,129,0.15) !important;
+    color: #059669 !important;
+    padding: 6px 12px !important;
+    border-radius: 8px !important;
+    font-weight: 600 !important;
+    font-size: 0.75rem !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.05em !important;
+}
+
+.btn-partner-venue {
+    background: linear-gradient(135deg, #10b981, #059669) !important;
+    color: white !important;
+    border: none !important;
+    border-radius: 12px !important;
+    font-weight: 600 !important;
+    transition: all 0.2s ease !important;
+    flex: 1;
+}
+
+.btn-partner-venue:hover {
+    background: linear-gradient(135deg, #059669, #047857) !important;
+    box-shadow: 0 4px 12px rgba(16,185,129,0.3) !important;
+}
+
+.btn-partner-outline-venue {
+    background: linear-gradient(135deg, rgba(16,185,129,0.15), rgba(5,150,105,0.2)) !important;
+    color: #059669 !important;
+    border: 1px solid rgba(16,185,129,0.2) !important;
+    border-radius: 12px !important;
+    font-weight: 600 !important;
+    transition: all 0.2s ease !important;
+    flex: 1;
+}
+
+.btn-partner-outline-venue:hover {
+    background: linear-gradient(135deg, rgba(16,185,129,0.2), rgba(5,150,105,0.3)) !important;
+    border-color: rgba(16,185,129,0.3) !important;
+}
+
+.card-partner-venue .logo-placeholder {
+    width: 100px;
+    height: 100px;
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: white;
+    font-weight: bold;
+    font-size: 1.75rem;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* OTHER - Amber gradient */
+.card-partner-other {
+    border-radius: 18px;
+    background: linear-gradient(135deg, rgba(245,158,11,0.05) 0%, rgba(217,119,6,0.08) 100%);
+    border: 1px solid rgba(245,158,11,0.15);
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.card-partner-other:hover {
+    background: linear-gradient(135deg, rgba(245,158,11,0.08) 0%, rgba(217,119,6,0.11) 100%);
+    border-color: rgba(245,158,11,0.25);
+    box-shadow: 0 8px 16px rgba(245,158,11,0.1);
+    transform: translateY(-2px);
+}
+
+.badge-partner-other {
+    background: rgba(245,158,11,0.15) !important;
+    color: #d97706 !important;
+    padding: 6px 12px !important;
+    border-radius: 8px !important;
+    font-weight: 600 !important;
+    font-size: 0.75rem !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.05em !important;
+}
+
+.btn-partner-other {
+    background: linear-gradient(135deg, #f59e0b, #d97706) !important;
+    color: white !important;
+    border: none !important;
+    border-radius: 12px !important;
+    font-weight: 600 !important;
+    transition: all 0.2s ease !important;
+    flex: 1;
+}
+
+.btn-partner-other:hover {
+    background: linear-gradient(135deg, #d97706, #b45309) !important;
+    box-shadow: 0 4px 12px rgba(245,158,11,0.3) !important;
+}
+
+.btn-partner-outline-other {
+    background: linear-gradient(135deg, rgba(245,158,11,0.15), rgba(217,119,6,0.2)) !important;
+    color: #d97706 !important;
+    border: 1px solid rgba(245,158,11,0.2) !important;
+    border-radius: 12px !important;
+    font-weight: 600 !important;
+    transition: all 0.2s ease !important;
+    flex: 1;
+}
+
+.btn-partner-outline-other:hover {
+    background: linear-gradient(135deg, rgba(245,158,11,0.2), rgba(217,119,6,0.3)) !important;
+    border-color: rgba(245,158,11,0.3) !important;
+}
+
+.card-partner-other .logo-placeholder {
+    width: 100px;
+    height: 100px;
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    color: white;
+    font-weight: bold;
+    font-size: 1.75rem;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Common logo container */
+.logo-container {
+    min-height: 100px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.logo-container img {
+    max-height: 100px;
+    max-width: 100%;
+    object-fit: contain;
 }

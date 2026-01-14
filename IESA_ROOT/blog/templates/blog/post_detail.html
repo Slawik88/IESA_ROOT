@@ -20,7 +20,7 @@
     <div class="row justify-content-center">
         <div class="col-lg-10">
             <!-- Post Content -->
-            <article class="card p-4 p-md-5 mb-4">
+            <article class="card card-modern p-4 p-md-5 mb-4">
                 <!-- Статус бейдж -->
                 <div class="mb-3">
                     {% if post.status == 'published' %}
@@ -90,7 +90,7 @@
 
             <!-- Comments Section -->
             <section id="comments" class="mb-5">
-                <h3 class="fw-bold mb-4">Comments ({{ post.comments.count }})</h3>
+                <h6 class="section-title mb-4" style="display: block;">COMMENTS ({{ post.comments.count }})</h6>
                 
                 <!-- Comment Form (Only for authenticated users) -->
                 {% if user.is_authenticated %}
@@ -126,7 +126,7 @@
             <!-- Recommended Posts Section -->
             {% if recommended_posts %}
             <section class="mb-5">
-                <h3 class="fw-bold mb-4">📚 Recommended Posts</h3>
+                <h6 class="section-title mb-4" style="display: block;">RECOMMENDED POSTS</h6>
                 <div class="row g-3">
                     {% for post_rec in recommended_posts %}
                     <div class="col-md-6">

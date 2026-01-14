@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.utils.html import format_html
-from .models import Partner, AssociationMember, President
+from .models import Partner, AssociationMember, President, SocialNetwork
 
 
 @admin.register(President)
@@ -13,8 +13,13 @@ class PresidentAdmin(admin.ModelAdmin):
 
 @admin.register(Partner)
 class PartnerAdmin(admin.ModelAdmin):
-	list_display = ('name', 'link', 'logo_tag')
+	list_display = ('name', 'category', 'link', 'contract', 'logo_tag')
+	list_filter = ('category', 'contract')
 	search_fields = ('name',)
+	fieldsets = (
+		('Info', {'fields': ('name', 'category', 'link', 'contract')}),
+		('Media', {'fields': ('logo', 'description')}),
+	)
 
 	def logo_tag(self, obj):
 		if obj.logo:
@@ -33,3 +38,15 @@ class AssociationMemberAdmin(admin.ModelAdmin):
 			return format_html('<img src="{}" style="width:60px;height:60px;object-fit:cover;border-radius:50%;"/>', obj.photo.url)
 		return '-'
 	photo_tag.short_description = 'Фото'
+
+
+@admin.register(SocialNetwork)
+class SocialNetworkAdmin(admin.ModelAdmin):
+	list_display = ('name', 'url', 'is_active', 'order', 'icon_preview')
+	list_filter = ('is_active', 'name')
+	list_editable = ('is_active', 'order')
+	search_fields = ('name', 'url')
+	
+	def icon_preview(self, obj):
+		return format_html('<i class="{}" style="font-size: 1.5rem; color: #7aa5ff;"></i>', obj.get_icon())
+	icon_preview.short_description = 'Icon'
