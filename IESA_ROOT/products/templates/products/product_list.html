@@ -4,67 +4,11 @@
 
 {% block content %}
 <div class="container-limited">
-{% if products %}
-    <h1 class="fw-bold mb-4 text-center">Product Catalog</h1>
-    <p class="text-center text-muted mb-5">Everything our association offers to members.</p>
-
-    <div class="row row-cols-1 row-cols-md-3 g-4">
-        {% for product in products %}
-            <div class="col">
-                <div class="card card-modern product-card h-100">
-                    {% if product.image %}
-                        <div class="product-thumb">
-                            <img src="{{ product.image.url }}" class="card-modern__image" alt="{{ product.name }}">
-                            <span class="badge bg-primary-subtle text-primary product-badge">Featured</span>
-                        </div>
-                    {% endif %}
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-start mb-2">
-                            <h5 class="card-title fw-bold mb-0">{{ product.name }}</h5>
-                            <span class="price-chip">{{ product.price }} USD</span>
-                        </div>
-                        <p class="card-text text-muted">{{ product.description|truncatewords:26 }}</p>
-                        <div class="d-flex flex-wrap gap-2 mt-3">
-                            <span class="pill">Digital</span>
-                            <span class="pill pill--soft">Members</span>
-                        </div>
-                    </div>
-                    <div class="card-footer bg-white border-0 d-flex justify-content-between align-items-center">
-                        <button class="btn btn-outline-primary btn-modern btn-sm flex-grow-1 me-2" disabled>Notify me</button>
-                        <button class="btn btn-primary btn-modern btn-sm flex-grow-1" disabled>Purchase</button>
-                    </div>
-                </div>
-            </div>
-        {% endfor %}
-    </div>
-
-    <!-- Pagination -->
-    {% if is_paginated %}
-        <nav class="mt-4">
-            <ul class="pagination justify-content-center">
-                {% if page_obj.has_previous %}
-                    <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}">Previous</a></li>
-                {% else %}
-                    <li class="page-item disabled"><span class="page-link">Previous</span></li>
-                {% endif %}
-                
-                <li class="page-item active"><span class="page-link">{{ page_obj.number }}</span></li>
-                
-                {% if page_obj.has_next %}
-                    <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}">Next</a></li>
-                {% else %}
-                    <li class="page-item disabled"><span class="page-link">Next</span></li>
-                {% endif %}
-            </ul>
-        </nav>
-    {% endif %}
-{% else %}
     <div class="empty-state">
         <div class="empty-emoji">🛍️</div>
         <h5>Catalog is empty</h5>
         <p class="text-muted mb-3">Мы готовим товары и услуги для членов ассоциации.</p>
-        <a href="{% url 'home' %}#products-section" class="btn btn-outline-primary btn-modern">View highlights</a>
+        <a href="{% url 'home' %}" class="btn btn-outline-primary btn-modern">Back to Home</a>
     </div>
-{% endif %}
 </div>
 {% endblock %}
