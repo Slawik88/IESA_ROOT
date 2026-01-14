@@ -22,38 +22,20 @@
     }
     
     .card-modern, .card {
-        padding: 14px !important;
-        margin-bottom: 14px !important;
+        padding: 12px !important;
+        margin-bottom: 12px !important;
         background: #ffffff !important;
         border: 1px solid #e9ecef !important;
         color: #2c3e50 !important;
-        border-radius: 10px !important;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04) !important;
-        transition: box-shadow 0.2s ease !important;
-    }
-    
-    .card-modern:hover, .card:hover {
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
     }
     
     /* Touch-Friendly Buttons */
     .btn {
-        min-height: 48px;
-        padding: 14px 20px !important;
+        min-height: 44px;
+        padding: 12px 18px !important;
         font-size: 0.95rem !important;
-        font-weight: 600 !important;
         width: 100%;
-        margin-bottom: 10px;
-        border-radius: 8px !important;
-        border: none !important;
-        cursor: pointer;
-        transition: all 0.2s ease !important;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-    }
-    
-    .btn:active {
-        transform: scale(0.98);
+        margin-bottom: 8px;
     }
     
     .btn-group .btn {
@@ -71,80 +53,35 @@
     input, select, textarea, .form-control {
         font-size: 16px !important;
         min-height: 44px;
-        padding: 14px 12px !important;
+        padding: 12px !important;
         width: 100% !important;
         max-width: 100% !important;
         box-sizing: border-box !important;
         background: #ffffff !important;
         color: #2c3e50 !important;
-        border: 2px solid #e9ecef !important;
-        border-radius: 8px !important;
-        transition: all 0.2s ease !important;
-    }
-    
-    input::placeholder, textarea::placeholder {
-        color: #a0aec0 !important;
-        opacity: 1 !important;
+        border: 1px solid #e9ecef !important;
     }
     
     .form-label {
-        font-size: 0.95rem;
+        font-size: 0.9rem;
         font-weight: 600;
-        margin-bottom: 8px;
+        margin-bottom: 6px;
         color: #2c3e50 !important;
-        display: block;
-    }
-    
-    input:focus, select:focus, textarea:focus, .form-control:focus {
-        border-color: #667eea !important;
-        box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1) !important;
-        outline: none !important;
-    }
-    
-    input:invalid, .form-control.is-invalid {
-        border-color: #dc3545 !important;
-    }
-    
-    input:invalid:focus, .form-control.is-invalid:focus {
-        box-shadow: 0 0 0 4px rgba(220, 53, 69, 0.1) !important;
     }
     
     /* Login/Register Forms */
     .login-container,
     .register-container,
     .auth-container {
-        padding: 18px !important;
-        margin: 20px auto !important;
+        padding: 15px !important;
+        margin: 15px auto !important;
         max-width: 100% !important;
         background: #f5f7fa !important;
-        border-radius: 12px !important;
-    }
-    
-    .auth-container h2 {
-        margin-bottom: 12px !important;
-    }
-    
-    .auth-container p {
-        margin-bottom: 20px !important;
+        border-radius: 8px;
     }
     
     .form-group {
-        margin-bottom: 18px !important;
-    }
-    
-    .form-group:last-child {
-        margin-bottom: 12px !important;
-    }
-    
-    .form-text, .invalid-feedback {
-        font-size: 0.8rem !important;
-        color: #7f8c8d !important;
-        margin-top: 6px !important;
-        display: block;
-    }
-    
-    .invalid-feedback {
-        color: #dc3545 !important;
+        margin-bottom: 15px !important;
     }
     
     .form-control:focus {
@@ -189,50 +126,23 @@
     }
     
     .modal-content {
-        border-radius: 16px !important;
-        background: #ffffff !important;
-        border: none !important;
-        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15) !important;
+        border-radius: 12px;
+        background: #f5f7fa !important;
+        border: 1px solid #e9ecef !important;
     }
     
     .modal-body {
-        padding: 20px 18px !important;
+        padding: 15px !important;
         max-height: 70vh;
         overflow-y: auto;
         background: #ffffff !important;
         color: #2c3e50 !important;
-        font-size: 1rem;
-        line-height: 1.6;
     }
     
     .modal-header {
-        padding: 16px 18px !important;
-        background: #ffffff !important;
-        border-bottom: 1px solid #f0f0f0 !important;
-        border-radius: 16px 16px 0 0 !important;
-    }
-    
-    .modal-title {
-        font-weight: 700 !important;
-        font-size: 1.2rem !important;
-        color: #2c3e50 !important;
-    }
-    
-    .modal-footer {
-        padding: 16px 18px !important;
+        padding: 12px 15px !important;
         background: #f5f7fa !important;
-        border-top: 1px solid #f0f0f0 !important;
-        border-radius: 0 0 16px 16px !important;
-        gap: 10px !important;
-    }
-    
-    .btn-close {
-        opacity: 0.6;
-        transition: opacity 0.2s ease;
-    }
-    
-    .btn-close:hover {
-        opacity: 1;
+        border-bottom: 1px solid #e9ecef !important;
     }
 }
 
@@ -247,42 +157,31 @@
     }
     
     .password-field-wrapper input {
-        padding-right: 48px !important;
+        padding-right: 45px !important;
     }
     
     .password-toggle-btn {
         position: absolute;
-        right: 14px;
+        right: 12px;
         top: 50%;
         transform: translateY(-50%);
         background: none;
         border: none;
         cursor: pointer;
         color: #667eea;
-        font-size: 1.2rem;
-        padding: 8px;
+        font-size: 1.1rem;
+        padding: 5px;
         display: flex;
         align-items: center;
         justify-content: center;
-        min-height: 44px;
-        min-width: 44px;
-        width: 44px;
-        height: 44px;
+        min-width: auto;
+        width: auto;
         margin-bottom: 0 !important;
         z-index: 10;
-        border-radius: 6px;
-        transition: all 0.2s ease;
-        -webkit-touch-callout: none;
     }
     
     .password-toggle-btn:hover {
         color: #764ba2;
-        background: rgba(102, 126, 234, 0.05);
-    }
-    
-    .password-toggle-btn:active {
-        background: rgba(102, 126, 234, 0.1);
-        transform: translateY(-50%) scale(0.95);
     }
 }
 
@@ -312,21 +211,9 @@
     .navbar-collapse {
         background: #f5f7fa;
         margin-top: 10px;
-        padding: 12px;
-        border-radius: 10px;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-        animation: slideDown 0.3s ease;
-    }
-    
-    @keyframes slideDown {
-        from {
-            opacity: 0;
-            transform: translateY(-10px);
-        }
-        to {
-            opacity: 1;
-            transform: translateY(0);
-        }
+        padding: 15px;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
     }
     
     .nav-link {
@@ -346,35 +233,25 @@
     
     .dropdown-menu {
         border: 1px solid #e9ecef !important;
-        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08) !important;
-        padding: 6px 0 !important;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1) !important;
+        padding: 8px 0 !important;
         margin-top: 8px !important;
         position: static !important;
         width: 100% !important;
         max-width: 100% !important;
-        background: #ffffff !important;
-        border-radius: 8px !important;
+        background: #f5f7fa !important;
     }
     
     .dropdown-item {
-        padding: 12px 18px !important;
+        padding: 10px 20px !important;
         font-size: 0.95rem !important;
         color: #2c3e50 !important;
-        transition: all 0.15s ease !important;
-        margin: 2px 6px !important;
-        border-radius: 6px !important;
     }
     
     .dropdown-item:hover,
     .dropdown-item.active {
-        background: #e8eef7 !important;
+        background: #e9ecef !important;
         color: #667eea !important;
-        transform: translateX(2px);
-    }
-    
-    .dropdown-divider {
-        margin: 6px 0 !important;
-        background-color: #e9ecef !important;
     }
     
     /* Search Form */
