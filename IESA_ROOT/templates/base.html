@@ -61,12 +61,16 @@
     <link rel="stylesheet" href="{% static 'css/mobile.css' %}">
     <link rel="stylesheet" href="{% static 'css/mobile-enhancements.css' %}">
     
-    <!-- UNIFIED DESIGN SYSTEM - Light & Elegant Theme -->
-    <link rel="stylesheet" href="{% static 'css/unified-design.css' %}">
+    <!-- MODERN DESIGN SYSTEM - Complete Redesign -->
+    <link rel="stylesheet" href="{% static 'css/modern-design.css' %}">
+    <link rel="stylesheet" href="{% static 'css/mobile-enhanced.css' %}">
+    <link rel="stylesheet" href="{% static 'css/components.css' %}">
 
 </head>
 <body>
 {% load static %}
+    <!-- Skip to main content (Accessibility) -->
+    <a href="#main-content" class="skip-to-main">Skip to main content</a>
     <!-- Header Section -->
     <header class="shadow-sm bg-white sticky-top">
         <div class="container-limited">
@@ -211,6 +215,9 @@
 
     <!-- Lightbox JS -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/lightbox2/2.11.3/js/lightbox-plus-jquery.min.js"></script>
+    
+    <!-- Mobile Interactions & UX Enhancements -->
+    <script src="{% static 'js/mobile-interactions.js' %}"></script>
     
         <!-- Small helper: add missing Bootstrap form-control classes to form fields if not present -->
         <script>
@@ -375,5 +382,10 @@
             }
         }
     </script>
+    
+    <!-- Back to Top Button -->
+    <button id="back-to-top" aria-label="Back to top" title="Back to top">
+        <i class="fas fa-arrow-up"></i>
+    </button>
 </body>
 </html>

@@ -4,69 +4,93 @@
 
 {% block content %}
 <div class="container-limited">
-    <div class="mb-5">
-        <h1 class="fw-bold mb-2 text-center">Community</h1>
-        <p class="text-center text-muted">Share ideas, events and news with the community.</p>
+    <!-- Заголовок секции -->
+    <div class="text-center mb-5">
+        <span class="badge badge-primary mb-3">
+            <i class="fas fa-comments me-2"></i>Community
+        </span>
+        <h1 class="fw-bold mb-2" style="color: var(--color-gray-900);">Community Posts</h1>
+        <p class="text-muted">Share ideas, events and news with the community</p>
     </div>
 
+    <!-- Предупреждение для неавторизованных -->
     {% if not user.is_authenticated %}
-        <div class="alert alert-warning card-modern mb-4 d-flex justify-content-between align-items-center">
-            <div>
-                <strong><i class="fas fa-lock me-2"></i>Sign in or register to access the community.</strong>
-                <p class="mb-0 mt-1 text-muted">Join our community to create posts, comment and engage with members.</p>
-            </div>
-            <div class="ms-3">
-                <a href="{% url 'login' %}" class="btn btn-primary btn-modern btn-sm me-2">Sign In</a>
-                <a href="{% url 'register' %}" class="btn btn-outline-primary btn-modern btn-sm">Register</a>
+        <div class="alert alert-warning mb-4">
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3">
+                <div>
+                    <strong>
+                        <i class="fas fa-lock me-2"></i>Sign in or register to access the community
+                    </strong>
+                    <p class="mb-0 mt-1" style="opacity: 0.9;">Join our community to create posts, comment and engage with members</p>
+                </div>
+                <div class="d-flex gap-2 flex-shrink-0">
+                    <a href="{% url 'login' %}" class="btn btn-primary btn-sm">Sign In</a>
+                    <a href="{% url 'register' %}" class="btn btn-secondary btn-sm">Register</a>
+                </div>
             </div>
         </div>
     {% endif %}
 
-    <div class="d-flex justify-content-between align-items-center mb-4 p-3 bg-white card-modern">
-        <nav class="nav nav-pills">
-            <a class="nav-link active" href="{% url 'post_list' %}">All posts</a>
-            <a class="nav-link" href="{% url 'event_list' %}">Events</a>
-        </nav>
-        <div class="ms-3 flex-fill">
-            <form id="post-search-form" class="d-flex gap-2" 
-                  hx-get="{% url 'post_search' %}" 
-                  hx-target="#posts-container" 
-                  hx-trigger="keyup changed from:[name='q'] delay:400ms, change from:select"
-                  hx-indicator=".htmx-indicator">
-                <input name="q" class="form-control form-control-sm" placeholder="Search posts..." aria-label="Search posts">
-                <select name="status" class="form-select form-select-sm" style="max-width: 150px;">
-                    <option value="">All statuses</option>
-                    <option value="published">Published</option>
-                    <option value="pending">Pending</option>
-                </select>
-                <select name="sort" class="form-select form-select-sm" style="max-width: 120px;">
-                    <option value="latest">Latest</option>
-                    <option value="popular">Popular</option>
-                    <option value="trending">Trending</option>
-                </select>
-                <button type="submit" class="btn btn-sm btn-outline-secondary">Search</button>
-            </form>
-        </div>
-        {% if user.is_authenticated %}
-            <a href="{% url 'post_create' %}" class="btn btn-primary btn-modern ms-3">
-                    <i class="fas fa-plus me-1"></i> Create post
+    <!-- Навигация и поиск -->
+    <div class="card p-3 mb-4">
+        <div class="d-flex flex-column flex-lg-row gap-3 align-items-start align-items-lg-center">
+            <!-- Вкладки навигации -->
+            <nav class="nav nav-pills flex-shrink-0">
+                <a class="nav-link active" href="{% url 'post_list' %}">
+                    <i class="fas fa-newspaper me-2"></i>All Posts
                 </a>
-        {% endif %}
+                <a class="nav-link" href="{% url 'event_list' %}">
+                    <i class="far fa-calendar me-2"></i>Events
+                </a>
+            </nav>
+            
+            <!-- Форма поиска -->
+            <div class="flex-fill">
+                <form id="post-search-form" class="d-flex flex-column flex-sm-row gap-2" 
+                      hx-get="{% url 'post_search' %}" 
+                      hx-target="#posts-container" 
+                      hx-trigger="keyup changed from:[name='q'] delay:400ms, change from:select"
+                      hx-indicator=".htmx-indicator">
+                    <input name="q" class="form-control form-control-sm" placeholder="Search posts..." aria-label="Search posts">
+                    <select name="status" class="form-select form-select-sm mobile-block">
+                        <option value="">All statuses</option>
+                        <option value="published">Published</option>
+                        <option value="pending">Pending</option>
+                    </select>
+                    <select name="sort" class="form-select form-select-sm mobile-block">
+                        <option value="latest">Latest</option>
+                        <option value="popular">Popular</option>
+                        <option value="trending">Trending</option>
+                    </select>
+                </form>
+            </div>
+            
+            <!-- Кнопка создания поста -->
+            {% if user.is_authenticated %}
+                <a href="{% url 'post_create' %}" class="btn btn-primary mobile-block flex-shrink-0">
+                    <i class="fas fa-plus me-2"></i>Create Post
+                </a>
+            {% endif %}
+        </div>
     </div>
 
-    <!-- Posts container for HTMX updates -->
+    <!-- Контейнер постов -->
     <div id="posts-container">
         {% if posts %}
             {% include "blog/htmx/posts_list_fragment.html" %}
         {% else %}
-            <div class="empty-state">
-                <div class="empty-emoji">📝</div>
-                <h5>No posts yet</h5>
-                <p class="text-muted mb-3">Be the first to share news or ideas with the community.</p>
+            <div class="text-center p-5 card">
+                <i class="fas fa-newspaper mb-4" style="font-size: 4rem; color: var(--color-gray-300);"></i>
+                <h5 class="fw-bold mb-2" style="color: var(--color-gray-700);">No Posts Yet</h5>
+                <p class="text-muted mb-4">Be the first to share news or ideas with the community</p>
                 {% if user.is_authenticated %}
-                    <a href="{% url 'post_create' %}" class="btn btn-primary btn-modern">Create post</a>
+                    <a href="{% url 'post_create' %}" class="btn btn-primary">
+                        <i class="fas fa-plus me-2"></i>Create First Post
+                    </a>
                 {% else %}
-                    <a href="{% url 'register' %}" class="btn btn-outline-primary btn-modern">Join community</a>
+                    <a href="{% url 'register' %}" class="btn btn-secondary">
+                        <i class="fas fa-user-plus me-2"></i>Join Community
+                    </a>
                 {% endif %}
             </div>
         {% endif %}

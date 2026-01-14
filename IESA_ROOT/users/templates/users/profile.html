@@ -7,97 +7,117 @@
     <div class="row justify-content-center">
         <div class="col-lg-10">
             <!-- Profile Header -->
-            <div class="card card-modern p-4 p-md-5 mb-5">
+            <div class="card p-4 p-md-5 mb-5">
                 <div class="text-center mb-5">
-                    <!-- User avatar -->
-                    {# Улучшенный рендер аватара: если используется дефолтная картинка, показываем стильный плейсхолдер #}
+                    <!-- User Avatar -->
                     {% if profile_user.avatar and profile_user.avatar.name != 'avatars/default.png' %}
-                        <img src="{{ profile_user.avatar.url }}" alt="{{ profile_user.username }} Avatar"
-                             class="avatar avatar-xl avatar-ring mb-3">
+                        <div class="position-relative d-inline-block mb-3">
+                            <img src="{{ profile_user.avatar.url }}" alt="{{ profile_user.username }}" 
+                                 class="rounded-circle shadow-md" 
+                                 style="width: 140px; height: 140px; object-fit: cover; border: 4px solid var(--color-gray-100);">
+                        </div>
                     {% else %}
-                        <div class="avatar avatar-xl avatar-fallback mb-3">
-                            <span>{{ profile_user.username|slice:":1"|upper }}</span>
+                        <div class="rounded-circle mx-auto mb-3 d-inline-flex justify-content-center align-items-center shadow-md" 
+                             style="width: 140px; height: 140px; background: linear-gradient(135deg, var(--color-primary) 0%, #dc2626 100%); color: white; font-size: 3rem; font-weight: bold;">
+                            {{ profile_user.username|slice:":1"|upper }}
                         </div>
                     {% endif %}
                     
-                    <h1 class="fw-bold mb-1 text-primary">{{ profile_user.username }}</h1>
+                    <h1 class="fw-bold mb-2" style="color: var(--color-gray-900);">{{ profile_user.username }}</h1>
                     <p class="text-muted mb-3">{{ profile_user.email }}</p>
-                    {# ID виден только в своем кабинете #}
+                    
+                    <!-- ID (только для своего профиля) -->
                     {% if user.is_authenticated and user.id == profile_user.id and profile_user.permanent_id %}
-                        <div class="small text-muted">ID: <code id="permanent-{{ profile_user.permanent_id }}">{{ profile_user.permanent_id }}</code>
-                            <button class="btn btn-link btn-sm p-0 ms-2 copy-id" data-copy="#permanent-{{ profile_user.permanent_id }}" title="Copy ID"><i class="far fa-copy"></i></button>
+                        <div class="d-inline-flex align-items-center gap-2 px-3 py-2 mb-3" style="background: var(--color-gray-100); border-radius: var(--radius-md);">
+                            <span class="text-muted small">ID:</span>
+                            <code id="permanent-{{ profile_user.permanent_id }}" style="background: transparent; color: var(--color-gray-700); font-size: 0.875rem;">
+                                {{ profile_user.permanent_id }}
+                            </code>
+                            <button class="btn btn-ghost btn-sm p-1 copy-id" data-copy="#permanent-{{ profile_user.permanent_id }}" title="Copy ID">
+                                <i class="far fa-copy"></i>
+                            </button>
                         </div>
                     {% endif %}
 
-                    {# QR код виден только в своем кабинете #}
+                    <!-- QR Code (только для своего профиля) -->
                     {% if user.is_authenticated and user.id == profile_user.id and profile_user.permanent_id %}
-                    <div class="my-4 p-3 bg-light rounded-3" style="display: inline-block; border: 2px solid var(--primary);">
-                        {# Use the QR serving view as image src so missing files are generated on demand #}
+                    <div class="my-4 p-4 d-inline-block" style="background: var(--color-gray-50); border-radius: var(--radius-lg); border: 2px solid var(--color-primary);">
                         <a href="{% url 'profile_by_card' permanent_id=profile_user.permanent_id %}" title="Open profile by card">
                             <img src="{% url 'user_qr' permanent_id=profile_user.permanent_id %}" 
-                                 alt="QR код профиля {{ profile_user.username }}" 
-                                 style="width: 150px; height: 150px; object-fit: contain; display:block;" loading="lazy">
+                                 alt="QR code" 
+                                 style="width: 160px; height: 160px; object-fit: contain; display: block;" 
+                                 loading="lazy">
                         </a>
-                        <div class="d-flex justify-content-center gap-2 mt-2">
-                            <a class="btn btn-sm btn-outline-secondary" href="{% url 'user_qr' permanent_id=profile_user.permanent_id %}?download=1">Download QR</a>
-                            <p class="small text-muted mt-1 mb-0">Scan to view your profile</p>
+                        <div class="mt-3 d-flex flex-column gap-2">
+                            <a class="btn btn-outline btn-sm" href="{% url 'user_qr' permanent_id=profile_user.permanent_id %}?download=1">
+                                <i class="fas fa-download me-2"></i>Download QR
+                            </a>
+                            <p class="small text-muted mb-0 text-center">Scan to view your profile</p>
                         </div>
                     </div>
                     {% endif %}
 
-                    <!-- Edit button -->
+                    <!-- Edit Button -->
                     {% if user.is_authenticated and user.id == profile_user.id %}
                         <div class="mt-4">
-                            <a href="{% url 'profile_edit' %}" class="btn btn-outline-primary btn-modern">
-                                <i class="fas fa-edit me-2"></i>Edit profile
+                            <a href="{% url 'profile_edit' %}" class="btn btn-primary">
+                                <i class="fas fa-edit me-2"></i>Edit Profile
                             </a>
                         </div>
                     {% endif %}
                 </div>
 
-                <!-- Profile details -->
-                <div class="row text-center mb-4">
-                    <div class="col-md-3">
-                        <h5 class="text-muted mb-1">First name</h5>
-                        <p class="fw-bold">{{ profile_user.first_name|default:"—" }}</p>
+                <!-- Profile Details Grid -->
+                <div class="grid grid-cols-4 mb-4">
+                    <div class="card card-compact text-center p-3">
+                        <h6 class="text-muted mb-2 small">First Name</h6>
+                        <p class="fw-bold mb-0" style="color: var(--color-gray-900);">{{ profile_user.first_name|default:"—" }}</p>
                     </div>
-                    <div class="col-md-3">
-                        <h5 class="text-muted mb-1">Last name</h5>
-                        <p class="fw-bold">{{ profile_user.last_name|default:"—" }}</p>
+                    <div class="card card-compact text-center p-3">
+                        <h6 class="text-muted mb-2 small">Last Name</h6>
+                        <p class="fw-bold mb-0" style="color: var(--color-gray-900);">{{ profile_user.last_name|default:"—" }}</p>
                     </div>
-                    <div class="col-md-3">
-                        <h5 class="text-muted mb-1">Date of birth</h5>
-                        <p class="fw-bold">{{ profile_user.date_of_birth|date:"d.m.Y"|default:"—" }}</p>
+                    <div class="card card-compact text-center p-3">
+                        <h6 class="text-muted mb-2 small">Date of Birth</h6>
+                        <p class="fw-bold mb-0" style="color: var(--color-gray-900);">{{ profile_user.date_of_birth|date:"d.m.Y"|default:"—" }}</p>
                     </div>
-                    <div class="col-md-3">
-                        <h5 class="text-muted mb-1">Member since</h5>
-                        <p class="fw-bold">{{ profile_user.date_joined|date:"d M Y" }}</p>
+                    <div class="card card-compact text-center p-3">
+                        <h6 class="text-muted mb-2 small">Member Since</h6>
+                        <p class="fw-bold mb-0" style="color: var(--color-gray-900);">{{ profile_user.date_joined|date:"d M Y" }}</p>
                     </div>
                 </div>
 
-                <!-- Activity Level Badge with Points -->
-                <div class="mb-4 p-4 bg-light rounded-3">
+                <!-- Activity Level Badge -->
+                <div class="p-4" style="background: var(--color-gray-50); border-radius: var(--radius-lg);">
                     {% with level_info=profile_user.get_achievement_level %}
                     <div class="row align-items-center">
                         <div class="col-md-6 text-center text-md-start mb-3 mb-md-0">
-                            <div class="d-flex align-items-center justify-content-center justify-content-md-start gap-3">
+                            <div class="d-flex flex-column flex-md-row align-items-center gap-3">
                                 <div>
-                                    <h6 class="text-muted mb-1">Activity Level</h6>
-                                    <div class="d-flex gap-2 align-items-center">
-                                        {% if level_info.level == "Legend" %}
-                                            <span class="badge bg-danger fs-5"><i class="fas fa-crown me-1"></i>Legend</span>
-                                        {% elif level_info.level == "Expert" %}
-                                            <span class="badge bg-warning fs-5"><i class="fas fa-star me-1"></i>Expert</span>
-                                        {% elif level_info.level == "Advanced" %}
-                                            <span class="badge bg-info fs-5"><i class="fas fa-rocket me-1"></i>Advanced</span>
-                                        {% elif level_info.level == "Intermediate" %}
-                                            <span class="badge bg-success fs-5"><i class="fas fa-fire me-1"></i>Intermediate</span>
-                                        {% else %}
-                                            <span class="badge bg-secondary fs-5"><i class="fas fa-leaf me-1"></i>Beginner</span>
-                                        {% endif %}
-                                    </div>
+                                    <h6 class="text-muted mb-2">Activity Level</h6>
+                                    {% if level_info.level == "Legend" %}
+                                        <span class="badge badge-danger" style="font-size: 1.125rem; padding: 0.5rem 1rem;">
+                                            <i class="fas fa-crown me-2"></i>Legend
+                                        </span>
+                                    {% elif level_info.level == "Expert" %}
+                                        <span class="badge badge-warning" style="font-size: 1.125rem; padding: 0.5rem 1rem;">
+                                            <i class="fas fa-star me-2"></i>Expert
+                                        </span>
+                                    {% elif level_info.level == "Advanced" %}
+                                        <span class="badge badge-info" style="font-size: 1.125rem; padding: 0.5rem 1rem;">
+                                            <i class="fas fa-rocket me-2"></i>Advanced
+                                        </span>
+                                    {% elif level_info.level == "Intermediate" %}
+                                        <span class="badge badge-success" style="font-size: 1.125rem; padding: 0.5rem 1rem;">
+                                            <i class="fas fa-fire me-2"></i>Intermediate
+                                        </span>
+                                    {% else %}
+                                        <span class="badge badge-secondary" style="font-size: 1.125rem; padding: 0.5rem 1rem;">
+                                            <i class="fas fa-leaf me-2"></i>Beginner
+                                        </span>
+                                    {% endif %}
                                 </div>
-                                <a href="{% url 'activity_levels_info' %}" class="btn btn-link btn-sm text-primary" title="Learn about activity levels">
+                                <a href="{% url 'activity_levels_info' %}" class="btn btn-ghost btn-sm" title="Learn about activity levels">
                                     <i class="fas fa-question-circle"></i>
                                 </a>
                             </div>
