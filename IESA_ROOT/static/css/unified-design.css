@@ -138,30 +138,18 @@ body {
   overflow: hidden !important;
 }
 
+/* Убираем красную полосу сверху */
 .card::before,
 .card-modern::before {
-  content: '' !important;
-  position: absolute !important;
-  top: 0 !important;
-  left: 0 !important;
-  right: 0 !important;
-  height: 3px !important;
-  background: var(--gradient-primary) !important;
-  transform: scaleX(0) !important;
-  transform-origin: left !important;
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  display: none !important;
 }
 
-.card:hover::before,
-.card-modern:hover::before {
-  transform: scaleX(1) !important;
-}
-
+/* Hover - серый, без красных акцентов */
 .card:hover,
 .card-modern:hover {
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1), 0 2px 6px rgba(239, 68, 68, 0.1) !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1) !important;
   transform: translateY(-4px) !important;
-  border-color: var(--primary-100) !important;
+  border-color: var(--gray-400) !important;
 }
 
 .card-body {
@@ -318,14 +306,15 @@ body {
 
 .form-control:hover,
 .form-select:hover {
-  border-color: var(--primary-200) !important;
+  border-color: var(--gray-400) !important;
 }
 
+/* Фокус - мягкий серый, НЕ красный */
 .form-control:focus,
 .form-select:focus {
   background: var(--white) !important;
-  border-color: var(--primary-400) !important;
-  box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.1), 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+  border-color: var(--gray-600) !important;
+  box-shadow: 0 0 0 4px rgba(173, 181, 189, 0.15), 0 1px 3px rgba(0, 0, 0, 0.05) !important;
   outline: none !important;
 }
 
@@ -341,12 +330,13 @@ body {
   font-size: 0.85rem !important;
 }
 
-/* Кастомные чекбоксы и радио */
+/* Кастомные чекбоксы и радио - серые */
 .form-check-input {
   border: 2px solid var(--border-medium) !important;
   transition: all 0.3s ease !important;
 }
 
+/* Красный ТОЛЬКО когда checked */
 .form-check-input:checked {
   background-color: var(--primary-500) !important;
   border-color: var(--primary-500) !important;
@@ -354,8 +344,8 @@ body {
 }
 
 .form-check-input:focus {
-  border-color: var(--primary-400) !important;
-  box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.1) !important;
+  border-color: var(--gray-600) !important;
+  box-shadow: 0 0 0 4px rgba(173, 181, 189, 0.15) !important;
 }
 
 /* Input группы */
@@ -393,6 +383,7 @@ header {
   border-radius: var(--radius-sm) !important;
 }
 
+/* Простое подчёркивание вместо красного */
 .nav-link::after {
   content: '' !important;
   position: absolute !important;
@@ -400,27 +391,29 @@ header {
   left: 50% !important;
   width: 0 !important;
   height: 2px !important;
-  background: var(--gradient-primary) !important;
+  background: var(--gray-700) !important;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
   transform: translateX(-50%) !important;
 }
 
 .nav-link:hover {
-  color: var(--primary-600) !important;
-  background: var(--primary-50) !important;
+  color: var(--text-primary) !important;
+  background: var(--gray-50) !important;
 }
 
 .nav-link:hover::after {
-  width: 80% !important;
+  width: 70% !important;
 }
 
+/* Красное подчёркивание ТОЛЬКО для активной ссылки */
 .nav-link.active {
-  color: var(--primary-600) !important;
-  background: var(--primary-100) !important;
+  color: var(--text-primary) !important;
+  background: var(--gray-100) !important;
 }
 
 .nav-link.active::after {
-  width: 80% !important;
+  width: 70% !important;
+  background: var(--primary-600) !important;
 }
 
 .nav-pills .nav-link {
@@ -430,6 +423,7 @@ header {
   margin: 0 0.25rem !important;
 }
 
+/* Красный фон ТОЛЬКО для активного pill */
 .nav-pills .nav-link.active {
   background: var(--gradient-primary) !important;
   border-color: transparent !important;
@@ -438,9 +432,9 @@ header {
 }
 
 .nav-pills .nav-link:hover:not(.active) {
-  background: var(--primary-50) !important;
-  border-color: var(--primary-200) !important;
-  color: var(--primary-600) !important;
+  background: var(--gray-100) !important;
+  border-color: var(--gray-300) !important;
+  color: var(--text-primary) !important;
 }
 
 /* ============================================================
@@ -750,24 +744,16 @@ header {
   position: relative !important;
 }
 
+/* Убираем красный фон при hover */
 .event-card-compact::before {
-  content: '' !important;
-  position: absolute !important;
-  inset: 0 !important;
-  background: var(--gradient-primary-soft) !important;
-  opacity: 0 !important;
-  transition: opacity 0.3s !important;
-  z-index: 0 !important;
+  display: none !important;
 }
 
-.event-card-compact:hover::before {
-  opacity: 0.5 !important;
-}
-
+/* Hover - мягкая серая тень */
 .event-card-compact:hover {
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1), 0 2px 8px rgba(239, 68, 68, 0.15) !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12) !important;
   transform: translateY(-3px) !important;
-  border-color: var(--primary-300) !important;
+  border-color: var(--gray-400) !important;
 }
 
 .event-card-compact > * {
@@ -921,45 +907,49 @@ header {
    ДОПОЛНИТЕЛЬНЫЕ УЛУЧШЕНИЯ UX/UI
    ============================================================ */
 
-/* Ссылки с красным акцентом */
+/* Ссылки - СЕРЫЕ, не красные! */
 a {
-  color: var(--primary-600) !important;
+  color: var(--text-primary) !important;
   text-decoration: none !important;
-  transition: all 0.3s ease !important;
-  position: relative !important;
+  transition: color 0.3s ease !important;
 }
 
 a:hover {
+  color: var(--gray-700) !important;
+}
+
+/* Убираем подчёркивание - слишком навязчиво */
+a:not(.btn):not(.nav-link):not(.dropdown-item) {
+  border-bottom: 1px solid transparent !important;
+}
+
+a:not(.btn):not(.nav-link):not(.dropdown-item):hover {
+  border-bottom-color: var(--border-medium) !important;
+}
+
+/* Красные ссылки ТОЛЬКО когда явно указано */
+a.text-primary,
+a.link-primary {
+  color: var(--primary-600) !important;
+}
+
+a.text-primary:hover,
+a.link-primary:hover {
   color: var(--primary-700) !important;
 }
 
-a:not(.btn):not(.nav-link):not(.dropdown-item)::after {
-  content: '' !important;
-  position: absolute !important;
-  bottom: -2px !important;
-  left: 0 !important;
-  width: 0 !important;
-  height: 2px !important;
-  background: var(--gradient-primary) !important;
-  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-}
-
-a:not(.btn):not(.nav-link):not(.dropdown-item):hover::after {
-  width: 100% !important;
-}
-
-/* Улучшенные выделения текста */
+/* Выделения текста - мягкий серый */
 ::selection {
-  background: var(--primary-200) !important;
-  color: var(--primary-900) !important;
+  background: var(--gray-200) !important;
+  color: var(--text-primary) !important;
 }
 
 ::-moz-selection {
-  background: var(--primary-200) !important;
-  color: var(--primary-900) !important;
+  background: var(--gray-200) !important;
+  color: var(--text-primary) !important;
 }
 
-/* Скроллбар с красным акцентом */
+/* Скроллбар - СЕРЫЙ, не красный! */
 ::-webkit-scrollbar {
   width: 10px !important;
   height: 10px !important;
@@ -970,28 +960,30 @@ a:not(.btn):not(.nav-link):not(.dropdown-item):hover::after {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, var(--primary-400) 0%, var(--primary-600) 100%) !important;
+  background: var(--gray-400) !important;
   border-radius: var(--radius-full) !important;
   border: 2px solid var(--gray-100) !important;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--gradient-primary) !important;
+  background: var(--gray-500) !important;
 }
 
-/* Лайки и интерактивные кнопки */
+/* Лайки - красный ТОЛЬКО когда активен */
 .like-button,
 .favorite-button {
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-  position: relative !important;
+  color: var(--gray-400) !important;
 }
 
 .like-button:hover,
 .favorite-button:hover {
   transform: scale(1.1) !important;
+  color: var(--gray-600) !important;
 }
 
-.like-button.liked {
+.like-button.liked,
+.favorite-button.favorited {
   color: var(--primary-600) !important;
   animation: heartBeat 0.5s ease !important;
 }
@@ -1003,9 +995,9 @@ a:not(.btn):not(.nav-link):not(.dropdown-item):hover::after {
   75% { transform: scale(1.15); }
 }
 
-/* Список с красными маркерами */
+/* Список - обычные маркеры */
 .list-styled li::marker {
-  color: var(--primary-500) !important;
+  color: var(--gray-600) !important;
 }
 
 .list-styled-custom {
@@ -1023,22 +1015,19 @@ a:not(.btn):not(.nav-link):not(.dropdown-item):hover::after {
   content: '' !important;
   position: absolute !important;
   left: 0 !important;
-  top: 0.5rem !important;
-  width: 6px !important;
-  height: 6px !important;
-  background: var(--gradient-primary) !important;
+  top: 0.6rem !important;
+  width: 4px !important;
+  height: 4px !important;
+  background: var(--gray-400) !important;
   border-radius: 50% !important;
-  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15) !important;
 }
 
-/* Разделители с акцентом */
+/* Разделители - простые, без красного */
 .divider-accent {
-  height: 3px !important;
-  background: var(--gradient-primary) !important;
+  height: 2px !important;
+  background: var(--border-medium) !important;
   border: none !important;
-  border-radius: var(--radius-full) !important;
   margin: 2rem 0 !important;
-  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.2) !important;
 }
 
 .divider-light {
@@ -1089,17 +1078,17 @@ a:not(.btn):not(.nav-link):not(.dropdown-item):hover::after {
 }
 
 .dropdown-item:hover {
-  background: var(--primary-50) !important;
-  color: var(--primary-600) !important;
+  background: var(--gray-100) !important;
+  color: var(--text-primary) !important;
   padding-left: 1.25rem !important;
 }
 
 .dropdown-item:active {
-  background: var(--primary-100) !important;
-  color: var(--primary-700) !important;
+  background: var(--gray-200) !important;
+  color: var(--text-primary) !important;
 }
 
-/* Прогресс бар с красным акцентом */
+/* Прогресс бар - серый по умолчанию */
 .progress {
   background: var(--gray-100) !important;
   border-radius: var(--radius-full) !important;
@@ -1108,22 +1097,31 @@ a:not(.btn):not(.nav-link):not(.dropdown-item):hover::after {
 }
 
 .progress-bar {
-  background: var(--gradient-primary) !important;
+  background: var(--gray-600) !important;
   border-radius: var(--radius-full) !important;
-  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3) !important;
   transition: width 0.6s ease !important;
 }
 
-/* Спиннер загрузки */
+/* Красный прогресс ТОЛЬКО когда указано */
+.progress-bar.bg-primary {
+  background: var(--gradient-primary) !important;
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3) !important;
+}
+
+/* Спиннер загрузки - серый */
+.spinner-border {
+  color: var(--gray-400) !important;
+}
+
 .spinner-border-primary {
   color: var(--primary-500) !important;
   border-color: var(--primary-200) !important;
   border-right-color: var(--primary-500) !important;
 }
 
-/* Фокус для доступности */
+/* Фокус - ТОНКИЙ серый, не красный! */
 *:focus-visible {
-  outline: 3px solid rgba(239, 68, 68, 0.3) !important;
+  outline: 2px solid var(--gray-400) !important;
   outline-offset: 2px !important;
 }
 
@@ -1132,7 +1130,13 @@ a:focus-visible,
 input:focus-visible,
 textarea:focus-visible,
 select:focus-visible {
-  outline: 3px solid rgba(239, 68, 68, 0.4) !important;
+  outline: 2px solid var(--gray-400) !important;
+  outline-offset: 2px !important;
+}
+
+/* Красный фокус ТОЛЬКО для primary кнопок */
+.btn-primary:focus-visible {
+  outline: 2px solid var(--primary-400) !important;
   outline-offset: 2px !important;
 }
 
@@ -1156,14 +1160,14 @@ h1, h2, h3, h4, h5, h6 {
   font-weight: 700 !important;
 }
 
-/* Эффект подсветки для важных блоков */
+/* Эффект подсветки - мягкий, без красного */
 .highlight-block {
   position: relative !important;
   padding: 1.5rem !important;
   border-radius: var(--radius-xl) !important;
-  background: linear-gradient(135deg, var(--primary-50) 0%, var(--white) 100%) !important;
-  border: 2px solid var(--primary-200) !important;
-  box-shadow: 0 4px 16px rgba(239, 68, 68, 0.1) !important;
+  background: var(--gray-50) !important;
+  border: 1px solid var(--border) !important;
+  box-shadow: var(--shadow-xs) !important;
 }
 
 .highlight-block::before {
@@ -1173,8 +1177,13 @@ h1, h2, h3, h4, h5, h6 {
   left: 0 !important;
   width: 4px !important;
   height: 100% !important;
-  background: var(--gradient-primary) !important;
+  background: var(--gray-400) !important;
   border-radius: var(--radius-full) 0 0 var(--radius-full) !important;
+}
+
+/* Красный highlight ТОЛЬКО когда указано */
+.highlight-block.highlight-primary::before {
+  background: var(--gradient-primary) !important;
 }
 
 /* Анимация появления */
@@ -1193,7 +1202,7 @@ h1, h2, h3, h4, h5, h6 {
   animation: fadeInUp 0.6s ease-out !important;
 }
 
-/* Пульсация для уведомлений */
+/* Пульсация ТОЛЬКО для критичных уведомлений */
 @keyframes pulse {
   0%, 100% {
     transform: scale(1);
@@ -1222,7 +1231,7 @@ p {
   color: var(--text-secondary) !important;
 }
 
-/* Тени для текста с акцентом */
+/* Тени для текста - мягкие */
 .text-shadow-soft {
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.05) !important;
 }
