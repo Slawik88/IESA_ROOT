@@ -2,7 +2,7 @@
 {% load blog_filters %}
 <div id="comments-container">
     {% for comment in comments %}
-    <div class="card mb-3 comment-card" data-comment-id="{{ comment.pk }}" data-delete-url="{% url 'delete_comment' pk=post.pk comment_pk=comment.pk %}" {% if comment.pk == just_posted_id %}data-just-posted="true"{% endif %}>
+    <div class="card card-modern mb-3 comment-card" data-comment-id="{{ comment.pk }}" data-delete-url="{% url 'delete_comment' pk=post.pk comment_pk=comment.pk %}" {% if comment.pk == just_posted_id %}data-just-posted="true"{% endif %}>
             <div class="card-body">
                 <div class="d-flex align-items-center mb-2">
                     {% if comment.author.avatar and comment.author.avatar.name != 'avatars/default.png' %}
@@ -39,7 +39,7 @@
                 
                 <!-- Reply button -->
                 {% if user.is_authenticated %}
-                    <button type="button" class="btn btn-sm btn-outline-primary mt-2" 
+                    <button type="button" class="btn btn-sm btn-outline-primary btn-modern mt-2" 
                             data-bs-toggle="collapse" 
                             data-bs-target="#reply-form-{{ comment.pk }}">
                         <i class="fas fa-reply me-1"></i>Reply
@@ -61,7 +61,7 @@
                               hx-swap="innerHTML"
                               class="d-inline-block ms-2" style="display:inline;">
                             {% csrf_token %}
-                            <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+                            <button type="submit" class="btn btn-sm btn-outline-danger btn-modern">Delete</button>
                         </form>
                     {% endif %}
                     
@@ -76,7 +76,7 @@
                             {% csrf_token %}
                             <textarea name="text" class="form-control form-control-sm" rows="2" placeholder="Write a reply..." required></textarea>
                             <input type="hidden" name="parent_id" value="{{ comment.pk }}">
-                            <button type="submit" class="btn btn-sm btn-primary mt-2">Send</button>
+                            <button type="submit" class="btn btn-sm btn-primary btn-modern mt-2">Send</button>
                         </form>
                     </div>
                 {% endif %}
