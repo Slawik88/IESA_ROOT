@@ -42,8 +42,12 @@
     {% for item in results %}
       {% with u=item.user %}
       <a href="{% url 'profile_public_username' username=u.username %}" class="list-group-item list-group-item-action d-flex align-items-center search-item" style="animation-delay: calc({{ forloop.counter0 }} * 35ms);">
-        {% if u.avatar and u.avatar.name != 'avatars/default.png' %}
-          <span class="avatar avatar-sm me-3"><img src="{{ u.avatar.url }}" alt="{{ u.username }}"></span>
+        {% if u.avatar %}
+          {% if u.avatar.name and u.avatar.name != 'avatars/default.png' %}
+            <span class="avatar avatar-sm me-3"><img src="{{ u.avatar.url }}" alt="{{ u.username }}"></span>
+          {% else %}
+            <span class="avatar avatar-sm avatar-fallback me-3">{{ u.username|slice:":1"|upper }}</span>
+          {% endif %}
         {% else %}
           <span class="avatar avatar-sm avatar-fallback me-3">{{ u.username|slice:":1"|upper }}</span>
         {% endif %}
