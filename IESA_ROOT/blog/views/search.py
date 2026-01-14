@@ -26,12 +26,18 @@ def post_search(request):
     status = request.GET.get('status', '').strip()
     sort = request.GET.get('sort', 'latest').strip()
     
+    logger.info(f"[POST_SEARCH] query='{query}', status='{status}', sort='{sort}'")
+    
     # Используем утилиту поиска
     posts = util_search_posts(
         normalize_search_query(query) if query else '',
         status=status,
         sort=sort
     )
+    
+    logger.info(f"[POST_SEARCH] Found {posts.count()} posts")
+    if posts:
+        logger.info(f"[POST_SEARCH] First 3 posts: {[p.title for p in posts[:3]]}")
     
     return render(request, 'blog/htmx/posts_list_fragment.html', {
         'posts': posts
