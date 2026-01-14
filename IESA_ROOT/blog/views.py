@@ -21,23 +21,6 @@ from .views.likes import like_post, toggle_comment_like
 from .views.search import post_search, global_search
 from .views.subscriptions import toggle_subscription
 
-# Для обратной совместимости - формы
-from django import forms
-from .models import Comment
-
-class CommentForm(forms.ModelForm):
-    """Форма комментария"""
-    class Meta:
-        model = Comment
-        fields = ['text']
-        widgets = {
-            'text': forms.Textarea(attrs={
-                'class': 'form-control',
-                'rows': 3,
-                'placeholder': 'Напишите комментарий...'
-            })
-        }
-
 # Экспортируем всё для urls.py
 __all__ = [
     'PostListView',
@@ -53,5 +36,4 @@ __all__ = [
     'post_search',
     'global_search',
     'toggle_subscription',
-    'CommentForm',
 ]
