@@ -1,0 +1,177 @@
+/* ============================================================
+   MODAL FIX - Event Registration & Others
+   Версия: 1.0
+   
+   Фиксит проблему с modal окнами, которые блокируют взаимодействие с сайтом:
+   - Bootstrap modal backdrop должен быть кликабельным
+   - Z-index правильный для всех элементов
+   - Закрытие по клику на backdrop
+   - ESC key работает
+   ============================================================ */
+
+/* Bootstrap Modal Backdrop - правильные z-index */
+.modal-backdrop {
+    z-index: 1040 !important;
+    background-color: rgba(0, 0, 0, 0.5) !important;
+}
+
+/* Modal dialog поверх backdrop */
+.modal {
+    z-index: 1050 !important;
+}
+
+/* Убеждаемся, что modal можно закрыть */
+.modal.fade .modal-dialog {
+    transition: transform 0.3s ease-out !important;
+}
+
+/* Close button всегда видимая */
+.modal .btn-close {
+    opacity: 1 !important;
+    z-index: 1060 !important;
+}
+
+.modal .btn-close:hover {
+    opacity: 0.7 !important;
+}
+
+/* Modal header */
+.modal-header {
+    position: relative;
+    z-index: 1055;
+}
+
+/* Modal body */
+.modal-body {
+    position: relative;
+    z-index: 1055;
+}
+
+/* Modal footer */
+.modal-footer {
+    position: relative;
+    z-index: 1055;
+}
+
+/* Убеждаемся, что body не прокручивается когда modal открыт */
+body.modal-open {
+    overflow: hidden !important;
+    padding-right: 0 !important; /* Предотвращаем смещение контента */
+}
+
+/* Фикс для множественных modal (если откроется несколько) */
+.modal + .modal-backdrop {
+    z-index: 1040 !important;
+}
+
+.modal:nth-of-type(n+2) {
+    z-index: 1060 !important;
+}
+
+.modal:nth-of-type(n+2) + .modal-backdrop {
+    z-index: 1050 !important;
+}
+
+/* Анимация появления modal */
+.modal.show .modal-dialog {
+    transform: none !important;
+}
+
+/* Mobile optimizations */
+@media (max-width: 767px) {
+    .modal-dialog {
+        margin: 0.5rem !important;
+        max-width: calc(100% - 1rem) !important;
+    }
+    
+    .modal-dialog-centered {
+        min-height: calc(100% - 1rem) !important;
+    }
+}
+
+/* Tablet */
+@media (min-width: 768px) and (max-width: 1023px) {
+    .modal-dialog {
+        max-width: 90% !important;
+    }
+}
+
+/* Desktop - увеличиваем для удобства */
+@media (min-width: 1024px) {
+    .modal-lg {
+        max-width: 900px !important;
+    }
+    
+    .modal-xl {
+        max-width: 1200px !important;
+    }
+}
+
+/* Accessibility: фокус на modal при открытии */
+.modal:focus {
+    outline: none !important;
+}
+
+/* Предотвращаем проблемы с overflow на mobile */
+@media (max-width: 767px) {
+    .modal-body {
+        max-height: 70vh !important;
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+    }
+}
+
+/* Registration Modal - специфичные стили */
+#registerModal .modal-content {
+    border-radius: 12px !important;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2) !important;
+}
+
+#registerModal .btn {
+    transition: all 0.3s ease !important;
+}
+
+#registerModal .btn:hover {
+    transform: translateY(-2px) !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+}
+
+/* Гарантируем, что input поля в modal тоже белые */
+.modal .form-control,
+.modal .form-select,
+.modal textarea {
+    background-color: #ffffff !important;
+    color: #111827 !important;
+    border-color: #d1d5db !important;
+}
+
+.modal .form-control:focus,
+.modal .form-select:focus,
+.modal textarea:focus {
+    background-color: #ffffff !important;
+    color: #111827 !important;
+    border-color: #3b82f6 !important;
+}
+
+/* Dark mode override для modal */
+@media (prefers-color-scheme: dark) {
+    .modal-content {
+        background-color: #ffffff !important;
+        color: #111827 !important;
+    }
+    
+    .modal-header {
+        border-bottom-color: #e5e7eb !important;
+    }
+    
+    .modal-footer {
+        border-top-color: #e5e7eb !important;
+    }
+    
+    .modal .form-control,
+    .modal .form-select,
+    .modal textarea {
+        background-color: #ffffff !important;
+        color: #111827 !important;
+    }
+}
