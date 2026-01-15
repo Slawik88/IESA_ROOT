@@ -119,9 +119,7 @@
             <div class="row g-4">
                 {% for member in members %}
                     <div class="col-12 col-lg-6">
-                        <article class="member-card card h-100" 
-                                 data-member-id="{{ member.id }}"
-                                 onclick="openMemberModal(this)">
+                        <article class="member-card card h-100">
                             <div class="row g-0 h-100">
                                 <!-- Photo (Left Side) -->
                                 <div class="col-4 col-md-3 d-flex align-items-center justify-content-center member-photo-container">
@@ -148,13 +146,14 @@
                                     </div>
 
                                     <!-- More Details Button -->
-                                    <button class="btn btn-primary btn-sm member-more-btn" 
+                                    <button type="button" class="btn btn-primary btn-sm member-more-btn" 
                                             data-bs-toggle="modal" 
                                             data-bs-target="#memberModal"
                                             data-member-name="{{ member.name }}"
                                             data-member-position="{{ member.position }}"
                                             data-member-description="{{ member.description|safe }}"
-                                            data-member-photo="{% if member.photo %}{{ member.photo.url }}{% endif %}">
+                                            data-member-photo="{% if member.photo %}{{ member.photo.url }}{% endif %}"
+                                            onclick="openMemberModal(this)">
                                         <i class="fas fa-arrow-right me-1"></i>More
                                     </button>
                                 </div>
@@ -203,21 +202,19 @@
         </div>
 
         <script>
-        function openMemberModal(element) {
-            const button = element.querySelector('.btn-primary');
-            const modal = new bootstrap.Modal(document.getElementById('memberModal'));
+        function openMemberModal(button) {
             document.getElementById('memberModalName').textContent = button.dataset.memberName;
             document.getElementById('memberModalPosition').textContent = button.dataset.memberPosition;
             document.getElementById('memberModalDescription').innerHTML = button.dataset.memberDescription;
             
             const photo = button.dataset.memberPhoto;
+            const photoElement = document.getElementById('memberModalPhoto');
             if (photo) {
-                document.getElementById('memberModalPhoto').src = photo;
-                document.getElementById('memberModalPhoto').style.display = 'block';
+                photoElement.src = photo;
+                photoElement.style.display = 'block';
             } else {
-                document.getElementById('memberModalPhoto').style.display = 'none';
+                photoElement.style.display = 'none';
             }
-            modal.show();
         }
         </script>
     </section>
