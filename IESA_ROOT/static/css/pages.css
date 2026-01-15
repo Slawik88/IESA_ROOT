@@ -206,6 +206,9 @@
   display: block;
   border-radius: var(--radius-2xl);
   box-shadow: 0 8px 20px var(--primary-200);
+  object-fit: contain;
+  background: white;
+  padding: var(--space-2);
 }
 
 /* Social Links Section */

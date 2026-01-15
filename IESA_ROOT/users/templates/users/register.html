@@ -4,8 +4,22 @@
 
 {% block content %}
 <div class="auth-page row justify-content-center py-5">
-    <div class="col-md-6 col-lg-5 col-xl-4">
-        <div class="card card-modern p-5 shadow-xl bg-white">
+    <div class="col-lg-10">
+        <div class="card card-modern shadow-xl overflow-hidden auth-card">
+            <div class="row g-0">
+                <div class="col-lg-5 d-none d-lg-block auth-sidebar">
+                    <div class="h-100 d-flex flex-column justify-content-center p-5 text-white">
+                        <h3 class="fw-bold mb-3">Join IESA Today</h3>
+                        <p class="mb-4 text-white-50">Create your account and become part of our international extreme sports community.</p>
+                        <ul class="list-unstyled small text-white-50">
+                            <li class="mb-2"><i class="fas fa-check-circle me-2"></i>Connect with Athletes</li>
+                            <li class="mb-2"><i class="fas fa-check-circle me-2"></i>Share Your Journey</li>
+                            <li class="mb-2"><i class="fas fa-check-circle me-2"></i>Discover Events</li>
+                            <li class="mb-2"><i class="fas fa-check-circle me-2"></i>Build Your Profile</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="col-lg-7 p-5 bg-white">
             <div class="text-center mb-4">
                 <h6 class="section-title d-block mb-4">REGISTER</h6>
                 <p class="text-muted">Join the IESA community and start sharing!</p>
@@ -87,7 +101,7 @@
                     </div>
                 {% endfor %}
 
-                <button type="submit" class="btn btn-primary btn-modern w-100 mt-4">
+                <button type="submit" class="btn btn-primary btn-modern w-100 mt-4 py-2">
                     <i class="fas fa-user-plus me-2"></i>Create Account
                 </button>
             </form>
@@ -98,6 +112,8 @@
                 Already have an account? 
                 <a href="{% url 'login' %}" class="fw-bold text-decoration-none">Sign in here</a>
             </p>
+                </div>
+            </div>
         </div>
     </div>
 </div>
