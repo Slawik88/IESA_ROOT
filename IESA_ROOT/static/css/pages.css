@@ -747,6 +747,10 @@
 .hero-badge {
   font-size: 0.875rem;
   padding: 0.5rem 1rem;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  max-width: 100%;
+  display: inline-block;
 }
 
 .hero-title {
@@ -843,7 +847,7 @@
 }
 
 .member-photo-container {
-  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+  background: white;
   min-height: 200px;
 }
 
