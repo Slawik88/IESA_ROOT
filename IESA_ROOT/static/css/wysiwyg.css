@@ -51,10 +51,12 @@
   transition: var(--transition);
 }
 
-.post-content a:hover,
-.wysiwyg-content a:hover {
-  color: var(--primary-dark);
-  text-decoration-color: var(--primary-dark);
+@media (min-width: 1024px) {
+  .post-content a:hover,
+  .wysiwyg-content a:hover {
+    color: var(--primary-dark);
+    text-decoration-color: var(--primary-dark);
+  }
 }
 
 /* Lists */
@@ -150,10 +152,12 @@
   transition: var(--transition);
 }
 
-.post-content img:hover,
-.wysiwyg-content img:hover {
-  box-shadow: var(--shadow-lg);
-  transform: scale(1.02);
+@media (min-width: 1024px) {
+  .post-content img:hover,
+  .wysiwyg-content img:hover {
+    box-shadow: var(--shadow-lg);
+    transform: scale(1.02);
+  }
 }
 
 .post-content figure,
@@ -201,9 +205,11 @@
   border-bottom: none;
 }
 
-.post-content table tbody tr:hover,
-.wysiwyg-content table tbody tr:hover {
-  background: var(--light);
+@media (min-width: 1024px) {
+  .post-content table tbody tr:hover,
+  .wysiwyg-content table tbody tr:hover {
+    background: var(--light);
+  }
 }
 
 /* ============================================================
@@ -253,10 +259,12 @@
   border-bottom-right-radius: var(--radius-lg);
 }
 
-.list-group-item-action:hover {
-  background: var(--light);
-  color: var(--primary);
-  transform: translateX(2px);
+@media (min-width: 1024px) {
+  .list-group-item-action:hover {
+    background: var(--light);
+    color: var(--primary);
+    transform: translateX(2px);
+  }
 }
 
 /* ============================================================
@@ -276,11 +284,13 @@
   transition: var(--transition);
 }
 
-.page-link:hover:not(.disabled) {
-  background: var(--primary);
-  color: white;
-  border-color: var(--primary);
-  transform: translateY(-2px);
+@media (min-width: 1024px) {
+  .page-link:hover:not(.disabled) {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+    transform: translateY(-2px);
+  }
 }
 
 .page-item.active .page-link {
