@@ -33,6 +33,17 @@
     <!-- Favicon -->
     <link rel="icon" type="image/png" href="{% static 'img/favicon.png' %}">
     
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="{% static 'manifest.json' %}">
+    
+    <!-- PWA Meta Tags -->
+    <meta name="theme-color" content="#3b82f6">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="IESA">
+    <link rel="apple-touch-icon" href="{% static 'img/icon-192x192.png' %}">
+    
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
 
@@ -74,6 +85,7 @@
     <link rel="stylesheet" href="{% static 'css/touch-gestures.css' %}">
     <link rel="stylesheet" href="{% static 'css/form-validation.css' %}">
     <link rel="stylesheet" href="{% static 'css/form-enhancements.css' %}">
+    <link rel="stylesheet" href="{% static 'css/pwa.css' %}">
 
 </head>
 <body>
@@ -267,6 +279,9 @@
 
     <!-- Form Enhancements (Progress, Multi-Step, Conditions) -->
     <script src="{% static 'js/form-enhancements.js' %}"></script>
+
+    <!-- PWA & Offline Support -->
+    <script src="{% static 'js/pwa-manager.js' %}"></script>
     
         <!-- Small helper: add missing Bootstrap form-control classes to form fields if not present -->
         <script>
