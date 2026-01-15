@@ -1,0 +1,83 @@
+/**
+ * Infinite Scroll & Virtual Scroll CSS
+ */
+
+/* Infinite scroll loader */
+.infinite-scroll-loader {
+    padding: 2rem 0;
+    text-align: center;
+}
+
+.loader-content {
+    animation: fadeInUp 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* End of scroll message */
+.infinite-scroll-end {
+    padding: 2rem 0;
+    text-align: center;
+    animation: fadeInUp 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.infinite-scroll-end i {
+    color: #6c757d;
+}
+
+/* Smooth fade-in for newly loaded items */
+[data-infinite-scroll] > * {
+    animation: fadeInUp 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Virtual scroll item */
+[data-virtual-item] {
+    transition: opacity 0.2s ease;
+}
+
+[data-virtual-item][style*="display: none"] {
+    display: none !important;
+    pointer-events: none;
+}
+
+/* Loading state styling */
+.infinite-scroll-loading {
+    opacity: 0.7;
+    pointer-events: none;
+}
+
+/* Intersection observer placeholders */
+[data-infinite-scroll-trigger] {
+    height: 1px;
+    visibility: hidden;
+}
+
+/* Mobile optimization */
+@media (max-width: 768px) {
+    .infinite-scroll-loader {
+        padding: 1.5rem 0;
+    }
+
+    [data-infinite-scroll] > * {
+        animation-duration: 0.3s;
+    }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+    [data-infinite-scroll] > *,
+    .infinite-scroll-end {
+        animation: none;
+        opacity: 1;
+        transform: none;
+    }
+}

@@ -1,0 +1,337 @@
+/**
+ * Advanced Filters CSS
+ * Beautiful, responsive filter UI
+ */
+
+/* Filter Container */
+[data-filters-container] {
+    position: relative;
+}
+
+/* Filter Panel */
+[data-filter-panel] {
+    background: white;
+    border: 1px solid #e9ecef;
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+[data-filter-panel] .form-label {
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+    display: block;
+    color: #212529;
+}
+
+[data-filter-panel] .form-control,
+[data-filter-panel] .form-select {
+    border-radius: 0.5rem;
+    border: 1px solid #e9ecef;
+    padding: 0.625rem 0.875rem;
+    font-size: 0.95rem;
+    transition: all 0.2s ease;
+}
+
+[data-filter-panel] .form-control:focus,
+[data-filter-panel] .form-select:focus {
+    border-color: #007bff;
+    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+}
+
+/* Filter Group */
+.filter-group {
+    margin-bottom: 1.5rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.filter-group:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+    padding-bottom: 0;
+}
+
+.filter-group-title {
+    font-weight: 700;
+    font-size: 0.95rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #6c757d;
+    margin-bottom: 1rem;
+}
+
+/* Checkbox and Radio Filters */
+.filter-option {
+    display: flex;
+    align-items: center;
+    margin-bottom: 0.75rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.filter-option input {
+    cursor: pointer;
+    margin-right: 0.5rem;
+    width: 18px;
+    height: 18px;
+    transition: all 0.2s ease;
+}
+
+.filter-option input:checked {
+    background: #007bff;
+    border-color: #007bff;
+}
+
+.filter-option label {
+    flex: 1;
+    margin: 0;
+    cursor: pointer;
+    color: #495057;
+    font-size: 0.95rem;
+}
+
+.filter-option:hover {
+    background: rgba(0, 123, 255, 0.05);
+    border-radius: 0.375rem;
+}
+
+/* Range Filter */
+.filter-range {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+}
+
+.filter-range input[type="range"] {
+    flex: 1;
+    height: 4px;
+    border-radius: 2px;
+    background: #e9ecef;
+    outline: none;
+    -webkit-appearance: none;
+}
+
+.filter-range input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #007bff;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.filter-range input[type="range"]::-webkit-slider-thumb:hover {
+    background: #0056b3;
+    transform: scale(1.2);
+    box-shadow: 0 2px 8px rgba(0, 123, 255, 0.4);
+}
+
+.filter-range input[type="range"]::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #007bff;
+    cursor: pointer;
+    border: none;
+    transition: all 0.2s ease;
+}
+
+.filter-range input[type="range"]::-moz-range-thumb:hover {
+    background: #0056b3;
+    transform: scale(1.2);
+    box-shadow: 0 2px 8px rgba(0, 123, 255, 0.4);
+}
+
+.filter-range-values {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    white-space: nowrap;
+}
+
+.filter-range-value {
+    background: #f0f0f0;
+    padding: 0.375rem 0.75rem;
+    border-radius: 0.375rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #495057;
+}
+
+/* Filter Actions */
+.filter-actions {
+    display: flex;
+    gap: 0.75rem;
+    margin-top: 1.5rem;
+}
+
+.filter-actions .btn {
+    flex: 1;
+    border-radius: 0.5rem;
+}
+
+/* Toggle Filter Button */
+[data-toggle-filters] {
+    display: none;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    margin-bottom: 1rem;
+}
+
+/* Filter Tags */
+[data-filter-tags] {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+}
+
+.filter-tag {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.5rem 0.875rem;
+    border-radius: 2rem;
+    font-size: 0.9rem;
+    animation: slideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.filter-tag .btn-close {
+    margin-left: 0.5rem;
+    padding: 0;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateX(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+/* Filter Results Info */
+[data-filter-info] {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem;
+    background: #f8f9fa;
+    border-radius: 0.5rem;
+    margin-bottom: 1.5rem;
+    font-size: 0.95rem;
+    color: #6c757d;
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+    [data-toggle-filters] {
+        display: flex;
+    }
+
+    [data-filter-panel] {
+        position: fixed;
+        top: 0;
+        right: -100%;
+        bottom: 0;
+        width: 280px;
+        max-height: 100vh;
+        border: none;
+        border-radius: 0;
+        margin-bottom: 0;
+        padding: 2rem 1.5rem 1.5rem;
+        overflow-y: auto;
+        z-index: 1040;
+        transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: -4px 0 16px rgba(0, 0, 0, 0.1);
+    }
+
+    [data-filter-panel].show {
+        right: 0;
+    }
+
+    body.filter-panel-open {
+        overflow: hidden;
+    }
+
+    body.filter-panel-open::after {
+        content: '';
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 1030;
+    }
+
+    .filter-actions {
+        flex-direction: column;
+    }
+
+    .filter-actions .btn {
+        width: 100%;
+    }
+}
+
+/* Dark Mode */
+@media (prefers-color-scheme: dark) {
+    [data-filter-panel] {
+        background: #2d3139;
+        border-color: #404854;
+    }
+
+    [data-filter-panel] .form-label {
+        color: #e9ecef;
+    }
+
+    [data-filter-panel] .form-control,
+    [data-filter-panel] .form-select {
+        background: #1f2937;
+        border-color: #404854;
+        color: #e9ecef;
+    }
+
+    [data-filter-panel] .form-control:focus,
+    [data-filter-panel] .form-select:focus {
+        border-color: #0d6efd;
+        background: #1f2937;
+    }
+
+    .filter-group-title {
+        color: #adb5bd;
+    }
+
+    .filter-option label {
+        color: #adb5bd;
+    }
+
+    .filter-option:hover {
+        background: rgba(13, 110, 253, 0.1);
+    }
+
+    .filter-range-value {
+        background: #404854;
+        color: #adb5bd;
+    }
+
+    [data-filter-info] {
+        background: #1f2937;
+        border: 1px solid #404854;
+        color: #adb5bd;
+    }
+}
+
+/* Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+    [data-filter-panel],
+    .filter-tag,
+    .filter-option,
+    [data-filter-panel] .form-control {
+        transition: none;
+        animation: none;
+    }
+}
