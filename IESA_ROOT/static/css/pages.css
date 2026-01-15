@@ -22,16 +22,16 @@
 
 /* Profile Header Card */
 .profile-header {
-  border-radius: var(--radius-3xl);
-  box-shadow: var(--shadow-card-lg);
+  border-radius: var(--radius-2xl);
+  box-shadow: var(--shadow-card);
   border: 1px solid var(--border-color-light);
   background: var(--gradient-card);
-  padding: var(--space-8);
+  padding: var(--space-6);
 }
 
 @media (max-width: 767.98px) {
   .profile-header {
-    padding: var(--space-5);
+    padding: var(--space-4);
   }
 }
 
@@ -46,52 +46,53 @@
 
 /* Avatar */
 .profile-avatar {
-  width: 160px;
-  height: 160px;
+  width: 120px;
+  height: 120px;
   border-radius: var(--radius-full);
-  border: 5px solid var(--white);
+  border: 4px solid var(--white);
   object-fit: cover;
   display: block;
 }
 
 /* Avatar Fallback (инициал) */
 .profile-avatar-fallback {
-  width: 160px;
-  height: 160px;
+  width: 120px;
+  height: 120px;
   border-radius: var(--radius-full);
-  border: 5px solid var(--white);
+  border: 4px solid var(--white);
   background: var(--gradient-primary);
   display: flex;
   align-items: center;
   justify-content: center;
   color: var(--white);
-  font-size: 4rem;
+  font-size: 3rem;
   font-weight: var(--font-extrabold);
 }
 
 @media (max-width: 767.98px) {
   .profile-avatar,
   .profile-avatar-fallback {
-    width: 120px;
-    height: 120px;
-    font-size: 3rem;
+    width: 100px;
+    height: 100px;
+    font-size: 2.5rem;
+    border-width: 3px;
   }
 }
 
 /* Profile Name */
 .profile-name {
-  font-size: 2rem;
+  font-size: 1.5rem;
   font-weight: var(--font-bold);
   color: var(--text-primary);
   letter-spacing: var(--tracking-tight);
-  margin-top: var(--space-4);
-  margin-bottom: var(--space-2);
+  margin-top: var(--space-3);
+  margin-bottom: var(--space-1);
 }
 
 /* Profile Email */
 .profile-email {
   color: var(--text-muted);
-  font-size: var(--text-lg);
+  font-size: var(--text-base);
   font-weight: var(--font-medium);
 }
 
@@ -112,14 +113,14 @@
 /* Detail Cards (colored info cards) */
 .profile-detail-card {
   border-radius: var(--radius-card);
-  padding: var(--space-5);
+  padding: var(--space-4);
   height: 100%;
   transition: all var(--transition-smooth);
   cursor: pointer;
 }
 
 .profile-detail-card:hover {
-  transform: translateY(-4px);
+  transform: translateY(-2px);
 }
 
 /* Red variant */
@@ -162,7 +163,7 @@
 
 /* Detail Card Value */
 .profile-detail-value {
-  font-size: var(--text-xl);
+  font-size: var(--text-lg);
   font-weight: var(--font-bold);
   color: var(--text-primary);
   letter-spacing: var(--tracking-tight);
@@ -171,14 +172,14 @@
 /* Activity Level Section */
 .profile-activity-card {
   border-radius: var(--radius-card);
-  padding: var(--space-8);
+  padding: var(--space-6);
   background: var(--gradient-card-light);
   box-shadow: var(--shadow-card);
   border: 1px solid var(--border-color-light);
 }
 
 .profile-activity-points {
-  font-size: 3rem;
+  font-size: 2.5rem;
   font-weight: var(--font-extrabold);
   color: var(--primary);
   letter-spacing: var(--tracking-tight);
@@ -193,7 +194,7 @@
 /* QR Code Card */
 .profile-qr-card {
   border-radius: var(--radius-card);
-  padding: var(--space-6);
+  padding: var(--space-4);
   background: var(--gradient-card-light);
   box-shadow: 0 4px 16px var(--primary-100);
   border: 2px solid var(--primary-50);

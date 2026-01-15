@@ -5,23 +5,23 @@
 {% block content %}
 <div class="container-limited">
     <!-- HERO Section -->
-    <section class="section-padding text-center card card-flat p-5 mb-5 hero-section" aria-labelledby="hero-title">
-        <div class="mb-4">
+    <section class="section-padding text-center card card-flat p-4 mb-5 hero-section" aria-labelledby="hero-title">
+        <div class="mb-3">
             <span class="badge badge-primary hero-badge">
                 <i class="fas fa-rocket me-2"></i>International Extreme Sports Association
             </span>
         </div>
-        <h1 id="hero-title" class="display-4 fw-bold mb-3 hero-title">
+        <h1 id="hero-title" class="display-5 fw-bold mb-3 hero-title">
             Welcome to IESA!
         </h1>
         <p class="lead mb-4 hero-description">
             Bringing leaders together and shaping the future. Join our international community of extreme sports enthusiasts.
         </p>
         <div class="d-flex flex-column flex-sm-row gap-3 justify-content-center">
-            <a href="{% url 'register' %}" class="btn btn-primary btn-modern btn-lg">
+            <a href="{% url 'register' %}" class="btn btn-primary btn-modern">
                 <i class="fas fa-user-plus me-2"></i>Join as Member
             </a>
-            <a href="{% url 'post_list' %}" class="btn btn-secondary btn-lg">
+            <a href="{% url 'post_list' %}" class="btn btn-secondary">
                 <i class="fas fa-comments me-2"></i>Go to Community
             </a>
         </div>
