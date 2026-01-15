@@ -1,0 +1,124 @@
+/**
+ * Page Transitions CSS
+ * Smooth fade animations for page navigation
+ */
+
+/* Main content transition base styles */
+main {
+    animation: fadeInPage 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+@keyframes fadeInPage {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes fadeOutPage {
+    from {
+        opacity: 1;
+        transform: translateY(0);
+    }
+    to {
+        opacity: 0;
+        transform: translateY(-8px);
+    }
+}
+
+/* Links with smooth transition */
+a[hx-boost] {
+    transition: opacity 0.2s ease;
+}
+
+a[hx-boost]:active {
+    opacity: 0.7;
+}
+
+/* Disable transition during HTMX loading */
+.htmx-request main {
+    opacity: 1;
+}
+
+/* Loading state for content being replaced */
+.htmx-settling main {
+    opacity: 1;
+}
+
+/* Smooth scroll behavior for anchor links */
+html {
+    scroll-behavior: smooth;
+}
+
+/* Scroll indicator line for progress */
+.scroll-progress {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #007bff, #0056b3);
+    width: 0%;
+    transition: width 0.1s ease;
+    z-index: 9999;
+}
+
+/* Page transition loading bar */
+.page-loading-bar {
+    position: fixed;
+    top: 0;
+    left: -100%;
+    height: 4px;
+    width: 100%;
+    background: linear-gradient(
+        90deg,
+        transparent 0%,
+        #007bff 50%,
+        transparent 100%
+    );
+    background-size: 200% 100%;
+    animation: slideLoading 1.5s ease-in-out infinite;
+    z-index: 9999;
+}
+
+.page-loading-bar.active {
+    left: 0;
+}
+
+@keyframes slideLoading {
+    0% {
+        left: -100%;
+    }
+    50% {
+        left: 100%;
+    }
+    100% {
+        left: 100%;
+    }
+}
+
+/* Mobile optimization */
+@media (prefers-reduced-motion: reduce) {
+    main,
+    a[hx-boost],
+    html {
+        animation: none !important;
+        transition: none !important;
+        scroll-behavior: auto !important;
+    }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+    .page-loading-bar {
+        background: linear-gradient(
+            90deg,
+            transparent 0%,
+            #0d6efd 50%,
+            transparent 100%
+        );
+    }
+}
