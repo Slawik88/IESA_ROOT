@@ -1,0 +1,304 @@
+/**
+ * Touch Gestures & Pull-to-Refresh CSS
+ */
+
+/* ================================================
+   TOUCH GESTURES STYLING
+   ================================================ */
+
+/* Swipe-enabled elements */
+[data-swipe] {
+    touch-action: manipulation;
+    cursor: grab;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+[data-swipe]:active {
+    cursor: grabbing;
+}
+
+/* Swipe feedback */
+[data-swipe].swiped {
+    background: rgba(0, 123, 255, 0.1);
+}
+
+/* Long press indicator */
+[data-long-press] {
+    position: relative;
+}
+
+[data-long-press]::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+}
+
+/* Double tap effect */
+[data-double-tap] {
+    user-select: none;
+}
+
+/* Pinch zoom container */
+[data-pinch] {
+    touch-action: pinch-zoom;
+    overflow: hidden;
+}
+
+/* ================================================
+   SWIPE CAROUSEL
+   ================================================ */
+
+[data-swipe-carousel] {
+    overflow: hidden;
+    touch-action: pan-y;
+}
+
+[data-swipe-carousel] .carousel-item {
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ================================================
+   SWIPE TO DISMISS
+   ================================================ */
+
+[data-swipe-dismiss] {
+    position: relative;
+    touch-action: pan-y;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+[data-swipe-dismiss]::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: #dc3545;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    z-index: -1;
+}
+
+[data-swipe-dismiss].swiping::before {
+    opacity: 0.5;
+}
+
+/* ================================================
+   PULL-TO-REFRESH STYLING
+   ================================================ */
+
+[data-pull-to-refresh] {
+    position: relative;
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Pull indicator */
+.pull-to-refresh-indicator {
+    position: sticky;
+    top: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    height: 0;
+    overflow: hidden;
+    transform: translateY(-100%);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    padding: 1rem;
+    color: #007bff;
+    z-index: 10;
+}
+
+/* Refresh spinner */
+.refresh-spinner {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: bounce 0.8s ease-in-out infinite;
+}
+
+.spinner-icon {
+    width: 100%;
+    height: 100%;
+    stroke-linecap: round;
+    transition: transform 0.3s ease;
+}
+
+@keyframes bounce {
+    0%, 100% {
+        transform: translateY(0);
+    }
+    50% {
+        transform: translateY(-10px);
+    }
+}
+
+@keyframes spin {
+    0% {
+        transform: rotate(0deg);
+    }
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+.refresh-text {
+    font-size: 0.9rem;
+    font-weight: 500;
+    text-align: center;
+    transition: all 0.3s ease;
+}
+
+/* Pulling state */
+[data-pull-to-refresh].pulling .pull-to-refresh-indicator {
+    opacity: 1;
+}
+
+/* ================================================
+   MANUAL REFRESH BUTTON
+   ================================================ */
+
+[data-refresh] {
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+[data-refresh]:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+[data-refresh]:not(:disabled):hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* ================================================
+   LAST UPDATED TIMESTAMP
+   ================================================ */
+
+[data-last-updated] {
+    display: inline-block;
+    font-size: 0.85rem;
+    color: #6c757d;
+    font-weight: 500;
+}
+
+/* ================================================
+   TOUCH FEEDBACK
+   ================================================ */
+
+/* Prevent double-tap zoom on interactive elements */
+button,
+a,
+input,
+[data-swipe],
+[data-double-tap] {
+    touch-action: manipulation;
+}
+
+/* iOS specific optimizations */
+@supports (-webkit-touch-callout: none) {
+    [data-pull-to-refresh] {
+        -webkit-user-select: none;
+        user-select: none;
+    }
+
+    [data-swipe],
+    [data-double-tap] {
+        -webkit-user-select: none;
+        user-select: none;
+    }
+}
+
+/* ================================================
+   MOBILE RESPONSIVE
+   ================================================ */
+
+@media (max-width: 768px) {
+    .pull-to-refresh-indicator {
+        font-size: 0.9rem;
+    }
+
+    .refresh-spinner {
+        width: 35px;
+        height: 35px;
+    }
+
+    [data-swipe],
+    [data-double-tap] {
+        -webkit-user-select: none;
+        user-select: none;
+    }
+}
+
+/* ================================================
+   DARK MODE SUPPORT
+   ================================================ */
+
+@media (prefers-color-scheme: dark) {
+    .pull-to-refresh-indicator {
+        color: #0d6efd;
+    }
+
+    [data-swipe-dismiss]::before {
+        background: #842029;
+    }
+
+    .refresh-text {
+        color: #e9ecef;
+    }
+
+    [data-last-updated] {
+        color: #adb5bd;
+    }
+}
+
+/* ================================================
+   REDUCED MOTION SUPPORT
+   ================================================ */
+
+@media (prefers-reduced-motion: reduce) {
+    [data-swipe],
+    [data-pull-to-refresh],
+    [data-refresh],
+    .pull-to-refresh-indicator,
+    .refresh-spinner {
+        animation: none;
+        transition: none;
+    }
+
+    .refresh-spinner {
+        animation: none;
+    }
+}
+
+/* ================================================
+   ACCESSIBILITY
+   ================================================ */
+
+[data-swipe]:focus-visible,
+[data-double-tap]:focus-visible,
+[data-refresh]:focus-visible {
+    outline: 2px solid #007bff;
+    outline-offset: 2px;
+}
+
+/* Ensure haptic feedback works */
+@supports (padding: max(0px)) {
+    [data-swipe],
+    [data-double-tap],
+    [data-pull-to-refresh] {
+        padding-left: max(env(safe-area-inset-left), 0px);
+        padding-right: max(env(safe-area-inset-right), 0px);
+    }
+}
