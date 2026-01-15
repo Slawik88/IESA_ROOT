@@ -610,3 +610,181 @@
 .scroll-to-bottom.show {
     display: flex;
 }
+/* ====================================================
+   MESSAGING PANEL (Floating Side Panel)
+   ==================================================== */
+
+.messaging-panel {
+    position: fixed;
+    right: -380px;
+    bottom: 0;
+    width: 360px;
+    height: 100vh;
+    background: white;
+    box-shadow: -4px 0 16px rgba(0, 0, 0, 0.15);
+    display: flex;
+    flex-direction: column;
+    transition: right 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    z-index: 999;
+}
+
+.messaging-panel.open {
+    right: 0;
+}
+
+/* Panel Header */
+.messaging-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px;
+    border-bottom: 1px solid #e5e7eb;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+}
+
+.messaging-panel-header h5 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: white;
+}
+
+/* Close Button */
+.messaging-close-btn {
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    color: white;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    font-size: 18px;
+}
+
+.messaging-close-btn:hover {
+    background: rgba(255, 255, 255, 0.3);
+    transform: rotate(90deg);
+}
+
+/* Panel Body */
+.messaging-panel-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+}
+
+/* Empty State */
+.messaging-empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    text-align: center;
+    color: #9ca3af;
+}
+
+.messaging-empty-state i {
+    color: #d1d5db;
+    margin-bottom: 16px;
+}
+
+.messaging-empty-state p {
+    margin: 8px 0;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+/* Conversations List in Panel */
+.messaging-conversations {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.messaging-conversation-item {
+    padding: 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    border: 1px solid transparent;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.messaging-conversation-item:hover {
+    background: #f3f4f6;
+    border-color: #e5e7eb;
+}
+
+.messaging-conversation-item.active {
+    background: #eff6ff;
+    border-color: #3b82f6;
+}
+
+.messaging-conversation-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: #e5e7eb;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.messaging-conversation-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.messaging-conversation-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: #111827;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.messaging-conversation-preview {
+    font-size: 12px;
+    color: #9ca3af;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-top: 2px;
+}
+
+.messaging-unread-badge {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
+    background: #ef4444;
+    color: white;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+/* Mobile Optimizations */
+@media (max-width: 768px) {
+    .messaging-panel {
+        width: 100%;
+        right: -100%;
+        max-width: none;
+    }
+
+    .messaging-panel.open {
+        right: 0;
+    }
+}
