@@ -96,8 +96,8 @@
     <!-- TIER 9: Advanced Search -->
     <link rel="stylesheet" href="{% static 'css/advanced-search.css' %}">
     
-    <!-- Language Selector -->
-    <link rel="stylesheet" href="{% static 'css/language-selector.css' %}">
+    <!-- Feature Hints & Tooltips -->
+    <link rel="stylesheet" href="{% static 'css/feature-hints.css' %}">
 
 </head>
 <body>
@@ -152,6 +152,14 @@
                             </div>
                         </div>
                         {% if user.is_authenticated %}
+                            <!-- Messages button -->
+                            <button class="btn btn-light btn-sm position-relative messaging-btn" id="messagingToggle" title="Messages">
+                                <i class="fas fa-envelope"></i>
+                                <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-success navbar-notification-badge" style="display: none;" id="unreadMessagesCount">
+                                    0
+                                </span>
+                            </button>
+                            
                             <!-- Notifications button -->
                             <a href="{% url 'notification_list' %}" class="btn btn-light btn-sm position-relative" title="Notifications">
                                 <i class="fas fa-bell"></i>
@@ -308,8 +316,8 @@
     <!-- TIER 9: Advanced Search -->
     <script src="{% static 'js/advanced-search.js' %}"></script>
     
-    <!-- Language Selector -->
-    <script src="{% static 'js/language-selector.js' %}"></script>
+    <!-- Feature Hints & Tooltips -->
+    <script src="{% static 'js/feature-hints.js' %}"></script>
     
         <!-- Small helper: add missing Bootstrap form-control classes to form fields if not present -->
         <script>
@@ -474,6 +482,8 @@
             }
         }
     </script>
+    
+    {% include "messaging-panel.html" %}
     
     <!-- Back to Top Button -->
     <button id="back-to-top" aria-label="Back to top" title="Back to top">

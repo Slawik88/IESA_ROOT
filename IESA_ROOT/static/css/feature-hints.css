@@ -1,0 +1,289 @@
+/* ============================================================
+   FEATURE HINTS & TOOLTIPS
+   Версия: 1.0
+   
+   Интуитивные подсказки для пользователей
+   ============================================================ */
+
+/* ====================================================
+   1. FEATURE HINTS (Popup hints)
+   ==================================================== */
+
+.feature-hint {
+    position: absolute;
+    z-index: 10000;
+    max-width: 280px;
+    opacity: 0;
+    transform: scale(0.9);
+    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    pointer-events: none;
+}
+
+.feature-hint.show {
+    opacity: 1;
+    transform: scale(1);
+    pointer-events: all;
+}
+
+.feature-hint-content {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 12px 16px;
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(102, 126, 234, 0.4);
+    font-size: 14px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    animation: hintPulse 2s infinite;
+}
+
+@keyframes hintPulse {
+    0%, 100% {
+        box-shadow: 0 8px 24px rgba(102, 126, 234, 0.4);
+    }
+    50% {
+        box-shadow: 0 8px 32px rgba(102, 126, 234, 0.6);
+    }
+}
+
+.feature-hint-close {
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    color: white;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    line-height: 1;
+    margin-left: auto;
+    transition: background 0.2s ease;
+}
+
+.feature-hint-close:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+.feature-hint-arrow {
+    width: 0;
+    height: 0;
+    border-style: solid;
+    position: absolute;
+}
+
+.feature-hint-top .feature-hint-arrow {
+    bottom: -8px;
+    left: 50%;
+    transform: translateX(-50%);
+    border-width: 8px 8px 0 8px;
+    border-color: #667eea transparent transparent transparent;
+}
+
+.feature-hint-bottom .feature-hint-arrow {
+    top: -8px;
+    left: 50%;
+    transform: translateX(-50%);
+    border-width: 0 8px 8px 8px;
+    border-color: transparent transparent #667eea transparent;
+}
+
+.feature-hint-left .feature-hint-arrow {
+    right: -8px;
+    top: 50%;
+    transform: translateY(-50%);
+    border-width: 8px 0 8px 8px;
+    border-color: transparent transparent transparent #667eea;
+}
+
+.feature-hint-right .feature-hint-arrow {
+    left: -8px;
+    top: 50%;
+    transform: translateY(-50%);
+    border-width: 8px 8px 8px 0;
+    border-color: transparent #667eea transparent transparent;
+}
+
+/* ====================================================
+   2. PULSE HINT ANIMATION
+   ==================================================== */
+
+.pulse-hint {
+    animation: pulseHintButton 1.5s ease-in-out 3;
+    position: relative;
+}
+
+.pulse-hint::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 100%;
+    height: 100%;
+    border-radius: inherit;
+    border: 2px solid #667eea;
+    transform: translate(-50%, -50%);
+    animation: pulseRing 1.5s ease-out 3;
+}
+
+@keyframes pulseHintButton {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.05);
+    }
+}
+
+@keyframes pulseRing {
+    0% {
+        transform: translate(-50%, -50%) scale(1);
+        opacity: 1;
+    }
+    100% {
+        transform: translate(-50%, -50%) scale(1.5);
+        opacity: 0;
+    }
+}
+
+/* ====================================================
+   3. ENHANCED TOOLTIPS
+   ==================================================== */
+
+[data-tooltip] {
+    position: relative;
+}
+
+[data-tooltip]::before {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%) translateY(-8px);
+    background: rgba(0, 0, 0, 0.9);
+    color: white;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    z-index: 1000;
+}
+
+[data-tooltip]::after {
+    content: '';
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 5px solid transparent;
+    border-top-color: rgba(0, 0, 0, 0.9);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+    z-index: 1000;
+}
+
+[data-tooltip]:hover::before,
+[data-tooltip]:hover::after {
+    opacity: 1;
+}
+
+[data-tooltip]:hover::before {
+    transform: translateX(-50%) translateY(-12px);
+}
+
+/* ====================================================
+   4. INTERACTIVE HINTS FOR SOCIAL FEATURES
+   ==================================================== */
+
+/* Reaction button hint */
+.reaction-add-btn {
+    position: relative;
+}
+
+.reaction-add-btn:not(.used)::after {
+    content: 'React';
+    position: absolute;
+    top: -28px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #667eea;
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+    white-space: nowrap;
+}
+
+.reaction-add-btn:hover::after {
+    opacity: 1;
+}
+
+/* ====================================================
+   5. FIRST-TIME BADGES
+   ==================================================== */
+
+.new-feature-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    animation: badgePulse 2s infinite;
+}
+
+.new-feature-badge::before {
+    content: '✨';
+    font-size: 12px;
+}
+
+@keyframes badgePulse {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.05);
+    }
+}
+
+/* Hide badge after first interaction */
+.feature-used .new-feature-badge {
+    display: none;
+}
+
+/* ====================================================
+   6. MOBILE OPTIMIZATIONS
+   ==================================================== */
+
+@media (max-width: 768px) {
+    .feature-hint {
+        max-width: 240px;
+    }
+    
+    .feature-hint-content {
+        padding: 10px 14px;
+        font-size: 13px;
+    }
+    
+    /* Simplified tooltips on mobile */
+    [data-tooltip]::before {
+        font-size: 11px;
+        padding: 5px 10px;
+    }
+}
