@@ -29,6 +29,51 @@
   [role="button"] {
     cursor: pointer;
   }
+  
+  /* ========== КРИТИЧНО: ОТКЛЮЧИТЬ ВСЕ HOVER ЭФФЕКТЫ НА МОБИЛАХ ========== */
+  /* Убираем ВСЕ hover эффекты которые вызывают дергание */
+  *:hover {
+    transform: none !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+    opacity: 1 !important;
+    background-color: inherit !important;
+    border-color: inherit !important;
+    color: inherit !important;
+  }
+  
+  /* Явно убираем hover для всех элементов */
+  a:hover,
+  button:hover,
+  .btn:hover,
+  .card:hover,
+  .card:hover::before,
+  .card:hover::after,
+  .nav-link:hover,
+  .dropdown-item:hover,
+  .list-group-item:hover,
+  .list-group-item-action:hover,
+  .nav-pills .nav-link:hover,
+  .nav-tabs .nav-link:hover,
+  .page-link:hover,
+  table tr:hover,
+  .member-card:hover,
+  .partner-card-enhanced:hover,
+  .gallery-thumb:hover,
+  .post-card:hover,
+  .event-card:hover,
+  [class*="card"]:hover {
+    transform: none !important;
+    box-shadow: inherit !important;
+    border-color: inherit !important;
+    background-color: inherit !important;
+    color: inherit !important;
+  }
+  
+  /* Убираем градиент и другие hover эффекты */
+  .card::before {
+    opacity: 0 !important;
+  }
 }
 
 /* =================================================================
