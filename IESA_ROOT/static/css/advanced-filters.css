@@ -288,17 +288,20 @@
         color: #e9ecef;
     }
 
+/* Dark Mode - DISABLED (всегда светлая тема) */
+@media (prefers-color-scheme: dark) {
     [data-filter-panel] .form-control,
     [data-filter-panel] .form-select {
-        background: #1f2937;
-        border-color: #404854;
-        color: #e9ecef;
+        background: #ffffff !important;
+        border-color: #e5e7eb !important;
+        color: #111827 !important;
     }
 
     [data-filter-panel] .form-control:focus,
     [data-filter-panel] .form-select:focus {
-        border-color: #0d6efd;
-        background: #1f2937;
+        border-color: #0d6efd !important;
+        background: #ffffff !important;
+        color: #111827 !important;
     }
 
     .filter-group-title {

@@ -476,21 +476,22 @@ label.required::after {
   user-select: none;
 }
 
-/* Dark mode support */
+/* Dark mode support - DISABLED (светлая тема всегда) */
 @media (prefers-color-scheme: dark) {
   .form-control,
   .form-select,
   textarea {
-    background-color: #1f2937;
-    border-color: #374151;
-    color: #f3f4f6;
+    background-color: #ffffff !important;
+    border-color: #e5e7eb !important;
+    color: #111827 !important;
   }
 
   .form-control:focus,
   .form-select:focus,
   textarea:focus {
-    border-color: var(--validation-info);
-    background-color: #111827;
+    border-color: var(--validation-info) !important;
+    background-color: #ffffff !important;
+    color: #111827 !important;
   }
 
   .form-group {
