@@ -228,28 +228,24 @@
             });
         });
 
-        // Show password toggle
-        document.querySelectorAll('input[type="password"]').forEach(input => {
-            const toggleBtn = document.createElement('button');
-            toggleBtn.type = 'button';
-            toggleBtn.className = 'btn-password-toggle';
-            toggleBtn.innerHTML = '<i class="fas fa-eye"></i>';
-            toggleBtn.setAttribute('aria-label', 'Show password');
-            
-            input.parentElement.style.position = 'relative';
-            input.parentElement.appendChild(toggleBtn);
-            
-            toggleBtn.addEventListener('click', function() {
-                if (input.type === 'password') {
-                    input.type = 'text';
-                    toggleBtn.innerHTML = '<i class="fas fa-eye-slash"></i>';
-                    toggleBtn.setAttribute('aria-label', 'Hide password');
-                } else {
-                    input.type = 'password';
-                    toggleBtn.innerHTML = '<i class="fas fa-eye"></i>';
-                    toggleBtn.setAttribute('aria-label', 'Show password');
-                }
-            });
+        // Password field wrapper - prepare for password toggle
+        document.querySelectorAll('.password-field-wrapper').forEach(wrapper => {
+            const input = wrapper.querySelector('input[type="password"]');
+            const btn = wrapper.querySelector('.password-toggle-btn');
+            if (input && btn) {
+                btn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    if (input.type === 'password') {
+                        input.type = 'text';
+                        btn.innerHTML = '<i class="fas fa-eye-slash"></i>';
+                        btn.setAttribute('aria-label', 'Hide password');
+                    } else {
+                        input.type = 'password';
+                        btn.innerHTML = '<i class="fas fa-eye"></i>';
+                        btn.setAttribute('aria-label', 'Show password');
+                    }
+                });
+            }
         });
     }
 

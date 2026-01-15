@@ -35,16 +35,6 @@
                             <h2 class="mt-4 mb-2 fw-bold" style="font-size: 2rem; color: #111827; letter-spacing: -0.03em;">{{ profile_user.username }}</h2>
                             <p class="text-muted mb-3" style="font-size: 1.0625rem; font-weight: 500;">{{ profile_user.email }}</p>
                             
-                            {% if profile_user.is_online %}
-                                <span class="badge bg-success mb-3" style="padding: 8px 18px; border-radius: 24px; font-size: 0.9375rem; box-shadow: 0 2px 8px rgba(16,185,129,0.25);">
-                                    <i class="fas fa-circle me-1" style="font-size: 0.5rem;"></i>Online
-                                </span>
-                            {% else %}
-                                <span class="badge bg-secondary mb-3" style="padding: 8px 18px; border-radius: 24px; font-size: 0.9375rem;">
-                                    <i class="fas fa-circle me-1" style="font-size: 0.5rem;"></i>Offline
-                                </span>
-                            {% endif %}
-                            
                             {% if user.is_authenticated and user.id == profile_user.id and profile_user.permanent_id %}
                                 <div class="mb-3">
                                     <span class="badge" style="background: linear-gradient(135deg, rgba(239,68,68,0.08) 0%, rgba(220,38,38,0.12) 100%); color: #dc2626; padding: 10px 20px; border-radius: 14px; font-family: 'Courier New', monospace; font-size: 1.0625rem; font-weight: 700; letter-spacing: 0.02em; border: 1px solid rgba(239,68,68,0.15);">
