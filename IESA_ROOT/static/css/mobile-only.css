@@ -1,0 +1,785 @@
+/* ============================================================
+   MOBILE STYLES - ЕДИНСТВЕННЫЙ ФАЙЛ ДЛЯ МОБИЛЬНЫХ СТИЛЕЙ
+   ============================================================
+   ВСЁ ДЛЯ МОБИЛЫ - ТОЛЬКО ЗДЕСЬ. НИГДЕ БОЛЬШЕ!
+   ============================================================ */
+
+/* =================================================================
+   BREAKPOINTS:
+   - xs: 0-479px (iPhone SE, маленькие телефоны)
+   - sm: 480-639px (iPhone 12/13, средние телефоны)
+   - md: 640-767px (большие телефоны, мини-планшеты)
+   - lg: 768-1023px (планшеты)
+   - xl: 1024px+ (десктоп)
+   ================================================================= */
+
+/* =================================================================
+   XS - МАЛЕНЬКИЕ ТЕЛЕФОНЫ (до 480px)
+   ================================================================= */
+@media (max-width: 479px) {
+  /* Типография */
+  html {
+    font-size: 14px;
+  }
+  
+  h1 {
+    font-size: 1.5rem !important;
+    line-height: 1.2;
+    margin-bottom: 0.75rem;
+  }
+  
+  h2 {
+    font-size: 1.25rem !important;
+    margin-bottom: 0.625rem;
+  }
+  
+  h3 {
+    font-size: 1.125rem !important;
+    margin-bottom: 0.5rem;
+  }
+  
+  h4, h5, h6 {
+    font-size: 1rem !important;
+  }
+  
+  p {
+    font-size: 0.875rem;
+    line-height: 1.6;
+  }
+  
+  /* Контейнеры */
+  .container,
+  .container-fluid,
+  .container-limited {
+    padding-left: 0.75rem !important;
+    padding-right: 0.75rem !important;
+  }
+  
+  main {
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+  }
+  
+  /* Карточки */
+  .card,
+  .card-modern {
+    padding: 0.875rem !important;
+    margin-bottom: 0.75rem !important;
+    border-radius: 0.5rem !important;
+  }
+  
+  .card-body {
+    padding: 0.875rem !important;
+  }
+  
+  .card-img-top {
+    height: 140px !important;
+    object-fit: cover;
+  }
+  
+  /* Кнопки */
+  .btn {
+    min-height: 44px;
+    padding: 0.625rem 1rem !important;
+    font-size: 0.875rem !important;
+    width: 100%;
+    margin-bottom: 0.5rem;
+  }
+  
+  .btn-sm {
+    padding: 0.5rem 0.75rem !important;
+    font-size: 0.8125rem !important;
+  }
+  
+  /* Формы */
+  .form-control,
+  .form-select,
+  input,
+  select,
+  textarea {
+    padding: 0.625rem !important;
+    font-size: 1rem !important; /* 16px чтобы iOS не зумил */
+    border-radius: 0.375rem !important;
+  }
+  
+  /* Навигация */
+  .navbar {
+    padding: 0.5rem 0.75rem !important;
+  }
+  
+  .navbar-brand img {
+    height: 28px !important;
+  }
+  
+  .navbar-toggler {
+    padding: 0.375rem 0.5rem !important;
+  }
+  
+  .navbar-collapse {
+    margin-top: 0.5rem;
+  }
+  
+  .nav-link {
+    padding: 0.625rem 0 !important;
+    font-size: 0.9rem !important;
+  }
+  
+  /* Back to top */
+  #back-to-top {
+    bottom: 1rem !important;
+    right: 1rem !important;
+    width: 40px !important;
+    height: 40px !important;
+    font-size: 1rem !important;
+  }
+  
+  /* Секции */
+  .section-padding {
+    padding: 1.5rem 0 !important;
+  }
+  
+  /* Аватары */
+  .avatar-lg {
+    width: 48px !important;
+    height: 48px !important;
+  }
+  
+  .avatar-xl {
+    width: 64px !important;
+    height: 64px !important;
+  }
+  
+  /* Табы */
+  .nav-pills .nav-link {
+    padding: 0.5rem 0.75rem !important;
+    font-size: 0.8125rem !important;
+  }
+  
+  /* Member cards */
+  .member-card {
+    padding: 0.75rem !important;
+  }
+  
+  .member-card .member-photo,
+  .member-card .member-avatar {
+    width: 60px !important;
+    height: 60px !important;
+  }
+  
+  .member-card h6 {
+    font-size: 0.9rem !important;
+  }
+  
+  /* Footer */
+  .footer-enhanced {
+    padding: 1.5rem 0 !important;
+  }
+  
+  .footer-title {
+    font-size: 0.875rem !important;
+  }
+  
+  .footer-links li a {
+    font-size: 0.8125rem !important;
+  }
+  
+  /* Hero */
+  .hero-section {
+    padding: 1.25rem !important;
+  }
+  
+  .hero-section h1 {
+    font-size: 1.375rem !important;
+  }
+}
+
+/* =================================================================
+   SM - СРЕДНИЕ ТЕЛЕФОНЫ (480-639px)
+   ================================================================= */
+@media (min-width: 480px) and (max-width: 639px) {
+  html {
+    font-size: 15px;
+  }
+  
+  h1 {
+    font-size: 1.625rem !important;
+  }
+  
+  h2 {
+    font-size: 1.375rem !important;
+  }
+  
+  .container,
+  .container-fluid,
+  .container-limited {
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+  }
+  
+  .card,
+  .card-modern {
+    padding: 1rem !important;
+  }
+  
+  .card-img-top {
+    height: 160px !important;
+  }
+  
+  .btn {
+    padding: 0.75rem 1.25rem !important;
+  }
+  
+  .navbar-brand img {
+    height: 32px !important;
+  }
+  
+  #back-to-top {
+    bottom: 1.25rem !important;
+    right: 1.25rem !important;
+    width: 44px !important;
+    height: 44px !important;
+  }
+  
+  .section-padding {
+    padding: 2rem 0 !important;
+  }
+  
+  .member-card .member-photo,
+  .member-card .member-avatar {
+    width: 70px !important;
+    height: 70px !important;
+  }
+}
+
+/* =================================================================
+   MD - БОЛЬШИЕ ТЕЛЕФОНЫ / МИНИ-ПЛАНШЕТЫ (640-767px)
+   ================================================================= */
+@media (min-width: 640px) and (max-width: 767px) {
+  html {
+    font-size: 15px;
+  }
+  
+  h1 {
+    font-size: 1.75rem !important;
+  }
+  
+  h2 {
+    font-size: 1.5rem !important;
+  }
+  
+  .container,
+  .container-fluid,
+  .container-limited {
+    padding-left: 1.25rem !important;
+    padding-right: 1.25rem !important;
+  }
+  
+  .card,
+  .card-modern {
+    padding: 1.125rem !important;
+  }
+  
+  .card-img-top {
+    height: 180px !important;
+  }
+  
+  #back-to-top {
+    bottom: 1.5rem !important;
+    right: 1.5rem !important;
+    width: 48px !important;
+    height: 48px !important;
+  }
+  
+  .section-padding {
+    padding: 2.5rem 0 !important;
+  }
+  
+  .member-card .member-photo,
+  .member-card .member-avatar {
+    width: 80px !important;
+    height: 80px !important;
+  }
+}
+
+/* =================================================================
+   ОБЩИЕ МОБИЛЬНЫЕ СТИЛИ (до 768px)
+   ================================================================= */
+@media (max-width: 767px) {
+  /* Убираем hover эффекты на touch */
+  .card:hover,
+  .btn:hover,
+  .member-card:hover,
+  .partner-card-enhanced:hover,
+  .gallery-thumb:hover {
+    transform: none !important;
+  }
+  
+  /* Плавные переходы отключаем */
+  .card,
+  .btn,
+  a {
+    transition: opacity 0.15s ease, background-color 0.15s ease !important;
+  }
+  
+  /* Сетка - одна колонка */
+  .row > [class*="col-md-"],
+  .row > [class*="col-lg-"] {
+    flex: 0 0 100%;
+    max-width: 100%;
+    margin-bottom: 1rem;
+  }
+  
+  /* Две колонки только где надо */
+  .row > .col-6 {
+    flex: 0 0 50%;
+    max-width: 50%;
+  }
+  
+  /* Навигация */
+  .navbar-collapse {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: #fff;
+    padding: 1rem;
+    border-top: 1px solid #e9ecef;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    z-index: 1000;
+  }
+  
+  .navbar-nav {
+    flex-direction: column;
+    width: 100%;
+  }
+  
+  .navbar .nav-item {
+    border-bottom: 1px solid #f3f4f6;
+  }
+  
+  .navbar .nav-item:last-child {
+    border-bottom: none;
+  }
+  
+  .navbar .nav-link {
+    padding: 0.75rem 0 !important;
+    display: block;
+  }
+  
+  /* Dropdown на мобиле */
+  .dropdown-menu {
+    position: static !important;
+    float: none;
+    width: 100%;
+    margin: 0;
+    border: none;
+    box-shadow: none;
+    background: #f9fafb;
+    padding: 0.5rem 1rem;
+  }
+  
+  .dropdown-item {
+    padding: 0.5rem 0;
+  }
+  
+  /* Кнопки в навбаре */
+  .navbar .d-flex {
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+  }
+  
+  .navbar .d-flex .btn {
+    width: 100%;
+  }
+  
+  /* Поиск */
+  #post-search-form,
+  .search-form {
+    flex-direction: column !important;
+    gap: 0.5rem !important;
+  }
+  
+  #post-search-form input,
+  #post-search-form select,
+  #post-search-form button,
+  .search-form input,
+  .search-form select,
+  .search-form button {
+    width: 100% !important;
+  }
+  
+  /* Таблицы */
+  .table-responsive {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  table {
+    font-size: 0.8125rem;
+  }
+  
+  table th,
+  table td {
+    padding: 0.5rem !important;
+    white-space: nowrap;
+  }
+  
+  /* Модальные окна */
+  .modal-dialog {
+    margin: 0.5rem;
+    max-width: calc(100% - 1rem);
+  }
+  
+  .modal-content {
+    border-radius: 0.75rem;
+  }
+  
+  .modal-header,
+  .modal-body,
+  .modal-footer {
+    padding: 1rem;
+  }
+  
+  .modal-footer {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  
+  .modal-footer .btn {
+    width: 100%;
+    margin: 0;
+  }
+  
+  /* Пагинация */
+  .pagination {
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+  }
+  
+  .pagination .page-link {
+    min-width: 40px;
+    min-height: 40px;
+    padding: 0.375rem 0.625rem;
+    font-size: 0.875rem;
+  }
+  
+  /* Footer */
+  .footer-enhanced .row {
+    gap: 1.5rem;
+  }
+  
+  .footer-enhanced .col-12,
+  .footer-enhanced .col-md-4,
+  .footer-enhanced .col-md-2,
+  .footer-enhanced .col-md-3 {
+    width: 100% !important;
+    flex: 0 0 100% !important;
+  }
+  
+  .footer-social {
+    width: 40px !important;
+    height: 40px !important;
+  }
+  
+  /* Галерея */
+  .gallery-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 0.5rem !important;
+  }
+  
+  .gallery-thumb {
+    aspect-ratio: 1;
+  }
+  
+  /* Member cards */
+  .member-card .row {
+    flex-direction: row !important;
+  }
+  
+  .member-card .col-4,
+  .member-card .col-md-3 {
+    flex: 0 0 auto;
+    width: auto;
+    padding-right: 0.75rem;
+  }
+  
+  .member-card .col-8,
+  .member-card .col-md-9 {
+    flex: 1;
+    padding: 0;
+  }
+  
+  /* Partner cards */
+  .partner-card-enhanced {
+    padding: 1rem !important;
+  }
+  
+  .partner-card-enhanced img {
+    max-height: 50px !important;
+  }
+  
+  /* Events */
+  .event-card .card-body {
+    padding: 0.875rem !important;
+  }
+  
+  .event-date-chip {
+    width: 45px !important;
+    height: 45px !important;
+    font-size: 0.625rem !important;
+  }
+  
+  /* Blog posts */
+  .post-card .card-body {
+    padding: 0.875rem !important;
+  }
+  
+  .post-preview {
+    font-size: 0.8125rem;
+    -webkit-line-clamp: 2;
+  }
+  
+  /* About section */
+  #about-section img.rounded-circle {
+    width: 100px !important;
+    height: 100px !important;
+  }
+  
+  #about-section .card {
+    padding: 1.25rem !important;
+  }
+  
+  /* Badges */
+  .badge {
+    padding: 0.25rem 0.5rem !important;
+    font-size: 0.6875rem !important;
+  }
+  
+  /* Tabs */
+  .nav-pills {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  .nav-pills::-webkit-scrollbar {
+    display: none;
+  }
+  
+  .nav-pills .nav-link {
+    white-space: nowrap;
+  }
+  
+  /* Hero section */
+  .hero-section .lead {
+    font-size: 0.9375rem !important;
+  }
+  
+  /* Profile specific */
+  .profile-header {
+    flex-direction: column;
+    text-align: center;
+    gap: 1rem;
+  }
+  
+  .profile-avatar {
+    width: 80px !important;
+    height: 80px !important;
+  }
+  
+  /* Empty state */
+  .empty-state {
+    padding: 2rem 1rem;
+  }
+  
+  .empty-emoji {
+    font-size: 3rem;
+  }
+}
+
+/* =================================================================
+   LG - ПЛАНШЕТЫ (768-1023px)
+   ================================================================= */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .container,
+  .container-fluid,
+  .container-limited {
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+  }
+  
+  .section-padding {
+    padding: 3rem 0;
+  }
+  
+  #back-to-top {
+    bottom: 1.5rem;
+    right: 1.5rem;
+    width: 52px;
+    height: 52px;
+  }
+  
+  /* Grid - две колонки для планшетов */
+  .row > [class*="col-lg-"] {
+    flex: 0 0 50%;
+    max-width: 50%;
+  }
+  
+  /* Галерея - 3 колонки */
+  .gallery-grid {
+    grid-template-columns: repeat(3, 1fr) !important;
+  }
+}
+
+/* =================================================================
+   ЛАНДШАФТНАЯ ОРИЕНТАЦИЯ
+   ================================================================= */
+@media (max-height: 500px) and (orientation: landscape) {
+  .navbar {
+    padding: 0.375rem 1rem !important;
+  }
+  
+  .navbar-brand img {
+    height: 24px !important;
+  }
+  
+  h1 {
+    font-size: 1.25rem !important;
+  }
+  
+  .section-padding {
+    padding: 1rem 0 !important;
+  }
+  
+  .modal-dialog {
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+}
+
+/* =================================================================
+   ACCESSIBILITY - REDUCED MOTION
+   ================================================================= */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* =================================================================
+   TOUCH DEVICES
+   ================================================================= */
+@media (pointer: coarse) {
+  /* Минимальный размер для тача - 44x44px (Apple HIG) */
+  .btn,
+  a.btn,
+  .nav-link,
+  .dropdown-item,
+  .pagination .page-link,
+  input[type="button"],
+  input[type="submit"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  /* Убираем hover эффекты */
+  *:hover {
+    transform: none !important;
+  }
+  
+  /* Active state вместо hover */
+  .btn:active,
+  .card:active,
+  a:active {
+    opacity: 0.85;
+  }
+}
+
+/* =================================================================
+   УТИЛИТЫ ДЛЯ МОБИЛЬНЫХ
+   ================================================================= */
+
+/* Скрыть на мобильных */
+@media (max-width: 767px) {
+  .d-mobile-none,
+  .hide-mobile {
+    display: none !important;
+  }
+}
+
+/* Показать только на мобильных */
+@media (min-width: 768px) {
+  .d-mobile-only,
+  .show-mobile-only {
+    display: none !important;
+  }
+}
+
+/* Полная ширина на мобильных */
+@media (max-width: 767px) {
+  .w-mobile-100,
+  .mobile-full-width {
+    width: 100% !important;
+  }
+}
+
+/* Центрирование текста на мобильных */
+@media (max-width: 767px) {
+  .text-mobile-center {
+    text-align: center !important;
+  }
+}
+
+/* Стек на мобильных */
+@media (max-width: 767px) {
+  .d-mobile-stack,
+  .mobile-stack {
+    flex-direction: column !important;
+  }
+}
+
+/* =================================================================
+   ФИКСЫ СПЕЦИФИЧНЫХ КОМПОНЕНТОВ
+   ================================================================= */
+
+/* CKEditor на мобильных */
+@media (max-width: 767px) {
+  .ck-editor__editable {
+    min-height: 150px !important;
+    font-size: 1rem !important;
+  }
+  
+  .ck-toolbar {
+    flex-wrap: wrap !important;
+  }
+}
+
+/* Select2 на мобильных */
+@media (max-width: 767px) {
+  .select2-container {
+    width: 100% !important;
+  }
+  
+  .select2-dropdown {
+    width: 100% !important;
+  }
+}
+
+/* Lightbox на мобильных */
+@media (max-width: 767px) {
+  .lb-outerContainer {
+    max-width: 95vw !important;
+  }
+  
+  .lb-nav a.lb-prev,
+  .lb-nav a.lb-next {
+    width: 40% !important;
+  }
+}
