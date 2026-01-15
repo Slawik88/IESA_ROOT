@@ -291,10 +291,10 @@
   font-weight: normal;
 }
 
-/* Dark mode support */
+/* Dark mode support - DISABLED (светлая тема всегда) */
 @media (prefers-color-scheme: dark) {
   .form-progress-container {
-    background: #1f2937;
+    background: #ffffff !important;
   }
 
   .form-progress-bar {
@@ -302,14 +302,14 @@
   }
 
   .form-progress-text {
-    color: #f3f4f6;
-    background: #111827;
+    color: #111827 !important;
+    background: #f9fafb !important;
   }
 
   .step-number {
-    background: #111827;
-    border-color: #374151;
-    color: #d1d5db;
+    background: #ffffff !important;
+    border-color: #e5e7eb !important;
+    color: #6b7280 !important;
   }
 
   .step-number:hover:not(.completed) {
@@ -326,9 +326,9 @@
   }
 
   .form-control:disabled {
-    background-color: #1f2937;
-    border-color: #374151;
-    color: #6b7280;
+    background-color: #f3f4f6 !important;
+    border-color: #d1d5db !important;
+    color: #6b7280 !important;
   }
 
   .form-field-group[data-group-type="collapsible"] {

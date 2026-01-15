@@ -499,45 +499,45 @@ label.required::after {
   }
 
   .group-toggle {
-    background: #111827;
-    color: #f3f4f6;
-    border-color: #374151;
+    background: #ffffff !important;
+    color: #111827 !important;
+    border-color: #e5e7eb !important;
   }
 
   .group-toggle:hover {
-    background: #1f2937;
+    background: #f9fafb !important;
   }
 
   .group-header {
-    background: #111827;
-    color: #f3f4f6;
-    border-color: #374151;
+    background: #ffffff !important;
+    color: #111827 !important;
+    border-color: #e5e7eb !important;
   }
 
   .group-header:hover {
-    background: #1f2937;
+    background: #f9fafb !important;
   }
 
   .group-tabs {
-    background: #111827;
-    border-color: #374151;
+    background: #ffffff !important;
+    border-color: #e5e7eb !important;
   }
 
   .group-tab {
-    color: #9ca3af;
+    color: #6b7280 !important;
   }
 
   .group-tab:hover {
-    background: #1f2937;
-    color: #f3f4f6;
+    background: #f9fafb !important;
+    color: #111827 !important;
   }
 
   .password-strength-meter {
-    background: #1f2937;
+    background: #f9fafb !important;
   }
 
   .strength-bar {
-    background: #374151;
+    background: #e5e7eb !important;
   }
 
   label {
@@ -545,13 +545,13 @@ label.required::after {
   }
 
   .auto-save-indicator {
-    background: #1f2937;
-    border-color: #374151;
-    color: #d1d5db;
+    background: #ffffff !important;
+    border-color: #e5e7eb !important;
+    color: #6b7280 !important;
   }
 
   .auto-save-indicator.saved {
-    background: #064e3b;
+    background: #d1fae5 !important;
     border-color: var(--validation-success);
   }
 }
