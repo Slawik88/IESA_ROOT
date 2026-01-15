@@ -1,0 +1,343 @@
+/* ============================================================
+   IESA BASE CSS - Reset и базовые стили
+   Версия: 2.0
+   
+   Содержит:
+   - CSS Reset
+   - Базовые стили HTML элементов
+   - Типография
+   - Ссылки
+   ============================================================ */
+
+/* ====================================================
+   1. CSS RESET (минимальный, не мешающий Bootstrap)
+   ==================================================== */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/* Убираем дефолтные отступы только для конкретных элементов */
+h1, h2, h3, h4, h5, h6,
+p, figure, blockquote, dl, dd {
+  margin: 0;
+}
+
+/* Убираем стили списков только где нужно */
+ul[role="list"],
+ol[role="list"],
+.list-unstyled {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+/* Более плавная работа с переполнением */
+html {
+  scroll-behavior: smooth;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Базовые стили body */
+body {
+  font-family: var(--font-family);
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
+  color: var(--text-primary);
+  background-color: var(--bg-body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Картинки */
+img,
+picture,
+video,
+canvas,
+svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+/* Наследование шрифтов для форм */
+input,
+button,
+textarea,
+select {
+  font: inherit;
+}
+
+/* Убираем анимации для тех, кто их отключил */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ====================================================
+   2. ТИПОГРАФИЯ
+   ==================================================== */
+
+h1, h2, h3, h4, h5, h6 {
+  font-weight: var(--font-bold);
+  line-height: var(--leading-tight);
+  color: var(--text-primary);
+  letter-spacing: var(--tracking-tight);
+}
+
+h1 {
+  font-size: var(--text-4xl);
+  font-weight: var(--font-extrabold);
+}
+
+h2 {
+  font-size: var(--text-3xl);
+}
+
+h3 {
+  font-size: var(--text-2xl);
+}
+
+h4 {
+  font-size: var(--text-xl);
+}
+
+h5 {
+  font-size: var(--text-lg);
+}
+
+h6 {
+  font-size: var(--text-base);
+  font-weight: var(--font-semibold);
+}
+
+p {
+  margin-bottom: var(--space-4);
+  line-height: var(--leading-relaxed);
+}
+
+p:last-child {
+  margin-bottom: 0;
+}
+
+/* Мелкий текст */
+small,
+.small {
+  font-size: var(--text-sm);
+}
+
+.text-xs {
+  font-size: var(--text-xs);
+}
+
+/* Жирный текст */
+strong,
+.fw-bold {
+  font-weight: var(--font-bold);
+}
+
+.fw-semibold {
+  font-weight: var(--font-semibold);
+}
+
+.fw-medium,
+.fw-500 {
+  font-weight: var(--font-medium);
+}
+
+.fw-extrabold {
+  font-weight: var(--font-extrabold);
+}
+
+/* ====================================================
+   3. ССЫЛКИ
+   ==================================================== */
+
+a {
+  color: var(--primary);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+
+a:hover {
+  color: var(--primary-hover);
+}
+
+a:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring-color);
+  outline-offset: var(--focus-ring-offset);
+  border-radius: var(--radius-sm);
+}
+
+/* ====================================================
+   4. ВЫДЕЛЕНИЕ ТЕКСТА
+   ==================================================== */
+
+::selection {
+  background-color: var(--primary-200);
+  color: var(--text-primary);
+}
+
+/* ====================================================
+   5. СКРОЛЛ-БАР (тонкий стиль)
+   ==================================================== */
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--gray-100);
+  border-radius: var(--radius-full);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--gray-300);
+  border-radius: var(--radius-full);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--gray-400);
+}
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--gray-300) var(--gray-100);
+}
+
+/* ====================================================
+   6. SKIP LINK (Accessibility)
+   ==================================================== */
+
+.skip-to-main {
+  position: absolute;
+  top: -100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--primary);
+  color: var(--white);
+  padding: var(--space-3) var(--space-6);
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+  z-index: var(--z-tooltip);
+  font-weight: var(--font-semibold);
+  transition: top var(--transition-fast);
+}
+
+.skip-to-main:focus {
+  top: 0;
+  color: var(--white);
+}
+
+/* ====================================================
+   7. FOCUS VISIBLE (глобальный стиль)
+   ==================================================== */
+
+:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring-color);
+  outline-offset: var(--focus-ring-offset);
+}
+
+/* Убираем outline для мыши */
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* ====================================================
+   8. РАЗДЕЛИТЕЛИ
+   ==================================================== */
+
+hr {
+  border: 0;
+  border-top: 1px solid var(--border-color);
+  margin: var(--space-6) 0;
+}
+
+/* ====================================================
+   9. ЦИТАТЫ
+   ==================================================== */
+
+blockquote {
+  border-left: 4px solid var(--primary);
+  padding-left: var(--space-4);
+  margin: var(--space-6) 0;
+  font-style: italic;
+  color: var(--text-secondary);
+}
+
+/* ====================================================
+   10. КОД
+   ==================================================== */
+
+code,
+kbd,
+pre,
+samp {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+}
+
+code {
+  background: var(--gray-100);
+  padding: 0.2em 0.4em;
+  border-radius: var(--radius-sm);
+  color: var(--primary);
+}
+
+pre {
+  background: var(--gray-900);
+  color: var(--gray-100);
+  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+  overflow-x: auto;
+}
+
+pre code {
+  background: transparent;
+  padding: 0;
+  color: inherit;
+}
+
+/* ====================================================
+   11. ТАБЛИЦЫ (базовые улучшения)
+   ==================================================== */
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th {
+  text-align: left;
+  font-weight: var(--font-semibold);
+}
+
+/* ====================================================
+   12. ИЗОБРАЖЕНИЯ И МЕДИА
+   ==================================================== */
+
+img {
+  vertical-align: middle;
+}
+
+figure {
+  margin: 0;
+}
+
+figcaption {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  margin-top: var(--space-2);
+}

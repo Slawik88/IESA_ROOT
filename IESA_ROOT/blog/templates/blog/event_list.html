@@ -6,8 +6,8 @@
 <div class="container-limited">
     {% now "U" as now_ts %}
     <div class="text-center mb-5">
-        <h6 class="section-title mb-4" style="display: block;">EVENTS CALENDAR</h6>
-        <h1 class="fw-bold mb-2" style="color: var(--color-gray-900);">Upcoming Events & Gatherings</h1>
+        <h6 class="section-title d-block mb-4">EVENTS CALENDAR</h6>
+        <h1 class="fw-bold mb-2 text-gray-900">Upcoming Events & Gatherings</h1>
         <p class="text-muted">Join us for exciting experiences and networking opportunities</p>
     </div>
 
@@ -18,13 +18,13 @@
         </nav>
         <div class="ms-3 flex-fill d-flex gap-2">
             <input type="text" id="event-search" class="form-control form-control-sm" placeholder="Search events..." aria-label="Search events">
-            <select id="event-filter-type" class="form-select form-select-sm" style="max-width: 120px;">
+            <select id="event-filter-type" class="form-select form-select-sm w-auto-120">
                 <option value="">All types</option>
                 <option value="webinar">Webinar</option>
                 <option value="workshop">Workshop</option>
                 <option value="conference">Conference</option>
             </select>
-            <select id="event-filter-status" class="form-select form-select-sm" style="max-width: 140px;">
+            <select id="event-filter-status" class="form-select form-select-sm w-auto-140">
                 <option value="upcoming">Upcoming</option>
                 <option value="all">All events</option>
                 <option value="past">Past</option>
@@ -135,36 +135,6 @@
         </div>
     {% endif %}
 </div>
-
-<style>
-@keyframes fadeInUp {
-    from {
-        opacity: 0;
-        transform: translateY(30px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-.event-card-animate {
-    opacity: 0;
-}
-
-.event-card-animate.animated {
-    animation: fadeInUp 0.6s ease-out forwards;
-}
-
-.event-card-animate:nth-child(1) { animation-delay: 0.1s; }
-.event-card-animate:nth-child(2) { animation-delay: 0.15s; }
-.event-card-animate:nth-child(3) { animation-delay: 0.2s; }
-.event-card-animate:nth-child(4) { animation-delay: 0.25s; }
-.event-card-animate:nth-child(5) { animation-delay: 0.3s; }
-.event-card-animate:nth-child(6) { animation-delay: 0.35s; }
-.event-card-animate:nth-child(7) { animation-delay: 0.4s; }
-.event-card-animate:nth-child(8) { animation-delay: 0.45s; }
-</style>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {

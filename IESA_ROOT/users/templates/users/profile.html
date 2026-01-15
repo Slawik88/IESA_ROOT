@@ -5,54 +5,51 @@
 {% block title %}Profile of {{ profile_user.username }}{% endblock %}
 
 {% block content %}
-<div class="container-fluid py-5" style="background: linear-gradient(135deg, #fafafa 0%, #ffffff 100%); min-height: 100vh;">
-    <div class="container" style="max-width: 1400px;">
+<div class="profile-page py-5">
+    <div class="container container-profile">
         <div class="row justify-content-center">
             <div class="col-12" style="max-width: 1200px;">
                 <!-- Profile Header -->
-                <div class="card mb-5 p-4 p-md-5" style="border-radius: 24px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08), 0 2px 6px rgba(0,0,0,0.04); border: 1px solid rgba(0,0,0,0.06); background: linear-gradient(145deg, #ffffff 0%, #fafafa 100%);">
+                <div class="profile-header mb-5">
                     <div class="row g-4">
                         <!-- Avatar -->
                         <div class="col-lg-3 col-md-4 text-center mb-4 mb-md-0">
-                            <div class="position-relative d-inline-block" style="padding: 6px; background: linear-gradient(135deg, #ef4444, #dc2626); border-radius: 50%; box-shadow: 0 8px 24px rgba(239,68,68,0.25);">
+                            <div class="profile-avatar-frame position-relative d-inline-block">
                                 {% if profile_user.avatar and profile_user.avatar.name != 'avatars/default.png' %}
                                     <img src="{{ profile_user.avatar.url }}" 
                                          alt="{{ profile_user.username }}" 
-                                         style="width: 160px; height: 160px; border-radius: 50%; border: 5px solid white; display: block; object-fit: cover;">
+                                         class="profile-avatar">
                                 {% else %}
-                                    <div style="width: 160px; height: 160px; border-radius: 50%; border: 5px solid white; background: linear-gradient(135deg, #ef4444, #dc2626); display: flex; align-items: center; justify-content: center; color: white; font-size: 4rem; font-weight: 800;">
+                                    <div class="profile-avatar-fallback">
                                         {{ profile_user.username|slice:":1"|upper }}
                                     </div>
                                 {% endif %}
-                                
-
                             </div>
                             
-                            <h2 class="mt-4 mb-2 fw-bold" style="font-size: 2rem; color: #111827; letter-spacing: -0.03em;">{{ profile_user.username }}</h2>
-                            <p class="text-muted mb-3" style="font-size: 1.0625rem; font-weight: 500;">{{ profile_user.email }}</p>
+                            <h2 class="profile-name">{{ profile_user.username }}</h2>
+                            <p class="profile-email mb-3">{{ profile_user.email }}</p>
                             
                             {% if user.is_authenticated and user.id == profile_user.id and profile_user.permanent_id %}
                                 <div class="mb-3">
-                                    <span class="badge" style="background: linear-gradient(135deg, rgba(239,68,68,0.08) 0%, rgba(220,38,38,0.12) 100%); color: #dc2626; padding: 10px 20px; border-radius: 14px; font-family: 'Courier New', monospace; font-size: 1.0625rem; font-weight: 700; letter-spacing: 0.02em; border: 1px solid rgba(239,68,68,0.15);">
+                                    <span class="profile-id-badge">
                                         ID: {{ profile_user.permanent_id }}
                                     </span>
                                 </div>
 
                                 <div class="mb-4">
-                                    <div class="card" style="border-radius: 20px; padding: 24px; background: linear-gradient(145deg, #ffffff 0%, #f8f9fa 100%); box-shadow: 0 4px 16px rgba(239,68,68,0.12), 0 2px 4px rgba(0,0,0,0.04); border: 2px solid rgba(239,68,68,0.1);">
-                                        <h6 class="mb-3 fw-bold" style="color: #374151; font-size: 0.9375rem; text-transform: uppercase; letter-spacing: 0.08em;">Your QR Code</h6>
+                                    <div class="profile-qr-card">
+                                        <h6 class="profile-detail-label mb-3">Your QR Code</h6>
                                         <a href="{% url 'profile_by_card' permanent_id=profile_user.permanent_id %}" title="Open profile by card">
                                             <img src="{% url 'user_qr' permanent_id=profile_user.permanent_id %}" 
-                                                 alt="QR Code" 
-                                                 style="width: 200px; height: 200px; margin: 0 auto; display: block; border-radius: 16px; box-shadow: 0 8px 20px rgba(239,68,68,0.2);">
+                                                 alt="QR Code">
                                         </a>
-                                        <p class="mt-3 mb-0 small text-muted" style="font-size: 0.875rem; line-height: 1.6; font-weight: 500;">Share this QR code with others to quickly share your profile</p>
-                                        <a class="btn btn-outline-primary btn-sm mt-3" href="{% url 'user_qr' permanent_id=profile_user.permanent_id %}?download=1" style="border-radius: 12px; font-weight: 600;">
+                                        <p class="mt-3 mb-0 small text-muted">Share this QR code with others to quickly share your profile</p>
+                                        <a class="btn btn-outline-primary btn-sm mt-3" href="{% url 'user_qr' permanent_id=profile_user.permanent_id %}?download=1">
                                             <i class="fas fa-download me-2"></i>Download QR
                                         </a>
                                     </div>
                                 </div>
-                                <a href="{% url 'profile_edit' %}" class="btn btn-primary btn-lg" style="border-radius: 14px; padding: 14px 32px; font-weight: 700; box-shadow: 0 6px 16px rgba(239,68,68,0.3); transition: all 0.3s cubic-bezier(0.4,0,0.2,1); letter-spacing: 0.01em; display: inline-flex; align-items: center; justify-content: center; width: auto; min-width: 200px;">
+                                <a href="{% url 'profile_edit' %}" class="btn btn-primary btn-lg">
                                     <i class="fas fa-edit me-2"></i>Edit Profile
                                 </a>
                             {% endif %}
@@ -62,45 +59,45 @@
                         <div class="col-lg-9 col-md-8">
                             <div class="row g-4 mb-5">
                                 <div class="col-sm-6">
-                                    <div class="card h-100 p-4" style="border-radius: 18px; background: linear-gradient(135deg, rgba(239,68,68,0.04) 0%, rgba(220,38,38,0.06) 100%); border: 1px solid rgba(239,68,68,0.12); box-shadow: 0 2px 8px rgba(239,68,68,0.08); transition: all 0.4s cubic-bezier(0.4,0,0.2,1); cursor: pointer;">
-                                        <div style="width: 56px; height: 56px; background: linear-gradient(135deg, #ef4444, #dc2626); border-radius: 14px; display: flex; align-items: center; justify-content: center; margin-bottom: 1rem; box-shadow: 0 6px 16px rgba(239,68,68,0.3);">
-                                            <i class="fas fa-user" style="color: white; font-size: 1.375rem;"></i>
+                                    <div class="profile-detail-card card-red h-100">
+                                        <div class="icon-box icon-box-md icon-box-primary mb-3">
+                                            <i class="fas fa-user"></i>
                                         </div>
-                                        <h6 class="text-uppercase mb-2" style="color: #6b7280; font-weight: 700; font-size: 0.75rem; letter-spacing: 0.08em;">Full Name</h6>
-                                        <p class="mb-0 fw-bold" style="font-size: 1.25rem; color: #111827; letter-spacing: -0.01em;">
+                                        <h6 class="profile-detail-label">Full Name</h6>
+                                        <p class="profile-detail-value mb-0">
                                             {{ profile_user.first_name|default:"—" }} {{ profile_user.last_name|default:"—" }}
                                         </p>
                                     </div>
                                 </div>
                                 <div class="col-sm-6">
-                                    <div class="card h-100 p-4" style="border-radius: 18px; background: linear-gradient(135deg, rgba(59,130,246,0.04) 0%, rgba(37,99,235,0.06) 100%); border: 1px solid rgba(59,130,246,0.12); box-shadow: 0 2px 8px rgba(59,130,246,0.08); transition: all 0.4s cubic-bezier(0.4,0,0.2,1); cursor: pointer;">
-                                        <div style="width: 56px; height: 56px; background: linear-gradient(135deg, #3b82f6, #2563eb); border-radius: 14px; display: flex; align-items: center; justify-content: center; margin-bottom: 1rem; box-shadow: 0 6px 16px rgba(59,130,246,0.3);">
-                                            <i class="fas fa-birthday-cake" style="color: white; font-size: 1.375rem;"></i>
+                                    <div class="profile-detail-card card-blue h-100">
+                                        <div class="icon-box icon-box-md icon-box-secondary mb-3">
+                                            <i class="fas fa-birthday-cake"></i>
                                         </div>
-                                        <h6 class="text-uppercase mb-2" style="color: #6b7280; font-weight: 700; font-size: 0.75rem; letter-spacing: 0.08em;">Date of Birth</h6>
-                                        <p class="mb-0 fw-bold" style="font-size: 1.25rem; color: #111827; letter-spacing: -0.01em;">
+                                        <h6 class="profile-detail-label">Date of Birth</h6>
+                                        <p class="profile-detail-value mb-0">
                                             {% if profile_user.dob %}{{ profile_user.dob|date:"d M Y" }}{% else %}—{% endif %}
                                         </p>
                                     </div>
                                 </div>
                                 <div class="col-sm-6">
-                                    <div class="card h-100 p-4" style="border-radius: 18px; background: linear-gradient(135deg, rgba(245,158,11,0.04) 0%, rgba(217,119,6,0.06) 100%); border: 1px solid rgba(245,158,11,0.12); box-shadow: 0 2px 8px rgba(245,158,11,0.08); transition: all 0.4s cubic-bezier(0.4,0,0.2,1); cursor: pointer;">
-                                        <div style="width: 56px; height: 56px; background: linear-gradient(135deg, #f59e0b, #d97706); border-radius: 14px; display: flex; align-items: center; justify-content: center; margin-bottom: 1rem; box-shadow: 0 6px 16px rgba(245,158,11,0.3);">
-                                            <i class="fas fa-phone" style="color: white; font-size: 1.375rem;"></i>
+                                    <div class="profile-detail-card card-amber h-100">
+                                        <div class="icon-box icon-box-md icon-box-warning mb-3">
+                                            <i class="fas fa-phone"></i>
                                         </div>
-                                        <h6 class="text-uppercase mb-2" style="color: #6b7280; font-weight: 700; font-size: 0.75rem; letter-spacing: 0.08em;">Phone</h6>
-                                        <p class="mb-0 fw-bold" style="font-size: 1.25rem; color: #111827; letter-spacing: -0.01em;">
+                                        <h6 class="profile-detail-label">Phone</h6>
+                                        <p class="profile-detail-value mb-0">
                                             {{ profile_user.phone|default:"Not provided" }}
                                         </p>
                                     </div>
                                 </div>
                                 <div class="col-sm-6">
-                                    <div class="card h-100 p-4" style="border-radius: 18px; background: linear-gradient(135deg, rgba(16,185,129,0.04) 0%, rgba(5,150,105,0.06) 100%); border: 1px solid rgba(16,185,129,0.12); box-shadow: 0 2px 8px rgba(16,185,129,0.08); transition: all 0.4s cubic-bezier(0.4,0,0.2,1); cursor: pointer;">
-                                        <div style="width: 56px; height: 56px; background: linear-gradient(135deg, #10b981, #059669); border-radius: 14px; display: flex; align-items: center; justify-content: center; margin-bottom: 1rem; box-shadow: 0 6px 16px rgba(16,185,129,0.3);">
-                                            <i class="fas fa-calendar" style="color: white; font-size: 1.375rem;"></i>
+                                    <div class="profile-detail-card card-emerald h-100">
+                                        <div class="icon-box icon-box-md icon-box-emerald mb-3">
+                                            <i class="fas fa-calendar"></i>
                                         </div>
-                                        <h6 class="text-uppercase mb-2" style="color: #6b7280; font-weight: 700; font-size: 0.75rem; letter-spacing: 0.08em;">Joined</h6>
-                                        <p class="mb-0 fw-bold" style="font-size: 1.25rem; color: #111827; letter-spacing: -0.01em;">
+                                        <h6 class="profile-detail-label">Joined</h6>
+                                        <p class="profile-detail-value mb-0">
                                             {{ profile_user.date_joined|date:"d M Y" }}
                                         </p>
                                     </div>
@@ -108,58 +105,58 @@
                             </div>
 
                             <!-- Activity Level -->
-                            <div class="card p-5 mb-5" style="border-radius: 20px; background: linear-gradient(145deg, rgba(255,255,255,0.95) 0%, rgba(248,249,250,0.98) 100%); box-shadow: 0 4px 16px rgba(0,0,0,0.06); border: 1px solid rgba(0,0,0,0.06);">
+                            <div class="profile-activity-card mb-5">
                                 {% with level_info=profile_user.get_achievement_level %}
                                 <div class="row align-items-center">
                                     <div class="col-md-6 text-center text-md-start mb-4 mb-md-0">
                                         <div class="d-flex flex-column flex-md-row align-items-center gap-4">
                                             <div>
-                                                <h6 class="mb-3" style="color: #6b7280; font-weight: 700; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.08em;">Activity Level</h6>
+                                                <h6 class="profile-detail-label mb-3">Activity Level</h6>
                                                 {% if level_info.level == "Legend" %}
-                                                    <span class="badge badge-danger" style="font-size: 1.25rem; padding: 12px 24px; border-radius: 12px; box-shadow: 0 4px 12px rgba(220,38,38,0.3);">
+                                                    <span class="badge badge-danger badge-level">
                                                         <i class="fas fa-crown me-2"></i>Legend
                                                     </span>
                                                 {% elif level_info.level == "Expert" %}
-                                                    <span class="badge badge-warning" style="font-size: 1.25rem; padding: 12px 24px; border-radius: 12px; box-shadow: 0 4px 12px rgba(245,158,11,0.3);">
+                                                    <span class="badge badge-warning badge-level">
                                                         <i class="fas fa-star me-2"></i>Expert
                                                     </span>
                                                 {% elif level_info.level == "Advanced" %}
-                                                    <span class="badge badge-info" style="font-size: 1.25rem; padding: 12px 24px; border-radius: 12px; box-shadow: 0 4px 12px rgba(59,130,246,0.3);">
+                                                    <span class="badge badge-info badge-level">
                                                         <i class="fas fa-rocket me-2"></i>Advanced
                                                     </span>
                                                 {% elif level_info.level == "Intermediate" %}
-                                                    <span class="badge badge-success" style="font-size: 1.25rem; padding: 12px 24px; border-radius: 12px; box-shadow: 0 4px 12px rgba(16,185,129,0.3);">
+                                                    <span class="badge badge-success badge-level">
                                                         <i class="fas fa-fire me-2"></i>Intermediate
                                                     </span>
                                                 {% else %}
-                                                    <span class="badge badge-secondary" style="font-size: 1.25rem; padding: 12px 24px; border-radius: 12px; box-shadow: 0 4px 12px rgba(107,114,128,0.3);">
+                                                    <span class="badge badge-secondary badge-level">
                                                         <i class="fas fa-leaf me-2"></i>Beginner
                                                     </span>
                                                 {% endif %}
                                             </div>
-                                            <a href="{% url 'activity_levels_info' %}" class="btn btn-ghost btn-sm" title="Learn about activity levels" style="border-radius: 10px;">
+                                            <a href="{% url 'activity_levels_info' %}" class="btn btn-ghost btn-sm" title="Learn about activity levels">
                                                 <i class="fas fa-question-circle"></i>
                                             </a>
                                         </div>
                                     </div>
                                     <div class="col-md-6 text-center text-md-end">
                                         <div class="mb-3">
-                                            <span style="font-size: 3rem; font-weight: 800; color: #ef4444; letter-spacing: -0.03em;">{{ profile_user.activity_points }}</span>
-                                            <span style="color: #6b7280; font-weight: 600; font-size: 1rem; margin-left: 8px;">Activity Points</span>
+                                            <span class="profile-activity-points">{{ profile_user.activity_points }}</span>
+                                            <span class="profile-activity-label">Activity Points</span>
                                         </div>
                                         {% if level_info.next_level %}
                                         <div class="small">
-                                            <p style="color: #6b7280; font-weight: 600; margin-bottom: 8px;">Progress to {{ level_info.next_level }}:</p>
-                                            <div class="progress" style="height: 12px; border-radius: 999px; background: rgba(0,0,0,0.06);">
+                                            <p class="text-muted fw-semibold mb-2">Progress to {{ level_info.next_level }}:</p>
+                                            <div class="progress">
                                                 <div class="progress-bar" role="progressbar" 
-                                                     style="width: {{ level_info.progress }}%; background: linear-gradient(90deg, #ef4444, #dc2626); border-radius: 999px; box-shadow: 0 2px 4px rgba(239,68,68,0.3);" 
+                                                     style="width: {{ level_info.progress }}%;" 
                                                      aria-valuenow="{{ level_info.progress }}" aria-valuemin="0" aria-valuemax="100">
                                                 </div>
                                             </div>
-                                            <p style="color: #6b7280; font-weight: 700; margin-top: 8px; font-size: 0.9375rem;">{{ level_info.progress }}%</p>
+                                            <p class="text-muted fw-bold mt-2">{{ level_info.progress }}%</p>
                                         </div>
                                         {% else %}
-                                        <div class="small" style="color: #f59e0b; font-weight: 700;">
+                                        <div class="small text-warning fw-bold">
                                             <i class="fas fa-trophy"></i> Maximum level achieved!
                                         </div>
                                         {% endif %}
@@ -170,37 +167,37 @@
 
                             <!-- Social Links -->
                             {% if profile_user.github_url or profile_user.website_url or profile_user.telegram_url or profile_user.discord_url or profile_user.other_links %}
-                            <div class="card p-5 mb-5" style="border-radius: 20px; background: linear-gradient(145deg, rgba(255,255,255,0.95) 0%, rgba(248,249,250,0.98) 100%); box-shadow: 0 4px 16px rgba(0,0,0,0.06); border: 1px solid rgba(0,0,0,0.06);">
-                                <h5 class="fw-bold mb-4" style="color: #111827; font-size: 1.375rem; letter-spacing: -0.02em;">
-                                    <i class="fas fa-link me-2" style="color: #ef4444;"></i>Find Me
+                            <div class="profile-social-card mb-5">
+                                <h5 class="profile-social-title">
+                                    <i class="fas fa-link me-2 text-primary"></i>Find Me
                                 </h5>
                                 <div class="d-flex flex-wrap gap-3">
                                     {% if profile_user.github_url %}
-                                        <a href="{{ profile_user.github_url }}" target="_blank" class="btn btn-outline-dark" style="border-radius: 14px; padding: 12px 24px; font-weight: 600; transition: all 0.3s cubic-bezier(0.4,0,0.2,1);">
+                                        <a href="{{ profile_user.github_url }}" target="_blank" class="btn btn-outline-dark profile-social-link">
                                             <i class="fab fa-github me-2"></i>GitHub
                                         </a>
                                     {% endif %}
                                     {% if profile_user.website_url %}
-                                        <a href="{{ profile_user.website_url }}" target="_blank" class="btn btn-outline-primary" style="border-radius: 14px; padding: 12px 24px; font-weight: 600; transition: all 0.3s cubic-bezier(0.4,0,0.2,1);">
+                                        <a href="{{ profile_user.website_url }}" target="_blank" class="btn btn-outline-primary profile-social-link">
                                             <i class="fas fa-globe me-2"></i>Website
                                         </a>
                                     {% endif %}
                                     {% if profile_user.telegram_url %}
-                                        <a href="{{ profile_user.telegram_url }}" target="_blank" class="btn btn-outline-info" style="border-radius: 14px; padding: 12px 24px; font-weight: 600; transition: all 0.3s cubic-bezier(0.4,0,0.2,1);">
+                                        <a href="{{ profile_user.telegram_url }}" target="_blank" class="btn btn-outline-info profile-social-link">
                                             <i class="fab fa-telegram me-2"></i>Telegram
                                         </a>
                                     {% endif %}
                                     {% if profile_user.discord_url %}
-                                        <a href="{{ profile_user.discord_url }}" target="_blank" class="btn btn-outline-secondary" style="border-radius: 14px; padding: 12px 24px; font-weight: 600; transition: all 0.3s cubic-bezier(0.4,0,0.2,1);">
+                                        <a href="{{ profile_user.discord_url }}" target="_blank" class="btn btn-outline-secondary profile-social-link">
                                             <i class="fab fa-discord me-2"></i>Discord
                                         </a>
                                     {% endif %}
                                 </div>
                                 {% if profile_user.other_links %}
-                                    <div class="mt-4 pt-3" style="border-top: 1px solid rgba(0,0,0,0.08);">
-                                        <p class="small mb-2" style="color: #6b7280; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.75rem;">Other Links:</p>
+                                    <div class="mt-4 pt-3 border-top">
+                                        <p class="profile-detail-label mb-2">Other Links:</p>
                                         {% for line in profile_user.other_links.splitlines %}
-                                            <a href="{{ line }}" target="_blank" class="d-block mb-2" style="color: #ef4444; font-weight: 500; text-decoration: none; transition: all 0.2s;">{{ line }}</a>
+                                            <a href="{{ line }}" target="_blank" class="d-block mb-2 text-primary fw-medium">{{ line }}</a>
                                         {% endfor %}
                                     </div>
                                 {% endif %}
@@ -214,75 +211,75 @@
                 {% if user.is_authenticated and user.id == profile_user.id %}
                 <div class="row g-4 mb-5">
                     <div class="col-md-4">
-                        <div class="card text-center p-5" style="background: linear-gradient(135deg, rgba(239,68,68,0.05) 0%, rgba(220,38,38,0.08) 100%); border: 1px solid rgba(239,68,68,0.15); border-radius: 20px; box-shadow: 0 4px 12px rgba(239,68,68,0.08); transition: all 0.4s cubic-bezier(0.4,0,0.2,1); cursor: pointer;">
-                            <div style="width: 64px; height: 64px; background: linear-gradient(135deg, #ef4444, #dc2626); border-radius: 18px; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.5rem; box-shadow: 0 8px 20px rgba(239,68,68,0.3);">
-                                <i class="fas fa-file-alt" style="color: white; font-size: 1.75rem;"></i>
+                        <div class="profile-stat-card stat-red">
+                            <div class="icon-box icon-box-lg icon-box-primary mx-auto mb-4">
+                                <i class="fas fa-file-alt"></i>
                             </div>
-                            <h6 style="color: #6b7280; font-weight: 700; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.75rem;">Total Posts</h6>
-                            <p style="font-size: 2.5rem; font-weight: 800; color: #111827; margin: 0; letter-spacing: -0.03em;">{{ user_posts|length }}</p>
+                            <h6 class="profile-detail-label mb-2">Total Posts</h6>
+                            <p class="profile-stat-value mb-0">{{ user_posts|length }}</p>
                         </div>
                     </div>
                     <div class="col-md-4">
-                        <div class="card text-center p-5" style="background: linear-gradient(135deg, rgba(245,158,11,0.05) 0%, rgba(217,119,6,0.08) 100%); border: 1px solid rgba(245,158,11,0.15); border-radius: 20px; box-shadow: 0 4px 12px rgba(245,158,11,0.08); transition: all 0.4s cubic-bezier(0.4,0,0.2,1); cursor: pointer;">
-                            <div style="width: 64px; height: 64px; background: linear-gradient(135deg, #f59e0b, #d97706); border-radius: 18px; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.5rem; box-shadow: 0 8px 20px rgba(245,158,11,0.3);">
-                                <i class="fas fa-heart" style="color: white; font-size: 1.75rem;"></i>
+                        <div class="profile-stat-card stat-amber">
+                            <div class="icon-box icon-box-lg icon-box-warning mx-auto mb-4">
+                                <i class="fas fa-heart"></i>
                             </div>
-                            <h6 style="color: #6b7280; font-weight: 700; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.75rem;">Likes Received</h6>
-                            <p style="font-size: 2.5rem; font-weight: 800; color: #d97706; margin: 0; letter-spacing: -0.03em;">{{ profile_user.total_likes_received }}</p>
+                            <h6 class="profile-detail-label mb-2">Likes Received</h6>
+                            <p class="profile-stat-value mb-0">{{ profile_user.total_likes_received }}</p>
                         </div>
                     </div>
                     <div class="col-md-4">
-                        <div class="card text-center p-5" style="background: linear-gradient(135deg, rgba(16,185,129,0.05) 0%, rgba(5,150,105,0.08) 100%); border: 1px solid rgba(16,185,129,0.15); border-radius: 20px; box-shadow: 0 4px 12px rgba(16,185,129,0.08); transition: all 0.4s cubic-bezier(0.4,0,0.2,1); cursor: pointer;">
-                            <div style="width: 64px; height: 64px; background: linear-gradient(135deg, #10b981, #059669); border-radius: 18px; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.5rem; box-shadow: 0 8px 20px rgba(16,185,129,0.3);">
-                                <i class="fas fa-comments" style="color: white; font-size: 1.75rem;"></i>
+                        <div class="profile-stat-card stat-emerald">
+                            <div class="icon-box icon-box-lg icon-box-emerald mx-auto mb-4">
+                                <i class="fas fa-comments"></i>
                             </div>
-                            <h6 style="color: #6b7280; font-weight: 700; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.75rem;">Comments Made</h6>
-                            <p style="font-size: 2.5rem; font-weight: 800; color: #059669; margin: 0; letter-spacing: -0.03em;">{{ profile_user.total_comments_made }}</p>
+                            <h6 class="profile-detail-label mb-2">Comments Made</h6>
+                            <p class="profile-stat-value mb-0">{{ profile_user.total_comments_made }}</p>
                         </div>
                     </div>
                 </div>
                 {% endif %}
 
                 <!-- Posts Section -->
-                <div class="card p-5" style="border-radius: 20px; box-shadow: 0 4px 16px rgba(0,0,0,0.06); border: 1px solid rgba(0,0,0,0.06); background: linear-gradient(145deg, #ffffff 0%, #fafafa 100%);">
-                    <h3 class="fw-bold mb-4" style="color: #111827; font-size: 1.75rem; letter-spacing: -0.02em;">
-                        <i class="fas fa-list me-3" style="color: #ef4444;"></i>Your Posts
+                <div class="profile-posts-card">
+                    <h3 class="profile-posts-title mb-4">
+                        <i class="fas fa-list me-3 text-primary"></i>Your Posts
                     </h3>
 
                     {% if user_posts %}
                         <div class="table-responsive">
-                            <table class="table table-hover mb-0" style="border-radius: 12px; overflow: hidden;">
-                                <thead style="background: linear-gradient(135deg, rgba(239,68,68,0.05) 0%, rgba(220,38,38,0.05) 100%);">
+                            <table class="table table-hover mb-0">
+                                <thead>
                                     <tr>
-                                        <th style="padding: 1rem 1.5rem; font-weight: 700; color: #374151; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em; border: none;">Title</th>
-                                        <th style="padding: 1rem 1.5rem; font-weight: 700; color: #374151; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em; border: none;">Status</th>
-                                        <th style="padding: 1rem 1.5rem; font-weight: 700; color: #374151; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em; border: none;">Created</th>
-                                        <th style="padding: 1rem 1.5rem; font-weight: 700; color: #374151; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em; border: none;">Actions</th>
+                                        <th>Title</th>
+                                        <th>Status</th>
+                                        <th>Created</th>
+                                        <th>Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {% for post in user_posts %}
-                                    <tr style="transition: all 0.3s cubic-bezier(0.4,0,0.2,1);">
-                                        <td style="padding: 1.25rem 1.5rem; border-top: 1px solid rgba(0,0,0,0.06);">
-                                            <strong style="color: #111827; font-size: 1rem;">{{ post.title|truncatewords:8 }}</strong>
+                                    <tr>
+                                        <td>
+                                            <strong class="text-dark">{{ post.title|truncatewords:8 }}</strong>
                                         </td>
-                                        <td style="padding: 1.25rem 1.5rem; border-top: 1px solid rgba(0,0,0,0.06);">
+                                        <td>
                                             {% if post.status == 'published' %}
-                                                <span class="badge badge-success" style="padding: 6px 12px; border-radius: 8px;"><i class="fas fa-check-circle me-1"></i>Published</span>
+                                                <span class="badge badge-success"><i class="fas fa-check-circle me-1"></i>Published</span>
                                             {% elif post.status == 'pending' %}
-                                                <span class="badge badge-warning" style="padding: 6px 12px; border-radius: 8px;"><i class="fas fa-clock me-1"></i>Pending</span>
+                                                <span class="badge badge-warning"><i class="fas fa-clock me-1"></i>Pending</span>
                                             {% elif post.status == 'rejected' %}
-                                                <span class="badge badge-danger" style="padding: 6px 12px; border-radius: 8px;"><i class="fas fa-times-circle me-1"></i>Rejected</span>
+                                                <span class="badge badge-danger"><i class="fas fa-times-circle me-1"></i>Rejected</span>
                                             {% else %}
-                                                <span class="badge badge-secondary" style="padding: 6px 12px; border-radius: 8px;">{{ post.get_status_display }}</span>
+                                                <span class="badge badge-secondary">{{ post.get_status_display }}</span>
                                             {% endif %}
                                         </td>
-                                        <td style="padding: 1.25rem 1.5rem; border-top: 1px solid rgba(0,0,0,0.06);">
-                                            <span style="color: #6b7280; font-weight: 500;">{{ post.created_at|date:"d M Y" }}</span>
+                                        <td>
+                                            <span class="text-muted fw-medium">{{ post.created_at|date:"d M Y" }}</span>
                                         </td>
-                                        <td style="padding: 1.25rem 1.5rem; border-top: 1px solid rgba(0,0,0,0.06);">
+                                        <td>
                                             {% if post.status == 'published' %}
-                                                <a href="{% url 'post_detail' post.pk %}" class="btn btn-primary btn-sm" title="View" style="border-radius: 8px; padding: 6px 16px; font-weight: 600;">
+                                                <a href="{% url 'post_detail' post.pk %}" class="btn btn-primary btn-sm" title="View">
                                                     <i class="fas fa-eye me-1"></i>View
                                                 </a>
                                             {% endif %}
@@ -293,8 +290,8 @@
                             </table>
                         </div>
                     {% else %}
-                        <div class="alert alert-info mb-0" style="border-radius: 12px; border-left: 4px solid #3b82f6; background: linear-gradient(135deg, rgba(59,130,246,0.05) 0%, rgba(37,99,235,0.08) 100%); border-top: none; border-right: none; border-bottom: none;">
-                            <i class="fas fa-info-circle me-2"></i>You have no posts yet. <a href="{% url 'post_create' %}" style="font-weight: 700; color: #3b82f6; text-decoration: underline;">Create your first post</a>
+                        <div class="alert alert-info mb-0">
+                            <i class="fas fa-info-circle me-2"></i>You have no posts yet. <a href="{% url 'post_create' %}" class="fw-bold text-info">Create your first post</a>
                         </div>
                     {% endif %}
                 </div>
