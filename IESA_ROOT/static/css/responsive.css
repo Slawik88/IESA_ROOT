@@ -1,0 +1,611 @@
+/* ============================================================
+   IESA RESPONSIVE CSS - Все медиа-запросы
+   Версия: 2.0
+   
+   ВСЕ респонзивные стили в ОДНОМ месте!
+   Брейкпоинты:
+   - xs: 0
+   - sm: 576px
+   - md: 768px
+   - lg: 992px
+   - xl: 1200px
+   - xxl: 1400px
+   ============================================================ */
+
+/* ====================================================
+   MOBILE FIRST APPROACH
+   Базовые стили - для мобильных (xs)
+   Медиа-запросы - для больших экранов
+   ==================================================== */
+
+/* ====================================================
+   SM BREAKPOINT (576px+)
+   ==================================================== */
+
+@media (min-width: 576px) {
+  /* Display */
+  .d-sm-none { display: none !important; }
+  .d-sm-inline { display: inline !important; }
+  .d-sm-inline-block { display: inline-block !important; }
+  .d-sm-block { display: block !important; }
+  .d-sm-flex { display: flex !important; }
+  .d-sm-inline-flex { display: inline-flex !important; }
+  
+  /* Flex Direction */
+  .flex-sm-row { flex-direction: row !important; }
+  .flex-sm-column { flex-direction: column !important; }
+  
+  /* Justify */
+  .justify-content-sm-start { justify-content: flex-start !important; }
+  .justify-content-sm-end { justify-content: flex-end !important; }
+  .justify-content-sm-center { justify-content: center !important; }
+  .justify-content-sm-between { justify-content: space-between !important; }
+  
+  /* Align */
+  .align-items-sm-start { align-items: flex-start !important; }
+  .align-items-sm-end { align-items: flex-end !important; }
+  .align-items-sm-center { align-items: center !important; }
+  
+  /* Text Align */
+  .text-sm-start { text-align: left !important; }
+  .text-sm-center { text-align: center !important; }
+  .text-sm-end { text-align: right !important; }
+  
+  /* Margin */
+  .mb-sm-0 { margin-bottom: 0 !important; }
+  .mb-sm-4 { margin-bottom: var(--space-4) !important; }
+}
+
+/* ====================================================
+   MD BREAKPOINT (768px+)
+   ==================================================== */
+
+@media (min-width: 768px) {
+  /* Display */
+  .d-md-none { display: none !important; }
+  .d-md-inline { display: inline !important; }
+  .d-md-inline-block { display: inline-block !important; }
+  .d-md-block { display: block !important; }
+  .d-md-flex { display: flex !important; }
+  .d-md-inline-flex { display: inline-flex !important; }
+  
+  /* Flex Direction */
+  .flex-md-row { flex-direction: row !important; }
+  .flex-md-column { flex-direction: column !important; }
+  
+  /* Justify */
+  .justify-content-md-start { justify-content: flex-start !important; }
+  .justify-content-md-end { justify-content: flex-end !important; }
+  .justify-content-md-center { justify-content: center !important; }
+  .justify-content-md-between { justify-content: space-between !important; }
+  
+  /* Align */
+  .align-items-md-start { align-items: flex-start !important; }
+  .align-items-md-end { align-items: flex-end !important; }
+  .align-items-md-center { align-items: center !important; }
+  
+  /* Text Align */
+  .text-md-start { text-align: left !important; }
+  .text-md-center { text-align: center !important; }
+  .text-md-end { text-align: right !important; }
+  
+  /* Margin */
+  .mb-md-0 { margin-bottom: 0 !important; }
+  .mb-md-4 { margin-bottom: var(--space-4) !important; }
+  .mb-md-5 { margin-bottom: var(--space-5) !important; }
+  
+  /* Profile specific */
+  .profile-avatar,
+  .profile-avatar-fallback {
+    width: 160px;
+    height: 160px;
+    font-size: 4rem;
+  }
+}
+
+/* ====================================================
+   LG BREAKPOINT (992px+)
+   ==================================================== */
+
+@media (min-width: 992px) {
+  /* Display */
+  .d-lg-none { display: none !important; }
+  .d-lg-inline { display: inline !important; }
+  .d-lg-inline-block { display: inline-block !important; }
+  .d-lg-block { display: block !important; }
+  .d-lg-flex { display: flex !important; }
+  .d-lg-inline-flex { display: inline-flex !important; }
+  
+  /* Flex Direction */
+  .flex-lg-row { flex-direction: row !important; }
+  .flex-lg-column { flex-direction: column !important; }
+  
+  /* Justify */
+  .justify-content-lg-start { justify-content: flex-start !important; }
+  .justify-content-lg-end { justify-content: flex-end !important; }
+  .justify-content-lg-center { justify-content: center !important; }
+  .justify-content-lg-between { justify-content: space-between !important; }
+  
+  /* Align */
+  .align-items-lg-start { align-items: flex-start !important; }
+  .align-items-lg-end { align-items: flex-end !important; }
+  .align-items-lg-center { align-items: center !important; }
+  
+  /* Text Align */
+  .text-lg-start { text-align: left !important; }
+  .text-lg-center { text-align: center !important; }
+  .text-lg-end { text-align: right !important; }
+}
+
+/* ====================================================
+   XL BREAKPOINT (1200px+)
+   ==================================================== */
+
+@media (min-width: 1200px) {
+  /* Display */
+  .d-xl-none { display: none !important; }
+  .d-xl-inline { display: inline !important; }
+  .d-xl-inline-block { display: inline-block !important; }
+  .d-xl-block { display: block !important; }
+  .d-xl-flex { display: flex !important; }
+  .d-xl-inline-flex { display: inline-flex !important; }
+  
+  /* Flex Direction */
+  .flex-xl-row { flex-direction: row !important; }
+  .flex-xl-column { flex-direction: column !important; }
+}
+
+/* ====================================================
+   XXL BREAKPOINT (1400px+)
+   ==================================================== */
+
+@media (min-width: 1400px) {
+  /* Display */
+  .d-xxl-none { display: none !important; }
+  .d-xxl-inline { display: inline !important; }
+  .d-xxl-block { display: block !important; }
+  .d-xxl-flex { display: flex !important; }
+}
+
+/* ====================================================
+   MOBILE SPECIFIC STYLES (до 768px)
+   ==================================================== */
+
+@media (max-width: 767.98px) {
+  /* Container */
+  .container-limited {
+    padding-left: var(--space-4);
+    padding-right: var(--space-4);
+  }
+  
+  /* Typography */
+  h1 {
+    font-size: var(--text-3xl);
+  }
+  
+  h2 {
+    font-size: var(--text-2xl);
+  }
+  
+  h3 {
+    font-size: var(--text-xl);
+  }
+  
+  /* Buttons - защита от увеличения при тапе */
+  .btn {
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    touch-action: manipulation;
+    font-size: inherit;
+  }
+  
+  /* Убираем hover эффекты на мобильных */
+  .btn:hover {
+    transform: none;
+  }
+  
+  /* Form controls - защита от zoom при фокусе */
+  .form-control,
+  .form-select,
+  input,
+  textarea,
+  select {
+    font-size: 16px !important; /* Предотвращает zoom на iOS */
+  }
+  
+  /* Mobile full-width elements */
+  .mobile-block {
+    display: block !important;
+    width: 100% !important;
+  }
+  
+  /* Navbar */
+  .navbar-nav {
+    padding-top: var(--space-4);
+    padding-bottom: var(--space-4);
+  }
+  
+  .navbar-nav .nav-link {
+    padding: var(--space-3) var(--space-4);
+  }
+  
+  /* Cards */
+  .card {
+    border-radius: var(--radius-xl);
+  }
+  
+  /* Profile Header */
+  .profile-header {
+    padding: var(--space-5);
+    border-radius: var(--radius-2xl);
+  }
+  
+  .profile-avatar,
+  .profile-avatar-fallback {
+    width: 100px;
+    height: 100px;
+    font-size: 2.5rem;
+  }
+  
+  .profile-name {
+    font-size: var(--text-xl);
+  }
+  
+  .profile-activity-points {
+    font-size: 2rem;
+  }
+  
+  .profile-stat-value {
+    font-size: 2rem;
+  }
+  
+  .profile-qr-card img {
+    width: 160px;
+    height: 160px;
+  }
+  
+  /* Auth Card */
+  .auth-card-left {
+    display: none;
+  }
+  
+  /* Tables */
+  .table-responsive {
+    margin: 0 calc(-1 * var(--space-4));
+    padding: 0 var(--space-4);
+  }
+  
+  /* Hide on mobile */
+  .hide-mobile {
+    display: none !important;
+  }
+  
+  /* Gallery Grid */
+  .gallery-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  /* Back to Top Button */
+  #back-to-top {
+    bottom: var(--space-4);
+    right: var(--space-4);
+    width: 44px;
+    height: 44px;
+  }
+  
+  /* Footer */
+  .footer-enhanced {
+    text-align: center;
+  }
+  
+  .footer-links {
+    text-align: center;
+  }
+  
+  .footer-social {
+    width: 44px;
+    height: 44px;
+  }
+  
+  /* Event Card Compact */
+  .event-date-chip-compact {
+    width: 60px;
+    padding: var(--space-2);
+  }
+  
+  .event-date-day {
+    font-size: var(--text-xl);
+  }
+  
+  /* Section Title */
+  .section-title::before,
+  .section-title::after {
+    width: 16px;
+  }
+  
+  /* Modals */
+  .modal-dialog {
+    margin: var(--space-4);
+  }
+  
+  .modal-content {
+    border-radius: var(--radius-xl);
+  }
+  
+  /* Dropdown */
+  .dropdown-menu {
+    width: calc(100vw - var(--space-8));
+    max-width: 320px;
+  }
+}
+
+/* ====================================================
+   TABLET SPECIFIC (768px - 991px)
+   ==================================================== */
+
+@media (min-width: 768px) and (max-width: 991.98px) {
+  /* Gallery Grid */
+  .gallery-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  
+  /* Profile layout adjustments */
+  .profile-detail-card {
+    padding: var(--space-4);
+  }
+}
+
+/* ====================================================
+   DESKTOP SPECIFIC (992px+)
+   ==================================================== */
+
+@media (min-width: 992px) {
+  /* Gallery Grid */
+  .gallery-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+  
+  /* Show on desktop */
+  .show-desktop {
+    display: block !important;
+  }
+  
+  /* Hover effects only on desktop */
+  .card:hover {
+    transform: translateY(-2px);
+  }
+  
+  .btn:hover {
+    transform: translateY(-1px);
+  }
+  
+  .profile-detail-card:hover {
+    transform: translateY(-4px);
+  }
+  
+  .profile-stat-card:hover {
+    transform: translateY(-4px);
+  }
+}
+
+/* ====================================================
+   PRINT STYLES
+   ==================================================== */
+
+@media print {
+  /* Hide non-essential elements */
+  header,
+  footer,
+  .navbar,
+  .btn,
+  .modal,
+  #back-to-top,
+  .no-print {
+    display: none !important;
+  }
+  
+  /* Reset backgrounds */
+  body {
+    background: white !important;
+    color: black !important;
+  }
+  
+  .card {
+    border: 1px solid #ddd !important;
+    box-shadow: none !important;
+  }
+  
+  /* Links */
+  a {
+    color: black !important;
+    text-decoration: underline !important;
+  }
+  
+  /* Page breaks */
+  .page-break-before {
+    page-break-before: always;
+  }
+  
+  .page-break-after {
+    page-break-after: always;
+  }
+  
+  .avoid-break {
+    page-break-inside: avoid;
+  }
+}
+
+/* ====================================================
+   ANIMATIONS
+   ==================================================== */
+
+/* Fade In Up Animation */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Fade In Animation */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Scale In Animation */
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Slide In From Right */
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Pulse Animation */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* Spin Animation (for loaders) */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Animation Classes */
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.4s ease-out;
+}
+
+.animate-scale-in {
+  animation: scaleIn 0.3s ease-out;
+}
+
+.animate-slide-in-right {
+  animation: slideInRight 0.3s ease-out;
+}
+
+.animate-pulse {
+  animation: pulse 2s infinite;
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+/* ====================================================
+   HTMX LOADING INDICATOR
+   ==================================================== */
+
+.htmx-indicator {
+  display: none;
+}
+
+.htmx-request .htmx-indicator {
+  display: inline-block;
+}
+
+.htmx-request.htmx-indicator {
+  display: inline-block;
+}
+
+/* Loading skeleton animation */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--gray-200) 25%,
+    var(--gray-100) 50%,
+    var(--gray-200) 75%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-loading 1.5s infinite;
+}
+
+@keyframes skeleton-loading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* ====================================================
+   HIGH CONTRAST MODE
+   ==================================================== */
+
+@media (prefers-contrast: high) {
+  :root {
+    --border-color: var(--gray-400);
+    --text-muted: var(--gray-700);
+  }
+  
+  .btn {
+    border-width: 2px;
+  }
+  
+  .card {
+    border-width: 2px;
+  }
+}
+
+/* ====================================================
+   REDUCED MOTION
+   ==================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  
+  .animate-fade-in,
+  .animate-fade-in-up,
+  .animate-scale-in,
+  .animate-slide-in-right,
+  .animate-pulse,
+  .animate-spin {
+    animation: none !important;
+  }
+}

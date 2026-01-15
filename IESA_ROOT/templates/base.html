@@ -45,27 +45,23 @@
     <!-- Lightbox CSS (for gallery) -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/lightbox2/2.11.3/css/lightbox.min.css">
 
-    <!-- Custom styles -->
-    <link rel="stylesheet" href="{% static 'css/style.css' %}">
-    
-    <!-- WYSIWYG content styling (for CKEditor post rendering) -->
-    <link rel="stylesheet" href="{% static 'css/wysiwyg.css' %}">
-    
-    <!-- Text Ellipsis Utilities -->
-    <link rel="stylesheet" href="{% static 'css/ellipsis.css' %}">
-    
-    <!-- HTMX Loading States -->
-    <link rel="stylesheet" href="{% static 'css/htmx-loading.css' %}">
-    
-    <!-- MODERN DESIGN SYSTEM -->
-    <link rel="stylesheet" href="{% static 'css/modern-design.css' %}">
+    <!-- ============================================================
+         IESA CSS ARCHITECTURE v2.0 (7 files)
+         1. variables.css - CSS переменные (цвета, размеры, тени, градиенты)
+         2. base.css - Reset и базовые стили HTML элементов
+         3. layout.css - Контейнеры, навигация, футер
+         4. components.css - Кнопки, карточки, формы, badges, alerts
+         5. pages.css - Стили для страниц (profile, auth, blog, gallery)
+         6. utilities.css - Вспомогательные классы (spacing, display, etc)
+         7. responsive.css - ВСЕ медиа-запросы и анимации
+         ============================================================ -->
+    <link rel="stylesheet" href="{% static 'css/variables.css' %}">
+    <link rel="stylesheet" href="{% static 'css/base.css' %}">
+    <link rel="stylesheet" href="{% static 'css/layout.css' %}">
     <link rel="stylesheet" href="{% static 'css/components.css' %}">
-    
-    <!-- Design Fixes -->
-    <link rel="stylesheet" href="{% static 'css/design-fixes-v2.css' %}">
-    
-    <!-- MOBILE STYLES - ЕДИНСТВЕННЫЙ ФАЙЛ ДЛЯ МОБИЛЬНЫХ -->
-    <link rel="stylesheet" href="{% static 'css/mobile-only.css' %}">
+    <link rel="stylesheet" href="{% static 'css/pages.css' %}">
+    <link rel="stylesheet" href="{% static 'css/utilities.css' %}">
+    <link rel="stylesheet" href="{% static 'css/responsive.css' %}">
 
 </head>
 <body>

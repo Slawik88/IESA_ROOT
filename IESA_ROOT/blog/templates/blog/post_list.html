@@ -6,8 +6,8 @@
 <div class="container-limited">
     <!-- Заголовок секции -->
     <div class="text-center mb-5">
-        <h6 class="section-title mb-4" style="display: block;">COMMUNITY</h6>
-        <h1 class="fw-bold mb-2" style="color: var(--color-gray-900);">Share Ideas, Events & News</h1>
+        <h6 class="section-title d-block mb-4">COMMUNITY</h6>
+        <h1 class="fw-bold mb-2 text-gray-900">Share Ideas, Events & News</h1>
         <p class="text-muted">Connect with fellow extreme sports enthusiasts</p>
     </div>
 
@@ -19,7 +19,7 @@
                     <strong>
                         <i class="fas fa-lock me-2"></i>Sign in or register to access the community
                     </strong>
-                    <p class="mb-0 mt-1" style="opacity: 0.9;">Join our community to create posts, comment and engage with members</p>
+                    <p class="mb-0 mt-1 opacity-90">Join our community to create posts, comment and engage with members</p>
                 </div>
                 <div class="d-flex gap-2 flex-shrink-0">
                     <a href="{% url 'login' %}" class="btn btn-primary btn-modern btn-sm">Sign In</a>
@@ -78,8 +78,8 @@
             {% include "blog/htmx/posts_list_fragment.html" %}
         {% else %}
             <div class="text-center p-5 card">
-                <i class="fas fa-newspaper mb-4" style="font-size: 4rem; color: var(--color-gray-300);"></i>
-                <h5 class="fw-bold mb-2" style="color: var(--color-gray-700);">No Posts Yet</h5>
+                <i class="fas fa-newspaper mb-4 empty-state-icon"></i>
+                <h5 class="fw-bold mb-2 text-gray-700">No Posts Yet</h5>
                 <p class="text-muted mb-4">Be the first to share news or ideas with the community</p>
                 {% if user.is_authenticated %}
                     <a href="{% url 'post_create' %}" class="btn btn-primary btn-modern">
@@ -94,36 +94,6 @@
         {% endif %}
     </div>
 </div>
-
-<style>
-@keyframes fadeInUp {
-    from {
-        opacity: 0;
-        transform: translateY(30px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-.post-card-animate {
-    opacity: 0;
-}
-
-.post-card-animate.animated {
-    animation: fadeInUp 0.6s ease-out forwards;
-}
-
-.post-card-animate:nth-child(1) { animation-delay: 0.1s; }
-.post-card-animate:nth-child(2) { animation-delay: 0.15s; }
-.post-card-animate:nth-child(3) { animation-delay: 0.2s; }
-.post-card-animate:nth-child(4) { animation-delay: 0.25s; }
-.post-card-animate:nth-child(5) { animation-delay: 0.3s; }
-.post-card-animate:nth-child(6) { animation-delay: 0.35s; }
-.post-card-animate:nth-child(7) { animation-delay: 0.4s; }
-.post-card-animate:nth-child(8) { animation-delay: 0.45s; }
-</style>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
