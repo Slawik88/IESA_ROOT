@@ -5,8 +5,8 @@
 {% block content %}
 <div class="container-limited">
   <div class="text-center mb-5">
-    <h6 class="section-title mb-4" style="display: block;">MEMBER DIRECTORY</h6>
-    <h3 class="fw-bold mb-2" style="color: var(--color-gray-900);">Find & Connect With Members</h3>
+    <h6 class="section-title d-block mb-4">MEMBER DIRECTORY</h6>
+    <h3 class="fw-bold mb-2 text-gray-900">Find & Connect With Members</h3>
     <p class="text-muted">Search our community by name, username, email or ID</p>
   </div>
 
@@ -45,7 +45,7 @@
   <div class="list-group">
     {% for item in results %}
       {% with u=item.user %}
-      <a href="{% url 'profile_public_username' username=u.username %}" class="list-group-item list-group-item-action d-flex align-items-center search-item" style="animation-delay: calc({{ forloop.counter0 }} * 35ms);">
+      <a href="{% url 'profile_public_username' username=u.username %}" class="list-group-item list-group-item-action d-flex align-items-center search-item animation-delay-{{ forloop.counter0|default:0 }}">
         {% if u.avatar %}
           {% if u.avatar.name and u.avatar.name != 'avatars/default.png' %}
             <span class="avatar avatar-sm me-3"><img src="{{ u.avatar.url }}" alt="{{ u.username }}"></span>

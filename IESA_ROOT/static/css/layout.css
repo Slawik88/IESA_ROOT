@@ -378,3 +378,64 @@ main {
   background: var(--gray-50);
   color: var(--text-light);
 }
+
+/* ====================================================
+   10. NAVBAR SPECIFIC ELEMENTS
+   ==================================================== */
+
+/* Navbar Logo */
+.navbar-logo {
+  height: 40px;
+  margin-right: 10px;
+  vertical-align: middle;
+}
+
+/* Navbar Buttons */
+.navbar-btn {
+  padding: 0.5rem 0.8rem;
+  font-size: 0.9rem;
+}
+
+/* Navbar Search Dropdown */
+.navbar-search-dropdown {
+  min-width: 340px;
+}
+
+/* Navbar Search Results */
+.navbar-search-results {
+  max-height: 360px;
+  overflow: auto;
+  transition: transform 0.22s ease, opacity 0.22s ease;
+  transform-origin: top center;
+}
+
+/* Navbar Notification Badge */
+.navbar-notification-badge {
+  font-size: 0.65rem;
+}
+
+/* ====================================================
+   11. FOOTER SPECIFIC ELEMENTS
+   ==================================================== */
+
+/* Footer About Text */
+.footer-about-text {
+  line-height: 1.7;
+  max-width: 360px;
+}
+
+/* Footer Copyright */
+.footer-copyright {
+  opacity: 0.7;
+}
+
+/* Footer Link Icons */
+.footer-link-icon {
+  opacity: 0.6;
+  font-size: 0.875rem;
+}
+
+/* Footer Contact Icons */
+.footer-contact-icon {
+  opacity: 0.6;
+}

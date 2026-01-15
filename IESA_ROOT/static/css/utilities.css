@@ -458,3 +458,373 @@
 .gallery-modal-image {
     max-height: 75vh;
 }
+
+/* ====================================================
+   20. SQUARE SIZES (width & height equal)
+   ==================================================== */
+
+.size-24 { width: 24px !important; height: 24px !important; }
+.size-32 { width: 32px !important; height: 32px !important; }
+.size-36 { width: 36px !important; height: 36px !important; }
+.size-40 { width: 40px !important; height: 40px !important; }
+.size-48 { width: 48px !important; height: 48px !important; }
+.size-56 { width: 56px !important; height: 56px !important; }
+.size-60 { width: 60px !important; height: 60px !important; }
+.size-64 { width: 64px !important; height: 64px !important; }
+.size-80 { width: 80px !important; height: 80px !important; }
+.size-96 { width: 96px !important; height: 96px !important; }
+.size-110 { width: 110px !important; height: 110px !important; }
+.size-120 { width: 120px !important; height: 120px !important; }
+.size-140 { width: 140px !important; height: 140px !important; }
+.size-160 { width: 160px !important; height: 160px !important; }
+.size-180 { width: 180px !important; height: 180px !important; }
+.size-200 { width: 200px !important; height: 200px !important; }
+
+/* ====================================================
+   21. FIXED HEIGHT UTILITIES
+   ==================================================== */
+
+.h-36 { height: 36px !important; }
+.h-40 { height: 40px !important; }
+.h-48 { height: 48px !important; }
+.h-56 { height: 56px !important; }
+.h-64 { height: 64px !important; }
+.h-80 { height: 80px !important; }
+.h-120 { height: 120px !important; }
+.h-160 { height: 160px !important; }
+.h-200 { height: 200px !important; }
+.h-240 { height: 240px !important; }
+.h-300 { height: 300px !important; }
+
+/* ====================================================
+   22. MAX-WIDTH UTILITIES
+   ==================================================== */
+
+.max-w-200 { max-width: 200px !important; }
+.max-w-280 { max-width: 280px !important; }
+.max-w-320 { max-width: 320px !important; }
+.max-w-360 { max-width: 360px !important; }
+.max-w-400 { max-width: 400px !important; }
+.max-w-480 { max-width: 480px !important; }
+.max-w-560 { max-width: 560px !important; }
+.max-w-600 { max-width: 600px !important; }
+.max-w-700 { max-width: 700px !important; }
+.max-w-800 { max-width: 800px !important; }
+.max-w-900 { max-width: 900px !important; }
+.max-w-1000 { max-width: 1000px !important; }
+.max-w-1200 { max-width: 1200px !important; }
+.max-w-prose { max-width: 65ch !important; }
+
+/* ====================================================
+   23. MIN-WIDTH UTILITIES
+   ==================================================== */
+
+.min-w-100 { min-width: 100px !important; }
+.min-w-140 { min-width: 140px !important; }
+.min-w-200 { min-width: 200px !important; }
+.min-w-280 { min-width: 280px !important; }
+.min-w-340 { min-width: 340px !important; }
+
+/* ====================================================
+   24. MIN-HEIGHT UTILITIES
+   ==================================================== */
+
+.min-h-100 { min-height: 100px !important; }
+.min-h-200 { min-height: 200px !important; }
+.min-h-300 { min-height: 300px !important; }
+
+/* ====================================================
+   25. MAX-HEIGHT UTILITIES
+   ==================================================== */
+
+.max-h-200 { max-height: 200px !important; }
+.max-h-300 { max-height: 300px !important; }
+.max-h-360 { max-height: 360px !important; }
+.max-h-400 { max-height: 400px !important; }
+.max-h-2em { max-height: 2em !important; }
+
+/* ====================================================
+   26. OBJECT FIT
+   ==================================================== */
+
+.object-cover { object-fit: cover !important; }
+.object-contain { object-fit: contain !important; }
+.object-fill { object-fit: fill !important; }
+.object-none { object-fit: none !important; }
+.object-scale-down { object-fit: scale-down !important; }
+
+/* ====================================================
+   27. GRADIENTS
+   ==================================================== */
+
+/* Hero & Section Backgrounds */
+.bg-gradient-hero {
+    background: linear-gradient(135deg, #fef2f2 0%, #ffffff 100%) !important;
+}
+
+.bg-gradient-hero-dark {
+    background: linear-gradient(135deg, var(--color-primary) 0%, #dc2626 100%) !important;
+}
+
+.bg-gradient-subtle {
+    background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%) !important;
+}
+
+.bg-gradient-card {
+    background: linear-gradient(145deg, #ffffff 0%, #fafafa 100%) !important;
+}
+
+.bg-gradient-blue {
+    background: linear-gradient(135deg, #0d6efd 0%, #7aa5ff 100%) !important;
+}
+
+.bg-gradient-info-light {
+    background: linear-gradient(135deg, #f8fbff 0%, #f0f6ff 100%) !important;
+}
+
+.bg-gradient-gold {
+    background: linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%) !important;
+}
+
+.bg-gradient-success {
+    background: linear-gradient(135deg, #10b981 0%, #34d399 100%) !important;
+}
+
+/* Semi-transparent backgrounds */
+.bg-white-10 { background: rgba(255, 255, 255, 0.1) !important; }
+.bg-white-20 { background: rgba(255, 255, 255, 0.2) !important; }
+.bg-white-30 { background: rgba(255, 255, 255, 0.3) !important; }
+.bg-white-50 { background: rgba(255, 255, 255, 0.5) !important; }
+.bg-black-10 { background: rgba(0, 0, 0, 0.1) !important; }
+.bg-black-20 { background: rgba(0, 0, 0, 0.2) !important; }
+.bg-black-50 { background: rgba(0, 0, 0, 0.5) !important; }
+
+/* Gray backgrounds */
+.bg-gray-50 { background-color: var(--color-gray-50) !important; }
+.bg-gray-100 { background-color: var(--color-gray-100) !important; }
+.bg-gray-200 { background-color: var(--color-gray-200) !important; }
+
+/* ====================================================
+   28. TYPOGRAPHY SIZES
+   ==================================================== */
+
+.text-2xs { font-size: 0.65rem !important; }
+.text-xs { font-size: 0.75rem !important; }
+.text-xs-plus { font-size: 0.8125rem !important; }
+.text-sm { font-size: 0.875rem !important; }
+.text-base { font-size: 1rem !important; }
+.text-lg { font-size: 1.125rem !important; }
+.text-xl { font-size: 1.25rem !important; }
+.text-2xl { font-size: 1.5rem !important; }
+.text-3xl { font-size: 1.875rem !important; }
+.text-4xl { font-size: 2rem !important; }
+.text-5xl { font-size: 2.5rem !important; }
+.text-6xl { font-size: 3rem !important; }
+.text-7xl { font-size: 4rem !important; }
+
+/* Icon sizes */
+.icon-sm { font-size: 1rem !important; }
+.icon-md { font-size: 1.25rem !important; }
+.icon-lg { font-size: 1.5rem !important; }
+.icon-xl { font-size: 2rem !important; }
+.icon-2xl { font-size: 2.5rem !important; }
+.icon-3xl { font-size: 3rem !important; }
+.icon-4xl { font-size: 4rem !important; }
+
+/* ====================================================
+   29. FONT WEIGHT
+   ==================================================== */
+
+.fw-300 { font-weight: 300 !important; }
+.fw-400 { font-weight: 400 !important; }
+.fw-500 { font-weight: 500 !important; }
+.fw-600 { font-weight: 600 !important; }
+.fw-700 { font-weight: 700 !important; }
+.fw-800 { font-weight: 800 !important; }
+.fw-900 { font-weight: 900 !important; }
+
+/* Aliases */
+.fw-light { font-weight: 300 !important; }
+.fw-normal { font-weight: 400 !important; }
+.fw-medium { font-weight: 500 !important; }
+.fw-semibold { font-weight: 600 !important; }
+.fw-bold { font-weight: 700 !important; }
+.fw-extrabold { font-weight: 800 !important; }
+
+/* ====================================================
+   30. LINE HEIGHT
+   ==================================================== */
+
+.lh-1 { line-height: 1 !important; }
+.lh-tight { line-height: 1.2 !important; }
+.lh-snug { line-height: 1.4 !important; }
+.lh-normal { line-height: 1.5 !important; }
+.lh-relaxed { line-height: 1.6 !important; }
+.lh-loose { line-height: 1.7 !important; }
+.lh-extra-loose { line-height: 1.8 !important; }
+
+/* ====================================================
+   31. LETTER SPACING
+   ==================================================== */
+
+.tracking-tighter { letter-spacing: -0.05em !important; }
+.tracking-tight { letter-spacing: -0.025em !important; }
+.tracking-normal { letter-spacing: 0 !important; }
+.tracking-wide { letter-spacing: 0.025em !important; }
+.tracking-wider { letter-spacing: 0.05em !important; }
+.tracking-widest { letter-spacing: 0.1em !important; }
+
+/* ====================================================
+   32. ADDITIONAL COLORS
+   ==================================================== */
+
+.text-gray-400 { color: var(--color-gray-400) !important; }
+.text-gray-600 { color: var(--color-gray-600) !important; }
+.text-gray-800 { color: var(--color-gray-800) !important; }
+.text-inherit { color: inherit !important; }
+
+/* ====================================================
+   33. ADDITIONAL OPACITY
+   ==================================================== */
+
+.opacity-10 { opacity: 0.1 !important; }
+.opacity-20 { opacity: 0.2 !important; }
+.opacity-30 { opacity: 0.3 !important; }
+.opacity-40 { opacity: 0.4 !important; }
+.opacity-60 { opacity: 0.6 !important; }
+.opacity-70 { opacity: 0.7 !important; }
+.opacity-80 { opacity: 0.8 !important; }
+.opacity-95 { opacity: 0.95 !important; }
+
+/* ====================================================
+   34. BORDER WIDTHS & COLORS
+   ==================================================== */
+
+.border-2 { border-width: 2px !important; }
+.border-3 { border-width: 3px !important; }
+.border-4 { border-width: 4px !important; }
+.border-5 { border-width: 5px !important; }
+
+.border-white { border-color: white !important; }
+.border-gray-100 { border-color: var(--color-gray-100) !important; }
+.border-gray-200 { border-color: var(--color-gray-200) !important; }
+.border-gray-300 { border-color: var(--color-gray-300) !important; }
+.border-primary { border-color: var(--color-primary) !important; }
+
+/* Border with specific width and color combined */
+.border-4-white { border: 4px solid white !important; }
+.border-5-white { border: 5px solid white !important; }
+
+/* ====================================================
+   35. ADDITIONAL BORDER RADIUS
+   ==================================================== */
+
+.rounded-6 { border-radius: 6px !important; }
+.rounded-8 { border-radius: 8px !important; }
+.rounded-10 { border-radius: 10px !important; }
+.rounded-12 { border-radius: 12px !important; }
+.rounded-16 { border-radius: 16px !important; }
+.rounded-18 { border-radius: 18px !important; }
+.rounded-20 { border-radius: 20px !important; }
+.rounded-24 { border-radius: 24px !important; }
+
+/* ====================================================
+   36. EFFECTS
+   ==================================================== */
+
+.backdrop-blur { backdrop-filter: blur(10px) !important; }
+.backdrop-blur-sm { backdrop-filter: blur(4px) !important; }
+.backdrop-blur-lg { backdrop-filter: blur(16px) !important; }
+
+.transition-all { transition: all 0.3s ease !important; }
+.transition-fast { transition: all 0.15s ease !important; }
+.transition-slow { transition: all 0.5s ease !important; }
+.transition-none { transition: none !important; }
+
+/* ====================================================
+   37. WIDTH UTILITIES
+   ==================================================== */
+
+.w-fit { width: fit-content !important; }
+.w-max { width: max-content !important; }
+.w-min { width: min-content !important; }
+
+/* ====================================================
+   38. VERTICAL ALIGN
+   ==================================================== */
+
+.align-baseline { vertical-align: baseline !important; }
+.align-top { vertical-align: top !important; }
+.align-middle { vertical-align: middle !important; }
+.align-bottom { vertical-align: bottom !important; }
+.align-text-top { vertical-align: text-top !important; }
+.align-text-bottom { vertical-align: text-bottom !important; }
+
+/* ====================================================
+   39. ANIMATION DELAY UTILITIES (for staggered animations)
+   ==================================================== */
+
+.animation-delay-0 { animation-delay: 0ms !important; }
+.animation-delay-1 { animation-delay: 28ms !important; }
+.animation-delay-2 { animation-delay: 56ms !important; }
+.animation-delay-3 { animation-delay: 84ms !important; }
+.animation-delay-4 { animation-delay: 112ms !important; }
+.animation-delay-5 { animation-delay: 140ms !important; }
+.animation-delay-6 { animation-delay: 168ms !important; }
+.animation-delay-7 { animation-delay: 196ms !important; }
+.animation-delay-8 { animation-delay: 224ms !important; }
+.animation-delay-9 { animation-delay: 252ms !important; }
+.animation-delay-10 { animation-delay: 280ms !important; }
+
+/* ====================================================
+   40. RESPONSIVE DISPLAY UTILITIES
+   ==================================================== */
+
+@media (max-width: 575.98px) {
+    .d-sm-none { display: none !important; }
+    .d-sm-block { display: block !important; }
+    .d-sm-flex { display: flex !important; }
+}
+
+@media (min-width: 576px) {
+    .d-sm-up-none { display: none !important; }
+    .d-sm-up-block { display: block !important; }
+    .d-sm-up-flex { display: flex !important; }
+}
+
+@media (min-width: 768px) {
+    .d-md-none { display: none !important; }
+    .d-md-block { display: block !important; }
+    .d-md-flex { display: flex !important; }
+}
+
+@media (min-width: 992px) {
+    .d-lg-none { display: none !important; }
+    .d-lg-block { display: block !important; }
+    .d-lg-flex { display: flex !important; }
+}
+
+/* ====================================================
+   41. NEGATIVE MARGINS
+   ==================================================== */
+
+.ms-n1 { margin-left: -0.25rem !important; }
+.ms-n2 { margin-left: -0.5rem !important; }
+.ms-n3 { margin-left: -1rem !important; }
+.ms-n4 { margin-left: -1.25rem !important; }
+.ms-n5 { margin-left: -1.5rem !important; }
+
+/* ====================================================
+   42. SPECIAL COMPONENTS
+   ==================================================== */
+
+/* QR Code Image */
+.qr-code-img {
+    width: 140px;
+    height: 140px;
+    object-fit: contain;
+    border: 1px solid #e9e9e9;
+    padding: 8px;
+    background: white;
+    border-radius: 8px;
+}
