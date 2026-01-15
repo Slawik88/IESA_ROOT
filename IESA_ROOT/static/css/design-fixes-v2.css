@@ -2,6 +2,53 @@
    DESIGN FIXES V2 - МАСШТАБНЫЕ ИСПРАВЛЕНИЯ ДИЗАЙНА
    ============================================================ */
 
+
+/* ===== КАРТОЧКИ ЧЛЕНОВ АССОЦИАЦИИ - ГОРИЗОНТАЛЬНЫЙ LAYOUT ===== */
+/* Фото слева, описание справа */
+
+.member-card {
+  border: 1px solid rgba(0, 0, 0, 0.08) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06) !important;
+}
+
+.member-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1) !important;
+}
+
+.member-card .member-photo,
+.member-card .member-avatar {
+  transition: transform 0.3s ease;
+}
+
+.member-card:hover .member-photo,
+.member-card:hover .member-avatar {
+  transform: scale(1.05);
+}
+
+/* Адаптив для мобильных - карточка остаётся горизонтальной но компактнее */
+@media (max-width: 575.98px) {
+  .member-card .col-4 {
+    min-height: 160px !important;
+  }
+  
+  .member-card .member-photo,
+  .member-card .member-avatar {
+    width: 80px !important;
+    height: 80px !important;
+    font-size: 1.75rem !important;
+  }
+  
+  .member-card h6 {
+    font-size: 1rem !important;
+  }
+  
+  .member-card .col-8.p-4 {
+    padding: 1rem !important;
+  }
+}
+
+
 /* ===== 1. СИНЯЯ ПОЛОСКА - ПОД ТЕКСТОМ, А НЕ В НАЧАЛЕ БЛОКА ===== */
 
 /* Исправляем section-title - полоска под текстом */
