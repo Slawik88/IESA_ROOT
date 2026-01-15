@@ -466,14 +466,15 @@
     width: 0;
     height: 0;
     border-radius: 50%;
-    background: rgba(255, 255, 255, 0.4);
+    background: rgba(255, 255, 255, 0.25);
     transform: translate(-50%, -50%);
     transition: width 0.3s, height 0.3s;
   }
   
   .btn:active::after {
-    width: 300px;
-      opacity: 0.85;
+    width: 120px;
+    height: 120px;
+    opacity: 0.6;
   }
   
   /* Карточки */

@@ -970,6 +970,14 @@
   a:active {
     opacity: 0.85;
   }
+
+  /* Жёсткий запрет transform для кнопок на мобильных */
+  .btn,
+  .btn:active,
+  .btn:focus,
+  .btn:focus-visible {
+    transform: none !important;
+  }
   
   /* Focus visible для accessibility */
   .btn:focus-visible,
