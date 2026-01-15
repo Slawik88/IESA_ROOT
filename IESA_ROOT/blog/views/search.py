@@ -76,28 +76,40 @@ def global_search(request):
     
     try:
         # Поиск пользователей
-        results['users'] = User.objects.filter(
+        users_qs = User.objects.filter(
             Q(username__icontains=normalized) |
             Q(first_name__icontains=normalized) |
             Q(last_name__icontains=normalized) |
             Q(email__icontains=normalized)
         ).exclude(username='').order_by('-is_verified', 'username')[:SEARCH_USERS_LIMIT]
+        results['users'] = list(users_qs)  # Force evaluation
         
         # Поиск постов
-        results['posts'] = Post.objects.filter(
+        posts_qs = Post.objects.filter(
             Q(title__icontains=normalized) | Q(text__icontains=normalized),
             status='published'
         ).select_related('author').order_by('-created_at')[:SEARCH_POSTS_LIMIT]
+        results['posts'] = list(posts_qs)  # Force evaluation
         
         # Поиск событий
-        results['events'] = Event.objects.filter(
-            Q(title__icontains=normalized) | Q(description__icontains=normalized)
-        ).select_related('created_by').order_by('-date')[:SEARCH_EVENTS_LIMIT]
+        try:
+            events_qs = Event.objects.filter(
+                Q(title__icontains=normalized) | Q(description__icontains=normalized)
+            ).select_related('created_by').order_by('-date')[:SEARCH_EVENTS_LIMIT]
+            results['events'] = list(events_qs)  # Force evaluation
+        except Exception as e:
+            logger.warning(f"Events search failed: {e}")
+            results['events'] = []
         
-        # Поиск партнёров
-        results['partners'] = Partner.objects.filter(
-            Q(name__icontains=normalized) | Q(description__icontains=normalized)
-        ).order_by('name')[:SEARCH_PARTNERS_LIMIT]
+        # Поиск партнёров (с обработкой ошибки если миграции не применены)
+        try:
+            partners_qs = Partner.objects.filter(
+                Q(name__icontains=normalized) | Q(description__icontains=normalized)
+            ).order_by('name')[:SEARCH_PARTNERS_LIMIT]
+            results['partners'] = list(partners_qs)  # Force evaluation
+        except Exception as e:
+            logger.warning(f"Partners search failed (migrations may be pending): {e}")
+            results['partners'] = []
         
         logger.info(
             f"Found: {len(results['users'])} users, {len(results['posts'])} posts, "
