@@ -755,6 +755,27 @@
   overflow-wrap: break-word;
   max-width: 100%;
   display: inline-block;
+  white-space: normal;
+  line-height: 1.5;
+}
+
+@media (max-width: 767px) {
+  .hero-badge {
+    font-size: 0.75rem;
+    padding: 0.4rem 0.8rem;
+    max-width: 95%;
+  }
+  
+  .hero-badge i {
+    font-size: 0.7rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .hero-badge {
+    font-size: 0.7rem;
+    padding: 0.35rem 0.7rem;
+  }
 }
 
 .hero-title {
@@ -799,12 +820,15 @@
   height: 180px;
   object-fit: cover;
   border: 4px solid var(--color-gray-100);
+  display: block;
+  margin: 0 auto;
 }
 
 .president-avatar {
   width: 180px;
   height: 180px;
   background: var(--color-gray-100);
+  margin: 0 auto;
 }
 
 .president-avatar-icon {
@@ -813,11 +837,22 @@
 
 .president-name {
   color: var(--color-gray-900);
+  margin-top: 1rem;
+  text-align: center;
 }
 
 .president-position {
   color: var(--color-primary);
   font-weight: 500;
+  text-align: center;
+}
+
+@media (max-width: 767px) {
+  .president-photo,
+  .president-avatar {
+    width: 140px;
+    height: 140px;
+  }
 }
 
 .president-quote-icon {

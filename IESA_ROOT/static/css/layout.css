@@ -450,6 +450,20 @@ main {
   min-width: 340px;
 }
 
+/* Fix: search button positioning on mobile */
+@media (max-width: 991px) {
+  .navbar-collapse .d-flex.align-items-center {
+    flex-direction: row !important;
+    justify-content: flex-end !important;
+    margin-top: 1rem;
+    width: 100%;
+  }
+  
+  .navbar-collapse .dropdown:has(#communitySearchToggle) {
+    order: -1;
+  }
+}
+
 @media (max-width: 576px) {
   .navbar-search-dropdown {
     min-width: calc(100vw - 40px) !important;

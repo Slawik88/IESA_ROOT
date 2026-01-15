@@ -866,3 +866,17 @@
     background: white;
     border-radius: 8px;
 }
+
+/* Hover Lift Effect */
+.hover-lift {
+    transition: transform 0.3s ease, box-shadow 0.3s ease !important;
+}
+
+.hover-lift:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15) !important;
+}
+
+/* Additional Color Utilities */
+.text-purple { color: #9333ea !important; }
+.text-orange { color: #f97316 !important; }
