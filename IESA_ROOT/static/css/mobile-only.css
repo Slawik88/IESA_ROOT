@@ -924,7 +924,6 @@
   .card:active,
   a:active {
     opacity: 0.85;
-    transform: scale(0.98) !important;
   }
   
   /* Focus visible для accessibility */
