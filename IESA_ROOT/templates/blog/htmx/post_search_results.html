@@ -1,35 +1,5 @@
 {% if query %}
 <div class="search-results">
-  <style>
-    @keyframes fadeInSmall { from { opacity:0; transform: translateY(6px); } to { opacity:1; transform: translateY(0); } }
-    .hx-item { animation: fadeInSmall .28s ease both; }
-    .search-section { margin-bottom: 1.5rem; }
-    .section-title { 
-      font-size: 0.875rem; 
-      font-weight: 600; 
-      color: #6c757d; 
-      text-transform: uppercase; 
-      letter-spacing: 0.05em; 
-      margin-bottom: 0.75rem;
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-    }
-    .search-item {
-      border: 1px solid #e9ecef;
-      border-radius: 12px;
-      margin-bottom: 0.5rem;
-      padding: 0.875rem 1rem;
-      transition: all 0.2s ease;
-    }
-    .search-item:hover {
-      background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
-      border-color: #0d6efd;
-      transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(13, 110, 253, 0.15);
-    }
-  </style>
-
   <!-- Users Section -->
   {% if results.users %}
   <div class="search-section">
@@ -41,16 +11,13 @@
       {% for user in results.users %}
         {% if user.username and user.username|length > 0 %}
         <a href="{% url 'profile_public_username' username=user.username %}" 
-           class="list-group-item list-group-item-action search-item d-flex align-items-center hx-item" 
-           style="animation-delay: calc({{ forloop.counter0 }} * 35ms);">
+           class="list-group-item list-group-item-action search-item d-flex align-items-center hx-item animation-delay-{{ forloop.counter0|default:0 }}">
           {% if user.avatar %}
             <img src="{{ user.avatar.url }}" 
-                 class="rounded-circle me-3" 
-                 style="width: 48px; height: 48px; object-fit: cover;" 
+                 class="rounded-circle me-3 size-48 object-cover" 
                  alt="{{ user.username }}">
           {% else %}
-            <div class="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center me-3 fw-bold"
-                 style="width: 48px; height: 48px; font-size: 1.25rem;">
+            <div class="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center me-3 fw-bold size-48 text-xl">
               {{ user.username|slice:":1"|upper }}
             </div>
           {% endif %}
@@ -82,14 +49,13 @@
       {% for post in results.posts %}
         {% if post.pk %}
         <a href="{% url 'post_detail' pk=post.pk %}" 
-           class="list-group-item list-group-item-action search-item hx-item" 
-           style="animation-delay: calc({{ forloop.counter0 }} * 35ms);">
+           class="list-group-item list-group-item-action search-item hx-item animation-delay-{{ forloop.counter0|default:0 }}">
           <div class="d-flex w-100 justify-content-between align-items-start">
             <div class="flex-grow-1">
               <h6 class="mb-1 fw-bold text-dark">
                 <i class="fas fa-file-alt text-success me-2"></i>{{ post.title }}
               </h6>
-              <p class="mb-2 text-muted small" style="line-height: 1.5;">
+              <p class="mb-2 text-muted small lh-normal">
                 {{ post.text|striptags|truncatewords:25 }}
               </p>
               <div class="d-flex align-items-center gap-3 text-muted small">
@@ -109,8 +75,7 @@
             </div>
             {% if post.preview_image %}
             <img src="{{ post.preview_image.url }}" 
-                 class="rounded ms-3" 
-                 style="width: 80px; height: 80px; object-fit: cover;" 
+                 class="rounded ms-3 size-80 object-cover" 
                  alt="{{ post.title }}">
             {% endif %}
           </div>
@@ -132,8 +97,7 @@
       {% for event in results.events %}
         {% if event.pk %}
         <a href="{% url 'event_detail' pk=event.pk %}" 
-           class="list-group-item list-group-item-action search-item hx-item" 
-           style="animation-delay: calc({{ forloop.counter0 }} * 35ms);">
+           class="list-group-item list-group-item-action search-item hx-item animation-delay-{{ forloop.counter0|default:0 }}">
           <div class="d-flex w-100 justify-content-between align-items-start">
             <div class="flex-grow-1">
               <h6 class="mb-1 fw-bold text-dark">
@@ -149,8 +113,7 @@
             </div>
             {% if event.image %}
             <img src="{{ event.image.url }}" 
-                 class="rounded ms-3" 
-                 style="width: 80px; height: 80px; object-fit: cover;" 
+                 class="rounded ms-3 size-80 object-cover" 
                  alt="{{ event.title }}">
             {% endif %}
           </div>
@@ -176,17 +139,14 @@
            hx-target="#partner-modal-body" 
            data-bs-toggle="modal" 
            data-bs-target="#partnerModal"
-           class="list-group-item list-group-item-action search-item hx-item" 
-           style="animation-delay: calc({{ forloop.counter0 }} * 35ms);">
+           class="list-group-item list-group-item-action search-item hx-item animation-delay-{{ forloop.counter0|default:0 }}">
           <div class="d-flex w-100 align-items-center">
             {% if partner.logo %}
             <img src="{{ partner.logo.url }}" 
-                 class="rounded me-3" 
-                 style="width: 56px; height: 56px; object-fit: contain; border: 1px solid #e9ecef; padding: 4px;" 
+                 class="rounded me-3 size-56 object-contain border p-1" 
                  alt="{{ partner.name }}">
             {% else %}
-            <div class="rounded bg-info bg-opacity-10 text-info d-flex align-items-center justify-content-center me-3 fw-bold"
-                 style="width: 56px; height: 56px; font-size: 1.5rem; border: 1px solid #e9ecef;">
+            <div class="rounded bg-info bg-opacity-10 text-info d-flex align-items-center justify-content-center me-3 fw-bold size-56 text-2xl border">
               {{ partner.name|slice:":1"|upper }}
             </div>
             {% endif %}
@@ -208,7 +168,7 @@
   <!-- No Results -->
   {% if not results.users and not results.posts and not results.events and not results.partners %}
   <div class="text-center py-5">
-    <i class="fas fa-search fa-3x mb-3 text-muted" style="opacity: 0.3;"></i>
+    <i class="fas fa-search fa-3x mb-3 text-muted opacity-30"></i>
     <h5 class="text-muted mb-2">Ничего не найдено</h5>
     <p class="text-muted mb-0">Попробуйте изменить поисковый запрос "<strong>{{ query }}</strong>"</p>
     {% if query|length < 2 %}
@@ -219,7 +179,7 @@
 </div>
 {% else %}
 <div class="text-center py-4 text-muted">
-  <i class="fas fa-search fa-2x mb-2" style="opacity: 0.3;"></i>
+  <i class="fas fa-search fa-2x mb-2 opacity-30"></i>
   <p class="mb-0">Начните вводить для поиска...</p>
 </div>
 {% endif %}

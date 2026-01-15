@@ -902,3 +902,94 @@ textarea.form-control {
   color: var(--white);
   box-shadow: var(--shadow-icon-emerald);
 }
+
+/* ====================================================
+   14. SEARCH RESULTS COMPONENTS
+   ==================================================== */
+
+/* Search Avatar */
+.search-avatar {
+  width: 36px;
+  height: 36px;
+}
+
+.search-avatar-fallback {
+  width: 36px;
+  height: 36px;
+  font-size: 0.9rem;
+}
+
+/* Search Thumbnail */
+.search-thumbnail {
+  width: 60px;
+  height: 60px;
+}
+
+/* Search Partner Logo */
+.search-partner-logo {
+  width: 40px;
+  height: 40px;
+}
+
+.search-partner-fallback {
+  width: 40px;
+  height: 40px;
+  font-size: 1.2rem;
+}
+
+/* Search Result Text (truncated) */
+.search-result-text {
+  max-height: 2em;
+  overflow: hidden;
+}
+
+/* HTMX Animation Item */
+.hx-item {
+  animation: fadeInSmall 0.28s ease both;
+}
+
+@keyframes fadeInSmall {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ====================================================
+   15. SEARCH SECTION COMPONENTS
+   ==================================================== */
+
+.search-section {
+  margin-bottom: 1.5rem;
+}
+
+.search-section .section-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #6c757d;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.search-item {
+  border: 1px solid #e9ecef;
+  border-radius: 12px;
+  margin-bottom: 0.5rem;
+  padding: 0.875rem 1rem;
+  transition: all 0.2s ease;
+}
+
+.search-item:hover {
+  background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+  border-color: #0d6efd;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(13, 110, 253, 0.15);
+}

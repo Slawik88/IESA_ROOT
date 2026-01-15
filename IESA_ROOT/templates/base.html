@@ -73,7 +73,7 @@
         <div class="container-limited">
             <nav class="navbar navbar-expand-lg navbar-light py-2" aria-label="Main navigation">
                 <a class="navbar-brand fw-bold fs-4" href="{% url 'home' %}" aria-label="IESA Home">
-                    <img src="{% static 'img/logo.png' %}" alt="IESA Logo" style="height:40px;margin-right:10px;vertical-align:middle;">
+                    <img src="{% static 'img/logo.png' %}" alt="IESA Logo" class="navbar-logo">
                 </a>
                 <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
                     <span class="navbar-toggler-icon"></span>
@@ -102,7 +102,7 @@
                             <button class="btn btn-light btn-sm" id="communitySearchToggle" data-bs-toggle="dropdown" aria-expanded="false" title="Search community" aria-label="Open search menu">
                                 <i class="fas fa-search"></i>
                             </button>
-                            <div class="dropdown-menu dropdown-menu-end p-3" style="min-width:340px;" onclick="event.stopPropagation();">
+                            <div class="dropdown-menu dropdown-menu-end p-3 navbar-search-dropdown" onclick="event.stopPropagation();">
                                 <label class="form-label small mb-1">
                                     <i class="fas fa-search me-2"></i>Search
                                 </label>
@@ -111,7 +111,7 @@
                                   hx-trigger="keyup changed delay:400ms" 
                                   hx-target="#community-search-results"
                                   autocomplete="off">
-                                <div id="community-search-results" class="mt-2" style="max-height:360px;overflow:auto; transition: transform .22s ease, opacity .22s ease; transform-origin: top center;"></div>
+                                <div id="community-search-results" class="mt-2 navbar-search-results"></div>
                             </div>
                         </div>
                         {% if user.is_authenticated %}
@@ -119,12 +119,12 @@
                             <a href="{% url 'notification_list' %}" class="btn btn-light btn-sm position-relative" title="Notifications">
                                 <i class="fas fa-bell"></i>
                                 {% if unread_notifications_count > 0 %}
-                                <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="font-size:0.65rem;">
+                                <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger navbar-notification-badge">
                                     {{ unread_notifications_count }}
                                 </span>
                                 {% endif %}
                             </a>
-                            <a href="{% url 'profile' %}" class="btn btn-outline-primary btn-modern d-flex align-items-center" style="padding:.5rem .8rem;font-size:.9rem;">
+                            <a href="{% url 'profile' %}" class="btn btn-outline-primary btn-modern d-flex align-items-center navbar-btn">
                                 {% if user.avatar and user.avatar.name != 'avatars/default.png' %}
                                     <span class="avatar avatar-sm me-2"><img src="{{ user.avatar.url }}" alt="Avatar"></span>
                                 {% else %}
@@ -132,10 +132,10 @@
                                 {% endif %}
                                 <span class="d-none d-sm-inline">Profile</span>
                             </a>
-                                <button type="button" class="btn btn-outline-secondary btn-modern" style="padding:.5rem .8rem;font-size:.9rem;" data-bs-toggle="modal" data-bs-target="#logoutConfirmModal">Logout</button>
+                                <button type="button" class="btn btn-outline-secondary btn-modern navbar-btn" data-bs-toggle="modal" data-bs-target="#logoutConfirmModal">Logout</button>
                         {% else %}
-                            <a href="{% url 'login' %}" class="btn btn-outline-primary btn-modern" style="padding:.5rem .8rem;font-size:.9rem;">Sign In</a>
-                            <a href="{% url 'register' %}" class="btn btn-primary btn-modern" style="padding:.5rem .8rem;font-size:.9rem;">Register</a>
+                            <a href="{% url 'login' %}" class="btn btn-outline-primary btn-modern navbar-btn">Sign In</a>
+                            <a href="{% url 'register' %}" class="btn btn-primary btn-modern navbar-btn">Register</a>
                         {% endif %}
                     </div>
                 </nav>
@@ -170,24 +170,24 @@
             <div class="row g-5">
                 <div class="col-12 col-lg-4">
                     <h6 class="footer-title mb-3">ABOUT</h6>
-                    <p class="footer-text mb-3" style="line-height: 1.7; max-width: 360px;">IESA connects sports leaders and partners, creating a space for growth, projects and events worldwide.</p>
-                    <p class="footer-text small mb-0" style="opacity: 0.7;">&copy; {{ "now"|date:"Y" }} IESA Association. All rights reserved.</p>
+                    <p class="footer-text mb-3 footer-about-text">IESA connects sports leaders and partners, creating a space for growth, projects and events worldwide.</p>
+                    <p class="footer-text small mb-0 footer-copyright">&copy; {{ "now"|date:"Y" }} IESA Association. All rights reserved.</p>
                 </div>
                 <div class="col-6 col-md-3 col-lg-2">
                     <h6 class="footer-title mb-3">LINKS</h6>
                     <ul class="list-unstyled footer-links">
-                        <li class="mb-2"><a href="{% url 'home' %}"><i class="fas fa-home me-2" style="opacity: 0.6; font-size: 0.875rem;"></i>Home</a></li>
-                        <li class="mb-2"><a href="{% url 'post_list' %}"><i class="fas fa-users me-2" style="opacity: 0.6; font-size: 0.875rem;"></i>Community</a></li>
-                        <li class="mb-2"><a href="{% url 'gallery' %}"><i class="fas fa-images me-2" style="opacity: 0.6; font-size: 0.875rem;"></i>Gallery</a></li>
-                        <li class="mb-2"><a href="{% url 'event_list' %}"><i class="fas fa-calendar me-2" style="opacity: 0.6; font-size: 0.875rem;"></i>Events</a></li>
+                        <li class="mb-2"><a href="{% url 'home' %}"><i class="fas fa-home me-2 footer-link-icon"></i>Home</a></li>
+                        <li class="mb-2"><a href="{% url 'post_list' %}"><i class="fas fa-users me-2 footer-link-icon"></i>Community</a></li>
+                        <li class="mb-2"><a href="{% url 'gallery' %}"><i class="fas fa-images me-2 footer-link-icon"></i>Gallery</a></li>
+                        <li class="mb-2"><a href="{% url 'event_list' %}"><i class="fas fa-calendar me-2 footer-link-icon"></i>Events</a></li>
                     </ul>
                 </div>
                 <div class="col-6 col-md-3 col-lg-3">
                     <h6 class="footer-title mb-3">CONTACTS</h6>
                     <ul class="list-unstyled footer-links">
-                        <li class="mb-2"><i class="fas fa-envelope me-2" style="opacity: 0.6;"></i><a href="mailto:contact@iesasport.ch">contact@iesasport.ch</a></li>
-                        <li class="mb-2"><i class="fas fa-phone me-2" style="opacity: 0.6;"></i><a href="tel:+41795718887">+41 79 571 8887</a></li>
-                        <li class="mb-2"><i class="fas fa-location-dot me-2" style="opacity: 0.6;"></i><span class="footer-text">Switzerland</span></li>
+                        <li class="mb-2"><i class="fas fa-envelope me-2 footer-contact-icon"></i><a href="mailto:contact@iesasport.ch">contact@iesasport.ch</a></li>
+                        <li class="mb-2"><i class="fas fa-phone me-2 footer-contact-icon"></i><a href="tel:+41795718887">+41 79 571 8887</a></li>
+                        <li class="mb-2"><i class="fas fa-location-dot me-2 footer-contact-icon"></i><span class="footer-text">Switzerland</span></li>
                     </ul>
                 </div>
                 <div class="col-12 col-md-6 col-lg-3">
@@ -327,7 +327,7 @@
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                        <form method="post" action="{% url 'logout' %}" style="display: inline;">
+                        <form method="post" action="{% url 'logout' %}" class="d-inline">
                             {% csrf_token %}
                             <button type="submit" class="btn btn-danger">Logout</button>
                         </form>
