@@ -1,0 +1,133 @@
+/**
+ * Parallax Effects CSS
+ * Smooth parallax scrolling and fade-in animations
+ */
+
+/* Parallax container */
+[data-parallax] {
+    will-change: transform;
+}
+
+/* Hero parallax background */
+.parallax-background {
+    position: absolute;
+    width: 100%;
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+    z-index: -1;
+    transition: transform 0.1s ease-out;
+}
+
+/* Tilt effect container */
+[data-tilt] {
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transform-style: preserve-3d;
+}
+
+/* Fade in animation */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+[data-fade-in] {
+    opacity: 0;
+    transform: translateY(30px);
+    transition: opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1),
+                transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+[data-fade-in].fade-in-visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* Staggered animation for multiple fade-in elements */
+[data-fade-in]:nth-child(1) { transition-delay: 0ms; }
+[data-fade-in]:nth-child(2) { transition-delay: 100ms; }
+[data-fade-in]:nth-child(3) { transition-delay: 200ms; }
+[data-fade-in]:nth-child(4) { transition-delay: 300ms; }
+[data-fade-in]:nth-child(5) { transition-delay: 400ms; }
+[data-fade-in]:nth-child(n+6) { transition-delay: 500ms; }
+
+/* Hero section with parallax */
+.hero,
+[data-hero] {
+    position: relative;
+    overflow: hidden;
+    min-height: 500px;
+}
+
+.hero-content,
+[data-hero] > *:not(.parallax-background) {
+    position: relative;
+    z-index: 1;
+}
+
+/* Parallax zoom effect */
+[data-parallax-zoom] {
+    will-change: transform;
+}
+
+[data-parallax-zoom]:hover {
+    transform: scale(1.05);
+}
+
+/* Mobile optimization */
+@media (max-width: 768px) {
+    [data-parallax] {
+        /* Disable parallax on mobile for performance */
+        transform: none !important;
+    }
+
+    .parallax-background {
+        background-attachment: scroll;
+    }
+
+    [data-tilt] {
+        transform: none;
+    }
+
+    [data-tilt]:hover {
+        transform: none;
+    }
+}
+
+/* Reduce motion support */
+@media (prefers-reduced-motion: reduce) {
+    [data-parallax],
+    [data-fade-in],
+    [data-tilt],
+    .parallax-background {
+        animation: none;
+        transition: none;
+        transform: none !important;
+    }
+
+    [data-fade-in] {
+        opacity: 1;
+    }
+}
+
+/* GPU acceleration for smooth parallax */
+.hero,
+[data-hero],
+[data-parallax],
+[data-tilt],
+[data-fade-in] {
+    transform: translateZ(0);
+}
+
+/* High resolution optimization */
+@media (min-width: 1920px) {
+    .parallax-background {
+        background-size: contain;
+    }
+}

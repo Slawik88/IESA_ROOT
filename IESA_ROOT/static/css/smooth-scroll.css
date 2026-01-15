@@ -1,0 +1,148 @@
+/**
+ * Smooth Scroll & Back to Top Styling
+ */
+
+/* Back to top button */
+#back-to-top {
+    position: fixed;
+    bottom: 2rem;
+    right: 2rem;
+    width: 50px;
+    height: 50px;
+    background: linear-gradient(135deg, #007bff, #0056b3);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 1.5rem;
+    display: none;
+    opacity: 0;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 999;
+    box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
+    align-items: center;
+    justify-content: center;
+}
+
+#back-to-top:hover {
+    background: linear-gradient(135deg, #0056b3, #004085);
+    transform: translateY(-4px);
+    box-shadow: 0 8px 20px rgba(0, 123, 255, 0.4);
+}
+
+#back-to-top:active {
+    transform: translateY(-2px);
+}
+
+/* Ensure button is visible when shown */
+#back-to-top[style*="display: block"] {
+    display: flex !important;
+}
+
+/* Active nav item styling */
+a[href^="#"].active {
+    color: #007bff;
+    font-weight: 600;
+    border-bottom: 2px solid #007bff;
+}
+
+.nav-link[href^="#"].active {
+    color: #007bff;
+}
+
+/* Smooth scroll behavior for HTML */
+html {
+    scroll-behavior: smooth;
+}
+
+/* Section styling for anchor navigation */
+[id] {
+    scroll-margin-top: 80px;
+}
+
+/* Highlight animation when scrolling to section */
+@keyframes highlightSection {
+    0% {
+        background-color: transparent;
+    }
+    50% {
+        background-color: rgba(0, 123, 255, 0.1);
+    }
+    100% {
+        background-color: transparent;
+    }
+}
+
+[id]:target {
+    animation: highlightSection 1.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Mobile optimization */
+@media (max-width: 768px) {
+    #back-to-top {
+        width: 45px;
+        height: 45px;
+        font-size: 1.25rem;
+        bottom: 1.5rem;
+        right: 1.5rem;
+    }
+
+    [id] {
+        scroll-margin-top: 70px;
+    }
+}
+
+@media (max-width: 576px) {
+    #back-to-top {
+        width: 40px;
+        height: 40px;
+        font-size: 1.1rem;
+        bottom: 1rem;
+        right: 1rem;
+    }
+
+    [id] {
+        scroll-margin-top: 60px;
+    }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+    html {
+        scroll-behavior: auto;
+    }
+
+    #back-to-top {
+        transition: none;
+    }
+
+    [id]:target {
+        animation: none;
+    }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+    #back-to-top {
+        background: linear-gradient(135deg, #0d6efd, #0a58ca);
+        box-shadow: 0 4px 12px rgba(13, 110, 253, 0.3);
+    }
+
+    #back-to-top:hover {
+        background: linear-gradient(135deg, #0a58ca, #084298);
+        box-shadow: 0 8px 20px rgba(13, 110, 253, 0.4);
+    }
+
+    a[href^="#"].active {
+        color: #0d6efd;
+        border-bottom-color: #0d6efd;
+    }
+
+    .nav-link[href^="#"].active {
+        color: #0d6efd;
+    }
+
+    [id]:target {
+        background-color: rgba(13, 110, 253, 0.1);
+    }
+}

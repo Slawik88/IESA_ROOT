@@ -1,0 +1,249 @@
+/**
+ * Skeleton Loading CSS
+ * Beautiful placeholder animations while content loads
+ */
+
+/* Skeleton base styles */
+.skeleton {
+    background-color: #f3f4f6;
+    border-radius: 0.5rem;
+}
+
+.skeleton-item {
+    background-color: #e5e7eb;
+    border-radius: 0.375rem;
+    display: block;
+}
+
+/* Shimmer pulse animation */
+@keyframes skeletonPulse {
+    0% {
+        background-color: #e5e7eb;
+    }
+    50% {
+        background-color: #d1d5db;
+    }
+    100% {
+        background-color: #e5e7eb;
+    }
+}
+
+@keyframes skeletonShimmer {
+    0% {
+        background-position: -1000px 0;
+    }
+    100% {
+        background-position: 1000px 0;
+    }
+}
+
+.skeleton-pulse {
+    animation: skeletonPulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.skeleton-shimmer {
+    background: linear-gradient(
+        90deg,
+        #f3f4f6 25%,
+        #e5e7eb 50%,
+        #f3f4f6 75%
+    );
+    background-size: 1000px 100%;
+    animation: skeletonShimmer 2s infinite;
+}
+
+/* Post skeleton */
+.skeleton-post {
+    display: flex;
+    gap: 1rem;
+    padding: 1rem;
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.75rem;
+}
+
+.skeleton-avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.skeleton-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.skeleton-title {
+    height: 1rem;
+    width: 60%;
+    margin-bottom: 0.5rem;
+}
+
+.skeleton-text {
+    height: 0.875rem;
+    margin-bottom: 0.5rem;
+}
+
+.skeleton-image {
+    width: 100%;
+    height: 250px;
+    margin-top: 1rem;
+    border-radius: 0.5rem;
+}
+
+.skeleton-footer {
+    display: flex;
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.skeleton-action {
+    height: 2rem;
+    width: 100px;
+    border-radius: 0.375rem;
+}
+
+/* Grid skeleton */
+.skeleton-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 1rem;
+}
+
+.skeleton-card {
+    border: 1px solid #e5e7eb;
+    border-radius: 0.75rem;
+    overflow: hidden;
+    background: white;
+}
+
+/* Profile skeleton */
+.skeleton-profile {
+    padding: 2rem;
+    background: white;
+    border-radius: 0.75rem;
+    border: 1px solid #e5e7eb;
+}
+
+.skeleton-header {
+    display: flex;
+    gap: 2rem;
+    margin-bottom: 2rem;
+    align-items: center;
+}
+
+.skeleton-info {
+    flex: 1;
+}
+
+.skeleton-actions {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 2rem;
+    justify-content: center;
+}
+
+.skeleton-button {
+    height: 2.5rem;
+    width: 120px;
+    border-radius: 0.375rem;
+}
+
+.skeleton-bio {
+    padding-top: 2rem;
+    border-top: 1px solid #e5e7eb;
+}
+
+/* Comment skeleton */
+.skeleton-comment {
+    padding: 1rem;
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.5rem;
+}
+
+/* Event detail skeleton */
+.skeleton-event {
+    background: white;
+    border-radius: 0.75rem;
+    padding: 2rem;
+}
+
+/* Generic skeleton */
+.skeleton-generic {
+    padding: 1rem;
+    background: white;
+    border-radius: 0.5rem;
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+    .skeleton-grid {
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    }
+
+    .skeleton-header {
+        flex-direction: column;
+        gap: 1rem;
+        align-items: flex-start;
+    }
+
+    .skeleton-post {
+        flex-wrap: wrap;
+    }
+
+    .skeleton-image {
+        height: 180px;
+    }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+    .skeleton {
+        background-color: #374151;
+    }
+
+    .skeleton-item {
+        background-color: #4b5563;
+    }
+
+    @keyframes skeletonPulse {
+        0% {
+            background-color: #4b5563;
+        }
+        50% {
+            background-color: #6b7280;
+        }
+        100% {
+            background-color: #4b5563;
+        }
+    }
+
+    .skeleton-shimmer {
+        background: linear-gradient(
+            90deg,
+            #374151 25%,
+            #4b5563 50%,
+            #374151 75%
+        );
+    }
+
+    .skeleton,
+    .skeleton-post,
+    .skeleton-profile,
+    .skeleton-card,
+    .skeleton-event {
+        background-color: #1f2937;
+        border-color: #374151;
+    }
+}
+
+/* Reduce motion support */
+@media (prefers-reduced-motion: reduce) {
+    .skeleton-pulse,
+    .skeleton-shimmer {
+        animation: none;
+        background-color: #e5e7eb;
+    }
+}
