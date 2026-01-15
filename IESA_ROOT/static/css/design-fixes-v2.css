@@ -11,19 +11,21 @@
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06) !important;
 }
 
-.member-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1) !important;
-}
+@media (min-width: 1024px) {
+  .member-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1) !important;
+  }
 
-.member-card .member-photo,
-.member-card .member-avatar {
-  transition: transform 0.3s ease;
-}
+  .member-card .member-photo,
+  .member-card .member-avatar {
+    transition: transform 0.3s ease;
+  }
 
-.member-card:hover .member-photo,
-.member-card:hover .member-avatar {
-  transform: scale(1.05);
+  .member-card:hover .member-photo,
+  .member-card:hover .member-avatar {
+    transform: scale(1.05);
+  }
 }
 
 
@@ -168,26 +170,28 @@
 
 /* ===== 3. HOVER ЭФФЕКТЫ - DESKTOP ONLY ===== */
 
-.card:hover,
-.card-modern:hover,
-.partner-card-enhanced:hover,
-.member-card:hover,
-.event-card:hover,
-.post-card:hover,
-.gallery-thumb:hover,
-.btn:hover,
-[class*="card"]:hover {
-  transform: translateY(-2px);
-}
+@media (min-width: 1024px) {
+  .card:hover,
+  .card-modern:hover,
+  .partner-card-enhanced:hover,
+  .member-card:hover,
+  .event-card:hover,
+  .post-card:hover,
+  .gallery-thumb:hover,
+  .btn:hover,
+  [class*="card"]:hover {
+    transform: translateY(-2px);
+  }
 
-.gallery-thumb:hover img,
-.card:hover img,
-.card-img-top:hover {
-  transform: scale(1.02);
-}
+  .gallery-thumb:hover img,
+  .card:hover img,
+  .card-img-top:hover {
+    transform: scale(1.02);
+  }
 
-.card:hover {
-  box-shadow: 0 4px 12px rgba(0,0,0,0.08) !important;
+  .card:hover {
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08) !important;
+  }
 }
 
 

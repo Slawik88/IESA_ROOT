@@ -35,10 +35,12 @@
     transform: translateY(0);
 }
 
-#back-to-top:hover {
+@media (min-width: 1024px) {
+  #back-to-top:hover {
     background: #dc2626;
     transform: translateY(-4px);
     box-shadow: var(--shadow-xl);
+  }
 }
 
 #back-to-top:active {
@@ -232,9 +234,11 @@
     font-weight: 500;
 }
 
-.nav-pills .nav-link:hover {
+@media (min-width: 1024px) {
+  .nav-pills .nav-link:hover {
     color: var(--color-primary);
     background: var(--color-gray-50);
+  }
 }
 
 .nav-pills .nav-link.active {
@@ -283,9 +287,11 @@
     transition: all var(--transition-fast);
 }
 
-.dropdown-item:hover {
+@media (min-width: 1024px) {
+  .dropdown-item:hover {
     background: var(--color-gray-100);
     color: var(--color-gray-900);
+  }
 }
 
 .dropdown-divider {
