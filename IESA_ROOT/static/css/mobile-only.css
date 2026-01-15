@@ -5,6 +5,33 @@
    ============================================================ */
 
 /* =================================================================
+   ГЛОБАЛЬНЫЕ MOBILE СТИЛИ
+   ================================================================= */
+@media (max-width: 1023px) {
+  /* Убираем default tap highlight на iOS */
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+  
+  /* Smooth scrolling на мобилах */
+  html {
+    scroll-behavior: smooth;
+  }
+  
+  /* Убираем outline для focus на мобилах */
+  *:focus {
+    outline: none;
+  }
+  
+  /* Touch-friendly cursor */
+  button,
+  a,
+  [role="button"] {
+    cursor: pointer;
+  }
+}
+
+/* =================================================================
    BREAKPOINTS:
    - xs: 0-479px (iPhone SE, маленькие телефоны)
    - sm: 480-639px (iPhone 12/13, средние телефоны)
@@ -80,15 +107,59 @@
   /* Кнопки */
   .btn {
     min-height: 44px;
+    min-width: 44px;
     padding: 0.625rem 1rem !important;
     font-size: 0.875rem !important;
-    width: 100%;
     margin-bottom: 0.5rem;
+    border: none !important;
+    transition: all 0.15s ease !important;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+  }
+  
+  /* Full width for block buttons */
+  .btn-block,
+  .w-100,
+  .d-grid > .btn {
+    width: 100%;
+  }
+  
+  /* Inline/flex buttons - не полная ширина */
+  .d-flex .btn,
+  .d-flex button,
+  .gap-2 .btn,
+  .gap-3 .btn {
+    width: auto;
+    flex: 1;
   }
   
   .btn-sm {
+    min-height: 40px;
+    min-width: 44px;
     padding: 0.5rem 0.75rem !important;
     font-size: 0.8125rem !important;
+  }
+  
+  /* Learn More и другие inline кнопки */
+  .btn-outline-primary,
+  .btn-outline-secondary,
+  .btn-secondary {
+    min-height: 44px;
+    padding: 0.625rem 1.25rem !important;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  /* Убираем Bootstrap focus outline */
+  .btn:focus {
+    outline: none !important;
+    box-shadow: none !important;
+  }
+  
+  .btn:focus-visible {
+    outline: 2px solid rgba(255,255,255,0.5) !important;
+    outline-offset: 2px;
   }
   
   /* Формы */
@@ -500,10 +571,23 @@
   .modal-dialog {
     margin: 0.5rem;
     max-width: calc(100% - 1rem);
+    animation: slideUp 0.3s ease-out;
+  }
+  
+  @keyframes slideUp {
+    from {
+      transform: translateY(100%);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
   }
   
   .modal-content {
     border-radius: 0.75rem;
+    border: none;
   }
   
   .modal-header,
@@ -512,14 +596,33 @@
     padding: 1rem;
   }
   
+  .modal-header {
+    border-bottom: 1px solid rgba(0,0,0,0.08);
+  }
+  
   .modal-footer {
     flex-direction: column;
     gap: 0.5rem;
+    border-top: 1px solid rgba(0,0,0,0.08);
   }
   
   .modal-footer .btn {
     width: 100%;
     margin: 0;
+    min-height: 44px;
+  }
+  
+  /* Backdrop */
+  .modal-backdrop {
+    background-color: rgba(0,0,0,0.5);
+  }
+  
+  /* Закрыть modal button */
+  .btn-close {
+    min-width: 44px;
+    min-height: 44px;
+    width: 44px;
+    height: 44px;
   }
   
   /* Пагинация */
@@ -639,6 +742,18 @@
     width: 45px !important;
     height: 45px !important;
     font-size: 0.625rem !important;
+  }
+  
+  /* Event action buttons */
+  .event-card .btn,
+  .event-card [class*="btn-"] {
+    min-height: 44px;
+    padding: 0.75rem 1.25rem !important;
+    font-size: 0.875rem !important;
+  }
+  
+  .event-card .btn-outline-primary {
+    border: 2px solid var(--bs-primary) !important;
   }
   
   /* Blog posts */
@@ -809,6 +924,15 @@
   .card:active,
   a:active {
     opacity: 0.85;
+    transform: scale(0.98) !important;
+  }
+  
+  /* Focus visible для accessibility */
+  .btn:focus-visible,
+  a:focus-visible,
+  .nav-link:focus-visible {
+    outline: 2px solid rgba(255,255,255,0.6) !important;
+    outline-offset: 2px;
   }
 }
 
