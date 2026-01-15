@@ -35,8 +35,8 @@ logs/
 /staticfiles/
 /media/
 
-# Django migrations
-*/migrations/*
+# Django migrations - track migration files but ignore migration cache
+*/migrations/__pycache__/
 
 # Python bytecode
 *.pyc
