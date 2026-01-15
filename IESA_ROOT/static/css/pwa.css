@@ -1,0 +1,356 @@
+/**
+ * PWA & Offline Support Styles
+ * Offline indicators, install prompts, update notifications
+ */
+
+/* Offline Indicator */
+#offline-indicator {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(90deg, #ef4444, #dc2626);
+  color: white;
+  padding: 1rem;
+  text-align: center;
+  z-index: 9999;
+  transform: translateY(-100%);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  font-weight: 500;
+}
+
+#offline-indicator.show {
+  transform: translateY(0);
+}
+
+/* PWA Install Button */
+#pwa-install-button {
+  display: none;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1.5rem;
+  background: linear-gradient(135deg, #3b82f6, #06b6d4);
+  color: white;
+  border: none;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 6px rgba(59, 130, 246, 0.3);
+}
+
+#pwa-install-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 12px rgba(59, 130, 246, 0.4);
+}
+
+#pwa-install-button:active {
+  transform: translateY(0);
+}
+
+#pwa-install-button i {
+  font-size: 1.25rem;
+}
+
+/* Update Notification */
+.update-notification {
+  position: fixed;
+  bottom: 2rem;
+  right: 2rem;
+  background: white;
+  border-left: 4px solid #3b82f6;
+  border-radius: 0.5rem;
+  padding: 1.5rem;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+  z-index: 9998;
+  animation: slideUpNotification 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  max-width: 400px;
+}
+
+.update-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  font-size: 0.95rem;
+  color: #1f2937;
+}
+
+.update-content button {
+  white-space: nowrap;
+  font-size: 0.875rem;
+  padding: 0.5rem 1rem;
+}
+
+@keyframes slideUpNotification {
+  from {
+    opacity: 0;
+    transform: translateY(1rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* PWA Install Prompt (modal style) */
+.pwa-install-prompt {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: white;
+  padding: 1.5rem;
+  border-top: 1px solid #e5e7eb;
+  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.1);
+  z-index: 9998;
+  animation: slideUp 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.pwa-install-prompt.hidden {
+  display: none;
+}
+
+.pwa-install-prompt-content {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.pwa-install-prompt-icon {
+  font-size: 2rem;
+}
+
+.pwa-install-prompt-text h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.pwa-install-prompt-text p {
+  margin: 0.25rem 0 0 0;
+  font-size: 0.875rem;
+  color: #6b7280;
+}
+
+.pwa-install-prompt-actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-shrink: 0;
+}
+
+/* Offline page styles */
+.offline-page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 2rem;
+  text-align: center;
+  background: linear-gradient(135deg, #f3f4f6, #e5e7eb);
+}
+
+.offline-page-icon {
+  font-size: 4rem;
+  margin-bottom: 1rem;
+  animation: float 3s ease-in-out infinite;
+}
+
+.offline-page-title {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #1f2937;
+  margin-bottom: 0.5rem;
+}
+
+.offline-page-description {
+  font-size: 1rem;
+  color: #6b7280;
+  margin-bottom: 2rem;
+  max-width: 500px;
+}
+
+.offline-page-suggestions {
+  background: white;
+  border-radius: 0.5rem;
+  padding: 1.5rem;
+  max-width: 500px;
+  text-align: left;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+}
+
+.offline-page-suggestions h3 {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 1rem;
+}
+
+.offline-page-suggestions ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.offline-page-suggestions li {
+  padding: 0.75rem 0;
+  color: #6b7280;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.offline-page-suggestions li:last-child {
+  border-bottom: none;
+}
+
+.offline-page-suggestions li::before {
+  content: '✓ ';
+  color: #10b981;
+  font-weight: 600;
+  margin-right: 0.5rem;
+}
+
+.offline-page-button {
+  margin-top: 2rem;
+  padding: 0.75rem 2rem;
+  background: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.offline-page-button:hover {
+  background: #2563eb;
+  transform: translateY(-2px);
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-20px); }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .update-notification {
+    background: #1f2937;
+    border-left-color: #3b82f6;
+    color: #f3f4f6;
+  }
+
+  .update-content {
+    color: #e5e7eb;
+  }
+
+  .pwa-install-prompt {
+    background: #1f2937;
+    border-top-color: #374151;
+  }
+
+  .pwa-install-prompt-text h3 {
+    color: #f3f4f6;
+  }
+
+  .pwa-install-prompt-text p {
+    color: #d1d5db;
+  }
+
+  .offline-page {
+    background: linear-gradient(135deg, #111827, #1f2937);
+  }
+
+  .offline-page-title {
+    color: #f3f4f6;
+  }
+
+  .offline-page-description {
+    color: #d1d5db;
+  }
+
+  .offline-page-suggestions {
+    background: #111827;
+    border: 1px solid #374151;
+  }
+
+  .offline-page-suggestions h3 {
+    color: #f3f4f6;
+  }
+
+  .offline-page-suggestions li {
+    color: #d1d5db;
+    border-color: #374151;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  #offline-indicator,
+  .update-notification,
+  .pwa-install-prompt,
+  .offline-page-icon,
+  #pwa-install-button {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+  .update-notification {
+    bottom: 1rem;
+    right: 1rem;
+    left: 1rem;
+    max-width: unset;
+  }
+
+  .pwa-install-prompt {
+    flex-direction: column;
+    padding: 1rem;
+  }
+
+  .pwa-install-prompt-actions {
+    width: 100%;
+  }
+
+  .pwa-install-prompt-actions button {
+    flex: 1;
+  }
+
+  .offline-page {
+    padding: 1rem;
+  }
+
+  .offline-page-icon {
+    font-size: 3rem;
+  }
+
+  .offline-page-title {
+    font-size: 1.5rem;
+  }
+
+  .offline-page-suggestions {
+    width: 100%;
+    max-width: unset;
+  }
+}
