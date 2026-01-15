@@ -34,3 +34,14 @@ def mark_all_read(request):
     """Mark all notifications as read for the current user"""
     Notification.objects.filter(recipient=request.user, is_read=False).update(is_read=True)
     return redirect('notification_list')
+
+@login_required
+def notification_delete(request, pk):
+    """Delete a specific notification"""
+    notification = Notification.objects.filter(pk=pk, recipient=request.user).first()
+    if notification:
+        notification.delete()
+    
+    # Return empty response for HTMX delete
+    from django.http import HttpResponse
+    return HttpResponse('', status=200)

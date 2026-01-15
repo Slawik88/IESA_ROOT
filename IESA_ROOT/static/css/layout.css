@@ -450,10 +450,23 @@ main {
   min-width: 340px;
 }
 
+@media (max-width: 576px) {
+  .navbar-search-dropdown {
+    min-width: calc(100vw - 40px) !important;
+    width: calc(100vw - 40px) !important;
+    max-width: 500px;
+    position: fixed !important;
+    left: 20px !important;
+    right: 20px !important;
+    top: 60px !important;
+  }
+}
+
 /* Navbar Search Results */
 .navbar-search-results {
   max-height: 360px;
-  overflow: auto;
+  overflow-y: auto;
+  overflow-x: hidden;
   transition: transform 0.22s ease, opacity 0.22s ease;
   transform-origin: top center;
 }

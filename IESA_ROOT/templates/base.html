@@ -62,6 +62,7 @@
     <link rel="stylesheet" href="{% static 'css/pages.css' %}">
     <link rel="stylesheet" href="{% static 'css/utilities.css' %}">
     <link rel="stylesheet" href="{% static 'css/responsive.css' %}">
+    <link rel="stylesheet" href="{% static 'css/toast-notifications.css' %}">
 
 </head>
 <body>
@@ -80,6 +81,7 @@
                 </button>
                 <nav class="collapse navbar-collapse" id="navbarNav">
                     <ul class="navbar-nav mx-auto">
+                        <li class="nav-item"><a class="nav-link fw-500" href="{% url 'home' %}">Home</a></li>
                         <li class="nav-item"><a class="nav-link fw-500" href="{% url 'home' %}#about-section">About</a></li>
                         <li class="nav-item"><a class="nav-link fw-500" href="{% url 'gallery' %}">Gallery</a></li>
                         <li class="nav-item dropdown">
@@ -215,6 +217,9 @@
     
     <!-- Mobile Interactions & UX Enhancements -->
     <script src="{% static 'js/mobile-interactions.js' %}"></script>
+
+    <!-- Toast Notifications System -->
+    <script src="{% static 'js/toast-notifications.js' %}"></script>
     
         <!-- Small helper: add missing Bootstrap form-control classes to form fields if not present -->
         <script>
