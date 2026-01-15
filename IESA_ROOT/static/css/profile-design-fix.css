@@ -1,0 +1,439 @@
+/* ============================================
+   PROFILE DESIGN IMPROVEMENTS
+   ============================================ */
+
+/* PROFILE HEADER OPTIMIZATION */
+.profile-header-card {
+    border-radius: 24px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08), 0 2px 6px rgba(0, 0, 0, 0.04);
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    background: linear-gradient(145deg, #ffffff 0%, #fafafa 100%);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.profile-header-card:hover {
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12);
+}
+
+/* AVATAR STYLING */
+.profile-avatar-frame {
+    padding: 6px;
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+    border-radius: 50%;
+    box-shadow: 0 8px 24px rgba(239, 68, 68, 0.25);
+    display: inline-block;
+    position: relative;
+}
+
+.profile-avatar {
+    width: 160px;
+    height: 160px;
+    border-radius: 50%;
+    border: 5px solid white;
+    display: block;
+    object-fit: cover;
+}
+
+.profile-avatar-default {
+    width: 160px;
+    height: 160px;
+    border-radius: 50%;
+    border: 5px solid white;
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 4rem;
+    font-weight: 800;
+}
+
+/* PROFILE INFO SECTION */
+.profile-username {
+    font-size: 2rem;
+    color: #111827;
+    letter-spacing: -0.03em;
+    margin-top: 1rem;
+    margin-bottom: 0.5rem;
+    font-weight: 700;
+}
+
+.profile-email {
+    font-size: 1.0625rem;
+    font-weight: 500;
+    color: #6b7280;
+}
+
+.profile-id-badge {
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.08) 0%, rgba(220, 38, 38, 0.12) 100%);
+    color: #dc2626;
+    padding: 10px 20px;
+    border-radius: 14px;
+    font-family: 'Courier New', monospace;
+    font-size: 1.0625rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    border: 1px solid rgba(239, 68, 68, 0.15);
+    display: inline-block;
+}
+
+/* QR CODE CARD */
+.qr-code-card {
+    border-radius: 20px;
+    padding: 24px;
+    background: linear-gradient(145deg, #ffffff 0%, #f8f9fa 100%);
+    box-shadow: 0 4px 16px rgba(239, 68, 68, 0.12), 0 2px 4px rgba(0, 0, 0, 0.04);
+    border: 2px solid rgba(239, 68, 68, 0.1);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.qr-code-card:hover {
+    box-shadow: 0 8px 24px rgba(239, 68, 68, 0.18);
+    transform: translateY(-2px);
+}
+
+.qr-code-card h6 {
+    color: #374151;
+    font-size: 0.9375rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 700;
+    margin-bottom: 1rem;
+}
+
+.qr-code-image {
+    width: 200px;
+    height: 200px;
+    margin: 0 auto;
+    display: block;
+    border-radius: 16px;
+    box-shadow: 0 8px 20px rgba(239, 68, 68, 0.2);
+    transition: all 0.3s ease;
+}
+
+.qr-code-image:hover {
+    transform: scale(1.02);
+}
+
+.qr-code-description {
+    font-size: 0.875rem;
+    line-height: 1.6;
+    font-weight: 500;
+    color: #6b7280;
+}
+
+/* EDIT PROFILE BUTTON */
+.edit-profile-btn {
+    border-radius: 14px;
+    padding: 14px 32px;
+    font-weight: 700;
+    box-shadow: 0 6px 16px rgba(239, 68, 68, 0.3);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    letter-spacing: 0.01em;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 200px;
+}
+
+.edit-profile-btn:hover {
+    box-shadow: 0 8px 24px rgba(239, 68, 68, 0.4);
+    transform: translateY(-2px);
+}
+
+/* PROFILE DETAILS CARDS */
+.profile-detail-card {
+    border-radius: 18px;
+    padding: 1rem;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    cursor: pointer;
+    border: 1px solid;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.profile-detail-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.12);
+}
+
+/* Red Theme Card (Full Name) */
+.profile-detail-card.red {
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.04) 0%, rgba(220, 38, 38, 0.06) 100%);
+    border-color: rgba(239, 68, 68, 0.12);
+}
+
+.profile-detail-card.red .icon-box {
+    width: 56px;
+    height: 56px;
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 1rem;
+    box-shadow: 0 6px 16px rgba(239, 68, 68, 0.3);
+}
+
+.profile-detail-card.red .icon-box i {
+    color: white;
+    font-size: 1.375rem;
+}
+
+/* Blue Theme Card (Birthday) */
+.profile-detail-card.blue {
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.04) 0%, rgba(37, 99, 235, 0.06) 100%);
+    border-color: rgba(59, 130, 246, 0.12);
+}
+
+.profile-detail-card.blue .icon-box {
+    width: 56px;
+    height: 56px;
+    background: linear-gradient(135deg, #3b82f6, #2563eb);
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 1rem;
+    box-shadow: 0 6px 16px rgba(59, 130, 246, 0.3);
+}
+
+.profile-detail-card.blue .icon-box i {
+    color: white;
+    font-size: 1.375rem;
+}
+
+/* Amber Theme Card (Phone) */
+.profile-detail-card.amber {
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.04) 0%, rgba(217, 119, 6, 0.06) 100%);
+    border-color: rgba(245, 158, 11, 0.12);
+}
+
+.profile-detail-card.amber .icon-box {
+    width: 56px;
+    height: 56px;
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 1rem;
+    box-shadow: 0 6px 16px rgba(245, 158, 11, 0.3);
+}
+
+.profile-detail-card.amber .icon-box i {
+    color: white;
+    font-size: 1.375rem;
+}
+
+/* Green Theme Card (Joined) */
+.profile-detail-card.green {
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.04) 0%, rgba(5, 150, 105, 0.06) 100%);
+    border-color: rgba(16, 185, 129, 0.12);
+}
+
+.profile-detail-card.green .icon-box {
+    width: 56px;
+    height: 56px;
+    background: linear-gradient(135deg, #10b981, #059669);
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 1rem;
+    box-shadow: 0 6px 16px rgba(16, 185, 129, 0.3);
+}
+
+.profile-detail-card.green .icon-box i {
+    color: white;
+    font-size: 1.375rem;
+}
+
+.profile-detail-label {
+    color: #6b7280;
+    font-weight: 700;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 0.5rem;
+}
+
+.profile-detail-value {
+    font-size: 1.25rem;
+    color: #111827;
+    letter-spacing: -0.01em;
+    font-weight: 700;
+}
+
+/* ACTIVITY LEVEL SECTION */
+.activity-level-card {
+    border-radius: 20px;
+    padding: 2rem;
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.95) 0%, rgba(248, 249, 250, 0.98) 100%);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    margin-bottom: 2rem;
+}
+
+.activity-level-card .badge {
+    font-size: 1.25rem;
+    padding: 12px 24px;
+    border-radius: 12px;
+}
+
+.activity-level-card .badge.badge-danger {
+    box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
+}
+
+.activity-level-card .badge.badge-warning {
+    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+}
+
+.activity-level-card .badge.badge-info {
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.activity-level-card .badge.badge-success {
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+.activity-level-card .badge.badge-secondary {
+    box-shadow: 0 4px 12px rgba(107, 114, 128, 0.3);
+}
+
+.activity-points-display {
+    font-size: 3rem;
+    font-weight: 800;
+    color: #ef4444;
+    letter-spacing: -0.03em;
+}
+
+.activity-progress-bar {
+    height: 12px;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.06);
+}
+
+.activity-progress-bar .progress-bar {
+    background: linear-gradient(90deg, #ef4444, #dc2626);
+    border-radius: 999px;
+    box-shadow: 0 2px 4px rgba(239, 68, 68, 0.3);
+}
+
+/* SOCIAL LINKS SECTION */
+.social-links-card {
+    border-radius: 20px;
+    padding: 2rem;
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.95) 0%, rgba(248, 249, 250, 0.98) 100%);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    margin-bottom: 2rem;
+}
+
+.social-links-card h5 {
+    color: #111827;
+    font-size: 1.375rem;
+    letter-spacing: -0.02em;
+    font-weight: 700;
+    margin-bottom: 1.5rem;
+}
+
+.social-links-card h5 i {
+    color: #ef4444;
+    margin-right: 0.5rem;
+}
+
+.social-btn {
+    border-radius: 14px;
+    padding: 12px 24px;
+    font-weight: 600;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.social-btn:hover {
+    transform: translateY(-2px);
+}
+
+.social-btn.btn-outline-dark:hover {
+    background-color: #1f2937;
+    border-color: #1f2937;
+    color: white;
+}
+
+.social-btn.btn-outline-primary:hover {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+    color: white;
+}
+
+.social-btn.btn-outline-info:hover {
+    background-color: #0dcaf0;
+    border-color: #0dcaf0;
+    color: white;
+}
+
+.social-btn.btn-outline-secondary:hover {
+    background-color: #6c757d;
+    border-color: #6c757d;
+    color: white;
+}
+
+/* RESPONSIVE ADJUSTMENTS */
+@media (max-width: 768px) {
+    .profile-username {
+        font-size: 1.5rem;
+    }
+
+    .profile-avatar {
+        width: 120px;
+        height: 120px;
+    }
+
+    .profile-avatar-default {
+        width: 120px;
+        height: 120px;
+        font-size: 3rem;
+    }
+
+    .activity-level-card,
+    .social-links-card {
+        padding: 1.5rem;
+    }
+
+    .activity-points-display {
+        font-size: 2.5rem;
+    }
+
+    .social-btn {
+        padding: 10px 16px;
+        font-size: 0.875rem;
+    }
+}
+
+/* ACCESSIBILITY & DARK MODE SUPPORT */
+@media (prefers-reduced-motion: reduce) {
+    .profile-header-card,
+    .qr-code-card,
+    .profile-detail-card,
+    .social-btn {
+        transition: none;
+    }
+}
+
+@media (prefers-color-scheme: dark) {
+    .profile-header-card {
+        background: linear-gradient(145deg, #1f2937 0%, #111827 100%);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    }
+
+    .profile-detail-card {
+        background: #1f2937;
+        border-color: rgba(255, 255, 255, 0.1);
+    }
+
+    .activity-level-card,
+    .social-links-card {
+        background: linear-gradient(145deg, #1f2937 0%, #111827 100%);
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+        border-color: rgba(255, 255, 255, 0.1);
+    }
+}
