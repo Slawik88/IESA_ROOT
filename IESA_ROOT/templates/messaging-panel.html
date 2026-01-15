@@ -1,0 +1,52 @@
+<!-- Messaging Panel (TIER 8) - Slide-out messaging interface -->
+<div id="messaging-panel" class="messaging-panel">
+    <div class="messaging-panel-header">
+        <h5 class="mb-0">
+            <i class="fas fa-envelope me-2"></i>Messages
+        </h5>
+        <button class="messaging-close-btn" id="closeMessaging" aria-label="Close messages">
+            <i class="fas fa-times"></i>
+        </button>
+    </div>
+    <div class="messaging-panel-body">
+        <div class="messaging-conversations-list" id="conversationsList">
+            <!-- Conversations will be loaded here by JS -->
+        </div>
+        <div class="messaging-conversation-view" id="conversationView" style="display: none;">
+            <!-- Active conversation will be loaded here -->
+        </div>
+        <div class="messaging-empty-state" id="messagingEmptyState">
+            <i class="fas fa-inbox fa-3x mb-3 text-muted"></i>
+            <p class="text-muted mb-2">No conversations yet</p>
+            <p class="small text-muted">Click on a user's profile and select "Send Message" to start chatting!</p>
+        </div>
+    </div>
+</div>
+
+<!-- Messaging Toggle Script -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const messagingBtn = document.getElementById('messagingToggle');
+    const messagingPanel = document.getElementById('messaging-panel');
+    const closeBtn = document.getElementById('closeMessaging');
+    
+    if (messagingBtn && messagingPanel) {
+        messagingBtn.addEventListener('click', function() {
+            messagingPanel.classList.toggle('show');
+        });
+        
+        if (closeBtn) {
+            closeBtn.addEventListener('click', function() {
+                messagingPanel.classList.remove('show');
+            });
+        }
+        
+        // Close when clicking outside
+        document.addEventListener('click', function(e) {
+            if (!messagingPanel.contains(e.target) && e.target !== messagingBtn && !e.target.closest('#messagingToggle')) {
+                messagingPanel.classList.remove('show');
+            }
+        });
+    }
+});
+</script>
