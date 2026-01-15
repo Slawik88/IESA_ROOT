@@ -54,6 +54,33 @@
                                         <i class="fas fa-qrcode me-2"></i>Download QR
                                     </a>
                                 </div>
+                            {% elif user.is_authenticated and user.id != profile_user.id %}
+                                <!-- Action buttons for other users' profiles -->
+                                <div class="d-flex gap-2 flex-column mb-4">
+                                    <button class="btn btn-primary btn-modern follow-btn" 
+                                            data-user-id="{{ profile_user.id }}"
+                                            data-username="{{ profile_user.username }}">
+                                        <i class="fas fa-user-plus me-2"></i>
+                                        <span class="follow-text">Follow</span>
+                                    </button>
+                                    <button class="btn btn-outline-primary btn-modern send-message-btn" 
+                                            data-user-id="{{ profile_user.id }}"
+                                            data-username="{{ profile_user.username }}">
+                                        <i class="fas fa-envelope me-2"></i>Send Message
+                                    </button>
+                                </div>
+                                
+                                <!-- User Stats -->
+                                <div class="profile-user-stats mb-3">
+                                    <div class="stat-item">
+                                        <span class="stat-value">{{ profile_user.post_set.count|default:0 }}</span>
+                                        <span class="stat-label">Posts</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <span class="stat-value">{{ profile_user.comment_set.count|default:0 }}</span>
+                                        <span class="stat-label">Comments</span>
+                                    </div>
+                                </div>
                             {% endif %}
                         </div>
 
