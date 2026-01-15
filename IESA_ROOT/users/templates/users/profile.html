@@ -41,17 +41,19 @@
                                         <h6 class="profile-detail-label mb-3">Your QR Code</h6>
                                         <a href="{% url 'profile_by_card' permanent_id=profile_user.permanent_id %}" title="Open profile by card">
                                             <img src="{% url 'user_qr' permanent_id=profile_user.permanent_id %}" 
-                                                 alt="QR Code">
+                                                 alt="QR Code" class="qr-code-img">
                                         </a>
-                                        <p class="mt-3 mb-0 small text-muted">Share this QR code with others to quickly share your profile</p>
-                                        <a class="btn btn-outline-primary btn-sm mt-3" href="{% url 'user_qr' permanent_id=profile_user.permanent_id %}?download=1">
-                                            <i class="fas fa-download me-2"></i>Download QR
-                                        </a>
+                                        <p class="mt-3 mb-0 small text-muted">Scan to view profile</p>
                                     </div>
                                 </div>
-                                <a href="{% url 'profile_edit' %}" class="btn btn-primary btn-lg">
-                                    <i class="fas fa-edit me-2"></i>Edit Profile
-                                </a>
+                                <div class="d-flex gap-2 flex-column">
+                                    <a href="{% url 'profile_edit' %}" class="btn btn-primary">
+                                        <i class="fas fa-edit me-2"></i>Edit Profile
+                                    </a>
+                                    <a href="{% url 'user_qr' permanent_id=profile_user.permanent_id %}?download=1" class="btn btn-outline-primary">
+                                        <i class="fas fa-qrcode me-2"></i>Download QR
+                                    </a>
+                                </div>
                             {% endif %}
                         </div>
 
