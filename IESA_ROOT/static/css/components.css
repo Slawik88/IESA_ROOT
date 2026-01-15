@@ -33,6 +33,25 @@
   text-decoration: none;
   line-height: 1.5;
   white-space: nowrap;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Touch Ripple Effect (добавляется JS для мобильных) */
+.ripple {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.4);
+  transform: scale(0);
+  animation: ripple-animation 0.6s linear;
+  pointer-events: none;
+}
+
+@keyframes ripple-animation {
+  to {
+    transform: scale(4);
+    opacity: 0;
+  }
 }
 
 .btn:focus-visible {
@@ -276,6 +295,8 @@
   border-radius: var(--radius-card);
   box-shadow: var(--shadow-card);
   transition: all var(--transition-smooth);
+  position: relative;
+  overflow: hidden;
 }
 
 .card:hover {
