@@ -99,10 +99,12 @@ a {
   border-bottom: none; /* Убираем черную линию */
 }
 
-a:hover {
-  color: var(--primary-dark);
-  text-decoration: none;
-  border-bottom: none; /* Убираем черную линию при наведении */
+@media (min-width: 1024px) {
+  a:hover {
+    color: var(--primary-dark);
+    text-decoration: none;
+    border-bottom: none; /* Убираем черную линию при наведении */
+  }
 }
 
 /* ============================================================
@@ -152,8 +154,10 @@ header {
   transition: var(--transition);
 }
 
-.navbar-brand:hover {
-  transform: scale(1.05);
+@media (min-width: 1024px) {
+  .navbar-brand:hover {
+    transform: scale(1.05);
+  }
 }
 
 .navbar .nav-link {
@@ -167,9 +171,11 @@ header {
   position: relative;
 }
 
-.navbar .nav-link:hover {
-  color: var(--primary) !important;
-  background: rgba(13, 110, 253, 0.08);
+@media (min-width: 1024px) {
+  .navbar .nav-link:hover {
+    color: var(--primary) !important;
+    background: rgba(13, 110, 253, 0.08);
+  }
 }
 
 .navbar .nav-link.active {
@@ -359,13 +365,15 @@ header {
   transition: width 0.3s ease;
 }
 
-.footer-links a:hover {
-  color: #ffffff;
-  padding-left: 4px;
-}
+@media (min-width: 1024px) {
+  .footer-links a:hover {
+    color: #ffffff;
+    padding-left: 4px;
+  }
 
-.footer-links a:hover::before {
-  width: 100%;
+  .footer-links a:hover::before {
+    width: 100%;
+  }
 }
 
 .footer-social {
@@ -398,16 +406,18 @@ header {
   pointer-events: none;
 }
 
-.footer-social:hover {
-  color: #ffffff;
-  background: linear-gradient(135deg, #7aa5ff, #5a88e6);
-  border-color: #7aa5ff;
-  box-shadow: 0 8px 20px rgba(122,165,255,0.35);
-  transform: translateY(-3px);
-}
+@media (min-width: 1024px) {
+  .footer-social:hover {
+    color: #ffffff;
+    background: linear-gradient(135deg, #7aa5ff, #5a88e6);
+    border-color: #7aa5ff;
+    box-shadow: 0 8px 20px rgba(122,165,255,0.35);
+    transform: translateY(-3px);
+  }
 
-.footer-social:hover::before {
-  opacity: 1;
+  .footer-social:hover::before {
+    opacity: 1;
+  }
 }
 
 .footer-social:active {
@@ -522,9 +532,11 @@ header {
   border: 1px solid var(--border);
 }
 
-.product-card:hover {
-  transform: translateY(-4px);
-  box-shadow: var(--shadow-lg);
+@media (min-width: 1024px) {
+  .product-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-lg);
+  }
 }
 
 .product-thumb {
@@ -638,8 +650,10 @@ header {
   transition: var(--transition);
 }
 
-.gallery-thumb:hover img { transform: scale(1.04); }
-.gallery-thumb:hover .gallery-thumb__overlay { opacity: 1; }
+@media (min-width: 1024px) {
+  .gallery-thumb:hover img { transform: scale(1.04); }
+  .gallery-thumb:hover .gallery-thumb__overlay { opacity: 1; }
+}
 
 /* Partner cards */
 .partner-card {
@@ -648,9 +662,11 @@ header {
   transition: transform 0.18s ease, box-shadow 0.18s ease;
 }
 
-.partner-card:hover {
-  transform: translateY(-3px);
-  box-shadow: var(--shadow-lg);
+@media (min-width: 1024px) {
+  .partner-card:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-lg);
+  }
 }
 
 .partner-card[data-tone="1"] { background: linear-gradient(180deg, #f3f8ff, #e6efff); }
@@ -683,7 +699,9 @@ header {
   flex-direction: column;
 }
 
-.partner-card-enhanced:hover { transform: translateY(-4px); box-shadow: var(--shadow-lg); }
+@media (min-width: 1024px) {
+  .partner-card-enhanced:hover { transform: translateY(-4px); box-shadow: var(--shadow-lg); }
+}
 
 .partner-logo-area {
   height: 120px;
@@ -872,10 +890,12 @@ header {
   box-shadow: 0 4px 12px rgba(13, 110, 253, 0.3);
 }
 
-.btn-primary:hover {
-  background: linear-gradient(135deg, var(--primary-dark) 0%, #064db0 100%);
-  box-shadow: 0 6px 20px rgba(13, 110, 253, 0.4);
-  transform: translateY(-2px);
+@media (min-width: 1024px) {
+  .btn-primary:hover {
+    background: linear-gradient(135deg, var(--primary-dark) 0%, #064db0 100%);
+    box-shadow: 0 6px 20px rgba(13, 110, 253, 0.4);
+    transform: translateY(-2px);
+  }
 }
 
 .btn-outline-primary {
@@ -884,10 +904,12 @@ header {
   background: transparent;
 }
 
-.btn-outline-primary:hover {
-  background: var(--primary);
-  color: white;
-  border-color: var(--primary);
+@media (min-width: 1024px) {
+  .btn-outline-primary:hover {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+  }
 }
 
 .btn-outline-secondary {
@@ -896,10 +918,12 @@ header {
   background: transparent;
 }
 
-.btn-outline-secondary:hover {
-  background: var(--light);
-  border-color: var(--secondary);
-  color: var(--text);
+@media (min-width: 1024px) {
+  .btn-outline-secondary:hover {
+    background: var(--light);
+    border-color: var(--secondary);
+    color: var(--text);
+  }
 }
 
 .btn-sm {
@@ -924,10 +948,12 @@ header {
   overflow: hidden;
 }
 
-.card-modern:hover {
-  box-shadow: var(--shadow-lg);
-  transform: translateY(-4px);
-  border-color: rgba(13, 110, 253, 0.2);
+@media (min-width: 1024px) {
+  .card-modern:hover {
+    box-shadow: var(--shadow-lg);
+    transform: translateY(-4px);
+    border-color: rgba(13, 110, 253, 0.2);
+  }
 }
 
 .card-modern__image {
@@ -1058,9 +1084,11 @@ header {
   transition: var(--transition);
 }
 
-.table tbody tr:hover {
-  background: var(--light);
-  box-shadow: inset 0 0 8px rgba(0,0,0,0.03);
+@media (min-width: 1024px) {
+  .table tbody tr:hover {
+    background: var(--light);
+    box-shadow: inset 0 0 8px rgba(0,0,0,0.03);
+  }
 }
 
 .table tbody tr:last-child td {
@@ -1087,8 +1115,10 @@ header {
   transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
-.gallery-grid__item:hover img {
-  transform: scale(1.08);
+@media (min-width: 1024px) {
+  .gallery-grid__item:hover img {
+    transform: scale(1.08);
+  }
 }
 
 /* ============================================================
@@ -1196,9 +1226,11 @@ footer a {
   transition: var(--transition);
 }
 
-footer a:hover {
-  color: var(--primary);
-  text-decoration: underline;
+@media (min-width: 1024px) {
+  footer a:hover {
+    color: var(--primary);
+    text-decoration: underline;
+  }
 }
 
 /* ============================================================
@@ -1214,9 +1246,11 @@ footer a:hover {
   transition: var(--transition);
 }
 
-.stats-card:hover {
-  transform: translateY(-4px);
-  box-shadow: var(--shadow-xl);
+@media (min-width: 1024px) {
+  .stats-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-xl);
+  }
 }
 
 .stats-grid {
@@ -1235,9 +1269,11 @@ footer a:hover {
   transition: var(--transition);
 }
 
-.stat-item:hover {
-  background: rgba(255, 255, 255, 0.2);
-  transform: scale(1.05);
+@media (min-width: 1024px) {
+  .stat-item:hover {
+    background: rgba(255, 255, 255, 0.2);
+    transform: scale(1.05);
+  }
 }
 
 .stat-value {
@@ -1296,9 +1332,11 @@ footer a:hover {
   align-items: start;
 }
 
-.notification-card:hover {
-  box-shadow: var(--shadow);
-  transform: translateX(4px);
+@media (min-width: 1024px) {
+  .notification-card:hover {
+    box-shadow: var(--shadow);
+    transform: translateX(4px);
+  }
 }
 
 .notification-card.unread {
@@ -1396,15 +1434,19 @@ textarea.form-control {
   cursor: not-allowed;
 }
 
-.btn-primary:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(13, 110, 253, 0.3);
+@media (min-width: 1024px) {
+  .btn-primary:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(13, 110, 253, 0.3);
+  }
 }
 
-.btn-outline-primary:hover {
-  background-color: var(--primary);
-  border-color: var(--primary);
-  color: white;
+@media (min-width: 1024px) {
+  .btn-outline-primary:hover {
+    background-color: var(--primary);
+    border-color: var(--primary);
+    color: white;
+  }
 }
 
 /* ============================================================
@@ -1416,8 +1458,10 @@ textarea.form-control {
   transition: var(--transition);
 }
 
-.card:hover {
-  border-color: rgba(13, 110, 253, 0.2);
+@media (min-width: 1024px) {
+  .card:hover {
+    border-color: rgba(13, 110, 253, 0.2);
+  }
 }
 
 /* ============================================================
@@ -1441,9 +1485,11 @@ a {
   transition: var(--transition);
 }
 
-a:hover {
-  color: var(--primary-dark);
-  text-decoration: underline;
+@media (min-width: 1024px) {
+  a:hover {
+    color: var(--primary-dark);
+    text-decoration: underline;
+  }
 }
 
 a:focus {
@@ -1452,8 +1498,10 @@ a:focus {
   border-radius: 2px;
 }
 
-a.text-decoration-none:hover {
-  text-decoration: none;
+@media (min-width: 1024px) {
+  a.text-decoration-none:hover {
+    text-decoration: none;
+  }
 }
 
 /* ============================================================
