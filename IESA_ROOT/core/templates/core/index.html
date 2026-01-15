@@ -116,44 +116,51 @@
             <p class="text-muted">The people behind IESA's success</p>
         </div>
         {% if members %}
-            <div class="grid grid-cols-1 grid-sm-cols-2 grid-lg-cols-4" style="gap: 1.5rem;">
+            <div class="row g-4">
                 {% for member in members %}
-                    <article class="card p-4 h-100 d-flex flex-column" style="border-radius: 18px; background: linear-gradient(145deg, #ffffff 0%, #fafafa 100%); cursor: pointer; transition: all 0.3s ease;" 
-                             data-member-id="{{ member.id }}"
-                             onclick="openMemberModal(this)">
-                        <!-- Photo -->
-                        <div class="mb-3 text-center" style="position: relative;">
-                            {% if member.photo %}
-                                <img src="{{ member.photo.url }}" class="rounded-circle shadow-md" alt="{{ member.name }}" style="width: 120px; height: 120px; object-fit: cover; border: 4px solid white; box-shadow: 0 4px 12px rgba(0,0,0,0.1);" loading="lazy">
-                            {% else %}
-                                <div class="rounded-circle d-flex justify-content-center align-items-center shadow-md mx-auto" style="width: 120px; height: 120px; background: linear-gradient(135deg, var(--color-primary), #dc2626); color: white; font-size: 2.5rem; font-weight: 800;">
-                                    {{ member.name|slice:":1"|upper }}
+                    <div class="col-12 col-lg-6">
+                        <article class="member-card card h-100" style="border-radius: 18px; background: linear-gradient(145deg, #ffffff 0%, #fafafa 100%); cursor: pointer; transition: all 0.3s ease; overflow: hidden;" 
+                                 data-member-id="{{ member.id }}"
+                                 onclick="openMemberModal(this)">
+                            <div class="row g-0 h-100">
+                                <!-- Photo (Left Side) -->
+                                <div class="col-4 col-md-3 d-flex align-items-center justify-content-center" style="background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%); min-height: 200px;">
+                                    {% if member.photo %}
+                                        <img src="{{ member.photo.url }}" class="member-photo" alt="{{ member.name }}" style="width: 110px; height: 110px; object-fit: cover; border-radius: 50%; border: 4px solid white; box-shadow: 0 4px 12px rgba(0,0,0,0.1);" loading="lazy">
+                                    {% else %}
+                                        <div class="member-avatar d-flex justify-content-center align-items-center" style="width: 110px; height: 110px; background: linear-gradient(135deg, var(--color-primary), #dc2626); color: white; font-size: 2.25rem; font-weight: 800; border-radius: 50%; border: 4px solid white; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+                                            {{ member.name|slice:":1"|upper }}
+                                        </div>
+                                    {% endif %}
                                 </div>
-                            {% endif %}
-                        </div>
 
-                        <!-- Name & Position -->
-                        <h6 class="fw-bold mb-1 text-center" style="color: var(--color-gray-900); font-size: 1.0625rem;">{{ member.name }}</h6>
-                        <p class="text-center mb-3" style="color: var(--color-primary); font-weight: 600; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em;">{{ member.position }}</p>
+                                <!-- Info (Right Side) -->
+                                <div class="col-8 col-md-9 p-4 d-flex flex-column">
+                                    <!-- Name & Position -->
+                                    <h6 class="fw-bold mb-1" style="color: var(--color-gray-900); font-size: 1.125rem;">{{ member.name }}</h6>
+                                    <p class="mb-2" style="color: var(--color-primary); font-weight: 600; font-size: 0.8125rem; text-transform: uppercase; letter-spacing: 0.05em;">{{ member.position }}</p>
 
-                        <!-- Description (first 50 words) -->
-                        <div class="flex-grow-1 mb-4">
-                            <p class="text-muted small" style="line-height: 1.6; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;">
-                                {{ member.description|striptags|truncatewords:50 }}
-                            </p>
-                        </div>
+                                    <!-- Description -->
+                                    <div class="flex-grow-1 mb-3">
+                                        <p class="text-muted small mb-0" style="line-height: 1.6; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;">
+                                            {{ member.description|striptags|truncatewords:40 }}
+                                        </p>
+                                    </div>
 
-                        <!-- More Details Button -->
-                        <button class="btn btn-primary btn-sm w-100" style="margin-top: auto; border-radius: 12px;" 
-                                data-bs-toggle="modal" 
-                                data-bs-target="#memberModal"
-                                data-member-name="{{ member.name }}"
-                                data-member-position="{{ member.position }}"
-                                data-member-description="{{ member.description|safe }}"
-                                data-member-photo="{% if member.photo %}{{ member.photo.url }}{% endif %}">
-                            <i class="fas fa-arrow-right me-2"></i>More Details
-                        </button>
-                    </article>
+                                    <!-- More Details Button -->
+                                    <button class="btn btn-primary btn-sm" style="border-radius: 10px; width: fit-content; padding: 0.4rem 1rem; font-size: 0.8125rem;" 
+                                            data-bs-toggle="modal" 
+                                            data-bs-target="#memberModal"
+                                            data-member-name="{{ member.name }}"
+                                            data-member-position="{{ member.position }}"
+                                            data-member-description="{{ member.description|safe }}"
+                                            data-member-photo="{% if member.photo %}{{ member.photo.url }}{% endif %}">
+                                        <i class="fas fa-arrow-right me-1"></i>More
+                                    </button>
+                                </div>
+                            </div>
+                        </article>
+                    </div>
                 {% endfor %}
             </div>
         {% else %}
