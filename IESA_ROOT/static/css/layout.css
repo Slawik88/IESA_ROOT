@@ -462,9 +462,50 @@ main {
   .navbar-collapse .dropdown:has(#communitySearchToggle) {
     order: -1;
   }
+
+  /* Mobile navbar fixes */
+  .navbar-nav {
+    padding-bottom: 1rem;
+  }
+
+  .navbar-nav .nav-link {
+    padding: 0.5rem 0 !important;
+    font-size: 0.95rem;
+  }
+
+  .dropdown-menu {
+    position: static !important;
+    float: none;
+    width: auto !important;
+    margin: 0.5rem 0 !important;
+    border: 1px solid #e5e7eb;
+    background: #f9fafb;
+  }
+
+  /* Expanded dropdown on mobile */
+  .dropdown-menu.show {
+    display: block !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+  }
+
+  .dropdown-item {
+    padding: 0.5rem 1rem;
+    font-size: 0.9rem;
+  }
 }
 
 @media (max-width: 576px) {
+  /* Small phone optimization */
+  .navbar-brand img {
+    height: 32px;
+  }
+
+  .navbar-nav .nav-link {
+    font-size: 0.9rem;
+    padding: 0.4rem 0.5rem !important;
+  }
+
   .navbar-search-dropdown {
     min-width: calc(100vw - 40px) !important;
     width: calc(100vw - 40px) !important;
@@ -474,16 +515,37 @@ main {
     right: 20px !important;
     top: 60px !important;
   }
-}
 
-/* Navbar Search Results */
-.navbar-search-results {
-  max-height: 360px;
-  overflow-y: auto;
-  overflow-x: hidden;
-  transition: transform 0.22s ease, opacity 0.22s ease;
-  transform-origin: top center;
-}
+  /* Dropdown optimization for small screens */
+  .dropdown-menu {
+    width: 100% !important;
+    max-width: calc(100vw - 20px) !important;
+    position: static !important;
+  }
+
+  .dropdown-item {
+    padding: 0.75rem 0.5rem;
+    font-size: 0.85rem;
+  }
+
+  /* Buttons in navbar on mobile */
+  .navbar-btn {
+    padding: 0.35rem 0.75rem !important;
+    font-size: 0.85rem !important;
+  }
+
+  .messaging-btn {
+    padding: 0.35rem 0.5rem !important;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .navbar-notification-badge {
+    font-size: 0.5rem;
+    padding: 0.15rem 0.35rem;
 
 /* Navbar Notification Badge */
 .navbar-notification-badge {

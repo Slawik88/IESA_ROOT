@@ -16,17 +16,25 @@
     // ====================================================
 
     function initFollowButtons() {
-        document.querySelectorAll('.follow-btn').forEach(btn => {
+        const buttons = document.querySelectorAll('.follow-btn');
+        console.log(`🔍 Found ${buttons.length} follow buttons`);
+        
+        buttons.forEach((btn, index) => {
+            console.log(`Follow button ${index + 1}: ID=${btn.dataset.userId}, Username=${btn.dataset.username}`);
             btn.addEventListener('click', handleFollowClick);
         });
     }
 
     function handleFollowClick(e) {
         e.preventDefault();
+        e.stopPropagation();
+        
         const btn = e.currentTarget;
         const userId = btn.dataset.userId;
         const username = btn.dataset.username;
         const isFollowing = btn.classList.contains('following');
+
+        console.log(`📍 Follow click: User=${username}, ID=${userId}, Following=${isFollowing}`);
 
         if (isFollowing) {
             unfollowUser(btn, userId, username);
@@ -40,6 +48,8 @@
         const originalText = btn.querySelector('.follow-text').textContent;
         btn.querySelector('.follow-text').textContent = 'Following...';
         btn.disabled = true;
+
+        console.log(`➕ Following user: ${username}`);
 
         // Simulate API call (replace with real endpoint)
         setTimeout(() => {
@@ -56,10 +66,10 @@
 
             // Show toast notification
             if (window.ToastNotifications && window.ToastNotifications.show) {
-                window.ToastNotifications.show(`You are now following ${username}!`, 'success');
+                window.ToastNotifications.show(`✓ You are now following ${username}!`, 'success');
             }
 
-            console.log(`Followed user: ${username} (ID: ${userId})`);
+            console.log(`✓ Followed: ${username}. Following list:`, JSON.parse(localStorage.getItem('following')));
         }, 500);
     }
 
@@ -67,6 +77,8 @@
         // Show loading state
         btn.querySelector('.follow-text').textContent = 'Unfollowing...';
         btn.disabled = true;
+
+        console.log(`➖ Unfollowing user: ${username}`);
 
         // Simulate API call (replace with real endpoint)
         setTimeout(() => {
@@ -87,7 +99,7 @@
                 window.ToastNotifications.show(`You unfollowed ${username}`, 'info');
             }
 
-            console.log(`Unfollowed user: ${username} (ID: ${userId})`);
+            console.log(`✓ Unfollowed: ${username}`);
         }, 500);
     }
 
@@ -96,17 +108,24 @@
     // ====================================================
 
     function initMessageButtons() {
-        document.querySelectorAll('.send-message-btn').forEach(btn => {
+        const buttons = document.querySelectorAll('.send-message-btn');
+        console.log(`🔍 Found ${buttons.length} message buttons`);
+        
+        buttons.forEach((btn, index) => {
+            console.log(`Message button ${index + 1}: ID=${btn.dataset.userId}, Username=${btn.dataset.username}`);
             btn.addEventListener('click', handleSendMessageClick);
         });
     }
 
     function handleSendMessageClick(e) {
         e.preventDefault();
+        e.stopPropagation();
+        
         const btn = e.currentTarget;
         const userId = btn.dataset.userId;
         const username = btn.dataset.username;
 
+        console.log(`📧 Message click: User=${username}, ID=${userId}`);
         openMessagingPanel(userId, username);
     }
 
@@ -115,9 +134,11 @@
         const messagingBtn = document.getElementById('messagingToggle');
         
         if (!messagingPanel) {
-            console.error('Messaging panel not found');
+            console.error('❌ Messaging panel not found in DOM');
             return;
         }
+
+        console.log(`📤 Opening messaging panel for ${username}`);
 
         // Open panel
         messagingPanel.classList.add('open');
@@ -132,15 +153,18 @@
         if (window.ToastNotifications && window.ToastNotifications.show) {
             window.ToastNotifications.show(`Opening chat with ${username}...`, 'info');
         }
-
-        console.log(`Opening conversation with: ${username} (ID: ${userId})`);
     }
 
     function loadConversation(userId, username) {
         const conversationsList = document.getElementById('conversationsList');
         const emptyState = document.getElementById('messagingEmptyState');
 
-        if (!conversationsList) return;
+        if (!conversationsList) {
+            console.error('❌ conversationsList not found');
+            return;
+        }
+
+        console.log(`💬 Loading conversation: ${username}`);
 
         // Hide empty state
         if (emptyState) {
@@ -181,12 +205,14 @@
 
     function loadFollowState() {
         const following = JSON.parse(localStorage.getItem('following') || '[]');
+        console.log(`🔄 Loading follow state from localStorage:`, following);
         
         document.querySelectorAll('.follow-btn').forEach(btn => {
             const userId = btn.dataset.userId;
             if (following.includes(userId)) {
                 btn.classList.add('following');
                 btn.querySelector('.follow-text').textContent = 'Following';
+                console.log(`  ✓ User ${btn.dataset.username} is already followed`);
             }
         });
     }
@@ -196,6 +222,8 @@
     // ====================================================
 
     function init() {
+        console.log(`🚀 Initializing Profile Interactions...`);
+        
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', () => {
                 initFollowButtons();
