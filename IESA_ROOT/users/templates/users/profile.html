@@ -30,6 +30,7 @@
                             <p class="profile-email mb-3">{{ profile_user.email }}</p>
                             
                             {% if user.is_authenticated and user.id == profile_user.id and profile_user.permanent_id %}
+                                <!-- Own Profile -->
                                 <div class="mb-3">
                                     <span class="profile-id-badge">
                                         ID: {{ profile_user.permanent_id }}
@@ -55,17 +56,19 @@
                                     </a>
                                 </div>
                             {% elif user.is_authenticated and user.id != profile_user.id %}
-                                <!-- Action buttons for other users' profiles -->
+                                <!-- Other User's Profile - Authenticated -->
                                 <div class="d-flex gap-2 flex-column mb-4">
                                     <button class="btn btn-primary btn-modern follow-btn" 
                                             data-user-id="{{ profile_user.id }}"
-                                            data-username="{{ profile_user.username }}">
+                                            data-username="{{ profile_user.username }}"
+                                            type="button">
                                         <i class="fas fa-user-plus me-2"></i>
                                         <span class="follow-text">Follow</span>
                                     </button>
                                     <button class="btn btn-outline-primary btn-modern send-message-btn" 
                                             data-user-id="{{ profile_user.id }}"
-                                            data-username="{{ profile_user.username }}">
+                                            data-username="{{ profile_user.username }}"
+                                            type="button">
                                         <i class="fas fa-envelope me-2"></i>Send Message
                                     </button>
                                 </div>
@@ -80,6 +83,12 @@
                                         <span class="stat-value">{{ profile_user.comment_set.count|default:0 }}</span>
                                         <span class="stat-label">Comments</span>
                                     </div>
+                                </div>
+                            {% elif not user.is_authenticated %}
+                                <!-- Not Authenticated -->
+                                <div class="alert alert-info mb-4">
+                                    <i class="fas fa-info-circle me-2"></i>
+                                    <a href="{% url 'login' %}">Sign in</a> to follow users and send messages
                                 </div>
                             {% endif %}
                         </div>
