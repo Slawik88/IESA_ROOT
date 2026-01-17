@@ -1,0 +1,98 @@
+{% load static %}
+{# Partial template for notifications panel - only notification items #}
+{% if notifications %}
+<div class="notification-list">
+    {% for notification in notifications %}
+    <div class="notification-item {% if not notification.is_read %}notification-unread{% endif %}" data-notification-id="{{ notification.id }}">
+        <div class="notification-icon-wrapper">
+            {% if notification.notification_type == 'post_approved' %}
+                <div class="notification-icon success">
+                    <i class="fas fa-check"></i>
+                </div>
+            {% elif notification.notification_type == 'post_rejected' %}
+                <div class="notification-icon danger">
+                    <i class="fas fa-times"></i>
+                </div>
+            {% elif notification.notification_type == 'new_comment' or notification.notification_type == 'comment_reply' %}
+                <div class="notification-icon info">
+                    <i class="fas fa-comment"></i>
+                </div>
+            {% elif notification.notification_type == 'new_like' %}
+                <div class="notification-icon warning">
+                    <i class="fas fa-heart"></i>
+                </div>
+            {% elif notification.notification_type == 'new_follower' %}
+                <div class="notification-icon primary">
+                    <i class="fas fa-user-plus"></i>
+                </div>
+            {% elif notification.notification_type == 'event_reminder' %}
+                <div class="notification-icon secondary">
+                    <i class="fas fa-calendar-alt"></i>
+                </div>
+            {% else %}
+                <div class="notification-icon default">
+                    <i class="fas fa-circle"></i>
+                </div>
+            {% endif %}
+        </div>
+
+        <div class="notification-content flex-grow-1">
+            <div class="notification-title">
+                {{ notification.get_notification_type_display }}
+                {% if not notification.is_read %}
+                    <span class="badge bg-danger badge-sm ms-2">New</span>
+                {% endif %}
+            </div>
+            <div class="notification-message">{{ notification.message }}</div>
+            <div class="notification-meta">
+                <small class="text-muted">
+                    <i class="fas fa-clock me-1"></i>
+                    {{ notification.created_at|timesince }} ago
+                </small>
+            </div>
+        </div>
+
+        <div class="notification-actions-compact">
+            {% if notification.link %}
+                <a href="{{ notification.link }}" class="btn btn-sm btn-danger">
+                    <i class="fas fa-arrow-right"></i>
+                </a>
+            {% endif %}
+            <button onclick="deleteNotification({{ notification.id }}, this)" 
+                    class="btn btn-sm btn-outline-danger" 
+                    title="Delete">
+                <i class="fas fa-trash-alt"></i>
+            </button>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<script>
+function deleteNotification(notificationId, button) {
+    if (!confirm('Delete this notification?')) return;
+    
+    const item = button.closest('.notification-item');
+    fetch('/notifications/' + notificationId + '/delete/', {
+        method: 'DELETE',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}'
+        }
+    })
+    .then(response => {
+        if (response.ok) {
+            item.style.opacity = '0';
+            item.style.transform = 'translateX(100%)';
+            setTimeout(() => item.remove(), 300);
+        }
+    });
+}
+</script>
+{% else %}
+<div class="empty-state text-center py-5">
+    <div class="mb-3">
+        <i class="fas fa-inbox fa-3x text-muted opacity-50"></i>
+    </div>
+    <p class="text-muted mb-0">No notifications</p>
+</div>
+{% endif %}
