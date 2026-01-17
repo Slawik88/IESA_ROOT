@@ -35,7 +35,7 @@ class RegisterView(CreateView):
     model = User
     form_class = CustomUserCreationForm
     template_name = 'users/register.html'
-    success_url = reverse_lazy('login')
+    success_url = reverse_lazy('users:login')
 
     def form_valid(self, form):
         return super().form_valid(form)
@@ -49,7 +49,7 @@ class LoginView(auth_views.LoginView):
 
 # View для логаута (используем стандартный Django)
 class LogoutView(auth_views.LogoutView):
-    next_page = reverse_lazy('home')
+    next_page = reverse_lazy('core:home')
 
 
 # View для личного кабинета (отображение с постами пользователя)
@@ -110,7 +110,7 @@ class ProfileEditView(UpdateView):
 
     def get_success_url(self):
         messages.success(self.request, 'Профиль успешно обновлён! ✨')
-        return reverse_lazy('profile')
+        return reverse_lazy('users:profile')
 
 
 def _get_public_profile_context(user_obj):

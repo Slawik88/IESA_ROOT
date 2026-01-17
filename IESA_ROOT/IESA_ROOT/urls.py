@@ -3,6 +3,8 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib.sitemaps.views import sitemap
+from django.views.generic.base import RedirectView
+from django.templatetags.static import static as static_static
 from blog.sitemaps import sitemaps
 from .protected_media_views import serve_protected_media
 
@@ -38,6 +40,8 @@ urlpatterns = [
     
     # CKEditor 5 upload path
     path('ckeditor5/', include('django_ckeditor_5.urls')),
+    # Favicon shortcut to static asset
+    path('favicon.ico', RedirectView.as_view(url=static_static('img/favicon.png'), permanent=True)),
 ]
 
 # Добавляем маршруты для медиа-файлов в режиме разработки
