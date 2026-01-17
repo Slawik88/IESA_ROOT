@@ -395,4 +395,4 @@ LOGOUT_REDIRECT_URL = 'home'
 STRIPE_SECRET_KEY = os.getenv('STRIPE_SECRET_KEY')
 
 # Import additional settings (logging, email, etc.)
-from .settings_addon import *
+from .settings_addon import LOGGING
