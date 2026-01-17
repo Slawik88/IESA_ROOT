@@ -549,33 +549,44 @@ main {
     font-size: 0.9rem;
   }
 
-  /* Buttons in navbar on mobile - IMPROVED LAYOUT */
+  /* Buttons in navbar on mobile - PROFESSIONAL LAYOUT */
   .navbar-btn {
-    padding: 0.5rem 1rem !important;
-    font-size: 0.9rem !important;
+    padding: 0.65rem 1rem !important;
+    font-size: 0.95rem !important;
     width: 100%;
     justify-content: center;
+    font-weight: 600;
   }
 
   .messaging-btn,
   .btn-light.btn-sm {
-    padding: 0.5rem !important;
+    padding: 0.65rem 1rem !important;
     width: 100%;
     height: auto;
-    display: flex;
+    display: flex !important;
     align-items: center;
     justify-content: center;
-    gap: 0.5rem;
+    gap: 0;
+    font-weight: 500;
   }
   
   .messaging-btn i,
   .btn-light.btn-sm i {
-    margin-right: 0.5rem;
+    margin-right: 0;
+  }
+  
+  /* На мобильном показываем текст рядом с иконками */
+  .messaging-btn .d-sm-none,
+  .btn-light.btn-sm .d-sm-none {
+    display: inline !important;
+    margin-left: 0.5rem;
   }
 
   .navbar-notification-badge {
     font-size: 0.6rem;
     padding: 0.2rem 0.4rem;
+  }
+}
 
 /* Navbar Notification Badge */
 .navbar-notification-badge {

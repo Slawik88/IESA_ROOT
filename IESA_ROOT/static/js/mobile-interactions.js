@@ -16,19 +16,14 @@
 
         if (!menuToggle || !menuContent) return;
 
-        menuToggle.addEventListener('click', function() {
-            const isExpanded = menuToggle.getAttribute('aria-expanded') === 'true';
-            
-            // Toggle menu
-            if (isExpanded) {
-                menuContent.classList.remove('show');
-                body.classList.remove('mobile-menu-open');
-                menuToggle.setAttribute('aria-expanded', 'false');
-            } else {
-                menuContent.classList.add('show');
-                body.classList.add('mobile-menu-open');
-                menuToggle.setAttribute('aria-expanded', 'true');
-            }
+        // REMOVED manual toggle handler - Bootstrap handles it
+        // Listen to Bootstrap collapse events instead
+        menuContent.addEventListener('shown.bs.collapse', function() {
+            body.classList.add('mobile-menu-open');
+        });
+        
+        menuContent.addEventListener('hidden.bs.collapse', function() {
+            body.classList.remove('mobile-menu-open');
         });
 
         // Close menu when clicking outside
