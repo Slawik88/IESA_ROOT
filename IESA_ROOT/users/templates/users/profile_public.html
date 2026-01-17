@@ -137,11 +137,11 @@
             <h6 class="text-uppercase fw-bold mb-2" style="letter-spacing: 1px; font-size: 0.75rem; color: #6b7280;">Your QR Code</h6>
             <div class="d-flex align-items-center gap-3">
               <a href="{% url 'users:profile_by_card' permanent_id=user_obj.permanent_id %}" title="Open profile by card">
-                <img src="{% url 'user_qr' permanent_id=user_obj.permanent_id %}" alt="QR" class="qr-code-img" style="width: 100px; height: 100px; border-radius: 8px;" />
+                <img src="{% url 'users:user_qr' permanent_id=user_obj.permanent_id %}" alt="QR" class="qr-code-img" style="width: 100px; height: 100px; border-radius: 8px;" />
               </a>
               <div class="flex-grow-1">
                 <p class="small text-muted mb-2">Scan to view profile</p>
-                <a class="btn btn-sm btn-outline-primary" href="{% url 'user_qr' permanent_id=user_obj.permanent_id %}?download=1">
+                <a class="btn btn-sm btn-outline-primary" href="{% url 'users:user_qr' permanent_id=user_obj.permanent_id %}?download=1">
                   <i class="fas fa-download me-1"></i>Download QR
                 </a>
               </div>
