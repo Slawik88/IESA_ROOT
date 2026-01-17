@@ -83,9 +83,12 @@
                             <i class="fas fa-arrow-right me-1"></i>View
                         </a>
                     {% endif %}
-                    <button hx-delete="{% url 'notification_delete' notification.id %}" 
-                            hx-swap="outerHTML swap:1s" 
-                            class="btn btn-sm btn-outline-danger" 
+                        <button hx-delete="{% url 'notification_delete' notification.id %}"
+                            hx-target="closest .notification-item"
+                            hx-swap="outerHTML swap:300ms"
+                            hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
+                            hx-confirm="Delete this notification?"
+                            class="btn btn-sm btn-outline-danger"
                             title="Delete notification"
                             aria-label="Delete notification">
                         <i class="fas fa-trash-alt"></i>
