@@ -31,3 +31,21 @@ class SpecialCharacterValidator:
 
     def get_help_text(self):
         return _("Your password must contain at least one special character (!@#$%^&*(),.?\":{}|<>).")
+
+
+# Phone number validator
+PHONE_ALLOWED_PATTERN = re.compile(r'^[0-9\s\-+()]{7,20}$')
+
+
+def validate_phone_number(value: str):
+    """Validate phone number with permissive international format.
+    Allows digits, spaces, plus, dashes and parentheses. Length 7-20.
+    """
+    if not value:
+        return
+    cleaned = value.strip()
+    if not PHONE_ALLOWED_PATTERN.match(cleaned):
+        raise ValidationError(
+            _("Некорректный номер телефона. Допустимы цифры, пробелы, '+', '-', '()'."),
+            code='invalid_phone_number'
+        )

@@ -67,7 +67,7 @@ class UserAdmin(BaseUserAdmin):
     
     fieldsets = (
         (None, {'fields': ('username', 'password')}),
-        ('Персональная информация', {'fields': ('first_name', 'last_name', 'email', 'avatar', 'date_of_birth')}),
+        ('Персональная информация', {'fields': ('first_name', 'last_name', 'email', 'avatar', 'date_of_birth', 'phone_number', 'is_phone_hidden')}),
         ('Card QR & Actions', {'fields': ('card_qr_with_actions', 'card_active', 'card_issued_at')}),
         ('Разрешения', {'fields': ('is_verified', 'is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions')}),
         ('Важные даты', {'fields': ('last_login', 'date_joined', 'last_online')}),
@@ -76,7 +76,7 @@ class UserAdmin(BaseUserAdmin):
     add_fieldsets = (
         (None, {
             'classes': ('wide',),
-            'fields': ('username', 'password1', 'password2', 'email', 'first_name', 'last_name', 'date_of_birth'),
+            'fields': ('username', 'password1', 'password2', 'email', 'first_name', 'last_name', 'date_of_birth', 'phone_number', 'is_phone_hidden'),
         }),
         ('Card', {
             'classes': ('wide',),

@@ -30,6 +30,9 @@ urlpatterns = [
     # Notifications app
     path('notifications/', include('notifications.urls')),
     
+        # Messaging app
+        path('messages/', include('messaging.urls')),
+    
     # Sitemap
     path('sitemap.xml', sitemap, {'sitemaps': sitemaps}, name='django.contrib.sitemaps.views.sitemap'),
     
