@@ -32,7 +32,7 @@
         <div class="partner-card-footer">
           <button 
             class="btn btn-primary btn-sm w-100"
-            hx-get="{% url 'partner_detail' partner.id %}" 
+            hx-get="{% url 'core:partner_detail' partner.id %}" 
             hx-target="#partner-modal-body" 
             data-bs-toggle="modal" 
             data-bs-target="#partnerModal"

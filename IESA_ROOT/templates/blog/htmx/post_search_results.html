@@ -135,7 +135,7 @@
       {% for partner in results.partners %}
         {% if partner.pk %}
         <a href="#" 
-           hx-get="{% url 'partner_detail' pk=partner.pk %}" 
+           hx-get="{% url 'core:partner_detail' pk=partner.pk %}" 
            hx-target="#partner-modal-body" 
            data-bs-toggle="modal" 
            data-bs-target="#partnerModal"
