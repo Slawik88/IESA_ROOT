@@ -1,13 +1,21 @@
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
+from django.db.models import Count, Q
 from .models import Notification
 
 @login_required
 def notification_list(request):
     """Display all notifications for the current user"""
-    notifications = Notification.objects.filter(recipient=request.user).order_by('-created_at')
-    unread_count = notifications.filter(is_read=False).count()
+    # OPTIMIZATION: Use annotate to count unread in single query
+    notifications = Notification.objects.filter(
+        recipient=request.user
+    ).annotate(
+        unread_count_total=Count('id', filter=Q(is_read=False))
+    ).order_by('-created_at')
+    
+    # Get unread count from first notification (all have same count)
+    unread_count = notifications.first().unread_count_total if notifications.exists() else 0
     
     # Paginate notifications
     paginator = Paginator(notifications, 20)
