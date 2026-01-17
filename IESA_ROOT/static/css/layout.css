@@ -453,9 +453,14 @@ main {
 /* Fix: search button positioning on mobile */
 @media (max-width: 991px) {
   .navbar-collapse .d-flex.align-items-center {
-    flex-direction: row !important;
-    justify-content: flex-end !important;
-    margin-top: 1rem;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    margin-top: 1.5rem;
+    width: 100%;
+    gap: 0.75rem;
+  }
+  
+  .navbar-collapse .d-flex.align-items-center > * {
     width: 100%;
   }
   
@@ -466,20 +471,30 @@ main {
   /* Mobile navbar fixes */
   .navbar-nav {
     padding-bottom: 1rem;
+    border-bottom: 1px solid #e5e7eb;
+    margin-bottom: 1rem;
   }
 
   .navbar-nav .nav-link {
-    padding: 0.5rem 0 !important;
-    font-size: 0.95rem;
+    padding: 0.75rem 0 !important;
+    font-size: 1rem;
+    font-weight: 500;
+    border-bottom: 1px solid #f3f4f6;
+  }
+  
+  .navbar-nav .nav-link:last-child {
+    border-bottom: none;
   }
 
   .dropdown-menu {
     position: static !important;
     float: none;
     width: auto !important;
-    margin: 0.5rem 0 !important;
-    border: 1px solid #e5e7eb;
+    margin: 0.5rem 0 0 1rem !important;
+    border: none;
+    border-left: 3px solid var(--primary);
     background: #f9fafb;
+    box-shadow: none;
   }
 
   /* Expanded dropdown on mobile */
@@ -490,8 +505,14 @@ main {
   }
 
   .dropdown-item {
-    padding: 0.5rem 1rem;
-    font-size: 0.9rem;
+    padding: 0.65rem 1rem;
+    font-size: 0.95rem;
+    border-radius: 4px;
+    margin-bottom: 2px;
+  }
+  
+  .dropdown-item:hover {
+    background: #e5e7eb;
   }
 }
 
@@ -502,8 +523,8 @@ main {
   }
 
   .navbar-nav .nav-link {
-    font-size: 0.9rem;
-    padding: 0.4rem 0.5rem !important;
+    font-size: 0.95rem;
+    padding: 0.75rem 0 !important;
   }
 
   .navbar-search-dropdown {
@@ -524,28 +545,37 @@ main {
   }
 
   .dropdown-item {
-    padding: 0.75rem 0.5rem;
-    font-size: 0.85rem;
+    padding: 0.65rem 1rem;
+    font-size: 0.9rem;
   }
 
-  /* Buttons in navbar on mobile */
+  /* Buttons in navbar on mobile - IMPROVED LAYOUT */
   .navbar-btn {
-    padding: 0.35rem 0.75rem !important;
-    font-size: 0.85rem !important;
-  }
-
-  .messaging-btn {
-    padding: 0.35rem 0.5rem !important;
-    width: 36px;
-    height: 36px;
-    display: flex;
-    align-items: center;
+    padding: 0.5rem 1rem !important;
+    font-size: 0.9rem !important;
+    width: 100%;
     justify-content: center;
   }
 
+  .messaging-btn,
+  .btn-light.btn-sm {
+    padding: 0.5rem !important;
+    width: 100%;
+    height: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+  }
+  
+  .messaging-btn i,
+  .btn-light.btn-sm i {
+    margin-right: 0.5rem;
+  }
+
   .navbar-notification-badge {
-    font-size: 0.5rem;
-    padding: 0.15rem 0.35rem;
+    font-size: 0.6rem;
+    padding: 0.2rem 0.4rem;
 
 /* Navbar Notification Badge */
 .navbar-notification-badge {

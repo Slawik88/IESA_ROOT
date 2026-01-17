@@ -304,7 +304,8 @@
     <script src="{% static 'js/form-enhancements.js' %}"></script>
 
     <!-- PWA & Offline Support -->
-    <script src="{% static 'js/pwa-manager.js' %}"></script>
+    <!-- Cache-busted PWA manager to avoid old exported version -->
+    <script src="{% static 'js/pwa-manager.v2.js' %}"></script>
 
     <!-- Web APIs (Geolocation, Camera, Clipboard, Share, etc) -->
     <script src="{% static 'js/web-apis.js' %}"></script>
@@ -487,6 +488,12 @@
     </script>
     
     {% include "messaging-panel.html" %}
+    
+    <!-- Modal Handler Script - обеспечивает закрытие modal окон -->
+    <script src="{% static 'js/modal-handler.js' %}"></script>
+    
+    <!-- Mobile Navbar Fix - исправляет dropdown на мобильном -->
+    <script src="{% static 'js/mobile-navbar-fix.js' %}"></script>
     
     <!-- Back to Top Button -->
     <button id="back-to-top" aria-label="Back to top" title="Back to top">

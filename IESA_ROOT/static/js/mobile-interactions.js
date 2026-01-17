@@ -44,6 +44,9 @@
         if (window.innerWidth <= 768) {
             menuContent.querySelectorAll('.nav-link').forEach(link => {
                 link.addEventListener('click', function() {
+                    // Do not close navbar when tapping dropdown toggles; they must open their submenu
+                    if (link.classList.contains('dropdown-toggle')) return;
+
                     menuContent.classList.remove('show');
                     body.classList.remove('mobile-menu-open');
                     menuToggle.setAttribute('aria-expanded', 'false');

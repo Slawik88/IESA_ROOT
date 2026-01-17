@@ -154,6 +154,7 @@
     function initTooltips() {
         // Enhanced tooltips for reaction buttons
         document.addEventListener('mouseenter', (e) => {
+            if (!e.target || !e.target.classList) return; // Guard against non-element targets
             if (e.target.classList.contains('reaction-add-btn')) {
                 e.target.setAttribute('data-tooltip', 'Click to add reaction');
             }

@@ -337,4 +337,22 @@
         </div>
     </div>
 </div>
-{% endblock %}
+
+<!-- Profile Interactions Initialization -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Force re-initialization of profile interactions
+    if (window.ProfileInteractions) {
+        console.log('🔄 Re-initializing ProfileInteractions on profile page...');
+        window.ProfileInteractions.init();
+    }
+});
+
+// Also try immediately (in case DOMContentLoaded already fired)
+if (document.readyState === 'interactive' || document.readyState === 'complete') {
+    if (window.ProfileInteractions) {
+        console.log('🔄 Profile page ready - initializing ProfileInteractions...');
+        window.ProfileInteractions.init();
+    }
+}
+</script>
