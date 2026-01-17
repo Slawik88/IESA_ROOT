@@ -34,7 +34,7 @@ def notify_post_approved(post):
         notification_type='post_approved',
         title='Post Approved! 🎉',
         message=f'Your post "{post.title}" has been approved and is now published.',
-        link=reverse('post_detail', args=[post.pk])
+        link=reverse('blog:post_detail', args=[post.pk])
     )
 
 
@@ -45,7 +45,7 @@ def notify_post_rejected(post):
         notification_type='post_rejected',
         title='Post Needs Review',
         message=f'Your post "{post.title}" was not approved. Please review and edit it.',
-        link=reverse('post_detail', args=[post.pk])
+        link=reverse('blog:post_detail', args=[post.pk])
     )
 
 
@@ -58,7 +58,7 @@ def notify_new_comment(comment):
             notification_type='new_comment',
             title='New Comment',
             message=f'{comment.author.username} commented on your post "{comment.post.title}"',
-            link=reverse('post_detail', args=[comment.post.pk])
+            link=reverse('blog:post_detail', args=[comment.post.pk])
         )
 
 
@@ -71,7 +71,7 @@ def notify_comment_reply(comment):
             notification_type='comment_reply',
             title='New Reply',
             message=f'{comment.author.username} replied to your comment',
-            link=reverse('post_detail', args=[comment.post.pk])
+            link=reverse('blog:post_detail', args=[comment.post.pk])
         )
 
 
@@ -84,7 +84,7 @@ def notify_new_like(like):
             notification_type='new_like',
             title='New Like ❤️',
             message=f'{like.user.username} liked your post "{like.post.title}"',
-            link=reverse('post_detail', args=[like.post.pk])
+            link=reverse('blog:post_detail', args=[like.post.pk])
         )
 
 
@@ -95,5 +95,5 @@ def notify_event_reminder(event, user):
         notification_type='event_reminder',
         title='Event Reminder 📅',
         message=f'Reminder: "{event.title}" is coming up on {event.date.strftime("%B %d, %Y")}',
-        link=reverse('event_detail', args=[event.pk])
+        link=reverse('blog:event_detail', args=[event.pk])
     )
