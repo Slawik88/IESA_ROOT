@@ -596,9 +596,25 @@ main {
     grid-column: 1 / -1;
   }
   
+  /* All buttons in mobile menu - compact sizing */
+  .navbar-collapse .d-flex.align-items-center.gap-2 > button,
+  .navbar-collapse .d-flex.align-items-center.gap-2 > a,
+  .navbar-collapse .d-flex.align-items-center.gap-2 .navbar-btn {
+    padding: 0.5rem 0.75rem !important;
+    font-size: 0.85rem !important;
+    white-space: nowrap;
+  }
+  
+  /* Messages and Notifications buttons - each takes one column */
+  .navbar-collapse .d-flex.align-items-center.gap-2 #messagingToggle,
+  .navbar-collapse .d-flex.align-items-center.gap-2 #notificationsToggle {
+    grid-column: span 1;
+    justify-content: center;
+  }
+  
   /* Profile and Logout take full width each */
   .navbar-collapse .d-flex.align-items-center.gap-2 .navbar-btn {
-    grid-column: span 1;
+    grid-column: span 2;
   }
 }
 
