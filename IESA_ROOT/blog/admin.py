@@ -163,7 +163,7 @@ class PostAdmin(admin.ModelAdmin):
     def preview_link(self, obj):
         """Link to view post on site"""
         if obj.status == 'published':
-            url = reverse('post_detail', args=[obj.pk])
+            url = reverse('blog:post_detail', args=[obj.pk])
             return format_html('<a href="{}" target="_blank">View on site →</a>', f'/blog/{url}')
         return 'Not published'
     preview_link.short_description = 'View on Site'
@@ -171,7 +171,7 @@ class PostAdmin(admin.ModelAdmin):
     def view_on_site_link(self, obj):
         """Quick link icon to view post"""
         if obj.status == 'published':
-            url = reverse('post_detail', args=[obj.pk])
+            url = reverse('blog:post_detail', args=[obj.pk])
             return format_html('<a href="{}" target="_blank" title="View on site">🔗</a>', f'/blog/{url}')
         return '-'
     view_on_site_link.short_description = 'Link'

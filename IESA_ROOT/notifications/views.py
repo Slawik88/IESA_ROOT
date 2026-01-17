@@ -35,7 +35,7 @@ def mark_notification_read(request, pk):
     if notification:
         notification.is_read = True
         notification.save()
-    return redirect('notification_list')
+    return redirect('notifications:notification_list')
 
 @login_required
 def notification_panel(request):
@@ -56,7 +56,7 @@ def mark_all_read(request):
         from django.http import HttpResponse
         return HttpResponse('<span class="text-muted small">All notifications marked as read</span>')
     
-    return redirect('notification_list')
+    return redirect('notifications:notification_list')
 
 @login_required
 def notification_delete(request, pk):

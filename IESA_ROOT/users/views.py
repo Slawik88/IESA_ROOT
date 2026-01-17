@@ -331,4 +331,4 @@ def impersonate_user(request, pk):
     # Log the admin in as the target user
     # Note: this will replace the current session; consider storing original user id if you need to return
     login(request, target)
-    return redirect('profile_public_username', username=target.username)
+    return redirect('users:profile_public_username', username=target.username)
