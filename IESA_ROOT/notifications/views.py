@@ -30,9 +30,24 @@ def mark_notification_read(request, pk):
     return redirect('notification_list')
 
 @login_required
+def notification_panel(request):
+    """Return notifications partial for the slide-out panel"""
+    notifications = Notification.objects.filter(recipient=request.user).order_by('-created_at')[:20]
+    context = {
+        'notifications': notifications,
+    }
+    return render(request, 'notifications/notification_list_partial.html', context)
+
+@login_required
 def mark_all_read(request):
     """Mark all notifications as read for the current user"""
     Notification.objects.filter(recipient=request.user, is_read=False).update(is_read=True)
+    
+    # Check if it's an HTMX request
+    if request.headers.get('HX-Request'):
+        from django.http import HttpResponse
+        return HttpResponse('<span class="text-muted small">All notifications marked as read</span>')
+    
     return redirect('notification_list')
 
 @login_required
