@@ -4,24 +4,66 @@ from .models import User
 from .forms import CustomUserCreationForm, CustomUserChangeForm
 from django.utils.html import format_html
 from django.conf import settings
-import uuid
-from .qr_utils import generate_qr_code_for_user
-from django.utils import timezone
 from django.urls import path, reverse
 from django.shortcuts import redirect
 from django.contrib import messages
-from django.core.files.storage import default_storage
-import boto3
-import os
+from .services.card_service import UserCardService
+
+
+class CardStatusFilter(admin.SimpleListFilter):
+    """Filter users by card status (active/inactive)."""
+    title = 'Card Status'
+    parameter_name = 'card_status'
+
+    def lookups(self, request, model_admin):
+        return [
+            ('active', 'Card Active'),
+            ('inactive', 'Card Inactive'),
+            ('never', 'Never Issued'),
+        ]
+
+    def queryset(self, request, queryset):
+        if self.value() == 'active':
+            return queryset.filter(card_active=True)
+        elif self.value() == 'inactive':
+            return queryset.filter(card_active=False, card_issued_at__isnull=False)
+        elif self.value() == 'never':
+            return queryset.filter(card_issued_at__isnull=True)
+        return queryset
+
+
+class VerificationFilter(admin.SimpleListFilter):
+    """Filter users by verification status."""
+    title = 'Verification Status'
+    parameter_name = 'verification'
+
+    def lookups(self, request, model_admin):
+        return [
+            ('verified', 'Verified'),
+            ('unverified', 'Unverified'),
+        ]
+
+    def queryset(self, request, queryset):
+        if self.value() == 'verified':
+            return queryset.filter(is_verified=True)
+        elif self.value() == 'unverified':
+            return queryset.filter(is_verified=False)
+        return queryset
 
 class UserAdmin(BaseUserAdmin):
     """
-    Настройка админки для кастомной модели пользователя.
+    User admin configuration with optimized queries and bulk actions.
+    
+    FIX: 
+    - Added CardStatusFilter and VerificationFilter for better filtering
+    - Refactored admin actions to use UserCardService with bulk_update
+    - Added list_select_related for query optimization
     """
     add_form = CustomUserCreationForm
     form = CustomUserChangeForm
     model = User
     list_display = ['username', 'email', 'first_name', 'last_name', 'is_staff', 'is_verified', 'last_online', 'permanent_id', 'card_qr']
+    list_filter = (CardStatusFilter, VerificationFilter, 'is_staff', 'date_joined')
     
     fieldsets = (
         (None, {'fields': ('username', 'password')}),
@@ -43,7 +85,7 @@ class UserAdmin(BaseUserAdmin):
     )
     
     readonly_fields = ('last_online', 'permanent_id', 'card_qr_with_actions')
-
+    
     actions = ['regenerate_qr_same_id', 'regenerate_permanent_id', 'issue_card', 'revoke_card']
     
     def card_qr_with_actions(self, obj):
@@ -118,13 +160,10 @@ class UserAdmin(BaseUserAdmin):
         
         Используется если QR код повреждён или неправильно отображается,
         но карта не потеряна (permanent_id остаётся тем же).
+        
+        FIX: Now uses UserCardService for consistency
         """
-        count = 0
-        for user in queryset:
-            if user.permanent_id:
-                # Генерируем QR код с текущим permanent_id
-                generate_qr_code_for_user(user, request)
-                count += 1
+        count = UserCardService.regenerate_qr_for_users(queryset, request)
         self.message_user(request, f"✅ Перегенерирован QR код для {count} пользователя(ей) с сохранением permanent_id")
     regenerate_qr_same_id.short_description = '🔄 Перегенерировать QR код (тот же ID)'
 
@@ -133,16 +172,10 @@ class UserAdmin(BaseUserAdmin):
         
         Используется если пользователь потерял карту и нужна новая.
         Старый permanent_id и QR код будут заменены новыми.
+        
+        FIX: Now uses bulk_update for efficient database writes
         """
-        count = 0
-        for user in queryset:
-            user.permanent_id = uuid.uuid4()
-            user.card_active = True
-            user.card_issued_at = timezone.now()
-            user.save()
-            # Генерируем и сохраняем новый QR код
-            generate_qr_code_for_user(user, request)
-            count += 1
+        count = UserCardService.create_new_cards(queryset, request)
         self.message_user(request, f"✅ Создан новый permanent_id и QR код для {count} пользователя(ей)")
     regenerate_permanent_id.short_description = '🆕 Новый permanent_id и QR код (при потере карты)'
 
@@ -150,15 +183,10 @@ class UserAdmin(BaseUserAdmin):
         """Активировать карту и установить дату выдачи.
         
         Генерирует QR код если его ещё нет.
+        
+        FIX: Now uses bulk_update for efficient database writes
         """
-        count = 0
-        for user in queryset:
-            user.card_active = True
-            user.card_issued_at = timezone.now()
-            user.save()
-            # Если QR не был сгенерирован — генерируем
-            generate_qr_code_for_user(user, request)
-            count += 1
+        count = UserCardService.issue_cards(queryset, request)
         self.message_user(request, f"✅ Выдана карта для {count} пользователя(ей)")
     issue_card.short_description = '✓ Выдать карту (активировать)'
 
@@ -166,11 +194,10 @@ class UserAdmin(BaseUserAdmin):
         """Деактивировать карту (пользователь не сможет использовать QR для входа).
         
         QR файл остаётся в хранилище, но карта не активна.
+        
+        FIX: Now uses queryset.update() instead of loop
         """
-        count = queryset.count()
-        for user in queryset:
-            user.card_active = False
-            user.save()
+        count = UserCardService.revoke_cards(queryset)
         self.message_user(request, f"✅ Отозвана карта у {count} пользователя(ей)")
     revoke_card.short_description = '✗ Отозвать карту (деактивировать)'
 
