@@ -4,84 +4,93 @@
 {% block title %}Edit profile | IESA{% endblock %}
 
 {% block content %}
-<div class="container-limited">
-    <div class="row justify-content-center py-5">
-        <div class="col-lg-6">
-            <div class="card card-modern">
-                <div class="card-body p-4">
-                    <div class="text-center mb-4">
-                        <h6 class="section-title d-block mb-4">EDIT PROFILE</h6>
+<div class="profile-edit-page py-5">
+    <div class="container-limited">
+        <div class="row justify-content-center">
+            <div class="col-lg-8 col-xl-7">
+                <div class="profile-edit-card">
+                    <div class="edit-card-header">
+                        <div class="edit-header-icon"><i class="fas fa-user-cog"></i></div>
+                        <div>
+                            <h3 class="edit-title">Edit profile</h3>
+                            <p class="edit-subtitle">Refresh your info, avatar and social links.</p>
+                        </div>
                     </div>
-                    
-                    <form method="post" enctype="multipart/form-data">
+
+                    <form method="post" enctype="multipart/form-data" class="edit-form">
                         {% csrf_token %}
-                        
-                        <div class="mb-3">
-                            <label for="id_first_name" class="form-label">First name</label>
-                            {{ form.first_name }}
-                        </div>
-                        
-                        <div class="mb-3">
-                            <label for="id_last_name" class="form-label">Last name</label>
-                            {{ form.last_name }}
-                        </div>
-                        
-                        <div class="mb-3">
-                            <label for="id_email" class="form-label">Email</label>
-                            {{ form.email }}
-                        </div>
-                        
-                        <div class="mb-3">
-                            <label for="id_date_of_birth" class="form-label">Date of birth (DD.MM.YYYY)</label>
-                            {{ form.date_of_birth }}
-                            <small class="form-text text-muted d-block mt-1">Enter date in format: DD.MM.YYYY (example: 18.10.2004)</small>
-                        </div>
-                        
-                        <div class="mb-3">
-                            <label for="id_avatar" class="form-label">Avatar</label>
-                            <div class="mb-2">
-                                {% if form.instance.avatar and form.instance.avatar.name != 'avatars/default.png' %}
-                                    <span class="avatar avatar-lg"><img src="{{ form.instance.avatar.url }}" alt="Current avatar"></span>
-                                {% else %}
-                                    <span class="avatar avatar-lg avatar-fallback">{{ request.user.username|slice:":1"|upper }}</span>
-                                {% endif %}
+
+                        <div class="card-section">
+                            <div class="section-heading">Basic info</div>
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label for="id_first_name" class="form-label">First name</label>
+                                    {{ form.first_name }}
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="id_last_name" class="form-label">Last name</label>
+                                    {{ form.last_name }}
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="id_email" class="form-label">Email</label>
+                                    {{ form.email }}
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="id_date_of_birth" class="form-label">Date of birth</label>
+                                    {{ form.date_of_birth }}
+                                    <small class="form-text text-muted d-block mt-1">Format: DD.MM.YYYY</small>
+                                </div>
+                                <div class="col-12">
+                                    <label for="id_avatar" class="form-label">Avatar</label>
+                                    <div class="d-flex align-items-center gap-3 mb-2">
+                                        {% if form.instance.avatar and form.instance.avatar.name != 'avatars/default.png' %}
+                                            <span class="avatar avatar-lg"><img src="{{ form.instance.avatar.url }}" alt="Current avatar"></span>
+                                        {% else %}
+                                            <span class="avatar avatar-lg avatar-fallback">{{ request.user.username|slice":1"|upper }}</span>
+                                        {% endif %}
+                                        <div class="small text-muted">Upload square image for best fit.</div>
+                                    </div>
+                                    {{ form.avatar }}
+                                </div>
                             </div>
-                            {{ form.avatar }}
                         </div>
 
-                        <hr>
-                        <h6 class="section-title d-block mb-3">SOCIAL & LINKS</h6>
-                        <div class="mb-3">
-                            <label for="id_github_url" class="form-label">GitHub</label>
-                            {{ form.github_url }}
+                        <div class="card-section">
+                            <div class="section-heading">Social & links</div>
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label for="id_github_url" class="form-label">GitHub</label>
+                                    {{ form.github_url }}
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="id_website_url" class="form-label">Website</label>
+                                    {{ form.website_url }}
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="id_telegram_url" class="form-label">Telegram</label>
+                                    {{ form.telegram_url }}
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="id_discord_url" class="form-label">Discord</label>
+                                    {{ form.discord_url }}
+                                </div>
+                                <div class="col-12">
+                                    <label for="id_other_links" class="form-label">Other links (one per line)</label>
+                                    {{ form.other_links }}
+                                    <small class="form-text text-muted">Separate links with new lines (forums, alt profiles, etc.).</small>
+                                </div>
+                            </div>
                         </div>
-                        <div class="mb-3">
-                            <label for="id_discord_url" class="form-label">Discord</label>
-                            {{ form.discord_url }}
-                        </div>
-                        <div class="mb-3">
-                            <label for="id_telegram_url" class="form-label">Telegram</label>
-                            {{ form.telegram_url }}
-                        </div>
-                        <div class="mb-3">
-                            <label for="id_website_url" class="form-label">Website</label>
-                            {{ form.website_url }}
-                        </div>
-                        <div class="mb-3">
-                            <label for="id_other_links" class="form-label">Other links (one per line)</label>
-                            {{ form.other_links }}
-                            <small class="form-text text-muted">You can paste several links separated by new lines (e.g., forums, alternate profiles).</small>
-                        </div>
-                        
+
                         {% if form.non_field_errors %}
                             <div class="alert alert-danger" role="alert">
                                 {% for error in form.non_field_errors %}
-                                    <p>{{ error }}</p>
+                                    <p class="mb-0">{{ error }}</p>
                                 {% endfor %}
                             </div>
                         {% endif %}
-                        
-                        <div class="d-flex gap-2">
+
+                        <div class="edit-actions">
                             <button type="submit" class="btn btn-primary btn-modern">Save changes</button>
                             <a href="{% url 'profile' %}" class="btn btn-outline-secondary btn-modern">Cancel</a>
                         </div>
