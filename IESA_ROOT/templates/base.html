@@ -179,7 +179,7 @@
                                 {% if user.avatar and user.avatar.name != 'avatars/default.png' %}
                                     <span class="avatar avatar-sm me-2 d-none d-sm-inline-flex"><img src="{{ user.avatar.url }}" alt="Avatar"></span>
                                 {% else %}
-                                    <span class="avatar avatar-sm avatar-fallback me-2 d-none d-sm-inline-flex">{{ user.username|slice":1"|upper }}</span>
+                                    <span class="avatar avatar-sm avatar-fallback me-2 d-none d-sm-inline-flex">{{ user.username|slice:":1"|upper }}</span>
                                 {% endif %}
                                 <span>Profile</span>
                             </a>
