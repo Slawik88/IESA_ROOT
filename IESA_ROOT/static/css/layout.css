@@ -44,6 +44,9 @@ header {
   position: sticky;
   top: 0;
   z-index: var(--z-sticky);
+  /* Fixes mobile browser URL bar hide/show glitches */
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
 }
 
 /* Navbar Brand (Logo) */
@@ -549,25 +552,27 @@ main {
     font-size: 0.9rem;
   }
 
-  /* Buttons in navbar on mobile - PROFESSIONAL LAYOUT */
+  /* Buttons in navbar on mobile - COMPACT HORIZONTAL LAYOUT */
   .navbar-btn {
-    padding: 0.65rem 1rem !important;
-    font-size: 0.95rem !important;
+    padding: 0.5rem 0.75rem !important;
+    font-size: 0.875rem !important;
     width: 100%;
     justify-content: center;
-    font-weight: 600;
+    font-weight: 500;
   }
 
   .messaging-btn,
   .btn-light.btn-sm {
-    padding: 0.65rem 1rem !important;
+    padding: 0.5rem 0.75rem !important;
     width: 100%;
     height: auto;
     display: flex !important;
+    flex-direction: row !important;
     align-items: center;
     justify-content: center;
-    gap: 0;
+    gap: 0.5rem;
     font-weight: 500;
+    font-size: 0.875rem !important;
   }
   
   .messaging-btn i,
@@ -575,16 +580,33 @@ main {
     margin-right: 0;
   }
   
-  /* На мобильном показываем текст рядом с иконками */
+  /* Mobile показываем текст рядом с иконками */
   .messaging-btn .d-sm-none,
   .btn-light.btn-sm .d-sm-none {
     display: inline !important;
-    margin-left: 0.5rem;
   }
 
   .navbar-notification-badge {
     font-size: 0.6rem;
     padding: 0.2rem 0.4rem;
+  }
+  
+  /* Navbar buttons container on mobile - 2 columns grid */
+  .navbar-collapse .d-flex.align-items-center.gap-2 {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem !important;
+    width: 100%;
+  }
+  
+  /* Search takes full width */
+  .navbar-collapse .d-flex.align-items-center.gap-2 .dropdown:has(#communitySearchToggle) {
+    grid-column: 1 / -1;
+  }
+  
+  /* Profile and Logout take full width each */
+  .navbar-collapse .d-flex.align-items-center.gap-2 .navbar-btn {
+    grid-column: span 1;
   }
 }
 
