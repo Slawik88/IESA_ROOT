@@ -1,3 +1,6 @@
+<!-- Messaging Panel Overlay -->
+<div id="messaging-overlay" class="messaging-overlay"></div>
+
 <!-- Messaging Panel (TIER 8) - Slide-out messaging interface -->
 <div id="messaging-panel" class="messaging-panel">
     <div class="messaging-panel-header">
@@ -28,22 +31,54 @@
     document.addEventListener('DOMContentLoaded', function() {
         const messagingBtn = document.getElementById('messagingToggle');
         const messagingPanel = document.getElementById('messaging-panel');
+        const messagingOverlay = document.getElementById('messaging-overlay');
         const closeBtn = document.getElementById('closeMessaging');
         
         if (!messagingBtn || !messagingPanel) return;
         
+        function openPanel() {
+            messagingPanel.classList.add('open');
+            messagingBtn.classList.add('active');
+            if (messagingOverlay) messagingOverlay.classList.add('open');
+            document.body.style.overflow = 'hidden';
+        }
+        
+        function closePanel() {
+            messagingPanel.classList.remove('open');
+            messagingBtn.classList.remove('active');
+            if (messagingOverlay) messagingOverlay.classList.remove('open');
+            document.body.style.overflow = '';
+        }
+        
         // Open/close panel
         messagingBtn.addEventListener('click', function(e) {
             e.stopPropagation();
-            messagingPanel.classList.toggle('open');
-            messagingBtn.classList.toggle('active');
+            
+            // Закрываем mobile menu если открыто
+            const navbar = document.querySelector('.navbar-collapse.show');
+            if (navbar && typeof bootstrap !== 'undefined') {
+                const bsCollapse = bootstrap.Collapse.getInstance(navbar) || new bootstrap.Collapse(navbar, {toggle: false});
+                bsCollapse.hide();
+            }
+            
+            if (messagingPanel.classList.contains('open')) {
+                closePanel();
+            } else {
+                openPanel();
+            }
         });
         
         if (closeBtn) {
             closeBtn.addEventListener('click', function(e) {
                 e.stopPropagation();
-                messagingPanel.classList.remove('open');
-                messagingBtn.classList.remove('active');
+                closePanel();
+            });
+        }
+        
+        // Close when clicking overlay
+        if (messagingOverlay) {
+            messagingOverlay.addEventListener('click', function() {
+                closePanel();
             });
         }
         
@@ -52,16 +87,14 @@
             if (messagingPanel.classList.contains('open') && 
                 !messagingPanel.contains(e.target) && 
                 !messagingBtn.contains(e.target)) {
-                messagingPanel.classList.remove('open');
-                messagingBtn.classList.remove('active');
+                closePanel();
             }
         });
         
         // Close on Escape
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape' && messagingPanel.classList.contains('open')) {
-                messagingPanel.classList.remove('open');
-                messagingBtn.classList.remove('active');
+                closePanel();
             }
         });
         
