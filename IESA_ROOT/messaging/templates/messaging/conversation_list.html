@@ -11,7 +11,10 @@
                 <h2><i class="bi bi-chat-dots"></i> Мои сообщения</h2>
             </div>
 
-            <div class="mb-3 d-flex justify-content-end">
+            <div class="mb-3 d-flex justify-content-between">
+                <button class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#newChatModal">
+                    <i class="bi bi-person-plus"></i> Новый чат
+                </button>
                 <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#newGroupModal">
                     <i class="bi bi-people"></i> Новая группа
                 </button>
@@ -88,6 +91,26 @@
                     <button type="submit" class="btn btn-primary">Создать</button>
                 </div>
             </form>
+        </div>
+    </div>
+    </div>
+
+<!-- New Chat Modal -->
+<div class="modal fade" id="newChatModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Начать новый чат</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <input type="text" class="form-control" placeholder="Поиск по username или имени" 
+                             hx-get="{% url 'messaging:search_users' %}" hx-trigger="keyup changed delay:300ms" hx-target="#search-results"/>
+                <div id="search-results" class="mt-3"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>
+            </div>
         </div>
     </div>
     </div>

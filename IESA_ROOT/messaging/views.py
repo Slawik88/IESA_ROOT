@@ -6,6 +6,7 @@ from django.http import JsonResponse, HttpResponseForbidden
 from django.db.models import Q, Max, Count, Prefetch
 from django.utils import timezone
 from django.contrib import messages
+from django.db.models.functions import Lower
 
 from .models import Conversation, Message, TypingIndicator
 from users.models import User
@@ -57,6 +58,8 @@ class ConversationDetailView(LoginRequiredMixin, DetailView):
         
         context['messages'] = messages_qs
         context['other_participant'] = conversation.get_other_participant(self.request.user)
+        context['is_admin'] = conversation.is_admin(self.request.user)
+        context['is_creator'] = (conversation.creator_id == self.request.user.id)
         
         # Mark all messages as read
         for msg in messages_qs:
@@ -64,6 +67,18 @@ class ConversationDetailView(LoginRequiredMixin, DetailView):
                 msg.mark_as_read(self.request.user)
         
         return context
+
+
+@login_required
+def participants_panel(request, pk):
+    """Return participants panel partial for a conversation (HTMX)."""
+    conversation = get_object_or_404(Conversation, pk=pk, participants=request.user, is_group=True)
+    return render(request, 'messaging/partials/participants_panel.html', {
+        'conversation': conversation,
+        'user': request.user,
+        'is_admin': conversation.is_admin(request.user),
+        'is_creator': (conversation.creator_id == request.user.id),
+    })
 
 
 @login_required
@@ -305,6 +320,8 @@ def add_participant(request, pk):
             if user and user not in conversation.participants.all():
                 conversation.participants.add(user)
                 messages.success(request, f'Добавлен участник: {user.username}')
+        if request.headers.get('HX-Request'):
+            return participants_panel(request, pk)
         return redirect('messaging:conversation_detail', pk=conversation.pk)
     return HttpResponseForbidden()
 
@@ -318,9 +335,14 @@ def remove_participant(request, pk, user_id):
         return HttpResponseForbidden()
     target = get_object_or_404(User, pk=user_id)
     if request.method == 'POST':
-        if target != request.user and target in conversation.participants.all():
+        # cannot remove creator
+        if target == conversation.creator:
+            messages.error(request, 'Нельзя удалить создателя группы')
+        elif target != request.user and target in conversation.participants.all():
             conversation.participants.remove(target)
             messages.warning(request, f'Удалён участник: {target.username}')
+        if request.headers.get('HX-Request'):
+            return participants_panel(request, pk)
         return redirect('messaging:conversation_detail', pk=conversation.pk)
     return HttpResponseForbidden()
 
@@ -333,6 +355,43 @@ def leave_group(request, pk):
         conversation.participants.remove(request.user)
         messages.info(request, 'Вы покинули группу')
         return redirect('messaging:conversation_list')
+    return HttpResponseForbidden()
+
+
+@login_required
+def search_users(request):
+    """Search active users by username or names excluding current user. Returns HTML list (HTMX)."""
+    q = (request.GET.get('q') or '').strip()
+    users = User.objects.none()
+    if q:
+        users = User.objects.filter(is_active=True).exclude(pk=request.user.pk).filter(
+            Q(username__icontains=q) | Q(first_name__icontains=q) | Q(last_name__icontains=q)
+        ).order_by(Lower('username'))[:20]
+    return render(request, 'messaging/partials/search_results.html', {
+        'users': users,
+    })
+
+
+@login_required
+def toggle_admin(request, pk, user_id):
+    """Creator toggles admin rights for a participant."""
+    conversation = get_object_or_404(Conversation, pk=pk, participants=request.user, is_group=True)
+    if conversation.creator_id != request.user.id:
+        return HttpResponseForbidden()
+    target = get_object_or_404(User, pk=user_id)
+    if request.method == 'POST':
+        if target == conversation.creator:
+            messages.error(request, 'Создатель и так главный админ')
+        elif target in conversation.participants.all():
+            if conversation.admins.filter(pk=target.pk).exists():
+                conversation.admins.remove(target)
+                messages.info(request, f'Снят админ: {target.username}')
+            else:
+                conversation.admins.add(target)
+                messages.success(request, f'Назначен админ: {target.username}')
+        if request.headers.get('HX-Request'):
+            return participants_panel(request, pk)
+        return redirect('messaging:conversation_detail', pk=conversation.pk)
     return HttpResponseForbidden()
 
 

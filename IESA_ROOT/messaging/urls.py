@@ -6,6 +6,8 @@ app_name = 'messaging'
 urlpatterns = [
     # Conversation list
     path('', views.ConversationListView.as_view(), name='conversation_list'),
+    # Search users to start chat
+    path('search-users/', views.search_users, name='search_users'),
     
     # Start new conversation
     path('new/<str:username>/', views.start_conversation, name='start_conversation'),
@@ -37,4 +39,6 @@ urlpatterns = [
     path('groups/<int:pk>/participants/add/', views.add_participant, name='add_participant'),
     path('groups/<int:pk>/participants/remove/<int:user_id>/', views.remove_participant, name='remove_participant'),
     path('groups/<int:pk>/leave/', views.leave_group, name='leave_group'),
+    path('groups/<int:pk>/participants/panel/', views.participants_panel, name='participants_panel'),
+    path('groups/<int:pk>/admins/toggle/<int:user_id>/', views.toggle_admin, name='toggle_admin'),
 ]

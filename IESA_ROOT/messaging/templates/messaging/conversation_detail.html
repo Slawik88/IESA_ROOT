@@ -144,40 +144,8 @@
                 </form>
                 
                 {% if conversation.is_group %}
-                <div class="mt-3">
-                    <div class="card card-body">
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <strong>Участники</strong>
-                            <form class="d-flex gap-2" method="post" action="{% url 'messaging:add_participant' conversation.pk %}">
-                                {% csrf_token %}
-                                <input type="text" name="username" class="form-control form-control-sm" placeholder="username" required>
-                                <button class="btn btn-sm btn-outline-primary" type="submit" {% if not conversation.is_admin user %}disabled{% endif %}>Добавить</button>
-                            </form>
-                        </div>
-                        <ul class="list-group">
-                            {% for p in conversation.participants.all %}
-                            <li class="list-group-item d-flex justify-content-between align-items-center">
-                                <span>@{{ p.username }}{% if conversation.creator == p %} <span class="badge bg-secondary ms-2">Создатель</span>{% endif %}
-                                    {% if p in conversation.admins.all %} <span class="badge bg-info ms-1">Админ</span>{% endif %}
-                                </span>
-                                <div class="btn-group btn-group-sm">
-                                    {% if p != user and conversation.is_admin user %}
-                                        <form method="post" action="{% url 'messaging:remove_participant' conversation.pk p.pk %}">
-                                            {% csrf_token %}
-                                            <button class="btn btn-outline-danger">Удалить</button>
-                                        </form>
-                                    {% endif %}
-                                </div>
-                            </li>
-                            {% endfor %}
-                        </ul>
-                        <div class="mt-2 d-flex justify-content-end">
-                            <form method="post" action="{% url 'messaging:leave_group' conversation.pk %}">
-                                {% csrf_token %}
-                                <button class="btn btn-sm btn-outline-secondary">Покинуть группу</button>
-                            </form>
-                        </div>
-                    </div>
+                <div class="mt-3" id="participants-panel" hx-get="{% url 'messaging:participants_panel' conversation.pk %}" hx-trigger="load" hx-target="#participants-panel" hx-swap="outerHTML">
+                    {% include 'messaging/partials/participants_panel.html' with conversation=conversation is_admin=is_admin is_creator=is_creator %}
                 </div>
                 {% endif %}
             </div>
@@ -259,7 +227,7 @@
     })();
 
     const pollDiv = document.createElement('div');
-    pollDiv.setAttribute('hx-get', '{% url 'messaging:new_messages' conversation.pk %}?after=' + lastMessageId);
+    pollDiv.setAttribute('hx-get', "{% url 'messaging:new_messages' conversation.pk %}?after=" + lastMessageId);
     pollDiv.setAttribute('hx-trigger', 'every 2s');
     pollDiv.setAttribute('hx-target', '#messages-area');
     pollDiv.setAttribute('hx-swap', 'beforeend');
