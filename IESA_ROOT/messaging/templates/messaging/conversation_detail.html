@@ -82,7 +82,7 @@
                             <i class="bi bi-people"></i> {{ conversation.group_name }}
                         {% else %}
                             <i class="bi bi-person"></i> 
-                            <a href="{% url 'users:profile_public' other_participant.username %}">
+                            <a href="{% url 'users:profile_public_username' username=other_participant.username %}">
                                 {{ other_participant.username }}
                             </a>
                         {% endif %}
