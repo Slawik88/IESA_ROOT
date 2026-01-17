@@ -61,8 +61,6 @@
             <button hx-delete="{% url 'notifications:notification_delete' notification.id %}"
                     hx-target="closest .notification-item"
                     hx-swap="outerHTML swap:300ms"
-                    hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
-                    hx-confirm="Delete this notification?"
                     class="btn btn-sm btn-outline-danger"
                     title="Delete">
                 <i class="fas fa-trash-alt"></i>

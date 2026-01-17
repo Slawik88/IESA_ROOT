@@ -33,6 +33,9 @@
     <!-- Favicon -->
     <link rel="icon" type="image/png" href="{% static 'img/favicon.png' %}">
     
+    <!-- CSRF Token for HTMX -->
+    <meta name="csrf-token" content="{{ csrf_token }}">
+    
     <!-- PWA Manifest -->
     <link rel="manifest" href="{% static 'manifest.json' %}">
     
@@ -260,6 +263,19 @@
     
     <!-- HTMX Local (fixed Tracking Prevention issues) -->
     <script src="{% static 'js/htmx.min.js' %}"></script>
+    
+    <!-- HTMX CSRF Configuration -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Configure HTMX to automatically include CSRF token
+            document.body.addEventListener('htmx:configRequest', function(evt) {
+                const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+                if (csrfToken) {
+                    evt.detail.headers['X-CSRFToken'] = csrfToken;
+                }
+            });
+        });
+    </script>
 
     <!-- Lightbox JS -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/lightbox2/2.11.3/js/lightbox-plus-jquery.min.js"></script>
