@@ -2,6 +2,8 @@ from django.urls import path
 from . import views
 from django.contrib.auth import views as auth_views
 
+app_name = 'users'  # FIX: Enable namespace for URL reversals
+
 urlpatterns = [
     # Авторизация
     path('register/', views.RegisterView.as_view(), name='register'),

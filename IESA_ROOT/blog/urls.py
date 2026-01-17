@@ -1,6 +1,8 @@
 from django.urls import path
 from . import views
 
+app_name = 'blog'  # FIX: Enable namespace for URL reversals
+
 urlpatterns = [
     # Список постов
     path('', views.PostListView.as_view(), name='post_list'),
