@@ -99,7 +99,7 @@ class UserAdmin(BaseUserAdmin):
         
         # Используем динамическую генерацию QR через view
         from django.urls import reverse
-        qr_url = reverse('user_qr', kwargs={'permanent_id': obj.permanent_id})
+        qr_url = reverse('users:user_qr', kwargs={'permanent_id': obj.permanent_id})
         
         # URL для действий (используем правильный формат с admin namespace)
         regenerate_url = f"/admin/users/user/{obj.pk}/regenerate-qr/"
@@ -151,7 +151,7 @@ class UserAdmin(BaseUserAdmin):
             return '-'
         # Используем динамическую генерацию QR
         from django.urls import reverse
-        qr_url = reverse('user_qr', kwargs={'permanent_id': obj.permanent_id})
+        qr_url = reverse('users:user_qr', kwargs={'permanent_id': obj.permanent_id})
         return format_html('<img src="{}" style="width:80px;height:80px;object-fit:contain;border:1px solid #ddd;border-radius:4px;"/>', qr_url)
     card_qr.short_description = 'Card QR'
 

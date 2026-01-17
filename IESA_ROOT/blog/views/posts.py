@@ -45,7 +45,7 @@ class PostDetailView(DetailView):
         # OPTIMIZATION: Prefetch all relations and annotate counts upfront
         return Post.objects.annotate(
             likes_count=Count('likes', distinct=True),
-            subscriber_count=Count('author__blog_subscribers', distinct=True),
+            subscriber_count=Count('author__subscribers', distinct=True),
             views_count_cached=Count('user_views', distinct=True)
         ).prefetch_related(
             'comments__author',

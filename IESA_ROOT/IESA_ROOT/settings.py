@@ -387,8 +387,8 @@ CSRF_HEADER_NAME = 'HTTP_X_CSRFTOKEN'
 CSRF_USE_SESSIONS = False
 
 # Настройки авторизации/перенаправления
-LOGIN_URL = 'login'
-LOGIN_REDIRECT_URL = 'profile'
+LOGIN_URL = 'users:login'
+LOGIN_REDIRECT_URL = 'users:profile'
 LOGOUT_REDIRECT_URL = 'home'
 
 # Ключи API (Stripe)
