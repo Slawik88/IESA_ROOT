@@ -13,11 +13,13 @@
 .modal-backdrop {
     z-index: 1040 !important;
     background-color: rgba(0, 0, 0, 0.5) !important;
+    cursor: pointer;
 }
 
 /* Modal dialog поверх backdrop */
 .modal {
     z-index: 1050 !important;
+    pointer-events: auto;
 }
 
 /* Убеждаемся, что modal можно закрыть */
@@ -29,6 +31,8 @@
 .modal .btn-close {
     opacity: 1 !important;
     z-index: 1060 !important;
+    cursor: pointer;
+    pointer-events: all;
 }
 
 .modal .btn-close:hover {
@@ -39,24 +43,45 @@
 .modal-header {
     position: relative;
     z-index: 1055;
+    pointer-events: auto;
 }
 
 /* Modal body */
 .modal-body {
     position: relative;
     z-index: 1055;
+    pointer-events: auto;
+    overflow-y: auto;
+    max-height: 60vh;
 }
 
 /* Modal footer */
 .modal-footer {
     position: relative;
     z-index: 1055;
+    pointer-events: auto;
+}
+
+/* Modal content clickable */
+.modal-content {
+    pointer-events: auto;
+}
+
+/* Позволяем закрывать modal по клику на backdrop */
+.modal-backdrop.show {
+    opacity: 0.5;
+    cursor: pointer;
 }
 
 /* Убеждаемся, что body не прокручивается когда modal открыт */
 body.modal-open {
     overflow: hidden !important;
-    padding-right: 0 !important; /* Предотвращаем смещение контента */
+}
+
+/* Не смещаем контент при modal открытии */
+body.modal-open .container-limited,
+body.modal-open main {
+    padding-right: 0 !important;
 }
 
 /* Фикс для множественных modal (если откроется несколько) */
@@ -66,6 +91,7 @@ body.modal-open {
 
 .modal:nth-of-type(n+2) {
     z-index: 1060 !important;
+    pointer-events: auto;
 }
 
 .modal:nth-of-type(n+2) + .modal-backdrop {
@@ -75,6 +101,12 @@ body.modal-open {
 /* Анимация появления modal */
 .modal.show .modal-dialog {
     transform: none !important;
+    pointer-events: auto;
+}
+
+/* Убеждаемся, что background сайта не перекрывается */
+.modal-backdrop {
+    position: fixed;
 }
 
 /* Mobile optimizations */

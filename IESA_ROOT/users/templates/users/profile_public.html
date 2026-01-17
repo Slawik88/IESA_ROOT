@@ -7,23 +7,44 @@
   <div class="row justify-content-center">
     <div class="col-md-8">
       <div class="card card-modern p-4">
-        <div class="d-flex gap-3 align-items-center">
+        <div class="d-flex gap-3 align-items-start mb-3">
           {% if user_obj.avatar and user_obj.avatar.name != 'avatars/default.png' %}
-            <span class="avatar avatar-lg"><img src="{{ user_obj.avatar.url }}" alt="{{ user_obj.username }} Avatar"></span>
+            <span class="avatar avatar-xl"><img src="{{ user_obj.avatar.url }}" alt="{{ user_obj.username }} Avatar"></span>
           {% else %}
-            <span class="avatar avatar-lg avatar-fallback">{{ user_obj.username|slice:":1"|upper }}</span>
+            <span class="avatar avatar-xl avatar-fallback">{{ user_obj.username|slice:":1"|upper }}</span>
           {% endif %}
-          <div>
-            <h2 class="mb-0">{{ user_obj.get_full_name|default:user_obj.username }}</h2>
-            <p class="text-muted mb-1">@{{ user_obj.username }}</p>
+          <div class="flex-grow-1">
+            <h2 class="mb-1">{{ user_obj.get_full_name|default:user_obj.username }}</h2>
+            <p class="text-muted mb-2">@{{ user_obj.username }}</p>
             {# ID виден только владельцу #}
             {% if request.user.is_authenticated and request.user.id == user_obj.id and user_obj.permanent_id %}
-              <div class="small text-muted">ID: <code id="permanent-{{ user_obj.permanent_id }}">{{ user_obj.permanent_id }}</code>
+              <div class="small text-muted mb-2">ID: <code id="permanent-{{ user_obj.permanent_id }}">{{ user_obj.permanent_id }}</code>
                 <button class="btn btn-link btn-sm p-0 ms-2 copy-id" data-copy="#permanent-{{ user_obj.permanent_id }}" title="Copy ID"><i class="far fa-copy"></i></button>
               </div>
             {% endif %}
-            {% if user_obj.is_verified %}<span class="badge bg-success">Verified</span>{% endif %}
-            {% if user_obj.card_active %}<span class="badge bg-info">Card active</span>{% endif %}
+            <div class="mb-2">
+              {% if user_obj.is_verified %}<span class="badge bg-success me-1"><i class="fas fa-check-circle me-1"></i>Verified</span>{% endif %}
+              {% if user_obj.card_active %}<span class="badge bg-info"><i class="fas fa-id-card me-1"></i>Card Active</span>{% endif %}
+            </div>
+            
+            <!-- Follow & Message Buttons - MOVED HERE FOR VISIBILITY -->
+            {% if request.user.is_authenticated and request.user.id != user_obj.id %}
+              <div class="d-flex gap-2 mt-3">
+                <button class="btn btn-primary btn-modern follow-btn" 
+                        data-user-id="{{ user_obj.id }}"
+                        data-username="{{ user_obj.username }}"
+                        type="button">
+                  <i class="fas fa-user-plus me-2"></i>
+                  <span class="follow-text">Follow</span>
+                </button>
+                <button class="btn btn-outline-primary btn-modern send-message-btn" 
+                        data-user-id="{{ user_obj.id }}"
+                        data-username="{{ user_obj.username }}"
+                        type="button">
+                  <i class="fas fa-envelope me-2"></i>Send Message
+                </button>
+              </div>
+            {% endif %}
           </div>
         </div>
         <hr>
@@ -31,31 +52,34 @@
         <p>{{ user_obj.first_name }} {{ user_obj.last_name }}</p>
         <p class="small text-muted">Member since {{ user_obj.date_joined|date:"d M Y" }}</p>
         
-        <!-- User Statistics -->
-        <div class="mt-3">
-          <h6 class="section-title d-block mb-3">ACTIVITY STATISTICS</h6>
-          <div class="row text-center">
+        <!-- User Statistics - IMPROVED DESIGN -->
+        <div class="mt-4">
+          <h6 class="text-uppercase fw-bold mb-3" style="letter-spacing: 1px; font-size: 0.75rem; color: #6b7280;">Activity Statistics</h6>
+          <div class="row g-3 text-center">
             <div class="col-4">
-              <div class="card card-modern bg-light border-0">
-                <div class="card-body py-2">
-                  <h5 class="mb-0 text-primary">{{ user_obj.total_posts }}</h5>
-                  <small class="text-muted">Posts</small>
+              <div class="card border-0 shadow-sm h-100" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                <div class="card-body py-3">
+                  <i class="fas fa-file-alt text-white mb-2" style="font-size: 1.5rem; opacity: 0.9;"></i>
+                  <h4 class="mb-0 fw-bold text-white">{{ user_obj.total_posts }}</h4>
+                  <small class="text-white" style="opacity: 0.9;">Posts</small>
                 </div>
               </div>
             </div>
             <div class="col-4">
-              <div class="card card-modern bg-light border-0">
-                <div class="card-body py-2">
-                  <h5 class="mb-0 text-danger">{{ user_obj.total_likes_received }}</h5>
-                  <small class="text-muted">Likes</small>
+              <div class="card border-0 shadow-sm h-100" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+                <div class="card-body py-3">
+                  <i class="fas fa-heart text-white mb-2" style="font-size: 1.5rem; opacity: 0.9;"></i>
+                  <h4 class="mb-0 fw-bold text-white">{{ user_obj.total_likes_received }}</h4>
+                  <small class="text-white" style="opacity: 0.9;">Likes</small>
                 </div>
               </div>
             </div>
             <div class="col-4">
-              <div class="card card-modern bg-light border-0">
-                <div class="card-body py-2">
-                  <h5 class="mb-0 text-success">{{ user_obj.total_comments_made }}</h5>
-                  <small class="text-muted">Comments</small>
+              <div class="card border-0 shadow-sm h-100" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+                <div class="card-body py-3">
+                  <i class="fas fa-comments text-white mb-2" style="font-size: 1.5rem; opacity: 0.9;"></i>
+                  <h4 class="mb-0 fw-bold text-white">{{ user_obj.total_comments_made }}</h4>
+                  <small class="text-white" style="opacity: 0.9;">Comments</small>
                 </div>
               </div>
             </div>
@@ -78,60 +102,106 @@
         </div>
         
         {% if request.user.is_staff %}
-          <div class="mt-2">
-            <a href="/admin/users/user/{{ user_obj.pk }}/change/" class="btn btn-sm btn-outline-secondary">Open in admin panel</a>
+          <div class="mt-3">
+            <a href="/admin/users/user/{{ user_obj.pk }}/change/" class="btn btn-sm btn-outline-secondary">
+              <i class="fas fa-cog me-1"></i>Open in Admin Panel
+            </a>
           </div>
         {% endif %}
 
         <hr>
-        {# QR код виден только владельцу профиля #}
+        
+        {# QR код виден только владельцу профиля - COMPACT VERSION #}
         {% if request.user.is_authenticated and request.user.id == user_obj.id and user_obj.permanent_id %}
-          <div class="text-center mb-3">
-            <p class="text-muted"><strong>Ваш QR код</strong></p>
-            <a href="{% url 'profile_by_card' permanent_id=user_obj.permanent_id %}" title="Open profile by card">
-              <img src="{% url 'user_qr' permanent_id=user_obj.permanent_id %}" alt="QR for {{ user_obj.username }}" class="qr-code-img" />
-            </a>
-            <div class="d-flex justify-content-center gap-2 mt-2">
-              <a class="btn btn-sm btn-outline-secondary" href="{% url 'user_qr' permanent_id=user_obj.permanent_id %}?download=1">Download QR</a>
-              <div class="small text-muted mt-2">Scan to open your profile</div>
+          <div class="card border-0 bg-light p-3 mb-3">
+            <h6 class="text-uppercase fw-bold mb-2" style="letter-spacing: 1px; font-size: 0.75rem; color: #6b7280;">Your QR Code</h6>
+            <div class="d-flex align-items-center gap-3">
+              <a href="{% url 'profile_by_card' permanent_id=user_obj.permanent_id %}" title="Open profile by card">
+                <img src="{% url 'user_qr' permanent_id=user_obj.permanent_id %}" alt="QR" class="qr-code-img" style="width: 100px; height: 100px; border-radius: 8px;" />
+              </a>
+              <div class="flex-grow-1">
+                <p class="small text-muted mb-2">Scan to view profile</p>
+                <a class="btn btn-sm btn-outline-primary" href="{% url 'user_qr' permanent_id=user_obj.permanent_id %}?download=1">
+                  <i class="fas fa-download me-1"></i>Download QR
+                </a>
+              </div>
             </div>
           </div>
-          <hr>
         {% endif %}
         
-        <!-- Social links -->
+        <!-- Social links - MODERN DESIGN -->
         {% if user_obj.github_url or user_obj.website_url or user_obj.telegram_url or user_obj.discord_url or user_obj.other_links %}
-          <div class="mb-3">
-            <h6>Links</h6>
+          <div class="mb-4">
+            <h6 class="text-uppercase fw-bold mb-3" style="letter-spacing: 1px; font-size: 0.75rem; color: #6b7280;">Links</h6>
             <div class="d-flex gap-2 flex-wrap">
-              {% if user_obj.github_url %}<a class="btn btn-outline-dark btn-sm" href="{{ user_obj.github_url }}" target="_blank"><i class="fab fa-github me-1"></i>GitHub</a>{% endif %}
-              {% if user_obj.website_url %}<a class="btn btn-outline-primary btn-sm" href="{{ user_obj.website_url }}" target="_blank"><i class="fas fa-link me-1"></i>Website</a>{% endif %}
-              {% if user_obj.telegram_url %}<a class="btn btn-outline-info btn-sm" href="{{ user_obj.telegram_url }}" target="_blank"><i class="fab fa-telegram me-1"></i>Telegram</a>{% endif %}
-              {% if user_obj.discord_url %}<a class="btn btn-outline-secondary btn-sm" href="{{ user_obj.discord_url }}" target="_blank"><i class="fab fa-discord me-1"></i>Discord</a>{% endif %}
+              {% if user_obj.github_url %}
+                <a class="btn btn-dark btn-sm" href="{{ user_obj.github_url }}" target="_blank" style="border-radius: 20px;">
+                  <i class="fab fa-github me-2"></i>GitHub
+                </a>
+              {% endif %}
+              {% if user_obj.website_url %}
+                <a class="btn btn-primary btn-sm" href="{{ user_obj.website_url }}" target="_blank" style="border-radius: 20px;">
+                  <i class="fas fa-globe me-2"></i>Website
+                </a>
+              {% endif %}
+              {% if user_obj.telegram_url %}
+                <a class="btn btn-info btn-sm text-white" href="{{ user_obj.telegram_url }}" target="_blank" style="border-radius: 20px; background: #0088cc;">
+                  <i class="fab fa-telegram-plane me-2"></i>Telegram
+                </a>
+              {% endif %}
+              {% if user_obj.discord_url %}
+                <a class="btn btn-sm text-white" href="{{ user_obj.discord_url }}" target="_blank" style="border-radius: 20px; background: #5865F2;">
+                  <i class="fab fa-discord me-2"></i>Discord
+                </a>
+              {% endif %}
             </div>
             {% if other_links_list %}
-              <div class="mt-2 small text-muted">Other: {% for line in other_links_list %}<a href="{{ line }}" target="_blank">{{ line }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}</div>
+              <div class="mt-2 small text-muted">Other: {% for line in other_links_list %}<a href="{{ line }}" target="_blank" class="text-decoration-none">{{ line }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}</div>
             {% endif %}
           </div>
-          <hr>
         {% endif %}
 
-        <h5>Published posts</h5>
-        <div class="list-group">
+        <h6 class="text-uppercase fw-bold mb-3" style="letter-spacing: 1px; font-size: 0.75rem; color: #6b7280;">Published Posts</h6>
+        <div class="list-group list-group-flush">
           {% for p in user_posts %}
-            <a href="{{ p.get_absolute_url }}" class="list-group-item list-group-item-action">
-              <div class="d-flex w-100 justify-content-between">
-                <h6 class="mb-1">{{ p.title }}</h6>
-                <small class="text-muted">{{ p.created_at|date:"d M Y" }}</small>
+            <a href="{{ p.get_absolute_url }}" class="list-group-item list-group-item-action border-0 border-bottom px-0 py-3">
+              <div class="d-flex w-100 justify-content-between align-items-start mb-2">
+                <h6 class="mb-0 fw-semibold">{{ p.title }}</h6>
+                <small class="text-muted ms-2" style="white-space: nowrap;">
+                  <i class="far fa-calendar-alt me-1"></i>{{ p.created_at|date:"d M Y" }}
+                </small>
               </div>
-              <p class="mb-1 small text-muted">{{ p.text|truncatewords:20|striptags }}</p>
+              <p class="mb-0 small text-muted">{{ p.text|truncatewords:20|striptags }}</p>
             </a>
           {% empty %}
-            <div class="list-group-item">No published posts yet.</div>
+            <div class="list-group-item border-0 text-center py-5">
+              <i class="fas fa-inbox fa-3x text-muted mb-3" style="opacity: 0.3;"></i>
+              <p class="text-muted mb-0">No published posts yet.</p>
+            </div>
           {% endfor %}
         </div>
       </div>
     </div>
   </div>
 </div>
+
+<!-- Profile Interactions Initialization for Public Profiles -->
+{% load static %}
+<script src="{% static 'js/profile-interactions.js' %}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    if (window.ProfileInteractions) {
+        console.log('🔄 Initializing ProfileInteractions on public profile page...');
+        window.ProfileInteractions.init();
+    }
+});
+
+// Инициализация немедленно если документ уже загружен
+if (document.readyState === 'interactive' || document.readyState === 'complete') {
+    if (window.ProfileInteractions) {
+        console.log('🔄 Public profile page ready - initializing ProfileInteractions immediately...');
+        window.ProfileInteractions.init();
+    }
+}
+</script>
 {% endblock %}

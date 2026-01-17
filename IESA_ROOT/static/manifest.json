@@ -13,41 +13,18 @@
   "categories": ["sports", "social", "lifestyle"],
   "icons": [
     {
-      "src": "/static/img/icon-72x72.png",
-      "sizes": "72x72",
+      "src": "/static/img/favicon.png",
+      "sizes": "any",
       "type": "image/png",
-      "purpose": "any"
+      "purpose": "any maskable"
     },
     {
-      "src": "/static/img/icon-96x96.png",
-      "sizes": "96x96",
+      "src": "/static/img/logo.png",
+      "sizes": "any",
       "type": "image/png",
       "purpose": "any"
-    },
-    {
-      "src": "/static/img/icon-128x128.png",
-      "sizes": "128x128",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "/static/img/icon-144x144.png",
-      "sizes": "144x144",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "/static/img/icon-152x152.png",
-      "sizes": "152x152",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "/static/img/icon-192x192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any"
-    },
+    }
+  ],
     {
       "src": "/static/img/icon-384x384.png",
       "sizes": "384x384",
@@ -73,21 +50,6 @@
       "purpose": "maskable"
     }
   ],
-  "screenshots": [
-    {
-      "src": "/static/img/screenshot-540x720.png",
-      "sizes": "540x720",
-      "type": "image/png",
-      "form_factor": "narrow",
-      "platform": "android"
-    },
-    {
-      "src": "/static/img/screenshot-1280x800.png",
-      "sizes": "1280x800",
-      "type": "image/png",
-      "form_factor": "wide"
-    }
-  ],
   "shortcuts": [
     {
       "name": "Профиль",
@@ -96,21 +58,21 @@
       "url": "/users/profile/",
       "icons": [
         {
-          "src": "/static/img/icon-96x96.png",
-          "sizes": "96x96",
+          "src": "/static/img/favicon.png",
+          "sizes": "any",
           "type": "image/png"
         }
       ]
     },
     {
-      "name": "Блог",
-      "short_name": "Блог",
-      "description": "Читать посты",
-      "url": "/blog/",
+      "name": "Посты",
+      "short_name": "Посты",
+      "description": "Просмотр постов сообщества",
+      "url": "/blog/posts/",
       "icons": [
         {
-          "src": "/static/img/icon-96x96.png",
-          "sizes": "96x96",
+          "src": "/static/img/favicon.png",
+          "sizes": "any",
           "type": "image/png"
         }
       ]
@@ -118,12 +80,12 @@
     {
       "name": "События",
       "short_name": "События",
-      "description": "Просмотреть события",
-      "url": "/events/",
+      "description": "Календарь событий",
+      "url": "/blog/events/",
       "icons": [
         {
-          "src": "/static/img/icon-96x96.png",
-          "sizes": "96x96",
+          "src": "/static/img/favicon.png",
+          "sizes": "any",
           "type": "image/png"
         }
       ]

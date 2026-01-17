@@ -1,6 +1,5 @@
-/**
- * PWA Manager - Initialize and manage Progressive Web App features
- * Handles service worker registration, offline detection, install prompts
+/*
+ * PWA Manager v2 - cache-busted copy without ES module exports
  */
 
 class PWAManager {
@@ -10,7 +9,7 @@ class PWAManager {
       showInstallPrompt: true,
       enableOfflineIndicator: true,
       enableNotifications: true,
-      updateCheckInterval: 60000, // 1 minute
+      updateCheckInterval: 60000,
       ...options
     };
 
@@ -23,31 +22,19 @@ class PWAManager {
   }
 
   async init() {
-    // Check browser support
     if (!('serviceWorker' in navigator)) {
       console.warn('⚠️ Service Workers not supported');
       return;
     }
-
-    // Register service worker
     await this.registerServiceWorker();
-
-    // Setup online/offline detection
     this.setupOfflineDetection();
-
-    // Setup install prompt
     if (this.options.showInstallPrompt) {
       this.setupInstallPrompt();
     }
-
-    // Setup update checking
     this.startUpdateCheck();
-
-    // Setup notification permission
     if (this.options.enableNotifications) {
       this.requestNotificationPermission();
     }
-
     console.log('✅ PWA Manager initialized');
   }
 
@@ -61,7 +48,6 @@ class PWAManager {
       this.serviceWorkerReg = registration;
       console.log('✅ Service Worker registered');
 
-      // Listen for updates
       registration.addEventListener('updatefound', () => {
         const newWorker = registration.installing;
         newWorker.addEventListener('statechange', () => {
@@ -94,15 +80,11 @@ class PWAManager {
 
   setupInstallPrompt() {
     window.addEventListener('beforeinstallprompt', (e) => {
-      // Prevent the mini-infobar from appearing
       e.preventDefault();
-      // Stash the event for later use
       this.deferredPrompt = e;
-      // Show install button
       this.showInstallButton();
     });
 
-    // Detect when app is installed
     window.addEventListener('appinstalled', () => {
       console.log('📲 PWA installed');
       this.hideInstallButton();
@@ -149,7 +131,6 @@ class PWAManager {
         applicationServerKey: this.getPublicKey()
       });
 
-      // Send subscription to server
       await fetch('/api/notifications/subscribe/', {
         method: 'POST',
         headers: {
@@ -239,10 +220,8 @@ class PWAManager {
   updateServiceWorker() {
     if (!this.serviceWorkerReg?.waiting) return;
 
-    // Tell the waiting service worker to skip waiting
     this.serviceWorkerReg.waiting.postMessage({ action: 'SKIP_WAITING' });
 
-    // Reload once new service worker is active
     let refreshing = false;
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       if (!refreshing) {
@@ -253,7 +232,6 @@ class PWAManager {
   }
 
   startUpdateCheck() {
-    // Check for updates periodically
     setInterval(() => {
       if (this.serviceWorkerReg) {
         this.serviceWorkerReg.update();
@@ -262,7 +240,6 @@ class PWAManager {
   }
 
   async syncPendingData() {
-    // Sync any pending requests when back online
     if (this.serviceWorkerReg) {
       try {
         await this.serviceWorkerReg.sync.register('sync-posts');
@@ -274,7 +251,6 @@ class PWAManager {
   }
 
   getPublicKey() {
-    // This should come from your Django backend
     const key = document.querySelector('meta[name="push-public-key"]')?.content;
     if (key) {
       return this.urlBase64ToUint8Array(key);
@@ -302,7 +278,6 @@ class PWAManager {
            document.cookie.split('; ').find(row => row.startsWith('csrftoken='))?.split('=')[1];
   }
 
-  // Public API methods
   isAppOnline() {
     return this.isOnline;
   }
@@ -341,5 +316,5 @@ if (document.readyState === 'loading') {
   }
 }
 
-// PWA Manager is automatically initialized on page load
+// Export to global namespace
 window.PWAManager = PWAManager;
