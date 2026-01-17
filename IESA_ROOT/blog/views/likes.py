@@ -3,6 +3,7 @@
 from django.shortcuts import get_object_or_404, render
 from django.http import HttpResponse
 from django.contrib.auth.decorators import login_required
+from django.db.models import Count
 
 from ..models import Post, Comment, Like, CommentLike
 
@@ -22,10 +23,13 @@ def like_post(request, pk):
     
     # Если HTMX - возвращаем фрагмент кнопки
     if request.htmx:
+        # OPTIMIZATION: Use aggregate instead of .count() query
+        like_count = Like.objects.filter(post=post).aggregate(count=Count('id'))['count']
+        
         return render(request, 'blog/htmx/like_button.html', {
             'post': post,
             'is_liked': is_liked,
-            'like_count': post.likes.count(),
+            'like_count': like_count,
         })
     
     return HttpResponse(status=204)

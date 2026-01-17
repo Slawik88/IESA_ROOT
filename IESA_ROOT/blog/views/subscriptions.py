@@ -3,6 +3,7 @@
 from django.shortcuts import get_object_or_404, render
 from django.http import HttpResponse
 from django.contrib.auth.decorators import login_required
+from django.db.models import Count
 
 from ..models import Post, BlogSubscription
 
@@ -27,10 +28,15 @@ def toggle_subscription(request, author_pk):
     
     # Если HTMX - возвращаем фрагмент кнопки
     if request.htmx:
+        # OPTIMIZATION: Use aggregate instead of separate count() query
+        subscriber_count = BlogSubscription.objects.filter(
+            author=author
+        ).aggregate(count=Count('id'))['count']
+        
         return render(request, 'blog/htmx/subscribe_button.html', {
             'author': author,
             'is_subscribed': is_subscribed,
-            'subscriber_count': BlogSubscription.objects.filter(author=author).count(),
+            'subscriber_count': subscriber_count,
         })
     
     return HttpResponse(status=204)
