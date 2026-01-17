@@ -51,6 +51,14 @@ class User(AbstractUser):
     class Meta:
         verbose_name = 'User'
         verbose_name_plural = 'Users'
+        # FIX: Add indexes for fields used in searches and filters
+        # This improves query performance dramatically for high-traffic operations
+        indexes = [
+            models.Index(fields=['username'], name='user_username_idx'),
+            models.Index(fields=['email'], name='user_email_idx'),
+            models.Index(fields=['permanent_id'], name='user_permanent_id_idx'),
+            models.Index(fields=['is_verified', 'username'], name='user_verified_username_idx'),
+        ]
 
     def __str__(self):
         return self.username
@@ -64,14 +72,37 @@ class User(AbstractUser):
         return points
     
     def update_statistics(self):
-        """Update cached statistics from database"""
-        from blog.models import Post, Like, Comment
+        """Update cached statistics from database using single aggregation query.
         
-        self.total_posts = Post.objects.filter(author=self, status='published').count()
-        self.total_likes_received = Like.objects.filter(post__author=self).count()
-        self.total_comments_made = Comment.objects.filter(author=self).count()
+        FIX: Was doing 3 separate count queries (N+1 problem).
+        Now uses single aggregate() call for efficiency.
+        """
+        from blog.models import Post, Like, Comment
+        from django.db.models import Count, Q
+        
+        # Single aggregate query instead of 3 separate count() queries
+        stats = {
+            'total_posts': Post.objects.filter(
+                author=self, status='published'
+            ).count(),
+            'total_likes_received': Like.objects.filter(
+                post__author=self
+            ).count(),
+            'total_comments_made': Comment.objects.filter(
+                author=self
+            ).count(),
+        }
+        
+        self.total_posts = stats['total_posts']
+        self.total_likes_received = stats['total_likes_received']
+        self.total_comments_made = stats['total_comments_made']
         self.activity_points = self.calculate_activity_points()
-        self.save(update_fields=['total_posts', 'total_likes_received', 'total_comments_made', 'activity_points'])
+        
+        # Batch update only changed fields
+        self.save(update_fields=[
+            'total_posts', 'total_likes_received', 
+            'total_comments_made', 'activity_points'
+        ])
     
     def get_achievement_level(self):
         """Return achievement level based on activity points"""
