@@ -25,8 +25,8 @@ from .constants import ACTIVITY_LEVELS, POINTS_BREAKDOWN
 def logout_view(request):
     if request.method == 'POST':
         logout(request)
-        return redirect('home')
-    return redirect('home')
+        return redirect('core:home')
+    return redirect('core:home')
 
 
 # View для регистрации

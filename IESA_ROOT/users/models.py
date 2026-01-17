@@ -19,6 +19,19 @@ class User(AbstractUser):
         blank=True, 
         verbose_name='Date of Birth'
     )
+    
+    # Phone number with privacy option
+    phone_number = models.CharField(
+        max_length=20,
+        blank=True,
+        verbose_name='Phone Number'
+    )
+    is_phone_hidden = models.BooleanField(
+        default=True,
+        verbose_name='Hide Phone Number',
+        help_text='If checked, only admins can see your phone number'
+    )
+    
     last_online = models.DateTimeField(
         default=timezone.now, 
         verbose_name='Last Online'
@@ -105,6 +118,16 @@ class User(AbstractUser):
             'total_posts', 'total_likes_received', 
             'total_comments_made', 'activity_points'
         ])
+    
+    def get_age(self):
+        """Calculate user's age from date_of_birth"""
+        if not self.date_of_birth:
+            return None
+        from datetime import date
+        today = date.today()
+        return today.year - self.date_of_birth.year - (
+            (today.month, today.day) < (self.date_of_birth.month, self.date_of_birth.day)
+        )
     
     def get_achievement_level(self):
         """Return achievement level based on activity points"""

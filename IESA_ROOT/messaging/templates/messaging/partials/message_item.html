@@ -81,6 +81,7 @@
                 </button>
                 <button class="btn btn-outline-danger" 
                         hx-post="{% url 'messaging:delete_message' message.pk %}" 
+                        hx-confirm="Удалить сообщение? Действие необратимо"
                         hx-confirm="Удалить сообщение?"
                         hx-swap="none"
                         title="Удалить">
