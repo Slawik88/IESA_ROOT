@@ -114,7 +114,7 @@
     <header class="shadow-sm bg-white sticky-top">
         <div class="container-limited">
             <nav class="navbar navbar-expand-lg navbar-light py-2" aria-label="Main navigation">
-                <a class="navbar-brand fw-bold fs-4" href="{% url 'home' %}" aria-label="IESA Home">
+                <a class="navbar-brand fw-bold fs-4" href="{% url 'core:home' %}" aria-label="IESA Home">
                     <img src="{% static 'img/logo.png' %}" alt="IESA Logo" class="navbar-logo">
                 </a>
                 <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
@@ -122,15 +122,15 @@
                 </button>
                 <nav class="collapse navbar-collapse" id="navbarNav">
                     <ul class="navbar-nav mx-auto">
-                        <li class="nav-item"><a class="nav-link fw-500" href="{% url 'home' %}">Home</a></li>
-                        <li class="nav-item"><a class="nav-link fw-500" href="{% url 'home' %}#about-section">About</a></li>
-                        <li class="nav-item"><a class="nav-link fw-500" href="{% url 'gallery' %}">Gallery</a></li>
+                        <li class="nav-item"><a class="nav-link fw-500" href="{% url 'core:home' %}">Home</a></li>
+                        <li class="nav-item"><a class="nav-link fw-500" href="{% url 'core:home' %}#about-section">About</a></li>
+                        <li class="nav-item"><a class="nav-link fw-500" href="{% url 'gallery:gallery' %}">Gallery</a></li>
                         <li class="nav-item dropdown">
                             <a class="nav-link dropdown-toggle fw-500" href="#" id="communityDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">Community</a>
                             <ul class="dropdown-menu" aria-labelledby="communityDropdown">
                                 <li><a class="dropdown-item" href="{% url 'blog:post_list' %}">Posts</a></li>
                                 <li><a class="dropdown-item" href="{% url 'blog:event_list' %}">Events</a></li>
-                                <li><a class="dropdown-item" href="{% url 'home' %}#partners-section">Partners</a></li>
+                                <li><a class="dropdown-item" href="{% url 'core:home' %}#partners-section">Partners</a></li>
                                 <li><a class="dropdown-item" href="{% url 'users:users_search' %}">Members</a></li>
                                                                 {% if user.is_authenticated %}
                                                                     <li><hr class="dropdown-divider"></li>
@@ -230,9 +230,9 @@
                 <div class="col-6 col-md-3 col-lg-2">
                     <h6 class="footer-title mb-3">LINKS</h6>
                     <ul class="list-unstyled footer-links">
-                        <li class="mb-2"><a href="{% url 'home' %}"><i class="fas fa-home me-2 footer-link-icon"></i>Home</a></li>
+                        <li class="mb-2"><a href="{% url 'core:home' %}"><i class="fas fa-home me-2 footer-link-icon"></i>Home</a></li>
                         <li class="mb-2"><a href="{% url 'blog:post_list' %}"><i class="fas fa-users me-2 footer-link-icon"></i>Community</a></li>
-                        <li class="mb-2"><a href="{% url 'gallery' %}"><i class="fas fa-images me-2 footer-link-icon"></i>Gallery</a></li>
+                        <li class="mb-2"><a href="{% url 'gallery:gallery' %}"><i class="fas fa-images me-2 footer-link-icon"></i>Gallery</a></li>
                         <li class="mb-2"><a href="{% url 'blog:event_list' %}"><i class="fas fa-calendar me-2 footer-link-icon"></i>Events</a></li>
                     </ul>
                 </div>
