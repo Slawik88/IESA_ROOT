@@ -39,7 +39,7 @@ class Post(models.Model):
         return self.title
         
     def get_absolute_url(self):
-        return reverse('post_detail', args=[str(self.pk)])
+        return reverse('blog:post_detail', args=[str(self.pk)])
     
     def get_recommended_posts(self, limit=5):
         """
