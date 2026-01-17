@@ -85,15 +85,7 @@ header {
 }
 
 .navbar-nav .nav-link::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 50%;
-  width: 0;
-  height: 2px;
-  background: var(--primary);
-  transition: all var(--transition-smooth);
-  transform: translateX(-50%);
+  display: none;
 }
 
 .navbar-nav .nav-link:hover {
