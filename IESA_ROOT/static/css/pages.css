@@ -20,6 +20,83 @@
   min-height: 100vh;
 }
 
+/* Profile Edit Page */
+.profile-edit-page {
+  background: var(--gradient-page);
+}
+
+.profile-edit-card {
+  background: #fff;
+  border: 1px solid var(--border-color-light);
+  border-radius: var(--radius-2xl);
+  box-shadow: var(--shadow-card);
+  padding: 20px;
+}
+
+.edit-card-header {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  margin-bottom: 18px;
+}
+
+.edit-header-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: #fff;
+  box-shadow: var(--shadow-primary-lg);
+}
+
+.edit-title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: var(--font-bold);
+}
+
+.edit-subtitle {
+  margin: 2px 0 0;
+  color: var(--text-muted);
+}
+
+.edit-form .form-label {
+  font-weight: var(--font-semibold);
+  color: var(--text-secondary);
+}
+
+.card-section {
+  border: 1px solid var(--border-color-light);
+  border-radius: var(--radius-xl);
+  padding: 16px;
+  background: #f9fafb;
+  margin-bottom: 14px;
+}
+
+.section-heading {
+  font-weight: var(--font-semibold);
+  color: var(--text-primary);
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.edit-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  padding-top: 6px;
+}
+
+@media (max-width: 576px) {
+  .profile-edit-card { padding: 16px; }
+  .edit-card-header { flex-wrap: wrap; }
+  .edit-actions { flex-direction: column; }
+}
+
 /* Profile Header Card */
 .profile-header {
   border-radius: var(--radius-2xl);
@@ -169,6 +246,57 @@
   letter-spacing: var(--tracking-tight);
 }
 
+/* Compact info grid (Full name, DOB, Phone, Joined) */
+.profile-info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.info-pill {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--border-color-light);
+  background: #fff;
+  box-shadow: var(--shadow-sm);
+}
+
+.pill-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  font-size: 0.95rem;
+}
+
+.pill-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  color: var(--text-muted);
+  margin: 0 0 2px;
+}
+
+.pill-value {
+  font-weight: var(--font-semibold);
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.pill-red { background: linear-gradient(135deg, #fff5f5 0%, #ffecec 100%); border-color: #ffd6d6; }
+.pill-red .pill-icon { background: #ef4444; }
+.pill-blue { background: linear-gradient(135deg, #f3f7ff 0%, #e9f1ff 100%); border-color: #cfe0ff; }
+.pill-blue .pill-icon { background: #3b82f6; }
+.pill-amber { background: linear-gradient(135deg, #fff8ed 0%, #fff1db 100%); border-color: #ffe0b3; }
+.pill-amber .pill-icon { background: #f59e0b; }
+.pill-emerald { background: linear-gradient(135deg, #effcf6 0%, #e5f7ef 100%); border-color: #c8eddc; }
+.pill-emerald .pill-icon { background: #10b981; }
+
 /* Activity Level Section */
 .profile-activity-card {
   border-radius: var(--radius-card);
@@ -189,6 +317,126 @@
   color: var(--text-muted);
   font-weight: var(--font-semibold);
   margin-left: var(--space-2);
+}
+
+/* Compact social links */
+.profile-links-card {
+  border: 1px solid var(--border-color-light);
+  border-radius: var(--radius-card);
+  background: #fff;
+  box-shadow: var(--shadow-card);
+  padding: 16px;
+}
+
+.card-header-compact {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: var(--font-semibold);
+  color: var(--text-primary);
+  margin-bottom: 12px;
+}
+
+.link-chip-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.link-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  background: #fff;
+  color: var(--text-primary);
+  font-weight: var(--font-medium);
+  transition: all var(--transition-fast);
+}
+
+.link-chip:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+  text-decoration: none;
+}
+
+.link-github { border-color: #d1d5db; }
+.link-github:hover { border-color: #111827; color: #111827; }
+.link-website { border-color: #c7d2fe; }
+.link-website:hover { border-color: #3b82f6; color: #1d4ed8; }
+.link-telegram { border-color: #cfe8ff; }
+.link-telegram:hover { border-color: #0ea5e9; color: #0ea5e9; }
+.link-discord { border-color: #d8d6ff; }
+.link-discord:hover { border-color: #5865f2; color: #4b54d2; }
+
+.other-links {
+  border-top: 1px dashed var(--border-color);
+  padding-top: 10px;
+  display: grid;
+  gap: 6px;
+}
+
+.other-link-item {
+  color: var(--primary);
+  font-weight: var(--font-medium);
+  word-break: break-all;
+}
+
+/* Compact stats chips */
+.profile-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 12px;
+}
+
+.stat-chip {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px solid var(--border-color-light);
+  background: #fff;
+  box-shadow: var(--shadow-sm);
+}
+
+.chip-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  font-size: 1rem;
+}
+
+.chip-label {
+  margin: 0 0 2px;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  color: var(--text-muted);
+}
+
+.chip-value {
+  margin: 0;
+  font-size: 1.4rem;
+  font-weight: var(--font-extrabold);
+  color: var(--text-primary);
+}
+
+.chip-red { background: linear-gradient(135deg, #fff4f4 0%, #ffeaea 100%); border-color: #ffd6d6; }
+.chip-red .chip-icon { background: #ef4444; }
+.chip-amber { background: linear-gradient(135deg, #fff8ed 0%, #fff1db 100%); border-color: #ffe0b3; }
+.chip-amber .chip-icon { background: #f59e0b; }
+.chip-emerald { background: linear-gradient(135deg, #effcf6 0%, #e5f7ef 100%); border-color: #c8eddc; }
+.chip-emerald .chip-icon { background: #10b981; }
+
+@media (max-width: 576px) {
+  .info-pill, .stat-chip { padding: 12px; }
+  .pill-value, .chip-value { font-size: 1.1rem; }
 }
 
 /* QR Code Card */

@@ -95,49 +95,33 @@
 
                         <!-- Profile Details -->
                         <div class="col-lg-9 col-md-8">
-                            <div class="row g-4 mb-5">
-                                <div class="col-sm-6">
-                                    <div class="profile-detail-card card-red h-100">
-                                        <div class="icon-box icon-box-md icon-box-primary mb-3">
-                                            <i class="fas fa-user"></i>
-                                        </div>
-                                        <h6 class="profile-detail-label">Full Name</h6>
-                                        <p class="profile-detail-value mb-0">
-                                            {{ profile_user.first_name|default:"—" }} {{ profile_user.last_name|default:"—" }}
-                                        </p>
+                            <div class="profile-info-grid mb-4">
+                                <div class="info-pill pill-red">
+                                    <div class="pill-icon"><i class="fas fa-user"></i></div>
+                                    <div>
+                                        <p class="pill-label">Full name</p>
+                                        <p class="pill-value">{{ profile_user.first_name|default:"—" }} {{ profile_user.last_name|default:"—" }}</p>
                                     </div>
                                 </div>
-                                <div class="col-sm-6">
-                                    <div class="profile-detail-card card-blue h-100">
-                                        <div class="icon-box icon-box-md icon-box-secondary mb-3">
-                                            <i class="fas fa-birthday-cake"></i>
-                                        </div>
-                                        <h6 class="profile-detail-label">Date of Birth</h6>
-                                        <p class="profile-detail-value mb-0">
-                                            {% if profile_user.dob %}{{ profile_user.dob|date:"d M Y" }}{% else %}—{% endif %}
-                                        </p>
+                                <div class="info-pill pill-blue">
+                                    <div class="pill-icon"><i class="fas fa-birthday-cake"></i></div>
+                                    <div>
+                                        <p class="pill-label">Date of birth</p>
+                                        <p class="pill-value">{% if profile_user.dob %}{{ profile_user.dob|date:"d M Y" }}{% else %}—{% endif %}</p>
                                     </div>
                                 </div>
-                                <div class="col-sm-6">
-                                    <div class="profile-detail-card card-amber h-100">
-                                        <div class="icon-box icon-box-md icon-box-warning mb-3">
-                                            <i class="fas fa-phone"></i>
-                                        </div>
-                                        <h6 class="profile-detail-label">Phone</h6>
-                                        <p class="profile-detail-value mb-0">
-                                            {{ profile_user.phone|default:"Not provided" }}
-                                        </p>
+                                <div class="info-pill pill-amber">
+                                    <div class="pill-icon"><i class="fas fa-phone"></i></div>
+                                    <div>
+                                        <p class="pill-label">Phone</p>
+                                        <p class="pill-value">{{ profile_user.phone|default:"Not provided" }}</p>
                                     </div>
                                 </div>
-                                <div class="col-sm-6">
-                                    <div class="profile-detail-card card-emerald h-100">
-                                        <div class="icon-box icon-box-md icon-box-emerald mb-3">
-                                            <i class="fas fa-calendar"></i>
-                                        </div>
-                                        <h6 class="profile-detail-label">Joined</h6>
-                                        <p class="profile-detail-value mb-0">
-                                            {{ profile_user.date_joined|date:"d M Y" }}
-                                        </p>
+                                <div class="info-pill pill-emerald">
+                                    <div class="pill-icon"><i class="fas fa-calendar"></i></div>
+                                    <div>
+                                        <p class="pill-label">Joined</p>
+                                        <p class="pill-value">{{ profile_user.date_joined|date:"d M Y" }}</p>
                                     </div>
                                 </div>
                             </div>
@@ -205,37 +189,41 @@
 
                             <!-- Social Links -->
                             {% if profile_user.github_url or profile_user.website_url or profile_user.telegram_url or profile_user.discord_url or profile_user.other_links %}
-                            <div class="profile-social-card mb-5">
-                                <h5 class="profile-social-title">
-                                    <i class="fas fa-link me-2 text-primary"></i>Find Me
-                                </h5>
-                                <div class="d-flex flex-wrap gap-3">
+                            <div class="profile-links-card mb-5">
+                                <div class="card-header-compact">
+                                    <i class="fas fa-link me-2 text-primary"></i>
+                                    <span>Find me</span>
+                                </div>
+                                <div class="link-chip-group">
                                     {% if profile_user.github_url %}
-                                        <a href="{{ profile_user.github_url }}" target="_blank" class="btn btn-outline-dark profile-social-link">
-                                            <i class="fab fa-github me-2"></i>GitHub
+                                        <a href="{{ profile_user.github_url }}" target="_blank" class="link-chip link-github">
+                                            <i class="fab fa-github"></i>
+                                            <span>GitHub</span>
                                         </a>
                                     {% endif %}
                                     {% if profile_user.website_url %}
-                                        <a href="{{ profile_user.website_url }}" target="_blank" class="btn btn-outline-primary profile-social-link">
-                                            <i class="fas fa-globe me-2"></i>Website
+                                        <a href="{{ profile_user.website_url }}" target="_blank" class="link-chip link-website">
+                                            <i class="fas fa-globe"></i>
+                                            <span>Website</span>
                                         </a>
                                     {% endif %}
                                     {% if profile_user.telegram_url %}
-                                        <a href="{{ profile_user.telegram_url }}" target="_blank" class="btn btn-outline-info profile-social-link">
-                                            <i class="fab fa-telegram me-2"></i>Telegram
+                                        <a href="{{ profile_user.telegram_url }}" target="_blank" class="link-chip link-telegram">
+                                            <i class="fab fa-telegram"></i>
+                                            <span>Telegram</span>
                                         </a>
                                     {% endif %}
                                     {% if profile_user.discord_url %}
-                                        <a href="{{ profile_user.discord_url }}" target="_blank" class="btn btn-outline-secondary profile-social-link">
-                                            <i class="fab fa-discord me-2"></i>Discord
+                                        <a href="{{ profile_user.discord_url }}" target="_blank" class="link-chip link-discord">
+                                            <i class="fab fa-discord"></i>
+                                            <span>Discord</span>
                                         </a>
                                     {% endif %}
                                 </div>
                                 {% if profile_user.other_links %}
-                                    <div class="mt-4 pt-3 border-top">
-                                        <p class="profile-detail-label mb-2">Other Links:</p>
+                                    <div class="other-links mt-3">
                                         {% for line in profile_user.other_links.splitlines %}
-                                            <a href="{{ line }}" target="_blank" class="d-block mb-2 text-primary fw-medium">{{ line }}</a>
+                                            <a href="{{ line }}" target="_blank" class="other-link-item">{{ line }}</a>
                                         {% endfor %}
                                     </div>
                                 {% endif %}
@@ -247,32 +235,26 @@
 
                 <!-- Post Statistics (if user's own profile) -->
                 {% if user.is_authenticated and user.id == profile_user.id %}
-                <div class="row g-4 mb-5">
-                    <div class="col-md-4">
-                        <div class="profile-stat-card stat-red">
-                            <div class="icon-box icon-box-lg icon-box-primary mx-auto mb-4">
-                                <i class="fas fa-file-alt"></i>
-                            </div>
-                            <h6 class="profile-detail-label mb-2">Total Posts</h6>
-                            <p class="profile-stat-value mb-0">{{ user_posts|length }}</p>
+                <div class="profile-stat-grid mb-5">
+                    <div class="stat-chip chip-red">
+                        <div class="chip-icon"><i class="fas fa-file-alt"></i></div>
+                        <div>
+                            <p class="chip-label">Total posts</p>
+                            <p class="chip-value">{{ user_posts|length }}</p>
                         </div>
                     </div>
-                    <div class="col-md-4">
-                        <div class="profile-stat-card stat-amber">
-                            <div class="icon-box icon-box-lg icon-box-warning mx-auto mb-4">
-                                <i class="fas fa-heart"></i>
-                            </div>
-                            <h6 class="profile-detail-label mb-2">Likes Received</h6>
-                            <p class="profile-stat-value mb-0">{{ profile_user.total_likes_received }}</p>
+                    <div class="stat-chip chip-amber">
+                        <div class="chip-icon"><i class="fas fa-heart"></i></div>
+                        <div>
+                            <p class="chip-label">Likes received</p>
+                            <p class="chip-value">{{ profile_user.total_likes_received }}</p>
                         </div>
                     </div>
-                    <div class="col-md-4">
-                        <div class="profile-stat-card stat-emerald">
-                            <div class="icon-box icon-box-lg icon-box-emerald mx-auto mb-4">
-                                <i class="fas fa-comments"></i>
-                            </div>
-                            <h6 class="profile-detail-label mb-2">Comments Made</h6>
-                            <p class="profile-stat-value mb-0">{{ profile_user.total_comments_made }}</p>
+                    <div class="stat-chip chip-emerald">
+                        <div class="chip-icon"><i class="fas fa-comments"></i></div>
+                        <div>
+                            <p class="chip-label">Comments made</p>
+                            <p class="chip-value">{{ profile_user.total_comments_made }}</p>
                         </div>
                     </div>
                 </div>
