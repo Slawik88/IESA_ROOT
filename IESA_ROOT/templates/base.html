@@ -93,6 +93,9 @@
     <link rel="stylesheet" href="{% static 'css/social-features.css' %}">
     <link rel="stylesheet" href="{% static 'css/messaging.css' %}">
     
+    <!-- Notifications Panel -->
+    <link rel="stylesheet" href="{% static 'css/notifications-panel.css' %}">
+    
     <!-- TIER 9: Advanced Search -->
     <link rel="stylesheet" href="{% static 'css/advanced-search.css' %}">
     
@@ -162,7 +165,7 @@
                             </button>
                             
                             <!-- Notifications button -->
-                            <a href="{% url 'notification_list' %}" class="btn btn-light btn-sm position-relative d-flex align-items-center" title="Notifications">
+                            <button class="btn btn-light btn-sm position-relative d-flex align-items-center" id="notificationsToggle" title="Notifications">
                                 <i class="fas fa-bell"></i>
                                 <span class="d-sm-none ms-2">Notifications</span>
                                 {% if unread_notifications_count > 0 %}
@@ -170,7 +173,7 @@
                                     {{ unread_notifications_count }}
                                 </span>
                                 {% endif %}
-                            </a>
+                            </button>
                             <a href="{% url 'profile' %}" class="btn btn-outline-primary btn-modern d-flex align-items-center navbar-btn">
                                 <i class="fas fa-user me-2 d-sm-none"></i>
                                 {% if user.avatar and user.avatar.name != 'avatars/default.png' %}
@@ -491,6 +494,8 @@
     </script>
     
     {% include "messaging-panel.html" %}
+    
+    {% include "notifications-panel.html" %}
     
     <!-- Modal Handler Script - обеспечивает закрытие modal окон -->
     <script src="{% static 'js/modal-handler.js' %}"></script>

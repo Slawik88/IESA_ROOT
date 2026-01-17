@@ -1,0 +1,131 @@
+<!-- Notifications Panel Overlay -->
+<div id="notifications-overlay" class="notifications-overlay"></div>
+
+<!-- Notifications Panel - Slide-out notifications interface -->
+<div id="notifications-panel" class="notifications-panel">
+    <div class="notifications-panel-header">
+        <h5 class="mb-0">
+            <i class="fas fa-bell me-2"></i>Notifications
+            <span class="badge bg-danger rounded-pill ms-2" id="unreadBadge" style="display: none;">0</span>
+        </h5>
+        <button class="notifications-close-btn" id="closeNotifications" aria-label="Close notifications">
+            <i class="fas fa-times"></i>
+        </button>
+    </div>
+    <div class="notifications-panel-body" id="notificationsContent">
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Notifications Panel Script -->
+<script>
+(function() {
+    'use strict';
+    
+    document.addEventListener('DOMContentLoaded', function() {
+        const notificationsBtn = document.getElementById('notificationsToggle');
+        const notificationsPanel = document.getElementById('notifications-panel');
+        const notificationsOverlay = document.getElementById('notifications-overlay');
+        const closeBtn = document.getElementById('closeNotifications');
+        const notificationsContent = document.getElementById('notificationsContent');
+        
+        if (!notificationsBtn || !notificationsPanel) return;
+        
+        function openPanel() {
+            notificationsPanel.classList.add('open');
+            notificationsBtn.classList.add('active');
+            if (notificationsOverlay) notificationsOverlay.classList.add('open');
+            document.body.style.overflow = 'hidden';
+            
+            // Load notifications
+            loadNotifications();
+        }
+        
+        function closePanel() {
+            notificationsPanel.classList.remove('open');
+            notificationsBtn.classList.remove('active');
+            if (notificationsOverlay) notificationsOverlay.classList.remove('open');
+            document.body.style.overflow = '';
+        }
+        
+        function loadNotifications() {
+            fetch('/notifications/')
+                .then(response => response.text())
+                .then(html => {
+                    // Extract content from the response
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(html, 'text/html');
+                    const notifications = doc.querySelector('.notification-list');
+                    const emptyState = doc.querySelector('.empty-state');
+                    
+                    if (notifications) {
+                        notificationsContent.innerHTML = notifications.outerHTML;
+                    } else if (emptyState) {
+                        notificationsContent.innerHTML = emptyState.outerHTML;
+                    } else {
+                        notificationsContent.innerHTML = '<div class="empty-state text-center py-5"><i class="fas fa-inbox fa-3x text-muted opacity-50 mb-3"></i><p class="text-muted">No notifications</p></div>';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading notifications:', error);
+                    notificationsContent.innerHTML = '<div class="alert alert-danger m-3">Failed to load notifications</div>';
+                });
+        }
+        
+        // Open/close panel
+        notificationsBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            // Close mobile menu if open
+            const navbar = document.querySelector('.navbar-collapse.show');
+            if (navbar && typeof bootstrap !== 'undefined') {
+                const bsCollapse = bootstrap.Collapse.getInstance(navbar) || new bootstrap.Collapse(navbar, {toggle: false});
+                bsCollapse.hide();
+            }
+            
+            if (notificationsPanel.classList.contains('open')) {
+                closePanel();
+            } else {
+                openPanel();
+            }
+        });
+        
+        if (closeBtn) {
+            closeBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                closePanel();
+            });
+        }
+        
+        // Close when clicking overlay
+        if (notificationsOverlay) {
+            notificationsOverlay.addEventListener('click', function() {
+                closePanel();
+            });
+        }
+        
+        // Close when clicking outside
+        document.addEventListener('click', function(e) {
+            if (notificationsPanel.classList.contains('open') && 
+                !notificationsPanel.contains(e.target) && 
+                !notificationsBtn.contains(e.target)) {
+                closePanel();
+            }
+        });
+        
+        // Close on Escape
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && notificationsPanel.classList.contains('open')) {
+                closePanel();
+            }
+        });
+        
+        console.log('✓ Notifications panel initialized');
+    });
+})();
+</script>
