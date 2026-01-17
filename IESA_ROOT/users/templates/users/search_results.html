@@ -11,7 +11,7 @@
   </div>
 
   <!-- Search form -->
-  <form method="get" action="{% url 'users_search' %}" class="mb-4">
+  <form method="get" action="{% url 'users:users_search' %}" class="mb-4">
     <div class="input-group">
       <input type="search" name="q" class="form-control" placeholder="Search by name, username, email or ID..." value="{{ query }}" autofocus>
       <button type="submit" class="btn btn-primary btn-modern">
@@ -45,7 +45,7 @@
   <div class="list-group">
     {% for item in results %}
       {% with u=item.user %}
-      <a href="{% url 'profile_public_username' username=u.username %}" class="list-group-item list-group-item-action d-flex align-items-center search-item animation-delay-{{ forloop.counter0|default:0 }}">
+      <a href="{% url 'users:profile_public_username' username=u.username %}" class="list-group-item list-group-item-action d-flex align-items-center search-item animation-delay-{{ forloop.counter0|default:0 }}">
         {% if u.avatar %}
           {% if u.avatar.name and u.avatar.name != 'avatars/default.png' %}
             <span class="avatar avatar-sm me-3"><img src="{{ u.avatar.url }}" alt="{{ u.username }}"></span>

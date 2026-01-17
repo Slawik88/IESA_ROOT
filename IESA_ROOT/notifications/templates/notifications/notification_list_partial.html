@@ -58,7 +58,7 @@
                     <i class="fas fa-arrow-right"></i>
                 </a>
             {% endif %}
-            <button hx-delete="{% url 'notification_delete' notification.id %}"
+            <button hx-delete="{% url 'notifications:notification_delete' notification.id %}"
                     hx-target="closest .notification-item"
                     hx-swap="outerHTML swap:300ms"
                     hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'

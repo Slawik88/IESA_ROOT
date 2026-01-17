@@ -1,6 +1,6 @@
 <div id="like-button-container" class="engage-chip">
     <button class="btn engage-btn {% if is_liked %}engage-btn--active{% endif %}"
-            hx-post="{% url 'like_post' pk=post.pk %}"
+            hx-post="{% url 'blog:like_post' pk=post.pk %}"
             hx-target="#like-button-container"
             hx-swap="outerHTML">
         <span class="engage-icon"><i class="fas fa-heart"></i></span>

@@ -2,7 +2,7 @@
 {% load blog_filters %}
 <div id="comments-container">
     {% for comment in comments %}
-    <div class="card card-modern mb-3 comment-card" data-comment-id="{{ comment.pk }}" data-delete-url="{% url 'delete_comment' pk=post.pk comment_pk=comment.pk %}" {% if comment.pk == just_posted_id %}data-just-posted="true"{% endif %}>
+    <div class="card card-modern mb-3 comment-card" data-comment-id="{{ comment.pk }}" data-delete-url="{% url 'blog:delete_comment' pk=post.pk comment_pk=comment.pk %}" {% if comment.pk == just_posted_id %}data-just-posted="true"{% endif %}>
             <div class="card-body">
                 <div class="d-flex align-items-center mb-2">
                     {% if comment.author.avatar and comment.author.avatar.name != 'avatars/default.png' %}
@@ -48,7 +48,7 @@
                     <!-- Comment like and delete controls -->
                     <div class="d-inline-block ms-2" id="comment-like-{{ comment.pk }}">
                         <button class="btn btn-sm btn-outline-secondary"
-                                hx-post="{% url 'toggle_comment_like' pk=post.pk comment_pk=comment.pk %}"
+                                hx-post="{% url 'blog:toggle_comment_like' pk=post.pk comment_pk=comment.pk %}"
                                 hx-target="#comment-like-{{ comment.pk }}"
                                 hx-swap="outerHTML">
                             <i class="fas {% if comment_likes_map|get_item:comment.pk %}fa-thumbs-up text-primary{% else %}fa-thumbs-up{% endif %} me-1"></i>
@@ -56,7 +56,7 @@
                         </button>
                     </div>
                     {% if user == comment.author or user.is_staff %}
-                        <form hx-post="{% url 'delete_comment' pk=post.pk comment_pk=comment.pk %}"
+                        <form hx-post="{% url 'blog:delete_comment' pk=post.pk comment_pk=comment.pk %}"
                               hx-target="#comments-container"
                               hx-swap="innerHTML"
                               class="d-inline-block ms-2" style="display:inline;">
@@ -66,8 +66,8 @@
                     {% endif %}
                     
                     <div class="collapse mt-2" id="reply-form-{{ comment.pk }}">
-                        <form action="{% url 'comment_create' pk=post.pk %}"
-                            hx-post="{% url 'comment_create' pk=post.pk %}"
+                        <form action="{% url 'blog:comment_create' pk=post.pk %}"
+                            hx-post="{% url 'blog:comment_create' pk=post.pk %}"
                             method="post"
                               hx-target="#comments-container"
                               hx-swap="innerHTML"
@@ -126,7 +126,7 @@ document.querySelectorAll('[data-just-posted="true"]').forEach(card => {
         }).then(() => {
             // Reload comments via HTMX
             if (window.htmx) {
-                htmx.ajax('GET', "{% url 'comment_list' pk=post.pk %}", {target: '#comments-container'});
+                htmx.ajax('GET', "{% url 'blog:comment_list' pk=post.pk %}", {target: '#comments-container'});
             } else {
                 location.reload();
             }

@@ -41,7 +41,7 @@
                         <i class="fas fa-user-circle me-2" style="color: var(--color-gray-400);"></i>
                         <span class="text-muted">
                             {% if post.author.username %}
-                                <a href="{% url 'profile_public_username' username=post.author.username %}" class="text-decoration-none fw-semibold" style="color: var(--color-primary);">
+                                <a href="{% url 'users:profile_public_username' username=post.author.username %}" class="text-decoration-none fw-semibold" style="color: var(--color-primary);">
                                     {{ post.author.username }}
                                 </a>
                             {% else %}
@@ -63,14 +63,14 @@
                 <div class="d-flex flex-wrap align-items-center gap-2 mb-4">
                     <!-- HTMX Like Button -->
                     <div id="like-button-container" 
-                         hx-get="{% url 'like_post' pk=post.pk %}" 
+                         hx-get="{% url 'blog:like_post' pk=post.pk %}" 
                          hx-trigger="load, like-event from:body" 
                          hx-swap="outerHTML">
                     </div>
                     <!-- HTMX Subscribe Button -->
                     {% if user.is_authenticated and user != post.author %}
                     <div id="subscribe-button-container" 
-                         hx-get="{% url 'toggle_subscription' author_pk=post.author.pk %}" 
+                         hx-get="{% url 'blog:toggle_subscription' author_pk=post.author.pk %}" 
                          hx-trigger="load" 
                          hx-swap="outerHTML">
                     </div>
@@ -96,8 +96,8 @@
                 {% if user.is_authenticated %}
                     <div class="card card-modern p-4 mb-4">
                         <h5 class="mb-3">Leave a comment</h5>
-                        <form action="{% url 'comment_create' pk=post.pk %}"
-                            hx-post="{% url 'comment_create' pk=post.pk %}"
+                        <form action="{% url 'blog:comment_create' pk=post.pk %}"
+                            hx-post="{% url 'blog:comment_create' pk=post.pk %}"
                               hx-target="#comments-container"
                               hx-swap="innerHTML"
                                  hx-on::after-swap="document.querySelector('textarea[name=text]').value = ''"
@@ -111,13 +111,13 @@
                     </div>
                 {% else %}
                     <div class="alert alert-warning card-modern mb-4">
-                        To comment, please <a href="{% url 'login' %}?next={{ request.path }}">sign in</a> or <a href="{% url 'register' %}">register</a>.
+                        To comment, please <a href="{% url 'users:login' %}?next={{ request.path }}">sign in</a> or <a href="{% url 'users:register' %}">register</a>.
                     </div>
                 {% endif %}
 
                 <!-- Comments List (loaded via HTMX) -->
                 <div id="comments-container" 
-                     hx-get="{% url 'comment_list' pk=post.pk %}"
+                     hx-get="{% url 'blog:comment_list' pk=post.pk %}"
                      hx-trigger="load">
                     <!-- Loaded by HTMX -->
                 </div>
@@ -130,7 +130,7 @@
                 <div class="row g-3">
                     {% for post_rec in recommended_posts %}
                     <div class="col-md-6">
-                        <a href="{% url 'post_detail' post_rec.pk %}" class="text-decoration-none" style="color: inherit;">
+                        <a href="{% url 'blog:post_detail' post_rec.pk %}" class="text-decoration-none" style="color: inherit;">
                             <div class="card card-modern h-100" style="cursor: pointer; transition: transform 0.2s, box-shadow 0.2s;" onmouseover="this.style.transform='translateY(-5px)'; this.style.boxShadow='0 8px 24px rgba(0,0,0,0.15)';" onmouseout="this.style.transform=''; this.style.boxShadow='';">
                                 {% if post_rec.preview_image %}
                                     <img src="{{ post_rec.preview_image.url }}" class="card-img-top" alt="{{ post_rec.title }}" style="height:150px;object-fit:cover;" loading="lazy">

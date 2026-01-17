@@ -52,7 +52,7 @@
             {% elif not user.is_authenticated %}
               <div class="alert alert-light border mt-3 mb-0">
                 <i class="fas fa-info-circle me-2"></i>
-                <a href="{% url 'login' %}" class="alert-link">Sign in</a> to follow and message users
+                <a href="{% url 'users:login' %}" class="alert-link">Sign in</a> to follow and message users
               </div>
             {% endif %}
           </div>
@@ -136,7 +136,7 @@
           <div class="card border-0 bg-light p-3 mb-3">
             <h6 class="text-uppercase fw-bold mb-2" style="letter-spacing: 1px; font-size: 0.75rem; color: #6b7280;">Your QR Code</h6>
             <div class="d-flex align-items-center gap-3">
-              <a href="{% url 'profile_by_card' permanent_id=user_obj.permanent_id %}" title="Open profile by card">
+              <a href="{% url 'users:profile_by_card' permanent_id=user_obj.permanent_id %}" title="Open profile by card">
                 <img src="{% url 'user_qr' permanent_id=user_obj.permanent_id %}" alt="QR" class="qr-code-img" style="width: 100px; height: 100px; border-radius: 8px;" />
               </a>
               <div class="flex-grow-1">
