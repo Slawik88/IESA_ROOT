@@ -46,7 +46,7 @@
                                         {% if form.instance.avatar and form.instance.avatar.name != 'avatars/default.png' %}
                                             <span class="avatar avatar-lg"><img src="{{ form.instance.avatar.url }}" alt="Current avatar"></span>
                                         {% else %}
-                                            <span class="avatar avatar-lg avatar-fallback">{{ request.user.username|slice":1"|upper }}</span>
+                                            <span class="avatar avatar-lg avatar-fallback">{{ request.user.username|slice:":1"|upper }}</span>
                                         {% endif %}
                                         <div class="small text-muted">Upload square image for best fit.</div>
                                     </div>
