@@ -16,8 +16,18 @@ from .utils import (
 @receiver(post_save, sender=Post)
 def post_status_changed(sender, instance, created, **kwargs):
     """Send notification when post status changes"""
-    if not created and instance.status in ['published', 'rejected']:
-        # Post was updated and status changed
+    if created:
+        return  # Don't send notification when post is first created
+    
+    # Get previous status from database
+    try:
+        old_instance = Post.objects.get(pk=instance.pk)
+        old_status = old_instance.status
+    except Post.DoesNotExist:
+        return
+    
+    # Only send notification if status actually changed
+    if old_status != instance.status and instance.status in ['published', 'rejected']:
         if instance.status == 'published':
             notify_post_approved(instance)
         elif instance.status == 'rejected':
