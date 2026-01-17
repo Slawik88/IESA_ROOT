@@ -1,0 +1,92 @@
+{% load static %}
+
+<div class="message-item {% if message.sender == user %}own{% else %}other{% endif %} {% if message.is_pinned %}message-pinned{% endif %}" 
+     data-message-id="{{ message.pk }}">
+    <div class="message-content">
+        {% if message.is_pinned %}
+            <div class="mb-1">
+                <i class="bi bi-pin-fill text-warning"></i>
+                <small class="text-muted">Закреплено</small>
+            </div>
+        {% endif %}
+
+        {% if message.reply_to %}
+            <div class="mb-2 p-2 bg-light rounded">
+                <small class="text-muted">
+                    <i class="bi bi-reply"></i> Ответ на: {{ message.reply_to.text|truncatewords:5 }}
+                </small>
+            </div>
+        {% endif %}
+
+        <div>{{ message.text }}</div>
+
+        {% if message.file %}
+            <div class="mt-2">
+                <a href="{{ message.file.url }}" target="_blank" class="text-decoration-none">
+                    <i class="bi bi-file-earmark-arrow-down"></i> 
+                    Скачать файл
+                </a>
+            </div>
+        {% endif %}
+
+        <div class="message-time">
+            {{ message.created_at|date:"H:i" }}
+            {% if message.edited_at %}
+                <span title="Изменено {{ message.edited_at }}">
+                    <i class="bi bi-pencil-fill"></i>
+                </span>
+            {% endif %}
+            {% if message.sender == user %}
+                {% if conversation.is_group %}
+                    {% with readers=message.read_by.all|length %}
+                        {% with recipients=conversation.participants.all|length %}
+                            {% with readers_excl=readers|add:-1 %}
+                                <span class="ms-1 small text-muted" title="Прочитали: {{ readers_excl }}/{{ recipients|add:-1 }}">
+                                    {% if readers_excl >= recipients|add:-1 %}
+                                        <i class="bi bi-check2-all text-primary"></i>
+                                    {% else %}
+                                        <i class="bi bi-check2"></i>
+                                    {% endif %}
+                                    {{ readers_excl }}/{{ recipients|add:-1 }}
+                                </span>
+                            {% endwith %}
+                        {% endwith %}
+                    {% endwith %}
+                {% else %}
+                    {% if message.read_by.count > 1 %}
+                        <i class="bi bi-check2-all text-primary"></i>
+                    {% else %}
+                        <i class="bi bi-check2"></i>
+                    {% endif %}
+                {% endif %}
+            {% endif %}
+        </div>
+
+        <!-- Message Actions -->
+        <div class="message-actions btn-group btn-group-sm">
+            <button class="btn btn-outline-secondary" 
+                    hx-post="{% url 'messaging:pin_message' message.pk %}" 
+                    hx-swap="none"
+                    title="{% if message.is_pinned %}Открепить{% else %}Закрепить{% endif %}">
+                <i class="bi bi-pin"></i>
+            </button>
+            {% if message.sender == user %}
+                <button class="btn btn-outline-secondary"
+                        hx-post="{% url 'messaging:edit_message' message.pk %}"
+                        hx-prompt="Изменить текст сообщения:"
+                        hx-target="closest .message-item"
+                        hx-swap="outerHTML"
+                        title="Редактировать">
+                    <i class="bi bi-pencil"></i>
+                </button>
+                <button class="btn btn-outline-danger" 
+                        hx-post="{% url 'messaging:delete_message' message.pk %}" 
+                        hx-confirm="Удалить сообщение?"
+                        hx-swap="none"
+                        title="Удалить">
+                    <i class="bi bi-trash"></i>
+                </button>
+            {% endif %}
+        </div>
+    </div>
+</div>

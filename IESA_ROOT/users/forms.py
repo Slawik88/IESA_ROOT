@@ -1,6 +1,7 @@
 from django import forms
 from django.contrib.auth.forms import UserCreationForm, UserChangeForm
 from .models import User
+from .validators import validate_phone_number
 from django.utils import timezone
 import uuid
 
@@ -46,7 +47,15 @@ class CustomUserChangeForm(UserChangeForm):
     
     class Meta:
         model = User
-        fields = ('username', 'email', 'first_name', 'last_name', 'date_of_birth', 'avatar', 'is_verified', 'is_active', 'is_staff', 'is_superuser', 'github_url', 'discord_url', 'telegram_url', 'website_url', 'other_links')
+        fields = ('username', 'email', 'first_name', 'last_name', 'date_of_birth', 'phone_number', 'is_phone_hidden', 'avatar', 'is_verified', 'is_active', 'is_staff', 'is_superuser', 'github_url', 'discord_url', 'telegram_url', 'website_url', 'other_links')
+
+    def clean_phone_number(self):
+        phone = self.cleaned_data.get('phone_number')
+        if phone:
+            validate_phone_number(phone)
+            # Normalize multiple spaces
+            phone = ' '.join(phone.split())
+        return phone
 
 
 class UserProfileEditForm(forms.ModelForm):
@@ -70,4 +79,11 @@ class UserProfileEditForm(forms.ModelForm):
     
     class Meta:
         model = User
-        fields = ('first_name', 'last_name', 'email', 'date_of_birth', 'avatar', 'github_url', 'discord_url', 'telegram_url', 'website_url', 'other_links')
+        fields = ('first_name', 'last_name', 'email', 'date_of_birth', 'phone_number', 'is_phone_hidden', 'avatar', 'github_url', 'discord_url', 'telegram_url', 'website_url', 'other_links')
+
+    def clean_phone_number(self):
+        phone = self.cleaned_data.get('phone_number')
+        if phone:
+            validate_phone_number(phone)
+            phone = ' '.join(phone.split())
+        return phone

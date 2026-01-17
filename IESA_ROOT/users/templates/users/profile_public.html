@@ -30,6 +30,31 @@
               {% if user_obj.card_active %}<span class="badge bg-info"><i class="fas fa-id-card me-1"></i>Card Active</span>{% endif %}
             </div>
             
+            <!-- Basic Info: Date of Birth and Phone -->
+            <div class="small text-muted">
+              <div class="mb-1">
+                <i class="far fa-birthday-cake me-1"></i>
+                {% if user_obj.date_of_birth %}
+                  {{ user_obj.date_of_birth|date:"d.m.Y" }}
+                  {% with age=user_obj.get_age %}{% if age %} ({{ age }} лет){% endif %}{% endwith %}
+                {% else %}
+                  —
+                {% endif %}
+              </div>
+              <div class="mb-1">
+                <i class="fas fa-phone me-1"></i>
+                {% if user_obj.phone_number %}
+                  {% if user_obj.is_phone_hidden and not user.is_staff and user != user_obj %}
+                    <span class="text-muted"><i class="fas fa-eye-slash"></i> Скрыто</span>
+                  {% else %}
+                    {{ user_obj.phone_number }}
+                  {% endif %}
+                {% else %}
+                  Не указан
+                {% endif %}
+              </div>
+            </div>
+            
             <!-- Follow & Message Buttons - VISIBLE FOR OTHER USERS ONLY -->
             {% if user.is_authenticated and user.id != user_obj.id %}
               <div class="d-flex gap-2 mt-3 flex-wrap">
@@ -41,13 +66,11 @@
                   <i class="fas fa-user-plus me-2"></i>
                   <span class="follow-text">Follow</span>
                 </button>
-                <button class="btn btn-light btn-modern send-message-btn px-4" 
-                        data-user-id="{{ user_obj.id }}"
-                        data-username="{{ user_obj.username }}"
-                        type="button"
-                        style="border-radius: 20px; font-weight: 600; border: 2px solid #e5e7eb;">
+                 <a href="{% url 'messaging:start_conversation' user_obj.username %}" 
+                   class="btn btn-light btn-modern px-4" 
+                   style="border-radius: 20px; font-weight: 600; border: 2px solid #e5e7eb;">
                   <i class="fas fa-envelope me-2"></i>Send Message
-                </button>
+                </a>
               </div>
             {% elif not user.is_authenticated %}
               <div class="alert alert-light border mt-3 mb-0">

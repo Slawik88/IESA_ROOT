@@ -68,6 +68,7 @@ INSTALLED_APPS = [
     'gallery',
     'products',
     'notifications.apps.NotificationsConfig',  # Notification system
+    'messaging',  # Messaging system
 
     # Сторонние библиотеки
     'django_htmx',

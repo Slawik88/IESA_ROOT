@@ -39,6 +39,19 @@
                                     <label for="id_date_of_birth" class="form-label">Date of birth</label>
                                     {{ form.date_of_birth }}
                                     <small class="form-text text-muted d-block mt-1">Format: DD.MM.YYYY</small>
+                                                                <div class="col-md-6">
+                                                                    <label for="id_phone_number" class="form-label">Телефон</label>
+                                                                    {{ form.phone_number }}
+                                                                    <small class="form-text text-muted d-block mt-1">Например: +41 XX XXX XX XX</small>
+                                                                </div>
+                                                                <div class="col-12">
+                                                                    <div class="form-check">
+                                                                        {{ form.is_phone_hidden }}
+                                                                        <label class="form-check-label" for="id_is_phone_hidden">
+                                                                            Скрыть номер телефона (только админы смогут его видеть)
+                                                                        </label>
+                                                                    </div>
+                                                                </div>
                                 </div>
                                 <div class="col-12">
                                     <label for="id_avatar" class="form-label">Avatar</label>

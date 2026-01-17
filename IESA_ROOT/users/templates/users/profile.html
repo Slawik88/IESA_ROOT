@@ -65,12 +65,10 @@
                                         <i class="fas fa-user-plus me-2"></i>
                                         <span class="follow-text">Follow</span>
                                     </button>
-                                    <button class="btn btn-outline-primary btn-modern send-message-btn" 
-                                            data-user-id="{{ profile_user.id }}"
-                                            data-username="{{ profile_user.username }}"
-                                            type="button">
+                                                <a href="{% url 'messaging:start_conversation' profile_user.username %}" 
+                                                    class="btn btn-outline-primary btn-modern">
                                         <i class="fas fa-envelope me-2"></i>Send Message
-                                    </button>
+                                    </a>
                                 </div>
                                 
                                 <!-- User Stats -->
@@ -106,15 +104,30 @@
                                 <div class="info-pill pill-blue">
                                     <div class="pill-icon"><i class="fas fa-birthday-cake"></i></div>
                                     <div>
-                                        <p class="pill-label">Date of birth</p>
-                                        <p class="pill-value">{% if profile_user.dob %}{{ profile_user.dob|date:"d M Y" }}{% else %}—{% endif %}</p>
+                                        <p class="pill-label">Дата рождения</p>
+                                        <p class="pill-value">
+                                            {% if profile_user.date_of_birth %}
+                                                {{ profile_user.date_of_birth|date:"d.m.Y" }}
+                                                {% with age=profile_user.get_age %}
+                                                    {% if age %} ({{ age }} лет){% endif %}
+                                                {% endwith %}
+                                            {% else %}—{% endif %}
+                                        </p>
                                     </div>
                                 </div>
                                 <div class="info-pill pill-amber">
                                     <div class="pill-icon"><i class="fas fa-phone"></i></div>
                                     <div>
-                                        <p class="pill-label">Phone</p>
-                                        <p class="pill-value">{{ profile_user.phone|default:"Not provided" }}</p>
+                                        <p class="pill-label">Телефон</p>
+                                        <p class="pill-value">
+                                            {% if profile_user.phone_number %}
+                                                {% if profile_user.is_phone_hidden and not user.is_staff and user != profile_user %}
+                                                    <i class="fas fa-eye-slash text-muted"></i> Скрыто
+                                                {% else %}
+                                                    {{ profile_user.phone_number }}
+                                                {% endif %}
+                                            {% else %}Не указан{% endif %}
+                                        </p>
                                     </div>
                                 </div>
                                 <div class="info-pill pill-emerald">
