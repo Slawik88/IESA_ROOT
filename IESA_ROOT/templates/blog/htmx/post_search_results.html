@@ -10,7 +10,7 @@
     <div class="list-group">
       {% for user in results.users %}
         {% if user.username and user.username|length > 0 %}
-        <a href="{% url 'profile_public_username' username=user.username %}" 
+        <a href="{% url 'users:profile_public_username' username=user.username %}" 
            class="list-group-item list-group-item-action search-item d-flex align-items-center hx-item animation-delay-{{ forloop.counter0|default:0 }}">
           {% if user.avatar %}
             <img src="{{ user.avatar.url }}" 
@@ -48,7 +48,7 @@
     <div class="list-group">
       {% for post in results.posts %}
         {% if post.pk %}
-        <a href="{% url 'post_detail' pk=post.pk %}" 
+        <a href="{% url 'blog:post_detail' pk=post.pk %}" 
            class="list-group-item list-group-item-action search-item hx-item animation-delay-{{ forloop.counter0|default:0 }}">
           <div class="d-flex w-100 justify-content-between align-items-start">
             <div class="flex-grow-1">
@@ -96,7 +96,7 @@
     <div class="list-group">
       {% for event in results.events %}
         {% if event.pk %}
-        <a href="{% url 'event_detail' pk=event.pk %}" 
+        <a href="{% url 'blog:event_detail' pk=event.pk %}" 
            class="list-group-item list-group-item-action search-item hx-item animation-delay-{{ forloop.counter0|default:0 }}">
           <div class="d-flex w-100 justify-content-between align-items-start">
             <div class="flex-grow-1">

@@ -125,13 +125,13 @@
                         <li class="nav-item dropdown">
                             <a class="nav-link dropdown-toggle fw-500" href="#" id="communityDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">Community</a>
                             <ul class="dropdown-menu" aria-labelledby="communityDropdown">
-                                <li><a class="dropdown-item" href="{% url 'post_list' %}">Posts</a></li>
-                                <li><a class="dropdown-item" href="{% url 'event_list' %}">Events</a></li>
+                                <li><a class="dropdown-item" href="{% url 'blog:post_list' %}">Posts</a></li>
+                                <li><a class="dropdown-item" href="{% url 'blog:event_list' %}">Events</a></li>
                                 <li><a class="dropdown-item" href="{% url 'home' %}#partners-section">Partners</a></li>
-                                <li><a class="dropdown-item" href="{% url 'users_search' %}">Members</a></li>
+                                <li><a class="dropdown-item" href="{% url 'users:users_search' %}">Members</a></li>
                                                                 {% if user.is_authenticated %}
                                                                     <li><hr class="dropdown-divider"></li>
-                                                                    <li><a class="dropdown-item" href="{% url 'post_create' %}">Create post</a></li>
+                                                                    <li><a class="dropdown-item" href="{% url 'blog:post_create' %}">Create post</a></li>
                                                                 {% endif %}
                             </ul>
                         </li>
@@ -147,7 +147,7 @@
                                     <i class="fas fa-search me-2"></i>Search
                                 </label>
                                 <input type="search" name="q" id="global-community-search" class="form-control mb-2" placeholder="Posts, users, events..." 
-                                  hx-get="{% url 'global_search' %}" 
+                                  hx-get="{% url 'blog:global_search' %}" 
                                   hx-trigger="keyup changed delay:400ms" 
                                   hx-target="#community-search-results"
                                   autocomplete="off">
@@ -174,7 +174,7 @@
                                 </span>
                                 {% endif %}
                             </button>
-                            <a href="{% url 'profile' %}" class="btn btn-light btn-sm position-relative d-flex align-items-center navbar-btn">
+                            <a href="{% url 'users:profile' %}" class="btn btn-light btn-sm position-relative d-flex align-items-center navbar-btn">
                                 <i class="fas fa-user me-2 d-sm-none"></i>
                                 {% if user.avatar and user.avatar.name != 'avatars/default.png' %}
                                     <span class="avatar avatar-sm me-2 d-none d-sm-inline-flex"><img src="{{ user.avatar.url }}" alt="Avatar"></span>
@@ -185,8 +185,8 @@
                             </a>
                                 <button type="button" class="btn btn-outline-secondary btn-modern navbar-btn" data-bs-toggle="modal" data-bs-target="#logoutConfirmModal">Logout</button>
                         {% else %}
-                            <a href="{% url 'login' %}" class="btn btn-outline-primary btn-modern navbar-btn">Sign In</a>
-                            <a href="{% url 'register' %}" class="btn btn-primary btn-modern navbar-btn">Register</a>
+                            <a href="{% url 'users:login' %}" class="btn btn-outline-primary btn-modern navbar-btn">Sign In</a>
+                            <a href="{% url 'users:register' %}" class="btn btn-primary btn-modern navbar-btn">Register</a>
                         {% endif %}
                     </div>
                 </nav>
@@ -228,9 +228,9 @@
                     <h6 class="footer-title mb-3">LINKS</h6>
                     <ul class="list-unstyled footer-links">
                         <li class="mb-2"><a href="{% url 'home' %}"><i class="fas fa-home me-2 footer-link-icon"></i>Home</a></li>
-                        <li class="mb-2"><a href="{% url 'post_list' %}"><i class="fas fa-users me-2 footer-link-icon"></i>Community</a></li>
+                        <li class="mb-2"><a href="{% url 'blog:post_list' %}"><i class="fas fa-users me-2 footer-link-icon"></i>Community</a></li>
                         <li class="mb-2"><a href="{% url 'gallery' %}"><i class="fas fa-images me-2 footer-link-icon"></i>Gallery</a></li>
-                        <li class="mb-2"><a href="{% url 'event_list' %}"><i class="fas fa-calendar me-2 footer-link-icon"></i>Events</a></li>
+                        <li class="mb-2"><a href="{% url 'blog:event_list' %}"><i class="fas fa-calendar me-2 footer-link-icon"></i>Events</a></li>
                     </ul>
                 </div>
                 <div class="col-6 col-md-3 col-lg-3">
@@ -440,7 +440,7 @@
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                        <form method="post" action="{% url 'logout' %}" class="d-inline">
+                        <form method="post" action="{% url 'users:logout' %}" class="d-inline">
                             {% csrf_token %}
                             <button type="submit" class="btn btn-danger">Logout</button>
                         </form>

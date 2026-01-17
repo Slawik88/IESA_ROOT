@@ -80,22 +80,24 @@ class User(AbstractUser):
         from blog.models import Post, Like, Comment
         from django.db.models import Count, Q
         
-        # Single aggregate query instead of 3 separate count() queries
-        stats = {
-            'total_posts': Post.objects.filter(
-                author=self, status='published'
-            ).count(),
-            'total_likes_received': Like.objects.filter(
-                post__author=self
-            ).count(),
-            'total_comments_made': Comment.objects.filter(
-                author=self
-            ).count(),
-        }
+        # OPTIMIZATION: Single aggregate query instead of 3 separate count() queries
+        # This replaces 3 database queries with 1 aggregate query
+        stats = Post.objects.filter(
+            author=self, status='published'
+        ).aggregate(
+            post_count=Count('id'),
+            likes_count=Count('likes'),
+            comments_count=Count('comments')
+        )
         
-        self.total_posts = stats['total_posts']
-        self.total_likes_received = stats['total_likes_received']
-        self.total_comments_made = stats['total_comments_made']
+        # Also fetch comments made by user (separate aggregate)
+        comment_stats = Comment.objects.filter(
+            author=self
+        ).aggregate(total=Count('id'))
+        
+        self.total_posts = stats['post_count']
+        self.total_likes_received = stats['likes_count']
+        self.total_comments_made = comment_stats['total']
         self.activity_points = self.calculate_activity_points()
         
         # Batch update only changed fields

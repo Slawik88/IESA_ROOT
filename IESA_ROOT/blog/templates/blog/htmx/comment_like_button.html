@@ -1,6 +1,6 @@
 <div id="comment-like-{{ comment.pk }}">
     <button class="btn btn-sm btn-outline-secondary"
-            hx-post="{% url 'toggle_comment_like' pk=comment.post.pk comment_pk=comment.pk %}"
+            hx-post="{% url 'blog:toggle_comment_like' pk=comment.post.pk comment_pk=comment.pk %}"
             hx-target="#comment-like-{{ comment.pk }}"
             hx-swap="outerHTML">
         <i class="fas {% if is_liked %}fa-thumbs-up text-primary{% else %}fa-thumbs-up{% endif %} me-1"></i>

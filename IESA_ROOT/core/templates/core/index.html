@@ -18,10 +18,10 @@
             Bringing leaders together and shaping the future. Join our international community of extreme sports enthusiasts.
         </p>
         <div class="d-flex flex-column flex-sm-row gap-3 justify-content-center">
-            <a href="{% url 'register' %}" class="btn btn-primary btn-modern">
+            <a href="{% url 'users:register' %}" class="btn btn-primary btn-modern">
                 <i class="fas fa-user-plus me-2"></i>Join as Member
             </a>
-            <a href="{% url 'post_list' %}" class="btn btn-secondary">
+            <a href="{% url 'blog:post_list' %}" class="btn btn-secondary">
                 <i class="fas fa-comments me-2"></i>Go to Community
             </a>
         </div>
@@ -38,7 +38,7 @@
         <div class="grid grid-cols-3">
             {% for event in upcoming_events %}
             <article class="card h-100">
-                <a href="{% url 'event_detail' event.pk %}" class="text-decoration-none text-inherit">
+                <a href="{% url 'blog:event_detail' event.pk %}" class="text-decoration-none text-inherit">
                     {% if event.image %}
                         <img src="{{ event.image.url }}" class="card-img-top event-card-image" alt="{{ event.title }}" loading="lazy">
                     {% else %}
@@ -70,7 +70,7 @@
             {% endfor %}
         </div>
         <div class="text-center mt-4">
-            <a href="{% url 'event_list' %}" class="btn btn-primary btn-modern">
+            <a href="{% url 'blog:event_list' %}" class="btn btn-primary btn-modern">
                 View All Events <i class="fas fa-arrow-right ms-2"></i>
             </a>
         </div>
