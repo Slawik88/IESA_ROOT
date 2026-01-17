@@ -72,14 +72,19 @@
                     </div>
                 </div>
 
-                <div class="notification-actions">
+                <div class="notification-actions d-flex gap-2">
                     {% if notification.link %}
-                        <a href="{{ notification.link }}" class="btn btn-sm btn-primary btn-modern">
+                        <a href="{{ notification.link }}" class="btn btn-sm btn-danger">
                             <i class="fas fa-arrow-right me-1"></i>View
                         </a>
                     {% endif %}
-                    <button hx-delete="{% url 'notification_delete' notification.id %}" hx-swap="outerHTML swap:1s" class="btn btn-sm btn-outline-danger btn-modern" title="Delete">
+                    <button hx-delete="{% url 'notification_delete' notification.id %}" 
+                            hx-swap="outerHTML swap:1s" 
+                            class="btn btn-sm btn-outline-danger" 
+                            title="Delete notification"
+                            aria-label="Delete notification">
                         <i class="fas fa-trash-alt"></i>
+                        <span class="d-none d-md-inline ms-1">Delete</span>
                     </button>
                 </div>
             </div>

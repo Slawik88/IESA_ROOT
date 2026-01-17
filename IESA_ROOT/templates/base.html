@@ -153,16 +153,18 @@
                         </div>
                         {% if user.is_authenticated %}
                             <!-- Messages button -->
-                            <button class="btn btn-light btn-sm position-relative messaging-btn" id="messagingToggle" title="Messages">
+                            <button class="btn btn-light btn-sm position-relative messaging-btn d-flex align-items-center" id="messagingToggle" title="Messages">
                                 <i class="fas fa-envelope"></i>
+                                <span class="d-sm-none ms-2">Messages</span>
                                 <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-success navbar-notification-badge" style="display: none;" id="unreadMessagesCount">
                                     0
                                 </span>
                             </button>
                             
                             <!-- Notifications button -->
-                            <a href="{% url 'notification_list' %}" class="btn btn-light btn-sm position-relative" title="Notifications">
+                            <a href="{% url 'notification_list' %}" class="btn btn-light btn-sm position-relative d-flex align-items-center" title="Notifications">
                                 <i class="fas fa-bell"></i>
+                                <span class="d-sm-none ms-2">Notifications</span>
                                 {% if unread_notifications_count > 0 %}
                                 <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger navbar-notification-badge">
                                     {{ unread_notifications_count }}
@@ -170,12 +172,13 @@
                                 {% endif %}
                             </a>
                             <a href="{% url 'profile' %}" class="btn btn-outline-primary btn-modern d-flex align-items-center navbar-btn">
+                                <i class="fas fa-user me-2 d-sm-none"></i>
                                 {% if user.avatar and user.avatar.name != 'avatars/default.png' %}
-                                    <span class="avatar avatar-sm me-2"><img src="{{ user.avatar.url }}" alt="Avatar"></span>
+                                    <span class="avatar avatar-sm me-2 d-none d-sm-inline-flex"><img src="{{ user.avatar.url }}" alt="Avatar"></span>
                                 {% else %}
-                                    <span class="avatar avatar-sm avatar-fallback me-2">{{ user.username|slice:":1"|upper }}</span>
+                                    <span class="avatar avatar-sm avatar-fallback me-2 d-none d-sm-inline-flex">{{ user.username|slice:":1"|upper }}</span>
                                 {% endif %}
-                                <span class="d-none d-sm-inline">Profile</span>
+                                <span>Profile</span>
                             </a>
                                 <button type="button" class="btn btn-outline-secondary btn-modern navbar-btn" data-bs-toggle="modal" data-bs-target="#logoutConfirmModal">Logout</button>
                         {% else %}
