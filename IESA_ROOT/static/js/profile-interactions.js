@@ -110,7 +110,8 @@
     function initMessageButtons() {
         const buttons = document.querySelectorAll('.send-message-btn');
         console.log(`🔍 Found ${buttons.length} message buttons`);
-        
+            // Messaging v2 handles modal/panel; disable legacy profile message hooks to avoid conflicts
+            return;
         buttons.forEach((btn, index) => {
             console.log(`Message button ${index + 1}: ID=${btn.dataset.userId}, Username=${btn.dataset.username}`);
             btn.addEventListener('click', handleSendMessageClick);
