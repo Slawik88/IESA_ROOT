@@ -44,7 +44,7 @@
         <!-- Messages Area -->
         <div class="messages-area" id="messages-area" data-conversation-id="{{ conversation.pk }}">
             {% for message in messages %}
-                {% include 'messaging/partials/message_item.html' with message=message %}
+                {% include 'messaging/partials/message_item_detailed.html' with message=message %}
             {% empty %}
                 <div class="empty-chat">
                     <i class="bi bi-chat-dots"></i>
@@ -674,6 +674,77 @@ html, body {
             loadMoreBtn.disabled = false;
         });
     });
+
+    // ============================================================
+    // MESSAGE ACTIONS (Pin, Edit, Delete)
+    // ============================================================
+    window.pinMessage = function(messageId) {
+        fetch(`/messages/message/${messageId}/pin/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+            credentials: 'same-origin'
+        })
+        .then(response => {
+            if (response.ok) {
+                const msg = document.querySelector(`[data-message-id="${messageId}"]`);
+                if (msg) {
+                    msg.classList.toggle('message-pinned');
+                }
+            }
+        })
+        .catch(err => console.error('Pin error:', err));
+    };
+
+    window.editMessage = function(messageId) {
+        const newText = prompt('Изменить сообщение:');
+        if (!newText) return;
+
+        fetch(`/messages/message/${messageId}/edit/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+            body: `prompt=${encodeURIComponent(newText)}`,
+            credentials: 'same-origin'
+        })
+        .then(response => {
+            if (response.ok) {
+                const msg = document.querySelector(`[data-message-id="${messageId}"] .message-content div:first-of-type`);
+                if (msg) {
+                    msg.textContent = newText;
+                }
+            }
+        })
+        .catch(err => console.error('Edit error:', err));
+    };
+
+    window.deleteMessage = function(messageId) {
+        if (!confirm('Удалить сообщение? Это действие необратимо.')) return;
+
+        fetch(`/messages/message/${messageId}/delete/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+            credentials: 'same-origin'
+        })
+        .then(response => {
+            if (response.ok) {
+                const msg = document.querySelector(`[data-message-id="${messageId}"]`);
+                if (msg) {
+                    msg.style.opacity = '0.5';
+                    msg.style.textDecoration = 'line-through';
+                }
+            }
+        })
+        .catch(err => console.error('Delete error:', err));
+    };
 
     // ============================================================
     // AUTO-EXPAND TEXTAREA
