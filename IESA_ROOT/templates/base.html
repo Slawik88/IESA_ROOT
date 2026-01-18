@@ -306,8 +306,7 @@
     <!-- Global Error Handler for HTMX -->
     <script src="{% static 'js/global-error-handler.js' %}"></script>
 
-    <!-- Messaging Panel Loader -->
-    <script src="{% static 'js/messaging-panel.js' %}"></script>
+    <!-- Messaging Panel Loader - MOVED TO v2.0 (messaging-panel-v2.html) -->
 
     <!-- Skeleton Loading System -->
     <script src="{% static 'js/skeleton-loading.js' %}"></script>
@@ -529,7 +528,12 @@
         }
     </script>
     
-    {% include "messaging-panel.html" %}
+    <!-- Messaging System - v2.0 -->
+    <script src="{% static 'js/messaging-api-client-v2.js' %}"></script>
+    
+    {% include "messaging-panel-v2.html" %}
+    
+    {% include "notifications-panel.html" %}
     
     {% include "notifications-panel.html" %}
     
