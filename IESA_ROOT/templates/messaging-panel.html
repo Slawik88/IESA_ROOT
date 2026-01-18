@@ -181,70 +181,126 @@
         const newChatModal = document.getElementById('newChatModal');
         const newGroupModal = document.getElementById('newGroupModal');
         
+        console.log('📋 Button Elements Check:');
+        console.log('  - newChatBtn exists:', !!newChatBtn, newChatBtn ? newChatBtn.innerHTML : 'null');
+        console.log('  - newGroupBtn exists:', !!newGroupBtn, newGroupBtn ? newGroupBtn.innerHTML : 'null');
+        console.log('  - newChatModal exists:', !!newChatModal);
+        console.log('  - newGroupModal exists:', !!newGroupModal);
+        
+        if (!newChatBtn) {
+            console.error('❌ newChatBtn not found in DOM!');
+            console.log('   Searching for all buttons with id containing "Chat":', 
+                Array.from(document.querySelectorAll('button[id*="Chat"]')).map(b => ({id: b.id, text: b.innerText})));
+        }
+        
+        if (!newGroupBtn) {
+            console.error('❌ newGroupBtn not found in DOM!');
+            console.log('   Searching for all buttons with id containing "Group":', 
+                Array.from(document.querySelectorAll('button[id*="Group"]')).map(b => ({id: b.id, text: b.innerText})));
+        }
+        
         if (newChatBtn && newChatModal) {
+            console.log('✅ Attaching newChatBtn click handler');
             newChatBtn.addEventListener('click', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
                 console.log('🔓 Opening #newChatModal...');
+                console.log('   Bootstrap available:', typeof bootstrap !== 'undefined');
                 
-                // Close messaging panel first
-                const messagingPanel = document.getElementById('messaging-panel');
-                if (messagingPanel && messagingPanel.classList.contains('open')) {
-                    messagingPanel.classList.remove('open');
-                    document.getElementById('messagingToggle')?.classList.remove('active');
-                    document.getElementById('messaging-overlay')?.classList.remove('open');
-                    document.body.style.overflow = '';
-                }
-                
-                // Open modal using Bootstrap
-                if (typeof bootstrap !== 'undefined') {
-                    const modal = new bootstrap.Modal(newChatModal);
-                    modal.show();
-                    console.log('✅ Modal opened successfully');
-                } else {
-                    console.error('❌ Bootstrap not loaded');
+                try {
+                    // Close messaging panel first
+                    const messagingPanel = document.getElementById('messaging-panel');
+                    if (messagingPanel && messagingPanel.classList.contains('open')) {
+                        messagingPanel.classList.remove('open');
+                        document.getElementById('messagingToggle')?.classList.remove('active');
+                        document.getElementById('messaging-overlay')?.classList.remove('open');
+                        document.body.style.overflow = '';
+                        console.log('   Panel closed');
+                    }
+                    
+                    // Open modal using Bootstrap
+                    if (typeof bootstrap !== 'undefined') {
+                        const modal = new bootstrap.Modal(newChatModal, {backdrop: 'static', keyboard: false});
+                        modal.show();
+                        console.log('✅ Modal opened successfully');
+                    } else {
+                        throw new Error('Bootstrap not loaded');
+                    }
+                } catch(err) {
+                    console.error('❌ Error opening modal:', err.message);
                 }
             });
+        } else {
+            console.error('❌ Cannot attach newChatBtn handler');
         }
         
         if (newGroupBtn && newGroupModal) {
+            console.log('✅ Attaching newGroupBtn click handler');
             newGroupBtn.addEventListener('click', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
                 console.log('🔓 Opening #newGroupModal...');
+                console.log('   Bootstrap available:', typeof bootstrap !== 'undefined');
                 
-                // Close messaging panel first
-                const messagingPanel = document.getElementById('messaging-panel');
-                if (messagingPanel && messagingPanel.classList.contains('open')) {
-                    messagingPanel.classList.remove('open');
-                    document.getElementById('messagingToggle')?.classList.remove('active');
-                    document.getElementById('messaging-overlay')?.classList.remove('open');
-                    document.body.style.overflow = '';
-                }
-                
-                // Open modal using Bootstrap
-                if (typeof bootstrap !== 'undefined') {
-                    const modal = new bootstrap.Modal(newGroupModal);
-                    modal.show();
-                    console.log('✅ Modal opened successfully');
-                } else {
-                    console.error('❌ Bootstrap not loaded');
+                try {
+                    // Close messaging panel first
+                    const messagingPanel = document.getElementById('messaging-panel');
+                    if (messagingPanel && messagingPanel.classList.contains('open')) {
+                        messagingPanel.classList.remove('open');
+                        document.getElementById('messagingToggle')?.classList.remove('active');
+                        document.getElementById('messaging-overlay')?.classList.remove('open');
+                        document.body.style.overflow = '';
+                        console.log('   Panel closed');
+                    }
+                    
+                    // Open modal using Bootstrap
+                    if (typeof bootstrap !== 'undefined') {
+                        const modal = new bootstrap.Modal(newGroupModal, {backdrop: 'static', keyboard: false});
+                        modal.show();
+                        console.log('✅ Modal opened successfully');
+                    } else {
+                        throw new Error('Bootstrap not loaded');
+                    }
+                } catch(err) {
+                    console.error('❌ Error opening modal:', err.message);
                 }
             });
+        } else {
+            console.error('❌ Cannot attach newGroupBtn handler');
         }
         
         console.log('✅ Modal button handlers setup complete');
     }
     
-    // Setup when DOM is ready
+    // Setup when DOM is ready - try multiple times to ensure buttons are loaded
+    const setupAttempts = [];
+    
+    function attemptSetup() {
+        const newChatBtn = document.getElementById('newChatBtn');
+        if (newChatBtn) {
+            console.log('✓ Buttons found, setting up handlers');
+            setupModalButtons();
+        } else {
+            setupAttempts.push(1);
+            if (setupAttempts.length < 10) {
+                console.log('⏳ Buttons not ready yet, retrying... (attempt ' + setupAttempts.length + ')');
+                setTimeout(attemptSetup, 200);
+            } else {
+                console.error('❌ Buttons not found after 2 seconds!');
+            }
+        }
+    }
+    
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', setupModalButtons);
+        document.addEventListener('DOMContentLoaded', attemptSetup);
     } else {
-        // DOM already loaded, setup immediately
-        setTimeout(setupModalButtons, 100);
+        attemptSetup();
     }
     
     // Also setup on dynamic updates
-    window.addEventListener('load', setupModalButtons);
+    window.addEventListener('load', function() {
+        console.log('Window load event fired');
+        attemptSetup();
+    });
 })();
 </script>

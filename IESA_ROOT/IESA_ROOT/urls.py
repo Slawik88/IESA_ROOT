@@ -44,10 +44,13 @@ urlpatterns = [
     path('favicon.ico', RedirectView.as_view(url=static_static('img/favicon.png'), permanent=True)),
 ]
 
-# Добавляем маршруты для медиа-файлов в режиме разработки
+# Добавляем маршруты для медиа-файлов и static файлов
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
 else:
-    # In production with SQLite (temporary), serve media files through Django
+    # In production, serve media files through Django
     # TODO: Move to DigitalOcean Spaces for production
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    # Also serve static files in production (WhiteNoise should handle this, but as fallback)
+    urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
