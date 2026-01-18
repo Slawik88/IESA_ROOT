@@ -11,7 +11,8 @@ from .utils import (
     notify_post_rejected,
     notify_new_comment,
     notify_comment_reply,
-    notify_new_like
+    notify_new_like,
+    notify_new_message
 )
 
 logger = logging.getLogger(__name__)
@@ -76,3 +77,17 @@ def like_created(sender, instance, created, **kwargs):
         except Exception as e:
             logger.error(f"Failed to create notification for like {instance.id}: {str(e)}", exc_info=True)
             # Don't raise - notification failure shouldn't break the like creation
+
+
+@receiver(post_save, sender='messaging.Message')
+def message_created(sender, instance, created, **kwargs):
+    """Send notification when new message is created.
+    
+    Notifies all conversation participants except the sender.
+    """
+    if created:
+        try:
+            notify_new_message(instance)
+        except Exception as e:
+            logger.error(f"Failed to create notification for message {instance.id}: {str(e)}", exc_info=True)
+            # Don't raise - notification failure shouldn't break the message creation

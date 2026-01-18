@@ -69,8 +69,7 @@ class Conversation(models.Model):
     def get_unread_count(self, user):
         """Get count of unread messages for a specific user"""
         return self.messages.filter(
-            ~Q(sender=user),
-            read_by__in=[]
+            ~Q(sender=user)
         ).exclude(read_by=user).count()
 
 
@@ -93,7 +92,7 @@ class Message(models.Model):
     )
     
     # Message content
-    text = models.TextField(verbose_name='Message Text')
+    text = models.TextField(verbose_name='Message Text', blank=True, default='')
     
     # File/media support
     file = models.FileField(
@@ -137,6 +136,7 @@ class Message(models.Model):
         indexes = [
             models.Index(fields=['conversation', '-created_at']),
             models.Index(fields=['sender', '-created_at']),
+            models.Index(fields=['is_deleted', '-created_at']),  # For filtering deleted messages
         ]
     
     def __str__(self):
@@ -144,7 +144,7 @@ class Message(models.Model):
     
     def mark_as_read(self, user):
         """Mark message as read by a user"""
-        if user != self.sender and user not in self.read_by.all():
+        if user != self.sender:
             self.read_by.add(user)
     
     def is_read_by(self, user):
@@ -154,8 +154,11 @@ class Message(models.Model):
 
 class TypingIndicator(models.Model):
     """
-    Temporary model to track who is typing in which conversation.
-    Can be implemented with cache/Redis for better performance.
+    DEPRECATED: This model is replaced by cache-based typing indicators (see typing_cache.py).
+    Kept for backwards compatibility. Can be safely removed after migration.
+    
+    Old: Temporary model to track who is typing in which conversation.
+    Now: Use typing_cache.set_typing_v2() and typing_cache.get_typing_users_v2() instead.
     """
     conversation = models.ForeignKey(
         Conversation,

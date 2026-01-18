@@ -4,6 +4,9 @@ from . import views
 app_name = 'messaging'
 
 urlpatterns = [
+    # API endpoints
+    path('api/conversations/', views.api_conversations, name='api_conversations'),
+    
     # Conversation list
     path('', views.ConversationListView.as_view(), name='conversation_list'),
     # Search users to start chat
@@ -11,6 +14,8 @@ urlpatterns = [
     
     # Start new conversation
     path('new/<str:username>/', views.start_conversation, name='start_conversation'),
+    # Create conversation from form
+    path('create/', views.create_conversation, name='create_conversation'),
     
     # View conversation
     path('<int:pk>/', views.ConversationDetailView.as_view(), name='conversation_detail'),

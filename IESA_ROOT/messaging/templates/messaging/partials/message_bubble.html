@@ -1,0 +1,7 @@
+<div class="message-item {% if is_own %}own{% else %}other{% endif %}" 
+     data-message-id="{{ message.id }}">
+    <div class="message-bubble">
+        <p class="message-text">{{ message.text }}</p>
+        <span class="message-time">{{ message.created_at|date:"H:i" }}</span>
+    </div>
+</div>

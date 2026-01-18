@@ -15,6 +15,7 @@ class Notification(models.Model):
         ('new_like', 'New Like'),
         ('new_follower', 'New Follower'),
         ('event_reminder', 'Event Reminder'),
+        ('new_message', 'New Message'),
         ('system', 'System Notification'),
     ]
     
