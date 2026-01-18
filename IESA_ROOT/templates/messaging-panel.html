@@ -234,7 +234,7 @@
                     
                     // Open modal using Bootstrap
                     if (typeof bootstrap !== 'undefined') {
-                        const modal = new bootstrap.Modal(newChatModal, {backdrop: 'static', keyboard: false});
+                        const modal = new bootstrap.Modal(newChatModal);
                         modal.show();
                         console.log('✅ Modal opened successfully');
                     } else {
@@ -267,7 +267,7 @@
                     
                     // Open modal using Bootstrap
                     if (typeof bootstrap !== 'undefined') {
-                        const modal = new bootstrap.Modal(newGroupModal, {backdrop: 'static', keyboard: false});
+                        const modal = new bootstrap.Modal(newGroupModal);
                         modal.show();
                         console.log('✅ Modal opened successfully');
                     } else {
