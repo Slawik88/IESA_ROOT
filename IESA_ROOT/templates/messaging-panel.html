@@ -14,12 +14,13 @@
     
     <!-- Action buttons for messaging panel -->
     <div class="messaging-panel-actions" style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; display: flex; gap: 8px; flex-wrap: wrap;">
-        <button class="btn btn-sm btn-outline-secondary" id="newChatBtn" type="button" title="Start new chat">
+        <button class="btn btn-sm btn-outline-secondary" id="newChatBtn" type="button" title="Start new chat" data-test="new-chat-button">
             <i class="bi bi-person-plus"></i> New Chat
         </button>
-        <button class="btn btn-sm btn-outline-primary" id="newGroupBtn" type="button" title="Create group">
+        <button class="btn btn-sm btn-outline-primary" id="newGroupBtn" type="button" title="Create group" data-test="new-group-button">
             <i class="bi bi-people"></i> New Group
         </button>
+        <span id="btnTestOutput" style="margin-left: auto; font-size: 0.75rem; color: #666;"></span>
     </div>
     
     <div class="messaging-panel-body">
@@ -52,6 +53,15 @@
             messagingBtn.classList.add('active');
             if (messagingOverlay) messagingOverlay.classList.add('open');
             document.body.style.overflow = 'hidden';
+            
+            // Test that buttons exist when panel opens
+            const newChatBtn = document.getElementById('newChatBtn');
+            const newGroupBtn = document.getElementById('newGroupBtn');
+            const testOutput = document.getElementById('btnTestOutput');
+            if (testOutput) {
+                testOutput.innerText = `Chat:${!!newChatBtn} Group:${!!newGroupBtn}`;
+                testOutput.style.color = (newChatBtn && newGroupBtn) ? '#22c55e' : '#ef4444';
+            }
         }
         
         function closePanel() {
@@ -173,6 +183,8 @@
 (function() {
     'use strict';
     
+    let setupAttempted = false;
+    
     function setupModalButtons() {
         console.log('🔘 Setting up modal button handlers...');
         
@@ -191,12 +203,14 @@
             console.error('❌ newChatBtn not found in DOM!');
             console.log('   Searching for all buttons with id containing "Chat":', 
                 Array.from(document.querySelectorAll('button[id*="Chat"]')).map(b => ({id: b.id, text: b.innerText})));
+            return false;
         }
         
         if (!newGroupBtn) {
             console.error('❌ newGroupBtn not found in DOM!');
             console.log('   Searching for all buttons with id containing "Group":', 
                 Array.from(document.querySelectorAll('button[id*="Group"]')).map(b => ({id: b.id, text: b.innerText})));
+            return false;
         }
         
         if (newChatBtn && newChatModal) {
@@ -230,8 +244,6 @@
                     console.error('❌ Error opening modal:', err.message);
                 }
             });
-        } else {
-            console.error('❌ Cannot attach newChatBtn handler');
         }
         
         if (newGroupBtn && newGroupModal) {
@@ -265,42 +277,41 @@
                     console.error('❌ Error opening modal:', err.message);
                 }
             });
-        } else {
-            console.error('❌ Cannot attach newGroupBtn handler');
         }
         
         console.log('✅ Modal button handlers setup complete');
+        setupAttempted = true;
+        return true;
     }
     
-    // Setup when DOM is ready - try multiple times to ensure buttons are loaded
-    const setupAttempts = [];
+    // Listen for global dispatcher event
+    window.addEventListener('modal-buttons-ready', function() {
+        console.log('📡 Received modal-buttons-ready event');
+        setupModalButtons();
+    });
     
-    function attemptSetup() {
-        const newChatBtn = document.getElementById('newChatBtn');
-        if (newChatBtn) {
-            console.log('✓ Buttons found, setting up handlers');
+    // Also try immediate setup when this script loads
+    setTimeout(function() {
+        if (!setupAttempted) {
+            console.log('⏳ Attempting immediate setup...');
             setupModalButtons();
-        } else {
-            setupAttempts.push(1);
-            if (setupAttempts.length < 10) {
-                console.log('⏳ Buttons not ready yet, retrying... (attempt ' + setupAttempts.length + ')');
-                setTimeout(attemptSetup, 200);
-            } else {
-                console.error('❌ Buttons not found after 2 seconds!');
-            }
         }
-    }
+    }, 50);
     
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', attemptSetup);
-    } else {
-        attemptSetup();
-    }
+    // Try on DOMContentLoaded
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('📄 DOMContentLoaded fired');
+        if (!setupAttempted) {
+            setupModalButtons();
+        }
+    });
     
-    // Also setup on dynamic updates
+    // Try on load
     window.addEventListener('load', function() {
-        console.log('Window load event fired');
-        attemptSetup();
+        console.log('⏳ Window load fired');
+        if (!setupAttempted) {
+            setupModalButtons();
+        }
     });
 })();
 </script>

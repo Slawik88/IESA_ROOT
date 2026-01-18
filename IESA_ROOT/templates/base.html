@@ -537,6 +537,68 @@
     <!-- Bootstrap 5.3.3 handles modals perfectly, no custom handler needed -->
     <!-- <script src="{% static 'js/modal-handler.js' %}"></script> -->
     
+    <!-- Global Modal Dispatcher - Ensures modal buttons are initialized -->
+    <script>
+    (function() {
+        'use strict';
+        
+        // Keep trying to setup modal buttons until they exist
+        let attempts = 0;
+        const maxAttempts = 50; // ~5 seconds at 100ms intervals
+        
+        function setupModalDispatcher() {
+            const newChatBtn = document.getElementById('newChatBtn');
+            const newGroupBtn = document.getElementById('newGroupBtn');
+            
+            if (newChatBtn && newGroupBtn) {
+                console.log('🔧 Global Modal Dispatcher: Buttons found, firing setup event');
+                // Fire a custom event that messaging-panel.html can listen to
+                window.dispatchEvent(new CustomEvent('modal-buttons-ready'));
+                return true;
+            }
+            
+            attempts++;
+            if (attempts >= maxAttempts) {
+                console.warn('⚠️ Global Modal Dispatcher: Buttons not found after ' + (attempts * 100) + 'ms');
+                return false;
+            }
+            
+            return false;
+        }
+        
+        // Try immediately when DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', function() {
+                console.log('🔧 Global Modal Dispatcher: DOMContentLoaded fired');
+                if (!setupModalDispatcher()) {
+                    // Keep retrying
+                    const interval = setInterval(function() {
+                        if (setupModalDispatcher() || attempts >= maxAttempts) {
+                            clearInterval(interval);
+                        }
+                    }, 100);
+                }
+            });
+        } else {
+            console.log('🔧 Global Modal Dispatcher: DOM already loaded');
+            if (!setupModalDispatcher()) {
+                // Keep retrying
+                const interval = setInterval(function() {
+                    if (setupModalDispatcher() || attempts >= maxAttempts) {
+                        clearInterval(interval);
+                    }
+                }, 100);
+            }
+        }
+        
+        // Also retry on window load
+        window.addEventListener('load', function() {
+            console.log('🔧 Global Modal Dispatcher: Window load fired');
+            setupModalDispatcher();
+        });
+    })();
+    </script>
+    
     <!-- Mobile Navbar Fix - исправляет dropdown на мобильном -->
     <script src="{% static 'js/mobile-navbar-fix.js' %}"></script>
     
