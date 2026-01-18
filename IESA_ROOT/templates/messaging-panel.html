@@ -14,10 +14,10 @@
     
     <!-- Action buttons for messaging panel -->
     <div class="messaging-panel-actions" style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; display: flex; gap: 8px; flex-wrap: wrap;">
-        <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#newChatModal" title="Start new chat">
+        <button class="btn btn-sm btn-outline-secondary" id="newChatBtn" type="button" title="Start new chat">
             <i class="bi bi-person-plus"></i> New Chat
         </button>
-        <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#newGroupModal" title="Create group">
+        <button class="btn btn-sm btn-outline-primary" id="newGroupBtn" type="button" title="Create group">
             <i class="bi bi-people"></i> New Group
         </button>
     </div>
@@ -167,3 +167,84 @@
         </div>
     </div>
 </div>
+
+<!-- Modal Button Handlers - Explicit click handlers for messaging panel buttons -->
+<script>
+(function() {
+    'use strict';
+    
+    function setupModalButtons() {
+        console.log('🔘 Setting up modal button handlers...');
+        
+        const newChatBtn = document.getElementById('newChatBtn');
+        const newGroupBtn = document.getElementById('newGroupBtn');
+        const newChatModal = document.getElementById('newChatModal');
+        const newGroupModal = document.getElementById('newGroupModal');
+        
+        if (newChatBtn && newChatModal) {
+            newChatBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('🔓 Opening #newChatModal...');
+                
+                // Close messaging panel first
+                const messagingPanel = document.getElementById('messaging-panel');
+                if (messagingPanel && messagingPanel.classList.contains('open')) {
+                    messagingPanel.classList.remove('open');
+                    document.getElementById('messagingToggle')?.classList.remove('active');
+                    document.getElementById('messaging-overlay')?.classList.remove('open');
+                    document.body.style.overflow = '';
+                }
+                
+                // Open modal using Bootstrap
+                if (typeof bootstrap !== 'undefined') {
+                    const modal = new bootstrap.Modal(newChatModal);
+                    modal.show();
+                    console.log('✅ Modal opened successfully');
+                } else {
+                    console.error('❌ Bootstrap not loaded');
+                }
+            });
+        }
+        
+        if (newGroupBtn && newGroupModal) {
+            newGroupBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('🔓 Opening #newGroupModal...');
+                
+                // Close messaging panel first
+                const messagingPanel = document.getElementById('messaging-panel');
+                if (messagingPanel && messagingPanel.classList.contains('open')) {
+                    messagingPanel.classList.remove('open');
+                    document.getElementById('messagingToggle')?.classList.remove('active');
+                    document.getElementById('messaging-overlay')?.classList.remove('open');
+                    document.body.style.overflow = '';
+                }
+                
+                // Open modal using Bootstrap
+                if (typeof bootstrap !== 'undefined') {
+                    const modal = new bootstrap.Modal(newGroupModal);
+                    modal.show();
+                    console.log('✅ Modal opened successfully');
+                } else {
+                    console.error('❌ Bootstrap not loaded');
+                }
+            });
+        }
+        
+        console.log('✅ Modal button handlers setup complete');
+    }
+    
+    // Setup when DOM is ready
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', setupModalButtons);
+    } else {
+        // DOM already loaded, setup immediately
+        setTimeout(setupModalButtons, 100);
+    }
+    
+    // Also setup on dynamic updates
+    window.addEventListener('load', setupModalButtons);
+})();
+</script>
