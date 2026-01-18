@@ -53,6 +53,7 @@ if DEBUG:
 
 # Регистрация всех приложений и HTMX
 INSTALLED_APPS = [
+    'daphne',  # ASGI server для WebSocket
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.messages',
@@ -68,7 +69,8 @@ INSTALLED_APPS = [
     'gallery',
     'products',
     'notifications.apps.NotificationsConfig',  # Notification system
-    'messaging',  # Messaging system
+    'messaging',  # Messaging system v3 with WebSocket
+    'channels',  # Django Channels для WebSocket
 
     # Сторонние библиотеки
     'django_htmx',
@@ -394,6 +396,27 @@ LOGOUT_REDIRECT_URL = 'home'
 
 # Ключи API (Stripe)
 STRIPE_SECRET_KEY = os.getenv('STRIPE_SECRET_KEY')
+
+# Django Channels Configuration (WebSocket)
+ASGI_APPLICATION = 'IESA_ROOT.asgi.application'
+
+# Channel Layers - In-memory for development, Redis for production
+if DEBUG:
+    CHANNEL_LAYERS = {
+        'default': {
+            'BACKEND': 'channels.layers.InMemoryChannelLayer'
+        }
+    }
+else:
+    # For production, use Redis (install redis server)
+    CHANNEL_LAYERS = {
+        'default': {
+            'BACKEND': 'channels_redis.core.RedisChannelLayer',
+            'CONFIG': {
+                'hosts': [(os.getenv('REDIS_HOST', '127.0.0.1'), int(os.getenv('REDIS_PORT', 6379)))],
+            },
+        },
+    }
 
 # Import additional settings (logging, email, etc.)
 from .settings_addon import LOGGING
