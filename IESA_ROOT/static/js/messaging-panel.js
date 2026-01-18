@@ -262,22 +262,26 @@
         // Inject animations
         injectAnimations();
 
-        // Track panel state
-        let panelWasOpen = false;
-
-        // Load conversations when panel opens
-        messagingBtn.addEventListener('click', function() {
-            const isOpen = messagingPanel.classList.contains('open');
-            if (isOpen && !panelWasOpen) {
-                // Panel just opened
-                panelWasOpen = true;
-                loadAndDisplayConversations();
-            } else if (!isOpen) {
-                panelWasOpen = false;
-            }
+        // Track panel state with MutationObserver for proper detection
+        const observer = new MutationObserver(function(mutations) {
+            mutations.forEach(function(mutation) {
+                if (mutation.attributeName === 'class') {
+                    const isOpen = messagingPanel.classList.contains('open');
+                    if (isOpen) {
+                        // Panel just opened - load conversations
+                        loadAndDisplayConversations();
+                    }
+                }
+            });
         });
 
-        console.log('✓ Messaging panel initialized');
+        // Observe class changes on panel
+        observer.observe(messagingPanel, {
+            attributes: true,
+            attributeFilter: ['class']
+        });
+
+        console.log('✓ Messaging panel initialized with auto-load');
     }
 
     /**
