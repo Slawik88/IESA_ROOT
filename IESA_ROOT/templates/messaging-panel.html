@@ -11,6 +11,17 @@
             <i class="fas fa-times"></i>
         </button>
     </div>
+    
+    <!-- Action buttons for messaging panel -->
+    <div class="messaging-panel-actions" style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; display: flex; gap: 8px; flex-wrap: wrap;">
+        <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#newChatModal" title="Start new chat">
+            <i class="bi bi-person-plus"></i> New Chat
+        </button>
+        <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#newGroupModal" title="Create group">
+            <i class="bi bi-people"></i> New Group
+        </button>
+    </div>
+    
     <div class="messaging-panel-body">
         <div class="messaging-conversations" id="conversationsList">
             <!-- Conversations will be loaded here by JS -->
