@@ -1,0 +1,44 @@
+/**
+ * Modal Z-Index Fix
+ * Ensures modals appear above all other elements including messaging-panel
+ */
+
+/* Bootstrap modal backdrop - make sure it's visible and above all */
+.modal-backdrop {
+    z-index: 1040 !important; /* Bootstrap default is 1040 */
+}
+
+/* Bootstrap modal itself - appears above backdrop */
+.modal {
+    z-index: 1050 !important; /* Bootstrap default is 1050 */
+}
+
+/* Ensure modal shows when .show class is added */
+.modal.show {
+    display: block !important;
+    z-index: 1050 !important;
+}
+
+/* Modal dialog should also be visible */
+.modal-dialog {
+    z-index: 1050 !important;
+}
+
+/* Modal content styling */
+.modal-content {
+    box-shadow: 0 5px 15px rgba(0,0,0,0.5) !important;
+}
+
+/* Messaging panel should not interfere with modals */
+.messaging-panel {
+    z-index: 1000; /* Below modals (1050) */
+}
+
+.messaging-overlay {
+    z-index: 999; /* Below modals */
+}
+
+/* Notifications panel */
+.notifications-panel {
+    z-index: 1000; /* Below modals */
+}

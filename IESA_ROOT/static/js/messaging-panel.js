@@ -282,6 +282,24 @@
         });
 
         console.log('✓ Messaging panel initialized with auto-load');
+        
+        // Close messaging panel when opening modals
+        // This ensures modals are in focus and not behind the panel
+        const actionButtons = document.querySelectorAll('[data-bs-toggle="modal"][data-bs-target="#newChatModal"], [data-bs-toggle="modal"][data-bs-target="#newGroupModal"]');
+        actionButtons.forEach(button => {
+            button.addEventListener('click', function(e) {
+                console.log('🔓 Modal trigger clicked - closing messaging panel');
+                const messagingPanel = document.getElementById('messaging-panel');
+                const messagingBtn = document.getElementById('messagingToggle');
+                if (messagingPanel && messagingPanel.classList.contains('open')) {
+                    messagingPanel.classList.remove('open');
+                    if (messagingBtn) messagingBtn.classList.remove('active');
+                    const messagingOverlay = document.getElementById('messaging-overlay');
+                    if (messagingOverlay) messagingOverlay.classList.remove('open');
+                    document.body.style.overflow = '';
+                }
+            });
+        });
     }
 
     /**
