@@ -65,7 +65,7 @@
 
     <!-- Message Input Area -->
     <div class="message-input-wrapper">
-        <form id="message-form" class="message-form" method="post" enctype="multipart/form-data" novalidate>
+        <form id="message-form" class="message-form" method="post" action="{% url 'messaging:send_message' conversation.pk %}" enctype="multipart/form-data" novalidate>
             {% csrf_token %}
             
             <div class="file-preview-container" id="file-preview" style="display: none;">
