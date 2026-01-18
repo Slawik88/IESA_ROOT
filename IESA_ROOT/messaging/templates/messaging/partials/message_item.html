@@ -1,91 +1,90 @@
 {% load static %}
 
 <div class="message-item {% if message.sender == user %}own{% else %}other{% endif %} {% if message.is_pinned %}message-pinned{% endif %}" 
-     data-message-id="{{ message.pk }}">
+     data-message-id="{{ message.pk }}" style="position: relative;">
+    
     <div class="message-content">
+        <!-- Pinned Badge -->
         {% if message.is_pinned %}
-            <div class="mb-1">
-                <i class="bi bi-pin-fill text-warning"></i>
-                <small class="text-muted">Закреплено</small>
-            </div>
+        <div style="display: flex; align-items: center; gap: 4px; margin-bottom: 6px; font-size: 12px;">
+            <i class="bi bi-pin-fill"></i>
+            <span>Закреплено</span>
+        </div>
         {% endif %}
 
+        <!-- Reply To -->
         {% if message.reply_to %}
-            <div class="mb-2 p-2 bg-light rounded">
-                <small class="text-muted">
-                    <i class="bi bi-reply"></i> Ответ на: {{ message.reply_to.text|truncatewords:5 }}
-                </small>
-            </div>
+        <div class="message-reply-to">
+            <i class="bi bi-reply"></i>
+            <span>{{ message.reply_to.text|truncatewords:8 }}</span>
+        </div>
         {% endif %}
 
+        <!-- Message Text -->
         <div>{{ message.text }}</div>
 
+        <!-- File Attachment -->
         {% if message.file %}
-            <div class="mt-2">
-                <a href="{{ message.file.url }}" target="_blank" class="text-decoration-none">
-                    <i class="bi bi-file-earmark-arrow-down"></i> 
-                    Скачать файл
-                </a>
+        <a href="{{ message.file.url }}" target="_blank" class="message-file">
+            <i class="bi bi-file-earmark-arrow-down"></i>
+            <div>
+                <div class="message-file-name">{{ message.file.name|truncatechars:30 }}</div>
+                <div class="message-file-size">{{ message.file.size|filesizeformat }}</div>
             </div>
+        </a>
         {% endif %}
 
+        <!-- Message Time & Read Status -->
         <div class="message-time">
-            {{ message.created_at|date:"H:i" }}
+            <span>{{ message.created_at|date:"H:i" }}</span>
+            
             {% if message.edited_at %}
-                <span title="Изменено {{ message.edited_at }}">
-                    <i class="bi bi-pencil-fill"></i>
-                </span>
+            <span title="Изменено {{ message.edited_at }}">
+                <i class="bi bi-pencil"></i>
+            </span>
             {% endif %}
-            {% if message.sender == user %}
-                {% if conversation.is_group %}
-                    {# Use annotated read_by_count instead of .all|length to avoid N+1 #}
-                    {% with readers_excl=message.read_by_count|add:-1 %}
-                        {% with recipients_total=participants_count|add:-1 %}
-                            <span class="ms-1 small text-muted" title="Прочитали: {{ readers_excl }}/{{ recipients_total }}">
-                                {% if readers_excl >= recipients_total %}
-                                    <i class="bi bi-check2-all text-primary"></i>
-                                {% else %}
-                                    <i class="bi bi-check2"></i>
-                                {% endif %}
-                                {{ readers_excl }}/{{ recipients_total }}
-                            </span>
-                        {% endwith %}
-                    {% endwith %}
+            
+            {% if message.sender == user and not conversation.is_group %}
+                {% if message.read_by_count > 1 %}
+                    <i class="bi bi-check2-all"></i>
                 {% else %}
-                    {% if message.read_by_count > 1 %}
-                        <i class="bi bi-check2-all text-primary"></i>
-                    {% else %}
-                        <i class="bi bi-check2"></i>
-                    {% endif %}
+                    <i class="bi bi-check2"></i>
                 {% endif %}
+            {% elif message.sender == user and conversation.is_group %}
+                {% with readers_excl=message.read_by_count|add:-1 %}
+                    {% with recipients_total=participants_count|add:-1 %}
+                        <span title="Прочитали: {{ readers_excl }}/{{ recipients_total }}">
+                            {% if readers_excl >= recipients_total %}
+                                <i class="bi bi-check2-all"></i>
+                            {% else %}
+                                <i class="bi bi-check2"></i>
+                            {% endif %}
+                        </span>
+                    {% endwith %}
+                {% endwith %}
             {% endif %}
         </div>
+    </div>
 
-        <!-- Message Actions -->
-        <div class="message-actions btn-group btn-group-sm">
-            <button class="btn btn-outline-secondary" 
-                    hx-post="{% url 'messaging:pin_message' message.pk %}" 
-                    hx-swap="none"
-                    title="{% if message.is_pinned %}Открепить{% else %}Закрепить{% endif %}">
-                <i class="bi bi-pin"></i>
-            </button>
-            {% if message.sender == user %}
-                <button class="btn btn-outline-secondary"
-                        hx-post="{% url 'messaging:edit_message' message.pk %}"
-                        hx-prompt="Изменить текст сообщения:"
-                        hx-target="closest .message-item"
-                        hx-swap="outerHTML"
-                        title="Редактировать">
-                    <i class="bi bi-pencil"></i>
-                </button>
-                <button class="btn btn-outline-danger" 
-                        hx-post="{% url 'messaging:delete_message' message.pk %}" 
-                        hx-confirm="Удалить сообщение? Действие необратимо"
-                        hx-swap="none"
-                        title="Удалить">
-                    <i class="bi bi-trash"></i>
-                </button>
-            {% endif %}
-        </div>
+    <!-- Message Actions (Pin, Edit, Delete) -->
+    <div class="message-actions">
+        <button class="btn" title="Закрепить" hx-post="{% url 'messaging:pin_message' message.pk %}" hx-swap="none">
+            <i class="bi bi-pin"></i>
+        </button>
+        {% if message.sender == user %}
+        <button class="btn" title="Редактировать" 
+                hx-post="{% url 'messaging:edit_message' message.pk %}"
+                hx-prompt="Изменить сообщение:"
+                hx-target="closest .message-item"
+                hx-swap="outerHTML">
+            <i class="bi bi-pencil"></i>
+        </button>
+        <button class="btn btn-danger" title="Удалить"
+                hx-post="{% url 'messaging:delete_message' message.pk %}"
+                hx-confirm="Удалить сообщение? Это действие необратимо."
+                hx-swap="none">
+            <i class="bi bi-trash"></i>
+        </button>
+        {% endif %}
     </div>
 </div>

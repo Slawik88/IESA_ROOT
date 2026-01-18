@@ -239,31 +239,28 @@ def send_message(request, pk):
         if file:
             message.file = file
             message.save()
-            
-            # Mark sender as having read their own message
-            message.read_by.add(request.user)
-            
-            # No need to save conversation - updated_at has auto_now=True
-            
-            if request.headers.get('HX-Request'):
-                # Return message bubble for inbox view
-                is_own = message.sender == request.user
-                return render(request, 'messaging/partials/message_bubble.html', {
-                    'message': message,
-                    'is_own': is_own
-                })
-            
-            from django.http import HttpResponseRedirect
-            from django.urls import reverse
-            url = reverse('messaging:conversation_list') + f'?conversation={conversation.pk}'
-            return HttpResponseRedirect(url)
+        
+        # Mark sender as having read their own message
+        message.read_by.add(request.user)
+        
+        # Annotate read_by_count for template
+        from django.db.models import Count as DjangoCount
+        message.read_by_count = message.read_by.count()
+        
+        # Return message item for conversation detail view
+        return render(request, 'messaging/partials/message_item.html', {
+            'message': message,
+            'user': request.user,
+            'conversation': conversation,
+            'participants_count': conversation.participants.count(),
+        })
     
     return HttpResponseForbidden()
 
 
 @login_required
 def new_messages(request, pk):
-    """Return new messages after given message id (HTMX)."""
+    """Return new messages after given message id (for polling)."""
     conversation = get_object_or_404(Conversation, pk=pk, participants=request.user)
     after_id = request.GET.get('after')
     try:
@@ -271,18 +268,32 @@ def new_messages(request, pk):
     except ValueError:
         after_id = 0
 
-    qs = conversation.messages.filter(pk__gt=after_id).select_related('sender').prefetch_related('read_by').annotate(
+    qs = conversation.messages.filter(
+        Q(is_deleted=False) | (Q(sender=request.user) & Q(deleted_for_everyone=False)),
+        pk__gt=after_id
+    ).select_related('sender').prefetch_related('read_by').annotate(
         read_by_count=Count('read_by')
     ).order_by('created_at')
 
     if not qs.exists():
-        return JsonResponse({'ok': True})
+        return JsonResponse({})  # Empty response
 
     # Mark as read for current user (incoming only) - bulk operation
     unread_messages = [msg for msg in qs if msg.sender != request.user]
     for msg in unread_messages:
         msg.read_by.add(request.user)
 
+    # Return HTML for each message
+    html_parts = []
+    for message in qs:
+        html = render(request, 'messaging/partials/message_item.html', {
+            'message': message,
+            'user': request.user,
+            'conversation': conversation,
+            'participants_count': conversation.participants.count(),
+        }).content.decode('utf-8')
+        html_parts.append(html)
+    
     return render(request, 'messaging/partials/messages_chunk.html', {
         'messages': qs,
         'user': request.user,
