@@ -216,12 +216,13 @@ def api_get_messages(request, conversation_id=None, conversation=None):
                 pass
         
         total = query.count()
-        messages = query.order_by('-created_at')[offset:offset + limit]
+        # Evaluate slice to list so we can safely iterate and mark read
+        messages = list(query.order_by('-created_at')[offset:offset + limit])
         
-        # Mark as read
-        unread = messages.exclude(read_by=request.user).exclude(sender=request.user)
-        for msg in unread:
-            msg.read_by.add(request.user)
+        # Mark as read (only non-sender messages, avoid re-filtering sliced QS)
+        for msg in messages:
+            if msg.sender_id != request.user.id and not msg.read_by.filter(pk=request.user.pk).exists():
+                msg.read_by.add(request.user)
         
         data = {
             'messages': [],
