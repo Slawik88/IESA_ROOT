@@ -59,3 +59,69 @@ class MessagingAPIV2Tests(TestCase):
         msgs = data_msgs['data'].get('messages', [])
         self.assertEqual(len(msgs), 1)
         self.assertEqual(msgs[0]['text'], 'hello')
+
+    def test_group_creation_and_message_lifecycle(self):
+        """Full group flow: create group, send, edit, delete, mark read."""
+        self.client.force_login(self.user1)
+
+        # Create group
+        create_group_url = reverse('messaging:api_create_group')
+        resp_group = self.client.post(
+            create_group_url,
+            data=json.dumps({'name': 'My Group', 'participant_ids': [self.user2.id]}),
+            content_type='application/json'
+        )
+        self.assertEqual(resp_group.status_code, 200)
+        data_group = resp_group.json()
+        self.assertTrue(data_group.get('success'))
+        conv_id = data_group['data']['conversation_id']
+
+        # Send message
+        send_url = reverse('messaging:api_send_message', kwargs={'conversation_id': conv_id})
+        resp_send = self.client.post(
+            send_url,
+            data=json.dumps({'text': 'group hi'}),
+            content_type='application/json'
+        )
+        self.assertEqual(resp_send.status_code, 200)
+        msg_id = resp_send.json()['data']['message']['id']
+
+        # Edit message
+        edit_url = reverse('messaging:api_edit_message', kwargs={'message_id': msg_id})
+        resp_edit = self.client.post(
+            edit_url,
+            data=json.dumps({'text': 'group hi edited'}),
+            content_type='application/json'
+        )
+        self.assertEqual(resp_edit.status_code, 200)
+
+        # Mark read (by self no-op, but should succeed)
+        mark_url = reverse('messaging:api_mark_read', kwargs={'message_id': msg_id})
+        resp_mark = self.client.post(mark_url)
+        self.assertEqual(resp_mark.status_code, 200)
+
+        # Delete message (soft delete)
+        delete_url = reverse('messaging:api_delete_message', kwargs={'message_id': msg_id})
+        resp_del = self.client.post(
+            delete_url,
+            data=json.dumps({'for_everyone': True}),
+            content_type='application/json'
+        )
+        self.assertEqual(resp_del.status_code, 200)
+
+    def test_search_requires_auth(self):
+        url = reverse('messaging:api_search_users') + '?q=x'
+        resp = self.client.get(url)
+        self.assertIn(resp.status_code, [302, 401, 403])
+
+    def test_get_messages_denies_non_participant(self):
+        self.client.force_login(self.user1)
+        # create conversation with user2
+        conv = Conversation.objects.create(creator=self.user1, is_group=False)
+        conv.participants.add(self.user1, self.user2)
+        # try as another user
+        intruder = User.objects.create_user(username='hacker', password='pass1234')
+        self.client.force_login(intruder)
+        url = reverse('messaging:api_messages', kwargs={'conversation_id': conv.id})
+        resp = self.client.get(url)
+        self.assertEqual(resp.status_code, 403)
