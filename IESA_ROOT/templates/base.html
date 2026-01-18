@@ -93,6 +93,7 @@
     <link rel="stylesheet" href="{% static 'css/form-validation.css' %}">
     <link rel="stylesheet" href="{% static 'css/form-enhancements.css' %}">
     <link rel="stylesheet" href="{% static 'css/pwa.css' %}">
+    <link rel="stylesheet" href="{% static 'css/modal-zindex-fix.css' %}">>
     <link rel="stylesheet" href="{% static 'css/modal-fix.css' %}">
     
     <!-- TIER 8: Social Features & Messaging -->
@@ -532,8 +533,9 @@
     
     {% include "notifications-panel.html" %}
     
-    <!-- Modal Handler Script - обеспечивает закрытие modal окон -->
-    <script src="{% static 'js/modal-handler.js' %}"></script>
+    <!-- Modal Handler Script - DISABLED (conflicts with Bootstrap 5.3.3) -->
+    <!-- Bootstrap 5.3.3 handles modals perfectly, no custom handler needed -->
+    <!-- <script src="{% static 'js/modal-handler.js' %}"></script> -->
     
     <!-- Mobile Navbar Fix - исправляет dropdown на мобильном -->
     <script src="{% static 'js/mobile-navbar-fix.js' %}"></script>
