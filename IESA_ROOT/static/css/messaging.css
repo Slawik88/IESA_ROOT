@@ -12,6 +12,33 @@
    ============================================================ */
 
 /* ====================================================
+   0. PREVENT FLICKERING & BLACK ARTIFACTS
+   ==================================================== */
+
+/* Remove will-change that causes flashing */
+.messaging-panel,
+.messaging-panel-body,
+.messaging-conversations,
+.messaging-conversation-item {
+    backface-visibility: hidden;
+    perspective: 1000px;
+}
+
+/* Smooth transitions for all messaging elements */
+.messaging-panel,
+.messaging-panel-header,
+.messaging-panel-body,
+.messaging-conversation-item {
+    transition: all 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+/* Prevent CLS (Cumulative Layout Shift) */
+.messaging-panel-body {
+    contain: layout style;
+    min-height: 0;
+}
+
+/* ====================================================
    1. MESSAGES CONTAINER
    ==================================================== */
 
@@ -699,7 +726,7 @@
 
 /* Empty State */
 .messaging-empty-state {
-    display: flex;
+    display: none;
     flex-direction: column;
     align-items: center;
     justify-content: center;
@@ -719,6 +746,51 @@
     line-height: 1.5;
 }
 
+/* Skeleton Loading State */
+.messaging-loading-skeleton {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 8px 0;
+}
+
+.skeleton-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    border-radius: 8px;
+    animation: skeleton-pulse 1.5s ease-in-out infinite;
+}
+
+.skeleton-item::before {
+    content: '';
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: linear-gradient(90deg, #f0f0f0 25%, #f8f8f8 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    flex-shrink: 0;
+}
+
+.skeleton-item::after {
+    content: '';
+    flex: 1;
+    height: 44px;
+    border-radius: 6px;
+    background: linear-gradient(90deg, #f0f0f0 25%, #f8f8f8 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+}
+
+@keyframes skeleton-pulse {
+    0% {
+        background-position: 200% 0;
+    }
+    100% {
+        background-position: -200% 0;
+    }
+}
+
 /* Conversations List in Panel */
 .messaging-conversations {
     display: flex;
@@ -730,16 +802,20 @@
     padding: 12px;
     border-radius: 8px;
     cursor: pointer;
-    transition: all 0.15s ease;
+    transition: all 0.2s ease;
     border: 1px solid transparent;
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 12px;
+    text-decoration: none;
+    color: inherit;
+    background: #fff;
 }
 
 .messaging-conversation-item:hover {
     background: #f3f4f6;
     border-color: #e5e7eb;
+    transform: translateX(2px);
 }
 
 .messaging-conversation-item.active {
@@ -747,7 +823,80 @@
     border-color: #3b82f6;
 }
 
+.messaging-conversation-item.unread {
+    background: #fef3c7;
+    border-color: #fbbf24;
+}
+
+.messaging-conversation-item.unread:hover {
+    background: #fef08a;
+}
+
 .messaging-conversation-avatar {
+    position: relative;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    font-weight: 600;
+    font-size: 16px;
+    overflow: hidden;
+}
+
+.messaging-conversation-avatar .avatar-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.messaging-conversation-avatar .avatar-initial {
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.messaging-conversation-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.messaging-conversation-name {
+    font-weight: 600;
+    font-size: 14px;
+    color: #1f2937;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    justify-content: space-between;
+    margin: 0;
+}
+
+.messaging-conversation-name .badge {
+    font-size: 11px;
+    padding: 2px 6px;
+    font-weight: 600;
+}
+
+.messaging-conversation-preview {
+    font-size: 12px;
+    color: #6b7280;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.messaging-conversation-time {
+    font-size: 11px;
+    color: #9ca3af;
+    text-align: right;
+}
     width: 40px;
     height: 40px;
     border-radius: 50%;

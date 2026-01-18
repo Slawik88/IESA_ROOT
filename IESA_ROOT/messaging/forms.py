@@ -14,7 +14,7 @@ class ConversationForm(forms.ModelForm):
         queryset=User.objects.filter(is_active=True),
         widget=forms.SelectMultiple(attrs={'class': 'form-select'}),
         required=True,
-        help_text='Выберите участников (минимум 2). Вас добавим автоматически.'
+        help_text='Выберите участников (минимум 1, вас добавим автоматически).'
     )
 
     class Meta:
@@ -23,6 +23,6 @@ class ConversationForm(forms.ModelForm):
 
     def clean_participants(self):
         qs = self.cleaned_data['participants']
-        if qs.count() < 2:
-            raise forms.ValidationError('Минимум 2 участника для группы')
+        if qs.count() < 1:
+            raise forms.ValidationError('Минимум 1 участник (вы будете добавлены автоматически)')
         return qs

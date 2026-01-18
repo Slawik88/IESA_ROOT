@@ -10,8 +10,12 @@ from ..models import Post, BlogSubscription
 
 @login_required
 def toggle_subscription(request, author_pk):
-    """Подписка/отписка от автора через HTMX"""
+    """Подписка/отписка от автора через HTMX (POST request)"""
     from users.models import User
+    
+    # Only allow POST requests
+    if request.method != 'POST':
+        return HttpResponse(status=405)  # Method Not Allowed
     
     author = get_object_or_404(User, pk=author_pk)
     

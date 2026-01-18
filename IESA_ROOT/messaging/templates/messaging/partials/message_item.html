@@ -38,22 +38,21 @@
             {% endif %}
             {% if message.sender == user %}
                 {% if conversation.is_group %}
-                    {% with readers=message.read_by.all|length %}
-                        {% with recipients=conversation.participants.all|length %}
-                            {% with readers_excl=readers|add:-1 %}
-                                <span class="ms-1 small text-muted" title="Прочитали: {{ readers_excl }}/{{ recipients|add:-1 }}">
-                                    {% if readers_excl >= recipients|add:-1 %}
-                                        <i class="bi bi-check2-all text-primary"></i>
-                                    {% else %}
-                                        <i class="bi bi-check2"></i>
-                                    {% endif %}
-                                    {{ readers_excl }}/{{ recipients|add:-1 }}
-                                </span>
-                            {% endwith %}
+                    {# Use annotated read_by_count instead of .all|length to avoid N+1 #}
+                    {% with readers_excl=message.read_by_count|add:-1 %}
+                        {% with recipients_total=participants_count|add:-1 %}
+                            <span class="ms-1 small text-muted" title="Прочитали: {{ readers_excl }}/{{ recipients_total }}">
+                                {% if readers_excl >= recipients_total %}
+                                    <i class="bi bi-check2-all text-primary"></i>
+                                {% else %}
+                                    <i class="bi bi-check2"></i>
+                                {% endif %}
+                                {{ readers_excl }}/{{ recipients_total }}
+                            </span>
                         {% endwith %}
                     {% endwith %}
                 {% else %}
-                    {% if message.read_by.count > 1 %}
+                    {% if message.read_by_count > 1 %}
                         <i class="bi bi-check2-all text-primary"></i>
                     {% else %}
                         <i class="bi bi-check2"></i>
@@ -82,7 +81,6 @@
                 <button class="btn btn-outline-danger" 
                         hx-post="{% url 'messaging:delete_message' message.pk %}" 
                         hx-confirm="Удалить сообщение? Действие необратимо"
-                        hx-confirm="Удалить сообщение?"
                         hx-swap="none"
                         title="Удалить">
                     <i class="bi bi-trash"></i>

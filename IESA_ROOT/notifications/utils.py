@@ -97,3 +97,35 @@ def notify_event_reminder(event, user):
         message=f'Reminder: "{event.title}" is coming up on {event.date.strftime("%B %d, %Y")}',
         link=reverse('blog:event_detail', args=[event.pk])
     )
+
+
+def notify_new_message(message):
+    """Notify recipients of a new message in conversation"""
+    from messaging.models import Message as MessageModel
+    from messaging.models import Conversation
+    
+    if not isinstance(message, MessageModel):
+        return
+    
+    conversation = message.conversation
+    sender = message.sender
+    
+    # Notify all participants except the sender
+    for participant in conversation.participants.exclude(pk=sender.pk):
+        link = reverse('messaging:conversation_detail', args=[conversation.pk])
+        
+        # Build message based on conversation type
+        if conversation.is_group:
+            msg_text = f'{sender.username} sent a message in {conversation.group_name}'
+        else:
+            msg_text = f'{sender.username} sent you a message'
+        
+        create_notification(
+            recipient=participant,
+            sender=sender,
+            notification_type='new_message',
+            title='New Message 💬',
+            message=msg_text,
+            link=link
+        )
+

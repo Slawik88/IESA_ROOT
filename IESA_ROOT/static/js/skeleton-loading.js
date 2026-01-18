@@ -56,12 +56,12 @@
          * Hide skeleton on error
          */
         hideSkeletonError(event) {
-            const target = event.detail.xhr?.response;
-            if (target) {
-                target.querySelectorAll('.skeleton').forEach(el => {
-                    el.remove();
-                });
-            }
+            const target = event.detail.target;
+            if (!target || typeof target.querySelectorAll !== 'function') return;
+            
+            target.querySelectorAll('.skeleton').forEach(el => {
+                el.remove();
+            });
         },
 
         /**
