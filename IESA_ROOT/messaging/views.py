@@ -1,618 +1,564 @@
-from django.shortcuts import render, redirect, get_object_or_404
+"""
+Messaging API Views v3.0
+REST API для чатов с поддержкой поиска и файлов
+"""
+
+from django.shortcuts import render, get_object_or_404
 from django.contrib.auth.decorators import login_required
-from django.views.generic import ListView, DetailView
-from django.contrib.auth.mixins import LoginRequiredMixin
-from django.http import JsonResponse, HttpResponseForbidden
-from django.db.models import Q, Max, Count, Prefetch
+from django.http import JsonResponse
+from django.views.decorators.http import require_http_methods
+from django.db.models import Q, Count, Max
 from django.utils import timezone
-from django.contrib import messages
-from django.db.models.functions import Lower
+from django.core.paginator import Paginator
+import json
+import logging
 
-from .models import Conversation, Message, TypingIndicator
+from .models import Chat, Message, TypingStatus
 from users.models import User
-from .forms import ConversationForm
-from . import typing_cache
+
+logger = logging.getLogger(__name__)
 
 
-class ConversationListView(LoginRequiredMixin, ListView):
-    """Display list of user's conversations with unified inbox"""
-    model = Conversation
-    template_name = 'messaging/inbox.html'
-    context_object_name = 'conversations'
-    paginate_by = 20
-    
-    def get_queryset(self):
-        return Conversation.objects.filter(
-            participants=self.request.user
-        ).prefetch_related(
-            'participants',
-            Prefetch('messages', queryset=Message.objects.filter(is_deleted=False).order_by('-created_at'), to_attr='recent_messages')
-        ).annotate(
-            unread_count=Count('messages', filter=~Q(messages__sender=self.request.user) & ~Q(messages__read_by=self.request.user))
-        ).order_by('-updated_at')
+# ============================================================================
+# HELPERS
+# ============================================================================
 
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['create_group_form'] = ConversationForm()
-        
-        # Add last message for each conversation
-        for conversation in context['conversations']:
-            # Use prefetched messages (recent_messages) - avoid N+1
-            conversation.last_message = conversation.recent_messages[0] if conversation.recent_messages else None
-            if not conversation.is_group:
-                # Use prefetched participants - avoid N+1
-                conversation.other_participant = next(
-                    (p for p in conversation.participants.all() if p.pk != self.request.user.pk),
-                    None
-                )
-        
-        # Get active conversation from query param
-        conversation_id = self.request.GET.get('conversation')
-        if conversation_id:
-            try:
-                active_conv = Conversation.objects.filter(
-                    pk=int(conversation_id),
-                    participants=self.request.user
-                ).prefetch_related('participants').first()
-                
-                if active_conv:
-                    context['active_conversation'] = active_conv
-                    
-                    # Get messages for active conversation with read_by count annotation
-                    # Show messages that are: not deleted OR (deleted but sent by current user and not deleted for everyone)
-                    messages_qs = active_conv.messages.filter(
-                        Q(is_deleted=False) | (Q(sender=self.request.user) & Q(deleted_for_everyone=False))
-                    ).select_related('sender').prefetch_related('read_by').annotate(
-                        read_by_count=Count('read_by')
-                    ).order_by('created_at')
-                    
-                    context['messages'] = messages_qs
-                    context['participants_count'] = active_conv.participants.count()
-                    
-                    # Mark messages as read - bulk operation
-                    unread_messages = [msg for msg in messages_qs if msg.sender != self.request.user]
-                    for msg in unread_messages:
-                        msg.read_by.add(self.request.user)
-            except (ValueError, TypeError):
-                pass
-        
-        # Get available users for new chat
-        context['available_users'] = User.objects.filter(is_active=True).exclude(pk=self.request.user.pk).order_by('username')[:50]
-        
-        return context
-
-
-class ConversationDetailView(LoginRequiredMixin, DetailView):
-    """Display a single conversation with messages"""
-    model = Conversation
-    template_name = 'messaging/conversation_detail.html'
-    context_object_name = 'conversation'
-    
-    def get_queryset(self):
-        return Conversation.objects.filter(
-            participants=self.request.user
-        ).prefetch_related('participants')
-    
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        conversation = self.object
-        
-        # Get messages with read_by count annotation
-        # Show messages that are: not deleted OR (deleted but sent by current user and not deleted for everyone)
-        messages_qs = conversation.messages.filter(
-            Q(is_deleted=False) | (Q(sender=self.request.user) & Q(deleted_for_everyone=False))
-        ).select_related('sender').prefetch_related('read_by').annotate(
-            read_by_count=Count('read_by')
-        ).order_by('created_at')
-        
-        context['messages'] = messages_qs
-        context['other_participant'] = conversation.get_other_participant(self.request.user)
-        context['is_admin'] = conversation.is_admin(self.request.user)
-        context['is_creator'] = (conversation.creator_id == self.request.user.id)
-        context['participants_count'] = conversation.participants.count()
-        
-        # Mark all messages as read - bulk operation
-        unread_messages = [msg for msg in messages_qs if msg.sender != self.request.user]
-        for msg in unread_messages:
-            msg.read_by.add(self.request.user)
-        
-        return context
-
-
-@login_required
-def participants_panel(request, pk):
-    """Return participants panel partial for a conversation (HTMX)."""
-    conversation = get_object_or_404(
-        Conversation.objects.prefetch_related('participants', 'admins'),
-        pk=pk,
-        participants=request.user,
-        is_group=True
-    )
-    return render(request, 'messaging/partials/participants_panel.html', {
-        'conversation': conversation,
-        'user': request.user,
-        'is_admin': conversation.is_admin(request.user),
-        'is_creator': (conversation.creator_id == request.user.id),
-    })
-
-
-@login_required
-def start_conversation(request, username):
-    """Start or get existing conversation with a user"""
-    other_user = get_object_or_404(User, username=username)
-    
-    if other_user == request.user:
-        messages.error(request, "You cannot message yourself.")
-        return redirect('users:profile')
-    
-    # Check if conversation already exists
-    conversation = Conversation.objects.filter(
-        participants=request.user,
-        is_group=False
-    ).filter(
-        participants=other_user
-    ).first()
-    
-    # Create new conversation if doesn't exist
-    if not conversation:
-        conversation = Conversation.objects.create(is_group=False)
-        conversation.participants.add(request.user, other_user)
-    
-    return redirect('messaging:conversation_detail', pk=conversation.pk)
-
-
-@login_required
-def create_group_conversation(request):
-    """Create a new group conversation."""
-    if request.method == 'POST':
-        form = ConversationForm(request.POST)
-        if form.is_valid():
-            conv = Conversation.objects.create(is_group=True, group_name=form.cleaned_data['group_name'], creator=request.user)
-            # Add current user and selected participants
-            conv.participants.add(request.user)
-            conv.participants.add(*form.cleaned_data['participants'])
-            # Make creator admin
-            conv.admins.add(request.user)
-            from django.http import HttpResponseRedirect
-            from django.urls import reverse
-            url = reverse('messaging:conversation_list') + f'?conversation={conv.pk}'
-            return HttpResponseRedirect(url)
-    return HttpResponseForbidden()
-
-
-@login_required
-def create_conversation(request):
-    """Create or get existing 1-on-1 conversation."""
-    if request.method == 'POST':
-        user_id = request.POST.get('user_id')
-        if user_id:
-            try:
-                other_user = User.objects.get(pk=int(user_id), is_active=True)
-                if other_user == request.user:
-                    messages.error(request, "Нельзя создать чат с самим собой.")
-                    return redirect('messaging:conversation_list')
-                
-                # Check if conversation exists
-                conversation = Conversation.objects.filter(
-                    participants=request.user,
-                    is_group=False
-                ).filter(
-                    participants=other_user
-                ).first()
-                
-                # Create if doesn't exist
-                if not conversation:
-                    conversation = Conversation.objects.create(is_group=False)
-                    conversation.participants.add(request.user, other_user)
-                
-                from django.http import HttpResponseRedirect
-                from django.urls import reverse
-                url = reverse('messaging:conversation_list') + f'?conversation={conversation.pk}'
-                return HttpResponseRedirect(url)
-            except (User.DoesNotExist, ValueError):
-                messages.error(request, "Пользователь не найден.")
-                return redirect('messaging:conversation_list')
-    
-    return HttpResponseForbidden()
-
-
-@login_required
-def send_message(request, pk):
-    """Send a message in a conversation"""
-    conversation = get_object_or_404(Conversation, pk=pk, participants=request.user)
-    
-    if request.method == 'POST':
-        text = request.POST.get('text', '').strip()
-        file = request.FILES.get('file')
-        
-        # Validate: must have either text or file
-        if not text and not file:
-            return HttpResponseForbidden()
-        
-        # Create message (text can be empty if file is provided)
-        message = Message.objects.create(
-            conversation=conversation,
-            sender=request.user,
-            text=text  # Can be empty string if file is attached
-        )
-        
-        if file:
-            message.file = file
-            message.save()
-        
-        # Mark sender as having read their own message
-        message.read_by.add(request.user)
-        
-        # Annotate read_by_count for template
-        from django.db.models import Count as DjangoCount
-        message.read_by_count = message.read_by.count()
-        
-        # Return message item for conversation detail view
-        return render(request, 'messaging/partials/message_item.html', {
-            'message': message,
-            'user': request.user,
-            'conversation': conversation,
-            'participants_count': conversation.participants.count(),
-        })
-    
-    return HttpResponseForbidden()
-
-
-@login_required
-def new_messages(request, pk):
-    """Return new messages after given message id (for polling)."""
-    conversation = get_object_or_404(Conversation, pk=pk, participants=request.user)
-    after_id = request.GET.get('after')
-    try:
-        after_id = int(after_id or 0)
-    except ValueError:
-        after_id = 0
-
-    qs = conversation.messages.filter(
-        Q(is_deleted=False) | (Q(sender=request.user) & Q(deleted_for_everyone=False)),
-        pk__gt=after_id
-    ).select_related('sender').prefetch_related('read_by').annotate(
-        read_by_count=Count('read_by')
-    ).order_by('created_at')
-
-    if not qs.exists():
-        return JsonResponse({})  # Empty response
-
-    # Mark as read for current user (incoming only) - bulk operation
-    unread_messages = [msg for msg in qs if msg.sender != request.user]
-    for msg in unread_messages:
-        msg.read_by.add(request.user)
-
-    # Return HTML for each message
-    html_parts = []
-    for message in qs:
-        html = render(request, 'messaging/partials/message_item.html', {
-            'message': message,
-            'user': request.user,
-            'conversation': conversation,
-            'participants_count': conversation.participants.count(),
-        }).content.decode('utf-8')
-        html_parts.append(html)
-    
-    return render(request, 'messaging/partials/messages_chunk.html', {
-        'messages': qs,
-        'user': request.user,
-        'conversation': conversation,
-        'participants_count': conversation.participants.count(),
-    })
-
-
-@login_required
-def old_messages(request, pk):
-    """Return older messages before given message id, prepend to list."""
-    conversation = get_object_or_404(Conversation, pk=pk, participants=request.user)
-    before_id = request.GET.get('before')
-    try:
-        before_id = int(before_id or 0)
-    except ValueError:
-        before_id = 0
-
-    if before_id <= 0:
-        return JsonResponse({'ok': True})
-
-    # Fetch up to 20 older messages
-    qs = conversation.messages.filter(pk__lt=before_id).select_related('sender').prefetch_related('read_by').annotate(
-        read_by_count=Count('read_by')
-    ).order_by('-created_at')[:20]
-    # Reverse to chronological order for prepend
-    messages_list = list(qs)[::-1]
-    if not messages_list:
-        return JsonResponse({'ok': True})
-
-    return render(request, 'messaging/partials/messages_chunk.html', {
-        'messages': messages_list,
-        'user': request.user,
-        'conversation': conversation,
-        'participants_count': conversation.participants.count(),
-    })
-
-
-@login_required
-def old_remaining(request, pk):
-    """Return count of older messages before given message id."""
-    conversation = get_object_or_404(Conversation, pk=pk, participants=request.user)
-    before_id = request.GET.get('before')
-    try:
-        before_id = int(before_id or 0)
-    except ValueError:
-        before_id = 0
-
-    if before_id <= 0:
-        count = conversation.messages.count()
-    else:
-        count = conversation.messages.filter(pk__lt=before_id).count()
-
-    return JsonResponse({'count': count})
-
-
-@login_required
-def delete_message(request, pk):
-    """Delete a message"""
-    message = get_object_or_404(Message, pk=pk)
-    conversation = message.conversation
-    
-    # Check permission
-    if message.sender != request.user and not conversation.participants.filter(pk=request.user.pk).exists():
-        return HttpResponseForbidden()
-    
-    if request.method == 'POST':
-        delete_for_everyone = request.POST.get('delete_for_everyone') == 'true'
-        
-        if delete_for_everyone and message.sender == request.user:
-            message.deleted_for_everyone = True
-            message.text = "This message was deleted"
-        
-        message.is_deleted = True
-        message.save()
-        
-        if request.headers.get('HX-Request'):
-            return JsonResponse({'success': True})
-        
-        return redirect('messaging:conversation_detail', pk=conversation.pk)
-    
-    return HttpResponseForbidden()
-
-
-@login_required
-def pin_message(request, pk):
-    """Pin/unpin a message"""
-    message = get_object_or_404(Message, pk=pk)
-    conversation = message.conversation
-    
-    # Check permission
-    if not conversation.participants.filter(pk=request.user.pk).exists():
-        return HttpResponseForbidden()
-    
-    if request.method == 'POST':
-        message.is_pinned = not message.is_pinned
-        message.save()
-        
-        if request.headers.get('HX-Request'):
-            return JsonResponse({
-                'success': True,
-                'is_pinned': message.is_pinned
-            })
-        
-        return redirect('messaging:conversation_detail', pk=conversation.pk)
-    
-    return HttpResponseForbidden()
-
-
-@login_required
-def edit_message(request, pk):
-    """Edit own message text via HTMX prompt."""
-    message = get_object_or_404(Message, pk=pk)
-    if message.sender != request.user:
-        return HttpResponseForbidden()
-
-    if request.method == 'POST':
-        new_text = request.POST.get('prompt', '').strip()
-        if new_text:
-            message.text = new_text
-            message.edited_at = timezone.now()
-            message.save()
-        # Reload message with annotation
-        message = Message.objects.filter(pk=message.pk).select_related('sender').prefetch_related('read_by').annotate(
-            read_by_count=Count('read_by')
-        ).first()
-        return render(request, 'messaging/partials/message_item.html', {
-            'message': message,
-            'user': request.user,
-            'conversation': message.conversation,
-            'participants_count': message.conversation.participants.count(),
-        })
-
-    return HttpResponseForbidden()
-
-
-@login_required
-def add_participant(request, pk):
-    """Add participant to a group conversation."""
-    conversation = get_object_or_404(Conversation, pk=pk, participants=request.user, is_group=True)
-    # Only admins/creator can add participants
-    if not conversation.is_admin(request.user):
-        return HttpResponseForbidden()
-    if request.method == 'POST':
-        username = request.POST.get('username', '').strip()
-        if username:
-            user = User.objects.filter(username=username, is_active=True).first()
-            if user and not conversation.participants.filter(pk=user.pk).exists():
-                conversation.participants.add(user)
-                messages.success(request, f'Добавлен участник: {user.username}')
-        if request.headers.get('HX-Request'):
-            return participants_panel(request, pk)
-        return redirect('messaging:conversation_detail', pk=conversation.pk)
-    return HttpResponseForbidden()
-
-
-@login_required
-def remove_participant(request, pk, user_id):
-    """Remove participant from a group conversation (cannot remove self)."""
-    conversation = get_object_or_404(Conversation, pk=pk, participants=request.user, is_group=True)
-    # Only admins/creator can remove participants
-    if not conversation.is_admin(request.user):
-        return HttpResponseForbidden()
-    target = get_object_or_404(User, pk=user_id)
-    if request.method == 'POST':
-        # cannot remove creator
-        if target == conversation.creator:
-            messages.error(request, 'Нельзя удалить создателя группы')
-        elif target != request.user and conversation.participants.filter(pk=target.pk).exists():
-            conversation.participants.remove(target)
-            messages.warning(request, f'Удалён участник: {target.username}')
-        if request.headers.get('HX-Request'):
-            return participants_panel(request, pk)
-        return redirect('messaging:conversation_detail', pk=conversation.pk)
-    return HttpResponseForbidden()
-
-
-@login_required
-def leave_group(request, pk):
-    """Leave a group conversation."""
-    conversation = get_object_or_404(Conversation, pk=pk, participants=request.user, is_group=True)
-    if request.method == 'POST':
-        conversation.participants.remove(request.user)
-        messages.info(request, 'Вы покинули группу')
-        return redirect('messaging:conversation_list')
-    return HttpResponseForbidden()
-
-
-@login_required
-def search_users(request):
-    """Search active users by username, names, or permanent_id excluding current user. Returns HTML list (HTMX)."""
-    q = (request.GET.get('q') or '').strip()
-    users = User.objects.none()
-    if q:
-        users = User.objects.filter(is_active=True).exclude(pk=request.user.pk).filter(
-            Q(username__icontains=q) | Q(first_name__icontains=q) | Q(last_name__icontains=q) | Q(permanent_id__icontains=q)
-        ).order_by(Lower('username'))[:20]
-    return render(request, 'messaging/partials/search_results.html', {
-        'users': users,
-    })
-
-
-@login_required
-def toggle_admin(request, pk, user_id):
-    """Creator toggles admin rights for a participant."""
-    conversation = get_object_or_404(Conversation, pk=pk, participants=request.user, is_group=True)
-    if conversation.creator_id != request.user.id:
-        return HttpResponseForbidden()
-    target = get_object_or_404(User, pk=user_id)
-    if request.method == 'POST':
-        if target == conversation.creator:
-            messages.error(request, 'Создатель и так главный админ')
-        elif conversation.participants.filter(pk=target.pk).exists():
-            if conversation.admins.filter(pk=target.pk).exists():
-                conversation.admins.remove(target)
-                messages.info(request, f'Снят админ: {target.username}')
-            else:
-                conversation.admins.add(target)
-                messages.success(request, f'Назначен админ: {target.username}')
-        if request.headers.get('HX-Request'):
-            return participants_panel(request, pk)
-        return redirect('messaging:conversation_detail', pk=conversation.pk)
-    return HttpResponseForbidden()
-
-
-@login_required
-def mark_message_read(request, pk):
-    """Mark a message as read"""
-    message = get_object_or_404(Message, pk=pk)
-    
-    if message.conversation.participants.filter(pk=request.user.pk).exists():
-        message.mark_as_read(request.user)
-        
-        if request.headers.get('HX-Request'):
-            return JsonResponse({'success': True})
-    
-    return JsonResponse({'success': False})
-
-
-@login_required
-def typing_indicator(request, pk):
-    """Update typing indicator for a conversation using cache"""
-    conversation = get_object_or_404(Conversation, pk=pk, participants=request.user)
-    
-    if request.method == 'POST':
-        typing_cache.set_typing_v2(
-            conversation_id=conversation.pk,
-            user_id=request.user.pk,
-            username=request.user.username
-        )
-        return JsonResponse({'success': True})
-    
-    return JsonResponse({'success': False})
-
-
-@login_required
-def typing_status(request, pk):
-    """Get typing status for a conversation from cache"""
-    conversation = get_object_or_404(Conversation, pk=pk, participants=request.user)
-    
-    typing_usernames = typing_cache.get_typing_users_v2(
-        conversation_id=conversation.pk,
-        exclude_user_id=request.user.pk
-    )
-    
+def api_response(success=True, message='OK', data=None, status=200):
+    """Стандартный формат ответа API"""
     return JsonResponse({
-        'typing': len(typing_usernames) > 0,
-        'users': typing_usernames
-    })
+        'success': success,
+        'message': message,
+        'data': data or {}
+    }, status=status)
 
+
+def api_error(message, status=400):
+    """Ответ с ошибкой"""
+    return api_response(success=False, message=message, status=status)
+
+
+# ============================================================================
+# CHAT LIST API
+# ============================================================================
 
 @login_required
-def api_conversations(request):
-    """API endpoint: Get user's conversations for messaging panel"""
-    if request.method != 'GET':
-        return JsonResponse({'error': 'Method not allowed'}, status=405)
-    
-    conversations = Conversation.objects.filter(
-        participants=request.user
-    ).prefetch_related(
-        'participants',
-        Prefetch('messages', queryset=Message.objects.filter(is_deleted=False).order_by('-created_at')[:1], to_attr='recent_messages')
-    ).annotate(
-        unread_count=Count('messages', filter=~Q(messages__sender=request.user) & ~Q(messages__read_by=request.user))
-    ).order_by('-updated_at')[:20]  # Limit to 20 conversations
-    
-    data = []
-    for conv in conversations:
-        last_message = conv.recent_messages[0] if conv.recent_messages else None
+@require_http_methods(['GET'])
+def api_chat_list(request):
+    """
+    Получить список чатов пользователя
+    GET /messages/api/chats/
+    Query params:
+        - search: поиск по имени собеседника
+        - page: страница (default 1)
+        - per_page: чатов на странице (default 20)
+    """
+    try:
+        user = request.user
+        search = request.GET.get('search', '').strip()
+        page = int(request.GET.get('page', 1))
+        per_page = min(int(request.GET.get('per_page', 20)), 50)
         
-        # Get other participant for 1-on-1 chats
-        other_participant = None
-        if not conv.is_group:
-            other_participant = next(
-                (p for p in conv.participants.all() if p.pk != request.user.pk),
-                None
+        # Базовый запрос
+        chats = Chat.get_user_chats(user).annotate(
+            unread_count=Count(
+                'messages',
+                filter=Q(messages__is_read=False, messages__is_deleted=False) & ~Q(messages__sender=user)
+            )
+        )
+        
+        # Поиск по имени собеседника
+        if search:
+            chats = chats.filter(
+                Q(user1__username__icontains=search) |
+                Q(user1__first_name__icontains=search) |
+                Q(user1__last_name__icontains=search) |
+                Q(user2__username__icontains=search) |
+                Q(user2__first_name__icontains=search) |
+                Q(user2__last_name__icontains=search)
             )
         
-        conv_data = {
-            'id': conv.id,
-            'is_group': conv.is_group,
-            'group_name': conv.group_name,
-            'unread_count': conv.unread_count,
-            'last_message': {
-                'text': last_message.text or '[File]' if last_message else '',
-                'created_at': last_message.created_at.isoformat() if last_message else None,
-                'sender': last_message.sender.username if last_message else None,
-            } if last_message else None,
-            'other_participant': {
-                'id': other_participant.id,
-                'username': other_participant.username,
-                'avatar': {
-                    'url': other_participant.avatar.url if other_participant.avatar and other_participant.avatar.name != 'avatars/default.png' else None
-                }
-            } if other_participant else None,
-            'participants_count': conv.participants.count(),
-        }
+        chats = chats.order_by('-updated_at')
         
-        data.append(conv_data)
+        # Пагинация
+        paginator = Paginator(chats, per_page)
+        page_obj = paginator.get_page(page)
+        
+        # Формируем ответ
+        chat_list = []
+        for chat in page_obj:
+            other_user = chat.get_other_user(user)
+            
+            # Аватар
+            avatar_url = None
+            if hasattr(other_user, 'avatar') and other_user.avatar:
+                try:
+                    avatar_url = other_user.avatar.url
+                except:
+                    pass
+            
+            chat_list.append({
+                'id': chat.id,
+                'other_user': {
+                    'id': other_user.id,
+                    'username': other_user.username,
+                    'name': other_user.get_full_name() or other_user.username,
+                    'avatar': avatar_url,
+                },
+                'last_message': chat.last_message_text or None,
+                'last_message_at': chat.last_message_at.isoformat() if chat.last_message_at else None,
+                'unread_count': chat.unread_count,
+                'updated_at': chat.updated_at.isoformat(),
+            })
+        
+        return api_response(data={
+            'chats': chat_list,
+            'total': paginator.count,
+            'page': page,
+            'pages': paginator.num_pages,
+            'has_next': page_obj.has_next(),
+            'has_prev': page_obj.has_previous(),
+        })
     
-    return JsonResponse(data, safe=False)
+    except Exception as e:
+        logger.exception("Error in api_chat_list")
+        return api_error(str(e), status=500)
+
+
+@login_required
+@require_http_methods(['GET'])
+def api_unread_count(request):
+    """
+    Получить общее количество непрочитанных сообщений
+    GET /messages/api/unread-count/
+    """
+    try:
+        user = request.user
+        
+        count = Message.objects.filter(
+            Q(chat__user1=user) | Q(chat__user2=user),
+            is_read=False,
+            is_deleted=False
+        ).exclude(sender=user).count()
+        
+        return api_response(data={'count': count})
+    
+    except Exception as e:
+        logger.exception("Error in api_unread_count")
+        return api_error(str(e), status=500)
+
+
+# ============================================================================
+# CHAT DETAIL / MESSAGES API
+# ============================================================================
+
+@login_required
+@require_http_methods(['GET'])
+def api_chat_messages(request, chat_id):
+    """
+    Получить сообщения чата
+    GET /messages/api/chats/<chat_id>/messages/
+    Query params:
+        - page: страница (default 1)
+        - per_page: сообщений на странице (default 50)
+        - before_id: загрузить сообщения до этого ID (для бесконечного скролла)
+    """
+    try:
+        user = request.user
+        
+        # Проверка доступа
+        chat = get_object_or_404(Chat, pk=chat_id)
+        if chat.user1_id != user.id and chat.user2_id != user.id:
+            return api_error('Access denied', status=403)
+        
+        page = int(request.GET.get('page', 1))
+        per_page = min(int(request.GET.get('per_page', 50)), 100)
+        before_id = request.GET.get('before_id')
+        
+        # Базовый запрос
+        messages = Message.objects.filter(
+            chat=chat,
+            is_deleted=False
+        ).select_related('sender')
+        
+        # Фильтр для бесконечного скролла
+        if before_id:
+            messages = messages.filter(id__lt=int(before_id))
+        
+        messages = messages.order_by('-created_at')
+        
+        # Пагинация
+        paginator = Paginator(messages, per_page)
+        page_obj = paginator.get_page(page)
+        
+        # Отмечаем сообщения как прочитанные
+        unread_ids = [
+            m.id for m in page_obj 
+            if not m.is_read and m.sender_id != user.id
+        ]
+        if unread_ids:
+            Message.objects.filter(id__in=unread_ids).update(
+                is_read=True,
+                read_at=timezone.now()
+            )
+        
+        # Формируем ответ
+        message_list = []
+        for msg in page_obj:
+            # Аватар отправителя
+            avatar_url = None
+            if hasattr(msg.sender, 'avatar') and msg.sender.avatar:
+                try:
+                    avatar_url = msg.sender.avatar.url
+                except:
+                    pass
+            
+            message_list.append({
+                'id': msg.id,
+                'text': msg.text,
+                'sender': {
+                    'id': msg.sender.id,
+                    'username': msg.sender.username,
+                    'name': msg.sender.get_full_name() or msg.sender.username,
+                    'avatar': avatar_url,
+                },
+                'is_own': msg.sender_id == user.id,
+                'is_read': msg.is_read,
+                'created_at': msg.created_at.isoformat(),
+                'edited_at': msg.edited_at.isoformat() if msg.edited_at else None,
+                'file_url': msg.file.url if msg.file else None,
+                'file_name': msg.file_name or None,
+                'file_type': msg.file_type or None,
+            })
+        
+        # Реверсируем для правильного порядка (старые сверху)
+        message_list.reverse()
+        
+        # Информация о собеседнике
+        other_user = chat.get_other_user(user)
+        other_avatar = None
+        if hasattr(other_user, 'avatar') and other_user.avatar:
+            try:
+                other_avatar = other_user.avatar.url
+            except:
+                pass
+        
+        return api_response(data={
+            'messages': message_list,
+            'chat': {
+                'id': chat.id,
+                'other_user': {
+                    'id': other_user.id,
+                    'username': other_user.username,
+                    'name': other_user.get_full_name() or other_user.username,
+                    'avatar': other_avatar,
+                }
+            },
+            'total': paginator.count,
+            'page': page,
+            'pages': paginator.num_pages,
+            'has_more': page_obj.has_next(),
+        })
+    
+    except Exception as e:
+        logger.exception("Error in api_chat_messages")
+        return api_error(str(e), status=500)
+
+
+# ============================================================================
+# CREATE CHAT / SEND MESSAGE API
+# ============================================================================
+
+@login_required
+@require_http_methods(['POST'])
+def api_create_chat(request):
+    """
+    Создать чат с пользователем или получить существующий
+    POST /messages/api/chats/create/
+    Body: { "user_id": 123 }
+    """
+    try:
+        data = json.loads(request.body)
+        other_user_id = data.get('user_id')
+        
+        if not other_user_id:
+            return api_error('user_id required')
+        
+        # Нельзя создать чат с самим собой
+        if other_user_id == request.user.id:
+            return api_error('Cannot create chat with yourself')
+        
+        # Получаем пользователя
+        try:
+            other_user = User.objects.get(pk=other_user_id, is_active=True)
+        except User.DoesNotExist:
+            return api_error('User not found', status=404)
+        
+        # Создаём или получаем чат
+        chat, created = Chat.get_or_create_chat(request.user, other_user)
+        
+        return api_response(data={
+            'chat_id': chat.id,
+            'created': created,
+            'other_user': {
+                'id': other_user.id,
+                'username': other_user.username,
+                'name': other_user.get_full_name() or other_user.username,
+            }
+        })
+    
+    except json.JSONDecodeError:
+        return api_error('Invalid JSON')
+    except Exception as e:
+        logger.exception("Error in api_create_chat")
+        return api_error(str(e), status=500)
+
+
+@login_required
+@require_http_methods(['POST'])
+def api_send_message(request, chat_id):
+    """
+    Отправить сообщение в чат (с поддержкой файлов)
+    POST /messages/api/chats/<chat_id>/send/
+    Body: FormData with text and/or file
+    """
+    try:
+        user = request.user
+        
+        # Проверка доступа
+        chat = get_object_or_404(Chat, pk=chat_id)
+        if chat.user1_id != user.id and chat.user2_id != user.id:
+            return api_error('Access denied', status=403)
+        
+        # Проверяем тип данных (FormData или JSON)
+        content_type = request.content_type or ''
+        
+        if 'multipart/form-data' in content_type:
+            # FormData с файлом
+            text = request.POST.get('text', '').strip()
+            file = request.FILES.get('file')
+        else:
+            # JSON
+            try:
+                data = json.loads(request.body)
+                text = data.get('text', '').strip()
+                file = None
+            except json.JSONDecodeError:
+                return api_error('Invalid JSON')
+        
+        if not text and not file:
+            return api_error('Message text or file required')
+        
+        # Создаём сообщение
+        message = Message.objects.create(
+            chat=chat,
+            sender=user,
+            text=text,
+            file=file
+        )
+        
+        # Аватар
+        avatar_url = None
+        if hasattr(user, 'avatar') and user.avatar:
+            try:
+                avatar_url = user.avatar.url
+            except:
+                pass
+        
+        # URL файла
+        file_url = None
+        if message.file:
+            try:
+                file_url = message.file.url
+            except:
+                pass
+        
+        # Broadcast через channels (если настроен)
+        try:
+            from asgiref.sync import async_to_sync
+            from channels.layers import get_channel_layer
+            
+            channel_layer = get_channel_layer()
+            if channel_layer:
+                async_to_sync(channel_layer.group_send)(
+                    f'chat_{chat_id}',
+                    {
+                        'type': 'chat_message_event',
+                        'message': {
+                            'id': message.id,
+                            'text': message.text,
+                            'file_url': file_url,
+                            'sender_id': user.id,
+                            'sender_name': user.get_full_name() or user.username,
+                            'sender_avatar': avatar_url,
+                            'is_read': False,
+                            'created_at': message.created_at.isoformat(),
+                        }
+                    }
+                )
+        except Exception as e:
+            logger.warning(f"Could not broadcast message: {e}")
+        
+        return api_response(data={
+            'message': {
+                'id': message.id,
+                'text': message.text,
+                'file_url': file_url,
+                'sender': {
+                    'id': user.id,
+                    'username': user.username,
+                    'avatar': avatar_url,
+                },
+                'is_own': True,
+                'created_at': message.created_at.isoformat(),
+            }
+        })
+    
+    except Exception as e:
+        logger.exception("Error in api_send_message")
+        return api_error(str(e), status=500)
+
+
+# ============================================================================
+# SEARCH API
+# ============================================================================
+
+@login_required
+@require_http_methods(['GET'])
+def api_search_users(request):
+    """
+    Поиск пользователей для создания чата
+    GET /messages/api/users/search/?q=...
+    """
+    try:
+        q = request.GET.get('q', '').strip()
+        limit = min(int(request.GET.get('limit', 10)), 30)
+        
+        if not q or len(q) < 2:
+            return api_response(data={'users': []})
+        
+        users = User.objects.filter(
+            is_active=True
+        ).exclude(pk=request.user.pk).filter(
+            Q(username__icontains=q) |
+            Q(first_name__icontains=q) |
+            Q(last_name__icontains=q)
+        )[:limit]
+        
+        user_list = []
+        for u in users:
+            avatar_url = None
+            if hasattr(u, 'avatar') and u.avatar:
+                try:
+                    avatar_url = u.avatar.url
+                except:
+                    pass
+            
+            user_list.append({
+                'id': u.id,
+                'username': u.username,
+                'name': u.get_full_name() or u.username,
+                'avatar': avatar_url,
+            })
+        
+        return api_response(data={'users': user_list})
+    
+    except Exception as e:
+        logger.exception("Error in api_search_users")
+        return api_error(str(e), status=500)
+
+
+@login_required
+@require_http_methods(['GET'])
+def api_search_messages(request):
+    """
+    Поиск по сообщениям
+    GET /messages/api/messages/search/?q=...
+    """
+    try:
+        user = request.user
+        q = request.GET.get('q', '').strip()
+        chat_id = request.GET.get('chat_id')
+        limit = min(int(request.GET.get('limit', 20)), 50)
+        
+        if not q or len(q) < 2:
+            return api_response(data={'messages': []})
+        
+        # Базовый запрос
+        messages = Message.objects.filter(
+            Q(chat__user1=user) | Q(chat__user2=user),
+            is_deleted=False,
+            text__icontains=q
+        ).select_related('sender', 'chat')
+        
+        # Фильтр по конкретному чату
+        if chat_id:
+            messages = messages.filter(chat_id=chat_id)
+        
+        messages = messages.order_by('-created_at')[:limit]
+        
+        result = []
+        for msg in messages:
+            other_user = msg.chat.get_other_user(user)
+            
+            result.append({
+                'id': msg.id,
+                'text': msg.text,
+                'chat_id': msg.chat_id,
+                'chat_name': other_user.get_full_name() or other_user.username,
+                'sender': msg.sender.username,
+                'created_at': msg.created_at.isoformat(),
+            })
+        
+        return api_response(data={'messages': result})
+    
+    except Exception as e:
+        logger.exception("Error in api_search_messages")
+        return api_error(str(e), status=500)
+
+
+# ============================================================================
+# PAGE VIEWS
+# ============================================================================
+
+@login_required
+def chat_list_view(request):
+    """Страница списка чатов"""
+    return render(request, 'messaging/chat_list.html')
+
+
+@login_required
+def chat_detail_view(request, chat_id):
+    """Страница конкретного чата"""
+    user = request.user
+    
+    chat = get_object_or_404(Chat, pk=chat_id)
+    if chat.user1_id != user.id and chat.user2_id != user.id:
+        from django.http import HttpResponseForbidden
+        return HttpResponseForbidden('Access denied')
+    
+    other_user = chat.get_other_user(user)
+    
+    context = {
+        'chat': chat,
+        'other_user': other_user,
+    }
+    return render(request, 'messaging/chat_detail.html', context)
+
+
+@login_required
+def start_chat_view(request, user_id):
+    """Начать чат с пользователем (редирект на существующий или новый)"""
+    from django.shortcuts import redirect
+    
+    try:
+        other_user = User.objects.get(pk=user_id, is_active=True)
+    except User.DoesNotExist:
+        from django.http import Http404
+        raise Http404('User not found')
+    
+    if other_user.id == request.user.id:
+        return redirect('messaging:chat_list')
+    
+    chat, created = Chat.get_or_create_chat(request.user, other_user)
+    return redirect('messaging:chat_detail', chat_id=chat.id)
 

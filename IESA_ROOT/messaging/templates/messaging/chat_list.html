@@ -1,0 +1,254 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Сообщения{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2 class="mb-0">
+                    <i class="fas fa-comments me-2 text-primary"></i>Сообщения
+                </h2>
+                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#newChatModalPage">
+                    <i class="bi bi-plus-circle me-2"></i>Новый чат
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <!-- Chat List -->
+        <div class="col-12 col-lg-4 mb-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-header">
+                    <input 
+                        type="text" 
+                        class="form-control" 
+                        id="chatSearchPage"
+                        placeholder="Поиск чатов..."
+                    >
+                </div>
+                <div class="card-body p-0" style="max-height: 70vh; overflow-y: auto;">
+                    <div id="chatListPage"></div>
+                    <div id="chatEmptyPage" class="text-center py-5 d-none">
+                        <i class="fas fa-inbox fa-3x mb-3 text-muted opacity-50"></i>
+                        <p class="text-muted">Нет чатов</p>
+                    </div>
+                    <div id="chatLoadingPage" class="text-center py-4 d-none">
+                        <div class="spinner-border text-primary"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Empty State (when no chat selected) -->
+        <div class="col-12 col-lg-8" id="noSelectionState">
+            <div class="card shadow-sm h-100">
+                <div class="card-body d-flex flex-column align-items-center justify-content-center" style="min-height: 60vh;">
+                    <i class="fas fa-comments fa-4x mb-4 text-muted opacity-25"></i>
+                    <h5 class="text-muted">Выберите чат</h5>
+                    <p class="text-muted">Или начните новый разговор</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- New Chat Modal -->
+<div class="modal fade" id="newChatModalPage" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-chat-plus me-2"></i>Новый чат
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input 
+                    type="text" 
+                    class="form-control mb-3" 
+                    id="userSearchPage"
+                    placeholder="Поиск пользователя..."
+                >
+                <div id="userResultsPage" style="max-height: 300px; overflow-y: auto;">
+                    <div class="text-center py-4 text-muted">
+                        <p class="mb-0">Введите имя для поиска</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.chat-item {
+    display: flex;
+    align-items: center;
+    padding: 1rem;
+    border-bottom: 1px solid #f0f0f0;
+    cursor: pointer;
+    transition: background 0.2s;
+    text-decoration: none;
+    color: inherit;
+}
+
+.chat-item:hover, .chat-item.active {
+    background: #f8f9fa;
+}
+
+.chat-item .avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: bold;
+    font-size: 1.1rem;
+    flex-shrink: 0;
+    overflow: hidden;
+}
+
+.chat-item .avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.user-item {
+    display: flex;
+    align-items: center;
+    padding: 0.75rem;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.user-item:hover {
+    background: #f8f9fa;
+}
+</style>
+
+<script>
+(function() {
+    const API_BASE = '/messages/api';
+    let searchTimeout = null;
+    
+    document.addEventListener('DOMContentLoaded', function() {
+        loadChats();
+        
+        // Search chats
+        document.getElementById('chatSearchPage').addEventListener('input', (e) => {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                loadChats(e.target.value.trim());
+            }, 300);
+        });
+        
+        // Search users
+        document.getElementById('userSearchPage').addEventListener('input', (e) => {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                searchUsers(e.target.value.trim());
+            }, 300);
+        });
+    });
+    
+    async function loadChats(search = '') {
+        const list = document.getElementById('chatListPage');
+        const empty = document.getElementById('chatEmptyPage');
+        const loading = document.getElementById('chatLoadingPage');
+        
+        loading.classList.remove('d-none');
+        list.innerHTML = '';
+        empty.classList.add('d-none');
+        
+        try {
+            const url = search 
+                ? `${API_BASE}/chats/?search=${encodeURIComponent(search)}`
+                : `${API_BASE}/chats/`;
+            
+            const response = await fetch(url);
+            const data = await response.json();
+            
+            loading.classList.add('d-none');
+            
+            if (data.success && data.data.chats.length > 0) {
+                list.innerHTML = data.data.chats.map(chat => {
+                    const avatar = chat.other_user.avatar 
+                        ? `<img src="${chat.other_user.avatar}" alt="">`
+                        : chat.other_user.name.charAt(0).toUpperCase();
+                    
+                    const unread = chat.unread_count > 0
+                        ? `<span class="badge bg-primary">${chat.unread_count}</span>`
+                        : '';
+                    
+                    return `
+                        <a href="/messages/${chat.id}/" class="chat-item">
+                            <div class="avatar">${avatar}</div>
+                            <div class="flex-grow-1 ms-3">
+                                <div class="fw-semibold">${escapeHtml(chat.other_user.name)}</div>
+                                <small class="text-muted">${escapeHtml(chat.last_message || 'Нет сообщений')}</small>
+                            </div>
+                            ${unread}
+                        </a>
+                    `;
+                }).join('');
+            } else {
+                empty.classList.remove('d-none');
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            loading.classList.add('d-none');
+        }
+    }
+    
+    async function searchUsers(query) {
+        const results = document.getElementById('userResultsPage');
+        
+        if (!query || query.length < 2) {
+            results.innerHTML = '<div class="text-center py-4 text-muted"><p class="mb-0">Введите имя для поиска</p></div>';
+            return;
+        }
+        
+        try {
+            const response = await fetch(`${API_BASE}/users/search/?q=${encodeURIComponent(query)}`);
+            const data = await response.json();
+            
+            if (data.success && data.data.users.length > 0) {
+                results.innerHTML = data.data.users.map(user => {
+                    const avatar = user.avatar 
+                        ? `<img src="${user.avatar}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;">`
+                        : `<div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#667eea,#764ba2);display:flex;align-items:center;justify-content:center;color:white;font-weight:bold;">${user.name.charAt(0).toUpperCase()}</div>`;
+                    
+                    return `
+                        <div class="user-item" onclick="window.location.href='/messages/start/${user.id}/'">
+                            ${avatar}
+                            <div class="ms-3">
+                                <div class="fw-semibold">${escapeHtml(user.name)}</div>
+                                <small class="text-muted">@${escapeHtml(user.username)}</small>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            } else {
+                results.innerHTML = '<div class="text-center py-4 text-muted"><p class="mb-0">Пользователи не найдены</p></div>';
+            }
+        } catch (error) {
+            console.error('Error:', error);
+        }
+    }
+    
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text || '';
+        return div.innerHTML;
+    }
+})();
+</script>
+{% endblock %}

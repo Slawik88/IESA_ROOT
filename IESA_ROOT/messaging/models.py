@@ -1,204 +1,221 @@
+"""
+Messaging System v3.0 - Models
+Чистая архитектура для личных чатов 1-на-1 с real-time через WebSocket
+"""
+
 from django.db import models
 from django.conf import settings
 from django.utils import timezone
-from django.db.models import Q
+import uuid
+import os
 
 
-class Conversation(models.Model):
+def message_file_path(instance, filename):
+    """Генерация пути для файлов сообщений"""
+    ext = filename.split('.')[-1]
+    new_filename = f"{uuid.uuid4().hex}.{ext}"
+    return os.path.join('chat_files', str(instance.chat.id), new_filename)
+
+
+class Chat(models.Model):
     """
-    Represents a conversation between participants.
-    Scalable design: supports future group messaging (participants ManyToMany).
+    Личный чат между двумя пользователями.
+    Один чат = один уникальный разговор между user1 и user2.
     """
-    # ManyToMany allows for future group chats
-    participants = models.ManyToManyField(
+    # Участники чата (всегда 2 пользователя)
+    user1 = models.ForeignKey(
         settings.AUTH_USER_MODEL,
-        related_name='conversations',
-        verbose_name='Participants'
+        on_delete=models.CASCADE,
+        related_name='chats_as_user1'
     )
-    # Roles
-    creator = models.ForeignKey(
+    user2 = models.ForeignKey(
         settings.AUTH_USER_MODEL,
-        null=True,
-        blank=True,
-        on_delete=models.SET_NULL,
-        related_name='created_conversations',
-        verbose_name='Creator'
-    )
-    admins = models.ManyToManyField(
-        settings.AUTH_USER_MODEL,
-        blank=True,
-        related_name='admin_conversations',
-        verbose_name='Admins'
+        on_delete=models.CASCADE,
+        related_name='chats_as_user2'
     )
     
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Created At')
-    updated_at = models.DateTimeField(auto_now=True, verbose_name='Last Updated')
+    # Метаданные
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
     
-    # Future: add is_group, group_name, group_avatar fields
-    is_group = models.BooleanField(default=False, verbose_name='Is Group Chat')
-    group_name = models.CharField(max_length=255, blank=True, verbose_name='Group Name')
+    # Кеш последнего сообщения для быстрой загрузки списка чатов
+    last_message_text = models.CharField(max_length=255, blank=True, default='')
+    last_message_at = models.DateTimeField(null=True, blank=True)
     
     class Meta:
         ordering = ['-updated_at']
-        verbose_name = 'Conversation'
-        verbose_name_plural = 'Conversations'
+        # Уникальная пара пользователей (независимо от порядка)
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user1', 'user2'],
+                name='unique_chat_pair'
+            )
+        ]
         indexes = [
-            models.Index(fields=['-updated_at']),
+            models.Index(fields=['user1', 'updated_at']),
+            models.Index(fields=['user2', 'updated_at']),
         ]
     
     def __str__(self):
-        if self.is_group:
-            return f"Group: {self.group_name or f'Conversation {self.pk}'}"
-        participants = self.participants.all()[:2]
-        return f"Chat: {' & '.join([p.username for p in participants])}"
+        return f"Chat {self.id}: {self.user1.username} <-> {self.user2.username}"
     
-    def get_other_participant(self, user):
-        """Get the other participant in a 1-on-1 conversation"""
-        return self.participants.exclude(pk=user.pk).first()
-
-    def is_admin(self, user):
-        """Check if user has admin permissions in this conversation."""
-        if user is None:
-            return False
-        return (self.creator_id == user.id) or self.admins.filter(pk=user.pk).exists()
+    def get_other_user(self, user):
+        """Получить собеседника"""
+        return self.user2 if self.user1_id == user.id else self.user1
     
-    def get_last_message(self):
-        """Get the most recent message in this conversation"""
-        return self.messages.first()
+    def update_last_message(self, message):
+        """Обновить кеш последнего сообщения"""
+        self.last_message_text = message.text[:255] if message.text else '[File]'
+        self.last_message_at = message.created_at
+        self.save(update_fields=['last_message_text', 'last_message_at', 'updated_at'])
     
-    def get_unread_count(self, user):
-        """Get count of unread messages for a specific user"""
-        return self.messages.filter(
-            ~Q(sender=user)
-        ).exclude(read_by=user).count()
+    @classmethod
+    def get_or_create_chat(cls, user1, user2):
+        """
+        Получить или создать чат между двумя пользователями.
+        Нормализует порядок пользователей для уникальности.
+        """
+        # Нормализуем порядок по ID
+        if user1.id > user2.id:
+            user1, user2 = user2, user1
+        
+        chat, created = cls.objects.get_or_create(
+            user1=user1,
+            user2=user2
+        )
+        return chat, created
+    
+    @classmethod
+    def get_user_chats(cls, user):
+        """Получить все чаты пользователя"""
+        return cls.objects.filter(
+            models.Q(user1=user) | models.Q(user2=user)
+        ).select_related('user1', 'user2')
 
 
 class Message(models.Model):
     """
-    Represents a single message within a conversation.
-    Supports text, files, read receipts, pinning, and deletion.
+    Сообщение в чате.
+    Поддерживает текст, файлы, статус прочтения и редактирование.
     """
-    conversation = models.ForeignKey(
-        Conversation,
+    chat = models.ForeignKey(
+        Chat,
         on_delete=models.CASCADE,
-        related_name='messages',
-        verbose_name='Conversation'
+        related_name='messages'
     )
     sender = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
-        related_name='sent_messages',
-        verbose_name='Sender'
+        related_name='sent_messages'
     )
     
-    # Message content
-    text = models.TextField(verbose_name='Message Text', blank=True, default='')
+    # Контент
+    text = models.TextField(blank=True, default='')
+    file = models.FileField(upload_to=message_file_path, blank=True, null=True)
+    file_name = models.CharField(max_length=255, blank=True, default='')
+    file_type = models.CharField(max_length=50, blank=True, default='')  # image, document, etc.
     
-    # File/media support
-    file = models.FileField(
-        upload_to='messages/files/',
-        blank=True,
-        null=True,
-        verbose_name='Attached File'
-    )
+    # Временные метки
+    created_at = models.DateTimeField(auto_now_add=True)
+    edited_at = models.DateTimeField(null=True, blank=True)
     
-    # Timestamps
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Sent At')
-    edited_at = models.DateTimeField(null=True, blank=True, verbose_name='Edited At')
-    
-    # Read receipts - ManyToMany to track who read the message
-    read_by = models.ManyToManyField(
-        settings.AUTH_USER_MODEL,
-        related_name='read_messages',
-        blank=True,
-        verbose_name='Read By'
-    )
-    
-    # Message status
-    is_pinned = models.BooleanField(default=False, verbose_name='Pinned')
-    is_deleted = models.BooleanField(default=False, verbose_name='Deleted')
-    deleted_for_everyone = models.BooleanField(default=False, verbose_name='Deleted for Everyone')
-    
-    # Reply/thread support (future enhancement)
-    reply_to = models.ForeignKey(
-        'self',
-        null=True,
-        blank=True,
-        on_delete=models.SET_NULL,
-        related_name='replies',
-        verbose_name='Reply To'
-    )
+    # Статус
+    is_read = models.BooleanField(default=False)
+    read_at = models.DateTimeField(null=True, blank=True)
+    is_deleted = models.BooleanField(default=False)
     
     class Meta:
-        ordering = ['-created_at']
-        verbose_name = 'Message'
-        verbose_name_plural = 'Messages'
+        ordering = ['created_at']
         indexes = [
-            models.Index(fields=['conversation', '-created_at']),
-            models.Index(fields=['sender', '-created_at']),
-            models.Index(fields=['is_deleted', '-created_at']),  # For filtering deleted messages
+            models.Index(fields=['chat', 'created_at']),
+            models.Index(fields=['sender', 'created_at']),
+            models.Index(fields=['chat', 'is_read']),
         ]
     
     def __str__(self):
-        return f"{self.sender.username}: {self.text[:50]}"
+        return f"Message {self.id} from {self.sender.username}"
     
-    def mark_as_read(self, user):
-        """Mark message as read by a user"""
-        if user != self.sender:
-            self.read_by.add(user)
+    def mark_as_read(self):
+        """Отметить как прочитанное"""
+        if not self.is_read:
+            self.is_read = True
+            self.read_at = timezone.now()
+            self.save(update_fields=['is_read', 'read_at'])
     
-    def is_read_by(self, user):
-        """Check if message was read by a user"""
-        return self.read_by.filter(pk=user.pk).exists()
+    def edit(self, new_text):
+        """Редактировать сообщение"""
+        self.text = new_text
+        self.edited_at = timezone.now()
+        self.save(update_fields=['text', 'edited_at'])
+    
+    def soft_delete(self):
+        """Мягкое удаление"""
+        self.is_deleted = True
+        self.save(update_fields=['is_deleted'])
+    
+    def save(self, *args, **kwargs):
+        # Определяем тип файла
+        if self.file and not self.file_type:
+            name = self.file.name.lower()
+            if any(ext in name for ext in ['.jpg', '.jpeg', '.png', '.gif', '.webp']):
+                self.file_type = 'image'
+            elif any(ext in name for ext in ['.pdf', '.doc', '.docx', '.xls', '.xlsx']):
+                self.file_type = 'document'
+            else:
+                self.file_type = 'file'
+            
+            if not self.file_name:
+                self.file_name = os.path.basename(self.file.name)
+        
+        super().save(*args, **kwargs)
+        
+        # Обновляем кеш последнего сообщения в чате
+        if not self.is_deleted:
+            self.chat.update_last_message(self)
 
 
-class TypingIndicator(models.Model):
+class TypingStatus(models.Model):
     """
-    DEPRECATED: This model is replaced by cache-based typing indicators (see typing_cache.py).
-    Kept for backwards compatibility. Can be safely removed after migration.
-    
-    Old: Temporary model to track who is typing in which conversation.
-    Now: Use typing_cache.set_typing_v2() and typing_cache.get_typing_users_v2() instead.
+    Индикатор печати пользователя в чате.
+    Хранится временно, очищается через 5 секунд.
     """
-    conversation = models.ForeignKey(
-        Conversation,
+    chat = models.ForeignKey(
+        Chat,
         on_delete=models.CASCADE,
-        related_name='typing_indicators',
-        verbose_name='Conversation'
+        related_name='typing_statuses'
     )
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        verbose_name='User'
+        on_delete=models.CASCADE
     )
-    timestamp = models.DateTimeField(auto_now=True, verbose_name='Last Update')
+    started_at = models.DateTimeField(auto_now=True)
     
     class Meta:
-        unique_together = ['conversation', 'user']
-        verbose_name = 'Typing Indicator'
-        verbose_name_plural = 'Typing Indicators'
+        unique_together = ['chat', 'user']
     
     def __str__(self):
-        return f"{self.user.username} typing in {self.conversation}"
+        return f"{self.user.username} typing in chat {self.chat_id}"
     
     @classmethod
-    def set_typing(cls, conversation, user):
-        """Set user as typing in conversation"""
-        obj, created = cls.objects.update_or_create(
-            conversation=conversation,
+    def set_typing(cls, chat, user):
+        """Установить статус печати"""
+        obj, _ = cls.objects.update_or_create(
+            chat=chat,
             user=user,
-            defaults={'timestamp': timezone.now()}
+            defaults={'started_at': timezone.now()}
         )
         return obj
     
     @classmethod
-    def get_typing_users(cls, conversation, exclude_user=None):
-        """Get list of users currently typing (within last 5 seconds)"""
+    def clear_typing(cls, chat, user):
+        """Очистить статус печати"""
+        cls.objects.filter(chat=chat, user=user).delete()
+    
+    @classmethod
+    def get_typing_users(cls, chat, exclude_user=None):
+        """Получить пользователей, которые печатают (за последние 5 секунд)"""
         threshold = timezone.now() - timezone.timedelta(seconds=5)
-        queryset = cls.objects.filter(
-            conversation=conversation,
-            timestamp__gte=threshold
-        )
+        qs = cls.objects.filter(chat=chat, started_at__gte=threshold)
         if exclude_user:
-            queryset = queryset.exclude(user=exclude_user)
-        return queryset.select_related('user')
+            qs = qs.exclude(user=exclude_user)
+        return qs.select_related('user')

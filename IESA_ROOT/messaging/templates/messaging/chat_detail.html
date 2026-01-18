@@ -1,0 +1,697 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Чат с {{ other_user.first_name }} {{ other_user.last_name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-3">
+    <div class="row justify-content-center">
+        <div class="col-12 col-xl-10">
+            <div class="card shadow-sm" id="chatCard">
+                <!-- Header -->
+                <div class="card-header py-3">
+                    <div class="d-flex align-items-center">
+                        <a href="{% url 'messaging:chat_list' %}" class="btn btn-outline-secondary me-3">
+                            <i class="fas fa-arrow-left"></i>
+                        </a>
+                        <div class="chat-avatar me-3">
+                            {% if other_user.avatar %}
+                                <img src="{{ other_user.avatar.url }}" alt="" class="rounded-circle" style="width:48px;height:48px;object-fit:cover;">
+                            {% else %}
+                                <div class="avatar-placeholder">
+                                    {{ other_user.first_name|slice:":1"|upper }}
+                                </div>
+                            {% endif %}
+                        </div>
+                        <div class="flex-grow-1">
+                            <h5 class="mb-0">{{ other_user.first_name }} {{ other_user.last_name }}</h5>
+                            <small class="text-muted" id="userStatus">
+                                @{{ other_user.username }}
+                            </small>
+                        </div>
+                        <div class="dropdown">
+                            <button class="btn btn-outline-secondary" data-bs-toggle="dropdown">
+                                <i class="fas fa-ellipsis-v"></i>
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                <li>
+                                    <a class="dropdown-item" href="{% url 'users:member_detail' other_user.id %}">
+                                        <i class="fas fa-user me-2"></i>Профиль
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item" href="#" onclick="searchMessages()">
+                                        <i class="fas fa-search me-2"></i>Поиск
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <!-- Typing Indicator -->
+                    <div id="typingIndicator" class="typing-indicator d-none">
+                        <span>{{ other_user.first_name }} печатает</span>
+                        <span class="dots"><span></span><span></span><span></span></span>
+                    </div>
+                </div>
+                
+                <!-- Messages Container -->
+                <div class="card-body p-0" id="messagesContainer" style="height:60vh;overflow-y:auto;">
+                    <div id="messagesList" class="p-3"></div>
+                    <div id="loadingMessages" class="text-center py-5">
+                        <div class="spinner-border text-primary"></div>
+                    </div>
+                </div>
+                
+                <!-- Message Input -->
+                <div class="card-footer p-3">
+                    <form id="messageForm" class="d-flex align-items-end gap-2">
+                        <div class="flex-grow-1 position-relative">
+                            <textarea 
+                                id="messageInput" 
+                                class="form-control" 
+                                placeholder="Введите сообщение..."
+                                rows="1"
+                                style="resize:none;max-height:120px;"
+                            ></textarea>
+                        </div>
+                        <label class="btn btn-outline-secondary" title="Прикрепить файл">
+                            <i class="fas fa-paperclip"></i>
+                            <input type="file" id="fileInput" class="d-none" accept="image/*,.pdf,.doc,.docx,.txt">
+                        </label>
+                        <button type="submit" class="btn btn-primary" id="sendBtn">
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </form>
+                    
+                    <!-- File Preview -->
+                    <div id="filePreview" class="mt-2 d-none">
+                        <div class="d-inline-flex align-items-center bg-light rounded p-2">
+                            <i class="fas fa-file me-2"></i>
+                            <span id="fileName"></span>
+                            <button type="button" class="btn btn-sm btn-link text-danger" onclick="clearFile()">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Search Modal -->
+<div class="modal fade" id="searchModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-search me-2"></i>Поиск по сообщениям</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="text" class="form-control mb-3" id="searchInput" placeholder="Поиск...">
+                <div id="searchResults" style="max-height:300px;overflow-y:auto;"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Context Menu -->
+<div id="contextMenu" class="dropdown-menu" style="display:none;position:fixed;z-index:9999;">
+    <a class="dropdown-item" href="#" onclick="editMessage()"><i class="fas fa-edit me-2"></i>Редактировать</a>
+    <a class="dropdown-item text-danger" href="#" onclick="deleteMessage()"><i class="fas fa-trash me-2"></i>Удалить</a>
+</div>
+
+<style>
+.avatar-placeholder {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: bold;
+    font-size: 1.2rem;
+}
+
+.message-bubble {
+    max-width: 75%;
+    margin-bottom: 0.5rem;
+    padding: 0.75rem 1rem;
+    border-radius: 1rem;
+    position: relative;
+    word-wrap: break-word;
+}
+
+.message-outgoing {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    margin-left: auto;
+    border-bottom-right-radius: 0.25rem;
+}
+
+.message-incoming {
+    background: #f0f2f5;
+    color: #1c1e21;
+    margin-right: auto;
+    border-bottom-left-radius: 0.25rem;
+}
+
+.message-meta {
+    font-size: 0.75rem;
+    opacity: 0.7;
+    margin-top: 0.25rem;
+}
+
+.message-outgoing .message-meta {
+    text-align: right;
+}
+
+.message-read-status {
+    margin-left: 4px;
+}
+
+.message-file {
+    margin-top: 0.5rem;
+}
+
+.message-file img {
+    max-width: 200px;
+    max-height: 200px;
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+.message-file a {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.5rem 0.75rem;
+    background: rgba(255,255,255,0.2);
+    border-radius: 8px;
+    color: inherit;
+    text-decoration: none;
+}
+
+.message-incoming .message-file a {
+    background: rgba(0,0,0,0.05);
+}
+
+.message-edited {
+    font-size: 0.7rem;
+    font-style: italic;
+    opacity: 0.7;
+}
+
+.typing-indicator {
+    padding: 0.5rem 1rem;
+    font-size: 0.85rem;
+    color: #666;
+}
+
+.typing-indicator .dots span {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    background: #667eea;
+    border-radius: 50%;
+    margin-left: 2px;
+    animation: typing 1.4s infinite;
+}
+
+.typing-indicator .dots span:nth-child(2) { animation-delay: 0.2s; }
+.typing-indicator .dots span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes typing {
+    0%, 60%, 100% { opacity: 0.3; transform: translateY(0); }
+    30% { opacity: 1; transform: translateY(-4px); }
+}
+
+.date-separator {
+    text-align: center;
+    margin: 1rem 0;
+}
+
+.date-separator span {
+    background: #e9ecef;
+    padding: 0.25rem 0.75rem;
+    border-radius: 1rem;
+    font-size: 0.8rem;
+    color: #6c757d;
+}
+
+#messagesContainer::-webkit-scrollbar {
+    width: 6px;
+}
+
+#messagesContainer::-webkit-scrollbar-thumb {
+    background: #ccc;
+    border-radius: 3px;
+}
+</style>
+
+<script>
+(function() {
+    const CHAT_ID = {{ chat.id }};
+    const CURRENT_USER_ID = {{ request.user.id }};
+    const OTHER_USER_NAME = "{{ other_user.first_name }}";
+    
+    let socket = null;
+    let messages = [];
+    let selectedMessageId = null;
+    let typingTimeout = null;
+    let isTyping = false;
+    let selectedFile = null;
+    
+    document.addEventListener('DOMContentLoaded', function() {
+        loadMessages();
+        initWebSocket();
+        initEventListeners();
+    });
+    
+    // Load initial messages
+    async function loadMessages() {
+        try {
+            const response = await fetch(`/messages/api/chats/${CHAT_ID}/messages/`);
+            const data = await response.json();
+            
+            document.getElementById('loadingMessages').classList.add('d-none');
+            
+            if (data.success) {
+                messages = data.data.messages.reverse();
+                renderMessages();
+                scrollToBottom();
+            }
+        } catch (error) {
+            console.error('Error loading messages:', error);
+        }
+    }
+    
+    // WebSocket connection
+    function initWebSocket() {
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${protocol}//${window.location.host}/ws/chat/${CHAT_ID}/`;
+        
+        socket = new WebSocket(wsUrl);
+        
+        socket.onopen = function() {
+            console.log('WebSocket connected');
+        };
+        
+        socket.onmessage = function(e) {
+            const data = JSON.parse(e.data);
+            handleSocketMessage(data);
+        };
+        
+        socket.onclose = function() {
+            console.log('WebSocket disconnected');
+            // Reconnect after 3 seconds
+            setTimeout(initWebSocket, 3000);
+        };
+        
+        socket.onerror = function(error) {
+            console.error('WebSocket error:', error);
+        };
+    }
+    
+    function handleSocketMessage(data) {
+        switch(data.type) {
+            case 'chat_message':
+            case 'new_message':
+                addMessage(data.message);
+                // Mark as read if it's not our message
+                if (data.message.sender_id !== CURRENT_USER_ID) {
+                    markAsRead(data.message.id);
+                }
+                break;
+            
+            case 'typing':
+                if (data.is_typing && data.user_id !== CURRENT_USER_ID) {
+                    document.getElementById('typingIndicator').classList.remove('d-none');
+                } else {
+                    document.getElementById('typingIndicator').classList.add('d-none');
+                }
+                break;
+                
+            case 'typing_start':
+                if (data.user_id !== CURRENT_USER_ID) {
+                    document.getElementById('typingIndicator').classList.remove('d-none');
+                }
+                break;
+                
+            case 'typing_stop':
+                if (data.user_id !== CURRENT_USER_ID) {
+                    document.getElementById('typingIndicator').classList.add('d-none');
+                }
+                break;
+                
+            case 'message_read':
+                updateMessageReadStatus(data.message_id);
+                break;
+            
+            case 'messages_read':
+                // Multiple messages marked as read
+                if (data.message_ids) {
+                    data.message_ids.forEach(id => updateMessageReadStatus(id));
+                }
+                break;
+                
+            case 'message_edited':
+                updateEditedMessage(data.message_id, data.text);
+                break;
+                
+            case 'message_deleted':
+                removeMessage(data.message_id);
+                break;
+        }
+    }
+    
+    function initEventListeners() {
+        const input = document.getElementById('messageInput');
+        const form = document.getElementById('messageForm');
+        const fileInput = document.getElementById('fileInput');
+        
+        // Send on Enter (Shift+Enter for new line)
+        input.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+        
+        // Auto-resize textarea
+        input.addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+            
+            // Typing indicator
+            if (!isTyping && this.value.trim()) {
+                isTyping = true;
+                sendTyping(true);
+            }
+            
+            clearTimeout(typingTimeout);
+            typingTimeout = setTimeout(() => {
+                isTyping = false;
+                sendTyping(false);
+            }, 2000);
+        });
+        
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            sendMessage();
+        });
+        
+        // File input
+        fileInput.addEventListener('change', function() {
+            if (this.files && this.files[0]) {
+                selectedFile = this.files[0];
+                document.getElementById('fileName').textContent = selectedFile.name;
+                document.getElementById('filePreview').classList.remove('d-none');
+            }
+        });
+        
+        // Context menu (right click on own messages)
+        document.getElementById('messagesList').addEventListener('contextmenu', function(e) {
+            const bubble = e.target.closest('.message-bubble.message-outgoing');
+            if (bubble) {
+                e.preventDefault();
+                selectedMessageId = parseInt(bubble.dataset.messageId);
+                showContextMenu(e.clientX, e.clientY);
+            }
+        });
+        
+        // Hide context menu on click
+        document.addEventListener('click', function() {
+            document.getElementById('contextMenu').style.display = 'none';
+        });
+        
+        // Search
+        document.getElementById('searchInput')?.addEventListener('input', debounce(function() {
+            searchInChat(this.value);
+        }, 300));
+    }
+    
+    function sendMessage() {
+        const input = document.getElementById('messageInput');
+        const text = input.value.trim();
+        
+        if (!text && !selectedFile) return;
+        
+        if (selectedFile) {
+            // Send with file via REST API
+            sendMessageWithFile(text, selectedFile);
+        } else {
+            // Send via WebSocket
+            if (socket && socket.readyState === WebSocket.OPEN) {
+                socket.send(JSON.stringify({
+                    type: 'chat_message',
+                    text: text
+                }));
+            }
+        }
+        
+        input.value = '';
+        input.style.height = 'auto';
+        clearFile();
+        
+        isTyping = false;
+        sendTyping(false);
+    }
+    
+    async function sendMessageWithFile(text, file) {
+        const formData = new FormData();
+        formData.append('text', text);
+        formData.append('file', file);
+        
+        try {
+            const response = await fetch(`/messages/api/chats/${CHAT_ID}/send/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCsrfToken()
+                },
+                body: formData
+            });
+            
+            const data = await response.json();
+            if (data.success) {
+                // Message will be broadcast via WebSocket
+            }
+        } catch (error) {
+            console.error('Error sending file:', error);
+        }
+    }
+    
+    function sendTyping(start) {
+        if (socket && socket.readyState === WebSocket.OPEN) {
+            socket.send(JSON.stringify({
+                type: start ? 'typing_start' : 'typing_stop'
+            }));
+        }
+    }
+    
+    function markAsRead(messageId) {
+        if (socket && socket.readyState === WebSocket.OPEN) {
+            socket.send(JSON.stringify({
+                type: 'mark_read',
+                message_id: messageId
+            }));
+        }
+    }
+    
+    function addMessage(msg) {
+        messages.push(msg);
+        renderMessages();
+        scrollToBottom();
+    }
+    
+    function updateMessageReadStatus(messageId) {
+        const bubble = document.querySelector(`[data-message-id="${messageId}"]`);
+        if (bubble) {
+            const statusEl = bubble.querySelector('.message-read-status');
+            if (statusEl) {
+                statusEl.innerHTML = '<i class="fas fa-check-double"></i>';
+            }
+        }
+    }
+    
+    function updateEditedMessage(messageId, newText) {
+        const msg = messages.find(m => m.id === messageId);
+        if (msg) {
+            msg.text = newText;
+            msg.is_edited = true;
+            renderMessages();
+        }
+    }
+    
+    function removeMessage(messageId) {
+        messages = messages.filter(m => m.id !== messageId);
+        renderMessages();
+    }
+    
+    function renderMessages() {
+        const container = document.getElementById('messagesList');
+        let html = '';
+        let lastDate = null;
+        
+        messages.forEach(msg => {
+            const msgDate = new Date(msg.created_at).toLocaleDateString('ru-RU');
+            
+            // Date separator
+            if (msgDate !== lastDate) {
+                html += `<div class="date-separator"><span>${formatDateSeparator(msg.created_at)}</span></div>`;
+                lastDate = msgDate;
+            }
+            
+            const isOutgoing = msg.sender_id === CURRENT_USER_ID;
+            const bubbleClass = isOutgoing ? 'message-outgoing' : 'message-incoming';
+            const time = new Date(msg.created_at).toLocaleTimeString('ru-RU', {hour: '2-digit', minute: '2-digit'});
+            
+            let readStatus = '';
+            if (isOutgoing) {
+                readStatus = msg.is_read 
+                    ? '<span class="message-read-status"><i class="fas fa-check-double"></i></span>'
+                    : '<span class="message-read-status"><i class="fas fa-check"></i></span>';
+            }
+            
+            let fileHtml = '';
+            if (msg.file_url) {
+                const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(msg.file_url);
+                if (isImage) {
+                    fileHtml = `<div class="message-file"><img src="${msg.file_url}" onclick="window.open('${msg.file_url}')"></div>`;
+                } else {
+                    const fileName = msg.file_url.split('/').pop();
+                    fileHtml = `<div class="message-file"><a href="${msg.file_url}" target="_blank"><i class="fas fa-file me-2"></i>${escapeHtml(fileName)}</a></div>`;
+                }
+            }
+            
+            const editedText = msg.is_edited ? '<span class="message-edited">(ред.)</span>' : '';
+            
+            html += `
+                <div class="message-bubble ${bubbleClass}" data-message-id="${msg.id}">
+                    ${msg.text ? `<div>${escapeHtml(msg.text)}</div>` : ''}
+                    ${fileHtml}
+                    <div class="message-meta">
+                        ${time} ${editedText} ${readStatus}
+                    </div>
+                </div>
+            `;
+        });
+        
+        container.innerHTML = html;
+    }
+    
+    function formatDateSeparator(dateStr) {
+        const date = new Date(dateStr);
+        const today = new Date();
+        const yesterday = new Date(today);
+        yesterday.setDate(yesterday.getDate() - 1);
+        
+        if (date.toDateString() === today.toDateString()) {
+            return 'Сегодня';
+        } else if (date.toDateString() === yesterday.toDateString()) {
+            return 'Вчера';
+        } else {
+            return date.toLocaleDateString('ru-RU', {day: 'numeric', month: 'long'});
+        }
+    }
+    
+    function scrollToBottom() {
+        const container = document.getElementById('messagesContainer');
+        container.scrollTop = container.scrollHeight;
+    }
+    
+    function showContextMenu(x, y) {
+        const menu = document.getElementById('contextMenu');
+        menu.style.display = 'block';
+        menu.style.left = x + 'px';
+        menu.style.top = y + 'px';
+    }
+    
+    window.editMessage = function() {
+        const msg = messages.find(m => m.id === selectedMessageId);
+        if (!msg) return;
+        
+        const newText = prompt('Редактировать сообщение:', msg.text);
+        if (newText !== null && newText.trim() !== msg.text) {
+            if (socket && socket.readyState === WebSocket.OPEN) {
+                socket.send(JSON.stringify({
+                    type: 'edit_message',
+                    message_id: selectedMessageId,
+                    text: newText.trim()
+                }));
+            }
+        }
+    };
+    
+    window.deleteMessage = function() {
+        if (confirm('Удалить сообщение?')) {
+            if (socket && socket.readyState === WebSocket.OPEN) {
+                socket.send(JSON.stringify({
+                    type: 'delete_message',
+                    message_id: selectedMessageId
+                }));
+            }
+        }
+    };
+    
+    window.clearFile = function() {
+        selectedFile = null;
+        document.getElementById('fileInput').value = '';
+        document.getElementById('filePreview').classList.add('d-none');
+    };
+    
+    window.searchMessages = function() {
+        const modal = new bootstrap.Modal(document.getElementById('searchModal'));
+        modal.show();
+    };
+    
+    async function searchInChat(query) {
+        const results = document.getElementById('searchResults');
+        
+        if (!query || query.length < 2) {
+            results.innerHTML = '';
+            return;
+        }
+        
+        try {
+            const response = await fetch(`/messages/api/messages/search/?q=${encodeURIComponent(query)}&chat_id=${CHAT_ID}`);
+            const data = await response.json();
+            
+            if (data.success && data.data.messages.length > 0) {
+                results.innerHTML = data.data.messages.map(msg => `
+                    <div class="p-2 border-bottom">
+                        <div>${escapeHtml(msg.text)}</div>
+                        <small class="text-muted">${new Date(msg.created_at).toLocaleString('ru-RU')}</small>
+                    </div>
+                `).join('');
+            } else {
+                results.innerHTML = '<div class="text-center py-3 text-muted">Ничего не найдено</div>';
+            }
+        } catch (error) {
+            console.error('Error searching:', error);
+        }
+    }
+    
+    function getCsrfToken() {
+        const cookie = document.cookie.split(';').find(c => c.trim().startsWith('csrftoken='));
+        return cookie ? cookie.split('=')[1] : '';
+    }
+    
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text || '';
+        return div.innerHTML;
+    }
+    
+    function debounce(func, wait) {
+        let timeout;
+        return function(...args) {
+            clearTimeout(timeout);
+            timeout = setTimeout(() => func.apply(this, args), wait);
+        };
+    }
+})();
+</script>
+{% endblock %}
