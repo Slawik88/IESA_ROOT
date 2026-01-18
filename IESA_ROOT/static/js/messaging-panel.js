@@ -47,10 +47,18 @@
             )
         ])
         .then(response => {
-            if (response.status === 401 || response.status === 403) {
-                return []; // User not authenticated or no access
+            if (response.status === 401) {
+                console.error('❌ API auth error: User not authenticated. Redirecting to login...');
+                window.location.href = '/auth/login/?next=' + window.location.pathname;
+                return [];
+            }
+            if (response.status === 403) {
+                console.error('❌ API forbidden error: Check authentication and permissions');
+                console.error('Response:', response);
+                return [];
             }
             if (!response.ok) {
+                console.error(`❌ API error: HTTP ${response.status}`, response);
                 throw new Error(`HTTP ${response.status}`);
             }
             return response.json();
