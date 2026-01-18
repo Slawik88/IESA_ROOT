@@ -6,7 +6,7 @@
 class PWAManager {
   constructor(options = {}) {
     this.options = {
-      swPath: '/static/js/service-worker.js',
+      swPath: '/static/service-worker.js',
       showInstallPrompt: true,
       enableOfflineIndicator: true,
       enableNotifications: true,
