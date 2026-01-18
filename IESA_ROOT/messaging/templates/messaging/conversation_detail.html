@@ -3,369 +3,685 @@
 
 {% block title %}Чат с {{ other_participant.username }}{% endblock %}
 
-{% block extra_css %}
-<style>
-    .chat-container {
-        height: 70vh;
-        display: flex;
-        flex-direction: column;
-    }
-    .messages-area {
-        flex: 1;
-        overflow-y: auto;
-        border: 1px solid #dee2e6;
-        border-radius: 0.375rem;
-        padding: 1rem;
-        background-color: #f8f9fa;
-        margin-bottom: 1rem;
-    }
-    .message-item {
-        margin-bottom: 1rem;
-        display: flex;
-    }
-    .message-item.own {
-        justify-content: flex-end;
-    }
-    .message-content {
-        max-width: 70%;
-        padding: 0.75rem;
-        border-radius: 1rem;
-        position: relative;
-    }
-    .message-item.own .message-content {
-        background-color: #0d6efd;
-        color: white;
-    }
-    .message-item.other .message-content {
-        background-color: white;
-        border: 1px solid #dee2e6;
-    }
-    .message-time {
-        font-size: 0.75rem;
-        opacity: 0.7;
-        margin-top: 0.25rem;
-    }
-    .message-pinned {
-        border-left: 3px solid #ffc107;
-        padding-left: 0.75rem;
-    }
-    .typing-indicator {
-        font-size: 0.875rem;
-        color: #6c757d;
-        font-style: italic;
-        padding: 0.5rem;
-    }
-    .message-actions {
-        display: none;
-        position: absolute;
-        top: 0;
-        right: -80px;
-    }
-    .message-item:hover .message-actions {
-        display: block;
-    }
-</style>
-{% endblock %}
-
 {% block content %}
-<div class="container mt-4">
-    <div class="row">
-        <div class="col-12">
-            <!-- Header -->
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <div>
-                    <a href="{% url 'messaging:conversation_list' %}" class="btn btn-outline-secondary btn-sm">
-                        <i class="bi bi-arrow-left"></i> Назад
-                    </a>
-                    <span class="ms-2">
-                        {% if conversation.is_group %}
-                            <i class="bi bi-people"></i> {{ conversation.group_name }}
-                        {% else %}
-                            <i class="bi bi-person"></i> 
-                            <a href="{% url 'users:profile_public_username' username=other_participant.username %}">
-                                {{ other_participant.username }}
-                            </a>
-                        {% endif %}
-                    </span>
-                </div>
-            </div>
-
-            <!-- Chat Container -->
-            <div class="chat-container">
-                <!-- Messages Area -->
-                <div class="messages-area" id="messages-area">
-                    <!-- Sentinel for loading older messages on scroll top -->
-                    <div id="load-older-sentinel" class="text-center text-muted small" style="display:none;">Загрузка...</div>
-                    {% for message in messages %}
-                        {% include 'messaging/partials/message_item.html' with message=message %}
-                    {% empty %}
-                        <div class="text-center text-muted">
-                            <p>Нет сообщений. Начните общение!</p>
-                        </div>
-                    {% endfor %}
-                </div>
-
-                <!-- Typing Indicator -->
-                <div id="typing-indicator" class="typing-indicator" style="display:none;">
+<div class="container-fluid h-100 d-flex flex-column" style="max-width: 1200px; padding: 0; margin: 0;">
+    <!-- Chat Header -->
+    <div class="chat-header">
+        <div class="chat-header-content">
+            <a href="{% url 'messaging:conversation_list' %}" class="btn btn-icon btn-sm" title="Back">
+                <i class="bi bi-chevron-left"></i>
+            </a>
+            <div class="chat-header-info">
+                <h2 class="chat-title">
+                    {% if conversation.is_group %}
+                        <i class="bi bi-people-fill"></i> {{ conversation.group_name }}
+                    {% else %}
+                        <i class="bi bi-person-fill"></i> {{ other_participant.username }}
+                    {% endif %}
+                </h2>
+                <p class="chat-subtitle" id="typing-indicator-header" style="display: none;">
                     <span id="typing-text"></span>
-                </div>
+                </p>
+            </div>
+        </div>
+        {% if conversation.is_group %}
+        <button class="btn btn-icon btn-sm" data-bs-toggle="offcanvas" data-bs-target="#participantsPanel" title="Participants">
+            <i class="bi bi-info-circle"></i>
+        </button>
+        {% endif %}
+    </div>
 
-                <!-- Message Input -->
-                <form id="message-form" 
-                      hx-post="{% url 'messaging:send_message' conversation.pk %}" 
-                      hx-target="#messages-area" 
-                      hx-swap="beforeend"
-                      hx-on::after-request="this.reset(); document.getElementById('messages-area').scrollTop = document.getElementById('messages-area').scrollHeight;">
-                    {% csrf_token %}
-                    <div class="input-group">
-                        <input type="text" 
-                               name="text" 
-                               class="form-control" 
-                               placeholder="Введите сообщение..." 
-                               id="message-input"
-                               required
-                               autocomplete="off">
-                        <label for="file-input" class="btn btn-outline-secondary" title="Прикрепить файл">
-                            <i class="bi bi-paperclip"></i>
-                        </label>
-                        <input type="file" name="file" id="file-input" style="display:none;">
-                        <button type="submit" class="btn btn-primary">
-                            <i class="bi bi-send"></i> Отправить
-                        </button>
-                    </div>
-                    <div id="file-preview" class="mt-2" style="display:none;">
-                        <small class="text-muted">
-                            <i class="bi bi-file-earmark"></i> <span id="file-name"></span>
-                            <button type="button" class="btn btn-sm btn-link text-danger" onclick="clearFile()">
-                                <i class="bi bi-x"></i>
-                            </button>
-                        </small>
-                    </div>
-                </form>
-                
-                {% if conversation.is_group %}
-                <div class="mt-3" id="participants-panel" hx-get="{% url 'messaging:participants_panel' conversation.pk %}" hx-trigger="load" hx-target="#participants-panel" hx-swap="outerHTML">
-                    {% include 'messaging/partials/participants_panel.html' with conversation=conversation is_admin=is_admin is_creator=is_creator %}
+    <!-- Messages Container -->
+    <div class="messages-container" id="messages-container">
+        <!-- Load More Button -->
+        <div class="load-more-section">
+            <button class="btn btn-sm btn-outline-secondary load-more-btn" id="load-more-btn" style="display: none;">
+                <i class="bi bi-arrow-up-circle"></i> Загрузить старые сообщения
+                <span class="badge bg-primary" id="remaining-count" style="display: none;"></span>
+            </button>
+        </div>
+
+        <!-- Messages Area -->
+        <div class="messages-area" id="messages-area" data-conversation-id="{{ conversation.pk }}">
+            {% for message in messages %}
+                {% include 'messaging/partials/message_item.html' with message=message %}
+            {% empty %}
+                <div class="empty-chat">
+                    <i class="bi bi-chat-dots"></i>
+                    <p>Начните беседу!</p>
                 </div>
-                {% endif %}
+            {% endfor %}
+        </div>
+
+        <!-- Typing Indicator -->
+        <div id="typing-indicator" class="typing-indicator" style="display: none;">
+            <div class="typing-dots">
+                <span></span>
+                <span></span>
+                <span></span>
             </div>
         </div>
     </div>
+
+    <!-- Message Input Area -->
+    <div class="message-input-wrapper">
+        <form id="message-form" class="message-form" method="post" enctype="multipart/form-data" novalidate>
+            {% csrf_token %}
+            
+            <div class="file-preview-container" id="file-preview" style="display: none;">
+                <div class="file-preview-item">
+                    <i class="bi bi-file-earmark"></i>
+                    <span id="file-name"></span>
+                    <button type="button" class="btn-close btn-close-sm" onclick="clearFile()" aria-label="Remove file"></button>
+                </div>
+            </div>
+
+            <div class="input-group message-input-group">
+                <input 
+                    type="text" 
+                    id="message-input" 
+                    name="text" 
+                    class="form-control message-input" 
+                    placeholder="Напишите сообщение..." 
+                    autocomplete="off"
+                    maxlength="2000">
+                
+                <label for="file-input" class="btn btn-icon" title="Прикрепить файл">
+                    <i class="bi bi-paperclip"></i>
+                    <input type="file" name="file" id="file-input" style="display: none;">
+                </label>
+                
+                <button type="submit" class="btn btn-primary btn-icon" title="Отправить">
+                    <i class="bi bi-send-fill"></i>
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Participants Panel (Offcanvas) -->
+    {% if conversation.is_group %}
+    <div class="offcanvas offcanvas-end" tabindex="-1" id="participantsPanel" aria-labelledby="participantsPanelLabel">
+        <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="participantsPanelLabel">
+                <i class="bi bi-people"></i> Участники
+            </h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+        </div>
+        <div class="offcanvas-body" id="participants-panel">
+            {% include 'messaging/partials/participants_panel.html' with conversation=conversation is_admin=is_admin is_creator=is_creator %}
+        </div>
+    </div>
+    {% endif %}
 </div>
 
+<style>
+/* Ensure full height layout */
+html, body {
+    height: 100%;
+}
+
+.container-fluid.h-100 {
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Chat Header */
+.chat-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-bottom: 1px solid #e5e7eb;
+    flex-shrink: 0;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.chat-header-content {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex: 1;
+}
+
+.chat-header-info {
+    min-width: 0;
+}
+
+.chat-title {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.chat-subtitle {
+    margin: 2px 0 0 0;
+    font-size: 12px;
+    opacity: 0.9;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Messages Container */
+.messages-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: linear-gradient(180deg, #f8f9fa 0%, #ffffff 100%);
+    position: relative;
+}
+
+.messages-area {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    display: flex;
+    flex-direction: column;
+    padding: 20px;
+    gap: 12px;
+    scroll-behavior: smooth;
+}
+
+.messages-area::-webkit-scrollbar {
+    width: 6px;
+}
+
+.messages-area::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.messages-area::-webkit-scrollbar-thumb {
+    background: #d1d5db;
+    border-radius: 3px;
+}
+
+.messages-area::-webkit-scrollbar-thumb:hover {
+    background: #9ca3af;
+}
+
+/* Empty Chat */
+.empty-chat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: #9ca3af;
+    text-align: center;
+    gap: 12px;
+}
+
+.empty-chat i {
+    font-size: 64px;
+    opacity: 0.3;
+}
+
+.empty-chat p {
+    font-size: 16px;
+    font-weight: 500;
+    margin: 0;
+}
+
+/* Load More Section */
+.load-more-section {
+    display: flex;
+    justify-content: center;
+    padding: 12px 20px 0 20px;
+    min-height: 48px;
+    align-items: center;
+}
+
+.load-more-btn {
+    font-size: 13px;
+    transition: all 0.2s ease;
+}
+
+.load-more-btn:hover {
+    background-color: #e5e7eb;
+}
+
+/* Typing Indicator */
+.typing-indicator {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 20px;
+    color: #9ca3af;
+    font-size: 14px;
+}
+
+.typing-dots {
+    display: flex;
+    gap: 4px;
+}
+
+.typing-dots span {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #d1d5db;
+    animation: typing 1.4s infinite;
+}
+
+.typing-dots span:nth-child(2) {
+    animation-delay: 0.2s;
+}
+
+.typing-dots span:nth-child(3) {
+    animation-delay: 0.4s;
+}
+
+@keyframes typing {
+    0%, 60%, 100% {
+        opacity: 0.5;
+    }
+    30% {
+        opacity: 1;
+    }
+}
+
+/* Message Input Area */
+.message-input-wrapper {
+    padding: 16px 20px;
+    background: white;
+    border-top: 1px solid #e5e7eb;
+    flex-shrink: 0;
+    box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.message-form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.file-preview-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.file-preview-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: #f3f4f6;
+    border-radius: 6px;
+    font-size: 13px;
+    color: #4b5563;
+}
+
+.file-preview-item i {
+    font-size: 16px;
+}
+
+.btn-close-sm {
+    width: 16px;
+    height: 16px;
+    margin-left: 4px;
+}
+
+.message-input-group {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.message-input {
+    flex: 1;
+    border: 1px solid #d1d5db;
+    border-radius: 24px;
+    padding: 12px 16px;
+    font-size: 14px;
+    resize: none;
+    max-height: 100px;
+    transition: all 0.2s ease;
+}
+
+.message-input:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.btn-icon {
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background: #f3f4f6;
+    color: #4b5563;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-icon:hover {
+    background: #e5e7eb;
+}
+
+.btn-icon.btn-primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+}
+
+.btn-icon.btn-primary:hover {
+    background: linear-gradient(135deg, #5568d3 0%, #653a91 100%);
+}
+
+/* Hide file input */
+#file-input {
+    display: none;
+}
+</style>
+
 <script>
-    // Auto-scroll to bottom on load
-    document.addEventListener('DOMContentLoaded', function() {
-        const messagesArea = document.getElementById('messages-area');
-        messagesArea.scrollTop = messagesArea.scrollHeight;
-    });
+(function() {
+    'use strict';
 
-    // File preview
-    document.getElementById('file-input').addEventListener('change', function(e) {
-        if (e.target.files.length > 0) {
-            document.getElementById('file-name').textContent = e.target.files[0].name;
-            document.getElementById('file-preview').style.display = 'block';
-        }
-    });
+    const form = document.getElementById('message-form');
+    const messagesArea = document.getElementById('messages-area');
+    const messageInput = document.getElementById('message-input');
+    const fileInput = document.getElementById('file-input');
+    const filePreview = document.getElementById('file-preview');
+    const fileName = document.getElementById('file-name');
+    const loadMoreBtn = document.getElementById('load-more-btn');
+    const conversationId = messagesArea.dataset.conversationId;
 
-    function clearFile() {
-        document.getElementById('file-input').value = '';
-        document.getElementById('file-preview').style.display = 'none';
-    }
-
-    // CSRF helper
-    function getCookie(name) {
-        let cookieValue = null;
-        if (document.cookie && document.cookie !== '') {
-            const cookies = document.cookie.split(';');
-            for (let i = 0; i < cookies.length; i++) {
-                const cookie = cookies[i].trim();
-                if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                    break;
-                }
-            }
-        }
-        return cookieValue;
-    }
-
-    // Typing indicator with debounce
+    let lastMessageId = 0;
+    let isLoadingMore = false;
     let typingTimeout;
     let typingInterval;
-    
-    document.getElementById('message-input').addEventListener('input', function() {
-        clearTimeout(typingTimeout);
+    const lastMessageElements = document.querySelectorAll('[data-message-id]');
+    if (lastMessageElements.length > 0) {
+        lastMessageId = parseInt(lastMessageElements[lastMessageElements.length - 1].dataset.messageId);
+    }
 
-        fetch("{% url 'messaging:typing_indicator' conversation.pk %}", {
-            method: 'POST',
-            headers: {
-                'X-CSRFToken': getCookie('csrftoken'),
-            }
-        }).catch(err => console.error('Typing indicator error:', err));
-
-        typingTimeout = setTimeout(() => {}, 2000);
+    // ============================================================
+    // FILE HANDLING
+    // ============================================================
+    fileInput.addEventListener('change', function(e) {
+        if (e.target.files.length > 0) {
+            const file = e.target.files[0];
+            fileName.textContent = file.name;
+            filePreview.style.display = 'block';
+        }
     });
 
-    // Poll for typing status - with cleanup and 403 handling
-    let typingFailureCount = 0;
-    typingInterval = setInterval(function() {
-        fetch("{% url 'messaging:typing_status' conversation.pk %}")
-            .then(response => {
-                if (response.status === 403 || response.status === 401) {
-                    typingFailureCount++;
-                    if (typingFailureCount >= 3) {
-                        console.log('Access denied to conversation. Stopping typing indicator polling.');
-                        clearInterval(typingInterval);
-                    }
-                    return null;
+    window.clearFile = function() {
+        fileInput.value = '';
+        filePreview.style.display = 'none';
+    };
+
+    // ============================================================
+    // MESSAGE FORM SUBMISSION
+    // ============================================================
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const text = messageInput.value.trim();
+        const file = fileInput.files[0];
+
+        if (!text && !file) {
+            return;
+        }
+
+        const formData = new FormData(form);
+        formData.set('text', text);
+
+        // Disable submit button
+        const submitBtn = form.querySelector('button[type="submit"]');
+        submitBtn.disabled = true;
+
+        fetch(`/messages/{{ conversation.pk }}/send/`, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+            credentials: 'same-origin'
+        })
+        .then(response => {
+            if (!response.ok) throw new Error('Failed to send message');
+            return response.text();
+        })
+        .then(html => {
+            // Add message to messages area
+            const temp = document.createElement('div');
+            temp.innerHTML = html;
+            const messageElement = temp.firstElementChild;
+            
+            if (messageElement) {
+                messagesArea.appendChild(messageElement);
+                
+                // Update last message ID for polling
+                const msgId = messageElement.getAttribute('data-message-id');
+                if (msgId) {
+                    lastMessageId = parseInt(msgId);
                 }
-                if (!response.ok) throw new Error('Network response was not ok');
-                return response.json();
-            })
-            .then(data => {
-                if (!data) return;
-                typingFailureCount = 0; // Reset on success
-                const indicator = document.getElementById('typing-indicator');
-                if (data.typing) {
-                    document.getElementById('typing-text').textContent = 
-                        data.users.join(', ') + ' печатает...';
-                    indicator.style.display = 'block';
-                } else {
-                    indicator.style.display = 'none';
-                }
-            })
-            .catch(err => {
-                console.error('Typing status error:', err);
-                typingFailureCount++;
-                if (typingFailureCount >= 3) {
-                    clearInterval(typingInterval);
-                }
-            });
-    }, 2000);  // Increased from 1s to 2s to reduce load
+            }
+
+            // Clear form
+            messageInput.value = '';
+            messageInput.style.height = 'auto';
+            clearFile();
+            
+            // Scroll to bottom
+            setTimeout(() => {
+                messagesArea.scrollTop = messagesArea.scrollHeight;
+            }, 0);
+
+            submitBtn.disabled = false;
+        })
+        .catch(err => {
+            console.error('Error sending message:', err);
+            submitBtn.disabled = false;
+            alert('Ошибка при отправке сообщения');
+        });
+    });
+
+    // ============================================================
+    // TYPING INDICATOR
+    // ============================================================
+    const conversationId = '{{ conversation.pk }}';
     
-    // Cleanup on page unload
+    messageInput.addEventListener('input', function() {
+        clearTimeout(typingTimeout);
+        
+        // Send typing indicator
+        fetch(`/messages/${conversationId}/typing/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name="csrfmiddlewaretoken"]').value,
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+            credentials: 'same-origin'
+        }).catch(err => console.warn('Typing indicator error:', err));
+
+        typingTimeout = setTimeout(() => {}, 3000);
+    });
+
+    // Poll typing status
+    typingInterval = setInterval(function() {
+        fetch(`/messages/${conversationId}/typing-status/`, {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+            credentials: 'same-origin'
+        })
+        .then(r => {
+            if (r.status === 403 || r.status === 401) return null;
+            if (!r.ok) throw new Error('Network error');
+            return r.json();
+        })
+        .then(data => {
+            if (!data) return;
+            const indicator = document.getElementById('typing-indicator-header');
+            const indicatorDots = document.getElementById('typing-indicator');
+            
+            if (data.typing && data.users.length > 0) {
+                const typingText = data.users.join(', ') + ' печатает...';
+                document.getElementById('typing-text').textContent = typingText;
+                indicator.style.display = 'block';
+                indicatorDots.style.display = 'flex';
+            } else {
+                indicator.style.display = 'none';
+                indicatorDots.style.display = 'none';
+            }
+        })
+        .catch(err => console.warn('Typing status error:', err));
+    }, 2000);
+
+    // Cleanup
     window.addEventListener('beforeunload', function() {
         clearInterval(typingInterval);
         clearTimeout(typingTimeout);
     });
 
-    // Global HTMX error handler - stop polling on 403/401
-    let htmxFailureCount = 0;
-    document.addEventListener('htmx:responseError', function(event) {
-        const status = event.detail.xhr?.status;
-        if (status === 403 || status === 401) {
-            htmxFailureCount++;
-            console.warn('Access denied (403/401). Failure count:', htmxFailureCount);
-            
-            if (htmxFailureCount >= 3) {
-                console.error('Too many access denied errors. Stopping all HTMX polling.');
-                // Remove polling elements
-                document.querySelectorAll('[data-poll-messages]').forEach(el => {
-                    if (typeof htmx !== 'undefined') {
-                        htmx.remove(el);
-                    }
-                    el.remove();
-                });
-                
-                // Show user-friendly message
-                const messagesArea = document.getElementById('messages-area');
-                if (messagesArea) {
-                    messagesArea.innerHTML += '<div class="alert alert-warning m-3">Доступ к этому чату ограничен. Пожалуйста, обновите страницу.</div>';
-                }
-            }
-        }
+    // ============================================================
+    // AUTO SCROLL TO BOTTOM ON LOAD
+    // ============================================================
+    window.addEventListener('load', function() {
+        setTimeout(() => {
+            messagesArea.scrollTop = messagesArea.scrollHeight;
+        }, 100);
     });
 
-    // HTMX polling for new messages - prevent duplicates
-    const lastMessageId = (function() {
-        const items = document.querySelectorAll('#messages-area .message-item');
-        return items.length ? items[items.length - 1].getAttribute('data-message-id') : '0';
-    })();
-
-    // Check if poll div already exists
-    let pollDiv = document.querySelector('[data-poll-messages]');
-    if (!pollDiv) {
-        pollDiv = document.createElement('div');
-        pollDiv.setAttribute('data-poll-messages', 'true');
-        pollDiv.setAttribute('hx-get', "{% url 'messaging:new_messages' conversation.pk %}?after=" + lastMessageId);
-        pollDiv.setAttribute('hx-trigger', 'every 3s');  // Increased from 2s to reduce load
-        pollDiv.setAttribute('hx-target', '#messages-area');
-        pollDiv.setAttribute('hx-swap', 'beforeend');
-        pollDiv.style.display = 'none';
-        document.body.appendChild(pollDiv);
-        
-        // Initialize HTMX on this element if htmx is available
-        if (typeof htmx !== 'undefined') {
-            htmx.process(pollDiv);
-        }
-    }
-
-    // Load older messages when scrolled to top
-    const messagesArea = document.getElementById('messages-area');
-    messagesArea.addEventListener('scroll', function() {
-        if (messagesArea.scrollTop === 0) {
-            const firstItem = document.querySelector('#messages-area .message-item');
-            if (!firstItem) return;
-            const firstId = firstItem.getAttribute('data-message-id');
-            const sentinel = document.getElementById('load-older-sentinel');
-            sentinel.style.display = 'block';
-            fetch(`{% url 'messaging:old_messages' conversation.pk %}?before=${firstId}`)
-                .then(r => r.text())
-                .then(html => {
-                    sentinel.style.display = 'none';
-                    const temp = document.createElement('div');
-                    temp.innerHTML = html;
-                    // Preserve scroll position after prepending
-                    const oldHeight = messagesArea.scrollHeight;
-                    messagesArea.insertAdjacentHTML('afterbegin', html);
-                    const newHeight = messagesArea.scrollHeight;
-                    messagesArea.scrollTop = newHeight - oldHeight;
-                })
-                .catch(err => {
-                    console.error('Error loading old messages:', err);
-                    sentinel.style.display = 'none';
-                    sentinel.textContent = 'Ошибка загрузки';
-                });
-        }
-    });
-
-    // Load more button with remaining count
-    const loadMoreBtn = document.createElement('button');
-    loadMoreBtn.className = 'btn btn-outline-secondary btn-sm mt-2';
-    loadMoreBtn.innerHTML = '<i class="bi bi-arrow-up"></i> Загрузить ещё <span id="remaining-count" class="badge bg-light text-dark">…</span>';
-    document.querySelector('.chat-container').insertAdjacentElement('afterbegin', loadMoreBtn);
-
-    function updateRemainingCount() {
-        const firstItem = document.querySelector('#messages-area .message-item');
-        const firstId = firstItem ? firstItem.getAttribute('data-message-id') : '0';
-        fetch(`{% url 'messaging:old_remaining' conversation.pk %}?before=${firstId}`)
-            .then(r => r.json())
-            .then(data => {
-                const el = document.getElementById('remaining-count');
-                if (el) el.textContent = data.count;
-                loadMoreBtn.disabled = data.count === 0;
-            })
-            .catch(err => {
-                console.error('Error getting remaining count:', err);
-                const el = document.getElementById('remaining-count');
-                if (el) el.textContent = '?';
-            });
-    }
-    updateRemainingCount();
-    loadMoreBtn.addEventListener('click', function() {
-        const firstItem = document.querySelector('#messages-area .message-item');
-        const firstId = firstItem ? firstItem.getAttribute('data-message-id') : '0';
-        fetch(`{% url 'messaging:old_messages' conversation.pk %}?before=${firstId}`)
-            .then(r => r.text())
-            .then(html => {
+    // ============================================================
+    // AUTO POLL FOR NEW MESSAGES
+    // ============================================================
+    function pollNewMessages() {
+        fetch(`/messages/${conversationId}/new/?after=${lastMessageId}`, {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+            credentials: 'same-origin'
+        })
+        .then(r => {
+            if (!r.ok) throw new Error('Network error');
+            return r.text();
+        })
+        .then(html => {
+            if (html.trim()) {
                 const temp = document.createElement('div');
                 temp.innerHTML = html;
-                const oldHeight = messagesArea.scrollHeight;
+                const messages = temp.querySelectorAll('[data-message-id]');
+                
+                if (messages.length > 0) {
+                    messages.forEach(msg => {
+                        messagesArea.appendChild(msg.cloneNode(true));
+                        const msgId = msg.getAttribute('data-message-id');
+                        if (msgId) {
+                            lastMessageId = Math.max(lastMessageId, parseInt(msgId));
+                        }
+                    });
+                    
+                    // Auto scroll if already at bottom
+                    if (messagesArea.scrollTop + messagesArea.clientHeight >= messagesArea.scrollHeight - 50) {
+                        messagesArea.scrollTop = messagesArea.scrollHeight;
+                    }
+                }
+            }
+        })
+        .catch(err => console.warn('Poll error:', err));
+    }
+
+    const pollInterval = setInterval(pollNewMessages, 3000);
+    window.addEventListener('beforeunload', () => clearInterval(pollInterval));
+
+    // ============================================================
+    // LOAD OLDER MESSAGES
+    // ============================================================
+    function updateLoadMoreButton() {
+        const firstElement = messagesArea.querySelector('[data-message-id]');
+        if (!firstElement) {
+            loadMoreBtn.style.display = 'none';
+            return;
+        }
+
+        const firstId = firstElement.getAttribute('data-message-id');
+        
+        fetch(`/messages/${conversationId}/older/?before=${firstId}`, {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+            credentials: 'same-origin'
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.count > 0) {
+                loadMoreBtn.style.display = 'block';
+                const badge = document.getElementById('remaining-count');
+                badge.textContent = data.count;
+                badge.style.display = 'inline-block';
+            } else {
+                loadMoreBtn.style.display = 'none';
+            }
+        })
+        .catch(err => console.warn('Count error:', err));
+    }
+
+    updateLoadMoreButton();
+
+    loadMoreBtn.addEventListener('click', function() {
+        if (isLoadingMore) return;
+        
+        const firstElement = messagesArea.querySelector('[data-message-id]');
+        if (!firstElement) return;
+
+        isLoadingMore = true;
+        loadMoreBtn.disabled = true;
+        const firstId = firstElement.getAttribute('data-message-id');
+
+        fetch(`/messages/${conversationId}/older/?before=${firstId}&limit=20`, {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+            credentials: 'same-origin'
+        })
+        .then(r => r.text())
+        .then(html => {
+            if (html.trim()) {
+                const temp = document.createElement('div');
+                temp.innerHTML = html;
+                
+                const oldScrollHeight = messagesArea.scrollHeight;
                 messagesArea.insertAdjacentHTML('afterbegin', html);
-                const newHeight = messagesArea.scrollHeight;
-                messagesArea.scrollTop = newHeight - oldHeight;
-                updateRemainingCount();
-            });
+                const newScrollHeight = messagesArea.scrollHeight;
+                
+                messagesArea.scrollTop = newScrollHeight - oldScrollHeight;
+                updateLoadMoreButton();
+            }
+            
+            isLoadingMore = false;
+            loadMoreBtn.disabled = false;
+        })
+        .catch(err => {
+            console.error('Load more error:', err);
+            isLoadingMore = false;
+            loadMoreBtn.disabled = false;
+        });
     });
+
+    // ============================================================
+    // AUTO-EXPAND TEXTAREA
+    // ============================================================
+    messageInput.addEventListener('input', function() {
+        this.style.height = 'auto';
+        this.style.height = Math.min(this.scrollHeight, 100) + 'px';
+    });
+})();
 </script>
 {% endblock %}
