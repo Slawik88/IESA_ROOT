@@ -409,15 +409,14 @@ if DEBUG:
         }
     }
 else:
-    # For production - temporarily use In-Memory (chats are disabled anyway)
-    # Once Redis is configured, switch to: CHANNEL_LAYERS = {'default': {'BACKEND': 'channels_redis.core.RedisChannelLayer', ...}}
+    # For production - use Database Channel Layer (works with PostgreSQL)
+    # Scales to 400+ users with multiple app instances
     CHANNEL_LAYERS = {
         'default': {
-            'BACKEND': 'channels.layers.InMemoryChannelLayer',
+            'BACKEND': 'channels.layers.DatabaseChannelLayer',
             'CONFIG': {
-                'capacity': 100,  # Minimal capacity
-                'expiry': 10,     # Short expiry (10 seconds)
-            }
+                'expiry': 600,  # Messages expire after 10 minutes
+            },
         }
     }
 
