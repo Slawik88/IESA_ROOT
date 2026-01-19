@@ -409,14 +409,16 @@ if DEBUG:
         }
     }
 else:
-    # For production, use Redis (install redis server)
+    # For production - temporarily use In-Memory (chats are disabled anyway)
+    # Once Redis is configured, switch to: CHANNEL_LAYERS = {'default': {'BACKEND': 'channels_redis.core.RedisChannelLayer', ...}}
     CHANNEL_LAYERS = {
         'default': {
-            'BACKEND': 'channels_redis.core.RedisChannelLayer',
+            'BACKEND': 'channels.layers.InMemoryChannelLayer',
             'CONFIG': {
-                'url': os.getenv('REDIS_URL', 'redis://127.0.0.1:6379'),
-            },
-        },
+                'capacity': 100,  # Minimal capacity
+                'expiry': 10,     # Short expiry (10 seconds)
+            }
+        }
     }
 
 # Import additional settings (logging, email, etc.)
