@@ -71,11 +71,13 @@
                   <i class="fas fa-user-plus me-2"></i>
                   <span class="follow-text">Follow</span>
                 </button>
-                 <a href="{% url 'messaging:start_chat' user_obj.id %}" 
-                   class="btn btn-light btn-modern px-4" 
-                   style="border-radius: 20px; font-weight: 600; border: 2px solid #e5e7eb;">
+                 <button 
+                   class="btn btn-light btn-modern px-4 text-muted" 
+                   style="border-radius: 20px; font-weight: 600; border: 2px solid #e5e7eb; cursor: not-allowed; opacity: 0.6;"
+                   disabled
+                   title="Функция сообщений в разработке">
                   <i class="fas fa-envelope me-2"></i>Send Message
-                </a>
+                </button>
               </div>
             {% elif not user.is_authenticated %}
               <div class="alert alert-light border mt-3 mb-0">
