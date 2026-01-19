@@ -119,6 +119,7 @@ TEMPLATES = [
                 'django.contrib.messages.context_processors.messages',
                 'notifications.context_processors.unread_notifications',
                 'core.context_processors.social_networks',
+                'messaging.context_processors.unread_messages_count',
             ],
         },
     },
@@ -413,7 +414,7 @@ else:
         'default': {
             'BACKEND': 'channels_redis.core.RedisChannelLayer',
             'CONFIG': {
-                'hosts': [(os.getenv('REDIS_HOST', '127.0.0.1'), int(os.getenv('REDIS_PORT', 6379)))],
+                'url': os.getenv('REDIS_URL', 'redis://127.0.0.1:6379'),
             },
         },
     }
