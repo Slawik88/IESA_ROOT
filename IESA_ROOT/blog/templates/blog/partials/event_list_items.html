@@ -1,0 +1,74 @@
+{% load static %}
+{% now "U" as now_ts %}
+
+{% for event in events %}
+    {% with event_ts=event.date|date:"U" %}
+    <div class="col-12 htmx-fade-in">
+        <div class="card card-modern event-card-compact">
+            <div class="row g-0 align-items-center">
+                <div class="col-auto">
+                    <div class="event-date-chip-compact">
+                        <div class="event-date-day">{{ event.date|date:"d" }}</div>
+                        <div class="event-date-month">{{ event.date|date:"M" }}</div>
+                    </div>
+                </div>
+                <div class="col-md-3 col-4">
+                    {% if event.image %}
+                        <img src="{{ event.image.url }}" class="event-image-compact" alt="{{ event.title }}" loading="lazy">
+                    {% else %}
+                        <div class="event-image-placeholder">
+                            <i class="fas fa-calendar-alt fa-2x"></i>
+                        </div>
+                    {% endif %}
+                </div>
+                <div class="col">
+                    <div class="card-body py-3">
+                        <div class="d-flex justify-content-between align-items-start mb-1">
+                            <h6 class="card-title fw-bold text-primary mb-0">{{ event.title }}</h6>
+                            <span class="badge badge-sm {% if event_ts|add:'0' > now_ts|add:'0' %}bg-success-subtle text-success{% else %}bg-secondary-subtle text-secondary{% endif %}">
+                                {% if event_ts|add:'0' > now_ts|add:'0' %}Upcoming{% else %}Past{% endif %}
+                            </span>
+                        </div>
+                        <div class="event-meta">
+                            <span class="me-3"><i class="fas fa-clock me-1"></i>{{ event.date|date:"d M Y, H:i" }}</span>
+                            <span><i class="fas fa-map-marker-alt me-1"></i>{{ event.location }}</span>
+                        </div>
+                        <p class="card-text text-muted small mb-2">{{ event.description|truncatewords:15 }}</p>
+                        <a href="{% url 'blog:event_detail' event.pk %}" class="btn btn-sm btn-outline-primary">Details</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endwith %}
+{% empty %}
+    <div class="col-12">
+        <div class="empty-state">
+            <div class="empty-emoji">📅</div>
+            <h5>No events found</h5>
+            <p class="text-muted mb-0">Try adjusting your filters</p>
+        </div>
+    </div>
+{% endfor %}
+
+{% comment %}
+HTMX Infinite Scroll Trigger - Best Practice:
+- Использует hx-trigger="revealed" - загрузка начнётся когда элемент появится в viewport
+- hx-swap="outerHTML" - заменяет триггер следующей партией + новым триггером
+- Кэширование через ETag заголовки на стороне сервера
+{% endcomment %}
+{% if has_next %}
+<div id="infinite-scroll-trigger" 
+     class="col-12 text-center py-4"
+     hx-get="{% url 'blog:event_list' %}?page={{ next_page }}{% if search %}&search={{ search }}{% endif %}{% if status %}&status={{ status }}{% endif %}{% if category %}&category={{ category }}{% endif %}"
+     hx-trigger="revealed"
+     hx-swap="outerHTML"
+     hx-indicator="#loading-spinner">
+    <div id="loading-spinner" class="htmx-indicator">
+        <div class="spinner-border spinner-border-sm text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+        <span class="ms-2 text-muted">Loading more events...</span>
+    </div>
+</div>
+{% endif %}

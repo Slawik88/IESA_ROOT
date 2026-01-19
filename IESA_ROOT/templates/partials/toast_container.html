@@ -1,0 +1,48 @@
+{% comment %}
+Toast Container - добавить в base.html перед </body>
+Контейнер для Bootstrap Toast уведомлений с HTMX интеграцией
+{% endcomment %}
+
+<!-- Toast Container - фиксированный в правом верхнем углу -->
+<div class="toast-container position-fixed top-0 end-0 p-3" id="toast-container" style="z-index: 1100;">
+    {% for message in messages %}
+    <div class="toast align-items-center text-bg-{{ message.tags|default:'info' }} border-0 show" 
+         role="alert" aria-live="assertive" aria-atomic="true"
+         data-bs-autohide="true" data-bs-delay="5000">
+        <div class="d-flex">
+            <div class="toast-body">
+                {% if message.tags == 'success' %}
+                    <i class="fas fa-check-circle me-2"></i>
+                {% elif message.tags == 'error' or message.tags == 'danger' %}
+                    <i class="fas fa-exclamation-circle me-2"></i>
+                {% elif message.tags == 'warning' %}
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                {% else %}
+                    <i class="fas fa-info-circle me-2"></i>
+                {% endif %}
+                {{ message }}
+            </div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Скрипт автоматической инициализации toasts -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Инициализируем все существующие toasts
+    document.querySelectorAll('.toast').forEach(function(toastEl) {
+        var toast = new bootstrap.Toast(toastEl);
+        toast.show();
+    });
+});
+
+// Также инициализируем toasts после HTMX swap (для динамически добавленных)
+document.body.addEventListener('htmx:afterSwap', function() {
+    document.querySelectorAll('.toast:not(.show)').forEach(function(toastEl) {
+        var toast = new bootstrap.Toast(toastEl);
+        toast.show();
+    });
+});
+</script>

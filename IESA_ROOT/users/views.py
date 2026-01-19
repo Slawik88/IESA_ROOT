@@ -13,7 +13,7 @@ from django.views.decorators.cache import cache_page
 from io import BytesIO
 from .models import User
 from .forms import CustomUserCreationForm, UserProfileEditForm
-from blog.models import Post
+from blog.models import Post, BlogSubscription
 import os
 from django.conf import settings
 from .qr_utils import generate_qr_code_for_user
@@ -113,11 +113,12 @@ class ProfileEditView(UpdateView):
         return reverse_lazy('users:profile')
 
 
-def _get_public_profile_context(user_obj):
+def _get_public_profile_context(user_obj, request_user=None):
     """Helper function to generate context for public profile view.
     
     FIX: Extracted duplicated logic from profile_public_by_username and 
     profile_public_by_card into single reusable function.
+    Added: is_subscribed for HTMX subscribe button
     """
     user_posts = Post.objects.filter(
         author=user_obj, status='published'
@@ -129,32 +130,40 @@ def _get_public_profile_context(user_obj):
         else []
     )
     
+    # Check if current user is subscribed to this profile
+    is_subscribed = False
+    if request_user and request_user.is_authenticated and request_user != user_obj:
+        is_subscribed = BlogSubscription.objects.filter(
+            author=user_obj,
+            subscriber=request_user
+        ).exists()
+    
     return {
         'user_obj': user_obj, 
         'user_posts': user_posts, 
-        'other_links_list': other_links_list
+        'other_links_list': other_links_list,
+        'is_subscribed': is_subscribed,
     }
 
 
-@cache_page(60 * 5)  # Cache public profiles for 5 minutes
 def profile_public_by_username(request, username):
-    """Public profile view by username (cached for 5 min).
+    """Public profile view by username.
     
-    FIX: Added caching to reduce database queries for frequently viewed profiles.
+    Note: Removed cache_page to allow is_subscribed to work per-user.
+    The query is still optimized via select_related/prefetch_related.
     """
     user_obj = get_object_or_404(User, username=username)
-    context = _get_public_profile_context(user_obj)
+    context = _get_public_profile_context(user_obj, request.user)
     return render(request, 'users/profile_public.html', context)
 
 
-@cache_page(60 * 5)  # Cache public profiles for 5 minutes  
 def profile_public_by_card(request, permanent_id):
     """Public profile view reached via QR code (permanent_id lookup).
     
-    FIX: Added caching + optimized query with select_related and prefetch_related.
+    Note: Removed cache_page to allow is_subscribed to work per-user.
     """
     user_obj = get_object_or_404(User, permanent_id=permanent_id)
-    context = _get_public_profile_context(user_obj)
+    context = _get_public_profile_context(user_obj, request.user)
     return render(request, 'users/profile_public.html', context)
 
 

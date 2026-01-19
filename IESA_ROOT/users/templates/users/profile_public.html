@@ -60,24 +60,17 @@
               </div>
             </div>
             
-            <!-- Follow & Message Buttons - VISIBLE FOR OTHER USERS ONLY -->
+            <!-- Follow & Message Buttons - HTMX powered, no JS needed -->
             {% if user.is_authenticated and user.id != user_obj.id %}
               <div class="d-flex gap-2 mt-3 flex-wrap">
-                <button class="btn btn-danger btn-modern follow-btn px-4" 
-                        data-user-id="{{ user_obj.id }}"
-                        data-username="{{ user_obj.username }}"
-                        type="button"
-                        style="border-radius: 20px; font-weight: 600;">
-                  <i class="fas fa-user-plus me-2"></i>
-                  <span class="follow-text">Follow</span>
-                </button>
-                 <button 
+                {# HTMX Subscribe Button - uses existing blog subscription system #}
+                {% include 'blog/htmx/subscribe_button.html' with author=user_obj is_subscribed=is_subscribed %}
+                
+                <a href="{% url 'messaging:start_chat' user_id=user_obj.id %}" 
                    class="btn btn-light btn-modern px-4 text-muted" 
-                   style="border-radius: 20px; font-weight: 600; border: 2px solid #e5e7eb; cursor: not-allowed; opacity: 0.6;"
-                   disabled
-                   title="Функция сообщений в разработке">
+                   style="border-radius: 20px; font-weight: 600; border: 2px solid #e5e7eb;">
                   <i class="fas fa-envelope me-2"></i>Send Message
-                </button>
+                </a>
               </div>
             {% elif not user.is_authenticated %}
               <div class="alert alert-light border mt-3 mb-0">
@@ -234,24 +227,4 @@
     </div>
   </div>
 </div>
-
-<!-- Profile Interactions Initialization for Public Profiles -->
-{% load static %}
-<script src="{% static 'js/profile-interactions.js' %}"></script>
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    if (window.ProfileInteractions) {
-        console.log('🔄 Initializing ProfileInteractions on public profile page...');
-        window.ProfileInteractions.init();
-    }
-});
-
-// Инициализация немедленно если документ уже загружен
-if (document.readyState === 'interactive' || document.readyState === 'complete') {
-    if (window.ProfileInteractions) {
-        console.log('🔄 Public profile page ready - initializing ProfileInteractions immediately...');
-        window.ProfileInteractions.init();
-    }
-}
-</script>
 {% endblock %}

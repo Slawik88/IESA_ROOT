@@ -4,7 +4,6 @@
 
 {% block content %}
 <div class="container-limited">
-    {% now "U" as now_ts %}
     <div class="text-center mb-5">
         <h6 class="section-title d-block mb-4">EVENTS CALENDAR</h6>
         <h1 class="fw-bold mb-2 text-gray-900">Upcoming Events & Gatherings</h1>
@@ -28,154 +27,59 @@
     </div>
     {% endif %}
 
+    {# Фильтры и поиск с HTMX #}
     <div class="d-flex flex-column flex-lg-row justify-content-between align-items-start align-items-lg-center mb-4 p-3 bg-white card-modern gap-3">
         <nav class="nav nav-pills flex-shrink-0">
             <a class="nav-link" href="{% url 'blog:post_list' %}">All posts</a>
             <a class="nav-link active" href="{% url 'blog:event_list' %}">Events</a>
         </nav>
-        <div class="d-flex flex-column flex-sm-row gap-2 w-100 w-lg-auto">
-            <input type="text" id="event-search" class="form-control form-control-sm" placeholder="Search events..." aria-label="Search events">
-            <select id="event-filter-type" class="form-select form-select-sm">
-                <option value="">All types</option>
-                <option value="webinar">Webinar</option>
-                <option value="workshop">Workshop</option>
-                <option value="conference">Conference</option>
+        
+        {# HTMX-powered filters - no JavaScript needed! #}
+        <form id="event-filters" class="d-flex flex-column flex-sm-row gap-2 w-100 w-lg-auto"
+              hx-get="{% url 'blog:event_list' %}"
+              hx-target="#events-container"
+              hx-trigger="change from:select, input from:input delay:300ms"
+              hx-swap="innerHTML"
+              hx-indicator="#filter-loading">
+            
+            <div class="position-relative">
+                <input type="text" 
+                       name="search" 
+                       value="{{ search }}"
+                       class="form-control form-control-sm" 
+                       placeholder="Search events..." 
+                       aria-label="Search events">
+            </div>
+            
+            <select name="status" class="form-select form-select-sm">
+                <option value="upcoming" {% if status == 'upcoming' %}selected{% endif %}>Upcoming</option>
+                <option value="all" {% if status == 'all' %}selected{% endif %}>All events</option>
+                <option value="past" {% if status == 'past' %}selected{% endif %}>Past</option>
             </select>
-            <select id="event-filter-status" class="form-select form-select-sm">
-                <option value="upcoming">Upcoming</option>
-                <option value="all">All events</option>
-                <option value="past">Past</option>
+            
+            {% if categories %}
+            <select name="category" class="form-select form-select-sm">
+                <option value="">All categories</option>
+                {% for cat in categories %}
+                <option value="{{ cat }}" {% if category == cat %}selected{% endif %}>{{ cat|title }}</option>
+                {% endfor %}
             </select>
-        </div>
+            {% endif %}
+            
+            {# Loading indicator #}
+            <div id="filter-loading" class="htmx-indicator d-flex align-items-center">
+                <div class="spinner-border spinner-border-sm text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+            </div>
+        </form>
+        
         <a href="{% url 'blog:post_list' %}" class="btn btn-outline-secondary btn-modern flex-shrink-0 d-none d-lg-block">Back to blog</a>
     </div>
 
-    {% if events %}
-        <div class="row g-3">
-            {% for event in events %}
-                {% with event_ts=event.date|date:"U" %}
-                <div class="col-12">
-                    <div class="card card-modern event-card-compact" data-event-card data-event-title="{{ event.title }}" data-event-location="{{ event.location }}" data-event-type="webinar" data-event-ts="{{ event_ts }}">
-                        <div class="row g-0 align-items-center">
-                            <div class="col-auto">
-                                <div class="event-date-chip-compact">
-                                    <div class="event-date-day">{{ event.date|date:"d" }}</div>
-                                    <div class="event-date-month">{{ event.date|date:"M" }}</div>
-                                </div>
-                            </div>
-                            <div class="col-md-3 col-4">
-                                {% if event.image %}
-                                    <img src="{{ event.image.url }}" class="event-image-compact" alt="{{ event.title }}" loading="lazy">
-                                {% else %}
-                                    <div class="event-image-placeholder">
-                                        <i class="fas fa-calendar-alt fa-2x"></i>
-                                    </div>
-                                {% endif %}
-                            </div>
-                            <div class="col">
-                                <div class="card-body py-3">
-                                    <div class="d-flex justify-content-between align-items-start mb-1">
-                                        <h6 class="card-title fw-bold text-primary mb-0">{{ event.title }}</h6>
-                                        <span class="badge badge-sm {% if event_ts|add:'0' > now_ts|add:'0' %}bg-success-subtle text-success{% else %}bg-secondary-subtle text-secondary{% endif %}">
-                                            {% if event_ts|add:'0' > now_ts|add:'0' %}Upcoming{% else %}Past{% endif %}
-                                        </span>
-                                    </div>
-                                    <div class="event-meta">
-                                        <span class="me-3"><i class="fas fa-clock me-1"></i>{{ event.date|date:"d M Y, H:i" }}</span>
-                                        <span><i class="fas fa-map-marker-alt me-1"></i>{{ event.location }}</span>
-                                    </div>
-                                    <p class="card-text text-muted small mb-2">{{ event.description|truncatewords:15 }}</p>
-                                    <a href="{% url 'blog:event_detail' event.pk %}" class="btn btn-sm btn-outline-primary">Details</a>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                {% endwith %}
-            {% endfor %}
-        </div>
-        
-        <script>
-        document.addEventListener('DOMContentLoaded', function(){
-            const searchInput = document.getElementById('event-search');
-            const filterType = document.getElementById('event-filter-type');
-            const filterStatus = document.getElementById('event-filter-status');
-            const eventCards = document.querySelectorAll('[data-event-card]');
-            
-            function filterEvents(){
-                const query = searchInput.value.toLowerCase();
-                const type = filterType.value;
-                const status = filterStatus.value;
-                const now = new Date().getTime() / 1000;
-                
-                eventCards.forEach(card => {
-                    let show = true;
-                    
-                    // Search filter
-                    if (query) {
-                        const title = card.dataset.eventTitle?.toLowerCase() || '';
-                        const location = card.dataset.eventLocation?.toLowerCase() || '';
-                        show = title.includes(query) || location.includes(query);
-                    }
-                    
-                    // Type filter
-                    if (show && type) {
-                        show = card.dataset.eventType === type;
-                    }
-                    
-                    // Status filter
-                    if (show && status !== '') {
-                        const eventTime = parseInt(card.dataset.eventTs || 0);
-                        if (status === 'upcoming') show = eventTime > now;
-                        else if (status === 'past') show = eventTime <= now;
-                    }
-                    
-                    card.parentElement.style.display = show ? '' : 'none';
-                });
-            }
-            
-            searchInput.addEventListener('keyup', filterEvents);
-            filterType.addEventListener('change', filterEvents);
-            filterStatus.addEventListener('change', filterEvents);
-        });
-        </script>
-    {% else %}
-        <div class="empty-state">
-            <div class="empty-emoji">📅</div>
-            <h5>No upcoming events</h5>
-            <p class="text-muted mb-3">There are no scheduled events at the moment. Check back soon!</p>
-            {% if user.is_staff %}
-                <a href="{% url 'blog:post_create' %}" class="btn btn-primary btn-modern">Create event post</a>
-            {% else %}
-                <a href="{% url 'blog:post_list' %}" class="btn btn-outline-primary btn-modern">Back to community</a>
-            {% endif %}
-        </div>
-    {% endif %}
+    {# Контейнер для событий с HTMX infinite scroll #}
+    <div id="events-container" class="row g-3">
+        {% include 'blog/partials/event_list_items.html' %}
+    </div>
 </div>
-
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    const observerOptions = {
-        threshold: 0.1,
-        rootMargin: '0px 0px -50px 0px'
-    };
-    
-    const observer = new IntersectionObserver(function(entries) {
-        entries.forEach(entry => {
-            if (entry.isIntersecting) {
-                entry.target.classList.add('animated');
-                observer.unobserve(entry.target);
-            }
-        });
-    }, observerOptions);
-    
-    // Анимация для карточек событий
-    const eventCards = document.querySelectorAll('.col-md-6');
-    eventCards.forEach(card => {
-        card.classList.add('event-card-animate');
-        observer.observe(card);
-    });
-});
-</script>
-
 {% endblock %}
