@@ -11,6 +11,23 @@
         <p class="text-muted">Join us for exciting experiences and networking opportunities</p>
     </div>
 
+    {% if not user.is_authenticated %}
+    <div class="alert alert-warning mb-4">
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3">
+            <div>
+                <strong>
+                    <i class="fas fa-lock me-2"></i>Sign in or register to access events
+                </strong>
+                <p class="mb-0 mt-1 opacity-90">Join to RSVP, comment and engage with members</p>
+            </div>
+            <div class="d-flex gap-2 flex-shrink-0">
+                <a href="{% url 'users:login' %}" class="btn btn-primary btn-modern btn-sm">Sign In</a>
+                <a href="{% url 'users:register' %}" class="btn btn-secondary btn-sm">Register</a>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     <div class="d-flex flex-column flex-lg-row justify-content-between align-items-start align-items-lg-center mb-4 p-3 bg-white card-modern gap-3">
         <nav class="nav nav-pills flex-shrink-0">
             <a class="nav-link" href="{% url 'blog:post_list' %}">All posts</a>
