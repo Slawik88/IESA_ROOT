@@ -82,11 +82,6 @@ class EventListView(ListView):
             if page_obj.has_next():
                 context['next_page'] = page_obj.next_page_number()
         
-        # Список категорий для фильтра
-        context['categories'] = Event.objects.values_list(
-            'category', flat=True
-        ).distinct().exclude(category__isnull=True).exclude(category='')
-        
         return context
     
     def render_to_response(self, context, **response_kwargs):

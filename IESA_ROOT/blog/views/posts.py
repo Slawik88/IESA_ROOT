@@ -48,12 +48,7 @@ class PostListView(ListView):
                 Q(title__icontains=search) | Q(text__icontains=search)
             )
         
-        # Фильтр по категории
-        category = self.request.GET.get('category')
-        if category:
-            queryset = queryset.filter(category__slug=category)
-        
-        return queryset.order_by('-is_pinned', '-created_at')
+        return queryset.order_by('-created_at')
     
     def get_template_names(self):
         """Возвращает partial шаблон для HTMX запросов"""
