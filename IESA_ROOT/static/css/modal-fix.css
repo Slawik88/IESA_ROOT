@@ -19,8 +19,6 @@
 /* Modal dialog поверх backdrop */
 .modal {
     z-index: 1050 !important;
-    /* соответствие Bootstrap: клики принимают только .modal-dialog */
-    pointer-events: none;
 }
 
 /* Убеждаемся, что modal можно закрыть */
