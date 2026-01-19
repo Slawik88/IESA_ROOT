@@ -2,7 +2,7 @@
 Signal handlers for automatic notification creation.
 """
 import logging
-from django.db.models.signals import post_save
+from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 from django.db import transaction
 from blog.models import Post, Comment, Like
@@ -18,33 +18,40 @@ from .utils import (
 logger = logging.getLogger(__name__)
 
 
+@receiver(pre_save, sender=Post)
+def capture_previous_post_status(sender, instance, **kwargs):
+    """Capture previous status before saving so post_save can compare."""
+    if instance.pk:
+        try:
+            prev = sender.objects.get(pk=instance.pk)
+            instance._previous_status = prev.status
+        except sender.DoesNotExist:
+            instance._previous_status = None
+    else:
+        instance._previous_status = None
+
+
 @receiver(post_save, sender=Post)
 def post_status_changed(sender, instance, created, **kwargs):
-    """Send notification when post status changes.
-    
-    FIX: Added error handling and transaction awareness.
-    Notifications won't be created if the post save transaction fails.
-    """
+    """Send notification when post status changes (published/rejected)."""
     if created:
         return  # Don't send notification when post is first created
-    
-    # Get previous status from database
-    try:
-        old_instance = Post.objects.get(pk=instance.pk)
-        old_status = old_instance.status
-    except Post.DoesNotExist:
+
+    old_status = getattr(instance, '_previous_status', None)
+    new_status = instance.status
+
+    if old_status is None or old_status == new_status:
         return
-    
-    # Only send notification if status actually changed
-    if old_status != instance.status and instance.status in ['published', 'rejected']:
+
+    if new_status in ['published', 'rejected']:
         try:
-            if instance.status == 'published':
+            if new_status == 'published':
                 notify_post_approved(instance)
-            elif instance.status == 'rejected':
+            elif new_status == 'rejected':
                 notify_post_rejected(instance)
         except Exception as e:
             logger.error(f"Failed to create notification for post {instance.id}: {str(e)}", exc_info=True)
-            # Don't raise - notification failure shouldn't break the post creation
+            # Don't raise - notification failure shouldn't break the post save
 
 
 @receiver(post_save, sender=Comment)
