@@ -173,9 +173,11 @@
                             <button class="btn btn-light btn-sm position-relative messaging-btn d-flex align-items-center" id="messagingToggle" title="Messages">
                                 <i class="fas fa-envelope"></i>
                                 <span class="d-sm-none ms-2">Messages</span>
-                                <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-success navbar-notification-badge" style="display: none;" id="unreadMessagesCount">
-                                    0
-                                </span>
+                                {% if unread_messages_count and unread_messages_count > 0 %}
+                                    <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-success navbar-notification-badge" id="unreadMessagesCount">{{ unread_messages_count }}</span>
+                                {% else %}
+                                    <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-success navbar-notification-badge" style="display: none;" id="unreadMessagesCount">0</span>
+                                {% endif %}
                             </button>
                             
                             <!-- Notifications button -->
@@ -604,5 +606,44 @@
     <button id="back-to-top" aria-label="Back to top" title="Back to top">
         <i class="fas fa-arrow-up"></i>
     </button>
+    
+    <!-- Notifications WebSocket: updates unread messages badge in real time -->
+    {% if user.is_authenticated %}
+    <script>
+    (function(){
+        const badge = document.getElementById('unreadMessagesCount');
+        function setBadge(count){
+            if (!badge) return;
+            const n = Math.max(0, parseInt(count) || 0);
+            if (n > 0){
+                badge.textContent = n > 99 ? '99+' : n;
+                badge.style.display = 'inline-block';
+            } else {
+                badge.textContent = '0';
+                badge.style.display = 'none';
+            }
+        }
+        function deltaBadge(delta){
+            if (!badge) return;
+            const current = parseInt(badge.textContent) || 0;
+            setBadge(current + (parseInt(delta) || 0));
+        }
+        function connect(){
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const url = protocol + '//' + window.location.host + '/ws/notifications/';
+            const ws = new WebSocket(url);
+            ws.onmessage = function(e){
+                try {
+                    const data = JSON.parse(e.data);
+                    if (data.type === 'unread_set') setBadge(data.count);
+                    if (data.type === 'unread_delta') deltaBadge(data.delta);
+                } catch(err){ console.warn('WS notif parse error', err); }
+            };
+            ws.onclose = function(){ setTimeout(connect, 3000); };
+        }
+        document.addEventListener('DOMContentLoaded', connect);
+    })();
+    </script>
+    {% endif %}
 </body>
 </html>
