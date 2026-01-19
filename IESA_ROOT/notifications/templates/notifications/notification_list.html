@@ -87,11 +87,12 @@
                         <button hx-post="{% url 'notifications:notification_delete' notification.id %}"
                             hx-vals='{"_method": "delete"}'
                             hx-target="closest .notification-item"
-                            hx-swap="outerHTML swap:300ms"
+                            hx-swap="delete swap:100ms"
                             hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
                             class="btn btn-sm btn-outline-danger"
                             title="Delete notification"
-                            aria-label="Delete notification">
+                            aria-label="Delete notification"
+                            onclick="this.disabled=true">
                         <i class="fas fa-trash-alt"></i>
                         <span class="d-none d-md-inline ms-1">Delete</span>
                     </button>
