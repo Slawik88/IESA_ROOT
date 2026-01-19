@@ -10,7 +10,7 @@ from django.contrib import messages
 from .services.card_service import UserCardService
 import uuid
 from django.utils import timezone
-from blog.utils import generate_qr_code_for_user
+from users.qr_utils import generate_qr_code_for_user
 from django.core.files.storage import default_storage
 
 
