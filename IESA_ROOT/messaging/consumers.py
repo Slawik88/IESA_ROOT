@@ -128,6 +128,21 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 }
             }
         )
+
+        # Уведомляем собеседника о новом непрочитанном сообщении
+        try:
+            other_user_id = await self.get_other_user_id()
+            # Если сообщение не от собеседника (то есть от текущего пользователя), увеличиваем счётчик у другого
+            if other_user_id and other_user_id != self.user.id:
+                await self.channel_layer.group_send(
+                    f'user_{other_user_id}',
+                    {
+                        'type': 'unread_delta',
+                        'delta': 1
+                    }
+                )
+        except Exception:
+            pass
         
         # Очищаем статус печати
         await self.clear_typing_status()
@@ -175,6 +190,18 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     'message_ids': message_ids
                 }
             )
+
+            # Уменьшаем счётчик непрочитанных у текущего пользователя
+            try:
+                await self.channel_layer.group_send(
+                    f'user_{self.user.id}',
+                    {
+                        'type': 'unread_delta',
+                        'delta': -len(message_ids)
+                    }
+                )
+            except Exception:
+                pass
     
     async def handle_edit_message(self, data):
         """Редактирование сообщения"""
@@ -372,6 +399,16 @@ class ChatConsumer(AsyncWebsocketConsumer):
             is_read=True,
             read_at=timezone.now()
         )
+
+    @database_sync_to_async
+    def get_other_user_id(self):
+        """Возвращает ID собеседника по чату"""
+        from .models import Chat
+        try:
+            chat = Chat.objects.get(pk=self.chat_id)
+            return chat.user2_id if chat.user1_id == self.user.id else chat.user1_id
+        except Chat.DoesNotExist:
+            return None
     
     @database_sync_to_async
     def edit_message(self, message_id, new_text):
@@ -415,3 +452,42 @@ class ChatConsumer(AsyncWebsocketConsumer):
             'type': 'error',
             'message': message
         }))
+
+
+class NotificationsConsumer(AsyncWebsocketConsumer):
+    """Уведомления пользователя: непрочитанные сообщения (значок в navbar)."""
+
+    async def connect(self):
+        self.user = self.scope['user']
+        if not self.user.is_authenticated:
+            await self.close(code=4001)
+            return
+
+        self.user_group = f'user_{self.user.id}'
+        await self.channel_layer.group_add(self.user_group, self.channel_name)
+        await self.accept()
+
+        # Отправляем начальный счётчик (защита от расхождений)
+        try:
+            count = await self.get_unread_count()
+            await self.send(text_data=json.dumps({'type': 'unread_set', 'count': count}))
+        except Exception:
+            await self.send(text_data=json.dumps({'type': 'unread_set', 'count': 0}))
+
+    async def disconnect(self, close_code):
+        if hasattr(self, 'user_group'):
+            await self.channel_layer.group_discard(self.user_group, self.channel_name)
+
+    async def unread_delta(self, event):
+        # Пробрасываем изменение счётчика на клиента
+        await self.send(text_data=json.dumps({'type': 'unread_delta', 'delta': event.get('delta', 0)}))
+
+    @database_sync_to_async
+    def get_unread_count(self):
+        from .models import Message
+        from django.db.models import Q
+        return Message.objects.filter(
+            Q(chat__user1=self.user) | Q(chat__user2=self.user),
+            is_read=False,
+            is_deleted=False
+        ).exclude(sender=self.user).count()

@@ -380,11 +380,8 @@
             }
         });
         
-        // Load unread count
-        loadUnreadCount();
-        
-        // Refresh unread count periodically
-        setInterval(loadUnreadCount, 30000);
+        // Убрали периодическое обновление unread-count (Cloudflare может блокировать AJAX).
+        // Бейдж инициализируется сервером, а обновления приходят через WebSocket (см. base.html).
     });
     
     function togglePanel() {
@@ -424,7 +421,8 @@
                 : `${API_BASE}/chats/`;
             
             const response = await fetch(url, {
-                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                  headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                  credentials: 'include'
             });
             
             const data = await response.json();
@@ -480,7 +478,8 @@
     async function loadUnreadCount() {
         try {
             const response = await fetch(`${API_BASE}/unread-count/`, {
-                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                  headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                  credentials: 'include'
             });
             
             const data = await response.json();
@@ -516,7 +515,8 @@
         
         try {
             const response = await fetch(`${API_BASE}/users/search/?q=${encodeURIComponent(query)}`, {
-                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                  headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                  credentials: 'include'
             });
             
             const data = await response.json();
@@ -570,6 +570,7 @@
                     'X-CSRFToken': csrfToken,
                     'X-Requested-With': 'XMLHttpRequest'
                 },
+                    credentials: 'include',
                 body: JSON.stringify({ user_id: parseInt(userId) })
             });
             
