@@ -44,12 +44,7 @@
                 console.log(`✅ Modal #${id} инициализирована`);
             }
             
-            // Проверка pointer-events
-            const styles = window.getComputedStyle(modal);
-            if (styles.pointerEvents !== 'auto') {
-                console.warn(`⚠️ Modal #${id} имеет pointer-events: ${styles.pointerEvents} (нужно: auto)`);
-                modal.style.pointerEvents = 'auto';
-            }
+            // Не форсируем pointer-events — используем поведение Bootstrap
         });
         
         if (allInitialized) {
@@ -71,8 +66,7 @@
                 return;
             }
             
-            // Гарантируем pointer-events на кнопке
-            btn.style.pointerEvents = 'auto';
+            // Не изменяем pointer-events — кнопки работают по умолчанию
             
             // Добавляем обработчик если его нет
             if (!btn.hasAttribute('data-modal-handler')) {
@@ -101,9 +95,6 @@
         console.log(`📊 Найдено ${closeButtons.length} кнопок закрытия`);
         
         closeButtons.forEach((btn, idx) => {
-            btn.style.pointerEvents = 'auto';
-            btn.style.cursor = 'pointer';
-            
             if (!btn.hasAttribute('data-close-handler')) {
                 btn.addEventListener('click', function(e) {
                     const modal = this.closest('.modal');
@@ -126,9 +117,6 @@
         console.log(`📊 Найдено ${backdrops.length} backdrop элементов`);
         
         backdrops.forEach((backdrop, idx) => {
-            backdrop.style.pointerEvents = 'auto';
-            backdrop.style.cursor = 'pointer';
-            
             if (!backdrop.hasAttribute('data-backdrop-handler')) {
                 backdrop.addEventListener('click', function(e) {
                     if (e.target === this) {

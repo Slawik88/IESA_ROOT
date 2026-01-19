@@ -125,9 +125,6 @@
         log(`📊 Найдено backdrop элементов: ${backdrops.length}`);
         
         backdrops.forEach(backdrop => {
-            backdrop.style.pointerEvents = 'auto';
-            backdrop.style.cursor = 'pointer';
-            
             backdrop.addEventListener('click', function(e) {
                 if (e.target === this) {
                     log('🖱️ Backdrop клик - закрываем modal');
@@ -200,52 +197,8 @@
      * Исправляем CSS issues
      */
     function fixCSSIssues() {
-        log('🎨 Исправление CSS проблем...');
-        
-        // Гарантируем правильный pointer-events на модальных окнах
-        const style = document.createElement('style');
-        style.textContent = `
-            /* CRITICAL MODAL FIXES */
-            .modal {
-                pointer-events: auto !important;
-            }
-            .modal.show {
-                pointer-events: auto !important;
-                display: flex !important;
-            }
-            .modal-backdrop {
-                pointer-events: auto !important;
-            }
-            .modal-backdrop.show {
-                pointer-events: auto !important;
-            }
-            .modal-content {
-                pointer-events: auto !important;
-            }
-            .modal-header,
-            .modal-body,
-            .modal-footer {
-                pointer-events: auto !important;
-            }
-            .btn-close {
-                pointer-events: auto !important;
-                cursor: pointer !important;
-            }
-            [data-bs-toggle="modal"] {
-                pointer-events: auto !important;
-                cursor: pointer !important;
-            }
-            [data-bs-dismiss="modal"] {
-                pointer-events: auto !important;
-                cursor: pointer !important;
-            }
-            /* Предотвращаем скрытие элементов */
-            .modal.fade {
-                transition: opacity 0.3s ease-in-out;
-            }
-        `;
-        document.head.appendChild(style);
-        log('✅ CSS стили добавлены');
+        // Убрана принудительная инъекция CSS. Оставляем поведение Bootstrap по умолчанию.
+        log('🎨 Исправление CSS проблем отключено (используем Bootstrap по умолчанию)');
     }
     
     /**
