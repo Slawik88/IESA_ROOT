@@ -2,6 +2,7 @@ from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.db.models import Count, Q
+from django.http import HttpResponse, HttpResponseNotAllowed
 from .models import Notification
 
 @login_required
@@ -61,10 +62,12 @@ def mark_all_read(request):
 @login_required
 def notification_delete(request, pk):
     """Delete a specific notification"""
+    if request.method not in ("POST", "DELETE"):
+        return HttpResponseNotAllowed(["POST", "DELETE"])
+
     notification = Notification.objects.filter(pk=pk, recipient=request.user).first()
     if notification:
         notification.delete()
-    
-    # Return empty response for HTMX delete
-    from django.http import HttpResponse
+
+    # HTMX: return empty body so hx-swap removes the target
     return HttpResponse('', status=200)
