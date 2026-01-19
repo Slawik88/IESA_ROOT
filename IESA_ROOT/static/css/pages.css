@@ -875,8 +875,9 @@
    ==================================================== */
 
 /* Gallery Grid */
+/* Используем Bootstrap row/col для сетки, без переписывания на CSS Grid,
+   чтобы не ломать ширины колонок. Оставляем только отступы. */
 .gallery-grid {
-  display: grid;
   gap: var(--space-4);
 }
 
@@ -892,6 +893,7 @@
   overflow: hidden;
   border-radius: var(--radius-xl);
   aspect-ratio: 1;
+  min-height: 180px; /* гарантируем адекватный размер превью */
 }
 
 .gallery-thumb img {
@@ -931,9 +933,20 @@
 
 .gallery-modal-image {
   max-height: 80vh;
+  max-width: 90vw;
   width: auto;
   margin: 0 auto;
   display: block;
+  object-fit: contain;
+}
+
+/* Responsive tuning: делаем соотношение 4:3 и чуть больше превью на >=sm */
+@media (min-width: 576px) {
+  .gallery-thumb { aspect-ratio: 4/3; min-height: 220px; }
+}
+
+@media (min-width: 992px) {
+  .gallery-thumb { min-height: 260px; }
 }
 
 .gallery-nav-btn {

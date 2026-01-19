@@ -19,7 +19,8 @@
 /* Modal dialog поверх backdrop */
 .modal {
     z-index: 1050 !important;
-    pointer-events: auto;
+    /* соответствие Bootstrap: клики принимают только .modal-dialog */
+    pointer-events: none;
 }
 
 /* Убеждаемся, что modal можно закрыть */
@@ -101,7 +102,7 @@ body.modal-open main {
 /* Анимация появления modal */
 .modal.show .modal-dialog {
     transform: none !important;
-    pointer-events: auto;
+    pointer-events: auto; /* позволяем взаимодействие внутри модали */
 }
 
 /* Убеждаемся, что background сайта не перекрывается */
