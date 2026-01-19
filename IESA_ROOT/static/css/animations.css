@@ -17,23 +17,30 @@ html {
 
 /* ============================================================
    2. CARD ANIMATIONS (вместо card-animations.js)
+   Мягкие, приятные эффекты при наведении
    ============================================================ */
 .card {
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1), 
+                box-shadow 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    will-change: transform, box-shadow;
 }
 
 .card:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.1);
+    transform: translateY(-6px);
+    box-shadow: 
+        0 20px 40px rgba(0, 0, 0, 0.08),
+        0 8px 16px rgba(0, 0, 0, 0.04);
 }
 
-/* Card с изображением */
-.card-img-top {
-    transition: transform 0.4s ease;
+/* Card с изображением - мягкий zoom */
+.card-img-top,
+.card-img {
+    transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.card:hover .card-img-top {
-    transform: scale(1.03);
+.card:hover .card-img-top,
+.card:hover .card-img {
+    transform: scale(1.05);
 }
 
 /* Overflow hidden для card чтобы изображение не вылезало */
@@ -41,36 +48,96 @@ html {
     overflow: hidden;
 }
 
+/* Появление карточек при загрузке */
+.card {
+    animation: card-appear 0.4s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+/* Задержки для каскадного появления */
+.card:nth-child(1) { animation-delay: 0s; }
+.card:nth-child(2) { animation-delay: 0.05s; }
+.card:nth-child(3) { animation-delay: 0.1s; }
+.card:nth-child(4) { animation-delay: 0.15s; }
+.card:nth-child(5) { animation-delay: 0.2s; }
+.card:nth-child(6) { animation-delay: 0.25s; }
+.card:nth-child(n+7) { animation-delay: 0.3s; }
+
+@keyframes card-appear {
+    0% {
+        opacity: 0;
+        transform: translateY(20px) scale(0.98);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
 /* ============================================================
    3. PAGE TRANSITIONS (вместо page-transitions.js)
-   Используем CSS View Transitions API
+   Мягкие, едва заметные переходы между страницами
    ============================================================ */
 @view-transition {
     navigation: auto;
 }
 
+/* Старая страница - мягко исчезает */
 ::view-transition-old(root) {
-    animation: fade-out 0.2s ease-out;
+    animation: page-fade-out 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* Новая страница - мягко появляется с лёгким подъёмом */
 ::view-transition-new(root) {
-    animation: fade-in 0.2s ease-in;
+    animation: page-fade-in 0.35s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-@keyframes fade-out {
-    from { opacity: 1; }
-    to { opacity: 0; }
+@keyframes page-fade-out {
+    0% { 
+        opacity: 1; 
+        transform: translateY(0) scale(1);
+        filter: blur(0);
+    }
+    100% { 
+        opacity: 0; 
+        transform: translateY(-8px) scale(0.99);
+        filter: blur(2px);
+    }
 }
 
-@keyframes fade-in {
-    from { opacity: 0; }
-    to { opacity: 1; }
+@keyframes page-fade-in {
+    0% { 
+        opacity: 0; 
+        transform: translateY(12px) scale(0.99);
+        filter: blur(2px);
+    }
+    100% { 
+        opacity: 1; 
+        transform: translateY(0) scale(1);
+        filter: blur(0);
+    }
 }
 
 /* Fallback для браузеров без View Transitions */
 .htmx-swapping {
-    opacity: 0.7;
-    transition: opacity 0.15s ease;
+    opacity: 0.85;
+    transform: translateY(-4px);
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Анимация появления нового контента через HTMX */
+.htmx-settling {
+    animation: htmx-content-appear 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes htmx-content-appear {
+    0% {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 /* ============================================================
@@ -92,15 +159,18 @@ html {
 
 /* ============================================================
    5. SKELETON LOADING (вместо skeleton-loading.js)
+   Мягкая пульсация, не раздражающая глаза
    ============================================================ */
 .skeleton {
-    background: linear-gradient(90deg, 
-        var(--gray-200, #e5e7eb) 25%, 
-        var(--gray-100, #f3f4f6) 50%, 
-        var(--gray-200, #e5e7eb) 75%);
+    background: linear-gradient(
+        110deg, 
+        var(--gray-100, #f3f4f6) 8%, 
+        var(--gray-50, #f9fafb) 18%, 
+        var(--gray-100, #f3f4f6) 33%
+    );
     background-size: 200% 100%;
-    animation: skeleton-pulse 1.5s ease-in-out infinite;
-    border-radius: 4px;
+    animation: skeleton-shimmer 1.8s ease-in-out infinite;
+    border-radius: 6px;
 }
 
 .skeleton-text {
@@ -123,6 +193,7 @@ html {
 .skeleton-image {
     width: 100%;
     height: 200px;
+    border-radius: 8px;
 }
 
 .skeleton-button {
@@ -131,9 +202,20 @@ html {
     border-radius: 6px;
 }
 
-@keyframes skeleton-pulse {
-    0% { background-position: 200% 0; }
-    100% { background-position: -200% 0; }
+@keyframes skeleton-shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+}
+
+/* Пульсирующий skeleton (альтернатива) */
+.skeleton-pulse {
+    background: var(--gray-100, #f3f4f6);
+    animation: skeleton-pulse-anim 2s ease-in-out infinite;
+}
+
+@keyframes skeleton-pulse-anim {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
 }
 
 /* ============================================================
@@ -294,13 +376,27 @@ button.htmx-request::after {
 
 /* ============================================================
    11. BUTTON INTERACTIONS
+   Мягкие, приятные эффекты для кнопок
    ============================================================ */
 .btn {
-    transition: all 0.2s ease;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+.btn:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 .btn:active:not(:disabled) {
-    transform: scale(0.97);
+    transform: translateY(0) scale(0.98);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Primary button glow effect */
+.btn-primary:hover {
+    box-shadow: 0 4px 20px rgba(var(--bs-primary-rgb, 13, 110, 253), 0.4);
 }
 
 /* Ripple effect (pure CSS) */
@@ -317,17 +413,17 @@ button.htmx-request::after {
     top: 0;
     left: 0;
     pointer-events: none;
-    background-image: radial-gradient(circle, #fff 10%, transparent 10.01%);
+    background-image: radial-gradient(circle, rgba(255,255,255,0.3) 10%, transparent 10.01%);
     background-repeat: no-repeat;
     background-position: 50%;
     transform: scale(10, 10);
     opacity: 0;
-    transition: transform 0.4s, opacity 0.8s;
+    transition: transform 0.5s, opacity 1s;
 }
 
 .btn-ripple:active::after {
     transform: scale(0, 0);
-    opacity: 0.3;
+    opacity: 0.4;
     transition: 0s;
 }
 
@@ -335,21 +431,25 @@ button.htmx-request::after {
    12. NAVBAR SCROLL SHADOW (CSS-only)
    ============================================================ */
 .navbar {
-    transition: box-shadow 0.3s ease, background-color 0.3s ease;
+    transition: box-shadow 0.35s ease, 
+                background-color 0.35s ease,
+                backdrop-filter 0.35s ease;
 }
 
-/* Будет добавляться через JS при скролле или через :has() */
-.navbar.scrolled,
-body:has(main:not(:first-child)) .navbar {
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+/* Будет добавляться через JS при скролле */
+.navbar.scrolled {
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    backdrop-filter: blur(10px);
 }
 
 /* ============================================================
    13. FOCUS STATES (Accessibility)
+   Мягкое, заметное но не резкое выделение
    ============================================================ */
 :focus-visible {
-    outline: 2px solid var(--primary, #3b82f6);
-    outline-offset: 2px;
+    outline: 2px solid rgba(var(--bs-primary-rgb, 59, 130, 246), 0.5);
+    outline-offset: 3px;
+    transition: outline-offset 0.15s ease;
 }
 
 /* ============================================================
@@ -365,6 +465,50 @@ body:has(main:not(:first-child)) .navbar {
         transition-duration: 0.01ms !important;
         scroll-behavior: auto !important;
     }
+}
+
+/* ============================================================
+   15. SUBTLE BACKGROUND EFFECTS
+   Едва заметные фоновые эффекты для атмосферы
+   ============================================================ */
+
+/* Мягкий градиент на главном контенте */
+main {
+    position: relative;
+}
+
+/* Опционально: мягкое свечение при наведении на интерактивные элементы */
+a:not(.btn):not(.nav-link) {
+    transition: color 0.2s ease, opacity 0.2s ease;
+}
+
+a:not(.btn):not(.nav-link):hover {
+    opacity: 0.85;
+}
+
+/* ============================================================
+   16. SMOOTH SCROLLBAR (webkit browsers)
+   ============================================================ */
+::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 10px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 0, 0, 0.3);
+    border: 2px solid transparent;
+    background-clip: padding-box;
 }
 
 /* ============================================================
