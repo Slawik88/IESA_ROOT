@@ -5,7 +5,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.utils.decorators import method_decorator
 from django.urls import reverse_lazy
 from django.contrib import messages
-from django.db.models import Count
+from django.db.models import Count, Q
 
 from ..models import Post, PostView, Like, BlogSubscription
 from ..forms import PostForm, CommentForm
@@ -16,7 +16,14 @@ from core.models import Partner
 
 
 class PostListView(ListView):
-    """Список опубликованных постов"""
+    """
+    Список опубликованных постов с HTMX поддержкой.
+    
+    Поддерживает:
+    - Поиск по содержимому (?q=)
+    - Фильтр по категории (?category=)
+    - Бесконечный скролл через HTMX с кэшированием
+    """
     model = Post
     template_name = 'blog/post_list.html'
     context_object_name = 'posts'
@@ -24,7 +31,7 @@ class PostListView(ListView):
 
     def get_queryset(self):
         # OPTIMIZATION: Annotate counts instead of N+1 queries in templates
-        return Post.objects.filter(
+        queryset = Post.objects.filter(
             status='published'
         ).select_related('author').prefetch_related(
             'likes'
@@ -32,7 +39,53 @@ class PostListView(ListView):
             likes_count=Count('likes', distinct=True),
             views_count_cached=Count('user_views', distinct=True),
             comments_count=Count('comments', distinct=True)
-        ).order_by('-created_at')
+        )
+        
+        # Поиск по заголовку и тексту
+        search = self.request.GET.get('q', '').strip()
+        if search:
+            queryset = queryset.filter(
+                Q(title__icontains=search) | Q(text__icontains=search)
+            )
+        
+        # Фильтр по категории
+        category = self.request.GET.get('category')
+        if category:
+            queryset = queryset.filter(category__slug=category)
+        
+        return queryset.order_by('-is_pinned', '-created_at')
+    
+    def get_template_names(self):
+        """Возвращает partial шаблон для HTMX запросов"""
+        if self.request.headers.get('HX-Request'):
+            return ['blog/partials/post_list_items.html']
+        return [self.template_name]
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        
+        # Передаём текущие фильтры для infinite scroll
+        context['search'] = self.request.GET.get('q', '')
+        context['category'] = self.request.GET.get('category', '')
+        
+        # Пагинация для infinite scroll
+        page_obj = context.get('page_obj')
+        if page_obj:
+            context['has_next'] = page_obj.has_next()
+            if page_obj.has_next():
+                context['next_page'] = page_obj.next_page_number()
+        
+        return context
+    
+    def render_to_response(self, context, **response_kwargs):
+        """Добавляет заголовки кэширования для HTMX запросов"""
+        response = super().render_to_response(context, **response_kwargs)
+        
+        # Кэш на 2 минуты для списка постов
+        if self.request.headers.get('HX-Request'):
+            response['Cache-Control'] = 'public, max-age=120'
+        
+        return response
 
 
 class PostDetailView(DetailView):

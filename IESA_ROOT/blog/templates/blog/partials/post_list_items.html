@@ -1,0 +1,82 @@
+{% load static %}
+
+{% for post in posts %}
+<article class="card card-modern mb-3 htmx-fade-in">
+    <div class="row g-0">
+        {% if post.image %}
+        <div class="col-md-4">
+            <img src="{{ post.image.url }}" class="img-fluid rounded-start h-100 object-fit-cover" alt="{{ post.title }}" loading="lazy">
+        </div>
+        {% endif %}
+        <div class="{% if post.image %}col-md-8{% else %}col-12{% endif %}">
+            <div class="card-body">
+                <div class="d-flex gap-2 mb-2">
+                    {% if post.category %}
+                    <span class="badge bg-primary-subtle text-primary">{{ post.category.name }}</span>
+                    {% endif %}
+                    {% if post.is_pinned %}
+                    <span class="badge bg-warning-subtle text-warning"><i class="fas fa-thumbtack me-1"></i>Pinned</span>
+                    {% endif %}
+                </div>
+                
+                <h5 class="card-title fw-bold">
+                    <a href="{{ post.get_absolute_url }}" class="text-decoration-none text-dark stretched-link">
+                        {{ post.title }}
+                    </a>
+                </h5>
+                
+                <p class="card-text text-muted">{{ post.text|truncatewords:25|striptags }}</p>
+                
+                <div class="d-flex justify-content-between align-items-center">
+                    <div class="d-flex align-items-center gap-2">
+                        {% if post.author.avatar %}
+                        <img src="{{ post.author.avatar.url }}" class="rounded-circle" width="24" height="24" alt="{{ post.author.username }}">
+                        {% else %}
+                        <div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center" style="width: 24px; height: 24px;">
+                            <i class="fas fa-user text-white" style="font-size: 10px;"></i>
+                        </div>
+                        {% endif %}
+                        <small class="text-muted">{{ post.author.username }}</small>
+                        <small class="text-muted">•</small>
+                        <small class="text-muted">{{ post.created_at|date:"d M Y" }}</small>
+                    </div>
+                    
+                    <div class="d-flex gap-3 text-muted small position-relative" style="z-index: 2;">
+                        <span><i class="far fa-heart me-1"></i>{{ post.likes.count }}</span>
+                        <span><i class="far fa-comment me-1"></i>{{ post.comments.count }}</span>
+                        <span><i class="far fa-eye me-1"></i>{{ post.view_count }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</article>
+{% empty %}
+<div class="empty-state">
+    <div class="empty-emoji">📝</div>
+    <h5>No posts found</h5>
+    <p class="text-muted mb-0">Try adjusting your search or filters</p>
+</div>
+{% endfor %}
+
+{% comment %}
+HTMX Infinite Scroll - Лучшая практика:
+1. hx-trigger="revealed" - загрузка когда элемент виден
+2. Кэширование через Cache-Control и ETag headers
+3. Плавная анимация через CSS (.htmx-fade-in)
+{% endcomment %}
+{% if has_next %}
+<div id="infinite-scroll-trigger" 
+     class="text-center py-4"
+     hx-get="{% url 'blog:post_list' %}?page={{ next_page }}{% if search %}&q={{ search }}{% endif %}{% if category %}&category={{ category }}{% endif %}"
+     hx-trigger="revealed"
+     hx-swap="outerHTML"
+     hx-indicator="#loading-spinner">
+    <div id="loading-spinner" class="htmx-indicator">
+        <div class="spinner-border spinner-border-sm text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+        <span class="ms-2 text-muted">Loading more posts...</span>
+    </div>
+</div>
+{% endif %}

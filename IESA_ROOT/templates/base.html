@@ -80,33 +80,18 @@
     <link rel="stylesheet" href="{% static 'css/pages.css' %}">
     <link rel="stylesheet" href="{% static 'css/utilities.css' %}">
     <link rel="stylesheet" href="{% static 'css/responsive.css' %}">
-    <link rel="stylesheet" href="{% static 'css/toast-notifications.css' %}">
-    <link rel="stylesheet" href="{% static 'css/page-transitions.css' %}">
-    <link rel="stylesheet" href="{% static 'css/skeleton-loading.css' %}">
-    <link rel="stylesheet" href="{% static 'css/smooth-scroll.css' %}">
-    <link rel="stylesheet" href="{% static 'css/parallax.css' %}">
-    <link rel="stylesheet" href="{% static 'css/card-animations.css' %}">
-    <link rel="stylesheet" href="{% static 'css/infinite-scroll.css' %}">
-    <link rel="stylesheet" href="{% static 'css/advanced-filters.css' %}">
-    <link rel="stylesheet" href="{% static 'css/lazy-loading.css' %}">
+    
+    <!-- CSS Animations (заменяет JS анимации) -->
+    <link rel="stylesheet" href="{% static 'css/animations.css' %}">
+    
+    <!-- Touch Gestures -->
     <link rel="stylesheet" href="{% static 'css/touch-gestures.css' %}">
-    <link rel="stylesheet" href="{% static 'css/form-validation.css' %}">
-    <link rel="stylesheet" href="{% static 'css/form-enhancements.css' %}">
+    
+    <!-- PWA -->
     <link rel="stylesheet" href="{% static 'css/pwa.css' %}">
-    
-    <!-- Bootstrap 5 handles modals correctly - no custom fixes needed -->
-    
-    <!-- TIER 8: Social Features -->
-    <link rel="stylesheet" href="{% static 'css/social-features.css' %}">
     
     <!-- Notifications Panel -->
     <link rel="stylesheet" href="{% static 'css/notifications-panel.css' %}">
-    
-    <!-- TIER 9: Advanced Search -->
-    <link rel="stylesheet" href="{% static 'css/advanced-search.css' %}">
-    
-    <!-- Feature Hints & Tooltips -->
-    <link rel="stylesheet" href="{% static 'css/feature-hints.css' %}">
 
 </head>
 <body>
@@ -274,202 +259,85 @@
     <!-- Bootstrap JS (bundle includes Popper) -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     
-    <!-- Modal Initialization Script - CRITICAL for modal clickability -->
-    <script src="{% static 'js/modal-init.js' %}"></script>
-    
-    <!-- HTMX Local (fixed Tracking Prevention issues) -->
+    <!-- HTMX - Dynamic content without custom JS -->
     <script src="{% static 'js/htmx.min.js' %}"></script>
     
-    <!-- Modal + HTMX Integration Fix -->
-    <script src="{% static 'js/modal-htmx-integration.js' %}"></script>
-    
-    <!-- Modal Health Check - Diagnostic Tool -->
-    <script src="{% static 'js/modal-health-check.js' %}"></script>
-    
-    <!-- Final Modal Verification - CRITICAL -->
-    <script src="{% static 'js/modal-final-verification.js' %}"></script>
-    
-    <!-- HTMX CSRF Configuration -->
+    <!-- HTMX Configuration -->
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            // Configure HTMX to automatically include CSRF token
-            document.body.addEventListener('htmx:configRequest', function(evt) {
-                const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
-                if (csrfToken) {
-                    evt.detail.headers['X-CSRFToken'] = csrfToken;
-                }
+        // HTMX глобальная конфигурация
+        document.body.addEventListener('htmx:configRequest', function(evt) {
+            // CSRF token для POST запросов
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || 
+                              document.querySelector('meta[name="csrf-token"]')?.content ||
+                              document.cookie.split('; ').find(row => row.startsWith('csrftoken='))?.split('=')[1];
+            if (csrfToken) {
+                evt.detail.headers['X-CSRFToken'] = csrfToken;
+            }
+        });
+        
+        // Включаем View Transitions API для плавных переходов
+        if (typeof htmx !== 'undefined') {
+            htmx.config.globalViewTransitions = true;
+        }
+        
+        // Показываем toast уведомления после HTMX запросов
+        document.body.addEventListener('htmx:afterSwap', function(evt) {
+            // Инициализируем Bootstrap toasts после swap
+            document.querySelectorAll('.toast:not(.show)').forEach(function(toast) {
+                new bootstrap.Toast(toast, {autohide: true, delay: 5000}).show();
             });
         });
     </script>
 
-    <!-- Lightbox JS -->
+    <!-- Lightbox JS для галереи -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/lightbox2/2.11.3/js/lightbox-plus-jquery.min.js"></script>
     
-    <!-- Mobile Interactions & UX Enhancements -->
-    <script src="{% static 'js/mobile-interactions.js' %}"></script>
-
-    <!-- Mobile Dropdown Menu Fix -->
-    <script src="{% static 'js/mobile-dropdown-fix.js' %}"></script>
-
-    <!-- Toast Notifications System -->
-    <script src="{% static 'js/toast-notifications.js' %}"></script>
-
-    <!-- Page Transitions with HTMX -->
-    <script src="{% static 'js/page-transitions.js' %}"></script>
-    <!-- Global Error Handler for HTMX -->
+    <!-- Global Error Handler -->
     <script src="{% static 'js/global-error-handler.js' %}"></script>
-
-    <!-- Messaging Panel Loader - MOVED TO v2.0 (messaging-panel-v2.html) -->
-
-    <!-- Skeleton Loading System -->
-    <script src="{% static 'js/skeleton-loading.js' %}"></script>
-
-    <!-- Smooth Scroll & Anchor Navigation -->
-    <script src="{% static 'js/smooth-scroll.js' %}"></script>
-
-    <!-- Parallax & Scroll Effects -->
-    <script src="{% static 'js/parallax.js' %}"></script>
-
-    <!-- Advanced Card Animations -->
-    <script src="{% static 'js/card-animations.js' %}"></script>
-
-    <!-- Infinite Scroll System -->
-    <script src="{% static 'js/infinite-scroll.js' %}"></script>
-
-    <!-- Advanced Filters & Search -->
-    <script src="{% static 'js/advanced-filters.js' %}"></script>
-
-    <!-- Lazy Loading Images -->
-    <script src="{% static 'js/lazy-loading.js' %}"></script>
-
-    <!-- Touch Gestures (Swipe, Long Press, Pinch, etc) -->
+    
+    <!-- Touch Gestures (Swipe на мобилках) -->
     <script src="{% static 'js/touch-gestures.js' %}"></script>
 
-    <!-- Pull-to-Refresh System -->
-    <script src="{% static 'js/pull-to-refresh.js' %}"></script>
-
-    <!-- Form Validation & Auto-Save -->
-    <script src="{% static 'js/form-validation.js' %}"></script>
-
-    <!-- Form Enhancements (Progress, Multi-Step, Conditions) -->
-    <script src="{% static 'js/form-enhancements.js' %}"></script>
-
     <!-- PWA & Offline Support -->
-    <!-- Cache-busted PWA manager to avoid old exported version -->
     <script src="{% static 'js/pwa-manager.v2.js' %}"></script>
-
-    <!-- Web APIs (Geolocation, Camera, Clipboard, Share, etc) -->
-    <script src="{% static 'js/web-apis.js' %}"></script>
     
-    <!-- TIER 8: Social Features -->
-    <script src="{% static 'js/social-features.js' %}"></script>
-    
-    <!-- TIER 9: Advanced Search -->
-    <script src="{% static 'js/advanced-search.js' %}"></script>
-    
-    <!-- Feature Hints & Tooltips -->
-    <script src="{% static 'js/feature-hints.js' %}"></script>
-    
-    <!-- Profile Interactions (Follow, Message) -->
-    <script src="{% static 'js/profile-interactions.js' %}"></script>
-    
-    <!-- Modal Debug Script - диагностика проблем с модальными окнами -->
-    <script src="{% static 'js/modal-debug.js' %}"></script>
-    
-        <!-- Small helper: add missing Bootstrap form-control classes to form fields if not present -->
-        <script>
-            // CSRF токен конфигурация для HTMX - автоматически добавляет токен в POST запросы
-            document.addEventListener('htmx:configRequest', function(event) {
-                const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || 
-                                  document.cookie.split('; ').find(row => row.startsWith('csrftoken='))?.split('=')[1];
-                if (csrfToken) {
-                    event.detail.headers['X-CSRFToken'] = csrfToken;
-                }
-            });
-            
-            document.addEventListener('DOMContentLoaded', function () {
-                document.querySelectorAll('form').forEach(function(form){
-                    form.querySelectorAll('input[type="text"], input[type="email"], input[type="password"], textarea, select').forEach(function(el){
-                        if (!el.classList.contains('form-control')) {
-                            el.classList.add('form-control');
-                        }
-                    });
+    <!-- Минимальные вспомогательные скрипты -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Автодобавление form-control классов
+            document.querySelectorAll('form').forEach(function(form){
+                form.querySelectorAll('input[type="text"], input[type="email"], input[type="password"], textarea, select').forEach(function(el){
+                    if (!el.classList.contains('form-control') && !el.classList.contains('form-check-input')) {
+                        el.classList.add('form-control');
+                    }
                 });
             });
             
-            // HTMX глобальная конфигурация
-            if (typeof htmx !== 'undefined') {
-                htmx.config.globalViewTransitions = true;
-            }
-        </script>
-        
-        <!-- Django template filter для доступа к элементам словаря в шаблонах -->
-        <script>
-            window.templateFilters = {
-                getItem: function(dict, key) {
-                    return dict && dict[key];
-                }
-            };
-        </script>
-        
-        <!-- Маска для ввода даты (DD.MM.YYYY) — глобальная для всех полей -->
-        <script>
-            document.addEventListener('DOMContentLoaded', function() {
-                // Применяем маску ко всем полям с классом date-mask
-                document.querySelectorAll('.date-mask').forEach(function(dateInput) {
-                    dateInput.addEventListener('input', function(e) {
-                        let value = e.target.value.replace(/\D/g, ''); // Только цифры
-                        
-                        if (value.length <= 2) {
-                            e.target.value = value;
-                        } else if (value.length <= 4) {
-                            e.target.value = value.slice(0, 2) + '.' + value.slice(2);
-                        } else {
-                            e.target.value = value.slice(0, 2) + '.' + value.slice(2, 4) + '.' + value.slice(4, 8);
-                        }
-                    });
-                    
-                    // При фокусировке — выбираем весь текст
-                    dateInput.addEventListener('focus', function(e) {
-                        e.target.select();
-                    });
+            // Маска для даты DD.MM.YYYY
+            document.querySelectorAll('.date-mask').forEach(function(input) {
+                input.addEventListener('input', function(e) {
+                    let v = e.target.value.replace(/\D/g, '');
+                    if (v.length <= 2) e.target.value = v;
+                    else if (v.length <= 4) e.target.value = v.slice(0,2) + '.' + v.slice(2);
+                    else e.target.value = v.slice(0,2) + '.' + v.slice(2,4) + '.' + v.slice(4,8);
                 });
             });
-        </script>
+        });
         
-        <script>
-            // When a partner result is clicked in the global search, populate the search input with its name
-            document.addEventListener('click', function(e){
-                var a = e.target.closest && e.target.closest('.partner-result');
-                if (a) {
-                    var name = a.getAttribute('data-partner-name');
-                    var inp = document.getElementById('global-community-search');
-                    if (inp && name) inp.value = name;
-                }
+        // Copy to clipboard helper
+        document.addEventListener('click', function(e){
+            var btn = e.target.closest && e.target.closest('.copy-id');
+            if (!btn) return;
+            var selector = btn.getAttribute('data-copy');
+            var el = document.querySelector(selector);
+            if (!el) return;
+            navigator.clipboard?.writeText(el.textContent.trim()).then(function(){
+                var orig = btn.innerHTML;
+                btn.innerHTML = '<i class="fas fa-check text-success"></i>';
+                setTimeout(function(){ btn.innerHTML = orig; }, 1200);
             });
-        </script>
-        <!-- Small helper: copy to clipboard for permanent id and other quick actions -->
-        <script>
-            document.addEventListener('click', function(e){
-                var btn = e.target.closest && e.target.closest('.copy-id');
-                if (!btn) return;
-                var selector = btn.getAttribute('data-copy');
-                if (!selector) return;
-                var el = document.querySelector(selector);
-                if (!el) return;
-                var text = el.textContent || el.innerText;
-                navigator.clipboard?.writeText(text).then(function(){
-                    // tiny visual feedback
-                    var orig = btn.innerHTML;
-                    btn.innerHTML = '<i class="fas fa-check text-success"></i>';
-                    setTimeout(function(){ btn.innerHTML = orig; }, 1200);
-                }).catch(function(){
-                    // fallback: select and prompt
-                    var range = document.createRange(); range.selectNodeContents(el);
-                    var sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(range);
-                });
-            });
-        </script>
+        });
+    </script>
     
     <!-- Logout Confirmation Modal -->
     {% if user.is_authenticated %}
@@ -618,6 +486,9 @@
     <button id="back-to-top" aria-label="Back to top" title="Back to top">
         <i class="fas fa-arrow-up"></i>
     </button>
+    
+    <!-- Toast Notifications Container -->
+    {% include 'partials/toast_container.html' %}
     
     <!-- Notifications WebSocket: updates unread messages badge in real time -->
     {% if user.is_authenticated %}
