@@ -13,9 +13,6 @@
             <i class="fas fa-comments me-2"></i>Сообщения
         </h5>
         <div class="d-flex gap-2 align-items-center">
-            <button class="btn btn-sm btn-outline-primary" id="newChatBtn" title="Новый чат">
-                <i class="bi bi-plus-circle"></i>
-            </button>
             <button class="chat-close-btn" id="closeChatPanel" aria-label="Закрыть">
                 <i class="fas fa-times"></i>
             </button>
@@ -58,35 +55,6 @@
     </div>
 </div>
 
-<!-- Development Notice Modal -->
-<div class="modal fade" id="newChatModal" tabindex="-1" aria-labelledby="newChatModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header bg-warning-subtle">
-                <h5 class="modal-title" id="newChatModalLabel">
-                    <i class="bi bi-hammer me-2"></i>Функция в разработке
-                </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body text-center py-5">
-                <div class="mb-4">
-                    <i class="fas fa-tools fa-4x text-warning"></i>
-                </div>
-                <h6 class="mb-3">Функция чатов находится в разработке</h6>
-                <p class="text-muted mb-0">
-                    Мы работаем над улучшением системы сообщений. 
-                    <br>
-                    <strong>Спасибо за ваше терпение!</strong>
-                </p>
-            </div>
-            <div class="modal-footer bg-light">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
-                    Закрыть
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
 
 <!-- Chat Panel Styles -->
 <style>
@@ -310,12 +278,9 @@
     const chatEmpty = document.getElementById('chatEmptyState');
     const chatLoading = document.getElementById('chatLoadingState');
     const chatSearch = document.getElementById('chatSearchInput');
-    const newChatBtn = document.getElementById('newChatBtn');
     const userSearch = document.getElementById('userSearchInput');
     const userResults = document.getElementById('userSearchResults');
     const userLoading = document.getElementById('userSearchLoading');
-    
-    let newChatModal = null;
     
     // Initialize
     document.addEventListener('DOMContentLoaded', function() {
@@ -344,21 +309,6 @@
         //         }, 300);
         //     });
         // }
-        
-        // New chat modal
-        const modalEl = document.getElementById('newChatModal');
-        if (modalEl && window.bootstrap) {
-            newChatModal = new bootstrap.Modal(modalEl);
-        }
-        
-        if (newChatBtn && newChatModal) {
-            newChatBtn.addEventListener('click', () => {
-                closePanel();
-                newChatModal.show();
-                // Clear modal form (keep development notice)
-                if (userSearch) userSearch.value = '';
-            });
-        }
         
         // User search - DISABLED
         // if (userSearch) {
