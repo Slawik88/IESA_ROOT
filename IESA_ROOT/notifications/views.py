@@ -69,5 +69,8 @@ def notification_delete(request, pk):
     if notification:
         notification.delete()
 
-    # HTMX: return empty body so hx-swap removes the target
-    return HttpResponse('', status=200)
+    # HTMX: return HX-Trigger to refresh unread badge + empty body
+    # Set status 200 to confirm successful deletion
+    response = HttpResponse('', status=200)
+    response['HX-Trigger'] = 'notificationDeleted'  # Trigger JS event
+    return response
