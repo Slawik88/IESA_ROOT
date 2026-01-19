@@ -264,7 +264,44 @@
         } else {
             runInitialization();
         }
+        
+        // Добавляем обработчик для HTMX событий
+        setupHTMXHandlers();
     }
+    
+    /**
+     * Настройка обработчиков HTMX событий
+     * для перинициализации модалей при загрузке контента
+     */
+    function setupHTMXHandlers() {
+        log('🔌 Инициализация HTMX обработчиков...');
+        
+        // После успешной загрузки контента HTMX
+        document.addEventListener('htmx:afterSettle', function(e) {
+            log('🔌 HTMX afterSettle - перепроверяем модали...');
+            
+            // Переинициализируем все модали
+            setTimeout(function() {
+                initializeAllModals();
+                initializeModalButtons();
+                fixCloseButtons();
+            }, 100);
+        });
+        
+        // Также обрабатываем успешные запросы
+        document.addEventListener('htmx:afterRequest', function(e) {
+            if (e.detail.xhr.status === 200) {
+                log('🔌 HTMX success - перепроверяем модали...');
+                setTimeout(function() {
+                    initializeAllModals();
+                    initializeModalButtons();
+                }, 100);
+            }
+        });
+        
+        log('✅ HTMX обработчики установлены');
+    }
+
     
     function runInitialization() {
         try {

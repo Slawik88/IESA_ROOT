@@ -203,6 +203,7 @@
 
         <script>
         function openMemberModal(button) {
+            // Заполняем данные
             document.getElementById('memberModalName').textContent = button.dataset.memberName;
             document.getElementById('memberModalPosition').textContent = button.dataset.memberPosition;
             document.getElementById('memberModalDescription').innerHTML = button.dataset.memberDescription;
@@ -214,6 +215,17 @@
                 photoElement.style.display = 'block';
             } else {
                 photoElement.style.display = 'none';
+            }
+            
+            // КРИТИЧЕСКИ ВАЖНО: Открываем модаль через Bootstrap.Modal
+            const modalElement = document.getElementById('memberModal');
+            if (modalElement && typeof bootstrap !== 'undefined') {
+                const modal = new bootstrap.Modal(modalElement, {
+                    backdrop: true,
+                    keyboard: true,
+                    focus: true
+                });
+                modal.show();
             }
         }
         </script>
