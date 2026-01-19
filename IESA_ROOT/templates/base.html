@@ -93,11 +93,15 @@
     <link rel="stylesheet" href="{% static 'css/form-validation.css' %}">
     <link rel="stylesheet" href="{% static 'css/form-enhancements.css' %}">
     <link rel="stylesheet" href="{% static 'css/pwa.css' %}">
+    
+    <!-- CRITICAL: Modal fix - must be BEFORE other modal-related CSS -->
+    <link rel="stylesheet" href="{% static 'css/modal-critical-fix.css' %}">
+    
     <link rel="stylesheet" href="{% static 'css/modal-zindex-fix.css' %}">
     <link rel="stylesheet" href="{% static 'css/modal-fix.css' %}">
     
     <!-- TIER 8: Social Features -->
-    <link rel="stylesheet" href="{% static 'css/social-features.css' %}">
+    <link rel="stylesheet" href="{% static 'css/social-features.css' %}">>
     
     <!-- Notifications Panel -->
     <link rel="stylesheet" href="{% static 'css/notifications-panel.css' %}">
@@ -273,6 +277,9 @@
 
     <!-- Bootstrap JS (bundle includes Popper) -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Modal Initialization Script - CRITICAL for modal clickability -->
+    <script src="{% static 'js/modal-init.js' %}"></script>
     
     <!-- HTMX Local (fixed Tracking Prevention issues) -->
     <script src="{% static 'js/htmx.min.js' %}"></script>

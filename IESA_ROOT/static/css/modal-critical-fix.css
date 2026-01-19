@@ -1,0 +1,323 @@
+/* ============================================================
+   MODAL CRITICAL FIX - 19 января 2026
+   
+   КРИТИЧЕСКАЯ ПРОБЛЕМА: Модальные окна не кликабельны
+   ПРИЧИНА: pointer-events блокирует события клика
+   РЕШЕНИЕ: Явное указание pointer-events для всех элементов
+   ============================================================ */
+
+/* ============================================================
+   ОСНОВНЫЕ ИСПРАВЛЕНИЯ - CRITICAL
+   ============================================================ */
+
+/* 1. Modal сама по себе ДОЛЖНА быть кликабельной */
+.modal {
+    pointer-events: auto !important;
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 1050 !important;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* 2. Backdrop ДОЛЖЕН быть кликабельным для закрытия */
+.modal-backdrop {
+    pointer-events: auto !important;
+    cursor: pointer;
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 1040 !important;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+}
+
+.modal-backdrop.show {
+    pointer-events: auto !important;
+    opacity: 0.5;
+}
+
+/* 3. Modal содержимое */
+.modal-dialog {
+    pointer-events: auto !important;
+    position: relative;
+    z-index: 1050;
+    margin: auto;
+}
+
+.modal-content {
+    pointer-events: auto !important;
+    position: relative;
+    z-index: 1055;
+    background-color: #fff;
+    background-clip: padding-box;
+    border: 1px solid rgba(0, 0, 0, 0.2);
+    border-radius: 0.3rem;
+    outline: 0;
+}
+
+/* 4. Элементы внутри modal */
+.modal-header {
+    pointer-events: auto !important;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    padding: 1rem;
+    border-bottom: 1px solid #dee2e6;
+    border-top-left-radius: calc(0.3rem - 1px);
+    border-top-right-radius: calc(0.3rem - 1px);
+}
+
+.modal-title {
+    pointer-events: auto !important;
+    margin: 0;
+    line-height: 1.5;
+    color: inherit;
+}
+
+.modal-body {
+    pointer-events: auto !important;
+    position: relative;
+    flex: 1 1 auto;
+    padding: 1rem;
+    overflow-y: auto;
+}
+
+.modal-footer {
+    pointer-events: auto !important;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    padding: 0.75rem;
+    border-top: 1px solid #dee2e6;
+    border-bottom-right-radius: calc(0.3rem - 1px);
+    border-bottom-left-radius: calc(0.3rem - 1px);
+}
+
+/* 5. Кнопки закрытия ДОЛЖНЫ быть кликабельны */
+.btn-close {
+    pointer-events: auto !important;
+    cursor: pointer !important;
+    box-sizing: content-box;
+    width: 1em;
+    height: 1em;
+    padding: 0.25em 0.25em;
+    color: #000;
+    background: transparent url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23000'%3e%3cpath d='M.293.293a1 1 0 011.414 0L8 6.586 14.293.293a1 1 0 111.414 1.414L9.414 8l6.293 6.293a1 1 0 01-1.414 1.414L8 9.414l-6.293 6.293a1 1 0 01-1.414-1.414L6.586 8 .293 1.707a1 1 0 010-1.414z'/%3e%3c/svg%3e") center / 1em auto no-repeat;
+    border: 0;
+    border-radius: 0.25rem;
+    opacity: 0.5;
+}
+
+.btn-close:hover,
+.btn-close:focus {
+    pointer-events: auto !important;
+    cursor: pointer !important;
+    color: #000;
+    text-decoration: none;
+    opacity: 0.75;
+}
+
+.btn-close:disabled,
+.btn-close.disabled {
+    pointer-events: none;
+    opacity: 0.25;
+}
+
+.btn-close.show {
+    opacity: 1;
+    pointer-events: auto !important;
+}
+
+/* ============================================================
+   КНОПКИ ОТКРЫТИЯ МОДАЛЕЙ
+   ============================================================ */
+
+/* Кнопки с data-bs-toggle="modal" */
+[data-bs-toggle="modal"] {
+    pointer-events: auto !important;
+    cursor: pointer !important;
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+}
+
+[data-bs-toggle="modal"]:hover {
+    pointer-events: auto !important;
+}
+
+[data-bs-toggle="modal"]:active {
+    pointer-events: auto !important;
+}
+
+[data-bs-toggle="modal"]:focus {
+    pointer-events: auto !important;
+    outline: 2px solid #0d6efd;
+    outline-offset: 2px;
+}
+
+/* Кнопки закрытия modal */
+[data-bs-dismiss="modal"] {
+    pointer-events: auto !important;
+    cursor: pointer !important;
+}
+
+/* ============================================================
+   СОСТОЯНИЯ МОДАЛЕЙ
+   ============================================================ */
+
+/* Modal в процессе анимации */
+.modal.fade .modal-dialog {
+    pointer-events: auto !important;
+    transition: transform 0.3s ease-out;
+    transform: translate(0, -50px);
+    opacity: 0;
+}
+
+.modal.show {
+    pointer-events: auto !important;
+    display: flex !important;
+    opacity: 1;
+}
+
+.modal.show .modal-dialog {
+    pointer-events: auto !important;
+    transform: none;
+    opacity: 1;
+}
+
+/* ============================================================
+   МОДАЛЬНЫЕ ОКНА ВЫСОКОГО ПРИОРИТЕТА
+   ============================================================ */
+
+/* Event Registration Modal */
+#registerModal {
+    pointer-events: auto !important;
+    z-index: 1050 !important;
+}
+
+#registerModal .modal-dialog {
+    pointer-events: auto !important;
+}
+
+#registerModal .modal-content {
+    pointer-events: auto !important;
+}
+
+#registerModal .btn {
+    pointer-events: auto !important;
+    cursor: pointer !important;
+}
+
+/* Partner Modal */
+#partnerModal {
+    pointer-events: auto !important;
+    z-index: 1050 !important;
+}
+
+#partnerModal .modal-dialog {
+    pointer-events: auto !important;
+}
+
+#partnerModal .modal-content {
+    pointer-events: auto !important;
+}
+
+/* Member Modal */
+#memberModal {
+    pointer-events: auto !important;
+    z-index: 1050 !important;
+}
+
+#memberModal .modal-dialog {
+    pointer-events: auto !important;
+}
+
+#memberModal .modal-content {
+    pointer-events: auto !important;
+}
+
+/* Logout Confirm Modal */
+#logoutConfirmModal {
+    pointer-events: auto !important;
+    z-index: 1050 !important;
+}
+
+#logoutConfirmModal .modal-dialog {
+    pointer-events: auto !important;
+}
+
+#logoutConfirmModal .modal-content {
+    pointer-events: auto !important;
+}
+
+/* ============================================================
+   ИСПРАВЛЕНИЕ КОНФЛИКТОВ С ДРУГИМИ ЭЛЕМЕНТАМИ
+   ============================================================ */
+
+/* Убеждаемся, что модали не блокируются другими слоями */
+.modal ~ *:not(.modal-backdrop) {
+    pointer-events: auto;
+}
+
+/* Body при открытой modal */
+body.modal-open {
+    overflow: hidden;
+}
+
+body.modal-open .container-fluid,
+body.modal-open .container,
+body.modal-open main {
+    pointer-events: auto;
+}
+
+/* ============================================================
+   МОБИЛЬНОЕ ОПТИМИЗИРОВАНИЕ
+   ============================================================ */
+
+@media (max-width: 576px) {
+    .modal-dialog {
+        pointer-events: auto !important;
+        margin: 0.5rem;
+        max-width: calc(100% - 1rem);
+    }
+    
+    .modal-dialog-centered {
+        pointer-events: auto !important;
+        display: flex;
+        align-items: center;
+        min-height: calc(100% - 1rem);
+    }
+    
+    .modal-content {
+        pointer-events: auto !important;
+        max-height: 90vh;
+    }
+    
+    .modal-body {
+        pointer-events: auto !important;
+        max-height: 70vh;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+}
+
+/* ============================================================
+   ОТЛАДКА (удалить после тестирования)
+   ============================================================ */
+
+.modal {
+    border: 2px dashed transparent !important;
+}
+
+.modal.show {
+    border-color: #28a745 !important;
+    box-shadow: 0 0 0 1px rgba(40, 167, 69, 0.5) inset !important;
+}
