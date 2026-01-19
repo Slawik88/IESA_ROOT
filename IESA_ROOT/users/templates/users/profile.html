@@ -65,8 +65,8 @@
                                         <i class="fas fa-user-plus me-2"></i>
                                         <span class="follow-text">Follow</span>
                                     </button>
-                                                <a href="{% url 'messaging:start_conversation' profile_user.username %}" 
-                                                    class="btn btn-outline-primary btn-modern">
+                                                <a href="{% url 'messaging:start_chat' profile_user.id %}" 
+                                        class="btn btn-outline-primary btn-modern">
                                         <i class="fas fa-envelope me-2"></i>Send Message
                                     </a>
                                 </div>
