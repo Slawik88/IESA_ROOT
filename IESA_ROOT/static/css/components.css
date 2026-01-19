@@ -344,6 +344,19 @@
   border-radius: 0 0 var(--radius-card) var(--radius-card);
 }
 
+/* Card Modern Image (constrain large uploads) */
+.card-modern__image {
+  width: 100%;
+  height: 200px;
+  object-fit: cover;
+  display: block;
+  border-radius: var(--radius-card) var(--radius-card) 0 0;
+}
+
+@media (min-width: 768px) {
+  .card-modern__image { height: 260px; }
+}
+
 /* ====================================================
    3. ФОРМЫ
    ==================================================== */

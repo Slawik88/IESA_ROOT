@@ -35,7 +35,7 @@
                             </button>
                             <ul class="dropdown-menu dropdown-menu-end">
                                 <li>
-                                    <a class="dropdown-item" href="{% url 'users:member_detail' other_user.id %}">
+                                    <a class="dropdown-item" href="{% url 'users:profile_public_username' username=other_user.username %}">
                                         <i class="fas fa-user me-2"></i>Профиль
                                     </a>
                                 </li>
