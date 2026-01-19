@@ -409,14 +409,12 @@ if DEBUG:
         }
     }
 else:
-    # For production - use Database Channel Layer (works with PostgreSQL)
-    # Scales to 400+ users with multiple app instances
+    # For production - use InMemoryChannelLayer
+    # Works for single-instance deployments on DigitalOcean App Platform
+    # For multi-instance, install channels-postgres and use DatabaseChannelLayer
     CHANNEL_LAYERS = {
         'default': {
-            'BACKEND': 'channels.layers.DatabaseChannelLayer',
-            'CONFIG': {
-                'expiry': 600,  # Messages expire after 10 minutes
-            },
+            'BACKEND': 'channels.layers.InMemoryChannelLayer'
         }
     }
 
