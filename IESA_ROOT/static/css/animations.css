@@ -81,6 +81,15 @@ html {
     navigation: auto;
 }
 
+/* Отключаем для HTMX запросов (частичных обновлений) */
+html.htmx-request::view-transition-old(root) {
+    animation: none !important;
+}
+
+html.htmx-request::view-transition-new(root) {
+    animation: none !important;
+}
+
 /* Старая страница - мягко исчезает */
 ::view-transition-old(root) {
     animation: page-fade-out 0.25s cubic-bezier(0.4, 0, 0.2, 1);

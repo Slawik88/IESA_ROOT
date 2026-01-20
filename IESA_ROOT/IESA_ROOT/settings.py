@@ -137,10 +137,14 @@ DATABASES = {
 # Production database configuration (PostgreSQL via DATABASE_URL)
 if 'DATABASE_URL' in os.environ:
     import dj_database_url
+    # Allow tuning via env, default to 300s to reduce open slots pressure
+    _CONN_MAX_AGE = int(os.getenv('DB_CONN_MAX_AGE', '300'))
     DATABASES['default'] = dj_database_url.config(
-        conn_max_age=600,
+        conn_max_age=_CONN_MAX_AGE,
         ssl_require=True
     )
+    # Enable health checks to automatically reconnect stale connections
+    DATABASES['default']['CONN_HEALTH_CHECKS'] = True
 
 # Парольная валидация
 AUTH_PASSWORD_VALIDATORS = [

@@ -56,6 +56,12 @@
                 <option value="all" {% if status == 'all' %}selected{% endif %}>All events</option>
                 <option value="past" {% if status == 'past' %}selected{% endif %}>Past</option>
             </select>
+            <select name="sort" class="form-select form-select-sm">
+                <option value="date" {% if sort == 'date' %}selected{% endif %}>Date ↑</option>
+                <option value="-date" {% if sort == '-date' %}selected{% endif %}>Date ↓</option>
+                <option value="title" {% if sort == 'title' %}selected{% endif %}>Title A→Z</option>
+                <option value="-title" {% if sort == '-title' %}selected{% endif %}>Title Z→A</option>
+            </select>
             
             {% if categories %}
             <select name="category" class="form-select form-select-sm">

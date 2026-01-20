@@ -21,7 +21,7 @@ def toggle_subscription(request, author_pk):
     
     # Переключаем подписку
     subscription, created = BlogSubscription.objects.get_or_create(
-        subscriber=request.user,
+        user=request.user,
         author=author
     )
     if not created:
