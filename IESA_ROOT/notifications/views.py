@@ -1,7 +1,6 @@
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
-from django.db.models import Count, Q
 from django.http import HttpResponse, HttpResponseNotAllowed
 from .models import Notification
 
@@ -16,21 +15,22 @@ def unread_count(request):
 
 @login_required
 def notification_list(request):
-    """Display all notifications for the current user"""
-    # OPTIMIZATION: Use annotate to count unread in single query
+    """Display all notifications - full page or dropdown partial via HTMX"""
     notifications = Notification.objects.filter(
         recipient=request.user
-    ).annotate(
-        unread_count_total=Count('id', filter=Q(is_read=False))
     ).order_by('-created_at')
     
-    # Get unread count from first notification (all have same count)
-    unread_count = notifications.first().unread_count_total if notifications.exists() else 0
+    # For HTMX dropdown requests, show only 10 latest notifications
+    if request.headers.get('HX-Request'):
+        notifications = notifications[:10]
+        return render(request, 'notifications/dropdown_list.html', {'notifications': notifications})
     
-    # Paginate notifications
+    # For full page view, paginate
     paginator = Paginator(notifications, 20)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
+    
+    unread_count = Notification.objects.filter(recipient=request.user, is_read=False).count()
     
     context = {
         'notifications': page_obj,
