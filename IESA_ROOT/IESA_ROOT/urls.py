@@ -44,12 +44,6 @@ urlpatterns = [
     # Protected media files (requires authentication)
     path('protected/<path:file_path>', serve_protected_media, name='serve_protected_media'),
     
-    # PWA manifest and service worker
-    path('static/manifest.json', serve_manifest, name='pwa-manifest'),
-    path('static/service-worker.js', serve_service_worker, name='service-worker'),
-    # Alias for missing PWA icon 192x192
-    path('static/img/icon-192x192.png', RedirectView.as_view(url=static_static('img/icon-192x192-maskable.png'), permanent=True)),
-    
     # Core app (Главная страница)
     path('', include('core.urls')),
     
@@ -68,8 +62,6 @@ urlpatterns = [
     # Notifications app
     path('notifications/', include('notifications.urls')),
     
-    # Messaging app v3
-    path('messages/', include('messaging.urls')),
     
     # Sitemap
     path('sitemap.xml', sitemap, {'sitemaps': sitemaps}, name='django.contrib.sitemaps.views.sitemap'),
