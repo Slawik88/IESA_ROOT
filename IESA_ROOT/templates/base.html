@@ -159,7 +159,7 @@
                                 <div class="dropdown-menu dropdown-menu-end p-3" style="min-width: 320px; max-height: 400px; overflow-y: auto;">
                                     <h6 class="dropdown-header">Notifications</h6>
                                     <div id="notifications-content"
-                                         hx-get="{% url 'notifications:panel' %}"
+                                         hx-get="{% url 'notifications:notification_list' %}"
                                          hx-trigger="load, click from:#notificationsToggle"
                                          hx-swap="innerHTML">
                                         <div class="text-center py-3 text-muted">
