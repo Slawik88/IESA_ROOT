@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 {% load static %}
 <head>
@@ -36,17 +36,6 @@
     <!-- CSRF Token for HTMX -->
     <meta name="csrf-token" content="{{ csrf_token }}">
     
-    <!-- PWA Manifest -->
-    <link rel="manifest" href="{% static 'manifest.json' %}">
-    
-    <!-- PWA Meta Tags -->
-    <meta name="theme-color" content="#3b82f6">
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="IESA">
-    <link rel="apple-touch-icon" href="{% static 'img/icon-192x192.png' %}">
-    
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
 
@@ -65,13 +54,13 @@
 
     <!-- ============================================================
          IESA CSS ARCHITECTURE v2.0 (7 files)
-         1. variables.css - CSS переменные (цвета, размеры, тени, градиенты)
-         2. base.css - Reset и базовые стили HTML элементов
-         3. layout.css - Контейнеры, навигация, футер
-         4. components.css - Кнопки, карточки, формы, badges, alerts
-         5. pages.css - Стили для страниц (profile, auth, blog, gallery)
-         6. utilities.css - Вспомогательные классы (spacing, display, etc)
-         7. responsive.css - ВСЕ медиа-запросы и анимации
+         1. variables.css - CSS РїРµСЂРµРјРµРЅРЅС‹Рµ (С†РІРµС‚Р°, СЂР°Р·РјРµСЂС‹, С‚РµРЅРё, РіСЂР°РґРёРµРЅС‚С‹)
+         2. base.css - Reset Рё Р±Р°Р·РѕРІС‹Рµ СЃС‚РёР»Рё HTML СЌР»РµРјРµРЅС‚РѕРІ
+         3. layout.css - РљРѕРЅС‚РµР№РЅРµСЂС‹, РЅР°РІРёРіР°С†РёСЏ, С„СѓС‚РµСЂ
+         4. components.css - РљРЅРѕРїРєРё, РєР°СЂС‚РѕС‡РєРё, С„РѕСЂРјС‹, badges, alerts
+         5. pages.css - РЎС‚РёР»Рё РґР»СЏ СЃС‚СЂР°РЅРёС† (profile, auth, blog, gallery)
+         6. utilities.css - Р’СЃРїРѕРјРѕРіР°С‚РµР»СЊРЅС‹Рµ РєР»Р°СЃСЃС‹ (spacing, display, etc)
+         7. responsive.css - Р’РЎР• РјРµРґРёР°-Р·Р°РїСЂРѕСЃС‹ Рё Р°РЅРёРјР°С†РёРё
          ============================================================ -->
     <link rel="stylesheet" href="{% static 'css/variables.css' %}">
     <link rel="stylesheet" href="{% static 'css/base.css' %}">
@@ -81,17 +70,12 @@
     <link rel="stylesheet" href="{% static 'css/utilities.css' %}">
     <link rel="stylesheet" href="{% static 'css/responsive.css' %}">
     
-    <!-- CSS Animations (заменяет JS анимации) -->
+    <!-- CSS Animations (Р·Р°РјРµРЅСЏРµС‚ JS Р°РЅРёРјР°С†РёРё) -->
     <link rel="stylesheet" href="{% static 'css/animations.css' %}">
     
     <!-- Touch Gestures -->
     <link rel="stylesheet" href="{% static 'css/touch-gestures.css' %}">
     
-    <!-- PWA -->
-    <link rel="stylesheet" href="{% static 'css/pwa.css' %}">
-    
-    <!-- Notifications Panel -->
-    <link rel="stylesheet" href="{% static 'css/notifications-panel.css' %}">
 
 </head>
 <body>
@@ -99,10 +83,10 @@
     <!-- Skip to main content (Accessibility) -->
     <a href="#main-content" class="skip-to-main">Skip to main content</a>
     
-    <!-- БАННЕР РАЗРАБОТКИ -->
+    <!-- Р‘РђРќРќР•Р  Р РђР—Р РђР‘РћРўРљР -->
     <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 12px 20px; text-align: center; font-weight: 500; box-shadow: 0 2px 8px rgba(0,0,0,0.15); position: relative; z-index: 1050;">
         <i class="bi bi-cone-striped me-2"></i>
-        <strong>Внимание!</strong> Сайт находится в стадии активной разработки. Функционал может работать некорректно.
+        <strong>Р’РЅРёРјР°РЅРёРµ!</strong> РЎР°Р№С‚ РЅР°С…РѕРґРёС‚СЃСЏ РІ СЃС‚Р°РґРёРё Р°РєС‚РёРІРЅРѕР№ СЂР°Р·СЂР°Р±РѕС‚РєРё. Р¤СѓРЅРєС†РёРѕРЅР°Р» РјРѕР¶РµС‚ СЂР°Р±РѕС‚Р°С‚СЊ РЅРµРєРѕСЂСЂРµРєС‚РЅРѕ.
         <i class="bi bi-tools ms-2"></i>
     </div>
     
@@ -154,17 +138,6 @@
                             </div>
                         </div>
                         {% if user.is_authenticated %}
-                            <!-- Messages button -->
-                            <button class="btn btn-light btn-sm position-relative messaging-btn d-flex align-items-center" id="messagingToggle" title="Messages">
-                                <i class="fas fa-envelope"></i>
-                                <span class="d-sm-none ms-2">Messages</span>
-                                {% if unread_messages_count and unread_messages_count > 0 %}
-                                    <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-success navbar-notification-badge" id="unreadMessagesCount">{{ unread_messages_count }}</span>
-                                {% else %}
-                                    <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-success navbar-notification-badge" style="display: none;" id="unreadMessagesCount">0</span>
-                                {% endif %}
-                            </button>
-                            
                             <!-- Notifications button -->
                             <button class="btn btn-light btn-sm position-relative d-flex align-items-center" id="notificationsToggle" title="Notifications">
                                 <i class="fas fa-bell"></i>
@@ -264,9 +237,9 @@
     
     <!-- HTMX Configuration -->
     <script>
-        // HTMX глобальная конфигурация
+        // HTMX РіР»РѕР±Р°Р»СЊРЅР°СЏ РєРѕРЅС„РёРіСѓСЂР°С†РёСЏ
         document.body.addEventListener('htmx:configRequest', function(evt) {
-            // CSRF token для POST запросов
+            // CSRF token РґР»СЏ POST Р·Р°РїСЂРѕСЃРѕРІ
             const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || 
                               document.querySelector('meta[name="csrf-token"]')?.content ||
                               document.cookie.split('; ').find(row => row.startsWith('csrftoken='))?.split('=')[1];
@@ -275,36 +248,30 @@
             }
         });
         
-        // Включаем View Transitions API для плавных переходов
+        // Р’РєР»СЋС‡Р°РµРј View Transitions API РґР»СЏ РїР»Р°РІРЅС‹С… РїРµСЂРµС…РѕРґРѕРІ
         if (typeof htmx !== 'undefined') {
             htmx.config.globalViewTransitions = true;
         }
         
-        // Показываем toast уведомления после HTMX запросов
+        // РџРѕРєР°Р·С‹РІР°РµРј toast СѓРІРµРґРѕРјР»РµРЅРёСЏ РїРѕСЃР»Рµ HTMX Р·Р°РїСЂРѕСЃРѕРІ
         document.body.addEventListener('htmx:afterSwap', function(evt) {
-            // Инициализируем Bootstrap toasts после swap
+            // РРЅРёС†РёР°Р»РёР·РёСЂСѓРµРј Bootstrap toasts РїРѕСЃР»Рµ swap
             document.querySelectorAll('.toast:not(.show)').forEach(function(toast) {
                 new bootstrap.Toast(toast, {autohide: true, delay: 5000}).show();
             });
         });
     </script>
 
-    <!-- Lightbox JS для галереи -->
+    <!-- Lightbox JS РґР»СЏ РіР°Р»РµСЂРµРё -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/lightbox2/2.11.3/js/lightbox-plus-jquery.min.js"></script>
     
-    <!-- Global Error Handler -->
-    <script src="{% static 'js/global-error-handler.js' %}"></script>
-    
-    <!-- Touch Gestures (Swipe на мобилках) -->
+<!-- Touch Gestures (Swipe РЅР° РјРѕР±РёР»РєР°С…) -->
     <script src="{% static 'js/touch-gestures.js' %}"></script>
 
-    <!-- PWA & Offline Support -->
-    <script src="{% static 'js/pwa-manager.v2.js' %}"></script>
-    
-    <!-- Минимальные вспомогательные скрипты -->
+    <!-- РњРёРЅРёРјР°Р»СЊРЅС‹Рµ РІСЃРїРѕРјРѕРіР°С‚РµР»СЊРЅС‹Рµ СЃРєСЂРёРїС‚С‹ -->
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            // Автодобавление form-control классов
+            // РђРІС‚РѕРґРѕР±Р°РІР»РµРЅРёРµ form-control РєР»Р°СЃСЃРѕРІ
             document.querySelectorAll('form').forEach(function(form){
                 form.querySelectorAll('input[type="text"], input[type="email"], input[type="password"], textarea, select').forEach(function(el){
                     if (!el.classList.contains('form-control') && !el.classList.contains('form-check-input')) {
@@ -313,7 +280,7 @@
                 });
             });
             
-            // Маска для даты DD.MM.YYYY
+            // РњР°СЃРєР° РґР»СЏ РґР°С‚С‹ DD.MM.YYYY
             document.querySelectorAll('.date-mask').forEach(function(input) {
                 input.addEventListener('input', function(e) {
                     let v = e.target.value.replace(/\D/g, '');
@@ -374,7 +341,7 @@
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <div class="modal-body" id="partner-modal-body">
-                        <div class="text-center py-5 text-muted">Loading…</div>
+                        <div class="text-center py-5 text-muted">LoadingвЂ¦</div>
                     </div>
                 </div>
             </div>
@@ -408,78 +375,11 @@
         }
     </script>
     
-    <!-- Chat Panel v3.0 -->
-    {% include "chat-panel.html" %}
-    
-    {% include "notifications-panel.html" %}
-    
-    <!-- Modal Handler Script - DISABLED (conflicts with Bootstrap 5.3.3) -->
+<!-- Modal Handler Script - DISABLED (conflicts with Bootstrap 5.3.3) -->
     <!-- Bootstrap 5.3.3 handles modals perfectly, no custom handler needed -->
     <!-- <script src="{% static 'js/modal-handler.js' %}"></script> -->
     
-    <!-- Global Modal Dispatcher - Ensures modal buttons are initialized -->
-    <script>
-    (function() {
-        'use strict';
-        
-        // Keep trying to setup modal buttons until they exist
-        let attempts = 0;
-        const maxAttempts = 50; // ~5 seconds at 100ms intervals
-        
-        function setupModalDispatcher() {
-            const newChatBtn = document.getElementById('newChatBtn');
-            const newGroupBtn = document.getElementById('newGroupBtn');
-            
-            if (newChatBtn && newGroupBtn) {
-                console.log('🔧 Global Modal Dispatcher: Buttons found, firing setup event');
-                // Fire a custom event that messaging-panel.html can listen to
-                window.dispatchEvent(new CustomEvent('modal-buttons-ready'));
-                return true;
-            }
-            
-            attempts++;
-            if (attempts >= maxAttempts) {
-                console.warn('⚠️ Global Modal Dispatcher: Buttons not found after ' + (attempts * 100) + 'ms');
-                return false;
-            }
-            
-            return false;
-        }
-        
-        // Try immediately when DOM is ready
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', function() {
-                console.log('🔧 Global Modal Dispatcher: DOMContentLoaded fired');
-                if (!setupModalDispatcher()) {
-                    // Keep retrying
-                    const interval = setInterval(function() {
-                        if (setupModalDispatcher() || attempts >= maxAttempts) {
-                            clearInterval(interval);
-                        }
-                    }, 100);
-                }
-            });
-        } else {
-            console.log('🔧 Global Modal Dispatcher: DOM already loaded');
-            if (!setupModalDispatcher()) {
-                // Keep retrying
-                const interval = setInterval(function() {
-                    if (setupModalDispatcher() || attempts >= maxAttempts) {
-                        clearInterval(interval);
-                    }
-                }, 100);
-            }
-        }
-        
-        // Also retry on window load
-        window.addEventListener('load', function() {
-            console.log('🔧 Global Modal Dispatcher: Window load fired');
-            setupModalDispatcher();
-        });
-    })();
-    </script>
-    
-    <!-- HTMX Animation Disabler: prevent page animations during partial requests -->
+<!-- HTMX Animation Disabler: prevent page animations during partial requests -->
     <script src="{% static 'js/htmx-animation-disable.js' %}"></script>
     
     <!-- Back to Top Button -->
@@ -530,3 +430,4 @@
     {% endif %}
 </body>
 </html>
+

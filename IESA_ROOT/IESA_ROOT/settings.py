@@ -69,7 +69,6 @@ INSTALLED_APPS = [
     'gallery',
     'products',
     'notifications.apps.NotificationsConfig',  # Notification system
-    'messaging',  # Messaging system v3 with WebSocket
     'channels',  # Django Channels для WebSocket
 
     # Сторонние библиотеки
@@ -119,7 +118,6 @@ TEMPLATES = [
                 'django.contrib.messages.context_processors.messages',
                 'notifications.context_processors.unread_notifications',
                 'core.context_processors.social_networks',
-                'messaging.context_processors.unread_messages_count',
             ],
         },
     },

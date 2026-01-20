@@ -13,6 +13,8 @@ class EventListView(ListView):
     """
     Список предстоящих событий с HTMX поддержкой.
     
+    ВНИМАНИЕ: создание событий ТОЛЬКО через админку (is_staff=True или has_perm)
+    
     Поддерживает:
     - Фильтрация по статусу (?status=upcoming/past/all)
     - Поиск по названию (?search=)

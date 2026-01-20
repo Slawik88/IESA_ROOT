@@ -86,15 +86,16 @@ def like_created(sender, instance, created, **kwargs):
             # Don't raise - notification failure shouldn't break the like creation
 
 
-@receiver(post_save, sender='messaging.Message')
-def message_created(sender, instance, created, **kwargs):
-    """Send notification when new message is created.
-    
-    Notifies all conversation participants except the sender.
-    """
-    if created:
-        try:
-            notify_new_message(instance)
-        except Exception as e:
-            logger.error(f"Failed to create notification for message {instance.id}: {str(e)}", exc_info=True)
-            # Don't raise - notification failure shouldn't break the message creation
+# @receiver(post_save, sender='messaging.Message')
+# def message_created(sender, instance, created, **kwargs):
+#     """Send notification when new message is created.
+#     
+#     Notifies all conversation participants except the sender.
+#     DISABLED: messaging app removed from project.
+#     """
+#     if created:
+#         try:
+#             notify_new_message(instance)
+#         except Exception as e:
+#             logger.error(f"Failed to create notification for message {instance.id}: {str(e)}", exc_info=True)
+#             # Don't raise - notification failure shouldn't break the message creation
