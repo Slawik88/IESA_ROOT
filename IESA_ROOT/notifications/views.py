@@ -6,6 +6,15 @@ from django.http import HttpResponse, HttpResponseNotAllowed
 from .models import Notification
 
 @login_required
+def unread_count(request):
+    """Return just the unread notification count for HTMX badge polling"""
+    count = Notification.objects.filter(recipient=request.user, is_read=False).count()
+    if count > 0:
+        display = '99+' if count > 99 else str(count)
+        return HttpResponse(f'<span class="badge bg-danger rounded-pill">{display}</span>')
+    return HttpResponse('')  # No badge if 0 unread
+
+@login_required
 def notification_list(request):
     """Display all notifications for the current user"""
     # OPTIMIZATION: Use annotate to count unread in single query
