@@ -5,7 +5,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.utils.decorators import method_decorator
 from django.urls import reverse_lazy
 from django.contrib import messages
-from django.db.models import Count, Q
+from django.db.models import Count, Q, F
 
 from ..models import Post, PostView, Like, BlogSubscription
 from ..forms import PostForm, CommentForm
@@ -109,10 +109,15 @@ class PostDetailView(DetailView):
         user = request.user if request.user.is_authenticated else None
         ip = get_client_ip(request)
         
+        created = False
         if user:
-            PostView.objects.get_or_create(post=self.object, user=user)
+            _, created = PostView.objects.get_or_create(post=self.object, user=user)
         elif ip:
-            PostView.objects.get_or_create(post=self.object, ip_address=ip)
+            _, created = PostView.objects.get_or_create(post=self.object, ip_address=ip)
+        
+        # Если создан новый уникальный просмотр, обновляем счётчик в модели
+        if created:
+            Post.objects.filter(pk=self.object.pk).update(views_count=F('views_count') + 1)
         
         # OPTIMIZATION: Use annotated value instead of .count() query
         # Slightly stale data but 100% improvement on performance

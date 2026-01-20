@@ -1,7 +1,7 @@
 """Views для работы с событиями"""
 
 from django.views.generic import ListView, DetailView
-from django.db.models import Q
+from django.db.models import Q, Count
 from django.utils.decorators import method_decorator
 from django.views.decorators.cache import cache_page
 from django.utils import timezone
@@ -25,7 +25,9 @@ class EventListView(ListView):
     paginate_by = EVENTS_PER_PAGE
     
     def get_queryset(self):
-        queryset = Event.objects.select_related('created_by')
+        queryset = Event.objects.select_related('created_by').annotate(
+            participants_confirmed=Count('registrations', filter=Q(registrations__status='confirmed'), distinct=True)
+        )
         
         # Фильтр по статусу (upcoming/past/all)
         status = self.request.GET.get('status', 'upcoming')

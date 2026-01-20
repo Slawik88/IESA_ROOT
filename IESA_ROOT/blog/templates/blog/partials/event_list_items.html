@@ -25,16 +25,34 @@
                     <div class="card-body py-3">
                         <div class="d-flex justify-content-between align-items-start mb-1">
                             <h6 class="card-title fw-bold text-primary mb-0">{{ event.title }}</h6>
-                            <span class="badge badge-sm {% if event_ts|add:'0' > now_ts|add:'0' %}bg-success-subtle text-success{% else %}bg-secondary-subtle text-secondary{% endif %}">
-                                {% if event_ts|add:'0' > now_ts|add:'0' %}Upcoming{% else %}Past{% endif %}
-                            </span>
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="badge badge-sm {% if event_ts|add:'0' > now_ts|add:'0' %}bg-success-subtle text-success{% else %}bg-secondary-subtle text-secondary{% endif %}" aria-label="Status badge">
+                                    {% if event_ts|add:'0' > now_ts|add:'0' %}Upcoming{% else %}Past{% endif %}
+                                </span>
+                                {% if event.max_participants %}
+                                <span class="badge badge-sm bg-primary-subtle text-primary" aria-label="Participants">
+                                    <i class="fas fa-users me-1"></i>{{ event.participants_confirmed }} / {{ event.max_participants }}
+                                </span>
+                                {% endif %}
+                            </div>
                         </div>
                         <div class="event-meta">
-                            <span class="me-3"><i class="fas fa-clock me-1"></i>{{ event.date|date:"d M Y, H:i" }}</span>
-                            <span><i class="fas fa-map-marker-alt me-1"></i>{{ event.location }}</span>
+                            <span class="me-3"><i class="fas fa-clock me-1" aria-hidden="true"></i><span aria-label="Event time">{{ event.date|date:"d M Y, H:i" }}</span></span>
+                            <span><i class="fas fa-map-marker-alt me-1" aria-hidden="true"></i><span aria-label="Event location">{{ event.location }}</span></span>
                         </div>
                         <p class="card-text text-muted small mb-2">{{ event.description|truncatewords:15 }}</p>
-                        <a href="{% url 'blog:event_detail' event.pk %}" class="btn btn-sm btn-outline-primary">Details</a>
+                        <div class="d-flex gap-2">
+                            <a href="{% url 'blog:event_detail' event.pk %}" class="btn btn-sm btn-outline-primary">Details</a>
+                            {% if event_ts|add:'0' > now_ts|add:'0' %}
+                                {% if event.registration_deadline and event.registration_deadline|date:"U"|add:'0' <= now_ts|add:'0' %}
+                                    <span class="btn btn-sm btn-outline-secondary disabled" aria-disabled="true">Registration closed</span>
+                                {% elif event.max_participants and event.participants_confirmed >= event.max_participants %}
+                                    <span class="btn btn-sm btn-outline-secondary disabled" aria-disabled="true">Full</span>
+                                {% else %}
+                                    <a href="{% url 'blog:event_detail' event.pk %}" class="btn btn-sm btn-primary">Register</a>
+                                {% endif %}
+                            {% endif %}
+                        </div>
                     </div>
                 </div>
             </div>

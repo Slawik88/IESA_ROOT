@@ -176,6 +176,11 @@ class PostAdmin(admin.ModelAdmin):
         return '-'
     view_on_site_link.short_description = 'Link'
 
+    class Media:
+        css = {
+            'all': ('css/admin-ckeditor-theme.css',)
+        }
+
 
 @admin.register(Comment)
 class CommentAdmin(admin.ModelAdmin):
@@ -256,6 +261,11 @@ class EventRegistrationAdmin(admin.ModelAdmin):
     search_fields = ('user__username', 'event__title')
     readonly_fields = ('registered_at',)
     ordering = ('-registered_at',)
+
+    class Media:
+        css = {
+            'all': ('css/admin-ckeditor-theme.css',)
+        }
 
 
 @admin.register(BlogSubscription)

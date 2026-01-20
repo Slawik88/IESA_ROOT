@@ -135,7 +135,7 @@ def _get_public_profile_context(user_obj, request_user=None):
     if request_user and request_user.is_authenticated and request_user != user_obj:
         is_subscribed = BlogSubscription.objects.filter(
             author=user_obj,
-            subscriber=request_user
+            user=request_user
         ).exists()
     
     return {
