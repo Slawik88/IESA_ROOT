@@ -64,16 +64,12 @@
                     <!-- HTMX Like Button -->
                     <div id="like-button-container" 
                          hx-get="{% url 'blog:like_post' pk=post.pk %}" 
-                         hx-trigger="load, like-event from:body" 
-                         hx-swap="outerHTML">
-                    </div>
-                    <!-- HTMX Subscribe Button -->
-                    {% if user.is_authenticated and user != post.author %}
-                    <div id="subscribe-button-container" 
-                         hx-get="{% url 'blog:toggle_subscription' author_pk=post.author.pk %}" 
                          hx-trigger="load" 
                          hx-swap="outerHTML">
                     </div>
+                    <!-- Subscribe Button (inline) -->
+                    {% if user.is_authenticated and user != post.author %}
+                        {% include 'blog/htmx/subscribe_button.html' with author=post.author is_subscribed=is_subscribed %}
                     {% endif %}
                 </div>
                 

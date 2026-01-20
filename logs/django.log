@@ -1,2 +1,4 @@
 WARNING 2026-01-18 13:32:04,764 log Not Found: /messaging/
 WARNING 2026-01-18 13:32:04,765 basehttp "GET /messaging/?id=f44a3c5b-2cee-4a63-912c-a904fe93bdd5&vscodeBrowserReqId=1768739524742 HTTP/1.1" 404 4599
+WARNING 2026-01-20 15:37:10,556 log Not Found: /blog/events/create/
+WARNING 2026-01-20 15:37:10,558 log Not Found: /blog/events/create/

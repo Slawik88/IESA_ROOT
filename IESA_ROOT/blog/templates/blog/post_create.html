@@ -44,8 +44,22 @@
                 
                 <div class="d-flex gap-2">
                     <button type="button" id="preview-btn" class="btn btn-outline-secondary btn-modern flex-fill">Preview</button>
-                    <button type="submit" class="btn btn-primary btn-modern flex-fill">Create and submit for review</button>
+                    <button type="submit" class="btn btn-primary btn-modern flex-fill" id="submit-btn">
+                        <span class="submit-text">Create and submit for review</span>
+                        <span class="submit-loading d-none">
+                            <i class="fas fa-spinner fa-spin me-2"></i>Submitting...
+                        </span>
+                    </button>
                 </div>
+                
+                <script>
+                document.getElementById('post-create-form').addEventListener('submit', function() {
+                    var btn = document.getElementById('submit-btn');
+                    btn.disabled = true;
+                    btn.querySelector('.submit-text').classList.add('d-none');
+                    btn.querySelector('.submit-loading').classList.remove('d-none');
+                });
+                </script>
             </form>
 
             <div class="mt-5">
