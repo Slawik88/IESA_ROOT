@@ -53,7 +53,6 @@ if DEBUG:
 
 # Регистрация всех приложений и HTMX
 INSTALLED_APPS = [
-    'daphne',  # ASGI server для WebSocket
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.messages',
@@ -69,7 +68,6 @@ INSTALLED_APPS = [
     'gallery',
     'products',
     'notifications.apps.NotificationsConfig',  # Notification system
-    'channels',  # Django Channels для WebSocket
 
     # Сторонние библиотеки
     'django_htmx',
@@ -135,8 +133,9 @@ DATABASES = {
 # Production database configuration (PostgreSQL via DATABASE_URL)
 if 'DATABASE_URL' in os.environ:
     import dj_database_url
-    # Allow tuning via env, default to 300s to reduce open slots pressure
-    _CONN_MAX_AGE = int(os.getenv('DB_CONN_MAX_AGE', '300'))
+    # Use short-lived connections to reduce pool exhaustion
+    # 0 = close connection after each request (safest for limited pools)
+    _CONN_MAX_AGE = int(os.getenv('DB_CONN_MAX_AGE', '0'))
     DATABASES['default'] = dj_database_url.config(
         conn_max_age=_CONN_MAX_AGE,
         ssl_require=True
@@ -400,25 +399,8 @@ LOGOUT_REDIRECT_URL = 'home'
 # Ключи API (Stripe)
 STRIPE_SECRET_KEY = os.getenv('STRIPE_SECRET_KEY')
 
-# Django Channels Configuration (WebSocket)
-ASGI_APPLICATION = 'IESA_ROOT.asgi.application'
-
-# Channel Layers - In-memory for development, Redis for production
-if DEBUG:
-    CHANNEL_LAYERS = {
-        'default': {
-            'BACKEND': 'channels.layers.InMemoryChannelLayer'
-        }
-    }
-else:
-    # For production - use InMemoryChannelLayer
-    # Works for single-instance deployments on DigitalOcean App Platform
-    # For multi-instance, install channels-postgres and use DatabaseChannelLayer
-    CHANNEL_LAYERS = {
-        'default': {
-            'BACKEND': 'channels.layers.InMemoryChannelLayer'
-        }
-    }
+# Note: WebSocket/Channels removed - using HTMX polling for notifications
+# This reduces database connection pressure significantly
 
 # Import additional settings (logging, email, etc.)
 from .settings_addon import LOGGING

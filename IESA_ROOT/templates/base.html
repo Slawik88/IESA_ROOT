@@ -83,10 +83,10 @@
     <!-- Skip to main content (Accessibility) -->
     <a href="#main-content" class="skip-to-main">Skip to main content</a>
     
-    <!-- Р‘РђРќРќР•Р  Р РђР—Р РђР‘РћРўРљР -->
+    <!-- DEVELOPMENT BANNER -->
     <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 12px 20px; text-align: center; font-weight: 500; box-shadow: 0 2px 8px rgba(0,0,0,0.15); position: relative; z-index: 1050;">
         <i class="bi bi-cone-striped me-2"></i>
-        <strong>Р’РЅРёРјР°РЅРёРµ!</strong> РЎР°Р№С‚ РЅР°С…РѕРґРёС‚СЃСЏ РІ СЃС‚Р°РґРёРё Р°РєС‚РёРІРЅРѕР№ СЂР°Р·СЂР°Р±РѕС‚РєРё. Р¤СѓРЅРєС†РёРѕРЅР°Р» РјРѕР¶РµС‚ СЂР°Р±РѕС‚Р°С‚СЊ РЅРµРєРѕСЂСЂРµРєС‚РЅРѕ.
+        <strong>Attention!</strong> Site is under active development. Some features may not work correctly.
         <i class="bi bi-tools ms-2"></i>
     </div>
     
@@ -410,44 +410,14 @@
     <!-- Toast Notifications Container -->
     {% include 'partials/toast_container.html' %}
     
-    <!-- Notifications WebSocket: updates unread messages badge in real time -->
+    <!-- Notifications Badge Polling via HTMX (replaces WebSocket) -->
     {% if user.is_authenticated %}
-    <script>
-    (function(){
-        const badge = document.getElementById('unreadMessagesCount');
-        function setBadge(count){
-            if (!badge) return;
-            const n = Math.max(0, parseInt(count) || 0);
-            if (n > 0){
-                badge.textContent = n > 99 ? '99+' : n;
-                badge.style.display = 'inline-block';
-            } else {
-                badge.textContent = '0';
-                badge.style.display = 'none';
-            }
-        }
-        function deltaBadge(delta){
-            if (!badge) return;
-            const current = parseInt(badge.textContent) || 0;
-            setBadge(current + (parseInt(delta) || 0));
-        }
-        function connect(){
-            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const url = protocol + '//' + window.location.host + '/ws/notifications/';
-            const ws = new WebSocket(url);
-            ws.onmessage = function(e){
-                try {
-                    const data = JSON.parse(e.data);
-                    if (data.type === 'unread_set') setBadge(data.count);
-                    if (data.type === 'unread_delta') deltaBadge(data.delta);
-                } catch(err){ console.warn('WS notif parse error', err); }
-            };
-            ws.onclose = function(){ setTimeout(connect, 3000); };
-        }
-        document.addEventListener('DOMContentLoaded', connect);
-    })();
-    </script>
+    <div hx-get="{% url 'notifications:unread_count' %}" 
+         hx-trigger="load, every 60s"
+         hx-swap="innerHTML"
+         hx-target="#unreadMessagesCount"
+         style="display: none;">
+    </div>
     {% endif %}
 </body>
 </html>
-
