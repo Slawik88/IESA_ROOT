@@ -1,5 +1,6 @@
 from django.urls import path
 from . import views
+from . import views_verification
 from django.contrib.auth import views as auth_views
 
 app_name = 'users'
@@ -16,6 +17,17 @@ urlpatterns = [
     # Public profiles by username and by permanent card ID (QR)
     path('user/<str:username>/', views.profile_public_by_username, name='profile_public_username'),
     path('card/<uuid:permanent_id>/', views.profile_public_by_card, name='profile_by_card'),
+    
+    # MEMBERSHIP VERIFICATION SYSTEM
+    # Public profile view for QR code scanning
+    path('profile/<uuid:uuid>/public/', views_verification.public_profile, name='public_profile'),
+    # Member personal cabinet with current PIN
+    path('cabinet/', views_verification.member_cabinet, name='member_cabinet'),
+    # Partner dashboard
+    path('partner/dashboard/', views_verification.partner_dashboard, name='partner_dashboard'),
+    # Log visit for a specific member
+    path('partner/visit/<int:member_id>/', views_verification.log_visit, name='log_visit'),
+    
     # Serve QR image (generates if missing). Use as image src and download link.
     path('qr/<uuid:permanent_id>/', views.qr_image, name='user_qr'),
     # User search

@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
-from .models import User
+from .models import User, Partner, Visit
 from .forms import CustomUserCreationForm, CustomUserChangeForm
 from django.utils.html import format_html
 from django.conf import settings
@@ -315,3 +315,101 @@ class UserAdmin(BaseUserAdmin):
 
 
 admin.site.register(User, UserAdmin)
+
+
+# PARTNER AND VISIT ADMIN
+
+@admin.register(Partner)
+class PartnerAdmin(admin.ModelAdmin):
+    """Admin interface for Partner model"""
+    list_display = ['company_name', 'user', 'business_type', 'created_at', 'total_visits']
+    list_filter = ['business_type', 'created_at']
+    search_fields = ['company_name', 'user__username', 'user__email']
+    raw_id_fields = ['user']
+    readonly_fields = ['created_at', 'total_visits']
+    
+    fieldsets = (
+        ('Basic Information', {
+            'fields': ('user', 'company_name', 'business_type')
+        }),
+        ('Metadata', {
+            'fields': ('created_at', 'total_visits')
+        }),
+    )
+    
+    def total_visits(self, obj):
+        """Display total visits count"""
+        count = obj.logged_visits.count()
+        return format_html(
+            '<span style="font-weight: bold; color: #28a745;">{}</span>',
+            count
+        )
+    total_visits.short_description = 'Total Visits'
+
+
+@admin.register(Visit)
+class VisitAdmin(admin.ModelAdmin):
+    """Admin interface for Visit model"""
+    list_display = [
+        'timestamp', 'member_info', 'partner', 'service_type', 
+        'cost', 'verified_badge', 'member_status'
+    ]
+    list_filter = [
+        'service_type', 'pin_verified', 'timestamp', 
+        'partner__business_type', 'member__membership_status'
+    ]
+    search_fields = [
+        'member__username', 'member__first_name', 'member__last_name',
+        'member__pseudonym', 'partner__company_name', 'service_description'
+    ]
+    raw_id_fields = ['member', 'partner']
+    readonly_fields = ['timestamp']
+    date_hierarchy = 'timestamp'
+    
+    fieldsets = (
+        ('Visit Information', {
+            'fields': ('member', 'partner', 'timestamp')
+        }),
+        ('Service Details', {
+            'fields': ('service_type', 'service_description', 'cost', 'comments')
+        }),
+        ('Verification', {
+            'fields': ('pin_verified',)
+        }),
+    )
+    
+    def member_info(self, obj):
+        """Display member username with link"""
+        url = reverse('admin:users_user_change', args=[obj.member.id])
+        return format_html(
+            '<a href="{}">{}</a>',
+            url, obj.member.username
+        )
+    member_info.short_description = 'Member'
+    
+    def verified_badge(self, obj):
+        """Display verification status badge"""
+        if obj.pin_verified:
+            return format_html(
+                '<span style="color: white; background-color: #28a745; '
+                'padding: 3px 8px; border-radius: 3px; font-weight: bold;">✓ Verified</span>'
+            )
+        return format_html(
+            '<span style="color: white; background-color: #dc3545; '
+            'padding: 3px 8px; border-radius: 3px;">✗ Not Verified</span>'
+        )
+    verified_badge.short_description = 'PIN Verified'
+    
+    def member_status(self, obj):
+        """Display member's current status"""
+        if obj.member.membership_status == 'active':
+            return format_html(
+                '<span style="color: #28a745; font-weight: bold;">●</span> Active'
+            )
+        return format_html(
+            '<span style="color: #6c757d;">●</span> Inactive'
+        )
+    member_status.short_description = 'Member Status'
+
+
+

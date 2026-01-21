@@ -2,6 +2,9 @@ from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.utils import timezone
 import uuid
+import secrets
+import pyotp
+import base64
 from django.utils.translation import gettext_lazy as _
 
 class User(AbstractUser):
@@ -47,6 +50,25 @@ class User(AbstractUser):
     card_active = models.BooleanField(default=False, verbose_name=_('Card active'))
     card_issued_at = models.DateTimeField(null=True, blank=True, verbose_name=_('Card issued at'))
 
+    # MEMBERSHIP VERIFICATION SYSTEM
+    membership_status = models.CharField(
+        max_length=20,
+        choices=[('active', 'Active'), ('inactive', 'Inactive')],
+        default='inactive',
+        verbose_name=_('Membership Status')
+    )
+    totp_secret = models.CharField(
+        max_length=64,
+        blank=True,
+        verbose_name=_('TOTP Secret'),
+        help_text='Base32-encoded secret for PIN generation'
+    )
+    pseudonym = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name=_('Pseudonym')
+    )
+
     # Social / contact links (optional)
     github_url = models.URLField(blank=True, max_length=255, verbose_name='GitHub')
     discord_url = models.URLField(blank=True, max_length=255, verbose_name='Discord')
@@ -71,6 +93,8 @@ class User(AbstractUser):
             models.Index(fields=['email'], name='user_email_idx'),
             models.Index(fields=['permanent_id'], name='user_permanent_id_idx'),
             models.Index(fields=['is_verified', 'username'], name='user_verified_username_idx'),
+            models.Index(fields=['membership_status'], name='user_membership_idx'),
+            models.Index(fields=['pseudonym'], name='user_pseudonym_idx'),
         ]
 
     def __str__(self):
@@ -143,3 +167,149 @@ class User(AbstractUser):
             return {'level': 'Intermediate', 'color': 'green', 'next_level': 'Advanced', 'progress': int((score - 50) / 150 * 100)}
         else:
             return {'level': 'Beginner', 'color': 'gray', 'next_level': 'Intermediate', 'progress': int(score / 50 * 100)}
+    
+    def save(self, *args, **kwargs):
+        """Override save to auto-generate TOTP secret if not set"""
+        if not self.totp_secret:
+            # Generate 20 random bytes and encode as base32 for TOTP
+            random_bytes = secrets.token_bytes(20)
+            self.totp_secret = base64.b32encode(random_bytes).decode('utf-8')
+        super().save(*args, **kwargs)
+    
+    def get_current_pin(self):
+        """Generate current 6-digit PIN using TOTP (12-minute refresh interval)"""
+        if not self.totp_secret:
+            return None
+        totp = pyotp.TOTP(self.totp_secret, interval=720)  # 720 seconds = 12 minutes
+        return totp.now()
+    
+    def verify_pin(self, pin, valid_window=1):
+        """
+        Verify provided PIN against TOTP secret.
+        valid_window=1 means accept previous/current/next interval (36 min total).
+        """
+        if not self.totp_secret or not pin:
+            return False
+        totp = pyotp.TOTP(self.totp_secret, interval=720)
+        return totp.verify(pin, valid_window=valid_window)
+
+
+class Partner(models.Model):
+    """
+    Partner model for businesses/services that log member visits.
+    OneToOne with User - partner users are in 'Partners' group.
+    """
+    user = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        related_name='partner_profile',
+        verbose_name=_('User Account')
+    )
+    company_name = models.CharField(
+        max_length=255,
+        verbose_name=_('Company Name')
+    )
+    business_type = models.CharField(
+        max_length=100,
+        choices=[
+            ('shop', 'Shop/Retail'),
+            ('service', 'Service Provider'),
+            ('gym', 'Gym/Fitness'),
+            ('restaurant', 'Restaurant/Cafe'),
+            ('other', 'Other'),
+        ],
+        default='other',
+        verbose_name=_('Business Type')
+    )
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name=_('Created At')
+    )
+    
+    class Meta:
+        verbose_name = _('Partner')
+        verbose_name_plural = _('Partners')
+        db_table = 'users_partner'
+        ordering = ['company_name']
+        indexes = [
+            models.Index(fields=['company_name'], name='partner_company_idx'),
+            models.Index(fields=['business_type'], name='partner_business_idx'),
+        ]
+    
+    def __str__(self):
+        return f"{self.company_name} ({self.user.username})"
+    
+    def get_total_visits(self):
+        """Get total number of visits logged by this partner"""
+        return self.logged_visits.count()
+
+
+class Visit(models.Model):
+    """
+    Visit log model - records when a member visits a partner.
+    Stores service details and PIN verification status.
+    """
+    member = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='visits',
+        verbose_name=_('Member')
+    )
+    partner = models.ForeignKey(
+        Partner,
+        on_delete=models.CASCADE,
+        related_name='logged_visits',
+        verbose_name=_('Partner')
+    )
+    service_type = models.CharField(
+        max_length=100,
+        choices=[
+            ('purchase', 'Purchase'),
+            ('consultation', 'Consultation'),
+            ('training', 'Training Session'),
+            ('event', 'Event Attendance'),
+            ('other', 'Other'),
+        ],
+        default='other',
+        verbose_name=_('Service Type')
+    )
+    service_description = models.TextField(
+        blank=True,
+        verbose_name=_('Service Description')
+    )
+    cost = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name=_('Cost')
+    )
+    comments = models.TextField(
+        blank=True,
+        verbose_name=_('Comments')
+    )
+    pin_verified = models.BooleanField(
+        default=False,
+        verbose_name=_('PIN Verified')
+    )
+    timestamp = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name=_('Visit Time')
+    )
+    
+    class Meta:
+        verbose_name = _('Visit')
+        verbose_name_plural = _('Visits')
+        db_table = 'users_visit'
+        ordering = ['-timestamp']
+        indexes = [
+            models.Index(fields=['-timestamp'], name='visit_timestamp_idx'),
+            models.Index(fields=['partner', '-timestamp'], name='visit_partner_time_idx'),
+            models.Index(fields=['member', '-timestamp'], name='visit_member_time_idx'),
+            models.Index(fields=['pin_verified'], name='visit_verified_idx'),
+        ]
+    
+    def __str__(self):
+        status = "✓" if self.pin_verified else "✗"
+        return f"{status} {self.member.username} @ {self.partner.company_name} ({self.timestamp.strftime('%Y-%m-%d %H:%M')})"
+
