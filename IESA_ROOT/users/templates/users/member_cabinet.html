@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Member Cabinet{% endblock %}
+
+{% block extra_css %}
+<style>
+    .pin-display {
+        font-size: 3rem;
+        font-weight: bold;
+        letter-spacing: 0.5rem;
+        font-family: 'Courier New', monospace;
+        color: #198754;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+    }
+    .countdown {
+        font-size: 1.5rem;
+        color: #6c757d;
+    }
+    .status-active {
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    }
+    .status-inactive {
+        background: linear-gradient(135deg, #6c757d 0%, #adb5bd 100%);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            <!-- Status Card -->
+            <div class="card shadow-sm mb-4 text-white {% if membership_status == 'active' %}status-active{% else %}status-inactive{% endif %}">
+                <div class="card-body text-center p-4">
+                    <h4 class="mb-1">
+                        {% if user.first_name %}
+                            {{ user.first_name }} {{ user.last_name }}
+                        {% else %}
+                            {{ user.username }}
+                        {% endif %}
+                    </h4>
+                    <p class="mb-0">
+                        {% if membership_status == 'active' %}
+                            <i class="fas fa-check-circle"></i> Active Member
+                        {% else %}
+                            <i class="fas fa-times-circle"></i> Inactive Membership
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+            
+            {% if membership_status == 'active' %}
+                <!-- PIN Display -->
+                <div class="card shadow">
+                    <div class="card-body text-center p-5">
+                        <h5 class="mb-3 text-muted">Current Verification PIN</h5>
+                        <div class="pin-display mb-4">
+                            {{ current_pin }}
+                        </div>
+                        
+                        <!-- Countdown Timer -->
+                        <div class="countdown mb-3">
+                            <i class="fas fa-clock"></i> Expires in: <span id="countdown">{{ seconds_remaining }}</span>s
+                        </div>
+                        
+                        <div class="progress mb-3" style="height: 8px;">
+                            <div id="progress-bar" class="progress-bar bg-success" role="progressbar" style="width: 100%"></div>
+                        </div>
+                        
+                        <p class="text-muted small mb-0">
+                            <i class="fas fa-info-circle"></i> Show this PIN to partner staff when visiting
+                        </p>
+                    </div>
+                </div>
+                
+                <!-- Instructions -->
+                <div class="alert alert-info mt-4">
+                    <h6><i class="fas fa-lightbulb"></i> How to use:</h6>
+                    <ol class="mb-0 ps-3">
+                        <li>Visit a partner location</li>
+                        <li>Show this PIN to staff</li>
+                        <li>Staff will verify and log your visit</li>
+                        <li>PIN refreshes every 12 minutes automatically</li>
+                    </ol>
+                </div>
+            {% else %}
+                <!-- Inactive Message -->
+                <div class="alert alert-warning">
+                    <h5><i class="fas fa-exclamation-triangle"></i> Membership Inactive</h5>
+                    <p class="mb-0">Your membership is currently inactive. Contact administration to activate your membership and access verification features.</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Countdown timer
+    let secondsRemaining = {{ seconds_remaining }};
+    const totalInterval = 720; // 12 minutes
+    
+    function updateCountdown() {
+        const countdownEl = document.getElementById('countdown');
+        const progressBar = document.getElementById('progress-bar');
+        
+        if (secondsRemaining <= 0) {
+            // Reload page to get new PIN
+            window.location.reload();
+            return;
+        }
+        
+        countdownEl.textContent = secondsRemaining;
+        
+        // Update progress bar
+        const percentage = (secondsRemaining / totalInterval) * 100;
+        progressBar.style.width = percentage + '%';
+        
+        // Change color when time is running out
+        if (secondsRemaining < 60) {
+            progressBar.classList.remove('bg-success');
+            progressBar.classList.add('bg-warning');
+        }
+        if (secondsRemaining < 30) {
+            progressBar.classList.remove('bg-warning');
+            progressBar.classList.add('bg-danger');
+        }
+        
+        secondsRemaining--;
+    }
+    
+    // Update every second
+    setInterval(updateCountdown, 1000);
+</script>
+{% endblock %}

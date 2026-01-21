@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Log Visit - {{ member.username }}{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            <!-- Back Button -->
+            <a href="{% url 'users:partner_dashboard' %}" class="btn btn-outline-secondary mb-3">
+                <i class="fas fa-arrow-left"></i> Back to Dashboard
+            </a>
+            
+            <!-- Member Info Card -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        {% if member.avatar and member.avatar.name != 'avatars/default.png' %}
+                            <img src="{{ member.avatar.url }}" alt="" class="rounded-circle me-3" style="width: 80px; height: 80px; object-fit: cover;">
+                        {% else %}
+                            <div class="rounded-circle bg-secondary d-inline-flex align-items-center justify-content-center me-3" style="width: 80px; height: 80px;">
+                                <i class="fas fa-user fa-2x text-white"></i>
+                            </div>
+                        {% endif %}
+                        <div>
+                            <h4 class="mb-1">{{ member.first_name }} {{ member.last_name }}</h4>
+                            <p class="text-muted mb-0">
+                                <i class="fas fa-user"></i> {{ member.username }}
+                                {% if member.pseudonym %}
+                                    • {{ member.pseudonym }}
+                                {% endif %}
+                            </p>
+                            <span class="badge bg-success mt-2">
+                                <i class="fas fa-check-circle"></i> Active Member
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Visit Form -->
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="fas fa-clipboard-list"></i> Log Visit</h5>
+                </div>
+                <div class="card-body">
+                    <form method="post" action="">
+                        {% csrf_token %}
+                        
+                        <!-- Service Type -->
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">{{ form.service_type.label }}</label>
+                            {{ form.service_type }}
+                            {% if form.service_type.errors %}
+                                <div class="text-danger small">{{ form.service_type.errors }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Service Description -->
+                        <div class="mb-3">
+                            <label class="form-label">{{ form.service_description.label }}</label>
+                            {{ form.service_description }}
+                            {% if form.service_description.errors %}
+                                <div class="text-danger small">{{ form.service_description.errors }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Cost -->
+                        <div class="mb-3">
+                            <label class="form-label">{{ form.cost.label }}</label>
+                            <div class="input-group">
+                                <span class="input-group-text">$</span>
+                                {{ form.cost }}
+                            </div>
+                            {% if form.cost.errors %}
+                                <div class="text-danger small">{{ form.cost.errors }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Comments -->
+                        <div class="mb-3">
+                            <label class="form-label">{{ form.comments.label }}</label>
+                            {{ form.comments }}
+                            {% if form.comments.errors %}
+                                <div class="text-danger small">{{ form.comments.errors }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <hr class="my-4">
+                        
+                        <!-- PIN Verification -->
+                        <div class="alert alert-info">
+                            <i class="fas fa-key"></i> <strong>Member Verification Required</strong>
+                            <br>Ask the member to show their current 6-digit PIN from their personal cabinet.
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">{{ form.pin.label }}</label>
+                            {{ form.pin }}
+                            <div class="form-text">{{ form.pin.help_text }}</div>
+                            {% if form.pin.errors %}
+                                <div class="alert alert-danger mt-2">
+                                    <i class="fas fa-exclamation-triangle"></i> {{ form.pin.errors.0 }}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Submit Button -->
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class="fas fa-check"></i> Verify PIN & Log Visit
+                            </button>
+                            <a href="{% url 'users:partner_dashboard' %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-times"></i> Cancel
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
