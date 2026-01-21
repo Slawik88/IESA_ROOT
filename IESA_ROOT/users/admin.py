@@ -66,12 +66,13 @@ class UserAdmin(BaseUserAdmin):
     add_form = CustomUserCreationForm
     form = CustomUserChangeForm
     model = User
-    list_display = ['username', 'email', 'first_name', 'last_name', 'is_staff', 'is_verified', 'last_online', 'permanent_id', 'card_qr']
-    list_filter = (CardStatusFilter, VerificationFilter, 'is_staff', 'date_joined')
+    list_display = ['username', 'email', 'first_name', 'last_name', 'membership_status', 'pseudonym', 'is_staff', 'is_verified', 'last_online', 'permanent_id', 'card_qr']
+    list_filter = (CardStatusFilter, VerificationFilter, 'membership_status', 'is_staff', 'date_joined')
     
     fieldsets = (
         (None, {'fields': ('username', 'password')}),
         ('Персональная информация', {'fields': ('first_name', 'last_name', 'email', 'avatar', 'date_of_birth', 'phone_number', 'is_phone_hidden')}),
+        ('Membership', {'fields': ('membership_status', 'pseudonym', 'totp_secret_display')}),
         ('Card QR & Actions', {'fields': ('card_qr_with_actions', 'card_active', 'card_issued_at')}),
         ('Разрешения', {'fields': ('is_verified', 'is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions')}),
         ('Важные даты', {'fields': ('last_login', 'date_joined', 'last_online')}),
@@ -88,9 +89,19 @@ class UserAdmin(BaseUserAdmin):
         }),
     )
     
-    readonly_fields = ('last_online', 'permanent_id', 'card_qr_with_actions')
+    readonly_fields = ('last_online', 'permanent_id', 'card_qr_with_actions', 'totp_secret_display')
     
     actions = ['regenerate_qr_same_id', 'regenerate_permanent_id', 'issue_card', 'revoke_card']
+    
+    def totp_secret_display(self, obj):
+        """Display TOTP secret (read-only for security)."""
+        if obj.totp_secret:
+            return format_html(
+                '<code style="background:#f0f0f0;padding:6px 10px;border-radius:4px;font-family:monospace;">{}</code>',
+                obj.totp_secret
+            )
+        return format_html('<span style="color:#999;">Not set</span>')
+    totp_secret_display.short_description = 'TOTP Secret'
     
     def card_qr_with_actions(self, obj):
         """Вывести QR код с кнопками действий."""
