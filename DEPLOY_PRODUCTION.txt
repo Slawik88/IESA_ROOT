@@ -1,0 +1,129 @@
+╔════════════════════════════════════════════════════════════════════════════╗
+║                   PRODUCTION DEPLOYMENT - URGENT STEPS                      ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+⚠️ CRITICAL: Website is currently DOWN on production!
+Error: column users_user.membership_status does not exist
+
+═══════════════════════════════════════════════════════════════════════════════
+
+📋 STEP 1: Apply Database Migrations (URGENT - 5 minutes)
+═══════════════════════════════════════════════════════════════════════════════
+
+Choose ONE method below:
+
+METHOD A: SSH to Production Server (Fastest)
+--------------------------------------------
+1. SSH into your production server
+2. cd /workspace/IESA_ROOT
+3. python manage.py migrate
+4. python manage.py check
+5. Restart gunicorn: pkill gunicorn (Heroku will restart automatically)
+
+METHOD B: Heroku CLI (If using Heroku)
+---------------------------------------
+1. heroku run python manage.py migrate --app IESA_ROOT
+2. heroku run python manage.py check --app IESA_ROOT
+3. heroku restart --app IESA_ROOT
+
+METHOD C: DigitalOcean App Platform Console
+-------------------------------------------
+1. Go to DigitalOcean dashboard → Apps
+2. Select IESA_ROOT app
+3. Console tab → Run Command
+4. Execute: python manage.py migrate
+5. Restart app
+
+═══════════════════════════════════════════════════════════════════════════════
+
+📋 STEP 2: Activate Test Members (After migrations applied)
+═══════════════════════════════════════════════════════════════════════════════
+
+Via Django Admin (https://iesasport.ch/admin/):
+1. Login as superuser
+2. Go to Users → Users
+3. Find your user account
+4. Change "Membership Status" to "Active"
+5. Save
+6. Test: Go to /auth/cabinet/ - you should see your PIN
+
+OR via production shell:
+python manage.py shell
+
+from users.models import User
+user = User.objects.get(username='your_username')
+user.membership_status = 'active'
+user.save()
+print(f"✓ User activated! Current PIN: {user.get_current_pin()}")
+exit()
+
+═══════════════════════════════════════════════════════════════════════════════
+
+📋 STEP 3: Create Partner Profile (If needed)
+═══════════════════════════════════════════════════════════════════════════════
+
+Via Django Admin:
+1. Go to Authentication → Groups
+2. Create group "Partners" (if doesn't exist)
+3. Go to Users → Users
+4. Select partner user → Groups → Add "Partners"
+5. Go to Users → Partners → Add Partner
+   - User: select user from step 4
+   - Company Name: e.g., "Test Sport Shop"
+   - Business Type: select appropriate type
+6. Save
+
+═══════════════════════════════════════════════════════════════════════════════
+
+✅ VERIFICATION CHECKLIST
+═══════════════════════════════════════════════════════════════════════════════
+
+After completing steps above, verify:
+
+□ Homepage loads (https://iesasport.ch/) - no 500 error
+□ Login works
+□ Member cabinet shows PIN (/auth/cabinet/)
+□ PIN is 6 digits and changes every 12 minutes
+□ Partner dashboard accessible (/auth/partner/dashboard/)
+□ Partner can search members
+□ Partner can log visits with PIN verification
+
+═══════════════════════════════════════════════════════════════════════════════
+
+🆘 TROUBLESHOOTING
+═══════════════════════════════════════════════════════════════════════════════
+
+Problem: "No module named 'pyotp'"
+Solution: pip install pyotp==2.9.0 (already in requirements.txt, reinstall deps)
+
+Problem: "Member cabinet shows 'Membership Inactive'"
+Solution: Change user's membership_status to 'active' via admin
+
+Problem: "Partner dashboard shows 'Partner profile not configured'"
+Solution: Create Partner profile in admin (see STEP 3)
+
+Problem: "PIN shows as None"
+Solution: Run: python update_totp_secrets.py (in IESA_ROOT directory)
+
+═══════════════════════════════════════════════════════════════════════════════
+
+📞 SUPPORT CONTACT
+═══════════════════════════════════════════════════════════════════════════════
+
+If issues persist after migration:
+1. Check production logs: tail -f /var/log/gunicorn.log
+2. Check Django errors: python manage.py check --deploy
+3. Verify database connection
+4. Ensure all dependencies installed: pip install -r requirements.txt
+
+Expected migration output:
+--------------------------
+Applying users.0010_partner_visit_user_membership_status_user_pseudonym_and_more... OK
+
+═══════════════════════════════════════════════════════════════════════════════
+
+⏱️ ESTIMATED TOTAL TIME: 10-15 minutes
+🎯 PRIORITY: CRITICAL - Site down, revenue impacted
+🔧 DIFFICULTY: Easy - Single migration command
+
+═══════════════════════════════════════════════════════════════════════════════
