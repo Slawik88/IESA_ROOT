@@ -23,62 +23,80 @@
         
         <!-- Search Section -->
         <div class="col-lg-5 mb-4">
-            <div class="card shadow-sm h-100">
-                <div class="card-header bg-primary text-white">
-                    <h5 class="mb-0"><i class="fas fa-search"></i> Search Member</h5>
+            <div class="card shadow-lg border-0" style="border-radius: 20px;">
+                <div class="card-header text-white" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 20px 20px 0 0;">
+                    <h4 class="mb-0"><i class="fas fa-user-search"></i> Find Member</h4>
+                    <small>Search by name, username, or member ID</small>
                 </div>
-                <div class="card-body">
+                <div class="card-body p-4">
                     <form method="get" action="{% url 'users:partner_dashboard' %}">
-                        {{ search_form.query }}
-                        <button type="submit" class="btn btn-primary w-100 mt-3">
-                            <i class="fas fa-search"></i> Search
+                        <div class="mb-3">
+                            {{ search_form.query }}
+                        </div>
+                        <button type="submit" class="btn btn-lg w-100" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 10px; font-weight: 600;">
+                            <i class="fas fa-search"></i> Search Members
                         </button>
                     </form>
                     
                     {% if search_results is not None %}
-                        <hr>
+                        <hr class="my-4">
                         {% if search_results %}
-                            <h6 class="mb-3">Search Results ({{ search_results|length }})</h6>
-                            <div class="list-group">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h5 class="mb-0" style="color: #667eea;">
+                                    <i class="fas fa-list"></i> Results
+                                </h5>
+                                <span class="badge" style="background: #667eea; font-size: 1rem;">{{ search_results|length }}</span>
+                            </div>
+                            <div class="list-group" style="max-height: 500px; overflow-y: auto;">
                                 {% for member in search_results %}
                                     <a href="{% url 'users:log_visit' member.id %}" 
-                                       class="list-group-item list-group-item-action">
+                                       class="list-group-item list-group-item-action" 
+                                       style="border-radius: 10px; margin-bottom: 10px; border: 2px solid #e9ecef; transition: all 0.3s;">
                                         <div class="d-flex align-items-center">
                                             {% if member.avatar and member.avatar.name != 'avatars/default.png' %}
                                                 <img src="{{ member.avatar.url }}" alt="" 
                                                      class="rounded-circle me-3" 
-                                                     style="width: 50px; height: 50px; object-fit: cover;">
+                                                     style="width: 60px; height: 60px; object-fit: cover; border: 3px solid #667eea;">
                                             {% else %}
-                                                <div class="rounded-circle bg-secondary d-inline-flex align-items-center justify-content-center me-3" 
-                                                     style="width: 50px; height: 50px;">
-                                                    <i class="fas fa-user text-white"></i>
+                                                <div class="rounded-circle d-inline-flex align-items-center justify-content-center me-3" 
+                                                     style="width: 60px; height: 60px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                                                    <i class="fas fa-user fa-lg text-white"></i>
                                                 </div>
                                             {% endif %}
                                             <div class="flex-grow-1">
-                                                <h6 class="mb-0">
+                                                <h5 class="mb-1" style="color: #495057; font-weight: 600;">
                                                     {{ member.first_name }} {{ member.last_name }}
-                                                    {% if member.pseudonym %}
-                                                        <small class="text-muted">({{ member.pseudonym }})</small>
-                                                    {% endif %}
-                                                </h6>
-                                                <small class="text-muted">
-                                                    <i class="fas fa-user"></i> {{ member.username }}
-                                                </small>
+                                                </h5>
+                                                <div class="mb-1">
+                                                    <small class="text-muted">
+                                                        <i class="fas fa-at"></i> {{ member.username }}
+                                                        {% if member.pseudonym %}
+                                                            | <i class="fas fa-tag"></i> {{ member.pseudonym }}
+                                                        {% endif %}
+                                                    </small>
+                                                </div>
+                                                <span class="badge bg-success" style="font-size: 0.85rem;">
+                                                    <i class="fas fa-check-circle"></i> Active Member
+                                                </span>
                                             </div>
-                                            {% if member.membership_status == 'active' %}
-                                                <span class="badge bg-success">Active</span>
-                                            {% else %}
-                                                <span class="badge bg-secondary">Inactive</span>
-                                            {% endif %}
+                                            <div>
+                                                <i class="fas fa-chevron-right" style="color: #667eea; font-size: 1.5rem;"></i>
+                                            </div>
                                         </div>
                                     </a>
                                 {% endfor %}
                             </div>
                         {% else %}
-                            <div class="alert alert-warning mb-0">
-                                <i class="fas fa-exclamation-circle"></i> No members found matching your search.
+                            <div class="alert alert-warning" style="border-radius: 15px; border: 2px solid #ffc107;">
+                                <h6><i class="fas fa-search-minus"></i> No Results Found</h6>
+                                <p class="mb-0">Try searching with a different name, username, or member ID.</p>
                             </div>
                         {% endif %}
+                    {% else %}
+                        <div class="text-center mt-4 p-4" style="background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%); border-radius: 15px;">
+                            <i class="fas fa-info-circle fa-2x mb-2" style="color: #764ba2;"></i>
+                            <p class="mb-0" style="color: #764ba2; font-weight: 500;">Enter member name, username, or ID to search</p>
+                        </div>
                     {% endif %}
                 </div>
             </div>

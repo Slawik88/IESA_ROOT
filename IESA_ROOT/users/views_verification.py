@@ -40,8 +40,33 @@ def member_cabinet(request):
     """
     user = request.user
     
+    # Check if user has required fields (migration applied)
+    if not hasattr(user, 'membership_status'):
+        messages.error(request, '⚠️ System error: Database migration required. Contact administrator.')
+        return redirect('core:home')
+    
+    # Check if membership is active
+    if user.membership_status != 'active':
+        context = {
+            'membership_status': user.membership_status,
+            'current_pin': None,
+            'seconds_remaining': 0,
+            'error_message': 'Your membership is inactive. Contact administrator to activate your account.'
+        }
+        return render(request, 'users/member_cabinet.html', context)
+    
     # Generate current PIN
     current_pin = user.get_current_pin()
+    
+    if not current_pin:
+        messages.error(request, '⚠️ Unable to generate PIN. Contact administrator.')
+        context = {
+            'membership_status': user.membership_status,
+            'current_pin': None,
+            'seconds_remaining': 0,
+            'error_message': 'PIN generation failed. Contact administrator.'
+        }
+        return render(request, 'users/member_cabinet.html', context)
     
     # Calculate remaining time until PIN refresh (12 minutes = 720 seconds)
     import time
@@ -55,6 +80,7 @@ def member_cabinet(request):
         'current_pin': current_pin,
         'seconds_remaining': seconds_remaining,
         'membership_status': user.membership_status,
+        'user_name': user.get_full_name() or user.username,
     }
     return render(request, 'users/member_cabinet.html', context)
 
@@ -69,7 +95,10 @@ def partner_dashboard(request):
     try:
         partner = request.user.partner_profile
     except Partner.DoesNotExist:
-        messages.error(request, 'Partner profile not found. Contact admin.')
+        messages.error(request, '⚠️ Partner profile not configured. Contact administrator to create your partner account.')
+        return redirect('core:home')
+    except AttributeError:
+        messages.error(request, '⚠️ System error: Database migration required. Contact administrator.')
         return redirect('core:home')
     
     # Handle member search
@@ -79,11 +108,12 @@ def partner_dashboard(request):
     if search_form.is_valid():
         query = search_form.cleaned_data.get('query', '').strip()
         if query:
-            # Search by pseudonym, first_name, last_name, or UUID
+            # Search by pseudonym, first_name, last_name, username, or UUID
             search_results = User.objects.filter(
                 Q(pseudonym__icontains=query) |
                 Q(first_name__icontains=query) |
                 Q(last_name__icontains=query) |
+                Q(username__icontains=query) |
                 Q(permanent_id__iexact=query.replace('-', '')),
                 membership_status='active'
             ).distinct()[:20]  # Limit to 20 results
@@ -124,6 +154,11 @@ def log_visit(request, member_id):
         if form.is_valid():
             # Verify PIN
             provided_pin = form.cleaned_data['pin']
+            
+            if not member.totp_secret:
+                messages.error(request, '⚠️ Member PIN system not configured. Contact administrator.')
+                return redirect('users:partner_dashboard')
+            
             if member.verify_pin(provided_pin):
                 # PIN is valid, create visit
                 visit = form.save(commit=False)
@@ -132,13 +167,16 @@ def log_visit(request, member_id):
                 visit.pin_verified = True
                 visit.save()
                 
+                member_name = member.get_full_name() or member.username
+                service_name = visit.get_service_type_display()
+                
                 messages.success(
                     request,
-                    f'✓ Visit logged successfully for {member.get_full_name() or member.username}. PIN verified.'
+                    f'✅ Visit successfully logged! Member: {member_name} | Service: {service_name} | Cost: {visit.cost or "N/A"}'
                 )
                 return redirect('users:partner_dashboard')
             else:
-                form.add_error('pin', 'Invalid PIN. Please ask member to show current PIN.')
+                form.add_error('pin', '❌ Invalid PIN. Please ask member to show their current 6-digit PIN from personal cabinet.')
     else:
         form = VisitForm()
     
