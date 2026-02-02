@@ -54,6 +54,9 @@
                                     <a href="{% url 'users:user_qr' permanent_id=profile_user.permanent_id %}?download=1" class="btn btn-outline-primary">
                                         <i class="fas fa-qrcode me-2"></i>Download QR
                                     </a>
+                                    <a href="{% url 'users:profile_deactivate' %}" class="btn btn-outline-danger">
+                                        <i class="fas fa-times me-2"></i>Deactivate Account
+                                    </a>
                                 </div>
                             {% elif user.is_authenticated and user.id != profile_user.id %}
                                 <!-- Other User's Profile - Authenticated -->

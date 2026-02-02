@@ -14,6 +14,7 @@ urlpatterns = [
     # Профиль
     path('profile/', views.ProfileView.as_view(), name='profile'),
     path('profile/edit/', views.ProfileEditView.as_view(), name='profile_edit'),
+    path('profile/deactivate/', views.profile_deactivate, name='profile_deactivate'),
     # Public profiles by username and by permanent card ID (QR)
     path('user/<str:username>/', views.profile_public_by_username, name='profile_public_username'),
     path('card/<uuid:permanent_id>/', views.profile_public_by_card, name='profile_by_card'),

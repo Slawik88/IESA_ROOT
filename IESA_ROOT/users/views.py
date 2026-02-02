@@ -339,6 +339,38 @@ def activity_levels_info(request):
     return render(request, 'users/activity_levels_info.html', context)
 
 
+@login_required
+def profile_deactivate(request):
+    """
+    Деактивировать аккаунт пользователя.
+    После деактивации пользователь не может входить, но его данные остаются в БД.
+    """
+    if request.method == 'POST':
+        # Дополнительная проверка - требуем пароль для подтверждения
+        password = request.POST.get('password', '')
+        
+        if not password:
+            messages.error(request, '❌ Please enter your password to confirm account deactivation.')
+            return redirect('users:profile')
+        
+        if not request.user.check_password(password):
+            messages.error(request, '❌ Incorrect password. Account deactivation cancelled.')
+            return redirect('users:profile')
+        
+        # Деактивируем аккаунт
+        request.user.is_active = False
+        request.user.save()
+        
+        # Логируем пользователя
+        logout(request)
+        
+        messages.success(request, '✅ Your account has been deactivated. You can reactivate it by contacting support.')
+        return redirect('core:home')
+    
+    # GET запрос - показываем страницу подтверждения
+    return render(request, 'users/profile_deactivate_confirm.html')
+
+
 @user_passes_test(lambda u: u.is_staff)
 def impersonate_user(request, pk):
     """Allow staff to impersonate another user by logging in as them. Use cautiously."""
