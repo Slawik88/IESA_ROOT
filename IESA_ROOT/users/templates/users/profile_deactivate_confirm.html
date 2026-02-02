@@ -1,0 +1,77 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Deactivate Account{% endblock %}
+
+{% block content %}
+<div class="py-5">
+    <div class="container max-w-600">
+        <div class="row justify-content-center">
+            <div class="col-12">
+                <div class="card border-danger">
+                    <div class="card-header bg-danger text-white">
+                        <h5 class="mb-0">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            Deactivate Your Account
+                        </h5>
+                    </div>
+                    
+                    <div class="card-body">
+                        <div class="alert alert-warning mb-4">
+                            <strong>⚠️ Warning:</strong> This action will deactivate your account. You will not be able to log in until your account is reactivated by support.
+                        </div>
+
+                        <p class="text-muted mb-3">
+                            <strong>What happens:</strong>
+                        </p>
+                        <ul class="text-muted mb-4">
+                            <li>Your profile will be hidden from other users</li>
+                            <li>You won't be able to log in</li>
+                            <li>All your data will be preserved</li>
+                            <li>You can contact support to reactivate</li>
+                        </ul>
+
+                        <form method="post" class="needs-validation">
+                            {% csrf_token %}
+
+                            <div class="mb-3">
+                                <label for="password" class="form-label">
+                                    Enter your password to confirm:
+                                </label>
+                                <input type="password" 
+                                       class="form-control form-control-lg" 
+                                       id="password" 
+                                       name="password" 
+                                       placeholder="••••••••" 
+                                       required>
+                                <small class="text-muted">We need your password for security</small>
+                            </div>
+
+                            <div class="d-grid gap-2">
+                                <button type="submit" class="btn btn-danger btn-lg">
+                                    <i class="fas fa-times me-2"></i>
+                                    Yes, Deactivate My Account
+                                </button>
+                                <a href="{% url 'users:profile' %}" class="btn btn-outline-secondary btn-lg">
+                                    <i class="fas fa-arrow-left me-2"></i>
+                                    Cancel
+                                </a>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <div class="mt-4 text-center text-muted">
+                    <small>Need help? <a href="{% url 'blog:post_list' %}">Contact support</a></small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .max-w-600 {
+        max-width: 600px;
+    }
+</style>
+{% endblock %}
