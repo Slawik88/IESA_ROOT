@@ -112,13 +112,10 @@
   }
 }
 
-/* Avatar Frame (градиентная рамка) */
+/* Avatar Frame (убрана градиентная рамка) */
 .profile-avatar-frame {
   display: inline-block;
-  padding: 6px;
-  background: var(--gradient-primary);
   border-radius: var(--radius-full);
-  box-shadow: var(--shadow-primary-lg);
 }
 
 /* Avatar */

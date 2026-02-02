@@ -1,5 +1,7 @@
 from django.contrib import admin
 from django.utils.html import format_html
+from django_ckeditor_5.widgets import CKEditor5Widget
+from django.db import models
 from .models import Photo
 
 
@@ -8,6 +10,11 @@ class PhotoAdmin(admin.ModelAdmin):
 	list_display = ('__str__', 'uploaded_at', 'image_tag')
 	search_fields = ('caption',)
 	ordering = ('-uploaded_at',)
+	
+	# CKEditor для caption
+	formfield_overrides = {
+		models.TextField: {'widget': CKEditor5Widget},
+	}
 
 	def image_tag(self, obj):
 		if obj.image:
