@@ -131,7 +131,7 @@ def partner_dashboard(request):
     # Calculate partner statistics
     from django.db.models import Sum, Count
     
-    visits = Visit.objects.filter(partner=partner).select_related('member')
+    visits = Visit.objects.filter(partner=partner).select_related('member').order_by('-timestamp')
     total_visits = visits.count()
     verified_visits = visits.filter(pin_verified=True).count()
     total_cost = visits.aggregate(Sum('cost'))['cost__sum'] or 0
@@ -153,17 +153,28 @@ def partner_dashboard(request):
             )
             
             # Try to parse as UUID (only if query looks like UUID)
-            if len(query) >= 32 and '-' in query:
+            # UUID can be with or without dashes
+            if len(query.replace('-', '')) >= 32:
                 try:
                     import uuid
+                    # Try to parse with dashes
                     uuid_obj = uuid.UUID(query)
                     search_filter |= Q(permanent_id=uuid_obj)
                 except ValueError:
-                    pass  # Not a valid UUID, skip UUID search
+                    try:
+                        # Try to parse without dashes (insert dashes)
+                        clean_uuid = query.replace('-', '')
+                        if len(clean_uuid) == 32:
+                            formatted_uuid = f"{clean_uuid[0:8]}-{clean_uuid[8:12]}-{clean_uuid[12:16]}-{clean_uuid[16:20]}-{clean_uuid[20:32]}"
+                            uuid_obj = uuid.UUID(formatted_uuid)
+                            search_filter |= Q(permanent_id=uuid_obj)
+                    except (ValueError, IndexError):
+                        pass  # Not a valid UUID, skip UUID search
             
+            # FIX: Don't filter by membership_status - show ALL users!
+            # Partners should see ALL members, not just active ones
             search_results = User.objects.filter(
-                search_filter,
-                membership_status='active'
+                search_filter
             ).distinct()[:20]  # Limit to 20 results
     
     # Get partner's recent visits (paginated)
@@ -181,6 +192,11 @@ def partner_dashboard(request):
         'total_cost': total_cost,
         'unique_members': unique_members,
     }
+    
+    # If it's an HTMX request, return only search results partial
+    if request.headers.get('HX-Request'):
+        return render(request, 'users/partials/partner_search_results.html', context)
+    
     return render(request, 'users/partner_dashboard.html', context)
 
 
@@ -199,7 +215,12 @@ def log_visit(request, member_id):
         messages.error(request, 'Partner profile not found.')
         return redirect('users:partner_dashboard')
     
-    member = get_object_or_404(User, id=member_id, membership_status='active')
+    # FIX: Remove membership_status filter - partners should see ALL members
+    member = get_object_or_404(User, id=member_id)
+    
+    # Check if member is active (warning, but allow)
+    if member.membership_status != 'active':
+        messages.warning(request, f'⚠️ Warning: {member.get_full_name()} membership is currently inactive.')
     
     if request.method == 'POST':
         form = VisitForm(request.POST)
@@ -221,10 +242,11 @@ def log_visit(request, member_id):
                 
                 member_name = member.get_full_name() or member.username
                 service_name = visit.get_service_type_display()
+                cost_display = f"{visit.cost} CHF" if visit.cost else "N/A"
                 
                 messages.success(
                     request,
-                    f'✅ Visit successfully logged! Member: {member_name} | Service: {service_name} | Cost: {visit.cost or "N/A"}'
+                    f'✅ Visit successfully logged! Member: {member_name} | Service: {service_name} | Cost: {cost_display}'
                 )
                 return redirect('users:partner_dashboard')
             else:

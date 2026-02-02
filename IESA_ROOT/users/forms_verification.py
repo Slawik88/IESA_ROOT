@@ -11,10 +11,11 @@ class MemberSearchForm(forms.Form):
         max_length=255,
         required=False,
         widget=forms.TextInput(attrs={
-            'class': 'form-control form-control-lg',
-            'placeholder': 'Enter name, username, pseudonym, or member ID...',
+            'class': 'form-control search-input',
+            'id': 'id_query',
+            'placeholder': '🔍 Start typing name, username, or UUID...',
             'autocomplete': 'off',
-            'style': 'border: 2px solid #667eea; border-radius: 10px;'
+            'style': 'border-radius: 15px; border: 2px solid #e9ecef; padding: 15px 20px; font-size: 1.1rem;'
         }),
         label=''
     )
