@@ -9,5 +9,6 @@ class UsersConfig(AppConfig):
         # Import signals to ensure QR generation on save
         try:
             from . import signals  # noqa: F401
+            from . import signals_partner  # noqa: F401
         except Exception:
             pass
