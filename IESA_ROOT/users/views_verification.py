@@ -15,16 +15,23 @@ import pyotp
 
 
 def is_partner(user):
-    """Check if user belongs to Partners group"""
-    # Debug logging
-    is_partner_member = user.groups.filter(name='Partners').exists()
-    has_partner_profile = hasattr(user, 'partner_profile')
-    
-    import logging
-    logger = logging.getLogger(__name__)
-    logger.info(f"is_partner check - user: {user.username}, groups: {is_partner_member}, profile: {has_partner_profile}")
-    
-    return is_partner_member
+    """Check if user has Partner profile (more reliable than group membership)"""
+    # Check if user has Partner profile
+    # This is better than checking groups because:
+    # 1. Partner profile is the actual business entity
+    # 2. Groups can be cached in session
+    # 3. If user has profile, they ARE a partner
+    try:
+        has_profile = hasattr(user, 'partner_profile')
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"is_partner check - user: {user.username}, has_profile: {has_profile}")
+        return has_profile
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"is_partner check error: {e}")
+        return False
 
 
 def public_profile(request, uuid):
