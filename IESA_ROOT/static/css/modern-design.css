@@ -4,32 +4,39 @@
    ================================================================ */
 
 :root {
-    --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    --secondary-gradient: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-    --success-gradient: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
-    --warning-gradient: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
-    --danger-gradient: linear-gradient(135deg, #eb3349 0%, #f45c43 100%);
-    --info-gradient: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    /* КРАСНЫЕ ТОНА - БРЕНД IESA */
+    --primary-gradient: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
+    --secondary-gradient: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%);
+    --success-gradient: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    --warning-gradient: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    --danger-gradient: linear-gradient(135deg, #dc2626 0%, #7f1d1d 100%);
+    --info-gradient: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
     
-    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.08);
-    --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.12);
-    --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.16);
-    --shadow-xl: 0 24px 64px rgba(0, 0, 0, 0.20);
+    --primary-color: #dc2626;
+    --primary-dark: #991b1b;
+    --primary-light: #fecaca;
+    
+    --shadow-sm: 0 2px 8px rgba(220, 38, 38, 0.08);
+    --shadow-md: 0 8px 24px rgba(220, 38, 38, 0.12);
+    --shadow-lg: 0 16px 40px rgba(220, 38, 38, 0.16);
+    --shadow-xl: 0 24px 64px rgba(220, 38, 38, 0.20);
     
     --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* ================================================================
-   GLOBAL STYLES
+   GLOBAL STYLES - ЕДИНЫЙ СТИЛЬ
    ================================================================ */
 
 html, body {
     scroll-behavior: smooth;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 }
 
 body {
-    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+    background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
     min-height: 100vh;
+    color: #1f2937;
 }
 
 /* ================================================================
@@ -108,13 +115,13 @@ body {
 }
 
 .btn-outline-primary {
-    border: 2px solid #667eea;
-    color: #667eea;
+    border: 2px solid var(--primary-color);
+    color: var(--primary-color);
     background: transparent;
 }
 
 .btn-outline-primary:hover {
-    background: #667eea;
+    background: var(--primary-color);
     color: white;
 }
 
@@ -123,17 +130,17 @@ body {
    ================================================================ */
 
 .form-control, .form-select {
-    border: 2px solid #e0e3ff;
+    border: 2px solid #fecaca;
     border-radius: 10px;
     padding: 0.75rem 1rem;
     transition: var(--transition);
-    background-color: #f9fafb;
+    background-color: #fef2f2;
 }
 
 .form-control:focus, .form-select:focus {
-    border-color: #667eea;
+    border-color: var(--primary-color);
     background-color: white;
-    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1);
 }
 
 .form-label {
@@ -354,7 +361,7 @@ body {
     display: flex;
     flex-direction: column;
     background: white;
-    border-top: 4px solid #667eea;
+    border-top: 4px solid var(--primary-color);
 }
 
 .benefit-card:hover {
@@ -364,11 +371,12 @@ body {
 
 .benefit-card-icon {
     height: 100px;
-    background: linear-gradient(135deg, #667eea15, #764ba215);
+    background: linear-gradient(135deg, rgba(220, 38, 38, 0.1), rgba(153, 27, 27, 0.1));
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 2.5rem;
+    color: var(--primary-color);
 }
 
 .benefit-card-content {
@@ -385,8 +393,8 @@ body {
 
 .benefit-card-category {
     display: inline-block;
-    background: #f0f0ff;
-    color: #667eea;
+    background: var(--primary-light);
+    color: var(--primary-dark);
     padding: 0.25rem 0.75rem;
     border-radius: 20px;
     font-size: 0.75rem;
@@ -536,9 +544,9 @@ body {
     width: 120px;
     height: 120px;
     border-radius: 50%;
-    border: 4px solid #667eea;
+    border: 4px solid var(--primary-color);
     object-fit: cover;
-    box-shadow: 0 8px 24px rgba(102, 126, 234, 0.3);
+    box-shadow: 0 8px 24px rgba(220, 38, 38, 0.3);
     margin-bottom: 1rem;
 }
 
@@ -636,7 +644,7 @@ body {
     border: none;
     border-radius: 12px;
     box-shadow: var(--shadow-lg);
-    border-top: 2px solid #667eea;
+    border-top: 2px solid var(--primary-color);
 }
 
 .dropdown-item {
@@ -647,7 +655,7 @@ body {
 
 .dropdown-item:hover {
     background: #f7fafc;
-    color: #667eea;
+    color: var(--primary-color);
     padding-left: 1.75rem;
 }
 
@@ -665,9 +673,9 @@ body {
 }
 
 .page-link {
-    border: 2px solid #e0e3ff;
+    border: 2px solid #fecaca;
     border-radius: 8px;
-    color: #667eea;
+    color: var(--primary-color);
     padding: 0.5rem 0.875rem;
     transition: var(--transition);
     font-weight: 500;
@@ -675,13 +683,13 @@ body {
 
 .page-link:hover {
     background: #f7fafc;
-    border-color: #667eea;
+    border-color: var(--primary-color);
     transform: translateY(-2px);
 }
 
 .page-link.active {
     background: var(--primary-gradient);
-    border-color: #667eea;
+    border-color: var(--primary-color);
     color: white;
 }
 

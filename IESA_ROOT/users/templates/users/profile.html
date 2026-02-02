@@ -29,14 +29,24 @@
                             <h2 class="profile-name">{{ profile_user.username }}</h2>
                             <p class="profile-email mb-3">{{ profile_user.email }}</p>
                             
+                            {% if user.is_authenticated and user.id == profile_user.id %}
+                                <!-- Own Profile - Edit Button -->
+                                <div class="mb-3">
+                                    <a href="{% url 'users:profile_edit' %}" class="btn btn-primary w-100">
+                                        <i class="fas fa-edit me-2"></i>Edit Profile
+                                    </a>
+                                </div>
+                            {% endif %}
+                            
                             {% if user.is_authenticated and user.id == profile_user.id and profile_user.permanent_id %}
-                                <!-- Own Profile -->
+                                <!-- Own Profile - ID Badge -->
                                 <div class="mb-3">
                                     <span class="profile-id-badge">
                                         ID: {{ profile_user.permanent_id }}
                                     </span>
                                 </div>
 
+                                <!-- QR Code Section -->
                                 <div class="mb-4">
                                     <div class="profile-qr-card">
                                         <h6 class="profile-detail-label mb-3">Your QR Code</h6>
@@ -48,14 +58,8 @@
                                     </div>
                                 </div>
                                 <div class="d-flex gap-2 flex-column">
-                                    <a href="{% url 'users:profile_edit' %}" class="btn btn-primary">
-                                        <i class="fas fa-edit me-2"></i>Edit Profile
-                                    </a>
                                     <a href="{% url 'users:user_qr' permanent_id=profile_user.permanent_id %}?download=1" class="btn btn-outline-primary">
                                         <i class="fas fa-qrcode me-2"></i>Download QR
-                                    </a>
-                                    <a href="{% url 'users:profile_deactivate' %}" class="btn btn-outline-danger">
-                                        <i class="fas fa-times me-2"></i>Deactivate Account
                                     </a>
                                 </div>
                             {% elif user.is_authenticated and user.id != profile_user.id %}
