@@ -16,7 +16,15 @@ import pyotp
 
 def is_partner(user):
     """Check if user belongs to Partners group"""
-    return user.groups.filter(name='Partners').exists()
+    # Debug logging
+    is_partner_member = user.groups.filter(name='Partners').exists()
+    has_partner_profile = hasattr(user, 'partner_profile')
+    
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(f"is_partner check - user: {user.username}, groups: {is_partner_member}, profile: {has_partner_profile}")
+    
+    return is_partner_member
 
 
 def public_profile(request, uuid):
