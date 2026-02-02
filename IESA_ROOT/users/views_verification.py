@@ -8,6 +8,7 @@ from django.core.paginator import Paginator
 from django.db.models import Q
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
+from django_ratelimit.decorators import ratelimit
 from .models import User, Partner, Visit
 from .forms_verification import VisitForm, MemberSearchForm
 import pyotp
@@ -52,6 +53,17 @@ def member_cabinet(request):
             'current_pin': None,
             'seconds_remaining': 0,
             'error_message': 'Your membership is inactive. Contact administrator to activate your account.'
+        }
+        return render(request, 'users/member_cabinet.html', context)
+    
+    # Check TOTP secret exists before generating PIN
+    if not user.totp_secret:
+        messages.error(request, '⚠️ TOTP secret not configured. Contact administrator.')
+        context = {
+            'membership_status': user.membership_status,
+            'current_pin': None,
+            'seconds_remaining': 0,
+            'error_message': 'PIN system not initialized. Contact administrator.'
         }
         return render(request, 'users/member_cabinet.html', context)
     
@@ -109,12 +121,24 @@ def partner_dashboard(request):
         query = search_form.cleaned_data.get('query', '').strip()
         if query:
             # Search by pseudonym, first_name, last_name, username, or UUID
-            search_results = User.objects.filter(
+            search_filter = (
                 Q(pseudonym__icontains=query) |
                 Q(first_name__icontains=query) |
                 Q(last_name__icontains=query) |
-                Q(username__icontains=query) |
-                Q(permanent_id__iexact=query.replace('-', '')),
+                Q(username__icontains=query)
+            )
+            
+            # Try to parse as UUID (only if query looks like UUID)
+            if len(query) >= 32 and '-' in query:
+                try:
+                    import uuid
+                    uuid_obj = uuid.UUID(query)
+                    search_filter |= Q(permanent_id=uuid_obj)
+                except ValueError:
+                    pass  # Not a valid UUID, skip UUID search
+            
+            search_results = User.objects.filter(
+                search_filter,
                 membership_status='active'
             ).distinct()[:20]  # Limit to 20 results
     
@@ -136,6 +160,7 @@ def partner_dashboard(request):
 @login_required
 @user_passes_test(is_partner, login_url='/auth/login/', redirect_field_name=None)
 @require_http_methods(["GET", "POST"])
+@ratelimit(key='user', rate='10/m', method='POST', block=True)
 def log_visit(request, member_id):
     """
     Form to log a visit for a specific member
