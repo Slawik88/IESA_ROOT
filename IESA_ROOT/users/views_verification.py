@@ -128,6 +128,15 @@ def partner_dashboard(request):
         messages.error(request, '⚠️ System error: Database migration required. Contact administrator.')
         return redirect('core:home')
     
+    # Calculate partner statistics
+    from django.db.models import Sum, Count
+    
+    visits = Visit.objects.filter(partner=partner).select_related('member')
+    total_visits = visits.count()
+    verified_visits = visits.filter(pin_verified=True).count()
+    total_cost = visits.aggregate(Sum('cost'))['cost__sum'] or 0
+    unique_members = visits.values('member').distinct().count()
+    
     # Handle member search
     search_results = None
     search_form = MemberSearchForm(request.GET or None)
@@ -158,7 +167,6 @@ def partner_dashboard(request):
             ).distinct()[:20]  # Limit to 20 results
     
     # Get partner's recent visits (paginated)
-    visits = Visit.objects.filter(partner=partner).select_related('member')
     paginator = Paginator(visits, 15)  # 15 visits per page
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
@@ -168,6 +176,10 @@ def partner_dashboard(request):
         'search_form': search_form,
         'search_results': search_results,
         'visits': page_obj,
+        'total_visits': total_visits,
+        'verified_visits': verified_visits,
+        'total_cost': total_cost,
+        'unique_members': unique_members,
     }
     return render(request, 'users/partner_dashboard.html', context)
 
