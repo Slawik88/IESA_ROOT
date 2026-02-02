@@ -11,6 +11,10 @@ from django.views.decorators.http import condition
 from pathlib import Path
 from blog.sitemaps import sitemaps
 from .protected_media_views import serve_protected_media
+from core.admin_site import CustomAdminSite
+
+# Переопределить стандартный админ на кастомный
+admin.site.__class__ = CustomAdminSite
 
 def serve_manifest(request):
     """Serve PWA manifest.json"""

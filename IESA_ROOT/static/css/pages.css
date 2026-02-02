@@ -23,78 +23,242 @@
 /* Profile Edit Page */
 .profile-edit-page {
   background: var(--gradient-page);
+  padding: 20px 0;
 }
 
 .profile-edit-card {
-  background: #fff;
-  border: 1px solid var(--border-color-light);
-  border-radius: var(--radius-2xl);
-  box-shadow: var(--shadow-card);
-  padding: 20px;
+  background: linear-gradient(135deg, #ffffff 0%, #fefbfb 100%);
+  border: 2px solid #fecaca;
+  border-radius: 16px;
+  box-shadow: 0 10px 40px rgba(220, 38, 38, 0.1);
+  padding: 30px;
+  transition: all 0.3s ease;
+}
+
+.profile-edit-card:hover {
+  box-shadow: 0 15px 50px rgba(220, 38, 38, 0.15);
+  transform: translateY(-2px);
 }
 
 .edit-card-header {
   display: flex;
   gap: 14px;
   align-items: center;
-  margin-bottom: 18px;
+  margin-bottom: 25px;
+  padding-bottom: 20px;
+  border-bottom: 2px solid #fecaca;
 }
 
 .edit-header-icon {
-  width: 44px;
-  height: 44px;
-  border-radius: 14px;
+  width: 50px;
+  height: 50px;
+  border-radius: 12px;
   display: grid;
   place-items: center;
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
   color: #fff;
-  box-shadow: var(--shadow-primary-lg);
+  box-shadow: 0 4px 15px rgba(220, 38, 38, 0.3);
+  font-size: 24px;
 }
 
 .edit-title {
   margin: 0;
-  font-size: 1.25rem;
-  font-weight: var(--font-bold);
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #1f2937;
+  letter-spacing: -0.3px;
 }
 
 .edit-subtitle {
-  margin: 2px 0 0;
-  color: var(--text-muted);
+  margin: 4px 0 0;
+  color: #6b7280;
+  font-size: 0.95rem;
 }
 
 .edit-form .form-label {
-  font-weight: var(--font-semibold);
-  color: var(--text-secondary);
-}
-
-.card-section {
-  border: 1px solid var(--border-color-light);
-  border-radius: var(--radius-xl);
-  padding: 16px;
-  background: #f9fafb;
-  margin-bottom: 14px;
-}
-
-.section-heading {
-  font-weight: var(--font-semibold);
-  color: var(--text-primary);
-  margin-bottom: 10px;
+  font-weight: 600;
+  color: #2d3748;
+  margin-bottom: 8px;
   display: flex;
   align-items: center;
   gap: 6px;
+}
+
+.edit-form .form-label i {
+  color: #dc2626;
+}
+
+.edit-form input[type="text"],
+.edit-form input[type="email"],
+.edit-form input[type="date"],
+.edit-form input[type="tel"],
+.edit-form input[type="url"],
+.edit-form textarea,
+.edit-form select {
+  border: 2px solid #fecaca !important;
+  border-radius: 8px !important;
+  padding: 10px 12px !important;
+  font-size: 14px !important;
+  transition: all 0.3s ease !important;
+  background: #fef2f2 !important;
+}
+
+.edit-form input[type="text"]:focus,
+.edit-form input[type="email"]:focus,
+.edit-form input[type="date"]:focus,
+.edit-form input[type="tel"]:focus,
+.edit-form input[type="url"]:focus,
+.edit-form textarea:focus,
+.edit-form select:focus {
+  border-color: #dc2626 !important;
+  background: white !important;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1) !important;
+  outline: none !important;
+}
+
+.card-section {
+  border: 2px solid #fecaca;
+  border-radius: 12px;
+  padding: 20px;
+  background: linear-gradient(135deg, rgba(254, 242, 242, 0.3), rgba(254, 226, 226, 0.3));
+  margin-bottom: 20px;
+  transition: all 0.3s ease;
+}
+
+.card-section:hover {
+  background: linear-gradient(135deg, rgba(254, 242, 242, 0.5), rgba(254, 226, 226, 0.5));
+  border-color: #dc2626;
+}
+
+.section-heading {
+  font-weight: 700;
+  color: #dc2626;
+  margin-bottom: 15px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1.1rem;
+  letter-spacing: -0.3px;
 }
 
 .edit-actions {
   display: flex;
   gap: 10px;
   justify-content: flex-end;
-  padding-top: 6px;
+  padding-top: 20px;
+  margin-top: 20px;
+  border-top: 2px solid #fecaca;
+}
+
+.edit-actions .btn {
+  padding: 10px 24px;
+  font-weight: 600;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+}
+
+.edit-actions .btn-primary {
+  background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
+  border: none;
+  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.2);
+}
+
+.edit-actions .btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(220, 38, 38, 0.3);
+}
+
+.edit-actions .btn-outline-secondary {
+  border: 2px solid #fecaca;
+  color: #2d3748;
+  background: white;
+}
+
+.edit-actions .btn-outline-secondary:hover {
+  background: #fef2f2;
+  border-color: #dc2626;
+  color: #dc2626;
+}
+
+/* Form validation styling */
+.form-text {
+  font-size: 0.85rem;
+  color: #6b7280;
+  margin-top: 6px;
+  display: block;
+}
+
+.invalid-feedback {
+  color: #ef4444;
+  font-size: 0.85rem;
+  margin-top: 6px;
+  display: block;
+}
+
+/* Checkbox styling */
+.form-check {
+  padding: 8px 0;
+}
+
+.form-check input[type="checkbox"] {
+  border: 2px solid #fecaca;
+  border-radius: 4px;
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+}
+
+.form-check input[type="checkbox"]:checked {
+  background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
+  border-color: #dc2626;
+}
+
+.form-check-label {
+  font-weight: 500;
+  color: #2d3748;
+  cursor: pointer;
+  margin-left: 8px;
+}
+
+/* Avatar preview */
+.avatar {
+  width: 100px;
+  height: 100px;
+  border-radius: 12px;
+  border: 3px solid #fecaca;
+  object-fit: cover;
+  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.15);
+}
+
+.avatar-lg {
+  width: 120px;
+  height: 120px;
+}
+
+.avatar-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
+  color: white;
+  font-weight: 700;
+  font-size: 2rem;
 }
 
 @media (max-width: 576px) {
-  .profile-edit-card { padding: 16px; }
-  .edit-card-header { flex-wrap: wrap; }
-  .edit-actions { flex-direction: column; }
+  .profile-edit-card { 
+    padding: 20px; 
+  }
+  .edit-card-header { 
+    flex-wrap: wrap; 
+  }
+  .edit-actions { 
+    flex-direction: column;
+  }
+  .edit-actions .btn {
+    width: 100%;
+    text-align: center;
+  }
 }
 
 /* Profile Header Card */
