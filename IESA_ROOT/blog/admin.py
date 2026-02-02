@@ -221,6 +221,12 @@ class EventAdmin(admin.ModelAdmin):
     search_fields = ('title', 'location', 'description')
     readonly_fields = ('created_at', 'updated_at', 'participants_count')
     
+    # CKEditor для description
+    if CKEditorWidget:
+        formfield_overrides = {
+            django_models.TextField: {'widget': CKEditorWidget},
+        }
+    
     fieldsets = (
         ('Event Information', {
             'fields': ('title', 'description', 'image')

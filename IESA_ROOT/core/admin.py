@@ -1,10 +1,115 @@
 from django.contrib import admin
 from django.utils.html import format_html
+from django_ckeditor_5.widgets import CKEditor5Widget
+from django import forms
 from .models import Partner, AssociationMember, President, SocialNetwork, CoreProduct, MemberBenefit
+
+
+# Формы с CKEditor для всех моделей с описаниями
+class PresidentAdminForm(forms.ModelForm):
+	description = forms.CharField(widget=CKEditor5Widget(), required=False, label='Описание')
+	
+	class Meta:
+		model = President
+		fields = '__all__'
+
+
+class PartnerAdminForm(forms.ModelForm):
+	description = forms.CharField(widget=CKEditor5Widget(), required=False, label='Описание')
+	
+	class Meta:
+		model = Partner
+		fields = '__all__'
+
+
+class CoreProductAdminForm(forms.ModelForm):
+	description = forms.CharField(widget=CKEditor5Widget(), required=False, label='Описание')
+	features = forms.CharField(widget=CKEditor5Widget(), required=False, label='Особенности')
+	
+	class Meta:
+		model = CoreProduct
+		fields = '__all__'
+
+
+class MemberBenefitAdminForm(forms.ModelForm):
+	description = forms.CharField(widget=CKEditor5Widget(), required=False, label='Описание')
+	terms = forms.CharField(widget=CKEditor5Widget(), required=False, label='Условия')
+	
+	# Добавляем детальные подсказки для иконок и цветов
+	icon = forms.CharField(
+		max_length=100,
+		label='Font Awesome иконка',
+		help_text=format_html('''
+			<div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-top: 10px; border-left: 4px solid #dc2626;">
+				<h4 style="margin-top: 0; color: #dc2626;">📚 Примеры иконок Font Awesome</h4>
+				<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
+					<div><i class="fas fa-percent" style="color: #dc2626; font-size: 1.2rem;"></i> <code>fas fa-percent</code> - Скидки</div>
+					<div><i class="fas fa-gift" style="color: #10b981; font-size: 1.2rem;"></i> <code>fas fa-gift</code> - Подарки</div>
+					<div><i class="fas fa-dumbbell" style="color: #3b82f6; font-size: 1.2rem;"></i> <code>fas fa-dumbbell</code> - Спортзал</div>
+					<div><i class="fas fa-utensils" style="color: #f59e0b; font-size: 1.2rem;"></i> <code>fas fa-utensils</code> - Питание</div>
+					<div><i class="fas fa-heartbeat" style="color: #ef4444; font-size: 1.2rem;"></i> <code>fas fa-heartbeat</code> - Здоровье</div>
+					<div><i class="fas fa-graduation-cap" style="color: #8b5cf6; font-size: 1.2rem;"></i> <code>fas fa-graduation-cap</code> - Обучение</div>
+					<div><i class="fas fa-ticket-alt" style="color: #ec4899; font-size: 1.2rem;"></i> <code>fas fa-ticket-alt</code> - Билеты</div>
+					<div><i class="fas fa-tshirt" style="color: #06b6d4; font-size: 1.2rem;"></i> <code>fas fa-tshirt</code> - Одежда</div>
+					<div><i class="fas fa-handshake" style="color: #14b8a6; font-size: 1.2rem;"></i> <code>fas fa-handshake</code> - Партнерство</div>
+					<div><i class="fas fa-trophy" style="color: #fbbf24; font-size: 1.2rem;"></i> <code>fas fa-trophy</code> - Награды</div>
+					<div><i class="fas fa-calendar-check" style="color: #a855f7; font-size: 1.2rem;"></i> <code>fas fa-calendar-check</code> - События</div>
+					<div><i class="fas fa-users" style="color: #84cc16; font-size: 1.2rem;"></i> <code>fas fa-users</code> - Сообщество</div>
+				</div>
+				<p style="margin: 10px 0 0 0; font-size: 0.9rem;">
+					🔗 Больше иконок: <a href="https://fontawesome.com/icons" target="_blank" style="color: #dc2626;">fontawesome.com/icons</a>
+				</p>
+			</div>
+		''')
+	)
+	
+	color = forms.CharField(
+		max_length=50,
+		label='Цвет',
+		help_text=format_html('''
+			<div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-top: 10px; border-left: 4px solid #dc2626;">
+				<h4 style="margin-top: 0; color: #dc2626;">🎨 Варианты цветов</h4>
+				<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
+					<div>
+						<span style="display: inline-block; width: 20px; height: 20px; background: #dc2626; border-radius: 4px; vertical-align: middle;"></span>
+						<code>primary</code> или <code>#dc2626</code> - Красный (основной)
+					</div>
+					<div>
+						<span style="display: inline-block; width: 20px; height: 20px; background: #10b981; border-radius: 4px; vertical-align: middle;"></span>
+						<code>success</code> или <code>#10b981</code> - Зелёный (успех)
+					</div>
+					<div>
+						<span style="display: inline-block; width: 20px; height: 20px; background: #3b82f6; border-radius: 4px; vertical-align: middle;"></span>
+						<code>info</code> или <code>#3b82f6</code> - Синий (информация)
+					</div>
+					<div>
+						<span style="display: inline-block; width: 20px; height: 20px; background: #f59e0b; border-radius: 4px; vertical-align: middle;"></span>
+						<code>warning</code> или <code>#f59e0b</code> - Оранжевый (внимание)
+					</div>
+					<div>
+						<span style="display: inline-block; width: 20px; height: 20px; background: #ef4444; border-radius: 4px; vertical-align: middle;"></span>
+						<code>danger</code> или <code>#ef4444</code> - Красный (опасность)
+					</div>
+					<div>
+						<span style="display: inline-block; width: 20px; height: 20px; background: #8b5cf6; border-radius: 4px; vertical-align: middle;"></span>
+						<code>#8b5cf6</code> - Фиолетовый (custom)
+					</div>
+				</div>
+				<p style="margin: 10px 0 0 0; font-size: 0.9rem;">
+					💡 Можно использовать названия (primary, success) или любой hex-код (#RRGGBB)
+				</p>
+			</div>
+		''')
+	)
+	
+	class Meta:
+		model = MemberBenefit
+		fields = '__all__'
 
 
 @admin.register(President)
 class PresidentAdmin(admin.ModelAdmin):
+	form = PresidentAdminForm
 	list_display = ('name', 'position')
 	fieldsets = (
 		('Info', {'fields': ('name', 'position', 'photo')}),
@@ -13,6 +118,7 @@ class PresidentAdmin(admin.ModelAdmin):
 
 @admin.register(Partner)
 class PartnerAdmin(admin.ModelAdmin):
+	form = PartnerAdminForm
 	list_display = ('name', 'category', 'link', 'contract', 'logo_tag')
 	list_filter = ('category', 'contract')
 	search_fields = ('name',)
@@ -54,6 +160,7 @@ class SocialNetworkAdmin(admin.ModelAdmin):
 
 @admin.register(CoreProduct)
 class CoreProductAdmin(admin.ModelAdmin):
+	form = CoreProductAdminForm
 	list_display = ('title', 'duration', 'location', 'is_active', 'order', 'icon_preview', 'created_at')
 	list_filter = ('is_active', 'created_at')
 	list_editable = ('is_active', 'order')
@@ -83,6 +190,7 @@ class CoreProductAdmin(admin.ModelAdmin):
 
 @admin.register(MemberBenefit)
 class MemberBenefitAdmin(admin.ModelAdmin):
+	form = MemberBenefitAdminForm
 	list_display = ('title', 'category', 'discount_info', 'is_active', 'order', 'icon_preview', 'created_at')
 	list_filter = ('is_active', 'category', 'created_at')
 	list_editable = ('is_active', 'order')
