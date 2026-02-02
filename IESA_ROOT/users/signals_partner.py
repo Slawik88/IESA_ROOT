@@ -18,6 +18,9 @@ def create_partner_profile_on_group_add(sender, instance, action, reverse, model
     
     Signal: m2m_changed on User.groups
     Action: post_add (after group is added)
+    
+    FIX: Clear session cache after adding user to group
+    so is_partner() check works immediately without logout/login
     """
     if action == "post_add":
         # Check if 'Partners' group was added
@@ -26,6 +29,15 @@ def create_partner_profile_on_group_add(sender, instance, action, reverse, model
         if partners_group and partners_group.id in pk_set:
             # User was just added to Partners group
             user = instance
+            
+            # Clear user's session cache to update group membership
+            # This is critical - Django caches groups in the session
+            from django.contrib.auth import get_backends
+            from django.core.cache import cache
+            
+            # Clear Django's permission cache for this user
+            cache_key = f'user_groups_{user.id}'
+            cache.delete(cache_key)
             
             # Check if Partner profile already exists
             if not hasattr(user, 'partner_profile'):
