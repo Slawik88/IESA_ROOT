@@ -1,7 +1,14 @@
 from django import forms
 from django.contrib.auth.forms import UserCreationForm, UserChangeForm
 from .models import User
-from .validators import validate_phone_number
+from .validators import (
+    validate_phone_number, 
+    validate_github_url, 
+    validate_discord_url, 
+    validate_telegram_url, 
+    validate_website_url, 
+    validate_other_links
+)
 from django.utils import timezone
 import uuid
 
@@ -63,6 +70,7 @@ class UserProfileEditForm(forms.ModelForm):
     Форма для личного кабинета (юзер может менять не все поля).
     
     Включает маску для date_of_birth для удобства ввода (DD.MM.YYYY).
+    Валидация социальных ссылок с понятными сообщениями об ошибках.
     """
     # Используем DateField с custom widget для маски ввода
     date_of_birth = forms.DateField(
@@ -77,6 +85,57 @@ class UserProfileEditForm(forms.ModelForm):
         label='Дата рождения'
     )
     
+    github_url = forms.CharField(
+        required=False,
+        widget=forms.URLInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'https://github.com/username'
+        }),
+        label='GitHub профиль',
+        help_text='Введите полную ссылку на ваш GitHub профиль'
+    )
+    
+    discord_url = forms.CharField(
+        required=False,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'username или username#1234'
+        }),
+        label='Discord',
+        help_text='Введите ваше имя в Discord'
+    )
+    
+    telegram_url = forms.CharField(
+        required=False,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': '@username или t.me/username'
+        }),
+        label='Telegram',
+        help_text='Введите ваш Telegram username или ссылку'
+    )
+    
+    website_url = forms.CharField(
+        required=False,
+        widget=forms.URLInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'https://example.com'
+        }),
+        label='Веб-сайт',
+        help_text='Введите полную ссылку на ваш сайт'
+    )
+    
+    other_links = forms.CharField(
+        required=False,
+        widget=forms.Textarea(attrs={
+            'class': 'form-control',
+            'rows': 3,
+            'placeholder': 'https://example.com\nhttps://another-site.com'
+        }),
+        label='Другие ссылки',
+        help_text='Введите дополнительные ссылки, по одной на строку'
+    )
+    
     class Meta:
         model = User
         fields = ('first_name', 'last_name', 'email', 'date_of_birth', 'phone_number', 'is_phone_hidden', 'avatar', 'github_url', 'discord_url', 'telegram_url', 'website_url', 'other_links')
@@ -87,6 +146,37 @@ class UserProfileEditForm(forms.ModelForm):
             validate_phone_number(phone)
             phone = ' '.join(phone.split())
         return phone
+
+    def clean_github_url(self):
+        url = self.cleaned_data.get('github_url')
+        if url:
+            validate_github_url(url)
+        return url
+
+    def clean_discord_url(self):
+        url = self.cleaned_data.get('discord_url')
+        if url:
+            validate_discord_url(url)
+        return url
+
+    def clean_telegram_url(self):
+        url = self.cleaned_data.get('telegram_url')
+        if url:
+            validate_telegram_url(url)
+        return url
+
+    def clean_website_url(self):
+        url = self.cleaned_data.get('website_url')
+        if url:
+            validate_website_url(url)
+        return url
+
+    def clean_other_links(self):
+        links = self.cleaned_data.get('other_links')
+        if links:
+            validate_other_links(links)
+        return links
+
 
 
 """
