@@ -404,15 +404,12 @@ header {
   content: '' !important;
   position: absolute !important;
   bottom: 0 !important;
-@media (min-width: 1024px) {
-  .nav-link:hover {
-    color: var(--text-primary) !important;
-    background: var(--gray-50) !important;
-  }
-
-  .nav-link:hover::after {
-    width: 70% !important;
-  }
+  left: 15% !important;
+  width: 0% !important;
+  height: 2px !important;
+  background: var(--primary-600) !important;
+  transition: width 0.3s ease !important;
+}
 
 .nav-link:hover {
   color: var(--text-primary) !important;
