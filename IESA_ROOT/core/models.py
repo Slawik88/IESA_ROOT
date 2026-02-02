@@ -129,3 +129,88 @@ class SocialNetwork(models.Model):
     def get_icon(self):
         """Get Font Awesome icon class for this social network"""
         return self.ICON_MAP.get(self.name, 'fas fa-link')
+
+
+class CoreProduct(models.Model):
+    """
+    Core IESA products/programs that appear above events on homepage.
+    Examples: Kids extreme scout camp, Weekend water sports, Yachting with diving, etc.
+    """
+    title = models.CharField(max_length=255, verbose_name='Название продукта')
+    description = models.TextField(verbose_name='Описание продукта')
+    duration = models.CharField(max_length=200, blank=True, verbose_name='Длительность', help_text='Например: 1-2 недели, с пятницы по воскресенье')
+    location = models.CharField(max_length=300, blank=True, verbose_name='Место проведения', help_text='Например: тёплые страны, берег моря')
+    image = models.ImageField(upload_to='products/', blank=True, null=True, verbose_name='Изображение продукта')
+    icon = models.CharField(max_length=100, default='fas fa-star', verbose_name='Font Awesome иконка', help_text='Например: fas fa-child, fas fa-water, fas fa-ship')
+    
+    # Additional features/options
+    features = models.TextField(blank=True, verbose_name='Дополнительные особенности', help_text='Каждая особенность с новой строки')
+    price_info = models.CharField(max_length=300, blank=True, verbose_name='Информация о цене')
+    
+    # Display settings
+    is_active = models.BooleanField(default=True, verbose_name='Активен')
+    order = models.IntegerField(default=0, verbose_name='Порядок отображения', help_text='Меньшее число = выше на странице')
+    
+    # Dates
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата создания')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='Дата обновления')
+    
+    class Meta:
+        verbose_name = 'Основной продукт IESA'
+        verbose_name_plural = 'Основные продукты IESA'
+        ordering = ['order', '-created_at']
+        
+    def __str__(self):
+        return self.title
+    
+    def get_features_list(self):
+        """Return features as a list"""
+        if self.features:
+            return [f.strip() for f in self.features.split('\n') if f.strip()]
+        return []
+
+
+class MemberBenefit(models.Model):
+    """
+    Benefits/perks for association members.
+    Examples: Medical insurance discount, Store discounts, Service discounts, etc.
+    """
+    CATEGORY_CHOICES = [
+        ('medical', 'Медицинское обслуживание'),
+        ('shopping', 'Покупки и магазины'),
+        ('services', 'Услуги членов ассоциации'),
+        ('events', 'Спортивные мероприятия'),
+        ('advertising', 'Реклама и продвижение'),
+        ('education', 'Обучение и курсы'),
+        ('travel', 'Путешествия и туризм'),
+        ('other', 'Другое'),
+    ]
+    
+    title = models.CharField(max_length=255, verbose_name='Название преимущества')
+    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES, default='other', verbose_name='Категория')
+    description = models.TextField(verbose_name='Описание преимущества')
+    discount_info = models.CharField(max_length=200, blank=True, verbose_name='Информация о скидке', help_text='Например: 20%, 15% на первый уровень')
+    
+    # Icons and colors
+    icon = models.CharField(max_length=100, default='fas fa-gift', verbose_name='Font Awesome иконка')
+    color = models.CharField(max_length=50, default='primary', verbose_name='Цвет', help_text='primary, success, info, warning, danger или hex код')
+    
+    # Display settings
+    is_active = models.BooleanField(default=True, verbose_name='Активно')
+    order = models.IntegerField(default=0, verbose_name='Порядок отображения')
+    
+    # Additional info
+    partner_info = models.CharField(max_length=300, blank=True, verbose_name='Партнёр/поставщик услуги')
+    terms = models.TextField(blank=True, verbose_name='Условия получения', help_text='Как член ассоциации может получить эту скидку')
+    
+    # Dates
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата создания')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='Дата обновления')
+    
+    class Meta:
+        verbose_name = 'Преимущество члена ассоциации'
+        verbose_name_plural = 'Преимущества членов ассоциации'
+        ordering = ['order', 'category', '-created_at']
+        
+    def __str__(self):
+        return f'{self.title} ({self.get_category_display()})'

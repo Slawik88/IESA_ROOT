@@ -1,0 +1,191 @@
+{% extends "base.html" %}
+
+{% block title %}Преимущества членов | IESA{% endblock %}
+
+{% block content %}
+<div class="container-limited">
+    <!-- Hero Section -->
+    <section class="section-padding text-center mb-5">
+        <div class="mb-3">
+            <span class="badge badge-primary hero-badge">
+                <i class="fas fa-gift me-2"></i>Member Benefits
+            </span>
+        </div>
+        <h1 class="display-5 fw-bold mb-3">Преимущества членов IESA</h1>
+        <p class="lead text-muted mb-0">
+            Получите эксклюзивные скидки и преимущества как член нашей ассоциации
+        </p>
+    </section>
+
+    <!-- Benefits Grid -->
+    {% if benefits %}
+    <section class="section-padding">
+        <div class="row g-4">
+            {% for benefit in benefits %}
+            <div class="col-md-6 col-lg-4">
+                <div class="card h-100 benefit-card position-relative overflow-hidden">
+                    <!-- Декоративный элемент -->
+                    {% if benefit.color == 'primary' %}
+                    <div class="benefit-card-decoration" style="background: linear-gradient(135deg, #667eea, #764ba2);"></div>
+                    {% elif benefit.color == 'success' %}
+                    <div class="benefit-card-decoration" style="background: linear-gradient(135deg, #56ab2f, #a8e063);"></div>
+                    {% elif benefit.color == 'danger' %}
+                    <div class="benefit-card-decoration" style="background: linear-gradient(135deg, #eb3349, #f45c43);"></div>
+                    {% elif benefit.color == 'warning' %}
+                    <div class="benefit-card-decoration" style="background: linear-gradient(135deg, #f093fb, #f5576c);"></div>
+                    {% elif benefit.color == 'info' %}
+                    <div class="benefit-card-decoration" style="background: linear-gradient(135deg, #4facfe, #00f2fe);"></div>
+                    {% else %}
+                    <div class="benefit-card-decoration" style="background: linear-gradient(135deg, #667eea, #764ba2);"></div>
+                    {% endif %}
+                    
+                    <div class="card-body position-relative">
+                        <!-- Иконка и категория -->
+                        <div class="d-flex align-items-center mb-3">
+                            {% if benefit.color == 'primary' %}
+                            <div class="benefit-icon me-3" style="background: linear-gradient(135deg, #667eea, #764ba2);">
+                            {% elif benefit.color == 'success' %}
+                            <div class="benefit-icon me-3" style="background: linear-gradient(135deg, #56ab2f, #a8e063);">
+                            {% elif benefit.color == 'danger' %}
+                            <div class="benefit-icon me-3" style="background: linear-gradient(135deg, #eb3349, #f45c43);">
+                            {% elif benefit.color == 'warning' %}
+                            <div class="benefit-icon me-3" style="background: linear-gradient(135deg, #f093fb, #f5576c);">
+                            {% elif benefit.color == 'info' %}
+                            <div class="benefit-icon me-3" style="background: linear-gradient(135deg, #4facfe, #00f2fe);">
+                            {% else %}
+                            <div class="benefit-icon me-3" style="background: linear-gradient(135deg, #667eea, #764ba2);">
+                            {% endif %}
+                                <i class="{{ benefit.icon }} text-white"></i>
+                            </div>
+                            <div>
+                                <span class="badge badge-{{ benefit.color|default:'primary' }} mb-1">
+                                    {{ benefit.get_category_display }}
+                                </span>
+                            </div>
+                        </div>
+
+                        <!-- Заголовок -->
+                        <h5 class="card-title fw-bold mb-3">{{ benefit.title }}</h5>
+
+                        <!-- Описание -->
+                        <p class="text-muted mb-3">{{ benefit.description }}</p>
+
+                        <!-- Скидка -->
+                        {% if benefit.discount_info %}
+                        <div class="alert alert-{{ benefit.color|default:'primary' }} mb-3 py-2 px-3">
+                            <div class="d-flex align-items-center">
+                                <i class="fas fa-percentage me-2"></i>
+                                <strong class="mb-0">{{ benefit.discount_info }}</strong>
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        <!-- Информация о партнере -->
+                        {% if benefit.partner_info %}
+                        <div class="mb-3">
+                            <small class="text-muted">
+                                <i class="fas fa-handshake me-1"></i>
+                                {{ benefit.partner_info }}
+                            </small>
+                        </div>
+                        {% endif %}
+
+                        <!-- Условия -->
+                        {% if benefit.terms %}
+                        <div class="mt-3 pt-3 border-top">
+                            <details>
+                                <summary class="small text-muted cursor-pointer" style="cursor: pointer;">
+                                    <i class="fas fa-info-circle me-1"></i>
+                                    Условия получения
+                                </summary>
+                                <div class="small text-muted mt-2">
+                                    {{ benefit.terms|linebreaks }}
+                                </div>
+                            </details>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+
+    <!-- Call to Action -->
+    <section class="section-padding text-center">
+        <div class="card card-flat p-5">
+            <h3 class="fw-bold mb-3">Хотите получить доступ к этим преимуществам?</h3>
+            <p class="lead text-muted mb-4">
+                Станьте членом IESA и получите эксклюзивные скидки и привилегии
+            </p>
+            <div class="d-flex flex-column flex-sm-row gap-3 justify-content-center">
+                <a href="{% url 'users:register' %}" class="btn btn-primary btn-modern">
+                    <i class="fas fa-user-plus me-2"></i>Присоединиться
+                </a>
+                <a href="{% url 'core:home' %}" class="btn btn-secondary">
+                    <i class="fas fa-home me-2"></i>На главную
+                </a>
+            </div>
+        </div>
+    </section>
+    {% else %}
+    <!-- Empty State -->
+    <section class="section-padding text-center">
+        <div class="card card-flat p-5">
+            <i class="fas fa-gift text-muted mb-3" style="font-size: 4rem;"></i>
+            <h3 class="fw-bold mb-3">Преимущества скоро появятся</h3>
+            <p class="text-muted mb-4">
+                Мы работаем над созданием эксклюзивных предложений для наших членов
+            </p>
+            <a href="{% url 'core:home' %}" class="btn btn-primary">
+                <i class="fas fa-home me-2"></i>Вернуться на главную
+            </a>
+        </div>
+    </section>
+    {% endif %}
+</div>
+
+<style>
+/* Карточки преимуществ */
+.benefit-card {
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    border: 1px solid rgba(0,0,0,0.05);
+}
+
+.benefit-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+}
+
+.benefit-card-decoration {
+    position: absolute;
+    top: -50%;
+    right: -10%;
+    width: 200px;
+    height: 200px;
+    border-radius: 50%;
+    opacity: 0.1;
+    z-index: 0;
+}
+
+.benefit-icon {
+    width: 60px;
+    height: 60px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .benefit-icon {
+        width: 50px;
+        height: 50px;
+        font-size: 1.25rem;
+    }
+}
+</style>
+{% endblock %}

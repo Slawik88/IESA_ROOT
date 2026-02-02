@@ -27,6 +27,83 @@
         </div>
     </section>
 
+    <!-- Core Products Section - ОСНОВНЫЕ ПРОДУКТЫ IESA -->
+    {% if core_products %}
+    <section class="section-padding" id="core-products-section" aria-labelledby="core-products-title">
+        <div class="text-center mb-5">
+            <h6 class="section-title mb-4 section-title-display">НАШИ ОСНОВНЫЕ ПРОДУКТЫ</h6>
+            <h2 id="core-products-title" class="fw-bold mb-2 text-gray-900">Программы IESA</h2>
+            <p class="text-muted">Экстремальные приключения для всех возрастов</p>
+        </div>
+        <div class="grid grid-cols-2">
+            {% for product in core_products %}
+            <article class="card h-100 product-card">
+                <div class="position-relative">
+                    {% if product.image %}
+                        <img src="{{ product.image.url }}" class="card-img-top" alt="{{ product.title }}" loading="lazy" style="height: 250px; object-fit: cover;">
+                    {% else %}
+                        <div class="card-img-top d-flex align-items-center justify-content-center" style="height: 250px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                            <i class="{{ product.icon }} text-white" style="font-size: 4rem;"></i>
+                        </div>
+                    {% endif %}
+                    <div class="position-absolute top-0 start-0 m-3">
+                        <span class="badge bg-white text-dark shadow-sm">
+                            <i class="{{ product.icon }} me-1"></i>Основной продукт
+                        </span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <h5 class="card-title fw-bold mb-3">{{ product.title }}</h5>
+                    <p class="text-muted mb-3">{{ product.description|truncatewords:30 }}</p>
+                    
+                    {% if product.duration or product.location %}
+                    <div class="d-flex flex-wrap gap-2 mb-3">
+                        {% if product.duration %}
+                        <span class="badge badge-primary">
+                            <i class="far fa-clock me-1"></i>{{ product.duration }}
+                        </span>
+                        {% endif %}
+                        {% if product.location %}
+                        <span class="badge badge-secondary">
+                            <i class="fas fa-map-marker-alt me-1"></i>{{ product.location }}
+                        </span>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                    
+                    {% if product.features %}
+                    <div class="mb-3">
+                        <h6 class="fw-bold small text-uppercase text-muted mb-2">Особенности:</h6>
+                        <ul class="list-unstyled mb-0">
+                            {% for feature in product.get_features_list %}
+                            {% if forloop.counter <= 3 %}
+                            <li class="small mb-1">
+                                <i class="fas fa-check text-success me-2"></i>{{ feature }}
+                            </li>
+                            {% endif %}
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    {% endif %}
+                    
+                    {% if product.price_info %}
+                    <div class="alert alert-light mb-0 py-2 px-3">
+                        <i class="fas fa-tag text-primary me-2"></i>
+                        <small class="fw-bold">{{ product.price_info }}</small>
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="card-footer text-center">
+                    <a href="{% url 'blog:post_list' %}" class="btn btn-primary btn-sm">
+                        Узнать больше <i class="fas fa-arrow-right ms-2"></i>
+                    </a>
+                </div>
+            </article>
+            {% endfor %}
+        </div>
+    </section>
+    {% endif %}
+
     <!-- Upcoming Events Section -->
     {% if upcoming_events %}
     <section class="section-padding" id="events-section" aria-labelledby="events-title">
