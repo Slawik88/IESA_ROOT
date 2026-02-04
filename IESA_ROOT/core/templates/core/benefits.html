@@ -26,7 +26,7 @@
                 <div class="card h-100 benefit-card position-relative overflow-hidden">
                     <!-- Декоративный элемент -->
                     {% if benefit.color == 'primary' %}
-                    <div class="benefit-card-decoration" style="background: linear-gradient(135deg, #667eea, #764ba2);"></div>
+                    <div class="benefit-card-decoration" style="background: linear-gradient(135deg, var(--primary), var(--primary-active));"></div>
                     {% elif benefit.color == 'success' %}
                     <div class="benefit-card-decoration" style="background: linear-gradient(135deg, #56ab2f, #a8e063);"></div>
                     {% elif benefit.color == 'danger' %}
@@ -36,14 +36,14 @@
                     {% elif benefit.color == 'info' %}
                     <div class="benefit-card-decoration" style="background: linear-gradient(135deg, #4facfe, #00f2fe);"></div>
                     {% else %}
-                    <div class="benefit-card-decoration" style="background: linear-gradient(135deg, #667eea, #764ba2);"></div>
+                    <div class="benefit-card-decoration" style="background: linear-gradient(135deg, var(--primary), var(--primary-active));"></div>
                     {% endif %}
                     
                     <div class="card-body position-relative">
                         <!-- Иконка и категория -->
                         <div class="d-flex align-items-center mb-3">
                             {% if benefit.color == 'primary' %}
-                            <div class="benefit-icon me-3" style="background: linear-gradient(135deg, #667eea, #764ba2);">
+                            <div class="benefit-icon me-3" style="background: linear-gradient(135deg, var(--primary), var(--primary-active));">
                             {% elif benefit.color == 'success' %}
                             <div class="benefit-icon me-3" style="background: linear-gradient(135deg, #56ab2f, #a8e063);">
                             {% elif benefit.color == 'danger' %}
@@ -53,7 +53,7 @@
                             {% elif benefit.color == 'info' %}
                             <div class="benefit-icon me-3" style="background: linear-gradient(135deg, #4facfe, #00f2fe);">
                             {% else %}
-                            <div class="benefit-icon me-3" style="background: linear-gradient(135deg, #667eea, #764ba2);">
+                            <div class="benefit-icon me-3" style="background: linear-gradient(135deg, var(--primary), var(--primary-active));">
                             {% endif %}
                                 <i class="{{ benefit.icon }} text-white"></i>
                             </div>
