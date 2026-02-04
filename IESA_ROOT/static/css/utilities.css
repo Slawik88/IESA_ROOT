@@ -29,7 +29,7 @@
 /* Grid System */
 .grid {
   display: grid !important;
-  gap: var(--space-4);
+  gap: var(--space-6);
 }
 
 .grid-cols-1 { grid-template-columns: repeat(1, 1fr) !important; }
@@ -858,14 +858,14 @@
 
 /* Section Padding - для секций на главной странице */
 .section-padding {
-    padding-top: var(--space-6);
-    padding-bottom: var(--space-6);
+    padding-top: var(--space-10);
+    padding-bottom: var(--space-10);
 }
 
 @media (min-width: 768px) {
     .section-padding {
-        padding-top: var(--space-8);
-        padding-bottom: var(--space-8);
+        padding-top: var(--space-12);
+        padding-bottom: var(--space-12);
     }
 }
 
