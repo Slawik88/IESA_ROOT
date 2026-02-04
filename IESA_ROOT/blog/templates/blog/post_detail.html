@@ -3,7 +3,7 @@
 {% block title %}{{ post.title }} | IESA{% endblock %}
 
 {% block meta_description %}{{ post.text|striptags|truncatewords:30 }}{% endblock %}
-{% block meta_keywords %}{{ post.title }}, IESA, блог, посты{% endblock %}
+{% block meta_keywords %}{{ post.title }}, IESA, blog, posts{% endblock %}
 
 {% block og_type %}article{% endblock %}
 {% block og_title %}{{ post.title }}{% endblock %}
@@ -78,7 +78,7 @@
                     <img src="{{ post.preview_image.url }}" class="img-fluid mb-4" alt="{{ post.title }}" style="max-height: 500px; width: 100%; object-fit: cover; border-radius: var(--radius-lg);" loading="lazy">
                 {% endif %}
 
-                <!-- Контент поста -->
+                <!-- Post content -->
                 <div class="post-content" style="font-size: 1.0625rem; line-height: 1.75; color: var(--color-gray-700);">
                     {{ post.text|safe }}
                 </div>

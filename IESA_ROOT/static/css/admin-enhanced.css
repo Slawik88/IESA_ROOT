@@ -2,7 +2,9 @@
    ENHANCED ADMIN PANEL STYLING
    ================================================================ */
 
-/* CKEditor Enhancement */
+/* ========== LIGHT MODE (DEFAULT) ========== */
+
+/* CKEditor Enhancement - Light Mode */
 .django-ckeditor-widget {
     width: 100% !important;
 }
@@ -10,6 +12,7 @@
 .ck-editor__main {
     border: 2px solid #fecaca !important;
     border-radius: 8px !important;
+    background: #ffffff !important;
 }
 
 .ck-editor__top .ck-sticky-panel .ck-toolbar {
@@ -36,6 +39,84 @@
     padding: 15px !important;
     font-size: 15px !important;
     line-height: 1.6 !important;
+    background: #ffffff !important;
+    color: #111827 !important;
+}
+
+/* ========== DARK MODE ========== */
+@media (prefers-color-scheme: dark) {
+    .ck-editor__main {
+        border: 2px solid #4b5563 !important;
+        background: #1f2937 !important;
+    }
+
+    .ck-editor__top .ck-sticky-panel .ck-toolbar {
+        background: linear-gradient(135deg, #374151 0%, #1f2937 100%) !important;
+        border-bottom: 2px solid #4b5563 !important;
+    }
+
+    .ck-toolbar__separator {
+        background-color: #4b5563 !important;
+    }
+
+    .ck-button {
+        color: #e5e7eb !important;
+    }
+
+    .ck-button:not(.ck-disabled):hover {
+        background: rgba(220, 38, 38, 0.2) !important;
+    }
+
+    .ck-button.ck-on {
+        background: rgba(220, 38, 38, 0.3) !important;
+        color: #fca5a5 !important;
+    }
+
+    .ck-editor__editable_inline {
+        background: #111827 !important;
+        color: #e5e7eb !important;
+    }
+
+    .ck-content {
+        color: #e5e7eb !important;
+    }
+}
+
+/* Manual Dark Mode Toggle (with .dark-mode class on body) */
+body.dark-mode .ck-editor__main {
+    border: 2px solid #4b5563 !important;
+    background: #1f2937 !important;
+}
+
+body.dark-mode .ck-editor__top .ck-sticky-panel .ck-toolbar {
+    background: linear-gradient(135deg, #374151 0%, #1f2937 100%) !important;
+    border-bottom: 2px solid #4b5563 !important;
+}
+
+body.dark-mode .ck-toolbar__separator {
+    background-color: #4b5563 !important;
+}
+
+body.dark-mode .ck-button {
+    color: #e5e7eb !important;
+}
+
+body.dark-mode .ck-button:not(.ck-disabled):hover {
+    background: rgba(220, 38, 38, 0.2) !important;
+}
+
+body.dark-mode .ck-button.ck-on {
+    background: rgba(220, 38, 38, 0.3) !important;
+    color: #fca5a5 !important;
+}
+
+body.dark-mode .ck-editor__editable_inline {
+    background: #111827 !important;
+    color: #e5e7eb !important;
+}
+
+body.dark-mode .ck-content {
+    color: #e5e7eb !important;
 }
 
 /* Admin Form Enhancements */

@@ -13,7 +13,7 @@
                     <strong class="me-auto">{{ comment.author.username }}</strong>
                     <small class="text-muted">{{ comment.created_at|date:"d M Y H:i" }}</small>
                 </div>
-                <p class="card-text">{{ comment.text }}</p>
+                <p class="card-text mb-3">{{ comment.text }}</p>
                 
                 <!-- Replies -->
                 {% if comment.replies.all %}
@@ -23,14 +23,14 @@
                                 <div class="card-body p-3">
                                     <div class="d-flex align-items-center mb-2">
                                         {% if reply.author.avatar and reply.author.avatar.name != 'avatars/default.png' %}
-                                            <span class="avatar avatar-sm me-2" style="width:24px;height:24px;"><img src="{{ reply.author.avatar.url }}" alt="{{ reply.author.username }}"></span>
+                                            <span class="avatar avatar-xs me-2"><img src="{{ reply.author.avatar.url }}" alt="{{ reply.author.username }}"></span>
                                         {% else %}
-                                            <span class="avatar avatar-sm avatar-fallback me-2" style="width:24px;height:24px;font-size:0.7rem;">{{ reply.author.username|slice:":1"|upper }}</span>
+                                            <span class="avatar avatar-xs avatar-fallback me-2">{{ reply.author.username|slice:":1"|upper }}</span>
                                         {% endif %}
-                                        <strong class="me-auto" style="font-size:0.9rem;">{{ reply.author.username }}</strong>
-                                        <small class="text-muted">{{ reply.created_at|date:"d M Y H:i" }}</small>
+                                        <strong class="me-auto text-sm">{{ reply.author.username }}</strong>
+                                        <small class="text-muted text-xs">{{ reply.created_at|date:"d M Y H:i" }}</small>
                                     </div>
-                                    <p class="card-text" style="font-size:0.95rem;margin:0;">{{ reply.text }}</p>
+                                    <p class="card-text text-sm mb-0">{{ reply.text }}</p>
                                 </div>
                             </div>
                         {% endfor %}
@@ -72,11 +72,13 @@
                               hx-target="#comments-container"
                               hx-swap="innerHTML"
                                  
-                              class="card card-modern p-2">
+                              class="card card-modern p-3">
                             {% csrf_token %}
-                            <textarea name="text" class="form-control form-control-sm" rows="2" placeholder="Write a reply..." required></textarea>
+                            <textarea name="text" class="form-control" rows="3" placeholder="Write a reply..." required></textarea>
                             <input type="hidden" name="parent_id" value="{{ comment.pk }}">
-                            <button type="submit" class="btn btn-sm btn-primary btn-modern mt-2">Send</button>
+                            <div class="mt-2">
+                                <button type="submit" class="btn btn-sm btn-primary btn-modern">Send Reply</button>
+                            </div>
                         </form>
                     </div>
                 {% endif %}
@@ -94,7 +96,7 @@ document.querySelectorAll('[data-just-posted="true"]').forEach(card => {
     const commentId = card.getAttribute('data-comment-id');
     const notice = document.createElement('div');
     notice.className = 'alert alert-success mt-2 p-2 small';
-    notice.innerHTML = 'Comment posted. Undo in <span class="countdown">4</span>s <button class="btn btn-sm btn-link undo-btn">Undo</button>';
+    notice.innerHTML = 'Comment posted. <button class="btn btn-sm btn-link undo-btn p-0 ms-2">Undo in <span class="countdown">4</span>s</button>';
     card.querySelector('.card-body').appendChild(notice);
 
     let seconds = 4;

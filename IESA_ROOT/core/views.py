@@ -69,4 +69,7 @@ class IndexView(TemplateView):
         ).order_by('date')[:6]
         context['upcoming_events'] = upcoming_events
         
+        # 7. Преимущества членства (Top 6 для главной)
+        context['member_benefits'] = MemberBenefit.objects.filter(is_active=True).order_by('order', '-created_at')[:6]
+        
         return context
