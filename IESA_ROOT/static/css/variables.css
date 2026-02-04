@@ -12,40 +12,40 @@
      ==================================================== */
   
   /* Primary - Красный (фирменный цвет IESA) */
-  --primary: #ef4444;
-  --primary-hover: #dc2626;
-  --primary-active: #b91c1c;
+  --primary: #dc2626;
+  --primary-hover: #b91c1c;
+  --primary-active: #991b1b;
   --primary-light: #fef2f2;
-  --primary-50: rgba(239, 68, 68, 0.05);
-  --primary-100: rgba(239, 68, 68, 0.1);
-  --primary-200: rgba(239, 68, 68, 0.2);
+  --primary-50: rgba(220, 38, 38, 0.04);
+  --primary-100: rgba(220, 38, 38, 0.08);
+  --primary-200: rgba(220, 38, 38, 0.12);
   
   /* Secondary - Синий */
-  --secondary: #3b82f6;
-  --secondary-hover: #2563eb;
-  --secondary-active: #1d4ed8;
+  --secondary: #2563eb;
+  --secondary-hover: #1d4ed8;
+  --secondary-active: #1e40af;
   --secondary-light: #eff6ff;
-  --secondary-50: rgba(59, 130, 246, 0.05);
-  --secondary-100: rgba(59, 130, 246, 0.1);
-  --secondary-200: rgba(59, 130, 246, 0.2);
+  --secondary-50: rgba(37, 99, 235, 0.04);
+  --secondary-100: rgba(37, 99, 235, 0.08);
+  --secondary-200: rgba(37, 99, 235, 0.12);
   
   /* Success - Зелёный */
-  --success: #22c55e;
-  --success-hover: #16a34a;
-  --success-active: #15803d;
+  --success: #16a34a;
+  --success-hover: #15803d;
+  --success-active: #166534;
   --success-light: #f0fdf4;
-  --success-50: rgba(34, 197, 94, 0.05);
-  --success-100: rgba(34, 197, 94, 0.1);
-  --success-200: rgba(34, 197, 94, 0.2);
+  --success-50: rgba(22, 163, 74, 0.04);
+  --success-100: rgba(22, 163, 74, 0.08);
+  --success-200: rgba(22, 163, 74, 0.12);
   
   /* Warning - Жёлтый/Amber */
-  --warning: #f59e0b;
-  --warning-hover: #d97706;
-  --warning-active: #b45309;
+  --warning: #d97706;
+  --warning-hover: #b45309;
+  --warning-active: #92400e;
   --warning-light: #fffbeb;
-  --warning-50: rgba(245, 158, 11, 0.05);
-  --warning-100: rgba(245, 158, 11, 0.1);
-  --warning-200: rgba(245, 158, 11, 0.2);
+  --warning-50: rgba(217, 119, 6, 0.04);
+  --warning-100: rgba(217, 119, 6, 0.08);
+  --warning-200: rgba(217, 119, 6, 0.12);
   
   /* Danger - Красный (ошибки) */
   --danger: #ef4444;
@@ -54,17 +54,17 @@
   --danger-100: rgba(239, 68, 68, 0.1);
   
   /* Info - Голубой */
-  --info: #0ea5e9;
-  --info-hover: #0284c7;
+  --info: #0284c7;
+  --info-hover: #0369a1;
   --info-light: #f0f9ff;
-  --info-100: rgba(14, 165, 233, 0.1);
+  --info-100: rgba(2, 132, 199, 0.08);
   
   /* Emerald - Дополнительный зелёный (для профиля) */
-  --emerald: #10b981;
-  --emerald-hover: #059669;
-  --emerald-50: rgba(16, 185, 129, 0.05);
-  --emerald-100: rgba(16, 185, 129, 0.1);
-  --emerald-200: rgba(16, 185, 129, 0.2);
+  --emerald: #059669;
+  --emerald-hover: #047857;
+  --emerald-50: rgba(5, 150, 105, 0.04);
+  --emerald-100: rgba(5, 150, 105, 0.08);
+  --emerald-200: rgba(5, 150, 105, 0.12);
   
   /* Neutrals - Серая шкала */
   --white: #ffffff;
@@ -88,9 +88,9 @@
   --text-inverse: #ffffff;
   
   /* Фоновые цвета */
-  --bg-body: #f9fafb;
+  --bg-body: #ffffff;
   --bg-white: #ffffff;
-  --bg-light: #f3f4f6;
+  --bg-light: #f5f5f5;
   --bg-dark: #111827;
   
   /* Границы */
@@ -210,29 +210,29 @@
      6. ГРАДИЕНТЫ
      ==================================================== */
   
-  --gradient-primary: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
-  --gradient-secondary: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-  --gradient-success: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
-  --gradient-warning: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-  --gradient-emerald: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  --gradient-primary: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+  --gradient-secondary: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  --gradient-success: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
+  --gradient-warning: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+  --gradient-emerald: linear-gradient(135deg, #059669 0%, #047857 100%);
   --gradient-dark: linear-gradient(135deg, #374151 0%, #1f2937 100%);
-  --gradient-auth: linear-gradient(135deg, #0d6efd 0%, #1e3a8a 100%);
+  --gradient-auth: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
   
   /* Фоновые градиенты */
-  --gradient-page: linear-gradient(135deg, #fafafa 0%, #ffffff 100%);
-  --gradient-card: linear-gradient(145deg, #ffffff 0%, #fafafa 100%);
-  --gradient-card-light: linear-gradient(145deg, rgba(255,255,255,0.95) 0%, rgba(248,249,250,0.98) 100%);
+  --gradient-page: linear-gradient(135deg, #ffffff 0%, #ffffff 100%);
+  --gradient-card: linear-gradient(145deg, #ffffff 0%, #f8f8f8 100%);
+  --gradient-card-light: linear-gradient(145deg, rgba(255,255,255,0.98) 0%, rgba(245,245,245,0.99) 100%);
   
   /* Градиенты для карточек профиля */
-  --gradient-card-red: linear-gradient(135deg, rgba(239,68,68,0.04) 0%, rgba(220,38,38,0.06) 100%);
-  --gradient-card-blue: linear-gradient(135deg, rgba(59,130,246,0.04) 0%, rgba(37,99,235,0.06) 100%);
-  --gradient-card-amber: linear-gradient(135deg, rgba(245,158,11,0.04) 0%, rgba(217,119,6,0.06) 100%);
-  --gradient-card-emerald: linear-gradient(135deg, rgba(16,185,129,0.04) 0%, rgba(5,150,105,0.06) 100%);
+  --gradient-card-red: linear-gradient(135deg, rgba(220,38,38,0.03) 0%, rgba(185,28,28,0.05) 100%);
+  --gradient-card-blue: linear-gradient(135deg, rgba(37,99,235,0.03) 0%, rgba(30,78,216,0.05) 100%);
+  --gradient-card-amber: linear-gradient(135deg, rgba(217,119,6,0.03) 0%, rgba(180,67,9,0.05) 100%);
+  --gradient-card-emerald: linear-gradient(135deg, rgba(5,150,105,0.03) 0%, rgba(4,120,87,0.05) 100%);
   
   /* Градиенты для статистики */
-  --gradient-stat-red: linear-gradient(135deg, rgba(239,68,68,0.05) 0%, rgba(220,38,38,0.08) 100%);
-  --gradient-stat-amber: linear-gradient(135deg, rgba(245,158,11,0.05) 0%, rgba(217,119,6,0.08) 100%);
-  --gradient-stat-emerald: linear-gradient(135deg, rgba(16,185,129,0.05) 0%, rgba(5,150,105,0.08) 100%);
+  --gradient-stat-red: linear-gradient(135deg, rgba(220,38,38,0.04) 0%, rgba(185,28,28,0.06) 100%);
+  --gradient-stat-amber: linear-gradient(135deg, rgba(217,119,6,0.04) 0%, rgba(180,67,9,0.06) 100%);
+  --gradient-stat-emerald: linear-gradient(135deg, rgba(5,150,105,0.04) 0%, rgba(4,120,87,0.06) 100%);
   
   /* ====================================================
      7. TRANSITIONS
@@ -285,7 +285,7 @@
   
   --avatar-xs: 24px;
   --avatar-sm: 32px;
-  --avatar-md: 40px;
+  --avatar-md: 36px;
   --avatar-lg: 64px;
   --avatar-xl: 120px;
   --avatar-2xl: 160px;

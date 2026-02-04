@@ -27,6 +27,69 @@
         </div>
     </section>
 
+    <!-- BENEFITS SECTION - Преимущества членства -->
+    {% if member_benefits %}
+    <section class="section-padding" id="benefits-section" aria-labelledby="benefits-title">
+        <div class="text-center mb-5">
+            <h6 class="section-title mb-4 section-title-display">MEMBER BENEFITS</h6>
+            <h2 id="benefits-title" class="fw-bold mb-2 text-gray-900">Exclusive Member Advantages</h2>
+            <p class="text-muted">Unlock premium benefits and exclusive offers when you join IESA</p>
+        </div>
+        <div class="row g-4">
+            {% for benefit in member_benefits %}
+            <div class="col-12 col-md-6 col-lg-4">
+                <div class="card h-100 benefit-card position-relative overflow-hidden">
+                    <!-- Decorative gradient background -->
+                    <div class="benefit-card-decoration-top"></div>
+                    
+                    <div class="card-body position-relative">
+                        <!-- Icon and Category -->
+                        <div class="d-flex align-items-center mb-3">
+                            <div class="benefit-icon-box me-3">
+                                <i class="{{ benefit.icon|default:'fas fa-star' }} text-white"></i>
+                            </div>
+                            <div>
+                                <span class="badge badge-primary">
+                                    {{ benefit.get_category_display|default:'Exclusive' }}
+                                </span>
+                            </div>
+                        </div>
+
+                        <!-- Title -->
+                        <h5 class="card-title fw-bold mb-3">{{ benefit.title }}</h5>
+
+                        <!-- Description -->
+                        <p class="text-muted mb-3 small">{{ benefit.description|truncatewords:20 }}</p>
+
+                        <!-- Discount Info -->
+                        {% if benefit.discount_info %}
+                        <div class="alert alert-light mb-3 py-2 px-3">
+                            <i class="fas fa-percentage text-primary me-2"></i>
+                            <small class="fw-bold text-primary">{{ benefit.discount_info }}</small>
+                        </div>
+                        {% endif %}
+
+                        <!-- Partner Info -->
+                        {% if benefit.partner_info %}
+                        <div class="mb-3">
+                            <small class="text-muted">
+                                <i class="fas fa-handshake me-1"></i>{{ benefit.partner_info|truncatewords:10 }}
+                            </small>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        <div class="text-center mt-5">
+            <a href="{% url 'core:benefits' %}" class="btn btn-primary btn-modern">
+                View All Benefits <i class="fas fa-arrow-right ms-2"></i>
+            </a>
+        </div>
+    </section>
+    {% endif %}
+
     <!-- Core Products Section - ОСНОВНЫЕ ПРОДУКТЫ IESA -->
     {% if core_products %}
     <section class="section-padding" id="core-products-section" aria-labelledby="core-products-title">
