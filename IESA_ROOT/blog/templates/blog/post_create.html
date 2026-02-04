@@ -71,7 +71,7 @@
                         <span class="badge bg-primary position-absolute top-0 start-0 m-3">Draft preview</span>
                     </div>
                     <div class="p-4">
-                        <h3 id="preview-title" class="mb-3">Заголовок поста</h3>
+                        <h3 id="preview-title" class="mb-3">Post Title</h3>
                         <div id="preview-body" class="text-muted" style="min-height:120px;">
                             Описание появится здесь после редактирования.
                         </div>
@@ -151,7 +151,7 @@ document.addEventListener('DOMContentLoaded', function(){
         var previewBody = document.getElementById('preview-body');
         var titleInput = form.querySelector('input[name="title"]');
         function syncPreview(){
-            if (previewTitle && titleInput) previewTitle.textContent = titleInput.value || 'Заголовок поста';
+            if (previewTitle && titleInput) previewTitle.textContent = titleInput.value || 'Post Title';
             if (previewBody) previewBody.innerHTML = quill.root.innerHTML || 'Описание появится здесь после редактирования.';
         }
         quill.on('text-change', syncPreview);
