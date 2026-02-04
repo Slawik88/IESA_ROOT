@@ -36,8 +36,8 @@
         transition: all 0.3s;
     }
     .search-input:focus {
-        border-color: #667eea;
-        box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+        border-color: var(--primary);
+        box-shadow: 0 0 0 0.2rem rgba(220, 38, 38, 0.25);
     }
     .htmx-indicator {
         display: none;
@@ -85,7 +85,7 @@
     <!-- Statistics Cards -->
     <div class="row mb-4">
         <div class="col-md-3 col-sm-6 mb-3">
-            <div class="card stat-card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+            <div class="card stat-card" style="background: linear-gradient(135deg, var(--primary) 0%, var(--primary-active) 100%);">
                 <div class="card-body text-white position-relative">
                     <h6 class="mb-2 text-uppercase" style="font-size: 0.8rem; opacity: 0.9;">Total Visits</h6>
                     <h2 class="mb-0 fw-bold">{{ total_visits }}</h2>
@@ -126,7 +126,7 @@
         <!-- Live Search Section with HTMX -->
         <div class="col-lg-5 mb-4">
             <div class="card search-card">
-                <div class="card-header text-white" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 20px 20px 0 0; padding: 25px;">
+                <div class="card-header text-white" style="background: linear-gradient(135deg, var(--primary) 0%, var(--primary-active) 100%); border-radius: 20px 20px 0 0; padding: 25px;">
                     <h4 class="mb-1">
                         <i class="fas fa-search-plus"></i> Live Member Search
                     </h4>
@@ -143,10 +143,10 @@
                         <div class="mb-3 position-relative">
                             {{ search_form.query }}
                             <div id="search-loading" class="htmx-indicator position-absolute" style="right: 15px; top: 50%; transform: translateY(-50%);">
-                                <i class="fas fa-spinner spinner text-purple"></i>
+                                <i class="fas fa-spinner spinner text-primary"></i>
                             </div>
                         </div>
-                        <button type="submit" class="btn btn-lg w-100 mb-3" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 15px; font-weight: 600;">
+                        <button type="submit" class="btn btn-lg w-100 mb-3" style="background: linear-gradient(135deg, var(--primary) 0%, var(--primary-active) 100%); color: white; border-radius: 15px; font-weight: 600;">
                             <i class="fas fa-search"></i> Search Now
                         </button>
                     </form>
@@ -196,7 +196,7 @@
                                                              style="width: 40px; height: 40px; object-fit: cover;">
                                                     {% else %}
                                                         <div class="rounded-circle d-inline-flex align-items-center justify-content-center me-2" 
-                                                             style="width: 40px; height: 40px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                                                             style="width: 40px; height: 40px; background: linear-gradient(135deg, var(--primary) 0%, var(--primary-active) 100%);">
                                                             <i class="fas fa-user text-white"></i>
                                                         </div>
                                                     {% endif %}

@@ -105,7 +105,7 @@
                     {% if product.image %}
                         <img src="{{ product.image.url }}" class="card-img-top" alt="{{ product.title }}" loading="lazy" style="height: 250px; object-fit: cover;">
                     {% else %}
-                        <div class="card-img-top d-flex align-items-center justify-content-center" style="height: 250px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                        <div class="card-img-top d-flex align-items-center justify-content-center" style="height: 250px; background: linear-gradient(135deg, var(--primary), var(--primary-active));">
                             <i class="{{ product.icon }} text-white" style="font-size: 4rem;"></i>
                         </div>
                     {% endif %}

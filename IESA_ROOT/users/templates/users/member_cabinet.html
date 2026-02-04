@@ -12,7 +12,7 @@
         font-family: 'Courier New', monospace;
         color: #fff;
         text-shadow: 3px 3px 6px rgba(0,0,0,0.3);
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: linear-gradient(135deg, var(--primary) 0%, var(--primary-active) 100%);
         padding: 30px;
         border-radius: 20px;
         margin: 20px 0;
@@ -69,7 +69,7 @@
                 <!-- PIN Display -->
                 <div class="card shadow-lg border-0">
                     <div class="card-body text-center p-5">
-                        <h3 class="mb-4" style="color: #667eea; font-weight: 700;">
+                        <h3 class="mb-4" style="color: var(--primary); font-weight: 700;">
                             <i class="fas fa-key"></i> Your Verification PIN
                         </h3>
                         <div class="pin-display">
@@ -78,7 +78,7 @@
                         
                         <!-- Countdown Timer -->
                         <div class="countdown mb-4 mt-4">
-                            <i class="fas fa-stopwatch"></i> Expires in: <span id="countdown" style="color: #667eea; font-weight: 800;">{{ seconds_remaining }}</span>s
+                            <i class="fas fa-stopwatch"></i> Expires in: <span id="countdown" style="color: var(--primary); font-weight: 800;">{{ seconds_remaining }}</span>s
                         </div>
                         
                         <div class="progress mb-4" style="height: 12px; border-radius: 10px;">
@@ -95,25 +95,25 @@
                 <!-- Instructions -->
                 <div class="card instruction-card mt-4 shadow">
                     <div class="card-body p-4">
-                        <h5 class="mb-3" style="color: #764ba2;"><i class="fas fa-lightbulb"></i> How to use your PIN:</h5>
+                        <h5 class="mb-3" style="color: var(--primary-active);"><i class="fas fa-lightbulb"></i> How to use your PIN:</h5>
                         <div class="row">
                             <div class="col-md-6">
                                 <div class="mb-3">
-                                    <h6 style="color: #764ba2;"><i class="fas fa-map-marker-alt"></i> Step 1</h6>
+                                    <h6 style="color: var(--primary-active);"><i class="fas fa-map-marker-alt"></i> Step 1</h6>
                                     <p class="mb-0">Visit any partner location (shop, gym, clinic)</p>
                                 </div>
                                 <div class="mb-3">
-                                    <h6 style="color: #764ba2;"><i class="fas fa-hand-point-right"></i> Step 2</h6>
+                                    <h6 style="color: var(--primary-active);"><i class="fas fa-hand-point-right"></i> Step 2</h6>
                                     <p class="mb-0">Tell staff you're an IESA member</p>
                                 </div>
                             </div>
                             <div class="col-md-6">
                                 <div class="mb-3">
-                                    <h6 style="color: #764ba2;"><i class="fas fa-mobile-alt"></i> Step 3</h6>
+                                    <h6 style="color: var(--primary-active);"><i class="fas fa-mobile-alt"></i> Step 3</h6>
                                     <p class="mb-0">Show them this 6-digit PIN</p>
                                 </div>
                                 <div class="mb-3">
-                                    <h6 style="color: #764ba2;"><i class="fas fa-check-double"></i> Step 4</h6>
+                                    <h6 style="color: var(--primary-active);"><i class="fas fa-check-double"></i> Step 4</h6>
                                     <p class="mb-0">Staff logs your visit - Done!</p>
                                 </div>
                             </div>
