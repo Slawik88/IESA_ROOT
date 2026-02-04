@@ -90,13 +90,13 @@
     </section>
     {% endif %}
 
-    <!-- Core Products Section - ОСНОВНЫЕ ПРОДУКТЫ IESA -->
+    <!-- Core Products Section - MAIN IESA PRODUCTS -->
     {% if core_products %}
     <section class="section-padding" id="core-products-section" aria-labelledby="core-products-title">
         <div class="text-center mb-5">
-            <h6 class="section-title mb-4 section-title-display">НАШИ ОСНОВНЫЕ ПРОДУКТЫ</h6>
-            <h2 id="core-products-title" class="fw-bold mb-2 text-gray-900">Программы IESA</h2>
-            <p class="text-muted">Экстремальные приключения для всех возрастов</p>
+            <h6 class="section-title mb-4 section-title-display">OUR CORE PROGRAMS</h6>
+            <h2 id="core-products-title" class="fw-bold mb-2 text-gray-900">IESA Programs</h2>
+            <p class="text-muted">Extreme adventures for all ages</p>
         </div>
         <div class="grid grid-cols-2">
             {% for product in core_products %}
@@ -111,7 +111,7 @@
                     {% endif %}
                     <div class="position-absolute top-0 start-0 m-3">
                         <span class="badge bg-white text-dark shadow-sm">
-                            <i class="{{ product.icon }} me-1"></i>Основной продукт
+                            <i class="{{ product.icon }} me-1"></i>Core Program
                         </span>
                     </div>
                 </div>
@@ -136,7 +136,7 @@
                     
                     {% if product.features %}
                     <div class="mb-3">
-                        <h6 class="fw-bold small text-uppercase text-muted mb-2">Особенности:</h6>
+                        <h6 class="fw-bold small text-uppercase text-muted mb-2">Features:</h6>
                         <ul class="list-unstyled mb-0">
                             {% for feature in product.get_features_list %}
                             {% if forloop.counter <= 3 %}
@@ -158,7 +158,7 @@
                 </div>
                 <div class="card-footer text-center">
                     <a href="{% url 'blog:post_list' %}" class="btn btn-primary btn-sm">
-                        Узнать больше <i class="fas fa-arrow-right ms-2"></i>
+                        Learn More <i class="fas fa-arrow-right ms-2"></i>
                     </a>
                 </div>
             </article>
