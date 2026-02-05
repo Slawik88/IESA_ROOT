@@ -19,6 +19,35 @@
    ==================================================== */
 
 /* ====================================================
+   MOBILE SPECIFIC (max-width: 575px)
+   ==================================================== */
+
+@media (max-width: 575.98px) {
+  /* Ensure minimum font sizes for readability */
+  .small, small {
+    font-size: 0.875rem !important; /* 14px instead of 12px */
+  }
+  
+  /* Touch targets minimum 44x44px */
+  .btn, button, a.btn {
+    min-height: 44px;
+    min-width: 44px;
+    padding: var(--space-3) var(--space-4);
+  }
+  
+  /* Benefit cards text readability */
+  .benefit-card .small {
+    font-size: 0.9375rem !important; /* 15px */
+    line-height: 1.5;
+  }
+  
+  /* Card body padding on mobile */
+  .card-body {
+    padding: 1.25rem;
+  }
+}
+
+/* ====================================================
    SM BREAKPOINT (576px+)
    ==================================================== */
 

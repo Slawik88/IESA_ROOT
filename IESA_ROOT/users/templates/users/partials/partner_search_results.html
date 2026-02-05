@@ -15,7 +15,7 @@
                    style="border-radius: 10px; margin-bottom: 10px; border: 2px solid #e9ecef; transition: all 0.3s;">
                     <div class="d-flex align-items-center">
                         {% if member.avatar and member.avatar.name != 'avatars/default.png' %}
-                            <img src="{{ member.avatar.url }}" alt="" 
+                            <img src="{{ member.avatar.url }}" alt="{{ member.username }} avatar" 
                                  class="rounded-circle me-3" 
                                  style="width: 60px; height: 60px; object-fit: cover; border: 3px solid var(--primary);">
                         {% else %}
