@@ -5,10 +5,10 @@
 {% block content %}
 <div class="container-limited">
     <!-- HERO Section -->
-    <section class="section-padding text-center card card-flat p-4 mb-5 hero-section" aria-labelledby="hero-title">
+    <section class="section-padding text-center card card-flat p-4 mb-5 hero-section" aria-labelledby="hero-title" role="banner">
         <div class="mb-3">
-            <span class="badge badge-primary hero-badge">
-                <i class="fas fa-rocket me-2"></i>International Extreme Sports Association
+            <span class="badge badge-primary hero-badge" role="text">
+                <i class="fas fa-rocket me-2" aria-hidden="true"></i>International Extreme Sports Association
             </span>
         </div>
         <h1 id="hero-title" class="display-5 fw-bold mb-3 hero-title">
@@ -17,39 +17,39 @@
         <p class="lead mb-4 hero-description">
             Bringing leaders together and shaping the future. Join our international community of extreme sports enthusiasts.
         </p>
-        <div class="d-flex flex-column flex-sm-row gap-3 justify-content-center">
-            <a href="{% url 'users:register' %}" class="btn btn-primary btn-modern">
-                <i class="fas fa-user-plus me-2"></i>Join as Member
+        <nav class="d-flex flex-column flex-sm-row gap-3 justify-content-center" aria-label="Primary actions">
+            <a href="{% url 'users:register' %}" class="btn btn-primary btn-modern" aria-label="Join IESA as a member">
+                <i class="fas fa-user-plus me-2" aria-hidden="true"></i>Join as Member
             </a>
-            <a href="{% url 'blog:post_list' %}" class="btn btn-secondary">
-                <i class="fas fa-comments me-2"></i>Go to Community
+            <a href="{% url 'blog:post_list' %}" class="btn btn-secondary" aria-label="Go to IESA community forum">
+                <i class="fas fa-comments me-2" aria-hidden="true"></i>Go to Community
             </a>
-        </div>
+        </nav>
     </section>
 
     <!-- BENEFITS SECTION - Member Benefits -->
     {% if member_benefits %}
-    <section class="section-padding" id="benefits-section" aria-labelledby="benefits-title">
-        <div class="text-center mb-5">
-            <h6 class="section-title mb-4 section-title-display">MEMBER BENEFITS</h6>
+    <section class="section-padding" id="benefits-section" aria-labelledby="benefits-title" role="region">
+        <header class="text-center mb-5">
+            <p class="section-title mb-4 section-title-display" role="text">MEMBER BENEFITS</p>
             <h2 id="benefits-title" class="fw-bold mb-2 text-gray-900">Exclusive Member Advantages</h2>
             <p class="text-muted">Unlock premium benefits and exclusive offers when you join IESA</p>
-        </div>
-        <div class="row g-4">
+        </header>
+        <div class="row g-4" role="list">
             {% for benefit in member_benefits %}
-            <div class="col-12 col-md-6 col-lg-4">
-                <div class="card h-100 benefit-card position-relative overflow-hidden">
+            <div class="col-12 col-md-6 col-lg-4" role="listitem">
+                <article class="card h-100 benefit-card position-relative overflow-hidden" aria-label="{{ benefit.title }} - {{ benefit.get_category_display }}">
                     <!-- Decorative gradient background -->
                     <div class="benefit-card-decoration-top"></div>
                     
                     <div class="card-body position-relative">
                         <!-- Icon and Category -->
                         <div class="d-flex align-items-center mb-3">
-                            <div class="benefit-icon-box me-3">
+                            <div class="benefit-icon-box me-3" aria-hidden="true">
                                 <i class="{{ benefit.icon|default:'fas fa-star' }} text-white"></i>
                             </div>
                             <div>
-                                <span class="badge badge-primary">
+                                <span class="badge badge-primary" role="text">
                                     {{ benefit.get_category_display|default:'Exclusive' }}
                                 </span>
                             </div>
@@ -63,8 +63,8 @@
 
                         <!-- Discount Info -->
                         {% if benefit.discount_info %}
-                        <div class="alert alert-light mb-3 py-2 px-3">
-                            <i class="fas fa-percentage text-primary me-2"></i>
+                        <div class="alert alert-light mb-3 py-2 px-3" role="note">
+                            <i class="fas fa-percentage text-primary me-2" aria-hidden="true"></i>
                             <small class="fw-bold text-primary">{{ benefit.discount_info }}</small>
                         </div>
                         {% endif %}
@@ -73,12 +73,12 @@
                         {% if benefit.partner_info %}
                         <div class="mb-3">
                             <small class="text-muted">
-                                <i class="fas fa-handshake me-1"></i>{{ benefit.partner_info|truncatewords:10 }}
+                                <i class="fas fa-handshake me-1" aria-hidden="true"></i>{{ benefit.partner_info|truncatewords:10 }}
                             </small>
                         </div>
                         {% endif %}
                     </div>
-                </div>
+                </article>
             </div>
             {% endfor %}
         </div>
@@ -92,26 +92,27 @@
 
     <!-- Core Products Section - MAIN IESA PRODUCTS -->
     {% if core_products %}
-    <section class="section-padding" id="core-products-section" aria-labelledby="core-products-title">
-        <div class="text-center mb-5">
-            <h6 class="section-title mb-4 section-title-display">OUR CORE PROGRAMS</h6>
+    <section class="section-padding" id="core-products-section" aria-labelledby="core-products-title" role="region">
+        <header class="text-center mb-5">
+            <p class="section-title mb-4 section-title-display" role="text">OUR CORE PROGRAMS</p>
             <h2 id="core-products-title" class="fw-bold mb-2 text-gray-900">IESA Programs</h2>
             <p class="text-muted">Extreme adventures for all ages</p>
-        </div>
-        <div class="grid grid-cols-2">
+        </header>
+        <div class="grid grid-cols-2" role="list">
             {% for product in core_products %}
-            <article class="card h-100 product-card">
+            <div role="listitem">
+            <article class="card h-100 product-card" aria-label="{{ product.title }} program">
                 <div class="position-relative">
                     {% if product.image %}
-                        <img src="{{ product.image.url }}" class="card-img-top" alt="{{ product.title }}" loading="lazy" style="height: 250px; object-fit: cover;">
+                        <img src="{{ product.image.url }}" class="card-img-top product-card-image" alt="{{ product.title }}" loading="lazy">
                     {% else %}
-                        <div class="card-img-top d-flex align-items-center justify-content-center" style="height: 250px; background: linear-gradient(135deg, var(--primary), var(--primary-active));">
-                            <i class="{{ product.icon }} text-white" style="font-size: 4rem;"></i>
+                        <div class="card-img-top d-flex align-items-center justify-content-center product-card-placeholder">
+                            <i class="{{ product.icon }} text-white product-card-icon" aria-hidden="true"></i>
                         </div>
                     {% endif %}
                     <div class="position-absolute top-0 start-0 m-3">
-                        <span class="badge bg-white text-dark shadow-sm">
-                            <i class="{{ product.icon }} me-1"></i>Core Program
+                        <span class="badge bg-white text-dark shadow-sm" role="text">
+                            <i class="{{ product.icon }} me-1" aria-hidden="true"></i>Core Program
                         </span>
                     </div>
                 </div>
@@ -122,13 +123,13 @@
                     {% if product.duration or product.location %}
                     <div class="d-flex flex-wrap gap-2 mb-3">
                         {% if product.duration %}
-                        <span class="badge badge-primary">
-                            <i class="far fa-clock me-1"></i>{{ product.duration }}
+                        <span class="badge badge-primary" role="text">
+                            <i class="far fa-clock me-1" aria-hidden="true"></i>{{ product.duration }}
                         </span>
                         {% endif %}
                         {% if product.location %}
-                        <span class="badge badge-secondary">
-                            <i class="fas fa-map-marker-alt me-1"></i>{{ product.location }}
+                        <span class="badge badge-secondary" role="text">
+                            <i class="fas fa-map-marker-alt me-1" aria-hidden="true"></i>{{ product.location }}
                         </span>
                         {% endif %}
                     </div>
@@ -136,12 +137,12 @@
                     
                     {% if product.features %}
                     <div class="mb-3">
-                        <h6 class="fw-bold small text-uppercase text-muted mb-2">Features:</h6>
+                        <p class="fw-bold small text-uppercase text-muted mb-2">Features:</p>
                         <ul class="list-unstyled mb-0">
                             {% for feature in product.get_features_list %}
                             {% if forloop.counter <= 3 %}
                             <li class="small mb-1">
-                                <i class="fas fa-check text-success me-2"></i>{{ feature }}
+                                <i class="fas fa-check text-success me-2" aria-hidden="true"></i>{{ feature }}
                             </li>
                             {% endif %}
                             {% endfor %}
@@ -150,18 +151,19 @@
                     {% endif %}
                     
                     {% if product.price_info %}
-                    <div class="alert alert-light mb-0 py-2 px-3">
-                        <i class="fas fa-tag text-primary me-2"></i>
+                    <div class="alert alert-light mb-0 py-2 px-3" role="note">
+                        <i class="fas fa-tag text-primary me-2" aria-hidden="true"></i>
                         <small class="fw-bold">{{ product.price_info }}</small>
                     </div>
                     {% endif %}
                 </div>
                 <div class="card-footer text-center">
-                    <a href="{% url 'blog:post_list' %}" class="btn btn-primary btn-sm">
-                        Learn More <i class="fas fa-arrow-right ms-2"></i>
+                    <a href="{% url 'blog:post_list' %}" class="btn btn-primary btn-sm" aria-label="Learn more about {{ product.title }}">
+                        Learn More <i class="fas fa-arrow-right ms-2" aria-hidden="true"></i>
                     </a>
                 </div>
             </article>
+            </div>
             {% endfor %}
         </div>
     </section>
@@ -169,13 +171,13 @@
 
     <!-- Upcoming Events Section -->
     {% if upcoming_events %}
-    <section class="section-padding" id="events-section" aria-labelledby="events-title">
-        <div class="text-center mb-5">
-            <h6 class="section-title mb-4 section-title-display">UPCOMING EVENTS</h6>
+    <section class="section-padding" id="events-section" aria-labelledby="events-title" role="region">
+        <header class="text-center mb-5">
+            <p class="section-title mb-4 section-title-display" role="text">UPCOMING EVENTS</p>
             <h2 id="events-title" class="fw-bold mb-2 text-gray-900">Join Our Next Community Gatherings</h2>
             <p class="text-muted">Connect with fellow extreme sports enthusiasts</p>
-        </div>
-        <div class="grid grid-cols-3">
+        </header>
+        <div class="grid grid-cols-3" role="list">
             {% for event in upcoming_events %}
             <article class="card h-100">
                 <a href="{% url 'blog:event_detail' event.pk %}" class="text-decoration-none text-inherit">
@@ -340,35 +342,6 @@
                 </div>
             </div>
         </div>
-
-        <script>
-        function openMemberModal(button) {
-            // Заполняем данные
-            document.getElementById('memberModalName').textContent = button.dataset.memberName;
-            document.getElementById('memberModalPosition').textContent = button.dataset.memberPosition;
-            document.getElementById('memberModalDescription').innerHTML = button.dataset.memberDescription;
-            
-            const photo = button.dataset.memberPhoto;
-            const photoElement = document.getElementById('memberModalPhoto');
-            if (photo) {
-                photoElement.src = photo;
-                photoElement.style.display = 'block';
-            } else {
-                photoElement.style.display = 'none';
-            }
-            
-            // КРИТИЧЕСКИ ВАЖНО: Открываем модаль через Bootstrap.Modal
-            const modalElement = document.getElementById('memberModal');
-            if (modalElement && typeof bootstrap !== 'undefined') {
-                const modal = new bootstrap.Modal(modalElement, {
-                    backdrop: true,
-                    keyboard: true,
-                    focus: true
-                });
-                modal.show();
-            }
-        }
-        </script>
     </section>
     
     <!-- Partners Section -->
@@ -501,64 +474,11 @@
     </section>
 </div>
 
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Hero animation on page load
-    const heroSection = document.querySelector('.section-padding.text-center.bg-white');
-    if (heroSection) {
-        heroSection.classList.add('animate-on-scroll', 'hero-animate', 'animated');
-    }
-    
-    // IntersectionObserver for other elements
-    const observerOptions = {
-        threshold: 0.1,
-        rootMargin: '0px 0px -50px 0px'
-    };
-    
-    const observer = new IntersectionObserver(function(entries) {
-        entries.forEach(entry => {
-            if (entry.isIntersecting) {
-                entry.target.classList.add('animated');
-                observer.unobserve(entry.target);
-            }
-        });
-    }, observerOptions);
-    
-    // Event cards animation
-    const eventCards = document.querySelectorAll('#events-section .col-md-4');
-    eventCards.forEach(card => {
-        card.classList.add('animate-on-scroll', 'card-animate');
-        observer.observe(card);
-    });
-    
-    // Product cards animation
-    const productCards = document.querySelectorAll('#products-section .col');
-    productCards.forEach(card => {
-        card.classList.add('animate-on-scroll', 'card-animate');
-        observer.observe(card);
-    });
-    
-    // About section animation
-    const aboutSection = document.querySelector('#about-section');
-    if (aboutSection) {
-        aboutSection.classList.add('animate-on-scroll', 'about-animate');
-        observer.observe(aboutSection);
-    }
-    
-    // Member cards animation
-    const memberCards = document.querySelectorAll('#members-section .col-md-3');
-    memberCards.forEach(card => {
-        card.classList.add('animate-on-scroll', 'card-animate');
-        observer.observe(card);
-    });
-    
-    // Partner cards animation
-    const partnerCards = document.querySelectorAll('#partners-section .col');
-    partnerCards.forEach(card => {
-        card.classList.add('animate-on-scroll', 'partner-animate');
-        observer.observe(card);
-    });
-});
-</script>
+{% endblock %}
 
+{% block extra_js %}
+<!-- Unified scroll animations (replaces inline script) -->
+<script src="{% static 'js/scroll-animations.js' %}"></script>
+<!-- Member modal handler (replaces inline script) -->
+<script src="{% static 'js/member-modal.js' %}"></script>
 {% endblock %}

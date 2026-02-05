@@ -1,0 +1,18 @@
+/* Product Card Styles - extracted from inline styles */
+
+/* Product card image */
+.product-card-image {
+    height: 250px;
+    object-fit: cover;
+}
+
+/* Product card placeholder (when no image) */
+.product-card-placeholder {
+    height: 250px;
+    background: linear-gradient(135deg, var(--primary), var(--primary-active));
+}
+
+/* Product card icon */
+.product-card-icon {
+    font-size: 4rem;
+}
