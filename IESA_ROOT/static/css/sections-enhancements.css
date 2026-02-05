@@ -1,0 +1,429 @@
+/* 
+ * SECTION ENHANCEMENTS - Additional polish for all homepage sections
+ * Complementary to homepage-v2.css
+ */
+
+/* ============================================================================
+   1. HERO SECTION ENHANCEMENTS
+   ============================================================================ */
+
+.hero-section {
+    background: linear-gradient(135deg, #ffffff 0%, #f8fafc 50%, #f1f5f9 100%);
+    border: none;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.06);
+    border-radius: 20px;
+    position: relative;
+    overflow: hidden;
+}
+
+.hero-section::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -20%;
+    width: 600px;
+    height: 600px;
+    background: radial-gradient(circle, rgba(96, 165, 250, 0.08) 0%, transparent 70%);
+    border-radius: 50%;
+    animation: floatSlow 20s ease-in-out infinite;
+}
+
+.hero-section::after {
+    content: '';
+    position: absolute;
+    bottom: -30%;
+    left: -15%;
+    width: 400px;
+    height: 400px;
+    background: radial-gradient(circle, rgba(52, 211, 153, 0.06) 0%, transparent 70%);
+    border-radius: 50%;
+    animation: floatSlow 25s ease-in-out infinite reverse;
+}
+
+.hero-section h1,
+.hero-section p {
+    position: relative;
+    z-index: 2;
+}
+
+@keyframes floatSlow {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-20px); }
+}
+
+/* ============================================================================
+   2. CORE PRODUCTS SECTION IMPROVEMENTS
+   ============================================================================ */
+
+.product-card {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    border: 1px solid rgba(248, 113, 113, 0.1);
+    position: relative;
+    overflow: hidden;
+}
+
+.product-card::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 0;
+    height: 100%;
+    background: linear-gradient(90deg, 
+        rgba(248, 113, 113, 0.1) 0%,
+        rgba(96, 165, 250, 0.1) 50%,
+        rgba(52, 211, 153, 0.1) 100%);
+    transition: width 0.4s ease;
+    z-index: 0;
+}
+
+.product-card:hover::before {
+    width: 100%;
+}
+
+.product-card .card-body {
+    position: relative;
+    z-index: 1;
+}
+
+.product-card:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 20px 50px rgba(248, 113, 113, 0.12);
+    border-color: rgba(248, 113, 113, 0.3);
+}
+
+.product-card-icon {
+    font-size: 3rem;
+    background: linear-gradient(135deg, #f87171 0%, #fb7185 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 1rem;
+    transition: transform 0.3s ease;
+}
+
+.product-card:hover .product-card-icon {
+    transform: scale(1.2) rotate(10deg);
+}
+
+/* ============================================================================
+   3. EVENT CARDS IMPROVEMENTS
+   ============================================================================ */
+
+.event-card {
+    border: none;
+    border-radius: 16px;
+    overflow: hidden;
+    position: relative;
+    background: linear-gradient(135deg, #ffffff 0%, #fafafa 100%);
+    transition: all 0.3s ease;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+}
+
+.event-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 4px;
+    background: linear-gradient(90deg, #f87171 0%, #60a5fa 50%, #34d399 100%);
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 0.4s ease;
+    z-index: 1;
+}
+
+.event-card:hover::before {
+    transform: scaleX(1);
+}
+
+.event-card:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.12);
+}
+
+.event-date {
+    display: inline-block;
+    background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+    color: #991b1b;
+    padding: 8px 16px;
+    border-radius: 12px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+}
+
+.event-title {
+    font-weight: 700;
+    color: #1f2937;
+    line-height: 1.4;
+    margin-bottom: 0.75rem;
+}
+
+.event-location {
+    display: flex;
+    align-items: center;
+    color: #6b7280;
+    font-size: 0.875rem;
+    margin-bottom: 1rem;
+}
+
+.event-location i {
+    color: #f87171;
+    margin-right: 0.5rem;
+}
+
+/* ============================================================================
+   4. ABOUT SECTION IMPROVEMENTS
+   ============================================================================ */
+
+#about-section {
+    background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+    border: 2px solid rgba(248, 113, 113, 0.08);
+    border-radius: 20px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.04);
+    position: relative;
+    overflow: hidden;
+}
+
+#about-section::before {
+    content: '';
+    position: absolute;
+    top: -100px;
+    right: -100px;
+    width: 400px;
+    height: 400px;
+    background: radial-gradient(circle, rgba(248, 113, 113, 0.05) 0%, transparent 70%);
+    border-radius: 50%;
+}
+
+.about-content {
+    position: relative;
+    z-index: 2;
+}
+
+.president-card,
+.member-card {
+    background: #ffffff;
+    border-radius: 16px;
+    border: 1px solid rgba(248, 113, 113, 0.1);
+    transition: all 0.3s ease;
+    overflow: hidden;
+}
+
+.president-card:hover,
+.member-card:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 16px 40px rgba(248, 113, 113, 0.15);
+    border-color: rgba(248, 113, 113, 0.3);
+}
+
+.member-avatar {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 4px solid #f87171;
+    transition: transform 0.3s ease;
+}
+
+.member-card:hover .member-avatar {
+    transform: scale(1.08) rotate(-5deg);
+}
+
+.member-name {
+    font-weight: 700;
+    color: #1f2937;
+    margin-top: 1rem;
+}
+
+.member-role {
+    color: #f87171;
+    font-size: 0.875rem;
+    font-weight: 600;
+}
+
+/* ============================================================================
+   5. SECTION TITLES STYLING
+   ============================================================================ */
+
+.section-title {
+    font-size: 0.875rem;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: #f87171;
+    display: inline-block;
+    padding-bottom: 0.5rem;
+    position: relative;
+}
+
+.section-title::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 2px;
+    background: linear-gradient(90deg, #f87171 0%, transparent 100%);
+    animation: slideIn 0.8s ease-out;
+}
+
+@keyframes slideIn {
+    from {
+        width: 0;
+    }
+    to {
+        width: 100%;
+    }
+}
+
+#about-section .section-title {
+    color: #991b1b;
+    font-weight: 800;
+}
+
+/* ============================================================================
+   6. GENERAL CARD ENHANCEMENTS
+   ============================================================================ */
+
+.card {
+    border: 1px solid rgba(248, 113, 113, 0.08);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+    border-radius: 16px;
+    transition: all 0.3s ease;
+    background: #ffffff;
+}
+
+.card-flat {
+    border: none;
+    box-shadow: none;
+}
+
+.card-body {
+    padding: 1.75rem;
+}
+
+/* ============================================================================
+   7. BUTTON ENHANCEMENTS
+   ============================================================================ */
+
+.btn {
+    border-radius: 12px;
+    font-weight: 600;
+    padding: 0.75rem 1.75rem;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.btn::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.3);
+    transform: translate(-50%, -50%);
+    transition: width 0.6s, height 0.6s;
+    z-index: 1;
+}
+
+.btn:hover::before {
+    width: 300px;
+    height: 300px;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #f87171 0%, #fb7185 100%);
+    border: none;
+    color: white;
+    position: relative;
+    z-index: 2;
+}
+
+.btn-primary:hover {
+    background: linear-gradient(135deg, #f87171 0%, #fb7185 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 12px 32px rgba(248, 113, 113, 0.3);
+    color: white;
+}
+
+.btn-outline-primary {
+    border: 2px solid #f87171;
+    color: #f87171;
+}
+
+.btn-outline-primary:hover {
+    background: #f87171;
+    border-color: #f87171;
+    color: white;
+    transform: translateY(-2px);
+}
+
+/* ============================================================================
+   8. RESPONSIVE ADJUSTMENTS
+   ============================================================================ */
+
+@media (max-width: 768px) {
+    .hero-section {
+        padding: 2rem 1rem;
+        border-radius: 16px;
+    }
+
+    .product-card {
+        margin-bottom: 1rem;
+    }
+
+    .member-avatar {
+        width: 80px;
+        height: 80px;
+    }
+
+    .section-title {
+        font-size: 0.75rem;
+    }
+
+    .btn {
+        padding: 0.6rem 1.2rem;
+        font-size: 0.875rem;
+    }
+
+    .event-card {
+        margin-bottom: 1rem;
+    }
+}
+
+/* ============================================================================
+   9. ANIMATIONS & TRANSITIONS
+   ============================================================================ */
+
+.fade-in-up {
+    animation: fadeInUp 0.6s ease-out forwards;
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ============================================================================
+   10. ACCESSIBILITY
+   ============================================================================ */
+
+@media (prefers-reduced-motion: reduce) {
+    * {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
