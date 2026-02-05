@@ -345,18 +345,18 @@
     </section>
     
     <!-- Partners Section -->
-    <section class="section-padding" id="partners-section">
-        <div class="text-center mb-5">
-            <h6 class="section-title mb-4 section-title-display">PARTNERSHIPS</h6>
-            <h2 class="fw-bold mb-2 partners-section-title">Organizations We Collaborate With</h2>
+    <section class="section-padding" id="partners-section" aria-labelledby="partners-title" role="region">
+        <header class="text-center mb-5">
+            <p class="section-title mb-4 section-title-display" role="text">PARTNERSHIPS</p>
+            <h2 id="partners-title" class="fw-bold mb-2 partners-section-title">Organizations We Collaborate With</h2>
             <p class="text-muted">Building strong relationships worldwide</p>
-        </div>
+        </header>
         {% if partners %}
-            <div class="row g-4">
+            <div class="row g-4" role="list">
                 {% for partner in partners %}
                     <!-- Compact Partner Card -->
-                    <div class="col-12 col-md-6 col-lg-4">
-                        <article class="partner-card-compact card h-100">
+                    <div class="col-12 col-md-6 col-lg-4" role="listitem">
+                        <article class="partner-card-compact card h-100" aria-label="{{ partner.name }} - {{ partner.get_category_display }} partner">
                             <div class="card-body p-3">
                                 <div class="d-flex align-items-start gap-3">
                                     <!-- Logo (Left) -->
@@ -373,12 +373,12 @@
                                     <!-- Content (Right) -->
                                     <div class="flex-grow-1 min-w-0">
                                         <!-- Category Badge -->
-                                        <span class="badge {% if partner.category == 'sponsor' %}badge-partner-sponsor{% elif partner.category == 'media' %}badge-partner-media{% elif partner.category == 'tech' %}badge-partner-tech{% elif partner.category == 'venue' %}badge-partner-venue{% else %}badge-partner-default{% endif %} mb-2">
-                                            {% if partner.category == 'sponsor' %}<i class="fas fa-star me-1"></i>Sponsor
-                                            {% elif partner.category == 'media' %}<i class="fas fa-newspaper me-1"></i>Media
-                                            {% elif partner.category == 'tech' %}<i class="fas fa-code me-1"></i>Tech
-                                            {% elif partner.category == 'venue' %}<i class="fas fa-building me-1"></i>Venue
-                                            {% else %}<i class="fas fa-link me-1"></i>Partner{% endif %}
+                                        <span class="badge {% if partner.category == 'sponsor' %}badge-partner-sponsor{% elif partner.category == 'media' %}badge-partner-media{% elif partner.category == 'tech' %}badge-partner-tech{% elif partner.category == 'venue' %}badge-partner-venue{% else %}badge-partner-default{% endif %} mb-2" role="text">
+                                            {% if partner.category == 'sponsor' %}<i class="fas fa-star me-1" aria-hidden="true"></i>Sponsor
+                                            {% elif partner.category == 'media' %}<i class="fas fa-newspaper me-1" aria-hidden="true"></i>Media
+                                            {% elif partner.category == 'tech' %}<i class="fas fa-code me-1" aria-hidden="true"></i>Tech
+                                            {% elif partner.category == 'venue' %}<i class="fas fa-building me-1" aria-hidden="true"></i>Venue
+                                            {% else %}<i class="fas fa-link me-1" aria-hidden="true"></i>Partner{% endif %}
                                         </span>
                                         
                                         <!-- Name -->
@@ -396,13 +396,15 @@
                                                 hx-get="{% url 'core:partner_detail' pk=partner.pk %}"
                                                 hx-target="#partner-modal-body"
                                                 data-bs-toggle="modal" 
-                                                data-bs-target="#partnerModal">
-                                                <i class="fas fa-info-circle me-1"></i>Details
+                                                data-bs-target="#partnerModal"
+                                                aria-label="View details about {{ partner.name }}">
+                                                <i class="fas fa-info-circle me-1" aria-hidden="true"></i>Details
                                             </button>
                                             {% if partner.link %}
                                                 <a href="{{ partner.link }}" target="_blank" rel="noopener" 
-                                                   class="btn btn-sm btn-primary">
-                                                    <i class="fas fa-external-link-alt me-1"></i>Visit
+                                                   class="btn btn-sm btn-primary"
+                                                   aria-label="Visit {{ partner.name }} website">
+                                                    <i class="fas fa-external-link-alt me-1" aria-hidden="true"></i>Visit
                                                 </a>
                                             {% endif %}
                                         </div>
@@ -481,4 +483,6 @@
 <script src="{% static 'js/scroll-animations.js' %}"></script>
 <!-- Member modal handler (replaces inline script) -->
 <script src="{% static 'js/member-modal.js' %}"></script>
+<!-- Partner card interactive effects -->
+<script src="{% static 'js/partner-card-effects.js' %}"></script>
 {% endblock %}

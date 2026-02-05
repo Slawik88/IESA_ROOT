@@ -1,0 +1,585 @@
+/**
+ * HOMEPAGE ENHANCEMENTS v2.0
+ * Soft colors, modern interactions, beautiful design
+ * Fixes: яркие цвета → мягкие тона, добавление интерактивности
+ */
+
+/* ============================================================
+   1. SOFT COLOR PALETTE (вместо ярких красных)
+   ============================================================ */
+
+:root {
+    /* Мягкие красные тона вместо ярких */
+    --soft-red: #f87171;
+    --soft-red-hover: #ef4444;
+    --soft-red-light: #fef2f2;
+    --soft-red-border: #fecaca;
+    
+    /* Мягкие акцентные цвета */
+    --soft-blue: #60a5fa;
+    --soft-blue-hover: #3b82f6;
+    --soft-emerald: #34d399;
+    --soft-amber: #fbbf24;
+    
+    /* Нейтральные мягкие тона */
+    --soft-gray-bg: #f8fafc;
+    --soft-gray-border: #e2e8f0;
+    --soft-gray-text: #64748b;
+    
+    /* Градиенты - мягкие, не агрессивные */
+    --gradient-soft-red: linear-gradient(135deg, #fef2f2 0%, #fee2e2 50%, #fecaca 100%);
+    --gradient-soft-blue: linear-gradient(135deg, #eff6ff 0%, #dbeafe 50%, #bfdbfe 100%);
+    --gradient-soft-emerald: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 50%, #a7f3d0 100%);
+    
+    /* Тени - мягкие, не резкие */
+    --shadow-soft: 0 4px 16px rgba(0, 0, 0, 0.04);
+    --shadow-soft-hover: 0 8px 24px rgba(0, 0, 0, 0.08);
+    --shadow-soft-lg: 0 12px 32px rgba(0, 0, 0, 0.12);
+}
+
+/* ============================================================
+   2. BODY BACKGROUND - мягкий градиент
+   ============================================================ */
+
+body {
+    background: linear-gradient(135deg, #ffffff 0%, #f8fafc 50%, #f1f5f9 100%);
+    background-attachment: fixed;
+}
+
+/* ============================================================
+   3. HERO SECTION - улучшенный дизайн
+   ============================================================ */
+
+.hero-section {
+    background: linear-gradient(135deg, #ffffff 0%, #fef2f2 30%, #fee2e2 60%, #ffffff 100%);
+    border: 2px solid rgba(248, 113, 113, 0.1);
+    position: relative;
+    overflow: hidden;
+}
+
+/* Декоративные элементы фона */
+.hero-section::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -20%;
+    width: 500px;
+    height: 500px;
+    background: radial-gradient(circle, rgba(248, 113, 113, 0.05) 0%, transparent 70%);
+    border-radius: 50%;
+    pointer-events: none;
+}
+
+.hero-section::after {
+    content: '';
+    position: absolute;
+    bottom: -30%;
+    left: -10%;
+    width: 400px;
+    height: 400px;
+    background: radial-gradient(circle, rgba(96, 165, 250, 0.04) 0%, transparent 70%);
+    border-radius: 50%;
+    pointer-events: none;
+}
+
+.hero-badge {
+    background: linear-gradient(135deg, #fff 0%, #fef2f2 100%);
+    border: 2px solid var(--soft-red-border);
+    color: var(--soft-red-hover);
+    box-shadow: var(--shadow-soft);
+    transition: all 0.3s ease;
+}
+
+.hero-badge:hover {
+    transform: scale(1.05);
+    box-shadow: var(--shadow-soft-hover);
+}
+
+/* ============================================================
+   4. BENEFITS SECTION - современные карточки
+   ============================================================ */
+
+.benefit-card {
+    background: linear-gradient(145deg, #ffffff 0%, #fafafa 100%);
+    border: 1px solid var(--soft-gray-border);
+    box-shadow: var(--shadow-soft);
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+/* Hover эффект с поднятием и свечением */
+.benefit-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent 0%, rgba(248, 113, 113, 0.05) 50%, transparent 100%);
+    transition: left 0.6s ease;
+    pointer-events: none;
+}
+
+.benefit-card:hover::before {
+    left: 100%;
+}
+
+.benefit-card:hover {
+    transform: translateY(-8px) scale(1.02);
+    box-shadow: 0 16px 40px rgba(248, 113, 113, 0.15);
+    border-color: var(--soft-red-border);
+}
+
+/* Benefit icon box - градиентный фон */
+.benefit-icon-box {
+    background: linear-gradient(135deg, var(--soft-red) 0%, var(--soft-red-hover) 100%);
+    width: 56px;
+    height: 56px;
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 12px rgba(248, 113, 113, 0.25);
+    transition: all 0.3s ease;
+}
+
+.benefit-card:hover .benefit-icon-box {
+    transform: rotate(10deg) scale(1.1);
+    box-shadow: 0 8px 20px rgba(248, 113, 113, 0.35);
+}
+
+/* Декоративная полоска сверху */
+.benefit-card-decoration-top {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, var(--soft-red) 0%, var(--soft-blue) 50%, var(--soft-emerald) 100%);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.benefit-card:hover .benefit-card-decoration-top {
+    opacity: 1;
+}
+
+/* ============================================================
+   5. PRODUCT CARDS - интерактивные эффекты
+   ============================================================ */
+
+.product-card {
+    background: #ffffff;
+    border: 1px solid var(--soft-gray-border);
+    box-shadow: var(--shadow-soft);
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    overflow: hidden;
+    position: relative;
+}
+
+/* Цветная полоска слева при hover */
+.product-card::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 0;
+    background: linear-gradient(180deg, var(--soft-red) 0%, var(--soft-red-hover) 100%);
+    transition: width 0.3s ease;
+}
+
+.product-card:hover::before {
+    width: 6px;
+}
+
+.product-card:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 20px 48px rgba(0, 0, 0, 0.1);
+    border-color: var(--soft-red-border);
+}
+
+.product-card-image {
+    transition: transform 0.5s ease;
+}
+
+.product-card:hover .product-card-image {
+    transform: scale(1.08);
+}
+
+/* Badge "Core Program" - мягкий стиль */
+.product-card .badge.bg-white {
+    background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%) !important;
+    border: 1px solid var(--soft-gray-border);
+    color: var(--soft-gray-text);
+    box-shadow: var(--shadow-soft);
+    transition: all 0.3s ease;
+}
+
+.product-card:hover .badge.bg-white {
+    transform: scale(1.05);
+    box-shadow: var(--shadow-soft-hover);
+}
+
+/* ============================================================
+   6. EVENT CARDS - красивые тени и анимации
+   ============================================================ */
+
+.event-card {
+    background: #ffffff;
+    border: 1px solid var(--soft-gray-border);
+    box-shadow: var(--shadow-soft);
+    transition: all 0.3s ease;
+    border-radius: 20px !important;
+    overflow: hidden;
+}
+
+.event-card:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 16px 40px rgba(96, 165, 250, 0.15);
+    border-color: #bfdbfe;
+}
+
+.event-card-placeholder {
+    background: linear-gradient(135deg, var(--soft-blue) 0%, var(--soft-blue-hover) 100%);
+}
+
+/* Дата event - стильный чип */
+.event-card .badge-primary {
+    background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+    color: var(--soft-blue-hover);
+    border: 1px solid #bfdbfe;
+    box-shadow: none;
+}
+
+/* ============================================================
+   7. MEMBER CARDS - гладкие, современные
+   ============================================================ */
+
+.member-card {
+    background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);
+    border: 1px solid var(--soft-gray-border);
+    box-shadow: var(--shadow-soft);
+    transition: all 0.35s ease;
+}
+
+.member-card:hover {
+    transform: translateY(-6px) scale(1.01);
+    box-shadow: 0 16px 40px rgba(52, 211, 153, 0.12);
+    border-color: #a7f3d0;
+}
+
+.member-avatar {
+    background: linear-gradient(135deg, var(--soft-emerald) 0%, #10b981 100%);
+    box-shadow: 0 4px 12px rgba(52, 211, 153, 0.25);
+    transition: all 0.3s ease;
+}
+
+.member-card:hover .member-avatar {
+    transform: scale(1.05) rotate(-5deg);
+    box-shadow: 0 8px 20px rgba(52, 211, 153, 0.35);
+}
+
+.member-more-btn {
+    background: linear-gradient(135deg, var(--soft-emerald) 0%, #10b981 100%);
+    border: none;
+    box-shadow: 0 4px 12px rgba(52, 211, 153, 0.2);
+    transition: all 0.3s ease;
+}
+
+.member-more-btn:hover {
+    transform: translateX(4px);
+    box-shadow: 0 6px 16px rgba(52, 211, 153, 0.3);
+}
+
+/* ============================================================
+   8. PARTNERS SECTION - улучшенный дизайн
+   ============================================================ */
+
+.partner-card-compact {
+    background: #ffffff;
+    border: 1px solid var(--soft-gray-border);
+    box-shadow: var(--shadow-soft);
+    transition: all 0.35s ease;
+    border-radius: 16px;
+    overflow: hidden;
+    position: relative;
+}
+
+/* Градиентная полоска сверху */
+.partner-card-compact::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--soft-red) 0%, var(--soft-blue) 50%, var(--soft-emerald) 100%);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.partner-card-compact:hover::before {
+    opacity: 1;
+}
+
+.partner-card-compact:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.08);
+    border-color: var(--soft-red-border);
+}
+
+/* Partner logo - мягкая тень */
+.partner-logo-compact {
+    width: 70px;
+    height: 70px;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: var(--shadow-soft);
+    transition: all 0.3s ease;
+    background: linear-gradient(135deg, #fafafa 0%, #f1f5f9 100%);
+}
+
+.partner-card-compact:hover .partner-logo-compact {
+    transform: scale(1.05);
+    box-shadow: var(--shadow-soft-hover);
+}
+
+/* Partner category badges - мягкие цвета */
+.badge-partner-sponsor {
+    background: linear-gradient(135deg, #fef9c3 0%, #fde047 100%);
+    color: #92400e;
+    border: 1px solid #fde047;
+}
+
+.badge-partner-media {
+    background: linear-gradient(135deg, #ede9fe 0%, #c4b5fd 100%);
+    color: #5b21b6;
+    border: 1px solid #c4b5fd;
+}
+
+.badge-partner-tech {
+    background: linear-gradient(135deg, #dbeafe 0%, #93c5fd 100%);
+    color: #1e40af;
+    border: 1px solid #93c5fd;
+}
+
+.badge-partner-venue {
+    background: linear-gradient(135deg, #d1fae5 0%, #6ee7b7 100%);
+    color: #065f46;
+    border: 1px solid #6ee7b7;
+}
+
+.badge-partner-default {
+    background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+    color: #374151;
+    border: 1px solid #d1d5db;
+}
+
+/* ============================================================
+   9. DONATE SECTION - элегантный редизайн
+   ============================================================ */
+
+.donate-card {
+    background: linear-gradient(135deg, #1e293b 0%, #334155 50%, #475569 100%);
+    border-radius: 24px;
+    box-shadow: 0 20px 48px rgba(0, 0, 0, 0.2);
+    position: relative;
+    overflow: hidden;
+}
+
+/* Декоративные круги */
+.donate-card::before,
+.donate-card::after {
+    content: '';
+    position: absolute;
+    border-radius: 50%;
+    pointer-events: none;
+    opacity: 0.1;
+}
+
+.donate-card::before {
+    top: -100px;
+    right: -100px;
+    width: 300px;
+    height: 300px;
+    background: radial-gradient(circle, #fff 0%, transparent 70%);
+}
+
+.donate-card::after {
+    bottom: -80px;
+    left: -80px;
+    width: 250px;
+    height: 250px;
+    background: radial-gradient(circle, #60a5fa 0%, transparent 70%);
+}
+
+/* Progress container */
+.donate-progress-container {
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    backdrop-filter: blur(10px);
+}
+
+/* Progress bar - мягкий градиент */
+.donate-progress-bar {
+    height: 12px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.1);
+    overflow: hidden;
+}
+
+.donate-progress-fill {
+    background: linear-gradient(90deg, var(--soft-emerald) 0%, #10b981 50%, var(--soft-blue) 100%);
+    box-shadow: 0 0 16px rgba(52, 211, 153, 0.5);
+    animation: progressPulse 2s ease-in-out infinite;
+}
+
+@keyframes progressPulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.85; }
+}
+
+/* Donation badge */
+.donation-badge {
+    background: rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 20px;
+    padding: 2rem;
+    backdrop-filter: blur(10px);
+}
+
+/* ============================================================
+   10. BUTTONS - улучшенные стили
+   ============================================================ */
+
+.btn-primary {
+    background: linear-gradient(135deg, var(--soft-red) 0%, var(--soft-red-hover) 100%);
+    border: none;
+    box-shadow: 0 4px 12px rgba(248, 113, 113, 0.25);
+    transition: all 0.3s ease;
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(248, 113, 113, 0.35);
+    background: linear-gradient(135deg, var(--soft-red-hover) 0%, #dc2626 100%);
+}
+
+.btn-outline-primary {
+    border: 2px solid var(--soft-red);
+    color: var(--soft-red-hover);
+    background: transparent;
+    transition: all 0.3s ease;
+}
+
+.btn-outline-primary:hover {
+    background: var(--soft-red);
+    color: white;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(248, 113, 113, 0.25);
+}
+
+/* ============================================================
+   11. SECTION HEADERS - красивая типографика
+   ============================================================ */
+
+.section-title-display {
+    font-size: 0.875rem;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: var(--soft-gray-text);
+    position: relative;
+    display: inline-block;
+}
+
+.section-title-display::after {
+    content: '';
+    position: absolute;
+    bottom: -8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 50%;
+    height: 2px;
+    background: linear-gradient(90deg, var(--soft-red) 0%, var(--soft-blue) 100%);
+    border-radius: 2px;
+}
+
+/* ============================================================
+   12. BADGES - мягкие, современные
+   ============================================================ */
+
+.badge-primary {
+    background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+    color: var(--soft-red-hover);
+    border: 1px solid var(--soft-red-border);
+    font-weight: 600;
+}
+
+.badge-secondary {
+    background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+    color: var(--soft-blue-hover);
+    border: 1px solid #93c5fd;
+    font-weight: 600;
+}
+
+/* ============================================================
+   13. PAGINATION - красивая стилизация
+   ============================================================ */
+
+.pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+}
+
+.pagination-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    background: #ffffff;
+    border: 1px solid var(--soft-gray-border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--soft-gray-text);
+    transition: all 0.3s ease;
+    box-shadow: var(--shadow-soft);
+}
+
+.pagination-btn:hover {
+    background: var(--soft-red);
+    color: white;
+    transform: scale(1.1);
+    box-shadow: var(--shadow-soft-hover);
+    border-color: var(--soft-red);
+}
+
+.pagination-info {
+    color: var(--soft-gray-text);
+    font-weight: 600;
+    font-size: 0.875rem;
+}
+
+/* ============================================================
+   14. RESPONSIVE IMPROVEMENTS
+   ============================================================ */
+
+@media (max-width: 768px) {
+    .benefit-card,
+    .product-card,
+    .member-card,
+    .partner-card-compact {
+        border-radius: 16px;
+    }
+    
+    .benefit-card:hover,
+    .product-card:hover,
+    .member-card:hover,
+    .partner-card-compact:hover {
+        transform: translateY(-4px) scale(1);
+    }
+}
