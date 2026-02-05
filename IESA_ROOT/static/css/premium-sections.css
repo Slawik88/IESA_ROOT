@@ -1,0 +1,711 @@
+/* 
+ * PREMIUM SECTIONS REDESIGN - Events, About, Partnerships
+ * Modern luxury design with 3D effects, gradients, and premium interactions
+ */
+
+/* ============================================================================
+   1. UPCOMING EVENTS SECTION - 3D CARD REDESIGN
+   ============================================================================ */
+
+#events-section {
+    position: relative;
+    overflow: hidden;
+}
+
+#events-section::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -50%;
+    width: 800px;
+    height: 800px;
+    background: radial-gradient(circle, rgba(248, 113, 113, 0.05) 0%, transparent 70%);
+    border-radius: 50%;
+    animation: rotateSlow 30s linear infinite;
+    z-index: 0;
+}
+
+@keyframes rotateSlow {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.event-card {
+    background: #ffffff;
+    border: 1px solid rgba(248, 113, 113, 0.08);
+    border-radius: 20px;
+    overflow: hidden;
+    transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+    position: relative;
+    height: 100%;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.06);
+    transform: translateZ(0);
+}
+
+/* Gradient border effect */
+.event-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #f87171 0%, #60a5fa 50%, #34d399 100%);
+    transform: translateX(-100%);
+    transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+    z-index: 10;
+}
+
+.event-card:hover::before {
+    transform: translateX(0);
+}
+
+/* Image container with overlay effect */
+.event-card .card-img-top {
+    height: 200px;
+    object-fit: cover;
+    transition: all 0.5s ease;
+    filter: brightness(1);
+}
+
+.event-card:hover .card-img-top {
+    transform: scale(1.1) translateY(-8px);
+    filter: brightness(1.2) contrast(1.1);
+}
+
+/* Placeholder for no image */
+.event-card-placeholder {
+    height: 200px;
+    background: linear-gradient(135deg, #f87171 0%, #fb7185 100%);
+    position: relative;
+    overflow: hidden;
+}
+
+.event-card-placeholder::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+    animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+    0% { left: -100%; }
+    100% { left: 100%; }
+}
+
+/* Icon in placeholder */
+.event-card-icon {
+    font-size: 3rem;
+    color: rgba(255, 255, 255, 0.8);
+    position: relative;
+    z-index: 1;
+}
+
+/* Card body styling */
+.event-card .card-body {
+    padding: 1.5rem;
+    position: relative;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+}
+
+/* Date and location badges */
+.event-card .badge {
+    display: inline-block;
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+    color: #991b1b;
+    border: 1px solid rgba(248, 113, 113, 0.2);
+    transition: all 0.3s ease;
+}
+
+.event-card .badge:hover {
+    transform: scale(1.05);
+    background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+}
+
+.event-card .gap-2 {
+    margin-bottom: 1rem;
+}
+
+/* Event card title */
+.event-card .card-title {
+    color: #1f2937;
+    font-size: 1.1rem;
+    line-height: 1.4;
+    margin-bottom: 0.75rem;
+    transition: color 0.3s ease;
+}
+
+.event-card:hover .card-title {
+    color: #f87171;
+}
+
+/* Event description */
+.event-card .text-muted {
+    flex-grow: 1;
+    margin-bottom: 1rem;
+    color: #6b7280;
+    font-size: 0.875rem;
+    line-height: 1.5;
+}
+
+/* Card footer button */
+.event-card .card-footer {
+    background: #fafafa;
+    border-top: 1px solid rgba(248, 113, 113, 0.05);
+    padding: 1rem;
+    position: relative;
+}
+
+.event-card .card-footer::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, #f87171, transparent);
+    transform: scaleX(0);
+    transform-origin: center;
+    transition: transform 0.4s ease;
+}
+
+.event-card:hover .card-footer::before {
+    transform: scaleX(1);
+}
+
+/* Button styling */
+.event-card .btn {
+    border-radius: 10px;
+    padding: 0.6rem 1.2rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.event-card .btn-outline {
+    border: 2px solid #f87171;
+    color: #f87171;
+    background: transparent;
+}
+
+.event-card .btn-outline:hover {
+    background: #f87171;
+    color: white;
+    transform: translateY(-2px);
+}
+
+/* 3D hover effect */
+.event-card:hover {
+    transform: translateY(-12px) rotateX(2deg);
+    box-shadow: 0 30px 60px rgba(248, 113, 113, 0.15);
+    border-color: rgba(248, 113, 113, 0.3);
+    perspective: 1000px;
+}
+
+/* Grid layout */
+.grid {
+    display: grid;
+    gap: 2rem;
+    perspective: 1000px;
+}
+
+.grid-cols-3 {
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+}
+
+/* ============================================================================
+   2. ABOUT SECTION - PREMIUM LEADERSHIP CARDS
+   ============================================================================ */
+
+#about-section {
+    background: linear-gradient(135deg, #ffffff 0%, #f8fafc 50%, #f1f5f9 100%);
+    border: 2px solid rgba(248, 113, 113, 0.1);
+    border-radius: 24px;
+    padding: 4rem 2rem;
+    position: relative;
+    overflow: hidden;
+}
+
+#about-section::after {
+    content: '';
+    position: absolute;
+    bottom: -100px;
+    left: -100px;
+    width: 500px;
+    height: 500px;
+    background: radial-gradient(circle, rgba(96, 165, 250, 0.08) 0%, transparent 70%);
+    border-radius: 50%;
+}
+
+.about-content {
+    position: relative;
+    z-index: 2;
+}
+
+/* President Card - Spotlight */
+.president-card {
+    background: linear-gradient(135deg, #ffffff 0%, #fafafa 100%);
+    border: 2px solid rgba(248, 113, 113, 0.15);
+    border-radius: 20px;
+    padding: 2.5rem;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 20px 50px rgba(248, 113, 113, 0.1);
+    transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.president-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #f87171 0%, #fb7185 100%);
+    transform: scaleX(0);
+    transform-origin: center;
+    transition: transform 0.5s ease;
+    z-index: 10;
+}
+
+.president-card:hover::before {
+    transform: scaleX(1);
+}
+
+/* President avatar */
+.president-card .president-avatar {
+    width: 150px;
+    height: 150px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 5px solid #f87171;
+    margin: 0 auto 1.5rem;
+    box-shadow: 0 10px 40px rgba(248, 113, 113, 0.25);
+    transition: all 0.4s ease;
+}
+
+.president-card:hover .president-avatar {
+    transform: scale(1.1) rotate(3deg);
+    box-shadow: 0 20px 60px rgba(248, 113, 113, 0.35);
+}
+
+.president-card .president-name {
+    font-size: 1.75rem;
+    font-weight: 800;
+    color: #1f2937;
+    margin-bottom: 0.5rem;
+}
+
+.president-card .president-role {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #f87171;
+    margin-bottom: 1rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.president-card .president-bio {
+    color: #6b7280;
+    line-height: 1.6;
+    margin-bottom: 1.5rem;
+    font-size: 0.95rem;
+}
+
+.president-card:hover {
+    transform: translateY(-8px) perspective(1000px) rotateY(2deg);
+    border-color: rgba(248, 113, 113, 0.3);
+    box-shadow: 0 30px 70px rgba(248, 113, 113, 0.15);
+}
+
+/* Team Members Grid */
+.team-members-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 2rem;
+    margin-top: 2rem;
+}
+
+.member-card {
+    background: #ffffff;
+    border: 2px solid rgba(248, 113, 113, 0.08);
+    border-radius: 16px;
+    padding: 2rem;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.04);
+}
+
+/* Colored top stripe */
+.member-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #f87171 0%, #60a5fa 50%, #34d399 100%);
+    transform: translateX(-100%);
+    transition: transform 0.5s ease;
+}
+
+.member-card:hover::before {
+    transform: translateX(0);
+}
+
+.member-card .member-avatar {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 4px solid #f87171;
+    margin: 0 auto 1rem;
+    box-shadow: 0 8px 24px rgba(248, 113, 113, 0.2);
+    transition: all 0.3s ease;
+}
+
+.member-card:hover .member-avatar {
+    transform: scale(1.12) rotate(-5deg);
+    box-shadow: 0 12px 36px rgba(248, 113, 113, 0.3);
+}
+
+.member-card .member-name {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #1f2937;
+    margin-bottom: 0.4rem;
+}
+
+.member-card .member-role {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #f87171;
+    margin-bottom: 0.5rem;
+}
+
+.member-card .member-bio {
+    font-size: 0.85rem;
+    color: #6b7280;
+    line-height: 1.5;
+    margin-bottom: 1rem;
+}
+
+.member-card:hover {
+    transform: translateY(-8px);
+    border-color: rgba(248, 113, 113, 0.3);
+    box-shadow: 0 16px 48px rgba(248, 113, 113, 0.12);
+}
+
+/* ============================================================================
+   3. PARTNERSHIPS SECTION - PREMIUM PARTNER CARDS
+   ============================================================================ */
+
+#partners-section {
+    position: relative;
+    overflow: hidden;
+}
+
+#partners-section::before {
+    content: '';
+    position: absolute;
+    top: -200px;
+    left: -200px;
+    width: 600px;
+    height: 600px;
+    background: radial-gradient(circle, rgba(52, 211, 153, 0.08) 0%, transparent 70%);
+    border-radius: 50%;
+    animation: floatParallax 20s ease-in-out infinite;
+}
+
+@keyframes floatParallax {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-30px); }
+}
+
+.partner-card-compact {
+    background: #ffffff;
+    border: 2px solid rgba(248, 113, 113, 0.08);
+    border-radius: 16px;
+    padding: 1.5rem;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.05);
+    height: 100%;
+}
+
+/* Premium top stripe */
+.partner-card-compact::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 4px;
+    background: linear-gradient(90deg, #f87171 0%, #fb7185 50%, #fca5a5 100%);
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 0.4s ease;
+    z-index: 10;
+}
+
+.partner-card-compact:hover::before {
+    transform: scaleX(1);
+}
+
+/* Partner logo */
+.partner-logo-compact {
+    width: 70px;
+    height: 70px;
+    min-width: 70px;
+    background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    border: 2px solid rgba(248, 113, 113, 0.1);
+    box-shadow: 0 4px 12px rgba(248, 113, 113, 0.08);
+    transition: all 0.3s ease;
+}
+
+.partner-logo-compact img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    filter: brightness(1);
+    transition: all 0.3s ease;
+}
+
+.partner-card-compact:hover .partner-logo-compact {
+    transform: scale(1.08) rotate(3deg);
+    border-color: rgba(248, 113, 113, 0.25);
+    box-shadow: 0 8px 24px rgba(248, 113, 113, 0.15);
+}
+
+.partner-card-compact:hover .partner-logo-compact img {
+    filter: brightness(1.15) saturate(1.1);
+}
+
+/* Logo placeholder */
+.partner-logo-placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    color: #f87171;
+    font-size: 1.5rem;
+    background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+}
+
+/* Partner name */
+.partner-name-compact {
+    font-size: 1.05rem;
+    color: #1f2937;
+    line-height: 1.3;
+    transition: color 0.3s ease;
+}
+
+.partner-card-compact:hover .partner-name-compact {
+    color: #f87171;
+}
+
+/* Partner description */
+.partner-description-compact {
+    color: #6b7280;
+    font-size: 0.85rem;
+    line-height: 1.5;
+    flex-grow: 1;
+}
+
+/* Badge styling */
+.badge {
+    display: inline-block;
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    margin-bottom: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.badge-partner-sponsor {
+    background: linear-gradient(135deg, #fef9c3 0%, #fde047 100%);
+    color: #7c2d12;
+    border: 1px solid rgba(253, 224, 71, 0.5);
+}
+
+.badge-partner-media {
+    background: linear-gradient(135deg, #ede9fe 0%, #c4b5fd 100%);
+    color: #6d28d9;
+    border: 1px solid rgba(196, 181, 253, 0.5);
+}
+
+.badge-partner-tech {
+    background: linear-gradient(135deg, #dbeafe 0%, #93c5fd 100%);
+    color: #1e40af;
+    border: 1px solid rgba(147, 197, 253, 0.5);
+}
+
+.badge-partner-venue {
+    background: linear-gradient(135deg, #d1fae5 0%, #6ee7b7 100%);
+    color: #065f46;
+    border: 1px solid rgba(110, 231, 183, 0.5);
+}
+
+.badge-partner-default {
+    background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+    color: #374151;
+    border: 1px solid rgba(229, 231, 235, 0.5);
+}
+
+/* Button group */
+.partner-card-compact .d-flex.gap-2 {
+    margin-top: auto;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(248, 113, 113, 0.05);
+}
+
+.partner-card-compact .btn {
+    flex: 1;
+    border-radius: 8px;
+    padding: 0.6rem 1rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.partner-card-compact .btn-outline-primary {
+    border: 2px solid #f87171;
+    color: #f87171;
+    background: white;
+}
+
+.partner-card-compact .btn-outline-primary:hover {
+    background: #f87171;
+    color: white;
+    transform: translateY(-2px);
+}
+
+.partner-card-compact .btn-primary {
+    background: linear-gradient(135deg, #f87171 0%, #fb7185 100%);
+    color: white;
+    border: none;
+}
+
+.partner-card-compact .btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(248, 113, 113, 0.3);
+}
+
+/* Card hover effect */
+.partner-card-compact:hover {
+    transform: translateY(-10px) rotateY(2deg);
+    border-color: rgba(248, 113, 113, 0.25);
+    box-shadow: 0 20px 50px rgba(248, 113, 113, 0.12);
+}
+
+/* Pagination buttons */
+.pagination-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #f87171 0%, #fb7185 100%);
+    color: white;
+    border: none;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-weight: 600;
+}
+
+.pagination-btn:hover {
+    transform: scale(1.1) rotate(10deg);
+    box-shadow: 0 12px 30px rgba(248, 113, 113, 0.3);
+}
+
+/* ============================================================================
+   4. RESPONSIVE ADJUSTMENTS
+   ============================================================================ */
+
+@media (max-width: 1024px) {
+    .grid-cols-3 {
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    }
+    
+    .team-members-grid {
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    }
+}
+
+@media (max-width: 768px) {
+    #events-section,
+    #about-section,
+    #partners-section {
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+    
+    .grid-cols-3 {
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+    }
+    
+    .team-members-grid {
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+    }
+    
+    .president-card {
+        padding: 2rem 1.5rem;
+    }
+    
+    .president-card .president-avatar {
+        width: 120px;
+        height: 120px;
+    }
+    
+    .event-card:hover {
+        transform: translateY(-8px);
+    }
+    
+    .partner-card-compact:hover {
+        transform: translateY(-6px);
+    }
+}
+
+/* ============================================================================
+   5. ACCESSIBILITY
+   ============================================================================ */
+
+@media (prefers-reduced-motion: reduce) {
+    .event-card,
+    .president-card,
+    .member-card,
+    .partner-card-compact,
+    .pagination-btn {
+        transition: none;
+        animation: none;
+    }
+}
