@@ -1,7 +1,7 @@
 {% extends "base.html" %}
-{% load static %}
+{% load static i18n %}
 
-{% block title %}Чат с {{ other_user.first_name }} {{ other_user.last_name }}{% endblock %}
+{% block title %}{% blocktrans with first=other_user.first_name last=other_user.last_name %}Chat with {{ first }} {{ last }}{% endblocktrans %}{% endblock %}
 
 {% block content %}
 <div class="container-fluid py-3">
@@ -36,12 +36,12 @@
                             <ul class="dropdown-menu dropdown-menu-end">
                                 <li>
                                     <a class="dropdown-item" href="{% url 'users:profile_public_username' username=other_user.username %}">
-                                        <i class="fas fa-user me-2"></i>Профиль
+                                        <i class="fas fa-user me-2"></i>{% trans "Profile" %}
                                     </a>
                                 </li>
                                 <li>
                                     <a class="dropdown-item" href="#" onclick="searchMessages()">
-                                        <i class="fas fa-search me-2"></i>Поиск
+                                        <i class="fas fa-search me-2"></i>{% trans "Search" %}
                                     </a>
                                 </li>
                             </ul>
@@ -50,7 +50,7 @@
                     
                     <!-- Typing Indicator -->
                     <div id="typingIndicator" class="typing-indicator d-none">
-                        <span>{{ other_user.first_name }} печатает</span>
+                        <span>{% blocktrans with name=other_user.first_name %}{{ name }} is typing{% endblocktrans %}</span>
                         <span class="dots"><span></span><span></span><span></span></span>
                     </div>
                 </div>
@@ -70,12 +70,12 @@
                             <textarea 
                                 id="messageInput" 
                                 class="form-control" 
-                                placeholder="Введите сообщение..."
+                                placeholder="{% trans "Type a message..." %}"
                                 rows="1"
                                 style="resize:none;max-height:120px;"
                             ></textarea>
                         </div>
-                        <label class="btn btn-outline-secondary" title="Прикрепить файл">
+                        <label class="btn btn-outline-secondary" title="{% trans "Attach file" %}">
                             <i class="fas fa-paperclip"></i>
                             <input type="file" id="fileInput" class="d-none" accept="image/*,.pdf,.doc,.docx,.txt">
                         </label>
@@ -105,11 +105,11 @@
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title"><i class="fas fa-search me-2"></i>Поиск по сообщениям</h5>
+                <h5 class="modal-title"><i class="fas fa-search me-2"></i>{% trans "Search messages" %}</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <input type="text" class="form-control mb-3" id="searchInput" placeholder="Поиск...">
+                <input type="text" class="form-control mb-3" id="searchInput" placeholder="{% trans "Search..." %}">
                 <div id="searchResults" style="max-height:300px;overflow-y:auto;"></div>
             </div>
         </div>
@@ -118,9 +118,18 @@
 
 <!-- Context Menu -->
 <div id="contextMenu" class="dropdown-menu" style="display:none;position:fixed;z-index:9999;">
-    <a class="dropdown-item" href="#" onclick="editMessage()"><i class="fas fa-edit me-2"></i>Редактировать</a>
-    <a class="dropdown-item text-danger" href="#" onclick="deleteMessage()"><i class="fas fa-trash me-2"></i>Удалить</a>
+    <a class="dropdown-item" href="#" onclick="editMessage()"><i class="fas fa-edit me-2"></i>{% trans "Edit" %}</a>
+    <a class="dropdown-item text-danger" href="#" onclick="deleteMessage()"><i class="fas fa-trash me-2"></i>{% trans "Delete" %}</a>
 </div>
+
+<div id="chatStrings"
+     data-locale="{{ LANGUAGE_CODE }}"
+     data-today="{% trans "Today" %}"
+     data-yesterday="{% trans "Yesterday" %}"
+     data-edited="{% trans "(edited)" %}"
+     data-edit-prompt="{% trans "Edit message:" %}"
+     data-delete-confirm="{% trans "Delete message?" %}"
+     data-no-results="{% trans "No results found" %}"></div>
 
 <style>
 .avatar-placeholder {
@@ -535,8 +544,11 @@
         let html = '';
         let lastDate = null;
         
+        const strings = document.getElementById('chatStrings')?.dataset;
+        const locale = strings?.locale || 'en';
+
         messages.forEach(msg => {
-            const msgDate = new Date(msg.created_at).toLocaleDateString('ru-RU');
+            const msgDate = new Date(msg.created_at).toLocaleDateString(locale);
             
             // Date separator
             if (msgDate !== lastDate) {
@@ -546,7 +558,7 @@
             
             const isOutgoing = msg.sender_id === CURRENT_USER_ID;
             const bubbleClass = isOutgoing ? 'message-outgoing' : 'message-incoming';
-            const time = new Date(msg.created_at).toLocaleTimeString('ru-RU', {hour: '2-digit', minute: '2-digit'});
+            const time = new Date(msg.created_at).toLocaleTimeString(locale, {hour: '2-digit', minute: '2-digit'});
             
             let readStatus = '';
             if (isOutgoing) {
@@ -566,7 +578,8 @@
                 }
             }
             
-            const editedText = msg.is_edited ? '<span class="message-edited">(ред.)</span>' : '';
+            const editedLabel = strings?.edited || '(edited)';
+            const editedText = msg.is_edited ? `<span class="message-edited">${editedLabel}</span>` : '';
             
             html += `
                 <div class="message-bubble ${bubbleClass}" data-message-id="${msg.id}">
@@ -588,12 +601,15 @@
         const yesterday = new Date(today);
         yesterday.setDate(yesterday.getDate() - 1);
         
+        const strings = document.getElementById('chatStrings')?.dataset;
+        const locale = strings?.locale || 'en';
+
         if (date.toDateString() === today.toDateString()) {
-            return 'Сегодня';
+            return strings?.today || 'Today';
         } else if (date.toDateString() === yesterday.toDateString()) {
-            return 'Вчера';
+            return strings?.yesterday || 'Yesterday';
         } else {
-            return date.toLocaleDateString('ru-RU', {day: 'numeric', month: 'long'});
+            return date.toLocaleDateString(locale, {day: 'numeric', month: 'long'});
         }
     }
     
@@ -613,7 +629,9 @@
         const msg = messages.find(m => m.id === selectedMessageId);
         if (!msg) return;
         
-        const newText = prompt('Редактировать сообщение:', msg.text);
+        const strings = document.getElementById('chatStrings')?.dataset;
+        const promptText = strings?.editPrompt || 'Edit message:';
+        const newText = prompt(promptText, msg.text);
         if (newText !== null && newText.trim() !== msg.text) {
             if (socket && socket.readyState === WebSocket.OPEN) {
                 socket.send(JSON.stringify({
@@ -626,7 +644,9 @@
     };
     
     window.deleteMessage = function() {
-        if (confirm('Удалить сообщение?')) {
+        const strings = document.getElementById('chatStrings')?.dataset;
+        const confirmText = strings?.deleteConfirm || 'Delete message?';
+        if (confirm(confirmText)) {
             if (socket && socket.readyState === WebSocket.OPEN) {
                 socket.send(JSON.stringify({
                     type: 'delete_message',
@@ -660,14 +680,18 @@
             const data = await response.json();
             
             if (data.success && data.data.messages.length > 0) {
+                const strings = document.getElementById('chatStrings')?.dataset;
+                const locale = strings?.locale || 'en';
                 results.innerHTML = data.data.messages.map(msg => `
                     <div class="p-2 border-bottom">
                         <div>${escapeHtml(msg.text)}</div>
-                        <small class="text-muted">${new Date(msg.created_at).toLocaleString('ru-RU')}</small>
+                        <small class="text-muted">${new Date(msg.created_at).toLocaleString(locale)}</small>
                     </div>
                 `).join('');
             } else {
-                results.innerHTML = '<div class="text-center py-3 text-muted">Ничего не найдено</div>';
+                const strings = document.getElementById('chatStrings')?.dataset;
+                const noResults = strings?.noResults || 'No results found';
+                results.innerHTML = `<div class="text-center py-3 text-muted">${noResults}</div>`;
             }
         } catch (error) {
             console.error('Error searching:', error);
