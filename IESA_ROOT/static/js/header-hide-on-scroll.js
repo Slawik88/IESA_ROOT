@@ -65,6 +65,16 @@
       const currentScroll = window.pageYOffset || document.documentElement.scrollTop;
       const scrollDelta = currentScroll - lastScrollTop;
 
+      const navbarCollapse = document.getElementById('navbarNav');
+      const isMobile = window.innerWidth < 992;
+      const isMenuOpen = navbarCollapse && navbarCollapse.classList.contains('show');
+
+      if (isMobile || isMenuOpen) {
+        showHeader();
+        lastScrollTop = currentScroll;
+        return;
+      }
+
       // Не скрывать header если мы в верхней части страницы
       if (currentScroll < CONFIG.hideThreshold) {
         showHeader();
