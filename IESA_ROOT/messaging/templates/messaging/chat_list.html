@@ -1,7 +1,7 @@
 {% extends "base.html" %}
-{% load static %}
+{% load static i18n %}
 
-{% block title %}Сообщения{% endblock %}
+{% block title %}{% trans "Messages" %}{% endblock %}
 
 {% block content %}
 <div class="container py-4">
@@ -9,10 +9,10 @@
         <div class="col-12">
             <div class="d-flex justify-content-between align-items-center mb-4">
                 <h2 class="mb-0">
-                    <i class="fas fa-comments me-2 text-primary"></i>Сообщения
+                    <i class="fas fa-comments me-2 text-primary"></i>{% trans "Messages" %}
                 </h2>
                 <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#newChatModalPage">
-                    <i class="bi bi-plus-circle me-2"></i>Новый чат
+                    <i class="bi bi-plus-circle me-2"></i>{% trans "New chat" %}
                 </button>
             </div>
         </div>
@@ -27,14 +27,14 @@
                         type="text" 
                         class="form-control" 
                         id="chatSearchPage"
-                        placeholder="Поиск чатов..."
+                        placeholder="{% trans "Search chats..." %}"
                     >
                 </div>
                 <div class="card-body p-0" style="max-height: 70vh; overflow-y: auto;">
                     <div id="chatListPage"></div>
                     <div id="chatEmptyPage" class="text-center py-5 d-none">
                         <i class="fas fa-inbox fa-3x mb-3 text-muted opacity-50"></i>
-                        <p class="text-muted">Нет чатов</p>
+                        <p class="text-muted">{% trans "No chats" %}</p>
                     </div>
                     <div id="chatLoadingPage" class="text-center py-4 d-none">
                         <div class="spinner-border text-primary"></div>
@@ -48,8 +48,8 @@
             <div class="card shadow-sm h-100">
                 <div class="card-body d-flex flex-column align-items-center justify-content-center" style="min-height: 60vh;">
                     <i class="fas fa-comments fa-4x mb-4 text-muted opacity-25"></i>
-                    <h5 class="text-muted">Выберите чат</h5>
-                    <p class="text-muted">Или начните новый разговор</p>
+                    <h5 class="text-muted">{% trans "Select a chat" %}</h5>
+                    <p class="text-muted">{% trans "Or start a new conversation" %}</p>
                 </div>
             </div>
         </div>
@@ -62,7 +62,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title">
-                    <i class="bi bi-chat-plus me-2"></i>Новый чат
+                    <i class="bi bi-chat-plus me-2"></i>{% trans "New chat" %}
                 </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
@@ -71,17 +71,22 @@
                     type="text" 
                     class="form-control mb-3" 
                     id="userSearchPage"
-                    placeholder="Поиск пользователя..."
+                    placeholder="{% trans "Search users..." %}"
                 >
                 <div id="userResultsPage" style="max-height: 300px; overflow-y: auto;">
                     <div class="text-center py-4 text-muted">
-                        <p class="mb-0">Введите имя для поиска</p>
+                        <p class="mb-0">{% trans "Type a name to search" %}</p>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 </div>
+
+<div id="chatStrings"
+     data-no-messages="{% trans "No messages" %}"
+     data-type-name="{% trans "Type a name to search" %}"
+     data-no-users="{% trans "No users found" %}"></div>
 
 <style>
 .chat-item {
@@ -188,12 +193,15 @@
                         ? `<span class="badge bg-primary">${chat.unread_count}</span>`
                         : '';
                     
+                    const strings = document.getElementById('chatStrings')?.dataset;
+                    const lastMessageFallback = strings?.noMessages || 'No messages';
+
                     return `
                         <a href="/messages/${chat.id}/" class="chat-item">
                             <div class="avatar">${avatar}</div>
                             <div class="flex-grow-1 ms-3">
                                 <div class="fw-semibold">${escapeHtml(chat.other_user.name)}</div>
-                                <small class="text-muted">${escapeHtml(chat.last_message || 'Нет сообщений')}</small>
+                                <small class="text-muted">${escapeHtml(chat.last_message || lastMessageFallback)}</small>
                             </div>
                             ${unread}
                         </a>
@@ -212,7 +220,9 @@
         const results = document.getElementById('userResultsPage');
         
         if (!query || query.length < 2) {
-            results.innerHTML = '<div class="text-center py-4 text-muted"><p class="mb-0">Введите имя для поиска</p></div>';
+            const strings = document.getElementById('chatStrings')?.dataset;
+            const typeName = strings?.typeName || 'Type a name to search';
+            results.innerHTML = `<div class="text-center py-4 text-muted"><p class="mb-0">${typeName}</p></div>`;
             return;
         }
         
@@ -237,7 +247,9 @@
                     `;
                 }).join('');
             } else {
-                results.innerHTML = '<div class="text-center py-4 text-muted"><p class="mb-0">Пользователи не найдены</p></div>';
+                const strings = document.getElementById('chatStrings')?.dataset;
+                const noUsers = strings?.noUsers || 'No users found';
+                results.innerHTML = `<div class="text-center py-4 text-muted"><p class="mb-0">${noUsers}</p></div>`;
             }
         } catch (error) {
             console.error('Error:', error);
