@@ -56,6 +56,13 @@
     height: 26px;
     max-width: 120px;
   }
+
+  .navbar-brand img,
+  .navbar-brand .navbar-logo {
+    height: 22px !important;
+    max-width: 90px !important;
+    width: auto;
+  }
 }
 
 /* ====================================================
