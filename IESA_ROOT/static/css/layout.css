@@ -533,13 +533,16 @@ main {
   }
 
   .navbar-search-dropdown {
-    min-width: calc(100vw - 40px) !important;
-    width: calc(100vw - 40px) !important;
-    max-width: 500px;
-    position: fixed !important;
-    left: 20px !important;
-    right: 20px !important;
-    top: 60px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    position: static !important;
+    left: auto !important;
+    right: auto !important;
+    top: auto !important;
+    margin-top: 0.75rem;
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.08);
+    border: 1px solid #e5e7eb;
+    background: #ffffff;
   }
 
   /* Dropdown optimization for small screens */

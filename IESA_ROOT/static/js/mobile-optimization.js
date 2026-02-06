@@ -7,6 +7,7 @@ document.addEventListener('DOMContentLoaded', function () {
     initMobileMenuToggle();
     initTouchOptimizations();
     initMobileNavigationMenu();
+    initSearchDropdownAutoClose();
     adjustLayoutForMobile();
 });
 
@@ -90,6 +91,33 @@ function initMobileNavigationMenu() {
     window.addEventListener('resize', debounce(() => {
         adjustLayoutForMobile();
     }, 200));
+}
+
+/**
+ * Close search dropdown on scroll/blur to avoid layout overlay on mobile
+ */
+function initSearchDropdownAutoClose() {
+    const toggle = document.getElementById('communitySearchToggle');
+    const dropdown = document.querySelector('.navbar-search-dropdown');
+    const input = document.getElementById('global-community-search');
+
+    if (!toggle || !dropdown || typeof bootstrap === 'undefined') return;
+
+    const dropdownInstance = bootstrap.Dropdown.getOrCreateInstance(toggle, { autoClose: true });
+
+    const closeDropdown = () => {
+        if (dropdown.classList.contains('show')) {
+            dropdownInstance.hide();
+        }
+    };
+
+    window.addEventListener('scroll', closeDropdown, { passive: true });
+
+    if (input) {
+        input.addEventListener('blur', () => {
+            setTimeout(closeDropdown, 150);
+        });
+    }
 }
 
 /**
