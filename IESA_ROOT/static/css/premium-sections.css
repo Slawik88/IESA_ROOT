@@ -896,6 +896,97 @@
     color: #f87171;
 }
 
+.offers-actions {
+    margin-top: 2rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    justify-content: center;
+}
+
+.offers-actions .btn {
+    min-width: 200px;
+}
+
+.offers-cta {
+    margin-top: 2rem;
+}
+
+.offers-cta-card {
+    background: linear-gradient(135deg, #fff5f5 0%, #ffffff 60%);
+    border: 2px solid rgba(248, 113, 113, 0.12);
+    border-radius: 24px;
+    padding: 2.5rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2rem;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: 0 16px 50px rgba(248, 113, 113, 0.12);
+}
+
+.offers-cta-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.35rem 0.8rem;
+    border-radius: 999px;
+    background: rgba(248, 113, 113, 0.12);
+    color: #b91c1c;
+    font-weight: 700;
+    font-size: 0.75rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    margin-bottom: 0.75rem;
+}
+
+.offers-cta-title {
+    font-size: 1.75rem;
+    font-weight: 800;
+    color: #1f2937;
+    margin-bottom: 0.5rem;
+}
+
+.offers-cta-text {
+    color: #6b7280;
+    font-size: 1rem;
+    max-width: 520px;
+    margin-bottom: 0;
+}
+
+.offers-cta-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+}
+
+@media (max-width: 768px) {
+    .offers-actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .offers-actions .btn {
+        width: 100%;
+    }
+
+    .offers-cta-card {
+        padding: 2rem 1.5rem;
+    }
+
+    .offers-cta-title {
+        font-size: 1.4rem;
+    }
+
+    .offers-cta-actions {
+        width: 100%;
+        flex-direction: column;
+    }
+
+    .offers-cta-actions .btn {
+        width: 100%;
+    }
+}
+
 @media (max-width: 768px) {
     .iesa-offers-grid {
         grid-template-columns: 1fr;
