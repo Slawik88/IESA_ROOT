@@ -45,6 +45,17 @@
   .card-body {
     padding: 1.25rem;
   }
+
+  /* Navbar logo sizing on mobile */
+  .navbar-brand {
+    padding-top: 0.25rem;
+    padding-bottom: 0.25rem;
+  }
+
+  .navbar-logo {
+    height: 26px;
+    max-width: 120px;
+  }
 }
 
 /* ====================================================
