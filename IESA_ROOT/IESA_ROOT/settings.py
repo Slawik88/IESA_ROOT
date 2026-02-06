@@ -86,6 +86,7 @@ MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',  # Static files for production
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'django.middleware.locale.LocaleMiddleware',
     # Force Russian locale for admin panel via custom middleware
     'users.middleware.AdminLocaleMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -169,6 +170,17 @@ LANGUAGE_CODE = 'en-us'
 TIME_ZONE = 'Europe/Zurich'
 USE_I18N = True
 USE_TZ = True
+
+LANGUAGES = [
+    ('en', 'English'),
+    ('uk', 'Ukrainian'),
+    ('fr', 'French'),
+    ('de', 'German'),
+]
+
+LOCALE_PATHS = [
+    BASE_DIR / 'locale',
+]
 
 # SECURITY: HTTPS and Security Headers
 # Для локальной разработки (DEBUG=True) - все HTTPS настройки ОТКЛЮЧЕНЫ

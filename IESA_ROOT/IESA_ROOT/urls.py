@@ -44,6 +44,7 @@ def serve_service_worker(request):
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('i18n/', include('django.conf.urls.i18n')),
     
     # Protected media files (requires authentication)
     path('protected/<path:file_path>', serve_protected_media, name='serve_protected_media'),

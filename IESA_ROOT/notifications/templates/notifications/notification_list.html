@@ -1,14 +1,15 @@
 {% extends "base.html" %}
+{% load i18n %}
 
-{% block title %}Notifications | IESA{% endblock %}
+{% block title %}{% trans "Notifications" %} | IESA{% endblock %}
 
 {% block content %}
 <div class="container-limited">
     <div class="text-center mb-5">
         <h1 class="h3 fw-bold mb-2">
-            <i class="fas fa-bell me-2 text-primary"></i>Notifications
+            <i class="fas fa-bell me-2 text-primary"></i>{% trans "Notifications" %}
         </h1>
-        <p class="text-muted">Stay updated with your activity</p>
+        <p class="text-muted">{% trans "Stay updated with your activity" %}</p>
     </div>
 
     {% if notifications %}
@@ -19,11 +20,11 @@
                     hx-target="#notification-actions" 
                     hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
                     class="btn btn-sm btn-outline-primary btn-modern">
-                    <i class="fas fa-check-double me-1"></i>Mark all as read
+                    <i class="fas fa-check-double me-1"></i>{% trans "Mark all as read" %}
                 </button>
-                <span class="badge bg-danger rounded-pill">{{ unread_count }} Unread</span>
+                <span class="badge bg-danger rounded-pill">{{ unread_count }} {% trans "Unread" %}</span>
             {% else %}
-                <span class="text-muted small">All notifications marked as read</span>
+                <span class="text-muted small">{% trans "All notifications marked as read" %}</span>
             {% endif %}
         </div>
 
@@ -66,14 +67,14 @@
                     <div class="notification-title">
                         {{ notification.get_notification_type_display }}
                         {% if not notification.is_read %}
-                            <span class="badge bg-danger badge-sm ms-2">New</span>
+                            <span class="badge bg-danger badge-sm ms-2">{% trans "New" %}</span>
                         {% endif %}
                     </div>
                     <div class="notification-message">{{ notification.message }}</div>
                     <div class="notification-meta">
                         <small class="text-muted">
                             <i class="fas fa-clock me-1"></i>
-                            {{ notification.created_at|timesince }} ago
+                            {{ notification.created_at|timesince }} {% trans "ago" %}
                         </small>
                     </div>
                 </div>
@@ -81,7 +82,7 @@
                 <div class="notification-actions d-flex gap-2">
                     {% if notification.link %}
                         <a href="{{ notification.link }}" class="btn btn-sm btn-danger">
-                            <i class="fas fa-arrow-right me-1"></i>View
+                            <i class="fas fa-arrow-right me-1"></i>{% trans "View" %}
                         </a>
                     {% endif %}
                         <button hx-post="{% url 'notifications:notification_delete' notification.id %}"
@@ -90,11 +91,11 @@
                             hx-swap="delete swap:100ms"
                             hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
                             class="btn btn-sm btn-outline-danger"
-                            title="Delete notification"
-                            aria-label="Delete notification"
+                            title="{% trans "Delete notification" %}"
+                            aria-label="{% trans "Delete notification" %}"
                             onclick="this.disabled=true">
                         <i class="fas fa-trash-alt"></i>
-                        <span class="d-none d-md-inline ms-1">Delete</span>
+                        <span class="d-none d-md-inline ms-1">{% trans "Delete" %}</span>
                     </button>
                 </div>
             </div>
@@ -102,12 +103,12 @@
         </div>
 
         {% if notifications.has_other_pages %}
-        <nav aria-label="Notifications pagination" class="mt-5">
+        <nav aria-label="{% trans "Notifications pagination" %}" class="mt-5">
             <ul class="pagination justify-content-center">
                 {% if notifications.has_previous %}
                 <li class="page-item">
                     <a class="page-link" href="?page={{ notifications.previous_page_number }}">
-                        <i class="fas fa-chevron-left me-1"></i>Previous
+                        <i class="fas fa-chevron-left me-1"></i>{% trans "Previous" %}
                     </a>
                 </li>
                 {% endif %}
@@ -123,7 +124,7 @@
                 {% if notifications.has_next %}
                 <li class="page-item">
                     <a class="page-link" href="?page={{ notifications.next_page_number }}">
-                        Next<i class="fas fa-chevron-right ms-1"></i>
+                        {% trans "Next" %}<i class="fas fa-chevron-right ms-1"></i>
                     </a>
                 </li>
                 {% endif %}
@@ -135,10 +136,10 @@
             <div class="mb-4">
                 <i class="fas fa-inbox fa-3x text-muted opacity-50"></i>
             </div>
-            <h5 class="fw-bold mb-2">No notifications yet</h5>
-            <p class="text-muted mb-4">You'll see notifications here when someone interacts with your content.</p>
+            <h5 class="fw-bold mb-2">{% trans "No notifications yet" %}</h5>
+            <p class="text-muted mb-4">{% trans "You'll see notifications here when someone interacts with your content." %}</p>
             <a href="{% url 'blog:post_list' %}" class="btn btn-primary btn-modern">
-                <i class="fas fa-fire me-2"></i>Explore Posts
+                <i class="fas fa-fire me-2"></i>{% trans "Explore Posts" %}
             </a>
         </div>
     {% endif %}

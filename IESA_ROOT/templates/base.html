@@ -1,22 +1,23 @@
-﻿<!DOCTYPE html>
-<html lang="en">
-{% load static %}
+﻿{% load static i18n %}
+{% get_current_language as LANGUAGE_CODE %}
+<!DOCTYPE html>
+<html lang="{{ LANGUAGE_CODE }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}IESA ROOT{% endblock %}</title>
+    <title>{% block title %}{% trans "IESA ROOT" %}{% endblock %}</title>
     
     <!-- SEO Meta Tags -->
-    <meta name="description" content="{% block meta_description %}IESA - Extreme Sports Community. Kitesurfing in Egypt, Boxing, Adventure Travel & Sauna Experiences. Join our international athletes and enthusiasts.{% endblock %}">
-    <meta name="keywords" content="{% block meta_keywords %}extreme sports, kitesurfing Egypt, boxing, adventure travel, sauna, community, athletes{% endblock %}">
+    <meta name="description" content="{% block meta_description %}{% trans "IESA - Extreme Sports Community. Kitesurfing in Egypt, Boxing, Adventure Travel & Sauna Experiences. Join our international athletes and enthusiasts." %}{% endblock %}">
+    <meta name="keywords" content="{% block meta_keywords %}{% trans "extreme sports, kitesurfing Egypt, boxing, adventure travel, sauna, community, athletes" %}{% endblock %}">
     <meta name="author" content="IESA">
     <link rel="canonical" href="{% block canonical_url %}{{ request.build_absolute_uri }}{% endblock %}">
     
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="{% block og_type %}website{% endblock %}">
     <meta property="og:url" content="{% block og_url %}{{ request.build_absolute_uri }}{% endblock %}">
-    <meta property="og:title" content="{% block og_title %}IESA ROOT{% endblock %}">
-    <meta property="og:description" content="{% block og_description %}IESA - Extreme Sports Community. Experience kitesurfing in Egypt, boxing, adventure travel and exclusive sauna access. Join international athletes.{% endblock %}">
+    <meta property="og:title" content="{% block og_title %}{% trans "IESA ROOT" %}{% endblock %}">
+    <meta property="og:description" content="{% block og_description %}{% trans "IESA - Extreme Sports Community. Experience kitesurfing in Egypt, boxing, adventure travel and exclusive sauna access. Join international athletes." %}{% endblock %}">
     <meta property="og:image" content="{% block og_image %}{% static 'img/og-default.jpg' %}{% endblock %}">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
@@ -26,8 +27,8 @@
     <!-- Twitter Card -->
     <meta name="twitter:card" content="{% block twitter_card %}summary_large_image{% endblock %}">
     <meta name="twitter:url" content="{% block twitter_url %}{{ request.build_absolute_uri }}{% endblock %}">
-    <meta name="twitter:title" content="{% block twitter_title %}IESA ROOT{% endblock %}">
-    <meta name="twitter:description" content="{% block twitter_description %}IESA - Extreme Sports Community. Kitesurfing in Egypt, Boxing, Adventure Travel & Sauna for Athletes.{% endblock %}">
+    <meta name="twitter:title" content="{% block twitter_title %}{% trans "IESA ROOT" %}{% endblock %}">
+    <meta name="twitter:description" content="{% block twitter_description %}{% trans "IESA - Extreme Sports Community. Kitesurfing in Egypt, Boxing, Adventure Travel & Sauna for Athletes." %}{% endblock %}">
     <meta name="twitter:image" content="{% block twitter_image %}{% static 'img/og-default.jpg' %}{% endblock %}">
     
     <!-- Favicon -->
@@ -87,60 +88,70 @@
 
 </head>
 <body>
-{% load static %}
     <!-- Skip to main content (Accessibility) -->
-    <a href="#main-content" class="skip-to-main">Skip to main content</a>
+    <a href="#main-content" class="skip-to-main">{% trans "Skip to main content" %}</a>
     
     <!-- DEVELOPMENT BANNER -->
     <div style="background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%); color: white; padding: 12px 20px; text-align: center; font-weight: 500; box-shadow: 0 2px 8px rgba(0,0,0,0.15); position: relative; z-index: 1050;">
         <i class="bi bi-cone-striped me-2"></i>
-        <strong>Attention!</strong> Site is under active development. Some features may not work correctly.
+        <strong>{% trans "Attention!" %}</strong> {% trans "Site is under active development. Some features may not work correctly." %}
         <i class="bi bi-tools ms-2"></i>
     </div>
     
     <!-- Header Section -->
     <header class="shadow-sm bg-white sticky-top">
         <div class="container-limited">
-            <nav class="navbar navbar-expand-lg navbar-light py-1" aria-label="Main navigation">
-                <a class="navbar-brand fw-bold fs-4" href="{% url 'core:home' %}" aria-label="IESA Home">
-                    <img src="{% static 'img/logo.png' %}" alt="IESA Logo" class="navbar-logo">
+            <nav class="navbar navbar-expand-lg navbar-light py-1" aria-label="{% trans "Main navigation" %}">
+                <a class="navbar-brand fw-bold fs-4" href="{% url 'core:home' %}" aria-label="{% trans "IESA Home" %}">
+                    <img src="{% static 'img/logo.png' %}" alt="{% trans "IESA Logo" %}" class="navbar-logo">
                 </a>
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="{% trans "Toggle navigation" %}">
                     <span class="navbar-toggler-icon"></span>
                 </button>
                 <nav class="collapse navbar-collapse" id="navbarNav">
                     <ul class="navbar-nav mx-auto">
-                        <li class="nav-item"><a class="nav-link fw-500" href="{% url 'core:home' %}">Home</a></li>
-                        <li class="nav-item"><a class="nav-link fw-500" href="{% url 'core:home' %}#about-section">About</a></li>
+                        <li class="nav-item"><a class="nav-link fw-500" href="{% url 'core:home' %}">{% trans "Home" %}</a></li>
+                        <li class="nav-item"><a class="nav-link fw-500" href="{% url 'core:home' %}#about-section">{% trans "About" %}</a></li>
                         <li class="nav-item"><a class="nav-link fw-500" href="{% url 'core:benefits' %}">
-                            <i class="fas fa-gift me-1"></i>Benefits
+                            <i class="fas fa-gift me-1"></i>{% trans "Benefits" %}
                         </a></li>
-                        <li class="nav-item"><a class="nav-link fw-500" href="{% url 'gallery:gallery' %}">Gallery</a></li>
+                        <li class="nav-item"><a class="nav-link fw-500" href="{% url 'gallery:gallery' %}">{% trans "Gallery" %}</a></li>
                         <li class="nav-item dropdown">
-                            <a class="nav-link dropdown-toggle fw-500" href="#" id="communityDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">Community</a>
+                            <a class="nav-link dropdown-toggle fw-500" href="#" id="communityDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">{% trans "Community" %}</a>
                             <ul class="dropdown-menu" aria-labelledby="communityDropdown">
-                                <li><a class="dropdown-item" href="{% url 'blog:post_list' %}">Posts</a></li>
-                                <li><a class="dropdown-item" href="{% url 'blog:event_list' %}">Events</a></li>
-                                <li><a class="dropdown-item" href="{% url 'core:home' %}#partners-section">Partners</a></li>
-                                <li><a class="dropdown-item" href="{% url 'users:users_search' %}">Members</a></li>
+                                <li><a class="dropdown-item" href="{% url 'blog:post_list' %}">{% trans "Posts" %}</a></li>
+                                <li><a class="dropdown-item" href="{% url 'blog:event_list' %}">{% trans "Events" %}</a></li>
+                                <li><a class="dropdown-item" href="{% url 'core:home' %}#partners-section">{% trans "Partners" %}</a></li>
+                                <li><a class="dropdown-item" href="{% url 'users:users_search' %}">{% trans "Members" %}</a></li>
                                                                 {% if user.is_authenticated %}
                                                                     <li><hr class="dropdown-divider"></li>
-                                                                    <li><a class="dropdown-item" href="{% url 'blog:post_create' %}">Create post</a></li>
+                                                                    <li><a class="dropdown-item" href="{% url 'blog:post_create' %}">{% trans "Create post" %}</a></li>
                                                                 {% endif %}
                             </ul>
                         </li>
                     </ul>
                     <div class="d-flex align-items-center gap-2">
+                        <form action="{% url 'set_language' %}" method="post" class="language-switcher d-none d-lg-flex">
+                            {% csrf_token %}
+                            <input name="next" type="hidden" value="{{ request.get_full_path }}">
+                            {% get_current_language as LANGUAGE_CODE %}
+                            {% get_available_languages as LANGUAGES %}
+                            <select name="language" class="form-select form-select-sm" aria-label="{% trans "Select language" %}" onchange="this.form.submit()">
+                                {% for lang in LANGUAGES %}
+                                    <option value="{{ lang.0 }}" {% if lang.0 == LANGUAGE_CODE %}selected{% endif %}>{{ lang.1 }}</option>
+                                {% endfor %}
+                            </select>
+                        </form>
                         <!-- Community search (global, HTMX live results) -->
                         <div class="me-2 dropdown">
-                            <button class="btn btn-light btn-sm" id="communitySearchToggle" data-bs-toggle="dropdown" aria-expanded="false" title="Search community" aria-label="Open search menu">
+                            <button class="btn btn-light btn-sm" id="communitySearchToggle" data-bs-toggle="dropdown" aria-expanded="false" title="{% trans "Search community" %}" aria-label="{% trans "Open search menu" %}">
                                 <i class="fas fa-search"></i>
                             </button>
                             <div class="dropdown-menu dropdown-menu-end p-3 navbar-search-dropdown" onclick="event.stopPropagation();">
                                 <label class="form-label small mb-1">
-                                    <i class="fas fa-search me-2"></i>Search
+                                    <i class="fas fa-search me-2"></i>{% trans "Search" %}
                                 </label>
-                                <input type="search" name="q" id="global-community-search" class="form-control mb-2" placeholder="Posts, users, events..." 
+                                <input type="search" name="q" id="global-community-search" class="form-control mb-2" placeholder="{% trans "Posts, users, events..." %}" 
                                   hx-get="{% url 'blog:global_search' %}" 
                                   hx-trigger="keyup changed delay:400ms" 
                                   hx-target="#community-search-results"
@@ -158,9 +169,9 @@
                                         id="notificationsToggle" 
                                         data-bs-toggle="dropdown"
                                         aria-expanded="false"
-                                        title="Notifications">
+                                        title="{% trans "Notifications" %}">
                                     <i class="fas fa-bell"></i>
-                                    <span class="d-sm-none ms-2">Notifications</span>
+                                    <span class="d-sm-none ms-2">{% trans "Notifications" %}</span>
                                     {% if unread_notifications_count > 0 %}
                                     <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger navbar-notification-badge">
                                         {{ unread_notifications_count }}
@@ -168,13 +179,13 @@
                                     {% endif %}
                                 </button>
                                 <div class="dropdown-menu dropdown-menu-end p-3" style="min-width: 320px; max-height: 400px; overflow-y: auto;">
-                                    <h6 class="dropdown-header">Notifications</h6>
+                                    <h6 class="dropdown-header">{% trans "Notifications" %}</h6>
                                     <div id="notifications-content"
                                          hx-get="{% url 'notifications:notification_list' %}"
                                          hx-trigger="load, click from:#notificationsToggle"
                                          hx-swap="innerHTML">
                                         <div class="text-center py-3 text-muted">
-                                            <i class="fas fa-spinner fa-spin"></i> Loading...
+                                            <i class="fas fa-spinner fa-spin"></i> {% trans "Loading..." %}
                                         </div>
                                     </div>
                                 </div>
@@ -186,12 +197,12 @@
                                 {% else %}
                                     <span class="avatar avatar-sm avatar-fallback me-2 d-none d-sm-inline-flex">{{ user.username|slice:":1"|upper }}</span>
                                 {% endif %}
-                                <span>Profile</span>
+                                <span>{% trans "Profile" %}</span>
                             </a>
-                                <button type="button" class="btn btn-outline-secondary btn-modern navbar-btn" data-bs-toggle="modal" data-bs-target="#logoutConfirmModal">Logout</button>
+                                <button type="button" class="btn btn-outline-secondary btn-modern navbar-btn" data-bs-toggle="modal" data-bs-target="#logoutConfirmModal">{% trans "Logout" %}</button>
                         {% else %}
-                            <a href="{% url 'users:login' %}" class="btn btn-outline-primary btn-modern navbar-btn">Sign In</a>
-                            <a href="{% url 'users:register' %}" class="btn btn-primary btn-modern navbar-btn">Register</a>
+                            <a href="{% url 'users:login' %}" class="btn btn-outline-primary btn-modern navbar-btn">{% trans "Sign In" %}</a>
+                            <a href="{% url 'users:register' %}" class="btn btn-primary btn-modern navbar-btn">{% trans "Register" %}</a>
                         {% endif %}
                     </div>
                 </nav>
@@ -225,29 +236,29 @@
         <div class="container-limited py-5">
             <div class="row g-5">
                 <div class="col-12 col-lg-4">
-                    <h6 class="footer-title mb-3">ABOUT</h6>
-                    <p class="footer-text mb-3 footer-about-text">IESA connects sports leaders and partners, creating a space for growth, projects and events worldwide.</p>
-                    <p class="footer-text small mb-0 footer-copyright">&copy; {{ "now"|date:"Y" }} IESA Association. All rights reserved.</p>
+                    <h6 class="footer-title mb-3">{% trans "ABOUT" %}</h6>
+                    <p class="footer-text mb-3 footer-about-text">{% trans "IESA connects sports leaders and partners, creating a space for growth, projects and events worldwide." %}</p>
+                    <p class="footer-text small mb-0 footer-copyright">&copy; {{ "now"|date:"Y" }} {% trans "IESA Association. All rights reserved." %}</p>
                 </div>
                 <div class="col-6 col-md-3 col-lg-2">
-                    <h6 class="footer-title mb-3">LINKS</h6>
+                    <h6 class="footer-title mb-3">{% trans "LINKS" %}</h6>
                     <ul class="list-unstyled footer-links">
-                        <li class="mb-2"><a href="{% url 'core:home' %}"><i class="fas fa-home me-2 footer-link-icon"></i>Home</a></li>
-                        <li class="mb-2"><a href="{% url 'blog:post_list' %}"><i class="fas fa-users me-2 footer-link-icon"></i>Community</a></li>
-                        <li class="mb-2"><a href="{% url 'gallery:gallery' %}"><i class="fas fa-images me-2 footer-link-icon"></i>Gallery</a></li>
-                        <li class="mb-2"><a href="{% url 'blog:event_list' %}"><i class="fas fa-calendar me-2 footer-link-icon"></i>Events</a></li>
+                        <li class="mb-2"><a href="{% url 'core:home' %}"><i class="fas fa-home me-2 footer-link-icon"></i>{% trans "Home" %}</a></li>
+                        <li class="mb-2"><a href="{% url 'blog:post_list' %}"><i class="fas fa-users me-2 footer-link-icon"></i>{% trans "Community" %}</a></li>
+                        <li class="mb-2"><a href="{% url 'gallery:gallery' %}"><i class="fas fa-images me-2 footer-link-icon"></i>{% trans "Gallery" %}</a></li>
+                        <li class="mb-2"><a href="{% url 'blog:event_list' %}"><i class="fas fa-calendar me-2 footer-link-icon"></i>{% trans "Events" %}</a></li>
                     </ul>
                 </div>
                 <div class="col-6 col-md-3 col-lg-3">
-                    <h6 class="footer-title mb-3">CONTACTS</h6>
+                    <h6 class="footer-title mb-3">{% trans "CONTACTS" %}</h6>
                     <ul class="list-unstyled footer-links">
                         <li class="mb-2"><i class="fas fa-envelope me-2 footer-contact-icon"></i><a href="mailto:iesa@iesasport.ch">iesa@iesasport.ch</a></li>
                         <li class="mb-2"><i class="fas fa-phone me-2 footer-contact-icon"></i><a href="tel:+41795718887">+41 79 571 8887</a></li>
-                        <li class="mb-2"><i class="fas fa-location-dot me-2 footer-contact-icon"></i><span class="footer-text">Switzerland</span></li>
+                        <li class="mb-2"><i class="fas fa-location-dot me-2 footer-contact-icon"></i><span class="footer-text">{% trans "Switzerland" %}</span></li>
                     </ul>
                 </div>
                 <div class="col-12 col-md-6 col-lg-3">
-                    <h6 class="footer-title mb-3">SOCIAL</h6>
+                    <h6 class="footer-title mb-3">{% trans "SOCIAL" %}</h6>
                     <div class="d-flex flex-row flex-wrap gap-3">
                         {% for sn in social_networks %}
                         <a class="footer-social" href="{{ sn.url }}" target="_blank" rel="noopener" title="{{ sn.get_name_display }}">
