@@ -1,6 +1,7 @@
 {% extends "base.html" %}
+{% load i18n %}
 
-{% block title %}Sign In | IESA{% endblock %}
+{% block title %}{% trans "Sign In" %} | IESA{% endblock %}
 
 {% block content %}
 <div class="auth-page row justify-content-center py-5">
@@ -9,25 +10,25 @@
             <div class="row g-0">
                 <div class="col-lg-5 d-none d-lg-block auth-sidebar">
                     <div class="h-100 d-flex flex-column justify-content-center p-5 text-white">
-                        <h3 class="fw-bold mb-3">Welcome back</h3>
-                        <p class="mb-4 text-white-50">Sign in to manage your profile, create posts and discover events.</p>
+                        <h3 class="fw-bold mb-3">{% trans "Welcome back" %}</h3>
+                        <p class="mb-4 text-white-50">{% trans "Sign in to manage your profile, create posts and discover events." %}</p>
                         <ul class="list-unstyled small text-white-50">
-                            <li class="mb-2"><i class="fas fa-check-circle me-2"></i>Quick Access</li>
-                            <li class="mb-2"><i class="fas fa-check-circle me-2"></i>Community Engagement</li>
-                            <li class="mb-2"><i class="fas fa-check-circle me-2"></i>Event Updates</li>
+                            <li class="mb-2"><i class="fas fa-check-circle me-2"></i>{% trans "Quick Access" %}</li>
+                            <li class="mb-2"><i class="fas fa-check-circle me-2"></i>{% trans "Community Engagement" %}</li>
+                            <li class="mb-2"><i class="fas fa-check-circle me-2"></i>{% trans "Event Updates" %}</li>
                         </ul>
                     </div>
                 </div>
                 <div class="col-lg-7 p-5 bg-white">
             <div class="text-center mb-4">
-                <h6 class="section-title d-block mb-4">SIGN IN</h6>
-                <p class="text-muted">Access your profile and connect with the community.</p>
+                <h6 class="section-title d-block mb-4">{% trans "SIGN IN" %}</h6>
+                <p class="text-muted">{% trans "Access your profile and connect with the community." %}</p>
             </div>
 
             {% if form.errors %}
                 <div class="alert alert-danger alert-dismissible fade show mb-4" role="alert">
                     <i class="fas fa-exclamation-circle me-2"></i>
-                    <strong>Sign in failed!</strong> Invalid username or password. Please try again.
+                    <strong>{% trans "Sign in failed!" %}</strong> {% trans "Invalid username or password. Please try again." %}
                     <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                 </div>
             {% endif %}
@@ -80,15 +81,15 @@
                 <input type="hidden" name="next" value="{{ next }}">
 
                 <button type="submit" class="btn btn-primary btn-modern w-100 mt-4 py-2">
-                    <i class="fas fa-sign-in-alt me-2"></i>Sign In
+                    <i class="fas fa-sign-in-alt me-2"></i>{% trans "Sign In" %}
                 </button>
             </form>
             
             <hr class="my-4">
             
             <p class="text-center text-muted mb-0">
-                Don't have an account? 
-                <a href="{% url 'users:register' %}" class="fw-bold text-decoration-none">Register here</a>
+                {% trans "Don't have an account?" %} 
+                <a href="{% url 'users:register' %}" class="fw-bold text-decoration-none">{% trans "Register here" %}</a>
             </p>
                 </div>
             </div>

@@ -1,10 +1,11 @@
-{% load static %}
+{% load static i18n %}
+{% get_current_language as LANGUAGE_CODE %}
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="{{ LANGUAGE_CODE }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>500 - Внутренняя ошибка сервера | IESA</title>
+    <title>{% trans "500 - Internal server error" %} | IESA</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
     <link rel="stylesheet" href="{% static 'css/style.css' %}">
@@ -80,24 +81,23 @@
         <div class="error-content">
             <i class="fas fa-exclamation-triangle error-icon"></i>
             <div class="error-code">500</div>
-            <h1 class="error-title">Внутренняя ошибка сервера</h1>
+            <h1 class="error-title">{% trans "Internal server error" %}</h1>
             <p class="error-message">
-                Что-то пошло не так на нашей стороне. Мы уже работаем над исправлением проблемы. 
-                Пожалуйста, попробуйте позже.
+                {% trans "Something went wrong on our side. We are already working to fix it. Please try again later." %}
             </p>
             <div>
                 <a href="/" class="btn-home">
-                    <i class="fas fa-home me-2"></i>Вернуться на главную
+                    <i class="fas fa-home me-2"></i>{% trans "Back to home" %}
                 </a>
                 <a href="javascript:history.back()" class="btn-home">
-                    <i class="fas fa-arrow-left me-2"></i>Вернуться назад
+                    <i class="fas fa-arrow-left me-2"></i>{% trans "Go back" %}
                 </a>
             </div>
             
             <div class="support-info">
                 <p>
                     <i class="fas fa-info-circle me-2"></i>
-                    Если проблема повторяется, свяжитесь с нашей службой поддержки.
+                    {% trans "If the problem persists, please contact our support team." %}
                 </p>
             </div>
         </div>

@@ -1,10 +1,10 @@
 {% extends "base.html" %}
-{% load static %}
+{% load static i18n %}
 
-{% block title %}{{ event.title }} | Events | IESA{% endblock %}
+{% block title %}{{ event.title }} | {% trans "Events" %} | IESA{% endblock %}
 
 {% block meta_description %}{{ event.description|striptags|truncatewords:30 }}{% endblock %}
-{% block meta_keywords %}{{ event.title }}, IESA, события, мероприятия{% endblock %}
+{% block meta_keywords %}{{ event.title }}, IESA, {% trans "events" %}, {% trans "gatherings" %}{% endblock %}
 
 {% block og_type %}article{% endblock %}
 {% block og_title %}{{ event.title }}{% endblock %}
@@ -34,7 +34,7 @@
                 <div class="mb-3 d-flex align-items-center">
                     <i class="fas fa-calendar-alt me-3 text-primary icon-lg"></i>
                     <div>
-                        <strong>Date & time:</strong>
+                        <strong>{% trans "Date & time:" %}</strong>
                         <p class="mb-0">{{ event.date|date:"d MMMM Y, H:i" }}</p>
                     </div>
                 </div>
@@ -42,7 +42,7 @@
                 <div class="mb-3 d-flex align-items-center">
                     <i class="fas fa-map-marker-alt me-3 text-primary icon-lg"></i>
                     <div>
-                        <strong>Location:</strong>
+                        <strong>{% trans "Location:" %}</strong>
                         <p class="mb-0">{{ event.location }}</p>
                     </div>
                 </div>
@@ -51,7 +51,7 @@
             <!-- Description -->
             <div class="card card-modern mb-4">
                 <div class="card-body">
-                    <h6 class="section-title d-block mb-4">DESCRIPTION</h6>
+                    <h6 class="section-title d-block mb-4">{% trans "DESCRIPTION" %}</h6>
                     <p class="card-text">{{ event.description }}</p>
                 </div>
             </div>
@@ -59,10 +59,10 @@
             <!-- Action Buttons -->
             <div class="d-flex gap-2">
                 <a href="{% url 'blog:event_list' %}" class="btn btn-outline-secondary btn-modern">
-                    <i class="fas fa-arrow-left me-2"></i> Back to events
+                    <i class="fas fa-arrow-left me-2"></i> {% trans "Back to events" %}
                 </a>
                 <button class="btn btn-primary btn-modern" data-bs-toggle="modal" data-bs-target="#registerModal">
-                    <i class="fas fa-check-circle me-2"></i> Register
+                    <i class="fas fa-check-circle me-2"></i> {% trans "Register" %}
                 </button>
             </div>
         </div>
@@ -75,19 +75,19 @@
         <div class="modal-content">
             <div class="modal-header border-bottom-0">
                 <h5 class="modal-title fw-bold" id="registerModalLabel">
-                    <i class="fas fa-calendar-check me-2 text-primary"></i>Register for Event
+                    <i class="fas fa-calendar-check me-2 text-primary"></i>{% trans "Register for Event" %}
                 </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body text-center py-4">
-                <p class="mb-4">Thank you for your interest! Please contact us via:</p>
+                <p class="mb-4">{% trans "Thank you for your interest! Please contact us via:" %}</p>
                 
                 <div class="row g-3">
                     <!-- SMS Contact -->
                     <div class="col-12 text-center">
                         <a href="tel:+41795718887" class="btn btn-outline-primary p-3 min-w-280">
                             <i class="fas fa-mobile-alt me-2"></i>
-                            Call/SMS: +41 79 571 8887
+                            {% trans "Call/SMS:" %} +41 79 571 8887
                         </a>
                     </div>
                     
@@ -95,13 +95,13 @@
                     <div class="col-12 text-center">
                         <a href="https://t.me/+41795718887" target="_blank" rel="noopener noreferrer" class="btn btn-info p-3 min-w-280 text-white" role="button">
                             <i class="fab fa-telegram me-2"></i>
-                            Message on Telegram
+                            {% trans "Message on Telegram" %}
                         </a>
                     </div>
                 </div>
                 
                 <p class="text-muted mt-4 small">
-                    We'll get back to you as soon as possible!
+                    {% trans "We'll get back to you as soon as possible!" %}
                 </p>
             </div>
         </div>
