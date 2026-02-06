@@ -15,57 +15,21 @@ document.addEventListener('DOMContentLoaded', function () {
  */
 function initMobileMenuToggle() {
     const navbarToggler = document.querySelector('.navbar-toggler');
-    const navbarCollapse = document.querySelector('.navbar-collapse');
+    const navbarCollapse = document.getElementById('navbarNav');
     
-    if (!navbarToggler) return;
+    if (!navbarToggler || !navbarCollapse || typeof bootstrap === 'undefined') return;
     
-    navbarToggler.addEventListener('click', function () {
-        const isExpanded = this.getAttribute('aria-expanded') === 'true';
-        
-        // Animate menu
-        if (isExpanded) {
-            navbarCollapse.style.animation = 'slideOut 0.3s ease-out forwards';
-        } else {
-            navbarCollapse.style.animation = 'slideIn 0.3s ease-out forwards';
-        }
-    });
+    const bsCollapse = bootstrap.Collapse.getOrCreateInstance(navbarCollapse, { toggle: false });
     
     // Close menu when link is clicked
-    const navLinks = document.querySelectorAll('.navbar-collapse a[href*="#"]');
+    const navLinks = navbarCollapse.querySelectorAll('a[href*="#"]');
     navLinks.forEach(link => {
         link.addEventListener('click', function () {
-            if (navbarToggler.offsetParent !== null) { // Check if visible
-                navbarToggler.click();
+            if (navbarToggler.offsetParent !== null && navbarCollapse.classList.contains('show')) {
+                bsCollapse.hide();
             }
         });
     });
-    
-    // Add animation keyframes
-    const style = document.createElement('style');
-    style.textContent = `
-        @keyframes slideIn {
-            from {
-                opacity: 0;
-                max-height: 0;
-            }
-            to {
-                opacity: 1;
-                max-height: 500px;
-            }
-        }
-        
-        @keyframes slideOut {
-            from {
-                opacity: 1;
-                max-height: 500px;
-            }
-            to {
-                opacity: 0;
-                max-height: 0;
-            }
-        }
-    `;
-    document.head.appendChild(style);
 }
 
 /**
@@ -122,13 +86,10 @@ function initMobileNavigationMenu() {
         });
     }
     
-    // Handle viewport changes
+    // Handle viewport changes without reload
     window.addEventListener('resize', debounce(() => {
-        const newWidth = window.innerWidth;
-        if (newWidth !== windowWidth) {
-            location.reload();
-        }
-    }, 500));
+        adjustLayoutForMobile();
+    }, 200));
 }
 
 /**

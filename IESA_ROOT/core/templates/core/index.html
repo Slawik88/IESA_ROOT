@@ -9,87 +9,86 @@
     <section class="section-padding text-center card card-flat p-4 mb-5 hero-section" aria-labelledby="hero-title" role="banner">
         <div class="mb-3">
             <span class="badge badge-primary hero-badge" role="text">
-                <i class="fas fa-rocket me-2" aria-hidden="true"></i>International Extreme Sports Association
+                <i class="fas fa-mountain me-2" aria-hidden="true"></i>International Extreme Sports Association
             </span>
         </div>
         <h1 id="hero-title" class="display-5 fw-bold mb-3 hero-title">
-            Welcome to IESA!
+            Экстрим, который меняет людей и команды
         </h1>
         <p class="lead mb-4 hero-description">
-            Bringing leaders together and shaping the future. Join our international community of extreme sports enthusiasts.
+            IESA — это программы для подростков и взрослых, перезагрузка через спорт и сильные командные форматы.
         </p>
         <nav class="d-flex flex-column flex-sm-row gap-3 justify-content-center" aria-label="Primary actions">
-            <a href="{% url 'users:register' %}" class="btn btn-primary btn-modern" aria-label="Join IESA as a member">
-                <i class="fas fa-user-plus me-2" aria-hidden="true"></i>Join as Member
+            <a href="#iesa-offers" class="btn btn-primary btn-modern" aria-label="Перейти к предложениям IESA">
+                <i class="fas fa-compass me-2" aria-hidden="true"></i>Смотреть программы
             </a>
-            <a href="{% url 'blog:post_list' %}" class="btn btn-secondary" aria-label="Go to IESA community forum">
-                <i class="fas fa-comments me-2" aria-hidden="true"></i>Go to Community
+            <a href="{% url 'users:register' %}" class="btn btn-secondary" aria-label="Стать участником IESA">
+                <i class="fas fa-user-plus me-2" aria-hidden="true"></i>Стать участником
             </a>
         </nav>
     </section>
 
-    <!-- BENEFITS SECTION - Member Benefits -->
-    {% if member_benefits %}
-    <section class="section-padding" id="benefits-section" aria-labelledby="benefits-title" role="region">
+    <!-- WHAT IESA OFFERS -->
+    <section class="section-padding" id="iesa-offers" aria-labelledby="iesa-offers-title" role="region">
         <header class="text-center mb-5">
-            <p class="section-title mb-4 section-title-display" role="text">MEMBER BENEFITS</p>
-            <h2 id="benefits-title" class="fw-bold mb-2 text-gray-900">Exclusive Member Advantages</h2>
-            <p class="text-muted">Unlock premium benefits and exclusive offers when you join IESA</p>
+            <p class="section-title mb-4 section-title-display" role="text">ЧТО ПРЕДЛАГАЕТ IESA</p>
+            <h2 id="iesa-offers-title" class="fw-bold mb-2 text-gray-900">Четыре направления, которые дают результат</h2>
+            <p class="text-muted">Сильные эмоции, безопасный экстрим и реальный рост в команде</p>
         </header>
-        <div class="row g-4" role="list">
-            {% for benefit in member_benefits %}
-            <div class="col-12 col-md-6 col-lg-4" role="listitem">
-                <article class="card h-100 benefit-card position-relative overflow-hidden" aria-label="{{ benefit.title }} - {{ benefit.get_category_display }}">
-                    <!-- Decorative gradient background -->
-                    <div class="benefit-card-decoration-top"></div>
-                    
-                    <div class="card-body position-relative">
-                        <!-- Icon and Category -->
-                        <div class="d-flex align-items-center mb-3">
-                            <div class="benefit-icon-box me-3" aria-hidden="true">
-                                <i class="{{ benefit.icon|default:'fas fa-star' }} text-white"></i>
-                            </div>
-                            <div>
-                                <span class="badge badge-primary" role="text">
-                                    {{ benefit.get_category_display|default:'Exclusive' }}
-                                </span>
-                            </div>
-                        </div>
-
-                        <!-- Title -->
-                        <h5 class="card-title fw-bold mb-3">{{ benefit.title }}</h5>
-
-                        <!-- Description -->
-                        <p class="text-muted mb-3 small">{{ benefit.description|truncatewords:20 }}</p>
-
-                        <!-- Discount Info -->
-                        {% if benefit.discount_info %}
-                        <div class="alert alert-light mb-3 py-2 px-3" role="note">
-                            <i class="fas fa-percentage text-primary me-2" aria-hidden="true"></i>
-                            <small class="fw-bold text-primary">{{ benefit.discount_info }}</small>
-                        </div>
-                        {% endif %}
-
-                        <!-- Partner Info -->
-                        {% if benefit.partner_info %}
-                        <div class="mb-3">
-                            <small class="text-muted">
-                                <i class="fas fa-handshake me-1" aria-hidden="true"></i>{{ benefit.partner_info|truncatewords:10 }}
-                            </small>
-                        </div>
-                        {% endif %}
-                    </div>
-                </article>
-            </div>
-            {% endfor %}
-        </div>
-        <div class="text-center mt-5">
-            <a href="{% url 'core:benefits' %}" class="btn btn-primary btn-modern">
-                View All Benefits <i class="fas fa-arrow-right ms-2"></i>
-            </a>
+        <div class="iesa-offers-grid" role="list">
+            <article class="offer-card" role="listitem" aria-label="Детский экстрим скаут лагерь">
+                <div class="offer-icon" aria-hidden="true">
+                    <i class="fas fa-campground"></i>
+                </div>
+                <div class="offer-content">
+                    <h3 class="offer-title">Детский экстрим скаут лагерь</h3>
+                    <p class="offer-text">Для воспитания у подростков силы духа, любви к спорту и здоровому образу жизни.</p>
+                    <ul class="offer-meta" role="list">
+                        <li><i class="far fa-clock" aria-hidden="true"></i>Длительность: 1 или 2 недели</li>
+                        <li><i class="fas fa-sun" aria-hidden="true"></i>Где: тёплые страны, берег моря</li>
+                    </ul>
+                </div>
+            </article>
+            <article class="offer-card" role="listitem" aria-label="Экстрим уикэнды для взрослых">
+                <div class="offer-icon" aria-hidden="true">
+                    <i class="fas fa-water"></i>
+                </div>
+                <div class="offer-content">
+                    <h3 class="offer-title">Экстрим уикэнды для взрослых</h3>
+                    <p class="offer-text">Экстрим-уикэнды с водными видами спорта и насыщенной программой.</p>
+                    <ul class="offer-meta" role="list">
+                        <li><i class="far fa-calendar-alt" aria-hidden="true"></i>Длительность: с пятницы по воскресенье</li>
+                    </ul>
+                </div>
+            </article>
+            <article class="offer-card" role="listitem" aria-label="Яхтинг с дайвингом для взрослых">
+                <div class="offer-icon" aria-hidden="true">
+                    <i class="fas fa-anchor"></i>
+                </div>
+                <div class="offer-content">
+                    <h3 class="offer-title">Яхтинг с дайвингом для взрослых</h3>
+                    <p class="offer-text">Полная перезагрузка и смена обстановки с насыщенной активной программой.</p>
+                    <ul class="offer-meta" role="list">
+                        <li><i class="far fa-clock" aria-hidden="true"></i>Длительность: неделя</li>
+                        <li><i class="fas fa-bed" aria-hidden="true"></i>Проживание: яхта или отель на выбор</li>
+                        <li><i class="fas fa-route" aria-hidden="true"></i>Опции: музей в Гизе, квадроциклы, верблюды, катамаран</li>
+                    </ul>
+                </div>
+            </article>
+            <article class="offer-card" role="listitem" aria-label="Усиление команд через экстрим">
+                <div class="offer-icon" aria-hidden="true">
+                    <i class="fas fa-people-arrows"></i>
+                </div>
+                <div class="offer-content">
+                    <h3 class="offer-title">Усиление любого коллектива</h3>
+                    <p class="offer-text">Рабочие, творческие и управленческие команды — через экстримальные виды спорта.</p>
+                    <ul class="offer-meta" role="list">
+                        <li><i class="fas fa-bolt" aria-hidden="true"></i>Результат: сплочение, доверие, энергия</li>
+                    </ul>
+                </div>
+            </article>
         </div>
     </section>
-    {% endif %}
 
     <!-- Core Products Section - MAIN IESA PRODUCTS -->
     {% if core_products %}
