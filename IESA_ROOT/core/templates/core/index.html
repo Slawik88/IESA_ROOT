@@ -18,14 +18,6 @@
         <p class="lead mb-4 hero-description">
             IESA — это программы для подростков и взрослых, перезагрузка через спорт и сильные командные форматы.
         </p>
-        <nav class="d-flex flex-column flex-sm-row gap-3 justify-content-center" aria-label="Primary actions">
-            <a href="#iesa-offers" class="btn btn-primary btn-modern" aria-label="Перейти к предложениям IESA">
-                <i class="fas fa-compass me-2" aria-hidden="true"></i>Смотреть программы
-            </a>
-            <a href="{% url 'users:register' %}" class="btn btn-secondary" aria-label="Стать участником IESA">
-                <i class="fas fa-user-plus me-2" aria-hidden="true"></i>Стать участником
-            </a>
-        </nav>
     </section>
 
     <!-- WHAT IESA OFFERS -->
@@ -97,6 +89,32 @@
                     </ul>
                 </div>
             </article>
+        </div>
+        <div class="offers-actions" aria-label="Actions for IESA offers">
+            <a href="{% url 'users:register' %}" class="btn btn-primary btn-modern" aria-label="Стать участником IESA">
+                <i class="fas fa-user-plus me-2" aria-hidden="true"></i>Стать участником
+            </a>
+            <a href="{% url 'blog:event_list' %}" class="btn btn-secondary" aria-label="Посмотреть ближайшие события">
+                <i class="fas fa-calendar-alt me-2" aria-hidden="true"></i>Ближайшие события
+            </a>
+        </div>
+    </section>
+
+    <section class="section-padding offers-cta" aria-label="IESA membership call to action">
+        <div class="offers-cta-card">
+            <div>
+                <span class="offers-cta-badge">Вступление в IESA</span>
+                <h2 class="offers-cta-title">Хочешь участвовать в программах?</h2>
+                <p class="offers-cta-text">Открываем доступ к лагерям, уикэндам, путешествиям и командным форматам.</p>
+            </div>
+            <div class="offers-cta-actions">
+                <a href="{% url 'users:register' %}" class="btn btn-primary btn-modern" aria-label="Записаться в IESA">
+                    <i class="fas fa-user-plus me-2" aria-hidden="true"></i>Записаться
+                </a>
+                <a href="#iesa-offers" class="btn btn-outline-primary" aria-label="Вернуться к программам">
+                    <i class="fas fa-compass me-2" aria-hidden="true"></i>Смотреть программы
+                </a>
+            </div>
         </div>
     </section>
 
