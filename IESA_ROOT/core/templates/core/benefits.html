@@ -68,7 +68,7 @@
                         <h5 class="card-title fw-bold mb-3">{{ benefit.title }}</h5>
 
                         <!-- Описание -->
-                        <p class="text-muted mb-3">{{ benefit.description }}</p>
+                        <p class="text-muted mb-3">{{ benefit.description|striptags }}</p>
 
                         <!-- Скидка -->
                         {% if benefit.discount_info %}
@@ -99,7 +99,7 @@
                                     Условия получения
                                 </summary>
                                 <div class="small text-muted mt-2">
-                                    {{ benefit.terms|linebreaks }}
+                                    {{ benefit.terms|striptags|linebreaksbr }}
                                 </div>
                             </details>
                         </div>
