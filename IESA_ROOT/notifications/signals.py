@@ -11,8 +11,7 @@ from .utils import (
     notify_post_rejected,
     notify_new_comment,
     notify_comment_reply,
-    notify_new_like,
-    notify_new_message
+    notify_new_like
 )
 
 logger = logging.getLogger(__name__)

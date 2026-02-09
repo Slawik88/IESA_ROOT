@@ -1,7 +1,7 @@
 {% extends "base.html" %}
-{% load static %}
+{% load static i18n %}
 
-{% block title %}Edit profile | IESA{% endblock %}
+{% block title %}{% trans "Edit profile" %} | IESA{% endblock %}
 
 {% block content %}
 <div class="profile-edit-page py-5">
@@ -12,8 +12,8 @@
                     <div class="edit-card-header">
                         <div class="edit-header-icon"><i class="fas fa-user-cog"></i></div>
                         <div>
-                            <h3 class="edit-title">Edit profile</h3>
-                            <p class="edit-subtitle">Refresh your info, avatar and social links.</p>
+                            <h3 class="edit-title">{% trans "Edit profile" %}</h3>
+                            <p class="edit-subtitle">{% trans "Refresh your info, avatar and social links." %}</p>
                         </div>
                     </div>
 
@@ -21,47 +21,47 @@
                         {% csrf_token %}
 
                         <div class="card-section">
-                            <div class="section-heading">Basic info</div>
+                            <div class="section-heading">{% trans "Basic info" %}</div>
                             <div class="row g-3">
                                 <div class="col-md-6">
-                                    <label for="id_first_name" class="form-label">First name</label>
+                                    <label for="id_first_name" class="form-label">{% trans "First name" %}</label>
                                     {{ form.first_name }}
                                 </div>
                                 <div class="col-md-6">
-                                    <label for="id_last_name" class="form-label">Last name</label>
+                                    <label for="id_last_name" class="form-label">{% trans "Last name" %}</label>
                                     {{ form.last_name }}
                                 </div>
                                 <div class="col-md-6">
-                                    <label for="id_email" class="form-label">Email</label>
+                                    <label for="id_email" class="form-label">{% trans "Email" %}</label>
                                     {{ form.email }}
                                 </div>
                                 <div class="col-md-6">
-                                    <label for="id_date_of_birth" class="form-label">Date of birth</label>
+                                    <label for="id_date_of_birth" class="form-label">{% trans "Date of birth" %}</label>
                                     {{ form.date_of_birth }}
-                                    <small class="form-text text-muted d-block mt-1">Format: DD.MM.YYYY</small>
+                                    <small class="form-text text-muted d-block mt-1">{% trans "Format: DD.MM.YYYY" %}</small>
                                                                 <div class="col-md-6">
-                                                                    <label for="id_phone_number" class="form-label">Phone Number</label>
+                                                                    <label for="id_phone_number" class="form-label">{% trans "Phone Number" %}</label>
                                                                     {{ form.phone_number }}
-                                                                    <small class="form-text text-muted d-block mt-1">Например: +41 XX XXX XX XX</small>
+                                                                    <small class="form-text text-muted d-block mt-1">{% trans "Example: +41 XX XXX XX XX" %}</small>
                                                                 </div>
                                                                 <div class="col-12">
                                                                     <div class="form-check">
                                                                         {{ form.is_phone_hidden }}
                                                                         <label class="form-check-label" for="id_is_phone_hidden">
-                                                                            Hide phone number (only admins can see it)
+                                                                            {% trans "Hide phone number (only admins can see it)" %}
                                                                         </label>
                                                                     </div>
                                                                 </div>
                                 </div>
                                 <div class="col-12">
-                                    <label for="id_avatar" class="form-label">Avatar</label>
+                                    <label for="id_avatar" class="form-label">{% trans "Avatar" %}</label>
                                     <div class="d-flex align-items-center gap-3 mb-2">
                                         {% if form.instance.avatar and form.instance.avatar.name != 'avatars/default.png' %}
                                             <span class="avatar avatar-lg"><img src="{{ form.instance.avatar.url }}" alt="Current avatar"></span>
                                         {% else %}
                                             <span class="avatar avatar-lg avatar-fallback">{{ request.user.username|slice:":1"|upper }}</span>
                                         {% endif %}
-                                        <div class="small text-muted">Upload square image for best fit.</div>
+                                        <div class="small text-muted">{% trans "Upload square image for best fit." %}</div>
                                     </div>
                                     {{ form.avatar }}
                                 </div>
@@ -70,11 +70,11 @@
 
                         <div class="card-section">
                             <div class="section-heading">
-                                <i class="fas fa-link me-2"></i>Social & links
-                                <span class="text-muted" style="font-size: 0.9rem; font-weight: normal;">(примеры ниже)</span>
+                                <i class="fas fa-link me-2"></i>{% trans "Social & links" %}
+                                <span class="text-muted" style="font-size: 0.9rem; font-weight: normal;">({% trans "examples below" %})</span>
                             </div>
                             
-                            <!-- Подсказки с примерами -->
+                            <!-- Examples hint -->
                             <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #dc2626;">
                                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; font-size: 0.9rem;">
                                     <div>
@@ -123,12 +123,12 @@
                                 </div>
                                 <div class="col-12">
                                     <label for="id_other_links" class="form-label">
-                                        <i class="fas fa-list me-2"></i>Other links
-                                        <span class="text-muted" style="font-size: 0.85rem;">(one per line)</span>
+                                        <i class="fas fa-list me-2"></i>{% trans "Other links" %}
+                                        <span class="text-muted" style="font-size: 0.85rem;">({% trans "one per line" %})</span>
                                     </label>
                                     {{ form.other_links }}
                                     <small class="form-text text-muted d-block mt-2">
-                                        💡 Примеры: LinkedIn, Reddit, Twitter, YouTube, TikTok, Instagram, Twitch, Medium и т.д.
+                                        {% trans "Examples: LinkedIn, Reddit, Twitter, YouTube, TikTok, Instagram, Twitch, Medium, etc." %}
                                     </small>
                                 </div>
                             </div>
@@ -143,8 +143,8 @@
                         {% endif %}
 
                         <div class="edit-actions">
-                            <button type="submit" class="btn btn-primary btn-modern">Save changes</button>
-                            <a href="{% url 'users:profile' %}" class="btn btn-outline-secondary btn-modern">Cancel</a>
+                            <button type="submit" class="btn btn-primary btn-modern">{% trans "Save changes" %}</button>
+                            <a href="{% url 'users:profile' %}" class="btn btn-outline-secondary btn-modern">{% trans "Cancel" %}</a>
                         </div>
                     </form>
                 </div>
