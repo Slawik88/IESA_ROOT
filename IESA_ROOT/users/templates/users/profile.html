@@ -152,27 +152,27 @@
                                                 <h6 class="profile-detail-label mb-3">{% trans "Activity Level" %}</h6>
                                                 {% if level_info.level == "Legend" %}
                                                     <span class="badge badge-danger badge-level">
-                                                        <i class="fas fa-crown me-2"></i>Legend
+                                                        <i class="fas fa-crown me-2"></i>{% trans "Legend" %}
                                                     </span>
                                                 {% elif level_info.level == "Expert" %}
                                                     <span class="badge badge-warning badge-level">
-                                                        <i class="fas fa-star me-2"></i>Expert
+                                                        <i class="fas fa-star me-2"></i>{% trans "Expert" %}
                                                     </span>
                                                 {% elif level_info.level == "Advanced" %}
                                                     <span class="badge badge-info badge-level">
-                                                        <i class="fas fa-rocket me-2"></i>Advanced
+                                                        <i class="fas fa-rocket me-2"></i>{% trans "Advanced" %}
                                                     </span>
                                                 {% elif level_info.level == "Intermediate" %}
                                                     <span class="badge badge-success badge-level">
-                                                        <i class="fas fa-fire me-2"></i>Intermediate
+                                                        <i class="fas fa-fire me-2"></i>{% trans "Intermediate" %}
                                                     </span>
                                                 {% else %}
                                                     <span class="badge badge-secondary badge-level">
-                                                        <i class="fas fa-leaf me-2"></i>Beginner
+                                                        <i class="fas fa-leaf me-2"></i>{% trans "Beginner" %}
                                                     </span>
                                                 {% endif %}
                                             </div>
-                                            <a href="{% url 'users:activity_levels_info' %}" class="btn btn-ghost btn-sm" title="Learn about activity levels">
+                                            <a href="{% url 'users:activity_levels_info' %}" class="btn btn-ghost btn-sm" title="{% trans "Learn about activity levels" %}">
                                                 <i class="fas fa-question-circle"></i>
                                             </a>
                                         </div>
@@ -255,21 +255,21 @@
                     <div class="stat-chip chip-red">
                         <div class="chip-icon"><i class="fas fa-file-alt"></i></div>
                         <div>
-                            <p class="chip-label">Total posts</p>
+                            <p class="chip-label">{% trans "Total posts" %}</p>
                             <p class="chip-value">{{ user_posts|length }}</p>
                         </div>
                     </div>
                     <div class="stat-chip chip-amber">
                         <div class="chip-icon"><i class="fas fa-heart"></i></div>
                         <div>
-                            <p class="chip-label">Likes received</p>
+                            <p class="chip-label">{% trans "Likes received" %}</p>
                             <p class="chip-value">{{ profile_user.total_likes_received }}</p>
                         </div>
                     </div>
                     <div class="stat-chip chip-emerald">
                         <div class="chip-icon"><i class="fas fa-comments"></i></div>
                         <div>
-                            <p class="chip-label">Comments made</p>
+                            <p class="chip-label">{% trans "Comments made" %}</p>
                             <p class="chip-value">{{ profile_user.total_comments_made }}</p>
                         </div>
                     </div>
@@ -279,7 +279,7 @@
                 <!-- Posts Section -->
                 <div class="profile-posts-card">
                     <h3 class="profile-posts-title mb-4">
-                        <i class="fas fa-list me-3 text-primary"></i>Your Posts
+                        <i class="fas fa-list me-3 text-primary"></i>{% trans "Your Posts" %}
                     </h3>
 
                     {% if user_posts %}
@@ -287,10 +287,10 @@
                             <table class="table table-hover mb-0">
                                 <thead>
                                     <tr>
-                                        <th>Title</th>
-                                        <th>Status</th>
-                                        <th>Created</th>
-                                        <th>Actions</th>
+                                        <th>{% trans "Title" %}</th>
+                                        <th>{% trans "Status" %}</th>
+                                        <th>{% trans "Created" %}</th>
+                                        <th>{% trans "Actions" %}</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -301,11 +301,11 @@
                                         </td>
                                         <td>
                                             {% if post.status == 'published' %}
-                                                <span class="badge badge-success"><i class="fas fa-check-circle me-1"></i>Published</span>
+                                                <span class="badge badge-success"><i class="fas fa-check-circle me-1"></i>{% trans "Published" %}</span>
                                             {% elif post.status == 'pending' %}
-                                                <span class="badge badge-warning"><i class="fas fa-clock me-1"></i>Pending</span>
+                                                <span class="badge badge-warning"><i class="fas fa-clock me-1"></i>{% trans "Pending" %}</span>
                                             {% elif post.status == 'rejected' %}
-                                                <span class="badge badge-danger"><i class="fas fa-times-circle me-1"></i>Rejected</span>
+                                                <span class="badge badge-danger"><i class="fas fa-times-circle me-1"></i>{% trans "Rejected" %}</span>
                                             {% else %}
                                                 <span class="badge badge-secondary">{{ post.get_status_display }}</span>
                                             {% endif %}
@@ -315,8 +315,8 @@
                                         </td>
                                         <td>
                                             {% if post.status == 'published' %}
-                                                <a href="{% url 'blog:post_detail' post.pk %}" class="btn btn-primary btn-sm" title="View">
-                                                    <i class="fas fa-eye me-1"></i>View
+                                                <a href="{% url 'blog:post_detail' post.pk %}" class="btn btn-primary btn-sm" title="{% trans "View" %}">
+                                                    <i class="fas fa-eye me-1"></i>{% trans "View" %}
                                                 </a>
                                             {% endif %}
                                         </td>
@@ -327,7 +327,7 @@
                         </div>
                     {% else %}
                         <div class="alert alert-info mb-0">
-                            <i class="fas fa-info-circle me-2"></i>You have no posts yet. <a href="{% url 'blog:post_create' %}" class="fw-bold text-info">Create your first post</a>
+                            <i class="fas fa-info-circle me-2"></i>{% trans "You have no posts yet." %} <a href="{% url 'blog:post_create' %}" class="fw-bold text-info">{% trans "Create your first post" %}</a>
                         </div>
                     {% endif %}
                 </div>
