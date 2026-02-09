@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% load static i18n %}
 
-{% block title %}Home | IESA{% endblock %}
+{% block title %}{% trans "Home" %} | IESA{% endblock %}
 
 {% block content %}
 <div class="container-limited">
@@ -122,14 +122,14 @@
     {% if core_products %}
     <section class="section-padding" id="core-products-section" aria-labelledby="core-products-title" role="region">
         <header class="text-center mb-5">
-            <p class="section-title mb-4 section-title-display" role="text">OUR CORE PROGRAMS</p>
-            <h2 id="core-products-title" class="fw-bold mb-2 text-gray-900">IESA Programs</h2>
-            <p class="text-muted">Extreme adventures for all ages</p>
+            <p class="section-title mb-4 section-title-display" role="text">{% trans "OUR CORE PROGRAMS" %}</p>
+            <h2 id="core-products-title" class="fw-bold mb-2 text-gray-900">{% trans "IESA Programs" %}</h2>
+            <p class="text-muted">{% trans "Extreme adventures for all ages" %}</p>
         </header>
         <div class="grid grid-cols-2" role="list">
             {% for product in core_products %}
             <div role="listitem">
-            <article class="card h-100 product-card" aria-label="{{ product.title }} program">
+            <article class="card h-100 product-card" aria-label="{% blocktrans with title=product.title %}{{ title }} program{% endblocktrans %}">
                 <div class="position-relative">
                     {% if product.image %}
                         <img src="{{ product.image.url }}" class="card-img-top product-card-image" alt="{{ product.title }}" loading="lazy">
@@ -140,7 +140,7 @@
                     {% endif %}
                     <div class="position-absolute top-0 start-0 m-3">
                         <span class="badge bg-white text-dark shadow-sm" role="text">
-                            <i class="{{ product.icon }} me-1" aria-hidden="true"></i>Core Program
+                            <i class="{{ product.icon }} me-1" aria-hidden="true"></i>{% trans "Core Program" %}
                         </span>
                     </div>
                 </div>
@@ -165,7 +165,7 @@
                     
                     {% if product.features %}
                     <div class="mb-3">
-                        <p class="fw-bold small text-uppercase text-muted mb-2">Features:</p>
+                        <p class="fw-bold small text-uppercase text-muted mb-2">{% trans "Features:" %}</p>
                         <ul class="list-unstyled mb-0">
                             {% for feature in product.get_features_list %}
                             {% if forloop.counter <= 3 %}
@@ -186,8 +186,8 @@
                     {% endif %}
                 </div>
                 <div class="card-footer text-center">
-                    <a href="{% url 'blog:post_list' %}" class="btn btn-primary btn-sm" aria-label="Learn more about {{ product.title }}">
-                        Learn More <i class="fas fa-arrow-right ms-2" aria-hidden="true"></i>
+                    <a href="{% url 'blog:post_list' %}" class="btn btn-primary btn-sm" aria-label="{% blocktrans with title=product.title %}Learn more about {{ title }}{% endblocktrans %}">
+                        {% trans "Learn More" %} <i class="fas fa-arrow-right ms-2" aria-hidden="true"></i>
                     </a>
                 </div>
             </article>
@@ -201,9 +201,9 @@
     {% if upcoming_events %}
     <section class="section-padding" id="events-section" aria-labelledby="events-title" role="region">
         <header class="text-center mb-5">
-            <p class="section-title mb-4 section-title-display" role="text">UPCOMING EVENTS</p>
-            <h2 id="events-title" class="fw-bold mb-2 text-gray-900">Join Our Next Community Gatherings</h2>
-            <p class="text-muted">Connect with fellow extreme sports enthusiasts</p>
+            <p class="section-title mb-4 section-title-display" role="text">{% trans "UPCOMING EVENTS" %}</p>
+            <h2 id="events-title" class="fw-bold mb-2 text-gray-900">{% trans "Join Our Next Community Gatherings" %}</h2>
+            <p class="text-muted">{% trans "Connect with fellow extreme sports enthusiasts" %}</p>
         </header>
         <div class="grid grid-cols-3" role="list">
             {% for event in upcoming_events %}
@@ -232,7 +232,7 @@
                     </div>
                     <div class="card-footer text-center">
                         <span class="btn btn-outline btn-sm min-w-140">
-                            Learn More <i class="fas fa-arrow-right ms-2"></i>
+                            {% trans "Learn More" %} <i class="fas fa-arrow-right ms-2"></i>
                         </span>
                     </div>
                 </a>
@@ -241,7 +241,7 @@
         </div>
         <div class="text-center mt-4">
             <a href="{% url 'blog:event_list' %}" class="btn btn-primary btn-modern">
-                View All Events <i class="fas fa-arrow-right ms-2"></i>
+                {% trans "View All Events" %} <i class="fas fa-arrow-right ms-2"></i>
             </a>
         </div>
     </section>
@@ -250,9 +250,9 @@
     <!-- About Section: President & Members -->
     <section id="about-section" class="section-padding card p-5 my-5" aria-labelledby="about-title">
         <div class="text-center mb-5">
-            <h6 class="section-title mb-4 section-title-display">ABOUT IESA</h6>
-            <h2 id="about-title" class="fw-bold mb-2 text-gray-900">Our Leadership & Team</h2>
-            <p class="text-muted">Meet the people who drive our mission forward</p>
+            <h6 class="section-title mb-4 section-title-display">{% trans "ABOUT IESA" %}</h6>
+            <h2 id="about-title" class="fw-bold mb-2 text-gray-900">{% trans "Our Leadership & Team" %}</h2>
+            <p class="text-muted">{% trans "Meet the people who drive our mission forward" %}</p>
         </div>
 
         {% if president %}
@@ -272,7 +272,7 @@
                 <div class="col-md-8">
                     <h4 class="fw-bold mb-3 text-gray-900">
                         <i class="fas fa-quote-left me-2 president-quote-icon"></i>
-                        A Word from the President
+                        {% trans "A Word from the President" %}
                     </h4>
                     <div class="president-description">{{ president.description|safe }}</div>
                 </div>
@@ -281,9 +281,9 @@
 
         <!-- Association Members -->
         <div class="text-center mb-5">
-            <h6 class="section-title mb-4 section-title-display">OUR TEAM</h6>
-            <h3 class="fw-bold mb-2 team-section-title">Dedicated Leadership & Members</h3>
-            <p class="text-muted">The people behind IESA's success</p>
+            <h6 class="section-title mb-4 section-title-display">{% trans "OUR TEAM" %}</h6>
+            <h3 class="fw-bold mb-2 team-section-title">{% trans "Dedicated Leadership & Members" %}</h3>
+            <p class="text-muted">{% trans "The people behind IESA's success" %}</p>
         </div>
         {% if members %}
             <div class="row g-4">
@@ -324,7 +324,7 @@
                                             data-member-description="{{ member.description|safe }}"
                                             data-member-photo="{% if member.photo %}{{ member.photo.url }}{% endif %}"
                                             onclick="openMemberModal(this)">
-                                        <i class="fas fa-arrow-right me-1"></i>More
+                                        <i class="fas fa-arrow-right me-1"></i>{% trans "More" %}
                                     </button>
                                 </div>
                             </div>
@@ -335,7 +335,7 @@
         {% else %}
             <div class="text-center p-5 empty-state-card">
                 <i class="fas fa-info-circle mb-3 empty-state-icon"></i>
-                <p class="text-muted mb-0">Information about members will be posted soon.</p>
+                <p class="text-muted mb-0">{% trans "Information about members will be posted soon." %}</p>
             </div>
         {% endif %}
 
@@ -344,7 +344,7 @@
             <div class="modal-dialog modal-lg" role="document">
                 <div class="modal-content member-modal-content">
                     <div class="modal-header member-modal-header">
-                        <h5 class="modal-title fw-bold member-modal-title" id="memberModalLabel">Team Member Profile</h5>
+                        <h5 class="modal-title fw-bold member-modal-title" id="memberModalLabel">{% trans "Team Member Profile" %}</h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <div class="modal-body member-modal-body">
@@ -365,7 +365,7 @@
                         </div>
                     </div>
                     <div class="modal-footer member-modal-footer">
-                        <button type="button" class="btn btn-secondary btn-sm member-modal-close-btn" data-bs-dismiss="modal">Close</button>
+                        <button type="button" class="btn btn-secondary btn-sm member-modal-close-btn" data-bs-dismiss="modal">{% trans "Close" %}</button>
                     </div>
                 </div>
             </div>
@@ -375,16 +375,16 @@
     <!-- Partners Section -->
     <section class="section-padding" id="partners-section" aria-labelledby="partners-title" role="region">
         <header class="text-center mb-5">
-            <p class="section-title mb-4 section-title-display" role="text">PARTNERSHIPS</p>
-            <h2 id="partners-title" class="fw-bold mb-2 partners-section-title">Organizations We Collaborate With</h2>
-            <p class="text-muted">Building strong relationships worldwide</p>
+            <p class="section-title mb-4 section-title-display" role="text">{% trans "PARTNERSHIPS" %}</p>
+            <h2 id="partners-title" class="fw-bold mb-2 partners-section-title">{% trans "Organizations We Collaborate With" %}</h2>
+            <p class="text-muted">{% trans "Building strong relationships worldwide" %}</p>
         </header>
         {% if partners %}
             <div class="row g-4" role="list">
                 {% for partner in partners %}
                     <!-- Compact Partner Card -->
                     <div class="col-12 col-md-6 col-lg-4" role="listitem">
-                        <article class="partner-card-compact card h-100" aria-label="{{ partner.name }} - {{ partner.get_category_display }} partner">
+                        <article class="partner-card-compact card h-100" aria-label="{% blocktrans with name=partner.name category=partner.get_category_display %}{{ name }} - {{ category }} partner{% endblocktrans %}">
                             <div class="card-body p-3">
                                 <div class="d-flex align-items-start gap-3">
                                     <!-- Logo (Left) -->
@@ -402,11 +402,11 @@
                                     <div class="flex-grow-1 min-w-0">
                                         <!-- Category Badge -->
                                         <span class="badge {% if partner.category == 'sponsor' %}badge-partner-sponsor{% elif partner.category == 'media' %}badge-partner-media{% elif partner.category == 'tech' %}badge-partner-tech{% elif partner.category == 'venue' %}badge-partner-venue{% else %}badge-partner-default{% endif %} mb-2" role="text">
-                                            {% if partner.category == 'sponsor' %}<i class="fas fa-star me-1" aria-hidden="true"></i>Sponsor
-                                            {% elif partner.category == 'media' %}<i class="fas fa-newspaper me-1" aria-hidden="true"></i>Media
-                                            {% elif partner.category == 'tech' %}<i class="fas fa-code me-1" aria-hidden="true"></i>Tech
-                                            {% elif partner.category == 'venue' %}<i class="fas fa-building me-1" aria-hidden="true"></i>Venue
-                                            {% else %}<i class="fas fa-link me-1" aria-hidden="true"></i>Partner{% endif %}
+                                            {% if partner.category == 'sponsor' %}<i class="fas fa-star me-1" aria-hidden="true"></i>{% trans "Sponsor" %}
+                                            {% elif partner.category == 'media' %}<i class="fas fa-newspaper me-1" aria-hidden="true"></i>{% trans "Media" %}
+                                            {% elif partner.category == 'tech' %}<i class="fas fa-code me-1" aria-hidden="true"></i>{% trans "Tech" %}
+                                            {% elif partner.category == 'venue' %}<i class="fas fa-building me-1" aria-hidden="true"></i>{% trans "Venue" %}
+                                            {% else %}<i class="fas fa-link me-1" aria-hidden="true"></i>{% trans "Partner" %}{% endif %}
                                         </span>
                                         
                                         <!-- Name -->
@@ -425,14 +425,14 @@
                                                 hx-target="#partner-modal-body"
                                                 data-bs-toggle="modal" 
                                                 data-bs-target="#partnerModal"
-                                                aria-label="View details about {{ partner.name }}">
-                                                <i class="fas fa-info-circle me-1" aria-hidden="true"></i>Details
+                                                aria-label="{% blocktrans with name=partner.name %}View details about {{ name }}{% endblocktrans %}">
+                                                <i class="fas fa-info-circle me-1" aria-hidden="true"></i>{% trans "Details" %}
                                             </button>
                                             {% if partner.link %}
                                                 <a href="{{ partner.link }}" target="_blank" rel="noopener" 
                                                    class="btn btn-sm btn-primary"
-                                                   aria-label="Visit {{ partner.name }} website">
-                                                    <i class="fas fa-external-link-alt me-1" aria-hidden="true"></i>Visit
+                                                   aria-label="{% blocktrans with name=partner.name %}Visit {{ name }} website{% endblocktrans %}">
+                                                    <i class="fas fa-external-link-alt me-1" aria-hidden="true"></i>{% trans "Visit" %}
                                                 </a>
                                             {% endif %}
                                         </div>
@@ -451,7 +451,7 @@
                             <i class="fas fa-chevron-left"></i>
                         </a>
                     {% endif %}
-                    <span class="pagination-info">Page {{ partners_page_obj.number }} of {{ partners_page_obj.paginator.num_pages }}</span>
+                    <span class="pagination-info">{% blocktrans with page=partners_page_obj.number total=partners_page_obj.paginator.num_pages %}Page {{ page }} of {{ total }}{% endblocktrans %}</span>
                     {% if partners_page_obj.has_next %}
                         <a class="pagination-btn" href="?partners_page={{ partners_page_obj.next_page_number }}#partners-section">
                             <i class="fas fa-chevron-right"></i>
@@ -462,7 +462,7 @@
         {% else %}
             <div class="text-center p-5 partners-empty">
                 <i class="fas fa-handshake mb-3 partners-empty-icon"></i>
-                <p class="text-muted mb-0">We are looking for new partners!</p>
+                <p class="text-muted mb-0">{% trans "We are looking for new partners!" %}</p>
             </div>
         {% endif %}
     </section>
@@ -473,15 +473,15 @@
             <div class="row g-4 align-items-center">
                 <div class="col-md-7">
                     <span class="badge bg-white text-dark mb-3">
-                        <i class="fas fa-heart me-2 donate-heart-icon"></i>Support Us
+                        <i class="fas fa-heart me-2 donate-heart-icon"></i>{% trans "Support Us" %}
                     </span>
-                    <h2 class="fw-bold mb-3">Support Our Association</h2>
+                    <h2 class="fw-bold mb-3">{% trans "Support Our Association" %}</h2>
                     <p class="mb-4 donate-description">
-                        Your support helps us launch new projects, organize events and grow our international community.
+                        {% trans "Your support helps us launch new projects, organize events and grow our international community." %}
                     </p>
                     <div class="p-4 mb-4 donate-progress-container">
                         <div class="d-flex justify-content-between mb-2 donate-progress-label">
-                            <span>Current Goal</span>
+                            <span>{% trans "Current Goal" %}</span>
                             <span class="fw-bold">CHF 4,500 / 10,000</span>
                         </div>
                         <div class="progress donate-progress-bar">
@@ -489,14 +489,14 @@
                         </div>
                     </div>
                     <button class="btn btn-light btn-lg" disabled>
-                        <i class="fas fa-hand-holding-heart me-2"></i>Make a Donation (Coming Soon)
+                        <i class="fas fa-hand-holding-heart me-2"></i>{% trans "Make a Donation (Coming Soon)" %}
                     </button>
-                    <p class="mt-3 text-white-75"><small>Stripe integration coming soon. This is a preview section.</small></p>
+                    <p class="mt-3 text-white-75"><small>{% trans "Stripe integration coming soon. This is a preview section." %}</small></p>
                 </div>
                 <div class="col-md-5 text-md-end text-center">
                     <div class="donation-badge shadow-lg">
-                        <div class="h4 mb-1">Impact focus</div>
-                        <p class="mb-0 text-white-75 small">Events · Education · Partnerships</p>
+                        <div class="h4 mb-1">{% trans "Impact focus" %}</div>
+                        <p class="mb-0 text-white-75 small">{% trans "Events · Education · Partnerships" %}</p>
                     </div>
                 </div>
             </div>
