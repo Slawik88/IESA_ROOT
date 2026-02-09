@@ -1,0 +1,286 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PROJECT package.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: IESA_ROOT\n"
+"POT-Creation-Date: 2026-02-09 00:00+0000\n"
+"PO-Revision-Date: 2026-02-09 00:00+0000\n"
+"Last-Translator: \n"
+"Language-Team: \n"
+"Language: uk\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);\n"
+
+msgid "Home"
+msgstr "Головна"
+
+msgid "International Extreme Sports Association"
+msgstr "Міжнародна асоціація екстремальних видів спорту"
+
+msgid "IESA Programs for Kids and Adults"
+msgstr "Програми IESA для дітей і дорослих"
+
+msgid "IESA delivers programs for teens and adults — a reset through sport and strong team formats."
+msgstr "IESA проводить програми для підлітків і дорослих — перезавантаження через спорт і сильні командні формати."
+
+msgid "WHAT IESA OFFERS"
+msgstr "ЩО ПРОПОНУЄ IESA"
+
+msgid "Four directions that deliver results"
+msgstr "Чотири напрями, що дають результат"
+
+msgid "Strong emotions, safe extreme sports, and real team growth"
+msgstr "Сильні емоції, безпечний екстрим і реальний командний ріст"
+
+msgid "Kids"
+msgstr "Діти"
+
+msgid "Adults"
+msgstr "Дорослі"
+
+msgid "Teams"
+msgstr "Команди"
+
+msgid "Travel"
+msgstr "Подорожі"
+
+msgid "Extreme scout camp for kids"
+msgstr "Дитячий екстрим-скаут табір"
+
+msgid "Kids · Camp"
+msgstr "Діти · Табір"
+
+msgid "Extreme Scout Camp for Kids"
+msgstr "Екстрим-скаут табір для дітей"
+
+msgid "Build resilience, love for sport, and a healthy lifestyle for teens."
+msgstr "Формує витривалість, любов до спорту та здоровий спосіб життя у підлітків."
+
+msgid "Duration: 1 or 2 weeks"
+msgstr "Тривалість: 1 або 2 тижні"
+
+msgid "Where: warm countries, seaside"
+msgstr "Де: теплі країни, узбережжя моря"
+
+msgid "Extreme weekends for adults"
+msgstr "Екстрим-вікенди для дорослих"
+
+msgid "Adults · Weekend"
+msgstr "Дорослі · Вікенд"
+
+msgid "Extreme Weekends for Adults"
+msgstr "Екстрим-вікенди для дорослих"
+
+msgid "Water sports weekends with a packed program."
+msgstr "Вікенди водних видів спорту з насиченою програмою."
+
+msgid "Duration: Friday to Sunday"
+msgstr "Тривалість: з п’ятниці до неділі"
+
+msgid "Yachting and diving for adults"
+msgstr "Яхтинг і дайвінг для дорослих"
+
+msgid "Adults · Journey"
+msgstr "Дорослі · Подорож"
+
+msgid "Yachting & Diving for Adults"
+msgstr "Яхтинг і дайвінг для дорослих"
+
+msgid "A complete reset and change of scenery with an active program."
+msgstr "Повне перезавантаження та зміна обстановки з активною програмою."
+
+msgid "Duration: one week"
+msgstr "Тривалість: один тиждень"
+
+msgid "Stay: yacht or hotel of choice"
+msgstr "Проживання: яхта або готель на вибір"
+
+msgid "Options: Grand Egyptian Museum, quad bikes, camels, catamaran"
+msgstr "Опції: Великий Єгипетський музей, квадроцикли, верблюди, катамаран"
+
+msgid "Strengthen teams through extreme sports"
+msgstr "Зміцнення команд через екстрим-спорт"
+
+msgid "Teams · Corporate"
+msgstr "Команди · Корпоратив"
+
+msgid "Strengthen Any Team"
+msgstr "Посилюйте будь-яку команду"
+
+msgid "Work, creative, and leadership teams — through extreme sports formats."
+msgstr "Робочі, творчі та управлінські команди — через формати екстремального спорту."
+
+msgid "Outcome: cohesion, trust, energy"
+msgstr "Результат: згуртованість, довіра, енергія"
+
+msgid "Become an IESA member"
+msgstr "Стати учасником IESA"
+
+msgid "Become a member"
+msgstr "Стати учасником"
+
+msgid "View upcoming events"
+msgstr "Переглянути майбутні події"
+
+msgid "Upcoming events"
+msgstr "Майбутні події"
+
+msgid "IESA Membership"
+msgstr "Членство IESA"
+
+msgid "Want to join the programs?"
+msgstr "Хочете приєднатися до програм?"
+
+msgid "Get access to camps, weekends, journeys, and team formats."
+msgstr "Отримайте доступ до таборів, вікендів, подорожей і командних форматів."
+
+msgid "Join IESA"
+msgstr "Приєднатися до IESA"
+
+msgid "Join now"
+msgstr "Приєднатися зараз"
+
+msgid "View programs"
+msgstr "Переглянути програми"
+
+msgid "OUR CORE PROGRAMS"
+msgstr "НАШІ ОСНОВНІ ПРОГРАМИ"
+
+msgid "IESA Programs"
+msgstr "Програми IESA"
+
+msgid "Extreme adventures for all ages"
+msgstr "Екстремальні пригоди для будь-якого віку"
+
+msgid "%(title)s program"
+msgstr "Програма %(title)s"
+
+msgid "Core Program"
+msgstr "Основна програма"
+
+msgid "Features:"
+msgstr "Особливості:"
+
+msgid "Learn more about %(title)s"
+msgstr "Дізнатися більше про %(title)s"
+
+msgid "Learn More"
+msgstr "Дізнатися більше"
+
+msgid "UPCOMING EVENTS"
+msgstr "МАЙБУТНІ ПОДІЇ"
+
+msgid "Join Our Next Community Gatherings"
+msgstr "Приєднуйтеся до наступних зустрічей спільноти"
+
+msgid "Connect with fellow extreme sports enthusiasts"
+msgstr "Спілкуйтеся з однодумцями-екстремалами"
+
+msgid "View All Events"
+msgstr "Переглянути всі події"
+
+msgid "ABOUT IESA"
+msgstr "ПРО IESA"
+
+msgid "Our Leadership & Team"
+msgstr "Наше керівництво та команда"
+
+msgid "Meet the people who drive our mission forward"
+msgstr "Познайомтеся з людьми, які рухають нашу місію вперед"
+
+msgid "A Word from the President"
+msgstr "Слово президента"
+
+msgid "OUR TEAM"
+msgstr "НАША КОМАНДА"
+
+msgid "Dedicated Leadership & Members"
+msgstr "Віддане керівництво та учасники"
+
+msgid "The people behind IESA's success"
+msgstr "Люди, що стоять за успіхом IESA"
+
+msgid "More"
+msgstr "Детальніше"
+
+msgid "Information about members will be posted soon."
+msgstr "Інформацію про учасників буде опубліковано незабаром."
+
+msgid "Team Member Profile"
+msgstr "Профіль члена команди"
+
+msgid "Close"
+msgstr "Закрити"
+
+msgid "PARTNERSHIPS"
+msgstr "ПАРТНЕРСТВА"
+
+msgid "Organizations We Collaborate With"
+msgstr "Організації, з якими ми співпрацюємо"
+
+msgid "Building strong relationships worldwide"
+msgstr "Будуємо міцні відносини по всьому світу"
+
+msgid "%(name)s - %(category)s partner"
+msgstr "Партнер %(name)s — %(category)s"
+
+msgid "Sponsor"
+msgstr "Спонсор"
+
+msgid "Media"
+msgstr "Медіа"
+
+msgid "Tech"
+msgstr "Тех"
+
+msgid "Venue"
+msgstr "Майданчик"
+
+msgid "Partner"
+msgstr "Партнер"
+
+msgid "View details about %(name)s"
+msgstr "Переглянути деталі про %(name)s"
+
+msgid "Details"
+msgstr "Деталі"
+
+msgid "Visit %(name)s website"
+msgstr "Відвідати сайт %(name)s"
+
+msgid "Visit"
+msgstr "Відвідати"
+
+msgid "Page %(page)s of %(total)s"
+msgstr "Сторінка %(page)s з %(total)s"
+
+msgid "We are looking for new partners!"
+msgstr "Ми шукаємо нових партнерів!"
+
+msgid "Support Us"
+msgstr "Підтримайте нас"
+
+msgid "Support Our Association"
+msgstr "Підтримайте нашу асоціацію"
+
+msgid "Your support helps us launch new projects, organize events and grow our international community."
+msgstr "Ваша підтримка допомагає запускати нові проєкти, організовувати події та розвивати міжнародну спільноту."
+
+msgid "Current Goal"
+msgstr "Поточна ціль"
+
+msgid "Make a Donation (Coming Soon)"
+msgstr "Зробити внесок (незабаром)"
+
+msgid "Stripe integration coming soon. This is a preview section."
+msgstr "Інтеграція Stripe з’явиться незабаром. Це попередній перегляд."
+
+msgid "Impact focus"
+msgstr "Фокус впливу"
+
+msgid "Events · Education · Partnerships"
+msgstr "Події · Освіта · Партнерства"
