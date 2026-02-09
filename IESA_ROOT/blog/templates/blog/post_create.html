@@ -1,6 +1,7 @@
 {% extends "base.html" %}
+{% load i18n %}
 
-{% block title %}Create a new post | IESA{% endblock %}
+{% block title %}{% trans "Create a new post" %} | IESA{% endblock %}
 
 {% block extra_css %}
 <link href="https://cdn.jsdelivr.net/npm/quill@2.0.0/dist/quill.snow.css" rel="stylesheet">
@@ -10,9 +11,9 @@
 <div class="row justify-content-center">
     <div class="col-lg-10 col-xl-8">
         <div class="text-center mb-5">
-            <h6 class="section-title mb-4" style="display: block;">CREATE CONTENT</h6>
-            <h1 class="fw-bold mb-2" style="color: var(--color-gray-900);">Publish New Article or Announcement</h1>
-            <p class="text-muted">Use our advanced editor: fonts, colors, lists, quotes and preview before publishing</p>
+            <h6 class="section-title mb-4" style="display: block;">{% trans "CREATE CONTENT" %}</h6>
+            <h1 class="fw-bold mb-2" style="color: var(--color-gray-900);">{% trans "Publish New Article or Announcement" %}</h1>
+            <p class="text-muted">{% trans "Use our advanced editor: fonts, colors, lists, quotes and preview before publishing" %}</p>
         </div>
         
         <div class="card card-modern p-5 shadow-lg">
@@ -33,7 +34,7 @@
                     {# If widget is a plain textarea (no CKEditor), initialize Quill below via JS and sync to textarea on submit #}
                     {{ form.text }}
                     {% if form.text.errors %}<div class="text-danger small mt-1">{{ form.text.errors }}</div>{% endif %}
-                    <small class="form-text text-muted">Rich formatting: заголовки, списки, ссылки, цитаты, цвета текста и фона.</small>
+                    <small class="form-text text-muted">{% trans "Rich formatting: headings, lists, links, quotes, text and background colors." %}</small>
                 </div>
 
                 <div class="mb-4">
@@ -43,11 +44,11 @@
                 </div>
                 
                 <div class="d-flex gap-2">
-                    <button type="button" id="preview-btn" class="btn btn-outline-secondary btn-modern flex-fill">Preview</button>
+                    <button type="button" id="preview-btn" class="btn btn-outline-secondary btn-modern flex-fill">{% trans "Preview" %}</button>
                     <button type="submit" class="btn btn-primary btn-modern flex-fill" id="submit-btn">
-                        <span class="submit-text">Create and submit for review</span>
+                        <span class="submit-text">{% trans "Create and submit for review" %}</span>
                         <span class="submit-loading d-none">
-                            <i class="fas fa-spinner fa-spin me-2"></i>Submitting...
+                            <i class="fas fa-spinner fa-spin me-2"></i>{% trans "Submitting..." %}
                         </span>
                     </button>
                 </div>
@@ -63,17 +64,17 @@
             </form>
 
             <div class="mt-5">
-                <h5 class="fw-bold mb-3">Live preview</h5>
+                <h5 class="fw-bold mb-3">{% trans "Live preview" %}</h5>
                 <div class="card card-modern overflow-hidden" id="post-live-preview">
                     <div class="position-relative">
-                        <img id="preview-image-output" class="w-100" style="max-height:260px; object-fit:cover; display:none;" alt="Preview image" />
-                        <div class="preview-placeholder text-muted text-center py-5" id="preview-image-placeholder">Добавьте изображение для превью</div>
-                        <span class="badge bg-primary position-absolute top-0 start-0 m-3">Draft preview</span>
+                        <img id="preview-image-output" class="w-100" style="max-height:260px; object-fit:cover; display:none;" alt="{% trans "Preview image" %}" />
+                        <div class="preview-placeholder text-muted text-center py-5" id="preview-image-placeholder">{% trans "Add an image for preview" %}</div>
+                        <span class="badge bg-primary position-absolute top-0 start-0 m-3">{% trans "Draft preview" %}</span>
                     </div>
                     <div class="p-4">
-                        <h3 id="preview-title" class="mb-3">Post Title</h3>
+                        <h3 id="preview-title" class="mb-3">{% trans "Post Title" %}</h3>
                         <div id="preview-body" class="text-muted" style="min-height:120px;">
-                            Описание появится здесь после редактирования.
+                            {% trans "Description will appear here after editing." %}
                         </div>
                     </div>
                 </div>
@@ -81,6 +82,11 @@
         </div>
     </div>
 </div>
+<div id="postCreateStrings"
+     data-title-required="{% trans "Please enter a post title" %}"
+     data-content-required="{% trans "Please enter post content" %}"
+     data-default-title="{% trans "Post Title" %}"
+     data-default-body="{% trans "Description will appear here after editing." %}"></div>
 <!-- Quill fallback (loaded only if CKEditor absent). We add a basic toolbar and sync content to textarea on submit -->
 <link href="https://cdn.jsdelivr.net/npm/quill@2.0.0/dist/quill.snow.css" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/quill@2.0.0/dist/quill.js"></script>
@@ -127,15 +133,19 @@ document.addEventListener('DOMContentLoaded', function(){
             var titleContent = form.querySelector('input[name="title"]').value.trim();
             
             // Validate: both title and text required
+            const strings = document.getElementById('postCreateStrings')?.dataset;
+            const titleRequired = strings?.titleRequired || 'Please enter a post title';
+            const contentRequired = strings?.contentRequired || 'Please enter post content';
+
             if (!titleContent) {
                 e.preventDefault();
-                alert('Please enter a post title');
+                alert(titleRequired);
                 return false;
             }
             
             if (!quillContent || quillContent === '<p><br></p>') {
                 e.preventDefault();
-                alert('Please enter post content');
+                alert(contentRequired);
                 return false;
             }
             
@@ -151,8 +161,11 @@ document.addEventListener('DOMContentLoaded', function(){
         var previewBody = document.getElementById('preview-body');
         var titleInput = form.querySelector('input[name="title"]');
         function syncPreview(){
-            if (previewTitle && titleInput) previewTitle.textContent = titleInput.value || 'Post Title';
-            if (previewBody) previewBody.innerHTML = quill.root.innerHTML || 'Описание появится здесь после редактирования.';
+            const strings = document.getElementById('postCreateStrings')?.dataset;
+            const defaultTitle = strings?.defaultTitle || 'Post Title';
+            const defaultBody = strings?.defaultBody || 'Description will appear here after editing.';
+            if (previewTitle && titleInput) previewTitle.textContent = titleInput.value || defaultTitle;
+            if (previewBody) previewBody.innerHTML = quill.root.innerHTML || defaultBody;
         }
         quill.on('text-change', syncPreview);
         if (titleInput) titleInput.addEventListener('input', syncPreview);
