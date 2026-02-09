@@ -1,8 +1,8 @@
 {% extends 'base.html' %}
-{% load static %}
+{% load static i18n %}
 {% load imagekit %}
 
-{% block title %}Profile of {{ profile_user.username }}{% endblock %}
+{% block title %}{% blocktrans with username=profile_user.username %}Profile of {{ username }}{% endblocktrans %}{% endblock %}
 
 {% block content %}
 <div class="profile-page py-5">
@@ -33,7 +33,7 @@
                                 <!-- Own Profile - Edit Button -->
                                 <div class="mb-3">
                                     <a href="{% url 'users:profile_edit' %}" class="btn btn-primary w-100">
-                                        <i class="fas fa-edit me-2"></i>Edit Profile
+                                        <i class="fas fa-edit me-2"></i>{% trans "Edit Profile" %}
                                     </a>
                                 </div>
                             {% endif %}
@@ -49,17 +49,17 @@
                                 <!-- QR Code Section -->
                                 <div class="mb-4">
                                     <div class="profile-qr-card">
-                                        <h6 class="profile-detail-label mb-3">Your QR Code</h6>
-                                        <a href="{% url 'users:profile_by_card' permanent_id=profile_user.permanent_id %}" title="Open profile by card">
+                                        <h6 class="profile-detail-label mb-3">{% trans "Your QR Code" %}</h6>
+                                        <a href="{% url 'users:profile_by_card' permanent_id=profile_user.permanent_id %}" title="{% trans "Open profile by card" %}">
                                             <img src="{% url 'users:user_qr' permanent_id=profile_user.permanent_id %}" 
-                                                 alt="QR Code" class="qr-code-img">
+                                                 alt="{% trans "QR Code" %}" class="qr-code-img">
                                         </a>
-                                        <p class="mt-3 mb-0 small text-muted">Scan to view profile</p>
+                                        <p class="mt-3 mb-0 small text-muted">{% trans "Scan to view profile" %}</p>
                                     </div>
                                 </div>
                                 <div class="d-flex gap-2 flex-column">
                                     <a href="{% url 'users:user_qr' permanent_id=profile_user.permanent_id %}?download=1" class="btn btn-outline-primary">
-                                        <i class="fas fa-qrcode me-2"></i>Download QR
+                                        <i class="fas fa-qrcode me-2"></i>{% trans "Download QR" %}
                                     </a>
                                 </div>
                             {% elif user.is_authenticated and user.id != profile_user.id %}
@@ -70,13 +70,7 @@
                                             data-username="{{ profile_user.username }}"
                                             type="button">
                                         <i class="fas fa-user-plus me-2"></i>
-                                        <span class="follow-text">Follow</span>
-                                    </button>
-                                    <button class="btn btn-outline-primary btn-modern" 
-                                            disabled 
-                                            title="Messaging feature in development"
-                                            style="opacity: 0.8; cursor: not-allowed; filter: grayscale(30%);">
-                                        <i class="fas fa-envelope me-2"></i>Send Message
+                                        <span class="follow-text">{% trans "Follow" %}</span>
                                     </button>
                                 </div>
                                 
@@ -84,18 +78,18 @@
                                 <div class="profile-user-stats mb-3">
                                     <div class="stat-item">
                                         <span class="stat-value">{{ profile_user.post_set.count|default:0 }}</span>
-                                        <span class="stat-label">Posts</span>
+                                        <span class="stat-label">{% trans "Posts" %}</span>
                                     </div>
                                     <div class="stat-item">
                                         <span class="stat-value">{{ profile_user.comment_set.count|default:0 }}</span>
-                                        <span class="stat-label">Comments</span>
+                                        <span class="stat-label">{% trans "Comments" %}</span>
                                     </div>
                                 </div>
                             {% elif not user.is_authenticated %}
                                 <!-- Not Authenticated -->
                                 <div class="alert alert-info mb-4">
                                     <i class="fas fa-info-circle me-2"></i>
-                                    <a href="{% url 'users:login' %}">Sign in</a> to follow users and send messages
+                                    <a href="{% url 'users:login' %}">{% trans "Sign in" %}</a> {% trans "to follow users" %}
                                 </div>
                             {% endif %}
                         </div>
@@ -106,19 +100,19 @@
                                 <div class="info-pill pill-red">
                                     <div class="pill-icon"><i class="fas fa-user"></i></div>
                                     <div>
-                                        <p class="pill-label">Full name</p>
+                                        <p class="pill-label">{% trans "Full name" %}</p>
                                         <p class="pill-value">{{ profile_user.first_name|default:"—" }} {{ profile_user.last_name|default:"—" }}</p>
                                     </div>
                                 </div>
                                 <div class="info-pill pill-blue">
                                     <div class="pill-icon"><i class="fas fa-birthday-cake"></i></div>
                                     <div>
-                                        <p class="pill-label">Date of birth</p>
+                                        <p class="pill-label">{% trans "Date of birth" %}</p>
                                         <p class="pill-value">
                                             {% if profile_user.date_of_birth %}
                                                 {{ profile_user.date_of_birth|date:"d.m.Y" }}
                                                 {% with age=profile_user.get_age %}
-                                                    {% if age %} ({{ age }} years){% endif %}
+                                                    {% if age %} ({{ age }} {% trans "years" %}){% endif %}
                                                 {% endwith %}
                                             {% else %}—{% endif %}
                                         </p>
@@ -127,22 +121,22 @@
                                 <div class="info-pill pill-amber">
                                     <div class="pill-icon"><i class="fas fa-phone"></i></div>
                                     <div>
-                                        <p class="pill-label">Phone</p>
+                                        <p class="pill-label">{% trans "Phone" %}</p>
                                         <p class="pill-value">
                                             {% if profile_user.phone_number %}
                                                 {% if profile_user.is_phone_hidden and not user.is_staff and user != profile_user %}
-                                                    <i class="fas fa-eye-slash text-muted"></i> Hidden
+                                                    <i class="fas fa-eye-slash text-muted"></i> {% trans "Hidden" %}
                                                 {% else %}
                                                     {{ profile_user.phone_number }}
                                                 {% endif %}
-                                            {% else %}Not specified{% endif %}
+                                            {% else %}{% trans "Not specified" %}{% endif %}
                                         </p>
                                     </div>
                                 </div>
                                 <div class="info-pill pill-emerald">
                                     <div class="pill-icon"><i class="fas fa-calendar"></i></div>
                                     <div>
-                                        <p class="pill-label">Joined</p>
+                                        <p class="pill-label">{% trans "Joined" %}</p>
                                         <p class="pill-value">{{ profile_user.date_joined|date:"d M Y" }}</p>
                                     </div>
                                 </div>
@@ -155,7 +149,7 @@
                                     <div class="col-md-6 text-center text-md-start mb-4 mb-md-0">
                                         <div class="d-flex flex-column flex-md-row align-items-center gap-4">
                                             <div>
-                                                <h6 class="profile-detail-label mb-3">Activity Level</h6>
+                                                <h6 class="profile-detail-label mb-3">{% trans "Activity Level" %}</h6>
                                                 {% if level_info.level == "Legend" %}
                                                     <span class="badge badge-danger badge-level">
                                                         <i class="fas fa-crown me-2"></i>Legend
@@ -186,11 +180,11 @@
                                     <div class="col-md-6 text-center text-md-end">
                                         <div class="mb-3">
                                             <span class="profile-activity-points">{{ profile_user.activity_points }}</span>
-                                            <span class="profile-activity-label">Activity Points</span>
+                                            <span class="profile-activity-label">{% trans "Activity Points" %}</span>
                                         </div>
                                         {% if level_info.next_level %}
                                         <div class="small">
-                                            <p class="text-muted fw-semibold mb-2">Progress to {{ level_info.next_level }}:</p>
+                                            <p class="text-muted fw-semibold mb-2">{% blocktrans with level=level_info.next_level %}Progress to {{ level }}:{% endblocktrans %}</p>
                                             <div class="progress">
                                                 <div class="progress-bar" role="progressbar" 
                                                      style="width: {{ level_info.progress }}%;" 
@@ -201,7 +195,7 @@
                                         </div>
                                         {% else %}
                                         <div class="small text-warning fw-bold">
-                                            <i class="fas fa-trophy"></i> Maximum level achieved!
+                                            <i class="fas fa-trophy"></i> {% trans "Maximum level achieved!" %}
                                         </div>
                                         {% endif %}
                                     </div>
@@ -214,7 +208,7 @@
                             <div class="profile-links-card mb-5">
                                 <div class="card-header-compact">
                                     <i class="fas fa-link me-2 text-primary"></i>
-                                    <span>Find me</span>
+                                    <span>{% trans "Find me" %}</span>
                                 </div>
                                 <div class="link-chip-group">
                                     {% if profile_user.github_url %}
