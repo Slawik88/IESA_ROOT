@@ -2,6 +2,7 @@ from django.contrib import admin
 from django.utils.html import format_html
 from django_ckeditor_5.widgets import CKEditor5Widget
 from django import forms
+from modeltranslation.admin import TranslationAdmin
 from .models import Partner, AssociationMember, President, SocialNetwork, CoreProduct, MemberBenefit
 
 
@@ -108,7 +109,7 @@ class MemberBenefitAdminForm(forms.ModelForm):
 
 
 @admin.register(President)
-class PresidentAdmin(admin.ModelAdmin):
+class PresidentAdmin(TranslationAdmin):
 	form = PresidentAdminForm
 	list_display = ('name', 'position')
 	fieldsets = (
@@ -117,7 +118,7 @@ class PresidentAdmin(admin.ModelAdmin):
 	)
 
 @admin.register(Partner)
-class PartnerAdmin(admin.ModelAdmin):
+class PartnerAdmin(TranslationAdmin):
 	form = PartnerAdminForm
 	list_display = ('name', 'category', 'link', 'contract', 'logo_tag')
 	list_filter = ('category', 'contract')
@@ -135,7 +136,7 @@ class PartnerAdmin(admin.ModelAdmin):
 
 
 @admin.register(AssociationMember)
-class AssociationMemberAdmin(admin.ModelAdmin):
+class AssociationMemberAdmin(TranslationAdmin):
 	list_display = ('name', 'position', 'photo_tag')
 	search_fields = ('name', 'position')
 
@@ -159,7 +160,7 @@ class SocialNetworkAdmin(admin.ModelAdmin):
 
 
 @admin.register(CoreProduct)
-class CoreProductAdmin(admin.ModelAdmin):
+class CoreProductAdmin(TranslationAdmin):
 	form = CoreProductAdminForm
 	list_display = ('title', 'duration', 'location', 'is_active', 'order', 'icon_preview', 'created_at')
 	list_filter = ('is_active', 'created_at')
@@ -189,7 +190,7 @@ class CoreProductAdmin(admin.ModelAdmin):
 
 
 @admin.register(MemberBenefit)
-class MemberBenefitAdmin(admin.ModelAdmin):
+class MemberBenefitAdmin(TranslationAdmin):
 	form = MemberBenefitAdminForm
 	list_display = ('title', 'category', 'discount_info', 'is_active', 'order', 'icon_preview', 'created_at')
 	list_filter = ('is_active', 'category', 'created_at')

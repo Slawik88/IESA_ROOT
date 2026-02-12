@@ -3,11 +3,12 @@ from django.utils.html import format_html
 from django_ckeditor_5.widgets import CKEditor5Widget
 from django import forms
 from django.db import models
+from modeltranslation.admin import TranslationAdmin
 from .models import Product
 
 
 @admin.register(Product)
-class ProductAdmin(admin.ModelAdmin):
+class ProductAdmin(TranslationAdmin):
 	list_display = ('name', 'price', 'image_tag')
 	search_fields = ('name', 'description')
 	
