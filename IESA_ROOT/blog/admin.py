@@ -4,7 +4,7 @@ from django.urls import reverse
 from django.utils.safestring import mark_safe
 from .models import Post, Comment, Like, Event, PostView, CommentLike, BlogSubscription, EventRegistration
 from django.db import models as django_models
-from modeltranslation.admin import TranslationAdmin
+from modeltranslation.admin import TabbedTranslationAdmin
 from . import translation  # noqa: F401
 try:
     from django_ckeditor_5.widgets import CKEditor5Widget
@@ -69,7 +69,7 @@ set_as_draft.short_description = '📝 Move to draft'
 
 
 @admin.register(Post)
-class PostAdmin(TranslationAdmin):
+class PostAdmin(TabbedTranslationAdmin):
     list_display = ('id', 'title', 'author_with_link', 'status_badge', 'created_at', 'engagement_score', 'preview_tag', 'view_on_site_link')
     list_filter = (StatusFilter, AuthorFilter, 'created_at')
     search_fields = ('id', 'title', 'text', 'author__username', 'author__email', 'author__first_name', 'author__last_name')
