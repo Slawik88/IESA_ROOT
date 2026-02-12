@@ -65,11 +65,11 @@ INSTALLED_APPS = [
     'modeltranslation',
 
     # Наши приложения
-    'core',
+    'core.apps.CoreConfig',
     'users.apps.UsersConfig',
-    'blog',
-    'gallery',
-    'products',
+    'blog.apps.BlogConfig',
+    'gallery.apps.GalleryConfig',
+    'products.apps.ProductsConfig',
     'notifications.apps.NotificationsConfig',  # Notification system
 
     # Сторонние библиотеки
