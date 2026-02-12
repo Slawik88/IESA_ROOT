@@ -7,3 +7,4 @@ class BlogConfig(AppConfig):
     
     def ready(self):
         import blog.signals
+        from . import translation  # noqa: F401
