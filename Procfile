@@ -1,2 +1,1 @@
-release: cd IESA_ROOT && python manage.py migrate --noinput
-web: sh -c "cd IESA_ROOT && gunicorn --bind 0.0.0.0:$PORT --workers 2 --threads 2 --worker-class gthread --max-requests 1000 --max-requests-jitter 50 IESA_ROOT.wsgi:application"
+web: cd IESA_ROOT && sh start.sh
