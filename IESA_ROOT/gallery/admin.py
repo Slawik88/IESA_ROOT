@@ -4,6 +4,7 @@ from django_ckeditor_5.widgets import CKEditor5Widget
 from django.db import models
 from modeltranslation.admin import TranslationAdmin
 from .models import Photo
+from . import translation  # noqa: F401
 
 
 @admin.register(Photo)

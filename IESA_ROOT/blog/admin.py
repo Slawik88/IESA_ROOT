@@ -5,6 +5,7 @@ from django.utils.safestring import mark_safe
 from .models import Post, Comment, Like, Event, PostView, CommentLike, BlogSubscription, EventRegistration
 from django.db import models as django_models
 from modeltranslation.admin import TranslationAdmin
+from . import translation  # noqa: F401
 try:
     from django_ckeditor_5.widgets import CKEditor5Widget
     CKEditorWidget = CKEditor5Widget

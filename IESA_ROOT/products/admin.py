@@ -5,6 +5,7 @@ from django import forms
 from django.db import models
 from modeltranslation.admin import TranslationAdmin
 from .models import Product
+from . import translation  # noqa: F401
 
 
 @admin.register(Product)
