@@ -3,8 +3,8 @@
 
 <div class="container py-5" id="partners-section">
   <div class="text-center mb-5">
-    <h2 class="fw-bold mb-2">Our Strategic Partners</h2>
-    <p class="text-muted lead">Trusted organizations collaborating with us to advance sports excellence globally</p>
+    <h2 class="fw-bold mb-2">{% trans "Our Strategic Partners" %}</h2>
+    <p class="text-muted lead">{% trans "Trusted organizations collaborating with us to advance sports excellence globally" %}</p>
   </div>
   
   <div class="row g-4">
@@ -37,7 +37,7 @@
             data-bs-toggle="modal" 
             data-bs-target="#partnerModal"
             type="button">
-            <i class="fas fa-info-circle me-2"></i>View Details
+            <i class="fas fa-info-circle me-2"></i>{% trans "View Details" %}
           </button>
         </div>
       </div>
@@ -48,8 +48,8 @@
   {% if not partners %}
   <div class="empty-state">
     <div class="empty-emoji">🤝</div>
-    <h5>No Partners Yet</h5>
-    <p class="text-muted">We're working on establishing partnerships. Check back soon!</p>
+    <h5>{% trans "No Partners Yet" %}</h5>
+    <p class="text-muted">{% trans "We're working on establishing partnerships. Check back soon!" %}</p>
   </div>
   {% endif %}
 </div>
@@ -59,14 +59,14 @@
   <div class="modal-dialog modal-lg modal-dialog-centered">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title">Partner Details</h5>
+        <h5 class="modal-title">{% trans "Partner Details" %}</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body" id="partner-modal-body">
         <!-- HTMX will load content here -->
         <div class="text-center py-5">
           <div class="spinner-border text-primary" role="status">
-            <span class="visually-hidden">Loading…</span>
+            <span class="visually-hidden">{% trans "Loading…" %}</span>
           </div>
         </div>
       </div>

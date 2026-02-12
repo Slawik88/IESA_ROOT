@@ -1,4 +1,5 @@
 {% load static %}
+{% load i18n %}
 <div class="partner-modal">
   <div class="partner-hero">
     <div class="partner-logo">
@@ -9,19 +10,19 @@
       {% endif %}
     </div>
     <div>
-      <p class="badge bg-primary-subtle text-primary fw-semibold mb-2">Partner</p>
+      <p class="badge bg-primary-subtle text-primary fw-semibold mb-2">{% trans "Partner" %}</p>
       <h3 class="mb-2">{{ partner.name }}</h3>
       <p class="text-muted mb-0">{{ partner.description }}</p>
     </div>
   </div>
 
   <div class="partner-body">
-    {% if partner.website %}
-      <a class="btn btn-primary btn-modern" href="{{ partner.website }}" target="_blank" rel="noopener">
-        <i class="fas fa-link me-2"></i>Visit website
+    {% if partner.link %}
+      <a class="btn btn-primary btn-modern" href="{{ partner.link }}" target="_blank" rel="noopener">
+        <i class="fas fa-link me-2"></i>{% trans "Visit website" %}
       </a>
     {% else %}
-      <span class="text-muted">Website will be added soon.</span>
+      <span class="text-muted">{% trans "Website will be added soon." %}</span>
     {% endif %}
   </div>
 </div>
