@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.utils.html import format_html
 from django_ckeditor_5.widgets import CKEditor5Widget
 from django import forms
-from modeltranslation.admin import TranslationAdmin
+from modeltranslation.admin import TabbedTranslationAdmin
 from .models import Partner, AssociationMember, President, SocialNetwork, CoreProduct, MemberBenefit
 from . import translation  # noqa: F401
 
@@ -110,7 +110,7 @@ class MemberBenefitAdminForm(forms.ModelForm):
 
 
 @admin.register(President)
-class PresidentAdmin(TranslationAdmin):
+class PresidentAdmin(TabbedTranslationAdmin):
 	form = PresidentAdminForm
 	list_display = ('name', 'position')
 	fieldsets = (
@@ -119,7 +119,7 @@ class PresidentAdmin(TranslationAdmin):
 	)
 
 @admin.register(Partner)
-class PartnerAdmin(TranslationAdmin):
+class PartnerAdmin(TabbedTranslationAdmin):
 	form = PartnerAdminForm
 	list_display = ('name', 'category', 'link', 'contract', 'logo_tag')
 	list_filter = ('category', 'contract')
@@ -137,7 +137,7 @@ class PartnerAdmin(TranslationAdmin):
 
 
 @admin.register(AssociationMember)
-class AssociationMemberAdmin(TranslationAdmin):
+class AssociationMemberAdmin(TabbedTranslationAdmin):
 	list_display = ('name', 'position', 'photo_tag')
 	search_fields = ('name', 'position')
 
@@ -161,7 +161,7 @@ class SocialNetworkAdmin(admin.ModelAdmin):
 
 
 @admin.register(CoreProduct)
-class CoreProductAdmin(TranslationAdmin):
+class CoreProductAdmin(TabbedTranslationAdmin):
 	form = CoreProductAdminForm
 	list_display = ('title', 'duration', 'location', 'is_active', 'order', 'icon_preview', 'created_at')
 	list_filter = ('is_active', 'created_at')
@@ -191,7 +191,7 @@ class CoreProductAdmin(TranslationAdmin):
 
 
 @admin.register(MemberBenefit)
-class MemberBenefitAdmin(TranslationAdmin):
+class MemberBenefitAdmin(TabbedTranslationAdmin):
 	form = MemberBenefitAdminForm
 	list_display = ('title', 'category', 'discount_info', 'is_active', 'order', 'icon_preview', 'created_at')
 	list_filter = ('is_active', 'category', 'created_at')
