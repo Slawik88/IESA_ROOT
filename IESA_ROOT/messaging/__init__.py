@@ -1,1 +1,1 @@
-# Messaging app initialization
+# Messaging app removed
