@@ -1,19 +1,5 @@
 from django.db import models
-from django.utils.translation import get_language
 
-
-def _get_lang_code(language_code=None):
-    code = (language_code or get_language() or 'en')
-    return code.split('-')[0]
-
-
-def _get_localized_value(obj, field_base, language_code=None):
-    lang = _get_lang_code(language_code)
-    localized_field = f"{field_base}_{lang}"
-    value = getattr(obj, localized_field, None)
-    if value:
-        return value
-    return getattr(obj, field_base, '')
 
 class President(models.Model):
     """
@@ -22,13 +8,7 @@ class President(models.Model):
     name = models.CharField(max_length=255, verbose_name='Full Name')
     photo = models.ImageField(upload_to='members/', verbose_name='Photo')
     position = models.CharField(max_length=255, default='President', verbose_name='Position')
-    position_uk = models.CharField(max_length=255, blank=True, verbose_name='Position (Ukrainian)')
-    position_fr = models.CharField(max_length=255, blank=True, verbose_name='Position (French)')
-    position_de = models.CharField(max_length=255, blank=True, verbose_name='Position (German)')
     description = models.TextField(verbose_name='Bio/Message')
-    description_uk = models.TextField(blank=True, verbose_name='Bio/Message (Ukrainian)')
-    description_fr = models.TextField(blank=True, verbose_name='Bio/Message (French)')
-    description_de = models.TextField(blank=True, verbose_name='Bio/Message (German)')
     
     class Meta:
         verbose_name = 'President'
@@ -36,14 +16,6 @@ class President(models.Model):
         
     def __str__(self):
         return f'{self.name} ({self.position})'
-
-    @property
-    def position_i18n(self):
-        return _get_localized_value(self, 'position')
-
-    @property
-    def description_i18n(self):
-        return _get_localized_value(self, 'description')
     
     def save(self, *args, **kwargs):
         # Ensure only one president exists
@@ -67,9 +39,6 @@ class Partner(models.Model):
     logo = models.ImageField(upload_to='partners/', verbose_name='Logo')
     link = models.URLField(blank=True, verbose_name='Website Link')
     description = models.TextField(blank=True, verbose_name='Description', help_text='Max 300 chars for better display')
-    description_uk = models.TextField(blank=True, verbose_name='Description (Ukrainian)')
-    description_fr = models.TextField(blank=True, verbose_name='Description (French)')
-    description_de = models.TextField(blank=True, verbose_name='Description (German)')
     contract = models.ImageField(upload_to='partners/contracts/', blank=True, null=True, verbose_name='Contract Document/Photo')
     category = models.CharField(max_length=20, choices=CATEGORY_CHOICES, default='other', verbose_name='Partner Category')
     
@@ -80,10 +49,6 @@ class Partner(models.Model):
     def __str__(self):
         return self.name
 
-    @property
-    def description_i18n(self):
-        return _get_localized_value(self, 'description')
-
 class AssociationMember(models.Model):
     """
     Association member model (excluding president).
@@ -91,13 +56,7 @@ class AssociationMember(models.Model):
     name = models.CharField(max_length=255, verbose_name='Full Name')
     photo = models.ImageField(upload_to='members/', verbose_name='Photo')
     position = models.CharField(max_length=255, verbose_name='Position')
-    position_uk = models.CharField(max_length=255, blank=True, verbose_name='Position (Ukrainian)')
-    position_fr = models.CharField(max_length=255, blank=True, verbose_name='Position (French)')
-    position_de = models.CharField(max_length=255, blank=True, verbose_name='Position (German)')
     description = models.TextField(verbose_name='Short Bio/Description')
-    description_uk = models.TextField(blank=True, verbose_name='Short Bio/Description (Ukrainian)')
-    description_fr = models.TextField(blank=True, verbose_name='Short Bio/Description (French)')
-    description_de = models.TextField(blank=True, verbose_name='Short Bio/Description (German)')
     
     class Meta:
         verbose_name = 'Association Member'
@@ -105,14 +64,6 @@ class AssociationMember(models.Model):
         
     def __str__(self):
         return self.name
-
-    @property
-    def position_i18n(self):
-        return _get_localized_value(self, 'position')
-
-    @property
-    def description_i18n(self):
-        return _get_localized_value(self, 'description')
 
 class SocialNetwork(models.Model):
     """
@@ -187,33 +138,15 @@ class CoreProduct(models.Model):
     Examples: Kids extreme scout camp, Weekend water sports, Yachting with diving, etc.
     """
     title = models.CharField(max_length=255, verbose_name='Название продукта')
-    title_uk = models.CharField(max_length=255, blank=True, verbose_name='Название продукта (Ukrainian)')
-    title_fr = models.CharField(max_length=255, blank=True, verbose_name='Название продукта (French)')
-    title_de = models.CharField(max_length=255, blank=True, verbose_name='Название продукта (German)')
     description = models.TextField(verbose_name='Описание продукта')
-    description_uk = models.TextField(blank=True, verbose_name='Описание продукта (Ukrainian)')
-    description_fr = models.TextField(blank=True, verbose_name='Описание продукта (French)')
-    description_de = models.TextField(blank=True, verbose_name='Описание продукта (German)')
     duration = models.CharField(max_length=200, blank=True, verbose_name='Длительность', help_text='Например: 1-2 недели, с пятницы по воскресенье')
-    duration_uk = models.CharField(max_length=200, blank=True, verbose_name='Длительность (Ukrainian)')
-    duration_fr = models.CharField(max_length=200, blank=True, verbose_name='Длительность (French)')
-    duration_de = models.CharField(max_length=200, blank=True, verbose_name='Длительность (German)')
     location = models.CharField(max_length=300, blank=True, verbose_name='Место проведения', help_text='Например: тёплые страны, берег моря')
-    location_uk = models.CharField(max_length=300, blank=True, verbose_name='Место проведения (Ukrainian)')
-    location_fr = models.CharField(max_length=300, blank=True, verbose_name='Место проведения (French)')
-    location_de = models.CharField(max_length=300, blank=True, verbose_name='Место проведения (German)')
     image = models.ImageField(upload_to='products/', blank=True, null=True, verbose_name='Изображение продукта')
     icon = models.CharField(max_length=100, default='fas fa-star', verbose_name='Font Awesome иконка', help_text='Например: fas fa-child, fas fa-water, fas fa-ship')
     
     # Additional features/options
     features = models.TextField(blank=True, verbose_name='Дополнительные особенности', help_text='Каждая особенность с новой строки')
-    features_uk = models.TextField(blank=True, verbose_name='Дополнительные особенности (Ukrainian)')
-    features_fr = models.TextField(blank=True, verbose_name='Дополнительные особенности (French)')
-    features_de = models.TextField(blank=True, verbose_name='Дополнительные особенности (German)')
     price_info = models.CharField(max_length=300, blank=True, verbose_name='Информация о цене')
-    price_info_uk = models.CharField(max_length=300, blank=True, verbose_name='Информация о цене (Ukrainian)')
-    price_info_fr = models.CharField(max_length=300, blank=True, verbose_name='Информация о цене (French)')
-    price_info_de = models.CharField(max_length=300, blank=True, verbose_name='Информация о цене (German)')
     
     # Display settings
     is_active = models.BooleanField(default=True, verbose_name='Активен')
@@ -230,36 +163,11 @@ class CoreProduct(models.Model):
         
     def __str__(self):
         return self.title
-
-    @property
-    def title_i18n(self):
-        return _get_localized_value(self, 'title')
-
-    @property
-    def description_i18n(self):
-        return _get_localized_value(self, 'description')
-
-    @property
-    def duration_i18n(self):
-        return _get_localized_value(self, 'duration')
-
-    @property
-    def location_i18n(self):
-        return _get_localized_value(self, 'location')
-
-    @property
-    def features_i18n(self):
-        return _get_localized_value(self, 'features')
-
-    @property
-    def price_info_i18n(self):
-        return _get_localized_value(self, 'price_info')
     
     def get_features_list(self):
         """Return features as a list"""
-        features_value = self.features_i18n
-        if features_value:
-            return [f.strip() for f in features_value.split('\n') if f.strip()]
+        if self.features:
+            return [f.strip() for f in self.features.split('\n') if f.strip()]
         return []
 
 

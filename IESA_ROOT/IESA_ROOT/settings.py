@@ -61,6 +61,9 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'django.contrib.sitemaps',
 
+    # Модуль переводов - ОБЯЗАТЕЛЬНО ДО НАШИХ ПРИЛОЖЕНИЙ
+    'modeltranslation',
+
     # Наши приложения
     'core',
     'users.apps.UsersConfig',
@@ -181,6 +184,12 @@ LANGUAGES = [
 LOCALE_PATHS = [
     BASE_DIR / 'locale',
 ]
+
+# django-modeltranslation settings
+MODELTRANSLATION_DEFAULT_LANGUAGE = 'en'
+MODELTRANSLATION_LANGUAGES = ('en', 'uk', 'fr', 'de')
+MODELTRANSLATION_FALLBACK_LANGUAGES = ('en', 'uk')
+MODELTRANSLATION_PREPOPULATE_LANGUAGE = 'en'
 
 # SECURITY: HTTPS and Security Headers
 # Для локальной разработки (DEBUG=True) - все HTTPS настройки ОТКЛЮЧЕНЫ
