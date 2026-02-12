@@ -4,6 +4,7 @@ from django_ckeditor_5.widgets import CKEditor5Widget
 from django import forms
 from modeltranslation.admin import TranslationAdmin
 from .models import Partner, AssociationMember, President, SocialNetwork, CoreProduct, MemberBenefit
+from . import translation  # noqa: F401
 
 
 # Формы с CKEditor для всех моделей с описаниями
