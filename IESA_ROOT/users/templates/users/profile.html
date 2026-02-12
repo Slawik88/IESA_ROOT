@@ -42,7 +42,7 @@
                                 <!-- Own Profile - ID Badge -->
                                 <div class="mb-3">
                                     <span class="profile-id-badge">
-                                        ID: {{ profile_user.permanent_id }}
+                                        {% trans "ID" %}: {{ profile_user.permanent_id }}
                                     </span>
                                 </div>
 
@@ -214,25 +214,25 @@
                                     {% if profile_user.github_url %}
                                         <a href="{{ profile_user.github_url }}" target="_blank" class="link-chip link-github">
                                             <i class="fab fa-github"></i>
-                                            <span>GitHub</span>
+                                            <span>{% trans "GitHub" %}</span>
                                         </a>
                                     {% endif %}
                                     {% if profile_user.website_url %}
                                         <a href="{{ profile_user.website_url }}" target="_blank" class="link-chip link-website">
                                             <i class="fas fa-globe"></i>
-                                            <span>Website</span>
+                                            <span>{% trans "Website" %}</span>
                                         </a>
                                     {% endif %}
                                     {% if profile_user.telegram_url %}
                                         <a href="{{ profile_user.telegram_url }}" target="_blank" class="link-chip link-telegram">
                                             <i class="fab fa-telegram"></i>
-                                            <span>Telegram</span>
+                                            <span>{% trans "Telegram" %}</span>
                                         </a>
                                     {% endif %}
                                     {% if profile_user.discord_url %}
                                         <a href="{{ profile_user.discord_url }}" target="_blank" class="link-chip link-discord">
                                             <i class="fab fa-discord"></i>
-                                            <span>Discord</span>
+                                            <span>{% trans "Discord" %}</span>
                                         </a>
                                     {% endif %}
                                 </div>
