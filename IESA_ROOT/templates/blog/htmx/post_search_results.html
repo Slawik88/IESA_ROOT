@@ -1,3 +1,4 @@
+{% load i18n %}
 {% if query %}
 <div class="search-results">
   <!-- Users Section -->
@@ -5,7 +6,7 @@
   <div class="search-section">
     <div class="section-title">
       <i class="fas fa-users text-primary"></i>
-      <span>Пользователи ({{ results.users|length }})</span>
+      <span>{% blocktrans with count=results.users|length %}Users ({{ count }}){% endblocktrans %}</span>
     </div>
     <div class="list-group">
       {% for user in results.users %}
@@ -43,7 +44,7 @@
   <div class="search-section">
     <div class="section-title">
       <i class="fas fa-file-alt text-success"></i>
-      <span>Посты ({{ results.posts|length }})</span>
+      <span>{% blocktrans with count=results.posts|length %}Posts ({{ count }}){% endblocktrans %}</span>
     </div>
     <div class="list-group">
       {% for post in results.posts %}
@@ -66,7 +67,7 @@
                   {% elif post.author.username %}
                     {{ post.author.username }}
                   {% else %}
-                    Anonymous
+                    {% trans "Anonymous" %}
                   {% endif %}
                 </span>
                 <span><i class="fas fa-calendar me-1"></i>{{ post.created_at|date:"d M Y" }}</span>
@@ -91,7 +92,7 @@
   <div class="search-section">
     <div class="section-title">
       <i class="fas fa-calendar-check text-warning"></i>
-      <span>События ({{ results.events|length }})</span>
+      <span>{% blocktrans with count=results.events|length %}Events ({{ count }}){% endblocktrans %}</span>
     </div>
     <div class="list-group">
       {% for event in results.events %}
@@ -129,7 +130,7 @@
   <div class="search-section">
     <div class="section-title">
       <i class="fas fa-handshake text-info"></i>
-      <span>Партнёры ({{ results.partners|length }})</span>
+      <span>{% blocktrans with count=results.partners|length %}Partners ({{ count }}){% endblocktrans %}</span>
     </div>
     <div class="list-group">
       {% for partner in results.partners %}
@@ -169,10 +170,10 @@
   {% if not results.users and not results.posts and not results.events and not results.partners %}
   <div class="text-center py-5">
     <i class="fas fa-search fa-3x mb-3 text-muted opacity-30"></i>
-    <h5 class="text-muted mb-2">Ничего не найдено</h5>
-    <p class="text-muted mb-0">Попробуйте изменить поисковый запрос "<strong>{{ query }}</strong>"</p>
+    <h5 class="text-muted mb-2">{% trans "Nothing found" %}</h5>
+    <p class="text-muted mb-0">{% blocktrans with query=query %}Try changing your search query "{{ query }}"{% endblocktrans %}</p>
     {% if query|length < 2 %}
-    <small class="text-muted d-block mt-2">Минимум 2 символа для поиска</small>
+    <small class="text-muted d-block mt-2">{% trans "Minimum 2 characters to search" %}</small>
     {% endif %}
   </div>
   {% endif %}
@@ -180,6 +181,6 @@
 {% else %}
 <div class="text-center py-4 text-muted">
   <i class="fas fa-search fa-2x mb-2 opacity-30"></i>
-  <p class="mb-0">Начните вводить для поиска...</p>
+  <p class="mb-0">{% trans "Start typing to search..." %}</p>
 </div>
 {% endif %}

@@ -1,7 +1,7 @@
 {% extends "base.html" %}
-{% load static %}
+{% load static i18n %}
 
-{% block title %}Member Cabinet{% endblock %}
+{% block title %}{% trans "Member Cabinet" %}{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -57,9 +57,9 @@
                     </h4>
                     <p class="mb-0">
                         {% if membership_status == 'active' %}
-                            <i class="fas fa-check-circle"></i> Active Member
+                            <i class="fas fa-check-circle"></i> {% trans "Active Member" %}
                         {% else %}
-                            <i class="fas fa-times-circle"></i> Inactive Membership
+                            <i class="fas fa-times-circle"></i> {% trans "Inactive Membership" %}
                         {% endif %}
                     </p>
                 </div>
@@ -70,7 +70,7 @@
                 <div class="card shadow-lg border-0">
                     <div class="card-body text-center p-5">
                         <h3 class="mb-4" style="color: var(--primary); font-weight: 700;">
-                            <i class="fas fa-key"></i> Your Verification PIN
+                            <i class="fas fa-key"></i> {% trans "Your Verification PIN" %}
                         </h3>
                         <div class="pin-display">
                             {{ current_pin }}
@@ -78,7 +78,7 @@
                         
                         <!-- Countdown Timer -->
                         <div class="countdown mb-4 mt-4">
-                            <i class="fas fa-stopwatch"></i> Expires in: <span id="countdown" style="color: var(--primary); font-weight: 800;">{{ seconds_remaining }}</span>s
+                            <i class="fas fa-stopwatch"></i> {% trans "Expires in" %}: <span id="countdown" style="color: var(--primary); font-weight: 800;">{{ seconds_remaining }}</span>s
                         </div>
                         
                         <div class="progress mb-4" style="height: 12px; border-radius: 10px;">
@@ -86,8 +86,8 @@
                         </div>
                         
                         <div class="alert alert-info" style="border-radius: 15px;">
-                            <h6><i class="fas fa-info-circle"></i> <strong>Important:</strong></h6>
-                            <p class="mb-0">Show this PIN to partner staff when you visit. They will enter it to confirm your visit.</p>
+                            <h6><i class="fas fa-info-circle"></i> <strong>{% trans "Important" %}:</strong></h6>
+                            <p class="mb-0">{% trans "Show this PIN to partner staff when you visit. They will enter it to confirm your visit." %}</p>
                         </div>
                     </div>
                 </div>
@@ -95,31 +95,31 @@
                 <!-- Instructions -->
                 <div class="card instruction-card mt-4 shadow">
                     <div class="card-body p-4">
-                        <h5 class="mb-3" style="color: var(--primary-active);"><i class="fas fa-lightbulb"></i> How to use your PIN:</h5>
+                        <h5 class="mb-3" style="color: var(--primary-active);"><i class="fas fa-lightbulb"></i> {% trans "How to use your PIN:" %}</h5>
                         <div class="row">
                             <div class="col-md-6">
                                 <div class="mb-3">
-                                    <h6 style="color: var(--primary-active);"><i class="fas fa-map-marker-alt"></i> Step 1</h6>
-                                    <p class="mb-0">Visit any partner location (shop, gym, clinic)</p>
+                                    <h6 style="color: var(--primary-active);"><i class="fas fa-map-marker-alt"></i> {% trans "Step 1" %}</h6>
+                                    <p class="mb-0">{% trans "Visit any partner location (shop, gym, clinic)" %}</p>
                                 </div>
                                 <div class="mb-3">
-                                    <h6 style="color: var(--primary-active);"><i class="fas fa-hand-point-right"></i> Step 2</h6>
-                                    <p class="mb-0">Tell staff you're an IESA member</p>
+                                    <h6 style="color: var(--primary-active);"><i class="fas fa-hand-point-right"></i> {% trans "Step 2" %}</h6>
+                                    <p class="mb-0">{% trans "Tell staff you're an IESA member" %}</p>
                                 </div>
                             </div>
                             <div class="col-md-6">
                                 <div class="mb-3">
-                                    <h6 style="color: var(--primary-active);"><i class="fas fa-mobile-alt"></i> Step 3</h6>
-                                    <p class="mb-0">Show them this 6-digit PIN</p>
+                                    <h6 style="color: var(--primary-active);"><i class="fas fa-mobile-alt"></i> {% trans "Step 3" %}</h6>
+                                    <p class="mb-0">{% trans "Show them this 6-digit PIN" %}</p>
                                 </div>
                                 <div class="mb-3">
-                                    <h6 style="color: var(--primary-active);"><i class="fas fa-check-double"></i> Step 4</h6>
-                                    <p class="mb-0">Staff logs your visit - Done!</p>
+                                    <h6 style="color: var(--primary-active);"><i class="fas fa-check-double"></i> {% trans "Step 4" %}</h6>
+                                    <p class="mb-0">{% trans "Staff logs your visit - Done!" %}</p>
                                 </div>
                             </div>
                         </div>
                         <hr>
-                        <p class="mb-0 text-center"><i class="fas fa-sync-alt"></i> <strong>PIN refreshes automatically every 12 minutes</strong></p>
+                        <p class="mb-0 text-center"><i class="fas fa-sync-alt"></i> <strong>{% trans "PIN refreshes automatically every 12 minutes" %}</strong></p>
                     </div>
                 </div>
             {% elif error_message %}
@@ -128,7 +128,7 @@
                     <div class="card-body text-center p-5">
                         <i class="fas fa-exclamation-triangle fa-4x mb-3" style="color: #ff6b6b;"></i>
                         <h4 style="color: #c92a2a;">{{ error_message }}</h4>
-                        <p class="mt-3">Please contact administrator for assistance.</p>
+                        <p class="mt-3">{% trans "Please contact administrator for assistance." %}</p>
                     </div>
                 </div>
             {% else %}
@@ -136,11 +136,11 @@
                 <div class="card shadow-lg border-0">
                     <div class="card-body text-center p-5">
                         <i class="fas fa-user-lock fa-4x mb-4" style="color: #f59f00;"></i>
-                        <h4 style="color: #e67700;">Membership Inactive</h4>
-                        <p class="lead mt-3 mb-4">Your membership is currently <strong>inactive</strong>. You need an active membership to access PIN verification features.</p>
+                        <h4 style="color: #e67700;">{% trans "Membership Inactive" %}</h4>
+                        <p class="lead mt-3 mb-4">{% trans "Your membership is currently" %} <strong>{% trans "inactive" %}</strong>. {% trans "You need an active membership to access PIN verification features." %}</p>
                         <div class="alert alert-warning" style="border-radius: 15px;">
-                            <h6><i class="fas fa-phone-alt"></i> Contact Administration:</h6>
-                            <p class="mb-0">Email: <strong>admin@iesasport.ch</strong><br>To activate your membership and get access to partner benefits.</p>
+                            <h6><i class="fas fa-phone-alt"></i> {% trans "Contact Administration:" %}</h6>
+                            <p class="mb-0">{% trans "Email" %}: <strong>admin@iesasport.ch</strong><br>{% trans "To activate your membership and get access to partner benefits." %}</p>
                         </div>
                     </div>
                 </div>
