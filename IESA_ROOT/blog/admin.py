@@ -217,7 +217,7 @@ class PostViewAdmin(admin.ModelAdmin):
 
 
 @admin.register(Event)
-class EventAdmin(admin.ModelAdmin):
+class EventAdmin(TabbedTranslationAdmin):
     list_display = ('title', 'date', 'location', 'status', 'participants_count', 'image_tag')
     list_filter = ('status', 'date', 'created_at')
     search_fields = ('title', 'location', 'description')

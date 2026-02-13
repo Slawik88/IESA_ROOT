@@ -1,4 +1,4 @@
-{% load static %}
+{% load static i18n %}
 {% now "U" as now_ts %}
 
 {% for event in events %}
@@ -26,30 +26,30 @@
                         <div class="d-flex justify-content-between align-items-start mb-1">
                             <h6 class="card-title fw-bold text-primary mb-0">{{ event.title }}</h6>
                             <div class="d-flex align-items-center gap-2">
-                                <span class="badge badge-sm {% if event_ts|add:'0' > now_ts|add:'0' %}bg-success-subtle text-success{% else %}bg-secondary-subtle text-secondary{% endif %}" aria-label="Status badge">
-                                    {% if event_ts|add:'0' > now_ts|add:'0' %}Upcoming{% else %}Past{% endif %}
+                                <span class="badge badge-sm {% if event_ts|add:'0' > now_ts|add:'0' %}bg-success-subtle text-success{% else %}bg-secondary-subtle text-secondary{% endif %}" aria-label="{% trans "Status badge" %}">
+                                    {% if event_ts|add:'0' > now_ts|add:'0' %}{% trans "Upcoming" %}{% else %}{% trans "Past" %}{% endif %}
                                 </span>
                                 {% if event.max_participants %}
-                                <span class="badge badge-sm bg-primary-subtle text-primary" aria-label="Participants">
+                                <span class="badge badge-sm bg-primary-subtle text-primary" aria-label="{% trans "Participants" %}">
                                     <i class="fas fa-users me-1"></i>{{ event.participants_confirmed }} / {{ event.max_participants }}
                                 </span>
                                 {% endif %}
                             </div>
                         </div>
                         <div class="event-meta">
-                            <span class="me-3"><i class="fas fa-clock me-1" aria-hidden="true"></i><span aria-label="Event time">{{ event.date|date:"d M Y, H:i" }}</span></span>
-                            <span><i class="fas fa-map-marker-alt me-1" aria-hidden="true"></i><span aria-label="Event location">{{ event.location }}</span></span>
+                            <span class="me-3"><i class="fas fa-clock me-1" aria-hidden="true"></i><span aria-label="{% trans "Event time" %}">{{ event.date|date:"d M Y, H:i" }}</span></span>
+                            <span><i class="fas fa-map-marker-alt me-1" aria-hidden="true"></i><span aria-label="{% trans "Event location" %}">{{ event.location }}</span></span>
                         </div>
                         <p class="card-text text-muted small mb-2">{{ event.description|truncatewords:15 }}</p>
                         <div class="d-flex gap-2">
-                            <a href="{% url 'blog:event_detail' event.pk %}" class="btn btn-sm btn-outline-primary">Details</a>
+                            <a href="{% url 'blog:event_detail' event.pk %}" class="btn btn-sm btn-outline-primary">{% trans "Details" %}</a>
                             {% if event_ts|add:'0' > now_ts|add:'0' %}
                                 {% if event.registration_deadline and event.registration_deadline|date:"U"|add:'0' <= now_ts|add:'0' %}
-                                    <span class="btn btn-sm btn-outline-secondary disabled" aria-disabled="true">Registration closed</span>
+                                    <span class="btn btn-sm btn-outline-secondary disabled" aria-disabled="true">{% trans "Registration closed" %}</span>
                                 {% elif event.max_participants and event.participants_confirmed >= event.max_participants %}
-                                    <span class="btn btn-sm btn-outline-secondary disabled" aria-disabled="true">Full</span>
+                                    <span class="btn btn-sm btn-outline-secondary disabled" aria-disabled="true">{% trans "Full" %}</span>
                                 {% else %}
-                                    <a href="{% url 'blog:event_detail' event.pk %}" class="btn btn-sm btn-primary">Register</a>
+                                    <a href="{% url 'blog:event_detail' event.pk %}" class="btn btn-sm btn-primary">{% trans "Register" %}</a>
                                 {% endif %}
                             {% endif %}
                         </div>
@@ -63,8 +63,8 @@
     <div class="col-12">
         <div class="empty-state">
             <div class="empty-emoji">📅</div>
-            <h5>No events found</h5>
-            <p class="text-muted mb-0">Try adjusting your filters</p>
+            <h5>{% trans "No events found" %}</h5>
+            <p class="text-muted mb-0">{% trans "Try adjusting your filters" %}</p>
         </div>
     </div>
 {% endfor %}
@@ -84,9 +84,9 @@ HTMX Infinite Scroll Trigger - Best Practice:
      hx-indicator="#loading-spinner">
     <div id="loading-spinner" class="htmx-indicator">
         <div class="spinner-border spinner-border-sm text-primary" role="status">
-            <span class="visually-hidden">Loading...</span>
+            <span class="visually-hidden">{% trans "Loading..." %}</span>
         </div>
-        <span class="ms-2 text-muted">Loading more events...</span>
+        <span class="ms-2 text-muted">{% trans "Loading more events..." %}</span>
     </div>
 </div>
 {% endif %}

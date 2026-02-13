@@ -1,14 +1,15 @@
 {% extends "base.html" %}
+{% load i18n %}
 
-{% block title %}Product Catalog | IESA{% endblock %}
+{% block title %}{% trans "Product Catalog" %} | IESA{% endblock %}
 
 {% block content %}
 <div class="container-limited">
     <div class="empty-state">
         <div class="empty-emoji">🛍️</div>
-        <h5>Catalog is empty</h5>
-        <p class="text-muted mb-3">Мы готовим товары и услуги для членов ассоциации.</p>
-        <a href="{% url 'core:home' %}" class="btn btn-outline-primary btn-modern">Back to Home</a>
+        <h5>{% trans "Catalog is empty" %}</h5>
+        <p class="text-muted mb-3">{% trans "We are preparing products and services for association members." %}</p>
+        <a href="{% url 'core:home' %}" class="btn btn-outline-primary btn-modern">{% trans "Back to home" %}</a>
     </div>
 </div>
 {% endblock %}

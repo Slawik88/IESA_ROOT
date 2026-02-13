@@ -1,10 +1,11 @@
+{% load i18n %}
 <!-- Subscribe Button Component (HTMX-powered) -->
 {% if request.user.is_authenticated and request.user != author %}
 <form hx-post="{% url 'blog:toggle_subscription' author_pk=author.pk %}" hx-swap="outerHTML" class="engage-chip">
     {% csrf_token %}
-    <button type="submit" class="btn engage-btn {% if is_subscribed %}engage-btn--active{% endif %}" title="Subscribe to {{ author.username }}'s blog">
+    <button type="submit" class="btn engage-btn {% if is_subscribed %}engage-btn--active{% endif %}" title="{% blocktrans with username=author.username %}Subscribe to {{ username }}'s blog{% endblocktrans %}">
         <span class="engage-icon"><i class="fas fa-bell{% if is_subscribed %} fa-solid{% else %} fa-regular{% endif %}"></i></span>
-        <span class="engage-label">{% if is_subscribed %}Subscribed{% else %}Subscribe{% endif %}</span>
+        <span class="engage-label">{% if is_subscribed %}{% trans "Subscribed" %}{% else %}{% trans "Subscribe" %}{% endif %}</span>
     </button>
 </form>
 {% endif %}

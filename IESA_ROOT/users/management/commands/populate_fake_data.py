@@ -9,11 +9,35 @@ import random
 from datetime import timedelta
 from django.utils import timezone
 
+from io import BytesIO
+from PIL import Image
+from django.core.files.uploadedfile import InMemoryUploadedFile
+
 from users.models import User
 from blog.models import Post, Event
 from products.models import Product
+from core.models import Partner, AssociationMember, President
 
 fake = Faker(['en_US', 'de_DE', 'fr_FR'])
+
+
+def create_fake_image(filename, width=600, height=400, color=(73, 109, 137)):
+    """Create a simple in-memory image for demo content."""
+    image = Image.new('RGB', (width, height), color=color)
+    image_io = BytesIO()
+    image.save(image_io, format='PNG')
+    image_io.seek(0)
+    return InMemoryUploadedFile(
+        image_io, None, filename, 'image/png', image_io.getbuffer().nbytes, None
+    )
+
+
+def set_translations(obj, field, en, uk, fr, de):
+    setattr(obj, field, en)
+    setattr(obj, f"{field}_en", en)
+    setattr(obj, f"{field}_uk", uk)
+    setattr(obj, f"{field}_fr", fr)
+    setattr(obj, f"{field}_de", de)
 
 
 class Command(BaseCommand):
@@ -53,6 +77,16 @@ class Command(BaseCommand):
             self.stdout.write(self.style.WARNING(f'📅 Creating {num_events} events...'))
             events = self.create_events(num_events)
             self.stdout.write(self.style.SUCCESS(f'✅ Created {len(events)} events\n'))
+
+            # Create About IESA (President + Members)
+            self.stdout.write(self.style.WARNING('👥 Creating About IESA section data...'))
+            self.create_about_iesa()
+            self.stdout.write(self.style.SUCCESS('✅ Created About IESA data\n'))
+
+            # Create Partners
+            self.stdout.write(self.style.WARNING('🤝 Creating partners...'))
+            self.create_partners()
+            self.stdout.write(self.style.SUCCESS('✅ Created partners\n'))
 
             self.stdout.write(self.style.SUCCESS('\n✨ Data population completed successfully!'))
 
@@ -169,38 +203,188 @@ class Command(BaseCommand):
 
     def create_events(self, count):
         """Create fake events"""
+        Event.objects.all().delete()
         events = []
         
         templates = [
-            ('Egypt Kitesurfing Championship 2024', 'Red Sea, Egypt'),
-            ('International Boxing Tournament', 'Geneva, Switzerland'),
-            ('Nordic Sauna Culture Workshop', 'Helsinki, Finland'),
-            ('Summer Extreme Sports Festival', 'Multiple Locations'),
-            ('Boxing Training Camp - Advanced', 'Berlin, Germany'),
-            ('Desert Adventure Expedition', 'Egyptian Desert'),
-            ('Women in Extreme Sports Conference', 'Paris, France'),
-            ('Community Meetup - Beginners', 'Various Cities'),
-            ('Professional Kitesurfing Seminar', 'Red Sea, Egypt'),
-            ('Annual IESA Awards Gala', 'Zurich, Switzerland'),
+            {
+                'title': {
+                    'en': 'IESA Extreme Camp: Red Sea Edition',
+                    'uk': 'IESA Екстрим-табір: видання Червоного моря',
+                    'fr': 'Camp extrême IESA : Édition Mer Rouge',
+                    'de': 'IESA-Extremcamp: Rotes-Meer-Edition',
+                },
+                'location': {
+                    'en': 'Red Sea Coast, Egypt',
+                    'uk': 'Узбережжя Червоного моря, Єгипет',
+                    'fr': 'Côte de la mer Rouge, Égypte',
+                    'de': 'Rotes Meer Küste, Ägypten',
+                },
+            },
+            {
+                'title': {
+                    'en': 'Urban Boxing Bootcamp',
+                    'uk': 'Міський боксерський буткемп',
+                    'fr': 'Bootcamp de boxe urbaine',
+                    'de': 'Urbanes Box-Bootcamp',
+                },
+                'location': {
+                    'en': 'Geneva, Switzerland',
+                    'uk': 'Женева, Швейцарія',
+                    'fr': 'Genève, Suisse',
+                    'de': 'Genf, Schweiz',
+                },
+            },
+            {
+                'title': {
+                    'en': 'Adventure Week: Desert & Sea',
+                    'uk': 'Тиждень пригод: пустеля і море',
+                    'fr': 'Semaine d’aventure : désert et mer',
+                    'de': 'Abenteuerwoche: Wüste & Meer',
+                },
+                'location': {
+                    'en': 'Sinai Desert, Egypt',
+                    'uk': 'Синайська пустеля, Єгипет',
+                    'fr': 'Désert du Sinaï, Égypte',
+                    'de': 'Sinai-Wüste, Ägypten',
+                },
+            },
+            {
+                'title': {
+                    'en': 'IESA Leadership & Team Summit',
+                    'uk': 'Саміт лідерства та команди IESA',
+                    'fr': 'Sommet leadership & équipe IESA',
+                    'de': 'IESA Leadership- & Team-Gipfel',
+                },
+                'location': {
+                    'en': 'Zurich, Switzerland',
+                    'uk': 'Цюрих, Швейцарія',
+                    'fr': 'Zurich, Suisse',
+                    'de': 'Zürich, Schweiz',
+                },
+            },
+            {
+                'title': {
+                    'en': 'Coastal Water Sports Weekend',
+                    'uk': 'Вікенд водних видів спорту на узбережжі',
+                    'fr': 'Week-end sports nautiques',
+                    'de': 'Wassersport-Wochenende an der Küste',
+                },
+                'location': {
+                    'en': 'Soma Bay, Egypt',
+                    'uk': 'Сома-Бей, Єгипет',
+                    'fr': 'Soma Bay, Égypte',
+                    'de': 'Soma Bay, Ägypten',
+                },
+            },
         ]
 
+        lorem = {
+            'en': 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Integer posuere lorem at neque hendrerit, nec volutpat justo gravida.',
+            'uk': 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Integer posuere lorem at neque hendrerit, nec volutpat justo gravida.',
+            'fr': 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Integer posuere lorem at neque hendrerit, nec volutpat justo gravida.',
+            'de': 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Integer posuere lorem at neque hendrerit, nec volutpat justo gravida.',
+        }
+
         for i in range(count):
-            title, location = templates[i % len(templates)]
+            template = templates[i % len(templates)]
+            title_en = template['title']['en']
+            location_en = template['location']['en']
             if i >= len(templates):
-                title = f"{title} - Event {i // len(templates) + 1}"
-            
-            if Event.objects.filter(title=title).exists():
-                events.append(Event.objects.get(title=title))
-                continue
+                title_en = f"{title_en} #{i // len(templates) + 1}"
 
             start_date = timezone.now() + timedelta(days=random.randint(1, 120))
             event = Event.objects.create(
-                title=title,
-                description=f'{title} - Join us for an incredible experience!',
-                location=location,
+                title=title_en,
+                description=lorem['en'],
+                location=location_en,
                 date=start_date,
-                end_date=start_date + timedelta(days=random.randint(1, 7))
+                end_date=start_date + timedelta(days=random.randint(1, 7)),
+                status='upcoming',
+                image=create_fake_image(f"event_{i+1}.png", 1000, 600, color=(40, 90, 140))
             )
+            set_translations(event, 'title', title_en, template['title']['uk'], template['title']['fr'], template['title']['de'])
+            set_translations(event, 'description', lorem['en'], lorem['uk'], lorem['fr'], lorem['de'])
+            set_translations(event, 'location', location_en, template['location']['uk'], template['location']['fr'], template['location']['de'])
+            event.save()
             events.append(event)
 
         return events
+
+    def create_about_iesa(self):
+        """Create President and Association Members for About IESA section"""
+        President.objects.all().delete()
+        AssociationMember.objects.all().delete()
+
+        lorem_en = 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.'
+        lorem_uk = 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.'
+        lorem_fr = 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.'
+        lorem_de = 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.'
+
+        president = President.objects.create(
+            name='Alex Morgan',
+            photo=create_fake_image('president.png', 600, 600, color=(80, 80, 120)),
+            position='President',
+            description=lorem_en,
+        )
+        set_translations(president, 'position', 'President', 'Президент', 'Président', 'Präsident')
+        set_translations(president, 'description', lorem_en, lorem_uk, lorem_fr, lorem_de)
+        president.save()
+
+        members = [
+            {
+                'name': 'Sofia Laurent',
+                'position': {'en': 'Operations Director', 'uk': 'Директор з операцій', 'fr': 'Directrice des opérations', 'de': 'Operationsleiterin'},
+            },
+            {
+                'name': 'Daniel Weber',
+                'position': {'en': 'Programs Lead', 'uk': 'Керівник програм', 'fr': 'Responsable des programmes', 'de': 'Programmleiter'},
+            },
+            {
+                'name': 'Mila Kovalenko',
+                'position': {'en': 'Community Manager', 'uk': 'Менеджер спільноти', 'fr': 'Responsable communauté', 'de': 'Community-Managerin'},
+            },
+            {
+                'name': 'Noah Schmidt',
+                'position': {'en': 'Partnerships Lead', 'uk': 'Керівник партнерств', 'fr': 'Responsable partenariats', 'de': 'Leiter Partnerschaften'},
+            },
+        ]
+
+        for idx, member in enumerate(members, start=1):
+            assoc = AssociationMember.objects.create(
+                name=member['name'],
+                photo=create_fake_image(f"member_{idx}.png", 600, 800, color=(90, 90, 140)),
+                position=member['position']['en'],
+                description=lorem_en,
+            )
+            set_translations(assoc, 'position', member['position']['en'], member['position']['uk'], member['position']['fr'], member['position']['de'])
+            set_translations(assoc, 'description', lorem_en, lorem_uk, lorem_fr, lorem_de)
+            assoc.save()
+
+    def create_partners(self):
+        """Create partners with translated descriptions"""
+        Partner.objects.all().delete()
+
+        lorem_en = 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Curabitur vitae lorem ipsum, sit amet luctus ipsum.'
+        lorem_uk = 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Curabitur vitae lorem ipsum, sit amet luctus ipsum.'
+        lorem_fr = 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Curabitur vitae lorem ipsum, sit amet luctus ipsum.'
+        lorem_de = 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Curabitur vitae lorem ipsum, sit amet luctus ipsum.'
+
+        partners = [
+            {'name': 'AquaEdge Sports', 'category': 'sponsor', 'link': 'https://aquaedge.example.com'},
+            {'name': 'PeakFlow Media', 'category': 'media', 'link': 'https://peakflow.example.com'},
+            {'name': 'NorthLine Tech', 'category': 'tech', 'link': 'https://northline.example.com'},
+            {'name': 'Summit Arena', 'category': 'venue', 'link': 'https://summitarena.example.com'},
+            {'name': 'ActivePulse Foundation', 'category': 'other', 'link': 'https://activepulse.example.com'},
+        ]
+
+        for idx, partner in enumerate(partners, start=1):
+            p = Partner.objects.create(
+                name=partner['name'],
+                description=lorem_en,
+                link=partner['link'],
+                category=partner['category'],
+                logo=create_fake_image(f"partner_{idx}.png", 400, 240, color=(60, 120, 160))
+            )
+            set_translations(p, 'description', lorem_en, lorem_uk, lorem_fr, lorem_de)
+            p.save()
