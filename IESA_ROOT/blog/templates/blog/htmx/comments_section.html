@@ -1,5 +1,5 @@
 <!-- Comments Section (HTMX partial) -->
-{% load blog_filters %}
+{% load blog_filters i18n %}
 <div id="comments-container">
     {% for comment in comments %}
     <div class="card card-modern mb-3 comment-card" data-comment-id="{{ comment.pk }}" data-delete-url="{% url 'blog:delete_comment' pk=post.pk comment_pk=comment.pk %}" {% if comment.pk == just_posted_id %}data-just-posted="true"{% endif %}>
@@ -42,7 +42,7 @@
                     <button type="button" class="btn btn-sm btn-outline-primary btn-modern mt-2" 
                             data-bs-toggle="collapse" 
                             data-bs-target="#reply-form-{{ comment.pk }}">
-                        <i class="fas fa-reply me-1"></i>Reply
+                        <i class="fas fa-reply me-1"></i>{% trans "Reply" %}
                     </button>
                     
                     <!-- Comment like and delete controls -->
@@ -61,7 +61,7 @@
                               hx-swap="innerHTML"
                               class="d-inline-block ms-2" style="display:inline;">
                             {% csrf_token %}
-                            <button type="submit" class="btn btn-sm btn-outline-danger btn-modern">Delete</button>
+                            <button type="submit" class="btn btn-sm btn-outline-danger btn-modern">{% trans "Delete" %}</button>
                         </form>
                     {% endif %}
                     
@@ -74,10 +74,10 @@
                                  
                               class="card card-modern p-3">
                             {% csrf_token %}
-                            <textarea name="text" class="form-control" rows="3" placeholder="Write a reply..." required></textarea>
+                            <textarea name="text" class="form-control" rows="3" placeholder="{% trans "Write a reply..." %}" required></textarea>
                             <input type="hidden" name="parent_id" value="{{ comment.pk }}">
                             <div class="mt-2">
-                                <button type="submit" class="btn btn-sm btn-primary btn-modern">Send Reply</button>
+                                <button type="submit" class="btn btn-sm btn-primary btn-modern">{% trans "Send reply" %}</button>
                             </div>
                         </form>
                     </div>
@@ -96,7 +96,10 @@ document.querySelectorAll('[data-just-posted="true"]').forEach(card => {
     const commentId = card.getAttribute('data-comment-id');
     const notice = document.createElement('div');
     notice.className = 'alert alert-success mt-2 p-2 small';
-    notice.innerHTML = 'Comment posted. <button class="btn btn-sm btn-link undo-btn p-0 ms-2">Undo in <span class="countdown">4</span>s</button>';
+    const commentPostedText = "{% trans "Comment posted." %}";
+    const undoText = "{% trans "Undo in" %}";
+    const secondsSuffix = "{% trans "s" %}";
+    notice.innerHTML = `${commentPostedText} <button class="btn btn-sm btn-link undo-btn p-0 ms-2">${undoText} <span class="countdown">4</span>${secondsSuffix}</button>`;
     card.querySelector('.card-body').appendChild(notice);
 
     let seconds = 4;

@@ -1,3 +1,5 @@
+{% load i18n %}
+
 {% if query %}
     <!-- DEBUG INFO (remove in production) -->
     <!-- Query: '{{ query }}' | Users: {{ results.users|length }} | Posts: {{ results.posts|length }} | Events: {{ results.events|length }} | Partners: {{ results.partners|length }} -->
@@ -7,7 +9,7 @@
         {% if results.users %}
         <div class="mb-4">
             <h6 class="text-muted fw-bold mb-2">
-                <i class="fas fa-users me-2"></i>Users ({{ results.users|length }})
+                <i class="fas fa-users me-2"></i>{% trans "Users" %} ({{ results.users|length }})
             </h6>
             <div class="list-group">
                 {% for user in results.users %}
@@ -42,7 +44,7 @@
         {% if results.posts %}
         <div class="mb-4">
             <h6 class="text-muted fw-bold mb-2">
-                <i class="fas fa-file-alt me-2"></i>Posts ({{ results.posts|length }})
+                <i class="fas fa-file-alt me-2"></i>{% trans "Posts" %} ({{ results.posts|length }})
             </h6>
             <div class="list-group">
                 {% for post in results.posts %}
@@ -61,10 +63,10 @@
                                 {% elif post.author.username %}
                                     {{ post.author.username }}
                                 {% else %}
-                                    Anonymous
+                                    {% trans "Anonymous" %}
                                 {% endif %} • 
                                 <i class="fas fa-calendar me-1"></i>{{ post.created_at|date:"d M Y" }} •
-                                <i class="fas fa-eye me-1"></i>{{ post.views_count }} views
+                                <i class="fas fa-eye me-1"></i>{{ post.views_count }} {% trans "views" %}
                             </small>
                         </div>
                         {% if post.preview_image %}
@@ -82,7 +84,7 @@
         {% if results.events %}
         <div class="mb-4">
             <h6 class="text-muted fw-bold mb-2">
-                <i class="fas fa-calendar-check me-2"></i>Events ({{ results.events|length }})
+                <i class="fas fa-calendar-check me-2"></i>{% trans "Events" %} ({{ results.events|length }})
             </h6>
             <div class="list-group">
                 {% for event in results.events %}
@@ -114,7 +116,7 @@
         {% if results.partners %}
         <div class="mb-4">
             <h6 class="text-muted fw-bold mb-2">
-                <i class="fas fa-handshake me-2"></i>Partners ({{ results.partners|length }})
+                <i class="fas fa-handshake me-2"></i>{% trans "Partners" %} ({{ results.partners|length }})
             </h6>
             <div class="list-group">
                 {% for partner in results.partners %}
@@ -149,15 +151,15 @@
         {% if not results.users and not results.posts and not results.events and not results.partners %}
         <div class="text-muted text-center py-4">
             <i class="fas fa-search icon-xl mb-2 opacity-50"></i>
-            <p class="mb-0">No results found for <strong>"{{ query }}"</strong></p>
+            <p class="mb-0">{% blocktrans with q=query %}No results found for "{{ q }}"{% endblocktrans %}</p>
             {% if query|length < 2 %}
-            <small class="text-muted">Minimum 2 characters required</small>
+            <small class="text-muted">{% trans "Minimum 2 characters required" %}</small>
             {% endif %}
         </div>
         {% endif %}
     </div>
 {% else %}
     <div class="text-muted small text-center py-3">
-        <i class="fas fa-search me-2"></i>Start typing to search...
+        <i class="fas fa-search me-2"></i>{% trans "Start typing to search..." %}
     </div>
 {% endif %}

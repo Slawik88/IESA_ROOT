@@ -1,4 +1,4 @@
-{% load static %}
+{% load static i18n %}
 
 {% for post in posts %}
 <article class="card card-modern mb-3 htmx-fade-in">
@@ -15,7 +15,7 @@
                     <span class="badge bg-primary-subtle text-primary">{{ post.category.name }}</span>
                     {% endif %}
                     {% if post.is_pinned %}
-                    <span class="badge bg-warning-subtle text-warning"><i class="fas fa-thumbtack me-1"></i>Pinned</span>
+                    <span class="badge bg-warning-subtle text-warning"><i class="fas fa-thumbtack me-1"></i>{% trans "Pinned" %}</span>
                     {% endif %}
                 </div>
                 
@@ -54,8 +54,8 @@
 {% empty %}
 <div class="empty-state">
     <div class="empty-emoji">📝</div>
-    <h5>No posts found</h5>
-    <p class="text-muted mb-0">Try adjusting your search or filters</p>
+    <h5>{% trans "No posts found" %}</h5>
+    <p class="text-muted mb-0">{% trans "Try adjusting your search or filters" %}</p>
 </div>
 {% endfor %}
 
@@ -74,9 +74,9 @@ HTMX Infinite Scroll - Лучшая практика:
      hx-indicator="#loading-spinner">
     <div id="loading-spinner" class="htmx-indicator">
         <div class="spinner-border spinner-border-sm text-primary" role="status">
-            <span class="visually-hidden">Loading...</span>
+            <span class="visually-hidden">{% trans "Loading..." %}</span>
         </div>
-        <span class="ms-2 text-muted">Loading more posts...</span>
+        <span class="ms-2 text-muted">{% trans "Loading more posts..." %}</span>
     </div>
 </div>
 {% endif %}

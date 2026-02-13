@@ -7,6 +7,15 @@ from django.core.management.base import BaseCommand
 from core.models import MemberBenefit
 
 
+def set_translations(obj, field, en, uk=None, fr=None, de=None):
+    """Populate modeltranslation fields for a given field."""
+    setattr(obj, field, en)
+    setattr(obj, f"{field}_en", en)
+    setattr(obj, f"{field}_uk", uk or en)
+    setattr(obj, f"{field}_fr", fr or en)
+    setattr(obj, f"{field}_de", de or en)
+
+
 class Command(BaseCommand):
     help = 'Создает фейковые бенефиты для членов ассоциации'
     
@@ -160,6 +169,12 @@ class Command(BaseCommand):
         
         for benefit_data in benefits_data:
             benefit = MemberBenefit.objects.create(**benefit_data)
+            set_translations(benefit, 'title', benefit_data['title'])
+            set_translations(benefit, 'description', benefit_data['description'])
+            set_translations(benefit, 'discount_info', benefit_data['discount_info'])
+            set_translations(benefit, 'partner_info', benefit_data['partner_info'])
+            set_translations(benefit, 'terms', benefit_data['terms'])
+            benefit.save()
             self.stdout.write(f"  ✅ {benefit.title}")
         
         self.stdout.write("\n" + "=" * 80)

@@ -31,4 +31,4 @@ class CoreProductTranslationOptions(TranslationOptions):
 
 @register(MemberBenefit)
 class MemberBenefitTranslationOptions(TranslationOptions):
-    fields = ('title', 'description', 'discount_info')
+    fields = ('title', 'description', 'discount_info', 'partner_info', 'terms')
