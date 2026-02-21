@@ -10,6 +10,7 @@ urlpatterns = [
     # События
     path('events/', views.EventListView.as_view(), name='event_list'),
     path('events/<int:pk>/', views.EventDetailView.as_view(), name='event_detail'),
+    path('events/<int:pk>/register/', views.event_register, name='event_register'),
     
     # Создание поста
     path('create/', views.PostCreateView.as_view(), name='post_create'),

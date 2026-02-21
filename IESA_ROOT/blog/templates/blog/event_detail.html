@@ -61,15 +61,31 @@
                 <a href="{% url 'blog:event_list' %}" class="btn btn-outline-secondary btn-modern">
                     <i class="fas fa-arrow-left me-2"></i> {% trans "Back to events" %}
                 </a>
-                <button class="btn btn-primary btn-modern" data-bs-toggle="modal" data-bs-target="#registerModal">
-                    <i class="fas fa-check-circle me-2"></i> {% trans "Register" %}
-                </button>
+                {% if user.is_authenticated %}
+                    {% if is_registered %}
+                        <button class="btn btn-success btn-modern" disabled>
+                            <i class="fas fa-check-circle me-2"></i> {% trans "Already registered" %}
+                        </button>
+                    {% else %}
+                        <form method="post" action="{% url 'blog:event_register' event.pk %}" style="display: inline;">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-primary btn-modern">
+                                <i class="fas fa-check-circle me-2"></i> {% trans "Register" %}
+                            </button>
+                        </form>
+                    {% endif %}
+                {% else %}
+                    <button class="btn btn-primary btn-modern" data-bs-toggle="modal" data-bs-target="#registerModal">
+                        <i class="fas fa-check-circle me-2"></i> {% trans "Register" %}
+                    </button>
+                {% endif %}
             </div>
         </div>
     </div>
 </div>
 
-<!-- Registration Modal -->
+<!-- Registration Modal (for non-authenticated users) -->
+{% if not user.is_authenticated %}
 <div class="modal fade" id="registerModal" tabindex="-1" aria-labelledby="registerModalLabel" aria-hidden="true" data-bs-backdrop="true" data-bs-keyboard="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
@@ -107,4 +123,5 @@
         </div>
     </div>
 </div>
+{% endif %}
 {% endblock %}

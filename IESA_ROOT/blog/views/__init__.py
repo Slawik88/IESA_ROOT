@@ -1,7 +1,7 @@
 """Views для blog - модульная структура"""
 
 from .posts import PostListView, PostDetailView, PostCreateView
-from .events import EventListView, EventDetailView
+from .events import EventListView, EventDetailView, event_register
 from .comments import comment_create, comment_list, delete_comment
 from .likes import like_post, toggle_comment_like
 from .search import post_search, global_search
@@ -16,6 +16,7 @@ __all__ = [
     # Events
     'EventListView',
     'EventDetailView',
+    'event_register',
     
     # Comments
     'comment_create',
