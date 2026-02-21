@@ -410,8 +410,20 @@
 /* Compact info grid (Full name, DOB, Phone, Joined) */
 .profile-info-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
+}
+
+@media (min-width: 1200px) {
+  .profile-info-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 767.98px) {
+  .profile-info-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .info-pill {
@@ -419,6 +431,7 @@
   align-items: center;
   gap: 12px;
   padding: 12px 14px;
+  min-height: 78px;
   border-radius: 14px;
   border: 1px solid var(--border-color-light);
   background: #fff;
