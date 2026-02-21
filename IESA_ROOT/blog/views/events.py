@@ -5,7 +5,11 @@ from django.db.models import Q, Count
 from django.utils.decorators import method_decorator
 from django.views.decorators.cache import cache_page
 from django.utils import timezone
-from ..models import Event
+from django.contrib.auth.decorators import login_required
+from django.shortcuts import get_object_or_404, redirect
+from django.contrib import messages
+from django.utils.translation import gettext as _
+from ..models import Event, EventRegistration
 from ..constants import EVENTS_PER_PAGE
 
 
@@ -30,6 +34,16 @@ class EventListView(ListView):
         queryset = Event.objects.select_related('created_by').annotate(
             participants_confirmed=Count('registrations', filter=Q(registrations__status='confirmed'), distinct=True)
         )
+        
+        # Annotate with user registration status if authenticated
+        if self.request.user.is_authenticated:
+            queryset = queryset.annotate(
+                user_registered=Count(
+                    'registrations',
+                    filter=Q(registrations__user=self.request.user),
+                    distinct=True
+                )
+            )
         
         # Фильтр по статусу (upcoming/past/all)
         status = self.request.GET.get('status', 'upcoming')
@@ -104,3 +118,41 @@ class EventDetailView(DetailView):
     model = Event
     template_name = 'blog/event_detail.html'
     context_object_name = 'event'
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        if self.request.user.is_authenticated:
+            # Check if user is already registered
+            context['is_registered'] = EventRegistration.objects.filter(
+                event=self.object,
+                user=self.request.user
+            ).exists()
+        else:
+            context['is_registered'] = False
+        return context
+
+
+@login_required
+def event_register(request, pk):
+    """Register authenticated user for an event"""
+    event = get_object_or_404(Event, pk=pk)
+    
+    # Check if already registered
+    registration, created = EventRegistration.objects.get_or_create(
+        event=event,
+        user=request.user,
+        defaults={'status': 'confirmed'}
+    )
+    
+    if created:
+        messages.success(
+            request,
+            _('You have successfully registered for the event! An administrator will contact you soon to confirm your participation.')
+        )
+    else:
+        messages.info(
+            request,
+            _('You are already registered for this event.')
+        )
+    
+    return redirect('blog:event_detail', pk=event.pk)

@@ -320,3 +320,36 @@ msgstr "Фокус впливу"
 
 msgid "Events · Education · Partnerships"
 msgstr "Події · Освіта · Партнерства"
+
+msgid "Register"
+msgstr "Зареєструватися"
+
+msgid "Register for Event"
+msgstr "Зареєструватися на подію"
+
+msgid "Thank you for your interest! Please contact us via:"
+msgstr "Дякуємо за Ваш інтерес! Будь ласка, зв'яжіться з нами:"
+
+msgid "Call/SMS:"
+msgstr "Дзвінок/SMS:"
+
+msgid "Message on Telegram"
+msgstr "Повідомлення в Telegram"
+
+msgid "We'll get back to you as soon as possible!"
+msgstr "Ми зв'яжемося з Вами якомога швидше!"
+
+msgid "Back to events"
+msgstr "Повернутися до подій"
+
+msgid "Already registered"
+msgstr "Вже зареєстровані"
+
+msgid "Registered"
+msgstr "Зареєстровано"
+
+msgid "You have successfully registered for the event! An administrator will contact you soon to confirm your participation."
+msgstr "Ви успішно зареєструвалися на подію! Адміністратор зв'яжеться з Вами найближчим часом для підтвердження участі."
+
+msgid "You are already registered for this event."
+msgstr "Ви вже зареєстровані на цю подію."

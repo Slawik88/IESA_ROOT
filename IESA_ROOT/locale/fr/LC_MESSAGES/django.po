@@ -42,27 +42,27 @@ msgstr "Back to events"
 #: .\IESA_ROOT\templates\base.html:205
 #: .\IESA_ROOT\users\templates\users\register.html:4
 msgid "Register"
-msgstr "Register"
+msgstr "S'inscrire"
 
 #: .\IESA_ROOT\blog\templates\blog\event_detail.html:78
 msgid "Register for Event"
-msgstr "Register for Event"
+msgstr "S'inscrire à l'événement"
 
 #: .\IESA_ROOT\blog\templates\blog\event_detail.html:83
 msgid "Thank you for your interest! Please contact us via:"
-msgstr "Thank you for your interest! Please contact us via:"
+msgstr "Merci pour votre intérêt ! Veuillez nous contacter via :"
 
 #: .\IESA_ROOT\blog\templates\blog\event_detail.html:90
 msgid "Call/SMS:"
-msgstr "Call/SMS:"
+msgstr "Appel/SMS :"
 
 #: .\IESA_ROOT\blog\templates\blog\event_detail.html:98
 msgid "Message on Telegram"
-msgstr "Message on Telegram"
+msgstr "Message sur Telegram"
 
 #: .\IESA_ROOT\blog\templates\blog\event_detail.html:104
 msgid "We'll get back to you as soon as possible!"
-msgstr "We'll get back to you as soon as possible!"
+msgstr "Nous vous recontacterons dès que possible !"
 
 msgid "Extreme sport as a way of thinking and life"
 msgstr "Le sport extrême comme manière de penser et de vivre"
@@ -97,6 +97,18 @@ msgstr "Réveille toutes les couleurs de la vie. Rejoins-nous..."
 msgid "Our Team"
 msgstr "Notre équipe"
 
+msgid "Already registered"
+msgstr "Déjà inscrit"
+
+msgid "Registered"
+msgstr "Inscrit"
+
+msgid "You have successfully registered for the event! An administrator will contact you soon to confirm your participation."
+msgstr "Vous vous êtes inscrit avec succès à l'événement ! Un administrateur vous contactera bientôt pour confirmer votre participation."
+
+msgid "You are already registered for this event."
+msgstr "Vous êtes déjà inscrit à cet événement."
+
 #: .\IESA_ROOT\blog\templates\blog\event_list.html:9
 msgid "EVENTS CALENDAR"
 msgstr "EVENTS CALENDAR"
@@ -111,7 +123,7 @@ msgstr "Join us for exciting experiences and networking opportunities"
 
 #: .\IESA_ROOT\blog\templates\blog\event_list.html:19
 msgid "Sign in or register to access events"
-msgstr "Sign in or register to access events"
+msgstr "Connectez-vous ou inscrivez-vous pour accéder aux événements"
 
 #: .\IESA_ROOT\blog\templates\blog\event_list.html:21
 msgid "Join to RSVP, comment and engage with members"
@@ -123,7 +135,7 @@ msgstr "Join to RSVP, comment and engage with members"
 #: .\IESA_ROOT\users\templates\users\login.html:4
 #: .\IESA_ROOT\users\templates\users\login.html:84
 msgid "Sign In"
-msgstr "Sign In"
+msgstr "Se connecter"
 
 #: .\IESA_ROOT\blog\templates\blog\event_list.html:34
 msgid "All posts"
@@ -1190,7 +1202,7 @@ msgstr "CONTACTS"
 
 #: .\IESA_ROOT\templates\base.html:257
 msgid "Switzerland"
-msgstr "Switzerland"
+msgstr "Suisse"
 
 #: .\IESA_ROOT\templates\base.html:261
 msgid "SOCIAL"
