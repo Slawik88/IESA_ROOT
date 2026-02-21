@@ -24,6 +24,9 @@ msgstr "Міжнародна асоціація екстремальних ви�
 msgid "IESA Programs for Kids and Adults"
 msgstr "Програми IESA для дітей і дорослих"
 
+msgid "IESA unites athletes, active lifestyle communities, and everyone who grows through adventure and extreme challenges."
+msgstr "IESA об'єднує спортсменів, спільноти активного способу життя та всіх, хто зростає через пригоди й екстремальні виклики."
+
 msgid "IESA delivers programs for teens and adults — a reset through sport and strong team formats."
 msgstr "IESA проводить програми для підлітків і дорослих — перезавантаження через спорт і сильні командні формати."
 
@@ -188,6 +191,39 @@ msgstr "ПРО IESA"
 
 msgid "Our Leadership & Team"
 msgstr "Наше керівництво та команда"
+
+msgid "Extreme sport as a way of thinking and life"
+msgstr "Екстремальний спорт як спосіб мислення і життя"
+
+msgid "IESA is not just sport; it is a lifestyle that inspires, develops, and unites."
+msgstr "IESA — це не просто спорт, це стиль життя, який надихає, розвиває та об'єднує."
+
+msgid "What extreme sport gives"
+msgstr "Що дає екстремальний спорт"
+
+msgid "Courage and the ability to work with risk"
+msgstr "Сміливість і вміння працювати з ризиком"
+
+msgid "Physical and mental resilience"
+msgstr "Фізична та психологічна витривалість"
+
+msgid "Team skills and confidence"
+msgstr "Командні навички та впевненість у собі"
+
+msgid "Broader horizons through adventure and nature"
+msgstr "Розширення кругозору через пригоди та природу"
+
+msgid "Who we invite"
+msgstr "Кого ми запрошуємо"
+
+msgid "Teens, adults, companies, and everyone who seeks an active, rich, and conscious life."
+msgstr "Підлітків, дорослих, компанії та всіх, хто прагне активного, насиченого й усвідомленого життя."
+
+msgid "Wake up every color of life. Join us..."
+msgstr "Пробуди всі барви життя. Приєднуйся..."
+
+msgid "Our Team"
+msgstr "Наша команда"
 
 msgid "Meet the people who drive our mission forward"
 msgstr "Познайомтеся з людьми, які рухають нашу місію вперед"

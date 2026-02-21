@@ -35,7 +35,7 @@
                     <i class="fas fa-calendar-alt me-3 text-primary icon-lg"></i>
                     <div>
                         <strong>{% trans "Date & time:" %}</strong>
-                        <p class="mb-0">{{ event.date|date:"d MMMM Y, H:i" }}</p>
+                        <p class="mb-0">{{ event.date|date:"d.m.Y H:i" }}</p>
                     </div>
                 </div>
                 
@@ -52,7 +52,7 @@
             <div class="card card-modern mb-4">
                 <div class="card-body">
                     <h6 class="section-title d-block mb-4">{% trans "DESCRIPTION" %}</h6>
-                    <p class="card-text">{{ event.description|linebreaksbr }}</p>
+                    <p class="card-text">{{ event.description|striptags|linebreaksbr }}</p>
                 </div>
             </div>
             
