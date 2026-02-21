@@ -353,3 +353,13 @@ msgstr "Ви успішно зареєструвалися на подію! Ад
 
 msgid "You are already registered for this event."
 msgstr "Ви вже зареєстровані на цю подію."
+
+msgid "Age restriction"
+msgstr "Вікове обмеження"
+
+msgid "Age restriction:"
+msgstr "Вікове обмеження:"
+
+#, python-format
+msgid "Ages %(min_age)s-%(max_age)s"
+msgstr "Вік %(min_age)s-%(max_age)s"

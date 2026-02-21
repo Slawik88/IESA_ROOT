@@ -46,6 +46,16 @@
                         <p class="mb-0">{{ event.location }}</p>
                     </div>
                 </div>
+
+                {% if event.is_teen_event %}
+                <div class="mb-3 d-flex align-items-center">
+                    <i class="fas fa-user-shield me-3 text-primary icon-lg"></i>
+                    <div>
+                        <strong>{% trans "Age restriction:" %}</strong>
+                        <p class="mb-0">{% blocktrans with min_age=event.min_age max_age=event.max_age %}Ages {{ min_age }}-{{ max_age }}{% endblocktrans %}</p>
+                    </div>
+                </div>
+                {% endif %}
             </div>
             
             <!-- Description -->

@@ -158,6 +158,8 @@ class Event(models.Model):
     image = models.ImageField(upload_to='media/events/', blank=True, null=True, verbose_name='Event Image')
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='upcoming', verbose_name='Status')
     max_participants = models.PositiveIntegerField(null=True, blank=True, verbose_name='Max Participants')
+    min_age = models.PositiveSmallIntegerField(null=True, blank=True, verbose_name='Minimum Age')
+    max_age = models.PositiveSmallIntegerField(null=True, blank=True, verbose_name='Maximum Age')
     registration_deadline = models.DateTimeField(null=True, blank=True, verbose_name='Registration Deadline')
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='created_events', verbose_name='Created by')
     created_at = models.DateTimeField(auto_now_add=True, null=True, verbose_name='Created at')
@@ -196,6 +198,14 @@ class Event(models.Model):
             confirmed = self.registrations.filter(status='confirmed').count()
             return max(0, self.max_participants - confirmed)
         return None
+
+    @property
+    def has_age_restriction(self):
+        return self.min_age is not None or self.max_age is not None
+
+    @property
+    def is_teen_event(self):
+        return self.min_age is not None and self.max_age is not None and self.max_age <= 18
 
 
 class EventRegistration(models.Model):
