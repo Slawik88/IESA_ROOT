@@ -109,6 +109,16 @@ msgstr "Vous vous êtes inscrit avec succès à l'événement ! Un administrateu
 msgid "You are already registered for this event."
 msgstr "Vous êtes déjà inscrit à cet événement."
 
+msgid "Age restriction"
+msgstr "Limite d'âge"
+
+msgid "Age restriction:"
+msgstr "Limite d'âge :"
+
+#, python-format
+msgid "Ages %(min_age)s-%(max_age)s"
+msgstr "Âges %(min_age)s-%(max_age)s"
+
 #: .\IESA_ROOT\blog\templates\blog\event_list.html:9
 msgid "EVENTS CALENDAR"
 msgstr "EVENTS CALENDAR"

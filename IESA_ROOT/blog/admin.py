@@ -237,7 +237,7 @@ class EventAdmin(TabbedTranslationAdmin):
             'fields': ('date', 'end_date', 'registration_deadline')
         }),
         ('Location & Capacity', {
-            'fields': ('location', 'max_participants', 'status')
+            'fields': ('location', 'min_age', 'max_age', 'max_participants', 'status')
         }),
         ('System', {
             'fields': ('created_by', 'created_at', 'updated_at', 'participants_count'),
