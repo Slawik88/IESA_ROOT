@@ -124,26 +124,26 @@
     <section class="section-padding card card-flat p-5 my-5" aria-labelledby="iesa-mission-title">
         <div class="text-center mb-4">
             <p class="section-title mb-3 section-title-display" role="text">{% trans "IESA MISSION" %}</p>
-            <h2 id="iesa-mission-title" class="fw-bold mb-2 text-gray-900">{% trans "Extreme спорт как способ мышления и жизни" %}</h2>
-            <p class="text-muted">{% trans "IESA — это не просто спорт, это стиль жизни, который вдохновляет, развивает и объединяет." %}</p>
+            <h2 id="iesa-mission-title" class="fw-bold mb-2 text-gray-900">{% trans "Extreme sport as a way of thinking and life" %}</h2>
+            <p class="text-muted">{% trans "IESA is not just sport; it is a lifestyle that inspires, develops, and unites." %}</p>
         </div>
         <div class="row g-4">
             <div class="col-12 col-lg-6">
                 <div class="card h-100 p-4">
-                    <h3 class="h5 fw-bold mb-3">{% trans "Что дает экстремальный спорт" %}</h3>
+                    <h3 class="h5 fw-bold mb-3">{% trans "What extreme sport gives" %}</h3>
                     <ul class="list-unstyled mb-0">
-                        <li class="mb-2"><i class="fas fa-check text-success me-2" aria-hidden="true"></i>{% trans "Смелость и умение работать с риском" %}</li>
-                        <li class="mb-2"><i class="fas fa-check text-success me-2" aria-hidden="true"></i>{% trans "Физическая и психологическая выносливость" %}</li>
-                        <li class="mb-2"><i class="fas fa-check text-success me-2" aria-hidden="true"></i>{% trans "Командные навыки и уверенность в себе" %}</li>
-                        <li class="mb-2"><i class="fas fa-check text-success me-2" aria-hidden="true"></i>{% trans "Расширение кругозора через приключения и природу" %}</li>
+                        <li class="mb-2"><i class="fas fa-check text-success me-2" aria-hidden="true"></i>{% trans "Courage and the ability to work with risk" %}</li>
+                        <li class="mb-2"><i class="fas fa-check text-success me-2" aria-hidden="true"></i>{% trans "Physical and mental resilience" %}</li>
+                        <li class="mb-2"><i class="fas fa-check text-success me-2" aria-hidden="true"></i>{% trans "Team skills and confidence" %}</li>
+                        <li class="mb-2"><i class="fas fa-check text-success me-2" aria-hidden="true"></i>{% trans "Broader horizons through adventure and nature" %}</li>
                     </ul>
                 </div>
             </div>
             <div class="col-12 col-lg-6">
                 <div class="card h-100 p-4">
-                    <h3 class="h5 fw-bold mb-3">{% trans "Кого мы приглашаем" %}</h3>
-                    <p class="mb-3">{% trans "Подростков, взрослых, компании и всех, кто стремится к активной, насыщенной и осознанной жизни." %}</p>
-                    <p class="mb-0 fw-semibold">{% trans "Пробуди все краски жизни. Присоединяйся..." %}</p>
+                    <h3 class="h5 fw-bold mb-3">{% trans "Who we invite" %}</h3>
+                    <p class="mb-3">{% trans "Teens, adults, companies, and everyone who seeks an active, rich, and conscious life." %}</p>
+                    <p class="mb-0 fw-semibold">{% trans "Wake up every color of life. Join us..." %}</p>
                 </div>
             </div>
         </div>
@@ -280,35 +280,11 @@
 
     <!-- About Section: President & Members -->
     <section id="about-section" class="section-padding card p-5 my-5" aria-labelledby="about-title">
-        <div class="text-center mb-5">
+        <div class="text-center mb-4">
             <h6 class="section-title mb-4 section-title-display">{% trans "ABOUT IESA" %}</h6>
-            <h2 id="about-title" class="fw-bold mb-2 text-gray-900">{% trans "Our Leadership & Team" %}</h2>
+            <h2 id="about-title" class="fw-bold mb-2 text-gray-900">{% trans "Our Team" %}</h2>
             <p class="text-muted">{% trans "Meet the people who drive our mission forward" %}</p>
         </div>
-
-        {% if president %}
-            <!-- About President -->
-            <article class="row align-items-center mb-5 pb-5 president-section">
-                <div class="col-md-4 text-center mb-4 mb-md-0">
-                    {% if president.photo %}
-                        <img src="{{ president.photo.url }}" class="rounded-circle shadow-md president-photo" alt="{{ president.name }}" loading="lazy">
-                    {% else %}
-                        <div class="rounded-circle d-inline-flex justify-content-center align-items-center shadow-md president-avatar">
-                            <i class="fas fa-user-tie icon-4xl president-avatar-icon"></i>
-                        </div>
-                    {% endif %}
-                    <h3 class="mt-3 fw-bold mb-1 president-name">{{ president.name }}</h3>
-                    <p class="mb-0 president-position">{{ president.position }}</p>
-                </div>
-                <div class="col-md-8">
-                    <h4 class="fw-bold mb-3 text-gray-900">
-                        <i class="fas fa-quote-left me-2 president-quote-icon"></i>
-                        {% trans "A Word from the President" %}
-                    </h4>
-                    <div class="president-description">{{ president.description|safe }}</div>
-                </div>
-            </article>
-        {% endif %}
 
         <!-- Association Members -->
         <div class="text-center mb-5">

@@ -77,6 +77,39 @@ msgstr ""
 msgid "We'll get back to you as soon as possible!"
 msgstr ""
 
+msgid "Extreme sport as a way of thinking and life"
+msgstr "Le sport extrême comme manière de penser et de vivre"
+
+msgid "IESA is not just sport; it is a lifestyle that inspires, develops, and unites."
+msgstr "IESA n'est pas seulement du sport, c'est un style de vie qui inspire, développe et unit."
+
+msgid "What extreme sport gives"
+msgstr "Ce que le sport extrême apporte"
+
+msgid "Courage and the ability to work with risk"
+msgstr "Le courage et la capacité à gérer le risque"
+
+msgid "Physical and mental resilience"
+msgstr "L'endurance physique et mentale"
+
+msgid "Team skills and confidence"
+msgstr "L'esprit d'équipe et la confiance en soi"
+
+msgid "Broader horizons through adventure and nature"
+msgstr "Élargir ses horizons grâce à l'aventure et à la nature"
+
+msgid "Who we invite"
+msgstr "Qui nous invitons"
+
+msgid "Teens, adults, companies, and everyone who seeks an active, rich, and conscious life."
+msgstr "Les adolescents, les adultes, les entreprises et tous ceux qui recherchent une vie active, riche et consciente."
+
+msgid "Wake up every color of life. Join us..."
+msgstr "Réveille toutes les couleurs de la vie. Rejoins-nous..."
+
+msgid "Our Team"
+msgstr "Notre équipe"
+
 #: .\IESA_ROOT\blog\templates\blog\event_list.html:9
 msgid "EVENTS CALENDAR"
 msgstr ""
@@ -411,6 +444,9 @@ msgstr "Association internationale des sports extrêmes"
 #: .\IESA_ROOT\core\templates\core\index.html:16
 msgid "IESA Programs for Kids and Adults"
 msgstr "Programmes IESA pour enfants et adultes"
+
+msgid "IESA unites athletes, active lifestyle communities, and everyone who grows through adventure and extreme challenges."
+msgstr "IESA réunit les athlètes, les communautés de style de vie actif et tous ceux qui grandissent grâce à l'aventure et aux défis extrêmes."
 
 #: .\IESA_ROOT\core\templates\core\index.html:19
 msgid ""
