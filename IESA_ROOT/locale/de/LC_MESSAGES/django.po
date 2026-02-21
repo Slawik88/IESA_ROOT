@@ -4,50 +4,37 @@
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
 #
 #, fuzzy
-msgid ""
-msgstr ""
-"Project-Id-Version: PACKAGE VERSION\n"
-"Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-02-12 02:34+0100\n"
-"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
-"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
-"Language-Team: LANGUAGE <LL@li.org>\n"
-"Language: \n"
-"MIME-Version: 1.0\n"
-"Content-Type: text/plain; charset=UTF-8\n"
-"Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=2; plural=(n != 1);\n"
 #: .\IESA_ROOT\blog\templates\blog\event_detail.html:4
 #: .\IESA_ROOT\blog\templates\blog\event_list.html:4
 #: .\IESA_ROOT\blog\templates\blog\event_list.html:35
 #: .\IESA_ROOT\blog\templates\blog\post_list.html:42
 #: .\IESA_ROOT\templates\base.html:123 .\IESA_ROOT\templates\base.html:249
 msgid "Events"
-msgstr ""
+msgstr "Events"
 
 #: .\IESA_ROOT\blog\templates\blog\event_detail.html:7
 msgid "events"
-msgstr ""
+msgstr "events"
 
 #: .\IESA_ROOT\blog\templates\blog\event_detail.html:7
 msgid "gatherings"
-msgstr ""
+msgstr "gatherings"
 
 #: .\IESA_ROOT\blog\templates\blog\event_detail.html:37
 msgid "Date & time:"
-msgstr ""
+msgstr "Date & time:"
 
 #: .\IESA_ROOT\blog\templates\blog\event_detail.html:45
 msgid "Location:"
-msgstr ""
+msgstr "Location:"
 
 #: .\IESA_ROOT\blog\templates\blog\event_detail.html:54
 msgid "DESCRIPTION"
-msgstr ""
+msgstr "DESCRIPTION"
 
 #: .\IESA_ROOT\blog\templates\blog\event_detail.html:62
 msgid "Back to events"
-msgstr ""
+msgstr "Back to events"
 
 #: .\IESA_ROOT\blog\templates\blog\event_detail.html:65
 #: .\IESA_ROOT\blog\templates\blog\event_list.html:25
@@ -55,27 +42,27 @@ msgstr ""
 #: .\IESA_ROOT\templates\base.html:205
 #: .\IESA_ROOT\users\templates\users\register.html:4
 msgid "Register"
-msgstr ""
+msgstr "Register"
 
 #: .\IESA_ROOT\blog\templates\blog\event_detail.html:78
 msgid "Register for Event"
-msgstr ""
+msgstr "Register for Event"
 
 #: .\IESA_ROOT\blog\templates\blog\event_detail.html:83
 msgid "Thank you for your interest! Please contact us via:"
-msgstr ""
+msgstr "Thank you for your interest! Please contact us via:"
 
 #: .\IESA_ROOT\blog\templates\blog\event_detail.html:90
 msgid "Call/SMS:"
-msgstr ""
+msgstr "Call/SMS:"
 
 #: .\IESA_ROOT\blog\templates\blog\event_detail.html:98
 msgid "Message on Telegram"
-msgstr ""
+msgstr "Message on Telegram"
 
 #: .\IESA_ROOT\blog\templates\blog\event_detail.html:104
 msgid "We'll get back to you as soon as possible!"
-msgstr ""
+msgstr "We'll get back to you as soon as possible!"
 
 msgid "Extreme sport as a way of thinking and life"
 msgstr "Extremsport als Denk- und Lebensweise"
@@ -112,23 +99,23 @@ msgstr "Unser Team"
 
 #: .\IESA_ROOT\blog\templates\blog\event_list.html:9
 msgid "EVENTS CALENDAR"
-msgstr ""
+msgstr "EVENTS CALENDAR"
 
 #: .\IESA_ROOT\blog\templates\blog\event_list.html:10
 msgid "Upcoming Events & Gatherings"
-msgstr ""
+msgstr "Upcoming Events & Gatherings"
 
 #: .\IESA_ROOT\blog\templates\blog\event_list.html:11
 msgid "Join us for exciting experiences and networking opportunities"
-msgstr ""
+msgstr "Join us for exciting experiences and networking opportunities"
 
 #: .\IESA_ROOT\blog\templates\blog\event_list.html:19
 msgid "Sign in or register to access events"
-msgstr ""
+msgstr "Sign in or register to access events"
 
 #: .\IESA_ROOT\blog\templates\blog\event_list.html:21
 msgid "Join to RSVP, comment and engage with members"
-msgstr ""
+msgstr "Join to RSVP, comment and engage with members"
 
 #: .\IESA_ROOT\blog\templates\blog\event_list.html:24
 #: .\IESA_ROOT\blog\templates\blog\post_list.html:26
@@ -136,186 +123,186 @@ msgstr ""
 #: .\IESA_ROOT\users\templates\users\login.html:4
 #: .\IESA_ROOT\users\templates\users\login.html:84
 msgid "Sign In"
-msgstr ""
+msgstr "Sign In"
 
 #: .\IESA_ROOT\blog\templates\blog\event_list.html:34
 msgid "All posts"
-msgstr ""
+msgstr "All posts"
 
 #: .\IESA_ROOT\blog\templates\blog\event_list.html:51
 msgid "Search events..."
-msgstr ""
+msgstr "Search events..."
 
 #: .\IESA_ROOT\blog\templates\blog\event_list.html:52
 msgid "Search events"
-msgstr ""
+msgstr "Search events"
 
 #: .\IESA_ROOT\blog\templates\blog\event_list.html:56
 msgid "Upcoming"
-msgstr ""
+msgstr "Upcoming"
 
 #: .\IESA_ROOT\blog\templates\blog\event_list.html:57
 msgid "All events"
-msgstr ""
+msgstr "All events"
 
 #: .\IESA_ROOT\blog\templates\blog\event_list.html:58
 msgid "Past"
-msgstr ""
+msgstr "Past"
 
 #: .\IESA_ROOT\blog\templates\blog\event_list.html:61
 msgid "Date ↑"
-msgstr ""
+msgstr "Date ↑"
 
 #: .\IESA_ROOT\blog\templates\blog\event_list.html:62
 msgid "Date ↓"
-msgstr ""
+msgstr "Date ↓"
 
 #: .\IESA_ROOT\blog\templates\blog\event_list.html:63
 msgid "Title A→Z"
-msgstr ""
+msgstr "Title A→Z"
 
 #: .\IESA_ROOT\blog\templates\blog\event_list.html:64
 msgid "Title Z→A"
-msgstr ""
+msgstr "Title Z→A"
 
 #: .\IESA_ROOT\blog\templates\blog\event_list.html:69
 msgid "All categories"
-msgstr ""
+msgstr "All categories"
 
 #: .\IESA_ROOT\blog\templates\blog\event_list.html:79
 #: .\IESA_ROOT\templates\base.html:188
 msgid "Loading..."
-msgstr ""
+msgstr "Loading..."
 
 #: .\IESA_ROOT\blog\templates\blog\event_list.html:84
 msgid "Back to blog"
-msgstr ""
+msgstr "Back to blog"
 
 #: .\IESA_ROOT\blog\templates\blog\post_create.html:4
 msgid "Create a new post"
-msgstr ""
+msgstr "Create a new post"
 
 #: .\IESA_ROOT\blog\templates\blog\post_create.html:14
 msgid "CREATE CONTENT"
-msgstr ""
+msgstr "CREATE CONTENT"
 
 #: .\IESA_ROOT\blog\templates\blog\post_create.html:15
 msgid "Publish New Article or Announcement"
-msgstr ""
+msgstr "Publish New Article or Announcement"
 
 #: .\IESA_ROOT\blog\templates\blog\post_create.html:16
 msgid ""
 "Use our advanced editor: fonts, colors, lists, quotes and preview before "
 "publishing"
-msgstr ""
+msgstr "Use our advanced editor: fonts, colors, lists, quotes and preview before publishing"
 
 #: .\IESA_ROOT\blog\templates\blog\post_create.html:37
 msgid ""
 "Rich formatting: headings, lists, links, quotes, text and background colors."
-msgstr ""
+msgstr "Rich formatting: headings, lists, links, quotes, text and background colors."
 
 #: .\IESA_ROOT\blog\templates\blog\post_create.html:47
 msgid "Preview"
-msgstr ""
+msgstr "Preview"
 
 #: .\IESA_ROOT\blog\templates\blog\post_create.html:49
 msgid "Create and submit for review"
-msgstr ""
+msgstr "Create and submit for review"
 
 #: .\IESA_ROOT\blog\templates\blog\post_create.html:51
 msgid "Submitting..."
-msgstr ""
+msgstr "Submitting..."
 
 #: .\IESA_ROOT\blog\templates\blog\post_create.html:67
 msgid "Live preview"
-msgstr ""
+msgstr "Live preview"
 
 #: .\IESA_ROOT\blog\templates\blog\post_create.html:70
 msgid "Preview image"
-msgstr ""
+msgstr "Preview image"
 
 #: .\IESA_ROOT\blog\templates\blog\post_create.html:71
 msgid "Add an image for preview"
-msgstr ""
+msgstr "Add an image for preview"
 
 #: .\IESA_ROOT\blog\templates\blog\post_create.html:72
 msgid "Draft preview"
-msgstr ""
+msgstr "Draft preview"
 
 #: .\IESA_ROOT\blog\templates\blog\post_create.html:75
 #: .\IESA_ROOT\blog\templates\blog\post_create.html:88
 msgid "Post Title"
-msgstr ""
+msgstr "Post Title"
 
 #: .\IESA_ROOT\blog\templates\blog\post_create.html:77
 #: .\IESA_ROOT\blog\templates\blog\post_create.html:89
 msgid "Description will appear here after editing."
-msgstr ""
+msgstr "Description will appear here after editing."
 
 #: .\IESA_ROOT\blog\templates\blog\post_create.html:86
 msgid "Please enter a post title"
-msgstr ""
+msgstr "Please enter a post title"
 
 #: .\IESA_ROOT\blog\templates\blog\post_create.html:87
 msgid "Please enter post content"
-msgstr ""
+msgstr "Please enter post content"
 
 #: .\IESA_ROOT\blog\templates\blog\post_detail.html:49
 msgid "Anonymous"
-msgstr ""
+msgstr "Anonymous"
 
 #: .\IESA_ROOT\blog\templates\blog\post_detail.html:59
 msgid "views"
-msgstr ""
+msgstr "views"
 
 #: .\IESA_ROOT\blog\templates\blog\post_detail.html:90
 msgid "COMMENTS"
-msgstr ""
+msgstr "COMMENTS"
 
 #: .\IESA_ROOT\blog\templates\blog\post_detail.html:95
 msgid "Leave a comment"
-msgstr ""
+msgstr "Leave a comment"
 
 #: .\IESA_ROOT\blog\templates\blog\post_detail.html:104
 msgid "Your comment..."
-msgstr ""
+msgstr "Your comment..."
 
 #: .\IESA_ROOT\blog\templates\blog\post_detail.html:106
 msgid "Send"
-msgstr ""
+msgstr "Send"
 
 #: .\IESA_ROOT\blog\templates\blog\post_detail.html:111
 msgid "To comment, please"
-msgstr ""
+msgstr "To comment, please"
 
 #: .\IESA_ROOT\blog\templates\blog\post_detail.html:111
 msgid "sign in"
-msgstr ""
+msgstr "sign in"
 
 #: .\IESA_ROOT\blog\templates\blog\post_detail.html:111
 #: .\venv\Lib\site-packages\django\utils\text.py:287
 msgid "or"
-msgstr ""
+msgstr "or"
 
 #: .\IESA_ROOT\blog\templates\blog\post_detail.html:111
 msgid "register"
-msgstr ""
+msgstr "register"
 
 #: .\IESA_ROOT\blog\templates\blog\post_detail.html:126
 msgid "RECOMMENDED POSTS"
-msgstr ""
+msgstr "RECOMMENDED POSTS"
 
 #: .\IESA_ROOT\blog\templates\blog\post_list.html:4
 msgid "Community & Blog"
-msgstr ""
+msgstr "Community & Blog"
 
 #: .\IESA_ROOT\blog\templates\blog\post_list.html:10
 msgid "COMMUNITY"
-msgstr ""
+msgstr "COMMUNITY"
 
 #: .\IESA_ROOT\blog\templates\blog\post_list.html:11
 msgid "Share Ideas, Events & News"
-msgstr ""
+msgstr "Share Ideas, Events & News"
 
 #: .\IESA_ROOT\blog\templates\blog\post_list.html:12
 #: .\IESA_ROOT\core\templates\core\index.html:206
@@ -324,113 +311,113 @@ msgstr "Vernetzen Sie sich mit anderen Extremsport-Begeisterten"
 
 #: .\IESA_ROOT\blog\templates\blog\post_list.html:21
 msgid "Sign in or register to access the community"
-msgstr ""
+msgstr "Sign in or register to access the community"
 
 #: .\IESA_ROOT\blog\templates\blog\post_list.html:23
 msgid "Join our community to create posts, comment and engage with members"
-msgstr ""
+msgstr "Join our community to create posts, comment and engage with members"
 
 #: .\IESA_ROOT\blog\templates\blog\post_list.html:39
 msgid "All Posts"
-msgstr ""
+msgstr "All Posts"
 
 #: .\IESA_ROOT\blog\templates\blog\post_list.html:53
 msgid "Search posts..."
-msgstr ""
+msgstr "Search posts..."
 
 #: .\IESA_ROOT\blog\templates\blog\post_list.html:53
 msgid "Search posts"
-msgstr ""
+msgstr "Search posts"
 
 #: .\IESA_ROOT\blog\templates\blog\post_list.html:55
 msgid "All statuses"
-msgstr ""
+msgstr "All statuses"
 
 #: .\IESA_ROOT\blog\templates\blog\post_list.html:56
 #: .\IESA_ROOT\users\templates\users\profile.html:304
 msgid "Published"
-msgstr ""
+msgstr "Published"
 
 #: .\IESA_ROOT\blog\templates\blog\post_list.html:57
 #: .\IESA_ROOT\users\templates\users\profile.html:306
 msgid "Pending"
-msgstr ""
+msgstr "Pending"
 
 #: .\IESA_ROOT\blog\templates\blog\post_list.html:60
 msgid "Latest"
-msgstr ""
+msgstr "Latest"
 
 #: .\IESA_ROOT\blog\templates\blog\post_list.html:61
 msgid "Popular"
-msgstr ""
+msgstr "Popular"
 
 #: .\IESA_ROOT\blog\templates\blog\post_list.html:62
 msgid "Trending"
-msgstr ""
+msgstr "Trending"
 
 #: .\IESA_ROOT\blog\templates\blog\post_list.html:70
 msgid "Create Post"
-msgstr ""
+msgstr "Create Post"
 
 #: .\IESA_ROOT\blog\templates\blog\post_list.html:83
 msgid "No Posts Yet"
-msgstr ""
+msgstr "No Posts Yet"
 
 #: .\IESA_ROOT\blog\templates\blog\post_list.html:84
 msgid "Be the first to share news or ideas with the community"
-msgstr ""
+msgstr "Be the first to share news or ideas with the community"
 
 #: .\IESA_ROOT\blog\templates\blog\post_list.html:87
 msgid "Create First Post"
-msgstr ""
+msgstr "Create First Post"
 
 #: .\IESA_ROOT\blog\templates\blog\post_list.html:91
 msgid "Join Community"
-msgstr ""
+msgstr "Join Community"
 
 #: .\IESA_ROOT\core\templates\core\benefits.html:4
 #: .\IESA_ROOT\core\templates\core\benefits.html:12
 msgid "Member Benefits"
-msgstr ""
+msgstr "Member Benefits"
 
 #: .\IESA_ROOT\core\templates\core\benefits.html:15
 msgid "IESA Member Benefits"
-msgstr ""
+msgstr "IESA Member Benefits"
 
 #: .\IESA_ROOT\core\templates\core\benefits.html:17
 msgid "Get exclusive discounts and benefits as a member of our association"
-msgstr ""
+msgstr "Get exclusive discounts and benefits as a member of our association"
 
 #: .\IESA_ROOT\core\templates\core\benefits.html:100
 msgid "Terms of access"
-msgstr ""
+msgstr "Terms of access"
 
 #: .\IESA_ROOT\core\templates\core\benefits.html:118
 msgid "Want access to these benefits?"
-msgstr ""
+msgstr "Want access to these benefits?"
 
 #: .\IESA_ROOT\core\templates\core\benefits.html:120
 msgid "Become an IESA member and receive exclusive discounts and privileges"
-msgstr ""
+msgstr "Become an IESA member and receive exclusive discounts and privileges"
 
 #: .\IESA_ROOT\core\templates\core\benefits.html:124
 #: .\IESA_ROOT\core\templates\core\index.html:112
 msgid "Join now"
-msgstr ""
+msgstr "Join now"
 
 #: .\IESA_ROOT\core\templates\core\benefits.html:127
 #: .\IESA_ROOT\core\templates\core\benefits.html:142
 #: .\IESA_ROOT\templates\404.html:90 .\IESA_ROOT\templates\500.html:90
 msgid "Back to home"
-msgstr ""
+msgstr "Back to home"
 
 #: .\IESA_ROOT\core\templates\core\benefits.html:137
 msgid "Benefits coming soon"
-msgstr ""
+msgstr "Benefits coming soon"
 
 #: .\IESA_ROOT\core\templates\core\benefits.html:139
 msgid "We are working on exclusive offers for our members"
-msgstr ""
+msgstr "We are working on exclusive offers for our members"
 
 #: .\IESA_ROOT\core\templates\core\index.html:4
 #: .\IESA_ROOT\templates\base.html:113 .\IESA_ROOT\templates\base.html:246
@@ -807,1006 +794,1006 @@ msgstr "Veranstaltungen · Bildung · Partnerschaften"
 #: .\IESA_ROOT\gallery\templates\gallery\gallery.html:4
 #: .\IESA_ROOT\templates\base.html:118 .\IESA_ROOT\templates\base.html:248
 msgid "Gallery"
-msgstr ""
+msgstr "Gallery"
 
 #: .\IESA_ROOT\gallery\templates\gallery\gallery.html:9
 msgid "PHOTO GALLERY"
-msgstr ""
+msgstr "PHOTO GALLERY"
 
 #: .\IESA_ROOT\gallery\templates\gallery\gallery.html:10
 msgid "Moments From Our Community"
-msgstr ""
+msgstr "Moments From Our Community"
 
 #: .\IESA_ROOT\gallery\templates\gallery\gallery.html:11
 msgid "See how we work, train and create memories together"
-msgstr ""
+msgstr "See how we work, train and create memories together"
 
 #: .\IESA_ROOT\gallery\templates\gallery\gallery.html:16
 msgid "Photo"
-msgstr ""
+msgstr "Photo"
 
 #: .\IESA_ROOT\gallery\templates\gallery\gallery.html:17
 msgid "View photo"
-msgstr ""
+msgstr "View photo"
 
 #: .\IESA_ROOT\gallery\templates\gallery\gallery.html:97
 #: .\IESA_ROOT\gallery\templates\gallery\gallery.html:99
 #: .\IESA_ROOT\notifications\templates\notifications\notification_list.html:111
 msgid "Previous"
-msgstr ""
+msgstr "Previous"
 
 #: .\IESA_ROOT\gallery\templates\gallery\gallery.html:105
 #: .\IESA_ROOT\gallery\templates\gallery\gallery.html:107
 #: .\IESA_ROOT\notifications\templates\notifications\notification_list.html:127
 msgid "Next"
-msgstr ""
+msgstr "Next"
 
 #: .\IESA_ROOT\gallery\templates\gallery\gallery.html:116
 msgid "No photos yet"
-msgstr ""
+msgstr "No photos yet"
 
 #: .\IESA_ROOT\gallery\templates\gallery\gallery.html:117
 msgid "Add photos from events or projects to inspire members."
-msgstr ""
+msgstr "Add photos from events or projects to inspire members."
 
 #: .\IESA_ROOT\gallery\templates\gallery\gallery.html:118
 msgid "Go to community"
-msgstr ""
+msgstr "Go to community"
 
 #: .\IESA_ROOT\messaging\templates\messaging\chat_detail.html:4
 #, python-format
 msgid "Chat with %(first)s %(last)s"
-msgstr ""
+msgstr "Chat with %(first)s %(last)s"
 
 #: .\IESA_ROOT\messaging\templates\messaging\chat_detail.html:39
 #: .\IESA_ROOT\templates\base.html:200
 #: .\IESA_ROOT\users\templates\users\profile_public.html:4
 msgid "Profile"
-msgstr ""
+msgstr "Profile"
 
 #: .\IESA_ROOT\messaging\templates\messaging\chat_detail.html:44
 #: .\IESA_ROOT\templates\base.html:152
 #: .\IESA_ROOT\users\templates\users\search_results.html:19
 msgid "Search"
-msgstr ""
+msgstr "Search"
 
 #: .\IESA_ROOT\messaging\templates\messaging\chat_detail.html:53
 #, python-format
 msgid "%(name)s is typing"
-msgstr ""
+msgstr "%(name)s is typing"
 
 #: .\IESA_ROOT\messaging\templates\messaging\chat_detail.html:73
 msgid "Type a message..."
-msgstr ""
+msgstr "Type a message..."
 
 #: .\IESA_ROOT\messaging\templates\messaging\chat_detail.html:78
 msgid "Attach file"
-msgstr ""
+msgstr "Attach file"
 
 #: .\IESA_ROOT\messaging\templates\messaging\chat_detail.html:108
 msgid "Search messages"
-msgstr ""
+msgstr "Search messages"
 
 #: .\IESA_ROOT\messaging\templates\messaging\chat_detail.html:112
 msgid "Search..."
-msgstr ""
+msgstr "Search..."
 
 #: .\IESA_ROOT\messaging\templates\messaging\chat_detail.html:121
 msgid "Edit"
-msgstr ""
+msgstr "Edit"
 
 #: .\IESA_ROOT\messaging\templates\messaging\chat_detail.html:122
 #: .\IESA_ROOT\notifications\templates\notifications\notification_list.html:98
 #: .\venv\Lib\site-packages\django\forms\formsets.py:499
 msgid "Delete"
-msgstr ""
+msgstr "Delete"
 
 #: .\IESA_ROOT\messaging\templates\messaging\chat_detail.html:127
 msgid "Today"
-msgstr ""
+msgstr "Today"
 
 #: .\IESA_ROOT\messaging\templates\messaging\chat_detail.html:128
 msgid "Yesterday"
-msgstr ""
+msgstr "Yesterday"
 
 #: .\IESA_ROOT\messaging\templates\messaging\chat_detail.html:129
 msgid "(edited)"
-msgstr ""
+msgstr "(edited)"
 
 #: .\IESA_ROOT\messaging\templates\messaging\chat_detail.html:130
 msgid "Edit message:"
-msgstr ""
+msgstr "Edit message:"
 
 #: .\IESA_ROOT\messaging\templates\messaging\chat_detail.html:131
 msgid "Delete message?"
-msgstr ""
+msgstr "Delete message?"
 
 #: .\IESA_ROOT\messaging\templates\messaging\chat_detail.html:132
 msgid "No results found"
-msgstr ""
+msgstr "No results found"
 
 #: .\IESA_ROOT\messaging\templates\messaging\chat_list.html:4
 #: .\IESA_ROOT\messaging\templates\messaging\chat_list.html:12
 #: .\venv\Lib\site-packages\django\contrib\messages\apps.py:16
 msgid "Messages"
-msgstr ""
+msgstr "Messages"
 
 #: .\IESA_ROOT\messaging\templates\messaging\chat_list.html:15
 #: .\IESA_ROOT\messaging\templates\messaging\chat_list.html:65
 msgid "New chat"
-msgstr ""
+msgstr "New chat"
 
 #: .\IESA_ROOT\messaging\templates\messaging\chat_list.html:30
 msgid "Search chats..."
-msgstr ""
+msgstr "Search chats..."
 
 #: .\IESA_ROOT\messaging\templates\messaging\chat_list.html:37
 msgid "No chats"
-msgstr ""
+msgstr "No chats"
 
 #: .\IESA_ROOT\messaging\templates\messaging\chat_list.html:51
 msgid "Select a chat"
-msgstr ""
+msgstr "Select a chat"
 
 #: .\IESA_ROOT\messaging\templates\messaging\chat_list.html:52
 msgid "Or start a new conversation"
-msgstr ""
+msgstr "Or start a new conversation"
 
 #: .\IESA_ROOT\messaging\templates\messaging\chat_list.html:74
 msgid "Search users..."
-msgstr ""
+msgstr "Search users..."
 
 #: .\IESA_ROOT\messaging\templates\messaging\chat_list.html:78
 #: .\IESA_ROOT\messaging\templates\messaging\chat_list.html:88
 msgid "Type a name to search"
-msgstr ""
+msgstr "Type a name to search"
 
 #: .\IESA_ROOT\messaging\templates\messaging\chat_list.html:87
 msgid "No messages"
-msgstr ""
+msgstr "No messages"
 
 #: .\IESA_ROOT\messaging\templates\messaging\chat_list.html:89
 msgid "No users found"
-msgstr ""
+msgstr "No users found"
 
 #: .\IESA_ROOT\notifications\templates\notifications\notification_list.html:4
 #: .\IESA_ROOT\notifications\templates\notifications\notification_list.html:10
 #: .\IESA_ROOT\templates\base.html:172 .\IESA_ROOT\templates\base.html:174
 #: .\IESA_ROOT\templates\base.html:182
 msgid "Notifications"
-msgstr ""
+msgstr "Notifications"
 
 #: .\IESA_ROOT\notifications\templates\notifications\notification_list.html:12
 msgid "Stay updated with your activity"
-msgstr ""
+msgstr "Stay updated with your activity"
 
 #: .\IESA_ROOT\notifications\templates\notifications\notification_list.html:23
 msgid "Mark all as read"
-msgstr ""
+msgstr "Mark all as read"
 
 #: .\IESA_ROOT\notifications\templates\notifications\notification_list.html:25
 msgid "Unread"
-msgstr ""
+msgstr "Unread"
 
 #: .\IESA_ROOT\notifications\templates\notifications\notification_list.html:27
 msgid "All notifications marked as read"
-msgstr ""
+msgstr "All notifications marked as read"
 
 #: .\IESA_ROOT\notifications\templates\notifications\notification_list.html:70
 msgid "New"
-msgstr ""
+msgstr "New"
 
 #: .\IESA_ROOT\notifications\templates\notifications\notification_list.html:77
 msgid "ago"
-msgstr ""
+msgstr "ago"
 
 #: .\IESA_ROOT\notifications\templates\notifications\notification_list.html:85
 #: .\IESA_ROOT\users\templates\users\profile.html:318
 #: .\IESA_ROOT\users\templates\users\profile.html:319
 msgid "View"
-msgstr ""
+msgstr "View"
 
 #: .\IESA_ROOT\notifications\templates\notifications\notification_list.html:94
 #: .\IESA_ROOT\notifications\templates\notifications\notification_list.html:95
 msgid "Delete notification"
-msgstr ""
+msgstr "Delete notification"
 
 #: .\IESA_ROOT\notifications\templates\notifications\notification_list.html:106
 msgid "Notifications pagination"
-msgstr ""
+msgstr "Notifications pagination"
 
 #: .\IESA_ROOT\notifications\templates\notifications\notification_list.html:139
 msgid "No notifications yet"
-msgstr ""
+msgstr "No notifications yet"
 
 #: .\IESA_ROOT\notifications\templates\notifications\notification_list.html:140
 msgid "You'll see notifications here when someone interacts with your content."
-msgstr ""
+msgstr "You'll see notifications here when someone interacts with your content."
 
 #: .\IESA_ROOT\notifications\templates\notifications\notification_list.html:142
 msgid "Explore Posts"
-msgstr ""
+msgstr "Explore Posts"
 
 #: .\IESA_ROOT\templates\404.html:8
 msgid "404 - Page not found"
-msgstr ""
+msgstr "404 - Page not found"
 
 #: .\IESA_ROOT\templates\404.html:85
 msgid "Page not found"
-msgstr ""
+msgstr "Page not found"
 
 #: .\IESA_ROOT\templates\404.html:87
 msgid ""
 "Oops! It looks like you got lost. The page you are looking for does not "
 "exist or has been moved."
-msgstr ""
+msgstr "Oops! It looks like you got lost. The page you are looking for does not exist or has been moved."
 
 #: .\IESA_ROOT\templates\404.html:94
 msgid "Maybe you were looking for:"
-msgstr ""
+msgstr "Maybe you were looking for:"
 
 #: .\IESA_ROOT\templates\404.html:97
 msgid "Search the site..."
-msgstr ""
+msgstr "Search the site..."
 
 #: .\IESA_ROOT\templates\500.html:8
 msgid "500 - Internal server error"
-msgstr ""
+msgstr "500 - Internal server error"
 
 #: .\IESA_ROOT\templates\500.html:84
 msgid "Internal server error"
-msgstr ""
+msgstr "Internal server error"
 
 #: .\IESA_ROOT\templates\500.html:86
 msgid ""
 "Something went wrong on our side. We are already working to fix it. Please "
 "try again later."
-msgstr ""
+msgstr "Something went wrong on our side. We are already working to fix it. Please try again later."
 
 #: .\IESA_ROOT\templates\500.html:93
 msgid "Go back"
-msgstr ""
+msgstr "Go back"
 
 #: .\IESA_ROOT\templates\500.html:100
 msgid "If the problem persists, please contact our support team."
-msgstr ""
+msgstr "If the problem persists, please contact our support team."
 
 #: .\IESA_ROOT\templates\base.html:8 .\IESA_ROOT\templates\base.html:19
 #: .\IESA_ROOT\templates\base.html:30
 msgid "IESA ROOT"
-msgstr ""
+msgstr "IESA ROOT"
 
 #: .\IESA_ROOT\templates\base.html:11
 msgid ""
 "IESA - Extreme Sports Community. Kitesurfing in Egypt, Boxing, Adventure "
 "Travel & Sauna Experiences. Join our international athletes and enthusiasts."
-msgstr ""
+msgstr "IESA - Extreme Sports Community. Kitesurfing in Egypt, Boxing, Adventure Travel & Sauna Experiences. Join our international athletes and enthusiasts."
 
 #: .\IESA_ROOT\templates\base.html:12
 msgid ""
 "extreme sports, kitesurfing Egypt, boxing, adventure travel, sauna, "
 "community, athletes"
-msgstr ""
+msgstr "extreme sports, kitesurfing Egypt, boxing, adventure travel, sauna, community, athletes"
 
 #: .\IESA_ROOT\templates\base.html:20
 msgid ""
 "IESA - Extreme Sports Community. Experience kitesurfing in Egypt, boxing, "
 "adventure travel and exclusive sauna access. Join international athletes."
-msgstr ""
+msgstr "IESA - Extreme Sports Community. Experience kitesurfing in Egypt, boxing, adventure travel and exclusive sauna access. Join international athletes."
 
 #: .\IESA_ROOT\templates\base.html:31
 msgid ""
 "IESA - Extreme Sports Community. Kitesurfing in Egypt, Boxing, Adventure "
 "Travel & Sauna for Athletes."
-msgstr ""
+msgstr "IESA - Extreme Sports Community. Kitesurfing in Egypt, Boxing, Adventure Travel & Sauna for Athletes."
 
 #: .\IESA_ROOT\templates\base.html:92
 msgid "Skip to main content"
-msgstr ""
+msgstr "Skip to main content"
 
 #: .\IESA_ROOT\templates\base.html:97
 msgid "Attention!"
-msgstr ""
+msgstr "Attention!"
 
 #: .\IESA_ROOT\templates\base.html:97
 msgid "Site is under active development. Some features may not work correctly."
-msgstr ""
+msgstr "Site is under active development. Some features may not work correctly."
 
 #: .\IESA_ROOT\templates\base.html:104
 msgid "Main navigation"
-msgstr ""
+msgstr "Main navigation"
 
 #: .\IESA_ROOT\templates\base.html:105
 msgid "IESA Home"
-msgstr ""
+msgstr "IESA Home"
 
 #: .\IESA_ROOT\templates\base.html:106
 msgid "IESA Logo"
-msgstr ""
+msgstr "IESA Logo"
 
 #: .\IESA_ROOT\templates\base.html:108
 msgid "Toggle navigation"
-msgstr ""
+msgstr "Toggle navigation"
 
 #: .\IESA_ROOT\templates\base.html:114
 #: .\IESA_ROOT\users\templates\users\profile_public.html:81
 msgid "About"
-msgstr ""
+msgstr "About"
 
 #: .\IESA_ROOT\templates\base.html:116
 msgid "Benefits"
-msgstr ""
+msgstr "Benefits"
 
 #: .\IESA_ROOT\templates\base.html:120 .\IESA_ROOT\templates\base.html:247
 msgid "Community"
-msgstr ""
+msgstr "Community"
 
 #: .\IESA_ROOT\templates\base.html:122
 #: .\IESA_ROOT\users\templates\users\profile.html:81
 #: .\IESA_ROOT\users\templates\users\profile_public.html:99
 msgid "Posts"
-msgstr ""
+msgstr "Posts"
 
 #: .\IESA_ROOT\templates\base.html:124 .\IESA_ROOT\users\models.py:231
 msgid "Partners"
-msgstr ""
+msgstr "Partners"
 
 #: .\IESA_ROOT\templates\base.html:125
 msgid "Members"
-msgstr ""
+msgstr "Members"
 
 #: .\IESA_ROOT\templates\base.html:128
 msgid "Create post"
-msgstr ""
+msgstr "Create post"
 
 #: .\IESA_ROOT\templates\base.html:139
 msgid "Select language"
-msgstr ""
+msgstr "Select language"
 
 #: .\IESA_ROOT\templates\base.html:147
 msgid "Search community"
-msgstr ""
+msgstr "Search community"
 
 #: .\IESA_ROOT\templates\base.html:147
 msgid "Open search menu"
-msgstr ""
+msgstr "Open search menu"
 
 #: .\IESA_ROOT\templates\base.html:154
 msgid "Posts, users, events..."
-msgstr ""
+msgstr "Posts, users, events..."
 
 #: .\IESA_ROOT\templates\base.html:202
 msgid "Logout"
-msgstr ""
+msgstr "Logout"
 
 #: .\IESA_ROOT\templates\base.html:239
 msgid "ABOUT"
-msgstr ""
+msgstr "ABOUT"
 
 #: .\IESA_ROOT\templates\base.html:240
 msgid ""
 "IESA connects sports leaders and partners, creating a space for growth, "
 "projects and events worldwide."
-msgstr ""
+msgstr "IESA connects sports leaders and partners, creating a space for growth, projects and events worldwide."
 
 #: .\IESA_ROOT\templates\base.html:241
 msgid "IESA Association. All rights reserved."
-msgstr ""
+msgstr "IESA Association. All rights reserved."
 
 #: .\IESA_ROOT\templates\base.html:244
 msgid "LINKS"
-msgstr ""
+msgstr "LINKS"
 
 #: .\IESA_ROOT\templates\base.html:253
 msgid "CONTACTS"
-msgstr ""
+msgstr "CONTACTS"
 
 #: .\IESA_ROOT\templates\base.html:257
 msgid "Switzerland"
-msgstr ""
+msgstr "Switzerland"
 
 #: .\IESA_ROOT\templates\base.html:261
 msgid "SOCIAL"
-msgstr ""
+msgstr "SOCIAL"
 
 #: .\IESA_ROOT\users\models.py:48
 msgid "Permanent ID"
-msgstr ""
+msgstr "Permanent ID"
 
 #: .\IESA_ROOT\users\models.py:50
 msgid "Card active"
-msgstr ""
+msgstr "Card active"
 
 #: .\IESA_ROOT\users\models.py:51
 msgid "Card issued at"
-msgstr ""
+msgstr "Card issued at"
 
 #: .\IESA_ROOT\users\models.py:58
 msgid "Membership Status"
-msgstr ""
+msgstr "Membership Status"
 
 #: .\IESA_ROOT\users\models.py:63
 msgid "TOTP Secret"
-msgstr ""
+msgstr "TOTP Secret"
 
 #: .\IESA_ROOT\users\models.py:69
 msgid "Pseudonym"
-msgstr ""
+msgstr "Pseudonym"
 
 #: .\IESA_ROOT\users\models.py:206
 msgid "User Account"
-msgstr ""
+msgstr "User Account"
 
 #: .\IESA_ROOT\users\models.py:210
 msgid "Company Name"
-msgstr ""
+msgstr "Company Name"
 
 #: .\IESA_ROOT\users\models.py:222
 msgid "Business Type"
-msgstr ""
+msgstr "Business Type"
 
 #: .\IESA_ROOT\users\models.py:226
 msgid "Created At"
-msgstr ""
+msgstr "Created At"
 
 #: .\IESA_ROOT\users\models.py:256
 msgid "Member"
-msgstr ""
+msgstr "Member"
 
 #: .\IESA_ROOT\users\models.py:274
 msgid "Service Type"
-msgstr ""
+msgstr "Service Type"
 
 #: .\IESA_ROOT\users\models.py:278
 msgid "Service Description"
-msgstr ""
+msgstr "Service Description"
 
 #: .\IESA_ROOT\users\models.py:285
 msgid "Cost"
-msgstr ""
+msgstr "Cost"
 
 #: .\IESA_ROOT\users\models.py:289
 #: .\IESA_ROOT\users\templates\users\profile.html:85
 #: .\IESA_ROOT\users\templates\users\profile_public.html:117
 msgid "Comments"
-msgstr ""
+msgstr "Comments"
 
 #: .\IESA_ROOT\users\models.py:293
 msgid "PIN Verified"
-msgstr ""
+msgstr "PIN Verified"
 
 #: .\IESA_ROOT\users\models.py:297
 msgid "Visit Time"
-msgstr ""
+msgstr "Visit Time"
 
 #: .\IESA_ROOT\users\models.py:302
 msgid "Visits"
-msgstr ""
+msgstr "Visits"
 
 #: .\IESA_ROOT\users\templates\users\login.html:13
 msgid "Welcome back"
-msgstr ""
+msgstr "Welcome back"
 
 #: .\IESA_ROOT\users\templates\users\login.html:14
 msgid "Sign in to manage your profile, create posts and discover events."
-msgstr ""
+msgstr "Sign in to manage your profile, create posts and discover events."
 
 #: .\IESA_ROOT\users\templates\users\login.html:16
 msgid "Quick Access"
-msgstr ""
+msgstr "Quick Access"
 
 #: .\IESA_ROOT\users\templates\users\login.html:17
 msgid "Community Engagement"
-msgstr ""
+msgstr "Community Engagement"
 
 #: .\IESA_ROOT\users\templates\users\login.html:18
 msgid "Event Updates"
-msgstr ""
+msgstr "Event Updates"
 
 #: .\IESA_ROOT\users\templates\users\login.html:24
 msgid "SIGN IN"
-msgstr ""
+msgstr "SIGN IN"
 
 #: .\IESA_ROOT\users\templates\users\login.html:25
 msgid "Access your profile and connect with the community."
-msgstr ""
+msgstr "Access your profile and connect with the community."
 
 #: .\IESA_ROOT\users\templates\users\login.html:31
 msgid "Sign in failed!"
-msgstr ""
+msgstr "Sign in failed!"
 
 #: .\IESA_ROOT\users\templates\users\login.html:31
 msgid "Invalid username or password. Please try again."
-msgstr ""
+msgstr "Invalid username or password. Please try again."
 
 #: .\IESA_ROOT\users\templates\users\login.html:91
 msgid "Don't have an account?"
-msgstr ""
+msgstr "Don't have an account?"
 
 #: .\IESA_ROOT\users\templates\users\login.html:92
 msgid "Register here"
-msgstr ""
+msgstr "Register here"
 
 #: .\IESA_ROOT\users\templates\users\profile.html:5
 #, python-format
 msgid "Profile of %(username)s"
-msgstr ""
+msgstr "Profile of %(username)s"
 
 #: .\IESA_ROOT\users\templates\users\profile.html:36
 msgid "Edit Profile"
-msgstr ""
+msgstr "Edit Profile"
 
 #: .\IESA_ROOT\users\templates\users\profile.html:52
 #: .\IESA_ROOT\users\templates\users\profile_public.html:156
 msgid "Your QR Code"
-msgstr ""
+msgstr "Your QR Code"
 
 #: .\IESA_ROOT\users\templates\users\profile.html:53
 #: .\IESA_ROOT\users\templates\users\profile_public.html:158
 msgid "Open profile by card"
-msgstr ""
+msgstr "Open profile by card"
 
 #: .\IESA_ROOT\users\templates\users\profile.html:55
 msgid "QR Code"
-msgstr ""
+msgstr "QR Code"
 
 #: .\IESA_ROOT\users\templates\users\profile.html:57
 #: .\IESA_ROOT\users\templates\users\profile_public.html:162
 msgid "Scan to view profile"
-msgstr ""
+msgstr "Scan to view profile"
 
 #: .\IESA_ROOT\users\templates\users\profile.html:62
 #: .\IESA_ROOT\users\templates\users\profile_public.html:164
 msgid "Download QR"
-msgstr ""
+msgstr "Download QR"
 
 #: .\IESA_ROOT\users\templates\users\profile.html:73
 msgid "Follow"
-msgstr ""
+msgstr "Follow"
 
 #: .\IESA_ROOT\users\templates\users\profile.html:92
 #: .\IESA_ROOT\users\templates\users\profile_public.html:73
 msgid "Sign in"
-msgstr ""
+msgstr "Sign in"
 
 #: .\IESA_ROOT\users\templates\users\profile.html:92
 #: .\IESA_ROOT\users\templates\users\profile_public.html:73
 msgid "to follow users"
-msgstr ""
+msgstr "to follow users"
 
 #: .\IESA_ROOT\users\templates\users\profile.html:103
 msgid "Full name"
-msgstr ""
+msgstr "Full name"
 
 #: .\IESA_ROOT\users\templates\users\profile.html:110
 #: .\IESA_ROOT\users\templates\users\profile_edit.html:39
 msgid "Date of birth"
-msgstr ""
+msgstr "Date of birth"
 
 #: .\IESA_ROOT\users\templates\users\profile.html:115
 #: .\IESA_ROOT\users\templates\users\profile_public.html:45
 msgid "years"
-msgstr ""
+msgstr "years"
 
 #: .\IESA_ROOT\users\templates\users\profile.html:124
 msgid "Phone"
-msgstr ""
+msgstr "Phone"
 
 #: .\IESA_ROOT\users\templates\users\profile.html:128
 #: .\IESA_ROOT\users\templates\users\profile_public.html:54
 msgid "Hidden"
-msgstr ""
+msgstr "Hidden"
 
 #: .\IESA_ROOT\users\templates\users\profile.html:132
 #: .\IESA_ROOT\users\templates\users\profile_public.html:59
 msgid "Not specified"
-msgstr ""
+msgstr "Not specified"
 
 #: .\IESA_ROOT\users\templates\users\profile.html:139
 msgid "Joined"
-msgstr ""
+msgstr "Joined"
 
 #: .\IESA_ROOT\users\templates\users\profile.html:152
 msgid "Activity Level"
-msgstr ""
+msgstr "Activity Level"
 
 #: .\IESA_ROOT\users\templates\users\profile.html:155
 msgid "Legend"
-msgstr ""
+msgstr "Legend"
 
 #: .\IESA_ROOT\users\templates\users\profile.html:159
 msgid "Expert"
-msgstr ""
+msgstr "Expert"
 
 #: .\IESA_ROOT\users\templates\users\profile.html:163
 msgid "Advanced"
-msgstr ""
+msgstr "Advanced"
 
 #: .\IESA_ROOT\users\templates\users\profile.html:167
 msgid "Intermediate"
-msgstr ""
+msgstr "Intermediate"
 
 #: .\IESA_ROOT\users\templates\users\profile.html:171
 msgid "Beginner"
-msgstr ""
+msgstr "Beginner"
 
 #: .\IESA_ROOT\users\templates\users\profile.html:175
 msgid "Learn about activity levels"
-msgstr ""
+msgstr "Learn about activity levels"
 
 #: .\IESA_ROOT\users\templates\users\profile.html:183
 msgid "Activity Points"
-msgstr ""
+msgstr "Activity Points"
 
 #: .\IESA_ROOT\users\templates\users\profile.html:187
 #, python-format
 msgid "Progress to %(level)s:"
-msgstr ""
+msgstr "Progress to %(level)s:"
 
 #: .\IESA_ROOT\users\templates\users\profile.html:198
 msgid "Maximum level achieved!"
-msgstr ""
+msgstr "Maximum level achieved!"
 
 #: .\IESA_ROOT\users\templates\users\profile.html:211
 msgid "Find me"
-msgstr ""
+msgstr "Find me"
 
 #: .\IESA_ROOT\users\templates\users\profile.html:258
 msgid "Total posts"
-msgstr ""
+msgstr "Total posts"
 
 #: .\IESA_ROOT\users\templates\users\profile.html:265
 msgid "Likes received"
-msgstr ""
+msgstr "Likes received"
 
 #: .\IESA_ROOT\users\templates\users\profile.html:272
 msgid "Comments made"
-msgstr ""
+msgstr "Comments made"
 
 #: .\IESA_ROOT\users\templates\users\profile.html:282
 msgid "Your Posts"
-msgstr ""
+msgstr "Your Posts"
 
 #: .\IESA_ROOT\users\templates\users\profile.html:290
 msgid "Title"
-msgstr ""
+msgstr "Title"
 
 #: .\IESA_ROOT\users\templates\users\profile.html:291
 msgid "Status"
-msgstr ""
+msgstr "Status"
 
 #: .\IESA_ROOT\users\templates\users\profile.html:292
 msgid "Created"
-msgstr ""
+msgstr "Created"
 
 #: .\IESA_ROOT\users\templates\users\profile.html:293
 msgid "Actions"
-msgstr ""
+msgstr "Actions"
 
 #: .\IESA_ROOT\users\templates\users\profile.html:308
 msgid "Rejected"
-msgstr ""
+msgstr "Rejected"
 
 #: .\IESA_ROOT\users\templates\users\profile.html:330
 msgid "You have no posts yet."
-msgstr ""
+msgstr "You have no posts yet."
 
 #: .\IESA_ROOT\users\templates\users\profile.html:330
 msgid "Create your first post"
-msgstr ""
+msgstr "Create your first post"
 
 #: .\IESA_ROOT\users\templates\users\profile_edit.html:4
 #: .\IESA_ROOT\users\templates\users\profile_edit.html:15
 msgid "Edit profile"
-msgstr ""
+msgstr "Edit profile"
 
 #: .\IESA_ROOT\users\templates\users\profile_edit.html:16
 msgid "Refresh your info, avatar and social links."
-msgstr ""
+msgstr "Refresh your info, avatar and social links."
 
 #: .\IESA_ROOT\users\templates\users\profile_edit.html:24
 msgid "Basic info"
-msgstr ""
+msgstr "Basic info"
 
 #: .\IESA_ROOT\users\templates\users\profile_edit.html:27
 msgid "First name"
-msgstr ""
+msgstr "First name"
 
 #: .\IESA_ROOT\users\templates\users\profile_edit.html:31
 msgid "Last name"
-msgstr ""
+msgstr "Last name"
 
 #: .\IESA_ROOT\users\templates\users\profile_edit.html:35
 msgid "Email"
-msgstr ""
+msgstr "Email"
 
 #: .\IESA_ROOT\users\templates\users\profile_edit.html:41
 msgid "Format: DD.MM.YYYY"
-msgstr ""
+msgstr "Format: DD.MM.YYYY"
 
 #: .\IESA_ROOT\users\templates\users\profile_edit.html:43
 msgid "Phone Number"
-msgstr ""
+msgstr "Phone Number"
 
 #: .\IESA_ROOT\users\templates\users\profile_edit.html:45
 msgid "Example: +41 XX XXX XX XX"
-msgstr ""
+msgstr "Example: +41 XX XXX XX XX"
 
 #: .\IESA_ROOT\users\templates\users\profile_edit.html:51
 msgid "Hide phone number (only admins can see it)"
-msgstr ""
+msgstr "Hide phone number (only admins can see it)"
 
 #: .\IESA_ROOT\users\templates\users\profile_edit.html:57
 msgid "Avatar"
-msgstr ""
+msgstr "Avatar"
 
 #: .\IESA_ROOT\users\templates\users\profile_edit.html:64
 msgid "Upload square image for best fit."
-msgstr ""
+msgstr "Upload square image for best fit."
 
 #: .\IESA_ROOT\users\templates\users\profile_edit.html:73
 msgid "Social & links"
-msgstr ""
+msgstr "Social & links"
 
 #: .\IESA_ROOT\users\templates\users\profile_edit.html:74
 msgid "examples below"
-msgstr ""
+msgstr "examples below"
 
 #: .\IESA_ROOT\users\templates\users\profile_edit.html:126
 msgid "Other links"
-msgstr ""
+msgstr "Other links"
 
 #: .\IESA_ROOT\users\templates\users\profile_edit.html:127
 msgid "one per line"
-msgstr ""
+msgstr "one per line"
 
 #: .\IESA_ROOT\users\templates\users\profile_edit.html:131
 msgid ""
 "Examples: LinkedIn, Reddit, Twitter, YouTube, TikTok, Instagram, Twitch, "
 "Medium, etc."
-msgstr ""
+msgstr "Examples: LinkedIn, Reddit, Twitter, YouTube, TikTok, Instagram, Twitch, Medium, etc."
 
 #: .\IESA_ROOT\users\templates\users\profile_edit.html:146
 msgid "Save changes"
-msgstr ""
+msgstr "Save changes"
 
 #: .\IESA_ROOT\users\templates\users\profile_edit.html:147
 msgid "Cancel"
-msgstr ""
+msgstr "Cancel"
 
 #: .\IESA_ROOT\users\templates\users\profile_public.html:21
 msgid "Member since"
-msgstr ""
+msgstr "Member since"
 
 #: .\IESA_ROOT\users\templates\users\profile_public.html:26
 msgid "Copy ID"
-msgstr ""
+msgstr "Copy ID"
 
 #: .\IESA_ROOT\users\templates\users\profile_public.html:30
 msgid "Verified"
-msgstr ""
+msgstr "Verified"
 
 #: .\IESA_ROOT\users\templates\users\profile_public.html:31
 msgid "Card Active"
-msgstr ""
+msgstr "Card Active"
 
 #: .\IESA_ROOT\users\templates\users\profile_public.html:91
 msgid "Activity Statistics"
-msgstr ""
+msgstr "Activity Statistics"
 
 #: .\IESA_ROOT\users\templates\users\profile_public.html:108
 msgid "Likes"
-msgstr ""
+msgstr "Likes"
 
 #: .\IESA_ROOT\users\templates\users\profile_public.html:146
 msgid "Admin Panel"
-msgstr ""
+msgstr "Admin Panel"
 
 #: .\IESA_ROOT\users\templates\users\profile_public.html:174
 msgid "Links"
-msgstr ""
+msgstr "Links"
 
 #: .\IESA_ROOT\users\templates\users\profile_public.html:183
 msgid "Website"
-msgstr ""
+msgstr "Website"
 
 #: .\IESA_ROOT\users\templates\users\profile_public.html:198
 msgid "Other:"
-msgstr ""
+msgstr "Other:"
 
 #: .\IESA_ROOT\users\templates\users\profile_public.html:203
 msgid "Published Posts"
-msgstr ""
+msgstr "Published Posts"
 
 #: .\IESA_ROOT\users\templates\users\profile_public.html:218
 msgid "No published posts yet."
-msgstr ""
+msgstr "No published posts yet."
 
 #: .\IESA_ROOT\users\templates\users\register.html:13
 msgid "Join IESA Today"
-msgstr ""
+msgstr "Join IESA Today"
 
 #: .\IESA_ROOT\users\templates\users\register.html:14
 msgid ""
 "Create your account and become part of our international extreme sports "
 "community."
-msgstr ""
+msgstr "Create your account and become part of our international extreme sports community."
 
 #: .\IESA_ROOT\users\templates\users\register.html:16
 msgid "Connect with Athletes"
-msgstr ""
+msgstr "Connect with Athletes"
 
 #: .\IESA_ROOT\users\templates\users\register.html:17
 msgid "Share Your Journey"
-msgstr ""
+msgstr "Share Your Journey"
 
 #: .\IESA_ROOT\users\templates\users\register.html:18
 msgid "Discover Events"
-msgstr ""
+msgstr "Discover Events"
 
 #: .\IESA_ROOT\users\templates\users\register.html:19
 msgid "Build Your Profile"
-msgstr ""
+msgstr "Build Your Profile"
 
 #: .\IESA_ROOT\users\templates\users\register.html:25
 msgid "REGISTER"
-msgstr ""
+msgstr "REGISTER"
 
 #: .\IESA_ROOT\users\templates\users\register.html:26
 msgid "Join the IESA community and start sharing!"
-msgstr ""
+msgstr "Join the IESA community and start sharing!"
 
 #: .\IESA_ROOT\users\templates\users\register.html:33
 msgid "Registration failed:"
-msgstr ""
+msgstr "Registration failed:"
 
 #: .\IESA_ROOT\users\templates\users\register.html:106
 msgid "Create Account"
-msgstr ""
+msgstr "Create Account"
 
 #: .\IESA_ROOT\users\templates\users\register.html:113
 msgid "Already have an account?"
-msgstr ""
+msgstr "Already have an account?"
 
 #: .\IESA_ROOT\users\templates\users\register.html:114
 msgid "Sign in here"
-msgstr ""
+msgstr "Sign in here"
 
 #: .\IESA_ROOT\users\templates\users\search_results.html:4
 msgid "User search"
-msgstr ""
+msgstr "User search"
 
 #: .\IESA_ROOT\users\templates\users\search_results.html:9
 msgid "MEMBER DIRECTORY"
-msgstr ""
+msgstr "MEMBER DIRECTORY"
 
 #: .\IESA_ROOT\users\templates\users\search_results.html:10
 msgid "Find & Connect With Members"
-msgstr ""
+msgstr "Find & Connect With Members"
 
 #: .\IESA_ROOT\users\templates\users\search_results.html:11
 msgid "Search our community by name, username, email or ID"
-msgstr ""
+msgstr "Search our community by name, username, email or ID"
 
 #: .\IESA_ROOT\users\templates\users\search_results.html:17
 msgid "Search by name, username, email or ID..."
-msgstr ""
+msgstr "Search by name, username, email or ID..."
 
 #: .\IESA_ROOT\users\templates\users\search_results.html:25
 msgid "Results for"
-msgstr ""
+msgstr "Results for"
 
 #: .\IESA_ROOT\users\templates\users\search_results.html:66
 msgid "No users found."
-msgstr ""
+msgstr "No users found."
 
 #: .\IESA_ROOT\users\validators.py:13
 msgid "Password must contain at least one uppercase letter (A-Z)."
-msgstr ""
+msgstr "Password must contain at least one uppercase letter (A-Z)."
 
 #: .\IESA_ROOT\users\validators.py:18
 msgid "Your password must contain at least one uppercase letter (A-Z)."
-msgstr ""
+msgstr "Your password must contain at least one uppercase letter (A-Z)."
 
 #: .\IESA_ROOT\users\validators.py:28
 #, python-brace-format
 msgid ""
 "Password must contain at least one special character (!@#$%^&*(),.?\":{}|<>)."
-msgstr ""
+msgstr "Password must contain at least one special character (!@#$%^&*(),.?\\\":{}|<>)."
 
 #: .\IESA_ROOT\users\validators.py:33
 #, python-brace-format
 msgid ""
 "Your password must contain at least one special character (!@#$%^&*(),.?\":"
 "{}|<>)."
-msgstr ""
+msgstr "Your password must contain at least one special character (!@#$%^&*(),.?\\\":{}|<>)."
 
 #: .\IESA_ROOT\users\validators.py:49
 msgid "Некорректный номер телефона. Допустимы цифры, пробелы, '+', '-', '()'."
-msgstr ""
+msgstr "Некорректный номер телефона. Допустимы цифры, пробелы, '+', '-', '()'."
 
 #: .\IESA_ROOT\users\validators.py:62
 msgid ""
 "Введите корректную ссылку на профиль GitHub (например: https://github.com/"
 "username)"
-msgstr ""
+msgstr "Введите корректную ссылку на профиль GitHub (например: https://github.com/username)"
 
 #: .\IESA_ROOT\users\validators.py:75
 msgid "Введите корректное имя Discord (например: username или username#1234)"
-msgstr ""
+msgstr "Введите корректное имя Discord (например: username или username#1234)"
 
 #: .\IESA_ROOT\users\validators.py:88
 msgid ""
 "Введите корректную ссылку Telegram (например: @username или t.me/username)"
-msgstr ""
+msgstr "Введите корректную ссылку Telegram (например: @username или t.me/username)"
 
 #: .\IESA_ROOT\users\validators.py:101
 msgid ""
 "Введите корректную ссылку на сайт (должна начинаться с http:// или https://)"
-msgstr ""
+msgstr "Введите корректную ссылку на сайт (должна начинаться с http:// или https://)"
 
 #: .\venv\Lib\site-packages\django\contrib\sitemaps\apps.py:8
 msgid "Site Maps"
-msgstr ""
+msgstr "Site Maps"
 
 #: .\venv\Lib\site-packages\django\contrib\staticfiles\apps.py:9
 msgid "Static Files"
-msgstr ""
+msgstr "Static Files"
 
 #: .\venv\Lib\site-packages\django\contrib\syndication\apps.py:7
 msgid "Syndication"
-msgstr ""
+msgstr "Syndication"
 
 #. Translators: String used to replace omitted page numbers in elided page
 #. range generated by paginators, e.g. [1, 2, '…', 5, 6, 7, '…', 9, 10].
 #: .\venv\Lib\site-packages\django\core\paginator.py:30
 msgid "…"
-msgstr ""
+msgstr "…"
 
 #: .\venv\Lib\site-packages\django\core\paginator.py:32
 msgid "That page number is not an integer"
-msgstr ""
+msgstr "That page number is not an integer"
 
 #: .\venv\Lib\site-packages\django\core\paginator.py:33
 msgid "That page number is less than 1"
-msgstr ""
+msgstr "That page number is less than 1"
 
 #: .\venv\Lib\site-packages\django\core\paginator.py:34
 msgid "That page contains no results"
-msgstr ""
+msgstr "That page contains no results"
 
 #: .\venv\Lib\site-packages\django\core\validators.py:22
 msgid "Enter a valid value."
-msgstr ""
+msgstr "Enter a valid value."
 
 #: .\venv\Lib\site-packages\django\core\validators.py:70
 msgid "Enter a valid domain name."
-msgstr ""
+msgstr "Enter a valid domain name."
 
 #: .\venv\Lib\site-packages\django\core\validators.py:153
 #: .\venv\Lib\site-packages\django\forms\fields.py:775
 msgid "Enter a valid URL."
-msgstr ""
+msgstr "Enter a valid URL."
 
 #: .\venv\Lib\site-packages\django\core\validators.py:200
 msgid "Enter a valid integer."
-msgstr ""
+msgstr "Enter a valid integer."
 
 #: .\venv\Lib\site-packages\django\core\validators.py:211
 msgid "Enter a valid email address."
-msgstr ""
+msgstr "Enter a valid email address."
 
 #. Translators: "letters" means latin letters: a-z and A-Z.
 #: .\venv\Lib\site-packages\django\core\validators.py:289
 msgid ""
 "Enter a valid “slug” consisting of letters, numbers, underscores or hyphens."
-msgstr ""
+msgstr "Enter a valid “slug” consisting of letters, numbers, underscores or hyphens."
 
 #: .\venv\Lib\site-packages\django\core\validators.py:297
 msgid ""
 "Enter a valid “slug” consisting of Unicode letters, numbers, underscores, or "
 "hyphens."
-msgstr ""
+msgstr "Enter a valid “slug” consisting of Unicode letters, numbers, underscores, or hyphens."
 
 #: .\venv\Lib\site-packages\django\core\validators.py:309
 #: .\venv\Lib\site-packages\django\core\validators.py:318
@@ -1814,51 +1801,51 @@ msgstr ""
 #: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:2220
 #, python-format
 msgid "Enter a valid %(protocol)s address."
-msgstr ""
+msgstr "Enter a valid %(protocol)s address."
 
 #: .\venv\Lib\site-packages\django\core\validators.py:311
 msgid "IPv4"
-msgstr ""
+msgstr "IPv4"
 
 #: .\venv\Lib\site-packages\django\core\validators.py:320
 #: .\venv\Lib\site-packages\django\utils\ipv6.py:43
 msgid "IPv6"
-msgstr ""
+msgstr "IPv6"
 
 #: .\venv\Lib\site-packages\django\core\validators.py:334
 msgid "IPv4 or IPv6"
-msgstr ""
+msgstr "IPv4 or IPv6"
 
 #: .\venv\Lib\site-packages\django\core\validators.py:375
 msgid "Enter only digits separated by commas."
-msgstr ""
+msgstr "Enter only digits separated by commas."
 
 #: .\venv\Lib\site-packages\django\core\validators.py:381
 #, python-format
 msgid "Ensure this value is %(limit_value)s (it is %(show_value)s)."
-msgstr ""
+msgstr "Ensure this value is %(limit_value)s (it is %(show_value)s)."
 
 #: .\venv\Lib\site-packages\django\core\validators.py:416
 #, python-format
 msgid "Ensure this value is less than or equal to %(limit_value)s."
-msgstr ""
+msgstr "Ensure this value is less than or equal to %(limit_value)s."
 
 #: .\venv\Lib\site-packages\django\core\validators.py:425
 #, python-format
 msgid "Ensure this value is greater than or equal to %(limit_value)s."
-msgstr ""
+msgstr "Ensure this value is greater than or equal to %(limit_value)s."
 
 #: .\venv\Lib\site-packages\django\core\validators.py:434
 #, python-format
 msgid "Ensure this value is a multiple of step size %(limit_value)s."
-msgstr ""
+msgstr "Ensure this value is a multiple of step size %(limit_value)s."
 
 #: .\venv\Lib\site-packages\django\core\validators.py:441
 #, python-format
 msgid ""
 "Ensure this value is a multiple of step size %(limit_value)s, starting from "
 "%(offset)s, e.g. %(offset)s, %(valid_value1)s, %(valid_value2)s, and so on."
-msgstr ""
+msgstr "Ensure this value is a multiple of step size %(limit_value)s, starting from %(offset)s, e.g. %(offset)s, %(valid_value1)s, %(valid_value2)s, and so on."
 
 #: .\venv\Lib\site-packages\django\core\validators.py:473
 #, python-format
@@ -1868,8 +1855,8 @@ msgid ""
 msgid_plural ""
 "Ensure this value has at least %(limit_value)d characters (it has "
 "%(show_value)d)."
-msgstr[0] ""
-msgstr[1] ""
+msgstr[0] "Ensure this value has at least %(limit_value)d character (it has %(show_value)d)."
+msgstr[1] "Ensure this value has at least %(limit_value)d characters (it has %(show_value)d)."
 
 #: .\venv\Lib\site-packages\django\core\validators.py:491
 #, python-format
@@ -1879,28 +1866,28 @@ msgid ""
 msgid_plural ""
 "Ensure this value has at most %(limit_value)d characters (it has "
 "%(show_value)d)."
-msgstr[0] ""
-msgstr[1] ""
+msgstr[0] "Ensure this value has at most %(limit_value)d character (it has %(show_value)d)."
+msgstr[1] "Ensure this value has at most %(limit_value)d characters (it has %(show_value)d)."
 
 #: .\venv\Lib\site-packages\django\core\validators.py:514
 #: .\venv\Lib\site-packages\django\forms\fields.py:366
 #: .\venv\Lib\site-packages\django\forms\fields.py:405
 msgid "Enter a number."
-msgstr ""
+msgstr "Enter a number."
 
 #: .\venv\Lib\site-packages\django\core\validators.py:516
 #, python-format
 msgid "Ensure that there are no more than %(max)s digit in total."
 msgid_plural "Ensure that there are no more than %(max)s digits in total."
-msgstr[0] ""
-msgstr[1] ""
+msgstr[0] "Ensure that there are no more than %(max)s digit in total."
+msgstr[1] "Ensure that there are no more than %(max)s digits in total."
 
 #: .\venv\Lib\site-packages\django\core\validators.py:521
 #, python-format
 msgid "Ensure that there are no more than %(max)s decimal place."
 msgid_plural "Ensure that there are no more than %(max)s decimal places."
-msgstr[0] ""
-msgstr[1] ""
+msgstr[0] "Ensure that there are no more than %(max)s decimal place."
+msgstr[1] "Ensure that there are no more than %(max)s decimal places."
 
 #: .\venv\Lib\site-packages\django\core\validators.py:526
 #, python-format
@@ -1908,52 +1895,52 @@ msgid ""
 "Ensure that there are no more than %(max)s digit before the decimal point."
 msgid_plural ""
 "Ensure that there are no more than %(max)s digits before the decimal point."
-msgstr[0] ""
-msgstr[1] ""
+msgstr[0] "Ensure that there are no more than %(max)s digit before the decimal point."
+msgstr[1] "Ensure that there are no more than %(max)s digits before the decimal point."
 
 #: .\venv\Lib\site-packages\django\core\validators.py:597
 #, python-format
 msgid ""
 "File extension “%(extension)s” is not allowed. Allowed extensions are: "
 "%(allowed_extensions)s."
-msgstr ""
+msgstr "File extension “%(extension)s” is not allowed. Allowed extensions are: %(allowed_extensions)s."
 
 #: .\venv\Lib\site-packages\django\core\validators.py:659
 msgid "Null characters are not allowed."
-msgstr ""
+msgstr "Null characters are not allowed."
 
 #: .\venv\Lib\site-packages\django\db\models\base.py:1600
 #: .\venv\Lib\site-packages\django\forms\models.py:908
 msgid "and"
-msgstr ""
+msgstr "and"
 
 #: .\venv\Lib\site-packages\django\db\models\base.py:1602
 #, python-format
 msgid "%(model_name)s with this %(field_labels)s already exists."
-msgstr ""
+msgstr "%(model_name)s with this %(field_labels)s already exists."
 
 #: .\venv\Lib\site-packages\django\db\models\constraints.py:22
 #, python-format
 msgid "Constraint “%(name)s” is violated."
-msgstr ""
+msgstr "Constraint “%(name)s” is violated."
 
 #: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:134
 #, python-format
 msgid "Value %(value)r is not a valid choice."
-msgstr ""
+msgstr "Value %(value)r is not a valid choice."
 
 #: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:135
 msgid "This field cannot be null."
-msgstr ""
+msgstr "This field cannot be null."
 
 #: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:136
 msgid "This field cannot be blank."
-msgstr ""
+msgstr "This field cannot be blank."
 
 #: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:137
 #, python-format
 msgid "%(model_name)s with this %(field_label)s already exists."
-msgstr ""
+msgstr "%(model_name)s with this %(field_label)s already exists."
 
 #. Translators: The 'lookup_type' is one of 'date', 'year' or
 #. 'month'. Eg: "Title must be unique for pub_date year"
@@ -1961,46 +1948,46 @@ msgstr ""
 #, python-format
 msgid ""
 "%(field_label)s must be unique for %(date_field_label)s %(lookup_type)s."
-msgstr ""
+msgstr "%(field_label)s must be unique for %(date_field_label)s %(lookup_type)s."
 
 #: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:180
 #, python-format
 msgid "Field of type: %(field_type)s"
-msgstr ""
+msgstr "Field of type: %(field_type)s"
 
 #: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:1162
 #, python-format
 msgid "“%(value)s” value must be either True or False."
-msgstr ""
+msgstr "“%(value)s” value must be either True or False."
 
 #: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:1163
 #, python-format
 msgid "“%(value)s” value must be either True, False, or None."
-msgstr ""
+msgstr "“%(value)s” value must be either True, False, or None."
 
 #: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:1165
 msgid "Boolean (Either True or False)"
-msgstr ""
+msgstr "Boolean (Either True or False)"
 
 #: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:1215
 #, python-format
 msgid "String (up to %(max_length)s)"
-msgstr ""
+msgstr "String (up to %(max_length)s)"
 
 #: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:1217
 msgid "String (unlimited)"
-msgstr ""
+msgstr "String (unlimited)"
 
 #: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:1326
 msgid "Comma-separated integers"
-msgstr ""
+msgstr "Comma-separated integers"
 
 #: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:1427
 #, python-format
 msgid ""
 "“%(value)s” value has an invalid date format. It must be in YYYY-MM-DD "
 "format."
-msgstr ""
+msgstr "“%(value)s” value has an invalid date format. It must be in YYYY-MM-DD format."
 
 #: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:1431
 #: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:1566
@@ -2008,793 +1995,768 @@ msgstr ""
 msgid ""
 "“%(value)s” value has the correct format (YYYY-MM-DD) but it is an invalid "
 "date."
-msgstr ""
+msgstr "“%(value)s” value has the correct format (YYYY-MM-DD) but it is an invalid date."
 
 #: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:1435
 msgid "Date (without time)"
-msgstr ""
+msgstr "Date (without time)"
 
 #: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:1562
 #, python-format
 msgid ""
 "“%(value)s” value has an invalid format. It must be in YYYY-MM-DD "
 "HH:MM[:ss[.uuuuuu]][TZ] format."
-msgstr ""
+msgstr "“%(value)s” value has an invalid format. It must be in YYYY-MM-DD HH:MM[:ss[.uuuuuu]][TZ] format."
 
 #: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:1570
 #, python-format
 msgid ""
 "“%(value)s” value has the correct format (YYYY-MM-DD HH:MM[:ss[.uuuuuu]]"
 "[TZ]) but it is an invalid date/time."
-msgstr ""
+msgstr "“%(value)s” value has the correct format (YYYY-MM-DD HH:MM[:ss[.uuuuuu]][TZ]) but it is an invalid date/time."
 
 #: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:1575
 msgid "Date (with time)"
-msgstr ""
+msgstr "Date (with time)"
 
 #: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:1702
 #, python-format
 msgid "“%(value)s” value must be a decimal number."
-msgstr ""
+msgstr "“%(value)s” value must be a decimal number."
 
 #: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:1704
 msgid "Decimal number"
-msgstr ""
+msgstr "Decimal number"
 
 #: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:1864
 #, python-format
 msgid ""
 "“%(value)s” value has an invalid format. It must be in [DD] "
 "[[HH:]MM:]ss[.uuuuuu] format."
-msgstr ""
+msgstr "“%(value)s” value has an invalid format. It must be in [DD] [[HH:]MM:]ss[.uuuuuu] format."
 
 #: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:1868
 msgid "Duration"
-msgstr ""
+msgstr "Duration"
 
 #: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:1920
 msgid "Email address"
-msgstr ""
+msgstr "Email address"
 
 #: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:1945
 msgid "File path"
-msgstr ""
+msgstr "File path"
 
 #: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:2023
 #, python-format
 msgid "“%(value)s” value must be a float."
-msgstr ""
+msgstr "“%(value)s” value must be a float."
 
 #: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:2025
 msgid "Floating point number"
-msgstr ""
+msgstr "Floating point number"
 
 #: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:2065
 #, python-format
 msgid "“%(value)s” value must be an integer."
-msgstr ""
+msgstr "“%(value)s” value must be an integer."
 
 #: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:2067
 msgid "Integer"
-msgstr ""
+msgstr "Integer"
 
 #: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:2163
 msgid "Big (8 byte) integer"
-msgstr ""
+msgstr "Big (8 byte) integer"
 
 #: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:2180
 msgid "Small integer"
-msgstr ""
+msgstr "Small integer"
 
 #: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:2188
 msgid "IPv4 address"
-msgstr ""
+msgstr "IPv4 address"
 
 #: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:2219
 msgid "IP address"
-msgstr ""
+msgstr "IP address"
 
 #: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:2310
 #: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:2311
 #, python-format
 msgid "“%(value)s” value must be either None, True or False."
-msgstr ""
+msgstr "“%(value)s” value must be either None, True or False."
 
 #: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:2313
 msgid "Boolean (Either True, False or None)"
-msgstr ""
+msgstr "Boolean (Either True, False or None)"
 
 #: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:2364
 msgid "Positive big integer"
-msgstr ""
+msgstr "Positive big integer"
 
 #: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:2379
 msgid "Positive integer"
-msgstr ""
+msgstr "Positive integer"
 
 #: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:2394
 msgid "Positive small integer"
-msgstr ""
+msgstr "Positive small integer"
 
 #: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:2410
 #, python-format
 msgid "Slug (up to %(max_length)s)"
-msgstr ""
+msgstr "Slug (up to %(max_length)s)"
 
 #: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:2446
 msgid "Text"
-msgstr ""
+msgstr "Text"
 
 #: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:2526
 #, python-format
 msgid ""
 "“%(value)s” value has an invalid format. It must be in HH:MM[:ss[.uuuuuu]] "
 "format."
-msgstr ""
+msgstr "“%(value)s” value has an invalid format. It must be in HH:MM[:ss[.uuuuuu]] format."
 
 #: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:2530
 #, python-format
 msgid ""
 "“%(value)s” value has the correct format (HH:MM[:ss[.uuuuuu]]) but it is an "
 "invalid time."
-msgstr ""
+msgstr "“%(value)s” value has the correct format (HH:MM[:ss[.uuuuuu]]) but it is an invalid time."
 
 #: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:2534
 msgid "Time"
-msgstr ""
+msgstr "Time"
 
 #: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:2642
 msgid "URL"
-msgstr ""
+msgstr "URL"
 
 #: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:2666
 msgid "Raw binary data"
-msgstr ""
+msgstr "Raw binary data"
 
 #: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:2731
 #, python-format
 msgid "“%(value)s” is not a valid UUID."
-msgstr ""
+msgstr "“%(value)s” is not a valid UUID."
 
 #: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:2733
 msgid "Universally unique identifier"
-msgstr ""
+msgstr "Universally unique identifier"
 
 #: .\venv\Lib\site-packages\django\db\models\fields\files.py:244
 msgid "File"
-msgstr ""
+msgstr "File"
 
 #: .\venv\Lib\site-packages\django\db\models\fields\files.py:420
 msgid "Image"
-msgstr ""
+msgstr "Image"
 
 #: .\venv\Lib\site-packages\django\db\models\fields\json.py:24
 msgid "A JSON object"
-msgstr ""
+msgstr "A JSON object"
 
 #: .\venv\Lib\site-packages\django\db\models\fields\json.py:26
 msgid "Value must be valid JSON."
-msgstr ""
+msgstr "Value must be valid JSON."
 
 #: .\venv\Lib\site-packages\django\db\models\fields\related.py:979
 #, python-format
 msgid "%(model)s instance with %(field)s %(value)r is not a valid choice."
-msgstr ""
+msgstr "%(model)s instance with %(field)s %(value)r is not a valid choice."
 
 #: .\venv\Lib\site-packages\django\db\models\fields\related.py:982
 msgid "Foreign Key (type determined by related field)"
-msgstr ""
+msgstr "Foreign Key (type determined by related field)"
 
 #: .\venv\Lib\site-packages\django\db\models\fields\related.py:1276
 msgid "One-to-one relationship"
-msgstr ""
+msgstr "One-to-one relationship"
 
 #: .\venv\Lib\site-packages\django\db\models\fields\related.py:1333
 #, python-format
 msgid "%(from)s-%(to)s relationship"
-msgstr ""
+msgstr "%(from)s-%(to)s relationship"
 
 #: .\venv\Lib\site-packages\django\db\models\fields\related.py:1335
 #, python-format
 msgid "%(from)s-%(to)s relationships"
-msgstr ""
+msgstr "%(from)s-%(to)s relationships"
 
 #: .\venv\Lib\site-packages\django\db\models\fields\related.py:1383
 msgid "Many-to-many relationship"
-msgstr ""
+msgstr "Many-to-many relationship"
 
 #. Translators: If found as last label character, these punctuation
 #. characters will prevent the default label_suffix to be appended to the label
 #: .\venv\Lib\site-packages\django\forms\boundfield.py:185
 msgid ":?.!"
-msgstr ""
+msgstr ":?.!"
 
 #: .\venv\Lib\site-packages\django\forms\fields.py:95
 msgid "This field is required."
-msgstr ""
+msgstr "This field is required."
 
 #: .\venv\Lib\site-packages\django\forms\fields.py:315
 msgid "Enter a whole number."
-msgstr ""
+msgstr "Enter a whole number."
 
 #: .\venv\Lib\site-packages\django\forms\fields.py:486
 #: .\venv\Lib\site-packages\django\forms\fields.py:1267
 msgid "Enter a valid date."
-msgstr ""
+msgstr "Enter a valid date."
 
 #: .\venv\Lib\site-packages\django\forms\fields.py:509
 #: .\venv\Lib\site-packages\django\forms\fields.py:1268
 msgid "Enter a valid time."
-msgstr ""
+msgstr "Enter a valid time."
 
 #: .\venv\Lib\site-packages\django\forms\fields.py:536
 msgid "Enter a valid date/time."
-msgstr ""
+msgstr "Enter a valid date/time."
 
 #: .\venv\Lib\site-packages\django\forms\fields.py:570
 msgid "Enter a valid duration."
-msgstr ""
+msgstr "Enter a valid duration."
 
 #: .\venv\Lib\site-packages\django\forms\fields.py:571
 #, python-brace-format
 msgid "The number of days must be between {min_days} and {max_days}."
-msgstr ""
+msgstr "The number of days must be between {min_days} and {max_days}."
 
 #: .\venv\Lib\site-packages\django\forms\fields.py:640
 msgid "No file was submitted. Check the encoding type on the form."
-msgstr ""
+msgstr "No file was submitted. Check the encoding type on the form."
 
 #: .\venv\Lib\site-packages\django\forms\fields.py:641
 msgid "No file was submitted."
-msgstr ""
+msgstr "No file was submitted."
 
 #: .\venv\Lib\site-packages\django\forms\fields.py:642
 msgid "The submitted file is empty."
-msgstr ""
+msgstr "The submitted file is empty."
 
 #: .\venv\Lib\site-packages\django\forms\fields.py:644
 #, python-format
 msgid "Ensure this filename has at most %(max)d character (it has %(length)d)."
 msgid_plural ""
 "Ensure this filename has at most %(max)d characters (it has %(length)d)."
-msgstr[0] ""
-msgstr[1] ""
+msgstr[0] "Ensure this filename has at most %(max)d character (it has %(length)d)."
+msgstr[1] "Ensure this filename has at most %(max)d characters (it has %(length)d)."
 
 #: .\venv\Lib\site-packages\django\forms\fields.py:649
 msgid "Please either submit a file or check the clear checkbox, not both."
-msgstr ""
+msgstr "Please either submit a file or check the clear checkbox, not both."
 
 #: .\venv\Lib\site-packages\django\forms\fields.py:717
 msgid ""
 "Upload a valid image. The file you uploaded was either not an image or a "
 "corrupted image."
-msgstr ""
+msgstr "Upload a valid image. The file you uploaded was either not an image or a corrupted image."
 
 #: .\venv\Lib\site-packages\django\forms\fields.py:889
 #: .\venv\Lib\site-packages\django\forms\fields.py:975
 #: .\venv\Lib\site-packages\django\forms\models.py:1592
 #, python-format
 msgid "Select a valid choice. %(value)s is not one of the available choices."
-msgstr ""
+msgstr "Select a valid choice. %(value)s is not one of the available choices."
 
 #: .\venv\Lib\site-packages\django\forms\fields.py:977
 #: .\venv\Lib\site-packages\django\forms\fields.py:1096
 #: .\venv\Lib\site-packages\django\forms\models.py:1590
 msgid "Enter a list of values."
-msgstr ""
+msgstr "Enter a list of values."
 
 #: .\venv\Lib\site-packages\django\forms\fields.py:1097
 msgid "Enter a complete value."
-msgstr ""
+msgstr "Enter a complete value."
 
 #: .\venv\Lib\site-packages\django\forms\fields.py:1339
 msgid "Enter a valid UUID."
-msgstr ""
+msgstr "Enter a valid UUID."
 
 #: .\venv\Lib\site-packages\django\forms\fields.py:1369
 msgid "Enter a valid JSON."
-msgstr ""
+msgstr "Enter a valid JSON."
 
 #. Translators: This is the default suffix added to form field labels
 #: .\venv\Lib\site-packages\django\forms\forms.py:97
 msgid ":"
-msgstr ""
+msgstr ":"
 
 #: .\venv\Lib\site-packages\django\forms\forms.py:239
 #, python-format
 msgid "(Hidden field %(name)s) %(error)s"
-msgstr ""
+msgstr "(Hidden field %(name)s) %(error)s"
 
 #: .\venv\Lib\site-packages\django\forms\formsets.py:61
 #, python-format
 msgid ""
 "ManagementForm data is missing or has been tampered with. Missing fields: "
 "%(field_names)s. You may need to file a bug report if the issue persists."
-msgstr ""
+msgstr "ManagementForm data is missing or has been tampered with. Missing fields: %(field_names)s. You may need to file a bug report if the issue persists."
 
 #: .\venv\Lib\site-packages\django\forms\formsets.py:65
 #, python-format
 msgid "Please submit at most %(num)d form."
 msgid_plural "Please submit at most %(num)d forms."
-msgstr[0] ""
-msgstr[1] ""
+msgstr[0] "Please submit at most %(num)d form."
+msgstr[1] "Please submit at most %(num)d forms."
 
 #: .\venv\Lib\site-packages\django\forms\formsets.py:70
 #, python-format
 msgid "Please submit at least %(num)d form."
 msgid_plural "Please submit at least %(num)d forms."
-msgstr[0] ""
-msgstr[1] ""
+msgstr[0] "Please submit at least %(num)d form."
+msgstr[1] "Please submit at least %(num)d forms."
 
 #: .\venv\Lib\site-packages\django\forms\formsets.py:484
 #: .\venv\Lib\site-packages\django\forms\formsets.py:491
 msgid "Order"
-msgstr ""
+msgstr "Order"
 
 #: .\venv\Lib\site-packages\django\forms\models.py:901
 #, python-format
 msgid "Please correct the duplicate data for %(field)s."
-msgstr ""
+msgstr "Please correct the duplicate data for %(field)s."
 
 #: .\venv\Lib\site-packages\django\forms\models.py:906
 #, python-format
 msgid "Please correct the duplicate data for %(field)s, which must be unique."
-msgstr ""
+msgstr "Please correct the duplicate data for %(field)s, which must be unique."
 
 #: .\venv\Lib\site-packages\django\forms\models.py:913
 #, python-format
 msgid ""
 "Please correct the duplicate data for %(field_name)s which must be unique "
 "for the %(lookup)s in %(date_field)s."
-msgstr ""
+msgstr "Please correct the duplicate data for %(field_name)s which must be unique for the %(lookup)s in %(date_field)s."
 
 #: .\venv\Lib\site-packages\django\forms\models.py:922
 msgid "Please correct the duplicate values below."
-msgstr ""
+msgstr "Please correct the duplicate values below."
 
 #: .\venv\Lib\site-packages\django\forms\models.py:1359
 msgid "The inline value did not match the parent instance."
-msgstr ""
+msgstr "The inline value did not match the parent instance."
 
 #: .\venv\Lib\site-packages\django\forms\models.py:1450
 msgid "Select a valid choice. That choice is not one of the available choices."
-msgstr ""
+msgstr "Select a valid choice. That choice is not one of the available choices."
 
 #: .\venv\Lib\site-packages\django\forms\models.py:1594
 #, python-format
 msgid "“%(pk)s” is not a valid value."
-msgstr ""
+msgstr "“%(pk)s” is not a valid value."
 
 #: .\venv\Lib\site-packages\django\forms\utils.py:229
 #, python-format
 msgid ""
 "%(datetime)s couldn’t be interpreted in time zone %(current_timezone)s; it "
 "may be ambiguous or it may not exist."
-msgstr ""
+msgstr "%(datetime)s couldn’t be interpreted in time zone %(current_timezone)s; it may be ambiguous or it may not exist."
 
 #: .\venv\Lib\site-packages\django\forms\widgets.py:527
 msgid "Clear"
-msgstr ""
+msgstr "Clear"
 
 #: .\venv\Lib\site-packages\django\forms\widgets.py:528
 msgid "Currently"
-msgstr ""
+msgstr "Currently"
 
 #: .\venv\Lib\site-packages\django\forms\widgets.py:529
 msgid "Change"
-msgstr ""
+msgstr "Change"
 
 #: .\venv\Lib\site-packages\django\forms\widgets.py:866
 msgid "Unknown"
-msgstr ""
+msgstr "Unknown"
 
 #: .\venv\Lib\site-packages\django\forms\widgets.py:867
 msgid "Yes"
-msgstr ""
+msgstr "Yes"
 
 #: .\venv\Lib\site-packages\django\forms\widgets.py:868
 msgid "No"
-msgstr ""
+msgstr "No"
 
 #. Translators: Please do not add spaces around commas.
 #: .\venv\Lib\site-packages\django\template\defaultfilters.py:873
 msgid "yes,no,maybe"
-msgstr ""
+msgstr "yes,no,maybe"
 
 #: .\venv\Lib\site-packages\django\template\defaultfilters.py:903
 #: .\venv\Lib\site-packages\django\template\defaultfilters.py:920
 #, python-format
 msgid "%(size)d byte"
 msgid_plural "%(size)d bytes"
-msgstr[0] ""
-msgstr[1] ""
+msgstr[0] "%(size)d byte"
+msgstr[1] "%(size)d bytes"
 
 #: .\venv\Lib\site-packages\django\template\defaultfilters.py:922
 #, python-format
 msgid "%s KB"
-msgstr ""
+msgstr "%s KB"
 
 #: .\venv\Lib\site-packages\django\template\defaultfilters.py:924
 #, python-format
 msgid "%s MB"
-msgstr ""
+msgstr "%s MB"
 
 #: .\venv\Lib\site-packages\django\template\defaultfilters.py:926
 #, python-format
 msgid "%s GB"
-msgstr ""
+msgstr "%s GB"
 
 #: .\venv\Lib\site-packages\django\template\defaultfilters.py:928
 #, python-format
 msgid "%s TB"
-msgstr ""
+msgstr "%s TB"
 
 #: .\venv\Lib\site-packages\django\template\defaultfilters.py:930
 #, python-format
 msgid "%s PB"
-msgstr ""
+msgstr "%s PB"
 
 #: .\venv\Lib\site-packages\django\utils\dateformat.py:74
 msgid "p.m."
-msgstr ""
+msgstr "p.m."
 
 #: .\venv\Lib\site-packages\django\utils\dateformat.py:75
 msgid "a.m."
-msgstr ""
+msgstr "a.m."
 
 #: .\venv\Lib\site-packages\django\utils\dateformat.py:80
 msgid "PM"
-msgstr ""
+msgstr "PM"
 
 #: .\venv\Lib\site-packages\django\utils\dateformat.py:81
 msgid "AM"
-msgstr ""
+msgstr "AM"
 
 #: .\venv\Lib\site-packages\django\utils\dateformat.py:153
 msgid "midnight"
-msgstr ""
+msgstr "midnight"
 
 #: .\venv\Lib\site-packages\django\utils\dateformat.py:155
 msgid "noon"
-msgstr ""
+msgstr "noon"
 
 #: .\venv\Lib\site-packages\django\utils\dates.py:7
 msgid "Monday"
-msgstr ""
+msgstr "Monday"
 
 #: .\venv\Lib\site-packages\django\utils\dates.py:8
 msgid "Tuesday"
-msgstr ""
+msgstr "Tuesday"
 
 #: .\venv\Lib\site-packages\django\utils\dates.py:9
 msgid "Wednesday"
-msgstr ""
+msgstr "Wednesday"
 
 #: .\venv\Lib\site-packages\django\utils\dates.py:10
 msgid "Thursday"
-msgstr ""
+msgstr "Thursday"
 
 #: .\venv\Lib\site-packages\django\utils\dates.py:11
 msgid "Friday"
-msgstr ""
+msgstr "Friday"
 
 #: .\venv\Lib\site-packages\django\utils\dates.py:12
 msgid "Saturday"
-msgstr ""
+msgstr "Saturday"
 
 #: .\venv\Lib\site-packages\django\utils\dates.py:13
 msgid "Sunday"
-msgstr ""
+msgstr "Sunday"
 
 #: .\venv\Lib\site-packages\django\utils\dates.py:16
 msgid "Mon"
-msgstr ""
+msgstr "Mon"
 
 #: .\venv\Lib\site-packages\django\utils\dates.py:17
 msgid "Tue"
-msgstr ""
+msgstr "Tue"
 
 #: .\venv\Lib\site-packages\django\utils\dates.py:18
 msgid "Wed"
-msgstr ""
+msgstr "Wed"
 
 #: .\venv\Lib\site-packages\django\utils\dates.py:19
 msgid "Thu"
-msgstr ""
+msgstr "Thu"
 
 #: .\venv\Lib\site-packages\django\utils\dates.py:20
 msgid "Fri"
-msgstr ""
+msgstr "Fri"
 
 #: .\venv\Lib\site-packages\django\utils\dates.py:21
 msgid "Sat"
-msgstr ""
+msgstr "Sat"
 
 #: .\venv\Lib\site-packages\django\utils\dates.py:22
 msgid "Sun"
-msgstr ""
+msgstr "Sun"
 
 #: .\venv\Lib\site-packages\django\utils\dates.py:25
 msgid "January"
-msgstr ""
+msgstr "January"
 
 #: .\venv\Lib\site-packages\django\utils\dates.py:26
 msgid "February"
-msgstr ""
+msgstr "February"
 
 #: .\venv\Lib\site-packages\django\utils\dates.py:27
 msgid "March"
-msgstr ""
+msgstr "March"
 
 #: .\venv\Lib\site-packages\django\utils\dates.py:28
 msgid "April"
-msgstr ""
+msgstr "April"
 
 #: .\venv\Lib\site-packages\django\utils\dates.py:29
 msgid "May"
-msgstr ""
+msgstr "May"
 
 #: .\venv\Lib\site-packages\django\utils\dates.py:30
 msgid "June"
-msgstr ""
+msgstr "June"
 
 #: .\venv\Lib\site-packages\django\utils\dates.py:31
 msgid "July"
-msgstr ""
+msgstr "July"
 
 #: .\venv\Lib\site-packages\django\utils\dates.py:32
 msgid "August"
-msgstr ""
+msgstr "August"
 
 #: .\venv\Lib\site-packages\django\utils\dates.py:33
 msgid "September"
-msgstr ""
+msgstr "September"
 
 #: .\venv\Lib\site-packages\django\utils\dates.py:34
 msgid "October"
-msgstr ""
+msgstr "October"
 
 #: .\venv\Lib\site-packages\django\utils\dates.py:35
 msgid "November"
-msgstr ""
+msgstr "November"
 
 #: .\venv\Lib\site-packages\django\utils\dates.py:36
 msgid "December"
-msgstr ""
+msgstr "December"
 
 #: .\venv\Lib\site-packages\django\utils\dates.py:39
 msgid "jan"
-msgstr ""
+msgstr "jan"
 
 #: .\venv\Lib\site-packages\django\utils\dates.py:40
 msgid "feb"
-msgstr ""
+msgstr "feb"
 
 #: .\venv\Lib\site-packages\django\utils\dates.py:41
 msgid "mar"
-msgstr ""
+msgstr "mar"
 
 #: .\venv\Lib\site-packages\django\utils\dates.py:42
 msgid "apr"
-msgstr ""
+msgstr "apr"
 
 #: .\venv\Lib\site-packages\django\utils\dates.py:43
 msgid "may"
-msgstr ""
+msgstr "may"
 
 #: .\venv\Lib\site-packages\django\utils\dates.py:44
 msgid "jun"
-msgstr ""
+msgstr "jun"
 
 #: .\venv\Lib\site-packages\django\utils\dates.py:45
 msgid "jul"
-msgstr ""
+msgstr "jul"
 
 #: .\venv\Lib\site-packages\django\utils\dates.py:46
 msgid "aug"
-msgstr ""
+msgstr "aug"
 
 #: .\venv\Lib\site-packages\django\utils\dates.py:47
 msgid "sep"
-msgstr ""
+msgstr "sep"
 
 #: .\venv\Lib\site-packages\django\utils\dates.py:48
 msgid "oct"
-msgstr ""
+msgstr "oct"
 
 #: .\venv\Lib\site-packages\django\utils\dates.py:49
 msgid "nov"
-msgstr ""
+msgstr "nov"
 
 #: .\venv\Lib\site-packages\django\utils\dates.py:50
 msgid "dec"
-msgstr ""
+msgstr "dec"
 
 #: .\venv\Lib\site-packages\django\utils\dates.py:53
-msgctxt "abbrev. month"
 msgid "Jan."
-msgstr ""
+msgstr "Jan."
 
 #: .\venv\Lib\site-packages\django\utils\dates.py:54
-msgctxt "abbrev. month"
 msgid "Feb."
-msgstr ""
+msgstr "Feb."
 
 #: .\venv\Lib\site-packages\django\utils\dates.py:55
-msgctxt "abbrev. month"
 msgid "March"
-msgstr ""
+msgstr "March"
 
 #: .\venv\Lib\site-packages\django\utils\dates.py:56
-msgctxt "abbrev. month"
 msgid "April"
-msgstr ""
+msgstr "April"
 
 #: .\venv\Lib\site-packages\django\utils\dates.py:57
-msgctxt "abbrev. month"
 msgid "May"
-msgstr ""
+msgstr "May"
 
 #: .\venv\Lib\site-packages\django\utils\dates.py:58
-msgctxt "abbrev. month"
 msgid "June"
-msgstr ""
+msgstr "June"
 
 #: .\venv\Lib\site-packages\django\utils\dates.py:59
-msgctxt "abbrev. month"
 msgid "July"
-msgstr ""
+msgstr "July"
 
 #: .\venv\Lib\site-packages\django\utils\dates.py:60
-msgctxt "abbrev. month"
 msgid "Aug."
-msgstr ""
+msgstr "Aug."
 
 #: .\venv\Lib\site-packages\django\utils\dates.py:61
-msgctxt "abbrev. month"
 msgid "Sept."
-msgstr ""
+msgstr "Sept."
 
 #: .\venv\Lib\site-packages\django\utils\dates.py:62
-msgctxt "abbrev. month"
 msgid "Oct."
-msgstr ""
+msgstr "Oct."
 
 #: .\venv\Lib\site-packages\django\utils\dates.py:63
-msgctxt "abbrev. month"
 msgid "Nov."
-msgstr ""
+msgstr "Nov."
 
 #: .\venv\Lib\site-packages\django\utils\dates.py:64
-msgctxt "abbrev. month"
 msgid "Dec."
-msgstr ""
+msgstr "Dec."
 
 #: .\venv\Lib\site-packages\django\utils\dates.py:67
-msgctxt "alt. month"
 msgid "January"
-msgstr ""
+msgstr "January"
 
 #: .\venv\Lib\site-packages\django\utils\dates.py:68
-msgctxt "alt. month"
 msgid "February"
-msgstr ""
+msgstr "February"
 
 #: .\venv\Lib\site-packages\django\utils\dates.py:69
-msgctxt "alt. month"
 msgid "March"
-msgstr ""
+msgstr "March"
 
 #: .\venv\Lib\site-packages\django\utils\dates.py:70
-msgctxt "alt. month"
 msgid "April"
-msgstr ""
+msgstr "April"
 
 #: .\venv\Lib\site-packages\django\utils\dates.py:71
-msgctxt "alt. month"
 msgid "May"
-msgstr ""
+msgstr "May"
 
 #: .\venv\Lib\site-packages\django\utils\dates.py:72
-msgctxt "alt. month"
 msgid "June"
-msgstr ""
+msgstr "June"
 
 #: .\venv\Lib\site-packages\django\utils\dates.py:73
-msgctxt "alt. month"
 msgid "July"
-msgstr ""
+msgstr "July"
 
 #: .\venv\Lib\site-packages\django\utils\dates.py:74
-msgctxt "alt. month"
 msgid "August"
-msgstr ""
+msgstr "August"
 
 #: .\venv\Lib\site-packages\django\utils\dates.py:75
-msgctxt "alt. month"
 msgid "September"
-msgstr ""
+msgstr "September"
 
 #: .\venv\Lib\site-packages\django\utils\dates.py:76
-msgctxt "alt. month"
 msgid "October"
-msgstr ""
+msgstr "October"
 
 #: .\venv\Lib\site-packages\django\utils\dates.py:77
-msgctxt "alt. month"
 msgid "November"
-msgstr ""
+msgstr "November"
 
 #: .\venv\Lib\site-packages\django\utils\dates.py:78
-msgctxt "alt. month"
 msgid "December"
-msgstr ""
+msgstr "December"
 
 #: .\venv\Lib\site-packages\django\utils\ipv6.py:20
 msgid "This is not a valid IPv6 address."
-msgstr ""
+msgstr "This is not a valid IPv6 address."
 
 #: .\venv\Lib\site-packages\django\utils\text.py:76
 #, python-format
-msgctxt "String to return when truncating text"
 msgid "%(truncated_text)s…"
-msgstr ""
+msgstr "%(truncated_text)s…"
 
 #. Translators: This string is used as a separator between list elements
 #: .\venv\Lib\site-packages\django\utils\text.py:306
 #: .\venv\Lib\site-packages\django\utils\timesince.py:135
 msgid ", "
-msgstr ""
+msgstr ", "
 
 #: .\venv\Lib\site-packages\django\utils\timesince.py:8
 #, python-format
 msgid "%(num)d year"
 msgid_plural "%(num)d years"
-msgstr[0] ""
-msgstr[1] ""
+msgstr[0] "%(num)d year"
+msgstr[1] "%(num)d years"
 
 #: .\venv\Lib\site-packages\django\utils\timesince.py:9
 #, python-format
 msgid "%(num)d month"
 msgid_plural "%(num)d months"
-msgstr[0] ""
-msgstr[1] ""
+msgstr[0] "%(num)d month"
+msgstr[1] "%(num)d months"
 
 #: .\venv\Lib\site-packages\django\utils\timesince.py:10
 #, python-format
 msgid "%(num)d week"
 msgid_plural "%(num)d weeks"
-msgstr[0] ""
-msgstr[1] ""
+msgstr[0] "%(num)d week"
+msgstr[1] "%(num)d weeks"
 
 #: .\venv\Lib\site-packages\django\utils\timesince.py:11
 #, python-format
 msgid "%(num)d day"
 msgid_plural "%(num)d days"
-msgstr[0] ""
-msgstr[1] ""
+msgstr[0] "%(num)d day"
+msgstr[1] "%(num)d days"
 
 #: .\venv\Lib\site-packages\django\utils\timesince.py:12
 #, python-format
 msgid "%(num)d hour"
 msgid_plural "%(num)d hours"
-msgstr[0] ""
-msgstr[1] ""
+msgstr[0] "%(num)d hour"
+msgstr[1] "%(num)d hours"
 
 #: .\venv\Lib\site-packages\django\utils\timesince.py:13
 #, python-format
 msgid "%(num)d minute"
 msgid_plural "%(num)d minutes"
-msgstr[0] ""
-msgstr[1] ""
+msgstr[0] "%(num)d minute"
+msgstr[1] "%(num)d minutes"
 
 #: .\venv\Lib\site-packages\django\views\csrf.py:29
 msgid "Forbidden"
-msgstr ""
+msgstr "Forbidden"
 
 #: .\venv\Lib\site-packages\django\views\csrf.py:30
 msgid "CSRF verification failed. Request aborted."
-msgstr ""
+msgstr "CSRF verification failed. Request aborted."
 
 #: .\venv\Lib\site-packages\django\views\csrf.py:34
 msgid ""
@@ -2802,14 +2764,14 @@ msgid ""
 "header” to be sent by your web browser, but none was sent. This header is "
 "required for security reasons, to ensure that your browser is not being "
 "hijacked by third parties."
-msgstr ""
+msgstr "You are seeing this message because this HTTPS site requires a “Referer header” to be sent by your web browser, but none was sent. This header is required for security reasons, to ensure that your browser is not being hijacked by third parties."
 
 #: .\venv\Lib\site-packages\django\views\csrf.py:40
 msgid ""
 "If you have configured your browser to disable “Referer” headers, please re-"
 "enable them, at least for this site, or for HTTPS connections, or for “same-"
 "origin” requests."
-msgstr ""
+msgstr "If you have configured your browser to disable “Referer” headers, please re-enable them, at least for this site, or for HTTPS connections, or for “same-origin” requests."
 
 #: .\venv\Lib\site-packages\django\views\csrf.py:45
 msgid ""
@@ -2818,111 +2780,111 @@ msgid ""
 "CSRF protection requires the “Referer” header to do strict referer checking. "
 "If you’re concerned about privacy, use alternatives like <a "
 "rel=\"noreferrer\" …> for links to third-party sites."
-msgstr ""
+msgstr "If you are using the <meta name=\\\"referrer\\\" content=\\\"no-referrer\\\"> tag or including the “Referrer-Policy: no-referrer” header, please remove them. The CSRF protection requires the “Referer” header to do strict referer checking. If you’re concerned about privacy, use alternatives like <a rel=\\\"noreferrer\\\" …> for links to third-party sites."
 
 #: .\venv\Lib\site-packages\django\views\csrf.py:54
 msgid ""
 "You are seeing this message because this site requires a CSRF cookie when "
 "submitting forms. This cookie is required for security reasons, to ensure "
 "that your browser is not being hijacked by third parties."
-msgstr ""
+msgstr "You are seeing this message because this site requires a CSRF cookie when submitting forms. This cookie is required for security reasons, to ensure that your browser is not being hijacked by third parties."
 
 #: .\venv\Lib\site-packages\django\views\csrf.py:60
 msgid ""
 "If you have configured your browser to disable cookies, please re-enable "
 "them, at least for this site, or for “same-origin” requests."
-msgstr ""
+msgstr "If you have configured your browser to disable cookies, please re-enable them, at least for this site, or for “same-origin” requests."
 
 #: .\venv\Lib\site-packages\django\views\csrf.py:66
 msgid "More information is available with DEBUG=True."
-msgstr ""
+msgstr "More information is available with DEBUG=True."
 
 #: .\venv\Lib\site-packages\django\views\generic\dates.py:44
 msgid "No year specified"
-msgstr ""
+msgstr "No year specified"
 
 #: .\venv\Lib\site-packages\django\views\generic\dates.py:64
 #: .\venv\Lib\site-packages\django\views\generic\dates.py:115
 #: .\venv\Lib\site-packages\django\views\generic\dates.py:214
 msgid "Date out of range"
-msgstr ""
+msgstr "Date out of range"
 
 #: .\venv\Lib\site-packages\django\views\generic\dates.py:94
 msgid "No month specified"
-msgstr ""
+msgstr "No month specified"
 
 #: .\venv\Lib\site-packages\django\views\generic\dates.py:147
 msgid "No day specified"
-msgstr ""
+msgstr "No day specified"
 
 #: .\venv\Lib\site-packages\django\views\generic\dates.py:194
 msgid "No week specified"
-msgstr ""
+msgstr "No week specified"
 
 #: .\venv\Lib\site-packages\django\views\generic\dates.py:353
 #: .\venv\Lib\site-packages\django\views\generic\dates.py:384
 #, python-format
 msgid "No %(verbose_name_plural)s available"
-msgstr ""
+msgstr "No %(verbose_name_plural)s available"
 
 #: .\venv\Lib\site-packages\django\views\generic\dates.py:680
 #, python-format
 msgid ""
 "Future %(verbose_name_plural)s not available because "
 "%(class_name)s.allow_future is False."
-msgstr ""
+msgstr "Future %(verbose_name_plural)s not available because %(class_name)s.allow_future is False."
 
 #: .\venv\Lib\site-packages\django\views\generic\dates.py:720
 #, python-format
 msgid "Invalid date string “%(datestr)s” given format “%(format)s”"
-msgstr ""
+msgstr "Invalid date string “%(datestr)s” given format “%(format)s”"
 
 #: .\venv\Lib\site-packages\django\views\generic\detail.py:56
 #, python-format
 msgid "No %(verbose_name)s found matching the query"
-msgstr ""
+msgstr "No %(verbose_name)s found matching the query"
 
 #: .\venv\Lib\site-packages\django\views\generic\list.py:70
 msgid "Page is not “last”, nor can it be converted to an int."
-msgstr ""
+msgstr "Page is not “last”, nor can it be converted to an int."
 
 #: .\venv\Lib\site-packages\django\views\generic\list.py:77
 #, python-format
 msgid "Invalid page (%(page_number)s): %(message)s"
-msgstr ""
+msgstr "Invalid page (%(page_number)s): %(message)s"
 
 #: .\venv\Lib\site-packages\django\views\generic\list.py:173
 #, python-format
 msgid "Empty list and “%(class_name)s.allow_empty” is False."
-msgstr ""
+msgstr "Empty list and “%(class_name)s.allow_empty” is False."
 
 #: .\venv\Lib\site-packages\django\views\static.py:49
 msgid "Directory indexes are not allowed here."
-msgstr ""
+msgstr "Directory indexes are not allowed here."
 
 #: .\venv\Lib\site-packages\django\views\static.py:51
 #, python-format
 msgid "“%(path)s” does not exist"
-msgstr ""
+msgstr "“%(path)s” does not exist"
 
 #: .\venv\Lib\site-packages\django\views\static.py:68
 #: .\venv\Lib\site-packages\django\views\templates\directory_index.html:8
 #: .\venv\Lib\site-packages\django\views\templates\directory_index.html:11
 #, python-format
 msgid "Index of %(directory)s"
-msgstr ""
+msgstr "Index of %(directory)s"
 
 #: .\venv\Lib\site-packages\django\views\templates\default_urlconf.html:7
 #: .\venv\Lib\site-packages\django\views\templates\default_urlconf.html:204
 msgid "The install worked successfully! Congratulations!"
-msgstr ""
+msgstr "The install worked successfully! Congratulations!"
 
 #: .\venv\Lib\site-packages\django\views\templates\default_urlconf.html:206
 #, python-format
 msgid ""
 "View <a href=\"https://docs.djangoproject.com/en/%(version)s/releases/\" "
 "target=\"_blank\" rel=\"noopener\">release notes</a> for Django %(version)s"
-msgstr ""
+msgstr "View <a href=\\\"https://docs.djangoproject.com/en/%(version)s/releases/\\\" target=\\\"_blank\\\" rel=\\\"noopener\\\">release notes</a> for Django %(version)s"
 
 #: .\venv\Lib\site-packages\django\views\templates\default_urlconf.html:208
 #, python-format
@@ -2931,53 +2893,53 @@ msgid ""
 "%(version)s/ref/settings/#debug\" target=\"_blank\" "
 "rel=\"noopener\">DEBUG=True</a> is in your settings file and you have not "
 "configured any URLs."
-msgstr ""
+msgstr "You are seeing this page because <a href=\\\"https://docs.djangoproject.com/en/%(version)s/ref/settings/#debug\\\" target=\\\"_blank\\\" rel=\\\"noopener\\\">DEBUG=True</a> is in your settings file and you have not configured any URLs."
 
 #: .\venv\Lib\site-packages\django\views\templates\default_urlconf.html:217
 msgid "Django Documentation"
-msgstr ""
+msgstr "Django Documentation"
 
 #: .\venv\Lib\site-packages\django\views\templates\default_urlconf.html:218
 msgid "Topics, references, &amp; how-to’s"
-msgstr ""
+msgstr "Topics, references, &amp; how-to’s"
 
 #: .\venv\Lib\site-packages\django\views\templates\default_urlconf.html:226
 msgid "Tutorial: A Polling App"
-msgstr ""
+msgstr "Tutorial: A Polling App"
 
 #: .\venv\Lib\site-packages\django\views\templates\default_urlconf.html:227
 msgid "Get started with Django"
-msgstr ""
+msgstr "Get started with Django"
 
 #: .\venv\Lib\site-packages\django\views\templates\default_urlconf.html:235
 msgid "Django Community"
-msgstr ""
+msgstr "Django Community"
 
 #: .\venv\Lib\site-packages\django\views\templates\default_urlconf.html:236
 msgid "Connect, get help, or contribute"
-msgstr ""
+msgstr "Connect, get help, or contribute"
 
 #: .\venv\Lib\site-packages\django_ckeditor_5\permissions.py:18
 msgid "You do not have permission to upload files."
-msgstr ""
+msgstr "You do not have permission to upload files."
 
 #: .\venv\Lib\site-packages\django_ckeditor_5\permissions.py:25
 msgid "You must be logged in to upload files."
-msgstr ""
+msgstr "You must be logged in to upload files."
 
 #: .\venv\Lib\site-packages\django_ckeditor_5\validators.py:17
 #, python-format
 msgid "File should be at most %(max_size)s MB."
-msgstr ""
+msgstr "File should be at most %(max_size)s MB."
 
 #: .\venv\Lib\site-packages\django_ckeditor_5\views.py:41
 msgid "Invalid form data"
-msgstr ""
+msgstr "Invalid form data"
 
 #: .\venv\Lib\site-packages\django_ckeditor_5\widgets.py:43
 msgid "Check the correct settings.CKEDITOR_5_CONFIGS "
-msgstr ""
+msgstr "Check the correct settings.CKEDITOR_5_CONFIGS "
 
 #: .\venv\Lib\site-packages\imagekit\admin.py:10
 msgid "Thumbnail"
-msgstr ""
+msgstr "Thumbnail"

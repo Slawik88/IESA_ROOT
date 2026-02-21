@@ -43,6 +43,10 @@
     color: #111827 !important;
 }
 
+.ck-content {
+    color: #111827 !important;
+}
+
 /* ========== DARK MODE ========== */
 @media (prefers-color-scheme: dark) {
     .ck-editor__main {
