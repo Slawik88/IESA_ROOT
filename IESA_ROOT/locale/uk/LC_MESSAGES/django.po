@@ -363,3 +363,51 @@ msgstr "Вікове обмеження:"
 #, python-format
 msgid "Ages %(min_age)s-%(max_age)s"
 msgstr "Вік %(min_age)s-%(max_age)s"
+
+msgid "About"
+msgstr "Про нас"
+
+msgid "Benefits"
+msgstr "Переваги"
+
+msgid "Gallery"
+msgstr "Галерея"
+
+msgid "Community"
+msgstr "Спільнота"
+
+msgid "Posts"
+msgstr "Публікації"
+
+msgid "Events"
+msgstr "Події"
+
+msgid "Partners"
+msgstr "Партнери"
+
+msgid "Members"
+msgstr "Учасники"
+
+msgid "Create post"
+msgstr "Створити публікацію"
+
+msgid "Select language"
+msgstr "Виберіть мову"
+
+msgid "Search community"
+msgstr "Пошук по спільноті"
+
+msgid "Open search menu"
+msgstr "Відкрити меню пошуку"
+
+msgid "Posts, users, events..."
+msgstr "Публікації, користувачі, події..."
+
+msgid "Logout"
+msgstr "Вийти"
+
+msgid "Register"
+msgstr "Реєстрація"
+
+msgid "ABOUT"
+msgstr "ПРО НАС"
