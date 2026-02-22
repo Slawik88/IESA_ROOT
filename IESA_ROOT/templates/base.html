@@ -84,6 +84,7 @@
     <!-- Premium Sections Redesign - Events, About, Partnerships -->
     <link rel="stylesheet" href="{% static 'css/premium-sections.css' %}">            <!-- Touch Gestures -->
     <link rel="stylesheet" href="{% static 'css/touch-gestures.css' %}">
+    <link rel="stylesheet" href="{% static 'css/language-selector.css' %}">
     
 
 </head>
@@ -136,7 +137,7 @@
                             <input name="next" type="hidden" value="{{ request.get_full_path }}">
                             {% get_current_language as LANGUAGE_CODE %}
                             {% get_available_languages as LANGUAGES %}
-                            <select name="language" class="form-select form-select-sm" aria-label="{% trans "Select language" %}" onchange="this.form.submit()">
+                            <select name="language" class="form-select form-select-sm language-select-modern" aria-label="{% trans "Select language" %}" onchange="this.form.submit()">
                                 {% for lang in LANGUAGES %}
                                     <option value="{{ lang.0 }}" {% if lang.0 == LANGUAGE_CODE %}selected{% endif %}>{{ lang.1 }}</option>
                                 {% endfor %}

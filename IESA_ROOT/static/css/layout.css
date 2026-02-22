@@ -43,10 +43,11 @@ header {
   border-bottom: 1px solid var(--border-color);
   position: sticky;
   top: 0;
-  z-index: var(--z-sticky);
+  z-index: 2000;
   /* Fixes mobile browser URL bar hide/show glitches */
   transform: translateZ(0);
   -webkit-transform: translateZ(0);
+  isolation: isolate;
 }
 
 /* Navbar Brand (Logo) */
@@ -114,7 +115,7 @@ header {
   box-shadow: var(--shadow-lg);
   padding: var(--space-2);
   min-width: 200px;
-  z-index: 1050;
+  z-index: 2100;
 }
 
 .dropdown-item {
@@ -176,6 +177,8 @@ header {
 
 main {
   flex: 1;
+  position: relative;
+  z-index: 1;
 }
 
 /* ====================================================
