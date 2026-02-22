@@ -38,6 +38,17 @@
    2. HEADER / NAVBAR
    ==================================================== */
 
+.dev-banner {
+  background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
+  color: var(--white);
+  padding: 12px 20px;
+  text-align: center;
+  font-weight: 500;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  position: relative;
+  z-index: 2050;
+}
+
 header {
   background: var(--white);
   border-bottom: 1px solid var(--border-color);
@@ -458,179 +469,69 @@ main {
   min-width: 340px;
 }
 
+.notifications-dropdown {
+  min-width: 320px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+/* Language selector (moved from language-selector.css) */
+.language-switcher {
+  position: relative;
+}
+
+.language-select-modern {
+  min-width: 118px;
+  height: 42px;
+  border-radius: 12px;
+  border: 1px solid #fbcaca !important;
+  background-color: var(--white);
+  color: var(--text-primary);
+  font-weight: var(--font-semibold);
+  padding-left: 14px;
+  padding-right: 36px;
+  box-shadow: 0 2px 8px rgba(248, 113, 113, 0.08);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.language-select-modern:hover {
+  border-color: #f87171 !important;
+  box-shadow: 0 6px 16px rgba(248, 113, 113, 0.12);
+}
+
+.language-select-modern:focus {
+  border-color: #f87171 !important;
+  box-shadow: 0 0 0 0.2rem rgba(248, 113, 113, 0.2) !important;
+}
+
 /* Fix: search button positioning on mobile */
 @media (max-width: 991px) {
   .navbar-collapse .d-flex.align-items-center {
-    flex-direction: column !important;
-    align-items: stretch !important;
-    margin-top: 1.5rem;
-    width: 100%;
-    gap: 0.75rem;
-  }
-  
-  .navbar-collapse .d-flex.align-items-center > * {
-    width: 100%;
-  }
-  
-  .navbar-collapse .dropdown:has(#communitySearchToggle) {
-    order: -1;
-  }
-
-  /* Mobile navbar fixes */
-  .navbar-nav {
-    padding-bottom: 1rem;
-    border-bottom: 1px solid #e5e7eb;
-    margin-bottom: 1rem;
-  }
-
-  .navbar-nav .nav-link {
-    padding: 0.75rem 0 !important;
-    font-size: 1rem;
-    font-weight: 500;
-    border-bottom: 1px solid #f3f4f6;
-  }
-  
-  .navbar-nav .nav-link:last-child {
-    border-bottom: none;
-  }
-
-  .dropdown-menu {
-    position: static !important;
-    float: none;
-    width: auto !important;
-    margin: 0.5rem 0 0 1rem !important;
-    border: none;
-    border-left: 3px solid var(--primary);
-    background: #f9fafb;
-    box-shadow: none;
-  }
-
-  /* Expanded dropdown on mobile */
-  .dropdown-menu.show {
-    display: block !important;
-    opacity: 1 !important;
-    visibility: visible !important;
-  }
-
-  .dropdown-item {
-    padding: 0.65rem 1rem;
-    font-size: 0.95rem;
-    border-radius: 4px;
-    margin-bottom: 2px;
-  }
-  
-  .dropdown-item:hover {
-    background: #e5e7eb;
+    margin-top: 1rem;
   }
 }
 
 @media (max-width: 576px) {
-  /* Small phone optimization */
   .navbar-brand img {
     height: 32px;
   }
+}
 
-  .navbar-nav .nav-link {
-    font-size: 0.95rem;
-    padding: 0.75rem 0 !important;
-  }
-
-  .navbar-search-dropdown {
-    width: 100% !important;
-    max-width: 100% !important;
-    position: static !important;
-    left: auto !important;
-    right: auto !important;
-    top: auto !important;
-    margin-top: 0.75rem;
-    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.08);
-    border: 1px solid #e5e7eb;
-    background: #ffffff;
-  }
-
-  /* Dropdown optimization for small screens */
-  .dropdown-menu {
-    width: 100% !important;
-    max-width: calc(100vw - 20px) !important;
-    position: static !important;
-  }
-
-  .dropdown-item {
-    padding: 0.65rem 1rem;
-    font-size: 0.9rem;
-  }
-
-  /* Buttons in navbar on mobile - COMPACT HORIZONTAL LAYOUT */
-  .navbar-btn {
-    padding: 0.5rem 0.75rem !important;
-    font-size: 0.875rem !important;
-    width: 100%;
-    justify-content: center;
-    font-weight: 500;
-  }
-
-  .messaging-btn,
-  .btn-light.btn-sm {
-    padding: 0.5rem 0.75rem !important;
-    width: 100%;
-    height: auto;
+@media (max-width: 991.98px) {
+  .language-switcher {
     display: flex !important;
-    flex-direction: row !important;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-    font-weight: 500;
-    font-size: 0.875rem !important;
-  }
-  
-  .messaging-btn i,
-  .btn-light.btn-sm i {
-    margin-right: 0;
-  }
-  
-  /* Mobile показываем текст рядом с иконками */
-  .messaging-btn .d-sm-none,
-  .btn-light.btn-sm .d-sm-none {
-    display: inline !important;
-  }
-
-  .navbar-notification-badge {
-    font-size: 0.6rem;
-    padding: 0.2rem 0.4rem;
-  }
-  
-  /* Navbar buttons container on mobile - 2 columns grid */
-  .navbar-collapse .d-flex.align-items-center.gap-2 {
-    display: grid !important;
-    grid-template-columns: 1fr 1fr;
-    gap: 0.5rem !important;
     width: 100%;
   }
-  
-  /* Search takes full width */
-  .navbar-collapse .d-flex.align-items-center.gap-2 .dropdown:has(#communitySearchToggle) {
-    grid-column: 1 / -1;
+
+  .language-select-modern {
+    width: 100%;
+    min-width: 0;
   }
-  
-  /* All buttons in mobile menu - compact sizing */
-  .navbar-collapse .d-flex.align-items-center.gap-2 > button,
-  .navbar-collapse .d-flex.align-items-center.gap-2 > a,
-  .navbar-collapse .d-flex.align-items-center.gap-2 .navbar-btn {
-    padding: 0.5rem 0.75rem !important;
-    font-size: 0.85rem !important;
-    white-space: nowrap;
-  }
-  
-  /* Messages and Notifications buttons - each takes one column */
-  .navbar-collapse .d-flex.align-items-center.gap-2 #messagingToggle,
-  .navbar-collapse .d-flex.align-items-center.gap-2 #notificationsToggle {
-    grid-column: span 1;
-    justify-content: center;
-  }
-  
-  /* Profile and Logout take full width each */
-  .navbar-collapse .d-flex.align-items-center.gap-2 .navbar-btn {
-    grid-column: span 2;
+
+  .dev-banner {
+    padding: 10px 12px;
+    font-size: 0.85rem;
+    line-height: 1.35;
   }
 }
 
