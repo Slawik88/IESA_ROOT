@@ -20,12 +20,24 @@
   let lastScrollTop = 0;
   let isHidden = false;
   let scrollTimeout = null;
-  let totalScrollDistance = 0;
+  let isMenuLockedOpen = false;
+
+  function isMobileMenuContext() {
+    const navbarCollapse = document.getElementById('navbarNav');
+    const navbarToggler = document.querySelector('.navbar-toggler');
+    const isMenuOpen = navbarCollapse && navbarCollapse.classList.contains('show');
+    const isTogglerVisible = navbarToggler && window.getComputedStyle(navbarToggler).display !== 'none';
+    return isMenuLockedOpen || isMenuOpen || isTogglerVisible;
+  }
 
   /**
    * Скрыть header
    */
   function hideHeader() {
+    if (isMobileMenuContext()) {
+      showHeader();
+      return;
+    }
     if (isHidden) return;
     isHidden = true;
     
@@ -65,11 +77,7 @@
       const currentScroll = window.pageYOffset || document.documentElement.scrollTop;
       const scrollDelta = currentScroll - lastScrollTop;
 
-      const navbarCollapse = document.getElementById('navbarNav');
-      const isMobile = window.innerWidth < 992;
-      const isMenuOpen = navbarCollapse && navbarCollapse.classList.contains('show');
-
-      if (isMobile || isMenuOpen) {
+      if (isMobileMenuContext()) {
         showHeader();
         lastScrollTop = currentScroll;
         return;
@@ -110,6 +118,19 @@
 
     // Добавляем обработчик скролла
     window.addEventListener('scroll', onScroll, { passive: true });
+
+    const navbarCollapse = document.getElementById('navbarNav');
+    if (navbarCollapse) {
+      navbarCollapse.addEventListener('shown.bs.collapse', function() {
+        isMenuLockedOpen = true;
+        showHeader();
+      });
+
+      navbarCollapse.addEventListener('hidden.bs.collapse', function() {
+        isMenuLockedOpen = false;
+        showHeader();
+      });
+    }
 
     // Добавляем поддержку ResizeObserver для адаптивного дизайна
     if ('ResizeObserver' in window) {

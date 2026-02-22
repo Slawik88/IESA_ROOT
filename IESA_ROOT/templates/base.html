@@ -420,9 +420,6 @@
     <!-- Header Hide on Scroll: скрывает header при прокрутке вниз -->
     <script src="{% static 'js/header-hide-on-scroll.js' %}"></script>
     
-    <!-- Micro-interactions and polish -->
-    <script src="{% static 'js/micro-interactions.js' %}"></script>
-    
     <!-- Performance optimization -->
     <script src="{% static 'js/performance-optimization.js' %}" async></script>
     
@@ -443,7 +440,7 @@
          hx-trigger="load, every 60s"
          hx-swap="innerHTML"
          hx-target="#unreadMessagesCount"
-         style="display: none;">
+            class="d-none">
     </div>
     {% endif %}
 </body>
