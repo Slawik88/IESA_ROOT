@@ -1005,3 +1005,198 @@
         width: 80px;
     }
 }
+
+/* ============================================================================
+   7. HOMEPAGE SHOWCASE REWORK (scoped redesign, no aggressive whole-card hover)
+   ============================================================================ */
+
+.hero-showcase {
+    border: 1px solid rgba(248, 113, 113, 0.14);
+    border-radius: 24px;
+    background:
+        radial-gradient(circle at 15% 20%, rgba(248, 113, 113, 0.08), transparent 42%),
+        radial-gradient(circle at 85% 80%, rgba(96, 165, 250, 0.08), transparent 46%),
+        linear-gradient(135deg, #ffffff 0%, #fff5f5 50%, #ffffff 100%);
+    box-shadow: 0 18px 48px rgba(15, 23, 42, 0.08);
+}
+
+.hero-showcase .hero-badge {
+    border-radius: 999px;
+    padding: 0.5rem 0.95rem;
+    border-width: 1px;
+    box-shadow: 0 6px 14px rgba(248, 113, 113, 0.14);
+}
+
+.hero-showcase .hero-badge:hover {
+    transform: none;
+    box-shadow: 0 8px 18px rgba(248, 113, 113, 0.2);
+}
+
+.hero-showcase .hero-title {
+    max-width: 920px;
+    margin-left: auto;
+    margin-right: auto;
+    line-height: 1.12;
+    letter-spacing: -0.02em;
+}
+
+.hero-showcase .hero-description {
+    max-width: 760px;
+    margin-left: auto;
+    margin-right: auto;
+    color: #5f6b7a;
+}
+
+.mission-showcase {
+    border: 1px solid rgba(248, 113, 113, 0.12);
+    border-radius: 24px;
+    background:
+        linear-gradient(135deg, #ffffff 0%, #fdfefe 42%, #f8fafc 100%);
+    box-shadow: 0 12px 32px rgba(15, 23, 42, 0.06);
+}
+
+.mission-showcase .mission-panel {
+    border: 1px solid rgba(148, 163, 184, 0.18);
+    border-radius: 18px;
+    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04);
+    background: #ffffff;
+    position: relative;
+    overflow: hidden;
+}
+
+.mission-showcase .mission-panel::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    background: linear-gradient(180deg, #f87171 0%, #60a5fa 100%);
+}
+
+.mission-showcase .mission-panel:hover {
+    transform: none;
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.07);
+}
+
+.mission-showcase li {
+    color: #455468;
+}
+
+.events-showcase .showcase-card {
+    border-radius: 20px;
+    border: 1px solid rgba(248, 113, 113, 0.12);
+    box-shadow: 0 12px 30px rgba(15, 23, 42, 0.06);
+    overflow: hidden;
+    transition: border-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.events-showcase .showcase-card:hover {
+    transform: none !important;
+    border-color: rgba(248, 113, 113, 0.28);
+    box-shadow: 0 16px 34px rgba(248, 113, 113, 0.12);
+}
+
+.events-showcase .showcase-card .event-card-image,
+.events-showcase .showcase-card .event-card-placeholder {
+    border-bottom: 1px solid rgba(248, 113, 113, 0.1);
+}
+
+.events-showcase .showcase-card .event-card-image {
+    transition: transform 0.35s ease, filter 0.35s ease;
+}
+
+.events-showcase .showcase-card:hover .event-card-image {
+    transform: scale(1.04);
+    filter: saturate(1.08);
+}
+
+.events-showcase .showcase-card .card-footer {
+    background: linear-gradient(180deg, #fff 0%, #fff8f8 100%);
+}
+
+.events-showcase .showcase-card .btn {
+    border-radius: 10px;
+    transition: box-shadow 0.25s ease, transform 0.25s ease;
+}
+
+.events-showcase .showcase-card .btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 8px 18px rgba(248, 113, 113, 0.2);
+}
+
+.about-showcase {
+    border: 1px solid rgba(248, 113, 113, 0.12);
+    border-radius: 24px;
+    box-shadow: 0 12px 34px rgba(15, 23, 42, 0.06);
+}
+
+.about-showcase .member-showcase-card {
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    border-radius: 18px;
+    transition: border-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.about-showcase .member-showcase-card:hover {
+    transform: none !important;
+    border-color: rgba(248, 113, 113, 0.25);
+    box-shadow: 0 14px 28px rgba(15, 23, 42, 0.08);
+}
+
+.about-showcase .member-showcase-card .member-photo,
+.about-showcase .member-showcase-card .member-avatar {
+    transition: transform 0.25s ease;
+}
+
+.about-showcase .member-showcase-card:hover .member-photo,
+.about-showcase .member-showcase-card:hover .member-avatar {
+    transform: scale(1.03);
+}
+
+.about-showcase .member-more-btn:hover {
+    transform: translateX(2px);
+}
+
+.partners-showcase .partner-showcase-card {
+    border-radius: 18px;
+    border: 1px solid rgba(148, 163, 184, 0.18);
+    transition: border-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.partners-showcase .partner-showcase-card:hover {
+    transform: none !important;
+    border-color: rgba(248, 113, 113, 0.28);
+    box-shadow: 0 14px 30px rgba(15, 23, 42, 0.08);
+}
+
+.partners-showcase .partner-showcase-card .partner-logo-compact {
+    transition: border-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.partners-showcase .partner-showcase-card:hover .partner-logo-compact {
+    transform: none;
+    border-color: rgba(248, 113, 113, 0.22);
+    box-shadow: 0 6px 16px rgba(248, 113, 113, 0.12);
+}
+
+.partners-showcase .partner-showcase-card .btn:hover {
+    transform: translateY(-1px);
+}
+
+@media (max-width: 767.98px) {
+    .hero-showcase {
+        border-radius: 18px;
+    }
+
+    .mission-showcase,
+    .about-showcase {
+        border-radius: 18px;
+    }
+
+    .mission-showcase .mission-panel,
+    .events-showcase .showcase-card,
+    .about-showcase .member-showcase-card,
+    .partners-showcase .partner-showcase-card {
+        border-radius: 14px;
+    }
+}
