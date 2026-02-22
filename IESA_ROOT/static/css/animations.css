@@ -397,19 +397,21 @@ button.htmx-request::after {
     overflow: hidden;
 }
 
-.btn:hover:not(:disabled) {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+@media (hover: hover) and (pointer: fine) {
+  .btn:hover:not(:disabled) {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+
+  /* Primary button glow effect */
+  .btn-primary:hover {
+      box-shadow: 0 4px 20px rgba(var(--bs-primary-rgb, 13, 110, 253), 0.4);
+  }
 }
 
 .btn:active:not(:disabled) {
     transform: translateY(0) scale(0.98);
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-/* Primary button glow effect */
-.btn-primary:hover {
-    box-shadow: 0 4px 20px rgba(var(--bs-primary-rgb, 13, 110, 253), 0.4);
 }
 
 /* Ripple effect (pure CSS) */
