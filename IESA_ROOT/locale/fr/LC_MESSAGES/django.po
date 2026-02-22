@@ -816,7 +816,7 @@ msgstr "Événements · Éducation · Partenariats"
 #: .\IESA_ROOT\gallery\templates\gallery\gallery.html:4
 #: .\IESA_ROOT\templates\base.html:118 .\IESA_ROOT\templates\base.html:248
 msgid "Gallery"
-msgstr "Gallery"
+msgstr "Galerie"
 
 #: .\IESA_ROOT\gallery\templates\gallery\gallery.html:9
 msgid "PHOTO GALLERY"
@@ -1140,57 +1140,57 @@ msgstr "Toggle navigation"
 #: .\IESA_ROOT\templates\base.html:114
 #: .\IESA_ROOT\users\templates\users\profile_public.html:81
 msgid "About"
-msgstr "About"
+msgstr "À propos"
 
 #: .\IESA_ROOT\templates\base.html:116
 msgid "Benefits"
-msgstr "Benefits"
+msgstr "Avantages"
 
 #: .\IESA_ROOT\templates\base.html:120 .\IESA_ROOT\templates\base.html:247
 msgid "Community"
-msgstr "Community"
+msgstr "Communauté"
 
 #: .\IESA_ROOT\templates\base.html:122
 #: .\IESA_ROOT\users\templates\users\profile.html:81
 #: .\IESA_ROOT\users\templates\users\profile_public.html:99
 msgid "Posts"
-msgstr "Posts"
+msgstr "Publications"
 
 #: .\IESA_ROOT\templates\base.html:124 .\IESA_ROOT\users\models.py:231
 msgid "Partners"
-msgstr "Partners"
+msgstr "Partenaires"
 
 #: .\IESA_ROOT\templates\base.html:125
 msgid "Members"
-msgstr "Members"
+msgstr "Membres"
 
 #: .\IESA_ROOT\templates\base.html:128
 msgid "Create post"
-msgstr "Create post"
+msgstr "Créer une publication"
 
 #: .\IESA_ROOT\templates\base.html:139
 msgid "Select language"
-msgstr "Select language"
+msgstr "Sélectionner la langue"
 
 #: .\IESA_ROOT\templates\base.html:147
 msgid "Search community"
-msgstr "Search community"
+msgstr "Rechercher dans la communauté"
 
 #: .\IESA_ROOT\templates\base.html:147
 msgid "Open search menu"
-msgstr "Open search menu"
+msgstr "Ouvrir le menu de recherche"
 
 #: .\IESA_ROOT\templates\base.html:154
 msgid "Posts, users, events..."
-msgstr "Posts, users, events..."
+msgstr "Publications, utilisateurs, événements..."
 
 #: .\IESA_ROOT\templates\base.html:202
 msgid "Logout"
-msgstr "Logout"
+msgstr "Déconnexion"
 
 #: .\IESA_ROOT\templates\base.html:239
 msgid "ABOUT"
-msgstr "ABOUT"
+msgstr "À PROPOS"
 
 #: .\IESA_ROOT\templates\base.html:240
 msgid ""

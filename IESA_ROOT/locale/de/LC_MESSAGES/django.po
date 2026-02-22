@@ -816,7 +816,7 @@ msgstr "Veranstaltungen · Bildung · Partnerschaften"
 #: .\IESA_ROOT\gallery\templates\gallery\gallery.html:4
 #: .\IESA_ROOT\templates\base.html:118 .\IESA_ROOT\templates\base.html:248
 msgid "Gallery"
-msgstr "Gallery"
+msgstr "Galerie"
 
 #: .\IESA_ROOT\gallery\templates\gallery\gallery.html:9
 msgid "PHOTO GALLERY"
@@ -1140,57 +1140,57 @@ msgstr "Toggle navigation"
 #: .\IESA_ROOT\templates\base.html:114
 #: .\IESA_ROOT\users\templates\users\profile_public.html:81
 msgid "About"
-msgstr "About"
+msgstr "Über uns"
 
 #: .\IESA_ROOT\templates\base.html:116
 msgid "Benefits"
-msgstr "Benefits"
+msgstr "Vorteile"
 
 #: .\IESA_ROOT\templates\base.html:120 .\IESA_ROOT\templates\base.html:247
 msgid "Community"
-msgstr "Community"
+msgstr "Gemeinschaft"
 
 #: .\IESA_ROOT\templates\base.html:122
 #: .\IESA_ROOT\users\templates\users\profile.html:81
 #: .\IESA_ROOT\users\templates\users\profile_public.html:99
 msgid "Posts"
-msgstr "Posts"
+msgstr "Beiträge"
 
 #: .\IESA_ROOT\templates\base.html:124 .\IESA_ROOT\users\models.py:231
 msgid "Partners"
-msgstr "Partners"
+msgstr "Partner"
 
 #: .\IESA_ROOT\templates\base.html:125
 msgid "Members"
-msgstr "Members"
+msgstr "Mitglieder"
 
 #: .\IESA_ROOT\templates\base.html:128
 msgid "Create post"
-msgstr "Create post"
+msgstr "Beitrag erstellen"
 
 #: .\IESA_ROOT\templates\base.html:139
 msgid "Select language"
-msgstr "Select language"
+msgstr "Sprache auswählen"
 
 #: .\IESA_ROOT\templates\base.html:147
 msgid "Search community"
-msgstr "Search community"
+msgstr "Gemeinschaft durchsuchen"
 
 #: .\IESA_ROOT\templates\base.html:147
 msgid "Open search menu"
-msgstr "Open search menu"
+msgstr "Suchmenü öffnen"
 
 #: .\IESA_ROOT\templates\base.html:154
 msgid "Posts, users, events..."
-msgstr "Posts, users, events..."
+msgstr "Beiträge, Nutzer, Events..."
 
 #: .\IESA_ROOT\templates\base.html:202
 msgid "Logout"
-msgstr "Logout"
+msgstr "Abmelden"
 
 #: .\IESA_ROOT\templates\base.html:239
 msgid "ABOUT"
-msgstr "ABOUT"
+msgstr "ÜBER UNS"
 
 #: .\IESA_ROOT\templates\base.html:240
 msgid ""
