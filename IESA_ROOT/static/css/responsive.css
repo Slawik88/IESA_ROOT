@@ -369,6 +369,11 @@
   .partner-card-compact .d-flex.gap-2 .btn {
     width: 100%;
   }
+
+  .min-w-280,
+  .min-w-340 {
+    min-width: 0 !important;
+  }
   
   /* Profile Header */
   .profile-header {

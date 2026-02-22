@@ -569,6 +569,10 @@ body {
    ============================================================ */
 
 @media (max-width: 768px) {
+    body {
+        background-attachment: scroll;
+    }
+
     .benefit-card,
     .product-card,
     .member-card,
@@ -581,5 +585,34 @@ body {
     .member-card:hover,
     .partner-card-compact:hover {
         transform: translateY(-4px) scale(1);
+    }
+}
+
+@media (hover: none), (pointer: coarse) {
+    .hero-badge:hover,
+    .benefit-card:hover,
+    .benefit-card:hover .benefit-icon-box,
+    .product-card:hover,
+    .product-card:hover .product-card-image,
+    .event-card:hover,
+    .member-card:hover,
+    .partner-card-compact:hover,
+    .pagination-btn:hover {
+        transform: none !important;
+    }
+
+    .benefit-card:hover::before,
+    .product-card:hover::before {
+        left: -100% !important;
+        width: 0 !important;
+    }
+
+    .benefit-card:hover,
+    .product-card:hover,
+    .event-card:hover,
+    .member-card:hover,
+    .partner-card-compact:hover,
+    .pagination-btn:hover {
+        box-shadow: var(--shadow-soft) !important;
     }
 }

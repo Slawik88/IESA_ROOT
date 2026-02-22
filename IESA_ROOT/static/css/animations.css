@@ -25,11 +25,13 @@ html {
     will-change: transform, box-shadow;
 }
 
-.card:hover {
-    transform: translateY(-6px);
-    box-shadow: 
-        0 20px 40px rgba(0, 0, 0, 0.08),
-        0 8px 16px rgba(0, 0, 0, 0.04);
+@media (hover: hover) and (pointer: fine) {
+    .card:hover {
+        transform: translateY(-6px);
+        box-shadow: 
+            0 20px 40px rgba(0, 0, 0, 0.08),
+            0 8px 16px rgba(0, 0, 0, 0.04);
+    }
 }
 
 /* Card с изображением - мягкий zoom */
@@ -38,9 +40,11 @@ html {
     transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.card:hover .card-img-top,
-.card:hover .card-img {
-    transform: scale(1.05);
+@media (hover: hover) and (pointer: fine) {
+    .card:hover .card-img-top,
+    .card:hover .card-img {
+        transform: scale(1.05);
+    }
 }
 
 /* Overflow hidden для card чтобы изображение не вылезало */
