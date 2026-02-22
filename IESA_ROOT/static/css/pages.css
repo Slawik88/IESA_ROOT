@@ -932,6 +932,7 @@
   margin-bottom: var(--space-2);
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
@@ -941,6 +942,7 @@
   font-size: var(--text-sm);
   display: -webkit-box;
   -webkit-line-clamp: 3;
+  line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
@@ -1481,6 +1483,7 @@
   line-height: 1.6;
   display: -webkit-box;
   -webkit-line-clamp: 3;
+  line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
@@ -1579,6 +1582,7 @@
   line-height: 1.6;
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
@@ -1723,3 +1727,76 @@
 .partner-animate:nth-child(6) { animation-delay: 0.3s; }
 .partner-animate:nth-child(7) { animation-delay: 0.35s; }
 .partner-animate:nth-child(8) { animation-delay: 0.4s; }
+
+/* ============================================================
+   POST DETAIL - INLINE STYLE REPLACEMENTS
+   ============================================================ */
+
+.post-detail-title {
+  color: var(--color-gray-900);
+  line-height: 1.3;
+}
+
+.post-detail-meta-row {
+  border-bottom: 1px solid var(--color-gray-200);
+}
+
+.post-detail-meta-icon {
+  color: var(--color-gray-400);
+}
+
+.post-detail-author-link {
+  color: var(--color-primary);
+}
+
+.post-detail-image {
+  max-height: 500px;
+  width: 100%;
+  object-fit: cover;
+  border-radius: var(--radius-lg);
+}
+
+.post-detail-content {
+  font-size: 1.0625rem;
+  line-height: 1.75;
+  color: var(--color-gray-700);
+}
+
+.post-rec-link {
+  color: inherit;
+}
+
+.post-rec-card {
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.post-rec-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+}
+
+.post-rec-image {
+  height: 150px;
+  object-fit: cover;
+}
+
+.post-rec-image-placeholder {
+  height: 150px;
+  background: #f0f0f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #999;
+}
+
+.post-rec-excerpt {
+  line-height: 1.4;
+}
+
+@media (max-width: 767.98px) {
+  .post-detail-content {
+    font-size: 1rem;
+    line-height: 1.65;
+  }
+}

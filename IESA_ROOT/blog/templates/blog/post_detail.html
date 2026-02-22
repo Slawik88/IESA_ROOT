@@ -34,15 +34,15 @@
                 </div>
                 
                 <!-- Заголовок -->
-                <h1 class="fw-bold mb-4" style="color: var(--color-gray-900); line-height: 1.3;">{{ post.title }}</h1>
+                <h1 class="fw-bold mb-4 post-detail-title">{{ post.title }}</h1>
                 
                 <!-- Мета информация -->
-                <div class="d-flex align-items-center flex-wrap gap-3 mb-4 pb-3" style="border-bottom: 1px solid var(--color-gray-200);">
+                <div class="d-flex align-items-center flex-wrap gap-3 mb-4 pb-3 post-detail-meta-row">
                     <div class="d-flex align-items-center">
-                        <i class="fas fa-user-circle me-2" style="color: var(--color-gray-400);"></i>
+                        <i class="fas fa-user-circle me-2 post-detail-meta-icon"></i>
                         <span class="text-muted">
                             {% if post.author.username %}
-                                <a href="{% url 'users:profile_public_username' username=post.author.username %}" class="text-decoration-none fw-semibold" style="color: var(--color-primary);">
+                                <a href="{% url 'users:profile_public_username' username=post.author.username %}" class="text-decoration-none fw-semibold post-detail-author-link">
                                     {{ post.author.username }}
                                 </a>
                             {% else %}
@@ -51,11 +51,11 @@
                         </span>
                     </div>
                     <div class="d-flex align-items-center text-muted">
-                        <i class="far fa-calendar me-2" style="color: var(--color-gray-400);"></i>
+                        <i class="far fa-calendar me-2 post-detail-meta-icon"></i>
                         {{ post.created_at|date:"d M Y" }}
                     </div>
                     <div class="d-flex align-items-center text-muted">
-                        <i class="far fa-eye me-2" style="color: var(--color-gray-400);"></i>
+                        <i class="far fa-eye me-2 post-detail-meta-icon"></i>
                         {{ post.views_count }} {% trans "views" %}
                     </div>
                 </div>
@@ -76,18 +76,18 @@
                 
                 <!-- Превью изображение -->
                 {% if post.preview_image %}
-                    <img src="{{ post.preview_image.url }}" class="img-fluid mb-4" alt="{{ post.title }}" style="max-height: 500px; width: 100%; object-fit: cover; border-radius: var(--radius-lg);" loading="lazy">
+                    <img src="{{ post.preview_image.url }}" class="img-fluid mb-4 post-detail-image" alt="{{ post.title }}" loading="lazy">
                 {% endif %}
 
                 <!-- Post content -->
-                <div class="post-content" style="font-size: 1.0625rem; line-height: 1.75; color: var(--color-gray-700);">
+                <div class="post-content post-detail-content">
                     {{ post.text|safe }}
                 </div>
             </article>
 
             <!-- Comments Section -->
             <section id="comments" class="mb-5">
-                <h6 class="section-title mb-4" style="display: block;">{% trans "COMMENTS" %} ({{ post.comments.count }})</h6>
+                <h6 class="section-title mb-4 d-block">{% trans "COMMENTS" %} ({{ post.comments.count }})</h6>
                 
                 <!-- Comment Form (Only for authenticated users) -->
                 {% if user.is_authenticated %}
@@ -123,16 +123,16 @@
             <!-- Recommended Posts Section -->
             {% if recommended_posts %}
             <section class="mb-5">
-                <h6 class="section-title mb-4" style="display: block;">{% trans "RECOMMENDED POSTS" %}</h6>
+                <h6 class="section-title mb-4 d-block">{% trans "RECOMMENDED POSTS" %}</h6>
                 <div class="row g-3">
                     {% for post_rec in recommended_posts %}
                     <div class="col-md-6">
-                        <a href="{% url 'blog:post_detail' post_rec.pk %}" class="text-decoration-none" style="color: inherit;">
-                            <div class="card card-modern h-100" style="cursor: pointer; transition: transform 0.2s, box-shadow 0.2s;" onmouseover="this.style.transform='translateY(-5px)'; this.style.boxShadow='0 8px 24px rgba(0,0,0,0.15)';" onmouseout="this.style.transform=''; this.style.boxShadow='';">
+                        <a href="{% url 'blog:post_detail' post_rec.pk %}" class="text-decoration-none post-rec-link">
+                            <div class="card card-modern h-100 post-rec-card">
                                 {% if post_rec.preview_image %}
-                                    <img src="{{ post_rec.preview_image.url }}" class="card-img-top" alt="{{ post_rec.title }}" style="height:150px;object-fit:cover;" loading="lazy">
+                                    <img src="{{ post_rec.preview_image.url }}" class="card-img-top post-rec-image" alt="{{ post_rec.title }}" loading="lazy">
                                 {% else %}
-                                    <div class="card-img-top" style="height:150px;background:#f0f0f0;display:flex;align-items:center;justify-content:center;color:#999;">
+                                    <div class="card-img-top post-rec-image-placeholder">
                                         <i class="fas fa-image fa-3x"></i>
                                     </div>
                                 {% endif %}
@@ -143,7 +143,7 @@
                                         <br>
                                         <i class="fas fa-calendar-alt me-1"></i> {{ post_rec.created_at|date:"d M Y" }}
                                     </p>
-                                    <p class="card-text small text-muted" style="line-height:1.4;">
+                                    <p class="card-text small text-muted post-rec-excerpt">
                                         {{ post_rec.text|truncatewords:15|striptags }}
                                     </p>
                                 </div>

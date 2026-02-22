@@ -69,22 +69,14 @@
     <link rel="stylesheet" href="{% static 'css/components.css' %}">
     <link rel="stylesheet" href="{% static 'css/pages.css' %}">
     <link rel="stylesheet" href="{% static 'css/utilities.css' %}">
-    <link rel="stylesheet" href="{% static 'css/responsive.css' %}">
-    
-    <!-- CSS Animations (заменяет JS анимации) -->
     <link rel="stylesheet" href="{% static 'css/animations.css' %}">
-    
-    <!-- Modern Design System -->
     <link rel="stylesheet" href="{% static 'css/modern-design.css' %}">
-        <!-- Product Cards (extracted from inline styles) -->
-    <link rel="stylesheet" href="{% static 'css/product-cards.css' %}">    
-    <!-- Homepage v2 - Soft colors & Modern interactions -->
-    <link rel="stylesheet" href="{% static 'css/homepage-v2.css' %}">    <!-- Section Enhancements - Polish for all sections -->
+    <link rel="stylesheet" href="{% static 'css/product-cards.css' %}">
+    <link rel="stylesheet" href="{% static 'css/homepage-v2.css' %}">
     <link rel="stylesheet" href="{% static 'css/sections-enhancements.css' %}">
-    <!-- Premium Sections Redesign - Events, About, Partnerships -->
-    <link rel="stylesheet" href="{% static 'css/premium-sections.css' %}">            <!-- Touch Gestures -->
+    <link rel="stylesheet" href="{% static 'css/premium-sections.css' %}">
     <link rel="stylesheet" href="{% static 'css/touch-gestures.css' %}">
-    <link rel="stylesheet" href="{% static 'css/language-selector.css' %}">
+    <link rel="stylesheet" href="{% static 'css/responsive.css' %}">
     
 
 </head>
@@ -93,7 +85,7 @@
     <a href="#main-content" class="skip-to-main">{% trans "Skip to main content" %}</a>
     
     <!-- DEVELOPMENT BANNER -->
-    <div style="background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%); color: white; padding: 12px 20px; text-align: center; font-weight: 500; box-shadow: 0 2px 8px rgba(0,0,0,0.15); position: relative; z-index: 1050;">
+    <div class="dev-banner">
         <i class="bi bi-cone-striped me-2"></i>
         <strong>{% trans "Attention!" %}</strong> {% trans "Site is under active development. Some features may not work correctly." %}
         <i class="bi bi-tools ms-2"></i>
@@ -132,7 +124,7 @@
                         </li>
                     </ul>
                     <div class="d-flex align-items-center gap-2">
-                        <form action="{% url 'set_language' %}" method="post" class="language-switcher d-none d-lg-flex">
+                        <form action="{% url 'set_language' %}" method="post" class="language-switcher d-flex">
                             {% csrf_token %}
                             <input name="next" type="hidden" value="{{ request.get_full_path }}">
                             {% get_current_language as LANGUAGE_CODE %}
@@ -144,7 +136,7 @@
                             </select>
                         </form>
                         <!-- Community search (global, HTMX live results) -->
-                        <div class="me-2 dropdown">
+                        <div class="me-2 dropdown community-search-wrap">
                             <button class="btn btn-light btn-sm" id="communitySearchToggle" data-bs-toggle="dropdown" aria-expanded="false" title="{% trans "Search community" %}" aria-label="{% trans "Open search menu" %}">
                                 <i class="fas fa-search"></i>
                             </button>
@@ -179,7 +171,7 @@
                                     </span>
                                     {% endif %}
                                 </button>
-                                <div class="dropdown-menu dropdown-menu-end p-3" style="min-width: 320px; max-height: 400px; overflow-y: auto;">
+                                <div class="dropdown-menu dropdown-menu-end p-3 notifications-dropdown">
                                     <h6 class="dropdown-header">{% trans "Notifications" %}</h6>
                                     <div id="notifications-content"
                                          hx-get="{% url 'notifications:notification_list' %}"

@@ -77,7 +77,7 @@
                             <i class="fas fa-check-circle me-2"></i> {% trans "Already registered" %}
                         </button>
                     {% else %}
-                        <form method="post" action="{% url 'blog:event_register' event.pk %}" style="display: inline;">
+                        <form method="post" action="{% url 'blog:event_register' event.pk %}" class="d-inline">
                             {% csrf_token %}
                             <button type="submit" class="btn btn-primary btn-modern">
                                 <i class="fas fa-check-circle me-2"></i> {% trans "Register" %}
