@@ -6,7 +6,7 @@
 {% block content %}
 <div class="container-limited">
     <!-- HERO Section -->
-    <section class="section-padding text-center card card-flat p-4 mb-5 hero-section" aria-labelledby="hero-title" role="banner">
+    <section class="section-padding text-center card card-flat p-4 mb-5 hero-section hero-showcase" aria-labelledby="hero-title" role="banner">
         <div class="mb-3">
             <span class="badge badge-primary hero-badge" role="text">
                 <i class="fas fa-mountain me-2" aria-hidden="true"></i>{% trans "International Extreme Sports Association" %}
@@ -103,7 +103,7 @@
     </section>
 
     <!-- IESA Mission & Benefits -->
-    <section class="section-padding card card-flat p-5 my-5" aria-labelledby="iesa-mission-title">
+    <section class="section-padding card card-flat p-5 my-5 mission-showcase" aria-labelledby="iesa-mission-title">
         <div class="text-center mb-4">
             <p class="section-title mb-3 section-title-display" role="text">{% trans "IESA MISSION" %}</p>
             <h2 id="iesa-mission-title" class="fw-bold mb-2 text-gray-900">{% trans "Extreme sport as a way of thinking and life" %}</h2>
@@ -111,7 +111,7 @@
         </div>
         <div class="row g-4">
             <div class="col-12 col-lg-6">
-                <div class="card h-100 p-4">
+                <div class="card h-100 p-4 mission-panel mission-panel-benefits">
                     <h3 class="h5 fw-bold mb-3">{% trans "What extreme sport gives" %}</h3>
                     <ul class="list-unstyled mb-0">
                         <li class="mb-2"><i class="fas fa-check text-success me-2" aria-hidden="true"></i>{% trans "Courage and the ability to work with risk" %}</li>
@@ -122,7 +122,7 @@
                 </div>
             </div>
             <div class="col-12 col-lg-6">
-                <div class="card h-100 p-4">
+                <div class="card h-100 p-4 mission-panel mission-panel-invite">
                     <h3 class="h5 fw-bold mb-3">{% trans "Who we invite" %}</h3>
                     <p class="mb-3">{% trans "Teens, adults, companies, and everyone who seeks an active, rich, and conscious life." %}</p>
                     <p class="mb-0 fw-semibold">{% trans "Wake up every color of life. Join us..." %}</p>
@@ -212,7 +212,7 @@
 
     <!-- Upcoming Events Section -->
     {% if upcoming_events %}
-    <section class="section-padding" id="events-section" aria-labelledby="events-title" role="region">
+    <section class="section-padding events-showcase" id="events-section" aria-labelledby="events-title" role="region">
         <header class="text-center mb-5">
             <p class="section-title mb-4 section-title-display" role="text">{% trans "UPCOMING EVENTS" %}</p>
             <h2 id="events-title" class="fw-bold mb-2 text-gray-900">{% trans "Join Our Next Community Gatherings" %}</h2>
@@ -220,7 +220,7 @@
         </header>
         <div class="grid grid-cols-3" role="list">
             {% for event in upcoming_events %}
-            <article class="card h-100">
+            <article class="card h-100 event-card showcase-card">
                 <a href="{% url 'blog:event_detail' event.pk %}" class="text-decoration-none text-inherit">
                     {% if event.image %}
                         <img src="{{ event.image.url }}" class="card-img-top event-card-image" alt="{{ event.title }}" loading="lazy">
@@ -261,7 +261,7 @@
     {% endif %}
 
     <!-- About Section: President & Members -->
-    <section id="about-section" class="section-padding card p-5 my-5" aria-labelledby="about-title">
+    <section id="about-section" class="section-padding card p-5 my-5 about-showcase" aria-labelledby="about-title">
         <div class="text-center mb-4">
             <h6 class="section-title mb-4 section-title-display">{% trans "ABOUT IESA" %}</h6>
             <h2 id="about-title" class="fw-bold mb-2 text-gray-900">{% trans "Our Team" %}</h2>
@@ -278,7 +278,7 @@
             <div class="row g-4">
                 {% for member in members %}
                     <div class="col-12 col-lg-6">
-                        <article class="member-card card h-100">
+                        <article class="member-card card h-100 member-showcase-card">
                             <div class="row g-0 h-100">
                                 <!-- Photo (Left Side) -->
                                 <div class="col-4 col-md-3 d-flex align-items-center justify-content-center member-photo-container">
@@ -362,7 +362,7 @@
     </section>
     
     <!-- Partners Section -->
-    <section class="section-padding" id="partners-section" aria-labelledby="partners-title" role="region">
+    <section class="section-padding partners-showcase" id="partners-section" aria-labelledby="partners-title" role="region">
         <header class="text-center mb-5">
             <p class="section-title mb-4 section-title-display" role="text">{% trans "PARTNERSHIPS" %}</p>
             <h2 id="partners-title" class="fw-bold mb-2 partners-section-title">{% trans "Organizations We Collaborate With" %}</h2>
@@ -373,7 +373,7 @@
                 {% for partner in partners %}
                     <!-- Compact Partner Card -->
                     <div class="col-12 col-md-6 col-lg-4" role="listitem">
-                        <article class="partner-card-compact card h-100" aria-label="{% blocktrans with name=partner.name category=partner.get_category_display %}{{ name }} - {{ category }} partner{% endblocktrans %}">
+                        <article class="partner-card-compact card h-100 partner-showcase-card" aria-label="{% blocktrans with name=partner.name category=partner.get_category_display %}{{ name }} - {{ category }} partner{% endblocktrans %}">
                             <div class="card-body p-3">
                                 <div class="d-flex align-items-start gap-3">
                                     <!-- Logo (Left) -->
