@@ -4,7 +4,6 @@ Signal handlers for automatic notification creation.
 import logging
 from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
-from django.db import transaction
 from blog.models import Post, Comment, Like
 from .utils import (
     notify_post_approved, 

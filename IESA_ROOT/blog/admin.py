@@ -1,7 +1,6 @@
 from django.contrib import admin
 from django.utils.html import format_html
 from django.urls import reverse
-from django.utils.safestring import mark_safe
 from .models import Post, Comment, Like, Event, PostView, CommentLike, BlogSubscription, EventRegistration
 from django.db import models as django_models
 from modeltranslation.admin import TabbedTranslationAdmin

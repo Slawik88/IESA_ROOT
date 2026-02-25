@@ -216,8 +216,6 @@ function monitorPerformance() {
             const perfData = window.performance.timing;
             const pageLoadTime = perfData.loadEventEnd - perfData.navigationStart;
             
-            console.log(`⚡ Page Load Time: ${pageLoadTime}ms`);
-            
             // Send to analytics if needed
             if (window.gtag) {
                 gtag('event', 'page_load_time', {
@@ -232,14 +230,12 @@ function monitorPerformance() {
     if ('PerformanceObserver' in window) {
         try {
             const observer = new PerformanceObserver((list) => {
-                for (const entry of list.getEntries()) {
-                    console.log(`⚡ ${entry.name}: ${entry.duration.toFixed(2)}ms`);
-                }
+                // Performance entries observed
             });
             
             observer.observe({ entryTypes: ['measure', 'navigation'] });
         } catch (e) {
-            console.log('PerformanceObserver not supported');
+            // PerformanceObserver not supported
         }
     }
 }
@@ -258,7 +254,6 @@ function optimizeForDevice() {
     // Check device memory if available
     if (navigator.deviceMemory && navigator.deviceMemory < 4) {
         document.body.classList.add('low-end-device');
-        console.log('⚠️ Low-end device detected, optimizing animations');
     }
 }
 
@@ -295,5 +290,3 @@ window.PerformanceUtils = {
     initOptimizedScrollListeners,
     monitorPerformance
 };
-
-console.log('⚡ Performance optimizations loaded');

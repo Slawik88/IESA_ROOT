@@ -4,7 +4,6 @@ Automatically creates thumbnails and optimized versions of uploaded images.
 """
 from imagekit import ImageSpec, register
 from imagekit.processors import ResizeToFill, ResizeToFit
-from pilkit.processors import Thumbnail
 
 
 class AvatarThumbnail(ImageSpec):

@@ -33,6 +33,4 @@
     document.addEventListener('htmx:responseError', function(evt) {
         document.documentElement.classList.remove('htmx-request');
     });
-    
-    console.log('✅ HTMX Animation Disabler: Loaded');
 })();

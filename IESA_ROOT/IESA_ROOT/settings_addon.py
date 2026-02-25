@@ -6,7 +6,7 @@ import os
 # Logging configuration
 # In production (DEBUG=False), use only console logging (ephemeral filesystem)
 # In development (DEBUG=True), use both console and file logging
-DEBUG_MODE = os.getenv('DEBUG', 'True') == 'True'
+DEBUG_MODE = os.getenv('DEBUG', 'False') == 'True'
 
 LOGGING = {
     'version': 1,

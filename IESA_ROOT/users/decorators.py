@@ -1,9 +1,7 @@
 """
 Security decorators для защиты endpoints от abuse
 """
-from django.utils.decorators import decorator_from_middleware
 from django_ratelimit.decorators import ratelimit
-from django.http import HttpResponse
 
 
 def ratelimit_view(rate='5/m', key='ip'):

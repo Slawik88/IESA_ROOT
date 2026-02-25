@@ -6,12 +6,10 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
 from django.core.paginator import Paginator
 from django.db.models import Q
-from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 from django_ratelimit.decorators import ratelimit
 from .models import User, Partner, Visit
 from .forms_verification import VisitForm, MemberSearchForm
-import pyotp
 
 
 def is_partner(user):

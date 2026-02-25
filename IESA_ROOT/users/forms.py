@@ -9,8 +9,6 @@ from .validators import (
     validate_website_url, 
     validate_other_links
 )
-from django.utils import timezone
-import uuid
 
 
 class CustomUserCreationForm(UserCreationForm):

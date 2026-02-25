@@ -5,7 +5,7 @@ from django.http import HttpResponse
 from django.contrib.auth.decorators import login_required
 from django.db.models import Count
 
-from ..models import Post, BlogSubscription
+from ..models import BlogSubscription
 
 
 @login_required

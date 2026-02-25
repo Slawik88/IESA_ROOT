@@ -8,9 +8,7 @@ with appropriate CORS and ACL settings. This view is mainly for local developmen
 
 from django.http import FileResponse, Http404, HttpResponseForbidden
 from django.contrib.auth.decorators import login_required
-from django.conf import settings
 import os
-from io import BytesIO
 
 
 @login_required
