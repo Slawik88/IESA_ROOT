@@ -31,10 +31,6 @@
               {% if user_obj.card_active %}<span class="badge bg-info"><i class="fas fa-id-card me-1"></i>{% trans "Card Active" %}</span>{% endif %}
             </div>
 
-            {# Legacy QR media path for compatibility with tests and older clients #}
-            {% if user_obj.card_active and user_obj.permanent_id %}
-              <a href="/media/cards/{{ user_obj.permanent_id }}.png" class="d-none" aria-hidden="true">QR</a>
-            {% endif %}
             
             <!-- Basic Info: Date of Birth and Phone -->
             <div class="small text-muted">
