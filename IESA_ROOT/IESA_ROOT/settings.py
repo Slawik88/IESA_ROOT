@@ -394,5 +394,5 @@ STRIPE_SECRET_KEY = os.getenv('STRIPE_SECRET_KEY')
 # Note: WebSocket/Channels removed - using HTMX polling for notifications
 # This reduces database connection pressure significantly
 
-# Import additional settings (logging, email, etc.)
-from .settings_addon import LOGGING
+# Import additional settings (logging, email, CleverReach, etc.)
+from .settings_addon import *  # noqa: F401,F403
