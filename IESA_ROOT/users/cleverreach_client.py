@@ -18,8 +18,8 @@ Usage::
         text='Visit confirmed',
     )
 
-Required Heroku config vars
----------------------------
+Required DigitalOcean App Platform env vars
+-------------------------------------------
     CLEVERREACH_CLIENT_ID      — OAuth app client ID
     CLEVERREACH_CLIENT_SECRET  — OAuth app client secret
     CLEVERREACH_ACCESS_TOKEN   — Current bearer token (bootstrap value)
@@ -108,7 +108,7 @@ def get_valid_token() -> str:
         if "refresh_token" in data and data["refresh_token"] != refresh_token:
             logger.warning(
                 "CleverReach returned a NEW refresh token — update "
-                "CLEVERREACH_REFRESH_TOKEN on Heroku:\n%s",
+                "CLEVERREACH_REFRESH_TOKEN on DigitalOcean (App Platform → Settings → Env Vars):\n%s",
                 data["refresh_token"],
             )
 
