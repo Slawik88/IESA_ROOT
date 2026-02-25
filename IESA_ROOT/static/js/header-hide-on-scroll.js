@@ -1,174 +1,87 @@
 /**
  * Header Hide on Scroll
- * Скрывает header при прокрутке вниз, показывает при прокрутке вверх
- * Version 1.0
+ * Desktop only: hides header on scroll down, shows on scroll up.
+ * Mobile (< 992px): header NEVER hides.
+ * When mobile menu is open: body scroll is LOCKED.
  */
-
 (function() {
   'use strict';
 
-  // Configuration
-  const CONFIG = {
-    header: document.querySelector('header'),
-    devBanner: document.querySelector('[style*="background: linear-gradient"]'),
-    hideThreshold: 100, // px - минимальная прокрутка для скрытия
-    scrollTimeout: 150, // ms - задержка для оптимизации
-  };
+  var header = document.querySelector('header');
+  if (!header) return;
 
-  if (!CONFIG.header) return; // Exit if no header
+  var HIDE_THRESHOLD = 100;
+  var SCROLL_DELAY = 150;
+  var MOBILE_BP = 992;
 
-  let lastScrollTop = 0;
-  let isHidden = false;
-  let scrollTimeout = null;
-  let isMenuLockedOpen = false;
+  var lastY = 0;
+  var hidden = false;
+  var timer = null;
 
-  function isMobileMenuContext() {
-    const navbarCollapse = document.getElementById('navbarNav');
-    const navbarToggler = document.querySelector('.navbar-toggler');
-    const isMenuOpen = navbarCollapse && navbarCollapse.classList.contains('show');
-    const isTogglerVisible = navbarToggler && window.getComputedStyle(navbarToggler).display !== 'none';
-    return isMenuLockedOpen || isMenuOpen || isTogglerVisible;
+  function isMobile() { return window.innerWidth < MOBILE_BP; }
+
+  function hide() {
+    if (hidden) return;
+    hidden = true;
+    header.style.transform = 'translateY(-100%)';
+    header.style.transition = 'transform .3s cubic-bezier(.4,0,.2,1)';
   }
 
-  /**
-   * Скрыть header
-   */
-  function hideHeader() {
-    if (isMobileMenuContext()) {
-      showHeader();
-      return;
-    }
-    if (isHidden) return;
-    isHidden = true;
-    
-    CONFIG.header.style.transform = 'translateY(-100%)';
-    CONFIG.header.style.transition = 'transform var(--header-hide-duration, 0.3s) var(--header-hide-easing, cubic-bezier(0.4, 0, 0.2, 1))';
-    
-    if (CONFIG.devBanner) {
-      CONFIG.devBanner.style.transform = 'translateY(-100%)';
-      CONFIG.devBanner.style.transition = 'transform var(--header-hide-duration, 0.3s) var(--header-hide-easing, cubic-bezier(0.4, 0, 0.2, 1))';
-    }
+  function show() {
+    if (!hidden) return;
+    hidden = false;
+    header.style.transform = 'translateY(0)';
+    header.style.transition = 'transform .3s cubic-bezier(.4,0,.2,1)';
   }
 
-  /**
-   * Показать header
-   */
-  function showHeader() {
-    if (!isHidden) return;
-    isHidden = false;
-    
-    CONFIG.header.style.transform = 'translateY(0)';
-    CONFIG.header.style.transition = 'transform var(--header-hide-duration, 0.3s) var(--header-hide-easing, cubic-bezier(0.4, 0, 0.2, 1))';
-    
-    if (CONFIG.devBanner) {
-      CONFIG.devBanner.style.transform = 'translateY(0)';
-      CONFIG.devBanner.style.transition = 'transform var(--header-hide-duration, 0.3s) var(--header-hide-easing, cubic-bezier(0.4, 0, 0.2, 1))';
-    }
-  }
-
-  /**
-   * Обработчик скролла с оптимизацией
-   */
   function onScroll() {
-    // Очистить предыдущий timeout
-    if (scrollTimeout) clearTimeout(scrollTimeout);
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(function() {
+      // Mobile: NEVER hide header
+      if (isMobile()) { if (hidden) show(); return; }
 
-    scrollTimeout = setTimeout(function() {
-      const currentScroll = window.pageYOffset || document.documentElement.scrollTop;
-      const scrollDelta = currentScroll - lastScrollTop;
-
-      if (isMobileMenuContext()) {
-        showHeader();
-        lastScrollTop = currentScroll;
-        return;
-      }
-
-      // Не скрывать header если мы в верхней части страницы
-      if (currentScroll < CONFIG.hideThreshold) {
-        showHeader();
-        lastScrollTop = currentScroll;
-        return;
-      }
-
-      // Прокрутка вниз - скрыть header
-      if (scrollDelta > 0) {
-        hideHeader();
-      }
-      // Прокрутка вверх - показать header
-      else if (scrollDelta < 0) {
-        showHeader();
-      }
-
-      lastScrollTop = currentScroll;
-    }, CONFIG.scrollTimeout);
+      var y = window.pageYOffset || document.documentElement.scrollTop;
+      if (y < HIDE_THRESHOLD) { show(); }
+      else if (y > lastY) { hide(); }
+      else if (y < lastY) { show(); }
+      lastY = y;
+    }, SCROLL_DELAY);
   }
 
-  /**
-   * Инициализация
-   */
-  function init() {
-    // Применяем начальное состояние
-    CONFIG.header.style.transform = 'translateY(0)';
-    CONFIG.header.style.willChange = 'transform';
-    
-    if (CONFIG.devBanner) {
-      CONFIG.devBanner.style.transform = 'translateY(0)';
-      CONFIG.devBanner.style.willChange = 'transform';
-    }
+  // Body scroll lock for mobile menu
+  function lockScroll() {
+    document.body.style.overflow = 'hidden';
+    document.body.style.touchAction = 'none';
+    document.body.classList.add('mobile-menu-open');
+  }
 
-    // Добавляем обработчик скролла
+  function unlockScroll() {
+    document.body.style.overflow = '';
+    document.body.style.touchAction = '';
+    document.body.classList.remove('mobile-menu-open');
+  }
+
+  function init() {
+    header.style.transform = 'translateY(0)';
+    header.style.willChange = 'transform';
     window.addEventListener('scroll', onScroll, { passive: true });
 
-    const navbarCollapse = document.getElementById('navbarNav');
-    if (navbarCollapse) {
-      navbarCollapse.addEventListener('shown.bs.collapse', function() {
-        isMenuLockedOpen = true;
-        showHeader();
-      });
-
-      navbarCollapse.addEventListener('hidden.bs.collapse', function() {
-        isMenuLockedOpen = false;
-        showHeader();
-      });
+    var nav = document.getElementById('navbarNav');
+    if (nav) {
+      nav.addEventListener('show.bs.collapse', lockScroll);
+      nav.addEventListener('hidden.bs.collapse', unlockScroll);
     }
 
-    // Добавляем поддержку ResizeObserver для адаптивного дизайна
-    if ('ResizeObserver' in window) {
-      const resizeObserver = new ResizeObserver(() => {
-        // Нужно пересчитать при изменении размера окна
-        lastScrollTop = 0;
-      });
-      
-      resizeObserver.observe(CONFIG.header);
-    }
+    window.addEventListener('resize', function() {
+      if (isMobile() && hidden) show();
+    });
   }
 
-  /**
-   * Cleanup при unload
-   */
-  function cleanup() {
-    if (scrollTimeout) clearTimeout(scrollTimeout);
-    window.removeEventListener('scroll', onScroll);
-  }
-
-  // Инициализировать при готовности DOM
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
   } else {
     init();
   }
 
-  // Cleanup при unload
-  window.addEventListener('beforeunload', cleanup);
-
-  // Экспортировать функции для отладки/контроля
-  window.HeaderScroll = {
-    hide: hideHeader,
-    show: showHeader,
-    reset: function() {
-      isHidden = false;
-      lastScrollTop = 0;
-      showHeader();
-    }
-  };
+  window.HeaderScroll = { hide: hide, show: show };
 })();
