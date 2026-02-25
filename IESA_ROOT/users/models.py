@@ -113,6 +113,18 @@ class User(AbstractUser):
         verbose_name=_('TOTP Secret'),
         help_text='Base32-encoded secret for PIN generation'
     )
+
+    # Brute-force PIN protection
+    failed_pin_attempts = models.PositiveSmallIntegerField(
+        default=0,
+        verbose_name=_('Failed PIN Attempts')
+    )
+    pin_lockout_until = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name=_('PIN Lockout Until')
+    )
+
     pseudonym = models.CharField(
         max_length=100,
         blank=True,
@@ -386,6 +398,16 @@ class Visit(models.Model):
         default=False,
         verbose_name=_('PIN Verified')
     )
+    status = models.CharField(
+        max_length=10,
+        choices=[
+            ('ACTIVE', _('Active')),
+            ('EDITED', _('Edited')),
+            ('CANCELLED', _('Cancelled')),
+        ],
+        default='ACTIVE',
+        verbose_name=_('Status')
+    )
     timestamp = models.DateTimeField(
         auto_now_add=True,
         verbose_name=_('Visit Time')
@@ -407,3 +429,49 @@ class Visit(models.Model):
         status = "✓" if self.pin_verified else "✗"
         return f"{status} {self.member.username} @ {self.partner.company_name} ({self.timestamp.strftime('%Y-%m-%d %H:%M')})"
 
+
+class VisitAudit(models.Model):
+    """
+    Audit trail for visit edits and cancellations.
+    Created each time a partner edits or cancels a Visit within the 20-minute window.
+    """
+    ACTION_EDIT = 'EDIT'
+    ACTION_CANCEL = 'CANCEL'
+    ACTION_CHOICES = [
+        (ACTION_EDIT, _('Edit')),
+        (ACTION_CANCEL, _('Cancel')),
+    ]
+
+    visit = models.ForeignKey(
+        Visit,
+        on_delete=models.CASCADE,
+        related_name='audits',
+        verbose_name=_('Visit')
+    )
+    action = models.CharField(
+        max_length=10,
+        choices=ACTION_CHOICES,
+        verbose_name=_('Action')
+    )
+    previous_service_type = models.CharField(max_length=100, blank=True, verbose_name=_('Previous Service Type'))
+    previous_service_description = models.TextField(blank=True, verbose_name=_('Previous Description'))
+    previous_cost = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, verbose_name=_('Previous Cost'))
+    previous_comments = models.TextField(blank=True, verbose_name=_('Previous Comments'))
+    reason = models.TextField(verbose_name=_('Reason'))
+    changed_at = models.DateTimeField(auto_now_add=True, verbose_name=_('Changed At'))
+    changed_by = models.ForeignKey(
+        'User',
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='visit_audits',
+        verbose_name=_('Changed By')
+    )
+
+    class Meta:
+        verbose_name = _('Visit Audit')
+        verbose_name_plural = _('Visit Audits')
+        db_table = 'users_visitaudit'
+        ordering = ['-changed_at']
+
+    def __str__(self):
+        return f"{self.action} visit #{self.visit_id} by {self.changed_by} at {self.changed_at.strftime('%Y-%m-%d %H:%M')}"

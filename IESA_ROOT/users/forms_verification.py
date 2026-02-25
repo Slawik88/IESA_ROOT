@@ -88,3 +88,73 @@ class VisitForm(forms.ModelForm):
         if cost is not None and cost < 0:
             raise forms.ValidationError('❌ Cost cannot be negative')
         return cost
+
+
+class EditVisitForm(forms.ModelForm):
+    """Form for editing an existing visit within the 20-minute window."""
+    reason = forms.CharField(
+        max_length=500,
+        required=True,
+        widget=forms.Textarea(attrs={
+            'class': 'form-control',
+            'rows': 3,
+            'placeholder': 'Explain why this visit record needs to be corrected...',
+            'style': 'border: 2px solid #f093fb; border-radius: 10px;'
+        }),
+        label='📝 Reason for Edit *',
+        help_text='Required — will be stored in the audit log and sent to member by email.'
+    )
+
+    class Meta:
+        model = Visit
+        fields = ['service_type', 'service_description', 'cost', 'comments']
+        widgets = {
+            'service_type': forms.Select(attrs={
+                'class': 'form-select form-select-lg',
+                'style': 'border: 2px solid #667eea; border-radius: 10px;'
+            }),
+            'service_description': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 3,
+                'style': 'border: 2px solid #dee2e6; border-radius: 10px;'
+            }),
+            'cost': forms.NumberInput(attrs={
+                'class': 'form-control form-control-lg',
+                'step': '0.01',
+                'min': '0',
+                'style': 'border: 2px solid #dee2e6; border-radius: 10px; font-size: 1.25rem;'
+            }),
+            'comments': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 2,
+                'style': 'border: 2px solid #dee2e6; border-radius: 10px;'
+            }),
+        }
+        labels = {
+            'service_type': '📋 Service Type *',
+            'service_description': '📝 Service Description',
+            'cost': '💰 Cost in CHF',
+            'comments': '💬 Comments',
+        }
+
+    def clean_cost(self):
+        cost = self.cleaned_data.get('cost')
+        if cost is not None and cost < 0:
+            raise forms.ValidationError('❌ Cost cannot be negative')
+        return cost
+
+
+class CancelVisitForm(forms.Form):
+    """Form for cancelling a visit within the 20-minute window."""
+    reason = forms.CharField(
+        max_length=500,
+        required=True,
+        widget=forms.Textarea(attrs={
+            'class': 'form-control',
+            'rows': 3,
+            'placeholder': 'Explain why this visit is being cancelled...',
+            'style': 'border: 2px solid #f5576c; border-radius: 10px;'
+        }),
+        label='📝 Reason for Cancellation *',
+        help_text='Required — will be stored in the audit log and sent to member by email.'
+    )

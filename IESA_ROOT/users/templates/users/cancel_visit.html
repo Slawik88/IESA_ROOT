@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "Cancel Visit" %} #{{ visit.id }}{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+  <div class="row justify-content-center">
+    <div class="col-md-8 col-lg-6">
+
+      <a href="{% url 'users:partner_dashboard' %}" class="btn btn-outline-secondary mb-3">
+        <i class="fas fa-arrow-left"></i> {% trans "Back to Dashboard" %}
+      </a>
+
+      <!-- Countdown -->
+      <div class="alert alert-danger d-flex align-items-center mb-3" id="countdown-alert">
+        <i class="fas fa-clock me-2"></i>
+        <span>{% trans "Cancellation window closes in" %}&nbsp;<strong id="countdown">{{ seconds_left }}</strong>&nbsp;{% trans "seconds" %}.</span>
+      </div>
+
+      <!-- Visit summary -->
+      <div class="card shadow-sm mb-4 border-danger">
+        <div class="card-header bg-danger bg-opacity-25 fw-bold text-danger">
+          <i class="fas fa-times-circle me-1"></i>
+          {% trans "Cancelling visit" %} — {{ visit.member.get_full_name|default:visit.member.username }}
+        </div>
+        <div class="card-body">
+          <ul class="list-unstyled mb-0 small text-muted">
+            <li><i class="fas fa-tag me-1"></i> {% trans "Service" %}: <strong>{{ visit.get_service_type_display }}</strong></li>
+            <li><i class="fas fa-coins me-1"></i> {% trans "Cost" %}: <strong>{% if visit.cost %}{{ visit.cost }} CHF{% else %}N/A{% endif %}</strong></li>
+            <li><i class="fas fa-clock me-1"></i> {% trans "Logged at" %}: <strong>{{ visit.timestamp|date:"d.m.Y H:i" }}</strong></li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Cancel form -->
+      <div class="card shadow-sm">
+        <div class="card-header" style="background: linear-gradient(135deg,#f5576c,#c0392b); color:#fff;">
+          <h5 class="mb-0"><i class="fas fa-ban me-2"></i>{% trans "Cancel Visit" %}</h5>
+        </div>
+        <div class="card-body p-4">
+
+          {% if messages %}
+            {% for msg in messages %}
+              <div class="alert alert-{{ msg.tags|default:'info' }} alert-dismissible fade show">
+                {{ msg }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+              </div>
+            {% endfor %}
+          {% endif %}
+
+          <p class="text-muted mb-4">
+            <i class="fas fa-info-circle me-1"></i>
+            {% trans "This action cannot be undone. The member will be notified by email." %}
+          </p>
+
+          <form method="post" id="cancelVisitForm">
+            {% csrf_token %}
+            {% for field in form %}
+              <div class="mb-3">
+                <label for="{{ field.id_for_label }}" class="form-label fw-semibold">{{ field.label }}</label>
+                {{ field }}
+                {% if field.help_text %}<div class="form-text text-muted">{{ field.help_text }}</div>{% endif %}
+                {% if field.errors %}
+                  {% for error in field.errors %}
+                    <div class="invalid-feedback d-block">{{ error }}</div>
+                  {% endfor %}
+                {% endif %}
+              </div>
+            {% endfor %}
+
+            <div class="d-grid gap-2 mt-4">
+              <button type="submit" class="btn btn-danger btn-lg fw-bold">
+                <i class="fas fa-ban me-2"></i>{% trans "Confirm Cancellation" %}
+              </button>
+              <a href="{% url 'users:partner_dashboard' %}" class="btn btn-outline-secondary">
+                {% trans "Keep Visit (Go Back)" %}
+              </a>
+            </div>
+          </form>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  let secondsLeft = {{ seconds_left }};
+  const el = document.getElementById('countdown');
+  const form = document.getElementById('cancelVisitForm');
+
+  function tick() {
+    secondsLeft--;
+    if (secondsLeft <= 0) {
+      el.textContent = '0';
+      form.querySelectorAll('button[type=submit]').forEach(b => {
+        b.disabled = true;
+        b.textContent = '⏰ Cancellation window expired';
+      });
+    } else {
+      el.textContent = secondsLeft;
+      setTimeout(tick, 1000);
+    }
+  }
+  if (secondsLeft > 0) setTimeout(tick, 1000);
+</script>
+{% endblock %}
