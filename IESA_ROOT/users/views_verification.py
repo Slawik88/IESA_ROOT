@@ -43,7 +43,7 @@ def public_profile(request, uuid):
         'member': member,
         'is_public_view': True,
     }
-    return render(request, 'users/public_profile.html', context)
+    return render(request, 'users/member_scan_card.html', context)
 
 
 @login_required
