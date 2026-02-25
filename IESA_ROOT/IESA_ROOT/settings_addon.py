@@ -82,3 +82,32 @@ else:
     # Local development — print emails to console
     EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
     DEFAULT_FROM_EMAIL = 'IESA Sport <noreply@iesasport.ch>'
+
+# ---------------------------------------------------------------------------
+# CleverReach integration
+# ---------------------------------------------------------------------------
+# Set these config vars on Heroku.
+# When CLEVERREACH_CLIENT_ID is present, email_service.py will use the
+# CleverReach REST API for ALL transactional emails instead of SMTP.
+# If a CleverReach send fails, the SMTP backend above is used as fallback.
+#
+# Required Heroku config vars:
+#   CLEVERREACH_CLIENT_ID       Z1Jwc8sZlW
+#   CLEVERREACH_CLIENT_SECRET   LIHm1bYWn1T8OhnKIemoWwHFPy86B7X6
+#   CLEVERREACH_ACCESS_TOKEN    (current bearer token)
+#   CLEVERREACH_REFRESH_TOKEN   (refresh token — never expires while used)
+#   CLEVERREACH_SENDER_EMAIL    noreply@iesasport.ch
+#   CLEVERREACH_SENDER_NAME     IESA Sport
+
+CLEVERREACH_CLIENT_ID = _os.environ.get('CLEVERREACH_CLIENT_ID', '')
+CLEVERREACH_CLIENT_SECRET = _os.environ.get('CLEVERREACH_CLIENT_SECRET', '')
+CLEVERREACH_ACCESS_TOKEN = _os.environ.get('CLEVERREACH_ACCESS_TOKEN', '')
+CLEVERREACH_REFRESH_TOKEN = _os.environ.get('CLEVERREACH_REFRESH_TOKEN', '')
+CLEVERREACH_SENDER_EMAIL = _os.environ.get('CLEVERREACH_SENDER_EMAIL', 'noreply@iesasport.ch')
+CLEVERREACH_SENDER_NAME = _os.environ.get('CLEVERREACH_SENDER_NAME', 'IESA Sport')
+
+# When CleverReach is configured, replace the email backend so that ALL Django emails
+# (password reset, verification, transactional, admin alerts) go through CleverReach.
+# The backend falls back to SMTP automatically on any CleverReach API error.
+if CLEVERREACH_CLIENT_ID and CLEVERREACH_ACCESS_TOKEN:
+    EMAIL_BACKEND = 'IESA_ROOT.cleverreach_email_backend.CleverReachEmailBackend'

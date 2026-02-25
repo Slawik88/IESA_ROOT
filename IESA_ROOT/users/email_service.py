@@ -1,6 +1,16 @@
 """
-Email Service for IESA Sport Visit Notifications
-Sends visit confirmation, edit, and cancellation emails via Resend SMTP.
+Email Service for IESA Sport
+============================
+Delivers all transactional emails (visit confirmation/edit/cancel,
+password reset notifications, etc.).
+
+Delivery priority
+-----------------
+1. CleverReach REST API  — used when CLEVERREACH_CLIENT_ID is set in env
+2. Django SMTP backend  — fallback (Resend SMTP or console in local dev)
+
+This means: set CLEVERREACH_* Heroku config vars to switch to CleverReach;
+remove / unset them to fall back to Django's EMAIL_BACKEND automatically.
 """
 import logging
 from django.core.mail import send_mail
@@ -173,7 +183,38 @@ def send_test_email(recipient=ADMIN_EMAIL):
 
 
 def _send(subject, plain_text, html_content, recipients):
-    """Internal helper — wraps send_mail with error logging."""
+    """Internal dispatcher.
+
+    Tries CleverReach first (if configured), then falls back to Django SMTP.
+    Each recipient gets an individual CleverReach mailing so that CR analytics
+    are per-person.
+    """
+    from .cleverreach_client import is_configured as cr_is_configured
+    from .cleverreach_client import send_cleverreach_email as cr_send
+
+    if cr_is_configured():
+        all_ok = True
+        for email_addr in recipients:
+            ok = cr_send(
+                to_email=email_addr,
+                to_name=email_addr,  # real name not always available at this level
+                subject=subject,
+                html=html_content,
+                text=plain_text,
+            )
+            if not ok:
+                all_ok = False
+                logger.warning(
+                    'CleverReach delivery failed for %s — falling back to SMTP', email_addr
+                )
+                _smtp_send(subject, plain_text, html_content, [email_addr])
+        return 1 if all_ok else 0
+
+    return _smtp_send(subject, plain_text, html_content, recipients)
+
+
+def _smtp_send(subject, plain_text, html_content, recipients):
+    """Django send_mail wrapper (Resend SMTP or console backend)."""
     try:
         result = send_mail(
             subject=subject,
@@ -183,8 +224,8 @@ def _send(subject, plain_text, html_content, recipients):
             html_message=html_content,
             fail_silently=False,
         )
-        logger.info(f'Email sent: "{subject}" → {recipients}')
+        logger.info('SMTP email sent: "%s" → %s', subject, recipients)
         return result
     except Exception as exc:
-        logger.error(f'Email failed: "{subject}" → {recipients}: {exc}')
+        logger.error('SMTP email failed: "%s" → %s: %s', subject, recipients, exc)
         return 0
