@@ -46,7 +46,8 @@
   font-weight: 500;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
   position: relative;
-  z-index: 2050;
+  /* One step above --z-fixed so it overlays the sticky header */
+  z-index: calc(var(--z-fixed) + 1);
 }
 
 header {
@@ -54,10 +55,14 @@ header {
   border-bottom: 1px solid var(--border-color);
   position: sticky;
   top: 0;
-  z-index: 2000;
+  /* Bootstrap modals (1050), tooltips (1070), popovers (1060) will now
+     correctly render ABOVE the header. Previously 2000 buried them all. */
+  z-index: var(--z-fixed);
   /* Fixes mobile browser URL bar hide/show glitches */
   transform: translateZ(0);
   -webkit-transform: translateZ(0);
+  /* Creates isolated stacking context — navbar dropdown z-index is
+     relative to this element, not to the page root */
   isolation: isolate;
 }
 
@@ -130,7 +135,10 @@ header {
   box-shadow: var(--shadow-lg);
   padding: var(--space-2);
   min-width: 200px;
-  z-index: 2100;
+  /* Inside header's isolated stacking context the absolute value only
+     needs to beat siblings; outside (page-level dropdowns) Bootstrap's
+     default 1000 applies, so we keep a high enough local value. */
+  z-index: 50;
 }
 
 .dropdown-item {

@@ -1,0 +1,2269 @@
+/* ============================================================
+   IESA Homepage Styles — consolidated from:
+   - homepage-v2.css    (618 lines)
+   - sections-enhancements.css (429 lines)
+   - premium-sections.css      (1202 lines)
+   Merged into a single file to eliminate selector conflicts
+   and duplicate definitions. Load order preserved.
+   ============================================================ */
+
+/* ============================================================
+   PART 1: homepage-v2.css (Partnership list, hero v2, products)
+   ============================================================ */
+/**
+ * HOMEPAGE ENHANCEMENTS v2.0
+ * Soft colors, modern interactions, beautiful design
+ * Fixes: яркие цвета → мягкие тона, добавление интерактивности
+ */
+
+/* ============================================================
+   1. SOFT COLOR PALETTE (вместо ярких красных)
+   ============================================================ */
+
+:root {
+    /* Мягкие красные тона вместо ярких */
+    --soft-red: #f87171;
+    --soft-red-hover: #ef4444;
+    --soft-red-light: #fef2f2;
+    --soft-red-border: #fecaca;
+    
+    /* Мягкие акцентные цвета */
+    --soft-blue: #60a5fa;
+    --soft-blue-hover: #3b82f6;
+    --soft-emerald: #34d399;
+    --soft-amber: #fbbf24;
+    
+    /* Нейтральные мягкие тона */
+    --soft-gray-bg: #f8fafc;
+    --soft-gray-border: #e2e8f0;
+    --soft-gray-text: #64748b;
+    
+    /* Градиенты - мягкие, не агрессивные */
+    --gradient-soft-red: linear-gradient(135deg, #fef2f2 0%, #fee2e2 50%, #fecaca 100%);
+    --gradient-soft-blue: linear-gradient(135deg, #eff6ff 0%, #dbeafe 50%, #bfdbfe 100%);
+    --gradient-soft-emerald: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 50%, #a7f3d0 100%);
+    
+    /* Тени - мягкие, не резкие */
+    --shadow-soft: 0 4px 16px rgba(0, 0, 0, 0.04);
+    --shadow-soft-hover: 0 8px 24px rgba(0, 0, 0, 0.08);
+    --shadow-soft-lg: 0 12px 32px rgba(0, 0, 0, 0.12);
+}
+
+/* ============================================================
+   2. BODY BACKGROUND - мягкий градиент
+   ============================================================ */
+
+body {
+    background: linear-gradient(135deg, #ffffff 0%, #f8fafc 50%, #f1f5f9 100%);
+    background-attachment: fixed;
+}
+
+/* ============================================================
+   3. HERO SECTION - улучшенный дизайн
+   ============================================================ */
+
+.hero-section {
+    background: linear-gradient(135deg, #ffffff 0%, #fef2f2 30%, #fee2e2 60%, #ffffff 100%);
+    border: 2px solid rgba(248, 113, 113, 0.1);
+    position: relative;
+    overflow: hidden;
+}
+
+/* Декоративные элементы фона */
+.hero-section::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -20%;
+    width: 500px;
+    height: 500px;
+    background: radial-gradient(circle, rgba(248, 113, 113, 0.05) 0%, transparent 70%);
+    border-radius: 50%;
+    pointer-events: none;
+}
+
+.hero-section::after {
+    content: '';
+    position: absolute;
+    bottom: -30%;
+    left: -10%;
+    width: 400px;
+    height: 400px;
+    background: radial-gradient(circle, rgba(96, 165, 250, 0.04) 0%, transparent 70%);
+    border-radius: 50%;
+    pointer-events: none;
+}
+
+.hero-badge {
+    background: linear-gradient(135deg, #fff 0%, #fef2f2 100%);
+    border: 2px solid var(--soft-red-border);
+    color: var(--soft-red-hover);
+    box-shadow: var(--shadow-soft);
+    transition: all 0.3s ease;
+}
+
+.hero-badge:hover {
+    transform: scale(1.05);
+    box-shadow: var(--shadow-soft-hover);
+}
+
+/* ============================================================
+   4. BENEFITS SECTION - современные карточки
+   ============================================================ */
+
+.benefit-card {
+    background: linear-gradient(145deg, #ffffff 0%, #fafafa 100%);
+    border: 1px solid var(--soft-gray-border);
+    box-shadow: var(--shadow-soft);
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+/* Hover эффект с поднятием и свечением */
+.benefit-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent 0%, rgba(248, 113, 113, 0.05) 50%, transparent 100%);
+    transition: left 0.6s ease;
+    pointer-events: none;
+}
+
+.benefit-card:hover::before {
+    left: 100%;
+}
+
+.benefit-card:hover {
+    transform: translateY(-8px) scale(1.02);
+    box-shadow: 0 16px 40px rgba(248, 113, 113, 0.15);
+    border-color: var(--soft-red-border);
+}
+
+/* Benefit icon box - градиентный фон */
+.benefit-icon-box {
+    background: linear-gradient(135deg, var(--soft-red) 0%, var(--soft-red-hover) 100%);
+    width: 56px;
+    height: 56px;
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 12px rgba(248, 113, 113, 0.25);
+    transition: all 0.3s ease;
+}
+
+.benefit-card:hover .benefit-icon-box {
+    transform: rotate(10deg) scale(1.1);
+    box-shadow: 0 8px 20px rgba(248, 113, 113, 0.35);
+}
+
+/* Декоративная полоска сверху */
+.benefit-card-decoration-top {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, var(--soft-red) 0%, var(--soft-blue) 50%, var(--soft-emerald) 100%);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.benefit-card:hover .benefit-card-decoration-top {
+    opacity: 1;
+}
+
+/* ============================================================
+   5. PRODUCT CARDS - интерактивные эффекты
+   ============================================================ */
+
+.product-card {
+    background: #ffffff;
+    border: 1px solid var(--soft-gray-border);
+    box-shadow: var(--shadow-soft);
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    overflow: hidden;
+    position: relative;
+}
+
+/* Цветная полоска слева при hover */
+.product-card::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 0;
+    background: linear-gradient(180deg, var(--soft-red) 0%, var(--soft-red-hover) 100%);
+    transition: width 0.3s ease;
+}
+
+.product-card:hover::before {
+    width: 6px;
+}
+
+.product-card:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 20px 48px rgba(0, 0, 0, 0.1);
+    border-color: var(--soft-red-border);
+}
+
+.product-card-image {
+    transition: transform 0.5s ease;
+}
+
+.product-card:hover .product-card-image {
+    transform: scale(1.08);
+}
+
+/* Badge "Core Program" - мягкий стиль */
+.product-card .badge.bg-white {
+    background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%) !important;
+    border: 1px solid var(--soft-gray-border);
+    color: var(--soft-gray-text);
+    box-shadow: var(--shadow-soft);
+    transition: all 0.3s ease;
+}
+
+.product-card:hover .badge.bg-white {
+    transform: scale(1.05);
+    box-shadow: var(--shadow-soft-hover);
+}
+
+/* ============================================================
+   6. EVENT CARDS - красивые тени и анимации
+   ============================================================ */
+
+.event-card {
+    background: #ffffff;
+    border: 1px solid var(--soft-gray-border);
+    box-shadow: var(--shadow-soft);
+    transition: all 0.3s ease;
+    border-radius: 20px !important;
+    overflow: hidden;
+}
+
+.event-card:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 16px 40px rgba(96, 165, 250, 0.15);
+    border-color: #bfdbfe;
+}
+
+.event-card-placeholder {
+    background: linear-gradient(135deg, var(--soft-blue) 0%, var(--soft-blue-hover) 100%);
+}
+
+/* Дата event - стильный чип */
+.event-card .badge-primary {
+    background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+    color: var(--soft-blue-hover);
+    border: 1px solid #bfdbfe;
+    box-shadow: none;
+}
+
+/* ============================================================
+   7. MEMBER CARDS - гладкие, современные
+   ============================================================ */
+
+.member-card {
+    background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);
+    border: 1px solid var(--soft-gray-border);
+    box-shadow: var(--shadow-soft);
+    transition: all 0.35s ease;
+}
+
+.member-card:hover {
+    transform: translateY(-6px) scale(1.01);
+    box-shadow: 0 16px 40px rgba(52, 211, 153, 0.12);
+    border-color: #a7f3d0;
+}
+
+.member-avatar {
+    background: linear-gradient(135deg, var(--soft-emerald) 0%, #10b981 100%);
+    box-shadow: 0 4px 12px rgba(52, 211, 153, 0.25);
+    transition: all 0.3s ease;
+}
+
+.member-card:hover .member-avatar {
+    transform: scale(1.05) rotate(-5deg);
+    box-shadow: 0 8px 20px rgba(52, 211, 153, 0.35);
+}
+
+.member-more-btn {
+    background: linear-gradient(135deg, var(--soft-emerald) 0%, #10b981 100%);
+    border: none;
+    box-shadow: 0 4px 12px rgba(52, 211, 153, 0.2);
+    transition: all 0.3s ease;
+}
+
+.member-more-btn:hover {
+    transform: translateX(4px);
+    box-shadow: 0 6px 16px rgba(52, 211, 153, 0.3);
+}
+
+/* ============================================================
+   8. PARTNERS SECTION - улучшенный дизайн
+   ============================================================ */
+
+.partner-card-compact {
+    background: #ffffff;
+    border: 1px solid var(--soft-gray-border);
+    box-shadow: var(--shadow-soft);
+    transition: all 0.35s ease;
+    border-radius: 16px;
+    overflow: hidden;
+    position: relative;
+}
+
+/* Градиентная полоска сверху */
+.partner-card-compact::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--soft-red) 0%, var(--soft-blue) 50%, var(--soft-emerald) 100%);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.partner-card-compact:hover::before {
+    opacity: 1;
+}
+
+.partner-card-compact:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.08);
+    border-color: var(--soft-red-border);
+}
+
+/* Partner logo - мягкая тень */
+.partner-logo-compact {
+    width: 70px;
+    height: 70px;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: var(--shadow-soft);
+    transition: all 0.3s ease;
+    background: linear-gradient(135deg, #fafafa 0%, #f1f5f9 100%);
+}
+
+.partner-card-compact:hover .partner-logo-compact {
+    transform: scale(1.05);
+    box-shadow: var(--shadow-soft-hover);
+}
+
+/* Partner category badges - мягкие цвета */
+.badge-partner-sponsor {
+    background: linear-gradient(135deg, #fef9c3 0%, #fde047 100%);
+    color: #92400e;
+    border: 1px solid #fde047;
+}
+
+.badge-partner-media {
+    background: linear-gradient(135deg, #ede9fe 0%, #c4b5fd 100%);
+    color: #5b21b6;
+    border: 1px solid #c4b5fd;
+}
+
+.badge-partner-tech {
+    background: linear-gradient(135deg, #dbeafe 0%, #93c5fd 100%);
+    color: #1e40af;
+    border: 1px solid #93c5fd;
+}
+
+.badge-partner-venue {
+    background: linear-gradient(135deg, #d1fae5 0%, #6ee7b7 100%);
+    color: #065f46;
+    border: 1px solid #6ee7b7;
+}
+
+.badge-partner-default {
+    background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+    color: #374151;
+    border: 1px solid #d1d5db;
+}
+
+/* ============================================================
+   9. DONATE SECTION - элегантный редизайн
+   ============================================================ */
+
+.donate-card {
+    background: linear-gradient(135deg, #1e293b 0%, #334155 50%, #475569 100%);
+    border-radius: 24px;
+    box-shadow: 0 20px 48px rgba(0, 0, 0, 0.2);
+    position: relative;
+    overflow: hidden;
+}
+
+/* Декоративные круги */
+.donate-card::before,
+.donate-card::after {
+    content: '';
+    position: absolute;
+    border-radius: 50%;
+    pointer-events: none;
+    opacity: 0.1;
+}
+
+.donate-card::before {
+    top: -100px;
+    right: -100px;
+    width: 300px;
+    height: 300px;
+    background: radial-gradient(circle, #fff 0%, transparent 70%);
+}
+
+.donate-card::after {
+    bottom: -80px;
+    left: -80px;
+    width: 250px;
+    height: 250px;
+    background: radial-gradient(circle, #60a5fa 0%, transparent 70%);
+}
+
+/* Progress container */
+.donate-progress-container {
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    backdrop-filter: blur(10px);
+}
+
+/* Progress bar - мягкий градиент */
+.donate-progress-bar {
+    height: 12px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.1);
+    overflow: hidden;
+}
+
+.donate-progress-fill {
+    background: linear-gradient(90deg, var(--soft-emerald) 0%, #10b981 50%, var(--soft-blue) 100%);
+    box-shadow: 0 0 16px rgba(52, 211, 153, 0.5);
+    animation: progressPulse 2s ease-in-out infinite;
+}
+
+@keyframes progressPulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.85; }
+}
+
+/* Donation badge */
+.donation-badge {
+    background: rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 20px;
+    padding: 2rem;
+    backdrop-filter: blur(10px);
+}
+
+/* ============================================================
+   10. BUTTONS - улучшенные стили
+   ============================================================ */
+
+.btn-primary {
+    background: linear-gradient(135deg, var(--soft-red) 0%, var(--soft-red-hover) 100%);
+    border: none;
+    box-shadow: 0 4px 12px rgba(248, 113, 113, 0.25);
+    transition: all 0.3s ease;
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(248, 113, 113, 0.35);
+    background: linear-gradient(135deg, var(--soft-red-hover) 0%, #dc2626 100%);
+}
+
+.btn-outline-primary {
+    border: 2px solid var(--soft-red);
+    color: var(--soft-red-hover);
+    background: transparent;
+    transition: all 0.3s ease;
+}
+
+.btn-outline-primary:hover {
+    background: var(--soft-red);
+    color: white;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(248, 113, 113, 0.25);
+}
+
+/* ============================================================
+   11. SECTION HEADERS - красивая типографика
+   ============================================================ */
+
+.section-title-display {
+    font-size: 0.875rem;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: var(--soft-gray-text);
+    position: relative;
+    display: inline-block;
+}
+
+.section-title-display::after {
+    content: '';
+    position: absolute;
+    bottom: -8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 50%;
+    height: 2px;
+    background: linear-gradient(90deg, var(--soft-red) 0%, var(--soft-blue) 100%);
+    border-radius: 2px;
+}
+
+/* ============================================================
+   12. BADGES - мягкие, современные
+   ============================================================ */
+
+.badge-primary {
+    background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+    color: var(--soft-red-hover);
+    border: 1px solid var(--soft-red-border);
+    font-weight: 600;
+}
+
+.badge-secondary {
+    background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+    color: var(--soft-blue-hover);
+    border: 1px solid #93c5fd;
+    font-weight: 600;
+}
+
+/* ============================================================
+   13. PAGINATION - красивая стилизация
+   ============================================================ */
+
+.pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+}
+
+.pagination-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    background: #ffffff;
+    border: 1px solid var(--soft-gray-border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--soft-gray-text);
+    transition: all 0.3s ease;
+    box-shadow: var(--shadow-soft);
+}
+
+.pagination-btn:hover {
+    background: var(--soft-red);
+    color: white;
+    transform: scale(1.1);
+    box-shadow: var(--shadow-soft-hover);
+    border-color: var(--soft-red);
+}
+
+.pagination-info {
+    color: var(--soft-gray-text);
+    font-weight: 600;
+    font-size: 0.875rem;
+}
+
+/* ============================================================
+   14. RESPONSIVE IMPROVEMENTS
+   ============================================================ */
+
+@media (max-width: 768px) {
+    body {
+        background-attachment: scroll;
+    }
+
+    .benefit-card,
+    .product-card,
+    .member-card,
+    .partner-card-compact {
+        border-radius: 16px;
+    }
+    
+    .benefit-card:hover,
+    .product-card:hover,
+    .member-card:hover,
+    .partner-card-compact:hover {
+        transform: translateY(-4px) scale(1);
+    }
+}
+
+@media (hover: none), (pointer: coarse) {
+    .hero-badge:hover,
+    .benefit-card:hover,
+    .benefit-card:hover .benefit-icon-box,
+    .product-card:hover,
+    .product-card:hover .product-card-image,
+    .event-card:hover,
+    .member-card:hover,
+    .partner-card-compact:hover,
+    .pagination-btn:hover {
+        transform: none !important;
+    }
+
+    .benefit-card:hover::before,
+    .product-card:hover::before {
+        left: -100% !important;
+        width: 0 !important;
+    }
+
+    .benefit-card:hover,
+    .product-card:hover,
+    .event-card:hover,
+    .member-card:hover,
+    .partner-card-compact:hover,
+    .pagination-btn:hover {
+        box-shadow: var(--shadow-soft) !important;
+    }
+}
+
+/* ============================================================
+   PART 2: sections-enhancements.css (Events, Members, Buttons)
+   ============================================================ */
+/* 
+ * SECTION ENHANCEMENTS - Additional polish for all homepage sections
+ * Complementary to homepage-v2.css
+ */
+
+/* ============================================================================
+   1. HERO SECTION ENHANCEMENTS
+   ============================================================================ */
+
+.hero-section {
+    background: linear-gradient(135deg, #ffffff 0%, #f8fafc 50%, #f1f5f9 100%);
+    border: none;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.06);
+    border-radius: 20px;
+    position: relative;
+    overflow: hidden;
+}
+
+.hero-section::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -20%;
+    width: 600px;
+    height: 600px;
+    background: radial-gradient(circle, rgba(96, 165, 250, 0.08) 0%, transparent 70%);
+    border-radius: 50%;
+    animation: floatSlow 20s ease-in-out infinite;
+}
+
+.hero-section::after {
+    content: '';
+    position: absolute;
+    bottom: -30%;
+    left: -15%;
+    width: 400px;
+    height: 400px;
+    background: radial-gradient(circle, rgba(52, 211, 153, 0.06) 0%, transparent 70%);
+    border-radius: 50%;
+    animation: floatSlow 25s ease-in-out infinite reverse;
+}
+
+.hero-section h1,
+.hero-section p {
+    position: relative;
+    z-index: 2;
+}
+
+@keyframes floatSlow {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-20px); }
+}
+
+/* ============================================================================
+   2. CORE PRODUCTS SECTION IMPROVEMENTS
+   ============================================================================ */
+
+.product-card {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    border: 1px solid rgba(248, 113, 113, 0.1);
+    position: relative;
+    overflow: hidden;
+}
+
+.product-card::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 0;
+    height: 100%;
+    background: linear-gradient(90deg, 
+        rgba(248, 113, 113, 0.1) 0%,
+        rgba(96, 165, 250, 0.1) 50%,
+        rgba(52, 211, 153, 0.1) 100%);
+    transition: width 0.4s ease;
+    z-index: 0;
+}
+
+.product-card:hover::before {
+    width: 100%;
+}
+
+.product-card .card-body {
+    position: relative;
+    z-index: 1;
+}
+
+.product-card:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 20px 50px rgba(248, 113, 113, 0.12);
+    border-color: rgba(248, 113, 113, 0.3);
+}
+
+.product-card-icon {
+    font-size: 3rem;
+    background: linear-gradient(135deg, #f87171 0%, #fb7185 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 1rem;
+    transition: transform 0.3s ease;
+}
+
+.product-card:hover .product-card-icon {
+    transform: scale(1.2) rotate(10deg);
+}
+
+/* ============================================================================
+   3. EVENT CARDS IMPROVEMENTS
+   ============================================================================ */
+
+.event-card {
+    border: none;
+    border-radius: 16px;
+    overflow: hidden;
+    position: relative;
+    background: linear-gradient(135deg, #ffffff 0%, #fafafa 100%);
+    transition: all 0.3s ease;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+}
+
+.event-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 4px;
+    background: linear-gradient(90deg, #f87171 0%, #60a5fa 50%, #34d399 100%);
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 0.4s ease;
+    z-index: 1;
+}
+
+.event-card:hover::before {
+    transform: scaleX(1);
+}
+
+.event-card:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.12);
+}
+
+.event-date {
+    display: inline-block;
+    background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+    color: #991b1b;
+    padding: 8px 16px;
+    border-radius: 12px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+}
+
+.event-title {
+    font-weight: 700;
+    color: #1f2937;
+    line-height: 1.4;
+    margin-bottom: 0.75rem;
+}
+
+.event-location {
+    display: flex;
+    align-items: center;
+    color: #6b7280;
+    font-size: 0.875rem;
+    margin-bottom: 1rem;
+}
+
+.event-location i {
+    color: #f87171;
+    margin-right: 0.5rem;
+}
+
+/* ============================================================================
+   4. ABOUT SECTION IMPROVEMENTS
+   ============================================================================ */
+
+#about-section {
+    background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+    border: 2px solid rgba(248, 113, 113, 0.08);
+    border-radius: 20px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.04);
+    position: relative;
+    overflow: hidden;
+}
+
+#about-section::before {
+    content: '';
+    position: absolute;
+    top: -100px;
+    right: -100px;
+    width: 400px;
+    height: 400px;
+    background: radial-gradient(circle, rgba(248, 113, 113, 0.05) 0%, transparent 70%);
+    border-radius: 50%;
+}
+
+.about-content {
+    position: relative;
+    z-index: 2;
+}
+
+.president-card,
+.member-card {
+    background: #ffffff;
+    border-radius: 16px;
+    border: 1px solid rgba(248, 113, 113, 0.1);
+    transition: all 0.3s ease;
+    overflow: hidden;
+}
+
+.president-card:hover,
+.member-card:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 16px 40px rgba(248, 113, 113, 0.15);
+    border-color: rgba(248, 113, 113, 0.3);
+}
+
+.member-avatar {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 4px solid #f87171;
+    transition: transform 0.3s ease;
+}
+
+.member-card:hover .member-avatar {
+    transform: scale(1.08) rotate(-5deg);
+}
+
+.member-name {
+    font-weight: 700;
+    color: #1f2937;
+    margin-top: 1rem;
+}
+
+.member-role {
+    color: #f87171;
+    font-size: 0.875rem;
+    font-weight: 600;
+}
+
+/* ============================================================================
+   5. SECTION TITLES STYLING
+   ============================================================================ */
+
+.section-title {
+    font-size: 0.875rem;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: #f87171;
+    display: inline-block;
+    padding-bottom: 0.5rem;
+    position: relative;
+}
+
+.section-title::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 2px;
+    background: linear-gradient(90deg, #f87171 0%, transparent 100%);
+    animation: slideIn 0.8s ease-out;
+}
+
+@keyframes slideIn {
+    from {
+        width: 0;
+    }
+    to {
+        width: 100%;
+    }
+}
+
+#about-section .section-title {
+    color: #991b1b;
+    font-weight: 800;
+}
+
+/* ============================================================================
+   6. GENERAL CARD ENHANCEMENTS
+   ============================================================================ */
+
+.card {
+    border: 1px solid rgba(248, 113, 113, 0.08);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+    border-radius: 16px;
+    transition: all 0.3s ease;
+    background: #ffffff;
+}
+
+.card-flat {
+    border: none;
+    box-shadow: none;
+}
+
+.card-body {
+    padding: 1.75rem;
+}
+
+/* ============================================================================
+   7. BUTTON ENHANCEMENTS
+   ============================================================================ */
+
+.btn {
+    border-radius: 12px;
+    font-weight: 600;
+    padding: 0.75rem 1.75rem;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.btn::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.3);
+    transform: translate(-50%, -50%);
+    transition: width 0.6s, height 0.6s;
+    z-index: 1;
+}
+
+.btn:hover::before {
+    width: 300px;
+    height: 300px;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #f87171 0%, #fb7185 100%);
+    border: none;
+    color: white;
+    position: relative;
+    z-index: 2;
+}
+
+.btn-primary:hover {
+    background: linear-gradient(135deg, #f87171 0%, #fb7185 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 12px 32px rgba(248, 113, 113, 0.3);
+    color: white;
+}
+
+.btn-outline-primary {
+    border: 2px solid #f87171;
+    color: #f87171;
+}
+
+.btn-outline-primary:hover {
+    background: #f87171;
+    border-color: #f87171;
+    color: white;
+    transform: translateY(-2px);
+}
+
+/* ============================================================================
+   8. RESPONSIVE ADJUSTMENTS
+   ============================================================================ */
+
+@media (max-width: 768px) {
+    .hero-section {
+        padding: 2rem 1rem;
+        border-radius: 16px;
+    }
+
+    .product-card {
+        margin-bottom: 1rem;
+    }
+
+    .member-avatar {
+        width: 80px;
+        height: 80px;
+    }
+
+    .section-title {
+        font-size: 0.75rem;
+    }
+
+    .btn {
+        padding: 0.6rem 1.2rem;
+        font-size: 0.875rem;
+    }
+
+    .event-card {
+        margin-bottom: 1rem;
+    }
+}
+
+/* ============================================================================
+   9. ANIMATIONS & TRANSITIONS
+   ============================================================================ */
+
+.fade-in-up {
+    animation: fadeInUp 0.6s ease-out forwards;
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ============================================================================
+   10. ACCESSIBILITY
+   ============================================================================ */
+
+@media (prefers-reduced-motion: reduce) {
+    * {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+/* ============================================================
+   PART 3: premium-sections.css (Full premium hero/events/partners)
+   ============================================================ */
+/* 
+ * PREMIUM SECTIONS REDESIGN - Events, About, Partnerships
+ * Modern luxury design with 3D effects, gradients, and premium interactions
+ */
+
+/* ============================================================================
+   1. UPCOMING EVENTS SECTION - 3D CARD REDESIGN
+   ============================================================================ */
+
+#events-section {
+    position: relative;
+    overflow: hidden;
+}
+
+#events-section::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -50%;
+    width: 800px;
+    height: 800px;
+    background: radial-gradient(circle, rgba(248, 113, 113, 0.05) 0%, transparent 70%);
+    border-radius: 50%;
+    animation: rotateSlow 30s linear infinite;
+    z-index: 0;
+}
+
+@keyframes rotateSlow {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.event-card {
+    background: #ffffff;
+    border: 1px solid rgba(248, 113, 113, 0.08);
+    border-radius: 20px;
+    overflow: hidden;
+    transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+    position: relative;
+    height: 100%;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.06);
+    transform: translateZ(0);
+}
+
+/* Gradient border effect */
+.event-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #f87171 0%, #60a5fa 50%, #34d399 100%);
+    transform: translateX(-100%);
+    transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+    z-index: 10;
+}
+
+.event-card:hover::before {
+    transform: translateX(0);
+}
+
+/* Image container with overlay effect */
+.event-card .card-img-top {
+    height: 200px;
+    object-fit: cover;
+    transition: all 0.5s ease;
+    filter: brightness(1);
+}
+
+.event-card:hover .card-img-top {
+    transform: scale(1.1) translateY(-8px);
+    filter: brightness(1.2) contrast(1.1);
+}
+
+/* Placeholder for no image */
+.event-card-placeholder {
+    height: 200px;
+    background: linear-gradient(135deg, #f87171 0%, #fb7185 100%);
+    position: relative;
+    overflow: hidden;
+}
+
+.event-card-placeholder::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+    animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+    0% { left: -100%; }
+    100% { left: 100%; }
+}
+
+/* Icon in placeholder */
+.event-card-icon {
+    font-size: 3rem;
+    color: rgba(255, 255, 255, 0.8);
+    position: relative;
+    z-index: 1;
+}
+
+/* Card body styling */
+.event-card .card-body {
+    padding: 1.5rem;
+    position: relative;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+}
+
+/* Date and location badges */
+.event-card .badge {
+    display: inline-block;
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+    color: #991b1b;
+    border: 1px solid rgba(248, 113, 113, 0.2);
+    transition: all 0.3s ease;
+}
+
+.event-card .badge:hover {
+    transform: scale(1.05);
+    background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+}
+
+.event-card .gap-2 {
+    margin-bottom: 1rem;
+}
+
+/* Event card title */
+.event-card .card-title {
+    color: #1f2937;
+    font-size: 1.1rem;
+    line-height: 1.4;
+    margin-bottom: 0.75rem;
+    transition: color 0.3s ease;
+}
+
+.event-card:hover .card-title {
+    color: #f87171;
+}
+
+/* Event description */
+.event-card .text-muted {
+    flex-grow: 1;
+    margin-bottom: 1rem;
+    color: #6b7280;
+    font-size: 0.875rem;
+    line-height: 1.5;
+}
+
+/* Card footer button */
+.event-card .card-footer {
+    background: #fafafa;
+    border-top: 1px solid rgba(248, 113, 113, 0.05);
+    padding: 1rem;
+    position: relative;
+}
+
+.event-card .card-footer::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, #f87171, transparent);
+    transform: scaleX(0);
+    transform-origin: center;
+    transition: transform 0.4s ease;
+}
+
+.event-card:hover .card-footer::before {
+    transform: scaleX(1);
+}
+
+/* Button styling */
+.event-card .btn {
+    border-radius: 10px;
+    padding: 0.6rem 1.2rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.event-card .btn-outline {
+    border: 2px solid #f87171;
+    color: #f87171;
+    background: transparent;
+}
+
+.event-card .btn-outline:hover {
+    background: #f87171;
+    color: white;
+    transform: translateY(-2px);
+}
+
+/* 3D hover effect */
+.event-card:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 30px 60px rgba(248, 113, 113, 0.15);
+    border-color: rgba(248, 113, 113, 0.3);
+}
+
+/* Grid layout */
+.grid {
+    display: grid;
+    gap: 2rem;
+    perspective: 1000px;
+}
+
+.grid-cols-3 {
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+}
+
+/* ============================================================================
+   2. ABOUT SECTION - PREMIUM LEADERSHIP CARDS
+   ============================================================================ */
+
+#about-section {
+    background: linear-gradient(135deg, #ffffff 0%, #f8fafc 50%, #f1f5f9 100%);
+    border: 2px solid rgba(248, 113, 113, 0.1);
+    border-radius: 24px;
+    padding: 4rem 2rem;
+    position: relative;
+    overflow: hidden;
+}
+
+#about-section::after {
+    content: '';
+    position: absolute;
+    bottom: -100px;
+    left: -100px;
+    width: 500px;
+    height: 500px;
+    background: radial-gradient(circle, rgba(96, 165, 250, 0.08) 0%, transparent 70%);
+    border-radius: 50%;
+}
+
+.about-content {
+    position: relative;
+    z-index: 2;
+}
+
+/* President Card - Spotlight */
+.president-card {
+    background: linear-gradient(135deg, #ffffff 0%, #fafafa 100%);
+    border: 2px solid rgba(248, 113, 113, 0.15);
+    border-radius: 20px;
+    padding: 2.5rem;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 20px 50px rgba(248, 113, 113, 0.1);
+    transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.president-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #f87171 0%, #fb7185 100%);
+    transform: scaleX(0);
+    transform-origin: center;
+    transition: transform 0.5s ease;
+    z-index: 10;
+}
+
+.president-card:hover::before {
+    transform: scaleX(1);
+}
+
+/* President avatar */
+.president-card .president-avatar {
+    width: 150px;
+    height: 150px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 5px solid #f87171;
+    margin: 0 auto 1.5rem;
+    box-shadow: 0 10px 40px rgba(248, 113, 113, 0.25);
+    transition: all 0.4s ease;
+}
+
+.president-card:hover .president-avatar {
+    transform: scale(1.1) rotate(3deg);
+    box-shadow: 0 20px 60px rgba(248, 113, 113, 0.35);
+}
+
+.president-card .president-name {
+    font-size: 1.75rem;
+    font-weight: 800;
+    color: #1f2937;
+    margin-bottom: 0.5rem;
+}
+
+.president-card .president-role {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #f87171;
+    margin-bottom: 1rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.president-card .president-bio {
+    color: #6b7280;
+    line-height: 1.6;
+    margin-bottom: 1.5rem;
+    font-size: 0.95rem;
+}
+
+.president-card:hover {
+    transform: translateY(-8px) perspective(1000px) rotateY(2deg);
+    border-color: rgba(248, 113, 113, 0.3);
+    box-shadow: 0 30px 70px rgba(248, 113, 113, 0.15);
+}
+
+/* Team Members Grid */
+.team-members-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 2rem;
+    margin-top: 2rem;
+}
+
+.member-card {
+    background: #ffffff;
+    border: 2px solid rgba(248, 113, 113, 0.08);
+    border-radius: 16px;
+    padding: 2rem;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.04);
+}
+
+/* Colored top stripe */
+.member-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #f87171 0%, #60a5fa 50%, #34d399 100%);
+    transform: translateX(-100%);
+    transition: transform 0.5s ease;
+}
+
+.member-card:hover::before {
+    transform: translateX(0);
+}
+
+.member-card .member-avatar {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 4px solid #f87171;
+    margin: 0 auto 1rem;
+    box-shadow: 0 8px 24px rgba(248, 113, 113, 0.2);
+    transition: all 0.3s ease;
+}
+
+.member-card:hover .member-avatar {
+    transform: scale(1.06);
+    box-shadow: 0 12px 36px rgba(248, 113, 113, 0.3);
+}
+
+.member-card .member-name {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #1f2937;
+    margin-bottom: 0.4rem;
+}
+
+.member-card .member-role {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #f87171;
+    margin-bottom: 0.5rem;
+}
+
+.member-card .member-bio {
+    font-size: 0.85rem;
+    color: #6b7280;
+    line-height: 1.5;
+    margin-bottom: 1rem;
+}
+
+.member-card:hover {
+    transform: translateY(-8px);
+    border-color: rgba(248, 113, 113, 0.3);
+    box-shadow: 0 16px 48px rgba(248, 113, 113, 0.12);
+}
+
+/* ============================================================================
+   3. PARTNERSHIPS SECTION - PREMIUM PARTNER CARDS
+   ============================================================================ */
+
+#partners-section {
+    position: relative;
+    overflow: hidden;
+}
+
+#partners-section::before {
+    content: '';
+    position: absolute;
+    top: -200px;
+    left: -200px;
+    width: 600px;
+    height: 600px;
+    background: radial-gradient(circle, rgba(52, 211, 153, 0.08) 0%, transparent 70%);
+    border-radius: 50%;
+    animation: floatParallax 20s ease-in-out infinite;
+}
+
+@keyframes floatParallax {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-30px); }
+}
+
+.partner-card-compact {
+    background: #ffffff;
+    border: 2px solid rgba(248, 113, 113, 0.08);
+    border-radius: 16px;
+    padding: 1.5rem;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.05);
+    height: 100%;
+}
+
+/* Premium top stripe */
+.partner-card-compact::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 4px;
+    background: linear-gradient(90deg, #f87171 0%, #fb7185 50%, #fca5a5 100%);
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 0.4s ease;
+    z-index: 10;
+}
+
+.partner-card-compact:hover::before {
+    transform: scaleX(1);
+}
+
+/* Partner logo */
+.partner-logo-compact {
+    width: 70px;
+    height: 70px;
+    min-width: 70px;
+    background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    border: 2px solid rgba(248, 113, 113, 0.1);
+    box-shadow: 0 4px 12px rgba(248, 113, 113, 0.08);
+    transition: all 0.3s ease;
+}
+
+.partner-logo-compact img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    filter: brightness(1);
+    transition: all 0.3s ease;
+}
+
+.partner-card-compact:hover .partner-logo-compact {
+    transform: scale(1.05);
+    border-color: rgba(248, 113, 113, 0.25);
+    box-shadow: 0 8px 24px rgba(248, 113, 113, 0.15);
+}
+
+.partner-card-compact:hover .partner-logo-compact img {
+    filter: brightness(1.15) saturate(1.1);
+}
+
+/* Logo placeholder */
+.partner-logo-placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    color: #f87171;
+    font-size: 1.5rem;
+    background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+}
+
+/* Partner name */
+.partner-name-compact {
+    font-size: 1.05rem;
+    color: #1f2937;
+    line-height: 1.3;
+    transition: color 0.3s ease;
+}
+
+.partner-card-compact:hover .partner-name-compact {
+    color: #f87171;
+}
+
+/* Partner description */
+.partner-description-compact {
+    color: #6b7280;
+    font-size: 0.85rem;
+    line-height: 1.5;
+    flex-grow: 1;
+}
+
+/* Badge styling */
+.badge {
+    display: inline-block;
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    margin-bottom: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.badge-partner-sponsor {
+    background: linear-gradient(135deg, #fef9c3 0%, #fde047 100%);
+    color: #7c2d12;
+    border: 1px solid rgba(253, 224, 71, 0.5);
+}
+
+.badge-partner-media {
+    background: linear-gradient(135deg, #ede9fe 0%, #c4b5fd 100%);
+    color: #6d28d9;
+    border: 1px solid rgba(196, 181, 253, 0.5);
+}
+
+.badge-partner-tech {
+    background: linear-gradient(135deg, #dbeafe 0%, #93c5fd 100%);
+    color: #1e40af;
+    border: 1px solid rgba(147, 197, 253, 0.5);
+}
+
+.badge-partner-venue {
+    background: linear-gradient(135deg, #d1fae5 0%, #6ee7b7 100%);
+    color: #065f46;
+    border: 1px solid rgba(110, 231, 183, 0.5);
+}
+
+.badge-partner-default {
+    background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+    color: #374151;
+    border: 1px solid rgba(229, 231, 235, 0.5);
+}
+
+/* Button group */
+.partner-card-compact .d-flex.gap-2 {
+    margin-top: auto;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(248, 113, 113, 0.05);
+}
+
+.partner-card-compact .btn {
+    flex: 1;
+    border-radius: 8px;
+    padding: 0.6rem 1rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.partner-card-compact .btn-outline-primary {
+    border: 2px solid #f87171;
+    color: #f87171;
+    background: white;
+}
+
+.partner-card-compact .btn-outline-primary:hover {
+    background: #f87171;
+    color: white;
+    transform: translateY(-2px);
+}
+
+.partner-card-compact .btn-primary {
+    background: linear-gradient(135deg, #f87171 0%, #fb7185 100%);
+    color: white;
+    border: none;
+}
+
+.partner-card-compact .btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(248, 113, 113, 0.3);
+}
+
+/* Card hover effect */
+.partner-card-compact:hover {
+    transform: translateY(-6px);
+    border-color: rgba(248, 113, 113, 0.25);
+    box-shadow: 0 20px 50px rgba(248, 113, 113, 0.12);
+}
+
+/* Pagination buttons */
+.pagination-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #f87171 0%, #fb7185 100%);
+    color: white;
+    border: none;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-weight: 600;
+}
+
+.pagination-btn:hover {
+    transform: scale(1.1) rotate(10deg);
+    box-shadow: 0 12px 30px rgba(248, 113, 113, 0.3);
+}
+
+/* ============================================================================
+   4. RESPONSIVE ADJUSTMENTS
+   ============================================================================ */
+
+@media (max-width: 1024px) {
+    .grid-cols-3 {
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    }
+    
+    .team-members-grid {
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    }
+}
+
+@media (max-width: 768px) {
+    #events-section,
+    #about-section,
+    #partners-section {
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+    
+    .grid-cols-3 {
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+    }
+    
+    .team-members-grid {
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+    }
+    
+    .president-card {
+        padding: 2rem 1.5rem;
+    }
+    
+    .president-card .president-avatar {
+        width: 120px;
+        height: 120px;
+    }
+    
+    .event-card:hover {
+        transform: translateY(-8px);
+    }
+    
+    .partner-card-compact:hover {
+        transform: translateY(-6px);
+    }
+
+    .iesa-offers-grid {
+        grid-template-columns: 1fr;
+        gap: 1.25rem;
+    }
+
+    .offer-card {
+        padding: 1.5rem;
+    }
+}
+
+/* ============================================================================
+   5. ACCESSIBILITY
+   ============================================================================ */
+
+@media (prefers-reduced-motion: reduce) {
+    .event-card,
+    .president-card,
+    .member-card,
+    .partner-card-compact,
+    .pagination-btn {
+        transition: none;
+        animation: none;
+    }
+}
+
+/* ============================================================================
+   6. IESA OFFERS SECTION - PREMIUM INFO BLOCK
+   ============================================================================ */
+
+#iesa-offers {
+    position: relative;
+    overflow: hidden;
+}
+
+#iesa-offers::before {
+    content: '';
+    position: absolute;
+    top: -120px;
+    right: -120px;
+    width: 360px;
+    height: 360px;
+    background: radial-gradient(circle, rgba(248, 113, 113, 0.08) 0%, transparent 70%);
+    border-radius: 50%;
+}
+
+.offers-header {
+    position: relative;
+}
+
+.offers-header::after {
+    content: '';
+    display: block;
+    width: 120px;
+    height: 3px;
+    margin: 1rem auto 0;
+    background: linear-gradient(90deg, #f87171 0%, #60a5fa 50%, #34d399 100%);
+    border-radius: 999px;
+}
+
+.offers-chips {
+    margin-top: 1.25rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    justify-content: center;
+}
+
+.offers-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.45rem 0.85rem;
+    border-radius: 999px;
+    background: #ffffff;
+    border: 1px solid rgba(248, 113, 113, 0.15);
+    color: #6b7280;
+    font-size: 0.8rem;
+    font-weight: 600;
+    box-shadow: 0 6px 16px rgba(248, 113, 113, 0.08);
+}
+
+.offers-chip i {
+    color: #f87171;
+}
+
+.iesa-offers-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1.75rem;
+}
+
+.offer-card {
+    background: #ffffff;
+    border: 2px solid rgba(248, 113, 113, 0.08);
+    border-radius: 20px;
+    padding: 1.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.06);
+    transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+.offer-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.3rem 0.7rem;
+    border-radius: 999px;
+    background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+    color: #991b1b;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    margin-bottom: 0.6rem;
+    border: 1px solid rgba(248, 113, 113, 0.2);
+}
+
+.offer-card::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 6px;
+    height: 100%;
+    background: linear-gradient(180deg, #f87171 0%, #60a5fa 50%, #34d399 100%);
+    transform: scaleY(0);
+    transform-origin: top;
+    transition: transform 0.4s ease;
+}
+
+.offer-card:hover::before {
+    transform: scaleY(1);
+}
+
+.offer-card:hover {
+    transform: translateY(-8px);
+    border-color: rgba(248, 113, 113, 0.25);
+    box-shadow: 0 20px 50px rgba(248, 113, 113, 0.12);
+}
+
+.offer-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 16px;
+    background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #f87171;
+    font-size: 1.4rem;
+    box-shadow: 0 8px 20px rgba(248, 113, 113, 0.15);
+    transition: all 0.3s ease;
+}
+
+.offer-card:hover .offer-icon {
+    transform: scale(1.1) rotate(-6deg);
+    box-shadow: 0 12px 30px rgba(248, 113, 113, 0.25);
+}
+
+.offer-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #1f2937;
+    margin-bottom: 0.5rem;
+}
+
+.offer-text {
+    color: #6b7280;
+    font-size: 0.9rem;
+    line-height: 1.6;
+    margin-bottom: 0.75rem;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    line-clamp: 3;
+    overflow: hidden;
+}
+
+.offer-meta {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    gap: 0.4rem;
+    color: #4b5563;
+    font-size: 0.85rem;
+}
+
+.offer-meta li {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.offer-meta i {
+    color: #f87171;
+}
+
+.offers-actions {
+    margin-top: 2rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    justify-content: center;
+}
+
+.offers-actions .btn {
+    min-width: 200px;
+}
+
+.offers-cta {
+    margin-top: 2rem;
+}
+
+.offers-cta-card {
+    background: linear-gradient(135deg, #fff5f5 0%, #ffffff 60%);
+    border: 2px solid rgba(248, 113, 113, 0.12);
+    border-radius: 24px;
+    padding: 2.5rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2rem;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: 0 16px 50px rgba(248, 113, 113, 0.12);
+}
+
+.offers-cta-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.35rem 0.8rem;
+    border-radius: 999px;
+    background: rgba(248, 113, 113, 0.12);
+    color: #b91c1c;
+    font-weight: 700;
+    font-size: 0.75rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    margin-bottom: 0.75rem;
+}
+
+.offers-cta-title {
+    font-size: 1.75rem;
+    font-weight: 800;
+    color: #1f2937;
+    margin-bottom: 0.5rem;
+}
+
+.offers-cta-text {
+    color: #6b7280;
+    font-size: 1rem;
+    max-width: 520px;
+    margin-bottom: 0;
+}
+
+.offers-cta-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+}
+
+@media (max-width: 768px) {
+    .offers-actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .offers-actions .btn {
+        width: 100%;
+    }
+
+    .offers-cta-card {
+        padding: 2rem 1.5rem;
+    }
+
+    .offers-cta-title {
+        font-size: 1.4rem;
+    }
+
+    .offers-cta-actions {
+        width: 100%;
+        flex-direction: column;
+    }
+
+    .offers-cta-actions .btn {
+        width: 100%;
+    }
+}
+
+@media (max-width: 768px) {
+    .iesa-offers-grid {
+        grid-template-columns: 1fr;
+        gap: 1.25rem;
+    }
+
+    .offer-card {
+        padding: 1.5rem;
+    }
+
+    .offer-icon {
+        width: 52px;
+        height: 52px;
+    }
+
+    .offers-header::after {
+        width: 80px;
+    }
+}
+
+/* ============================================================================
+   7. HOMEPAGE SHOWCASE REWORK (scoped redesign, no aggressive whole-card hover)
+   ============================================================================ */
+
+.hero-showcase {
+    border: 1px solid rgba(248, 113, 113, 0.14);
+    border-radius: 24px;
+    background:
+        radial-gradient(circle at 15% 20%, rgba(248, 113, 113, 0.08), transparent 42%),
+        radial-gradient(circle at 85% 80%, rgba(96, 165, 250, 0.08), transparent 46%),
+        linear-gradient(135deg, #ffffff 0%, #fff5f5 50%, #ffffff 100%);
+    box-shadow: 0 18px 48px rgba(15, 23, 42, 0.08);
+}
+
+.hero-showcase .hero-badge {
+    border-radius: 999px;
+    padding: 0.5rem 0.95rem;
+    border-width: 1px;
+    box-shadow: 0 6px 14px rgba(248, 113, 113, 0.14);
+}
+
+.hero-showcase .hero-badge:hover {
+    transform: none;
+    box-shadow: 0 8px 18px rgba(248, 113, 113, 0.2);
+}
+
+.hero-showcase .hero-title {
+    max-width: 920px;
+    margin-left: auto;
+    margin-right: auto;
+    line-height: 1.12;
+    letter-spacing: -0.02em;
+}
+
+.hero-showcase .hero-description {
+    max-width: 760px;
+    margin-left: auto;
+    margin-right: auto;
+    color: #5f6b7a;
+}
+
+.mission-showcase {
+    border: 1px solid rgba(248, 113, 113, 0.12);
+    border-radius: 24px;
+    background:
+        linear-gradient(135deg, #ffffff 0%, #fdfefe 42%, #f8fafc 100%);
+    box-shadow: 0 12px 32px rgba(15, 23, 42, 0.06);
+}
+
+.mission-showcase .mission-panel {
+    border: 1px solid rgba(148, 163, 184, 0.18);
+    border-radius: 18px;
+    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04);
+    background: #ffffff;
+    position: relative;
+    overflow: hidden;
+}
+
+.mission-showcase .mission-panel::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    background: linear-gradient(180deg, #f87171 0%, #60a5fa 100%);
+}
+
+.mission-showcase .mission-panel:hover {
+    transform: none;
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.07);
+}
+
+.mission-showcase li {
+    color: #455468;
+}
+
+.events-showcase .showcase-card {
+    border-radius: 20px;
+    border: 1px solid rgba(248, 113, 113, 0.12);
+    box-shadow: 0 12px 30px rgba(15, 23, 42, 0.06);
+    overflow: hidden;
+    transition: border-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.events-showcase .showcase-card:hover {
+    transform: none !important;
+    border-color: rgba(248, 113, 113, 0.28);
+    box-shadow: 0 16px 34px rgba(248, 113, 113, 0.12);
+}
+
+.events-showcase .showcase-card .event-card-image,
+.events-showcase .showcase-card .event-card-placeholder {
+    border-bottom: 1px solid rgba(248, 113, 113, 0.1);
+}
+
+.events-showcase .showcase-card .event-card-image {
+    transition: transform 0.35s ease, filter 0.35s ease;
+}
+
+.events-showcase .showcase-card:hover .event-card-image {
+    transform: scale(1.04);
+    filter: saturate(1.08);
+}
+
+.events-showcase .showcase-card .card-footer {
+    background: linear-gradient(180deg, #fff 0%, #fff8f8 100%);
+}
+
+.events-showcase .showcase-card .btn {
+    border-radius: 10px;
+    transition: box-shadow 0.25s ease, transform 0.25s ease;
+}
+
+.events-showcase .showcase-card .btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 8px 18px rgba(248, 113, 113, 0.2);
+}
+
+.about-showcase {
+    border: 1px solid rgba(248, 113, 113, 0.12);
+    border-radius: 24px;
+    box-shadow: 0 12px 34px rgba(15, 23, 42, 0.06);
+}
+
+.about-showcase .member-showcase-card {
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    border-radius: 18px;
+    transition: border-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.about-showcase .member-showcase-card:hover {
+    transform: none !important;
+    border-color: rgba(248, 113, 113, 0.25);
+    box-shadow: 0 14px 28px rgba(15, 23, 42, 0.08);
+}
+
+.about-showcase .member-showcase-card .member-photo,
+.about-showcase .member-showcase-card .member-avatar {
+    transition: transform 0.25s ease;
+}
+
+.about-showcase .member-showcase-card:hover .member-photo,
+.about-showcase .member-showcase-card:hover .member-avatar {
+    transform: scale(1.03);
+}
+
+.about-showcase .member-more-btn:hover {
+    transform: translateX(2px);
+}
+
+.partners-showcase .partner-showcase-card {
+    border-radius: 18px;
+    border: 1px solid rgba(148, 163, 184, 0.18);
+    transition: border-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.partners-showcase .partner-showcase-card:hover {
+    transform: none !important;
+    border-color: rgba(248, 113, 113, 0.28);
+    box-shadow: 0 14px 30px rgba(15, 23, 42, 0.08);
+}
+
+.partners-showcase .partner-showcase-card .partner-logo-compact {
+    transition: border-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.partners-showcase .partner-showcase-card:hover .partner-logo-compact {
+    transform: none;
+    border-color: rgba(248, 113, 113, 0.22);
+    box-shadow: 0 6px 16px rgba(248, 113, 113, 0.12);
+}
+
+.partners-showcase .partner-showcase-card .btn:hover {
+    transform: translateY(-1px);
+}
+
+@media (max-width: 767.98px) {
+    .hero-showcase {
+        border-radius: 18px;
+    }
+
+    .mission-showcase,
+    .about-showcase {
+        border-radius: 18px;
+    }
+
+    .mission-showcase .mission-panel,
+    .events-showcase .showcase-card,
+    .about-showcase .member-showcase-card,
+    .partners-showcase .partner-showcase-card {
+        border-radius: 14px;
+    }
+}

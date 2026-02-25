@@ -63,6 +63,21 @@
          6. utilities.css - Р’СЃРїРѕРјРѕРіР°С‚РµР»СЊРЅС‹Рµ РєР»Р°СЃСЃС‹ (spacing, display, etc)
          7. responsive.css - Р’РЎР• РјРµРґРёР°-Р·Р°РїСЂРѕСЃС‹ Рё Р°РЅРёРјР°С†РёРё
          ============================================================ -->
+    <!-- ============================================================
+         IESA CSS ARCHITECTURE v3.0 (9 files, consolidated from 14)
+         1. variables.css  - CSS Custom Properties (colors, spacing, z-index)
+         2. base.css       - Reset and base HTML element styles
+         3. layout.css     - Header, nav, footer, containers
+         4. components.css - Buttons, cards, forms, badges, alerts, modals
+                             (merged: former modern-design.css)
+         5. pages.css      - Page-specific styles (profile, auth, blog, gallery)
+         6. utilities.css  - Helper classes (spacing, display, text)
+         7. animations.css - Animations and transitions
+         8. homepage.css   - Homepage sections
+                             (merged: homepage-v2 + sections-enhancements
+                                      + premium-sections)
+         9. responsive.css - All media queries
+         ============================================================ -->
     <link rel="stylesheet" href="{% static 'css/variables.css' %}">
     <link rel="stylesheet" href="{% static 'css/base.css' %}">
     <link rel="stylesheet" href="{% static 'css/layout.css' %}">
@@ -70,15 +85,13 @@
     <link rel="stylesheet" href="{% static 'css/pages.css' %}">
     <link rel="stylesheet" href="{% static 'css/utilities.css' %}">
     <link rel="stylesheet" href="{% static 'css/animations.css' %}">
-    <link rel="stylesheet" href="{% static 'css/modern-design.css' %}">
     <link rel="stylesheet" href="{% static 'css/product-cards.css' %}">
-    <link rel="stylesheet" href="{% static 'css/homepage-v2.css' %}">
-    <link rel="stylesheet" href="{% static 'css/sections-enhancements.css' %}">
-    <link rel="stylesheet" href="{% static 'css/premium-sections.css' %}">
+    <link rel="stylesheet" href="{% static 'css/homepage.css' %}">
     <link rel="stylesheet" href="{% static 'css/touch-gestures.css' %}">
     <link rel="stylesheet" href="{% static 'css/responsive.css' %}">
-    
 
+    <!-- Per-page CSS (injected by child templates via {% block extra_css %}) -->
+    {% block extra_css %}{% endblock %}
 </head>
 <body>
     <!-- Skip to main content (Accessibility) -->
@@ -443,5 +456,8 @@
             class="d-none">
     </div>
     {% endif %}
+
+    <!-- Per-page JS (injected by child templates via {% block extra_js %}) -->
+    {% block extra_js %}{% endblock %}
 </body>
 </html>

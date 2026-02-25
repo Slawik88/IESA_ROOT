@@ -43,8 +43,7 @@ def mark_notification_read(request, pk):
     """Mark a single notification as read"""
     notification = Notification.objects.filter(pk=pk, recipient=request.user).first()
     if notification:
-        notification.is_read = True
-        notification.save()
+        notification.mark_as_read()
     return redirect('notifications:notification_list')
 
 @login_required
