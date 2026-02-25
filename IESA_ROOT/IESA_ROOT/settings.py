@@ -243,13 +243,6 @@ spaces_key = os.getenv('SPACES_KEY')
 spaces_secret = os.getenv('SPACES_SECRET')
 spaces_bucket = os.getenv('SPACES_BUCKET')
 
-print("=" * 80)
-print(f"[SPACES CONFIG] DEBUG = {DEBUG}")
-print(f"[SPACES CONFIG] SPACES_KEY = {'SET' if spaces_key else 'NOT SET'}")
-print(f"[SPACES CONFIG] SPACES_SECRET = {'SET' if spaces_secret else 'NOT SET'}")
-print(f"[SPACES CONFIG] SPACES_BUCKET = {spaces_bucket}")
-print("=" * 80)
-
 if spaces_key and spaces_secret and spaces_bucket and not DEBUG:
     # AWS S3 settings (DigitalOcean Spaces совместим с S3 API)
     AWS_ACCESS_KEY_ID = spaces_key
@@ -265,18 +258,6 @@ if spaces_key and spaces_secret and spaces_bucket and not DEBUG:
     AWS_S3_CUSTOM_DOMAIN = f'{AWS_STORAGE_BUCKET_NAME}.fra1.digitaloceanspaces.com'
     # IMPORTANT: Do NOT use AWS_LOCATION - models use upload_to='media/...'
     # AWS_LOCATION would add extra prefix and break URLs
-    
-    # Enable boto3 debug logging
-    import logging
-    logging.basicConfig(level=logging.DEBUG)
-    boto3_logger = logging.getLogger('boto3')
-    boto3_logger.setLevel(logging.DEBUG)
-    botocore_logger = logging.getLogger('botocore')
-    botocore_logger.setLevel(logging.DEBUG)
-    s3transfer_logger = logging.getLogger('s3transfer')
-    s3transfer_logger.setLevel(logging.DEBUG)
-    storages_logger = logging.getLogger('storages')
-    storages_logger.setLevel(logging.DEBUG)
     
     # STORAGES dict (Django 5.x format) - заменяет DEFAULT_FILE_STORAGE
     STORAGES = {
@@ -294,17 +275,7 @@ if spaces_key and spaces_secret and spaces_bucket and not DEBUG:
     
     # MEDIA_URL points to CDN without extra 'media/' prefix (models use upload_to='...')
     MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/'
-    
-    print(f"✅ SPACES ACTIVATED")
-    print(f"✅ Bucket: {AWS_STORAGE_BUCKET_NAME}")
-    print(f"✅ MEDIA_URL: {MEDIA_URL}")
-    print(f"✅ Endpoint: {AWS_S3_ENDPOINT_URL}")
-    print(f"✅ All files will be stored at: https://{AWS_S3_CUSTOM_DOMAIN}/<model_upload_to>/<filename>")
-    
-    print("=" * 80)
 else:
-    print("❌ SPACES NOT ACTIVATED - Using local storage")
-    print("=" * 80)
     # Development or incomplete config - use local storage
     pass
 

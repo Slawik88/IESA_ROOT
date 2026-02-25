@@ -1,7 +1,6 @@
 """Views для работы с постами"""
 
 from django.views.generic import ListView, DetailView, CreateView
-from django.http import HttpResponseForbidden
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.utils.decorators import method_decorator
 from django.urls import reverse_lazy

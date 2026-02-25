@@ -1,6 +1,5 @@
 from django.contrib.sitemaps import Sitemap
 from blog.models import Post, Event
-from users.models import User
 from django.urls import reverse
 
 

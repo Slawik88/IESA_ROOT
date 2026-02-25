@@ -3,7 +3,6 @@ from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from .models import User, Partner, Visit
 from .forms import CustomUserCreationForm, CustomUserChangeForm
 from django.utils.html import format_html
-from django.conf import settings
 from django.urls import path, reverse
 from django.shortcuts import redirect
 from django.contrib import messages
@@ -12,6 +11,7 @@ import uuid
 from django.utils import timezone
 from users.qr_utils import generate_qr_code_for_user
 from django.core.files.storage import default_storage
+import boto3
 
 
 class CardStatusFilter(admin.SimpleListFilter):

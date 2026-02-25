@@ -96,7 +96,7 @@
             
             pinchElements.forEach(element => {
                 element.addEventListener('pinch', (e) => {
-                    console.log(`Pinch detected with scale: ${e.detail.scale}`);
+                    // Pinch gesture detected
                 });
             });
         },

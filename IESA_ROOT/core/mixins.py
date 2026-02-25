@@ -4,7 +4,6 @@ Django Mixins для HTMX интеграции
 """
 from django.http import HttpResponse
 from django.template.loader import render_to_string
-from django.contrib import messages
 
 
 class HTMXMixin:

@@ -5,7 +5,6 @@ This runs automatically when the application starts
 
 import os
 import django
-from django.db import connection
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'IESA_ROOT.settings')
 django.setup()

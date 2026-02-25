@@ -67,8 +67,6 @@ function initEventCardAnimations() {
             });
         });
     });
-    
-    console.log(`✨ Event cards animations initialized (${eventCards.length} cards)`);
 }
 
 /**
@@ -120,8 +118,6 @@ function initAboutSectionAnimations() {
             }
         });
     });
-    
-    console.log(`✨ About section animations initialized (${memberCards.length} team members)`);
 }
 
 /**
@@ -198,8 +194,6 @@ function initPartnerCardAnimations() {
             setTimeout(() => ripple.remove(), 600);
         });
     });
-    
-    console.log(`✨ Partner cards animations initialized (${partnerCards.length} partners)`);
 }
 
 /**
@@ -319,5 +313,3 @@ window.PremiumSections = {
     initAboutSectionAnimations,
     initPartnerCardAnimations
 };
-
-console.log('✨ Premium sections interactions loaded');

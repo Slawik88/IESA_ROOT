@@ -5,20 +5,16 @@ from django.urls import reverse_lazy
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.utils.decorators import method_decorator
 from django.contrib import messages
-from django.http import HttpResponseForbidden, FileResponse, Http404
+from django.http import HttpResponseForbidden, Http404
 from django.db.models import Q, Count
 from django_ratelimit.decorators import ratelimit
 from django.core.cache import cache
-from django.views.decorators.cache import cache_page
 from io import BytesIO
 from .models import User
 from .forms import CustomUserCreationForm, UserProfileEditForm
 from blog.models import Post, BlogSubscription
-import os
-from django.conf import settings
-from .qr_utils import generate_qr_code_for_user
 from .search_utils import highlight_text, normalize_search_query
-from .ratelimit_utils import login_ratelimit, register_ratelimit, search_ratelimit
+from .ratelimit_utils import login_ratelimit, register_ratelimit
 from .constants import ACTIVITY_LEVELS, POINTS_BREAKDOWN
 
 

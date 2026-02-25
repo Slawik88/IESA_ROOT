@@ -1,7 +1,6 @@
 from django.contrib import admin
 from django.utils.html import format_html
 from django_ckeditor_5.widgets import CKEditor5Widget
-from django import forms
 from django.db import models
 from modeltranslation.admin import TabbedTranslationAdmin
 from .models import Product

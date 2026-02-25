@@ -7,13 +7,13 @@ from django.shortcuts import render, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
-from django.db.models import Q, Count, Max
+from django.db.models import Q, Count
 from django.utils import timezone
 from django.core.paginator import Paginator
 import json
 import logging
 
-from .models import Chat, Message, TypingStatus
+from .models import Chat, Message
 from users.models import User
 
 logger = logging.getLogger(__name__)

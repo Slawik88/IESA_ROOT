@@ -5,9 +5,7 @@ from django.conf.urls.static import static
 from django.contrib.sitemaps.views import sitemap
 from django.views.generic.base import RedirectView
 from django.templatetags.static import static as static_static
-from django.views.generic import TemplateView
 from django.http import FileResponse
-from django.views.decorators.http import condition
 from pathlib import Path
 from blog.sitemaps import sitemaps
 from .protected_media_views import serve_protected_media
