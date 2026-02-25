@@ -411,3 +411,703 @@ msgstr "Реєстрація"
 
 msgid "ABOUT"
 msgstr "ПРО НАС"
+
+# ============================================================
+# Template i18n strings — added by translation audit
+# ============================================================
+
+# Login page
+msgid "Welcome back"
+msgstr "З поверненням"
+
+msgid "Sign in to manage your profile, create posts and discover events."
+msgstr "Увійдіть, щоб керувати профілем, створювати публікації та відкривати події."
+
+msgid "Quick Access"
+msgstr "Швидкий доступ"
+
+msgid "Community Engagement"
+msgstr "Залученість спільноти"
+
+msgid "Event Updates"
+msgstr "Оновлення подій"
+
+msgid "SIGN IN"
+msgstr "УВІЙТИ"
+
+msgid "Access your profile and connect with the community."
+msgstr "Отримайте доступ до вашого профілю та зв'яжіться зі спільнотою."
+
+msgid "Sign in failed!"
+msgstr "Помилка входу!"
+
+msgid "Invalid username or password. Please try again."
+msgstr "Невірне ім'я користувача або пароль. Спробуйте ще раз."
+
+msgid "Don't have an account?"
+msgstr "Немає акаунту?"
+
+msgid "Register here"
+msgstr "Зареєструватися тут"
+
+msgid "Sign in"
+msgstr "Увійти"
+
+# Profile
+msgid "Profile of %(username)s"
+msgstr "Профіль %(username)s"
+
+msgid "Edit Profile"
+msgstr "Редагувати профіль"
+
+msgid "Your QR Code"
+msgstr "Ваш QR-код"
+
+msgid "Open profile by card"
+msgstr "Відкрити профіль за карткою"
+
+msgid "QR Code"
+msgstr "QR-код"
+
+msgid "Scan to view profile"
+msgstr "Скануйте для перегляду профілю"
+
+msgid "Download QR"
+msgstr "Завантажити QR"
+
+msgid "Follow"
+msgstr "Слідкувати"
+
+msgid "to follow users"
+msgstr "щоб слідкувати за користувачами"
+
+msgid "Full name"
+msgstr "Повне ім'я"
+
+msgid "Date of birth"
+msgstr "Дата народження"
+
+msgid "years"
+msgstr "років"
+
+msgid "Phone"
+msgstr "Телефон"
+
+msgid "Hidden"
+msgstr "Приховано"
+
+msgid "Not specified"
+msgstr "Не вказано"
+
+msgid "Joined"
+msgstr "Приєднався"
+
+msgid "Activity Level"
+msgstr "Рівень активності"
+
+msgid "Legend"
+msgstr "Легенда"
+
+msgid "Expert"
+msgstr "Експерт"
+
+msgid "Advanced"
+msgstr "Просунутий"
+
+msgid "Intermediate"
+msgstr "Середній"
+
+msgid "Beginner"
+msgstr "Початківець"
+
+msgid "Learn about activity levels"
+msgstr "Дізнатися про рівні активності"
+
+msgid "Activity Points"
+msgstr "Бали активності"
+
+msgid "Progress to %(level)s:"
+msgstr "Прогрес до %(level)s:"
+
+msgid "Maximum level achieved!"
+msgstr "Максимальний рівень досягнуто!"
+
+msgid "Find me"
+msgstr "Знайти мене"
+
+msgid "Total posts"
+msgstr "Всього публікацій"
+
+msgid "Likes received"
+msgstr "Отримані вподобання"
+
+msgid "Comments made"
+msgstr "Коментарі"
+
+msgid "Your Posts"
+msgstr "Ваші публікації"
+
+msgid "Title"
+msgstr "Назва"
+
+msgid "Status"
+msgstr "Статус"
+
+msgid "Created"
+msgstr "Створено"
+
+msgid "Actions"
+msgstr "Дії"
+
+msgid "Rejected"
+msgstr "Відхилено"
+
+msgid "You have no posts yet."
+msgstr "У вас ще немає публікацій."
+
+msgid "Create your first post"
+msgstr "Створіть свою першу публікацію"
+
+# Edit profile
+msgid "Edit profile"
+msgstr "Редагувати профіль"
+
+msgid "Refresh your info, avatar and social links."
+msgstr "Оновіть свою інформацію, аватар і соціальні посилання."
+
+msgid "Basic info"
+msgstr "Основна інформація"
+
+msgid "First name"
+msgstr "Ім'я"
+
+msgid "Last name"
+msgstr "Прізвище"
+
+msgid "Email"
+msgstr "Електронна пошта"
+
+msgid "Format: DD.MM.YYYY"
+msgstr "Формат: ДД.ММ.РРРР"
+
+msgid "Phone Number"
+msgstr "Номер телефону"
+
+msgid "Example: +41 XX XXX XX XX"
+msgstr "Приклад: +41 XX XXX XX XX"
+
+msgid "Hide phone number (only admins can see it)"
+msgstr "Приховати номер телефону (бачать тільки адміни)"
+
+msgid "Avatar"
+msgstr "Аватар"
+
+msgid "Upload square image for best fit."
+msgstr "Завантажте квадратне зображення для найкращого вигляду."
+
+msgid "Social & links"
+msgstr "Соціальні мережі та посилання"
+
+msgid "examples below"
+msgstr "приклади нижче"
+
+msgid "Other links"
+msgstr "Інші посилання"
+
+msgid "one per line"
+msgstr "по одному на рядок"
+
+msgid "Save changes"
+msgstr "Зберегти зміни"
+
+msgid "Cancel"
+msgstr "Скасувати"
+
+# Public profile
+msgid "Member since"
+msgstr "Учасник з"
+
+msgid "Copy ID"
+msgstr "Копіювати ID"
+
+msgid "Verified"
+msgstr "Верифікований"
+
+msgid "Card Active"
+msgstr "Картка активна"
+
+msgid "Activity Statistics"
+msgstr "Статистика активності"
+
+msgid "Likes"
+msgstr "Вподобання"
+
+msgid "Admin Panel"
+msgstr "Панель адміністратора"
+
+msgid "Links"
+msgstr "Посилання"
+
+msgid "Website"
+msgstr "Веб-сайт"
+
+msgid "Other:"
+msgstr "Інше:"
+
+msgid "Published Posts"
+msgstr "Опубліковані публікації"
+
+msgid "No published posts yet."
+msgstr "Ще немає опублікованих публікацій."
+
+# Blog & Community
+msgid "Loading..."
+msgstr "Завантаження..."
+
+msgid "Back to blog"
+msgstr "Повернутися до блогу"
+
+msgid "Create a new post"
+msgstr "Створити нову публікацію"
+
+msgid "CREATE CONTENT"
+msgstr "СТВОРИТИ КОНТЕНТ"
+
+msgid "Publish New Article or Announcement"
+msgstr "Опублікувати новий артикул або оголошення"
+
+msgid "Preview"
+msgstr "Попередній перегляд"
+
+msgid "Create and submit for review"
+msgstr "Створити та надіслати на перевірку"
+
+msgid "Submitting..."
+msgstr "Надсилається..."
+
+msgid "Live preview"
+msgstr "Живий перегляд"
+
+msgid "Anonymous"
+msgstr "Анонім"
+
+msgid "views"
+msgstr "перегляди"
+
+msgid "COMMENTS"
+msgstr "КОМЕНТАРІ"
+
+msgid "Leave a comment"
+msgstr "Залишити коментар"
+
+msgid "Your comment..."
+msgstr "Ваш коментар..."
+
+msgid "Send"
+msgstr "Надіслати"
+
+msgid "To comment, please"
+msgstr "Щоб коментувати,"
+
+msgid "sign in"
+msgstr "увійдіть"
+
+msgid "or"
+msgstr "або"
+
+msgid "register"
+msgstr "зареєструйтесь"
+
+msgid "RECOMMENDED POSTS"
+msgstr "РЕКОМЕНДОВАНІ ПУБЛІКАЦІЇ"
+
+msgid "Community & Blog"
+msgstr "Спільнота та блог"
+
+msgid "COMMUNITY"
+msgstr "СПІЛЬНОТА"
+
+msgid "Share Ideas, Events & News"
+msgstr "Діліться ідеями, подіями та новинами"
+
+msgid "All Posts"
+msgstr "Усі публікації"
+
+msgid "All posts"
+msgstr "Усі публікації"
+
+msgid "Search posts..."
+msgstr "Пошук публікацій..."
+
+msgid "Search posts"
+msgstr "Пошук публікацій"
+
+msgid "All statuses"
+msgstr "Усі статуси"
+
+msgid "Published"
+msgstr "Опубліковано"
+
+msgid "Pending"
+msgstr "Очікує"
+
+msgid "Latest"
+msgstr "Найновіші"
+
+msgid "Popular"
+msgstr "Популярні"
+
+msgid "Trending"
+msgstr "У тренді"
+
+msgid "Create Post"
+msgstr "Створити публікацію"
+
+msgid "No Posts Yet"
+msgstr "Ще немає публікацій"
+
+# Events
+msgid "Date & time:"
+msgstr "Дата і час:"
+
+msgid "Location:"
+msgstr "Місце:"
+
+msgid "DESCRIPTION"
+msgstr "ОПИС"
+
+msgid "EVENTS CALENDAR"
+msgstr "КАЛЕНДАР ПОДІЙ"
+
+msgid "Search events..."
+msgstr "Пошук подій..."
+
+msgid "Search events"
+msgstr "Пошук подій"
+
+msgid "Upcoming"
+msgstr "Майбутні"
+
+msgid "All events"
+msgstr "Усі події"
+
+msgid "Past"
+msgstr "Минулі"
+
+msgid "All categories"
+msgstr "Усі категорії"
+
+# Messages
+msgid "Messages"
+msgstr "Повідомлення"
+
+msgid "Type a message..."
+msgstr "Введіть повідомлення..."
+
+msgid "Search messages"
+msgstr "Пошук повідомлень"
+
+msgid "Search..."
+msgstr "Пошук..."
+
+msgid "Edit"
+msgstr "Редагувати"
+
+msgid "Delete"
+msgstr "Видалити"
+
+msgid "Today"
+msgstr "Сьогодні"
+
+msgid "Yesterday"
+msgstr "Вчора"
+
+msgid "New chat"
+msgstr "Новий чат"
+
+msgid "No chats"
+msgstr "Немає чатів"
+
+msgid "No messages"
+msgstr "Немає повідомлень"
+
+# Notifications
+msgid "Notifications"
+msgstr "Сповіщення"
+
+msgid "Mark all as read"
+msgstr "Позначити все як прочитане"
+
+msgid "Unread"
+msgstr "Непрочитані"
+
+msgid "No notifications yet"
+msgstr "Ще немає сповіщень"
+
+msgid "New"
+msgstr "Нове"
+
+msgid "View"
+msgstr "Переглянути"
+
+# Error pages
+msgid "404 - Page not found"
+msgstr "404 - Сторінку не знайдено"
+
+msgid "Page not found"
+msgstr "Сторінку не знайдено"
+
+msgid "500 - Internal server error"
+msgstr "500 - Внутрішня помилка сервера"
+
+msgid "Internal server error"
+msgstr "Внутрішня помилка сервера"
+
+msgid "Go back"
+msgstr "Повернутися"
+
+# Gallery
+msgid "PHOTO GALLERY"
+msgstr "ФОТОГАЛЕРЕЯ"
+
+msgid "Photo"
+msgstr "Фото"
+
+msgid "Previous"
+msgstr "Попередній"
+
+msgid "Next"
+msgstr "Наступний"
+
+# Base template
+msgid "Confirm Logout"
+msgstr "Підтвердження виходу"
+
+msgid "Are you sure you want to log out?"
+msgstr "Ви впевнені, що хочете вийти?"
+
+msgid "Back to top"
+msgstr "Наверх"
+
+msgid "Scroll to top"
+msgstr "Прокрутити наверх"
+
+msgid "Skip to main content"
+msgstr "Перейти до основного вмісту"
+
+msgid "IESA Home"
+msgstr "Головна IESA"
+
+msgid "Toggle navigation"
+msgstr "Перемикання навігації"
+
+msgid "IESA Association. All rights reserved."
+msgstr "Асоціація IESA. Всі права захищені."
+
+msgid "LINKS"
+msgstr "ПОСИЛАННЯ"
+
+msgid "CONTACTS"
+msgstr "КОНТАКТИ"
+
+msgid "SOCIAL"
+msgstr "СОЦІАЛЬНІ МЕРЕЖІ"
+
+# Registration
+msgid "REGISTER"
+msgstr "РЕЄСТРАЦІЯ"
+
+msgid "Create Account"
+msgstr "Створити акаунт"
+
+msgid "Already have an account?"
+msgstr "Вже є акаунт?"
+
+msgid "Sign in here"
+msgstr "Увійти тут"
+
+# Member directory
+msgid "MEMBER DIRECTORY"
+msgstr "КАТАЛОГ УЧАСНИКІВ"
+
+msgid "Search by name, username, email or ID..."
+msgstr "Пошук за ім'ям, логіном, email або ID..."
+
+msgid "Results for"
+msgstr "Результати для"
+
+msgid "No users found."
+msgstr "Користувачів не знайдено."
+
+# Benefits
+msgid "Member Benefits"
+msgstr "Переваги членства"
+
+# Activity levels
+msgid "Activity Levels"
+msgstr "Рівні активності"
+
+msgid "Activity Points System"
+msgstr "Система балів активності"
+
+msgid "Back to Profile"
+msgstr "Повернутися до профілю"
+
+msgid "How Points are Calculated"
+msgstr "Як розраховуються бали"
+
+msgid "Create a Post"
+msgstr "Створити публікацію"
+
+msgid "points"
+msgstr "балів"
+
+msgid "Receive a Like"
+msgstr "Отримати вподобання"
+
+msgid "Write a Comment"
+msgstr "Написати коментар"
+
+msgid "Daily Login"
+msgstr "Щоденний вхід"
+
+msgid "point"
+msgstr "бал"
+
+msgid "ACHIEVEMENT LEVELS"
+msgstr "РІВНІ ДОСЯГНЕНЬ"
+
+msgid "Additional Information"
+msgstr "Додаткова інформація"
+
+msgid "Points are calculated automatically based on your activity."
+msgstr "Бали розраховуються автоматично на основі вашої активності."
+
+msgid "Your level is updated in real-time as you earn points."
+msgstr "Ваш рівень оновлюється в реальному часі, коли ви набираєте бали."
+
+msgid "All members start at Beginner level."
+msgstr "Усі учасники починають з рівня Початківець."
+
+msgid "There is no penalty for inactivity."
+msgstr "За неактивність штраф не передбачено."
+
+msgid "Tips for Advancement"
+msgstr "Поради для зростання"
+
+msgid "Post regularly to the blog"
+msgstr "Регулярно публікуйте в блозі"
+
+msgid "Engage with other members' content"
+msgstr "Взаємодійте з контентом інших учасників"
+
+msgid "Log in daily to earn bonus points"
+msgstr "Входьте щодня, щоб отримувати бонусні бали"
+
+msgid "Create quality content that others will like"
+msgstr "Створюйте якісний контент, який сподобається іншим"
+
+# Deactivate account
+msgid "Deactivate Account"
+msgstr "Деактивувати акаунт"
+
+msgid "Warning:"
+msgstr "Увага:"
+
+msgid "Account deactivation is a serious action. Please read the information below carefully."
+msgstr "Деактивація акаунту — серйозна дія. Будь ласка, уважно прочитайте інформацію нижче."
+
+msgid "What happens when you deactivate your account:"
+msgstr "Що станеться, коли ви деактивуєте акаунт:"
+
+msgid "Your profile will be hidden from other users"
+msgstr "Ваш профіль буде приховано від інших користувачів"
+
+msgid "You will not be able to log in"
+msgstr "Ви не зможете увійти в систему"
+
+msgid "Your posts and comments will remain but show as anonymous"
+msgstr "Ваші публікації та коментарі залишаться, але будуть показані як анонімні"
+
+msgid "You can contact an administrator to reactivate your account"
+msgstr "Ви можете зв'язатися з адміністратором для повторної активації акаунту"
+
+msgid "Yes, Deactivate My Account"
+msgstr "Так, деактивувати мій акаунт"
+
+msgid "Need help? Contact our support team before making this decision."
+msgstr "Потрібна допомога? Зв'яжіться з нашою командою підтримки перед прийняттям рішення."
+
+msgid "Contact support"
+msgstr "Зв'язатися з підтримкою"
+
+# Public profile (QR scan)
+msgid "Public Profile"
+msgstr "Публічний профіль"
+
+msgid "Active Member"
+msgstr "Активний учасник"
+
+msgid "Inactive"
+msgstr "Неактивний"
+
+msgid "Issued:"
+msgstr "Видано:"
+
+msgid "For Partners:"
+msgstr "Для партнерів:"
+
+msgid "This member can use their IESA card for discounts and benefits at partner locations."
+msgstr "Цей учасник може використовувати свою картку IESA для знижок і переваг у партнерських закладах."
+
+# Log visit
+msgid "Log Visit"
+msgstr "Записати візит"
+
+msgid "Back to Dashboard"
+msgstr "Повернутися до панелі"
+
+msgid "CHF"
+msgstr "CHF"
+
+msgid "Member Verification Required"
+msgstr "Необхідна верифікація учасника"
+
+msgid "Ask the member to show their current 6-digit PIN from their personal cabinet."
+msgstr "Попросіть учасника показати свій поточний 6-значний PIN з особистого кабінету."
+
+msgid "Verify PIN & Log Visit"
+msgstr "Перевірити PIN та записати візит"
+
+# Partner search
+msgid "Results"
+msgstr "Результати"
+
+msgid "No Results Found"
+msgstr "Результатів не знайдено"
+
+msgid "Try searching with a different name, username, or member ID."
+msgstr "Спробуйте пошукати за іншим ім'ям, логіном або ID учасника."
+
+msgid "Enter member name, username, or ID to search"
+msgstr "Введіть ім'я учасника, логін або ID для пошуку"
+
+# Search
+msgid "Search"
+msgstr "Пошук"
+
+msgid "Profile"
+msgstr "Профіль"
+
+# Commons
+msgid "Comments"
+msgstr "Коментарі"
+
+msgid "ago"
+msgstr "тому"
+
+msgid "Yes"
+msgstr "Так"
+
+msgid "No"
+msgstr "Ні"

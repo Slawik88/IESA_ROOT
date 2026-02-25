@@ -1,7 +1,7 @@
 {% extends "base.html" %}
-{% load static %}
+{% load static i18n %}
 
-{% block title %}Public Profile - {{ member.username }}{% endblock %}
+{% block title %}{% trans "Public Profile" %} - {{ member.username }}{% endblock %}
 
 {% block content %}
 <div class="container py-4">
@@ -20,7 +20,6 @@
                         {% endif %}
                     </div>
                     
-                    <!-- Name and Pseudonym -->
                     <h3 class="mb-1">
                         {% if member.first_name or member.last_name %}
                             {{ member.first_name }} {{ member.last_name }}
@@ -35,40 +34,36 @@
                         </p>
                     {% endif %}
                     
-                    <!-- Membership Status -->
                     <div class="mb-3">
                         {% if member.membership_status == 'active' %}
                             <span class="badge bg-success px-3 py-2">
-                                <i class="fas fa-check-circle"></i> Active Member
+                                <i class="fas fa-check-circle"></i> {% trans "Active Member" %}
                             </span>
                         {% else %}
                             <span class="badge bg-secondary px-3 py-2">
-                                <i class="fas fa-times-circle"></i> Inactive
+                                <i class="fas fa-times-circle"></i> {% trans "Inactive" %}
                             </span>
                         {% endif %}
                     </div>
                     
-                    <!-- Card Status -->
                     {% if member.card_active %}
                         <div class="alert alert-success mb-0">
-                            <i class="fas fa-id-card"></i> Card Active
+                            <i class="fas fa-id-card"></i> {% trans "Card Active" %}
                             {% if member.card_issued_at %}
-                                <br><small class="text-muted">Issued: {{ member.card_issued_at|date:"d M Y" }}</small>
+                                <br><small class="text-muted">{% trans "Issued:" %} {{ member.card_issued_at|date:"d M Y" }}</small>
                             {% endif %}
                         </div>
                     {% endif %}
                     
-                    <!-- QR Code UUID (hidden for security) -->
                     <p class="mt-3 text-muted small">
-                        <i class="fas fa-qrcode"></i> ID: {{ member.permanent_id|truncatechars:15 }}...
+                        <i class="fas fa-qrcode"></i> {% trans "ID:" %} {{ member.permanent_id|truncatechars:15 }}...
                     </p>
                 </div>
             </div>
             
-            <!-- Partner Instructions -->
             <div class="alert alert-info mt-3">
-                <i class="fas fa-info-circle"></i> <strong>For Partners:</strong>
-                <br>If this member is active, you can log their visit from your partner dashboard.
+                <i class="fas fa-info-circle"></i> <strong>{% trans "For Partners:" %}</strong>
+                <br>{% trans "If this member is active, you can log their visit from your partner dashboard." %}
             </div>
         </div>
     </div>
