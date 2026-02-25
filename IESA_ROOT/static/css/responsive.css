@@ -70,37 +70,7 @@
    ==================================================== */
 
 @media (min-width: 576px) {
-  /* Display */
-  .d-sm-none { display: none !important; }
-  .d-sm-inline { display: inline !important; }
-  .d-sm-inline-block { display: inline-block !important; }
-  .d-sm-block { display: block !important; }
-  .d-sm-flex { display: flex !important; }
-  .d-sm-inline-flex { display: inline-flex !important; }
-  
-  /* Flex Direction */
-  .flex-sm-row { flex-direction: row !important; }
-  .flex-sm-column { flex-direction: column !important; }
-  
-  /* Justify */
-  .justify-content-sm-start { justify-content: flex-start !important; }
-  .justify-content-sm-end { justify-content: flex-end !important; }
-  .justify-content-sm-center { justify-content: center !important; }
-  .justify-content-sm-between { justify-content: space-between !important; }
-  
-  /* Align */
-  .align-items-sm-start { align-items: flex-start !important; }
-  .align-items-sm-end { align-items: flex-end !important; }
-  .align-items-sm-center { align-items: center !important; }
-  
-  /* Text Align */
-  .text-sm-start { text-align: left !important; }
-  .text-sm-center { text-align: center !important; }
-  .text-sm-end { text-align: right !important; }
-  
-  /* Margin */
-  .mb-sm-0 { margin-bottom: 0 !important; }
-  .mb-sm-4 { margin-bottom: var(--space-4) !important; }
+  /* Bootstrap 5 provides these utilities natively. */
 }
 
 /* ====================================================
@@ -108,40 +78,7 @@
    ==================================================== */
 
 @media (min-width: 768px) {
-  /* Display */
-  .d-md-none { display: none !important; }
-  .d-md-inline { display: inline !important; }
-  .d-md-inline-block { display: inline-block !important; }
-  .d-md-block { display: block !important; }
-  .d-md-flex { display: flex !important; }
-  .d-md-inline-flex { display: inline-flex !important; }
-  
-  /* Flex Direction */
-  .flex-md-row { flex-direction: row !important; }
-  .flex-md-column { flex-direction: column !important; }
-  
-  /* Justify */
-  .justify-content-md-start { justify-content: flex-start !important; }
-  .justify-content-md-end { justify-content: flex-end !important; }
-  .justify-content-md-center { justify-content: center !important; }
-  .justify-content-md-between { justify-content: space-between !important; }
-  
-  /* Align */
-  .align-items-md-start { align-items: flex-start !important; }
-  .align-items-md-end { align-items: flex-end !important; }
-  .align-items-md-center { align-items: center !important; }
-  
-  /* Text Align */
-  .text-md-start { text-align: left !important; }
-  .text-md-center { text-align: center !important; }
-  .text-md-end { text-align: right !important; }
-  
-  /* Margin */
-  .mb-md-0 { margin-bottom: 0 !important; }
-  .mb-md-4 { margin-bottom: var(--space-4) !important; }
-  .mb-md-5 { margin-bottom: var(--space-5) !important; }
-  
-  /* Profile specific */
+  /* Bootstrap 5 provides these utilities natively. */
   .profile-avatar,
   .profile-avatar-fallback {
     width: 160px;
@@ -155,33 +92,7 @@
    ==================================================== */
 
 @media (min-width: 992px) {
-  /* Display */
-  .d-lg-none { display: none !important; }
-  .d-lg-inline { display: inline !important; }
-  .d-lg-inline-block { display: inline-block !important; }
-  .d-lg-block { display: block !important; }
-  .d-lg-flex { display: flex !important; }
-  .d-lg-inline-flex { display: inline-flex !important; }
-  
-  /* Flex Direction */
-  .flex-lg-row { flex-direction: row !important; }
-  .flex-lg-column { flex-direction: column !important; }
-  
-  /* Justify */
-  .justify-content-lg-start { justify-content: flex-start !important; }
-  .justify-content-lg-end { justify-content: flex-end !important; }
-  .justify-content-lg-center { justify-content: center !important; }
-  .justify-content-lg-between { justify-content: space-between !important; }
-  
-  /* Align */
-  .align-items-lg-start { align-items: flex-start !important; }
-  .align-items-lg-end { align-items: flex-end !important; }
-  .align-items-lg-center { align-items: center !important; }
-  
-  /* Text Align */
-  .text-lg-start { text-align: left !important; }
-  .text-lg-center { text-align: center !important; }
-  .text-lg-end { text-align: right !important; }
+  /* Bootstrap 5 provides these utilities natively. */
 }
 
 /* ====================================================
@@ -189,17 +100,7 @@
    ==================================================== */
 
 @media (min-width: 1200px) {
-  /* Display */
-  .d-xl-none { display: none !important; }
-  .d-xl-inline { display: inline !important; }
-  .d-xl-inline-block { display: inline-block !important; }
-  .d-xl-block { display: block !important; }
-  .d-xl-flex { display: flex !important; }
-  .d-xl-inline-flex { display: inline-flex !important; }
-  
-  /* Flex Direction */
-  .flex-xl-row { flex-direction: row !important; }
-  .flex-xl-column { flex-direction: column !important; }
+  /* Bootstrap 5 provides these utilities natively. */
 }
 
 /* ====================================================
@@ -207,11 +108,7 @@
    ==================================================== */
 
 @media (min-width: 1400px) {
-  /* Display */
-  .d-xxl-none { display: none !important; }
-  .d-xxl-inline { display: inline !important; }
-  .d-xxl-block { display: block !important; }
-  .d-xxl-flex { display: flex !important; }
+  /* Bootstrap 5 provides these utilities natively. */
 }
 
 /* ====================================================

@@ -193,6 +193,47 @@ class User(AbstractUser):
         totp = pyotp.TOTP(self.totp_secret, interval=720)
         return totp.verify(pin, valid_window=valid_window)
 
+    def get_avatar_url(self):
+        """Return the avatar URL safely, or None if unavailable.
+
+        Use this instead of accessing user.avatar.url directly to avoid
+        ValueError when the underlying file is missing from storage.
+        """
+        try:
+            if self.avatar:
+                return self.avatar.url
+        except Exception:
+            pass
+        return None
+
+    def get_absolute_url(self):
+        """Canonical URL to this user's public profile (scan-card page)."""
+        from django.urls import reverse
+        return reverse('users:public_profile', kwargs={'uuid': str(self.permanent_id)})
+
+    def get_post_counts(self):
+        """Return aggregate post counts grouped by status.
+
+        Example::
+
+            counts = user.get_post_counts()
+            # {'pending': 2, 'published': 10, 'rejected': 0, 'draft': 1}
+        """
+        from blog.models import Post
+        from django.db.models import Count, Q
+        return Post.objects.filter(author=self).aggregate(
+            pending=Count('id', filter=Q(status='pending')),
+            published=Count('id', filter=Q(status='published')),
+            rejected=Count('id', filter=Q(status='rejected')),
+            draft=Count('id', filter=Q(status='draft')),
+        )
+
+    def get_pin_remaining_seconds(self):
+        """Seconds remaining until the current TOTP PIN expires (720 s interval)."""
+        import time
+        interval = 720
+        return interval - (int(time.time()) % interval)
+
 
 class Partner(models.Model):
     """

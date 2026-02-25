@@ -175,7 +175,12 @@ class Event(models.Model):
         
     def __str__(self):
         return self.title
-    
+
+    def get_absolute_url(self):
+        """Canonical URL for this event."""
+        from django.urls import reverse
+        return reverse('blog:event_detail', kwargs={'pk': self.pk})
+
     @property
     def is_registration_open(self):
         """Check if registration is still open"""

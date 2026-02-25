@@ -24,7 +24,7 @@ def comment_create(request, pk):
     parent_id = request.POST.get('parent_id')
     
     if not text:
-        return redirect('post_detail', pk=pk)
+        return redirect('blog:post_detail', pk=pk)
     
     # Создаём комментарий
     parent = None
@@ -48,7 +48,7 @@ def comment_create(request, pk):
             'comment_likes_map': get_comment_likes_map(post, request.user),
         })
     
-    return redirect('post_detail', pk=pk)
+    return redirect('blog:blog:post_detail', pk=pk)
 
 
 def comment_list(request, pk):

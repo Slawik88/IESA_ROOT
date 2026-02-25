@@ -43,11 +43,6 @@ class LoginView(auth_views.LoginView):
     template_name = 'users/login.html'
 
 
-# View для логаута (используем стандартный Django)
-class LogoutView(auth_views.LogoutView):
-    next_page = reverse_lazy('core:home')
-
-
 # View для личного кабинета (отображение с постами пользователя)
 @method_decorator(login_required, name='dispatch')
 class ProfileView(DetailView):

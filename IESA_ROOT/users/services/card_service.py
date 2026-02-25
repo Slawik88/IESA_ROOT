@@ -55,7 +55,7 @@ class UserCardService:
         
         # Bulk update - FIX: Much faster than updating one by one
         if users_to_update:
-            from .models import User
+            from ..models import User
             User.objects.bulk_update(
                 users_to_update,
                 ['permanent_id', 'card_active', 'card_issued_at'],
@@ -92,7 +92,7 @@ class UserCardService:
         
         # Bulk update fields
         if users_to_update:
-            from .models import User
+            from ..models import User
             User.objects.bulk_update(
                 users_to_update,
                 ['card_active', 'card_issued_at'],

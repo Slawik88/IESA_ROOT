@@ -26,18 +26,12 @@ def post_search(request):
     status = request.GET.get('status', '').strip()
     sort = request.GET.get('sort', 'latest').strip()
     
-    logger.info(f"[POST_SEARCH] query='{query}', status='{status}', sort='{sort}'")
-    
     # Используем утилиту поиска
     posts = util_search_posts(
         normalize_search_query(query) if query else '',
         status=status,
         sort=sort
     )
-    
-    logger.info(f"[POST_SEARCH] Found {posts.count()} posts")
-    if posts:
-        logger.info(f"[POST_SEARCH] First 3 posts: {[p.title for p in posts[:3]]}")
     
     return render(request, 'blog/htmx/posts_list_fragment.html', {
         'posts': posts
@@ -48,12 +42,8 @@ def global_search(request):
     """Глобальный поиск по всему сайту через HTMX"""
     query = request.GET.get('q', '').strip()
     
-    # DEBUG
-    logger.info(f"[SEARCH DEBUG] Received query: '{query}' (length: {len(query)})")
-    
     # Пустой запрос
     if not query:
-        logger.info("[SEARCH DEBUG] Empty query - returning empty results")
         return render(request, 'blog/htmx/post_search_results.html', {
             'query': '',
             'results': {'users': [], 'posts': [], 'events': [], 'partners': []}
@@ -68,7 +58,6 @@ def global_search(request):
     
     # Минимум 2 символа
     if len(normalized) < MIN_SEARCH_LENGTH:
-        logger.info(f"[SEARCH DEBUG] Query too short ({len(normalized)} < {MIN_SEARCH_LENGTH})")
         return render(request, 'blog/htmx/post_search_results.html', {
             'query': query,
             'results': results
@@ -116,20 +105,9 @@ def global_search(request):
             f"{len(results['events'])} events, {len(results['partners'])} partners"
         )
         
-        # DEBUG: Выводим конкретные найденные объекты
-        if results['users']:
-            logger.info(f"[SEARCH DEBUG] Users: {[u.username for u in results['users']]}")
-        if results['posts']:
-            logger.info(f"[SEARCH DEBUG] Posts: {[p.title for p in results['posts']]}")
-        if results['events']:
-            logger.info(f"[SEARCH DEBUG] Events: {[e.title for e in results['events']]}")
-        if results['partners']:
-            logger.info(f"[SEARCH DEBUG] Partners: {[p.name for p in results['partners']]}")
-        
     except Exception as e:
         logger.error(f"Search error: {e}", exc_info=True)
     
-    logger.info(f"[SEARCH DEBUG] Rendering template with query='{query}', results keys: {results.keys()}")
     return render(request, 'blog/htmx/post_search_results.html', {
         'query': query,
         'results': results
