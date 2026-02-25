@@ -90,7 +90,7 @@
     <link rel="stylesheet" href="{% static 'css/touch-gestures.css' %}">
     <link rel="stylesheet" href="{% static 'css/responsive.css' %}">
 
-    <!-- Per-page CSS (injected by child templates via {% block extra_css %}) -->
+    <!-- Per-page CSS: override 'extra_css' block in child templates -->
     {% block extra_css %}{% endblock %}
 </head>
 <body>
@@ -457,7 +457,7 @@
     </div>
     {% endif %}
 
-    <!-- Per-page JS (injected by child templates via {% block extra_js %}) -->
+    <!-- Per-page JS: override 'extra_js' block in child templates -->
     {% block extra_js %}{% endblock %}
 </body>
 </html>
