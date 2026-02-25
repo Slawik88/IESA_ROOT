@@ -16,16 +16,16 @@
                     {% if user.username and user.username|length > 0 %}
                         <a href="{% url 'users:profile_public_username' username=user.username %}" 
                            class="list-group-item list-group-item-action d-flex align-items-center py-2 hx-item animation-delay-{{ forloop.counter0|default:0 }}">
-                            {% if user.avatar %}
-                                <img src="{{ user.avatar.url }}" 
+                            {% with avatar_url=user.get_avatar_url %}
+                            {% if avatar_url %}
+                                <img src="{{ avatar_url }}" 
                                      class="search-avatar rounded-circle me-3 object-cover" 
                                      alt="{{ user.username }} avatar" loading="lazy">
                             {% else %}
                                 <div class="search-avatar-fallback bg-primary text-white d-flex align-items-center justify-content-center fw-bold rounded-circle me-3">
                                     {{ user.username|slice:":1"|upper }}
                                 </div>
-                            {% endif %}
-                            <div class="flex-grow-1">
+                            {% endif %}                            {% endwith %}                            <div class="flex-grow-1">
                                 <strong>👤 {{ user.get_full_name|default:user.username }}</strong>
                                 <span class="text-muted ms-2">@{{ user.username }}</span>
                                 <br>
@@ -54,7 +54,7 @@
                         <div class="flex-grow-1">
                             <h6 class="mb-1 fw-bold">📝 {{ post.title }}</h6>
                             <p class="mb-1 text-muted small search-result-text">
-                                {{ post.text|truncatewords:20|striptags }}
+                                {{ post.text|striptags|truncatewords:20 }}
                             </p>
                             <small class="text-muted">
                                 <i class="fas fa-user me-1"></i>
