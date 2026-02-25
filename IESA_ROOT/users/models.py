@@ -1,11 +1,61 @@
 from django.db import models
-from django.contrib.auth.models import AbstractUser
+from django.contrib.auth.models import AbstractUser, UserManager as DjangoUserManager
 from django.utils import timezone
+from django.db.models import Q
 import uuid
 import secrets
 import pyotp
 import base64
 from django.utils.translation import gettext_lazy as _
+
+
+class UserQuerySet(models.QuerySet):
+    """Custom queryset for User with a reusable search() method.
+
+    Eliminates duplicate Q-object patterns scattered across views.
+    Usage::
+
+        User.objects.search("john doe")
+    """
+
+    def search(self, query):
+        """Case-insensitive search across username, name, email and pseudonym.
+
+        Supports single-word and two-word (first + last name) queries.
+        Returns an empty queryset for blank/None input.
+        """
+        if not query or not query.strip():
+            return self.none()
+        normalized = query.strip()
+        qs = self.filter(
+            Q(username__icontains=normalized) |
+            Q(first_name__icontains=normalized) |
+            Q(last_name__icontains=normalized) |
+            Q(email__icontains=normalized) |
+            Q(pseudonym__icontains=normalized) |
+            Q(permanent_id__icontains=normalized)
+        )
+        # Support "Firstname Lastname" two-word queries
+        parts = normalized.split()
+        if len(parts) == 2:
+            t1, t2 = parts
+            qs = (qs | self.filter(
+                Q(first_name__icontains=t1, last_name__icontains=t2) |
+                Q(first_name__icontains=t2, last_name__icontains=t1)
+            ))
+        return qs.distinct()
+
+
+class UserManager(DjangoUserManager):
+    """Preserve all built-in auth manager functionality while adding UserQuerySet."""
+
+    def get_queryset(self):
+        return UserQuerySet(self.model, using=self._db)
+
+    def search(self, query):
+        """Shortcut: User.objects.search(query) → UserQuerySet.search(query)."""
+        return self.get_queryset().search(query)
+
 
 class User(AbstractUser):
     """
@@ -83,6 +133,9 @@ class User(AbstractUser):
     # Activity points for gamification
     activity_points = models.PositiveIntegerField(default=0, verbose_name='Activity Points')
 
+    # Custom manager with search() support
+    objects = UserManager()
+
     class Meta:
         verbose_name = 'User'
         verbose_name_plural = 'Users'
@@ -126,7 +179,7 @@ class User(AbstractUser):
             likes_count=Count('likes'),
             comments_count=Count('comments')
         )
-        
+
         # Also fetch comments made by user (separate aggregate)
         comment_stats = Comment.objects.filter(
             author=self

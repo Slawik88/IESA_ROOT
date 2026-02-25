@@ -189,24 +189,8 @@ def users_search(request):
     page_obj = paginator.get_page(1)
     
     if normalized_q and len(normalized_q) >= 2:  # Require at least 2 chars
-        # Build complex query for multi-field search
-        base_q = (
-            Q(username__icontains=normalized_q) | 
-            Q(first_name__icontains=normalized_q) | 
-            Q(last_name__icontains=normalized_q) | 
-            Q(email__icontains=normalized_q) | 
-            Q(permanent_id__icontains=normalized_q)
-        )
-
-        # If user typed two words, try to match as first+last name
-        tokens = [t for t in normalized_q.split() if t]
-        if len(tokens) >= 2:
-            t1, t2 = tokens[0], tokens[1]
-            base_q |= (Q(first_name__icontains=t1) & Q(last_name__icontains=t2))
-            base_q |= (Q(first_name__icontains=t2) & Q(last_name__icontains=t1))
-
-        # Execute query with optimizations
-        results = User.objects.filter(base_q).order_by(
+        # Use the custom manager for clean, deduplicated search logic
+        results = User.objects.search(normalized_q).order_by(
             '-is_verified', 'username'
         ).values_list('id', 'username', 'first_name', 'last_name', 'email', 'permanent_id', flat=False)
         
