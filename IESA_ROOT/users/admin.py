@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
-from .models import User, Partner, Visit
+from .models import User, Partner, Visit, VisitAudit
 from .forms import CustomUserCreationForm, CustomUserChangeForm
 from django.utils.html import format_html
 from django.urls import path, reverse
@@ -423,4 +423,25 @@ class VisitAdmin(admin.ModelAdmin):
     member_status.short_description = 'Member Status'
 
 
+@admin.register(VisitAudit)
+class VisitAuditAdmin(admin.ModelAdmin):
+    """Read-only audit trail for visit edits/cancellations."""
+    list_display = ['visit', 'action', 'changed_by', 'changed_at', 'reason_short']
+    list_filter = ['action', 'changed_at']
+    search_fields = ['visit__member__username', 'visit__partner__company_name', 'reason']
+    readonly_fields = [
+        'visit', 'action', 'previous_service_type', 'previous_service_description',
+        'previous_cost', 'previous_comments', 'reason', 'changed_at', 'changed_by',
+    ]
+    ordering = ['-changed_at']
+
+    def reason_short(self, obj):
+        return obj.reason[:60] + '…' if len(obj.reason) > 60 else obj.reason
+    reason_short.short_description = 'Reason'
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
 

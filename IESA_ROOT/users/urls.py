@@ -27,6 +27,13 @@ urlpatterns = [
     path('partner/dashboard/', views_verification.partner_dashboard, name='partner_dashboard'),
     # Log visit for a specific member
     path('partner/visit/<int:member_id>/', views_verification.log_visit, name='log_visit'),
+    # Edit / cancel a visit (20-min window)
+    path('partner/visit/<int:visit_id>/edit/', views_verification.edit_visit, name='edit_visit'),
+    path('partner/visit/<int:visit_id>/cancel/', views_verification.cancel_visit, name='cancel_visit'),
+    # Test email (POST only)
+    path('partner/test-email/', views_verification.test_email_view, name='test_email'),
+    # Server time API
+    path('api/time/', views_verification.server_time, name='server_time'),
     
     # Serve QR image (generates if missing). Use as image src and download link.
     path('qr/<uuid:permanent_id>/', views.qr_image, name='user_qr'),

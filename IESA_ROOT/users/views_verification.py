@@ -1,185 +1,174 @@
 """
 Membership Verification System Views
 """
-from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib.auth.decorators import login_required, user_passes_test
-from django.contrib import messages
-from django.core.paginator import Paginator
-from django.db.models import Q
-from django.views.decorators.http import require_http_methods
-from django_ratelimit.decorators import ratelimit
-from .models import User, Partner, Visit
-from .forms_verification import VisitForm, MemberSearchForm
+import logging
 
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required, user_passes_test
+from django.core.paginator import Paginator
+from django.db.models import Q, Sum
+from django.http import JsonResponse
+from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
+from django.views.decorators.http import require_http_methods, require_POST
+from django_ratelimit.decorators import ratelimit
+
+from .email_service import (
+    send_test_email,
+    send_visit_cancelled,
+    send_visit_confirmed,
+    send_visit_edited,
+)
+from .forms_verification import (
+    CancelVisitForm,
+    EditVisitForm,
+    MemberSearchForm,
+    VisitForm,
+)
+from .models import Partner, User, Visit, VisitAudit
+
+logger = logging.getLogger(__name__)
+
+# Lockout constants
+PIN_MAX_ATTEMPTS = 10
+PIN_LOCKOUT_MINUTES = 15
+IDEMPOTENCY_WINDOW = 300   # 5 minutes
+EDIT_WINDOW = 1200          # 20 minutes
+
+
+# ---------------------------------------------------------------------------
+# Helper
+# ---------------------------------------------------------------------------
 
 def is_partner(user):
-    """Check if user has Partner profile (more reliable than group membership)"""
-    # Check if user has Partner profile
-    # This is better than checking groups because:
-    # 1. Partner profile is the actual business entity
-    # 2. Groups can be cached in session
-    # 3. If user has profile, they ARE a partner
+    """Check if user has a Partner profile."""
     try:
         has_profile = hasattr(user, 'partner_profile')
-        import logging
-        logger = logging.getLogger(__name__)
-        logger.info(f"is_partner check - user: {user.username}, has_profile: {has_profile}")
+        logger.debug("is_partner check — user: %s, has_profile: %s", user.username, has_profile)
         return has_profile
-    except Exception as e:
-        import logging
-        logger = logging.getLogger(__name__)
-        logger.error(f"is_partner check error: {e}")
+    except Exception as exc:
+        logger.error("is_partner check error: %s", exc)
         return False
 
 
+# ---------------------------------------------------------------------------
+# Public / member views
+# ---------------------------------------------------------------------------
+
 def public_profile(request, uuid):
-    """
-    Public profile view accessible via QR code
-    URL: /profile/<uuid>/public/
-    """
+    """Public profile view accessible via QR code."""
     member = get_object_or_404(User, permanent_id=uuid)
-    
-    context = {
+    return render(request, 'users/member_scan_card.html', {
         'member': member,
         'is_public_view': True,
-    }
-    return render(request, 'users/member_scan_card.html', context)
+    })
 
 
 @login_required
 def member_cabinet(request):
-    """
-    Personal cabinet for members showing current PIN
-    Login-required, members only
-    """
+    """Personal cabinet showing current PIN and membership info."""
+    import time
+
     user = request.user
-    
-    # Check if user has required fields (migration applied)
+
     if not hasattr(user, 'membership_status'):
         messages.error(request, '⚠️ System error: Database migration required. Contact administrator.')
         return redirect('core:home')
-    
-    # Check if membership is active
+
     if user.membership_status != 'active':
-        context = {
+        return render(request, 'users/member_cabinet.html', {
             'membership_status': user.membership_status,
             'current_pin': None,
             'seconds_remaining': 0,
-            'error_message': 'Your membership is inactive. Contact administrator to activate your account.'
-        }
-        return render(request, 'users/member_cabinet.html', context)
-    
-    # Check TOTP secret exists before generating PIN
+            'error_message': 'Your membership is inactive. Contact administrator to activate your account.',
+        })
+
     if not user.totp_secret:
         messages.error(request, '⚠️ TOTP secret not configured. Contact administrator.')
-        context = {
+        return render(request, 'users/member_cabinet.html', {
             'membership_status': user.membership_status,
             'current_pin': None,
             'seconds_remaining': 0,
-            'error_message': 'PIN system not initialized. Contact administrator.'
-        }
-        return render(request, 'users/member_cabinet.html', context)
-    
-    # Generate current PIN
+            'error_message': 'PIN system not initialized. Contact administrator.',
+        })
+
     current_pin = user.get_current_pin()
-    
     if not current_pin:
         messages.error(request, '⚠️ Unable to generate PIN. Contact administrator.')
-        context = {
+        return render(request, 'users/member_cabinet.html', {
             'membership_status': user.membership_status,
             'current_pin': None,
             'seconds_remaining': 0,
-            'error_message': 'PIN generation failed. Contact administrator.'
-        }
-        return render(request, 'users/member_cabinet.html', context)
-    
-    # Calculate remaining time until PIN refresh (12 minutes = 720 seconds)
-    import time
+            'error_message': 'PIN generation failed. Contact administrator.',
+        })
+
     current_time = int(time.time())
     interval = 720
     time_step = current_time // interval
     next_refresh = (time_step + 1) * interval
     seconds_remaining = next_refresh - current_time
-    
-    context = {
+
+    return render(request, 'users/member_cabinet.html', {
         'current_pin': current_pin,
         'seconds_remaining': seconds_remaining,
         'membership_status': user.membership_status,
         'user_name': user.get_full_name() or user.username,
-    }
-    return render(request, 'users/member_cabinet.html', context)
+    })
 
+
+# ---------------------------------------------------------------------------
+# Partner dashboard
+# ---------------------------------------------------------------------------
 
 @login_required
 @user_passes_test(is_partner, login_url='/auth/login/', redirect_field_name=None)
 def partner_dashboard(request):
-    """
-    Partner dashboard with search and visit logging
-    Restricted to users in 'Partners' group
-    """
+    """Partner dashboard: member search, visit log, statistics."""
     try:
         partner = request.user.partner_profile
     except Partner.DoesNotExist:
-        messages.error(request, '⚠️ Partner profile not configured. Contact administrator to create your partner account.')
+        messages.error(request, '⚠️ Partner profile not configured. Contact administrator.')
         return redirect('core:home')
     except AttributeError:
         messages.error(request, '⚠️ System error: Database migration required. Contact administrator.')
         return redirect('core:home')
-    
-    # Calculate partner statistics
-    from django.db.models import Sum, Count
-    
+
     visits = Visit.objects.filter(partner=partner).select_related('member').order_by('-timestamp')
     total_visits = visits.count()
     verified_visits = visits.filter(pin_verified=True).count()
     total_cost = visits.aggregate(Sum('cost'))['cost__sum'] or 0
     unique_members = visits.values('member').distinct().count()
-    
-    # Handle member search
+
     search_results = None
     search_form = MemberSearchForm(request.GET or None)
-    
+
     if search_form.is_valid():
         query = search_form.cleaned_data.get('query', '').strip()
         if query:
-            # Search by pseudonym, first_name, last_name, username, or UUID
             search_filter = (
                 Q(pseudonym__icontains=query) |
                 Q(first_name__icontains=query) |
                 Q(last_name__icontains=query) |
                 Q(username__icontains=query)
             )
-            
-            # Try to parse as UUID (only if query looks like UUID)
-            # UUID can be with or without dashes
             if len(query.replace('-', '')) >= 32:
                 try:
                     import uuid
-                    # Try to parse with dashes
-                    uuid_obj = uuid.UUID(query)
-                    search_filter |= Q(permanent_id=uuid_obj)
+                    search_filter |= Q(permanent_id=uuid.UUID(query))
                 except ValueError:
                     try:
-                        # Try to parse without dashes (insert dashes)
-                        clean_uuid = query.replace('-', '')
-                        if len(clean_uuid) == 32:
-                            formatted_uuid = f"{clean_uuid[0:8]}-{clean_uuid[8:12]}-{clean_uuid[12:16]}-{clean_uuid[16:20]}-{clean_uuid[20:32]}"
-                            uuid_obj = uuid.UUID(formatted_uuid)
-                            search_filter |= Q(permanent_id=uuid_obj)
+                        c = query.replace('-', '')
+                        if len(c) == 32:
+                            fmt = f"{c[0:8]}-{c[8:12]}-{c[12:16]}-{c[16:20]}-{c[20:32]}"
+                            search_filter |= Q(permanent_id=uuid.UUID(fmt))
                     except (ValueError, IndexError):
-                        pass  # Not a valid UUID, skip UUID search
-            
-            # FIX: Don't filter by membership_status - show ALL users!
-            # Partners should see ALL members, not just active ones
-            search_results = User.objects.filter(
-                search_filter
-            ).distinct()[:20]  # Limit to 20 results
-    
-    # Get partner's recent visits (paginated)
-    paginator = Paginator(visits, 15)  # 15 visits per page
-    page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
-    
+                        pass
+            search_results = User.objects.filter(search_filter).distinct()[:20]
+
+    paginator = Paginator(visits, 15)
+    page_obj = paginator.get_page(request.GET.get('page'))
+    now = timezone.now()
+
     context = {
         'partner': partner,
         'search_form': search_form,
@@ -189,72 +178,284 @@ def partner_dashboard(request):
         'verified_visits': verified_visits,
         'total_cost': total_cost,
         'unique_members': unique_members,
+        'now': now,
+        'edit_window': EDIT_WINDOW,
     }
-    
-    # If it's an HTMX request, return only search results partial
+
     if request.headers.get('HX-Request'):
         return render(request, 'users/partials/partner_search_results.html', context)
-    
+
     return render(request, 'users/partner_dashboard.html', context)
 
+
+# ---------------------------------------------------------------------------
+# Log visit
+# ---------------------------------------------------------------------------
 
 @login_required
 @user_passes_test(is_partner, login_url='/auth/login/', redirect_field_name=None)
 @require_http_methods(["GET", "POST"])
 @ratelimit(key='user', rate='10/m', method='POST', block=True)
 def log_visit(request, member_id):
-    """
-    Form to log a visit for a specific member
-    Validates PIN and creates Visit record
-    """
+    """Log a visit for a member. Includes brute-force protection + idempotency."""
     try:
         partner = request.user.partner_profile
     except Partner.DoesNotExist:
         messages.error(request, 'Partner profile not found.')
         return redirect('users:partner_dashboard')
-    
-    # FIX: Remove membership_status filter - partners should see ALL members
+
     member = get_object_or_404(User, id=member_id)
-    
-    # Check if member is active (warning, but allow)
+
     if member.membership_status != 'active':
         messages.warning(request, f'⚠️ Warning: {member.get_full_name()} membership is currently inactive.')
-    
+
     if request.method == 'POST':
         form = VisitForm(request.POST)
         if form.is_valid():
-            # Verify PIN
+            now = timezone.now()
+
+            # Brute-force check
+            if member.pin_lockout_until and member.pin_lockout_until > now:
+                remaining = int((member.pin_lockout_until - now).total_seconds() // 60) + 1
+                messages.error(
+                    request,
+                    f'🔒 PIN entry locked for this member. Please wait {remaining} minute(s).'
+                )
+                return render(request, 'users/log_visit.html', {
+                    'form': form, 'member': member, 'partner': partner
+                })
+
             provided_pin = form.cleaned_data['pin']
-            
+
             if not member.totp_secret:
                 messages.error(request, '⚠️ Member PIN system not configured. Contact administrator.')
                 return redirect('users:partner_dashboard')
-            
+
             if member.verify_pin(provided_pin):
-                # PIN is valid, create visit
+                # Idempotency check
+                cutoff = now - timezone.timedelta(seconds=IDEMPOTENCY_WINDOW)
+                existing = Visit.objects.filter(
+                    partner=partner,
+                    member=member,
+                    service_type=form.cleaned_data['service_type'],
+                    cost=form.cleaned_data.get('cost'),
+                    timestamp__gte=cutoff,
+                ).first()
+
+                if existing:
+                    member_name = member.get_full_name() or member.username
+                    messages.warning(
+                        request,
+                        f'ℹ️ Duplicate detected: identical visit already logged within the last 5 minutes '
+                        f'for {member_name}. No new record created.'
+                    )
+                    return redirect('users:partner_dashboard')
+
+                # Save visit
                 visit = form.save(commit=False)
                 visit.member = member
                 visit.partner = partner
                 visit.pin_verified = True
+                visit.status = 'ACTIVE'
                 visit.save()
-                
+
+                # Reset brute-force counter
+                if member.failed_pin_attempts:
+                    member.failed_pin_attempts = 0
+                    member.pin_lockout_until = None
+                    member.save(update_fields=['failed_pin_attempts', 'pin_lockout_until'])
+
+                try:
+                    send_visit_confirmed(visit)
+                except Exception as exc:
+                    logger.error("send_visit_confirmed failed: %s", exc)
+
                 member_name = member.get_full_name() or member.username
-                service_name = visit.get_service_type_display()
-                cost_display = f"{visit.cost} CHF" if visit.cost else "N/A"
-                
+                cost_display = f'{visit.cost} CHF' if visit.cost else 'N/A'
                 messages.success(
                     request,
-                    f'✅ Visit successfully logged! Member: {member_name} | Service: {service_name} | Cost: {cost_display}'
+                    f'✅ Visit logged! Member: {member_name} | '
+                    f'Service: {visit.get_service_type_display()} | Cost: {cost_display}'
                 )
                 return redirect('users:partner_dashboard')
+
             else:
-                form.add_error('pin', '❌ Invalid PIN. Please ask member to show their current 6-digit PIN from personal cabinet.')
+                # Wrong PIN
+                member.failed_pin_attempts = (member.failed_pin_attempts or 0) + 1
+                if member.failed_pin_attempts >= PIN_MAX_ATTEMPTS:
+                    member.pin_lockout_until = now + timezone.timedelta(minutes=PIN_LOCKOUT_MINUTES)
+                    member.failed_pin_attempts = 0
+                    member.save(update_fields=['failed_pin_attempts', 'pin_lockout_until'])
+                    form.add_error('pin', f'🔒 Too many wrong PINs. PIN locked for {PIN_LOCKOUT_MINUTES} minutes.')
+                else:
+                    attempts_left = PIN_MAX_ATTEMPTS - member.failed_pin_attempts
+                    member.save(update_fields=['failed_pin_attempts'])
+                    form.add_error('pin', f'❌ Invalid PIN. {attempts_left} attempt(s) remaining before lockout.')
     else:
         form = VisitForm()
-    
-    context = {
+
+    return render(request, 'users/log_visit.html', {
         'form': form,
         'member': member,
         'partner': partner,
-    }
-    return render(request, 'users/log_visit.html', context)
+    })
+
+
+# ---------------------------------------------------------------------------
+# Edit visit
+# ---------------------------------------------------------------------------
+
+@login_required
+@user_passes_test(is_partner, login_url='/auth/login/', redirect_field_name=None)
+@require_http_methods(["GET", "POST"])
+def edit_visit(request, visit_id):
+    """Edit a visit within the 20-minute window."""
+    try:
+        partner = request.user.partner_profile
+    except Partner.DoesNotExist:
+        messages.error(request, 'Partner profile not found.')
+        return redirect('users:partner_dashboard')
+
+    visit = get_object_or_404(Visit, id=visit_id, partner=partner)
+
+    age = (timezone.now() - visit.timestamp).total_seconds()
+    if age > EDIT_WINDOW:
+        messages.error(request, '⏰ Edit window expired. Visits can only be edited within 20 minutes of logging.')
+        return redirect('users:partner_dashboard')
+
+    if visit.status == 'CANCELLED':
+        messages.error(request, '❌ Cancelled visits cannot be edited.')
+        return redirect('users:partner_dashboard')
+
+    if request.method == 'POST':
+        form = EditVisitForm(request.POST, instance=visit)
+        if form.is_valid():
+            reason = form.cleaned_data.get('reason', '')
+
+            audit = VisitAudit(
+                visit=visit,
+                action=VisitAudit.ACTION_EDIT,
+                previous_service_type=visit.get_service_type_display(),
+                previous_service_description=visit.service_description,
+                previous_cost=visit.cost,
+                previous_comments=visit.comments,
+                reason=reason,
+                changed_by=request.user,
+            )
+
+            updated_visit = form.save(commit=False)
+            updated_visit.status = 'EDITED'
+            updated_visit.save()
+            audit.save()
+
+            try:
+                send_visit_edited(updated_visit, audit)
+            except Exception as exc:
+                logger.error("send_visit_edited failed: %s", exc)
+
+            messages.success(request, '✅ Visit updated. Member notified by email.')
+            return redirect('users:partner_dashboard')
+    else:
+        form = EditVisitForm(instance=visit)
+
+    return render(request, 'users/edit_visit.html', {
+        'form': form,
+        'visit': visit,
+        'partner': partner,
+        'seconds_left': max(0, int(EDIT_WINDOW - age)),
+    })
+
+
+# ---------------------------------------------------------------------------
+# Cancel visit
+# ---------------------------------------------------------------------------
+
+@login_required
+@user_passes_test(is_partner, login_url='/auth/login/', redirect_field_name=None)
+@require_http_methods(["GET", "POST"])
+def cancel_visit(request, visit_id):
+    """Cancel a visit within the 20-minute window."""
+    try:
+        partner = request.user.partner_profile
+    except Partner.DoesNotExist:
+        messages.error(request, 'Partner profile not found.')
+        return redirect('users:partner_dashboard')
+
+    visit = get_object_or_404(Visit, id=visit_id, partner=partner)
+
+    age = (timezone.now() - visit.timestamp).total_seconds()
+    if age > EDIT_WINDOW:
+        messages.error(request, '⏰ Edit window expired. Visits can only be cancelled within 20 minutes of logging.')
+        return redirect('users:partner_dashboard')
+
+    if visit.status == 'CANCELLED':
+        messages.warning(request, 'This visit is already cancelled.')
+        return redirect('users:partner_dashboard')
+
+    if request.method == 'POST':
+        form = CancelVisitForm(request.POST)
+        if form.is_valid():
+            reason = form.cleaned_data['reason']
+
+            audit = VisitAudit(
+                visit=visit,
+                action=VisitAudit.ACTION_CANCEL,
+                previous_service_type=visit.get_service_type_display(),
+                previous_service_description=visit.service_description,
+                previous_cost=visit.cost,
+                previous_comments=visit.comments,
+                reason=reason,
+                changed_by=request.user,
+            )
+
+            visit.status = 'CANCELLED'
+            visit.save(update_fields=['status'])
+            audit.save()
+
+            try:
+                send_visit_cancelled(visit, audit)
+            except Exception as exc:
+                logger.error("send_visit_cancelled failed: %s", exc)
+
+            messages.success(request, '✅ Visit cancelled. Member notified by email.')
+            return redirect('users:partner_dashboard')
+    else:
+        form = CancelVisitForm()
+
+    return render(request, 'users/cancel_visit.html', {
+        'form': form,
+        'visit': visit,
+        'partner': partner,
+        'seconds_left': max(0, int(EDIT_WINDOW - age)),
+    })
+
+
+# ---------------------------------------------------------------------------
+# Test email
+# ---------------------------------------------------------------------------
+
+@login_required
+@user_passes_test(is_partner, login_url='/auth/login/', redirect_field_name=None)
+@require_POST
+def test_email_view(request):
+    """Send a test email to verify SMTP. Returns JSON."""
+    try:
+        result = send_test_email()
+        if result:
+            return JsonResponse({'status': 'ok', 'message': 'Test email sent successfully.'})
+        return JsonResponse(
+            {'status': 'error', 'message': 'Email returned 0 — check SMTP settings in Heroku config vars.'},
+            status=500,
+        )
+    except Exception as exc:
+        logger.error("test_email_view failed: %s", exc)
+        return JsonResponse({'status': 'error', 'message': str(exc)}, status=500)
+
+
+# ---------------------------------------------------------------------------
+# Server time API
+# ---------------------------------------------------------------------------
+
+def server_time(request):
+    """Return current UTC timestamp as JSON for client-side sync."""
+    return JsonResponse({'timestamp': timezone.now().isoformat()})

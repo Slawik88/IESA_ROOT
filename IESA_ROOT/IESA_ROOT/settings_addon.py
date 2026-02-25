@@ -63,13 +63,22 @@ if DEBUG_MODE:
     for logger in LOGGING['loggers'].values():
         logger['handlers'].append('file')
 
-# Email Configuration (placeholder - configure in .env when ready)
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'  # For development
-# Uncomment and configure when ready for production:
-# EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-# EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
-# EMAIL_PORT = int(os.getenv('EMAIL_PORT', 587))
-# EMAIL_USE_TLS = True
-# EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
-# EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
-# DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'noreply@iesasport.ch')
+# Email Configuration — Resend SMTP
+# Use RESEND_API_KEY env var on Heroku. Falls back to console for local dev.
+import os as _os  # noqa (may already be imported at top of settings.py)
+
+_RESEND_API_KEY = _os.environ.get('RESEND_API_KEY', '')
+
+if _RESEND_API_KEY:
+    EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+    EMAIL_HOST = 'smtp.resend.com'
+    EMAIL_PORT = 465
+    EMAIL_USE_SSL = True
+    EMAIL_USE_TLS = False
+    EMAIL_HOST_USER = 'resend'
+    EMAIL_HOST_PASSWORD = _RESEND_API_KEY
+    DEFAULT_FROM_EMAIL = 'IESA Sport <noreply@iesasport.ch>'
+else:
+    # Local development — print emails to console
+    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+    DEFAULT_FROM_EMAIL = 'IESA Sport <noreply@iesasport.ch>'

@@ -163,10 +163,13 @@
         <!-- Recent Visits Section -->
         <div class="col-lg-7 mb-4">
             <div class="card" style="border-radius: 20px; border: none; box-shadow: 0 5px 25px rgba(0,0,0,0.1);">
-                <div class="card-header text-white" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); border-radius: 20px 20px 0 0; padding: 20px;">
+                <div class="card-header text-white d-flex justify-content-between align-items-center" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); border-radius: 20px 20px 0 0; padding: 20px;">
                     <h5 class="mb-0">
                         <i class="fas fa-history"></i> {% trans "Recent Visits" %}
                     </h5>
+                    <button class="btn btn-sm btn-light" id="testEmailBtn" title="{% trans 'Send test email to verify SMTP' %}">
+                        <i class="fas fa-envelope me-1"></i>{% trans "Test Email" %}
+                    </button>
                 </div>
                 <div class="card-body p-0">
                     {% if visits %}
@@ -178,7 +181,8 @@
                                         <th>{% trans "Member" %}</th>
                                         <th>{% trans "Service" %}</th>
                                         <th>{% trans "Cost" %}</th>
-                                        <th>{% trans "Verified" %}</th>
+                                        <th>{% trans "Status" %}</th>
+                                        <th>{% trans "Actions" %}</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -222,14 +226,34 @@
                                                 {% endif %}
                                             </td>
                                             <td>
-                                                {% if visit.pin_verified %}
-                                                    <span class="badge bg-success" style="font-size: 0.9rem;">
-                                                        <i class="fas fa-check"></i> {% trans "Verified" %}
-                                                    </span>
+                                                {% if visit.status == 'CANCELLED' %}
+                                                    <span class="badge bg-danger"><i class="fas fa-ban me-1"></i>{% trans "Cancelled" %}</span>
+                                                {% elif visit.status == 'EDITED' %}
+                                                    <span class="badge bg-warning text-dark"><i class="fas fa-pencil-alt me-1"></i>{% trans "Edited" %}</span>
                                                 {% else %}
-                                                    <span class="badge bg-danger" style="font-size: 0.9rem;">
-                                                        <i class="fas fa-times"></i> {% trans "Not Verified" %}
-                                                    </span>
+                                                    {% if visit.pin_verified %}
+                                                        <span class="badge bg-success"><i class="fas fa-check me-1"></i>{% trans "Verified" %}</span>
+                                                    {% else %}
+                                                        <span class="badge bg-secondary"><i class="fas fa-clock me-1"></i>{% trans "Pending" %}</span>
+                                                    {% endif %}
+                                                {% endif %}
+                                            </td>
+                                            <td class="text-nowrap">
+                                                {% with age=now|timeuntil:visit.timestamp %}
+                                                {% comment %}Use timesince to check if within edit window{% endcomment %}
+                                                {% endwith %}
+                                                {% if visit.status != 'CANCELLED' %}
+                                                    {# Calculate seconds since visit: compare now - visit.timestamp #}
+                                                    {# We pass edit_window from view; template checks visit age via |timesince #}
+                                                    {# Since we can't do arithmetic in templates, we show buttons and let the server enforce the window #}
+                                                    <a href="{% url 'users:edit_visit' visit.id %}" class="btn btn-sm btn-outline-warning me-1" title="{% trans 'Edit visit' %}">
+                                                        <i class="fas fa-pencil-alt"></i>
+                                                    </a>
+                                                    <a href="{% url 'users:cancel_visit' visit.id %}" class="btn btn-sm btn-outline-danger" title="{% trans 'Cancel visit' %}">
+                                                        <i class="fas fa-ban"></i>
+                                                    </a>
+                                                {% else %}
+                                                    <span class="text-muted small">—</span>
                                                 {% endif %}
                                             </td>
                                         </tr>
@@ -283,3 +307,44 @@
     </div>
 </div>
 {% endblock %}
+
+{% block extra_js %}
+<script>
+  // Test Email button
+  const testBtn = document.getElementById('testEmailBtn');
+  if (testBtn) {
+    testBtn.addEventListener('click', function () {
+      testBtn.disabled = true;
+      testBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Sending…';
+      fetch("{% url 'users:test_email' %}", {
+        method: 'POST',
+        headers: {
+          'X-CSRFToken': '{{ csrf_token }}',
+          'Content-Type': 'application/json',
+        },
+      })
+      .then(r => r.json())
+      .then(data => {
+        if (data.status === 'ok') {
+          testBtn.textContent = '✅ Sent!';
+          testBtn.classList.replace('btn-light', 'btn-success');
+        } else {
+          testBtn.textContent = '❌ ' + (data.message || 'Error');
+          testBtn.classList.replace('btn-light', 'btn-danger');
+        }
+      })
+      .catch(err => {
+        testBtn.textContent = '❌ Network error';
+        testBtn.classList.replace('btn-light', 'btn-danger');
+      })
+      .finally(() => {
+        testBtn.disabled = false;
+        setTimeout(() => {
+          testBtn.textContent = '✉️ Test Email';
+          testBtn.classList.remove('btn-success', 'btn-danger');
+          testBtn.classList.add('btn-light');
+        }, 4000);
+      });
+    });
+  }
+</script>{% endblock %}
