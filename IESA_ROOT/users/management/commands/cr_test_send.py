@@ -3,9 +3,9 @@ Management command: cr_test_send
 ==================================
 Send a test email via CleverReach to verify the integration works.
 
-Usage:
-    heroku run python manage.py cr_test_send
-    heroku run python manage.py cr_test_send --to someone@example.com
+Usage (DigitalOcean App Platform — Console tab):
+    python manage.py cr_test_send
+    python manage.py cr_test_send --to someone@example.com
 """
 
 from django.core.management.base import BaseCommand

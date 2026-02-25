@@ -4,12 +4,12 @@ Management command: cr_token_refresh
 Force-refreshes the CleverReach OAuth2 access token using the stored
 refresh token and prints the new tokens.
 
-Run on Heroku after first deploy to seed the cache:
+Run via DigitalOcean App Platform console tab after first deploy:
 
-    heroku run -a <app-name> python manage.py cr_token_refresh
+    python manage.py cr_token_refresh
 
-Run periodically (e.g. monthly) to keep tokens fresh if the Heroku
-dyno restarts clear the cache and no user-triggered email auto-refreshed
+Run periodically (e.g. monthly) to keep tokens fresh if the DO app
+restarts clear the cache and no user-triggered email auto-refreshed
 the token yet.
 """
 
@@ -83,14 +83,15 @@ class Command(BaseCommand):
         ))
 
         self.stdout.write(self.style.WARNING(
-            "⚠️  Update these Heroku config vars with the NEW values:\n"
+            "⚠️  Update these DigitalOcean env vars with the NEW values:\n"
+            "   (App Platform → your app → Settings → App-Level Env Vars)\n"
         ))
         self.stdout.write(
-            f"   heroku config:set CLEVERREACH_ACCESS_TOKEN={new_access_token}\n"
+            f"   CLEVERREACH_ACCESS_TOKEN = {new_access_token}\n"
         )
         if new_refresh_token and new_refresh_token != refresh_token:
             self.stdout.write(
-                f"   heroku config:set CLEVERREACH_REFRESH_TOKEN={new_refresh_token}\n"
+                f"   CLEVERREACH_REFRESH_TOKEN = {new_refresh_token}\n"
             )
             self.stdout.write(self.style.WARNING(
                 "   ^ NEW refresh token returned! Update immediately or future refresh will fail.\n"

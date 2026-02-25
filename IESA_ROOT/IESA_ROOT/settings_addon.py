@@ -64,7 +64,7 @@ if DEBUG_MODE:
         logger['handlers'].append('file')
 
 # Email Configuration — Resend SMTP
-# Use RESEND_API_KEY env var on Heroku. Falls back to console for local dev.
+# Use RESEND_API_KEY env var on DigitalOcean. Falls back to console for local dev.
 import os as _os  # noqa (may already be imported at top of settings.py)
 
 _RESEND_API_KEY = _os.environ.get('RESEND_API_KEY', '')
@@ -86,16 +86,16 @@ else:
 # ---------------------------------------------------------------------------
 # CleverReach integration
 # ---------------------------------------------------------------------------
-# Set these config vars on Heroku.
+# Set these env vars in DigitalOcean App Platform → your app → Settings → App-Level Env Vars.
 # When CLEVERREACH_CLIENT_ID is present, email_service.py will use the
 # CleverReach REST API for ALL transactional emails instead of SMTP.
 # If a CleverReach send fails, the SMTP backend above is used as fallback.
 #
-# Required Heroku config vars:
-#   CLEVERREACH_CLIENT_ID       Z1Jwc8sZlW
-#   CLEVERREACH_CLIENT_SECRET   LIHm1bYWn1T8OhnKIemoWwHFPy86B7X6
+# Required DigitalOcean env vars:
+#   CLEVERREACH_CLIENT_ID       (your CleverReach app client ID)
+#   CLEVERREACH_CLIENT_SECRET   (your CleverReach app client secret)
 #   CLEVERREACH_ACCESS_TOKEN    (current bearer token)
-#   CLEVERREACH_REFRESH_TOKEN   (refresh token — never expires while used)
+#   CLEVERREACH_REFRESH_TOKEN   (refresh token — rotate on each use)
 #   CLEVERREACH_SENDER_EMAIL    noreply@iesasport.ch
 #   CLEVERREACH_SENDER_NAME     IESA Sport
 

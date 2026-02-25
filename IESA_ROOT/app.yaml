@@ -21,3 +21,21 @@ services:
     value: "*.ondigitalocean.app,iesa.app"
   - key: DATABASE_URL
     value: ${db.connection_string}
+  # CleverReach email integration
+  # All transactional emails (visit confirmation, password reset, etc.) go via CleverReach API.
+  - key: CLEVERREACH_CLIENT_ID
+    value: ""
+    type: SECRET
+  - key: CLEVERREACH_CLIENT_SECRET
+    value: ""
+    type: SECRET
+  - key: CLEVERREACH_ACCESS_TOKEN
+    value: ""
+    type: SECRET
+  - key: CLEVERREACH_REFRESH_TOKEN
+    value: ""
+    type: SECRET
+  - key: CLEVERREACH_SENDER_EMAIL
+    value: noreply@iesasport.ch
+  - key: CLEVERREACH_SENDER_NAME
+    value: IESA Sport
