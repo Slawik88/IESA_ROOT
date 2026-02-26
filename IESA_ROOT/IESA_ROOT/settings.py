@@ -211,6 +211,11 @@ SECURE_HSTS_SECONDS = 0 if DEBUG else 31536000  # 0 для DEBUG=True
 SECURE_HSTS_INCLUDE_SUBDOMAINS = False if DEBUG else True
 SECURE_HSTS_PRELOAD = False if DEBUG else True
 
+# Trust the X-Forwarded-Proto header from DigitalOcean's reverse proxy
+# so request.build_absolute_uri() returns https:// URLs in production
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+USE_X_FORWARDED_HOST = True
+
 # Базовые security headers (работают и на HTTP)
 SECURE_BROWSER_XSS_FILTER = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
