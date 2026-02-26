@@ -671,7 +671,7 @@ def telegram_login_callback_view(request):
 
 @csrf_exempt
 @require_http_methods(["POST"])
-def telegram_webhook_view(request, secret):
+async def telegram_webhook_view(request, secret):
 
         if secret != _webhook_secret():
                 return JsonResponse({"ok": False, "error": "invalid secret"}, status=403)
@@ -683,7 +683,7 @@ def telegram_webhook_view(request, secret):
         except Exception:
                 return JsonResponse({"ok": False, "error": "invalid json"}, status=400)
 
-        process_incoming_update(payload)
+        await process_incoming_update(payload)
         return JsonResponse({"ok": True})
 
 
