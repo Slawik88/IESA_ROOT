@@ -72,14 +72,23 @@ class CleverReachEmailBackend(BaseEmailBackend):
 
     def _smtp_fallback(self, message, override_recipients=None):
         """Resend one message via SMTP backend as a fallback."""
+        original_to = message.to
         try:
             from django.conf import settings as _settings
             # Temporarily re-address if needed
-            original_to = message.to
             if override_recipients is not None:
                 message.to = override_recipients
-            smtp = SMTPBackend()
+            smtp = SMTPBackend(
+                host=getattr(_settings, 'EMAIL_HOST', None),
+                port=getattr(_settings, 'EMAIL_PORT', None),
+                username=getattr(_settings, 'EMAIL_HOST_USER', None),
+                password=getattr(_settings, 'EMAIL_HOST_PASSWORD', None),
+                use_tls=getattr(_settings, 'EMAIL_USE_TLS', False),
+                use_ssl=getattr(_settings, 'EMAIL_USE_SSL', False),
+                fail_silently=False,
+            )
             smtp.send_messages([message])
-            message.to = original_to
         except Exception as exc:
             logger.error("CleverReach SMTP fallback also failed: %s", exc)
+        finally:
+            message.to = original_to

@@ -13,7 +13,7 @@ This means: set CLEVERREACH_* Heroku config vars to switch to CleverReach;
 remove / unset them to fall back to Django's EMAIL_BACKEND automatically.
 """
 import logging
-from django.core.mail import send_mail
+from django.core.mail import get_connection, send_mail
 from django.conf import settings
 
 logger = logging.getLogger(__name__)
@@ -193,7 +193,7 @@ def _send(subject, plain_text, html_content, recipients):
     from .cleverreach_client import send_cleverreach_email as cr_send
 
     if cr_is_configured():
-        all_ok = True
+        delivered_count = 0
         for email_addr in recipients:
             ok = cr_send(
                 to_email=email_addr,
@@ -202,20 +202,33 @@ def _send(subject, plain_text, html_content, recipients):
                 html=html_content,
                 text=plain_text,
             )
-            if not ok:
-                all_ok = False
+            if ok:
+                delivered_count += 1
+            else:
                 logger.warning(
                     'CleverReach delivery failed for %s — falling back to SMTP', email_addr
                 )
-                _smtp_send(subject, plain_text, html_content, [email_addr])
-        return 1 if all_ok else 0
+                smtp_ok = _smtp_send(subject, plain_text, html_content, [email_addr])
+                if smtp_ok:
+                    delivered_count += 1
+        return delivered_count
 
     return _smtp_send(subject, plain_text, html_content, recipients)
 
 
 def _smtp_send(subject, plain_text, html_content, recipients):
-    """Django send_mail wrapper (Resend SMTP or console backend)."""
+    """Direct SMTP send wrapper (bypasses custom CleverReach backend)."""
     try:
+        connection = get_connection(
+            backend='django.core.mail.backends.smtp.EmailBackend',
+            host=getattr(settings, 'EMAIL_HOST', None),
+            port=getattr(settings, 'EMAIL_PORT', None),
+            username=getattr(settings, 'EMAIL_HOST_USER', None),
+            password=getattr(settings, 'EMAIL_HOST_PASSWORD', None),
+            use_tls=getattr(settings, 'EMAIL_USE_TLS', False),
+            use_ssl=getattr(settings, 'EMAIL_USE_SSL', False),
+            fail_silently=False,
+        )
         result = send_mail(
             subject=subject,
             message=plain_text,
@@ -223,6 +236,7 @@ def _smtp_send(subject, plain_text, html_content, recipients):
             recipient_list=recipients,
             html_message=html_content,
             fail_silently=False,
+            connection=connection,
         )
         logger.info('SMTP email sent: "%s" → %s', subject, recipients)
         return result
