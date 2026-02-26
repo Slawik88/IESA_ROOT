@@ -10,14 +10,19 @@ from django.db.models import Q, Sum
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
+from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods, require_POST
 from django_ratelimit.decorators import ratelimit
 
 from .telegram_notify import (
+    _webhook_secret,
+    get_webhook_info,
     notify_visit_cancelled,
     notify_visit_confirmed,
     notify_visit_edited,
+    process_incoming_update,
     send_test_notification,
+    set_webhook,
 )
 from .forms_verification import (
     CancelVisitForm,
@@ -436,57 +441,57 @@ def cancel_visit(request, visit_id):
 
 @login_required
 def test_telegram_view(request):
-    """Staff-only page to test Telegram bot notifications."""
+    """Staff-only page: configure webhook and verify bot setup."""
     if not request.user.is_staff:
         from django.http import HttpResponseForbidden
         return HttpResponseForbidden("Доступ только для администраторов.")
 
-    import os
     import html as _html
     from django.middleware.csrf import get_token
     from django.http import HttpResponse
-    from .telegram_notify import send_message, is_configured, _token, _chat_id
+    from .telegram_notify import _token
 
     result_html = ""
-    custom_text = ""
+    webhook_secret = _webhook_secret()
+    webhook_url = request.build_absolute_uri(f"/auth/telegram/webhook/{webhook_secret}/") if webhook_secret else ""
 
     if request.method == "POST":
-        custom_text = request.POST.get("text", "").strip()
-        send_to = request.POST.get("chat_id", "").strip() or _chat_id()
-        msg = custom_text or (
-            "🤖 <b>IESA Sport — Тест бота</b>\n\n"
-            "✅ Telegram-уведомления работают корректно!\n\n"
-            "Этот бот будет отправлять уведомления о визитах участников."
-        )
+        action = request.POST.get("action", "")
         try:
-            ok = send_message(msg, chat_id=send_to)
-            if ok:
-                result_html = (
-                    f'<div class="alert ok">✅ Сообщение успешно отправлено в чат <b>{_html.escape(send_to)}</b></div>'
-                )
+            if action == "set_webhook":
+                if not webhook_secret:
+                    result_html = '<div class="alert err">❌ TELEGRAM_WEBHOOK_SECRET не задан в DigitalOcean.</div>'
+                else:
+                    ok, message = set_webhook(webhook_url)
+                    css = "ok" if ok else "err"
+                    icon = "✅" if ok else "❌"
+                    result_html = f'<div class="alert {css}">{icon} {_html.escape(message)}</div>'
             else:
-                result_html = (
-                    '<div class="alert err">❌ Отправка не удалась. Проверь TELEGRAM_BOT_TOKEN и TELEGRAM_CHAT_ID в DO.</div>'
-                )
+                result_html = '<div class="alert err">❌ Неизвестное действие.</div>'
         except Exception as exc:
             logger.error("test_telegram_view failed: %s", exc)
             result_html = f'<div class="alert err">❌ Ошибка: {_html.escape(str(exc))}</div>'
 
     token_set  = bool(_token())
-    chat_set   = bool(_chat_id())
-    configured = token_set and chat_set
+    secret_set = bool(webhook_secret)
+    webhook_info = get_webhook_info() if token_set else {}
+    current_url = (webhook_info.get("result") or {}).get("url", "") if isinstance(webhook_info, dict) else ""
 
     token_badge = (
         '<span class="badge ok">✅ TELEGRAM_BOT_TOKEN задан</span>' if token_set
         else '<span class="badge err">❌ TELEGRAM_BOT_TOKEN не задан</span>'
     )
-    chat_badge = (
-        f'<span class="badge ok">✅ TELEGRAM_CHAT_ID: {_html.escape(_chat_id())}</span>' if chat_set
-        else '<span class="badge err">❌ TELEGRAM_CHAT_ID не задан</span>'
+    secret_badge = (
+        '<span class="badge ok">✅ TELEGRAM_WEBHOOK_SECRET задан</span>' if secret_set
+        else '<span class="badge err">❌ TELEGRAM_WEBHOOK_SECRET не задан</span>'
     )
 
-    default_chat = _html.escape(_chat_id() or "")
-    default_text = _html.escape(custom_text or "")
+    webhook_block = (
+        f'<div class="alert ok">Текущий webhook: <code>{_html.escape(current_url)}</code></div>'
+        if current_url
+        else '<div class="alert err">Webhook пока не установлен.</div>'
+    )
+
     csrf = get_token(request)
 
     html_page = f"""<!DOCTYPE html>
@@ -529,28 +534,28 @@ def test_telegram_view(request):
 </head>
 <body>
   <div class="card">
-    <h2>🤖 Тест Telegram бота</h2>
-    <p class="sub">Только для администраторов. Отправляет сообщение через Telegram Bot API.</p>
+        <h2>🤖 Telegram Bot Setup</h2>
+        <p class="sub">Только для администраторов. Настройка webhook, чтобы бот отвечал пользователю без TELEGRAM_CHAT_ID.</p>
 
-    <div class="badges">{token_badge}{chat_badge}</div>
+        <div class="badges">{token_badge}{secret_badge}</div>
+
+        {webhook_block}
 
     <div class="info-box">
       <b>Где задать переменные:</b><br>
       DigitalOcean App Platform → твоё приложение → <b>Settings</b> → <b>App-Level Env Vars</b><br><br>
       <code>TELEGRAM_BOT_TOKEN</code> — токен от @BotFather<br>
-      <code>TELEGRAM_CHAT_ID</code> — ID чата (получить через @userinfobot)<br><br>
-      <b>Как получить Chat ID:</b> напиши любое сообщение боту или в группу, потом открой<br>
-      <code>https://api.telegram.org/bot&lt;TOKEN&gt;/getUpdates</code>
-      и найди <code>chat.id</code> в ответе.
+            <code>TELEGRAM_WEBHOOK_SECRET</code> — случайная строка (например 32+ символа)<br><br>
+            Webhook URL для Telegram:<br>
+            <code>{_html.escape(webhook_url or 'Сначала задай TELEGRAM_WEBHOOK_SECRET')}</code><br><br>
+            После установки webhook: открой бота в Telegram, нажми <b>Start</b> и отправь любое сообщение.
+            Бот ответит прямо в этот чат.
     </div>
 
     <form method="post">
       <input type="hidden" name="csrfmiddlewaretoken" value="{csrf}">
-      <label for="chat_id">Chat ID (оставь пустым чтобы использовать TELEGRAM_CHAT_ID)</label>
-      <input type="text" id="chat_id" name="chat_id" value="{default_chat}" placeholder="-100123456789">
-      <label for="text">Текст сообщения (оставь пустым для стандартного теста)</label>
-      <textarea id="text" name="text" placeholder="Привет от IESA Sport! 🏃">{default_text}</textarea>
-      <button type="submit">📨 Отправить тестовое сообщение</button>
+            <input type="hidden" name="action" value="set_webhook">
+            <button type="submit">🔗 Установить webhook в Telegram</button>
     </form>
     {result_html}
     <a href="/" class="back">← На главную</a>
@@ -559,6 +564,27 @@ def test_telegram_view(request):
 </html>"""
 
     return HttpResponse(html_page)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def telegram_webhook_view(request, secret):
+        """Public Telegram webhook endpoint.
+
+        Telegram sends updates here; we reply to the sender chat directly.
+        """
+        if secret != _webhook_secret():
+                return JsonResponse({"ok": False, "error": "invalid secret"}, status=403)
+
+        try:
+                import json
+
+                payload = json.loads(request.body.decode("utf-8") or "{}")
+        except Exception:
+                return JsonResponse({"ok": False, "error": "invalid json"}, status=400)
+
+        process_incoming_update(payload)
+        return JsonResponse({"ok": True})
 
 
 # ---------------------------------------------------------------------------
