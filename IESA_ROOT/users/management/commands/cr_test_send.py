@@ -17,8 +17,8 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument(
             "--to",
-            default="makssamrt29@gmail.com",
-            help="Recipient email address (default: makssamrt29@gmail.com)",
+            default="makssmart29@gmail.com",
+            help="Recipient email address (default: makssmart29@gmail.com)",
         )
 
     def handle(self, *args, **options):
