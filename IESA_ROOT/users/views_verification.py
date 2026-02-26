@@ -673,8 +673,6 @@ def telegram_login_callback_view(request):
 @require_http_methods(["POST"])
 async def telegram_webhook_view(request, secret):
 
-        if secret != _webhook_secret():
-                return JsonResponse({"ok": False, "error": "invalid secret"}, status=403)
 
         try:
                 import json
