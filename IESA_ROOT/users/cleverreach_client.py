@@ -56,8 +56,13 @@ REFRESH_BUFFER_SECONDS = 300
 # ---------------------------------------------------------------------------
 
 def _cfg(name: str, default: str = "") -> str:
-    """Read a CleverReach setting from Django settings or return default."""
-    return getattr(settings, name, default) or default
+    """Read a CleverReach setting from Django settings or return default.
+
+    Strips surrounding whitespace and newlines so that env vars copied with
+    line-breaks (common in DO App Platform) never produce invalid HTTP headers.
+    """
+    val = getattr(settings, name, default) or default
+    return val.strip() if isinstance(val, str) else val
 
 
 def get_valid_token() -> str:
