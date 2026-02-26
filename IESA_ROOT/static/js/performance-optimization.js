@@ -180,8 +180,7 @@ const APICache = {
  */
 function preloadCriticalResources() {
     const criticalCSS = [
-        'css/homepage-v2.css',
-        'css/sections-enhancements.css'
+        'css/homepage.css',
     ];
     
     const criticalJS = [
