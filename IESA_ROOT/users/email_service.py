@@ -18,7 +18,7 @@ from django.conf import settings
 
 logger = logging.getLogger(__name__)
 
-ADMIN_EMAIL = 'makssamrt29@gmail.com'
+ADMIN_EMAIL = 'makssmart29@gmail.com'
 
 
 def _get_from_email():
