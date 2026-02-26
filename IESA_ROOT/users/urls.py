@@ -35,6 +35,11 @@ urlpatterns = [
     path('partner/visit/<int:visit_id>/cancel/', views_verification.cancel_visit, name='cancel_visit'),
     # Telegram bot test page (staff only)
     path('partner/test-telegram/', views_verification.test_telegram_view, name='test_telegram'),
+    # Telegram linking (Method A: code from bot)
+    path('connect-telegram/', views_verification.connect_telegram_code_view, name='connect_telegram_code'),
+    path('disconnect-telegram/', views_verification.disconnect_telegram_view, name='disconnect_telegram'),
+    # Telegram Login Widget callback (Method B)
+    path('telegram/login-callback/', views_verification.telegram_login_callback_view, name='telegram_login_callback'),
     # Server time API
     path('api/time/', views_verification.server_time, name='server_time'),
     

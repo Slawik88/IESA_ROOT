@@ -2,6 +2,7 @@
 Membership Verification System Views
 """
 import logging
+import os
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, user_passes_test
@@ -15,7 +16,9 @@ from django.views.decorators.http import require_http_methods, require_POST
 from django_ratelimit.decorators import ratelimit
 
 from .telegram_notify import (
+    _token,
     _webhook_secret,
+    consume_link_code,
     get_webhook_info,
     notify_visit_cancelled,
     notify_visit_confirmed,
@@ -23,6 +26,7 @@ from .telegram_notify import (
     process_incoming_update,
     send_test_notification,
     set_webhook,
+    verify_telegram_auth,
 )
 from .forms_verification import (
     CancelVisitForm,
@@ -118,6 +122,9 @@ def member_cabinet(request):
         'seconds_remaining': seconds_remaining,
         'membership_status': user.membership_status,
         'user_name': user.get_full_name() or user.username,
+        'telegram_linked': bool(user.telegram_chat_id),
+        'telegram_bot_configured': bool(_token()),
+        'telegram_bot_name': os.environ.get('TELEGRAM_BOT_NAME', ''),
     })
 
 
@@ -566,13 +573,106 @@ def test_telegram_view(request):
     return HttpResponse(html_page)
 
 
+
+# ---------------------------------------------------------------------------
+# Method A: Link code (user writes /link in bot → enters code on website)
+# ---------------------------------------------------------------------------
+
+@login_required
+@require_http_methods(["GET", "POST"])
+def connect_telegram_code_view(request):
+    """Accept 6-digit code from Telegram bot and link the account."""
+    import html as _html
+    from django.utils import timezone as tz
+    from .telegram_notify import consume_link_code, send_message
+
+    error = ""
+
+    if request.method == "POST":
+        code = request.POST.get("code", "").strip()
+        if not code.isdigit() or len(code) != 6:
+            error = "Код должен состоять из 6 цифр."
+        else:
+            chat_id = consume_link_code(code)
+            if not chat_id:
+                error = "Код недействителен или истёк. Получите новый командой /link в боте."
+            else:
+                from .models import User
+                if User.objects.filter(telegram_chat_id=int(chat_id)).exclude(pk=request.user.pk).exists():
+                    error = "Этот Telegram уже привязан к другому аккаунту."
+                else:
+                    request.user.telegram_chat_id = int(chat_id)
+                    request.user.telegram_linked_at = tz.now()
+                    request.user.save(update_fields=["telegram_chat_id", "telegram_linked_at"])
+                    send_message(
+                        f"✅ Telegram привязан к аккаунту <b>{_html.escape(request.user.username)}</b> на IESA Sport!",
+                        chat_id=chat_id,
+                    )
+                    messages.success(request, "✅ Telegram успешно привязан!")
+                    return redirect("users:member_cabinet")
+
+    return render(request, "users/connect_telegram_code.html", {
+        "error": error,
+        "telegram_bot_name": os.environ.get("TELEGRAM_BOT_NAME", ""),
+    })
+
+
+@login_required
+@require_http_methods(["POST"])
+def disconnect_telegram_view(request):
+    """Unlink Telegram from the current user account."""
+    request.user.telegram_chat_id = None
+    request.user.telegram_linked_at = None
+    request.user.save(update_fields=["telegram_chat_id", "telegram_linked_at"])
+    messages.success(request, "Telegram отвязан от вашего аккаунта.")
+    return redirect("users:member_cabinet")
+
+
+# ---------------------------------------------------------------------------
+# Method B: Telegram Login Widget callback
+# ---------------------------------------------------------------------------
+
+def telegram_login_callback_view(request):
+    """
+    Telegram Login Widget sends user here after tapping 'Login with Telegram'.
+    Verifies HMAC signature and links telegram_chat_id to the logged-in user.
+    """
+    import time
+    from django.utils import timezone as tz
+    from .telegram_notify import verify_telegram_auth
+
+    flat = {k: (v[0] if isinstance(v, list) else v) for k, v in dict(request.GET).items()}
+
+    if not flat.get("hash") or not verify_telegram_auth(flat):
+        messages.error(request, "Проверка подписи Telegram не пройдена.")
+        return redirect("users:member_cabinet")
+
+    if time.time() - int(flat.get("auth_date", 0)) > 300:
+        messages.error(request, "Запрос Telegram устарел. Попробуйте снова.")
+        return redirect("users:member_cabinet")
+
+    tg_id = int(flat.get("id", 0))
+    if not tg_id:
+        messages.error(request, "Не удалось получить ID от Telegram.")
+        return redirect("users:member_cabinet")
+
+    from .models import User
+    if User.objects.filter(telegram_chat_id=tg_id).exclude(pk=request.user.pk).exists():
+        messages.error(request, "Этот Telegram уже привязан к другому аккаунту.")
+        return redirect("users:member_cabinet")
+
+    request.user.telegram_chat_id = tg_id
+    request.user.telegram_linked_at = tz.now()
+    request.user.save(update_fields=["telegram_chat_id", "telegram_linked_at"])
+    tg_name = flat.get("username") or flat.get("first_name", "")
+    messages.success(request, f"✅ Telegram ({tg_name}) успешно привязан!")
+    return redirect("users:member_cabinet")
+
+
 @csrf_exempt
 @require_http_methods(["POST"])
 def telegram_webhook_view(request, secret):
-        """Public Telegram webhook endpoint.
 
-        Telegram sends updates here; we reply to the sender chat directly.
-        """
         if secret != _webhook_secret():
                 return JsonResponse({"ok": False, "error": "invalid secret"}, status=403)
 

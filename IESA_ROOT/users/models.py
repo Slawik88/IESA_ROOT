@@ -131,6 +131,17 @@ class User(AbstractUser):
         verbose_name=_('Pseudonym')
     )
 
+    # Telegram integration
+    telegram_chat_id = models.BigIntegerField(
+        null=True, blank=True, unique=True,
+        verbose_name=_('Telegram Chat ID'),
+        help_text='Linked Telegram chat id (set automatically when user connects via bot or widget)',
+    )
+    telegram_linked_at = models.DateTimeField(
+        null=True, blank=True,
+        verbose_name=_('Telegram Linked At'),
+    )
+
     # Social / contact links (optional)
     github_url = models.URLField(blank=True, max_length=255, verbose_name='GitHub')
     discord_url = models.URLField(blank=True, max_length=255, verbose_name='Discord')

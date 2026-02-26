@@ -1,20 +1,39 @@
 """Telegram Notification Service for IESA Sport.
 
-Primary mode: webhook + reply to the user who wrote to the bot.
-No TELEGRAM_CHAT_ID is required for this test flow.
+Two ways to link a user's Telegram account:
+
+Method A — link code via /link command
+  1. User opens the bot and sends /link
+  2. Bot replies with a 6-digit code (valid 10 minutes)
+  3. User enters the code in their cabinet on the website
+  4. Site saves telegram_chat_id to the User record
+
+Method B — Telegram Login Widget
+  1. Widget button on the website
+  2. Telegram redirects to /auth/telegram/login-callback/ with signed data
+  3. Site verifies HMAC hash and saves telegram_chat_id
 
 Required env vars (DigitalOcean App Platform):
     TELEGRAM_BOT_TOKEN      - token from @BotFather
     TELEGRAM_WEBHOOK_SECRET - random secret path segment for webhook URL
 """
+import hashlib
+import hmac
 import logging
 import os
+import random
+import string
 from html import escape
 from typing import Any
 
 import requests
 
 logger = logging.getLogger(__name__)
+
+# Cache key prefix for link codes
+LINK_CODE_PREFIX = "tg_link_code:"
+LINK_CODE_TTL    = 600  # 10 minutes
+
 
 # ------------------------------------------------------------------
 # Config helpers
@@ -29,7 +48,6 @@ def _webhook_secret() -> str:
 
 
 def is_configured() -> bool:
-    """Return True when TELEGRAM_BOT_TOKEN is present."""
     return bool(_token())
 
 
@@ -37,8 +55,8 @@ def is_configured() -> bool:
 # Low-level sender
 # ------------------------------------------------------------------
 
-def send_message(text: str, chat_id: str, parse_mode: str = "HTML") -> bool:
-    """Send a Telegram message to provided chat_id. Returns True on success."""
+def send_message(text: str, chat_id: str | int, parse_mode: str = "HTML") -> bool:
+    """Send a Telegram message to chat_id. Returns True on success."""
     token = _token()
     target = str(chat_id).strip()
 
@@ -70,6 +88,10 @@ def send_message(text: str, chat_id: str, parse_mode: str = "HTML") -> bool:
         return False
 
 
+# ------------------------------------------------------------------
+# Webhook management
+# ------------------------------------------------------------------
+
 def set_webhook(webhook_url: str) -> tuple[bool, str]:
     """Set Telegram webhook URL."""
     token = _token()
@@ -83,14 +105,13 @@ def set_webhook(webhook_url: str) -> tuple[bool, str]:
         )
         data = resp.json()
         if resp.ok and data.get("ok"):
-            return True, "Webhook успешно установлен"
+            return True, data.get("description", "Webhook успешно установлен")
         return False, str(data)
     except Exception as exc:
         return False, str(exc)
 
 
 def get_webhook_info() -> dict[str, Any]:
-    """Read current webhook info from Telegram API."""
     token = _token()
     if not token:
         return {"ok": False, "description": "TELEGRAM_BOT_TOKEN не задан"}
@@ -104,111 +125,173 @@ def get_webhook_info() -> dict[str, Any]:
         return {"ok": False, "description": str(exc)}
 
 
+# ------------------------------------------------------------------
+# Link code helpers (Method A)
+# ------------------------------------------------------------------
+
+def generate_link_code(chat_id: int) -> str:
+    """Generate a 6-digit link code and store it in cache."""
+    from django.core.cache import cache
+
+    code = "".join(random.choices(string.digits, k=6))
+    cache.set(f"{LINK_CODE_PREFIX}{code}", str(chat_id), timeout=LINK_CODE_TTL)
+    return code
+
+
+def consume_link_code(code: str) -> str | None:
+    """Return chat_id string for a valid code and delete it. None if invalid/expired."""
+    from django.core.cache import cache
+
+    key = f"{LINK_CODE_PREFIX}{code.strip()}"
+    chat_id = cache.get(key)
+    if chat_id:
+        cache.delete(key)
+    return chat_id
+
+
+# ------------------------------------------------------------------
+# Telegram Login Widget signature verification (Method B)
+# ------------------------------------------------------------------
+
+def verify_telegram_auth(data: dict[str, str]) -> bool:
+    """
+    Verify data received from Telegram Login Widget.
+    https://core.telegram.org/widgets/login#checking-authorization
+    """
+    token = _token()
+    if not token:
+        return False
+
+    received_hash = data.get("hash", "")
+    check_data = {k: v for k, v in data.items() if k != "hash"}
+    check_string = "\n".join(f"{k}={v}" for k, v in sorted(check_data.items()))
+
+    secret_key = hashlib.sha256(token.encode()).digest()
+    computed_hash = hmac.new(secret_key, check_string.encode(), hashlib.sha256).hexdigest()
+
+    return hmac.compare_digest(computed_hash, received_hash)
+
+
+# ------------------------------------------------------------------
+# Webhook update processor
+# ------------------------------------------------------------------
+
 def process_incoming_update(update: dict[str, Any]) -> bool:
-    """Process incoming update and reply to sender chat."""
+    """Process incoming Telegram update, reply to sender."""
     message = update.get("message") or update.get("edited_message") or {}
-    chat = message.get("chat") or {}
-    chat_id = str(chat.get("id") or "").strip()
-    text = (message.get("text") or "").strip()
+    chat    = message.get("chat") or {}
+    chat_id = chat.get("id")
+    text    = (message.get("text") or "").strip()
 
     if not chat_id:
-        logger.info("Telegram update without chat_id ignored")
         return False
 
     if text.startswith("/start"):
         reply = (
-            "🤖 <b>IESA Sport Bot</b>\n\n"
-            "Бот активен и готов к работе.\n"
-            "Напишите любой текст — я отвечу.\n"
-            "Команда <code>/id</code> покажет ваш chat_id."
+            "👋 <b>Привет! Это IESA Sport бот.</b>\n\n"
+            "Команды:\n"
+            "• /link — привязать этот Telegram к аккаунту на сайте\n"
+            "• /id — показать твой chat_id\n"
+            "• /unlink — отвязать аккаунт"
         )
+
+    elif text.startswith("/link"):
+        code = generate_link_code(chat_id)
+        reply = (
+            f"🔗 <b>Код для привязки аккаунта:</b>\n\n"
+            f"<code>{code}</code>\n\n"
+            f"Введи этот код в своём <b>кабинете на сайте</b> → "
+            f"раздел «Telegram».\n\n"
+            f"⏳ Код действителен <b>10 минут</b>."
+        )
+
     elif text.startswith("/id"):
-        reply = f"Ваш chat_id: <code>{chat_id}</code>"
+        reply = f"Твой chat_id: <code>{chat_id}</code>"
+
+    elif text.startswith("/unlink"):
+        from .models import User
+        count = User.objects.filter(telegram_chat_id=chat_id).update(
+            telegram_chat_id=None, telegram_linked_at=None
+        )
+        if count:
+            reply = "✅ Аккаунт успешно отвязан."
+        else:
+            reply = "ℹ️ Этот Telegram не привязан ни к одному аккаунту."
+
     elif text:
         reply = (
-            "✅ Бот работает.\n"
-            f"Вы написали: <code>{escape(text)}</code>"
+            "🤖 Бот IESA Sport.\n"
+            "Напишите /link чтобы привязать аккаунт."
         )
     else:
-        reply = "✅ Бот на связи."
+        return False
 
     return send_message(reply, chat_id=chat_id)
 
 
 # ------------------------------------------------------------------
-# Visit notifications  (replaces email_service functions)
+# Visit notifications (future: per-user after linking)
 # ------------------------------------------------------------------
 
 def notify_visit_confirmed(visit) -> bool:
-    """Notify when a visit is logged (replaces send_visit_confirmed)."""
+    chat_id = getattr(visit.member, "telegram_chat_id", None)
+    if not chat_id:
+        return False
     member  = visit.member
     partner = visit.partner
     ts      = visit.timestamp.strftime("%d.%m.%Y %H:%M")
     cost    = f"{visit.cost} CHF" if visit.cost else "—"
     service = visit.get_service_type_display()
     name    = member.get_full_name() or member.username
-
     text = (
         "✅ <b>Визит подтверждён</b>\n\n"
-        f"👤 Участник: <b>{name}</b>\n"
-        f"🏢 Партнёр: <b>{partner.company_name}</b>\n"
-        f"🏃 Услуга: {service}\n"
-        f"💰 Стоимость: {cost}\n"
-        f"🕐 Время: {ts}"
+        f"👤 {name}\n🏢 {partner.company_name}\n"
+        f"🏃 {service} / 💰 {cost}\n🕐 {ts}"
     )
     if visit.service_description:
-        text += f"\n📝 Описание: {visit.service_description}"
-
-    logger.info("Telegram visit_confirmed event prepared (requires per-user chat mapping)")
-    return False
+        text += f"\n📝 {visit.service_description}"
+    return send_message(text, chat_id=chat_id)
 
 
 def notify_visit_edited(visit, audit) -> bool:
-    """Notify when a visit record is edited (replaces send_visit_edited)."""
+    chat_id = getattr(visit.member, "telegram_chat_id", None)
+    if not chat_id:
+        return False
     member  = visit.member
     partner = visit.partner
     ts      = visit.timestamp.strftime("%d.%m.%Y %H:%M")
-    name    = member.get_full_name() or member.username
     old_cost = f"{audit.previous_cost} CHF" if audit.previous_cost else "—"
     new_cost = f"{visit.cost} CHF" if visit.cost else "—"
-
     text = (
         "📝 <b>Визит изменён</b>\n\n"
-        f"👤 Участник: <b>{name}</b>\n"
-        f"🏢 Партнёр: <b>{partner.company_name}</b>\n"
-        f"🕐 Визит от: {ts}\n\n"
-        f"<s>Услуга: {audit.previous_service_type} / {old_cost}</s>\n"
-        f"✏️ Новое: {visit.get_service_type_display()} / {new_cost}\n"
-        f"📋 Причина: {audit.reason}"
+        f"👤 {member.get_full_name() or member.username}\n"
+        f"🏢 {partner.company_name} / 🕐 {ts}\n"
+        f"<s>{audit.previous_service_type} / {old_cost}</s>\n"
+        f"✏️ {visit.get_service_type_display()} / {new_cost}\n"
+        f"📋 {audit.reason}"
     )
-    logger.info("Telegram visit_edited event prepared (requires per-user chat mapping)")
-    return False
+    return send_message(text, chat_id=chat_id)
 
 
 def notify_visit_cancelled(visit, audit) -> bool:
-    """Notify when a visit is cancelled (replaces send_visit_cancelled)."""
+    chat_id = getattr(visit.member, "telegram_chat_id", None)
+    if not chat_id:
+        return False
     member  = visit.member
     partner = visit.partner
     ts      = visit.timestamp.strftime("%d.%m.%Y %H:%M")
-    name    = member.get_full_name() or member.username
     old_cost = f"{audit.previous_cost} CHF" if audit.previous_cost else "—"
-
     text = (
         "❌ <b>Визит отменён</b>\n\n"
-        f"👤 Участник: <b>{name}</b>\n"
-        f"🏢 Партнёр: <b>{partner.company_name}</b>\n"
-        f"🕐 Визит от: {ts}\n"
-        f"🏃 Услуга: {audit.previous_service_type} / {old_cost}\n"
-        f"📋 Причина: {audit.reason}"
+        f"👤 {member.get_full_name() or member.username}\n"
+        f"🏢 {partner.company_name} / 🕐 {ts}\n"
+        f"🏃 {audit.previous_service_type} / {old_cost}\n"
+        f"📋 {audit.reason}"
     )
-    logger.info("Telegram visit_cancelled event prepared (requires per-user chat mapping)")
-    return False
+    return send_message(text, chat_id=chat_id)
 
-
-# ------------------------------------------------------------------
-# Test notification
-# ------------------------------------------------------------------
 
 def send_test_notification(custom_text: str = "") -> bool:
-    """Kept for compatibility; test now goes through webhook replies."""
     return bool(custom_text)
+
+import logging
