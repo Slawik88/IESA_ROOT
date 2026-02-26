@@ -30,7 +30,7 @@ Required DigitalOcean App Platform env vars
 
 import logging
 import time
-from datetime import timedelta
+from urllib.parse import parse_qs
 
 import requests
 from django.conf import settings
@@ -100,8 +100,12 @@ def get_valid_token() -> str:
             timeout=15,
         )
         resp.raise_for_status()
-        data = resp.json()
-        new_token = data["access_token"]
+        data = _parse_oauth_payload(resp)
+        new_token = (data.get("access_token") or "").strip()
+        if not new_token:
+            raise ValueError(
+                f"OAuth refresh response has no access_token (status={resp.status_code}, body={resp.text[:300]!r})"
+            )
         expires_in = int(data.get("expires_in", 2592000))
         expire_ts = time.time() + expires_in
 
@@ -114,7 +118,7 @@ def get_valid_token() -> str:
             logger.warning(
                 "CleverReach returned a NEW refresh token — update "
                 "CLEVERREACH_REFRESH_TOKEN on DigitalOcean (App Platform → Settings → Env Vars):\n%s",
-                data["refresh_token"],
+                str(data["refresh_token"]).strip(),
             )
 
         logger.info("CleverReach token refreshed; expires in %ds", expires_in)
@@ -143,13 +147,52 @@ def _auth_headers() -> dict:
 def _api_get(path: str, **kwargs) -> dict:
     r = requests.get(f"{API_V3}/{path}", headers=_auth_headers(), timeout=15, **kwargs)
     r.raise_for_status()
-    return r.json()
+    return _parse_json_response(r, allow_empty=False)
 
 
 def _api_post(path: str, payload: dict, **kwargs) -> dict:
     r = requests.post(f"{API_V3}/{path}", json=payload, headers=_auth_headers(), timeout=30, **kwargs)
     r.raise_for_status()
-    return r.json()
+    return _parse_json_response(r, allow_empty=True)
+
+
+def _parse_oauth_payload(resp: requests.Response) -> dict:
+    """Parse OAuth token response, supporting JSON and querystring-like payloads."""
+    text = (resp.text or "").strip()
+    if not text:
+        raise ValueError(f"Empty OAuth response body (status={resp.status_code})")
+
+    # Preferred format
+    try:
+        data = resp.json()
+        if isinstance(data, dict):
+            return data
+    except Exception:
+        pass
+
+    # Some gateways/providers return URL-encoded body: access_token=...&expires_in=...
+    parsed = parse_qs(text)
+    if parsed and ("access_token" in parsed or "refresh_token" in parsed):
+        return {k: v[0] if isinstance(v, list) and v else v for k, v in parsed.items()}
+
+    raise ValueError(f"Unexpected OAuth response format (status={resp.status_code}, body={text[:300]!r})")
+
+
+def _parse_json_response(resp: requests.Response, allow_empty: bool) -> dict:
+    """Parse API JSON response. If allow_empty=True, empty body returns {}."""
+    text = (resp.text or "").strip()
+    if not text:
+        if allow_empty:
+            return {}
+        raise ValueError(f"Empty response body for {resp.request.method} {resp.url}")
+
+    try:
+        data = resp.json()
+        return data if isinstance(data, dict) else {"data": data}
+    except Exception as exc:
+        raise ValueError(
+            f"Invalid JSON response for {resp.request.method} {resp.url}: {text[:300]!r}"
+        ) from exc
 
 
 # ---------------------------------------------------------------------------
