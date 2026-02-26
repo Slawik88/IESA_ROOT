@@ -88,15 +88,10 @@ else:
 # ---------------------------------------------------------------------------
 # Replaces email notifications. Set these in DigitalOcean App Platform:
 #   TELEGRAM_BOT_TOKEN       — токен от @BotFather
-#   TELEGRAM_CHAT_ID         — ID чата куда отправлять уведомления
-#   TELEGRAM_ADMIN_CHAT_ID   — (опционально) отдельный чат для admin-уведомлений
+#   TELEGRAM_WEBHOOK_SECRET  — случайная секретная строка для URL webhook
 #
-# Тест-страница (только для staff):  /auth/partner/test-telegram/
-#   CLEVERREACH_CLIENT_SECRET   (your CleverReach app client secret)
-#   CLEVERREACH_ACCESS_TOKEN    (current bearer token)
-#   CLEVERREACH_REFRESH_TOKEN   (refresh token — rotate on each use)
-#   CLEVERREACH_SENDER_EMAIL    noreply@iesasport.ch
-#   CLEVERREACH_SENDER_NAME     IESA Sport
+# Страница настройки (только staff): /auth/partner/test-telegram/
+# Webhook endpoint:                 /auth/telegram/webhook/<secret>/
 
 CLEVERREACH_CLIENT_ID = _os.environ.get('CLEVERREACH_CLIENT_ID', '')
 CLEVERREACH_CLIENT_SECRET = _os.environ.get('CLEVERREACH_CLIENT_SECRET', '')

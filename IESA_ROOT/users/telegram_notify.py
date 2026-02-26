@@ -1,25 +1,16 @@
-"""
-Telegram Notification Service — IESA Sport
-===========================================
-Replaces email notifications with Telegram Bot API messages.
+"""Telegram Notification Service for IESA Sport.
 
-How it works
-------------
-Bot sends messages to a Telegram chat (admin group, channel, or personal chat).
-Uses only outbound HTTP — no webhook, no background process required.
-Works perfectly on DigitalOcean App Platform.
+Primary mode: webhook + reply to the user who wrote to the bot.
+No TELEGRAM_CHAT_ID is required for this test flow.
 
-Required environment variables (set in DO App Platform → Settings → Env Vars):
-    TELEGRAM_BOT_TOKEN   — token from @BotFather (e.g. 7123456789:AAF...)
-    TELEGRAM_CHAT_ID     — chat ID to receive notifications
-                           (admin group / channel / personal chat)
-                           Get it by messaging @userinfobot
-
-Optional:
-    TELEGRAM_ADMIN_CHAT_ID — separate chat for admin alerts (defaults to TELEGRAM_CHAT_ID)
+Required env vars (DigitalOcean App Platform):
+    TELEGRAM_BOT_TOKEN      - token from @BotFather
+    TELEGRAM_WEBHOOK_SECRET - random secret path segment for webhook URL
 """
 import logging
 import os
+from html import escape
+from typing import Any
 
 import requests
 
@@ -33,36 +24,29 @@ def _token() -> str:
     return os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
 
 
-def _chat_id() -> str:
-    return os.environ.get("TELEGRAM_CHAT_ID", "").strip()
-
-
-def _admin_chat_id() -> str:
-    return os.environ.get("TELEGRAM_ADMIN_CHAT_ID", "").strip() or _chat_id()
+def _webhook_secret() -> str:
+    return os.environ.get("TELEGRAM_WEBHOOK_SECRET", "").strip()
 
 
 def is_configured() -> bool:
-    """Return True when both BOT_TOKEN and CHAT_ID are present."""
-    return bool(_token() and _chat_id())
+    """Return True when TELEGRAM_BOT_TOKEN is present."""
+    return bool(_token())
 
 
 # ------------------------------------------------------------------
 # Low-level sender
 # ------------------------------------------------------------------
 
-def send_message(text: str, chat_id: str = "", parse_mode: str = "HTML") -> bool:
-    """
-    Send a Telegram message.  Returns True on success.
-    If chat_id is not provided, uses TELEGRAM_CHAT_ID env var.
-    """
+def send_message(text: str, chat_id: str, parse_mode: str = "HTML") -> bool:
+    """Send a Telegram message to provided chat_id. Returns True on success."""
     token = _token()
-    target = chat_id or _chat_id()
+    target = str(chat_id).strip()
 
     if not token:
         logger.warning("Telegram: TELEGRAM_BOT_TOKEN not set — notification skipped")
         return False
     if not target:
-        logger.warning("Telegram: TELEGRAM_CHAT_ID not set — notification skipped")
+        logger.warning("Telegram: chat_id is empty — notification skipped")
         return False
 
     url = f"https://api.telegram.org/bot{token}/sendMessage"
@@ -84,6 +68,71 @@ def send_message(text: str, chat_id: str = "", parse_mode: str = "HTML") -> bool
     except Exception as exc:
         logger.error("Telegram send failed: %s", exc)
         return False
+
+
+def set_webhook(webhook_url: str) -> tuple[bool, str]:
+    """Set Telegram webhook URL."""
+    token = _token()
+    if not token:
+        return False, "TELEGRAM_BOT_TOKEN не задан"
+    try:
+        resp = requests.post(
+            f"https://api.telegram.org/bot{token}/setWebhook",
+            json={"url": webhook_url},
+            timeout=10,
+        )
+        data = resp.json()
+        if resp.ok and data.get("ok"):
+            return True, "Webhook успешно установлен"
+        return False, str(data)
+    except Exception as exc:
+        return False, str(exc)
+
+
+def get_webhook_info() -> dict[str, Any]:
+    """Read current webhook info from Telegram API."""
+    token = _token()
+    if not token:
+        return {"ok": False, "description": "TELEGRAM_BOT_TOKEN не задан"}
+    try:
+        resp = requests.get(
+            f"https://api.telegram.org/bot{token}/getWebhookInfo",
+            timeout=10,
+        )
+        return resp.json()
+    except Exception as exc:
+        return {"ok": False, "description": str(exc)}
+
+
+def process_incoming_update(update: dict[str, Any]) -> bool:
+    """Process incoming update and reply to sender chat."""
+    message = update.get("message") or update.get("edited_message") or {}
+    chat = message.get("chat") or {}
+    chat_id = str(chat.get("id") or "").strip()
+    text = (message.get("text") or "").strip()
+
+    if not chat_id:
+        logger.info("Telegram update without chat_id ignored")
+        return False
+
+    if text.startswith("/start"):
+        reply = (
+            "🤖 <b>IESA Sport Bot</b>\n\n"
+            "Бот активен и готов к работе.\n"
+            "Напишите любой текст — я отвечу.\n"
+            "Команда <code>/id</code> покажет ваш chat_id."
+        )
+    elif text.startswith("/id"):
+        reply = f"Ваш chat_id: <code>{chat_id}</code>"
+    elif text:
+        reply = (
+            "✅ Бот работает.\n"
+            f"Вы написали: <code>{escape(text)}</code>"
+        )
+    else:
+        reply = "✅ Бот на связи."
+
+    return send_message(reply, chat_id=chat_id)
 
 
 # ------------------------------------------------------------------
@@ -110,7 +159,8 @@ def notify_visit_confirmed(visit) -> bool:
     if visit.service_description:
         text += f"\n📝 Описание: {visit.service_description}"
 
-    return send_message(text)
+    logger.info("Telegram visit_confirmed event prepared (requires per-user chat mapping)")
+    return False
 
 
 def notify_visit_edited(visit, audit) -> bool:
@@ -131,7 +181,8 @@ def notify_visit_edited(visit, audit) -> bool:
         f"✏️ Новое: {visit.get_service_type_display()} / {new_cost}\n"
         f"📋 Причина: {audit.reason}"
     )
-    return send_message(text)
+    logger.info("Telegram visit_edited event prepared (requires per-user chat mapping)")
+    return False
 
 
 def notify_visit_cancelled(visit, audit) -> bool:
@@ -150,7 +201,8 @@ def notify_visit_cancelled(visit, audit) -> bool:
         f"🏃 Услуга: {audit.previous_service_type} / {old_cost}\n"
         f"📋 Причина: {audit.reason}"
     )
-    return send_message(text)
+    logger.info("Telegram visit_cancelled event prepared (requires per-user chat mapping)")
+    return False
 
 
 # ------------------------------------------------------------------
@@ -158,10 +210,5 @@ def notify_visit_cancelled(visit, audit) -> bool:
 # ------------------------------------------------------------------
 
 def send_test_notification(custom_text: str = "") -> bool:
-    """Send a test message to verify the bot is working."""
-    text = custom_text or (
-        "🤖 <b>IESA Sport — Тест бота</b>\n\n"
-        "✅ Telegram-уведомления работают корректно!\n\n"
-        "Этот бот будет отправлять уведомления о визитах участников."
-    )
-    return send_message(text)
+    """Kept for compatibility; test now goes through webhook replies."""
+    return bool(custom_text)

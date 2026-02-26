@@ -5,6 +5,9 @@ from . import views_verification
 app_name = 'users'
 
 urlpatterns = [
+    # Telegram webhook (public endpoint for Telegram servers)
+    path('telegram/webhook/<slug:secret>/', views_verification.telegram_webhook_view, name='telegram_webhook'),
+
     # Авторизация
     path('register/', views.RegisterView.as_view(), name='register'),
     path('login/', views.LoginView.as_view(), name='login'),
