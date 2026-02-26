@@ -13,11 +13,11 @@ from django.utils import timezone
 from django.views.decorators.http import require_http_methods, require_POST
 from django_ratelimit.decorators import ratelimit
 
-from .email_service import (
-    send_test_email,
-    send_visit_cancelled,
-    send_visit_confirmed,
-    send_visit_edited,
+from .telegram_notify import (
+    notify_visit_cancelled,
+    notify_visit_confirmed,
+    notify_visit_edited,
+    send_test_notification,
 )
 from .forms_verification import (
     CancelVisitForm,
@@ -266,9 +266,9 @@ def log_visit(request, member_id):
                     member.save(update_fields=['failed_pin_attempts', 'pin_lockout_until'])
 
                 try:
-                    send_visit_confirmed(visit)
+                    notify_visit_confirmed(visit)
                 except Exception as exc:
-                    logger.error("send_visit_confirmed failed: %s", exc)
+                    logger.error("notify_visit_confirmed failed: %s", exc)
 
                 member_name = member.get_full_name() or member.username
                 cost_display = f'{visit.cost} CHF' if visit.cost else 'N/A'
@@ -349,11 +349,11 @@ def edit_visit(request, visit_id):
             audit.save()
 
             try:
-                send_visit_edited(updated_visit, audit)
+                notify_visit_edited(updated_visit, audit)
             except Exception as exc:
-                logger.error("send_visit_edited failed: %s", exc)
+                logger.error("notify_visit_edited failed: %s", exc)
 
-            messages.success(request, '✅ Visit updated. Member notified by email.')
+            messages.success(request, '✅ Visit updated. Member notified via Telegram.')
             return redirect('users:partner_dashboard')
     else:
         form = EditVisitForm(instance=visit)
@@ -413,11 +413,11 @@ def cancel_visit(request, visit_id):
             audit.save()
 
             try:
-                send_visit_cancelled(visit, audit)
+                notify_visit_cancelled(visit, audit)
             except Exception as exc:
-                logger.error("send_visit_cancelled failed: %s", exc)
+                logger.error("notify_visit_cancelled failed: %s", exc)
 
-            messages.success(request, '✅ Visit cancelled. Member notified by email.')
+            messages.success(request, '✅ Visit cancelled. Member notified via Telegram.')
             return redirect('users:partner_dashboard')
     else:
         form = CancelVisitForm()
@@ -431,57 +431,62 @@ def cancel_visit(request, visit_id):
 
 
 # ---------------------------------------------------------------------------
-# Test email
+# Telegram bot test page
 # ---------------------------------------------------------------------------
 
 @login_required
-def test_email_view(request):
-    """Staff-only page to send a test email and see the result."""
+def test_telegram_view(request):
+    """Staff-only page to test Telegram bot notifications."""
     if not request.user.is_staff:
         from django.http import HttpResponseForbidden
         return HttpResponseForbidden("Доступ только для администраторов.")
 
     import os
     import html as _html
-    from django.conf import settings as _settings
     from django.middleware.csrf import get_token
     from django.http import HttpResponse
+    from .telegram_notify import send_message, is_configured, _token, _chat_id
 
     result_html = ""
-    recipient = ""
+    custom_text = ""
 
     if request.method == "POST":
-        recipient = request.POST.get("recipient", "").strip()
-        if not recipient:
-            recipient = "makssmart29@gmail.com"
+        custom_text = request.POST.get("text", "").strip()
+        send_to = request.POST.get("chat_id", "").strip() or _chat_id()
+        msg = custom_text or (
+            "🤖 <b>IESA Sport — Тест бота</b>\n\n"
+            "✅ Telegram-уведомления работают корректно!\n\n"
+            "Этот бот будет отправлять уведомления о визитах участников."
+        )
         try:
-            count = send_test_email(recipient=recipient)
-            if count:
+            ok = send_message(msg, chat_id=send_to)
+            if ok:
                 result_html = (
-                    f'<div class="alert ok">✅ Письмо успешно отправлено на <b>{_html.escape(recipient)}</b></div>'
+                    f'<div class="alert ok">✅ Сообщение успешно отправлено в чат <b>{_html.escape(send_to)}</b></div>'
                 )
             else:
                 result_html = (
-                    '<div class="alert err">❌ Функция вернула 0. Проверь логи DigitalOcean → Runtime Logs.</div>'
+                    '<div class="alert err">❌ Отправка не удалась. Проверь TELEGRAM_BOT_TOKEN и TELEGRAM_CHAT_ID в DO.</div>'
                 )
         except Exception as exc:
-            logger.error("test_email_view failed: %s", exc)
-            result_html = (
-                f'<div class="alert err">❌ Исключение: {_html.escape(str(exc))}</div>'
-            )
+            logger.error("test_telegram_view failed: %s", exc)
+            result_html = f'<div class="alert err">❌ Ошибка: {_html.escape(str(exc))}</div>'
 
-    cr_ok = bool(os.environ.get("CLEVERREACH_CLIENT_ID", "").strip())
-    smtp_ok = bool(os.environ.get("RESEND_API_KEY", "").strip())
-    cr_badge = (
-        '<span class="badge ok">✅ CleverReach настроен</span>' if cr_ok
-        else '<span class="badge err">❌ CLEVERREACH_CLIENT_ID отсутствует</span>'
+    token_set  = bool(_token())
+    chat_set   = bool(_chat_id())
+    configured = token_set and chat_set
+
+    token_badge = (
+        '<span class="badge ok">✅ TELEGRAM_BOT_TOKEN задан</span>' if token_set
+        else '<span class="badge err">❌ TELEGRAM_BOT_TOKEN не задан</span>'
     )
-    smtp_badge = (
-        '<span class="badge ok">✅ Resend SMTP настроен</span>' if smtp_ok
-        else '<span class="badge warn">⚠️ RESEND_API_KEY не задан — SMTP fallback сломан</span>'
+    chat_badge = (
+        f'<span class="badge ok">✅ TELEGRAM_CHAT_ID: {_html.escape(_chat_id())}</span>' if chat_set
+        else '<span class="badge err">❌ TELEGRAM_CHAT_ID не задан</span>'
     )
 
-    default_email = _html.escape(recipient or "makssmart29@gmail.com")
+    default_chat = _html.escape(_chat_id() or "")
+    default_text = _html.escape(custom_text or "")
     csrf = get_token(request)
 
     html_page = f"""<!DOCTYPE html>
@@ -489,27 +494,33 @@ def test_email_view(request):
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Тест Email — IESA Sport</title>
+  <title>Тест Telegram бота — IESA Sport</title>
   <style>
     body{{font-family:Arial,sans-serif;background:#f5f5f5;margin:0;padding:40px 20px;color:#333}}
-    .card{{background:#fff;max-width:540px;margin:0 auto;padding:36px;border-radius:12px;
+    .card{{background:#fff;max-width:580px;margin:0 auto;padding:36px;border-radius:12px;
            box-shadow:0 4px 24px rgba(0,0,0,.1)}}
-    h2{{margin:0 0 6px}}
-    .sub{{color:#777;font-size:13px;margin-bottom:22px}}
-    .badges{{margin-bottom:22px}}
-    .badge{{display:inline-block;padding:4px 12px;border-radius:20px;font-size:12px;margin-right:6px;margin-bottom:6px}}
+    h2{{margin:0 0 4px}}
+    .sub{{color:#777;font-size:13px;margin-bottom:20px}}
+    .badges{{margin-bottom:20px}}
+    .badge{{display:inline-block;padding:4px 12px;border-radius:20px;font-size:12px;
+             margin-right:6px;margin-bottom:6px}}
     .badge.ok{{background:#d4edda;color:#155724}}
     .badge.err{{background:#f8d7da;color:#721c24}}
     .badge.warn{{background:#fff3cd;color:#856404}}
-    label{{display:block;font-size:13px;font-weight:bold;margin-bottom:6px}}
-    input[type=email]{{width:100%;box-sizing:border-box;padding:10px 14px;border:1px solid #ccc;
-                       border-radius:8px;font-size:15px}}
-    input[type=email]:focus{{outline:none;border-color:#667eea;box-shadow:0 0 0 3px rgba(102,126,234,.2)}}
-    button{{margin-top:14px;width:100%;padding:12px;
-            background:linear-gradient(135deg,#667eea,#764ba2);
+    .info-box{{background:#e8f4fd;border-left:4px solid #3498db;
+               padding:14px 16px;border-radius:0 8px 8px 0;margin-bottom:22px;font-size:13px;line-height:1.6}}
+    .info-box code{{background:#d0e8f8;padding:1px 5px;border-radius:4px;font-size:12px}}
+    label{{display:block;font-size:13px;font-weight:bold;margin-bottom:6px;margin-top:14px}}
+    input[type=text],textarea{{width:100%;box-sizing:border-box;padding:10px 14px;
+                       border:1px solid #ccc;border-radius:8px;font-size:14px;font-family:inherit}}
+    textarea{{height:100px;resize:vertical}}
+    input:focus,textarea:focus{{outline:none;border-color:#29b6f6;
+                                box-shadow:0 0 0 3px rgba(41,182,246,.2)}}
+    button{{margin-top:16px;width:100%;padding:12px;
+            background:linear-gradient(135deg,#29b6f6,#0288d1);
             color:#fff;border:none;border-radius:8px;font-size:15px;cursor:pointer;font-weight:bold}}
     button:hover{{opacity:.88}}
-    .alert{{margin-top:20px;padding:14px 18px;border-radius:8px;font-size:14px}}
+    .alert{{margin-top:18px;padding:14px 18px;border-radius:8px;font-size:14px}}
     .alert.ok{{background:#d4edda;color:#155724}}
     .alert.err{{background:#f8d7da;color:#721c24}}
     .back{{display:block;text-align:center;margin-top:18px;font-size:13px;color:#999;text-decoration:none}}
@@ -518,14 +529,28 @@ def test_email_view(request):
 </head>
 <body>
   <div class="card">
-    <h2>📧 Тест отправки Email</h2>
-    <p class="sub">Только для администраторов. Сначала пробует CleverReach, при неудаче — SMTP (Resend).</p>
-    <div class="badges">{cr_badge}{smtp_badge}</div>
+    <h2>🤖 Тест Telegram бота</h2>
+    <p class="sub">Только для администраторов. Отправляет сообщение через Telegram Bot API.</p>
+
+    <div class="badges">{token_badge}{chat_badge}</div>
+
+    <div class="info-box">
+      <b>Где задать переменные:</b><br>
+      DigitalOcean App Platform → твоё приложение → <b>Settings</b> → <b>App-Level Env Vars</b><br><br>
+      <code>TELEGRAM_BOT_TOKEN</code> — токен от @BotFather<br>
+      <code>TELEGRAM_CHAT_ID</code> — ID чата (получить через @userinfobot)<br><br>
+      <b>Как получить Chat ID:</b> напиши любое сообщение боту или в группу, потом открой<br>
+      <code>https://api.telegram.org/bot&lt;TOKEN&gt;/getUpdates</code>
+      и найди <code>chat.id</code> в ответе.
+    </div>
+
     <form method="post">
       <input type="hidden" name="csrfmiddlewaretoken" value="{csrf}">
-      <label for="r">Email получателя</label>
-      <input type="email" id="r" name="recipient" value="{default_email}" required>
-      <button type="submit">Отправить тестовое письмо</button>
+      <label for="chat_id">Chat ID (оставь пустым чтобы использовать TELEGRAM_CHAT_ID)</label>
+      <input type="text" id="chat_id" name="chat_id" value="{default_chat}" placeholder="-100123456789">
+      <label for="text">Текст сообщения (оставь пустым для стандартного теста)</label>
+      <textarea id="text" name="text" placeholder="Привет от IESA Sport! 🏃">{default_text}</textarea>
+      <button type="submit">📨 Отправить тестовое сообщение</button>
     </form>
     {result_html}
     <a href="/" class="back">← На главную</a>
