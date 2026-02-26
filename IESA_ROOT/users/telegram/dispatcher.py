@@ -6,60 +6,120 @@ from typing import Any
 
 from asgiref.sync import sync_to_async
 
-from .client import send_message_async
+from .client import (
+    answer_callback_query,
+    edit_message_reply_markup,
+    edit_message_text,
+    send_message_async,
+    set_bot_commands,
+)
 from .handlers import (
+    handle_cancel,
     handle_echo,
     handle_help,
     handle_id,
     handle_link,
     handle_start,
     handle_status,
-    handle_unlink,
+    handle_unlink_ask,
+    handle_unlink_yes,
 )
 
 logger = logging.getLogger(__name__)
 
-# Command → handler mapping
-COMMANDS: dict[str, Any] = {
+# ── Text command → handler ─────────────────────────────────────────────────
+COMMANDS = {
     "/start":  handle_start,
     "/help":   handle_help,
     "/link":   handle_link,
     "/id":     handle_id,
     "/status": handle_status,
-    "/unlink": handle_unlink,
+    "/unlink": handle_unlink_ask,
+}
+
+# ── Callback data → handler ────────────────────────────────────────────────
+CALLBACKS = {
+    "cb:link":       handle_link,
+    "cb:help":       handle_help,
+    "cb:status":     handle_status,
+    "cb:new_code":   handle_link,        # re-generate code
+    "cb:unlink_ask": handle_unlink_ask,
+    "cb:unlink_yes": handle_unlink_yes,
+    "cb:cancel":     handle_cancel,
 }
 
 
-async def _get_user_by_chat_id(chat_id: int):
-    """Return Django User with telegram_chat_id == chat_id, or None."""
-    def _query():
+async def _get_user(chat_id: int):
+    def _q():
         from users.models import User
         return User.objects.filter(telegram_chat_id=chat_id).first()
-    return await sync_to_async(_query)()
+    return await sync_to_async(_q)()
 
 
 async def process_incoming_update(update: dict[str, Any]) -> bool:
     """
-    Process one incoming Telegram update.
+    Process one Telegram update.
 
-    Supports: message, edited_message.
-    Routes commands to registered handlers; everything else → echo.
+    Handles:
+      - message / edited_message  → text commands + echo
+      - callback_query            → InlineKeyboard button presses
     """
-    message  = update.get("message") or update.get("edited_message") or {}
-    chat     = message.get("chat") or {}
-    chat_id  = chat.get("id")
-    text     = (message.get("text") or "").strip()
+
+    # ── 1. InlineKeyboard button press ──────────────────────────────────────
+    callback = update.get("callback_query")
+    if callback:
+        cb_id      = callback.get("id")
+        cb_data    = (callback.get("data") or "").strip()
+        cb_msg     = callback.get("message") or {}
+        chat_id    = (cb_msg.get("chat") or {}).get("id")
+        message_id = cb_msg.get("message_id")
+
+        if not chat_id:
+            return False
+
+        user_db = await _get_user(chat_id)
+        handler = CALLBACKS.get(cb_data)
+
+        if handler:
+            try:
+                text, markup = await handler(chat_id, cb_data, user_db)
+            except Exception as exc:
+                logger.exception("Callback handler %s raised: %s", cb_data, exc)
+                await answer_callback_query(cb_id, "⚠️ Ошибка. Попробуй позже.")
+                return False
+
+            # Silently acknowledge the button tap (removes loading spinner)
+            await answer_callback_query(cb_id)
+
+            # Edit the existing message in-place if possible, else send new
+            edited = await edit_message_text(
+                chat_id=chat_id,
+                message_id=message_id,
+                text=text,
+                reply_markup=markup,
+            )
+            if not edited:
+                await send_message_async(text, chat_id=chat_id, reply_markup=markup)
+        else:
+            await answer_callback_query(cb_id, "Неизвестное действие")
+
+        return True
+
+    # ── 2. Regular message ──────────────────────────────────────────────────
+    message = update.get("message") or update.get("edited_message") or {}
+    chat    = message.get("chat") or {}
+    chat_id = chat.get("id")
+    text    = (message.get("text") or "").strip()
 
     if not chat_id:
         return False
 
-    # Resolve linked account (lazy — only used if handler needs it)
-    user_db = await _get_user_by_chat_id(chat_id)
+    user_db = await _get_user(chat_id)
 
-    # Match command (may have @botname suffix)
+    # Match command (strip @botname suffix)
     handler = None
     for cmd, fn in COMMANDS.items():
-        if text.lower().startswith(cmd):
+        if text.lower().split("@")[0].startswith(cmd):
             handler = fn
             break
 
@@ -69,11 +129,24 @@ async def process_incoming_update(update: dict[str, Any]) -> bool:
         handler = handle_echo
 
     try:
-        reply = await handler(chat_id, text, user_db)
+        reply_text, markup = await handler(chat_id, text, user_db)
     except Exception as exc:
         logger.exception("Handler %s raised: %s", handler.__name__, exc)
-        reply = "⚠️ Внутренняя ошибка. Попробуй позже."
+        reply_text, markup = "⚠️ Внутренняя ошибка. Попробуй позже.", None
 
-    if reply:
-        return await send_message_async(reply, chat_id=chat_id)
+    if reply_text:
+        return await send_message_async(reply_text, chat_id=chat_id, reply_markup=markup)
     return False
+
+
+async def init_bot_commands() -> bool:
+    """Register bot commands in Telegram so the / menu shows nicely."""
+    commands = [
+        {"command": "start",  "description": "Главное меню"},
+        {"command": "link",   "description": "Привязать аккаунт"},
+        {"command": "status", "description": "Мой статус членства"},
+        {"command": "help",   "description": "Справка"},
+        {"command": "id",     "description": "Мой Telegram ID"},
+        {"command": "unlink", "description": "Отвязать аккаунт"},
+    ]
+    return await set_bot_commands(commands)
