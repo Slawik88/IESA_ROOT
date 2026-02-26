@@ -15,18 +15,19 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods, require_POST
 from django_ratelimit.decorators import ratelimit
 
-from .telegram_notify import (
-    _token,
-    _webhook_secret,
+from users.telegram import (
     consume_link_code,
     get_webhook_info,
+    is_configured as _token_configured,
     notify_visit_cancelled,
     notify_visit_confirmed,
     notify_visit_edited,
     process_incoming_update,
     send_test_notification,
     set_webhook,
+    token as _token,
     verify_telegram_auth,
+    webhook_secret as _webhook_secret,
 )
 from .forms_verification import (
     CancelVisitForm,
@@ -456,7 +457,7 @@ def test_telegram_view(request):
     import html as _html
     from django.middleware.csrf import get_token
     from django.http import HttpResponse
-    from .telegram_notify import _token
+    from users.telegram import token as _token
 
     result_html = ""
     webhook_secret = _webhook_secret()
@@ -584,7 +585,7 @@ def connect_telegram_code_view(request):
     """Accept 6-digit code from Telegram bot and link the account."""
     import html as _html
     from django.utils import timezone as tz
-    from .telegram_notify import consume_link_code, send_message
+    from users.telegram import consume_link_code, send_message
 
     error = ""
 
@@ -639,7 +640,7 @@ def telegram_login_callback_view(request):
     """
     import time
     from django.utils import timezone as tz
-    from .telegram_notify import verify_telegram_auth
+    from users.telegram import verify_telegram_auth
 
     flat = {k: (v[0] if isinstance(v, list) else v) for k, v in dict(request.GET).items()}
 
