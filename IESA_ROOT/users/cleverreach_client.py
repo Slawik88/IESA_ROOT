@@ -129,6 +129,11 @@ def get_valid_token() -> str:
         # Fall back to whatever bootstrap token is configured
         fallback = _cfg("CLEVERREACH_ACCESS_TOKEN")
         if fallback:
+            # Avoid hammering token endpoint on every single API call if refresh
+            # currently fails (e.g. stale refresh token). Cache fallback briefly.
+            ttl = 3600
+            cache.set(CACHE_KEY_TOKEN, fallback, timeout=ttl)
+            cache.set(CACHE_KEY_EXPIRY, time.time() + ttl, timeout=ttl)
             return fallback
         raise RuntimeError("No valid CleverReach access token available") from exc
 
