@@ -169,9 +169,8 @@ def send_cleverreach_email(
 
     Flow
     ----
-    1. POST /v3/mailings.json            → create mailing with type="trigger"
-    2. POST /v3/mailings/{id}/send/now.json  → trigger immediate delivery to
-       direct recipient (bypasses groups — no list subscription required)
+    1. POST /v3/mailings.json                → create mailing
+    2. POST /v3/mailings/{id}/sendpreview    → send to explicit email address
     """
     sender_email = _cfg("CLEVERREACH_SENDER_EMAIL", "noreply@iesasport.ch")
     sender_name = _cfg("CLEVERREACH_SENDER_NAME", "IESA Sport")
@@ -198,11 +197,10 @@ def send_cleverreach_email(
 
         logger.debug("CleverReach mailing created: id=%s name=%s", mailing_id, mailing_name)
 
-        # Step 2: Send immediately to direct recipient
-        send_result = _api_post(f"mailings/{mailing_id}/send/now.json", {
-            "receivers": {
-                "emails": [to_email],
-            },
+        # Step 2: Send to direct recipient (v3 endpoint)
+        send_result = _api_post(f"mailings/{mailing_id}/sendpreview.json", {
+            "receivers": [to_email],
+            "previewText": "",
         })
         logger.info(
             "CleverReach sent '%s' → %s (mailing=%s, result=%s)",
