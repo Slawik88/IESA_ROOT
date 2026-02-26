@@ -435,21 +435,105 @@ def cancel_visit(request, visit_id):
 # ---------------------------------------------------------------------------
 
 @login_required
-@user_passes_test(is_partner, login_url='/auth/login/', redirect_field_name=None)
-@require_POST
 def test_email_view(request):
-    """Send a test email to verify SMTP. Returns JSON."""
-    try:
-        result = send_test_email()
-        if result:
-            return JsonResponse({'status': 'ok', 'message': 'Test email sent successfully.'})
-        return JsonResponse(
-            {'status': 'error', 'message': 'Email returned 0 — check SMTP settings in Heroku config vars.'},
-            status=500,
-        )
-    except Exception as exc:
-        logger.error("test_email_view failed: %s", exc)
-        return JsonResponse({'status': 'error', 'message': str(exc)}, status=500)
+    """Staff-only page to send a test email and see the result."""
+    if not request.user.is_staff:
+        from django.http import HttpResponseForbidden
+        return HttpResponseForbidden("Доступ только для администраторов.")
+
+    import os
+    import html as _html
+    from django.conf import settings as _settings
+    from django.middleware.csrf import get_token
+    from django.http import HttpResponse
+
+    result_html = ""
+    recipient = ""
+
+    if request.method == "POST":
+        recipient = request.POST.get("recipient", "").strip()
+        if not recipient:
+            recipient = "makssmart29@gmail.com"
+        try:
+            count = send_test_email(recipient=recipient)
+            if count:
+                result_html = (
+                    f'<div class="alert ok">✅ Письмо успешно отправлено на <b>{_html.escape(recipient)}</b></div>'
+                )
+            else:
+                result_html = (
+                    '<div class="alert err">❌ Функция вернула 0. Проверь логи DigitalOcean → Runtime Logs.</div>'
+                )
+        except Exception as exc:
+            logger.error("test_email_view failed: %s", exc)
+            result_html = (
+                f'<div class="alert err">❌ Исключение: {_html.escape(str(exc))}</div>'
+            )
+
+    cr_ok = bool(os.environ.get("CLEVERREACH_CLIENT_ID", "").strip())
+    smtp_ok = bool(os.environ.get("RESEND_API_KEY", "").strip())
+    cr_badge = (
+        '<span class="badge ok">✅ CleverReach настроен</span>' if cr_ok
+        else '<span class="badge err">❌ CLEVERREACH_CLIENT_ID отсутствует</span>'
+    )
+    smtp_badge = (
+        '<span class="badge ok">✅ Resend SMTP настроен</span>' if smtp_ok
+        else '<span class="badge warn">⚠️ RESEND_API_KEY не задан — SMTP fallback сломан</span>'
+    )
+
+    default_email = _html.escape(recipient or "makssmart29@gmail.com")
+    csrf = get_token(request)
+
+    html_page = f"""<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Тест Email — IESA Sport</title>
+  <style>
+    body{{font-family:Arial,sans-serif;background:#f5f5f5;margin:0;padding:40px 20px;color:#333}}
+    .card{{background:#fff;max-width:540px;margin:0 auto;padding:36px;border-radius:12px;
+           box-shadow:0 4px 24px rgba(0,0,0,.1)}}
+    h2{{margin:0 0 6px}}
+    .sub{{color:#777;font-size:13px;margin-bottom:22px}}
+    .badges{{margin-bottom:22px}}
+    .badge{{display:inline-block;padding:4px 12px;border-radius:20px;font-size:12px;margin-right:6px;margin-bottom:6px}}
+    .badge.ok{{background:#d4edda;color:#155724}}
+    .badge.err{{background:#f8d7da;color:#721c24}}
+    .badge.warn{{background:#fff3cd;color:#856404}}
+    label{{display:block;font-size:13px;font-weight:bold;margin-bottom:6px}}
+    input[type=email]{{width:100%;box-sizing:border-box;padding:10px 14px;border:1px solid #ccc;
+                       border-radius:8px;font-size:15px}}
+    input[type=email]:focus{{outline:none;border-color:#667eea;box-shadow:0 0 0 3px rgba(102,126,234,.2)}}
+    button{{margin-top:14px;width:100%;padding:12px;
+            background:linear-gradient(135deg,#667eea,#764ba2);
+            color:#fff;border:none;border-radius:8px;font-size:15px;cursor:pointer;font-weight:bold}}
+    button:hover{{opacity:.88}}
+    .alert{{margin-top:20px;padding:14px 18px;border-radius:8px;font-size:14px}}
+    .alert.ok{{background:#d4edda;color:#155724}}
+    .alert.err{{background:#f8d7da;color:#721c24}}
+    .back{{display:block;text-align:center;margin-top:18px;font-size:13px;color:#999;text-decoration:none}}
+    .back:hover{{color:#333}}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h2>📧 Тест отправки Email</h2>
+    <p class="sub">Только для администраторов. Сначала пробует CleverReach, при неудаче — SMTP (Resend).</p>
+    <div class="badges">{cr_badge}{smtp_badge}</div>
+    <form method="post">
+      <input type="hidden" name="csrfmiddlewaretoken" value="{csrf}">
+      <label for="r">Email получателя</label>
+      <input type="email" id="r" name="recipient" value="{default_email}" required>
+      <button type="submit">Отправить тестовое письмо</button>
+    </form>
+    {result_html}
+    <a href="/" class="back">← На главную</a>
+  </div>
+</body>
+</html>"""
+
+    return HttpResponse(html_page)
 
 
 # ---------------------------------------------------------------------------
