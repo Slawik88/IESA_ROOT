@@ -18,6 +18,7 @@ from django_ratelimit.decorators import ratelimit
 from users.telegram import (
     consume_link_code,
     get_webhook_info,
+    init_bot_commands,
     is_configured as _token_configured,
     notify_visit_cancelled,
     notify_visit_confirmed,
@@ -474,6 +475,13 @@ def test_telegram_view(request):
                     css = "ok" if ok else "err"
                     icon = "✅" if ok else "❌"
                     result_html = f'<div class="alert {css}">{icon} {_html.escape(message)}</div>'
+                    if ok:
+                        import asyncio
+                        try:
+                            asyncio.run(init_bot_commands())
+                            result_html += '<div class="alert ok">✅ Команды бота зарегистрированы в Telegram</div>'
+                        except Exception as exc_cmd:
+                            result_html += f'<div class="alert err">⚠️ Команды не установлены: {_html.escape(str(exc_cmd))}</div>'
             else:
                 result_html = '<div class="alert err">❌ Неизвестное действие.</div>'
         except Exception as exc:

@@ -3,45 +3,336 @@
 
 {% block title %}{% trans "Connect Telegram" %}{% endblock %}
 
+{% block extra_css %}
+<style>
+:root { --tg-color: #29a8eb; }
+
+.link-page { min-height: 80vh; display: flex; align-items: center; padding: 2rem 0; }
+
+/* ── Card shell ── */
+.link-card {
+    border: none;
+    border-radius: 24px;
+    box-shadow: 0 16px 48px rgba(0,0,0,.14);
+    overflow: hidden;
+    max-width: 420px;
+    margin: 0 auto;
+    background: #fff;
+}
+
+/* ── Header banner ── */
+.link-header {
+    background: var(--tg-color);
+    padding: 2rem 1.5rem 1.5rem;
+    text-align: center;
+    color: #fff;
+}
+.link-header .tg-icon-wrap {
+    width: 72px; height: 72px;
+    background: rgba(255,255,255,.2);
+    border-radius: 50%;
+    border: 3px solid rgba(255,255,255,.5);
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto .75rem;
+    font-size: 2.2rem;
+}
+.link-header h2 { font-size: 1.4rem; font-weight: 700; margin: 0; }
+.link-header p  { font-size: .88rem; opacity: .88; margin: .3rem 0 0; }
+
+/* ── Body ── */
+.link-body { padding: 1.8rem 1.5rem 2rem; }
+
+/* Steps */
+.link-steps {
+    display: flex;
+    flex-direction: column;
+    gap: .6rem;
+    margin-bottom: 1.6rem;
+}
+.link-step {
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    padding: .65rem .9rem;
+    background: #f5f7fc;
+    border-radius: 12px;
+    font-size: .9rem;
+    color: #3d4356;
+}
+.link-step .sn {
+    min-width: 28px; height: 28px;
+    background: var(--tg-color);
+    border-radius: 50%;
+    color: #fff; font-weight: 700; font-size: .8rem;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+}
+.link-step a { color: var(--tg-color); font-weight: 600; }
+.link-step code {
+    background: rgba(41,168,235,.12);
+    color: var(--tg-color);
+    border-radius: 6px;
+    padding: .1rem .4rem;
+    font-size: .9rem;
+}
+
+/* Error */
+.link-error {
+    background: #fff1f0;
+    border: 1.5px solid #ffccc7;
+    color: #cf1322;
+    border-radius: 12px;
+    padding: .75rem 1rem;
+    font-size: .88rem;
+    margin-bottom: 1.2rem;
+    display: flex; align-items: center; gap: .5rem;
+}
+
+/* OTP — 6 digit boxes */
+.otp-wrap {
+    display: flex;
+    gap: .45rem;
+    justify-content: center;
+    margin-bottom: 1.4rem;
+}
+/* hidden real input (submitted) */
+#code-hidden { display: none; }
+
+.otp-box {
+    width: 46px; height: 58px;
+    border: 2px solid #dde1ef;
+    border-radius: 12px;
+    font-size: 1.8rem; font-weight: 800;
+    text-align: center;
+    color: #1a1d2e;
+    background: #f7f9fc;
+    outline: none;
+    caret-color: var(--tg-color);
+    transition: border-color .18s, box-shadow .18s, background .18s;
+    -moz-appearance: textfield;
+}
+.otp-box::-webkit-outer-spin-button,
+.otp-box::-webkit-inner-spin-button { -webkit-appearance: none; }
+.otp-box:focus {
+    border-color: var(--tg-color);
+    box-shadow: 0 0 0 3px rgba(41,168,235,.18);
+    background: #fff;
+}
+.otp-box.filled {
+    border-color: #52c41a;
+    background: #f6ffed;
+    color: #237804;
+}
+/* separator between 3+3 */
+.otp-sep { font-size: 1.8rem; color: #c5c9d6; line-height: 58px; font-weight: 300; }
+
+/* Submit button */
+.btn-tg-submit {
+    width: 100%;
+    background: var(--tg-color);
+    color: #fff;
+    border: none;
+    border-radius: 14px;
+    padding: .85rem;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: opacity .2s, transform .1s;
+    display: flex; align-items: center; justify-content: center; gap: .5rem;
+}
+.btn-tg-submit:disabled { opacity: .5; cursor: not-allowed; }
+.btn-tg-submit:not(:disabled):hover { opacity: .88; transform: translateY(-1px); }
+
+/* Back link */
+.link-back {
+    text-align: center;
+    margin-top: 1rem;
+}
+.link-back a {
+    color: #9099aa;
+    font-size: .88rem;
+    text-decoration: none;
+}
+.link-back a:hover { color: var(--tg-color); }
+
+/* Bot link */
+.bot-link-banner {
+    background: linear-gradient(135deg, #e6f7ff 0%, #f0f5ff 100%);
+    border: 1.5px solid #bae0ff;
+    border-radius: 14px;
+    padding: .9rem 1rem;
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    margin-bottom: 1.5rem;
+    text-decoration: none;
+    color: inherit;
+    transition: box-shadow .2s, transform .15s;
+}
+.bot-link-banner:hover { box-shadow: 0 4px 16px rgba(41,168,235,.2); transform: translateY(-1px); }
+.bot-link-banner .bl-icon { font-size: 2rem; flex-shrink: 0; }
+.bot-link-banner .bl-text { font-size: .9rem; line-height: 1.4; color: #1a1d2e; }
+.bot-link-banner .bl-text strong { color: var(--tg-color); }
+.bot-link-banner .bl-arrow { margin-left: auto; color: var(--tg-color); font-size: 1.1rem; flex-shrink: 0; }
+
+@media (max-width: 375px) {
+    .otp-box { width: 40px; height: 52px; font-size: 1.5rem; border-radius: 10px; }
+}
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="container py-5">
-    <div class="row justify-content-center">
-        <div class="col-md-6 col-lg-5">
-            <div class="card shadow border-0">
-                <div class="card-body p-5 text-center">
-                    <i class="fab fa-telegram-plane fa-3x mb-3" style="color: #2aabee;"></i>
-                    <h4 class="mb-4">{% trans "Enter Telegram Code" %}</h4>
+<div class="container link-page">
+<div class="row justify-content-center w-100">
+<div class="col-12 col-sm-10 col-md-8 col-lg-5">
 
-                    <p class="text-muted mb-4">
-                        {% trans "Open" %} <strong>@{{ telegram_bot_name }}</strong> {% trans "in Telegram and send" %} <code>/link</code>.<br>
-                        {% trans "The bot will reply with a 6-digit code. Enter it below:" %}
-                    </p>
+<div class="link-card">
 
-                    {% if error %}
-                        <div class="alert alert-danger" style="border-radius: 12px;">
-                            {{ error }}
-                        </div>
-                    {% endif %}
+    <div class="link-header">
+        <div class="tg-icon-wrap"><i class="fab fa-telegram"></i></div>
+        <h2>{% trans "Connect Telegram" %}</h2>
+        <p>{% trans "Get instant visit notifications" %}</p>
+    </div>
 
-                    <form method="post">
-                        {% csrf_token %}
-                        <div class="mb-3">
-                            <input type="text" name="code" maxlength="6" pattern="[0-9]{6}"
-                                   class="form-control form-control-lg text-center"
-                                   style="letter-spacing: 0.4em; font-size: 1.8rem; max-width: 180px; margin: 0 auto;"
-                                   placeholder="000000" autofocus required>
-                        </div>
-                        <button type="submit" class="btn btn-primary btn-lg w-100 mt-2">
-                            {% trans "Connect" %}
-                        </button>
-                    </form>
+    <div class="link-body">
 
-                    <a href="{% url 'users:member_cabinet' %}" class="btn btn-link mt-3 text-muted">
-                        {% trans "Back" %}
-                    </a>
-                </div>
+        {% if error %}
+        <div class="link-error">
+            <i class="fas fa-exclamation-circle"></i> {{ error }}
+        </div>
+        {% endif %}
+
+        {# Open bot banner #}
+        {% if telegram_bot_name %}
+        <a class="bot-link-banner" href="https://t.me/{{ telegram_bot_name }}" target="_blank" rel="noopener">
+            <div class="bl-icon">🤖</div>
+            <div class="bl-text">
+                {% trans "Open bot" %} <strong>@{{ telegram_bot_name }}</strong><br>
+                <span style="color:#6b7280;font-size:.83rem;">{% trans "Tap to open in Telegram" %}</span>
+            </div>
+            <div class="bl-arrow"><i class="fas fa-arrow-right"></i></div>
+        </a>
+        {% endif %}
+
+        {# Steps #}
+        <div class="link-steps">
+            <div class="link-step">
+                <div class="sn">1</div>
+                {% if telegram_bot_name %}
+                    {% trans "Open" %} <a href="https://t.me/{{ telegram_bot_name }}" target="_blank">@{{ telegram_bot_name }}</a> {% trans "in Telegram" %}
+                {% else %}
+                    {% trans "Open the IESA Sport bot in Telegram" %}
+                {% endif %}
+            </div>
+            <div class="link-step">
+                <div class="sn">2</div>
+                {% trans "Press the" %} <strong>🔗 {% trans "Attach account" %}</strong> {% trans "button or send" %} <code>/link</code>
+            </div>
+            <div class="link-step">
+                <div class="sn">3</div>
+                {% trans "Enter the 6-digit code from the bot below" %} ↓
             </div>
         </div>
+
+        {# OTP input #}
+        <form method="post" id="code-form">
+            {% csrf_token %}
+            <input type="hidden" name="code" id="code-hidden">
+
+            <div class="otp-wrap" id="otp-wrap">
+                <input class="otp-box" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" data-idx="0">
+                <input class="otp-box" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" data-idx="1">
+                <input class="otp-box" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" data-idx="2">
+                <div class="otp-sep">–</div>
+                <input class="otp-box" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" data-idx="3">
+                <input class="otp-box" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" data-idx="4">
+                <input class="otp-box" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" data-idx="5">
+            </div>
+
+            <button type="submit" class="btn-tg-submit" id="submit-btn" disabled>
+                <i class="fas fa-link"></i> {% trans "Connect Telegram" %}
+            </button>
+        </form>
+
+        <div class="link-back">
+            <a href="{% url 'users:member_cabinet' %}"><i class="fas fa-arrow-left"></i> {% trans "Back to cabinet" %}</a>
+        </div>
+
     </div>
 </div>
+
+</div>
+</div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+    const boxes   = Array.from(document.querySelectorAll('.otp-box'));
+    const hidden  = document.getElementById('code-hidden');
+    const submit  = document.getElementById('submit-btn');
+    const form    = document.getElementById('code-form');
+
+    function sync() {
+        const val = boxes.map(b => b.value).join('');
+        hidden.value = val;
+        const done = val.length === 6 && /^\d{6}$/.test(val);
+        submit.disabled = !done;
+        boxes.forEach(b => {
+            b.classList.toggle('filled', b.value.length === 1 && /\d/.test(b.value));
+        });
+    }
+
+    boxes.forEach((box, i) => {
+        box.addEventListener('input', e => {
+            // Support paste of full code into first box
+            const pasted = box.value.replace(/\D/g, '').slice(0, 6 - i);
+            if (pasted.length > 1) {
+                pasted.split('').forEach((ch, j) => {
+                    if (boxes[i + j]) boxes[i + j].value = ch;
+                });
+                const next = boxes[Math.min(i + pasted.length, 5)];
+                if (next) next.focus();
+            } else {
+                box.value = box.value.replace(/\D/g, '').slice(-1);
+                if (box.value && i < 5) boxes[i + 1].focus();
+            }
+            sync();
+        });
+
+        box.addEventListener('keydown', e => {
+            if (e.key === 'Backspace' && !box.value && i > 0) {
+                boxes[i - 1].value = '';
+                boxes[i - 1].focus();
+                sync();
+            }
+            if (e.key === 'ArrowLeft'  && i > 0) boxes[i - 1].focus();
+            if (e.key === 'ArrowRight' && i < 5) boxes[i + 1].focus();
+        });
+
+        box.addEventListener('paste', e => {
+            e.preventDefault();
+            const paste = (e.clipboardData.getData('text') || '').replace(/\D/g, '').slice(0, 6);
+            paste.split('').forEach((ch, j) => { if (boxes[j]) boxes[j].value = ch; });
+            sync();
+            const focusIdx = Math.min(paste.length, 5);
+            boxes[focusIdx].focus();
+        });
+
+        box.addEventListener('focus', () => box.select());
+    });
+
+    // Auto-submit when all 6 filled
+    form.addEventListener('input', () => {
+        const val = boxes.map(b => b.value).join('');
+        if (val.length === 6 && /^\d{6}$/.test(val)) {
+            setTimeout(() => form.submit(), 250);
+        }
+    });
+
+    // Focus first box on load
+    boxes[0].focus();
+})();
+</script>
 {% endblock %}
