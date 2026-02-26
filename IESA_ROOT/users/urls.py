@@ -30,8 +30,8 @@ urlpatterns = [
     # Edit / cancel a visit (20-min window)
     path('partner/visit/<int:visit_id>/edit/', views_verification.edit_visit, name='edit_visit'),
     path('partner/visit/<int:visit_id>/cancel/', views_verification.cancel_visit, name='cancel_visit'),
-    # Test email (POST only)
-    path('partner/test-email/', views_verification.test_email_view, name='test_email'),
+    # Telegram bot test page (staff only)
+    path('partner/test-telegram/', views_verification.test_telegram_view, name='test_telegram'),
     # Server time API
     path('api/time/', views_verification.server_time, name='server_time'),
     

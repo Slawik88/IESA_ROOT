@@ -84,15 +84,14 @@ else:
     DEFAULT_FROM_EMAIL = 'IESA Sport <noreply@iesasport.ch>'
 
 # ---------------------------------------------------------------------------
-# CleverReach integration
+# Telegram Bot notifications
 # ---------------------------------------------------------------------------
-# Set these env vars in DigitalOcean App Platform → your app → Settings → App-Level Env Vars.
-# When CLEVERREACH_CLIENT_ID is present, email_service.py will use the
-# CleverReach REST API for ALL transactional emails instead of SMTP.
-# If a CleverReach send fails, the SMTP backend above is used as fallback.
+# Replaces email notifications. Set these in DigitalOcean App Platform:
+#   TELEGRAM_BOT_TOKEN       — токен от @BotFather
+#   TELEGRAM_CHAT_ID         — ID чата куда отправлять уведомления
+#   TELEGRAM_ADMIN_CHAT_ID   — (опционально) отдельный чат для admin-уведомлений
 #
-# Required DigitalOcean env vars:
-#   CLEVERREACH_CLIENT_ID       (your CleverReach app client ID)
+# Тест-страница (только для staff):  /auth/partner/test-telegram/
 #   CLEVERREACH_CLIENT_SECRET   (your CleverReach app client secret)
 #   CLEVERREACH_ACCESS_TOKEN    (current bearer token)
 #   CLEVERREACH_REFRESH_TOKEN   (refresh token — rotate on each use)
