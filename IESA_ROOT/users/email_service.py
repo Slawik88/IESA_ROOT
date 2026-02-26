@@ -217,16 +217,32 @@ def _send(subject, plain_text, html_content, recipients):
 
 
 def _smtp_send(subject, plain_text, html_content, recipients):
-    """Direct SMTP send wrapper (bypasses custom CleverReach backend)."""
+    """Direct SMTP send wrapper (bypasses custom CleverReach backend).
+
+    Always uses real SMTP (Resend or configured host).  If RESEND_API_KEY is
+    available we use it directly so this fallback works even when settings did
+    not set EMAIL_HOST (e.g. console backend for local dev).
+    """
+    import os as _os
+    resend_key = _os.environ.get('RESEND_API_KEY', '').strip()
+
+    # Prefer env-level Resend SMTP credentials; fall back to Django settings.
+    host     = 'smtp.resend.com'      if resend_key else getattr(settings, 'EMAIL_HOST', 'localhost')
+    port     = 465                     if resend_key else getattr(settings, 'EMAIL_PORT', 25)
+    user     = 'resend'               if resend_key else getattr(settings, 'EMAIL_HOST_USER', '')
+    password = resend_key              if resend_key else getattr(settings, 'EMAIL_HOST_PASSWORD', '')
+    use_ssl  = True                    if resend_key else getattr(settings, 'EMAIL_USE_SSL', False)
+    use_tls  = False                   if resend_key else getattr(settings, 'EMAIL_USE_TLS', False)
+
     try:
         connection = get_connection(
             backend='django.core.mail.backends.smtp.EmailBackend',
-            host=getattr(settings, 'EMAIL_HOST', None),
-            port=getattr(settings, 'EMAIL_PORT', None),
-            username=getattr(settings, 'EMAIL_HOST_USER', None),
-            password=getattr(settings, 'EMAIL_HOST_PASSWORD', None),
-            use_tls=getattr(settings, 'EMAIL_USE_TLS', False),
-            use_ssl=getattr(settings, 'EMAIL_USE_SSL', False),
+            host=host,
+            port=port,
+            username=user,
+            password=password,
+            use_tls=use_tls,
+            use_ssl=use_ssl,
             fail_silently=False,
         )
         result = send_mail(
