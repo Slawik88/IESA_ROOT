@@ -145,6 +145,72 @@
                     </div>
                 </div>
             {% endif %}
+
+            <!-- Telegram Linking -->
+            {% if telegram_bot_configured %}
+            <div class="card shadow mt-4 border-0">
+                <div class="card-body p-4">
+                    <h5 class="mb-3" style="color: var(--primary-active);">
+                        <i class="fab fa-telegram-plane"></i> {% trans "Telegram Notifications" %}
+                    </h5>
+
+                    {% if telegram_linked %}
+                        <div class="alert alert-success mb-3" style="border-radius: 12px;">
+                            <i class="fas fa-check-circle"></i>
+                            {% trans "Telegram is connected." %}
+                            {% if user.telegram_linked_at %}
+                                <small class="text-muted ms-2">
+                                    {% trans "since" %} {{ user.telegram_linked_at|date:"d.m.Y" }}
+                                </small>
+                            {% endif %}
+                        </div>
+                        <form method="post" action="{% url 'users:disconnect_telegram' %}">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-outline-danger btn-sm">
+                                <i class="fas fa-unlink"></i> {% trans "Disconnect Telegram" %}
+                            </button>
+                        </form>
+                    {% else %}
+                        <p class="text-muted mb-3">
+                            {% trans "Connect Telegram to receive visit notifications." %}
+                        </p>
+
+                        <!-- Method A: Code via bot -->
+                        <div class="mb-4">
+                            <h6><i class="fas fa-robot"></i> {% trans "Method 1: via bot code" %}</h6>
+                            <ol class="mb-2">
+                                <li>{% trans "Open" %} <a href="https://t.me/{{ telegram_bot_name }}" target="_blank">@{{ telegram_bot_name }}</a> {% trans "in Telegram" %}</li>
+                                <li>{% trans "Send" %} <code>/link</code></li>
+                                <li>{% trans "Enter the 6-digit code below:" %}</li>
+                            </ol>
+                            <form method="post" action="{% url 'users:connect_telegram_code' %}" class="d-flex gap-2">
+                                {% csrf_token %}
+                                <input type="text" name="code" maxlength="6" pattern="[0-9]{6}"
+                                       class="form-control form-control-sm" style="max-width:130px;"
+                                       placeholder="123456" required>
+                                <button type="submit" class="btn btn-primary btn-sm">
+                                    {% trans "Connect" %}
+                                </button>
+                            </form>
+                        </div>
+
+                        <!-- Method B: Telegram Login Widget -->
+                        {% if telegram_bot_name %}
+                        <div>
+                            <h6><i class="fas fa-sign-in-alt"></i> {% trans "Method 2: Telegram Login" %}</h6>
+                            <script async src="https://telegram.org/js/telegram-widget.js?22"
+                                data-telegram-login="{{ telegram_bot_name }}"
+                                data-size="medium"
+                                data-auth-url="{% url 'users:telegram_login_callback' %}"
+                                data-request-access="write">
+                            </script>
+                        </div>
+                        {% endif %}
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+
         </div>
     </div>
 </div>
