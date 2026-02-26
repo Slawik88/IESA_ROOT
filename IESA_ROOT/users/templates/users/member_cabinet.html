@@ -5,253 +5,526 @@
 
 {% block extra_css %}
 <style>
-    .pin-display {
-        font-size: 4.5rem;
-        font-weight: 900;
-        letter-spacing: 1rem;
-        font-family: 'Courier New', monospace;
-        color: #fff;
-        text-shadow: 3px 3px 6px rgba(0,0,0,0.3);
-        background: linear-gradient(135deg, var(--primary) 0%, var(--primary-active) 100%);
-        padding: 30px;
-        border-radius: 20px;
-        margin: 20px 0;
-    }
-    .countdown {
-        font-size: 2rem;
-        color: #495057;
-        font-weight: 600;
-    }
-    .status-active {
-        background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
-    }
-    .status-inactive {
-        background: linear-gradient(135deg, #eb3349 0%, #f45c43 100%);
-    }
-    .instruction-card {
-        background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
-        border: none;
-        border-radius: 15px;
-    }
-    .error-card {
-        background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%);
-        border: none;
-        border-radius: 15px;
-    }
+/* ───────────── Cabinet variables ───────────── */
+:root {
+    --cab-radius: 20px;
+    --cab-shadow: 0 8px 32px rgba(0,0,0,.10);
+    --cab-shadow-lg: 0 16px 48px rgba(0,0,0,.16);
+    --pin-size: 4.8rem;
+    --green-grad: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+    --red-grad:   linear-gradient(135deg, #eb3349 0%, #f45c43 100%);
+    --blue-grad:  linear-gradient(135deg, #2193b0 0%, #6dd5ed 100%);
+    --tg-color:   #29a8eb;
+}
+
+/* ───────────── Page shell ───────────── */
+.cab-page { padding: 2rem 0 4rem; }
+
+/* ───────────── Hero profile card ───────────── */
+.hero-card {
+    border: none;
+    border-radius: var(--cab-radius);
+    box-shadow: var(--cab-shadow-lg);
+    overflow: hidden;
+    margin-bottom: 1.5rem;
+}
+.hero-card .hero-bg {
+    background: var(--green-grad);
+    padding: 2.5rem 2rem 1.5rem;
+    text-align: center;
+    position: relative;
+}
+.hero-card.inactive .hero-bg { background: var(--red-grad); }
+
+.hero-avatar {
+    width: 88px;
+    height: 88px;
+    border-radius: 50%;
+    background: rgba(255,255,255,.25);
+    border: 4px solid rgba(255,255,255,.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2.2rem;
+    font-weight: 800;
+    color: #fff;
+    margin: 0 auto 1rem;
+    letter-spacing: 0;
+    text-transform: uppercase;
+}
+.hero-name {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: .25rem;
+}
+.hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    background: rgba(255,255,255,.25);
+    border: 1px solid rgba(255,255,255,.4);
+    border-radius: 50px;
+    padding: .25rem .9rem;
+    font-size: .85rem;
+    font-weight: 600;
+    color: #fff;
+    backdrop-filter: blur(4px);
+}
+
+/* ───────────── PIN card ───────────── */
+.pin-card {
+    border: none;
+    border-radius: var(--cab-radius);
+    box-shadow: var(--cab-shadow);
+    margin-bottom: 1.5rem;
+    overflow: hidden;
+}
+.pin-card-header {
+    background: linear-gradient(135deg, var(--primary,#0d6efd) 0%, var(--primary-active,#0a58ca) 100%);
+    padding: 1rem 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    color: #fff;
+    font-weight: 600;
+}
+.pin-card-body {
+    padding: 2rem 1.5rem;
+    text-align: center;
+    background: #fff;
+}
+
+/* PIN digits */
+.pin-value {
+    display: inline-flex;
+    gap: .5rem;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-bottom: 1.5rem;
+}
+.pin-digit {
+    width: 56px;
+    height: 72px;
+    border-radius: 12px;
+    background: #f3f5f9;
+    border: 2px solid #e0e4ef;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: var(--pin-size);
+    font-weight: 900;
+    font-family: 'Courier New', monospace;
+    color: #1a1d2e;
+    line-height: 1;
+    transition: transform .2s, box-shadow .2s;
+    animation: pinPop .4s ease both;
+}
+.pin-digit:nth-child(3) { margin-right: .5rem; }
+@keyframes pinPop {
+    0%   { transform: scale(.7); opacity: 0; }
+    80%  { transform: scale(1.05); }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+/* Circular countdown */
+.pin-timer {
+    position: relative;
+    width: 96px;
+    height: 96px;
+    margin: 0 auto 1.2rem;
+}
+.pin-timer svg { transform: rotate(-90deg); }
+.timer-track { fill: none; stroke: #eceff4; stroke-width: 8; }
+.timer-arc   { fill: none; stroke: var(--primary,#0d6efd); stroke-width: 8; stroke-linecap: round;
+               transition: stroke-dashoffset .9s linear, stroke .4s; }
+.timer-label {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    font-size: 1.5rem; font-weight: 800; color: #1a1d2e;
+    line-height: 1;
+}
+.timer-label small { font-size: .6rem; font-weight: 500; color: #9099aa; margin-top: 2px; letter-spacing: .04em; text-transform: uppercase; }
+
+/* ───────────── Steps card ───────────── */
+.steps-card {
+    border: none;
+    border-radius: var(--cab-radius);
+    box-shadow: var(--cab-shadow);
+    margin-bottom: 1.5rem;
+    background: #fff;
+}
+.step-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid #f3f5f9;
+}
+.step-row:last-child { border-bottom: none; }
+.step-num {
+    min-width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--primary,#0d6efd), var(--primary-active,#0a58ca));
+    color: #fff;
+    font-weight: 700;
+    font-size: .9rem;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+}
+.step-text { font-size: .93rem; color: #3d4356; line-height: 1.4; padding-top: .4rem; }
+.step-text strong { color: #1a1d2e; }
+
+/* ───────────── Telegram card ───────────── */
+.tg-card {
+    border: none;
+    border-radius: var(--cab-radius);
+    box-shadow: var(--cab-shadow);
+    margin-bottom: 1.5rem;
+    overflow: hidden;
+    background: #fff;
+}
+.tg-card-header {
+    background: var(--tg-color);
+    padding: 1rem 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    color: #fff;
+    font-weight: 600;
+}
+.tg-card-body { padding: 1.5rem; }
+
+.tg-connected {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem 1.25rem;
+    border-radius: 14px;
+    background: #edfaf5;
+    border: 1.5px solid #b8f0d4;
+    margin-bottom: 1rem;
+}
+.tg-connected .tg-icon {
+    font-size: 2rem; color: #1da462;
+    flex-shrink: 0;
+}
+.tg-connected .tg-info { font-size: .93rem; line-height: 1.4; }
+.tg-connected .tg-info strong { color: #15803d; }
+
+.tg-method {
+    background: #f8f9fc;
+    border-radius: 14px;
+    padding: 1rem 1.25rem;
+    margin-bottom: .75rem;
+    border: 1.5px solid #e8ebf2;
+}
+.tg-method-title {
+    font-size: .9rem;
+    font-weight: 700;
+    color: #1a1d2e;
+    margin-bottom: .75rem;
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+}
+.tg-method ol { padding-left: 1.2rem; margin-bottom: .75rem; font-size: .9rem; color: #4b5268; }
+.tg-method ol li { margin-bottom: .3rem; }
+.tg-code-form { display: flex; gap: .5rem; align-items: center; }
+.tg-code-input {
+    width: 120px;
+    border-radius: 10px;
+    border: 2px solid #d0d5e8;
+    padding: .45rem .75rem;
+    font-size: 1.1rem;
+    font-weight: 700;
+    letter-spacing: .2rem;
+    text-align: center;
+    transition: border-color .2s;
+}
+.tg-code-input:focus { outline: none; border-color: var(--tg-color); }
+.btn-tg-connect {
+    background: var(--tg-color);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    padding: .45rem 1.1rem;
+    font-weight: 600;
+    font-size: .9rem;
+    cursor: pointer;
+    transition: opacity .2s, transform .1s;
+}
+.btn-tg-connect:hover { opacity: .88; transform: translateY(-1px); }
+.btn-tg-disconnect {
+    background: transparent;
+    border: 1.5px solid #e9505a;
+    color: #e9505a;
+    border-radius: 10px;
+    padding: .4rem .9rem;
+    font-size: .85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all .2s;
+}
+.btn-tg-disconnect:hover { background: #e9505a; color: #fff; }
+
+/* ───────────── Status / error / inactive cards ───────────── */
+.state-card {
+    border: none;
+    border-radius: var(--cab-radius);
+    box-shadow: var(--cab-shadow);
+    background: #fff;
+    padding: 3rem 2rem;
+    text-align: center;
+    margin-bottom: 1.5rem;
+}
+.state-icon { font-size: 3.5rem; margin-bottom: 1rem; }
+.state-title { font-size: 1.4rem; font-weight: 700; margin-bottom: .75rem; }
+
+/* ───────────── Notification bar ───────────── */
+.pin-refresh-note {
+    font-size: .82rem;
+    color: #6b7280;
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+    justify-content: center;
+    margin-top: .5rem;
+}
+
+/* ───────────── Responsive tweaks ───────────── */
+@media (max-width: 480px) {
+    .pin-digit { width: 46px; height: 60px; font-size: 3.8rem; border-radius: 10px; }
+    .pin-digit:nth-child(3) { margin-right: .3rem; }
+}
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="container py-4">
-    <div class="row justify-content-center">
-        <div class="col-md-8 col-lg-6">
-            <!-- Status Card -->
-            <div class="card shadow-sm mb-4 text-white {% if membership_status == 'active' %}status-active{% else %}status-inactive{% endif %}">
-                <div class="card-body text-center p-4">
-                    <h4 class="mb-1">
-                        {% if user.first_name %}
-                            {{ user.first_name }} {{ user.last_name }}
-                        {% else %}
-                            {{ user.username }}
-                        {% endif %}
-                    </h4>
-                    <p class="mb-0">
-                        {% if membership_status == 'active' %}
-                            <i class="fas fa-check-circle"></i> {% trans "Active Member" %}
-                        {% else %}
-                            <i class="fas fa-times-circle"></i> {% trans "Inactive Membership" %}
-                        {% endif %}
-                    </p>
-                </div>
-            </div>
-            
-            {% if membership_status == 'active' and current_pin %}
-                <!-- PIN Display -->
-                <div class="card shadow-lg border-0">
-                    <div class="card-body text-center p-5">
-                        <h3 class="mb-4" style="color: var(--primary); font-weight: 700;">
-                            <i class="fas fa-key"></i> {% trans "Your Verification PIN" %}
-                        </h3>
-                        <div class="pin-display">
-                            {{ current_pin }}
-                        </div>
-                        
-                        <!-- Countdown Timer -->
-                        <div class="countdown mb-4 mt-4">
-                            <i class="fas fa-stopwatch"></i> {% trans "Expires in" %}: <span id="countdown" style="color: var(--primary); font-weight: 800;">{{ seconds_remaining }}</span>s
-                        </div>
-                        
-                        <div class="progress mb-4" style="height: 12px; border-radius: 10px;">
-                            <div id="progress-bar" class="progress-bar bg-success" role="progressbar" style="width: 100%"></div>
-                        </div>
-                        
-                        <div class="alert alert-info" style="border-radius: 15px;">
-                            <h6><i class="fas fa-info-circle"></i> <strong>{% trans "Important" %}:</strong></h6>
-                            <p class="mb-0">{% trans "Show this PIN to partner staff when you visit. They will enter it to confirm your visit." %}</p>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Instructions -->
-                <div class="card instruction-card mt-4 shadow">
-                    <div class="card-body p-4">
-                        <h5 class="mb-3" style="color: var(--primary-active);"><i class="fas fa-lightbulb"></i> {% trans "How to use your PIN:" %}</h5>
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <h6 style="color: var(--primary-active);"><i class="fas fa-map-marker-alt"></i> {% trans "Step 1" %}</h6>
-                                    <p class="mb-0">{% trans "Visit any partner location (shop, gym, clinic)" %}</p>
-                                </div>
-                                <div class="mb-3">
-                                    <h6 style="color: var(--primary-active);"><i class="fas fa-hand-point-right"></i> {% trans "Step 2" %}</h6>
-                                    <p class="mb-0">{% trans "Tell staff you're an IESA member" %}</p>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <h6 style="color: var(--primary-active);"><i class="fas fa-mobile-alt"></i> {% trans "Step 3" %}</h6>
-                                    <p class="mb-0">{% trans "Show them this 6-digit PIN" %}</p>
-                                </div>
-                                <div class="mb-3">
-                                    <h6 style="color: var(--primary-active);"><i class="fas fa-check-double"></i> {% trans "Step 4" %}</h6>
-                                    <p class="mb-0">{% trans "Staff logs your visit - Done!" %}</p>
-                                </div>
-                            </div>
-                        </div>
-                        <hr>
-                        <p class="mb-0 text-center"><i class="fas fa-sync-alt"></i> <strong>{% trans "PIN refreshes automatically every 12 minutes" %}</strong></p>
-                    </div>
-                </div>
-            {% elif error_message %}
-                <!-- Error Message -->
-                <div class="card error-card shadow">
-                    <div class="card-body text-center p-5">
-                        <i class="fas fa-exclamation-triangle fa-4x mb-3" style="color: #ff6b6b;"></i>
-                        <h4 style="color: #c92a2a;">{{ error_message }}</h4>
-                        <p class="mt-3">{% trans "Please contact administrator for assistance." %}</p>
-                    </div>
-                </div>
+<div class="container cab-page">
+<div class="row justify-content-center">
+<div class="col-sm-10 col-md-8 col-lg-6 col-xl-5">
+
+{# ───── HERO PROFILE CARD ───── #}
+{% with initials=user_name|slice:":1" %}
+<div class="hero-card {% if membership_status != 'active' %}inactive{% endif %}">
+    <div class="hero-bg">
+        <div class="hero-avatar">{{ initials }}</div>
+        <div class="hero-name">{{ user_name }}</div>
+        <div class="mt-2">
+            {% if membership_status == 'active' %}
+                <span class="hero-badge"><i class="fas fa-check-circle"></i> {% trans "Active Member" %}</span>
             {% else %}
-                <!-- Inactive Message -->
-                <div class="card shadow-lg border-0">
-                    <div class="card-body text-center p-5">
-                        <i class="fas fa-user-lock fa-4x mb-4" style="color: #f59f00;"></i>
-                        <h4 style="color: #e67700;">{% trans "Membership Inactive" %}</h4>
-                        <p class="lead mt-3 mb-4">{% trans "Your membership is currently" %} <strong>{% trans "inactive" %}</strong>. {% trans "You need an active membership to access PIN verification features." %}</p>
-                        <div class="alert alert-warning" style="border-radius: 15px;">
-                            <h6><i class="fas fa-phone-alt"></i> {% trans "Contact Administration:" %}</h6>
-                            <p class="mb-0">{% trans "Email" %}: <strong>admin@iesasport.ch</strong><br>{% trans "To activate your membership and get access to partner benefits." %}</p>
-                        </div>
-                    </div>
-                </div>
+                <span class="hero-badge"><i class="fas fa-times-circle"></i> {% trans "Inactive" %}</span>
             {% endif %}
-
-            <!-- Telegram Linking -->
-            {% if telegram_bot_configured %}
-            <div class="card shadow mt-4 border-0">
-                <div class="card-body p-4">
-                    <h5 class="mb-3" style="color: var(--primary-active);">
-                        <i class="fab fa-telegram-plane"></i> {% trans "Telegram Notifications" %}
-                    </h5>
-
-                    {% if telegram_linked %}
-                        <div class="alert alert-success mb-3" style="border-radius: 12px;">
-                            <i class="fas fa-check-circle"></i>
-                            {% trans "Telegram is connected." %}
-                            {% if user.telegram_linked_at %}
-                                <small class="text-muted ms-2">
-                                    {% trans "since" %} {{ user.telegram_linked_at|date:"d.m.Y" }}
-                                </small>
-                            {% endif %}
-                        </div>
-                        <form method="post" action="{% url 'users:disconnect_telegram' %}">
-                            {% csrf_token %}
-                            <button type="submit" class="btn btn-outline-danger btn-sm">
-                                <i class="fas fa-unlink"></i> {% trans "Disconnect Telegram" %}
-                            </button>
-                        </form>
-                    {% else %}
-                        <p class="text-muted mb-3">
-                            {% trans "Connect Telegram to receive visit notifications." %}
-                        </p>
-
-                        <!-- Method A: Code via bot -->
-                        <div class="mb-4">
-                            <h6><i class="fas fa-robot"></i> {% trans "Method 1: via bot code" %}</h6>
-                            <ol class="mb-2">
-                                <li>{% trans "Open" %} <a href="https://t.me/{{ telegram_bot_name }}" target="_blank">@{{ telegram_bot_name }}</a> {% trans "in Telegram" %}</li>
-                                <li>{% trans "Send" %} <code>/link</code></li>
-                                <li>{% trans "Enter the 6-digit code below:" %}</li>
-                            </ol>
-                            <form method="post" action="{% url 'users:connect_telegram_code' %}" class="d-flex gap-2">
-                                {% csrf_token %}
-                                <input type="text" name="code" maxlength="6" pattern="[0-9]{6}"
-                                       class="form-control form-control-sm" style="max-width:130px;"
-                                       placeholder="123456" required>
-                                <button type="submit" class="btn btn-primary btn-sm">
-                                    {% trans "Connect" %}
-                                </button>
-                            </form>
-                        </div>
-
-                        <!-- Method B: Telegram Login Widget -->
-                        {% if telegram_bot_name %}
-                        <div>
-                            <h6><i class="fas fa-sign-in-alt"></i> {% trans "Method 2: Telegram Login" %}</h6>
-                            <script async src="https://telegram.org/js/telegram-widget.js?22"
-                                data-telegram-login="{{ telegram_bot_name }}"
-                                data-size="medium"
-                                data-auth-url="{% url 'users:telegram_login_callback' %}"
-                                data-request-access="write">
-                            </script>
-                        </div>
-                        {% endif %}
-                    {% endif %}
-                </div>
-            </div>
-            {% endif %}
-
         </div>
     </div>
 </div>
+{% endwith %}
+
+{# ───── MESSAGES ───── #}
+{% for message in messages %}
+<div class="alert alert-{{ message.tags }} rounded-4 shadow-sm mb-3" role="alert">{{ message }}</div>
+{% endfor %}
+
+{# ═══════════ ACTIVE —PIN block ═══════════ #}
+{% if membership_status == 'active' and current_pin %}
+
+<div class="pin-card">
+    <div class="pin-card-header">
+        <i class="fas fa-shield-alt"></i>
+        {% trans "Your Verification PIN" %}
+        <span class="ms-auto" style="opacity:.7; font-size:.8rem; font-weight:400;">{% trans "Auto-refreshes every 12 min" %}</span>
+    </div>
+    <div class="pin-card-body">
+
+        {# PIN digits #}
+        <div class="pin-value" id="pin-digits">
+            {% for ch in current_pin %}
+                <div class="pin-digit" style="animation-delay:{{ forloop.counter0 }}00ms">{{ ch }}</div>
+                {% if forloop.counter == 3 and not forloop.last %}
+                    <div style="font-size:2rem;color:#c5c9d6;font-weight:300;line-height:1">–</div>
+                {% endif %}
+            {% endfor %}
+        </div>
+
+        {# Circular timer #}
+        <div class="pin-timer">
+            <svg width="96" height="96" viewBox="0 0 96 96">
+                <circle class="timer-track" cx="48" cy="48" r="40"/>
+                <circle class="timer-arc" id="timer-arc" cx="48" cy="48" r="40"
+                    stroke-dasharray="251.2"
+                    stroke-dashoffset="0"/>
+            </svg>
+            <div class="timer-label">
+                <span id="countdown">{{ seconds_remaining }}</span>
+                <small>{% trans "sec" %}</small>
+            </div>
+        </div>
+
+        <div class="pin-refresh-note">
+            <i class="fas fa-sync-alt fa-spin" style="font-size:.7rem;"></i>
+            {% trans "PIN will reload automatically when expired" %}
+        </div>
+
+    </div>
+</div>
+
+{# Steps how-to #}
+<div class="steps-card">
+    <div class="step-row">
+        <div class="step-num">1</div>
+        <div class="step-text">{% trans "Visit any <strong>partner location</strong> — shop, gym, clinic" %}</div>
+    </div>
+    <div class="step-row">
+        <div class="step-num">2</div>
+        <div class="step-text">{% trans "Tell staff you are an <strong>IESA Sport member</strong>" %}</div>
+    </div>
+    <div class="step-row">
+        <div class="step-num">3</div>
+        <div class="step-text">{% trans "Show this <strong>6-digit PIN</strong> — staff enters it in their system" %}</div>
+    </div>
+    <div class="step-row">
+        <div class="step-num">4</div>
+        <div class="step-text">{% trans "Visit is logged, you get a <strong>Telegram notification</strong> ✅" %}</div>
+    </div>
+</div>
+
+{# ═══════════ ERROR ═══════════ #}
+{% elif error_message %}
+<div class="state-card">
+    <div class="state-icon">⚠️</div>
+    <div class="state-title" style="color:#c92a2a;">{{ error_message }}</div>
+    <p class="text-muted">{% trans "Please contact administrator for assistance." %}</p>
+</div>
+
+{# ═══════════ INACTIVE ═══════════ #}
+{% else %}
+<div class="state-card">
+    <div class="state-icon">🔒</div>
+    <div class="state-title" style="color:#e67700;">{% trans "Membership Inactive" %}</div>
+    <p class="text-muted mb-3">{% trans "You need an active membership to access PIN verification and partner benefits." %}</p>
+    <div style="background:#fff8e1;border:1.5px solid #ffe083;border-radius:14px;padding:1rem;text-align:left;font-size:.9rem;">
+        <strong><i class="fas fa-phone-alt"></i> {% trans "Contact Administration" %}:</strong><br>
+        {% trans "Email" %}: <a href="mailto:admin@iesasport.ch">admin@iesasport.ch</a>
+    </div>
+</div>
+{% endif %}
+
+{# ═══════════ TELEGRAM CARD ═══════════ #}
+{% if telegram_bot_configured %}
+<div class="tg-card">
+    <div class="tg-card-header">
+        <i class="fab fa-telegram-plane fa-lg"></i>
+        {% trans "Telegram Notifications" %}
+        {% if telegram_linked %}
+            <span class="ms-auto" style="font-size:.78rem;opacity:.85;font-weight:400;">{% trans "connected" %} ✓</span>
+        {% endif %}
+    </div>
+    <div class="tg-card-body">
+
+        {% if telegram_linked %}
+            <div class="tg-connected">
+                <div class="tg-icon"><i class="fab fa-telegram"></i></div>
+                <div class="tg-info">
+                    <strong>{% trans "Telegram is connected" %}</strong><br>
+                    {% if user.telegram_linked_at %}
+                        <span style="color:#4b5268;font-size:.85rem;">
+                            {% trans "Since" %} {{ user.telegram_linked_at|date:"d.m.Y" }}
+                        </span>
+                    {% endif %}<br>
+                    <span style="color:#4b5268;font-size:.82rem;">{% trans "You will receive visit confirmations in Telegram" %}</span>
+                </div>
+            </div>
+            <form method="post" action="{% url 'users:disconnect_telegram' %}">
+                {% csrf_token %}
+                <button type="submit" class="btn-tg-disconnect">
+                    <i class="fas fa-unlink"></i> {% trans "Disconnect Telegram" %}
+                </button>
+            </form>
+
+        {% else %}
+            <p style="color:#4b5268;font-size:.9rem;margin-bottom:1rem;">
+                <i class="fas fa-bell"></i> {% trans "Connect Telegram to get instant visit notifications." %}
+            </p>
+
+            {# Method A — code #}
+            <div class="tg-method">
+                <div class="tg-method-title"><i class="fas fa-hashtag" style="color:var(--tg-color)"></i> {% trans "Method 1 — Bot code" %}</div>
+                <ol>
+                    <li>{% trans "Open" %}
+                        {% if telegram_bot_name %}
+                            <a href="https://t.me/{{ telegram_bot_name }}" target="_blank" rel="noopener">@{{ telegram_bot_name }}</a>
+                        {% else %}
+                            {% trans "the bot" %}
+                        {% endif %}
+                    </li>
+                    <li>{% trans "Send command" %} <code>/link</code></li>
+                    <li>{% trans "Enter the 6-digit code here:" %}</li>
+                </ol>
+                <form method="post" action="{% url 'users:connect_telegram_code' %}" class="tg-code-form">
+                    {% csrf_token %}
+                    <input type="text" name="code" maxlength="6" minlength="6"
+                           pattern="[0-9]{6}" class="tg-code-input"
+                           placeholder="000000" required autocomplete="off" inputmode="numeric">
+                    <button type="submit" class="btn-tg-connect">
+                        <i class="fas fa-link"></i> {% trans "Connect" %}
+                    </button>
+                </form>
+            </div>
+
+            {# Method B — widget #}
+            {% if telegram_bot_name %}
+            <div class="tg-method">
+                <div class="tg-method-title"><i class="fab fa-telegram" style="color:var(--tg-color)"></i> {% trans "Method 2 — Telegram Login" %}</div>
+                <p style="font-size:.85rem;color:#6b7280;margin-bottom:.75rem;">{% trans "One click — authorize directly via Telegram" %}</p>
+                <script async src="https://telegram.org/js/telegram-widget.js?22"
+                    data-telegram-login="{{ telegram_bot_name }}"
+                    data-size="medium"
+                    data-auth-url="{% url 'users:telegram_login_callback' %}"
+                    data-request-access="write">
+                </script>
+            </div>
+            {% endif %}
+        {% endif %}
+
+    </div>
+</div>
+{% endif %}
+
+</div>{# /col #}
+</div>{# /row #}
+</div>{# /container #}
 {% endblock %}
 
 {% block extra_js %}
 <script>
-    // Countdown timer
-    let secondsRemaining = {{ seconds_remaining }};
-    const totalInterval = 720; // 12 minutes
-    
-    function updateCountdown() {
-        const countdownEl = document.getElementById('countdown');
-        const progressBar = document.getElementById('progress-bar');
-        
-        if (secondsRemaining <= 0) {
-            // Reload page to get new PIN
-            window.location.reload();
-            return;
+(function () {
+    const TOTAL = 720;
+    let secs = {{ seconds_remaining }};
+    const arc = document.getElementById('timer-arc');
+    const label = document.getElementById('countdown');
+    const CIRCUMFERENCE = 251.2;
+
+    function update() {
+        if (secs <= 0) { window.location.reload(); return; }
+
+        if (label) label.textContent = secs;
+
+        if (arc) {
+            const pct = secs / TOTAL;
+            arc.style.strokeDashoffset = CIRCUMFERENCE * (1 - pct);
+            if (secs < 60)  arc.style.stroke = '#f59f00';
+            if (secs < 30)  arc.style.stroke = '#e03131';
         }
-        
-        countdownEl.textContent = secondsRemaining;
-        
-        // Update progress bar
-        const percentage = (secondsRemaining / totalInterval) * 100;
-        progressBar.style.width = percentage + '%';
-        
-        // Change color when time is running out
-        if (secondsRemaining < 60) {
-            progressBar.classList.remove('bg-success');
-            progressBar.classList.add('bg-warning');
-        }
-        if (secondsRemaining < 30) {
-            progressBar.classList.remove('bg-warning');
-            progressBar.classList.add('bg-danger');
-        }
-        
-        secondsRemaining--;
+        secs--;
     }
-    
-    // Update every second
-    setInterval(updateCountdown, 1000);
+
+    update();
+    setInterval(update, 1000);
+})();
 </script>
 {% endblock %}
