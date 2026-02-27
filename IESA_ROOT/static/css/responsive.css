@@ -1,210 +1,245 @@
 /* ============================================================
-   IESA RESPONSIVE CSS - Все медиа-запросы
-   Версия: 2.0
+   IESA RESPONSIVE CSS — v3.0 MOBILE-FIRST OVERHAUL
    
-   ВСЕ респонзивные стили в ОДНОМ месте!
-   Брейкпоинты:
-   - xs: 0
-   - sm: 576px
-   - md: 768px
-   - lg: 992px
-   - xl: 1200px
-   - xxl: 1400px
+   Breakpoints (Bootstrap 5):
+     xs  < 576px    — смартфоны (портрет)
+     sm  576-767px  — смартфоны (альбом)
+     md  768-991px  — планшеты
+     lg  992-1199px — ноутбуки
+     xl  1200px+    — десктопы
+   
+   Что здесь:
+   1. Глобальные mobile-first базовые правила
+   2. Navbar мобильное меню (нижняя панель + collapse)
+   3. Типографика
+   4. Hero + Homepage sections  
+   5. Карточки и гриды
+   6. Формы
+   7. Таблицы (partner dashboard)
+   8. Профиль / кабинет
+   9. Аутентификация
+   10. Галерея
+   11. Блог / ивенты
+   12. Футер
+   13. Утилиты
+   14. Safe-area insets (iOS нотч/home bar)
+   15. Desktop hover-only правила
+   16. Анимации + a11y
    ============================================================ */
 
-/* ====================================================
-   MOBILE FIRST APPROACH
-   Базовые стили - для мобильных (xs)
-   Медиа-запросы - для больших экранов
-   ==================================================== */
 
-/* ====================================================
-   MOBILE SPECIFIC (max-width: 575px)
-   ==================================================== */
+/* ============================================================
+   0. ГЛОБАЛЬНЫЕ MOBILE-FIRST ОСНОВЫ
+   ============================================================ */
 
-@media (max-width: 575.98px) {
-  /* Ensure minimum font sizes for readability */
-  .small, small {
-    font-size: 0.875rem !important; /* 14px instead of 12px */
-  }
-  
-  /* Touch targets minimum 44x44px */
-  .btn, button, a.btn {
-    min-height: 44px;
-    min-width: 44px;
-    padding: var(--space-3) var(--space-4);
-  }
-  
-  /* Benefit cards text readability */
-  .benefit-card .small {
-    font-size: 0.9375rem !important; /* 15px */
-    line-height: 1.5;
-  }
-  
-  /* Card body padding on mobile */
-  .card-body {
-    padding: 1.25rem;
+/* Предотвращаем горизонтальный скролл */
+html, body {
+  overflow-x: hidden;
+  max-width: 100vw;
+}
+
+/* Все картинки адаптивны */
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Минимальные размеры tap-targets */
+a, button, [role="button"], label[for],
+input[type="checkbox"], input[type="radio"] {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* Отключаем zoom при фокусе на iOS */
+input, textarea, select {
+  font-size: 16px !important;
+}
+
+/* Таблицы не вываливаются */
+table {
+  max-width: 100%;
+}
+
+/* Длинные слова переносятся */
+p, h1, h2, h3, h4, h5, h6,
+.card-title, .card-text,
+.post-title, .event-title {
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+
+/* ============================================================
+   1. НИЖНЯЯ МОБИЛЬНАЯ НАВИГАЦИЯ (bottom nav)
+   ============================================================ */
+
+/* Контейнер нижней навигации — скрыт на десктопе */
+.mobile-bottom-nav {
+  display: none;
+}
+
+@media (max-width: 767.98px) {
+  /* Нижняя навигация */
+  .mobile-bottom-nav {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 1040;
+    background: rgba(255,255,255,0.97);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-top: 1px solid rgba(0,0,0,0.08);
+    box-shadow: 0 -4px 20px rgba(0,0,0,0.08);
+    padding: 6px 4px;
+    padding-bottom: calc(6px + env(safe-area-inset-bottom));
+    justify-content: space-around;
+    align-items: center;
   }
 
-  /* Navbar logo sizing on mobile */
-  .navbar-brand {
-    padding-top: 0.25rem;
-    padding-bottom: 0.25rem;
+  .mobile-bottom-nav .mbn-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    padding: 4px 0;
+    color: #6b7280;
+    text-decoration: none;
+    font-size: 0.6rem;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    gap: 3px;
+    border-radius: 10px;
+    transition: color 0.2s, background 0.2s;
+    -webkit-tap-highlight-color: transparent;
+    min-height: 48px;
   }
 
-  .navbar-logo {
-    height: 26px;
-    max-width: 120px;
+  .mobile-bottom-nav .mbn-item i {
+    font-size: 1.15rem;
+    line-height: 1;
+  }
+
+  .mobile-bottom-nav .mbn-item.active,
+  .mobile-bottom-nav .mbn-item:active {
+    color: #dc2626;
+    background: rgba(220, 38, 38, 0.07);
+  }
+
+  .mobile-bottom-nav .mbn-item .mbn-badge {
+    position: absolute;
+    top: 2px;
+    right: 10px;
+    background: #dc2626;
+    color: white;
+    border-radius: 999px;
+    font-size: 0.55rem;
+    padding: 1px 5px;
+    line-height: 1.4;
+    min-width: 16px;
+    text-align: center;
+  }
+
+  .mobile-bottom-nav .mbn-item-wrap {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    flex: 1;
+  }
+
+  /* Отступ снизу для main чтобы не перекрывался навигацией */
+  main#main-content {
+    padding-bottom: calc(72px + env(safe-area-inset-bottom)) !important;
+  }
+}
+
+
+/* ============================================================
+   2. NAVBAR — МОБИЛЬНАЯ ВЕРСИЯ
+   ============================================================ */
+
+@media (max-width: 767.98px) {
+  /* Скрываем основной navbar на маленьких экранах (используем bottom nav) */
+  header .navbar {
+    padding-top: 0.3rem !important;
+    padding-bottom: 0.3rem !important;
   }
 
   .navbar-brand img,
   .navbar-brand .navbar-logo {
-    height: 22px !important;
-    max-width: 90px !important;
+    height: 28px !important;
+    max-width: 100px !important;
     width: auto;
   }
-}
 
-/* ====================================================
-   SM BREAKPOINT (576px+)
-   ==================================================== */
-
-@media (min-width: 576px) {
-  /* Bootstrap 5 provides these utilities natively. */
-}
-
-/* ====================================================
-   MD BREAKPOINT (768px+)
-   ==================================================== */
-
-@media (min-width: 768px) {
-  /* Bootstrap 5 provides these utilities natively. */
-  .profile-avatar,
-  .profile-avatar-fallback {
-    width: 160px;
-    height: 160px;
-    font-size: 4rem;
-  }
-}
-
-/* ====================================================
-   LG BREAKPOINT (992px+)
-   ==================================================== */
-
-@media (min-width: 992px) {
-  /* Bootstrap 5 provides these utilities natively. */
-}
-
-/* ====================================================
-   XL BREAKPOINT (1200px+)
-   ==================================================== */
-
-@media (min-width: 1200px) {
-  /* Bootstrap 5 provides these utilities natively. */
-}
-
-/* ====================================================
-   XXL BREAKPOINT (1400px+)
-   ==================================================== */
-
-@media (min-width: 1400px) {
-  /* Bootstrap 5 provides these utilities natively. */
-}
-
-/* ====================================================
-   MOBILE SPECIFIC STYLES (до 768px)
-   ==================================================== */
-
-@media (max-width: 767.98px) {
-  /* Container */
-  .container-limited {
-    padding-left: var(--space-4);
-    padding-right: var(--space-4);
-  }
-  
-  /* Typography */
-  h1 {
-    font-size: var(--text-3xl);
-  }
-  
-  h2 {
-    font-size: var(--text-2xl);
-  }
-  
-  h3 {
-    font-size: var(--text-xl);
-  }
-  
-  /* Buttons - защита от увеличения при тапе */
-  .btn {
-    -webkit-tap-highlight-color: transparent;
-    -webkit-touch-callout: none;
-    touch-action: manipulation;
-    font-size: inherit;
-  }
-  
-  /* Убираем hover эффекты на мобильных */
-  .btn:hover {
-    transform: none;
-  }
-  
-  /* Form controls - защита от zoom при фокусе */
-  .form-control,
-  .form-select,
-  input,
-  textarea,
-  select {
-    font-size: 16px !important; /* Предотвращает zoom на iOS */
-  }
-  
-  /* Mobile full-width elements */
-  .mobile-block {
-    display: block !important;
-    width: 100% !important;
-  }
-  
-  /* Navbar */
-  header .container-limited {
-    padding-left: var(--space-3);
-    padding-right: var(--space-3);
+  /* Hamburger toggler — большой и удобный */
+  .navbar-toggler {
+    border: none;
+    padding: 0.4rem 0.5rem;
+    font-size: 1.2rem;
+    color: #374151;
+    border-radius: 10px;
+    background: #f3f4f6;
   }
 
-  .navbar {
-    padding-top: 0.35rem !important;
-    padding-bottom: 0.35rem !important;
+  .navbar-toggler:focus {
+    box-shadow: 0 0 0 0.2rem rgba(220,38,38,0.25);
   }
 
+  /* Collapse dropdown — красивая карточка */
   .navbar-collapse {
     margin-top: 0.5rem;
-    padding: 0.75rem;
-    border-radius: var(--radius-xl);
-    border: 1px solid var(--border-color);
-    background: var(--white);
+    padding: 1rem;
+    border-radius: 16px;
+    background: #fff;
+    border: 1px solid rgba(0,0,0,0.07);
+    box-shadow: 0 8px 30px rgba(0,0,0,0.1);
+    position: relative;
+    z-index: 1050;
   }
 
-  .navbar-nav {
-    padding-top: var(--space-2);
-    padding-bottom: var(--space-2);
-  }
-  
   .navbar-nav .nav-link {
-    padding: var(--space-3) var(--space-4);
+    padding: 0.6rem 0.75rem;
+    border-radius: 10px;
+    color: #374151;
+    font-size: 0.95rem;
   }
 
-  .navbar .d-flex.align-items-center.gap-2 {
-    flex-wrap: wrap;
+  .navbar-nav .nav-link:hover,
+  .navbar-nav .nav-link.active {
+    background: rgba(220,38,38,0.06);
+    color: #dc2626;
+  }
+
+  .navbar-nav .dropdown-menu {
+    position: static !important;
+    transform: none !important;
+    width: 100% !important;
+    box-shadow: none;
+    border: 1px solid rgba(0,0,0,0.06);
+    border-radius: 12px;
+    margin-top: 0.25rem;
+  }
+
+  /* Кнопки в collapse — на всю ширину */
+  .navbar .d-flex.align-items-center {
+    flex-direction: column;
+    align-items: stretch !important;
     gap: 0.5rem !important;
-    justify-content: flex-start;
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid rgba(0,0,0,0.06);
   }
 
   .navbar .language-switcher,
+  .navbar .dropdown,
   .navbar .navbar-btn,
-  .navbar #communitySearchToggle,
-  .navbar #notificationsToggle {
-    width: 100%;
-  }
-
-  .navbar .dropdown {
+  .navbar #communitySearchToggle {
     width: 100%;
   }
 
@@ -214,42 +249,204 @@
     transform: none !important;
     width: 100% !important;
     max-width: 100% !important;
-    margin-top: 0.35rem;
+    margin-top: 0.25rem;
     min-width: 0;
     box-shadow: var(--shadow-md);
   }
-  
-  /* Cards */
-  .card {
-    border-radius: var(--radius-xl);
-  }
 
-  /* Homepage sections */
-  .section-padding {
-    padding-top: 1.5rem !important;
-    padding-bottom: 1.5rem !important;
-  }
-
-  .hero-section {
-    padding: 1.25rem !important;
-  }
-
-  .offers-chips,
-  .offers-actions {
-    justify-content: center;
-  }
-
-  .offers-actions .btn {
+  .navbar .language-select-modern {
     width: 100%;
   }
 
-  .grid,
+  /* Кнопки входа/выхода */
+  .navbar-btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 991.98px) {
+  .navbar-brand img {
+    height: 30px;
+  }
+
+  .navbar-collapse .d-flex.align-items-center {
+    gap: 0.35rem !important;
+  }
+
+  .navbar-btn {
+    font-size: 0.82rem;
+    padding: 0.35rem 0.75rem;
+  }
+}
+
+
+/* ============================================================
+   3. ТИПОГРАФИКА — МОБИЛЬНОЕ МАСШТАБИРОВАНИЕ
+   ============================================================ */
+
+@media (max-width: 575.98px) {
+  h1, .h1 { font-size: clamp(1.6rem, 6vw, 2rem) !important; line-height: 1.2; }
+  h2, .h2 { font-size: clamp(1.3rem, 5vw, 1.75rem) !important; line-height: 1.25; }
+  h3, .h3 { font-size: clamp(1.1rem, 4.5vw, 1.5rem) !important; }
+  h4, .h4 { font-size: clamp(1rem, 4vw, 1.25rem) !important; }
+  h5, .h5 { font-size: 1rem !important; }
+  h6, .h6 { font-size: 0.9rem !important; }
+
+  .display-1 { font-size: clamp(2rem, 10vw, 3rem) !important; }
+  .display-2 { font-size: clamp(1.8rem, 8vw, 2.5rem) !important; }
+  .display-3 { font-size: clamp(1.5rem, 7vw, 2rem) !important; }
+  .display-4 { font-size: clamp(1.3rem, 6vw, 1.75rem) !important; }
+
+  .small, small { font-size: 0.875rem !important; }
+  p { font-size: 0.95rem; line-height: 1.65; }
+}
+
+@media (min-width: 576px) and (max-width: 767.98px) {
+  h1, .h1 { font-size: clamp(1.75rem, 5vw, 2.25rem) !important; }
+  h2, .h2 { font-size: clamp(1.4rem, 4.5vw, 1.875rem) !important; }
+  h3, .h3 { font-size: clamp(1.15rem, 3.5vw, 1.5rem) !important; }
+}
+
+
+/* ============================================================
+   4. КНОПКИ — МОБИЛЬНЫЕ ПРАВИЛА
+   ============================================================ */
+
+@media (max-width: 767.98px) {
+  .btn {
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    touch-action: manipulation;
+    font-size: 0.9rem;
+    padding: 0.55rem 1rem;
+    min-height: 44px;
+  }
+
+  .btn:hover {
+    transform: none !important;
+  }
+
+  /* Группы кнопок — стекаются вертикально */
+  .btn-group-mobile-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .btn-group-mobile-stack .btn {
+    width: 100%;
+  }
+}
+
+
+/* ============================================================
+   5. HERO SECTION
+   ============================================================ */
+
+@media (max-width: 767.98px) {
+  .hero-section,
+  .hero-showcase {
+    padding: 1.5rem 1rem !important;
+    border-radius: 16px !important;
+  }
+
+  .hero-section h1,
+  .hero-showcase h1 {
+    font-size: clamp(1.5rem, 6vw, 2rem) !important;
+    line-height: 1.2;
+  }
+
+  .hero-section .hero-description,
+  .hero-showcase .hero-description {
+    font-size: 0.9rem;
+    line-height: 1.6;
+  }
+
+  .hero-stats {
+    gap: 0.75rem !important;
+  }
+
+  .hero-stat-value {
+    font-size: 1.5rem !important;
+  }
+
+  .hero-badge {
+    font-size: 0.75rem !important;
+    padding: 0.35rem 0.7rem !important;
+    max-width: 95%;
+  }
+
+  /* Канвас-частицы — уменьшаем интенсивность */
+  #hero-canvas, canvas.particles-canvas {
+    opacity: 0.4 !important;
+  }
+}
+
+@media (max-width: 575.98px) {
+  .hero-section,
+  .hero-showcase {
+    padding: 1.25rem 0.75rem !important;
+  }
+}
+
+
+/* ============================================================
+   6. HOMEPAGE SECTIONS — ОБЩИЕ
+   ============================================================ */
+
+@media (max-width: 767.98px) {
+  .section-padding,
+  section[id$="-section"] {
+    padding-top: 2rem !important;
+    padding-bottom: 2rem !important;
+    padding-left: 0.75rem !important;
+    padding-right: 0.75rem !important;
+  }
+
+  .section-title {
+    font-size: 0.7rem !important;
+  }
+
+  .section-title::before,
+  .section-title::after {
+    width: 14px !important;
+  }
+
+  #events-section,
+  #about-section,
+  #partners-section,
+  #iesa-offers {
+    padding-left: 0.75rem !important;
+    padding-right: 0.75rem !important;
+  }
+}
+
+
+/* ============================================================
+   7. ГРИДЫ И КАРТОЧКИ
+   ============================================================ */
+
+@media (max-width: 767.98px) {
+  /* Принудительно в 1 колонку */
   .grid-cols-2,
-  .grid-cols-3 {
+  .grid-cols-3,
+  .grid-cols-4,
+  .grid {
     grid-template-columns: 1fr !important;
     gap: 1rem !important;
   }
 
+  /* Карточки */
+  .card {
+    border-radius: 14px;
+  }
+
+  .card-body {
+    padding: 1rem;
+  }
+
+  /* Partner card compact — вертикальный layout */
   .partner-card-compact .d-flex.align-items-start.gap-3 {
     flex-direction: column;
     align-items: stretch !important;
@@ -259,404 +456,810 @@
     margin: 0 auto;
   }
 
-  .partner-card-compact .d-flex.gap-2 {
+  .partner-card-compact .d-flex.gap-2,
+  .partner-card-compact .btn-group {
     flex-direction: column;
+    gap: 0.5rem !important;
   }
 
   .partner-card-compact .d-flex.gap-2 .btn {
     width: 100%;
   }
 
-  .min-w-280,
-  .min-w-340 {
-    min-width: 0 !important;
-  }
-  
-  /* Profile Header */
-  .profile-header {
-    padding: var(--space-5);
-    border-radius: var(--radius-2xl);
+  /* Benefit cards */
+  .benefit-card {
+    border-radius: 16px !important;
+    padding: 1.25rem !important;
   }
 
+  .benefit-card:hover,
+  .benefit-card:hover .benefit-icon-box {
+    transform: none !important;
+  }
+
+  /* Product cards */
+  .product-card {
+    border-radius: 14px !important;
+    margin-bottom: 0.75rem;
+  }
+
+  .product-card-title {
+    font-size: 1rem !important;
+  }
+
+  /* Event cards */
+  .event-card {
+    margin-bottom: 0.75rem;
+  }
+
+  .event-card:hover {
+    transform: none !important;
+  }
+
+  /* Member cards */
+  .member-card:hover {
+    transform: none !important;
+  }
+
+  .member-avatar {
+    width: 80px !important;
+    height: 80px !important;
+  }
+
+  /* iesa offers grid */
+  .iesa-offers-grid {
+    grid-template-columns: 1fr !important;
+    gap: 1rem !important;
+  }
+
+  .offer-card {
+    padding: 1.25rem !important;
+  }
+
+  .offer-icon {
+    width: 48px !important;
+    height: 48px !important;
+  }
+
+  /* Offers actions */
+  .offers-actions {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 0.5rem !important;
+  }
+
+  .offers-actions .btn,
+  .offers-cta-actions .btn {
+    width: 100% !important;
+    justify-content: center;
+  }
+
+  .offers-cta-actions {
+    flex-direction: column !important;
+    width: 100% !important;
+    gap: 0.5rem !important;
+  }
+
+  .offers-cta-title {
+    font-size: 1.3rem !important;
+  }
+
+  /* Min-width overrides */
+  .min-w-280, .min-w-340 {
+    min-width: 0 !important;
+  }
+}
+
+@media (min-width: 576px) and (max-width: 767.98px) {
+  /* Планшет-горизонталь: 2 колонки */
+  .grid-cols-3,
+  .benefit-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  .iesa-offers-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}
+
+
+/* ============================================================
+   8. SHOWCASE СЕКЦИИ
+   ============================================================ */
+
+@media (max-width: 767.98px) {
+  .hero-showcase,
+  .mission-showcase,
+  .about-showcase {
+    border-radius: 16px !important;
+  }
+
+  .mission-showcase .mission-panel,
+  .events-showcase .showcase-card,
+  .about-showcase .member-showcase-card,
+  .partners-showcase .partner-showcase-card {
+    border-radius: 12px !important;
+  }
+
+  .president-card {
+    padding: 1.5rem 1rem !important;
+  }
+
+  .president-card .president-avatar {
+    width: 100px !important;
+    height: 100px !important;
+  }
+
+  .president-photo {
+    width: 120px !important;
+    height: 120px !important;
+  }
+
+  .team-members-grid {
+    grid-template-columns: 1fr !important;
+    gap: 1rem !important;
+  }
+}
+
+
+/* ============================================================
+   9. ФОРМЫ
+   ============================================================ */
+
+@media (max-width: 767.98px) {
+  .form-control,
+  .form-select,
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="search"],
+  input[type="tel"],
+  input[type="number"],
+  input[type="url"],
+  textarea,
+  select {
+    font-size: 16px !important; /* Предотвращает zoom на iOS */
+    min-height: 44px;
+    border-radius: 10px;
+  }
+
+  textarea {
+    min-height: 80px;
+  }
+
+  .form-label {
+    font-size: 0.875rem;
+    font-weight: 600;
+  }
+
+  /* Поиск */
+  .search-form,
+  .filter-form {
+    flex-direction: column !important;
+    gap: 0.5rem !important;
+  }
+
+  .search-form .btn,
+  .filter-form .btn {
+    width: 100%;
+  }
+
+  /* Profile edit form */
+  .edit-actions {
+    flex-direction: column !important;
+    gap: 0.5rem !important;
+  }
+
+  .edit-actions .btn {
+    width: 100%;
+    text-align: center;
+  }
+
+  .profile-edit-card {
+    padding: 1.25rem !important;
+  }
+
+  .edit-card-header {
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+}
+
+
+/* ============================================================
+   10. ТАБЛИЦЫ (PARTNER DASHBOARD)
+   ============================================================ */
+
+@media (max-width: 767.98px) {
+  .table-responsive {
+    border-radius: 12px;
+    overflow: hidden;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Card-style таблица для мобильных */
+  .table-mobile-cards thead {
+    display: none;
+  }
+
+  .table-mobile-cards tbody tr {
+    display: block;
+    border: 1px solid rgba(0,0,0,0.08);
+    border-radius: 12px;
+    margin-bottom: 0.75rem;
+    padding: 0.75rem;
+    background: white;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  }
+
+  .table-mobile-cards tbody td {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.35rem 0.5rem;
+    border: none;
+    border-bottom: 1px solid rgba(0,0,0,0.05);
+    font-size: 0.875rem;
+  }
+
+  .table-mobile-cards tbody td:last-child {
+    border-bottom: none;
+  }
+
+  .table-mobile-cards tbody td::before {
+    content: attr(data-label);
+    font-weight: 700;
+    font-size: 0.75rem;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    flex-shrink: 0;
+    margin-right: 0.5rem;
+  }
+
+  /* Dashboard stat cards */
+  .dashboard-stats .row {
+    gap: 0 !important;
+  }
+
+  .dashboard-stat-card {
+    border-radius: 12px !important;
+    padding: 1rem !important;
+  }
+
+  /* Search + filter row на дашборде */
+  .partner-search-row {
+    flex-direction: column !important;
+    gap: 0.75rem;
+  }
+
+  .partner-search-row .col-lg-5,
+  .partner-search-row .col-lg-7 {
+    width: 100% !important;
+  }
+}
+
+
+/* ============================================================
+   11. ПРОФИЛЬ ПОЛЬЗОВАТЕЛЯ
+   ============================================================ */
+
+@media (max-width: 767.98px) {
   .profile-page {
-    padding-top: 1rem !important;
-    padding-bottom: 1rem !important;
+    padding-top: 0.75rem !important;
+    padding-bottom: 0.75rem !important;
+  }
+
+  .profile-header {
+    padding: 1.25rem !important;
+    border-radius: 16px !important;
+    text-align: center;
+  }
+
+  .profile-avatar,
+  .profile-avatar-fallback {
+    width: 90px !important;
+    height: 90px !important;
+    font-size: 2.25rem !important;
+    border-width: 3px !important;
+    margin: 0 auto;
+  }
+
+  .profile-name {
+    font-size: 1.25rem !important;
+  }
+
+  .profile-email {
+    font-size: 0.875rem !important;
   }
 
   .profile-id-badge {
     display: block;
     width: 100%;
-    word-break: break-word;
+    word-break: break-all;
     text-align: center;
-    font-size: 1rem;
+    font-size: 0.875rem;
   }
 
   .profile-links-card,
   .profile-activity-card,
   .profile-posts-card,
   .profile-qr-card {
-    padding: 1rem;
+    padding: 1rem !important;
+    border-radius: 14px !important;
   }
 
   .link-chip-group {
     display: grid;
     grid-template-columns: 1fr;
-    gap: 8px;
+    gap: 0.5rem;
   }
 
   .link-chip {
     justify-content: center;
   }
-  
-  .profile-avatar,
-  .profile-avatar-fallback {
-    width: 100px;
-    height: 100px;
-    font-size: 2.5rem;
-  }
-  
-  .profile-name {
-    font-size: var(--text-xl);
-  }
-  
-  .profile-activity-points {
-    font-size: 2rem;
-  }
-  
+
+  .profile-activity-points,
   .profile-stat-value {
-    font-size: 2rem;
+    font-size: 1.75rem !important;
   }
-  
+
   .profile-qr-card img {
-    width: 160px;
-    height: 160px;
+    width: 150px !important;
+    height: 150px !important;
   }
-  
-  /* Auth Card */
-  .auth-card-left {
-    display: none;
+
+  .profile-stat-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
   }
-  
-  /* Tables */
-  .table-responsive {
-    margin: 0 calc(-1 * var(--space-4));
-    padding: 0 var(--space-4);
+
+  /* Инфо-грид: 1 колонка на маленьком */
+  .profile-info-grid {
+    grid-template-columns: 1fr !important;
   }
-  
-  /* Hide on mobile */
-  .hide-mobile {
-    display: none !important;
+
+  .profile-user-stats {
+    flex-wrap: wrap;
+    gap: 0.5rem;
   }
-  
-  /* Gallery Grid */
-  .gallery-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-  
-  /* Back to Top Button */
-  #back-to-top {
-    bottom: var(--space-4);
-    right: var(--space-4);
-    width: 44px;
-    height: 44px;
-  }
-  
-  /* Footer */
-  .footer-enhanced {
-    text-align: center;
-  }
-  
-  .footer-links {
-    text-align: center;
-  }
-  
-  .footer-social {
-    width: 44px;
-    height: 44px;
-  }
-  
-  /* Event Card Compact */
-  .event-date-chip-compact {
-    width: 60px;
-    padding: var(--space-2);
-  }
-  
-  .event-date-day {
-    font-size: var(--text-xl);
-  }
-  
-  /* Section Title */
-  .section-title::before,
-  .section-title::after {
-    width: 16px;
-  }
-  
-  /* Modals */
-  .modal-dialog {
-    margin: var(--space-4);
-  }
-  
-  .modal-content {
-    border-radius: var(--radius-xl);
-  }
-  
-  /* Dropdown */
-  .dropdown-menu {
-    width: calc(100vw - var(--space-6));
-    max-width: 320px;
+
+  .stat-item {
+    min-width: 60px;
   }
 }
 
-/* ====================================================
-   TABLET SPECIFIC (768px - 991px)
-   ==================================================== */
+@media (max-width: 575.98px) {
+  .profile-stat-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+
+/* ============================================================
+   12. MEMBER CABINET (DARK GLASS)
+   ============================================================ */
+
+@media (max-width: 767.98px) {
+  /* Hero band */
+  .cabinet-hero,
+  [class*="cabinet"] .hero-band {
+    padding: 1.25rem 1rem !important;
+    border-radius: 16px !important;
+  }
+
+  /* PIN block */
+  .pin-display,
+  .pin-digits,
+  [class*="pin-code"],
+  [class*="pin-value"] {
+    font-size: clamp(2rem, 10vw, 3rem) !important;
+    letter-spacing: 0.15em !important;
+  }
+
+  /* Step grid */
+  .step-grid,
+  [class*="steps-grid"] {
+    grid-template-columns: 1fr !important;
+    gap: 0.75rem !important;
+  }
+
+  /* Telegram CTA */
+  .tg-cta-block,
+  [class*="telegram-cta"] {
+    padding: 1.25rem !important;
+    border-radius: 16px !important;
+  }
+
+  /* Cards в кабинете */
+  [class*="cabinet"] .card,
+  [class*="cabinet"] .glass-card {
+    border-radius: 14px !important;
+    padding: 1rem !important;
+  }
+}
+
+
+/* ============================================================
+   13. АУТЕНТИФИКАЦИЯ (login, register)
+   ============================================================ */
+
+@media (max-width: 767.98px) {
+  /* Auth card — убираем двухколоночный layout */
+  .auth-card-new {
+    flex-direction: column !important;
+    border-radius: 16px !important;
+    margin: 0.5rem !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  .auth-card-new .row.g-0 {
+    flex-direction: column !important;
+  }
+
+  .auth-dark-side {
+    display: none !important; /* Скрываем декоративную панель */
+  }
+
+  .auth-light-side {
+    width: 100% !important;
+    padding: 1.5rem !important;
+    border-radius: 16px !important;
+  }
+
+  .auth-container {
+    margin: 0.75rem !important;
+    padding: 0 !important;
+  }
+
+  /* OTP boxes (connect telegram) */
+  .otp-input {
+    width: 40px !important;
+    height: 48px !important;
+    font-size: 1.25rem !important;
+  }
+
+  .otp-box-row {
+    gap: 0.4rem !important;
+  }
+}
+
+@media (max-width: 575.98px) {
+  .auth-light-side {
+    padding: 1.25rem !important;
+  }
+}
+
+
+/* ============================================================
+   14. ГАЛЕРЕЯ
+   ============================================================ */
+
+@media (max-width: 575.98px) {
+  .gallery-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 0.5rem !important;
+  }
+}
+
+@media (min-width: 576px) and (max-width: 767.98px) {
+  .gallery-grid {
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 0.75rem !important;
+  }
+}
 
 @media (min-width: 768px) and (max-width: 991.98px) {
-  /* Gallery Grid */
   .gallery-grid {
-    grid-template-columns: repeat(3, 1fr);
-  }
-  
-  /* Profile layout adjustments */
-  .profile-detail-card {
-    padding: var(--space-4);
+    grid-template-columns: repeat(3, 1fr) !important;
   }
 }
 
-/* ====================================================
-   DESKTOP SPECIFIC (992px+)
-   ==================================================== */
-
 @media (min-width: 992px) {
-  /* Gallery Grid */
   .gallery-grid {
     grid-template-columns: repeat(4, 1fr);
   }
-  
-  /* Show on desktop */
-  .show-desktop {
-    display: block !important;
+}
+
+
+/* ============================================================
+   15. БЛОГ / ИВЕНТЫ
+   ============================================================ */
+
+@media (max-width: 767.98px) {
+  /* Post list */
+  .post-card {
+    border-radius: 14px !important;
   }
-  
-  /* Hover effects only on desktop */
-  .card:hover {
-    transform: translateY(-2px);
+
+  /* Post detail */
+  .post-detail-content {
+    font-size: 1rem;
+    line-height: 1.7;
   }
-  
-  .btn:hover {
-    transform: translateY(-1px);
+
+  .post-detail-content img {
+    border-radius: 10px;
+    margin: 0.5rem 0;
   }
-  
-  .profile-detail-card:hover {
-    transform: translateY(-4px);
+
+  /* Event cards */
+  .event-date-chip-compact {
+    width: 54px;
+    padding: 0.35rem;
   }
-  
-  .profile-stat-card:hover {
-    transform: translateY(-4px);
+
+  .event-date-day {
+    font-size: 1.15rem !important;
+  }
+
+  /* Event filters */
+  #event-filters {
+    flex-direction: column !important;
+    gap: 0.5rem !important;
+  }
+
+  #event-filters .form-select {
+    width: 100% !important;
+  }
+
+  /* Post create form */
+  .post-create-form .card {
+    border-radius: 14px;
   }
 }
 
-/* ====================================================
-   PRINT STYLES
-   ==================================================== */
+
+/* ============================================================
+   16. МОДАЛЬНЫЕ ОКНА
+   ============================================================ */
+
+@media (max-width: 575.98px) {
+  .modal-dialog {
+    margin: 0.5rem !important;
+    max-width: calc(100vw - 1rem) !important;
+  }
+
+  .modal-content {
+    border-radius: 16px !important;
+  }
+
+  .modal-body {
+    padding: 1.25rem !important;
+  }
+
+  .modal-footer {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .modal-footer .btn {
+    width: 100%;
+  }
+}
+
+
+/* ============================================================
+   17. ФУТЕР
+   ============================================================ */
+
+@media (max-width: 767.98px) {
+  .footer-enhanced {
+    text-align: center;
+  }
+
+  .footer-enhanced .col-6 {
+    text-align: center;
+  }
+
+  .footer-links {
+    text-align: center;
+  }
+
+  .footer-social {
+    width: 44px;
+    height: 44px;
+    margin: 0 auto;
+  }
+
+  .footer-about-text {
+    max-width: 100%;
+    font-size: 0.9rem;
+  }
+}
+
+
+/* ============================================================
+   18. УТИЛИТЫ
+   ============================================================ */
+
+@media (max-width: 767.98px) {
+  /* Скрытие */
+  .hide-mobile { display: none !important; }
+  .auth-card-left { display: none !important; }
+
+  /* Показ только на мобильных */
+  .show-mobile { display: block !important; }
+  .show-mobile-flex { display: flex !important; }
+
+  /* Центровка контента */
+  .mobile-center { text-align: center !important; }
+  .mobile-center-col { align-items: center !important; flex-direction: column !important; }
+
+  /* Уменьшение паддингов */
+  .mobile-p0 { padding: 0 !important; }
+  .mobile-px-0 { padding-left: 0 !important; padding-right: 0 !important; }
+
+  /* Back to top */
+  #back-to-top {
+    bottom: calc(80px + env(safe-area-inset-bottom));
+    right: 1rem;
+    width: 40px;
+    height: 40px;
+    font-size: 0.875rem;
+  }
+
+  /* Dropdown меню */
+  .dropdown-menu {
+    max-width: calc(100vw - 1rem);
+  }
+
+  /* Skeleton size */
+  .skeleton {
+    height: 160px !important;
+  }
+}
+
+@media (min-width: 768px) {
+  /* Скрыто на десктопе */
+  .show-mobile { display: none !important; }
+  .show-mobile-flex { display: none !important; }
+}
+
+
+/* ============================================================
+   19. SAFE-AREA INSETS (iOS нотч, dynamic island, home bar)
+   ============================================================ */
+
+header {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+.modal-dialog {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Фиксированные элементы */
+.sticky-bottom-fix {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+
+/* ============================================================
+   20. TABLET (768px – 991px) СПЕЦИФИКА
+   ============================================================ */
+
+@media (min-width: 768px) and (max-width: 991.98px) {
+  .profile-detail-card {
+    padding: 1.25rem;
+  }
+
+  .grid-cols-3,
+  .benefit-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  .gallery-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  /* Профиль-грид на планшете */
+  .profile-stat-grid {
+    grid-template-columns: repeat(3, 1fr) !important;
+  }
+}
+
+
+/* ============================================================
+   21. DESKTOP — HOVER EFFECTS (только pointer: fine)
+   ============================================================ */
+
+@media (min-width: 992px) {
+  /* Hover effects only on desktop */
+  .card:hover {
+    transform: translateY(-2px);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .btn:hover {
+    transform: translateY(-1px);
+  }
+
+  .profile-detail-card:hover,
+  .profile-stat-card:hover {
+    transform: translateY(-4px);
+  }
+
+  /* Show on desktop */
+  .show-desktop { display: block !important; }
+}
+
+/* Отключаем hover для touch-устройств */
+@media (hover: none), (pointer: coarse) {
+  .hero-badge:hover,
+  .benefit-card:hover,
+  .benefit-card:hover .benefit-icon-box,
+  .product-card:hover,
+  .product-card:hover .product-card-image,
+  .event-card:hover,
+  .member-card:hover,
+  .partner-card-compact:hover,
+  .pagination-btn:hover,
+  .card:hover,
+  .btn:hover,
+  .profile-detail-card:hover,
+  .profile-stat-card:hover {
+    transform: none !important;
+    box-shadow: inherit !important;
+  }
+
+  .benefit-card:hover::before,
+  .product-card:hover::before {
+    left: -100% !important;
+    width: 0 !important;
+  }
+}
+
+
+/* ============================================================
+   22. ВЫСОТА VIEWPORT (исправление iOS 100vh)
+   ============================================================ */
+
+/* Используем динамический viewport на мобильных */
+@supports (height: 100dvh) {
+  .min-vh-100 {
+    min-height: 100dvh !important;
+  }
+  .vh-100 {
+    height: 100dvh !important;
+  }
+}
+
+
+/* ============================================================
+   23. PRINT
+   ============================================================ */
 
 @media print {
-  /* Hide non-essential elements */
-  header,
-  footer,
-  .navbar,
-  .btn,
-  .modal,
-  #back-to-top,
-  .no-print {
+  header, footer, .navbar, .btn, .modal, #back-to-top,
+  .mobile-bottom-nav, .no-print, .dev-banner {
     display: none !important;
   }
-  
-  /* Reset backgrounds */
+
   body {
     background: white !important;
     color: black !important;
   }
-  
+
   .card {
     border: 1px solid #ddd !important;
     box-shadow: none !important;
   }
-  
-  /* Links */
+
   a {
     color: black !important;
     text-decoration: underline !important;
   }
-  
-  /* Page breaks */
-  .page-break-before {
-    page-break-before: always;
-  }
-  
-  .page-break-after {
-    page-break-after: always;
-  }
-  
-  .avoid-break {
-    page-break-inside: avoid;
-  }
+
+  .page-break-before { page-break-before: always; }
+  .page-break-after { page-break-after: always; }
+  .avoid-break { page-break-inside: avoid; }
 }
 
-/* ====================================================
-   ANIMATIONS
-   ==================================================== */
 
-/* Fade In Up Animation */
-@keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(30px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* Fade In Animation */
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-/* Scale In Animation */
-@keyframes scaleIn {
-  from {
-    opacity: 0;
-    transform: scale(0.9);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-/* Slide In From Right */
-@keyframes slideInRight {
-  from {
-    opacity: 0;
-    transform: translateX(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-/* Pulse Animation */
-@keyframes pulse {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.5;
-  }
-}
-
-/* Spin Animation (for loaders) */
-@keyframes spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-/* Animation Classes */
-.animate-fade-in {
-  animation: fadeIn 0.3s ease-out;
-}
-
-.animate-fade-in-up {
-  animation: fadeInUp 0.4s ease-out;
-}
-
-.animate-scale-in {
-  animation: scaleIn 0.3s ease-out;
-}
-
-.animate-slide-in-right {
-  animation: slideInRight 0.3s ease-out;
-}
-
-.animate-pulse {
-  animation: pulse 2s infinite;
-}
-
-.animate-spin {
-  animation: spin 1s linear infinite;
-}
-
-/* ====================================================
-   HTMX LOADING INDICATOR
-   ==================================================== */
-
-.htmx-indicator {
-  display: none;
-}
-
-.htmx-request .htmx-indicator {
-  display: inline-block;
-}
-
-.htmx-request.htmx-indicator {
-  display: inline-block;
-}
-
-/* Loading skeleton animation */
-.skeleton {
-  background: linear-gradient(
-    90deg,
-    var(--gray-200) 25%,
-    var(--gray-100) 50%,
-    var(--gray-200) 75%
-  );
-  background-size: 200% 100%;
-  animation: skeleton-loading 1.5s infinite;
-}
-
-@keyframes skeleton-loading {
-  0% {
-    background-position: 200% 0;
-  }
-  100% {
-    background-position: -200% 0;
-  }
-}
-
-/* ====================================================
-   HIGH CONTRAST MODE
-   ==================================================== */
-
-@media (prefers-contrast: high) {
-  :root {
-    --border-color: var(--gray-400);
-    --text-muted: var(--gray-700);
-  }
-  
-  .btn {
-    border-width: 2px;
-  }
-  
-  .card {
-    border-width: 2px;
-  }
-}
-
-/* ====================================================
-   REDUCED MOTION
-   ==================================================== */
+/* ============================================================
+   24. REDUCED MOTION + HIGH CONTRAST
+   ============================================================ */
 
 @media (prefers-reduced-motion: reduce) {
   *,
@@ -667,13 +1270,114 @@
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
-  
+
   .animate-fade-in,
   .animate-fade-in-up,
   .animate-scale-in,
   .animate-slide-in-right,
   .animate-pulse,
-  .animate-spin {
+  .animate-spin,
+  [data-reveal],
+  .fade-up,
+  .fade-in-up {
     animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
   }
 }
+
+@media (prefers-contrast: high) {
+  :root {
+    --border-color: var(--gray-400);
+    --text-muted: var(--gray-700);
+  }
+
+  .btn {
+    border-width: 2px;
+  }
+
+  .card {
+    border-width: 2px;
+  }
+}
+
+
+/* ============================================================
+   25. АНИМАЦИОННЫЕ КЛАССЫ
+   ============================================================ */
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(24px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.9); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(16px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes slideInUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.55; }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+@keyframes skeleton-loading {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.animate-fade-in      { animation: fadeIn 0.3s ease-out; }
+.animate-fade-in-up   { animation: fadeInUp 0.4s ease-out; }
+.animate-scale-in     { animation: scaleIn 0.3s ease-out; }
+.animate-slide-in-right { animation: slideInRight 0.3s ease-out; }
+.animate-pulse        { animation: pulse 2s infinite; }
+.animate-spin         { animation: spin 1s linear infinite; }
+
+.fade-in-up { animation: fadeInUp 0.6s ease-out forwards; }
+
+
+/* ============================================================
+   26. HTMX / LOADING
+   ============================================================ */
+
+.htmx-indicator {
+  display: none;
+}
+.htmx-request .htmx-indicator,
+.htmx-request.htmx-indicator {
+  display: inline-block;
+}
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--gray-200) 25%,
+    var(--gray-100) 50%,
+    var(--gray-200) 75%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-loading 1.5s infinite;
+  border-radius: 8px;
+}
+

@@ -18,8 +18,15 @@
   max-width: var(--container-limited);
   margin-left: auto;
   margin-right: auto;
-  padding-left: var(--space-4);
-  padding-right: var(--space-4);
+  padding-left: max(var(--space-4), env(safe-area-inset-left));
+  padding-right: max(var(--space-4), env(safe-area-inset-right));
+}
+
+@media (max-width: 575.98px) {
+  .container-limited {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
 }
 
 @media (min-width: 768px) {
@@ -603,4 +610,34 @@ main {
 /* Footer Contact Icons */
 .footer-contact-icon {
   opacity: 0.6;
+}
+
+/* ====================================================
+   12. MOBILE SAFE-AREA + BODY OVERFLOW
+   ==================================================== */
+
+/* Предотвращаем горизонтальный скролл на всём сайте */
+body {
+  overflow-x: hidden;
+}
+
+/* header фиксированная высота не перекрывает контент */
+@media (max-width: 767.98px) {
+  /* Navbar collapse не вызывает горизонтальный скролл */
+  #navbarNav {
+    overflow-x: hidden;
+  }
+
+  /* Notifications / search dropdown не вылезают за экран */
+  .notifications-dropdown,
+  .navbar-search-dropdown {
+    max-width: calc(100vw - 1rem) !important;
+    right: 0 !important;
+    left: auto !important;
+  }
+
+  /* Сжимаем padding главного блока под bottom nav */
+  main#main-content {
+    padding-top: 0.5rem !important;
+  }
 }

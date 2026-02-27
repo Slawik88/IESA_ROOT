@@ -1800,3 +1800,158 @@
     line-height: 1.65;
   }
 }
+
+/* ====================================================
+   MOBILE ADDITIONS — Partner Dashboard, Log Visit,
+   Auth, Cabinet — v3.0 overhaul
+   ==================================================== */
+
+/* — Partner Dashboard — */
+@media (max-width: 767.98px) {
+  /* Stats row: 2×2 grid instead of 4 inline */
+  .row.mb-4 .col-md-3 {
+    margin-bottom: 0.75rem;
+  }
+
+  /* Search card */
+  .search-card .card-header {
+    padding: 1rem !important;
+    border-radius: 16px 16px 0 0 !important;
+  }
+
+  .search-card .card-body {
+    padding: 1rem !important;
+  }
+
+  /* Recent visits card */
+  .card-header.text-white.d-flex {
+    flex-wrap: wrap !important;
+    gap: 0.5rem;
+    padding: 1rem !important;
+    border-radius: 16px 16px 0 0 !important;
+  }
+
+  /* Test email button — full width on mobile */
+  #testEmailBtn {
+    width: 100%;
+    margin-top: 0.25rem;
+  }
+}
+
+/* — Log Visit page — */
+@media (max-width: 767.98px) {
+  .log-visit-card,
+  .log-visit-container {
+    padding: 1.25rem !important;
+    border-radius: 16px !important;
+    margin: 0.5rem !important;
+  }
+
+  .pin-verify-section {
+    padding: 1rem !important;
+  }
+
+  .pin-display-row {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 0.5rem !important;
+  }
+
+  .pin-display-row input {
+    text-align: center;
+    font-size: 1.5rem !important;
+    letter-spacing: 0.2em !important;
+  }
+}
+
+/* — Edit Visit / Cancel Visit — */
+@media (max-width: 767.98px) {
+  .edit-visit-form,
+  .cancel-visit-form {
+    padding: 1.25rem !important;
+    border-radius: 14px !important;
+  }
+
+  .visit-detail-summary {
+    font-size: 0.875rem;
+  }
+}
+
+/* — Auth cards additional — */
+@media (max-width: 767.98px) {
+  /* Member scan card */
+  .scan-card-container {
+    padding: 1rem !important;
+    border-radius: 16px !important;
+  }
+
+  /* Success / error pages */
+  .success-icon,
+  .error-icon {
+    font-size: 3rem !important;
+  }
+}
+
+/* — Profile info grid responsive — */
+@media (max-width: 767.98px) {
+  /* Force 1 column on xs */
+  .profile-info-grid {
+    grid-template-columns: 1fr !important;
+    gap: 0.5rem !important;
+  }
+}
+
+@media (min-width: 576px) and (max-width: 767.98px) {
+  /* 2 columns on sm */
+  .profile-info-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}
+
+/* — Global: Images in cards don't overflow — */
+.card img,
+.card-body img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* — Post create: textarea min-height on mobile — */
+@media (max-width: 767.98px) {
+  .post-content-editor,
+  textarea[name="content"],
+  #id_content {
+    min-height: 160px !important;
+  }
+
+  /* Post action buttons */
+  .post-actions,
+  .form-actions {
+    flex-direction: column !important;
+    gap: 0.5rem !important;
+  }
+
+  .post-actions .btn,
+  .form-actions .btn {
+    width: 100%;
+  }
+}
+
+/* — Members search page — */
+@media (max-width: 767.98px) {
+  .members-search-form {
+    flex-direction: column !important;
+    gap: 0.5rem !important;
+  }
+
+  .members-search-form .btn {
+    width: 100%;
+  }
+}
+
+/* — Activity levels info page — */
+@media (max-width: 767.98px) {
+  .activity-levels-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
