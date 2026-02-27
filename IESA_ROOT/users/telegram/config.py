@@ -37,8 +37,19 @@ def bot_name() -> str:
     return os.environ.get("TELEGRAM_BOT_NAME", "").strip()
 
 
+# ── Master kill-switch ──────────────────────────────────────────────────────
+# Set to True when bot should handle incoming updates.
+# False = webhook accepted but silently ignored (safe disable).
+BOT_ACTIVE = False
+
+
 def is_configured() -> bool:
     return bool(token())
+
+
+def is_active() -> bool:
+    """Return True only if bot is configured AND BOT_ACTIVE is True."""
+    return BOT_ACTIVE and is_configured()
 
 
 def api_url(method: str) -> str:
