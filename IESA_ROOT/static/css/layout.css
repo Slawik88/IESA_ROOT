@@ -39,16 +39,23 @@
    ==================================================== */
 
 .dev-banner {
-  background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
-  color: var(--white);
-  padding: 12px 20px;
+  background: rgba(185,28,28,.92);
+  color: rgba(255,255,255,.9);
+  padding: 5px 48px 5px 20px;
   text-align: center;
+  font-size: .78rem;
   font-weight: 500;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
   position: relative;
-  /* One step above --z-fixed so it overlays the sticky header */
   z-index: calc(var(--z-fixed) + 1);
+  letter-spacing: .01em;
 }
+.dev-banner-close {
+  position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+  background: none; border: none; color: rgba(255,255,255,.6);
+  font-size: 1rem; line-height: 1; cursor: pointer; padding: 2px 4px;
+  transition: color .2s;
+}
+.dev-banner-close:hover { color: #fff; }
 
 header {
   background: var(--white);
