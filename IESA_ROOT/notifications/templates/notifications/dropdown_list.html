@@ -1,34 +1,94 @@
 {% load i18n %}
+<style>
+.nd-item {
+    display: flex;
+    align-items: flex-start;
+    gap: .65rem;
+    padding: .7rem .85rem;
+    border-bottom: 1px solid rgba(255,255,255,.06);
+    transition: background .15s;
+}
+.nd-item:last-child { border-bottom: none; }
+.nd-item:hover { background: rgba(255,255,255,.04); }
+.nd-item.nd-unread { background: rgba(220,38,38,.06); }
+.nd-icon {
+    width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: .75rem; background: rgba(255,255,255,.08); color: rgba(255,255,255,.5);
+}
+.nd-icon.nd-success { background:rgba(34,197,94,.15); color:#4ade80; }
+.nd-icon.nd-danger  { background:rgba(239,68,68,.15);  color:#f87171; }
+.nd-icon.nd-info    { background:rgba(59,130,246,.15); color:#93c5fd; }
+.nd-icon.nd-warning { background:rgba(251,191,36,.15); color:#fbbf24; }
+.nd-icon.nd-primary { background:rgba(220,38,38,.15);  color:#f87171; }
+.nd-msg  { font-size:.82rem; color:rgba(255,255,255,.8); line-height:1.4; }
+.nd-meta { font-size:.7rem;  color:rgba(255,255,255,.3); margin-top:.2rem; }
+.nd-del  {
+    background:none; border:none; padding:0 2px; cursor:pointer;
+    color:rgba(255,255,255,.2); font-size:1rem; line-height:1;
+    transition: color .15s; flex-shrink:0; margin-top:1px;
+}
+.nd-del:hover { color:#f87171; }
+.nd-unread-dot {
+    width:6px; height:6px; border-radius:50%;
+    background:#f87171; flex-shrink:0; margin-top:5px;
+}
+.nd-footer {
+    display:flex; gap:.5rem; padding:.65rem .85rem 0;
+    border-top:1px solid rgba(255,255,255,.07);
+}
+.nd-btn {
+    flex:1; padding:.35rem .6rem; border-radius:8px; font-size:.75rem;
+    display:flex; align-items:center; justify-content:center; gap:.35rem;
+    cursor:pointer; transition:background .15s, color .15s; text-decoration:none;
+    border:1px solid rgba(255,255,255,.1); background:rgba(255,255,255,.05); color:rgba(255,255,255,.65);
+}
+.nd-btn:hover { background:rgba(255,255,255,.1); color:#fff; }
+.nd-btn.nd-btn-red { border-color:rgba(220,38,38,.3); color:#f87171; background:rgba(220,38,38,.08); }
+.nd-btn.nd-btn-red:hover { background:rgba(220,38,38,.18); }
+.nd-empty { text-align:center; padding:2.5rem 1rem; color:rgba(255,255,255,.25); }
+.nd-empty i { display:block; font-size:1.8rem; margin-bottom:.6rem; }
+</style>
+
 {% if notifications %}
-    <ul class="list-unstyled mb-0">
-        {% for notification in notifications %}
-        <li class="mb-2 pb-2 border-bottom">
-            <div class="d-flex justify-content-between align-items-start">
-                <div class="flex-grow-1">
-                    <p class="mb-1 small">{{ notification.message }}</p>
-                    <small class="text-muted">{{ notification.created_at|timesince }} {% trans "ago" %}</small>
-                </div>
-                <button hx-delete="{% url 'notifications:notification_delete' notification.id %}"
-                        hx-confirm="{% trans "Delete this notification?" %}"
-                        class="btn btn-sm btn-link p-0 text-danger"
-                        title="{% trans "Delete" %}">
-                    ×
-                </button>
-            </div>
-        </li>
-        {% endfor %}
-    </ul>
-    <div class="mt-3 text-center">
-        <a href="{% url 'notifications:notification_list' %}" class="btn btn-sm btn-outline-secondary">{% trans "View All" %}</a>
-        <button hx-post="{% url 'notifications:mark_all_read' %}"
-                hx-target="#notifications-content"
-                class="btn btn-sm btn-outline-primary">
-            {% trans "Mark as Read" %}
-        </button>
+<div>
+    {% for notification in notifications %}
+    <div class="nd-item {% if not notification.is_read %}nd-unread{% endif %}">
+        <div class="nd-icon
+            {% if notification.notification_type == 'post_approved' %}nd-success
+            {% elif notification.notification_type == 'post_rejected' %}nd-danger
+            {% elif notification.notification_type == 'new_comment' or notification.notification_type == 'comment_reply' %}nd-info
+            {% elif notification.notification_type == 'new_like' %}nd-warning
+            {% elif notification.notification_type == 'new_follower' %}nd-primary
+            {% else %}{% endif %}">
+            {% if notification.notification_type == 'post_approved' %}<i class="fas fa-check"></i>
+            {% elif notification.notification_type == 'post_rejected' %}<i class="fas fa-times"></i>
+            {% elif notification.notification_type == 'new_comment' or notification.notification_type == 'comment_reply' %}<i class="fas fa-comment"></i>
+            {% elif notification.notification_type == 'new_like' %}<i class="fas fa-heart"></i>
+            {% elif notification.notification_type == 'new_follower' %}<i class="fas fa-user-plus"></i>
+            {% elif notification.notification_type == 'event_reminder' %}<i class="fas fa-calendar-alt"></i>
+            {% else %}<i class="fas fa-bell"></i>{% endif %}
+        </div>
+        <div style="flex:1;min-width:0;">
+            <div class="nd-msg">{{ notification.message }}</div>
+            <div class="nd-meta"><i class="fas fa-clock me-1"></i>{{ notification.created_at|timesince }} {% trans "ago" %}</div>
+        </div>
+        {% if not notification.is_read %}<div class="nd-unread-dot"></div>{% endif %}
+        <button hx-delete="{% url 'notifications:notification_delete' notification.id %}"
+                hx-confirm="{% trans "Delete this notification?" %}"
+                class="nd-del" title="{% trans "Delete" %}">×</button>
     </div>
+    {% endfor %}
+</div>
+<div class="nd-footer">
+    <a href="{% url 'notifications:notification_list' %}" class="nd-btn"><i class="fas fa-list-ul"></i>{% trans "View All" %}</a>
+    <button hx-post="{% url 'notifications:mark_all_read' %}"
+            hx-target="#notifications-content"
+            class="nd-btn nd-btn-red"><i class="fas fa-check-double"></i>{% trans "Mark Read" %}</button>
+</div>
 {% else %}
-    <div class="text-center py-4 text-muted">
-        <i class="fas fa-bell-slash mb-2"></i>
-        <p>{% trans "No notifications yet" %}</p>
-    </div>
+<div class="nd-empty">
+    <i class="fas fa-bell-slash"></i>
+    {% trans "No notifications yet" %}
+</div>
 {% endif %}
