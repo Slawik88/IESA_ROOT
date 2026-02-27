@@ -137,11 +137,14 @@ def _get_public_profile_context(user_obj, request_user=None):
             user=request_user
         ).exists()
     
+    subscriber_count = BlogSubscription.objects.filter(author=user_obj).count()
+
     return {
-        'user_obj': user_obj, 
-        'user_posts': user_posts, 
+        'user_obj': user_obj,
+        'user_posts': user_posts,
         'other_links_list': other_links_list,
         'is_subscribed': is_subscribed,
+        'subscriber_count': subscriber_count,
     }
 
 

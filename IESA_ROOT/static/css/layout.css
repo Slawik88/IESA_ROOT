@@ -551,8 +551,64 @@ main {
 
 /* Navbar Search Dropdown */
 .navbar-search-dropdown {
-  min-width: 340px;
+  min-width: 360px;
+  background: #111118 !important;
+  border: 1.5px solid rgba(255,255,255,.1) !important;
+  border-radius: 16px !important;
+  box-shadow: 0 24px 64px rgba(0,0,0,.55) !important;
+  padding: 1rem !important;
 }
+.navbar-search-dropdown .form-label { color: rgba(255,255,255,.55); }
+.navbar-search-dropdown .form-control {
+  background: rgba(255,255,255,.07) !important;
+  border: 1.5px solid rgba(255,255,255,.1) !important;
+  color: #fff !important;
+  border-radius: 10px !important;
+}
+.navbar-search-dropdown .form-control::placeholder { color: rgba(255,255,255,.3) !important; }
+.navbar-search-dropdown .form-control:focus {
+  background: rgba(255,255,255,.1) !important;
+  border-color: rgba(220,38,38,.4) !important;
+  box-shadow: 0 0 0 3px rgba(220,38,38,.12) !important;
+}
+/* Search results inside the navbar dropdown */
+.navbar-search-results .search-section { margin-bottom: .75rem; }
+.navbar-search-results .section-title {
+  font-size: .68rem; font-weight: 700; letter-spacing: .12em;
+  text-transform: uppercase; color: rgba(220,38,38,.9);
+  display: flex; align-items: center; gap: .4rem;
+  margin-bottom: .4rem;
+}
+.navbar-search-results .section-title i { color: inherit; }
+.navbar-search-results .section-title::before,
+.navbar-search-results .section-title::after { content: none; }
+.navbar-search-results .list-group { gap: 2px; display: flex; flex-direction: column; }
+.navbar-search-results .search-item {
+  background: rgba(255,255,255,.04) !important;
+  border: 1px solid rgba(255,255,255,.07) !important;
+  border-radius: 10px !important;
+  color: rgba(255,255,255,.85) !important;
+  padding: .55rem .75rem !important;
+  transition: background .15s !important;
+}
+.navbar-search-results .search-item:hover {
+  background: rgba(255,255,255,.09) !important;
+  border-color: rgba(220,38,38,.25) !important;
+  color: #fff !important;
+}
+.navbar-search-results .text-dark  { color: rgba(255,255,255,.9) !important; }
+.navbar-search-results .text-muted  { color: rgba(255,255,255,.38) !important; }
+.navbar-search-results h6 { color: rgba(255,255,255,.92) !important; }
+.navbar-search-results .fa-chevron-right { color: rgba(255,255,255,.2) !important; }
+.navbar-search-results .rounded-circle.bg-primary {
+  background: rgba(220,38,38,.25) !important;
+  border: 1.5px solid rgba(220,38,38,.35) !important;
+  color: #f87171 !important;
+}
+.navbar-search-results .search-results > .text-center {
+  color: rgba(255,255,255,.35) !important;
+}
+.navbar-search-results .search-results > .text-center h5 { color: rgba(255,255,255,.6) !important; }
 
 .notifications-dropdown {
   min-width: 320px;

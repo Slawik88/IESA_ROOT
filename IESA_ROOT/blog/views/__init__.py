@@ -5,32 +5,33 @@ from .events import EventListView, EventDetailView, event_register
 from .comments import comment_create, comment_list, delete_comment
 from .likes import like_post, toggle_comment_like
 from .search import post_search, global_search
-from .subscriptions import toggle_subscription
+from .subscriptions import toggle_subscription, follower_count
 
 __all__ = [
     # Posts
     'PostListView',
     'PostDetailView',
     'PostCreateView',
-    
+
     # Events
     'EventListView',
     'EventDetailView',
     'event_register',
-    
+
     # Comments
     'comment_create',
     'comment_list',
     'delete_comment',
-    
+
     # Likes
     'like_post',
     'toggle_comment_like',
-    
+
     # Search
     'post_search',
     'global_search',
-    
+
     # Subscriptions
     'toggle_subscription',
+    'follower_count',
 ]
