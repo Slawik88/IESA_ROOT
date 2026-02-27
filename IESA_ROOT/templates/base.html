@@ -4,8 +4,15 @@
 <html lang="{{ LANGUAGE_CODE }}">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>{% block title %}{% trans "IESA ROOT" %}{% endblock %}</title>
+
+    <!-- Mobile / PWA Meta -->
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="IESA">
+    <meta name="theme-color" content="#ffffff">
     
     <!-- SEO Meta Tags -->
     <meta name="description" content="{% block meta_description %}{% trans "IESA - Extreme Sports Community. Kitesurfing in Egypt, Boxing, Adventure Travel & Sauna Experiences. Join our international athletes and enthusiasts." %}{% endblock %}">
@@ -459,5 +466,56 @@
 
     <!-- Per-page JS: override 'extra_js' block in child templates -->
     {% block extra_js %}{% endblock %}
+
+    <!-- =====================================================
+         MOBILE BOTTOM NAVIGATION
+         Видна только на экранах < 768px (CSS display:none на десктопе)
+         ===================================================== -->
+    <nav class="mobile-bottom-nav" aria-label="{% trans "Mobile navigation" %}" id="mobileBottomNav">
+        <a href="{% url 'core:home' %}" class="mbn-item {% if request.resolver_match.url_name == 'home' %}active{% endif %}" aria-label="{% trans "Home" %}">
+            <i class="fas fa-home"></i>
+            <span>{% trans "Home" %}</span>
+        </a>
+        <a href="{% url 'blog:post_list' %}" class="mbn-item {% if 'blog' in request.resolver_match.namespace %}active{% endif %}" aria-label="{% trans "Posts" %}">
+            <i class="fas fa-newspaper"></i>
+            <span>{% trans "Posts" %}</span>
+        </a>
+        {% if user.is_authenticated %}
+        <div class="mbn-item-wrap">
+            <a href="{% url 'users:member_cabinet' %}" class="mbn-item {% if request.resolver_match.url_name == 'member_cabinet' %}active{% endif %}" aria-label="{% trans "Cabinet" %}">
+                <i class="fas fa-id-card"></i>
+                <span>{% trans "Cabinet" %}</span>
+            </a>
+        </div>
+        <div class="mbn-item-wrap">
+            <a href="{% url 'notifications:notification_list' %}" class="mbn-item {% if 'notifications' in request.resolver_match.namespace %}active{% endif %}" aria-label="{% trans "Notifications" %}">
+                <i class="fas fa-bell"></i>
+                <span>{% trans "Alerts" %}</span>
+                {% if unread_notifications_count > 0 %}
+                <span class="mbn-badge">{{ unread_notifications_count }}</span>
+                {% endif %}
+            </a>
+        </div>
+        <a href="{% url 'users:profile' %}" class="mbn-item {% if request.resolver_match.url_name == 'profile' %}active{% endif %}" aria-label="{% trans "Profile" %}">
+            {% if user.avatar and user.avatar.name != 'avatars/default.png' %}
+                <span style="width:22px;height:22px;border-radius:50%;overflow:hidden;display:inline-flex;align-items:center;">
+                    <img src="{{ user.avatar.url }}" alt="" style="width:22px;height:22px;object-fit:cover;">
+                </span>
+            {% else %}
+                <i class="fas fa-user"></i>
+            {% endif %}
+            <span>{% trans "Profile" %}</span>
+        </a>
+        {% else %}
+        <a href="{% url 'core:benefits' %}" class="mbn-item {% if request.resolver_match.url_name == 'benefits' %}active{% endif %}" aria-label="{% trans "Benefits" %}">
+            <i class="fas fa-gift"></i>
+            <span>{% trans "Benefits" %}</span>
+        </a>
+        <a href="{% url 'users:login' %}" class="mbn-item {% if request.resolver_match.url_name == 'login' %}active{% endif %}" aria-label="{% trans "Sign In" %}">
+            <i class="fas fa-sign-in-alt"></i>
+            <span>{% trans "Sign In" %}</span>
+        </a>
+        {% endif %}
+    </nav>
 </body>
 </html>

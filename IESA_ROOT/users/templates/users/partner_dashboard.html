@@ -174,7 +174,7 @@
                 <div class="card-body p-0">
                     {% if visits %}
                         <div class="table-responsive">
-                            <table class="table table-hover mb-0 align-middle">
+                            <table class="table table-hover mb-0 align-middle table-mobile-cards">
                                 <thead class="table-light">
                                     <tr>
                                         <th class="px-4">{% trans "Date" %}</th>
@@ -188,11 +188,11 @@
                                 <tbody>
                                     {% for visit in visits %}
                                         <tr>
-                                            <td class="text-nowrap px-4">
+                                            <td class="text-nowrap px-4" data-label="{% trans 'Date' %}">
                                                 <div><strong>{{ visit.timestamp|date:"d M Y" }}</strong></div>
                                                 <small class="text-muted">{{ visit.timestamp|time:"H:i" }}</small>
                                             </td>
-                                            <td>
+                                            <td data-label="{% trans 'Member' %}">
                                                 <div class="d-flex align-items-center">
                                                     {% if visit.member.avatar and visit.member.avatar.name != 'avatars/default.png' %}
                                                         <img src="{{ visit.member.avatar.url }}" alt="{{ visit.member.username }} avatar" 
@@ -210,7 +210,7 @@
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td>
+                                            <td data-label="{% trans 'Service' %}">
                                                 <span class="badge bg-info text-dark" style="font-size: 0.9rem;">
                                                     {{ visit.get_service_type_display }}
                                                 </span>
@@ -218,14 +218,14 @@
                                                     <br><small class="text-muted">{{ visit.service_description|truncatewords:5 }}</small>
                                                 {% endif %}
                                             </td>
-                                            <td>
+                                            <td data-label="{% trans 'Cost' %}">
                                                 {% if visit.cost %}
                                                     <strong class="text-success">{{ visit.cost }} CHF</strong>
                                                 {% else %}
                                                     <span class="text-muted">-</span>
                                                 {% endif %}
                                             </td>
-                                            <td>
+                                            <td data-label="{% trans 'Status' %}">
                                                 {% if visit.status == 'CANCELLED' %}
                                                     <span class="badge bg-danger"><i class="fas fa-ban me-1"></i>{% trans "Cancelled" %}</span>
                                                 {% elif visit.status == 'EDITED' %}
@@ -238,7 +238,7 @@
                                                     {% endif %}
                                                 {% endif %}
                                             </td>
-                                            <td class="text-nowrap">
+                                            <td class="text-nowrap" data-label="{% trans 'Actions' %}">
                                                 {% with age=now|timeuntil:visit.timestamp %}
                                                 {% comment %}Use timesince to check if within edit window{% endcomment %}
                                                 {% endwith %}
