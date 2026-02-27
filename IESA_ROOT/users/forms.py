@@ -1,5 +1,6 @@
 from django import forms
 from django.contrib.auth.forms import UserCreationForm, UserChangeForm
+from django.utils.translation import gettext_lazy as _
 from .models import User
 from .validators import (
     validate_phone_number, 
@@ -47,7 +48,7 @@ class CustomUserChangeForm(UserChangeForm):
             'class': 'form-control date-mask',
             'pattern': '\\d{2}\\.\\d{2}\\.\\d{4}'
         }),
-        label='Дата рождения'
+        label=_('Date of birth')
     )
     
     class Meta:
@@ -80,7 +81,7 @@ class UserProfileEditForm(forms.ModelForm):
             'class': 'form-control date-mask',
             'pattern': '\\d{2}\\.\\d{2}\\.\\d{4}'
         }),
-        label='Дата рождения'
+        label=_('Date of birth')
     )
     
     github_url = forms.CharField(
@@ -89,28 +90,28 @@ class UserProfileEditForm(forms.ModelForm):
             'class': 'form-control',
             'placeholder': 'https://github.com/username'
         }),
-        label='GitHub профиль',
-        help_text='Введите полную ссылку на ваш GitHub профиль'
+        label=_('GitHub profile'),
+        help_text=_('Enter the full link to your GitHub profile')
     )
     
     discord_url = forms.CharField(
         required=False,
         widget=forms.TextInput(attrs={
             'class': 'form-control',
-            'placeholder': 'username или username#1234'
+            'placeholder': 'username or username#1234'
         }),
-        label='Discord',
-        help_text='Введите ваше имя в Discord'
+        label=_('Discord'),
+        help_text=_('Enter your Discord username')
     )
     
     telegram_url = forms.CharField(
         required=False,
         widget=forms.TextInput(attrs={
             'class': 'form-control',
-            'placeholder': '@username или t.me/username'
+            'placeholder': '@username or t.me/username'
         }),
-        label='Telegram',
-        help_text='Введите ваш Telegram username или ссылку'
+        label=_('Telegram'),
+        help_text=_('Enter your Telegram username or link')
     )
     
     website_url = forms.CharField(
@@ -119,8 +120,8 @@ class UserProfileEditForm(forms.ModelForm):
             'class': 'form-control',
             'placeholder': 'https://example.com'
         }),
-        label='Веб-сайт',
-        help_text='Введите полную ссылку на ваш сайт'
+        label=_('Website'),
+        help_text=_('Enter the full link to your website')
     )
     
     other_links = forms.CharField(
@@ -130,8 +131,8 @@ class UserProfileEditForm(forms.ModelForm):
             'rows': 3,
             'placeholder': 'https://example.com\nhttps://another-site.com'
         }),
-        label='Другие ссылки',
-        help_text='Введите дополнительные ссылки, по одной на строку'
+        label=_('Other links'),
+        help_text=_('Enter additional links, one per line')
     )
     
     class Meta:
@@ -191,7 +192,7 @@ class MemberSearchForm(forms.Form):
         required=False,
         widget=forms.TextInput(attrs={
             'class': 'form-control form-control-lg',
-            'placeholder': 'Search by name, pseudonym, or UUID...',
+            'placeholder': _('Search by name, pseudonym, or UUID...'),
             'autocomplete': 'off',
         }),
         label=''
@@ -212,8 +213,8 @@ class VisitForm(forms.ModelForm):
             'maxlength': '6',
             'autocomplete': 'off',
         }),
-        label='Member PIN (6 digits)',
-        help_text='Ask member to show their current PIN from personal cabinet'
+        label=_('Member PIN (6 digits)'),
+        help_text=_('Ask member to show their current PIN from personal cabinet')
     )
     
     class Meta:
@@ -224,7 +225,7 @@ class VisitForm(forms.ModelForm):
             'service_description': forms.Textarea(attrs={
                 'class': 'form-control',
                 'rows': 3,
-                'placeholder': 'Optional: Describe the service provided...'
+                'placeholder': _('Optional: Describe the service provided...')
             }),
             'cost': forms.NumberInput(attrs={
                 'class': 'form-control',
@@ -234,20 +235,20 @@ class VisitForm(forms.ModelForm):
             'comments': forms.Textarea(attrs={
                 'class': 'form-control',
                 'rows': 2,
-                'placeholder': 'Optional: Additional comments...'
+                'placeholder': _('Optional: Additional comments...')
             }),
         }
         labels = {
-            'service_type': 'Service Type',
-            'service_description': 'Service Description (Optional)',
-            'cost': 'Cost (Optional)',
-            'comments': 'Comments (Optional)',
+            'service_type': _('Service Type'),
+            'service_description': _('Service Description (Optional)'),
+            'cost': _('Cost (Optional)'),
+            'comments': _('Comments (Optional)'),
         }
     
     def clean_pin(self):
         """Validate PIN format"""
         pin = self.cleaned_data.get('pin', '').strip()
         if not pin.isdigit() or len(pin) != 6:
-            raise forms.ValidationError('PIN must be exactly 6 digits')
+            raise forms.ValidationError(_('PIN must be exactly 6 digits'))
         return pin
 

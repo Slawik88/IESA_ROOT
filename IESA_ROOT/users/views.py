@@ -7,6 +7,7 @@ from django.utils.decorators import method_decorator
 from django.contrib import messages
 from django.http import HttpResponseForbidden, Http404
 from django.db.models import Q, Count
+from django.utils.translation import gettext as _
 from django_ratelimit.decorators import ratelimit
 from django.core.cache import cache
 from io import BytesIO
@@ -108,7 +109,7 @@ class ProfileEditView(UpdateView):
         return self.request.user
 
     def get_success_url(self):
-        messages.success(self.request, 'Профиль успешно обновлён! ✨')
+        messages.success(self.request, _('Profile updated successfully! ✨'))
         return reverse_lazy('users:profile')
 
 
@@ -328,11 +329,11 @@ def profile_deactivate(request):
         password = request.POST.get('password', '')
         
         if not password:
-            messages.error(request, '❌ Please enter your password to confirm account deactivation.')
+            messages.error(request, _('❌ Please enter your password to confirm account deactivation.'))
             return redirect('users:profile')
         
         if not request.user.check_password(password):
-            messages.error(request, '❌ Incorrect password. Account deactivation cancelled.')
+            messages.error(request, _('❌ Incorrect password. Account deactivation cancelled.'))
             return redirect('users:profile')
         
         # Деактивируем аккаунт
@@ -342,7 +343,7 @@ def profile_deactivate(request):
         # Логируем пользователя
         logout(request)
         
-        messages.success(request, '✅ Your account has been deactivated. You can reactivate it by contacting support.')
+        messages.success(request, _('✅ Your account has been deactivated. You can reactivate it by contacting support.'))
         return redirect('core:home')
     
     # GET запрос - показываем страницу подтверждения

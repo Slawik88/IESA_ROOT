@@ -6,6 +6,8 @@ from django.utils.html import format_html
 from django.urls import path, reverse
 from django.shortcuts import redirect
 from django.contrib import messages
+from django.utils.translation import gettext_lazy as _
+from django.utils.translation import gettext
 from .services.card_service import UserCardService
 import uuid
 from django.utils import timezone
@@ -16,14 +18,14 @@ import boto3
 
 class CardStatusFilter(admin.SimpleListFilter):
     """Filter users by card status (active/inactive)."""
-    title = 'Card Status'
+    title = _('Card Status')
     parameter_name = 'card_status'
 
     def lookups(self, request, model_admin):
         return [
-            ('active', 'Card Active'),
-            ('inactive', 'Card Inactive'),
-            ('never', 'Never Issued'),
+            ('active', _('Card Active')),
+            ('inactive', _('Card Inactive')),
+            ('never', _('Never Issued')),
         ]
 
     def queryset(self, request, queryset):
@@ -38,13 +40,13 @@ class CardStatusFilter(admin.SimpleListFilter):
 
 class VerificationFilter(admin.SimpleListFilter):
     """Filter users by verification status."""
-    title = 'Verification Status'
+    title = _('Verification Status')
     parameter_name = 'verification'
 
     def lookups(self, request, model_admin):
         return [
-            ('verified', 'Verified'),
-            ('unverified', 'Unverified'),
+            ('verified', _('Verified')),
+            ('unverified', _('Unverified')),
         ]
 
     def queryset(self, request, queryset):
@@ -71,11 +73,11 @@ class UserAdmin(BaseUserAdmin):
     
     fieldsets = (
         (None, {'fields': ('username', 'password')}),
-        ('Персональная информация', {'fields': ('first_name', 'last_name', 'email', 'avatar', 'date_of_birth', 'phone_number', 'is_phone_hidden')}),
-        ('Membership', {'fields': ('membership_status', 'pseudonym', 'totp_secret_display')}),
-        ('Card QR & Actions', {'fields': ('card_qr_with_actions', 'card_active', 'card_issued_at')}),
-        ('Разрешения', {'fields': ('is_verified', 'is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions')}),
-        ('Важные даты', {'fields': ('last_login', 'date_joined', 'last_online')}),
+        (_('Personal information'), {'fields': ('first_name', 'last_name', 'email', 'avatar', 'date_of_birth', 'phone_number', 'is_phone_hidden')}),
+        (_('Membership'), {'fields': ('membership_status', 'pseudonym', 'totp_secret_display')}),
+        (_('Card QR & Actions'), {'fields': ('card_qr_with_actions', 'card_active', 'card_issued_at')}),
+        (_('Permissions'), {'fields': ('is_verified', 'is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions')}),
+        (_('Important dates'), {'fields': ('last_login', 'date_joined', 'last_online')}),
     )
     
     add_fieldsets = (
@@ -179,8 +181,8 @@ class UserAdmin(BaseUserAdmin):
         FIX: Now uses UserCardService for consistency
         """
         count = UserCardService.regenerate_qr_for_users(queryset, request)
-        self.message_user(request, f"✅ Перегенерирован QR код для {count} пользователя(ей) с сохранением permanent_id")
-    regenerate_qr_same_id.short_description = '🔄 Перегенерировать QR код (тот же ID)'
+        self.message_user(request, gettext("QR code regenerated for %(count)d user(s) with same permanent_id") % {'count': count})
+    regenerate_qr_same_id.short_description = _('🔄 Regenerate QR code (same ID)')
 
     def regenerate_permanent_id(self, request, queryset):
         """Заново создать permanent_id для каждого пользователя и QR.
@@ -191,8 +193,8 @@ class UserAdmin(BaseUserAdmin):
         FIX: Now uses bulk_update for efficient database writes
         """
         count = UserCardService.create_new_cards(queryset, request)
-        self.message_user(request, f"✅ Создан новый permanent_id и QR код для {count} пользователя(ей)")
-    regenerate_permanent_id.short_description = '🆕 Новый permanent_id и QR код (при потере карты)'
+        self.message_user(request, gettext("New permanent_id and QR code created for %(count)d user(s)") % {'count': count})
+    regenerate_permanent_id.short_description = _('🆕 New permanent_id and QR code (lost card)')
 
     def issue_card(self, request, queryset):
         """Активировать карту и установить дату выдачи.
@@ -202,8 +204,8 @@ class UserAdmin(BaseUserAdmin):
         FIX: Now uses bulk_update for efficient database writes
         """
         count = UserCardService.issue_cards(queryset, request)
-        self.message_user(request, f"✅ Выдана карта для {count} пользователя(ей)")
-    issue_card.short_description = '✓ Выдать карту (активировать)'
+        self.message_user(request, gettext("Card issued for %(count)d user(s)") % {'count': count})
+    issue_card.short_description = _('✓ Issue card (activate)')
 
     def revoke_card(self, request, queryset):
         """Деактивировать карту (пользователь не сможет использовать QR для входа).
@@ -213,8 +215,8 @@ class UserAdmin(BaseUserAdmin):
         FIX: Now uses queryset.update() instead of loop
         """
         count = UserCardService.revoke_cards(queryset)
-        self.message_user(request, f"✅ Отозвана карта у {count} пользователя(ей)")
-    revoke_card.short_description = '✗ Отозвать карту (деактивировать)'
+        self.message_user(request, gettext("Card revoked for %(count)d user(s)") % {'count': count})
+    revoke_card.short_description = _('✗ Revoke card (deactivate)')
 
     def get_urls(self):
         """Добавить кастомные URL для кнопок QR кода."""
@@ -340,10 +342,10 @@ class PartnerAdmin(admin.ModelAdmin):
     readonly_fields = ['created_at', 'total_visits']
     
     fieldsets = (
-        ('Basic Information', {
+        (_('Basic Information'), {
             'fields': ('user', 'company_name', 'business_type')
         }),
-        ('Metadata', {
+        (_('Metadata'), {
             'fields': ('created_at', 'total_visits')
         }),
     )
@@ -378,13 +380,13 @@ class VisitAdmin(admin.ModelAdmin):
     date_hierarchy = 'timestamp'
     
     fieldsets = (
-        ('Visit Information', {
+        (_('Visit Information'), {
             'fields': ('member', 'partner', 'timestamp')
         }),
-        ('Service Details', {
+        (_('Service Details'), {
             'fields': ('service_type', 'service_description', 'cost', 'comments')
         }),
-        ('Verification', {
+        (_('Verification'), {
             'fields': ('pin_verified',)
         }),
     )

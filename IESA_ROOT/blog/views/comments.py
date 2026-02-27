@@ -3,6 +3,7 @@
 from django.shortcuts import get_object_or_404, redirect, render
 from django.http import HttpResponse
 from django.contrib.auth.decorators import login_required
+from django.utils.translation import gettext as _
 
 from ..models import Post, Comment
 from ..forms import CommentForm
@@ -18,7 +19,7 @@ def comment_create(request, pk):
     
     # Только POST
     if request.method != 'POST':
-        return HttpResponse(status=405, content='Method Not Allowed. Use POST.')
+        return HttpResponse(status=405, content=_('Method Not Allowed. Use POST.'))
     
     text = request.POST.get('text', '').strip()
     parent_id = request.POST.get('parent_id')
@@ -69,7 +70,7 @@ def delete_comment(request, pk, comment_pk):
     
     # Только автор или модератор
     if request.user != comment.author and not request.user.is_staff:
-        return HttpResponse(status=403, content='Forbidden')
+        return HttpResponse(status=403, content=_('Forbidden'))
     
     comment.delete()
     

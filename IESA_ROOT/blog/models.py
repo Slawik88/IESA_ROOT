@@ -1,6 +1,7 @@
 from django.db import models
 from django.conf import settings
 from django.urls import reverse
+from django.utils.translation import gettext_lazy as _
 
 # Try to use CKEditor 5 RichTextField when available, otherwise fall back to TextField
 try:
@@ -14,26 +15,26 @@ class Post(models.Model):
     Модель поста в блоге, подлежит модерации.
     """
     STATUS_CHOICES = [
-        ('draft', 'Черновик'),
-        ('pending', 'На модерации'),
-        ('published', 'Опубликован'),
-        ('rejected', 'Отклонен'),
+        ('draft', _('Draft')),
+        ('pending', _('Pending moderation')),
+        ('published', _('Published')),
+        ('rejected', _('Rejected')),
     ]
     
-    title = models.CharField(max_length=255, verbose_name='Заголовок')
+    title = models.CharField(max_length=255, verbose_name=_('Title'))
     # Use a RichTextField with extended config when ckeditor is installed; otherwise a normal TextField
-    text = RichTextField(config_name='extends', verbose_name='Текст поста')
-    author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='blog_posts', verbose_name='Автор')
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата создания')
-    preview_image = models.ImageField(upload_to='media/blog/previews/', blank=True, null=True, verbose_name='Изображение превью')
+    text = RichTextField(config_name='extends', verbose_name=_('Post text'))
+    author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='blog_posts', verbose_name=_('Author'))
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name=_('Creation date'))
+    preview_image = models.ImageField(upload_to='media/blog/previews/', blank=True, null=True, verbose_name=_('Preview image'))
     
-    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending', verbose_name='Статус')
-    views_count = models.PositiveIntegerField(default=0, verbose_name='Просмотры')
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending', verbose_name=_('Status'))
+    views_count = models.PositiveIntegerField(default=0, verbose_name=_('Views'))
     
     class Meta:
         ordering = ['-created_at']
-        verbose_name = 'Пост'
-        verbose_name_plural = 'Посты'
+        verbose_name = _('Post')
+        verbose_name_plural = _('Posts')
         
     def __str__(self):
         return self.title
@@ -71,18 +72,18 @@ class Comment(models.Model):
     """
     Комментарии под постом с поддержкой ответов (replies).
     """
-    post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name='comments', verbose_name='Post')
-    author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='comments_authored', verbose_name='Author')
-    text = models.TextField(verbose_name='Comment text')
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Creation date')
+    post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name='comments', verbose_name=_('Post'))
+    author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='comments_authored', verbose_name=_('Author'))
+    text = models.TextField(verbose_name=_('Comment text'))
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name=_('Creation date'))
     
     # Self-referential FK для replies
-    parent = models.ForeignKey('self', on_delete=models.CASCADE, null=True, blank=True, related_name='replies', verbose_name='Parent comment')
+    parent = models.ForeignKey('self', on_delete=models.CASCADE, null=True, blank=True, related_name='replies', verbose_name=_('Parent comment'))
     
     class Meta:
         ordering = ['created_at']
-        verbose_name = 'Comment'
-        verbose_name_plural = 'Comments'
+        verbose_name = _('Comment')
+        verbose_name_plural = _('Comments')
         
     def __str__(self):
         return f'Comment from {self.author.username} to {self.post.title[:20]}...'
@@ -92,14 +93,14 @@ class CommentLike(models.Model):
     """
     Лайки для комментариев.
     """
-    comment = models.ForeignKey(Comment, on_delete=models.CASCADE, related_name='likes', verbose_name='Comment')
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, verbose_name='User')
+    comment = models.ForeignKey(Comment, on_delete=models.CASCADE, related_name='likes', verbose_name=_('Comment'))
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, verbose_name=_('User'))
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         unique_together = ('comment', 'user')
-        verbose_name = 'Comment Like'
-        verbose_name_plural = 'Comment Likes'
+        verbose_name = _('Comment Like')
+        verbose_name_plural = _('Comment Likes')
 
     def __str__(self):
         return f'Like from {self.user.username} to comment {self.comment.pk}'
@@ -108,15 +109,15 @@ class Like(models.Model):
     """
     Модель для отслеживания лайков. Используем отдельную модель для простоты HTMX.
     """
-    post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name='likes', verbose_name='Post')
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, verbose_name='User')
+    post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name='likes', verbose_name=_('Post'))
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, verbose_name=_('User'))
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         # Уникальность: один лайк от пользователя на один пост
         unique_together = ('post', 'user')
-        verbose_name = 'Like'
-        verbose_name_plural = 'Likes'
+        verbose_name = _('Like')
+        verbose_name_plural = _('Likes')
         
     def __str__(self):
         return f'Like from {self.user.username} to {self.post.title[:20]}...'
@@ -126,15 +127,15 @@ class PostView(models.Model):
     """
     Track unique views per user to prevent counting multiple views from same user.
     """
-    post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name='user_views', verbose_name='Post')
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True, verbose_name='User')
-    ip_address = models.GenericIPAddressField(null=True, blank=True, verbose_name='IP Address')
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name='View date')
+    post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name='user_views', verbose_name=_('Post'))
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True, verbose_name=_('User'))
+    ip_address = models.GenericIPAddressField(null=True, blank=True, verbose_name=_('IP Address'))
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name=_('View date'))
 
     class Meta:
         unique_together = (('post', 'user'), ('post', 'ip_address'))
-        verbose_name = 'Post View'
-        verbose_name_plural = 'Post Views'
+        verbose_name = _('Post View')
+        verbose_name_plural = _('Post Views')
 
     def __str__(self):
         return f'View of {self.post.title} by {self.user or self.ip_address}'
@@ -144,31 +145,31 @@ class Event(models.Model):
     Model for association events with improved functionality.
     """
     STATUS_CHOICES = [
-        ('upcoming', 'Upcoming'),
-        ('ongoing', 'Ongoing'),
-        ('completed', 'Completed'),
-        ('cancelled', 'Cancelled'),
+        ('upcoming', _('Upcoming')),
+        ('ongoing', _('Ongoing')),
+        ('completed', _('Completed')),
+        ('cancelled', _('Cancelled')),
     ]
     
-    title = models.CharField(max_length=255, verbose_name='Event Title')
-    description = models.TextField(verbose_name='Description')
-    date = models.DateTimeField(verbose_name='Event Date & Time')
-    end_date = models.DateTimeField(null=True, blank=True, verbose_name='End Date & Time')
-    location = models.CharField(max_length=255, verbose_name='Location')
-    image = models.ImageField(upload_to='media/events/', blank=True, null=True, verbose_name='Event Image')
-    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='upcoming', verbose_name='Status')
-    max_participants = models.PositiveIntegerField(null=True, blank=True, verbose_name='Max Participants')
-    min_age = models.PositiveSmallIntegerField(null=True, blank=True, verbose_name='Minimum Age')
-    max_age = models.PositiveSmallIntegerField(null=True, blank=True, verbose_name='Maximum Age')
-    registration_deadline = models.DateTimeField(null=True, blank=True, verbose_name='Registration Deadline')
-    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='created_events', verbose_name='Created by')
-    created_at = models.DateTimeField(auto_now_add=True, null=True, verbose_name='Created at')
-    updated_at = models.DateTimeField(auto_now=True, null=True, verbose_name='Updated at')
+    title = models.CharField(max_length=255, verbose_name=_('Event Title'))
+    description = models.TextField(verbose_name=_('Description'))
+    date = models.DateTimeField(verbose_name=_('Event Date & Time'))
+    end_date = models.DateTimeField(null=True, blank=True, verbose_name=_('End Date & Time'))
+    location = models.CharField(max_length=255, verbose_name=_('Location'))
+    image = models.ImageField(upload_to='media/events/', blank=True, null=True, verbose_name=_('Event Image'))
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='upcoming', verbose_name=_('Status'))
+    max_participants = models.PositiveIntegerField(null=True, blank=True, verbose_name=_('Max Participants'))
+    min_age = models.PositiveSmallIntegerField(null=True, blank=True, verbose_name=_('Minimum Age'))
+    max_age = models.PositiveSmallIntegerField(null=True, blank=True, verbose_name=_('Maximum Age'))
+    registration_deadline = models.DateTimeField(null=True, blank=True, verbose_name=_('Registration Deadline'))
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='created_events', verbose_name=_('Created by'))
+    created_at = models.DateTimeField(auto_now_add=True, null=True, verbose_name=_('Created at'))
+    updated_at = models.DateTimeField(auto_now=True, null=True, verbose_name=_('Updated at'))
     
     class Meta:
         ordering = ['date']
-        verbose_name = 'Event'
-        verbose_name_plural = 'Events'
+        verbose_name = _('Event')
+        verbose_name_plural = _('Events')
         indexes = [
             models.Index(fields=['date', 'status']),
         ]
@@ -218,22 +219,22 @@ class EventRegistration(models.Model):
     Event registration tracking.
     """
     STATUS_CHOICES = [
-        ('pending', 'Pending'),
-        ('confirmed', 'Confirmed'),
-        ('cancelled', 'Cancelled'),
-        ('attended', 'Attended'),
+        ('pending', _('Pending')),
+        ('confirmed', _('Confirmed')),
+        ('cancelled', _('Cancelled')),
+        ('attended', _('Attended')),
     ]
     
-    event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name='registrations', verbose_name='Event')
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='event_registrations', verbose_name='User')
-    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='confirmed', verbose_name='Status')
-    registered_at = models.DateTimeField(auto_now_add=True, verbose_name='Registered at')
-    notes = models.TextField(blank=True, verbose_name='Notes')
+    event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name='registrations', verbose_name=_('Event'))
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='event_registrations', verbose_name=_('User'))
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='confirmed', verbose_name=_('Status'))
+    registered_at = models.DateTimeField(auto_now_add=True, verbose_name=_('Registered at'))
+    notes = models.TextField(blank=True, verbose_name=_('Notes'))
     
     class Meta:
         unique_together = ('event', 'user')
-        verbose_name = 'Event Registration'
-        verbose_name_plural = 'Event Registrations'
+        verbose_name = _('Event Registration')
+        verbose_name_plural = _('Event Registrations')
         ordering = ['-registered_at']
     
     def __str__(self):
@@ -245,14 +246,14 @@ class BlogSubscription(models.Model):
     User blog subscriptions. Track which users are subscribed to receive notifications
     when new posts are published by specific authors.
     """
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='blog_subscriptions', verbose_name='Subscriber')
-    author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='subscribers', verbose_name='Author')
-    subscribed_at = models.DateTimeField(auto_now_add=True, verbose_name='Subscription date')
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='blog_subscriptions', verbose_name=_('Subscriber'))
+    author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='subscribers', verbose_name=_('Author'))
+    subscribed_at = models.DateTimeField(auto_now_add=True, verbose_name=_('Subscription date'))
 
     class Meta:
         unique_together = ('user', 'author')
-        verbose_name = 'Blog Subscription'
-        verbose_name_plural = 'Blog Subscriptions'
+        verbose_name = _('Blog Subscription')
+        verbose_name_plural = _('Blog Subscriptions')
         ordering = ['-subscribed_at']
 
     def __str__(self):

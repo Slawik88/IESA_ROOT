@@ -65,33 +65,33 @@ class User(AbstractUser):
         upload_to='avatars/', 
         default='avatars/default.png', 
         blank=True, 
-        verbose_name='Avatar'
+        verbose_name=_('Avatar')
     )
     date_of_birth = models.DateField(
         null=True, 
         blank=True, 
-        verbose_name='Date of Birth'
+        verbose_name=_('Date of Birth')
     )
     
     # Phone number with privacy option
     phone_number = models.CharField(
         max_length=20,
         blank=True,
-        verbose_name='Phone Number'
+        verbose_name=_('Phone Number')
     )
     is_phone_hidden = models.BooleanField(
         default=True,
-        verbose_name='Hide Phone Number',
-        help_text='If checked, only admins can see your phone number'
+        verbose_name=_('Hide Phone Number'),
+        help_text=_('If checked, only admins can see your phone number')
     )
     
     last_online = models.DateTimeField(
         default=timezone.now, 
-        verbose_name='Last Online'
+        verbose_name=_('Last Online')
     )
     is_verified = models.BooleanField(
         default=False, 
-        verbose_name='Verified User'
+        verbose_name=_('Verified User')
     )
 
     # Permanent card identifier (immutable). Used for QR cards and stable linking.
@@ -103,7 +103,7 @@ class User(AbstractUser):
     # MEMBERSHIP VERIFICATION SYSTEM
     membership_status = models.CharField(
         max_length=20,
-        choices=[('active', 'Active'), ('inactive', 'Inactive')],
+        choices=[('active', _('Active')), ('inactive', _('Inactive'))],
         default='inactive',
         verbose_name=_('Membership Status')
     )
@@ -111,7 +111,7 @@ class User(AbstractUser):
         max_length=64,
         blank=True,
         verbose_name=_('TOTP Secret'),
-        help_text='Base32-encoded secret for PIN generation'
+        help_text=_('Base32-encoded secret for PIN generation')
     )
 
     # Brute-force PIN protection
@@ -135,7 +135,7 @@ class User(AbstractUser):
     telegram_chat_id = models.BigIntegerField(
         null=True, blank=True, unique=True,
         verbose_name=_('Telegram Chat ID'),
-        help_text='Linked Telegram chat id (set automatically when user connects via bot or widget)',
+        help_text=_('Linked Telegram chat id (set automatically when user connects via bot or widget)'),
     )
     telegram_linked_at = models.DateTimeField(
         null=True, blank=True,
@@ -143,25 +143,25 @@ class User(AbstractUser):
     )
 
     # Social / contact links (optional)
-    github_url = models.URLField(blank=True, max_length=255, verbose_name='GitHub')
-    discord_url = models.URLField(blank=True, max_length=255, verbose_name='Discord')
-    telegram_url = models.URLField(blank=True, max_length=255, verbose_name='Telegram')
-    website_url = models.URLField(blank=True, max_length=255, verbose_name='Website')
-    other_links = models.TextField(blank=True, verbose_name='Other links (one per line)')
+    github_url = models.URLField(blank=True, max_length=255, verbose_name=_('GitHub'))
+    discord_url = models.URLField(blank=True, max_length=255, verbose_name=_('Discord'))
+    telegram_url = models.URLField(blank=True, max_length=255, verbose_name=_('Telegram'))
+    website_url = models.URLField(blank=True, max_length=255, verbose_name=_('Website'))
+    other_links = models.TextField(blank=True, verbose_name=_('Other links (one per line)'))
     # Statistics (computed but stored for performance)
-    total_posts = models.PositiveIntegerField(default=0, verbose_name='Total Posts Published')
-    total_likes_received = models.PositiveIntegerField(default=0, verbose_name='Total Likes Received')
-    total_comments_made = models.PositiveIntegerField(default=0, verbose_name='Total Comments Made')
+    total_posts = models.PositiveIntegerField(default=0, verbose_name=_('Total Posts Published'))
+    total_likes_received = models.PositiveIntegerField(default=0, verbose_name=_('Total Likes Received'))
+    total_comments_made = models.PositiveIntegerField(default=0, verbose_name=_('Total Comments Made'))
     
     # Activity points for gamification
-    activity_points = models.PositiveIntegerField(default=0, verbose_name='Activity Points')
+    activity_points = models.PositiveIntegerField(default=0, verbose_name=_('Activity Points'))
 
     # Custom manager with search() support
     objects = UserManager()
 
     class Meta:
-        verbose_name = 'User'
-        verbose_name_plural = 'Users'
+        verbose_name = _('User')
+        verbose_name_plural = _('Users')
         # FIX: Add indexes for fields used in searches and filters
         # This improves query performance dramatically for high-traffic operations
         indexes = [
@@ -329,11 +329,11 @@ class Partner(models.Model):
     business_type = models.CharField(
         max_length=100,
         choices=[
-            ('shop', 'Shop/Retail'),
-            ('service', 'Service Provider'),
-            ('gym', 'Gym/Fitness'),
-            ('restaurant', 'Restaurant/Cafe'),
-            ('other', 'Other'),
+            ('shop', _('Shop/Retail')),
+            ('service', _('Service Provider')),
+            ('gym', _('Gym/Fitness')),
+            ('restaurant', _('Restaurant/Cafe')),
+            ('other', _('Other')),
         ],
         default='other',
         verbose_name=_('Business Type')
@@ -381,11 +381,11 @@ class Visit(models.Model):
     service_type = models.CharField(
         max_length=100,
         choices=[
-            ('purchase', 'Purchase'),
-            ('consultation', 'Consultation'),
-            ('training', 'Training Session'),
-            ('event', 'Event Attendance'),
-            ('other', 'Other'),
+            ('purchase', _('Purchase')),
+            ('consultation', _('Consultation')),
+            ('training', _('Training Session')),
+            ('event', _('Event Attendance')),
+            ('other', _('Other')),
         ],
         default='other',
         verbose_name=_('Service Type')

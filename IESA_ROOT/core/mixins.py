@@ -4,6 +4,7 @@ Django Mixins для HTMX интеграции
 """
 from django.http import HttpResponse
 from django.template.loader import render_to_string
+from django.utils.translation import gettext as _
 
 
 class HTMXMixin:
@@ -85,12 +86,12 @@ class ToastMixin:
         
         if title is None:
             titles = {
-                'success': 'Успешно',
-                'danger': 'Ошибка',
-                'warning': 'Внимание',
-                'info': 'Информация'
+                'success': _('Success'),
+                'danger': _('Error'),
+                'warning': _('Warning'),
+                'info': _('Information')
             }
-            title = titles.get(level, 'Уведомление')
+            title = titles.get(level, _('Notification'))
         
         toast_html = f'''
         <div class="toast align-items-center border-0" role="alert" aria-live="assertive" aria-atomic="true"
@@ -100,7 +101,7 @@ class ToastMixin:
                     <i class="fas {icons.get(level, 'fa-info-circle')} {colors.get(level, '')} me-2"></i>
                     <strong>{title}:</strong> {message}
                 </div>
-                <button type="button" class="btn-close me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+                <button type="button" class="btn-close me-2 m-auto" data-bs-dismiss="toast" aria-label="{_('Close')}"></button>
             </div>
         </div>
         '''

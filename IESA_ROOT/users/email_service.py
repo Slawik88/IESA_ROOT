@@ -15,6 +15,7 @@ remove / unset them to fall back to Django's EMAIL_BACKEND automatically.
 import logging
 from django.core.mail import get_connection, send_mail
 from django.conf import settings
+from django.utils.translation import gettext as _
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +33,7 @@ def send_visit_confirmed(visit):
     if not member.email:
         return
 
-    subject = f'✅ Visit confirmed at {partner.company_name}'
+    subject = _('Visit confirmed at %(company)s') % {'company': partner.company_name}
     cost_display = f'{visit.cost} CHF' if visit.cost else 'N/A'
     service_display = visit.get_service_type_display()
     ts = visit.timestamp.strftime('%d.%m.%Y %H:%M')
@@ -83,7 +84,7 @@ def send_visit_edited(visit, audit):
     if not member.email:
         return
 
-    subject = f'📝 Visit record updated — {partner.company_name}'
+    subject = _('Visit record updated — %(company)s') % {'company': partner.company_name}
     ts = visit.timestamp.strftime('%d.%m.%Y %H:%M')
     html = f"""
 <html><body style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto;">
@@ -135,7 +136,7 @@ def send_visit_cancelled(visit, audit):
     if not member.email:
         return
 
-    subject = f'❌ Visit cancelled — {partner.company_name}'
+    subject = _('Visit cancelled — %(company)s') % {'company': partner.company_name}
     ts = visit.timestamp.strftime('%d.%m.%Y %H:%M')
     html = f"""
 <html><body style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto;">
@@ -169,7 +170,7 @@ def send_visit_cancelled(visit, audit):
 
 def send_test_email(recipient=ADMIN_EMAIL):
     """Send a simple test email to verify SMTP configuration."""
-    subject = '✅ IESA Sport — Test Email'
+    subject = _('IESA Sport — Test Email')
     plain = 'This is a test email from IESA Sport visit notification system.'
     html = """
 <html><body style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto;">

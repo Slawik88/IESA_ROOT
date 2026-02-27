@@ -6,6 +6,7 @@ from django.utils.decorators import method_decorator
 from django.urls import reverse_lazy
 from django.contrib import messages
 from django.db.models import Count, Q, F
+from django.utils.translation import gettext as _
 
 from ..models import Post, PostView, Like, BlogSubscription
 from ..forms import PostForm, CommentForm
@@ -168,7 +169,7 @@ class PostCreateView(LoginRequiredMixin, CreateView):
         
         messages.success(
             self.request,
-            'Ваш пост успешно отправлен на модерацию! 🎉'
+            _('Your post has been submitted for moderation! 🎉')
         )
         
         return response

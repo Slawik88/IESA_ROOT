@@ -4,6 +4,8 @@ All functions are sync (called from Django views/signals).
 """
 import logging
 
+from django.utils.translation import gettext as _
+
 from .client import send_message
 
 logger = logging.getLogger(__name__)
@@ -21,7 +23,7 @@ def notify_visit_confirmed(visit) -> bool:
     service = visit.get_service_type_display()
     name    = member.get_full_name() or member.username
     text = (
-        "✅ <b>Визит подтверждён</b>\n\n"
+        _("✅ <b>Visit confirmed</b>") + "\n\n"
         f"👤 {name}\n"
         f"🏢 {partner.company_name}\n"
         f"🏃 {service}  💰 {cost}\n"
@@ -43,7 +45,7 @@ def notify_visit_edited(visit, audit) -> bool:
     old_cost = f"{audit.previous_cost} CHF" if audit.previous_cost else "—"
     new_cost = f"{visit.cost} CHF" if visit.cost else "—"
     text = (
-        "📝 <b>Визит изменён</b>\n\n"
+        _("📝 <b>Visit edited</b>") + "\n\n"
         f"👤 {member.get_full_name() or member.username}\n"
         f"🏢 {partner.company_name}  🕐 {ts}\n"
         f"<s>{audit.previous_service_type} / {old_cost}</s>\n"
@@ -63,7 +65,7 @@ def notify_visit_cancelled(visit, audit) -> bool:
     ts       = visit.timestamp.strftime("%d.%m.%Y %H:%M")
     old_cost = f"{audit.previous_cost} CHF" if audit.previous_cost else "—"
     text = (
-        "❌ <b>Визит отменён</b>\n\n"
+        _("❌ <b>Visit cancelled</b>") + "\n\n"
         f"👤 {member.get_full_name() or member.username}\n"
         f"🏢 {partner.company_name}  🕐 {ts}\n"
         f"🏃 {audit.previous_service_type} / {old_cost}\n"
@@ -84,10 +86,10 @@ def notify_membership_activated(user) -> bool:
         return False
     name = user.get_full_name() or user.username
     text = (
-        "🎉 <b>Членство активировано!</b>\n\n"
-        f"Привет, {name}!\n"
-        "Твоё членство в IESA Sport теперь активно.\n\n"
-        "🏃 Используй <b>Личный кабинет</b> для получения PIN:\n"
-        "<a href='https://iesasport.ch/auth/cabinet/'>Открыть кабинет →</a>"
+        _("🎉 <b>Membership activated!</b>") + "\n\n"
+        + _('Hello, %(name)s!') % {'name': name} + "\n"
+        + _('Your IESA Sport membership is now active.') + "\n\n"
+        + _('🏃 Use <b>Personal Cabinet</b> to get your PIN:') + "\n"
+        "<a href='https://iesasport.ch/auth/cabinet/'>" + _('Open cabinet →') + "</a>"
     )
     return send_message(text, chat_id=chat_id)

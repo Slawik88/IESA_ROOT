@@ -1,4 +1,5 @@
 from django import forms
+from django.utils.translation import gettext_lazy as _
 from .models import Post, Comment
 
 try:
@@ -34,6 +35,6 @@ class CommentForm(forms.ModelForm):
             'text': forms.Textarea(attrs={
                 'class': 'form-control',
                 'rows': 3,
-                'placeholder': 'Напишите комментарий...'
+                'placeholder': _('Write a comment...')
             })
         }

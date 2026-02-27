@@ -9,6 +9,7 @@ import logging
 from typing import Any
 
 from asgiref.sync import sync_to_async
+from django.utils.translation import gettext as _
 
 from .link import generate_link_code
 
@@ -41,46 +42,47 @@ async def handle_start(chat_id: int, text: str, user_db) -> Reply:
         name = await sync_to_async(lambda: user_db.get_full_name() or user_db.username)()
         status = await sync_to_async(lambda: user_db.membership_status)()
         emoji = "✅" if status == "active" else "⚠️"
+        status_label = _('Active') if status == 'active' else _('Inactive')
         msg = (
-            f"👋 <b>С возвращением, {name}!</b>\n\n"
-            f"{emoji} Членство: <b>{'Активно' if status == 'active' else 'Неактивно'}</b>\n\n"
-            "Выбери действие:"
+            _('👋 <b>Welcome back, %(name)s!</b>') % {'name': name} + "\n\n"
+            f"{emoji} " + _('Membership: <b>%(status)s</b>') % {'status': status_label} + "\n\n"
+            + _('Choose an action:')
         )
         kb = _kb(
-            [_btn("📊 Мой статус", "cb:status"), _btn("❓ Помощь", "cb:help")],
-            [_url_btn("🏠 Личный кабинет", CABINET_URL)],
-            [_btn("🔓 Отвязать Telegram", "cb:unlink_ask")],
+            [_btn(_("📊 My status"), "cb:status"), _btn(_("❓ Help"), "cb:help")],
+            [_url_btn(_("🏠 Personal Cabinet"), CABINET_URL)],
+            [_btn(_("🔓 Unlink Telegram"), "cb:unlink_ask")],
         )
     else:
         msg = (
-            "👋 <b>Привет! Это бот IESA Sport.</b>\n\n"
-            "Здесь ты можешь привязать свой Telegram к аккаунту на сайте "
-            "и получать мгновенные уведомления о визитах к партнёрам.\n\n"
-            "Нажми кнопку ниже ↓"
+            _('👋 <b>Hello! This is the IESA Sport bot.</b>') + "\n\n"
+            + _('Here you can link your Telegram to your website account '
+                'and receive instant notifications about partner visits.') + "\n\n"
+            + _('Press the button below ↓')
         )
         kb = _kb(
-            [_btn("🔗 Привязать аккаунт", "cb:link")],
-            [_btn("❓ Помощь", "cb:help")],
+            [_btn(_("🔗 Link account"), "cb:link")],
+            [_btn(_("❓ Help"), "cb:help")],
         )
     return msg, kb
 
 
 async def handle_help(chat_id: int, text: str, user_db) -> Reply:
     msg = (
-        "📖 <b>IESA Sport Bot — справка</b>\n\n"
-        "🔗 <b>Привязать аккаунт</b> — получи 6-значный код и введи его в кабинете на сайте.\n\n"
-        "📊 <b>Мой статус</b> — проверь состояние членства.\n\n"
-        "🏠 <b>Личный кабинет</b> — открыть сайт, получить PIN для партнёров.\n\n"
-        "🔓 <b>Отвязать Telegram</b> — отключить уведомления.\n\n"
-        "<b>Ты получаешь уведомления о:</b>\n"
-        "✅ Подтверждении визита\n"
-        "📝 Изменении визита\n"
-        "❌ Отмене визита\n"
-        "🎉 Активации членства"
+        _('📖 <b>IESA Sport Bot — help</b>') + "\n\n"
+        + _('🔗 <b>Link account</b> — get a 6-digit code and enter it in your cabinet on the site.') + "\n\n"
+        + _('📊 <b>My status</b> — check your membership status.') + "\n\n"
+        + _('🏠 <b>Personal Cabinet</b> — open the site, get your PIN for partners.') + "\n\n"
+        + _('🔓 <b>Unlink Telegram</b> — disable notifications.') + "\n\n"
+        + _('<b>You receive notifications about:</b>') + "\n"
+        + _('✅ Visit confirmation') + "\n"
+        + _('📝 Visit edit') + "\n"
+        + _('❌ Visit cancellation') + "\n"
+        + _('🎉 Membership activation')
     )
     kb = _kb(
-        [_btn("🔗 Привязать аккаунт", "cb:link"), _btn("📊 Мой статус", "cb:status")],
-        [_url_btn("🏠 Личный кабинет", CABINET_URL)],
+        [_btn(_("🔗 Link account"), "cb:link"), _btn(_("📊 My status"), "cb:status")],
+        [_url_btn(_("🏠 Personal Cabinet"), CABINET_URL)],
     )
     return msg, kb
 
@@ -116,28 +118,28 @@ async def handle_id(chat_id: int, text: str, user_db) -> Reply:
     account_line = ""
     if user_db:
         name = await sync_to_async(lambda: user_db.get_full_name() or user_db.username)()
-        account_line = f"\n👤 Привязан к: <b>{name}</b>"
-    msg = f"Твой Telegram chat_id:\n<code>{chat_id}</code>" + account_line
+        account_line = "\n" + _('👤 Linked to: <b>%(name)s</b>') % {'name': name}
+    msg = _('Your Telegram chat_id:') + f"\n<code>{chat_id}</code>" + account_line
     return msg, None
 
 
 async def handle_status(chat_id: int, text: str, user_db) -> Reply:
     if not user_db:
-        msg = "❌ Telegram не привязан к аккаунту IESA Sport."
-        kb = _kb([_btn("🔗 Привязать аккаунт", "cb:link")])
+        msg = _("❌ Telegram is not linked to an IESA Sport account.")
+        kb = _kb([_btn(_("🔗 Link account"), "cb:link")])
         return msg, kb
 
     name   = await sync_to_async(lambda: user_db.get_full_name() or user_db.username)()
     status = await sync_to_async(lambda: user_db.membership_status)()
     emoji  = "✅" if status == "active" else "⚠️"
-    label  = "Активно" if status == "active" else "Неактивно"
+    label  = _('Active') if status == 'active' else _('Inactive')
     msg = (
         f"👤 <b>{name}</b>\n"
-        f"{emoji} Статус членства: <b>{label}</b>"
+        f"{emoji} " + _('Membership status: <b>%(label)s</b>') % {'label': label}
     )
     kb = _kb(
-        [_url_btn("🏠 Личный кабинет", CABINET_URL), _btn("🔄 Обновить", "cb:status")],
-        [_btn("🔓 Отвязать Telegram", "cb:unlink_ask")],
+        [_url_btn(_("🏠 Personal Cabinet"), CABINET_URL), _btn(_("🔄 Refresh"), "cb:status")],
+        [_btn(_("🔓 Unlink Telegram"), "cb:unlink_ask")],
     )
     return msg, kb
 
@@ -145,15 +147,15 @@ async def handle_status(chat_id: int, text: str, user_db) -> Reply:
 async def handle_unlink_ask(chat_id: int, text: str, user_db) -> Reply:
     """Show confirmation before unlinking."""
     if not user_db:
-        return "ℹ️ Этот Telegram не привязан ни к одному аккаунту.", None
-    msg = "⚠️ <b>Отвязать Telegram от аккаунта?</b>\n\nТы перестанешь получать уведомления."
-    kb = _kb([_btn("✅ Да, отвязать", "cb:unlink_yes"), _btn("❌ Отмена", "cb:cancel")])
+        return _("ℹ️ This Telegram is not linked to any account."), None
+    msg = _("⚠️ <b>Unlink Telegram from account?</b>") + "\n\n" + _('You will stop receiving notifications.')
+    kb = _kb([_btn(_("✅ Yes, unlink"), "cb:unlink_yes"), _btn(_("❌ Cancel"), "cb:cancel")])
     return msg, kb
 
 
 async def handle_unlink_yes(chat_id: int, text: str, user_db) -> Reply:
     if not user_db:
-        return "ℹ️ Уже отвязан.", None
+        return _("ℹ️ Already unlinked."), None
 
     def _do_unlink():
         from users.models import User
@@ -163,25 +165,25 @@ async def handle_unlink_yes(chat_id: int, text: str, user_db) -> Reply:
         )
 
     count = await sync_to_async(_do_unlink)()
-    msg = "✅ Telegram отвязан от аккаунта." if count else "ℹ️ Уже отвязан."
-    kb = _kb([_btn("🔗 Привязать снова", "cb:link")])
+    msg = _("✅ Telegram unlinked from account.") if count else _("ℹ️ Already unlinked.")
+    kb = _kb([_btn(_("🔗 Link again"), "cb:link")])
     return msg, kb
 
 
 async def handle_cancel(chat_id: int, text: str, user_db) -> Reply:
-    return "↩️ Отменено.", None
+    return _("↩️ Cancelled."), None
 
 
 async def handle_echo(chat_id: int, text: str, user_db) -> Reply:
     msg = (
         f"🔁 {text}\n\n"
-        "<i>Я повторяю твои сообщения в режиме теста. "
-        "Используй кнопки или команды ниже.</i>"
+        "<i>" + _('I repeat your messages in test mode. '
+                  'Use buttons or commands below.') + "</i>"
     )
     if user_db:
         kb = _kb(
-            [_btn("📊 Мой статус", "cb:status"), _url_btn("🏠 Кабинет", CABINET_URL)],
+            [_btn(_("📊 My status"), "cb:status"), _url_btn(_("🏠 Cabinet"), CABINET_URL)],
         )
     else:
-        kb = _kb([_btn("🔗 Привязать аккаунт", "cb:link"), _btn("❓ Помощь", "cb:help")])
+        kb = _kb([_btn(_("🔗 Link account"), "cb:link"), _btn(_("❓ Help"), "cb:help")])
     return msg, kb

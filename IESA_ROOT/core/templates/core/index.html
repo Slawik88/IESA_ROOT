@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% load static i18n %}
 
-{% block title %}IESA — Extreme Sports Association{% endblock %}
+{% block title %}{% trans "IESA — Extreme Sports Association" %}{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -854,7 +854,7 @@
                 <h2 class="hp-h2">{% trans "Support our" %} <span>{% trans "association" %}</span></h2>
                 <p class="don-desc">{% trans "Your support helps us launch new projects, organize events and grow our international community." %}</p>
                 <div class="don-prog-wrap">
-                    <div class="don-prog-head"><span>{% trans "Current Goal" %}</span><strong>CHF 4,500 / 10,000</strong></div>
+                    <div class="don-prog-head"><span>{% trans "Current Goal" %}</span><strong>{% trans "CHF" %} 4,500 / 10,000</strong></div>
                     <div class="don-track"><div class="don-fill" id="don-fill"></div></div>
                     <div class="don-meta">
                         <span class="d-m"><i class="fas fa-users"></i> 142 {% trans "donors" %}</span>
@@ -917,7 +917,7 @@
 /* ── 2. WORD SWAP ──────────────── */
 (function(){
     const el=document.getElementById('hero-dword'); if(!el) return;
-    const words=['Kitesurfing','Diving','Climbing','Yachting','Surfing','Boxing'];
+    const words=['{% trans "Kitesurfing" %}','{% trans "Diving" %}','{% trans "Climbing" %}','{% trans "Yachting" %}','{% trans "Surfing" %}','{% trans "Boxing" %}'];
     let i=0;
     setInterval(()=>{
         el.classList.add('exiting');
