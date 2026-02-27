@@ -3,6 +3,9 @@
 
 {% block title %}{{ user_obj.get_full_name|default:user_obj.username }} — {% trans "Profile" %} | IESA{% endblock %}
 
+{% block container_wrap_start %}{% endblock %}
+{% block container_wrap_end %}{% endblock %}
+
 {% block content %}
 <div class="container-limited">
   <div class="row justify-content-center">

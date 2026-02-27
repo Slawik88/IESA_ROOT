@@ -112,9 +112,9 @@
     </div>
     
     <!-- Header Section -->
-    <header class="shadow-sm bg-white sticky-top">
+    <header class="iesa-header sticky-top">
         <div class="container-limited">
-            <nav class="navbar navbar-expand-lg navbar-light py-1" aria-label="{% trans "Main navigation" %}">
+            <nav class="navbar navbar-expand-lg navbar-dark py-2" aria-label="{% trans "Main navigation" %}">
                 <a class="navbar-brand fw-bold fs-4" href="{% url 'core:home' %}" aria-label="{% trans "IESA Home" %}">
                     <img src="{% static 'img/logo.png' %}" alt="{% trans "IESA Logo" %}" class="navbar-logo">
                 </a>
@@ -156,8 +156,8 @@
                             </select>
                         </form>
                         <!-- Community search (global, HTMX live results) -->
-                        <div class="me-2 dropdown community-search-wrap">
-                            <button class="btn btn-light btn-sm" id="communitySearchToggle" data-bs-toggle="dropdown" aria-expanded="false" title="{% trans "Search community" %}" aria-label="{% trans "Open search menu" %}">
+                        <div class="me-1 dropdown community-search-wrap">
+                            <button class="btn btn-nav-icon" id="communitySearchToggle" data-bs-toggle="dropdown" aria-expanded="false" title="{% trans "Search community" %}" aria-label="{% trans "Open search menu" "}">
                                 <i class="fas fa-search"></i>
                             </button>
                             <div class="dropdown-menu dropdown-menu-end p-3 navbar-search-dropdown" onclick="event.stopPropagation();">
@@ -178,7 +178,7 @@
                         {% if user.is_authenticated %}
                             <!-- Notifications dropdown -->
                             <div class="dropdown">
-                                <button class="btn btn-light btn-sm position-relative d-flex align-items-center" 
+                                <button class="btn btn-nav-icon position-relative d-flex align-items-center" 
                                         id="notificationsToggle" 
                                         data-bs-toggle="dropdown"
                                         aria-expanded="false"
@@ -203,8 +203,8 @@
                                     </div>
                                 </div>
                             </div>
-                            <a href="{% url 'users:profile' %}" class="btn btn-light btn-sm position-relative d-flex align-items-center navbar-btn">
-                                <i class="fas fa-user me-2 d-sm-none"></i>
+                            <a href="{% url 'users:profile' %}" class="btn btn-nav-profile position-relative navbar-btn">
+                                <i class="fas fa-user d-sm-none"></i>
                                 {% if user.avatar and user.avatar.name != 'avatars/default.png' %}
                                     <span class="avatar avatar-sm me-2 d-none d-sm-inline-flex"><img src="{{ user.avatar.url }}" alt="Avatar"></span>
                                 {% else %}
@@ -212,9 +212,9 @@
                                 {% endif %}
                                 <span>{% trans "Profile" %}</span>
                             </a>
-                                <button type="button" class="btn btn-outline-secondary btn-modern navbar-btn" data-bs-toggle="modal" data-bs-target="#logoutConfirmModal">{% trans "Logout" %}</button>
+                                <button type="button" class="btn btn-nav-outline navbar-btn" data-bs-toggle="modal" data-bs-target="#logoutConfirmModal">{% trans "Logout" %}</button>
                         {% else %}
-                            <a href="{% url 'users:login' %}" class="btn btn-outline-primary btn-modern navbar-btn">{% trans "Sign In" %}</a>
+                            <a href="{% url 'users:login' %}" class="btn btn-nav-outline navbar-btn">{% trans "Sign In" %}</a>
                             <a href="{% url 'users:register' %}" class="btn btn-primary btn-modern navbar-btn">{% trans "Register" %}</a>
                         {% endif %}
                     </div>
@@ -224,7 +224,7 @@
     </header>
 
     <!-- Main Content -->
-    <main class="py-5" id="main-content" role="main">
+    <main class="" id="main-content" role="main">
         {% if messages %}
             <div class="container-limited">
                 {% for message in messages %}
@@ -236,11 +236,11 @@
             </div>
         {% endif %}
 
-    <div class="container-limited">
+    {% block container_wrap_start %}<div class="container-limited" style="padding-top:2.5rem;padding-bottom:4rem;">{% endblock %}
     {% block content %}
     <!-- Content goes here -->
     {% endblock %}
-    </div>
+    {% block container_wrap_end %}</div>{% endblock %}
 
         </main>
 

@@ -4,354 +4,599 @@
 
 {% block title %}{% blocktrans with username=profile_user.username %}Profile of {{ username }}{% endblocktrans %}{% endblock %}
 
+{% block container_wrap_start %}{% endblock %}
+{% block container_wrap_end %}{% endblock %}
+
+{% block extra_css %}
+<style>
+/* ================================================================
+   IESA PROFILE PAGE — REDESIGN 2026
+   Dark glassmorphism, consistent with homepage
+================================================================ */
+
+.profile-page-v2 {
+  background: #0e0e18;
+  min-height: 100vh;
+  padding-bottom: 5rem;
+}
+
+/* ── Hero strip ─────────────────────────────────── */
+.profile-hero-strip {
+  position: relative;
+  background: linear-gradient(180deg, #0a0a0f 0%, #111020 100%);
+  padding: 3.5rem 0 5.5rem;
+  overflow: hidden;
+}
+.profile-hero-strip::before {
+  content: '';
+  position: absolute;
+  top: -120px; left: -120px;
+  width: 520px; height: 520px;
+  background: radial-gradient(circle, rgba(220,38,38,.18) 0%, transparent 70%);
+  pointer-events: none;
+}
+.profile-hero-strip::after {
+  content: '';
+  position: absolute;
+  bottom: -80px; right: 0;
+  width: 380px; height: 380px;
+  background: radial-gradient(circle, rgba(59,130,246,.1) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.profile-hp-container {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0 1.5rem;
+  position: relative;
+  z-index: 1;
+}
+
+/* ── Avatar + identity block ────────────────────── */
+.profile-identity {
+  display: flex;
+  align-items: flex-end;
+  gap: 2rem;
+  margin-bottom: 1.5rem;
+}
+.profile-avatar-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+.profile-avatar-v2 {
+  width: 110px; height: 110px;
+  border-radius: 50%;
+  border: 3px solid rgba(220,38,38,.5);
+  box-shadow: 0 0 0 8px rgba(220,38,38,.08);
+  object-fit: cover;
+  display: block;
+}
+.profile-avatar-fallback-v2 {
+  width: 110px; height: 110px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #dc2626, #991b1b);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 2.8rem; font-weight: 900; color: #fff;
+  border: 3px solid rgba(220,38,38,.5);
+  box-shadow: 0 0 0 8px rgba(220,38,38,.08);
+}
+.profile-identity-info { padding-bottom: .3rem; }
+.profile-name-v2 {
+  font-size: 1.8rem; font-weight: 900; line-height: 1.05;
+  color: #fff; letter-spacing: -.03em; margin: 0 0 .35rem;
+}
+.profile-email-v2 {
+  font-size: .88rem; color: rgba(255,255,255,.4);
+  font-weight: 500; margin: 0;
+}
+.profile-id-v2 {
+  display: inline-flex; align-items: center; gap: .5rem;
+  background: rgba(220,38,38,.1); border: 1px solid rgba(220,38,38,.3);
+  border-radius: 8px; padding: .3rem .75rem;
+  font-family: monospace; font-size: .78rem; color: #f87171;
+  margin-top: .6rem;
+}
+
+/* ── Quick action buttons ───────────────────────── */
+.profile-actions {
+  display: flex; gap: .75rem; flex-wrap: wrap; margin-top: 1rem;
+}
+.btn-profile-primary {
+  display: inline-flex; align-items: center; gap: .5rem;
+  background: var(--primary); color: #fff; border: none;
+  border-radius: 10px; padding: .55rem 1.2rem;
+  font-size: .88rem; font-weight: 700; text-decoration: none;
+  transition: opacity .2s, transform .2s;
+}
+.btn-profile-primary:hover { opacity: .88; color: #fff; transform: translateY(-1px); }
+.btn-profile-outline {
+  display: inline-flex; align-items: center; gap: .5rem;
+  background: transparent; color: rgba(255,255,255,.7);
+  border: 1px solid rgba(255,255,255,.15); border-radius: 10px;
+  padding: .55rem 1.2rem; font-size: .88rem; font-weight: 600;
+  text-decoration: none; cursor: pointer;
+  transition: background .2s, border-color .2s, color .2s;
+}
+.btn-profile-outline:hover {
+  background: rgba(255,255,255,.07); border-color: rgba(255,255,255,.3); color: #fff;
+}
+
+/* ── Info pills row (dark version) ─────────────── */
+.profile-pills-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+  margin-top: 2.5rem;
+}
+.info-pill-v2 {
+  display: flex; align-items: center; gap: .9rem;
+  background: rgba(255,255,255,.055);
+  border: 1px solid rgba(255,255,255,.09);
+  border-radius: 14px; padding: .9rem 1rem;
+  transition: background .25s, border-color .25s;
+}
+.info-pill-v2:hover {
+  background: rgba(255,255,255,.09);
+  border-color: rgba(255,255,255,.16);
+}
+.pv2-icon {
+  width: 40px; height: 40px; border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: .95rem; color: #fff; flex-shrink: 0;
+}
+.pv2-red .pv2-icon { background: #dc2626; }
+.pv2-blue .pv2-icon { background: #3b82f6; }
+.pv2-amber .pv2-icon { background: #f59e0b; }
+.pv2-green .pv2-icon { background: #10b981; }
+.pv2-label {
+  font-size: .7rem; text-transform: uppercase; letter-spacing: .1em;
+  color: rgba(255,255,255,.35); margin: 0 0 2px; font-weight: 600;
+}
+.pv2-value {
+  font-size: .88rem; font-weight: 700; color: #fff; margin: 0;
+  word-break: break-word;
+}
+
+/* ── Main content area ──────────────────────────── */
+.profile-content-area {
+  max-width: 1100px;
+  margin: -2.5rem auto 0;
+  padding: 0 1.5rem;
+  position: relative;
+  z-index: 2;
+}
+
+/* ── Cards (dark glass) ─────────────────────────── */
+.profile-card-dark {
+  background: rgba(255,255,255,.04);
+  border: 1px solid rgba(255,255,255,.09);
+  border-radius: 20px;
+  padding: 1.75rem;
+  margin-bottom: 1.25rem;
+  transition: border-color .25s;
+}
+.profile-card-dark:hover { border-color: rgba(255,255,255,.16); }
+
+.profile-card-title {
+  font-size: .72rem; font-weight: 700; letter-spacing: .14em; text-transform: uppercase;
+  color: rgba(255,255,255,.35); margin-bottom: 1.25rem;
+  display: flex; align-items: center; gap: .5rem;
+}
+.profile-card-title::before {
+  content: ''; width: 16px; height: 2px; background: var(--primary);
+  border-radius: 2px; display: inline-block;
+}
+
+/* ── Activity / level card ──────────────────────── */
+.activity-row {
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 1.5rem;
+}
+.activity-points-big {
+  font-size: 3rem; font-weight: 900; line-height: 1;
+  color: #f87171; letter-spacing: -.04em;
+}
+.activity-points-label {
+  font-size: .8rem; color: rgba(255,255,255,.4); font-weight: 500; margin-left: .3rem;
+}
+.progress-dark {
+  height: 6px; background: rgba(255,255,255,.08);
+  border-radius: 50px; overflow: hidden; margin: .6rem 0 .3rem;
+}
+.progress-dark-fill {
+  height: 100%; background: linear-gradient(90deg, #dc2626, #f87171);
+  border-radius: 50px; transition: width 1.4s cubic-bezier(.22,1,.36,1);
+}
+
+/* ── Social link chips (dark) ───────────────────── */
+.link-chips-dark {
+  display: flex; flex-wrap: wrap; gap: .6rem;
+}
+.link-chip-dark {
+  display: inline-flex; align-items: center; gap: .5rem;
+  background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.12);
+  color: rgba(255,255,255,.75); border-radius: 10px;
+  padding: .45rem 1rem; font-size: .83rem; font-weight: 600;
+  text-decoration: none; transition: all .2s;
+}
+.link-chip-dark:hover { background: rgba(255,255,255,.13); color: #fff; border-color: rgba(255,255,255,.25); }
+
+/* ── Stat chips (dark) ──────────────────────────── */
+.stat-chips-dark {
+  display: grid; grid-template-columns: repeat(3,1fr); gap: 1rem;
+}
+.stat-chip-dark {
+  background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08);
+  border-radius: 16px; padding: 1.25rem; display: flex; align-items: center; gap: .9rem;
+  transition: background .25s;
+}
+.stat-chip-dark:hover { background: rgba(255,255,255,.07); }
+.scd-icon {
+  width: 42px; height: 42px; border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.1rem; color: #fff; flex-shrink: 0;
+}
+.scd-red .scd-icon { background: rgba(220,38,38,.85); }
+.scd-amber .scd-icon { background: rgba(245,158,11,.85); }
+.scd-green .scd-icon { background: rgba(16,185,129,.85); }
+.scd-label { font-size: .72rem; text-transform: uppercase; letter-spacing: .08em; color: rgba(255,255,255,.35); margin: 0 0 2px; }
+.scd-value { font-size: 1.5rem; font-weight: 900; color: #fff; margin: 0; letter-spacing: -.03em; }
+
+/* ── Posts table (dark) ─────────────────────────── */
+.posts-table-dark {
+  width: 100%; border-collapse: separate; border-spacing: 0;
+}
+.posts-table-dark th {
+  font-size: .7rem; text-transform: uppercase; letter-spacing: .1em;
+  color: rgba(255,255,255,.35); font-weight: 600;
+  padding: .6rem 1rem; border-bottom: 1px solid rgba(255,255,255,.08);
+}
+.posts-table-dark td {
+  padding: .85rem 1rem; border-bottom: 1px solid rgba(255,255,255,.05);
+  color: rgba(255,255,255,.75); font-size: .875rem;
+  vertical-align: middle;
+}
+.posts-table-dark tr:last-child td { border-bottom: none; }
+.posts-table-dark tr:hover td { background: rgba(255,255,255,.03); }
+.posts-table-dark .post-title { color: #fff; font-weight: 600; }
+
+/* ── QR block ───────────────────────────────────── */
+.qr-block {
+  background: rgba(220,38,38,.06);
+  border: 1px solid rgba(220,38,38,.2);
+  border-radius: 18px; padding: 1.5rem; text-align: center;
+}
+.qr-block img {
+  width: 160px; height: 160px;
+  border-radius: 12px; display: block; margin: 0 auto;
+  background: #fff; padding: .5rem;
+  box-shadow: 0 8px 24px rgba(0,0,0,.4);
+}
+
+/* ── Level badge ────────────────────────────────── */
+.badge-level-v2 {
+  display: inline-flex; align-items: center; gap: .4rem;
+  padding: .35rem .9rem; border-radius: 8px;
+  font-size: .8rem; font-weight: 700;
+  border: 1px solid;
+}
+.badge-legend { background: rgba(220,38,38,.12); color: #f87171; border-color: rgba(220,38,38,.3); }
+.badge-expert { background: rgba(245,158,11,.12); color: #fbbf24; border-color: rgba(245,158,11,.3); }
+.badge-advanced { background: rgba(59,130,246,.12); color: #60a5fa; border-color: rgba(59,130,246,.3); }
+.badge-intermediate { background: rgba(16,185,129,.12); color: #34d399; border-color: rgba(16,185,129,.3); }
+.badge-beginner { background: rgba(107,114,128,.12); color: #9ca3af; border-color: rgba(107,114,128,.3); }
+
+/* ── Responsive ─────────────────────────────────── */
+@media (max-width: 991.98px) {
+  .profile-pills-row { grid-template-columns: repeat(2,1fr); }
+  .stat-chips-dark { grid-template-columns: 1fr; }
+}
+@media (max-width: 575.98px) {
+  .profile-identity { flex-direction: column; align-items: center; text-align: center; }
+  .profile-pills-row { grid-template-columns: 1fr; }
+  .stat-chips-dark { grid-template-columns: 1fr; }
+  .activity-row { flex-direction: column; text-align: center; }
+  .profile-avatar-v2, .profile-avatar-fallback-v2 { width: 90px; height: 90px; }
+  .profile-name-v2 { font-size: 1.4rem; }
+}
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="profile-page py-5">
-    <div class="container container-profile">
-        <div class="row justify-content-center">
-            <div class="col-12 max-w-1200">
-                <!-- Profile Header -->
-                <div class="profile-header mb-5">
-                    <div class="row g-4">
-                        <!-- Avatar -->
-                        <div class="col-lg-3 col-md-4 text-center mb-4 mb-md-0">
-                            <div class="profile-avatar-frame position-relative d-inline-block">
-                                {% if profile_user.avatar and profile_user.avatar.name != 'avatars/default.png' %}
-                                    <img src="{{ profile_user.avatar.url }}" 
-                                         alt="{{ profile_user.username }}" 
-                                         class="profile-avatar">
-                                {% else %}
-                                    <div class="profile-avatar-fallback">
-                                        {{ profile_user.username|slice:":1"|upper }}
-                                    </div>
-                                {% endif %}
-                            </div>
-                            
-                            <h2 class="profile-name">{{ profile_user.username }}</h2>
-                            <p class="profile-email mb-3">{{ profile_user.email }}</p>
-                            
-                            {% if user.is_authenticated and user.id == profile_user.id %}
-                                <!-- Own Profile - Edit Button -->
-                                <div class="mb-3">
-                                    <a href="{% url 'users:profile_edit' %}" class="btn btn-primary w-100">
-                                        <i class="fas fa-edit me-2"></i>{% trans "Edit Profile" %}
-                                    </a>
-                                </div>
-                            {% endif %}
-                            
-                            {% if user.is_authenticated and user.id == profile_user.id and profile_user.permanent_id %}
-                                <!-- Own Profile - ID Badge -->
-                                <div class="mb-3">
-                                    <span class="profile-id-badge">
-                                        {% trans "ID" %}: {{ profile_user.permanent_id }}
-                                    </span>
-                                </div>
+<div class="profile-page-v2">
 
-                                <!-- QR Code Section -->
-                                <div class="mb-4">
-                                    <div class="profile-qr-card">
-                                        <h6 class="profile-detail-label mb-3">{% trans "Your QR Code" %}</h6>
-                                        <a href="{% url 'users:profile_by_card' permanent_id=profile_user.permanent_id %}" title="{% trans "Open profile by card" %}">
-                                            <img src="{% url 'users:user_qr' permanent_id=profile_user.permanent_id %}" 
-                                                 alt="{% trans "QR Code" %}" class="qr-code-img">
-                                        </a>
-                                        <p class="mt-3 mb-0 small text-muted">{% trans "Scan to view profile" %}</p>
-                                    </div>
-                                </div>
-                                <div class="d-flex gap-2 flex-column">
-                                    <a href="{% url 'users:user_qr' permanent_id=profile_user.permanent_id %}?download=1" class="btn btn-outline-primary">
-                                        <i class="fas fa-qrcode me-2"></i>{% trans "Download QR" %}
-                                    </a>
-                                </div>
-                            {% elif user.is_authenticated and user.id != profile_user.id %}
-                                <!-- Other User's Profile - Authenticated -->
-                                <div class="d-flex gap-2 flex-column mb-4">
-                                    <button class="btn btn-primary btn-modern follow-btn" 
-                                            data-user-id="{{ profile_user.id }}"
-                                            data-username="{{ profile_user.username }}"
-                                            type="button">
-                                        <i class="fas fa-user-plus me-2"></i>
-                                        <span class="follow-text">{% trans "Follow" %}</span>
-                                    </button>
-                                </div>
-                                
-                                <!-- User Stats -->
-                                <div class="profile-user-stats mb-3">
-                                    <div class="stat-item">
-                                        <span class="stat-value">{{ profile_user.post_set.count|default:0 }}</span>
-                                        <span class="stat-label">{% trans "Posts" %}</span>
-                                    </div>
-                                    <div class="stat-item">
-                                        <span class="stat-value">{{ profile_user.comment_set.count|default:0 }}</span>
-                                        <span class="stat-label">{% trans "Comments" %}</span>
-                                    </div>
-                                </div>
-                            {% elif not user.is_authenticated %}
-                                <!-- Not Authenticated -->
-                                <div class="alert alert-info mb-4">
-                                    <i class="fas fa-info-circle me-2"></i>
-                                    <a href="{% url 'users:login' %}">{% trans "Sign in" %}</a> {% trans "to follow users" %}
-                                </div>
-                            {% endif %}
-                        </div>
-
-                        <!-- Profile Details -->
-                        <div class="col-lg-9 col-md-8">
-                            <div class="profile-info-grid mb-4">
-                                <div class="info-pill pill-red">
-                                    <div class="pill-icon"><i class="fas fa-user"></i></div>
-                                    <div>
-                                        <p class="pill-label">{% trans "Full name" %}</p>
-                                        <p class="pill-value">{{ profile_user.first_name|default:"—" }} {{ profile_user.last_name|default:"—" }}</p>
-                                    </div>
-                                </div>
-                                <div class="info-pill pill-blue">
-                                    <div class="pill-icon"><i class="fas fa-birthday-cake"></i></div>
-                                    <div>
-                                        <p class="pill-label">{% trans "Date of birth" %}</p>
-                                        <p class="pill-value">
-                                            {% if profile_user.date_of_birth %}
-                                                {{ profile_user.date_of_birth|date:"d.m.Y" }}
-                                                {% with age=profile_user.get_age %}
-                                                    {% if age %} ({{ age }} {% trans "years" %}){% endif %}
-                                                {% endwith %}
-                                            {% else %}—{% endif %}
-                                        </p>
-                                    </div>
-                                </div>
-                                <div class="info-pill pill-amber">
-                                    <div class="pill-icon"><i class="fas fa-phone"></i></div>
-                                    <div>
-                                        <p class="pill-label">{% trans "Phone" %}</p>
-                                        <p class="pill-value">
-                                            {% if profile_user.phone_number %}
-                                                {% if profile_user.is_phone_hidden and not user.is_staff and user != profile_user %}
-                                                    <i class="fas fa-eye-slash text-muted"></i> {% trans "Hidden" %}
-                                                {% else %}
-                                                    {{ profile_user.phone_number }}
-                                                {% endif %}
-                                            {% else %}{% trans "Not specified" %}{% endif %}
-                                        </p>
-                                    </div>
-                                </div>
-                                <div class="info-pill pill-emerald">
-                                    <div class="pill-icon"><i class="fas fa-calendar"></i></div>
-                                    <div>
-                                        <p class="pill-label">{% trans "Joined" %}</p>
-                                        <p class="pill-value">{{ profile_user.date_joined|date:"d M Y" }}</p>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Activity Level -->
-                            <div class="profile-activity-card mb-5">
-                                {% with level_info=profile_user.get_achievement_level %}
-                                <div class="row align-items-center">
-                                    <div class="col-md-6 text-center text-md-start mb-4 mb-md-0">
-                                        <div class="d-flex flex-column flex-md-row align-items-center gap-4">
-                                            <div>
-                                                <h6 class="profile-detail-label mb-3">{% trans "Activity Level" %}</h6>
-                                                {% if level_info.level == "Legend" %}
-                                                    <span class="badge badge-danger badge-level">
-                                                        <i class="fas fa-crown me-2"></i>{% trans "Legend" %}
-                                                    </span>
-                                                {% elif level_info.level == "Expert" %}
-                                                    <span class="badge badge-warning badge-level">
-                                                        <i class="fas fa-star me-2"></i>{% trans "Expert" %}
-                                                    </span>
-                                                {% elif level_info.level == "Advanced" %}
-                                                    <span class="badge badge-info badge-level">
-                                                        <i class="fas fa-rocket me-2"></i>{% trans "Advanced" %}
-                                                    </span>
-                                                {% elif level_info.level == "Intermediate" %}
-                                                    <span class="badge badge-success badge-level">
-                                                        <i class="fas fa-fire me-2"></i>{% trans "Intermediate" %}
-                                                    </span>
-                                                {% else %}
-                                                    <span class="badge badge-secondary badge-level">
-                                                        <i class="fas fa-leaf me-2"></i>{% trans "Beginner" %}
-                                                    </span>
-                                                {% endif %}
-                                            </div>
-                                            <a href="{% url 'users:activity_levels_info' %}" class="btn btn-ghost btn-sm" title="{% trans "Learn about activity levels" %}">
-                                                <i class="fas fa-question-circle"></i>
-                                            </a>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6 text-center text-md-end">
-                                        <div class="mb-3">
-                                            <span class="profile-activity-points">{{ profile_user.activity_points }}</span>
-                                            <span class="profile-activity-label">{% trans "Activity Points" %}</span>
-                                        </div>
-                                        {% if level_info.next_level %}
-                                        <div class="small">
-                                            <p class="text-muted fw-semibold mb-2">{% blocktrans with level=level_info.next_level %}Progress to {{ level }}:{% endblocktrans %}</p>
-                                            <div class="progress">
-                                                <div class="progress-bar" role="progressbar" 
-                                                     style="width: {{ level_info.progress }}%;" 
-                                                     aria-valuenow="{{ level_info.progress }}" aria-valuemin="0" aria-valuemax="100">
-                                                </div>
-                                            </div>
-                                            <p class="text-muted fw-bold mt-2">{{ level_info.progress }}%</p>
-                                        </div>
-                                        {% else %}
-                                        <div class="small text-warning fw-bold">
-                                            <i class="fas fa-trophy"></i> {% trans "Maximum level achieved!" %}
-                                        </div>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                                {% endwith %}
-                            </div>
-
-                            <!-- Social Links -->
-                            {% if profile_user.github_url or profile_user.website_url or profile_user.telegram_url or profile_user.discord_url or profile_user.other_links %}
-                            <div class="profile-links-card mb-5">
-                                <div class="card-header-compact">
-                                    <i class="fas fa-link me-2 text-primary"></i>
-                                    <span>{% trans "Find me" %}</span>
-                                </div>
-                                <div class="link-chip-group">
-                                    {% if profile_user.github_url %}
-                                        <a href="{{ profile_user.github_url }}" target="_blank" class="link-chip link-github">
-                                            <i class="fab fa-github"></i>
-                                            <span>{% trans "GitHub" %}</span>
-                                        </a>
-                                    {% endif %}
-                                    {% if profile_user.website_url %}
-                                        <a href="{{ profile_user.website_url }}" target="_blank" class="link-chip link-website">
-                                            <i class="fas fa-globe"></i>
-                                            <span>{% trans "Website" %}</span>
-                                        </a>
-                                    {% endif %}
-                                    {% if profile_user.telegram_url %}
-                                        <a href="{{ profile_user.telegram_url }}" target="_blank" class="link-chip link-telegram">
-                                            <i class="fab fa-telegram"></i>
-                                            <span>{% trans "Telegram" %}</span>
-                                        </a>
-                                    {% endif %}
-                                    {% if profile_user.discord_url %}
-                                        <a href="{{ profile_user.discord_url }}" target="_blank" class="link-chip link-discord">
-                                            <i class="fab fa-discord"></i>
-                                            <span>{% trans "Discord" %}</span>
-                                        </a>
-                                    {% endif %}
-                                </div>
-                                {% if profile_user.other_links %}
-                                    <div class="other-links mt-3">
-                                        {% for line in profile_user.other_links.splitlines %}
-                                            <a href="{{ line }}" target="_blank" class="other-link-item">{{ line }}</a>
-                                        {% endfor %}
-                                    </div>
-                                {% endif %}
-                            </div>
-                            {% endif %}
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Post Statistics (if user's own profile) -->
-                {% if user.is_authenticated and user.id == profile_user.id %}
-                <div class="profile-stat-grid mb-5">
-                    <div class="stat-chip chip-red">
-                        <div class="chip-icon"><i class="fas fa-file-alt"></i></div>
-                        <div>
-                            <p class="chip-label">{% trans "Total posts" %}</p>
-                            <p class="chip-value">{{ user_posts|length }}</p>
-                        </div>
-                    </div>
-                    <div class="stat-chip chip-amber">
-                        <div class="chip-icon"><i class="fas fa-heart"></i></div>
-                        <div>
-                            <p class="chip-label">{% trans "Likes received" %}</p>
-                            <p class="chip-value">{{ profile_user.total_likes_received }}</p>
-                        </div>
-                    </div>
-                    <div class="stat-chip chip-emerald">
-                        <div class="chip-icon"><i class="fas fa-comments"></i></div>
-                        <div>
-                            <p class="chip-label">{% trans "Comments made" %}</p>
-                            <p class="chip-value">{{ profile_user.total_comments_made }}</p>
-                        </div>
-                    </div>
-                </div>
-                {% endif %}
-
-                <!-- Posts Section -->
-                <div class="profile-posts-card">
-                    <h3 class="profile-posts-title mb-4">
-                        <i class="fas fa-list me-3 text-primary"></i>{% trans "Your Posts" %}
-                    </h3>
-
-                    {% if user_posts %}
-                        <div class="table-responsive">
-                            <table class="table table-hover mb-0">
-                                <thead>
-                                    <tr>
-                                        <th>{% trans "Title" %}</th>
-                                        <th>{% trans "Status" %}</th>
-                                        <th>{% trans "Created" %}</th>
-                                        <th>{% trans "Actions" %}</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for post in user_posts %}
-                                    <tr>
-                                        <td>
-                                            <strong class="text-dark">{{ post.title|truncatewords:8 }}</strong>
-                                        </td>
-                                        <td>
-                                            {% if post.status == 'published' %}
-                                                <span class="badge badge-success"><i class="fas fa-check-circle me-1"></i>{% trans "Published" %}</span>
-                                            {% elif post.status == 'pending' %}
-                                                <span class="badge badge-warning"><i class="fas fa-clock me-1"></i>{% trans "Pending" %}</span>
-                                            {% elif post.status == 'rejected' %}
-                                                <span class="badge badge-danger"><i class="fas fa-times-circle me-1"></i>{% trans "Rejected" %}</span>
-                                            {% else %}
-                                                <span class="badge badge-secondary">{{ post.get_status_display }}</span>
-                                            {% endif %}
-                                        </td>
-                                        <td>
-                                            <span class="text-muted fw-medium">{{ post.created_at|date:"d M Y" }}</span>
-                                        </td>
-                                        <td>
-                                            {% if post.status == 'published' %}
-                                                <a href="{% url 'blog:post_detail' post.pk %}" class="btn btn-primary btn-sm" title="{% trans "View" %}">
-                                                    <i class="fas fa-eye me-1"></i>{% trans "View" %}
-                                                </a>
-                                            {% endif %}
-                                        </td>
-                                    </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        </div>
-                    {% else %}
-                        <div class="alert alert-info mb-0">
-                            <i class="fas fa-info-circle me-2"></i>{% trans "You have no posts yet." %} <a href="{% url 'blog:post_create' %}" class="fw-bold text-info">{% trans "Create your first post" %}</a>
-                        </div>
-                    {% endif %}
-                </div>
-            </div>
+  <!-- ── HERO STRIP ─────────────────────────────────── -->
+  <div class="profile-hero-strip">
+    <div class="profile-hp-container">
+      <div class="profile-identity">
+        <div class="profile-avatar-wrap">
+          {% if profile_user.avatar and profile_user.avatar.name != 'avatars/default.png' %}
+            <img src="{{ profile_user.avatar.url }}" alt="{{ profile_user.username }}" class="profile-avatar-v2">
+          {% else %}
+            <div class="profile-avatar-fallback-v2">{{ profile_user.username|slice:":1"|upper }}</div>
+          {% endif %}
         </div>
-    </div>
-</div>
+        <div class="profile-identity-info">
+          <h1 class="profile-name-v2">{{ profile_user.username }}</h1>
+          <p class="profile-email-v2">{{ profile_user.email }}</p>
+          {% if user.is_authenticated and user.id == profile_user.id and profile_user.permanent_id %}
+            <div class="profile-id-v2"><i class="fas fa-fingerprint"></i> {{ profile_user.permanent_id }}</div>
+          {% endif %}
+        </div>
+      </div>
 
-<!-- Profile Interactions Initialization -->
+      <!-- Action buttons -->
+      <div class="profile-actions">
+        {% if user.is_authenticated and user.id == profile_user.id %}
+          <a href="{% url 'users:profile_edit' %}" class="btn-profile-primary">
+            <i class="fas fa-edit"></i> {% trans "Edit Profile" %}
+          </a>
+          {% if profile_user.permanent_id %}
+            <a href="{% url 'users:user_qr' permanent_id=profile_user.permanent_id %}?download=1" class="btn-profile-outline">
+              <i class="fas fa-qrcode"></i> {% trans "Download QR" %}
+            </a>
+          {% endif %}
+        {% elif user.is_authenticated and user.id != profile_user.id %}
+          <button class="btn-profile-primary follow-btn"
+                  data-user-id="{{ profile_user.id }}"
+                  data-username="{{ profile_user.username }}"
+                  type="button">
+            <i class="fas fa-user-plus"></i>
+            <span class="follow-text">{% trans "Follow" %}</span>
+          </button>
+        {% else %}
+          <a href="{% url 'users:login' %}" class="btn-profile-primary">
+            <i class="fas fa-sign-in-alt"></i> {% trans "Sign in" %}
+          </a>
+        {% endif %}
+      </div>
+
+      <!-- Info pills row -->
+      <div class="profile-pills-row">
+        <div class="info-pill-v2 pv2-red">
+          <div class="pv2-icon"><i class="fas fa-user"></i></div>
+          <div>
+            <p class="pv2-label">{% trans "Full name" %}</p>
+            <p class="pv2-value">{{ profile_user.first_name|default:"—" }} {{ profile_user.last_name|default:"—" }}</p>
+          </div>
+        </div>
+        <div class="info-pill-v2 pv2-blue">
+          <div class="pv2-icon"><i class="fas fa-birthday-cake"></i></div>
+          <div>
+            <p class="pv2-label">{% trans "Date of birth" %}</p>
+            <p class="pv2-value">
+              {% if profile_user.date_of_birth %}
+                {{ profile_user.date_of_birth|date:"d.m.Y" }}
+                {% with age=profile_user.get_age %}{% if age %} ({{ age }}{% trans " years" %}){% endif %}{% endwith %}
+              {% else %}—{% endif %}
+            </p>
+          </div>
+        </div>
+        <div class="info-pill-v2 pv2-amber">
+          <div class="pv2-icon"><i class="fas fa-phone"></i></div>
+          <div>
+            <p class="pv2-label">{% trans "Phone" %}</p>
+            <p class="pv2-value">
+              {% if profile_user.phone_number %}
+                {% if profile_user.is_phone_hidden and not user.is_staff and user != profile_user %}
+                  <i class="fas fa-eye-slash"></i> {% trans "Hidden" %}
+                {% else %}
+                  {{ profile_user.phone_number }}
+                {% endif %}
+              {% else %}{% trans "Not specified" %}{% endif %}
+            </p>
+          </div>
+        </div>
+        <div class="info-pill-v2 pv2-green">
+          <div class="pv2-icon"><i class="fas fa-calendar"></i></div>
+          <div>
+            <p class="pv2-label">{% trans "Joined" %}</p>
+            <p class="pv2-value">{{ profile_user.date_joined|date:"d M Y" }}</p>
+          </div>
+        </div>
+      </div>
+    </div><!-- /profile-hp-container -->
+  </div><!-- /profile-hero-strip -->
+
+  <!-- ── CONTENT AREA ───────────────────────────────── -->
+  <div class="profile-content-area">
+    <div class="row g-4" style="--bs-gutter-x:1.25rem;">
+
+      <!-- Left column -->
+      <div class="col-lg-4">
+
+        <!-- Activity Level -->
+        {% with level_info=profile_user.get_achievement_level %}
+        <div class="profile-card-dark">
+          <p class="profile-card-title">{% trans "Activity" %}</p>
+          <div class="activity-row">
+            <div>
+              <span class="activity-points-big">{{ profile_user.activity_points }}</span>
+              <span class="activity-points-label">{% trans "points" %}</span>
+              <div class="mt-2">
+                {% if level_info.level == "Legend" %}
+                  <span class="badge-level-v2 badge-legend"><i class="fas fa-crown"></i>{% trans "Legend" %}</span>
+                {% elif level_info.level == "Expert" %}
+                  <span class="badge-level-v2 badge-expert"><i class="fas fa-star"></i>{% trans "Expert" %}</span>
+                {% elif level_info.level == "Advanced" %}
+                  <span class="badge-level-v2 badge-advanced"><i class="fas fa-rocket"></i>{% trans "Advanced" %}</span>
+                {% elif level_info.level == "Intermediate" %}
+                  <span class="badge-level-v2 badge-intermediate"><i class="fas fa-fire"></i>{% trans "Intermediate" %}</span>
+                {% else %}
+                  <span class="badge-level-v2 badge-beginner"><i class="fas fa-leaf"></i>{% trans "Beginner" %}</span>
+                {% endif %}
+              </div>
+            </div>
+            <a href="{% url 'users:activity_levels_info' %}" class="btn-profile-outline" style="padding:.35rem .7rem;font-size:.8rem;" title="{% trans "Learn about activity levels" %}">
+              <i class="fas fa-question-circle"></i>
+            </a>
+          </div>
+          {% if level_info.next_level %}
+          <div class="mt-3">
+            <p style="font-size:.78rem;color:rgba(255,255,255,.35);margin-bottom:.4rem;">
+              {% blocktrans with level=level_info.next_level %}Progress to {{ level }}:{% endblocktrans %}
+            </p>
+            <div class="progress-dark">
+              <div class="progress-dark-fill" style="width:{{ level_info.progress }}%"></div>
+            </div>
+            <p style="font-size:.78rem;color:rgba(255,255,255,.4);font-weight:700;">{{ level_info.progress }}%</p>
+          </div>
+          {% else %}
+          <p class="mt-2" style="font-size:.82rem;color:#fbbf24;"><i class="fas fa-trophy me-1"></i>{% trans "Maximum level achieved!" %}</p>
+          {% endif %}
+        </div>
+        {% endwith %}
+
+        <!-- QR Code (own profile) -->
+        {% if user.is_authenticated and user.id == profile_user.id and profile_user.permanent_id %}
+        <div class="profile-card-dark">
+          <p class="profile-card-title">{% trans "Your QR Code" %}</p>
+          <div class="qr-block">
+            <a href="{% url 'users:profile_by_card' permanent_id=profile_user.permanent_id %}" title="{% trans "Open profile by card" %}">
+              <img src="{% url 'users:user_qr' permanent_id=profile_user.permanent_id %}" alt="{% trans "QR Code" %}">
+            </a>
+            <p class="mt-2 mb-0" style="font-size:.78rem;color:rgba(255,255,255,.35);">{% trans "Scan to view profile" %}</p>
+          </div>
+        </div>
+        {% endif %}
+
+        <!-- Other user stats -->
+        {% if user.is_authenticated and user.id != profile_user.id %}
+        <div class="profile-card-dark">
+          <p class="profile-card-title">{% trans "Stats" %}</p>
+          <div class="d-flex gap-3">
+            <div style="text-align:center;">
+              <div style="font-size:1.5rem;font-weight:900;color:#fff;">{{ profile_user.post_set.count|default:0 }}</div>
+              <div style="font-size:.73rem;color:rgba(255,255,255,.38);text-transform:uppercase;letter-spacing:.08em;">{% trans "Posts" %}</div>
+            </div>
+            <div style="text-align:center;">
+              <div style="font-size:1.5rem;font-weight:900;color:#fff;">{{ profile_user.comment_set.count|default:0 }}</div>
+              <div style="font-size:.73rem;color:rgba(255,255,255,.38);text-transform:uppercase;letter-spacing:.08em;">{% trans "Comments" %}</div>
+            </div>
+          </div>
+        </div>
+        {% endif %}
+
+        <!-- Social links -->
+        {% if profile_user.github_url or profile_user.website_url or profile_user.telegram_url or profile_user.discord_url %}
+        <div class="profile-card-dark">
+          <p class="profile-card-title">{% trans "Find me" %}</p>
+          <div class="link-chips-dark">
+            {% if profile_user.github_url %}
+              <a href="{{ profile_user.github_url }}" target="_blank" class="link-chip-dark"><i class="fab fa-github"></i> GitHub</a>
+            {% endif %}
+            {% if profile_user.website_url %}
+              <a href="{{ profile_user.website_url }}" target="_blank" class="link-chip-dark"><i class="fas fa-globe"></i> {% trans "Website" %}</a>
+            {% endif %}
+            {% if profile_user.telegram_url %}
+              <a href="{{ profile_user.telegram_url }}" target="_blank" class="link-chip-dark"><i class="fab fa-telegram"></i> Telegram</a>
+            {% endif %}
+            {% if profile_user.discord_url %}
+              <a href="{{ profile_user.discord_url }}" target="_blank" class="link-chip-dark"><i class="fab fa-discord"></i> Discord</a>
+            {% endif %}
+          </div>
+          {% if profile_user.other_links %}
+          <div class="mt-2 pt-2" style="border-top:1px solid rgba(255,255,255,.07);">
+            {% for line in profile_user.other_links.splitlines %}
+              <a href="{{ line }}" target="_blank" class="link-chip-dark d-block mb-1" style="font-size:.8rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ line }}</a>
+            {% endfor %}
+          </div>
+          {% endif %}
+        </div>
+        {% endif %}
+
+      </div><!-- /col-lg-4 -->
+
+      <!-- Right column -->
+      <div class="col-lg-8">
+
+        <!-- Own profile stats -->
+        {% if user.is_authenticated and user.id == profile_user.id %}
+        <div class="stat-chips-dark mb-4">
+          <div class="stat-chip-dark scd-red">
+            <div class="scd-icon"><i class="fas fa-file-alt"></i></div>
+            <div><p class="scd-label">{% trans "Total posts" %}</p><p class="scd-value">{{ user_posts|length }}</p></div>
+          </div>
+          <div class="stat-chip-dark scd-amber">
+            <div class="scd-icon"><i class="fas fa-heart"></i></div>
+            <div><p class="scd-label">{% trans "Likes received" %}</p><p class="scd-value">{{ profile_user.total_likes_received }}</p></div>
+          </div>
+          <div class="stat-chip-dark scd-green">
+            <div class="scd-icon"><i class="fas fa-comments"></i></div>
+            <div><p class="scd-label">{% trans "Comments made" %}</p><p class="scd-value">{{ profile_user.total_comments_made }}</p></div>
+          </div>
+        </div>
+        {% endif %}
+
+        <!-- Posts table -->
+        <div class="profile-card-dark">
+          <p class="profile-card-title">{% trans "Posts" %}</p>
+          {% if user_posts %}
+          <div class="table-responsive">
+            <table class="posts-table-dark">
+              <thead>
+                <tr>
+                  <th>{% trans "Title" %}</th>
+                  <th>{% trans "Status" %}</th>
+                  <th>{% trans "Created" %}</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for post in user_posts %}
+                <tr>
+                  <td><span class="post-title">{{ post.title|truncatewords:8 }}</span></td>
+                  <td>
+                    {% if post.status == 'published' %}
+                      <span class="badge-level-v2 badge-intermediate" style="font-size:.7rem;padding:.2rem .6rem;"><i class="fas fa-check-circle"></i>{% trans "Published" %}</span>
+                    {% elif post.status == 'pending' %}
+                      <span class="badge-level-v2 badge-expert" style="font-size:.7rem;padding:.2rem .6rem;"><i class="fas fa-clock"></i>{% trans "Pending" %}</span>
+                    {% elif post.status == 'rejected' %}
+                      <span class="badge-level-v2 badge-legend" style="font-size:.7rem;padding:.2rem .6rem;"><i class="fas fa-times-circle"></i>{% trans "Rejected" %}</span>
+                    {% else %}
+                      <span class="badge-level-v2 badge-beginner" style="font-size:.7rem;padding:.2rem .6rem;">{{ post.get_status_display }}</span>
+                    {% endif %}
+                  </td>
+                  <td style="color:rgba(255,255,255,.4);font-size:.82rem;">{{ post.created_at|date:"d M Y" }}</td>
+                  <td>
+                    {% if post.status == 'published' %}
+                      <a href="{% url 'blog:post_detail' post.pk %}" class="btn-profile-outline" style="padding:.3rem .75rem;font-size:.8rem;">
+                        <i class="fas fa-eye"></i>
+                      </a>
+                    {% endif %}
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% else %}
+          <p style="color:rgba(255,255,255,.4);font-size:.9rem;margin:0;">
+            {% trans "No posts yet." %}
+            {% if user.is_authenticated and user.id == profile_user.id %}
+              <a href="{% url 'blog:post_create' %}" class="btn-profile-primary d-inline-flex mt-2">
+                <i class="fas fa-plus"></i> {% trans "Create your first post" %}
+              </a>
+            {% endif %}
+          </p>
+          {% endif %}
+        </div>
+
+      </div><!-- /col-lg-8 -->
+    </div><!-- /row -->
+  </div><!-- /profile-content-area -->
+
+</div><!-- /profile-page-v2 -->
+
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Force re-initialization of profile interactions
-    if (window.ProfileInteractions) {
-        console.log('🔄 Re-initializing ProfileInteractions on profile page...');
-        window.ProfileInteractions.init();
-    }
+  if (window.ProfileInteractions) window.ProfileInteractions.init();
+  // Animate progress bar
+  requestAnimationFrame(function() {
+    document.querySelectorAll('.progress-dark-fill').forEach(function(el) {
+      el.style.width = el.style.width || '0%';
+    });
+  });
 });
-
-// Also try immediately (in case DOMContentLoaded already fired)
-if (document.readyState === 'interactive' || document.readyState === 'complete') {
-    if (window.ProfileInteractions) {
-        console.log('🔄 Profile page ready - initializing ProfileInteractions...');
-        window.ProfileInteractions.init();
-    }
-}
 </script>
 {% endblock %}
