@@ -406,9 +406,6 @@ msgstr "Публікації, користувачі, події..."
 msgid "Logout"
 msgstr "Вийти"
 
-msgid "Register"
-msgstr "Реєстрація"
-
 msgid "ABOUT"
 msgstr "ПРО НАС"
 
@@ -1111,3 +1108,149 @@ msgstr "Так"
 
 msgid "No"
 msgstr "Ні"
+
+# === member_cabinet / connect_telegram (auto-added 2026-02-27) ===
+
+msgid "Member Cabinet"
+msgstr "Особистий кабінет"
+
+msgid "Member Cabinet — IESA Sport"
+msgstr "Особистий кабінет — IESA Sport"
+
+msgid "Personal Cabinet"
+msgstr "Особистий кабінет"
+
+msgid "Personal Cabinet · IESA Sport"
+msgstr "Особистий кабінет · IESA Sport"
+
+msgid "Verification PIN"
+msgstr "PIN-код верифікації"
+
+msgid "auto-refresh 12 min"
+msgstr "Авто-оновлення 12 хв"
+
+msgid "Your current code"
+msgstr "Ваш поточний код"
+
+msgid "Copy PIN"
+msgstr "Скопіювати PIN"
+
+msgid "Copied!"
+msgstr "Скопійовано!"
+
+msgid "Reloads when expired"
+msgstr "Оновиться після закінчення"
+
+msgid "sec"
+msgstr "сек"
+
+msgid "How to use your PIN"
+msgstr "Як користуватися PIN-кодом"
+
+msgid "Visit a partner"
+msgstr "Відвідайте партнера"
+
+msgid "Go to any partner gym, shop or clinic."
+msgstr "Відвідайте будь-який партнерський зал, магазин або клініку."
+
+msgid "Identify yourself"
+msgstr "Ідентифікуйте себе"
+
+msgid "Tell staff you're an IESA Sport member."
+msgstr "Повідомте персоналу, що ви є членом IESA Sport."
+
+msgid "Show the PIN"
+msgstr "Покажіть PIN"
+
+msgid "Show this 6-digit code — staff enters it to confirm."
+msgstr "Покажіть цей 6-значний код — персонал вводить його для підтвердження."
+
+msgid "Get notified ✅"
+msgstr "Отримайте сповіщення ✅"
+
+msgid "Visit is logged. Telegram confirmation incoming."
+msgstr "Візит зафіксовано. Підтвердження у Telegram надходить."
+
+msgid "Active"
+msgstr "Активний"
+
+msgid "Public profile"
+msgstr "Публічний профіль"
+
+msgid "Membership Inactive"
+msgstr "Членство неактивне"
+
+msgid "You need an active membership to use the PIN and access partner benefits."
+msgstr "Вам потрібне активне членство, щоб використовувати PIN та отримувати партнерські переваги."
+
+msgid "Please contact the administrator for assistance."
+msgstr "Будь ласка, зверніться до адміністратора за допомогою."
+
+msgid "Contact Administration"
+msgstr "Зв'яжіться з адміністрацією"
+
+msgid "Telegram Notifications"
+msgstr "Сповіщення у Telegram"
+
+msgid "connected"
+msgstr "підключено"
+
+msgid "Telegram is connected"
+msgstr "Telegram підключено"
+
+msgid "Since"
+msgstr "З"
+
+msgid "You receive instant visit confirmations via Telegram."
+msgstr "Ви отримуєте миттєві підтвердження візитів через Telegram."
+
+msgid "Disconnect Telegram"
+msgstr "Відключити Telegram"
+
+msgid "Connect Telegram"
+msgstr "Підключити Telegram"
+
+msgid "Connect your Telegram account to receive instant visit confirmations and important updates directly in the messenger."
+msgstr "Підключіть свій акаунт Telegram, щоб отримувати миттєві підтвердження візитів та важливі оновлення прямо у месенджері."
+
+msgid "or log in with Telegram"
+msgstr "або увійти через Telegram"
+
+msgid "Get instant visit notifications"
+msgstr "Отримуйте миттєві сповіщення про візити"
+
+msgid "6-digit code"
+msgstr "6-значний код"
+
+msgid "Tap to open in Telegram"
+msgstr "Натисніть, щоб відкрити у Telegram"
+
+msgid "Open"
+msgstr "Відкрийте"
+
+msgid "Open the IESA Sport bot in Telegram"
+msgstr "Відкрийте бот IESA Sport у Telegram"
+
+msgid "in Telegram"
+msgstr "у Telegram"
+
+msgid "Press"
+msgstr "Натисніть"
+
+msgid "Attach account"
+msgstr "Прив'язати акаунт"
+
+msgid "or send"
+msgstr "або надішліть"
+
+msgid "Enter the 6-digit code from the bot below"
+msgstr "Введіть 6-значний код від бота нижче"
+
+msgid "Telegram Connected!"
+msgstr "Telegram підключено!"
+
+msgid "Redirecting…"
+msgstr "Перенаправлення…"
+
+msgid "Back to cabinet"
+msgstr "Назад до кабінету"

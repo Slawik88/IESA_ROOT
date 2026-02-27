@@ -1,3 +1,11 @@
+# IESA Sport — Translations
+# Copyright (C) 2026 IESA Sport
+#
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
 # SOME DESCRIPTIVE TITLE.
 # Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
 # This file is distributed under the same license as the PACKAGE package.
@@ -217,11 +225,6 @@ msgid ""
 "Use our advanced editor: fonts, colors, lists, quotes and preview before "
 "publishing"
 msgstr "Use our advanced editor: fonts, colors, lists, quotes and preview before publishing"
-
-#: .\IESA_ROOT\blog\templates\blog\post_create.html:37
-msgid ""
-"Rich formatting: headings, lists, links, quotes, text and background colors."
-msgstr "Rich formatting: headings, lists, links, quotes, text and background colors."
 
 #: .\IESA_ROOT\blog\templates\blog\post_create.html:47
 msgid "Preview"
@@ -456,12 +459,6 @@ msgstr "Programmes IESA pour enfants et adultes"
 
 msgid "IESA unites athletes, active lifestyle communities, and everyone who grows through adventure and extreme challenges."
 msgstr "IESA réunit les athlètes, les communautés de style de vie actif et tous ceux qui grandissent grâce à l'aventure et aux défis extrêmes."
-
-#: .\IESA_ROOT\core\templates\core\index.html:19
-msgid ""
-"IESA delivers programs for teens and adults — a reset through sport and "
-"strong team formats."
-msgstr "IESA propose des programmes pour adolescents et adultes — un reset par le sport et des formats d’équipe solides."
 
 #: .\IESA_ROOT\core\templates\core\index.html:26
 msgid "WHAT IESA OFFERS"
@@ -787,12 +784,6 @@ msgstr "Soutenez-nous"
 msgid "Support Our Association"
 msgstr "Soutenez notre association"
 
-#: .\IESA_ROOT\core\templates\core\index.html:480
-msgid ""
-"Your support helps us launch new projects, organize events and grow our "
-"international community."
-msgstr "Votre soutien nous aide à lancer de nouveaux projets, organiser des événements et faire grandir notre communauté internationale."
-
 #: .\IESA_ROOT\core\templates\core\index.html:484
 msgid "Current Goal"
 msgstr "Objectif actuel"
@@ -1044,12 +1035,6 @@ msgstr "404 – Page non trouvée"
 msgid "Page not found"
 msgstr "Page non trouvée"
 
-#: .\IESA_ROOT\templates\404.html:87
-msgid ""
-"Oops! It looks like you got lost. The page you are looking for does not "
-"exist or has been moved."
-msgstr "Oops! It looks like you got lost. The page you are looking for does not exist or has been moved."
-
 #: .\IESA_ROOT\templates\404.html:94
 msgid "Maybe you were looking for:"
 msgstr "Peut-être cherchiez-vous :"
@@ -1066,12 +1051,6 @@ msgstr "500 – Erreur interne du serveur"
 msgid "Internal server error"
 msgstr "Erreur interne du serveur"
 
-#: .\IESA_ROOT\templates\500.html:86
-msgid ""
-"Something went wrong on our side. We are already working to fix it. Please "
-"try again later."
-msgstr "Something went wrong on our side. We are already working to fix it. Please try again later."
-
 #: .\IESA_ROOT\templates\500.html:93
 msgid "Go back"
 msgstr "Retour"
@@ -1084,30 +1063,6 @@ msgstr "Si le problème persiste, veuillez contacter notre équipe d'assistance.
 #: .\IESA_ROOT\templates\base.html:30
 msgid "IESA ROOT"
 msgstr "IESA ROOT"
-
-#: .\IESA_ROOT\templates\base.html:11
-msgid ""
-"IESA - Extreme Sports Community. Kitesurfing in Egypt, Boxing, Adventure "
-"Travel & Sauna Experiences. Join our international athletes and enthusiasts."
-msgstr "IESA - Extreme Sports Community. Kitesurfing in Egypt, Boxing, Adventure Travel & Sauna Experiences. Join our international athletes and enthusiasts."
-
-#: .\IESA_ROOT\templates\base.html:12
-msgid ""
-"extreme sports, kitesurfing Egypt, boxing, adventure travel, sauna, "
-"community, athletes"
-msgstr "extreme sports, kitesurfing Egypt, boxing, adventure travel, sauna, community, athletes"
-
-#: .\IESA_ROOT\templates\base.html:20
-msgid ""
-"IESA - Extreme Sports Community. Experience kitesurfing in Egypt, boxing, "
-"adventure travel and exclusive sauna access. Join international athletes."
-msgstr "IESA - Extreme Sports Community. Experience kitesurfing in Egypt, boxing, adventure travel and exclusive sauna access. Join international athletes."
-
-#: .\IESA_ROOT\templates\base.html:31
-msgid ""
-"IESA - Extreme Sports Community. Kitesurfing in Egypt, Boxing, Adventure "
-"Travel & Sauna for Athletes."
-msgstr "IESA - Extreme Sports Community. Kitesurfing in Egypt, Boxing, Adventure Travel & Sauna for Athletes."
 
 #: .\IESA_ROOT\templates\base.html:92
 msgid "Skip to main content"
@@ -1191,12 +1146,6 @@ msgstr "Déconnexion"
 #: .\IESA_ROOT\templates\base.html:239
 msgid "ABOUT"
 msgstr "À PROPOS"
-
-#: .\IESA_ROOT\templates\base.html:240
-msgid ""
-"IESA connects sports leaders and partners, creating a space for growth, "
-"projects and events worldwide."
-msgstr "IESA connects sports leaders and partners, creating a space for growth, projects and events worldwide."
 
 #: .\IESA_ROOT\templates\base.html:241
 msgid "IESA Association. All rights reserved."
@@ -1569,12 +1518,6 @@ msgstr "Autres liens"
 msgid "one per line"
 msgstr "un par ligne"
 
-#: .\IESA_ROOT\users\templates\users\profile_edit.html:131
-msgid ""
-"Examples: LinkedIn, Reddit, Twitter, YouTube, TikTok, Instagram, Twitch, "
-"Medium, etc."
-msgstr "Examples: LinkedIn, Reddit, Twitter, YouTube, TikTok, Instagram, Twitch, Medium, etc."
-
 #: .\IESA_ROOT\users\templates\users\profile_edit.html:146
 msgid "Save changes"
 msgstr "Enregistrer les modifications"
@@ -1634,12 +1577,6 @@ msgstr "Pas encore d'articles publiés."
 #: .\IESA_ROOT\users\templates\users\register.html:13
 msgid "Join IESA Today"
 msgstr "Rejoignez l'IESA aujourd'hui"
-
-#: .\IESA_ROOT\users\templates\users\register.html:14
-msgid ""
-"Create your account and become part of our international extreme sports "
-"community."
-msgstr "Create your account and become part of our international extreme sports community."
 
 #: .\IESA_ROOT\users\templates\users\register.html:16
 msgid "Connect with Athletes"
@@ -1717,42 +1654,13 @@ msgstr "Le mot de passe doit contenir au moins une lettre majuscule (A-Z)."
 msgid "Your password must contain at least one uppercase letter (A-Z)."
 msgstr "Votre mot de passe doit contenir au moins une lettre majuscule (A-Z)."
 
-#: .\IESA_ROOT\users\validators.py:28
-#, python-brace-format
-msgid ""
-"Password must contain at least one special character (!@#$%^&*(),.?\":{}|<>)."
-msgstr "Password must contain at least one special character (!@#$%^&*(),.?\\\":{}|<>)."
-
-#: .\IESA_ROOT\users\validators.py:33
-#, python-brace-format
-msgid ""
-"Your password must contain at least one special character (!@#$%^&*(),.?\":"
-"{}|<>)."
-msgstr "Your password must contain at least one special character (!@#$%^&*(),.?\\\":{}|<>)."
-
 #: .\IESA_ROOT\users\validators.py:49
 msgid "Некорректный номер телефона. Допустимы цифры, пробелы, '+', '-', '()'."
 msgstr "Numéro de téléphone invalide. Chiffres, espaces, '+', '-', '()' sont autorisés."
 
-#: .\IESA_ROOT\users\validators.py:62
-msgid ""
-"Введите корректную ссылку на профиль GitHub (например: https://github.com/"
-"username)"
-msgstr "Введите корректную ссылку на профиль GitHub (например: https://github.com/username)"
-
 #: .\IESA_ROOT\users\validators.py:75
 msgid "Введите корректное имя Discord (например: username или username#1234)"
 msgstr "Entrez un nom Discord valide (par exemple : username ou username#1234)"
-
-#: .\IESA_ROOT\users\validators.py:88
-msgid ""
-"Введите корректную ссылку Telegram (например: @username или t.me/username)"
-msgstr "Введите корректную ссылку Telegram (например: @username или t.me/username)"
-
-#: .\IESA_ROOT\users\validators.py:101
-msgid ""
-"Введите корректную ссылку на сайт (должна начинаться с http:// или https://)"
-msgstr "Введите корректную ссылку на сайт (должна начинаться с http:// или https://)"
 
 #: .\venv\Lib\site-packages\django\contrib\sitemaps\apps.py:8
 msgid "Site Maps"
@@ -1805,18 +1713,6 @@ msgstr "Saisissez un nombre entier valide."
 msgid "Enter a valid email address."
 msgstr "Saisissez une adresse e-mail valide."
 
-#. Translators: "letters" means latin letters: a-z and A-Z.
-#: .\venv\Lib\site-packages\django\core\validators.py:289
-msgid ""
-"Enter a valid “slug” consisting of letters, numbers, underscores or hyphens."
-msgstr "Enter a valid “slug” consisting of letters, numbers, underscores or hyphens."
-
-#: .\venv\Lib\site-packages\django\core\validators.py:297
-msgid ""
-"Enter a valid “slug” consisting of Unicode letters, numbers, underscores, or "
-"hyphens."
-msgstr "Enter a valid “slug” consisting of Unicode letters, numbers, underscores, or hyphens."
-
 #: .\venv\Lib\site-packages\django\core\validators.py:309
 #: .\venv\Lib\site-packages\django\core\validators.py:318
 #: .\venv\Lib\site-packages\django\core\validators.py:332
@@ -1862,35 +1758,6 @@ msgstr "Assurez-vous que cette valeur est supérieure ou égale à %(limit_value
 msgid "Ensure this value is a multiple of step size %(limit_value)s."
 msgstr "Assurez-vous que cette valeur est un multiple du pas %(limit_value)s."
 
-#: .\venv\Lib\site-packages\django\core\validators.py:441
-#, python-format
-msgid ""
-"Ensure this value is a multiple of step size %(limit_value)s, starting from "
-"%(offset)s, e.g. %(offset)s, %(valid_value1)s, %(valid_value2)s, and so on."
-msgstr "Ensure this value is a multiple of step size %(limit_value)s, starting from %(offset)s, e.g. %(offset)s, %(valid_value1)s, %(valid_value2)s, and so on."
-
-#: .\venv\Lib\site-packages\django\core\validators.py:473
-#, python-format
-msgid ""
-"Ensure this value has at least %(limit_value)d character (it has "
-"%(show_value)d)."
-msgid_plural ""
-"Ensure this value has at least %(limit_value)d characters (it has "
-"%(show_value)d)."
-msgstr[0] "Ensure this value has at least %(limit_value)d character (it has %(show_value)d)."
-msgstr[1] "Ensure this value has at least %(limit_value)d characters (it has %(show_value)d)."
-
-#: .\venv\Lib\site-packages\django\core\validators.py:491
-#, python-format
-msgid ""
-"Ensure this value has at most %(limit_value)d character (it has "
-"%(show_value)d)."
-msgid_plural ""
-"Ensure this value has at most %(limit_value)d characters (it has "
-"%(show_value)d)."
-msgstr[0] "Ensure this value has at most %(limit_value)d character (it has %(show_value)d)."
-msgstr[1] "Ensure this value has at most %(limit_value)d characters (it has %(show_value)d)."
-
 #: .\venv\Lib\site-packages\django\core\validators.py:514
 #: .\venv\Lib\site-packages\django\forms\fields.py:366
 #: .\venv\Lib\site-packages\django\forms\fields.py:405
@@ -1910,22 +1777,6 @@ msgid "Ensure that there are no more than %(max)s decimal place."
 msgid_plural "Ensure that there are no more than %(max)s decimal places."
 msgstr[0] "Ensure that there are no more than %(max)s decimal place."
 msgstr[1] "Ensure that there are no more than %(max)s decimal places."
-
-#: .\venv\Lib\site-packages\django\core\validators.py:526
-#, python-format
-msgid ""
-"Ensure that there are no more than %(max)s digit before the decimal point."
-msgid_plural ""
-"Ensure that there are no more than %(max)s digits before the decimal point."
-msgstr[0] "Ensure that there are no more than %(max)s digit before the decimal point."
-msgstr[1] "Ensure that there are no more than %(max)s digits before the decimal point."
-
-#: .\venv\Lib\site-packages\django\core\validators.py:597
-#, python-format
-msgid ""
-"File extension “%(extension)s” is not allowed. Allowed extensions are: "
-"%(allowed_extensions)s."
-msgstr "File extension “%(extension)s” is not allowed. Allowed extensions are: %(allowed_extensions)s."
 
 #: .\venv\Lib\site-packages\django\core\validators.py:659
 msgid "Null characters are not allowed."
@@ -1964,14 +1815,6 @@ msgstr "Ce champ ne peut pas être vide."
 msgid "%(model_name)s with this %(field_label)s already exists."
 msgstr "%(model_name)s avec ce %(field_label)s existe déjà."
 
-#. Translators: The 'lookup_type' is one of 'date', 'year' or
-#. 'month'. Eg: "Title must be unique for pub_date year"
-#: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:141
-#, python-format
-msgid ""
-"%(field_label)s must be unique for %(date_field_label)s %(lookup_type)s."
-msgstr "%(field_label)s must be unique for %(date_field_label)s %(lookup_type)s."
-
 #: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:180
 #, python-format
 msgid "Field of type: %(field_type)s"
@@ -2004,38 +1847,9 @@ msgstr "Chaîne (illimitée)"
 msgid "Comma-separated integers"
 msgstr "Entiers séparés par des virgules"
 
-#: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:1427
-#, python-format
-msgid ""
-"“%(value)s” value has an invalid date format. It must be in YYYY-MM-DD "
-"format."
-msgstr "“%(value)s” value has an invalid date format. It must be in YYYY-MM-DD format."
-
-#: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:1431
-#: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:1566
-#, python-format
-msgid ""
-"“%(value)s” value has the correct format (YYYY-MM-DD) but it is an invalid "
-"date."
-msgstr "“%(value)s” value has the correct format (YYYY-MM-DD) but it is an invalid date."
-
 #: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:1435
 msgid "Date (without time)"
 msgstr "Date (sans heure)"
-
-#: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:1562
-#, python-format
-msgid ""
-"“%(value)s” value has an invalid format. It must be in YYYY-MM-DD "
-"HH:MM[:ss[.uuuuuu]][TZ] format."
-msgstr "“%(value)s” value has an invalid format. It must be in YYYY-MM-DD HH:MM[:ss[.uuuuuu]][TZ] format."
-
-#: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:1570
-#, python-format
-msgid ""
-"“%(value)s” value has the correct format (YYYY-MM-DD HH:MM[:ss[.uuuuuu]]"
-"[TZ]) but it is an invalid date/time."
-msgstr "“%(value)s” value has the correct format (YYYY-MM-DD HH:MM[:ss[.uuuuuu]][TZ]) but it is an invalid date/time."
 
 #: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:1575
 msgid "Date (with time)"
@@ -2049,13 +1863,6 @@ msgstr "La valeur “%(value)s” doit être un nombre décimal."
 #: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:1704
 msgid "Decimal number"
 msgstr "Nombre décimal"
-
-#: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:1864
-#, python-format
-msgid ""
-"“%(value)s” value has an invalid format. It must be in [DD] "
-"[[HH:]MM:]ss[.uuuuuu] format."
-msgstr "“%(value)s” value has an invalid format. It must be in [DD] [[HH:]MM:]ss[.uuuuuu] format."
 
 #: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:1868
 msgid "Duration"
@@ -2133,20 +1940,6 @@ msgstr "Slug (jusqu'à %(max_length)s)"
 #: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:2446
 msgid "Text"
 msgstr "Texte"
-
-#: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:2526
-#, python-format
-msgid ""
-"“%(value)s” value has an invalid format. It must be in HH:MM[:ss[.uuuuuu]] "
-"format."
-msgstr "“%(value)s” value has an invalid format. It must be in HH:MM[:ss[.uuuuuu]] format."
-
-#: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:2530
-#, python-format
-msgid ""
-"“%(value)s” value has the correct format (HH:MM[:ss[.uuuuuu]]) but it is an "
-"invalid time."
-msgstr "“%(value)s” value has the correct format (HH:MM[:ss[.uuuuuu]]) but it is an invalid time."
 
 #: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:2534
 msgid "Time"
@@ -2273,12 +2066,6 @@ msgstr[1] "Ensure this filename has at most %(max)d characters (it has %(length)
 msgid "Please either submit a file or check the clear checkbox, not both."
 msgstr "Veuillez soumettre un fichier ou cocher la case d'effacement, pas les deux."
 
-#: .\venv\Lib\site-packages\django\forms\fields.py:717
-msgid ""
-"Upload a valid image. The file you uploaded was either not an image or a "
-"corrupted image."
-msgstr "Upload a valid image. The file you uploaded was either not an image or a corrupted image."
-
 #: .\venv\Lib\site-packages\django\forms\fields.py:889
 #: .\venv\Lib\site-packages\django\forms\fields.py:975
 #: .\venv\Lib\site-packages\django\forms\models.py:1592
@@ -2314,13 +2101,6 @@ msgstr ":"
 msgid "(Hidden field %(name)s) %(error)s"
 msgstr "(Champ masqué %(name)s) %(error)s"
 
-#: .\venv\Lib\site-packages\django\forms\formsets.py:61
-#, python-format
-msgid ""
-"ManagementForm data is missing or has been tampered with. Missing fields: "
-"%(field_names)s. You may need to file a bug report if the issue persists."
-msgstr "ManagementForm data is missing or has been tampered with. Missing fields: %(field_names)s. You may need to file a bug report if the issue persists."
-
 #: .\venv\Lib\site-packages\django\forms\formsets.py:65
 #, python-format
 msgid "Please submit at most %(num)d form."
@@ -2350,13 +2130,6 @@ msgstr "Veuillez corriger les données en double pour %(field)s."
 msgid "Please correct the duplicate data for %(field)s, which must be unique."
 msgstr "Veuillez corriger les données en double pour %(field)s, qui doivent être uniques."
 
-#: .\venv\Lib\site-packages\django\forms\models.py:913
-#, python-format
-msgid ""
-"Please correct the duplicate data for %(field_name)s which must be unique "
-"for the %(lookup)s in %(date_field)s."
-msgstr "Please correct the duplicate data for %(field_name)s which must be unique for the %(lookup)s in %(date_field)s."
-
 #: .\venv\Lib\site-packages\django\forms\models.py:922
 msgid "Please correct the duplicate values below."
 msgstr "Veuillez corriger les valeurs en double ci-dessous."
@@ -2373,13 +2146,6 @@ msgstr "Sélectionnez un choix valide. Ce choix n'est pas disponible."
 #, python-format
 msgid "“%(pk)s” is not a valid value."
 msgstr "“%(pk)s” n’est pas une valeur valide."
-
-#: .\venv\Lib\site-packages\django\forms\utils.py:229
-#, python-format
-msgid ""
-"%(datetime)s couldn’t be interpreted in time zone %(current_timezone)s; it "
-"may be ambiguous or it may not exist."
-msgstr "%(datetime)s couldn’t be interpreted in time zone %(current_timezone)s; it may be ambiguous or it may not exist."
 
 #: .\venv\Lib\site-packages\django\forms\widgets.py:527
 msgid "Clear"
@@ -2627,26 +2393,6 @@ msgstr "Janv."
 msgid "Feb."
 msgstr "Fév."
 
-#: .\venv\Lib\site-packages\django\utils\dates.py:55
-msgid "March"
-msgstr "Mars"
-
-#: .\venv\Lib\site-packages\django\utils\dates.py:56
-msgid "April"
-msgstr "Avril"
-
-#: .\venv\Lib\site-packages\django\utils\dates.py:57
-msgid "May"
-msgstr "Mai"
-
-#: .\venv\Lib\site-packages\django\utils\dates.py:58
-msgid "June"
-msgstr "Juin"
-
-#: .\venv\Lib\site-packages\django\utils\dates.py:59
-msgid "July"
-msgstr "Juillet"
-
 #: .\venv\Lib\site-packages\django\utils\dates.py:60
 msgid "Aug."
 msgstr "Aoû."
@@ -2666,54 +2412,6 @@ msgstr "Nov."
 #: .\venv\Lib\site-packages\django\utils\dates.py:64
 msgid "Dec."
 msgstr "Déc."
-
-#: .\venv\Lib\site-packages\django\utils\dates.py:67
-msgid "January"
-msgstr "Janvier"
-
-#: .\venv\Lib\site-packages\django\utils\dates.py:68
-msgid "February"
-msgstr "Février"
-
-#: .\venv\Lib\site-packages\django\utils\dates.py:69
-msgid "March"
-msgstr "Mars"
-
-#: .\venv\Lib\site-packages\django\utils\dates.py:70
-msgid "April"
-msgstr "Avril"
-
-#: .\venv\Lib\site-packages\django\utils\dates.py:71
-msgid "May"
-msgstr "Mai"
-
-#: .\venv\Lib\site-packages\django\utils\dates.py:72
-msgid "June"
-msgstr "Juin"
-
-#: .\venv\Lib\site-packages\django\utils\dates.py:73
-msgid "July"
-msgstr "Juillet"
-
-#: .\venv\Lib\site-packages\django\utils\dates.py:74
-msgid "August"
-msgstr "Août"
-
-#: .\venv\Lib\site-packages\django\utils\dates.py:75
-msgid "September"
-msgstr "Septembre"
-
-#: .\venv\Lib\site-packages\django\utils\dates.py:76
-msgid "October"
-msgstr "Octobre"
-
-#: .\venv\Lib\site-packages\django\utils\dates.py:77
-msgid "November"
-msgstr "Novembre"
-
-#: .\venv\Lib\site-packages\django\utils\dates.py:78
-msgid "December"
-msgstr "Décembre"
 
 #: .\venv\Lib\site-packages\django\utils\ipv6.py:20
 msgid "This is not a valid IPv6 address."
@@ -2780,43 +2478,6 @@ msgstr "Interdit"
 msgid "CSRF verification failed. Request aborted."
 msgstr "La vérification CSRF a échoué. Requête annulée."
 
-#: .\venv\Lib\site-packages\django\views\csrf.py:34
-msgid ""
-"You are seeing this message because this HTTPS site requires a “Referer "
-"header” to be sent by your web browser, but none was sent. This header is "
-"required for security reasons, to ensure that your browser is not being "
-"hijacked by third parties."
-msgstr "You are seeing this message because this HTTPS site requires a “Referer header” to be sent by your web browser, but none was sent. This header is required for security reasons, to ensure that your browser is not being hijacked by third parties."
-
-#: .\venv\Lib\site-packages\django\views\csrf.py:40
-msgid ""
-"If you have configured your browser to disable “Referer” headers, please re-"
-"enable them, at least for this site, or for HTTPS connections, or for “same-"
-"origin” requests."
-msgstr "If you have configured your browser to disable “Referer” headers, please re-enable them, at least for this site, or for HTTPS connections, or for “same-origin” requests."
-
-#: .\venv\Lib\site-packages\django\views\csrf.py:45
-msgid ""
-"If you are using the <meta name=\"referrer\" content=\"no-referrer\"> tag or "
-"including the “Referrer-Policy: no-referrer” header, please remove them. The "
-"CSRF protection requires the “Referer” header to do strict referer checking. "
-"If you’re concerned about privacy, use alternatives like <a "
-"rel=\"noreferrer\" …> for links to third-party sites."
-msgstr "If you are using the <meta name=\\\"referrer\\\" content=\\\"no-referrer\\\"> tag or including the “Referrer-Policy: no-referrer” header, please remove them. The CSRF protection requires the “Referer” header to do strict referer checking. If you’re concerned about privacy, use alternatives like <a rel=\\\"noreferrer\\\" …> for links to third-party sites."
-
-#: .\venv\Lib\site-packages\django\views\csrf.py:54
-msgid ""
-"You are seeing this message because this site requires a CSRF cookie when "
-"submitting forms. This cookie is required for security reasons, to ensure "
-"that your browser is not being hijacked by third parties."
-msgstr "You are seeing this message because this site requires a CSRF cookie when submitting forms. This cookie is required for security reasons, to ensure that your browser is not being hijacked by third parties."
-
-#: .\venv\Lib\site-packages\django\views\csrf.py:60
-msgid ""
-"If you have configured your browser to disable cookies, please re-enable "
-"them, at least for this site, or for “same-origin” requests."
-msgstr "If you have configured your browser to disable cookies, please re-enable them, at least for this site, or for “same-origin” requests."
-
 #: .\venv\Lib\site-packages\django\views\csrf.py:66
 msgid "More information is available with DEBUG=True."
 msgstr "Plus d'informations disponibles avec DEBUG=True."
@@ -2848,13 +2509,6 @@ msgstr "Aucune semaine spécifiée"
 #, python-format
 msgid "No %(verbose_name_plural)s available"
 msgstr "Aucun %(verbose_name_plural)s disponible"
-
-#: .\venv\Lib\site-packages\django\views\generic\dates.py:680
-#, python-format
-msgid ""
-"Future %(verbose_name_plural)s not available because "
-"%(class_name)s.allow_future is False."
-msgstr "Future %(verbose_name_plural)s not available because %(class_name)s.allow_future is False."
 
 #: .\venv\Lib\site-packages\django\views\generic\dates.py:720
 #, python-format
@@ -2900,22 +2554,6 @@ msgstr "Index de %(directory)s"
 #: .\venv\Lib\site-packages\django\views\templates\default_urlconf.html:204
 msgid "The install worked successfully! Congratulations!"
 msgstr "L'installation a réussi ! Félicitations !"
-
-#: .\venv\Lib\site-packages\django\views\templates\default_urlconf.html:206
-#, python-format
-msgid ""
-"View <a href=\"https://docs.djangoproject.com/en/%(version)s/releases/\" "
-"target=\"_blank\" rel=\"noopener\">release notes</a> for Django %(version)s"
-msgstr "View <a href=\\\"https://docs.djangoproject.com/en/%(version)s/releases/\\\" target=\\\"_blank\\\" rel=\\\"noopener\\\">release notes</a> for Django %(version)s"
-
-#: .\venv\Lib\site-packages\django\views\templates\default_urlconf.html:208
-#, python-format
-msgid ""
-"You are seeing this page because <a href=\"https://docs.djangoproject.com/en/"
-"%(version)s/ref/settings/#debug\" target=\"_blank\" "
-"rel=\"noopener\">DEBUG=True</a> is in your settings file and you have not "
-"configured any URLs."
-msgstr "You are seeing this page because <a href=\\\"https://docs.djangoproject.com/en/%(version)s/ref/settings/#debug\\\" target=\\\"_blank\\\" rel=\\\"noopener\\\">DEBUG=True</a> is in your settings file and you have not configured any URLs."
 
 #: .\venv\Lib\site-packages\django\views\templates\default_urlconf.html:217
 msgid "Django Documentation"
@@ -2965,3 +2603,155 @@ msgstr "Vérifiez les paramètres corrects settings.CKEDITOR_5_CONFIGS "
 #: .\venv\Lib\site-packages\imagekit\admin.py:10
 msgid "Thumbnail"
 msgstr "Miniature"
+
+# === member_cabinet / connect_telegram (auto-added 2026-02-27) ===
+
+msgid "Member Cabinet"
+msgstr "Espace membre"
+
+msgid "Member Cabinet — IESA Sport"
+msgstr "Espace membre — IESA Sport"
+
+msgid "Personal Cabinet"
+msgstr "Espace personnel"
+
+msgid "Personal Cabinet · IESA Sport"
+msgstr "Espace personnel · IESA Sport"
+
+msgid "Verification PIN"
+msgstr "PIN de vérification"
+
+msgid "auto-refresh 12 min"
+msgstr "Actualisation auto 12 min"
+
+msgid "Your current code"
+msgstr "Votre code actuel"
+
+msgid "Copy PIN"
+msgstr "Copier le PIN"
+
+msgid "Copied!"
+msgstr "Copié !"
+
+msgid "Reloads when expired"
+msgstr "Rechargé à l'expiration"
+
+msgid "sec"
+msgstr "sec"
+
+msgid "How to use your PIN"
+msgstr "Comment utiliser votre PIN"
+
+msgid "Visit a partner"
+msgstr "Visiter un partenaire"
+
+msgid "Go to any partner gym, shop or clinic."
+msgstr "Rendez-vous chez un gym, magasin ou clinique partenaire."
+
+msgid "Identify yourself"
+msgstr "Identifiez-vous"
+
+msgid "Tell staff you're an IESA Sport member."
+msgstr "Dites au personnel que vous êtes membre IESA Sport."
+
+msgid "Show the PIN"
+msgstr "Montrez le PIN"
+
+msgid "Show this 6-digit code — staff enters it to confirm."
+msgstr "Montrez ce code à 6 chiffres — le personnel le saisit pour confirmer."
+
+msgid "Get notified ✅"
+msgstr "Recevoir la notification ✅"
+
+msgid "Visit is logged. Telegram confirmation incoming."
+msgstr "Visite enregistrée. Confirmation Telegram en route."
+
+msgid "Active Member"
+msgstr "Membre actif"
+
+msgid "Active"
+msgstr "Actif"
+
+msgid "Inactive"
+msgstr "Inactif"
+
+msgid "Public profile"
+msgstr "Profil public"
+
+msgid "Membership Inactive"
+msgstr "Adhésion inactive"
+
+msgid "You need an active membership to use the PIN and access partner benefits."
+msgstr "Vous avez besoin d'une adhésion active pour utiliser le PIN et accéder aux avantages partenaires."
+
+msgid "Please contact the administrator for assistance."
+msgstr "Veuillez contacter l'administrateur pour obtenir de l'aide."
+
+msgid "Contact Administration"
+msgstr "Contacter l'administration"
+
+msgid "Telegram Notifications"
+msgstr "Notifications Telegram"
+
+msgid "connected"
+msgstr "connecté"
+
+msgid "Telegram is connected"
+msgstr "Telegram est connecté"
+
+msgid "Since"
+msgstr "Depuis le"
+
+msgid "You receive instant visit confirmations via Telegram."
+msgstr "Vous recevez des confirmations de visite instantanées via Telegram."
+
+msgid "Disconnect Telegram"
+msgstr "Déconnecter Telegram"
+
+msgid "Connect Telegram"
+msgstr "Connecter Telegram"
+
+msgid "Connect your Telegram account to receive instant visit confirmations and important updates directly in the messenger."
+msgstr "Connectez votre compte Telegram pour recevoir des confirmations de visite instantanées et des mises à jour importantes directement dans le messager."
+
+msgid "or log in with Telegram"
+msgstr "ou se connecter avec Telegram"
+
+msgid "Get instant visit notifications"
+msgstr "Recevoir des notifications de visite instantanées"
+
+msgid "6-digit code"
+msgstr "Code à 6 chiffres"
+
+msgid "Tap to open in Telegram"
+msgstr "Appuyez pour ouvrir dans Telegram"
+
+msgid "Open"
+msgstr "Ouvrir"
+
+msgid "Open the IESA Sport bot in Telegram"
+msgstr "Ouvrez le bot IESA Sport dans Telegram"
+
+msgid "in Telegram"
+msgstr "dans Telegram"
+
+msgid "Press"
+msgstr "Appuyez sur"
+
+msgid "Attach account"
+msgstr "Lier le compte"
+
+msgid "or send"
+msgstr "ou envoyez"
+
+msgid "Enter the 6-digit code from the bot below"
+msgstr "Entrez le code à 6 chiffres du bot ci-dessous"
+
+msgid "Telegram Connected!"
+msgstr "Telegram connecté !"
+
+msgid "Redirecting…"
+msgstr "Redirection…"
+
+msgid "Back to cabinet"
+msgstr "Retour à l'espace membre"
