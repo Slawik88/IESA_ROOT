@@ -5,440 +5,519 @@
 
 {% block extra_css %}
 <style>
-/* ───────────── Cabinet variables ───────────── */
+/* ═══════════ DESIGN TOKENS ═══════════ */
 :root {
-    --cab-radius: 20px;
-    --cab-shadow: 0 8px 32px rgba(0,0,0,.10);
-    --cab-shadow-lg: 0 16px 48px rgba(0,0,0,.16);
-    --pin-size: 4.8rem;
-    --green-grad: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
-    --red-grad:   linear-gradient(135deg, #eb3349 0%, #f45c43 100%);
-    --blue-grad:  linear-gradient(135deg, #2193b0 0%, #6dd5ed 100%);
-    --tg-color:   #29a8eb;
+    --dark-base:   #0a0a0f;
+    --dark-card:   rgba(13,13,22,0.96);
+    --dark-step:   rgba(255,255,255,0.04);
+    --dark-border: rgba(255,255,255,0.08);
+    --dark-text:   rgba(255,255,255,0.88);
+    --dark-muted:  rgba(255,255,255,0.45);
+    --primary:     #dc2626;
+    --primary-glow:rgba(220,38,38,0.35);
+    --green:       #22c55e;
+    --green-glow:  rgba(34,197,94,0.30);
+    --tg-color:    #29a8eb;
+    --tg-glow:     rgba(41,168,235,0.30);
+    --orange:      #f59e0b;
+    --r:           20px;
 }
 
-/* ───────────── Page shell ───────────── */
-.cab-page { padding: 2rem 0 4rem; }
+/* ═══════════ PAGE SHELL ═══════════ */
+body { background: var(--dark-base) !important; }
 
-/* ───────────── Hero profile card ───────────── */
-.hero-card {
-    border: none;
-    border-radius: var(--cab-radius);
-    box-shadow: var(--cab-shadow-lg);
+#cab-canvas {
+    position: fixed; inset: 0;
+    pointer-events: none; z-index: 0;
+}
+
+.cab-page {
+    position: relative; z-index: 1;
+    padding: 2rem 0 5rem;
+    min-height: 100vh;
+}
+
+/* ═══════════ GLASSMORPHISM CARD BASE ═══════════ */
+.g-card {
+    background: var(--dark-card);
+    border: 1px solid var(--dark-border);
+    border-radius: var(--r);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    box-shadow: 0 8px 40px rgba(0,0,0,.55);
+    margin-bottom: 1.25rem;
     overflow: hidden;
-    margin-bottom: 1.5rem;
+    opacity: 0;
+    transform: translateY(24px);
+    transition: opacity .55s ease, transform .55s ease, box-shadow .3s;
 }
-.hero-card .hero-bg {
-    background: var(--green-grad);
-    padding: 2.5rem 2rem 1.5rem;
-    text-align: center;
+.g-card.visible { opacity: 1; transform: translateY(0); }
+.g-card:hover { box-shadow: 0 12px 56px rgba(0,0,0,.70); }
+
+/* ═══════════ HERO PROFILE CARD ═══════════ */
+.hero-card {
+    position: relative;
+    padding: 0;
+    background: var(--dark-card);
+}
+.hero-bg-stripe {
+    height: 100px;
+    background: linear-gradient(135deg, var(--primary) 0%, #7f1d1d 60%, #1a0a0a 100%);
+    position: relative;
+    overflow: hidden;
+}
+.hero-bg-stripe.active-stripe {
+    background: linear-gradient(135deg, #064e3b 0%, #065f46 50%, #0d0d18 100%);
+}
+.hero-bg-stripe::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.04'%3E%3Ccircle cx='30' cy='30' r='2'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+}
+.hero-body {
+    padding: 0 1.75rem 1.75rem;
     position: relative;
 }
-.hero-card.inactive .hero-bg { background: var(--red-grad); }
-
 .hero-avatar {
-    width: 88px;
-    height: 88px;
+    width: 80px; height: 80px;
     border-radius: 50%;
-    background: rgba(255,255,255,.25);
-    border: 4px solid rgba(255,255,255,.6);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 2.2rem;
-    font-weight: 800;
-    color: #fff;
-    margin: 0 auto 1rem;
-    letter-spacing: 0;
-    text-transform: uppercase;
+    background: linear-gradient(135deg, #dc2626, #7f1d1d);
+    border: 3.5px solid var(--dark-base);
+    outline: 2px solid rgba(220,38,38,.35);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.9rem; font-weight: 900;
+    color: #fff; text-transform: uppercase;
+    margin-top: -40px; margin-bottom: .85rem;
+    box-shadow: 0 8px 28px rgba(220,38,38,.4);
+    flex-shrink: 0;
 }
+.hero-avatar.active-av {
+    background: linear-gradient(135deg, #16a34a, #064e3b);
+    box-shadow: 0 8px 28px rgba(34,197,94,.4);
+    outline-color: rgba(34,197,94,.35);
+}
+.hero-row {
+    display: flex; align-items: flex-end; gap: 1rem;
+    justify-content: space-between;
+    flex-wrap: wrap;
+}
+.hero-info {}
 .hero-name {
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: #fff;
-    margin-bottom: .25rem;
+    font-size: 1.45rem; font-weight: 800;
+    color: #fff; line-height: 1.15;
+    margin-bottom: .3rem;
 }
 .hero-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: .4rem;
-    background: rgba(255,255,255,.25);
-    border: 1px solid rgba(255,255,255,.4);
-    border-radius: 50px;
-    padding: .25rem .9rem;
-    font-size: .85rem;
-    font-weight: 600;
-    color: #fff;
-    backdrop-filter: blur(4px);
+    display: inline-flex; align-items: center; gap: .35rem;
+    padding: .22rem .85rem;
+    border-radius: 50px; font-size: .78rem; font-weight: 700;
+    letter-spacing: .03em; text-transform: uppercase;
 }
+.hero-badge.active  { background: rgba(34,197,94,.15); border: 1px solid rgba(34,197,94,.35); color: #4ade80; }
+.hero-badge.inactive{ background: rgba(220,38,38,.15); border: 1px solid rgba(220,38,38,.35); color: #f87171; }
+.hero-badge.pending { background: rgba(245,158,11,.15); border: 1px solid rgba(245,158,11,.35); color: #fbbf24; }
 
-/* ───────────── PIN card ───────────── */
-.pin-card {
-    border: none;
-    border-radius: var(--cab-radius);
-    box-shadow: var(--cab-shadow);
-    margin-bottom: 1.5rem;
-    overflow: hidden;
-}
-.pin-card-header {
-    background: linear-gradient(135deg, var(--primary,#0d6efd) 0%, var(--primary-active,#0a58ca) 100%);
-    padding: 1rem 1.5rem;
-    display: flex;
-    align-items: center;
-    gap: .5rem;
-    color: #fff;
-    font-weight: 600;
-}
-.pin-card-body {
-    padding: 2rem 1.5rem;
-    text-align: center;
-    background: #fff;
-}
-
-/* PIN digits */
-.pin-value {
-    display: inline-flex;
-    gap: .5rem;
-    align-items: center;
-    justify-content: center;
-    flex-wrap: wrap;
-    margin-bottom: 1.5rem;
-}
-.pin-digit {
-    width: 56px;
-    height: 72px;
-    border-radius: 12px;
-    background: #f3f5f9;
-    border: 2px solid #e0e4ef;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: var(--pin-size);
-    font-weight: 900;
-    font-family: 'Courier New', monospace;
-    color: #1a1d2e;
-    line-height: 1;
-    transition: transform .2s, box-shadow .2s;
-    animation: pinPop .4s ease both;
-}
-.pin-digit:nth-child(3) { margin-right: .5rem; }
-@keyframes pinPop {
-    0%   { transform: scale(.7); opacity: 0; }
-    80%  { transform: scale(1.05); }
-    100% { transform: scale(1); opacity: 1; }
-}
-
-/* Circular countdown */
-.pin-timer {
-    position: relative;
-    width: 96px;
-    height: 96px;
-    margin: 0 auto 1.2rem;
-}
-.pin-timer svg { transform: rotate(-90deg); }
-.timer-track { fill: none; stroke: #eceff4; stroke-width: 8; }
-.timer-arc   { fill: none; stroke: var(--primary,#0d6efd); stroke-width: 8; stroke-linecap: round;
-               transition: stroke-dashoffset .9s linear, stroke .4s; }
-.timer-label {
-    position: absolute; inset: 0;
-    display: flex; flex-direction: column;
-    align-items: center; justify-content: center;
-    font-size: 1.5rem; font-weight: 800; color: #1a1d2e;
-    line-height: 1;
-}
-.timer-label small { font-size: .6rem; font-weight: 500; color: #9099aa; margin-top: 2px; letter-spacing: .04em; text-transform: uppercase; }
-
-/* ───────────── Steps card ───────────── */
-.steps-card {
-    border: none;
-    border-radius: var(--cab-radius);
-    box-shadow: var(--cab-shadow);
-    margin-bottom: 1.5rem;
-    background: #fff;
-}
-.step-row {
-    display: flex;
-    align-items: flex-start;
-    gap: 1rem;
-    padding: 1rem 1.5rem;
-    border-bottom: 1px solid #f3f5f9;
-}
-.step-row:last-child { border-bottom: none; }
-.step-num {
-    min-width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, var(--primary,#0d6efd), var(--primary-active,#0a58ca));
-    color: #fff;
-    font-weight: 700;
-    font-size: .9rem;
-    display: flex; align-items: center; justify-content: center;
-    flex-shrink: 0;
-}
-.step-text { font-size: .93rem; color: #3d4356; line-height: 1.4; padding-top: .4rem; }
-.step-text strong { color: #1a1d2e; }
-
-/* ───────────── Telegram card ───────────── */
-.tg-card {
-    border: none;
-    border-radius: var(--cab-radius);
-    box-shadow: var(--cab-shadow);
-    margin-bottom: 1.5rem;
-    overflow: hidden;
-    background: #fff;
-}
-.tg-card-header {
-    background: var(--tg-color);
-    padding: 1rem 1.5rem;
-    display: flex;
-    align-items: center;
-    gap: .5rem;
-    color: #fff;
-    font-weight: 600;
-}
-.tg-card-body { padding: 1.5rem; }
-
-.tg-connected {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    padding: 1rem 1.25rem;
-    border-radius: 14px;
-    background: #edfaf5;
-    border: 1.5px solid #b8f0d4;
-    margin-bottom: 1rem;
-}
-.tg-connected .tg-icon {
-    font-size: 2rem; color: #1da462;
-    flex-shrink: 0;
-}
-.tg-connected .tg-info { font-size: .93rem; line-height: 1.4; }
-.tg-connected .tg-info strong { color: #15803d; }
-
-.tg-method {
-    background: #f8f9fc;
-    border-radius: 14px;
-    padding: 1rem 1.25rem;
-    margin-bottom: .75rem;
-    border: 1.5px solid #e8ebf2;
-}
-.tg-method-title {
-    font-size: .9rem;
-    font-weight: 700;
-    color: #1a1d2e;
-    margin-bottom: .75rem;
-    display: flex;
-    align-items: center;
-    gap: .4rem;
-}
-.tg-method ol { padding-left: 1.2rem; margin-bottom: .75rem; font-size: .9rem; color: #4b5268; }
-.tg-method ol li { margin-bottom: .3rem; }
-.tg-code-form { display: flex; gap: .5rem; align-items: center; }
-.tg-code-input {
-    width: 120px;
-    border-radius: 10px;
-    border: 2px solid #d0d5e8;
-    padding: .45rem .75rem;
-    font-size: 1.1rem;
-    font-weight: 700;
-    letter-spacing: .2rem;
-    text-align: center;
-    transition: border-color .2s;
-}
-.tg-code-input:focus { outline: none; border-color: var(--tg-color); }
-.btn-tg-connect {
-    background: var(--tg-color);
-    color: #fff;
-    border: none;
-    border-radius: 10px;
-    padding: .45rem 1.1rem;
-    font-weight: 600;
-    font-size: .9rem;
-    cursor: pointer;
-    transition: opacity .2s, transform .1s;
-}
-.btn-tg-connect:hover { opacity: .88; transform: translateY(-1px); }
-.btn-tg-disconnect {
-    background: transparent;
-    border: 1.5px solid #e9505a;
-    color: #e9505a;
-    border-radius: 10px;
+.hero-edit-btn {
+    display: inline-flex; align-items: center; gap: .4rem;
     padding: .4rem .9rem;
-    font-size: .85rem;
-    font-weight: 600;
-    cursor: pointer;
+    background: rgba(255,255,255,.06);
+    border: 1px solid rgba(255,255,255,.12);
+    border-radius: 10px; color: var(--dark-muted);
+    font-size: .8rem; font-weight: 600; text-decoration: none;
     transition: all .2s;
 }
-.btn-tg-disconnect:hover { background: #e9505a; color: #fff; }
+.hero-edit-btn:hover { background: rgba(255,255,255,.12); color: #fff; border-color: rgba(255,255,255,.2); }
 
-/* ───────────── Status / error / inactive cards ───────────── */
-.state-card {
-    border: none;
-    border-radius: var(--cab-radius);
-    box-shadow: var(--cab-shadow);
-    background: #fff;
-    padding: 3rem 2rem;
-    text-align: center;
-    margin-bottom: 1.5rem;
+/* ═══════════ SECTION HEADER ═══════════ */
+.s-header {
+    padding: 1rem 1.5rem .75rem;
+    border-bottom: 1px solid var(--dark-border);
+    display: flex; align-items: center; gap: .6rem;
 }
-.state-icon { font-size: 3.5rem; margin-bottom: 1rem; }
-.state-title { font-size: 1.4rem; font-weight: 700; margin-bottom: .75rem; }
+.s-icon {
+    width: 32px; height: 32px;
+    border-radius: 9px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: .9rem; flex-shrink: 0;
+}
+.s-icon.red  { background: rgba(220,38,38,.18); color: #f87171; }
+.s-icon.blue { background: rgba(41,168,235,.18); color: #60c8f5; }
+.s-icon.green{ background: rgba(34,197,94,.15);  color: #4ade80; }
+.s-title {
+    font-size: .92rem; font-weight: 700;
+    color: var(--dark-text); letter-spacing: .02em;
+}
+.s-sub { color: var(--dark-muted); font-size: .76rem; font-weight: 400; margin-left: auto; }
 
-/* ───────────── Notification bar ───────────── */
+/* ═══════════ PIN BLOCK ═══════════ */
+.pin-block {
+    padding: 1.75rem 1.5rem 1.5rem;
+    display: flex; flex-direction: column; align-items: center;
+    gap: 1.2rem;
+}
+.pin-row {
+    display: flex; align-items: center; gap: .5rem;
+}
+.pin-digit {
+    width: 54px; height: 68px;
+    border-radius: 14px;
+    background: rgba(255,255,255,.04);
+    border: 1.5px solid rgba(255,255,255,.1);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 2.6rem; font-weight: 900;
+    font-family: 'Courier New', 'Roboto Mono', monospace;
+    color: #fff;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.06);
+    animation: pinPop .45s cubic-bezier(.34,1.56,.64,1) both;
+}
+.pin-digit:nth-child(3) { margin-right:.5rem; }
+@keyframes pinPop {
+    0%  { transform: scale(.6) translateY(8px); opacity:0; }
+    80% { transform: scale(1.04); }
+    100%{ transform: scale(1); opacity:1; }
+}
+.pin-sep { font-size: 1.5rem; color: rgba(255,255,255,.2); font-weight: 200; margin: 0 .1rem; }
+
+/* Countdown ring */
+.pin-timer {
+    position: relative; width: 86px; height: 86px;
+}
+.pin-timer svg { transform: rotate(-90deg); }
+.t-track { fill:none; stroke:rgba(255,255,255,.07); stroke-width:7; }
+.t-arc   { fill:none; stroke: var(--primary); stroke-width:7; stroke-linecap:round;
+           transition: stroke-dashoffset .95s linear, stroke .5s; }
+.t-label {
+    position: absolute; inset:0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    font-size: 1.4rem; font-weight: 800; color: #fff;
+    line-height: 1;
+}
+.t-label small { font-size:.55rem; font-weight:500; color:var(--dark-muted); margin-top:2px; text-transform:uppercase; letter-spacing:.06em; }
+
+.pin-copy-btn {
+    display: inline-flex; align-items: center; gap: .4rem;
+    padding: .45rem 1.2rem;
+    background: rgba(255,255,255,.06);
+    border: 1px solid rgba(255,255,255,.12);
+    border-radius: 10px; color: var(--dark-muted);
+    font-size: .82rem; font-weight: 600; cursor: pointer;
+    transition: all .2s; outline: none;
+}
+.pin-copy-btn:hover { background: rgba(255,255,255,.12); color: #fff; }
+.pin-copy-btn.copied { background: rgba(34,197,94,.15); border-color: rgba(34,197,94,.35); color: #4ade80; }
+
 .pin-refresh-note {
-    font-size: .82rem;
-    color: #6b7280;
-    display: flex;
-    align-items: center;
-    gap: .4rem;
-    justify-content: center;
-    margin-top: .5rem;
+    font-size: .78rem; color: var(--dark-muted);
+    display: flex; align-items: center; gap: .35rem;
 }
 
-/* ───────────── Responsive tweaks ───────────── */
+/* ═══════════ STEPS ═══════════ */
+.step-list { padding: .5rem 0; }
+.step-item {
+    display: flex; align-items: flex-start; gap: 1rem;
+    padding: .9rem 1.5rem;
+    border-bottom: 1px solid var(--dark-border);
+    position: relative;
+    opacity: 0; transform: translateX(-18px);
+    transition: opacity .45s ease, transform .45s ease;
+}
+.step-item:last-child { border-bottom: none; }
+.step-item.visible { opacity: 1; transform: translateX(0); }
+.sn {
+    min-width: 30px; height: 30px;
+    border-radius: 50%;
+    background: rgba(220,38,38,.18);
+    border: 1.5px solid rgba(220,38,38,.35);
+    color: #f87171; font-size: .82rem; font-weight: 800;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; margin-top: .1rem;
+}
+.step-text {
+    font-size: .9rem; color: var(--dark-muted); line-height: 1.5;
+    padding-top: .28rem;
+}
+.step-text strong { color: var(--dark-text); }
+
+/* ═══════════ TELEGRAM CARD ═══════════ */
+.tg-body-pad { padding: 1.5rem; }
+
+.tg-connected-state {
+    display: flex; align-items: center; gap: 1rem;
+    padding: 1.1rem 1.25rem;
+    background: rgba(34,197,94,.08);
+    border: 1.5px solid rgba(34,197,94,.22);
+    border-radius: 14px; margin-bottom: 1rem;
+}
+.tg-connected-state .tc-icon {
+    width: 44px; height: 44px; border-radius: 12px; flex-shrink:0;
+    background: rgba(34,197,94,.15); border: 1px solid rgba(34,197,94,.3);
+    display:flex; align-items:center; justify-content:center;
+    font-size: 1.3rem; color: #4ade80;
+}
+.tc-label { font-size:.82rem; color: var(--dark-muted); margin-bottom:.15rem; }
+.tc-name  { font-size:.95rem; font-weight:700; color:#4ade80; }
+
+.btn-tg-disconnect {
+    display: inline-flex; align-items:center; gap:.4rem;
+    padding:.4rem .9rem;
+    background: rgba(220,38,38,.1);
+    border: 1.5px solid rgba(220,38,38,.3);
+    border-radius: 10px; color: #f87171;
+    font-size: .82rem; font-weight: 700;
+    cursor: pointer; transition: all .2s;
+}
+.btn-tg-disconnect:hover { background: rgba(220,38,38,.22); border-color: rgba(220,38,38,.5); color: #fff; }
+
+/* Connect CTA */
+.tg-connect-cta {
+    text-align: center; padding: 1rem 0 .5rem;
+}
+.tg-connect-cta p {
+    font-size: .9rem; color: var(--dark-muted); margin-bottom: 1.25rem; line-height: 1.55;
+}
+.btn-tg-primary {
+    display: inline-flex; align-items:center; gap:.55rem;
+    padding: .8rem 1.8rem;
+    background: linear-gradient(135deg, var(--tg-color), #1a7ab5);
+    border: none; border-radius: 12px; color: #fff;
+    font-size: 1rem; font-weight: 700; text-decoration: none;
+    letter-spacing: .02em; cursor:pointer;
+    box-shadow: 0 6px 24px rgba(41,168,235,.35);
+    transition: all .25s; outline:none;
+    position: relative; overflow: hidden;
+}
+.btn-tg-primary::after {
+    content:''; position:absolute;
+    top:0; left:-100%; width:60%; height:100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,.18), transparent);
+    transform: skewX(-18deg);
+    transition: left .5s ease;
+}
+.btn-tg-primary:hover::after { left: 150%; }
+.btn-tg-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 32px rgba(41,168,235,.5);
+    color: #fff; text-decoration:none;
+}
+
+.tg-divider {
+    text-align:center; position:relative; margin: 1.2rem 0;
+    color: var(--dark-muted); font-size: .78rem;
+}
+.tg-divider::before {
+    content:''; position:absolute; top:50%; left:0; right:0;
+    height:1px; background: var(--dark-border);
+}
+.tg-divider span { position:relative; z-index:1; background: var(--dark-card); padding: 0 .8rem; }
+
+.tg-widget-wrap {
+    display:flex; justify-content:center; padding: .25rem 0;
+}
+
+/* ═══════════ STATE CARDS (error/inactive) ═══════════ */
+.state-body {
+    padding: 3rem 2rem; text-align:center;
+}
+.state-icon { font-size:3rem; margin-bottom:1rem; }
+.state-title { font-size:1.25rem; font-weight:800; color:#fff; margin-bottom:.6rem; }
+.state-sub   { font-size:.9rem; color:var(--dark-muted); margin-bottom:1.5rem; }
+.state-contact {
+    background: rgba(255,255,255,.04);
+    border: 1px solid var(--dark-border);
+    border-radius: 12px; padding: 1rem 1.25rem;
+    text-align:left; font-size:.88rem; color:var(--dark-muted);
+}
+.state-contact a { color: var(--tg-color); }
+
+/* ═══════════ MESSAGES ═══════════ */
+.alert {
+    background: rgba(255,255,255,.06);
+    border: 1px solid rgba(255,255,255,.12);
+    color: var(--dark-text);
+    border-radius: 12px;
+}
+.alert-success { background: rgba(34,197,94,.1);  border-color: rgba(34,197,94,.25); color: #4ade80; }
+.alert-danger  { background: rgba(220,38,38,.1);  border-color: rgba(220,38,38,.25); color: #f87171; }
+.alert-warning { background: rgba(245,158,11,.1); border-color: rgba(245,158,11,.25); color: #fbbf24; }
+.alert-info    { background: rgba(41,168,235,.1); border-color: rgba(41,168,235,.25); color: #60c8f5; }
+
+/* ═══════════ RESPONSIVE ═══════════ */
 @media (max-width: 480px) {
-    .pin-digit { width: 46px; height: 60px; font-size: 3.8rem; border-radius: 10px; }
-    .pin-digit:nth-child(3) { margin-right: .3rem; }
+    .pin-digit { width:46px; height:60px; font-size:2.1rem; border-radius:11px; }
+    .hero-name { font-size:1.2rem; }
 }
 </style>
 {% endblock %}
 
 {% block content %}
+<canvas id="cab-canvas"></canvas>
 <div class="container cab-page">
 <div class="row justify-content-center">
 <div class="col-sm-10 col-md-8 col-lg-6 col-xl-5">
 
-{# ───── HERO PROFILE CARD ───── #}
-{% with initials=user_name|slice:":1" %}
-<div class="hero-card {% if membership_status != 'active' %}inactive{% endif %}">
-    <div class="hero-bg">
-        <div class="hero-avatar">{{ initials }}</div>
-        <div class="hero-name">{{ user_name }}</div>
-        <div class="mt-2">
-            {% if membership_status == 'active' %}
-                <span class="hero-badge"><i class="fas fa-check-circle"></i> {% trans "Active Member" %}</span>
-            {% else %}
-                <span class="hero-badge"><i class="fas fa-times-circle"></i> {% trans "Inactive" %}</span>
-            {% endif %}
+{# ───── MESSAGES ───── #}
+{% for message in messages %}
+<div class="alert alert-{{ message.tags }} shadow-sm mb-3" role="alert">{{ message }}</div>
+{% endfor %}
+
+{# ═══ HERO PROFILE CARD ═══ #}
+{% with initials=user_name|slice:":2" %}
+<div class="g-card hero-card" data-stagger="0">
+    <div class="hero-bg-stripe {% if membership_status == 'active' %}active-stripe{% endif %}"></div>
+    <div class="hero-body">
+        <div class="hero-row">
+            <div style="display:flex;align-items:flex-end;gap:1rem;">
+                <div class="hero-avatar {% if membership_status == 'active' %}active-av{% endif %}">{{ initials }}</div>
+                <div class="hero-info" style="padding-bottom:.15rem;">
+                    <div class="hero-name">{{ user_name }}</div>
+                    {% if membership_status == 'active' %}
+                        <span class="hero-badge active"><i class="fas fa-shield-alt"></i>&nbsp;{% trans "Active" %}</span>
+                    {% elif membership_status == 'inactive' %}
+                        <span class="hero-badge inactive"><i class="fas fa-times-circle"></i>&nbsp;{% trans "Inactive" %}</span>
+                    {% else %}
+                        <span class="hero-badge pending"><i class="fas fa-clock"></i>&nbsp;{% trans "Pending" %}</span>
+                    {% endif %}
+                </div>
+            </div>
+            <a href="{% url 'users:profile_edit' %}" class="hero-edit-btn" style="margin-bottom:.15rem;">
+                <i class="fas fa-user-edit"></i> {% trans "Edit" %}
+            </a>
         </div>
     </div>
 </div>
 {% endwith %}
 
-{# ───── MESSAGES ───── #}
-{% for message in messages %}
-<div class="alert alert-{{ message.tags }} rounded-4 shadow-sm mb-3" role="alert">{{ message }}</div>
-{% endfor %}
-
-{# ═══════════ ACTIVE —PIN block ═══════════ #}
+{# ═══════════ ACTIVE — PIN BLOCK ═══════════ #}
 {% if membership_status == 'active' and current_pin %}
 
-<div class="pin-card">
-    <div class="pin-card-header">
-        <i class="fas fa-shield-alt"></i>
-        {% trans "Your Verification PIN" %}
-        <span class="ms-auto" style="opacity:.7; font-size:.8rem; font-weight:400;">{% trans "Auto-refreshes every 12 min" %}</span>
+{# PIN card #}
+<div class="g-card" data-stagger="1">
+    <div class="s-header">
+        <div class="s-icon red"><i class="fas fa-shield-alt"></i></div>
+        <span class="s-title">{% trans "Verification PIN" %}</span>
+        <span class="s-sub">{% trans "Auto-refresh every 12 min" %}</span>
     </div>
-    <div class="pin-card-body">
-
-        {# PIN digits #}
-        <div class="pin-value" id="pin-digits">
+    <div class="pin-block">
+        {# Digits #}
+        <div class="pin-row" id="pin-digits">
             {% for ch in current_pin %}
-                <div class="pin-digit" style="animation-delay:{{ forloop.counter0 }}00ms">{{ ch }}</div>
+                <div class="pin-digit" style="animation-delay:{{ forloop.counter0 }}0ms">{{ ch }}</div>
                 {% if forloop.counter == 3 and not forloop.last %}
-                    <div style="font-size:2rem;color:#c5c9d6;font-weight:300;line-height:1">–</div>
+                    <div class="pin-sep">–</div>
                 {% endif %}
             {% endfor %}
         </div>
 
-        {# Circular timer #}
-        <div class="pin-timer">
-            <svg width="96" height="96" viewBox="0 0 96 96">
-                <circle class="timer-track" cx="48" cy="48" r="40"/>
-                <circle class="timer-arc" id="timer-arc" cx="48" cy="48" r="40"
-                    stroke-dasharray="251.2"
-                    stroke-dashoffset="0"/>
-            </svg>
-            <div class="timer-label">
-                <span id="countdown">{{ seconds_remaining }}</span>
-                <small>{% trans "sec" %}</small>
+        {# Timer ring + copy #}
+        <div style="display:flex;align-items:center;gap:1.5rem;flex-wrap:wrap;justify-content:center;">
+            <div class="pin-timer">
+                <svg width="86" height="86" viewBox="0 0 86 86">
+                    <circle class="t-track" cx="43" cy="43" r="37"/>
+                    <circle class="t-arc" id="timer-arc" cx="43" cy="43" r="37"
+                        stroke-dasharray="232.5" stroke-dashoffset="0"/>
+                </svg>
+                <div class="t-label">
+                    <span id="countdown">{{ seconds_remaining }}</span>
+                    <small>{% trans "sec" %}</small>
+                </div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:.6rem;align-items:flex-start;">
+                <button class="pin-copy-btn" id="copy-pin" data-pin="{{ current_pin }}">
+                    <i class="fas fa-copy" id="copy-icon"></i>
+                    <span id="copy-label">{% trans "Copy PIN" %}</span>
+                </button>
+                <div class="pin-refresh-note">
+                    <i class="fas fa-sync-alt" style="font-size:.65rem;"></i>
+                    {% trans "Reloads when expired" %}
+                </div>
             </div>
         </div>
-
-        <div class="pin-refresh-note">
-            <i class="fas fa-sync-alt fa-spin" style="font-size:.7rem;"></i>
-            {% trans "PIN will reload automatically when expired" %}
-        </div>
-
     </div>
 </div>
 
-{# Steps how-to #}
-<div class="steps-card">
-    <div class="step-row">
-        <div class="step-num">1</div>
-        <div class="step-text">{% trans "Visit any <strong>partner location</strong> — shop, gym, clinic" %}</div>
+{# Steps card #}
+<div class="g-card" data-stagger="2">
+    <div class="s-header">
+        <div class="s-icon red"><i class="fas fa-list-ol"></i></div>
+        <span class="s-title">{% trans "How to use" %}</span>
     </div>
-    <div class="step-row">
-        <div class="step-num">2</div>
-        <div class="step-text">{% trans "Tell staff you are an <strong>IESA Sport member</strong>" %}</div>
-    </div>
-    <div class="step-row">
-        <div class="step-num">3</div>
-        <div class="step-text">{% trans "Show this <strong>6-digit PIN</strong> — staff enters it in their system" %}</div>
-    </div>
-    <div class="step-row">
-        <div class="step-num">4</div>
-        <div class="step-text">{% trans "Visit is logged, you get a <strong>Telegram notification</strong> ✅" %}</div>
+    <div class="step-list">
+        <div class="step-item">
+            <div class="sn">1</div>
+            <div class="step-text">{% trans "Visit any <strong>partner location</strong> — gym, shop, clinic" %}</div>
+        </div>
+        <div class="step-item">
+            <div class="sn">2</div>
+            <div class="step-text">{% trans "Tell the staff you're an <strong>IESA Sport member</strong>" %}</div>
+        </div>
+        <div class="step-item">
+            <div class="sn">3</div>
+            <div class="step-text">{% trans "Show this <strong>6-digit PIN</strong> — staff enters it in their scanner" %}</div>
+        </div>
+        <div class="step-item">
+            <div class="sn">4</div>
+            <div class="step-text">{% trans "Your visit is logged instantly. You receive a <strong>Telegram notification ✅</strong>" %}</div>
+        </div>
     </div>
 </div>
 
 {# ═══════════ ERROR ═══════════ #}
 {% elif error_message %}
-<div class="state-card">
-    <div class="state-icon">⚠️</div>
-    <div class="state-title" style="color:#c92a2a;">{{ error_message }}</div>
-    <p class="text-muted">{% trans "Please contact administrator for assistance." %}</p>
+<div class="g-card" data-stagger="1">
+    <div class="state-body">
+        <div class="state-icon">⚠️</div>
+        <div class="state-title" style="color:#f87171;">{{ error_message }}</div>
+        <p class="state-sub">{% trans "Please contact the administrator for assistance." %}</p>
+    </div>
 </div>
 
 {# ═══════════ INACTIVE ═══════════ #}
 {% else %}
-<div class="state-card">
-    <div class="state-icon">🔒</div>
-    <div class="state-title" style="color:#e67700;">{% trans "Membership Inactive" %}</div>
-    <p class="text-muted mb-3">{% trans "You need an active membership to access PIN verification and partner benefits." %}</p>
-    <div style="background:#fff8e1;border:1.5px solid #ffe083;border-radius:14px;padding:1rem;text-align:left;font-size:.9rem;">
-        <strong><i class="fas fa-phone-alt"></i> {% trans "Contact Administration" %}:</strong><br>
-        {% trans "Email" %}: <a href="mailto:admin@iesasport.ch">admin@iesasport.ch</a>
+<div class="g-card" data-stagger="1">
+    <div class="state-body">
+        <div class="state-icon">🔒</div>
+        <div class="state-title" style="color:#fbbf24;">{% trans "Membership Inactive" %}</div>
+        <p class="state-sub">{% trans "You need an active membership to use the PIN and access partner benefits." %}</p>
+        <div class="state-contact">
+            <strong><i class="fas fa-envelope"></i> {% trans "Contact Administration" %}:</strong><br>
+            Email: <a href="mailto:admin@iesasport.ch">admin@iesasport.ch</a>
+        </div>
     </div>
 </div>
 {% endif %}
 
-{# ═══════════ TELEGRAM CARD ═══════════ #}
+{# ═══ TELEGRAM CARD ═══ #}
 {% if telegram_bot_configured %}
-<div class="tg-card">
-    <div class="tg-card-header">
-        <i class="fab fa-telegram-plane fa-lg"></i>
-        {% trans "Telegram Notifications" %}
+<div class="g-card" data-stagger="3">
+    <div class="s-header">
+        <div class="s-icon blue"><i class="fab fa-telegram"></i></div>
+        <span class="s-title">{% trans "Telegram Notifications" %}</span>
         {% if telegram_linked %}
-            <span class="ms-auto" style="font-size:.78rem;opacity:.85;font-weight:400;">{% trans "connected" %} ✓</span>
+            <span class="s-sub" style="color:#4ade80;"><i class="fas fa-circle" style="font-size:.45rem;"></i> {% trans "connected" %}</span>
         {% endif %}
     </div>
-    <div class="tg-card-body">
+    <div class="tg-body-pad">
 
         {% if telegram_linked %}
-            <div class="tg-connected">
-                <div class="tg-icon"><i class="fab fa-telegram"></i></div>
-                <div class="tg-info">
-                    <strong>{% trans "Telegram is connected" %}</strong><br>
-                    {% if user.telegram_linked_at %}
-                        <span style="color:#4b5268;font-size:.85rem;">
+            {# ── Connected state ── #}
+            <div class="tg-connected-state">
+                <div class="tc-icon"><i class="fab fa-telegram"></i></div>
+                <div>
+                    <div class="tc-label">{% trans "Telegram is connected" %}</div>
+                    <div class="tc-name">
+                        {% if user.telegram_linked_at %}
                             {% trans "Since" %} {{ user.telegram_linked_at|date:"d.m.Y" }}
-                        </span>
-                    {% endif %}<br>
-                    <span style="color:#4b5268;font-size:.82rem;">{% trans "You will receive visit confirmations in Telegram" %}</span>
+                        {% else %}
+                            {% trans "Active" %}
+                        {% endif %}
+                    </div>
                 </div>
             </div>
+            <p style="font-size:.85rem;color:var(--dark-muted);margin-bottom:1rem;">
+                <i class="fas fa-bell" style="color:var(--tg-color);"></i>
+                {% trans "You receive instant visit confirmations in Telegram." %}
+            </p>
             <form method="post" action="{% url 'users:disconnect_telegram' %}">
                 {% csrf_token %}
                 <button type="submit" class="btn-tg-disconnect">
@@ -447,40 +526,21 @@
             </form>
 
         {% else %}
-            <p style="color:#4b5268;font-size:.9rem;margin-bottom:1rem;">
-                <i class="fas fa-bell"></i> {% trans "Connect Telegram to get instant visit notifications." %}
-            </p>
-
-            {# Method A — code #}
-            <div class="tg-method">
-                <div class="tg-method-title"><i class="fas fa-hashtag" style="color:var(--tg-color)"></i> {% trans "Method 1 — Bot code" %}</div>
-                <ol>
-                    <li>{% trans "Open" %}
-                        {% if telegram_bot_name %}
-                            <a href="https://t.me/{{ telegram_bot_name }}" target="_blank" rel="noopener">@{{ telegram_bot_name }}</a>
-                        {% else %}
-                            {% trans "the bot" %}
-                        {% endif %}
-                    </li>
-                    <li>{% trans "Send command" %} <code>/link</code></li>
-                    <li>{% trans "Enter the 6-digit code here:" %}</li>
-                </ol>
-                <form method="post" action="{% url 'users:connect_telegram_code' %}" class="tg-code-form">
-                    {% csrf_token %}
-                    <input type="text" name="code" maxlength="6" minlength="6"
-                           pattern="[0-9]{6}" class="tg-code-input"
-                           placeholder="000000" required autocomplete="off" inputmode="numeric">
-                    <button type="submit" class="btn-tg-connect">
-                        <i class="fas fa-link"></i> {% trans "Connect" %}
-                    </button>
-                </form>
+            {# ── Not connected — CTA ── #}
+            <div class="tg-connect-cta">
+                <p>
+                    <i class="fas fa-bell" style="color:var(--tg-color);margin-right:.3rem;"></i>
+                    {% trans "Connect your Telegram to receive instant visit confirmations and updates directly in the messenger." %}
+                </p>
+                <a href="{% url 'users:connect_telegram_code' %}" class="btn-tg-primary">
+                    <i class="fab fa-telegram fa-lg"></i>
+                    {% trans "Connect Telegram" %}
+                </a>
             </div>
 
-            {# Method B — widget #}
             {% if telegram_bot_name %}
-            <div class="tg-method">
-                <div class="tg-method-title"><i class="fab fa-telegram" style="color:var(--tg-color)"></i> {% trans "Method 2 — Telegram Login" %}</div>
-                <p style="font-size:.85rem;color:#6b7280;margin-bottom:.75rem;">{% trans "One click — authorize directly via Telegram" %}</p>
+            <div class="tg-divider"><span>{% trans "or authorize via Telegram" %}</span></div>
+            <div class="tg-widget-wrap">
                 <script async src="https://telegram.org/js/telegram-widget.js?22"
                     data-telegram-login="{{ telegram_bot_name }}"
                     data-size="medium"
@@ -494,6 +554,18 @@
     </div>
 </div>
 {% endif %}
+{# ── TG banner if NOT configured but user is active ── #}
+{% if not telegram_bot_configured and membership_status == 'active' %}
+<div class="g-card" data-stagger="3">
+    <div class="s-header">
+        <div class="s-icon blue"><i class="fab fa-telegram"></i></div>
+        <span class="s-title">{% trans "Telegram Notifications" %}</span>
+    </div>
+    <div class="tg-body-pad" style="text-align:center;">
+        <p style="color:var(--dark-muted);font-size:.88rem;">{% trans "Telegram notifications are not yet configured. Please contact the administrator." %}</p>
+    </div>
+</div>
+{% endif %}
 
 </div>{# /col #}
 </div>{# /row #}
@@ -503,28 +575,97 @@
 {% block extra_js %}
 <script>
 (function () {
-    const TOTAL = 720;
-    let secs = {{ seconds_remaining }};
-    const arc = document.getElementById('timer-arc');
-    const label = document.getElementById('countdown');
-    const CIRCUMFERENCE = 251.2;
+    /* ─── Canvas particles ─── */
+    const canvas = document.getElementById('cab-canvas');
+    const ctx    = canvas.getContext('2d');
+    let W, H;
 
-    function update() {
-        if (secs <= 0) { window.location.reload(); return; }
+    function resize() { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; }
+    window.addEventListener('resize', resize); resize();
 
-        if (label) label.textContent = secs;
+    const particles = Array.from({length:60}, () => ({
+        x: Math.random()*W, y: Math.random()*H,
+        vx:(Math.random()-.5)*.3, vy:(Math.random()-.5)*.3,
+        r: Math.random()*1.4+.4,
+        a: Math.random()*.35+.06,
+        c: Math.random()>.5 ? 'rgba(220,38,38,' : 'rgba(41,168,235,',
+    }));
 
-        if (arc) {
-            const pct = secs / TOTAL;
-            arc.style.strokeDashoffset = CIRCUMFERENCE * (1 - pct);
-            if (secs < 60)  arc.style.stroke = '#f59f00';
-            if (secs < 30)  arc.style.stroke = '#e03131';
+    (function loop(){
+        ctx.clearRect(0,0,W,H);
+        particles.forEach(p=>{
+            ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+            ctx.fillStyle=p.c+p.a+')'; ctx.fill();
+            p.x+=p.vx; p.y+=p.vy;
+            if(p.x<-5)p.x=W+5; if(p.x>W+5)p.x=-5;
+            if(p.y<-5)p.y=H+5; if(p.y>H+5)p.y=-5;
+        });
+        for(let i=0;i<particles.length;i++) for(let j=i+1;j<particles.length;j++){
+            const dx=particles[i].x-particles[j].x, dy=particles[i].y-particles[j].y;
+            const d=Math.sqrt(dx*dx+dy*dy);
+            if(d<100){ ctx.beginPath(); ctx.moveTo(particles[i].x,particles[i].y);
+                ctx.lineTo(particles[j].x,particles[j].y);
+                ctx.strokeStyle='rgba(220,38,38,'+(0.08*(1-d/100))+')';
+                ctx.lineWidth=.5; ctx.stroke(); }
         }
-        secs--;
+        requestAnimationFrame(loop);
+    })();
+
+    /* ─── Stagger reveal cards ─── */
+    const cards = document.querySelectorAll('.g-card');
+    cards.forEach((c,i)=>{
+        setTimeout(()=>c.classList.add('visible'), 80 + i*120);
+    });
+
+    /* ─── Step items stagger ─── */
+    const stepItems = document.querySelectorAll('.step-item');
+    const stepObs = new IntersectionObserver(entries=>{
+        entries.forEach(e=>{ if(e.isIntersecting) e.target.classList.add('visible'); });
+    },{threshold:.1});
+    stepItems.forEach((s,i)=>{ s.style.transitionDelay=(i*80)+'ms'; stepObs.observe(s); });
+    setTimeout(()=>stepItems.forEach(s=>s.classList.add('visible')), 600);
+
+    /* ─── PIN countdown ─── */
+    const TOTAL = 720;
+    let secs = {{ seconds_remaining|default:0 }};
+    const arc   = document.getElementById('timer-arc');
+    const label = document.getElementById('countdown');
+    const CIRC  = 232.5;
+
+    if (arc || label) {
+        function updateTimer(){
+            if(secs<=0){ window.location.reload(); return; }
+            if(label) label.textContent = secs;
+            if(arc){
+                arc.style.strokeDashoffset = CIRC*(1-secs/TOTAL);
+                if(secs<60)  arc.style.stroke='#f59e0b';
+                if(secs<30)  arc.style.stroke='#ef4444';
+            }
+            secs--;
+        }
+        updateTimer();
+        setInterval(updateTimer,1000);
     }
 
-    update();
-    setInterval(update, 1000);
+    /* ─── Copy PIN ─── */
+    const copyBtn = document.getElementById('copy-pin');
+    if(copyBtn){
+        copyBtn.addEventListener('click',()=>{
+            const pin = copyBtn.dataset.pin;
+            navigator.clipboard.writeText(pin).then(()=>{
+                const lbl = document.getElementById('copy-label');
+                const ico = document.getElementById('copy-icon');
+                copyBtn.classList.add('copied');
+                if(lbl) lbl.textContent='{% trans "Copied!" %}';
+                if(ico){ ico.classList.remove('fa-copy'); ico.classList.add('fa-check'); }
+                setTimeout(()=>{
+                    copyBtn.classList.remove('copied');
+                    if(lbl) lbl.textContent='{% trans "Copy PIN" %}';
+                    if(ico){ ico.classList.remove('fa-check'); ico.classList.add('fa-copy'); }
+                }, 2200);
+            }).catch(()=>{});
+        });
+    }
 })();
 </script>
 {% endblock %}
