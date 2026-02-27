@@ -19,141 +19,199 @@
 {% block container_wrap_start %}{% endblock %}
 {% block container_wrap_end %}{% endblock %}
 
+{% block extra_css %}
+<style>
+/* ── Post Detail Dark ── */
+.pd-wrap { padding: 2.5rem 0 4rem; }
+.pd-article {
+    background: #111118;
+    border: 1.5px solid rgba(255,255,255,.07);
+    border-radius: 20px;
+    overflow: hidden;
+    margin-bottom: 2rem;
+}
+.pd-article__hero-img {
+    width: 100%;
+    max-height: 420px;
+    object-fit: cover;
+    display: block;
+    border-bottom: 1.5px solid rgba(255,255,255,.06);
+}
+.pd-article__body { padding: 2rem 2.25rem 2.25rem; }
+@media(max-width:575.98px) { .pd-article__body { padding: 1.25rem; } }
+.pd-status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+    padding: .25rem .75rem;
+    border-radius: 100px;
+    font-size: .78rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    margin-bottom: 1.25rem;
+}
+.pd-status-published { background: rgba(34,197,94,.15); color: #4ade80; border: 1px solid rgba(34,197,94,.25); }
+.pd-status-pending   { background: rgba(234,179, 8,.15); color: #facc15; border: 1px solid rgba(234,179,8,.25); }
+.pd-status-other     { background: rgba(255,255,255,.08); color: rgba(255,255,255,.5); border: 1px solid rgba(255,255,255,.1); }
+.pd-title { font-size: clamp(1.5rem,4vw,2.1rem); font-weight: 800; color: #f1f5f9; margin-bottom: 1.25rem; line-height: 1.25; }
+.pd-meta { display: flex; flex-wrap: wrap; gap: .75rem 1.5rem; color: rgba(255,255,255,.45); font-size: .875rem; margin-bottom: 1.5rem; padding-bottom: 1.5rem; border-bottom: 1px solid rgba(255,255,255,.07); }
+.pd-meta a { color: #f87171; text-decoration: none; }
+.pd-meta a:hover { color: #fca5a5; text-decoration: underline; }
+.pd-actions { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: 1.75rem; }
+.pd-content { color: rgba(255,255,255,.8); line-height: 1.8; font-size: 1rem; }
+.pd-content h1,.pd-content h2,.pd-content h3,.pd-content h4 { color: #f1f5f9; margin-top: 1.75rem; margin-bottom: .75rem; }
+.pd-content p { margin-bottom: 1.1rem; }
+.pd-content a { color: #f87171; }
+.pd-content img { max-width: 100%; border-radius: 10px; }
+.pd-content blockquote { border-left: 3px solid #dc2626; padding-left: 1rem; color: rgba(255,255,255,.55); font-style: italic; margin: 1.25rem 0; }
+/* Comments */
+.pd-comments-wrap {
+    background: #111118;
+    border: 1.5px solid rgba(255,255,255,.07);
+    border-radius: 20px;
+    padding: 1.75rem 2.25rem;
+    margin-bottom: 2rem;
+}
+@media(max-width:575.98px) { .pd-comments-wrap { padding: 1.25rem; } }
+.pd-section-label { font-size: .75rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: #dc2626; margin-bottom: 1.25rem; display: block; }
+.pd-comment-form textarea {
+    background: #1a1a24;
+    border: 1.5px solid rgba(255,255,255,.1);
+    color: #f1f5f9;
+    border-radius: 10px;
+    resize: none;
+}
+.pd-comment-form textarea:focus {
+    background: #1a1a24;
+    border-color: rgba(220,38,38,.5);
+    color: #f1f5f9;
+    box-shadow: 0 0 0 3px rgba(220,38,38,.15);
+}
+.pd-comment-form textarea::placeholder { color: rgba(255,255,255,.3); }
+.pd-auth-notice {
+    background: rgba(234,179,8,.08);
+    border: 1.5px solid rgba(234,179,8,.2);
+    border-radius: 12px;
+    padding: .875rem 1.25rem;
+    color: rgba(255,255,255,.7);
+    font-size: .9rem;
+}
+.pd-auth-notice a { color: #f87171; }
+/* Recommended */
+.pd-rec-card {
+    background: #111118;
+    border: 1.5px solid rgba(255,255,255,.07);
+    border-radius: 14px;
+    overflow: hidden;
+    text-decoration: none;
+    display: block;
+    transition: border-color .2s, transform .2s;
+}
+.pd-rec-card:hover { border-color: rgba(220,38,38,.35); transform: translateY(-2px); }
+.pd-rec-card img { width: 100%; height: 140px; object-fit: cover; display: block; }
+.pd-rec-card__no-img { height: 80px; background: #1a1a24; display: flex; align-items: center; justify-content: center; }
+.pd-rec-card__body { padding: .875rem 1rem; }
+.pd-rec-card__title { font-size: .9rem; font-weight: 700; color: #f1f5f9; margin-bottom: .35rem; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.pd-rec-card__meta { font-size: .78rem; color: rgba(255,255,255,.35); display: flex; gap: .75rem; }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="container-limited">
+<div class="container-limited pd-wrap">
     <div class="row justify-content-center">
         <div class="col-lg-10">
-            <!-- Post Content -->
-            <article class="card card-modern p-4 p-md-5 mb-4">
-                <!-- Статус бейдж -->
-                <div class="mb-3">
-                    {% if post.status == 'published' %}
-                        <span class="badge badge-success">{{ post.get_status_display }}</span>
-                    {% elif post.status == 'pending' %}
-                        <span class="badge badge-warning">{{ post.get_status_display }}</span>
-                    {% else %}
-                        <span class="badge badge-secondary">{{ post.get_status_display }}</span>
-                    {% endif %}
-                </div>
-                
-                <!-- Заголовок -->
-                <h1 class="fw-bold mb-4 post-detail-title">{{ post.title }}</h1>
-                
-                <!-- Мета информация -->
-                <div class="d-flex align-items-center flex-wrap gap-3 mb-4 pb-3 post-detail-meta-row">
-                    <div class="d-flex align-items-center">
-                        <i class="fas fa-user-circle me-2 post-detail-meta-icon"></i>
-                        <span class="text-muted">
-                            {% if post.author.username %}
-                                <a href="{% url 'users:profile_public_username' username=post.author.username %}" class="text-decoration-none fw-semibold post-detail-author-link">
-                                    {{ post.author.username }}
-                                </a>
-                            {% else %}
-                                <span class="text-muted">{% trans "Anonymous" %}</span>
-                            {% endif %}
-                        </span>
-                    </div>
-                    <div class="d-flex align-items-center text-muted">
-                        <i class="far fa-calendar me-2 post-detail-meta-icon"></i>
-                        {{ post.created_at|date:"d M Y" }}
-                    </div>
-                    <div class="d-flex align-items-center text-muted">
-                        <i class="far fa-eye me-2 post-detail-meta-icon"></i>
-                        {{ post.views_count }} {% trans "views" %}
-                    </div>
-                </div>
-
-                <!-- Кнопки действий -->
-                <div class="d-flex flex-wrap align-items-center gap-2 mb-4">
-                    <!-- HTMX Like Button -->
-                    <div id="like-button-container" 
-                         hx-get="{% url 'blog:like_post' pk=post.pk %}" 
-                         hx-trigger="load" 
-                         hx-swap="outerHTML">
-                    </div>
-                    <!-- Subscribe Button (inline) -->
-                    {% if user.is_authenticated and user != post.author %}
-                        {% include 'blog/htmx/subscribe_button.html' with author=post.author is_subscribed=is_subscribed %}
-                    {% endif %}
-                </div>
-                
-                <!-- Превью изображение -->
+            <!-- Post Article -->
+            <article class="pd-article">
                 {% if post.preview_image %}
-                    <img src="{{ post.preview_image.url }}" class="img-fluid mb-4 post-detail-image" alt="{{ post.title }}" loading="lazy">
+                    <img src="{{ post.preview_image.url }}" class="pd-article__hero-img" alt="{{ post.title }}" loading="lazy">
                 {% endif %}
+                <div class="pd-article__body">
+                    <span class="pd-status-badge {% if post.status == 'published' %}pd-status-published{% elif post.status == 'pending' %}pd-status-pending{% else %}pd-status-other{% endif %}">
+                        {% if post.status == 'published' %}<i class="fas fa-check-circle"></i>{% elif post.status == 'pending' %}<i class="fas fa-clock"></i>{% else %}<i class="fas fa-circle"></i>{% endif %}
+                        {{ post.get_status_display }}
+                    </span>
 
-                <!-- Post content -->
-                <div class="post-content post-detail-content">
-                    {{ post.text|safe }}
+                    <h1 class="pd-title">{{ post.title }}</h1>
+
+                    <div class="pd-meta">
+                        <span><i class="fas fa-user-circle me-1"></i>
+                            {% if post.author.username %}
+                                <a href="{% url 'users:profile_public_username' username=post.author.username %}">{{ post.author.username }}</a>
+                            {% else %}{% trans "Anonymous" %}{% endif %}
+                        </span>
+                        <span><i class="far fa-calendar me-1"></i>{{ post.created_at|date:"d M Y" }}</span>
+                        <span><i class="far fa-eye me-1"></i>{{ post.views_count }} {% trans "views" %}</span>
+                    </div>
+
+                    <div class="pd-actions">
+                        <div id="like-button-container"
+                             hx-get="{% url 'blog:like_post' pk=post.pk %}"
+                             hx-trigger="load"
+                             hx-swap="outerHTML">
+                        </div>
+                        {% if user.is_authenticated and user != post.author %}
+                            {% include 'blog/htmx/subscribe_button.html' with author=post.author is_subscribed=is_subscribed %}
+                        {% endif %}
+                    </div>
+
+                    <div class="pd-content">
+                        {{ post.text|safe }}
+                    </div>
                 </div>
             </article>
 
-            <!-- Comments Section -->
-            <section id="comments" class="mb-5">
-                <h6 class="section-title mb-4 d-block">{% trans "COMMENTS" %} ({{ post.comments.count }})</h6>
-                
-                <!-- Comment Form (Only for authenticated users) -->
+            <!-- Comments -->
+            <section id="comments" class="pd-comments-wrap">
+                <span class="pd-section-label">{% trans "COMMENTS" %} ({{ post.comments.count }})</span>
+
                 {% if user.is_authenticated %}
-                    <div class="card card-modern p-4 mb-4">
-                        <h5 class="mb-3">{% trans "Leave a comment" %}</h5>
-                        <form action="{% url 'blog:comment_create' pk=post.pk %}"
-                            hx-post="{% url 'blog:comment_create' pk=post.pk %}"
-                              hx-target="#comments-container"
-                              hx-swap="innerHTML"
-                                 hx-on::after-swap="document.querySelector('textarea[name=text]').value = ''"
-                              method="post">
-                            {% csrf_token %}
-                            <div class="mb-3">
-                                    <textarea name="text" class="form-control" id="comment-textarea" rows="3" placeholder="{% trans "Your comment..." %}" required></textarea>
-                            </div>
-                            <button type="submit" class="btn btn-primary btn-modern">{% trans "Send" %}</button>
-                        </form>
-                    </div>
+                    <form class="pd-comment-form mb-4"
+                          action="{% url 'blog:comment_create' pk=post.pk %}"
+                          hx-post="{% url 'blog:comment_create' pk=post.pk %}"
+                          hx-target="#comments-container"
+                          hx-swap="innerHTML"
+                          hx-on::after-swap="document.querySelector('#comment-textarea').value=''"
+                          method="post">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <textarea name="text" class="form-control" id="comment-textarea" rows="3" placeholder="{% trans "Your comment..." %}" required></textarea>
+                        </div>
+                        <button type="submit" class="btn hero-btn-p btn-sm">{% trans "Send comment" %}</button>
+                    </form>
                 {% else %}
-                    <div class="alert alert-warning card-modern mb-4">
+                    <div class="pd-auth-notice mb-4">
                         {% trans "To comment, please" %} <a href="{% url 'users:login' %}?next={{ request.path }}">{% trans "sign in" %}</a> {% trans "or" %} <a href="{% url 'users:register' %}">{% trans "register" %}</a>.
                     </div>
                 {% endif %}
 
-                <!-- Comments List (loaded via HTMX) -->
-                <div id="comments-container" 
+                <div id="comments-container"
                      hx-get="{% url 'blog:comment_list' pk=post.pk %}"
                      hx-trigger="load">
-                    <!-- Loaded by HTMX -->
                 </div>
             </section>
 
-            <!-- Recommended Posts Section -->
+            <!-- Recommended Posts -->
             {% if recommended_posts %}
             <section class="mb-5">
-                <h6 class="section-title mb-4 d-block">{% trans "RECOMMENDED POSTS" %}</h6>
+                <span class="pd-section-label">{% trans "RECOMMENDED POSTS" %}</span>
                 <div class="row g-3">
                     {% for post_rec in recommended_posts %}
                     <div class="col-md-6">
-                        <a href="{% url 'blog:post_detail' post_rec.pk %}" class="text-decoration-none post-rec-link">
-                            <div class="card card-modern h-100 post-rec-card">
-                                {% if post_rec.preview_image %}
-                                    <img src="{{ post_rec.preview_image.url }}" class="card-img-top post-rec-image" alt="{{ post_rec.title }}" loading="lazy">
-                                {% else %}
-                                    <div class="card-img-top post-rec-image-placeholder">
-                                        <i class="fas fa-image fa-3x"></i>
-                                    </div>
-                                {% endif %}
-                                <div class="card-body">
-                                    <h6 class="card-title fw-bold text-truncate text-dark">{{ post_rec.title }}</h6>
-                                    <p class="card-text small text-muted mb-2">
-                                        <i class="fas fa-user-circle me-1"></i> {{ post_rec.author.username }}
-                                        <br>
-                                        <i class="fas fa-calendar-alt me-1"></i> {{ post_rec.created_at|date:"d M Y" }}
-                                    </p>
-                                    <p class="card-text small text-muted post-rec-excerpt">
-                                        {{ post_rec.text|truncatewords:15|striptags }}
-                                    </p>
+                        <a href="{% url 'blog:post_detail' post_rec.pk %}" class="pd-rec-card">
+                            {% if post_rec.preview_image %}
+                                <img src="{{ post_rec.preview_image.url }}" alt="{{ post_rec.title }}" loading="lazy">
+                            {% else %}
+                                <div class="pd-rec-card__no-img">
+                                    <i class="fas fa-newspaper" style="color:rgba(255,255,255,.1);font-size:1.75rem;"></i>
                                 </div>
-                                <div class="card-footer bg-light d-flex justify-content-between align-items-center text-muted small">
-                                    <span><i class="fas fa-heart me-1"></i> {{ post_rec.likes.count }}</span>
-                                    <span><i class="fas fa-comment me-1"></i> {{ post_rec.comments.count }}</span>
-                                    <span><i class="fas fa-eye me-1"></i> {{ post_rec.views_count }}</span>
+                            {% endif %}
+                            <div class="pd-rec-card__body">
+                                <div class="pd-rec-card__title">{{ post_rec.title }}</div>
+                                <div class="pd-rec-card__meta">
+                                    <span><i class="fas fa-heart me-1"></i>{{ post_rec.likes.count }}</span>
+                                    <span><i class="fas fa-comment me-1"></i>{{ post_rec.comments.count }}</span>
+                                    <span><i class="fas fa-eye me-1"></i>{{ post_rec.views_count }}</span>
                                 </div>
                             </div>
                         </a>

@@ -16,80 +16,154 @@
 {% block twitter_description %}{{ event.description|striptags|truncatewords:30 }}{% endblock %}
 {% block twitter_image %}{% if event.image %}{{ request.scheme }}://{{ request.get_host }}{{ event.image.url }}{% else %}{{ request.scheme }}://{{ request.get_host }}{% static 'img/og-default.jpg' %}{% endif %}{% endblock %}
 
+{% block extra_css %}
+<style>
+.evd-wrap { padding: 2.5rem 0 4rem; }
+.evd-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; align-items: start; }
+@media(max-width:767.98px) { .evd-grid { grid-template-columns: 1fr; } }
+.evd-hero-img {
+    width: 100%;
+    max-height: 420px;
+    object-fit: cover;
+    border-radius: 18px;
+    border: 1.5px solid rgba(255,255,255,.07);
+    display: block;
+}
+.evd-title { font-size: clamp(1.5rem,4vw,2rem); font-weight: 800; color: #f1f5f9; margin-bottom: 1.25rem; line-height: 1.25; }
+.evd-info-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    padding: .875rem 0;
+    border-bottom: 1px solid rgba(255,255,255,.06);
+}
+.evd-info-row:last-child { border-bottom: none; }
+.evd-info-icon { width: 38px; height: 38px; background: rgba(220,38,38,.12); border-radius: 10px; display: flex; align-items: center; justify-content: center; color: #f87171; flex-shrink: 0; }
+.evd-info-label { font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: rgba(255,255,255,.35); margin-bottom: .15rem; }
+.evd-info-value { font-size: .95rem; color: #e2e8f0; }
+.evd-desc-card {
+    background: #111118;
+    border: 1.5px solid rgba(255,255,255,.07);
+    border-radius: 16px;
+    padding: 1.5rem 1.75rem;
+    margin-top: 1.25rem;
+}
+.evd-section-label { font-size: .72rem; font-weight: 800; text-transform: uppercase; letter-spacing: .1em; color: #dc2626; margin-bottom: 1rem; display: block; }
+.evd-desc-text { color: rgba(255,255,255,.7); line-height: 1.75; }
+.evd-actions { display: flex; gap: .75rem; flex-wrap: wrap; margin-top: 1.5rem; }
+.evd-btn-back {
+    background: rgba(255,255,255,.07);
+    border: 1.5px solid rgba(255,255,255,.12);
+    color: rgba(255,255,255,.65);
+    border-radius: 10px;
+    padding: .6rem 1.25rem;
+    font-size: .9rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: background .15s, border-color .15s;
+}
+.evd-btn-back:hover { background: rgba(255,255,255,.12); color: #fff; }
+.evd-btn-register {
+    background: rgba(220,38,38,.15);
+    border: 1.5px solid rgba(220,38,38,.35);
+    color: #f87171;
+    border-radius: 10px;
+    padding: .6rem 1.5rem;
+    font-size: .9rem;
+    font-weight: 700;
+    text-decoration: none;
+    transition: background .15s;
+    cursor: pointer;
+}
+.evd-btn-register:hover { background: rgba(220,38,38,.28); color: #fca5a5; }
+.evd-btn-registered {
+    background: rgba(34,197,94,.1);
+    border: 1.5px solid rgba(34,197,94,.25);
+    color: #4ade80;
+    border-radius: 10px;
+    padding: .6rem 1.5rem;
+    font-size: .9rem;
+    font-weight: 700;
+    cursor: default;
+}
+/* Modal dark */
+#registerModal .modal-content {
+    background: #111118;
+    border: 1.5px solid rgba(255,255,255,.1);
+    border-radius: 18px;
+    color: #e2e8f0;
+}
+#registerModal .modal-header { border-bottom: 1px solid rgba(255,255,255,.07); }
+#registerModal .btn-close { filter: invert(1) brightness(2); }
+</style>
+{% endblock %}
+
 {% block container_wrap_start %}{% endblock %}
 {% block container_wrap_end %}{% endblock %}
 
 {% block content %}
-<div class="container-limited">
-    <div class="row py-5">
-        <!-- Event Image -->
+<div class="container-limited evd-wrap">
+    <div class="evd-grid">
+        <!-- Image -->
         {% if event.image %}
-        <div class="col-lg-6 mb-4 mb-lg-0">
-            <img src="{{ event.image.url }}" alt="{{ event.title }}" class="img-fluid rounded w-100 object-cover">
+        <div>
+            <img src="{{ event.image.url }}" alt="{{ event.title }}" class="evd-hero-img">
         </div>
         {% endif %}
-        
-        <!-- Event Details -->
-        <div class="col-lg-6">
-            <h1 class="fw-bold mb-3 text-primary">{{ event.title }}</h1>
-            
-            <div class="mb-4">
-                <div class="mb-3 d-flex align-items-center">
-                    <i class="fas fa-calendar-alt me-3 text-primary icon-lg"></i>
-                    <div>
-                        <strong>{% trans "Date & time:" %}</strong>
-                        <p class="mb-0">{{ event.date|date:"DATE_FORMAT" }} {{ event.date|time:"TIME_FORMAT" }}</p>
-                    </div>
-                </div>
-                
-                <div class="mb-3 d-flex align-items-center">
-                    <i class="fas fa-map-marker-alt me-3 text-primary icon-lg"></i>
-                    <div>
-                        <strong>{% trans "Location:" %}</strong>
-                        <p class="mb-0">{{ event.location }}</p>
-                    </div>
-                </div>
 
-                {% if event.is_teen_event %}
-                <div class="mb-3 d-flex align-items-center">
-                    <i class="fas fa-user-shield me-3 text-primary icon-lg"></i>
-                    <div>
-                        <strong>{% trans "Age restriction:" %}</strong>
-                        <p class="mb-0">{% blocktrans with min_age=event.min_age max_age=event.max_age %}Ages {{ min_age }}-{{ max_age }}{% endblocktrans %}</p>
-                    </div>
-                </div>
-                {% endif %}
-            </div>
-            
-            <!-- Description -->
-            <div class="card card-modern mb-4">
-                <div class="card-body">
-                    <h6 class="section-title d-block mb-4">{% trans "DESCRIPTION" %}</h6>
-                    <p class="card-text">{{ event.description|striptags|linebreaksbr }}</p>
+        <!-- Details -->
+        <div {% if not event.image %}style="grid-column:1/-1"{% endif %}>
+            <h1 class="evd-title">{{ event.title }}</h1>
+
+            <div class="evd-info-row">
+                <div class="evd-info-icon"><i class="fas fa-calendar-alt"></i></div>
+                <div>
+                    <div class="evd-info-label">{% trans "Date & time" %}</div>
+                    <div class="evd-info-value">{{ event.date|date:"DATE_FORMAT" }} &nbsp;{{ event.date|time:"TIME_FORMAT" }}</div>
                 </div>
             </div>
-            
-            <!-- Action Buttons -->
-            <div class="d-flex gap-2">
-                <a href="{% url 'blog:event_list' %}" class="btn btn-outline-secondary btn-modern">
-                    <i class="fas fa-arrow-left me-2"></i> {% trans "Back to events" %}
+            <div class="evd-info-row">
+                <div class="evd-info-icon"><i class="fas fa-map-marker-alt"></i></div>
+                <div>
+                    <div class="evd-info-label">{% trans "Location" %}</div>
+                    <div class="evd-info-value">{{ event.location }}</div>
+                </div>
+            </div>
+            {% if event.is_teen_event %}
+            <div class="evd-info-row">
+                <div class="evd-info-icon"><i class="fas fa-user-shield"></i></div>
+                <div>
+                    <div class="evd-info-label">{% trans "Age restriction" %}</div>
+                    <div class="evd-info-value">{% blocktrans with min_age=event.min_age max_age=event.max_age %}Ages {{ min_age }}-{{ max_age }}{% endblocktrans %}</div>
+                </div>
+            </div>
+            {% endif %}
+
+            <div class="evd-desc-card">
+                <span class="evd-section-label">{% trans "DESCRIPTION" %}</span>
+                <div class="evd-desc-text">{{ event.description|striptags|linebreaksbr }}</div>
+            </div>
+
+            <div class="evd-actions">
+                <a href="{% url 'blog:event_list' %}" class="evd-btn-back">
+                    <i class="fas fa-arrow-left me-2"></i>{% trans "Back to events" %}
                 </a>
                 {% if user.is_authenticated %}
                     {% if is_registered %}
-                        <button class="btn btn-success btn-modern" disabled>
-                            <i class="fas fa-check-circle me-2"></i> {% trans "Already registered" %}
-                        </button>
+                        <span class="evd-btn-registered">
+                            <i class="fas fa-check-circle me-2"></i>{% trans "Already registered" %}
+                        </span>
                     {% else %}
                         <form method="post" action="{% url 'blog:event_register' event.pk %}" class="d-inline">
                             {% csrf_token %}
-                            <button type="submit" class="btn btn-primary btn-modern">
-                                <i class="fas fa-check-circle me-2"></i> {% trans "Register" %}
+                            <button type="submit" class="evd-btn-register">
+                                <i class="fas fa-check-circle me-2"></i>{% trans "Register" %}
                             </button>
                         </form>
                     {% endif %}
                 {% else %}
-                    <button class="btn btn-primary btn-modern" data-bs-toggle="modal" data-bs-target="#registerModal">
-                        <i class="fas fa-check-circle me-2"></i> {% trans "Register" %}
+                    <button class="evd-btn-register" data-bs-toggle="modal" data-bs-target="#registerModal">
+                        <i class="fas fa-check-circle me-2"></i>{% trans "Register" %}
                     </button>
                 {% endif %}
             </div>
@@ -97,41 +171,31 @@
     </div>
 </div>
 
-<!-- Registration Modal (for non-authenticated users) -->
 {% if not user.is_authenticated %}
 <div class="modal fade" id="registerModal" tabindex="-1" aria-labelledby="registerModalLabel" aria-hidden="true" data-bs-backdrop="true" data-bs-keyboard="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header border-bottom-0">
                 <h5 class="modal-title fw-bold" id="registerModalLabel">
-                    <i class="fas fa-calendar-check me-2 text-primary"></i>{% trans "Register for Event" %}
+                    <i class="fas fa-calendar-check me-2" style="color:#f87171;"></i>{% trans "Register for Event" %}
                 </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body text-center py-4">
-                <p class="mb-4">{% trans "Thank you for your interest! Please contact us via:" %}</p>
-                
+                <p class="mb-4" style="color:rgba(255,255,255,.6);">{% trans "Thank you for your interest! Please contact us via:" %}</p>
                 <div class="row g-3">
-                    <!-- SMS Contact -->
                     <div class="col-12 text-center">
-                        <a href="tel:+41795718887" class="btn btn-outline-primary p-3 min-w-280">
-                            <i class="fas fa-mobile-alt me-2"></i>
-                            {% trans "Call/SMS:" %} +41 79 571 8887
+                        <a href="tel:+41795718887" class="evd-btn-back d-block text-center py-3" style="border-color:rgba(220,38,38,.3);color:#f87171;">
+                            <i class="fas fa-mobile-alt me-2"></i>{% trans "Call/SMS:" %} +41 79 571 8887
                         </a>
                     </div>
-                    
-                    <!-- Telegram Contact -->
                     <div class="col-12 text-center">
-                        <a href="https://t.me/+41795718887" target="_blank" rel="noopener noreferrer" class="btn btn-info p-3 min-w-280 text-white" role="button">
-                            <i class="fab fa-telegram me-2"></i>
-                            {% trans "Message on Telegram" %}
+                        <a href="https://t.me/+41795718887" target="_blank" rel="noopener noreferrer" class="evd-btn-back d-block text-center py-3" style="border-color:rgba(56,189,248,.3);color:#7dd3fc;">
+                            <i class="fab fa-telegram me-2"></i>{% trans "Message on Telegram" %}
                         </a>
                     </div>
                 </div>
-                
-                <p class="text-muted mt-4 small">
-                    {% trans "We'll get back to you as soon as possible!" %}
-                </p>
+                <p class="mt-4 small" style="color:rgba(255,255,255,.3);">{% trans "We'll get back to you as soon as possible!" %}</p>
             </div>
         </div>
     </div>
