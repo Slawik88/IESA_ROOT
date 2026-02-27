@@ -5,333 +5,847 @@
 
 {% block extra_css %}
 <style>
-:root { --tg-color: #29a8eb; }
-
-.link-page { min-height: 80vh; display: flex; align-items: center; padding: 2rem 0; }
-
-/* ── Card shell ── */
-.link-card {
-    border: none;
-    border-radius: 24px;
-    box-shadow: 0 16px 48px rgba(0,0,0,.14);
-    overflow: hidden;
-    max-width: 420px;
-    margin: 0 auto;
-    background: #fff;
+:root {
+    --tg-color: #29a8eb;
+    --tg-dark: #1a7ab5;
+    --tg-glow: rgba(41, 168, 235, 0.35);
+    --tg-glow-soft: rgba(41, 168, 235, 0.12);
+    --dark-base: #0a0a0f;
+    --dark-card: rgba(13, 13, 22, 0.97);
+    --dark-step: rgba(255,255,255,0.04);
+    --dark-border: rgba(41, 168, 235, 0.18);
+    --red-glow: rgba(220, 38, 38, 0.18);
 }
 
-/* ── Header banner ── */
-.link-header {
-    background: var(--tg-color);
-    padding: 2rem 1.5rem 1.5rem;
-    text-align: center;
-    color: #fff;
-}
-.link-header .tg-icon-wrap {
-    width: 72px; height: 72px;
-    background: rgba(255,255,255,.2);
-    border-radius: 50%;
-    border: 3px solid rgba(255,255,255,.5);
-    display: flex; align-items: center; justify-content: center;
-    margin: 0 auto .75rem;
-    font-size: 2.2rem;
-}
-.link-header h2 { font-size: 1.4rem; font-weight: 700; margin: 0; }
-.link-header p  { font-size: .88rem; opacity: .88; margin: .3rem 0 0; }
-
-/* ── Body ── */
-.link-body { padding: 1.8rem 1.5rem 2rem; }
-
-/* Steps */
-.link-steps {
-    display: flex;
-    flex-direction: column;
-    gap: .6rem;
-    margin-bottom: 1.6rem;
-}
-.link-step {
+/* =========================================================
+   PAGE WRAPPER
+   ========================================================= */
+.tg-page {
+    min-height: 100vh;
+    background: var(--dark-base);
     display: flex;
     align-items: center;
-    gap: .75rem;
-    padding: .65rem .9rem;
-    background: #f5f7fc;
-    border-radius: 12px;
-    font-size: .9rem;
-    color: #3d4356;
+    justify-content: center;
+    padding: 2rem 1rem;
+    position: relative;
+    overflow: hidden;
 }
-.link-step .sn {
-    min-width: 28px; height: 28px;
-    background: var(--tg-color);
+
+/* Canvas particles behind everything */
+#tg-canvas {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+}
+
+/* Dual radial glow blobs */
+.tg-page::before,
+.tg-page::after {
+    content: '';
+    position: fixed;
     border-radius: 50%;
-    color: #fff; font-weight: 700; font-size: .8rem;
-    display: flex; align-items: center; justify-content: center;
-    flex-shrink: 0;
+    filter: blur(90px);
+    pointer-events: none;
+    z-index: 0;
 }
-.link-step a { color: var(--tg-color); font-weight: 600; }
-.link-step code {
-    background: rgba(41,168,235,.12);
-    color: var(--tg-color);
-    border-radius: 6px;
-    padding: .1rem .4rem;
+.tg-page::before {
+    width: 560px; height: 420px;
+    top: -120px; left: -100px;
+    background: radial-gradient(ellipse, rgba(41,168,235,0.22) 0%, transparent 70%);
+    animation: blobDrift1 14s ease-in-out infinite alternate;
+}
+.tg-page::after {
+    width: 480px; height: 360px;
+    bottom: -80px; right: -80px;
+    background: radial-gradient(ellipse, rgba(220,38,38,0.16) 0%, transparent 70%);
+    animation: blobDrift2 18s ease-in-out infinite alternate;
+}
+@keyframes blobDrift1 {
+    0%   { transform: translate(0,0) scale(1); }
+    100% { transform: translate(60px, 40px) scale(1.1); }
+}
+@keyframes blobDrift2 {
+    0%   { transform: translate(0,0) scale(1); }
+    100% { transform: translate(-50px, -30px) scale(1.08); }
+}
+
+/* =========================================================
+   CARD
+   ========================================================= */
+.tg-card {
+    position: relative;
+    z-index: 1;
+    max-width: 460px;
+    width: 100%;
+    border-radius: 28px;
+    background: var(--dark-card);
+    border: 1px solid var(--dark-border);
+    box-shadow:
+        0 0 0 1px rgba(41,168,235,0.06),
+        0 30px 80px rgba(0,0,0,0.65),
+        0 0 60px rgba(41,168,235,0.08);
+    overflow: hidden;
+    transform-style: preserve-3d;
+    will-change: transform;
+    transition: box-shadow .4s ease;
+}
+.tg-card:hover {
+    box-shadow:
+        0 0 0 1px rgba(41,168,235,0.14),
+        0 40px 100px rgba(0,0,0,0.7),
+        0 0 80px rgba(41,168,235,0.14);
+}
+
+/* Animated neon border ring using pseudo */
+.tg-card::before {
+    content: '';
+    position: absolute;
+    inset: -1px;
+    border-radius: 29px;
+    background: conic-gradient(
+        from var(--angle, 0deg),
+        transparent 60%,
+        rgba(41,168,235,0.55) 75%,
+        rgba(220,38,38,0.4) 85%,
+        transparent 100%
+    );
+    z-index: 0;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity .5s;
+    animation: rotateBorder 4s linear infinite;
+    @property --angle {
+        syntax: '<angle>';
+        initial-value: 0deg;
+        inherits: false;
+    }
+}
+.tg-card:hover::before { opacity: 1; }
+@keyframes rotateBorder {
+    to { --angle: 360deg; }
+}
+
+/* fallback for browsers that don't support @property */
+.tg-card::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 28px;
+    background: transparent;
+    z-index: 0;
+    pointer-events: none;
+}
+
+/* ── Header ── */
+.tg-header {
+    padding: 2.4rem 2rem 1.8rem;
+    text-align: center;
+    position: relative;
+    z-index: 1;
+}
+.tg-header::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 10%; right: 10%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(41,168,235,0.3), transparent);
+}
+
+.tg-icon-ring {
+    position: relative;
+    width: 88px; height: 88px;
+    margin: 0 auto 1.2rem;
+}
+.tg-icon-ring svg.ring-svg {
+    position: absolute;
+    inset: 0;
+    width: 100%; height: 100%;
+    animation: spinRing 8s linear infinite;
+}
+@keyframes spinRing {
+    to { transform: rotate(360deg); }
+}
+.tg-icon-inner {
+    position: absolute;
+    inset: 12px;
+    background: linear-gradient(135deg, #1a7ab5 0%, #29a8eb 100%);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 2rem;
+    color: #fff;
+    box-shadow: 0 0 28px rgba(41,168,235,0.55), inset 0 1px 0 rgba(255,255,255,0.2);
+}
+/* Pulse rings */
+.tg-icon-ring::before,
+.tg-icon-ring::after {
+    content: '';
+    position: absolute;
+    inset: -8px;
+    border-radius: 50%;
+    border: 1.5px solid rgba(41,168,235,0.3);
+    animation: iconPulse 2.4s ease-out infinite;
+}
+.tg-icon-ring::after {
+    inset: -18px;
+    animation-delay: .8s;
+    border-color: rgba(41,168,235,0.15);
+}
+@keyframes iconPulse {
+    0%   { transform: scale(1); opacity: 1; }
+    100% { transform: scale(1.4); opacity: 0; }
+}
+
+.tg-header h2 {
+    font-size: 1.7rem;
+    font-weight: 900;
+    color: #fff;
+    margin: 0 0 .3rem;
+    letter-spacing: -.02em;
+}
+.tg-header p {
     font-size: .9rem;
+    color: rgba(255,255,255,0.45);
+    margin: 0;
+}
+
+/* ── Body ── */
+.tg-body {
+    padding: 1.8rem 2rem 2.2rem;
+    position: relative;
+    z-index: 1;
 }
 
 /* Error */
-.link-error {
-    background: #fff1f0;
-    border: 1.5px solid #ffccc7;
-    color: #cf1322;
-    border-radius: 12px;
-    padding: .75rem 1rem;
+.tg-error {
+    background: rgba(220,38,38,0.1);
+    border: 1px solid rgba(220,38,38,0.3);
+    color: #fca5a5;
+    border-radius: 14px;
+    padding: .8rem 1rem;
     font-size: .88rem;
-    margin-bottom: 1.2rem;
-    display: flex; align-items: center; gap: .5rem;
+    margin-bottom: 1.4rem;
+    display: flex; align-items: center; gap: .6rem;
+}
+.tg-error i { color: #dc2626; flex-shrink: 0; }
+
+/* Bot link banner */
+.tg-bot-banner {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem 1.2rem;
+    background: rgba(41,168,235,0.07);
+    border: 1px solid rgba(41,168,235,0.2);
+    border-radius: 16px;
+    text-decoration: none;
+    margin-bottom: 1.5rem;
+    transition: background .25s, border-color .25s, transform .25s, box-shadow .25s;
+    cursor: pointer;
+}
+.tg-bot-banner:hover {
+    background: rgba(41,168,235,0.14);
+    border-color: rgba(41,168,235,0.45);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 28px rgba(41,168,235,0.18);
+}
+.tg-bot-banner .bb-icon {
+    width: 46px; height: 46px;
+    background: linear-gradient(135deg, #1a7ab5, #29a8eb);
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.3rem;
+    color: #fff;
+    flex-shrink: 0;
+    box-shadow: 0 4px 14px rgba(41,168,235,0.3);
+}
+.tg-bot-banner .bb-text {
+    flex: 1;
+}
+.tg-bot-banner .bb-text .bb-name {
+    font-weight: 700;
+    color: #fff;
+    font-size: .95rem;
+    display: block;
+}
+.tg-bot-banner .bb-text .bb-sub {
+    font-size: .8rem;
+    color: rgba(255,255,255,0.38);
+    display: block;
+    margin-top: .1rem;
+}
+.tg-bot-banner .bb-arrow {
+    color: var(--tg-color);
+    font-size: 1rem;
+    transition: transform .25s;
+    flex-shrink: 0;
+}
+.tg-bot-banner:hover .bb-arrow { transform: translateX(4px); }
+
+/* Steps */
+.tg-steps {
+    display: flex;
+    flex-direction: column;
+    gap: .55rem;
+    margin-bottom: 1.8rem;
+}
+.tg-step {
+    display: flex;
+    align-items: center;
+    gap: .85rem;
+    padding: .75rem 1rem;
+    background: var(--dark-step);
+    border: 1px solid rgba(255,255,255,0.05);
+    border-radius: 14px;
+    font-size: .88rem;
+    color: rgba(255,255,255,0.62);
+    opacity: 0;
+    transform: translateX(-16px);
+    transition: background .25s, border-color .25s;
+}
+.tg-step.visible {
+    animation: stepSlideIn .5s ease forwards;
+}
+.tg-step:nth-child(1).visible { animation-delay: .05s; }
+.tg-step:nth-child(2).visible { animation-delay: .15s; }
+.tg-step:nth-child(3).visible { animation-delay: .25s; }
+@keyframes stepSlideIn {
+    to { opacity: 1; transform: translateX(0); }
+}
+.tg-step:hover {
+    background: rgba(41,168,235,0.06);
+    border-color: rgba(41,168,235,0.18);
+    color: rgba(255,255,255,0.8);
+}
+.tg-step .sn {
+    min-width: 30px; height: 30px;
+    background: linear-gradient(135deg, #1a7ab5, #29a8eb);
+    border-radius: 50%;
+    color: #fff; font-weight: 800; font-size: .78rem;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    box-shadow: 0 3px 10px rgba(41,168,235,0.35);
+}
+.tg-step a {
+    color: var(--tg-color);
+    font-weight: 600;
+    text-decoration: none;
+}
+.tg-step a:hover { text-decoration: underline; }
+.tg-step code {
+    background: rgba(41,168,235,0.14);
+    color: var(--tg-color);
+    border-radius: 6px;
+    padding: .1rem .45rem;
+    font-size: .85rem;
+    border: 1px solid rgba(41,168,235,0.2);
 }
 
-/* OTP — 6 digit boxes */
+/* OTP label */
+.otp-label {
+    text-align: center;
+    font-size: .78rem;
+    font-weight: 600;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.3);
+    margin-bottom: .85rem;
+}
+
+/* OTP widget */
 .otp-wrap {
     display: flex;
-    gap: .45rem;
+    gap: .5rem;
     justify-content: center;
-    margin-bottom: 1.4rem;
+    margin-bottom: 1.6rem;
+    align-items: center;
 }
-/* hidden real input (submitted) */
 #code-hidden { display: none; }
 
 .otp-box {
-    width: 46px; height: 58px;
-    border: 2px solid #dde1ef;
-    border-radius: 12px;
-    font-size: 1.8rem; font-weight: 800;
+    width: 50px; height: 62px;
+    border: 1.5px solid rgba(255,255,255,0.1);
+    border-radius: 14px;
+    font-size: 1.9rem; font-weight: 800;
     text-align: center;
-    color: #1a1d2e;
-    background: #f7f9fc;
+    color: #fff;
+    background: rgba(255,255,255,0.04);
     outline: none;
     caret-color: var(--tg-color);
-    transition: border-color .18s, box-shadow .18s, background .18s;
+    transition: border-color .18s, box-shadow .18s, background .18s, transform .18s;
     -moz-appearance: textfield;
 }
 .otp-box::-webkit-outer-spin-button,
 .otp-box::-webkit-inner-spin-button { -webkit-appearance: none; }
 .otp-box:focus {
     border-color: var(--tg-color);
-    box-shadow: 0 0 0 3px rgba(41,168,235,.18);
-    background: #fff;
+    box-shadow: 0 0 0 3px rgba(41,168,235,0.22), 0 4px 18px rgba(41,168,235,0.18);
+    background: rgba(41,168,235,0.08);
+    transform: translateY(-2px) scale(1.05);
+    color: #fff;
 }
 .otp-box.filled {
-    border-color: #52c41a;
-    background: #f6ffed;
-    color: #237804;
+    border-color: #4ade80;
+    background: rgba(74,222,128,0.1);
+    box-shadow: 0 0 0 2px rgba(74,222,128,0.2), 0 0 14px rgba(74,222,128,0.18);
+    color: #4ade80;
+    animation: fillPop .3s ease;
 }
-/* separator between 3+3 */
-.otp-sep { font-size: 1.8rem; color: #c5c9d6; line-height: 58px; font-weight: 300; }
+@keyframes fillPop {
+    0%   { transform: scale(1.15); }
+    60%  { transform: scale(0.95); }
+    100% { transform: scale(1); }
+}
+
+.otp-sep {
+    font-size: 1.6rem;
+    color: rgba(255,255,255,0.2);
+    line-height: 62px;
+    font-weight: 300;
+    padding: 0 .05rem;
+    user-select: none;
+}
+
+/* Progress bar below OTP */
+.otp-progress {
+    height: 3px;
+    background: rgba(255,255,255,0.07);
+    border-radius: 2px;
+    margin: -.8rem 0 1.5rem;
+    overflow: hidden;
+}
+.otp-progress-bar {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, var(--tg-color), #4ade80);
+    border-radius: 2px;
+    transition: width .25s ease;
+    box-shadow: 0 0 8px rgba(41,168,235,0.5);
+}
 
 /* Submit button */
 .btn-tg-submit {
     width: 100%;
-    background: var(--tg-color);
+    background: linear-gradient(135deg, #1a7ab5 0%, #29a8eb 100%);
     color: #fff;
     border: none;
-    border-radius: 14px;
-    padding: .85rem;
+    border-radius: 16px;
+    padding: .95rem;
     font-size: 1rem;
     font-weight: 700;
     cursor: pointer;
-    transition: opacity .2s, transform .1s;
-    display: flex; align-items: center; justify-content: center; gap: .5rem;
+    transition: opacity .2s, transform .15s, box-shadow .2s;
+    display: flex; align-items: center; justify-content: center; gap: .6rem;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 6px 24px rgba(41,168,235,0.3);
+    letter-spacing: .01em;
 }
-.btn-tg-submit:disabled { opacity: .5; cursor: not-allowed; }
-.btn-tg-submit:not(:disabled):hover { opacity: .88; transform: translateY(-1px); }
+.btn-tg-submit::after {
+    content: '';
+    position: absolute;
+    top: 0; left: -100%; width: 60%; height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.18), transparent);
+    transform: skewX(-18deg);
+    transition: left .5s ease;
+}
+.btn-tg-submit:not(:disabled):hover::after { left: 160%; }
+.btn-tg-submit:disabled {
+    opacity: .35;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+.btn-tg-submit:not(:disabled):hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 32px rgba(41,168,235,0.45);
+}
+.btn-tg-submit:not(:disabled):active {
+    transform: translateY(0px) scale(0.98);
+}
+
+/* Ripple on click */
+.ripple {
+    position: absolute;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.3);
+    transform: scale(0);
+    animation: rippleAnim .6s linear;
+    pointer-events: none;
+}
+@keyframes rippleAnim {
+    to { transform: scale(4); opacity: 0; }
+}
+
+/* Success overlay */
+.tg-success-overlay {
+    position: absolute;
+    inset: 0;
+    border-radius: 28px;
+    background: rgba(13,13,22,0.97);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .4s;
+}
+.tg-success-overlay.show {
+    opacity: 1;
+    pointer-events: all;
+}
+.success-circle {
+    width: 80px; height: 80px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #15803d, #4ade80);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 2.2rem;
+    color: #fff;
+    margin-bottom: 1.2rem;
+    transform: scale(0);
+    transition: transform .5s cubic-bezier(.34,1.56,.64,1);
+    box-shadow: 0 0 40px rgba(74,222,128,0.45);
+}
+.tg-success-overlay.show .success-circle {
+    transform: scale(1);
+}
+.success-text {
+    font-weight: 800;
+    font-size: 1.3rem;
+    color: #fff;
+    margin-bottom: .35rem;
+    opacity: 0;
+    transform: translateY(10px);
+    transition: opacity .4s .3s, transform .4s .3s;
+}
+.tg-success-overlay.show .success-text {
+    opacity: 1;
+    transform: translateY(0);
+}
+.success-sub {
+    font-size: .85rem;
+    color: rgba(255,255,255,0.4);
+    opacity: 0;
+    transform: translateY(8px);
+    transition: opacity .4s .45s, transform .4s .45s;
+}
+.tg-success-overlay.show .success-sub {
+    opacity: 1;
+    transform: translateY(0);
+}
 
 /* Back link */
-.link-back {
+.tg-back {
     text-align: center;
-    margin-top: 1rem;
+    margin-top: 1.1rem;
 }
-.link-back a {
-    color: #9099aa;
-    font-size: .88rem;
+.tg-back a {
+    color: rgba(255,255,255,0.28);
+    font-size: .85rem;
     text-decoration: none;
+    transition: color .2s;
+    display: inline-flex; align-items: center; gap: .4rem;
 }
-.link-back a:hover { color: var(--tg-color); }
+.tg-back a:hover { color: rgba(255,255,255,0.65); }
 
-/* Bot link */
-.bot-link-banner {
-    background: linear-gradient(135deg, #e6f7ff 0%, #f0f5ff 100%);
-    border: 1.5px solid #bae0ff;
-    border-radius: 14px;
-    padding: .9rem 1rem;
-    display: flex;
-    align-items: center;
-    gap: .75rem;
-    margin-bottom: 1.5rem;
-    text-decoration: none;
-    color: inherit;
-    transition: box-shadow .2s, transform .15s;
+/* ── Scanline texture on card ── */
+.tg-card .scanline {
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(255,255,255,0.012) 2px,
+        rgba(255,255,255,0.012) 4px
+    );
+    pointer-events: none;
+    z-index: 0;
+    border-radius: 28px;
 }
-.bot-link-banner:hover { box-shadow: 0 4px 16px rgba(41,168,235,.2); transform: translateY(-1px); }
-.bot-link-banner .bl-icon { font-size: 2rem; flex-shrink: 0; }
-.bot-link-banner .bl-text { font-size: .9rem; line-height: 1.4; color: #1a1d2e; }
-.bot-link-banner .bl-text strong { color: var(--tg-color); }
-.bot-link-banner .bl-arrow { margin-left: auto; color: var(--tg-color); font-size: 1.1rem; flex-shrink: 0; }
 
-@media (max-width: 375px) {
-    .otp-box { width: 40px; height: 52px; font-size: 1.5rem; border-radius: 10px; }
+@media (max-width: 480px) {
+    .otp-box { width: 42px; height: 54px; font-size: 1.6rem; border-radius: 12px; }
+    .tg-body { padding: 1.5rem 1.4rem 1.8rem; }
+    .tg-header { padding: 2rem 1.4rem 1.5rem; }
 }
+
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="container link-page">
-<div class="row justify-content-center w-100">
-<div class="col-12 col-sm-10 col-md-8 col-lg-5">
+<canvas id="tg-canvas"></canvas>
+<div class="tg-page">
+    <div class="tg-card" id="tg-card">
+        <div class="scanline"></div>
 
-<div class="link-card">
+        {# Success overlay #}
+        <div class="tg-success-overlay" id="success-overlay">
+            <div class="success-circle"><i class="fas fa-check"></i></div>
+            <div class="success-text">{% trans "Telegram Connected!" %}</div>
+            <div class="success-sub">{% trans "Redirecting…" %}</div>
+        </div>
 
-    <div class="link-header">
-        <div class="tg-icon-wrap"><i class="fab fa-telegram"></i></div>
-        <h2>{% trans "Connect Telegram" %}</h2>
-        <p>{% trans "Get instant visit notifications" %}</p>
+        {# ── Header ── #}
+        <div class="tg-header">
+            <div class="tg-icon-ring">
+                <svg class="ring-svg" viewBox="0 0 88 88" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="44" cy="44" r="42" stroke="url(#ringGrad)" stroke-width="1.5" stroke-dasharray="6 4" stroke-linecap="round"/>
+                    <defs>
+                        <linearGradient id="ringGrad" x1="0" y1="0" x2="88" y2="88" gradientUnits="userSpaceOnUse">
+                            <stop offset="0%" stop-color="#29a8eb" stop-opacity="0.8"/>
+                            <stop offset="50%" stop-color="#dc2626" stop-opacity="0.5"/>
+                            <stop offset="100%" stop-color="#29a8eb" stop-opacity="0.2"/>
+                        </linearGradient>
+                    </defs>
+                </svg>
+                <div class="tg-icon-inner"><i class="fab fa-telegram"></i></div>
+            </div>
+            <h2>{% trans "Connect Telegram" %}</h2>
+            <p>{% trans "Get instant visit notifications" %}</p>
+        </div>
+
+        {# ── Body ── #}
+        <div class="tg-body">
+
+            {% if error %}
+            <div class="tg-error">
+                <i class="fas fa-exclamation-circle"></i> {{ error }}
+            </div>
+            {% endif %}
+
+            {# Bot banner #}
+            {% if telegram_bot_name %}
+            <a class="tg-bot-banner" href="https://t.me/{{ telegram_bot_name }}" target="_blank" rel="noopener">
+                <div class="bb-icon"><i class="fab fa-telegram"></i></div>
+                <div class="bb-text">
+                    <span class="bb-name">@{{ telegram_bot_name }}</span>
+                    <span class="bb-sub">{% trans "Tap to open in Telegram" %}</span>
+                </div>
+                <div class="bb-arrow"><i class="fas fa-arrow-right"></i></div>
+            </a>
+            {% endif %}
+
+            {# Steps #}
+            <div class="tg-steps" id="tg-steps">
+                <div class="tg-step">
+                    <div class="sn">1</div>
+                    <span>
+                    {% if telegram_bot_name %}
+                        {% trans "Open" %} <a href="https://t.me/{{ telegram_bot_name }}" target="_blank">@{{ telegram_bot_name }}</a> {% trans "in Telegram" %}
+                    {% else %}
+                        {% trans "Open the IESA Sport bot in Telegram" %}
+                    {% endif %}
+                    </span>
+                </div>
+                <div class="tg-step">
+                    <div class="sn">2</div>
+                    <span>{% trans "Press" %} <strong style="color:#fff;">🔗 {% trans "Attach account" %}</strong> {% trans "or send" %} <code>/link</code></span>
+                </div>
+                <div class="tg-step">
+                    <div class="sn">3</div>
+                    <span>{% trans "Enter the 6-digit code from the bot below" %}</span>
+                </div>
+            </div>
+
+            {# OTP #}
+            <p class="otp-label">{% trans "6-digit code" %}</p>
+            <form method="post" id="code-form">
+                {% csrf_token %}
+                <input type="hidden" name="code" id="code-hidden">
+
+                <div class="otp-wrap" id="otp-wrap">
+                    <input class="otp-box" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" data-idx="0">
+                    <input class="otp-box" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" data-idx="1">
+                    <input class="otp-box" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" data-idx="2">
+                    <div class="otp-sep">–</div>
+                    <input class="otp-box" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" data-idx="3">
+                    <input class="otp-box" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" data-idx="4">
+                    <input class="otp-box" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" data-idx="5">
+                </div>
+                <div class="otp-progress"><div class="otp-progress-bar" id="otp-progress-bar"></div></div>
+
+                <button type="submit" class="btn-tg-submit" id="submit-btn" disabled>
+                    <i class="fas fa-link"></i> {% trans "Connect Telegram" %}
+                </button>
+            </form>
+
+            <div class="tg-back">
+                <a href="{% url 'users:member_cabinet' %}"><i class="fas fa-arrow-left"></i> {% trans "Back to cabinet" %}</a>
+            </div>
+
+        </div>
     </div>
-
-    <div class="link-body">
-
-        {% if error %}
-        <div class="link-error">
-            <i class="fas fa-exclamation-circle"></i> {{ error }}
-        </div>
-        {% endif %}
-
-        {# Open bot banner #}
-        {% if telegram_bot_name %}
-        <a class="bot-link-banner" href="https://t.me/{{ telegram_bot_name }}" target="_blank" rel="noopener">
-            <div class="bl-icon">🤖</div>
-            <div class="bl-text">
-                {% trans "Open bot" %} <strong>@{{ telegram_bot_name }}</strong><br>
-                <span style="color:#6b7280;font-size:.83rem;">{% trans "Tap to open in Telegram" %}</span>
-            </div>
-            <div class="bl-arrow"><i class="fas fa-arrow-right"></i></div>
-        </a>
-        {% endif %}
-
-        {# Steps #}
-        <div class="link-steps">
-            <div class="link-step">
-                <div class="sn">1</div>
-                {% if telegram_bot_name %}
-                    {% trans "Open" %} <a href="https://t.me/{{ telegram_bot_name }}" target="_blank">@{{ telegram_bot_name }}</a> {% trans "in Telegram" %}
-                {% else %}
-                    {% trans "Open the IESA Sport bot in Telegram" %}
-                {% endif %}
-            </div>
-            <div class="link-step">
-                <div class="sn">2</div>
-                {% trans "Press the" %} <strong>🔗 {% trans "Attach account" %}</strong> {% trans "button or send" %} <code>/link</code>
-            </div>
-            <div class="link-step">
-                <div class="sn">3</div>
-                {% trans "Enter the 6-digit code from the bot below" %} ↓
-            </div>
-        </div>
-
-        {# OTP input #}
-        <form method="post" id="code-form">
-            {% csrf_token %}
-            <input type="hidden" name="code" id="code-hidden">
-
-            <div class="otp-wrap" id="otp-wrap">
-                <input class="otp-box" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" data-idx="0">
-                <input class="otp-box" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" data-idx="1">
-                <input class="otp-box" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" data-idx="2">
-                <div class="otp-sep">–</div>
-                <input class="otp-box" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" data-idx="3">
-                <input class="otp-box" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" data-idx="4">
-                <input class="otp-box" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" data-idx="5">
-            </div>
-
-            <button type="submit" class="btn-tg-submit" id="submit-btn" disabled>
-                <i class="fas fa-link"></i> {% trans "Connect Telegram" %}
-            </button>
-        </form>
-
-        <div class="link-back">
-            <a href="{% url 'users:member_cabinet' %}"><i class="fas fa-arrow-left"></i> {% trans "Back to cabinet" %}</a>
-        </div>
-
-    </div>
-</div>
-
-</div>
-</div>
 </div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
 (function () {
-    const boxes   = Array.from(document.querySelectorAll('.otp-box'));
-    const hidden  = document.getElementById('code-hidden');
-    const submit  = document.getElementById('submit-btn');
-    const form    = document.getElementById('code-form');
+    /* ─── Canvas particles ─── */
+    const canvas = document.getElementById('tg-canvas');
+    const ctx    = canvas.getContext('2d');
+    let   W, H, particles = [];
+
+    function resize() {
+        W = canvas.width  = window.innerWidth;
+        H = canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    const TG_BLUE = 'rgba(41,168,235,';
+    const RED     = 'rgba(220,38,38,';
+
+    function createParticle() {
+        const isTg = Math.random() > 0.35;
+        return {
+            x:  Math.random() * W,
+            y:  Math.random() * H,
+            vx: (Math.random() - 0.5) * 0.35,
+            vy: (Math.random() - 0.5) * 0.35,
+            r:  Math.random() * 1.6 + 0.4,
+            a:  Math.random() * 0.45 + 0.08,
+            color: isTg ? TG_BLUE : RED,
+        };
+    }
+    for (let i = 0; i < 70; i++) particles.push(createParticle());
+
+    function drawParticles() {
+        ctx.clearRect(0, 0, W, H);
+        particles.forEach(p => {
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+            ctx.fillStyle = p.color + p.a + ')';
+            ctx.fill();
+            p.x += p.vx; p.y += p.vy;
+            if (p.x < -10) p.x = W + 10;
+            if (p.x > W + 10) p.x = -10;
+            if (p.y < -10) p.y = H + 10;
+            if (p.y > H + 10) p.y = -10;
+        });
+
+        /* connect nearby particles */
+        for (let i = 0; i < particles.length; i++) {
+            for (let j = i + 1; j < particles.length; j++) {
+                const dx = particles[i].x - particles[j].x;
+                const dy = particles[i].y - particles[j].y;
+                const dist = Math.sqrt(dx*dx + dy*dy);
+                if (dist < 110) {
+                    ctx.beginPath();
+                    ctx.moveTo(particles[i].x, particles[i].y);
+                    ctx.lineTo(particles[j].x, particles[j].y);
+                    ctx.strokeStyle = TG_BLUE + (0.07 * (1 - dist/110)) + ')';
+                    ctx.lineWidth = 0.6;
+                    ctx.stroke();
+                }
+            }
+        }
+        requestAnimationFrame(drawParticles);
+    }
+    requestAnimationFrame(drawParticles);
+
+    /* ─── Tilt3D on card ─── */
+    const card = document.getElementById('tg-card');
+    document.addEventListener('mousemove', e => {
+        const rect = card.getBoundingClientRect();
+        const cx = rect.left + rect.width  / 2;
+        const cy = rect.top  + rect.height / 2;
+        const dx = (e.clientX - cx) / (rect.width  / 2);
+        const dy = (e.clientY - cy) / (rect.height / 2);
+        card.style.transform = `perspective(900px) rotateX(${-dy*5}deg) rotateY(${dx*5}deg) scale3d(1.01,1.01,1.01)`;
+    });
+    document.addEventListener('mouseleave', () => {
+        card.style.transform = 'perspective(900px) rotateX(0) rotateY(0) scale3d(1,1,1)';
+    });
+    card.addEventListener('mouseleave', () => {
+        card.style.transform = 'perspective(900px) rotateX(0) rotateY(0) scale3d(1,1,1)';
+    });
+
+    /* ─── Steps slide-in animation ─── */
+    const steps = document.querySelectorAll('.tg-step');
+    const observer = new IntersectionObserver(entries => {
+        entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+    }, { threshold: 0.1 });
+    steps.forEach(s => observer.observe(s));
+    /* trigger immediately if already visible */
+    setTimeout(() => steps.forEach(s => s.classList.add('visible')), 80);
+
+    /* ─── OTP logic ─── */
+    const boxes    = Array.from(document.querySelectorAll('.otp-box'));
+    const hidden   = document.getElementById('code-hidden');
+    const submit   = document.getElementById('submit-btn');
+    const form     = document.getElementById('code-form');
+    const progress = document.getElementById('otp-progress-bar');
+    const overlay  = document.getElementById('success-overlay');
 
     function sync() {
         const val = boxes.map(b => b.value).join('');
         hidden.value = val;
         const done = val.length === 6 && /^\d{6}$/.test(val);
         submit.disabled = !done;
+        const filled = boxes.filter(b => /\d/.test(b.value)).length;
+        progress.style.width = (filled / 6 * 100) + '%';
         boxes.forEach(b => {
             b.classList.toggle('filled', b.value.length === 1 && /\d/.test(b.value));
         });
     }
 
     boxes.forEach((box, i) => {
-        box.addEventListener('input', e => {
-            // Support paste of full code into first box
+        box.addEventListener('input', () => {
             const pasted = box.value.replace(/\D/g, '').slice(0, 6 - i);
             if (pasted.length > 1) {
-                pasted.split('').forEach((ch, j) => {
-                    if (boxes[i + j]) boxes[i + j].value = ch;
-                });
+                pasted.split('').forEach((ch, j) => { if (boxes[i+j]) boxes[i+j].value = ch; });
                 const next = boxes[Math.min(i + pasted.length, 5)];
                 if (next) next.focus();
             } else {
                 box.value = box.value.replace(/\D/g, '').slice(-1);
-                if (box.value && i < 5) boxes[i + 1].focus();
+                if (box.value && i < 5) boxes[i+1].focus();
             }
             sync();
         });
-
         box.addEventListener('keydown', e => {
             if (e.key === 'Backspace' && !box.value && i > 0) {
-                boxes[i - 1].value = '';
-                boxes[i - 1].focus();
+                boxes[i-1].value = '';
+                boxes[i-1].focus();
                 sync();
             }
-            if (e.key === 'ArrowLeft'  && i > 0) boxes[i - 1].focus();
-            if (e.key === 'ArrowRight' && i < 5) boxes[i + 1].focus();
+            if (e.key === 'ArrowLeft'  && i > 0) boxes[i-1].focus();
+            if (e.key === 'ArrowRight' && i < 5) boxes[i+1].focus();
         });
-
         box.addEventListener('paste', e => {
             e.preventDefault();
             const paste = (e.clipboardData.getData('text') || '').replace(/\D/g, '').slice(0, 6);
             paste.split('').forEach((ch, j) => { if (boxes[j]) boxes[j].value = ch; });
             sync();
-            const focusIdx = Math.min(paste.length, 5);
-            boxes[focusIdx].focus();
+            boxes[Math.min(paste.length, 5)].focus();
         });
-
         box.addEventListener('focus', () => box.select());
     });
 
-    // Auto-submit when all 6 filled
+    /* Auto submit with success animation */
     form.addEventListener('input', () => {
         const val = boxes.map(b => b.value).join('');
         if (val.length === 6 && /^\d{6}$/.test(val)) {
-            setTimeout(() => form.submit(), 250);
+            setTimeout(() => {
+                overlay.classList.add('show');
+                setTimeout(() => form.submit(), 900);
+            }, 280);
         }
     });
 
-    // Focus first box on load
+    /* Ripple on button */
+    submit.addEventListener('click', function(e) {
+        const rect = this.getBoundingClientRect();
+        const r = document.createElement('span');
+        r.className = 'ripple';
+        const size = Math.max(rect.width, rect.height);
+        r.style.cssText = `width:${size}px;height:${size}px;left:${e.clientX-rect.left-size/2}px;top:${e.clientY-rect.top-size/2}px`;
+        this.appendChild(r);
+        setTimeout(() => r.remove(), 650);
+    });
+
     boxes[0].focus();
 })();
 </script>
