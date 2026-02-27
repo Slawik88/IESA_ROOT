@@ -3,6 +3,147 @@
 
 {% block title %}{% trans "Edit profile" %} | IESA{% endblock %}
 
+{% block extra_css %}
+<style>
+/* ── Profile Edit — Dark ──────────────────────────── */
+.profile-edit-page {
+    min-height: 100vh;
+    padding: 3.5rem 0 5rem;
+    background: #0e0e18;
+}
+.profile-edit-card {
+    background: rgba(17,17,28,.95);
+    border: 1.5px solid rgba(255,255,255,.08);
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: 0 16px 56px rgba(0,0,0,.5);
+}
+.edit-card-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1.75rem 2rem 1.5rem;
+    border-bottom: 1px solid rgba(255,255,255,.07);
+    background: linear-gradient(135deg, rgba(220,38,38,.08) 0%, transparent 60%);
+}
+.edit-header-icon {
+    width: 46px; height: 46px; border-radius: 14px; flex-shrink: 0;
+    background: rgba(220,38,38,.15); border: 1.5px solid rgba(220,38,38,.3);
+    color: #f87171; font-size: 1.2rem;
+    display: flex; align-items: center; justify-content: center;
+}
+.edit-title {
+    font-size: 1.25rem; font-weight: 800; color: #fff; margin: 0 0 .2rem;
+    letter-spacing: -.02em;
+}
+.edit-subtitle { font-size: .82rem; color: rgba(255,255,255,.42); margin: 0; }
+
+.edit-form { padding: 0; }
+
+.card-section {
+    padding: 1.5rem 2rem;
+    border-bottom: 1px solid rgba(255,255,255,.06);
+}
+.card-section:last-of-type { border-bottom: none; }
+
+.section-heading {
+    font-size: .72rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .16em; color: rgba(255,255,255,.45);
+    margin-bottom: 1.25rem; display: flex; align-items: center; gap: .5rem;
+}
+
+/* Inputs & select */
+.edit-form .form-label { color: rgba(255,255,255,.65); font-size: .82rem; font-weight: 600; margin-bottom: .35rem; }
+.edit-form .form-control,
+.edit-form .form-select,
+.edit-form textarea {
+    background: rgba(255,255,255,.06) !important;
+    border: 1.5px solid rgba(255,255,255,.1) !important;
+    color: #fff !important;
+    border-radius: 10px !important;
+}
+.edit-form .form-control::placeholder,
+.edit-form textarea::placeholder { color: rgba(255,255,255,.28) !important; }
+.edit-form .form-control:focus,
+.edit-form .form-select:focus,
+.edit-form textarea:focus {
+    background: rgba(255,255,255,.09) !important;
+    border-color: rgba(220,38,38,.45) !important;
+    box-shadow: 0 0 0 3px rgba(220,38,38,.14) !important;
+    color: #fff !important;
+}
+.edit-form .form-select option { background: #16162a; color: #fff; }
+.edit-form .form-text { color: rgba(255,255,255,.28) !important; }
+.edit-form .form-check-input {
+    background-color: rgba(255,255,255,.08) !important;
+    border-color: rgba(255,255,255,.2) !important;
+}
+.edit-form .form-check-input:checked { background-color: #dc2626 !important; border-color: #dc2626 !important; }
+.edit-form .form-check-label { color: rgba(255,255,255,.6); font-size: .85rem; }
+
+/* Current avatar */
+.edit-form .avatar { background: rgba(255,255,255,.07); border: 2px solid rgba(255,255,255,.12); }
+.edit-form .avatar img { border-radius: 50%; }
+.edit-form .avatar-fallback {
+    background: linear-gradient(135deg,#dc2626,#7f1d1d); color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 800; font-size: 1.4rem;
+}
+
+/* Examples hint block */
+.edit-form [style*="background: #f8f9fa"],
+.edit-form [style*="background:#f8f9fa"] {
+    background: rgba(255,255,255,.05) !important;
+    border-left-color: #dc2626 !important;
+    color: rgba(255,255,255,.7) !important;
+}
+.edit-form [style*="background: white"],
+.edit-form [style*="background:white"],
+.edit-form code { background: rgba(255,255,255,.1) !important; color: #f1f5f9 !important; }
+
+/* Buttons */
+.edit-actions {
+    display: flex;
+    gap: .75rem;
+    padding: 1.5rem 2rem;
+    border-top: 1px solid rgba(255,255,255,.07);
+    background: rgba(255,255,255,.02);
+}
+.edit-actions .btn-primary {
+    background: linear-gradient(135deg,#dc2626,#991b1b) !important;
+    border: none !important;
+    font-weight: 700 !important; border-radius: 12px !important;
+    padding: .6rem 1.6rem !important;
+}
+.edit-actions .btn-primary:hover { opacity: .88; transform: translateY(-1px); }
+.edit-actions .btn-outline-secondary {
+    background: rgba(255,255,255,.06) !important;
+    border: 1.5px solid rgba(255,255,255,.12) !important;
+    color: rgba(255,255,255,.65) !important;
+    border-radius: 12px !important;
+    padding: .6rem 1.6rem !important;
+}
+.edit-actions .btn-outline-secondary:hover {
+    background: rgba(255,255,255,.12) !important;
+    color: #fff !important;
+}
+
+/* Error alert */
+.edit-form .alert-danger {
+    background: rgba(220,38,38,.1) !important;
+    border-color: rgba(220,38,38,.3) !important;
+    color: #f87171 !important;
+    border-radius: 12px !important;
+}
+
+@media(max-width:576px){
+    .edit-card-header { padding: 1.25rem 1.25rem 1rem; }
+    .card-section { padding: 1.25rem; }
+    .edit-actions { padding: 1.25rem; flex-wrap: wrap; }
+}
+</style>
+{% endblock %}
+
 {% block container_wrap_start %}{% endblock %}
 {% block container_wrap_end %}{% endblock %}
 
