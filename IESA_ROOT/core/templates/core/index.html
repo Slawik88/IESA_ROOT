@@ -368,10 +368,10 @@
             <a href="{% url 'blog:event_list' %}" class="hero-btn-g mag-btn"><i class="fas fa-calendar-alt"></i> {% trans "View events" %}</a>
         </div>
         <div class="hero-stats">
-            <div><div class="hero-stat-num"><span class="cnt" data-count="300">0</span>+</div><div class="hero-stat-label">{% trans "Members" %}</div></div>
-            <div><div class="hero-stat-num"><span class="cnt" data-count="48">0</span></div><div class="hero-stat-label">{% trans "Events / year" %}</div></div>
-            <div><div class="hero-stat-num"><span class="cnt" data-count="12">0</span></div><div class="hero-stat-label">{% trans "Countries" %}</div></div>
-            <div><div class="hero-stat-num"><span class="cnt" data-count="6">0</span>+</div><div class="hero-stat-label">{% trans "Years active" %}</div></div>
+            <div><div class="hero-stat-num"><span class="cnt" data-count="6">0</span></div><div class="hero-stat-label">{% trans "Sport types" %}</div></div>
+            <div><div class="hero-stat-num"><span class="cnt" data-count="2">0</span></div><div class="hero-stat-label">{% trans "Countries" %}</div></div>
+            <div><div class="hero-stat-num"><span class="cnt" data-count="2">0</span></div><div class="hero-stat-label">{% trans "Years active" %}</div></div>
+            <div><div class="hero-stat-num" style="font-size:1.5rem;">{% trans "Monthly" %}</div><div class="hero-stat-label">{% trans "Adventures" %}</div></div>
         </div>
     </div>
     <div class="hero-scroll"><div class="s-line"></div><span>{% trans "Scroll" %}</span></div>
@@ -444,10 +444,26 @@
 <section id="hp-stats">
     <div class="hp-container">
         <div class="stats-grid" data-reveal>
-            <div class="stat-cell"><div class="stat-value"><span class="cnt-b" data-count="300">0</span><span class="stat-unit">+</span></div><div class="stat-label">{% trans "Active members" %}</div></div>
-            <div class="stat-cell"><div class="stat-value"><span class="cnt-b" data-count="48">0</span></div><div class="stat-label">{% trans "Events annually" %}</div></div>
-            <div class="stat-cell"><div class="stat-value"><span class="cnt-b" data-count="12">0</span></div><div class="stat-label">{% trans "Countries reached" %}</div></div>
-            <div class="stat-cell"><div class="stat-value"><span class="cnt-b" data-count="6">0</span><span class="stat-unit">+</span></div><div class="stat-label">{% trans "Years of experience" %}</div></div>
+            <div class="stat-cell">
+                <div style="font-size:2.2rem;margin-bottom:.5rem;">🏄</div>
+                <div class="stat-value" style="font-size:2rem;">{% trans "Multi-sport" %}</div>
+                <div class="stat-label">{% trans "Kitesurfing · Diving · Climbing · Yachting · Surfing · Boxing" %}</div>
+            </div>
+            <div class="stat-cell">
+                <div style="font-size:2.2rem;margin-bottom:.5rem;">🌍</div>
+                <div class="stat-value" style="font-size:2rem;">{% trans "International" %}</div>
+                <div class="stat-label">{% trans "Switzerland & Ukraine — growing globally" %}</div>
+            </div>
+            <div class="stat-cell">
+                <div style="font-size:2.2rem;margin-bottom:.5rem;">📅</div>
+                <div class="stat-value" style="font-size:2rem;">{% trans "Regular trips" %}</div>
+                <div class="stat-label">{% trans "Weekend camps · Adult offsites · Yachting weeks" %}</div>
+            </div>
+            <div class="stat-cell">
+                <div style="font-size:2.2rem;margin-bottom:.5rem;">🤝</div>
+                <div class="stat-value" style="font-size:2rem;">{% trans "Expert coaches" %}</div>
+                <div class="stat-label">{% trans "Certified instructors · Safe · Professional" %}</div>
+            </div>
         </div>
     </div>
 </section>
