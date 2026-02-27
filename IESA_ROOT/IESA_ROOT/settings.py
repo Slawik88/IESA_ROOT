@@ -137,15 +137,26 @@ DATABASES = {
 # Production database configuration (PostgreSQL via DATABASE_URL)
 if 'DATABASE_URL' in os.environ:
     import dj_database_url
-    # Use short-lived connections to reduce pool exhaustion
-    # 0 = close connection after each request (safest for limited pools)
+    # Use short-lived connections to reduce pool exhaustion.
+    # 0 = close connection after each request (safest for limited pools).
     _CONN_MAX_AGE = int(os.getenv('DB_CONN_MAX_AGE', '0'))
+    # DATABASE_POOL_URL can point to DigitalOcean PgBouncer (port 25061) for
+    # transaction-mode connection pooling — highly recommended to prevent
+    # "remaining connection slots are reserved for superuser" errors.
+    # If not set, falls back to the direct DATABASE_URL (port 25060).
+    _db_url = os.getenv('DATABASE_POOL_URL') or os.environ['DATABASE_URL']
     DATABASES['default'] = dj_database_url.config(
+        default=_db_url,
         conn_max_age=_CONN_MAX_AGE,
-        ssl_require=True
+        ssl_require=True,
     )
-    # Enable health checks to automatically reconnect stale connections
-    DATABASES['default']['CONN_HEALTH_CHECKS'] = True
+    # Required when using PgBouncer in transaction pooling mode:
+    # server-side cursors keep a named cursor open across statements which
+    # breaks transaction pooling.
+    DATABASES['default']['DISABLE_SERVER_SIDE_CURSORS'] = True
+    # Short timeout so a saturated DB returns an error quickly rather than
+    # holding a worker thread open.
+    DATABASES['default'].setdefault('OPTIONS', {})['connect_timeout'] = 10
 
 # Парольная валидация
 AUTH_PASSWORD_VALIDATORS = [
