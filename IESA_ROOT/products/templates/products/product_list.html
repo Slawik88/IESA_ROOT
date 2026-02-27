@@ -3,13 +3,67 @@
 
 {% block title %}{% trans "Product Catalog" %} | IESA{% endblock %}
 
+{% block extra_css %}
+<style>
+.prod-hero {
+    background: #0a0a0f;
+    padding: 5rem 0 4rem;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+}
+.prod-hero::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse 70% 60% at 50% 0%, rgba(220,38,38,.18) 0%, transparent 70%);
+    pointer-events: none;
+}
+.prod-empty {
+    background: #fff;
+    border: 1.5px solid rgba(0,0,0,.07);
+    border-radius: 24px;
+    padding: 4rem 2rem;
+    text-align: center;
+    margin: 3rem auto;
+    max-width: 540px;
+}
+.prod-empty .prod-emoji {
+    font-size: 3.5rem;
+    margin-bottom: 1rem;
+    display: block;
+    filter: grayscale(.3);
+}
+.prod-empty h5 {
+    font-weight: 800;
+    color: #111;
+    margin-bottom: .5rem;
+    font-size: 1.3rem;
+}
+.prod-empty p {
+    color: #6b7280;
+    margin-bottom: 1.75rem;
+}
+</style>
+{% endblock %}
+
 {% block content %}
+<section class="prod-hero">
+    <div class="container">
+        <div class="hp-label mx-auto mb-3" style="width:fit-content;">{% trans "CATALOG" %}</div>
+        <h1 class="hp-h2" style="font-size:clamp(2rem,5vw,3.2rem);">{% trans "Product Catalog" %}</h1>
+        <p class="hp-sub mx-auto" style="max-width:500px;">{% trans "Gear and services curated for IESA members" %}</p>
+    </div>
+</section>
+
 <div class="container-limited">
-    <div class="empty-state">
-        <div class="empty-emoji">🛍️</div>
+    <div class="prod-empty" data-reveal>
+        <span class="prod-emoji">🛍️</span>
         <h5>{% trans "Catalog is empty" %}</h5>
-        <p class="text-muted mb-3">{% trans "We are preparing products and services for association members." %}</p>
-        <a href="{% url 'core:home' %}" class="btn btn-outline-primary btn-modern">{% trans "Back to home" %}</a>
+        <p>{% trans "We are preparing products and services for association members." %}</p>
+        <a href="{% url 'core:home' %}" class="btn hero-btn-p">
+            <i class="fas fa-home me-2"></i>{% trans "Back to home" %}
+        </a>
     </div>
 </div>
 {% endblock %}

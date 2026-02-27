@@ -3,105 +3,178 @@
 
 {% block title %}{% trans "Member Benefits" %} | IESA{% endblock %}
 
-{% block content %}
-<div class="container-limited">
-    <!-- Hero Section -->
-    <section class="section-padding text-center mb-5">
-        <div class="mb-3">
-            <span class="badge badge-primary hero-badge">
-                <i class="fas fa-gift me-2"></i>{% trans "Member Benefits" %}
-            </span>
-        </div>
-        <h1 class="display-5 fw-bold mb-3">{% trans "IESA Member Benefits" %}</h1>
-        <p class="lead text-muted mb-0">
-            {% trans "Get exclusive discounts and benefits as a member of our association" %}
-        </p>
-    </section>
+{% block extra_css %}
+<style>
+.ben-hero {
+    background: #0a0a0f;
+    padding: 5rem 0 4rem;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+}
+.ben-hero::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse 70% 60% at 50% 0%, rgba(220,38,38,.18) 0%, transparent 70%);
+    pointer-events: none;
+}
+.ben-card {
+    background: #fff;
+    border: 1.5px solid rgba(0,0,0,.07);
+    border-radius: 20px;
+    overflow: hidden;
+    transition: transform .3s, box-shadow .3s, border-color .3s;
+    height: 100%;
+    position: relative;
+}
+.ben-card:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 20px 50px rgba(0,0,0,.1);
+    border-color: var(--primary);
+}
+.ben-card-top-bar {
+    height: 4px;
+    width: 100%;
+}
+.ben-icon-wrap {
+    width: 56px;
+    height: 56px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.4rem;
+    color: #fff;
+    flex-shrink: 0;
+    box-shadow: 0 4px 14px rgba(0,0,0,.12);
+}
+.ben-discount {
+    background: rgba(220,38,38,.08);
+    border: 1.5px solid rgba(220,38,38,.18);
+    border-radius: 10px;
+    padding: .5rem .85rem;
+    font-size: .85rem;
+    color: var(--primary);
+    font-weight: 700;
+}
+.ben-cta {
+    background: #0a0a0f;
+    border-radius: 24px;
+    padding: 4rem 3rem;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+    margin-top: 4rem;
+    margin-bottom: 4rem;
+}
+.ben-cta::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse 60% 80% at 50% 50%, rgba(220,38,38,.15) 0%, transparent 70%);
+    pointer-events: none;
+}
+.ben-cta h3 {
+    font-size: clamp(1.5rem, 3vw, 2.2rem);
+    font-weight: 900;
+    color: #fff;
+    margin-bottom: .75rem;
+    position: relative;
+}
+.ben-cta p {
+    color: rgba(255,255,255,.55);
+    margin-bottom: 2rem;
+    position: relative;
+}
+.ben-empty {
+    background: #0a0a0f;
+    border: 1.5px solid rgba(255,255,255,.07);
+    border-radius: 24px;
+    padding: 4rem 2rem;
+    text-align: center;
+    margin: 3rem 0;
+}
+.ben-empty h3 { color: #fff; font-weight: 900; }
+.ben-empty p { color: rgba(255,255,255,.5); }
+</style>
+{% endblock %}
 
-    <!-- Benefits Grid -->
+{% block content %}
+<!-- Page Hero -->
+<section class="ben-hero">
+    <div class="container">
+        <div class="hp-label mx-auto mb-3" style="width:fit-content;">
+            <i class="fas fa-gift me-2"></i>{% trans "Member Benefits" %}
+        </div>
+        <h1 class="hp-h2" style="font-size:clamp(2rem,5vw,3.2rem);">{% trans "IESA Member Benefits" %}</h1>
+        <p class="hp-sub mx-auto" style="max-width:540px;">{% trans "Get exclusive discounts and benefits as a member of our association" %}</p>
+    </div>
+</section>
+
+<div class="container-limited">
+
     {% if benefits %}
-    <section class="section-padding">
+    <!-- Benefits Grid -->
+    <section style="padding:3rem 0 0;">
         <div class="row g-4">
             {% for benefit in benefits %}
-            <div class="col-md-6 col-lg-4">
-                <div class="card h-100 benefit-card position-relative overflow-hidden">
-                    <!-- Декоративный элемент -->
-                    {% if benefit.color == 'primary' %}
-                    <div class="benefit-card-decoration" style="background: linear-gradient(135deg, var(--primary), var(--primary-active));"></div>
-                    {% elif benefit.color == 'success' %}
-                    <div class="benefit-card-decoration" style="background: linear-gradient(135deg, #56ab2f, #a8e063);"></div>
+            <div class="col-md-6 col-lg-4" data-reveal data-delay="{{ forloop.counter }}">
+                <div class="ben-card">
+                    <!-- Color top bar -->
+                    {% if benefit.color == 'success' %}
+                    <div class="ben-card-top-bar" style="background:linear-gradient(90deg,#56ab2f,#a8e063);"></div>
                     {% elif benefit.color == 'danger' %}
-                    <div class="benefit-card-decoration" style="background: linear-gradient(135deg, #eb3349, #f45c43);"></div>
+                    <div class="ben-card-top-bar" style="background:linear-gradient(90deg,#eb3349,#f45c43);"></div>
                     {% elif benefit.color == 'warning' %}
-                    <div class="benefit-card-decoration" style="background: linear-gradient(135deg, #f093fb, #f5576c);"></div>
+                    <div class="ben-card-top-bar" style="background:linear-gradient(90deg,#f093fb,#f5576c);"></div>
                     {% elif benefit.color == 'info' %}
-                    <div class="benefit-card-decoration" style="background: linear-gradient(135deg, #4facfe, #00f2fe);"></div>
+                    <div class="ben-card-top-bar" style="background:linear-gradient(90deg,#4facfe,#00f2fe);"></div>
                     {% else %}
-                    <div class="benefit-card-decoration" style="background: linear-gradient(135deg, var(--primary), var(--primary-active));"></div>
+                    <div class="ben-card-top-bar" style="background:linear-gradient(90deg,var(--primary),#f87171);"></div>
                     {% endif %}
-                    
-                    <div class="card-body position-relative">
-                        <!-- Иконка и категория -->
-                        <div class="d-flex align-items-center mb-3">
-                            {% if benefit.color == 'primary' %}
-                            <div class="benefit-icon me-3" style="background: linear-gradient(135deg, var(--primary), var(--primary-active));">
-                            {% elif benefit.color == 'success' %}
-                            <div class="benefit-icon me-3" style="background: linear-gradient(135deg, #56ab2f, #a8e063);">
+
+                    <div class="card-body p-4">
+                        <!-- Icon + category -->
+                        <div class="d-flex align-items-center gap-3 mb-3">
+                            {% if benefit.color == 'success' %}
+                            <div class="ben-icon-wrap" style="background:linear-gradient(135deg,#56ab2f,#a8e063);">
                             {% elif benefit.color == 'danger' %}
-                            <div class="benefit-icon me-3" style="background: linear-gradient(135deg, #eb3349, #f45c43);">
+                            <div class="ben-icon-wrap" style="background:linear-gradient(135deg,#eb3349,#f45c43);">
                             {% elif benefit.color == 'warning' %}
-                            <div class="benefit-icon me-3" style="background: linear-gradient(135deg, #f093fb, #f5576c);">
+                            <div class="ben-icon-wrap" style="background:linear-gradient(135deg,#f093fb,#f5576c);">
                             {% elif benefit.color == 'info' %}
-                            <div class="benefit-icon me-3" style="background: linear-gradient(135deg, #4facfe, #00f2fe);">
+                            <div class="ben-icon-wrap" style="background:linear-gradient(135deg,#4facfe,#00f2fe);">
                             {% else %}
-                            <div class="benefit-icon me-3" style="background: linear-gradient(135deg, var(--primary), var(--primary-active));">
+                            <div class="ben-icon-wrap" style="background:linear-gradient(135deg,var(--primary),#f87171);">
                             {% endif %}
-                                <i class="{{ benefit.icon }} text-white"></i>
+                                <i class="{{ benefit.icon }}"></i>
                             </div>
-                            <div>
-                                <span class="badge badge-{{ benefit.color|default:'primary' }} mb-1">
-                                    {{ benefit.get_category_display }}
-                                </span>
-                            </div>
+                            <span class="badge badge-{{ benefit.color|default:'primary' }} rounded-pill">{{ benefit.get_category_display }}</span>
                         </div>
 
-                        <!-- Заголовок -->
-                        <h5 class="card-title fw-bold mb-3">{{ benefit.title }}</h5>
+                        <h5 class="fw-bold mb-2" style="font-size:1.05rem;">{{ benefit.title }}</h5>
+                        <p class="text-muted small mb-3">{{ benefit.description|striptags }}</p>
 
-                        <!-- Описание -->
-                        <p class="text-muted mb-3">{{ benefit.description|striptags }}</p>
-
-                        <!-- Скидка -->
                         {% if benefit.discount_info %}
-                        <div class="alert alert-{{ benefit.color|default:'primary' }} mb-3 py-2 px-3">
-                            <div class="d-flex align-items-center">
-                                <i class="fas fa-percentage me-2"></i>
-                                <strong class="mb-0">{{ benefit.discount_info }}</strong>
-                            </div>
+                        <div class="ben-discount mb-3">
+                            <i class="fas fa-percentage me-2"></i>{{ benefit.discount_info }}
                         </div>
                         {% endif %}
 
-                        <!-- Partner information -->
                         {% if benefit.partner_info %}
-                        <div class="mb-3">
-                            <small class="text-muted">
-                                <i class="fas fa-handshake me-1"></i>
-                                {{ benefit.partner_info }}
-                            </small>
-                        </div>
+                        <p class="small text-muted mb-2">
+                            <i class="fas fa-handshake me-1"></i>{{ benefit.partner_info }}
+                        </p>
                         {% endif %}
 
-                        <!-- Условия -->
                         {% if benefit.terms %}
                         <div class="mt-3 pt-3 border-top">
                             <details>
-                                <summary class="small text-muted cursor-pointer" style="cursor: pointer;">
-                                    <i class="fas fa-info-circle me-1"></i>
-                                    {% trans "Terms of access" %}
+                                <summary class="small text-muted" style="cursor:pointer;">
+                                    <i class="fas fa-info-circle me-1"></i>{% trans "Terms of access" %}
                                 </summary>
-                                <div class="small text-muted mt-2">
-                                    {{ benefit.terms|striptags|linebreaksbr }}
-                                </div>
+                                <div class="small text-muted mt-2">{{ benefit.terms|striptags|linebreaksbr }}</div>
                             </details>
                         </div>
                         {% endif %}
@@ -112,81 +185,33 @@
         </div>
     </section>
 
-    <!-- Call to Action -->
-    <section class="section-padding text-center">
-        <div class="card card-flat p-5">
-            <h3 class="fw-bold mb-3">{% trans "Want access to these benefits?" %}</h3>
-            <p class="lead text-muted mb-4">
-                {% trans "Become an IESA member and receive exclusive discounts and privileges" %}
-            </p>
-            <div class="d-flex flex-column flex-sm-row gap-3 justify-content-center">
-                <a href="{% url 'users:register' %}" class="btn btn-primary btn-modern">
-                    <i class="fas fa-user-plus me-2"></i>{% trans "Join now" %}
-                </a>
-                <a href="{% url 'core:home' %}" class="btn btn-secondary">
-                    <i class="fas fa-home me-2"></i>{% trans "Back to home" %}
-                </a>
-            </div>
-        </div>
-    </section>
-    {% else %}
-    <!-- Empty State -->
-    <section class="section-padding text-center">
-        <div class="card card-flat p-5">
-            <i class="fas fa-gift text-muted mb-3" style="font-size: 4rem;"></i>
-            <h3 class="fw-bold mb-3">{% trans "Benefits coming soon" %}</h3>
-            <p class="text-muted mb-4">
-                {% trans "We are working on exclusive offers for our members" %}
-            </p>
-            <a href="{% url 'core:home' %}" class="btn btn-primary">
+    <!-- CTA -->
+    <div class="ben-cta" data-reveal>
+        <h3 style="position:relative;">{% trans "Want access to these benefits?" %}</h3>
+        <p style="position:relative;">{% trans "Become an IESA member and receive exclusive discounts and privileges" %}</p>
+        <div class="d-flex flex-column flex-sm-row gap-3 justify-content-center" style="position:relative;">
+            <a href="{% url 'users:register' %}" class="btn hero-btn-p">
+                <i class="fas fa-user-plus me-2"></i>{% trans "Join now" %}
+            </a>
+            <a href="{% url 'core:home' %}" class="btn hero-btn-g">
                 <i class="fas fa-home me-2"></i>{% trans "Back to home" %}
             </a>
         </div>
-    </section>
+    </div>
+
+    {% else %}
+    <!-- Empty State -->
+    <div class="ben-empty" data-reveal>
+        <i class="fas fa-gift mb-3" style="font-size:3.5rem;color:var(--primary);opacity:.5;"></i>
+        <h3 class="mb-2">{% trans "Benefits coming soon" %}</h3>
+        <p class="mb-4">{% trans "We are working on exclusive offers for our members" %}</p>
+        <a href="{% url 'core:home' %}" class="btn hero-btn-p">
+            <i class="fas fa-home me-2"></i>{% trans "Back to home" %}
+        </a>
+    </div>
     {% endif %}
+
 </div>
-
-<style>
-/* Benefit cards */
-.benefit-card {
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
-    border: 1px solid rgba(0,0,0,0.05);
-}
-
-.benefit-card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-}
-
-.benefit-card-decoration {
-    position: absolute;
-    top: -50%;
-    right: -10%;
-    width: 200px;
-    height: 200px;
-    border-radius: 50%;
-    opacity: 0.1;
-    z-index: 0;
-}
-
-.benefit-icon {
-    width: 60px;
-    height: 60px;
-    border-radius: 12px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.5rem;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-}
-
-/* Responsive */
-@media (max-width: 768px) {
-    .benefit-icon {
-        width: 50px;
-        height: 50px;
-        font-size: 1.25rem;
-    }
-}
-</style>
 {% endblock %}
+
+

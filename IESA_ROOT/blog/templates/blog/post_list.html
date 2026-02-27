@@ -3,37 +3,77 @@
 
 {% block title %}{% trans "Community & Blog" %} | IESA{% endblock %}
 
+{% block extra_css %}
+<style>
+.pl-hero {
+    background: #0a0a0f;
+    padding: 5rem 0 4rem;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+}
+.pl-hero::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse 70% 60% at 50% 0%, rgba(220,38,38,.18) 0%, transparent 70%);
+    pointer-events: none;
+}
+.pl-filters-bar {
+    background: #111118;
+    border: 1.5px solid rgba(255,255,255,.07);
+    border-radius: 16px;
+    padding: 1rem 1.25rem;
+    margin: -1.5rem auto 2rem;
+    max-width: 980px;
+    position: relative;
+    z-index: 2;
+}
+.pl-filters-bar .form-control,
+.pl-filters-bar .form-select {
+    background: #1a1a24;
+    border: 1.5px solid rgba(255,255,255,.1);
+    color: #fff;
+    border-radius: 10px;
+}
+.pl-filters-bar .form-control::placeholder { color: rgba(255,255,255,.35); }
+.pl-filters-bar .form-control:focus,
+.pl-filters-bar .form-select:focus {
+    background: #1a1a24;
+    border-color: var(--primary);
+    color: #fff;
+    box-shadow: 0 0 0 3px rgba(220,38,38,.18);
+}
+.pl-filters-bar .form-select option { background: #1a1a24; }
+.pl-filters-bar .nav-link { color: rgba(255,255,255,.55); border-radius: 8px; }
+.pl-filters-bar .nav-link.active { background: var(--primary); color: #fff; }
+.pl-filters-bar .nav-link:hover:not(.active) { color: #fff; background: rgba(255,255,255,.06); }
+.pl-auth-notice {
+    background: linear-gradient(135deg, rgba(220,38,38,.1), rgba(220,38,38,.04));
+    border: 1.5px solid rgba(220,38,38,.2);
+    border-radius: 14px;
+    padding: 1rem 1.5rem;
+    margin-bottom: 1.5rem;
+    color: #e5e7eb;
+}
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="container-limited">
-    <!-- Заголовок секции -->
-    <div class="text-center mb-5">
-        <h6 class="section-title d-block mb-4">{% trans "COMMUNITY" %}</h6>
-        <h1 class="fw-bold mb-2 text-gray-900">{% trans "Share Ideas, Events & News" %}</h1>
-        <p class="text-muted">{% trans "Connect with fellow extreme sports enthusiasts" %}</p>
+<!-- Page Hero -->
+<section class="pl-hero">
+    <div class="container">
+        <div class="hp-label mx-auto mb-3" style="width:fit-content;">{% trans "COMMUNITY" %}</div>
+        <h1 class="hp-h2" style="font-size:clamp(2rem,5vw,3.2rem);">{% trans "Share Ideas, Events & News" %}</h1>
+        <p class="hp-sub mx-auto" style="max-width:540px;">{% trans "Connect with fellow extreme sports enthusiasts" %}</p>
     </div>
+</section>
 
-    <!-- Warning for unauthenticated users -->
-    {% if not user.is_authenticated %}
-        <div class="alert alert-warning mb-4">
-            <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3">
-                <div>
-                    <strong>
-                        <i class="fas fa-lock me-2"></i>{% trans "Sign in or register to access the community" %}
-                    </strong>
-                    <p class="mb-0 mt-1 opacity-90">{% trans "Join our community to create posts, comment and engage with members" %}</p>
-                </div>
-                <div class="d-flex gap-2 flex-shrink-0">
-                    <a href="{% url 'users:login' %}" class="btn btn-primary btn-modern btn-sm">{% trans "Sign In" %}</a>
-                    <a href="{% url 'users:register' %}" class="btn btn-secondary btn-sm">{% trans "Register" %}</a>
-                </div>
-            </div>
-        </div>
-    {% endif %}
+<div class="container-limited">
 
-    <!-- Навигация и поиск -->
-    <div class="card p-3 mb-4">
+    <!-- Filters Bar -->
+    <div class="pl-filters-bar">
         <div class="d-flex flex-column flex-lg-row gap-3 align-items-start align-items-lg-center">
-            <!-- Вкладки навигации -->
             <nav class="nav nav-pills flex-shrink-0">
                 <a class="nav-link active" href="{% url 'blog:post_list' %}">
                     <i class="fas fa-newspaper me-2"></i>{% trans "All Posts" %}
@@ -42,12 +82,11 @@
                     <i class="far fa-calendar me-2"></i>{% trans "Events" %}
                 </a>
             </nav>
-            
-            <!-- Форма поиска -->
+
             <div class="flex-fill">
-                <form id="post-search-form" class="d-flex flex-column flex-sm-row gap-2" 
-                      hx-get="{% url 'blog:post_search' %}" 
-                      hx-target="#posts-container" 
+                <form id="post-search-form" class="d-flex flex-column flex-sm-row gap-2"
+                      hx-get="{% url 'blog:post_search' %}"
+                      hx-target="#posts-container"
                       hx-trigger="keyup changed from:[name='q'] delay:400ms, change from:select"
                       hx-indicator=".htmx-indicator">
                     <input name="q" class="form-control form-control-sm" placeholder="{% trans "Search posts..." %}" aria-label="{% trans "Search posts" %}">
@@ -63,62 +102,51 @@
                     </select>
                 </form>
             </div>
-            
-            <!-- Create post button -->
+
             {% if user.is_authenticated %}
-                <a href="{% url 'blog:post_create' %}" class="btn btn-primary btn-modern mobile-block flex-shrink-0">
-                    <i class="fas fa-plus me-2"></i>{% trans "Create Post" %}
-                </a>
+            <a href="{% url 'blog:post_create' %}" class="btn hero-btn-p btn-sm mobile-block flex-shrink-0">
+                <i class="fas fa-plus me-2"></i>{% trans "Create Post" %}
+            </a>
             {% endif %}
         </div>
     </div>
+
+    {% if not user.is_authenticated %}
+    <div class="pl-auth-notice d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3 mb-4">
+        <div>
+            <strong><i class="fas fa-lock me-2 text-danger"></i>{% trans "Sign in or register to access the community" %}</strong>
+            <p class="mb-0 mt-1 opacity-75 small">{% trans "Join our community to create posts, comment and engage with members" %}</p>
+        </div>
+        <div class="d-flex gap-2 flex-shrink-0">
+            <a href="{% url 'users:login' %}" class="btn hero-btn-p btn-sm">{% trans "Sign In" %}</a>
+            <a href="{% url 'users:register' %}" class="btn hero-btn-g btn-sm">{% trans "Register" %}</a>
+        </div>
+    </div>
+    {% endif %}
 
     <!-- Posts container -->
     <div id="posts-container">
         {% if posts %}
             {% include "blog/htmx/posts_list_fragment.html" %}
         {% else %}
-            <div class="text-center p-5 card">
-                <i class="fas fa-newspaper mb-4 empty-state-icon"></i>
-                <h5 class="fw-bold mb-2 text-gray-700">{% trans "No Posts Yet" %}</h5>
+            <div class="text-center p-5 rounded-4" style="background:#f8f9fa;border:1.5px solid rgba(0,0,0,.07);">
+                <i class="fas fa-newspaper mb-4" style="font-size:3rem;color:#d1d5db;"></i>
+                <h5 class="fw-bold mb-2" style="color:#374151;">{% trans "No Posts Yet" %}</h5>
                 <p class="text-muted mb-4">{% trans "Be the first to share news or ideas with the community" %}</p>
                 {% if user.is_authenticated %}
-                    <a href="{% url 'blog:post_create' %}" class="btn btn-primary btn-modern">
+                    <a href="{% url 'blog:post_create' %}" class="btn hero-btn-p">
                         <i class="fas fa-plus me-2"></i>{% trans "Create First Post" %}
                     </a>
                 {% else %}
-                    <a href="{% url 'users:register' %}" class="btn btn-secondary">
+                    <a href="{% url 'users:register' %}" class="btn hero-btn-g">
                         <i class="fas fa-user-plus me-2"></i>{% trans "Join Community" %}
                     </a>
                 {% endif %}
             </div>
         {% endif %}
     </div>
-</div>
 
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    const observerOptions = {
-        threshold: 0.1,
-        rootMargin: '0px 0px -50px 0px'
-    };
-    
-    const observer = new IntersectionObserver(function(entries) {
-        entries.forEach(entry => {
-            if (entry.isIntersecting) {
-                entry.target.classList.add('animated');
-                observer.unobserve(entry.target);
-            }
-        });
-    }, observerOptions);
-    
-    // Animation for post cards
-    const postCards = document.querySelectorAll('.col-md-6');
-    postCards.forEach(card => {
-        card.classList.add('post-card-animate');
-        observer.observe(card);
-    });
-});
-</script>
+</div>
+{% endblock %}
 
 {% endblock %}

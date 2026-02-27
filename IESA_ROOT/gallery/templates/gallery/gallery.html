@@ -3,33 +3,116 @@
 
 {% block title %}{% trans "Gallery" %} | IESA{% endblock %}
 
+{% block extra_css %}
+<style>
+.gal-hero {
+    background: #0a0a0f;
+    padding: 5rem 0 4rem;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+}
+.gal-hero::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse 70% 60% at 50% 0%, rgba(220,38,38,.18) 0%, transparent 70%);
+    pointer-events: none;
+}
+.gallery-grid {
+    padding: 0 1rem 2rem;
+}
+.gallery-thumb {
+    position: relative;
+    overflow: hidden;
+    border-radius: 16px;
+    aspect-ratio: 4/3;
+    background: #111;
+    border: 1.5px solid rgba(0,0,0,.06);
+    transition: transform .3s, box-shadow .3s, border-color .3s;
+}
+.gallery-thumb:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 18px 40px rgba(0,0,0,.15);
+    border-color: var(--primary);
+}
+.gallery-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform .4s;
+}
+.gallery-thumb:hover img {
+    transform: scale(1.06);
+}
+.gallery-thumb__overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to top, rgba(0,0,0,.7) 0%, transparent 50%);
+    display: flex;
+    align-items: flex-end;
+    padding: 1rem;
+    opacity: 0;
+    transition: opacity .3s;
+    border-radius: 16px;
+}
+.gallery-thumb:hover .gallery-thumb__overlay {
+    opacity: 1;
+}
+.gallery-thumb__overlay span {
+    font-size: .85rem;
+    font-weight: 600;
+    color: #fff;
+}
+.gallery-modal-image {
+    max-height: 80vh;
+    border-radius: 12px;
+}
+.gallery-modal-container {
+    min-height: 200px;
+}
+.gal-empty {
+    background: #0a0a0f;
+    border: 1.5px solid rgba(255,255,255,.07);
+    border-radius: 24px;
+    padding: 4rem 2rem;
+    text-align: center;
+    margin: 3rem auto;
+    max-width: 540px;
+}
+.gal-empty h5 { color: #fff; font-weight: 700; }
+.gal-empty p { color: rgba(255,255,255,.5); }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="container-limited">
-    <div class="text-center mb-5">
-        <h6 class="section-title d-block mb-4">{% trans "PHOTO GALLERY" %}</h6>
-        <h1 class="fw-bold mb-2 text-gray-900">{% trans "Moments From Our Community" %}</h1>
-        <p class="text-muted">{% trans "See how we work, train and create memories together" %}</p>
+<!-- Page Hero -->
+<section class="gal-hero">
+    <div class="container">
+        <div class="hp-label mx-auto mb-3" style="width:fit-content;">{% trans "PHOTO GALLERY" %}</div>
+        <h1 class="hp-h2" style="font-size:clamp(2rem,5vw,3.2rem);">{% trans "Moments From Our Community" %}</h1>
+        <p class="hp-sub mx-auto" style="max-width:540px;">{% trans "See how we work, train and create memories together" %}</p>
     </div>
-</div>
+</section>
 
 {% if photos %}
     {% trans "Photo" as default_photo %}
     {% trans "View photo" as default_view_photo %}
-    <!-- Using a simple grid system with custom classes for a polished layout -->
-    <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 g-4 gallery-grid">
-        {% for photo in photos %}
-            <div class="col">
-                <a href="#" class="gallery-grid__item" data-index="{{ forloop.counter0 }}" data-src="{{ photo.image.url }}" data-caption="{{ photo.caption|default:'' }}">
+    <div class="container-limited">
+        <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 g-4 gallery-grid">
+            {% for photo in photos %}
+            <div class="col" data-reveal data-delay="{{ forloop.counter|add:'0'|divisibleby:'4'|yesno:'4,1,2,3' }}">
+                <a href="#" class="gallery-grid__item d-block" data-index="{{ forloop.counter0 }}" data-src="{{ photo.image.url }}" data-caption="{{ photo.caption|default:'' }}">
                     <div class="gallery-thumb">
-                        <img src="{{ photo.image.url }}" class="img-fluid rounded" alt="{{ photo.caption|default:default_photo }}">
+                        <img src="{{ photo.image.url }}" class="img-fluid" alt="{{ photo.caption|default:default_photo }}" loading="lazy">
                         <div class="gallery-thumb__overlay">
-                        <span class="small text-white">{{ photo.caption|default:default_view_photo }}</span>
+                            <span><i class="fas fa-expand me-2"></i>{{ photo.caption|default:default_view_photo }}</span>
                         </div>
                     </div>
                 </a>
             </div>
-        {% endfor %}
-    </div>
+            {% endfor %}
+        </div>
 
         <!-- Modal gallery -->
         <div class="modal fade" id="galleryModal" tabindex="-1" aria-hidden="true">
@@ -53,54 +136,16 @@
             </div>
         </div>
 
-        <script>
-        (function(){
-            const items = Array.from(document.querySelectorAll('.gallery-grid__item'));
-            if (!items.length) return;
-            const modalEl = document.getElementById('galleryModal');
-            const imgEl = document.getElementById('galleryModalImage');
-            const capEl = document.getElementById('galleryModalCaption');
-            const counterEl = document.getElementById('galleryCounter');
-            let current = 0;
-
-            function show(index){
-                const it = items[index];
-                imgEl.src = it.dataset.src;
-                capEl.textContent = it.dataset.caption || '';
-                if (counterEl) counterEl.textContent = (index + 1) + ' / ' + items.length;
-                current = index;
-                const bs = bootstrap.Modal.getOrCreateInstance(modalEl);
-                bs.show();
-            }
-
-            items.forEach((it, idx)=>{
-                it.addEventListener('click', function(e){
-                    e.preventDefault();
-                    show(idx);
-                });
-            });
-
-            document.getElementById('galleryPrev').addEventListener('click', function(){
-                show((current - 1 + items.length) % items.length);
-            });
-            document.getElementById('galleryNext').addEventListener('click', function(){
-                show((current + 1) % items.length);
-            });
-        })();
-        </script>
-
-    <!-- Pagination -->
-    {% if is_paginated %}
-        <nav class="mt-4">
+        <!-- Pagination -->
+        {% if is_paginated %}
+        <nav class="mt-4 mb-5">
             <ul class="pagination justify-content-center">
                 {% if page_obj.has_previous %}
                     <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}">{% trans "Previous" %}</a></li>
                 {% else %}
                     <li class="page-item disabled"><span class="page-link">{% trans "Previous" %}</span></li>
                 {% endif %}
-                
                 <li class="page-item active"><span class="page-link">{{ page_obj.number }}</span></li>
-                
                 {% if page_obj.has_next %}
                     <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}">{% trans "Next" %}</a></li>
                 {% else %}
@@ -108,14 +153,56 @@
                 {% endif %}
             </ul>
         </nav>
-    {% endif %}
+        {% endif %}
+    </div>
 
 {% else %}
-    <div class="empty-state">
-        <div class="empty-emoji">📸</div>
-        <h5>{% trans "No photos yet" %}</h5>
-        <p class="text-muted mb-3">{% trans "Add photos from events or projects to inspire members." %}</p>
-        <a href="{% url 'blog:post_list' %}" class="btn btn-outline-primary btn-modern">{% trans "Go to community" %}</a>
+    <div class="container">
+        <div class="gal-empty" data-reveal>
+            <div style="font-size:3rem;margin-bottom:1rem;">📸</div>
+            <h5>{% trans "No photos yet" %}</h5>
+            <p class="mb-4">{% trans "Add photos from events or projects to inspire members." %}</p>
+            <a href="{% url 'blog:post_list' %}" class="btn hero-btn-p">{% trans "Go to community" %}</a>
+        </div>
     </div>
 {% endif %}
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function(){
+    const items = Array.from(document.querySelectorAll('.gallery-grid__item'));
+    if (!items.length) return;
+    const modalEl = document.getElementById('galleryModal');
+    const imgEl = document.getElementById('galleryModalImage');
+    const capEl = document.getElementById('galleryModalCaption');
+    const counterEl = document.getElementById('galleryCounter');
+    let current = 0;
+
+    function show(index){
+        const it = items[index];
+        imgEl.src = it.dataset.src;
+        capEl.textContent = it.dataset.caption || '';
+        if (counterEl) counterEl.textContent = (index + 1) + ' / ' + items.length;
+        current = index;
+        const bs = bootstrap.Modal.getOrCreateInstance(modalEl);
+        bs.show();
+    }
+
+    items.forEach((it, idx) => {
+        it.addEventListener('click', function(e){
+            e.preventDefault();
+            show(idx);
+        });
+    });
+
+    document.getElementById('galleryPrev').addEventListener('click', function(){
+        show((current - 1 + items.length) % items.length);
+    });
+    document.getElementById('galleryNext').addEventListener('click', function(){
+        show((current + 1) % items.length);
+    });
+})();
+</script>
 {% endblock %}
