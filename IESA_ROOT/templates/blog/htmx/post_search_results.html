@@ -26,9 +26,7 @@
             <div class="fw-bold text-dark">{{ user.get_full_name|default:user.username }}</div>
             <small class="text-muted">
               <i class="fas fa-at"></i> {{ user.username }}
-              {% if user.email %}
-                • <i class="fas fa-envelope"></i> {{ user.email }}
-              {% endif %}
+              {% if user.is_verified %}<i class="fas fa-check-circle ms-1" style="color:#4ade80;font-size:.7rem;" title="Verified"></i>{% endif %}
             </small>
           </div>
           <i class="fas fa-chevron-right text-muted"></i>

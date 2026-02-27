@@ -132,10 +132,10 @@
         {% if posts %}
             {% include "blog/htmx/posts_list_fragment.html" %}
         {% else %}
-            <div class="text-center p-5 rounded-4" style="background:#f8f9fa;border:1.5px solid rgba(0,0,0,.07);">
-                <i class="fas fa-newspaper mb-4" style="font-size:3rem;color:#d1d5db;"></i>
-                <h5 class="fw-bold mb-2" style="color:#374151;">{% trans "No Posts Yet" %}</h5>
-                <p class="text-muted mb-4">{% trans "Be the first to share news or ideas with the community" %}</p>
+            <div class="text-center p-5 rounded-4" style="background:rgba(255,255,255,.04);border:1.5px solid rgba(255,255,255,.07);">
+                <i class="fas fa-newspaper mb-4" style="font-size:3rem;color:rgba(255,255,255,.15);"></i>
+                <h5 class="fw-bold mb-2" style="color:rgba(255,255,255,.75);">{% trans "No Posts Yet" %}</h5>
+                <p style="color:rgba(255,255,255,.35);" class="mb-4">{% trans "Be the first to share news or ideas with the community" %}</p>
                 {% if user.is_authenticated %}
                     <a href="{% url 'blog:post_create' %}" class="btn hero-btn-p">
                         <i class="fas fa-plus me-2"></i>{% trans "Create First Post" %}
