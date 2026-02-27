@@ -690,7 +690,9 @@ async def telegram_webhook_view(request, secret):
         except Exception:
                 return JsonResponse({"ok": False, "error": "invalid json"}, status=400)
 
-        await process_incoming_update(payload)
+        from users.telegram.config import is_active
+        if is_active():
+            await process_incoming_update(payload)
         return JsonResponse({"ok": True})
 
 

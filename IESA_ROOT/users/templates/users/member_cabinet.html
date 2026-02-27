@@ -1,581 +1,708 @@
 {% extends "base.html" %}
 {% load static i18n %}
 
-{% block title %}{% trans "Member Cabinet" %}{% endblock %}
+{% block title %}{% trans "Member Cabinet" %} — IESA Sport{% endblock %}
 
 {% block extra_css %}
 <style>
-/* ═══════════ DESIGN TOKENS ═══════════ */
+/* ═══════════ IESA CABINET — FULL REDESIGN 2026 ═══════════ */
+
+/* ── Globals / tokens ───────────────────────────────────── */
 :root {
-    --dark-base:   #0a0a0f;
-    --dark-card:   rgba(13,13,22,0.96);
-    --dark-step:   rgba(255,255,255,0.04);
-    --dark-border: rgba(255,255,255,0.08);
-    --dark-text:   rgba(255,255,255,0.88);
-    --dark-muted:  rgba(255,255,255,0.45);
-    --primary:     #dc2626;
-    --primary-glow:rgba(220,38,38,0.35);
-    --green:       #22c55e;
-    --green-glow:  rgba(34,197,94,0.30);
-    --tg-color:    #29a8eb;
-    --tg-glow:     rgba(41,168,235,0.30);
-    --orange:      #f59e0b;
-    --r:           20px;
+    --bg0:   #0a0a0f;
+    --bg1:   #10101a;
+    --bg2:   #16162a;
+    --card:  rgba(18,18,30,0.92);
+    --bdr:   rgba(255,255,255,0.08);
+    --bdr-h: rgba(220,38,38,0.45);
+    --text:  rgba(255,255,255,0.88);
+    --muted: rgba(255,255,255,0.42);
+    --red:   #dc2626;
+    --red-g: rgba(220,38,38,0.30);
+    --green: #22c55e;
+    --grn-g: rgba(34,197,94,0.28);
+    --tg:    #29a8eb;
+    --tg-g:  rgba(41,168,235,0.28);
+    --amber: #f59e0b;
+    --r:     20px;
 }
 
-/* ═══════════ PAGE SHELL ═══════════ */
-body { background: var(--dark-base) !important; }
+html, body { background: var(--bg0) !important; }
 
+/* ── Canvas bg ───────────────────────────────────────────── */
 #cab-canvas {
-    position: fixed; inset: 0;
-    pointer-events: none; z-index: 0;
+    position: fixed; inset: 0; z-index: 0;
+    pointer-events: none;
+    opacity: .65;
 }
 
+/* ── Data-reveal ─────────────────────────────────────────── */
+[data-reveal] {
+    opacity: 0; transform: translateY(30px);
+    transition: opacity .6s cubic-bezier(.22,1,.36,1), transform .6s cubic-bezier(.22,1,.36,1);
+}
+[data-reveal].revealed { opacity: 1; transform: none; }
+[data-delay="1"] { transition-delay: .10s !important; }
+[data-delay="2"] { transition-delay: .20s !important; }
+[data-delay="3"] { transition-delay: .30s !important; }
+[data-delay="4"] { transition-delay: .40s !important; }
+[data-delay="5"] { transition-delay: .50s !important; }
+
+/* ── Section label (matches homepage .hp-label) ──────────── */
+.cab-label {
+    font-size: .68rem; letter-spacing: .22em; font-weight: 700;
+    text-transform: uppercase; color: var(--red);
+    display: inline-flex; align-items: center; gap: .6rem;
+    margin-bottom: 1rem;
+}
+.cab-label::before, .cab-label::after {
+    content: ''; flex: 1 1 20px; height: 1px;
+    background: var(--red); opacity: .35;
+}
+
+/* ── Page shell ──────────────────────────────────────────── */
 .cab-page {
     position: relative; z-index: 1;
-    padding: 2rem 0 5rem;
+    padding: 0 0 5rem;
     min-height: 100vh;
 }
 
-/* ═══════════ GLASSMORPHISM CARD BASE ═══════════ */
-.g-card {
-    background: var(--dark-card);
-    border: 1px solid var(--dark-border);
-    border-radius: var(--r);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    box-shadow: 0 8px 40px rgba(0,0,0,.55);
-    margin-bottom: 1.25rem;
-    overflow: hidden;
-    opacity: 0;
-    transform: translateY(24px);
-    transition: opacity .55s ease, transform .55s ease, box-shadow .3s;
-}
-.g-card.visible { opacity: 1; transform: translateY(0); }
-.g-card:hover { box-shadow: 0 12px 56px rgba(0,0,0,.70); }
-
-/* ═══════════ HERO PROFILE CARD ═══════════ */
-.hero-card {
+/* ════════════════════════════════════════════════════════════
+   1. HERO BAND
+════════════════════════════════════════════════════════════ */
+.cab-hero {
     position: relative;
-    padding: 0;
-    background: var(--dark-card);
-}
-.hero-bg-stripe {
-    height: 100px;
-    background: linear-gradient(135deg, var(--primary) 0%, #7f1d1d 60%, #1a0a0a 100%);
-    position: relative;
+    background: linear-gradient(160deg, #0a0a0f 0%, #13132a 50%, #0a0a0f 100%);
     overflow: hidden;
+    padding: 4.5rem 0 3rem;
+    margin-bottom: 2.5rem;
 }
-.hero-bg-stripe.active-stripe {
-    background: linear-gradient(135deg, #064e3b 0%, #065f46 50%, #0d0d18 100%);
-}
-.hero-bg-stripe::before {
+.cab-hero::before {
     content: '';
-    position: absolute; inset: 0;
-    background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.04'%3E%3Ccircle cx='30' cy='30' r='2'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+    position: absolute; top: -100px; left: -100px;
+    width: 600px; height: 600px;
+    background: radial-gradient(circle, rgba(220,38,38,.16) 0%, transparent 65%);
+    pointer-events: none;
 }
-.hero-body {
-    padding: 0 1.75rem 1.75rem;
+.cab-hero::after {
+    content: '';
+    position: absolute; bottom: -120px; right: -80px;
+    width: 450px; height: 450px;
+    background: radial-gradient(circle, rgba(37,99,235,.1) 0%, transparent 65%);
+    pointer-events: none;
+}
+.cab-hero-inner {
+    position: relative; z-index: 1;
+    max-width: 520px; margin: 0 auto;
+    padding: 0 1.5rem;
+    display: flex; flex-direction: column; align-items: flex-start; gap: 0;
+}
+.cab-kicker {
+    display: inline-flex; align-items: center; gap: .5rem;
+    background: rgba(220,38,38,.12); border: 1px solid rgba(220,38,38,.28);
+    border-radius: 50px; padding: .3rem .9rem;
+    font-size: .72rem; font-weight: 700; letter-spacing: .14em;
+    color: #f87171; text-transform: uppercase; margin-bottom: 1.5rem;
+}
+.cab-kicker i { font-size: .5rem; animation: dot-pulse 2s ease infinite; }
+@keyframes dot-pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.4;transform:scale(1.5)} }
+
+.cab-avatar-row {
+    display: flex; align-items: center; gap: 1.4rem; margin-bottom: 1.4rem;
+}
+.cab-avatar {
+    width: 72px; height: 72px; border-radius: 50%; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.8rem; font-weight: 900; color: #fff; text-transform: uppercase;
+    border: 2.5px solid var(--bg0);
+    box-shadow: 0 0 0 2px rgba(220,38,38,.35), 0 8px 24px rgba(0,0,0,.5);
     position: relative;
 }
-.hero-avatar {
-    width: 80px; height: 80px;
+.cab-avatar.av-active {
+    background: linear-gradient(135deg, #16a34a 0%, #064e3b 100%);
+    box-shadow: 0 0 0 2px rgba(34,197,94,.35), 0 8px 24px rgba(0,0,0,.5);
+}
+.cab-avatar.av-inactive {
+    background: linear-gradient(135deg, #dc2626 0%, #7f1d1d 100%);
+}
+.cab-avatar .av-ring {
+    position: absolute; inset: -6px;
     border-radius: 50%;
-    background: linear-gradient(135deg, #dc2626, #7f1d1d);
-    border: 3.5px solid var(--dark-base);
-    outline: 2px solid rgba(220,38,38,.35);
-    display: flex; align-items: center; justify-content: center;
-    font-size: 1.9rem; font-weight: 900;
-    color: #fff; text-transform: uppercase;
-    margin-top: -40px; margin-bottom: .85rem;
-    box-shadow: 0 8px 28px rgba(220,38,38,.4);
-    flex-shrink: 0;
+    border: 1.5px solid;
+    animation: av-ring-pulse 3s ease infinite;
 }
-.hero-avatar.active-av {
-    background: linear-gradient(135deg, #16a34a, #064e3b);
-    box-shadow: 0 8px 28px rgba(34,197,94,.4);
-    outline-color: rgba(34,197,94,.35);
-}
-.hero-row {
-    display: flex; align-items: flex-end; gap: 1rem;
-    justify-content: space-between;
-    flex-wrap: wrap;
-}
-.hero-info {}
-.hero-name {
-    font-size: 1.45rem; font-weight: 800;
-    color: #fff; line-height: 1.15;
-    margin-bottom: .3rem;
-}
-.hero-badge {
-    display: inline-flex; align-items: center; gap: .35rem;
-    padding: .22rem .85rem;
-    border-radius: 50px; font-size: .78rem; font-weight: 700;
-    letter-spacing: .03em; text-transform: uppercase;
-}
-.hero-badge.active  { background: rgba(34,197,94,.15); border: 1px solid rgba(34,197,94,.35); color: #4ade80; }
-.hero-badge.inactive{ background: rgba(220,38,38,.15); border: 1px solid rgba(220,38,38,.35); color: #f87171; }
-.hero-badge.pending { background: rgba(245,158,11,.15); border: 1px solid rgba(245,158,11,.35); color: #fbbf24; }
+.cab-avatar.av-active  .av-ring { border-color: rgba(34,197,94,.3); }
+.cab-avatar.av-inactive .av-ring { border-color: rgba(220,38,38,.3); }
+@keyframes av-ring-pulse { 0%,100%{transform:scale(1);opacity:.6} 50%{transform:scale(1.06);opacity:.2} }
 
-.hero-edit-btn {
-    display: inline-flex; align-items: center; gap: .4rem;
-    padding: .4rem .9rem;
-    background: rgba(255,255,255,.06);
-    border: 1px solid rgba(255,255,255,.12);
-    border-radius: 10px; color: var(--dark-muted);
+.cab-names {}
+.cab-name {
+    font-size: 1.65rem; font-weight: 900; line-height: 1.05;
+    color: #fff; letter-spacing: -.03em; margin-bottom: .4rem;
+}
+.cab-badge {
+    display: inline-flex; align-items: center; gap: .35rem;
+    padding: .22rem .85rem; border-radius: 50px;
+    font-size: .73rem; font-weight: 700; letter-spacing: .05em;
+    text-transform: uppercase;
+}
+.cab-badge.active  { background: rgba(34,197,94,.14);  border: 1px solid rgba(34,197,94,.32);  color: #4ade80; }
+.cab-badge.inactive{ background: rgba(220,38,38,.14);  border: 1px solid rgba(220,38,38,.32);  color: #f87171; }
+.cab-badge.pending { background: rgba(245,158,11,.13); border: 1px solid rgba(245,158,11,.3);  color: #fbbf24; }
+
+.cab-hero-actions {
+    display: flex; gap: .75rem; flex-wrap: wrap; margin-top: 1.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid rgba(255,255,255,.08);
+    width: 100%;
+}
+.cab-action-btn {
+    display: inline-flex; align-items: center; gap: .45rem;
+    padding: .48rem 1.1rem;
+    background: rgba(255,255,255,.05);
+    border: 1.5px solid rgba(255,255,255,.1);
+    border-radius: 10px; color: var(--muted);
     font-size: .8rem; font-weight: 600; text-decoration: none;
     transition: all .2s;
 }
-.hero-edit-btn:hover { background: rgba(255,255,255,.12); color: #fff; border-color: rgba(255,255,255,.2); }
+.cab-action-btn:hover {
+    background: rgba(255,255,255,.1); border-color: rgba(255,255,255,.2);
+    color: #fff; text-decoration: none;
+}
+.hero-bottom-line {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(220,38,38,.4), transparent);
+}
 
-/* ═══════════ SECTION HEADER ═══════════ */
-.s-header {
-    padding: 1rem 1.5rem .75rem;
-    border-bottom: 1px solid var(--dark-border);
-    display: flex; align-items: center; gap: .6rem;
+/* ════════════════════════════════════════════════════════════
+   2. MESSAGES
+════════════════════════════════════════════════════════════ */
+.alert {
+    border-radius: 12px;
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--bdr);
+    color: var(--text);
+    background: rgba(18,18,30,.8);
+    margin-bottom: .75rem;
 }
-.s-icon {
-    width: 32px; height: 32px;
-    border-radius: 9px;
-    display: flex; align-items: center; justify-content: center;
-    font-size: .9rem; flex-shrink: 0;
-}
-.s-icon.red  { background: rgba(220,38,38,.18); color: #f87171; }
-.s-icon.blue { background: rgba(41,168,235,.18); color: #60c8f5; }
-.s-icon.green{ background: rgba(34,197,94,.15);  color: #4ade80; }
-.s-title {
-    font-size: .92rem; font-weight: 700;
-    color: var(--dark-text); letter-spacing: .02em;
-}
-.s-sub { color: var(--dark-muted); font-size: .76rem; font-weight: 400; margin-left: auto; }
+.alert-success { background: rgba(34,197,94,.1); border-color: rgba(34,197,94,.28); color: #4ade80; }
+.alert-danger  { background: rgba(220,38,38,.1); border-color: rgba(220,38,38,.28); color: #f87171; }
+.alert-warning { background: rgba(245,158,11,.1);border-color: rgba(245,158,11,.28);color: #fbbf24; }
+.alert-info    { background: rgba(41,168,235,.1); border-color: rgba(41,168,235,.28);color: #60c8f5; }
 
-/* ═══════════ PIN BLOCK ═══════════ */
-.pin-block {
-    padding: 1.75rem 1.5rem 1.5rem;
-    display: flex; flex-direction: column; align-items: center;
-    gap: 1.2rem;
+/* ════════════════════════════════════════════════════════════
+   3. CONTENT WRAPPER
+════════════════════════════════════════════════════════════ */
+.cab-content {
+    max-width: 520px; margin: 0 auto;
+    padding: 0 1.25rem;
 }
-.pin-row {
-    display: flex; align-items: center; gap: .5rem;
+
+/* ── Glass card base ────────────────────────────────────── */
+.g-card {
+    background: var(--card);
+    border: 1px solid var(--bdr);
+    border-radius: var(--r);
+    backdrop-filter: blur(18px);
+    box-shadow: 0 8px 32px rgba(0,0,0,.45), 0 1px 0 rgba(255,255,255,.04) inset;
+    margin-bottom: 1.25rem;
+    overflow: hidden;
+    transition: box-shadow .35s, border-color .35s, transform .35s;
 }
-.pin-digit {
-    width: 54px; height: 68px;
-    border-radius: 14px;
-    background: rgba(255,255,255,.04);
-    border: 1.5px solid rgba(255,255,255,.1);
+.g-card:hover { box-shadow: 0 14px 48px rgba(0,0,0,.6); }
+.g-card.red-hover:hover { border-color: rgba(220,38,38,.28); }
+.g-card.tg-hover:hover  { border-color: rgba(41,168,235,.28); }
+
+/* ── Section inner header ────────────────────────────────── */
+.g-header {
+    padding: 1rem 1.5rem .85rem;
+    border-bottom: 1px solid var(--bdr);
+    display: flex; align-items: center; gap: .65rem;
+}
+.g-icon {
+    width: 34px; height: 34px; border-radius: 10px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center; font-size: .9rem;
+}
+.g-icon.red  { background: rgba(220,38,38,.15); color: #f87171; }
+.g-icon.tgbl { background: rgba(41,168,235,.15); color: #60c8f5; }
+.g-icon.grn  { background: rgba(34,197,94,.13);  color: #4ade80; }
+.g-title { font-size: .9rem; font-weight: 700; color: var(--text); letter-spacing: .02em; }
+.g-sup   { color: var(--muted); font-size: .74rem; margin-left: auto; }
+
+/* ════════════════════════════════════════════════════════════
+   4. PIN HERO CARD
+════════════════════════════════════════════════════════════ */
+.pin-hero-wrap {
+    padding: 2rem 1.5rem 1.75rem;
+    display: flex; flex-direction: column; align-items: center; gap: 1.5rem;
+}
+
+/* Big digits */
+.pin-digits {
+    display: flex; align-items: center; gap: .55rem; flex-wrap: wrap;
+    justify-content: center;
+}
+.pin-d {
+    width: 52px; height: 66px; border-radius: 14px; flex-shrink: 0;
     display: flex; align-items: center; justify-content: center;
-    font-size: 2.6rem; font-weight: 900;
     font-family: 'Courier New', 'Roboto Mono', monospace;
-    color: #fff;
-    box-shadow: inset 0 1px 0 rgba(255,255,255,.06);
-    animation: pinPop .45s cubic-bezier(.34,1.56,.64,1) both;
+    font-size: 2.5rem; font-weight: 900; color: #fff; line-height: 1;
+    background: rgba(255,255,255,0.04);
+    border: 1.5px solid rgba(255,255,255,.1);
+    box-shadow: 0 4px 16px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.07);
+    animation: pin-pop .5s cubic-bezier(.34,1.56,.64,1) both;
+    position: relative;
 }
-.pin-digit:nth-child(3) { margin-right:.5rem; }
-@keyframes pinPop {
-    0%  { transform: scale(.6) translateY(8px); opacity:0; }
-    80% { transform: scale(1.04); }
-    100%{ transform: scale(1); opacity:1; }
+.pin-d::after {
+    content: '';
+    position: absolute; bottom: 0; left: 50%; transform: translateX(-50%);
+    width: 50%; height: 2px; border-radius: 1px;
+    background: linear-gradient(90deg, transparent, rgba(220,38,38,.6), transparent);
 }
-.pin-sep { font-size: 1.5rem; color: rgba(255,255,255,.2); font-weight: 200; margin: 0 .1rem; }
+@keyframes pin-pop {
+    0%  { opacity:0; transform: scale(.6) translateY(10px); }
+    80% { transform: scale(1.03); }
+    100%{ opacity:1; transform: scale(1); }
+}
+.pin-sep-dash {
+    font-size: 1.4rem; color: rgba(255,255,255,.18);
+    font-weight: 200; flex-shrink: 0;
+}
 
-/* Countdown ring */
+/* Timer + copy row */
+.pin-meta-row {
+    display: flex; align-items: center; justify-content: center;
+    gap: 2rem; flex-wrap: wrap;
+}
+
+/* Circular countdown */
 .pin-timer {
-    position: relative; width: 86px; height: 86px;
+    position: relative; width: 80px; height: 80px;
 }
-.pin-timer svg { transform: rotate(-90deg); }
-.t-track { fill:none; stroke:rgba(255,255,255,.07); stroke-width:7; }
-.t-arc   { fill:none; stroke: var(--primary); stroke-width:7; stroke-linecap:round;
-           transition: stroke-dashoffset .95s linear, stroke .5s; }
+.pin-timer svg { transform: rotate(-90deg); display: block; }
+.t-track { fill: none; stroke: rgba(255,255,255,.07); stroke-width: 7; }
+.t-arc   {
+    fill: none; stroke: var(--red); stroke-width: 7; stroke-linecap: round;
+    transition: stroke-dashoffset .95s linear, stroke .6s;
+}
 .t-label {
-    position: absolute; inset:0;
-    display: flex; flex-direction: column;
-    align-items: center; justify-content: center;
-    font-size: 1.4rem; font-weight: 800; color: #fff;
-    line-height: 1;
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    font-size: 1.3rem; font-weight: 900; color: #fff; line-height: 1;
 }
-.t-label small { font-size:.55rem; font-weight:500; color:var(--dark-muted); margin-top:2px; text-transform:uppercase; letter-spacing:.06em; }
+.t-label small {
+    font-size: .52rem; font-weight: 500; color: var(--muted);
+    text-transform: uppercase; letter-spacing: .08em; margin-top: 2px;
+}
 
+/* Copy button */
 .pin-copy-btn {
-    display: inline-flex; align-items: center; gap: .4rem;
-    padding: .45rem 1.2rem;
-    background: rgba(255,255,255,.06);
-    border: 1px solid rgba(255,255,255,.12);
-    border-radius: 10px; color: var(--dark-muted);
+    display: inline-flex; align-items: center; gap: .45rem;
+    padding: .55rem 1.25rem;
+    background: rgba(255,255,255,.05); border: 1.5px solid rgba(255,255,255,.1);
+    border-radius: 10px; color: var(--muted);
     font-size: .82rem; font-weight: 600; cursor: pointer;
     transition: all .2s; outline: none;
 }
-.pin-copy-btn:hover { background: rgba(255,255,255,.12); color: #fff; }
-.pin-copy-btn.copied { background: rgba(34,197,94,.15); border-color: rgba(34,197,94,.35); color: #4ade80; }
+.pin-copy-btn:hover { background: rgba(255,255,255,.1); color: #fff; border-color: rgba(255,255,255,.2); }
+.pin-copy-btn.copied { background: rgba(34,197,94,.12); border-color: rgba(34,197,94,.35); color: #4ade80; }
 
-.pin-refresh-note {
-    font-size: .78rem; color: var(--dark-muted);
-    display: flex; align-items: center; gap: .35rem;
+/* Refresh note */
+.pin-refresh {
+    font-size: .76rem; color: var(--muted);
+    display: flex; align-items: center; gap: .4rem;
+    justify-content: center;
 }
+.pin-refresh i { font-size: .62rem; }
 
-/* ═══════════ STEPS ═══════════ */
-.step-list { padding: .5rem 0; }
-.step-item {
-    display: flex; align-items: flex-start; gap: 1rem;
-    padding: .9rem 1.5rem;
-    border-bottom: 1px solid var(--dark-border);
-    position: relative;
-    opacity: 0; transform: translateX(-18px);
-    transition: opacity .45s ease, transform .45s ease;
+/* ════════════════════════════════════════════════════════════
+   5. STEPS GRID
+════════════════════════════════════════════════════════════ */
+.steps-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: .9rem;
+    padding: 1.25rem;
 }
-.step-item:last-child { border-bottom: none; }
-.step-item.visible { opacity: 1; transform: translateX(0); }
-.sn {
-    min-width: 30px; height: 30px;
-    border-radius: 50%;
-    background: rgba(220,38,38,.18);
-    border: 1.5px solid rgba(220,38,38,.35);
-    color: #f87171; font-size: .82rem; font-weight: 800;
+.step-card {
+    background: rgba(255,255,255,.03);
+    border: 1px solid var(--bdr);
+    border-radius: 14px; padding: 1.1rem 1.1rem 1rem;
+    display: flex; flex-direction: column; gap: .65rem;
+    transition: background .25s, border-color .25s, transform .25s;
+    position: relative; overflow: hidden;
+}
+.step-card:hover {
+    background: rgba(220,38,38,.06);
+    border-color: rgba(220,38,38,.22);
+    transform: translateY(-2px);
+}
+.step-card::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg, transparent, rgba(220,38,38,.4), transparent);
+    opacity: 0; transition: opacity .25s;
+}
+.step-card:hover::before { opacity: 1; }
+.step-num-badge {
+    width: 28px; height: 28px; border-radius: 8px; flex-shrink: 0;
+    background: rgba(220,38,38,.15); border: 1px solid rgba(220,38,38,.28);
+    color: #f87171; font-size: .78rem; font-weight: 800;
     display: flex; align-items: center; justify-content: center;
-    flex-shrink: 0; margin-top: .1rem;
 }
-.step-text {
-    font-size: .9rem; color: var(--dark-muted); line-height: 1.5;
-    padding-top: .28rem;
+.step-title {
+    font-size: .82rem; font-weight: 700; color: var(--text); line-height: 1.3;
 }
-.step-text strong { color: var(--dark-text); }
+.step-desc {
+    font-size: .76rem; color: var(--muted); line-height: 1.5;
+}
 
-/* ═══════════ TELEGRAM CARD ═══════════ */
-.tg-body-pad { padding: 1.5rem; }
+/* ════════════════════════════════════════════════════════════
+   6. STATE CARDS (error / inactive)
+════════════════════════════════════════════════════════════ */
+.state-body { padding: 3rem 1.5rem; text-align: center; }
+.state-icon { font-size: 2.75rem; margin-bottom: .85rem; }
+.state-title { font-size: 1.2rem; font-weight: 800; color: #fff; margin-bottom: .5rem; }
+.state-sub  { font-size: .88rem; color: var(--muted); margin-bottom: 1.5rem; line-height: 1.6; }
+.state-contact {
+    background: rgba(255,255,255,.04); border: 1px solid var(--bdr);
+    border-radius: 12px; padding: .9rem 1.1rem;
+    text-align: left; font-size: .85rem; color: var(--muted);
+}
+.state-contact a { color: var(--tg); }
 
-.tg-connected-state {
+/* ════════════════════════════════════════════════════════════
+   7. TELEGRAM CARD
+════════════════════════════════════════════════════════════ */
+.tg-body { padding: 1.5rem; }
+
+/* Connected state pill */
+.tg-connected-pill {
     display: flex; align-items: center; gap: 1rem;
-    padding: 1.1rem 1.25rem;
-    background: rgba(34,197,94,.08);
-    border: 1.5px solid rgba(34,197,94,.22);
-    border-radius: 14px; margin-bottom: 1rem;
+    padding: 1rem 1.2rem;
+    background: rgba(34,197,94,.07);
+    border: 1.5px solid rgba(34,197,94,.2);
+    border-radius: 14px; margin-bottom: 1.1rem;
 }
-.tg-connected-state .tc-icon {
-    width: 44px; height: 44px; border-radius: 12px; flex-shrink:0;
-    background: rgba(34,197,94,.15); border: 1px solid rgba(34,197,94,.3);
-    display:flex; align-items:center; justify-content:center;
-    font-size: 1.3rem; color: #4ade80;
+.tg-cp-icon {
+    width: 42px; height: 42px; border-radius: 12px; flex-shrink: 0;
+    background: rgba(34,197,94,.14); border: 1px solid rgba(34,197,94,.25);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.2rem; color: #4ade80;
 }
-.tc-label { font-size:.82rem; color: var(--dark-muted); margin-bottom:.15rem; }
-.tc-name  { font-size:.95rem; font-weight:700; color:#4ade80; }
+.tg-cp-label { font-size: .78rem; color: var(--muted); margin-bottom: .12rem; }
+.tg-cp-value { font-size: .92rem; font-weight: 700; color: #4ade80; }
 
 .btn-tg-disconnect {
-    display: inline-flex; align-items:center; gap:.4rem;
-    padding:.4rem .9rem;
-    background: rgba(220,38,38,.1);
-    border: 1.5px solid rgba(220,38,38,.3);
-    border-radius: 10px; color: #f87171;
-    font-size: .82rem; font-weight: 700;
+    display: inline-flex; align-items: center; gap: .45rem;
+    padding: .42rem .95rem;
+    background: rgba(220,38,38,.08); border: 1.5px solid rgba(220,38,38,.25);
+    border-radius: 10px; color: #f87171; font-size: .8rem; font-weight: 700;
     cursor: pointer; transition: all .2s;
 }
-.btn-tg-disconnect:hover { background: rgba(220,38,38,.22); border-color: rgba(220,38,38,.5); color: #fff; }
+.btn-tg-disconnect:hover { background: rgba(220,38,38,.18); border-color: rgba(220,38,38,.5); color: #fff; }
 
-/* Connect CTA */
-.tg-connect-cta {
-    text-align: center; padding: 1rem 0 .5rem;
+/* Not connected — CTA block */
+.tg-cta {
+    display: flex; flex-direction: column; align-items: center; gap: 1.1rem;
+    text-align: center; padding: .5rem 0;
 }
-.tg-connect-cta p {
-    font-size: .9rem; color: var(--dark-muted); margin-bottom: 1.25rem; line-height: 1.55;
+.tg-cta-icon {
+    width: 60px; height: 60px; border-radius: 50%; flex-shrink: 0;
+    background: rgba(41,168,235,.12); border: 1.5px solid rgba(41,168,235,.25);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.75rem; color: var(--tg);
+    box-shadow: 0 0 32px rgba(41,168,235,.18);
+    animation: tg-icon-breath 3s ease infinite;
+}
+@keyframes tg-icon-breath {
+    0%,100%{ box-shadow:0 0 24px rgba(41,168,235,.18); }
+    50%    { box-shadow:0 0 40px rgba(41,168,235,.35), 0 0 80px rgba(41,168,235,.1); }
+}
+.tg-cta p {
+    font-size: .88rem; color: var(--muted); line-height: 1.6; margin: 0;
+    max-width: 340px;
 }
 .btn-tg-primary {
-    display: inline-flex; align-items:center; gap:.55rem;
-    padding: .8rem 1.8rem;
-    background: linear-gradient(135deg, var(--tg-color), #1a7ab5);
-    border: none; border-radius: 12px; color: #fff;
-    font-size: 1rem; font-weight: 700; text-decoration: none;
-    letter-spacing: .02em; cursor:pointer;
-    box-shadow: 0 6px 24px rgba(41,168,235,.35);
-    transition: all .25s; outline:none;
+    display: inline-flex; align-items: center; gap: .6rem;
+    padding: .85rem 2.2rem;
+    background: linear-gradient(135deg, var(--tg) 0%, #1a7ab5 100%);
+    border: none; border-radius: 14px; color: #fff;
+    font-size: .95rem; font-weight: 700; text-decoration: none;
+    letter-spacing: .02em; cursor: pointer;
+    box-shadow: 0 6px 28px rgba(41,168,235,.35);
+    transition: all .28s; outline: none;
     position: relative; overflow: hidden;
 }
 .btn-tg-primary::after {
-    content:''; position:absolute;
-    top:0; left:-100%; width:60%; height:100%;
-    background: linear-gradient(90deg, transparent, rgba(255,255,255,.18), transparent);
-    transform: skewX(-18deg);
-    transition: left .5s ease;
+    content: ''; position: absolute;
+    top: 0; left: -120%; width: 65%; height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,.2), transparent);
+    transform: skewX(-16deg);
+    transition: left .55s ease;
 }
-.btn-tg-primary:hover::after { left: 150%; }
+.btn-tg-primary:hover::after { left: 160%; }
 .btn-tg-primary:hover {
     transform: translateY(-2px);
-    box-shadow: 0 10px 32px rgba(41,168,235,.5);
-    color: #fff; text-decoration:none;
+    box-shadow: 0 10px 40px rgba(41,168,235,.5);
+    color: #fff; text-decoration: none;
 }
 
 .tg-divider {
-    text-align:center; position:relative; margin: 1.2rem 0;
-    color: var(--dark-muted); font-size: .78rem;
+    position: relative; text-align: center;
+    color: var(--muted); font-size: .76rem; margin: .75rem 0 .5rem;
 }
 .tg-divider::before {
-    content:''; position:absolute; top:50%; left:0; right:0;
-    height:1px; background: var(--dark-border);
+    content: ''; position: absolute; top: 50%; left: 0; right: 0;
+    height: 1px; background: var(--bdr);
 }
-.tg-divider span { position:relative; z-index:1; background: var(--dark-card); padding: 0 .8rem; }
+.tg-divider span {
+    position: relative; z-index: 1; background: var(--card);
+    padding: 0 .85rem;
+}
+.tg-widget-row { display: flex; justify-content: center; padding: .25rem 0 .5rem; }
 
-.tg-widget-wrap {
-    display:flex; justify-content:center; padding: .25rem 0;
-}
-
-/* ═══════════ STATE CARDS (error/inactive) ═══════════ */
-.state-body {
-    padding: 3rem 2rem; text-align:center;
-}
-.state-icon { font-size:3rem; margin-bottom:1rem; }
-.state-title { font-size:1.25rem; font-weight:800; color:#fff; margin-bottom:.6rem; }
-.state-sub   { font-size:.9rem; color:var(--dark-muted); margin-bottom:1.5rem; }
-.state-contact {
-    background: rgba(255,255,255,.04);
-    border: 1px solid var(--dark-border);
-    border-radius: 12px; padding: 1rem 1.25rem;
-    text-align:left; font-size:.88rem; color:var(--dark-muted);
-}
-.state-contact a { color: var(--tg-color); }
-
-/* ═══════════ MESSAGES ═══════════ */
-.alert {
-    background: rgba(255,255,255,.06);
-    border: 1px solid rgba(255,255,255,.12);
-    color: var(--dark-text);
-    border-radius: 12px;
-}
-.alert-success { background: rgba(34,197,94,.1);  border-color: rgba(34,197,94,.25); color: #4ade80; }
-.alert-danger  { background: rgba(220,38,38,.1);  border-color: rgba(220,38,38,.25); color: #f87171; }
-.alert-warning { background: rgba(245,158,11,.1); border-color: rgba(245,158,11,.25); color: #fbbf24; }
-.alert-info    { background: rgba(41,168,235,.1); border-color: rgba(41,168,235,.25); color: #60c8f5; }
-
-/* ═══════════ RESPONSIVE ═══════════ */
+/* ════════════════════════════════════════════════════════════
+   8. RESPONSIVE
+════════════════════════════════════════════════════════════ */
 @media (max-width: 480px) {
-    .pin-digit { width:46px; height:60px; font-size:2.1rem; border-radius:11px; }
-    .hero-name { font-size:1.2rem; }
+    .cab-hero { padding: 3.5rem 0 2.5rem; }
+    .pin-d { width: 44px; height: 58px; font-size: 2.1rem; border-radius: 11px; }
+    .steps-grid { grid-template-columns: 1fr; }
+    .cab-name { font-size: 1.35rem; }
 }
 </style>
 {% endblock %}
 
 {% block content %}
 <canvas id="cab-canvas"></canvas>
-<div class="container cab-page">
-<div class="row justify-content-center">
-<div class="col-sm-10 col-md-8 col-lg-6 col-xl-5">
+<div class="cab-page">
 
-{# ───── MESSAGES ───── #}
-{% for message in messages %}
-<div class="alert alert-{{ message.tags }} shadow-sm mb-3" role="alert">{{ message }}</div>
-{% endfor %}
+    {# ═══ HERO BAND ═══ #}
+    {% with initials=user_name|slice:":2" %}
+    <section class="cab-hero" data-reveal>
+        <div class="cab-hero-inner">
 
-{# ═══ HERO PROFILE CARD ═══ #}
-{% with initials=user_name|slice:":2" %}
-<div class="g-card hero-card" data-stagger="0">
-    <div class="hero-bg-stripe {% if membership_status == 'active' %}active-stripe{% endif %}"></div>
-    <div class="hero-body">
-        <div class="hero-row">
-            <div style="display:flex;align-items:flex-end;gap:1rem;">
-                <div class="hero-avatar {% if membership_status == 'active' %}active-av{% endif %}">{{ initials }}</div>
-                <div class="hero-info" style="padding-bottom:.15rem;">
-                    <div class="hero-name">{{ user_name }}</div>
+            <div class="cab-kicker">
+                <i class="fas fa-circle"></i>
+                {% trans "Personal Cabinet" %} · IESA Sport
+            </div>
+
+            <div class="cab-avatar-row">
+                <div class="cab-avatar {% if membership_status == 'active' %}av-active{% else %}av-inactive{% endif %}">
+                    <span class="av-ring"></span>
+                    {{ initials }}
+                </div>
+                <div class="cab-names">
+                    <div class="cab-name">{{ user_name }}</div>
                     {% if membership_status == 'active' %}
-                        <span class="hero-badge active"><i class="fas fa-shield-alt"></i>&nbsp;{% trans "Active" %}</span>
+                        <span class="cab-badge active"><i class="fas fa-shield-alt"></i>&nbsp;{% trans "Active Member" %}</span>
                     {% elif membership_status == 'inactive' %}
-                        <span class="hero-badge inactive"><i class="fas fa-times-circle"></i>&nbsp;{% trans "Inactive" %}</span>
+                        <span class="cab-badge inactive"><i class="fas fa-times-circle"></i>&nbsp;{% trans "Inactive" %}</span>
                     {% else %}
-                        <span class="hero-badge pending"><i class="fas fa-clock"></i>&nbsp;{% trans "Pending" %}</span>
+                        <span class="cab-badge pending"><i class="fas fa-clock"></i>&nbsp;{% trans "Pending" %}</span>
                     {% endif %}
                 </div>
             </div>
-            <a href="{% url 'users:profile_edit' %}" class="hero-edit-btn" style="margin-bottom:.15rem;">
-                <i class="fas fa-user-edit"></i> {% trans "Edit" %}
-            </a>
-        </div>
-    </div>
-</div>
-{% endwith %}
 
-{# ═══════════ ACTIVE — PIN BLOCK ═══════════ #}
-{% if membership_status == 'active' and current_pin %}
-
-{# PIN card #}
-<div class="g-card" data-stagger="1">
-    <div class="s-header">
-        <div class="s-icon red"><i class="fas fa-shield-alt"></i></div>
-        <span class="s-title">{% trans "Verification PIN" %}</span>
-        <span class="s-sub">{% trans "Auto-refresh every 12 min" %}</span>
-    </div>
-    <div class="pin-block">
-        {# Digits #}
-        <div class="pin-row" id="pin-digits">
-            {% for ch in current_pin %}
-                <div class="pin-digit" style="animation-delay:{{ forloop.counter0 }}0ms">{{ ch }}</div>
-                {% if forloop.counter == 3 and not forloop.last %}
-                    <div class="pin-sep">–</div>
-                {% endif %}
-            {% endfor %}
-        </div>
-
-        {# Timer ring + copy #}
-        <div style="display:flex;align-items:center;gap:1.5rem;flex-wrap:wrap;justify-content:center;">
-            <div class="pin-timer">
-                <svg width="86" height="86" viewBox="0 0 86 86">
-                    <circle class="t-track" cx="43" cy="43" r="37"/>
-                    <circle class="t-arc" id="timer-arc" cx="43" cy="43" r="37"
-                        stroke-dasharray="232.5" stroke-dashoffset="0"/>
-                </svg>
-                <div class="t-label">
-                    <span id="countdown">{{ seconds_remaining }}</span>
-                    <small>{% trans "sec" %}</small>
-                </div>
-            </div>
-            <div style="display:flex;flex-direction:column;gap:.6rem;align-items:flex-start;">
-                <button class="pin-copy-btn" id="copy-pin" data-pin="{{ current_pin }}">
-                    <i class="fas fa-copy" id="copy-icon"></i>
-                    <span id="copy-label">{% trans "Copy PIN" %}</span>
-                </button>
-                <div class="pin-refresh-note">
-                    <i class="fas fa-sync-alt" style="font-size:.65rem;"></i>
-                    {% trans "Reloads when expired" %}
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-{# Steps card #}
-<div class="g-card" data-stagger="2">
-    <div class="s-header">
-        <div class="s-icon red"><i class="fas fa-list-ol"></i></div>
-        <span class="s-title">{% trans "How to use" %}</span>
-    </div>
-    <div class="step-list">
-        <div class="step-item">
-            <div class="sn">1</div>
-            <div class="step-text">{% trans "Visit any <strong>partner location</strong> — gym, shop, clinic" %}</div>
-        </div>
-        <div class="step-item">
-            <div class="sn">2</div>
-            <div class="step-text">{% trans "Tell the staff you're an <strong>IESA Sport member</strong>" %}</div>
-        </div>
-        <div class="step-item">
-            <div class="sn">3</div>
-            <div class="step-text">{% trans "Show this <strong>6-digit PIN</strong> — staff enters it in their scanner" %}</div>
-        </div>
-        <div class="step-item">
-            <div class="sn">4</div>
-            <div class="step-text">{% trans "Your visit is logged instantly. You receive a <strong>Telegram notification ✅</strong>" %}</div>
-        </div>
-    </div>
-</div>
-
-{# ═══════════ ERROR ═══════════ #}
-{% elif error_message %}
-<div class="g-card" data-stagger="1">
-    <div class="state-body">
-        <div class="state-icon">⚠️</div>
-        <div class="state-title" style="color:#f87171;">{{ error_message }}</div>
-        <p class="state-sub">{% trans "Please contact the administrator for assistance." %}</p>
-    </div>
-</div>
-
-{# ═══════════ INACTIVE ═══════════ #}
-{% else %}
-<div class="g-card" data-stagger="1">
-    <div class="state-body">
-        <div class="state-icon">🔒</div>
-        <div class="state-title" style="color:#fbbf24;">{% trans "Membership Inactive" %}</div>
-        <p class="state-sub">{% trans "You need an active membership to use the PIN and access partner benefits." %}</p>
-        <div class="state-contact">
-            <strong><i class="fas fa-envelope"></i> {% trans "Contact Administration" %}:</strong><br>
-            Email: <a href="mailto:admin@iesasport.ch">admin@iesasport.ch</a>
-        </div>
-    </div>
-</div>
-{% endif %}
-
-{# ═══ TELEGRAM CARD ═══ #}
-{% if telegram_bot_configured %}
-<div class="g-card" data-stagger="3">
-    <div class="s-header">
-        <div class="s-icon blue"><i class="fab fa-telegram"></i></div>
-        <span class="s-title">{% trans "Telegram Notifications" %}</span>
-        {% if telegram_linked %}
-            <span class="s-sub" style="color:#4ade80;"><i class="fas fa-circle" style="font-size:.45rem;"></i> {% trans "connected" %}</span>
-        {% endif %}
-    </div>
-    <div class="tg-body-pad">
-
-        {% if telegram_linked %}
-            {# ── Connected state ── #}
-            <div class="tg-connected-state">
-                <div class="tc-icon"><i class="fab fa-telegram"></i></div>
-                <div>
-                    <div class="tc-label">{% trans "Telegram is connected" %}</div>
-                    <div class="tc-name">
-                        {% if user.telegram_linked_at %}
-                            {% trans "Since" %} {{ user.telegram_linked_at|date:"d.m.Y" }}
-                        {% else %}
-                            {% trans "Active" %}
-                        {% endif %}
-                    </div>
-                </div>
-            </div>
-            <p style="font-size:.85rem;color:var(--dark-muted);margin-bottom:1rem;">
-                <i class="fas fa-bell" style="color:var(--tg-color);"></i>
-                {% trans "You receive instant visit confirmations in Telegram." %}
-            </p>
-            <form method="post" action="{% url 'users:disconnect_telegram' %}">
-                {% csrf_token %}
-                <button type="submit" class="btn-tg-disconnect">
-                    <i class="fas fa-unlink"></i> {% trans "Disconnect Telegram" %}
-                </button>
-            </form>
-
-        {% else %}
-            {# ── Not connected — CTA ── #}
-            <div class="tg-connect-cta">
-                <p>
-                    <i class="fas fa-bell" style="color:var(--tg-color);margin-right:.3rem;"></i>
-                    {% trans "Connect your Telegram to receive instant visit confirmations and updates directly in the messenger." %}
-                </p>
-                <a href="{% url 'users:connect_telegram_code' %}" class="btn-tg-primary">
-                    <i class="fab fa-telegram fa-lg"></i>
-                    {% trans "Connect Telegram" %}
+            <div class="cab-hero-actions">
+                <a href="{% url 'users:profile_edit' %}" class="cab-action-btn">
+                    <i class="fas fa-user-edit"></i> {% trans "Edit profile" %}
+                </a>
+                <a href="{% url 'users:profile' %}" class="cab-action-btn">
+                    <i class="fas fa-eye"></i> {% trans "Public profile" %}
                 </a>
             </div>
+        </div>
+        <div class="hero-bottom-line"></div>
+    </section>
+    {% endwith %}
 
-            {% if telegram_bot_name %}
-            <div class="tg-divider"><span>{% trans "or authorize via Telegram" %}</span></div>
-            <div class="tg-widget-wrap">
-                <script async src="https://telegram.org/js/telegram-widget.js?22"
-                    data-telegram-login="{{ telegram_bot_name }}"
-                    data-size="medium"
-                    data-auth-url="{% url 'users:telegram_login_callback' %}"
-                    data-request-access="write">
-                </script>
+    {# ═══ CONTENT WRAPPER ═══ #}
+    <div class="cab-content">
+
+        {# ── Messages ── #}
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }}" role="alert" data-reveal>{{ message }}</div>
+        {% endfor %}
+
+        {# ══════════ ACTIVE → PIN ══════════ #}
+        {% if membership_status == 'active' and current_pin %}
+
+        {# PIN card #}
+        <div class="g-card red-hover" data-reveal data-delay="1">
+            <div class="g-header">
+                <div class="g-icon red"><i class="fas fa-shield-alt"></i></div>
+                <span class="g-title">{% trans "Verification PIN" %}</span>
+                <span class="g-sup">{% trans "auto-refresh 12 min" %}</span>
             </div>
-            {% endif %}
+            <div class="pin-hero-wrap">
+
+                <div class="cab-label">{% trans "Your current code" %}</div>
+
+                {# Digits #}
+                <div class="pin-digits" id="pin-digits">
+                    {% for ch in current_pin %}
+                        <div class="pin-d" style="animation-delay:{{ forloop.counter0 }}5ms">{{ ch }}</div>
+                        {% if forloop.counter == 3 and not forloop.last %}
+                            <div class="pin-sep-dash">–</div>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+
+                {# Timer + Copy #}
+                <div class="pin-meta-row">
+                    <div class="pin-timer">
+                        <svg width="80" height="80" viewBox="0 0 80 80">
+                            <circle class="t-track" cx="40" cy="40" r="33"/>
+                            <circle class="t-arc" id="timer-arc" cx="40" cy="40" r="33"
+                                stroke-dasharray="207.3" stroke-dashoffset="0"/>
+                        </svg>
+                        <div class="t-label">
+                            <span id="countdown">{{ seconds_remaining }}</span>
+                            <small>{% trans "sec" %}</small>
+                        </div>
+                    </div>
+                    <div style="display:flex;flex-direction:column;gap:.7rem;align-items:flex-start;">
+                        <button class="pin-copy-btn" id="copy-pin" data-pin="{{ current_pin }}">
+                            <i class="fas fa-copy" id="copy-icon"></i>
+                            <span id="copy-label">{% trans "Copy PIN" %}</span>
+                        </button>
+                        <div class="pin-refresh">
+                            <i class="fas fa-sync-alt"></i>
+                            {% trans "Reloads when expired" %}
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        {# How-to steps grid #}
+        <div class="g-card" data-reveal data-delay="2">
+            <div class="g-header">
+                <div class="g-icon red"><i class="fas fa-route"></i></div>
+                <span class="g-title">{% trans "How to use your PIN" %}</span>
+            </div>
+            <div class="steps-grid">
+                <div class="step-card" data-reveal data-delay="1">
+                    <div class="step-num-badge">1</div>
+                    <div class="step-title">{% trans "Visit a partner" %}</div>
+                    <div class="step-desc">{% trans "Go to any partner gym, shop or clinic." %}</div>
+                </div>
+                <div class="step-card" data-reveal data-delay="2">
+                    <div class="step-num-badge">2</div>
+                    <div class="step-title">{% trans "Identify yourself" %}</div>
+                    <div class="step-desc">{% trans "Tell staff you're an IESA Sport member." %}</div>
+                </div>
+                <div class="step-card" data-reveal data-delay="3">
+                    <div class="step-num-badge">3</div>
+                    <div class="step-title">{% trans "Show the PIN" %}</div>
+                    <div class="step-desc">{% trans "Show this 6-digit code — staff enters it to confirm." %}</div>
+                </div>
+                <div class="step-card" data-reveal data-delay="4">
+                    <div class="step-num-badge">4</div>
+                    <div class="step-title">{% trans "Get notified ✅" %}</div>
+                    <div class="step-desc">{% trans "Visit is logged. Telegram confirmation incoming." %}</div>
+                </div>
+            </div>
+        </div>
+
+        {# ══════════ ERROR ══════════ #}
+        {% elif error_message %}
+        <div class="g-card" data-reveal data-delay="1">
+            <div class="state-body">
+                <div class="state-icon">⚠️</div>
+                <div class="state-title" style="color:#f87171;">{{ error_message }}</div>
+                <p class="state-sub">{% trans "Please contact the administrator for assistance." %}</p>
+            </div>
+        </div>
+
+        {# ══════════ INACTIVE ══════════ #}
+        {% else %}
+        <div class="g-card" data-reveal data-delay="1">
+            <div class="state-body">
+                <div class="state-icon">🔒</div>
+                <div class="state-title" style="color:#fbbf24;">{% trans "Membership Inactive" %}</div>
+                <p class="state-sub">{% trans "You need an active membership to use the PIN and access partner benefits." %}</p>
+                <div class="state-contact">
+                    <strong><i class="fas fa-envelope" style="margin-right:.4rem;"></i>{% trans "Contact Administration" %}:</strong><br>
+                    Email: <a href="mailto:admin@iesasport.ch">admin@iesasport.ch</a>
+                </div>
+            </div>
+        </div>
         {% endif %}
 
-    </div>
-</div>
-{% endif %}
-{# ── TG banner if NOT configured but user is active ── #}
-{% if not telegram_bot_configured and membership_status == 'active' %}
-<div class="g-card" data-stagger="3">
-    <div class="s-header">
-        <div class="s-icon blue"><i class="fab fa-telegram"></i></div>
-        <span class="s-title">{% trans "Telegram Notifications" %}</span>
-    </div>
-    <div class="tg-body-pad" style="text-align:center;">
-        <p style="color:var(--dark-muted);font-size:.88rem;">{% trans "Telegram notifications are not yet configured. Please contact the administrator." %}</p>
-    </div>
-</div>
-{% endif %}
+        {# ══════════ TELEGRAM CARD ══════════ #}
+        {% if telegram_bot_configured %}
+        <div class="g-card tg-hover" data-reveal data-delay="3">
+            <div class="g-header">
+                <div class="g-icon tgbl"><i class="fab fa-telegram"></i></div>
+                <span class="g-title">{% trans "Telegram Notifications" %}</span>
+                {% if telegram_linked %}
+                    <span class="g-sup" style="color:#4ade80;"><i class="fas fa-circle" style="font-size:.4rem;"></i>&nbsp;{% trans "connected" %}</span>
+                {% endif %}
+            </div>
+            <div class="tg-body">
 
-</div>{# /col #}
-</div>{# /row #}
-</div>{# /container #}
+                {% if telegram_linked %}
+                    <div class="tg-connected-pill">
+                        <div class="tg-cp-icon"><i class="fab fa-telegram"></i></div>
+                        <div>
+                            <div class="tg-cp-label">{% trans "Telegram is connected" %}</div>
+                            <div class="tg-cp-value">
+                                {% if user.telegram_linked_at %}
+                                    {% trans "Since" %} {{ user.telegram_linked_at|date:"d.m.Y" }}
+                                {% else %}
+                                    {% trans "Active" %}
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    <p style="font-size:.83rem;color:var(--muted);margin-bottom:1rem;line-height:1.6;">
+                        <i class="fas fa-bell" style="color:var(--tg);margin-right:.35rem;"></i>
+                        {% trans "You receive instant visit confirmations via Telegram." %}
+                    </p>
+                    <form method="post" action="{% url 'users:disconnect_telegram' %}">
+                        {% csrf_token %}
+                        <button type="submit" class="btn-tg-disconnect">
+                            <i class="fas fa-unlink"></i> {% trans "Disconnect Telegram" %}
+                        </button>
+                    </form>
+
+                {% else %}
+                    <div class="tg-cta">
+                        <div class="tg-cta-icon"><i class="fab fa-telegram"></i></div>
+                        <p>{% trans "Connect your Telegram account to receive instant visit confirmations and important updates directly in the messenger." %}</p>
+                        <a href="{% url 'users:connect_telegram_code' %}" class="btn-tg-primary">
+                            <i class="fab fa-telegram fa-lg"></i>
+                            {% trans "Connect Telegram" %}
+                        </a>
+                        {% if telegram_bot_name %}
+                        <div class="tg-divider" style="width:100%;"><span>{% trans "or log in with Telegram" %}</span></div>
+                        <div class="tg-widget-row">
+                            <script async src="https://telegram.org/js/telegram-widget.js?22"
+                                data-telegram-login="{{ telegram_bot_name }}"
+                                data-size="medium"
+                                data-auth-url="{% url 'users:telegram_login_callback' %}"
+                                data-request-access="write">
+                            </script>
+                        </div>
+                        {% endif %}
+                    </div>
+                {% endif %}
+
+            </div>
+        </div>
+        {% endif %}
+
+    </div>{# /cab-content #}
+</div>{# /cab-page #}
 {% endblock %}
 
 {% block extra_js %}
 <script>
 (function () {
-    /* ─── Canvas particles ─── */
+    /* ─── Canvas particles (matches homepage feel) ─── */
     const canvas = document.getElementById('cab-canvas');
     const ctx    = canvas.getContext('2d');
     let W, H;
@@ -583,87 +710,87 @@ body { background: var(--dark-base) !important; }
     function resize() { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; }
     window.addEventListener('resize', resize); resize();
 
-    const particles = Array.from({length:60}, () => ({
-        x: Math.random()*W, y: Math.random()*H,
-        vx:(Math.random()-.5)*.3, vy:(Math.random()-.5)*.3,
-        r: Math.random()*1.4+.4,
-        a: Math.random()*.35+.06,
-        c: Math.random()>.5 ? 'rgba(220,38,38,' : 'rgba(41,168,235,',
+    const particles = Array.from({length: 55}, () => ({
+        x:  Math.random() * W,
+        y:  Math.random() * H,
+        vx: (Math.random() - .5) * .28,
+        vy: (Math.random() - .5) * .28,
+        r:  Math.random() * 1.3 + .4,
+        a:  Math.random() * .32 + .06,
+        c:  Math.random() > .55 ? 'rgba(220,38,38,' : 'rgba(37,99,235,',
     }));
 
-    (function loop(){
-        ctx.clearRect(0,0,W,H);
-        particles.forEach(p=>{
-            ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
-            ctx.fillStyle=p.c+p.a+')'; ctx.fill();
-            p.x+=p.vx; p.y+=p.vy;
-            if(p.x<-5)p.x=W+5; if(p.x>W+5)p.x=-5;
-            if(p.y<-5)p.y=H+5; if(p.y>H+5)p.y=-5;
+    (function loop() {
+        ctx.clearRect(0, 0, W, H);
+        particles.forEach(p => {
+            ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+            ctx.fillStyle = p.c + p.a + ')'; ctx.fill();
+            p.x += p.vx; p.y += p.vy;
+            if (p.x < -5) p.x = W + 5; if (p.x > W + 5) p.x = -5;
+            if (p.y < -5) p.y = H + 5; if (p.y > H + 5) p.y = -5;
         });
-        for(let i=0;i<particles.length;i++) for(let j=i+1;j<particles.length;j++){
-            const dx=particles[i].x-particles[j].x, dy=particles[i].y-particles[j].y;
-            const d=Math.sqrt(dx*dx+dy*dy);
-            if(d<100){ ctx.beginPath(); ctx.moveTo(particles[i].x,particles[i].y);
-                ctx.lineTo(particles[j].x,particles[j].y);
-                ctx.strokeStyle='rgba(220,38,38,'+(0.08*(1-d/100))+')';
-                ctx.lineWidth=.5; ctx.stroke(); }
+        for (let i = 0; i < particles.length; i++) {
+            for (let j = i + 1; j < particles.length; j++) {
+                const dx = particles[i].x - particles[j].x;
+                const dy = particles[i].y - particles[j].y;
+                const d  = Math.sqrt(dx*dx + dy*dy);
+                if (d < 95) {
+                    ctx.beginPath();
+                    ctx.moveTo(particles[i].x, particles[i].y);
+                    ctx.lineTo(particles[j].x, particles[j].y);
+                    ctx.strokeStyle = 'rgba(220,38,38,' + (0.07 * (1 - d/95)) + ')';
+                    ctx.lineWidth = .5; ctx.stroke();
+                }
+            }
         }
         requestAnimationFrame(loop);
     })();
 
-    /* ─── Stagger reveal cards ─── */
-    const cards = document.querySelectorAll('.g-card');
-    cards.forEach((c,i)=>{
-        setTimeout(()=>c.classList.add('visible'), 80 + i*120);
-    });
+    /* ─── data-reveal IntersectionObserver ─── */
+    const obs = new IntersectionObserver(entries => {
+        entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('revealed'); });
+    }, { threshold: .08 });
+    document.querySelectorAll('[data-reveal]').forEach(el => obs.observe(el));
+    /* Immediate reveal for above-the-fold hero */
+    setTimeout(() => document.querySelectorAll('[data-reveal]').forEach(el => el.classList.add('revealed')), 60);
 
-    /* ─── Step items stagger ─── */
-    const stepItems = document.querySelectorAll('.step-item');
-    const stepObs = new IntersectionObserver(entries=>{
-        entries.forEach(e=>{ if(e.isIntersecting) e.target.classList.add('visible'); });
-    },{threshold:.1});
-    stepItems.forEach((s,i)=>{ s.style.transitionDelay=(i*80)+'ms'; stepObs.observe(s); });
-    setTimeout(()=>stepItems.forEach(s=>s.classList.add('visible')), 600);
-
-    /* ─── PIN countdown ─── */
-    const TOTAL = 720;
+    /* ─── PIN countdown ring ─── */
+    const TOTAL = 720, CIRC = 207.3;
     let secs = {{ seconds_remaining|default:0 }};
     const arc   = document.getElementById('timer-arc');
     const label = document.getElementById('countdown');
-    const CIRC  = 232.5;
 
     if (arc || label) {
-        function updateTimer(){
-            if(secs<=0){ window.location.reload(); return; }
-            if(label) label.textContent = secs;
-            if(arc){
-                arc.style.strokeDashoffset = CIRC*(1-secs/TOTAL);
-                if(secs<60)  arc.style.stroke='#f59e0b';
-                if(secs<30)  arc.style.stroke='#ef4444';
+        function tick() {
+            if (secs <= 0) { window.location.reload(); return; }
+            if (label) label.textContent = secs;
+            if (arc) {
+                arc.style.strokeDashoffset = CIRC * (1 - secs / TOTAL);
+                if (secs < 60)  arc.style.stroke = '#f59e0b';
+                if (secs < 30)  arc.style.stroke = '#ef4444';
             }
             secs--;
         }
-        updateTimer();
-        setInterval(updateTimer,1000);
+        tick();
+        setInterval(tick, 1000);
     }
 
     /* ─── Copy PIN ─── */
     const copyBtn = document.getElementById('copy-pin');
-    if(copyBtn){
-        copyBtn.addEventListener('click',()=>{
-            const pin = copyBtn.dataset.pin;
-            navigator.clipboard.writeText(pin).then(()=>{
+    if (copyBtn) {
+        copyBtn.addEventListener('click', () => {
+            navigator.clipboard.writeText(copyBtn.dataset.pin).then(() => {
                 const lbl = document.getElementById('copy-label');
                 const ico = document.getElementById('copy-icon');
                 copyBtn.classList.add('copied');
-                if(lbl) lbl.textContent='{% trans "Copied!" %}';
-                if(ico){ ico.classList.remove('fa-copy'); ico.classList.add('fa-check'); }
-                setTimeout(()=>{
+                if (lbl) lbl.textContent = '{% trans "Copied!" %}';
+                if (ico) { ico.className = 'fas fa-check'; }
+                setTimeout(() => {
                     copyBtn.classList.remove('copied');
-                    if(lbl) lbl.textContent='{% trans "Copy PIN" %}';
-                    if(ico){ ico.classList.remove('fa-check'); ico.classList.add('fa-copy'); }
-                }, 2200);
-            }).catch(()=>{});
+                    if (lbl) lbl.textContent = '{% trans "Copy PIN" %}';
+                    if (ico) { ico.className = 'fas fa-copy'; }
+                }, 2400);
+            }).catch(() => {});
         });
     }
 })();
