@@ -560,42 +560,59 @@ main {
   overflow-y: auto;
 }
 
-/* Language selector (moved from language-selector.css) */
-.language-switcher {
-  position: relative;
-}
-
-.language-select-modern {
-  min-width: 118px;
-  height: 38px;
+/* ── Custom Language Picker ─────────────────────────────── */
+.lang-picker-wrap { position: relative; }
+.btn-lang-pick {
+  display: flex; align-items: center; gap: .5rem;
+  background: rgba(255,255,255,.07);
+  border: 1.5px solid rgba(255,255,255,.12);
+  color: rgba(255,255,255,.7);
   border-radius: 10px;
-  border: 1px solid rgba(255,255,255,.15) !important;
-  background-color: rgba(255,255,255,.07);
-  color: rgba(255,255,255,.8);
-  font-weight: var(--font-semibold);
-  font-size: .85rem;
-  padding-left: 10px;
-  padding-right: 28px;
-  transition: border-color 0.2s ease, background 0.2s ease;
+  padding: .38rem .85rem;
+  font-size: .82rem; font-weight: 600;
   cursor: pointer;
-  appearance: none;
+  transition: background .15s, border-color .15s, color .15s;
+  white-space: nowrap;
+  height: 38px; line-height: 1;
 }
+.btn-lang-pick:hover { background: rgba(255,255,255,.12); border-color: rgba(255,255,255,.2); color: #fff; }
+.lang-pick-arrow { flex-shrink: 0; transition: transform .2s; }
+.btn-lang-pick[aria-expanded="true"] .lang-pick-arrow { transform: rotate(180deg); }
+.lang-pick-dropdown {
+  position: absolute; top: calc(100% + 8px); right: 0;
+  background: #111118;
+  border: 1.5px solid rgba(255,255,255,.1);
+  border-radius: 14px; padding: .4rem;
+  min-width: 158px; z-index: 9999;
+  opacity: 0; transform: translateY(-8px); pointer-events: none;
+  transition: opacity .18s, transform .18s;
+  box-shadow: 0 16px 44px rgba(0,0,0,.55);
+}
+.lang-pick-dropdown.lp-open { opacity: 1; transform: translateY(0); pointer-events: auto; }
+.lang-pick-item {
+  display: block; width: 100%; background: none; border: none;
+  padding: .55rem 1rem; border-radius: 9px;
+  color: rgba(255,255,255,.65); font-size: .88rem; font-weight: 500;
+  text-align: left; cursor: pointer;
+  transition: background .12s, color .12s;
+}
+.lang-pick-item:hover { background: rgba(255,255,255,.07); color: #fff; }
+.lang-pick-item.lp-active { background: rgba(220,38,38,.15); color: #f87171; font-weight: 700; }
 
-.language-select-modern option {
-  background: #0f0f1a;
-  color: rgba(255,255,255,.8);
+/* ── Global Dark Modals ─────────────────────────────────── */
+.modal-content {
+  background: #111118 !important;
+  border: 1.5px solid rgba(255,255,255,.1) !important;
+  border-radius: 18px !important;
+  color: #e2e8f0;
 }
-
-.language-select-modern:hover {
-  border-color: rgba(255,255,255,.3) !important;
-  background-color: rgba(255,255,255,.1);
+.modal-header {
+  background: transparent !important;
+  border-bottom: 1px solid rgba(255,255,255,.07) !important;
 }
-
-.language-select-modern:focus {
-  border-color: rgba(220,38,38,.5) !important;
-  outline: none;
-  box-shadow: 0 0 0 2px rgba(220,38,38,.2) !important;
-}
+.modal-footer { border-top: 1px solid rgba(255,255,255,.07) !important; }
+.modal .btn-close { filter: invert(1) brightness(2); }
+.modal-body { color: rgba(255,255,255,.7); }
 
 /* Fix: search button positioning on mobile */
 @media (max-width: 991px) {
@@ -611,16 +628,9 @@ main {
 }
 
 @media (max-width: 991.98px) {
-  .language-switcher {
-    display: flex !important;
-    width: 100%;
-  }
-
-  .language-select-modern {
-    width: 100%;
-    min-width: 0;
-  }
-
+  .lang-picker-wrap { width: 100%; }
+  .btn-lang-pick { width: 100%; justify-content: space-between; }
+  .lang-pick-dropdown { left: 0; right: 0; min-width: 0; }
   .dev-banner {
     padding: 10px 12px;
     font-size: 0.85rem;

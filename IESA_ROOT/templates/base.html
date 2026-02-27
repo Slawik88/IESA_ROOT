@@ -144,17 +144,29 @@
                         </li>
                     </ul>
                     <div class="d-flex align-items-center gap-2">
-                        <form action="{% url 'set_language' %}" method="post" class="language-switcher d-flex">
-                            {% csrf_token %}
-                            <input name="next" type="hidden" value="{{ request.get_full_path }}">
-                            {% get_current_language as LANGUAGE_CODE %}
-                            {% get_available_languages as LANGUAGES %}
-                            <select name="language" class="form-select form-select-sm language-select-modern" aria-label="{% trans "Select language" %}" onchange="this.form.submit()">
-                                {% for lang in LANGUAGES %}
+                        {% get_current_language as LANGUAGE_CODE %}
+                        {% get_available_languages as LANGUAGES %}
+                        <div class="lang-picker-wrap" id="langPickerWrap">
+                            <form action="{% url 'set_language' %}" method="post" id="langSwitchForm" style="display:none">
+                                {% csrf_token %}
+                                <input name="next" type="hidden" value="{{ request.get_full_path }}">
+                                <select name="language" id="langSelectHidden">
+                                    {% for lang in LANGUAGES %}
                                     <option value="{{ lang.0 }}" {% if lang.0 == LANGUAGE_CODE %}selected{% endif %}>{{ lang.1 }}</option>
+                                    {% endfor %}
+                                </select>
+                            </form>
+                            <button type="button" class="btn-lang-pick" id="langPickBtn" aria-haspopup="listbox" aria-expanded="false">
+                                <i class="fas fa-globe fa-xs" style="opacity:.6;"></i>
+                                <span id="langPickCurrent">{% for lang in LANGUAGES %}{% if lang.0 == LANGUAGE_CODE %}{{ lang.1|slice:":3" }}{% endif %}{% endfor %}</span>
+                                <svg class="lang-pick-arrow" width="10" height="6" viewBox="0 0 10 6" fill="none"><path d="M1 1L5 5L9 1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                            </button>
+                            <div class="lang-pick-dropdown" id="langPickDrop" role="listbox">
+                                {% for lang in LANGUAGES %}
+                                <button type="button" class="lang-pick-item {% if lang.0 == LANGUAGE_CODE %}lp-active{% endif %}" data-lang="{{ lang.0 }}" role="option">{{ lang.1 }}</button>
                                 {% endfor %}
-                            </select>
-                        </form>
+                            </div>
+                        </div>
                         <!-- Community search (global, HTMX live results) -->
                         <div class="me-1 dropdown community-search-wrap">
                             <button class="btn btn-nav-icon" id="communitySearchToggle" data-bs-toggle="dropdown" aria-expanded="false" title="{% trans "Search community" %}" aria-label="{% trans "Open search menu" "}">
@@ -517,5 +529,32 @@
         </a>
         {% endif %}
     </nav>
+    <script>
+    /* ── Language Picker ── */
+    (function(){
+        var wrap = document.getElementById('langPickerWrap');
+        if (!wrap) return;
+        var btn  = document.getElementById('langPickBtn');
+        var drop = document.getElementById('langPickDrop');
+        var sel  = document.getElementById('langSelectHidden');
+        var form = document.getElementById('langSwitchForm');
+        btn.addEventListener('click', function(e){
+            e.stopPropagation();
+            var isOpen = drop.classList.toggle('lp-open');
+            btn.setAttribute('aria-expanded', isOpen);
+        });
+        drop.querySelectorAll('.lang-pick-item').forEach(function(item){
+            item.addEventListener('click', function(){
+                sel.value = this.dataset.lang;
+                form.submit();
+            });
+        });
+        document.addEventListener('click', function(){
+            drop.classList.remove('lp-open');
+            btn.setAttribute('aria-expanded','false');
+        });
+        wrap.addEventListener('click', function(e){ e.stopPropagation(); });
+    })();
+    </script>
 </body>
 </html>
