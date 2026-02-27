@@ -3,6 +3,7 @@ Utility functions for creating notifications.
 """
 from .models import Notification
 from django.urls import reverse
+from django.utils.translation import gettext as _
 
 
 def create_notification(recipient, notification_type, title, message, sender=None, link=''):
@@ -32,8 +33,8 @@ def notify_post_approved(post):
     return create_notification(
         recipient=post.author,
         notification_type='post_approved',
-        title='Post Approved! 🎉',
-        message=f'Your post "{post.title}" has been approved and is now published.',
+        title=_('Post Approved! 🎉'),
+        message=_('Your post "%(title)s" has been approved and is now published.') % {'title': post.title},
         link=reverse('blog:post_detail', args=[post.pk])
     )
 
@@ -43,8 +44,8 @@ def notify_post_rejected(post):
     return create_notification(
         recipient=post.author,
         notification_type='post_rejected',
-        title='Post Needs Review',
-        message=f'Your post "{post.title}" was not approved. Please review and edit it.',
+        title=_('Post Needs Review'),
+        message=_('Your post "%(title)s" was not approved. Please review and edit it.') % {'title': post.title},
         link=reverse('blog:post_detail', args=[post.pk])
     )
 
@@ -56,8 +57,11 @@ def notify_new_comment(comment):
             recipient=comment.post.author,
             sender=comment.author,
             notification_type='new_comment',
-            title='New Comment',
-            message=f'{comment.author.username} commented on your post "{comment.post.title}"',
+            title=_('New Comment'),
+            message=_('%(username)s commented on your post "%(title)s"') % {
+                'username': comment.author.username,
+                'title': comment.post.title,
+            },
             link=reverse('blog:post_detail', args=[comment.post.pk])
         )
 
@@ -69,8 +73,8 @@ def notify_comment_reply(comment):
             recipient=comment.parent.author,
             sender=comment.author,
             notification_type='comment_reply',
-            title='New Reply',
-            message=f'{comment.author.username} replied to your comment',
+            title=_('New Reply'),
+            message=_('%(username)s replied to your comment') % {'username': comment.author.username},
             link=reverse('blog:post_detail', args=[comment.post.pk])
         )
 
@@ -82,8 +86,11 @@ def notify_new_like(like):
             recipient=like.post.author,
             sender=like.user,
             notification_type='new_like',
-            title='New Like ❤️',
-            message=f'{like.user.username} liked your post "{like.post.title}"',
+            title=_('New Like ❤️'),
+            message=_('%(username)s liked your post "%(title)s"') % {
+                'username': like.user.username,
+                'title': like.post.title,
+            },
             link=reverse('blog:post_detail', args=[like.post.pk])
         )
 
@@ -93,8 +100,11 @@ def notify_event_reminder(event, user):
     return create_notification(
         recipient=user,
         notification_type='event_reminder',
-        title='Event Reminder 📅',
-        message=f'Reminder: "{event.title}" is coming up on {event.date.strftime("%B %d, %Y")}',
+        title=_('Event Reminder 📅'),
+        message=_('Reminder: "%(title)s" is coming up on %(date)s') % {
+            'title': event.title,
+            'date': event.date.strftime("%B %d, %Y"),
+        },
         link=reverse('blog:event_detail', args=[event.pk])
     )
 

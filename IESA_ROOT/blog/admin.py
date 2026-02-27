@@ -1,5 +1,7 @@
 from django.contrib import admin
 from django.utils.html import format_html
+from django.utils.translation import gettext_lazy as _
+from django.utils.translation import gettext
 from django.urls import reverse
 from .models import Post, Comment, Like, Event, PostView, CommentLike, BlogSubscription, EventRegistration
 from django.db import models as django_models
@@ -14,15 +16,15 @@ except Exception:
 
 # Custom admin filters
 class StatusFilter(admin.SimpleListFilter):
-    title = 'publication status'
+    title = _('publication status')
     parameter_name = 'status'
 
     def lookups(self, request, model_admin):
         return [
-            ('published', 'Published'),
-            ('pending', 'Pending Review'),
-            ('rejected', 'Rejected'),
-            ('draft', 'Draft'),
+            ('published', _('Published')),
+            ('pending', _('Pending Review')),
+            ('rejected', _('Rejected')),
+            ('draft', _('Draft')),
         ]
 
     def queryset(self, request, queryset):
@@ -32,7 +34,7 @@ class StatusFilter(admin.SimpleListFilter):
 
 
 class AuthorFilter(admin.SimpleListFilter):
-    title = 'author'
+    title = _('author')
     parameter_name = 'author'
 
     def lookups(self, request, model_admin):
@@ -49,22 +51,22 @@ class AuthorFilter(admin.SimpleListFilter):
 def publish_posts(modeladmin, request, queryset):
     """Publish selected posts"""
     count = queryset.update(status='published')
-    modeladmin.message_user(request, f'{count} post(s) published successfully.')
-publish_posts.short_description = '✅ Publish selected posts'
+    modeladmin.message_user(request, gettext('%(count)d post(s) published successfully.') % {'count': count})
+publish_posts.short_description = _('✅ Publish selected posts')
 
 
 def reject_posts(modeladmin, request, queryset):
     """Reject selected posts"""
     count = queryset.update(status='rejected')
-    modeladmin.message_user(request, f'{count} post(s) rejected.')
-reject_posts.short_description = '❌ Reject selected posts'
+    modeladmin.message_user(request, gettext('%(count)d post(s) rejected.') % {'count': count})
+reject_posts.short_description = _('❌ Reject selected posts')
 
 
 def set_as_draft(modeladmin, request, queryset):
     """Move posts to draft"""
     count = queryset.update(status='draft')
-    modeladmin.message_user(request, f'{count} post(s) moved to draft.')
-set_as_draft.short_description = '📝 Move to draft'
+    modeladmin.message_user(request, gettext('%(count)d post(s) moved to draft.') % {'count': count})
+set_as_draft.short_description = _('📝 Move to draft')
 
 
 @admin.register(Post)
@@ -85,13 +87,13 @@ class PostAdmin(TabbedTranslationAdmin):
         }
 
     fieldsets = (
-        ('Post Information', {
+        (_('Post Information'), {
             'fields': ('title', 'author', 'text', 'preview_image', 'preview_link')
         }),
-        ('Publishing', {
+        (_('Publishing'), {
             'fields': ('status', 'created_at')
         }),
-        ('Statistics', {
+        (_('Statistics'), {
             'fields': ('views_count', 'engagement_details'),
             'classes': ('collapse',),
         }),
@@ -166,8 +168,8 @@ class PostAdmin(TabbedTranslationAdmin):
         if obj.status == 'published':
             url = reverse('blog:post_detail', args=[obj.pk])
             return format_html('<a href="{}" target="_blank">View on site →</a>', f'/blog/{url}')
-        return 'Not published'
-    preview_link.short_description = 'View on Site'
+        return _('Not published')
+    preview_link.short_description = _('View on Site')
 
     def view_on_site_link(self, obj):
         """Quick link icon to view post"""
@@ -229,16 +231,16 @@ class EventAdmin(TabbedTranslationAdmin):
         }
     
     fieldsets = (
-        ('Event Information', {
+        (_('Event Information'), {
             'fields': ('title', 'description', 'image')
         }),
-        ('Date & Time', {
+        (_('Date & Time'), {
             'fields': ('date', 'end_date', 'registration_deadline')
         }),
-        ('Location & Capacity', {
+        (_('Location & Capacity'), {
             'fields': ('location', 'min_age', 'max_age', 'max_participants', 'status')
         }),
-        ('System', {
+        (_('System'), {
             'fields': ('created_by', 'created_at', 'updated_at', 'participants_count'),
             'classes': ('collapse',)
         }),

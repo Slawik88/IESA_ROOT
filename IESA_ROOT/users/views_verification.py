@@ -11,6 +11,7 @@ from django.db.models import Q, Sum
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
+from django.utils.translation import gettext as _
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods, require_POST
 from django_ratelimit.decorators import ratelimit
@@ -83,7 +84,7 @@ def member_cabinet(request):
     user = request.user
 
     if not hasattr(user, 'membership_status'):
-        messages.error(request, '⚠️ System error: Database migration required. Contact administrator.')
+        messages.error(request, _('⚠️ System error: Database migration required. Contact administrator.'))
         return redirect('core:home')
 
     if user.membership_status != 'active':
@@ -91,26 +92,26 @@ def member_cabinet(request):
             'membership_status': user.membership_status,
             'current_pin': None,
             'seconds_remaining': 0,
-            'error_message': 'Your membership is inactive. Contact administrator to activate your account.',
+            'error_message': _('Your membership is inactive. Contact administrator to activate your account.'),
         })
 
     if not user.totp_secret:
-        messages.error(request, '⚠️ TOTP secret not configured. Contact administrator.')
+        messages.error(request, _('⚠️ TOTP secret not configured. Contact administrator.'))
         return render(request, 'users/member_cabinet.html', {
             'membership_status': user.membership_status,
             'current_pin': None,
             'seconds_remaining': 0,
-            'error_message': 'PIN system not initialized. Contact administrator.',
+            'error_message': _('PIN system not initialized. Contact administrator.'),
         })
 
     current_pin = user.get_current_pin()
     if not current_pin:
-        messages.error(request, '⚠️ Unable to generate PIN. Contact administrator.')
+        messages.error(request, _('⚠️ Unable to generate PIN. Contact administrator.'))
         return render(request, 'users/member_cabinet.html', {
             'membership_status': user.membership_status,
             'current_pin': None,
             'seconds_remaining': 0,
-            'error_message': 'PIN generation failed. Contact administrator.',
+            'error_message': _('PIN generation failed. Contact administrator.'),
         })
 
     current_time = int(time.time())
@@ -141,10 +142,10 @@ def partner_dashboard(request):
     try:
         partner = request.user.partner_profile
     except Partner.DoesNotExist:
-        messages.error(request, '⚠️ Partner profile not configured. Contact administrator.')
+        messages.error(request, _('⚠️ Partner profile not configured. Contact administrator.'))
         return redirect('core:home')
     except AttributeError:
-        messages.error(request, '⚠️ System error: Database migration required. Contact administrator.')
+        messages.error(request, _('⚠️ System error: Database migration required. Contact administrator.'))
         return redirect('core:home')
 
     visits = Visit.objects.filter(partner=partner).select_related('member').order_by('-timestamp')
@@ -215,13 +216,13 @@ def log_visit(request, member_id):
     try:
         partner = request.user.partner_profile
     except Partner.DoesNotExist:
-        messages.error(request, 'Partner profile not found.')
+        messages.error(request, _('Partner profile not found.'))
         return redirect('users:partner_dashboard')
 
     member = get_object_or_404(User, id=member_id)
 
     if member.membership_status != 'active':
-        messages.warning(request, f'⚠️ Warning: {member.get_full_name()} membership is currently inactive.')
+        messages.warning(request, _('⚠️ Warning: %(name)s membership is currently inactive.') % {'name': member.get_full_name()})
 
     if request.method == 'POST':
         form = VisitForm(request.POST)
@@ -233,7 +234,7 @@ def log_visit(request, member_id):
                 remaining = int((member.pin_lockout_until - now).total_seconds() // 60) + 1
                 messages.error(
                     request,
-                    f'🔒 PIN entry locked for this member. Please wait {remaining} minute(s).'
+                    _('🔒 PIN entry locked for this member. Please wait %(remaining)d minute(s).') % {'remaining': remaining}
                 )
                 return render(request, 'users/log_visit.html', {
                     'form': form, 'member': member, 'partner': partner
@@ -242,7 +243,7 @@ def log_visit(request, member_id):
             provided_pin = form.cleaned_data['pin']
 
             if not member.totp_secret:
-                messages.error(request, '⚠️ Member PIN system not configured. Contact administrator.')
+                messages.error(request, _('⚠️ Member PIN system not configured. Contact administrator.'))
                 return redirect('users:partner_dashboard')
 
             if member.verify_pin(provided_pin):
@@ -260,8 +261,8 @@ def log_visit(request, member_id):
                     member_name = member.get_full_name() or member.username
                     messages.warning(
                         request,
-                        f'ℹ️ Duplicate detected: identical visit already logged within the last 5 minutes '
-                        f'for {member_name}. No new record created.'
+                        _('ℹ️ Duplicate detected: identical visit already logged within the last 5 minutes '
+                          'for %(name)s. No new record created.') % {'name': member_name}
                     )
                     return redirect('users:partner_dashboard')
 
@@ -288,8 +289,12 @@ def log_visit(request, member_id):
                 cost_display = f'{visit.cost} CHF' if visit.cost else 'N/A'
                 messages.success(
                     request,
-                    f'✅ Visit logged! Member: {member_name} | '
-                    f'Service: {visit.get_service_type_display()} | Cost: {cost_display}'
+                    _('✅ Visit logged! Member: %(name)s | '
+                      'Service: %(service)s | Cost: %(cost)s') % {
+                        'name': member_name,
+                        'service': visit.get_service_type_display(),
+                        'cost': cost_display,
+                    }
                 )
                 return redirect('users:partner_dashboard')
 
@@ -300,11 +305,11 @@ def log_visit(request, member_id):
                     member.pin_lockout_until = now + timezone.timedelta(minutes=PIN_LOCKOUT_MINUTES)
                     member.failed_pin_attempts = 0
                     member.save(update_fields=['failed_pin_attempts', 'pin_lockout_until'])
-                    form.add_error('pin', f'🔒 Too many wrong PINs. PIN locked for {PIN_LOCKOUT_MINUTES} minutes.')
+                    form.add_error('pin', _('🔒 Too many wrong PINs. PIN locked for %(minutes)d minutes.') % {'minutes': PIN_LOCKOUT_MINUTES})
                 else:
                     attempts_left = PIN_MAX_ATTEMPTS - member.failed_pin_attempts
                     member.save(update_fields=['failed_pin_attempts'])
-                    form.add_error('pin', f'❌ Invalid PIN. {attempts_left} attempt(s) remaining before lockout.')
+                    form.add_error('pin', _('❌ Invalid PIN. %(left)d attempt(s) remaining before lockout.') % {'left': attempts_left})
     else:
         form = VisitForm()
 
@@ -327,18 +332,18 @@ def edit_visit(request, visit_id):
     try:
         partner = request.user.partner_profile
     except Partner.DoesNotExist:
-        messages.error(request, 'Partner profile not found.')
+        messages.error(request, _('Partner profile not found.'))
         return redirect('users:partner_dashboard')
 
     visit = get_object_or_404(Visit, id=visit_id, partner=partner)
 
     age = (timezone.now() - visit.timestamp).total_seconds()
     if age > EDIT_WINDOW:
-        messages.error(request, '⏰ Edit window expired. Visits can only be edited within 20 minutes of logging.')
+        messages.error(request, _('⏰ Edit window expired. Visits can only be edited within 20 minutes of logging.'))
         return redirect('users:partner_dashboard')
 
     if visit.status == 'CANCELLED':
-        messages.error(request, '❌ Cancelled visits cannot be edited.')
+        messages.error(request, _('❌ Cancelled visits cannot be edited.'))
         return redirect('users:partner_dashboard')
 
     if request.method == 'POST':
@@ -367,7 +372,7 @@ def edit_visit(request, visit_id):
             except Exception as exc:
                 logger.error("notify_visit_edited failed: %s", exc)
 
-            messages.success(request, '✅ Visit updated. Member notified via Telegram.')
+            messages.success(request, _('✅ Visit updated. Member notified via Telegram.'))
             return redirect('users:partner_dashboard')
     else:
         form = EditVisitForm(instance=visit)
@@ -392,18 +397,18 @@ def cancel_visit(request, visit_id):
     try:
         partner = request.user.partner_profile
     except Partner.DoesNotExist:
-        messages.error(request, 'Partner profile not found.')
+        messages.error(request, _('Partner profile not found.'))
         return redirect('users:partner_dashboard')
 
     visit = get_object_or_404(Visit, id=visit_id, partner=partner)
 
     age = (timezone.now() - visit.timestamp).total_seconds()
     if age > EDIT_WINDOW:
-        messages.error(request, '⏰ Edit window expired. Visits can only be cancelled within 20 minutes of logging.')
+        messages.error(request, _('⏰ Edit window expired. Visits can only be cancelled within 20 minutes of logging.'))
         return redirect('users:partner_dashboard')
 
     if visit.status == 'CANCELLED':
-        messages.warning(request, 'This visit is already cancelled.')
+        messages.warning(request, _('This visit is already cancelled.'))
         return redirect('users:partner_dashboard')
 
     if request.method == 'POST':
@@ -431,7 +436,7 @@ def cancel_visit(request, visit_id):
             except Exception as exc:
                 logger.error("notify_visit_cancelled failed: %s", exc)
 
-            messages.success(request, '✅ Visit cancelled. Member notified via Telegram.')
+            messages.success(request, _('✅ Visit cancelled. Member notified via Telegram.'))
             return redirect('users:partner_dashboard')
     else:
         form = CancelVisitForm()
@@ -453,7 +458,7 @@ def test_telegram_view(request):
     """Staff-only page: configure webhook and verify bot setup."""
     if not request.user.is_staff:
         from django.http import HttpResponseForbidden
-        return HttpResponseForbidden("Доступ только для администраторов.")
+        return HttpResponseForbidden(_("Access restricted to administrators only."))
 
     import html as _html
     from django.middleware.csrf import get_token
@@ -600,15 +605,15 @@ def connect_telegram_code_view(request):
     if request.method == "POST":
         code = request.POST.get("code", "").strip()
         if not code.isdigit() or len(code) != 6:
-            error = "Код должен состоять из 6 цифр."
+            error = _("Code must be exactly 6 digits.")
         else:
             chat_id = consume_link_code(code)
             if not chat_id:
-                error = "Код недействителен или истёк. Получите новый командой /link в боте."
+                error = _("Code is invalid or expired. Get a new one with /link in the bot.")
             else:
                 from .models import User
                 if User.objects.filter(telegram_chat_id=int(chat_id)).exclude(pk=request.user.pk).exists():
-                    error = "Этот Telegram уже привязан к другому аккаунту."
+                    error = _("This Telegram account is already linked to another user.")
                 else:
                     request.user.telegram_chat_id = int(chat_id)
                     request.user.telegram_linked_at = tz.now()
@@ -617,7 +622,7 @@ def connect_telegram_code_view(request):
                         f"✅ Telegram привязан к аккаунту <b>{_html.escape(request.user.username)}</b> на IESA Sport!",
                         chat_id=chat_id,
                     )
-                    messages.success(request, "✅ Telegram успешно привязан!")
+                    messages.success(request, _("✅ Telegram linked successfully!"))
                     return redirect("users:member_cabinet")
 
     return render(request, "users/connect_telegram_code.html", {
@@ -633,7 +638,7 @@ def disconnect_telegram_view(request):
     request.user.telegram_chat_id = None
     request.user.telegram_linked_at = None
     request.user.save(update_fields=["telegram_chat_id", "telegram_linked_at"])
-    messages.success(request, "Telegram отвязан от вашего аккаунта.")
+    messages.success(request, _("Telegram disconnected from your account."))
     return redirect("users:member_cabinet")
 
 
@@ -653,28 +658,28 @@ def telegram_login_callback_view(request):
     flat = {k: (v[0] if isinstance(v, list) else v) for k, v in dict(request.GET).items()}
 
     if not flat.get("hash") or not verify_telegram_auth(flat):
-        messages.error(request, "Проверка подписи Telegram не пройдена.")
+        messages.error(request, _("Telegram signature verification failed."))
         return redirect("users:member_cabinet")
 
     if time.time() - int(flat.get("auth_date", 0)) > 300:
-        messages.error(request, "Запрос Telegram устарел. Попробуйте снова.")
+        messages.error(request, _("Telegram request expired. Please try again."))
         return redirect("users:member_cabinet")
 
     tg_id = int(flat.get("id", 0))
     if not tg_id:
-        messages.error(request, "Не удалось получить ID от Telegram.")
+        messages.error(request, _("Unable to retrieve Telegram ID."))
         return redirect("users:member_cabinet")
 
     from .models import User
     if User.objects.filter(telegram_chat_id=tg_id).exclude(pk=request.user.pk).exists():
-        messages.error(request, "Этот Telegram уже привязан к другому аккаунту.")
+        messages.error(request, _("This Telegram account is already linked to another user."))
         return redirect("users:member_cabinet")
 
     request.user.telegram_chat_id = tg_id
     request.user.telegram_linked_at = tz.now()
     request.user.save(update_fields=["telegram_chat_id", "telegram_linked_at"])
     tg_name = flat.get("username") or flat.get("first_name", "")
-    messages.success(request, f"✅ Telegram ({tg_name}) успешно привязан!")
+    messages.success(request, _("✅ Telegram (%(name)s) linked successfully!") % {'name': tg_name})
     return redirect("users:member_cabinet")
 
 

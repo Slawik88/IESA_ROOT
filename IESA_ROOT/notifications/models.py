@@ -1,6 +1,7 @@
 from django.db import models
 from django.conf import settings
 from django.utils import timezone
+from django.utils.translation import gettext_lazy as _
 
 
 class Notification(models.Model):
@@ -8,22 +9,22 @@ class Notification(models.Model):
     User notifications for various events (post approved, new comment, new like, etc.)
     """
     NOTIFICATION_TYPES = [
-        ('post_approved', 'Post Approved'),
-        ('post_rejected', 'Post Rejected'),
-        ('new_comment', 'New Comment'),
-        ('comment_reply', 'Comment Reply'),
-        ('new_like', 'New Like'),
-        ('new_follower', 'New Follower'),
-        ('event_reminder', 'Event Reminder'),
-        ('new_message', 'New Message'),
-        ('system', 'System Notification'),
+        ('post_approved', _('Post Approved')),
+        ('post_rejected', _('Post Rejected')),
+        ('new_comment', _('New Comment')),
+        ('comment_reply', _('Comment Reply')),
+        ('new_like', _('New Like')),
+        ('new_follower', _('New Follower')),
+        ('event_reminder', _('Event Reminder')),
+        ('new_message', _('New Message')),
+        ('system', _('System Notification')),
     ]
     
     recipient = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name='notifications',
-        verbose_name='Recipient'
+        verbose_name=_('Recipient')
     )
     sender = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -31,25 +32,25 @@ class Notification(models.Model):
         related_name='sent_notifications',
         null=True,
         blank=True,
-        verbose_name='Sender'
+        verbose_name=_('Sender')
     )
     notification_type = models.CharField(
         max_length=20,
         choices=NOTIFICATION_TYPES,
-        verbose_name='Type'
+        verbose_name=_('Type')
     )
-    title = models.CharField(max_length=255, verbose_name='Title')
-    message = models.TextField(verbose_name='Message')
-    link = models.CharField(max_length=500, blank=True, verbose_name='Link')
+    title = models.CharField(max_length=255, verbose_name=_('Title'))
+    message = models.TextField(verbose_name=_('Message'))
+    link = models.CharField(max_length=500, blank=True, verbose_name=_('Link'))
     
-    is_read = models.BooleanField(default=False, verbose_name='Read')
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Created at')
-    read_at = models.DateTimeField(null=True, blank=True, verbose_name='Read at')
+    is_read = models.BooleanField(default=False, verbose_name=_('Read'))
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name=_('Created at'))
+    read_at = models.DateTimeField(null=True, blank=True, verbose_name=_('Read at'))
     
     class Meta:
         ordering = ['-created_at']
-        verbose_name = 'Notification'
-        verbose_name_plural = 'Notifications'
+        verbose_name = _('Notification')
+        verbose_name_plural = _('Notifications')
         indexes = [
             models.Index(fields=['recipient', '-created_at']),
             models.Index(fields=['is_read']),

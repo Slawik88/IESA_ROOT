@@ -266,7 +266,7 @@ document.addEventListener('DOMContentLoaded', function(){
                 
                 // Add image if present
                 if (previewImg && previewImg.style.display !== 'none' && previewImg.src) {
-                    modalContent += '<div class="mb-3"><img src="' + previewImg.src + '" class="img-fluid rounded" alt="Preview"/></div>';
+                    modalContent += '<div class="mb-3"><img src="' + previewImg.src + '" class="img-fluid rounded" alt="{% trans "Preview" %}"/></div>';
                 }
                 
                 // Add title
@@ -298,7 +298,7 @@ document.addEventListener('DOMContentLoaded', function(){
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title">Post preview</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{% trans 'Close' %}"></button>
             </div>
             <div class="modal-body" id="post-preview-body" style="min-height:200px;"></div>
             <div class="modal-footer">

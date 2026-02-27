@@ -1,4 +1,5 @@
 from django.contrib import admin
+from django.utils.translation import gettext_lazy as _
 from .models import Notification
 
 
@@ -12,10 +13,10 @@ class NotificationAdmin(admin.ModelAdmin):
     ordering = ('-created_at',)
     
     fieldsets = (
-        ('Notification Info', {
+        (_('Notification Info'), {
             'fields': ('recipient', 'sender', 'notification_type', 'title', 'message', 'link')
         }),
-        ('Status', {
+        (_('Status'), {
             'fields': ('is_read', 'created_at', 'read_at')
         }),
     )

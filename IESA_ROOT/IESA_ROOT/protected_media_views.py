@@ -8,6 +8,7 @@ with appropriate CORS and ACL settings. This view is mainly for local developmen
 
 from django.http import FileResponse, Http404, HttpResponseForbidden
 from django.contrib.auth.decorators import login_required
+from django.utils.translation import gettext as _
 import os
 
 
@@ -54,7 +55,7 @@ def serve_protected_media(request, file_path):
     # Other protected files - staff only
     else:
         if not user.is_staff:
-            return HttpResponseForbidden("You don't have permission to access this file")
+            return HttpResponseForbidden(_("You don't have permission to access this file"))
     
     # Serve file from storage
     try:

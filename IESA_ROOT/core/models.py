@@ -1,18 +1,19 @@
 from django.db import models
+from django.utils.translation import gettext_lazy as _
 
 
 class President(models.Model):
     """
     Association president model (only one should exist).
     """
-    name = models.CharField(max_length=255, verbose_name='Full Name')
-    photo = models.ImageField(upload_to='members/', verbose_name='Photo')
-    position = models.CharField(max_length=255, default='President', verbose_name='Position')
-    description = models.TextField(verbose_name='Bio/Message')
+    name = models.CharField(max_length=255, verbose_name=_('Full Name'))
+    photo = models.ImageField(upload_to='members/', verbose_name=_('Photo'))
+    position = models.CharField(max_length=255, default='President', verbose_name=_('Position'))
+    description = models.TextField(verbose_name=_('Bio/Message'))
     
     class Meta:
-        verbose_name = 'President'
-        verbose_name_plural = 'Presidents'
+        verbose_name = _('President')
+        verbose_name_plural = _('Presidents')
         
     def __str__(self):
         return f'{self.name} ({self.position})'
@@ -20,7 +21,7 @@ class President(models.Model):
     def save(self, *args, **kwargs):
         # Ensure only one president exists
         if self.pk is None and President.objects.exists():
-            raise ValueError('Only one President can exist. Delete the existing one first.')
+            raise ValueError(_('Only one President can exist. Delete the existing one first.'))
         super().save(*args, **kwargs)
 
 class Partner(models.Model):
@@ -28,23 +29,23 @@ class Partner(models.Model):
     Association partner model.
     """
     CATEGORY_CHOICES = [
-        ('sponsor', 'Sponsor'),
-        ('media', 'Media Partner'),
-        ('tech', 'Technology Partner'),
-        ('venue', 'Venue Partner'),
-        ('other', 'Other'),
+        ('sponsor', _('Sponsor')),
+        ('media', _('Media Partner')),
+        ('tech', _('Technology Partner')),
+        ('venue', _('Venue Partner')),
+        ('other', _('Other')),
     ]
     
-    name = models.CharField(max_length=255, verbose_name='Partner Name')
-    logo = models.ImageField(upload_to='partners/', verbose_name='Logo')
-    link = models.URLField(blank=True, verbose_name='Website Link')
-    description = models.TextField(blank=True, verbose_name='Description', help_text='Max 300 chars for better display')
-    contract = models.ImageField(upload_to='partners/contracts/', blank=True, null=True, verbose_name='Contract Document/Photo')
-    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES, default='other', verbose_name='Partner Category')
+    name = models.CharField(max_length=255, verbose_name=_('Partner Name'))
+    logo = models.ImageField(upload_to='partners/', verbose_name=_('Logo'))
+    link = models.URLField(blank=True, verbose_name=_('Website Link'))
+    description = models.TextField(blank=True, verbose_name=_('Description'), help_text=_('Max 300 chars for better display'))
+    contract = models.ImageField(upload_to='partners/contracts/', blank=True, null=True, verbose_name=_('Contract Document/Photo'))
+    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES, default='other', verbose_name=_('Partner Category'))
     
     class Meta:
-        verbose_name = 'Partner'
-        verbose_name_plural = 'Partners'
+        verbose_name = _('Partner')
+        verbose_name_plural = _('Partners')
         
     def __str__(self):
         return self.name
@@ -53,14 +54,14 @@ class AssociationMember(models.Model):
     """
     Association member model (excluding president).
     """
-    name = models.CharField(max_length=255, verbose_name='Full Name')
-    photo = models.ImageField(upload_to='members/', verbose_name='Photo')
-    position = models.CharField(max_length=255, verbose_name='Position')
-    description = models.TextField(verbose_name='Short Bio/Description')
+    name = models.CharField(max_length=255, verbose_name=_('Full Name'))
+    photo = models.ImageField(upload_to='members/', verbose_name=_('Photo'))
+    position = models.CharField(max_length=255, verbose_name=_('Position'))
+    description = models.TextField(verbose_name=_('Short Bio/Description'))
     
     class Meta:
-        verbose_name = 'Association Member'
-        verbose_name_plural = 'Association Members'
+        verbose_name = _('Association Member')
+        verbose_name_plural = _('Association Members')
         
     def __str__(self):
         return self.name
@@ -114,14 +115,14 @@ class SocialNetwork(models.Model):
         'other': 'fas fa-link',
     }
     
-    name = models.CharField(max_length=50, choices=SOCIAL_CHOICES, unique=True, verbose_name='Social Network')
-    url = models.URLField(verbose_name='Profile URL')
-    is_active = models.BooleanField(default=True, verbose_name='Active')
-    order = models.IntegerField(default=0, verbose_name='Display Order', help_text='Lower numbers appear first')
+    name = models.CharField(max_length=50, choices=SOCIAL_CHOICES, unique=True, verbose_name=_('Social Network'))
+    url = models.URLField(verbose_name=_('Profile URL'))
+    is_active = models.BooleanField(default=True, verbose_name=_('Active'))
+    order = models.IntegerField(default=0, verbose_name=_('Display Order'), help_text=_('Lower numbers appear first'))
     
     class Meta:
-        verbose_name = 'Social Network'
-        verbose_name_plural = 'Social Networks'
+        verbose_name = _('Social Network')
+        verbose_name_plural = _('Social Networks')
         ordering = ['order', 'name']
     
     def __str__(self):
@@ -137,28 +138,28 @@ class CoreProduct(models.Model):
     Core IESA products/programs that appear above events on homepage.
     Examples: Kids extreme scout camp, Weekend water sports, Yachting with diving, etc.
     """
-    title = models.CharField(max_length=255, verbose_name='Название продукта')
-    description = models.TextField(verbose_name='Описание продукта')
-    duration = models.CharField(max_length=200, blank=True, verbose_name='Длительность', help_text='Например: 1-2 недели, с пятницы по воскресенье')
-    location = models.CharField(max_length=300, blank=True, verbose_name='Место проведения', help_text='Например: тёплые страны, берег моря')
-    image = models.ImageField(upload_to='products/', blank=True, null=True, verbose_name='Изображение продукта')
-    icon = models.CharField(max_length=100, default='fas fa-star', verbose_name='Font Awesome иконка', help_text='Например: fas fa-child, fas fa-water, fas fa-ship')
+    title = models.CharField(max_length=255, verbose_name=_('Product name'))
+    description = models.TextField(verbose_name=_('Product description'))
+    duration = models.CharField(max_length=200, blank=True, verbose_name=_('Duration'), help_text=_('E.g.: 1-2 weeks, Friday to Sunday'))
+    location = models.CharField(max_length=300, blank=True, verbose_name=_('Location'), help_text=_('E.g.: warm countries, seaside'))
+    image = models.ImageField(upload_to='products/', blank=True, null=True, verbose_name=_('Product image'))
+    icon = models.CharField(max_length=100, default='fas fa-star', verbose_name=_('Font Awesome icon'), help_text=_('E.g.: fas fa-child, fas fa-water, fas fa-ship'))
     
     # Additional features/options
-    features = models.TextField(blank=True, verbose_name='Дополнительные особенности', help_text='Каждая особенность с новой строки')
-    price_info = models.CharField(max_length=300, blank=True, verbose_name='Информация о цене')
+    features = models.TextField(blank=True, verbose_name=_('Additional features'), help_text=_('One feature per line'))
+    price_info = models.CharField(max_length=300, blank=True, verbose_name=_('Price info'))
     
     # Display settings
-    is_active = models.BooleanField(default=True, verbose_name='Активен')
-    order = models.IntegerField(default=0, verbose_name='Порядок отображения', help_text='Меньшее число = выше на странице')
+    is_active = models.BooleanField(default=True, verbose_name=_('Active'))
+    order = models.IntegerField(default=0, verbose_name=_('Display order'), help_text=_('Lower number = higher on page'))
     
     # Dates
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата создания')
-    updated_at = models.DateTimeField(auto_now=True, verbose_name='Дата обновления')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name=_('Created at'))
+    updated_at = models.DateTimeField(auto_now=True, verbose_name=_('Updated at'))
     
     class Meta:
-        verbose_name = 'Основной продукт IESA'
-        verbose_name_plural = 'Основные продукты IESA'
+        verbose_name = _('Core IESA product')
+        verbose_name_plural = _('Core IESA products')
         ordering = ['order', '-created_at']
         
     def __str__(self):
@@ -177,40 +178,40 @@ class MemberBenefit(models.Model):
     Examples: Medical insurance discount, Store discounts, Service discounts, etc.
     """
     CATEGORY_CHOICES = [
-        ('medical', 'Медицинское обслуживание'),
-        ('shopping', 'Покупки и магазины'),
-        ('services', 'Услуги членов ассоциации'),
-        ('events', 'Спортивные мероприятия'),
-        ('advertising', 'Реклама и продвижение'),
-        ('education', 'Обучение и курсы'),
-        ('travel', 'Путешествия и туризм'),
-        ('other', 'Другое'),
+        ('medical', _('Medical services')),
+        ('shopping', _('Shopping & retail')),
+        ('services', _('Member services')),
+        ('events', _('Sports events')),
+        ('advertising', _('Advertising & promotion')),
+        ('education', _('Education & courses')),
+        ('travel', _('Travel & tourism')),
+        ('other', _('Other')),
     ]
     
-    title = models.CharField(max_length=255, verbose_name='Название преимущества')
-    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES, default='other', verbose_name='Категория')
-    description = models.TextField(verbose_name='Описание преимущества')
-    discount_info = models.CharField(max_length=200, blank=True, verbose_name='Информация о скидке', help_text='Например: 20%, 15% на первый уровень')
+    title = models.CharField(max_length=255, verbose_name=_('Benefit name'))
+    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES, default='other', verbose_name=_('Category'))
+    description = models.TextField(verbose_name=_('Benefit description'))
+    discount_info = models.CharField(max_length=200, blank=True, verbose_name=_('Discount info'), help_text=_('E.g.: 20%, 15% on first level'))
     
     # Icons and colors
-    icon = models.CharField(max_length=100, default='fas fa-gift', verbose_name='Font Awesome иконка')
-    color = models.CharField(max_length=50, default='primary', verbose_name='Цвет', help_text='primary, success, info, warning, danger или hex код')
+    icon = models.CharField(max_length=100, default='fas fa-gift', verbose_name=_('Font Awesome icon'))
+    color = models.CharField(max_length=50, default='primary', verbose_name=_('Color'), help_text=_('primary, success, info, warning, danger or hex code'))
     
     # Display settings
-    is_active = models.BooleanField(default=True, verbose_name='Активно')
-    order = models.IntegerField(default=0, verbose_name='Порядок отображения')
+    is_active = models.BooleanField(default=True, verbose_name=_('Active'))
+    order = models.IntegerField(default=0, verbose_name=_('Display order'))
     
     # Additional info
-    partner_info = models.CharField(max_length=300, blank=True, verbose_name='Партнёр/поставщик услуги')
-    terms = models.TextField(blank=True, verbose_name='Условия получения', help_text='Как член ассоциации может получить эту скидку')
+    partner_info = models.CharField(max_length=300, blank=True, verbose_name=_('Partner/service provider'))
+    terms = models.TextField(blank=True, verbose_name=_('Terms'), help_text=_('How a member can receive this discount'))
     
     # Dates
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата создания')
-    updated_at = models.DateTimeField(auto_now=True, verbose_name='Дата обновления')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name=_('Created at'))
+    updated_at = models.DateTimeField(auto_now=True, verbose_name=_('Updated at'))
     
     class Meta:
-        verbose_name = 'Преимущество члена ассоциации'
-        verbose_name_plural = 'Преимущества членов ассоциации'
+        verbose_name = _('Member benefit')
+        verbose_name_plural = _('Member benefits')
         ordering = ['order', 'category', '-created_at']
         
     def __str__(self):

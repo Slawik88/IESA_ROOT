@@ -2,6 +2,7 @@ from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.http import HttpResponse, HttpResponseNotAllowed
+from django.utils.translation import gettext as _
 from .models import Notification
 
 @login_required
@@ -63,7 +64,7 @@ def mark_all_read(request):
     # Check if it's an HTMX request
     if request.headers.get('HX-Request'):
         from django.http import HttpResponse
-        return HttpResponse('<span class="text-muted small">All notifications marked as read</span>')
+        return HttpResponse(f'<span class="text-muted small">{_("All notifications marked as read")}</span>')
     
     return redirect('notifications:notification_list')
 

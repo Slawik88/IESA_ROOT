@@ -1,71 +1,72 @@
 """User app constants and configuration data."""
+from django.utils.translation import gettext_lazy as _
 
 # Activity level definitions
 # FIX: Extracted from views.py to make it reusable and testable
 ACTIVITY_LEVELS = [
     {
-        'name': 'Beginner',
+        'name': _('Beginner'),
         'icon': 'leaf',
         'color': 'secondary',
         'min_points': 0,
         'max_points': 50,
-        'description': 'Just starting your journey in the IESA community',
+        'description': _('Just starting your journey in the IESA community'),
         'tips': [
-            'Create your first blog post (10 points)',
-            'Leave comments on other posts (1 point each)',
-            'Engage with the community',
+            _('Create your first blog post (10 points)'),
+            _('Leave comments on other posts (1 point each)'),
+            _('Engage with the community'),
         ]
     },
     {
-        'name': 'Intermediate',
+        'name': _('Intermediate'),
         'icon': 'fire',
         'color': 'success',
         'min_points': 50,
         'max_points': 200,
-        'description': 'You\'re becoming an active member',
+        'description': _('You\'re becoming an active member'),
         'tips': [
-            'Publish 5-10 quality posts (10 points each)',
-            'Receive 50+ likes on your posts (2 points each)',
-            'Participate in discussions',
+            _('Publish 5-10 quality posts (10 points each)'),
+            _('Receive 50+ likes on your posts (2 points each)'),
+            _('Participate in discussions'),
         ]
     },
     {
-        'name': 'Advanced',
+        'name': _('Advanced'),
         'icon': 'rocket',
         'color': 'info',
         'min_points': 200,
         'max_points': 500,
-        'description': 'You\'re a valuable contributor',
+        'description': _('You\'re a valuable contributor'),
         'tips': [
-            'Publish 15-25 popular posts',
-            'Accumulate 100+ total likes',
-            'Build a strong reputation',
+            _('Publish 15-25 popular posts'),
+            _('Accumulate 100+ total likes'),
+            _('Build a strong reputation'),
         ]
     },
     {
-        'name': 'Expert',
+        'name': _('Expert'),
         'icon': 'star',
         'color': 'warning',
         'min_points': 500,
         'max_points': 1000,
-        'description': 'You\'re a recognized authority',
+        'description': _('You\'re a recognized authority'),
         'tips': [
-            'Publish 50+ high-quality posts',
-            'Achieve 300+ total likes',
-            'Mentor other members',
+            _('Publish 50+ high-quality posts'),
+            _('Achieve 300+ total likes'),
+            _('Mentor other members'),
         ]
     },
     {
-        'name': 'Legend',
+        'name': _('Legend'),
         'icon': 'crown',
         'color': 'danger',
         'min_points': 1000,
-        'max_points': 'Unlimited',
-        'description': 'You\'re a pillar of the IESA community',
+        'max_points': _('Unlimited'),
+        'description': _('You\'re a pillar of the IESA community'),
         'tips': [
-            'Maintain extraordinary engagement',
-            'Lead by example',
-            'Shape the future of IESA',
+            _('Maintain extraordinary engagement'),
+            _('Lead by example'),
+            _('Shape the future of IESA'),
         ]
     },
 ]

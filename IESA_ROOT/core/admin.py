@@ -1,5 +1,6 @@
 from django.contrib import admin
 from django.utils.html import format_html
+from django.utils.translation import gettext_lazy as _
 from django_ckeditor_5.widgets import CKEditor5Widget
 from django import forms
 from modeltranslation.admin import TabbedTranslationAdmin
@@ -9,7 +10,7 @@ from . import translation  # noqa: F401
 
 # Формы с CKEditor для всех моделей с описаниями
 class PresidentAdminForm(forms.ModelForm):
-	description = forms.CharField(widget=CKEditor5Widget(), required=False, label='Описание')
+	description = forms.CharField(widget=CKEditor5Widget(), required=False, label=_('Description'))
 	
 	class Meta:
 		model = President
@@ -17,7 +18,7 @@ class PresidentAdminForm(forms.ModelForm):
 
 
 class PartnerAdminForm(forms.ModelForm):
-	description = forms.CharField(widget=CKEditor5Widget(), required=False, label='Описание')
+	description = forms.CharField(widget=CKEditor5Widget(), required=False, label=_('Description'))
 	
 	class Meta:
 		model = Partner
@@ -25,8 +26,8 @@ class PartnerAdminForm(forms.ModelForm):
 
 
 class CoreProductAdminForm(forms.ModelForm):
-	description = forms.CharField(widget=CKEditor5Widget(), required=False, label='Описание')
-	features = forms.CharField(widget=CKEditor5Widget(), required=False, label='Особенности')
+	description = forms.CharField(widget=CKEditor5Widget(), required=False, label=_('Description'))
+	features = forms.CharField(widget=CKEditor5Widget(), required=False, label=_('Features'))
 	
 	class Meta:
 		model = CoreProduct
@@ -34,13 +35,13 @@ class CoreProductAdminForm(forms.ModelForm):
 
 
 class MemberBenefitAdminForm(forms.ModelForm):
-	description = forms.CharField(widget=CKEditor5Widget(), required=False, label='Описание')
-	terms = forms.CharField(widget=CKEditor5Widget(), required=False, label='Условия')
+	description = forms.CharField(widget=CKEditor5Widget(), required=False, label=_('Description'))
+	terms = forms.CharField(widget=CKEditor5Widget(), required=False, label=_('Terms'))
 	
 	# Добавляем детальные подсказки для иконок и цветов
 	icon = forms.CharField(
 		max_length=100,
-		label='Font Awesome иконка',
+		label=_('Font Awesome icon'),
 		help_text=format_html('''
 			<div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-top: 10px; border-left: 4px solid #dc2626;">
 				<h4 style="margin-top: 0; color: #dc2626;">📚 Примеры иконок Font Awesome</h4>
@@ -67,7 +68,7 @@ class MemberBenefitAdminForm(forms.ModelForm):
 	
 	color = forms.CharField(
 		max_length=50,
-		label='Цвет',
+		label=_('Color'),
 		help_text=format_html('''
 			<div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-top: 10px; border-left: 4px solid #dc2626;">
 				<h4 style="margin-top: 0; color: #dc2626;">🎨 Варианты цветов</h4>
@@ -133,7 +134,7 @@ class PartnerAdmin(TabbedTranslationAdmin):
 		if obj.logo:
 			return format_html('<img src="{}" style="width:90px;height:40px;object-fit:contain;border-radius:6px;background:#fff;"/>', obj.logo.url)
 		return '-'
-	logo_tag.short_description = 'Логотип'
+	logo_tag.short_description = _('Logo')
 
 
 @admin.register(AssociationMember)
@@ -145,7 +146,7 @@ class AssociationMemberAdmin(TabbedTranslationAdmin):
 		if obj.photo:
 			return format_html('<img src="{}" style="width:60px;height:60px;object-fit:cover;border-radius:50%;"/>', obj.photo.url)
 		return '-'
-	photo_tag.short_description = 'Фото'
+	photo_tag.short_description = _('Photo')
 
 
 @admin.register(SocialNetwork)
@@ -170,16 +171,16 @@ class CoreProductAdmin(TabbedTranslationAdmin):
 	readonly_fields = ('created_at', 'updated_at')
 	
 	fieldsets = (
-		('Основная информация', {
+		(_('Basic information'), {
 			'fields': ('title', 'description', 'icon', 'image')
 		}),
-		('Детали программы', {
+		(_('Program details'), {
 			'fields': ('duration', 'location', 'features', 'price_info')
 		}),
-		('Настройки отображения', {
+		(_('Display settings'), {
 			'fields': ('is_active', 'order')
 		}),
-		('Служебная информация', {
+		(_('Service information'), {
 			'fields': ('created_at', 'updated_at'),
 			'classes': ('collapse',)
 		}),
@@ -187,7 +188,7 @@ class CoreProductAdmin(TabbedTranslationAdmin):
 	
 	def icon_preview(self, obj):
 		return format_html('<i class="{}" style="font-size: 1.5rem; color: #667eea;"></i>', obj.icon)
-	icon_preview.short_description = 'Иконка'
+	icon_preview.short_description = _('Icon')
 
 
 @admin.register(MemberBenefit)
@@ -200,19 +201,19 @@ class MemberBenefitAdmin(TabbedTranslationAdmin):
 	readonly_fields = ('created_at', 'updated_at')
 	
 	fieldsets = (
-		('Основная информация', {
+		(_('Basic information'), {
 			'fields': ('title', 'category', 'description', 'discount_info')
 		}),
-		('Дизайн', {
+		(_('Design'), {
 			'fields': ('icon', 'color')
 		}),
-		('Дополнительно', {
+		(_('Additional'), {
 			'fields': ('partner_info', 'terms')
 		}),
-		('Настройки отображения', {
+		(_('Display settings'), {
 			'fields': ('is_active', 'order')
 		}),
-		('Служебная информация', {
+		(_('Service information'), {
 			'fields': ('created_at', 'updated_at'),
 			'classes': ('collapse',)
 		}),
@@ -220,4 +221,4 @@ class MemberBenefitAdmin(TabbedTranslationAdmin):
 	
 	def icon_preview(self, obj):
 		return format_html('<i class="{}" style="font-size: 1.5rem; color: {};"></i>', obj.icon, obj.color if obj.color.startswith('#') else '#28a745')
-	icon_preview.short_description = 'Иконка'
+	icon_preview.short_description = _('Icon')
