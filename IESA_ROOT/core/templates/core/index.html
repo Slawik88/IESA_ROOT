@@ -1,24 +1,874 @@
 {% extends "base.html" %}
 {% load static i18n %}
 
-{% block title %}{% trans "Home" %} | IESA{% endblock %}
+{% block title %}IESA — Extreme Sports Association{% endblock %}
+
+{% block extra_css %}
+<style>
+/* ================================================================
+   IESA HOMEPAGE — FULL REDESIGN 2026
+================================================================ */
+
+/* ── GLOBALS ──────────────────────────────────────────────────── */
+.hp-section { padding: 7rem 0; }
+.hp-label {
+    font-size: .72rem; letter-spacing: .2em; font-weight: 700; text-transform: uppercase;
+    color: var(--primary); display: inline-flex; align-items: center; gap: .5rem; margin-bottom: 1rem;
+}
+.hp-label::before, .hp-label::after {
+    content: ''; flex: 1 1 24px; height: 1px; background: var(--primary); opacity: .4;
+}
+.hp-h2 {
+    font-size: clamp(2rem, 4vw, 3.2rem); font-weight: 900; line-height: 1.08;
+    color: var(--text-primary); letter-spacing: -.03em;
+}
+.hp-h2 span { color: var(--primary); }
+.hp-sub { font-size: 1.05rem; color: var(--text-muted); max-width: 540px; margin: .75rem auto 0; }
+.hp-divider { width: 48px; height: 3px; background: var(--primary); border-radius: 2px; margin: 1.25rem auto 0; }
+.hp-container { max-width: 1200px; margin: 0 auto; padding: 0 1.5rem; }
+
+/* ── REVEAL ────────────────────────────────────────────────────── */
+[data-reveal] { opacity: 0; transform: translateY(32px); transition: opacity .65s cubic-bezier(.22,1,.36,1), transform .65s cubic-bezier(.22,1,.36,1); }
+[data-reveal].revealed { opacity: 1; transform: none; }
+[data-delay="1"] { transition-delay: .1s !important; }
+[data-delay="2"] { transition-delay: .2s !important; }
+[data-delay="3"] { transition-delay: .3s !important; }
+[data-delay="4"] { transition-delay: .4s !important; }
+[data-delay="5"] { transition-delay: .5s !important; }
+
+/* ── MAGNETIC BUTTON ───────────────────────────────────────────── */
+.mag-btn { transition: transform .25s cubic-bezier(.22,1,.36,1), box-shadow .25s; }
+
+/* ════════════════════════════════════════════════════════════════
+   1. HERO
+════════════════════════════════════════════════════════════════ */
+#hp-hero {
+    position: relative; min-height: 100vh;
+    background: #0a0a0f; overflow: hidden;
+    display: flex; align-items: center;
+}
+#hp-hero-canvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; }
+#hp-hero::before {
+    content: ''; position: absolute; top: -200px; left: -200px;
+    width: 700px; height: 700px;
+    background: radial-gradient(circle, rgba(220,38,38,.22) 0%, transparent 70%);
+    pointer-events: none; z-index: 0;
+}
+#hp-hero::after {
+    content: ''; position: absolute; bottom: -100px; right: -100px;
+    width: 500px; height: 500px;
+    background: radial-gradient(circle, rgba(37,99,235,.15) 0%, transparent 70%);
+    pointer-events: none; z-index: 0;
+}
+.hero-inner { position: relative; z-index: 1; width: 100%; }
+.hero-kicker {
+    display: inline-flex; align-items: center; gap: .5rem;
+    background: rgba(220,38,38,.12); border: 1px solid rgba(220,38,38,.3);
+    border-radius: 50px; padding: .35rem 1rem;
+    font-size: .78rem; font-weight: 700; letter-spacing: .14em; text-transform: uppercase;
+    color: #f87171; margin-bottom: 1.75rem;
+}
+.hero-kicker i { animation: pulse-dot 2s infinite; }
+@keyframes pulse-dot { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(1.3)} }
+.hero-h1 {
+    font-size: clamp(3rem, 7vw, 6rem); font-weight: 900; line-height: .95;
+    letter-spacing: -.04em; color: #fff; margin-bottom: 1.25rem;
+}
+.hero-h1 .static-line { display: block; }
+.hero-h1 .dynamic-wrap { display: inline-block; overflow: hidden; vertical-align: bottom; color: var(--primary); }
+.hero-h1 .dynamic-word { display: inline-block; animation: word-in .55s cubic-bezier(.22,1,.36,1) forwards; }
+@keyframes word-in  { from{opacity:0;transform:translateY(60%) skewY(6deg)} to{opacity:1;transform:none} }
+.hero-h1 .dynamic-word.exiting { animation: word-out .4s cubic-bezier(.55,0,1,.45) forwards; }
+@keyframes word-out { from{opacity:1;transform:none} to{opacity:0;transform:translateY(-60%) skewY(-6deg)} }
+.hero-desc { font-size: 1.15rem; color: rgba(255,255,255,.55); max-width: 560px; margin-bottom: 2.5rem; line-height: 1.7; }
+.hero-ctas { display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 4rem; }
+.hero-btn-p {
+    display: inline-flex; align-items: center; gap: .6rem;
+    background: var(--primary); color: #fff; padding: .9rem 2rem; border-radius: 12px;
+    font-weight: 700; font-size: .95rem; text-decoration: none; border: none;
+    box-shadow: 0 4px 28px rgba(220,38,38,.4); transition: box-shadow .25s, transform .25s;
+}
+.hero-btn-p:hover { box-shadow: 0 8px 40px rgba(220,38,38,.6); color: #fff; }
+.hero-btn-g {
+    display: inline-flex; align-items: center; gap: .6rem;
+    background: transparent; color: #fff; padding: .9rem 2rem; border-radius: 12px;
+    font-weight: 700; font-size: .95rem; text-decoration: none;
+    border: 1.5px solid rgba(255,255,255,.2); transition: border-color .25s, background .25s;
+}
+.hero-btn-g:hover { border-color: rgba(255,255,255,.6); background: rgba(255,255,255,.05); color: #fff; }
+.hero-stats { display: flex; gap: 3rem; flex-wrap: wrap; padding-top: 2.5rem; border-top: 1px solid rgba(255,255,255,.1); }
+.hero-stat-num { font-size: 2.4rem; font-weight: 900; line-height: 1; color: #fff; letter-spacing: -.04em; }
+.hero-stat-num .cnt { color: var(--primary); }
+.hero-stat-label { font-size: .78rem; font-weight: 500; color: rgba(255,255,255,.4); text-transform: uppercase; letter-spacing: .1em; margin-top: .2rem; }
+.hero-scroll {
+    position: absolute; bottom: 2.5rem; left: 50%; transform: translateX(-50%);
+    z-index: 1; display: flex; flex-direction: column; align-items: center; gap: .4rem;
+    color: rgba(255,255,255,.3); font-size: .7rem; letter-spacing: .12em; text-transform: uppercase;
+}
+.hero-scroll .s-line { width: 1px; height: 48px; background: linear-gradient(to bottom, rgba(255,255,255,.3), transparent); animation: s-ln 2.2s ease-in-out infinite; }
+@keyframes s-ln { 0%{transform:scaleY(0);transform-origin:top} 50%{transform:scaleY(1);transform-origin:top} 51%{transform-origin:bottom} 100%{transform:scaleY(0);transform-origin:bottom} }
+
+/* ════════════════════════════════════════════════════════════════
+   2. OFFERS
+════════════════════════════════════════════════════════════════ */
+#hp-offers { background: #fff; }
+.offers-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 1.5rem; margin-top: 4rem; }
+.offer-card-v2 {
+    position: relative; overflow: hidden; border-radius: 20px;
+    border: 1.5px solid var(--border-color); background: #fff; padding: 2.5rem 2rem 2rem;
+    transition: border-color .3s, box-shadow .3s, transform .3s; will-change: transform;
+}
+.offer-card-v2:hover { border-color: var(--primary); box-shadow: 0 20px 60px rgba(220,38,38,.1); transform: translateY(-4px); }
+.offer-card-v2::before { content:''; position:absolute; inset:0; background:linear-gradient(135deg,rgba(220,38,38,.04) 0%,transparent 60%); opacity:0; transition:opacity .3s; pointer-events:none; }
+.offer-card-v2:hover::before { opacity:1; }
+.offer-num { position:absolute; top:1.5rem; right:1.75rem; font-size:5rem; font-weight:900; line-height:1; color:rgba(0,0,0,.04); letter-spacing:-.05em; pointer-events:none; user-select:none; transition:color .3s; }
+.offer-card-v2:hover .offer-num { color:rgba(220,38,38,.06); }
+.offer-icon-v2 { width:56px; height:56px; border-radius:14px; background:var(--primary-light); display:flex; align-items:center; justify-content:center; margin-bottom:1.25rem; font-size:1.5rem; color:var(--primary); transition:background .3s, transform .3s; }
+.offer-card-v2:hover .offer-icon-v2 { background:var(--primary); color:#fff; transform:scale(1.08) rotate(-4deg); }
+.offer-badge-v2 { display:inline-flex; align-items:center; gap:.3rem; background:var(--gray-100); border-radius:50px; padding:.25rem .75rem; font-size:.72rem; font-weight:700; color:var(--text-secondary); text-transform:uppercase; letter-spacing:.1em; margin-bottom:.75rem; }
+.offer-title-v2 { font-size:1.2rem; font-weight:800; color:var(--text-primary); margin-bottom:.6rem; letter-spacing:-.02em; }
+.offer-text-v2 { font-size:.9rem; color:var(--text-muted); line-height:1.65; margin-bottom:1.25rem; }
+.offer-meta-v2 { list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:.35rem; }
+.offer-meta-v2 li { display:flex; align-items:center; gap:.5rem; font-size:.82rem; color:var(--text-secondary); }
+.offer-meta-v2 i { color:var(--primary); width:14px; }
+.offers-footer { display:flex; gap:1rem; flex-wrap:wrap; justify-content:center; margin-top:3rem; }
+
+/* ════════════════════════════════════════════════════════════════
+   3. STATS BAND
+════════════════════════════════════════════════════════════════ */
+#hp-stats { background:#0a0a0f; padding:5rem 0; position:relative; overflow:hidden; }
+#hp-stats::before { content:''; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:800px; height:300px; background:radial-gradient(ellipse,rgba(220,38,38,.18) 0%,transparent 70%); pointer-events:none; }
+.stats-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:1px; border:1px solid rgba(255,255,255,.06); border-radius:20px; overflow:hidden; position:relative; z-index:1; }
+.stat-cell { padding:2.5rem 2rem; text-align:center; background:rgba(255,255,255,.025); border-right:1px solid rgba(255,255,255,.06); position:relative; overflow:hidden; transition:background .3s; }
+.stat-cell:last-child { border-right:none; }
+.stat-cell:hover { background:rgba(220,38,38,.07); }
+.stat-cell::after { content:''; position:absolute; bottom:0; left:50%; transform:translateX(-50%); width:0; height:2px; background:var(--primary); transition:width .4s cubic-bezier(.22,1,.36,1); }
+.stat-cell:hover::after { width:60%; }
+.stat-value { font-size:3.2rem; font-weight:900; line-height:1; color:#fff; letter-spacing:-.05em; margin-bottom:.4rem; font-variant-numeric:tabular-nums; }
+.stat-unit { font-size:1.5rem; color:rgba(255,255,255,.35); }
+.stat-label { font-size:.75rem; color:rgba(255,255,255,.4); text-transform:uppercase; letter-spacing:.15em; font-weight:600; }
+
+/* ════════════════════════════════════════════════════════════════
+   4. MISSION SPLIT
+════════════════════════════════════════════════════════════════ */
+#hp-mission { background:#fff; }
+.mission-grid { display:grid; grid-template-columns:1fr 1fr; gap:5rem; align-items:center; }
+.mission-lhs .hp-label { justify-content:flex-start; }
+.mission-lhs .hp-label::after { display:none; }
+.mission-lhs .hp-h2 { text-align:left; max-width:480px; }
+.mission-lhs .hp-sub { text-align:left; margin:.75rem 0 0; }
+.mission-list { list-style:none; padding:0; margin:2rem 0 2.5rem; display:flex; flex-direction:column; gap:.9rem; }
+.mission-list li { display:flex; align-items:flex-start; gap:.9rem; font-size:.95rem; color:var(--text-secondary); line-height:1.55; }
+.mission-list .mi { width:30px; height:30px; border-radius:8px; background:var(--primary-light); display:flex; align-items:center; justify-content:center; color:var(--primary); font-size:.8rem; flex-shrink:0; margin-top:.1rem; }
+.mission-panel { border-radius:20px; padding:2rem; border:1.5px solid var(--border-color); transition:border-color .3s, transform .3s, box-shadow .3s; }
+.mission-panel:hover { border-color:var(--primary); transform:translateY(-3px); box-shadow:0 12px 40px rgba(220,38,38,.08); }
+.mission-panel+.mission-panel { margin-top:1.25rem; }
+.mp-icon { width:44px; height:44px; border-radius:10px; background:var(--primary-light); display:flex; align-items:center; justify-content:center; color:var(--primary); font-size:1.1rem; margin-bottom:.9rem; }
+.mp-title { font-size:1rem; font-weight:800; color:var(--text-primary); margin-bottom:.4rem; }
+.mp-text { font-size:.88rem; color:var(--text-muted); line-height:1.6; }
+
+/* ════════════════════════════════════════════════════════════════
+   5. PRODUCTS
+════════════════════════════════════════════════════════════════ */
+#hp-products { background:var(--gray-50); }
+.products-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:1.5rem; margin-top:3rem; }
+.prod-card { border-radius:20px; overflow:hidden; background:#fff; border:1.5px solid var(--border-color); transition:transform .3s, box-shadow .3s, border-color .3s; }
+.prod-card:hover { transform:translateY(-5px); box-shadow:0 24px 60px rgba(0,0,0,.1); border-color:var(--primary); }
+.prod-img-wrap { position:relative; aspect-ratio:16/9; overflow:hidden; }
+.prod-img-wrap img { width:100%; height:100%; object-fit:cover; transition:transform .6s cubic-bezier(.22,1,.36,1); }
+.prod-card:hover .prod-img-wrap img { transform:scale(1.06); }
+.prod-placeholder { width:100%; height:100%; background:linear-gradient(135deg,#dc2626 0%,#991b1b 100%); display:flex; align-items:center; justify-content:center; font-size:3rem; color:rgba(255,255,255,.35); }
+.prod-flag { position:absolute; top:1rem; left:1rem; background:rgba(10,10,15,.75); backdrop-filter:blur(6px); border-radius:6px; padding:.3rem .7rem; font-size:.72rem; font-weight:700; color:#fff; letter-spacing:.08em; border:1px solid rgba(255,255,255,.12); }
+.prod-body { padding:1.5rem; }
+.prod-title { font-size:1.1rem; font-weight:800; color:var(--text-primary); margin-bottom:.5rem; letter-spacing:-.02em; }
+.prod-desc { font-size:.88rem; color:var(--text-muted); line-height:1.6; margin-bottom:1rem; }
+.prod-tags { display:flex; flex-wrap:wrap; gap:.4rem; margin-bottom:1.2rem; }
+.prod-tag { display:inline-flex; align-items:center; gap:.3rem; padding:.25rem .7rem; border-radius:50px; background:var(--gray-100); font-size:.72rem; font-weight:600; color:var(--text-secondary); }
+.prod-tag i { color:var(--primary); }
+.prod-feat-list { list-style:none; padding:0; margin:0 0 1rem; display:flex; flex-direction:column; gap:.3rem; }
+.prod-feat-list li { display:flex; align-items:center; gap:.5rem; font-size:.82rem; color:var(--text-secondary); }
+.prod-feat-list i { color:var(--success); font-size:.75rem; }
+.prod-price { font-size:.82rem; font-weight:600; color:var(--text-primary); background:var(--primary-light); border-radius:6px; padding:.35rem .7rem; display:inline-flex; align-items:center; gap:.35rem; }
+.prod-link { display:inline-flex; align-items:center; gap:.5rem; font-size:.88rem; font-weight:700; color:var(--primary); text-decoration:none; border-bottom:1.5px solid transparent; transition:border-color .2s; }
+.prod-link:hover { border-color:var(--primary); }
+
+/* ════════════════════════════════════════════════════════════════
+   6. EVENTS
+════════════════════════════════════════════════════════════════ */
+#hp-events { background:#fff; }
+.events-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:1.5rem; margin-top:3rem; }
+.ev-card { border-radius:20px; overflow:hidden; background:#fff; border:1.5px solid var(--border-color); cursor:pointer; text-decoration:none; color:inherit; display:flex; flex-direction:column; transition:transform .3s, box-shadow .3s, border-color .3s; }
+.ev-card:hover { transform:translateY(-5px); box-shadow:0 24px 60px rgba(0,0,0,.1); border-color:var(--primary); color:inherit; text-decoration:none; }
+.ev-img { aspect-ratio:16/9; overflow:hidden; position:relative; }
+.ev-img img { width:100%; height:100%; object-fit:cover; transition:transform .55s cubic-bezier(.22,1,.36,1); }
+.ev-card:hover .ev-img img { transform:scale(1.07); }
+.ev-img-ph { width:100%; height:100%; background:linear-gradient(135deg,#1e3a8a 0%,#312e81 100%); display:flex; align-items:center; justify-content:center; color:rgba(255,255,255,.3); font-size:3rem; }
+.ev-date-badge { position:absolute; top:1rem; left:1rem; background:var(--primary); border-radius:8px; padding:.3rem .75rem; font-size:.72rem; font-weight:800; color:#fff; letter-spacing:.06em; text-transform:uppercase; }
+.ev-body { padding:1.4rem; flex:1; display:flex; flex-direction:column; }
+.ev-meta { display:flex; flex-wrap:wrap; gap:.5rem; margin-bottom:.75rem; }
+.ev-pill { display:inline-flex; align-items:center; gap:.3rem; padding:.2rem .6rem; border-radius:50px; background:var(--gray-100); font-size:.72rem; font-weight:600; color:var(--text-secondary); }
+.ev-title { font-size:1rem; font-weight:800; color:var(--text-primary); margin-bottom:.5rem; letter-spacing:-.018em; line-height:1.3; }
+.ev-desc { font-size:.83rem; color:var(--text-muted); line-height:1.6; flex:1; }
+.ev-foot { display:flex; align-items:center; justify-content:space-between; padding:1rem 1.4rem; border-top:1px solid var(--border-color); font-size:.82rem; font-weight:700; color:var(--primary); }
+.ev-foot i { transition:transform .25s; }
+.ev-card:hover .ev-foot i { transform:translateX(4px); }
+
+/* ════════════════════════════════════════════════════════════════
+   7. ABOUT / TEAM — dark
+════════════════════════════════════════════════════════════════ */
+#hp-about { background:#0a0a0f; color:#fff; }
+#hp-about .hp-label { color:#f87171; }
+#hp-about .hp-label::before, #hp-about .hp-label::after { background:#f87171; opacity:.25; }
+#hp-about .hp-h2 { color:#fff; }
+#hp-about .hp-sub { color:rgba(255,255,255,.5); }
+.pres-hero { display:grid; grid-template-columns:280px 1fr; gap:3.5rem; align-items:center; margin:3rem 0; background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.08); border-radius:24px; padding:3rem; position:relative; overflow:hidden; }
+.pres-hero::before { content:''; position:absolute; top:0; right:0; width:280px; height:280px; background:radial-gradient(circle,rgba(220,38,38,.12) 0%,transparent 70%); pointer-events:none; }
+.pres-photo { width:200px; height:200px; border-radius:50%; object-fit:cover; border:3px solid rgba(220,38,38,.5); box-shadow:0 0 0 8px rgba(220,38,38,.08); margin:0 auto; display:block; }
+.pres-init { width:200px; height:200px; border-radius:50%; background:linear-gradient(135deg,#dc2626,#991b1b); display:flex; align-items:center; justify-content:center; font-size:4rem; font-weight:900; color:#fff; border:3px solid rgba(220,38,38,.5); box-shadow:0 0 0 8px rgba(220,38,38,.08); margin:0 auto; }
+.pres-kicker { font-size:.7rem; font-weight:700; color:#f87171; letter-spacing:.16em; text-transform:uppercase; margin-bottom:.6rem; }
+.pres-name { font-size:2rem; font-weight:900; color:#fff; margin-bottom:.3rem; letter-spacing:-.03em; }
+.pres-role { font-size:.9rem; color:rgba(255,255,255,.45); margin-bottom:1.25rem; font-style:italic; }
+.pres-bio { font-size:.95rem; color:rgba(255,255,255,.65); line-height:1.75; }
+.members-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:1.25rem; margin-top:2.5rem; }
+.mc-v2 { display:flex; gap:1.25rem; align-items:center; background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.08); border-radius:16px; padding:1.25rem 1.5rem; cursor:pointer; transition:background .3s, border-color .3s, transform .25s; }
+.mc-v2:hover { background:rgba(220,38,38,.07); border-color:rgba(220,38,38,.3); transform:translateY(-2px); }
+.mc-photo { width:60px; height:60px; border-radius:50%; object-fit:cover; border:2px solid rgba(220,38,38,.4); flex-shrink:0; }
+.mc-ava { width:60px; height:60px; border-radius:50%; background:linear-gradient(135deg,#374151,#1f2937); display:flex; align-items:center; justify-content:center; font-size:1.4rem; font-weight:800; color:#fff; border:2px solid rgba(255,255,255,.1); flex-shrink:0; }
+.mc-name { font-size:.95rem; font-weight:700; color:#fff; margin-bottom:.2rem; }
+.mc-pos { font-size:.78rem; color:rgba(255,255,255,.4); margin-bottom:.35rem; }
+.mc-desc { font-size:.78rem; color:rgba(255,255,255,.5); line-height:1.5; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+.mc-more { color:rgba(248,113,113,.7); font-size:.82rem; margin-top:.35rem; display:inline-flex; align-items:center; gap:.3rem; transition:color .2s; }
+.mc-v2:hover .mc-more { color:#f87171; }
+.modal-dark .modal-content { background:#111827; border:1px solid rgba(255,255,255,.1); color:#fff; border-radius:20px; }
+.modal-dark .modal-header { border-color:rgba(255,255,255,.1); }
+.modal-dark .btn-close { filter:invert(1) brightness(2); }
+.modal-dark .modal-footer { border-color:rgba(255,255,255,.1); }
+
+/* ════════════════════════════════════════════════════════════════
+   8. PARTNERS
+════════════════════════════════════════════════════════════════ */
+#hp-partners { background:var(--gray-50); }
+.marquee-wrap { overflow:hidden; margin:2.5rem 0; position:relative; }
+.marquee-wrap::before, .marquee-wrap::after { content:''; position:absolute; top:0; height:100%; width:80px; z-index:1; pointer-events:none; }
+.marquee-wrap::before { left:0; background:linear-gradient(to right,var(--gray-50),transparent); }
+.marquee-wrap::after  { right:0; background:linear-gradient(to left,var(--gray-50),transparent); }
+.marquee-track { display:flex; gap:2.5rem; align-items:center; animation:marquee 28s linear infinite; width:max-content; }
+.marquee-track:hover { animation-play-state:paused; }
+@keyframes marquee { from{transform:translateX(0)} to{transform:translateX(-50%)} }
+.marquee-logo { flex-shrink:0; height:44px; min-width:100px; display:flex; align-items:center; justify-content:center; background:#fff; border:1px solid var(--border-color); border-radius:10px; padding:0 1.25rem; filter:grayscale(1) opacity(.6); transition:filter .3s, transform .3s; font-size:.82rem; font-weight:700; color:var(--text-secondary); letter-spacing:.04em; }
+.marquee-logo:hover { filter:none; transform:scale(1.05); }
+.marquee-logo img { height:28px; max-width:120px; object-fit:contain; }
+.partners-grid-v2 { display:grid; grid-template-columns:repeat(3,1fr); gap:1.25rem; margin-top:3rem; }
+.pc-v2 { border-radius:16px; background:#fff; border:1.5px solid var(--border-color); padding:1.5rem; display:flex; flex-direction:column; gap:1rem; transition:transform .3s, box-shadow .3s, border-color .3s; }
+.pc-v2:hover { transform:translateY(-3px); box-shadow:0 12px 40px rgba(0,0,0,.08); border-color:var(--primary); }
+.pc-head { display:flex; align-items:flex-start; gap:1rem; }
+.pc-logo { width:52px; height:52px; border-radius:10px; overflow:hidden; border:1px solid var(--border-color); display:flex; align-items:center; justify-content:center; background:var(--gray-50); flex-shrink:0; }
+.pc-logo img { width:100%; height:100%; object-fit:contain; }
+.pc-logo-ph { font-size:.9rem; font-weight:800; color:var(--text-primary); }
+.pc-name { font-size:.95rem; font-weight:800; color:var(--text-primary); margin-bottom:.2rem; }
+.pc-badge { display:inline-flex; align-items:center; gap:.25rem; padding:.15rem .55rem; border-radius:50px; font-size:.65rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; }
+.pc-sponsor{background:#fef3c7;color:#92400e} .pc-media{background:#ede9fe;color:#4c1d95}
+.pc-tech{background:#d1fae5;color:#065f46} .pc-venue{background:#dbeafe;color:#1e3a8a}
+.pc-default{background:var(--gray-100);color:var(--text-secondary)}
+.pc-desc { font-size:.83rem; color:var(--text-muted); line-height:1.6; }
+.pc-actions { display:flex; gap:.6rem; }
+.pc-btn-d { flex:1; display:flex; align-items:center; justify-content:center; gap:.4rem; padding:.55rem; border-radius:8px; border:1.5px solid var(--border-color); font-size:.8rem; font-weight:700; color:var(--text-primary); background:transparent; cursor:pointer; transition:border-color .2s, background .2s; text-decoration:none; }
+.pc-btn-d:hover { border-color:var(--secondary); background:var(--secondary-light); color:var(--secondary); }
+.pc-btn-v { flex:1; display:flex; align-items:center; justify-content:center; gap:.4rem; padding:.55rem; border-radius:8px; background:var(--primary); color:#fff; font-size:.8rem; font-weight:700; text-decoration:none; transition:opacity .2s; }
+.pc-btn-v:hover { opacity:.88; color:#fff; }
+.p-pg { display:flex; align-items:center; justify-content:center; gap:.75rem; margin-top:2rem; }
+.p-pg-btn { width:36px; height:36px; border-radius:8px; border:1.5px solid var(--border-color); background:#fff; display:flex; align-items:center; justify-content:center; font-size:.85rem; color:var(--text-secondary); text-decoration:none; transition:border-color .2s, color .2s; }
+.p-pg-btn:hover { border-color:var(--primary); color:var(--primary); }
+.p-pg-info { font-size:.82rem; color:var(--text-muted); padding:0 .5rem; }
+
+/* ════════════════════════════════════════════════════════════════
+   9. BENEFITS
+════════════════════════════════════════════════════════════════ */
+#hp-benefits { background:#fff; }
+.benefits-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:1.25rem; margin-top:3rem; }
+.bcard { border-radius:18px; padding:1.75rem 1.5rem; border:1.5px solid var(--border-color); background:#fff; position:relative; overflow:hidden; transition:border-color .3s, transform .3s, box-shadow .3s; }
+.bcard:hover { border-color:var(--primary); transform:translateY(-4px); box-shadow:0 20px 50px rgba(220,38,38,.1); }
+.bcard::after { content:''; position:absolute; bottom:0; left:0; right:0; height:0; background:linear-gradient(to top,rgba(220,38,38,.04),transparent); transition:height .4s; }
+.bcard:hover::after { height:100%; }
+.bi { width:52px; height:52px; border-radius:14px; background:var(--primary-light); display:flex; align-items:center; justify-content:center; font-size:1.3rem; color:var(--primary); margin-bottom:1rem; transition:transform .3s, background .3s; position:relative; z-index:1; }
+.bcard:hover .bi { background:var(--primary); color:#fff; transform:rotate(-8deg) scale(1.1); }
+.b-cat { font-size:.68rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:var(--primary); margin-bottom:.4rem; position:relative; z-index:1; }
+.b-title { font-size:.95rem; font-weight:800; color:var(--text-primary); margin-bottom:.5rem; letter-spacing:-.02em; position:relative; z-index:1; }
+.b-desc { font-size:.82rem; color:var(--text-muted); line-height:1.6; position:relative; z-index:1; }
+.b-disc { font-size:.8rem; font-weight:700; color:var(--success); background:var(--success-light); border-radius:50px; padding:.2rem .65rem; display:inline-flex; align-items:center; gap:.3rem; margin-top:.75rem; position:relative; z-index:1; }
+
+/* ════════════════════════════════════════════════════════════════
+   10. DONATE
+════════════════════════════════════════════════════════════════ */
+#hp-donate { background:#0a0a0f; padding:7rem 0; position:relative; overflow:hidden; }
+#hp-donate::before { content:''; position:absolute; bottom:-200px; right:-200px; width:700px; height:700px; background:radial-gradient(circle,rgba(220,38,38,.18) 0%,transparent 70%); pointer-events:none; }
+.don-grid { display:grid; grid-template-columns:1fr 1fr; gap:5rem; align-items:center; position:relative; z-index:1; }
+.don-lhs .hp-label { justify-content:flex-start; }
+.don-lhs .hp-label::after { display:none; }
+.don-lhs .hp-h2 { text-align:left; color:#fff; }
+.don-desc { font-size:1.02rem; color:rgba(255,255,255,.5); line-height:1.75; margin:1rem 0 2rem; }
+.don-prog-wrap { background:rgba(255,255,255,.06); border-radius:14px; padding:1.5rem; margin-bottom:2rem; border:1px solid rgba(255,255,255,.08); }
+.don-prog-head { display:flex; justify-content:space-between; font-size:.85rem; color:rgba(255,255,255,.5); margin-bottom:.75rem; }
+.don-prog-head strong { color:#fff; }
+.don-track { height:8px; background:rgba(255,255,255,.1); border-radius:50px; overflow:hidden; }
+.don-fill { height:100%; width:0; background:linear-gradient(90deg,#dc2626,#f87171); border-radius:50px; transition:width 1.6s cubic-bezier(.22,1,.36,1); }
+.don-fill.animated { width:45%; }
+.don-meta { display:flex; gap:1.5rem; margin-top:.85rem; }
+.d-m { font-size:.75rem; color:rgba(255,255,255,.4); display:flex; align-items:center; gap:.3rem; }
+.d-m i { color:rgba(220,38,38,.7); }
+.don-btn { display:inline-flex; align-items:center; gap:.6rem; background:rgba(255,255,255,.08); color:rgba(255,255,255,.5); border:1.5px solid rgba(255,255,255,.15); border-radius:12px; padding:.85rem 2rem; font-size:.95rem; font-weight:700; cursor:not-allowed; }
+.don-pillar { background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.08); border-radius:16px; padding:1.5rem; transition:background .3s, border-color .3s; }
+.don-pillar:hover { background:rgba(220,38,38,.07); border-color:rgba(220,38,38,.25); }
+.dp-icon { font-size:1.75rem; margin-bottom:.6rem; }
+.dp-title { font-size:.95rem; font-weight:700; color:#fff; margin-bottom:.3rem; }
+.dp-text { font-size:.83rem; color:rgba(255,255,255,.4); line-height:1.55; }
+
+/* 3D tilt */
+.tilt3d { transform-style:preserve-3d; transition:transform .12s; }
+
+/* RESPONSIVE */
+@media(max-width:992px){
+    .offers-grid,.products-grid,.mission-grid,.don-grid{grid-template-columns:1fr;gap:2rem}
+    .stats-grid,.members-grid{grid-template-columns:repeat(2,1fr)}
+    .benefits-grid,.partners-grid-v2,.events-grid{grid-template-columns:repeat(2,1fr)}
+    .pres-hero{grid-template-columns:1fr;text-align:center}
+}
+@media(max-width:640px){
+    .hp-section{padding:4rem 0}
+    .stats-grid,.benefits-grid{grid-template-columns:repeat(2,1fr)}
+    .events-grid,.partners-grid-v2{grid-template-columns:1fr}
+    .hero-h1{font-size:clamp(2.5rem,11vw,4rem)}
+    .hero-stats{gap:1.5rem}
+    .stat-value{font-size:2.2rem}
+}
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="container-limited">
-    <!-- HERO Section -->
-    <section class="section-padding text-center card card-flat p-4 mb-5 hero-section hero-showcase" aria-labelledby="hero-title" role="banner">
-        <div class="mb-3">
-            <span class="badge badge-primary hero-badge" role="text">
-                <i class="fas fa-mountain me-2" aria-hidden="true"></i>{% trans "International Extreme Sports Association" %}
-            </span>
+
+<!-- ════ 1. HERO ═══════════════════════════════════════════════════ -->
+<section id="hp-hero">
+    <canvas id="hp-hero-canvas"></canvas>
+    <div class="hp-container hero-inner" style="padding-top:9rem;padding-bottom:8rem;">
+        <div class="hero-kicker">
+            <i class="fas fa-circle" style="font-size:.55rem;"></i>
+            {% trans "International Extreme Sports Association" %}
         </div>
-        <h1 id="hero-title" class="display-5 fw-bold mb-3 hero-title">
-            {% trans "IESA Programs for Kids and Adults" %}
+        <h1 class="hero-h1">
+            <span class="static-line">{% trans "Master the art" %}</span>
+            <span class="static-line">{% trans "of" %}
+                <span class="dynamic-wrap"><span class="dynamic-word" id="hero-dword">{% trans "Kitesurfing" %}</span></span>
+            </span>
         </h1>
-        <p class="lead mb-4 hero-description">
+        <p class="hero-desc">
             {% trans "IESA unites athletes, active lifestyle communities, and everyone who grows through adventure and extreme challenges." %}
         </p>
-    </section>
+        <div class="hero-ctas">
+            <a href="{% url 'users:register' %}" class="hero-btn-p mag-btn"><i class="fas fa-user-plus"></i> {% trans "Become a member" %}</a>
+            <a href="{% url 'blog:event_list' %}" class="hero-btn-g mag-btn"><i class="fas fa-calendar-alt"></i> {% trans "View events" %}</a>
+        </div>
+        <div class="hero-stats">
+            <div><div class="hero-stat-num"><span class="cnt" data-count="300">0</span>+</div><div class="hero-stat-label">{% trans "Members" %}</div></div>
+            <div><div class="hero-stat-num"><span class="cnt" data-count="48">0</span></div><div class="hero-stat-label">{% trans "Events / year" %}</div></div>
+            <div><div class="hero-stat-num"><span class="cnt" data-count="12">0</span></div><div class="hero-stat-label">{% trans "Countries" %}</div></div>
+            <div><div class="hero-stat-num"><span class="cnt" data-count="6">0</span>+</div><div class="hero-stat-label">{% trans "Years active" %}</div></div>
+        </div>
+    </div>
+    <div class="hero-scroll"><div class="s-line"></div><span>{% trans "Scroll" %}</span></div>
+</section>
+
+<!-- ════ 2. OFFERS ════════════════════════════════════════════════ -->
+<section id="hp-offers" class="hp-section">
+    <div class="hp-container">
+        <div class="text-center">
+            <p class="hp-label" data-reveal>{% trans "What we offer" %}</p>
+            <h2 class="hp-h2" data-reveal data-delay="1">{% trans "Four directions" %} <span>{% trans "that deliver results" %}</span></h2>
+            <p class="hp-sub" data-reveal data-delay="2">{% trans "Strong emotions, safe extreme sports, and real team growth" %}</p>
+            <div class="hp-divider" data-reveal data-delay="3"></div>
+        </div>
+        <div class="offers-grid">
+            <article class="offer-card-v2 tilt3d" data-reveal data-delay="1">
+                <div class="offer-num">01</div>
+                <div class="offer-icon-v2"><i class="fas fa-campground"></i></div>
+                <span class="offer-badge-v2"><i class="fas fa-child"></i> {% trans "Kids · Camp" %}</span>
+                <h3 class="offer-title-v2">{% trans "Extreme Scout Camp for Kids" %}</h3>
+                <p class="offer-text-v2">{% trans "One-week seaside camp for teens with sport training, wellness activities, and community that builds resilience and responsibility." %}</p>
+                <ul class="offer-meta-v2">
+                    <li><i class="far fa-clock"></i> {% trans "Duration: 1 week" %}</li>
+                    <li><i class="fas fa-sun"></i> {% trans "Warm countries, seaside" %}</li>
+                    <li><i class="fas fa-user-friends"></i> {% trans "Resilience, health, friendships" %}</li>
+                </ul>
+            </article>
+            <article class="offer-card-v2 tilt3d" data-reveal data-delay="2">
+                <div class="offer-num">02</div>
+                <div class="offer-icon-v2"><i class="fas fa-water"></i></div>
+                <span class="offer-badge-v2"><i class="fas fa-users"></i> {% trans "Adults · Weekend" %}</span>
+                <h3 class="offer-title-v2">{% trans "Extreme Weekends for Adults" %}</h3>
+                <p class="offer-text-v2">{% trans "Regular seaside weekends for adults with diving, surfing, and other extreme sports led by experienced instructors." %}</p>
+                <ul class="offer-meta-v2">
+                    <li><i class="far fa-calendar-alt"></i> {% trans "Friday to Sunday" %}</li>
+                    <li><i class="fas fa-water"></i> {% trans "Diving, surfing, and more" %}</li>
+                </ul>
+            </article>
+            <article class="offer-card-v2 tilt3d" data-reveal data-delay="3">
+                <div class="offer-num">03</div>
+                <div class="offer-icon-v2"><i class="fas fa-anchor"></i></div>
+                <span class="offer-badge-v2"><i class="fas fa-route"></i> {% trans "Adults · Journey" %}</span>
+                <h3 class="offer-title-v2">{% trans "Yachting Week for Adults" %}</h3>
+                <p class="offer-text-v2">{% trans "A one-week sailing expedition with catamaran training, coastal routes, and open-sea diving sessions." %}</p>
+                <ul class="offer-meta-v2">
+                    <li><i class="far fa-clock"></i> {% trans "One week" %}</li>
+                    <li><i class="fas fa-route"></i> {% trans "Scenic coastlines & sea passages" %}</li>
+                    <li><i class="fas fa-anchor"></i> {% trans "Catamaran, open-water practice" %}</li>
+                </ul>
+            </article>
+            <article class="offer-card-v2 tilt3d" data-reveal data-delay="4">
+                <div class="offer-num">04</div>
+                <div class="offer-icon-v2"><i class="fas fa-people-arrows"></i></div>
+                <span class="offer-badge-v2"><i class="fas fa-briefcase"></i> {% trans "Teams · Corporate" %}</span>
+                <h3 class="offer-title-v2">{% trans "Corporate Adventure Offsites" %}</h3>
+                <p class="offer-text-v2">{% trans "Tailored corporate trips with sports, challenges, and team tasks that strengthen culture and communication." %}</p>
+                <ul class="offer-meta-v2">
+                    <li><i class="fas fa-bolt"></i> {% trans "Cohesion, trust, critical thinking" %}</li>
+                </ul>
+            </article>
+        </div>
+        <div class="offers-footer" data-reveal>
+            <a href="{% url 'users:register' %}" class="hero-btn-p mag-btn" style="box-shadow:none;"><i class="fas fa-user-plus"></i> {% trans "Become a member" %}</a>
+            <a href="{% url 'blog:event_list' %}" class="hero-btn-g mag-btn" style="color:var(--text-primary);border-color:var(--border-color);"><i class="fas fa-calendar-alt"></i> {% trans "Upcoming events" %}</a>
+        </div>
+    </div>
+</section>
+
+<!-- ════ 3. STATS ═════════════════════════════════════════════════ -->
+<section id="hp-stats">
+    <div class="hp-container">
+        <div class="stats-grid" data-reveal>
+            <div class="stat-cell"><div class="stat-value"><span class="cnt-b" data-count="300">0</span><span class="stat-unit">+</span></div><div class="stat-label">{% trans "Active members" %}</div></div>
+            <div class="stat-cell"><div class="stat-value"><span class="cnt-b" data-count="48">0</span></div><div class="stat-label">{% trans "Events annually" %}</div></div>
+            <div class="stat-cell"><div class="stat-value"><span class="cnt-b" data-count="12">0</span></div><div class="stat-label">{% trans "Countries reached" %}</div></div>
+            <div class="stat-cell"><div class="stat-value"><span class="cnt-b" data-count="6">0</span><span class="stat-unit">+</span></div><div class="stat-label">{% trans "Years of experience" %}</div></div>
+        </div>
+    </div>
+</section>
+
+<!-- ════ 4. MISSION ═══════════════════════════════════════════════ -->
+<section id="hp-mission" class="hp-section">
+    <div class="hp-container">
+        <div class="mission-grid">
+            <div class="mission-lhs" data-reveal>
+                <p class="hp-label">{% trans "IESA Mission" %}</p>
+                <h2 class="hp-h2">{% trans "Extreme sport as a" %} <span>{% trans "way of thinking" %}</span></h2>
+                <p class="hp-sub" style="margin-left:0;">{% trans "IESA is not just sport — it is a lifestyle that inspires, develops, and unites people worldwide." %}</p>
+                <ul class="mission-list">
+                    <li><div class="mi"><i class="fas fa-bolt"></i></div> {% trans "Courage and the ability to work with risk" %}</li>
+                    <li><div class="mi"><i class="fas fa-dumbbell"></i></div> {% trans "Physical and mental resilience" %}</li>
+                    <li><div class="mi"><i class="fas fa-users"></i></div> {% trans "Team skills and confidence" %}</li>
+                    <li><div class="mi"><i class="fas fa-globe"></i></div> {% trans "Broader horizons through adventure" %}</li>
+                </ul>
+                <a href="{% url 'users:register' %}" class="hero-btn-p mag-btn" style="width:fit-content;box-shadow:none;">
+                    <i class="fas fa-mountain"></i> {% trans "Join the mission" %}
+                </a>
+            </div>
+            <div class="mission-rhs">
+                <div class="mission-panel" data-reveal data-delay="1">
+                    <div class="mp-icon"><i class="fas fa-child"></i></div>
+                    <div class="mp-title">{% trans "Who we invite" %}</div>
+                    <div class="mp-text">{% trans "Teens, adults, companies, and everyone who seeks an active, rich, and conscious life. Wake up every color of life." %}</div>
+                </div>
+                <div class="mission-panel" data-reveal data-delay="2">
+                    <div class="mp-icon"><i class="fas fa-heart"></i></div>
+                    <div class="mp-title">{% trans "What extreme sport gives" %}</div>
+                    <div class="mp-text">{% trans "Strong emotions, safe adventures, real team growth. Experience life at full intensity with the right people." %}</div>
+                </div>
+                <div class="mission-panel" data-reveal data-delay="3">
+                    <div class="mp-icon"><i class="fas fa-handshake"></i></div>
+                    <div class="mp-title">{% trans "Community first" %}</div>
+                    <div class="mp-text">{% trans "International network of athletes, explorers, coaches, and dreamers. Your tribe is here." %}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ════ 5. PRODUCTS ══════════════════════════════════════════════ -->
+{% if core_products %}
+<section id="hp-products" class="hp-section">
+    <div class="hp-container">
+        <div class="text-center">
+            <p class="hp-label" data-reveal>{% trans "Our programs" %}</p>
+            <h2 class="hp-h2" data-reveal data-delay="1">{% trans "IESA" %} <span>{% trans "Core Programs" %}</span></h2>
+            <p class="hp-sub" data-reveal data-delay="2">{% trans "Extreme adventures for all ages and levels" %}</p>
+            <div class="hp-divider" data-reveal data-delay="3"></div>
+        </div>
+        <div class="products-grid">
+            {% for product in core_products %}
+            <article class="prod-card tilt3d" data-reveal data-delay="{{ forloop.counter }}">
+                <div class="prod-img-wrap">
+                    {% if product.image %}<img src="{{ product.image.url }}" alt="{{ product.title }}" loading="lazy">
+                    {% else %}<div class="prod-placeholder"><i class="{{ product.icon }}"></i></div>{% endif %}
+                    <span class="prod-flag">{% trans "Core Program" %}</span>
+                </div>
+                <div class="prod-body">
+                    <div class="prod-tags">
+                        {% if product.duration %}<span class="prod-tag"><i class="far fa-clock"></i> {{ product.duration }}</span>{% endif %}
+                        {% if product.location %}<span class="prod-tag"><i class="fas fa-map-marker-alt"></i> {{ product.location }}</span>{% endif %}
+                    </div>
+                    <h3 class="prod-title">{{ product.title }}</h3>
+                    <p class="prod-desc">{{ product.description|truncatewords:30 }}</p>
+                    {% if product.features %}
+                    <ul class="prod-feat-list">
+                        {% for f in product.get_features_list %}{% if forloop.counter <= 3 %}<li><i class="fas fa-check"></i> {{ f }}</li>{% endif %}{% endfor %}
+                    </ul>
+                    {% endif %}
+                    {% if product.price_info %}<div class="prod-price"><i class="fas fa-tag"></i> {{ product.price_info }}</div>{% endif %}
+                    <div style="margin-top:1.25rem;"><a href="{% url 'blog:post_list' %}" class="prod-link">{% trans "Learn more" %} <i class="fas fa-arrow-right"></i></a></div>
+                </div>
+            </article>
+            {% endfor %}
+        </div>
+    </div>
+</section>
+{% endif %}
+
+<!-- ════ 6. EVENTS ════════════════════════════════════════════════ -->
+{% if upcoming_events %}
+<section id="hp-events" class="hp-section">
+    <div class="hp-container">
+        <div class="text-center">
+            <p class="hp-label" data-reveal>{% trans "Upcoming events" %}</p>
+            <h2 class="hp-h2" data-reveal data-delay="1">{% trans "Join our next" %} <span>{% trans "gatherings" %}</span></h2>
+            <p class="hp-sub" data-reveal data-delay="2">{% trans "Connect with fellow extreme sports enthusiasts" %}</p>
+            <div class="hp-divider" data-reveal data-delay="3"></div>
+        </div>
+        <div class="events-grid">
+            {% for event in upcoming_events %}
+            <a href="{% url 'blog:event_detail' event.pk %}" class="ev-card" data-reveal data-delay="{{ forloop.counter }}">
+                <div class="ev-img">
+                    {% if event.image %}<img src="{{ event.image.url }}" alt="{{ event.title }}" loading="lazy">
+                    {% else %}<div class="ev-img-ph"><i class="fas fa-calendar-alt"></i></div>{% endif %}
+                    <span class="ev-date-badge">{{ event.date|date:"d M Y" }}</span>
+                </div>
+                <div class="ev-body">
+                    <div class="ev-meta">
+                        {% if event.location %}<span class="ev-pill"><i class="fas fa-map-marker-alt"></i> {{ event.location|truncatewords:2 }}</span>{% endif %}
+                    </div>
+                    <h3 class="ev-title">{{ event.title }}</h3>
+                    <p class="ev-desc">{{ event.description|striptags|truncatewords:18 }}</p>
+                </div>
+                <div class="ev-foot"><span>{% trans "Learn more" %}</span><i class="fas fa-arrow-right"></i></div>
+            </a>
+            {% endfor %}
+        </div>
+        <div class="text-center" style="margin-top:2.5rem;" data-reveal>
+            <a href="{% url 'blog:event_list' %}" class="hero-btn-p mag-btn" style="box-shadow:none;display:inline-flex;">
+                <i class="fas fa-calendar-alt"></i> {% trans "View all events" %}
+            </a>
+        </div>
+    </div>
+</section>
+{% endif %}
+
+<!-- ════ 7. ABOUT / TEAM ══════════════════════════════════════════ -->
+<section id="hp-about" class="hp-section">
+    <div class="hp-container">
+        <div class="text-center">
+            <p class="hp-label" data-reveal>{% trans "About IESA" %}</p>
+            <h2 class="hp-h2" data-reveal data-delay="1">{% trans "The people behind" %} <span>{% trans "our mission" %}</span></h2>
+            <p class="hp-sub" data-reveal data-delay="2">{% trans "Meet the team that drives IESA forward every day" %}</p>
+        </div>
+
+        {% if president %}
+        <div class="pres-hero" data-reveal>
+            <div>
+                {% if president.photo %}<img src="{{ president.photo.url }}" class="pres-photo" alt="{{ president.name }}">
+                {% else %}<div class="pres-init">{{ president.name|slice:":1"|upper }}</div>{% endif %}
+            </div>
+            <div>
+                <div class="pres-kicker">{% trans "President · IESA" %}</div>
+                <h3 class="pres-name">{{ president.name }}</h3>
+                <p class="pres-role">{{ president.position }}</p>
+                <p class="pres-bio">{{ president.description|striptags }}</p>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if members %}
+        <div class="text-center" style="margin-top:4rem;margin-bottom:2rem;">
+            <p class="hp-label" data-reveal>{% trans "Our team" %}</p>
+            <h3 class="hp-h2" style="font-size:clamp(1.5rem,3vw,2.2rem);" data-reveal>{% trans "Dedicated" %} <span>{% trans "leadership" %}</span></h3>
+        </div>
+        <div class="members-grid">
+            {% for member in members %}
+            <div class="mc-v2" data-reveal data-delay="{{ forloop.counter }}"
+                 data-member-name="{{ member.name }}"
+                 data-member-position="{{ member.position }}"
+                 data-member-description="{{ member.description|safe }}"
+                 data-member-photo="{% if member.photo %}{{ member.photo.url }}{% endif %}"
+                 onclick="openMemberModal(this)">
+                {% if member.photo %}<img src="{{ member.photo.url }}" class="mc-photo" alt="{{ member.name }}">
+                {% else %}<div class="mc-ava">{{ member.name|slice:":1"|upper }}</div>{% endif %}
+                <div>
+                    <div class="mc-name">{{ member.name }}</div>
+                    <div class="mc-pos">{{ member.position }}</div>
+                    <div class="mc-desc">{{ member.description|striptags|truncatewords:25 }}</div>
+                    <div class="mc-more"><i class="fas fa-arrow-right" style="font-size:.7rem;"></i> {% trans "More" %}</div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Member Modal -->
+    <div class="modal fade modal-dark" id="memberModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title fw-bold">{% trans "Team Member" %}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="row g-4">
+                        <div class="col-md-4 text-center">
+                            <img id="memberModalPhoto" src="" class="rounded-circle shadow" style="width:140px;height:140px;object-fit:cover;border:3px solid rgba(220,38,38,.5);" alt="">
+                        </div>
+                        <div class="col-md-8">
+                            <h4 id="memberModalName" class="fw-bold mb-1" style="color:#fff;"></h4>
+                            <p id="memberModalPosition" style="color:rgba(255,255,255,.4);font-style:italic;margin-bottom:1rem;"></p>
+                            <div id="memberModalDescription" style="color:rgba(255,255,255,.7);font-size:.92rem;line-height:1.7;"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">{% trans "Close" %}</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ════ 8. PARTNERS ══════════════════════════════════════════════ -->
+<section id="hp-partners" class="hp-section">
+    <div class="hp-container">
+        <div class="text-center">
+            <p class="hp-label" data-reveal>{% trans "Partnerships" %}</p>
+            <h2 class="hp-h2" data-reveal data-delay="1">{% trans "Organizations we" %} <span>{% trans "collaborate with" %}</span></h2>
+            <div class="hp-divider" data-reveal data-delay="2"></div>
+        </div>
+        {% if partners %}
+        <div class="marquee-wrap" data-reveal>
+            <div class="marquee-track">
+                {% for p in partners %}<div class="marquee-logo">{% if p.logo %}<img src="{{ p.logo.url }}" alt="{{ p.name }}">{% else %}{{ p.name|slice:":3"|upper }}{% endif %}</div>{% endfor %}
+                {% for p in partners %}<div class="marquee-logo">{% if p.logo %}<img src="{{ p.logo.url }}" alt="{{ p.name }}">{% else %}{{ p.name|slice:":3"|upper }}{% endif %}</div>{% endfor %}
+            </div>
+        </div>
+        <div class="partners-grid-v2">
+            {% for partner in partners %}
+            <article class="pc-v2" data-reveal data-delay="{{ forloop.counter }}">
+                <div class="pc-head">
+                    <div class="pc-logo">
+                        {% if partner.logo %}<img src="{{ partner.logo.url }}" alt="{{ partner.name }}">
+                        {% else %}<div class="pc-logo-ph">{{ partner.name|slice:":2"|upper }}</div>{% endif %}
+                    </div>
+                    <div>
+                        <div class="pc-name">{{ partner.name }}</div>
+                        <span class="pc-badge {% if partner.category == 'sponsor' %}pc-sponsor{% elif partner.category == 'media' %}pc-media{% elif partner.category == 'tech' %}pc-tech{% elif partner.category == 'venue' %}pc-venue{% else %}pc-default{% endif %}">
+                            {% if partner.category == 'sponsor' %}<i class="fas fa-star"></i> {% trans "Sponsor" %}
+                            {% elif partner.category == 'media' %}<i class="fas fa-newspaper"></i> {% trans "Media" %}
+                            {% elif partner.category == 'tech' %}<i class="fas fa-code"></i> {% trans "Tech" %}
+                            {% elif partner.category == 'venue' %}<i class="fas fa-building"></i> {% trans "Venue" %}
+                            {% else %}<i class="fas fa-link"></i> {% trans "Partner" %}{% endif %}
+                        </span>
+                    </div>
+                </div>
+                <p class="pc-desc">{{ partner.description|striptags|truncatewords:12 }}</p>
+                <div class="pc-actions">
+                    <button class="pc-btn-d"
+                        hx-get="{% url 'core:partner_detail' pk=partner.pk %}"
+                        hx-target="#partner-modal-body"
+                        data-bs-toggle="modal"
+                        data-bs-target="#partnerModal">
+                        <i class="fas fa-info-circle"></i> {% trans "Details" %}
+                    </button>
+                    {% if partner.link %}
+                    <a href="{{ partner.link }}" target="_blank" rel="noopener" class="pc-btn-v">
+                        <i class="fas fa-external-link-alt"></i> {% trans "Visit" %}
+                    </a>
+                    {% endif %}
+                </div>
+            </article>
+            {% endfor %}
+        </div>
+        {% if partners_page_obj and partners_page_obj.has_other_pages %}
+        <div class="p-pg" data-reveal>
+            {% if partners_page_obj.has_previous %}<a class="p-pg-btn" href="?partners_page={{ partners_page_obj.previous_page_number }}#hp-partners"><i class="fas fa-chevron-left"></i></a>{% endif %}
+            <span class="p-pg-info">{% blocktrans with page=partners_page_obj.number total=partners_page_obj.paginator.num_pages %}Page {{ page }} of {{ total }}{% endblocktrans %}</span>
+            {% if partners_page_obj.has_next %}<a class="p-pg-btn" href="?partners_page={{ partners_page_obj.next_page_number }}#hp-partners"><i class="fas fa-chevron-right"></i></a>{% endif %}
+        </div>
+        {% endif %}
+        {% else %}
+        <div class="text-center" style="padding:4rem 0;" data-reveal>
+            <div style="font-size:3rem;color:var(--gray-300);margin-bottom:1rem;"><i class="fas fa-handshake"></i></div>
+            <p style="color:var(--text-muted);">{% trans "We are looking for new partners!" %}</p>
+        </div>
+        {% endif %}
+    </div>
+</section>
+
+<!-- ════ 9. BENEFITS ══════════════════════════════════════════════ -->
+{% if member_benefits %}
+<section id="hp-benefits" class="hp-section">
+    <div class="hp-container">
+        <div class="text-center">
+            <p class="hp-label" data-reveal>{% trans "Member benefits" %}</p>
+            <h2 class="hp-h2" data-reveal data-delay="1">{% trans "Why join" %} <span>{% trans "IESA?" %}</span></h2>
+            <p class="hp-sub" data-reveal data-delay="2">{% trans "Exclusive advantages available to every member of the association" %}</p>
+            <div class="hp-divider" data-reveal data-delay="3"></div>
+        </div>
+        <div class="benefits-grid">
+            {% for benefit in member_benefits %}
+            <article class="bcard" data-reveal data-delay="{{ forloop.counter }}">
+                <div class="bi"><i class="{{ benefit.icon }}"></i></div>
+                <div class="b-cat">{{ benefit.get_category_display }}</div>
+                <div class="b-title">{{ benefit.title }}</div>
+                <div class="b-desc">{{ benefit.description|striptags|truncatewords:20 }}</div>
+                {% if benefit.discount_info %}<div class="b-disc"><i class="fas fa-tag"></i> {{ benefit.discount_info }}</div>{% endif %}
+            </article>
+            {% endfor %}
+        </div>
+        <div class="text-center" style="margin-top:2.5rem;" data-reveal>
+            <a href="{% url 'core:benefits' %}" class="hero-btn-p mag-btn" style="box-shadow:none;display:inline-flex;">
+                <i class="fas fa-gift"></i> {% trans "View all benefits" %}
+            </a>
+        </div>
+    </div>
+</section>
+{% endif %}
+
+<!-- ════ 10. DONATE ════════════════════════════════════════════════ -->
+<section id="hp-donate">
+    <div class="hp-container">
+        <div class="don-grid">
+            <div class="don-lhs" data-reveal>
+                <p class="hp-label" style="color:#f87171;">{% trans "Support us" %}</p>
+                <h2 class="hp-h2">{% trans "Support our" %} <span>{% trans "association" %}</span></h2>
+                <p class="don-desc">{% trans "Your support helps us launch new projects, organize events and grow our international community." %}</p>
+                <div class="don-prog-wrap">
+                    <div class="don-prog-head"><span>{% trans "Current Goal" %}</span><strong>CHF 4,500 / 10,000</strong></div>
+                    <div class="don-track"><div class="don-fill" id="don-fill"></div></div>
+                    <div class="don-meta">
+                        <span class="d-m"><i class="fas fa-users"></i> 142 {% trans "donors" %}</span>
+                        <span class="d-m"><i class="fas fa-calendar"></i> {% trans "Ends Dec 2026" %}</span>
+                    </div>
+                </div>
+                <div class="don-btn"><i class="fas fa-hand-holding-heart"></i> {% trans "Make a Donation (Coming Soon)" %}</div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:1.25rem;" data-reveal data-delay="2">
+                <div class="don-pillar"><div class="dp-icon">🏕️</div><div class="dp-title">{% trans "Events & Camps" %}</div><div class="dp-text">{% trans "Fund kids' camps and adult adventure weekends worldwide." %}</div></div>
+                <div class="don-pillar"><div class="dp-icon">🎓</div><div class="dp-title">{% trans "Education" %}</div><div class="dp-text">{% trans "Support coaching certifications, safety training, and workshops." %}</div></div>
+                <div class="don-pillar"><div class="dp-icon">🌍</div><div class="dp-title">{% trans "Global Partnerships" %}</div><div class="dp-text">{% trans "Expand IESA's network to new cities and countries." %}</div></div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Partner Modal -->
+<div class="modal fade" id="partnerModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content" style="border-radius:20px;overflow:hidden;">
+            <div id="partner-modal-body">
+                <div class="modal-body p-5 text-center text-muted">
+                    <i class="fas fa-spinner fa-spin me-2"></i> {% trans "Loading..." %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+/* ── 1. CANVAS PARTICLES ─── */
+(function(){
+    const c = document.getElementById('hp-hero-canvas');
+    if(!c) return;
+    const ctx = c.getContext('2d');
+    let W, H, pts=[];
+    function resize(){ W=c.width=c.offsetWidth; H=c.height=c.offsetHeight; }
+    resize(); window.addEventListener('resize', resize);
+    for(let i=0;i<75;i++) pts.push({x:Math.random()*(W||1200),y:Math.random()*(H||800),dx:(Math.random()-.5)*.45,dy:(Math.random()-.5)*.45,r:Math.random()*1.8+.4,a:Math.random()*.5+.15});
+    function draw(){
+        ctx.clearRect(0,0,W,H);
+        pts.forEach(p=>{
+            ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+            ctx.fillStyle=`rgba(220,38,38,${p.a})`; ctx.fill();
+            p.x+=p.dx; p.y+=p.dy;
+            if(p.x<0||p.x>W)p.dx*=-1; if(p.y<0||p.y>H)p.dy*=-1;
+        });
+        for(let i=0;i<pts.length;i++) for(let j=i+1;j<pts.length;j++){
+            const dx=pts[i].x-pts[j].x, dy=pts[i].y-pts[j].y, d=Math.sqrt(dx*dx+dy*dy);
+            if(d<100){ ctx.beginPath(); ctx.moveTo(pts[i].x,pts[i].y); ctx.lineTo(pts[j].x,pts[j].y); ctx.strokeStyle=`rgba(220,38,38,${.12*(1-d/100)})`; ctx.lineWidth=.6; ctx.stroke(); }
+        }
+        requestAnimationFrame(draw);
+    }
+    draw();
+})();
+
+/* ── 2. WORD SWAP ──────────────── */
+(function(){
+    const el=document.getElementById('hero-dword'); if(!el) return;
+    const words=['Kitesurfing','Diving','Climbing','Yachting','Surfing','Boxing'];
+    let i=0;
+    setInterval(()=>{
+        el.classList.add('exiting');
+        setTimeout(()=>{ i=(i+1)%words.length; el.textContent=words[i]; el.classList.remove('exiting'); }, 380);
+    }, 2600);
+})();
+
+/* ── 3. COUNTER UTIL ───────────── */
+function animCnt(el, target, dur){
+    const s=performance.now();
+    (function step(now){ const p=Math.min((now-s)/dur,1); el.textContent=Math.round((1-Math.pow(1-p,3))*target); if(p<1)requestAnimationFrame(step); else el.textContent=target; })(s);
+}
+
+/* ── 4. SCROLL REVEAL ──────────── */
+const revIO = new IntersectionObserver(entries=>entries.forEach(e=>{ if(!e.isIntersecting) return; e.target.classList.add('revealed'); revIO.unobserve(e.target); }),{threshold:.12});
+document.querySelectorAll('[data-reveal]').forEach(el=>revIO.observe(el));
+
+/* Hero counters */
+setTimeout(()=>document.querySelectorAll('.hero-stats .cnt').forEach(c=>animCnt(c,+c.dataset.count,1800)), 600);
+
+/* Band counters */
+const statsEl=document.getElementById('hp-stats');
+if(statsEl){ const io=new IntersectionObserver(entries=>{ if(!entries[0].isIntersecting) return; document.querySelectorAll('.cnt-b').forEach(c=>animCnt(c,+c.dataset.count,1600)); io.disconnect(); },{threshold:.4}); io.observe(statsEl); }
+
+/* ── 5. TILT 3D ────────────────── */
+document.querySelectorAll('.tilt3d').forEach(card=>{
+    card.addEventListener('mousemove',e=>{ const r=card.getBoundingClientRect(); const x=(e.clientX-r.left)/r.width-.5, y=(e.clientY-r.top)/r.height-.5; card.style.transform=`perspective(600px) rotateY(${x*10}deg) rotateX(${-y*10}deg) scale(1.02)`; });
+    card.addEventListener('mouseleave',()=>card.style.transform='');
+});
+
+/* ── 6. MAGNETIC BUTTONS ───────── */
+document.querySelectorAll('.mag-btn').forEach(btn=>{
+    btn.addEventListener('mousemove',e=>{ const r=btn.getBoundingClientRect(); btn.style.transform=`translate(${(e.clientX-r.left-r.width/2)*.25}px,${(e.clientY-r.top-r.height/2)*.25}px)`; });
+    btn.addEventListener('mouseleave',()=>btn.style.transform='');
+});
+
+/* ── 7. DONATE BAR ─────────────── */
+(function(){ const b=document.getElementById('don-fill'); if(!b) return; const io=new IntersectionObserver(e=>{ if(!e[0].isIntersecting) return; setTimeout(()=>b.classList.add('animated'),300); io.disconnect(); },{threshold:.5}); io.observe(b); })();
+
+/* ── 8. MEMBER MODAL ───────────── */
+function openMemberModal(el){
+    document.getElementById('memberModalName').textContent=el.dataset.memberName||'';
+    document.getElementById('memberModalPosition').textContent=el.dataset.memberPosition||'';
+    document.getElementById('memberModalDescription').innerHTML=el.dataset.memberDescription||'';
+    const img=document.getElementById('memberModalPhoto');
+    if(el.dataset.memberPhoto){ img.src=el.dataset.memberPhoto; img.style.display='block'; } else img.style.display='none';
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('memberModal')).show();
+}
+</script>
+{% endblock %}
 
     <!-- WHAT IESA OFFERS -->
     <section class="section-padding" id="iesa-offers" aria-labelledby="iesa-offers-title" role="region">
