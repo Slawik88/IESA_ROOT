@@ -98,10 +98,10 @@
     <a href="#main-content" class="skip-to-main">{% trans "Skip to main content" %}</a>
     
     <!-- DEVELOPMENT BANNER -->
-    <div class="dev-banner">
-        <i class="bi bi-cone-striped me-2"></i>
-        <strong>{% trans "Attention!" %}</strong> {% trans "Site is under active development. Some features may not work correctly." %}
-        <i class="bi bi-tools ms-2"></i>
+<div class="dev-banner" id="dev-banner">
+        <i class="bi bi-tools me-1" style="font-size:.75rem;"></i>
+        <strong>{% trans "Dev mode" %}</strong> — {% trans "Site is under active development." %}
+        <button class="dev-banner-close" onclick="document.getElementById('dev-banner').remove()" aria-label="Close">&#x2715;</button>
     </div>
     
     <!-- Header Section -->
