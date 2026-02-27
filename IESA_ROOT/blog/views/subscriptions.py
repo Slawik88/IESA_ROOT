@@ -44,3 +44,11 @@ def toggle_subscription(request, author_pk):
         })
     
     return HttpResponse(status=204)
+
+
+def follower_count(request, author_pk):
+    """HTMX polling endpoint — returns subscriber count as plain text."""
+    from users.models import User
+    author = get_object_or_404(User, pk=author_pk)
+    count = BlogSubscription.objects.filter(author=author).count()
+    return HttpResponse(str(count))

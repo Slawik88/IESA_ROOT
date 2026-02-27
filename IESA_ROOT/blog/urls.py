@@ -25,6 +25,7 @@ urlpatterns = [
     path('<int:pk>/comment/<int:comment_pk>/delete/', views.delete_comment, name='delete_comment'),
     path('<int:pk>/comment/<int:comment_pk>/like/', views.toggle_comment_like, name='toggle_comment_like'),
     path('author/<int:author_pk>/subscribe/', views.toggle_subscription, name='toggle_subscription'),
+    path('author/<int:author_pk>/followers/', views.follower_count, name='follower_count'),
     path('search/', views.post_search, name='post_search'),
     path('search/global/', views.global_search, name='global_search'),
     # Partners are shown on the homepage (core app); no standalone partners page here.
