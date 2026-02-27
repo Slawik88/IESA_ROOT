@@ -3,97 +3,218 @@
 
 {% block title %}{% trans "Sign In" %} | IESA{% endblock %}
 
+{% block extra_css %}
+<style>
+.auth-wrap {
+    min-height: calc(100vh - 70px);
+    background: #0a0a0f;
+    display: flex;
+    align-items: center;
+    padding: 3rem 0;
+}
+.auth-card-new {
+    border-radius: 24px;
+    overflow: hidden;
+    border: 1.5px solid rgba(255,255,255,.07);
+    box-shadow: 0 32px 80px rgba(0,0,0,.55);
+    max-width: 960px;
+    margin: 0 auto;
+}
+.auth-dark-side {
+    background: #111118;
+    padding: 3.5rem 3rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+    min-height: 440px;
+}
+.auth-dark-side::before {
+    content: '';
+    position: absolute;
+    top: -60%;
+    left: -40%;
+    width: 140%;
+    height: 140%;
+    background: radial-gradient(ellipse at 30% 40%, rgba(220,38,38,.3) 0%, transparent 60%);
+    pointer-events: none;
+}
+.auth-dark-side .auth-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: .5rem;
+    background: rgba(220,38,38,.15);
+    color: var(--primary);
+    border: 1px solid rgba(220,38,38,.3);
+    border-radius: 50px;
+    padding: .3rem .9rem;
+    font-size: .75rem;
+    font-weight: 700;
+    letter-spacing: .07em;
+    text-transform: uppercase;
+    margin-bottom: 1.5rem;
+    width: fit-content;
+}
+.auth-dark-side h2 {
+    font-size: clamp(1.6rem, 3.5vw, 2.4rem);
+    font-weight: 900;
+    color: #fff;
+    line-height: 1.15;
+    margin-bottom: 1rem;
+    position: relative;
+}
+.auth-dark-side .auth-desc {
+    color: rgba(255,255,255,.5);
+    font-size: .95rem;
+    margin-bottom: 1.8rem;
+    position: relative;
+}
+.auth-dark-side .auth-perks li {
+    display: flex;
+    align-items: center;
+    gap: .65rem;
+    color: rgba(255,255,255,.65);
+    font-size: .9rem;
+    margin-bottom: .75rem;
+    position: relative;
+}
+.auth-dark-side .check-icon {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: rgba(220,38,38,.18);
+    color: var(--primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: .62rem;
+    flex-shrink: 0;
+}
+.auth-light-side {
+    background: #fff;
+    padding: 3.5rem 3rem;
+}
+.auth-label {
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+    font-size: .7rem;
+    font-weight: 800;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--primary);
+    margin-bottom: 1.5rem;
+}
+.auth-label::before,
+.auth-label::after {
+    content: '';
+    flex: 1;
+    max-width: 36px;
+    height: 2px;
+    background: var(--primary);
+    opacity: .4;
+}
+.auth-light-side h3 {
+    font-size: 1.7rem;
+    font-weight: 900;
+    color: #0a0a0f;
+    margin-bottom: .35rem;
+}
+.auth-light-side .auth-sub {
+    color: #6b7280;
+    font-size: .9rem;
+    margin-bottom: 2rem;
+}
+@media (max-width: 991px) {
+    .auth-dark-side { display: none; }
+    .auth-light-side { padding: 2.5rem 1.8rem; }
+    .auth-wrap { padding: 2rem 0; }
+}
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="auth-page row justify-content-center py-5">
-    <div class="col-lg-10">
-        <div class="card card-modern shadow-xl overflow-hidden auth-card">
-            <div class="row g-0">
-                <div class="col-lg-5 d-none d-lg-block auth-sidebar">
-                    <div class="h-100 d-flex flex-column justify-content-center p-5 text-white">
-                        <h3 class="fw-bold mb-3">{% trans "Welcome back" %}</h3>
-                        <p class="mb-4 text-white-50">{% trans "Sign in to manage your profile, create posts and discover events." %}</p>
-                        <ul class="list-unstyled small text-white-50">
-                            <li class="mb-2"><i class="fas fa-check-circle me-2"></i>{% trans "Quick Access" %}</li>
-                            <li class="mb-2"><i class="fas fa-check-circle me-2"></i>{% trans "Community Engagement" %}</li>
-                            <li class="mb-2"><i class="fas fa-check-circle me-2"></i>{% trans "Event Updates" %}</li>
-                        </ul>
-                    </div>
+<div class="auth-wrap">
+    <div class="container">
+        <div class="auth-card-new row g-0">
+
+            <!-- Dark left panel -->
+            <div class="col-lg-5 auth-dark-side">
+                <div style="position:relative;z-index:1;">
+                    <div class="auth-badge"><i class="fas fa-bolt me-1"></i>{% trans "IESA Members" %}</div>
+                    <h2>{% trans "Welcome back" %}</h2>
+                    <p class="auth-desc">{% trans "Sign in to manage your profile, create posts and discover events." %}</p>
+                    <ul class="list-unstyled auth-perks">
+                        <li><div class="check-icon"><i class="fas fa-check"></i></div>{% trans "Quick Access to Your Profile" %}</li>
+                        <li><div class="check-icon"><i class="fas fa-check"></i></div>{% trans "Community Engagement" %}</li>
+                        <li><div class="check-icon"><i class="fas fa-check"></i></div>{% trans "Event Updates & RSVP" %}</li>
+                    </ul>
                 </div>
-                <div class="col-lg-7 p-5 bg-white">
-            <div class="text-center mb-4">
-                <h6 class="section-title d-block mb-4">{% trans "SIGN IN" %}</h6>
-                <p class="text-muted">{% trans "Access your profile and connect with the community." %}</p>
             </div>
 
-            {% if form.errors %}
-                <div class="alert alert-danger alert-dismissible fade show mb-4" role="alert">
+            <!-- Light right panel -->
+            <div class="col-lg-7 auth-light-side">
+                <div class="auth-label">{% trans "SIGN IN" %}</div>
+                <h3>{% trans "Sign in to your account" %}</h3>
+                <p class="auth-sub">{% trans "Access your profile and connect with the community." %}</p>
+
+                {% if form.errors %}
+                <div class="alert alert-danger alert-dismissible fade show mb-4 rounded-3" role="alert">
                     <i class="fas fa-exclamation-circle me-2"></i>
                     <strong>{% trans "Sign in failed!" %}</strong> {% trans "Invalid username or password. Please try again." %}
                     <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                 </div>
-            {% endif %}
-            
-            <form method="post" novalidate>
-                {% csrf_token %}
+                {% endif %}
 
-                {% for field in form %}
+                <form method="post" novalidate>
+                    {% csrf_token %}
+                    {% for field in form %}
                     <div class="mb-3">
                         <label for="{{ field.id_for_label }}" class="form-label fw-500">{{ field.label }}</label>
                         {% if field.field.widget.input_type == "password" %}
                             <div class="password-field-wrapper">
-                                {% with field_class="form-control" %}
-                                    {% if field.errors %}
-                                        {% with field_class="form-control is-invalid" %}
-                                            {{ field }}
-                                        {% endwith %}
-                                        <div class="invalid-feedback d-block">
-                                            {% for error in field.errors %}
-                                                <i class="fas fa-times-circle me-1"></i>{{ error }}<br>
-                                            {% endfor %}
-                                        </div>
-                                    {% else %}
-                                        {{ field }}
-                                    {% endif %}
-                                {% endwith %}
+                                {% if field.errors %}
+                                    {% with field_class="form-control is-invalid" %}{{ field }}{% endwith %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in field.errors %}<i class="fas fa-times-circle me-1"></i>{{ error }}<br>{% endfor %}
+                                    </div>
+                                {% else %}
+                                    {{ field }}
+                                {% endif %}
                                 <button type="button" class="password-toggle-btn" onclick="togglePasswordVisibility(this)">
                                     <i class="fas fa-eye"></i>
                                 </button>
                             </div>
                         {% else %}
-                            {% with field_class="form-control" %}
-                                {% if field.errors %}
-                                    {% with field_class="form-control is-invalid" %}
-                                        {{ field }}
-                                    {% endwith %}
-                                    <div class="invalid-feedback d-block">
-                                        {% for error in field.errors %}
-                                            <i class="fas fa-times-circle me-1"></i>{{ error }}<br>
-                                        {% endfor %}
-                                    </div>
-                                {% else %}
-                                    {{ field }}
-                                {% endif %}
-                            {% endwith %}
+                            {% if field.errors %}
+                                {% with field_class="form-control is-invalid" %}{{ field }}{% endwith %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in field.errors %}<i class="fas fa-times-circle me-1"></i>{{ error }}<br>{% endfor %}
+                                </div>
+                            {% else %}
+                                {{ field }}
+                            {% endif %}
                         {% endif %}
                     </div>
-                {% endfor %}
-                
-                <input type="hidden" name="next" value="{{ next }}">
+                    {% endfor %}
 
-                <button type="submit" class="btn btn-primary btn-modern w-100 mt-4 py-2">
-                    <i class="fas fa-sign-in-alt me-2"></i>{% trans "Sign In" %}
-                </button>
-            </form>
-            
-            <hr class="my-4">
-            
-            <p class="text-center text-muted mb-0">
-                {% trans "Don't have an account?" %} 
-                <a href="{% url 'users:register' %}" class="fw-bold text-decoration-none">{% trans "Register here" %}</a>
-            </p>
-                </div>
+                    <input type="hidden" name="next" value="{{ next }}">
+                    <button type="submit" class="btn hero-btn-p w-100 mt-3 py-2">
+                        <i class="fas fa-sign-in-alt me-2"></i>{% trans "Sign In" %}
+                    </button>
+                </form>
+
+                <hr class="my-4">
+
+                <p class="text-center text-muted mb-0">
+                    {% trans "Don't have an account?" %}
+                    <a href="{% url 'users:register' %}" class="fw-bold text-decoration-none" style="color:var(--primary);">{% trans "Register here" %}</a>
+                </p>
             </div>
+
         </div>
     </div>
 </div>
+{% endblock %}
 {% endblock %}
