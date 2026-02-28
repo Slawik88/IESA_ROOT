@@ -5,7 +5,8 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: IESA_ROOT\n"
-"POT-Creation-Date: 2026-02-09 00:00+0000\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-02-28 01:12+0100\n"
 "PO-Revision-Date: 2026-02-09 00:00+0000\n"
 "Last-Translator: \n"
 "Language-Team: \n"
@@ -13,319 +14,281 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);\n"
+"Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && "
+"n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);\n"
 
-msgid "Home"
-msgstr "Головна"
+msgid "You don't have permission to access this file"
+msgstr "У вас немає дозволу на доступ до цього файлу"
 
-msgid "International Extreme Sports Association"
-msgstr "Міжнародна асоціація екстремальних видів спорту"
+msgid "publication status"
+msgstr "статус публікації"
 
-msgid "IESA Programs for Kids and Adults"
-msgstr "Програми IESA для дітей і дорослих"
+msgid "Published"
+msgstr "Опубліковано"
 
-msgid "IESA unites athletes, active lifestyle communities, and everyone who grows through adventure and extreme challenges."
-msgstr "IESA об'єднує спортсменів, спільноти активного способу життя та всіх, хто зростає через пригоди й екстремальні виклики."
+msgid "Pending Review"
+msgstr "На перевірці"
 
-msgid "IESA delivers programs for teens and adults — a reset through sport and strong team formats."
-msgstr "IESA проводить програми для підлітків і дорослих — перезавантаження через спорт і сильні командні формати."
+msgid "Rejected"
+msgstr "Відхилено"
 
-msgid "WHAT IESA OFFERS"
-msgstr "ЩО ПРОПОНУЄ IESA"
+msgid "Draft"
+msgstr "Чернетка"
 
-msgid "Four directions that deliver results"
-msgstr "Чотири напрями, що дають результат"
+msgid "author"
+msgstr "автор"
 
-msgid "Strong emotions, safe extreme sports, and real team growth"
-msgstr "Сильні емоції, безпечний екстрим і реальний командний ріст"
+#, python-format
+msgid "%(count)d post(s) published successfully."
+msgstr "%(count)d публікацій успішно опубліковано."
 
-msgid "Kids"
-msgstr "Діти"
+msgid "✅ Publish selected posts"
+msgstr "✅ Опублікувати обрані публікації"
 
-msgid "Adults"
-msgstr "Дорослі"
+#, python-format
+msgid "%(count)d post(s) rejected."
+msgstr "%(count)d публікацій відхилено."
 
-msgid "Teams"
-msgstr "Команди"
+msgid "❌ Reject selected posts"
+msgstr "❌ Відхилити обрані публікації"
 
-msgid "Travel"
-msgstr "Подорожі"
+#, python-format
+msgid "%(count)d post(s) moved to draft."
+msgstr "%(count)d публікацій переміщено в чернетки."
 
-msgid "Extreme scout camp for kids"
-msgstr "Дитячий екстрим-скаут табір"
+msgid "📝 Move to draft"
+msgstr "📝 Перемістити в чернетки"
 
-msgid "Kids · Camp"
-msgstr "Діти · Табір"
+msgid "Post Information"
+msgstr "Інформація про публікацію"
 
-msgid "Extreme Scout Camp for Kids"
-msgstr "Екстрим-скаут табір для дітей"
+msgid "Publishing"
+msgstr "Публікація"
 
-msgid "Build resilience, love for sport, and a healthy lifestyle for teens."
-msgstr "Формує витривалість, любов до спорту та здоровий спосіб життя у підлітків."
+msgid "Statistics"
+msgstr "Статистика"
 
-msgid "Duration: 1 or 2 weeks"
-msgstr "Тривалість: 1 або 2 тижні"
+msgid "Not published"
+msgstr "Не опубліковано"
 
-msgid "Where: warm countries, seaside"
-msgstr "Де: теплі країни, узбережжя моря"
+msgid "View on Site"
+msgstr "Переглянути на сайті"
 
-msgid "Extreme weekends for adults"
-msgstr "Екстрим-вікенди для дорослих"
+msgid "Event Information"
+msgstr "Інформація про подію"
 
-msgid "Adults · Weekend"
-msgstr "Дорослі · Вікенд"
+# Events
+msgid "Date & Time"
+msgstr "Дата і час"
 
-msgid "Extreme Weekends for Adults"
-msgstr "Екстрим-вікенди для дорослих"
+msgid "Location & Capacity"
+msgstr "Місце та місткість"
 
-msgid "Water sports weekends with a packed program."
-msgstr "Вікенди водних видів спорту з насиченою програмою."
+msgid "System"
+msgstr "Система"
 
-msgid "Duration: Friday to Sunday"
-msgstr "Тривалість: з п’ятниці до неділі"
+msgid "Write a comment..."
+msgstr "Написати коментар..."
 
-msgid "Yachting and diving for adults"
-msgstr "Яхтинг і дайвінг для дорослих"
+msgid "Pending moderation"
+msgstr "Очікує модерації"
 
-msgid "Adults · Journey"
-msgstr "Дорослі · Подорож"
+msgid "Title"
+msgstr "Назва"
 
-msgid "Yachting & Diving for Adults"
-msgstr "Яхтинг і дайвінг для дорослих"
+msgid "Post text"
+msgstr "Текст публікації"
 
-msgid "A complete reset and change of scenery with an active program."
-msgstr "Повне перезавантаження та зміна обстановки з активною програмою."
+msgid "Author"
+msgstr "Автор"
 
-msgid "Duration: one week"
-msgstr "Тривалість: один тиждень"
+msgid "Creation date"
+msgstr "Дата створення"
 
-msgid "Stay: yacht or hotel of choice"
-msgstr "Проживання: яхта або готель на вибір"
+msgid "Preview image"
+msgstr "Зображення для попереднього перегляду"
 
-msgid "Options: Grand Egyptian Museum, quad bikes, camels, catamaran"
-msgstr "Опції: Великий Єгипетський музей, квадроцикли, верблюди, катамаран"
+msgid "Status"
+msgstr "Статус"
 
-msgid "Strengthen teams through extreme sports"
-msgstr "Зміцнення команд через екстрим-спорт"
+msgid "Views"
+msgstr "Перегляди"
 
-msgid "Teams · Corporate"
-msgstr "Команди · Корпоратив"
+msgid "Post"
+msgstr "Публікація"
 
-msgid "Strengthen Any Team"
-msgstr "Посилюйте будь-яку команду"
+msgid "Posts"
+msgstr "Публікації"
 
-msgid "Work, creative, and leadership teams — through extreme sports formats."
-msgstr "Робочі, творчі та управлінські команди — через формати екстремального спорту."
+msgid "Comment text"
+msgstr "Текст коментаря"
 
-msgid "Outcome: cohesion, trust, energy"
-msgstr "Результат: згуртованість, довіра, енергія"
+msgid "Parent comment"
+msgstr "Батьківський коментар"
 
-msgid "Become an IESA member"
-msgstr "Стати учасником IESA"
+# Commons
+msgid "Comment"
+msgstr "Коментар"
 
-msgid "Become a member"
-msgstr "Стати учасником"
+# Commons
+msgid "Comments"
+msgstr "Коментарі"
 
-msgid "View upcoming events"
-msgstr "Переглянути майбутні події"
+msgid "User"
+msgstr "Користувач"
 
-msgid "Upcoming events"
-msgstr "Майбутні події"
+msgid "Comment Like"
+msgstr "Вподобання коментаря"
 
-msgid "IESA Membership"
-msgstr "Членство IESA"
+# Commons
+msgid "Comment Likes"
+msgstr "Вподобання коментарів"
 
-msgid "Want to join the programs?"
-msgstr "Хочете приєднатися до програм?"
+msgid "Like"
+msgstr "Вподобання"
 
-msgid "Get access to camps, weekends, journeys, and team formats."
-msgstr "Отримайте доступ до таборів, вікендів, подорожей і командних форматів."
+msgid "Likes"
+msgstr "Вподобання"
 
-msgid "Join IESA"
-msgstr "Приєднатися до IESA"
+msgid "IP Address"
+msgstr "IP-адреса"
 
-msgid "Join now"
-msgstr "Приєднатися зараз"
+msgid "View date"
+msgstr "Дата перегляду"
 
-msgid "View programs"
-msgstr "Переглянути програми"
+msgid "Post View"
+msgstr "Перегляд публікації"
 
-msgid "OUR CORE PROGRAMS"
-msgstr "НАШІ ОСНОВНІ ПРОГРАМИ"
+msgid "Post Views"
+msgstr "Перегляди публікацій"
 
-msgid "IESA Programs"
-msgstr "Програми IESA"
+msgid "Upcoming"
+msgstr "Майбутні"
 
-msgid "Extreme adventures for all ages"
-msgstr "Екстремальні пригоди для будь-якого віку"
+msgid "Ongoing"
+msgstr "Тривають"
 
-msgid "%(title)s program"
-msgstr "Програма %(title)s"
+msgid "Completed"
+msgstr "Завершені"
 
-msgid "Core Program"
-msgstr "Основна програма"
+msgid "Cancelled"
+msgstr "Скасовано"
 
-msgid "Features:"
-msgstr "Особливості:"
+msgid "Event Title"
+msgstr "Назва події"
 
-msgid "Learn more about %(title)s"
-msgstr "Дізнатися більше про %(title)s"
+msgid "Description"
+msgstr "Опис"
 
-msgid "Learn More"
-msgstr "Дізнатися більше"
+# Events
+msgid "Event Date & Time"
+msgstr "Дата і час події"
 
-msgid "UPCOMING EVENTS"
-msgstr "МАЙБУТНІ ПОДІЇ"
+# Events
+msgid "End Date & Time"
+msgstr "Дата і час завершення"
 
-msgid "Join Our Next Community Gatherings"
-msgstr "Приєднуйтеся до наступних зустрічей спільноти"
+msgid "Location"
+msgstr "Місце"
 
-msgid "Connect with fellow extreme sports enthusiasts"
-msgstr "Спілкуйтеся з однодумцями-екстремалами"
+msgid "Event Image"
+msgstr "Зображення події"
 
-msgid "View All Events"
-msgstr "Переглянути всі події"
+msgid "Max Participants"
+msgstr "Макс. учасників"
 
-msgid "ABOUT IESA"
-msgstr "ПРО IESA"
+msgid "Minimum Age"
+msgstr "Мінімальний вік"
 
-msgid "Our Leadership & Team"
-msgstr "Наше керівництво та команда"
+msgid "Maximum Age"
+msgstr "Максимальний вік"
 
-msgid "Extreme sport as a way of thinking and life"
-msgstr "Екстремальний спорт як спосіб мислення і життя"
+msgid "Registration Deadline"
+msgstr "Кінцевий термін реєстрації"
 
-msgid "IESA is not just sport; it is a lifestyle that inspires, develops, and unites."
-msgstr "IESA — це не просто спорт, це стиль життя, який надихає, розвиває та об'єднує."
+msgid "Created by"
+msgstr "Створено"
 
-msgid "What extreme sport gives"
-msgstr "Що дає екстремальний спорт"
+msgid "Created at"
+msgstr "Створено"
 
-msgid "Courage and the ability to work with risk"
-msgstr "Сміливість і вміння працювати з ризиком"
+msgid "Updated at"
+msgstr "Оновлено"
 
-msgid "Physical and mental resilience"
-msgstr "Фізична та психологічна витривалість"
+msgid "Event"
+msgstr "Подія"
 
-msgid "Team skills and confidence"
-msgstr "Командні навички та впевненість у собі"
+msgid "Events"
+msgstr "Події"
 
-msgid "Broader horizons through adventure and nature"
-msgstr "Розширення кругозору через пригоди та природу"
+msgid "Pending"
+msgstr "Очікує"
 
-msgid "Who we invite"
-msgstr "Кого ми запрошуємо"
+# Base template
+msgid "Confirmed"
+msgstr "Підтверджено"
 
-msgid "Teens, adults, companies, and everyone who seeks an active, rich, and conscious life."
-msgstr "Підлітків, дорослих, компанії та всіх, хто прагне активного, насиченого й усвідомленого життя."
+msgid "Attended"
+msgstr "Відвідав"
 
-msgid "Wake up every color of life. Join us..."
-msgstr "Пробуди всі барви життя. Приєднуйся..."
+msgid "Registered at"
+msgstr "Зареєстровано"
 
-msgid "Our Team"
-msgstr "Наша команда"
+msgid "Notes"
+msgstr "Примітки"
 
-msgid "Meet the people who drive our mission forward"
-msgstr "Познайомтеся з людьми, які рухають нашу місію вперед"
+msgid "Event Registration"
+msgstr "Реєстрація на подію"
 
-msgid "A Word from the President"
-msgstr "Слово президента"
+msgid "Event Registrations"
+msgstr "Реєстрації на подію"
 
-msgid "OUR TEAM"
-msgstr "НАША КОМАНДА"
+msgid "Subscriber"
+msgstr "Підписник"
 
-msgid "Dedicated Leadership & Members"
-msgstr "Віддане керівництво та учасники"
+msgid "Subscription date"
+msgstr "Дата підписки"
 
-msgid "The people behind IESA's success"
-msgstr "Люди, що стоять за успіхом IESA"
+msgid "Blog Subscription"
+msgstr "Підписка на блог"
 
-msgid "More"
-msgstr "Детальніше"
+msgid "Blog Subscriptions"
+msgstr "Підписки на блог"
 
-msgid "Information about members will be posted soon."
-msgstr "Інформацію про учасників буде опубліковано незабаром."
+msgid "events"
+msgstr "події"
 
-msgid "Team Member Profile"
-msgstr "Профіль члена команди"
+msgid "gatherings"
+msgstr "зустрічі"
 
-msgid "Close"
-msgstr "Закрити"
+# Events
+msgid "Date & time"
+msgstr "Дата і час"
 
-msgid "PARTNERSHIPS"
-msgstr "ПАРТНЕРСТВА"
+msgid "Age restriction"
+msgstr "Вікове обмеження"
 
-msgid "Organizations We Collaborate With"
-msgstr "Організації, з якими ми співпрацюємо"
+#, python-format
+msgid "Ages %(min_age)s-%(max_age)s"
+msgstr "Вік %(min_age)s-%(max_age)s"
 
-msgid "Building strong relationships worldwide"
-msgstr "Будуємо міцні відносини по всьому світу"
+msgid "DESCRIPTION"
+msgstr "ОПИС"
 
-msgid "%(name)s - %(category)s partner"
-msgstr "Партнер %(name)s — %(category)s"
+msgid "Back to events"
+msgstr "Повернутися до подій"
 
-msgid "Sponsor"
-msgstr "Спонсор"
-
-msgid "Media"
-msgstr "Медіа"
-
-msgid "Tech"
-msgstr "Тех"
-
-msgid "Venue"
-msgstr "Майданчик"
-
-msgid "Partner"
-msgstr "Партнер"
-
-msgid "View details about %(name)s"
-msgstr "Переглянути деталі про %(name)s"
-
-msgid "Details"
-msgstr "Деталі"
-
-msgid "Visit %(name)s website"
-msgstr "Відвідати сайт %(name)s"
-
-msgid "Visit"
-msgstr "Відвідати"
-
-msgid "Page %(page)s of %(total)s"
-msgstr "Сторінка %(page)s з %(total)s"
-
-msgid "We are looking for new partners!"
-msgstr "Ми шукаємо нових партнерів!"
-
-msgid "Support Us"
-msgstr "Підтримайте нас"
-
-msgid "Support Our Association"
-msgstr "Підтримайте нашу асоціацію"
-
-msgid "Your support helps us launch new projects, organize events and grow our international community."
-msgstr "Ваша підтримка допомагає запускати нові проєкти, організовувати події та розвивати міжнародну спільноту."
-
-msgid "Current Goal"
-msgstr "Поточна ціль"
-
-msgid "Make a Donation (Coming Soon)"
-msgstr "Зробити внесок (незабаром)"
-
-msgid "Stripe integration coming soon. This is a preview section."
-msgstr "Інтеграція Stripe з’явиться незабаром. Це попередній перегляд."
-
-msgid "Impact focus"
-msgstr "Фокус впливу"
-
-msgid "Events · Education · Partnerships"
-msgstr "Події · Освіта · Партнерства"
+msgid "Already registered"
+msgstr "Вже зареєстровані"
 
 msgid "Register"
 msgstr "Зареєструватися"
 
 msgid "Register for Event"
 msgstr "Зареєструватися на подію"
+
+msgid "Close"
+msgstr "Закрити"
 
 msgid "Thank you for your interest! Please contact us via:"
 msgstr "Дякуємо за Ваш інтерес! Будь ласка, зв'яжіться з нами:"
@@ -339,323 +302,44 @@ msgstr "Повідомлення в Telegram"
 msgid "We'll get back to you as soon as possible!"
 msgstr "Ми зв'яжемося з Вами якомога швидше!"
 
-msgid "Back to events"
-msgstr "Повернутися до подій"
+msgid "EVENTS CALENDAR"
+msgstr "КАЛЕНДАР ПОДІЙ"
 
-msgid "Already registered"
-msgstr "Вже зареєстровані"
+msgid "Upcoming Events & Gatherings"
+msgstr "Майбутні події та зустрічі"
 
-msgid "Registered"
-msgstr "Зареєстровано"
+msgid "Join us for exciting experiences and networking opportunities"
+msgstr "Приєднуйтесь до захоплюючих подій та можливостей для нетворкінгу"
 
-msgid "You have successfully registered for the event! An administrator will contact you soon to confirm your participation."
-msgstr "Ви успішно зареєструвалися на подію! Адміністратор зв'яжеться з Вами найближчим часом для підтвердження участі."
+msgid "All posts"
+msgstr "Усі публікації"
 
-msgid "You are already registered for this event."
-msgstr "Ви вже зареєстровані на цю подію."
+msgid "Search events..."
+msgstr "Пошук подій..."
 
-msgid "Age restriction"
-msgstr "Вікове обмеження"
+msgid "Search events"
+msgstr "Пошук подій"
 
-msgid "Age restriction:"
-msgstr "Вікове обмеження:"
+msgid "All events"
+msgstr "Усі події"
 
-#, python-format
-msgid "Ages %(min_age)s-%(max_age)s"
-msgstr "Вік %(min_age)s-%(max_age)s"
+msgid "Past"
+msgstr "Минулі"
 
-msgid "About"
-msgstr "Про нас"
+msgid "Date ↑"
+msgstr "Дата ↑"
 
-msgid "Benefits"
-msgstr "Переваги"
+msgid "Date ↓"
+msgstr "Дата ↓"
 
-msgid "Gallery"
-msgstr "Галерея"
+msgid "Title A→Z"
+msgstr "Назва А→Я"
 
-msgid "Community"
-msgstr "Спільнота"
+msgid "Title Z→A"
+msgstr "Назва Я→А"
 
-msgid "Posts"
-msgstr "Публікації"
-
-msgid "Events"
-msgstr "Події"
-
-msgid "Partners"
-msgstr "Партнери"
-
-msgid "Members"
-msgstr "Учасники"
-
-msgid "Create post"
-msgstr "Створити публікацію"
-
-msgid "Select language"
-msgstr "Виберіть мову"
-
-msgid "Search community"
-msgstr "Пошук по спільноті"
-
-msgid "Open search menu"
-msgstr "Відкрити меню пошуку"
-
-msgid "Posts, users, events..."
-msgstr "Публікації, користувачі, події..."
-
-msgid "Logout"
-msgstr "Вийти"
-
-msgid "ABOUT"
-msgstr "ПРО НАС"
-
-# ============================================================
-# Template i18n strings — added by translation audit
-# ============================================================
-
-# Login page
-msgid "Welcome back"
-msgstr "З поверненням"
-
-msgid "Sign in to manage your profile, create posts and discover events."
-msgstr "Увійдіть, щоб керувати профілем, створювати публікації та відкривати події."
-
-msgid "Quick Access"
-msgstr "Швидкий доступ"
-
-msgid "Community Engagement"
-msgstr "Залученість спільноти"
-
-msgid "Event Updates"
-msgstr "Оновлення подій"
-
-msgid "SIGN IN"
-msgstr "УВІЙТИ"
-
-msgid "Access your profile and connect with the community."
-msgstr "Отримайте доступ до вашого профілю та зв'яжіться зі спільнотою."
-
-msgid "Sign in failed!"
-msgstr "Помилка входу!"
-
-msgid "Invalid username or password. Please try again."
-msgstr "Невірне ім'я користувача або пароль. Спробуйте ще раз."
-
-msgid "Don't have an account?"
-msgstr "Немає акаунту?"
-
-msgid "Register here"
-msgstr "Зареєструватися тут"
-
-msgid "Sign in"
-msgstr "Увійти"
-
-# Profile
-msgid "Profile of %(username)s"
-msgstr "Профіль %(username)s"
-
-msgid "Edit Profile"
-msgstr "Редагувати профіль"
-
-msgid "Your QR Code"
-msgstr "Ваш QR-код"
-
-msgid "Open profile by card"
-msgstr "Відкрити профіль за карткою"
-
-msgid "QR Code"
-msgstr "QR-код"
-
-msgid "Scan to view profile"
-msgstr "Скануйте для перегляду профілю"
-
-msgid "Download QR"
-msgstr "Завантажити QR"
-
-msgid "Follow"
-msgstr "Слідкувати"
-
-msgid "to follow users"
-msgstr "щоб слідкувати за користувачами"
-
-msgid "Full name"
-msgstr "Повне ім'я"
-
-msgid "Date of birth"
-msgstr "Дата народження"
-
-msgid "years"
-msgstr "років"
-
-msgid "Phone"
-msgstr "Телефон"
-
-msgid "Hidden"
-msgstr "Приховано"
-
-msgid "Not specified"
-msgstr "Не вказано"
-
-msgid "Joined"
-msgstr "Приєднався"
-
-msgid "Activity Level"
-msgstr "Рівень активності"
-
-msgid "Legend"
-msgstr "Легенда"
-
-msgid "Expert"
-msgstr "Експерт"
-
-msgid "Advanced"
-msgstr "Просунутий"
-
-msgid "Intermediate"
-msgstr "Середній"
-
-msgid "Beginner"
-msgstr "Початківець"
-
-msgid "Learn about activity levels"
-msgstr "Дізнатися про рівні активності"
-
-msgid "Activity Points"
-msgstr "Бали активності"
-
-msgid "Progress to %(level)s:"
-msgstr "Прогрес до %(level)s:"
-
-msgid "Maximum level achieved!"
-msgstr "Максимальний рівень досягнуто!"
-
-msgid "Find me"
-msgstr "Знайти мене"
-
-msgid "Total posts"
-msgstr "Всього публікацій"
-
-msgid "Likes received"
-msgstr "Отримані вподобання"
-
-msgid "Comments made"
-msgstr "Коментарі"
-
-msgid "Your Posts"
-msgstr "Ваші публікації"
-
-msgid "Title"
-msgstr "Назва"
-
-msgid "Status"
-msgstr "Статус"
-
-msgid "Created"
-msgstr "Створено"
-
-msgid "Actions"
-msgstr "Дії"
-
-msgid "Rejected"
-msgstr "Відхилено"
-
-msgid "You have no posts yet."
-msgstr "У вас ще немає публікацій."
-
-msgid "Create your first post"
-msgstr "Створіть свою першу публікацію"
-
-# Edit profile
-msgid "Edit profile"
-msgstr "Редагувати профіль"
-
-msgid "Refresh your info, avatar and social links."
-msgstr "Оновіть свою інформацію, аватар і соціальні посилання."
-
-msgid "Basic info"
-msgstr "Основна інформація"
-
-msgid "First name"
-msgstr "Ім'я"
-
-msgid "Last name"
-msgstr "Прізвище"
-
-msgid "Email"
-msgstr "Електронна пошта"
-
-msgid "Format: DD.MM.YYYY"
-msgstr "Формат: ДД.ММ.РРРР"
-
-msgid "Phone Number"
-msgstr "Номер телефону"
-
-msgid "Example: +41 XX XXX XX XX"
-msgstr "Приклад: +41 XX XXX XX XX"
-
-msgid "Hide phone number (only admins can see it)"
-msgstr "Приховати номер телефону (бачать тільки адміни)"
-
-msgid "Avatar"
-msgstr "Аватар"
-
-msgid "Upload square image for best fit."
-msgstr "Завантажте квадратне зображення для найкращого вигляду."
-
-msgid "Social & links"
-msgstr "Соціальні мережі та посилання"
-
-msgid "examples below"
-msgstr "приклади нижче"
-
-msgid "Other links"
-msgstr "Інші посилання"
-
-msgid "one per line"
-msgstr "по одному на рядок"
-
-msgid "Save changes"
-msgstr "Зберегти зміни"
-
-msgid "Cancel"
-msgstr "Скасувати"
-
-# Public profile
-msgid "Member since"
-msgstr "Учасник з"
-
-msgid "Copy ID"
-msgstr "Копіювати ID"
-
-msgid "Verified"
-msgstr "Верифікований"
-
-msgid "Card Active"
-msgstr "Картка активна"
-
-msgid "Activity Statistics"
-msgstr "Статистика активності"
-
-msgid "Likes"
-msgstr "Вподобання"
-
-msgid "Admin Panel"
-msgstr "Панель адміністратора"
-
-msgid "Links"
-msgstr "Посилання"
-
-msgid "Website"
-msgstr "Веб-сайт"
-
-msgid "Other:"
-msgstr "Інше:"
-
-msgid "Published Posts"
-msgstr "Опубліковані публікації"
-
-msgid "No published posts yet."
-msgstr "Ще немає опублікованих публікацій."
+msgid "All categories"
+msgstr "Усі категорії"
 
 # Blog & Community
 msgid "Loading..."
@@ -663,6 +347,108 @@ msgstr "Завантаження..."
 
 msgid "Back to blog"
 msgstr "Повернутися до блогу"
+
+msgid "Sign in or register to access events"
+msgstr "Увійдіть або зареєструйтесь для доступу до подій"
+
+msgid "Join to RSVP, comment and engage with members"
+msgstr "Приєднуйтесь, щоб підтвердити участь, коментувати та спілкуватися з учасниками"
+
+msgid "Sign In"
+msgstr "Увійти"
+
+msgid "Reply"
+msgstr "Відповісти"
+
+msgid "Delete"
+msgstr "Видалити"
+
+msgid "Write a reply..."
+msgstr "Написати відповідь..."
+
+msgid "Send reply"
+msgstr "Надіслати відповідь"
+
+# Commons
+msgid "Comment posted."
+msgstr "Коментар опубліковано."
+
+msgid "Undo in"
+msgstr "Скасувати через"
+
+msgid "s"
+msgstr "с"
+
+msgid "Users"
+msgstr "Користувачі"
+
+msgid "Anonymous"
+msgstr "Анонім"
+
+msgid "views"
+msgstr "перегляди"
+
+msgid "Partners"
+msgstr "Партнери"
+
+msgid "No results found for \"%(q)s\""
+msgstr "Результатів не знайдено для \"%(q)s\""
+
+msgid "Minimum 2 characters required"
+msgstr "Мінімум 2 символи"
+
+msgid "Start typing to search..."
+msgstr "Почніть вводити для пошуку..."
+
+msgid "Read more"
+msgstr "Читати далі"
+
+msgid "No posts found"
+msgstr "Публікацій не знайдено"
+
+# Profile
+msgid "Subscribe to %(username)s's blog"
+msgstr "Підписатися на блог %(username)s"
+
+msgid "Subscribed"
+msgstr "Підписані"
+
+msgid "Subscribe"
+msgstr "Підписатися"
+
+msgid "Registered"
+msgstr "Зареєстровано"
+
+msgid "%(min_age)s-%(max_age)s"
+msgstr "%(min_age)s–%(max_age)s"
+
+msgid "Details"
+msgstr "Деталі"
+
+msgid "Registration closed"
+msgstr "Реєстрацію закрито"
+
+msgid "Full"
+msgstr "Заповнено"
+
+msgid "No events found"
+msgstr "Подій не знайдено"
+
+msgid "Try adjusting your filters"
+msgstr "Спробуйте змінити фільтри"
+
+msgid "Loading more events..."
+msgstr "Завантаження подій..."
+
+msgid "Pinned"
+msgstr "Закріплено"
+
+msgid "Try adjusting your search or filters"
+msgstr "Спробуйте змінити пошуковий запит або фільтри"
+
+# Blog & Community
+msgid "Loading more posts..."
+msgstr "Завантаження публікацій..."
 
 msgid "Create a new post"
 msgstr "Створити нову публікацію"
@@ -673,6 +459,15 @@ msgstr "СТВОРИТИ КОНТЕНТ"
 msgid "Publish New Article or Announcement"
 msgstr "Опублікувати новий артикул або оголошення"
 
+msgid ""
+"Use our advanced editor: fonts, colors, lists, quotes and preview before "
+"publishing"
+msgstr "Використовуйте наш редактор: шрифти, кольори, списки, цитати та попередній перегляд"
+
+msgid ""
+"Rich formatting: headings, lists, links, quotes, text and background colors."
+msgstr "Розширене форматування: заголовки, списки, посилання, цитати, кольори тексту та фону."
+
 msgid "Preview"
 msgstr "Попередній перегляд"
 
@@ -682,26 +477,29 @@ msgstr "Створити та надіслати на перевірку"
 msgid "Submitting..."
 msgstr "Надсилається..."
 
-msgid "Live preview"
-msgstr "Живий перегляд"
+msgid "Add an image for preview"
+msgstr "Додайте зображення для перегляду"
 
-msgid "Anonymous"
-msgstr "Анонім"
+msgid "Post Title"
+msgstr "Назва публікації"
 
-msgid "views"
-msgstr "перегляди"
+msgid "Description will appear here after editing."
+msgstr "Опис з'явиться тут після редагування."
+
+msgid "Please enter a post title"
+msgstr "Будь ласка, введіть назву публікації"
+
+msgid "Please enter post content"
+msgstr "Будь ласка, введіть вміст публікації"
 
 msgid "COMMENTS"
 msgstr "КОМЕНТАРІ"
 
-msgid "Leave a comment"
-msgstr "Залишити коментар"
-
 msgid "Your comment..."
 msgstr "Ваш коментар..."
 
-msgid "Send"
-msgstr "Надіслати"
+msgid "Send comment"
+msgstr "Надіслати коментар"
 
 msgid "To comment, please"
 msgstr "Щоб коментувати,"
@@ -727,10 +525,10 @@ msgstr "СПІЛЬНОТА"
 msgid "Share Ideas, Events & News"
 msgstr "Діліться ідеями, подіями та новинами"
 
-msgid "All Posts"
-msgstr "Усі публікації"
+msgid "Connect with fellow extreme sports enthusiasts"
+msgstr "Спілкуйтеся з однодумцями-екстремалами"
 
-msgid "All posts"
+msgid "All Posts"
 msgstr "Усі публікації"
 
 msgid "Search posts..."
@@ -741,12 +539,6 @@ msgstr "Пошук публікацій"
 
 msgid "All statuses"
 msgstr "Усі статуси"
-
-msgid "Published"
-msgstr "Опубліковано"
-
-msgid "Pending"
-msgstr "Очікує"
 
 msgid "Latest"
 msgstr "Найновіші"
@@ -760,77 +552,795 @@ msgstr "У тренді"
 msgid "Create Post"
 msgstr "Створити публікацію"
 
+msgid "Sign in or register to access the community"
+msgstr "Увійдіть або зареєструйтесь для доступу до спільноти"
+
+msgid "Join our community to create posts, comment and engage with members"
+msgstr "Приєднуйтесь до спільноти, щоб створювати публікації, коментувати та спілкуватися з учасниками"
+
 msgid "No Posts Yet"
 msgstr "Ще немає публікацій"
 
-# Events
-msgid "Date & time:"
-msgstr "Дата і час:"
+msgid "Be the first to share news or ideas with the community"
+msgstr "Будьте першим, хто поділиться новинами або ідеями зі спільнотою"
 
-msgid "Location:"
-msgstr "Місце:"
+msgid "Create First Post"
+msgstr "Створити першу публікацію"
 
-msgid "DESCRIPTION"
-msgstr "ОПИС"
+msgid "Join Community"
+msgstr "Приєднатися до спільноти"
 
-msgid "EVENTS CALENDAR"
-msgstr "КАЛЕНДАР ПОДІЙ"
+msgid "Method Not Allowed. Use POST."
+msgstr "Метод не дозволено. Використовуйте POST."
 
-msgid "Search events..."
-msgstr "Пошук подій..."
+msgid "Forbidden"
+msgstr "Заборонено"
 
-msgid "Search events"
-msgstr "Пошук подій"
+msgid ""
+"You have successfully registered for the event! An administrator will "
+"contact you soon to confirm your participation."
+msgstr ""
+"Ви успішно зареєструвалися на подію! Адміністратор зв'яжеться з Вами "
+"найближчим часом для підтвердження участі."
 
-msgid "Upcoming"
-msgstr "Майбутні"
+msgid "You are already registered for this event."
+msgstr "Ви вже зареєстровані на цю подію."
 
-msgid "All events"
-msgstr "Усі події"
+msgid "Your post has been submitted for moderation! 🎉"
+msgstr "Вашу публікацію надіслано на модерацію! 🎉"
 
-msgid "Past"
-msgstr "Минулі"
+msgid "Features"
+msgstr "Особливості"
 
-msgid "All categories"
-msgstr "Усі категорії"
+msgid "Terms"
+msgstr "Умови"
+
+msgid "Font Awesome icon"
+msgstr "Іконка Font Awesome"
+
+msgid "Color"
+msgstr "Колір"
+
+msgid "Logo"
+msgstr "Логотип"
+
+msgid "Photo"
+msgstr "Фото"
+
+msgid "Basic information"
+msgstr "Основна інформація"
+
+msgid "Program details"
+msgstr "Деталі програми"
+
+msgid "Display settings"
+msgstr "Налаштування відображення"
+
+msgid "Service information"
+msgstr "Інформація про сервіс"
+
+msgid "Icon"
+msgstr "Іконка"
+
+msgid "Design"
+msgstr "Дизайн"
+
+msgid "Additional"
+msgstr "Додатково"
+
+msgid "IESA Administration"
+msgstr "Адміністрація IESA"
+
+msgid "IESA Admin"
+msgstr "Адміністрація IESA"
+
+msgid "Welcome to IESA Admin Panel"
+msgstr "Ласкаво просимо до панелі адміністратора IESA"
+
+msgid "Success"
+msgstr "Успішно"
+
+msgid "Error"
+msgstr "Помилка"
+
+msgid "Warning"
+msgstr "Увага"
+
+msgid "Information"
+msgstr "Інформація"
+
+# Notifications
+msgid "Notification"
+msgstr "Сповіщення"
+
+msgid "Full Name"
+msgstr "Повне ім'я"
+
+msgid "Position"
+msgstr "Посада"
 
 # Messages
-msgid "Messages"
+msgid "Bio/Message"
+msgstr "Біографія/повідомлення"
+
+msgid "President"
+msgstr "Президент"
+
+msgid "Presidents"
+msgstr "Президенти"
+
+msgid "Only one President can exist. Delete the existing one first."
+msgstr "Може бути лише один Президент. Спочатку видаліть існуючого."
+
+msgid "Sponsor"
+msgstr "Спонсор"
+
+msgid "Media Partner"
+msgstr "Медіа-партнер"
+
+msgid "Technology Partner"
+msgstr "Технологічний партнер"
+
+msgid "Venue Partner"
+msgstr "Партнер по майданчику"
+
+msgid "Other"
+msgstr "Інше"
+
+msgid "Partner Name"
+msgstr "Назва партнера"
+
+msgid "Website Link"
+msgstr "Посилання на сайт"
+
+msgid "Max 300 chars for better display"
+msgstr "Максимум 300 символів для кращого відображення"
+
+msgid "Contract Document/Photo"
+msgstr "Документ/фото контракту"
+
+msgid "Partner Category"
+msgstr "Категорія партнера"
+
+msgid "Partner"
+msgstr "Партнер"
+
+msgid "Short Bio/Description"
+msgstr "Короткий опис/біографія"
+
+msgid "Association Member"
+msgstr "Учасник асоціації"
+
+msgid "Association Members"
+msgstr "Учасники асоціації"
+
+msgid "Social Network"
+msgstr "Соціальна мережа"
+
+msgid "Profile URL"
+msgstr "URL профілю"
+
+msgid "Active"
+msgstr "Активний"
+
+msgid "Display Order"
+msgstr "Порядок відображення"
+
+msgid "Lower numbers appear first"
+msgstr "Менші числа відображаються першими"
+
+msgid "Social Networks"
+msgstr "Соціальні мережі"
+
+msgid "Product name"
+msgstr "Назва продукту"
+
+msgid "Product description"
+msgstr "Опис продукту"
+
+msgid "Duration"
+msgstr "Тривалість"
+
+msgid "E.g.: 1-2 weeks, Friday to Sunday"
+msgstr "Напр.: 1–2 тижні, з п'ятниці до неділі"
+
+msgid "E.g.: warm countries, seaside"
+msgstr "Напр.: теплі країни, узбережжя"
+
+msgid "Product image"
+msgstr "Зображення продукту"
+
+msgid "E.g.: fas fa-child, fas fa-water, fas fa-ship"
+msgstr "Напр.: fas fa-child, fas fa-water, fas fa-ship"
+
+msgid "Additional features"
+msgstr "Додаткові особливості"
+
+msgid "One feature per line"
+msgstr "Одна особливість на рядок"
+
+msgid "Price info"
+msgstr "Інформація про ціну"
+
+msgid "Display order"
+msgstr "Порядок відображення"
+
+msgid "Lower number = higher on page"
+msgstr "Менше число = вище на сторінці"
+
+msgid "Core IESA product"
+msgstr "Основний продукт IESA"
+
+msgid "Core IESA products"
+msgstr "Основні продукти IESA"
+
+msgid "Medical services"
+msgstr "Медичні послуги"
+
+msgid "Shopping & retail"
+msgstr "Покупки та роздрібна торгівля"
+
+# Public profile
+msgid "Member services"
+msgstr "Послуги для учасників"
+
+msgid "Sports events"
+msgstr "Спортивні події"
+
+msgid "Advertising & promotion"
+msgstr "Реклама та промоція"
+
+msgid "Education & courses"
+msgstr "Освіта та курси"
+
+msgid "Travel & tourism"
+msgstr "Подорожі та туризм"
+
+msgid "Benefit name"
+msgstr "Назва переваги"
+
+msgid "Category"
+msgstr "Категорія"
+
+msgid "Benefit description"
+msgstr "Опис переваги"
+
+msgid "Discount info"
+msgstr "Інформація про знижку"
+
+msgid "E.g.: 20%, 15% on first level"
+msgstr "Напр.: 20%, 15% на першому рівні"
+
+msgid "primary, success, info, warning, danger or hex code"
+msgstr "primary, success, info, warning, danger або hex-код"
+
+msgid "Partner/service provider"
+msgstr "Партнер/постачальник послуг"
+
+msgid "How a member can receive this discount"
+msgstr "Як учасник може отримати цю знижку"
+
+# Benefits
+msgid "Member benefit"
+msgstr "Перевага учасника"
+
+# Benefits
+msgid "Member benefits"
+msgstr "Переваги учасників"
+
+# Benefits
+msgid "Member Benefits"
+msgstr "Переваги членства"
+
+# Benefits
+msgid "IESA Member Benefits"
+msgstr "Переваги учасників IESA"
+
+msgid "Get exclusive discounts and benefits as a member of our association"
+msgstr "Отримуйте ексклюзивні знижки та переваги як учасник нашої асоціації"
+
+msgid "Terms of access"
+msgstr "Умови доступу"
+
+msgid "Want access to these benefits?"
+msgstr "Хочете отримати доступ до цих переваг?"
+
+msgid "Become an IESA member and receive exclusive discounts and privileges"
+msgstr "Станьте учасником IESA та отримайте ексклюзивні знижки та привілеї"
+
+msgid "Join now"
+msgstr "Приєднатися зараз"
+
+msgid "Back to home"
+msgstr "На головну"
+
+msgid "Benefits coming soon"
+msgstr "Переваги незабаром"
+
+msgid "We are working on exclusive offers for our members"
+msgstr "Ми працюємо над ексклюзивними пропозиціями для наших учасників"
+
+msgid "IESA — Extreme Sports Association"
+msgstr "IESA — Асоціація екстремальних видів спорту"
+
+msgid "International Extreme Sports Association"
+msgstr "Міжнародна асоціація екстремальних видів спорту"
+
+msgid "Master the art"
+msgstr "Опануй мистецтво"
+
+msgid "of"
+msgstr " "
+
+msgid "Kitesurfing"
+msgstr "Кайтсерфінг"
+
+msgid ""
+"IESA unites athletes, active lifestyle communities, and everyone who grows "
+"through adventure and extreme challenges."
+msgstr ""
+"IESA об'єднує спортсменів, спільноти активного способу життя та всіх, хто "
+"зростає через пригоди й екстремальні виклики."
+
+msgid "Become a member"
+msgstr "Стати учасником"
+
+msgid "View events"
+msgstr "Переглянути події"
+
+msgid "Sport types"
+msgstr "Види спорту"
+
+msgid "Countries"
+msgstr "Країни"
+
+msgid "Years active"
+msgstr "Років існування"
+
+msgid "Programs"
+msgstr "Програми"
+
+msgid "Scroll"
+msgstr "Прокрутити"
+
+msgid "What we offer"
+msgstr "Що ми пропонуємо"
+
+msgid "Four directions"
+msgstr "Чотири напрями"
+
+msgid "that deliver results"
+msgstr "що дають результат"
+
+msgid "Strong emotions, safe extreme sports, and real team growth"
+msgstr "Сильні емоції, безпечний екстрим і реальний командний ріст"
+
+msgid "Kids · Camp"
+msgstr "Діти · Табір"
+
+msgid "Extreme Scout Camp for Kids"
+msgstr "Екстрим-скаут табір для дітей"
+
+msgid ""
+"One-week seaside camp for teens with sport training, wellness activities, "
+"and community that builds resilience and responsibility."
+msgstr "Тижневий табір на узбережжі для підлітків зі спортивними тренуваннями, оздоровчими заходами та спільнотою, яка формує стійкість і відповідальність."
+
+msgid "Duration: 1 week"
+msgstr "Тривалість: 1 тиждень"
+
+msgid "Warm countries, seaside"
+msgstr "Теплі країни, узбережжя моря"
+
+msgid "Resilience, health, friendships"
+msgstr "Стійкість, здоров'я, дружба"
+
+msgid "Adults · Weekend"
+msgstr "Дорослі · Вікенд"
+
+msgid "Extreme Weekends for Adults"
+msgstr "Екстрим-вікенди для дорослих"
+
+msgid ""
+"Regular seaside weekends for adults with diving, surfing, and other extreme "
+"sports led by experienced instructors."
+msgstr "Регулярні вікенди на узбережжі для дорослих із дайвінгом, серфінгом та іншими екстремальними видами спорту під керівництвом досвідчених інструкторів."
+
+msgid "Friday to Sunday"
+msgstr "З п'ятниці до неділі"
+
+msgid "Diving, surfing, and more"
+msgstr "Дайвінг, серфінг та інше"
+
+msgid "Adults · Journey"
+msgstr "Дорослі · Подорож"
+
+msgid "Yachting Week for Adults"
+msgstr "Яхтинг і дайвінг для дорослих"
+
+msgid ""
+"A one-week sailing expedition with catamaran training, coastal routes, and "
+"open-sea diving sessions."
+msgstr "Тижнева експедиція з навчанням на катамарані, прибережними маршрутами та занурюваннями у відкритому морі."
+
+msgid "One week"
+msgstr "Один тиждень"
+
+msgid "Scenic coastlines & sea passages"
+msgstr "Мальовничі узбережжя та морські проходи"
+
+msgid "Catamaran, open-water practice"
+msgstr "Катамаран, практика у відкритій воді"
+
+msgid "Teams · Corporate"
+msgstr "Команди · Корпоратив"
+
+msgid "Corporate Adventure Offsites"
+msgstr "Корпоративні пригодницькі виїзди"
+
+msgid ""
+"Tailored corporate trips with sports, challenges, and team tasks that "
+"strengthen culture and communication."
+msgstr "Індивідуальні корпоративні виїзди зі спортом, випробуваннями та командними завданнями для зміцнення культури та комунікації."
+
+msgid "Cohesion, trust, critical thinking"
+msgstr "Згуртованість, довіра, критичне мислення"
+
+msgid "Upcoming events"
+msgstr "Майбутні події"
+
+msgid "Multi-sport"
+msgstr "Мультиспорт"
+
+msgid "Kitesurfing · Diving · Climbing · Yachting · Surfing · Boxing"
+msgstr "Кайтсерфінг · Дайвінг · Скелелазіння · Яхтинг · Серфінг · Бокс"
+
+msgid "International"
+msgstr "Міжнародний"
+
+msgid "Switzerland & Ukraine — growing globally"
+msgstr "Швейцарія та Україна — глобальний розвиток"
+
+msgid "Regular trips"
+msgstr "Регулярні поїздки"
+
+msgid "Weekend camps · Adult offsites · Yachting weeks"
+msgstr "Табори вихідного дня · Виїзди для дорослих · Яхтинг-тижні"
+
+msgid "Expert coaches"
+msgstr "Досвідчені тренери"
+
+msgid "Certified instructors · Safe · Professional"
+msgstr "Сертифіковані інструктори · Безпечно · Професійно"
+
+msgid "IESA Mission"
+msgstr "Місія IESA"
+
+msgid "Extreme sport as a"
+msgstr "Екстремальний спорт як"
+
+msgid "way of thinking"
+msgstr "спосіб мислення"
+
+msgid ""
+"IESA is not just sport — it is a lifestyle that inspires, develops, and "
+"unites people worldwide."
+msgstr "IESA — це не просто спорт, це стиль життя, який надихає, розвиває та об'єднує."
+
+msgid "Courage and the ability to work with risk"
+msgstr "Сміливість і вміння працювати з ризиком"
+
+msgid "Physical and mental resilience"
+msgstr "Фізична та психологічна витривалість"
+
+msgid "Team skills and confidence"
+msgstr "Командні навички та впевненість у собі"
+
+msgid "Broader horizons through adventure"
+msgstr "Розширення кругозору через пригоди"
+
+msgid "Join the mission"
+msgstr "Приєднатися до місії"
+
+msgid "Who we invite"
+msgstr "Кого ми запрошуємо"
+
+msgid ""
+"Teens, adults, companies, and everyone who seeks an active, rich, and "
+"conscious life. Wake up every color of life."
+msgstr "Підлітків, дорослих, компанії та всіх, хто прагне активного, насиченого й усвідомленого життя."
+
+msgid "What extreme sport gives"
+msgstr "Що дає екстремальний спорт"
+
+msgid ""
+"Strong emotions, safe adventures, real team growth. Experience life at full "
+"intensity with the right people."
+msgstr "Сильні емоції, безпечні пригоди, реальний командний ріст. Відчуйте життя на повну з правильними людьми."
+
+msgid "Community first"
+msgstr "Спільнота понад усе"
+
+msgid ""
+"International network of athletes, explorers, coaches, and dreamers. Your "
+"tribe is here."
+msgstr "Міжнародна мережа спортсменів, дослідників, тренерів та мрійників. Ваше плем'я тут."
+
+msgid "Our programs"
+msgstr "Наші програми"
+
+msgid "IESA"
+msgstr "IESA"
+
+msgid "Core Programs"
+msgstr "Основні програми"
+
+msgid "Extreme adventures for all ages and levels"
+msgstr "Екстремальні пригоди для будь-якого віку та рівня"
+
+msgid "Core Program"
+msgstr "Основна програма"
+
+msgid "Learn more"
+msgstr "Дізнатися більше"
+
+msgid "Join our next"
+msgstr "Приєднатися до нашої наступної"
+
+msgid "View all events"
+msgstr "Переглянути всі події"
+
+msgid "About IESA"
+msgstr "Про IESA"
+
+msgid "The people behind"
+msgstr "Люди, що стоять за"
+
+msgid "our mission"
+msgstr "наша місія"
+
+msgid "Meet the team that drives IESA forward every day"
+msgstr "Познайомтесь із командою, яка рухає IESA вперед щодня"
+
+msgid "President · IESA"
+msgstr "Президент · IESA"
+
+msgid "Our team"
+msgstr "Наша команда"
+
+msgid "Dedicated"
+msgstr "Відданий"
+
+msgid "leadership"
+msgstr "керівництво"
+
+msgid "More"
+msgstr "Детальніше"
+
+msgid "Team Member"
+msgstr "Учасник команди"
+
+msgid "Partnerships"
+msgstr "Партнерства"
+
+msgid "Organizations we"
+msgstr "Організації, з якими ми"
+
+msgid "collaborate with"
+msgstr "співпрацюємо з"
+
+msgid "Media"
+msgstr "Медіа"
+
+msgid "Tech"
+msgstr "Тех"
+
+msgid "Venue"
+msgstr "Майданчик"
+
+msgid "Visit"
+msgstr "Відвідати"
+
+#, python-format
+msgid "Page %(page)s of %(total)s"
+msgstr "Сторінка %(page)s з %(total)s"
+
+msgid "We are looking for new partners!"
+msgstr "Ми шукаємо нових партнерів!"
+
+msgid "Why join"
+msgstr "Чому варто приєднатися до"
+
+msgid "IESA?"
+msgstr "IESA?"
+
+msgid "Exclusive advantages available to every member of the association"
+msgstr "Ексклюзивні переваги, доступні кожному учаснику асоціації"
+
+msgid "View all benefits"
+msgstr "Переглянути всі переваги"
+
+msgid "Support us"
+msgstr "Підтримайте нас"
+
+msgid "Support our"
+msgstr "Підтримайте нашу"
+
+msgid "association"
+msgstr "асоціацію"
+
+msgid ""
+"Your support helps us launch new projects, organize events and grow our "
+"international community."
+msgstr ""
+"Ваша підтримка допомагає запускати нові проєкти, організовувати події та "
+"розвивати міжнародну спільноту."
+
+msgid "Current Goal"
+msgstr "Поточна ціль"
+
+msgid "CHF"
+msgstr "CHF"
+
+msgid "donors"
+msgstr "донорів"
+
+msgid "Ends Dec 2026"
+msgstr "Закінчується грудень 2026"
+
+msgid "Make a Donation (Coming Soon)"
+msgstr "Зробити внесок (незабаром)"
+
+msgid "Events & Camps"
+msgstr "Події та табори"
+
+msgid "Fund kids' camps and adult adventure weekends worldwide."
+msgstr "Фінансуйте дитячі табори та пригодницькі вікенди для дорослих по всьому світу."
+
+msgid "Education"
+msgstr "Освіта"
+
+msgid "Support coaching certifications, safety training, and workshops."
+msgstr "Підтримуйте сертифікацію тренерів, навчання з безпеки та семінари."
+
+msgid "Global Partnerships"
+msgstr "Глобальні партнерства"
+
+msgid "Expand IESA's network to new cities and countries."
+msgstr "Розширюйте мережу IESA на нові міста та країни."
+
+msgid "Diving"
+msgstr "Дайвінг"
+
+msgid "Climbing"
+msgstr "Скелелазіння"
+
+msgid "Yachting"
+msgstr "Яхтинг"
+
+msgid "Surfing"
+msgstr "Серфінг"
+
+msgid "Boxing"
+msgstr "Бокс"
+
+msgid "Caption"
+msgstr "Підпис"
+
+msgid "Uploaded At"
+msgstr "Завантажено"
+
+msgid "Photos"
+msgstr "Фото"
+
+msgid "Gallery"
+msgstr "Галерея"
+
+# Gallery
+msgid "PHOTO GALLERY"
+msgstr "ФОТОГАЛЕРЕЯ"
+
+msgid "Moments From Our Community"
+msgstr "Моменти з нашої спільноти"
+
+msgid "See how we work, train and create memories together"
+msgstr "Подивіться, як ми працюємо, тренуємось і створюємо спогади разом"
+
+msgid "View photo"
+msgstr "Переглянути фото"
+
+msgid "Previous"
+msgstr "Попередній"
+
+msgid "Next"
+msgstr "Наступний"
+
+msgid "No photos yet"
+msgstr "Ще немає фото"
+
+msgid "Add photos from events or projects to inspire members."
+msgstr "Додайте фото з подій або проєктів, щоб надихнути учасників."
+
+msgid "Go to community"
+msgstr "Перейти до спільноти"
+
+# Notifications
+msgid "Notification Info"
+msgstr "Інформація про сповіщення"
+
+msgid "Post Approved"
+msgstr "Публікацію схвалено"
+
+msgid "Post Rejected"
+msgstr "Публікацію відхилено"
+
+# Commons
+msgid "New Comment"
+msgstr "Новий коментар"
+
+msgid "Comment Reply"
+msgstr "Відповідь на коментар"
+
+msgid "New Like"
+msgstr "Нове вподобання"
+
+msgid "New Follower"
+msgstr "Новий підписник"
+
+msgid "Event Reminder"
+msgstr "Нагадування про подію"
+
+# Messages
+msgid "New Message"
+msgstr "Нове повідомлення"
+
+# Notifications
+msgid "System Notification"
+msgstr "Системне сповіщення"
+
+msgid "Recipient"
+msgstr "Отримувач"
+
+msgid "Sender"
+msgstr "Відправник"
+
+msgid "Type"
+msgstr "Тип"
+
+# Messages
+msgid "Message"
 msgstr "Повідомлення"
 
-msgid "Type a message..."
-msgstr "Введіть повідомлення..."
+msgid "Link"
+msgstr "Посилання"
 
-msgid "Search messages"
-msgstr "Пошук повідомлень"
+msgid "Read"
+msgstr "Прочитано"
 
-msgid "Search..."
-msgstr "Пошук..."
-
-msgid "Edit"
-msgstr "Редагувати"
-
-msgid "Delete"
-msgstr "Видалити"
-
-msgid "Today"
-msgstr "Сьогодні"
-
-msgid "Yesterday"
-msgstr "Вчора"
-
-msgid "New chat"
-msgstr "Новий чат"
-
-msgid "No chats"
-msgstr "Немає чатів"
-
-msgid "No messages"
-msgstr "Немає повідомлень"
+msgid "Read at"
+msgstr "Прочитано о"
 
 # Notifications
 msgid "Notifications"
 msgstr "Сповіщення"
+
+msgid "ago"
+msgstr "тому"
+
+msgid "Delete this notification?"
+msgstr "Видалити це сповіщення?"
+
+msgid "View All"
+msgstr "Переглянути все"
+
+msgid "Mark Read"
+msgstr "Позначити як прочитане"
+
+msgid "No notifications yet"
+msgstr "Ще немає сповіщень"
+
+msgid "Stay updated with your activity"
+msgstr "Будьте в курсі своєї активності"
 
 msgid "Mark all as read"
 msgstr "Позначити все як прочитане"
@@ -838,14 +1348,100 @@ msgstr "Позначити все як прочитане"
 msgid "Unread"
 msgstr "Непрочитані"
 
-msgid "No notifications yet"
-msgstr "Ще немає сповіщень"
+msgid "All notifications marked as read"
+msgstr "Всі сповіщення позначено як прочитані"
 
 msgid "New"
 msgstr "Нове"
 
 msgid "View"
 msgstr "Переглянути"
+
+msgid "Delete notification"
+msgstr "Видалити сповіщення"
+
+# Notifications
+msgid "Notifications pagination"
+msgstr "Пагінація сповіщень"
+
+msgid "You'll see notifications here when someone interacts with your content."
+msgstr "Тут з'являться сповіщення, коли хтось взаємодіє з вашим контентом."
+
+msgid "Explore Posts"
+msgstr "Дослідити публікації"
+
+# Notifications
+msgid "No notifications"
+msgstr "Немає сповіщень"
+
+msgid "Post Approved! 🎉"
+msgstr "Публікацію схвалено! 🎉"
+
+#, python-format
+msgid "Your post \"%(title)s\" has been approved and is now published."
+msgstr "Вашу публікацію \"%(title)s\" схвалено та опубліковано."
+
+msgid "Post Needs Review"
+msgstr "Публікація потребує перегляду"
+
+#, python-format
+msgid "Your post \"%(title)s\" was not approved. Please review and edit it."
+msgstr "Вашу публікацію \"%(title)s\" не схвалено. Будь ласка, перегляньте та відредагуйте її."
+
+#, python-format
+msgid "%(username)s commented on your post \"%(title)s\""
+msgstr "%(username)s прокоментував(ла) вашу публікацію \"%(title)s\""
+
+msgid "New Reply"
+msgstr "Нова відповідь"
+
+#, python-format
+msgid "%(username)s replied to your comment"
+msgstr "%(username)s відповів(ла) на ваш коментар"
+
+msgid "New Like ❤️"
+msgstr "Нове вподобання ❤️"
+
+#, python-format
+msgid "%(username)s liked your post \"%(title)s\""
+msgstr "%(username)s вподобав(ла) вашу публікацію \"%(title)s\""
+
+msgid "Event Reminder 📅"
+msgstr "Нагадування про подію 📅"
+
+#, python-format
+msgid "Reminder: \"%(title)s\" is coming up on %(date)s"
+msgstr "Нагадування: \"%(title)s\" відбудеться %(date)s"
+
+msgid "Product Name"
+msgstr "Назва продукту"
+
+msgid "Price"
+msgstr "Ціна"
+
+msgid "Product Image"
+msgstr "Зображення продукту"
+
+msgid "Product"
+msgstr "Продукт"
+
+msgid "Products"
+msgstr "Продукти"
+
+msgid "Product Catalog"
+msgstr "Каталог продуктів"
+
+msgid "CATALOG"
+msgstr "КАТАЛОГ"
+
+msgid "Gear and services curated for IESA members"
+msgstr "Товари та послуги для учасників IESA"
+
+msgid "Catalog is empty"
+msgstr "Каталог порожній"
+
+msgid "We are preparing products and services for association members."
+msgstr "Ми готуємо продукти та послуги для учасників асоціації."
 
 # Error pages
 msgid "404 - Page not found"
@@ -854,49 +1450,122 @@ msgstr "404 - Сторінку не знайдено"
 msgid "Page not found"
 msgstr "Сторінку не знайдено"
 
+msgid ""
+"Oops! It looks like you got lost. The page you are looking for does not "
+"exist or has been moved."
+msgstr "Ой! Здається, ви заблукали. Сторінка, яку ви шукаєте, не існує або була переміщена."
+
+msgid "Maybe you were looking for:"
+msgstr "Можливо, ви шукали:"
+
+msgid "Search the site..."
+msgstr "Пошук по сайту..."
+
 msgid "500 - Internal server error"
 msgstr "500 - Внутрішня помилка сервера"
 
 msgid "Internal server error"
 msgstr "Внутрішня помилка сервера"
 
+msgid ""
+"Something went wrong on our side. We are already working to fix it. Please "
+"try again later."
+msgstr "Щось пішло не так з нашого боку. Ми вже працюємо над виправленням. Будь ласка, спробуйте пізніше."
+
 msgid "Go back"
 msgstr "Повернутися"
 
-# Gallery
-msgid "PHOTO GALLERY"
-msgstr "ФОТОГАЛЕРЕЯ"
+msgid "If the problem persists, please contact our support team."
+msgstr "Якщо проблема не зникне, будь ласка, зверніться до нашої служби підтримки."
 
-msgid "Photo"
-msgstr "Фото"
+msgid "IESA ROOT"
+msgstr "IESA ROOT"
 
-msgid "Previous"
-msgstr "Попередній"
+msgid ""
+"IESA - Extreme Sports Community. Kitesurfing in Egypt, Boxing, Adventure "
+"Travel & Sauna Experiences. Join our international athletes and enthusiasts."
+msgstr "IESA — Спільнота екстремальних видів спорту. Кайтсерфінг в Єгипті, бокс, пригодницькі подорожі та сауна. Приєднуйтесь до міжнародних спортсменів."
 
-msgid "Next"
-msgstr "Наступний"
+msgid ""
+"extreme sports, kitesurfing Egypt, boxing, adventure travel, sauna, "
+"community, athletes"
+msgstr "екстремальні види спорту, кайтсерфінг Єгипет, бокс, пригодницькі подорожі, сауна, спільнота, спортсмени"
 
-# Base template
-msgid "Confirm Logout"
-msgstr "Підтвердження виходу"
+msgid ""
+"IESA - Extreme Sports Community. Experience kitesurfing in Egypt, boxing, "
+"adventure travel and exclusive sauna access. Join international athletes."
+msgstr "IESA — Спільнота екстремальних видів спорту. Кайтсерфінг в Єгипті, бокс, пригоди та сауна. Приєднуйтесь до спортсменів."
 
-msgid "Are you sure you want to log out?"
-msgstr "Ви впевнені, що хочете вийти?"
-
-msgid "Back to top"
-msgstr "Наверх"
-
-msgid "Scroll to top"
-msgstr "Прокрутити наверх"
+msgid ""
+"IESA - Extreme Sports Community. Kitesurfing in Egypt, Boxing, Adventure "
+"Travel & Sauna for Athletes."
+msgstr "IESA — Спільнота екстремальних видів спорту. Кайтсерфінг, бокс, пригоди та сауна для спортсменів."
 
 msgid "Skip to main content"
 msgstr "Перейти до основного вмісту"
 
+msgid "Dev mode"
+msgstr "Режим розробки"
+
+msgid "Site is under active development."
+msgstr "Сайт знаходиться в активній розробці."
+
+msgid "Main navigation"
+msgstr "Основна навігація"
+
 msgid "IESA Home"
 msgstr "Головна IESA"
 
+msgid "IESA Logo"
+msgstr "Логотип IESA"
+
 msgid "Toggle navigation"
 msgstr "Перемикання навігації"
+
+msgid "Home"
+msgstr "Головна"
+
+msgid "About"
+msgstr "Про нас"
+
+msgid "Benefits"
+msgstr "Переваги"
+
+msgid "Community"
+msgstr "Спільнота"
+
+msgid "Members"
+msgstr "Учасники"
+
+msgid "Create post"
+msgstr "Створити публікацію"
+
+msgid "Search community"
+msgstr "Пошук по спільноті"
+
+msgid "Open search menu"
+msgstr "Відкрити меню пошуку"
+
+# Search
+msgid "Search"
+msgstr "Пошук"
+
+msgid "Posts, users, events..."
+msgstr "Публікації, користувачі, події..."
+
+msgid "Profile"
+msgstr "Профіль"
+
+msgid "Logout"
+msgstr "Вийти"
+
+msgid "ABOUT"
+msgstr "ПРО НАС"
+
+msgid ""
+"IESA connects sports leaders and partners, creating a space for growth, "
+"projects and events worldwide."
+msgstr "IESA об'єднує спортивних лідерів та партнерів, створюючи простір для зростання, проєктів та подій по всьому світу."
 
 msgid "IESA Association. All rights reserved."
 msgstr "Асоціація IESA. Всі права захищені."
@@ -907,51 +1576,729 @@ msgstr "ПОСИЛАННЯ"
 msgid "CONTACTS"
 msgstr "КОНТАКТИ"
 
+msgid "Switzerland"
+msgstr "Швейцарія"
+
 msgid "SOCIAL"
 msgstr "СОЦІАЛЬНІ МЕРЕЖІ"
 
-# Registration
-msgid "REGISTER"
-msgstr "РЕЄСТРАЦІЯ"
+# Base template
+msgid "Confirm Logout"
+msgstr "Підтвердження виходу"
 
-msgid "Create Account"
-msgstr "Створити акаунт"
+msgid "Are you sure you want to log out?"
+msgstr "Ви впевнені, що хочете вийти?"
 
-msgid "Already have an account?"
-msgstr "Вже є акаунт?"
+msgid "Cancel"
+msgstr "Скасувати"
 
-msgid "Sign in here"
-msgstr "Увійти тут"
+msgid "Back to top"
+msgstr "Наверх"
 
-# Member directory
-msgid "MEMBER DIRECTORY"
-msgstr "КАТАЛОГ УЧАСНИКІВ"
+msgid "Mobile navigation"
+msgstr "Мобільна навігація"
 
-msgid "Search by name, username, email or ID..."
-msgstr "Пошук за ім'ям, логіном, email або ID..."
+# === member_cabinet / connect_telegram (auto-added 2026-02-27) ===
+msgid "Cabinet"
+msgstr "Кабінет"
 
-msgid "Results for"
-msgstr "Результати для"
+msgid "Alerts"
+msgstr "Сповіщення"
 
-msgid "No users found."
-msgstr "Користувачів не знайдено."
+#, python-format
+msgid "Users (%(count)s)"
+msgstr "Користувачі (%(count)s)"
 
-# Benefits
-msgid "Member Benefits"
-msgstr "Переваги членства"
+msgid "Verified"
+msgstr "Верифікований"
+
+#, python-format
+msgid "Posts (%(count)s)"
+msgstr "Публікації (%(count)s)"
+
+#, python-format
+msgid "Events (%(count)s)"
+msgstr "Події (%(count)s)"
+
+#, python-format
+msgid "Partners (%(count)s)"
+msgstr "Партнери (%(count)s)"
+
+msgid "Nothing found"
+msgstr "Нічого не знайдено"
+
+#, python-format
+msgid "Try changing your search query \"%(query)s\""
+msgstr "Спробуйте змінити пошуковий запит \"%(query)s\""
+
+msgid "Minimum 2 characters to search"
+msgstr "Мінімум 2 символи для пошуку"
+
+msgid "Our Strategic Partners"
+msgstr "Наші стратегічні партнери"
+
+msgid ""
+"Trusted organizations collaborating with us to advance sports excellence "
+"globally"
+msgstr "Надійні організації, які співпрацюють з нами для розвитку спортової досконалості у світі"
+
+msgid "View Details"
+msgstr "Переглянути деталі"
+
+msgid "No Partners Yet"
+msgstr "Ще немає партнерів"
+
+msgid "We're working on establishing partnerships. Check back soon!"
+msgstr "Ми працюємо над встановленням партнерств. Перевірте пізніше!"
+
+msgid "Partner Details"
+msgstr "Деталі партнера"
+
+# Blog & Community
+msgid "Loading…"
+msgstr "Завантаження…"
+
+msgid "Strategic Partner"
+msgstr "Стратегічний партнер"
+
+msgid "Visit Website"
+msgstr "Перейти на сайт"
+
+msgid "Website information will be added soon."
+msgstr "Інформацію про сайт буде додано незабаром."
+
+msgid "Partnership Agreement"
+msgstr "Партнерська угода"
+
+msgid "Contract"
+msgstr "Контракт"
+
+msgid "Download"
+msgstr "Завантажити"
+
+msgid "View Full Size"
+msgstr "Переглянути повний розмір"
+
+msgid "Partnership established to advance sports excellence and collaboration"
+msgstr "Партнерство створено для розвитку спортової досконалості та співпраці"
+
+msgid "Card Status"
+msgstr "Статус картки"
+
+msgid "Card Active"
+msgstr "Картка активна"
+
+msgid "Card Inactive"
+msgstr "Картка неактивна"
+
+msgid "Never Issued"
+msgstr "Не видавалась"
+
+msgid "Verification Status"
+msgstr "Статус верифікації"
+
+msgid "Unverified"
+msgstr "Не верифікований"
+
+msgid "Personal information"
+msgstr "Особиста інформація"
+
+msgid "Membership"
+msgstr "Членство"
+
+msgid "Card QR & Actions"
+msgstr "QR-код картки та дії"
+
+msgid "Permissions"
+msgstr "Дозволи"
+
+msgid "Important dates"
+msgstr "Важливі дати"
+
+#, python-format
+msgid "QR code regenerated for %(count)d user(s) with same permanent_id"
+msgstr "QR-код перегенеровано для %(count)d користувача(ів) зі збереженим permanent_id"
+
+msgid "🔄 Regenerate QR code (same ID)"
+msgstr "🔄 Перегенерувати QR-код (той самий ID)"
+
+#, python-format
+msgid "New permanent_id and QR code created for %(count)d user(s)"
+msgstr "Створено новий permanent_id та QR-код для %(count)d користувача(ів)"
+
+msgid "🆕 New permanent_id and QR code (lost card)"
+msgstr "🆕 Новий permanent_id та QR-код (загублена картка)"
+
+#, python-format
+msgid "Card issued for %(count)d user(s)"
+msgstr "Картку видано для %(count)d користувача(ів)"
+
+msgid "✓ Issue card (activate)"
+msgstr "✓ Видати картку (активувати)"
+
+#, python-format
+msgid "Card revoked for %(count)d user(s)"
+msgstr "Картку відкликано для %(count)d користувача(ів)"
+
+msgid "✗ Revoke card (deactivate)"
+msgstr "✗ Відкликати картку (деактивувати)"
+
+msgid "Basic Information"
+msgstr "Основна інформація"
+
+msgid "Metadata"
+msgstr "Метадані"
+
+msgid "Visit Information"
+msgstr "Інформація про візит"
+
+msgid "Service Details"
+msgstr "Деталі послуги"
+
+msgid "Verification"
+msgstr "Верифікація"
+
+msgid "Beginner"
+msgstr "Початківець"
+
+msgid "Just starting your journey in the IESA community"
+msgstr "Тільки починаєте свій шлях у спільноті IESA"
+
+msgid "Create your first blog post (10 points)"
+msgstr "Створіть свою першу публікацію (10 балів)"
+
+msgid "Leave comments on other posts (1 point each)"
+msgstr "Залишайте коментарі до інших публікацій (1 бал за кожен)"
+
+msgid "Engage with the community"
+msgstr "Взаємодійте зі спільнотою"
+
+msgid "Intermediate"
+msgstr "Середній"
+
+msgid "You're becoming an active member"
+msgstr "Ви стаєте активним учасником"
+
+msgid "Publish 5-10 quality posts (10 points each)"
+msgstr "Опублікуйте 5–10 якісних публікацій (10 балів за кожну)"
+
+msgid "Receive 50+ likes on your posts (2 points each)"
+msgstr "Отримайте 50+ вподобань на свої публікації (2 бали за кожне)"
+
+msgid "Participate in discussions"
+msgstr "Беріть участь у дискусіях"
+
+msgid "Advanced"
+msgstr "Просунутий"
+
+msgid "You're a valuable contributor"
+msgstr "Ви цінний учасник"
+
+msgid "Publish 15-25 popular posts"
+msgstr "Опублікуйте 15–25 популярних публікацій"
+
+msgid "Accumulate 100+ total likes"
+msgstr "Накопичте 100+ вподобань загалом"
+
+msgid "Build a strong reputation"
+msgstr "Здобудьте міцну репутацію"
+
+msgid "Expert"
+msgstr "Експерт"
+
+msgid "You're a recognized authority"
+msgstr "Ви визнаний авторитет"
+
+msgid "Publish 50+ high-quality posts"
+msgstr "Опублікуйте 50+ високоякісних публікацій"
+
+msgid "Achieve 300+ total likes"
+msgstr "Досягніть 300+ вподобань загалом"
+
+msgid "Mentor other members"
+msgstr "Наставляйте інших учасників"
+
+msgid "Legend"
+msgstr "Легенда"
+
+msgid "Unlimited"
+msgstr "Безлімітний"
+
+msgid "You're a pillar of the IESA community"
+msgstr "Ви опора спільноти IESA"
+
+msgid "Maintain extraordinary engagement"
+msgstr "Підтримуйте надзвичайну залученість"
+
+msgid "Lead by example"
+msgstr "Подавайте приклад"
+
+msgid "Shape the future of IESA"
+msgstr "Формуйте майбутнє IESA"
+
+#, python-format
+msgid "Visit confirmed at %(company)s"
+msgstr "Візит підтверджено у %(company)s"
+
+#, python-format
+msgid "Visit record updated — %(company)s"
+msgstr "Запис візиту оновлено — %(company)s"
+
+#, python-format
+msgid "Visit cancelled — %(company)s"
+msgstr "Візит скасовано — %(company)s"
+
+msgid "IESA Sport — Test Email"
+msgstr "IESA Sport — Тестовий лист"
+
+msgid "Date of birth"
+msgstr "Дата народження"
+
+# Edit profile
+msgid "GitHub profile"
+msgstr "Профіль GitHub"
+
+msgid "Enter the full link to your GitHub profile"
+msgstr "Введіть повне посилання на ваш профіль GitHub"
+
+msgid "Discord"
+msgstr "Discord"
+
+msgid "Enter your Discord username"
+msgstr "Введіть ваше ім'я користувача Discord"
+
+msgid "Telegram"
+msgstr "Telegram"
+
+msgid "Enter your Telegram username or link"
+msgstr "Введіть ваше ім'я Telegram або посилання"
+
+msgid "Website"
+msgstr "Веб-сайт"
+
+msgid "Enter the full link to your website"
+msgstr "Введіть повне посилання на ваш веб-сайт"
+
+msgid "Other links"
+msgstr "Інші посилання"
+
+msgid "Enter additional links, one per line"
+msgstr "Введіть додаткові посилання, по одному на рядок"
+
+msgid "Search by name, pseudonym, or UUID..."
+msgstr "Пошук за ім'ям, псевдонімом або UUID..."
+
+msgid "Member PIN (6 digits)"
+msgstr "PIN-код учасника (6 цифр)"
+
+msgid "Ask member to show their current PIN from personal cabinet"
+msgstr "Попросіть учасника показати поточний PIN з особистого кабінету"
+
+msgid "Optional: Describe the service provided..."
+msgstr "Необов'язково: Опишіть надану послугу..."
+
+msgid "Optional: Additional comments..."
+msgstr "Необов'язково: Додаткові коментарі..."
+
+msgid "Service Type"
+msgstr "Тип послуги"
+
+msgid "Service Description (Optional)"
+msgstr "Опис послуги (необов'язково)"
+
+msgid "Cost (Optional)"
+msgstr "Вартість (необов'язково)"
+
+msgid "Comments (Optional)"
+msgstr "Коментарі (необов'язково)"
+
+msgid "PIN must be exactly 6 digits"
+msgstr "PIN-код має містити рівно 6 цифр"
+
+msgid "🔍 Start typing name, username, or UUID..."
+msgstr "Почніть вводити ім'я, логін або UUID..."
+
+msgid "🔑 Member PIN Code (6 digits)"
+msgstr "🔑 PIN-код учасника (6 цифр)"
+
+msgid "⚠️ Ask member to show their current PIN from personal cabinet"
+msgstr "Попросіть учасника показати поточний PIN з особистого кабінету"
+
+msgid ""
+"Example: Massage therapy 60 minutes, Personal training session, Product "
+"purchase details..."
+msgstr "Приклад: Масаж 60 хвилин, Персональне тренування, Деталі покупки..."
+
+msgid "Enter amount (e.g., 50.00)"
+msgstr "Введіть суму (напр., 50.00)"
+
+msgid "Any additional notes about this visit..."
+msgstr "Будь-які додаткові примітки щодо цього візиту..."
+
+msgid "📋 Service Type *"
+msgstr "📋 Тип послуги *"
+
+msgid "📝 Service Description (Optional)"
+msgstr "📝 Опис послуги (необов'язково)"
+
+msgid "💰 Cost in CHF (Optional)"
+msgstr "💰 Вартість у CHF (необов'язково)"
+
+msgid "💬 Additional Comments (Optional)"
+msgstr "💬 Додаткові коментарі (необов'язково)"
+
+msgid "❌ PIN must be exactly 6 digits (numbers only)"
+msgstr "❌ PIN-код має містити рівно 6 цифр (лише цифри)"
+
+msgid "❌ Cost cannot be negative"
+msgstr "❌ Вартість не може бути від'ємною"
+
+msgid "Explain why this visit record needs to be corrected..."
+msgstr "Поясніть, чому цей запис візиту потрібно виправити..."
+
+msgid "📝 Reason for Edit *"
+msgstr "📝 Причина редагування *"
+
+msgid "Required — will be stored in the audit log and sent to member by email."
+msgstr "Обов'язково — буде збережено в журналі аудиту та надіслано учаснику електронною поштою."
+
+msgid "📝 Service Description"
+msgstr "📝 Опис послуги"
+
+msgid "💰 Cost in CHF"
+msgstr "💰 Вартість у CHF"
+
+# Commons
+msgid "💬 Comments"
+msgstr "💬 Коментарі"
+
+msgid "Explain why this visit is being cancelled..."
+msgstr "Поясніть, чому цей візит скасовується..."
+
+msgid "📝 Reason for Cancellation *"
+msgstr "📝 Причина скасування *"
+
+msgid "Failed PIN Attempts"
+msgstr "Невдалі спроби PIN"
+
+msgid "PIN Lockout Until"
+msgstr "PIN заблоковано до"
+
+msgid "Edited"
+msgstr "Відредаговано"
+
+msgid "Visit Audit"
+msgstr "Аудит візиту"
+
+msgid "Visit Audits"
+msgstr "Аудит візитів"
+
+msgid "Edit"
+msgstr "Редагувати"
+
+msgid "Action"
+msgstr "Дія"
+
+msgid "Changed At"
+msgstr "Змінено"
+
+msgid "Changed By"
+msgstr "Змінив"
+
+msgid "Previous Comments"
+msgstr "Попередні коментарі"
+
+msgid "Previous Cost"
+msgstr "Попередня вартість"
+
+msgid "Previous Description"
+msgstr "Попередній опис"
+
+msgid "Previous Service Type"
+msgstr "Попередній тип послуги"
+
+msgid "Reason"
+msgstr "Причина"
+
+msgid "Telegram Chat ID"
+msgstr "ID чату Telegram"
+
+msgid "Telegram Linked At"
+msgstr "Telegram підключено"
+
+msgid "Permanent ID"
+msgstr "Постійний ID"
+
+msgid "Card active"
+msgstr "Картка активна"
+
+msgid "Card issued at"
+msgstr "Картку видано"
+
+msgid "Membership Status"
+msgstr "Статус членства"
+
+msgid "Pseudonym"
+msgstr "Псевдонім"
+
+msgid "TOTP Secret"
+msgstr "Секрет TOTP"
+
+msgid "Avatar"
+msgstr "Аватар"
+
+msgid "Date of Birth"
+msgstr "Дата народження"
+
+msgid "Phone Number"
+msgstr "Номер телефону"
+
+msgid "Hide Phone Number"
+msgstr "Приховати номер телефону"
+
+msgid "If checked, only admins can see your phone number"
+msgstr "Якщо позначено, лише адміністратори можуть бачити ваш номер телефону"
+
+msgid "Last Online"
+msgstr "Останній візит онлайн"
+
+msgid "Verified User"
+msgstr "Верифікований користувач"
+
+msgid "Inactive"
+msgstr "Неактивний"
+
+msgid "Base32-encoded secret for PIN generation"
+msgstr "Секрет у Base32 для генерації PIN"
+
+msgid ""
+"Linked Telegram chat id (set automatically when user connects via bot or "
+"widget)"
+msgstr "Пов'язаний ID чату Telegram (встановлюється автоматично при підключенні через бота або віджет)"
+
+msgid "GitHub"
+msgstr "GitHub"
+
+msgid "Other links (one per line)"
+msgstr "Інші посилання (по одному на рядок)"
+
+msgid "Total Posts Published"
+msgstr "Всього опублікованих публікацій"
+
+msgid "Total Likes Received"
+msgstr "Всього отриманих вподобань"
+
+msgid "Total Comments Made"
+msgstr "Всього написаних коментарів"
+
+msgid "Activity Points"
+msgstr "Бали активності"
+
+msgid "User Account"
+msgstr "Обліковий запис"
+
+msgid "Company Name"
+msgstr "Назва компанії"
+
+msgid "Shop/Retail"
+msgstr "Магазин/Роздрібна торгівля"
+
+msgid "Service Provider"
+msgstr "Постачальник послуг"
+
+msgid "Gym/Fitness"
+msgstr "Спортзал/Фітнес"
+
+msgid "Restaurant/Cafe"
+msgstr "Ресторан/Кафе"
+
+msgid "Business Type"
+msgstr "Тип бізнесу"
+
+msgid "Created At"
+msgstr "Створено"
+
+msgid "Member"
+msgstr "Учасник"
+
+msgid "Purchase"
+msgstr "Покупка"
+
+msgid "Consultation"
+msgstr "Консультація"
+
+msgid "Training Session"
+msgstr "Тренування"
+
+msgid "Event Attendance"
+msgstr "Відвідуваність подій"
+
+msgid "Service Description"
+msgstr "Опис послуги"
+
+msgid "Cost"
+msgstr "Вартість"
+
+msgid "PIN Verified"
+msgstr "PIN підтверджено"
+
+msgid "Visit Time"
+msgstr "Час візиту"
+
+msgid "Visits"
+msgstr "Візити"
+
+#, python-format
+msgid "👋 <b>Welcome back, %(name)s!</b>"
+msgstr "👋 <b>З поверненням, %(name)s!</b>"
+
+#, python-format
+msgid "Membership: <b>%(status)s</b>"
+msgstr "Членство: <b>%(status)s</b>"
+
+msgid "Choose an action:"
+msgstr "Оберіть дію:"
+
+msgid "📊 My status"
+msgstr "📊 Мій статус"
+
+msgid "❓ Help"
+msgstr "❓ Допомога"
+
+msgid "🏠 Personal Cabinet"
+msgstr "🏠 Особистий кабінет"
+
+msgid "🔓 Unlink Telegram"
+msgstr "🔓 Від'єднати Telegram"
+
+msgid "👋 <b>Hello! This is the IESA Sport bot.</b>"
+msgstr "👋 <b>Привіт! Це бот IESA Sport.</b>"
+
+msgid ""
+"Here you can link your Telegram to your website account and receive instant "
+"notifications about partner visits."
+msgstr "Тут ви можете прив'язати Telegram до облікового запису на сайті та отримувати миттєві сповіщення про візити партнерів."
+
+msgid "Press the button below ↓"
+msgstr "Натисніть кнопку нижче ↓"
+
+msgid "🔗 Link account"
+msgstr "🔗 Прив'язати акаунт"
+
+msgid "📖 <b>IESA Sport Bot — help</b>"
+msgstr "📖 <b>Бот IESA Sport — допомога</b>"
+
+msgid ""
+"🔗 <b>Link account</b> — get a 6-digit code and enter it in your cabinet on "
+"the site."
+msgstr "🔗 <b>Прив'язати акаунт</b> — отримайте 6-цифровий код і введіть його в кабінеті на сайті."
+
+msgid "📊 <b>My status</b> — check your membership status."
+msgstr "📊 <b>Мій статус</b> — перевірте статус членства."
+
+msgid "🏠 <b>Personal Cabinet</b> — open the site, get your PIN for partners."
+msgstr "🏠 <b>Особистий кабінет</b> — відкрийте сайт, отримайте PIN для партнерів."
+
+msgid "🔓 <b>Unlink Telegram</b> — disable notifications."
+msgstr "🔓 <b>Від'єднати Telegram</b> — вимкнути сповіщення."
+
+msgid "<b>You receive notifications about:</b>"
+msgstr "<b>Ви отримуєте сповіщення про:</b>"
+
+msgid "✅ Visit confirmation"
+msgstr "✅ Підтвердження візиту"
+
+msgid "📝 Visit edit"
+msgstr "📝 Редагування візиту"
+
+msgid "❌ Visit cancellation"
+msgstr "❌ Скасування візиту"
+
+msgid "🎉 Membership activation"
+msgstr "🎉 Активація членства"
+
+#, python-format
+msgid "👤 Linked to: <b>%(name)s</b>"
+msgstr "👤 Прив'язано до: <b>%(name)s</b>"
+
+msgid "Your Telegram chat_id:"
+msgstr "Ваш Telegram chat_id:"
+
+msgid "❌ Telegram is not linked to an IESA Sport account."
+msgstr "❌ Telegram не прив'язаний до облікового запису IESA Sport."
+
+#, python-format
+msgid "Membership status: <b>%(label)s</b>"
+msgstr "Статус членства: <b>%(label)s</b>"
+
+msgid "🔄 Refresh"
+msgstr "🔄 Оновити"
+
+msgid "ℹ️ This Telegram is not linked to any account."
+msgstr "ℹ️ Цей Telegram не прив'язаний до жодного акаунту."
+
+msgid "⚠️ <b>Unlink Telegram from account?</b>"
+msgstr "⚠️ <b>Від'єднати Telegram від акаунту?</b>"
+
+msgid "You will stop receiving notifications."
+msgstr "Ви перестанете отримувати сповіщення."
+
+msgid "✅ Yes, unlink"
+msgstr "✅ Так, від'єднати"
+
+msgid "❌ Cancel"
+msgstr "❌ Скасувати"
+
+msgid "ℹ️ Already unlinked."
+msgstr "ℹ️ Вже від'єднано."
+
+msgid "✅ Telegram unlinked from account."
+msgstr "✅ Telegram від'єднано від акаунту."
+
+msgid "🔗 Link again"
+msgstr "🔗 Прив'язати знову"
+
+msgid "↩️ Cancelled."
+msgstr "↩️ Скасовано."
+
+msgid "I repeat your messages in test mode. Use buttons or commands below."
+msgstr "Я повторюю ваші повідомлення в тестовому режимі. Використовуйте кнопки або команди нижче."
+
+# === member_cabinet / connect_telegram (auto-added 2026-02-27) ===
+msgid "🏠 Cabinet"
+msgstr "🏠 Кабінет"
+
+msgid "✅ <b>Visit confirmed</b>"
+msgstr "✅ <b>Візит підтверджено</b>"
+
+msgid "📝 <b>Visit edited</b>"
+msgstr "📝 <b>Візит відредаговано</b>"
+
+msgid "❌ <b>Visit cancelled</b>"
+msgstr "❌ <b>Візит скасовано</b>"
+
+msgid "🎉 <b>Membership activated!</b>"
+msgstr "🎉 <b>Членство активовано!</b>"
+
+#, python-format
+msgid "Hello, %(name)s!"
+msgstr "Привіт, %(name)s!"
+
+msgid "Your IESA Sport membership is now active."
+msgstr "Ваше членство в IESA Sport тепер активне."
+
+msgid "🏃 Use <b>Personal Cabinet</b> to get your PIN:"
+msgstr "🏃 Використовуйте <b>Особистий кабінет</b>, щоб отримати PIN:"
+
+msgid "Open cabinet →"
+msgstr "Відкрити кабінет →"
 
 # Activity levels
 msgid "Activity Levels"
 msgstr "Рівні активності"
 
-msgid "Activity Points System"
-msgstr "Система балів активності"
-
-msgid "Back to Profile"
-msgstr "Повернутися до профілю"
-
-msgid "How Points are Calculated"
-msgstr "Як розраховуються бали"
+msgid "Understand how to progress through our community achievement levels"
+msgstr "Дізнайтесь, як просуватися через рівні досягнень нашої спільноти"
 
 msgid "Create a Post"
 msgstr "Створити публікацію"
@@ -959,169 +2306,276 @@ msgstr "Створити публікацію"
 msgid "points"
 msgstr "балів"
 
-msgid "Receive a Like"
+msgid "Every published post contributes to your level"
+msgstr "Кожна опублікована публікація сприяє вашому рівню"
+
+msgid "Get a Like"
 msgstr "Отримати вподобання"
 
-msgid "Write a Comment"
-msgstr "Написати коментар"
+msgid "Received from community members"
+msgstr "Отримані від учасників спільноти"
 
-msgid "Daily Login"
-msgstr "Щоденний вхід"
+msgid "Post a Comment"
+msgstr "Написати коментар"
 
 msgid "point"
 msgstr "бал"
 
+msgid "Each meaningful comment counts"
+msgstr "Кожен змістовний коментар зараховується"
+
 msgid "ACHIEVEMENT LEVELS"
 msgstr "РІВНІ ДОСЯГНЕНЬ"
+
+#, python-format
+msgid "How to reach %(name)s"
+msgstr "Як досягти рівня %(name)s"
 
 msgid "Additional Information"
 msgstr "Додаткова інформація"
 
-msgid "Points are calculated automatically based on your activity."
-msgstr "Бали розраховуються автоматично на основі вашої активності."
+msgid "How Points are Calculated"
+msgstr "Як розраховуються бали"
 
-msgid "Your level is updated in real-time as you earn points."
-msgstr "Ваш рівень оновлюється в реальному часі, коли ви набираєте бали."
+msgid "Your activity level is determined by a combination of contributions:"
+msgstr "Ваш рівень активності визначається сукупністю внесків:"
 
-msgid "All members start at Beginner level."
-msgstr "Усі учасники починають з рівня Початківець."
+msgid "Posts:"
+msgstr "Публікації:"
 
-msgid "There is no penalty for inactivity."
-msgstr "За неактивність штраф не передбачено."
+msgid "10 points per published post"
+msgstr "10 балів за опубліковану публікацію"
+
+msgid "Likes Received:"
+msgstr "Отримані вподобання:"
+
+msgid "2 points per like on your posts"
+msgstr "2 бали за вподобання ваших публікацій"
+
+# Commons
+msgid "Comments:"
+msgstr "Коментарі:"
+
+msgid "1 point per comment you make"
+msgstr "1 бал за кожен ваш коментар"
+
+msgid "Points are recalculated daily and reflect your current activity."
+msgstr "Бали перераховуються щодня та відображають вашу поточну активність."
 
 msgid "Tips for Advancement"
 msgstr "Поради для зростання"
 
-msgid "Post regularly to the blog"
-msgstr "Регулярно публікуйте в блозі"
+msgid "Quality over Quantity:"
+msgstr "Якість понад кількість:"
 
-msgid "Engage with other members' content"
-msgstr "Взаємодійте з контентом інших учасників"
+msgid "Focus on meaningful posts"
+msgstr "Зосередьтесь на змістовних публікаціях"
 
-msgid "Log in daily to earn bonus points"
-msgstr "Входьте щодня, щоб отримувати бонусні бали"
+msgid "Engage Regularly:"
+msgstr "Беріть участь регулярно:"
 
-msgid "Create quality content that others will like"
-msgstr "Створюйте якісний контент, який сподобається іншим"
+msgid "Consistent participation builds reputation"
+msgstr "Послідовна участь формує репутацію"
 
-# Deactivate account
-msgid "Deactivate Account"
-msgstr "Деактивувати акаунт"
+msgid "Support Others:"
+msgstr "Підтримуйте інших:"
 
-msgid "Warning:"
-msgstr "Увага:"
+msgid "Comments and feedback help the community"
+msgstr "Коментарі та зворотний зв'язок допомагають спільноті"
 
-msgid "Account deactivation is a serious action. Please read the information below carefully."
-msgstr "Деактивація акаунту — серйозна дія. Будь ласка, уважно прочитайте інформацію нижче."
+msgid "Be Authentic:"
+msgstr "Будьте справжніми:"
 
-msgid "What happens when you deactivate your account:"
-msgstr "Що станеться, коли ви деактивуєте акаунт:"
+msgid "Share genuine insights and experiences"
+msgstr "Діліться справжніми ідеями та досвідом"
 
-msgid "Your profile will be hidden from other users"
-msgstr "Ваш профіль буде приховано від інших користувачів"
+msgid "Ready to Grow Your Level?"
+msgstr "Готові підвищити свій рівень?"
 
-msgid "You will not be able to log in"
-msgstr "Ви не зможете увійти в систему"
+msgid "Check your current activity level and start accumulating points today!"
+msgstr "Перевірте свій поточний рівень активності та почніть накопичувати бали сьогодні!"
 
-msgid "Your posts and comments will remain but show as anonymous"
-msgstr "Ваші публікації та коментарі залишаться, але будуть показані як анонімні"
+msgid "View Your Profile"
+msgstr "Переглянути свій профіль"
 
-msgid "You can contact an administrator to reactivate your account"
-msgstr "Ви можете зв'язатися з адміністратором для повторної активації акаунту"
+msgid "Join Our Community Today!"
+msgstr "Приєднуйтесь до нашої спільноти сьогодні!"
 
-msgid "Yes, Deactivate My Account"
-msgstr "Так, деактивувати мій акаунт"
+msgid "Create an account and start your journey to becoming a legend."
+msgstr "Створіть акаунт і почніть свій шлях до того, щоб стати легендою."
 
-msgid "Need help? Contact our support team before making this decision."
-msgstr "Потрібна допомога? Зв'яжіться з нашою командою підтримки перед прийняттям рішення."
+msgid "Sign Up Now"
+msgstr "Зареєструватися зараз"
 
-msgid "Contact support"
-msgstr "Зв'язатися з підтримкою"
+msgid "Cancel Visit"
+msgstr "Скасувати візит"
 
-# Public profile (QR scan)
-msgid "Public Profile"
-msgstr "Публічний профіль"
+msgid "Back to Dashboard"
+msgstr "Повернутися до панелі"
 
-msgid "Active Member"
-msgstr "Активний учасник"
+msgid "Cancellation window closes in"
+msgstr "Вікно скасування закриється через"
 
-msgid "Inactive"
-msgstr "Неактивний"
+msgid "seconds"
+msgstr "секунд"
 
-msgid "Issued:"
-msgstr "Видано:"
+msgid "Cancelling visit"
+msgstr "Скасування візиту"
 
-msgid "For Partners:"
-msgstr "Для партнерів:"
+msgid "Service"
+msgstr "Послуга"
 
-msgid "This member can use their IESA card for discounts and benefits at partner locations."
-msgstr "Цей учасник може використовувати свою картку IESA для знижок і переваг у партнерських закладах."
+msgid "Logged at"
+msgstr "Зафіксовано о"
+
+msgid "This action cannot be undone. The member will be notified by email."
+msgstr "Цю дію не можна скасувати. Учасник буде повідомлений електронною поштою."
+
+msgid "Confirm Cancellation"
+msgstr "Підтвердити скасування"
+
+msgid "Keep Visit (Go Back)"
+msgstr "Зберегти візит (повернутися)"
+
+msgid "Connect Telegram"
+msgstr "Підключити Telegram"
+
+msgid "Telegram Connected!"
+msgstr "Telegram підключено!"
+
+msgid "Redirecting…"
+msgstr "Перенаправлення…"
+
+msgid "Get instant visit notifications"
+msgstr "Отримуйте миттєві сповіщення про візити"
+
+msgid "Tap to open in Telegram"
+msgstr "Натисніть, щоб відкрити у Telegram"
+
+msgid "Open"
+msgstr "Відкрийте"
+
+msgid "in Telegram"
+msgstr "у Telegram"
+
+msgid "Open the IESA Sport bot in Telegram"
+msgstr "Відкрийте бот IESA Sport у Telegram"
+
+msgid "Press"
+msgstr "Натисніть"
+
+msgid "Attach account"
+msgstr "Прив'язати акаунт"
+
+msgid "or send"
+msgstr "або надішліть"
+
+msgid "Enter the 6-digit code from the bot below"
+msgstr "Введіть 6-значний код від бота нижче"
+
+msgid "6-digit code"
+msgstr "6-значний код"
+
+msgid "Back to cabinet"
+msgstr "Назад до кабінету"
+
+msgid "Edit Visit"
+msgstr "Редагувати візит"
+
+msgid "Edit window closes in"
+msgstr "Вікно редагування закриється через"
+
+msgid "Editing visit"
+msgstr "Редагування візиту"
+
+msgid "Current service"
+msgstr "Поточна послуга"
+
+msgid "Current cost"
+msgstr "Поточна вартість"
+
+msgid "Edit Visit Details"
+msgstr "Редагувати деталі візиту"
+
+msgid "Save Changes"
+msgstr "Зберегти зміни"
 
 # Log visit
 msgid "Log Visit"
 msgstr "Записати візит"
 
-msgid "Back to Dashboard"
-msgstr "Повернутися до панелі"
-
-msgid "CHF"
-msgstr "CHF"
+msgid "Active Member"
+msgstr "Активний учасник"
 
 msgid "Member Verification Required"
 msgstr "Необхідна верифікація учасника"
 
-msgid "Ask the member to show their current 6-digit PIN from their personal cabinet."
-msgstr "Попросіть учасника показати свій поточний 6-значний PIN з особистого кабінету."
+msgid ""
+"Ask the member to show their current 6-digit PIN from their personal cabinet."
+msgstr ""
+"Попросіть учасника показати свій поточний 6-значний PIN з особистого "
+"кабінету."
 
 msgid "Verify PIN & Log Visit"
 msgstr "Перевірити PIN та записати візит"
 
-# Partner search
-msgid "Results"
-msgstr "Результати"
+msgid "IESA Members"
+msgstr "Учасники IESA"
 
-msgid "No Results Found"
-msgstr "Результатів не знайдено"
+# ============================================================
+# Template i18n strings — added by translation audit
+# ============================================================
+# Login page
+msgid "Welcome back"
+msgstr "З поверненням"
 
-msgid "Try searching with a different name, username, or member ID."
-msgstr "Спробуйте пошукати за іншим ім'ям, логіном або ID учасника."
+msgid "Sign in to manage your profile, create posts and discover events."
+msgstr ""
+"Увійдіть, щоб керувати профілем, створювати публікації та відкривати події."
 
-msgid "Enter member name, username, or ID to search"
-msgstr "Введіть ім'я учасника, логін або ID для пошуку"
+msgid "Quick Access to Your Profile"
+msgstr "Швидкий доступ до профілю"
 
-# Search
-msgid "Search"
-msgstr "Пошук"
+msgid "Community Engagement"
+msgstr "Залученість спільноти"
 
-msgid "Profile"
-msgstr "Профіль"
+msgid "Event Updates & RSVP"
+msgstr "Оновлення подій та RSVP"
 
-# Commons
-msgid "Comments"
-msgstr "Коментарі"
+msgid "SIGN IN"
+msgstr "УВІЙТИ"
 
-msgid "ago"
-msgstr "тому"
+msgid "Sign in to your account"
+msgstr "Увійдіть у свій акаунт"
 
-msgid "Yes"
-msgstr "Так"
+msgid "Access your profile and connect with the community."
+msgstr "Отримайте доступ до вашого профілю та зв'яжіться зі спільнотою."
 
-msgid "No"
-msgstr "Ні"
+msgid "Sign in failed!"
+msgstr "Помилка входу!"
+
+msgid "Invalid username or password. Please try again."
+msgstr "Невірне ім'я користувача або пароль. Спробуйте ще раз."
+
+msgid "Don't have an account?"
+msgstr "Немає акаунту?"
+
+msgid "Register here"
+msgstr "Зареєструватися тут"
 
 # === member_cabinet / connect_telegram (auto-added 2026-02-27) ===
-
 msgid "Member Cabinet"
 msgstr "Особистий кабінет"
-
-msgid "Member Cabinet — IESA Sport"
-msgstr "Особистий кабінет — IESA Sport"
 
 msgid "Personal Cabinet"
 msgstr "Особистий кабінет"
 
-msgid "Personal Cabinet · IESA Sport"
-msgstr "Особистий кабінет · IESA Sport"
+# Edit profile
+msgid "Edit profile"
+msgstr "Редагувати профіль"
+
+msgid "Public profile"
+msgstr "Публічний профіль"
 
 msgid "Verification PIN"
 msgstr "PIN-код верифікації"
@@ -1132,17 +2586,14 @@ msgstr "Авто-оновлення 12 хв"
 msgid "Your current code"
 msgstr "Ваш поточний код"
 
+msgid "sec"
+msgstr "сек"
+
 msgid "Copy PIN"
 msgstr "Скопіювати PIN"
 
-msgid "Copied!"
-msgstr "Скопійовано!"
-
 msgid "Reloads when expired"
 msgstr "Оновиться після закінчення"
-
-msgid "sec"
-msgstr "сек"
 
 msgid "How to use your PIN"
 msgstr "Як користуватися PIN-кодом"
@@ -1171,20 +2622,17 @@ msgstr "Отримайте сповіщення ✅"
 msgid "Visit is logged. Telegram confirmation incoming."
 msgstr "Візит зафіксовано. Підтвердження у Telegram надходить."
 
-msgid "Active"
-msgstr "Активний"
-
-msgid "Public profile"
-msgstr "Публічний профіль"
+msgid "Please contact the administrator for assistance."
+msgstr "Будь ласка, зверніться до адміністратора за допомогою."
 
 msgid "Membership Inactive"
 msgstr "Членство неактивне"
 
-msgid "You need an active membership to use the PIN and access partner benefits."
-msgstr "Вам потрібне активне членство, щоб використовувати PIN та отримувати партнерські переваги."
-
-msgid "Please contact the administrator for assistance."
-msgstr "Будь ласка, зверніться до адміністратора за допомогою."
+msgid ""
+"You need an active membership to use the PIN and access partner benefits."
+msgstr ""
+"Вам потрібне активне членство, щоб використовувати PIN та отримувати "
+"партнерські переваги."
 
 msgid "Contact Administration"
 msgstr "Зв'яжіться з адміністрацією"
@@ -1207,50 +2655,783 @@ msgstr "Ви отримуєте миттєві підтвердження віз
 msgid "Disconnect Telegram"
 msgstr "Відключити Telegram"
 
-msgid "Connect Telegram"
-msgstr "Підключити Telegram"
-
-msgid "Connect your Telegram account to receive instant visit confirmations and important updates directly in the messenger."
-msgstr "Підключіть свій акаунт Telegram, щоб отримувати миттєві підтвердження візитів та важливі оновлення прямо у месенджері."
+msgid ""
+"Connect your Telegram account to receive instant visit confirmations and "
+"important updates directly in the messenger."
+msgstr ""
+"Підключіть свій акаунт Telegram, щоб отримувати миттєві підтвердження "
+"візитів та важливі оновлення прямо у месенджері."
 
 msgid "or log in with Telegram"
 msgstr "або увійти через Telegram"
 
-msgid "Get instant visit notifications"
-msgstr "Отримуйте миттєві сповіщення про візити"
+msgid "Copied!"
+msgstr "Скопійовано!"
 
-msgid "6-digit code"
-msgstr "6-значний код"
+# Public profile (QR scan)
+msgid "Public Profile"
+msgstr "Публічний профіль"
 
-msgid "Tap to open in Telegram"
-msgstr "Натисніть, щоб відкрити у Telegram"
+msgid "Issued:"
+msgstr "Видано:"
 
-msgid "Open"
-msgstr "Відкрийте"
+msgid "ID:"
+msgstr "ID:"
 
-msgid "Open the IESA Sport bot in Telegram"
-msgstr "Відкрийте бот IESA Sport у Telegram"
+msgid "For Partners:"
+msgstr "Для партнерів:"
 
-msgid "in Telegram"
-msgstr "у Telegram"
+msgid ""
+"If this member is active, you can log their visit from your partner "
+"dashboard."
+msgstr "Якщо цей учасник активний, ви можете зафіксувати його візит з панелі партнера."
 
-msgid "Press"
-msgstr "Натисніть"
+# Partner search
+msgid "Results"
+msgstr "Результати"
 
-msgid "Attach account"
-msgstr "Прив'язати акаунт"
+msgid "No Results Found"
+msgstr "Результатів не знайдено"
 
-msgid "or send"
-msgstr "або надішліть"
+msgid "Try searching with a different name, username, or member ID."
+msgstr "Спробуйте пошукати за іншим ім'ям, логіном або ID учасника."
 
-msgid "Enter the 6-digit code from the bot below"
-msgstr "Введіть 6-значний код від бота нижче"
+msgid "Enter member name, username, or ID to search"
+msgstr "Введіть ім'я учасника, логін або ID для пошуку"
 
-msgid "Telegram Connected!"
-msgstr "Telegram підключено!"
+msgid "Partner Dashboard"
+msgstr "Панель партнера"
 
-msgid "Redirecting…"
-msgstr "Перенаправлення…"
+msgid "Active Partner"
+msgstr "Активний партнер"
 
-msgid "Back to cabinet"
-msgstr "Назад до кабінету"
+msgid "Total Visits"
+msgstr "Всього візитів"
+
+msgid "Verified Visits"
+msgstr "Підтверджених візитів"
+
+msgid "Total Cost"
+msgstr "Загальна вартість"
+
+msgid "Unique Members"
+msgstr "Унікальних учасників"
+
+msgid "Live Member Search"
+msgstr "Пошук учасників у реальному часі"
+
+msgid "Search by name, username, or permanent ID (UUID)"
+msgstr "Пошук за ім'ям, логіном або постійним ID (UUID)"
+
+# Search
+msgid "Search Now"
+msgstr "Шукати"
+
+msgid "Recent Visits"
+msgstr "Останні візити"
+
+msgid "Send test email to verify SMTP"
+msgstr "Надіслати тестовий лист для перевірки SMTP"
+
+msgid "Test Email"
+msgstr "Тестовий лист"
+
+msgid "Date"
+msgstr "Дата"
+
+msgid "Actions"
+msgstr "Дії"
+
+msgid "Edit visit"
+msgstr "Редагувати візит"
+
+msgid "Cancel visit"
+msgstr "Скасувати візит"
+
+msgid "No Visits Yet"
+msgstr "Ще немає візитів"
+
+msgid "Use the search to find members and log your first visit!"
+msgstr "Використовуйте пошук, щоб знайти учасників та зафіксувати перший візит!"
+
+# Profile
+#, python-format
+msgid "Profile of %(username)s"
+msgstr "Профіль %(username)s"
+
+msgid "Edit Profile"
+msgstr "Редагувати профіль"
+
+msgid "Download QR"
+msgstr "Завантажити QR"
+
+msgid "Follow"
+msgstr "Слідкувати"
+
+msgid "Sign in"
+msgstr "Увійти"
+
+msgid "Full name"
+msgstr "Повне ім'я"
+
+msgid " years"
+msgstr " років"
+
+msgid "Phone"
+msgstr "Телефон"
+
+msgid "Hidden"
+msgstr "Приховано"
+
+msgid "Not specified"
+msgstr "Не вказано"
+
+msgid "Joined"
+msgstr "Приєднався"
+
+msgid "Activity"
+msgstr "Активність"
+
+msgid "Learn about activity levels"
+msgstr "Дізнатися про рівні активності"
+
+#, python-format
+msgid "Progress to %(level)s:"
+msgstr "Прогрес до %(level)s:"
+
+msgid "Maximum level achieved!"
+msgstr "Максимальний рівень досягнуто!"
+
+msgid "Your QR Code"
+msgstr "Ваш QR-код"
+
+msgid "Open profile by card"
+msgstr "Відкрити профіль за карткою"
+
+msgid "QR Code"
+msgstr "QR-код"
+
+msgid "Scan to view profile"
+msgstr "Скануйте для перегляду профілю"
+
+msgid "Stats"
+msgstr "Статистика"
+
+msgid "Find me"
+msgstr "Знайти мене"
+
+msgid "Total posts"
+msgstr "Всього публікацій"
+
+msgid "Likes received"
+msgstr "Отримані вподобання"
+
+msgid "Comments made"
+msgstr "Коментарі"
+
+msgid "Created"
+msgstr "Створено"
+
+msgid "No posts yet."
+msgstr "Ще немає публікацій."
+
+msgid "Create your first post"
+msgstr "Створіть свою першу публікацію"
+
+# Deactivate account
+msgid "Deactivate Account"
+msgstr "Деактивувати акаунт"
+
+# Deactivate account
+msgid "Deactivate Your Account"
+msgstr "Деактивувати акаунт"
+
+msgid "Warning:"
+msgstr "Увага:"
+
+msgid ""
+"This action will deactivate your account. You will not be able to log in "
+"until your account is reactivated by support."
+msgstr "Ця дія деактивує ваш акаунт. Ви не зможете увійти, поки акаунт не буде повторно активовано службою підтримки."
+
+msgid "What happens:"
+msgstr "Що станеться:"
+
+msgid "Your profile will be hidden from other users"
+msgstr "Ваш профіль буде приховано від інших користувачів"
+
+msgid "You won't be able to log in"
+msgstr "Ви не зможете увійти"
+
+msgid "All your data will be preserved"
+msgstr "Всі ваші дані будуть збережені"
+
+msgid "You can contact support to reactivate"
+msgstr "Зверніться до підтримки для повторної активації"
+
+msgid "Enter your password to confirm:"
+msgstr "Введіть пароль для підтвердження:"
+
+msgid "We need your password for security"
+msgstr "Нам потрібен ваш пароль для безпеки"
+
+msgid "Yes, Deactivate My Account"
+msgstr "Так, деактивувати мій акаунт"
+
+msgid "Need help?"
+msgstr "Потрібна допомога?"
+
+msgid "Contact support"
+msgstr "Зв'язатися з підтримкою"
+
+msgid "Refresh your info, avatar and social links."
+msgstr "Оновіть свою інформацію, аватар і соціальні посилання."
+
+msgid "Basic info"
+msgstr "Основна інформація"
+
+msgid "First name"
+msgstr "Ім'я"
+
+msgid "Last name"
+msgstr "Прізвище"
+
+msgid "Email"
+msgstr "Електронна пошта"
+
+msgid "Format: DD.MM.YYYY"
+msgstr "Формат: ДД.ММ.РРРР"
+
+msgid "Example: +41 XX XXX XX XX"
+msgstr "Приклад: +41 XX XXX XX XX"
+
+msgid "Hide phone number (only admins can see it)"
+msgstr "Приховати номер телефону (бачать тільки адміни)"
+
+msgid "Upload square image for best fit."
+msgstr "Завантажте квадратне зображення для найкращого вигляду."
+
+msgid "Social & links"
+msgstr "Соціальні мережі та посилання"
+
+msgid "examples below"
+msgstr "приклади нижче"
+
+msgid "one per line"
+msgstr "по одному на рядок"
+
+msgid ""
+"Examples: LinkedIn, Reddit, Twitter, YouTube, TikTok, Instagram, Twitch, "
+"Medium, etc."
+msgstr "Приклади: LinkedIn, Reddit, Twitter, YouTube, TikTok, Instagram, Twitch, Medium тощо."
+
+msgid "Save changes"
+msgstr "Зберегти зміни"
+
+msgid "Staff"
+msgstr "Персонал"
+
+msgid "to follow this user"
+msgstr "щоб слідкувати за цим користувачем"
+
+msgid "Admin"
+msgstr "Адміністратор"
+
+# Public profile
+msgid "Member since"
+msgstr "Учасник з"
+
+msgid "Age"
+msgstr "Вік"
+
+msgid "ACTIVITY LEVEL"
+msgstr "РІВЕНЬ АКТИВНОСТІ"
+
+msgid "YOUR QR CODE"
+msgstr "ВАШ QR-КОД"
+
+msgid "QR"
+msgstr "QR"
+
+msgid "Followers"
+msgstr "Підписники"
+
+msgid "PUBLISHED POSTS"
+msgstr "ОПУБЛІКОВАНІ ПУБЛІКАЦІЇ"
+
+msgid "No published posts yet."
+msgstr "Ще немає опублікованих публікацій."
+
+msgid "YOUR PERMANENT ID"
+msgstr "ВАШ ПОСТІЙНИЙ ID"
+
+msgid "Copy ID"
+msgstr "Копіювати ID"
+
+msgid "Copy"
+msgstr "Копіювати"
+
+msgid "Join IESA"
+msgstr "Приєднатися до IESA"
+
+msgid "Join IESA Today"
+msgstr "Приєднатися до IESA сьогодні"
+
+msgid ""
+"Create your account and become part of our international extreme sports "
+"community."
+msgstr "Створіть акаунт та станьте частиною нашої міжнародної спільноти екстремальних видів спорту."
+
+msgid "Connect with Athletes"
+msgstr "Спілкуйтесь зі спортсменами"
+
+msgid "Share Your Journey"
+msgstr "Діліться своєю подорожжю"
+
+msgid "Discover & RSVP to Events"
+msgstr "Відкривайте та реєструйтесь на події"
+
+msgid "Build Your Profile"
+msgstr "Створіть свій профіль"
+
+# Registration
+msgid "REGISTER"
+msgstr "РЕЄСТРАЦІЯ"
+
+msgid "Create your account"
+msgstr "Створити акаунт"
+
+msgid "Join the IESA community and start sharing!"
+msgstr "Приєднуйтесь до спільноти IESA та починайте ділитися!"
+
+msgid "Registration failed:"
+msgstr "Помилка реєстрації:"
+
+msgid "Create Account"
+msgstr "Створити акаунт"
+
+msgid "Already have an account?"
+msgstr "Вже є акаунт?"
+
+msgid "Sign in here"
+msgstr "Увійти тут"
+
+msgid "User search"
+msgstr "Пошук користувачів"
+
+# Member directory
+msgid "MEMBER DIRECTORY"
+msgstr "КАТАЛОГ УЧАСНИКІВ"
+
+msgid "Find & Connect With Members"
+msgstr "Знайти та зв'язатися з учасниками"
+
+msgid "Search our community by name, username, email or ID"
+msgstr "Пошук у спільноті за ім'ям, логіном, email або ID"
+
+msgid "Search by name, username, email or ID..."
+msgstr "Пошук за ім'ям, логіном, email або ID..."
+
+msgid "Results for"
+msgstr "Результати для"
+
+msgid "No users found."
+msgstr "Користувачів не знайдено."
+
+msgid "Password must contain at least one uppercase letter (A-Z)."
+msgstr "Пароль повинен містити принаймні одну велику літеру (A-Z)."
+
+msgid "Your password must contain at least one uppercase letter (A-Z)."
+msgstr "Ваш пароль повинен містити принаймні одну велику літеру (A-Z)."
+
+#, python-brace-format
+msgid ""
+"Password must contain at least one special character (!@#$%^&*(),.?\":{}|<>)."
+msgstr "Пароль повинен містити принаймні один спеціальний символ (!@#$%^&*(),.?\":{}|<>)."
+
+#, python-brace-format
+msgid ""
+"Your password must contain at least one special character (!@#$%^&*(),.?\":"
+"{}|<>)."
+msgstr "Ваш пароль повинен містити принаймні один спеціальний символ (!@#$%^&*(),.?\":{}|<>)."
+
+msgid "Некорректный номер телефона. Допустимы цифры, пробелы, '+', '-', '()'."
+msgstr "Некоректний номер телефону. Допустимі цифри, пробіли, '+', '-', '()'."
+
+msgid ""
+"Введите корректную ссылку на профиль GitHub (например: https://github.com/"
+"username)"
+msgstr "Введіть коректне посилання на профіль GitHub (наприклад: https://github.com/username)"
+
+msgid "Введите корректное имя Discord (например: username или username#1234)"
+msgstr "Введіть коректне ім'я Discord (наприклад: username або username#1234)"
+
+msgid ""
+"Введите корректную ссылку Telegram (например: @username или t.me/username)"
+msgstr "Введіть коректне посилання Telegram (наприклад: @username або t.me/username)"
+
+msgid ""
+"Введите корректную ссылку на сайт (должна начинаться с http:// или https://)"
+msgstr "Введіть коректне посилання на сайт (має починатися з http:// або https://)"
+
+msgid "Profile updated successfully! ✨"
+msgstr "Профіль успішно оновлено! ✨"
+
+msgid "❌ Please enter your password to confirm account deactivation."
+msgstr "❌ Будь ласка, введіть пароль для підтвердження деактивації акаунту."
+
+msgid "❌ Incorrect password. Account deactivation cancelled."
+msgstr "❌ Невірний пароль. Деактивацію акаунту скасовано."
+
+msgid ""
+"✅ Your account has been deactivated. You can reactivate it by contacting "
+"support."
+msgstr "✅ Ваш акаунт деактивовано. Ви можете повторно активувати його, звернувшись до підтримки."
+
+msgid "⚠️ System error: Database migration required. Contact administrator."
+msgstr "⚠️ Системна помилка: потрібна міграція бази даних. Зверніться до адміністратора."
+
+msgid ""
+"Your membership is inactive. Contact administrator to activate your account."
+msgstr "Ваше членство неактивне. Зверніться до адміністратора для активації акаунту."
+
+msgid "⚠️ TOTP secret not configured. Contact administrator."
+msgstr "⚠️ Секрет TOTP не налаштовано. Зверніться до адміністратора."
+
+msgid "PIN system not initialized. Contact administrator."
+msgstr "Систему PIN не ініціалізовано. Зверніться до адміністратора."
+
+msgid "⚠️ Unable to generate PIN. Contact administrator."
+msgstr "⚠️ Неможливо згенерувати PIN. Зверніться до адміністратора."
+
+msgid "PIN generation failed. Contact administrator."
+msgstr "Помилка генерації PIN. Зверніться до адміністратора."
+
+msgid "⚠️ Partner profile not configured. Contact administrator."
+msgstr "⚠️ Профіль партнера не налаштовано. Зверніться до адміністратора."
+
+msgid "Partner profile not found."
+msgstr "Профіль партнера не знайдено."
+
+#, python-format
+msgid "⚠️ Warning: %(name)s membership is currently inactive."
+msgstr "⚠️ Увага: членство %(name)s наразі неактивне."
+
+#, python-format
+msgid ""
+"🔒 PIN entry locked for this member. Please wait %(remaining)d minute(s)."
+msgstr "🔒 Введення PIN для цього учасника заблоковано. Зачекайте %(remaining)d хвилин(у)."
+
+msgid "⚠️ Member PIN system not configured. Contact administrator."
+msgstr "⚠️ Систему PIN учасника не налаштовано. Зверніться до адміністратора."
+
+#, python-format
+msgid ""
+"ℹ️ Duplicate detected: identical visit already logged within the last 5 "
+"minutes for %(name)s. No new record created."
+msgstr "ℹ️ Виявлено дублікат: ідентичний візит вже зафіксовано протягом останніх 5 хвилин для %(name)s. Новий запис не створено."
+
+#, python-format
+msgid ""
+"✅ Visit logged! Member: %(name)s | Service: %(service)s | Cost: %(cost)s"
+msgstr "✅ Візит зафіксовано! Учасник: %(name)s | Послуга: %(service)s | Вартість: %(cost)s"
+
+#, python-format
+msgid "🔒 Too many wrong PINs. PIN locked for %(minutes)d minutes."
+msgstr "🔒 Забагато невірних PIN. PIN заблоковано на %(minutes)d хвилин."
+
+#, python-format
+msgid "❌ Invalid PIN. %(left)d attempt(s) remaining before lockout."
+msgstr "❌ Невірний PIN. Залишилось %(left)d спроб(а) до блокування."
+
+msgid ""
+"⏰ Edit window expired. Visits can only be edited within 20 minutes of "
+"logging."
+msgstr "⏰ Вікно редагування закінчилось. Візити можна редагувати лише протягом 20 хвилин після фіксації."
+
+msgid "❌ Cancelled visits cannot be edited."
+msgstr "❌ Скасовані візити не можна редагувати."
+
+msgid "✅ Visit updated. Member notified via Telegram."
+msgstr "✅ Візит оновлено. Учасника повідомлено через Telegram."
+
+msgid ""
+"⏰ Edit window expired. Visits can only be cancelled within 20 minutes of "
+"logging."
+msgstr "⏰ Вікно скасування закінчилось. Візити можна скасувати лише протягом 20 хвилин після фіксації."
+
+msgid "This visit is already cancelled."
+msgstr "Цей візит вже скасовано."
+
+msgid "✅ Visit cancelled. Member notified via Telegram."
+msgstr "✅ Візит скасовано. Учасника повідомлено через Telegram."
+
+msgid "Access restricted to administrators only."
+msgstr "Доступ обмежено лише для адміністраторів."
+
+msgid "Code must be exactly 6 digits."
+msgstr "Код має містити рівно 6 цифр."
+
+msgid "Code is invalid or expired. Get a new one with /link in the bot."
+msgstr "Код недійсний або прострочений. Отримайте новий за допомогою /link у боті."
+
+msgid "This Telegram account is already linked to another user."
+msgstr "Цей акаунт Telegram вже прив'язаний до іншого користувача."
+
+msgid "✅ Telegram linked successfully!"
+msgstr "✅ Telegram успішно прив'язано!"
+
+msgid "Telegram disconnected from your account."
+msgstr "Telegram від'єднано від вашого акаунту."
+
+msgid "Telegram signature verification failed."
+msgstr "Не вдалося підтвердити підпис Telegram."
+
+msgid "Telegram request expired. Please try again."
+msgstr "Запит Telegram прострочено. Спробуйте ще раз."
+
+msgid "Unable to retrieve Telegram ID."
+msgstr "Неможливо отримати Telegram ID."
+
+#, python-format
+msgid "✅ Telegram (%(name)s) linked successfully!"
+msgstr "✅ Telegram (%(name)s) успішно прив'язано!"
+
+#~ msgid "IESA Programs for Kids and Adults"
+#~ msgstr "Програми IESA для дітей і дорослих"
+
+#~ msgid ""
+#~ "IESA delivers programs for teens and adults — a reset through sport and "
+#~ "strong team formats."
+#~ msgstr ""
+#~ "IESA проводить програми для підлітків і дорослих — перезавантаження через "
+#~ "спорт і сильні командні формати."
+
+#~ msgid "WHAT IESA OFFERS"
+#~ msgstr "ЩО ПРОПОНУЄ IESA"
+
+#~ msgid "Kids"
+#~ msgstr "Діти"
+
+#~ msgid "Adults"
+#~ msgstr "Дорослі"
+
+#~ msgid "Teams"
+#~ msgstr "Команди"
+
+#~ msgid "Travel"
+#~ msgstr "Подорожі"
+
+#~ msgid "Extreme scout camp for kids"
+#~ msgstr "Дитячий екстрим-скаут табір"
+
+#~ msgid "Build resilience, love for sport, and a healthy lifestyle for teens."
+#~ msgstr ""
+#~ "Формує витривалість, любов до спорту та здоровий спосіб життя у підлітків."
+
+#~ msgid "Duration: 1 or 2 weeks"
+#~ msgstr "Тривалість: 1 або 2 тижні"
+
+#~ msgid "Extreme weekends for adults"
+#~ msgstr "Екстрим-вікенди для дорослих"
+
+#~ msgid "Water sports weekends with a packed program."
+#~ msgstr "Вікенди водних видів спорту з насиченою програмою."
+
+#~ msgid "Yachting and diving for adults"
+#~ msgstr "Яхтинг і дайвінг для дорослих"
+
+#~ msgid "A complete reset and change of scenery with an active program."
+#~ msgstr "Повне перезавантаження та зміна обстановки з активною програмою."
+
+#~ msgid "Stay: yacht or hotel of choice"
+#~ msgstr "Проживання: яхта або готель на вибір"
+
+#~ msgid "Options: Grand Egyptian Museum, quad bikes, camels, catamaran"
+#~ msgstr "Опції: Великий Єгипетський музей, квадроцикли, верблюди, катамаран"
+
+#~ msgid "Strengthen teams through extreme sports"
+#~ msgstr "Зміцнення команд через екстрим-спорт"
+
+#~ msgid "Strengthen Any Team"
+#~ msgstr "Посилюйте будь-яку команду"
+
+#~ msgid ""
+#~ "Work, creative, and leadership teams — through extreme sports formats."
+#~ msgstr ""
+#~ "Робочі, творчі та управлінські команди — через формати екстремального "
+#~ "спорту."
+
+#~ msgid "Outcome: cohesion, trust, energy"
+#~ msgstr "Результат: згуртованість, довіра, енергія"
+
+#~ msgid "Become an IESA member"
+#~ msgstr "Стати учасником IESA"
+
+#~ msgid "View upcoming events"
+#~ msgstr "Переглянути майбутні події"
+
+#~ msgid "Want to join the programs?"
+#~ msgstr "Хочете приєднатися до програм?"
+
+#~ msgid "Get access to camps, weekends, journeys, and team formats."
+#~ msgstr ""
+#~ "Отримайте доступ до таборів, вікендів, подорожей і командних форматів."
+
+#~ msgid "OUR CORE PROGRAMS"
+#~ msgstr "НАШІ ОСНОВНІ ПРОГРАМИ"
+
+#~ msgid "%(title)s program"
+#~ msgstr "Програма %(title)s"
+
+#~ msgid "Learn more about %(title)s"
+#~ msgstr "Дізнатися більше про %(title)s"
+
+#~ msgid "UPCOMING EVENTS"
+#~ msgstr "МАЙБУТНІ ПОДІЇ"
+
+#~ msgid "ABOUT IESA"
+#~ msgstr "ПРО IESA"
+
+#~ msgid "Our Leadership & Team"
+#~ msgstr "Наше керівництво та команда"
+
+#~ msgid "Extreme sport as a way of thinking and life"
+#~ msgstr "Екстремальний спорт як спосіб мислення і життя"
+
+#~ msgid "Wake up every color of life. Join us..."
+#~ msgstr "Пробуди всі барви життя. Приєднуйся..."
+
+#~ msgid "Meet the people who drive our mission forward"
+#~ msgstr "Познайомтеся з людьми, які рухають нашу місію вперед"
+
+#~ msgid "A Word from the President"
+#~ msgstr "Слово президента"
+
+#~ msgid "OUR TEAM"
+#~ msgstr "НАША КОМАНДА"
+
+#~ msgid "Dedicated Leadership & Members"
+#~ msgstr "Віддане керівництво та учасники"
+
+#~ msgid "PARTNERSHIPS"
+#~ msgstr "ПАРТНЕРСТВА"
+
+#~ msgid "%(name)s - %(category)s partner"
+#~ msgstr "Партнер %(name)s — %(category)s"
+
+#~ msgid "View details about %(name)s"
+#~ msgstr "Переглянути деталі про %(name)s"
+
+#~ msgid "Visit %(name)s website"
+#~ msgstr "Відвідати сайт %(name)s"
+
+#~ msgid "Support Our Association"
+#~ msgstr "Підтримайте нашу асоціацію"
+
+#~ msgid "Stripe integration coming soon. This is a preview section."
+#~ msgstr "Інтеграція Stripe з’явиться незабаром. Це попередній перегляд."
+
+#~ msgid "Impact focus"
+#~ msgstr "Фокус впливу"
+
+#~ msgid "Events · Education · Partnerships"
+#~ msgstr "Події · Освіта · Партнерства"
+
+#~ msgid "Age restriction:"
+#~ msgstr "Вікове обмеження:"
+
+#~ msgid "Select language"
+#~ msgstr "Виберіть мову"
+
+#~ msgid "You have no posts yet."
+#~ msgstr "У вас ще немає публікацій."
+
+#~ msgid "Live preview"
+#~ msgstr "Живий перегляд"
+
+#~ msgid "Type a message..."
+#~ msgstr "Введіть повідомлення..."
+
+#~ msgid "Search messages"
+#~ msgstr "Пошук повідомлень"
+
+#~ msgid "Search..."
+#~ msgstr "Пошук..."
+
+#~ msgid "Today"
+#~ msgstr "Сьогодні"
+
+#~ msgid "Yesterday"
+#~ msgstr "Вчора"
+
+#~ msgid "New chat"
+#~ msgstr "Новий чат"
+
+#~ msgid "No chats"
+#~ msgstr "Немає чатів"
+
+#~ msgid "No messages"
+#~ msgstr "Немає повідомлень"
+
+#~ msgid "Activity Points System"
+#~ msgstr "Система балів активності"
+
+#~ msgid "Daily Login"
+#~ msgstr "Щоденний вхід"
+
+#~ msgid "Your level is updated in real-time as you earn points."
+#~ msgstr "Ваш рівень оновлюється в реальному часі, коли ви набираєте бали."
+
+#~ msgid "All members start at Beginner level."
+#~ msgstr "Усі учасники починають з рівня Початківець."
+
+#~ msgid "There is no penalty for inactivity."
+#~ msgstr "За неактивність штраф не передбачено."
+
+#~ msgid "Post regularly to the blog"
+#~ msgstr "Регулярно публікуйте в блозі"
+
+#~ msgid "Log in daily to earn bonus points"
+#~ msgstr "Входьте щодня, щоб отримувати бонусні бали"
+
+#~ msgid "Create quality content that others will like"
+#~ msgstr "Створюйте якісний контент, який сподобається іншим"
+
+#~ msgid ""
+#~ "Account deactivation is a serious action. Please read the information "
+#~ "below carefully."
+#~ msgstr ""
+#~ "Деактивація акаунту — серйозна дія. Будь ласка, уважно прочитайте "
+#~ "інформацію нижче."
+
+#~ msgid "What happens when you deactivate your account:"
+#~ msgstr "Що станеться, коли ви деактивуєте акаунт:"
+
+#~ msgid "Your posts and comments will remain but show as anonymous"
+#~ msgstr ""
+#~ "Ваші публікації та коментарі залишаться, але будуть показані як анонімні"
+
+#~ msgid "Need help? Contact our support team before making this decision."
+#~ msgstr ""
+#~ "Потрібна допомога? Зв'яжіться з нашою командою підтримки перед прийняттям "
+#~ "рішення."
+
+#~ msgid ""
+#~ "This member can use their IESA card for discounts and benefits at partner "
+#~ "locations."
+#~ msgstr ""
+#~ "Цей учасник може використовувати свою картку IESA для знижок і переваг у "
+#~ "партнерських закладах."
+
+#~ msgid "Yes"
+#~ msgstr "Так"
+
+#~ msgid "No"
+#~ msgstr "Ні"
+
+#~ msgid "Member Cabinet — IESA Sport"
+#~ msgstr "Особистий кабінет — IESA Sport"
+
+#~ msgid "Personal Cabinet · IESA Sport"
+#~ msgstr "Особистий кабінет · IESA Sport"
