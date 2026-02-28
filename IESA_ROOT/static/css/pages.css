@@ -1184,7 +1184,7 @@
 }
 
 #community-search-results:empty::before {
-  content: 'Start typing to search...';
+  content: attr(data-placeholder);
   display: block;
   padding: var(--space-4);
   text-align: center;

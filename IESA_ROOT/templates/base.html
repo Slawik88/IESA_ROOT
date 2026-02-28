@@ -184,7 +184,7 @@
                                   hx-swap="innerHTML"
                                   autocomplete="off">
                                 <div id="search-spinner" class="htmx-indicator text-center"><i class="fas fa-spinner fa-spin"></i></div>
-                                <div id="community-search-results" class="mt-2 navbar-search-results"></div>
+                                <div id="community-search-results" class="mt-2 navbar-search-results" data-placeholder="{% trans 'Start typing to search...' %}"></div>
                             </div>
                         </div>
                         {% if user.is_authenticated %}
