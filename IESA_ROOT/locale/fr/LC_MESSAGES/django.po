@@ -3,2620 +3,2660 @@
 #
 msgid ""
 msgstr ""
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-02-28 12:09+0100\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
+
+msgid "You don't have permission to access this file"
+msgstr "Vous n'avez pas la permission d'accéder à ce fichier"
+
+msgid "publication status"
+msgstr "statut de publication"
+
+msgid "Published"
+msgstr "Publié"
+
+msgid "Pending Review"
+msgstr "En attente de révision"
+
+msgid "Rejected"
+msgstr "Rejeté"
+
+msgid "Draft"
+msgstr "Brouillon"
+
+msgid "author"
+msgstr "auteur"
+
+#, python-format
+msgid "%(count)d post(s) published successfully."
+msgstr "%(count)d publication(s) publiée(s) avec succès."
+
+msgid "✅ Publish selected posts"
+msgstr "✅ Publier les publications sélectionnées"
+
+#, python-format
+msgid "%(count)d post(s) rejected."
+msgstr "%(count)d publication(s) rejetée(s)."
+
+msgid "❌ Reject selected posts"
+msgstr "❌ Rejeter les publications sélectionnées"
+
+#, python-format
+msgid "%(count)d post(s) moved to draft."
+msgstr "%(count)d publication(s) déplacée(s) en brouillon."
+
+msgid "📝 Move to draft"
+msgstr "📝 Déplacer en brouillon"
+
+msgid "Post Information"
+msgstr "Informations sur la publication"
+
+msgid "Publishing"
+msgstr "Publication"
+
+msgid "Statistics"
+msgstr "Statistiques"
+
+msgid "Not published"
+msgstr "Non publié"
+
+msgid "View on Site"
+msgstr "Voir sur le site"
+
+msgid "Event Information"
+msgstr "Informations sur l'événement"
+
+msgid "Date & Time"
+msgstr "Date et heure"
+
+msgid "Location & Capacity"
+msgstr "Lieu et capacité"
+
+msgid "System"
+msgstr "Système"
+
+msgid "Write a comment..."
+msgstr "Écrire un commentaire..."
+
+msgid "Pending moderation"
+msgstr "En attente de modération"
+
+msgid "Title"
+msgstr "Titre"
+
+msgid "Post text"
+msgstr "Texte de la publication"
+
+msgid "Author"
+msgstr "Auteur"
+
+msgid "Creation date"
+msgstr "Date de création"
+
+msgid "Preview image"
+msgstr "Image d'aperçu"
+
+msgid "Status"
+msgstr "Statut"
+
+msgid "Views"
+msgstr "Vues"
+
+msgid "Post"
+msgstr "Publication"
+
+msgid "Posts"
+msgstr "Publications"
+
+msgid "Comment text"
+msgstr "Texte du commentaire"
+
+msgid "Parent comment"
+msgstr "Commentaire parent"
+
+msgid "Comment"
+msgstr "Commentaire"
+
+msgid "Comments"
+msgstr "Commentaires"
+
+msgid "User"
+msgstr "Utilisateur"
+
+msgid "Comment Like"
+msgstr "J'aime du commentaire"
+
+msgid "Comment Likes"
+msgstr "J'aime des commentaires"
+
+msgid "Like"
+msgstr "J'aime"
+
+msgid "Likes"
+msgstr "J'aime"
+
+msgid "IP Address"
+msgstr "Adresse IP"
+
+msgid "View date"
+msgstr "Date de consultation"
+
+msgid "Post View"
+msgstr "Vue de la publication"
+
+msgid "Post Views"
+msgstr "Vues des publications"
+
+msgid "Upcoming"
+msgstr "À venir"
+
+msgid "Ongoing"
+msgstr "En cours"
+
+msgid "Completed"
+msgstr "Terminé"
+
+msgid "Cancelled"
+msgstr "Annulé"
+
+msgid "Event Title"
+msgstr "Titre de l'événement"
+
+msgid "Description"
+msgstr "Description"
+
+msgid "Event Date & Time"
+msgstr "Date et heure de l'événement"
+
+msgid "End Date & Time"
+msgstr "Date et heure de fin"
+
+msgid "Location"
+msgstr "Lieu"
+
+msgid "Event Image"
+msgstr "Image de l'événement"
+
+msgid "Max Participants"
+msgstr "Max. participants"
+
+msgid "Minimum Age"
+msgstr "Âge minimum"
+
+msgid "Maximum Age"
+msgstr "Âge maximum"
+
+msgid "Registration Deadline"
+msgstr "Date limite d'inscription"
+
+msgid "Created by"
+msgstr "Créé par"
+
+msgid "Created at"
+msgstr "Créé le"
+
+msgid "Updated at"
+msgstr "Mis à jour le"
 
 # SOME DESCRIPTIVE TITLE.
 # Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
 # This file is distributed under the same license as the PACKAGE package.
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-#
-#, fuzzy
-#: .\IESA_ROOT\blog\templates\blog\event_detail.html:4
-#: .\IESA_ROOT\blog\templates\blog\event_list.html:4
-#: .\IESA_ROOT\blog\templates\blog\event_list.html:35
-#: .\IESA_ROOT\blog\templates\blog\post_list.html:42
-#: .\IESA_ROOT\templates\base.html:123 .\IESA_ROOT\templates\base.html:249
+# 
+msgid "Event"
+msgstr "Événement"
+
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+# 
 msgid "Events"
 msgstr "Événements"
 
-#: .\IESA_ROOT\blog\templates\blog\event_detail.html:7
+msgid "Pending"
+msgstr "En attente"
+
+msgid "Confirmed"
+msgstr "Confirmé"
+
+msgid "Attended"
+msgstr "Participé"
+
+msgid "Registered at"
+msgstr "Inscrit le"
+
+msgid "Notes"
+msgstr "Notes"
+
+msgid "Event Registration"
+msgstr "Inscription à l'événement"
+
+msgid "Event Registrations"
+msgstr "Inscriptions aux événements"
+
+msgid "Subscriber"
+msgstr "Abonné"
+
+msgid "Subscription date"
+msgstr "Date d'abonnement"
+
+msgid "Blog Subscription"
+msgstr "Abonnement au blog"
+
+msgid "Blog Subscriptions"
+msgstr "Abonnements au blog"
+
 msgid "events"
 msgstr "événements"
 
-#: .\IESA_ROOT\blog\templates\blog\event_detail.html:7
 msgid "gatherings"
-msgstr "rassemblements"
+msgstr "rencontres"
 
-#: .\IESA_ROOT\blog\templates\blog\event_detail.html:37
-msgid "Date & time:"
-msgstr "Date et heure :"
+msgid "Date & time"
+msgstr "Date et heure"
 
-#: .\IESA_ROOT\blog\templates\blog\event_detail.html:45
-msgid "Location:"
-msgstr "Lieu :"
+msgid "Age restriction"
+msgstr "Restriction d'âge"
 
-#: .\IESA_ROOT\blog\templates\blog\event_detail.html:54
+#, python-format
+msgid "Ages %(min_age)s-%(max_age)s"
+msgstr "Âge %(min_age)s–%(max_age)s"
+
 msgid "DESCRIPTION"
 msgstr "DESCRIPTION"
 
-#: .\IESA_ROOT\blog\templates\blog\event_detail.html:62
 msgid "Back to events"
 msgstr "Retour aux événements"
 
-#: .\IESA_ROOT\blog\templates\blog\event_detail.html:65
-#: .\IESA_ROOT\blog\templates\blog\event_list.html:25
-#: .\IESA_ROOT\blog\templates\blog\post_list.html:27
-#: .\IESA_ROOT\templates\base.html:205
-#: .\IESA_ROOT\users\templates\users\register.html:4
+msgid "Already registered"
+msgstr "Déjà inscrit"
+
 msgid "Register"
 msgstr "S'inscrire"
 
-#: .\IESA_ROOT\blog\templates\blog\event_detail.html:78
 msgid "Register for Event"
 msgstr "S'inscrire à l'événement"
 
-#: .\IESA_ROOT\blog\templates\blog\event_detail.html:83
+msgid "Close"
+msgstr "Fermer"
+
 msgid "Thank you for your interest! Please contact us via:"
 msgstr "Merci pour votre intérêt ! Veuillez nous contacter via :"
 
-#: .\IESA_ROOT\blog\templates\blog\event_detail.html:90
 msgid "Call/SMS:"
 msgstr "Appel/SMS :"
 
-#: .\IESA_ROOT\blog\templates\blog\event_detail.html:98
 msgid "Message on Telegram"
 msgstr "Message sur Telegram"
 
-#: .\IESA_ROOT\blog\templates\blog\event_detail.html:104
 msgid "We'll get back to you as soon as possible!"
-msgstr "Nous vous recontacterons dès que possible !"
+msgstr "Nous vous répondrons dès que possible !"
 
-msgid "Extreme sport as a way of thinking and life"
-msgstr "Le sport extrême comme manière de penser et de vivre"
+msgid "EVENTS CALENDAR"
+msgstr "CALENDRIER DES ÉVÉNEMENTS"
 
-msgid "IESA is not just sport; it is a lifestyle that inspires, develops, and unites."
-msgstr "IESA n'est pas seulement du sport, c'est un style de vie qui inspire, développe et unit."
+msgid "Upcoming Events & Gatherings"
+msgstr "Événements et rencontres à venir"
 
-msgid "What extreme sport gives"
-msgstr "Ce que le sport extrême apporte"
+msgid "Join us for exciting experiences and networking opportunities"
+msgstr ""
+"Rejoignez-nous pour des expériences passionnantes et des opportunités de "
+"réseautageRejoignez-nous pour des expériences passionnantes et des "
+"opportunités de réseautage"
+
+msgid "All posts"
+msgstr "Toutes les publications"
+
+msgid "Search events..."
+msgstr "Rechercher des événements..."
+
+msgid "Search events"
+msgstr "Rechercher des événements"
+
+msgid "All events"
+msgstr "Tous les événements"
+
+msgid "Past"
+msgstr "Passés"
+
+msgid "Date ↑"
+msgstr "Date ↑"
+
+msgid "Date ↓"
+msgstr "Date ↓"
+
+msgid "Title A→Z"
+msgstr "Titre A→Z"
+
+msgid "Title Z→A"
+msgstr "Titre Z→A"
+
+msgid "All categories"
+msgstr "Toutes les catégories"
+
+msgid "Loading..."
+msgstr "Chargement..."
+
+msgid "Back to blog"
+msgstr "Retour au blog"
+
+msgid "Sign in or register to access events"
+msgstr "Connectez-vous ou inscrivez-vous pour accéder aux événements"
+
+msgid "Join to RSVP, comment and engage with members"
+msgstr ""
+"Inscrivez-vous pour confirmer votre participation, commenter et interagir "
+"avec les membresInscrivez-vous pour participer, commenter et interagir avec "
+"les membres"
+
+msgid "Sign In"
+msgstr "Se connecter"
+
+msgid "Reply"
+msgstr "Répondre"
+
+msgid "Delete"
+msgstr "Supprimer"
+
+msgid "Write a reply..."
+msgstr "Écrire une réponse..."
+
+msgid "Send reply"
+msgstr "Envoyer la réponse"
+
+msgid "Comment posted."
+msgstr "Commentaire publié."
+
+msgid "Undo in"
+msgstr "Annuler dans"
+
+msgid "s"
+msgstr "s"
+
+msgid "Users"
+msgstr "Utilisateurs"
+
+msgid "Anonymous"
+msgstr "Anonyme"
+
+msgid "views"
+msgstr "vues"
+
+msgid "Partners"
+msgstr "Partenaires"
+
+#, python-format
+msgid "No results found for \"%(q)s\""
+msgstr "Aucun résultat trouvé pour \"%(q)s\""
+
+msgid "Minimum 2 characters required"
+msgstr "Minimum 2 caractères requis"
+
+msgid "Start typing to search..."
+msgstr "Commencez à taper pour rechercher..."
+
+msgid "Read more"
+msgstr "Lire la suite"
+
+msgid "No posts found"
+msgstr "Aucune publication trouvée"
+
+#, python-format
+msgid "Subscribe to %(username)s's blog"
+msgstr "S'abonner au blog de %(username)s"
+
+msgid "Subscribed"
+msgstr "Abonné"
+
+msgid "Subscribe"
+msgstr "S'abonner"
+
+msgid "Registered"
+msgstr "Inscrit"
+
+#, python-format
+msgid "%(min_age)s-%(max_age)s"
+msgstr "%(min_age)s–%(max_age)s"
+
+msgid "Details"
+msgstr "Détails"
+
+msgid "Registration closed"
+msgstr "Inscription fermée"
+
+msgid "Full"
+msgstr "Complet"
+
+msgid "No events found"
+msgstr "Aucun événement trouvé"
+
+msgid "Try adjusting your filters"
+msgstr "Essayez d'ajuster vos filtres"
+
+msgid "Loading more events..."
+msgstr "Chargement d'autres événements..."
+
+msgid "Pinned"
+msgstr "Épinglé"
+
+msgid "Try adjusting your search or filters"
+msgstr "Essayez d'ajuster votre recherche ou vos filtres"
+
+msgid "Loading more posts..."
+msgstr "Chargement d'autres publications..."
+
+msgid "Create a new post"
+msgstr "Créer une nouvelle publication"
+
+msgid "CREATE CONTENT"
+msgstr "CRÉER DU CONTENU"
+
+msgid "Publish New Article or Announcement"
+msgstr "Publier un nouvel article ou une annonce"
+
+msgid ""
+"Use our advanced editor: fonts, colors, lists, quotes and preview before "
+"publishing"
+msgstr ""
+"Utilisez notre éditeur : polices, couleurs, listes, citations et aperçu "
+"avant publication"
+
+msgid ""
+"Rich formatting: headings, lists, links, quotes, text and background colors."
+msgstr ""
+"Mise en forme enrichie : titres, listes, liens, citations, couleurs de texte"
+" et d'arrière-plan."
+
+msgid "Preview"
+msgstr "Aperçu"
+
+msgid "Create and submit for review"
+msgstr "Créer et soumettre pour révision"
+
+msgid "Submitting..."
+msgstr "Soumission en cours..."
+
+msgid "Add an image for preview"
+msgstr "Ajouter une image d'aperçu"
+
+msgid "Post Title"
+msgstr "Titre de la publication"
+
+msgid "Description will appear here after editing."
+msgstr "La description apparaîtra ici après modification."
+
+msgid "Please enter a post title"
+msgstr "Veuillez entrer un titre de publication"
+
+msgid "Please enter post content"
+msgstr "Veuillez entrer le contenu de la publication"
+
+msgid "COMMENTS"
+msgstr "COMMENTAIRES"
+
+msgid "Your comment..."
+msgstr "Votre commentaire..."
+
+msgid "Send comment"
+msgstr "Envoyer le commentaire"
+
+msgid "To comment, please"
+msgstr "Pour commenter, veuillez"
+
+msgid "sign in"
+msgstr "vous connecter"
+
+msgid "or"
+msgstr "ou"
+
+msgid "register"
+msgstr "vous inscrire"
+
+msgid "RECOMMENDED POSTS"
+msgstr "PUBLICATIONS RECOMMANDÉES"
+
+msgid "Community & Blog"
+msgstr "Communauté et blog"
+
+msgid "COMMUNITY"
+msgstr "COMMUNAUTÉ"
+
+msgid "Share Ideas, Events & News"
+msgstr "Partagez des idées, des événements et des actualités"
+
+msgid "Connect with fellow extreme sports enthusiasts"
+msgstr "Connectez-vous avec des passionnés de sports extrêmes"
+
+msgid "All Posts"
+msgstr "Toutes les publications"
+
+msgid "Search posts..."
+msgstr "Rechercher des publications..."
+
+msgid "Search posts"
+msgstr "Rechercher des publications"
+
+msgid "All statuses"
+msgstr "Tous les statuts"
+
+msgid "Latest"
+msgstr "Plus récents"
+
+msgid "Popular"
+msgstr "Populaires"
+
+msgid "Trending"
+msgstr "Tendances"
+
+msgid "Create Post"
+msgstr "Créer une publication"
+
+msgid "Sign in or register to access the community"
+msgstr "Connectez-vous ou inscrivez-vous pour accéder à la communauté"
+
+msgid "Join our community to create posts, comment and engage with members"
+msgstr ""
+"Rejoignez notre communauté pour créer des publications, commenter et "
+"interagir avec les membresRejoignez notre communauté pour créer des "
+"articles, commenter et interagir avec les membres"
+
+msgid "No Posts Yet"
+msgstr "Pas encore de publications"
+
+msgid "Be the first to share news or ideas with the community"
+msgstr ""
+"Soyez le premier à partager des actualités ou des idées avec la "
+"communautéSoyez le premier à partager des nouvelles ou des idées avec la "
+"communauté"
+
+msgid "Create First Post"
+msgstr "Créer la première publication"
+
+msgid "Join Community"
+msgstr "Rejoindre la communauté"
+
+msgid "Method Not Allowed. Use POST."
+msgstr "Méthode non autorisée. Utilisez POST."
+
+msgid "Forbidden"
+msgstr "Interdit"
+
+msgid ""
+"You have successfully registered for the event! An administrator will "
+"contact you soon to confirm your participation."
+msgstr ""
+"Vous êtes inscrit à l'événement avec succès ! Un administrateur vous "
+"contactera bientôt pour confirmer votre participation."
+
+msgid "You are already registered for this event."
+msgstr "Vous êtes déjà inscrit à cet événement."
+
+msgid "Your post has been submitted for moderation! 🎉"
+msgstr "Votre publication a été soumise à la modération ! 🎉"
+
+msgid "Features"
+msgstr "Caractéristiques"
+
+msgid "Terms"
+msgstr "Conditions"
+
+msgid "Font Awesome icon"
+msgstr "Icône Font Awesome"
+
+msgid "Color"
+msgstr "Couleur"
+
+msgid "Logo"
+msgstr "Logo"
+
+msgid "Photo"
+msgstr "Photo"
+
+msgid "Basic information"
+msgstr "Informations de base"
+
+msgid "Program details"
+msgstr "Détails du programme"
+
+msgid "Display settings"
+msgstr "Paramètres d'affichage"
+
+msgid "Service information"
+msgstr "Informations de service"
+
+msgid "Icon"
+msgstr "Icône"
+
+msgid "Design"
+msgstr "Design"
+
+msgid "Additional"
+msgstr "Supplémentaire"
+
+msgid "IESA Administration"
+msgstr "Administration IESA"
+
+msgid "IESA Admin"
+msgstr "Administration IESA"
+
+msgid "Welcome to IESA Admin Panel"
+msgstr "Bienvenue dans le panneau d'administration IESA"
+
+msgid "Success"
+msgstr "Succès"
+
+msgid "Error"
+msgstr "Erreur"
+
+msgid "Warning"
+msgstr "Avertissement"
+
+msgid "Information"
+msgstr "Information"
+
+msgid "Notification"
+msgstr "Notification"
+
+msgid "Full Name"
+msgstr "Nom complet"
+
+msgid "Position"
+msgstr "Poste"
+
+msgid "Bio/Message"
+msgstr "Bio/Message"
+
+msgid "President"
+msgstr "Président"
+
+msgid "Presidents"
+msgstr "Présidents"
+
+msgid "Only one President can exist. Delete the existing one first."
+msgstr ""
+"Il ne peut y avoir qu'un seul Président. Veuillez d'abord supprimer celui "
+"existant."
+
+msgid "Sponsor"
+msgstr "Sponsor"
+
+msgid "Media Partner"
+msgstr "Partenaire média"
+
+msgid "Technology Partner"
+msgstr "Partenaire technologique"
+
+msgid "Venue Partner"
+msgstr "Partenaire de lieu"
+
+msgid "Other"
+msgstr "Autre"
+
+msgid "Partner Name"
+msgstr "Nom du partenaire"
+
+msgid "Website Link"
+msgstr "Lien du site web"
+
+msgid "Max 300 chars for better display"
+msgstr "Max. 300 caractères pour un meilleur affichage"
+
+msgid "Contract Document/Photo"
+msgstr "Document/Photo du contrat"
+
+msgid "Partner Category"
+msgstr "Catégorie du partenaire"
+
+msgid "Partner"
+msgstr "Partenaire"
+
+msgid "Short Bio/Description"
+msgstr "Courte description/Biographie"
+
+msgid "Association Member"
+msgstr "Membre de l'association"
+
+msgid "Association Members"
+msgstr "Membres de l'association"
+
+msgid "Social Network"
+msgstr "Réseau social"
+
+msgid "Profile URL"
+msgstr "URL du profil"
+
+msgid "Active"
+msgstr "Actif"
+
+msgid "Display Order"
+msgstr "Ordre d'affichage"
+
+msgid "Lower numbers appear first"
+msgstr "Les nombres les plus bas apparaissent en premier"
+
+msgid "Social Networks"
+msgstr "Réseaux sociaux"
+
+msgid "Product name"
+msgstr "Nom du produit"
+
+msgid "Product description"
+msgstr "Description du produit"
+
+msgid "Duration"
+msgstr "Durée"
+
+msgid "E.g.: 1-2 weeks, Friday to Sunday"
+msgstr "Ex. : 1–2 semaines, du vendredi au dimanche"
+
+msgid "E.g.: warm countries, seaside"
+msgstr "Ex. : pays chauds, bord de mer"
+
+msgid "Product image"
+msgstr "Image du produit"
+
+msgid "E.g.: fas fa-child, fas fa-water, fas fa-ship"
+msgstr "Ex. : fas fa-child, fas fa-water, fas fa-ship"
+
+msgid "Additional features"
+msgstr "Fonctionnalités supplémentaires"
+
+msgid "One feature per line"
+msgstr "Une fonctionnalité par ligne"
+
+msgid "Price info"
+msgstr "Informations de prix"
+
+msgid "Display order"
+msgstr "Ordre d'affichage"
+
+msgid "Lower number = higher on page"
+msgstr "Nombre plus bas = plus haut sur la page"
+
+msgid "Core IESA product"
+msgstr "Produit IESA principal"
+
+msgid "Core IESA products"
+msgstr "Produits IESA principaux"
+
+msgid "Medical services"
+msgstr "Services médicaux"
+
+msgid "Shopping & retail"
+msgstr "Shopping et commerce"
+
+msgid "Member services"
+msgstr "Services aux membres"
+
+msgid "Sports events"
+msgstr "Événements sportifs"
+
+msgid "Advertising & promotion"
+msgstr "Publicité et promotion"
+
+msgid "Education & courses"
+msgstr "Éducation et cours"
+
+msgid "Travel & tourism"
+msgstr "Voyage et tourisme"
+
+msgid "Benefit name"
+msgstr "Nom de l'avantage"
+
+msgid "Category"
+msgstr "Catégorie"
+
+msgid "Benefit description"
+msgstr "Description de l'avantage"
+
+msgid "Discount info"
+msgstr "Informations de réduction"
+
+msgid "E.g.: 20%, 15% on first level"
+msgstr "Ex. : 20%, 15% au premier niveau"
+
+msgid "primary, success, info, warning, danger or hex code"
+msgstr "primary, success, info, warning, danger ou code hexadécimal"
+
+msgid "Partner/service provider"
+msgstr "Partenaire/prestataire de services"
+
+msgid "How a member can receive this discount"
+msgstr ""
+"Comment un membre peut recevoir cette réductionDevenez membre de l'IESA et "
+"recevez des réductions et privilèges exclusifs"
+
+msgid "Member benefit"
+msgstr "Avantage membre"
+
+msgid "Member benefits"
+msgstr "Avantages membres"
+
+msgid "Member Benefits"
+msgstr "Avantages membres"
+
+msgid "IESA Member Benefits"
+msgstr "Avantages membres IESA"
+
+msgid "Get exclusive discounts and benefits as a member of our association"
+msgstr ""
+"Obtenez des réductions et avantages exclusifs en tant que membre de notre "
+"associationObtenez des réductions et avantages exclusifs en tant que membre "
+"de notre association"
+
+msgid "Terms of access"
+msgstr "Conditions d'accès"
+
+msgid "Want access to these benefits?"
+msgstr "Voulez-vous accéder à ces avantages ?"
+
+msgid "Become an IESA member and receive exclusive discounts and privileges"
+msgstr ""
+"Devenez membre IESA et recevez des réductions et privilèges exclusifsDevenez"
+" membre de l'IESA et recevez des réductions et privilèges exclusifs"
+
+msgid "Join now"
+msgstr "Rejoindre maintenant"
+
+msgid "Back to home"
+msgstr "Retour à l'accueil"
+
+msgid "Benefits coming soon"
+msgstr "Avantages bientôt disponibles"
+
+msgid "We are working on exclusive offers for our members"
+msgstr "Nous travaillons sur des offres exclusives pour nos membres"
+
+msgid "IESA — Extreme Sports Association"
+msgstr "IESA — Association de sports extrêmes"
+
+msgid "International Extreme Sports Association"
+msgstr "Association internationale de sports extrêmes"
+
+msgid "Master the art"
+msgstr "Maîtrisez l'art"
+
+msgid "of"
+msgstr "du"
+
+msgid "Kitesurfing"
+msgstr "Kitesurf"
+
+msgid ""
+"IESA unites athletes, active lifestyle communities, and everyone who grows "
+"through adventure and extreme challenges."
+msgstr ""
+"IESA réunit les athlètes, les communautés de mode de vie actif et tous ceux "
+"qui grandissent grâce à l'aventure et aux défis extrêmes."
+
+msgid "Become a member"
+msgstr "Devenir membre"
+
+msgid "View events"
+msgstr "Voir les événements"
+
+msgid "Sport types"
+msgstr "Types de sport"
+
+msgid "Countries"
+msgstr "Pays"
+
+msgid "Years active"
+msgstr "Années d'activité"
+
+msgid "Programs"
+msgstr "Programmes"
+
+msgid "Scroll"
+msgstr "Défiler"
+
+msgid "What we offer"
+msgstr "Ce que nous offrons"
+
+msgid "Four directions"
+msgstr "Quatre directions"
+
+msgid "that deliver results"
+msgstr "qui donnent des résultats"
+
+msgid "Strong emotions, safe extreme sports, and real team growth"
+msgstr ""
+"Des émotions fortes, des sports extrêmes sûrs et une vraie croissance "
+"d'équipeDes émotions fortes, des sports extrêmes sûrs et une vraie "
+"progression d’équipe"
+
+msgid "Kids · Camp"
+msgstr "Enfants · Camp"
+
+msgid "Extreme Scout Camp for Kids"
+msgstr "Camp scout extrême pour enfants"
+
+msgid ""
+"One-week seaside camp for teens with sport training, wellness activities, "
+"and community that builds resilience and responsibility."
+msgstr ""
+"Camp d'une semaine en bord de mer pour adolescents avec entraînement "
+"sportif, activités bien-être et communauté qui développe la résilience et la"
+" responsabilité."
+
+msgid "Duration: 1 week"
+msgstr "Durée : 1 semaine"
+
+msgid "Warm countries, seaside"
+msgstr "Pays chauds, bord de mer"
+
+msgid "Resilience, health, friendships"
+msgstr "Résilience, santé, amitiés"
+
+msgid "Adults · Weekend"
+msgstr "Adultes · Week-end"
+
+msgid "Extreme Weekends for Adults"
+msgstr "Week-ends extrêmes pour adultes"
+
+msgid ""
+"Regular seaside weekends for adults with diving, surfing, and other extreme "
+"sports led by experienced instructors."
+msgstr ""
+"Week-ends réguliers en bord de mer pour adultes avec plongée, surf et autres"
+" sports extrêmes encadrés par des instructeurs expérimentés."
+
+msgid "Friday to Sunday"
+msgstr "Du vendredi au dimanche"
+
+msgid "Diving, surfing, and more"
+msgstr "Plongée, surf et plus"
+
+msgid "Adults · Journey"
+msgstr "Adultes · Voyage"
+
+msgid "Yachting Week for Adults"
+msgstr "Navigation et plongée pour adultes"
+
+msgid ""
+"A one-week sailing expedition with catamaran training, coastal routes, and "
+"open-sea diving sessions."
+msgstr ""
+"Une expédition nautique d'une semaine avec formation au catamaran, "
+"itinéraires côtiers et sessions de plongée en haute mer."
+
+msgid "One week"
+msgstr "Une semaine"
+
+msgid "Scenic coastlines & sea passages"
+msgstr "Côtes pittoresques et passages maritimes"
+
+msgid "Catamaran, open-water practice"
+msgstr "Catamaran, pratique en eau libre"
+
+msgid "Teams · Corporate"
+msgstr "Équipes · Entreprise"
+
+msgid "Corporate Adventure Offsites"
+msgstr "Séminaires d'aventure d'entreprise"
+
+msgid ""
+"Tailored corporate trips with sports, challenges, and team tasks that "
+"strengthen culture and communication."
+msgstr ""
+"Voyages d'entreprise sur mesure avec sport, défis et tâches d'équipe qui "
+"renforcent la culture et la communication."
+
+msgid "Cohesion, trust, critical thinking"
+msgstr "Cohésion, confiance, esprit critique"
+
+msgid "Upcoming events"
+msgstr "Événements à venir"
+
+msgid "Multi-sport"
+msgstr "Multi-sport"
+
+msgid "Kitesurfing · Diving · Climbing · Yachting · Surfing · Boxing"
+msgstr "Kitesurf · Plongée · Escalade · Voile · Surf · Boxe"
+
+msgid "International"
+msgstr "International"
+
+msgid "Switzerland & Ukraine — growing globally"
+msgstr "Suisse et Ukraine — en expansion mondiale"
+
+msgid "Regular trips"
+msgstr "Voyages réguliers"
+
+msgid "Weekend camps · Adult offsites · Yachting weeks"
+msgstr "Camps week-end · Séminaires adultes · Semaines de voile"
+
+msgid "Expert coaches"
+msgstr "Entraîneurs expérimentés"
+
+msgid "Certified instructors · Safe · Professional"
+msgstr "Instructeurs certifiés · Sûr · Professionnel"
+
+msgid "IESA Mission"
+msgstr "Mission IESA"
+
+msgid "Extreme sport as a"
+msgstr "Le sport extrême comme"
+
+msgid "way of thinking"
+msgstr "mode de pensée"
+
+msgid ""
+"IESA is not just sport — it is a lifestyle that inspires, develops, and "
+"unites people worldwide."
+msgstr ""
+"IESA n'est pas juste du sport — c'est un mode de vie qui inspire, développe "
+"et unit les gens du monde entier."
 
 msgid "Courage and the ability to work with risk"
 msgstr "Le courage et la capacité à gérer le risque"
 
 msgid "Physical and mental resilience"
-msgstr "L'endurance physique et mentale"
+msgstr "Résilience physique et mentale"
 
 msgid "Team skills and confidence"
-msgstr "L'esprit d'équipe et la confiance en soi"
+msgstr "Compétences d'équipe et confiance en soi"
 
-msgid "Broader horizons through adventure and nature"
-msgstr "Élargir ses horizons grâce à l'aventure et à la nature"
+msgid "Broader horizons through adventure"
+msgstr "Des horizons élargis grâce à l'aventure"
+
+msgid "Join the mission"
+msgstr "Rejoindre la mission"
 
 msgid "Who we invite"
 msgstr "Qui nous invitons"
 
-msgid "Teens, adults, companies, and everyone who seeks an active, rich, and conscious life."
-msgstr "Les adolescents, les adultes, les entreprises et tous ceux qui recherchent une vie active, riche et consciente."
-
-msgid "Wake up every color of life. Join us..."
-msgstr "Réveille toutes les couleurs de la vie. Rejoins-nous..."
-
-msgid "Our Team"
-msgstr "Notre équipe"
-
-msgid "Already registered"
-msgstr "Déjà inscrit"
-
-msgid "Registered"
-msgstr "Inscrit"
-
-msgid "You have successfully registered for the event! An administrator will contact you soon to confirm your participation."
-msgstr "Vous vous êtes inscrit avec succès à l'événement ! Un administrateur vous contactera bientôt pour confirmer votre participation."
-
-msgid "You are already registered for this event."
-msgstr "Vous êtes déjà inscrit à cet événement."
-
-msgid "Age restriction"
-msgstr "Limite d'âge"
-
-msgid "Age restriction:"
-msgstr "Limite d'âge :"
-
-#, python-format
-msgid "Ages %(min_age)s-%(max_age)s"
-msgstr "Âges %(min_age)s-%(max_age)s"
-
-#: .\IESA_ROOT\blog\templates\blog\event_list.html:9
-msgid "EVENTS CALENDAR"
-msgstr "CALENDRIER DES ÉVÉNEMENTS"
-
-#: .\IESA_ROOT\blog\templates\blog\event_list.html:10
-msgid "Upcoming Events & Gatherings"
-msgstr "Événements et rassemblements à venir"
-
-#: .\IESA_ROOT\blog\templates\blog\event_list.html:11
-msgid "Join us for exciting experiences and networking opportunities"
-msgstr "Rejoignez-nous pour des expériences passionnantes et des opportunités de réseautage"
-
-#: .\IESA_ROOT\blog\templates\blog\event_list.html:19
-msgid "Sign in or register to access events"
-msgstr "Connectez-vous ou inscrivez-vous pour accéder aux événements"
-
-#: .\IESA_ROOT\blog\templates\blog\event_list.html:21
-msgid "Join to RSVP, comment and engage with members"
-msgstr "Inscrivez-vous pour participer, commenter et interagir avec les membres"
-
-#: .\IESA_ROOT\blog\templates\blog\event_list.html:24
-#: .\IESA_ROOT\blog\templates\blog\post_list.html:26
-#: .\IESA_ROOT\templates\base.html:204
-#: .\IESA_ROOT\users\templates\users\login.html:4
-#: .\IESA_ROOT\users\templates\users\login.html:84
-msgid "Sign In"
-msgstr "Se connecter"
-
-#: .\IESA_ROOT\blog\templates\blog\event_list.html:34
-msgid "All posts"
-msgstr "Tous les articles"
-
-#: .\IESA_ROOT\blog\templates\blog\event_list.html:51
-msgid "Search events..."
-msgstr "Rechercher des événements..."
-
-#: .\IESA_ROOT\blog\templates\blog\event_list.html:52
-msgid "Search events"
-msgstr "Rechercher des événements"
-
-#: .\IESA_ROOT\blog\templates\blog\event_list.html:56
-msgid "Upcoming"
-msgstr "À venir"
-
-#: .\IESA_ROOT\blog\templates\blog\event_list.html:57
-msgid "All events"
-msgstr "Tous les événements"
-
-#: .\IESA_ROOT\blog\templates\blog\event_list.html:58
-msgid "Past"
-msgstr "Passés"
-
-#: .\IESA_ROOT\blog\templates\blog\event_list.html:61
-msgid "Date ↑"
-msgstr "Date ↑"
-
-#: .\IESA_ROOT\blog\templates\blog\event_list.html:62
-msgid "Date ↓"
-msgstr "Date ↓"
-
-#: .\IESA_ROOT\blog\templates\blog\event_list.html:63
-msgid "Title A→Z"
-msgstr "Titre A→Z"
-
-#: .\IESA_ROOT\blog\templates\blog\event_list.html:64
-msgid "Title Z→A"
-msgstr "Titre Z→A"
-
-#: .\IESA_ROOT\blog\templates\blog\event_list.html:69
-msgid "All categories"
-msgstr "Toutes les catégories"
-
-#: .\IESA_ROOT\blog\templates\blog\event_list.html:79
-#: .\IESA_ROOT\templates\base.html:188
-msgid "Loading..."
-msgstr "Chargement..."
-
-#: .\IESA_ROOT\blog\templates\blog\event_list.html:84
-msgid "Back to blog"
-msgstr "Retour au blog"
-
-#: .\IESA_ROOT\blog\templates\blog\post_create.html:4
-msgid "Create a new post"
-msgstr "Créer un nouvel article"
-
-#: .\IESA_ROOT\blog\templates\blog\post_create.html:14
-msgid "CREATE CONTENT"
-msgstr "CRÉER DU CONTENU"
-
-#: .\IESA_ROOT\blog\templates\blog\post_create.html:15
-msgid "Publish New Article or Announcement"
-msgstr "Publier un nouvel article ou une annonce"
-
-#: .\IESA_ROOT\blog\templates\blog\post_create.html:16
 msgid ""
-"Use our advanced editor: fonts, colors, lists, quotes and preview before "
-"publishing"
-msgstr "Use our advanced editor: fonts, colors, lists, quotes and preview before publishing"
+"Teens, adults, companies, and everyone who seeks an active, rich, and "
+"conscious life. Wake up every color of life."
+msgstr ""
+"Adolescents, adultes, entreprises et tous ceux qui recherchent une vie "
+"active, riche et consciente."
+
+msgid "What extreme sport gives"
+msgstr "Ce que le sport extrême apporte"
+
+msgid ""
+"Strong emotions, safe adventures, real team growth. Experience life at full "
+"intensity with the right people."
+msgstr ""
+"Des émotions fortes, des aventures sûres, une vraie croissance d'équipe. "
+"Vivez la vie à pleine intensité avec les bonnes personnes."
+
+msgid "Community first"
+msgstr "La communauté d'abord"
+
+msgid ""
+"International network of athletes, explorers, coaches, and dreamers. Your "
+"tribe is here."
+msgstr ""
+"Réseau international d'athlètes, d'explorateurs, d'entraîneurs et de "
+"rêveurs. Votre tribu est ici."
+
+msgid "Our programs"
+msgstr "Nos programmes"
+
+msgid "IESA"
+msgstr "IESA"
+
+msgid "Core Programs"
+msgstr "Programmes principaux"
+
+msgid "Extreme adventures for all ages and levels"
+msgstr "Aventures extrêmes pour tous les âges et niveaux"
 
-#: .\IESA_ROOT\blog\templates\blog\post_create.html:47
-msgid "Preview"
-msgstr "Aperçu"
-
-#: .\IESA_ROOT\blog\templates\blog\post_create.html:49
-msgid "Create and submit for review"
-msgstr "Créer et soumettre pour révision"
-
-#: .\IESA_ROOT\blog\templates\blog\post_create.html:51
-msgid "Submitting..."
-msgstr "Soumission en cours..."
-
-#: .\IESA_ROOT\blog\templates\blog\post_create.html:67
-msgid "Live preview"
-msgstr "Aperçu en direct"
-
-#: .\IESA_ROOT\blog\templates\blog\post_create.html:70
-msgid "Preview image"
-msgstr "Image d'aperçu"
-
-#: .\IESA_ROOT\blog\templates\blog\post_create.html:71
-msgid "Add an image for preview"
-msgstr "Ajouter une image pour l'aperçu"
-
-#: .\IESA_ROOT\blog\templates\blog\post_create.html:72
-msgid "Draft preview"
-msgstr "Aperçu du brouillon"
-
-#: .\IESA_ROOT\blog\templates\blog\post_create.html:75
-#: .\IESA_ROOT\blog\templates\blog\post_create.html:88
-msgid "Post Title"
-msgstr "Titre de l'article"
-
-#: .\IESA_ROOT\blog\templates\blog\post_create.html:77
-#: .\IESA_ROOT\blog\templates\blog\post_create.html:89
-msgid "Description will appear here after editing."
-msgstr "La description apparaîtra ici après modification."
-
-#: .\IESA_ROOT\blog\templates\blog\post_create.html:86
-msgid "Please enter a post title"
-msgstr "Veuillez entrer un titre d'article"
-
-#: .\IESA_ROOT\blog\templates\blog\post_create.html:87
-msgid "Please enter post content"
-msgstr "Veuillez entrer le contenu de l'article"
-
-#: .\IESA_ROOT\blog\templates\blog\post_detail.html:49
-msgid "Anonymous"
-msgstr "Anonyme"
-
-#: .\IESA_ROOT\blog\templates\blog\post_detail.html:59
-msgid "views"
-msgstr "vues"
-
-#: .\IESA_ROOT\blog\templates\blog\post_detail.html:90
-msgid "COMMENTS"
-msgstr "COMMENTAIRES"
-
-#: .\IESA_ROOT\blog\templates\blog\post_detail.html:95
-msgid "Leave a comment"
-msgstr "Laisser un commentaire"
-
-#: .\IESA_ROOT\blog\templates\blog\post_detail.html:104
-msgid "Your comment..."
-msgstr "Votre commentaire..."
-
-#: .\IESA_ROOT\blog\templates\blog\post_detail.html:106
-msgid "Send"
-msgstr "Envoyer"
-
-#: .\IESA_ROOT\blog\templates\blog\post_detail.html:111
-msgid "To comment, please"
-msgstr "Pour commenter, veuillez"
-
-#: .\IESA_ROOT\blog\templates\blog\post_detail.html:111
-msgid "sign in"
-msgstr "vous connecter"
-
-#: .\IESA_ROOT\blog\templates\blog\post_detail.html:111
-#: .\venv\Lib\site-packages\django\utils\text.py:287
-msgid "or"
-msgstr "ou"
-
-#: .\IESA_ROOT\blog\templates\blog\post_detail.html:111
-msgid "register"
-msgstr "vous inscrire"
-
-#: .\IESA_ROOT\blog\templates\blog\post_detail.html:126
-msgid "RECOMMENDED POSTS"
-msgstr "ARTICLES RECOMMANDÉS"
-
-#: .\IESA_ROOT\blog\templates\blog\post_list.html:4
-msgid "Community & Blog"
-msgstr "Communauté & Blog"
-
-#: .\IESA_ROOT\blog\templates\blog\post_list.html:10
-msgid "COMMUNITY"
-msgstr "COMMUNAUTÉ"
-
-#: .\IESA_ROOT\blog\templates\blog\post_list.html:11
-msgid "Share Ideas, Events & News"
-msgstr "Partagez vos idées, événements et actualités"
-
-#: .\IESA_ROOT\blog\templates\blog\post_list.html:12
-#: .\IESA_ROOT\core\templates\core\index.html:206
-msgid "Connect with fellow extreme sports enthusiasts"
-msgstr "Échangez avec d’autres passionnés de sports extrêmes"
-
-#: .\IESA_ROOT\blog\templates\blog\post_list.html:21
-msgid "Sign in or register to access the community"
-msgstr "Connectez-vous ou inscrivez-vous pour accéder à la communauté"
-
-#: .\IESA_ROOT\blog\templates\blog\post_list.html:23
-msgid "Join our community to create posts, comment and engage with members"
-msgstr "Rejoignez notre communauté pour créer des articles, commenter et interagir avec les membres"
-
-#: .\IESA_ROOT\blog\templates\blog\post_list.html:39
-msgid "All Posts"
-msgstr "Tous les articles"
-
-#: .\IESA_ROOT\blog\templates\blog\post_list.html:53
-msgid "Search posts..."
-msgstr "Rechercher des articles..."
-
-#: .\IESA_ROOT\blog\templates\blog\post_list.html:53
-msgid "Search posts"
-msgstr "Rechercher des articles"
-
-#: .\IESA_ROOT\blog\templates\blog\post_list.html:55
-msgid "All statuses"
-msgstr "Tous les statuts"
-
-#: .\IESA_ROOT\blog\templates\blog\post_list.html:56
-#: .\IESA_ROOT\users\templates\users\profile.html:304
-msgid "Published"
-msgstr "Publié"
-
-#: .\IESA_ROOT\blog\templates\blog\post_list.html:57
-#: .\IESA_ROOT\users\templates\users\profile.html:306
-msgid "Pending"
-msgstr "En attente"
-
-#: .\IESA_ROOT\blog\templates\blog\post_list.html:60
-msgid "Latest"
-msgstr "Récents"
-
-#: .\IESA_ROOT\blog\templates\blog\post_list.html:61
-msgid "Popular"
-msgstr "Populaires"
-
-#: .\IESA_ROOT\blog\templates\blog\post_list.html:62
-msgid "Trending"
-msgstr "Tendances"
-
-#: .\IESA_ROOT\blog\templates\blog\post_list.html:70
-msgid "Create Post"
-msgstr "Créer un article"
-
-#: .\IESA_ROOT\blog\templates\blog\post_list.html:83
-msgid "No Posts Yet"
-msgstr "Pas encore d'articles"
-
-#: .\IESA_ROOT\blog\templates\blog\post_list.html:84
-msgid "Be the first to share news or ideas with the community"
-msgstr "Soyez le premier à partager des nouvelles ou des idées avec la communauté"
-
-#: .\IESA_ROOT\blog\templates\blog\post_list.html:87
-msgid "Create First Post"
-msgstr "Créer le premier article"
-
-#: .\IESA_ROOT\blog\templates\blog\post_list.html:91
-msgid "Join Community"
-msgstr "Rejoindre la communauté"
-
-#: .\IESA_ROOT\core\templates\core\benefits.html:4
-#: .\IESA_ROOT\core\templates\core\benefits.html:12
-msgid "Member Benefits"
-msgstr "Avantages membres"
-
-#: .\IESA_ROOT\core\templates\core\benefits.html:15
-msgid "IESA Member Benefits"
-msgstr "Avantages membres IESA"
-
-#: .\IESA_ROOT\core\templates\core\benefits.html:17
-msgid "Get exclusive discounts and benefits as a member of our association"
-msgstr "Obtenez des réductions et avantages exclusifs en tant que membre de notre association"
-
-#: .\IESA_ROOT\core\templates\core\benefits.html:100
-msgid "Terms of access"
-msgstr "Conditions d'accès"
-
-#: .\IESA_ROOT\core\templates\core\benefits.html:118
-msgid "Want access to these benefits?"
-msgstr "Vous voulez accéder à ces avantages ?"
-
-#: .\IESA_ROOT\core\templates\core\benefits.html:120
-msgid "Become an IESA member and receive exclusive discounts and privileges"
-msgstr "Devenez membre de l'IESA et recevez des réductions et privilèges exclusifs"
-
-#: .\IESA_ROOT\core\templates\core\benefits.html:124
-#: .\IESA_ROOT\core\templates\core\index.html:112
-msgid "Join now"
-msgstr "Rejoindre maintenant"
-
-#: .\IESA_ROOT\core\templates\core\benefits.html:127
-#: .\IESA_ROOT\core\templates\core\benefits.html:142
-#: .\IESA_ROOT\templates\404.html:90 .\IESA_ROOT\templates\500.html:90
-msgid "Back to home"
-msgstr "Retour à l'accueil"
-
-#: .\IESA_ROOT\core\templates\core\benefits.html:137
-msgid "Benefits coming soon"
-msgstr "Avantages à venir"
-
-#: .\IESA_ROOT\core\templates\core\benefits.html:139
-msgid "We are working on exclusive offers for our members"
-msgstr "Nous travaillons sur des offres exclusives pour nos membres"
-
-#: .\IESA_ROOT\core\templates\core\index.html:4
-#: .\IESA_ROOT\templates\base.html:113 .\IESA_ROOT\templates\base.html:246
-msgid "Home"
-msgstr "Accueil"
-
-#: .\IESA_ROOT\core\templates\core\index.html:12
-msgid "International Extreme Sports Association"
-msgstr "Association internationale des sports extrêmes"
-
-#: .\IESA_ROOT\core\templates\core\index.html:16
-msgid "IESA Programs for Kids and Adults"
-msgstr "Programmes IESA pour enfants et adultes"
-
-msgid "IESA unites athletes, active lifestyle communities, and everyone who grows through adventure and extreme challenges."
-msgstr "IESA réunit les athlètes, les communautés de style de vie actif et tous ceux qui grandissent grâce à l'aventure et aux défis extrêmes."
-
-#: .\IESA_ROOT\core\templates\core\index.html:26
-msgid "WHAT IESA OFFERS"
-msgstr "CE QUE IESA PROPOSE"
-
-#: .\IESA_ROOT\core\templates\core\index.html:27
-msgid "Four directions that deliver results"
-msgstr "Quatre axes qui donnent des résultats"
-
-#: .\IESA_ROOT\core\templates\core\index.html:28
-msgid "Strong emotions, safe extreme sports, and real team growth"
-msgstr "Des émotions fortes, des sports extrêmes sûrs et une vraie progression d’équipe"
-
-#: .\IESA_ROOT\core\templates\core\index.html:30
-msgid "Kids"
-msgstr "Enfants"
-
-#: .\IESA_ROOT\core\templates\core\index.html:31
-msgid "Adults"
-msgstr "Adultes"
-
-#: .\IESA_ROOT\core\templates\core\index.html:32
-msgid "Teams"
-msgstr "Équipes"
-
-#: .\IESA_ROOT\core\templates\core\index.html:33
-msgid "Travel"
-msgstr "Voyages"
-
-#: .\IESA_ROOT\core\templates\core\index.html:37
-msgid "Extreme scout camp for kids"
-msgstr "Camp scout extrême pour enfants"
-
-#: .\IESA_ROOT\core\templates\core\index.html:42
-msgid "Kids · Camp"
-msgstr "Enfants · Camp"
-
-#: .\IESA_ROOT\core\templates\core\index.html:43
-msgid "Extreme Scout Camp for Kids"
-msgstr "Camp scout extrême pour enfants"
-
-#: .\IESA_ROOT\core\templates\core\index.html:44
-msgid "Build resilience, love for sport, and a healthy lifestyle for teens."
-msgstr "Développer la résilience, l’amour du sport et un mode de vie sain chez les adolescents."
-
-#: .\IESA_ROOT\core\templates\core\index.html:46
-msgid "Duration: 1 or 2 weeks"
-msgstr "Durée : 1 ou 2 semaines"
-
-#: .\IESA_ROOT\core\templates\core\index.html:47
-msgid "Where: warm countries, seaside"
-msgstr "Lieu : pays chauds, bord de mer"
-
-#: .\IESA_ROOT\core\templates\core\index.html:51
-msgid "Extreme weekends for adults"
-msgstr "Week-ends extrêmes pour adultes"
-
-#: .\IESA_ROOT\core\templates\core\index.html:56
-msgid "Adults · Weekend"
-msgstr "Adultes · Week-end"
-
-#: .\IESA_ROOT\core\templates\core\index.html:57
-msgid "Extreme Weekends for Adults"
-msgstr "Week-ends extrêmes pour adultes"
-
-#: .\IESA_ROOT\core\templates\core\index.html:58
-msgid "Water sports weekends with a packed program."
-msgstr "Week-ends de sports nautiques avec un programme chargé."
-
-#: .\IESA_ROOT\core\templates\core\index.html:60
-msgid "Duration: Friday to Sunday"
-msgstr "Durée : vendredi à dimanche"
-
-#: .\IESA_ROOT\core\templates\core\index.html:64
-msgid "Yachting and diving for adults"
-msgstr "Yachting et plongée pour adultes"
-
-#: .\IESA_ROOT\core\templates\core\index.html:69
-msgid "Adults · Journey"
-msgstr "Adultes · Voyage"
-
-#: .\IESA_ROOT\core\templates\core\index.html:70
-msgid "Yachting & Diving for Adults"
-msgstr "Yachting & plongée pour adultes"
-
-#: .\IESA_ROOT\core\templates\core\index.html:71
-msgid "A complete reset and change of scenery with an active program."
-msgstr "Un reset complet et un changement de décor avec un programme actif."
-
-#: .\IESA_ROOT\core\templates\core\index.html:73
-msgid "Duration: one week"
-msgstr "Durée : une semaine"
-
-#: .\IESA_ROOT\core\templates\core\index.html:74
-msgid "Stay: yacht or hotel of choice"
-msgstr "Séjour : yacht ou hôtel au choix"
-
-#: .\IESA_ROOT\core\templates\core\index.html:75
-msgid "Options: Grand Egyptian Museum, quad bikes, camels, catamaran"
-msgstr "Options : Grand Egyptian Museum, quad, chameaux, catamaran"
-
-#: .\IESA_ROOT\core\templates\core\index.html:79
-msgid "Strengthen teams through extreme sports"
-msgstr "Renforcer les équipes par les sports extrêmes"
-
-#: .\IESA_ROOT\core\templates\core\index.html:84
-msgid "Teams · Corporate"
-msgstr "Équipes · Corporate"
-
-#: .\IESA_ROOT\core\templates\core\index.html:85
-msgid "Strengthen Any Team"
-msgstr "Renforcer n'importe quelle équipe"
-
-#: .\IESA_ROOT\core\templates\core\index.html:86
-msgid "Work, creative, and leadership teams — through extreme sports formats."
-msgstr "Équipes de travail, créatives et de direction — grâce aux formats de sports extrêmes."
-
-#: .\IESA_ROOT\core\templates\core\index.html:88
-msgid "Outcome: cohesion, trust, energy"
-msgstr "Résultat : cohésion, confiance, énergie"
-
-#: .\IESA_ROOT\core\templates\core\index.html:94
-msgid "Become an IESA member"
-msgstr "Devenir membre de l’IESA"
-
-#: .\IESA_ROOT\core\templates\core\index.html:95
-msgid "Become a member"
-msgstr "Devenir membre"
-
-#: .\IESA_ROOT\core\templates\core\index.html:97
-msgid "View upcoming events"
-msgstr "Voir les prochains événements"
-
-#: .\IESA_ROOT\core\templates\core\index.html:98
-msgid "Upcoming events"
-msgstr "Événements à venir"
-
-#: .\IESA_ROOT\core\templates\core\index.html:106
-msgid "IESA Membership"
-msgstr "Adhésion IESA"
-
-#: .\IESA_ROOT\core\templates\core\index.html:107
-msgid "Want to join the programs?"
-msgstr "Vous voulez rejoindre les programmes ?"
-
-#: .\IESA_ROOT\core\templates\core\index.html:108
-msgid "Get access to camps, weekends, journeys, and team formats."
-msgstr "Accédez aux camps, week-ends, voyages et formats d’équipe."
-
-#: .\IESA_ROOT\core\templates\core\index.html:111
-msgid "Join IESA"
-msgstr "Rejoindre l’IESA"
-
-#: .\IESA_ROOT\core\templates\core\index.html:114
-#: .\IESA_ROOT\core\templates\core\index.html:115
-msgid "View programs"
-msgstr "Voir les programmes"
-
-#: .\IESA_ROOT\core\templates\core\index.html:125
-msgid "OUR CORE PROGRAMS"
-msgstr "NOS PROGRAMMES PRINCIPAUX"
-
-#: .\IESA_ROOT\core\templates\core\index.html:126
-msgid "IESA Programs"
-msgstr "Programmes IESA"
-
-#: .\IESA_ROOT\core\templates\core\index.html:127
-msgid "Extreme adventures for all ages"
-msgstr "Aventures extrêmes pour tous les âges"
-
-#: .\IESA_ROOT\core\templates\core\index.html:132
-#, python-format
-msgid "%(title)s program"
-msgstr "Programme %(title)s"
-
-#: .\IESA_ROOT\core\templates\core\index.html:143
 msgid "Core Program"
 msgstr "Programme principal"
 
-#: .\IESA_ROOT\core\templates\core\index.html:168
-msgid "Features:"
-msgstr "Caractéristiques :"
-
-#: .\IESA_ROOT\core\templates\core\index.html:189
-#, python-format
-msgid "Learn more about %(title)s"
-msgstr "En savoir plus sur %(title)s"
-
-#: .\IESA_ROOT\core\templates\core\index.html:190
-#: .\IESA_ROOT\core\templates\core\index.html:235
-msgid "Learn More"
+msgid "Learn more"
 msgstr "En savoir plus"
 
-#: .\IESA_ROOT\core\templates\core\index.html:204
-msgid "UPCOMING EVENTS"
-msgstr "ÉVÉNEMENTS À VENIR"
+msgid "Join our next"
+msgstr "Rejoignez notre prochain"
 
-#: .\IESA_ROOT\core\templates\core\index.html:205
-msgid "Join Our Next Community Gatherings"
-msgstr "Rejoignez nos prochaines rencontres communautaires"
-
-#: .\IESA_ROOT\core\templates\core\index.html:244
-msgid "View All Events"
+msgid "View all events"
 msgstr "Voir tous les événements"
 
-#: .\IESA_ROOT\core\templates\core\index.html:253
-msgid "ABOUT IESA"
-msgstr "À PROPOS DE IESA"
+msgid "About IESA"
+msgstr "À propos d'IESA"
 
-#: .\IESA_ROOT\core\templates\core\index.html:254
-msgid "Our Leadership & Team"
-msgstr "Notre direction & équipe"
+msgid "The people behind"
+msgstr "Les personnes derrière"
 
-#: .\IESA_ROOT\core\templates\core\index.html:255
-msgid "Meet the people who drive our mission forward"
-msgstr "Rencontrez les personnes qui font avancer notre mission"
+msgid "our mission"
+msgstr "notre mission"
 
-#: .\IESA_ROOT\core\templates\core\index.html:275
-msgid "A Word from the President"
-msgstr "Un mot du président"
+msgid "Meet the team that drives IESA forward every day"
+msgstr "Découvrez l'équipe qui fait avancer IESA chaque jour"
 
-#: .\IESA_ROOT\core\templates\core\index.html:284
-msgid "OUR TEAM"
-msgstr "NOTRE ÉQUIPE"
+msgid "President · IESA"
+msgstr "Président · IESA"
 
-#: .\IESA_ROOT\core\templates\core\index.html:285
-msgid "Dedicated Leadership & Members"
-msgstr "Direction et membres engagés"
+msgid "Our team"
+msgstr "Notre équipe"
 
-#: .\IESA_ROOT\core\templates\core\index.html:286
-msgid "The people behind IESA's success"
-msgstr "Les personnes derrière le succès de l’IESA"
+msgid "Dedicated"
+msgstr "Leadership"
 
-#: .\IESA_ROOT\core\templates\core\index.html:327
+msgid "leadership"
+msgstr "dévoué"
+
 msgid "More"
 msgstr "Plus"
 
-#: .\IESA_ROOT\core\templates\core\index.html:338
-msgid "Information about members will be posted soon."
-msgstr "Les informations sur les membres seront publiées prochainement."
+msgid "Team Member"
+msgstr "Membre de l'équipe"
 
-#: .\IESA_ROOT\core\templates\core\index.html:347
-msgid "Team Member Profile"
-msgstr "Profil du membre de l’équipe"
+msgid "Partnerships"
+msgstr "Partenariats"
 
-#: .\IESA_ROOT\core\templates\core\index.html:368
-#: .\IESA_ROOT\gallery\templates\gallery\gallery.html:39
-#: .\IESA_ROOT\templates\partials\toast_container.html:26
-msgid "Close"
-msgstr "Fermer"
+msgid "Organizations we"
+msgstr "Organisations avec lesquelles nous"
 
-#: .\IESA_ROOT\core\templates\core\index.html:378
-msgid "PARTNERSHIPS"
-msgstr "PARTENARIATS"
+msgid "collaborate with"
+msgstr "collaborons"
 
-#: .\IESA_ROOT\core\templates\core\index.html:379
-msgid "Organizations We Collaborate With"
-msgstr "Organisations avec lesquelles nous collaborons"
-
-#: .\IESA_ROOT\core\templates\core\index.html:380
-msgid "Building strong relationships worldwide"
-msgstr "Construire des relations solides dans le monde entier"
-
-#: .\IESA_ROOT\core\templates\core\index.html:387
-#, python-format
-msgid "%(name)s - %(category)s partner"
-msgstr "%(name)s - partenaire %(category)s"
-
-#: .\IESA_ROOT\core\templates\core\index.html:405
-msgid "Sponsor"
-msgstr "Parrain"
-
-#: .\IESA_ROOT\core\templates\core\index.html:406
 msgid "Media"
-msgstr "Médias"
+msgstr "Média"
 
-#: .\IESA_ROOT\core\templates\core\index.html:407
 msgid "Tech"
 msgstr "Tech"
 
-#: .\IESA_ROOT\core\templates\core\index.html:408
 msgid "Venue"
 msgstr "Lieu"
 
-#: .\IESA_ROOT\core\templates\core\index.html:409
-#: .\IESA_ROOT\users\models.py:230 .\IESA_ROOT\users\models.py:262
-msgid "Partner"
-msgstr "Partenaire"
-
-#: .\IESA_ROOT\core\templates\core\index.html:428
-#, python-format
-msgid "View details about %(name)s"
-msgstr "Voir les détails sur %(name)s"
-
-#: .\IESA_ROOT\core\templates\core\index.html:429
-msgid "Details"
-msgstr "Détails"
-
-#: .\IESA_ROOT\core\templates\core\index.html:434
-#, python-format
-msgid "Visit %(name)s website"
-msgstr "Visiter le site de %(name)s"
-
-#: .\IESA_ROOT\core\templates\core\index.html:435
-#: .\IESA_ROOT\users\models.py:301
 msgid "Visit"
 msgstr "Visiter"
 
-#: .\IESA_ROOT\core\templates\core\index.html:454
 #, python-format
 msgid "Page %(page)s of %(total)s"
 msgstr "Page %(page)s sur %(total)s"
 
-#: .\IESA_ROOT\core\templates\core\index.html:465
 msgid "We are looking for new partners!"
-msgstr "Nous cherchons de nouveaux partenaires !"
+msgstr "Nous recherchons de nouveaux partenaires !"
 
-#: .\IESA_ROOT\core\templates\core\index.html:476
-msgid "Support Us"
+msgid "Why join"
+msgstr "Pourquoi rejoindre"
+
+msgid "IESA?"
+msgstr "l'IESA ?"
+
+msgid "Exclusive advantages available to every member of the association"
+msgstr ""
+"Avantages exclusifs disponibles pour chaque membre de l'associationObtenez "
+"des réductions et avantages exclusifs en tant que membre de notre "
+"association"
+
+msgid "View all benefits"
+msgstr "Voir tous les avantages"
+
+msgid "Support us"
 msgstr "Soutenez-nous"
 
-#: .\IESA_ROOT\core\templates\core\index.html:478
-msgid "Support Our Association"
-msgstr "Soutenez notre association"
+msgid "Support our"
+msgstr "Soutenez notre"
 
-#: .\IESA_ROOT\core\templates\core\index.html:484
+msgid "association"
+msgstr "association"
+
+msgid ""
+"Your support helps us launch new projects, organize events and grow our "
+"international community."
+msgstr ""
+"Votre soutien nous aide à lancer de nouveaux projets, organiser des "
+"événements et développer notre communauté internationale."
+
 msgid "Current Goal"
 msgstr "Objectif actuel"
 
-#: .\IESA_ROOT\core\templates\core\index.html:492
+msgid "CHF"
+msgstr "CHF"
+
+msgid "donors"
+msgstr "donateurs"
+
+msgid "Ends Dec 2026"
+msgstr "Fin déc. 2026"
+
 msgid "Make a Donation (Coming Soon)"
-msgstr "Faire un don (bientôt)"
+msgstr "Faire un don (Bientôt)"
 
-#: .\IESA_ROOT\core\templates\core\index.html:494
-msgid "Stripe integration coming soon. This is a preview section."
-msgstr "Intégration Stripe bientôt. Ceci est une section d’aperçu."
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+# 
+msgid "Events & Camps"
+msgstr "Événements et camps"
 
-#: .\IESA_ROOT\core\templates\core\index.html:498
-msgid "Impact focus"
-msgstr "Impact ciblé"
+msgid "Fund kids' camps and adult adventure weekends worldwide."
+msgstr ""
+"Financez des camps pour enfants et des week-ends d'aventure pour adultes "
+"dans le monde entier."
 
-#: .\IESA_ROOT\core\templates\core\index.html:499
-msgid "Events · Education · Partnerships"
-msgstr "Événements · Éducation · Partenariats"
+msgid "Education"
+msgstr "Éducation"
 
-#: .\IESA_ROOT\gallery\templates\gallery\gallery.html:4
-#: .\IESA_ROOT\templates\base.html:118 .\IESA_ROOT\templates\base.html:248
+msgid "Support coaching certifications, safety training, and workshops."
+msgstr ""
+"Soutenez les certifications d'entraîneurs, la formation à la sécurité et les"
+" ateliers."
+
+msgid "Global Partnerships"
+msgstr "Partenariats mondiaux"
+
+msgid "Expand IESA's network to new cities and countries."
+msgstr "Étendez le réseau d'IESA à de nouvelles villes et pays."
+
+msgid "Diving"
+msgstr "Plongée"
+
+msgid "Climbing"
+msgstr "Escalade"
+
+msgid "Yachting"
+msgstr "Voile"
+
+msgid "Surfing"
+msgstr "Surf"
+
+msgid "Boxing"
+msgstr "Boxe"
+
+msgid "Caption"
+msgstr "Légende"
+
+msgid "Uploaded At"
+msgstr "Téléchargé le"
+
+msgid "Photos"
+msgstr "Photos"
+
 msgid "Gallery"
 msgstr "Galerie"
 
-#: .\IESA_ROOT\gallery\templates\gallery\gallery.html:9
 msgid "PHOTO GALLERY"
 msgstr "GALERIE PHOTO"
 
-#: .\IESA_ROOT\gallery\templates\gallery\gallery.html:10
 msgid "Moments From Our Community"
 msgstr "Moments de notre communauté"
 
-#: .\IESA_ROOT\gallery\templates\gallery\gallery.html:11
 msgid "See how we work, train and create memories together"
-msgstr "Découvrez comment nous travaillons, nous entraînons et créons des souvenirs ensemble"
+msgstr ""
+"Découvrez comment nous travaillons, nous entraînons et créons des souvenirs "
+"ensembleDécouvrez comment nous travaillons, nous entraînons et créons des "
+"souvenirs ensemble"
 
-#: .\IESA_ROOT\gallery\templates\gallery\gallery.html:16
-msgid "Photo"
-msgstr "Photo"
-
-#: .\IESA_ROOT\gallery\templates\gallery\gallery.html:17
 msgid "View photo"
 msgstr "Voir la photo"
 
-#: .\IESA_ROOT\gallery\templates\gallery\gallery.html:97
-#: .\IESA_ROOT\gallery\templates\gallery\gallery.html:99
-#: .\IESA_ROOT\notifications\templates\notifications\notification_list.html:111
 msgid "Previous"
 msgstr "Précédent"
 
-#: .\IESA_ROOT\gallery\templates\gallery\gallery.html:105
-#: .\IESA_ROOT\gallery\templates\gallery\gallery.html:107
-#: .\IESA_ROOT\notifications\templates\notifications\notification_list.html:127
 msgid "Next"
 msgstr "Suivant"
 
-#: .\IESA_ROOT\gallery\templates\gallery\gallery.html:116
 msgid "No photos yet"
 msgstr "Pas encore de photos"
 
-#: .\IESA_ROOT\gallery\templates\gallery\gallery.html:117
 msgid "Add photos from events or projects to inspire members."
-msgstr "Ajoutez des photos d'événements ou de projets pour inspirer les membres."
+msgstr ""
+"Ajoutez des photos d'événements ou de projets pour inspirer les "
+"membres.Ajoutez des photos d'événements ou de projets pour inspirer les "
+"membres."
 
-#: .\IESA_ROOT\gallery\templates\gallery\gallery.html:118
 msgid "Go to community"
 msgstr "Aller à la communauté"
 
-#: .\IESA_ROOT\messaging\templates\messaging\chat_detail.html:4
-#, python-format
-msgid "Chat with %(first)s %(last)s"
-msgstr "Discussion avec %(first)s %(last)s"
+msgid "Notification Info"
+msgstr "Informations de notification"
 
-#: .\IESA_ROOT\messaging\templates\messaging\chat_detail.html:39
-#: .\IESA_ROOT\templates\base.html:200
-#: .\IESA_ROOT\users\templates\users\profile_public.html:4
-msgid "Profile"
-msgstr "Profil"
+msgid "Post Approved"
+msgstr "Publication approuvée"
 
-#: .\IESA_ROOT\messaging\templates\messaging\chat_detail.html:44
-#: .\IESA_ROOT\templates\base.html:152
-#: .\IESA_ROOT\users\templates\users\search_results.html:19
-msgid "Search"
-msgstr "Recherche"
+msgid "Post Rejected"
+msgstr "Publication rejetée"
 
-#: .\IESA_ROOT\messaging\templates\messaging\chat_detail.html:53
-#, python-format
-msgid "%(name)s is typing"
-msgstr "%(name)s est en train d'écrire"
+msgid "New Comment"
+msgstr "Nouveau commentaire"
 
-#: .\IESA_ROOT\messaging\templates\messaging\chat_detail.html:73
-msgid "Type a message..."
-msgstr "Écrire un message..."
+msgid "Comment Reply"
+msgstr "Réponse au commentaire"
 
-#: .\IESA_ROOT\messaging\templates\messaging\chat_detail.html:78
-msgid "Attach file"
-msgstr "Joindre un fichier"
+msgid "New Like"
+msgstr "Nouveau j'aime"
 
-#: .\IESA_ROOT\messaging\templates\messaging\chat_detail.html:108
-msgid "Search messages"
-msgstr "Rechercher des messages"
+msgid "New Follower"
+msgstr "Nouvel abonné"
 
-#: .\IESA_ROOT\messaging\templates\messaging\chat_detail.html:112
-msgid "Search..."
-msgstr "Rechercher..."
+msgid "Event Reminder"
+msgstr "Rappel d'événement"
 
-#: .\IESA_ROOT\messaging\templates\messaging\chat_detail.html:121
-msgid "Edit"
-msgstr "Modifier"
+msgid "New Message"
+msgstr "Nouveau message"
 
-#: .\IESA_ROOT\messaging\templates\messaging\chat_detail.html:122
-#: .\IESA_ROOT\notifications\templates\notifications\notification_list.html:98
-#: .\venv\Lib\site-packages\django\forms\formsets.py:499
-msgid "Delete"
-msgstr "Supprimer"
+msgid "System Notification"
+msgstr "Notification système"
 
-#: .\IESA_ROOT\messaging\templates\messaging\chat_detail.html:127
-msgid "Today"
-msgstr "Aujourd'hui"
+msgid "Recipient"
+msgstr "Destinataire"
 
-#: .\IESA_ROOT\messaging\templates\messaging\chat_detail.html:128
-msgid "Yesterday"
-msgstr "Hier"
+msgid "Sender"
+msgstr "Expéditeur"
 
-#: .\IESA_ROOT\messaging\templates\messaging\chat_detail.html:129
-msgid "(edited)"
-msgstr "(modifié)"
+msgid "Type"
+msgstr "Type"
 
-#: .\IESA_ROOT\messaging\templates\messaging\chat_detail.html:130
-msgid "Edit message:"
-msgstr "Modifier le message :"
+msgid "Message"
+msgstr "Message"
 
-#: .\IESA_ROOT\messaging\templates\messaging\chat_detail.html:131
-msgid "Delete message?"
-msgstr "Supprimer le message ?"
+msgid "Link"
+msgstr "Lien"
 
-#: .\IESA_ROOT\messaging\templates\messaging\chat_detail.html:132
-msgid "No results found"
-msgstr "Aucun résultat trouvé"
+msgid "Read"
+msgstr "Lu"
 
-#: .\IESA_ROOT\messaging\templates\messaging\chat_list.html:4
-#: .\IESA_ROOT\messaging\templates\messaging\chat_list.html:12
-#: .\venv\Lib\site-packages\django\contrib\messages\apps.py:16
-msgid "Messages"
-msgstr "Messages"
+msgid "Read at"
+msgstr "Lu le"
 
-#: .\IESA_ROOT\messaging\templates\messaging\chat_list.html:15
-#: .\IESA_ROOT\messaging\templates\messaging\chat_list.html:65
-msgid "New chat"
-msgstr "Nouvelle discussion"
-
-#: .\IESA_ROOT\messaging\templates\messaging\chat_list.html:30
-msgid "Search chats..."
-msgstr "Rechercher des discussions..."
-
-#: .\IESA_ROOT\messaging\templates\messaging\chat_list.html:37
-msgid "No chats"
-msgstr "Aucune discussion"
-
-#: .\IESA_ROOT\messaging\templates\messaging\chat_list.html:51
-msgid "Select a chat"
-msgstr "Sélectionner une discussion"
-
-#: .\IESA_ROOT\messaging\templates\messaging\chat_list.html:52
-msgid "Or start a new conversation"
-msgstr "Ou commencer une nouvelle conversation"
-
-#: .\IESA_ROOT\messaging\templates\messaging\chat_list.html:74
-msgid "Search users..."
-msgstr "Rechercher des utilisateurs..."
-
-#: .\IESA_ROOT\messaging\templates\messaging\chat_list.html:78
-#: .\IESA_ROOT\messaging\templates\messaging\chat_list.html:88
-msgid "Type a name to search"
-msgstr "Tapez un nom pour rechercher"
-
-#: .\IESA_ROOT\messaging\templates\messaging\chat_list.html:87
-msgid "No messages"
-msgstr "Aucun message"
-
-#: .\IESA_ROOT\messaging\templates\messaging\chat_list.html:89
-msgid "No users found"
-msgstr "Aucun utilisateur trouvé"
-
-#: .\IESA_ROOT\notifications\templates\notifications\notification_list.html:4
-#: .\IESA_ROOT\notifications\templates\notifications\notification_list.html:10
-#: .\IESA_ROOT\templates\base.html:172 .\IESA_ROOT\templates\base.html:174
-#: .\IESA_ROOT\templates\base.html:182
 msgid "Notifications"
 msgstr "Notifications"
 
-#: .\IESA_ROOT\notifications\templates\notifications\notification_list.html:12
-msgid "Stay updated with your activity"
-msgstr "Restez informé de votre activité"
-
-#: .\IESA_ROOT\notifications\templates\notifications\notification_list.html:23
-msgid "Mark all as read"
-msgstr "Tout marquer comme lu"
-
-#: .\IESA_ROOT\notifications\templates\notifications\notification_list.html:25
-msgid "Unread"
-msgstr "Non lu"
-
-#: .\IESA_ROOT\notifications\templates\notifications\notification_list.html:27
-msgid "All notifications marked as read"
-msgstr "Toutes les notifications marquées comme lues"
-
-#: .\IESA_ROOT\notifications\templates\notifications\notification_list.html:70
-msgid "New"
-msgstr "Nouveau"
-
-#: .\IESA_ROOT\notifications\templates\notifications\notification_list.html:77
 msgid "ago"
 msgstr "il y a"
 
-#: .\IESA_ROOT\notifications\templates\notifications\notification_list.html:85
-#: .\IESA_ROOT\users\templates\users\profile.html:318
-#: .\IESA_ROOT\users\templates\users\profile.html:319
-msgid "View"
-msgstr "Voir"
+msgid "Delete this notification?"
+msgstr "Supprimer cette notification ?"
 
-#: .\IESA_ROOT\notifications\templates\notifications\notification_list.html:94
-#: .\IESA_ROOT\notifications\templates\notifications\notification_list.html:95
-msgid "Delete notification"
-msgstr "Supprimer la notification"
+msgid "View All"
+msgstr "Tout voir"
 
-#: .\IESA_ROOT\notifications\templates\notifications\notification_list.html:106
-msgid "Notifications pagination"
-msgstr "Pagination des notifications"
+msgid "Mark Read"
+msgstr "Marquer comme lu"
 
-#: .\IESA_ROOT\notifications\templates\notifications\notification_list.html:139
 msgid "No notifications yet"
 msgstr "Pas encore de notifications"
 
-#: .\IESA_ROOT\notifications\templates\notifications\notification_list.html:140
-msgid "You'll see notifications here when someone interacts with your content."
-msgstr "Vous verrez les notifications ici quand quelqu'un interagit avec votre contenu."
+msgid "Stay updated with your activity"
+msgstr "Restez informé de votre activité"
 
-#: .\IESA_ROOT\notifications\templates\notifications\notification_list.html:142
+msgid "Mark all as read"
+msgstr "Tout marquer comme lu"
+
+msgid "Unread"
+msgstr "Non lus"
+
+msgid "All notifications marked as read"
+msgstr "Toutes les notifications marquées comme lues"
+
+msgid "New"
+msgstr "Nouveau"
+
+msgid "View"
+msgstr "Voir"
+
+msgid "Delete notification"
+msgstr "Supprimer la notification"
+
+msgid "Notifications pagination"
+msgstr "Pagination des notifications"
+
+msgid ""
+"You'll see notifications here when someone interacts with your content."
+msgstr ""
+"Vous verrez les notifications ici lorsque quelqu'un interagit avec votre "
+"contenu.Vous verrez les notifications ici quand quelqu'un interagit avec "
+"votre contenu."
+
 msgid "Explore Posts"
-msgstr "Explorer les articles"
+msgstr "Explorer les publications"
 
-#: .\IESA_ROOT\templates\404.html:8
+msgid "No notifications"
+msgstr "Aucune notification"
+
+msgid "Post Approved! 🎉"
+msgstr "Publication approuvée ! 🎉"
+
+#, python-format
+msgid "Your post \"%(title)s\" has been approved and is now published."
+msgstr ""
+"Votre publication \"%(title)s\" a été approuvée et est maintenant publiée."
+
+msgid "Post Needs Review"
+msgstr "Publication à réviser"
+
+#, python-format
+msgid "Your post \"%(title)s\" was not approved. Please review and edit it."
+msgstr ""
+"Votre publication \"%(title)s\" n'a pas été approuvée. Veuillez la réviser "
+"et la modifier."
+
+#, python-format
+msgid "%(username)s commented on your post \"%(title)s\""
+msgstr "%(username)s a commenté votre publication \"%(title)s\""
+
+msgid "New Reply"
+msgstr "Nouvelle réponse"
+
+#, python-format
+msgid "%(username)s replied to your comment"
+msgstr "%(username)s a répondu à votre commentaire"
+
+msgid "New Like ❤️"
+msgstr "Nouveau j'aime ❤️"
+
+#, python-format
+msgid "%(username)s liked your post \"%(title)s\""
+msgstr "%(username)s a aimé votre publication \"%(title)s\""
+
+msgid "Event Reminder 📅"
+msgstr "Rappel d'événement 📅"
+
+#, python-format
+msgid "Reminder: \"%(title)s\" is coming up on %(date)s"
+msgstr "Rappel : \"%(title)s\" aura lieu le %(date)s"
+
+msgid "Product Name"
+msgstr "Nom du produit"
+
+msgid "Price"
+msgstr "Prix"
+
+msgid "Product Image"
+msgstr "Image du produit"
+
+msgid "Product"
+msgstr "Produit"
+
+msgid "Products"
+msgstr "Produits"
+
+msgid "Product Catalog"
+msgstr "Catalogue de produits"
+
+msgid "CATALOG"
+msgstr "CATALOGUE"
+
+msgid "Gear and services curated for IESA members"
+msgstr "Équipements et services sélectionnés pour les membres IESA"
+
+msgid "Catalog is empty"
+msgstr "Le catalogue est vide"
+
+msgid "We are preparing products and services for association members."
+msgstr ""
+"Nous préparons des produits et services pour les membres de l'association."
+
 msgid "404 - Page not found"
 msgstr "404 – Page non trouvée"
 
-#: .\IESA_ROOT\templates\404.html:85
 msgid "Page not found"
 msgstr "Page non trouvée"
 
-#: .\IESA_ROOT\templates\404.html:94
+msgid ""
+"Oops! It looks like you got lost. The page you are looking for does not "
+"exist or has been moved."
+msgstr ""
+"Oups ! Il semble que vous vous soyez perdu. La page que vous recherchez "
+"n'existe pas ou a été déplacée."
+
 msgid "Maybe you were looking for:"
 msgstr "Peut-être cherchiez-vous :"
 
-#: .\IESA_ROOT\templates\404.html:97
 msgid "Search the site..."
 msgstr "Rechercher sur le site..."
 
-#: .\IESA_ROOT\templates\500.html:8
 msgid "500 - Internal server error"
 msgstr "500 – Erreur interne du serveur"
 
-#: .\IESA_ROOT\templates\500.html:84
 msgid "Internal server error"
 msgstr "Erreur interne du serveur"
 
-#: .\IESA_ROOT\templates\500.html:93
+msgid ""
+"Something went wrong on our side. We are already working to fix it. Please "
+"try again later."
+msgstr ""
+"Quelque chose s'est mal passé de notre côté. Nous travaillons déjà à le "
+"résoudre. Veuillez réessayer plus tard."
+
 msgid "Go back"
 msgstr "Retour"
 
-#: .\IESA_ROOT\templates\500.html:100
 msgid "If the problem persists, please contact our support team."
-msgstr "Si le problème persiste, veuillez contacter notre équipe d'assistance."
+msgstr "Si le problème persiste, veuillez contacter notre équipe de support."
 
-#: .\IESA_ROOT\templates\base.html:8 .\IESA_ROOT\templates\base.html:19
-#: .\IESA_ROOT\templates\base.html:30
 msgid "IESA ROOT"
 msgstr "IESA ROOT"
 
-#: .\IESA_ROOT\templates\base.html:92
+msgid ""
+"IESA - Extreme Sports Community. Kitesurfing in Egypt, Boxing, Adventure "
+"Travel & Sauna Experiences. Join our international athletes and enthusiasts."
+msgstr ""
+"IESA – Communauté de sports extrêmes. Kitesurf en Égypte, boxe, voyages "
+"d'aventure et expériences sauna. Rejoignez nos athlètes internationaux."
+
+msgid ""
+"extreme sports, kitesurfing Egypt, boxing, adventure travel, sauna, "
+"community, athletes"
+msgstr ""
+"sports extrêmes, kitesurf Égypte, boxe, voyages d'aventure, sauna, "
+"communauté, athlètes"
+
+msgid ""
+"IESA - Extreme Sports Community. Experience kitesurfing in Egypt, boxing, "
+"adventure travel and exclusive sauna access. Join international athletes."
+msgstr ""
+"IESA – Communauté de sports extrêmes. Découvrez le kitesurf en Égypte, la "
+"boxe, les voyages d'aventure et l'accès exclusif au sauna."
+
+msgid ""
+"IESA - Extreme Sports Community. Kitesurfing in Egypt, Boxing, Adventure "
+"Travel & Sauna for Athletes."
+msgstr ""
+"IESA – Communauté de sports extrêmes. Kitesurf en Égypte, boxe, voyages "
+"d'aventure et sauna pour athlètes."
+
 msgid "Skip to main content"
 msgstr "Aller au contenu principal"
 
-#: .\IESA_ROOT\templates\base.html:97
-msgid "Attention!"
-msgstr "Attention !"
+msgid "Dev mode"
+msgstr "Mode développement"
 
-#: .\IESA_ROOT\templates\base.html:97
-msgid "Site is under active development. Some features may not work correctly."
-msgstr "Le site est en cours de développement. Certaines fonctionnalités peuvent ne pas fonctionner correctement."
+msgid "Site is under active development."
+msgstr ""
+"Le site est en cours de développement actif.Le site est en cours de "
+"développement. Certaines fonctionnalités peuvent ne pas fonctionner "
+"correctement."
 
-#: .\IESA_ROOT\templates\base.html:104
 msgid "Main navigation"
 msgstr "Navigation principale"
 
-#: .\IESA_ROOT\templates\base.html:105
 msgid "IESA Home"
 msgstr "Accueil IESA"
 
-#: .\IESA_ROOT\templates\base.html:106
 msgid "IESA Logo"
 msgstr "Logo IESA"
 
-#: .\IESA_ROOT\templates\base.html:108
 msgid "Toggle navigation"
 msgstr "Basculer la navigation"
 
-#: .\IESA_ROOT\templates\base.html:114
-#: .\IESA_ROOT\users\templates\users\profile_public.html:81
+msgid "Home"
+msgstr "Accueil"
+
 msgid "About"
 msgstr "À propos"
 
-#: .\IESA_ROOT\templates\base.html:116
 msgid "Benefits"
 msgstr "Avantages"
 
-#: .\IESA_ROOT\templates\base.html:120 .\IESA_ROOT\templates\base.html:247
 msgid "Community"
 msgstr "Communauté"
 
-#: .\IESA_ROOT\templates\base.html:122
-#: .\IESA_ROOT\users\templates\users\profile.html:81
-#: .\IESA_ROOT\users\templates\users\profile_public.html:99
-msgid "Posts"
-msgstr "Publications"
-
-#: .\IESA_ROOT\templates\base.html:124 .\IESA_ROOT\users\models.py:231
-msgid "Partners"
-msgstr "Partenaires"
-
-#: .\IESA_ROOT\templates\base.html:125
 msgid "Members"
 msgstr "Membres"
 
-#: .\IESA_ROOT\templates\base.html:128
 msgid "Create post"
 msgstr "Créer une publication"
 
-#: .\IESA_ROOT\templates\base.html:139
-msgid "Select language"
-msgstr "Sélectionner la langue"
-
-#: .\IESA_ROOT\templates\base.html:147
 msgid "Search community"
 msgstr "Rechercher dans la communauté"
 
-#: .\IESA_ROOT\templates\base.html:147
 msgid "Open search menu"
 msgstr "Ouvrir le menu de recherche"
 
-#: .\IESA_ROOT\templates\base.html:154
+msgid "Search"
+msgstr "Rechercher"
+
 msgid "Posts, users, events..."
 msgstr "Publications, utilisateurs, événements..."
 
-#: .\IESA_ROOT\templates\base.html:202
+msgid "Profile"
+msgstr "Profil"
+
 msgid "Logout"
 msgstr "Déconnexion"
 
-#: .\IESA_ROOT\templates\base.html:239
 msgid "ABOUT"
 msgstr "À PROPOS"
 
-#: .\IESA_ROOT\templates\base.html:241
+msgid ""
+"IESA connects sports leaders and partners, creating a space for growth, "
+"projects and events worldwide."
+msgstr ""
+"IESA connecte les leaders sportifs et les partenaires, créant un espace pour"
+" la croissance, les projets et les événements dans le monde entier."
+
 msgid "IESA Association. All rights reserved."
 msgstr "Association IESA. Tous droits réservés."
 
-#: .\IESA_ROOT\templates\base.html:244
 msgid "LINKS"
 msgstr "LIENS"
 
-#: .\IESA_ROOT\templates\base.html:253
 msgid "CONTACTS"
 msgstr "CONTACTS"
 
-#: .\IESA_ROOT\templates\base.html:257
 msgid "Switzerland"
 msgstr "Suisse"
 
-#: .\IESA_ROOT\templates\base.html:261
 msgid "SOCIAL"
 msgstr "RÉSEAUX SOCIAUX"
 
-#: .\IESA_ROOT\users\models.py:48
-msgid "Permanent ID"
-msgstr "ID permanent"
+msgid "Confirm Logout"
+msgstr "Confirmer la déconnexion"
 
-#: .\IESA_ROOT\users\models.py:50
-msgid "Card active"
-msgstr "Carte active"
+msgid "Are you sure you want to log out?"
+msgstr "Êtes-vous sûr de vouloir vous déconnecter ?"
 
-#: .\IESA_ROOT\users\models.py:51
-msgid "Card issued at"
-msgstr "Carte émise le"
-
-#: .\IESA_ROOT\users\models.py:58
-msgid "Membership Status"
-msgstr "Statut d'adhésion"
-
-#: .\IESA_ROOT\users\models.py:63
-msgid "TOTP Secret"
-msgstr "Secret TOTP"
-
-#: .\IESA_ROOT\users\models.py:69
-msgid "Pseudonym"
-msgstr "Pseudonyme"
-
-#: .\IESA_ROOT\users\models.py:206
-msgid "User Account"
-msgstr "Compte utilisateur"
-
-#: .\IESA_ROOT\users\models.py:210
-msgid "Company Name"
-msgstr "Nom de l'entreprise"
-
-#: .\IESA_ROOT\users\models.py:222
-msgid "Business Type"
-msgstr "Type d'activité"
-
-#: .\IESA_ROOT\users\models.py:226
-msgid "Created At"
-msgstr "Créé le"
-
-#: .\IESA_ROOT\users\models.py:256
-msgid "Member"
-msgstr "Membre"
-
-#: .\IESA_ROOT\users\models.py:274
-msgid "Service Type"
-msgstr "Type de service"
-
-#: .\IESA_ROOT\users\models.py:278
-msgid "Service Description"
-msgstr "Description du service"
-
-#: .\IESA_ROOT\users\models.py:285
-msgid "Cost"
-msgstr "Coût"
-
-#: .\IESA_ROOT\users\models.py:289
-#: .\IESA_ROOT\users\templates\users\profile.html:85
-#: .\IESA_ROOT\users\templates\users\profile_public.html:117
-msgid "Comments"
-msgstr "Commentaires"
-
-#: .\IESA_ROOT\users\models.py:293
-msgid "PIN Verified"
-msgstr "PIN vérifié"
-
-#: .\IESA_ROOT\users\models.py:297
-msgid "Visit Time"
-msgstr "Heure de visite"
-
-#: .\IESA_ROOT\users\models.py:302
-msgid "Visits"
-msgstr "Visites"
-
-#: .\IESA_ROOT\users\templates\users\login.html:13
-msgid "Welcome back"
-msgstr "Bon retour"
-
-#: .\IESA_ROOT\users\templates\users\login.html:14
-msgid "Sign in to manage your profile, create posts and discover events."
-msgstr "Connectez-vous pour gérer votre profil, créer des articles et découvrir des événements."
-
-#: .\IESA_ROOT\users\templates\users\login.html:16
-msgid "Quick Access"
-msgstr "Accès rapide"
-
-#: .\IESA_ROOT\users\templates\users\login.html:17
-msgid "Community Engagement"
-msgstr "Engagement communautaire"
-
-#: .\IESA_ROOT\users\templates\users\login.html:18
-msgid "Event Updates"
-msgstr "Mises à jour des événements"
-
-#: .\IESA_ROOT\users\templates\users\login.html:24
-msgid "SIGN IN"
-msgstr "SE CONNECTER"
-
-#: .\IESA_ROOT\users\templates\users\login.html:25
-msgid "Access your profile and connect with the community."
-msgstr "Accédez à votre profil et connectez-vous avec la communauté."
-
-#: .\IESA_ROOT\users\templates\users\login.html:31
-msgid "Sign in failed!"
-msgstr "Échec de la connexion !"
-
-#: .\IESA_ROOT\users\templates\users\login.html:31
-msgid "Invalid username or password. Please try again."
-msgstr "Nom d'utilisateur ou mot de passe invalide. Veuillez réessayer."
-
-#: .\IESA_ROOT\users\templates\users\login.html:91
-msgid "Don't have an account?"
-msgstr "Vous n'avez pas de compte ?"
-
-#: .\IESA_ROOT\users\templates\users\login.html:92
-msgid "Register here"
-msgstr "Inscrivez-vous ici"
-
-#: .\IESA_ROOT\users\templates\users\profile.html:5
-#, python-format
-msgid "Profile of %(username)s"
-msgstr "Profil de %(username)s"
-
-#: .\IESA_ROOT\users\templates\users\profile.html:36
-msgid "Edit Profile"
-msgstr "Modifier le profil"
-
-#: .\IESA_ROOT\users\templates\users\profile.html:52
-#: .\IESA_ROOT\users\templates\users\profile_public.html:156
-msgid "Your QR Code"
-msgstr "Votre code QR"
-
-#: .\IESA_ROOT\users\templates\users\profile.html:53
-#: .\IESA_ROOT\users\templates\users\profile_public.html:158
-msgid "Open profile by card"
-msgstr "Ouvrir le profil par carte"
-
-#: .\IESA_ROOT\users\templates\users\profile.html:55
-msgid "QR Code"
-msgstr "Code QR"
-
-#: .\IESA_ROOT\users\templates\users\profile.html:57
-#: .\IESA_ROOT\users\templates\users\profile_public.html:162
-msgid "Scan to view profile"
-msgstr "Scanner pour voir le profil"
-
-#: .\IESA_ROOT\users\templates\users\profile.html:62
-#: .\IESA_ROOT\users\templates\users\profile_public.html:164
-msgid "Download QR"
-msgstr "Télécharger le QR"
-
-#: .\IESA_ROOT\users\templates\users\profile.html:73
-msgid "Follow"
-msgstr "Suivre"
-
-#: .\IESA_ROOT\users\templates\users\profile.html:92
-#: .\IESA_ROOT\users\templates\users\profile_public.html:73
-msgid "Sign in"
-msgstr "Se connecter"
-
-#: .\IESA_ROOT\users\templates\users\profile.html:92
-#: .\IESA_ROOT\users\templates\users\profile_public.html:73
-msgid "to follow users"
-msgstr "pour suivre des utilisateurs"
-
-#: .\IESA_ROOT\users\templates\users\profile.html:103
-msgid "Full name"
-msgstr "Nom complet"
-
-#: .\IESA_ROOT\users\templates\users\profile.html:110
-#: .\IESA_ROOT\users\templates\users\profile_edit.html:39
-msgid "Date of birth"
-msgstr "Date de naissance"
-
-#: .\IESA_ROOT\users\templates\users\profile.html:115
-#: .\IESA_ROOT\users\templates\users\profile_public.html:45
-msgid "years"
-msgstr "ans"
-
-#: .\IESA_ROOT\users\templates\users\profile.html:124
-msgid "Phone"
-msgstr "Téléphone"
-
-#: .\IESA_ROOT\users\templates\users\profile.html:128
-#: .\IESA_ROOT\users\templates\users\profile_public.html:54
-msgid "Hidden"
-msgstr "Masqué"
-
-#: .\IESA_ROOT\users\templates\users\profile.html:132
-#: .\IESA_ROOT\users\templates\users\profile_public.html:59
-msgid "Not specified"
-msgstr "Non spécifié"
-
-#: .\IESA_ROOT\users\templates\users\profile.html:139
-msgid "Joined"
-msgstr "Inscrit"
-
-#: .\IESA_ROOT\users\templates\users\profile.html:152
-msgid "Activity Level"
-msgstr "Niveau d'activité"
-
-#: .\IESA_ROOT\users\templates\users\profile.html:155
-msgid "Legend"
-msgstr "Légende"
-
-#: .\IESA_ROOT\users\templates\users\profile.html:159
-msgid "Expert"
-msgstr "Expert"
-
-#: .\IESA_ROOT\users\templates\users\profile.html:163
-msgid "Advanced"
-msgstr "Avancé"
-
-#: .\IESA_ROOT\users\templates\users\profile.html:167
-msgid "Intermediate"
-msgstr "Intermédiaire"
-
-#: .\IESA_ROOT\users\templates\users\profile.html:171
-msgid "Beginner"
-msgstr "Débutant"
-
-#: .\IESA_ROOT\users\templates\users\profile.html:175
-msgid "Learn about activity levels"
-msgstr "En savoir plus sur les niveaux d'activité"
-
-#: .\IESA_ROOT\users\templates\users\profile.html:183
-msgid "Activity Points"
-msgstr "Points d'activité"
-
-#: .\IESA_ROOT\users\templates\users\profile.html:187
-#, python-format
-msgid "Progress to %(level)s:"
-msgstr "Progression vers %(level)s :"
-
-#: .\IESA_ROOT\users\templates\users\profile.html:198
-msgid "Maximum level achieved!"
-msgstr "Niveau maximum atteint !"
-
-#: .\IESA_ROOT\users\templates\users\profile.html:211
-msgid "Find me"
-msgstr "Me trouver"
-
-#: .\IESA_ROOT\users\templates\users\profile.html:258
-msgid "Total posts"
-msgstr "Total des articles"
-
-#: .\IESA_ROOT\users\templates\users\profile.html:265
-msgid "Likes received"
-msgstr "Likes reçus"
-
-#: .\IESA_ROOT\users\templates\users\profile.html:272
-msgid "Comments made"
-msgstr "Commentaires faits"
-
-#: .\IESA_ROOT\users\templates\users\profile.html:282
-msgid "Your Posts"
-msgstr "Vos articles"
-
-#: .\IESA_ROOT\users\templates\users\profile.html:290
-msgid "Title"
-msgstr "Titre"
-
-#: .\IESA_ROOT\users\templates\users\profile.html:291
-msgid "Status"
-msgstr "Statut"
-
-#: .\IESA_ROOT\users\templates\users\profile.html:292
-msgid "Created"
-msgstr "Créé"
-
-#: .\IESA_ROOT\users\templates\users\profile.html:293
-msgid "Actions"
-msgstr "Actions"
-
-#: .\IESA_ROOT\users\templates\users\profile.html:308
-msgid "Rejected"
-msgstr "Rejeté"
-
-#: .\IESA_ROOT\users\templates\users\profile.html:330
-msgid "You have no posts yet."
-msgstr "Vous n'avez pas encore d'articles."
-
-#: .\IESA_ROOT\users\templates\users\profile.html:330
-msgid "Create your first post"
-msgstr "Créez votre premier article"
-
-#: .\IESA_ROOT\users\templates\users\profile_edit.html:4
-#: .\IESA_ROOT\users\templates\users\profile_edit.html:15
-msgid "Edit profile"
-msgstr "Modifier le profil"
-
-#: .\IESA_ROOT\users\templates\users\profile_edit.html:16
-msgid "Refresh your info, avatar and social links."
-msgstr "Mettez à jour vos informations, avatar et liens sociaux."
-
-#: .\IESA_ROOT\users\templates\users\profile_edit.html:24
-msgid "Basic info"
-msgstr "Informations de base"
-
-#: .\IESA_ROOT\users\templates\users\profile_edit.html:27
-msgid "First name"
-msgstr "Prénom"
-
-#: .\IESA_ROOT\users\templates\users\profile_edit.html:31
-msgid "Last name"
-msgstr "Nom de famille"
-
-#: .\IESA_ROOT\users\templates\users\profile_edit.html:35
-msgid "Email"
-msgstr "E-mail"
-
-#: .\IESA_ROOT\users\templates\users\profile_edit.html:41
-msgid "Format: DD.MM.YYYY"
-msgstr "Format : JJ.MM.AAAA"
-
-#: .\IESA_ROOT\users\templates\users\profile_edit.html:43
-msgid "Phone Number"
-msgstr "Numéro de téléphone"
-
-#: .\IESA_ROOT\users\templates\users\profile_edit.html:45
-msgid "Example: +41 XX XXX XX XX"
-msgstr "Exemple : +41 XX XXX XX XX"
-
-#: .\IESA_ROOT\users\templates\users\profile_edit.html:51
-msgid "Hide phone number (only admins can see it)"
-msgstr "Masquer le numéro de téléphone (seuls les admins peuvent le voir)"
-
-#: .\IESA_ROOT\users\templates\users\profile_edit.html:57
-msgid "Avatar"
-msgstr "Avatar"
-
-#: .\IESA_ROOT\users\templates\users\profile_edit.html:64
-msgid "Upload square image for best fit."
-msgstr "Téléchargez une image carrée pour un meilleur rendu."
-
-#: .\IESA_ROOT\users\templates\users\profile_edit.html:73
-msgid "Social & links"
-msgstr "Réseaux sociaux & liens"
-
-#: .\IESA_ROOT\users\templates\users\profile_edit.html:74
-msgid "examples below"
-msgstr "exemples ci-dessous"
-
-#: .\IESA_ROOT\users\templates\users\profile_edit.html:126
-msgid "Other links"
-msgstr "Autres liens"
-
-#: .\IESA_ROOT\users\templates\users\profile_edit.html:127
-msgid "one per line"
-msgstr "un par ligne"
-
-#: .\IESA_ROOT\users\templates\users\profile_edit.html:146
-msgid "Save changes"
-msgstr "Enregistrer les modifications"
-
-#: .\IESA_ROOT\users\templates\users\profile_edit.html:147
 msgid "Cancel"
 msgstr "Annuler"
 
-#: .\IESA_ROOT\users\templates\users\profile_public.html:21
-msgid "Member since"
-msgstr "Membre depuis"
+msgid "Back to top"
+msgstr "Retour en haut"
 
-#: .\IESA_ROOT\users\templates\users\profile_public.html:26
-msgid "Copy ID"
-msgstr "Copier l'ID"
+msgid "Mobile navigation"
+msgstr "Navigation mobile"
 
-#: .\IESA_ROOT\users\templates\users\profile_public.html:30
+# === member_cabinet / connect_telegram (auto-added 2026-02-27) ===
+msgid "Cabinet"
+msgstr "Cabinet"
+
+msgid "Alerts"
+msgstr "Alertes"
+
+#, python-format
+msgid "Users (%(count)s)"
+msgstr "Utilisateurs (%(count)s)"
+
 msgid "Verified"
 msgstr "Vérifié"
 
-#: .\IESA_ROOT\users\templates\users\profile_public.html:31
+#, python-format
+msgid "Posts (%(count)s)"
+msgstr "Publications (%(count)s)"
+
+#, python-format
+msgid "Events (%(count)s)"
+msgstr "Événements (%(count)s)"
+
+#, python-format
+msgid "Partners (%(count)s)"
+msgstr "Partenaires (%(count)s)"
+
+msgid "Nothing found"
+msgstr "Rien trouvé"
+
+#, python-format
+msgid "Try changing your search query \"%(query)s\""
+msgstr "Essayez de modifier votre recherche \"%(query)s\""
+
+msgid "Minimum 2 characters to search"
+msgstr "Minimum 2 caractères pour rechercher"
+
+msgid "Our Strategic Partners"
+msgstr "Nos partenaires stratégiques"
+
+msgid ""
+"Trusted organizations collaborating with us to advance sports excellence "
+"globally"
+msgstr ""
+"Des organisations de confiance collaborant avec nous pour promouvoir "
+"l'excellence sportive dans le monde"
+
+msgid "View Details"
+msgstr "Voir les détails"
+
+msgid "No Partners Yet"
+msgstr "Pas encore de partenaires"
+
+msgid "We're working on establishing partnerships. Check back soon!"
+msgstr "Nous travaillons à établir des partenariats. Revenez bientôt !"
+
+msgid "Partner Details"
+msgstr "Détails du partenaire"
+
+msgid "Loading…"
+msgstr "Chargement…"
+
+msgid "Strategic Partner"
+msgstr "Partenaire stratégique"
+
+msgid "Visit Website"
+msgstr "Visiter le site web"
+
+msgid "Website information will be added soon."
+msgstr "Les informations du site web seront ajoutées bientôt."
+
+msgid "Partnership Agreement"
+msgstr "Accord de partenariat"
+
+msgid "Contract"
+msgstr "Contrat"
+
+msgid "Download"
+msgstr "Télécharger"
+
+msgid "View Full Size"
+msgstr "Voir en taille réelle"
+
+msgid "Partnership established to advance sports excellence and collaboration"
+msgstr ""
+"Partenariat établi pour promouvoir l'excellence sportive et la collaboration"
+
+msgid "Card Status"
+msgstr "Statut de la carte"
+
 msgid "Card Active"
 msgstr "Carte active"
 
-#: .\IESA_ROOT\users\templates\users\profile_public.html:91
-msgid "Activity Statistics"
-msgstr "Statistiques d'activité"
+msgid "Card Inactive"
+msgstr "Carte inactive"
 
-#: .\IESA_ROOT\users\templates\users\profile_public.html:108
-msgid "Likes"
-msgstr "Likes"
+msgid "Never Issued"
+msgstr "Jamais émise"
 
-#: .\IESA_ROOT\users\templates\users\profile_public.html:146
-msgid "Admin Panel"
-msgstr "Panneau d'administration"
+msgid "Verification Status"
+msgstr "Statut de vérification"
 
-#: .\IESA_ROOT\users\templates\users\profile_public.html:174
-msgid "Links"
-msgstr "Liens"
+msgid "Unverified"
+msgstr "Non vérifié"
 
-#: .\IESA_ROOT\users\templates\users\profile_public.html:183
+msgid "Personal information"
+msgstr "Informations personnelles"
+
+msgid "Membership"
+msgstr "Adhésion"
+
+msgid "Card QR & Actions"
+msgstr "QR de la carte et actions"
+
+msgid "Permissions"
+msgstr "Autorisations"
+
+msgid "Important dates"
+msgstr "Dates importantes"
+
+#, python-format
+msgid "QR code regenerated for %(count)d user(s) with same permanent_id"
+msgstr ""
+"QR code régénéré pour %(count)d utilisateur(s) avec le même permanent_id"
+
+msgid "🔄 Regenerate QR code (same ID)"
+msgstr "🔄 Régénérer le QR code (même ID)"
+
+#, python-format
+msgid "New permanent_id and QR code created for %(count)d user(s)"
+msgstr "Nouveau permanent_id et QR code créés pour %(count)d utilisateur(s)"
+
+msgid "🆕 New permanent_id and QR code (lost card)"
+msgstr "🆕 Nouveau permanent_id et QR code (carte perdue)"
+
+#, python-format
+msgid "Card issued for %(count)d user(s)"
+msgstr "Carte émise pour %(count)d utilisateur(s)"
+
+msgid "✓ Issue card (activate)"
+msgstr "✓ Émettre la carte (activer)"
+
+#, python-format
+msgid "Card revoked for %(count)d user(s)"
+msgstr "Carte révoquée pour %(count)d utilisateur(s)"
+
+msgid "✗ Revoke card (deactivate)"
+msgstr "✗ Révoquer la carte (désactiver)"
+
+msgid "Basic Information"
+msgstr "Informations de base"
+
+msgid "Metadata"
+msgstr "Métadonnées"
+
+msgid "Visit Information"
+msgstr "Informations de visite"
+
+msgid "Service Details"
+msgstr "Détails du service"
+
+msgid "Verification"
+msgstr "Vérification"
+
+msgid "Beginner"
+msgstr "Débutant"
+
+msgid "Just starting your journey in the IESA community"
+msgstr "Vous commencez votre parcours dans la communauté IESA"
+
+msgid "Create your first blog post (10 points)"
+msgstr "Créez votre premier article de blog (10 points)"
+
+msgid "Leave comments on other posts (1 point each)"
+msgstr "Laissez des commentaires sur d'autres publications (1 point chacun)"
+
+msgid "Engage with the community"
+msgstr "Engagez-vous dans la communauté"
+
+msgid "Intermediate"
+msgstr "Intermédiaire"
+
+msgid "You're becoming an active member"
+msgstr "Vous devenez un membre actif"
+
+msgid "Publish 5-10 quality posts (10 points each)"
+msgstr "Publiez 5–10 publications de qualité (10 points chacune)"
+
+msgid "Receive 50+ likes on your posts (2 points each)"
+msgstr "Recevez 50+ j'aime sur vos publications (2 points chacun)"
+
+msgid "Participate in discussions"
+msgstr "Participez aux discussions"
+
+msgid "Advanced"
+msgstr "Avancé"
+
+msgid "You're a valuable contributor"
+msgstr "Vous êtes un contributeur précieux"
+
+msgid "Publish 15-25 popular posts"
+msgstr "Publiez 15–25 publications populaires"
+
+msgid "Accumulate 100+ total likes"
+msgstr "Accumulez 100+ j'aime au total"
+
+msgid "Build a strong reputation"
+msgstr "Construisez une solide réputation"
+
+msgid "Expert"
+msgstr "Expert"
+
+msgid "You're a recognized authority"
+msgstr "Vous êtes une autorité reconnue"
+
+msgid "Publish 50+ high-quality posts"
+msgstr "Publiez 50+ publications de haute qualité"
+
+msgid "Achieve 300+ total likes"
+msgstr "Atteignez 300+ j'aime au total"
+
+msgid "Mentor other members"
+msgstr "Accompagnez d'autres membres"
+
+msgid "Legend"
+msgstr "Légende"
+
+msgid "Unlimited"
+msgstr "Illimité"
+
+msgid "You're a pillar of the IESA community"
+msgstr "Vous êtes un pilier de la communauté IESA"
+
+msgid "Maintain extraordinary engagement"
+msgstr "Maintenez un engagement extraordinaire"
+
+msgid "Lead by example"
+msgstr "Montrez l'exemple"
+
+msgid "Shape the future of IESA"
+msgstr "Façonnez l'avenir d'IESA"
+
+#, python-format
+msgid "Visit confirmed at %(company)s"
+msgstr "Visite confirmée chez %(company)s"
+
+#, python-format
+msgid "Visit record updated — %(company)s"
+msgstr "Enregistrement de visite mis à jour — %(company)s"
+
+#, python-format
+msgid "Visit cancelled — %(company)s"
+msgstr "Visite annulée — %(company)s"
+
+msgid "IESA Sport — Test Email"
+msgstr "IESA Sport — E-mail de test"
+
+msgid "Date of birth"
+msgstr "Date de naissance"
+
+msgid "GitHub profile"
+msgstr "Profil GitHub"
+
+msgid "Enter the full link to your GitHub profile"
+msgstr "Entrez le lien complet vers votre profil GitHub"
+
+msgid "Discord"
+msgstr "Discord"
+
+msgid "Enter your Discord username"
+msgstr "Entrez votre nom d'utilisateur Discord"
+
+msgid "Telegram"
+msgstr "Telegram"
+
+msgid "Enter your Telegram username or link"
+msgstr "Entrez votre nom d'utilisateur ou lien Telegram"
+
 msgid "Website"
 msgstr "Site web"
 
-#: .\IESA_ROOT\users\templates\users\profile_public.html:198
-msgid "Other:"
-msgstr "Autres :"
-
-#: .\IESA_ROOT\users\templates\users\profile_public.html:203
-msgid "Published Posts"
-msgstr "Articles publiés"
-
-#: .\IESA_ROOT\users\templates\users\profile_public.html:218
-msgid "No published posts yet."
-msgstr "Pas encore d'articles publiés."
-
-#: .\IESA_ROOT\users\templates\users\register.html:13
-msgid "Join IESA Today"
-msgstr "Rejoignez l'IESA aujourd'hui"
-
-#: .\IESA_ROOT\users\templates\users\register.html:16
-msgid "Connect with Athletes"
-msgstr "Connectez-vous avec des athlètes"
-
-#: .\IESA_ROOT\users\templates\users\register.html:17
-msgid "Share Your Journey"
-msgstr "Partagez votre parcours"
-
-#: .\IESA_ROOT\users\templates\users\register.html:18
-msgid "Discover Events"
-msgstr "Découvrir des événements"
-
-#: .\IESA_ROOT\users\templates\users\register.html:19
-msgid "Build Your Profile"
-msgstr "Créer votre profil"
-
-#: .\IESA_ROOT\users\templates\users\register.html:25
-msgid "REGISTER"
-msgstr "S'INSCRIRE"
-
-#: .\IESA_ROOT\users\templates\users\register.html:26
-msgid "Join the IESA community and start sharing!"
-msgstr "Rejoignez la communauté IESA et commencez à partager !"
-
-#: .\IESA_ROOT\users\templates\users\register.html:33
-msgid "Registration failed:"
-msgstr "Échec de l'inscription :"
-
-#: .\IESA_ROOT\users\templates\users\register.html:106
-msgid "Create Account"
-msgstr "Créer un compte"
-
-#: .\IESA_ROOT\users\templates\users\register.html:113
-msgid "Already have an account?"
-msgstr "Vous avez déjà un compte ?"
-
-#: .\IESA_ROOT\users\templates\users\register.html:114
-msgid "Sign in here"
-msgstr "Connectez-vous ici"
-
-#: .\IESA_ROOT\users\templates\users\search_results.html:4
-msgid "User search"
-msgstr "Recherche d'utilisateur"
-
-#: .\IESA_ROOT\users\templates\users\search_results.html:9
-msgid "MEMBER DIRECTORY"
-msgstr "ANNUAIRE DES MEMBRES"
-
-#: .\IESA_ROOT\users\templates\users\search_results.html:10
-msgid "Find & Connect With Members"
-msgstr "Trouver et contacter des membres"
-
-#: .\IESA_ROOT\users\templates\users\search_results.html:11
-msgid "Search our community by name, username, email or ID"
-msgstr "Recherchez dans notre communauté par nom, pseudo, e-mail ou ID"
-
-#: .\IESA_ROOT\users\templates\users\search_results.html:17
-msgid "Search by name, username, email or ID..."
-msgstr "Rechercher par nom, pseudo, e-mail ou ID..."
-
-#: .\IESA_ROOT\users\templates\users\search_results.html:25
-msgid "Results for"
-msgstr "Résultats pour"
-
-#: .\IESA_ROOT\users\templates\users\search_results.html:66
-msgid "No users found."
-msgstr "Aucun utilisateur trouvé."
-
-#: .\IESA_ROOT\users\validators.py:13
-msgid "Password must contain at least one uppercase letter (A-Z)."
-msgstr "Le mot de passe doit contenir au moins une lettre majuscule (A-Z)."
-
-#: .\IESA_ROOT\users\validators.py:18
-msgid "Your password must contain at least one uppercase letter (A-Z)."
-msgstr "Votre mot de passe doit contenir au moins une lettre majuscule (A-Z)."
-
-#: .\IESA_ROOT\users\validators.py:49
-msgid "Некорректный номер телефона. Допустимы цифры, пробелы, '+', '-', '()'."
-msgstr "Numéro de téléphone invalide. Chiffres, espaces, '+', '-', '()' sont autorisés."
-
-#: .\IESA_ROOT\users\validators.py:75
-msgid "Введите корректное имя Discord (например: username или username#1234)"
-msgstr "Entrez un nom Discord valide (par exemple : username ou username#1234)"
-
-#: .\venv\Lib\site-packages\django\contrib\sitemaps\apps.py:8
-msgid "Site Maps"
-msgstr "Plans de site"
-
-#: .\venv\Lib\site-packages\django\contrib\staticfiles\apps.py:9
-msgid "Static Files"
-msgstr "Fichiers statiques"
-
-#: .\venv\Lib\site-packages\django\contrib\syndication\apps.py:7
-msgid "Syndication"
-msgstr "Syndication"
-
-#. Translators: String used to replace omitted page numbers in elided page
-#. range generated by paginators, e.g. [1, 2, '…', 5, 6, 7, '…', 9, 10].
-#: .\venv\Lib\site-packages\django\core\paginator.py:30
-msgid "…"
-msgstr "…"
-
-#: .\venv\Lib\site-packages\django\core\paginator.py:32
-msgid "That page number is not an integer"
-msgstr "Ce numéro de page n'est pas un entier"
-
-#: .\venv\Lib\site-packages\django\core\paginator.py:33
-msgid "That page number is less than 1"
-msgstr "Ce numéro de page est inférieur à 1"
-
-#: .\venv\Lib\site-packages\django\core\paginator.py:34
-msgid "That page contains no results"
-msgstr "Cette page ne contient aucun résultat"
-
-#: .\venv\Lib\site-packages\django\core\validators.py:22
-msgid "Enter a valid value."
-msgstr "Saisissez une valeur valide."
-
-#: .\venv\Lib\site-packages\django\core\validators.py:70
-msgid "Enter a valid domain name."
-msgstr "Saisissez un nom de domaine valide."
-
-#: .\venv\Lib\site-packages\django\core\validators.py:153
-#: .\venv\Lib\site-packages\django\forms\fields.py:775
-msgid "Enter a valid URL."
-msgstr "Saisissez une URL valide."
-
-#: .\venv\Lib\site-packages\django\core\validators.py:200
-msgid "Enter a valid integer."
-msgstr "Saisissez un nombre entier valide."
-
-#: .\venv\Lib\site-packages\django\core\validators.py:211
-msgid "Enter a valid email address."
-msgstr "Saisissez une adresse e-mail valide."
-
-#: .\venv\Lib\site-packages\django\core\validators.py:309
-#: .\venv\Lib\site-packages\django\core\validators.py:318
-#: .\venv\Lib\site-packages\django\core\validators.py:332
-#: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:2220
-#, python-format
-msgid "Enter a valid %(protocol)s address."
-msgstr "Saisissez une adresse %(protocol)s valide."
-
-#: .\venv\Lib\site-packages\django\core\validators.py:311
-msgid "IPv4"
-msgstr "IPv4"
-
-#: .\venv\Lib\site-packages\django\core\validators.py:320
-#: .\venv\Lib\site-packages\django\utils\ipv6.py:43
-msgid "IPv6"
-msgstr "IPv6"
-
-#: .\venv\Lib\site-packages\django\core\validators.py:334
-msgid "IPv4 or IPv6"
-msgstr "IPv4 ou IPv6"
-
-#: .\venv\Lib\site-packages\django\core\validators.py:375
-msgid "Enter only digits separated by commas."
-msgstr "Saisissez uniquement des chiffres séparés par des virgules."
-
-#: .\venv\Lib\site-packages\django\core\validators.py:381
-#, python-format
-msgid "Ensure this value is %(limit_value)s (it is %(show_value)s)."
-msgstr "Assurez-vous que cette valeur est %(limit_value)s (elle est %(show_value)s)."
-
-#: .\venv\Lib\site-packages\django\core\validators.py:416
-#, python-format
-msgid "Ensure this value is less than or equal to %(limit_value)s."
-msgstr "Assurez-vous que cette valeur est inférieure ou égale à %(limit_value)s."
-
-#: .\venv\Lib\site-packages\django\core\validators.py:425
-#, python-format
-msgid "Ensure this value is greater than or equal to %(limit_value)s."
-msgstr "Assurez-vous que cette valeur est supérieure ou égale à %(limit_value)s."
-
-#: .\venv\Lib\site-packages\django\core\validators.py:434
-#, python-format
-msgid "Ensure this value is a multiple of step size %(limit_value)s."
-msgstr "Assurez-vous que cette valeur est un multiple du pas %(limit_value)s."
-
-#: .\venv\Lib\site-packages\django\core\validators.py:514
-#: .\venv\Lib\site-packages\django\forms\fields.py:366
-#: .\venv\Lib\site-packages\django\forms\fields.py:405
-msgid "Enter a number."
-msgstr "Saisissez un nombre."
-
-#: .\venv\Lib\site-packages\django\core\validators.py:516
-#, python-format
-msgid "Ensure that there are no more than %(max)s digit in total."
-msgid_plural "Ensure that there are no more than %(max)s digits in total."
-msgstr[0] "Ensure that there are no more than %(max)s digit in total."
-msgstr[1] "Ensure that there are no more than %(max)s digits in total."
-
-#: .\venv\Lib\site-packages\django\core\validators.py:521
-#, python-format
-msgid "Ensure that there are no more than %(max)s decimal place."
-msgid_plural "Ensure that there are no more than %(max)s decimal places."
-msgstr[0] "Ensure that there are no more than %(max)s decimal place."
-msgstr[1] "Ensure that there are no more than %(max)s decimal places."
-
-#: .\venv\Lib\site-packages\django\core\validators.py:659
-msgid "Null characters are not allowed."
-msgstr "Les caractères nuls ne sont pas autorisés."
-
-#: .\venv\Lib\site-packages\django\db\models\base.py:1600
-#: .\venv\Lib\site-packages\django\forms\models.py:908
-msgid "and"
-msgstr "et"
-
-#: .\venv\Lib\site-packages\django\db\models\base.py:1602
-#, python-format
-msgid "%(model_name)s with this %(field_labels)s already exists."
-msgstr "%(model_name)s avec ce %(field_labels)s existe déjà."
-
-#: .\venv\Lib\site-packages\django\db\models\constraints.py:22
-#, python-format
-msgid "Constraint “%(name)s” is violated."
-msgstr "La contrainte “%(name)s” est violée."
-
-#: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:134
-#, python-format
-msgid "Value %(value)r is not a valid choice."
-msgstr "La valeur %(value)r n'est pas un choix valide."
-
-#: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:135
-msgid "This field cannot be null."
-msgstr "Ce champ ne peut pas être nul."
-
-#: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:136
-msgid "This field cannot be blank."
-msgstr "Ce champ ne peut pas être vide."
-
-#: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:137
-#, python-format
-msgid "%(model_name)s with this %(field_label)s already exists."
-msgstr "%(model_name)s avec ce %(field_label)s existe déjà."
-
-#: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:180
-#, python-format
-msgid "Field of type: %(field_type)s"
-msgstr "Champ de type : %(field_type)s"
-
-#: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:1162
-#, python-format
-msgid "“%(value)s” value must be either True or False."
-msgstr "La valeur “%(value)s” doit être True ou False."
-
-#: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:1163
-#, python-format
-msgid "“%(value)s” value must be either True, False, or None."
-msgstr "La valeur “%(value)s” doit être True, False ou None."
-
-#: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:1165
-msgid "Boolean (Either True or False)"
-msgstr "Booléen (True ou False)"
-
-#: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:1215
-#, python-format
-msgid "String (up to %(max_length)s)"
-msgstr "Chaîne (jusqu'à %(max_length)s)"
-
-#: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:1217
-msgid "String (unlimited)"
-msgstr "Chaîne (illimitée)"
-
-#: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:1326
-msgid "Comma-separated integers"
-msgstr "Entiers séparés par des virgules"
-
-#: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:1435
-msgid "Date (without time)"
-msgstr "Date (sans heure)"
-
-#: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:1575
-msgid "Date (with time)"
-msgstr "Date (avec heure)"
-
-#: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:1702
-#, python-format
-msgid "“%(value)s” value must be a decimal number."
-msgstr "La valeur “%(value)s” doit être un nombre décimal."
-
-#: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:1704
-msgid "Decimal number"
-msgstr "Nombre décimal"
-
-#: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:1868
-msgid "Duration"
-msgstr "Durée"
-
-#: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:1920
-msgid "Email address"
-msgstr "Adresse e-mail"
-
-#: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:1945
-msgid "File path"
-msgstr "Chemin du fichier"
-
-#: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:2023
-#, python-format
-msgid "“%(value)s” value must be a float."
-msgstr "La valeur “%(value)s” doit être un nombre à virgule flottante."
-
-#: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:2025
-msgid "Floating point number"
-msgstr "Nombre à virgule flottante"
-
-#: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:2065
-#, python-format
-msgid "“%(value)s” value must be an integer."
-msgstr "La valeur “%(value)s” doit être un entier."
-
-#: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:2067
-msgid "Integer"
-msgstr "Entier"
-
-#: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:2163
-msgid "Big (8 byte) integer"
-msgstr "Grand entier (8 octets)"
-
-#: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:2180
-msgid "Small integer"
-msgstr "Petit entier"
-
-#: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:2188
-msgid "IPv4 address"
-msgstr "Adresse IPv4"
-
-#: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:2219
-msgid "IP address"
-msgstr "Adresse IP"
-
-#: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:2310
-#: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:2311
-#, python-format
-msgid "“%(value)s” value must be either None, True or False."
-msgstr "La valeur “%(value)s” doit être None, True ou False."
-
-#: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:2313
-msgid "Boolean (Either True, False or None)"
-msgstr "Booléen (True, False ou None)"
-
-#: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:2364
-msgid "Positive big integer"
-msgstr "Grand entier positif"
-
-#: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:2379
-msgid "Positive integer"
-msgstr "Entier positif"
-
-#: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:2394
-msgid "Positive small integer"
-msgstr "Petit entier positif"
-
-#: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:2410
-#, python-format
-msgid "Slug (up to %(max_length)s)"
-msgstr "Slug (jusqu'à %(max_length)s)"
-
-#: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:2446
-msgid "Text"
-msgstr "Texte"
-
-#: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:2534
-msgid "Time"
-msgstr "Heure"
-
-#: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:2642
-msgid "URL"
-msgstr "URL"
-
-#: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:2666
-msgid "Raw binary data"
-msgstr "Données binaires brutes"
-
-#: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:2731
-#, python-format
-msgid "“%(value)s” is not a valid UUID."
-msgstr "“%(value)s” n’est pas un UUID valide."
-
-#: .\venv\Lib\site-packages\django\db\models\fields\__init__.py:2733
-msgid "Universally unique identifier"
-msgstr "Identifiant unique universel"
-
-#: .\venv\Lib\site-packages\django\db\models\fields\files.py:244
-msgid "File"
-msgstr "Fichier"
-
-#: .\venv\Lib\site-packages\django\db\models\fields\files.py:420
-msgid "Image"
-msgstr "Image"
-
-#: .\venv\Lib\site-packages\django\db\models\fields\json.py:24
-msgid "A JSON object"
-msgstr "Un objet JSON"
-
-#: .\venv\Lib\site-packages\django\db\models\fields\json.py:26
-msgid "Value must be valid JSON."
-msgstr "La valeur doit être du JSON valide."
-
-#: .\venv\Lib\site-packages\django\db\models\fields\related.py:979
-#, python-format
-msgid "%(model)s instance with %(field)s %(value)r is not a valid choice."
-msgstr "L'instance %(model)s avec %(field)s %(value)r n'est pas un choix valide."
-
-#: .\venv\Lib\site-packages\django\db\models\fields\related.py:982
-msgid "Foreign Key (type determined by related field)"
-msgstr "Clé étrangère (type déterminé par le champ lié)"
-
-#: .\venv\Lib\site-packages\django\db\models\fields\related.py:1276
-msgid "One-to-one relationship"
-msgstr "Relation un-à-un"
-
-#: .\venv\Lib\site-packages\django\db\models\fields\related.py:1333
-#, python-format
-msgid "%(from)s-%(to)s relationship"
-msgstr "Relation %(from)s-%(to)s"
-
-#: .\venv\Lib\site-packages\django\db\models\fields\related.py:1335
-#, python-format
-msgid "%(from)s-%(to)s relationships"
-msgstr "Relations %(from)s-%(to)s"
-
-#: .\venv\Lib\site-packages\django\db\models\fields\related.py:1383
-msgid "Many-to-many relationship"
-msgstr "Relation plusieurs-à-plusieurs"
-
-#. Translators: If found as last label character, these punctuation
-#. characters will prevent the default label_suffix to be appended to the label
-#: .\venv\Lib\site-packages\django\forms\boundfield.py:185
-msgid ":?.!"
-msgstr ":?.!"
-
-#: .\venv\Lib\site-packages\django\forms\fields.py:95
-msgid "This field is required."
-msgstr "Ce champ est obligatoire."
-
-#: .\venv\Lib\site-packages\django\forms\fields.py:315
-msgid "Enter a whole number."
-msgstr "Saisissez un nombre entier."
-
-#: .\venv\Lib\site-packages\django\forms\fields.py:486
-#: .\venv\Lib\site-packages\django\forms\fields.py:1267
-msgid "Enter a valid date."
-msgstr "Saisissez une date valide."
-
-#: .\venv\Lib\site-packages\django\forms\fields.py:509
-#: .\venv\Lib\site-packages\django\forms\fields.py:1268
-msgid "Enter a valid time."
-msgstr "Saisissez une heure valide."
-
-#: .\venv\Lib\site-packages\django\forms\fields.py:536
-msgid "Enter a valid date/time."
-msgstr "Saisissez une date/heure valide."
-
-#: .\venv\Lib\site-packages\django\forms\fields.py:570
-msgid "Enter a valid duration."
-msgstr "Saisissez une durée valide."
-
-#: .\venv\Lib\site-packages\django\forms\fields.py:571
-#, python-brace-format
-msgid "The number of days must be between {min_days} and {max_days}."
-msgstr "Le nombre de jours doit être entre {min_days} et {max_days}."
-
-#: .\venv\Lib\site-packages\django\forms\fields.py:640
-msgid "No file was submitted. Check the encoding type on the form."
-msgstr "Aucun fichier soumis. Vérifiez le type d'encodage du formulaire."
-
-#: .\venv\Lib\site-packages\django\forms\fields.py:641
-msgid "No file was submitted."
-msgstr "Aucun fichier soumis."
-
-#: .\venv\Lib\site-packages\django\forms\fields.py:642
-msgid "The submitted file is empty."
-msgstr "Le fichier soumis est vide."
-
-#: .\venv\Lib\site-packages\django\forms\fields.py:644
-#, python-format
-msgid "Ensure this filename has at most %(max)d character (it has %(length)d)."
-msgid_plural ""
-"Ensure this filename has at most %(max)d characters (it has %(length)d)."
-msgstr[0] "Ensure this filename has at most %(max)d character (it has %(length)d)."
-msgstr[1] "Ensure this filename has at most %(max)d characters (it has %(length)d)."
-
-#: .\venv\Lib\site-packages\django\forms\fields.py:649
-msgid "Please either submit a file or check the clear checkbox, not both."
-msgstr "Veuillez soumettre un fichier ou cocher la case d'effacement, pas les deux."
-
-#: .\venv\Lib\site-packages\django\forms\fields.py:889
-#: .\venv\Lib\site-packages\django\forms\fields.py:975
-#: .\venv\Lib\site-packages\django\forms\models.py:1592
-#, python-format
-msgid "Select a valid choice. %(value)s is not one of the available choices."
-msgstr "Sélectionnez un choix valide. %(value)s n'est pas parmi les choix disponibles."
-
-#: .\venv\Lib\site-packages\django\forms\fields.py:977
-#: .\venv\Lib\site-packages\django\forms\fields.py:1096
-#: .\venv\Lib\site-packages\django\forms\models.py:1590
-msgid "Enter a list of values."
-msgstr "Saisissez une liste de valeurs."
-
-#: .\venv\Lib\site-packages\django\forms\fields.py:1097
-msgid "Enter a complete value."
-msgstr "Saisissez une valeur complète."
-
-#: .\venv\Lib\site-packages\django\forms\fields.py:1339
-msgid "Enter a valid UUID."
-msgstr "Saisissez un UUID valide."
-
-#: .\venv\Lib\site-packages\django\forms\fields.py:1369
-msgid "Enter a valid JSON."
-msgstr "Saisissez du JSON valide."
-
-#. Translators: This is the default suffix added to form field labels
-#: .\venv\Lib\site-packages\django\forms\forms.py:97
-msgid ":"
-msgstr ":"
-
-#: .\venv\Lib\site-packages\django\forms\forms.py:239
-#, python-format
-msgid "(Hidden field %(name)s) %(error)s"
-msgstr "(Champ masqué %(name)s) %(error)s"
-
-#: .\venv\Lib\site-packages\django\forms\formsets.py:65
-#, python-format
-msgid "Please submit at most %(num)d form."
-msgid_plural "Please submit at most %(num)d forms."
-msgstr[0] "Please submit at most %(num)d form."
-msgstr[1] "Please submit at most %(num)d forms."
-
-#: .\venv\Lib\site-packages\django\forms\formsets.py:70
-#, python-format
-msgid "Please submit at least %(num)d form."
-msgid_plural "Please submit at least %(num)d forms."
-msgstr[0] "Please submit at least %(num)d form."
-msgstr[1] "Please submit at least %(num)d forms."
-
-#: .\venv\Lib\site-packages\django\forms\formsets.py:484
-#: .\venv\Lib\site-packages\django\forms\formsets.py:491
-msgid "Order"
-msgstr "Ordre"
-
-#: .\venv\Lib\site-packages\django\forms\models.py:901
-#, python-format
-msgid "Please correct the duplicate data for %(field)s."
-msgstr "Veuillez corriger les données en double pour %(field)s."
-
-#: .\venv\Lib\site-packages\django\forms\models.py:906
-#, python-format
-msgid "Please correct the duplicate data for %(field)s, which must be unique."
-msgstr "Veuillez corriger les données en double pour %(field)s, qui doivent être uniques."
-
-#: .\venv\Lib\site-packages\django\forms\models.py:922
-msgid "Please correct the duplicate values below."
-msgstr "Veuillez corriger les valeurs en double ci-dessous."
-
-#: .\venv\Lib\site-packages\django\forms\models.py:1359
-msgid "The inline value did not match the parent instance."
-msgstr "La valeur en ligne ne correspondait pas à l'instance parente."
-
-#: .\venv\Lib\site-packages\django\forms\models.py:1450
-msgid "Select a valid choice. That choice is not one of the available choices."
-msgstr "Sélectionnez un choix valide. Ce choix n'est pas disponible."
-
-#: .\venv\Lib\site-packages\django\forms\models.py:1594
-#, python-format
-msgid "“%(pk)s” is not a valid value."
-msgstr "“%(pk)s” n’est pas une valeur valide."
-
-#: .\venv\Lib\site-packages\django\forms\widgets.py:527
-msgid "Clear"
-msgstr "Effacer"
-
-#: .\venv\Lib\site-packages\django\forms\widgets.py:528
-msgid "Currently"
-msgstr "Actuellement"
-
-#: .\venv\Lib\site-packages\django\forms\widgets.py:529
-msgid "Change"
+msgid "Enter the full link to your website"
+msgstr "Entrez le lien complet vers votre site web"
+
+msgid "Other links"
+msgstr "Autres liens"
+
+msgid "Enter additional links, one per line"
+msgstr "Entrez des liens supplémentaires, un par ligne"
+
+msgid "Search by name, pseudonym, or UUID..."
+msgstr "Rechercher par nom, pseudonyme ou UUID..."
+
+msgid "Member PIN (6 digits)"
+msgstr "PIN du membre (6 chiffres)"
+
+msgid "Ask member to show their current PIN from personal cabinet"
+msgstr ""
+"Demandez au membre de montrer son PIN actuel depuis son cabinet personnel"
+
+msgid "Optional: Describe the service provided..."
+msgstr "Facultatif : Décrivez le service fourni..."
+
+msgid "Optional: Additional comments..."
+msgstr "Facultatif : Commentaires supplémentaires..."
+
+msgid "Service Type"
+msgstr "Type de service"
+
+msgid "Service Description (Optional)"
+msgstr "Description du service (facultatif)"
+
+msgid "Cost (Optional)"
+msgstr "Coût (facultatif)"
+
+msgid "Comments (Optional)"
+msgstr "Commentaires (facultatif)"
+
+msgid "PIN must be exactly 6 digits"
+msgstr "Le PIN doit contenir exactement 6 chiffres"
+
+msgid "🔍 Start typing name, username, or UUID..."
+msgstr "🔍 Commencez à taper un nom, un identifiant ou un UUID..."
+
+msgid "🔑 Member PIN Code (6 digits)"
+msgstr "🔑 Code PIN du membre (6 chiffres)"
+
+msgid "⚠️ Ask member to show their current PIN from personal cabinet"
+msgstr ""
+"⚠️ Demandez au membre de montrer son PIN actuel depuis son cabinet personnel"
+
+msgid ""
+"Example: Massage therapy 60 minutes, Personal training session, Product "
+"purchase details..."
+msgstr ""
+"Exemple : Massothérapie 60 minutes, Séance d'entraînement personnel, Détails"
+" d'achat..."
+
+msgid "Enter amount (e.g., 50.00)"
+msgstr "Entrez le montant (ex. : 50.00)"
+
+msgid "Any additional notes about this visit..."
+msgstr "Notes supplémentaires sur cette visite..."
+
+msgid "📋 Service Type *"
+msgstr "📋 Type de service *"
+
+msgid "📝 Service Description (Optional)"
+msgstr "📝 Description du service (facultatif)"
+
+msgid "💰 Cost in CHF (Optional)"
+msgstr "💰 Coût en CHF (facultatif)"
+
+msgid "💬 Additional Comments (Optional)"
+msgstr "💬 Commentaires supplémentaires (facultatif)"
+
+msgid "❌ PIN must be exactly 6 digits (numbers only)"
+msgstr "❌ Le PIN doit contenir exactement 6 chiffres (chiffres uniquement)"
+
+msgid "❌ Cost cannot be negative"
+msgstr "❌ Le coût ne peut pas être négatif"
+
+msgid "Explain why this visit record needs to be corrected..."
+msgstr "Expliquez pourquoi cet enregistrement de visite doit être corrigé..."
+
+msgid "📝 Reason for Edit *"
+msgstr "📝 Raison de la modification *"
+
+msgid ""
+"Required — will be stored in the audit log and sent to member by email."
+msgstr ""
+"Requis — sera stocké dans le journal d'audit et envoyé au membre par e-mail."
+
+msgid "📝 Service Description"
+msgstr "📝 Description du service"
+
+msgid "💰 Cost in CHF"
+msgstr "💰 Coût en CHF"
+
+msgid "💬 Comments"
+msgstr "💬 Commentaires"
+
+msgid "Explain why this visit is being cancelled..."
+msgstr "Expliquez pourquoi cette visite est annulée..."
+
+msgid "📝 Reason for Cancellation *"
+msgstr "📝 Raison de l'annulation *"
+
+msgid "Failed PIN Attempts"
+msgstr "Tentatives PIN échouées"
+
+msgid "PIN Lockout Until"
+msgstr "PIN verrouillé jusqu'à"
+
+msgid "Edited"
+msgstr "Modifié"
+
+msgid "Visit Audit"
+msgstr "Audit de visite"
+
+msgid "Visit Audits"
+msgstr "Audits de visites"
+
+msgid "Edit"
 msgstr "Modifier"
 
-#: .\venv\Lib\site-packages\django\forms\widgets.py:866
-msgid "Unknown"
-msgstr "Inconnu"
+msgid "Action"
+msgstr "Action"
 
-#: .\venv\Lib\site-packages\django\forms\widgets.py:867
-msgid "Yes"
-msgstr "Oui"
+msgid "Changed At"
+msgstr "Modifié le"
 
-#: .\venv\Lib\site-packages\django\forms\widgets.py:868
-msgid "No"
-msgstr "Non"
+msgid "Changed By"
+msgstr "Modifié par"
 
-#. Translators: Please do not add spaces around commas.
-#: .\venv\Lib\site-packages\django\template\defaultfilters.py:873
-msgid "yes,no,maybe"
-msgstr "oui,non,peut-être"
+msgid "Previous Comments"
+msgstr "Commentaires précédents"
 
-#: .\venv\Lib\site-packages\django\template\defaultfilters.py:903
-#: .\venv\Lib\site-packages\django\template\defaultfilters.py:920
+msgid "Previous Cost"
+msgstr "Coût précédent"
+
+msgid "Previous Description"
+msgstr "Description précédente"
+
+msgid "Previous Service Type"
+msgstr "Type de service précédent"
+
+msgid "Reason"
+msgstr "Raison"
+
+msgid "Telegram Chat ID"
+msgstr "ID de chat Telegram"
+
+msgid "Telegram Linked At"
+msgstr "Telegram lié le"
+
+msgid "Permanent ID"
+msgstr "ID permanent"
+
+msgid "Card active"
+msgstr "Carte active"
+
+msgid "Card issued at"
+msgstr "Carte émise le"
+
+msgid "Membership Status"
+msgstr "Statut d'adhésion"
+
+msgid "Pseudonym"
+msgstr "Pseudonyme"
+
+msgid "TOTP Secret"
+msgstr "Secret TOTP"
+
+msgid "Avatar"
+msgstr "Avatar"
+
+msgid "Date of Birth"
+msgstr "Date de naissance"
+
+msgid "Phone Number"
+msgstr "Numéro de téléphone"
+
+msgid "Hide Phone Number"
+msgstr "Masquer le numéro de téléphone"
+
+msgid "If checked, only admins can see your phone number"
+msgstr ""
+"Si coché, seuls les administrateurs peuvent voir votre numéro de téléphone"
+
+msgid "Last Online"
+msgstr "Dernière connexion"
+
+msgid "Verified User"
+msgstr "Utilisateur vérifié"
+
+msgid "Inactive"
+msgstr "Inactif"
+
+msgid "Base32-encoded secret for PIN generation"
+msgstr "Secret encodé en Base32 pour la génération de PIN"
+
+msgid ""
+"Linked Telegram chat id (set automatically when user connects via bot or "
+"widget)"
+msgstr ""
+"ID de chat Telegram lié (défini automatiquement lorsque l'utilisateur se "
+"connecte via le bot ou le widget)"
+
+msgid "GitHub"
+msgstr "GitHub"
+
+msgid "Other links (one per line)"
+msgstr "Autres liens (un par ligne)"
+
+msgid "Total Posts Published"
+msgstr "Total des publications publiées"
+
+msgid "Total Likes Received"
+msgstr "Total des j'aime reçus"
+
+msgid "Total Comments Made"
+msgstr "Total des commentaires écrits"
+
+msgid "Activity Points"
+msgstr "Points d'activité"
+
+msgid "User Account"
+msgstr "Compte utilisateur"
+
+msgid "Company Name"
+msgstr "Nom de l'entreprise"
+
+msgid "Shop/Retail"
+msgstr "Boutique/Commerce"
+
+msgid "Service Provider"
+msgstr "Prestataire de services"
+
+msgid "Gym/Fitness"
+msgstr "Salle de sport/Fitness"
+
+msgid "Restaurant/Cafe"
+msgstr "Restaurant/Café"
+
+msgid "Business Type"
+msgstr "Type d'entreprise"
+
+msgid "Created At"
+msgstr "Créé le"
+
+msgid "Member"
+msgstr "Membre"
+
+msgid "Purchase"
+msgstr "Achat"
+
+msgid "Consultation"
+msgstr "Consultation"
+
+msgid "Training Session"
+msgstr "Séance d'entraînement"
+
+msgid "Event Attendance"
+msgstr "Participation à l'événement"
+
+msgid "Service Description"
+msgstr "Description du service"
+
+msgid "Cost"
+msgstr "Coût"
+
+msgid "PIN Verified"
+msgstr "PIN vérifié"
+
+msgid "Visit Time"
+msgstr "Heure de visite"
+
+msgid "Visits"
+msgstr "Visites"
+
 #, python-format
-msgid "%(size)d byte"
-msgid_plural "%(size)d bytes"
-msgstr[0] "%(size)d byte"
-msgstr[1] "%(size)d bytes"
+msgid "👋 <b>Welcome back, %(name)s!</b>"
+msgstr "👋 <b>Content de vous revoir, %(name)s !</b>"
 
-#: .\venv\Lib\site-packages\django\template\defaultfilters.py:922
 #, python-format
-msgid "%s KB"
-msgstr "%s Ko"
+msgid "Membership: <b>%(status)s</b>"
+msgstr "Adhésion : <b>%(status)s</b>"
 
-#: .\venv\Lib\site-packages\django\template\defaultfilters.py:924
+msgid "Choose an action:"
+msgstr "Choisissez une action :"
+
+msgid "📊 My status"
+msgstr "📊 Mon statut"
+
+msgid "❓ Help"
+msgstr "❓ Aide"
+
+msgid "🏠 Personal Cabinet"
+msgstr "🏠 Cabinet personnel"
+
+msgid "🔓 Unlink Telegram"
+msgstr "🔓 Dissocier Telegram"
+
+msgid "👋 <b>Hello! This is the IESA Sport bot.</b>"
+msgstr "👋 <b>Bonjour ! Voici le bot IESA Sport.</b>"
+
+msgid ""
+"Here you can link your Telegram to your website account and receive instant "
+"notifications about partner visits."
+msgstr ""
+"Ici, vous pouvez lier votre Telegram à votre compte sur le site et recevoir "
+"des notifications instantanées sur les visites partenaires."
+
+msgid "Press the button below ↓"
+msgstr "Appuyez sur le bouton ci-dessous ↓"
+
+msgid "🔗 Link account"
+msgstr "🔗 Lier le compte"
+
+msgid "📖 <b>IESA Sport Bot — help</b>"
+msgstr "📖 <b>Bot IESA Sport — aide</b>"
+
+msgid ""
+"🔗 <b>Link account</b> — get a 6-digit code and enter it in your cabinet on "
+"the site."
+msgstr ""
+"🔗 <b>Lier le compte</b> — obtenez un code à 6 chiffres et entrez-le dans "
+"votre cabinet sur le site."
+
+msgid "📊 <b>My status</b> — check your membership status."
+msgstr "📊 <b>Mon statut</b> — vérifiez votre statut d'adhésion."
+
+msgid "🏠 <b>Personal Cabinet</b> — open the site, get your PIN for partners."
+msgstr ""
+"🏠 <b>Cabinet personnel</b> — ouvrez le site, obtenez votre PIN pour les "
+"partenaires."
+
+msgid "🔓 <b>Unlink Telegram</b> — disable notifications."
+msgstr "🔓 <b>Dissocier Telegram</b> — désactiver les notifications."
+
+msgid "<b>You receive notifications about:</b>"
+msgstr "<b>Vous recevez des notifications sur :</b>"
+
+msgid "✅ Visit confirmation"
+msgstr "✅ Confirmation de visite"
+
+msgid "📝 Visit edit"
+msgstr "📝 Modification de visite"
+
+msgid "❌ Visit cancellation"
+msgstr "❌ Annulation de visite"
+
+msgid "🎉 Membership activation"
+msgstr "🎉 Activation de l'adhésion"
+
 #, python-format
-msgid "%s MB"
-msgstr "%s Mo"
+msgid "👤 Linked to: <b>%(name)s</b>"
+msgstr "👤 Lié à : <b>%(name)s</b>"
 
-#: .\venv\Lib\site-packages\django\template\defaultfilters.py:926
+msgid "Your Telegram chat_id:"
+msgstr "Votre Telegram chat_id :"
+
+msgid "❌ Telegram is not linked to an IESA Sport account."
+msgstr "❌ Telegram n'est pas lié à un compte IESA Sport."
+
 #, python-format
-msgid "%s GB"
-msgstr "%s Go"
+msgid "Membership status: <b>%(label)s</b>"
+msgstr "Statut d'adhésion : <b>%(label)s</b>"
 
-#: .\venv\Lib\site-packages\django\template\defaultfilters.py:928
-#, python-format
-msgid "%s TB"
-msgstr "%s To"
+msgid "🔄 Refresh"
+msgstr "🔄 Actualiser"
 
-#: .\venv\Lib\site-packages\django\template\defaultfilters.py:930
-#, python-format
-msgid "%s PB"
-msgstr "%s Po"
+msgid "ℹ️ This Telegram is not linked to any account."
+msgstr "ℹ️ Ce Telegram n'est lié à aucun compte."
 
-#: .\venv\Lib\site-packages\django\utils\dateformat.py:74
-msgid "p.m."
-msgstr "après-midi"
+msgid "⚠️ <b>Unlink Telegram from account?</b>"
+msgstr "⚠️ <b>Dissocier Telegram du compte ?</b>"
 
-#: .\venv\Lib\site-packages\django\utils\dateformat.py:75
-msgid "a.m."
-msgstr "matin"
+msgid "You will stop receiving notifications."
+msgstr "Vous ne recevrez plus de notifications."
 
-#: .\venv\Lib\site-packages\django\utils\dateformat.py:80
-msgid "PM"
-msgstr "PM"
+msgid "✅ Yes, unlink"
+msgstr "✅ Oui, dissocier"
 
-#: .\venv\Lib\site-packages\django\utils\dateformat.py:81
-msgid "AM"
-msgstr "AM"
+msgid "❌ Cancel"
+msgstr "❌ Annuler"
 
-#: .\venv\Lib\site-packages\django\utils\dateformat.py:153
-msgid "midnight"
-msgstr "minuit"
+msgid "ℹ️ Already unlinked."
+msgstr "ℹ️ Déjà dissocié."
 
-#: .\venv\Lib\site-packages\django\utils\dateformat.py:155
-msgid "noon"
-msgstr "midi"
+msgid "✅ Telegram unlinked from account."
+msgstr "✅ Telegram dissocié du compte."
 
-#: .\venv\Lib\site-packages\django\utils\dates.py:7
-msgid "Monday"
-msgstr "Lundi"
+msgid "🔗 Link again"
+msgstr "🔗 Lier à nouveau"
 
-#: .\venv\Lib\site-packages\django\utils\dates.py:8
-msgid "Tuesday"
-msgstr "Mardi"
+msgid "↩️ Cancelled."
+msgstr "↩️ Annulé."
 
-#: .\venv\Lib\site-packages\django\utils\dates.py:9
-msgid "Wednesday"
-msgstr "Mercredi"
-
-#: .\venv\Lib\site-packages\django\utils\dates.py:10
-msgid "Thursday"
-msgstr "Jeudi"
-
-#: .\venv\Lib\site-packages\django\utils\dates.py:11
-msgid "Friday"
-msgstr "Vendredi"
-
-#: .\venv\Lib\site-packages\django\utils\dates.py:12
-msgid "Saturday"
-msgstr "Samedi"
-
-#: .\venv\Lib\site-packages\django\utils\dates.py:13
-msgid "Sunday"
-msgstr "Dimanche"
-
-#: .\venv\Lib\site-packages\django\utils\dates.py:16
-msgid "Mon"
-msgstr "Lun"
-
-#: .\venv\Lib\site-packages\django\utils\dates.py:17
-msgid "Tue"
-msgstr "Mar"
-
-#: .\venv\Lib\site-packages\django\utils\dates.py:18
-msgid "Wed"
-msgstr "Mer"
-
-#: .\venv\Lib\site-packages\django\utils\dates.py:19
-msgid "Thu"
-msgstr "Jeu"
-
-#: .\venv\Lib\site-packages\django\utils\dates.py:20
-msgid "Fri"
-msgstr "Ven"
-
-#: .\venv\Lib\site-packages\django\utils\dates.py:21
-msgid "Sat"
-msgstr "Sam"
-
-#: .\venv\Lib\site-packages\django\utils\dates.py:22
-msgid "Sun"
-msgstr "Dim"
-
-#: .\venv\Lib\site-packages\django\utils\dates.py:25
-msgid "January"
-msgstr "Janvier"
-
-#: .\venv\Lib\site-packages\django\utils\dates.py:26
-msgid "February"
-msgstr "Février"
-
-#: .\venv\Lib\site-packages\django\utils\dates.py:27
-msgid "March"
-msgstr "Mars"
-
-#: .\venv\Lib\site-packages\django\utils\dates.py:28
-msgid "April"
-msgstr "Avril"
-
-#: .\venv\Lib\site-packages\django\utils\dates.py:29
-msgid "May"
-msgstr "Mai"
-
-#: .\venv\Lib\site-packages\django\utils\dates.py:30
-msgid "June"
-msgstr "Juin"
-
-#: .\venv\Lib\site-packages\django\utils\dates.py:31
-msgid "July"
-msgstr "Juillet"
-
-#: .\venv\Lib\site-packages\django\utils\dates.py:32
-msgid "August"
-msgstr "Août"
-
-#: .\venv\Lib\site-packages\django\utils\dates.py:33
-msgid "September"
-msgstr "Septembre"
-
-#: .\venv\Lib\site-packages\django\utils\dates.py:34
-msgid "October"
-msgstr "Octobre"
-
-#: .\venv\Lib\site-packages\django\utils\dates.py:35
-msgid "November"
-msgstr "Novembre"
-
-#: .\venv\Lib\site-packages\django\utils\dates.py:36
-msgid "December"
-msgstr "Décembre"
-
-#: .\venv\Lib\site-packages\django\utils\dates.py:39
-msgid "jan"
-msgstr "janv"
-
-#: .\venv\Lib\site-packages\django\utils\dates.py:40
-msgid "feb"
-msgstr "fév"
-
-#: .\venv\Lib\site-packages\django\utils\dates.py:41
-msgid "mar"
-msgstr "mars"
-
-#: .\venv\Lib\site-packages\django\utils\dates.py:42
-msgid "apr"
-msgstr "avr"
-
-#: .\venv\Lib\site-packages\django\utils\dates.py:43
-msgid "may"
-msgstr "mai"
-
-#: .\venv\Lib\site-packages\django\utils\dates.py:44
-msgid "jun"
-msgstr "juin"
-
-#: .\venv\Lib\site-packages\django\utils\dates.py:45
-msgid "jul"
-msgstr "juil"
-
-#: .\venv\Lib\site-packages\django\utils\dates.py:46
-msgid "aug"
-msgstr "aoû"
-
-#: .\venv\Lib\site-packages\django\utils\dates.py:47
-msgid "sep"
-msgstr "sept"
-
-#: .\venv\Lib\site-packages\django\utils\dates.py:48
-msgid "oct"
-msgstr "oct"
-
-#: .\venv\Lib\site-packages\django\utils\dates.py:49
-msgid "nov"
-msgstr "nov"
-
-#: .\venv\Lib\site-packages\django\utils\dates.py:50
-msgid "dec"
-msgstr "déc"
-
-#: .\venv\Lib\site-packages\django\utils\dates.py:53
-msgid "Jan."
-msgstr "Janv."
-
-#: .\venv\Lib\site-packages\django\utils\dates.py:54
-msgid "Feb."
-msgstr "Fév."
-
-#: .\venv\Lib\site-packages\django\utils\dates.py:60
-msgid "Aug."
-msgstr "Aoû."
-
-#: .\venv\Lib\site-packages\django\utils\dates.py:61
-msgid "Sept."
-msgstr "Sep."
-
-#: .\venv\Lib\site-packages\django\utils\dates.py:62
-msgid "Oct."
-msgstr "Oct."
-
-#: .\venv\Lib\site-packages\django\utils\dates.py:63
-msgid "Nov."
-msgstr "Nov."
-
-#: .\venv\Lib\site-packages\django\utils\dates.py:64
-msgid "Dec."
-msgstr "Déc."
-
-#: .\venv\Lib\site-packages\django\utils\ipv6.py:20
-msgid "This is not a valid IPv6 address."
-msgstr "Ceci n'est pas une adresse IPv6 valide."
-
-#: .\venv\Lib\site-packages\django\utils\text.py:76
-#, python-format
-msgid "%(truncated_text)s…"
-msgstr "%(truncated_text)s…"
-
-#. Translators: This string is used as a separator between list elements
-#: .\venv\Lib\site-packages\django\utils\text.py:306
-#: .\venv\Lib\site-packages\django\utils\timesince.py:135
-msgid ", "
-msgstr ", "
-
-#: .\venv\Lib\site-packages\django\utils\timesince.py:8
-#, python-format
-msgid "%(num)d year"
-msgid_plural "%(num)d years"
-msgstr[0] "%(num)d year"
-msgstr[1] "%(num)d years"
-
-#: .\venv\Lib\site-packages\django\utils\timesince.py:9
-#, python-format
-msgid "%(num)d month"
-msgid_plural "%(num)d months"
-msgstr[0] "%(num)d month"
-msgstr[1] "%(num)d months"
-
-#: .\venv\Lib\site-packages\django\utils\timesince.py:10
-#, python-format
-msgid "%(num)d week"
-msgid_plural "%(num)d weeks"
-msgstr[0] "%(num)d week"
-msgstr[1] "%(num)d weeks"
-
-#: .\venv\Lib\site-packages\django\utils\timesince.py:11
-#, python-format
-msgid "%(num)d day"
-msgid_plural "%(num)d days"
-msgstr[0] "%(num)d day"
-msgstr[1] "%(num)d days"
-
-#: .\venv\Lib\site-packages\django\utils\timesince.py:12
-#, python-format
-msgid "%(num)d hour"
-msgid_plural "%(num)d hours"
-msgstr[0] "%(num)d hour"
-msgstr[1] "%(num)d hours"
-
-#: .\venv\Lib\site-packages\django\utils\timesince.py:13
-#, python-format
-msgid "%(num)d minute"
-msgid_plural "%(num)d minutes"
-msgstr[0] "%(num)d minute"
-msgstr[1] "%(num)d minutes"
-
-#: .\venv\Lib\site-packages\django\views\csrf.py:29
-msgid "Forbidden"
-msgstr "Interdit"
-
-#: .\venv\Lib\site-packages\django\views\csrf.py:30
-msgid "CSRF verification failed. Request aborted."
-msgstr "La vérification CSRF a échoué. Requête annulée."
-
-#: .\venv\Lib\site-packages\django\views\csrf.py:66
-msgid "More information is available with DEBUG=True."
-msgstr "Plus d'informations disponibles avec DEBUG=True."
-
-#: .\venv\Lib\site-packages\django\views\generic\dates.py:44
-msgid "No year specified"
-msgstr "Aucune année spécifiée"
-
-#: .\venv\Lib\site-packages\django\views\generic\dates.py:64
-#: .\venv\Lib\site-packages\django\views\generic\dates.py:115
-#: .\venv\Lib\site-packages\django\views\generic\dates.py:214
-msgid "Date out of range"
-msgstr "Date hors limites"
-
-#: .\venv\Lib\site-packages\django\views\generic\dates.py:94
-msgid "No month specified"
-msgstr "Aucun mois spécifié"
-
-#: .\venv\Lib\site-packages\django\views\generic\dates.py:147
-msgid "No day specified"
-msgstr "Aucun jour spécifié"
-
-#: .\venv\Lib\site-packages\django\views\generic\dates.py:194
-msgid "No week specified"
-msgstr "Aucune semaine spécifiée"
-
-#: .\venv\Lib\site-packages\django\views\generic\dates.py:353
-#: .\venv\Lib\site-packages\django\views\generic\dates.py:384
-#, python-format
-msgid "No %(verbose_name_plural)s available"
-msgstr "Aucun %(verbose_name_plural)s disponible"
-
-#: .\venv\Lib\site-packages\django\views\generic\dates.py:720
-#, python-format
-msgid "Invalid date string “%(datestr)s” given format “%(format)s”"
-msgstr "Chaîne de date invalide “%(datestr)s” pour le format “%(format)s”"
-
-#: .\venv\Lib\site-packages\django\views\generic\detail.py:56
-#, python-format
-msgid "No %(verbose_name)s found matching the query"
-msgstr "Aucun %(verbose_name)s trouvé correspondant à la requête"
-
-#: .\venv\Lib\site-packages\django\views\generic\list.py:70
-msgid "Page is not “last”, nor can it be converted to an int."
-msgstr "La page n’est pas “last” et ne peut pas être convertie en entier."
-
-#: .\venv\Lib\site-packages\django\views\generic\list.py:77
-#, python-format
-msgid "Invalid page (%(page_number)s): %(message)s"
-msgstr "Page invalide (%(page_number)s) : %(message)s"
-
-#: .\venv\Lib\site-packages\django\views\generic\list.py:173
-#, python-format
-msgid "Empty list and “%(class_name)s.allow_empty” is False."
-msgstr "Liste vide et “%(class_name)s.allow_empty” est False."
-
-#: .\venv\Lib\site-packages\django\views\static.py:49
-msgid "Directory indexes are not allowed here."
-msgstr "Les index de répertoire ne sont pas autorisés ici."
-
-#: .\venv\Lib\site-packages\django\views\static.py:51
-#, python-format
-msgid "“%(path)s” does not exist"
-msgstr "“%(path)s” n’existe pas"
-
-#: .\venv\Lib\site-packages\django\views\static.py:68
-#: .\venv\Lib\site-packages\django\views\templates\directory_index.html:8
-#: .\venv\Lib\site-packages\django\views\templates\directory_index.html:11
-#, python-format
-msgid "Index of %(directory)s"
-msgstr "Index de %(directory)s"
-
-#: .\venv\Lib\site-packages\django\views\templates\default_urlconf.html:7
-#: .\venv\Lib\site-packages\django\views\templates\default_urlconf.html:204
-msgid "The install worked successfully! Congratulations!"
-msgstr "L'installation a réussi ! Félicitations !"
-
-#: .\venv\Lib\site-packages\django\views\templates\default_urlconf.html:217
-msgid "Django Documentation"
-msgstr "Documentation Django"
-
-#: .\venv\Lib\site-packages\django\views\templates\default_urlconf.html:218
-msgid "Topics, references, &amp; how-to’s"
-msgstr "Sujets, références et tutoriels"
-
-#: .\venv\Lib\site-packages\django\views\templates\default_urlconf.html:226
-msgid "Tutorial: A Polling App"
-msgstr "Tutoriel : une application de sondage"
-
-#: .\venv\Lib\site-packages\django\views\templates\default_urlconf.html:227
-msgid "Get started with Django"
-msgstr "Débuter avec Django"
-
-#: .\venv\Lib\site-packages\django\views\templates\default_urlconf.html:235
-msgid "Django Community"
-msgstr "Communauté Django"
-
-#: .\venv\Lib\site-packages\django\views\templates\default_urlconf.html:236
-msgid "Connect, get help, or contribute"
-msgstr "Se connecter, obtenir de l'aide ou contribuer"
-
-#: .\venv\Lib\site-packages\django_ckeditor_5\permissions.py:18
-msgid "You do not have permission to upload files."
-msgstr "Vous n'avez pas la permission de télécharger des fichiers."
-
-#: .\venv\Lib\site-packages\django_ckeditor_5\permissions.py:25
-msgid "You must be logged in to upload files."
-msgstr "Vous devez être connecté pour télécharger des fichiers."
-
-#: .\venv\Lib\site-packages\django_ckeditor_5\validators.py:17
-#, python-format
-msgid "File should be at most %(max_size)s MB."
-msgstr "Le fichier doit faire au maximum %(max_size)s Mo."
-
-#: .\venv\Lib\site-packages\django_ckeditor_5\views.py:41
-msgid "Invalid form data"
-msgstr "Données de formulaire invalides"
-
-#: .\venv\Lib\site-packages\django_ckeditor_5\widgets.py:43
-msgid "Check the correct settings.CKEDITOR_5_CONFIGS "
-msgstr "Vérifiez les paramètres corrects settings.CKEDITOR_5_CONFIGS "
-
-#: .\venv\Lib\site-packages\imagekit\admin.py:10
-msgid "Thumbnail"
-msgstr "Miniature"
+msgid "I repeat your messages in test mode. Use buttons or commands below."
+msgstr ""
+"Je répète vos messages en mode test. Utilisez les boutons ou commandes ci-"
+"dessous."
 
 # === member_cabinet / connect_telegram (auto-added 2026-02-27) ===
+msgid "🏠 Cabinet"
+msgstr "🏠 Cabinet"
 
+msgid "✅ <b>Visit confirmed</b>"
+msgstr "✅ <b>Visite confirmée</b>"
+
+msgid "📝 <b>Visit edited</b>"
+msgstr "📝 <b>Visite modifiée</b>"
+
+msgid "❌ <b>Visit cancelled</b>"
+msgstr "❌ <b>Visite annulée</b>"
+
+msgid "🎉 <b>Membership activated!</b>"
+msgstr "🎉 <b>Adhésion activée !</b>"
+
+#, python-format
+msgid "Hello, %(name)s!"
+msgstr "Bonjour, %(name)s !"
+
+msgid "Your IESA Sport membership is now active."
+msgstr "Votre adhésion IESA Sport est maintenant active."
+
+msgid "🏃 Use <b>Personal Cabinet</b> to get your PIN:"
+msgstr "🏃 Utilisez le <b>cabinet personnel</b> pour obtenir votre PIN :"
+
+msgid "Open cabinet →"
+msgstr "Ouvrir le cabinet →"
+
+msgid "Activity Levels"
+msgstr "Niveaux d'activité"
+
+msgid "Understand how to progress through our community achievement levels"
+msgstr ""
+"Découvrez comment progresser à travers les niveaux de réussite de notre "
+"communauté"
+
+msgid "Create a Post"
+msgstr "Créer une publication"
+
+msgid "points"
+msgstr "points"
+
+msgid "Every published post contributes to your level"
+msgstr "Chaque publication contribue à votre niveau"
+
+msgid "Get a Like"
+msgstr "Obtenir un j'aime"
+
+msgid "Received from community members"
+msgstr "Reçu des membres de la communauté"
+
+msgid "Post a Comment"
+msgstr "Écrire un commentaire"
+
+msgid "point"
+msgstr "point"
+
+msgid "Each meaningful comment counts"
+msgstr "Chaque commentaire pertinent compte"
+
+msgid "ACHIEVEMENT LEVELS"
+msgstr "NIVEAUX DE RÉUSSITE"
+
+#, python-format
+msgid "How to reach %(name)s"
+msgstr "Comment atteindre %(name)s"
+
+msgid "Additional Information"
+msgstr "Informations supplémentaires"
+
+msgid "How Points are Calculated"
+msgstr "Comment les points sont calculés"
+
+msgid "Your activity level is determined by a combination of contributions:"
+msgstr ""
+"Votre niveau d'activité est déterminé par une combinaison de contributions :"
+
+msgid "Posts:"
+msgstr "Publications :"
+
+msgid "10 points per published post"
+msgstr "10 points par publication publiée"
+
+msgid "Likes Received:"
+msgstr "J'aime reçus :"
+
+msgid "2 points per like on your posts"
+msgstr "2 points par j'aime sur vos publications"
+
+msgid "Comments:"
+msgstr "Commentaires :"
+
+msgid "1 point per comment you make"
+msgstr "1 point par commentaire écrit"
+
+msgid "Points are recalculated daily and reflect your current activity."
+msgstr ""
+"Les points sont recalculés quotidiennement et reflètent votre activité "
+"actuelle."
+
+msgid "Tips for Advancement"
+msgstr "Conseils pour progresser"
+
+msgid "Quality over Quantity:"
+msgstr "La qualité avant la quantité :"
+
+msgid "Focus on meaningful posts"
+msgstr "Concentrez-vous sur des publications significatives"
+
+msgid "Engage Regularly:"
+msgstr "Participez régulièrement :"
+
+msgid "Consistent participation builds reputation"
+msgstr "Une participation constante construit la réputation"
+
+msgid "Support Others:"
+msgstr "Soutenez les autres :"
+
+msgid "Comments and feedback help the community"
+msgstr "Les commentaires et retours aident la communauté"
+
+msgid "Be Authentic:"
+msgstr "Soyez authentique :"
+
+msgid "Share genuine insights and experiences"
+msgstr "Partagez des perspectives et expériences authentiques"
+
+msgid "Ready to Grow Your Level?"
+msgstr "Prêt à augmenter votre niveau ?"
+
+msgid "Check your current activity level and start accumulating points today!"
+msgstr ""
+"Vérifiez votre niveau d'activité actuel et commencez à accumuler des points "
+"dès aujourd'hui !"
+
+msgid "View Your Profile"
+msgstr "Voir votre profil"
+
+msgid "Join Our Community Today!"
+msgstr "Rejoignez notre communauté aujourd'hui !"
+
+msgid "Create an account and start your journey to becoming a legend."
+msgstr "Créez un compte et commencez votre parcours pour devenir une légende."
+
+msgid "Sign Up Now"
+msgstr "S'inscrire maintenant"
+
+msgid "Cancel Visit"
+msgstr "Annuler la visite"
+
+msgid "Back to Dashboard"
+msgstr "Retour au tableau de bord"
+
+msgid "Cancellation window closes in"
+msgstr "La fenêtre d'annulation se ferme dans"
+
+msgid "seconds"
+msgstr "secondes"
+
+msgid "Cancelling visit"
+msgstr "Annulation de la visite"
+
+msgid "Service"
+msgstr "Service"
+
+msgid "Logged at"
+msgstr "Enregistré le"
+
+msgid "This action cannot be undone. The member will be notified by email."
+msgstr "Cette action est irréversible. Le membre sera notifié par e-mail."
+
+msgid "Confirm Cancellation"
+msgstr "Confirmer l'annulation"
+
+msgid "Keep Visit (Go Back)"
+msgstr "Conserver la visite (Retour)"
+
+msgid "Connect Telegram"
+msgstr "Connecter Telegram"
+
+msgid "Telegram Connected!"
+msgstr "Telegram connecté !"
+
+msgid "Redirecting…"
+msgstr "Redirection…"
+
+msgid "Get instant visit notifications"
+msgstr "Recevez des notifications de visite instantanées"
+
+msgid "Tap to open in Telegram"
+msgstr "Appuyez pour ouvrir dans Telegram"
+
+msgid "Open"
+msgstr "Ouvrir"
+
+msgid "in Telegram"
+msgstr "dans Telegram"
+
+msgid "Open the IESA Sport bot in Telegram"
+msgstr "Ouvrez le bot IESA Sport dans Telegram"
+
+msgid "Press"
+msgstr "Appuyez sur"
+
+msgid "Attach account"
+msgstr "Lier le compte"
+
+msgid "or send"
+msgstr "ou envoyez"
+
+msgid "Enter the 6-digit code from the bot below"
+msgstr "Entrez le code à 6 chiffres du bot ci-dessous"
+
+msgid "6-digit code"
+msgstr "Code à 6 chiffres"
+
+msgid "Back to cabinet"
+msgstr "Retour au cabinet"
+
+msgid "Edit Visit"
+msgstr "Modifier la visite"
+
+msgid "Edit window closes in"
+msgstr "La fenêtre de modification se ferme dans"
+
+msgid "Editing visit"
+msgstr "Modification de la visite"
+
+msgid "Current service"
+msgstr "Service actuel"
+
+msgid "Current cost"
+msgstr "Coût actuel"
+
+msgid "Edit Visit Details"
+msgstr "Modifier les détails de la visite"
+
+msgid "Save Changes"
+msgstr "Enregistrer les modifications"
+
+msgid "Log Visit"
+msgstr "Enregistrer la visite"
+
+msgid "Active Member"
+msgstr "Membre actif"
+
+msgid "Member Verification Required"
+msgstr "Vérification du membre requise"
+
+msgid ""
+"Ask the member to show their current 6-digit PIN from their personal "
+"cabinet."
+msgstr ""
+"Demandez au membre de montrer son PIN à 6 chiffres depuis son cabinet "
+"personnel."
+
+msgid "Verify PIN & Log Visit"
+msgstr "Vérifier le PIN et enregistrer la visite"
+
+msgid "IESA Members"
+msgstr "Membres IESA"
+
+msgid "Welcome back"
+msgstr "Content de vous revoir"
+
+msgid "Sign in to manage your profile, create posts and discover events."
+msgstr ""
+"Connectez-vous pour gérer votre profil, créer des publications et découvrir "
+"des événements.Connectez-vous pour gérer votre profil, créer des articles et"
+" découvrir des événements."
+
+msgid "Quick Access to Your Profile"
+msgstr "Accès rapide à votre profil"
+
+msgid "Community Engagement"
+msgstr "Engagement communautaire"
+
+msgid "Event Updates & RSVP"
+msgstr "Mises à jour et confirmations d'événements"
+
+msgid "SIGN IN"
+msgstr "SE CONNECTER"
+
+msgid "Sign in to your account"
+msgstr "Connectez-vous à votre compte"
+
+msgid "Access your profile and connect with the community."
+msgstr "Accédez à votre profil et connectez-vous à la communauté."
+
+msgid "Sign in failed!"
+msgstr "Échec de la connexion !"
+
+msgid "Invalid username or password. Please try again."
+msgstr "Nom d'utilisateur ou mot de passe invalide. Veuillez réessayer."
+
+msgid "Don't have an account?"
+msgstr "Vous n'avez pas de compte ?"
+
+msgid "Register here"
+msgstr "Inscrivez-vous ici"
+
+# === member_cabinet / connect_telegram (auto-added 2026-02-27) ===
 msgid "Member Cabinet"
-msgstr "Espace membre"
-
-msgid "Member Cabinet — IESA Sport"
-msgstr "Espace membre — IESA Sport"
+msgstr "Cabinet du membre"
 
 msgid "Personal Cabinet"
-msgstr "Espace personnel"
+msgstr "Cabinet personnel"
 
-msgid "Personal Cabinet · IESA Sport"
-msgstr "Espace personnel · IESA Sport"
+msgid "Edit profile"
+msgstr "Modifier le profil"
+
+msgid "Public profile"
+msgstr "Profil public"
 
 msgid "Verification PIN"
 msgstr "PIN de vérification"
@@ -2627,26 +2667,24 @@ msgstr "Actualisation auto 12 min"
 msgid "Your current code"
 msgstr "Votre code actuel"
 
+msgid "sec"
+msgstr "sec"
+
 msgid "Copy PIN"
 msgstr "Copier le PIN"
 
-msgid "Copied!"
-msgstr "Copié !"
-
 msgid "Reloads when expired"
-msgstr "Rechargé à l'expiration"
-
-msgid "sec"
-msgstr "sec"
+msgstr "Se recharge à expiration"
 
 msgid "How to use your PIN"
 msgstr "Comment utiliser votre PIN"
 
 msgid "Visit a partner"
-msgstr "Visiter un partenaire"
+msgstr "Visitez un partenaire"
 
 msgid "Go to any partner gym, shop or clinic."
-msgstr "Rendez-vous chez un gym, magasin ou clinique partenaire."
+msgstr ""
+"Rendez-vous dans une salle de sport, un magasin ou une clinique partenaire."
 
 msgid "Identify yourself"
 msgstr "Identifiez-vous"
@@ -2661,31 +2699,22 @@ msgid "Show this 6-digit code — staff enters it to confirm."
 msgstr "Montrez ce code à 6 chiffres — le personnel le saisit pour confirmer."
 
 msgid "Get notified ✅"
-msgstr "Recevoir la notification ✅"
+msgstr "Recevez une notification ✅"
 
 msgid "Visit is logged. Telegram confirmation incoming."
-msgstr "Visite enregistrée. Confirmation Telegram en route."
+msgstr "Visite enregistrée. Confirmation Telegram en cours."
 
-msgid "Active Member"
-msgstr "Membre actif"
-
-msgid "Active"
-msgstr "Actif"
-
-msgid "Inactive"
-msgstr "Inactif"
-
-msgid "Public profile"
-msgstr "Profil public"
+msgid "Please contact the administrator for assistance."
+msgstr "Veuillez contacter l'administrateur pour obtenir de l'aide."
 
 msgid "Membership Inactive"
 msgstr "Adhésion inactive"
 
-msgid "You need an active membership to use the PIN and access partner benefits."
-msgstr "Vous avez besoin d'une adhésion active pour utiliser le PIN et accéder aux avantages partenaires."
-
-msgid "Please contact the administrator for assistance."
-msgstr "Veuillez contacter l'administrateur pour obtenir de l'aide."
+msgid ""
+"You need an active membership to use the PIN and access partner benefits."
+msgstr ""
+"Vous avez besoin d'une adhésion active pour utiliser le PIN et accéder aux "
+"avantages partenaires."
 
 msgid "Contact Administration"
 msgstr "Contacter l'administration"
@@ -2700,7 +2729,7 @@ msgid "Telegram is connected"
 msgstr "Telegram est connecté"
 
 msgid "Since"
-msgstr "Depuis le"
+msgstr "Depuis"
 
 msgid "You receive instant visit confirmations via Telegram."
 msgstr "Vous recevez des confirmations de visite instantanées via Telegram."
@@ -2708,50 +2737,1498 @@ msgstr "Vous recevez des confirmations de visite instantanées via Telegram."
 msgid "Disconnect Telegram"
 msgstr "Déconnecter Telegram"
 
-msgid "Connect Telegram"
-msgstr "Connecter Telegram"
-
-msgid "Connect your Telegram account to receive instant visit confirmations and important updates directly in the messenger."
-msgstr "Connectez votre compte Telegram pour recevoir des confirmations de visite instantanées et des mises à jour importantes directement dans le messager."
+msgid ""
+"Connect your Telegram account to receive instant visit confirmations and "
+"important updates directly in the messenger."
+msgstr ""
+"Connectez votre compte Telegram pour recevoir des confirmations de visite "
+"instantanées et des mises à jour importantes directement dans le messager."
 
 msgid "or log in with Telegram"
-msgstr "ou se connecter avec Telegram"
+msgstr "ou connectez-vous avec Telegram"
 
-msgid "Get instant visit notifications"
-msgstr "Recevoir des notifications de visite instantanées"
+msgid "Copied!"
+msgstr "Copié !"
 
-msgid "6-digit code"
-msgstr "Code à 6 chiffres"
+msgid "Public Profile"
+msgstr "Profil public"
 
-msgid "Tap to open in Telegram"
-msgstr "Appuyez pour ouvrir dans Telegram"
+msgid "Issued:"
+msgstr "Émis :"
 
-msgid "Open"
-msgstr "Ouvrir"
+msgid "ID:"
+msgstr "ID :"
 
-msgid "Open the IESA Sport bot in Telegram"
-msgstr "Ouvrez le bot IESA Sport dans Telegram"
+msgid "For Partners:"
+msgstr "Pour les partenaires :"
 
-msgid "in Telegram"
-msgstr "dans Telegram"
+msgid ""
+"If this member is active, you can log their visit from your partner "
+"dashboard."
+msgstr ""
+"Si ce membre est actif, vous pouvez enregistrer sa visite depuis votre "
+"tableau de bord partenaire."
 
-msgid "Press"
-msgstr "Appuyez sur"
+msgid "Results"
+msgstr "Résultats"
 
-msgid "Attach account"
-msgstr "Lier le compte"
+msgid "No Results Found"
+msgstr "Aucun résultat trouvé"
 
-msgid "or send"
-msgstr "ou envoyez"
+msgid "Try searching with a different name, username, or member ID."
+msgstr "Essayez de rechercher avec un autre nom, identifiant ou ID de membre."
 
-msgid "Enter the 6-digit code from the bot below"
-msgstr "Entrez le code à 6 chiffres du bot ci-dessous"
+msgid "Enter member name, username, or ID to search"
+msgstr "Entrez le nom du membre, l'identifiant ou l'ID pour rechercher"
 
-msgid "Telegram Connected!"
-msgstr "Telegram connecté !"
+msgid "Partner Dashboard"
+msgstr "Tableau de bord partenaire"
 
-msgid "Redirecting…"
-msgstr "Redirection…"
+msgid "Active Partner"
+msgstr "Partenaire actif"
 
-msgid "Back to cabinet"
-msgstr "Retour à l'espace membre"
+msgid "Total Visits"
+msgstr "Total des visites"
+
+msgid "Verified Visits"
+msgstr "Visites vérifiées"
+
+msgid "Total Cost"
+msgstr "Coût total"
+
+msgid "Unique Members"
+msgstr "Membres uniques"
+
+msgid "Live Member Search"
+msgstr "Recherche de membres en direct"
+
+msgid "Search by name, username, or permanent ID (UUID)"
+msgstr "Rechercher par nom, identifiant ou ID permanent (UUID)"
+
+msgid "Search Now"
+msgstr "Rechercher maintenant"
+
+msgid "Recent Visits"
+msgstr "Visites récentes"
+
+msgid "Send test email to verify SMTP"
+msgstr "Envoyer un e-mail de test pour vérifier SMTP"
+
+msgid "Test Email"
+msgstr "E-mail de test"
+
+msgid "Date"
+msgstr "Date"
+
+msgid "Actions"
+msgstr "Actions"
+
+msgid "Edit visit"
+msgstr "Modifier la visite"
+
+msgid "Cancel visit"
+msgstr "Annuler la visite"
+
+msgid "No Visits Yet"
+msgstr "Pas encore de visites"
+
+msgid "Use the search to find members and log your first visit!"
+msgstr ""
+"Utilisez la recherche pour trouver des membres et enregistrer votre première"
+" visite !"
+
+#, python-format
+msgid "Profile of %(username)s"
+msgstr "Profil de %(username)s"
+
+msgid "Edit Profile"
+msgstr "Modifier le profil"
+
+msgid "Download QR"
+msgstr "Télécharger le QR"
+
+msgid "Follow"
+msgstr "Suivre"
+
+msgid "Sign in"
+msgstr "Se connecter"
+
+msgid "Full name"
+msgstr "Nom complet"
+
+msgid " years"
+msgstr " ans"
+
+msgid "Phone"
+msgstr "Téléphone"
+
+msgid "Hidden"
+msgstr "Masqué"
+
+msgid "Not specified"
+msgstr "Non spécifié"
+
+msgid "Joined"
+msgstr "Inscrit"
+
+msgid "Activity"
+msgstr "Activité"
+
+msgid "Learn about activity levels"
+msgstr "En savoir plus sur les niveaux d'activité"
+
+#, python-format
+msgid "Progress to %(level)s:"
+msgstr "Progression vers %(level)s :"
+
+msgid "Maximum level achieved!"
+msgstr "Niveau maximum atteint !"
+
+msgid "Your QR Code"
+msgstr "Votre QR Code"
+
+msgid "Open profile by card"
+msgstr "Ouvrir le profil par carte"
+
+msgid "QR Code"
+msgstr "QR Code"
+
+msgid "Scan to view profile"
+msgstr "Scannez pour voir le profil"
+
+msgid "Stats"
+msgstr "Statistiques"
+
+msgid "Find me"
+msgstr "Me trouver"
+
+msgid "Total posts"
+msgstr "Total des publications"
+
+msgid "Likes received"
+msgstr "J'aime reçus"
+
+msgid "Comments made"
+msgstr "Commentaires écrits"
+
+msgid "Created"
+msgstr "Créé"
+
+msgid "No posts yet."
+msgstr "Pas encore de publications."
+
+msgid "Create your first post"
+msgstr "Créez votre première publication"
+
+msgid "Deactivate Account"
+msgstr "Désactiver le compte"
+
+msgid "Deactivate Your Account"
+msgstr "Désactiver votre compte"
+
+msgid "Warning:"
+msgstr "Avertissement :"
+
+msgid ""
+"This action will deactivate your account. You will not be able to log in "
+"until your account is reactivated by support."
+msgstr ""
+"Cette action désactivera votre compte. Vous ne pourrez pas vous connecter "
+"tant que votre compte n'aura pas été réactivé par le support."
+
+msgid "What happens:"
+msgstr "Ce qui se passe :"
+
+msgid "Your profile will be hidden from other users"
+msgstr "Votre profil sera masqué aux autres utilisateurs"
+
+msgid "You won't be able to log in"
+msgstr "Vous ne pourrez plus vous connecter"
+
+msgid "All your data will be preserved"
+msgstr "Toutes vos données seront conservées"
+
+msgid "You can contact support to reactivate"
+msgstr "Vous pouvez contacter le support pour la réactivation"
+
+msgid "Enter your password to confirm:"
+msgstr "Entrez votre mot de passe pour confirmer :"
+
+msgid "We need your password for security"
+msgstr "Nous avons besoin de votre mot de passe pour la sécurité"
+
+msgid "Yes, Deactivate My Account"
+msgstr "Oui, désactiver mon compte"
+
+msgid "Need help?"
+msgstr "Besoin d'aide ?"
+
+msgid "Contact support"
+msgstr "Contacter le support"
+
+msgid "Refresh your info, avatar and social links."
+msgstr "Actualisez vos informations, votre avatar et vos liens sociaux."
+
+msgid "Basic info"
+msgstr "Informations de base"
+
+msgid "First name"
+msgstr "Prénom"
+
+msgid "Last name"
+msgstr "Nom de famille"
+
+msgid "Email"
+msgstr "E-mail"
+
+msgid "Format: DD.MM.YYYY"
+msgstr "Format : JJ.MM.AAAA"
+
+msgid "Example: +41 XX XXX XX XX"
+msgstr "Exemple : +41 XX XXX XX XX"
+
+msgid "Hide phone number (only admins can see it)"
+msgstr ""
+"Masquer le numéro de téléphone (seuls les administrateurs peuvent le voir)"
+
+msgid "Upload square image for best fit."
+msgstr "Téléchargez une image carrée pour un meilleur rendu."
+
+msgid "Social & links"
+msgstr "Réseaux sociaux et liens"
+
+msgid "examples below"
+msgstr "exemples ci-dessous"
+
+msgid "one per line"
+msgstr "un par ligne"
+
+msgid ""
+"Examples: LinkedIn, Reddit, Twitter, YouTube, TikTok, Instagram, Twitch, "
+"Medium, etc."
+msgstr ""
+"Exemples : LinkedIn, Reddit, Twitter, YouTube, TikTok, Instagram, Twitch, "
+"Medium, etc."
+
+msgid "Save changes"
+msgstr "Enregistrer les modifications"
+
+msgid "Staff"
+msgstr "Personnel"
+
+msgid "to follow this user"
+msgstr "pour suivre cet utilisateur"
+
+msgid "Admin"
+msgstr "Administrateur"
+
+msgid "Member since"
+msgstr "Membre depuis"
+
+msgid "Age"
+msgstr "Âge"
+
+msgid "ACTIVITY LEVEL"
+msgstr "NIVEAU D'ACTIVITÉ"
+
+msgid "YOUR QR CODE"
+msgstr "VOTRE QR CODE"
+
+msgid "QR"
+msgstr "QR"
+
+msgid "Followers"
+msgstr "Abonnés"
+
+msgid "PUBLISHED POSTS"
+msgstr "PUBLICATIONS PUBLIÉES"
+
+msgid "No published posts yet."
+msgstr "Pas encore de publications publiées."
+
+msgid "YOUR PERMANENT ID"
+msgstr "VOTRE ID PERMANENT"
+
+msgid "Copy ID"
+msgstr "Copier l'ID"
+
+msgid "Copy"
+msgstr "Copier"
+
+msgid "Join IESA"
+msgstr "Rejoindre IESA"
+
+msgid "Join IESA Today"
+msgstr "Rejoignez IESA aujourd'hui"
+
+msgid ""
+"Create your account and become part of our international extreme sports "
+"community."
+msgstr ""
+"Créez votre compte et faites partie de notre communauté internationale de "
+"sports extrêmes."
+
+msgid "Connect with Athletes"
+msgstr "Connectez-vous avec des athlètes"
+
+msgid "Share Your Journey"
+msgstr "Partagez votre parcours"
+
+msgid "Discover & RSVP to Events"
+msgstr "Découvrez et inscrivez-vous aux événements"
+
+msgid "Build Your Profile"
+msgstr "Construisez votre profil"
+
+msgid "REGISTER"
+msgstr "S'INSCRIRE"
+
+msgid "Create your account"
+msgstr "Créez votre compte"
+
+msgid "Join the IESA community and start sharing!"
+msgstr "Rejoignez la communauté IESA et commencez à partager !"
+
+msgid "Registration failed:"
+msgstr "Échec de l'inscription :"
+
+msgid "Create Account"
+msgstr "Créer un compte"
+
+msgid "Already have an account?"
+msgstr "Vous avez déjà un compte ?"
+
+msgid "Sign in here"
+msgstr "Connectez-vous ici"
+
+msgid "User search"
+msgstr "Recherche d'utilisateurs"
+
+msgid "MEMBER DIRECTORY"
+msgstr "ANNUAIRE DES MEMBRES"
+
+msgid "Find & Connect With Members"
+msgstr "Trouvez et connectez-vous avec les membres"
+
+msgid "Search our community by name, username, email or ID"
+msgstr "Recherchez dans notre communauté par nom, identifiant, e-mail ou ID"
+
+msgid "Search by name, username, email or ID..."
+msgstr "Rechercher par nom, identifiant, e-mail ou ID..."
+
+msgid "Results for"
+msgstr "Résultats pour"
+
+msgid "No users found."
+msgstr "Aucun utilisateur trouvé."
+
+msgid "Password must contain at least one uppercase letter (A-Z)."
+msgstr "Le mot de passe doit contenir au moins une lettre majuscule (A-Z)."
+
+msgid "Your password must contain at least one uppercase letter (A-Z)."
+msgstr "Votre mot de passe doit contenir au moins une lettre majuscule (A-Z)."
+
+#, python-brace-format
+msgid ""
+"Password must contain at least one special character "
+"(!@#$%^&*(),.?\":{}|<>)."
+msgstr ""
+"Le mot de passe doit contenir au moins un caractère spécial "
+"(!@#$%^&*(),.?\":{}|<>)."
+
+#, python-brace-format
+msgid ""
+"Your password must contain at least one special character "
+"(!@#$%^&*(),.?\":{}|<>)."
+msgstr ""
+"Votre mot de passe doit contenir au moins un caractère spécial "
+"(!@#$%^&*(),.?\":{}|<>)."
+
+msgid "Некорректный номер телефона. Допустимы цифры, пробелы, '+', '-', '()'."
+msgstr ""
+"Numéro de téléphone incorrect. Seuls les chiffres, espaces, '+', '-', '()' "
+"sont autorisés.Numéro de téléphone invalide. Chiffres, espaces, '+', '-', "
+"'()' sont autorisés."
+
+msgid ""
+"Введите корректную ссылку на профиль GitHub (например: "
+"https://github.com/username)"
+msgstr ""
+"Entrez un lien de profil GitHub valide (ex. : https://github.com/username)"
+
+msgid "Введите корректное имя Discord (например: username или username#1234)"
+msgstr ""
+"Entrez un nom d'utilisateur Discord valide (ex. : username ou username#1234)"
+
+msgid ""
+"Введите корректную ссылку Telegram (например: @username или t.me/username)"
+msgstr "Entrez un lien Telegram valide (ex. : @username ou t.me/username)"
+
+msgid ""
+"Введите корректную ссылку на сайт (должна начинаться с http:// или https://)"
+msgstr ""
+"Entrez un lien de site web valide (doit commencer par http:// ou https://)"
+
+msgid "Profile updated successfully! ✨"
+msgstr "Profil mis à jour avec succès ! ✨"
+
+msgid "❌ Please enter your password to confirm account deactivation."
+msgstr ""
+"❌ Veuillez entrer votre mot de passe pour confirmer la désactivation du "
+"compte."
+
+msgid "❌ Incorrect password. Account deactivation cancelled."
+msgstr "❌ Mot de passe incorrect. Désactivation du compte annulée."
+
+msgid ""
+"✅ Your account has been deactivated. You can reactivate it by contacting "
+"support."
+msgstr ""
+"✅ Votre compte a été désactivé. Vous pouvez le réactiver en contactant le "
+"support."
+
+msgid "⚠️ System error: Database migration required. Contact administrator."
+msgstr ""
+"⚠️ Erreur système : migration de base de données requise. Contactez "
+"l'administrateur."
+
+msgid ""
+"Your membership is inactive. Contact administrator to activate your account."
+msgstr ""
+"Votre adhésion est inactive. Contactez l'administrateur pour activer votre "
+"compte."
+
+msgid "⚠️ TOTP secret not configured. Contact administrator."
+msgstr "⚠️ Secret TOTP non configuré. Contactez l'administrateur."
+
+msgid "PIN system not initialized. Contact administrator."
+msgstr "Système PIN non initialisé. Contactez l'administrateur."
+
+msgid "⚠️ Unable to generate PIN. Contact administrator."
+msgstr "⚠️ Impossible de générer le PIN. Contactez l'administrateur."
+
+msgid "PIN generation failed. Contact administrator."
+msgstr "Échec de la génération du PIN. Contactez l'administrateur."
+
+msgid "⚠️ Partner profile not configured. Contact administrator."
+msgstr "⚠️ Profil partenaire non configuré. Contactez l'administrateur."
+
+msgid "Partner profile not found."
+msgstr "Profil partenaire non trouvé."
+
+#, python-format
+msgid "⚠️ Warning: %(name)s membership is currently inactive."
+msgstr "⚠️ Attention : l'adhésion de %(name)s est actuellement inactive."
+
+#, python-format
+msgid ""
+"🔒 PIN entry locked for this member. Please wait %(remaining)d minute(s)."
+msgstr ""
+"🔒 Saisie du PIN verrouillée pour ce membre. Veuillez patienter %(remaining)d"
+" minute(s)."
+
+msgid "⚠️ Member PIN system not configured. Contact administrator."
+msgstr "⚠️ Système PIN du membre non configuré. Contactez l'administrateur."
+
+#, python-format
+msgid ""
+"ℹ️ Duplicate detected: identical visit already logged within the last 5 "
+"minutes for %(name)s. No new record created."
+msgstr ""
+"ℹ️ Doublon détecté : visite identique déjà enregistrée dans les 5 dernières "
+"minutes pour %(name)s. Aucun nouvel enregistrement créé."
+
+#, python-format
+msgid ""
+"✅ Visit logged! Member: %(name)s | Service: %(service)s | Cost: %(cost)s"
+msgstr ""
+"✅ Visite enregistrée ! Membre : %(name)s | Service : %(service)s | Coût : "
+"%(cost)s"
+
+#, python-format
+msgid "🔒 Too many wrong PINs. PIN locked for %(minutes)d minutes."
+msgstr "🔒 Trop de PINs incorrects. PIN verrouillé pour %(minutes)d minutes."
+
+#, python-format
+msgid "❌ Invalid PIN. %(left)d attempt(s) remaining before lockout."
+msgstr "❌ PIN invalide. %(left)d tentative(s) restante(s) avant verrouillage."
+
+msgid ""
+"⏰ Edit window expired. Visits can only be edited within 20 minutes of "
+"logging."
+msgstr ""
+"⏰ Fenêtre de modification expirée. Les visites ne peuvent être modifiées que"
+" dans les 20 minutes suivant l'enregistrement."
+
+msgid "❌ Cancelled visits cannot be edited."
+msgstr "❌ Les visites annulées ne peuvent pas être modifiées."
+
+msgid "✅ Visit updated. Member notified via Telegram."
+msgstr "✅ Visite mise à jour. Membre notifié via Telegram."
+
+msgid ""
+"⏰ Edit window expired. Visits can only be cancelled within 20 minutes of "
+"logging."
+msgstr ""
+"⏰ Fenêtre d'annulation expirée. Les visites ne peuvent être annulées que "
+"dans les 20 minutes suivant l'enregistrement."
+
+msgid "This visit is already cancelled."
+msgstr "Cette visite est déjà annulée."
+
+msgid "✅ Visit cancelled. Member notified via Telegram."
+msgstr "✅ Visite annulée. Membre notifié via Telegram."
+
+msgid "Access restricted to administrators only."
+msgstr "Accès réservé aux administrateurs uniquement."
+
+msgid "Code must be exactly 6 digits."
+msgstr "Le code doit contenir exactement 6 chiffres."
+
+msgid "Code is invalid or expired. Get a new one with /link in the bot."
+msgstr ""
+"Code invalide ou expiré. Obtenez-en un nouveau avec /link dans le bot."
+
+msgid "This Telegram account is already linked to another user."
+msgstr "Ce compte Telegram est déjà lié à un autre utilisateur."
+
+msgid "✅ Telegram linked successfully!"
+msgstr "✅ Telegram lié avec succès !"
+
+msgid "Telegram disconnected from your account."
+msgstr "Telegram déconnecté de votre compte."
+
+msgid "Telegram signature verification failed."
+msgstr "Échec de la vérification de la signature Telegram."
+
+msgid "Telegram request expired. Please try again."
+msgstr "Demande Telegram expirée. Veuillez réessayer."
+
+msgid "Unable to retrieve Telegram ID."
+msgstr "Impossible de récupérer l'ID Telegram."
+
+#, python-format
+msgid "✅ Telegram (%(name)s) linked successfully!"
+msgstr "✅ Telegram (%(name)s) lié avec succès !"
+
+#~ msgid "Extreme sport as a way of thinking and life"
+#~ msgstr "Le sport extrême comme manière de penser et de vivre"
+
+#~ msgid "Wake up every color of life. Join us..."
+#~ msgstr "Réveille toutes les couleurs de la vie. Rejoins-nous..."
+
+#~ msgid "Age restriction:"
+#~ msgstr "Limite d'âge :"
+
+#~ msgid "Live preview"
+#~ msgstr "Aperçu en direct"
+
+#~ msgid "Draft preview"
+#~ msgstr "Aperçu du brouillon"
+
+#~ msgid "IESA Programs for Kids and Adults"
+#~ msgstr "Programmes IESA pour enfants et adultes"
+
+#~ msgid "WHAT IESA OFFERS"
+#~ msgstr "CE QUE IESA PROPOSE"
+
+#~ msgid "Kids"
+#~ msgstr "Enfants"
+
+#~ msgid "Adults"
+#~ msgstr "Adultes"
+
+#~ msgid "Teams"
+#~ msgstr "Équipes"
+
+#~ msgid "Travel"
+#~ msgstr "Voyages"
+
+#~ msgid "Extreme scout camp for kids"
+#~ msgstr "Camp scout extrême pour enfants"
+
+#~ msgid "Build resilience, love for sport, and a healthy lifestyle for teens."
+#~ msgstr ""
+#~ "Développer la résilience, l’amour du sport et un mode de vie sain chez les "
+#~ "adolescents."
+
+#~ msgid "Duration: 1 or 2 weeks"
+#~ msgstr "Durée : 1 ou 2 semaines"
+
+#~ msgid "Extreme weekends for adults"
+#~ msgstr "Week-ends extrêmes pour adultes"
+
+#~ msgid "Water sports weekends with a packed program."
+#~ msgstr "Week-ends de sports nautiques avec un programme chargé."
+
+#~ msgid "Yachting and diving for adults"
+#~ msgstr "Yachting et plongée pour adultes"
+
+#~ msgid "A complete reset and change of scenery with an active program."
+#~ msgstr "Un reset complet et un changement de décor avec un programme actif."
+
+#~ msgid "Stay: yacht or hotel of choice"
+#~ msgstr "Séjour : yacht ou hôtel au choix"
+
+#~ msgid "Options: Grand Egyptian Museum, quad bikes, camels, catamaran"
+#~ msgstr "Options : Grand Egyptian Museum, quad, chameaux, catamaran"
+
+#~ msgid "Strengthen teams through extreme sports"
+#~ msgstr "Renforcer les équipes par les sports extrêmes"
+
+#~ msgid "Strengthen Any Team"
+#~ msgstr "Renforcer n'importe quelle équipe"
+
+#~ msgid "Work, creative, and leadership teams — through extreme sports formats."
+#~ msgstr ""
+#~ "Équipes de travail, créatives et de direction — grâce aux formats de sports "
+#~ "extrêmes."
+
+#~ msgid "Outcome: cohesion, trust, energy"
+#~ msgstr "Résultat : cohésion, confiance, énergie"
+
+#~ msgid "Become an IESA member"
+#~ msgstr "Devenir membre de l’IESA"
+
+#~ msgid "View upcoming events"
+#~ msgstr "Voir les prochains événements"
+
+#~ msgid "Want to join the programs?"
+#~ msgstr "Vous voulez rejoindre les programmes ?"
+
+#~ msgid "Get access to camps, weekends, journeys, and team formats."
+#~ msgstr "Accédez aux camps, week-ends, voyages et formats d’équipe."
+
+#~ msgid "OUR CORE PROGRAMS"
+#~ msgstr "NOS PROGRAMMES PRINCIPAUX"
+
+#, python-format
+#~ msgid "%(title)s program"
+#~ msgstr "Programme %(title)s"
+
+#, python-format
+#~ msgid "Learn more about %(title)s"
+#~ msgstr "En savoir plus sur %(title)s"
+
+#~ msgid "UPCOMING EVENTS"
+#~ msgstr "ÉVÉNEMENTS À VENIR"
+
+#~ msgid "Join Our Next Community Gatherings"
+#~ msgstr "Rejoignez nos prochaines rencontres communautaires"
+
+#~ msgid "ABOUT IESA"
+#~ msgstr "À PROPOS DE IESA"
+
+#~ msgid "Our Leadership & Team"
+#~ msgstr "Notre direction & équipe"
+
+#~ msgid "Meet the people who drive our mission forward"
+#~ msgstr "Rencontrez les personnes qui font avancer notre mission"
+
+#~ msgid "A Word from the President"
+#~ msgstr "Un mot du président"
+
+#~ msgid "OUR TEAM"
+#~ msgstr "NOTRE ÉQUIPE"
+
+#~ msgid "Dedicated Leadership & Members"
+#~ msgstr "Direction et membres engagés"
+
+#~ msgid "PARTNERSHIPS"
+#~ msgstr "PARTENARIATS"
+
+#, python-format
+#~ msgid "%(name)s - %(category)s partner"
+#~ msgstr "%(name)s - partenaire %(category)s"
+
+#, python-format
+#~ msgid "View details about %(name)s"
+#~ msgstr "Voir les détails sur %(name)s"
+
+#, python-format
+#~ msgid "Visit %(name)s website"
+#~ msgstr "Visiter le site de %(name)s"
+
+#~ msgid "Support Our Association"
+#~ msgstr "Soutenez notre association"
+
+#~ msgid "Stripe integration coming soon. This is a preview section."
+#~ msgstr "Intégration Stripe bientôt. Ceci est une section d’aperçu."
+
+#~ msgid "Impact focus"
+#~ msgstr "Impact ciblé"
+
+#~ msgid "Events · Education · Partnerships"
+#~ msgstr "Événements · Éducation · Partenariats"
+
+#, python-format
+#~ msgid "Chat with %(first)s %(last)s"
+#~ msgstr "Discussion avec %(first)s %(last)s"
+
+#, python-format
+#~ msgid "%(name)s is typing"
+#~ msgstr "%(name)s est en train d'écrire"
+
+#~ msgid "Type a message..."
+#~ msgstr "Écrire un message..."
+
+#~ msgid "Attach file"
+#~ msgstr "Joindre un fichier"
+
+#~ msgid "Search messages"
+#~ msgstr "Rechercher des messages"
+
+#~ msgid "Search..."
+#~ msgstr "Rechercher..."
+
+#~ msgid "Today"
+#~ msgstr "Aujourd'hui"
+
+#~ msgid "Yesterday"
+#~ msgstr "Hier"
+
+#~ msgid "(edited)"
+#~ msgstr "(modifié)"
+
+#~ msgid "Edit message:"
+#~ msgstr "Modifier le message :"
+
+#~ msgid "Delete message?"
+#~ msgstr "Supprimer le message ?"
+
+#~ msgid "New chat"
+#~ msgstr "Nouvelle discussion"
+
+#~ msgid "Search chats..."
+#~ msgstr "Rechercher des discussions..."
+
+#~ msgid "No chats"
+#~ msgstr "Aucune discussion"
+
+#~ msgid "Select a chat"
+#~ msgstr "Sélectionner une discussion"
+
+#~ msgid "Or start a new conversation"
+#~ msgstr "Ou commencer une nouvelle conversation"
+
+#~ msgid "Search users..."
+#~ msgstr "Rechercher des utilisateurs..."
+
+#~ msgid "Type a name to search"
+#~ msgstr "Tapez un nom pour rechercher"
+
+#~ msgid "No messages"
+#~ msgstr "Aucun message"
+
+#~ msgid "No users found"
+#~ msgstr "Aucun utilisateur trouvé"
+
+#~ msgid "Select language"
+#~ msgstr "Sélectionner la langue"
+
+#~ msgid "Your Posts"
+#~ msgstr "Vos articles"
+
+#~ msgid "You have no posts yet."
+#~ msgstr "Vous n'avez pas encore d'articles."
+
+#~ msgid "Site Maps"
+#~ msgstr "Plans de site"
+
+#~ msgid "Static Files"
+#~ msgstr "Fichiers statiques"
+
+#~ msgid "Syndication"
+#~ msgstr "Syndication"
+
+#~ msgid "…"
+#~ msgstr "…"
+
+#~ msgid "That page number is not an integer"
+#~ msgstr "Ce numéro de page n'est pas un entier"
+
+#~ msgid "That page number is less than 1"
+#~ msgstr "Ce numéro de page est inférieur à 1"
+
+#~ msgid "That page contains no results"
+#~ msgstr "Cette page ne contient aucun résultat"
+
+#~ msgid "Enter a valid value."
+#~ msgstr "Saisissez une valeur valide."
+
+#~ msgid "Enter a valid domain name."
+#~ msgstr "Saisissez un nom de domaine valide."
+
+#~ msgid "Enter a valid URL."
+#~ msgstr "Saisissez une URL valide."
+
+#~ msgid "Enter a valid integer."
+#~ msgstr "Saisissez un nombre entier valide."
+
+#~ msgid "Enter a valid email address."
+#~ msgstr "Saisissez une adresse e-mail valide."
+
+#, python-format
+#~ msgid "Enter a valid %(protocol)s address."
+#~ msgstr "Saisissez une adresse %(protocol)s valide."
+
+#~ msgid "IPv4"
+#~ msgstr "IPv4"
+
+#~ msgid "IPv6"
+#~ msgstr "IPv6"
+
+#~ msgid "IPv4 or IPv6"
+#~ msgstr "IPv4 ou IPv6"
+
+#~ msgid "Enter only digits separated by commas."
+#~ msgstr "Saisissez uniquement des chiffres séparés par des virgules."
+
+#, python-format
+#~ msgid "Ensure this value is %(limit_value)s (it is %(show_value)s)."
+#~ msgstr ""
+#~ "Assurez-vous que cette valeur est %(limit_value)s (elle est %(show_value)s)."
+
+#, python-format
+#~ msgid "Ensure this value is less than or equal to %(limit_value)s."
+#~ msgstr ""
+#~ "Assurez-vous que cette valeur est inférieure ou égale à %(limit_value)s."
+
+#, python-format
+#~ msgid "Ensure this value is greater than or equal to %(limit_value)s."
+#~ msgstr ""
+#~ "Assurez-vous que cette valeur est supérieure ou égale à %(limit_value)s."
+
+#, python-format
+#~ msgid "Ensure this value is a multiple of step size %(limit_value)s."
+#~ msgstr "Assurez-vous que cette valeur est un multiple du pas %(limit_value)s."
+
+#~ msgid "Enter a number."
+#~ msgstr "Saisissez un nombre."
+
+#, python-format
+#~ msgid "Ensure that there are no more than %(max)s digit in total."
+#~ msgid_plural "Ensure that there are no more than %(max)s digits in total."
+#~ msgstr[0] "Ensure that there are no more than %(max)s digit in total."
+#~ msgstr[1] "Ensure that there are no more than %(max)s digits in total."
+
+#, python-format
+#~ msgid "Ensure that there are no more than %(max)s decimal place."
+#~ msgid_plural "Ensure that there are no more than %(max)s decimal places."
+#~ msgstr[0] "Ensure that there are no more than %(max)s decimal place."
+#~ msgstr[1] "Ensure that there are no more than %(max)s decimal places."
+
+#~ msgid "Null characters are not allowed."
+#~ msgstr "Les caractères nuls ne sont pas autorisés."
+
+#~ msgid "and"
+#~ msgstr "et"
+
+#, python-format
+#~ msgid "%(model_name)s with this %(field_labels)s already exists."
+#~ msgstr "%(model_name)s avec ce %(field_labels)s existe déjà."
+
+#, python-format
+#~ msgid "Constraint “%(name)s” is violated."
+#~ msgstr "La contrainte “%(name)s” est violée."
+
+#, python-format
+#~ msgid "Value %(value)r is not a valid choice."
+#~ msgstr "La valeur %(value)r n'est pas un choix valide."
+
+#~ msgid "This field cannot be null."
+#~ msgstr "Ce champ ne peut pas être nul."
+
+#~ msgid "This field cannot be blank."
+#~ msgstr "Ce champ ne peut pas être vide."
+
+#, python-format
+#~ msgid "%(model_name)s with this %(field_label)s already exists."
+#~ msgstr "%(model_name)s avec ce %(field_label)s existe déjà."
+
+#, python-format
+#~ msgid "Field of type: %(field_type)s"
+#~ msgstr "Champ de type : %(field_type)s"
+
+#, python-format
+#~ msgid "“%(value)s” value must be either True or False."
+#~ msgstr "La valeur “%(value)s” doit être True ou False."
+
+#, python-format
+#~ msgid "“%(value)s” value must be either True, False, or None."
+#~ msgstr "La valeur “%(value)s” doit être True, False ou None."
+
+#~ msgid "Boolean (Either True or False)"
+#~ msgstr "Booléen (True ou False)"
+
+#, python-format
+#~ msgid "String (up to %(max_length)s)"
+#~ msgstr "Chaîne (jusqu'à %(max_length)s)"
+
+#~ msgid "String (unlimited)"
+#~ msgstr "Chaîne (illimitée)"
+
+#~ msgid "Comma-separated integers"
+#~ msgstr "Entiers séparés par des virgules"
+
+#~ msgid "Date (without time)"
+#~ msgstr "Date (sans heure)"
+
+#~ msgid "Date (with time)"
+#~ msgstr "Date (avec heure)"
+
+#, python-format
+#~ msgid "“%(value)s” value must be a decimal number."
+#~ msgstr "La valeur “%(value)s” doit être un nombre décimal."
+
+#~ msgid "Decimal number"
+#~ msgstr "Nombre décimal"
+
+#~ msgid "Email address"
+#~ msgstr "Adresse e-mail"
+
+#~ msgid "File path"
+#~ msgstr "Chemin du fichier"
+
+#, python-format
+#~ msgid "“%(value)s” value must be a float."
+#~ msgstr "La valeur “%(value)s” doit être un nombre à virgule flottante."
+
+#~ msgid "Floating point number"
+#~ msgstr "Nombre à virgule flottante"
+
+#, python-format
+#~ msgid "“%(value)s” value must be an integer."
+#~ msgstr "La valeur “%(value)s” doit être un entier."
+
+#~ msgid "Integer"
+#~ msgstr "Entier"
+
+#~ msgid "Big (8 byte) integer"
+#~ msgstr "Grand entier (8 octets)"
+
+#~ msgid "Small integer"
+#~ msgstr "Petit entier"
+
+#~ msgid "IPv4 address"
+#~ msgstr "Adresse IPv4"
+
+#, python-format
+#~ msgid "“%(value)s” value must be either None, True or False."
+#~ msgstr "La valeur “%(value)s” doit être None, True ou False."
+
+#~ msgid "Boolean (Either True, False or None)"
+#~ msgstr "Booléen (True, False ou None)"
+
+#~ msgid "Positive big integer"
+#~ msgstr "Grand entier positif"
+
+#~ msgid "Positive integer"
+#~ msgstr "Entier positif"
+
+#~ msgid "Positive small integer"
+#~ msgstr "Petit entier positif"
+
+#, python-format
+#~ msgid "Slug (up to %(max_length)s)"
+#~ msgstr "Slug (jusqu'à %(max_length)s)"
+
+#~ msgid "Text"
+#~ msgstr "Texte"
+
+#~ msgid "Time"
+#~ msgstr "Heure"
+
+#~ msgid "URL"
+#~ msgstr "URL"
+
+#~ msgid "Raw binary data"
+#~ msgstr "Données binaires brutes"
+
+#, python-format
+#~ msgid "“%(value)s” is not a valid UUID."
+#~ msgstr "“%(value)s” n’est pas un UUID valide."
+
+#~ msgid "Universally unique identifier"
+#~ msgstr "Identifiant unique universel"
+
+#~ msgid "File"
+#~ msgstr "Fichier"
+
+#~ msgid "Image"
+#~ msgstr "Image"
+
+#~ msgid "A JSON object"
+#~ msgstr "Un objet JSON"
+
+#~ msgid "Value must be valid JSON."
+#~ msgstr "La valeur doit être du JSON valide."
+
+#, python-format
+#~ msgid "%(model)s instance with %(field)s %(value)r is not a valid choice."
+#~ msgstr ""
+#~ "L'instance %(model)s avec %(field)s %(value)r n'est pas un choix valide."
+
+#~ msgid "Foreign Key (type determined by related field)"
+#~ msgstr "Clé étrangère (type déterminé par le champ lié)"
+
+#~ msgid "One-to-one relationship"
+#~ msgstr "Relation un-à-un"
+
+#, python-format
+#~ msgid "%(from)s-%(to)s relationship"
+#~ msgstr "Relation %(from)s-%(to)s"
+
+#, python-format
+#~ msgid "%(from)s-%(to)s relationships"
+#~ msgstr "Relations %(from)s-%(to)s"
+
+#~ msgid "Many-to-many relationship"
+#~ msgstr "Relation plusieurs-à-plusieurs"
+
+#~ msgid ":?.!"
+#~ msgstr ":?.!"
+
+#~ msgid "This field is required."
+#~ msgstr "Ce champ est obligatoire."
+
+#~ msgid "Enter a whole number."
+#~ msgstr "Saisissez un nombre entier."
+
+#~ msgid "Enter a valid date."
+#~ msgstr "Saisissez une date valide."
+
+#~ msgid "Enter a valid time."
+#~ msgstr "Saisissez une heure valide."
+
+#~ msgid "Enter a valid date/time."
+#~ msgstr "Saisissez une date/heure valide."
+
+#~ msgid "Enter a valid duration."
+#~ msgstr "Saisissez une durée valide."
+
+#, python-brace-format
+#~ msgid "The number of days must be between {min_days} and {max_days}."
+#~ msgstr "Le nombre de jours doit être entre {min_days} et {max_days}."
+
+#~ msgid "No file was submitted. Check the encoding type on the form."
+#~ msgstr "Aucun fichier soumis. Vérifiez le type d'encodage du formulaire."
+
+#~ msgid "No file was submitted."
+#~ msgstr "Aucun fichier soumis."
+
+#~ msgid "The submitted file is empty."
+#~ msgstr "Le fichier soumis est vide."
+
+#, python-format
+#~ msgid ""
+#~ "Ensure this filename has at most %(max)d character (it has %(length)d)."
+#~ msgid_plural ""
+#~ "Ensure this filename has at most %(max)d characters (it has %(length)d)."
+#~ msgstr[0] ""
+#~ "Ensure this filename has at most %(max)d character (it has %(length)d)."
+#~ msgstr[1] ""
+#~ "Ensure this filename has at most %(max)d characters (it has %(length)d)."
+
+#~ msgid "Please either submit a file or check the clear checkbox, not both."
+#~ msgstr ""
+#~ "Veuillez soumettre un fichier ou cocher la case d'effacement, pas les deux."
+
+#, python-format
+#~ msgid "Select a valid choice. %(value)s is not one of the available choices."
+#~ msgstr ""
+#~ "Sélectionnez un choix valide. %(value)s n'est pas parmi les choix "
+#~ "disponibles."
+
+#~ msgid "Enter a list of values."
+#~ msgstr "Saisissez une liste de valeurs."
+
+#~ msgid "Enter a complete value."
+#~ msgstr "Saisissez une valeur complète."
+
+#~ msgid "Enter a valid UUID."
+#~ msgstr "Saisissez un UUID valide."
+
+#~ msgid "Enter a valid JSON."
+#~ msgstr "Saisissez du JSON valide."
+
+#~ msgid ":"
+#~ msgstr ":"
+
+#, python-format
+#~ msgid "(Hidden field %(name)s) %(error)s"
+#~ msgstr "(Champ masqué %(name)s) %(error)s"
+
+#, python-format
+#~ msgid "Please submit at most %(num)d form."
+#~ msgid_plural "Please submit at most %(num)d forms."
+#~ msgstr[0] "Please submit at most %(num)d form."
+#~ msgstr[1] "Please submit at most %(num)d forms."
+
+#, python-format
+#~ msgid "Please submit at least %(num)d form."
+#~ msgid_plural "Please submit at least %(num)d forms."
+#~ msgstr[0] "Please submit at least %(num)d form."
+#~ msgstr[1] "Please submit at least %(num)d forms."
+
+#~ msgid "Order"
+#~ msgstr "Ordre"
+
+#, python-format
+#~ msgid "Please correct the duplicate data for %(field)s."
+#~ msgstr "Veuillez corriger les données en double pour %(field)s."
+
+#, python-format
+#~ msgid "Please correct the duplicate data for %(field)s, which must be unique."
+#~ msgstr ""
+#~ "Veuillez corriger les données en double pour %(field)s, qui doivent être "
+#~ "uniques."
+
+#~ msgid "Please correct the duplicate values below."
+#~ msgstr "Veuillez corriger les valeurs en double ci-dessous."
+
+#~ msgid "The inline value did not match the parent instance."
+#~ msgstr "La valeur en ligne ne correspondait pas à l'instance parente."
+
+#~ msgid ""
+#~ "Select a valid choice. That choice is not one of the available choices."
+#~ msgstr "Sélectionnez un choix valide. Ce choix n'est pas disponible."
+
+#, python-format
+#~ msgid "“%(pk)s” is not a valid value."
+#~ msgstr "“%(pk)s” n’est pas une valeur valide."
+
+#~ msgid "Clear"
+#~ msgstr "Effacer"
+
+#~ msgid "Currently"
+#~ msgstr "Actuellement"
+
+#~ msgid "Unknown"
+#~ msgstr "Inconnu"
+
+#~ msgid "Yes"
+#~ msgstr "Oui"
+
+#~ msgid "No"
+#~ msgstr "Non"
+
+#~ msgid "yes,no,maybe"
+#~ msgstr "oui,non,peut-être"
+
+#, python-format
+#~ msgid "%(size)d byte"
+#~ msgid_plural "%(size)d bytes"
+#~ msgstr[0] "%(size)d byte"
+#~ msgstr[1] "%(size)d bytes"
+
+#, python-format
+#~ msgid "%s KB"
+#~ msgstr "%s Ko"
+
+#, python-format
+#~ msgid "%s MB"
+#~ msgstr "%s Mo"
+
+#, python-format
+#~ msgid "%s GB"
+#~ msgstr "%s Go"
+
+#, python-format
+#~ msgid "%s TB"
+#~ msgstr "%s To"
+
+#, python-format
+#~ msgid "%s PB"
+#~ msgstr "%s Po"
+
+#~ msgid "p.m."
+#~ msgstr "après-midi"
+
+#~ msgid "a.m."
+#~ msgstr "matin"
+
+#~ msgid "PM"
+#~ msgstr "PM"
+
+#~ msgid "AM"
+#~ msgstr "AM"
+
+#~ msgid "midnight"
+#~ msgstr "minuit"
+
+#~ msgid "noon"
+#~ msgstr "midi"
+
+#~ msgid "Monday"
+#~ msgstr "Lundi"
+
+#~ msgid "Tuesday"
+#~ msgstr "Mardi"
+
+#~ msgid "Wednesday"
+#~ msgstr "Mercredi"
+
+#~ msgid "Thursday"
+#~ msgstr "Jeudi"
+
+#~ msgid "Friday"
+#~ msgstr "Vendredi"
+
+#~ msgid "Saturday"
+#~ msgstr "Samedi"
+
+#~ msgid "Sunday"
+#~ msgstr "Dimanche"
+
+#~ msgid "Mon"
+#~ msgstr "Lun"
+
+#~ msgid "Tue"
+#~ msgstr "Mar"
+
+#~ msgid "Wed"
+#~ msgstr "Mer"
+
+#~ msgid "Thu"
+#~ msgstr "Jeu"
+
+#~ msgid "Fri"
+#~ msgstr "Ven"
+
+#~ msgid "Sat"
+#~ msgstr "Sam"
+
+#~ msgid "Sun"
+#~ msgstr "Dim"
+
+#~ msgid "January"
+#~ msgstr "Janvier"
+
+#~ msgid "February"
+#~ msgstr "Février"
+
+#~ msgid "March"
+#~ msgstr "Mars"
+
+#~ msgid "April"
+#~ msgstr "Avril"
+
+#~ msgid "May"
+#~ msgstr "Mai"
+
+#~ msgid "June"
+#~ msgstr "Juin"
+
+#~ msgid "July"
+#~ msgstr "Juillet"
+
+#~ msgid "August"
+#~ msgstr "Août"
+
+#~ msgid "September"
+#~ msgstr "Septembre"
+
+#~ msgid "October"
+#~ msgstr "Octobre"
+
+#~ msgid "November"
+#~ msgstr "Novembre"
+
+#~ msgid "December"
+#~ msgstr "Décembre"
+
+#~ msgid "jan"
+#~ msgstr "janv"
+
+#~ msgid "feb"
+#~ msgstr "fév"
+
+#~ msgid "mar"
+#~ msgstr "mars"
+
+#~ msgid "apr"
+#~ msgstr "avr"
+
+#~ msgid "may"
+#~ msgstr "mai"
+
+#~ msgid "jun"
+#~ msgstr "juin"
+
+#~ msgid "jul"
+#~ msgstr "juil"
+
+#~ msgid "aug"
+#~ msgstr "aoû"
+
+#~ msgid "sep"
+#~ msgstr "sept"
+
+#~ msgid "oct"
+#~ msgstr "oct"
+
+#~ msgid "nov"
+#~ msgstr "nov"
+
+#~ msgid "dec"
+#~ msgstr "déc"
+
+#~ msgid "Jan."
+#~ msgstr "Janv."
+
+#~ msgid "Feb."
+#~ msgstr "Fév."
+
+#~ msgid "Aug."
+#~ msgstr "Aoû."
+
+#~ msgid "Sept."
+#~ msgstr "Sep."
+
+#~ msgid "Oct."
+#~ msgstr "Oct."
+
+#~ msgid "Nov."
+#~ msgstr "Nov."
+
+#~ msgid "Dec."
+#~ msgstr "Déc."
+
+#~ msgid "This is not a valid IPv6 address."
+#~ msgstr "Ceci n'est pas une adresse IPv6 valide."
+
+#, python-format
+#~ msgid "%(truncated_text)s…"
+#~ msgstr "%(truncated_text)s…"
+
+#~ msgid ", "
+#~ msgstr ", "
+
+#, python-format
+#~ msgid "%(num)d year"
+#~ msgid_plural "%(num)d years"
+#~ msgstr[0] "%(num)d year"
+#~ msgstr[1] "%(num)d years"
+
+#, python-format
+#~ msgid "%(num)d month"
+#~ msgid_plural "%(num)d months"
+#~ msgstr[0] "%(num)d month"
+#~ msgstr[1] "%(num)d months"
+
+#, python-format
+#~ msgid "%(num)d day"
+#~ msgid_plural "%(num)d days"
+#~ msgstr[0] "%(num)d day"
+#~ msgstr[1] "%(num)d days"
+
+#, python-format
+#~ msgid "%(num)d hour"
+#~ msgid_plural "%(num)d hours"
+#~ msgstr[0] "%(num)d hour"
+#~ msgstr[1] "%(num)d hours"
+
+#, python-format
+#~ msgid "%(num)d minute"
+#~ msgid_plural "%(num)d minutes"
+#~ msgstr[0] "%(num)d minute"
+#~ msgstr[1] "%(num)d minutes"
+
+#~ msgid "CSRF verification failed. Request aborted."
+#~ msgstr "La vérification CSRF a échoué. Requête annulée."
+
+#~ msgid "More information is available with DEBUG=True."
+#~ msgstr "Plus d'informations disponibles avec DEBUG=True."
+
+#~ msgid "No year specified"
+#~ msgstr "Aucune année spécifiée"
+
+#~ msgid "Date out of range"
+#~ msgstr "Date hors limites"
+
+#~ msgid "No month specified"
+#~ msgstr "Aucun mois spécifié"
+
+#~ msgid "No day specified"
+#~ msgstr "Aucun jour spécifié"
+
+#~ msgid "No week specified"
+#~ msgstr "Aucune semaine spécifiée"
+
+#, python-format
+#~ msgid "No %(verbose_name_plural)s available"
+#~ msgstr "Aucun %(verbose_name_plural)s disponible"
+
+#, python-format
+#~ msgid "Invalid date string “%(datestr)s” given format “%(format)s”"
+#~ msgstr "Chaîne de date invalide “%(datestr)s” pour le format “%(format)s”"
+
+#, python-format
+#~ msgid "No %(verbose_name)s found matching the query"
+#~ msgstr "Aucun %(verbose_name)s trouvé correspondant à la requête"
+
+#~ msgid "Page is not “last”, nor can it be converted to an int."
+#~ msgstr "La page n’est pas “last” et ne peut pas être convertie en entier."
+
+#, python-format
+#~ msgid "Invalid page (%(page_number)s): %(message)s"
+#~ msgstr "Page invalide (%(page_number)s) : %(message)s"
+
+#, python-format
+#~ msgid "Empty list and “%(class_name)s.allow_empty” is False."
+#~ msgstr "Liste vide et “%(class_name)s.allow_empty” est False."
+
+#~ msgid "Directory indexes are not allowed here."
+#~ msgstr "Les index de répertoire ne sont pas autorisés ici."
+
+#, python-format
+#~ msgid "“%(path)s” does not exist"
+#~ msgstr "“%(path)s” n’existe pas"
+
+#, python-format
+#~ msgid "Index of %(directory)s"
+#~ msgstr "Index de %(directory)s"
+
+#~ msgid "The install worked successfully! Congratulations!"
+#~ msgstr "L'installation a réussi ! Félicitations !"
+
+#~ msgid "Django Documentation"
+#~ msgstr "Documentation Django"
+
+#~ msgid "Topics, references, &amp; how-to’s"
+#~ msgstr "Sujets, références et tutoriels"
+
+#~ msgid "Tutorial: A Polling App"
+#~ msgstr "Tutoriel : une application de sondage"
+
+#~ msgid "Get started with Django"
+#~ msgstr "Débuter avec Django"
+
+#~ msgid "Django Community"
+#~ msgstr "Communauté Django"
+
+#~ msgid "Connect, get help, or contribute"
+#~ msgstr "Se connecter, obtenir de l'aide ou contribuer"
+
+#~ msgid "You must be logged in to upload files."
+#~ msgstr "Vous devez être connecté pour télécharger des fichiers."
+
+#, python-format
+#~ msgid "File should be at most %(max_size)s MB."
+#~ msgstr "Le fichier doit faire au maximum %(max_size)s Mo."
+
+#~ msgid "Invalid form data"
+#~ msgstr "Données de formulaire invalides"
+
+#~ msgid "Check the correct settings.CKEDITOR_5_CONFIGS "
+#~ msgstr "Vérifiez les paramètres corrects settings.CKEDITOR_5_CONFIGS "
+
+#~ msgid "Thumbnail"
+#~ msgstr "Miniature"
+
+#~ msgid "Member Cabinet — IESA Sport"
+#~ msgstr "Espace membre — IESA Sport"
+
+#~ msgid "Personal Cabinet · IESA Sport"
+#~ msgstr "Espace personnel · IESA Sport"
