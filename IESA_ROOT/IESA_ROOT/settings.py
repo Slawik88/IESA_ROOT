@@ -149,6 +149,7 @@ if 'DATABASE_URL' in os.environ:
         default=_db_url,
         conn_max_age=_CONN_MAX_AGE,
         ssl_require=True,
+        conn_health_checks=True,
     )
     # Required when using PgBouncer in transaction pooling mode:
     # server-side cursors keep a named cursor open across statements which
