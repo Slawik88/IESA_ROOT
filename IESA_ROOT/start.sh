@@ -3,9 +3,9 @@
 set -e
 
 echo "🔄 Running database migrations..."
-python manage.py migrate --noinput
+python manage.py migrate --noinput || echo "⚠️  Migration failed (DB may be overloaded) — continuing startup anyway"
 
-echo "✅ Migrations complete!"
+echo "✅ Startup check done!"
 echo "🚀 Starting Daphne ASGI server..."
 
 exec daphne \
