@@ -249,16 +249,11 @@ async def handle_cancel(chat_id: int, text: str, user_db) -> Reply:
 
 
 async def handle_new_channel_member(chat_id: str, new_member: dict, channel_title: str) -> None:
-    """Send a welcome message to the channel when a new member joins.
+    """Send a creative, non-intrusive welcome to the group when someone joins.
 
-    Parameters
-    ----------
-    chat_id : str | int
-        The channel's chat ID — where to send the welcome.
-    new_member : dict
-        The `new_chat_member` dict from Telegram update (contains user info).
-    channel_title : str
-        Display name of the channel.
+    Sent silently (no notification sound) so it doesn't disturb existing members.
+    Works both from chat_member admin-level updates AND from the service message
+    new_chat_members field (no admin rights needed).
     """
     user    = new_member.get("user") or {}
     user_id = user.get("id")
@@ -267,38 +262,34 @@ async def handle_new_channel_member(chat_id: str, new_member: dict, channel_titl
     uname   = user.get("username")
     is_bot  = user.get("is_bot", False)
 
-    # Don't welcome other bots joining the channel
     if is_bot:
         return
 
     full_name = f"{fname} {lname}".strip() or uname or f"id{user_id}"
     mention   = f'<a href="tg://user?id={user_id}">{full_name}</a>' if user_id else full_name
-    at_user   = f"@{uname}" if uname else ""
 
+    # Short, punchy, personal — feels like a real club, not a bot blast
     text = (
-        f"👋 <b>{mention}</b>, добро пожаловать в сообщество <b>IESA Sport</b>!\n"
-        f"{at_user}\n\n" if at_user else
-        f"👋 <b>{mention}</b>, добро пожаловать в сообщество <b>IESA Sport</b>!\n\n"
+        f"🏔 <b>{mention}</b> —  добро пожаловать в <b>IESA Sport</b>!\n\n"
+        f"Ты только что стал частью спортивного сообщества Швейцарии. "
+        f"Зарегистрируйся на сайте, чтобы получить персональную карту участника — "
+        f"с ней открываются скидки у партнёров, участие в событиях и многое другое."
     )
-    text += (
-        "🏔 IESA Sport — спортивная ассоциация Швейцарии.\n"
-        "Рады видеть вас среди нас!\n\n"
-        "<b>Что доступно участникам:</b>\n"
-        "🃏 Персональная карта участника с PIN-кодом\n"
-        "🤝 Скидки и привилегии у партнёров ассоциации\n"
-        "📅 Участие в мероприятиях и соревнованиях\n"
-        "🔔 Уведомления о визитах и новостях\n\n"
-        "👇 Зарегистрируйтесь на сайте и привяжите аккаунт к боту:"
-    )
-    from .client import send_message_async  # noqa: avoid circular at top level
+
     keyboard = {
         "inline_keyboard": [
-            [{"text": "🌐 Сайт IESA Sport", "url": "https://iesasport.ch"}],
-            [{"text": "🔗 Привязать аккаунт", "url": "https://iesasport.ch/auth/cabinet/"}],
-            [{"text": "🤖 Написать боту напрямую", "url": f"https://t.me/IESA_ADMINISTRATOR_BOT"}],
+            [{"text": "🔗 Открыть личный кабинет →", "url": "https://iesasport.ch/auth/cabinet/"}],
         ]
     }
-    await send_message_async(text, chat_id=chat_id, reply_markup=keyboard)
+
+    from .client import send_message_async  # noqa: avoid circular at top level
+    await send_message_async(
+        text,
+        chat_id=chat_id,
+        reply_markup=keyboard,
+        disable_notification=True,   # silent — doesn't ping the whole group
+    )
+
 
 
 async def handle_echo(chat_id: int, text: str, user_db) -> Reply:

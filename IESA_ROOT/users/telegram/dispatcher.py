@@ -141,6 +141,26 @@ async def process_incoming_update(update: dict[str, Any]) -> bool:
     if not chat_id:
         return False
 
+    # ── 2a. Service message: new members joined the group ──────────────────
+    # Telegram sends this even when the bot is NOT an admin —
+    # this is the reliable fallback for group welcome messages.
+    new_chat_members = message.get("new_chat_members")
+    if new_chat_members:
+        chat_title = chat.get("title") or ""
+        for member in new_chat_members:
+            if member.get("is_bot"):
+                continue  # skip other bots (including ourselves)
+            new_member_obj = {"user": member, "status": "member"}
+            try:
+                await handle_new_channel_member(
+                    chat_id=chat_id,
+                    new_member=new_member_obj,
+                    channel_title=chat_title,
+                )
+            except Exception as exc:
+                logger.exception("handle_new_channel_member (service msg) raised: %s", exc)
+        return True
+
     user_db = await _get_user(chat_id)
 
     # Match command (strip @botname suffix)
