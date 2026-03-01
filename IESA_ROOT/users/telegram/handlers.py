@@ -272,13 +272,13 @@ async def handle_new_channel_member(chat_id: str, new_member: dict, channel_titl
     text = (
         f"🏔 <b>{mention}</b> —  добро пожаловать в <b>IESA Sport</b>!\n\n"
         f"Ты только что стал частью спортивного сообщества Швейцарии. "
-        f"Зарегистрируйся на сайте, чтобы получить персональную карту участника — "
+        f"Создай аккаунт на сайте, чтобы получить персональную карту участника — "
         f"с ней открываются скидки у партнёров, участие в событиях и многое другое."
     )
 
     keyboard = {
         "inline_keyboard": [
-            [{"text": "🔗 Открыть личный кабинет →", "url": "https://iesasport.ch/auth/cabinet/"}],
+            [{"text": "📝 Зарегистрироваться →", "url": "https://iesasport.ch/auth/register/"}],
         ]
     }
 
