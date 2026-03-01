@@ -12,4 +12,6 @@ exec daphne \
     -b 0.0.0.0 \
     -p 8080 \
     --access-log - \
+    --proxy-headers \
+    -t 30 \
     IESA_ROOT.asgi:application
