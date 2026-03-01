@@ -108,15 +108,16 @@ async def process_incoming_update(update: dict[str, Any]) -> bool:
         handler = CALLBACKS.get(cb_data)
 
         if handler:
+            # Acknowledge FIRST so Telegram removes the loading spinner immediately.
+            # The message edit/send happens after, but the user sees instant response.
+            await answer_callback_query(cb_id)
+
             try:
                 text, markup = await handler(chat_id, cb_data, user_db)
             except Exception as exc:
                 logger.exception("Callback handler %s raised: %s", cb_data, exc)
-                await answer_callback_query(cb_id, "⚠️ Ошибка. Попробуй позже.")
+                await send_message_async("⚠️ Ошибка. Попробуй позже.", chat_id=chat_id)
                 return False
-
-            # Silently acknowledge the button tap (removes loading spinner)
-            await answer_callback_query(cb_id)
 
             # Edit the existing message in-place if possible, else send new
             edited = await edit_message_text(
@@ -161,6 +162,11 @@ async def process_incoming_update(update: dict[str, Any]) -> bool:
                 logger.exception("handle_new_channel_member (service msg) raised: %s", exc)
         return True
 
+    # In groups and supergroups, only respond to explicit bot commands ("/...").
+    # Responding to every plain message there would spam the entire chat.
+    chat_type = chat.get("type", "private")
+    is_group   = chat_type in ("group", "supergroup", "channel")
+
     user_db = await _get_user(chat_id)
 
     # Match command (strip @botname suffix)
@@ -171,8 +177,8 @@ async def process_incoming_update(update: dict[str, Any]) -> bool:
             break
 
     if handler is None:
-        if not text:
-            return False
+        if not text or is_group:
+            return False   # never echo in groups
         handler = handle_echo
 
     try:

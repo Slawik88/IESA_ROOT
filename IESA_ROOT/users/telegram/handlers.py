@@ -30,7 +30,10 @@ def _url_btn(text: str, url: str) -> dict:
     return {"text": text, "url": url}
 
 
-CABINET_URL = "https://iesasport.ch/auth/cabinet/"
+# URL constants
+CABINET_URL    = "https://iesasport.ch/auth/profile/"       # regular user profile
+CARD_URL       = "https://iesasport.ch/auth/cabinet/"        # member PIN card
+CONNECT_TG_URL = "https://iesasport.ch/auth/connect-telegram/"  # TG linking page
 
 # ── Handlers ───────────────────────────────────────────────────────────────
 
@@ -85,13 +88,13 @@ async def handle_help(chat_id: int, text: str, user_db) -> Reply:
         "🎉 Активация членства\n\n"
         "<b>Как привязать аккаунт:</b>\n"
         "1. Нажмите /link — получите 6-значный код\n"
-        "2. Войдите на <a href=\"https://iesasport.ch/auth/cabinet/\">iesasport.ch</a>\n"
+        "2. Откройте страницу привязки по кнопке ниже\n"
         "3. Раздел «Telegram» → введите код\n\n"
         "🌐 <a href=\"https://iesasport.ch\">iesasport.ch</a>"
     )
     kb = _kb(
         [_btn("🔗 Привязать аккаунт", "cb:link"), _btn("📊 Статус", "cb:status")],
-        [_url_btn("🏠 Личный кабинет", CABINET_URL)],
+        [_url_btn("👤 Мой профиль", CABINET_URL)],
     )
     return msg, kb
 
@@ -104,7 +107,7 @@ async def handle_link(chat_id: int, text: str, user_db) -> Reply:
             "Если хочешь отвязать — нажми кнопку ниже."
         )
         kb = _kb(
-            [_btn("🔓 Отвязать", "cb:unlink_ask"), _url_btn("🏠 Кабинет", CABINET_URL)],
+            [_btn("🔓 Отвязать", "cb:unlink_ask"), _url_btn("👤 Мой профиль", CABINET_URL)],
         )
         return msg, kb
 
@@ -112,12 +115,13 @@ async def handle_link(chat_id: int, text: str, user_db) -> Reply:
     msg = (
         f"🔗 <b>Твой код привязки:</b>\n\n"
         f"<code>{code}</code>\n\n"
-        f"1. Открой <b>Личный кабинет</b> на сайте\n"
-        f"2. Раздел «Telegram» → введи этот код\n\n"
+        f"1. Нажми кнопку <b>Привязать</b> ниже\n"
+        f"2. Войди в свой аккаунт на сайте\n"
+        f"3. Раздел «Телеграм» → введи этот код\n\n"
         f"⏳ Код действителен <b>10 минут</b>"
     )
     kb = _kb(
-        [_url_btn("🏠 Открыть кабинет", CABINET_URL)],
+        [_url_btn("🔗 Привязать", CONNECT_TG_URL)],
         [_btn("🔄 Новый код", "cb:new_code")],
     )
     return msg, kb
@@ -209,7 +213,7 @@ async def handle_status(chat_id: int, text: str, user_db) -> Reply:
         f"{emoji} Статус членства: <b>{label}</b>"
     )
     kb = _kb(
-        [_url_btn("🏠 Личный кабинет", CABINET_URL), _btn("🔄 Обновить", "cb:status")],
+        [_url_btn("👤 Мой профиль", CABINET_URL), _btn("🔄 Обновить", "cb:status")],
         [_btn("🔓 Отвязать Telegram", "cb:unlink_ask")],
     )
     return msg, kb
