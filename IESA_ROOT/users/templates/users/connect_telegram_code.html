@@ -8,224 +8,90 @@
 :root {
     --tg-color: #29a8eb;
     --tg-dark: #1a7ab5;
-    --tg-glow: rgba(41, 168, 235, 0.35);
-    --tg-glow-soft: rgba(41, 168, 235, 0.12);
-    --dark-base: #0a0a0f;
-    --dark-card: rgba(13, 13, 22, 0.97);
-    --dark-step: rgba(255,255,255,0.04);
-    --dark-border: rgba(41, 168, 235, 0.18);
-    --red-glow: rgba(220, 38, 38, 0.18);
+    --dark-base: #0e0e18;
+    --dark-card: #12121c;
+    --dark-input: #1a1a28;
+    --dark-border: rgba(255,255,255,0.08);
+    --dark-border-tg: rgba(41,168,235,0.22);
+    --muted: rgba(255,255,255,0.38);
 }
 
-/* =========================================================
-   PAGE WRAPPER
-   ========================================================= */
 .tg-page {
-    min-height: 100vh;
+    min-height: calc(100vh - 70px);
     background: var(--dark-base);
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 2rem 1rem;
-    position: relative;
-    overflow: hidden;
+    padding: 2.5rem 1rem;
 }
 
-/* Canvas particles behind everything */
-#tg-canvas {
-    position: fixed;
-    inset: 0;
-    pointer-events: none;
-    z-index: 0;
-}
-
-/* Dual radial glow blobs */
-.tg-page::before,
-.tg-page::after {
-    content: '';
-    position: fixed;
-    border-radius: 50%;
-    filter: blur(90px);
-    pointer-events: none;
-    z-index: 0;
-}
-.tg-page::before {
-    width: 560px; height: 420px;
-    top: -120px; left: -100px;
-    background: radial-gradient(ellipse, rgba(41,168,235,0.22) 0%, transparent 70%);
-    animation: blobDrift1 14s ease-in-out infinite alternate;
-}
-.tg-page::after {
-    width: 480px; height: 360px;
-    bottom: -80px; right: -80px;
-    background: radial-gradient(ellipse, rgba(220,38,38,0.16) 0%, transparent 70%);
-    animation: blobDrift2 18s ease-in-out infinite alternate;
-}
-@keyframes blobDrift1 {
-    0%   { transform: translate(0,0) scale(1); }
-    100% { transform: translate(60px, 40px) scale(1.1); }
-}
-@keyframes blobDrift2 {
-    0%   { transform: translate(0,0) scale(1); }
-    100% { transform: translate(-50px, -30px) scale(1.08); }
-}
-
-/* =========================================================
-   CARD
-   ========================================================= */
 .tg-card {
     position: relative;
-    z-index: 1;
     max-width: 460px;
     width: 100%;
-    border-radius: 28px;
+    border-radius: 16px;
     background: var(--dark-card);
     border: 1px solid var(--dark-border);
-    box-shadow:
-        0 0 0 1px rgba(41,168,235,0.06),
-        0 30px 80px rgba(0,0,0,0.65),
-        0 0 60px rgba(41,168,235,0.08);
+    box-shadow: 0 24px 64px rgba(0,0,0,0.55);
     overflow: hidden;
-    transform-style: preserve-3d;
-    will-change: transform;
-    transition: box-shadow .4s ease;
-}
-.tg-card:hover {
-    box-shadow:
-        0 0 0 1px rgba(41,168,235,0.14),
-        0 40px 100px rgba(0,0,0,0.7),
-        0 0 80px rgba(41,168,235,0.14);
 }
 
-/* Animated neon border ring using pseudo */
+/* Top accent stripe */
 .tg-card::before {
     content: '';
     position: absolute;
-    inset: -1px;
-    border-radius: 29px;
-    background: conic-gradient(
-        from var(--angle, 0deg),
-        transparent 60%,
-        rgba(41,168,235,0.55) 75%,
-        rgba(220,38,38,0.4) 85%,
-        transparent 100%
-    );
-    z-index: 0;
-    pointer-events: none;
-    opacity: 0;
-    transition: opacity .5s;
-    animation: rotateBorder 4s linear infinite;
-    @property --angle {
-        syntax: '<angle>';
-        initial-value: 0deg;
-        inherits: false;
-    }
-}
-.tg-card:hover::before { opacity: 1; }
-@keyframes rotateBorder {
-    to { --angle: 360deg; }
-}
-
-/* fallback for browsers that don't support @property */
-.tg-card::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    border-radius: 28px;
-    background: transparent;
-    z-index: 0;
-    pointer-events: none;
-}
-
-/* ── Header ── */
-.tg-header {
-    padding: 2.4rem 2rem 1.8rem;
-    text-align: center;
-    position: relative;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--tg-dark), var(--tg-color));
     z-index: 1;
 }
-.tg-header::after {
-    content: '';
-    position: absolute;
-    bottom: 0; left: 10%; right: 10%;
-    height: 1px;
-    background: linear-gradient(90deg, transparent, rgba(41,168,235,0.3), transparent);
+
+/* Header */
+.tg-header {
+    padding: 2.2rem 2rem 1.6rem;
+    text-align: center;
+    border-bottom: 1px solid var(--dark-border);
 }
 
-.tg-icon-ring {
-    position: relative;
-    width: 88px; height: 88px;
-    margin: 0 auto 1.2rem;
-}
-.tg-icon-ring svg.ring-svg {
-    position: absolute;
-    inset: 0;
-    width: 100%; height: 100%;
-    animation: spinRing 8s linear infinite;
-}
-@keyframes spinRing {
-    to { transform: rotate(360deg); }
-}
-.tg-icon-inner {
-    position: absolute;
-    inset: 12px;
-    background: linear-gradient(135deg, #1a7ab5 0%, #29a8eb 100%);
-    border-radius: 50%;
+.tg-icon {
+    width: 64px; height: 64px;
+    margin: 0 auto 1.1rem;
+    background: rgba(41,168,235,0.1);
+    border: 1px solid var(--dark-border-tg);
+    border-radius: 14px;
     display: flex; align-items: center; justify-content: center;
-    font-size: 2rem;
-    color: #fff;
-    box-shadow: 0 0 28px rgba(41,168,235,0.55), inset 0 1px 0 rgba(255,255,255,0.2);
-}
-/* Pulse rings */
-.tg-icon-ring::before,
-.tg-icon-ring::after {
-    content: '';
-    position: absolute;
-    inset: -8px;
-    border-radius: 50%;
-    border: 1.5px solid rgba(41,168,235,0.3);
-    animation: iconPulse 2.4s ease-out infinite;
-}
-.tg-icon-ring::after {
-    inset: -18px;
-    animation-delay: .8s;
-    border-color: rgba(41,168,235,0.15);
-}
-@keyframes iconPulse {
-    0%   { transform: scale(1); opacity: 1; }
-    100% { transform: scale(1.4); opacity: 0; }
+    font-size: 1.8rem;
+    color: var(--tg-color);
 }
 
 .tg-header h2 {
-    font-size: 1.7rem;
-    font-weight: 900;
+    font-size: 1.45rem;
+    font-weight: 700;
     color: #fff;
-    margin: 0 0 .3rem;
-    letter-spacing: -.02em;
+    margin: 0 0 .25rem;
+    letter-spacing: -.01em;
 }
 .tg-header p {
-    font-size: .9rem;
-    color: rgba(255,255,255,0.45);
+    font-size: .85rem;
+    color: var(--muted);
     margin: 0;
 }
 
-/* ── Body ── */
+/* Body */
 .tg-body {
-    padding: 1.8rem 2rem 2.2rem;
-    position: relative;
-    z-index: 1;
+    padding: 1.8rem 2rem 2rem;
 }
 
 /* Error */
 .tg-error {
-    background: rgba(220,38,38,0.1);
-    border: 1px solid rgba(220,38,38,0.3);
+    background: rgba(220,38,38,0.08);
+    border: 1px solid rgba(220,38,38,0.25);
     color: #fca5a5;
-    border-radius: 14px;
-    padding: .8rem 1rem;
-    font-size: .88rem;
+    border-radius: 10px;
+    padding: .75rem 1rem;
+    font-size: .875rem;
     margin-bottom: 1.4rem;
-    display: flex; align-items: center; gap: .6rem;
+    display: flex; align-items: center; gap: .55rem;
 }
 .tg-error i { color: #dc2626; flex-shrink: 0; }
 
@@ -233,98 +99,91 @@
 .tg-bot-banner {
     display: flex;
     align-items: center;
-    gap: 1rem;
-    padding: 1rem 1.2rem;
-    background: rgba(41,168,235,0.07);
-    border: 1px solid rgba(41,168,235,0.2);
-    border-radius: 16px;
+    gap: .9rem;
+    padding: .9rem 1.1rem;
+    background: rgba(41,168,235,0.05);
+    border: 1px solid var(--dark-border-tg);
+    border-radius: 12px;
     text-decoration: none;
     margin-bottom: 1.5rem;
-    transition: background .25s, border-color .25s, transform .25s, box-shadow .25s;
-    cursor: pointer;
+    transition: background .2s, border-color .2s;
 }
 .tg-bot-banner:hover {
-    background: rgba(41,168,235,0.14);
-    border-color: rgba(41,168,235,0.45);
-    transform: translateY(-2px);
-    box-shadow: 0 8px 28px rgba(41,168,235,0.18);
+    background: rgba(41,168,235,0.1);
+    border-color: rgba(41,168,235,0.4);
 }
 .tg-bot-banner .bb-icon {
-    width: 46px; height: 46px;
-    background: linear-gradient(135deg, #1a7ab5, #29a8eb);
-    border-radius: 12px;
+    width: 40px; height: 40px;
+    background: var(--tg-dark);
+    border-radius: 10px;
     display: flex; align-items: center; justify-content: center;
-    font-size: 1.3rem;
+    font-size: 1.15rem;
     color: #fff;
     flex-shrink: 0;
-    box-shadow: 0 4px 14px rgba(41,168,235,0.3);
 }
-.tg-bot-banner .bb-text {
-    flex: 1;
-}
-.tg-bot-banner .bb-text .bb-name {
-    font-weight: 700;
+.tg-bot-banner .bb-text { flex: 1; }
+.tg-bot-banner .bb-name {
+    font-weight: 600;
     color: #fff;
-    font-size: .95rem;
+    font-size: .9rem;
     display: block;
+    font-family: 'SFMono-Regular', 'Consolas', 'Menlo', monospace;
 }
-.tg-bot-banner .bb-text .bb-sub {
-    font-size: .8rem;
-    color: rgba(255,255,255,0.38);
+.tg-bot-banner .bb-sub {
+    font-size: .78rem;
+    color: var(--muted);
     display: block;
     margin-top: .1rem;
 }
 .tg-bot-banner .bb-arrow {
     color: var(--tg-color);
-    font-size: 1rem;
-    transition: transform .25s;
+    font-size: .85rem;
     flex-shrink: 0;
 }
-.tg-bot-banner:hover .bb-arrow { transform: translateX(4px); }
+
+/* Section label */
+.tg-section-label {
+    font-size: .7rem;
+    font-weight: 600;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.25);
+    margin-bottom: .75rem;
+}
 
 /* Steps */
 .tg-steps {
     display: flex;
     flex-direction: column;
-    gap: .55rem;
+    gap: 0;
     margin-bottom: 1.8rem;
+    border: 1px solid var(--dark-border);
+    border-radius: 12px;
+    overflow: hidden;
 }
 .tg-step {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: .85rem;
-    padding: .75rem 1rem;
-    background: var(--dark-step);
-    border: 1px solid rgba(255,255,255,0.05);
-    border-radius: 14px;
-    font-size: .88rem;
-    color: rgba(255,255,255,0.62);
-    opacity: 0;
-    transform: translateX(-16px);
-    transition: background .25s, border-color .25s;
+    padding: .85rem 1rem;
+    font-size: .875rem;
+    color: rgba(255,255,255,0.65);
+    border-bottom: 1px solid var(--dark-border);
+    background: rgba(255,255,255,0.02);
+    transition: background .2s;
 }
-.tg-step.visible {
-    animation: stepSlideIn .5s ease forwards;
-}
-.tg-step:nth-child(1).visible { animation-delay: .05s; }
-.tg-step:nth-child(2).visible { animation-delay: .15s; }
-.tg-step:nth-child(3).visible { animation-delay: .25s; }
-@keyframes stepSlideIn {
-    to { opacity: 1; transform: translateX(0); }
-}
-.tg-step:hover {
-    background: rgba(41,168,235,0.06);
-    border-color: rgba(41,168,235,0.18);
-    color: rgba(255,255,255,0.8);
-}
+.tg-step:last-child { border-bottom: none; }
+.tg-step:hover { background: rgba(255,255,255,0.03); }
 .tg-step .sn {
-    min-width: 30px; height: 30px;
-    background: linear-gradient(135deg, #1a7ab5, #29a8eb);
+    min-width: 22px; height: 22px;
+    border: 1px solid rgba(41,168,235,0.4);
     border-radius: 50%;
-    color: #fff; font-weight: 800; font-size: .78rem;
+    color: var(--tg-color);
+    font-weight: 600;
+    font-size: .72rem;
     display: flex; align-items: center; justify-content: center;
     flex-shrink: 0;
-    box-shadow: 0 3px 10px rgba(41,168,235,0.35);
+    margin-top: .05rem;
 }
 .tg-step a {
     color: var(--tg-color);
@@ -333,143 +192,130 @@
 }
 .tg-step a:hover { text-decoration: underline; }
 .tg-step code {
-    background: rgba(41,168,235,0.14);
+    background: rgba(41,168,235,0.1);
     color: var(--tg-color);
-    border-radius: 6px;
-    padding: .1rem .45rem;
-    font-size: .85rem;
-    border: 1px solid rgba(41,168,235,0.2);
+    border-radius: 5px;
+    padding: .1rem .4rem;
+    font-size: .82rem;
+    border: 1px solid rgba(41,168,235,0.18);
+    font-family: 'SFMono-Regular', 'Consolas', 'Menlo', monospace;
 }
+
+/* Security note */
+.tg-security-note {
+    display: flex;
+    align-items: center;
+    gap: .55rem;
+    padding: .7rem 1rem;
+    background: rgba(255,255,255,0.02);
+    border: 1px solid rgba(255,255,255,0.05);
+    border-radius: 10px;
+    font-size: .78rem;
+    color: rgba(255,255,255,0.28);
+    margin-bottom: 1.4rem;
+}
+.tg-security-note i { flex-shrink: 0; color: rgba(255,255,255,0.2); }
 
 /* OTP label */
 .otp-label {
     text-align: center;
-    font-size: .78rem;
+    font-size: .7rem;
     font-weight: 600;
-    letter-spacing: .08em;
+    letter-spacing: .1em;
     text-transform: uppercase;
-    color: rgba(255,255,255,0.3);
+    color: rgba(255,255,255,0.25);
     margin-bottom: .85rem;
 }
 
-/* OTP widget */
+/* OTP inputs */
 .otp-wrap {
     display: flex;
-    gap: .5rem;
+    gap: .45rem;
     justify-content: center;
-    margin-bottom: 1.6rem;
+    margin-bottom: 1.4rem;
     align-items: center;
 }
 #code-hidden { display: none; }
 
 .otp-box {
-    width: 50px; height: 62px;
-    border: 1.5px solid rgba(255,255,255,0.1);
-    border-radius: 14px;
-    font-size: 1.9rem; font-weight: 800;
+    width: 48px; height: 58px;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 10px;
+    font-size: 1.75rem; font-weight: 700;
     text-align: center;
     color: #fff;
-    background: rgba(255,255,255,0.04);
+    background: var(--dark-input);
     outline: none;
     caret-color: var(--tg-color);
-    transition: border-color .18s, box-shadow .18s, background .18s, transform .18s;
+    transition: border-color .15s, background .15s;
     -moz-appearance: textfield;
 }
 .otp-box::-webkit-outer-spin-button,
 .otp-box::-webkit-inner-spin-button { -webkit-appearance: none; }
 .otp-box:focus {
     border-color: var(--tg-color);
-    box-shadow: 0 0 0 3px rgba(41,168,235,0.22), 0 4px 18px rgba(41,168,235,0.18);
-    background: rgba(41,168,235,0.08);
-    transform: translateY(-2px) scale(1.05);
+    background: rgba(41,168,235,0.07);
+    box-shadow: 0 0 0 2px rgba(41,168,235,0.15);
     color: #fff;
 }
 .otp-box.filled {
-    border-color: #4ade80;
-    background: rgba(74,222,128,0.1);
-    box-shadow: 0 0 0 2px rgba(74,222,128,0.2), 0 0 14px rgba(74,222,128,0.18);
-    color: #4ade80;
-    animation: fillPop .3s ease;
-}
-@keyframes fillPop {
-    0%   { transform: scale(1.15); }
-    60%  { transform: scale(0.95); }
-    100% { transform: scale(1); }
+    border-color: rgba(255,255,255,0.2);
+    color: #fff;
 }
 
 .otp-sep {
-    font-size: 1.6rem;
-    color: rgba(255,255,255,0.2);
-    line-height: 62px;
+    font-size: 1.4rem;
+    color: rgba(255,255,255,0.15);
     font-weight: 300;
     padding: 0 .05rem;
     user-select: none;
+    line-height: 58px;
 }
 
-/* Progress bar below OTP */
+/* Progress bar */
 .otp-progress {
-    height: 3px;
-    background: rgba(255,255,255,0.07);
-    border-radius: 2px;
-    margin: -.8rem 0 1.5rem;
+    height: 2px;
+    background: rgba(255,255,255,0.06);
+    border-radius: 1px;
+    margin: -.6rem 0 1.4rem;
     overflow: hidden;
 }
 .otp-progress-bar {
     height: 100%;
     width: 0%;
-    background: linear-gradient(90deg, var(--tg-color), #4ade80);
-    border-radius: 2px;
-    transition: width .25s ease;
-    box-shadow: 0 0 8px rgba(41,168,235,0.5);
+    background: linear-gradient(90deg, var(--tg-dark), var(--tg-color));
+    border-radius: 1px;
+    transition: width .2s ease;
 }
 
 /* Submit button */
 .btn-tg-submit {
     width: 100%;
-    background: linear-gradient(135deg, #1a7ab5 0%, #29a8eb 100%);
+    background: linear-gradient(135deg, var(--tg-dark) 0%, var(--tg-color) 100%);
     color: #fff;
     border: none;
-    border-radius: 16px;
-    padding: .95rem;
-    font-size: 1rem;
-    font-weight: 700;
+    border-radius: 10px;
+    padding: .85rem;
+    font-size: .95rem;
+    font-weight: 600;
     cursor: pointer;
-    transition: opacity .2s, transform .15s, box-shadow .2s;
-    display: flex; align-items: center; justify-content: center; gap: .6rem;
+    transition: opacity .2s, transform .15s;
+    display: flex; align-items: center; justify-content: center; gap: .55rem;
     position: relative;
     overflow: hidden;
-    box-shadow: 0 6px 24px rgba(41,168,235,0.3);
     letter-spacing: .01em;
 }
-.btn-tg-submit::after {
-    content: '';
-    position: absolute;
-    top: 0; left: -100%; width: 60%; height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.18), transparent);
-    transform: skewX(-18deg);
-    transition: left .5s ease;
-}
-.btn-tg-submit:not(:disabled):hover::after { left: 160%; }
-.btn-tg-submit:disabled {
-    opacity: .35;
-    cursor: not-allowed;
-    box-shadow: none;
-}
-.btn-tg-submit:not(:disabled):hover {
-    transform: translateY(-2px);
-    box-shadow: 0 10px 32px rgba(41,168,235,0.45);
-}
-.btn-tg-submit:not(:disabled):active {
-    transform: translateY(0px) scale(0.98);
-}
+.btn-tg-submit:disabled { opacity: .3; cursor: not-allowed; }
+.btn-tg-submit:not(:disabled):hover { transform: translateY(-1px); opacity: .92; }
+.btn-tg-submit:not(:disabled):active { transform: translateY(0) scale(0.99); }
 
-/* Ripple on click */
+/* Ripple */
 .ripple {
     position: absolute;
     border-radius: 50%;
-    background: rgba(255,255,255,0.3);
+    background: rgba(255,255,255,0.25);
     transform: scale(0);
-    animation: rippleAnim .6s linear;
+    animation: rippleAnim .5s linear;
     pointer-events: none;
 }
 @keyframes rippleAnim {
@@ -480,8 +326,8 @@
 .tg-success-overlay {
     position: absolute;
     inset: 0;
-    border-radius: 28px;
-    background: rgba(13,13,22,0.97);
+    border-radius: 16px;
+    background: rgba(18,18,28,0.97);
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -489,96 +335,60 @@
     z-index: 10;
     opacity: 0;
     pointer-events: none;
-    transition: opacity .4s;
+    transition: opacity .35s;
+    gap: .3rem;
 }
-.tg-success-overlay.show {
-    opacity: 1;
-    pointer-events: all;
-}
+.tg-success-overlay.show { opacity: 1; pointer-events: all; }
 .success-circle {
-    width: 80px; height: 80px;
+    width: 60px; height: 60px;
     border-radius: 50%;
     background: linear-gradient(135deg, #15803d, #4ade80);
     display: flex; align-items: center; justify-content: center;
-    font-size: 2.2rem;
+    font-size: 1.6rem;
     color: #fff;
-    margin-bottom: 1.2rem;
+    margin-bottom: .9rem;
     transform: scale(0);
-    transition: transform .5s cubic-bezier(.34,1.56,.64,1);
-    box-shadow: 0 0 40px rgba(74,222,128,0.45);
+    transition: transform .45s cubic-bezier(.34,1.56,.64,1);
 }
-.tg-success-overlay.show .success-circle {
-    transform: scale(1);
-}
+.tg-success-overlay.show .success-circle { transform: scale(1); }
 .success-text {
-    font-weight: 800;
-    font-size: 1.3rem;
-    color: #fff;
-    margin-bottom: .35rem;
-    opacity: 0;
-    transform: translateY(10px);
-    transition: opacity .4s .3s, transform .4s .3s;
+    font-weight: 700; font-size: 1.1rem; color: #fff;
+    opacity: 0; transform: translateY(8px);
+    transition: opacity .3s .3s, transform .3s .3s;
 }
-.tg-success-overlay.show .success-text {
-    opacity: 1;
-    transform: translateY(0);
-}
+.tg-success-overlay.show .success-text { opacity: 1; transform: translateY(0); }
 .success-sub {
-    font-size: .85rem;
-    color: rgba(255,255,255,0.4);
-    opacity: 0;
-    transform: translateY(8px);
-    transition: opacity .4s .45s, transform .4s .45s;
+    font-size: .82rem; color: var(--muted);
+    opacity: 0; transform: translateY(6px);
+    transition: opacity .3s .42s, transform .3s .42s;
 }
-.tg-success-overlay.show .success-sub {
-    opacity: 1;
-    transform: translateY(0);
-}
+.tg-success-overlay.show .success-sub { opacity: 1; transform: translateY(0); }
 
 /* Back link */
 .tg-back {
     text-align: center;
-    margin-top: 1.1rem;
+    margin-top: 1rem;
 }
 .tg-back a {
-    color: rgba(255,255,255,0.28);
-    font-size: .85rem;
+    color: rgba(255,255,255,0.25);
+    font-size: .83rem;
     text-decoration: none;
     transition: color .2s;
-    display: inline-flex; align-items: center; gap: .4rem;
+    display: inline-flex; align-items: center; gap: .35rem;
 }
-.tg-back a:hover { color: rgba(255,255,255,0.65); }
-
-/* ── Scanline texture on card ── */
-.tg-card .scanline {
-    position: absolute;
-    inset: 0;
-    background: repeating-linear-gradient(
-        0deg,
-        transparent,
-        transparent 2px,
-        rgba(255,255,255,0.012) 2px,
-        rgba(255,255,255,0.012) 4px
-    );
-    pointer-events: none;
-    z-index: 0;
-    border-radius: 28px;
-}
+.tg-back a:hover { color: rgba(255,255,255,0.55); }
 
 @media (max-width: 480px) {
-    .otp-box { width: 42px; height: 54px; font-size: 1.6rem; border-radius: 12px; }
-    .tg-body { padding: 1.5rem 1.4rem 1.8rem; }
-    .tg-header { padding: 2rem 1.4rem 1.5rem; }
+    .otp-box { width: 40px; height: 50px; font-size: 1.5rem; border-radius: 8px; }
+    .tg-body { padding: 1.5rem 1.3rem 1.7rem; }
+    .tg-header { padding: 1.8rem 1.3rem 1.4rem; }
 }
-
 </style>
 {% endblock %}
 
 {% block content %}
-<canvas id="tg-canvas"></canvas>
 <div class="tg-page">
     <div class="tg-card" id="tg-card">
-        <div class="scanline"></div>
 
         {# Success overlay #}
         <div class="tg-success-overlay" id="success-overlay">
@@ -587,26 +397,14 @@
             <div class="success-sub">{% trans "Redirecting…" %}</div>
         </div>
 
-        {# ── Header ── #}
+        {# Header #}
         <div class="tg-header">
-            <div class="tg-icon-ring">
-                <svg class="ring-svg" viewBox="0 0 88 88" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <circle cx="44" cy="44" r="42" stroke="url(#ringGrad)" stroke-width="1.5" stroke-dasharray="6 4" stroke-linecap="round"/>
-                    <defs>
-                        <linearGradient id="ringGrad" x1="0" y1="0" x2="88" y2="88" gradientUnits="userSpaceOnUse">
-                            <stop offset="0%" stop-color="#29a8eb" stop-opacity="0.8"/>
-                            <stop offset="50%" stop-color="#dc2626" stop-opacity="0.5"/>
-                            <stop offset="100%" stop-color="#29a8eb" stop-opacity="0.2"/>
-                        </linearGradient>
-                    </defs>
-                </svg>
-                <div class="tg-icon-inner"><i class="fab fa-telegram"></i></div>
-            </div>
+            <div class="tg-icon"><i class="fab fa-telegram"></i></div>
             <h2>{% trans "Connect Telegram" %}</h2>
-            <p>{% trans "Get instant visit notifications" %}</p>
+            <p>{% trans "Link your account to receive instant notifications" %}</p>
         </div>
 
-        {# ── Body ── #}
+        {# Body #}
         <div class="tg-body">
 
             {% if error %}
@@ -621,14 +419,16 @@
                 <div class="bb-icon"><i class="fab fa-telegram"></i></div>
                 <div class="bb-text">
                     <span class="bb-name">@{{ telegram_bot_name }}</span>
-                    <span class="bb-sub">{% trans "Tap to open in Telegram" %}</span>
+                    <span class="bb-sub">{% trans "Open in Telegram" %}</span>
                 </div>
-                <div class="bb-arrow"><i class="fas fa-arrow-right"></i></div>
+                <div class="bb-arrow"><i class="fas fa-external-link-alt"></i></div>
             </a>
             {% endif %}
 
+            <div class="tg-section-label">{% trans "Instructions" %}</div>
+
             {# Steps #}
-            <div class="tg-steps" id="tg-steps">
+            <div class="tg-steps">
                 <div class="tg-step">
                     <div class="sn">1</div>
                     <span>
@@ -641,7 +441,7 @@
                 </div>
                 <div class="tg-step">
                     <div class="sn">2</div>
-                    <span>{% trans "Press" %} <strong style="color:#fff;">🔗 {% trans "Attach account" %}</strong> {% trans "or send" %} <code>/link</code></span>
+                    <span>{% trans "Press" %} <strong style="color:rgba(255,255,255,0.85);">🔗 {% trans "Attach account" %}</strong> {% trans "or send" %} <code>/link</code></span>
                 </div>
                 <div class="tg-step">
                     <div class="sn">3</div>
@@ -649,8 +449,13 @@
                 </div>
             </div>
 
+            <div class="tg-security-note">
+                <i class="fas fa-shield-alt"></i>
+                {% trans "The code is valid for 10 minutes and can only be used once." %}
+            </div>
+
             {# OTP #}
-            <p class="otp-label">{% trans "6-digit code" %}</p>
+            <p class="otp-label">{% trans "6-digit verification code" %}</p>
             <form method="post" id="code-form">
                 {% csrf_token %}
                 <input type="hidden" name="code" id="code-hidden">
@@ -667,7 +472,7 @@
                 <div class="otp-progress"><div class="otp-progress-bar" id="otp-progress-bar"></div></div>
 
                 <button type="submit" class="btn-tg-submit" id="submit-btn" disabled>
-                    <i class="fas fa-link"></i> {% trans "Connect Telegram" %}
+                    <i class="fas fa-link"></i> {% trans "Confirm & Connect" %}
                 </button>
             </form>
 
@@ -683,96 +488,6 @@
 {% block extra_js %}
 <script>
 (function () {
-    /* ─── Canvas particles ─── */
-    const canvas = document.getElementById('tg-canvas');
-    const ctx    = canvas.getContext('2d');
-    let   W, H, particles = [];
-
-    function resize() {
-        W = canvas.width  = window.innerWidth;
-        H = canvas.height = window.innerHeight;
-    }
-    window.addEventListener('resize', resize);
-    resize();
-
-    const TG_BLUE = 'rgba(41,168,235,';
-    const RED     = 'rgba(220,38,38,';
-
-    function createParticle() {
-        const isTg = Math.random() > 0.35;
-        return {
-            x:  Math.random() * W,
-            y:  Math.random() * H,
-            vx: (Math.random() - 0.5) * 0.35,
-            vy: (Math.random() - 0.5) * 0.35,
-            r:  Math.random() * 1.6 + 0.4,
-            a:  Math.random() * 0.45 + 0.08,
-            color: isTg ? TG_BLUE : RED,
-        };
-    }
-    for (let i = 0; i < 70; i++) particles.push(createParticle());
-
-    function drawParticles() {
-        ctx.clearRect(0, 0, W, H);
-        particles.forEach(p => {
-            ctx.beginPath();
-            ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-            ctx.fillStyle = p.color + p.a + ')';
-            ctx.fill();
-            p.x += p.vx; p.y += p.vy;
-            if (p.x < -10) p.x = W + 10;
-            if (p.x > W + 10) p.x = -10;
-            if (p.y < -10) p.y = H + 10;
-            if (p.y > H + 10) p.y = -10;
-        });
-
-        /* connect nearby particles */
-        for (let i = 0; i < particles.length; i++) {
-            for (let j = i + 1; j < particles.length; j++) {
-                const dx = particles[i].x - particles[j].x;
-                const dy = particles[i].y - particles[j].y;
-                const dist = Math.sqrt(dx*dx + dy*dy);
-                if (dist < 110) {
-                    ctx.beginPath();
-                    ctx.moveTo(particles[i].x, particles[i].y);
-                    ctx.lineTo(particles[j].x, particles[j].y);
-                    ctx.strokeStyle = TG_BLUE + (0.07 * (1 - dist/110)) + ')';
-                    ctx.lineWidth = 0.6;
-                    ctx.stroke();
-                }
-            }
-        }
-        requestAnimationFrame(drawParticles);
-    }
-    requestAnimationFrame(drawParticles);
-
-    /* ─── Tilt3D on card ─── */
-    const card = document.getElementById('tg-card');
-    document.addEventListener('mousemove', e => {
-        const rect = card.getBoundingClientRect();
-        const cx = rect.left + rect.width  / 2;
-        const cy = rect.top  + rect.height / 2;
-        const dx = (e.clientX - cx) / (rect.width  / 2);
-        const dy = (e.clientY - cy) / (rect.height / 2);
-        card.style.transform = `perspective(900px) rotateX(${-dy*5}deg) rotateY(${dx*5}deg) scale3d(1.01,1.01,1.01)`;
-    });
-    document.addEventListener('mouseleave', () => {
-        card.style.transform = 'perspective(900px) rotateX(0) rotateY(0) scale3d(1,1,1)';
-    });
-    card.addEventListener('mouseleave', () => {
-        card.style.transform = 'perspective(900px) rotateX(0) rotateY(0) scale3d(1,1,1)';
-    });
-
-    /* ─── Steps slide-in animation ─── */
-    const steps = document.querySelectorAll('.tg-step');
-    const observer = new IntersectionObserver(entries => {
-        entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
-    }, { threshold: 0.1 });
-    steps.forEach(s => observer.observe(s));
-    /* trigger immediately if already visible */
-    setTimeout(() => steps.forEach(s => s.classList.add('visible')), 80);
-
-    /* ─── OTP logic ─── */
     const boxes    = Array.from(document.querySelectorAll('.otp-box'));
     const hidden   = document.getElementById('code-hidden');
     const submit   = document.getElementById('submit-btn');
@@ -824,7 +539,7 @@
         box.addEventListener('focus', () => box.select());
     });
 
-    /* Auto submit with success animation */
+    /* Auto-submit when 6 digits filled */
     form.addEventListener('input', () => {
         const val = boxes.map(b => b.value).join('');
         if (val.length === 6 && /^\d{6}$/.test(val)) {
@@ -843,7 +558,7 @@
         const size = Math.max(rect.width, rect.height);
         r.style.cssText = `width:${size}px;height:${size}px;left:${e.clientX-rect.left-size/2}px;top:${e.clientY-rect.top-size/2}px`;
         this.appendChild(r);
-        setTimeout(() => r.remove(), 650);
+        setTimeout(() => r.remove(), 550);
     });
 
     boxes[0].focus();

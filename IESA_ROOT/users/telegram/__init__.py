@@ -17,6 +17,7 @@ from .config import (
     webhook_secret,
 )
 from .dispatcher import init_bot_commands, process_incoming_update
+from .handlers import handle_admin
 from .link import (
     consume_link_code,
     generate_link_code,

@@ -14,6 +14,7 @@ from .client import (
     set_bot_commands,
 )
 from .handlers import (
+    handle_admin,
     handle_cancel,
     handle_echo,
     handle_help,
@@ -36,6 +37,7 @@ COMMANDS = {
     "/id":     handle_id,
     "/status": handle_status,
     "/unlink": handle_unlink_ask,
+    "/admin":  handle_admin,
 }
 
 # ── Callback data → handler ────────────────────────────────────────────────
@@ -170,8 +172,8 @@ async def init_bot_commands() -> bool:
         {"command": "start",  "description": "Главное меню"},
         {"command": "link",   "description": "Привязать аккаунт"},
         {"command": "status", "description": "Мой статус членства"},
-        {"command": "help",   "description": "Справка"},
-        {"command": "id",     "description": "Мой Telegram ID"},
-        {"command": "unlink", "description": "Отвязать аккаунт"},
+        {"command": "help",   "description": "Справка и описание функций"},
+        {"command": "unlink", "description": "Отвязать Telegram от аккаунта"},
+        {"command": "id",     "description": "Мой Telegram chat ID"},
     ]
     return await set_bot_commands(commands)
