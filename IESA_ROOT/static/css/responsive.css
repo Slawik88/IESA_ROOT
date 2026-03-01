@@ -88,11 +88,11 @@ p, h1, h2, h3, h4, h5, h6,
     left: 0;
     right: 0;
     z-index: 1040;
-    background: rgba(255,255,255,0.97);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border-top: 1px solid rgba(0,0,0,0.08);
-    box-shadow: 0 -4px 20px rgba(0,0,0,0.08);
+    background: rgba(14, 14, 24, 0.97);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-top: 1px solid rgba(255,255,255,0.06);
+    box-shadow: 0 -4px 24px rgba(0,0,0,0.35);
     padding: 6px 4px;
     padding-bottom: calc(6px + env(safe-area-inset-bottom));
     justify-content: space-around;
@@ -106,7 +106,7 @@ p, h1, h2, h3, h4, h5, h6,
     justify-content: center;
     flex: 1;
     padding: 4px 0;
-    color: #6b7280;
+    color: rgba(255,255,255,0.45);
     text-decoration: none;
     font-size: 0.6rem;
     font-weight: 600;
@@ -177,28 +177,30 @@ p, h1, h2, h3, h4, h5, h6,
     width: auto;
   }
 
-  /* Hamburger toggler — большой и удобный */
+  /* Hamburger toggler — тёмный (единый стиль с navbar) */
   .navbar-toggler {
-    border: none;
+    border: 1px solid rgba(255,255,255,0.12);
     padding: 0.4rem 0.5rem;
     font-size: 1.2rem;
-    color: #374151;
+    color: rgba(255,255,255,0.75);
     border-radius: 10px;
-    background: #f3f4f6;
+    background: rgba(255,255,255,0.07);
   }
 
   .navbar-toggler:focus {
     box-shadow: 0 0 0 0.2rem rgba(220,38,38,0.25);
   }
 
-  /* Collapse dropdown — красивая карточка */
+  /* Collapse dropdown — тёмная glassmorphism карточка */
   .navbar-collapse {
     margin-top: 0.5rem;
     padding: 1rem;
     border-radius: 16px;
-    background: #fff;
-    border: 1px solid rgba(0,0,0,0.07);
-    box-shadow: 0 8px 30px rgba(0,0,0,0.1);
+    background: rgba(14, 14, 24, 0.97);
+    border: 1px solid rgba(255,255,255,0.08);
+    box-shadow: 0 16px 48px rgba(0,0,0,0.45);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
     position: relative;
     z-index: 1050;
   }
@@ -206,14 +208,14 @@ p, h1, h2, h3, h4, h5, h6,
   .navbar-nav .nav-link {
     padding: 0.6rem 0.75rem;
     border-radius: 10px;
-    color: #374151;
+    color: rgba(255,255,255,0.75);
     font-size: 0.95rem;
   }
 
   .navbar-nav .nav-link:hover,
   .navbar-nav .nav-link.active {
-    background: rgba(220,38,38,0.06);
-    color: #dc2626;
+    background: rgba(220,38,38,0.12);
+    color: #f87171;
   }
 
   .navbar-nav .dropdown-menu {
@@ -221,9 +223,10 @@ p, h1, h2, h3, h4, h5, h6,
     transform: none !important;
     width: 100% !important;
     box-shadow: none;
-    border: 1px solid rgba(0,0,0,0.06);
+    border: 1px solid rgba(255,255,255,0.06);
     border-radius: 12px;
     margin-top: 0.25rem;
+    background: rgba(255,255,255,0.04);
   }
 
   /* Кнопки в collapse — на всю ширину */
@@ -233,7 +236,7 @@ p, h1, h2, h3, h4, h5, h6,
     gap: 0.5rem !important;
     margin-top: 0.75rem;
     padding-top: 0.75rem;
-    border-top: 1px solid rgba(0,0,0,0.06);
+    border-top: 1px solid rgba(255,255,255,0.08);
   }
 
   .navbar .language-switcher,

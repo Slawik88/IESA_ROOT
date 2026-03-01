@@ -126,7 +126,7 @@
                             </div>
                         {% endif %}
                         {% if user.is_staff %}
-                            <a href="/admin/users/user/{{ user_obj.pk }}/change/" class="pp-admin-link"><i class="fas fa-cog"></i>{% trans "Admin" %}</a>
+                            <a href="{% url 'admin:users_user_change' user_obj.pk %}" class="pp-admin-link"><i class="fas fa-cog"></i>{% trans "Admin" %}</a>
                         {% endif %}
                         {% if request.user.is_authenticated and request.user.id == user_obj.id %}
                             <a href="{% url 'users:profile_edit' %}" class="pp-admin-link" style="border-color:rgba(220,38,38,.25);color:#f87171;"><i class="fas fa-edit"></i>{% trans "Edit Profile" %}</a>
@@ -234,7 +234,7 @@
                     <div class="stat-chip-pp scp-grn"><div class="sc-val">{{ user_obj.total_comments_made }}</div><div class="sc-lbl">{% trans "Comments" %}</div></div>
                     <div class="stat-chip-pp scp-blue"
                          hx-get="{% url 'blog:follower_count' author_pk=user_obj.pk %}"
-                         hx-trigger="load, every 30s"
+                         hx-trigger="load, every 120s"
                          hx-target="#fcount-{{ user_obj.pk }}"
                          hx-swap="innerHTML">
                         <div class="sc-val" id="fcount-{{ user_obj.pk }}">{{ subscriber_count }}</div>

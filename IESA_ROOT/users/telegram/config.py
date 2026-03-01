@@ -37,10 +37,19 @@ def bot_name() -> str:
     return os.environ.get("TELEGRAM_BOT_NAME", "").strip()
 
 
+def channel_id() -> str:
+    """Return the Telegram channel ID for IESA welcome messages.
+
+    Set TELEGRAM_CHANNEL_ID in env — either '@iesasport' (public username)
+    or a numeric chat ID like '-1001234567890' (preferred for private channels).
+    """
+    return os.environ.get("TELEGRAM_CHANNEL_ID", "").strip()
+
+
 # ── Master kill-switch ──────────────────────────────────────────────────────
 # Set to True when bot should handle incoming updates.
 # False = webhook accepted but silently ignored (safe disable).
-BOT_ACTIVE = False
+BOT_ACTIVE = True
 
 
 def is_configured() -> bool:

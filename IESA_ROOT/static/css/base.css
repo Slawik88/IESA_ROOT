@@ -45,7 +45,7 @@ body {
   font-family: var(--font-family);
   font-size: var(--text-base);
   line-height: var(--leading-normal);
-  color: var(--text-primary);
+  color: var(--text-on-dark);
   background-color: var(--bg-body);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -185,8 +185,13 @@ a:focus-visible {
    ==================================================== */
 
 ::selection {
-  background-color: var(--primary-200);
-  color: var(--text-primary);
+  background-color: rgba(220, 38, 38, 0.85);
+  color: #ffffff;
+}
+
+::-moz-selection {
+  background-color: rgba(220, 38, 38, 0.85);
+  color: #ffffff;
 }
 
 /* ====================================================

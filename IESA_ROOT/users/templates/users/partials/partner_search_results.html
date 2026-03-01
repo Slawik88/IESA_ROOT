@@ -1,95 +1,178 @@
 {% load static %}
 {% load i18n %}
 
-{%if search_results is not None %}
+{% if search_results is not None %}
     {% if search_results %}
-        <div class="d-flex justify-content-between align-items-center mb-3 fade-in">
-            <h5 class="mb-0" style="color: var(--primary);">
-                <i class="fas fa-list"></i> {% trans "Results" %}
-            </h5>
-            <span class="badge" style="background: var(--primary); font-size: 1rem;">{{ search_results|length }}</span>
+        <div class="psr-header fade-in">
+            <span class="psr-label"><i class="fas fa-list me-1"></i>{% trans "Results" %}</span>
+            <span class="psr-count">{{ search_results|length }}</span>
         </div>
-        <div class="list-group" style="max-height: 500px; overflow-y: auto;" id="search-results-list">
+        <div class="psr-list" id="search-results-list">
             {% for member in search_results %}
-                <a href="{% url 'users:log_visit' member.id %}" 
-                   class="list-group-item list-group-item-action fade-in-item" 
-                   style="border-radius: 10px; margin-bottom: 10px; border: 2px solid #e9ecef; transition: all 0.3s;">
-                    <div class="d-flex align-items-center">
+                <a href="{% url 'users:log_visit' member.id %}" class="psr-item fade-in-item">
+                    <div class="d-flex align-items-center gap-3">
                         {% if member.avatar and member.avatar.name != 'avatars/default.png' %}
-                            <img src="{{ member.avatar.url }}" alt="{{ member.username }} avatar" 
-                                 class="rounded-circle me-3" 
-                                 style="width: 60px; height: 60px; object-fit: cover; border: 3px solid var(--primary);">
+                            <img src="{{ member.avatar.url }}" alt="{{ member.username }}"
+                                 class="psr-avatar">
                         {% else %}
-                            <div class="rounded-circle d-inline-flex align-items-center justify-content-center me-3" 
-                                 style="width: 60px; height: 60px; background: linear-gradient(135deg, var(--primary) 0%, var(--primary-active) 100%);">
-                                <i class="fas fa-user fa-lg text-white"></i>
+                            <div class="psr-avatar-placeholder">
+                                <i class="fas fa-user"></i>
                             </div>
                         {% endif %}
                         <div class="flex-grow-1">
-                            <h5 class="mb-1" style="color: #495057; font-weight: 600;">
-                                {{ member.first_name }} {{ member.last_name }}
-                            </h5>
-                            <div class="mb-1">
-                                <small class="text-muted">
-                                    <i class="fas fa-at"></i> {{ member.username }}
-                                    {% if member.pseudonym %}
-                                        | <i class="fas fa-tag"></i> {{ member.pseudonym }}
-                                    {% endif %}
-                                </small>
+                            <div class="psr-name">{{ member.first_name }} {{ member.last_name }}</div>
+                            <div class="psr-meta">
+                                <i class="fas fa-at me-1"></i>{{ member.username }}
+                                {% if member.pseudonym %}
+                                    &nbsp;·&nbsp;<i class="fas fa-tag me-1"></i>{{ member.pseudonym }}
+                                {% endif %}
                             </div>
-                            {% if member.membership_status == 'active' %}
-                                <span class="badge bg-success" style="font-size: 0.85rem;">
-                                    <i class="fas fa-check-circle"></i> {% trans "Active Member" %}
-                                </span>
-                            {% else %}
-                                <span class="badge bg-warning text-dark" style="font-size: 0.85rem;">
-                                    <i class="fas fa-exclamation-circle"></i> {% trans "Inactive" %}
-                                </span>
-                            {% endif %}
+                            <div class="mt-1">
+                                {% if member.membership_status == 'active' %}
+                                    <span class="psr-badge psr-badge-active">
+                                        <i class="fas fa-check-circle me-1"></i>{% trans "Active Member" %}
+                                    </span>
+                                {% else %}
+                                    <span class="psr-badge psr-badge-inactive">
+                                        <i class="fas fa-exclamation-circle me-1"></i>{% trans "Inactive" %}
+                                    </span>
+                                {% endif %}
+                            </div>
                         </div>
-                        <div>
-                            <i class="fas fa-chevron-right" style="color: var(--primary); font-size: 1.5rem;"></i>
-                        </div>
+                        <i class="fas fa-chevron-right psr-arrow"></i>
                     </div>
                 </a>
             {% endfor %}
         </div>
     {% else %}
-        <div class="alert alert-warning fade-in" style="border-radius: 15px; border: 2px solid #ffc107;">
-            <h6><i class="fas fa-search-minus"></i> {% trans "No Results Found" %}</h6>
-            <p class="mb-0">{% trans "Try searching with a different name, username, or member ID." %}</p>
+        <div class="psr-alert psr-alert-warning fade-in">
+            <h6><i class="fas fa-search-minus me-1"></i>{% trans "No Results Found" %}</h6>
+            <p class="mb-0 mt-1">{% trans "Try searching with a different name, username, or member ID." %}</p>
         </div>
     {% endif %}
 {% else %}
-    <div class="text-center mt-4 p-4 fade-in" style="background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%); border-radius: 15px;">
-        <i class="fas fa-info-circle fa-2x mb-2" style="color: var(--primary-active);"></i>
-        <p class="mb-0" style="color: var(--primary-active); font-weight: 500;">{% trans "Enter member name, username, or ID to search" %}</p>
+    <div class="psr-empty-hint fade-in">
+        <i class="fas fa-info-circle fa-xl mb-3" style="color:rgba(220,38,38,.5);"></i>
+        <p class="mb-0">{% trans "Enter member name, username, or ID to search" %}</p>
     </div>
 {% endif %}
 
 <style>
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
+@keyframes psrFadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+.fade-in        { animation: psrFadeIn .4s ease-out; }
+.fade-in-item   { animation: psrFadeIn .4s ease-out; }
+.fade-in-item:nth-child(1) { animation-delay: .04s; }
+.fade-in-item:nth-child(2) { animation-delay: .08s; }
+.fade-in-item:nth-child(3) { animation-delay: .12s; }
+.fade-in-item:nth-child(4) { animation-delay: .16s; }
+.fade-in-item:nth-child(5) { animation-delay: .20s; }
+
+/* Header row */
+.psr-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+}
+.psr-label { color: var(--primary); font-weight: 700; font-size: .9rem; }
+.psr-count {
+    background: rgba(220,38,38,.12);
+    border: 1px solid rgba(220,38,38,.25);
+    color: #f87171;
+    font-size: .85rem;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 50px;
 }
 
-.fade-in {
-    animation: fadeIn 0.5s ease-out;
+/* List */
+.psr-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-height: 500px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(220,38,38,.3) transparent;
 }
 
-.fade-in-item {
-    animation: fadeIn 0.5s ease-out;
+/* Item */
+.psr-item {
+    display: block;
+    padding: 14px 16px;
+    border-radius: 12px;
+    border: 1.5px solid rgba(255,255,255,.07);
+    background: rgba(255,255,255,.03);
+    text-decoration: none;
+    transition: border-color .2s, background .2s, transform .2s;
+}
+.psr-item:hover {
+    border-color: rgba(220,38,38,.35);
+    background: rgba(220,38,38,.04);
+    transform: translateX(4px);
+    box-shadow: 0 4px 16px rgba(220,38,38,.12);
 }
 
-.fade-in-item:nth-child(1) { animation-delay: 0.05s; }
-.fade-in-item:nth-child(2) { animation-delay: 0.1s; }
-.fade-in-item:nth-child(3) { animation-delay: 0.15s; }
-.fade-in-item:nth-child(4) { animation-delay: 0.2s; }
-.fade-in-item:nth-child(5) { animation-delay: 0.25s; }
+/* Avatar */
+.psr-avatar {
+    width: 56px; height: 56px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2.5px solid rgba(220,38,38,.45);
+    flex-shrink: 0;
+}
+.psr-avatar-placeholder {
+    width: 56px; height: 56px;
+    border-radius: 50%;
+    background: rgba(220,38,38,.1);
+    border: 2.5px solid rgba(220,38,38,.3);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    color: rgba(220,38,38,.7);
+    font-size: 1.3rem;
+}
 
-.list-group-item:hover {
-    border-color: var(--primary) !important;
-    box-shadow: 0 4px 15px rgba(220, 38, 38, 0.2);
-    transform: translateX(5px);
+/* Text */
+.psr-name  { color: #fff; font-weight: 700; font-size: .95rem; }
+.psr-meta  { color: rgba(255,255,255,.4); font-size: .78rem; margin-top: 2px; }
+.psr-arrow { color: rgba(220,38,38,.5); font-size: 1rem; flex-shrink: 0; }
+
+/* Badges */
+.psr-badge {
+    display: inline-flex; align-items: center;
+    padding: 3px 10px;
+    border-radius: 50px;
+    font-size: .75rem;
+    font-weight: 700;
+}
+.psr-badge-active   { background: rgba(74,222,128,.1);  border: 1px solid rgba(74,222,128,.25);  color: #4ade80; }
+.psr-badge-inactive { background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.12); color: rgba(255,255,255,.4); }
+
+/* Alert */
+.psr-alert {
+    padding: 14px 18px;
+    border-radius: 12px;
+    font-size: .88rem;
+}
+.psr-alert h6 { margin-bottom: 0; font-size: .9rem; }
+.psr-alert-warning {
+    background: rgba(245,158,11,.07);
+    border: 1.5px solid rgba(245,158,11,.22);
+    color: #fbbf24;
+}
+
+/* Empty hint */
+.psr-empty-hint {
+    text-align: center;
+    padding: 28px 16px;
+    background: rgba(220,38,38,.04);
+    border: 1.5px solid rgba(220,38,38,.12);
+    border-radius: 14px;
+    color: rgba(255,255,255,.4);
+    font-size: .88rem;
+    display: flex; flex-direction: column; align-items: center;
 }
 </style>

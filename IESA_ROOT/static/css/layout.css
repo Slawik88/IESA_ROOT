@@ -657,16 +657,24 @@ main {
 
 /* ── Global Dark Modals ─────────────────────────────────── */
 .modal-content {
-  background: #111118 !important;
-  border: 1.5px solid rgba(255,255,255,.1) !important;
-  border-radius: 18px !important;
+  background: #111118;
+  border: 1.5px solid rgba(255,255,255,.1);
+  border-radius: 18px;
   color: #e2e8f0;
 }
 .modal-header {
-  background: transparent !important;
-  border-bottom: 1px solid rgba(255,255,255,.07) !important;
+  background: transparent;
+  border-bottom: 1px solid rgba(255,255,255,.07);
 }
-.modal-footer { border-top: 1px solid rgba(255,255,255,.07) !important; }
+.modal-footer { border-top: 1px solid rgba(255,255,255,.07); }
+/* Light modal variant — override dark defaults */
+.modal-light .modal-content {
+  background: #fff;
+  border: 1px solid rgba(0,0,0,.1);
+  color: var(--gray-900);
+}
+.modal-light .modal-header { border-bottom: 1px solid rgba(0,0,0,.1); }
+.modal-light .modal-footer { border-top: 1px solid rgba(0,0,0,.1); }
 .modal .btn-close { filter: invert(1) brightness(2); }
 .modal-body { color: rgba(255,255,255,.7); }
 

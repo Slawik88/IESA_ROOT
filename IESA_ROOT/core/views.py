@@ -52,8 +52,8 @@ class IndexView(TemplateView):
         except President.DoesNotExist:
             context['president'] = None
         
-        # 4. Члены ассоциации
-        context['members'] = AssociationMember.objects.all().order_by('id')
+        # 4. Члены ассоциации (limit 50 — board/team section on homepage)
+        context['members'] = AssociationMember.objects.all().order_by('id')[:50]
         
         # 5. Партнеры с пагинацией
         partners_qs = Partner.objects.all().order_by('name')
@@ -66,7 +66,7 @@ class IndexView(TemplateView):
         # 6. Ближайшие события (максимум 6 для главной)
         upcoming_events = Event.objects.filter(
             date__gte=timezone.now()
-        ).order_by('date')[:6]
+        ).select_related('created_by').order_by('date')[:6]
         context['upcoming_events'] = upcoming_events
         
         # 7. Преимущества членства (Top 6 для главной)

@@ -1,40 +1,41 @@
 {% load static %}
 {% load i18n %}
 
-<div class="container py-5" id="partners-section">
+<div class="hp-container py-5" id="partners-section">
   <div class="text-center mb-5">
-    <h2 class="fw-bold mb-2">{% trans "Our Strategic Partners" %}</h2>
-    <p class="text-muted lead">{% trans "Trusted organizations collaborating with us to advance sports excellence globally" %}</p>
+    <div class="hp-label" style="margin-bottom:12px;">{% trans "Our Partners" %}</div>
+    <h2 class="hp-h2">{% trans "Strategic <span>Partners</span>" %}</h2>
+    <p class="hp-sub">{% trans "Trusted organizations collaborating with us to advance sports excellence globally" %}</p>
   </div>
-  
+
   <div class="row g-4">
     {% for partner in partners %}
     <div class="col-12 col-sm-6 col-md-6 col-lg-4">
-      <div class="partner-card-enhanced h-100 d-flex flex-column">
-        <!-- Partner Header with Logo -->
-        <div class="partner-card-header">
+      <div class="p-card-dark h-100 d-flex flex-column">
+        <!-- Logo area -->
+        <div class="p-card-logo-area">
           {% if partner.logo %}
-            <img src="{{ partner.logo.url }}" alt="{{ partner.name }}" class="partner-card-logo">
+            <img src="{{ partner.logo.url }}" alt="{{ partner.name }}" class="p-card-logo">
           {% else %}
-            <div class="partner-logo-placeholder">
+            <div class="p-card-logo-placeholder">
               <span>{{ partner.name|truncatechars:3|upper }}</span>
             </div>
           {% endif %}
         </div>
 
-        <!-- Partner Content -->
-        <div class="partner-card-body flex-grow-1">
-          <h5 class="partner-card-title">{{ partner.name }}</h5>
-          <p class="partner-card-description">{{ partner.description|striptags|truncatewords:40 }}</p>
+        <!-- Body -->
+        <div class="p-card-body flex-grow-1">
+          <h5 class="p-card-title">{{ partner.name }}</h5>
+          <p class="p-card-desc">{{ partner.description|striptags|truncatewords:40 }}</p>
         </div>
 
-        <!-- Partner Footer Actions -->
-        <div class="partner-card-footer">
-          <button 
-            class="btn btn-primary btn-sm w-100"
-            hx-get="{% url 'core:partner_detail' partner.id %}" 
-            hx-target="#partner-modal-body" 
-            data-bs-toggle="modal" 
+        <!-- Footer -->
+        <div class="p-card-footer">
+          <button
+            class="p-card-detail-btn"
+            hx-get="{% url 'core:partner_detail' partner.id %}"
+            hx-target="#partner-modal-body"
+            data-bs-toggle="modal"
             data-bs-target="#partnerModal"
             type="button">
             <i class="fas fa-info-circle me-2"></i>{% trans "View Details" %}
@@ -46,10 +47,10 @@
   </div>
 
   {% if not partners %}
-  <div class="empty-state">
-    <div class="empty-emoji">🤝</div>
-    <h5>{% trans "No Partners Yet" %}</h5>
-    <p class="text-muted">{% trans "We're working on establishing partnerships. Check back soon!" %}</p>
+  <div class="text-center py-5">
+    <div style="font-size:2.5rem;margin-bottom:12px;opacity:.3;">🤝</div>
+    <h5 style="color:rgba(255,255,255,.5);">{% trans "No Partners Yet" %}</h5>
+    <p style="color:rgba(255,255,255,.3);">{% trans "We're working on establishing partnerships. Check back soon!" %}</p>
   </div>
   {% endif %}
 </div>
@@ -57,15 +58,15 @@
 <!-- Partner Details Modal -->
 <div class="modal fade" id="partnerModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg modal-dialog-centered">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title">{% trans "Partner Details" %}</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{% trans 'Close' %}"></button>
+    <div class="modal-content" style="background:#12121c;border:1.5px solid rgba(255,255,255,.1);border-radius:20px;overflow:hidden;">
+      <div class="modal-header" style="background:#0e0e18;border-bottom:1px solid rgba(255,255,255,.07);padding:16px 24px;">
+        <h5 class="modal-title" style="color:#fff;font-weight:700;">{% trans "Partner Details" %}</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="{% trans 'Close' %}"></button>
       </div>
-      <div class="modal-body" id="partner-modal-body">
+      <div class="modal-body p-0" id="partner-modal-body">
         <!-- HTMX will load content here -->
         <div class="text-center py-5">
-          <div class="spinner-border text-primary" role="status">
+          <div class="spinner-border" style="color:var(--primary);" role="status">
             <span class="visually-hidden">{% trans "Loading…" %}</span>
           </div>
         </div>
@@ -75,73 +76,68 @@
 </div>
 
 <style>
-.partner-card-enhanced {
-  background: linear-gradient(180deg, #f8fbff 0%, #f0f6ff 100%);
-  border: 2px solid #e3ecf5;
+/* Dark partner cards */
+.p-card-dark {
+  background: rgba(255,255,255,.03);
+  border: 1.5px solid rgba(255,255,255,.08);
   border-radius: 16px;
   overflow: hidden;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 4px 12px rgba(13, 110, 253, 0.08);
+  transition: border-color .3s, transform .3s, box-shadow .3s;
   display: flex;
   flex-direction: column;
 }
-
-.partner-card-enhanced:hover {
-  border-color: #0d6efd;
-  transform: translateY(-8px);
-  box-shadow: 0 12px 28px rgba(13, 110, 253, 0.15);
+.p-card-dark:hover {
+  border-color: rgba(220,38,38,.4);
+  transform: translateY(-6px);
+  box-shadow: 0 16px 40px rgba(220,38,38,.1);
 }
 
-.partner-card-header {
+.p-card-logo-area {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 160px;
-  background: linear-gradient(135deg, #ffffff 0%, #f5faff 100%);
-  border-bottom: 2px solid #e3ecf5;
+  min-height: 150px;
+  background: rgba(255,255,255,.02);
+  border-bottom: 1px solid rgba(255,255,255,.06);
   padding: 24px 16px;
 }
-
-.partner-card-logo {
+.p-card-logo {
   max-width: 100%;
-  max-height: 120px;
+  max-height: 110px;
   object-fit: contain;
-  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.08));
+  filter: brightness(1.05) drop-shadow(0 2px 4px rgba(0,0,0,.3));
 }
-
-.partner-logo-placeholder {
-  width: 100px;
-  height: 100px;
+.p-card-logo-placeholder {
+  width: 90px;
+  height: 90px;
   border-radius: 12px;
-  background: linear-gradient(135deg, #0d6efd 0%, #0854ca 100%);
-  color: white;
+  background: linear-gradient(135deg, #dc2626, #b91c1c);
+  color: #fff;
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: 800;
-  font-size: 1.5rem;
-  box-shadow: 0 4px 12px rgba(13, 110, 253, 0.3);
+  font-size: 1.4rem;
+  box-shadow: 0 4px 16px rgba(220,38,38,.3);
 }
 
-.partner-card-body {
-  padding: 20px 18px;
+.p-card-body {
+  padding: 18px 16px;
   flex: 1;
   display: flex;
   flex-direction: column;
 }
-
-.partner-card-title {
+.p-card-title {
   font-weight: 700;
-  color: #0d2868;
-  font-size: 1.1rem;
-  margin-bottom: 10px;
+  color: #fff;
+  font-size: 1.05rem;
+  margin-bottom: 8px;
   line-height: 1.3;
 }
-
-.partner-card-description {
-  color: #526070;
-  font-size: 0.9rem;
-  line-height: 1.5;
+.p-card-desc {
+  color: rgba(255,255,255,.4);
+  font-size: .88rem;
+  line-height: 1.55;
   margin: 0;
   flex: 1;
   overflow: hidden;
@@ -150,20 +146,27 @@
   -webkit-box-orient: vertical;
 }
 
-.partner-card-footer {
-  padding: 16px 18px;
-  border-top: 2px solid #e3ecf5;
-  background: rgba(255, 255, 255, 0.5);
+.p-card-footer {
+  padding: 14px 16px;
+  border-top: 1px solid rgba(255,255,255,.06);
 }
-
-.partner-card-footer .btn {
-  font-weight: 600;
-  letter-spacing: 0.3px;
-  transition: all 0.2s ease;
+.p-card-detail-btn {
+  width: 100%;
+  padding: 10px 16px;
+  border: none;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #dc2626, #b91c1c);
+  color: #fff;
+  font-weight: 700;
+  font-size: .88rem;
+  cursor: pointer;
+  transition: all .2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
-
-.partner-card-footer .btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(13, 110, 253, 0.3);
+.p-card-detail-btn:hover {
+  box-shadow: 0 6px 20px rgba(220,38,38,.35);
+  transform: translateY(-1px);
 }
 </style>

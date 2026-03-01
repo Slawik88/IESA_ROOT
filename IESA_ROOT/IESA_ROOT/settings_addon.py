@@ -85,6 +85,8 @@ else:
 
 # ---------------------------------------------------------------------------
 # Telegram Bot notifications
+# Переменные окружения (DigitalOcean → App → Settings → App-Level Env Vars):
+#   TELEGRAM_CHANNEL_ID      — ID канала для приветствий ('@iesasport' или '-100XXXXX')
 # ---------------------------------------------------------------------------
 # Replaces email notifications. Set these in DigitalOcean App Platform:
 #   TELEGRAM_BOT_TOKEN       — токен от @BotFather

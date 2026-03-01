@@ -67,6 +67,9 @@ def global_search(request):
         # Поиск пользователей
         users_qs = User.objects.search(normalized).exclude(
             username=''
+        ).only(
+            'id', 'username', 'first_name', 'last_name',
+            'email', 'is_verified', 'avatar', 'permanent_id',
         ).order_by('-is_verified', 'username')[:SEARCH_USERS_LIMIT]
         results['users'] = list(users_qs)  # Force evaluation
         

@@ -3,6 +3,12 @@
  * Features: Code splitting, lazy loading, debouncing, caching
  */
 
+// Capture static base URL from this script's own src (must be at top level)
+const _ownScript = document.currentScript;
+const STATIC_BASE = _ownScript
+    ? _ownScript.src.substring(0, _ownScript.src.lastIndexOf('js/performance-optimization.js'))
+    : '/static/';
+
 // Debounce utility
 function debounce(func, wait) {
     let timeout;
@@ -85,33 +91,6 @@ function initLazyLoading() {
 }
 
 /**
- * Optimize scroll listeners with throttling
- */
-function initOptimizedScrollListeners() {
-    const header = document.querySelector('header');
-    let lastScrollY = 0;
-
-    const handleScroll = throttle(() => {
-        const scrollY = window.scrollY;
-        
-        // Optimize header hide/show logic
-        if (header) {
-            if (scrollY > lastScrollY && scrollY > 100) {
-                // Scrolling down - hide header
-                header.style.transform = 'translateY(-100%)';
-            } else {
-                // Scrolling up - show header
-                header.style.transform = 'translateY(0)';
-            }
-        }
-        
-        lastScrollY = scrollY;
-    }, 50);
-
-    window.addEventListener('scroll', handleScroll, { passive: true });
-}
-
-/**
  * Cache DOM elements for repeated access
  */
 const DOMCache = {
@@ -176,9 +155,12 @@ const APICache = {
 };
 
 /**
- * Preload critical resources
+ * Preload critical resources.
+ * Derives STATIC_URL from this script's own src (set by {% static %}).
  */
 function preloadCriticalResources() {
+    const staticBase = STATIC_BASE;
+
     const criticalCSS = [
         'css/homepage.css',
     ];
@@ -193,7 +175,7 @@ function preloadCriticalResources() {
         const link = document.createElement('link');
         link.rel = 'preload';
         link.as = 'style';
-        link.href = `/static/${href}`;
+        link.href = staticBase + href;
         document.head.appendChild(link);
     });
     
@@ -201,7 +183,7 @@ function preloadCriticalResources() {
     criticalJS.forEach(src => {
         const script = document.createElement('link');
         script.rel = 'prefetch';
-        script.href = `/static/${src}`;
+        script.href = staticBase + src;
         document.head.appendChild(script);
     });
 }
@@ -262,7 +244,6 @@ function optimizeForDevice() {
 function initPerformanceOptimizations() {
     preloadCriticalResources();
     initLazyLoading();
-    initOptimizedScrollListeners();
     initOptimizedResize();
     optimizeForDevice();
     
@@ -286,6 +267,5 @@ window.PerformanceUtils = {
     DOMCache,
     APICache,
     initLazyLoading,
-    initOptimizedScrollListeners,
     monitorPerformance
 };

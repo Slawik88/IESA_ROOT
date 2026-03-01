@@ -3,148 +3,7 @@
 
 {% block title %}{% trans "Notifications" %} | IESA{% endblock %}
 
-{% block content %}
-<div class="container-limited" style="padding-top:3rem;padding-bottom:1rem;">
-    <div class="text-center mb-5">
-        <h1 class="h3 fw-bold mb-2" style="color:#fff;">
-            <i class="fas fa-bell me-2" style="color:#f87171;"></i>{% trans "Notifications" %}
-        </h1>
-        <p style="color:rgba(255,255,255,.4);">{% trans "Stay updated with your activity" %}</p>
-    </div>
-
-    {% if notifications %}
-        <div class="d-flex justify-content-between align-items-center mb-4" id="notification-actions">
-            {% if unread_count > 0 %}
-                <button hx-post="{% url 'notifications:mark_all_read' %}" 
-                    hx-swap="outerHTML" 
-                    hx-target="#notification-actions" 
-                    hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
-                    class="btn btn-sm btn-outline-primary btn-modern">
-                    <i class="fas fa-check-double me-1"></i>{% trans "Mark all as read" %}
-                </button>
-                <span class="badge bg-danger rounded-pill">{{ unread_count }} {% trans "Unread" %}</span>
-            {% else %}
-                <span class="text-muted small">{% trans "All notifications marked as read" %}</span>
-            {% endif %}
-        </div>
-
-        <div class="notification-list">
-            {% for notification in notifications %}
-            <div class="notification-item {% if not notification.is_read %}notification-unread{% endif %}" data-notification-id="{{ notification.id }}">
-                <div class="notification-icon-wrapper">
-                    {% if notification.notification_type == 'post_approved' %}
-                        <div class="notification-icon success">
-                            <i class="fas fa-check"></i>
-                        </div>
-                    {% elif notification.notification_type == 'post_rejected' %}
-                        <div class="notification-icon danger">
-                            <i class="fas fa-times"></i>
-                        </div>
-                    {% elif notification.notification_type == 'new_comment' or notification.notification_type == 'comment_reply' %}
-                        <div class="notification-icon info">
-                            <i class="fas fa-comment"></i>
-                        </div>
-                    {% elif notification.notification_type == 'new_like' %}
-                        <div class="notification-icon warning">
-                            <i class="fas fa-heart"></i>
-                        </div>
-                    {% elif notification.notification_type == 'new_follower' %}
-                        <div class="notification-icon primary">
-                            <i class="fas fa-user-plus"></i>
-                        </div>
-                    {% elif notification.notification_type == 'event_reminder' %}
-                        <div class="notification-icon secondary">
-                            <i class="fas fa-calendar-alt"></i>
-                        </div>
-                    {% else %}
-                        <div class="notification-icon default">
-                            <i class="fas fa-circle"></i>
-                        </div>
-                    {% endif %}
-                </div>
-
-                <div class="notification-content flex-grow-1">
-                    <div class="notification-title">
-                        {{ notification.get_notification_type_display }}
-                        {% if not notification.is_read %}
-                            <span class="badge bg-danger badge-sm ms-2">{% trans "New" %}</span>
-                        {% endif %}
-                    </div>
-                    <div class="notification-message">{{ notification.message }}</div>
-                    <div class="notification-meta">
-                        <small class="text-muted">
-                            <i class="fas fa-clock me-1"></i>
-                            {{ notification.created_at|timesince }} {% trans "ago" %}
-                        </small>
-                    </div>
-                </div>
-
-                <div class="notification-actions d-flex gap-2">
-                    {% if notification.link %}
-                        <a href="{{ notification.link }}" class="btn btn-sm btn-danger">
-                            <i class="fas fa-arrow-right me-1"></i>{% trans "View" %}
-                        </a>
-                    {% endif %}
-                        <button hx-post="{% url 'notifications:notification_delete' notification.id %}"
-                            hx-vals='{"_method": "delete"}'
-                            hx-target="closest .notification-item"
-                            hx-swap="delete swap:100ms"
-                            hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
-                            class="btn btn-sm btn-outline-danger"
-                            title="{% trans "Delete notification" %}"
-                            aria-label="{% trans "Delete notification" %}"
-                            onclick="this.disabled=true">
-                        <i class="fas fa-trash-alt"></i>
-                        <span class="d-none d-md-inline ms-1">{% trans "Delete" %}</span>
-                    </button>
-                </div>
-            </div>
-            {% endfor %}
-        </div>
-
-        {% if notifications.has_other_pages %}
-        <nav aria-label="{% trans "Notifications pagination" %}" class="mt-5">
-            <ul class="pagination justify-content-center">
-                {% if notifications.has_previous %}
-                <li class="page-item">
-                    <a class="page-link" href="?page={{ notifications.previous_page_number }}">
-                        <i class="fas fa-chevron-left me-1"></i>{% trans "Previous" %}
-                    </a>
-                </li>
-                {% endif %}
-                
-                {% for num in notifications.paginator.page_range %}
-                    {% if notifications.number == num %}
-                    <li class="page-item active"><span class="page-link">{{ num }}</span></li>
-                    {% elif num > notifications.number|add:'-3' and num < notifications.number|add:'3' %}
-                    <li class="page-item"><a class="page-link" href="?page={{ num }}">{{ num }}</a></li>
-                    {% endif %}
-                {% endfor %}
-
-                {% if notifications.has_next %}
-                <li class="page-item">
-                    <a class="page-link" href="?page={{ notifications.next_page_number }}">
-                        {% trans "Next" %}<i class="fas fa-chevron-right ms-1"></i>
-                    </a>
-                </li>
-                {% endif %}
-            </ul>
-        </nav>
-        {% endif %}
-    {% else %}
-        <div class="empty-state text-center py-5">
-            <div class="mb-4">
-                <i class="fas fa-inbox fa-3x text-muted opacity-50"></i>
-            </div>
-            <h5 class="fw-bold mb-2">{% trans "No notifications yet" %}</h5>
-            <p class="text-muted mb-4">{% trans "You'll see notifications here when someone interacts with your content." %}</p>
-            <a href="{% url 'blog:post_list' %}" class="btn btn-primary btn-modern">
-                <i class="fas fa-fire me-2"></i>{% trans "Explore Posts" %}
-            </a>
-        </div>
-    {% endif %}
-</div>
-
+{% block extra_css %}
 <style>
 /* ── Dark notification list ─────────────────── */
 .notification-list {
@@ -287,4 +146,147 @@
     .notification-actions { flex-basis: 100%; margin-left: 0; margin-top: .35rem; }
 }
 </style>
+{% endblock %}
+
+{% block content %}
+<div class="container-limited" style="padding-top:3rem;padding-bottom:1rem;">
+    <div class="text-center mb-5">
+        <h1 class="h3 fw-bold mb-2" style="color:#fff;">
+            <i class="fas fa-bell me-2" style="color:#f87171;"></i>{% trans "Notifications" %}
+        </h1>
+        <p style="color:rgba(255,255,255,.4);">{% trans "Stay updated with your activity" %}</p>
+    </div>
+
+    {% if notifications %}
+        <div class="d-flex justify-content-between align-items-center mb-4" id="notification-actions">
+            {% if unread_count > 0 %}
+                <button hx-post="{% url 'notifications:mark_all_read' %}" 
+                    hx-swap="outerHTML" 
+                    hx-target="#notification-actions" 
+                    hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
+                    class="btn btn-sm btn-outline-primary btn-modern">
+                    <i class="fas fa-check-double me-1"></i>{% trans "Mark all as read" %}
+                </button>
+                <span class="badge bg-danger rounded-pill">{{ unread_count }} {% trans "Unread" %}</span>
+            {% else %}
+                <span class="text-muted small">{% trans "All notifications marked as read" %}</span>
+            {% endif %}
+        </div>
+
+        <div class="notification-list">
+            {% for notification in notifications %}
+            <div class="notification-item {% if not notification.is_read %}notification-unread{% endif %}" data-notification-id="{{ notification.id }}">
+                <div class="notification-icon-wrapper">
+                    {% if notification.notification_type == 'post_approved' %}
+                        <div class="notification-icon success">
+                            <i class="fas fa-check"></i>
+                        </div>
+                    {% elif notification.notification_type == 'post_rejected' %}
+                        <div class="notification-icon danger">
+                            <i class="fas fa-times"></i>
+                        </div>
+                    {% elif notification.notification_type == 'new_comment' or notification.notification_type == 'comment_reply' %}
+                        <div class="notification-icon info">
+                            <i class="fas fa-comment"></i>
+                        </div>
+                    {% elif notification.notification_type == 'new_like' %}
+                        <div class="notification-icon warning">
+                            <i class="fas fa-heart"></i>
+                        </div>
+                    {% elif notification.notification_type == 'new_follower' %}
+                        <div class="notification-icon primary">
+                            <i class="fas fa-user-plus"></i>
+                        </div>
+                    {% elif notification.notification_type == 'event_reminder' %}
+                        <div class="notification-icon secondary">
+                            <i class="fas fa-calendar-alt"></i>
+                        </div>
+                    {% else %}
+                        <div class="notification-icon default">
+                            <i class="fas fa-circle"></i>
+                        </div>
+                    {% endif %}
+                </div>
+
+                <div class="notification-content flex-grow-1">
+                    <div class="notification-title">
+                        {{ notification.get_notification_type_display }}
+                        {% if not notification.is_read %}
+                            <span class="badge bg-danger badge-sm ms-2">{% trans "New" %}</span>
+                        {% endif %}
+                    </div>
+                    <div class="notification-message">{{ notification.message }}</div>
+                    <div class="notification-meta">
+                        <small class="text-muted">
+                            <i class="fas fa-clock me-1"></i>
+                            {{ notification.created_at|timesince }} {% trans "ago" %}
+                        </small>
+                    </div>
+                </div>
+
+                <div class="notification-actions d-flex gap-2">
+                    {% if notification.link %}
+                        <a href="{{ notification.link }}" class="btn btn-sm btn-danger">
+                            <i class="fas fa-arrow-right me-1"></i>{% trans "View" %}
+                        </a>
+                    {% endif %}
+                        <button hx-post="{% url 'notifications:notification_delete' notification.id %}"
+                            hx-vals='{"_method": "delete"}'
+                            hx-target="closest .notification-item"
+                            hx-swap="delete swap:100ms"
+                            hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
+                            class="btn btn-sm btn-outline-danger"
+                            title="{% trans "Delete notification" %}"
+                            aria-label="{% trans "Delete notification" %}"
+                            onclick="this.disabled=true">
+                        <i class="fas fa-trash-alt"></i>
+                        <span class="d-none d-md-inline ms-1">{% trans "Delete" %}</span>
+                    </button>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        {% if notifications.has_other_pages %}
+        <nav aria-label="{% trans "Notifications pagination" %}" class="mt-5">
+            <ul class="pagination justify-content-center">
+                {% if notifications.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ notifications.previous_page_number }}">
+                        <i class="fas fa-chevron-left me-1"></i>{% trans "Previous" %}
+                    </a>
+                </li>
+                {% endif %}
+                
+                {% for num in notifications.paginator.page_range %}
+                    {% if notifications.number == num %}
+                    <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                    {% elif num > notifications.number|add:'-3' and num < notifications.number|add:'3' %}
+                    <li class="page-item"><a class="page-link" href="?page={{ num }}">{{ num }}</a></li>
+                    {% endif %}
+                {% endfor %}
+
+                {% if notifications.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ notifications.next_page_number }}">
+                        {% trans "Next" %}<i class="fas fa-chevron-right ms-1"></i>
+                    </a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+    {% else %}
+        <div class="empty-state text-center py-5">
+            <div class="mb-4">
+                <i class="fas fa-inbox fa-3x text-muted opacity-50"></i>
+            </div>
+            <h5 class="fw-bold mb-2">{% trans "No notifications yet" %}</h5>
+            <p class="text-muted mb-4">{% trans "You'll see notifications here when someone interacts with your content." %}</p>
+            <a href="{% url 'blog:post_list' %}" class="btn btn-primary btn-modern">
+                <i class="fas fa-fire me-2"></i>{% trans "Explore Posts" %}
+            </a>
+        </div>
+    {% endif %}
+</div>
 {% endblock %}

@@ -174,6 +174,51 @@ async def handle_cancel(chat_id: int, text: str, user_db) -> Reply:
     return _("↩️ Cancelled."), None
 
 
+async def handle_new_channel_member(chat_id: str, new_member: dict, channel_title: str) -> None:
+    """Send a welcome message to the channel when a new member joins.
+
+    Parameters
+    ----------
+    chat_id : str | int
+        The channel's chat ID — where to send the welcome.
+    new_member : dict
+        The `new_chat_member` dict from Telegram update (contains user info).
+    channel_title : str
+        Display name of the channel.
+    """
+    user    = new_member.get("user") or {}
+    user_id = user.get("id")
+    fname   = user.get("first_name") or ""
+    lname   = user.get("last_name") or ""
+    uname   = user.get("username")
+    is_bot  = user.get("is_bot", False)
+
+    # Don't welcome other bots joining the channel
+    if is_bot:
+        return
+
+    full_name = f"{fname} {lname}".strip() or uname or f"id{user_id}"
+    mention = f'<a href="tg://user?id={user_id}">{full_name}</a>' if user_id else full_name
+
+    text = (
+        f"👋 Добро пожаловать в IESA Sport, {mention}!\n\n"
+        "🏃 Мы рады видеть тебя в нашем сообществе!\n\n"
+        "🌐 На нашем сайте ты можешь:\n"
+        "• Стать участником организации\n"
+        "• Получить PIN-карту для партнёров\n"
+        "• Узнать о мероприятиях и продуктах\n\n"
+        "👇 Заходи и знакомься с нами:"
+    )
+    from .client import send_message_async  # noqa: avoid circular at top level
+    keyboard = {
+        "inline_keyboard": [
+            [{"text": "🏠 Сайт IESA Sport", "url": "https://iesasport.ch"}],
+            [{"text": "🤖 Привязать аккаунт", "url": "https://iesasport.ch/auth/profile/"}],
+        ]
+    }
+    await send_message_async(text, chat_id=chat_id, reply_markup=keyboard)
+
+
 async def handle_echo(chat_id: int, text: str, user_db) -> Reply:
     msg = (
         f"🔁 {text}\n\n"

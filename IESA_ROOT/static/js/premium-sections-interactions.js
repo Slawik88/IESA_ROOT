@@ -286,27 +286,6 @@ function initPartnerCardAnimations() {
     });
 })();
 
-/**
- * Lazy load observer for cards
- */
-(function initLazyCardLoading() {
-    const cards = document.querySelectorAll('.event-card, .member-card, .partner-card-compact');
-    
-    const observer = new IntersectionObserver((entries) => {
-        entries.forEach(entry => {
-            if (entry.isIntersecting) {
-                entry.target.classList.add('in-view');
-                observer.unobserve(entry.target);
-            }
-        });
-    }, {
-        threshold: 0.1,
-        rootMargin: '50px'
-    });
-    
-    cards.forEach(card => observer.observe(card));
-})();
-
 // Expose functions
 window.PremiumSections = {
     initEventCardAnimations,

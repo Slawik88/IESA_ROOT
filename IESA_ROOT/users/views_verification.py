@@ -87,12 +87,19 @@ def member_cabinet(request):
         messages.error(request, _('⚠️ System error: Database migration required. Contact administrator.'))
         return redirect('core:home')
 
+    _tg_ctx = {
+        'telegram_linked': bool(user.telegram_chat_id),
+        'telegram_bot_configured': bool(_token()),
+        'telegram_bot_name': os.environ.get('TELEGRAM_BOT_NAME', ''),
+    }
+
     if user.membership_status != 'active':
         return render(request, 'users/member_cabinet.html', {
             'membership_status': user.membership_status,
             'current_pin': None,
             'seconds_remaining': 0,
             'error_message': _('Your membership is inactive. Contact administrator to activate your account.'),
+            **_tg_ctx,
         })
 
     if not user.totp_secret:
@@ -102,6 +109,7 @@ def member_cabinet(request):
             'current_pin': None,
             'seconds_remaining': 0,
             'error_message': _('PIN system not initialized. Contact administrator.'),
+            **_tg_ctx,
         })
 
     current_pin = user.get_current_pin()
@@ -112,6 +120,7 @@ def member_cabinet(request):
             'current_pin': None,
             'seconds_remaining': 0,
             'error_message': _('PIN generation failed. Contact administrator.'),
+            **_tg_ctx,
         })
 
     current_time = int(time.time())
@@ -623,7 +632,7 @@ def connect_telegram_code_view(request):
                         chat_id=chat_id,
                     )
                     messages.success(request, _("✅ Telegram linked successfully!"))
-                    return redirect("users:member_cabinet")
+                    return redirect("users:profile")
 
     return render(request, "users/connect_telegram_code.html", {
         "error": error,
@@ -639,13 +648,14 @@ def disconnect_telegram_view(request):
     request.user.telegram_linked_at = None
     request.user.save(update_fields=["telegram_chat_id", "telegram_linked_at"])
     messages.success(request, _("Telegram disconnected from your account."))
-    return redirect("users:member_cabinet")
+    return redirect("users:profile")
 
 
 # ---------------------------------------------------------------------------
 # Method B: Telegram Login Widget callback
 # ---------------------------------------------------------------------------
 
+@login_required
 def telegram_login_callback_view(request):
     """
     Telegram Login Widget sends user here after tapping 'Login with Telegram'.
@@ -659,28 +669,28 @@ def telegram_login_callback_view(request):
 
     if not flat.get("hash") or not verify_telegram_auth(flat):
         messages.error(request, _("Telegram signature verification failed."))
-        return redirect("users:member_cabinet")
+        return redirect("users:profile")
 
     if time.time() - int(flat.get("auth_date", 0)) > 300:
         messages.error(request, _("Telegram request expired. Please try again."))
-        return redirect("users:member_cabinet")
+        return redirect("users:profile")
 
     tg_id = int(flat.get("id", 0))
     if not tg_id:
         messages.error(request, _("Unable to retrieve Telegram ID."))
-        return redirect("users:member_cabinet")
+        return redirect("users:profile")
 
     from .models import User
     if User.objects.filter(telegram_chat_id=tg_id).exclude(pk=request.user.pk).exists():
         messages.error(request, _("This Telegram account is already linked to another user."))
-        return redirect("users:member_cabinet")
+        return redirect("users:profile")
 
     request.user.telegram_chat_id = tg_id
     request.user.telegram_linked_at = tz.now()
     request.user.save(update_fields=["telegram_chat_id", "telegram_linked_at"])
     tg_name = flat.get("username") or flat.get("first_name", "")
     messages.success(request, _("✅ Telegram (%(name)s) linked successfully!") % {'name': tg_name})
-    return redirect("users:member_cabinet")
+    return redirect("users:profile")
 
 
 @csrf_exempt

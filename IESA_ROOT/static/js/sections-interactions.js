@@ -4,49 +4,15 @@
  */
 
 document.addEventListener('DOMContentLoaded', function () {
-    // 1. Initialize animations on scroll
-    initScrollAnimations();
-    
-    // 2. Add interactivity to product cards
+    // 1. Add interactivity to product cards
     initProductCardEffects();
     
-    // 3. Add interactivity to event cards
+    // 2. Add interactivity to event cards
     initEventCardEffects();
     
-    // 4. Add interactivity to member cards
+    // 3. Add interactivity to member cards
     initMemberCardEffects();
-    
-    // 5. Smooth scroll navigation
-    initSmoothScroll();
 });
-
-/**
- * Initialize scroll-triggered animations using IntersectionObserver
- */
-function initScrollAnimations() {
-    const options = {
-        threshold: 0.1,
-        rootMargin: '0px 0px -100px 0px'
-    };
-    
-    const observer = new IntersectionObserver((entries) => {
-        entries.forEach((entry, index) => {
-            if (entry.isIntersecting) {
-                // Stagger animations
-                setTimeout(() => {
-                    entry.target.classList.add('fade-in-up-animated');
-                }, index * 50);
-                
-                observer.unobserve(entry.target);
-            }
-        });
-    }, options);
-    
-    // Observe all cards and sections
-    document.querySelectorAll('.product-card, .event-card, .benefit-card, .member-card, .partner-card-compact').forEach(el => {
-        observer.observe(el);
-    });
-}
 
 /**
  * Add hover effects to product cards
@@ -122,29 +88,8 @@ function initMemberCardEffects() {
 
 /**
  * Initialize smooth scroll navigation to sections
+ * NOTE: Removed — CSS scroll-behavior: smooth + scroll-margin-top handles this.
  */
-function initSmoothScroll() {
-    const links = document.querySelectorAll('a[href^="#"]');
-    
-    links.forEach(link => {
-        link.addEventListener('click', function (e) {
-            const targetId = this.getAttribute('href');
-            const targetElement = document.querySelector(targetId);
-            
-            if (targetElement && targetId !== '#') {
-                e.preventDefault();
-                
-                const offsetTop = targetElement.offsetTop - 80; // Account for navbar
-                
-                window.scrollTo({
-                    top: offsetTop,
-                    behavior: 'smooth',
-                    duration: 800
-                });
-            }
-        });
-    });
-}
 
 /**
  * Parallax scrolling effect for hero section
@@ -248,11 +193,9 @@ window.addEventListener('load', function () {
 
 // Expose functions for external use
 window.HomepageSections = {
-    initScrollAnimations,
     initProductCardEffects,
     initEventCardEffects,
     initMemberCardEffects,
-    initSmoothScroll,
     initParallaxEffect,
     initLazyImageLoading
 };
