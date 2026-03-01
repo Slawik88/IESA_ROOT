@@ -44,7 +44,7 @@ services:
     value: ""
     type: SECRET
   - key: TELEGRAM_BOT_NAME
-    value: IESA_Administrator_bot
+    value: IESA_ADMINISTRATOR_BOT
   - key: TELEGRAM_WEBHOOK_SECRET
     value: ""
     type: SECRET
