@@ -12,7 +12,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="IESA">
-    <meta name="theme-color" content="#ffffff">
+    <meta name="theme-color" content="#0e0e18">
     
     <!-- SEO Meta Tags -->
     <meta name="description" content="{% block meta_description %}{% trans "IESA - Extreme Sports Community. Kitesurfing in Egypt, Boxing, Adventure Travel & Sauna Experiences. Join our international athletes and enthusiasts." %}{% endblock %}">
@@ -134,6 +134,7 @@
                             <ul class="dropdown-menu" aria-labelledby="communityDropdown">
                                 <li><a class="dropdown-item" href="{% url 'blog:post_list' %}">{% trans "Posts" %}</a></li>
                                 <li><a class="dropdown-item" href="{% url 'blog:event_list' %}">{% trans "Events" %}</a></li>
+                                <li><a class="dropdown-item" href="{% url 'products:product_list' %}">{% trans "Products" %}</a></li>
                                 <li><a class="dropdown-item" href="{% url 'core:home' %}#partners-section">{% trans "Partners" %}</a></li>
                                 <li><a class="dropdown-item" href="{% url 'users:users_search' %}">{% trans "Members" %}</a></li>
                                                                 {% if user.is_authenticated %}

@@ -39,3 +39,12 @@ services:
     value: noreply@iesasport.ch
   - key: CLEVERREACH_SENDER_NAME
     value: IESA Sport
+  # Telegram Bot (configure via @BotFather)
+  - key: TELEGRAM_BOT_TOKEN
+    value: ""
+    type: SECRET
+  - key: TELEGRAM_BOT_NAME
+    value: IESA_Administrator_bot
+  - key: TELEGRAM_WEBHOOK_SECRET
+    value: ""
+    type: SECRET

@@ -28,7 +28,7 @@
     border-radius: 16px;
     aspect-ratio: 4/3;
     background: #111;
-    border: 1.5px solid rgba(0,0,0,.06);
+    border: 1.5px solid rgba(255,255,255,.06);
     transition: transform .3s, box-shadow .3s, border-color .3s;
 }
 .gallery-thumb:hover {
@@ -104,7 +104,7 @@
     <div class="container-limited">
         <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 g-4 gallery-grid">
             {% for photo in photos %}
-            <div class="col" data-reveal data-delay="{{ forloop.counter|add:'0'|divisibleby:'4'|yesno:'4,1,2,3' }}">
+            <div class="col" data-reveal data-delay="{% cycle '1' '2' '3' '4' %}">
                 <a href="#" class="gallery-grid__item d-block" data-index="{{ forloop.counter0 }}" data-src="{{ photo.image.url }}" data-caption="{{ photo.caption|default:'' }}">
                     <div class="gallery-thumb">
                         <img src="{{ photo.image.url }}" class="img-fluid" alt="{{ photo.caption|default:default_photo }}" loading="lazy">
@@ -205,6 +205,16 @@
     });
     document.getElementById('galleryNext').addEventListener('click', function(){
         show((current + 1) % items.length);
+    });
+
+    // Keyboard navigation
+    let modalOpen = false;
+    modalEl.addEventListener('show.bs.modal', function(){ modalOpen = true; });
+    modalEl.addEventListener('hide.bs.modal', function(){ modalOpen = false; });
+    document.addEventListener('keydown', function(e){
+        if (!modalOpen) return;
+        if (e.key === 'ArrowLeft')  { e.preventDefault(); show((current - 1 + items.length) % items.length); }
+        if (e.key === 'ArrowRight') { e.preventDefault(); show((current + 1) % items.length); }
     });
 })();
 </script>

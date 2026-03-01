@@ -477,6 +477,50 @@
         </div>
         {% endif %}
 
+        <!-- Telegram connect / manage (own profile) -->
+        {% if user.is_authenticated and user.id == profile_user.id %}
+        <div class="profile-card-dark" style="border-color:rgba(36,160,237,0.25);">
+          {% if user.telegram_linked_at %}
+          {# ── Connected state ── #}
+          <div class="d-flex align-items-center gap-3">
+            <div style="width:2.4rem;height:2.4rem;border-radius:50%;background:rgba(36,160,237,0.15);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+              <i class="fab fa-telegram" style="color:#24a0ed;font-size:1.1rem;"></i>
+            </div>
+            <div class="flex-grow-1">
+              <p class="mb-0" style="font-size:.85rem;font-weight:600;color:rgba(255,255,255,.87);">
+                <i class="fas fa-check-circle" style="color:#22c55e;font-size:.72rem;"></i>
+                {% trans "Telegram Connected" %}
+              </p>
+              <p class="mb-0" style="font-size:.78rem;color:rgba(255,255,255,.45);">
+                {% trans "Linked" %} {{ user.telegram_linked_at|date:"d M Y" }}
+              </p>
+            </div>
+            <form method="post" action="{% url 'users:disconnect_telegram' %}" style="margin:0;">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-sm" style="background:rgba(239,68,68,0.12);color:#f87171;border:1px solid rgba(239,68,68,0.25);border-radius:.5rem;white-space:nowrap;font-size:.78rem;"
+                      onclick="return confirm('{% trans "Disconnect Telegram from your account?" %}')">
+                <i class="fas fa-unlink me-1" style="font-size:.65rem;"></i> {% trans "Disconnect" %}
+              </button>
+            </form>
+          </div>
+          {% else %}
+          {# ── Not connected state ── #}
+          <div class="d-flex align-items-center gap-3">
+            <div style="width:2.4rem;height:2.4rem;border-radius:50%;background:rgba(36,160,237,0.12);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+              <i class="fab fa-telegram" style="color:#24a0ed;font-size:1.1rem;"></i>
+            </div>
+            <div class="flex-grow-1">
+              <p class="mb-0" style="font-size:.85rem;font-weight:600;color:rgba(255,255,255,.87);">{% trans "Connect Telegram" %}</p>
+              <p class="mb-0" style="font-size:.78rem;color:rgba(255,255,255,.5);">{% trans "Get instant notifications and visit confirmations via Telegram" %}</p>
+            </div>
+            <a href="{% url 'users:connect_telegram_code' %}" class="btn btn-sm" style="background:rgba(36,160,237,0.15);color:#24a0ed;border:1px solid rgba(36,160,237,0.3);border-radius:.5rem;white-space:nowrap;">
+              {% trans "Connect" %} <i class="fas fa-arrow-right ms-1" style="font-size:.7rem;"></i>
+            </a>
+          </div>
+          {% endif %}
+        </div>
+        {% endif %}
+
         <!-- Social links -->
         {% if profile_user.github_url or profile_user.website_url or profile_user.telegram_url or profile_user.discord_url %}
         <div class="profile-card-dark">

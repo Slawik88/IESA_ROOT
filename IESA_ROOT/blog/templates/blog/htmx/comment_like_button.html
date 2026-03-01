@@ -1,9 +1,9 @@
 <div id="comment-like-{{ comment.pk }}">
-    <button class="btn btn-sm btn-outline-secondary"
+    <button style="background:transparent;border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:.25rem .65rem;color:{% if is_liked %}var(--primary){% else %}rgba(255,255,255,.45){% endif %};cursor:pointer;font-size:.8rem;transition:border-color .2s,color .2s;"
             hx-post="{% url 'blog:toggle_comment_like' pk=comment.post.pk comment_pk=comment.pk %}"
             hx-target="#comment-like-{{ comment.pk }}"
             hx-swap="outerHTML">
-        <i class="fas {% if is_liked %}fa-thumbs-up text-primary{% else %}fa-thumbs-up{% endif %} me-1"></i>
-        <span class="small">{{ like_count }}</span>
+        <i class="fas fa-thumbs-up me-1"></i>
+        <span>{{ like_count }}</span>
     </button>
 </div>

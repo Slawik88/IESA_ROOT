@@ -68,7 +68,7 @@
             ripple.style.width = ripple.style.height = size + 'px';
             ripple.style.left = x + 'px';
             ripple.style.top = y + 'px';
-            ripple.classList.add('ripple-effect');
+            ripple.classList.add('ripple');
             
             card.appendChild(ripple);
             
@@ -120,35 +120,6 @@
     }
 
     /**
-     * Add hover sound effect (optional, subtle)
-     */
-    function addAudioFeedback() {
-        // Create audio context for subtle hover sounds
-        let audioContext;
-        
-        document.querySelectorAll('.partner-card-compact').forEach(card => {
-            card.addEventListener('mouseenter', () => {
-                // Subtle click sound on hover (very quiet)
-                if (!audioContext) {
-                    audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                }
-                
-                const oscillator = audioContext.createOscillator();
-                const gainNode = audioContext.createGain();
-                
-                oscillator.connect(gainNode);
-                gainNode.connect(audioContext.destination);
-                
-                oscillator.frequency.value = 800;
-                gainNode.gain.value = 0.01; // Very quiet
-                
-                oscillator.start();
-                oscillator.stop(audioContext.currentTime + 0.05);
-            });
-        });
-    }
-
-    /**
      * Initialize partner category color animation
      */
     function animatePartnerBadges() {
@@ -186,7 +157,6 @@
             initPartnerCards();
             initStaggerAnimation();
             animatePartnerBadges();
-            // addAudioFeedback(); // Optional - can be enabled for extra feedback
         });
     } else {
         initPartnerCards();
@@ -205,65 +175,5 @@
 
 })();
 
-// CSS animations for ripple and fade-in
-const style = document.createElement('style');
-style.textContent = `
-    .ripple-effect {
-        position: absolute;
-        border-radius: 50%;
-        background: radial-gradient(circle, rgba(248, 113, 113, 0.3) 0%, transparent 70%);
-        transform: scale(0);
-        animation: ripple 0.6s ease-out;
-        pointer-events: none;
-        z-index: 10;
-    }
-    
-    @keyframes ripple {
-        to {
-            transform: scale(2);
-            opacity: 0;
-        }
-    }
-    
-    .partner-card-compact {
-        position: relative;
-        overflow: hidden;
-        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    }
-    
-    @keyframes badgeFadeIn {
-        from {
-            opacity: 0;
-            transform: translateY(-10px);
-        }
-        to {
-            opacity: 1;
-            transform: translateY(0);
-        }
-    }
-    
-    @keyframes fadeInUp {
-        from {
-            opacity: 0;
-            transform: translateY(30px);
-        }
-        to {
-            opacity: 1;
-            transform: translateY(0);
-        }
-    }
-    
-    .fade-in-up-animated {
-        animation: fadeInUp 0.6s ease-out forwards;
-    }
-    
-    .partner-logo-compact img {
-        opacity: 0;
-        transition: opacity 0.4s ease;
-    }
-    
-    .partner-logo-compact img.loaded {
-        opacity: 1;
-    }
-`;
-document.head.appendChild(style);
+// NOTE: CSS for .ripple, .partner-card-compact, @keyframes badgeFadeIn/fadeInUp,
+// .fade-in-up-animated, .partner-logo-compact img — moved to components.css (P6.6)

@@ -11,6 +11,7 @@ from .client import (
 )
 from .config import (
     bot_name,
+    channel_id,
     is_configured,
     token,
     webhook_secret,
@@ -33,7 +34,7 @@ __all__ = [
     "send_message", "send_message_async", "set_webhook", "get_webhook_info",
     "answer_callback_query", "edit_message_text", "edit_message_reply_markup",
     "set_bot_commands",
-    "is_configured", "token", "webhook_secret", "bot_name",
+    "is_configured", "token", "webhook_secret", "bot_name", "channel_id",
     "generate_link_code", "consume_link_code", "verify_telegram_auth",
     "process_incoming_update", "init_bot_commands",
     "notify_visit_confirmed", "notify_visit_edited", "notify_visit_cancelled",

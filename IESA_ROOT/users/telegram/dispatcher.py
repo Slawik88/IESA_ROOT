@@ -19,6 +19,7 @@ from .handlers import (
     handle_help,
     handle_id,
     handle_link,
+    handle_new_channel_member,
     handle_start,
     handle_status,
     handle_unlink_ask,
@@ -63,7 +64,31 @@ async def process_incoming_update(update: dict[str, Any]) -> bool:
     Handles:
       - message / edited_message  → text commands + echo
       - callback_query            → InlineKeyboard button presses
+      - chat_member               → welcome new channel members
     """
+
+    # ── 0. New channel/group member ─────────────────────────────────────────
+    chat_member_update = update.get("chat_member")
+    if chat_member_update:
+        chat_info   = chat_member_update.get("chat") or {}
+        chat_id     = chat_info.get("id")
+        chat_title  = chat_info.get("title") or ""
+        old_status  = (chat_member_update.get("old_chat_member") or {}).get("status", "")
+        new_member  = chat_member_update.get("new_chat_member") or {}
+        new_status  = new_member.get("status", "")
+
+        # Only greet genuine joins (left/kicked → member/administrator)
+        joined = new_status in ("member", "administrator") and old_status in ("left", "kicked")
+        if chat_id and joined:
+            try:
+                await handle_new_channel_member(
+                    chat_id=chat_id,
+                    new_member=new_member,
+                    channel_title=chat_title,
+                )
+            except Exception as exc:
+                logger.exception("handle_new_channel_member raised: %s", exc)
+        return True
 
     # ── 1. InlineKeyboard button press ──────────────────────────────────────
     callback = update.get("callback_query")

@@ -81,7 +81,11 @@
             { selector: '#benefits-section .row > *', animationClass: ANIMATION_CLASSES.card },
             { selector: '#about-section', animationClass: ANIMATION_CLASSES.about },
             { selector: '#partners-section .grid > *', animationClass: ANIMATION_CLASSES.partner },
-            { selector: '.member-card', animationClass: ANIMATION_CLASSES.card }
+            { selector: '.member-card', animationClass: ANIMATION_CLASSES.card },
+            { selector: '.product-card', animationClass: ANIMATION_CLASSES.card },
+            { selector: '.event-card', animationClass: ANIMATION_CLASSES.card },
+            { selector: '.benefit-card', animationClass: ANIMATION_CLASSES.card },
+            { selector: '.partner-card-compact', animationClass: ANIMATION_CLASSES.partner }
         ];
 
         elementsToObserve.forEach(({ selector, animationClass }) => {

@@ -93,7 +93,7 @@
             <div class="search-suggestion">
                 <p><strong>{% trans "Maybe you were looking for:" %}</strong></p>
                 <div class="search-box">
-                    <form action="/blog/search/" method="get">
+                    <form action="{% url 'blog:global_search' %}" method="get">
                         <input type="text" name="q" class="form-control" placeholder="{% trans "Search the site..." %}" autofocus>
                     </form>
                 </div>

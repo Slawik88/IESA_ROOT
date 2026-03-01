@@ -7,122 +7,361 @@
 {% block container_wrap_start %}{% endblock %}
 {% block container_wrap_end %}{% endblock %}
 
+{% block extra_css %}
+<style>
+.log-visit-page {
+  background: #0e0e18;
+  min-height: 100vh;
+  color: rgba(255,255,255,.87);
+}
+.log-hero {
+  background: #0a0a0f;
+  padding: 3rem 0 2.5rem;
+  position: relative;
+  overflow: hidden;
+}
+.log-hero::before {
+  content: '';
+  position: absolute;
+  top: -80px; right: -80px;
+  width: 350px; height: 350px;
+  background: radial-gradient(circle, rgba(220,38,38,.14) 0%, transparent 70%);
+  pointer-events: none;
+}
+.log-back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: .5rem;
+  background: transparent;
+  border: 1.5px solid rgba(255,255,255,.12);
+  border-radius: 10px;
+  padding: .5rem 1rem;
+  color: rgba(255,255,255,.5);
+  text-decoration: none;
+  font-size: .875rem;
+  font-weight: 600;
+  transition: border-color .2s, color .2s;
+  margin-bottom: 1.5rem;
+}
+.log-back-btn:hover {
+  border-color: rgba(255,255,255,.28);
+  color: rgba(255,255,255,.82);
+  text-decoration: none;
+}
+.member-info-card {
+  background: rgba(255,255,255,.03);
+  border: 1.5px solid rgba(255,255,255,.07);
+  border-radius: 18px;
+  padding: 1.5rem;
+  margin-bottom: 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+}
+.member-avatar-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+.member-avatar-wrap img,
+.member-avatar-fallback {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2.5px solid rgba(220,38,38,.5);
+  box-shadow: 0 0 0 4px rgba(220,38,38,.12);
+}
+.member-avatar-fallback {
+  background: rgba(255,255,255,.06);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255,255,255,.35);
+  font-size: 1.5rem;
+}
+.member-active-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  background: rgba(34,197,94,.1);
+  border: 1px solid rgba(34,197,94,.22);
+  border-radius: 50px;
+  padding: .2rem .65rem;
+  font-size: .7rem;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: #4ade80;
+  margin-top: .4rem;
+}
+.log-form-card {
+  background: rgba(255,255,255,.03);
+  border: 1.5px solid rgba(255,255,255,.07);
+  border-radius: 18px;
+  overflow: hidden;
+}
+.log-form-header {
+  background: rgba(220,38,38,.07);
+  border-bottom: 1px solid rgba(220,38,38,.12);
+  padding: 1.1rem 1.5rem;
+  font-weight: 700;
+  color: rgba(255,255,255,.75);
+  font-size: .95rem;
+}
+.log-form-body {
+  padding: 1.75rem 1.5rem;
+}
+.log-field-label {
+  font-size: .72rem;
+  text-transform: uppercase;
+  letter-spacing: .1em;
+  color: rgba(255,255,255,.35);
+  font-weight: 700;
+  margin-bottom: .45rem;
+  display: block;
+}
+.log-field-error {
+  margin-top: .35rem;
+  font-size: .82rem;
+  color: #f87171;
+}
+.log-divider {
+  border: none;
+  border-top: 1px solid rgba(255,255,255,.06);
+  margin: 1.5rem 0;
+}
+.log-pin-note {
+  background: rgba(59,130,246,.07);
+  border: 1px solid rgba(59,130,246,.18);
+  border-radius: 12px;
+  padding: 1rem 1.25rem;
+  color: rgba(147,197,253,.82);
+  font-size: .88rem;
+  margin-bottom: 1.25rem;
+}
+.log-pin-note i { margin-right: .5rem; }
+.chf-prefix {
+  background: rgba(255,255,255,.06);
+  border: 1.5px solid rgba(255,255,255,.1);
+  border-right: none;
+  border-radius: 10px 0 0 10px;
+  padding: .75rem 1rem;
+  color: rgba(255,255,255,.4);
+  font-size: .88rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+}
+/* Dark inputs — override Django form rendering */
+.log-form-body select,
+.log-form-body textarea,
+.log-form-body input[type="text"],
+.log-form-body input[type="number"],
+.log-form-body input[type="password"] {
+  background: #1a1a24 !important;
+  border: 1.5px solid rgba(255,255,255,.1) !important;
+  border-radius: 10px !important;
+  color: rgba(255,255,255,.87) !important;
+  padding: .75rem 1rem !important;
+  width: 100%;
+}
+.log-form-body .input-group input {
+  border-radius: 0 10px 10px 0 !important;
+}
+.log-form-body select:focus,
+.log-form-body textarea:focus,
+.log-form-body input:focus {
+  border-color: rgba(220,38,38,.4) !important;
+  box-shadow: 0 0 0 3px rgba(220,38,38,.1) !important;
+  outline: none !important;
+}
+.log-form-body select option {
+  background: #1a1a24;
+  color: rgba(255,255,255,.87);
+}
+.btn-log-submit {
+  width: 100%;
+  background: linear-gradient(135deg, #dc2626, #b91c1c);
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  padding: .9rem 1.5rem;
+  font-weight: 700;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: box-shadow .25s, transform .25s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: .5rem;
+  margin-bottom: .75rem;
+}
+.btn-log-submit:hover {
+  box-shadow: 0 8px 32px rgba(220,38,38,.4);
+  transform: translateY(-1px);
+  color: #fff;
+}
+.btn-log-ghost {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: .5rem;
+  width: 100%;
+  background: transparent;
+  color: rgba(255,255,255,.5);
+  border: 1.5px solid rgba(255,255,255,.12);
+  border-radius: 12px;
+  padding: .875rem 1.5rem;
+  font-weight: 700;
+  font-size: 1rem;
+  text-decoration: none;
+  transition: border-color .2s, color .2s;
+}
+.btn-log-ghost:hover {
+  border-color: rgba(255,255,255,.28);
+  color: rgba(255,255,255,.82);
+  text-decoration: none;
+}
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="container py-4">
-    <div class="row justify-content-center">
-        <div class="col-md-8 col-lg-6">
-            <!-- Back Button -->
-            <a href="{% url 'users:partner_dashboard' %}" class="btn btn-outline-secondary mb-3">
-                <i class="fas fa-arrow-left"></i> {% trans "Back to Dashboard" %}
-            </a>
-            
-            <!-- Member Info Card -->
-            <div class="card shadow-sm mb-4">
-                <div class="card-body">
-                    <div class="d-flex align-items-center">
-                        {% if member.avatar and member.avatar.name != 'avatars/default.png' %}
-                            <img src="{{ member.avatar.url }}" alt="{{ member.username }} avatar" class="rounded-circle me-3" style="width: 80px; height: 80px; object-fit: cover;">
-                        {% else %}
-                            <div class="rounded-circle bg-secondary d-inline-flex align-items-center justify-content-center me-3" style="width: 80px; height: 80px;">
-                                <i class="fas fa-user fa-2x text-white"></i>
-                            </div>
-                        {% endif %}
-                        <div>
-                            <h4 class="mb-1">{{ member.first_name }} {{ member.last_name }}</h4>
-                            <p class="text-muted mb-0">
-                                <i class="fas fa-user"></i> {{ member.username }}
-                                {% if member.pseudonym %}
-                                    • {{ member.pseudonym }}
-                                {% endif %}
-                            </p>
-                            <span class="badge bg-success mt-2">
-                                <i class="fas fa-check-circle"></i> {% trans "Active Member" %}
-                            </span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Visit Form -->
-            <div class="card shadow">
-                <div class="card-header bg-primary text-white">
-                    <h5 class="mb-0"><i class="fas fa-clipboard-list"></i> {% trans "Log Visit" %}</h5>
-                </div>
-                <div class="card-body">
-                    <form method="post" action="">
-                        {% csrf_token %}
-                        
-                        <!-- Service Type -->
-                        <div class="mb-3">
-                            <label class="form-label fw-bold">{{ form.service_type.label }}</label>
-                            {{ form.service_type }}
-                            {% if form.service_type.errors %}
-                                <div class="text-danger small">{{ form.service_type.errors }}</div>
-                            {% endif %}
-                        </div>
-                        
-                        <!-- Service Description -->
-                        <div class="mb-3">
-                            <label class="form-label">{{ form.service_description.label }}</label>
-                            {{ form.service_description }}
-                            {% if form.service_description.errors %}
-                                <div class="text-danger small">{{ form.service_description.errors }}</div>
-                            {% endif %}
-                        </div>
-                        
-                        <!-- Cost -->
-                        <div class="mb-3">
-                            <label class="form-label">{{ form.cost.label }}</label>
-                            <div class="input-group">
-                                <span class="input-group-text">{% trans "CHF" %}</span>
-                                {{ form.cost }}
-                            </div>
-                            {% if form.cost.errors %}
-                                <div class="text-danger small">{{ form.cost.errors }}</div>
-                            {% endif %}
-                        </div>
-                        
-                        <!-- Comments -->
-                        <div class="mb-3">
-                            <label class="form-label">{{ form.comments.label }}</label>
-                            {{ form.comments }}
-                            {% if form.comments.errors %}
-                                <div class="text-danger small">{{ form.comments.errors }}</div>
-                            {% endif %}
-                        </div>
-                        
-                        <hr class="my-4">
-                        
-                        <!-- PIN Verification -->
-                        <div class="alert alert-info">
-                            <i class="fas fa-key"></i> <strong>{% trans "Member Verification Required" %}</strong>
-                            <br>{% trans "Ask the member to show their current 6-digit PIN from their personal cabinet." %}
-                        </div>
-                        
-                        <div class="mb-3">
-                            <label class="form-label fw-bold">{{ form.pin.label }}</label>
-                            {{ form.pin }}
-                            <div class="form-text">{{ form.pin.help_text }}</div>
-                            {% if form.pin.errors %}
-                                <div class="alert alert-danger mt-2">
-                                    <i class="fas fa-exclamation-triangle"></i> {{ form.pin.errors.0 }}
-                                </div>
-                            {% endif %}
-                        </div>
-                        
-                        <!-- Submit Button -->
-                        <div class="d-grid gap-2">
-                            <button type="submit" class="btn btn-primary btn-lg">
-                                <i class="fas fa-check"></i> {% trans "Verify PIN & Log Visit" %}
-                            </button>
-                            <a href="{% url 'users:partner_dashboard' %}" class="btn btn-outline-secondary">
-                                <i class="fas fa-times"></i> {% trans "Cancel" %}
-                            </a>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </div>
+<div class="log-visit-page">
+
+  <!-- Hero band -->
+  <div class="log-hero">
+    <div class="hp-container" style="max-width:700px;">
+      <p class="hp-label">{% trans "Partner Dashboard" %}</p>
+      <h1 class="hp-h2" style="font-size:clamp(1.6rem,3vw,2.3rem);">
+        {% trans "Log" %} <span>{% trans "Visit" %}</span>
+      </h1>
     </div>
+  </div>
+
+  <div class="hp-container" style="max-width:700px; padding: 2.5rem 1.5rem 4rem;">
+
+    <a href="{% url 'users:partner_dashboard' %}" class="log-back-btn">
+      <i class="fas fa-arrow-left"></i> {% trans "Back to Dashboard" %}
+    </a>
+
+    <!-- Member Info Card -->
+    <div class="member-info-card">
+      <div class="member-avatar-wrap">
+        {% if member.avatar and member.avatar.name != 'avatars/default.png' %}
+          <img src="{{ member.avatar.url }}"
+               alt="{{ member.username }}"
+               style="width:72px;height:72px;border-radius:50%;object-fit:cover;border:2.5px solid rgba(220,38,38,.5);box-shadow:0 0 0 4px rgba(220,38,38,.12);">
+        {% else %}
+          <div class="member-avatar-fallback">
+            <i class="fas fa-user"></i>
+          </div>
+        {% endif %}
+      </div>
+      <div>
+        <div style="font-size:1.1rem;font-weight:700;color:rgba(255,255,255,.9);">
+          {{ member.first_name }} {{ member.last_name }}
+        </div>
+        <div style="font-size:.85rem;color:rgba(255,255,255,.4);margin-top:.2rem;">
+          <i class="fas fa-user me-1"></i>{{ member.username }}{% if member.pseudonym %} &bull; {{ member.pseudonym }}{% endif %}
+        </div>
+        <div class="member-active-badge">
+          <i class="fas fa-check-circle" style="font-size:.65rem;"></i>
+          {% trans "Active Member" %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Visit Form -->
+    <div class="log-form-card">
+      <div class="log-form-header">
+        <i class="fas fa-clipboard-list me-2"></i>{% trans "Log Visit" %}
+      </div>
+      <div class="log-form-body">
+        <form method="post" action="">
+          {% csrf_token %}
+
+          <!-- Service Type -->
+          <div style="margin-bottom:1rem;">
+            <label class="log-field-label">{{ form.service_type.label }}</label>
+            {{ form.service_type }}
+            {% if form.service_type.errors %}
+              {% for error in form.service_type.errors %}
+                <div class="log-field-error"><i class="fas fa-exclamation-circle me-1"></i>{{ error }}</div>
+              {% endfor %}
+            {% endif %}
+          </div>
+
+          <!-- Service Description -->
+          <div style="margin-bottom:1rem;">
+            <label class="log-field-label">{{ form.service_description.label }}</label>
+            {{ form.service_description }}
+            {% if form.service_description.errors %}
+              {% for error in form.service_description.errors %}
+                <div class="log-field-error"><i class="fas fa-exclamation-circle me-1"></i>{{ error }}</div>
+              {% endfor %}
+            {% endif %}
+          </div>
+
+          <!-- Cost -->
+          <div style="margin-bottom:1rem;">
+            <label class="log-field-label">{{ form.cost.label }}</label>
+            <div style="display:flex;">
+              <span class="chf-prefix">CHF</span>
+              <div style="flex:1;">{{ form.cost }}</div>
+            </div>
+            {% if form.cost.errors %}
+              {% for error in form.cost.errors %}
+                <div class="log-field-error"><i class="fas fa-exclamation-circle me-1"></i>{{ error }}</div>
+              {% endfor %}
+            {% endif %}
+          </div>
+
+          <!-- Comments -->
+          <div style="margin-bottom:1rem;">
+            <label class="log-field-label">{{ form.comments.label }}</label>
+            {{ form.comments }}
+            {% if form.comments.errors %}
+              {% for error in form.comments.errors %}
+                <div class="log-field-error"><i class="fas fa-exclamation-circle me-1"></i>{{ error }}</div>
+              {% endfor %}
+            {% endif %}
+          </div>
+
+          <hr class="log-divider">
+
+          <!-- PIN Verification -->
+          <div class="log-pin-note">
+            <i class="fas fa-key"></i>
+            <strong>{% trans "Member Verification Required" %}</strong><br>
+            <span style="opacity:.85;">{% trans "Ask the member to show their current 6-digit PIN from their personal cabinet." %}</span>
+          </div>
+
+          <div style="margin-bottom:1.5rem;">
+            <label class="log-field-label">{{ form.pin.label }}</label>
+            {{ form.pin }}
+            {% if form.pin.help_text %}
+              <div style="margin-top:.35rem;font-size:.8rem;color:rgba(255,255,255,.3);">{{ form.pin.help_text }}</div>
+            {% endif %}
+            {% if form.pin.errors %}
+              <div style="background:rgba(239,68,68,.07);border:1px solid rgba(239,68,68,.2);border-radius:10px;padding:.75rem 1rem;margin-top:.5rem;color:rgba(252,165,165,.9);font-size:.88rem;">
+                <i class="fas fa-exclamation-triangle me-1"></i>{{ form.pin.errors.0 }}
+              </div>
+            {% endif %}
+          </div>
+
+          <!-- Buttons -->
+          <button type="submit" class="btn-log-submit">
+            <i class="fas fa-check"></i>{% trans "Verify PIN & Log Visit" %}
+          </button>
+          <a href="{% url 'users:partner_dashboard' %}" class="btn-log-ghost">
+            <i class="fas fa-times"></i>{% trans "Cancel" %}
+          </a>
+
+        </form>
+      </div>
+    </div>
+
+  </div>
 </div>
 {% endblock %}
+

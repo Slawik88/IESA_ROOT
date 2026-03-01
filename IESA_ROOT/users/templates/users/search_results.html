@@ -10,7 +10,7 @@
 <div class="container-limited">
   <div class="text-center mb-5">
     <h6 class="section-title d-block mb-4">{% trans "MEMBER DIRECTORY" %}</h6>
-    <h3 class="fw-bold mb-2 text-gray-900">{% trans "Find & Connect With Members" %}</h3>
+    <h3 class="fw-bold mb-2" style="color:rgba(255,255,255,.87);">{% trans "Find & Connect With Members" %}</h3>
     <p class="text-muted">{% trans "Search our community by name, username, email or ID" %}</p>
   </div>
 
@@ -38,12 +38,24 @@
       will-change: transform, opacity;
     }
     mark {
-      background-color: #fff3cd;
-      color: #333;
+      background-color: rgba(220,38,38,.22);
+      color: #fca5a5;
       font-weight: 500;
       padding: 1px 3px;
       border-radius: 2px;
     }
+    .list-group-item {
+      background: rgba(255,255,255,.04);
+      border-color: rgba(255,255,255,.08);
+      color: rgba(255,255,255,.87);
+    }
+    .list-group-item:hover {
+      background: rgba(255,255,255,.08);
+      color: #fff;
+    }
+    .list-group-item .text-muted,
+    .list-group-item small.text-muted { color: rgba(255,255,255,.45) !important; }
+    .list-group-item code { color: #f87171; background: rgba(220,38,38,.12); padding: 1px 5px; border-radius: 4px; }
   </style>
 
   <div class="list-group">

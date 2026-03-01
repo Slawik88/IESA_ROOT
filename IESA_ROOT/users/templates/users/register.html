@@ -218,7 +218,7 @@
                         {% endif %}
 
                         {% if field.help_text %}
-                            <small class="form-text text-muted d-block mt-1">{{ field.help_text|safe }}</small>
+                            <small class="form-text text-muted d-block mt-1">{{ field.help_text }}</small>
                         {% endif %}
                     </div>
                     {% endfor %}
@@ -239,4 +239,27 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function togglePasswordVisibility(btn) {
+    const wrapper = btn.closest('.password-field-wrapper');
+    const input = wrapper ? wrapper.querySelector('input[type="password"], input[type="text"]') : null;
+    if (!input) return;
+    const isHidden = input.type === 'password';
+    input.type = isHidden ? 'text' : 'password';
+    const icon = btn.querySelector('i');
+    if (icon) {
+        icon.className = isHidden ? 'fas fa-eye-slash' : 'fas fa-eye';
+    }
+}
+
+// P0.7 fix: {% with field_class %} does not apply is-invalid to the widget.
+// Add is-invalid class to inputs that have .invalid-feedback siblings.
+document.querySelectorAll('.invalid-feedback').forEach(function(fb) {
+    var input = fb.parentElement.querySelector('input, select, textarea');
+    if (input) input.classList.add('is-invalid');
+});
+</script>
 {% endblock %}

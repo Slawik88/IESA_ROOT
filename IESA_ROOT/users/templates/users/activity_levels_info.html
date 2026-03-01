@@ -3,11 +3,41 @@
 
 {% block title %}{% trans "Activity Levels" %} | IESA{% endblock %}
 
+{% block extra_css %}
+<style>
+/* ── Activity Levels page — dark theme overrides ───────── */
+.ali-page .lead { color: rgba(255,255,255,.55); }
+.ali-page h1, .ali-page h2, .ali-page h3,
+.ali-page h5, .ali-page h6 { color: rgba(255,255,255,.87); }
+.ali-page .section-title { color: rgba(255,255,255,.4) !important; }
+.ali-page .card-modern {
+  background: rgba(255,255,255,.04);
+  border: 1.5px solid rgba(255,255,255,.08);
+  color: rgba(255,255,255,.87);
+}
+.ali-page .card-modern .text-muted { color: rgba(255,255,255,.45) !important; }
+.ali-page .card-header.bg-gradient-info-light {
+  background: rgba(255,255,255,.06) !important;
+  border-color: rgba(255,255,255,.08) !important;
+}
+.ali-page .level-icon.bg-gradient-blue,
+.ali-page .bg-gradient-blue { background: linear-gradient(135deg, rgba(185,28,28,.5) 0%, rgba(220,38,38,.3) 100%) !important; }
+.ali-page .card.bg-gradient-blue.text-white {
+  border: 1.5px solid rgba(220,38,38,.3);
+}
+.ali-page .text-primary { color: #f87171 !important; }
+.ali-page .text-success { color: #4ade80 !important; }
+.ali-page .text-danger  { color: #f87171 !important; }
+.ali-page strong { color: rgba(255,255,255,.87); }
+.ali-page li span, .ali-page li { color: rgba(255,255,255,.7); }
+</style>
+{% endblock %}
+
 {% block container_wrap_start %}{% endblock %}
 {% block container_wrap_end %}{% endblock %}
 
 {% block content %}
-<div class="container-limited py-5">
+<div class="container-limited py-5 ali-page">
     <!-- Header -->
     <div class="text-center mb-5">
         <h1 class="fw-bold mb-3">

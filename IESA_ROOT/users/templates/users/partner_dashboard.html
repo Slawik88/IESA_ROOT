@@ -5,56 +5,298 @@
 
 {% block extra_css %}
 <style>
-    .stat-card {
-        border-radius: 20px;
-        border: none;
-        transition: transform 0.3s, box-shadow 0.3s;
-        overflow: hidden;
-    }
-    .stat-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 10px 30px rgba(0,0,0,0.15);
-    }
-    .stat-icon {
-        font-size: 3rem;
-        opacity: 0.2;
-        position: absolute;
-        right: 20px;
-        top: 50%;
-        transform: translateY(-50%);
-    }
-    .search-card {
-        border-radius: 20px;
-        border: none;
-        box-shadow: 0 10px 40px rgba(102, 126, 234, 0.2);
-    }
-    .search-input {
-        border-radius: 15px;
-        border: 2px solid #e9ecef;
-        padding: 15px 20px;
-        font-size: 1.1rem;
-        transition: all 0.3s;
-    }
-    .search-input:focus {
-        border-color: var(--primary);
-        box-shadow: 0 0 0 0.2rem rgba(220, 38, 38, 0.25);
-    }
-    .htmx-indicator {
-        display: none;
-    }
-    .htmx-request .htmx-indicator {
-        display: inline-block;
-    }
-    .htmx-request.htmx-indicator {
-        display: inline-block;
-    }
-    @keyframes spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-    }
-    .spinner {
-        animation: spin 1s linear infinite;
-    }
+  .pd-page {
+    background: #0e0e18;
+    min-height: 100vh;
+    padding-bottom: 60px;
+  }
+
+  /* ── Hero band ─────────────────────────────────────── */
+  .pd-hero {
+    background: #0a0a0f;
+    padding: 40px 16px 36px;
+    position: relative;
+    overflow: hidden;
+    border-bottom: 1px solid rgba(255,255,255,.06);
+    margin-bottom: 36px;
+  }
+  .pd-hero::before {
+    content: '';
+    position: absolute;
+    right: -60px; top: -60px;
+    width: 500px; height: 500px;
+    background: radial-gradient(circle, rgba(220,38,38,.10) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .pd-hero-inner {
+    max-width: 1360px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+  .pd-hero-title {
+    color: #fff;
+    font-size: 1.7rem;
+    font-weight: 800;
+    margin: 0 0 4px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .pd-hero-sub {
+    color: rgba(255,255,255,.4);
+    font-size: .9rem;
+    margin: 0;
+  }
+  .pd-active-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 8px 20px;
+    border-radius: 50px;
+    background: rgba(74,222,128,.1);
+    border: 1px solid rgba(74,222,128,.25);
+    color: #4ade80;
+    font-weight: 700;
+    font-size: .9rem;
+  }
+
+  /* ── Stat cards ────────────────────────────────────── */
+  .pd-stat {
+    border-radius: 16px;
+    border: 1.5px solid;
+    padding: 20px 22px;
+    position: relative;
+    overflow: hidden;
+    transition: transform .25s, box-shadow .25s;
+  }
+  .pd-stat:hover {
+    transform: translateY(-5px);
+  }
+  .pd-stat-red   { background: rgba(220,38,38,.07);  border-color: rgba(220,38,38,.2);  }
+  .pd-stat-pink  { background: rgba(236,72,153,.07); border-color: rgba(236,72,153,.2); }
+  .pd-stat-blue  { background: rgba(59,130,246,.07); border-color: rgba(59,130,246,.2); }
+  .pd-stat-green { background: rgba(74,222,128,.07); border-color: rgba(74,222,128,.2); }
+  .pd-stat:hover.pd-stat-red   { box-shadow: 0 10px 30px rgba(220,38,38,.15);  }
+  .pd-stat:hover.pd-stat-pink  { box-shadow: 0 10px 30px rgba(236,72,153,.15); }
+  .pd-stat:hover.pd-stat-blue  { box-shadow: 0 10px 30px rgba(59,130,246,.15); }
+  .pd-stat:hover.pd-stat-green { box-shadow: 0 10px 30px rgba(74,222,128,.15); }
+  .pd-stat-label {
+    font-size: .72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    margin-bottom: 8px;
+    opacity: .7;
+  }
+  .pd-stat-value {
+    font-size: 1.9rem;
+    font-weight: 800;
+    line-height: 1;
+  }
+  .pd-stat-icon {
+    position: absolute;
+    right: 18px; top: 50%;
+    transform: translateY(-50%);
+    font-size: 2.6rem;
+    opacity: .12;
+  }
+  .pd-stat-red   .pd-stat-label, .pd-stat-red   .pd-stat-value { color: #f87171; }
+  .pd-stat-pink  .pd-stat-label, .pd-stat-pink  .pd-stat-value { color: #f472b6; }
+  .pd-stat-blue  .pd-stat-label, .pd-stat-blue  .pd-stat-value { color: #60a5fa; }
+  .pd-stat-green .pd-stat-label, .pd-stat-green .pd-stat-value { color: #4ade80; }
+
+  /* ── Search card ───────────────────────────────────── */
+  .pd-search-card {
+    background: rgba(255,255,255,.03);
+    border: 1.5px solid rgba(255,255,255,.08);
+    border-radius: 20px;
+    overflow: hidden;
+  }
+  .pd-search-header {
+    background: rgba(220,38,38,.08);
+    border-bottom: 1px solid rgba(220,38,38,.15);
+    padding: 22px 24px;
+  }
+  .pd-search-header h4 { color: #fff; font-size: 1.05rem; font-weight: 700; margin: 0 0 4px; }
+  .pd-search-header small { color: rgba(255,255,255,.4); font-size: .8rem; }
+  .pd-search-body { padding: 20px; }
+  .pd-search-input {
+    width: 100%;
+    background: #1a1a24 !important;
+    border: 1.5px solid rgba(255,255,255,.1) !important;
+    border-radius: 12px !important;
+    color: #fff !important;
+    padding: 12px 16px !important;
+    font-size: 1rem !important;
+    transition: border-color .2s, box-shadow .2s;
+  }
+  .pd-search-input:focus {
+    border-color: rgba(220,38,38,.5) !important;
+    box-shadow: 0 0 0 3px rgba(220,38,38,.1) !important;
+    outline: none !important;
+  }
+  .pd-search-input::placeholder { color: rgba(255,255,255,.25) !important; }
+  .pd-search-btn {
+    width: 100%;
+    padding: 12px 20px;
+    border: none;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #dc2626, #b91c1c);
+    color: #fff;
+    font-weight: 700;
+    font-size: .95rem;
+    cursor: pointer;
+    transition: all .2s;
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+  .pd-search-btn:hover { box-shadow: 0 8px 28px rgba(220,38,38,.4); transform: translateY(-1px); }
+  .htmx-indicator { display: none; }
+  .htmx-request .htmx-indicator { display: inline-block; }
+  .htmx-request.htmx-indicator { display: inline-block; }
+  @keyframes pd-spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+  .spinner { animation: pd-spin 1s linear infinite; }
+
+  /* ── Visits card ───────────────────────────────────── */
+  .pd-visits-card {
+    background: rgba(255,255,255,.03);
+    border: 1.5px solid rgba(255,255,255,.08);
+    border-radius: 20px;
+    overflow: hidden;
+  }
+  .pd-visits-header {
+    background: rgba(74,222,128,.06);
+    border-bottom: 1px solid rgba(74,222,128,.15);
+    padding: 18px 22px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .pd-visits-header h5 { color: #fff; font-size: 1rem; font-weight: 700; margin: 0; }
+
+  /* "Test Email" button */
+  .pd-test-email-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 14px;
+    border-radius: 8px;
+    border: 1.5px solid rgba(255,255,255,.12);
+    background: transparent;
+    color: rgba(255,255,255,.6);
+    font-size: .82rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all .2s;
+  }
+  .pd-test-email-btn:hover { color: #fff; border-color: rgba(255,255,255,.28); background: rgba(255,255,255,.04); }
+
+  /* Table */
+  .pd-table { width: 100%; border-collapse: collapse; }
+  .pd-table thead tr { background: rgba(255,255,255,.04); border-bottom: 1px solid rgba(255,255,255,.07); }
+  .pd-table thead th {
+    padding: 12px 14px;
+    color: rgba(255,255,255,.4);
+    font-size: .75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+  }
+  .pd-table tbody tr { border-bottom: 1px solid rgba(255,255,255,.04); transition: background .15s; }
+  .pd-table tbody tr:last-child { border-bottom: none; }
+  .pd-table tbody tr:hover { background: rgba(255,255,255,.025); }
+  .pd-table td { padding: 12px 14px; color: rgba(255,255,255,.8); font-size: .88rem; vertical-align: middle; }
+  .pd-table td strong { color: #fff; }
+  .pd-table td small { color: rgba(255,255,255,.35); }
+
+  /* Member avatar in table */
+  .pd-tbl-avatar { width: 38px; height: 38px; border-radius: 50%; object-fit: cover; border: 2px solid rgba(220,38,38,.35); }
+  .pd-tbl-avatar-ph {
+    width: 38px; height: 38px; border-radius: 50%;
+    background: rgba(220,38,38,.1); border: 2px solid rgba(220,38,38,.25);
+    display: flex; align-items: center; justify-content: center;
+    color: rgba(220,38,38,.6); font-size: .85rem;
+  }
+
+  /* Status / service badges */
+  .pd-badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 10px; border-radius: 50px;
+    font-size: .75rem; font-weight: 700;
+  }
+  .pd-badge-success { background: rgba(74,222,128,.1);  border: 1px solid rgba(74,222,128,.25);  color: #4ade80; }
+  .pd-badge-danger  { background: rgba(239,68,68,.1);   border: 1px solid rgba(239,68,68,.25);   color: #f87171; }
+  .pd-badge-warning { background: rgba(245,158,11,.1);  border: 1px solid rgba(245,158,11,.25);  color: #fbbf24; }
+  .pd-badge-muted   { background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.12); color: rgba(255,255,255,.4); }
+  .pd-badge-info    { background: rgba(59,130,246,.1);  border: 1px solid rgba(59,130,246,.25);  color: #60a5fa; }
+
+  /* Action buttons */
+  .pd-action-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 32px; height: 32px; border-radius: 8px;
+    border: 1.5px solid; background: transparent;
+    font-size: .8rem; text-decoration: none; transition: all .15s;
+  }
+  .pd-action-btn-edit   { border-color: rgba(245,158,11,.3); color: #fbbf24; }
+  .pd-action-btn-edit:hover  { background: rgba(245,158,11,.1); color: #fbbf24; }
+  .pd-action-btn-cancel { border-color: rgba(239,68,68,.3);  color: #f87171; }
+  .pd-action-btn-cancel:hover { background: rgba(239,68,68,.1); color: #f87171; }
+
+  /* Empty state */
+  .pd-empty {
+    text-align: center;
+    padding: 48px 16px;
+    color: rgba(255,255,255,.25);
+  }
+  .pd-empty i { font-size: 4rem; margin-bottom: 16px; opacity: .3; }
+  .pd-empty h5 { color: rgba(255,255,255,.4); margin-bottom: 6px; }
+
+  /* Pagination */
+  .pd-pagination {
+    padding: 16px 20px;
+    border-top: 1px solid rgba(255,255,255,.06);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+  .pd-page-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 7px 16px; border-radius: 9px;
+    border: 1.5px solid rgba(255,255,255,.1);
+    background: transparent; color: rgba(255,255,255,.6);
+    font-size: .85rem; font-weight: 600; text-decoration: none;
+    transition: all .2s;
+  }
+  .pd-page-btn:hover { border-color: rgba(255,255,255,.28); color: #fff; background: rgba(255,255,255,.04); }
+  .pd-page-info { color: rgba(255,255,255,.35); font-size: .83rem; }
+
+  /* cost green */
+  .pd-cost { color: #4ade80; font-weight: 700; }
+
+  /* Apply dark overrides to HTMX-rendered search inputs via widget */
+  #id_query {
+    width: 100% !important;
+    background: #1a1a24 !important;
+    border: 1.5px solid rgba(255,255,255,.1) !important;
+    border-radius: 12px !important;
+    color: #fff !important;
+    padding: 12px 16px !important;
+    font-size: 1rem !important;
+  }
+  #id_query:focus {
+    border-color: rgba(220,38,38,.5) !important;
+    box-shadow: 0 0 0 3px rgba(220,38,38,.1) !important;
+    outline: none !important;
+  }
 </style>
 {% endblock %}
 
@@ -62,258 +304,219 @@
 {% block container_wrap_end %}{% endblock %}
 
 {% block content %}
-<div class="container-fluid py-4">
-    <!-- Header with Company Info -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="d-flex justify-content-between align-items-center flex-wrap">
-                <div>
-                    <h2 class="mb-1">
-                        <i class="fas fa-briefcase text-purple"></i> {{ partner.company_name }}
-                    </h2>
-                    <p class="text-muted mb-0">
-                        <i class="fas fa-building"></i> {{ partner.get_business_type_display }} • 
-                        <i class="fas fa-user-shield"></i> {% trans "Partner Dashboard" %}
-                    </p>
-                </div>
-                <div>
-                    <span class="badge bg-success px-4 py-2" style="font-size: 1.1rem;">
-                        <i class="fas fa-check-circle"></i> {% trans "Active Partner" %}
-                    </span>
-                </div>
-            </div>
+<div class="pd-page">
+
+  <!-- Hero band -->
+  <div class="pd-hero">
+    <div class="pd-hero-inner">
+      <div>
+        <h2 class="pd-hero-title">
+          <i class="fas fa-briefcase" style="color:var(--primary);"></i>
+          {{ partner.company_name }}
+        </h2>
+        <p class="pd-hero-sub">
+          <i class="fas fa-building me-1"></i>{{ partner.get_business_type_display }}
+          &nbsp;·&nbsp;
+          <i class="fas fa-user-shield me-1"></i>{% trans "Partner Dashboard" %}
+        </p>
+      </div>
+      <div>
+        <span class="pd-active-badge">
+          <i class="fas fa-check-circle"></i>{% trans "Active Partner" %}
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <div style="max-width:1360px;margin:0 auto;padding:0 16px;">
+
+    <!-- Stat Cards -->
+    <div class="row g-3 mb-4">
+      <div class="col-6 col-md-3">
+        <div class="pd-stat pd-stat-red">
+          <div class="pd-stat-label">{% trans "Total Visits" %}</div>
+          <div class="pd-stat-value">{{ total_visits }}</div>
+          <i class="fas fa-clipboard-list pd-stat-icon"></i>
         </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="pd-stat pd-stat-pink">
+          <div class="pd-stat-label">{% trans "Verified Visits" %}</div>
+          <div class="pd-stat-value">{{ verified_visits }}</div>
+          <i class="fas fa-check-double pd-stat-icon"></i>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="pd-stat pd-stat-blue">
+          <div class="pd-stat-label">{% trans "Total Cost" %}</div>
+          <div class="pd-stat-value">{{ total_cost|floatformat:2 }}&nbsp;<span style="font-size:1rem;opacity:.6;">CHF</span></div>
+          <i class="fas fa-coins pd-stat-icon"></i>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="pd-stat pd-stat-green">
+          <div class="pd-stat-label">{% trans "Unique Members" %}</div>
+          <div class="pd-stat-value">{{ unique_members }}</div>
+          <i class="fas fa-users pd-stat-icon"></i>
+        </div>
+      </div>
     </div>
 
-    <!-- Statistics Cards -->
-    <div class="row mb-4">
-        <div class="col-md-3 col-sm-6 mb-3">
-            <div class="card stat-card" style="background: linear-gradient(135deg, var(--primary) 0%, var(--primary-active) 100%);">
-                <div class="card-body text-white position-relative">
-                    <h6 class="mb-2 text-uppercase" style="font-size: 0.8rem; opacity: 0.9;">{% trans "Total Visits" %}</h6>
-                    <h2 class="mb-0 fw-bold">{{ total_visits }}</h2>
-                    <i class="fas fa-clipboard-list stat-icon"></i>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3 col-sm-6 mb-3">
-            <div class="card stat-card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
-                <div class="card-body text-white position-relative">
-                    <h6 class="mb-2 text-uppercase" style="font-size: 0.8rem; opacity: 0.9;">{% trans "Verified Visits" %}</h6>
-                    <h2 class="mb-0 fw-bold">{{ verified_visits }}</h2>
-                    <i class="fas fa-check-double stat-icon"></i>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3 col-sm-6 mb-3">
-            <div class="card stat-card" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
-                <div class="card-body text-white position-relative">
-                    <h6 class="mb-2 text-uppercase" style="font-size: 0.8rem; opacity: 0.9;">{% trans "Total Cost" %}</h6>
-                    <h2 class="mb-0 fw-bold">{{ total_cost|floatformat:2 }} CHF</h2>
-                    <i class="fas fa-coins stat-icon"></i>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3 col-sm-6 mb-3">
-            <div class="card stat-card" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);">
-                <div class="card-body text-white position-relative">
-                    <h6 class="mb-2 text-uppercase" style="font-size: 0.8rem; opacity: 0.9;">{% trans "Unique Members" %}</h6>
-                    <h2 class="mb-0 fw-bold">{{ unique_members }}</h2>
-                    <i class="fas fa-users stat-icon"></i>
-                </div>
-            </div>
-        </div>
-    </div>
+    <div class="row g-4">
 
-    <div class="row">
-        <!-- Live Search Section with HTMX -->
-        <div class="col-lg-5 mb-4">
-            <div class="card search-card">
-                <div class="card-header text-white" style="background: linear-gradient(135deg, var(--primary) 0%, var(--primary-active) 100%); border-radius: 20px 20px 0 0; padding: 25px;">
-                    <h4 class="mb-1">
-                        <i class="fas fa-search-plus"></i> {% trans "Live Member Search" %}
-                    </h4>
-                    <small style="opacity: 0.9;">
-                        <i class="fas fa-info-circle"></i> {% trans "Search by name, username, or permanent ID (UUID)" %}
-                    </small>
+      <!-- Live Search -->
+      <div class="col-lg-5">
+        <div class="pd-search-card">
+          <div class="pd-search-header">
+            <h4><i class="fas fa-search-plus me-2"></i>{% trans "Live Member Search" %}</h4>
+            <small><i class="fas fa-info-circle me-1"></i>{% trans "Search by name, username, or permanent ID (UUID)" %}</small>
+          </div>
+          <div class="pd-search-body">
+            <form hx-get="{% url 'users:partner_dashboard' %}"
+                  hx-trigger="keyup changed delay:300ms from:#id_query"
+                  hx-target="#search-results-container"
+                  hx-indicator="#search-loading">
+              <div class="mb-3 position-relative">
+                {{ search_form.query }}
+                <div id="search-loading" class="htmx-indicator position-absolute" style="right:14px;top:50%;transform:translateY(-50%);">
+                  <i class="fas fa-spinner spinner" style="color:var(--primary);"></i>
                 </div>
-                <div class="card-body p-4">
-                    <!-- HTMX Live Search Form -->
-                    <form hx-get="{% url 'users:partner_dashboard' %}" 
-                          hx-trigger="keyup changed delay:300ms from:#id_query" 
-                          hx-target="#search-results-container"
-                          hx-indicator="#search-loading">
-                        <div class="mb-3 position-relative">
-                            {{ search_form.query }}
-                            <div id="search-loading" class="htmx-indicator position-absolute" style="right: 15px; top: 50%; transform: translateY(-50%);">
-                                <i class="fas fa-spinner spinner text-primary"></i>
-                            </div>
-                        </div>
-                        <button type="submit" class="btn btn-lg w-100 mb-3" style="background: linear-gradient(135deg, var(--primary) 0%, var(--primary-active) 100%); color: white; border-radius: 15px; font-weight: 600;">
-                            <i class="fas fa-search"></i> {% trans "Search Now" %}
-                        </button>
-                    </form>
-
-                    <!-- Search Results Container -->
-                    <div id="search-results-container">
-                        <hr class="my-4">
-                        {% include 'users/partials/partner_search_results.html' %}
-                    </div>
-                </div>
+              </div>
+              <button type="submit" class="pd-search-btn">
+                <i class="fas fa-search"></i>{% trans "Search Now" %}
+              </button>
+            </form>
+            <div id="search-results-container" style="margin-top:8px;">
+              <hr style="border-color:rgba(255,255,255,.07);margin:16px 0;">
+              {% include 'users/partials/partner_search_results.html' %}
             </div>
+          </div>
         </div>
-        
-        <!-- Recent Visits Section -->
-        <div class="col-lg-7 mb-4">
-            <div class="card" style="border-radius: 20px; border: none; box-shadow: 0 5px 25px rgba(0,0,0,0.1);">
-                <div class="card-header text-white d-flex justify-content-between align-items-center" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); border-radius: 20px 20px 0 0; padding: 20px;">
-                    <h5 class="mb-0">
-                        <i class="fas fa-history"></i> {% trans "Recent Visits" %}
-                    </h5>
-                    <button class="btn btn-sm btn-light" id="testEmailBtn" title="{% trans 'Send test email to verify SMTP' %}">
-                        <i class="fas fa-envelope me-1"></i>{% trans "Test Email" %}
-                    </button>
-                </div>
-                <div class="card-body p-0">
-                    {% if visits %}
-                        <div class="table-responsive">
-                            <table class="table table-hover mb-0 align-middle table-mobile-cards">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th class="px-4">{% trans "Date" %}</th>
-                                        <th>{% trans "Member" %}</th>
-                                        <th>{% trans "Service" %}</th>
-                                        <th>{% trans "Cost" %}</th>
-                                        <th>{% trans "Status" %}</th>
-                                        <th>{% trans "Actions" %}</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for visit in visits %}
-                                        <tr>
-                                            <td class="text-nowrap px-4" data-label="{% trans 'Date' %}">
-                                                <div><strong>{{ visit.timestamp|date:"d M Y" }}</strong></div>
-                                                <small class="text-muted">{{ visit.timestamp|time:"H:i" }}</small>
-                                            </td>
-                                            <td data-label="{% trans 'Member' %}">
-                                                <div class="d-flex align-items-center">
-                                                    {% if visit.member.avatar and visit.member.avatar.name != 'avatars/default.png' %}
-                                                        <img src="{{ visit.member.avatar.url }}" alt="{{ visit.member.username }} avatar" 
-                                                             class="rounded-circle me-2" 
-                                                             style="width: 40px; height: 40px; object-fit: cover;">
-                                                    {% else %}
-                                                        <div class="rounded-circle d-inline-flex align-items-center justify-content-center me-2" 
-                                                             style="width: 40px; height: 40px; background: linear-gradient(135deg, var(--primary) 0%, var(--primary-active) 100%);">
-                                                            <i class="fas fa-user text-white"></i>
-                                                        </div>
-                                                    {% endif %}
-                                                    <div>
-                                                        <div><strong>{{ visit.member.first_name }} {{ visit.member.last_name }}</strong></div>
-                                                        <small class="text-muted">@{{ visit.member.username }}</small>
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            <td data-label="{% trans 'Service' %}">
-                                                <span class="badge bg-info text-dark" style="font-size: 0.9rem;">
-                                                    {{ visit.get_service_type_display }}
-                                                </span>
-                                                {% if visit.service_description %}
-                                                    <br><small class="text-muted">{{ visit.service_description|truncatewords:5 }}</small>
-                                                {% endif %}
-                                            </td>
-                                            <td data-label="{% trans 'Cost' %}">
-                                                {% if visit.cost %}
-                                                    <strong class="text-success">{{ visit.cost }} CHF</strong>
-                                                {% else %}
-                                                    <span class="text-muted">-</span>
-                                                {% endif %}
-                                            </td>
-                                            <td data-label="{% trans 'Status' %}">
-                                                {% if visit.status == 'CANCELLED' %}
-                                                    <span class="badge bg-danger"><i class="fas fa-ban me-1"></i>{% trans "Cancelled" %}</span>
-                                                {% elif visit.status == 'EDITED' %}
-                                                    <span class="badge bg-warning text-dark"><i class="fas fa-pencil-alt me-1"></i>{% trans "Edited" %}</span>
-                                                {% else %}
-                                                    {% if visit.pin_verified %}
-                                                        <span class="badge bg-success"><i class="fas fa-check me-1"></i>{% trans "Verified" %}</span>
-                                                    {% else %}
-                                                        <span class="badge bg-secondary"><i class="fas fa-clock me-1"></i>{% trans "Pending" %}</span>
-                                                    {% endif %}
-                                                {% endif %}
-                                            </td>
-                                            <td class="text-nowrap" data-label="{% trans 'Actions' %}">
-                                                {% with age=now|timeuntil:visit.timestamp %}
-                                                {% comment %}Use timesince to check if within edit window{% endcomment %}
-                                                {% endwith %}
-                                                {% if visit.status != 'CANCELLED' %}
-                                                    {# Calculate seconds since visit: compare now - visit.timestamp #}
-                                                    {# We pass edit_window from view; template checks visit age via |timesince #}
-                                                    {# Since we can't do arithmetic in templates, we show buttons and let the server enforce the window #}
-                                                    <a href="{% url 'users:edit_visit' visit.id %}" class="btn btn-sm btn-outline-warning me-1" title="{% trans 'Edit visit' %}">
-                                                        <i class="fas fa-pencil-alt"></i>
-                                                    </a>
-                                                    <a href="{% url 'users:cancel_visit' visit.id %}" class="btn btn-sm btn-outline-danger" title="{% trans 'Cancel visit' %}">
-                                                        <i class="fas fa-ban"></i>
-                                                    </a>
-                                                {% else %}
-                                                    <span class="text-muted small">—</span>
-                                                {% endif %}
-                                            </td>
-                                        </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        </div>
-                        
-                        <!-- Pagination -->
-                        {% if visits.has_other_pages %}
-                            <div class="card-footer bg-light" style="border-radius: 0 0 20px 20px;">
-                                <nav>
-                                    <ul class="pagination pagination-sm mb-0 justify-content-center">
-                                        {% if visits.has_previous %}
-                                            <li class="page-item">
-                                                <a class="page-link" href="?page={{ visits.previous_page_number }}" style="border-radius: 10px; margin: 0 5px;">
-                                                    <i class="fas fa-chevron-left"></i> {% trans "Previous" %}
-                                                </a>
-                                            </li>
-                                        {% endif %}
-                                        
-                                        <li class="page-item disabled">
-                                            <span class="page-link" style="background: transparent; border: none;">
-                                                {% blocktrans with page=visits.number total=visits.paginator.num_pages %}Page {{ page }} of {{ total }}{% endblocktrans %}
-                                            </span>
-                                        </li>
-                                        
-                                        {% if visits.has_next %}
-                                            <li class="page-item">
-                                                <a class="page-link" href="?page={{ visits.next_page_number }}" style="border-radius: 10px; margin: 0 5px;">
-                                                    {% trans "Next" %} <i class="fas fa-chevron-right"></i>
-                                                </a>
-                                            </li>
-                                        {% endif %}
-                                    </ul>
-                                </nav>
-                            </div>
+      </div>
+
+      <!-- Recent Visits -->
+      <div class="col-lg-7">
+        <div class="pd-visits-card">
+          <div class="pd-visits-header">
+            <h5><i class="fas fa-history me-2"></i>{% trans "Recent Visits" %}</h5>
+            <button class="pd-test-email-btn" id="testEmailBtn" title="{% trans 'Send test email to verify SMTP' %}">
+              <i class="fas fa-envelope"></i>{% trans "Test Email" %}
+            </button>
+          </div>
+
+          {% if visits %}
+            <div class="table-responsive">
+              <table class="pd-table">
+                <thead>
+                  <tr>
+                    <th style="padding-left:20px;">{% trans "Date" %}</th>
+                    <th>{% trans "Member" %}</th>
+                    <th>{% trans "Service" %}</th>
+                    <th>{% trans "Cost" %}</th>
+                    <th>{% trans "Status" %}</th>
+                    <th>{% trans "Actions" %}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for visit in visits %}
+                  <tr>
+                    <td style="padding-left:20px;white-space:nowrap;" data-label="{% trans 'Date' %}">
+                      <strong>{{ visit.timestamp|date:"d M Y" }}</strong><br>
+                      <small>{{ visit.timestamp|time:"H:i" }}</small>
+                    </td>
+                    <td data-label="{% trans 'Member' %}">
+                      <div class="d-flex align-items-center gap-2">
+                        {% if visit.member.avatar and visit.member.avatar.name != 'avatars/default.png' %}
+                          <img src="{{ visit.member.avatar.url }}" alt="{{ visit.member.username }}" class="pd-tbl-avatar">
+                        {% else %}
+                          <div class="pd-tbl-avatar-ph"><i class="fas fa-user"></i></div>
                         {% endif %}
-                    {% else %}
-                        <div class="p-5 text-center">
-                            <div class="mb-4">
-                                <i class="fas fa-clipboard-list" style="font-size: 5rem; color: #e9ecef;"></i>
-                            </div>
-                            <h5 class="text-muted mb-2">{% trans "No Visits Yet" %}</h5>
-                            <p class="text-muted mb-0">{% trans "Use the search to find members and log your first visit!" %}</p>
+                        <div>
+                          <strong>{{ visit.member.first_name }} {{ visit.member.last_name }}</strong><br>
+                          <small>@{{ visit.member.username }}</small>
                         </div>
-                    {% endif %}
-                </div>
+                      </div>
+                    </td>
+                    <td data-label="{% trans 'Service' %}">
+                      <span class="pd-badge pd-badge-info">{{ visit.get_service_type_display }}</span>
+                      {% if visit.service_description %}
+                        <br><small>{{ visit.service_description|truncatewords:5 }}</small>
+                      {% endif %}
+                    </td>
+                    <td data-label="{% trans 'Cost' %}">
+                      {% if visit.cost %}
+                        <span class="pd-cost">{{ visit.cost }} CHF</span>
+                      {% else %}
+                        <span style="color:rgba(255,255,255,.2);">—</span>
+                      {% endif %}
+                    </td>
+                    <td data-label="{% trans 'Status' %}">
+                      {% if visit.status == 'CANCELLED' %}
+                        <span class="pd-badge pd-badge-danger"><i class="fas fa-ban"></i>{% trans "Cancelled" %}</span>
+                      {% elif visit.status == 'EDITED' %}
+                        <span class="pd-badge pd-badge-warning"><i class="fas fa-pencil-alt"></i>{% trans "Edited" %}</span>
+                      {% else %}
+                        {% if visit.pin_verified %}
+                          <span class="pd-badge pd-badge-success"><i class="fas fa-check"></i>{% trans "Verified" %}</span>
+                        {% else %}
+                          <span class="pd-badge pd-badge-muted"><i class="fas fa-clock"></i>{% trans "Pending" %}</span>
+                        {% endif %}
+                      {% endif %}
+                    </td>
+                    <td data-label="{% trans 'Actions' %}" style="white-space:nowrap;">
+                      {% if visit.status != 'CANCELLED' %}
+                        <a href="{% url 'users:edit_visit' visit.id %}" class="pd-action-btn pd-action-btn-edit me-1" title="{% trans 'Edit visit' %}">
+                          <i class="fas fa-pencil-alt"></i>
+                        </a>
+                        <a href="{% url 'users:cancel_visit' visit.id %}" class="pd-action-btn pd-action-btn-cancel" title="{% trans 'Cancel visit' %}">
+                          <i class="fas fa-ban"></i>
+                        </a>
+                      {% else %}
+                        <span style="color:rgba(255,255,255,.18);">—</span>
+                      {% endif %}
+                    </td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
             </div>
+
+            {% if visits.has_other_pages %}
+            <div class="pd-pagination">
+              {% if visits.has_previous %}
+                <a href="?page={{ visits.previous_page_number }}" class="pd-page-btn">
+                  <i class="fas fa-chevron-left"></i>{% trans "Previous" %}
+                </a>
+              {% endif %}
+              <span class="pd-page-info">
+                {% blocktrans with page=visits.number total=visits.paginator.num_pages %}Page {{ page }} of {{ total }}{% endblocktrans %}
+              </span>
+              {% if visits.has_next %}
+                <a href="?page={{ visits.next_page_number }}" class="pd-page-btn">
+                  {% trans "Next" %}<i class="fas fa-chevron-right"></i>
+                </a>
+              {% endif %}
+            </div>
+            {% endif %}
+
+          {% else %}
+            <div class="pd-empty">
+              <div><i class="fas fa-clipboard-list"></i></div>
+              <h5>{% trans "No Visits Yet" %}</h5>
+              <p>{% trans "Use the search to find members and log your first visit!" %}</p>
+            </div>
+          {% endif %}
+
         </div>
-    </div>
-</div>
+      </div><!-- /col -->
+
+    </div><!-- /row -->
+  </div><!-- /container -->
+</div><!-- /pd-page -->
 {% endblock %}
 
 {% block extra_js %}
 <script>
-  // Test Email button
   const testBtn = document.getElementById('testEmailBtn');
   if (testBtn) {
     testBtn.addEventListener('click', function () {
@@ -330,24 +533,27 @@
       .then(data => {
         if (data.status === 'ok') {
           testBtn.textContent = '✅ Sent!';
-          testBtn.classList.replace('btn-light', 'btn-success');
+          testBtn.style.color = '#4ade80';
+          testBtn.style.borderColor = 'rgba(74,222,128,.35)';
         } else {
           testBtn.textContent = '❌ ' + (data.message || 'Error');
-          testBtn.classList.replace('btn-light', 'btn-danger');
+          testBtn.style.color = '#f87171';
+          testBtn.style.borderColor = 'rgba(239,68,68,.35)';
         }
       })
-      .catch(err => {
+      .catch(() => {
         testBtn.textContent = '❌ Network error';
-        testBtn.classList.replace('btn-light', 'btn-danger');
+        testBtn.style.color = '#f87171';
       })
       .finally(() => {
         testBtn.disabled = false;
         setTimeout(() => {
-          testBtn.textContent = '✉️ Test Email';
-          testBtn.classList.remove('btn-success', 'btn-danger');
-          testBtn.classList.add('btn-light');
+          testBtn.innerHTML = '<i class="fas fa-envelope me-1"></i>{% trans "Test Email" %}';
+          testBtn.style.color = '';
+          testBtn.style.borderColor = '';
         }, 4000);
       });
     });
   }
-</script>{% endblock %}
+</script>
+{% endblock %}

@@ -196,7 +196,7 @@ def set_webhook(webhook_url: str) -> tuple[bool, str]:
                 api_url("setWebhook"),
                 json={
                     "url": webhook_url,
-                    "allowed_updates": ["message", "edited_message", "callback_query"],
+                    "allowed_updates": ["message", "edited_message", "callback_query", "chat_member"],
                 },
             )
         data = resp.json()
@@ -311,7 +311,10 @@ def set_webhook(webhook_url: str) -> tuple[bool, str]:
         with httpx.Client(timeout=10) as client:
             resp = client.post(
                 api_url("setWebhook"),
-                json={"url": webhook_url, "allowed_updates": ["message", "callback_query"]},
+                json={
+                    "url": webhook_url,
+                    "allowed_updates": ["message", "callback_query", "chat_member"],
+                },
             )
         data = resp.json()
         if resp.is_success and data.get("ok"):

@@ -8,79 +8,359 @@
 {% block container_wrap_end %}{% endblock %}
 
 {% block content %}
-<div class="container py-4">
-  <div class="row justify-content-center">
-    <div class="col-md-8 col-lg-6">
+<style>
+  .edit-visit-page {
+    background: #0e0e18;
+    min-height: 100vh;
+    padding-bottom: 60px;
+  }
 
-      <!-- Back -->
-      <a href="{% url 'users:partner_dashboard' %}" class="btn btn-outline-secondary mb-3">
-        <i class="fas fa-arrow-left"></i> {% trans "Back to Dashboard" %}
-      </a>
+  /* Hero band */
+  .ev-hero {
+    background: #0a0a0f;
+    padding: 48px 16px 40px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+    margin-bottom: 40px;
+    border-bottom: 1px solid rgba(255,255,255,.06);
+  }
+  .ev-hero::before {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 0;
+    transform: translateX(-50%);
+    width: 600px;
+    height: 600px;
+    background: radial-gradient(circle, rgba(245,158,11,.10) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .ev-label {
+    display: inline-block;
+    background: rgba(245,158,11,.1);
+    border: 1px solid rgba(245,158,11,.25);
+    color: #f59e0b;
+    font-size: .75rem;
+    font-weight: 700;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    padding: 5px 14px;
+    border-radius: 50px;
+    margin-bottom: 14px;
+  }
+  .ev-hero h1 {
+    color: #fff;
+    font-size: 1.8rem;
+    font-weight: 800;
+    margin-bottom: 6px;
+  }
+  .ev-hero p {
+    color: rgba(255,255,255,.5);
+    font-size: .95rem;
+    margin: 0;
+  }
 
-      <!-- Edit window countdown -->
-      <div class="alert alert-warning d-flex align-items-center mb-3" id="countdown-alert">
-        <i class="fas fa-clock me-2"></i>
-        <span>{% trans "Edit window closes in" %}&nbsp;<strong id="countdown">{{ seconds_left }}</strong>&nbsp;{% trans "seconds" %}.</span>
-      </div>
+  /* Back link */
+  .ev-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: rgba(255,255,255,.45);
+    font-size: .88rem;
+    text-decoration: none;
+    padding: 6px 14px;
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,.1);
+    transition: all .2s;
+    margin-bottom: 20px;
+  }
+  .ev-back:hover {
+    color: #fff;
+    border-color: rgba(255,255,255,.28);
+    background: rgba(255,255,255,.04);
+  }
 
-      <!-- Visit summary card -->
-      <div class="card shadow-sm mb-4 border-warning">
-        <div class="card-header bg-warning bg-opacity-25 fw-bold">
-          <i class="fas fa-pencil-alt me-1"></i>
-          {% trans "Editing visit" %} — {{ visit.member.get_full_name|default:visit.member.username }}
-        </div>
-        <div class="card-body">
-          <ul class="list-unstyled mb-0 small text-muted">
-            <li><i class="fas fa-tag me-1"></i> {% trans "Current service" %}: <strong>{{ visit.get_service_type_display }}</strong></li>
-            <li><i class="fas fa-coins me-1"></i> {% trans "Current cost" %}: <strong>{% if visit.cost %}{{ visit.cost }} CHF{% else %}N/A{% endif %}</strong></li>
-            <li><i class="fas fa-clock me-1"></i> {% trans "Logged at" %}: <strong>{{ visit.timestamp|date:"d.m.Y H:i" }}</strong></li>
-          </ul>
-        </div>
-      </div>
+  /* Countdown alert */
+  .ev-countdown {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 18px;
+    border-radius: 12px;
+    margin-bottom: 20px;
+    font-size: .9rem;
+    transition: background .5s, border-color .5s;
+  }
+  .ev-countdown.state-warning {
+    background: rgba(245,158,11,.07);
+    border: 1.5px solid rgba(245,158,11,.22);
+    color: #fbbf24;
+  }
+  .ev-countdown.state-danger {
+    background: rgba(239,68,68,.07);
+    border: 1.5px solid rgba(239,68,68,.28);
+    color: #f87171;
+  }
+  .ev-countdown strong {
+    font-size: 1.1rem;
+    font-weight: 800;
+    min-width: 28px;
+    display: inline-block;
+    text-align: center;
+  }
 
-      <!-- Edit form -->
-      <div class="card shadow-sm">
-        <div class="card-header" style="background: linear-gradient(135deg,#f093fb,#f5576c); color:#fff;">
-          <h5 class="mb-0"><i class="fas fa-edit me-2"></i>{% trans "Edit Visit Details" %}</h5>
-        </div>
-        <div class="card-body p-4">
-          {% if messages %}
-            {% for msg in messages %}
-              <div class="alert alert-{{ msg.tags|default:'info' }} alert-dismissible fade show" role="alert">
-                {{ msg }}
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-              </div>
-            {% endfor %}
-          {% endif %}
+  /* Summary card */
+  .ev-summary {
+    background: rgba(245,158,11,.04);
+    border: 1.5px solid rgba(245,158,11,.18);
+    border-radius: 16px;
+    overflow: hidden;
+    margin-bottom: 20px;
+  }
+  .ev-summary-header {
+    background: rgba(245,158,11,.08);
+    border-bottom: 1px solid rgba(245,158,11,.15);
+    padding: 12px 18px;
+    font-weight: 700;
+    color: #fbbf24;
+    font-size: .9rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .ev-summary-body {
+    padding: 16px 18px;
+  }
+  .ev-info-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 0;
+    border-bottom: 1px solid rgba(255,255,255,.05);
+    font-size: .88rem;
+  }
+  .ev-info-row:last-child { border-bottom: none; }
+  .ev-info-row i {
+    color: rgba(255,255,255,.35);
+    width: 16px;
+    flex-shrink: 0;
+    font-size: .8rem;
+  }
+  .ev-info-label { color: rgba(255,255,255,.45); }
+  .ev-info-value { color: rgba(255,255,255,.85); font-weight: 600; }
 
-          <form method="post" id="editVisitForm">
-            {% csrf_token %}
-            {% for field in form %}
-              <div class="mb-3">
-                <label for="{{ field.id_for_label }}" class="form-label fw-semibold">{{ field.label }}</label>
-                {{ field }}
-                {% if field.help_text %}<div class="form-text text-muted">{{ field.help_text }}</div>{% endif %}
-                {% if field.errors %}
-                  {% for error in field.errors %}
-                    <div class="invalid-feedback d-block">{{ error }}</div>
-                  {% endfor %}
-                {% endif %}
-              </div>
-            {% endfor %}
+  /* Form card */
+  .ev-form-card {
+    background: rgba(255,255,255,.03);
+    border: 1.5px solid rgba(255,255,255,.08);
+    border-radius: 20px;
+    overflow: hidden;
+  }
+  .ev-form-header {
+    background: rgba(255,255,255,.04);
+    border-bottom: 1px solid rgba(255,255,255,.07);
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .ev-form-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    background: rgba(245,158,11,.12);
+    border: 1px solid rgba(245,158,11,.22);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #f59e0b;
+    font-size: .9rem;
+    flex-shrink: 0;
+  }
+  .ev-form-header h5 {
+    color: #fff;
+    font-size: 1rem;
+    font-weight: 700;
+    margin: 0;
+  }
+  .ev-form-body { padding: 24px; }
 
-            <div class="d-grid gap-2 mt-4">
-              <button type="submit" class="btn btn-warning btn-lg fw-bold">
-                <i class="fas fa-save me-2"></i>{% trans "Save Changes" %}
-              </button>
-              <a href="{% url 'users:partner_dashboard' %}" class="btn btn-outline-secondary">
-                {% trans "Cancel" %}
-              </a>
-            </div>
-          </form>
-        </div>
-      </div>
+  /* Form field overrides */
+  .ev-form-body .form-label {
+    color: rgba(255,255,255,.7);
+    font-size: .85rem;
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+  .ev-form-body input,
+  .ev-form-body select,
+  .ev-form-body textarea {
+    background: #1a1a24 !important;
+    border: 1.5px solid rgba(255,255,255,.1) !important;
+    border-radius: 10px !important;
+    color: #fff !important;
+    padding: 10px 14px !important;
+  }
+  .ev-form-body input:focus,
+  .ev-form-body select:focus,
+  .ev-form-body textarea:focus {
+    border-color: rgba(245,158,11,.5) !important;
+    box-shadow: 0 0 0 3px rgba(245,158,11,.1) !important;
+    outline: none !important;
+  }
+  .ev-form-body select option { background: #1a1a24; }
+  .ev-form-body .form-text { color: rgba(255,255,255,.35) !important; font-size: .78rem; }
+  .ev-form-body .invalid-feedback { color: #f87171; font-size: .8rem; }
 
+  /* Buttons */
+  .ev-btn-save {
+    width: 100%;
+    padding: 13px 20px;
+    border: none;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #d97706, #b45309);
+    color: #fff;
+    font-weight: 700;
+    font-size: .95rem;
+    cursor: pointer;
+    transition: all .2s;
+    margin-bottom: 10px;
+  }
+  .ev-btn-save:hover:not(:disabled) {
+    box-shadow: 0 8px 28px rgba(217,119,6,.4);
+    transform: translateY(-1px);
+  }
+  .ev-btn-save:disabled {
+    opacity: .45;
+    cursor: not-allowed;
+  }
+  .ev-btn-cancel {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    padding: 11px 20px;
+    border-radius: 12px;
+    border: 1.5px solid rgba(255,255,255,.12);
+    background: transparent;
+    color: rgba(255,255,255,.65);
+    font-weight: 600;
+    font-size: .9rem;
+    text-decoration: none;
+    transition: all .2s;
+  }
+  .ev-btn-cancel:hover {
+    border-color: rgba(255,255,255,.28);
+    color: #fff;
+    background: rgba(255,255,255,.04);
+  }
+
+  /* Messages */
+  .ev-msg {
+    padding: 12px 16px;
+    border-radius: 10px;
+    margin-bottom: 16px;
+    font-size: .88rem;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .ev-msg-danger { background: rgba(239,68,68,.07); border: 1px solid rgba(239,68,68,.2); color: #f87171; }
+  .ev-msg-success { background: rgba(74,222,128,.07); border: 1px solid rgba(74,222,128,.2); color: #4ade80; }
+  .ev-msg-warning { background: rgba(245,158,11,.07); border: 1px solid rgba(245,158,11,.2); color: #fbbf24; }
+  .ev-msg-info { background: rgba(59,130,246,.07); border: 1px solid rgba(59,130,246,.2); color: #60a5fa; }
+</style>
+
+<div class="edit-visit-page">
+  <!-- Hero Band -->
+  <div class="ev-hero">
+    <div class="ev-label"><i class="fas fa-edit me-1"></i>{% trans "Edit Visit" %}</div>
+    <h1>{% trans "Edit Visit" %} #{{ visit.id }}</h1>
+    <p>{{ visit.member.get_full_name|default:visit.member.username }}</p>
+  </div>
+
+  <div class="hp-container" style="max-width:640px;">
+
+    <!-- Back link -->
+    <a href="{% url 'users:partner_dashboard' %}" class="ev-back">
+      <i class="fas fa-arrow-left"></i> {% trans "Back to Dashboard" %}
+    </a>
+
+    <!-- Countdown -->
+    <div class="ev-countdown state-warning" id="countdown-alert">
+      <i class="fas fa-clock fa-lg"></i>
+      <span>{% trans "Edit window closes in" %}&nbsp;<strong id="countdown">{{ seconds_left }}</strong>&nbsp;{% trans "seconds" %}.</span>
     </div>
+
+    <!-- Summary card -->
+    <div class="ev-summary">
+      <div class="ev-summary-header">
+        <i class="fas fa-info-circle"></i>
+        {% trans "Editing visit" %} — {{ visit.member.get_full_name|default:visit.member.username }}
+      </div>
+      <div class="ev-summary-body">
+        <div class="ev-info-row">
+          <i class="fas fa-tag"></i>
+          <span class="ev-info-label">{% trans "Current service" %}</span>
+          <span class="ev-info-value ms-auto">{{ visit.get_service_type_display }}</span>
+        </div>
+        <div class="ev-info-row">
+          <i class="fas fa-coins"></i>
+          <span class="ev-info-label">{% trans "Current cost" %}</span>
+          <span class="ev-info-value ms-auto">{% if visit.cost %}{{ visit.cost }} CHF{% else %}N/A{% endif %}</span>
+        </div>
+        <div class="ev-info-row">
+          <i class="fas fa-clock"></i>
+          <span class="ev-info-label">{% trans "Logged at" %}</span>
+          <span class="ev-info-value ms-auto">{{ visit.timestamp|date:"d.m.Y H:i" }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Edit form card -->
+    <div class="ev-form-card">
+      <div class="ev-form-header">
+        <div class="ev-form-icon"><i class="fas fa-edit"></i></div>
+        <h5>{% trans "Edit Visit Details" %}</h5>
+      </div>
+      <div class="ev-form-body">
+        {% if messages %}
+          {% for msg in messages %}
+            <div class="ev-msg ev-msg-{{ msg.tags|default:'info' }}">
+              <i class="fas fa-circle-info mt-1"></i>
+              <span>{{ msg }}</span>
+            </div>
+          {% endfor %}
+        {% endif %}
+
+        <form method="post" id="editVisitForm">
+          {% csrf_token %}
+          {% for field in form %}
+            <div class="mb-3">
+              <label for="{{ field.id_for_label }}" class="form-label fw-semibold">{{ field.label }}</label>
+              {{ field }}
+              {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+              {% if field.errors %}
+                {% for error in field.errors %}
+                  <div class="invalid-feedback d-block">{{ error }}</div>
+                {% endfor %}
+              {% endif %}
+            </div>
+          {% endfor %}
+
+          <div class="mt-4">
+            <button type="submit" class="ev-btn-save" id="ev-submit-btn">
+              <i class="fas fa-save me-2"></i>{% trans "Save Changes" %}
+            </button>
+            <a href="{% url 'users:partner_dashboard' %}" class="ev-btn-cancel">
+              {% trans "Cancel" %}
+            </a>
+          </div>
+        </form>
+      </div>
+    </div>
+
   </div>
 </div>
 {% endblock %}
@@ -89,24 +369,22 @@
 <script>
   let secondsLeft = {{ seconds_left }};
   const el = document.getElementById('countdown');
-  const alert = document.getElementById('countdown-alert');
-  const form = document.getElementById('editVisitForm');
+  const alertEl = document.getElementById('countdown-alert');
+  const submitBtn = document.getElementById('ev-submit-btn');
 
   function tick() {
     secondsLeft--;
     if (secondsLeft <= 0) {
       el.textContent = '0';
-      alert.classList.remove('alert-warning');
-      alert.classList.add('alert-danger');
-      form.querySelectorAll('button[type=submit]').forEach(b => {
-        b.disabled = true;
-        b.textContent = '⏰ Edit window expired';
-      });
+      alertEl.classList.remove('state-warning');
+      alertEl.classList.add('state-danger');
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = '<i class="fas fa-lock me-2"></i>{% trans "Edit window expired" %}';
     } else {
       el.textContent = secondsLeft;
       if (secondsLeft <= 60) {
-        alert.classList.remove('alert-warning');
-        alert.classList.add('alert-danger');
+        alertEl.classList.remove('state-warning');
+        alertEl.classList.add('state-danger');
       }
       setTimeout(tick, 1000);
     }
