@@ -16,6 +16,7 @@ async def send_message_async(
     chat_id: int | str,
     parse_mode: str = "HTML",
     reply_markup: dict | None = None,
+    disable_notification: bool = False,
 ) -> bool:
     """Send a Telegram message asynchronously. Returns True on success."""
     t = token()
@@ -32,6 +33,8 @@ async def send_message_async(
     }
     if reply_markup:
         payload["reply_markup"] = reply_markup
+    if disable_notification:
+        payload["disable_notification"] = True
 
     try:
         async with httpx.AsyncClient(timeout=10) as client:
@@ -226,6 +229,7 @@ async def send_message_async(
     chat_id: int | str,
     parse_mode: str = "HTML",
     reply_markup: dict | None = None,
+    disable_notification: bool = False,
 ) -> bool:
     """Send a Telegram message asynchronously. Returns True on success."""
     t = token()
@@ -245,6 +249,8 @@ async def send_message_async(
     }
     if reply_markup:
         payload["reply_markup"] = reply_markup
+    if disable_notification:
+        payload["disable_notification"] = True
 
     try:
         async with httpx.AsyncClient(timeout=10) as client:
