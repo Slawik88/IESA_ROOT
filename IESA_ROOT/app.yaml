@@ -7,10 +7,8 @@ services:
   source_dir: IESA_ROOT
   build_command: |
     pip install -r requirements.txt && \
-    python manage.py migrate && \
-    python manage.py collectstatic --clear --noinput && \
-    python manage.py populate_fake_data --users=12 --posts=15 --products=18 --events=12
-  run_command: gunicorn IESA_ROOT.wsgi:application --bind 0.0.0.0:8080 --workers=2
+    python manage.py collectstatic --clear --noinput
+  run_command: sh start.sh
   http_port: 8080
   instance_count: 1
   instance_size_slug: basic-xs
