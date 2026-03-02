@@ -5,9 +5,10 @@
 
 {% block extra_css %}
 <style>
+/* ── Hero ──────────────────────────────────────── */
 .ben-hero {
     background: #0a0a0f;
-    padding: 5rem 0 4rem;
+    padding: 5.5rem 0 4.5rem;
     text-align: center;
     position: relative;
     overflow: hidden;
@@ -19,23 +20,70 @@
     background: radial-gradient(ellipse 70% 60% at 50% 0%, rgba(220,38,38,.18) 0%, transparent 70%);
     pointer-events: none;
 }
+/* ── Stats Row ─────────────────────────────────── */
+.ben-stats {
+    display: flex;
+    justify-content: center;
+    gap: 2.5rem;
+    margin-top: 1.5rem;
+    flex-wrap: wrap;
+}
+.ben-stat {
+    text-align: center;
+}
+.ben-stat-num {
+    font-size: 1.8rem;
+    font-weight: 900;
+    color: #fff;
+    line-height: 1;
+}
+.ben-stat-label {
+    font-size: .75rem;
+    color: rgba(255,255,255,.4);
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    margin-top: .3rem;
+}
+/* ── Benefits Card ─────────────────────────────── */
 .ben-card {
     background: rgba(255,255,255,0.04);
     border: 1.5px solid rgba(255,255,255,0.08);
     border-radius: 20px;
     overflow: hidden;
-    transition: transform .3s, box-shadow .3s, border-color .3s;
+    transition: transform .4s cubic-bezier(.22,1,.36,1), box-shadow .4s, border-color .4s;
     height: 100%;
     position: relative;
 }
 .ben-card:hover {
-    transform: translateY(-6px);
-    box-shadow: 0 20px 50px rgba(0,0,0,.3);
-    border-color: var(--primary);
+    transform: translateY(-8px) scale(1.01);
+    box-shadow: 0 25px 55px rgba(0,0,0,.35), 0 0 0 1px rgba(220,38,38,.2);
+    border-color: rgba(220,38,38,.35);
 }
+/* Glow effect on hover */
+.ben-card::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 20px;
+    opacity: 0;
+    transition: opacity .4s;
+    pointer-events: none;
+}
+.ben-card:hover::after {
+    opacity: 1;
+}
+.ben-card[data-glow="success"]::after { background: radial-gradient(ellipse at 50% 0%, rgba(86,171,47,.08), transparent 70%); }
+.ben-card[data-glow="danger"]::after { background: radial-gradient(ellipse at 50% 0%, rgba(235,51,73,.08), transparent 70%); }
+.ben-card[data-glow="warning"]::after { background: radial-gradient(ellipse at 50% 0%, rgba(240,147,251,.08), transparent 70%); }
+.ben-card[data-glow="info"]::after { background: radial-gradient(ellipse at 50% 0%, rgba(79,172,254,.08), transparent 70%); }
+
 .ben-card-top-bar {
     height: 4px;
     width: 100%;
+    transition: height .3s;
+}
+.ben-card:hover .ben-card-top-bar {
+    height: 5px;
 }
 .ben-icon-wrap {
     width: 56px;
@@ -48,6 +96,11 @@
     color: #fff;
     flex-shrink: 0;
     box-shadow: 0 4px 14px rgba(0,0,0,.12);
+    transition: transform .4s cubic-bezier(.22,1,.36,1), box-shadow .4s;
+}
+.ben-card:hover .ben-icon-wrap {
+    transform: scale(1.12) rotate(-4deg);
+    box-shadow: 0 8px 24px rgba(0,0,0,.2);
 }
 .ben-discount {
     background: rgba(220,38,38,.08);
@@ -57,9 +110,25 @@
     font-size: .85rem;
     color: var(--primary);
     font-weight: 700;
+    position: relative;
+    overflow: hidden;
 }
+.ben-discount::before {
+    content: '';
+    position: absolute;
+    top: 0; left: -100%;
+    width: 100%; height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(220,38,38,.1), transparent);
+    animation: ben-shimmer 3s infinite;
+}
+@keyframes ben-shimmer {
+    0% { left: -100%; }
+    100% { left: 200%; }
+}
+/* ── CTA ───────────────────────────────────────── */
 .ben-cta {
     background: #0a0a0f;
+    border: 1.5px solid rgba(255,255,255,.06);
     border-radius: 24px;
     padding: 4rem 3rem;
     text-align: center;
@@ -87,16 +156,29 @@
     margin-bottom: 2rem;
     position: relative;
 }
+/* ── Empty State ───────────────────────────────── */
 .ben-empty {
-    background: #0a0a0f;
+    background: linear-gradient(145deg, #111118, #0a0a0f);
     border: 1.5px solid rgba(255,255,255,.07);
     border-radius: 24px;
     padding: 4rem 2rem;
     text-align: center;
     margin: 3rem 0;
+    position: relative;
+    overflow: hidden;
 }
 .ben-empty h3 { color: #fff; font-weight: 900; }
 .ben-empty p { color: rgba(255,255,255,.5); }
+.ben-empty-icon {
+    font-size: 3.5rem;
+    display: block;
+    margin-bottom: .75rem;
+    animation: gal-float 3s ease-in-out infinite;
+}
+@keyframes gal-float {
+    0%,100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+}
 </style>
 {% endblock %}
 
@@ -110,8 +192,20 @@
         <div class="hp-label mx-auto mb-3" style="width:fit-content;">
             <i class="fas fa-gift me-2"></i>{% trans "Member Benefits" %}
         </div>
-        <h1 class="hp-h2" style="font-size:clamp(2rem,5vw,3.2rem);">{% trans "IESA Member Benefits" %}</h1>
+        <h1 class="hp-h2" style="font-size:clamp(2rem,5vw,3.2rem);" data-typed="40">{% trans "IESA Member Benefits" %}</h1>
         <p class="hp-sub mx-auto" style="max-width:540px;">{% trans "Get exclusive discounts and benefits as a member of our association" %}</p>
+        {% if benefits %}
+        <div class="ben-stats" data-reveal>
+            <div class="ben-stat">
+                <div class="ben-stat-num" data-count="{{ benefits|length }}">0</div>
+                <div class="ben-stat-label">{% trans "Benefits" %}</div>
+            </div>
+            <div class="ben-stat">
+                <div class="ben-stat-num" style="color:var(--primary);">∞</div>
+                <div class="ben-stat-label">{% trans "Savings" %}</div>
+            </div>
+        </div>
+        {% endif %}
     </div>
 </section>
 
@@ -123,7 +217,7 @@
         <div class="row g-4">
             {% for benefit in benefits %}
             <div class="col-md-6 col-lg-4" data-reveal data-delay="{{ forloop.counter }}">
-                <div class="ben-card">
+                <div class="ben-card" data-tilt data-glow="{{ benefit.color|default:'primary' }}">
                     <!-- Color top bar -->
                     {% if benefit.color == 'success' %}
                     <div class="ben-card-top-bar" style="background:linear-gradient(90deg,#56ab2f,#a8e063);"></div>
@@ -205,7 +299,7 @@
     {% else %}
     <!-- Empty State -->
     <div class="ben-empty" data-reveal>
-        <i class="fas fa-gift mb-3" style="font-size:3.5rem;color:var(--primary);opacity:.5;"></i>
+        <span class="ben-empty-icon">🎁</span>
         <h3 class="mb-2">{% trans "Benefits coming soon" %}</h3>
         <p class="mb-4">{% trans "We are working on exclusive offers for our members" %}</p>
         <a href="{% url 'core:home' %}" class="btn hero-btn-p">

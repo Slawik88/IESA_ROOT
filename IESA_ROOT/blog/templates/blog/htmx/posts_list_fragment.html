@@ -3,29 +3,63 @@
 .post-card {
     background: #111118;
     border: 1.5px solid rgba(255,255,255,.07);
-    border-radius: 16px;
+    border-radius: 18px;
     overflow: hidden;
     display: flex;
     flex-direction: column;
-    transition: border-color .2s, transform .2s, box-shadow .2s;
+    transition: border-color .35s cubic-bezier(.22,1,.36,1), transform .35s cubic-bezier(.22,1,.36,1), box-shadow .35s;
+    position: relative;
 }
 .post-card:hover {
     border-color: rgba(220,38,38,.35);
-    transform: translateY(-3px);
-    box-shadow: 0 12px 36px rgba(0,0,0,.4);
+    transform: translateY(-6px) scale(1.01);
+    box-shadow: 0 20px 50px rgba(0,0,0,.4), 0 0 0 1px rgba(220,38,38,.15);
+}
+/* Subtle glow on hover */
+.post-card::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 120px;
+    background: radial-gradient(ellipse at 50% 0%, rgba(220,38,38,.06), transparent 70%);
+    opacity: 0;
+    transition: opacity .35s;
+    pointer-events: none;
+    z-index: 0;
+}
+.post-card:hover::after { opacity: 1; }
+.post-card__img-wrap {
+    position: relative;
+    overflow: hidden;
+    border-bottom: 1.5px solid rgba(255,255,255,.06);
 }
 .post-card__img {
     width: 100%;
     height: 200px;
     object-fit: cover;
     display: block;
-    border-bottom: 1.5px solid rgba(255,255,255,.06);
+    transition: transform .6s cubic-bezier(.22,1,.36,1), filter .6s;
 }
+.post-card:hover .post-card__img {
+    transform: scale(1.06);
+    filter: brightness(1.05);
+}
+.post-card__img-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to top, rgba(0,0,0,.5) 0%, transparent 60%);
+    opacity: 0;
+    transition: opacity .35s;
+    pointer-events: none;
+}
+.post-card:hover .post-card__img-overlay { opacity: 1; }
 .post-card__body {
     padding: 1.25rem 1.25rem .75rem;
     flex: 1;
     display: flex;
     flex-direction: column;
+    position: relative;
+    z-index: 1;
 }
 .post-card__title {
     font-size: 1rem;
@@ -37,7 +71,9 @@
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
+    transition: color .2s;
 }
+.post-card:hover .post-card__title { color: #fff; }
 .post-card__excerpt {
     color: rgba(255,255,255,.5);
     font-size: .875rem;
@@ -58,12 +94,21 @@
     border-top: 1px solid rgba(255,255,255,.06);
     padding-top: .75rem;
 }
+.post-card__meta span {
+    display: inline-flex;
+    align-items: center;
+    gap: .3rem;
+    transition: color .2s;
+}
+.post-card:hover .post-card__meta span { color: rgba(255,255,255,.5); }
 .post-card__footer {
     padding: .75rem 1.25rem 1rem;
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: .5rem;
+    position: relative;
+    z-index: 1;
 }
 .post-card__author {
     font-size: .78rem;
@@ -78,13 +123,17 @@
     font-size: .82rem;
     font-weight: 600;
     text-decoration: none;
-    transition: background .2s, border-color .2s;
+    transition: background .2s, border-color .2s, transform .2s, box-shadow .2s;
     white-space: nowrap;
+    position: relative;
+    overflow: hidden;
 }
 .post-card__btn:hover {
     background: rgba(220,38,38,.3);
     border-color: rgba(220,38,38,.6);
     color: #fca5a5;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px rgba(220,38,38,.2);
 }
 .post-card__no-image {
     background: linear-gradient(135deg, #1a1a24 0%, #0f0f18 100%);
@@ -93,10 +142,19 @@
     align-items: center;
     justify-content: center;
     border-bottom: 1.5px solid rgba(255,255,255,.06);
+    position: relative;
+    overflow: hidden;
 }
 .post-card__no-image i {
     font-size: 2.5rem;
     color: rgba(255,255,255,.1);
+}
+.post-card__no-image::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(220,38,38,.05), transparent);
+    pointer-events: none;
 }
 </style>
 
@@ -104,9 +162,12 @@
     <div class="row g-4">
     {% for post in posts %}
         <div class="col-md-6 col-lg-4">
-            <div class="post-card">
+            <div class="post-card" data-tilt>
                 {% if post.preview_image %}
-                    <img src="{{ post.preview_image.url }}" class="post-card__img" alt="{{ post.title }}" loading="lazy">
+                    <div class="post-card__img-wrap">
+                        <img src="{{ post.preview_image.url }}" class="post-card__img" alt="{{ post.title }}" loading="lazy">
+                        <div class="post-card__img-overlay"></div>
+                    </div>
                 {% else %}
                     <div class="post-card__no-image">
                         <i class="fas fa-newspaper"></i>
@@ -130,8 +191,8 @@
     {% endfor %}
     </div>
 {% else %}
-    <div class="text-center py-5">
-        <i class="fas fa-search mb-3" style="font-size:2.5rem;color:rgba(255,255,255,.15);display:block;"></i>
+    <div class="text-center py-5" data-reveal>
+        <div style="font-size:2.5rem;margin-bottom:.75rem;animation:gal-float 3s ease-in-out infinite;">🔍</div>
         <p style="color:rgba(255,255,255,.4);">{% trans "No posts found" %}</p>
     </div>
 {% endif %}

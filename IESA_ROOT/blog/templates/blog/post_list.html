@@ -5,9 +5,10 @@
 
 {% block extra_css %}
 <style>
+/* ── Hero ──────────────────────────────────────── */
 .pl-hero {
     background: #0a0a0f;
-    padding: 5rem 0 4rem;
+    padding: 5.5rem 0 4.5rem;
     text-align: center;
     position: relative;
     overflow: hidden;
@@ -19,6 +20,7 @@
     background: radial-gradient(ellipse 70% 60% at 50% 0%, rgba(220,38,38,.18) 0%, transparent 70%);
     pointer-events: none;
 }
+/* ── Filter Bar ────────────────────────────────── */
 .pl-filters-bar {
     background: #111118;
     border: 1.5px solid rgba(255,255,255,.07);
@@ -28,6 +30,12 @@
     max-width: 980px;
     position: relative;
     z-index: 2;
+    backdrop-filter: blur(12px);
+    transition: border-color .3s, box-shadow .3s;
+}
+.pl-filters-bar:focus-within {
+    border-color: rgba(220,38,38,.25);
+    box-shadow: 0 8px 32px rgba(0,0,0,.2);
 }
 .pl-filters-bar .form-control,
 .pl-filters-bar .form-select {
@@ -35,6 +43,7 @@
     border: 1.5px solid rgba(255,255,255,.1);
     color: #fff;
     border-radius: 10px;
+    transition: border-color .2s, box-shadow .2s;
 }
 .pl-filters-bar .form-control::placeholder { color: rgba(255,255,255,.35); }
 .pl-filters-bar .form-control:focus,
@@ -45,9 +54,23 @@
     box-shadow: 0 0 0 3px rgba(220,38,38,.18);
 }
 .pl-filters-bar .form-select option { background: #1a1a24; }
-.pl-filters-bar .nav-link { color: rgba(255,255,255,.55); border-radius: 8px; }
-.pl-filters-bar .nav-link.active { background: var(--primary); color: #fff; }
-.pl-filters-bar .nav-link:hover:not(.active) { color: #fff; background: rgba(255,255,255,.06); }
+.pl-filters-bar .nav-link {
+    color: rgba(255,255,255,.55);
+    border-radius: 8px;
+    transition: all .25s;
+    position: relative;
+}
+.pl-filters-bar .nav-link.active {
+    background: var(--primary);
+    color: #fff;
+    box-shadow: 0 4px 16px rgba(220,38,38,.35);
+}
+.pl-filters-bar .nav-link:hover:not(.active) {
+    color: #fff;
+    background: rgba(255,255,255,.06);
+    transform: translateY(-1px);
+}
+/* ── Auth Notice ───────────────────────────────── */
 .pl-auth-notice {
     background: linear-gradient(135deg, rgba(220,38,38,.1), rgba(220,38,38,.04));
     border: 1.5px solid rgba(220,38,38,.2);
@@ -55,7 +78,23 @@
     padding: 1rem 1.5rem;
     margin-bottom: 1.5rem;
     color: #e5e7eb;
+    backdrop-filter: blur(8px);
 }
+/* ── Post Counter ──────────────────────────────── */
+.pl-counter-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: .5rem;
+    background: rgba(255,255,255,.06);
+    border: 1px solid rgba(255,255,255,.1);
+    border-radius: 100px;
+    padding: .4rem 1.1rem;
+    font-size: .82rem;
+    font-weight: 600;
+    color: rgba(255,255,255,.55);
+    margin-top: 1.2rem;
+}
+.pl-counter-chip i { color: var(--primary); }
 </style>
 {% endblock %}
 
@@ -67,7 +106,7 @@
 <section class="pl-hero">
     <div class="container">
         <div class="hp-label mx-auto mb-3" style="width:fit-content;">{% trans "COMMUNITY" %}</div>
-        <h1 class="hp-h2" style="font-size:clamp(2rem,5vw,3.2rem);">{% trans "Share Ideas, Events & News" %}</h1>
+        <h1 class="hp-h2" style="font-size:clamp(2rem,5vw,3.2rem);" data-typed="40">{% trans "Share Ideas, Events & News" %}</h1>
         <p class="hp-sub mx-auto" style="max-width:540px;">{% trans "Connect with fellow extreme sports enthusiasts" %}</p>
     </div>
 </section>
@@ -75,7 +114,7 @@
 <div class="container-limited">
 
     <!-- Filters Bar -->
-    <div class="pl-filters-bar">
+    <div class="pl-filters-bar" data-reveal>
         <div class="d-flex flex-column flex-lg-row gap-3 align-items-start align-items-lg-center">
             <nav class="nav nav-pills flex-shrink-0">
                 <a class="nav-link active" href="{% url 'blog:post_list' %}">
@@ -115,7 +154,7 @@
     </div>
 
     {% if not user.is_authenticated %}
-    <div class="pl-auth-notice d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3 mb-4">
+    <div class="pl-auth-notice d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3 mb-4" data-reveal data-delay="1">
         <div>
             <strong><i class="fas fa-lock me-2 text-danger"></i>{% trans "Sign in or register to access the community" %}</strong>
             <p class="mb-0 mt-1 opacity-75 small">{% trans "Join our community to create posts, comment and engage with members" %}</p>
@@ -132,8 +171,8 @@
         {% if posts %}
             {% include "blog/htmx/posts_list_fragment.html" %}
         {% else %}
-            <div class="text-center p-5 rounded-4" style="background:rgba(255,255,255,.04);border:1.5px solid rgba(255,255,255,.07);">
-                <i class="fas fa-newspaper mb-4" style="font-size:3rem;color:rgba(255,255,255,.15);"></i>
+            <div class="text-center p-5 rounded-4" style="background:rgba(255,255,255,.04);border:1.5px solid rgba(255,255,255,.07);" data-reveal>
+                <div style="font-size:3rem;margin-bottom:1rem;animation:gal-float 3s ease-in-out infinite;">📝</div>
                 <h5 class="fw-bold mb-2" style="color:rgba(255,255,255,.75);">{% trans "No Posts Yet" %}</h5>
                 <p style="color:rgba(255,255,255,.35);" class="mb-4">{% trans "Be the first to share news or ideas with the community" %}</p>
                 {% if user.is_authenticated %}
@@ -150,4 +189,11 @@
     </div>
 
 </div>
+
+<style>
+@keyframes gal-float {
+    0%,100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+}
+</style>
 {% endblock %}
