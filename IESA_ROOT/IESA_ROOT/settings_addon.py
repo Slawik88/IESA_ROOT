@@ -41,6 +41,11 @@ LOGGING = {
             'handlers': ['console'],
             'level': 'INFO',
         },
+        'users.telegram': {
+            'handlers': ['console'],
+            'level': 'DEBUG',
+            'propagate': False,
+        },
     },
 }
 

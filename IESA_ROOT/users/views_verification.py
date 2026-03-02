@@ -696,19 +696,41 @@ def telegram_login_callback_view(request):
 @csrf_exempt
 @require_http_methods(["POST"])
 async def telegram_webhook_view(request, secret):
+    import json as _json
+    import logging as _logging
+    _wlog = _logging.getLogger("users.telegram.webhook")
 
+    try:
+        payload = _json.loads(request.body.decode("utf-8") or "{}")
+    except Exception as exc:
+        _wlog.error("Webhook JSON parse error: %s", exc)
+        return JsonResponse({"ok": False, "error": "invalid json"}, status=400)
 
+    # Log every incoming update type so we can see what Telegram is sending
+    update_type = (
+        "callback_query" if "callback_query" in payload else
+        "message"        if "message"        in payload else
+        "chat_member"    if "chat_member"    in payload else
+        "edited_message" if "edited_message" in payload else
+        list(payload.keys())[:2]
+    )
+    _wlog.info("Webhook received: type=%s update_id=%s", update_type, payload.get("update_id"))
+    if "callback_query" in payload:
+        cb = payload["callback_query"]
+        _wlog.info("  callback_query id=%s data=%r chat=%s",
+                   cb.get("id"), cb.get("data"),
+                   (cb.get("message") or {}).get("chat", {}).get("id"))
+
+    from users.telegram.config import is_active
+    if is_active():
         try:
-                import json
-
-                payload = json.loads(request.body.decode("utf-8") or "{}")
-        except Exception:
-                return JsonResponse({"ok": False, "error": "invalid json"}, status=400)
-
-        from users.telegram.config import is_active
-        if is_active():
             await process_incoming_update(payload)
-        return JsonResponse({"ok": True})
+        except Exception as exc:
+            _wlog.exception("process_incoming_update raised: %s", exc)
+    else:
+        _wlog.warning("Bot is_active()=False — update ignored (token set: %s)",
+                      bool(payload))
+    return JsonResponse({"ok": True})
 
 
 # ---------------------------------------------------------------------------
