@@ -28,7 +28,7 @@
 
 .profile-edit-card {
   background: var(--card-bg, #fff);
-  border: 2px solid #fecaca;
+  border: 2px solid rgba(220, 38, 38, 0.3);
   border-radius: 16px;
   box-shadow: 0 10px 40px rgba(220, 38, 38, 0.1);
   padding: 30px;
@@ -1514,12 +1514,12 @@
 }
 
 .member-modal-header {
-  border-bottom: 1px solid rgba(0,0,0,0.08);
-  background: linear-gradient(135deg, rgba(239,68,68,.06) 0%, var(--card-bg, #fff) 100%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: linear-gradient(135deg, rgba(239,68,68,.1) 0%, rgba(255,255,255,0.03) 100%);
 }
 
 .member-modal-title {
-  color: var(--color-gray-900);
+  color: #ffffff;
 }
 
 .member-modal-body {
@@ -1549,14 +1549,14 @@
 }
 
 .member-modal-description {
-  color: #374151;
+  color: rgba(255, 255, 255, 0.7);
   line-height: 1.8;
   font-size: 0.95rem;
 }
 
 .member-modal-footer {
-  border-top: 1px solid rgba(0,0,0,0.08);
-  background: #f9fafb;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
 }
 
 .member-modal-close-btn {
@@ -1783,11 +1783,11 @@
 
 .post-rec-image-placeholder {
   height: 150px;
-  background: #f0f0f0;
+  background: rgba(255, 255, 255, 0.06);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #999;
+  color: rgba(255, 255, 255, 0.4);
 }
 
 .post-rec-excerpt {

@@ -66,26 +66,26 @@
   --emerald-100: rgba(5, 150, 105, 0.08);
   --emerald-200: rgba(5, 150, 105, 0.12);
   
-  /* Neutrals - Серая шкала */
+  /* Neutrals - Серая шкала (dark-theme) */
   --white: #ffffff;
   --black: #000000;
-  --gray-50: #f9fafb;
-  --gray-100: #f3f4f6;
-  --gray-200: #e5e7eb;
-  --gray-300: #d1d5db;
-  --gray-400: #9ca3af;
-  --gray-500: #6b7280;
-  --gray-600: #4b5563;
-  --gray-700: #374151;
-  --gray-800: #1f2937;
-  --gray-900: #111827;
+  --gray-50: rgba(255, 255, 255, 0.03);
+  --gray-100: rgba(255, 255, 255, 0.06);
+  --gray-200: rgba(255, 255, 255, 0.1);
+  --gray-300: rgba(255, 255, 255, 0.15);
+  --gray-400: rgba(255, 255, 255, 0.3);
+  --gray-500: rgba(255, 255, 255, 0.45);
+  --gray-600: rgba(255, 255, 255, 0.6);
+  --gray-700: rgba(255, 255, 255, 0.7);
+  --gray-800: rgba(255, 255, 255, 0.8);
+  --gray-900: rgba(255, 255, 255, 0.9);
   
-  /* Текстовые цвета */
-  --text-primary: #111827;
-  --text-secondary: #4b5563;
-  --text-muted: #6b7280;
-  --text-light: #9ca3af;
-  --text-inverse: #ffffff;
+  /* Текстовые цвета (dark-theme friendly) */
+  --text-primary: rgba(255, 255, 255, 0.87);
+  --text-secondary: rgba(255, 255, 255, 0.65);
+  --text-muted: rgba(255, 255, 255, 0.5);
+  --text-light: rgba(255, 255, 255, 0.38);
+  --text-inverse: #111827;
   
   /* Фоновые цвета */
   --bg-body: #0e0e18;
@@ -93,10 +93,10 @@
   --bg-light: #f5f5f5;
   --bg-dark: #111827;
   
-  /* Границы */
-  --border-color: #e5e7eb;
+  /* Границы (dark-theme) */
+  --border-color: rgba(255, 255, 255, 0.1);
   --border-color-light: rgba(255, 255, 255, 0.06);
-  --border-color-hover: #d1d5db;
+  --border-color-hover: rgba(255, 255, 255, 0.18);
 
   /* Тёмные поверхности (glassmorphism карточки) */
   --bg-surface: #111118;
@@ -106,6 +106,21 @@
   --text-on-dark-muted: rgba(255, 255, 255, 0.55);
   --border-dark: rgba(255, 255, 255, 0.08);
   --border-dark-hover: rgba(255, 255, 255, 0.15);
+
+  /* Aliased color-gray-* for homepage/about sections (used in pages.css).
+     These resolve in white-bg containers where the scoped override in
+     base.css sets --gray-* back to their light hex values. */
+  --color-gray-50: var(--gray-50);
+  --color-gray-100: var(--gray-100);
+  --color-gray-200: var(--gray-200);
+  --color-gray-300: var(--gray-300);
+  --color-gray-400: var(--gray-400);
+  --color-gray-500: var(--gray-500);
+  --color-gray-600: var(--gray-600);
+  --color-gray-700: var(--gray-700);
+  --color-gray-800: var(--gray-800);
+  --color-gray-900: var(--gray-900);
+  --color-primary: var(--primary);
   
   /* ====================================================
      2. ТИПОГРАФИЯ
@@ -227,10 +242,10 @@
   --gradient-dark: linear-gradient(135deg, #374151 0%, #1f2937 100%);
   --gradient-auth: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
   
-  /* Фоновые градиенты */
-  --gradient-page: linear-gradient(135deg, #ffffff 0%, #ffffff 100%);
-  --gradient-card: linear-gradient(145deg, #ffffff 0%, #f8f8f8 100%);
-  --gradient-card-light: linear-gradient(145deg, rgba(255,255,255,0.98) 0%, rgba(245,245,245,0.99) 100%);
+  /* Фоновые градиенты (dark-theme) */
+  --gradient-page: linear-gradient(135deg, var(--bg-body) 0%, var(--bg-body) 100%);
+  --gradient-card: linear-gradient(145deg, var(--bg-surface) 0%, rgba(26,26,36,0.95) 100%);
+  --gradient-card-light: linear-gradient(145deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.02) 100%);
   
   /* Градиенты для карточек профиля */
   --gradient-card-red: linear-gradient(135deg, rgba(220,38,38,0.03) 0%, rgba(185,28,28,0.05) 100%);
