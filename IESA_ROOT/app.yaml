@@ -46,3 +46,6 @@ services:
   - key: TELEGRAM_WEBHOOK_SECRET
     value: ""
     type: SECRET
+  # Full public URL of this app — used to auto-register the Telegram webhook on startup
+  - key: SITE_URL
+    value: "https://iesasport.ch"
