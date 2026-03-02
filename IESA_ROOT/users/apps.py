@@ -32,8 +32,10 @@ class UsersConfig(AppConfig):
             try:
                 from .telegram.client import set_webhook
                 from .telegram.config import webhook_secret, is_configured
-                site_url = os.environ.get('SITE_URL', '').rstrip('/')
-                if site_url and is_configured():
+                # SITE_URL env var overrides the default; hardcoded fallback
+                # means this works even if the env var is not set in DO dashboard.
+                site_url = os.environ.get('SITE_URL', 'https://iesasport.ch').rstrip('/')
+                if is_configured():
                     secret = webhook_secret()
                     webhook_url = f"{site_url}/auth/telegram/webhook/{secret}/"
                     ok, msg = set_webhook(webhook_url)
@@ -41,9 +43,6 @@ class UsersConfig(AppConfig):
                         log.info('Webhook auto-registered: %s', webhook_url)
                     else:
                         log.warning('Webhook auto-register failed: %s', msg)
-                else:
-                    if not site_url:
-                        log.warning('SITE_URL not set — webhook not auto-registered')
             except Exception as e:
                 log.warning('set_webhook at startup failed: %s', e)
 
