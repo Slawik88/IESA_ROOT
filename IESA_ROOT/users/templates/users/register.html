@@ -255,7 +255,7 @@ function togglePasswordVisibility(btn) {
     }
 }
 
-// P0.7 fix: {% with field_class %} does not apply is-invalid to the widget.
+// P0.7 fix: "with field_class" does not apply is-invalid to the widget.
 // Add is-invalid class to inputs that have .invalid-feedback siblings.
 document.querySelectorAll('.invalid-feedback').forEach(function(fb) {
     var input = fb.parentElement.querySelector('input, select, textarea');
