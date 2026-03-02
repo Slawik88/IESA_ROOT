@@ -1233,7 +1233,7 @@ textarea:focus-visible {
 .search-section .section-title {
   font-size: 0.875rem;
   font-weight: 600;
-  color: #6c757d;
+  color: rgba(255, 255, 255, 0.5);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   margin-bottom: 0.75rem;
@@ -1243,7 +1243,7 @@ textarea:focus-visible {
 }
 
 .search-item {
-  border: 1px solid #e9ecef;
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 12px;
   margin-bottom: 0.5rem;
   padding: 0.875rem 1rem;
@@ -1251,10 +1251,10 @@ textarea:focus-visible {
 }
 
 .search-item:hover {
-  background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
-  border-color: #0d6efd;
+  background: rgba(255, 255, 255, 0.06);
+  border-color: var(--primary);
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(13, 110, 253, 0.15);
+  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.15);
 }
 
 /* ====================================================
@@ -1393,9 +1393,7 @@ html, body {
 }
 
 body {
-    background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
     min-height: 100vh;
-    color: #1f2937;
 }
 
 /* ================================================================
@@ -1489,28 +1487,30 @@ body {
    ================================================================ */
 
 .form-control, .form-select {
-    border: 2px solid #fecaca;
+    border: 2px solid rgba(255, 255, 255, 0.1);
     border-radius: 10px;
     padding: 0.75rem 1rem;
     transition: var(--transition);
-    background-color: #fef2f2;
+    background-color: var(--bg-surface);
+    color: rgba(255, 255, 255, 0.87);
 }
 
 .form-control:focus, .form-select:focus {
-    border-color: var(--primary-color);
-    background-color: white;
+    border-color: var(--primary);
+    background-color: var(--bg-surface-hover);
     box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1);
+    color: #fff;
 }
 
 .form-label {
     font-weight: 600;
-    color: #2d3748;
+    color: rgba(255, 255, 255, 0.87);
     margin-bottom: 0.75rem;
     letter-spacing: 0.3px;
 }
 
 .form-text {
-    color: #718096;
+    color: rgba(255, 255, 255, 0.5);
     font-size: 0.875rem;
 }
 

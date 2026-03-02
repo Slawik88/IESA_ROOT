@@ -501,7 +501,7 @@ body {
     font-size: 0.875rem;
     font-weight: 700;
     letter-spacing: 2px;
-    color: var(--soft-gray-text);
+    color: rgba(255, 255, 255, 0.55);
     position: relative;
     display: inline-block;
 }
@@ -551,12 +551,12 @@ body {
     width: 40px;
     height: 40px;
     border-radius: 12px;
-    background: #ffffff;
-    border: 1px solid var(--soft-gray-border);
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.12);
     display: flex;
     align-items: center;
     justify-content: center;
-    color: var(--soft-gray-text);
+    color: rgba(255, 255, 255, 0.7);
     transition: all 0.3s ease;
     box-shadow: var(--shadow-soft);
 }
@@ -570,7 +570,7 @@ body {
 }
 
 .pagination-info {
-    color: var(--soft-gray-text);
+    color: rgba(255, 255, 255, 0.55);
     font-weight: 600;
     font-size: 0.875rem;
 }
@@ -1832,9 +1832,9 @@ body {
     gap: 0.5rem;
     padding: 0.45rem 0.85rem;
     border-radius: 999px;
-    background: #ffffff;
-    border: 1px solid rgba(248, 113, 113, 0.15);
-    color: #6b7280;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(248, 113, 113, 0.2);
+    color: rgba(255, 255, 255, 0.65);
     font-size: 0.8rem;
     font-weight: 600;
     box-shadow: 0 6px 16px rgba(248, 113, 113, 0.08);

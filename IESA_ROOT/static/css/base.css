@@ -204,23 +204,23 @@ a:focus-visible {
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--gray-100);
+  background: rgba(255, 255, 255, 0.05);
   border-radius: var(--radius-full);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--gray-300);
+  background: rgba(255, 255, 255, 0.15);
   border-radius: var(--radius-full);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--gray-400);
+  background: rgba(255, 255, 255, 0.25);
 }
 
 /* Firefox */
 * {
   scrollbar-width: thin;
-  scrollbar-color: var(--gray-300) var(--gray-100);
+  scrollbar-color: rgba(255, 255, 255, 0.15) rgba(255, 255, 255, 0.05);
 }
 
 /* ====================================================
@@ -295,7 +295,7 @@ samp {
 }
 
 code {
-  background: var(--gray-100);
+  background: rgba(255, 255, 255, 0.1);
   padding: 0.2em 0.4em;
   border-radius: var(--radius-sm);
   color: var(--primary);
@@ -345,4 +345,52 @@ figcaption {
   font-size: var(--text-sm);
   color: var(--text-muted);
   margin-top: var(--space-2);
+}
+
+/* ====================================================
+   13. LIGHT-BG CONTAINER OVERRIDES
+   Restores dark text/border variables inside containers
+   that have white/light backgrounds (homepage cards,
+   profile cards, auth forms, modals, etc.)
+   ==================================================== */
+
+.card,
+.dropdown-menu,
+.popover,
+.offcanvas,
+.event-card,
+.benefit-card,
+.product-card,
+.offer-card,
+.member-card,
+.partner-card-compact,
+.profile-edit-card,
+.auth-card,
+.auth-card-right,
+.auth-body,
+.hero-section,
+#about-section,
+.profile-user-stats,
+.table-mobile-cards tbody tr,
+.list-group-item,
+.info-pill,
+.stat-chip,
+.link-chip {
+  --text-primary: #111827;
+  --text-secondary: #4b5563;
+  --text-muted: #6b7280;
+  --text-light: #9ca3af;
+  --border-color: #e5e7eb;
+  --border-color-hover: #d1d5db;
+  --gray-50: #f9fafb;
+  --gray-100: #f3f4f6;
+  --gray-200: #e5e7eb;
+  --gray-300: #d1d5db;
+  --gray-400: #9ca3af;
+  --gray-500: #6b7280;
+  --gray-600: #4b5563;
+  --gray-700: #374151;
+  --gray-800: #1f2937;
+  --gray-900: #111827;
+  color: #1f2937;
 }

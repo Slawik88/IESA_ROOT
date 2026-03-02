@@ -258,6 +258,10 @@ async def handle_new_channel_member(chat_id: str, new_member: dict, channel_titl
     Sent silently (no notification sound) so it doesn't disturb existing members.
     Works both from chat_member admin-level updates AND from the service message
     new_chat_members field (no admin rights needed).
+
+    If the joining user already has an IESA account linked to this Telegram ID,
+    the button leads to their profile; otherwise — to registration (which
+    auto-redirects logged-in users anyway).
     """
     user    = new_member.get("user") or {}
     user_id = user.get("id")
@@ -272,19 +276,41 @@ async def handle_new_channel_member(chat_id: str, new_member: dict, channel_titl
     full_name = f"{fname} {lname}".strip() or uname or f"id{user_id}"
     mention   = f'<a href="tg://user?id={user_id}">{full_name}</a>' if user_id else full_name
 
-    # Short, punchy, personal — feels like a real club, not a bot blast
-    text = (
-        f"🏔 <b>{mention}</b> —  добро пожаловать в <b>IESA Sport</b>!\n\n"
-        f"Ты только что стал частью спортивного сообщества Швейцарии. "
-        f"Создай аккаунт на сайте, чтобы получить персональную карту участника — "
-        f"с ней открываются скидки у партнёров, участие в событиях и многое другое."
-    )
+    # Check if this Telegram user already has a site account
+    has_account = False
+    if user_id:
+        try:
+            has_account = await sync_to_async(
+                lambda: __import__('users.models', fromlist=['User']).User.objects
+                        .filter(telegram_chat_id=user_id).exists()
+            )()
+        except Exception:
+            pass  # DB hiccup — default to register link
 
-    keyboard = {
-        "inline_keyboard": [
-            [{"text": "📝 Зарегистрироваться →", "url": "https://iesasport.ch/auth/register/"}],
-        ]
-    }
+    if has_account:
+        text = (
+            f"🏔 <b>{mention}</b> — добро пожаловать в <b>IESA Sport</b>!\n\n"
+            f"Рады видеть тебя в нашем сообществе! "
+            f"Твой аккаунт уже привязан — заходи в личный кабинет, чтобы увидеть "
+            f"свою карту участника, скидки и ближайшие события."
+        )
+        keyboard = {
+            "inline_keyboard": [
+                [{"text": "🏠 Мой профиль →", "url": CABINET_URL}],
+            ]
+        }
+    else:
+        text = (
+            f"🏔 <b>{mention}</b> — добро пожаловать в <b>IESA Sport</b>!\n\n"
+            f"Ты только что стал частью спортивного сообщества Швейцарии. "
+            f"Создай аккаунт на сайте, чтобы получить персональную карту участника — "
+            f"с ней открываются скидки у партнёров, участие в событиях и многое другое."
+        )
+        keyboard = {
+            "inline_keyboard": [
+                [{"text": "📝 Зарегистрироваться →", "url": "https://iesasport.ch/auth/register/"}],
+            ]
+        }
 
     from .client import send_message_async  # noqa: avoid circular at top level
     await send_message_async(
