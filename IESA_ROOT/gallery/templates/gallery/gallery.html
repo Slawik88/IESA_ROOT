@@ -5,9 +5,10 @@
 
 {% block extra_css %}
 <style>
+/* ── Hero ──────────────────────────────────────── */
 .gal-hero {
     background: #0a0a0f;
-    padding: 5rem 0 4rem;
+    padding: 5.5rem 0 4.5rem;
     text-align: center;
     position: relative;
     overflow: hidden;
@@ -19,69 +20,176 @@
     background: radial-gradient(ellipse 70% 60% at 50% 0%, rgba(220,38,38,.18) 0%, transparent 70%);
     pointer-events: none;
 }
-.gallery-grid {
-    padding: 0 1rem 2rem;
+/* ── Photo Counter Chip ────────────────────────── */
+.gal-counter-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: .5rem;
+    background: rgba(255,255,255,.06);
+    border: 1px solid rgba(255,255,255,.1);
+    border-radius: 100px;
+    padding: .4rem 1.1rem;
+    font-size: .82rem;
+    font-weight: 600;
+    color: rgba(255,255,255,.55);
+    margin-top: 1.2rem;
 }
+.gal-counter-chip i { color: var(--primary); }
+/* ── Masonry-Inspired Grid ─────────────────────── */
+.gallery-grid {
+    padding: 0 .5rem 2rem;
+}
+.gallery-grid .col { perspective: 800px; }
 .gallery-thumb {
     position: relative;
     overflow: hidden;
-    border-radius: 16px;
+    border-radius: 18px;
     aspect-ratio: 4/3;
     background: #111;
     border: 1.5px solid rgba(255,255,255,.06);
-    transition: transform .3s, box-shadow .3s, border-color .3s;
+    transition: transform .4s cubic-bezier(.22,1,.36,1), box-shadow .4s, border-color .4s;
+    cursor: pointer;
 }
+/* Alternate tall cards for visual variety */
+.gallery-grid .col:nth-child(5n+1) .gallery-thumb,
+.gallery-grid .col:nth-child(5n+4) .gallery-thumb { aspect-ratio: 3/4; }
+.gallery-grid .col:nth-child(5n+3) .gallery-thumb { aspect-ratio: 1/1; }
+
 .gallery-thumb:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 18px 40px rgba(0,0,0,.15);
+    transform: translateY(-7px) scale(1.02);
+    box-shadow: 0 24px 50px rgba(0,0,0,.35), 0 0 0 1px rgba(220,38,38,.3);
     border-color: var(--primary);
 }
 .gallery-thumb img {
     width: 100%;
     height: 100%;
     object-fit: cover;
-    transition: transform .4s;
+    transition: transform .6s cubic-bezier(.22,1,.36,1), filter .6s;
+    will-change: transform;
 }
 .gallery-thumb:hover img {
-    transform: scale(1.06);
+    transform: scale(1.1);
+    filter: brightness(1.05);
 }
 .gallery-thumb__overlay {
     position: absolute;
     inset: 0;
-    background: linear-gradient(to top, rgba(0,0,0,.7) 0%, transparent 50%);
+    background: linear-gradient(to top, rgba(0,0,0,.75) 0%, transparent 55%);
     display: flex;
     align-items: flex-end;
-    padding: 1rem;
+    justify-content: space-between;
+    padding: 1.2rem;
     opacity: 0;
-    transition: opacity .3s;
-    border-radius: 16px;
+    transition: opacity .35s;
+    border-radius: 18px;
 }
 .gallery-thumb:hover .gallery-thumb__overlay {
     opacity: 1;
 }
 .gallery-thumb__overlay span {
-    font-size: .85rem;
+    font-size: .82rem;
     font-weight: 600;
     color: #fff;
 }
+.gallery-thumb__zoom {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: rgba(255,255,255,.12);
+    backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-size: .85rem;
+    transform: scale(0) rotate(-90deg);
+    transition: transform .35s cubic-bezier(.22,1,.36,1);
+}
+.gallery-thumb:hover .gallery-thumb__zoom {
+    transform: scale(1) rotate(0);
+}
+/* ── Lightbox Modal ────────────────────────────── */
 .gallery-modal-image {
-    max-height: 80vh;
-    border-radius: 12px;
+    max-height: 82vh;
+    border-radius: 14px;
+    box-shadow: 0 30px 80px rgba(0,0,0,.6);
+    transition: opacity .35s ease, transform .35s ease;
 }
-.gallery-modal-container {
-    min-height: 200px;
+.gallery-modal-image.iesa-fading {
+    opacity: 0;
+    transform: scale(.94);
 }
+.gallery-modal-container { min-height: 200px; }
+.gal-modal-nav {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: rgba(255,255,255,.08);
+    backdrop-filter: blur(10px);
+    border: 1.5px solid rgba(255,255,255,.12);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+    transition: background .2s, transform .2s, border-color .2s;
+    cursor: pointer;
+}
+.gal-modal-nav:hover {
+    background: rgba(220,38,38,.25);
+    border-color: rgba(220,38,38,.5);
+    transform: scale(1.1);
+}
+.gal-thumb-strip {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    margin-top: 1rem;
+    max-width: 80%;
+    margin-left: auto;
+    margin-right: auto;
+    overflow-x: auto;
+    padding: 6px 0;
+    scrollbar-width: none;
+}
+.gal-thumb-strip::-webkit-scrollbar { display: none; }
+.gal-thumb-mini {
+    width: 56px;
+    height: 40px;
+    border-radius: 8px;
+    object-fit: cover;
+    border: 2px solid transparent;
+    opacity: .5;
+    transition: opacity .2s, border-color .2s, transform .2s;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+.gal-thumb-mini:hover { opacity: .8; transform: scale(1.05); }
+.gal-thumb-mini.active { opacity: 1; border-color: var(--primary); }
+/* ── Empty State ───────────────────────────────── */
 .gal-empty {
-    background: #0a0a0f;
+    background: linear-gradient(145deg, #111118, #0a0a0f);
     border: 1.5px solid rgba(255,255,255,.07);
     border-radius: 24px;
     padding: 4rem 2rem;
     text-align: center;
     margin: 3rem auto;
     max-width: 540px;
+    position: relative;
+    overflow: hidden;
 }
 .gal-empty h5 { color: #fff; font-weight: 700; }
 .gal-empty p { color: rgba(255,255,255,.5); }
+.gal-empty-icon {
+    font-size: 3.5rem;
+    margin-bottom: 1rem;
+    display: block;
+    animation: gal-float 3s ease-in-out infinite;
+}
+@keyframes gal-float {
+    0%,100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+}
 </style>
 {% endblock %}
 
@@ -93,8 +201,14 @@
 <section class="gal-hero">
     <div class="container">
         <div class="hp-label mx-auto mb-3" style="width:fit-content;">{% trans "PHOTO GALLERY" %}</div>
-        <h1 class="hp-h2" style="font-size:clamp(2rem,5vw,3.2rem);">{% trans "Moments From Our Community" %}</h1>
+        <h1 class="hp-h2" style="font-size:clamp(2rem,5vw,3.2rem);" data-typed="40">{% trans "Moments From Our Community" %}</h1>
         <p class="hp-sub mx-auto" style="max-width:540px;">{% trans "See how we work, train and create memories together" %}</p>
+        {% if photos %}
+        <div class="gal-counter-chip" data-reveal>
+            <i class="fas fa-images"></i>
+            <span data-count="{{ photos|length }}">0</span> {% trans "photos" %}
+        </div>
+        {% endif %}
     </div>
 </section>
 
@@ -102,14 +216,15 @@
     {% trans "Photo" as default_photo %}
     {% trans "View photo" as default_view_photo %}
     <div class="container-limited">
-        <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 g-4 gallery-grid">
+        <div class="row row-cols-2 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 g-3 g-lg-4 gallery-grid">
             {% for photo in photos %}
             <div class="col" data-reveal data-delay="{% cycle '1' '2' '3' '4' %}">
                 <a href="#" class="gallery-grid__item d-block" data-index="{{ forloop.counter0 }}" data-src="{{ photo.image.url }}" data-caption="{{ photo.caption|default:'' }}">
-                    <div class="gallery-thumb">
+                    <div class="gallery-thumb" data-tilt>
                         <img src="{{ photo.image.url }}" class="img-fluid" alt="{{ photo.caption|default:default_photo }}" loading="lazy">
                         <div class="gallery-thumb__overlay">
-                            <span><i class="fas fa-expand me-2"></i>{{ photo.caption|default:default_view_photo }}</span>
+                            <span>{{ photo.caption|default:default_view_photo|truncatewords:5 }}</span>
+                            <div class="gallery-thumb__zoom"><i class="fas fa-expand-alt"></i></div>
                         </div>
                     </div>
                 </a>
@@ -122,17 +237,23 @@
             <div class="modal-dialog modal-xl modal-dialog-centered">
                 <div class="modal-content bg-transparent border-0">
                     <div class="modal-body p-0 position-relative">
-                        <button type="button" class="btn-close position-absolute top-0 end-0 m-3 text-white bg-dark rounded-circle p-2" data-bs-dismiss="modal" aria-label="{% trans "Close" %}"></button>
+                        <button type="button" class="btn-close position-absolute top-0 end-0 m-3 text-white bg-dark rounded-circle p-2" style="z-index:10;" data-bs-dismiss="modal" aria-label="{% trans "Close" %}"></button>
                         <div class="gallery-modal-container d-flex align-items-center justify-content-center">
-                            <button class="btn btn-light btn-lg me-3" id="galleryPrev"><i class="fas fa-chevron-left"></i></button>
+                            <button class="gal-modal-nav me-3" id="galleryPrev" aria-label="{% trans 'Previous' %}"><i class="fas fa-chevron-left"></i></button>
                             <div class="flex-fill text-center">
                                 <img id="galleryModalImage" src="" class="img-fluid gallery-modal-image" alt="">
-                                <div class="d-flex justify-content-center gap-3 mt-2 text-white small">
+                                <div class="d-flex justify-content-center align-items-center gap-3 mt-2 text-white small">
                                     <div id="galleryModalCaption" class="opacity-85"></div>
-                                    <span id="galleryCounter" class="badge bg-dark bg-opacity-50"></span>
+                                    <span id="galleryCounter" class="badge bg-dark bg-opacity-50 rounded-pill"></span>
+                                </div>
+                                <!-- Thumbnail strip -->
+                                <div class="gal-thumb-strip" id="galleryThumbStrip">
+                                    {% for photo in photos %}
+                                    <img src="{{ photo.image.url }}" class="gal-thumb-mini" data-idx="{{ forloop.counter0 }}" alt="" loading="lazy">
+                                    {% endfor %}
                                 </div>
                             </div>
-                            <button class="btn btn-light btn-lg ms-3" id="galleryNext"><i class="fas fa-chevron-right"></i></button>
+                            <button class="gal-modal-nav ms-3" id="galleryNext" aria-label="{% trans 'Next' %}"><i class="fas fa-chevron-right"></i></button>
                         </div>
                     </div>
                 </div>
@@ -141,7 +262,7 @@
 
         <!-- Pagination -->
         {% if is_paginated %}
-        <nav class="mt-4 mb-5">
+        <nav class="mt-4 mb-5" data-reveal>
             <ul class="pagination justify-content-center">
                 {% if page_obj.has_previous %}
                     <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}">{% trans "Previous" %}</a></li>
@@ -162,10 +283,12 @@
 {% else %}
     <div class="container">
         <div class="gal-empty" data-reveal>
-            <div style="font-size:3rem;margin-bottom:1rem;">📸</div>
+            <span class="gal-empty-icon">📸</span>
             <h5>{% trans "No photos yet" %}</h5>
             <p class="mb-4">{% trans "Add photos from events or projects to inspire members." %}</p>
-            <a href="{% url 'blog:post_list' %}" class="btn hero-btn-p">{% trans "Go to community" %}</a>
+            <a href="{% url 'blog:post_list' %}" class="btn hero-btn-p">
+                <i class="fas fa-camera me-2"></i>{% trans "Go to community" %}
+            </a>
         </div>
     </div>
 {% endif %}
@@ -181,41 +304,66 @@
     const imgEl = document.getElementById('galleryModalImage');
     const capEl = document.getElementById('galleryModalCaption');
     const counterEl = document.getElementById('galleryCounter');
+    const strip = document.getElementById('galleryThumbStrip');
+    const thumbs = strip ? Array.from(strip.querySelectorAll('.gal-thumb-mini')) : [];
     let current = 0;
 
-    function show(index){
-        const it = items[index];
-        imgEl.src = it.dataset.src;
-        capEl.textContent = it.dataset.caption || '';
-        if (counterEl) counterEl.textContent = (index + 1) + ' / ' + items.length;
-        current = index;
-        const bs = bootstrap.Modal.getOrCreateInstance(modalEl);
-        bs.show();
+    function updateThumbs(idx) {
+        thumbs.forEach((t,i) => {
+            t.classList.toggle('active', i === idx);
+            if (i === idx) t.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+        });
+    }
+
+    function show(index, animate){
+        const doIt = () => {
+            const it = items[index];
+            imgEl.src = it.dataset.src;
+            if (capEl) capEl.textContent = it.dataset.caption || '';
+            if (counterEl) counterEl.textContent = (index + 1) + ' / ' + items.length;
+            current = index;
+            updateThumbs(index);
+            if (animate) {
+                imgEl.onload = () => { imgEl.classList.remove('iesa-fading'); imgEl.onload = null; };
+                setTimeout(() => imgEl.classList.remove('iesa-fading'), 200);
+            }
+            const bs = bootstrap.Modal.getOrCreateInstance(modalEl);
+            bs.show();
+        };
+        if (animate) { imgEl.classList.add('iesa-fading'); setTimeout(doIt, 200); }
+        else doIt();
     }
 
     items.forEach((it, idx) => {
-        it.addEventListener('click', function(e){
-            e.preventDefault();
-            show(idx);
-        });
+        it.addEventListener('click', e => { e.preventDefault(); show(idx, false); });
     });
 
-    document.getElementById('galleryPrev').addEventListener('click', function(){
-        show((current - 1 + items.length) % items.length);
-    });
-    document.getElementById('galleryNext').addEventListener('click', function(){
-        show((current + 1) % items.length);
+    thumbs.forEach(t => {
+        t.addEventListener('click', () => show(parseInt(t.dataset.idx), true));
     });
 
-    // Keyboard navigation
+    document.getElementById('galleryPrev').addEventListener('click', () => show((current - 1 + items.length) % items.length, true));
+    document.getElementById('galleryNext').addEventListener('click', () => show((current + 1) % items.length, true));
+
+    // Keyboard
     let modalOpen = false;
-    modalEl.addEventListener('show.bs.modal', function(){ modalOpen = true; });
-    modalEl.addEventListener('hide.bs.modal', function(){ modalOpen = false; });
-    document.addEventListener('keydown', function(e){
+    modalEl.addEventListener('show.bs.modal', () => { modalOpen = true; });
+    modalEl.addEventListener('hide.bs.modal', () => { modalOpen = false; });
+    document.addEventListener('keydown', e => {
         if (!modalOpen) return;
-        if (e.key === 'ArrowLeft')  { e.preventDefault(); show((current - 1 + items.length) % items.length); }
-        if (e.key === 'ArrowRight') { e.preventDefault(); show((current + 1) % items.length); }
+        if (e.key === 'ArrowLeft')  { e.preventDefault(); show((current - 1 + items.length) % items.length, true); }
+        if (e.key === 'ArrowRight') { e.preventDefault(); show((current + 1) % items.length, true); }
     });
+
+    // Touch swipe
+    let touchX = 0;
+    modalEl.addEventListener('touchstart', e => { touchX = e.changedTouches[0].screenX; }, { passive: true });
+    modalEl.addEventListener('touchend', e => {
+        const diff = e.changedTouches[0].screenX - touchX;
+        if (Math.abs(diff) > 50) {
+            show(diff > 0 ? (current - 1 + items.length) % items.length : (current + 1) % items.length, true);
+        }
+    }, { passive: true });
 })();
 </script>
 {% endblock %}

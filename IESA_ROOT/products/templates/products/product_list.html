@@ -5,9 +5,10 @@
 
 {% block extra_css %}
 <style>
+/* ── Hero ──────────────────────────────────────── */
 .prod-hero {
     background: #0a0a0f;
-    padding: 5rem 0 4rem;
+    padding: 5.5rem 0 4.5rem;
     text-align: center;
     position: relative;
     overflow: hidden;
@@ -19,30 +20,93 @@
     background: radial-gradient(ellipse 70% 60% at 50% 0%, rgba(220,38,38,.18) 0%, transparent 70%);
     pointer-events: none;
 }
+/* ── Empty State ───────────────────────────────── */
 .prod-empty {
-    background: #111118;
+    background: linear-gradient(145deg, #111118, #0a0a0f);
     border: 1.5px solid rgba(255,255,255,.07);
     border-radius: 24px;
-    padding: 4rem 2rem;
+    padding: 5rem 2rem 4.5rem;
     text-align: center;
     margin: 3rem auto;
-    max-width: 540px;
+    max-width: 580px;
+    position: relative;
+    overflow: hidden;
 }
 .prod-empty .prod-emoji {
-    font-size: 3.5rem;
-    margin-bottom: 1rem;
+    font-size: 4rem;
+    margin-bottom: 1.2rem;
     display: block;
-    filter: grayscale(.15);
+    animation: prod-bounce 3s ease-in-out infinite;
+}
+@keyframes prod-bounce {
+    0%,100% { transform: translateY(0) scale(1); }
+    30% { transform: translateY(-14px) scale(1.05); }
+    50% { transform: translateY(-6px) scale(1.02); }
 }
 .prod-empty h5 {
     font-weight: 800;
     color: #f1f5f9;
     margin-bottom: .5rem;
-    font-size: 1.3rem;
+    font-size: 1.4rem;
 }
 .prod-empty p {
     color: rgba(255,255,255,.45);
     margin-bottom: 1.75rem;
+    max-width: 380px;
+    margin-left: auto;
+    margin-right: auto;
+}
+/* Animated "coming soon" tags */
+.prod-tags {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: .5rem;
+    margin-bottom: 2rem;
+}
+.prod-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    padding: .35rem .85rem;
+    border-radius: 100px;
+    font-size: .78rem;
+    font-weight: 600;
+    border: 1px solid rgba(255,255,255,.08);
+    color: rgba(255,255,255,.45);
+    background: rgba(255,255,255,.03);
+    transition: border-color .3s, color .3s, transform .3s;
+}
+.prod-tag:hover {
+    border-color: rgba(220,38,38,.3);
+    color: rgba(255,255,255,.65);
+    transform: translateY(-2px);
+}
+.prod-tag i { color: var(--primary); font-size: .7rem; }
+/* Progress bar */
+.prod-progress-wrap {
+    max-width: 300px;
+    margin: 0 auto 1.5rem;
+}
+.prod-progress-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: .75rem;
+    color: rgba(255,255,255,.35);
+    margin-bottom: .4rem;
+}
+.prod-progress-bar {
+    height: 6px;
+    background: rgba(255,255,255,.06);
+    border-radius: 100px;
+    overflow: hidden;
+}
+.prod-progress-fill {
+    height: 100%;
+    border-radius: 100px;
+    background: linear-gradient(90deg, var(--primary), #f87171);
+    width: 0%;
+    transition: width 1.5s cubic-bezier(.22,1,.36,1);
 }
 </style>
 {% endblock %}
@@ -51,7 +115,7 @@
 <section class="prod-hero">
     <div class="container">
         <div class="hp-label mx-auto mb-3" style="width:fit-content;">{% trans "CATALOG" %}</div>
-        <h1 class="hp-h2" style="font-size:clamp(2rem,5vw,3.2rem);">{% trans "Product Catalog" %}</h1>
+        <h1 class="hp-h2" style="font-size:clamp(2rem,5vw,3.2rem);" data-typed="40">{% trans "Product Catalog" %}</h1>
         <p class="hp-sub mx-auto" style="max-width:500px;">{% trans "Gear and services curated for IESA members" %}</p>
     </div>
 </section>
@@ -61,6 +125,25 @@
         <span class="prod-emoji">🛍️</span>
         <h5>{% trans "Catalog is empty" %}</h5>
         <p>{% trans "We are preparing products and services for association members." %}</p>
+        
+        <div class="prod-tags" data-reveal data-delay="1">
+            <span class="prod-tag"><i class="fas fa-circle"></i> {% trans "Sports Gear" %}</span>
+            <span class="prod-tag"><i class="fas fa-circle"></i> {% trans "Equipment" %}</span>
+            <span class="prod-tag"><i class="fas fa-circle"></i> {% trans "Apparel" %}</span>
+            <span class="prod-tag"><i class="fas fa-circle"></i> {% trans "Accessories" %}</span>
+            <span class="prod-tag"><i class="fas fa-circle"></i> {% trans "Services" %}</span>
+        </div>
+
+        <div class="prod-progress-wrap" data-reveal data-delay="2">
+            <div class="prod-progress-label">
+                <span>{% trans "Preparation" %}</span>
+                <span>65%</span>
+            </div>
+            <div class="prod-progress-bar">
+                <div class="prod-progress-fill" data-progress="65"></div>
+            </div>
+        </div>
+        
         <a href="{% url 'core:home' %}" class="btn hero-btn-p">
             <i class="fas fa-home me-2"></i>{% trans "Back to home" %}
         </a>
