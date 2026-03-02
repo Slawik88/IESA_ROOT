@@ -104,32 +104,43 @@ async def process_incoming_update(update: dict[str, Any]) -> bool:
         if not chat_id:
             return False
 
-        user_db = await _get_user(chat_id)
+        # !! ACK IMMEDIATELY — Telegram times out answerCallbackQuery after 5s.
+        # Any DB query before this call risks hitting that timeout and leaving
+        # the button in a permanent loading state for the user.
         handler = CALLBACKS.get(cb_data)
-
         if handler:
-            # Acknowledge FIRST so Telegram removes the loading spinner immediately.
-            # The message edit/send happens after, but the user sees instant response.
             await answer_callback_query(cb_id)
+        else:
+            await answer_callback_query(cb_id, "Неизвестное действие")
+            return True
 
-            try:
-                text, markup = await handler(chat_id, cb_data, user_db)
-            except Exception as exc:
-                logger.exception("Callback handler %s raised: %s", cb_data, exc)
-                await send_message_async("⚠️ Ошибка. Попробуй позже.", chat_id=chat_id)
-                return False
+        # Now do the DB lookup and run the handler
+        try:
+            user_db = await _get_user(chat_id)
+        except Exception as exc:
+            logger.exception("_get_user failed for chat %s: %s", chat_id, exc)
+            await send_message_async("⚠️ Временная ошибка БД. Попробуй через несколько секунд.", chat_id=chat_id)
+            return False
 
-            # Edit the existing message in-place if possible, else send new
+        try:
+            text, markup = await handler(chat_id, cb_data, user_db)
+        except Exception as exc:
+            logger.exception("Callback handler %s raised: %s", cb_data, exc)
+            await send_message_async("⚠️ Ошибка. Попробуй позже.", chat_id=chat_id)
+            return False
+
+        # Edit the existing message in-place if possible, else send new
+        try:
             edited = await edit_message_text(
                 chat_id=chat_id,
                 message_id=message_id,
                 text=text,
                 reply_markup=markup,
             )
-            if not edited:
-                await send_message_async(text, chat_id=chat_id, reply_markup=markup)
-        else:
-            await answer_callback_query(cb_id, "Неизвестное действие")
+        except Exception:
+            edited = False
+        if not edited:
+            await send_message_async(text, chat_id=chat_id, reply_markup=markup)
 
         return True
 
