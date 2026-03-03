@@ -20,54 +20,97 @@
     background: radial-gradient(ellipse 70% 60% at 50% 0%, rgba(220,38,38,.18) 0%, transparent 70%);
     pointer-events: none;
 }
-/* ── Filters Bar ───────────────────────────────── */
-.ev-filters-bar {
-    background: #111118;
-    border: 1.5px solid rgba(255,255,255,.07);
-    border-radius: 16px;
-    padding: 1rem 1.25rem;
-    margin: -1.5rem auto 2rem;
+/* ── Command Bar (shared design) ───────────────── */
+.cmd-bar {
+    background: #090910;
+    border: 1px solid rgba(255,255,255,.07);
+    border-top: 2px solid rgba(220,38,38,.55);
+    border-radius: 0 0 10px 10px;
+    margin: -1.5rem auto 2.5rem;
     max-width: 980px;
     position: relative;
-    z-index: 2;
-    backdrop-filter: blur(12px);
-    transition: border-color .3s, box-shadow .3s;
+    z-index: 10;
+    overflow: hidden;
+    transition: box-shadow .3s;
 }
-.ev-filters-bar:focus-within {
-    border-color: rgba(220,38,38,.25);
-    box-shadow: 0 8px 32px rgba(0,0,0,.2);
+.cmd-bar:focus-within { box-shadow: 0 8px 40px rgba(0,0,0,.35); }
+.cmd-bar__inner { display: flex; align-items: stretch; min-height: 54px; }
+.cmd-tabs { display: flex; align-items: stretch; flex-shrink: 0; }
+.cmd-tab {
+    display: flex; align-items: center; gap: .45rem;
+    padding: 0 1.25rem;
+    font-family: 'Courier New', monospace;
+    font-size: .72rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase;
+    color: rgba(255,255,255,.35); text-decoration: none;
+    border-right: 1px solid rgba(255,255,255,.07);
+    transition: color .2s, background .2s; position: relative;
 }
-.ev-filters-bar .form-control,
-.ev-filters-bar .form-select {
-    background: #1a1a24;
-    border: 1.5px solid rgba(255,255,255,.1);
-    color: #fff;
-    border-radius: 10px;
-    transition: border-color .2s, box-shadow .2s;
+.cmd-tab::after {
+    content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 2px;
+    background: var(--primary); transform: scaleX(0); transition: transform .25s; transform-origin: left;
 }
-.ev-filters-bar .form-control::placeholder { color: rgba(255,255,255,.35); }
-.ev-filters-bar .form-control:focus,
-.ev-filters-bar .form-select:focus {
-    background: #1a1a24;
-    border-color: var(--primary);
-    color: #fff;
-    box-shadow: 0 0 0 3px rgba(220,38,38,.18);
+.cmd-tab:hover { color: rgba(255,255,255,.7); background: rgba(255,255,255,.03); }
+.cmd-tab--active { color: #fff !important; }
+.cmd-tab--active::after { transform: scaleX(1); }
+.cmd-tab__dot { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,.2); flex-shrink: 0; }
+.cmd-tab--active .cmd-tab__dot { background: var(--primary); box-shadow: 0 0 6px var(--primary); }
+.cmd-sep { width: 1px; background: rgba(255,255,255,.07); flex-shrink: 0; align-self: stretch; }
+.cmd-search {
+    display: flex; flex-direction: column; justify-content: center;
+    padding: .4rem 1.1rem; flex: 1 1 0; min-width: 0;
 }
-.ev-filters-bar .form-select option { background: #1a1a24; }
-.ev-filters-bar .nav-link {
-    color: rgba(255,255,255,.55);
-    border-radius: 8px;
-    transition: all .25s;
+.cmd-lbl {
+    display: block; font-family: 'Courier New', monospace;
+    font-size: .58rem; letter-spacing: .15em; color: rgba(220,38,38,.7);
+    margin-bottom: .15rem; line-height: 1;
 }
-.ev-filters-bar .nav-link.active {
-    background: var(--primary);
-    color: #fff;
-    box-shadow: 0 4px 16px rgba(220,38,38,.35);
+.cmd-input {
+    background: transparent !important; border: none !important;
+    border-bottom: 1px solid rgba(255,255,255,.12) !important; border-radius: 0 !important;
+    color: #fff !important; font-size: .88rem !important;
+    padding: .2rem 0 .3rem !important; box-shadow: none !important; outline: none !important;
+    width: 100%; transition: border-color .2s;
 }
-.ev-filters-bar .nav-link:hover:not(.active) {
-    color: #fff;
-    background: rgba(255,255,255,.06);
-    transform: translateY(-1px);
+.cmd-input::placeholder { color: rgba(255,255,255,.25) !important; font-style: italic; }
+.cmd-input:focus { border-bottom-color: var(--primary) !important; }
+.cmd-filters { display: flex; align-items: stretch; flex-shrink: 0; }
+.cmd-filter-group {
+    display: flex; flex-direction: column; justify-content: center;
+    padding: .4rem 1rem; border-right: 1px solid rgba(255,255,255,.07); min-width: 110px;
+}
+.cmd-select {
+    background: transparent !important; border: none !important;
+    color: rgba(255,255,255,.75) !important; font-size: .82rem !important;
+    padding: .15rem 0 !important; cursor: pointer; outline: none !important; box-shadow: none !important;
+    -webkit-appearance: none; appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='rgba(255,255,255,.3)'/%3E%3C/svg%3E") !important;
+    background-repeat: no-repeat !important; background-position: right 2px center !important; padding-right: 18px !important;
+}
+.cmd-select option { background: #111118; color: #fff; }
+.cmd-select:focus { color: #fff !important; }
+.cmd-cta {
+    display: flex; align-items: center; gap: .5rem; padding: 0 1.3rem;
+    font-family: 'Courier New', monospace; font-size: .72rem; font-weight: 700;
+    letter-spacing: .1em; text-transform: uppercase;
+    color: rgba(220,38,38,.85); text-decoration: none;
+    border-left: 1px solid rgba(255,255,255,.07); flex-shrink: 0;
+    transition: background .2s, color .2s; white-space: nowrap;
+}
+.cmd-cta:hover { background: rgba(220,38,38,.1); color: #fff; }
+#ev-loading { display: none; }
+.htmx-request #ev-loading { display: flex; }
+@media (max-width: 767px) {
+    .cmd-bar { border-radius: 0 0 8px 8px; margin-left: -.5rem; margin-right: -.5rem; }
+    .cmd-bar__inner { flex-wrap: wrap; }
+    .cmd-tabs { width: 100%; border-bottom: 1px solid rgba(255,255,255,.07); }
+    .cmd-tab { flex: 1; justify-content: center; padding: .65rem .5rem; border-right: none; }
+    .cmd-tab:first-child { border-right: 1px solid rgba(255,255,255,.07); }
+    .cmd-sep { display: none; }
+    .cmd-search { padding: .5rem .9rem; border-bottom: 1px solid rgba(255,255,255,.07); }
+    .cmd-filters { width: 100%; border-bottom: 1px solid rgba(255,255,255,.07); flex-wrap: wrap; }
+    .cmd-filter-group { flex: 1; min-width: 0; padding: .5rem .9rem; border-right: 1px solid rgba(255,255,255,.07); }
+    .cmd-filter-group:last-child { border-right: none; }
+    .cmd-cta { width: 100%; justify-content: center; padding: .6rem; border-left: none; border-top: 1px solid rgba(255,255,255,.07); }
 }
 /* ── Auth Notice ───────────────────────────────── */
 .ev-auth-notice {
@@ -97,58 +140,79 @@
 
 <div class="container-limited">
 
-    <!-- Filters Bar -->
-    <div class="ev-filters-bar" data-reveal>
-        <div class="d-flex flex-column flex-lg-row justify-content-between align-items-start align-items-lg-center gap-3">
-            <nav class="nav nav-pills flex-shrink-0">
-                <a class="nav-link" href="{% url 'blog:post_list' %}">{% trans "All posts" %}</a>
-                <a class="nav-link active" href="{% url 'blog:event_list' %}">{% trans "Events" %}</a>
+    <!-- Command Bar -->
+    <div class="cmd-bar" data-reveal>
+        <div class="cmd-bar__inner">
+
+            <!-- Mode Tabs -->
+            <nav class="cmd-tabs" aria-label="{% trans "Section" %}">
+                <a class="cmd-tab" href="{% url 'blog:post_list' %}">
+                    <span class="cmd-tab__dot"></span>
+                    {% trans "POSTS" %}
+                </a>
+                <a class="cmd-tab cmd-tab--active" href="{% url 'blog:event_list' %}">
+                    <span class="cmd-tab__dot"></span>
+                    {% trans "EVENTS" %}
+                </a>
             </nav>
 
-            {# HTMX-powered filters #}
-            <form id="event-filters" class="d-flex flex-column flex-sm-row gap-2 flex-fill"
+            <div class="cmd-sep"></div>
+
+            <!-- Search -->
+            <form class="cmd-search"
+                  id="event-filters"
                   hx-get="{% url 'blog:event_list' %}"
                   hx-target="#events-container"
-                  hx-trigger="change from:select, input from:input delay:300ms"
-                  hx-swap="innerHTML"
-                  hx-indicator="#filter-loading">
-
-                <input type="text"
-                       name="search"
-                       value="{{ search }}"
-                       class="form-control form-control-sm"
-                       placeholder="{% trans "Search events..." %}"
-                       aria-label="{% trans "Search events" %}">
-
-                <select name="status" class="form-select form-select-sm">
-                    <option value="upcoming" {% if status == 'upcoming' %}selected{% endif %}>{% trans "Upcoming" %}</option>
-                    <option value="all" {% if status == 'all' %}selected{% endif %}>{% trans "All events" %}</option>
-                    <option value="past" {% if status == 'past' %}selected{% endif %}>{% trans "Past" %}</option>
-                </select>
-                <select name="sort" class="form-select form-select-sm">
-                    <option value="date" {% if sort == 'date' %}selected{% endif %}>{% trans "Date ↑" %}</option>
-                    <option value="-date" {% if sort == '-date' %}selected{% endif %}>{% trans "Date ↓" %}</option>
-                    <option value="title" {% if sort == 'title' %}selected{% endif %}>{% trans "Title A→Z" %}</option>
-                    <option value="-title" {% if sort == '-title' %}selected{% endif %}>{% trans "Title Z→A" %}</option>
-                </select>
-
-                {% if categories %}
-                <select name="category" class="form-select form-select-sm">
-                    <option value="">{% trans "All categories" %}</option>
-                    {% for cat in categories %}
-                    <option value="{{ cat }}" {% if category == cat %}selected{% endif %}>{{ cat|title }}</option>
-                    {% endfor %}
-                </select>
-                {% endif %}
-
-                <div id="filter-loading" class="htmx-indicator d-flex align-items-center">
-                    <div class="spinner-border spinner-border-sm text-danger" role="status">
-                        <span class="visually-hidden">{% trans "Loading..." %}</span>
-                    </div>
-                </div>
+                  hx-trigger="input from:[name='search'] delay:300ms, change from:select"
+                  hx-swap="innerHTML">
+                <label class="cmd-lbl">QUERY_</label>
+                <input type="text" name="search" value="{{ search }}" class="cmd-input"
+                       placeholder="{% trans "type to search..." %}" autocomplete="off">
             </form>
 
-            <a href="{% url 'blog:post_list' %}" class="btn hero-btn-g btn-sm flex-shrink-0 d-none d-lg-block">{% trans "Back to blog" %}</a>
+            <div class="cmd-sep"></div>
+
+            <!-- Filters -->
+            <div class="cmd-filters">
+                <div class="cmd-filter-group">
+                    <label class="cmd-lbl">STATUS_</label>
+                    <select name="status" class="cmd-select"
+                            form="event-filters">
+                        <option value="upcoming" {% if status == 'upcoming' %}selected{% endif %}>{% trans "UPCOMING" %}</option>
+                        <option value="all" {% if status == 'all' %}selected{% endif %}>{% trans "ALL" %}</option>
+                        <option value="past" {% if status == 'past' %}selected{% endif %}>{% trans "PAST" %}</option>
+                    </select>
+                </div>
+                <div class="cmd-filter-group">
+                    <label class="cmd-lbl">ORDER_</label>
+                    <select name="sort" class="cmd-select"
+                            form="event-filters">
+                        <option value="date" {% if sort == 'date' %}selected{% endif %}>{% trans "DATE ↑" %}</option>
+                        <option value="-date" {% if sort == '-date' %}selected{% endif %}>{% trans "DATE ↓" %}</option>
+                        <option value="title" {% if sort == 'title' %}selected{% endif %}>{% trans "A→Z" %}</option>
+                        <option value="-title" {% if sort == '-title' %}selected{% endif %}>{% trans "Z→A" %}</option>
+                    </select>
+                </div>
+                {% if categories %}
+                <div class="cmd-filter-group">
+                    <label class="cmd-lbl">CATEG_</label>
+                    <select name="category" class="cmd-select" form="event-filters">
+                        <option value="">{% trans "ALL" %}</option>
+                        {% for cat in categories %}
+                        <option value="{{ cat }}" {% if category == cat %}selected{% endif %}>{{ cat|upper }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% endif %}
+                <div id="ev-loading" class="htmx-indicator cmd-filter-group" style="align-items:center;min-width:auto;padding:.4rem .8rem;">
+                    <div class="spinner-border spinner-border-sm text-danger" role="status"></div>
+                </div>
+            </div>
+
+            <a href="{% url 'blog:post_list' %}" class="cmd-cta">
+                &larr; {% trans "BLOG" %}
+            </a>
+
         </div>
     </div>
 
