@@ -7,7 +7,7 @@ import os
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.core.paginator import Paginator
-from django.db.models import Q, Sum
+from django.db.models import Q, Sum, Count
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -35,6 +35,7 @@ from .forms_verification import (
     CancelVisitForm,
     EditVisitForm,
     MemberSearchForm,
+    PartnerProfileForm,
     VisitForm,
 )
 from .models import Partner, User, Visit, VisitAudit
@@ -212,6 +213,7 @@ def partner_dashboard(request):
         'unique_members': unique_members,
         'now': now,
         'edit_window': EDIT_WINDOW,
+        'edit_window_cutoff': now - timezone.timedelta(seconds=EDIT_WINDOW),
     }
 
     if request.headers.get('HX-Request'):
@@ -463,6 +465,112 @@ def cancel_visit(request, visit_id):
         'visit': visit,
         'partner': partner,
         'seconds_left': max(0, int(EDIT_WINDOW - age)),
+    })
+
+
+# ---------------------------------------------------------------------------
+# Partner analytics
+# ---------------------------------------------------------------------------
+
+@login_required
+@user_passes_test(is_partner, login_url='/auth/login/', redirect_field_name=None)
+def partner_analytics(request):
+    """Analytics dashboard: charts and statistics for the last 30 days."""
+    try:
+        partner = request.user.partner_profile
+    except Partner.DoesNotExist:
+        messages.error(request, _('Partner profile not found.'))
+        return redirect('core:home')
+
+    now = timezone.now()
+    thirty_days_ago = now - timezone.timedelta(days=30)
+    ninety_days_ago = now - timezone.timedelta(days=90)
+
+    all_visits = Visit.objects.filter(partner=partner)
+    visits_30 = all_visits.filter(timestamp__gte=thirty_days_ago)
+    visits_90 = all_visits.filter(timestamp__gte=ninety_days_ago)
+
+    from django.db.models.functions import TruncDate
+    import json
+
+    daily_data = (
+        visits_30
+        .annotate(day=TruncDate('timestamp'))
+        .values('day')
+        .annotate(count=Count('id'), revenue=Sum('cost'))
+        .order_by('day')
+    )
+
+    service_breakdown = (
+        all_visits
+        .values('service_type')
+        .annotate(count=Count('id'), total=Sum('cost'))
+        .order_by('-count')
+    )
+
+    top_members = (
+        visits_90
+        .filter(status='ACTIVE')
+        .values('member__id', 'member__first_name', 'member__last_name',
+                'member__username', 'member__pseudonym')
+        .annotate(visit_count=Count('id'), total_spent=Sum('cost'))
+        .order_by('-visit_count')[:10]
+    )
+
+    total_all = all_visits.count()
+    total_30 = visits_30.count()
+    revenue_30 = visits_30.aggregate(r=Sum('cost'))['r'] or 0
+    verified_30 = visits_30.filter(pin_verified=True).count()
+    unique_members_30 = visits_30.values('member').distinct().count()
+
+    service_labels = [item['service_type'] for item in service_breakdown]
+    service_counts = [item['count'] for item in service_breakdown]
+
+    context = {
+        'partner': partner,
+        'total_all': total_all,
+        'total_30': total_30,
+        'revenue_30': revenue_30,
+        'verified_30': verified_30,
+        'unique_members_30': unique_members_30,
+        'top_members': top_members,
+        'service_breakdown': service_breakdown,
+        'service_labels_json': json.dumps(service_labels),
+        'service_counts_json': json.dumps(service_counts),
+        'chart_dates_json': json.dumps([str(d['day']) for d in daily_data]),
+        'chart_counts_json': json.dumps([d['count'] for d in daily_data]),
+        'chart_revenue_json': json.dumps([float(d['revenue'] or 0) for d in daily_data]),
+    }
+    return render(request, 'users/partner_analytics.html', context)
+
+
+# ---------------------------------------------------------------------------
+# Partner profile edit
+# ---------------------------------------------------------------------------
+
+@login_required
+@user_passes_test(is_partner, login_url='/auth/login/', redirect_field_name=None)
+@require_http_methods(['GET', 'POST'])
+def partner_profile_edit(request):
+    """Edit partner company profile (name, business type)."""
+    try:
+        partner = request.user.partner_profile
+    except Partner.DoesNotExist:
+        messages.error(request, _('Partner profile not found.'))
+        return redirect('core:home')
+
+    if request.method == 'POST':
+        form = PartnerProfileForm(request.POST, instance=partner)
+        if form.is_valid():
+            form.save()
+            messages.success(request, _('\u2705 Partner profile updated successfully.'))
+            return redirect('users:partner_dashboard')
+    else:
+        form = PartnerProfileForm(instance=partner)
+
+    return render(request, 'users/partner_profile_edit.html', {
+        'form': form,
+        'partner': partner,
     })
 
 

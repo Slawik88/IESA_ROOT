@@ -1,0 +1,246 @@
+{% extends "base.html" %}
+{% load static i18n %}
+
+{% block title %}{% trans "Partner Analytics" %} — {{ partner.company_name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+.pp-wrap { background:#07070e; min-height:100vh; padding-bottom:80px; color:#e2e8f0; }
+.pp-nav { background:#0d0d18; border-bottom:1px solid rgba(220,38,38,.18); padding:0 20px; display:flex; align-items:center; overflow-x:auto; scrollbar-width:none; }
+.pp-nav::-webkit-scrollbar { display:none; }
+.pp-nav a { display:flex; align-items:center; gap:7px; padding:14px 20px; color:rgba(255,255,255,.55); text-decoration:none; font-size:.82rem; font-family:'Courier New',monospace; white-space:nowrap; border-bottom:2px solid transparent; transition:color .2s,border-color .2s; }
+.pp-nav a:hover,.pp-nav a.active { color:#ef4444; border-bottom-color:#ef4444; }
+.pp-nav-brand { font-size:.85rem; font-weight:700; color:#fff !important; margin-right:10px; letter-spacing:.05em; border-bottom:none !important; }
+.pp-hero { background:linear-gradient(135deg,#0d0d18 0%,#12060d 100%); padding:36px 24px 32px; position:relative; overflow:hidden; border-bottom:1px solid rgba(255,255,255,.05); }
+.pp-hero::before { content:''; position:absolute; right:-80px; top:-80px; width:520px; height:520px; background:radial-gradient(circle,rgba(220,38,38,.12) 0%,transparent 68%); pointer-events:none; }
+.pp-hero-badge { display:inline-block; padding:3px 10px; background:rgba(220,38,38,.15); border:1px solid rgba(220,38,38,.3); border-radius:20px; font-size:.72rem; color:#ef4444; font-family:'Courier New',monospace; letter-spacing:.08em; margin-bottom:10px; }
+.pp-hero-title { font-size:1.4rem; font-weight:700; color:#fff; margin:0 0 4px; }
+.pp-hero-sub { font-size:.82rem; color:rgba(255,255,255,.4); font-family:'Courier New',monospace; }
+.pp-stats { display:grid; grid-template-columns:repeat(5,1fr); gap:12px; padding:24px 24px 0; }
+@media(max-width:800px) { .pp-stats { grid-template-columns:repeat(3,1fr); } }
+@media(max-width:500px) { .pp-stats { grid-template-columns:repeat(2,1fr); } }
+.pp-stat { background:rgba(255,255,255,.025); border:1px solid rgba(255,255,255,.06); border-radius:12px; padding:16px; }
+.pp-stat-label { font-size:.68rem; font-family:'Courier New',monospace; color:rgba(255,255,255,.4); text-transform:uppercase; letter-spacing:.08em; margin-bottom:6px; }
+.pp-stat-val { font-size:1.5rem; font-weight:700; color:#fff; line-height:1; }
+.pp-stat-val.red { color:#ef4444; }
+.pp-stat-detail { font-size:.7rem; color:rgba(255,255,255,.3); margin-top:4px; }
+.pp-section { padding:28px 24px 0; }
+.pp-section-title { font-size:.78rem; font-family:'Courier New',monospace; color:rgba(255,255,255,.35); text-transform:uppercase; letter-spacing:.1em; margin-bottom:16px; padding-bottom:8px; border-bottom:1px solid rgba(255,255,255,.06); }
+.pp-charts { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+@media(max-width:700px) { .pp-charts { grid-template-columns:1fr; } }
+.pp-chart-box { background:rgba(255,255,255,.025); border:1px solid rgba(255,255,255,.06); border-radius:12px; padding:20px; }
+.pp-chart-title { font-size:.75rem; font-family:'Courier New',monospace; color:rgba(255,255,255,.4); text-transform:uppercase; letter-spacing:.08em; margin-bottom:14px; }
+.pp-table-wrap { overflow-x:auto; border-radius:12px; border:1px solid rgba(255,255,255,.06); background:rgba(255,255,255,.02); }
+.pp-table { width:100%; border-collapse:collapse; font-size:.83rem; }
+.pp-table th { padding:10px 14px; text-align:left; font-family:'Courier New',monospace; font-size:.68rem; color:rgba(255,255,255,.35); text-transform:uppercase; letter-spacing:.07em; border-bottom:1px solid rgba(255,255,255,.06); background:rgba(255,255,255,.02); white-space:nowrap; }
+.pp-table td { padding:10px 14px; border-bottom:1px solid rgba(255,255,255,.04); color:#cbd5e1; vertical-align:middle; }
+.pp-table tr:last-child td { border-bottom:none; }
+.pp-table tr:hover td { background:rgba(255,255,255,.025); }
+.pp-rank { font-size:.7rem; font-family:'Courier New',monospace; color:rgba(255,255,255,.3); }
+.pp-btn-back { display:inline-flex; align-items:center; gap:6px; padding:9px 18px; background:transparent; border:1px solid rgba(220,38,38,.3); border-radius:8px; color:#ef4444; font-size:.8rem; font-family:'Courier New',monospace; text-decoration:none; transition:background .2s; }
+.pp-btn-back:hover { background:rgba(220,38,38,.08); color:#ef4444; }
+.pp-empty { text-align:center; padding:48px 20px; color:rgba(255,255,255,.25); font-family:'Courier New',monospace; font-size:.82rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="pp-wrap">
+  <!-- PARTNER NAV -->
+  <nav class="pp-nav">
+    <a href="{% url 'users:partner_dashboard' %}" class="pp-nav-brand">⬡ IESA PARTNER</a>
+    <a href="{% url 'users:partner_dashboard' %}">{% trans "Dashboard" %}</a>
+    <a href="{% url 'users:partner_analytics' %}" class="active">{% trans "Analytics" %}</a>
+    <a href="{% url 'users:partner_profile_edit' %}">{% trans "Company Profile" %}</a>
+  </nav>
+
+  <!-- HERO -->
+  <div class="pp-hero">
+    <div style="position:relative;z-index:1;">
+      <div class="pp-hero-badge">ANALYTICS</div>
+      <div class="pp-hero-title">{{ partner.company_name }}</div>
+      <div class="pp-hero-sub">{% trans "Last 30 days performance overview" %}</div>
+    </div>
+  </div>
+
+  <!-- STATS 30 DAYS -->
+  <div class="pp-stats">
+    <div class="pp-stat">
+      <div class="pp-stat-label">{% trans "Visits (30d)" %}</div>
+      <div class="pp-stat-val red">{{ total_30 }}</div>
+      <div class="pp-stat-detail">{% trans "last 30 days" %}</div>
+    </div>
+    <div class="pp-stat">
+      <div class="pp-stat-label">{% trans "Verified (30d)" %}</div>
+      <div class="pp-stat-val">{{ verified_30 }}</div>
+      <div class="pp-stat-detail">{% if total_30 %}{% widthratio verified_30 total_30 100 %}%{% else %}—{% endif %}</div>
+    </div>
+    <div class="pp-stat">
+      <div class="pp-stat-label">CHF {% trans "Revenue (30d)" %}</div>
+      <div class="pp-stat-val">{{ revenue_30|floatformat:0 }}</div>
+      <div class="pp-stat-detail">{% trans "logged amount" %}</div>
+    </div>
+    <div class="pp-stat">
+      <div class="pp-stat-label">{% trans "Members (30d)" %}</div>
+      <div class="pp-stat-val">{{ unique_members_30 }}</div>
+      <div class="pp-stat-detail">{% trans "unique" %}</div>
+    </div>
+    <div class="pp-stat">
+      <div class="pp-stat-label">{% trans "Total Visits" %}</div>
+      <div class="pp-stat-val">{{ total_all }}</div>
+      <div class="pp-stat-detail">{% trans "all time" %}</div>
+    </div>
+  </div>
+
+  <!-- CHARTS -->
+  <div class="pp-section">
+    <div class="pp-section-title">{% trans "// charts" %}</div>
+    <div class="pp-charts">
+      <div class="pp-chart-box">
+        <div class="pp-chart-title">{% trans "Daily Visits — last 30 days" %}</div>
+        <canvas id="chartVisits" height="140"></canvas>
+      </div>
+      <div class="pp-chart-box">
+        <div class="pp-chart-title">{% trans "Revenue CHF — last 30 days" %}</div>
+        <canvas id="chartRevenue" height="140"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- SERVICE BREAKDOWN -->
+  {% if service_breakdown %}
+  <div class="pp-section" style="margin-top:20px;">
+    <div class="pp-charts">
+      <div class="pp-chart-box">
+        <div class="pp-chart-title">{% trans "Service Types — all time" %}</div>
+        <canvas id="chartServices" height="160"></canvas>
+      </div>
+      <div class="pp-chart-box" style="overflow:auto;">
+        <div class="pp-chart-title">{% trans "Service Breakdown" %}</div>
+        <table class="pp-table" style="margin-top:4px;">
+          <thead>
+            <tr>
+              <th>{% trans "SERVICE" %}</th>
+              <th>{% trans "VISITS" %}</th>
+              <th>CHF {% trans "TOTAL" %}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in service_breakdown %}
+            <tr>
+              <td>{{ row.service_type }}</td>
+              <td style="color:#ef4444;font-weight:600;">{{ row.count }}</td>
+              <td>{% if row.total %}{{ row.total|floatformat:0 }}{% else %}—{% endif %}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- TOP MEMBERS -->
+  {% if top_members %}
+  <div class="pp-section" style="margin-top:20px;">
+    <div class="pp-section-title">{% trans "// top_members (90 days)" %}</div>
+    <div class="pp-table-wrap">
+      <table class="pp-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>{% trans "MEMBER" %}</th>
+            <th>{% trans "VISITS" %}</th>
+            <th>CHF {% trans "TOTAL" %}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for m in top_members %}
+          <tr>
+            <td class="pp-rank">{{ forloop.counter }}</td>
+            <td>
+              <span style="color:#e2e8f0;font-weight:500;">
+                {% if m.member__first_name or m.member__last_name %}
+                  {{ m.member__first_name }} {{ m.member__last_name }}
+                {% else %}
+                  {{ m.member__username }}
+                {% endif %}
+              </span>
+              {% if m.member__pseudonym %}<br><span style="font-size:.72rem;color:rgba(255,255,255,.3);">@{{ m.member__pseudonym }}</span>{% endif %}
+            </td>
+            <td style="color:#ef4444;font-weight:700;">{{ m.visit_count }}</td>
+            <td>{% if m.total_spent %}{{ m.total_spent|floatformat:0 }}{% else %}—{% endif %}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+  <div style="padding:24px 24px 0;">
+    <a href="{% url 'users:partner_dashboard' %}" class="pp-btn-back">← {% trans "Back to Dashboard" %}</a>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+const dates   = {{ chart_dates_json|safe }};
+const counts  = {{ chart_counts_json|safe }};
+const revenue = {{ chart_revenue_json|safe }};
+const svcLabels = {{ service_labels_json|safe }};
+const svcCounts = {{ service_counts_json|safe }};
+
+const gridOpts = { color: 'rgba(255,255,255,.05)' };
+const fontOpts = { color: 'rgba(255,255,255,.4)', size: 10 };
+
+if (dates.length) {
+  new Chart(document.getElementById('chartVisits'), {
+    type: 'bar',
+    data: {
+      labels: dates,
+      datasets: [{ label: 'Visits', data: counts,
+        backgroundColor: 'rgba(220,38,38,.55)', borderColor: '#ef4444', borderWidth: 1, borderRadius: 4 }]
+    },
+    options: { plugins: { legend: { display: false } }, scales: {
+      x: { ticks: fontOpts, grid: gridOpts },
+      y: { ticks: { ...fontOpts, stepSize: 1 }, grid: gridOpts, beginAtZero: true }
+    }}
+  });
+
+  new Chart(document.getElementById('chartRevenue'), {
+    type: 'line',
+    data: {
+      labels: dates,
+      datasets: [{ label: 'CHF', data: revenue,
+        borderColor: '#ef4444', backgroundColor: 'rgba(220,38,38,.1)',
+        fill: true, tension: 0.3, pointRadius: 3, pointBackgroundColor: '#ef4444' }]
+    },
+    options: { plugins: { legend: { display: false } }, scales: {
+      x: { ticks: fontOpts, grid: gridOpts },
+      y: { ticks: fontOpts, grid: gridOpts, beginAtZero: true }
+    }}
+  });
+} else {
+  ['chartVisits','chartRevenue'].forEach(id => {
+    const c = document.getElementById(id);
+    if (c) { c.closest('.pp-chart-box').innerHTML += '<p style="color:rgba(255,255,255,.25);font-family:Courier New,monospace;font-size:.8rem;margin-top:10px;">No data for this period.</p>'; }
+  });
+}
+
+if (svcLabels.length) {
+  const colors = ['#ef4444','#f97316','#eab308','#22c55e','#3b82f6','#a855f7'];
+  new Chart(document.getElementById('chartServices'), {
+    type: 'doughnut',
+    data: {
+      labels: svcLabels,
+      datasets: [{ data: svcCounts,
+        backgroundColor: colors.slice(0, svcLabels.length),
+        borderColor: '#07070e', borderWidth: 2 }]
+    },
+    options: { plugins: {
+      legend: { position: 'bottom', labels: { color: 'rgba(255,255,255,.5)', font: { size: 11 }, padding: 14 } }
+    }}
+  });
+}
+</script>
+{% endblock %}

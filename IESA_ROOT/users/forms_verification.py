@@ -3,7 +3,7 @@ Forms for Membership Verification System
 """
 from django import forms
 from django.utils.translation import gettext_lazy as _
-from .models import Visit
+from .models import Visit, Partner
 
 
 class MemberSearchForm(forms.Form):
@@ -143,6 +143,27 @@ class EditVisitForm(forms.ModelForm):
         if cost is not None and cost < 0:
             raise forms.ValidationError(_('❌ Cost cannot be negative'))
         return cost
+
+
+class PartnerProfileForm(forms.ModelForm):
+    """Form for editing partner company profile."""
+    class Meta:
+        model = Partner
+        fields = ['company_name', 'business_type']
+        widgets = {
+            'company_name': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': _('Your company or business name'),
+                'autocomplete': 'organization',
+            }),
+            'business_type': forms.Select(attrs={
+                'class': 'form-select',
+            }),
+        }
+        labels = {
+            'company_name': _('Company / Business Name'),
+            'business_type': _('Business Type'),
+        }
 
 
 class CancelVisitForm(forms.Form):

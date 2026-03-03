@@ -1,323 +1,96 @@
 {% extends "base.html" %}
-{% load static %}
-{% load i18n %}
+{% load static i18n %}
 
-{% block title %}{% trans "Cancel Visit" %} #{{ visit.id }}{% endblock %}
-
-{% block container_wrap_start %}{% endblock %}
-{% block container_wrap_end %}{% endblock %}
+{% block title %}{% trans "Cancel Visit" %} #{{ visit.pk }}{% endblock %}
 
 {% block extra_css %}
 <style>
-.cancel-page {
-  background: #0e0e18;
-  min-height: 100vh;
-  color: rgba(255,255,255,.87);
-}
-.cancel-hero {
-  background: #0a0a0f;
-  padding: 3rem 0 2.5rem;
-  position: relative;
-  overflow: hidden;
-}
-.cancel-hero::before {
-  content: '';
-  position: absolute;
-  top: -100px; left: -100px;
-  width: 380px; height: 380px;
-  background: radial-gradient(circle, rgba(239,68,68,.14) 0%, transparent 70%);
-  pointer-events: none;
-}
-.cancel-back-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: .5rem;
-  background: transparent;
-  border: 1.5px solid rgba(255,255,255,.12);
-  border-radius: 10px;
-  padding: .5rem 1rem;
-  color: rgba(255,255,255,.5);
-  text-decoration: none;
-  font-size: .875rem;
-  font-weight: 600;
-  transition: border-color .2s, color .2s;
-  margin-bottom: 1.5rem;
-}
-.cancel-back-btn:hover {
-  border-color: rgba(255,255,255,.28);
-  color: rgba(255,255,255,.82);
-  text-decoration: none;
-}
-.cancel-countdown {
-  background: rgba(245,158,11,.08);
-  border: 1px solid rgba(245,158,11,.22);
-  border-radius: 12px;
-  padding: 1rem 1.25rem;
-  color: rgba(253,224,71,.87);
-  display: flex;
-  align-items: center;
-  gap: .75rem;
-  font-size: .9rem;
-  margin-bottom: 1.25rem;
-}
-.cancel-countdown #countdown {
-  font-weight: 800;
-  font-size: 1.1rem;
-  color: #fbbf24;
-}
-.cancel-summary-card {
-  background: rgba(239,68,68,.05);
-  border: 1.5px solid rgba(239,68,68,.18);
-  border-radius: 16px;
-  overflow: hidden;
-  margin-bottom: 1.25rem;
-}
-.cancel-summary-header {
-  background: rgba(239,68,68,.08);
-  border-bottom: 1px solid rgba(239,68,68,.15);
-  padding: 1rem 1.25rem;
-  font-weight: 700;
-  color: #f87171;
-  font-size: .9rem;
-}
-.cancel-summary-body {
-  padding: 1.25rem;
-}
-.cancel-summary-row {
-  display: flex;
-  align-items: center;
-  gap: .6rem;
-  padding: .4rem 0;
-  color: rgba(255,255,255,.6);
-  font-size: .88rem;
-  border-bottom: 1px solid rgba(255,255,255,.04);
-}
-.cancel-summary-row:last-child { border-bottom: none; }
-.cancel-summary-row i { color: rgba(255,255,255,.25); width: 14px; text-align: center; }
-.cancel-summary-row strong { color: rgba(255,255,255,.82); }
-.cancel-form-card {
-  background: rgba(255,255,255,.03);
-  border: 1.5px solid rgba(255,255,255,.07);
-  border-radius: 16px;
-  overflow: hidden;
-}
-.cancel-form-header {
-  background: rgba(239,68,68,.06);
-  border-bottom: 1px solid rgba(239,68,68,.12);
-  padding: 1rem 1.25rem;
-  font-weight: 700;
-  color: rgba(255,255,255,.75);
-  font-size: .95rem;
-}
-.cancel-form-body {
-  padding: 1.5rem 1.25rem;
-}
-.cancel-field-label {
-  font-size: .72rem;
-  text-transform: uppercase;
-  letter-spacing: .1em;
-  color: rgba(255,255,255,.35);
-  font-weight: 700;
-  margin-bottom: .45rem;
-}
-.cancel-info-note {
-  background: rgba(59,130,246,.06);
-  border: 1px solid rgba(59,130,246,.16);
-  border-radius: 10px;
-  padding: .875rem 1rem;
-  color: rgba(147,197,253,.8);
-  font-size: .85rem;
-  margin-bottom: 1.25rem;
-}
-.btn-cancel-confirm {
-  width: 100%;
-  background: linear-gradient(135deg, #dc2626, #b91c1c);
-  color: #fff;
-  border: none;
-  border-radius: 12px;
-  padding: .9rem 1.5rem;
-  font-weight: 700;
-  font-size: 1rem;
-  cursor: pointer;
-  transition: box-shadow .25s, transform .25s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: .5rem;
-  margin-bottom: .75rem;
-}
-.btn-cancel-confirm:hover:not(:disabled) {
-  box-shadow: 0 8px 32px rgba(220,38,38,.4);
-  transform: translateY(-1px);
-  color: #fff;
-}
-.btn-cancel-confirm:disabled {
-  opacity: .4;
-  cursor: not-allowed;
-}
-.btn-cancel-ghost {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: .5rem;
-  width: 100%;
-  background: transparent;
-  color: rgba(255,255,255,.5);
-  border: 1.5px solid rgba(255,255,255,.12);
-  border-radius: 12px;
-  padding: .875rem 1.5rem;
-  font-weight: 700;
-  font-size: 1rem;
-  text-decoration: none;
-  transition: border-color .2s, color .2s;
-}
-.btn-cancel-ghost:hover {
-  border-color: rgba(255,255,255,.28);
-  color: rgba(255,255,255,.82);
-  text-decoration: none;
-}
-/* Dark-theme form inputs from Django form rendering */
-.cancel-form-body select,
-.cancel-form-body textarea,
-.cancel-form-body input[type="text"] {
-  background: #1a1a24 !important;
-  border: 1.5px solid rgba(255,255,255,.1) !important;
-  border-radius: 10px !important;
-  color: rgba(255,255,255,.87) !important;
-  padding: .75rem 1rem !important;
-}
-.cancel-form-body select:focus,
-.cancel-form-body textarea:focus,
-.cancel-form-body input:focus {
-  border-color: rgba(220,38,38,.4) !important;
-  box-shadow: 0 0 0 3px rgba(220,38,38,.1) !important;
-  outline: none !important;
-}
+.pp-wrap { background:#07070e; min-height:100vh; padding-bottom:80px; color:#e2e8f0; }
+.pp-nav { background:#0d0d18; border-bottom:1px solid rgba(220,38,38,.18); padding:0 20px; display:flex; align-items:center; overflow-x:auto; scrollbar-width:none; }
+.pp-nav::-webkit-scrollbar { display:none; }
+.pp-nav a { display:flex; align-items:center; gap:7px; padding:14px 20px; color:rgba(255,255,255,.55); text-decoration:none; font-size:.82rem; font-family:'Courier New',monospace; white-space:nowrap; border-bottom:2px solid transparent; transition:color .2s,border-color .2s; }
+.pp-nav a:hover { color:#ef4444; border-bottom-color:#ef4444; }
+.pp-nav-brand { font-size:.85rem; font-weight:700; color:#fff !important; margin-right:10px; letter-spacing:.05em; border-bottom:none !important; }
+.pp-section { padding:28px 24px 0; }
+.pp-card { background:rgba(255,255,255,.025); border:1px solid rgba(255,255,255,.06); border-radius:14px; padding:28px; max-width:600px; }
+.pp-danger-banner { background:rgba(220,38,38,.07); border:1px solid rgba(220,38,38,.2); border-radius:10px; padding:14px 18px; margin-bottom:22px; }
+.pp-field { margin-bottom:20px; }
+.pp-field label { display:block; font-size:.72rem; font-family:'Courier New',monospace; color:rgba(255,255,255,.45); text-transform:uppercase; letter-spacing:.08em; margin-bottom:8px; }
+.pp-field textarea { width:100%; background:rgba(255,255,255,.04); border:1px solid rgba(220,38,38,.2); border-radius:8px; color:#e2e8f0; padding:10px 14px; font-size:.9rem; outline:none; transition:border-color .2s; resize:vertical; }
+.pp-field textarea:focus { border-color:#ef4444; background:rgba(255,255,255,.06); }
+.pp-field textarea::placeholder { color:rgba(255,255,255,.2); }
+.pp-field .errorlist { list-style:none; padding:6px 0 0; margin:0; }
+.pp-field .errorlist li { font-size:.78rem; color:#f87171; font-family:'Courier New',monospace; }
+.pp-timer { font-size:.78rem; font-family:'Courier New',monospace; color:rgba(248,113,113,.7); margin-top:6px; }
+.pp-btn-danger { background:#dc2626; color:#fff; border:none; border-radius:8px; padding:12px 26px; font-size:.88rem; font-family:'Courier New',monospace; cursor:pointer; transition:background .2s; display:inline-flex; align-items:center; gap:8px; font-weight:700; }
+.pp-btn-danger:hover { background:#ef4444; }
+.pp-btn-ghost { background:transparent; border:1px solid rgba(255,255,255,.12); color:rgba(255,255,255,.45); border-radius:8px; padding:12px 26px; font-size:.88rem; font-family:'Courier New',monospace; cursor:pointer; text-decoration:none; display:inline-flex; align-items:center; gap:8px; }
+.pp-btn-ghost:hover { background:rgba(255,255,255,.04); color:rgba(255,255,255,.7); }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="cancel-page">
+<div class="pp-wrap">
+  <nav class="pp-nav">
+    <a href="{% url 'users:partner_dashboard' %}" class="pp-nav-brand">⬡ IESA PARTNER</a>
+    <a href="{% url 'users:partner_dashboard' %}">{% trans "Dashboard" %}</a>
+    <a href="{% url 'users:partner_analytics' %}">{% trans "Analytics" %}</a>
+    <a href="{% url 'users:partner_profile_edit' %}">{% trans "Company Profile" %}</a>
+  </nav>
 
-  <!-- Hero band -->
-  <div class="cancel-hero">
-    <div class="hp-container" style="max-width:700px;">
-      <p class="hp-label">{% trans "Partner Dashboard" %}</p>
-      <h1 class="hp-h2" style="font-size:clamp(1.6rem,3vw,2.3rem);">
-        {% trans "Cancel" %} <span>{% trans "Visit" %}</span>
-      </h1>
-    </div>
+  <div style="background:linear-gradient(135deg,#0d0d18 0%,#12060d 100%);padding:24px 24px 20px;border-bottom:1px solid rgba(255,255,255,.05);">
+    <div style="font-size:.72rem;font-family:'Courier New',monospace;color:rgba(248,113,113,.5);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;">CANCEL VISIT</div>
+    <div style="font-size:1.25rem;font-weight:700;color:#fff;">{% trans "Cancel Visit Record" %}</div>
   </div>
 
-  <div class="hp-container" style="max-width:700px; padding: 2.5rem 1.5rem 4rem;">
-
-    <a href="{% url 'users:partner_dashboard' %}" class="cancel-back-btn">
-      <i class="fas fa-arrow-left"></i> {% trans "Back to Dashboard" %}
-    </a>
-
-    <!-- Countdown -->
-    <div class="cancel-countdown" id="countdown-alert">
-      <i class="fas fa-hourglass-half" style="font-size:1.1rem;"></i>
-      <span>
-        {% trans "Cancellation window closes in" %}&nbsp;<strong id="countdown">{{ seconds_left }}</strong>&nbsp;{% trans "seconds" %}.
-      </span>
-    </div>
-
-    <!-- Visit summary -->
-    <div class="cancel-summary-card">
-      <div class="cancel-summary-header">
-        <i class="fas fa-times-circle me-2"></i>
-        {% trans "Cancelling visit" %} — {{ visit.member.get_full_name|default:visit.member.username }}
-      </div>
-      <div class="cancel-summary-body">
-        <div class="cancel-summary-row">
-          <i class="fas fa-tag"></i>
-          {% trans "Service" %}:&nbsp;<strong>{{ visit.get_service_type_display }}</strong>
+  <div class="pp-section">
+    <div class="pp-card">
+      <!-- VISIT SUMMARY -->
+      <div class="pp-danger-banner">
+        <div style="font-size:.68rem;font-family:'Courier New',monospace;color:rgba(248,113,113,.6);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px;">{% trans "Visit" %} #{{ visit.pk }}</div>
+        <div style="font-size:.9rem;color:#f87171;">
+          {{ visit.member.get_full_name|default:visit.member.username }}
+          &nbsp;·&nbsp; {{ visit.get_service_type_display }}
+          {% if visit.cost %}&nbsp;·&nbsp; {{ visit.cost }} CHF{% endif %}
         </div>
-        <div class="cancel-summary-row">
-          <i class="fas fa-coins"></i>
-          {% trans "Cost" %}:&nbsp;<strong>{% if visit.cost %}{{ visit.cost }} CHF{% else %}N/A{% endif %}</strong>
-        </div>
-        <div class="cancel-summary-row">
-          <i class="fas fa-clock"></i>
-          {% trans "Logged at" %}:&nbsp;<strong>{{ visit.timestamp|date:"d.m.Y H:i" }}</strong>
-        </div>
-      </div>
-    </div>
-
-    <!-- Cancel form -->
-    <div class="cancel-form-card">
-      <div class="cancel-form-header">
-        <i class="fas fa-ban me-2"></i>{% trans "Cancel Visit" %}
-      </div>
-      <div class="cancel-form-body">
-
-        {% if messages %}
-          {% for msg in messages %}
-            <div style="background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);border-radius:10px;padding:.875rem 1rem;color:rgba(252,165,165,.9);font-size:.88rem;margin-bottom:1rem;">
-              {{ msg }}
-            </div>
-          {% endfor %}
-        {% endif %}
-
-        <div class="cancel-info-note">
-          <i class="fas fa-info-circle me-2"></i>
-          {% trans "This action cannot be undone. The member will be notified by email." %}
-        </div>
-
-        <form method="post" id="cancelVisitForm">
-          {% csrf_token %}
-          {% for field in form %}
-            <div style="margin-bottom: 1rem;">
-              <p class="cancel-field-label">{{ field.label }}</p>
-              {{ field }}
-              {% if field.help_text %}
-                <div style="margin-top: .35rem; font-size: .8rem; color: rgba(255,255,255,.3);">{{ field.help_text }}</div>
-              {% endif %}
-              {% if field.errors %}
-                {% for error in field.errors %}
-                  <div style="margin-top: .35rem; font-size: .82rem; color: #f87171;">
-                    <i class="fas fa-exclamation-circle me-1"></i>{{ error }}
-                  </div>
-                {% endfor %}
-              {% endif %}
-            </div>
-          {% endfor %}
-
-          <div style="margin-top: 1.5rem;">
-            <button type="submit" class="btn-cancel-confirm" id="submit-btn">
-              <i class="fas fa-ban"></i>{% trans "Confirm Cancellation" %}
-            </button>
-            <a href="{% url 'users:partner_dashboard' %}" class="btn-cancel-ghost">
-              {% trans "Keep Visit (Go Back)" %}
-            </a>
+        <div style="font-size:.75rem;color:rgba(255,255,255,.35);font-family:'Courier New',monospace;margin-top:4px;">{{ visit.timestamp|date:"d M Y H:i" }}</div>
+        {% if seconds_left > 0 %}
+          <div class="pp-timer" id="cancelTimer">
+            ⏱ {% trans "Cancellation window closes in" %}: <span id="timerVal">{{ seconds_left }}</span>s
           </div>
-        </form>
-
+        {% endif %}
       </div>
-    </div>
 
+      <div style="font-size:.82rem;color:rgba(255,255,255,.45);margin-bottom:18px;">
+        ⚠️ {% trans "This action cannot be undone. The member will be notified via Telegram." %}
+      </div>
+
+      <form method="post">
+        {% csrf_token %}
+        <div class="pp-field">
+          <label for="{{ form.reason.id_for_label }}">{{ form.reason.label }} *</label>
+          {{ form.reason }}
+          {% if form.reason.errors %}<ul class="errorlist">{% for e in form.reason.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+          {% if form.reason.help_text %}<div style="font-size:.72rem;color:rgba(255,255,255,.3);margin-top:5px;font-family:'Courier New',monospace;">{{ form.reason.help_text }}</div>{% endif %}
+        </div>
+        <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+          <button type="submit" class="pp-btn-danger">✕ {% trans "Confirm Cancellation" %}</button>
+          <a href="{% url 'users:partner_dashboard' %}" class="pp-btn-ghost">{% trans "Go Back" %}</a>
+        </div>
+      </form>
+    </div>
   </div>
 </div>
-{% endblock %}
 
-{% block extra_js %}
+{% if seconds_left > 0 %}
 <script>
-  let secondsLeft = {{ seconds_left }};
-  const el = document.getElementById('countdown');
-  const submitBtn = document.getElementById('submit-btn');
-
-  function tick() {
-    secondsLeft--;
-    if (secondsLeft <= 0) {
-      el.textContent = '0';
-      submitBtn.disabled = true;
-      submitBtn.innerHTML = '⏰ {% trans "Cancellation window expired" %}';
-    } else {
-      el.textContent = secondsLeft;
-      setTimeout(tick, 1000);
-    }
-  }
-  if (secondsLeft > 0) setTimeout(tick, 1000);
+let s = {{ seconds_left }};
+const el = document.getElementById('timerVal');
+const timer = setInterval(function() {
+  s--;
+  if (s <= 0) { clearInterval(timer); if (el) el.closest('.pp-timer').textContent = '⛔ Cancellation window expired.'; }
+  else if (el) el.textContent = s;
+}, 1000);
 </script>
+{% endif %}
 {% endblock %}
