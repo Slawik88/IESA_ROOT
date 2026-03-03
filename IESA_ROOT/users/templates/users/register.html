@@ -1,137 +1,136 @@
 {% extends "base.html" %}
-{% load i18n %}
+{% load i18n static %}
 
 {% block title %}{% trans "Register" %} | IESA{% endblock %}
 
 {% block extra_css %}
 <style>
-.auth-wrap {
-    min-height: calc(100vh - 70px);
-    background: #0a0a0f;
-    display: flex;
-    align-items: center;
-    padding: 3rem 0;
+/* ── Page ───────────────────────────────────────── */
+.reg-page {
+    min-height:100vh; background:#07070e;
+    display:flex; align-items:center; justify-content:center;
+    padding:2rem 1rem; position:relative; overflow:hidden;
 }
-.auth-card-new {
-    border-radius: 24px;
-    overflow: hidden;
-    border: 1.5px solid rgba(255,255,255,.07);
-    box-shadow: 0 32px 80px rgba(0,0,0,.55);
-    max-width: 960px;
-    margin: 0 auto;
+.reg-orb { position:absolute; border-radius:50%; filter:blur(120px); pointer-events:none; animation:rOrb 9s ease-in-out infinite; }
+.reg-orb-1 { width:500px;height:500px; background:radial-gradient(circle,rgba(220,38,38,.2) 0%,transparent 70%); top:-20%;right:-10%; }
+.reg-orb-2 { width:380px;height:380px; background:radial-gradient(circle,rgba(220,38,38,.12) 0%,transparent 70%); bottom:-15%;left:-8%; animation-delay:4s; }
+@keyframes rOrb { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-25px)} }
+.reg-page::before {
+    content:''; position:absolute; inset:0;
+    background-image:linear-gradient(rgba(255,255,255,.012) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.012) 1px,transparent 1px);
+    background-size:52px 52px; pointer-events:none;
 }
-.auth-dark-side {
-    background: #111118;
-    padding: 3.5rem 3rem;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    position: relative;
-    overflow: hidden;
-    min-height: 440px;
+
+/* ── Wrapper ────────────────────────────────────── */
+.reg-wrap { position:relative;z-index:2; width:100%; max-width:900px; }
+
+/* ── Top branding strip ─────────────────────────── */
+.reg-top {
+    display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:1rem;
+    margin-bottom:2rem;
 }
-.auth-dark-side::before {
-    content: '';
-    position: absolute;
-    top: -60%;
-    left: -40%;
-    width: 140%;
-    height: 140%;
-    background: radial-gradient(ellipse at 30% 40%, rgba(220,38,38,.3) 0%, transparent 60%);
-    pointer-events: none;
+.reg-logo { display:flex; align-items:center; gap:.7rem; text-decoration:none; }
+.reg-logo img { height:34px; filter:drop-shadow(0 0 10px rgba(220,38,38,.45)); }
+.reg-logo span { font-size:1rem; font-weight:900; color:#fff; letter-spacing:.04em; }
+.reg-tag {
+    display:flex; align-items:center; gap:.45rem;
+    background:rgba(220,38,38,.13); color:#ef4444; border:1px solid rgba(220,38,38,.28);
+    border-radius:50px; padding:.28rem .85rem;
+    font-size:.67rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase; font-family:'Courier New',monospace;
 }
-.auth-dark-side .auth-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: .5rem;
-    background: rgba(220,38,38,.15);
-    color: var(--primary);
-    border: 1px solid rgba(220,38,38,.3);
-    border-radius: 50px;
-    padding: .3rem .9rem;
-    font-size: .75rem;
-    font-weight: 700;
-    letter-spacing: .07em;
-    text-transform: uppercase;
-    margin-bottom: 1.5rem;
-    width: fit-content;
+
+/* ── Card ───────────────────────────────────────── */
+.reg-card {
+    background:rgba(255,255,255,.025);
+    border:1px solid rgba(255,255,255,.07);
+    border-radius:24px; overflow:hidden;
+    box-shadow:0 0 0 1px rgba(220,38,38,.09), 0 40px 90px rgba(0,0,0,.65), inset 0 1px 0 rgba(255,255,255,.05);
+    border-top:2px solid rgba(220,38,38,.5);
 }
-.auth-dark-side h2 {
-    font-size: clamp(1.6rem, 3.5vw, 2.4rem);
-    font-weight: 900;
-    color: #fff;
-    line-height: 1.15;
-    margin-bottom: 1rem;
-    position: relative;
+.reg-card-head {
+    padding:2.5rem 3rem 0;
 }
-.auth-dark-side .auth-desc {
-    color: rgba(255,255,255,.5);
-    font-size: .95rem;
-    margin-bottom: 1.8rem;
-    position: relative;
+.reg-eyebrow {
+    display:flex; align-items:center; gap:.6rem;
+    font-size:.63rem; font-weight:800; letter-spacing:.2em; text-transform:uppercase;
+    color:#ef4444; font-family:'Courier New',monospace; margin-bottom:1.2rem;
 }
-.auth-dark-side .auth-perks li {
-    display: flex;
-    align-items: center;
-    gap: .65rem;
-    color: rgba(255,255,255,.65);
-    font-size: .9rem;
-    margin-bottom: .75rem;
-    position: relative;
+.reg-eyebrow::before,.reg-eyebrow::after { content:''; flex:0 0 28px; height:1px; background:rgba(220,38,38,.35); }
+.reg-title { font-size:1.9rem; font-weight:900; color:#fff; margin-bottom:.3rem; letter-spacing:-.02em; }
+.reg-desc  { color:rgba(255,255,255,.3); font-size:.875rem; margin-bottom:2rem; }
+
+/* ── Steps bar ──────────────────────────────────── */
+.reg-steps {
+    display:flex; align-items:center; gap:0; margin-bottom:2.5rem;
+    background:rgba(255,255,255,.03); border-radius:50px; padding:.35rem;
+    width:fit-content;
 }
-.auth-dark-side .check-icon {
-    width: 22px;
-    height: 22px;
-    border-radius: 50%;
-    background: rgba(220,38,38,.18);
-    color: var(--primary);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: .62rem;
-    flex-shrink: 0;
+.reg-step {
+    padding:.3rem .9rem; border-radius:50px; font-size:.65rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase;
+    font-family:'Courier New',monospace; color:rgba(255,255,255,.25); transition:all .2s;
+    display:flex; align-items:center; gap:.4rem;
 }
-.auth-light-side {
-    background: #fff;
-    padding: 3.5rem 3rem;
-    overflow-y: auto;
-    max-height: 90vh;
+.reg-step.active { background:rgba(220,38,38,.18); color:#ef4444; }
+.reg-step-num { width:16px;height:16px; border-radius:50%; background:rgba(255,255,255,.1); display:flex;align-items:center;justify-content:center; font-size:.6rem; }
+.reg-step.active .reg-step-num { background:rgba(220,38,38,.3); }
+
+/* ── Form grid ──────────────────────────────────── */
+.reg-body { padding:0 3rem 3rem; }
+.reg-grid { display:grid; grid-template-columns:1fr 1fr; gap:1.2rem 1.8rem; }
+.reg-full { grid-column:1/-1; }
+
+/* ── Field ──────────────────────────────────────── */
+.rf { }
+.rf label { display:block; font-size:.62rem; font-weight:700; letter-spacing:.14em; text-transform:uppercase; color:rgba(255,255,255,.38); font-family:'Courier New',monospace; margin-bottom:.45rem; }
+.rf-wrap { position:relative; }
+.rf-ic { position:absolute; left:.9rem; top:50%; transform:translateY(-50%); color:rgba(255,255,255,.2); font-size:.82rem; pointer-events:none; transition:color .2s; }
+.rf-wrap input,.rf-wrap select {
+    width:100%; background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.09);
+    border-radius:10px; padding:.72rem 1rem .72rem 2.6rem;
+    color:#fff; font-size:.95rem;
+    transition:border-color .2s,box-shadow .2s,background .2s; outline:none; -webkit-appearance:none;
 }
-.auth-label {
-    display: flex;
-    align-items: center;
-    gap: .6rem;
-    font-size: .7rem;
-    font-weight: 800;
-    letter-spacing: .14em;
-    text-transform: uppercase;
-    color: var(--primary);
-    margin-bottom: 1.5rem;
+.rf-wrap input:focus,.rf-wrap select:focus { border-color:rgba(220,38,38,.55); background:rgba(220,38,38,.04); box-shadow:0 0 0 3px rgba(220,38,38,.1); }
+.rf-wrap input.inv { border-color:rgba(239,68,68,.45); box-shadow:0 0 0 3px rgba(239,68,68,.08); }
+.rf-wrap input::placeholder { color:rgba(255,255,255,.16); }
+.rf-wrap input:-webkit-autofill,.rf-wrap input:-webkit-autofill:focus { -webkit-box-shadow:0 0 0 1000px #12111c inset; -webkit-text-fill-color:#fff; }
+.rf-pw-btn { position:absolute; right:.85rem; top:50%; transform:translateY(-50%); background:none; border:none; color:rgba(255,255,255,.22); cursor:pointer; padding:.2rem; font-size:.82rem; transition:color .2s; line-height:1; }
+.rf-pw-btn:hover { color:rgba(255,255,255,.55); }
+.rf-wrap input.has-pw { padding-right:2.6rem; }
+.rf-hint { color:rgba(255,255,255,.22); font-size:.72rem; margin-top:.3rem; line-height:1.4; }
+.rf-err  { color:#f87171; font-size:.72rem; margin-top:.3rem; display:flex; align-items:flex-start; gap:.3rem; flex-wrap:wrap; }
+
+/* ── Submit ─────────────────────────────────────── */
+.reg-actions { display:flex; flex-direction:column; gap:1rem; margin-top:2rem; }
+.reg-submit {
+    width:100%; background:linear-gradient(135deg,#dc2626,#b91c1c);
+    border:none; border-radius:10px; padding:.9rem 1.5rem;
+    color:#fff; font-size:1rem; font-weight:700; cursor:pointer;
+    transition:transform .15s,box-shadow .2s,filter .2s;
+    display:flex; align-items:center; justify-content:center; gap:.65rem;
+    box-shadow:0 4px 22px rgba(220,38,38,.35); letter-spacing:.02em;
 }
-.auth-label::before,
-.auth-label::after {
-    content: '';
-    flex: 1;
-    max-width: 36px;
-    height: 2px;
-    background: var(--primary);
-    opacity: .4;
+.reg-submit:hover { filter:brightness(1.1); box-shadow:0 6px 32px rgba(220,38,38,.5); transform:translateY(-1px); }
+.reg-submit:active { transform:translateY(0); }
+.reg-login { text-align:center; color:rgba(255,255,255,.3); font-size:.875rem; }
+.reg-login a { color:#ef4444; font-weight:700; text-decoration:none; }
+.reg-login a:hover { color:#f87171; text-decoration:underline; }
+
+/* ── Perks footer strip ─────────────────────────── */
+.reg-footer {
+    background:rgba(220,38,38,.05); border-top:1px solid rgba(220,38,38,.12);
+    padding:1.2rem 3rem; display:flex; gap:2rem; flex-wrap:wrap;
 }
-.auth-light-side h3 {
-    font-size: 1.7rem;
-    font-weight: 900;
-    color: #0a0a0f;
-    margin-bottom: .35rem;
-}
-.auth-light-side .auth-sub {
-    color: #6b7280;
-    font-size: .9rem;
-    margin-bottom: 2rem;
-}
-@media (max-width: 991px) {
-    .auth-dark-side { display: none; }
-    .auth-light-side { padding: 2.5rem 1.8rem; max-height: none; }
-    .auth-wrap { padding: 2rem 0; }
+.reg-fp { display:flex; align-items:center; gap:.55rem; color:rgba(255,255,255,.35); font-size:.78rem; }
+.reg-fp i { color:rgba(220,38,38,.7); }
+
+/* mobile */
+@media(max-width:640px){
+    .reg-card-head,.reg-body { padding-left:1.5rem; padding-right:1.5rem; }
+    .reg-grid { grid-template-columns:1fr; }
+    .reg-full { grid-column:1; }
+    .reg-footer { padding:1rem 1.5rem; gap:1.2rem; }
+    .reg-top { margin-bottom:1.5rem; }
 }
 </style>
 {% endblock %}
@@ -140,102 +139,90 @@
 {% block container_wrap_end %}{% endblock %}
 
 {% block content %}
-<div class="auth-wrap">
-    <div class="container">
-        <div class="auth-card-new row g-0">
+<div class="reg-page">
+    <div class="reg-orb reg-orb-1"></div>
+    <div class="reg-orb reg-orb-2"></div>
 
-            <!-- Dark left panel -->
-            <div class="col-lg-5 auth-dark-side">
-                <div style="position:relative;z-index:1;">
-                    <div class="auth-badge"><i class="fas fa-star me-1"></i>{% trans "Join IESA" %}</div>
-                    <h2>{% trans "Join IESA Today" %}</h2>
-                    <p class="auth-desc">{% trans "Create your account and become part of our international extreme sports community." %}</p>
-                    <ul class="list-unstyled auth-perks">
-                        <li><div class="check-icon"><i class="fas fa-check"></i></div>{% trans "Connect with Athletes" %}</li>
-                        <li><div class="check-icon"><i class="fas fa-check"></i></div>{% trans "Share Your Journey" %}</li>
-                        <li><div class="check-icon"><i class="fas fa-check"></i></div>{% trans "Discover & RSVP to Events" %}</li>
-                        <li><div class="check-icon"><i class="fas fa-check"></i></div>{% trans "Build Your Profile" %}</li>
-                    </ul>
-                </div>
+    <div class="reg-wrap">
+        <!-- Branding strip -->
+        <div class="reg-top">
+            <a href="{% url 'core:home' %}" class="reg-logo">
+                <img src="{% static 'img/logo.png' %}" alt="IESA">
+                <span>IESA</span>
+            </a>
+            <div class="reg-tag"><i class="fas fa-user-plus"></i>{% trans "New Member" %}</div>
+        </div>
+
+        <!-- Card -->
+        <div class="reg-card">
+            <div class="reg-card-head">
+                <div class="reg-eyebrow">{% trans "REGISTER" %}</div>
+                <h1 class="reg-title">{% trans "Join the Community" %}</h1>
+                <p class="reg-desc">{% trans "Create your account and become part of IESA." %}</p>
             </div>
 
-            <!-- Light right panel -->
-            <div class="col-lg-7 auth-light-side">
-                <div class="auth-label">{% trans "REGISTER" %}</div>
-                <h3>{% trans "Create your account" %}</h3>
-                <p class="auth-sub">{% trans "Join the IESA community and start sharing!" %}</p>
-
+            <div class="reg-body">
                 {% if form.non_field_errors %}
-                <div class="alert alert-danger alert-dismissible fade show mb-4 rounded-3" role="alert">
-                    <i class="fas fa-exclamation-circle me-2"></i>
-                    <strong>{% trans "Registration failed:" %}</strong>
-                    {% for error in form.non_field_errors %}
-                        <p class="mb-0">{{ error }}</p>
-                    {% endfor %}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="{% trans 'Close' %}"></button>
+                <div style="background:rgba(220,38,38,.1);border:1px solid rgba(220,38,38,.28);border-radius:10px;padding:.75rem 1rem;color:#fca5a5;font-size:.875rem;display:flex;align-items:center;gap:.6rem;margin-bottom:1.5rem;">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <span>{% for err in form.non_field_errors %}{{ err }}{% endfor %}</span>
                 </div>
                 {% endif %}
 
                 <form method="post" enctype="multipart/form-data" novalidate>
                     {% csrf_token %}
-                    {% for field in form %}
-                    <div class="mb-3">
-                        <label for="{{ field.id_for_label }}" class="form-label fw-500">
-                            {{ field.label }}
-                            {% if field.field.required %}<span class="text-danger">*</span>{% endif %}
-                        </label>
-
-                        {% if field.field.widget.input_type == "checkbox" %}
-                            <div class="form-check">
-                                {{ field }}
-                                <label class="form-check-label" for="{{ field.id_for_label }}">
-                                    {{ field.label }}
-                                </label>
-                            </div>
-                        {% elif field.field.widget.input_type == "password" %}
-                            <div class="password-field-wrapper">
-                                {% if field.errors %}
-                                    {% with field_class="form-control is-invalid" %}{{ field }}{% endwith %}
-                                    <div class="invalid-feedback d-block">
-                                        {% for error in field.errors %}<i class="fas fa-times-circle me-1"></i>{{ error }}<br>{% endfor %}
-                                    </div>
+                    <div class="reg-grid">
+                        {% for field in form %}
+                        <div class="rf {% if field.field.widget.input_type == 'password' or field.html_name == 'email' %}{% else %}{% endif %}">
+                            <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                            <div class="rf-wrap">
+                                {% if field.html_name == 'username' %}
+                                    <i class="fas fa-at rf-ic"></i>
+                                {% elif field.html_name == 'email' %}
+                                    <i class="fas fa-envelope rf-ic"></i>
+                                {% elif field.field.widget.input_type == 'password' %}
+                                    <i class="fas fa-lock rf-ic"></i>
                                 {% else %}
-                                    {{ field }}
+                                    <i class="fas fa-pen rf-ic"></i>
                                 {% endif %}
-                                <button type="button" class="password-toggle-btn" onclick="togglePasswordVisibility(this)">
-                                    <i class="fas fa-eye"></i>
-                                </button>
+
+                                {% if field.field.widget.input_type == 'password' %}
+                                    <input type="password" name="{{ field.html_name }}" id="{{ field.id_for_label }}" class="has-pw{% if field.errors %} inv{% endif %}" autocomplete="new-password" placeholder="••••••••">
+                                    <button type="button" class="rf-pw-btn" onclick="togglePw(this)" tabindex="-1"><i class="fas fa-eye"></i></button>
+                                {% elif field.html_name == 'email' %}
+                                    <input type="email" name="{{ field.html_name }}" id="{{ field.id_for_label }}" {% if field.value %}value="{{ field.value }}"{% endif %} class="{% if field.errors %}inv{% endif %}" placeholder="{{ field.label }}">
+                                {% else %}
+                                    <input type="{{ field.field.widget.input_type }}" name="{{ field.html_name }}" id="{{ field.id_for_label }}" {% if field.value %}value="{{ field.value }}"{% endif %} class="{% if field.errors %}inv{% endif %}" autocomplete="{{ field.html_name }}" placeholder="{{ field.label }}">
+                                {% endif %}
                             </div>
-                        {% else %}
-                            {% if field.errors %}
-                                {% with field_class="form-control is-invalid" %}{{ field }}{% endwith %}
-                                <div class="invalid-feedback d-block">
-                                    {% for error in field.errors %}<i class="fas fa-times-circle me-1"></i>{{ error }}<br>{% endfor %}
-                                </div>
-                            {% else %}
-                                {{ field }}
+                            {% if field.help_text %}
+                            <div class="rf-hint">{{ field.help_text }}</div>
                             {% endif %}
-                        {% endif %}
-
-                        {% if field.help_text %}
-                            <small class="form-text text-muted d-block mt-1">{{ field.help_text }}</small>
-                        {% endif %}
+                            {% for error in field.errors %}
+                            <div class="rf-err"><i class="fas fa-times-circle" style="flex-shrink:0;margin-top:.1rem;"></i>{{ error }}</div>
+                            {% endfor %}
+                        </div>
+                        {% endfor %}
                     </div>
-                    {% endfor %}
 
-                    <button type="submit" class="btn hero-btn-p w-100 mt-3 py-2">
-                        <i class="fas fa-user-plus me-2"></i>{% trans "Create Account" %}
-                    </button>
+                    <div class="reg-actions">
+                        <button type="submit" class="reg-submit">
+                            <i class="fas fa-user-plus"></i>{% trans "Create Account" %}
+                        </button>
+                        <p class="reg-login">
+                            {% trans "Already have an account?" %}
+                            <a href="{% url 'users:login' %}">{% trans "Sign In" %}</a>
+                        </p>
+                    </div>
                 </form>
-
-                <hr class="my-4">
-
-                <p class="text-center text-muted mb-0">
-                    {% trans "Already have an account?" %}
-                    <a href="{% url 'users:login' %}" class="fw-bold text-decoration-none" style="color:var(--primary);">{% trans "Sign in here" %}</a>
-                </p>
             </div>
 
+            <!-- Footer strip -->
+            <div class="reg-footer">
+                <div class="reg-fp"><i class="fas fa-shield-alt"></i>{% trans "Secure registration" %}</div>
+                <div class="reg-fp"><i class="fas fa-id-card"></i>{% trans "Digital membership card" %}</div>
+                <div class="reg-fp"><i class="fas fa-bolt"></i>{% trans "Instant community access" %}</div>
+            </div>
         </div>
     </div>
 </div>
@@ -243,23 +230,10 @@
 
 {% block extra_js %}
 <script>
-function togglePasswordVisibility(btn) {
-    const wrapper = btn.closest('.password-field-wrapper');
-    const input = wrapper ? wrapper.querySelector('input[type="password"], input[type="text"]') : null;
-    if (!input) return;
-    const isHidden = input.type === 'password';
-    input.type = isHidden ? 'text' : 'password';
-    const icon = btn.querySelector('i');
-    if (icon) {
-        icon.className = isHidden ? 'fas fa-eye-slash' : 'fas fa-eye';
-    }
+function togglePw(btn){
+    var i=btn.previousElementSibling, ic=btn.querySelector('i');
+    if(i.type==='password'){i.type='text';ic.className='fas fa-eye-slash';}
+    else{i.type='password';ic.className='fas fa-eye';}
 }
-
-// P0.7 fix: "with field_class" does not apply is-invalid to the widget.
-// Add is-invalid class to inputs that have .invalid-feedback siblings.
-document.querySelectorAll('.invalid-feedback').forEach(function(fb) {
-    var input = fb.parentElement.querySelector('input, select, textarea');
-    if (input) input.classList.add('is-invalid');
-});
 </script>
 {% endblock %}

@@ -91,7 +91,7 @@ def member_cabinet(request):
     _tg_ctx = {
         'telegram_linked': bool(user.telegram_chat_id),
         'telegram_bot_configured': bool(_token()),
-        'telegram_bot_name': os.environ.get('TELEGRAM_BOT_NAME', ''),
+        'telegram_bot_name': os.environ.get('TELEGRAM_BOT_NAME', 'IESA_Administrator_bot'),
     }
 
     if user.membership_status != 'active':
@@ -137,7 +137,7 @@ def member_cabinet(request):
         'user_name': user.get_full_name() or user.username,
         'telegram_linked': bool(user.telegram_chat_id),
         'telegram_bot_configured': bool(_token()),
-        'telegram_bot_name': os.environ.get('TELEGRAM_BOT_NAME', ''),
+        'telegram_bot_name': os.environ.get('TELEGRAM_BOT_NAME', 'IESA_Administrator_bot'),
     })
 
 
@@ -644,7 +644,7 @@ def connect_telegram_code_view(request):
 
     return render(request, "users/connect_telegram_code.html", {
         "error": error,
-        "telegram_bot_name": os.environ.get("TELEGRAM_BOT_NAME", ""),
+        "telegram_bot_name": os.environ.get('TELEGRAM_BOT_NAME', 'IESA_Administrator_bot'),
     })
 
 

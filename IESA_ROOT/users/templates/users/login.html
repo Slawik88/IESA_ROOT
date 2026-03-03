@@ -1,135 +1,131 @@
 {% extends "base.html" %}
-{% load i18n %}
+{% load i18n static %}
 
 {% block title %}{% trans "Sign In" %} | IESA{% endblock %}
 
 {% block extra_css %}
 <style>
-.auth-wrap {
-    min-height: calc(100vh - 70px);
-    background: #0a0a0f;
-    display: flex;
-    align-items: center;
-    padding: 3rem 0;
-}
-.auth-card-new {
-    border-radius: 24px;
-    overflow: hidden;
-    border: 1.5px solid rgba(255,255,255,.07);
-    box-shadow: 0 32px 80px rgba(0,0,0,.55);
-    max-width: 960px;
-    margin: 0 auto;
-}
-.auth-dark-side {
-    background: #111118;
-    padding: 3.5rem 3rem;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    position: relative;
-    overflow: hidden;
-    min-height: 440px;
-}
-.auth-dark-side::before {
-    content: '';
-    position: absolute;
-    top: -60%;
-    left: -40%;
-    width: 140%;
-    height: 140%;
-    background: radial-gradient(ellipse at 30% 40%, rgba(220,38,38,.3) 0%, transparent 60%);
-    pointer-events: none;
-}
-.auth-dark-side .auth-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: .5rem;
-    background: rgba(220,38,38,.15);
-    color: var(--primary);
-    border: 1px solid rgba(220,38,38,.3);
-    border-radius: 50px;
-    padding: .3rem .9rem;
-    font-size: .75rem;
-    font-weight: 700;
-    letter-spacing: .07em;
-    text-transform: uppercase;
-    margin-bottom: 1.5rem;
-    width: fit-content;
-}
-.auth-dark-side h2 {
-    font-size: clamp(1.6rem, 3.5vw, 2.4rem);
-    font-weight: 900;
-    color: #fff;
-    line-height: 1.15;
-    margin-bottom: 1rem;
-    position: relative;
-}
-.auth-dark-side .auth-desc {
-    color: rgba(255,255,255,.5);
-    font-size: .95rem;
-    margin-bottom: 1.8rem;
-    position: relative;
-}
-.auth-dark-side .auth-perks li {
-    display: flex;
-    align-items: center;
-    gap: .65rem;
-    color: rgba(255,255,255,.65);
-    font-size: .9rem;
-    margin-bottom: .75rem;
-    position: relative;
-}
-.auth-dark-side .check-icon {
-    width: 22px;
-    height: 22px;
-    border-radius: 50%;
-    background: rgba(220,38,38,.18);
-    color: var(--primary);
+/* ── Outer wrap ─────────────────────────────────── */
+.auth-page {
+    min-height: 100vh;
+    background: #07070e;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: .62rem;
-    flex-shrink: 0;
+    padding: 2rem 1rem;
+    position: relative;
+    overflow: hidden;
 }
-.auth-light-side {
-    background: #fff;
-    padding: 3.5rem 3rem;
+/* ── Animated gradient orbs ─────────────────────── */
+.auth-orb { position:absolute; border-radius:50%; filter:blur(110px); pointer-events:none; animation:orbFloat 9s ease-in-out infinite; }
+.auth-orb-1 { width:520px;height:520px; background:radial-gradient(circle,rgba(220,38,38,.22) 0%,transparent 70%); top:-20%;left:-12%; animation-delay:0s; }
+.auth-orb-2 { width:360px;height:360px; background:radial-gradient(circle,rgba(220,38,38,.12) 0%,transparent 70%); bottom:-10%;right:-5%; animation-delay:3.5s; }
+@keyframes orbFloat { 0%,100%{transform:translateY(0) scale(1)} 50%{transform:translateY(-28px) scale(1.04)} }
+/* ── Grid overlay ───────────────────────────────── */
+.auth-page::before {
+    content:''; position:absolute; inset:0;
+    background-image: linear-gradient(rgba(255,255,255,.012) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.012) 1px, transparent 1px);
+    background-size:52px 52px; pointer-events:none;
 }
-.auth-label {
-    display: flex;
-    align-items: center;
-    gap: .6rem;
-    font-size: .7rem;
-    font-weight: 800;
-    letter-spacing: .14em;
-    text-transform: uppercase;
-    color: var(--primary);
-    margin-bottom: 1.5rem;
+/* ── Card ───────────────────────────────────────── */
+.auth-card {
+    position:relative; z-index:2;
+    width:100%; max-width:980px;
+    border-radius:24px; overflow:hidden;
+    border:1px solid rgba(255,255,255,.07);
+    box-shadow: 0 0 0 1px rgba(220,38,38,.1), 0 40px 100px rgba(0,0,0,.7), inset 0 1px 0 rgba(255,255,255,.05);
+    display:flex;
 }
-.auth-label::before,
-.auth-label::after {
-    content: '';
-    flex: 1;
-    max-width: 36px;
-    height: 2px;
-    background: var(--primary);
-    opacity: .4;
+/* ── Left panel ─────────────────────────────────── */
+.al {
+    flex:0 0 40%; background:linear-gradient(155deg,#0e0d1a 0%,#100a0a 100%);
+    padding:3.5rem 2.8rem;
+    border-right:1px solid rgba(255,255,255,.06);
+    position:relative; overflow:hidden;
+    display:flex; flex-direction:column; justify-content:space-between;
 }
-.auth-light-side h3 {
-    font-size: 1.7rem;
-    font-weight: 900;
-    color: #0a0a0f;
-    margin-bottom: .35rem;
+.al::before { content:''; position:absolute; top:-90px;left:-80px; width:340px;height:340px; background:radial-gradient(circle,rgba(220,38,38,.3) 0%,transparent 65%); pointer-events:none; }
+.al::after  { content:''; position:absolute; bottom:-60px;right:-60px; width:240px;height:240px; background:radial-gradient(circle,rgba(220,38,38,.14) 0%,transparent 65%); pointer-events:none; }
+.al-logo { display:flex; align-items:center; gap:.75rem; position:relative;z-index:1; margin-bottom:3rem; }
+.al-logo img { height:36px; filter:drop-shadow(0 0 12px rgba(220,38,38,.5)); }
+.al-logo span { font-size:1.1rem; font-weight:900; color:#fff; letter-spacing:.04em; }
+.al-body { position:relative;z-index:1; flex:1; display:flex; flex-direction:column; justify-content:center; }
+.al-badge {
+    display:inline-flex; align-items:center; gap:.45rem;
+    background:rgba(220,38,38,.13); color:#ef4444; border:1px solid rgba(220,38,38,.28);
+    border-radius:50px; padding:.28rem .85rem;
+    font-size:.67rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase; font-family:'Courier New',monospace;
+    margin-bottom:1.4rem; width:fit-content;
 }
-.auth-light-side .auth-sub {
-    color: #6b7280;
-    font-size: .9rem;
-    margin-bottom: 2rem;
+.al-h { font-size:clamp(1.9rem,3.5vw,2.7rem); font-weight:900; color:#fff; line-height:1.08; margin-bottom:.9rem; letter-spacing:-.02em; }
+.al-h span { background:linear-gradient(135deg,#f87171,#dc2626); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+.al-desc { color:rgba(255,255,255,.42); font-size:.88rem; margin-bottom:2rem; line-height:1.6; }
+.al-perks { list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:.8rem; }
+.al-perk { display:flex; align-items:center; gap:.75rem; color:rgba(255,255,255,.58); font-size:.875rem; }
+.al-perk-ic { width:28px;height:28px; border-radius:8px; background:rgba(220,38,38,.14); border:1px solid rgba(220,38,38,.24); display:flex;align-items:center;justify-content:center; color:#ef4444; font-size:.7rem; flex-shrink:0; }
+.al-stats { display:flex; gap:1.5rem; padding-top:1.8rem; border-top:1px solid rgba(255,255,255,.06); position:relative;z-index:1; margin-top:2.5rem; }
+.al-stat-val { font-size:1.35rem; font-weight:900; color:#fff; line-height:1; }
+.al-stat-lbl { font-size:.62rem; color:rgba(255,255,255,.3); text-transform:uppercase; letter-spacing:.1em; font-family:'Courier New',monospace; margin-top:.2rem; }
+/* ── Right panel ────────────────────────────────── */
+.ar {
+    flex:1; background:rgba(255,255,255,.022);
+    padding:3.5rem 3.2rem;
+    display:flex; flex-direction:column; justify-content:center;
 }
-@media (max-width: 991px) {
-    .auth-dark-side { display: none; }
-    .auth-light-side { padding: 2.5rem 1.8rem; }
-    .auth-wrap { padding: 2rem 0; }
+.ar-ey {
+    display:flex; align-items:center; gap:.6rem;
+    font-size:.64rem; font-weight:800; letter-spacing:.2em; text-transform:uppercase;
+    color:#ef4444; font-family:'Courier New',monospace; margin-bottom:1.4rem;
+}
+.ar-ey::before,.ar-ey::after { content:''; flex:0 0 30px; height:1px; background:rgba(220,38,38,.38); }
+.ar-title { font-size:1.8rem; font-weight:900; color:#fff; margin-bottom:.3rem; letter-spacing:-.02em; }
+.ar-desc  { color:rgba(255,255,255,.3); font-size:.875rem; margin-bottom:2rem; }
+/* inputs */
+.af { margin-bottom:1.2rem; }
+.af label { display:block; font-size:.63rem; font-weight:700; letter-spacing:.14em; text-transform:uppercase; color:rgba(255,255,255,.4); font-family:'Courier New',monospace; margin-bottom:.45rem; }
+.af-wrap { position:relative; }
+.af-ic { position:absolute; left:.9rem; top:50%; transform:translateY(-50%); color:rgba(255,255,255,.22); font-size:.82rem; pointer-events:none; transition:color .2s; }
+.af-wrap input {
+    width:100%; background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.1);
+    border-radius:10px; padding:.72rem 1rem .72rem 2.6rem;
+    color:#fff; font-size:.95rem;
+    transition:border-color .2s,box-shadow .2s,background .2s; outline:none; -webkit-appearance:none;
+}
+.af-wrap input:focus { border-color:rgba(220,38,38,.6); background:rgba(220,38,38,.05); box-shadow:0 0 0 3px rgba(220,38,38,.12); }
+.af-wrap input:focus + .af-ic { color:#ef4444; }
+.af-wrap input.inv { border-color:rgba(239,68,68,.5); box-shadow:0 0 0 3px rgba(239,68,68,.1); }
+.af-wrap input::placeholder { color:rgba(255,255,255,.18); }
+.af-wrap input:-webkit-autofill,.af-wrap input:-webkit-autofill:focus { -webkit-box-shadow:0 0 0 1000px #12111c inset; -webkit-text-fill-color:#fff; border-color:rgba(255,255,255,.14); }
+.af-pw-btn { position:absolute; right:.9rem; top:50%; transform:translateY(-50%); background:none; border:none; color:rgba(255,255,255,.25); cursor:pointer; padding:.2rem; font-size:.82rem; transition:color .2s; line-height:1; }
+.af-pw-btn:hover { color:rgba(255,255,255,.6); }
+.af-wrap input.has-pw { padding-right:2.6rem; }
+.af-err { color:#f87171; font-size:.73rem; margin-top:.32rem; display:flex; align-items:center; gap:.3rem; }
+/* error banner */
+.auth-err-bar { background:rgba(220,38,38,.1); border:1px solid rgba(220,38,38,.28); border-radius:10px; padding:.75rem 1rem; color:#fca5a5; font-size:.875rem; display:flex; align-items:center; gap:.6rem; margin-bottom:1.7rem; }
+/* submit */
+.auth-btn {
+    width:100%; background:linear-gradient(135deg,#dc2626,#b91c1c);
+    border:none; border-radius:10px; padding:.85rem 1.5rem;
+    color:#fff; font-size:.95rem; font-weight:700; cursor:pointer;
+    transition:transform .15s,box-shadow .2s,filter .2s;
+    display:flex; align-items:center; justify-content:center; gap:.6rem; margin-top:.5rem;
+    box-shadow:0 4px 20px rgba(220,38,38,.35); letter-spacing:.02em;
+}
+.auth-btn:hover { filter:brightness(1.1); box-shadow:0 6px 30px rgba(220,38,38,.5); transform:translateY(-1px); }
+.auth-btn:active { transform:translateY(0); }
+/* divider + link */
+.ar-div { display:flex; align-items:center; gap:.75rem; color:rgba(255,255,255,.18); font-size:.73rem; margin:1.7rem 0; }
+.ar-div::before,.ar-div::after { content:''; flex:1; height:1px; background:rgba(255,255,255,.07); }
+.ar-link { text-align:center; color:rgba(255,255,255,.32); font-size:.875rem; }
+.ar-link a { color:#ef4444; font-weight:700; text-decoration:none; transition:color .2s; }
+.ar-link a:hover { color:#f87171; text-decoration:underline; }
+/* mobile */
+@media(max-width:768px){
+    .auth-card{flex-direction:column; max-width:460px; border-radius:20px;}
+    .al{flex:none; padding:1.8rem 1.6rem 1.4rem; border-right:none; border-bottom:1px solid rgba(255,255,255,.06);}
+    .al-body,.al-stats{display:none;}
+    .al-logo{margin-bottom:0;}
+    .ar{padding:2rem 1.6rem;}
 }
 </style>
 {% endblock %}
@@ -138,85 +134,87 @@
 {% block container_wrap_end %}{% endblock %}
 
 {% block content %}
-<div class="auth-wrap">
-    <div class="container">
-        <div class="auth-card-new row g-0">
+<div class="auth-page">
+    <div class="auth-orb auth-orb-1"></div>
+    <div class="auth-orb auth-orb-2"></div>
 
-            <!-- Dark left panel -->
-            <div class="col-lg-5 auth-dark-side">
-                <div style="position:relative;z-index:1;">
-                    <div class="auth-badge"><i class="fas fa-bolt me-1"></i>{% trans "IESA Members" %}</div>
-                    <h2>{% trans "Welcome back" %}</h2>
-                    <p class="auth-desc">{% trans "Sign in to manage your profile, create posts and discover events." %}</p>
-                    <ul class="list-unstyled auth-perks">
-                        <li><div class="check-icon"><i class="fas fa-check"></i></div>{% trans "Quick Access to Your Profile" %}</li>
-                        <li><div class="check-icon"><i class="fas fa-check"></i></div>{% trans "Community Engagement" %}</li>
-                        <li><div class="check-icon"><i class="fas fa-check"></i></div>{% trans "Event Updates & RSVP" %}</li>
-                    </ul>
-                </div>
+    <div class="auth-card">
+        <!-- LEFT -->
+        <div class="al">
+            <div class="al-logo">
+                <img src="{% static 'img/logo.png' %}" alt="IESA">
+                <span>IESA</span>
             </div>
+            <div class="al-body">
+                <div class="al-badge"><i class="fas fa-bolt"></i>{% trans "Members Portal" %}</div>
+                <h2 class="al-h">{% trans "Welcome" %}<br><span>{% trans "Back" %}</span></h2>
+                <p class="al-desc">{% trans "Sign in and connect with the IESA community — posts, events, benefits and more." %}</p>
+                <ul class="al-perks">
+                    <li class="al-perk"><div class="al-perk-ic"><i class="fas fa-id-card"></i></div>{% trans "Digital card & PIN code" %}</li>
+                    <li class="al-perk"><div class="al-perk-ic"><i class="fas fa-newspaper"></i></div>{% trans "Posts, feed & community" %}</li>
+                    <li class="al-perk"><div class="al-perk-ic"><i class="fas fa-calendar-alt"></i></div>{% trans "Events, RSVPs & benefits" %}</li>
+                </ul>
+            </div>
+            <div class="al-stats">
+                <div><div class="al-stat-val">IESA</div><div class="al-stat-lbl">{% trans "Platform" %}</div></div>
+                <div><div class="al-stat-val">24/7</div><div class="al-stat-lbl">{% trans "Access" %}</div></div>
+                <div><div class="al-stat-val">100%</div><div class="al-stat-lbl">{% trans "Secure" %}</div></div>
+            </div>
+        </div>
 
-            <!-- Light right panel -->
-            <div class="col-lg-7 auth-light-side">
-                <div class="auth-label">{% trans "SIGN IN" %}</div>
-                <h3>{% trans "Sign in to your account" %}</h3>
-                <p class="auth-sub">{% trans "Access your profile and connect with the community." %}</p>
+        <!-- RIGHT (FORM) -->
+        <div class="ar">
+            <div class="ar-ey">{% trans "SIGN IN" %}</div>
+            <h1 class="ar-title">{% trans "Access your account" %}</h1>
+            <p class="ar-desc">{% trans "Enter your credentials to continue." %}</p>
 
-                {% if form.errors %}
-                <div class="alert alert-danger alert-dismissible fade show mb-4 rounded-3" role="alert">
-                    <i class="fas fa-exclamation-circle me-2"></i>
-                    <strong>{% trans "Sign in failed!" %}</strong> {% trans "Invalid username or password. Please try again." %}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="{% trans 'Close' %}"></button>
-                </div>
-                {% endif %}
+            {% if form.errors %}
+            <div class="auth-err-bar">
+                <i class="fas fa-exclamation-triangle"></i>
+                <span>{% trans "Invalid username or password. Please try again." %}</span>
+            </div>
+            {% endif %}
 
-                <form method="post" novalidate>
-                    {% csrf_token %}
-                    {% for field in form %}
-                    <div class="mb-3">
-                        <label for="{{ field.id_for_label }}" class="form-label fw-500">{{ field.label }}</label>
+            <form method="post" novalidate>
+                {% csrf_token %}
+                {% for field in form %}
+                <div class="af">
+                    <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                    <div class="af-wrap">
                         {% if field.field.widget.input_type == "password" %}
-                            <div class="password-field-wrapper">
-                                {% if field.errors %}
-                                    {% with field_class="form-control is-invalid" %}{{ field }}{% endwith %}
-                                    <div class="invalid-feedback d-block">
-                                        {% for error in field.errors %}<i class="fas fa-times-circle me-1"></i>{{ error }}<br>{% endfor %}
-                                    </div>
-                                {% else %}
-                                    {{ field }}
-                                {% endif %}
-                                <button type="button" class="password-toggle-btn" onclick="togglePasswordVisibility(this)">
-                                    <i class="fas fa-eye"></i>
-                                </button>
-                            </div>
+                            <i class="fas fa-lock af-ic"></i>
+                            <input type="password" name="{{ field.html_name }}" id="{{ field.id_for_label }}" class="has-pw{% if field.errors %} inv{% endif %}" autocomplete="current-password" placeholder="••••••••">
+                            <button type="button" class="af-pw-btn" onclick="togglePw(this)" tabindex="-1"><i class="fas fa-eye"></i></button>
                         {% else %}
-                            {% if field.errors %}
-                                {% with field_class="form-control is-invalid" %}{{ field }}{% endwith %}
-                                <div class="invalid-feedback d-block">
-                                    {% for error in field.errors %}<i class="fas fa-times-circle me-1"></i>{{ error }}<br>{% endfor %}
-                                </div>
-                            {% else %}
-                                {{ field }}
-                            {% endif %}
+                            <i class="fas fa-user af-ic"></i>
+                            <input type="{{ field.field.widget.input_type }}" name="{{ field.html_name }}" id="{{ field.id_for_label }}" {% if field.value %}value="{{ field.value }}"{% endif %} class="{% if field.errors %}inv{% endif %}" autocomplete="username" placeholder="{{ field.label }}">
                         {% endif %}
                     </div>
-                    {% endfor %}
+                    {% for error in field.errors %}<div class="af-err"><i class="fas fa-times-circle"></i>{{ error }}</div>{% endfor %}
+                </div>
+                {% endfor %}
+                <input type="hidden" name="next" value="{{ next }}">
+                <button type="submit" class="auth-btn">
+                    <i class="fas fa-right-to-bracket"></i>{% trans "Sign In" %}
+                </button>
+            </form>
 
-                    <input type="hidden" name="next" value="{{ next }}">
-                    <button type="submit" class="btn hero-btn-p w-100 mt-3 py-2">
-                        <i class="fas fa-sign-in-alt me-2"></i>{% trans "Sign In" %}
-                    </button>
-                </form>
-
-                <hr class="my-4">
-
-                <p class="text-center text-muted mb-0">
-                    {% trans "Don't have an account?" %}
-                    <a href="{% url 'users:register' %}" class="fw-bold text-decoration-none" style="color:var(--primary);">{% trans "Register here" %}</a>
-                </p>
-            </div>
-
+            <div class="ar-div">{% trans "or" %}</div>
+            <p class="ar-link">
+                {% trans "Don't have an account?" %}
+                <a href="{% url 'users:register' %}">{% trans "Register here" %}</a>
+            </p>
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function togglePw(btn){
+    var i=btn.previousElementSibling, ic=btn.querySelector('i');
+    if(i.type==='password'){i.type='text';ic.className='fas fa-eye-slash';}
+    else{i.type='password';ic.className='fas fa-eye';}
+}
+</script>
 {% endblock %}
