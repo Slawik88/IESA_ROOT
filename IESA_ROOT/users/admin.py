@@ -68,7 +68,7 @@ class UserAdmin(BaseUserAdmin):
     add_form = CustomUserCreationForm
     form = CustomUserChangeForm
     model = User
-    list_display = ['username', 'email', 'first_name', 'last_name', 'membership_status', 'pseudonym', 'is_staff', 'is_verified', 'last_online', 'permanent_id', 'card_qr']
+    list_display = ['username', 'email', 'first_name', 'last_name', 'membership_status', 'pseudonym', 'is_staff', 'is_verified', 'is_partner', 'last_online', 'permanent_id', 'card_qr']
     list_filter = (CardStatusFilter, VerificationFilter, 'membership_status', 'is_staff', 'date_joined')
     
     fieldsets = (
@@ -76,7 +76,7 @@ class UserAdmin(BaseUserAdmin):
         (_('Personal information'), {'fields': ('first_name', 'last_name', 'email', 'avatar', 'date_of_birth', 'phone_number', 'is_phone_hidden')}),
         (_('Membership'), {'fields': ('membership_status', 'pseudonym', 'totp_secret_display')}),
         (_('Card QR & Actions'), {'fields': ('card_qr_with_actions', 'card_active', 'card_issued_at')}),
-        (_('Permissions'), {'fields': ('is_verified', 'is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions')}),
+        (_('Permissions'), {'fields': ('is_verified', 'is_partner', 'is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions')}),
         (_('Important dates'), {'fields': ('last_login', 'date_joined', 'last_online')}),
     )
     

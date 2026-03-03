@@ -93,6 +93,12 @@ class User(AbstractUser):
         default=False, 
         verbose_name=_('Verified User')
     )
+    is_partner = models.BooleanField(
+        default=False,
+        verbose_name=_('Partner Status'),
+        help_text=_('Grant partner portal access without displaying on homepage. '
+                    'Partner can log member visits via the partner portal.')
+    )
 
     # Permanent card identifier (immutable). Used for QR cards and stable linking.
     permanent_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False, verbose_name=_('Permanent ID'))
