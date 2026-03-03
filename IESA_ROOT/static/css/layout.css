@@ -676,7 +676,8 @@ main {
 .modal-light .modal-header { border-bottom: 1px solid rgba(0,0,0,.1); }
 .modal-light .modal-footer { border-top: 1px solid rgba(0,0,0,.1); }
 .modal .btn-close { filter: invert(1) brightness(2); }
-.modal-body { color: rgba(255,255,255,.7); }
+.modal-light .btn-close { filter: none; }
+.modal-body { color: var(--text-secondary); }
 
 /* Fix: search button positioning on mobile */
 @media (max-width: 991px) {
