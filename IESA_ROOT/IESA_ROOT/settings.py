@@ -137,9 +137,12 @@ DATABASES = {
 # Production database configuration (PostgreSQL via DATABASE_URL)
 if 'DATABASE_URL' in os.environ:
     import dj_database_url
-    # Use short-lived connections to reduce pool exhaustion.
-    # 0 = close connection after each request (safest for limited pools).
-    _CONN_MAX_AGE = int(os.getenv('DB_CONN_MAX_AGE', '0'))
+    # Persistent connections reduce pool exhaustion.
+    # With Daphne's sync-view thread pool (≤10 threads), CONN_MAX_AGE=60
+    # means at most ~10 long-lived DB connections instead of a fresh
+    # connection per concurrent request.  Override via DB_CONN_MAX_AGE env
+    # var (0 = close after each request; -1 = unlimited lifetime).
+    _CONN_MAX_AGE = int(os.getenv('DB_CONN_MAX_AGE', '60'))
     # DATABASE_POOL_URL can point to DigitalOcean PgBouncer (port 25061) for
     # transaction-mode connection pooling — highly recommended to prevent
     # "remaining connection slots are reserved for superuser" errors.
