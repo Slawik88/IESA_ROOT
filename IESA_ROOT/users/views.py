@@ -5,7 +5,7 @@ from django.urls import reverse_lazy
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.utils.decorators import method_decorator
 from django.contrib import messages
-from django.http import HttpResponseForbidden, Http404
+from django.http import HttpResponseForbidden, Http404, HttpResponse
 from django.db.models import Q, Count
 from django.utils.translation import gettext as _
 from django_ratelimit.decorators import ratelimit
@@ -312,7 +312,6 @@ def qr_image(request, permanent_id):
         ):
             return HttpResponseForbidden('Not allowed')
 
-    from django.http import HttpResponse
     response = HttpResponse(cached_data, content_type='image/png')
     if download:
         response['Content-Disposition'] = f'attachment; filename=qr_{user_obj.username}.png'

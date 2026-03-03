@@ -28,6 +28,10 @@ urlpatterns = [
     path('cabinet/', views_verification.member_cabinet, name='member_cabinet'),
     # Partner dashboard
     path('partner/dashboard/', views_verification.partner_dashboard, name='partner_dashboard'),
+    # Partner analytics
+    path('partner/analytics/', views_verification.partner_analytics, name='partner_analytics'),
+    # Partner profile edit
+    path('partner/profile/', views_verification.partner_profile_edit, name='partner_profile_edit'),
     # Log visit for a specific member
     path('partner/visit/<int:member_id>/', views_verification.log_visit, name='log_visit'),
     # Edit / cancel a visit (20-min window)

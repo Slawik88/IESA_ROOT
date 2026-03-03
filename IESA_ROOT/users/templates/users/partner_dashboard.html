@@ -1,559 +1,432 @@
 {% extends "base.html" %}
 {% load static i18n %}
 
-{% block title %}{% trans "Partner Dashboard" %} - {{ partner.company_name }}{% endblock %}
+{% block title %}{% trans "Partner Portal" %} — {{ partner.company_name }}{% endblock %}
 
 {% block extra_css %}
 <style>
-  .pd-page {
-    background: #0e0e18;
-    min-height: 100vh;
-    padding-bottom: 60px;
-  }
+/* ── BASE ─────────────────────────────────────────────────────────── */
+.pp-wrap {
+  background: #07070e;
+  min-height: 100vh;
+  padding-bottom: 80px;
+  color: #e2e8f0;
+}
 
-  /* ── Hero band ─────────────────────────────────────── */
-  .pd-hero {
-    background: #0a0a0f;
-    padding: 40px 16px 36px;
-    position: relative;
-    overflow: hidden;
-    border-bottom: 1px solid rgba(255,255,255,.06);
-    margin-bottom: 36px;
-  }
-  .pd-hero::before {
-    content: '';
-    position: absolute;
-    right: -60px; top: -60px;
-    width: 500px; height: 500px;
-    background: radial-gradient(circle, rgba(220,38,38,.10) 0%, transparent 70%);
-    pointer-events: none;
-  }
-  .pd-hero-inner {
-    max-width: 1360px;
-    margin: 0 auto;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 16px;
-  }
-  .pd-hero-title {
-    color: #fff;
-    font-size: 1.7rem;
-    font-weight: 800;
-    margin: 0 0 4px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-  .pd-hero-sub {
-    color: rgba(255,255,255,.4);
-    font-size: .9rem;
-    margin: 0;
-  }
-  .pd-active-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
-    padding: 8px 20px;
-    border-radius: 50px;
-    background: rgba(74,222,128,.1);
-    border: 1px solid rgba(74,222,128,.25);
-    color: #4ade80;
-    font-weight: 700;
-    font-size: .9rem;
-  }
+/* ── TOP NAV BAR ──────────────────────────────────────────────────── */
+.pp-nav {
+  background: #0d0d18;
+  border-bottom: 1px solid rgba(220,38,38,.18);
+  padding: 0 20px;
+  display: flex;
+  align-items: center;
+  gap: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.pp-nav::-webkit-scrollbar { display: none; }
+.pp-nav a {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 14px 20px;
+  color: rgba(255,255,255,.55);
+  text-decoration: none;
+  font-size: .82rem;
+  font-family: 'Courier New', monospace;
+  white-space: nowrap;
+  border-bottom: 2px solid transparent;
+  transition: color .2s, border-color .2s;
+}
+.pp-nav a:hover, .pp-nav a.active {
+  color: #ef4444;
+  border-bottom-color: #ef4444;
+}
+.pp-nav-brand {
+  font-size: .85rem;
+  font-weight: 700;
+  color: #fff !important;
+  margin-right: 10px;
+  letter-spacing: .05em;
+  border-bottom: none !important;
+}
 
-  /* ── Stat cards ────────────────────────────────────── */
-  .pd-stat {
-    border-radius: 16px;
-    border: 1.5px solid;
-    padding: 20px 22px;
-    position: relative;
-    overflow: hidden;
-    transition: transform .25s, box-shadow .25s;
-  }
-  .pd-stat:hover {
-    transform: translateY(-5px);
-  }
-  .pd-stat-red   { background: rgba(220,38,38,.07);  border-color: rgba(220,38,38,.2);  }
-  .pd-stat-pink  { background: rgba(236,72,153,.07); border-color: rgba(236,72,153,.2); }
-  .pd-stat-blue  { background: rgba(59,130,246,.07); border-color: rgba(59,130,246,.2); }
-  .pd-stat-green { background: rgba(74,222,128,.07); border-color: rgba(74,222,128,.2); }
-  .pd-stat:hover.pd-stat-red   { box-shadow: 0 10px 30px rgba(220,38,38,.15);  }
-  .pd-stat:hover.pd-stat-pink  { box-shadow: 0 10px 30px rgba(236,72,153,.15); }
-  .pd-stat:hover.pd-stat-blue  { box-shadow: 0 10px 30px rgba(59,130,246,.15); }
-  .pd-stat:hover.pd-stat-green { box-shadow: 0 10px 30px rgba(74,222,128,.15); }
-  .pd-stat-label {
-    font-size: .72rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: .1em;
-    margin-bottom: 8px;
-    opacity: .7;
-  }
-  .pd-stat-value {
-    font-size: 1.9rem;
-    font-weight: 800;
-    line-height: 1;
-  }
-  .pd-stat-icon {
-    position: absolute;
-    right: 18px; top: 50%;
-    transform: translateY(-50%);
-    font-size: 2.6rem;
-    opacity: .12;
-  }
-  .pd-stat-red   .pd-stat-label, .pd-stat-red   .pd-stat-value { color: #f87171; }
-  .pd-stat-pink  .pd-stat-label, .pd-stat-pink  .pd-stat-value { color: #f472b6; }
-  .pd-stat-blue  .pd-stat-label, .pd-stat-blue  .pd-stat-value { color: #60a5fa; }
-  .pd-stat-green .pd-stat-label, .pd-stat-green .pd-stat-value { color: #4ade80; }
+/* ── HERO ─────────────────────────────────────────────────────────── */
+.pp-hero {
+  background: linear-gradient(135deg, #0d0d18 0%, #12060d 100%);
+  padding: 40px 24px 36px;
+  position: relative;
+  overflow: hidden;
+  border-bottom: 1px solid rgba(255,255,255,.05);
+}
+.pp-hero::before {
+  content: '';
+  position: absolute;
+  right: -80px; top: -80px;
+  width: 520px; height: 520px;
+  background: radial-gradient(circle, rgba(220,38,38,.12) 0%, transparent 68%);
+  pointer-events: none;
+}
+.pp-hero-title {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #fff;
+  margin: 0 0 4px;
+}
+.pp-hero-sub {
+  font-size: .82rem;
+  color: rgba(255,255,255,.4);
+  font-family: 'Courier New', monospace;
+}
+.pp-hero-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  background: rgba(220,38,38,.15);
+  border: 1px solid rgba(220,38,38,.3);
+  border-radius: 20px;
+  font-size: .72rem;
+  color: #ef4444;
+  font-family: 'Courier New', monospace;
+  letter-spacing: .08em;
+  margin-bottom: 10px;
+}
 
-  /* ── Search card ───────────────────────────────────── */
-  .pd-search-card {
-    background: rgba(255,255,255,.03);
-    border: 1.5px solid rgba(255,255,255,.08);
-    border-radius: 20px;
-    overflow: hidden;
-  }
-  .pd-search-header {
-    background: rgba(220,38,38,.08);
-    border-bottom: 1px solid rgba(220,38,38,.15);
-    padding: 22px 24px;
-  }
-  .pd-search-header h4 { color: #fff; font-size: 1.05rem; font-weight: 700; margin: 0 0 4px; }
-  .pd-search-header small { color: rgba(255,255,255,.4); font-size: .8rem; }
-  .pd-search-body { padding: 20px; }
-  .pd-search-input {
-    width: 100%;
-    background: #1a1a24 !important;
-    border: 1.5px solid rgba(255,255,255,.1) !important;
-    border-radius: 12px !important;
-    color: #fff !important;
-    padding: 12px 16px !important;
-    font-size: 1rem !important;
-    transition: border-color .2s, box-shadow .2s;
-  }
-  .pd-search-input:focus {
-    border-color: rgba(220,38,38,.5) !important;
-    box-shadow: 0 0 0 3px rgba(220,38,38,.1) !important;
-    outline: none !important;
-  }
-  .pd-search-input::placeholder { color: rgba(255,255,255,.25) !important; }
-  .pd-search-btn {
-    width: 100%;
-    padding: 12px 20px;
-    border: none;
-    border-radius: 12px;
-    background: linear-gradient(135deg, #dc2626, #b91c1c);
-    color: #fff;
-    font-weight: 700;
-    font-size: .95rem;
-    cursor: pointer;
-    transition: all .2s;
-    margin-bottom: 4px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-  }
-  .pd-search-btn:hover { box-shadow: 0 8px 28px rgba(220,38,38,.4); transform: translateY(-1px); }
-  .htmx-indicator { display: none; }
-  .htmx-request .htmx-indicator { display: inline-block; }
-  .htmx-request.htmx-indicator { display: inline-block; }
-  @keyframes pd-spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-  .spinner { animation: pd-spin 1s linear infinite; }
+/* ── STATS STRIP ─────────────────────────────────────────────────── */
+.pp-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  padding: 24px 24px 0;
+}
+@media (max-width: 700px) { .pp-stats { grid-template-columns: repeat(2, 1fr); } }
+.pp-stat {
+  background: rgba(255,255,255,.025);
+  border: 1px solid rgba(255,255,255,.06);
+  border-radius: 12px;
+  padding: 18px 16px;
+}
+.pp-stat-label {
+  font-size: .7rem;
+  font-family: 'Courier New', monospace;
+  color: rgba(255,255,255,.4);
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  margin-bottom: 6px;
+}
+.pp-stat-val {
+  font-size: 1.65rem;
+  font-weight: 700;
+  color: #fff;
+  line-height: 1;
+}
+.pp-stat-val.red { color: #ef4444; }
+.pp-stat-detail { font-size: .72rem; color: rgba(255,255,255,.3); margin-top: 4px; }
 
-  /* ── Visits card ───────────────────────────────────── */
-  .pd-visits-card {
-    background: rgba(255,255,255,.03);
-    border: 1.5px solid rgba(255,255,255,.08);
-    border-radius: 20px;
-    overflow: hidden;
-  }
-  .pd-visits-header {
-    background: rgba(74,222,128,.06);
-    border-bottom: 1px solid rgba(74,222,128,.15);
-    padding: 18px 22px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-  }
-  .pd-visits-header h5 { color: #fff; font-size: 1rem; font-weight: 700; margin: 0; }
+/* ── SECTION ──────────────────────────────────────────────────────── */
+.pp-section { padding: 28px 24px 0; }
+.pp-section-title {
+  font-size: .78rem;
+  font-family: 'Courier New', monospace;
+  color: rgba(255,255,255,.35);
+  text-transform: uppercase;
+  letter-spacing: .1em;
+  margin-bottom: 14px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255,255,255,.06);
+}
 
-  /* "Test Email" button */
-  .pd-test-email-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 7px 14px;
-    border-radius: 8px;
-    border: 1.5px solid rgba(255,255,255,.12);
-    background: transparent;
-    color: rgba(255,255,255,.6);
-    font-size: .82rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all .2s;
-  }
-  .pd-test-email-btn:hover { color: #fff; border-color: rgba(255,255,255,.28); background: rgba(255,255,255,.04); }
+/* ── SEARCH FORM ─────────────────────────────────────────────────── */
+.pp-search-form { display: flex; gap: 10px; margin-bottom: 16px; }
+.pp-search-form input {
+  flex: 1;
+  background: rgba(255,255,255,.04);
+  border: 1px solid rgba(220,38,38,.2);
+  border-radius: 8px;
+  color: #e2e8f0;
+  padding: 10px 16px;
+  font-size: .9rem;
+  outline: none;
+  transition: border-color .2s;
+}
+.pp-search-form input:focus { border-color: #ef4444; background: rgba(255,255,255,.06); }
+.pp-search-form input::placeholder { color: rgba(255,255,255,.25); }
 
-  /* Table */
-  .pd-table { width: 100%; border-collapse: collapse; }
-  .pd-table thead tr { background: rgba(255,255,255,.04); border-bottom: 1px solid rgba(255,255,255,.07); }
-  .pd-table thead th {
-    padding: 12px 14px;
-    color: rgba(255,255,255,.4);
-    font-size: .75rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: .06em;
-  }
-  .pd-table tbody tr { border-bottom: 1px solid rgba(255,255,255,.04); transition: background .15s; }
-  .pd-table tbody tr:last-child { border-bottom: none; }
-  .pd-table tbody tr:hover { background: rgba(255,255,255,.025); }
-  .pd-table td { padding: 12px 14px; color: rgba(255,255,255,.8); font-size: .88rem; vertical-align: middle; }
-  .pd-table td strong { color: #fff; }
-  .pd-table td small { color: rgba(255,255,255,.35); }
+/* ── BUTTONS ──────────────────────────────────────────────────────── */
+.pp-btn {
+  background: #dc2626;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 20px;
+  font-size: .85rem;
+  font-family: 'Courier New', monospace;
+  cursor: pointer;
+  transition: background .2s;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+.pp-btn:hover { background: #ef4444; color: #fff; }
 
-  /* Member avatar in table */
-  .pd-tbl-avatar { width: 38px; height: 38px; border-radius: 50%; object-fit: cover; border: 2px solid rgba(220,38,38,.35); }
-  .pd-tbl-avatar-ph {
-    width: 38px; height: 38px; border-radius: 50%;
-    background: rgba(220,38,38,.1); border: 2px solid rgba(220,38,38,.25);
-    display: flex; align-items: center; justify-content: center;
-    color: rgba(220,38,38,.6); font-size: .85rem;
-  }
+/* ── MEMBER CARDS ─────────────────────────────────────────────────── */
+.pp-member-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 10px;
+  margin-top: 4px;
+}
+.pp-member-card {
+  background: rgba(255,255,255,.03);
+  border: 1px solid rgba(255,255,255,.07);
+  border-radius: 10px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.pp-member-name { font-size: .9rem; font-weight: 600; color: #fff; }
+.pp-member-meta { font-size: .75rem; color: rgba(255,255,255,.35); font-family: 'Courier New', monospace; }
+.pp-member-status-active { font-size: .7rem; color: #4ade80; background: rgba(74,222,128,.1); border-radius: 20px; padding: 2px 8px; display: inline-block; }
+.pp-member-status-inactive { font-size: .7rem; color: #f87171; background: rgba(248,113,113,.1); border-radius: 20px; padding: 2px 8px; display: inline-block; }
 
-  /* Status / service badges */
-  .pd-badge {
-    display: inline-flex; align-items: center; gap: 5px;
-    padding: 3px 10px; border-radius: 50px;
-    font-size: .75rem; font-weight: 700;
-  }
-  .pd-badge-success { background: rgba(74,222,128,.1);  border: 1px solid rgba(74,222,128,.25);  color: #4ade80; }
-  .pd-badge-danger  { background: rgba(239,68,68,.1);   border: 1px solid rgba(239,68,68,.25);   color: #f87171; }
-  .pd-badge-warning { background: rgba(245,158,11,.1);  border: 1px solid rgba(245,158,11,.25);  color: #fbbf24; }
-  .pd-badge-muted   { background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.12); color: rgba(255,255,255,.4); }
-  .pd-badge-info    { background: rgba(59,130,246,.1);  border: 1px solid rgba(59,130,246,.25);  color: #60a5fa; }
+/* ── TABLE ────────────────────────────────────────────────────────── */
+.pp-table-wrap {
+  overflow-x: auto;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,.06);
+  background: rgba(255,255,255,.02);
+}
+.pp-table { width: 100%; border-collapse: collapse; font-size: .83rem; }
+.pp-table th {
+  padding: 10px 14px;
+  text-align: left;
+  font-family: 'Courier New', monospace;
+  font-size: .7rem;
+  color: rgba(255,255,255,.35);
+  text-transform: uppercase;
+  letter-spacing: .07em;
+  border-bottom: 1px solid rgba(255,255,255,.06);
+  background: rgba(255,255,255,.02);
+  white-space: nowrap;
+}
+.pp-table td {
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(255,255,255,.04);
+  color: #cbd5e1;
+  vertical-align: middle;
+}
+.pp-table tr:last-child td { border-bottom: none; }
+.pp-table tr:hover td { background: rgba(255,255,255,.025); }
+.pp-badge { font-size: .68rem; font-family: 'Courier New', monospace; padding: 2px 8px; border-radius: 20px; }
+.pp-badge-active   { background: rgba(74,222,128,.12);   color: #4ade80; }
+.pp-badge-edited   { background: rgba(250,204,21,.10);    color: #fbbf24; }
+.pp-badge-cancelled{ background: rgba(248,113,113,.10);   color: #f87171; }
+.pp-badge-verified  { background: rgba(74,222,128,.12);   color: #4ade80; }
+.pp-badge-unverified{ background: rgba(255,255,255,.06);  color: rgba(255,255,255,.4); }
+.pp-act-link {
+  color: rgba(255,255,255,.4);
+  font-size: .75rem;
+  text-decoration: none;
+  padding: 3px 8px;
+  border-radius: 5px;
+  font-family: 'Courier New', monospace;
+  transition: color .2s, background .2s;
+}
+.pp-act-link:hover { color: #ef4444; background: rgba(220,38,38,.08); }
+.pp-act-link.danger:hover { color: #f87171; background: rgba(248,113,113,.08); }
 
-  /* Action buttons */
-  .pd-action-btn {
-    display: inline-flex; align-items: center; justify-content: center;
-    width: 32px; height: 32px; border-radius: 8px;
-    border: 1.5px solid; background: transparent;
-    font-size: .8rem; text-decoration: none; transition: all .15s;
-  }
-  .pd-action-btn-edit   { border-color: rgba(245,158,11,.3); color: #fbbf24; }
-  .pd-action-btn-edit:hover  { background: rgba(245,158,11,.1); color: #fbbf24; }
-  .pd-action-btn-cancel { border-color: rgba(239,68,68,.3);  color: #f87171; }
-  .pd-action-btn-cancel:hover { background: rgba(239,68,68,.1); color: #f87171; }
+/* ── PAGINATION ───────────────────────────────────────────────────── */
+.pp-pagination { display: flex; gap: 8px; justify-content: center; padding: 20px 0 0; flex-wrap: wrap; }
+.pp-pagination a, .pp-pagination span {
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: .8rem;
+  font-family: 'Courier New', monospace;
+  color: rgba(255,255,255,.5);
+  background: rgba(255,255,255,.04);
+  text-decoration: none;
+  border: 1px solid rgba(255,255,255,.07);
+}
+.pp-pagination a:hover { color: #ef4444; border-color: rgba(220,38,38,.3); }
+.pp-pagination .current { color: #ef4444; border-color: rgba(220,38,38,.35); background: rgba(220,38,38,.07); }
 
-  /* Empty state */
-  .pd-empty {
-    text-align: center;
-    padding: 48px 16px;
-    color: rgba(255,255,255,.25);
-  }
-  .pd-empty i { font-size: 4rem; margin-bottom: 16px; opacity: .3; }
-  .pd-empty h5 { color: rgba(255,255,255,.4); margin-bottom: 6px; }
-
-  /* Pagination */
-  .pd-pagination {
-    padding: 16px 20px;
-    border-top: 1px solid rgba(255,255,255,.06);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-  }
-  .pd-page-btn {
-    display: inline-flex; align-items: center; gap: 6px;
-    padding: 7px 16px; border-radius: 9px;
-    border: 1.5px solid rgba(255,255,255,.1);
-    background: transparent; color: rgba(255,255,255,.6);
-    font-size: .85rem; font-weight: 600; text-decoration: none;
-    transition: all .2s;
-  }
-  .pd-page-btn:hover { border-color: rgba(255,255,255,.28); color: #fff; background: rgba(255,255,255,.04); }
-  .pd-page-info { color: rgba(255,255,255,.35); font-size: .83rem; }
-
-  /* cost green */
-  .pd-cost { color: #4ade80; font-weight: 700; }
-
-  /* Apply dark overrides to HTMX-rendered search inputs via widget */
-  #id_query {
-    width: 100% !important;
-    background: #1a1a24 !important;
-    border: 1.5px solid rgba(255,255,255,.1) !important;
-    border-radius: 12px !important;
-    color: #fff !important;
-    padding: 12px 16px !important;
-    font-size: 1rem !important;
-  }
-  #id_query:focus {
-    border-color: rgba(220,38,38,.5) !important;
-    box-shadow: 0 0 0 3px rgba(220,38,38,.1) !important;
-    outline: none !important;
-  }
+/* ── EMPTY STATE ──────────────────────────────────────────────────── */
+.pp-empty { text-align: center; padding: 48px 20px; color: rgba(255,255,255,.25); font-family: 'Courier New', monospace; font-size: .82rem; }
+.pp-empty-icon { font-size: 2.5rem; display: block; margin-bottom: 10px; }
 </style>
 {% endblock %}
 
-{% block container_wrap_start %}{% endblock %}
-{% block container_wrap_end %}{% endblock %}
-
 {% block content %}
-<div class="pd-page">
+<div class="pp-wrap">
 
-  <!-- Hero band -->
-  <div class="pd-hero">
-    <div class="pd-hero-inner">
-      <div>
-        <h2 class="pd-hero-title">
-          <i class="fas fa-briefcase" style="color:var(--primary);"></i>
-          {{ partner.company_name }}
-        </h2>
-        <p class="pd-hero-sub">
-          <i class="fas fa-building me-1"></i>{{ partner.get_business_type_display }}
-          &nbsp;·&nbsp;
-          <i class="fas fa-user-shield me-1"></i>{% trans "Partner Dashboard" %}
-        </p>
-      </div>
-      <div>
-        <span class="pd-active-badge">
-          <i class="fas fa-check-circle"></i>{% trans "Active Partner" %}
-        </span>
+  {% if messages %}
+    <div style="padding:12px 24px 0;">
+      {% for msg in messages %}
+        <div style="background:{% if msg.level >= 40 %}rgba(220,38,38,.12){% elif msg.level >= 30 %}rgba(250,204,21,.10){% else %}rgba(74,222,128,.10){% endif %};border:1px solid {% if msg.level >= 40 %}rgba(220,38,38,.35){% elif msg.level >= 30 %}rgba(250,204,21,.35){% else %}rgba(74,222,128,.35){% endif %};border-radius:8px;padding:10px 14px;font-size:.82rem;color:{% if msg.level >= 40 %}#f87171{% elif msg.level >= 30 %}#fbbf24{% else %}#4ade80{% endif %};margin-bottom:6px;">{{ msg }}</div>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  <!-- PARTNER NAV -->
+  <nav class="pp-nav">
+    <a href="{% url 'users:partner_dashboard' %}" class="pp-nav-brand">⬡ IESA PARTNER</a>
+    <a href="{% url 'users:partner_dashboard' %}" class="active">{% trans "Dashboard" %}</a>
+    <a href="{% url 'users:partner_analytics' %}">{% trans "Analytics" %}</a>
+    <a href="{% url 'users:partner_profile_edit' %}">{% trans "Company Profile" %}</a>
+  </nav>
+
+  <!-- HERO -->
+  <div class="pp-hero">
+    <div style="position:relative;z-index:1;max-width:900px;">
+      <div class="pp-hero-badge">PARTNER PORTAL</div>
+      <div class="pp-hero-title">{{ partner.company_name }}</div>
+      <div class="pp-hero-sub">
+        {{ partner.get_business_type_display }}&nbsp;&nbsp;·&nbsp;&nbsp;
+        {% trans "Partner since" %} {{ partner.created_at|date:"M Y" }}
       </div>
     </div>
   </div>
 
-  <div style="max-width:1360px;margin:0 auto;padding:0 16px;">
+  <!-- STATS -->
+  <div class="pp-stats">
+    <div class="pp-stat">
+      <div class="pp-stat-label">{% trans "Total Visits" %}</div>
+      <div class="pp-stat-val red">{{ total_visits }}</div>
+      <div class="pp-stat-detail">{% trans "all time" %}</div>
+    </div>
+    <div class="pp-stat">
+      <div class="pp-stat-label">{% trans "PIN Verified" %}</div>
+      <div class="pp-stat-val">{{ verified_visits }}</div>
+      <div class="pp-stat-detail">{% if total_visits %}{{ verified_visits }}/{{ total_visits }}{% else %}—{% endif %}</div>
+    </div>
+    <div class="pp-stat">
+      <div class="pp-stat-label">CHF {% trans "Revenue" %}</div>
+      <div class="pp-stat-val">{{ total_cost|floatformat:0 }}</div>
+      <div class="pp-stat-detail">{% trans "total logged" %}</div>
+    </div>
+    <div class="pp-stat">
+      <div class="pp-stat-label">{% trans "Unique Members" %}</div>
+      <div class="pp-stat-val">{{ unique_members }}</div>
+      <div class="pp-stat-detail">{% trans "served" %}</div>
+    </div>
+  </div>
 
-    <!-- Stat Cards -->
-    <div class="row g-3 mb-4">
-      <div class="col-6 col-md-3">
-        <div class="pd-stat pd-stat-red">
-          <div class="pd-stat-label">{% trans "Total Visits" %}</div>
-          <div class="pd-stat-value">{{ total_visits }}</div>
-          <i class="fas fa-clipboard-list pd-stat-icon"></i>
+  <!-- MEMBER SEARCH -->
+  <div class="pp-section">
+    <div class="pp-section-title">{% trans "// member_search" %}</div>
+    <form method="get" action="" class="pp-search-form">
+      {{ search_form.query }}
+      <button type="submit" class="pp-btn">🔍 {% trans "Search" %}</button>
+    </form>
+
+    {% if search_results is not None %}
+      {% if search_results %}
+        <div class="pp-member-grid">
+          {% for u in search_results %}
+            <div class="pp-member-card">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+                <div class="pp-member-name">{{ u.get_full_name|default:u.username }}</div>
+                {% if u.membership_status == 'active' %}
+                  <span class="pp-member-status-active">● {% trans "ACTIVE" %}</span>
+                {% else %}
+                  <span class="pp-member-status-inactive">● {{ u.get_membership_status_display }}</span>
+                {% endif %}
+              </div>
+              {% if u.pseudonym %}<div class="pp-member-meta">@{{ u.pseudonym }}</div>{% endif %}
+              <a href="{% url 'users:log_visit' u.pk %}" class="pp-btn" style="font-size:.78rem;padding:7px 14px;margin-top:4px;justify-content:center;">
+                + {% trans "Log Visit" %}
+              </a>
+            </div>
+          {% endfor %}
         </div>
-      </div>
-      <div class="col-6 col-md-3">
-        <div class="pd-stat pd-stat-pink">
-          <div class="pd-stat-label">{% trans "Verified Visits" %}</div>
-          <div class="pd-stat-value">{{ verified_visits }}</div>
-          <i class="fas fa-check-double pd-stat-icon"></i>
+      {% else %}
+        <div class="pp-empty">
+          <span class="pp-empty-icon">🔍</span>
+          {% trans "No members found for" %} «{{ search_form.query.value }}»
         </div>
-      </div>
-      <div class="col-6 col-md-3">
-        <div class="pd-stat pd-stat-blue">
-          <div class="pd-stat-label">{% trans "Total Cost" %}</div>
-          <div class="pd-stat-value">{{ total_cost|floatformat:2 }}&nbsp;<span style="font-size:1rem;opacity:.6;">CHF</span></div>
-          <i class="fas fa-coins pd-stat-icon"></i>
-        </div>
-      </div>
-      <div class="col-6 col-md-3">
-        <div class="pd-stat pd-stat-green">
-          <div class="pd-stat-label">{% trans "Unique Members" %}</div>
-          <div class="pd-stat-value">{{ unique_members }}</div>
-          <i class="fas fa-users pd-stat-icon"></i>
-        </div>
-      </div>
+      {% endif %}
+    {% endif %}
+  </div>
+
+  <!-- VISIT HISTORY -->
+  <div class="pp-section" style="margin-top:18px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid rgba(255,255,255,.06);">
+      <span class="pp-section-title" style="margin-bottom:0;padding-bottom:0;border:none;">{% trans "// visit_history" %}</span>
+      <a href="{% url 'users:partner_analytics' %}" style="font-size:.75rem;font-family:'Courier New',monospace;color:rgba(220,38,38,.7);text-decoration:none;">{% trans "view analytics →" %}</a>
     </div>
 
-    <div class="row g-4">
-
-      <!-- Live Search -->
-      <div class="col-lg-5">
-        <div class="pd-search-card">
-          <div class="pd-search-header">
-            <h4><i class="fas fa-search-plus me-2"></i>{% trans "Live Member Search" %}</h4>
-            <small><i class="fas fa-info-circle me-1"></i>{% trans "Search by name, username, or permanent ID (UUID)" %}</small>
-          </div>
-          <div class="pd-search-body">
-            <form hx-get="{% url 'users:partner_dashboard' %}"
-                  hx-trigger="keyup changed delay:300ms from:#id_query"
-                  hx-target="#search-results-container"
-                  hx-indicator="#search-loading">
-              <div class="mb-3 position-relative">
-                {{ search_form.query }}
-                <div id="search-loading" class="htmx-indicator position-absolute" style="right:14px;top:50%;transform:translateY(-50%);">
-                  <i class="fas fa-spinner spinner" style="color:var(--primary);"></i>
-                </div>
-              </div>
-              <button type="submit" class="pd-search-btn">
-                <i class="fas fa-search"></i>{% trans "Search Now" %}
-              </button>
-            </form>
-            <div id="search-results-container" style="margin-top:8px;">
-              <hr style="border-color:rgba(255,255,255,.07);margin:16px 0;">
-              {% include 'users/partials/partner_search_results.html' %}
-            </div>
-          </div>
-        </div>
+    {% if visits.object_list %}
+      <div class="pp-table-wrap">
+        <table class="pp-table">
+          <thead>
+            <tr>
+              <th>{% trans "DATE" %}</th>
+              <th>{% trans "MEMBER" %}</th>
+              <th>{% trans "SERVICE" %}</th>
+              <th>CHF</th>
+              <th>{% trans "PIN" %}</th>
+              <th>{% trans "STATUS" %}</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for visit in visits %}
+              <tr>
+                <td style="white-space:nowrap;color:rgba(255,255,255,.4);font-size:.75rem;font-family:'Courier New',monospace;">
+                  {{ visit.timestamp|date:"d M H:i" }}
+                </td>
+                <td>
+                  <span style="color:#e2e8f0;font-weight:500;">{{ visit.member.get_full_name|default:visit.member.username }}</span>
+                  {% if visit.member.pseudonym %}<br><span style="font-size:.72rem;color:rgba(255,255,255,.3);">@{{ visit.member.pseudonym }}</span>{% endif %}
+                </td>
+                <td style="color:rgba(255,255,255,.65);">{{ visit.get_service_type_display }}</td>
+                <td>{% if visit.cost %}<span style="color:#e2e8f0;">{{ visit.cost }}</span>{% else %}<span style="color:rgba(255,255,255,.2);">—</span>{% endif %}</td>
+                <td>{% if visit.pin_verified %}<span class="pp-badge pp-badge-verified">✓ VERIF</span>{% else %}<span class="pp-badge pp-badge-unverified">UNVERIF</span>{% endif %}</td>
+                <td><span class="pp-badge pp-badge-{{ visit.status|lower }}">{{ visit.status }}</span></td>
+                <td style="white-space:nowrap;">
+                  {% if visit.status == 'ACTIVE' %}
+                    {% with age_secs=visit.timestamp|timesince %}
+                      {# Use server-side window check via context var #}
+                    {% endwith %}
+                    {% if visit.timestamp >= edit_window_cutoff %}
+                      <a href="{% url 'users:edit_visit' visit.pk %}" class="pp-act-link">{% trans "edit" %}</a>
+                      <a href="{% url 'users:cancel_visit' visit.pk %}" class="pp-act-link danger">{% trans "cancel" %}</a>
+                    {% endif %}
+                  {% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
       </div>
 
-      <!-- Recent Visits -->
-      <div class="col-lg-7">
-        <div class="pd-visits-card">
-          <div class="pd-visits-header">
-            <h5><i class="fas fa-history me-2"></i>{% trans "Recent Visits" %}</h5>
-            <button class="pd-test-email-btn" id="testEmailBtn" title="{% trans 'Send test email to verify SMTP' %}">
-              <i class="fas fa-envelope"></i>{% trans "Test Email" %}
-            </button>
-          </div>
-
-          {% if visits %}
-            <div class="table-responsive">
-              <table class="pd-table">
-                <thead>
-                  <tr>
-                    <th style="padding-left:20px;">{% trans "Date" %}</th>
-                    <th>{% trans "Member" %}</th>
-                    <th>{% trans "Service" %}</th>
-                    <th>{% trans "Cost" %}</th>
-                    <th>{% trans "Status" %}</th>
-                    <th>{% trans "Actions" %}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {% for visit in visits %}
-                  <tr>
-                    <td style="padding-left:20px;white-space:nowrap;" data-label="{% trans 'Date' %}">
-                      <strong>{{ visit.timestamp|date:"d M Y" }}</strong><br>
-                      <small>{{ visit.timestamp|time:"H:i" }}</small>
-                    </td>
-                    <td data-label="{% trans 'Member' %}">
-                      <div class="d-flex align-items-center gap-2">
-                        {% if visit.member.avatar and visit.member.avatar.name != 'avatars/default.png' %}
-                          <img src="{{ visit.member.avatar.url }}" alt="{{ visit.member.username }}" class="pd-tbl-avatar">
-                        {% else %}
-                          <div class="pd-tbl-avatar-ph"><i class="fas fa-user"></i></div>
-                        {% endif %}
-                        <div>
-                          <strong>{{ visit.member.first_name }} {{ visit.member.last_name }}</strong><br>
-                          <small>@{{ visit.member.username }}</small>
-                        </div>
-                      </div>
-                    </td>
-                    <td data-label="{% trans 'Service' %}">
-                      <span class="pd-badge pd-badge-info">{{ visit.get_service_type_display }}</span>
-                      {% if visit.service_description %}
-                        <br><small>{{ visit.service_description|truncatewords:5 }}</small>
-                      {% endif %}
-                    </td>
-                    <td data-label="{% trans 'Cost' %}">
-                      {% if visit.cost %}
-                        <span class="pd-cost">{{ visit.cost }} CHF</span>
-                      {% else %}
-                        <span style="color:rgba(255,255,255,.2);">—</span>
-                      {% endif %}
-                    </td>
-                    <td data-label="{% trans 'Status' %}">
-                      {% if visit.status == 'CANCELLED' %}
-                        <span class="pd-badge pd-badge-danger"><i class="fas fa-ban"></i>{% trans "Cancelled" %}</span>
-                      {% elif visit.status == 'EDITED' %}
-                        <span class="pd-badge pd-badge-warning"><i class="fas fa-pencil-alt"></i>{% trans "Edited" %}</span>
-                      {% else %}
-                        {% if visit.pin_verified %}
-                          <span class="pd-badge pd-badge-success"><i class="fas fa-check"></i>{% trans "Verified" %}</span>
-                        {% else %}
-                          <span class="pd-badge pd-badge-muted"><i class="fas fa-clock"></i>{% trans "Pending" %}</span>
-                        {% endif %}
-                      {% endif %}
-                    </td>
-                    <td data-label="{% trans 'Actions' %}" style="white-space:nowrap;">
-                      {% if visit.status != 'CANCELLED' %}
-                        <a href="{% url 'users:edit_visit' visit.id %}" class="pd-action-btn pd-action-btn-edit me-1" title="{% trans 'Edit visit' %}">
-                          <i class="fas fa-pencil-alt"></i>
-                        </a>
-                        <a href="{% url 'users:cancel_visit' visit.id %}" class="pd-action-btn pd-action-btn-cancel" title="{% trans 'Cancel visit' %}">
-                          <i class="fas fa-ban"></i>
-                        </a>
-                      {% else %}
-                        <span style="color:rgba(255,255,255,.18);">—</span>
-                      {% endif %}
-                    </td>
-                  </tr>
-                  {% endfor %}
-                </tbody>
-              </table>
-            </div>
-
-            {% if visits.has_other_pages %}
-            <div class="pd-pagination">
-              {% if visits.has_previous %}
-                <a href="?page={{ visits.previous_page_number }}" class="pd-page-btn">
-                  <i class="fas fa-chevron-left"></i>{% trans "Previous" %}
-                </a>
-              {% endif %}
-              <span class="pd-page-info">
-                {% blocktrans with page=visits.number total=visits.paginator.num_pages %}Page {{ page }} of {{ total }}{% endblocktrans %}
-              </span>
-              {% if visits.has_next %}
-                <a href="?page={{ visits.next_page_number }}" class="pd-page-btn">
-                  {% trans "Next" %}<i class="fas fa-chevron-right"></i>
-                </a>
-              {% endif %}
-            </div>
-            {% endif %}
-
-          {% else %}
-            <div class="pd-empty">
-              <div><i class="fas fa-clipboard-list"></i></div>
-              <h5>{% trans "No Visits Yet" %}</h5>
-              <p>{% trans "Use the search to find members and log your first visit!" %}</p>
-            </div>
+      {% if visits.has_other_pages %}
+        <div class="pp-pagination">
+          {% if visits.has_previous %}
+            <a href="?page={{ visits.previous_page_number }}{% if request.GET.query %}&query={{ request.GET.query }}{% endif %}">‹ {% trans "prev" %}</a>
           {% endif %}
-
+          {% for num in visits.paginator.page_range %}
+            {% if visits.number == num %}
+              <span class="current">{{ num }}</span>
+            {% elif num > visits.number|add:"-3" and num < visits.number|add:"3" %}
+              <a href="?page={{ num }}{% if request.GET.query %}&query={{ request.GET.query }}{% endif %}">{{ num }}</a>
+            {% endif %}
+          {% endfor %}
+          {% if visits.has_next %}
+            <a href="?page={{ visits.next_page_number }}{% if request.GET.query %}&query={{ request.GET.query }}{% endif %}">{% trans "next" %} ›</a>
+          {% endif %}
         </div>
-      </div><!-- /col -->
+      {% endif %}
 
-    </div><!-- /row -->
-  </div><!-- /container -->
-</div><!-- /pd-page -->
-{% endblock %}
+    {% else %}
+      <div class="pp-empty">
+        <span class="pp-empty-icon">📋</span>
+        {% trans "No visits logged yet. Use member search above to log your first visit." %}
+      </div>
+    {% endif %}
+  </div>
 
-{% block extra_js %}
-<script>
-  const testBtn = document.getElementById('testEmailBtn');
-  if (testBtn) {
-    testBtn.addEventListener('click', function () {
-      testBtn.disabled = true;
-      testBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Sending…';
-      fetch("{% url 'users:test_email' %}", {
-        method: 'POST',
-        headers: {
-          'X-CSRFToken': '{{ csrf_token }}',
-          'Content-Type': 'application/json',
-        },
-      })
-      .then(r => r.json())
-      .then(data => {
-        if (data.status === 'ok') {
-          testBtn.textContent = '✅ Sent!';
-          testBtn.style.color = '#4ade80';
-          testBtn.style.borderColor = 'rgba(74,222,128,.35)';
-        } else {
-          testBtn.textContent = '❌ ' + (data.message || 'Error');
-          testBtn.style.color = '#f87171';
-          testBtn.style.borderColor = 'rgba(239,68,68,.35)';
-        }
-      })
-      .catch(() => {
-        testBtn.textContent = '❌ Network error';
-        testBtn.style.color = '#f87171';
-      })
-      .finally(() => {
-        testBtn.disabled = false;
-        setTimeout(() => {
-          testBtn.innerHTML = '<i class="fas fa-envelope me-1"></i>{% trans "Test Email" %}';
-          testBtn.style.color = '';
-          testBtn.style.borderColor = '';
-        }, 4000);
-      });
-    });
-  }
-</script>
+</div>
 {% endblock %}

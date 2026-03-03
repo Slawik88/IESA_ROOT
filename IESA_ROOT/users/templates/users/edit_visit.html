@@ -1,394 +1,112 @@
 {% extends "base.html" %}
-{% load static %}
-{% load i18n %}
+{% load static i18n %}
 
-{% block title %}{% trans "Edit Visit" %} #{{ visit.id }}{% endblock %}
+{% block title %}{% trans "Edit Visit" %} #{{ visit.pk }}{% endblock %}
 
-{% block container_wrap_start %}{% endblock %}
-{% block container_wrap_end %}{% endblock %}
-
-{% block content %}
+{% block extra_css %}
 <style>
-  .edit-visit-page {
-    background: #0e0e18;
-    min-height: 100vh;
-    padding-bottom: 60px;
-  }
-
-  /* Hero band */
-  .ev-hero {
-    background: #0a0a0f;
-    padding: 48px 16px 40px;
-    text-align: center;
-    position: relative;
-    overflow: hidden;
-    margin-bottom: 40px;
-    border-bottom: 1px solid rgba(255,255,255,.06);
-  }
-  .ev-hero::before {
-    content: '';
-    position: absolute;
-    left: 50%;
-    top: 0;
-    transform: translateX(-50%);
-    width: 600px;
-    height: 600px;
-    background: radial-gradient(circle, rgba(245,158,11,.10) 0%, transparent 70%);
-    pointer-events: none;
-  }
-  .ev-label {
-    display: inline-block;
-    background: rgba(245,158,11,.1);
-    border: 1px solid rgba(245,158,11,.25);
-    color: #f59e0b;
-    font-size: .75rem;
-    font-weight: 700;
-    letter-spacing: .12em;
-    text-transform: uppercase;
-    padding: 5px 14px;
-    border-radius: 50px;
-    margin-bottom: 14px;
-  }
-  .ev-hero h1 {
-    color: #fff;
-    font-size: 1.8rem;
-    font-weight: 800;
-    margin-bottom: 6px;
-  }
-  .ev-hero p {
-    color: rgba(255,255,255,.5);
-    font-size: .95rem;
-    margin: 0;
-  }
-
-  /* Back link */
-  .ev-back {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    color: rgba(255,255,255,.45);
-    font-size: .88rem;
-    text-decoration: none;
-    padding: 6px 14px;
-    border-radius: 8px;
-    border: 1px solid rgba(255,255,255,.1);
-    transition: all .2s;
-    margin-bottom: 20px;
-  }
-  .ev-back:hover {
-    color: #fff;
-    border-color: rgba(255,255,255,.28);
-    background: rgba(255,255,255,.04);
-  }
-
-  /* Countdown alert */
-  .ev-countdown {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 14px 18px;
-    border-radius: 12px;
-    margin-bottom: 20px;
-    font-size: .9rem;
-    transition: background .5s, border-color .5s;
-  }
-  .ev-countdown.state-warning {
-    background: rgba(245,158,11,.07);
-    border: 1.5px solid rgba(245,158,11,.22);
-    color: #fbbf24;
-  }
-  .ev-countdown.state-danger {
-    background: rgba(239,68,68,.07);
-    border: 1.5px solid rgba(239,68,68,.28);
-    color: #f87171;
-  }
-  .ev-countdown strong {
-    font-size: 1.1rem;
-    font-weight: 800;
-    min-width: 28px;
-    display: inline-block;
-    text-align: center;
-  }
-
-  /* Summary card */
-  .ev-summary {
-    background: rgba(245,158,11,.04);
-    border: 1.5px solid rgba(245,158,11,.18);
-    border-radius: 16px;
-    overflow: hidden;
-    margin-bottom: 20px;
-  }
-  .ev-summary-header {
-    background: rgba(245,158,11,.08);
-    border-bottom: 1px solid rgba(245,158,11,.15);
-    padding: 12px 18px;
-    font-weight: 700;
-    color: #fbbf24;
-    font-size: .9rem;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-  .ev-summary-body {
-    padding: 16px 18px;
-  }
-  .ev-info-row {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 7px 0;
-    border-bottom: 1px solid rgba(255,255,255,.05);
-    font-size: .88rem;
-  }
-  .ev-info-row:last-child { border-bottom: none; }
-  .ev-info-row i {
-    color: rgba(255,255,255,.35);
-    width: 16px;
-    flex-shrink: 0;
-    font-size: .8rem;
-  }
-  .ev-info-label { color: rgba(255,255,255,.45); }
-  .ev-info-value { color: rgba(255,255,255,.85); font-weight: 600; }
-
-  /* Form card */
-  .ev-form-card {
-    background: rgba(255,255,255,.03);
-    border: 1.5px solid rgba(255,255,255,.08);
-    border-radius: 20px;
-    overflow: hidden;
-  }
-  .ev-form-header {
-    background: rgba(255,255,255,.04);
-    border-bottom: 1px solid rgba(255,255,255,.07);
-    padding: 16px 24px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-  .ev-form-icon {
-    width: 36px;
-    height: 36px;
-    border-radius: 10px;
-    background: rgba(245,158,11,.12);
-    border: 1px solid rgba(245,158,11,.22);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #f59e0b;
-    font-size: .9rem;
-    flex-shrink: 0;
-  }
-  .ev-form-header h5 {
-    color: #fff;
-    font-size: 1rem;
-    font-weight: 700;
-    margin: 0;
-  }
-  .ev-form-body { padding: 24px; }
-
-  /* Form field overrides */
-  .ev-form-body .form-label {
-    color: rgba(255,255,255,.7);
-    font-size: .85rem;
-    font-weight: 600;
-    margin-bottom: 6px;
-  }
-  .ev-form-body input,
-  .ev-form-body select,
-  .ev-form-body textarea {
-    background: #1a1a24 !important;
-    border: 1.5px solid rgba(255,255,255,.1) !important;
-    border-radius: 10px !important;
-    color: #fff !important;
-    padding: 10px 14px !important;
-  }
-  .ev-form-body input:focus,
-  .ev-form-body select:focus,
-  .ev-form-body textarea:focus {
-    border-color: rgba(245,158,11,.5) !important;
-    box-shadow: 0 0 0 3px rgba(245,158,11,.1) !important;
-    outline: none !important;
-  }
-  .ev-form-body select option { background: #1a1a24; }
-  .ev-form-body .form-text { color: rgba(255,255,255,.35) !important; font-size: .78rem; }
-  .ev-form-body .invalid-feedback { color: #f87171; font-size: .8rem; }
-
-  /* Buttons */
-  .ev-btn-save {
-    width: 100%;
-    padding: 13px 20px;
-    border: none;
-    border-radius: 12px;
-    background: linear-gradient(135deg, #d97706, #b45309);
-    color: #fff;
-    font-weight: 700;
-    font-size: .95rem;
-    cursor: pointer;
-    transition: all .2s;
-    margin-bottom: 10px;
-  }
-  .ev-btn-save:hover:not(:disabled) {
-    box-shadow: 0 8px 28px rgba(217,119,6,.4);
-    transform: translateY(-1px);
-  }
-  .ev-btn-save:disabled {
-    opacity: .45;
-    cursor: not-allowed;
-  }
-  .ev-btn-cancel {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 100%;
-    padding: 11px 20px;
-    border-radius: 12px;
-    border: 1.5px solid rgba(255,255,255,.12);
-    background: transparent;
-    color: rgba(255,255,255,.65);
-    font-weight: 600;
-    font-size: .9rem;
-    text-decoration: none;
-    transition: all .2s;
-  }
-  .ev-btn-cancel:hover {
-    border-color: rgba(255,255,255,.28);
-    color: #fff;
-    background: rgba(255,255,255,.04);
-  }
-
-  /* Messages */
-  .ev-msg {
-    padding: 12px 16px;
-    border-radius: 10px;
-    margin-bottom: 16px;
-    font-size: .88rem;
-    display: flex;
-    align-items: flex-start;
-    gap: 10px;
-  }
-  .ev-msg-danger { background: rgba(239,68,68,.07); border: 1px solid rgba(239,68,68,.2); color: #f87171; }
-  .ev-msg-success { background: rgba(74,222,128,.07); border: 1px solid rgba(74,222,128,.2); color: #4ade80; }
-  .ev-msg-warning { background: rgba(245,158,11,.07); border: 1px solid rgba(245,158,11,.2); color: #fbbf24; }
-  .ev-msg-info { background: rgba(59,130,246,.07); border: 1px solid rgba(59,130,246,.2); color: #60a5fa; }
+.pp-wrap { background:#07070e; min-height:100vh; padding-bottom:80px; color:#e2e8f0; }
+.pp-nav { background:#0d0d18; border-bottom:1px solid rgba(220,38,38,.18); padding:0 20px; display:flex; align-items:center; overflow-x:auto; scrollbar-width:none; }
+.pp-nav::-webkit-scrollbar { display:none; }
+.pp-nav a { display:flex; align-items:center; gap:7px; padding:14px 20px; color:rgba(255,255,255,.55); text-decoration:none; font-size:.82rem; font-family:'Courier New',monospace; white-space:nowrap; border-bottom:2px solid transparent; transition:color .2s,border-color .2s; }
+.pp-nav a:hover { color:#ef4444; border-bottom-color:#ef4444; }
+.pp-nav-brand { font-size:.85rem; font-weight:700; color:#fff !important; margin-right:10px; letter-spacing:.05em; border-bottom:none !important; }
+.pp-section { padding:28px 24px 0; }
+.pp-card { background:rgba(255,255,255,.025); border:1px solid rgba(255,255,255,.06); border-radius:14px; padding:28px; max-width:600px; }
+.pp-visit-banner { background:rgba(250,204,21,.07); border:1px solid rgba(250,204,21,.2); border-radius:10px; padding:14px 18px; margin-bottom:22px; }
+.pp-visit-label { font-size:.68rem; font-family:'Courier New',monospace; color:rgba(250,204,21,.6); text-transform:uppercase; letter-spacing:.08em; margin-bottom:4px; }
+.pp-visit-val { font-size:.9rem; color:#fbbf24; }
+.pp-timer { font-size:.78rem; font-family:'Courier New',monospace; color:rgba(250,204,21,.7); margin-top:6px; }
+.pp-field { margin-bottom:20px; }
+.pp-field label { display:block; font-size:.72rem; font-family:'Courier New',monospace; color:rgba(255,255,255,.45); text-transform:uppercase; letter-spacing:.08em; margin-bottom:8px; }
+.pp-field input, .pp-field select, .pp-field textarea {
+  width:100%; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.1);
+  border-radius:8px; color:#e2e8f0; padding:10px 14px; font-size:.9rem; outline:none;
+  transition:border-color .2s; resize:vertical;
+}
+.pp-field input:focus, .pp-field select:focus, .pp-field textarea:focus { border-color:#fbbf24; background:rgba(255,255,255,.06); }
+.pp-field input::placeholder, .pp-field textarea::placeholder { color:rgba(255,255,255,.2); }
+.pp-field select option { background:#1a1a2e; color:#e2e8f0; }
+.pp-field .errorlist { list-style:none; padding:6px 0 0; margin:0; }
+.pp-field .errorlist li { font-size:.78rem; color:#f87171; font-family:'Courier New',monospace; }
+.pp-divider { border:none; border-top:1px solid rgba(255,255,255,.06); margin:20px 0; }
+.pp-btn { background:#fbbf24; color:#07070e; border:none; border-radius:8px; padding:12px 26px; font-size:.88rem; font-family:'Courier New',monospace; cursor:pointer; transition:background .2s; text-decoration:none; display:inline-flex; align-items:center; gap:8px; font-weight:700; }
+.pp-btn:hover { background:#f59e0b; color:#07070e; }
+.pp-btn-ghost { background:transparent; border:1px solid rgba(255,255,255,.12); color:rgba(255,255,255,.45); font-weight:400; }
+.pp-btn-ghost:hover { background:rgba(255,255,255,.04); color:rgba(255,255,255,.7); }
 </style>
-
-<div class="edit-visit-page">
-  <!-- Hero Band -->
-  <div class="ev-hero">
-    <div class="ev-label"><i class="fas fa-edit me-1"></i>{% trans "Edit Visit" %}</div>
-    <h1>{% trans "Edit Visit" %} #{{ visit.id }}</h1>
-    <p>{{ visit.member.get_full_name|default:visit.member.username }}</p>
-  </div>
-
-  <div class="hp-container" style="max-width:640px;">
-
-    <!-- Back link -->
-    <a href="{% url 'users:partner_dashboard' %}" class="ev-back">
-      <i class="fas fa-arrow-left"></i> {% trans "Back to Dashboard" %}
-    </a>
-
-    <!-- Countdown -->
-    <div class="ev-countdown state-warning" id="countdown-alert">
-      <i class="fas fa-clock fa-lg"></i>
-      <span>{% trans "Edit window closes in" %}&nbsp;<strong id="countdown">{{ seconds_left }}</strong>&nbsp;{% trans "seconds" %}.</span>
-    </div>
-
-    <!-- Summary card -->
-    <div class="ev-summary">
-      <div class="ev-summary-header">
-        <i class="fas fa-info-circle"></i>
-        {% trans "Editing visit" %} — {{ visit.member.get_full_name|default:visit.member.username }}
-      </div>
-      <div class="ev-summary-body">
-        <div class="ev-info-row">
-          <i class="fas fa-tag"></i>
-          <span class="ev-info-label">{% trans "Current service" %}</span>
-          <span class="ev-info-value ms-auto">{{ visit.get_service_type_display }}</span>
-        </div>
-        <div class="ev-info-row">
-          <i class="fas fa-coins"></i>
-          <span class="ev-info-label">{% trans "Current cost" %}</span>
-          <span class="ev-info-value ms-auto">{% if visit.cost %}{{ visit.cost }} CHF{% else %}N/A{% endif %}</span>
-        </div>
-        <div class="ev-info-row">
-          <i class="fas fa-clock"></i>
-          <span class="ev-info-label">{% trans "Logged at" %}</span>
-          <span class="ev-info-value ms-auto">{{ visit.timestamp|date:"d.m.Y H:i" }}</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- Edit form card -->
-    <div class="ev-form-card">
-      <div class="ev-form-header">
-        <div class="ev-form-icon"><i class="fas fa-edit"></i></div>
-        <h5>{% trans "Edit Visit Details" %}</h5>
-      </div>
-      <div class="ev-form-body">
-        {% if messages %}
-          {% for msg in messages %}
-            <div class="ev-msg ev-msg-{{ msg.tags|default:'info' }}">
-              <i class="fas fa-circle-info mt-1"></i>
-              <span>{{ msg }}</span>
-            </div>
-          {% endfor %}
-        {% endif %}
-
-        <form method="post" id="editVisitForm">
-          {% csrf_token %}
-          {% for field in form %}
-            <div class="mb-3">
-              <label for="{{ field.id_for_label }}" class="form-label fw-semibold">{{ field.label }}</label>
-              {{ field }}
-              {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
-              {% if field.errors %}
-                {% for error in field.errors %}
-                  <div class="invalid-feedback d-block">{{ error }}</div>
-                {% endfor %}
-              {% endif %}
-            </div>
-          {% endfor %}
-
-          <div class="mt-4">
-            <button type="submit" class="ev-btn-save" id="ev-submit-btn">
-              <i class="fas fa-save me-2"></i>{% trans "Save Changes" %}
-            </button>
-            <a href="{% url 'users:partner_dashboard' %}" class="ev-btn-cancel">
-              {% trans "Cancel" %}
-            </a>
-          </div>
-        </form>
-      </div>
-    </div>
-
-  </div>
-</div>
 {% endblock %}
 
-{% block extra_js %}
-<script>
-  let secondsLeft = {{ seconds_left }};
-  const el = document.getElementById('countdown');
-  const alertEl = document.getElementById('countdown-alert');
-  const submitBtn = document.getElementById('ev-submit-btn');
+{% block content %}
+<div class="pp-wrap">
+  <nav class="pp-nav">
+    <a href="{% url 'users:partner_dashboard' %}" class="pp-nav-brand">⬡ IESA PARTNER</a>
+    <a href="{% url 'users:partner_dashboard' %}">{% trans "Dashboard" %}</a>
+    <a href="{% url 'users:partner_analytics' %}">{% trans "Analytics" %}</a>
+    <a href="{% url 'users:partner_profile_edit' %}">{% trans "Company Profile" %}</a>
+  </nav>
 
-  function tick() {
-    secondsLeft--;
-    if (secondsLeft <= 0) {
-      el.textContent = '0';
-      alertEl.classList.remove('state-warning');
-      alertEl.classList.add('state-danger');
-      submitBtn.disabled = true;
-      submitBtn.innerHTML = '<i class="fas fa-lock me-2"></i>{% trans "Edit window expired" %}';
-    } else {
-      el.textContent = secondsLeft;
-      if (secondsLeft <= 60) {
-        alertEl.classList.remove('state-warning');
-        alertEl.classList.add('state-danger');
-      }
-      setTimeout(tick, 1000);
-    }
-  }
-  if (secondsLeft > 0) setTimeout(tick, 1000);
+  <div style="background:linear-gradient(135deg,#0d0d18 0%,#12060d 100%);padding:24px 24px 20px;border-bottom:1px solid rgba(255,255,255,.05);">
+    <div style="font-size:.72rem;font-family:'Courier New',monospace;color:rgba(250,204,21,.5);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;">EDIT VISIT</div>
+    <div style="font-size:1.25rem;font-weight:700;color:#fff;">{% trans "Correct Visit Record" %}</div>
+  </div>
+
+  <div class="pp-section">
+    <div class="pp-card">
+      <!-- VISIT SUMMARY -->
+      <div class="pp-visit-banner">
+        <div class="pp-visit-label">{% trans "Visit" %} #{{ visit.pk }}</div>
+        <div class="pp-visit-val">
+          {{ visit.member.get_full_name|default:visit.member.username }}
+          &nbsp;·&nbsp; {{ visit.get_service_type_display }}
+          {% if visit.cost %}&nbsp;·&nbsp; {{ visit.cost }} CHF{% endif %}
+        </div>
+        <div style="font-size:.75rem;color:rgba(255,255,255,.35);font-family:'Courier New',monospace;margin-top:4px;">
+          {{ visit.timestamp|date:"d M Y H:i" }}
+        </div>
+        {% if seconds_left > 0 %}
+          <div class="pp-timer" id="editTimer">
+            ⏱ {% trans "Edit window closes in" %}: <span id="timerVal">{{ seconds_left }}</span>s
+          </div>
+        {% endif %}
+      </div>
+
+      <form method="post">
+        {% csrf_token %}
+        {% for field in form %}
+          {% if field.name != 'reason' %}
+          <div class="pp-field">
+            <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+            {{ field }}
+            {% if field.errors %}<ul class="errorlist">{% for e in field.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+          </div>
+          {% endif %}
+        {% endfor %}
+        <hr class="pp-divider">
+        <div class="pp-field">
+          <label for="{{ form.reason.id_for_label }}">{{ form.reason.label }} *</label>
+          {{ form.reason }}
+          {% if form.reason.errors %}<ul class="errorlist">{% for e in form.reason.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+          {% if form.reason.help_text %}<div style="font-size:.72rem;color:rgba(255,255,255,.3);margin-top:5px;font-family:'Courier New',monospace;">{{ form.reason.help_text }}</div>{% endif %}
+        </div>
+        <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+          <button type="submit" class="pp-btn">✏ {% trans "Save Changes" %}</button>
+          <a href="{% url 'users:partner_dashboard' %}" class="pp-btn pp-btn-ghost">{% trans "Cancel" %}</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+{% if seconds_left > 0 %}
+<script>
+let s = {{ seconds_left }};
+const el = document.getElementById('timerVal');
+const timer = setInterval(function() {
+  s--;
+  if (s <= 0) { clearInterval(timer); if (el) el.closest('.pp-timer').textContent = '⛔ Edit window expired.'; }
+  else if (el) el.textContent = s;
+}, 1000);
 </script>
+{% endif %}
 {% endblock %}
