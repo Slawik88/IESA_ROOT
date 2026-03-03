@@ -386,8 +386,10 @@ CACHES = {
 }
 
 # Session Configuration - Support multiple devices/sessions per user
-# Using Django's default database-backed sessions
-SESSION_ENGINE = 'django.contrib.sessions.backends.db'
+# cached_db checks the in-process cache (LocMemCache) first and only
+# falls back to the DB on a cache miss.  This nearly eliminates the extra
+# connection opened per-request by pure 'db' sessions when the pool is tight.
+SESSION_ENGINE = 'django.contrib.sessions.backends.cached_db'
 
 # Session timeout (in seconds): 30 days
 SESSION_COOKIE_AGE = 30 * 24 * 60 * 60

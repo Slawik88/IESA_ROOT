@@ -93,7 +93,22 @@ class ProfileView(DetailView):
             draft_count=Count('id', filter=Q(status='draft')),
         )
         context.update(counts)
-        
+
+        # ── PIN code shown directly on profile page ──────────────────────
+        import time as _time
+        user = self.request.user
+        if (user.is_authenticated
+                and getattr(user, 'membership_status', None) == 'active'
+                and user.totp_secret):
+            current_pin = user.get_current_pin()
+            if current_pin:
+                _now = int(_time.time())
+                _interval = 720
+                _step = _now // _interval
+                _next = (_step + 1) * _interval
+                context['current_pin'] = current_pin
+                context['seconds_remaining'] = _next - _now
+
         return context
 
 
