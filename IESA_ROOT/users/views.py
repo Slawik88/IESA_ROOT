@@ -241,67 +241,69 @@ logger = logging.getLogger(__name__)
 
 def qr_image(request, permanent_id):
     """Serve QR code image for user profile.
-    
-    FIX: Simplified logic by delegating QR generation to QRCodeService.
-    Now handles only HTTP concerns (caching, auth, response).
-    
+
+    Hot-path optimisation: when the PNG is already in the Django cache and the
+    caller is NOT requesting a file download, we skip the database entirely and
+    return the cached bytes directly.  On the admin Users list page this means
+    13+ simultaneous AJAX requests each hit the cache instead of racing for a
+    fresh DB connection, eliminating the
+    "remaining connection slots are reserved for superuser" pool-exhaustion
+    error on DigitalOcean.
+
     URL: /auth/qr/<uuid>/
-    ?download=1 - скачать файл
+    ?download=1 – triggers file download (requires DB lookup for auth check)
     """
     from .services import QRCodeService
     import uuid as uuid_module
-    
-    # Validate permanent_id format
+
+    # Validate permanent_id format first (no DB needed)
     try:
         uuid_module.UUID(str(permanent_id))
     except (ValueError, AttributeError):
         raise Http404("Invalid ID format")
-    
-    # Get user object
-    user_obj = get_object_or_404(User, permanent_id=permanent_id)
 
-    # Check cache first (cache full image)
+    download = request.GET.get('download') in ['1', 'true', 'yes']
+
+    # ── Fast path: cached image, non-download ────────────────────────────────
+    # Skip DB entirely.  We deliberately use the UUID as the filename so the
+    # Content-Disposition header stays meaningful without a User lookup.
     cache_key = f'qr_image_{permanent_id}'
     cached_data = cache.get(cache_key)
-    
+
+    if cached_data and not download:
+        response = HttpResponse(cached_data, content_type='image/png')
+        response['Content-Disposition'] = f'inline; filename=qr_{permanent_id}.png'
+        response['Cache-Control'] = 'public, max-age=3600'
+        return response
+
+    # ── Slow path: cache miss or download request (needs DB) ─────────────────
+    user_obj = get_object_or_404(User, permanent_id=permanent_id)
+
     if not cached_data:
         try:
-            # Use dedicated service for QR generation
             qr_url = QRCodeService._build_profile_url(permanent_id, request)
             img = QRCodeService._create_qr_image(qr_url)
-            
-            # Convert to bytes
             img_io = BytesIO()
             img.save(img_io, format='PNG')
             cached_data = img_io.getvalue()
-            
-            # Cache for 1 hour
             cache.set(cache_key, cached_data, 3600)
-            
         except Exception as e:
             logger.error(f"QR generation failed for user {user_obj.id}: {str(e)}", exc_info=True)
             raise Http404("QR generation failed")
 
-    # Check download permission
-    download = request.GET.get('download') in ['1', 'true', 'yes']
     if download:
         if not request.user.is_authenticated or (
             request.user.id != user_obj.id and not request.user.is_staff
         ):
             return HttpResponseForbidden('Not allowed')
 
-    # Return image response
     from django.http import HttpResponse
     response = HttpResponse(cached_data, content_type='image/png')
-    
     if download:
         response['Content-Disposition'] = f'attachment; filename=qr_{user_obj.username}.png'
     else:
         response['Content-Disposition'] = f'inline; filename=qr_{user_obj.username}.png'
-    
-    # Browser cache for 1 hour
     response['Cache-Control'] = 'public, max-age=3600'
-    
     return response
 
 
