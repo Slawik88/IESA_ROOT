@@ -1,36 +1,114 @@
 {% load static i18n %}
 {% now "U" as now_ts %}
 <style>
-.ev-card {
+/* ══════════════════════════════════════════
+   IESA Events — Vertical Timeline
+   ══════════════════════════════════════════ */
+
+/* ── Timeline item (col-12 wrapper) ── */
+.tl-item {
+    /* Entrance animation — JS adds .tl-visible */
+    opacity: 0;
+    transform: translateX(-18px);
+    transition:
+        opacity .5s cubic-bezier(.22,1,.36,1),
+        transform .5s cubic-bezier(.22,1,.36,1);
+}
+.tl-item.tl-visible {
+    opacity: 1;
+    transform: translateX(0);
+}
+
+/* ── Inner grid: dot-column + card-column ── */
+.tl-inner {
+    display: grid;
+    grid-template-columns: 36px 1fr;
+    gap: 0 1rem;
+    align-items: stretch;
+}
+
+/* ── Connector column ── */
+.tl-conn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-top: 1.6rem;
+}
+.tl-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    position: relative;
+    z-index: 2;
+    transition: transform .3s;
+}
+.tl-item:hover .tl-dot { transform: scale(1.35); }
+
+.tl-dot--upcoming {
+    background: #f87171;
+    border: 2px solid rgba(248,113,113,.35);
+    box-shadow: 0 0 0 4px rgba(248,113,113,.12);
+    animation: tl-dot-pulse 2.2s ease-in-out infinite;
+}
+.tl-dot--past {
+    background: rgba(255,255,255,.13);
+    border: 2px solid rgba(255,255,255,.08);
+}
+@keyframes tl-dot-pulse {
+    0%, 100% { box-shadow: 0 0 0 4px rgba(248,113,113,.12); }
+    50%       { box-shadow: 0 0 0 8px rgba(248,113,113,.04); }
+}
+
+/* Vertical line segment between dots */
+.tl-line-seg {
+    width: 2px;
+    flex: 1;
+    min-height: 16px;
+    background: linear-gradient(to bottom, rgba(255,255,255,.1), rgba(255,255,255,.02));
+    border-radius: 2px;
+    margin-top: 5px;
+}
+
+/* ── Event card ── */
+.tl-card {
     background: #111118;
     border: 1.5px solid rgba(255,255,255,.07);
     border-radius: 18px;
     overflow: hidden;
-    display: flex;
-    align-items: stretch;
-    transition: border-color .35s cubic-bezier(.22,1,.36,1), transform .35s cubic-bezier(.22,1,.36,1), box-shadow .35s;
-    margin-bottom: 0;
     position: relative;
+    transition:
+        border-color .35s cubic-bezier(.22,1,.36,1),
+        transform .35s cubic-bezier(.22,1,.36,1),
+        box-shadow .35s;
+    margin-bottom: .5rem;
 }
-.ev-card::after {
+.tl-card:hover {
+    border-color: rgba(220,38,38,.32);
+    transform: translateX(6px) translateY(-3px);
+    box-shadow: 0 18px 45px rgba(0,0,0,.4), 0 0 0 1px rgba(220,38,38,.1);
+}
+.tl-card::after {
     content: '';
     position: absolute;
     inset: 0;
-    border-radius: 18px;
-    background: linear-gradient(135deg, rgba(220,38,38,.04), transparent 60%);
+    background: radial-gradient(ellipse at 0% 50%, rgba(220,38,38,.04), transparent 60%);
     opacity: 0;
     transition: opacity .35s;
     pointer-events: none;
 }
-.ev-card:hover {
-    border-color: rgba(220,38,38,.35);
-    transform: translateY(-4px) scale(1.005);
-    box-shadow: 0 16px 40px rgba(0,0,0,.35), 0 0 0 1px rgba(220,38,38,.15);
+.tl-card:hover::after { opacity: 1; }
+
+/* ── Card inner: date-chip | thumb | body ── */
+.tl-card-inner {
+    display: flex;
+    align-items: stretch;
 }
-.ev-card:hover::after { opacity: 1; }
-.ev-date-chip {
-    min-width: 68px;
-    background: rgba(220,38,38,.12);
+
+/* Date chip */
+.tl-date-chip {
+    min-width: 64px;
+    background: rgba(220,38,38,.1);
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -38,155 +116,280 @@
     padding: 1rem .5rem;
     border-right: 1px solid rgba(255,255,255,.06);
     flex-shrink: 0;
-    position: relative;
-    z-index: 1;
     transition: background .3s;
 }
-.ev-card:hover .ev-date-chip { background: rgba(220,38,38,.18); }
-.ev-date-day {
+.tl-card:hover .tl-date-chip { background: rgba(220,38,38,.17); }
+.tl-date-day {
     font-size: 1.7rem;
     font-weight: 900;
     color: #f87171;
     line-height: 1;
     transition: transform .3s cubic-bezier(.22,1,.36,1);
 }
-.ev-card:hover .ev-date-day { transform: scale(1.1); }
-.ev-date-mon { font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: rgba(255,255,255,.45); margin-top: .2rem; }
-.ev-thumb {
-    width: 130px;
-    min-height: 100%;
+.tl-card:hover .tl-date-day { transform: scale(1.1); }
+.tl-date-mon {
+    font-size: .68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: rgba(255,255,255,.4);
+    margin-top: .2rem;
+}
+
+/* Thumbnail */
+.tl-thumb {
+    width: 125px;
     object-fit: cover;
-    display: block;
     flex-shrink: 0;
     border-right: 1px solid rgba(255,255,255,.06);
     transition: transform .5s cubic-bezier(.22,1,.36,1), filter .5s;
+    display: block;
 }
-.ev-card:hover .ev-thumb { transform: scale(1.05); filter: brightness(1.05); }
-.ev-thumb-placeholder {
-    width: 100px;
-    background: linear-gradient(135deg, #1a1a24, #0f0f18);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
+.tl-card:hover .tl-thumb { transform: scale(1.05); filter: brightness(1.06); }
+.tl-thumb-ph {
+    width: 90px;
+    display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(135deg, #1a1a24, #0e0e18);
     border-right: 1px solid rgba(255,255,255,.06);
+    flex-shrink: 0;
 }
-.ev-body { padding: 1rem 1.25rem; flex: 1; display: flex; flex-direction: column; justify-content: center; position: relative; z-index: 1; }
-.ev-title {
+
+/* Body */
+.tl-body {
+    padding: .9rem 1.15rem;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    position: relative;
+    z-index: 1;
+    min-width: 0;
+}
+.tl-title {
     font-size: .95rem;
     font-weight: 700;
     color: #f1f5f9;
-    margin-bottom: .3rem;
+    margin-bottom: .25rem;
     transition: color .2s;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
-.ev-card:hover .ev-title { color: #fff; }
-.ev-meta { font-size: .8rem; color: rgba(255,255,255,.4); margin-bottom: .5rem; }
-.ev-desc { font-size: .82rem; color: rgba(255,255,255,.45); margin-bottom: .65rem; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.ev-badges { display: flex; flex-wrap: wrap; gap: .35rem; margin-bottom: .65rem; }
-.ev-badge { display: inline-flex; align-items: center; gap: .3rem; padding: .15rem .6rem; border-radius: 100px; font-size: .72rem; font-weight: 700; transition: transform .2s; }
-.ev-badge:hover { transform: scale(1.05); }
-.ev-badge-upcoming { background: rgba(34,197,94,.12); color: #4ade80; border: 1px solid rgba(34,197,94,.2); }
-.ev-badge-past     { background: rgba(255,255,255,.06); color: rgba(255,255,255,.4); border: 1px solid rgba(255,255,255,.1); }
-.ev-badge-reg      { background: rgba(34,197,94,.1);  color: #4ade80; border: 1px solid rgba(34,197,94,.18); }
-.ev-badge-age      { background: rgba(234,179,8,.1);  color: #facc15; border: 1px solid rgba(234,179,8,.2); }
-.ev-badge-full     { background: rgba(255,255,255,.06); color: rgba(255,255,255,.4); border: 1px solid rgba(255,255,255,.1); }
-.ev-badge-cap      { background: rgba(99,102,241,.1); color: #a5b4fc; border: 1px solid rgba(99,102,241,.2); }
-.ev-actions { display: flex; gap: .5rem; flex-wrap: wrap; }
-.ev-btn-outline {
-    background: transparent;
-    border: 1.5px solid rgba(255,255,255,.15);
-    color: rgba(255,255,255,.6);
-    border-radius: 8px;
-    padding: .3rem .85rem;
-    font-size: .8rem;
-    font-weight: 600;
-    text-decoration: none;
-    transition: border-color .2s, color .2s, transform .2s, box-shadow .2s;
+.tl-card:hover .tl-title { color: #fff; }
+.tl-meta {
+    font-size: .78rem;
+    color: rgba(255,255,255,.38);
+    margin-bottom: .45rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
-.ev-btn-outline:hover { border-color: rgba(255,255,255,.35); color: #fff; transform: translateY(-1px); }
-.ev-btn-primary {
-    background: rgba(220,38,38,.15);
-    border: 1.5px solid rgba(220,38,38,.3);
-    color: #f87171;
-    border-radius: 8px;
-    padding: .3rem .85rem;
-    font-size: .8rem;
-    font-weight: 600;
-    text-decoration: none;
-    transition: background .2s, transform .2s, box-shadow .2s;
-    position: relative;
+.tl-desc {
+    font-size: .82rem;
+    color: rgba(255,255,255,.4);
+    line-height: 1.55;
+    margin-bottom: .55rem;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
     overflow: hidden;
 }
-.ev-btn-primary:hover {
-    background: rgba(220,38,38,.28);
-    color: #fca5a5;
-    transform: translateY(-1px);
-    box-shadow: 0 4px 16px rgba(220,38,38,.2);
+
+/* Live Countdown */
+.tl-countdown {
+    display: inline-flex;
+    align-items: center;
+    gap: .38rem;
+    background: rgba(220,38,38,.08);
+    border: 1px solid rgba(220,38,38,.18);
+    border-radius: 8px;
+    padding: .22rem .65rem;
+    font-size: .76rem;
+    font-weight: 700;
+    color: #f87171;
+    margin-bottom: .5rem;
+    width: fit-content;
+    font-variant-numeric: tabular-nums;
 }
-@media(max-width:575.98px) {
-    .ev-thumb { width: 70px; }
-    .ev-thumb-placeholder { width: 60px; }
-    .ev-date-chip { min-width: 50px; }
+.tl-countdown i { animation: tl-dot-pulse 1.6s ease-in-out infinite; }
+
+/* Capacity bar */
+.tl-cap-wrap { margin-bottom: .55rem; }
+.tl-cap-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: .72rem;
+    color: rgba(255,255,255,.32);
+    margin-bottom: .28rem;
+}
+.tl-cap-track {
+    height: 3px;
+    background: rgba(255,255,255,.07);
+    border-radius: 3px;
+    overflow: hidden;
+}
+.tl-cap-fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, #22c55e, #4ade80);
+    border-radius: 3px;
+    transition: width 1.2s cubic-bezier(.22,1,.36,1);
+}
+.tl-cap-fill--warn { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+.tl-cap-fill--full { background: linear-gradient(90deg, #ef4444, #f87171); }
+
+/* Badges */
+.tl-badges { display: flex; flex-wrap: wrap; gap: .3rem; margin-bottom: .55rem; }
+.tl-badge { display: inline-flex; align-items: center; gap: .25rem; padding: .14rem .55rem; border-radius: 100px; font-size: .7rem; font-weight: 700; }
+.tl-badge--upcoming { background: rgba(34,197,94,.1);  color: #4ade80; border: 1px solid rgba(34,197,94,.2); }
+.tl-badge--past     { background: rgba(255,255,255,.05); color: rgba(255,255,255,.38); border: 1px solid rgba(255,255,255,.09); }
+.tl-badge--reg      { background: rgba(34,197,94,.1);  color: #4ade80; border: 1px solid rgba(34,197,94,.18); }
+.tl-badge--age      { background: rgba(234,179,8,.1);  color: #facc15; border: 1px solid rgba(234,179,8,.18); }
+.tl-badge--cap      { background: rgba(99,102,241,.1); color: #a5b4fc; border: 1px solid rgba(99,102,241,.18); }
+.tl-badge--full     { background: rgba(255,255,255,.05); color: rgba(255,255,255,.38); border: 1px solid rgba(255,255,255,.09); }
+
+/* Actions */
+.tl-actions { display: flex; gap: .45rem; flex-wrap: wrap; }
+.tl-btn-ghost {
+    background: transparent;
+    border: 1.5px solid rgba(255,255,255,.13);
+    color: rgba(255,255,255,.52);
+    border-radius: 8px; padding: .27rem .8rem;
+    font-size: .78rem; font-weight: 600;
+    text-decoration: none;
+    transition: border-color .2s, color .2s, transform .2s;
+}
+.tl-btn-ghost:hover { border-color: rgba(255,255,255,.3); color: #fff; transform: translateY(-1px); }
+.tl-btn-primary {
+    background: rgba(220,38,38,.12);
+    border: 1.5px solid rgba(220,38,38,.26);
+    color: #f87171;
+    border-radius: 8px; padding: .27rem .8rem;
+    font-size: .78rem; font-weight: 700;
+    text-decoration: none;
+    transition: background .2s, color .2s, transform .2s, box-shadow .2s;
+}
+.tl-btn-primary:hover {
+    background: rgba(220,38,38,.24);
+    color: #fca5a5; transform: translateY(-1px);
+    box-shadow: 0 4px 16px rgba(220,38,38,.17);
+}
+
+@media (max-width: 575.98px) {
+    .tl-inner { grid-template-columns: 28px 1fr; gap: 0 .65rem; }
+    .tl-thumb { width: 70px; }
+    .tl-thumb-ph { width: 55px; }
+    .tl-date-chip { min-width: 48px; }
+    .tl-date-day { font-size: 1.3rem; }
+    .tl-title { white-space: normal; }
 }
 </style>
 
 {% for event in events %}
     {% with event_ts=event.date|date:"U" %}
-    <div class="col-12 htmx-fade-in">
-        <div class="ev-card">
-            <!-- Date chip -->
-            <div class="ev-date-chip">
-                <div class="ev-date-day">{{ event.date|date:"d" }}</div>
-                <div class="ev-date-mon">{{ event.date|date:"M" }}</div>
+    <div class="col-12 tl-item htmx-fade-in">
+        <div class="tl-inner">
+
+            {# ── Connector: dot + vertical line ── #}
+            <div class="tl-conn">
+                <div class="tl-dot {% if event_ts|add:'0' > now_ts|add:'0' %}tl-dot--upcoming{% else %}tl-dot--past{% endif %}"></div>
+                {% if not forloop.last %}<div class="tl-line-seg"></div>{% endif %}
             </div>
-            <!-- Thumbnail -->
-            {% if event.image %}
-                <img src="{{ event.image.url }}" class="ev-thumb" alt="{{ event.title }}" loading="lazy">
-            {% else %}
-                <div class="ev-thumb-placeholder">
-                    <i class="fas fa-calendar-alt" style="font-size:1.5rem;color:rgba(255,255,255,.1);"></i>
-                </div>
-            {% endif %}
-            <!-- Body -->
-            <div class="ev-body">
-                <div class="ev-title">{{ event.title }}</div>
-                <div class="ev-meta">
-                    <i class="fas fa-clock me-1"></i>{{ event.date|date:"d M Y, H:i" }}
-                    {% if event.location %}&nbsp;·&nbsp;<i class="fas fa-map-marker-alt me-1"></i>{{ event.location }}{% endif %}
-                </div>
-                <div class="ev-desc">{{ event.description|truncatewords:18 }}</div>
-                <div class="ev-badges">
-                    {% if event_ts|add:'0' > now_ts|add:'0' %}
-                        <span class="ev-badge ev-badge-upcoming"><i class="fas fa-circle" style="font-size:.45rem;"></i> {% trans "Upcoming" %}</span>
+
+            {# ── Event card ── #}
+            <div class="tl-card">
+                <div class="tl-card-inner">
+
+                    {# Date chip #}
+                    <div class="tl-date-chip">
+                        <div class="tl-date-day">{{ event.date|date:"d" }}</div>
+                        <div class="tl-date-mon">{{ event.date|date:"M" }}</div>
+                    </div>
+
+                    {# Thumbnail #}
+                    {% if event.image %}
+                        <img src="{{ event.image.url }}" class="tl-thumb" alt="{{ event.title }}" loading="lazy">
                     {% else %}
-                        <span class="ev-badge ev-badge-past">{% trans "Past" %}</span>
+                        <div class="tl-thumb-ph">
+                            <i class="fas fa-calendar-alt" style="font-size:1.3rem;color:rgba(255,255,255,.08);"></i>
+                        </div>
                     {% endif %}
-                    {% if user.is_authenticated and event.user_registered %}
-                        <span class="ev-badge ev-badge-reg"><i class="fas fa-check-circle"></i> {% trans "Registered" %}</span>
-                    {% endif %}
-                    {% if event.is_teen_event %}
-                        <span class="ev-badge ev-badge-age"><i class="fas fa-user-shield"></i> {% blocktrans with min_age=event.min_age max_age=event.max_age %}{{ min_age }}-{{ max_age }}{% endblocktrans %}</span>
-                    {% endif %}
-                    {% if event.max_participants %}
-                        <span class="ev-badge ev-badge-cap"><i class="fas fa-users"></i> {{ event.participants_confirmed }} / {{ event.max_participants }}</span>
-                    {% endif %}
-                </div>
-                <div class="ev-actions">
-                    <a href="{% url 'blog:event_detail' event.pk %}" class="ev-btn-outline">{% trans "Details" %}</a>
-                    {% if event_ts|add:'0' > now_ts|add:'0' %}
-                        {% if event.registration_deadline and event.registration_deadline|date:"U"|add:'0' <= now_ts|add:'0' %}
-                            <span class="ev-btn-outline" style="opacity:.4;cursor:default;">{% trans "Registration closed" %}</span>
-                        {% elif event.max_participants and event.participants_confirmed >= event.max_participants %}
-                            <span class="ev-btn-outline" style="opacity:.4;cursor:default;">{% trans "Full" %}</span>
-                        {% else %}
-                            <a href="{% url 'blog:event_detail' event.pk %}" class="ev-btn-primary">{% trans "Register" %}</a>
+
+                    {# Body #}
+                    <div class="tl-body">
+                        <div class="tl-title">{{ event.title }}</div>
+                        <div class="tl-meta">
+                            <i class="fas fa-clock me-1"></i>{{ event.date|date:"d M Y, H:i" }}{% if event.location %}&nbsp;·&nbsp;<i class="fas fa-map-marker-alt me-1"></i>{{ event.location }}{% endif %}
+                        </div>
+
+                        {# Live countdown for upcoming events #}
+                        {% if event_ts|add:'0' > now_ts|add:'0' %}
+                        <div class="tl-countdown">
+                            <i class="fas fa-fire"></i>
+                            <span data-countdown="{{ event.date|date:'U' }}">…</span>
+                        </div>
                         {% endif %}
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-    </div>
+
+                        <div class="tl-desc">{{ event.description|truncatewords:18 }}</div>
+
+                        {# Capacity bar (JS animates width) #}
+                        {% if event.max_participants %}
+                        <div class="tl-cap-wrap">
+                            <div class="tl-cap-label">
+                                <span>{% trans "Capacity" %}</span>
+                                <span>{{ event.participants_confirmed }}&nbsp;/&nbsp;{{ event.max_participants }}</span>
+                            </div>
+                            <div class="tl-cap-track">
+                                <div class="tl-cap-fill"
+                                     data-filled="{{ event.participants_confirmed }}"
+                                     data-max="{{ event.max_participants }}"></div>
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        {# Status badges #}
+                        <div class="tl-badges">
+                            {% if event_ts|add:'0' > now_ts|add:'0' %}
+                                <span class="tl-badge tl-badge--upcoming"><i class="fas fa-circle" style="font-size:.4rem;"></i>&nbsp;{% trans "Upcoming" %}</span>
+                            {% else %}
+                                <span class="tl-badge tl-badge--past">{% trans "Past" %}</span>
+                            {% endif %}
+
+                            {% if user.is_authenticated and event.user_registered %}
+                                <span class="tl-badge tl-badge--reg"><i class="fas fa-check-circle"></i>&nbsp;{% trans "Registered" %}</span>
+                            {% endif %}
+                            {% if event.is_teen_event %}
+                                <span class="tl-badge tl-badge--age"><i class="fas fa-user-shield"></i>&nbsp;{% blocktrans with min_age=event.min_age max_age=event.max_age %}{{ min_age }}–{{ max_age }}{% endblocktrans %}</span>
+                            {% endif %}
+                            {% if event.max_participants and event.participants_confirmed >= event.max_participants %}
+                                <span class="tl-badge tl-badge--full">{% trans "Full" %}</span>
+                            {% elif event.max_participants %}
+                                <span class="tl-badge tl-badge--cap"><i class="fas fa-users"></i>&nbsp;{{ event.participants_confirmed }}/{{ event.max_participants }}</span>
+                            {% endif %}
+                        </div>
+
+                        {# Actions #}
+                        <div class="tl-actions">
+                            <a href="{% url 'blog:event_detail' event.pk %}" class="tl-btn-ghost">{% trans "Details" %}</a>
+                            {% if event_ts|add:'0' > now_ts|add:'0' %}
+                                {% if event.registration_deadline and event.registration_deadline|date:"U"|add:'0' <= now_ts|add:'0' %}
+                                    <span class="tl-btn-ghost" style="opacity:.4;cursor:default;">{% trans "Registration closed" %}</span>
+                                {% elif event.max_participants and event.participants_confirmed >= event.max_participants %}
+                                    <span class="tl-btn-ghost" style="opacity:.4;cursor:default;">{% trans "Full" %}</span>
+                                {% else %}
+                                    <a href="{% url 'blog:event_detail' event.pk %}" class="tl-btn-primary">{% trans "Register" %}</a>
+                                {% endif %}
+                            {% endif %}
+                        </div>
+                    </div>
+
+                </div>{# end .tl-card-inner #}
+            </div>{# end .tl-card #}
+
+        </div>{# end .tl-inner #}
+    </div>{# end .col-12.tl-item #}
     {% endwith %}
+
 {% empty %}
     <div class="col-12 text-center py-5" data-reveal>
         <div style="font-size:3rem;margin-bottom:1rem;animation:ev-float 3s ease-in-out infinite;">📅</div>

@@ -1,5 +1,321 @@
 {% load i18n %}
 <style>
+/* ══════════════════════════════════════════
+   IESA Magazine — Article Cards
+   ══════════════════════════════════════════ */
+
+/* Base article card */
+.iesa-article {
+    background: #111118;
+    border: 1.5px solid rgba(255,255,255,.07);
+    border-radius: 18px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    height: 100%;
+    /* Entrance animation — JS adds .article-visible */
+    opacity: 0;
+    transform: translateY(22px);
+    transition:
+        opacity .5s cubic-bezier(.22,1,.36,1),
+        transform .5s cubic-bezier(.22,1,.36,1),
+        border-color .3s,
+        box-shadow .3s;
+}
+.iesa-article.article-visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+.iesa-article:hover {
+    border-color: rgba(220,38,38,.32);
+    box-shadow: 0 22px 55px rgba(0,0,0,.45), 0 0 0 1px rgba(220,38,38,.12);
+    transform: translateY(-6px);
+}
+.iesa-article::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 18px;
+    background: radial-gradient(ellipse at 40% 0%, rgba(220,38,38,.05), transparent 65%);
+    opacity: 0;
+    transition: opacity .35s;
+    pointer-events: none;
+}
+.iesa-article:hover::after { opacity: 1; }
+.iesa-article.article-visible:hover { transform: translateY(-6px); }
+
+/* ── Featured (first post) — wide horizontal card ── */
+.iesa-article--featured {
+    flex-direction: row;
+    min-height: 300px;
+}
+.iesa-article--featured .art-img-wrap {
+    width: 46%;
+    flex-shrink: 0;
+    border-bottom: none;
+    border-right: 1.5px solid rgba(255,255,255,.06);
+}
+.iesa-article--featured .art-img {
+    height: 100%;
+    min-height: 280px;
+}
+.iesa-article--featured .art-body {
+    padding: 1.75rem 1.75rem 1rem;
+    justify-content: flex-start;
+}
+.iesa-article--featured .art-title {
+    font-size: 1.25rem;
+    -webkit-line-clamp: 3;
+}
+.iesa-article--featured .art-excerpt {
+    -webkit-line-clamp: 4;
+    font-size: .9rem;
+}
+@media (max-width: 767px) {
+    .iesa-article--featured { flex-direction: column; min-height: unset; }
+    .iesa-article--featured .art-img-wrap { width: 100%; border-right: none; border-bottom: 1.5px solid rgba(255,255,255,.06); }
+    .iesa-article--featured .art-img { height: 220px; min-height: unset; }
+}
+
+/* ── Image wrap ── */
+.art-img-wrap {
+    position: relative;
+    overflow: hidden;
+    border-bottom: 1.5px solid rgba(255,255,255,.06);
+    flex-shrink: 0;
+}
+.art-img {
+    width: 100%;
+    height: 210px;
+    object-fit: cover;
+    display: block;
+    transition: transform .65s cubic-bezier(.22,1,.36,1), filter .65s;
+}
+.iesa-article:hover .art-img {
+    transform: scale(1.07);
+    filter: brightness(1.06);
+}
+.art-img-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to top, rgba(0,0,0,.55) 0%, transparent 55%);
+    opacity: 0;
+    transition: opacity .4s;
+    pointer-events: none;
+}
+.iesa-article:hover .art-img-overlay { opacity: 1; }
+
+/* Category badge over image */
+.art-cat {
+    position: absolute;
+    top: .85rem;
+    left: .85rem;
+    background: rgba(220,38,38,.88);
+    backdrop-filter: blur(5px);
+    color: #fff;
+    font-size: .68rem;
+    font-weight: 800;
+    letter-spacing: .07em;
+    text-transform: uppercase;
+    padding: .22rem .65rem;
+    border-radius: 100px;
+    border: 1px solid rgba(255,255,255,.18);
+    z-index: 2;
+}
+
+/* Index number badge */
+.art-index {
+    position: absolute;
+    top: .85rem;
+    right: .85rem;
+    font-size: .72rem;
+    font-weight: 900;
+    color: rgba(255,255,255,.18);
+    letter-spacing: .04em;
+    z-index: 2;
+    line-height: 1;
+}
+.iesa-article--featured .art-index {
+    color: rgba(255,255,255,.3);
+    font-size: .85rem;
+}
+
+/* Reading time badge */
+.art-read-time {
+    position: absolute;
+    bottom: .85rem;
+    right: .85rem;
+    display: inline-flex;
+    align-items: center;
+    gap: .3rem;
+    background: rgba(0,0,0,.55);
+    backdrop-filter: blur(4px);
+    color: rgba(255,255,255,.7);
+    font-size: .72rem;
+    font-weight: 600;
+    padding: .2rem .55rem;
+    border-radius: 6px;
+    z-index: 2;
+}
+
+/* No-image placeholder */
+.art-no-image {
+    height: 150px;
+    background: linear-gradient(135deg, #1a1a24 0%, #0e0e18 100%);
+    border-bottom: 1.5px solid rgba(255,255,255,.06);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+.art-no-image::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at 50% 100%, rgba(220,38,38,.06), transparent 70%);
+}
+.art-no-image i { font-size: 2rem; color: rgba(255,255,255,.08); position: relative; }
+.iesa-article--featured .art-no-image { height: 100%; min-height: 280px; }
+
+/* ── Body ── */
+.art-body {
+    padding: 1.2rem 1.2rem .7rem;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    z-index: 1;
+}
+.art-title {
+    font-size: .97rem;
+    font-weight: 700;
+    color: #f1f5f9;
+    line-height: 1.4;
+    margin-bottom: .45rem;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    transition: color .2s;
+}
+.iesa-article:hover .art-title { color: #fff; }
+.art-excerpt {
+    font-size: .855rem;
+    color: rgba(255,255,255,.43);
+    line-height: 1.6;
+    flex: 1;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    margin-bottom: .8rem;
+}
+
+/* Popularity progress bar */
+.art-progress-wrap {
+    height: 2px;
+    background: rgba(255,255,255,.06);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-bottom: .75rem;
+}
+.art-progress-bar {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, #dc2626, #f87171);
+    border-radius: 2px;
+    transition: width 1.3s cubic-bezier(.22,1,.36,1);
+}
+
+/* Meta row */
+.art-meta {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: .6rem;
+    font-size: .78rem;
+    color: rgba(255,255,255,.3);
+    border-top: 1px solid rgba(255,255,255,.06);
+    padding-top: .65rem;
+}
+.art-meta span {
+    display: inline-flex;
+    align-items: center;
+    gap: .28rem;
+    transition: color .2s;
+}
+.iesa-article:hover .art-meta span { color: rgba(255,255,255,.5); }
+
+/* ── Footer ── */
+.art-footer {
+    padding: .6rem 1.2rem .95rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .5rem;
+    position: relative;
+    z-index: 1;
+}
+.art-author {
+    font-size: .77rem;
+    color: rgba(255,255,255,.28);
+    display: flex;
+    align-items: center;
+    gap: .35rem;
+    min-width: 0;
+    overflow: hidden;
+}
+.art-author-av {
+    width: 20px; height: 20px;
+    border-radius: 50%;
+    background: rgba(220,38,38,.15);
+    border: 1px solid rgba(220,38,38,.25);
+    display: flex; align-items: center; justify-content: center;
+    font-size: .55rem; color: #f87171;
+    flex-shrink: 0;
+}
+
+/* Read button */
+.art-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    background: rgba(220,38,38,.1);
+    border: 1.5px solid rgba(220,38,38,.22);
+    color: #f87171;
+    border-radius: 9px;
+    padding: .3rem .85rem;
+    font-size: .79rem;
+    font-weight: 700;
+    text-decoration: none;
+    letter-spacing: .015em;
+    white-space: nowrap;
+    transition: background .2s, border-color .2s, color .2s, transform .22s, box-shadow .22s, gap .22s;
+    position: relative;
+    overflow: hidden;
+}
+.art-btn::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at 50% 120%, rgba(220,38,38,.22), transparent 70%);
+    opacity: 0;
+    transition: opacity .3s;
+}
+.art-btn:hover {
+    background: rgba(220,38,38,.22);
+    border-color: rgba(220,38,38,.48);
+    color: #fca5a5;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(220,38,38,.18);
+    gap: .65rem;
+}
+.art-btn:hover::before { opacity: 1; }
+
+/* Legacy post-card compat (keep old class too) */
 .post-card {
     background: #111118;
     border: 1.5px solid rgba(255,255,255,.07);
@@ -161,33 +477,128 @@
 {% if posts %}
     <div class="row g-4">
     {% for post in posts %}
-        <div class="col-md-6 col-lg-4">
-            <div class="post-card" data-tilt>
+
+        {% if forloop.first %}
+        {# ── Featured post: 2/3 width, horizontal layout ── #}
+        <div class="col-12 col-lg-8">
+            <div class="iesa-article iesa-article--featured" data-tilt>
                 {% if post.preview_image %}
-                    <div class="post-card__img-wrap">
-                        <img src="{{ post.preview_image.url }}" class="post-card__img" alt="{{ post.title }}" loading="lazy">
-                        <div class="post-card__img-overlay"></div>
+                    <div class="art-img-wrap">
+                        <img src="{{ post.preview_image.url }}" class="art-img" alt="{{ post.title }}" loading="lazy">
+                        <div class="art-img-overlay"></div>
+                        <span class="art-cat"><i class="fas fa-star me-1"></i>{% trans "Featured" %}</span>
+                        <span class="art-index"></span>
+                        <span class="art-read-time"><i class="fas fa-book-open"></i><span class="art-read-time-val">…</span></span>
                     </div>
                 {% else %}
-                    <div class="post-card__no-image">
+                    <div class="art-no-image">
                         <i class="fas fa-newspaper"></i>
+                        <span class="art-cat" style="position:absolute;top:.85rem;left:.85rem;"><i class="fas fa-star me-1"></i>{% trans "Featured" %}</span>
+                        <span class="art-index" style="position:absolute;top:.85rem;right:.85rem;"></span>
                     </div>
                 {% endif %}
-                <div class="post-card__body">
-                    <div class="post-card__title">{{ post.title }}</div>
-                    <div class="post-card__excerpt">{{ post.text|striptags|truncatewords:22 }}</div>
-                    <div class="post-card__meta">
-                        <span><i class="fas fa-eye me-1"></i>{{ post.views_count }}</span>
-                        <span><i class="fas fa-comment me-1"></i>{{ post.comments.count }}</span>
-                        <span><i class="fas fa-heart me-1"></i>{{ post.likes.count }}</span>
+                <div class="art-body">
+                    <div class="art-title">{{ post.title }}</div>
+                    <div class="art-excerpt">{{ post.text|striptags|truncatewords:30 }}</div>
+                    <div class="art-progress-wrap">
+                        <div class="art-progress-bar" data-views="{{ post.views_count }}"></div>
+                    </div>
+                    <div class="art-meta">
+                        <span><i class="fas fa-eye"></i>{{ post.views_count }}</span>
+                        <span><i class="fas fa-comment"></i>{{ post.comments.count }}</span>
+                        <span><i class="fas fa-heart"></i>{{ post.likes.count }}</span>
+                        <span style="margin-left:auto;font-size:.72rem;"><i class="fas fa-clock"></i>{{ post.created_at|timesince }} {% trans "ago" %}</span>
                     </div>
                 </div>
-                <div class="post-card__footer">
-                    <a href="{% url 'blog:post_detail' pk=post.pk %}" class="post-card__btn">{% trans "Read more" %}</a>
-                    <span class="post-card__author"><i class="fas fa-user me-1"></i>{{ post.author.username }}</span>
+                <div class="art-footer">
+                    <div class="art-author">
+                        <div class="art-author-av"><i class="fas fa-user"></i></div>
+                        <span class="text-truncate">{{ post.author.username }}</span>
+                    </div>
+                    <a href="{% url 'blog:post_detail' pk=post.pk %}" class="art-btn">
+                        {% trans "Read" %} <i class="fas fa-arrow-right" style="font-size:.7rem;"></i>
+                    </a>
                 </div>
             </div>
         </div>
+
+        {% elif forloop.counter == 2 %}
+        {# ── Second post: 1/3 width, fills alongside featured ── #}
+        <div class="col-12 col-lg-4">
+            <div class="iesa-article" data-tilt>
+                {% if post.preview_image %}
+                    <div class="art-img-wrap">
+                        <img src="{{ post.preview_image.url }}" class="art-img" alt="{{ post.title }}" loading="lazy">
+                        <div class="art-img-overlay"></div>
+                        <span class="art-index"></span>
+                        <span class="art-read-time"><i class="fas fa-book-open"></i><span class="art-read-time-val">…</span></span>
+                    </div>
+                {% else %}
+                    <div class="art-no-image"><i class="fas fa-newspaper"></i></div>
+                {% endif %}
+                <div class="art-body">
+                    <div class="art-title">{{ post.title }}</div>
+                    <div class="art-excerpt">{{ post.text|striptags|truncatewords:18 }}</div>
+                    <div class="art-progress-wrap">
+                        <div class="art-progress-bar" data-views="{{ post.views_count }}"></div>
+                    </div>
+                    <div class="art-meta">
+                        <span><i class="fas fa-eye"></i>{{ post.views_count }}</span>
+                        <span><i class="fas fa-comment"></i>{{ post.comments.count }}</span>
+                        <span><i class="fas fa-heart"></i>{{ post.likes.count }}</span>
+                    </div>
+                </div>
+                <div class="art-footer">
+                    <div class="art-author">
+                        <div class="art-author-av"><i class="fas fa-user"></i></div>
+                        <span class="text-truncate">{{ post.author.username }}</span>
+                    </div>
+                    <a href="{% url 'blog:post_detail' pk=post.pk %}" class="art-btn">
+                        {% trans "Read" %} <i class="fas fa-arrow-right" style="font-size:.7rem;"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        {% else %}
+        {# ── Standard grid post (3-column) ── #}
+        <div class="col-12 col-sm-6 col-lg-4">
+            <div class="iesa-article" data-tilt>
+                {% if post.preview_image %}
+                    <div class="art-img-wrap">
+                        <img src="{{ post.preview_image.url }}" class="art-img" alt="{{ post.title }}" loading="lazy">
+                        <div class="art-img-overlay"></div>
+                        <span class="art-index"></span>
+                        <span class="art-read-time"><i class="fas fa-book-open"></i><span class="art-read-time-val">…</span></span>
+                    </div>
+                {% else %}
+                    <div class="art-no-image"><i class="fas fa-newspaper"></i></div>
+                {% endif %}
+                <div class="art-body">
+                    <div class="art-title">{{ post.title }}</div>
+                    <div class="art-excerpt">{{ post.text|striptags|truncatewords:18 }}</div>
+                    <div class="art-progress-wrap">
+                        <div class="art-progress-bar" data-views="{{ post.views_count }}"></div>
+                    </div>
+                    <div class="art-meta">
+                        <span><i class="fas fa-eye"></i>{{ post.views_count }}</span>
+                        <span><i class="fas fa-comment"></i>{{ post.comments.count }}</span>
+                        <span><i class="fas fa-heart"></i>{{ post.likes.count }}</span>
+                    </div>
+                </div>
+                <div class="art-footer">
+                    <div class="art-author">
+                        <div class="art-author-av"><i class="fas fa-user"></i></div>
+                        <span class="text-truncate">{{ post.author.username }}</span>
+                    </div>
+                    <a href="{% url 'blog:post_detail' pk=post.pk %}" class="art-btn">
+                        {% trans "Read" %} <i class="fas fa-arrow-right" style="font-size:.7rem;"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
     {% endfor %}
     </div>
 {% else %}
@@ -196,3 +607,4 @@
         <p style="color:rgba(255,255,255,.4);">{% trans "No posts found" %}</p>
     </div>
 {% endif %}
+
