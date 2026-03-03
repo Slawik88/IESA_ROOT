@@ -299,6 +299,73 @@
   .profile-avatar-v2, .profile-avatar-fallback-v2 { width: 90px; height: 90px; }
   .profile-name-v2 { font-size: 1.4rem; }
 }
+
+/* ── Verification PIN card (always visible on profile) ──────── */
+.profile-pin-card { transition: border-color .25s, box-shadow .25s; }
+.profile-pin-card:hover { box-shadow: 0 0 0 1px rgba(220,38,38,.3),0 14px 40px rgba(220,38,38,.1); }
+.pin-card-header {
+  display:flex; align-items:center; gap:.5rem;
+  font-size:.72rem; font-weight:700; letter-spacing:.14em; text-transform:uppercase;
+  color:rgba(255,255,255,.35); margin-bottom:1.1rem;
+}
+.pin-card-header::before { content:''; width:16px; height:2px; background:#dc2626; border-radius:2px; display:inline-block; }
+.pin-card-header .pin-hdr-icon { color:#dc2626; font-size:.8rem; }
+.pin-refresh-badge {
+  margin-left:auto;
+  background:rgba(220,38,38,.12); color:#f87171; border:1px solid rgba(220,38,38,.22);
+  border-radius:20px; padding:.12rem .55rem; font-size:.66rem; font-weight:700;
+  letter-spacing:.03em; text-transform:none;
+}
+.pin-digits-profile {
+  display:flex; align-items:center; justify-content:center;
+  gap:.45rem; margin:.6rem 0 .85rem;
+}
+.pin-d-profile {
+  width:2.7rem; height:3.15rem;
+  background:rgba(220,38,38,.07); border:1px solid rgba(220,38,38,.3);
+  border-radius:12px;
+  font-size:1.8rem; font-weight:900; color:#fff;
+  font-family:'Courier New',monospace;
+  display:flex; align-items:center; justify-content:center;
+  box-shadow:0 4px 14px rgba(220,38,38,.1);
+  animation: pin-pop-p .45s cubic-bezier(.34,1.56,.64,1) both;
+}
+@keyframes pin-pop-p {
+  from { opacity:0; transform:scale(.65) translateY(10px); }
+  to   { opacity:1; transform:none; }
+}
+.pin-sep-profile { color:rgba(220,38,38,.4); font-size:1.4rem; font-weight:300; margin:0 .05rem; }
+.pin-foot-profile {
+  display:flex; align-items:center; gap:.65rem;
+  padding-top:.75rem; border-top:1px solid rgba(255,255,255,.06);
+  flex-wrap:wrap;
+}
+.pin-timer-profile {
+  display:flex; align-items:center; gap:.35rem;
+  font-size:.82rem; color:rgba(255,255,255,.45); font-weight:600;
+}
+.pin-timer-profile span { color:#f87171; font-weight:800; min-width:2ch; display:inline-block; }
+.pin-copy-profile {
+  margin-left:auto;
+  background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.11);
+  color:rgba(255,255,255,.65); border-radius:8px;
+  padding:.3rem .8rem; font-size:.8rem; font-weight:600;
+  cursor:pointer; display:flex; align-items:center; gap:.4rem;
+  transition:all .18s;
+}
+.pin-copy-profile:hover { background:rgba(255,255,255,.1); color:#fff; }
+.pin-copy-profile.copied { background:rgba(34,197,94,.1); border-color:rgba(34,197,94,.3); color:#4ade80; }
+.pin-cab-link {
+  display:flex; align-items:center; gap:.35rem;
+  font-size:.78rem; color:rgba(255,255,255,.38); font-weight:600;
+  text-decoration:none; transition:color .15s, background .15s;
+  border:1px solid rgba(255,255,255,.08); border-radius:8px;
+  padding:.3rem .7rem;
+}
+.pin-cab-link:hover { color:rgba(255,255,255,.75); background:rgba(255,255,255,.05); }
+@media (max-width:374px) {
+  .pin-d-profile { width:2.25rem; height:2.7rem; font-size:1.5rem; }
+}
 </style>
 {% endblock %}
 
@@ -456,6 +523,41 @@
               <img src="{% url 'users:user_qr' permanent_id=profile_user.permanent_id %}" alt="{% trans "QR Code" %}">
             </a>
             <p class="mt-2 mb-0" style="font-size:.78rem;color:rgba(255,255,255,.35);">{% trans "Scan to view profile" %}</p>
+          </div>
+        </div>
+        {% endif %}
+
+        <!-- ── Verification PIN (always on profile) ── -->
+        {% if user.is_authenticated and user.id == profile_user.id and current_pin %}
+        <div class="profile-card-dark profile-pin-card" style="border-color:rgba(220,38,38,.3);background:rgba(220,38,38,.04);">
+          <div class="pin-card-header">
+            <i class="fas fa-shield-alt pin-hdr-icon"></i>
+            {% trans "Verification PIN" %}
+            <span class="pin-refresh-badge">{% trans "12 min" %}</span>
+          </div>
+
+          <div class="pin-digits-profile" id="pin-digits-p">
+            {% for ch in current_pin %}
+              <div class="pin-d-profile" style="animation-delay:{{ forloop.counter0 }}0ms">{{ ch }}</div>
+              {% if forloop.counter == 3 and not forloop.last %}
+                <div class="pin-sep-profile">&ndash;</div>
+              {% endif %}
+            {% endfor %}
+          </div>
+
+          <div class="pin-foot-profile">
+            <div class="pin-timer-profile">
+              <i class="fas fa-clock"></i>
+              <span id="pin-cnt-p">{{ seconds_remaining }}</span>{% trans "s" %}
+            </div>
+            <button class="pin-copy-profile" id="copy-p" data-pin="{{ current_pin }}">
+              <i class="fas fa-copy" id="copy-ico-p"></i>
+              <span id="copy-lbl-p">{% trans "Copy" %}</span>
+            </button>
+            <a href="{% url 'users:member_cabinet' %}" class="pin-cab-link" title="{% trans 'Full Cabinet' %}">
+              <i class="fas fa-id-card"></i>
+              {% trans "Cabinet" %}
+            </a>
           </div>
         </div>
         {% endif %}
@@ -641,6 +743,38 @@ document.addEventListener('DOMContentLoaded', function() {
       el.style.width = el.style.width || '0%';
     });
   });
+
+  // ── PIN countdown & copy ──
+  var cntEl = document.getElementById('pin-cnt-p');
+  if (cntEl) {
+    var sec = parseInt(cntEl.textContent, 10) || 0;
+    var iv = setInterval(function() {
+      sec--;
+      if (sec <= 0) { clearInterval(iv); location.reload(); return; }
+      cntEl.textContent = sec;
+    }, 1000);
+  }
+  var cpBtn = document.getElementById('copy-p');
+  if (cpBtn) {
+    cpBtn.addEventListener('click', function() {
+      var pin = cpBtn.dataset.pin;
+      var ico = document.getElementById('copy-ico-p');
+      var lbl = document.getElementById('copy-lbl-p');
+      navigator.clipboard && navigator.clipboard.writeText(pin).then(function() {
+        cpBtn.classList.add('copied');
+        if (ico) ico.className = 'fas fa-check';
+        if (lbl) lbl.textContent = '✔';
+        setTimeout(function() {
+          cpBtn.classList.remove('copied');
+          if (ico) ico.className = 'fas fa-copy';
+          if (lbl) lbl.textContent = cpBtn.dataset.copyLabel || 'Copy';
+        }, 2200);
+      });
+    });
+    // stash original label
+    var lbl = document.getElementById('copy-lbl-p');
+    if (lbl) cpBtn.dataset.copyLabel = lbl.textContent;
+  }
 });
 </script>
 {% endblock %}
