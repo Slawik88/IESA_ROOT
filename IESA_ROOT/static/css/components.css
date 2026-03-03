@@ -417,7 +417,7 @@
   font-size: var(--text-base);
   font-weight: var(--font-normal);
   color: var(--text-primary) !important;
-  background-color: var(--white) !important;
+  background-color: var(--bg-surface) !important;
   border: 1px solid var(--border-color);
   border-radius: var(--radius-input);
   transition: all var(--transition-fast);
@@ -431,7 +431,7 @@
   border-color: var(--primary);
   outline: none;
   box-shadow: 0 0 0 3px var(--focus-ring-color);
-  background-color: var(--white) !important;
+  background-color: var(--bg-surface) !important;
   color: var(--text-primary) !important;
 }
 
@@ -459,7 +459,7 @@
   font-size: var(--text-base);
   font-weight: var(--font-normal);
   color: var(--text-primary) !important;
-  background-color: var(--white) !important;
+  background-color: var(--bg-surface) !important;
   border: 1px solid var(--border-color);
   border-radius: var(--radius-input);
   cursor: pointer;
@@ -492,7 +492,7 @@ textarea.form-control {
   min-height: 120px;
   resize: vertical;
   color: var(--text-primary) !important;
-  background-color: var(--white) !important;
+  background-color: var(--bg-surface) !important;
 }
 
 /* Validation States */

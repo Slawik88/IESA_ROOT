@@ -368,6 +368,7 @@ figcaption {
 .auth-card,
 .auth-card-right,
 .auth-body,
+.auth-light-side,
 .hero-section,
 #about-section,
 .profile-user-stats,
@@ -375,13 +376,16 @@ figcaption {
 .list-group-item,
 .info-pill,
 .stat-chip,
-.link-chip {
+.link-chip,
+.modal-light .modal-content,
+.table {
   --text-primary: #111827;
   --text-secondary: #4b5563;
   --text-muted: #6b7280;
   --text-light: #9ca3af;
   --border-color: #e5e7eb;
   --border-color-hover: #d1d5db;
+  --bg-surface: #ffffff;
   --gray-50: #f9fafb;
   --gray-100: #f3f4f6;
   --gray-200: #e5e7eb;
