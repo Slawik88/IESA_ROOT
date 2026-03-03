@@ -53,10 +53,11 @@ EDIT_WINDOW = 1200          # 20 minutes
 # ---------------------------------------------------------------------------
 
 def is_partner(user):
+    """Check if user has partner access — via is_partner flag OR full partner_profile."""
     """Check if user has a Partner profile."""
     try:
-        has_profile = hasattr(user, 'partner_profile')
-        logger.debug("is_partner check — user: %s, has_profile: %s", user.username, has_profile)
+        has_profile = hasattr(user, 'partner_profile') or bool(user.is_partner)
+        logger.debug("is_partner check — user: %s, has_profile: %s, is_partner: %s", user.username, hasattr(user, 'partner_profile'), bool(user.is_partner))
         return has_profile
     except Exception as exc:
         logger.error("is_partner check error: %s", exc)
@@ -151,8 +152,15 @@ def partner_dashboard(request):
     try:
         partner = request.user.partner_profile
     except Partner.DoesNotExist:
-        messages.error(request, _('⚠️ Partner profile not configured. Contact administrator.'))
-        return redirect('core:home')
+        if request.user.is_partner:
+            # Auto-create a minimal Partner record for is_partner flag users
+            partner = Partner.objects.create(
+                user=request.user,
+                company_name=request.user.get_full_name() or request.user.username,
+            )
+        else:
+            messages.error(request, _('⚠️ Partner profile not configured. Contact administrator.'))
+            return redirect('core:home')
     except AttributeError:
         messages.error(request, _('⚠️ System error: Database migration required. Contact administrator.'))
         return redirect('core:home')
