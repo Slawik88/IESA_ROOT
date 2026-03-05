@@ -472,6 +472,100 @@ html, body { background: var(--bg0) !important; }
     .steps-grid { grid-template-columns: 1fr; }
     .cab-name { font-size: 1.35rem; }
 }
+
+/* ════════════════════════════════════════════════════════════
+   9. PHYSICAL CARD
+════════════════════════════════════════════════════════════ */
+.card-status-wrap { padding: 1.4rem 1.5rem 1.5rem; }
+.card-status-pill {
+    display: flex; align-items: center; gap: 1rem;
+    padding: 1rem 1.2rem; border-radius: 14px;
+    margin-bottom: 1rem;
+}
+.card-status-pill.active  { background: rgba(34,197,94,.07); border: 1.5px solid rgba(34,197,94,.2); }
+.card-status-pill.inactive{ background: rgba(245,158,11,.07); border: 1.5px solid rgba(245,158,11,.2); }
+.csp-icon {
+    width: 44px; height: 44px; border-radius: 12px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center; font-size: 1.2rem;
+}
+.card-status-pill.active  .csp-icon { background: rgba(34,197,94,.14); color: #4ade80; }
+.card-status-pill.inactive .csp-icon { background: rgba(245,158,11,.13); color: #fbbf24; }
+.csp-label { font-size: .76rem; color: var(--muted); margin-bottom: .1rem; }
+.csp-value { font-size: .95rem; font-weight: 700; }
+.card-status-pill.active  .csp-value { color: #4ade80; }
+.card-status-pill.inactive .csp-value { color: #fbbf24; }
+
+.card-qr-row {
+    display: flex; align-items: center; gap: 1rem; padding: .2rem 0;
+}
+.card-qr-thumb {
+    width: 68px; height: 68px; border-radius: 12px; flex-shrink: 0;
+    background: #fff; padding: 5px;
+    border: 1px solid rgba(255,255,255,.12);
+}
+.card-qr-thumb img { width: 100%; height: 100%; display: block; }
+.card-qr-info { flex: 1; }
+.card-qr-id {
+    font-family: 'Courier New', monospace; font-size: .73rem;
+    color: var(--muted); word-break: break-all; line-height: 1.6;
+}
+.btn-qr-dl {
+    display: inline-flex; align-items: center; gap: .4rem;
+    padding: .38rem .85rem;
+    background: rgba(255,255,255,.05); border: 1.5px solid rgba(255,255,255,.1);
+    border-radius: 9px; color: var(--muted); font-size: .78rem;
+    font-weight: 600; text-decoration: none; margin-top: .55rem;
+    transition: all .2s;
+}
+.btn-qr-dl:hover {
+    background: rgba(255,255,255,.1); border-color: rgba(255,255,255,.22);
+    color: #fff; text-decoration: none;
+}
+
+/* ════════════════════════════════════════════════════════════
+   10. VISIT HISTORY
+════════════════════════════════════════════════════════════ */
+.vh-list { padding: 0 1rem 1rem; }
+.vh-item {
+    display: flex; align-items: flex-start; gap: .85rem;
+    padding: .9rem .5rem;
+    border-bottom: 1px solid var(--bdr);
+    transition: background .2s;
+}
+.vh-item:last-child { border-bottom: none; }
+.vh-item:hover { background: rgba(255,255,255,.02); border-radius: 10px; }
+.vh-dot {
+    width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center; font-size: .73rem;
+    margin-top: .1rem;
+}
+.vh-dot.verified { background: rgba(34,197,94,.13); color: #4ade80; border: 1px solid rgba(34,197,94,.25); }
+.vh-dot.unverified { background: rgba(245,158,11,.12); color: #fbbf24; border: 1px solid rgba(245,158,11,.25); }
+.vh-dot.cancelled { background: rgba(148,163,184,.09); color: #94a3b8; border: 1px solid rgba(148,163,184,.18); }
+.vh-main { flex: 1; min-width: 0; }
+.vh-partner { font-size: .88rem; font-weight: 700; color: var(--text); }
+.vh-service { font-size: .76rem; color: var(--muted); margin-top: .12rem; }
+.vh-date {
+    font-size: .72rem; color: var(--muted); text-align: right;
+    white-space: nowrap; flex-shrink: 0;
+}
+.vh-cost {
+    font-size: .78rem; font-weight: 700; color: var(--text);
+    text-align: right; flex-shrink: 0;
+}
+.vh-status-badge {
+    display: inline-flex; align-items: center;
+    font-size: .65rem; font-weight: 700; letter-spacing: .05em;
+    padding: .12rem .5rem; border-radius: 20px; text-transform: uppercase;
+}
+.vh-status-badge.active   { background: rgba(34,197,94,.12); color: #4ade80; }
+.vh-status-badge.edited   { background: rgba(245,158,11,.12); color: #fbbf24; }
+.vh-status-badge.cancelled{ background: rgba(148,163,184,.1); color: #94a3b8; }
+.vh-empty {
+    text-align: center; padding: 2.5rem 1rem;
+    color: var(--muted); font-size: .88rem;
+}
+.vh-empty i { font-size: 2rem; margin-bottom: .6rem; display: block; opacity: .35; }
 </style>
 {% endblock %}
 
@@ -637,6 +731,64 @@ html, body { background: var(--bg0) !important; }
         </div>
         {% endif %}
 
+        {# ══════════ PHYSICAL CARD ══════════ #}
+        <div class="g-card" data-reveal data-delay="3">
+            <div class="g-header">
+                <div class="g-icon {% if card_active %}grn{% else %}red{% endif %}">
+                    <i class="fas fa-id-card"></i>
+                </div>
+                <span class="g-title">{% trans "Physical Membership Card" %}</span>
+                {% if card_active %}
+                    <span class="g-sup" style="color:#4ade80;"><i class="fas fa-circle" style="font-size:.4rem;"></i>&nbsp;{% trans "issued" %}</span>
+                {% else %}
+                    <span class="g-sup" style="color:#fbbf24;"><i class="fas fa-circle" style="font-size:.4rem;"></i>&nbsp;{% trans "not issued" %}</span>
+                {% endif %}
+            </div>
+            <div class="card-status-wrap">
+                {% if card_active %}
+                <div class="card-status-pill active">
+                    <div class="csp-icon"><i class="fas fa-check-circle"></i></div>
+                    <div>
+                        <div class="csp-label">{% trans "Card status" %}</div>
+                        <div class="csp-value">{% trans "Active — card issued" %}</div>
+                    </div>
+                </div>
+                {% if card_issued_at %}
+                <div style="font-size:.78rem;color:var(--muted);margin-bottom:1rem;">
+                    <i class="fas fa-calendar-alt" style="margin-right:.4rem;"></i>
+                    {% trans "Issued" %}: {{ card_issued_at|date:"d.m.Y" }}
+                </div>
+                {% endif %}
+                <div class="card-qr-row">
+                    <div class="card-qr-thumb">
+                        <img src="{% url 'users:user_qr' user.permanent_id %}" alt="QR">
+                    </div>
+                    <div class="card-qr-info">
+                        <div class="card-qr-id">{{ user.permanent_id }}</div>
+                        <a href="{% url 'users:user_qr' user.permanent_id %}" download class="btn-qr-dl">
+                            <i class="fas fa-download"></i> {% trans "Download QR" %}
+                        </a>
+                    </div>
+                </div>
+                {% else %}
+                <div class="card-status-pill inactive">
+                    <div class="csp-icon"><i class="fas fa-hourglass-half"></i></div>
+                    <div>
+                        <div class="csp-label">{% trans "Card status" %}</div>
+                        <div class="csp-value">{% trans "Not yet issued" %}</div>
+                    </div>
+                </div>
+                <p style="font-size:.83rem;color:var(--muted);margin-top:.5rem;line-height:1.6;">
+                    {% trans "Your physical membership card has not been issued yet. Contact the administration to receive your card." %}
+                </p>
+                <div class="state-contact" style="margin-top:.75rem;">
+                    <i class="fas fa-envelope" style="margin-right:.4rem;"></i>
+                    <a href="mailto:admin@iesasport.ch">admin@iesasport.ch</a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
         {# ══════════ TELEGRAM CARD ══════════ #}
         {% if telegram_bot_configured %}
         <div class="g-card tg-hover" data-reveal data-delay="3">
@@ -699,6 +851,54 @@ html, body { background: var(--bg0) !important; }
             </div>
         </div>
         {% endif %}
+
+        {# ══════════ VISIT HISTORY ══════════ #}
+        <div class="g-card" data-reveal data-delay="5">
+            <div class="g-header">
+                <div class="g-icon red"><i class="fas fa-history"></i></div>
+                <span class="g-title">{% trans "My Visit History" %}</span>
+                <span class="g-sup">{% trans "last 20 visits" %}</span>
+            </div>
+            <div class="vh-list">
+                {% if recent_visits %}
+                    {% for visit in recent_visits %}
+                    <div class="vh-item">
+                        <div class="vh-dot
+                            {% if visit.status == 'CANCELLED' %}cancelled
+                            {% elif visit.pin_verified %}verified
+                            {% else %}unverified{% endif %}">
+                            {% if visit.status == 'CANCELLED' %}<i class="fas fa-ban"></i>
+                            {% elif visit.pin_verified %}<i class="fas fa-check"></i>
+                            {% else %}<i class="fas fa-clock"></i>{% endif %}
+                        </div>
+                        <div class="vh-main">
+                            <div class="vh-partner">{{ visit.partner.company_name }}</div>
+                            <div class="vh-service">
+                                {{ visit.get_service_type_display }}
+                                {% if visit.service_description %}&nbsp;·&nbsp;<span style="font-style:italic;">{{ visit.service_description|truncatechars:40 }}</span>{% endif %}
+                            </div>
+                            <div style="margin-top:.3rem;">
+                                <span class="vh-status-badge {% if visit.status == 'CANCELLED' %}cancelled{% elif visit.status == 'EDITED' %}edited{% else %}active{% endif %}">
+                                    {{ visit.status }}
+                                </span>
+                            </div>
+                        </div>
+                        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:.3rem;flex-shrink:0;">
+                            {% if visit.cost %}
+                                <div class="vh-cost">{{ visit.cost }} CHF</div>
+                            {% endif %}
+                            <div class="vh-date">{{ visit.timestamp|date:"d.m.Y" }}<br><span style="font-size:.68rem;opacity:.65;">{{ visit.timestamp|date:"H:i" }}</span></div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="vh-empty">
+                        <i class="fas fa-map-marker-alt"></i>
+                        {% trans "No visits recorded yet. Visit a partner to see history here." %}
+                    </div>
+                {% endif %}
+            </div>
+        </div>
 
     </div>{# /cab-content #}
 </div>{# /cab-page #}

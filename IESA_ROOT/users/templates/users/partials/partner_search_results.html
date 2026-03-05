@@ -9,8 +9,9 @@
         </div>
         <div class="psr-list" id="search-results-list">
             {% for member in search_results %}
-                <a href="{% url 'users:log_visit' member.id %}" class="psr-item fade-in-item">
-                    <div class="d-flex align-items-center gap-3">
+                <div class="psr-item fade-in-item" style="display:flex;align-items:center;gap:0;">
+                  <a href="{% url 'users:log_visit' member.id %}" class="psr-item-inner" style="flex:1;display:flex;align-items:center;gap:12px;padding:12px 14px;text-decoration:none;color:inherit;">
+                    <div class="d-flex align-items-center gap-3" style="flex:1;">
                         {% if member.avatar and member.avatar.name != 'avatars/default.png' %}
                             <img src="{{ member.avatar.url }}" alt="{{ member.username }}"
                                  class="psr-avatar">
@@ -39,9 +40,16 @@
                                 {% endif %}
                             </div>
                         </div>
-                        <i class="fas fa-chevron-right psr-arrow"></i>
+                        <i class="fas fa-plus psr-arrow"></i>
                     </div>
-                </a>
+                  </a>
+                  <a href="{% url 'users:partner_member_visits' member.id %}"
+                     title="{% trans 'Visit history' %}"
+                     style="padding:12px 14px;color:rgba(255,255,255,.3);text-decoration:none;font-size:.8rem;border-left:1px solid rgba(255,255,255,.07);flex-shrink:0;"
+                     onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='rgba(255,255,255,.3)'">
+                    <i class="fas fa-history"></i>
+                  </a>
+                </div>
             {% endfor %}
         </div>
     {% else %}

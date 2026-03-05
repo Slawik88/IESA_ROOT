@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
@@ -216,3 +217,45 @@ class MemberBenefit(models.Model):
         
     def __str__(self):
         return f'{self.title} ({self.get_category_display()})'
+
+
+class AdminAppeal(models.Model):
+    """
+    User appeals to administration — submitted from access-denied pages
+    and other places where users need admin assistance.
+    """
+    REASON_CHOICES = [
+        ('partner_access',  _('Partner portal access request')),
+        ('account_issue',   _('Account / membership issue')),
+        ('verification',    _('Verification request')),
+        ('other',           _('Other')),
+    ]
+    STATUS_CHOICES = [
+        ('new',       _('New')),
+        ('in_review', _('In review')),
+        ('resolved',  _('Resolved')),
+        ('declined',  _('Declined')),
+    ]
+
+    user            = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='admin_appeals',
+        verbose_name=_('User'),
+    )
+    name            = models.CharField(max_length=150, verbose_name=_('Name'))
+    email           = models.EmailField(verbose_name=_('E-mail'))
+    reason          = models.CharField(max_length=30, choices=REASON_CHOICES, default='other', verbose_name=_('Reason'))
+    message         = models.TextField(verbose_name=_('Message'))
+    requested_url   = models.CharField(max_length=500, blank=True, verbose_name=_('Requested URL'))
+    status          = models.CharField(max_length=12, choices=STATUS_CHOICES, default='new', verbose_name=_('Status'))
+    admin_notes     = models.TextField(blank=True, verbose_name=_('Admin notes'))
+    created_at      = models.DateTimeField(auto_now_add=True, verbose_name=_('Submitted at'))
+    updated_at      = models.DateTimeField(auto_now=True, verbose_name=_('Updated at'))
+
+    class Meta:
+        verbose_name        = _('Admin appeal')
+        verbose_name_plural = _('Admin appeals')
+        ordering            = ['-created_at']
+
+    def __str__(self):
+        return f'[{self.get_status_display()}] {self.get_reason_display()} — {self.name} ({self.email})'

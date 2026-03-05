@@ -4,7 +4,7 @@ from django.utils.translation import gettext_lazy as _
 from django_ckeditor_5.widgets import CKEditor5Widget
 from django import forms
 from modeltranslation.admin import TabbedTranslationAdmin
-from .models import Partner, AssociationMember, President, SocialNetwork, CoreProduct, MemberBenefit
+from .models import Partner, AssociationMember, President, SocialNetwork, CoreProduct, MemberBenefit, AdminAppeal
 from . import translation  # noqa: F401
 
 
@@ -222,3 +222,26 @@ class MemberBenefitAdmin(TabbedTranslationAdmin):
 	def icon_preview(self, obj):
 		return format_html('<i class="{}" style="font-size: 1.5rem; color: {};"></i>', obj.icon, obj.color if obj.color.startswith('#') else '#28a745')
 	icon_preview.short_description = _('Icon')
+
+
+@admin.register(AdminAppeal)
+class AdminAppealAdmin(admin.ModelAdmin):
+	list_display = ('__str__', 'reason', 'status', 'created_at')
+	list_filter = ('status', 'reason', 'created_at')
+	list_editable = ('status',)
+	search_fields = ('name', 'email', 'message', 'admin_notes')
+	readonly_fields = ('user', 'name', 'email', 'reason', 'message', 'requested_url', 'created_at', 'updated_at')
+	date_hierarchy = 'created_at'
+
+	fieldsets = (
+		(_('Request'), {
+			'fields': ('user', 'name', 'email', 'reason', 'message', 'requested_url')
+		}),
+		(_('Processing'), {
+			'fields': ('status', 'admin_notes')
+		}),
+		(_('Timestamps'), {
+			'fields': ('created_at', 'updated_at'),
+			'classes': ('collapse',)
+		}),
+	)

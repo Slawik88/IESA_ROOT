@@ -2,12 +2,17 @@
 """
 Test URLs and bucket contents
 """
+import os
+import sys
 import boto3
 
-key = 'DO00KZ7JADFLXJ2MNGJF'
-secret = 'eh42Jkc7x6hmCiWHn861t4258Lp7oYrXChKQhgQDQf4'
-bucket = 'iesa-bucket'
-endpoint = 'https://fra1.digitaloceanspaces.com'
+key = os.getenv('SPACES_KEY')
+secret = os.getenv('SPACES_SECRET')
+bucket = os.getenv('SPACES_BUCKET', 'iesa-bucket')
+endpoint = os.getenv('SPACES_ENDPOINT', 'https://fra1.digitaloceanspaces.com')
+
+if not key or not secret:
+    sys.exit('❌ Set SPACES_KEY and SPACES_SECRET environment variables before running.')
 
 s3 = boto3.client(
     's3',

@@ -10,4 +10,6 @@ urlpatterns = [
     path('partner/<int:pk>/', views.partner_detail, name='partner_detail'),
     # Преимущества членов ассоциации
     path('benefits/', views.benefits_view, name='benefits'),
+    # Admin appeal form submission (used from access-denied pages)
+    path('appeal/', views.submit_appeal, name='submit_appeal'),
 ]

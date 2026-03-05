@@ -3,12 +3,17 @@
 Delete old files with wrong path from bucket.
 Run ONLY after verifying you don't need gallery/photos/ files.
 """
+import os
+import sys
 import boto3
 
-key = 'DO00KZ7JADFLXJ2MNGJF'
-secret = 'eh42Jkc7x6hmCiWHn861t4258Lp7oYrXChKQhgQDQf4'
-bucket = 'iesa-bucket'
-endpoint = 'https://fra1.digitaloceanspaces.com'
+key = os.getenv('SPACES_KEY')
+secret = os.getenv('SPACES_SECRET')
+bucket = os.getenv('SPACES_BUCKET', 'iesa-bucket')
+endpoint = os.getenv('SPACES_ENDPOINT', 'https://fra1.digitaloceanspaces.com')
+
+if not key or not secret:
+    sys.exit('❌ Set SPACES_KEY and SPACES_SECRET environment variables before running.')
 
 s3 = boto3.client(
     's3',
@@ -27,10 +32,10 @@ deleted_count = 0
 
 if 'Contents' in response:
     for obj in response['Contents']:
-        key = obj['Key']
-        print(f"\nDeleting: {key}")
+        obj_key = obj['Key']
+        print(f"\nDeleting: {obj_key}")
         try:
-            s3.delete_object(Bucket=bucket, Key=key)
+            s3.delete_object(Bucket=bucket, Key=obj_key)
             print(f"  ✅ Deleted")
             deleted_count += 1
         except Exception as e:

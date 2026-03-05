@@ -90,12 +90,12 @@ def create_superuser():
     user = User.objects.create_superuser(
         username='root',
         email='root@iesa.org',
-        password='20041987',
+        password=os.getenv('SUPERUSER_PASSWORD', 'changeme'),
         first_name='System',
         last_name='Administrator',
         is_verified=True
     )
-    print(f"   ✓ Создан суперюзер: root (пароль: 20041987)")
+    print(f"   ✓ Создан суперюзер: root (пароль задан через SUPERUSER_PASSWORD)")
     return user
 
 # ============================================================
@@ -630,7 +630,7 @@ def main():
     print("="*70)
     print(f"""
     📊 СТАТИСТИКА:
-    ├── Суперюзер: root (пароль: 20041987)
+    ├── Суперюзер: root (пароль из SUPERUSER_PASSWORD)
     ├── Президент: 1
     ├── Члены ассоциации: {len(members)}
     ├── Партнеры: {len(partners)}
@@ -642,7 +642,7 @@ def main():
     print("="*70)
     print("🎉 Данные успешно созданы!")
     print("   Логин: root")
-    print("   Пароль: 20041987")
+    print("   Пароль: см. переменную окружения SUPERUSER_PASSWORD")
     print("="*70 + "\n")
 
 if __name__ == '__main__':

@@ -1,685 +1,703 @@
 {% extends 'base.html' %}
 {% load static i18n %}
-{% load imagekit %}
 
-{% block title %}{% blocktrans with username=profile_user.username %}Profile of {{ username }}{% endblocktrans %}{% endblock %}
+{% block title %}{% trans "My Cabinet" %} — IESA Sport{% endblock %}
 
 {% block container_wrap_start %}{% endblock %}
 {% block container_wrap_end %}{% endblock %}
 
 {% block extra_css %}
 <style>
-/* ================================================================
-   IESA PROFILE PAGE — REDESIGN 2026
-   Dark glassmorphism, consistent with homepage
-================================================================ */
+/* ═══════════════════════════════════════════════════════════
+   IESA PERSONAL CABINET — 2026
+   Dark glassmorphism, matches member_cabinet / homepage
+═══════════════════════════════════════════════════════════ */
+:root {
+  --bg0: #0a0a0f;
+  --bg1: #10101a;
+  --card: rgba(18,18,30,0.90);
+  --bdr:  rgba(255,255,255,0.08);
+  --bdr-h:rgba(220,38,38,0.40);
+  --text: rgba(255,255,255,0.88);
+  --muted:rgba(255,255,255,0.40);
+  --red:  #dc2626;
+  --red-g:rgba(220,38,38,0.28);
+  --green:#22c55e;
+  --tg:   #29a8eb;
+  --amber:#f59e0b;
+  --r:    20px;
+}
+html, body { background: var(--bg0) !important; }
 
-.profile-page-v2 {
-  background: #0e0e18;
-  min-height: 100vh;
-  padding-bottom: 5rem;
-}
-
-/* ── Hero strip ─────────────────────────────────── */
-.profile-hero-strip {
-  position: relative;
-  background: linear-gradient(180deg, #0a0a0f 0%, #111020 100%);
-  padding: 3.5rem 0 5.5rem;
-  overflow: hidden;
-}
-.profile-hero-strip::before {
-  content: '';
-  position: absolute;
-  top: -120px; left: -120px;
-  width: 520px; height: 520px;
-  background: radial-gradient(circle, rgba(220,38,38,.18) 0%, transparent 70%);
-  pointer-events: none;
-}
-.profile-hero-strip::after {
-  content: '';
-  position: absolute;
-  bottom: -80px; right: 0;
-  width: 380px; height: 380px;
-  background: radial-gradient(circle, rgba(59,130,246,.1) 0%, transparent 70%);
-  pointer-events: none;
+/* ── canvas bg ── */
+#cab-canvas {
+  position:fixed; inset:0; z-index:0;
+  pointer-events:none; opacity:.55;
 }
 
-.profile-hp-container {
-  max-width: 1100px;
-  margin: 0 auto;
-  padding: 0 1.5rem;
-  position: relative;
-  z-index: 1;
+/* ── reveal animation ── */
+[data-reveal] {
+  opacity:0; transform:translateY(28px);
+  transition:opacity .65s cubic-bezier(.22,1,.36,1),transform .65s cubic-bezier(.22,1,.36,1);
+}
+[data-reveal].revealed { opacity:1; transform:none; }
+[data-delay="1"]{transition-delay:.10s!important}
+[data-delay="2"]{transition-delay:.20s!important}
+[data-delay="3"]{transition-delay:.30s!important}
+[data-delay="4"]{transition-delay:.40s!important}
+[data-delay="5"]{transition-delay:.50s!important}
+[data-delay="6"]{transition-delay:.60s!important}
+
+/* ── page shell ── */
+.cab-page {
+  position:relative; z-index:1;
+  padding:0 0 6rem; min-height:100vh;
 }
 
-/* ── Avatar + identity block ────────────────────── */
-.profile-identity {
-  display: flex;
-  align-items: flex-end;
-  gap: 2rem;
-  margin-bottom: 1.5rem;
+/* ── section label ── */
+.cab-label {
+  font-size:.68rem; letter-spacing:.22em; font-weight:700;
+  text-transform:uppercase; color:var(--red);
+  display:inline-flex; align-items:center; gap:.6rem; margin-bottom:1rem;
 }
-.profile-avatar-wrap {
-  position: relative;
-  flex-shrink: 0;
-}
-.profile-avatar-v2 {
-  width: 110px; height: 110px;
-  border-radius: 50%;
-  border: 3px solid rgba(220,38,38,.5);
-  box-shadow: 0 0 0 8px rgba(220,38,38,.08);
-  object-fit: cover;
-  display: block;
-}
-.profile-avatar-fallback-v2 {
-  width: 110px; height: 110px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #dc2626, #991b1b);
-  display: flex; align-items: center; justify-content: center;
-  font-size: 2.8rem; font-weight: 900; color: #fff;
-  border: 3px solid rgba(220,38,38,.5);
-  box-shadow: 0 0 0 8px rgba(220,38,38,.08);
-}
-.profile-identity-info { padding-bottom: .3rem; }
-.profile-name-v2 {
-  font-size: 1.8rem; font-weight: 900; line-height: 1.05;
-  color: #fff; letter-spacing: -.03em; margin: 0 0 .35rem;
-}
-.profile-email-v2 {
-  font-size: .88rem; color: rgba(255,255,255,.4);
-  font-weight: 500; margin: 0;
-}
-.profile-id-v2 {
-  display: inline-flex; align-items: center; gap: .5rem;
-  background: rgba(220,38,38,.1); border: 1px solid rgba(220,38,38,.3);
-  border-radius: 8px; padding: .3rem .75rem;
-  font-family: monospace; font-size: .78rem; color: #f87171;
-  margin-top: .6rem;
+.cab-label::before,.cab-label::after {
+  content:''; flex:1 1 20px; height:1px; background:var(--red); opacity:.35;
 }
 
-/* ── Quick action buttons ───────────────────────── */
-.profile-actions {
-  display: flex; gap: .75rem; flex-wrap: wrap; margin-top: 1rem;
+/* ══════════════════════════════════════════════
+   HERO
+══════════════════════════════════════════════ */
+.cab-hero {
+  position:relative;
+  background:linear-gradient(160deg,#0a0a0f 0%,#13132a 50%,#0a0a0f 100%);
+  overflow:hidden; padding:4.5rem 0 3.5rem; margin-bottom:2.5rem;
 }
-.btn-profile-primary {
-  display: inline-flex; align-items: center; gap: .5rem;
-  background: var(--primary); color: #fff; border: none;
-  border-radius: 10px; padding: .55rem 1.2rem;
-  font-size: .88rem; font-weight: 700; text-decoration: none;
-  transition: opacity .2s, transform .2s;
+.cab-hero::before {
+  content:''; position:absolute; top:-100px; left:-100px;
+  width:600px; height:600px;
+  background:radial-gradient(circle,rgba(220,38,38,.16) 0%,transparent 65%);
+  pointer-events:none;
 }
-.btn-profile-primary:hover { opacity: .88; color: #fff; transform: translateY(-1px); }
-.btn-profile-outline {
-  display: inline-flex; align-items: center; gap: .5rem;
-  background: transparent; color: rgba(255,255,255,.7);
-  border: 1px solid rgba(255,255,255,.15); border-radius: 10px;
-  padding: .55rem 1.2rem; font-size: .88rem; font-weight: 600;
-  text-decoration: none; cursor: pointer;
-  transition: background .2s, border-color .2s, color .2s;
+.cab-hero::after {
+  content:''; position:absolute; bottom:-120px; right:-80px;
+  width:450px; height:450px;
+  background:radial-gradient(circle,rgba(37,99,235,.10) 0%,transparent 65%);
+  pointer-events:none;
 }
-.btn-profile-outline:hover {
-  background: rgba(255,255,255,.07); border-color: rgba(255,255,255,.3); color: #fff;
+.cab-hero-inner {
+  position:relative; z-index:1;
+  max-width:1140px; margin:0 auto; padding:0 1.5rem;
+  display:flex; align-items:flex-end; justify-content:space-between;
+  flex-wrap:wrap; gap:2rem;
 }
-
-/* ── Info pills row (dark version) ─────────────── */
-.profile-pills-row {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 1rem;
-  margin-top: 2.5rem;
+.cab-identity { display:flex; align-items:flex-end; gap:1.75rem; flex-wrap:wrap; }
+.cab-avatar-wrap { position:relative; flex-shrink:0; }
+.cab-avatar {
+  width:100px; height:100px; border-radius:50%;
+  border:3px solid rgba(220,38,38,.5);
+  box-shadow:0 0 0 8px rgba(220,38,38,.08);
+  object-fit:cover; display:block;
 }
-.info-pill-v2 {
-  display: flex; align-items: center; gap: .9rem;
-  background: rgba(255,255,255,.055);
-  border: 1px solid rgba(255,255,255,.09);
-  border-radius: 14px; padding: .9rem 1rem;
-  transition: background .25s, border-color .25s;
-}
-.info-pill-v2:hover {
-  background: rgba(255,255,255,.09);
-  border-color: rgba(255,255,255,.16);
-}
-.pv2-icon {
-  width: 40px; height: 40px; border-radius: 12px;
-  display: flex; align-items: center; justify-content: center;
-  font-size: .95rem; color: #fff; flex-shrink: 0;
-}
-.pv2-red .pv2-icon { background: #dc2626; }
-.pv2-blue .pv2-icon { background: #3b82f6; }
-.pv2-amber .pv2-icon { background: #f59e0b; }
-.pv2-green .pv2-icon { background: #10b981; }
-.pv2-label {
-  font-size: .7rem; text-transform: uppercase; letter-spacing: .1em;
-  color: rgba(255,255,255,.35); margin: 0 0 2px; font-weight: 600;
-}
-.pv2-value {
-  font-size: .88rem; font-weight: 700; color: #fff; margin: 0;
-  word-break: break-word;
-}
-
-/* ── Main content area ──────────────────────────── */
-.profile-content-area {
-  max-width: 1100px;
-  margin: -2.5rem auto 0;
-  padding: 0 1.5rem;
-  position: relative;
-  z-index: 2;
-}
-
-/* ── Cards (dark glass) ─────────────────────────── */
-.profile-card-dark {
-  background: rgba(255,255,255,.04);
-  border: 1px solid rgba(255,255,255,.09);
-  border-radius: 20px;
-  padding: 1.75rem;
-  margin-bottom: 1.25rem;
-  transition: border-color .25s;
-}
-.profile-card-dark:hover { border-color: rgba(255,255,255,.16); }
-
-.profile-card-title {
-  font-size: .72rem; font-weight: 700; letter-spacing: .14em; text-transform: uppercase;
-  color: rgba(255,255,255,.35); margin-bottom: 1.25rem;
-  display: flex; align-items: center; gap: .5rem;
-}
-.profile-card-title::before {
-  content: ''; width: 16px; height: 2px; background: var(--primary);
-  border-radius: 2px; display: inline-block;
-}
-
-/* ── Activity / level card ──────────────────────── */
-.activity-row {
-  display: flex; align-items: center; justify-content: space-between;
-  flex-wrap: wrap; gap: 1.5rem;
-}
-.activity-points-big {
-  font-size: 3rem; font-weight: 900; line-height: 1;
-  color: #f87171; letter-spacing: -.04em;
-}
-.activity-points-label {
-  font-size: .8rem; color: rgba(255,255,255,.4); font-weight: 500; margin-left: .3rem;
-}
-.progress-dark {
-  height: 6px; background: rgba(255,255,255,.08);
-  border-radius: 50px; overflow: hidden; margin: .6rem 0 .3rem;
-}
-.progress-dark-fill {
-  height: 100%; background: linear-gradient(90deg, #dc2626, #f87171);
-  border-radius: 50px; transition: width 1.4s cubic-bezier(.22,1,.36,1);
-}
-
-/* ── Social link chips (dark) ───────────────────── */
-.link-chips-dark {
-  display: flex; flex-wrap: wrap; gap: .6rem;
-}
-.link-chip-dark {
-  display: inline-flex; align-items: center; gap: .5rem;
-  background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.12);
-  color: rgba(255,255,255,.75); border-radius: 10px;
-  padding: .45rem 1rem; font-size: .83rem; font-weight: 600;
-  text-decoration: none; transition: all .2s;
-}
-.link-chip-dark:hover { background: rgba(255,255,255,.13); color: #fff; border-color: rgba(255,255,255,.25); }
-
-/* ── Stat chips (dark) ──────────────────────────── */
-.stat-chips-dark {
-  display: grid; grid-template-columns: repeat(3,1fr); gap: 1rem;
-}
-.stat-chip-dark {
-  background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08);
-  border-radius: 16px; padding: 1.25rem; display: flex; align-items: center; gap: .9rem;
-  transition: background .25s;
-}
-.stat-chip-dark:hover { background: rgba(255,255,255,.07); }
-.scd-icon {
-  width: 42px; height: 42px; border-radius: 12px;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 1.1rem; color: #fff; flex-shrink: 0;
-}
-.scd-red .scd-icon { background: rgba(220,38,38,.85); }
-.scd-amber .scd-icon { background: rgba(245,158,11,.85); }
-.scd-green .scd-icon { background: rgba(16,185,129,.85); }
-.scd-label { font-size: .72rem; text-transform: uppercase; letter-spacing: .08em; color: rgba(255,255,255,.35); margin: 0 0 2px; }
-.scd-value { font-size: 1.5rem; font-weight: 900; color: #fff; margin: 0; letter-spacing: -.03em; }
-
-/* ── Posts table (dark) ─────────────────────────── */
-.posts-table-dark {
-  width: 100%; border-collapse: separate; border-spacing: 0;
-}
-.posts-table-dark th {
-  font-size: .7rem; text-transform: uppercase; letter-spacing: .1em;
-  color: rgba(255,255,255,.35); font-weight: 600;
-  padding: .6rem 1rem; border-bottom: 1px solid rgba(255,255,255,.08);
-}
-.posts-table-dark td {
-  padding: .85rem 1rem; border-bottom: 1px solid rgba(255,255,255,.05);
-  color: rgba(255,255,255,.75); font-size: .875rem;
-  vertical-align: middle;
-}
-.posts-table-dark tr:last-child td { border-bottom: none; }
-.posts-table-dark tr:hover td { background: rgba(255,255,255,.03); }
-.posts-table-dark .post-title { color: #fff; font-weight: 600; }
-
-/* ── QR block ───────────────────────────────────── */
-.qr-block {
-  background: rgba(220,38,38,.06);
-  border: 1px solid rgba(220,38,38,.2);
-  border-radius: 18px; padding: 1.5rem; text-align: center;
-}
-.qr-block img {
-  width: 160px; height: 160px;
-  border-radius: 12px; display: block; margin: 0 auto;
-  background: #fff; padding: .5rem;
-  box-shadow: 0 8px 24px rgba(0,0,0,.4);
-}
-
-/* ── Level badge ────────────────────────────────── */
-.badge-level-v2 {
-  display: inline-flex; align-items: center; gap: .4rem;
-  padding: .35rem .9rem; border-radius: 8px;
-  font-size: .8rem; font-weight: 700;
-  border: 1px solid;
-}
-.badge-legend { background: rgba(220,38,38,.12); color: #f87171; border-color: rgba(220,38,38,.3); }
-.badge-expert { background: rgba(245,158,11,.12); color: #fbbf24; border-color: rgba(245,158,11,.3); }
-.badge-advanced { background: rgba(59,130,246,.12); color: #60a5fa; border-color: rgba(59,130,246,.3); }
-.badge-intermediate { background: rgba(16,185,129,.12); color: #34d399; border-color: rgba(16,185,129,.3); }
-.badge-beginner { background: rgba(107,114,128,.12); color: #9ca3af; border-color: rgba(107,114,128,.3); }
-
-/* ── Responsive ─────────────────────────────────── */
-@media (max-width: 991.98px) {
-  .profile-pills-row { grid-template-columns: repeat(2,1fr); }
-  .stat-chips-dark { grid-template-columns: 1fr; }
-}
-@media (max-width: 575.98px) {
-  .profile-identity { flex-direction: column; align-items: center; text-align: center; }
-  .profile-pills-row { grid-template-columns: 1fr; }
-  .stat-chips-dark { grid-template-columns: 1fr; }
-  .activity-row { flex-direction: column; text-align: center; }
-  .profile-avatar-v2, .profile-avatar-fallback-v2 { width: 90px; height: 90px; }
-  .profile-name-v2 { font-size: 1.4rem; }
-}
-
-/* ── Verification PIN card (always visible on profile) ──────── */
-.profile-pin-card { transition: border-color .25s, box-shadow .25s; }
-.profile-pin-card:hover { box-shadow: 0 0 0 1px rgba(220,38,38,.3),0 14px 40px rgba(220,38,38,.1); }
-.pin-card-header {
-  display:flex; align-items:center; gap:.5rem;
-  font-size:.72rem; font-weight:700; letter-spacing:.14em; text-transform:uppercase;
-  color:rgba(255,255,255,.35); margin-bottom:1.1rem;
-}
-.pin-card-header::before { content:''; width:16px; height:2px; background:#dc2626; border-radius:2px; display:inline-block; }
-.pin-card-header .pin-hdr-icon { color:#dc2626; font-size:.8rem; }
-.pin-refresh-badge {
-  margin-left:auto;
-  background:rgba(220,38,38,.12); color:#f87171; border:1px solid rgba(220,38,38,.22);
-  border-radius:20px; padding:.12rem .55rem; font-size:.66rem; font-weight:700;
-  letter-spacing:.03em; text-transform:none;
-}
-.pin-digits-profile {
+.cab-avatar-fallback {
+  width:100px; height:100px; border-radius:50%;
+  background:linear-gradient(135deg,#dc2626,#991b1b);
   display:flex; align-items:center; justify-content:center;
-  gap:.45rem; margin:.6rem 0 .85rem;
+  font-size:2.6rem; font-weight:900; color:#fff;
+  border:3px solid rgba(220,38,38,.5);
+  box-shadow:0 0 0 8px rgba(220,38,38,.08);
 }
-.pin-d-profile {
-  width:2.7rem; height:3.15rem;
-  background:rgba(220,38,38,.07); border:1px solid rgba(220,38,38,.3);
-  border-radius:12px;
-  font-size:1.8rem; font-weight:900; color:#fff;
-  font-family:'Courier New',monospace;
+.cab-online-dot {
+  width:16px; height:16px; border-radius:50%; background:#22c55e;
+  border:2px solid #0a0a0f;
+  position:absolute; bottom:4px; right:4px;
+  box-shadow:0 0 8px rgba(34,197,94,.6);
+  animation:pulse-dot 2s ease-in-out infinite;
+}
+@keyframes pulse-dot {
+  0%,100%{box-shadow:0 0 8px rgba(34,197,94,.6)}
+  50%    {box-shadow:0 0 16px rgba(34,197,94,.9)}
+}
+.cab-name {
+  font-size:2rem; font-weight:900; color:#fff;
+  letter-spacing:-.04em; line-height:1; margin:0 0 .4rem;
+}
+.cab-sub { font-size:.88rem; color:var(--muted); margin:0 0 .6rem; }
+.cab-badges { display:flex; flex-wrap:wrap; gap:.45rem; }
+
+/* status badge */
+.sb {
+  display:inline-flex; align-items:center; gap:.35rem;
+  padding:.28rem .75rem; border-radius:6px;
+  font-size:.72rem; font-weight:700; letter-spacing:.04em; border:1px solid;
+}
+.sb-member  { background:rgba(220,38,38,.12);  color:#f87171; border-color:rgba(220,38,38,.3); }
+.sb-partner { background:rgba(245,158,11,.12); color:#fbbf24; border-color:rgba(245,158,11,.3); }
+.sb-staff   { background:rgba(37,99,235,.14);  color:#93c5fd; border-color:rgba(37,99,235,.3); }
+.sb-verified{ background:rgba(34,197,94,.10);  color:#4ade80; border-color:rgba(34,197,94,.28);}
+.sb-grey    { background:rgba(255,255,255,.06);color:rgba(255,255,255,.45); border-color:rgba(255,255,255,.1);}
+
+.hero-actions { display:flex; gap:.75rem; flex-wrap:wrap; }
+.btn-cab-primary {
+  display:inline-flex; align-items:center; gap:.5rem;
+  background:var(--red); color:#fff; border:none; border-radius:10px;
+  padding:.55rem 1.25rem; font-size:.88rem; font-weight:700;
+  text-decoration:none; transition:opacity .2s, transform .18s;
+}
+.btn-cab-primary:hover{opacity:.88;color:#fff;transform:translateY(-1px);}
+.btn-cab-outline {
+  display:inline-flex; align-items:center; gap:.5rem;
+  background:rgba(255,255,255,.06); color:var(--text);
+  border:1px solid var(--bdr); border-radius:10px;
+  padding:.55rem 1.25rem; font-size:.88rem; font-weight:600;
+  text-decoration:none; transition:all .2s;
+}
+.btn-cab-outline:hover{background:rgba(255,255,255,.11);color:#fff;border-color:rgba(255,255,255,.2);}
+
+/* ══════════════════════════════════════════════
+   LAYOUT
+══════════════════════════════════════════════ */
+.cab-wrap { max-width:1140px; margin:0 auto; padding:0 1.5rem; }
+
+.cab-card {
+  background:rgba(255,255,255,.04); border:1px solid var(--bdr);
+  border-radius:var(--r); padding:1.65rem;
+  transition:border-color .25s, box-shadow .25s;
+}
+.cab-card:hover { border-color:rgba(255,255,255,.13); }
+.cab-card-title {
+  font-size:.7rem; font-weight:700; letter-spacing:.15em;
+  text-transform:uppercase; color:var(--muted);
+  display:flex; align-items:center; gap:.5rem; margin-bottom:1.25rem;
+}
+.cab-card-title::before {
+  content:''; width:14px; height:2px; background:var(--red); border-radius:2px;
+}
+
+/* ══════════════════════════════════════════════
+   STAT ROW
+══════════════════════════════════════════════ */
+.stat-row {
+  display:grid; grid-template-columns:repeat(4,1fr); gap:1rem; margin-bottom:1.5rem;
+}
+.stat-box {
+  background:rgba(255,255,255,.04); border:1px solid var(--bdr); border-radius:16px;
+  padding:1.1rem 1rem; display:flex; align-items:center; gap:.85rem;
+  transition:background .25s, border-color .25s;
+}
+.stat-box:hover{background:rgba(255,255,255,.07);border-color:rgba(255,255,255,.14);}
+.stat-icon {
+  width:42px; height:42px; border-radius:12px; flex-shrink:0;
+  display:flex; align-items:center; justify-content:center; font-size:.95rem; color:#fff;
+}
+.si-red   { background:rgba(220,38,38,.80); }
+.si-amber { background:rgba(245,158,11,.80); }
+.si-blue  { background:rgba(59,130,246,.80); }
+.si-green { background:rgba(16,185,129,.80); }
+.stat-lbl { font-size:.68rem; text-transform:uppercase; letter-spacing:.1em; color:var(--muted); margin:0 0 2px; font-weight:600; }
+.stat-val { font-size:1.45rem; font-weight:900; color:#fff; margin:0; letter-spacing:-.03em; }
+
+/* ══════════════════════════════════════════════
+   ACTIVITY LEVEL
+══════════════════════════════════════════════ */
+.level-row { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:1.25rem; }
+.level-pts-big { font-size:3.2rem; font-weight:900; color:#f87171; letter-spacing:-.05em; line-height:1; }
+.level-pts-lbl { font-size:.8rem; color:var(--muted); font-weight:500; }
+.progress-dark { height:6px; background:rgba(255,255,255,.08); border-radius:50px; overflow:hidden; margin:.5rem 0 .25rem; }
+.progress-dark-fill { height:100%; background:linear-gradient(90deg,#dc2626,#f87171); border-radius:50px; transition:width 1.5s cubic-bezier(.22,1,.36,1); }
+.badge-lv { display:inline-flex; align-items:center; gap:.4rem; padding:.3rem .85rem; border-radius:8px; font-size:.78rem; font-weight:700; border:1px solid; }
+.lv-legend     { background:rgba(220,38,38,.12);  color:#f87171; border-color:rgba(220,38,38,.30);  }
+.lv-expert     { background:rgba(245,158,11,.12); color:#fbbf24; border-color:rgba(245,158,11,.30); }
+.lv-advanced   { background:rgba(59,130,246,.12); color:#60a5fa; border-color:rgba(59,130,246,.30); }
+.lv-intermediate{background:rgba(16,185,129,.12); color:#34d399; border-color:rgba(16,185,129,.30);}
+.lv-beginner   { background:rgba(107,114,128,.12);color:#9ca3af; border-color:rgba(107,114,128,.30);}
+
+/* ══════════════════════════════════════════════
+   TELEGRAM CARD
+══════════════════════════════════════════════ */
+.tg-row { display:flex; align-items:center; gap:1rem; }
+.tg-icon-wrap {
+  width:46px; height:46px; border-radius:14px; flex-shrink:0;
   display:flex; align-items:center; justify-content:center;
-  box-shadow:0 4px 14px rgba(220,38,38,.1);
-  animation: pin-pop-p .45s cubic-bezier(.34,1.56,.64,1) both;
 }
-@keyframes pin-pop-p {
-  from { opacity:0; transform:scale(.65) translateY(10px); }
+.tg-icon-wrap.connected    { background:rgba(41,168,235,.15); }
+.tg-icon-wrap.disconnected { background:rgba(41,168,235,.08); }
+.tg-icon-wrap i { color:#29a8eb; font-size:1.3rem; }
+.tg-title { font-size:.9rem; font-weight:700; color:var(--text); margin:0 0 .15rem; }
+.tg-sub   { font-size:.78rem; color:var(--muted); margin:0; }
+.btn-tg-connect {
+  margin-left:auto; flex-shrink:0;
+  background:rgba(41,168,235,.15); color:#29a8eb; border:1px solid rgba(41,168,235,.30);
+  border-radius:8px; padding:.38rem .9rem; font-size:.83rem; font-weight:700;
+  text-decoration:none; transition:all .18s; white-space:nowrap;
+}
+.btn-tg-connect:hover{background:rgba(41,168,235,.28);color:#7dd3fc;}
+.btn-tg-disconnect {
+  margin-left:auto; flex-shrink:0;
+  background:rgba(239,68,68,.10); color:#f87171; border:1px solid rgba(239,68,68,.22);
+  border-radius:8px; padding:.38rem .9rem; font-size:.83rem; font-weight:600;
+  cursor:pointer; transition:all .18s; white-space:nowrap;
+}
+.btn-tg-disconnect:hover{background:rgba(239,68,68,.18);color:#fca5a5;}
+
+/* ══════════════════════════════════════════════
+   PIN CARD
+══════════════════════════════════════════════ */
+.pin-card { border-color:rgba(220,38,38,.28)!important; background:rgba(220,38,38,.04)!important; }
+.pin-digits { display:flex; align-items:center; justify-content:center; gap:.4rem; margin:.75rem 0 .9rem; }
+.pin-d {
+  width:2.7rem; height:3.1rem; border-radius:12px;
+  background:rgba(220,38,38,.07); border:1px solid rgba(220,38,38,.30);
+  font-size:1.8rem; font-weight:900; color:#fff; font-family:'Courier New',monospace;
+  display:flex; align-items:center; justify-content:center;
+  box-shadow:0 4px 16px rgba(220,38,38,.10);
+  animation:pin-pop .45s cubic-bezier(.34,1.56,.64,1) both;
+}
+@keyframes pin-pop {
+  from { opacity:0; transform:scale(.6) translateY(12px); }
   to   { opacity:1; transform:none; }
 }
-.pin-sep-profile { color:rgba(220,38,38,.4); font-size:1.4rem; font-weight:300; margin:0 .05rem; }
-.pin-foot-profile {
-  display:flex; align-items:center; gap:.65rem;
-  padding-top:.75rem; border-top:1px solid rgba(255,255,255,.06);
-  flex-wrap:wrap;
-}
-.pin-timer-profile {
-  display:flex; align-items:center; gap:.35rem;
-  font-size:.82rem; color:rgba(255,255,255,.45); font-weight:600;
-}
-.pin-timer-profile span { color:#f87171; font-weight:800; min-width:2ch; display:inline-block; }
-.pin-copy-profile {
+.pin-sep { color:rgba(220,38,38,.4); font-size:1.5rem; font-weight:300; margin:0 .05rem; }
+.pin-foot { display:flex; align-items:center; gap:.6rem; flex-wrap:wrap; padding-top:.75rem; border-top:1px solid rgba(255,255,255,.06); }
+.pin-timer { display:flex; align-items:center; gap:.35rem; font-size:.82rem; color:var(--muted); font-weight:600; }
+.pin-timer span { color:#f87171; font-weight:900; min-width:2ch; display:inline-block; }
+.btn-pin-copy {
   margin-left:auto;
-  background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.11);
-  color:rgba(255,255,255,.65); border-radius:8px;
-  padding:.3rem .8rem; font-size:.8rem; font-weight:600;
-  cursor:pointer; display:flex; align-items:center; gap:.4rem;
-  transition:all .18s;
+  background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.10);
+  color:rgba(255,255,255,.6); border-radius:8px;
+  padding:.3rem .8rem; font-size:.82rem; font-weight:600;
+  cursor:pointer; display:flex; align-items:center; gap:.4rem; transition:all .18s;
 }
-.pin-copy-profile:hover { background:rgba(255,255,255,.1); color:#fff; }
-.pin-copy-profile.copied { background:rgba(34,197,94,.1); border-color:rgba(34,197,94,.3); color:#4ade80; }
-.pin-cab-link {
-  display:flex; align-items:center; gap:.35rem;
-  font-size:.78rem; color:rgba(255,255,255,.38); font-weight:600;
-  text-decoration:none; transition:color .15s, background .15s;
-  border:1px solid rgba(255,255,255,.08); border-radius:8px;
-  padding:.3rem .7rem;
+.btn-pin-copy:hover{background:rgba(255,255,255,.10);color:#fff;}
+.btn-pin-copy.copied{background:rgba(34,197,94,.10);border-color:rgba(34,197,94,.28);color:#4ade80;}
+.pin-refresh-badge {
+  margin-left:.5rem; background:rgba(220,38,38,.12); color:#f87171;
+  border:1px solid rgba(220,38,38,.22); border-radius:20px;
+  padding:.1rem .55rem; font-size:.65rem; font-weight:700;
 }
-.pin-cab-link:hover { color:rgba(255,255,255,.75); background:rgba(255,255,255,.05); }
-@media (max-width:374px) {
-  .pin-d-profile { width:2.25rem; height:2.7rem; font-size:1.5rem; }
+
+/* ══════════════════════════════════════════════
+   QR CARD
+══════════════════════════════════════════════ */
+.qr-wrap {
+  background:rgba(220,38,38,.05); border:1px solid rgba(220,38,38,.18);
+  border-radius:14px; padding:1.25rem; text-align:center;
+}
+.qr-wrap img {
+  width:150px; height:150px; border-radius:10px;
+  background:#fff; padding:.5rem; display:block; margin:0 auto;
+  box-shadow:0 8px 28px rgba(0,0,0,.45);
+}
+
+/* ══════════════════════════════════════════════
+   SOCIAL LINKS
+══════════════════════════════════════════════ */
+.link-chips { display:flex; flex-wrap:wrap; gap:.55rem; }
+.link-chip {
+  display:inline-flex; align-items:center; gap:.5rem;
+  background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.10);
+  color:rgba(255,255,255,.72); border-radius:10px;
+  padding:.42rem .95rem; font-size:.83rem; font-weight:600;
+  text-decoration:none; transition:all .2s;
+}
+.link-chip:hover{background:rgba(255,255,255,.12);color:#fff;border-color:rgba(255,255,255,.22);}
+
+/* ══════════════════════════════════════════════
+   POSTS TABLE
+══════════════════════════════════════════════ */
+.posts-tbl { width:100%; border-collapse:separate; border-spacing:0; }
+.posts-tbl th {
+  font-size:.68rem; text-transform:uppercase; letter-spacing:.12em; color:var(--muted);
+  font-weight:600; padding:.55rem 1rem; border-bottom:1px solid rgba(255,255,255,.07);
+}
+.posts-tbl td {
+  padding:.8rem 1rem; border-bottom:1px solid rgba(255,255,255,.05);
+  color:rgba(255,255,255,.72); font-size:.875rem; vertical-align:middle;
+}
+.posts-tbl tr:last-child td { border-bottom:none; }
+.posts-tbl tr:hover td { background:rgba(255,255,255,.025); }
+.posts-tbl .post-title { color:#fff; font-weight:600; }
+.pst-badge { display:inline-flex; align-items:center; gap:.3rem; padding:.18rem .6rem; border-radius:6px; font-size:.7rem; font-weight:700; border:1px solid; }
+.pst-published { background:rgba(16,185,129,.12); color:#34d399; border-color:rgba(16,185,129,.25); }
+.pst-pending   { background:rgba(245,158,11,.12); color:#fbbf24; border-color:rgba(245,158,11,.25); }
+.pst-rejected  { background:rgba(220,38,38,.12);  color:#f87171; border-color:rgba(220,38,38,.25); }
+.pst-draft     { background:rgba(255,255,255,.06); color:rgba(255,255,255,.45); border-color:rgba(255,255,255,.10); }
+
+/* ══════════════════════════════════════════════
+   QUICK ACTIONS
+══════════════════════════════════════════════ */
+.qa-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:.75rem; }
+.qa-item {
+  display:flex; align-items:center; gap:.85rem;
+  background:rgba(255,255,255,.04); border:1px solid var(--bdr);
+  border-radius:14px; padding:1rem 1.1rem; text-decoration:none; transition:all .2s;
+}
+.qa-item:hover{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.15);transform:translateY(-1px);}
+.qa-icon { width:36px; height:36px; border-radius:10px; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:.85rem; color:#fff; }
+.qi-red    { background:rgba(220,38,38,.80); }
+.qi-blue   { background:rgba(59,130,246,.80); }
+.qi-amber  { background:rgba(245,158,11,.80); }
+.qi-purple { background:rgba(139,92,246,.80); }
+.qi-green  { background:rgba(16,185,129,.80); }
+.qi-rose   { background:rgba(244,63,94,.80); }
+.qa-lbl { font-size:.85rem; font-weight:700; color:var(--text); margin:0 0 1px; }
+.qa-sub { font-size:.74rem; color:var(--muted); margin:0; }
+
+/* ══════════════════════════════════════════════
+   EMPTY STATE
+══════════════════════════════════════════════ */
+.empty-state { text-align:center; padding:2rem 1rem; color:var(--muted); }
+.empty-state i { font-size:2rem; margin-bottom:.75rem; display:block; opacity:.35; }
+.empty-state p { margin:0; font-size:.9rem; }
+
+/* ══════════════════════════════════════════════
+   RESPONSIVE
+══════════════════════════════════════════════ */
+@media (max-width:991.98px) { .stat-row { grid-template-columns:repeat(2,1fr); } }
+@media (max-width:575.98px) {
+  .cab-hero { padding:3rem 0 2.5rem; }
+  .cab-identity { flex-direction:column; align-items:center; text-align:center; }
+  .hero-actions { justify-content:center; }
+  .cab-hero-inner { align-items:center; justify-content:center; flex-direction:column; }
+  .stat-row { grid-template-columns:1fr; }
+  .qa-grid { grid-template-columns:1fr; }
+  .cab-name { font-size:1.6rem; }
+  .cab-avatar, .cab-avatar-fallback { width:80px; height:80px; }
+  .pin-d { width:2.2rem; height:2.7rem; font-size:1.5rem; }
 }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="profile-page-v2">
+<canvas id="cab-canvas"></canvas>
 
-  <!-- ── HERO STRIP ─────────────────────────────────── -->
-  <div class="profile-hero-strip">
-    <div class="profile-hp-container">
-      <div class="profile-identity">
-        <div class="profile-avatar-wrap">
+<div class="cab-page">
+
+  <!-- ═══════════ HERO ═══════════ -->
+  <div class="cab-hero">
+    <div class="cab-hero-inner" data-reveal>
+      <div class="cab-identity">
+        <div class="cab-avatar-wrap">
           {% if profile_user.avatar and profile_user.avatar.name != 'avatars/default.png' %}
-            <img src="{{ profile_user.avatar.url }}" alt="{{ profile_user.username }}" class="profile-avatar-v2">
+            <img src="{{ profile_user.avatar.url }}" alt="{{ profile_user.username }}" class="cab-avatar">
           {% else %}
-            <div class="profile-avatar-fallback-v2">{{ profile_user.username|slice:":1"|upper }}</div>
+            <div class="cab-avatar-fallback">{{ profile_user.username|slice:":1"|upper }}</div>
           {% endif %}
+          <div class="cab-online-dot"></div>
         </div>
-        <div class="profile-identity-info">
-          <h1 class="profile-name-v2">{{ profile_user.username }}</h1>
-          <p class="profile-email-v2">{{ profile_user.email }}</p>
-          {% if user.is_authenticated and user.id == profile_user.id and profile_user.permanent_id %}
-            <div class="profile-id-v2"><i class="fas fa-fingerprint"></i> {{ profile_user.permanent_id }}</div>
-          {% endif %}
+        <div>
+          <h1 class="cab-name">
+            {{ profile_user.first_name|default:profile_user.username }}{% if profile_user.last_name %} {{ profile_user.last_name }}{% endif %}
+          </h1>
+          <p class="cab-sub">@{{ profile_user.username }} &nbsp;·&nbsp; {{ profile_user.email }}</p>
+          <div class="cab-badges">
+            {% if profile_user.is_staff %}
+              <span class="sb sb-staff"><i class="fas fa-shield-alt"></i> Admin</span>
+            {% endif %}
+            {% if profile_user.is_partner or profile_user.partner_profile %}
+              <span class="sb sb-partner"><i class="fas fa-handshake"></i> {% trans "Partner" %}</span>
+            {% endif %}
+            {% if profile_user.membership_status == 'active' %}
+              <span class="sb sb-member"><i class="fas fa-id-card"></i> {% trans "Member" %}</span>
+            {% endif %}
+            {% if profile_user.is_verified %}
+              <span class="sb sb-verified"><i class="fas fa-check-circle"></i> {% trans "Verified" %}</span>
+            {% else %}
+              <span class="sb sb-grey"><i class="fas fa-clock"></i> {% trans "Pending verification" %}</span>
+            {% endif %}
+          </div>
         </div>
       </div>
-
-      <!-- Action buttons -->
-      <div class="profile-actions">
-        {% if user.is_authenticated and user.id == profile_user.id %}
-          <a href="{% url 'users:profile_edit' %}" class="btn-profile-primary">
-            <i class="fas fa-edit"></i> {% trans "Edit Profile" %}
+      <div class="hero-actions">
+        <a href="{% url 'users:profile_edit' %}" class="btn-cab-primary">
+          <i class="fas fa-pencil-alt"></i> {% trans "Edit Profile" %}
+        </a>
+        {% if profile_user.permanent_id %}
+          <a href="{% url 'users:user_qr' permanent_id=profile_user.permanent_id %}?download=1" class="btn-cab-outline">
+            <i class="fas fa-qrcode"></i> {% trans "QR Code" %}
           </a>
-          {% if profile_user.permanent_id %}
-            <a href="{% url 'users:user_qr' permanent_id=profile_user.permanent_id %}?download=1" class="btn-profile-outline">
-              <i class="fas fa-qrcode"></i> {% trans "Download QR" %}
-            </a>
-          {% endif %}
-        {% elif user.is_authenticated and user.id != profile_user.id %}
-          <button class="btn-profile-primary follow-btn"
-                  data-user-id="{{ profile_user.id }}"
-                  data-username="{{ profile_user.username }}"
-                  type="button">
-            <i class="fas fa-user-plus"></i>
-            <span class="follow-text">{% trans "Follow" %}</span>
-          </button>
-        {% else %}
-          <a href="{% url 'users:login' %}" class="btn-profile-primary">
-            <i class="fas fa-sign-in-alt"></i> {% trans "Sign in" %}
+        {% endif %}
+        {% if profile_user.is_partner or profile_user.partner_profile %}
+          <a href="{% url 'users:partner_dashboard' %}" class="btn-cab-outline">
+            <i class="fas fa-tachometer-alt"></i> {% trans "Partner Dashboard" %>
+          </a>
+        {% endif %}
+        {% if profile_user.membership_status == 'active' %}
+          <a href="{% url 'users:member_cabinet' %}" class="btn-cab-outline">
+            <i class="fas fa-id-card"></i> {% trans "Member Cabinet" %}
           </a>
         {% endif %}
       </div>
+    </div>
+  </div>
 
-      <!-- Info pills row -->
-      <div class="profile-pills-row">
-        <div class="info-pill-v2 pv2-red">
-          <div class="pv2-icon"><i class="fas fa-user"></i></div>
-          <div>
-            <p class="pv2-label">{% trans "Full name" %}</p>
-            <p class="pv2-value">{{ profile_user.first_name|default:"—" }} {{ profile_user.last_name|default:"—" }}</p>
-          </div>
-        </div>
-        <div class="info-pill-v2 pv2-blue">
-          <div class="pv2-icon"><i class="fas fa-birthday-cake"></i></div>
-          <div>
-            <p class="pv2-label">{% trans "Date of birth" %}</p>
-            <p class="pv2-value">
-              {% if profile_user.date_of_birth %}
-                {{ profile_user.date_of_birth|date:"d.m.Y" }}
-                {% with age=profile_user.get_age %}{% if age %} ({{ age }}{% trans " years" %}){% endif %}{% endwith %}
-              {% else %}—{% endif %}
-            </p>
-          </div>
-        </div>
-        <div class="info-pill-v2 pv2-amber">
-          <div class="pv2-icon"><i class="fas fa-phone"></i></div>
-          <div>
-            <p class="pv2-label">{% trans "Phone" %}</p>
-            <p class="pv2-value">
-              {% if profile_user.phone_number %}
-                {% if profile_user.is_phone_hidden and not user.is_staff and user != profile_user %}
-                  <i class="fas fa-eye-slash"></i> {% trans "Hidden" %}
-                {% else %}
-                  {{ profile_user.phone_number }}
-                {% endif %}
-              {% else %}{% trans "Not specified" %}{% endif %}
-            </p>
-          </div>
-        </div>
-        <div class="info-pill-v2 pv2-green">
-          <div class="pv2-icon"><i class="fas fa-calendar"></i></div>
-          <div>
-            <p class="pv2-label">{% trans "Joined" %}</p>
-            <p class="pv2-value">{{ profile_user.date_joined|date:"d M Y" }}</p>
-          </div>
-        </div>
+  <div class="cab-wrap">
+
+    <!-- ═══════════ STAT ROW ═══════════ -->
+    <div class="stat-row" data-reveal data-delay="1">
+      <div class="stat-box">
+        <div class="stat-icon si-red"><i class="fas fa-file-alt"></i></div>
+        <div><p class="stat-lbl">{% trans "Posts" %}</p><p class="stat-val">{{ user_posts.paginator.count|default:0 }}</p></div>
       </div>
-    </div><!-- /profile-hp-container -->
-  </div><!-- /profile-hero-strip -->
+      <div class="stat-box">
+        <div class="stat-icon si-amber"><i class="fas fa-heart"></i></div>
+        <div><p class="stat-lbl">{% trans "Likes received" %}</p><p class="stat-val">{{ profile_user.total_likes_received }}</p></div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-icon si-blue"><i class="fas fa-comments"></i></div>
+        <div><p class="stat-lbl">{% trans "Comments" %}</p><p class="stat-val">{{ profile_user.total_comments_made }}</p></div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-icon si-green"><i class="fas fa-bolt"></i></div>
+        <div><p class="stat-lbl">{% trans "Points" %}</p><p class="stat-val">{{ profile_user.activity_points }}</p></div>
+      </div>
+    </div>
 
-  <!-- ── CONTENT AREA ───────────────────────────────── -->
-  <div class="profile-content-area">
+    <!-- ═══════════ 2-COL GRID ═══════════ -->
     <div class="row g-4" style="--bs-gutter-x:1.25rem;">
 
-      <!-- Left column -->
+      <!-- ── LEFT ── -->
       <div class="col-lg-4">
 
-        <!-- Activity Level -->
+        <!-- ACTIVITY LEVEL -->
         {% with level_info=profile_user.get_achievement_level %}
-        <div class="profile-card-dark">
-          <p class="profile-card-title">{% trans "Activity" %}</p>
-          <div class="activity-row">
+        <div class="cab-card mb-3" data-reveal data-delay="2">
+          <p class="cab-card-title">{% trans "Activity Level" %}</p>
+          <div class="level-row">
             <div>
-              <span class="activity-points-big">{{ profile_user.activity_points }}</span>
-              <span class="activity-points-label">{% trans "points" %}</span>
+              <div class="level-pts-big">{{ profile_user.activity_points }}<span class="level-pts-lbl"> {% trans "pts" %}</span></div>
               <div class="mt-2">
                 {% if level_info.level == "Legend" %}
-                  <span class="badge-level-v2 badge-legend"><i class="fas fa-crown"></i>{% trans "Legend" %}</span>
+                  <span class="badge-lv lv-legend"><i class="fas fa-crown"></i> {% trans "Legend" %}</span>
                 {% elif level_info.level == "Expert" %}
-                  <span class="badge-level-v2 badge-expert"><i class="fas fa-star"></i>{% trans "Expert" %}</span>
+                  <span class="badge-lv lv-expert"><i class="fas fa-star"></i> {% trans "Expert" %}</span>
                 {% elif level_info.level == "Advanced" %}
-                  <span class="badge-level-v2 badge-advanced"><i class="fas fa-rocket"></i>{% trans "Advanced" %}</span>
+                  <span class="badge-lv lv-advanced"><i class="fas fa-rocket"></i> {% trans "Advanced" %}</span>
                 {% elif level_info.level == "Intermediate" %}
-                  <span class="badge-level-v2 badge-intermediate"><i class="fas fa-fire"></i>{% trans "Intermediate" %}</span>
+                  <span class="badge-lv lv-intermediate"><i class="fas fa-fire"></i> {% trans "Intermediate" %}</span>
                 {% else %}
-                  <span class="badge-level-v2 badge-beginner"><i class="fas fa-leaf"></i>{% trans "Beginner" %}</span>
+                  <span class="badge-lv lv-beginner"><i class="fas fa-leaf"></i> {% trans "Beginner" %}</span>
                 {% endif %}
               </div>
             </div>
-            <a href="{% url 'users:activity_levels_info' %}" class="btn-profile-outline" style="padding:.35rem .7rem;font-size:.8rem;" title="{% trans "Learn about activity levels" %}">
+            <a href="{% url 'users:activity_levels_info' %}" class="btn-cab-outline" style="padding:.35rem .75rem;font-size:.8rem;" title="{% trans 'About levels' %}">
               <i class="fas fa-question-circle"></i>
             </a>
           </div>
           {% if level_info.next_level %}
           <div class="mt-3">
-            <p style="font-size:.78rem;color:rgba(255,255,255,.35);margin-bottom:.4rem;">
-              {% blocktrans with level=level_info.next_level %}Progress to {{ level }}:{% endblocktrans %}
+            <p style="font-size:.77rem;color:var(--muted);margin-bottom:.35rem;">
+              {% blocktrans with level=level_info.next_level %}To {{ level }}:{% endblocktrans %}
             </p>
             <div class="progress-dark">
-              <div class="progress-dark-fill" style="width:{{ level_info.progress }}%"></div>
+              <div class="progress-dark-fill" id="level-bar" style="width:0%"></div>
             </div>
-            <p style="font-size:.78rem;color:rgba(255,255,255,.4);font-weight:700;">{{ level_info.progress }}%</p>
+            <p style="font-size:.77rem;color:rgba(255,255,255,.45);font-weight:700;margin-top:.3rem;">{{ level_info.progress }}%</p>
           </div>
           {% else %}
-          <p class="mt-2" style="font-size:.82rem;color:#fbbf24;"><i class="fas fa-trophy me-1"></i>{% trans "Maximum level achieved!" %}</p>
+          <p class="mt-2 mb-0" style="font-size:.82rem;color:#fbbf24;">
+            <i class="fas fa-trophy me-1"></i>{% trans "Maximum level achieved!" %}
+          </p>
           {% endif %}
         </div>
         {% endwith %}
 
-        <!-- QR Code (own profile) -->
-        {% if user.is_authenticated and user.id == profile_user.id and profile_user.permanent_id %}
-        <div class="profile-card-dark">
-          <p class="profile-card-title">{% trans "Your QR Code" %}</p>
-          <div class="qr-block">
-            <a href="{% url 'users:profile_by_card' permanent_id=profile_user.permanent_id %}" title="{% trans "Open profile by card" %}">
-              <img src="{% url 'users:user_qr' permanent_id=profile_user.permanent_id %}" alt="{% trans "QR Code" %}">
-            </a>
-            <p class="mt-2 mb-0" style="font-size:.78rem;color:rgba(255,255,255,.35);">{% trans "Scan to view profile" %}</p>
+        <!-- TELEGRAM -->
+        <div class="cab-card mb-3" data-reveal data-delay="3" style="border-color:rgba(41,168,235,0.22);">
+          <p class="cab-card-title">Telegram</p>
+          <div class="tg-row">
+            <div class="tg-icon-wrap {% if user.telegram_linked_at %}connected{% else %}disconnected{% endif %}">
+              <i class="fab fa-telegram"></i>
+            </div>
+            <div>
+              {% if user.telegram_linked_at %}
+                <p class="tg-title"><i class="fas fa-check-circle" style="color:#22c55e;font-size:.8rem;"></i> {% trans "Connected" %}</p>
+                <p class="tg-sub">{% trans "Linked" %} {{ user.telegram_linked_at|date:"d M Y" }}</p>
+              {% else %}
+                <p class="tg-title">{% trans "Not connected" %}</p>
+                <p class="tg-sub">{% trans "Get visit notifications instantly" %}</p>
+              {% endif %}
+            </div>
+            {% if user.telegram_linked_at %}
+              <form method="post" action="{% url 'users:disconnect_telegram' %}" style="margin:0;">
+                {% csrf_token %}
+                <button type="submit" class="btn-tg-disconnect"
+                        onclick="return confirm('{% trans "Disconnect Telegram from your account?" %}')">
+                  <i class="fas fa-unlink me-1"></i>{% trans "Disconnect" %}
+                </button>
+              </form>
+            {% else %}
+              <a href="{% url 'users:connect_telegram_code' %}" class="btn-tg-connect">
+                {% trans "Connect" %} <i class="fas fa-arrow-right ms-1" style="font-size:.75rem;"></i>
+              </a>
+            {% endif %}
           </div>
         </div>
-        {% endif %}
 
-        <!-- ── Verification PIN (always on profile) ── -->
-        {% if user.is_authenticated and user.id == profile_user.id and current_pin %}
-        <div class="profile-card-dark profile-pin-card" style="border-color:rgba(220,38,38,.3);background:rgba(220,38,38,.04);">
-          <div class="pin-card-header">
-            <i class="fas fa-shield-alt pin-hdr-icon"></i>
+        <!-- PIN (members only) -->
+        {% if current_pin %}
+        <div class="cab-card pin-card mb-3" data-reveal data-delay="4">
+          <p class="cab-card-title">
+            <i class="fas fa-shield-alt" style="color:var(--red);"></i>
             {% trans "Verification PIN" %}
-            <span class="pin-refresh-badge">{% trans "12 min" %}</span>
-          </div>
-
-          <div class="pin-digits-profile" id="pin-digits-p">
+            <span class="pin-refresh-badge">12 min</span>
+          </p>
+          <div class="pin-digits">
             {% for ch in current_pin %}
-              <div class="pin-d-profile" style="animation-delay:{{ forloop.counter0 }}0ms">{{ ch }}</div>
-              {% if forloop.counter == 3 and not forloop.last %}
-                <div class="pin-sep-profile">&ndash;</div>
-              {% endif %}
+              <div class="pin-d" style="animation-delay:{{ forloop.counter0 }}0ms">{{ ch }}</div>
+              {% if forloop.counter == 3 and not forloop.last %}<div class="pin-sep">&ndash;</div>{% endif %}
             {% endfor %}
           </div>
-
-          <div class="pin-foot-profile">
-            <div class="pin-timer-profile">
+          <div class="pin-foot">
+            <div class="pin-timer">
               <i class="fas fa-clock"></i>
-              <span id="pin-cnt-p">{{ seconds_remaining }}</span>{% trans "s" %}
+              <span id="pin-cnt">{{ seconds_remaining }}</span>{% trans "s" %}
             </div>
-            <button class="pin-copy-profile" id="copy-p" data-pin="{{ current_pin }}">
-              <i class="fas fa-copy" id="copy-ico-p"></i>
-              <span id="copy-lbl-p">{% trans "Copy" %}</span>
+            <button class="btn-pin-copy" id="pin-copy-btn" data-pin="{{ current_pin }}">
+              <i class="fas fa-copy" id="copy-ico"></i>
+              <span id="copy-lbl">{% trans "Copy" %}</span>
             </button>
-            <a href="{% url 'users:member_cabinet' %}" class="pin-cab-link" title="{% trans 'Full Cabinet' %}">
-              <i class="fas fa-id-card"></i>
-              {% trans "Cabinet" %}
+            <a href="{% url 'users:member_cabinet' %}" style="font-size:.78rem;color:var(--muted);text-decoration:none;border:1px solid var(--bdr);border-radius:8px;padding:.28rem .65rem;transition:color .15s;"
+               onmouseover="this.style.color='rgba(255,255,255,.75)'" onmouseout="this.style.color='var(--muted)'">
+              <i class="fas fa-id-card me-1"></i>{% trans "Cabinet" %}
             </a>
           </div>
         </div>
         {% endif %}
 
-        <!-- Other user stats -->
-        {% if user.is_authenticated and user.id != profile_user.id %}
-        <div class="profile-card-dark">
-          <p class="profile-card-title">{% trans "Stats" %}</p>
-          <div class="d-flex gap-3">
-            <div style="text-align:center;">
-              <div style="font-size:1.5rem;font-weight:900;color:#fff;">{{ profile_user.post_set.count|default:0 }}</div>
-              <div style="font-size:.73rem;color:rgba(255,255,255,.38);text-transform:uppercase;letter-spacing:.08em;">{% trans "Posts" %}</div>
-            </div>
-            <div style="text-align:center;">
-              <div style="font-size:1.5rem;font-weight:900;color:#fff;">{{ profile_user.comment_set.count|default:0 }}</div>
-              <div style="font-size:.73rem;color:rgba(255,255,255,.38);text-transform:uppercase;letter-spacing:.08em;">{% trans "Comments" %}</div>
-            </div>
-          </div>
-        </div>
-        {% endif %}
-
-        <!-- Telegram connect / manage (own profile) -->
-        {% if user.is_authenticated and user.id == profile_user.id %}
-        <div class="profile-card-dark" style="border-color:rgba(36,160,237,0.25);">
-          {% if user.telegram_linked_at %}
-          {# ── Connected state ── #}
-          <div class="d-flex align-items-center gap-3">
-            <div style="width:2.4rem;height:2.4rem;border-radius:50%;background:rgba(36,160,237,0.15);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-              <i class="fab fa-telegram" style="color:#24a0ed;font-size:1.1rem;"></i>
-            </div>
-            <div class="flex-grow-1">
-              <p class="mb-0" style="font-size:.85rem;font-weight:600;color:rgba(255,255,255,.87);">
-                <i class="fas fa-check-circle" style="color:#22c55e;font-size:.72rem;"></i>
-                {% trans "Telegram Connected" %}
-              </p>
-              <p class="mb-0" style="font-size:.78rem;color:rgba(255,255,255,.45);">
-                {% trans "Linked" %} {{ user.telegram_linked_at|date:"d M Y" }}
-              </p>
-            </div>
-            <form method="post" action="{% url 'users:disconnect_telegram' %}" style="margin:0;">
-              {% csrf_token %}
-              <button type="submit" class="btn btn-sm" style="background:rgba(239,68,68,0.12);color:#f87171;border:1px solid rgba(239,68,68,0.25);border-radius:.5rem;white-space:nowrap;font-size:.78rem;"
-                      onclick="return confirm('{% trans "Disconnect Telegram from your account?" %}')">
-                <i class="fas fa-unlink me-1" style="font-size:.65rem;"></i> {% trans "Disconnect" %}
-              </button>
-            </form>
-          </div>
-          {% else %}
-          {# ── Not connected state ── #}
-          <div class="d-flex align-items-center gap-3">
-            <div style="width:2.4rem;height:2.4rem;border-radius:50%;background:rgba(36,160,237,0.12);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-              <i class="fab fa-telegram" style="color:#24a0ed;font-size:1.1rem;"></i>
-            </div>
-            <div class="flex-grow-1">
-              <p class="mb-0" style="font-size:.85rem;font-weight:600;color:rgba(255,255,255,.87);">{% trans "Connect Telegram" %}</p>
-              <p class="mb-0" style="font-size:.78rem;color:rgba(255,255,255,.5);">{% trans "Get instant notifications and visit confirmations via Telegram" %}</p>
-            </div>
-            <a href="{% url 'users:connect_telegram_code' %}" class="btn btn-sm" style="background:rgba(36,160,237,0.15);color:#24a0ed;border:1px solid rgba(36,160,237,0.3);border-radius:.5rem;white-space:nowrap;">
-              {% trans "Connect" %} <i class="fas fa-arrow-right ms-1" style="font-size:.7rem;"></i>
+        <!-- QR CODE -->
+        {% if profile_user.permanent_id %}
+        <div class="cab-card mb-3" data-reveal data-delay="{% if current_pin %}5{% else %}4{% endif %}">
+          <p class="cab-card-title">{% trans "Your QR Card" %}</p>
+          <div class="qr-wrap">
+            <a href="{% url 'users:profile_by_card' permanent_id=profile_user.permanent_id %}">
+              <img src="{% url 'users:user_qr' permanent_id=profile_user.permanent_id %}" alt="QR Code">
             </a>
+            <p class="mt-2 mb-0" style="font-size:.78rem;color:var(--muted);">{% trans "Scan to open your public profile" %}</p>
           </div>
-          {% endif %}
         </div>
         {% endif %}
 
-        <!-- Social links -->
+        <!-- SOCIAL LINKS -->
         {% if profile_user.github_url or profile_user.website_url or profile_user.telegram_url or profile_user.discord_url %}
-        <div class="profile-card-dark">
-          <p class="profile-card-title">{% trans "Find me" %}</p>
-          <div class="link-chips-dark">
+        <div class="cab-card mb-3" data-reveal data-delay="5">
+          <p class="cab-card-title">{% trans "Links" %}</p>
+          <div class="link-chips">
             {% if profile_user.github_url %}
-              <a href="{{ profile_user.github_url }}" target="_blank" class="link-chip-dark"><i class="fab fa-github"></i> GitHub</a>
+              <a href="{{ profile_user.github_url }}" target="_blank" class="link-chip"><i class="fab fa-github"></i> GitHub</a>
             {% endif %}
             {% if profile_user.website_url %}
-              <a href="{{ profile_user.website_url }}" target="_blank" class="link-chip-dark"><i class="fas fa-globe"></i> {% trans "Website" %}</a>
+              <a href="{{ profile_user.website_url }}" target="_blank" class="link-chip"><i class="fas fa-globe"></i> {% trans "Website" %}</a>
             {% endif %}
             {% if profile_user.telegram_url %}
-              <a href="{{ profile_user.telegram_url }}" target="_blank" class="link-chip-dark"><i class="fab fa-telegram"></i> Telegram</a>
+              <a href="{{ profile_user.telegram_url }}" target="_blank" class="link-chip"><i class="fab fa-telegram"></i> Telegram</a>
             {% endif %}
             {% if profile_user.discord_url %}
-              <a href="{{ profile_user.discord_url }}" target="_blank" class="link-chip-dark"><i class="fab fa-discord"></i> Discord</a>
+              <a href="{{ profile_user.discord_url }}" target="_blank" class="link-chip"><i class="fab fa-discord"></i> Discord</a>
             {% endif %}
           </div>
-          {% if profile_user.other_links %}
-          <div class="mt-2 pt-2" style="border-top:1px solid rgba(255,255,255,.07);">
-            {% for line in profile_user.other_links.splitlines %}
-              <a href="{{ line }}" target="_blank" class="link-chip-dark d-block mb-1" style="font-size:.8rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ line }}</a>
-            {% endfor %}
-          </div>
-          {% endif %}
         </div>
         {% endif %}
 
       </div><!-- /col-lg-4 -->
 
-      <!-- Right column -->
+      <!-- ── RIGHT ── -->
       <div class="col-lg-8">
 
-        <!-- Own profile stats -->
-        {% if user.is_authenticated and user.id == profile_user.id %}
-        <div class="stat-chips-dark mb-4">
-          <div class="stat-chip-dark scd-red">
-            <div class="scd-icon"><i class="fas fa-file-alt"></i></div>
-            <div><p class="scd-label">{% trans "Total posts" %}</p><p class="scd-value">{{ user_posts|length }}</p></div>
-          </div>
-          <div class="stat-chip-dark scd-amber">
-            <div class="scd-icon"><i class="fas fa-heart"></i></div>
-            <div><p class="scd-label">{% trans "Likes received" %}</p><p class="scd-value">{{ profile_user.total_likes_received }}</p></div>
-          </div>
-          <div class="stat-chip-dark scd-green">
-            <div class="scd-icon"><i class="fas fa-comments"></i></div>
-            <div><p class="scd-label">{% trans "Comments made" %}</p><p class="scd-value">{{ profile_user.total_comments_made }}</p></div>
+        <!-- QUICK ACTIONS -->
+        <div class="cab-card mb-3" data-reveal data-delay="2">
+          <p class="cab-card-title">{% trans "Quick Actions" %}</p>
+          <div class="qa-grid">
+            <a href="{% url 'users:profile_edit' %}" class="qa-item">
+              <div class="qa-icon qi-red"><i class="fas fa-user-edit"></i></div>
+              <div><p class="qa-lbl">{% trans "Edit Profile" %}</p><p class="qa-sub">{% trans "Name, photo, contacts" %}</p></div>
+            </a>
+            <a href="{% url 'blog:post_create' %}" class="qa-item">
+              <div class="qa-icon qi-blue"><i class="fas fa-pen-nib"></i></div>
+              <div><p class="qa-lbl">{% trans "Write Post" %}</p><p class="qa-sub">{% trans "Share with the community" %}</p></div>
+            </a>
+            {% if not user.telegram_linked_at %}
+            <a href="{% url 'users:connect_telegram_code' %}" class="qa-item">
+              <div class="qa-icon" style="background:rgba(41,168,235,.8);"><i class="fab fa-telegram"></i></div>
+              <div><p class="qa-lbl">{% trans "Connect Telegram" %}</p><p class="qa-sub">{% trans "Receive instant notifications" %}</p></div>
+            </a>
+            {% else %}
+            <a href="{% url 'blog:post_list' %}" class="qa-item">
+              <div class="qa-icon qi-purple"><i class="fas fa-newspaper"></i></div>
+              <div><p class="qa-lbl">{% trans "Blog" %}</p><p class="qa-sub">{% trans "Browse community posts" %}</p></div>
+            </a>
+            {% endif %}
+            <a href="{% url 'users:activity_levels_info' %}" class="qa-item">
+              <div class="qa-icon qi-amber"><i class="fas fa-trophy"></i></div>
+              <div><p class="qa-lbl">{% trans "Activity Levels" %}</p><p class="qa-sub">{% trans "How to earn points & badges" %}</p></div>
+            </a>
+            {% if profile_user.membership_status != 'active' %}
+            <a href="/#membership" class="qa-item">
+              <div class="qa-icon qi-green"><i class="fas fa-id-card"></i></div>
+              <div><p class="qa-lbl">{% trans "Become a Member" %}</p><p class="qa-sub">{% trans "Join the IESA community" %}</p></div>
+            </a>
+            {% endif %}
+            <a href="{% url 'users:profile_deactivate' %}" class="qa-item" style="border-color:rgba(239,68,68,.14);">
+              <div class="qa-icon qi-rose"><i class="fas fa-user-slash"></i></div>
+              <div><p class="qa-lbl" style="color:#f87171;">{% trans "Deactivate Account" %}</p><p class="qa-sub">{% trans "Temporarily disable your account" %}</p></div>
+            </a>
           </div>
         </div>
-        {% endif %}
 
-        <!-- Posts table -->
-        <div class="profile-card-dark">
-          <p class="profile-card-title">{% trans "Posts" %}</p>
+        <!-- ACCOUNT INFO -->
+        <div class="cab-card mb-3" data-reveal data-delay="3">
+          <p class="cab-card-title">{% trans "Account Info" %}</p>
+          <div class="row g-3">
+            <div class="col-sm-6">
+              <p style="font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin:0 0 .25rem;font-weight:600;">{% trans "Full name" %}</p>
+              <p style="font-size:.9rem;color:var(--text);margin:0;font-weight:600;">{{ profile_user.first_name|default:"—" }} {{ profile_user.last_name|default:"—" }}</p>
+            </div>
+            <div class="col-sm-6">
+              <p style="font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin:0 0 .25rem;font-weight:600;">{% trans "Email" %}</p>
+              <p style="font-size:.9rem;color:var(--text);margin:0;font-weight:600;">{{ profile_user.email }}</p>
+            </div>
+            <div class="col-sm-6">
+              <p style="font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin:0 0 .25rem;font-weight:600;">{% trans "Phone" %}</p>
+              <p style="font-size:.9rem;color:var(--text);margin:0;font-weight:600;">{% if profile_user.phone_number %}{{ profile_user.phone_number }}{% else %}—{% endif %}</p>
+            </div>
+            <div class="col-sm-6">
+              <p style="font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin:0 0 .25rem;font-weight:600;">{% trans "Date of birth" %}</p>
+              <p style="font-size:.9rem;color:var(--text);margin:0;font-weight:600;">
+                {% if profile_user.date_of_birth %}
+                  {{ profile_user.date_of_birth|date:"d.m.Y" }}
+                  {% with age=profile_user.get_age %}{% if age %} ({{ age }} {% trans "years" %}){% endif %}{% endwith %}
+                {% else %}—{% endif %}
+              </p>
+            </div>
+            <div class="col-sm-6">
+              <p style="font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin:0 0 .25rem;font-weight:600;">{% trans "Joined" %}</p>
+              <p style="font-size:.9rem;color:var(--text);margin:0;font-weight:600;">{{ profile_user.date_joined|date:"d M Y" }}</p>
+            </div>
+            {% if profile_user.permanent_id %}
+            <div class="col-sm-6">
+              <p style="font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin:0 0 .25rem;font-weight:600;">{% trans "Card ID" %}</p>
+              <p style="font-size:.85rem;color:#f87171;margin:0;font-weight:700;font-family:monospace;">{{ profile_user.permanent_id }}</p>
+            </div>
+            {% endif %}
+          </div>
+        </div>
+
+        <!-- MY POSTS -->
+        <div class="cab-card" data-reveal data-delay="4">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.75rem;margin-bottom:1.25rem;">
+            <p class="cab-card-title" style="margin:0;">{% trans "My Posts" %}</p>
+            <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;">
+              {% if pending_count %}<span class="pst-badge pst-pending"><i class="fas fa-clock"></i> {{ pending_count }}</span>{% endif %}
+              {% if published_count %}<span class="pst-badge pst-published"><i class="fas fa-check"></i> {{ published_count }}</span>{% endif %}
+              {% if rejected_count %}<span class="pst-badge pst-rejected"><i class="fas fa-times"></i> {{ rejected_count }}</span>{% endif %}
+              <a href="{% url 'blog:post_create' %}" class="btn-cab-primary" style="padding:.35rem .85rem;font-size:.8rem;">
+                <i class="fas fa-plus"></i> {% trans "New" %}
+              </a>
+            </div>
+          </div>
+
           {% if user_posts %}
           <div class="table-responsive">
-            <table class="posts-table-dark">
+            <table class="posts-tbl">
               <thead>
                 <tr>
                   <th>{% trans "Title" %}</th>
@@ -691,24 +709,22 @@
               <tbody>
                 {% for post in user_posts %}
                 <tr>
-                  <td><span class="post-title">{{ post.title|truncatewords:8 }}</span></td>
+                  <td><span class="post-title">{{ post.title|truncatewords:9 }}</span></td>
                   <td>
                     {% if post.status == 'published' %}
-                      <span class="badge-level-v2 badge-intermediate" style="font-size:.7rem;padding:.2rem .6rem;"><i class="fas fa-check-circle"></i>{% trans "Published" %}</span>
+                      <span class="pst-badge pst-published"><i class="fas fa-check-circle"></i> {% trans "Published" %}</span>
                     {% elif post.status == 'pending' %}
-                      <span class="badge-level-v2 badge-expert" style="font-size:.7rem;padding:.2rem .6rem;"><i class="fas fa-clock"></i>{% trans "Pending" %}</span>
+                      <span class="pst-badge pst-pending"><i class="fas fa-clock"></i> {% trans "Pending" %}</span>
                     {% elif post.status == 'rejected' %}
-                      <span class="badge-level-v2 badge-legend" style="font-size:.7rem;padding:.2rem .6rem;"><i class="fas fa-times-circle"></i>{% trans "Rejected" %}</span>
+                      <span class="pst-badge pst-rejected"><i class="fas fa-times-circle"></i> {% trans "Rejected" %}</span>
                     {% else %}
-                      <span class="badge-level-v2 badge-beginner" style="font-size:.7rem;padding:.2rem .6rem;">{{ post.get_status_display }}</span>
+                      <span class="pst-badge pst-draft">{{ post.get_status_display }}</span>
                     {% endif %}
                   </td>
-                  <td style="color:rgba(255,255,255,.4);font-size:.82rem;">{{ post.created_at|date:"d M Y" }}</td>
+                  <td style="color:var(--muted);font-size:.82rem;">{{ post.created_at|date:"d M Y" }}</td>
                   <td>
                     {% if post.status == 'published' %}
-                      <a href="{% url 'blog:post_detail' post.pk %}" class="btn-profile-outline" style="padding:.3rem .75rem;font-size:.8rem;">
-                        <i class="fas fa-eye"></i>
-                      </a>
+                      <a href="{% url 'blog:post_detail' post.pk %}" class="btn-cab-outline" style="padding:.28rem .7rem;font-size:.78rem;"><i class="fas fa-eye"></i></a>
                     {% endif %}
                   </td>
                 </tr>
@@ -716,64 +732,101 @@
               </tbody>
             </table>
           </div>
-          {% else %}
-          <p style="color:rgba(255,255,255,.4);font-size:.9rem;margin:0;">
-            {% trans "No posts yet." %}
-            {% if user.is_authenticated and user.id == profile_user.id %}
-              <a href="{% url 'blog:post_create' %}" class="btn-profile-primary d-inline-flex mt-2">
-                <i class="fas fa-plus"></i> {% trans "Create your first post" %}
-              </a>
+
+          {% if is_paginated %}
+          <div class="d-flex justify-content-center gap-2 mt-3">
+            {% if page_obj.has_previous %}
+              <a href="?page={{ page_obj.previous_page_number }}" class="btn-cab-outline" style="padding:.35rem .85rem;font-size:.82rem;"><i class="fas fa-chevron-left"></i></a>
             {% endif %}
-          </p>
+            <span style="font-size:.82rem;color:var(--muted);padding:.35rem .75rem;align-self:center;">
+              {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}
+            </span>
+            {% if page_obj.has_next %}
+              <a href="?page={{ page_obj.next_page_number }}" class="btn-cab-outline" style="padding:.35rem .85rem;font-size:.82rem;"><i class="fas fa-chevron-right"></i></a>
+            {% endif %}
+          </div>
+          {% endif %}
+
+          {% else %}
+          <div class="empty-state">
+            <i class="fas fa-pen-nib"></i>
+            <p>{% trans "You haven't written any posts yet." %}</p>
+            <a href="{% url 'blog:post_create' %}" class="btn-cab-primary mt-3 d-inline-flex">
+              <i class="fas fa-plus"></i> {% trans "Write first post" %}
+            </a>
+          </div>
           {% endif %}
         </div>
 
       </div><!-- /col-lg-8 -->
-    </div><!-- /row -->
-  </div><!-- /profile-content-area -->
-
-</div><!-- /profile-page-v2 -->
+    </div>
+  </div><!-- /cab-wrap -->
+</div><!-- /cab-page -->
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-  if (window.ProfileInteractions) window.ProfileInteractions.init();
-  // Animate progress bar
-  requestAnimationFrame(function() {
-    document.querySelectorAll('.progress-dark-fill').forEach(function(el) {
-      el.style.width = el.style.width || '0%';
-    });
-  });
+document.addEventListener('DOMContentLoaded', function () {
 
-  // ── PIN countdown & copy ──
-  var cntEl = document.getElementById('pin-cnt-p');
-  if (cntEl) {
-    var sec = parseInt(cntEl.textContent, 10) || 0;
-    var iv = setInterval(function() {
-      sec--;
-      if (sec <= 0) { clearInterval(iv); location.reload(); return; }
-      cntEl.textContent = sec;
-    }, 1000);
+  /* ── particle canvas ── */
+  var c = document.getElementById('cab-canvas');
+  if (c) {
+    var ctx = c.getContext('2d'), pts = [];
+    function rsz() { c.width = innerWidth; c.height = innerHeight; }
+    rsz(); window.addEventListener('resize', rsz);
+    for (var i = 0; i < 55; i++)
+      pts.push({x:Math.random()*innerWidth, y:Math.random()*innerHeight,
+                r:Math.random()*1.6+.4, dx:(Math.random()-.5)*.35,
+                dy:(Math.random()-.5)*.35, a:Math.random()*.55+.1});
+    (function draw() {
+      ctx.clearRect(0,0,c.width,c.height);
+      pts.forEach(function(p){
+        ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+        ctx.fillStyle='rgba(220,38,38,'+p.a+')'; ctx.fill();
+        p.x+=p.dx; p.y+=p.dy;
+        if(p.x<0||p.x>c.width) p.dx*=-1;
+        if(p.y<0||p.y>c.height) p.dy*=-1;
+      });
+      requestAnimationFrame(draw);
+    })();
   }
-  var cpBtn = document.getElementById('copy-p');
+
+  /* ── reveal on scroll ── */
+  var obs = new IntersectionObserver(function(es){
+    es.forEach(function(e){ if(e.isIntersecting){ e.target.classList.add('revealed'); obs.unobserve(e.target); } });
+  },{threshold:.12});
+  document.querySelectorAll('[data-reveal]').forEach(function(el){ obs.observe(el); });
+
+  /* ── progress bar ── */
+  var bar = document.getElementById('level-bar');
+  {% with level_info=profile_user.get_achievement_level %}{% if level_info.next_level %}
+  if (bar) setTimeout(function(){ bar.style.width='{{ level_info.progress }}%'; }, 400);
+  {% endif %}{% endwith %}
+
+  /* ── PIN countdown ── */
+  var cntEl = document.getElementById('pin-cnt');
+  if (cntEl) {
+    var sec = parseInt(cntEl.textContent,10)||0;
+    var iv = setInterval(function(){
+      if(--sec<=0){ clearInterval(iv); location.reload(); return; }
+      cntEl.textContent = sec;
+    },1000);
+  }
+
+  /* ── PIN copy ── */
+  var cpBtn = document.getElementById('pin-copy-btn');
   if (cpBtn) {
-    cpBtn.addEventListener('click', function() {
-      var pin = cpBtn.dataset.pin;
-      var ico = document.getElementById('copy-ico-p');
-      var lbl = document.getElementById('copy-lbl-p');
-      navigator.clipboard && navigator.clipboard.writeText(pin).then(function() {
+    var origLbl = document.getElementById('copy-lbl').textContent;
+    cpBtn.addEventListener('click', function(){
+      navigator.clipboard && navigator.clipboard.writeText(cpBtn.dataset.pin).then(function(){
         cpBtn.classList.add('copied');
-        if (ico) ico.className = 'fas fa-check';
-        if (lbl) lbl.textContent = '✔';
-        setTimeout(function() {
+        document.getElementById('copy-ico').className='fas fa-check';
+        document.getElementById('copy-lbl').textContent='✔';
+        setTimeout(function(){
           cpBtn.classList.remove('copied');
-          if (ico) ico.className = 'fas fa-copy';
-          if (lbl) lbl.textContent = cpBtn.dataset.copyLabel || 'Copy';
-        }, 2200);
+          document.getElementById('copy-ico').className='fas fa-copy';
+          document.getElementById('copy-lbl').textContent=origLbl;
+        },2200);
       });
     });
-    // stash original label
-    var lbl = document.getElementById('copy-lbl-p');
-    if (lbl) cpBtn.dataset.copyLabel = lbl.textContent;
   }
 });
 </script>
