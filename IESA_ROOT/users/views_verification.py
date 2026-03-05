@@ -9,7 +9,7 @@ from functools import wraps
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.core.paginator import Paginator
-from django.db.models import Q, Sum, Count
+from django.db.models import Q, Sum, Count, Max
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -214,7 +214,6 @@ def partner_dashboard(request):
 
     # Today's activity
     from django.utils.timezone import localdate
-    from django.db.models.functions import Max as _Max
     today = localdate()
     today_visits_qs = visits.filter(timestamp__date=today)
     today_count = today_visits_qs.count()
@@ -227,7 +226,7 @@ def partner_dashboard(request):
         .values('member__id', 'member__username', 'member__first_name',
                 'member__last_name', 'member__pseudonym',
                 'member__membership_status', 'member__avatar')
-        .annotate(last_visit=_Max('timestamp'), visit_count=Count('id'))
+        .annotate(last_visit=Max('timestamp'), visit_count=Count('id'))
         .order_by('-last_visit')[:12]
     )
 
