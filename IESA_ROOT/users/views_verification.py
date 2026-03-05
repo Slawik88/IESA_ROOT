@@ -4,6 +4,8 @@ Membership Verification System Views
 import logging
 import os
 
+from functools import wraps
+
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.core.paginator import Paginator
@@ -54,15 +56,40 @@ EDIT_WINDOW = 1200          # 20 minutes
 # ---------------------------------------------------------------------------
 
 def is_partner(user):
-    """Check if user has partner access — via is_partner flag OR full partner_profile."""
-    """Check if user has a Partner profile."""
+    """Check if user has partner access — via is_partner flag OR existing partner_profile.
+    
+    is_partner boolean is the authoritative flag (synced via signals_partner.py).
+    Falls back to partner_profile FK check for legacy/inconsistent data.
+    """
     try:
-        has_profile = hasattr(user, 'partner_profile') or bool(user.is_partner)
-        logger.debug("is_partner check — user: %s, has_profile: %s, is_partner: %s", user.username, hasattr(user, 'partner_profile'), bool(user.is_partner))
+        if bool(user.is_partner):
+            return True
+        # Fallback: check FK directly (handles inconsistent data where flag wasn't synced)
+        has_profile = Partner.objects.filter(user=user).exists()
+        if has_profile:
+            # Auto-heal: sync the flag so templates see correct value
+            User.objects.filter(pk=user.pk).update(is_partner=True)
+            user.is_partner = True
+            logger.info("is_partner auto-healed for user: %s", user.username)
         return has_profile
     except Exception as exc:
         logger.error("is_partner check error: %s", exc)
         return False
+
+
+def partner_required(view_func):
+    """Decorator: unauthenticated → login page; authenticated non-partner → access denied page."""
+    @wraps(view_func)
+    def _wrapped(request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            from django.contrib.auth.views import redirect_to_login
+            return redirect_to_login(request.get_full_path())
+        if not is_partner(request.user):
+            return render(request, 'users/partner_access_denied.html', {
+                'requested_url': request.path,
+            }, status=403)
+        return view_func(request, *args, **kwargs)
+    return _wrapped
 
 
 # ---------------------------------------------------------------------------
@@ -131,14 +158,28 @@ def member_cabinet(request):
     next_refresh = (time_step + 1) * interval
     seconds_remaining = next_refresh - current_time
 
+    # Member's own visit history (what they see of their own visits at partners)
+    total_member_visits = Visit.objects.filter(member=user).count()
+    recent_visits = (
+        Visit.objects
+        .filter(member=user)
+        .select_related('partner', 'partner__user')
+        .order_by('-timestamp')[:20]
+    )
+
     return render(request, 'users/member_cabinet.html', {
         'current_pin': current_pin,
         'seconds_remaining': seconds_remaining,
         'membership_status': user.membership_status,
         'user_name': user.get_full_name() or user.username,
+        'user': user,
         'telegram_linked': bool(user.telegram_chat_id),
         'telegram_bot_configured': bool(_token()),
         'telegram_bot_name': os.environ.get('TELEGRAM_BOT_NAME', 'IESA_Administrator_bot'),
+        'card_active': user.card_active,
+        'card_issued_at': user.card_issued_at,
+        'recent_visits': recent_visits,
+        'total_visits': total_member_visits,
     })
 
 
@@ -146,8 +187,7 @@ def member_cabinet(request):
 # Partner dashboard
 # ---------------------------------------------------------------------------
 
-@login_required
-@user_passes_test(is_partner, login_url='/auth/login/', redirect_field_name=None)
+@partner_required
 def partner_dashboard(request):
     """Partner dashboard: member search, visit log, statistics."""
     try:
@@ -171,6 +211,25 @@ def partner_dashboard(request):
     verified_visits = visits.filter(pin_verified=True).count()
     total_cost = visits.aggregate(Sum('cost'))['cost__sum'] or 0
     unique_members = visits.values('member').distinct().count()
+
+    # Today's activity
+    from django.utils.timezone import localdate
+    from django.db.models.functions import Max as _Max
+    today = localdate()
+    today_visits_qs = visits.filter(timestamp__date=today)
+    today_count = today_visits_qs.count()
+    today_revenue = today_visits_qs.aggregate(r=Sum('cost'))['r'] or 0
+    today_visit_list = today_visits_qs.order_by('-timestamp')[:20]
+
+    # Recent (returning) clients sorted by last visit
+    recent_members = (
+        visits.filter(status='ACTIVE')
+        .values('member__id', 'member__username', 'member__first_name',
+                'member__last_name', 'member__pseudonym',
+                'member__membership_status', 'member__avatar')
+        .annotate(last_visit=_Max('timestamp'), visit_count=Count('id'))
+        .order_by('-last_visit')[:12]
+    )
 
     search_results = None
     search_form = MemberSearchForm(request.GET or None)
@@ -211,6 +270,10 @@ def partner_dashboard(request):
         'verified_visits': verified_visits,
         'total_cost': total_cost,
         'unique_members': unique_members,
+        'today_count': today_count,
+        'today_revenue': today_revenue,
+        'today_visit_list': today_visit_list,
+        'recent_members': recent_members,
         'now': now,
         'edit_window': EDIT_WINDOW,
         'edit_window_cutoff': now - timezone.timedelta(seconds=EDIT_WINDOW),
@@ -226,8 +289,7 @@ def partner_dashboard(request):
 # Log visit
 # ---------------------------------------------------------------------------
 
-@login_required
-@user_passes_test(is_partner, login_url='/auth/login/', redirect_field_name=None)
+@partner_required
 @require_http_methods(["GET", "POST"])
 @ratelimit(key='user', rate='10/m', method='POST', block=True)
 def log_visit(request, member_id):
@@ -300,9 +362,24 @@ def log_visit(request, member_id):
                     member.save(update_fields=['failed_pin_attempts', 'pin_lockout_until'])
 
                 try:
-                    notify_visit_confirmed(visit)
+                    tg_sent = notify_visit_confirmed(visit)
+                    if not tg_sent:
+                        if not getattr(member, 'telegram_chat_id', None):
+                            messages.info(
+                                request,
+                                _('ℹ️ Telegram notification not sent — member has no Telegram linked.')
+                            )
+                        else:
+                            messages.warning(
+                                request,
+                                _('⚠️ Visit logged but Telegram notification could not be delivered.')
+                            )
                 except Exception as exc:
                     logger.error("notify_visit_confirmed failed: %s", exc)
+                    messages.warning(
+                        request,
+                        _('⚠️ Visit logged but Telegram notification failed unexpectedly.')
+                    )
 
                 member_name = member.get_full_name() or member.username
                 cost_display = f'{visit.cost} CHF' if visit.cost else 'N/A'
@@ -343,8 +420,7 @@ def log_visit(request, member_id):
 # Edit visit
 # ---------------------------------------------------------------------------
 
-@login_required
-@user_passes_test(is_partner, login_url='/auth/login/', redirect_field_name=None)
+@partner_required
 @require_http_methods(["GET", "POST"])
 def edit_visit(request, visit_id):
     """Edit a visit within the 20-minute window."""
@@ -408,8 +484,7 @@ def edit_visit(request, visit_id):
 # Cancel visit
 # ---------------------------------------------------------------------------
 
-@login_required
-@user_passes_test(is_partner, login_url='/auth/login/', redirect_field_name=None)
+@partner_required
 @require_http_methods(["GET", "POST"])
 def cancel_visit(request, visit_id):
     """Cancel a visit within the 20-minute window."""
@@ -469,11 +544,51 @@ def cancel_visit(request, visit_id):
 
 
 # ---------------------------------------------------------------------------
+# Partner: per-member visit history
+# ---------------------------------------------------------------------------
+
+@partner_required
+def partner_member_visits(request, member_id):
+    """Full visit history between THIS partner and ONE member."""
+    try:
+        partner = request.user.partner_profile
+    except Partner.DoesNotExist:
+        messages.error(request, _('Partner profile not found.'))
+        return redirect('core:home')
+
+    member = get_object_or_404(User, id=member_id)
+    member_visits = (
+        Visit.objects
+        .filter(partner=partner, member=member)
+        .order_by('-timestamp')
+    )
+    total = member_visits.count()
+    total_revenue = member_visits.aggregate(r=Sum('cost'))['r'] or 0
+    verified_count = member_visits.filter(pin_verified=True).count()
+    last_visit = member_visits.first()
+
+    paginator = Paginator(member_visits, 20)
+    page_obj = paginator.get_page(request.GET.get('page'))
+
+    return render(request, 'users/partner_member_visits.html', {
+        'partner': partner,
+        'member': member,
+        'visits': page_obj,
+        'total': total,
+        'total_revenue': total_revenue,
+        'verified_count': verified_count,
+        'last_visit': last_visit,
+        'now': timezone.now(),
+        'edit_window': EDIT_WINDOW,
+        'edit_window_cutoff': timezone.now() - timezone.timedelta(seconds=EDIT_WINDOW),
+    })
+
+
+# ---------------------------------------------------------------------------
 # Partner analytics
 # ---------------------------------------------------------------------------
 
-@login_required
-@user_passes_test(is_partner, login_url='/auth/login/', redirect_field_name=None)
+@partner_required
 def partner_analytics(request):
     """Analytics dashboard: charts and statistics for the last 30 days."""
     try:
@@ -548,8 +663,7 @@ def partner_analytics(request):
 # Partner profile edit
 # ---------------------------------------------------------------------------
 
-@login_required
-@user_passes_test(is_partner, login_url='/auth/login/', redirect_field_name=None)
+@partner_required
 @require_http_methods(['GET', 'POST'])
 def partner_profile_edit(request):
     """Edit partner company profile (name, business type)."""

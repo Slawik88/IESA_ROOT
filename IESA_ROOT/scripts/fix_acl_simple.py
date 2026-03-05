@@ -2,13 +2,17 @@
 """
 Fix S3 ACL using direct boto3 (no Django)
 """
+import os
+import sys
 import boto3
 
-# Direct credentials
-key = 'DO00KZ7JADFLXJ2MNGJF'
-secret = 'eh42Jkc7x6hmCiWHn861t4258Lp7oYrXChKQhgQDQf4'
-bucket = 'iesa-bucket'
-endpoint = 'https://fra1.digitaloceanspaces.com'
+key = os.getenv('SPACES_KEY')
+secret = os.getenv('SPACES_SECRET')
+bucket = os.getenv('SPACES_BUCKET', 'iesa-bucket')
+endpoint = os.getenv('SPACES_ENDPOINT', 'https://fra1.digitaloceanspaces.com')
+
+if not key or not secret:
+    sys.exit('❌ Set SPACES_KEY and SPACES_SECRET environment variables before running.')
 
 s3 = boto3.client(
     's3',
@@ -27,10 +31,10 @@ print("\n1️⃣  Files with WRONG path (gallery/):")
 response = s3.list_objects_v2(Bucket=bucket, Prefix='gallery/')
 if 'Contents' in response:
     for obj in response['Contents']:
-        key = obj['Key']
-        print(f"\n   {key}")
+        obj_key = obj['Key']
+        print(f"\n   {obj_key}")
         try:
-            s3.put_object_acl(Bucket=bucket, Key=key, ACL='public-read')
+            s3.put_object_acl(Bucket=bucket, Key=obj_key, ACL='public-read')
             print(f"     ✅ Made public-read")
         except Exception as e:
             print(f"     ❌ {e}")
@@ -42,10 +46,10 @@ print("\n\n2️⃣  Files with CORRECT path (media/gallery/):")
 response = s3.list_objects_v2(Bucket=bucket, Prefix='media/gallery/')
 if 'Contents' in response:
     for obj in response['Contents']:
-        key = obj['Key']
-        print(f"\n   {key}")
+        obj_key = obj['Key']
+        print(f"\n   {obj_key}")
         try:
-            s3.put_object_acl(Bucket=bucket, Key=key, ACL='public-read')
+            s3.put_object_acl(Bucket=bucket, Key=obj_key, ACL='public-read')
             print(f"     ✅ Made public-read")
         except Exception as e:
             print(f"     ❌ {e}")

@@ -1,10 +1,69 @@
 from django.views.generic import TemplateView
+from django.http import HttpResponse
+from django.contrib.auth.decorators import login_required
 from products.models import Product
-from core.models import Partner, AssociationMember, President, SocialNetwork, CoreProduct, MemberBenefit
+from core.models import Partner, AssociationMember, President, SocialNetwork, CoreProduct, MemberBenefit, AdminAppeal
 from blog.models import Event
-from django.shortcuts import get_object_or_404, render
+from django.shortcuts import get_object_or_404, render, redirect
 from django.core.paginator import Paginator
 from django.utils import timezone
+from django.utils.translation import gettext as _
+
+
+def submit_appeal(request):
+    """Handle admin appeal form submission. Works with HTMX and plain POST."""
+    if request.method != 'POST':
+        return redirect('core:home')
+
+    name    = request.POST.get('appeal_name', '').strip()
+    email   = request.POST.get('appeal_email', '').strip()
+    reason  = request.POST.get('appeal_reason', 'other')
+    message = request.POST.get('appeal_message', '').strip()
+    req_url = request.POST.get('appeal_requested_url', '').strip()
+
+    errors = []
+    if not name:
+        errors.append(_('Please enter your name.'))
+    if not email or '@' not in email:
+        errors.append(_('Please enter a valid e-mail address.'))
+    if not message or len(message) < 20:
+        errors.append(_('Message must be at least 20 characters.'))
+
+    is_htmx = request.headers.get('HX-Request') == 'true'
+
+    if errors:
+        if is_htmx:
+            return render(request, 'partials/admin_appeal_form.html', {
+                'appeal_errors': errors,
+                'appeal_name': name,
+                'appeal_email': email,
+                'appeal_reason': reason,
+                'appeal_message': message,
+                'appeal_requested_url': req_url,
+            })
+        from django.contrib import messages as dj_messages
+        for e in errors:
+            dj_messages.error(request, e)
+        return redirect(request.META.get('HTTP_REFERER', 'core:home'))
+
+    AppealUser = request.user if request.user.is_authenticated else None
+    AdminAppeal.objects.create(
+        user=AppealUser,
+        name=name,
+        email=email,
+        reason=reason,
+        message=message,
+        requested_url=req_url,
+        status='new',
+    )
+
+    if is_htmx:
+        return render(request, 'partials/admin_appeal_success.html')
+
+    from django.contrib import messages as dj_messages
+    dj_messages.success(request, _('✅ Your appeal was submitted. Administration will contact you by e-mail.'))
+    return redirect(request.META.get('HTTP_REFERER', 'core:home'))
+
 
 
 def partner_detail(request, pk):

@@ -53,11 +53,6 @@ class ProfileView(DetailView):
     paginate_by = 12  # Pagination for user posts
 
     def get(self, request, *args, **kwargs):
-        """Redirect partners to their dashboard instead of regular profile"""
-        # Check if user is a partner
-        if hasattr(request.user, 'partner_profile'):
-            from django.shortcuts import redirect
-            return redirect('users:partner_dashboard')
         return super().get(request, *args, **kwargs)
 
     def get_object(self, queryset=None):

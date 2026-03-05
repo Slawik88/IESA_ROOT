@@ -11,6 +11,15 @@
 .pp-nav a { display:flex; align-items:center; gap:7px; padding:14px 20px; color:rgba(255,255,255,.55); text-decoration:none; font-size:.82rem; font-family:'Courier New',monospace; white-space:nowrap; border-bottom:2px solid transparent; transition:color .2s,border-color .2s; }
 .pp-nav a:hover,.pp-nav a.active { color:#ef4444; border-bottom-color:#ef4444; }
 .pp-nav-brand { font-size:.85rem; font-weight:700; color:#fff !important; margin-right:10px; letter-spacing:.05em; border-bottom:none !important; }
+@media (max-width: 600px) {
+  .pp-nav { padding: 0 8px; }
+  .pp-nav a { padding: 11px 10px; font-size: .74rem; gap: 4px; }
+  .pp-nav-brand { font-size: .76rem; margin-right: 4px; }
+}
+@media (max-width: 430px) {
+  .pp-nav a { padding: 10px 7px; font-size: .68rem; gap: 3px; }
+  .pp-nav-brand { font-size: .7rem; }
+}
 .pp-section { padding:28px 24px 0; }
 .pp-card { background:rgba(255,255,255,.025); border:1px solid rgba(255,255,255,.06); border-radius:14px; padding:28px; max-width:600px; }
 .pp-member-banner {
@@ -82,7 +91,15 @@
   {% if messages %}
     <div style="padding:12px 24px 0;">
       {% for msg in messages %}
-        <div style="background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.3);border-radius:8px;padding:10px 14px;font-size:.82rem;color:#f87171;margin-bottom:6px;">{{ msg }}</div>
+        {% if msg.tags and 'success' in msg.tags %}
+          <div style="background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);border-radius:8px;padding:10px 14px;font-size:.82rem;color:#4ade80;margin-bottom:6px;">{{ msg }}</div>
+        {% elif msg.tags and 'warning' in msg.tags %}
+          <div style="background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);border-radius:8px;padding:10px 14px;font-size:.82rem;color:#fbbf24;margin-bottom:6px;">{{ msg }}</div>
+        {% elif msg.tags and 'info' in msg.tags %}
+          <div style="background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.3);border-radius:8px;padding:10px 14px;font-size:.82rem;color:#93c5fd;margin-bottom:6px;">{{ msg }}</div>
+        {% else %}
+          <div style="background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.3);border-radius:8px;padding:10px 14px;font-size:.82rem;color:#f87171;margin-bottom:6px;">{{ msg }}</div>
+        {% endif %}
       {% endfor %}
     </div>
   {% endif %}
@@ -104,6 +121,13 @@
               <span class="status-active" style="font-size:.75rem;font-family:'Courier New',monospace;">● {% trans "ACTIVE MEMBER" %}</span>
             {% else %}
               <span class="status-inactive" style="font-size:.75rem;font-family:'Courier New',monospace;">● {{ member.get_membership_status_display|upper }}</span>
+            {% endif %}
+          </div>
+          <div style="margin-top:5px;">
+            {% if member.telegram_chat_id %}
+              <span style="font-size:.72rem;font-family:'Courier New',monospace;color:#4ade80;">✔ {% trans "Telegram linked" %}</span>
+            {% else %}
+              <span style="font-size:.72rem;font-family:'Courier New',monospace;color:#fbbf24;">⚠ {% trans "No Telegram — notification will not be sent" %}</span>
             {% endif %}
           </div>
         </div>

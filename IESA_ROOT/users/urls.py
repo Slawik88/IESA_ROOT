@@ -34,6 +34,8 @@ urlpatterns = [
     path('partner/profile/', views_verification.partner_profile_edit, name='partner_profile_edit'),
     # Log visit for a specific member
     path('partner/visit/<int:member_id>/', views_verification.log_visit, name='log_visit'),
+    # Per-member full visit history at this partner
+    path('partner/member/<int:member_id>/', views_verification.partner_member_visits, name='partner_member_visits'),
     # Edit / cancel a visit (20-min window)
     path('partner/visit/<int:visit_id>/edit/', views_verification.edit_visit, name='edit_visit'),
     path('partner/visit/<int:visit_id>/cancel/', views_verification.cancel_visit, name='cancel_visit'),

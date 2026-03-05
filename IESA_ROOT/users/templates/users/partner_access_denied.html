@@ -1,0 +1,244 @@
+{% extends "base.html" %}
+{% load static i18n %}
+
+{% block title %}{% trans "Access Restricted" %} — IESA{% endblock %}
+
+{% block container_wrap_start %}{% endblock %}
+{% block container_wrap_end %}{% endblock %}
+
+{% block extra_css %}
+<style>
+.pad-page {
+  background: #06060d;
+  min-height: 100vh;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 3rem 1.5rem 5rem;
+}
+.pad-card {
+  background: rgba(13,13,24,0.95);
+  border: 1px solid rgba(220,38,38,.22);
+  border-radius: 20px;
+  padding: 2.5rem 2.5rem 2rem;
+  max-width: 580px;
+  width: 100%;
+  box-shadow: 0 0 60px rgba(220,38,38,.08), 0 24px 64px rgba(0,0,0,.5);
+}
+.pad-icon { font-size: 2.8rem; margin-bottom: 1rem; display: block; text-align: center; }
+.pad-title {
+  font-size: 1.35rem; font-weight: 800; color: #fff; text-align: center;
+  margin-bottom: .6rem; font-family: 'Courier New', monospace;
+}
+.pad-subtitle {
+  font-size: .88rem; color: rgba(255,255,255,.48); line-height: 1.7;
+  margin-bottom: 1.5rem; text-align: center;
+}
+.pad-notice {
+  background: rgba(220,38,38,.07);
+  border: 1px solid rgba(220,38,38,.18);
+  border-radius: 10px;
+  padding: 13px 16px;
+  font-size: .8rem;
+  color: rgba(255,255,255,.42);
+  font-family: 'Courier New', monospace;
+  margin-bottom: 1.8rem;
+  line-height: 1.6;
+}
+.pad-notice strong { color: rgba(255,255,255,.65); }
+.pad-path {
+  font-size: .72rem; color: rgba(255,255,255,.18);
+  word-break: break-all; margin-top: .4rem;
+}
+.pad-section-label {
+  font-size: .68rem; font-family: 'Courier New', monospace; color: rgba(220,38,38,.9);
+  text-transform: uppercase; letter-spacing: .12em; margin-bottom: 1rem;
+  display: flex; align-items: center; gap: .5rem;
+}
+.pad-section-label::before, .pad-section-label::after {
+  content: ''; flex: 1; height: 1px; background: rgba(220,38,38,.22);
+}
+.pad-actions {
+  display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 1.5rem; padding-top: 1rem;
+  border-top: 1px solid rgba(255,255,255,.05);
+}
+.pad-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 9px 18px; border-radius: 8px; font-size: .82rem;
+  font-family: 'Courier New', monospace; text-decoration: none;
+  transition: background .2s, color .2s;
+}
+.pad-btn-home {
+  background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1); color: rgba(255,255,255,.5);
+}
+.pad-btn-home:hover { background: rgba(255,255,255,.09); color: #fff; }
+.pad-btn-profile {
+  background: rgba(220,38,38,.1); border: 1px solid rgba(220,38,38,.25); color: #f87171;
+}
+.pad-btn-profile:hover { background: rgba(220,38,38,.18); color: #fca5a5; }
+#appeal-form-wrap input:focus, #appeal-form-wrap select:focus, #appeal-form-wrap textarea:focus {
+  border-color: rgba(220,38,38,.5) !important; background: rgba(255,255,255,.07) !important;
+}
+@media (max-width: 480px) {
+  .pad-card { padding: 1.8rem 1.25rem 1.5rem; }
+  #appeal-form-wrap form > div:first-child { grid-template-columns: 1fr !important; }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="pad-page">
+  <div class="pad-card">
+
+    <span class="pad-icon">🔒</span>
+    <div class="pad-title">{% trans "Access Restricted" %}</div>
+    <div class="pad-subtitle">
+      {% trans "This section is exclusively for certified IESA partner businesses." %}<br>
+      {% trans "Your account does not currently have partner access." %}
+    </div>
+
+    <div class="pad-notice">
+      <strong>{% trans "Think this is a mistake?" %}</strong><br>
+      {% trans "If you believe you should have partner access — fill in the appeal form below and the administration will contact you." %}
+      {% if requested_url %}
+        <div class="pad-path">{% trans "Requested:" %} {{ requested_url }}</div>
+      {% endif %}
+    </div>
+
+    {# ── Appeal form ────────────────────────────────────────────── #}
+    <div class="pad-section-label">{% trans "Contact Administration" %}</div>
+
+    {% include "partials/admin_appeal_form.html" with appeal_requested_url=requested_url appeal_reason="partner_access" %}
+
+    {# ── Back buttons ───────────────────────────────────────────── #}
+    <div class="pad-actions">
+      <a href="{% url 'core:home' %}" class="pad-btn pad-btn-home">
+        ← {% trans "Home" %}
+      </a>
+      <a href="{% url 'users:profile' %}" class="pad-btn pad-btn-profile">
+        👤 {% trans "My Profile" %}
+      </a>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
+
+.pad-card {
+  background: rgba(13,13,24,0.95);
+  border: 1px solid rgba(220,38,38,.22);
+  border-radius: 20px;
+  padding: 3rem 2.5rem 2.5rem;
+  max-width: 520px;
+  width: 100%;
+  text-align: center;
+  box-shadow: 0 0 60px rgba(220,38,38,.08), 0 24px 64px rgba(0,0,0,.5);
+}
+.pad-icon {
+  font-size: 3.2rem;
+  margin-bottom: 1.5rem;
+  line-height: 1;
+  display: block;
+}
+.pad-title {
+  font-size: 1.45rem;
+  font-weight: 800;
+  color: #fff;
+  margin-bottom: .75rem;
+  font-family: 'Courier New', monospace;
+}
+.pad-subtitle {
+  font-size: .9rem;
+  color: rgba(255,255,255,.5);
+  line-height: 1.7;
+  margin-bottom: 2rem;
+}
+.pad-notice {
+  background: rgba(220,38,38,.08);
+  border: 1px solid rgba(220,38,38,.2);
+  border-radius: 10px;
+  padding: 14px 18px;
+  font-size: .82rem;
+  color: rgba(255,255,255,.45);
+  font-family: 'Courier New', monospace;
+  margin-bottom: 2rem;
+  line-height: 1.6;
+}
+.pad-notice strong { color: rgba(255,255,255,.7); }
+.pad-path {
+  font-size: .75rem;
+  color: rgba(255,255,255,.2);
+  font-family: 'Courier New', monospace;
+  word-break: break-all;
+  margin-top: .5rem;
+}
+.pad-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.pad-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 11px 22px;
+  border-radius: 9px;
+  font-size: .85rem;
+  font-family: 'Courier New', monospace;
+  text-decoration: none;
+  transition: background .2s, color .2s;
+}
+.pad-btn-home {
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.1);
+  color: rgba(255,255,255,.6);
+}
+.pad-btn-home:hover {
+  background: rgba(255,255,255,.1);
+  color: #fff;
+}
+.pad-btn-profile {
+  background: rgba(220,38,38,.12);
+  border: 1px solid rgba(220,38,38,.3);
+  color: #f87171;
+}
+.pad-btn-profile:hover {
+  background: rgba(220,38,38,.2);
+  color: #fca5a5;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="pad-page">
+  <div class="pad-card">
+
+    <span class="pad-icon">🔒</span>
+
+    <div class="pad-title">{% trans "Access Restricted" %}</div>
+    <div class="pad-subtitle">
+      {% trans "This section is available exclusively for certified IESA partner businesses." %}<br>
+      {% trans "Your account does not have partner access." %}
+    </div>
+
+    <div class="pad-notice">
+      <strong>{% trans "Think this is a mistake?" %}</strong><br>
+      {% trans "If you believe you should have partner access, please contact the IESA administration to have your account verified and enabled." %}
+      {% if requested_url %}
+        <div class="pad-path">{% trans "Requested:" %} {{ requested_url }}</div>
+      {% endif %}
+    </div>
+
+    <div class="pad-actions">
+      <a href="{% url 'core:home' %}" class="pad-btn pad-btn-home">
+        ← {% trans "Home" %}
+      </a>
+      <a href="{% url 'users:profile' %}" class="pad-btn pad-btn-profile">
+        👤 {% trans "My Profile" %}
+      </a>
+    </div>
+
+  </div>
+</div>
+{% endblock %}

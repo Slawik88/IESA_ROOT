@@ -11,6 +11,15 @@
 .pp-nav a { display:flex; align-items:center; gap:7px; padding:14px 20px; color:rgba(255,255,255,.55); text-decoration:none; font-size:.82rem; font-family:'Courier New',monospace; white-space:nowrap; border-bottom:2px solid transparent; transition:color .2s,border-color .2s; }
 .pp-nav a:hover { color:#ef4444; border-bottom-color:#ef4444; }
 .pp-nav-brand { font-size:.85rem; font-weight:700; color:#fff !important; margin-right:10px; letter-spacing:.05em; border-bottom:none !important; }
+@media (max-width: 600px) {
+  .pp-nav { padding: 0 8px; }
+  .pp-nav a { padding: 11px 10px; font-size: .74rem; gap: 4px; }
+  .pp-nav-brand { font-size: .76rem; margin-right: 4px; }
+}
+@media (max-width: 430px) {
+  .pp-nav a { padding: 10px 7px; font-size: .68rem; gap: 3px; }
+  .pp-nav-brand { font-size: .7rem; }
+}
 .pp-section { padding:28px 24px 0; }
 .pp-card { background:rgba(255,255,255,.025); border:1px solid rgba(255,255,255,.06); border-radius:14px; padding:28px; max-width:600px; }
 .pp-visit-banner { background:rgba(250,204,21,.07); border:1px solid rgba(250,204,21,.2); border-radius:10px; padding:14px 18px; margin-bottom:22px; }

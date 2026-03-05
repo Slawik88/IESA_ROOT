@@ -275,30 +275,32 @@
                                     {% else %}
                                         <span class="avatar avatar-sm avatar-fallback me-2 d-inline-flex">{{ user.username|slice:":1"|upper }}</span>
                                     {% endif %}
-                                    <span>{% trans "Profile" %}</span>
+                                    <span>{{ user.username }}</span>
                                     <i class="fas fa-chevron-down pnd-caret"></i>
                                 </button>
                                 <ul class="dropdown-menu dropdown-menu-end prof-nav-drop-menu" aria-labelledby="profNavDropBtn">
                                     <li>
                                         <a class="dropdown-item pnd-item pnd-profile"
                                            href="{% url 'users:profile' %}">
-                                            <span class="pnd-icon"><i class="fas fa-user"></i></span>
+                                            <span class="pnd-icon"><i class="fas fa-th-large"></i></span>
                                             <div>
-                                                <div class="pnd-label">{% trans "Profile" %}</div>
-                                                <div class="pnd-sub">{% trans "Public page &amp; posts" %}</div>
+                                                <div class="pnd-label">{% trans "My Cabinet" %}</div>
+                                                <div class="pnd-sub">{% trans "Dashboard &amp; posts" %}</div>
                                             </div>
                                         </a>
                                     </li>
+                                    {% if user.membership_status == 'active' %}
                                     <li>
                                         <a class="dropdown-item pnd-item pnd-cabinet"
                                            href="{% url 'users:member_cabinet' %}">
                                             <span class="pnd-icon"><i class="fas fa-shield-alt"></i></span>
                                             <div>
-                                                <div class="pnd-label">{% trans "Cabinet" %}</div>
-                                                <div class="pnd-sub">{% trans "PIN code &amp; membership" %}</div>
+                                                <div class="pnd-label">{% trans "PIN Cabinet" %}</div>
+                                                <div class="pnd-sub">{% trans "PIN code &amp; access" %}</div>
                                             </div>
                                         </a>
                                     </li>
+                                    {% endif %}
                                     <li><hr class="dropdown-divider pnd-divider"></li>
                                     <li>
                                         <a class="dropdown-item pnd-item pnd-edit"

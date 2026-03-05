@@ -54,21 +54,12 @@ def create_partner_profile_on_group_add(sender, instance, action, reverse, model
                 print(f"✅ Created Partner profile: {company_name}")
             else:
                 logger.info(f"⚠️ Partner profile already exists for user: {user.username}")
-
-
-@receiver(m2m_changed, sender=User.groups.through)
-def delete_partner_profile_on_group_remove(sender, instance, action, reverse, model, pk_set, **kwargs):
-    """
-    Optionally delete Partner profile when user is removed from 'Partners' group.
-    
-    WARNING: This will delete all visit history!
-    Comment out this signal if you want to keep data.
-    """
-    if action == "post_remove":
-        partners_group = Group.objects.filter(name='Partners').first()
-        
-        if partners_group and partners_group.id in pk_set:
-            user = instance
+                
+                # Ensure is_partner flag is set (single source of truth)
+                if not user.is_partner:
+                    User.objects.filter(pk=user.pk).update(is_partner=True)
+                    user.is_partner = True
+                    logger.info(f"✅ Set is_partner=True for user: {user.username}")
             
             # Delete Partner profile if exists
             if hasattr(user, 'partner_profile'):
@@ -77,3 +68,8 @@ def delete_partner_profile_on_group_remove(sender, instance, action, reverse, mo
                 
                 logger.warning(f"⚠️ Deleted Partner profile for user: {user.username} ({partner_name})")
                 print(f"⚠️ Deleted Partner profile: {partner_name}")
+            
+            # Clear is_partner flag
+            User.objects.filter(pk=user.pk).update(is_partner=False)
+            user.is_partner = False
+            logger.info(f"✅ Set is_partner=False for user: {user.username}")

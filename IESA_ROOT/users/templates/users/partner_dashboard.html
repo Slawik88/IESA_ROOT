@@ -5,12 +5,35 @@
 
 {% block extra_css %}
 <style>
+/* ════════════════════════════════════════════════════════════
+   IESA PARTNER CABINET — Full Redesign 2026
+════════════════════════════════════════════════════════════ */
+:root {
+  --bg0: #06060d;
+  --bg1: #0d0d1a;
+  --bg2: #13132a;
+  --card: rgba(15,15,28,0.94);
+  --bdr: rgba(255,255,255,0.07);
+  --red: #dc2626;
+  --red-g: rgba(220,38,38,0.22);
+  --grn: #22c55e;
+  --grn-g: rgba(34,197,94,0.18);
+  --amber: #f59e0b;
+  --amb-g: rgba(245,158,11,0.18);
+  --blue: #3b82f6;
+  --blu-g: rgba(59,130,246,0.18);
+  --text: rgba(255,255,255,0.88);
+  --muted: rgba(255,255,255,0.40);
+  --r: 16px;
+}
+html, body { background: var(--bg0) !important; }
+
 /* ── BASE ─────────────────────────────────────────────────────────── */
 .pp-wrap {
-  background: #07070e;
+  background: var(--bg0);
   min-height: 100vh;
   padding-bottom: 80px;
-  color: #e2e8f0;
+  color: var(--text);
 }
 
 /* ── TOP NAV BAR ──────────────────────────────────────────────────── */
@@ -49,6 +72,15 @@
   margin-right: 10px;
   letter-spacing: .05em;
   border-bottom: none !important;
+}
+@media (max-width: 600px) {
+  .pp-nav { padding: 0 8px; }
+  .pp-nav a { padding: 11px 10px; font-size: .74rem; gap: 4px; }
+  .pp-nav-brand { font-size: .76rem; margin-right: 4px; }
+}
+@media (max-width: 430px) {
+  .pp-nav a { padding: 10px 7px; font-size: .68rem; gap: 3px; }
+  .pp-nav-brand { font-size: .7rem; }
 }
 
 /* ── HERO ─────────────────────────────────────────────────────────── */
@@ -253,8 +285,256 @@
 .pp-pagination .current { color: #ef4444; border-color: rgba(220,38,38,.35); background: rgba(220,38,38,.07); }
 
 /* ── EMPTY STATE ──────────────────────────────────────────────────── */
-.pp-empty { text-align: center; padding: 48px 20px; color: rgba(255,255,255,.25); font-family: 'Courier New', monospace; font-size: .82rem; }
+.pp-empty { text-align: center; padding: 48px 20px; color: var(--muted); font-family: 'Courier New', monospace; font-size: .82rem; }
 .pp-empty-icon { font-size: 2.5rem; display: block; margin-bottom: 10px; }
+
+/* ── TODAY STRIP ─────────────────────────────────────────────────── */
+.today-strip {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  padding: 20px 24px 0;
+}
+@media (max-width:680px){ .today-strip { grid-template-columns: repeat(2,1fr); } }
+.today-stat {
+  background: rgba(255,255,255,.025);
+  border: 1px solid rgba(255,255,255,.06);
+  border-radius: 14px;
+  padding: 16px 14px;
+  position: relative; overflow: hidden;
+}
+.today-stat.highlight { border-color: rgba(220,38,38,.28); background: rgba(220,38,38,.05); }
+.today-label {
+  font-size: .66rem; font-family: 'Courier New', monospace;
+  color: var(--muted); text-transform: uppercase; letter-spacing: .09em; margin-bottom: 6px;
+}
+.today-val { font-size: 1.75rem; font-weight: 800; color: #fff; line-height: 1; }
+.today-val.red { color: #ef4444; }
+.today-val.grn { color: #4ade80; }
+.today-sub { font-size: .7rem; color: var(--muted); margin-top: 5px; }
+.today-dot {
+  position: absolute; top: 12px; right: 12px;
+  width: 7px; height: 7px; border-radius: 50%;
+  background: #ef4444;
+  animation: dot-pulse 2s infinite;
+}
+@keyframes dot-pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.4;transform:scale(1.5)} }
+
+/* ── QUICK ACTION BAR ────────────────────────────────────────────── */
+.quick-bar {
+  padding: 20px 24px 0;
+  display: flex; gap: 12px; flex-wrap: wrap; align-items: center;
+}
+.btn-log-visit {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
+  color: #fff; border: none; border-radius: 12px;
+  padding: 13px 28px; font-size: .95rem; font-weight: 700;
+  cursor: pointer; text-decoration: none;
+  box-shadow: 0 6px 28px rgba(220,38,38,.35);
+  transition: all .25s; letter-spacing: .02em;
+}
+.btn-log-visit:hover {
+  transform: translateY(-2px); color: #fff; text-decoration: none;
+  box-shadow: 0 10px 38px rgba(220,38,38,.5);
+}
+.btn-secondary {
+  display: inline-flex; align-items: center; gap: 7px;
+  background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.1);
+  color: var(--muted); border-radius: 10px;
+  padding: 11px 20px; font-size: .85rem; font-weight: 600;
+  text-decoration: none; transition: all .2s; cursor: pointer;
+}
+.btn-secondary:hover {
+  background: rgba(255,255,255,.08); color: #fff; text-decoration: none;
+  border-color: rgba(255,255,255,.2);
+}
+
+/* ── SECTION CARD ────────────────────────────────────────────────── */
+.ppc {
+  background: var(--card);
+  border: 1px solid var(--bdr);
+  border-radius: var(--r);
+  margin: 20px 24px 0;
+  overflow: hidden;
+}
+.ppc-head {
+  padding: 14px 18px 13px;
+  border-bottom: 1px solid var(--bdr);
+  display: flex; align-items: center; gap: 10px;
+}
+.ppc-icon {
+  width: 32px; height: 32px; border-radius: 9px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center; font-size: .85rem;
+}
+.ppc-icon.red  { background: rgba(220,38,38,.14); color: #f87171; }
+.ppc-icon.grn  { background: rgba(34,197,94,.13);  color: #4ade80; }
+.ppc-icon.amber{ background: rgba(245,158,11,.13); color: #fbbf24; }
+.ppc-icon.blue { background: rgba(59,130,246,.13); color: #93c5fd; }
+.ppc-title { font-size: .85rem; font-weight: 700; color: var(--text); }
+.ppc-extra { margin-left: auto; font-size: .74rem; color: var(--muted); }
+.ppc-extra a { color: rgba(220,38,38,.8); text-decoration: none; }
+.ppc-extra a:hover { color: #ef4444; }
+.ppc-body { padding: 0; }
+
+/* ── MEMBER SEARCH ───────────────────────────────────────────────── */
+.pp-search-form { display: flex; gap: 10px; padding: 14px 18px 0; }
+.pp-search-form input {
+  flex: 1; background: rgba(255,255,255,.04);
+  border: 1px solid rgba(220,38,38,.2); border-radius: 9px;
+  color: var(--text); padding: 10px 16px; font-size: .9rem;
+  outline: none; transition: border-color .2s;
+}
+.pp-search-form input:focus { border-color: #ef4444; background: rgba(255,255,255,.06); }
+.pp-search-form input::placeholder { color: rgba(255,255,255,.22); }
+.pp-btn {
+  background: #dc2626; color: #fff; border: none; border-radius: 9px;
+  padding: 10px 18px; font-size: .85rem; font-family: 'Courier New', monospace;
+  cursor: pointer; transition: background .2s; text-decoration: none;
+  display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+}
+.pp-btn:hover { background: #ef4444; color: #fff; }
+
+/* ── MEMBER RESULT CARDS ─────────────────────────────────────────── */
+.pp-member-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 10px; padding: 14px 18px 18px;
+}
+.pp-member-card {
+  background: rgba(255,255,255,.03);
+  border: 1px solid rgba(255,255,255,.07);
+  border-radius: 12px; padding: 14px 16px;
+  display: flex; flex-direction: column; gap: 8px;
+  transition: border-color .2s, background .2s;
+}
+.pp-member-card:hover { border-color: rgba(220,38,38,.28); background: rgba(220,38,38,.04); }
+.pp-member-name { font-size: .9rem; font-weight: 600; color: #fff; }
+.pp-member-meta { font-size: .72rem; color: var(--muted); font-family: 'Courier New', monospace; }
+.pp-member-status-active   { font-size: .68rem; color: #4ade80; background: rgba(74,222,128,.1); border-radius: 20px; padding: 2px 8px; display: inline-block; }
+.pp-member-status-inactive { font-size: .68rem; color: #f87171; background: rgba(248,113,113,.1); border-radius: 20px; padding: 2px 8px; display: inline-block; }
+.pp-member-actions { display: flex; gap: 6px; }
+.pp-member-actions a {
+  flex: 1; text-align: center; padding: 7px 8px; border-radius: 8px;
+  font-size: .76rem; font-weight: 600; text-decoration: none; transition: all .2s;
+}
+.pm-action-primary { background: var(--red-g); border: 1px solid rgba(220,38,38,.3); color: #f87171; }
+.pm-action-primary:hover { background: rgba(220,38,38,.3); color: #fff; border-color: rgba(220,38,38,.6); }
+.pm-action-detail { background: rgba(255,255,255,.04); border: 1px solid var(--bdr); color: var(--muted); }
+.pm-action-detail:hover { background: rgba(255,255,255,.09); color: #fff; border-color: rgba(255,255,255,.18); }
+
+/* ── TODAY VISIT FEED ────────────────────────────────────────────── */
+.tvf-item {
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 12px 18px; border-bottom: 1px solid var(--bdr);
+  transition: background .2s;
+}
+.tvf-item:last-child { border-bottom: none; }
+.tvf-item:hover { background: rgba(255,255,255,.02); }
+.tvf-dot {
+  width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center; font-size: .7rem;
+  margin-top: 2px;
+}
+.tvf-dot.ok  { background: var(--grn-g); color: #4ade80; border: 1px solid rgba(34,197,94,.28); }
+.tvf-dot.warn{ background: var(--amb-g); color: #fbbf24; border: 1px solid rgba(245,158,11,.28); }
+.tvf-dot.off { background: rgba(148,163,184,.08); color: #94a3b8; border: 1px solid rgba(148,163,184,.18); }
+.tvf-main { flex: 1; min-width: 0; }
+.tvf-name { font-size: .88rem; font-weight: 600; color: var(--text); }
+.tvf-service { font-size: .74rem; color: var(--muted); margin-top: 2px; }
+.tvf-right { flex-shrink: 0; text-align: right; }
+.tvf-time { font-size: .72rem; color: var(--muted); font-family: 'Courier New', monospace; }
+.tvf-cost { font-size: .8rem; font-weight: 700; color: var(--text); margin-top: 3px; }
+.tvf-actions { display: flex; gap: 5px; margin-top: 4px; }
+.tvf-act { font-size: .7rem; color: var(--muted); text-decoration: none; padding: 2px 7px; border-radius: 5px; border: 1px solid var(--bdr); transition: all .2s; }
+.tvf-act:hover { color: #ef4444; border-color: rgba(220,38,38,.3); }
+.tvf-act.danger:hover { color: #f87171; }
+.pp-badge { font-size: .65rem; font-family: 'Courier New', monospace; padding: 2px 7px; border-radius: 20px; font-weight: 600; letter-spacing: .04em; }
+.pp-badge-active    { background: rgba(74,222,128,.12);  color: #4ade80; border: 1px solid rgba(74,222,128,.25); }
+.pp-badge-edited    { background: rgba(250,204,21,.10);   color: #fbbf24; border: 1px solid rgba(250,204,21,.22); }
+.pp-badge-cancelled { background: rgba(148,163,184,.10);  color: #94a3b8; border: 1px solid rgba(148,163,184,.2); }
+.pp-badge-verified  { background: rgba(74,222,128,.12);  color: #4ade80; }
+.pp-badge-unverified{ background: rgba(255,255,255,.05); color: rgba(255,255,255,.35); }
+
+/* ── RECENT CLIENTS ──────────────────────────────────────────────── */
+.rc-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 10px; padding: 14px 18px 18px;
+}
+.rc-card {
+  background: rgba(255,255,255,.025);
+  border: 1px solid var(--bdr);
+  border-radius: 12px; padding: 14px 14px 12px;
+  text-decoration: none;
+  transition: border-color .2s, background .2s, transform .2s;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.rc-card:hover {
+  border-color: rgba(220,38,38,.3); background: rgba(220,38,38,.04);
+  transform: translateY(-2px); text-decoration: none;
+}
+.rc-avatar {
+  width: 38px; height: 38px; border-radius: 50%;
+  background: linear-gradient(135deg, rgba(220,38,38,.5), rgba(9,9,24,.8));
+  display: flex; align-items: center; justify-content: center;
+  font-size: .9rem; font-weight: 800; color: #fff; text-transform: uppercase;
+  flex-shrink: 0; border: 1.5px solid rgba(255,255,255,.1);
+}
+.rc-name { font-size: .82rem; font-weight: 600; color: var(--text); line-height: 1.25; }
+.rc-meta { font-size: .7rem; color: var(--muted); font-family: 'Courier New', monospace; }
+.rc-status-active   { font-size: .64rem; color: #4ade80; }
+.rc-status-inactive { font-size: .64rem; color: #f87171; }
+
+/* ── FULL VISIT TABLE ────────────────────────────────────────────── */
+.pp-table-wrap { overflow-x: auto; }
+.pp-table { width: 100%; border-collapse: collapse; font-size: .82rem; }
+.pp-table th {
+  padding: 10px 14px; text-align: left;
+  font-family: 'Courier New', monospace; font-size: .67rem;
+  color: var(--muted); text-transform: uppercase; letter-spacing: .08em;
+  border-bottom: 1px solid var(--bdr); background: rgba(255,255,255,.02);
+  white-space: nowrap;
+}
+.pp-table td {
+  padding: 10px 14px; border-bottom: 1px solid rgba(255,255,255,.03);
+  color: #cbd5e1; vertical-align: middle;
+}
+.pp-table tr:last-child td { border-bottom: none; }
+.pp-table tr:hover td { background: rgba(255,255,255,.02); }
+.pp-act-link {
+  color: var(--muted); font-size: .73rem; text-decoration: none;
+  padding: 3px 8px; border-radius: 5px; font-family: 'Courier New', monospace;
+  border: 1px solid var(--bdr); transition: all .2s;
+}
+.pp-act-link:hover { color: #ef4444; border-color: rgba(220,38,38,.35); background: rgba(220,38,38,.06); }
+.pp-act-link.danger:hover { color: #f87171; background: rgba(248,113,113,.07); }
+
+/* ── PAGINATION ───────────────────────────────────────────────────── */
+.pp-pagination { display: flex; gap: 8px; justify-content: center; padding: 20px 0; flex-wrap: wrap; }
+.pp-pagination a, .pp-pagination span {
+  padding: 6px 14px; border-radius: 6px; font-size: .78rem;
+  font-family: 'Courier New', monospace; color: var(--muted);
+  background: rgba(255,255,255,.04); text-decoration: none;
+  border: 1px solid rgba(255,255,255,.07); transition: all .2s;
+}
+.pp-pagination a:hover { color: #ef4444; border-color: rgba(220,38,38,.3); }
+.pp-pagination .current { color: #ef4444; border-color: rgba(220,38,38,.35); background: rgba(220,38,38,.07); }
+
+/* ── RESPONSIVE ──────────────────────────────────────────────────── */
+@media (max-width: 600px) {
+  .ppc { margin: 14px 12px 0; }
+  .quick-bar { padding: 14px 12px 0; }
+  .today-strip { padding: 14px 12px 0; }
+}
+.two-col-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0; margin-top: 20px; }
+.two-col-grid .col-left  { margin: 0 12px 0 24px; }
+.two-col-grid .col-right { margin: 0 24px 0 12px; }
+@media (max-width: 800px) {
+  .two-col-grid { grid-template-columns: 1fr; }
+  .two-col-grid .col-left  { margin: 0 24px; }
+  .two-col-grid .col-right { margin: 14px 24px 0; }
+}
 </style>
 {% endblock %}
 
@@ -264,20 +544,26 @@
   {% if messages %}
     <div style="padding:12px 24px 0;">
       {% for msg in messages %}
-        <div style="background:{% if msg.level >= 40 %}rgba(220,38,38,.12){% elif msg.level >= 30 %}rgba(250,204,21,.10){% else %}rgba(74,222,128,.10){% endif %};border:1px solid {% if msg.level >= 40 %}rgba(220,38,38,.35){% elif msg.level >= 30 %}rgba(250,204,21,.35){% else %}rgba(74,222,128,.35){% endif %};border-radius:8px;padding:10px 14px;font-size:.82rem;color:{% if msg.level >= 40 %}#f87171{% elif msg.level >= 30 %}#fbbf24{% else %}#4ade80{% endif %};margin-bottom:6px;">{{ msg }}</div>
+        <div style="background:{% if msg.level >= 40 %}rgba(220,38,38,.12){% elif msg.level >= 30 %}rgba(250,204,21,.10){% elif msg.level >= 25 %}rgba(74,222,128,.10){% else %}rgba(59,130,246,.10){% endif %};border:1px solid {% if msg.level >= 40 %}rgba(220,38,38,.35){% elif msg.level >= 30 %}rgba(250,204,21,.35){% elif msg.level >= 25 %}rgba(74,222,128,.35){% else %}rgba(59,130,246,.35){% endif %};border-radius:8px;padding:10px 14px;font-size:.82rem;color:{% if msg.level >= 40 %}#f87171{% elif msg.level >= 30 %}#fbbf24{% elif msg.level >= 25 %}#4ade80{% else %}#93c5fd{% endif %};margin-bottom:6px;">{{ msg }}</div>
       {% endfor %}
     </div>
   {% endif %}
 
-  <!-- PARTNER NAV -->
+  {# ══ TOP NAV ══ #}
   <nav class="pp-nav">
     <a href="{% url 'users:partner_dashboard' %}" class="pp-nav-brand">⬡ IESA PARTNER</a>
-    <a href="{% url 'users:partner_dashboard' %}" class="active">{% trans "Dashboard" %}</a>
-    <a href="{% url 'users:partner_analytics' %}">{% trans "Analytics" %}</a>
-    <a href="{% url 'users:partner_profile_edit' %}">{% trans "Company Profile" %}</a>
+    <a href="{% url 'users:partner_dashboard' %}" class="active">
+      <i class="fas fa-tachometer-alt"></i> {% trans "Dashboard" %}
+    </a>
+    <a href="{% url 'users:partner_analytics' %}">
+      <i class="fas fa-chart-bar"></i> {% trans "Analytics" %}
+    </a>
+    <a href="{% url 'users:partner_profile_edit' %}">
+      <i class="fas fa-cog"></i> {% trans "Settings" %}
+    </a>
   </nav>
 
-  <!-- HERO -->
+  {# ══ HERO ══ #}
   <div class="pp-hero">
     <div style="position:relative;z-index:1;max-width:900px;">
       <div class="pp-hero-badge">PARTNER PORTAL</div>
@@ -289,60 +575,89 @@
     </div>
   </div>
 
-  <!-- STATS -->
-  <div class="pp-stats">
-    <div class="pp-stat">
-      <div class="pp-stat-label">{% trans "Total Visits" %}</div>
-      <div class="pp-stat-val red">{{ total_visits }}</div>
-      <div class="pp-stat-detail">{% trans "all time" %}</div>
+  {# ══ TODAY STATS STRIP ══ #}
+  <div class="today-strip">
+    <div class="today-stat highlight">
+      <div class="today-dot"></div>
+      <div class="today-label">{% trans "Today" %}</div>
+      <div class="today-val red">{{ today_count }}</div>
+      <div class="today-sub">{% trans "visits today" %}</div>
     </div>
-    <div class="pp-stat">
-      <div class="pp-stat-label">{% trans "PIN Verified" %}</div>
-      <div class="pp-stat-val">{{ verified_visits }}</div>
-      <div class="pp-stat-detail">{% if total_visits %}{{ verified_visits }}/{{ total_visits }}{% else %}—{% endif %}</div>
+    <div class="today-stat">
+      <div class="today-label">{% trans "Today CHF" %}</div>
+      <div class="today-val grn">{{ today_revenue|floatformat:0 }}</div>
+      <div class="today-sub">{% trans "revenue today" %}</div>
     </div>
-    <div class="pp-stat">
-      <div class="pp-stat-label">CHF {% trans "Revenue" %}</div>
-      <div class="pp-stat-val">{{ total_cost|floatformat:0 }}</div>
-      <div class="pp-stat-detail">{% trans "total logged" %}</div>
+    <div class="today-stat">
+      <div class="today-label">{% trans "All Time" %}</div>
+      <div class="today-val">{{ total_visits }}</div>
+      <div class="today-sub">{% trans "total visits" %}</div>
     </div>
-    <div class="pp-stat">
-      <div class="pp-stat-label">{% trans "Unique Members" %}</div>
-      <div class="pp-stat-val">{{ unique_members }}</div>
-      <div class="pp-stat-detail">{% trans "served" %}</div>
+    <div class="today-stat">
+      <div class="today-label">{% trans "Members" %}</div>
+      <div class="today-val">{{ unique_members }}</div>
+      <div class="today-sub">{% trans "unique clients" %}</div>
     </div>
   </div>
 
-  <!-- MEMBER SEARCH -->
-  <div class="pp-section">
-    <div class="pp-section-title">{% trans "// member_search" %}</div>
-    <form method="get" action="" class="pp-search-form">
+  {# ══ QUICK ACTION BAR ══ #}
+  <div class="quick-bar">
+    <a href="#search-section" class="btn-log-visit" id="open-search-btn">
+      <i class="fas fa-user-plus"></i> {% trans "Log New Visit" %}
+    </a>
+    <a href="{% url 'users:partner_analytics' %}" class="btn-secondary">
+      <i class="fas fa-chart-line"></i> {% trans "Analytics" %}
+    </a>
+    <a href="{% url 'users:partner_profile_edit' %}" class="btn-secondary">
+      <i class="fas fa-building"></i> {% trans "Company Profile" %}
+    </a>
+  </div>
+
+  {# ══ MEMBER SEARCH ══ #}
+  <div class="ppc" id="search-section">
+    <div class="ppc-head">
+      <div class="ppc-icon red"><i class="fas fa-search"></i></div>
+      <div class="ppc-title">{% trans "Find Member" %}</div>
+      <div class="ppc-extra">{% trans "search by name, username or card ID" %}</div>
+    </div>
+    <form method="get" action="" class="pp-search-form" id="member-search-form" style="padding-bottom:14px;">
       {{ search_form.query }}
-      <button type="submit" class="pp-btn">🔍 {% trans "Search" %}</button>
+      <button type="submit" class="pp-btn"><i class="fas fa-search"></i> {% trans "Search" %}</button>
     </form>
 
     {% if search_results is not None %}
       {% if search_results %}
+        <div style="padding: 0 18px 4px; font-size:.72rem; color:var(--muted); font-family:'Courier New',monospace;">
+          {{ search_results|length }} {% trans "result(s) found" %} — {% trans "click 'Log Visit' to register a visit" %}
+        </div>
         <div class="pp-member-grid">
           {% for u in search_results %}
             <div class="pp-member-card">
-              <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px;">
                 <div class="pp-member-name">{{ u.get_full_name|default:u.username }}</div>
                 {% if u.membership_status == 'active' %}
-                  <span class="pp-member-status-active">● {% trans "ACTIVE" %}</span>
+                  <span class="pp-member-status-active">ACTIVE</span>
                 {% else %}
-                  <span class="pp-member-status-inactive">● {{ u.get_membership_status_display }}</span>
+                  <span class="pp-member-status-inactive">INACTIVE</span>
                 {% endif %}
               </div>
-              {% if u.pseudonym %}<div class="pp-member-meta">@{{ u.pseudonym }}</div>{% endif %}
-              <a href="{% url 'users:log_visit' u.pk %}" class="pp-btn" style="font-size:.78rem;padding:7px 14px;margin-top:4px;justify-content:center;">
-                + {% trans "Log Visit" %}
-              </a>
+              {% if u.pseudonym %}
+                <div class="pp-member-meta">@{{ u.pseudonym }}</div>
+              {% endif %}
+              <div class="pp-member-meta" style="opacity:.6;">{{ u.username }}</div>
+              <div class="pp-member-actions">
+                <a href="{% url 'users:log_visit' u.pk %}" class="pm-action-primary">
+                  <i class="fas fa-plus"></i> {% trans "Log Visit" %}
+                </a>
+                <a href="{% url 'users:partner_member_visits' u.pk %}" class="pm-action-detail">
+                  <i class="fas fa-history"></i>
+                </a>
+              </div>
             </div>
           {% endfor %}
         </div>
       {% else %}
-        <div class="pp-empty">
+        <div class="pp-empty" style="padding:24px 20px;">
           <span class="pp-empty-icon">🔍</span>
           {% trans "No members found for" %} «{{ search_form.query.value }}»
         </div>
@@ -350,83 +665,207 @@
     {% endif %}
   </div>
 
-  <!-- VISIT HISTORY -->
-  <div class="pp-section" style="margin-top:18px;">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid rgba(255,255,255,.06);">
-      <span class="pp-section-title" style="margin-bottom:0;padding-bottom:0;border:none;">{% trans "// visit_history" %}</span>
-      <a href="{% url 'users:partner_analytics' %}" style="font-size:.75rem;font-family:'Courier New',monospace;color:rgba(220,38,38,.7);text-decoration:none;">{% trans "view analytics →" %}</a>
-    </div>
+  {# ══ TWO-COLUMN ROW: Today's Activity + Recent Clients ══ #}
+  <div class="two-col-grid">
+    <div class="col-left">
 
-    {% if visits.object_list %}
-      <div class="pp-table-wrap">
-        <table class="pp-table">
-          <thead>
-            <tr>
-              <th>{% trans "DATE" %}</th>
-              <th>{% trans "MEMBER" %}</th>
-              <th>{% trans "SERVICE" %}</th>
-              <th>CHF</th>
-              <th>{% trans "PIN" %}</th>
-              <th>{% trans "STATUS" %}</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for visit in visits %}
+  {# == TODAY'S ACTIVITY == #}
+  <div class="ppc" style="margin:0;">
+    <div class="ppc-head">
+      <div class="ppc-icon grn"><i class="fas fa-bolt"></i></div>
+      <div class="ppc-title">{% trans "Today's Visits" %}</div>
+      <div class="ppc-extra">{{ now|date:"d M Y" }}</div>
+    </div>
+    <div class="ppc-body">
+      {% if today_visit_list %}
+        {% for visit in today_visit_list %}
+        <div class="tvf-item">
+          <div class="tvf-dot
+            {% if visit.status == 'CANCELLED' %}off
+            {% elif visit.pin_verified %}ok
+            {% else %}warn{% endif %}">
+            {% if visit.status == 'CANCELLED' %}<i class="fas fa-ban"></i>
+            {% elif visit.pin_verified %}<i class="fas fa-check"></i>
+            {% else %}<i class="fas fa-exclamation"></i>{% endif %}
+          </div>
+          <div class="tvf-main">
+            <div class="tvf-name">{{ visit.member.get_full_name|default:visit.member.username }}</div>
+            <div class="tvf-service">{{ visit.get_service_type_display }}
+              &nbsp;<span class="pp-badge pp-badge-{{ visit.status|lower }}">{{ visit.status }}</span>
+            </div>
+            {% if visit.status == 'ACTIVE' and visit.timestamp >= edit_window_cutoff %}
+            <div class="tvf-actions">
+              <a href="{% url 'users:edit_visit' visit.pk %}" class="tvf-act">{% trans "edit" %}</a>
+              <a href="{% url 'users:cancel_visit' visit.pk %}" class="tvf-act danger">{% trans "cancel" %}</a>
+            </div>
+            {% endif %}
+          </div>
+          <div class="tvf-right">
+            <div class="tvf-time">{{ visit.timestamp|date:"H:i" }}</div>
+            {% if visit.cost %}<div class="tvf-cost">{{ visit.cost }} CHF</div>{% endif %}
+          </div>
+        </div>
+        {% endfor %}
+      {% else %}
+        <div class="pp-empty" style="padding:30px 16px;">
+          <span class="pp-empty-icon" style="font-size:1.8rem;">📅</span>
+          {% trans "No visits today yet." %}
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+    </div>
+    <div class="col-right">
+
+  {# == RECENT CLIENTS == #}
+  <div class="ppc" style="margin:0;">
+    <div class="ppc-head">
+      <div class="ppc-icon blue"><i class="fas fa-users"></i></div>
+      <div class="ppc-title">{% trans "Recent Clients" %}</div>
+      <div class="ppc-extra">{% trans "last visitors" %}</div>
+    </div>
+    <div class="ppc-body">
+      {% if recent_members %}
+        <div class="rc-grid">
+          {% for m in recent_members %}
+          <a href="{% url 'users:partner_member_visits' m.member__id %}" class="rc-card">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <div class="rc-avatar">
+                {{ m.member__first_name|slice:":1"|default:m.member__username|slice:":1"|upper }}
+              </div>
+              <div>
+                {% if m.member__first_name or m.member__last_name %}
+                  <div class="rc-name">{{ m.member__first_name }} {{ m.member__last_name }}</div>
+                {% else %}
+                  <div class="rc-name">{{ m.member__username }}</div>
+                {% endif %}
+                {% if m.member__pseudonym %}<div class="rc-meta">@{{ m.member__pseudonym }}</div>{% endif %}
+              </div>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:2px;">
+              <span class="rc-meta">{{ m.visit_count }} {% trans "visit(s)" %}</span>
+              {% if m.member__membership_status == 'active' %}
+                <span class="rc-status-active"><i class="fas fa-circle" style="font-size:.45rem;"></i> {% trans "active" %}</span>
+              {% else %}
+                <span class="rc-status-inactive"><i class="fas fa-circle" style="font-size:.45rem;"></i> {% trans "inactive" %}</span>
+              {% endif %}
+            </div>
+            <div class="rc-meta" style="opacity:.55;">{% trans "last" %}: {{ m.last_visit|date:"d.m.Y" }}</div>
+          </a>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="pp-empty" style="padding:30px 16px;">
+          <span class="pp-empty-icon" style="font-size:1.8rem;">👥</span>
+          {% trans "No clients yet." %}
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+    </div>
+  </div>
+
+  {# ══ FULL VISIT HISTORY ══ #}
+  <div class="ppc">
+    <div class="ppc-head">
+      <div class="ppc-icon amber"><i class="fas fa-list-ul"></i></div>
+      <div class="ppc-title">{% trans "All Visit History" %}</div>
+      <div class="ppc-extra">
+        <a href="{% url 'users:partner_analytics' %}">{% trans "analytics →" %}</a>
+      </div>
+    </div>
+    <div class="ppc-body">
+      {% if visits.object_list %}
+        <div class="pp-table-wrap">
+          <table class="pp-table">
+            <thead>
               <tr>
-                <td style="white-space:nowrap;color:rgba(255,255,255,.4);font-size:.75rem;font-family:'Courier New',monospace;">
-                  {{ visit.timestamp|date:"d M H:i" }}
-                </td>
-                <td>
-                  <span style="color:#e2e8f0;font-weight:500;">{{ visit.member.get_full_name|default:visit.member.username }}</span>
-                  {% if visit.member.pseudonym %}<br><span style="font-size:.72rem;color:rgba(255,255,255,.3);">@{{ visit.member.pseudonym }}</span>{% endif %}
-                </td>
-                <td style="color:rgba(255,255,255,.65);">{{ visit.get_service_type_display }}</td>
-                <td>{% if visit.cost %}<span style="color:#e2e8f0;">{{ visit.cost }}</span>{% else %}<span style="color:rgba(255,255,255,.2);">—</span>{% endif %}</td>
-                <td>{% if visit.pin_verified %}<span class="pp-badge pp-badge-verified">✓ VERIF</span>{% else %}<span class="pp-badge pp-badge-unverified">UNVERIF</span>{% endif %}</td>
-                <td><span class="pp-badge pp-badge-{{ visit.status|lower }}">{{ visit.status }}</span></td>
-                <td style="white-space:nowrap;">
-                  {% if visit.status == 'ACTIVE' %}
-                    {% with age_secs=visit.timestamp|timesince %}
-                      {# Use server-side window check via context var #}
-                    {% endwith %}
-                    {% if visit.timestamp >= edit_window_cutoff %}
+                <th>{% trans "DATE" %}</th>
+                <th>{% trans "MEMBER" %}</th>
+                <th>{% trans "SERVICE" %}</th>
+                <th>CHF</th>
+                <th>{% trans "PIN" %}</th>
+                <th>{% trans "STATUS" %}</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for visit in visits %}
+                <tr>
+                  <td style="white-space:nowrap;color:rgba(255,255,255,.4);font-size:.73rem;font-family:'Courier New',monospace;">
+                    {{ visit.timestamp|date:"d M Y" }}<br>{{ visit.timestamp|date:"H:i" }}
+                  </td>
+                  <td>
+                    <a href="{% url 'users:partner_member_visits' visit.member.pk %}" style="color:#e2e8f0;font-weight:500;text-decoration:none;">
+                      {{ visit.member.get_full_name|default:visit.member.username }}
+                    </a>
+                    {% if visit.member.pseudonym %}<br><span style="font-size:.7rem;color:rgba(255,255,255,.28);">@{{ visit.member.pseudonym }}</span>{% endif %}
+                  </td>
+                  <td style="color:rgba(255,255,255,.65);">{{ visit.get_service_type_display }}
+                    {% if visit.service_description %}<br><span style="font-size:.7rem;color:rgba(255,255,255,.3);font-style:italic;">{{ visit.service_description|truncatechars:30 }}</span>{% endif %}
+                  </td>
+                  <td>{% if visit.cost %}<span style="color:#e2e8f0;">{{ visit.cost }}</span>{% else %}<span style="color:rgba(255,255,255,.18);">—</span>{% endif %}</td>
+                  <td>
+                    {% if visit.pin_verified %}
+                      <span class="pp-badge pp-badge-verified">✓ PIN</span>
+                    {% else %}
+                      <span class="pp-badge pp-badge-unverified">—</span>
+                    {% endif %}
+                  </td>
+                  <td><span class="pp-badge pp-badge-{{ visit.status|lower }}">{{ visit.status }}</span></td>
+                  <td style="white-space:nowrap;">
+                    {% if visit.status == 'ACTIVE' and visit.timestamp >= edit_window_cutoff %}
                       <a href="{% url 'users:edit_visit' visit.pk %}" class="pp-act-link">{% trans "edit" %}</a>
                       <a href="{% url 'users:cancel_visit' visit.pk %}" class="pp-act-link danger">{% trans "cancel" %}</a>
                     {% endif %}
-                  {% endif %}
-                </td>
-              </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
 
-      {% if visits.has_other_pages %}
-        <div class="pp-pagination">
-          {% if visits.has_previous %}
-            <a href="?page={{ visits.previous_page_number }}{% if request.GET.query %}&query={{ request.GET.query }}{% endif %}">‹ {% trans "prev" %}</a>
-          {% endif %}
-          {% for num in visits.paginator.page_range %}
-            {% if visits.number == num %}
-              <span class="current">{{ num }}</span>
-            {% elif num > visits.number|add:"-3" and num < visits.number|add:"3" %}
-              <a href="?page={{ num }}{% if request.GET.query %}&query={{ request.GET.query }}{% endif %}">{{ num }}</a>
+        {% if visits.has_other_pages %}
+          <div class="pp-pagination">
+            {% if visits.has_previous %}
+              <a href="?page={{ visits.previous_page_number }}{% if request.GET.query %}&query={{ request.GET.query }}{% endif %}">‹ {% trans "prev" %}</a>
             {% endif %}
-          {% endfor %}
-          {% if visits.has_next %}
-            <a href="?page={{ visits.next_page_number }}{% if request.GET.query %}&query={{ request.GET.query }}{% endif %}">{% trans "next" %} ›</a>
-          {% endif %}
+            {% for num in visits.paginator.page_range %}
+              {% if visits.number == num %}
+                <span class="current">{{ num }}</span>
+              {% elif num > visits.number|add:"-3" and num < visits.number|add:"3" %}
+                <a href="?page={{ num }}{% if request.GET.query %}&query={{ request.GET.query }}{% endif %}">{{ num }}</a>
+              {% endif %}
+            {% endfor %}
+            {% if visits.has_next %}
+              <a href="?page={{ visits.next_page_number }}{% if request.GET.query %}&query={{ request.GET.query }}{% endif %}">{% trans "next" %} ›</a>
+            {% endif %}
+          </div>
+        {% endif %}
+
+      {% else %}
+        <div class="pp-empty">
+          <span class="pp-empty-icon">📋</span>
+          {% trans "No visits logged yet. Use member search above." %}
         </div>
       {% endif %}
-
-    {% else %}
-      <div class="pp-empty">
-        <span class="pp-empty-icon">📋</span>
-        {% trans "No visits logged yet. Use member search above to log your first visit." %}
-      </div>
-    {% endif %}
+    </div>
   </div>
 
 </div>
 {% endblock %}
+
+{% block extra_js %}
+<script>
+// Auto-scroll to search when "Log New Visit" is clicked
+document.getElementById('open-search-btn')?.addEventListener('click', function(e) {
+  const searchInput = document.querySelector('#member-search-form input[type=text], #member-search-form input[name=query]');
+  if (searchInput) {
+    e.preventDefault();
+    document.getElementById('search-section').scrollIntoView({behavior:'smooth', block:'start'});
+    setTimeout(() => searchInput.focus(), 400);
+  }
+});
+</script>
