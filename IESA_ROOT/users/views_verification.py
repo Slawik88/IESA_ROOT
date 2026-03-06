@@ -213,8 +213,7 @@ def partner_dashboard(request):
     unique_members = visits.values('member').distinct().count()
 
     # Today's activity
-    from django.utils.timezone import localdate
-    today = localdate()
+    today = timezone.localdate()
     today_visits_qs = visits.filter(timestamp__date=today)
     today_count = today_visits_qs.count()
     today_revenue = today_visits_qs.aggregate(r=Sum('cost'))['r'] or 0
@@ -835,7 +834,6 @@ def test_telegram_view(request):
 def connect_telegram_code_view(request):
     """Accept 6-digit code from Telegram bot and link the account."""
     import html as _html
-    from django.utils import timezone as tz
     from users.telegram import consume_link_code, send_message
 
     error = ""
@@ -854,7 +852,7 @@ def connect_telegram_code_view(request):
                     error = _("This Telegram account is already linked to another user.")
                 else:
                     request.user.telegram_chat_id = int(chat_id)
-                    request.user.telegram_linked_at = tz.now()
+                    request.user.telegram_linked_at = timezone.now()
                     request.user.save(update_fields=["telegram_chat_id", "telegram_linked_at"])
                     send_message(
                         f"✅ Telegram привязан к аккаунту <b>{_html.escape(request.user.username)}</b> на IESA Sport!",
@@ -891,7 +889,6 @@ def telegram_login_callback_view(request):
     Verifies HMAC signature and links telegram_chat_id to the logged-in user.
     """
     import time
-    from django.utils import timezone as tz
     from users.telegram import verify_telegram_auth
 
     flat = {k: (v[0] if isinstance(v, list) else v) for k, v in dict(request.GET).items()}
@@ -915,7 +912,7 @@ def telegram_login_callback_view(request):
         return redirect("users:profile")
 
     request.user.telegram_chat_id = tg_id
-    request.user.telegram_linked_at = tz.now()
+    request.user.telegram_linked_at = timezone.now()
     request.user.save(update_fields=["telegram_chat_id", "telegram_linked_at"])
     tg_name = flat.get("username") or flat.get("first_name", "")
     messages.success(request, _("✅ Telegram (%(name)s) linked successfully!") % {'name': tg_name})

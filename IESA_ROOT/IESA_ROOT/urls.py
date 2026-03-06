@@ -3,9 +3,9 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib.sitemaps.views import sitemap
-from django.views.generic.base import RedirectView
+from django.views.generic.base import RedirectView, TemplateView
 from django.templatetags.static import static as static_static
-from django.http import FileResponse
+from django.http import FileResponse, JsonResponse
 from pathlib import Path
 from blog.sitemaps import sitemaps
 from .protected_media_views import serve_protected_media
@@ -68,7 +68,17 @@ urlpatterns = [
     
     # Sitemap
     path('sitemap.xml', sitemap, {'sitemaps': sitemaps}, name='django.contrib.sitemaps.views.sitemap'),
-    
+
+    # robots.txt — served as plain text from template
+    path('robots.txt', TemplateView.as_view(template_name='robots.txt', content_type='text/plain'), name='robots_txt'),
+
+    # /.well-known/traffic-advice — Chrome prerender hint (prevents 404 noise in logs)
+    path('.well-known/traffic-advice', lambda r: JsonResponse([{"user_agent": "prefetch-proxy", "google-extended": "disallow"}], safe=False, content_type='application/trafficadvice+json')),
+
+    # /shop → redirect to /products/
+    path('shop', RedirectView.as_view(url='/products/', permanent=True)),
+    path('shop/', RedirectView.as_view(url='/products/', permanent=True)),
+
     # CKEditor 5 upload path
     path('ckeditor5/', include('django_ckeditor_5.urls')),
     # Favicon shortcut to static asset
