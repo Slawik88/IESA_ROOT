@@ -1,0 +1,13 @@
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /auth/profile/
+Disallow: /auth/profile/edit/
+Disallow: /auth/profile/deactivate/
+Disallow: /auth/member-cabinet/
+Disallow: /auth/partner/
+Disallow: /auth/qr/
+Disallow: /notifications/
+Disallow: /protected/
+
+Sitemap: https://iesasport.ch/sitemap.xml
