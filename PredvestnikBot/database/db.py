@@ -332,6 +332,43 @@ async def init_db():
     # Load whitelist into memory
     await load_whitelist()
     await load_admin_groups()
+    await enforce_rank_invariants()
+
+
+async def enforce_rank_invariants():
+    """Normalize rank data invariants:
+    - developer: only DEVELOPER_ID (global)
+    - owner: only one per chat (others downgraded to co_owner)
+    """
+    from config import DEVELOPER_ID
+
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        if DEVELOPER_ID:
+            await db.execute(
+                "UPDATE user_stats SET rank = 'owner' WHERE rank = 'developer' AND user_id <> ?",
+                (DEVELOPER_ID,),
+            )
+        else:
+            await db.execute("UPDATE user_stats SET rank = 'owner' WHERE rank = 'developer'")
+
+        async with db.execute(
+            "SELECT chat_id, user_id FROM user_stats WHERE rank = 'owner' ORDER BY chat_id, user_id"
+        ) as c:
+            rows = await c.fetchall()
+
+        seen_chat: set[int] = set()
+        for row in rows:
+            chat_id = row[0]
+            user_id = row[1]
+            if chat_id in seen_chat:
+                await db.execute(
+                    "UPDATE user_stats SET rank = 'co_owner' WHERE chat_id = ? AND user_id = ? AND rank = 'owner'",
+                    (chat_id, user_id),
+                )
+            else:
+                seen_chat.add(chat_id)
+
+        await db.commit()
 
 
 # ─── Whitelist (белый список групп) ───────────────────────────────────────────
@@ -1356,7 +1393,23 @@ async def increment_message_count_chat(user_id: int, chat_id: int):
 
 
 async def set_rank_in_chat(user_id: int, chat_id: int, rank: str):
+    from config import DEVELOPER_ID
+
     async with aiosqlite.connect(DATABASE_PATH) as db:
+        if rank == "developer":
+            if not DEVELOPER_ID or user_id != DEVELOPER_ID:
+                raise ValueError("Только указанный DEVELOPER_ID может иметь ранг developer.")
+            await db.execute(
+                "UPDATE user_stats SET rank = 'owner' WHERE rank = 'developer' AND user_id <> ?",
+                (user_id,),
+            )
+
+        if rank == "owner":
+            await db.execute(
+                "UPDATE user_stats SET rank = 'co_owner' WHERE chat_id = ? AND rank = 'owner' AND user_id <> ?",
+                (chat_id, user_id),
+            )
+
         await db.execute(
             """INSERT INTO user_stats (user_id, chat_id, rank) VALUES (?, ?, ?)
                ON CONFLICT(user_id, chat_id) DO UPDATE SET rank = excluded.rank""",
