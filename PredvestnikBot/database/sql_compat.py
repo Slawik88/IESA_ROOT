@@ -45,6 +45,15 @@ def _normalize_sql_for_postgres(sql: str) -> str | None:
     # handling above) is unaffected since it no longer contains the word INTEGER.
     normalized = re.sub(r"\bINTEGER\b", "BIGINT", normalized, flags=re.IGNORECASE)
 
+    # Make ALTER TABLE ... ADD COLUMN idempotent: column-already-exists would abort
+    # the whole PostgreSQL transaction (try/except in Python doesn't roll it back).
+    normalized = re.sub(
+        r"\bADD\s+COLUMN\s+(?!IF\s+NOT\s+EXISTS\b)",
+        "ADD COLUMN IF NOT EXISTS ",
+        normalized,
+        flags=re.IGNORECASE,
+    )
+
     if re.search(r"\bINSERT\s+OR\s+IGNORE\s+INTO\b", normalized, flags=re.IGNORECASE):
         normalized = re.sub(
             r"\bINSERT\s+OR\s+IGNORE\s+INTO\b",
