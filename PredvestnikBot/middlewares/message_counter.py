@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from typing import Any, Awaitable, Callable, Dict
 
 from aiogram import BaseMiddleware, Bot
-from aiogram.types import ChatMemberOwner, ChatPermissions, Message
+from aiogram.types import ChatPermissions, Message
 
 from config import (
     DEFAULT_ANTIFLOOD_ACTION, DEFAULT_ANTIFLOOD_ENABLED, DEFAULT_ANTIFLOOD_LIMIT,
@@ -17,7 +17,7 @@ from database.db import (
     add_xp_in_chat, get_blacklist, get_chat_settings, get_filters, get_locks,
     get_todays_quest, get_user_stats, increment_cleanup_count,
     increment_message_count_chat, is_group_allowed,
-    mark_quest_rewarded, quest_tick, set_rank_in_chat,
+    mark_quest_rewarded, quest_tick,
     upsert_chat, upsert_user, upsert_user_stats,
 )
 from utils.flood import check_flood, check_spam
@@ -149,7 +149,7 @@ class AutoModMiddleware(BaseMiddleware):
                     except Exception:
                         pass
 
-        # 3. Авто-повышение: разработчик → developer, Telegram-Создатель → owner
+        # 3. Проверка статуса выполняется без авто-повышений (все ранги выдаются вручную)
         if in_group:
             key = (event.chat.id, user.id)
             now_mono = time.monotonic()
@@ -161,19 +161,6 @@ class AutoModMiddleware(BaseMiddleware):
                     expired = [k for k, v in _checked.items() if v <= cutoff]
                     for k in expired:
                         del _checked[k]
-                stats = await get_user_stats(user.id, event.chat.id)
-                current_rank = stats["rank"] if stats else "user"
-
-                if DEVELOPER_ID and user.id == DEVELOPER_ID and current_rank != "developer":
-                    await set_rank_in_chat(user.id, event.chat.id, "developer")
-                elif current_rank not in ("owner", "developer"):
-                    bot_: Bot = data.get("bot")
-                    try:
-                        member = await bot_.get_chat_member(event.chat.id, user.id)
-                        if isinstance(member, ChatMemberOwner):
-                            await set_rank_in_chat(user.id, event.chat.id, "owner")
-                    except Exception:
-                        pass
 
         # Авто-мод только в группах
         if not in_group:
