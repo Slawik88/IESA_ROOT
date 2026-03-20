@@ -233,6 +233,7 @@ async def init_db():
             "social_tiktok     TEXT    DEFAULT NULL",
             "social_youtube    TEXT    DEFAULT NULL",
             "social_instagram  TEXT    DEFAULT NULL",
+            "cleanup_locked    INTEGER DEFAULT 0",
         ]:
             try:
                 await db.execute(
@@ -745,6 +746,7 @@ _ALLOWED_CHAT_SETTING_KEYS = {
     "antiflood_enabled", "antiflood_limit", "antiflood_action",
     "cleanup_threshold", "blacklist_enabled", "welcome_call",
     "social_tiktok", "social_youtube", "social_instagram",
+    "cleanup_locked",
 }
 _ALLOWED_LOCK_TYPES = {"links", "stickers", "gifs", "forwards", "voice", "video", "photo", "audio"}
 
@@ -760,6 +762,15 @@ async def set_chat_setting(chat_id: int, key: str, value):
             f"UPDATE chat_settings SET {key} = ? WHERE chat_id = ?", (value, chat_id)
         )
         await db.commit()
+
+
+async def get_locked_chats() -> list[int]:
+    """Return chat_ids where cleanup_locked=1 (чаты заблокированные чисткой)."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        async with db.execute(
+            "SELECT chat_id FROM chat_settings WHERE cleanup_locked = 1"
+        ) as c:
+            return [r[0] for r in await c.fetchall()]
 
 
 # ─── Notes ────────────────────────────────────────────────────────────────────
