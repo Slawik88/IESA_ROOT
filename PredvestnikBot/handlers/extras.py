@@ -11,7 +11,7 @@ import html as _html
 from database.db import (
     add_filter, delete_filter, get_chat_members, get_chat_settings, get_filters,
     get_note, get_user_stats, is_group_allowed,
-    set_chat_active, upsert_chat,
+    set_chat_active, set_rank_in_chat, upsert_chat, upsert_user, upsert_user_stats,
 )
 from filters.bot_command import BotCommand
 from filters.rank_filter import RankFilter
@@ -19,6 +19,33 @@ from utils.helpers import user_mention
 from utils.ranks import rank_level
 
 router = Router()
+
+
+async def _register_member_in_chat(chat_id: int, member) -> None:
+    """Register a chat member in DB without waiting for first text message."""
+    if not member or member.is_bot:
+        return
+    await upsert_user(member.id, member.username or "", member.full_name or "")
+    await upsert_user_stats(member.id, chat_id)
+
+
+async def _sync_chat_administrators(bot, chat_id: int) -> int:
+    """Best-effort initial sync for known members available via Bot API (admins)."""
+    synced = 0
+    try:
+        admins = await bot.get_chat_administrators(chat_id)
+    except Exception:
+        return 0
+
+    for admin_member in admins:
+        user = getattr(admin_member, "user", None)
+        if not user or user.is_bot:
+            continue
+        await _register_member_in_chat(chat_id, user)
+        if getattr(admin_member, "status", "") == "creator":
+            await set_rank_in_chat(user.id, chat_id, "owner")
+        synced += 1
+    return synced
 
 
 @router.my_chat_member()
@@ -42,6 +69,8 @@ async def track_bot_chat_state(event: ChatMemberUpdated):
         # Бот только что добавлен — отправляем приветствие (только если группа разрешена)
         from database.db import is_group_allowed
         if is_group_allowed(event.chat.id):
+            # Мгновенно синхронизируем известных участников (как минимум админов).
+            await _sync_chat_administrators(event.bot, event.chat.id)
             try:
                 from config import BOT_ADDED_MSG
                 await event.bot.send_message(
@@ -53,6 +82,28 @@ async def track_bot_chat_state(event: ChatMemberUpdated):
                 pass
     elif not is_active:
         await set_chat_active(event.chat.id, 0)
+
+
+@router.chat_member()
+async def track_chat_member_state(event: ChatMemberUpdated):
+    """Register users on membership updates (join/approve/unban/promote), before first message."""
+    if event.chat.type not in ("group", "supergroup"):
+        return
+    if not is_group_allowed(event.chat.id):
+        return
+
+    member = getattr(event.new_chat_member, "user", None)
+    if not member or member.is_bot:
+        return
+
+    new_status = getattr(event.new_chat_member, "status", "")
+    active_statuses = {"member", "administrator", "creator", "restricted"}
+    if new_status not in active_statuses:
+        return
+
+    await _register_member_in_chat(event.chat.id, member)
+    if new_status == "creator":
+        await set_rank_in_chat(member.id, event.chat.id, "owner")
 
 
 # ─── Управление фильтрами (авто-ответами) ─────────────────────────────────────
