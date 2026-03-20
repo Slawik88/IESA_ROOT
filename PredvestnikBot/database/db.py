@@ -1,7 +1,7 @@
 import math
 from datetime import datetime, timedelta, date
 
-import aiosqlite
+from database.sql_compat import aiosqlite_compat as aiosqlite
 from config import DATABASE_PATH
 
 

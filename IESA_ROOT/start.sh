@@ -11,7 +11,7 @@ python manage.py migrate --noinput || echo "⚠️  Migration failed (DB may be 
 
 # Optional fallback: run Predvestnik in the same app container as a background process.
 # Useful when App Platform ignores workers in app spec for existing apps.
-if [ "${RUN_PREDVESTNIK_IN_WEB:-1}" = "1" ]; then
+if [ "${RUN_PREDVESTNIK_IN_WEB:-0}" = "1" ]; then
     if [ -n "${PREDVESTNIK_BOT_TOKEN:-}" ]; then
         echo "🤖 Starting Predvestnik bot in background..."
         (

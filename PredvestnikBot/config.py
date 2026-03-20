@@ -23,8 +23,10 @@ if not BOT_TOKEN:
         "❌ Не задан токен бота! Укажи PREDVESTNIK_BOT_TOKEN (или BOT_TOKEN для локального запуска)."
     )
 
-# Путь к файлу базы данных SQLite
-DATABASE_PATH = "bot.db"
+# База данных бота (изолированно от сайта):
+# 1) PREDVESTNIK_DATABASE_URL=postgresql://...  -> прод с PostgreSQL
+# 2) иначе локальный SQLite bot.db              -> разработка
+DATABASE_PATH = os.getenv("PREDVESTNIK_DATABASE_URL") or "bot.db"
 
 # Telegram ID разработчика (автоматически получает ранг developer)
 DEVELOPER_ID = 1460945748
