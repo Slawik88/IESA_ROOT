@@ -153,7 +153,7 @@ class AutoModMiddleware(BaseMiddleware):
         if in_group:
             key = (event.chat.id, user.id)
             now_mono = time.monotonic()
-            if now_mono - _checked.get(key, 0) > _CHECKED_TTL:
+            if key not in _checked or now_mono - _checked[key] > _CHECKED_TTL:
                 _checked[key] = now_mono
                 # Периодическая очистка устаревших записей
                 if len(_checked) > 1000:

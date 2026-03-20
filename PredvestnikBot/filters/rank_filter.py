@@ -2,6 +2,7 @@ from aiogram import Bot
 from aiogram.filters import BaseFilter
 from aiogram.types import ChatMemberOwner, Message
 
+from config import DEVELOPER_ID
 from database.db import get_user_stats, set_rank_in_chat
 from utils.ranks import has_permission
 
@@ -42,6 +43,10 @@ class RankFilter(BaseFilter):
 
         uid = message.from_user.id
         cid = message.chat.id
+
+        # Разработчик всегда проходит любой фильтр
+        if DEVELOPER_ID and uid == DEVELOPER_ID:
+            return True
 
         # Telegram-создатель всегда проходит любой RankFilter
         if message.chat.type in ("group", "supergroup"):

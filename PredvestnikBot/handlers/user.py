@@ -578,6 +578,7 @@ async def cmd_time(message: Message, cmd_args: str):
 
 @router.message(BotCommand("я", "профиль", "me"))
 async def cmd_me(message: Message, cmd_args: str):
+    from config import DEVELOPER_ID
     user = await get_user(message.from_user.id)
     if not user:
         await message.answer("❌ Тебя ещё нет в базе. Напиши любое сообщение в чат.")
@@ -585,6 +586,9 @@ async def cmd_me(message: Message, cmd_args: str):
 
     stats = await get_user_stats(message.from_user.id, message.chat.id)
     rank    = stats["rank"]         if stats else "user"
+    # Разработчик всегда получает свой ранг независимо от чата
+    if DEVELOPER_ID and message.from_user.id == DEVELOPER_ID:
+        rank = "developer"
     warns_n = stats["warns"]        if stats else 0
     xp      = stats["xp"]          if stats else 0
     lvl     = stats["level"]        if stats else 1
