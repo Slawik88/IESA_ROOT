@@ -49,14 +49,8 @@ services:
   # Full public URL of this app — used to auto-register the Telegram webhook on startup
   - key: SITE_URL
     value: "https://iesasport.ch"
-  - key: PREDVESTNIK_BOT_TOKEN
-    value: ""
-    type: SECRET
-  - key: PREDVESTNIK_DATABASE_URL
-    value: ""
-    type: SECRET
   - key: RUN_PREDVESTNIK_IN_WEB
-    value: "1"
+    value: "0"
 
 workers:
 - name: predvestnik-bot
