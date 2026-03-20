@@ -1,0 +1,444 @@
+"""
+Весёлые команды: действия + система браков (с приглашениями).
+"""
+import html
+import random
+import time
+from datetime import date
+
+from aiogram import F, Router
+from aiogram.types import (
+    CallbackQuery,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    Message,
+)
+
+from config import MARRIAGE_PROPOSAL_TIMEOUT
+from database.db import create_marriage, delete_marriage, get_marriage, get_user
+from filters.bot_command import BotCommand
+from utils.helpers import resolve_target, user_mention
+
+router = Router()
+
+# ─── Тексты действий ──────────────────────────────────────────────────────────
+
+_KICK = [
+    "{a} пнул(а) {b} прямо в пятую точку! 👟",
+    "{a} нанёс(ла) мощный пинок {b}! 🥾",
+    "{a} разогнался(ась) и пнул(а) {b} со всей силы! 🏃💨",
+    "{a} пнул(а) {b}... и, кажется, пожалел(а) об этом. 👟",
+    "{a} метил(а) в {b}, но промахнулся(ась). {b} всё равно обиделся(ась). 👟",
+]
+
+_BITE = [
+    "{a} укусил(а) {b}! 🦷",
+    "{a} вцепился(ась) зубами в {b}! 😬",
+    "{a} решил(а), что {b} выглядит вкусно, и укусил(а)! 🦷",
+    "{a} тихонько цапнул(а) {b} за ухо. 😈",
+    "АУЧ! {a} укусил(а) {b} без предупреждения! 🦷💥",
+]
+
+_HUG = [
+    "{a} крепко обнял(а) {b}! 🤗",
+    "{a} бросился(ась) обнимать {b}! 🤗✨",
+    "Нежные объятия от {a} для {b}~ 💞",
+    "{a} стиснул(а) {b} в медвежьих объятиях! 🐻",
+    "{a} обнял(а) {b} и не хочет отпускать. 🤗💕",
+]
+
+_SLAP = [
+    "{a} отвесил(а) {b} знатную пощёчину! 👋",
+    "{a} шлёпнул(а) {b} газетой по голове. 📰",
+    "{a} смачно приложил(а) {b}! 💥",
+    "{a} влепил(а) {b} такую пощёчину, что в чате послышалось эхо. 👋",
+]
+
+_LICK = [
+    "{a} лизнул(а) {b}! 👅",
+    "{a} облизал(а) {b} от уха до уха. 😜",
+    "{a} тихонько лизнул(а) {b} в щёчку. 👅",
+    "{a}: *нямс* И что, {b}? Вкусный/ая! 😋",
+]
+
+_PAT = [
+    "{a} погладил(а) {b} по голове. 🥹",
+    "{a} потрепал(а) {b} по макушке. ✋",
+    "{a}: *гладит {b}* 🫶",
+    "{a} нежно потрепал(а) {b} по волосам. ☺️",
+]
+
+_THROW = [
+    "{a} бросил(а) в {b} подушкой! 🛏",
+    "{a} запустил(а) в {b} носком! 🧦",
+    "{a} швырнул(а) в {b} печеньем. 🍪",
+    "{a} метнул(а) в {b} банановую кожуру! 🍌",
+]
+
+
+async def _action(
+    message: Message,
+    cmd_args: str,
+    phrases: list[str],
+    self_msg: str,
+):
+    uid, name, _ = await resolve_target(message, cmd_args)
+    if uid is None:
+        await message.answer(name)
+        return
+    if uid == message.from_user.id:
+        await message.answer(self_msg)
+        return
+    actor = user_mention(message.from_user.id, message.from_user.full_name)
+    target = user_mention(uid, name)
+    await message.answer(
+        random.choice(phrases).format(a=actor, b=target),
+        parse_mode="HTML",
+    )
+
+
+# ─── Команды действий ─────────────────────────────────────────────────────────
+
+@router.message(BotCommand("пнуть", "пинок"))
+async def cmd_kick_fun(message: Message, cmd_args: str):
+    await _action(message, cmd_args, _KICK, "❌ Себя пинать — больно и бесполезно!")
+
+
+@router.message(BotCommand("укусить", "кусь"))
+async def cmd_bite(message: Message, cmd_args: str):
+    await _action(message, cmd_args, _BITE, "🦷 Кусать себя — это уже что-то новенькое...")
+
+
+@router.message(BotCommand("обнять", "хаг", "hug"))
+async def cmd_hug(message: Message, cmd_args: str):
+    await _action(message, cmd_args, _HUG, "🤗 Ты обнял(а) самого себя. Всё норм, бывает!")
+
+
+@router.message(BotCommand("шлепнуть", "шлёп"))
+async def cmd_slap(message: Message, cmd_args: str):
+    await _action(message, cmd_args, _SLAP, "😶 Шлёпать себя — это уже экстрим.")
+
+
+@router.message(BotCommand("лизнуть", "лизь"))
+async def cmd_lick(message: Message, cmd_args: str):
+    await _action(message, cmd_args, _LICK, "😶 Себя лизать... нет.")
+
+
+@router.message(BotCommand("погладить", "гладить"))
+async def cmd_pat(message: Message, cmd_args: str):
+    await _action(message, cmd_args, _PAT, "🥹 Ты погладил(а) себя по голове. Ну и молодец!")
+
+
+@router.message(BotCommand("бросить", "кинуть"))
+async def cmd_throw(message: Message, cmd_args: str):
+    await _action(message, cmd_args, _THROW, "🤔 Бросаться в себя? Интересный выбор.")
+
+
+# ─── Брак (с приглашениями) ────────────────────────────────────────────────────
+
+# Ожидающие предложения: {(proposer_id, target_id, chat_id): monotonic_timestamp}
+_proposals: dict[tuple[int, int, int], float] = {}
+
+
+@router.message(BotCommand("брак", "жениться", "замуж", "женить", "marry"))
+async def cmd_marry(message: Message, cmd_args: str):
+    if message.chat.type not in ("group", "supergroup"):
+        await message.answer("💍 Брак доступен только в группах.")
+        return
+
+    uid, name, _ = await resolve_target(message, cmd_args)
+    if uid is None:
+        await message.answer(name)
+        return
+    if uid == message.from_user.id:
+        await message.answer("❌ На себе жениться нельзя!")
+        return
+
+    me_id = message.from_user.id
+    chat_id = message.chat.id
+
+    my_marriage = await get_marriage(me_id, chat_id)
+    if my_marriage:
+        partner = await get_user(my_marriage["partner_id"])
+        p_name = partner["full_name"] if partner else "?"
+        await message.answer(
+            f"💍 Ты уже состоишь в браке с {user_mention(my_marriage['partner_id'], p_name)}!\n"
+            f"Сначала введи <code>бот развод</code>, если хочешь разойтись.",
+            parse_mode="HTML",
+        )
+        return
+
+    their_marriage = await get_marriage(uid, chat_id)
+    if their_marriage:
+        await message.answer(
+            f"💔 {user_mention(uid, name)} уже состоит в браке в этом чате.",
+            parse_mode="HTML",
+        )
+        return
+
+    # Проверяем дублирующее предложение
+    key = (me_id, uid, chat_id)
+    if key in _proposals and time.monotonic() - _proposals[key] < MARRIAGE_PROPOSAL_TIMEOUT:
+        await message.answer("⏳ Ты уже отправил предложение! Подожди ответа.")
+        return
+
+    _proposals[key] = time.monotonic()
+
+    actor = user_mention(me_id, message.from_user.full_name)
+    target = user_mention(uid, name)
+
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(
+                text="💍 Принять",
+                callback_data=f"marry:y:{me_id}:{uid}",
+            ),
+            InlineKeyboardButton(
+                text="❌ Отклонить",
+                callback_data=f"marry:n:{me_id}:{uid}",
+            ),
+        ]
+    ])
+
+    await message.answer(
+        f"💍 <b>Предложение руки и сердца!</b>\n\n"
+        f"{actor} предлагает {target} пожениться! 💕\n\n"
+        f"<i>{html.escape(name)}, нажми кнопку ниже чтобы ответить "
+        f"(⏳ {MARRIAGE_PROPOSAL_TIMEOUT} сек.)</i>",
+        parse_mode="HTML",
+        reply_markup=kb,
+    )
+
+
+@router.callback_query(lambda c: c.data and c.data.startswith("marry:"))
+async def on_marry_callback(callback: CallbackQuery):
+    parts = callback.data.split(":")
+    if len(parts) != 4:
+        await callback.answer("❌ Некорректные данные.", show_alert=True)
+        return
+
+    action = parts[1]
+    try:
+        proposer_id = int(parts[2])
+        target_id = int(parts[3])
+    except ValueError:
+        await callback.answer("❌ Некорректные данные.", show_alert=True)
+        return
+
+    chat_id = callback.message.chat.id
+
+    # Только цель может ответить
+    if callback.from_user.id != target_id:
+        await callback.answer("❌ Это предложение не для тебя!", show_alert=True)
+        return
+
+    key = (proposer_id, target_id, chat_id)
+
+    # Проверяем истечение
+    if key not in _proposals or time.monotonic() - _proposals[key] > MARRIAGE_PROPOSAL_TIMEOUT:
+        _proposals.pop(key, None)
+        await callback.answer("⏳ Предложение истекло.", show_alert=True)
+        try:
+            await callback.message.edit_text("⏳ Предложение истекло.")
+        except Exception:
+            pass
+        return
+
+    _proposals.pop(key, None)
+
+    proposer = await get_user(proposer_id)
+    p_name = proposer["full_name"] if proposer else "?"
+    target_user = await get_user(target_id)
+    t_name = target_user["full_name"] if target_user else callback.from_user.full_name
+
+    if action == "y":
+        # Ещё раз проверяем браки (вдруг кто-то женился параллельно)
+        if await get_marriage(proposer_id, chat_id) or await get_marriage(target_id, chat_id):
+            try:
+                await callback.message.edit_text("❌ Один из участников уже состоит в браке.")
+            except Exception:
+                pass
+            await callback.answer()
+            return
+
+        await create_marriage(proposer_id, target_id, chat_id)
+        icon = random.choice(["💍", "💒", "🥂", "💖", "🎊"])
+        try:
+            await callback.message.edit_text(
+                f"{icon} <b>Свадьба!</b>\n\n"
+                f"{user_mention(proposer_id, p_name)} и {user_mention(target_id, t_name)} "
+                f"теперь в браке! 🎉\n"
+                f"Желаем счастья и любви! 💕",
+                parse_mode="HTML",
+            )
+        except Exception:
+            pass
+    else:
+        try:
+            await callback.message.edit_text(
+                f"💔 {user_mention(target_id, t_name)} отклонил(а) предложение "
+                f"{user_mention(proposer_id, p_name)}...\n"
+                f"<i>Может быть, в другой раз.</i>",
+                parse_mode="HTML",
+            )
+        except Exception:
+            pass
+
+    await callback.answer()
+
+
+@router.message(BotCommand("развод", "divorce", "разойтись"))
+async def cmd_divorce(message: Message, cmd_args: str):
+    if message.chat.type not in ("group", "supergroup"):
+        await message.answer("💔 Эта команда доступна только в группах.")
+        return
+
+    me_id = message.from_user.id
+    chat_id = message.chat.id
+    marriage = await get_marriage(me_id, chat_id)
+    if not marriage:
+        await message.answer("🤷 Ты не состоишь в браке в этом чате.")
+        return
+
+    partner = await get_user(marriage["partner_id"])
+    p_name = partner["full_name"] if partner else "?"
+    kb = InlineKeyboardMarkup(inline_keyboard=[[
+        InlineKeyboardButton(text="💔 Да, развестись", callback_data=f"div:y:{me_id}"),
+        InlineKeyboardButton(text="❌ Нет", callback_data=f"div:n:{me_id}"),
+    ]])
+    await message.answer(
+        f"⚠️ <b>Подтверждение развода</b>\n\n"
+        f"Ты уверен(а), что хочешь развестись с {user_mention(marriage['partner_id'], p_name)}?\n"
+        f"<i>Это действие нельзя отменить.</i>",
+        parse_mode="HTML",
+        reply_markup=kb,
+    )
+
+
+@router.message(BotCommand("пара", "партнёр", "partner", "мояпара"))
+async def cmd_partner(message: Message, cmd_args: str):
+    me_id = message.from_user.id
+    chat_id = message.chat.id
+
+    marriage = await get_marriage(me_id, chat_id)
+    if not marriage:
+        await message.answer(
+            "💔 Ты не состоишь в браке в этом чате.\n"
+            "Найди свою половинку: <code>бот брак @username</code>",
+            parse_mode="HTML",
+        )
+        return
+
+    partner = await get_user(marriage["partner_id"])
+    p_name = partner["full_name"] if partner else "?"
+    p_id = marriage["partner_id"]
+    married_at = (marriage["married_at"] or "")[:10]
+    try:
+        start = date.fromisoformat(married_at)
+        days = (date.today() - start).days
+    except Exception:
+        days = 0
+
+    await message.answer(
+        f"💍 <b>Твоя пара</b>\n\n"
+        f"❤️ Партнёр: {user_mention(p_id, p_name)}\n"
+        f"📅 Вместе с: {married_at}\n"
+        f"🗓 Дней вместе: <b>{days}</b>",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="🤗 Обнять",
+                    callback_data=f"act:hug:{p_id}",
+                ),
+                InlineKeyboardButton(
+                    text="💔 Развестись",
+                    callback_data=f"div:ask:{me_id}",
+                ),
+            ],
+        ]),
+    )
+
+
+@router.callback_query(F.data.startswith("div:"))
+async def cb_divorce(callback: CallbackQuery):
+    parts = callback.data.split(":")
+    action = parts[1]
+    uid = int(parts[2])
+
+    if callback.from_user.id != uid:
+        await callback.answer("❌ Это не твой развод!", show_alert=True)
+        return
+
+    chat_id = callback.message.chat.id
+
+    if action == "n":
+        try:
+            await callback.message.edit_text("💕 Развод отменён. Любовь побеждает! ❤️")
+        except Exception:
+            pass
+        await callback.answer()
+        return
+
+    if action == "ask":
+        marriage = await get_marriage(uid, chat_id)
+        if not marriage:
+            await callback.answer("🤷 Ты не в браке.", show_alert=True)
+            return
+        partner = await get_user(marriage["partner_id"])
+        p_name = partner["full_name"] if partner else "?"
+        kb = InlineKeyboardMarkup(inline_keyboard=[[
+            InlineKeyboardButton(text="💔 Да, развестись", callback_data=f"div:y:{uid}"),
+            InlineKeyboardButton(text="❌ Нет", callback_data=f"div:n:{uid}"),
+        ]])
+        try:
+            await callback.message.edit_text(
+                f"⚠️ <b>Подтверждение развода</b>\n\n"
+                f"Ты уверен(а), что хочешь развестись с {user_mention(marriage['partner_id'], p_name)}?\n"
+                f"<i>Это действие нельзя отменить.</i>",
+                parse_mode="HTML",
+                reply_markup=kb,
+            )
+        except Exception:
+            pass
+        await callback.answer()
+        return
+
+    # action == "y"
+    marriage = await get_marriage(uid, chat_id)
+    if not marriage:
+        await callback.answer("🤷 Ты уже не в браке.", show_alert=True)
+        try:
+            await callback.message.edit_text("🤷 Ты уже не в браке.")
+        except Exception:
+            pass
+        return
+
+    partner = await get_user(marriage["partner_id"])
+    p_name = partner["full_name"] if partner else "?"
+    await delete_marriage(uid, chat_id)
+    try:
+        await callback.message.edit_text(
+            f"💔 {user_mention(uid, callback.from_user.full_name)} и "
+            f"{user_mention(marriage['partner_id'], p_name)} развелись...\n"
+            f"<i>Ничто не вечно.</i>",
+            parse_mode="HTML",
+        )
+    except Exception:
+        pass
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("act:hug:"))
+async def cb_hug_partner(callback: CallbackQuery):
+    target_id = int(callback.data.split(":")[2])
+    user = callback.from_user
+    target = await get_user(target_id)
+    t_name = target["full_name"] if target else "?"
+    phrase = random.choice(_HUG)
+    text = phrase.format(
+        a=user_mention(user.id, user.full_name),
+        b=user_mention(target_id, t_name),
+    )
+    await callback.message.answer(text, parse_mode="HTML")
+    await callback.answer()

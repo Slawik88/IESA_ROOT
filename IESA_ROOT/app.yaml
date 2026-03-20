@@ -49,3 +49,20 @@ services:
   # Full public URL of this app — used to auto-register the Telegram webhook on startup
   - key: SITE_URL
     value: "https://iesasport.ch"
+
+workers:
+- name: predvestnik-bot
+  github:
+    branch: master
+    repo: Slawik88/IESA_ROOT
+  source_dir: .
+  build_command: pip install -r requirements.txt
+  run_command: cd PredvestnikBot && python main.py
+  instance_count: 1
+  instance_size_slug: basic-xxs
+  envs:
+  - key: PREDVESTNIK_BOT_TOKEN
+    value: ""
+    type: SECRET
+  - key: PYTHONUNBUFFERED
+    value: "1"
