@@ -1415,10 +1415,10 @@ async def increment_message_count_chat(user_id: int, chat_id: int):
             """INSERT INTO user_stats (user_id, chat_id, message_count, first_active, last_active)
                VALUES (?, ?, 1, ?, ?)
                ON CONFLICT(user_id, chat_id) DO UPDATE SET
-                   message_count = message_count + 1,
-                   first_active = COALESCE(first_active, ?),
-                   last_active = ?""",
-            (user_id, chat_id, now_iso, now_iso, now_iso, now_iso),
+                   message_count = user_stats.message_count + 1,
+                   first_active = COALESCE(user_stats.first_active, EXCLUDED.first_active),
+                   last_active = EXCLUDED.last_active""",
+            (user_id, chat_id, now_iso, now_iso),
         )
         await db.commit()
 
@@ -1472,7 +1472,7 @@ async def add_warn_in_chat(user_id: int, chat_id: int) -> int:
     async with aiosqlite.connect(DATABASE_PATH) as db:
         await db.execute(
             """INSERT INTO user_stats (user_id, chat_id, warns) VALUES (?, ?, 1)
-               ON CONFLICT(user_id, chat_id) DO UPDATE SET warns = warns + 1""",
+               ON CONFLICT(user_id, chat_id) DO UPDATE SET warns = user_stats.warns + 1""",
             (user_id, chat_id),
         )
         await db.commit()
