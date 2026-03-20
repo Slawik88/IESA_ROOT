@@ -40,6 +40,11 @@ def _normalize_sql_for_postgres(sql: str) -> str | None:
     normalized = re.sub(r"\s+COLLATE\s+NOCASE", "", normalized, flags=re.IGNORECASE)
     normalized = re.sub(r"\bMAX\s*\(\s*0\s*,", "GREATEST(0,", normalized, flags=re.IGNORECASE)
 
+    # Telegram IDs can exceed PostgreSQL's int32 range (~2.1 billion).
+    # Convert all INTEGER columns to BIGINT (int64). BIGSERIAL (from AUTOINCREMENT
+    # handling above) is unaffected since it no longer contains the word INTEGER.
+    normalized = re.sub(r"\bINTEGER\b", "BIGINT", normalized, flags=re.IGNORECASE)
+
     if re.search(r"\bINSERT\s+OR\s+IGNORE\s+INTO\b", normalized, flags=re.IGNORECASE):
         normalized = re.sub(
             r"\bINSERT\s+OR\s+IGNORE\s+INTO\b",
@@ -115,20 +120,47 @@ class _PgConnection:
         return None
 
 
+_pg_pool = None
+_pg_pool_dsn: str | None = None
+
+
+async def _get_pg_pool(dsn: str):
+    """Return a module-level asyncpg connection pool, creating it on first call."""
+    global _pg_pool, _pg_pool_dsn
+    if _pg_pool is None or _pg_pool_dsn != dsn:
+        import asyncpg
+        _pg_pool = await asyncpg.create_pool(dsn, min_size=1, max_size=10)
+        _pg_pool_dsn = dsn
+    return _pg_pool
+
+
 class _PgConnectCtx:
     def __init__(self, dsn: str):
         self._dsn = dsn
-        self._raw = None
+        self._conn = None   # PoolConnectionProxy
+        self._tx = None     # explicit transaction
 
     async def __aenter__(self):
-        import asyncpg
-
-        self._raw = await asyncpg.connect(self._dsn)
-        return _PgConnection(self._raw)
+        pool = await _get_pg_pool(self._dsn)
+        self._conn = await pool.acquire()
+        # Start an explicit transaction so all statements in the `async with`
+        # block are atomic — matching aiosqlite's transaction semantics where
+        # db.commit() finalises the work.
+        self._tx = self._conn.transaction()
+        await self._tx.start()
+        return _PgConnection(self._conn)
 
     async def __aexit__(self, exc_type, exc, tb):
-        if self._raw is not None:
-            await self._raw.close()
+        if self._tx is not None:
+            if exc_type is None:
+                await self._tx.commit()
+            else:
+                await self._tx.rollback()
+            self._tx = None
+        if self._conn is not None:
+            pool = await _get_pg_pool(self._dsn)
+            await pool.release(self._conn)
+            self._conn = None
         return False
 
 

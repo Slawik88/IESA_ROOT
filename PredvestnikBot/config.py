@@ -28,6 +28,14 @@ if not BOT_TOKEN:
 # 2) иначе локальный SQLite bot.db              -> разработка
 DATABASE_PATH = os.getenv("PREDVESTNIK_DATABASE_URL") or "bot.db"
 
+if DATABASE_PATH == "bot.db":
+    import logging as _logging
+    _logging.warning(
+        "⚠️  PREDVESTNIK_DATABASE_URL не задан! "
+        "Используется SQLite bot.db — ВСЕ ДАННЫЕ БУДУТ ПОТЕРЯНЫ ПРИ ПЕРЕЗАПУСКЕ КОНТЕЙНЕРА! "
+        "Задайте переменную окружения PREDVESTNIK_DATABASE_URL=postgresql://... для хранения данных."
+    )
+
 # Telegram ID разработчика (автоматически получает ранг developer)
 DEVELOPER_ID = 1460945748
 
