@@ -270,6 +270,7 @@ async def cmd_cleanup(message: Message, bot: Bot, cmd_args: str):
     if parts and parts[0].lower() in ("открыть", "open", "unlock", "разблок", "разблокировать"):
         try:
             await bot.set_chat_permissions(chat_id, _FULL_PERMISSIONS)
+            await set_chat_setting(chat_id, "cleanup_locked", 0)
             await message.answer("✅ Чат разблокирован — участники снова могут писать.")
         except Exception as e:
             await message.answer(f"❌ Не удалось разблокировать: {e}")
@@ -297,9 +298,11 @@ async def cmd_cleanup(message: Message, bot: Bot, cmd_args: str):
     try:
         await bot.set_chat_permissions(chat_id, ChatPermissions(can_send_messages=False))
         locked = True
+        await set_chat_setting(chat_id, "cleanup_locked", 1)
         staff = await get_staff_in_chat(chat_id)
         for s in staff:
-            if rank_level(s["rank"]) >= rank_level("admin_junior"):
+            # Восстанавливаем модераторов и выше — они могут писать во время чистки
+            if rank_level(s["rank"]) >= rank_level("moderator"):
                 try:
                     await bot.restrict_chat_member(
                         chat_id, s["user_id"],
@@ -314,6 +317,7 @@ async def cmd_cleanup(message: Message, bot: Bot, cmd_args: str):
     if not users:
         if locked:
             await bot.set_chat_permissions(chat_id, _FULL_PERMISSIONS)
+            await set_chat_setting(chat_id, "cleanup_locked", 0)
         await message.answer("ℹ️ Нет данных об активности за эту неделю.")
         return
 

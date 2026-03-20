@@ -5,8 +5,9 @@ from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 
+from aiogram.types import ChatPermissions
 from config import BOT_TOKEN
-from database.db import get_active_chats, init_db, is_group_allowed, set_chat_active
+from database.db import get_active_chats, get_locked_chats, init_db, is_group_allowed, set_chat_active, set_chat_setting
 from handlers import admin, auto_mod, extras, fun, helper, moderator, notes, owner, quests, reputation, user
 from middlewares.message_counter import AutoModMiddleware
 
@@ -37,6 +38,21 @@ async def main():
 
     # Инициализация базы данных
     await init_db()
+
+    # Авто-разблокировка чатов, которые остались заблокированы после "бот чистка"
+    _full_perms = ChatPermissions(
+        can_send_messages=True, can_send_audios=True, can_send_documents=True,
+        can_send_photos=True, can_send_videos=True, can_send_video_notes=True,
+        can_send_voice_notes=True, can_send_polls=True,
+        can_send_other_messages=True, can_add_web_page_previews=True,
+    )
+    for _locked_chat_id in await get_locked_chats():
+        try:
+            await bot.set_chat_permissions(_locked_chat_id, _full_perms)
+            await set_chat_setting(_locked_chat_id, "cleanup_locked", 0)
+            logging.info("Auto-unlocked chat %s after bot restart", _locked_chat_id)
+        except Exception as _e:
+            logging.warning("Could not auto-unlock chat %s: %s", _locked_chat_id, _e)
 
     # Middleware: регистрация юзеров + антифлуд + замки + чёрный список
     dp.message.outer_middleware(AutoModMiddleware())
