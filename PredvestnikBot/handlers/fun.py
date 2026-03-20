@@ -99,37 +99,37 @@ async def _action(
 
 # ─── Команды действий ─────────────────────────────────────────────────────────
 
-@router.message(BotCommand("пнуть", "пинок"))
+@router.message(BotCommand("пни", "пнуть", "пинок"))
 async def cmd_kick_fun(message: Message, cmd_args: str):
     await _action(message, cmd_args, _KICK, "❌ Себя пинать — больно и бесполезно!")
 
 
-@router.message(BotCommand("укусить", "кусь"))
+@router.message(BotCommand("укуси", "укусить", "кусь"))
 async def cmd_bite(message: Message, cmd_args: str):
     await _action(message, cmd_args, _BITE, "🦷 Кусать себя — это уже что-то новенькое...")
 
 
-@router.message(BotCommand("обнять", "хаг", "hug"))
+@router.message(BotCommand("обними", "обнять", "hug"))
 async def cmd_hug(message: Message, cmd_args: str):
     await _action(message, cmd_args, _HUG, "🤗 Ты обнял(а) самого себя. Всё норм, бывает!")
 
 
-@router.message(BotCommand("шлепнуть", "шлёп"))
+@router.message(BotCommand("шлёпни", "шлепнуть", "шлёп"))
 async def cmd_slap(message: Message, cmd_args: str):
     await _action(message, cmd_args, _SLAP, "😶 Шлёпать себя — это уже экстрим.")
 
 
-@router.message(BotCommand("лизнуть", "лизь"))
+@router.message(BotCommand("лизни", "лизнуть", "лизь"))
 async def cmd_lick(message: Message, cmd_args: str):
     await _action(message, cmd_args, _LICK, "😶 Себя лизать... нет.")
 
 
-@router.message(BotCommand("погладить", "гладить"))
+@router.message(BotCommand("погладь", "погладить", "гладить"))
 async def cmd_pat(message: Message, cmd_args: str):
     await _action(message, cmd_args, _PAT, "🥹 Ты погладил(а) себя по голове. Ну и молодец!")
 
 
-@router.message(BotCommand("бросить", "кинуть"))
+@router.message(BotCommand("кинь", "бросить", "кинуть"))
 async def cmd_throw(message: Message, cmd_args: str):
     await _action(message, cmd_args, _THROW, "🤔 Бросаться в себя? Интересный выбор.")
 
@@ -140,7 +140,7 @@ async def cmd_throw(message: Message, cmd_args: str):
 _proposals: dict[tuple[int, int, int], float] = {}
 
 
-@router.message(BotCommand("брак", "жениться", "замуж", "женить", "marry"))
+@router.message(BotCommand("брак", "жениться", "замуж", "женить", "поженимся", "marry"))
 async def cmd_marry(message: Message, cmd_args: str):
     if message.chat.type not in ("group", "supergroup"):
         await message.answer("💍 Брак доступен только в группах.")
@@ -315,7 +315,7 @@ async def cmd_divorce(message: Message, cmd_args: str):
     )
 
 
-@router.message(BotCommand("пара", "партнёр", "partner", "мояпара"))
+@router.message(BotCommand("пара", "моя пара", "партнёр", "partner"))
 async def cmd_partner(message: Message, cmd_args: str):
     me_id = message.from_user.id
     chat_id = message.chat.id

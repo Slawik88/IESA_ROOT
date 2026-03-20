@@ -76,28 +76,28 @@ def _help_sections() -> list[tuple[str, str, str, str, str]]:
             "profile", "👤", "Профиль", "user",
             "👤 <b>Профиль</b>\n\n"
             "  <code>бот я</code> — свой профиль (уровень, XP, репа, bio)\n"
-            "  <code>бот инфо [@юзер|ответ]</code> — краткая инфо\n"
-            "  <code>бот кто [@юзер|ответ]</code> — полная анкета\n"
+            "  <code>бот инфо [@юзер|ответ]</code> — краткая инфо о пользователе\n"
+            "  <code>бот досье [@юзер|ответ]</code> — полная анкета\n"
             "  <code>бот айди [@юзер|ответ]</code> — Telegram ID\n"
-            "  <code>бот биография [текст]</code> — задать bio в этом чате\n"
-            "  <code>бот репорт [причина]</code> — жалоба (ответом на сообщение)",
+            "  <code>бот обо мне [текст]</code> — задать биографию в этом чате\n"
+            "  <code>бот жалоба [причина]</code> — анонимная жалоба (ответом на сообщение)",
         ),
         (
             "xp", "⭐", "Репутация & XP", "user",
             "⭐ <b>Репутация & XP</b>\n\n"
             "  <code>+</code> ответом — дать +1 репутацию (раз в 24 ч)\n"
-            "  <code>бот репа [@юзер]</code> — посмотреть репутацию\n"
-            "  <code>бот топреп</code> — топ-10 по репутации\n"
+            "  <code>бот репутация [@юзер]</code> — посмотреть репутацию\n"
+            "  <code>бот топ репутация</code> — топ-10 по репутации\n"
             "  <code>бот уровень [@юзер]</code> — текущий уровень и XP\n"
-            "  <code>бот топуровень</code> — топ-10 по XP\n"
+            "  <code>бот топ уровень</code> — топ-10 по уровням\n"
             "  <code>бот задание</code> — ежедневное задание (+XP за выполнение)",
         ),
         (
             "fun", "🎉", "Развлечения", "user",
             "🎉 <b>Развлечения</b>\n\n"
-            "👊 <b>Действия</b> (ответом или <code>бот пнуть @юзер</code>)\n"
-            "  <code>пнуть · укусить · обнять · шлепнуть</code>\n"
-            "  <code>лизнуть · погладить · бросить</code>\n\n"
+            "👊 <b>Действия</b> (ответом или <code>бот пни @юзер</code>)\n"
+            "  <code>пни · укуси · обними · шлёпни</code>\n"
+            "  <code>лизни · погладь · кинь</code>\n\n"
             "💍 <b>Отношения</b>\n"
             "  <code>бот брак @юзер</code> — предложить пожениться\n"
             "  <code>бот пара</code> — показать партнёра и стаж\n"
@@ -106,11 +106,11 @@ def _help_sections() -> list[tuple[str, str, str, str, str]]:
         (
             "info", "📋", "Инфо & чат", "user",
             "📋 <b>Инфо & чат</b>\n\n"
-            "  <code>бот топ</code> — топ-10 активных за неделю\n"
+            "  <code>бот топ</code> — топ-10 активных за всё время\n"
             "  <code>бот правила</code> — правила чата\n"
             "  <code>бот время [город]</code> — текущее время\n"
             "  <i>└ Москва, Берлин, Лондон, Нью-Йорк, Токио, Дубай…</i>\n"
-            "  <code>бот нашиссылки</code> — соцсети чата (TikTok, YouTube…)\n"
+            "  <code>бот наши ссылки</code> — соцсети чата (TikTok, YouTube…)\n"
             "  <code>#название</code> — показать сохранённую заметку",
         ),
         (
@@ -118,8 +118,8 @@ def _help_sections() -> list[tuple[str, str, str, str, str]]:
             f"⚠️ <b>Мут & варны</b>\n\n"
             f"  <code>бот варн [@юзер|ответ] [причина]</code> — выдать предупреждение\n"
             f"  <i>└ {MAX_WARNS} варнов подряд → уведомление администраторов</i>\n"
-            f"  <code>бот варны [@юзер|ответ]</code> — посмотреть варны\n"
-            f"  <code>бот снятьварн [@юзер|ответ]</code> — снять 1 предупреждение\n\n"
+            f"  <code>бот предупреждения [@юзер|ответ]</code> — посмотреть варны\n"
+            f"  <code>бот снять варн [@юзер|ответ]</code> — снять 1 предупреждение\n\n"
             f"  <code>бот мут [@юзер|ответ] [время] [причина]</code> — заглушить\n"
             f"  <i>└ время: <code>30с</code> · <code>10м</code> · <code>2ч</code> · <code>1д</code> — по умолч. 5 мин.</i>\n"
             f"  <code>бот размут [@юзер|ответ]</code> — снять мут",
@@ -133,15 +133,15 @@ def _help_sections() -> list[tuple[str, str, str, str, str]]:
             "  <code>бот кик [@юзер|ответ] [причина]</code> — выгнать (может вернуться)\n"
             "  <code>бот баны</code> — список забаненных\n\n"
             "📌 <b>Сообщения</b>\n"
-            "  <code>бот пин</code> (ответом) — закрепить сообщение\n"
-            "  <code>бот анпин</code> — открепить\n"
+            "  <code>бот закрепить</code> (ответом) — закрепить сообщение\n"
+            "  <code>бот открепить</code> — открепить последнее\n"
             "  <code>бот очистить N</code> — удалить N последних сообщений\n"
             "  <i>└ или ответом — удалит всё от той точки до команды</i>\n\n"
-            "📒 <b>Заметки & фильтры</b>\n"
-            "  <code>бот сохранить [имя] [текст]</code> — сохранить заметку\n"
-            "  <code>бот удзаметку [имя]</code> — удалить заметку\n"
-            "  <code>бот фильтр [фраза] | [ответ]</code> — авто-ответ на фразу\n"
-            "  <code>бот удфильтр [фраза]</code> — удалить авто-ответ\n"
+            "📒 <b>Заметки & автоответы</b>\n"
+            "  <code>бот заметка [имя] [текст]</code> — сохранить заметку\n"
+            "  <code>бот убрать заметку [имя]</code> — удалить заметку\n"
+            "  <code>бот автоответ [фраза] | [ответ]</code> — авто-ответ на фразу\n"
+            "  <code>бот убрать ответ [фраза]</code> — удалить авто-ответ\n"
             "  <code>бот блок [слово]</code> — запретить слово\n"
             "  <code>бот разблок [слово]</code> — разрешить слово",
         ),
@@ -151,19 +151,19 @@ def _help_sections() -> list[tuple[str, str, str, str, str]]:
             "👥 <b>Персонал</b>\n"
             "  <code>бот ранг [ранг] [@юзер|ответ]</code> — выдать ранг\n"
             "  <i>└ user · moderator · admin_junior · admin_senior · co_owner · owner</i>\n"
-            "  <code>бот персонал</code> — список администрации\n"
-            "  <code>бот статс</code> — статистика чата\n\n"
+            "  <code>бот состав</code> — список администрации\n"
+            "  <code>бот статистика</code> — статистика чата\n\n"
             "🎭 <b>Роли сообщества</b>\n"
-            "  <code>бот выдатьроль [@юзер|ответ] [роль]</code> — выдать роль\n"
-            "  <code>бот снятьроль [@юзер|ответ] [роль]</code> — снять роль\n"
-            "  <code>бот роли</code> — список всех ролей (кто занят/свободна)\n"
-            "  <code>бот мойроли</code> — твои текущие роли\n\n"
+            "  <code>бот выдать роль [@юзер|ответ] [роль]</code> — выдать роль\n"
+            "  <code>бот снять роль [@юзер|ответ] [роль]</code> — снять роль\n"
+            "  <code>бот роли</code> — список всех ролей\n"
+            "  <code>бот мои роли</code> — твои текущие роли\n\n"
             "💬 <b>Приветствие & правила</b>\n"
             "  <code>бот правила установить [текст]</code> — задать правила\n"
             "  <code>бот приветствие [текст]</code> — авто-приветствие новых\n"
             "  <i>└ переменные: {name} · {username} · {chat}</i>\n"
             "  <code>бот прощание [текст]</code> — авто-прощание при выходе\n"
-            "  <code>бот коллприветствие [вкл/выкл]</code> — тегать всех при входе\n\n"
+            "  <code>бот тег входа [вкл/выкл]</code> — тегать всех при входе\n\n"
             "🔒 <b>Замки контента</b>\n"
             "  <code>бот замок [тип]</code> — заблокировать тип контента\n"
             "  <code>бот открыть [тип]</code> — разрешить тип контента\n"
@@ -175,31 +175,30 @@ def _help_sections() -> list[tuple[str, str, str, str, str]]:
             "  <code>бот чистка [N]</code> — заблокировать чат + отчёт активности\n"
             "  <code>бот чистка открыть</code> — разблокировать чат\n"
             "  <code>бот чистка порог N</code> — порог мин. сообщений в неделю\n"
-            "  <code>бот отдых @user [дней]</code> — рест (освобождение от чистки)\n"
-            "  <i>└ по умолч. 7 дней; доступно co_owner+</i>\n"
+            "  <code>бот отдых @user [дней]</code> — освобождение от чистки (7 дней)\n"
             "  <code>бот отдых снять @user</code> — убрать с отдыха\n"
             "  <code>бот отдых список</code> — кто сейчас на отдыхе\n"
-            "  <code>бот фильтрмат [вкл/выкл]</code> — авто-удаление запрещённых слов\n\n"
+            "  <code>бот фильтрмат [вкл/выкл]</code> — авто-удаление мата\n\n"
             "🔗 <b>Соцсети</b>\n"
-            "  <code>бот соцсети tiktok [URL]</code> — установить ссылку на TikTok\n"
+            "  <code>бот соцсети tiktok [URL]</code> — ссылка на TikTok\n"
             "  <code>бот соцсети youtube [URL]</code> — ссылка на YouTube\n"
             "  <code>бот соцсети instagram [URL]</code> — ссылка на Instagram\n"
-            "  <code>бот историячата</code> — как включить историю для новых",
+            "  <code>бот история чата</code> — как включить историю для новых",
         ),
         (
             "owner", "🔱", "Владелец", "owner",
             "🔱 <b>Владелец+</b>\n\n"
             "  <code>бот совладелец [@юзер|ответ]</code> — назначить со-владельца\n\n"
             "🎭 <b>Управление ролями</b>\n"
-            "  <code>бот рольдобавить [эмодзи] название [описание]</code> — создать роль\n"
-            "  <code>бот рольудалить название</code> — удалить роль\n\n"
+            "  <code>бот добавить роль [эмодзи] название [описание]</code> — создать роль\n"
+            "  <code>бот убрать роль название</code> — удалить роль\n\n"
+            "📣 <b>Рассылка</b>\n"
             "  <code>бот колл [текст]</code> — тегнуть всех участников\n"
             "  <code>бот колл #все [текст]</code> — то же самое\n"
             "  <code>бот колл #юзеры [текст]</code> — только обычные участники\n"
             "  <code>бот колл #стафф [текст]</code> — только стафф\n"
             "  <code>бот колл #модеры [текст]</code> — модераторы+\n"
-            "  <code>бот колл #админы [текст]</code> — администраторы+\n"
-            "  <code>бот колл #модеры [текст]</code> — модераторы+",
+            "  <code>бот колл #админы [текст]</code> — администраторы+",
         ),
         (
             "dev", "🛠", "Разработчик", "developer",
@@ -219,7 +218,7 @@ def _help_sections() -> list[tuple[str, str, str, str, str]]:
             "  <code>бот группы</code> — показать все разрешённые группы\n"
             "  <i>└ пустой список = бот работает во всех чатах</i>\n\n"
             "📣 <b>Админ-группы (уведомления)</b>\n"
-            "  <code>бот админгруппа [chat_id]</code> — добавить группу для системных уведомлений\n"
+            "  <code>бот админгруппа [chat_id]</code> — добавить группу для уведомлений\n"
             "  <code>бот удадмингруппу [chat_id]</code> — удалить админ-группу\n"
             "  <code>бот админгруппы</code> — показать все админ-группы\n"
             "  <i>└ репорты, варны, авто-кик и пр. пойдут в эти группы</i>",
@@ -280,8 +279,11 @@ def _top_keyboard(active: str) -> InlineKeyboardMarkup:
 
 @router.message(BotCommand("помощь", "help", "команды", "справка"))
 async def cmd_help(message: Message, cmd_args: str):
+    from config import DEVELOPER_ID
     stats = await get_user_stats(message.from_user.id, message.chat.id)
     rank = stats["rank"] if stats else "user"
+    if DEVELOPER_ID and message.from_user.id == DEVELOPER_ID:
+        rank = "developer"
     lvl = rank_level(rank)
     uid = message.from_user.id
 
@@ -482,7 +484,7 @@ async def cb_profile_nav(callback: CallbackQuery):
     await callback.answer()
 
 
-@router.message(BotCommand("айди", "id", "chatid", "myid"))
+@router.message(BotCommand("айди", "id", "мой айди", "chatid"))
 async def cmd_id(message: Message, cmd_args: str):
     # Reply → use Telegram User object (has live username even if user not in DB)
     if message.reply_to_message and message.reply_to_message.from_user:
@@ -528,7 +530,7 @@ async def cmd_id(message: Message, cmd_args: str):
     await message.answer("\n".join(lines), parse_mode="HTML")
 
 
-@router.message(BotCommand("чатинфо", "chatinfo", "groupid", "чатайди"))
+@router.message(BotCommand("чатинфо", "чат", "chatinfo"))
 async def cmd_chatinfo(message: Message, cmd_args: str):
     """Show detailed info about the current chat — useful for whitelist management."""
     chat = message.chat
@@ -547,7 +549,7 @@ async def cmd_chatinfo(message: Message, cmd_args: str):
     await message.answer("\n".join(lines), parse_mode="HTML")
 
 
-@router.message(BotCommand("время", "time", "timezone", "часовой"))
+@router.message(BotCommand("время", "time", "timezone"))
 async def cmd_time(message: Message, cmd_args: str):
     query = cmd_args.strip().lower() if cmd_args else ""
     if query:
@@ -576,7 +578,7 @@ async def cmd_time(message: Message, cmd_args: str):
         await message.answer("\n".join(lines), parse_mode="HTML")
 
 
-@router.message(BotCommand("я", "профиль", "me"))
+@router.message(BotCommand("я", "профиль", "me", "мой профиль"))
 async def cmd_me(message: Message, cmd_args: str):
     from config import DEVELOPER_ID
     user = await get_user(message.from_user.id)
@@ -641,7 +643,7 @@ async def cmd_me(message: Message, cmd_args: str):
     await message.answer("\n".join(lines), parse_mode="HTML", reply_markup=me_kb)
 
 
-@router.message(BotCommand("инфо", "info"))
+@router.message(BotCommand("инфо", "info", "кто это"))
 async def cmd_info(message: Message, cmd_args: str):
     uid, name, _ = await resolve_target(message, cmd_args)
     if uid is None:
@@ -650,28 +652,49 @@ async def cmd_info(message: Message, cmd_args: str):
 
     if not user:
         await message.answer(
-            "\u274c Пользователь не найден.\n"
-            "\u2139\ufe0f Ответь на сообщение или укажи:\n"
+            "❌ Пользователь не найден.\n"
+            "ℹ️ Ответь на сообщение или укажи:\n"
             "<code>бот инфо @username</code>",
             parse_mode="HTML",
         )
         return
 
     stats = await get_user_stats(uid, message.chat.id)
-    rank = stats["rank"]           if stats else "user"
-    rep  = stats["reputation"]     if stats else 0
-    lvl  = stats["level"]          if stats else 1
-    msgs = stats["message_count"]  if stats else 0
+    rank  = stats["rank"]           if stats else "user"
+    rep   = stats["reputation"]     if stats else 0
+    lvl   = stats["level"]          if stats else 1
+    xp    = stats["xp"]             if stats else 0
+    msgs  = stats["message_count"]  if stats else 0
+    bio   = stats["bio"]            if stats else None
+    title = stats["custom_title"]   if stats else None
+
+    from database.db import xp_for_level
+    next_xp = xp_for_level(lvl + 1)
+    bar_filled = min(10, int((xp - xp_for_level(lvl)) / max(1, next_xp - xp_for_level(lvl)) * 10))
+    bar = "█" * bar_filled + "░" * (10 - bar_filled)
 
     lines = [
-        f"\u2139\ufe0f <b>{user_mention(user['user_id'], user['full_name'])}</b>\n",
-        f"\U0001f396 {rank_name(rank)}  \u00b7  \U0001f31f Уровень {lvl}  \u00b7  \u2b50 {rep:+d}",
-        f"\U0001f4ac Сообщений: {msgs}",
+        f"ℹ️ <b>{user_mention(user['user_id'], user['full_name'])}</b>\n",
+        f"🎖 Ранг: {rank_name(rank, title)}",
+        f"🌟 Уровень: <b>{lvl}</b>  [{bar}]  {xp}/{next_xp} XP",
+        f"⭐ Репутация: <b>{rep:+d}</b>",
+        f"💬 Сообщений: {msgs}",
     ]
+    if bio:
+        lines.append(f"\n📝 <i>{html.escape(bio)}</i>")
+
+    # Брак
+    if message.chat.type in ("group", "supergroup"):
+        marriage = await get_marriage(uid, message.chat.id)
+        if marriage:
+            partner = await get_user(marriage["partner_id"])
+            partner_name = html.escape(partner["full_name"]) if partner else "?"
+            lines.append(f"💍 Партнёр: {user_mention(marriage['partner_id'], partner_name)}")
+
     await message.answer("\n".join(lines), parse_mode="HTML")
 
 
-@router.message(BotCommand("кто", "whois", "ктоон"))
+@router.message(BotCommand("кто", "досье", "анкета", "whois"))
 async def cmd_whois(message: Message, cmd_args: str):
     uid, name, _ = await resolve_target(message, cmd_args)
     if uid is None:
@@ -796,7 +819,7 @@ async def cmd_rules(message: Message, cmd_args: str):
         await message.answer("📜 Правила чата ещё не установлены.")
 
 
-@router.message(BotCommand("репорт", "report", "жалоба"))
+@router.message(BotCommand("жалоба", "репорт", "report"))
 async def cmd_report(message: Message, bot: Bot, cmd_args: str):
     if message.reply_to_message and message.reply_to_message.from_user:
         target = message.reply_to_message.from_user
@@ -870,7 +893,7 @@ async def cmd_report(message: Message, bot: Bot, cmd_args: str):
 
 # ─── Наши ссылки ─────────────────────────────────────────────────────────────
 
-@router.message(BotCommand("нашиссылки", "ссылки", "links", "ourlinks", "социалки"))
+@router.message(BotCommand("наши ссылки", "нашиссылки", "ссылки", "links", "социалки"))
 async def cmd_our_links(message: Message):
     from database.db import get_chat_settings
     from config import (

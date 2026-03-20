@@ -104,13 +104,13 @@ async def track_chat_member_state(event: ChatMemberUpdated):
 
 # ─── Управление фильтрами (авто-ответами) ─────────────────────────────────────
 
-@router.message(BotCommand("фильтр", "filter", "автоответ"), RankFilter("moderator"))
+@router.message(BotCommand("автоответ", "фильтр", "filter"), RankFilter("moderator"))
 async def cmd_add_filter(message: Message, cmd_args: str):
     # Синтаксис: бот фильтр слово | ответ
     if "|" not in cmd_args:
         await message.answer(
             "❌ Неверный формат.\n"
-            "Пример: <code>бот фильтр привет | Привет! Как дела?</code>",
+            "Пример: <code>бот автоответ привет | Привет! Как дела?</code>",
             parse_mode="HTML",
         )
         return
@@ -122,7 +122,7 @@ async def cmd_add_filter(message: Message, cmd_args: str):
     if not keyword or not response:
         await message.answer(
             "❌ Укажи и ключевое слово, и ответ.\n"
-            "Пример: <code>бот фильтр привет | Привет! Как дела?</code>",
+            "Пример: <code>бот автоответ привет | Привет! Как дела?</code>",
             parse_mode="HTML",
         )
         return
@@ -134,7 +134,7 @@ async def cmd_add_filter(message: Message, cmd_args: str):
     )
 
 
-@router.message(BotCommand("фильтры", "filters", "автоответы"))
+@router.message(BotCommand("автоответы", "фильтры", "filters"))
 async def cmd_list_filters(message: Message, cmd_args: str):
     filters_list = await get_filters(message.chat.id)
     if not filters_list:
@@ -167,12 +167,12 @@ async def cmd_list_filters(message: Message, cmd_args: str):
     await message.answer("\n".join(lines), parse_mode="HTML", reply_markup=kb)
 
 
-@router.message(BotCommand("удфильтр", "delfilter", "удалитьфильтр"), RankFilter("moderator"))
+@router.message(BotCommand("убрать ответ", "удфильтр", "delfilter"), RankFilter("moderator"))
 async def cmd_del_filter(message: Message, cmd_args: str):
     keyword = cmd_args.strip().lower()
     if not keyword:
         await message.answer(
-            "❌ Укажи слово. Пример: <code>бот удфильтр привет</code>",
+            "❌ Укажи слово. Пример: <code>бот убрать ответ привет</code>",
             parse_mode="HTML",
         )
         return

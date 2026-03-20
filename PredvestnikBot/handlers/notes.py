@@ -14,15 +14,15 @@ from filters.rank_filter import RankFilter
 router = Router()
 
 
-@router.message(BotCommand("сохранить", "addnote", "заметка"), RankFilter("moderator"))
+@router.message(BotCommand("заметка", "сохранить", "addnote"), RankFilter("moderator"))
 async def cmd_save_note(message: Message, cmd_args: str):
     # Синтаксис: бот сохранить <имя> <текст>  или ответом (текст = содержимое ответа)
     parts = cmd_args.split(maxsplit=1) if cmd_args else []
     if not parts:
         await message.answer(
             "❌ Укажи имя заметки.\n"
-            "Пример: <code>бот сохранить правила Текст правил...</code>\n"
-            "Или ответом на сообщение: <code>бот сохранить правила</code>",
+            "Пример: <code>бот заметка правила Текст правил...</code>\n"
+            "Или ответом на сообщение: <code>бот заметка правила</code>",
             parse_mode="HTML",
         )
         return
@@ -47,7 +47,7 @@ async def cmd_save_note(message: Message, cmd_args: str):
     await message.answer(f"✅ Заметка <code>#{name}</code> сохранена.", parse_mode="HTML")
 
 
-@router.message(BotCommand("заметки", "notes", "нотесы"))
+@router.message(BotCommand("заметки", "notes"))
 async def cmd_list_notes(message: Message, cmd_args: str):
     notes = await list_notes(message.chat.id)
     if not notes:
@@ -83,11 +83,11 @@ async def cmd_list_notes(message: Message, cmd_args: str):
     )
 
 
-@router.message(BotCommand("удзаметку", "delnote", "удалить заметку"), RankFilter("moderator"))
+@router.message(BotCommand("убрать заметку", "удзаметку", "delnote"), RankFilter("moderator"))
 async def cmd_del_note(message: Message, cmd_args: str):
     name = cmd_args.strip().lower().lstrip("#")
     if not name:
-        await message.answer("❌ Укажи имя: <code>бот удзаметку правила</code>", parse_mode="HTML")
+        await message.answer("❌ Укажи имя: <code>бот убрать заметку правила</code>", parse_mode="HTML")
         return
 
     deleted = await delete_note(message.chat.id, name)
