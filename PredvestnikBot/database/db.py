@@ -299,24 +299,55 @@ async def init_db():
                 user_id INTEGER NOT NULL
             )
         """)
-        await db.execute("""
-            INSERT OR IGNORE INTO user_stats
-                (user_id, chat_id, rank, message_count, xp, level, reputation, warns, bio, custom_title, is_banned, ban_reason)
-            SELECT u.user_id, cc.chat_id,
-                   COALESCE(u.rank,       'user'),
-                   COALESCE(cc.count,     0),
-                   COALESCE(u.xp,         0),
-                   COALESCE(u.level,      1),
-                   COALESCE(u.reputation, 0),
-                   COALESCE(u.warns,      0),
-                   u.bio, u.custom_title,
-                   COALESCE(u.is_banned,  0),
-                   u.ban_reason
-            FROM users u
-            JOIN cleanup_counts cc ON cc.user_id = u.user_id
-        """)
 
         await db.commit()
+
+    # PostgreSQL: widen all Telegram ID columns from int32 (INTEGER) → int64 (BIGINT).
+    # Telegram supergroup/channel IDs like -1003xxxxxxxxx exceed int32 range.
+    # Each ALTER runs in its own transaction so one failure doesn't abort the rest.
+    from database.sql_compat import _is_postgres_dsn
+    if _is_postgres_dsn(DATABASE_PATH):
+        _bigint_migrations = [
+            ("users",             "user_id"),
+            ("chat_settings",     "chat_id"),
+            ("chats",             "chat_id"),
+            ("notes",             "chat_id"),
+            ("chat_filters",      "chat_id"),
+            ("blacklist",         "chat_id"),
+            ("locks",             "chat_id"),
+            ("rep_log",           "from_uid"),
+            ("rep_log",           "to_uid"),
+            ("rep_log",           "chat_id"),
+            ("cleanup_counts",    "chat_id"),
+            ("cleanup_counts",    "user_id"),
+            ("user_quests",       "user_id"),
+            ("user_quests",       "chat_id"),
+            ("user_achievements", "user_id"),
+            ("polls",             "chat_id"),
+            ("polls",             "message_id"),
+            ("poll_votes",        "user_id"),
+            ("birthdays",         "user_id"),
+            ("marriages",         "user_id"),
+            ("marriages",         "chat_id"),
+            ("marriages",         "partner_id"),
+            ("allowed_groups",    "chat_id"),
+            ("user_stats",        "user_id"),
+            ("user_stats",        "chat_id"),
+            ("rest_users",        "user_id"),
+            ("rest_users",        "chat_id"),
+            ("rest_users",        "added_by"),
+            ("admin_groups",      "chat_id"),
+            ("channel_types",     "chat_id"),
+            ("user_roles",        "user_id"),
+        ]
+        for _tbl, _col in _bigint_migrations:
+            try:
+                async with aiosqlite.connect(DATABASE_PATH) as db:
+                    await db.execute(
+                        f"ALTER TABLE {_tbl} ALTER COLUMN {_col} TYPE BIGINT"
+                    )
+            except Exception:
+                pass
 
     # Seed allowed_groups from config (if any)
     from config import ALLOWED_GROUPS
