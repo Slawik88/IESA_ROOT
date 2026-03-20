@@ -1,0 +1,30 @@
+# Секреты — никогда не публиковать!
+.env
+
+# База данных
+bot.db
+*.db
+*.sqlite
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+
+# Виртуальное окружение
+venv/
+env/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Логи
+*.log
