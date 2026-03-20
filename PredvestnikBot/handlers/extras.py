@@ -11,7 +11,7 @@ import html as _html
 from database.db import (
     add_filter, delete_filter, get_chat_members, get_chat_settings, get_filters,
     get_note, get_user_stats, is_group_allowed,
-    set_chat_active, set_rank_in_chat, upsert_chat, upsert_user, upsert_user_stats,
+    set_chat_active, upsert_chat, upsert_user, upsert_user_stats,
 )
 from filters.bot_command import BotCommand
 from filters.rank_filter import RankFilter
@@ -42,8 +42,6 @@ async def _sync_chat_administrators(bot, chat_id: int) -> int:
         if not user or user.is_bot:
             continue
         await _register_member_in_chat(chat_id, user)
-        if getattr(admin_member, "status", "") == "creator":
-            await set_rank_in_chat(user.id, chat_id, "owner")
         synced += 1
     return synced
 
@@ -102,8 +100,6 @@ async def track_chat_member_state(event: ChatMemberUpdated):
         return
 
     await _register_member_in_chat(event.chat.id, member)
-    if new_status == "creator":
-        await set_rank_in_chat(member.id, event.chat.id, "owner")
 
 
 # ─── Управление фильтрами (авто-ответами) ─────────────────────────────────────

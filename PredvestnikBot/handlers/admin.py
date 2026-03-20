@@ -94,10 +94,8 @@ async def cmd_setrank(message: Message, cmd_args: str):
         return
 
     target_stats = await get_user_stats(uid, message.chat.id)
-    if not target_stats:
-        await message.answer("❌ Пользователь не найден в базе данных этого чата.")
-        return
-    if rank_level(target_stats["rank"]) >= rank_level(my_rank):
+    target_rank = target_stats["rank"] if target_stats else "user"
+    if rank_level(target_rank) >= rank_level(my_rank):
         await message.answer("❌ Нельзя изменить ранг пользователя с равным или большим рангом.")
         return
 

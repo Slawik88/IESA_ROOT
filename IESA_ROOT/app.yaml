@@ -52,6 +52,9 @@ services:
   - key: PREDVESTNIK_BOT_TOKEN
     value: ""
     type: SECRET
+  - key: PREDVESTNIK_DATABASE_URL
+    value: ""
+    type: SECRET
   - key: RUN_PREDVESTNIK_IN_WEB
     value: "1"
 
@@ -67,6 +70,9 @@ workers:
   instance_size_slug: basic-xxs
   envs:
   - key: PREDVESTNIK_BOT_TOKEN
+    value: ""
+    type: SECRET
+  - key: PREDVESTNIK_DATABASE_URL
     value: ""
     type: SECRET
   - key: PYTHONUNBUFFERED
