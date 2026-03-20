@@ -93,7 +93,7 @@ async def handle_rep_plus(message: Message):
 
 # ─── Команды репутации ────────────────────────────────────────────────────────
 
-@router.message(BotCommand("репа", "репутация", "rep"))
+@router.message(BotCommand("репутация", "репа", "rep"))
 async def cmd_rep(message: Message, cmd_args: str):
     uid, name, _ = await resolve_target(message, cmd_args)
     if uid is None:
@@ -104,7 +104,7 @@ async def cmd_rep(message: Message, cmd_args: str):
     if not stats:
         await message.answer(
             "❌ Пользователь не найден.\n"
-            "ℹ️ Ответь на сообщение или укажи: <code>бот репа @username</code>",
+            "ℹ️ Ответь на сообщение или укажи: <code>бот репутация @username</code>",
             parse_mode="HTML",
         )
         return
@@ -115,7 +115,7 @@ async def cmd_rep(message: Message, cmd_args: str):
     )
 
 
-@router.message(BotCommand("топреп", "toprep", "репутациятоп"))
+@router.message(BotCommand("топ репутация", "топреп", "toprep"))
 async def cmd_top_rep(message: Message, cmd_args: str):
     top = await get_top_reputation_in_chat(message.chat.id, TOP_LIMIT)
     if not top:
@@ -165,7 +165,7 @@ async def cmd_level(message: Message, cmd_args: str):
     )
 
 
-@router.message(BotCommand("топуровень", "toplevel", "топxp"))
+@router.message(BotCommand("топ уровень", "топуровень", "toplevel"))
 async def cmd_top_level(message: Message, cmd_args: str):
     top_xp = await get_top_by_xp_in_chat(message.chat.id, TOP_LIMIT)
 
@@ -184,7 +184,7 @@ async def cmd_top_level(message: Message, cmd_args: str):
 
 # ─── Биография ────────────────────────────────────────────────────────────────
 
-@router.message(BotCommand("биография", "bio", "обомне"))
+@router.message(BotCommand("обо мне", "биография", "bio"))
 async def cmd_bio(message: Message, cmd_args: str):
     if cmd_args.lower() in ("удалить", "убрать", "del", "delete", "clear"):
         await set_bio_in_chat(message.from_user.id, message.chat.id, None)
@@ -198,7 +198,7 @@ async def cmd_bio(message: Message, cmd_args: str):
         await message.answer(f"✅ Биография установлена:\n<i>{_html.escape(cmd_args)}</i>", parse_mode="HTML")
     else:
         await message.answer(
-            "❌ Укажи текст биографии или <code>удалить</code>.\n"
-            "Пример: <code>бот биография Привет всем, я новый участник!</code>",
+            "❌ Укажи текст или <code>удалить</code>.\n"
+            "Пример: <code>бот обо мне Привет всем, я новый участник!</code>",
             parse_mode="HTML",
         )

@@ -34,7 +34,7 @@ _ADMIN_SENIOR_MAX = "admin_junior"
 _CO_OWNER_MAX = "admin_senior"
 
 
-@router.message(BotCommand("ранг", "setrank", "выдать"), RankFilter("admin_junior"))
+@router.message(BotCommand("ранг", "выдать ранг", "setrank"), RankFilter("admin_junior"))
 async def cmd_setrank(message: Message, cmd_args: str):
     # Синтаксис: бот ранг <ранг> @user   или   бот ранг @user <ранг>   или ответом
     parts = cmd_args.split(maxsplit=1) if cmd_args else []
@@ -119,7 +119,7 @@ async def cmd_setrank(message: Message, cmd_args: str):
     )
 
 
-@router.message(BotCommand("персонал", "adminlist", "стафф", "состав"), RankFilter("admin_junior"))
+@router.message(BotCommand("состав", "персонал", "стафф", "adminlist"), RankFilter("admin_junior"))
 async def cmd_adminlist(message: Message, cmd_args: str):
     staff = await get_staff_in_chat(message.chat.id)
     if not staff:
@@ -134,7 +134,7 @@ async def cmd_adminlist(message: Message, cmd_args: str):
     await message.answer("\n".join(lines), parse_mode="HTML")
 
 
-@router.message(BotCommand("статс", "stats", "статистика"), RankFilter("admin_junior"))
+@router.message(BotCommand("статистика", "статс", "stats"), RankFilter("admin_junior"))
 async def cmd_stats(message: Message, cmd_args: str):
     s = await get_chat_stats_for_chat(message.chat.id)
     await message.answer(
@@ -236,7 +236,7 @@ async def cmd_antiflood(message: Message, cmd_args: str):
         )
 
 
-@router.message(BotCommand("коллприветствие", "welcomecall"), RankFilter("admin_junior"))
+@router.message(BotCommand("тег входа", "коллприветствие", "welcomecall"), RankFilter("admin_junior"))
 async def cmd_welcome_call(message: Message, cmd_args: str):
     """Включить/выключить массовое упоминание всех при входе нового участника."""
     arg = (cmd_args or "").strip().lower()
@@ -444,7 +444,7 @@ async def cmd_cleanup(message: Message, bot: Bot, cmd_args: str):
 
 # ─── Соцсети ──────────────────────────────────────────────────────────────────
 
-@router.message(BotCommand("соцсети", "соцсеть", "тикток", "tiktok", "socials"), RankFilter("admin_junior"))
+@router.message(BotCommand("соцсети", "соцсеть", "socials"), RankFilter("admin_junior"))
 async def cmd_set_social(message: Message, cmd_args: str):
     _valid = {"tiktok", "youtube", "instagram"}
     args = (cmd_args or "").strip()
@@ -483,7 +483,7 @@ async def cmd_set_social(message: Message, cmd_args: str):
 
 # ─── Подсказка по истории чата ────────────────────────────────────────────────
 
-@router.message(BotCommand("историячата", "chathistory", "историяновым"), RankFilter("admin_junior"))
+@router.message(BotCommand("история чата", "историячата", "chathistory"), RankFilter("admin_junior"))
 async def cmd_chat_history_hint(message: Message, cmd_args: str):
     await message.answer(
         "📋 <b>Как включить видимую историю для новых участников</b>\n\n"
@@ -499,7 +499,7 @@ async def cmd_chat_history_hint(message: Message, cmd_args: str):
 
 # ─── Отдых (защита от чистки) ────────────────────────────────────────────────
 
-@router.message(BotCommand("отдых", "рест", "rest"), RankFilter("co_owner"))
+@router.message(BotCommand("отдых", "rest"), RankFilter("co_owner"))
 async def cmd_rest(message: Message, cmd_args: str):
     """
     бот отдых @user [дней]   — поставить на отдых (по умолч. 7 дней)

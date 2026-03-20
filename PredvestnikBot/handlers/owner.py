@@ -794,7 +794,7 @@ async def cb_remove_channel_type(callback: CallbackQuery) -> None:
 # бот ролипользователя <@user|reply>
 
 
-@router.message(BotCommand("рольдобавить"), RankFilter("owner"))
+@router.message(BotCommand("добавить роль", "рольдобавить"), RankFilter("owner"))
 async def cmd_add_role(message: Message) -> None:
     """бот рольдобавить [emoji] <название> [описание]"""
     args = (message.text or "").split(maxsplit=2)[1:]  # drop "бот"
@@ -828,7 +828,7 @@ async def cmd_add_role(message: Message) -> None:
     await message.reply(f"✅ Роль <b>{html.escape(display)}</b> добавлена!", parse_mode="HTML")
 
 
-@router.message(BotCommand("рольудалить"), RankFilter("owner"))
+@router.message(BotCommand("убрать роль", "рольудалить"), RankFilter("owner"))
 async def cmd_remove_role(message: Message) -> None:
     """бот рольудалить <название>"""
     args = (message.text or "").split(maxsplit=2)
@@ -889,7 +889,7 @@ async def cb_role_holders(callback: CallbackQuery) -> None:
     await callback.answer()
 
 
-@router.message(BotCommand("выдатьроль"), RankFilter("admin_junior"))
+@router.message(BotCommand("выдать роль", "выдатьроль"), RankFilter("admin_junior"))
 async def cmd_assign_role(message: Message) -> None:
     """бот выдатьроль <@user|reply> <название роли>"""
     args = (message.text or "").split(maxsplit=2)
@@ -923,7 +923,7 @@ async def cmd_assign_role(message: Message) -> None:
         await message.reply(f"✅ {mention} получил роль <b>{safe_role}</b>!", parse_mode="HTML")
 
 
-@router.message(BotCommand("снятьроль"), RankFilter("admin_junior"))
+@router.message(BotCommand("снять роль", "снятьроль"), RankFilter("admin_junior"))
 async def cmd_revoke_role(message: Message) -> None:
     """бот снятьроль <@user|reply> <название роли>"""
     args = (message.text or "").split(maxsplit=2)
@@ -942,14 +942,14 @@ async def cmd_revoke_role(message: Message) -> None:
         await message.reply(f"✅ Роль <b>{safe_role}</b> снята с {mention}.", parse_mode="HTML")
 
 
-@router.message(BotCommand("мойроли"))
+@router.message(BotCommand("мои роли", "мойроли"))
 async def cmd_my_roles(message: Message) -> None:
     """бот мойроли — свои роли."""
     await _show_user_roles(message, message.from_user.id,
                            message.from_user.first_name or str(message.from_user.id))
 
 
-@router.message(BotCommand("ролипользователя"))
+@router.message(BotCommand("роли пользователя", "ролипользователя"))
 async def cmd_user_roles(message: Message) -> None:
     """бот ролипользователя <@user|reply>"""
     args = (message.text or "").split(maxsplit=2)

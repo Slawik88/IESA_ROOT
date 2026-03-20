@@ -26,7 +26,7 @@ def _protected(rank: str) -> bool:
     return rank_level(rank) >= rank_level("moderator")
 
 
-@router.message(BotCommand("бан", "ban"), RankFilter("moderator"))
+@router.message(BotCommand("бан", "ban", "забанить"), RankFilter("moderator"))
 async def cmd_ban(message: Message, bot: Bot, cmd_args: str):
     uid, name, reason = await resolve_target(message, cmd_args)
     if uid is None:
@@ -53,7 +53,7 @@ async def cmd_ban(message: Message, bot: Bot, cmd_args: str):
     )
 
 
-@router.message(BotCommand("кик", "kick", "выгнать"), RankFilter("moderator"))
+@router.message(BotCommand("кик", "выгнать", "кикнуть", "kick"), RankFilter("moderator"))
 async def cmd_kick(message: Message, bot: Bot, cmd_args: str):
     uid, name, reason = await resolve_target(message, cmd_args)
     if uid is None:
@@ -80,7 +80,7 @@ async def cmd_kick(message: Message, bot: Bot, cmd_args: str):
     )
 
 
-@router.message(BotCommand("разбан", "unban"), RankFilter("moderator"))
+@router.message(BotCommand("разбан", "снять бан", "unban"), RankFilter("moderator"))
 async def cmd_unban(message: Message, bot: Bot, cmd_args: str):
     uid, name, _ = await resolve_target(message, cmd_args)
     if uid is None:
@@ -100,7 +100,7 @@ async def cmd_unban(message: Message, bot: Bot, cmd_args: str):
     )
 
 
-@router.message(BotCommand("размут", "unmute"), RankFilter("moderator"))
+@router.message(BotCommand("размут", "снять мут", "unmute"), RankFilter("moderator"))
 async def cmd_unmute(message: Message, bot: Bot, cmd_args: str):
     uid, name, _ = await resolve_target(message, cmd_args)
     if uid is None:
@@ -131,7 +131,7 @@ async def cmd_unmute(message: Message, bot: Bot, cmd_args: str):
         await message.answer(f"❌ Не удалось снять мут: {e}")
 
 
-@router.message(BotCommand("снятьварн", "unwarn", "разварн"), RankFilter("moderator"))
+@router.message(BotCommand("снять варн", "снятьварн", "разварн", "unwarn"), RankFilter("moderator"))
 async def cmd_unwarn(message: Message, cmd_args: str):
     uid, name, _ = await resolve_target(message, cmd_args)
     if uid is None:
@@ -146,7 +146,7 @@ async def cmd_unwarn(message: Message, cmd_args: str):
     )
 
 
-@router.message(BotCommand("пин", "pin", "закрепить"), RankFilter("moderator"))
+@router.message(BotCommand("закрепить", "пин", "pin"), RankFilter("moderator"))
 async def cmd_pin(message: Message, bot: Bot, cmd_args: str):
     if not message.reply_to_message:
         await message.answer(
@@ -166,7 +166,7 @@ async def cmd_pin(message: Message, bot: Bot, cmd_args: str):
         await message.answer(f"❌ Не удалось закрепить: {e}")
 
 
-@router.message(BotCommand("анпин", "unpin", "открепить"), RankFilter("moderator"))
+@router.message(BotCommand("открепить", "анпин", "unpin"), RankFilter("moderator"))
 async def cmd_unpin(message: Message, bot: Bot, cmd_args: str):
     try:
         if message.reply_to_message:
@@ -224,7 +224,7 @@ async def cmd_purge(message: Message, bot: Bot, cmd_args: str):
         pass
 
 
-@router.message(BotCommand("варны", "warns", "предупреждения"), RankFilter("moderator"))
+@router.message(BotCommand("предупреждения", "варны", "warns"), RankFilter("moderator"))
 async def cmd_warns(message: Message, cmd_args: str):
     uid, name, _ = await resolve_target(message, cmd_args)
     if uid is None:
@@ -246,7 +246,7 @@ async def cmd_warns(message: Message, cmd_args: str):
     )
 
 
-@router.message(BotCommand("баны", "bans", "банлист"), RankFilter("moderator"))
+@router.message(BotCommand("баны", "банлист", "bans"), RankFilter("moderator"))
 async def cmd_bans(message: Message, cmd_args: str):
     banned = await get_banned_in_chat(message.chat.id)
     if not banned:
