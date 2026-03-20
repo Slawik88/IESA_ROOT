@@ -59,7 +59,7 @@ async def main():
     await broadcast_status(bot, BOT_STARTED_MSG)
 
     try:
-        await dp.start_polling(bot)
+        await dp.start_polling(bot, drop_pending_updates=True)
     finally:
         try:
             await broadcast_status(bot, BOT_STOPPED_MSG)
