@@ -1,6 +1,7 @@
 from aiogram import Bot, Router
 from aiogram.types import ChatPermissions, InlineKeyboardButton, InlineKeyboardMarkup, Message
 
+from config import DEVELOPER_ID
 from database.db import (
     get_activity_report, get_chat_settings, get_chat_stats_for_chat,
     get_rest_info_map, get_rest_users, get_staff_in_chat, get_user_stats,
@@ -67,13 +68,20 @@ async def cmd_setrank(message: Message, cmd_args: str):
         )
         return
 
+    if new_rank == "developer":
+        await message.answer(
+            "❌ Ранг developer системный и закреплён за DEVELOPER_ID. Выдаётся только через config.py.",
+            parse_mode="HTML",
+        )
+        return
+
     uid, name, _ = await resolve_target(message, rest)
     if uid is None:
         await message.answer(name)
         return
 
     my_stats = await get_user_stats(message.from_user.id, message.chat.id)
-    my_rank = my_stats["rank"] if my_stats else "user"
+    my_rank = "developer" if (DEVELOPER_ID and message.from_user.id == DEVELOPER_ID) else (my_stats["rank"] if my_stats else "user")
 
     # Определяем максимальный ранг, который может выдать выполняющий
     if rank_level(my_rank) >= rank_level("developer"):
@@ -99,7 +107,12 @@ async def cmd_setrank(message: Message, cmd_args: str):
         await message.answer("❌ Нельзя изменить ранг пользователя с равным или большим рангом.")
         return
 
-    await set_rank_in_chat(uid, message.chat.id, new_rank)
+    try:
+        await set_rank_in_chat(uid, message.chat.id, new_rank)
+    except ValueError as e:
+        await message.answer(f"❌ {e}")
+        return
+
     await message.answer(
         f"✅ Ранг {user_mention(uid, name)} изменён на {rank_name(new_rank)}",
         parse_mode="HTML",
