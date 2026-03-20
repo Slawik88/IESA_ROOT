@@ -533,11 +533,14 @@ async def get_user(user_id: int):
 
 
 async def get_user_by_username(username: str):
+    uname = (username or "").strip().lstrip("@").lower()
+    if not uname:
+        return None
     async with aiosqlite.connect(DATABASE_PATH) as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
-            "SELECT * FROM users WHERE LOWER(username) = ?",
-            (username.lstrip("@").lower(),),
+            "SELECT * FROM users WHERE LOWER(username) IN (?, ?)",
+            (uname, f"@{uname}"),
         ) as cursor:
             return await cursor.fetchone()
 
