@@ -53,7 +53,7 @@ services:
     value: ""
     type: SECRET
   - key: RUN_PREDVESTNIK_IN_WEB
-    value: "1"
+    value: "0"
 
 workers:
 - name: predvestnik-bot
