@@ -7,26 +7,21 @@ from aiogram.enums import ParseMode
 
 from aiogram.types import ChatPermissions
 from config import BOT_TOKEN
-from database.db import get_active_chats, get_locked_chats, init_db, is_group_allowed, set_chat_active, set_chat_setting
+from database.db import get_locked_chats, init_db, set_chat_setting
 from handlers import admin, auto_mod, dm_roles, extras, fun, helper, moderator, notes, owner, quests, reputation, user
 from middlewares.message_counter import AutoModMiddleware
 
 logging.basicConfig(level=logging.INFO)
 
 
-async def broadcast_status(bot: Bot, text: str):
-    chats = await get_active_chats()
-    for chat in chats:
-        # Отправляем только в группы — не в личные чаты
-        if chat["chat_type"] not in ("group", "supergroup"):
-            continue
-        # Если белый список включён — только в разрешённые группы
-        if not is_group_allowed(chat["chat_id"]):
-            continue
-        try:
-            await bot.send_message(chat["chat_id"], text)
-        except Exception:
-            await set_chat_active(chat["chat_id"], 0)
+async def notify_developer(bot: Bot, text: str):
+    from config import DEVELOPER_ID
+    if not DEVELOPER_ID:
+        return
+    try:
+        await bot.send_message(DEVELOPER_ID, text)
+    except Exception:
+        pass
 
 
 async def main():
@@ -73,13 +68,13 @@ async def main():
 
     from config import BOT_STARTED_MSG, BOT_STOPPED_MSG
     print("✅ Бот запущен! Пиши 'бот помощь' в чат.")
-    await broadcast_status(bot, BOT_STARTED_MSG)
+    await notify_developer(bot, BOT_STARTED_MSG)
 
     try:
         await dp.start_polling(bot, drop_pending_updates=True)
     finally:
         try:
-            await broadcast_status(bot, BOT_STOPPED_MSG)
+            await notify_developer(bot, BOT_STOPPED_MSG)
         finally:
             await bot.session.close()
 
