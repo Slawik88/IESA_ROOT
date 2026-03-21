@@ -5,6 +5,7 @@ from config import DEVELOPER_ID
 from database.db import (
     get_activity_report, get_chat_settings, get_chat_stats_for_chat,
     get_rest_info_map, get_rest_users, get_staff_in_chat, get_user_stats,
+    get_voluntary_leaves,
     set_chat_setting, set_rank_in_chat,
     add_rest_user, remove_rest_user,
 )
@@ -571,3 +572,31 @@ async def cmd_rest(message: Message, cmd_args: str):
         parse_mode="HTML",
     )
 
+
+@router.message(BotCommand("ушли", "leavelog", "покинули"), RankFilter("moderator"))
+async def cmd_leave_log(message: Message, cmd_args: str):
+    """Показать последних пользователей, которые добровольно покинули чат."""
+    try:
+        limit = max(1, min(50, int(cmd_args.strip()))) if cmd_args.strip().isdigit() else 15
+    except (ValueError, AttributeError):
+        limit = 15
+
+    rows = await get_voluntary_leaves(message.chat.id, limit)
+    if not rows:
+        await message.answer(
+            "📋 Никто добровольно не покидал чат (по крайней мере с момента запуска бота)."
+        )
+        return
+
+    import html as _html
+    lines = [f"🚪 <b>Последние {len(rows)} добровольных выходов:</b>\n"]
+    for r in rows:
+        safe_name = _html.escape(r["full_name"] or str(r["user_id"]))
+        uname = f" (@{_html.escape(r['username'])})" if r.get("username") else ""
+        left_at = (r["left_at"] or "")[:16].replace("T", " ")
+        lines.append(
+            f"  • <a href='tg://user?id={r[\"user_id\"]}'>{safe_name}</a>{uname} — {left_at}"
+        )
+    lines.append(f"\n<i>Используй «бот ушли N» для другого числа записей.</i>")
+
+    await message.answer("\n".join(lines), parse_mode="HTML")

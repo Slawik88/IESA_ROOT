@@ -10,7 +10,7 @@ import html as _html
 
 from database.db import (
     add_filter, delete_filter, get_chat_members, get_chat_settings, get_filters,
-    get_note, get_user_stats, is_group_allowed,
+    get_note, get_user_stats, is_group_allowed, log_voluntary_leave,
     set_chat_active, upsert_chat, upsert_user, upsert_user_stats,
 )
 from filters.bot_command import BotCommand
@@ -84,7 +84,7 @@ async def track_bot_chat_state(event: ChatMemberUpdated):
 
 @router.chat_member()
 async def track_chat_member_state(event: ChatMemberUpdated):
-    """Register users on membership updates (join/approve/unban/promote), before first message."""
+    """Register users on membership updates; log voluntary leaves."""
     if event.chat.type not in ("group", "supergroup"):
         return
     if not is_group_allowed(event.chat.id):
@@ -95,6 +95,17 @@ async def track_chat_member_state(event: ChatMemberUpdated):
         return
 
     new_status = getattr(event.new_chat_member, "status", "")
+
+    # Track voluntary exits (status == "left" = left by own will, "kicked" = removed by admin)
+    if new_status == "left":
+        await log_voluntary_leave(
+            event.chat.id,
+            member.id,
+            member.full_name or "",
+            member.username or "",
+        )
+        return
+
     active_statuses = {"member", "administrator", "creator", "restricted"}
     if new_status not in active_statuses:
         return
