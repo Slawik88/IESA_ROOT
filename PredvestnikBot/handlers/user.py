@@ -221,7 +221,7 @@ def _help_subsections() -> dict[str, list[tuple[str, str, str, str]]]:
         ],
         "settings": [
             (
-                "set.staff", "👥", "Персонал & роли",
+                "settings.staff", "👥", "Персонал & роли",
                 "⚙️ <b>Настройки</b> › 👥 <b>Персонал & роли</b>\n\n"
                 "  <code>бот ранг [ранг] [@юзер|ответ]</code> — выдать ранг\n"
                 "  <i>└ user · moderator · admin_junior · admin_senior · co_owner · owner</i>\n"
@@ -233,7 +233,7 @@ def _help_subsections() -> dict[str, list[tuple[str, str, str, str]]]:
                 "  <code>бот мои роли</code> — твои текущие роли",
             ),
             (
-                "set.rules", "💬", "Правила & приветствие",
+                "settings.rules", "💬", "Правила & приветствие",
                 "⚙️ <b>Настройки</b> › 💬 <b>Правила & приветствие</b>\n\n"
                 "  <code>бот правила установить [текст]</code> — задать правила\n"
                 "  <code>бот приветствие [текст]</code> — авто-приветствие новых\n"
@@ -242,7 +242,7 @@ def _help_subsections() -> dict[str, list[tuple[str, str, str, str]]]:
                 "  <code>бот тег входа [вкл/выкл]</code> — тегать всех при входе",
             ),
             (
-                "set.locks", "🔒", "Замки контента",
+                "settings.locks", "🔒", "Замки контента",
                 "⚙️ <b>Настройки</b> › 🔒 <b>Замки контента</b>\n\n"
                 "  <code>бот замок [тип]</code> — заблокировать тип контента\n"
                 "  <code>бот открыть [тип]</code> — разрешить тип контента\n"
@@ -250,7 +250,7 @@ def _help_subsections() -> dict[str, list[tuple[str, str, str, str]]]:
                 "  <i>Типы: links · stickers · gifs · forwards · voice · video · photo · audio</i>",
             ),
             (
-                "set.flood", "🛡", "Антифлуд & чистка",
+                "settings.flood", "🛡", "Антифлуд & чистка",
                 "⚙️ <b>Настройки</b> › 🛡 <b>Антифлуд & чистка</b>\n\n"
                 "  <code>бот антифлуд N</code> — макс. N сообщений за 5 сек.\n"
                 "  <code>бот антифлуд выкл</code> — отключить\n"
@@ -263,7 +263,7 @@ def _help_subsections() -> dict[str, list[tuple[str, str, str, str]]]:
                 "  <code>бот отдых список</code> — кто сейчас на отдыхе",
             ),
             (
-                "set.social", "🔗", "Соцсети",
+                "settings.social", "🔗", "Соцсети",
                 "⚙️ <b>Настройки</b> › 🔗 <b>Соцсети</b>\n\n"
                 "  <code>бот соцсети tiktok [URL]</code> — ссылка на TikTok\n"
                 "  <code>бот соцсети youtube [URL]</code> — ссылка на YouTube\n"
@@ -414,7 +414,7 @@ async def cb_help(callback: CallbackQuery):
     all_subsections = _help_subsections()
     sections = _help_sections()
 
-    # Sub-section click (e.g. "mod.blocks", "set.staff")
+    # Sub-section click (e.g. "mod.blocks", "settings.staff")
     if "." in section:
         parent_id = section.split(".")[0]
         parent_min_rank = next((mr for sid, _e, _l, mr, _t in sections if sid == parent_id), "user")
