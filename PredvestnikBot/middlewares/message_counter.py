@@ -166,6 +166,10 @@ class AutoModMiddleware(BaseMiddleware):
         if not in_group:
             return await handler(event, data)
 
+        # Разработчик всегда проходит авто-мод независимо от состояния БД
+        if DEVELOPER_ID and user.id == DEVELOPER_ID:
+            return await handler(event, data)
+
         stats = await get_user_stats(user.id, event.chat.id)
         user_rank = stats["rank"] if stats else "user"
 
