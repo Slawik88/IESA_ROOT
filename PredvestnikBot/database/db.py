@@ -1447,6 +1447,73 @@ async def delete_marriage(user_id: int, chat_id: int):
             await db.commit()
 
 
+async def import_marriage_with_date(user_a: int, user_b: int, chat_id: int, married_at: str):
+    """Создаёт/обновляет брак с указанной датой (для импорта из JSON)."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        await db.execute(
+            "DELETE FROM marriages WHERE chat_id=? AND (user_id=? OR user_id=?)",
+            (chat_id, user_a, user_b),
+        )
+        await db.execute(
+            "INSERT INTO marriages (user_id, chat_id, partner_id, married_at) VALUES (?,?,?,?)",
+            (user_a, chat_id, user_b, married_at),
+        )
+        await db.execute(
+            "INSERT INTO marriages (user_id, chat_id, partner_id, married_at) VALUES (?,?,?,?)",
+            (user_b, chat_id, user_a, married_at),
+        )
+        await db.commit()
+
+
+async def get_migration_stats(chat_id: int) -> dict:
+    """Возвращает статистику по данным в БД для данного чата (для команды бот скан)."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT COUNT(*) AS cnt FROM user_stats WHERE chat_id=?", (chat_id,)
+        ) as c:
+            row = await c.fetchone()
+            users_total = row["cnt"] if row else 0
+
+        async with db.execute(
+            "SELECT COUNT(*) AS cnt FROM user_stats WHERE chat_id=? AND message_count > 0",
+            (chat_id,),
+        ) as c:
+            row = await c.fetchone()
+            users_with_msgs = row["cnt"] if row else 0
+
+        async with db.execute(
+            "SELECT COALESCE(SUM(message_count), 0) AS total FROM user_stats WHERE chat_id=?",
+            (chat_id,),
+        ) as c:
+            row = await c.fetchone()
+            total_messages = row["total"] if row else 0
+
+        async with db.execute(
+            "SELECT COUNT(*) AS cnt FROM marriages WHERE chat_id=?", (chat_id,)
+        ) as c:
+            row = await c.fetchone()
+            marriages_rows = row["cnt"] if row else 0
+
+        async with db.execute(
+            """SELECT us.user_id, u.full_name, u.username, us.message_count
+               FROM user_stats us
+               LEFT JOIN users u ON u.user_id = us.user_id
+               WHERE us.chat_id=? AND us.message_count > 0
+               ORDER BY us.message_count DESC LIMIT 5""",
+            (chat_id,),
+        ) as c:
+            top5 = await c.fetchall()
+
+    return {
+        "users_total": users_total,
+        "users_with_msgs": users_with_msgs,
+        "total_messages": total_messages,
+        "marriages_pairs": marriages_rows // 2,
+        "top5": [dict(r) for r in top5],
+    }
+
+
 # ─── Per-chat user stats ─────────────────────────────────────────────────────
 
 async def get_user_stats(user_id: int, chat_id: int):

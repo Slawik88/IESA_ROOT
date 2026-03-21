@@ -1,4 +1,10 @@
-from aiogram import Bot, Router
+import html
+import json
+import time
+from datetime import datetime as _dt, timezone
+from zoneinfo import ZoneInfo
+
+from aiogram import Bot, F, Router
 from aiogram.types import ChatPermissions, InlineKeyboardButton, InlineKeyboardMarkup, Message
 
 from config import DEVELOPER_ID
@@ -10,6 +16,7 @@ from database.db import (
     set_chat_setting, set_rank_in_chat,
     add_rest_user, remove_rest_user,
     set_cleanup_reminder_sent, upsert_user,
+    import_marriage_with_date, get_migration_stats,
 )
 from filters.bot_command import BotCommand
 from filters.rank_filter import RankFilter
@@ -17,6 +24,10 @@ from utils.helpers import resolve_target, user_mention
 from utils.ranks import RANKS, rank_level, rank_name
 
 router = Router()
+
+# ─── Ожидание JSON браков (двухшаговый ввод) ─────────────────────────────────
+# chat_id -> (admin_user_id, expires_at)
+_awaiting_marriages: dict[int, tuple[int, float]] = {}
 
 # Полные разрешения чата (Bot API 6.3+, гранулярные медиа-поля)
 _FULL_PERMISSIONS = ChatPermissions(
@@ -345,7 +356,6 @@ async def cmd_cleanup(message: Message, bot: Bot, cmd_args: str):
         if not iso_str:
             return "—"
         try:
-            from datetime import datetime as _dt
             return _dt.fromisoformat(iso_str).strftime("%d.%m")
         except Exception:
             return "—"
@@ -468,11 +478,9 @@ async def cmd_cleanup_date(message: Message, cmd_args: str):
         settings = await get_chat_settings(chat_id)
         sched = settings["next_cleanup_at"] if settings else None
         if sched:
-            from datetime import datetime as _dt, timezone
-            from zoneinfo import ZoneInfo
             try:
                 dt = _dt.fromisoformat(sched).replace(tzinfo=timezone.utc)
-                fmt = dt.astimezone(ZoneInfo("Europe/Zurich")).strftime("%d.%m.%Y %H:%M (Цюрих)")
+                fmt = dt.astimezone(_ZURICH).strftime("%d.%m.%Y %H:%M (Цюрих)")
             except Exception:
                 fmt = sched
             await message.answer(
@@ -496,9 +504,6 @@ async def cmd_cleanup_date(message: Message, cmd_args: str):
         return
 
     # Парсим дату: ДД.ММ.ГГГГ ЧЧ:ММ  или  ДД.ММ.ГГГГ (ввод — по Цюриху)
-    from datetime import datetime as _dt, timezone
-    from zoneinfo import ZoneInfo
-    _ZURICH = ZoneInfo("Europe/Zurich")
     raw = cmd_args.strip()
     dt_local = None
     for fmt in ("%d.%m.%Y %H:%M", "%d.%m.%Y"):
@@ -589,6 +594,197 @@ async def cmd_inactivity(message: Message, cmd_args: str):
             parse_mode="HTML",
         )
 
+
+# ─── Скан / статистика данных в БД ───────────────────────────────────────────
+
+@router.message(BotCommand("скан", "scan", "статистика бд"), RankFilter("developer"))
+async def cmd_scan(message: Message):
+    """
+    бот скан — показать статистику данных в БД для этого чата.
+    Напоминает об использовании scan_history.py для исторических данных.
+    """
+    if message.chat.type == "private":
+        await message.answer("❌ Команда работает только в чате.")
+        return
+
+    stats = await get_migration_stats(message.chat.id)
+    top_lines = []
+    for i, u in enumerate(stats["top5"], 1):
+        name = html.escape(u.get("full_name") or u.get("username") or str(u["user_id"]))
+        top_lines.append(f"  {i}. {name} — {u['message_count']:,} сообщ.")
+
+    top_block = "\n".join(top_lines) if top_lines else "  (нет данных)"
+
+    await message.answer(
+        f"📊 <b>Статистика данных в БД</b>\n\n"
+        f"👥 Пользователей в БД: <b>{stats['users_total']}</b>\n"
+        f"💬 С сообщениями:      <b>{stats['users_with_msgs']}</b>\n"
+        f"📩 Всего сообщений:    <b>{stats['total_messages']:,}</b>\n"
+        f"💑 Браков:             <b>{stats['marriages_pairs']}</b>\n\n"
+        f"🔝 <b>Топ-5 по сообщениям:</b>\n{top_block}\n\n"
+        f"⚠️ <b>Об исторических сообщениях:</b>\n"
+        f"Telegram Bot API не позволяет боту читать историю чата.\n"
+        f"Для импорта накопленных сообщений из прошлого использу скрипт:\n"
+        f"<code>python scripts/scan_history.py --chat {message.chat.id} --db bot.db</code>\n"
+        f"(нужны api_id + api_hash от my.telegram.org)",
+        parse_mode="HTML",
+    )
+
+
+# ─── Импорт браков из JSON ────────────────────────────────────────────────────
+
+_MARRIAGES_JSON_EXAMPLE = (
+    "[\n"
+    '  {"user1": 123456789, "user2": 987654321, "since": "21.03.2025"},\n'
+    '  {"user1": "@alice",  "user2": "@bob",    "since": "01.06.2024"},\n'
+    '  {"user1": 111111,    "user2": 222222}\n'
+    "]"
+)
+_MARRIAGES_HELP = (
+    "💑 <b>Импорт браков из JSON</b>\n\n"
+    "Формат каждой пары:\n"
+    "<code>{\"user1\": ID_или_@юзернейм, \"user2\": ID_или_@юзернейм, \"since\": \"ДД.ММ.ГГГГ\"}</code>\n\n"
+    "Поле <code>since</code> — необязательно (по умолчанию: сегодня).\n\n"
+    "Пример JSON:\n"
+    f"<pre>{html.escape(_MARRIAGES_JSON_EXAMPLE)}</pre>\n\n"
+    "👉 Отправь JSON списком в <b>следующем сообщении</b> (ожидание 3 минуты).\n"
+    "Или укажи его прямо после команды в одной строке:\n"
+    "<code>бот загрузить браки [{\"user1\":123,\"user2\":456,\"since\":\"01.01.2025\"}]</code>"
+)
+
+_ZURICH = ZoneInfo("Europe/Zurich")
+
+
+async def _resolve_uid(bot: Bot, chat_id: int, ref) -> int | None:
+    """Возвращает integer user_id из числа, строки-числа или @username."""
+    if isinstance(ref, int):
+        return ref
+    ref = str(ref).strip()
+    if ref.lstrip("-").isdigit():
+        return int(ref)
+    if ref.startswith("@"):
+        try:
+            member = await bot.get_chat_member(chat_id, ref)
+            return member.user.id
+        except Exception as exc:
+            return None
+    return None
+
+
+async def _process_marriages_json(message: Message, bot: Bot, raw: str) -> None:
+    chat_id = message.chat.id
+    raw = raw.strip()
+
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        await message.answer(
+            f"❌ Ошибка разбора JSON: <code>{html.escape(str(exc))}</code>\n\n"
+            f"Проверь формат и попробуй снова.",
+            parse_mode="HTML",
+        )
+        return
+
+    if not isinstance(data, list):
+        await message.answer("❌ JSON должен быть <b>списком</b> (массивом) пар.", parse_mode="HTML")
+        return
+
+    ok_pairs: list[str] = []
+    fail_pairs: list[str] = []
+
+    today_utc = _dt.now(_ZURICH).astimezone(timezone.utc).replace(tzinfo=None).isoformat()
+
+    for idx, entry in enumerate(data, 1):
+        if not isinstance(entry, dict):
+            fail_pairs.append(f"#{idx}: не объект")
+            continue
+
+        u1_raw = entry.get("user1")
+        u2_raw = entry.get("user2")
+        since_raw = entry.get("since", "")
+
+        if u1_raw is None or u2_raw is None:
+            fail_pairs.append(f"#{idx}: нет user1 или user2")
+            continue
+
+        uid1 = await _resolve_uid(bot, chat_id, u1_raw)
+        uid2 = await _resolve_uid(bot, chat_id, u2_raw)
+
+        if uid1 is None:
+            fail_pairs.append(f"#{idx}: не удалось определить {u1_raw!r}")
+            continue
+        if uid2 is None:
+            fail_pairs.append(f"#{idx}: не удалось определить {u2_raw!r}")
+            continue
+
+        # Парсим дату since
+        married_at = today_utc
+        if since_raw:
+            for fmt in ("%d.%m.%Y %H:%M", "%d.%m.%Y"):
+                try:
+                    dt_local = _dt.strptime(str(since_raw), fmt).replace(tzinfo=_ZURICH)
+                    married_at = dt_local.astimezone(timezone.utc).replace(tzinfo=None).isoformat()
+                    break
+                except ValueError:
+                    pass
+
+        try:
+            await import_marriage_with_date(uid1, uid2, chat_id, married_at)
+            ok_pairs.append(f"[{uid1}] ↔ [{uid2}]")
+        except Exception as exc:
+            fail_pairs.append(f"#{idx}: ошибка БД — {exc}")
+
+    lines = []
+    if ok_pairs:
+        lines.append(f"✅ Импортировано <b>{len(ok_pairs)}</b> пар:")
+        lines.extend(f"  • {p}" for p in ok_pairs)
+    if fail_pairs:
+        lines.append(f"\n⚠️ Ошибки ({len(fail_pairs)}):")
+        lines.extend(f"  • {html.escape(p)}" for p in fail_pairs)
+
+    await message.answer("\n".join(lines) or "Нет пар для импорта.", parse_mode="HTML")
+
+
+@router.message(BotCommand("загрузить браки", "load_marriages", "импорт браки"), RankFilter("admin_junior"))
+async def cmd_load_marriages(message: Message, cmd_args: str, bot: Bot):
+    """
+    бот загрузить браки                — показать формат + ждать JSON
+    бот загрузить браки [{"user1":…}]  — импортировать сразу
+    """
+    if message.chat.type == "private":
+        await message.answer("❌ Команда работает только в чате.")
+        return
+
+    raw = (cmd_args or "").strip()
+    if raw:
+        await _process_marriages_json(message, bot, raw)
+        return
+
+    # Режим ожидания: следующее сообщение от этого же админа
+    _awaiting_marriages[message.chat.id] = (message.from_user.id, time.time() + 180)
+    await message.answer(_MARRIAGES_HELP, parse_mode="HTML")
+
+
+async def _is_awaiting_json(message: Message) -> bool:
+    if not message.chat or not message.from_user or not message.text:
+        return False
+    entry = _awaiting_marriages.get(message.chat.id)
+    if entry is None:
+        return False
+    admin_id, expires = entry
+    if time.time() > expires:
+        del _awaiting_marriages[message.chat.id]
+        return False
+    return message.from_user.id == admin_id
+
+
+@router.message(_is_awaiting_json)
+async def _catch_marriages_json(message: Message, bot: Bot):
+    """Перехватывает JSON-ответ в режиме ожидания бракоимпорта."""
+    del _awaiting_marriages[message.chat.id]
+    await _process_marriages_json(message, bot, message.text)
+
+
 # ─── Соцсети ──────────────────────────────────────────────────────────────────
 
 @router.message(BotCommand("соцсети", "соцсеть", "socials"), RankFilter("admin_junior"))
@@ -678,7 +874,6 @@ async def cmd_rest(message: Message, cmd_args: str):
             return
         lines = ["😴 <b>На отдыхе:</b>\n"]
         for r in rest_list:
-            from datetime import datetime as _dt
             added = _dt.fromisoformat(r["added_at"])
             expires = added + __import__("datetime").timedelta(days=r["days"])
             lines.append(
