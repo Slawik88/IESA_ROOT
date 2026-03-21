@@ -415,7 +415,9 @@ async def init_db():
             ("user_banlist",      "chat_id"),
             ("user_banlist",      "user_id"),
             ("user_banlist",      "added_by"),
-            ("pending_roles",     "user_id"),
+            ("pending_roles",           "user_id"),
+            ("pending_user_imports",   "chat_id"),
+            ("pending_marriage_imports", "chat_id"),
             ("pets",              "user_id"),
             ("pets",              "chat_id"),
         ]

@@ -658,18 +658,13 @@ _ZURICH = ZoneInfo("Europe/Zurich")
 
 
 async def _resolve_uid(bot: Bot, chat_id: int, ref) -> int | None:
-    """Возвращает integer user_id из числа, строки-числа или @username."""
+    """Возвращает integer user_id из числа или строки-числа.
+    @username не поддерживается (getChatMember требует числовой ID) — вернёт None."""
     if isinstance(ref, int):
         return ref
     ref = str(ref).strip()
     if ref.lstrip("-").isdigit():
         return int(ref)
-    if ref.startswith("@"):
-        try:
-            member = await bot.get_chat_member(chat_id, ref)
-            return member.user.id
-        except Exception as exc:
-            return None
     return None
 
 
