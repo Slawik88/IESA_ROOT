@@ -106,7 +106,9 @@ def _help_sections() -> list[tuple[str, str, str, str, str]]:
         (
             "info", "📋", "Инфо & чат", "user",
             "📋 <b>Инфо & чат</b>\n\n"
-            "  <code>бот топ</code> — топ-10 активных за всё время\n"
+            "  <code>бот топ</code> — рейтинг всех активных (🥇🥈🥉🏅🏅 — топ-5)\n"
+            "  <code>бот топ день</code> — рейтинг за сегодня\n"
+            "  <code>бот топ неделя</code> — рейтинг за неделю\n"
             "  <code>бот правила</code> — правила чата\n"
             "  <code>бот время [город]</code> — текущее время\n"
             "  <i>└ Москва, Берлин, Лондон, Нью-Йорк, Токио, Дубай…</i>\n"
@@ -470,24 +472,25 @@ async def cb_help(callback: CallbackQuery):
     await callback.answer()
 
 
+_TOP_MEDALS = ["🥇", "🥈", "🥉", "🎖", "🎗"]
+
+
 @router.callback_query(F.data.startswith("top:"))
 async def cb_top(callback: CallbackQuery):
     period = callback.data.split(":")[1]
     chat_id = callback.message.chat.id
 
-    from config import TOP_LIMIT
-
     if period == "d":
-        top = await get_daily_top(chat_id, TOP_LIMIT)
-        title = "📅 <b>Топ активных за сегодня:</b>"
+        top = await get_daily_top(chat_id, 500)
+        title = "📅 <b>Рейтинг активных за сегодня:</b>"
         count_field = "dc"
     elif period == "w":
-        top = await get_weekly_top(chat_id, TOP_LIMIT)
-        title = "📆 <b>Топ активных за неделю:</b>"
+        top = await get_weekly_top(chat_id, 500)
+        title = "📆 <b>Рейтинг активных за неделю:</b>"
         count_field = "wc"
     else:
-        top = await get_top_by_messages_in_chat(chat_id, TOP_LIMIT)
-        title = "🏆 <b>Топ 10 активных за всё время:</b>"
+        top = await get_top_by_messages_in_chat(chat_id, 500)
+        title = "🏆 <b>Рейтинг активных за всё время:</b>"
         count_field = "message_count"
 
     if not top:
@@ -501,16 +504,28 @@ async def cb_top(callback: CallbackQuery):
         await callback.answer()
         return
 
-    medals = ["🥇", "🥈", "🥉"]
-    lines = [title, ""]
+    lines: list[str] = [title, ""]
     for i, u in enumerate(top):
-        place = medals[i] if i < 3 else f"{i + 1}."
+        place = _TOP_MEDALS[i] if i < 5 else f"{i + 1}."
         count = u[count_field] if count_field in u.keys() else 0
         lines.append(f"{place} <b>{html.escape(u['full_name'])}</b> — {count} сообщений")
 
+    text = "\n".join(lines)
+    if len(text) > 3800:
+        lines = [title, ""]
+        for i, u in enumerate(top):
+            place = _TOP_MEDALS[i] if i < 5 else f"{i + 1}."
+            count = u[count_field] if count_field in u.keys() else 0
+            new_line = f"{place} <b>{html.escape(u['full_name'])}</b> — {count} сообщений"
+            if len("\n".join(lines + [new_line])) > 3700:
+                lines.append(f"<i>...и ещё {len(top) - i} участников</i>")
+                break
+            lines.append(new_line)
+        text = "\n".join(lines)
+
     try:
         await callback.message.edit_text(
-            "\n".join(lines),
+            text,
             parse_mode="HTML",
             reply_markup=_top_keyboard(period),
         )
@@ -893,22 +908,21 @@ async def cmd_whois(message: Message, cmd_args: str):
 
 @router.message(BotCommand("топ", "top", "активность"))
 async def cmd_top(message: Message, cmd_args: str):
-    from config import TOP_LIMIT
     arg = (cmd_args or "").strip().lower()
 
     if arg in ("день", "day", "д"):
-        top = await get_daily_top(message.chat.id, TOP_LIMIT)
-        title = "📅 <b>Топ активных за сегодня:</b>"
+        top = await get_daily_top(message.chat.id, 500)
+        title = "📅 <b>Рейтинг активных за сегодня:</b>"
         count_field = "dc"
         count_label = "сообщений"
     elif arg in ("неделя", "week", "н"):
-        top = await get_weekly_top(message.chat.id, TOP_LIMIT)
-        title = "📆 <b>Топ активных за неделю:</b>"
+        top = await get_weekly_top(message.chat.id, 500)
+        title = "📆 <b>Рейтинг активных за неделю:</b>"
         count_field = "wc"
         count_label = "сообщений"
     else:
-        top = await get_top_by_messages_in_chat(message.chat.id, TOP_LIMIT)
-        title = "🏆 <b>Топ 10 активных за всё время:</b>"
+        top = await get_top_by_messages_in_chat(message.chat.id, 500)
+        title = "🏆 <b>Рейтинг активных за всё время:</b>"
         count_field = "message_count"
         count_label = "сообщений"
 
@@ -916,15 +930,26 @@ async def cmd_top(message: Message, cmd_args: str):
         await message.answer("📊 Статистика пока пуста.")
         return
 
-    medals = ["🥇", "🥈", "🥉"]
-    lines = [title, ""]
+    lines: list[str] = [title, ""]
     for i, u in enumerate(top):
-        place = medals[i] if i < 3 else f"{i + 1}."
+        place = _TOP_MEDALS[i] if i < 5 else f"{i + 1}."
         count = u[count_field] if count_field in u.keys() else 0
         lines.append(f"{place} <b>{html.escape(u['full_name'])}</b> — {count} {count_label}")
 
     period_code = "d" if arg in ("день", "day", "д") else ("w" if arg in ("неделя", "week", "н") else "a")
-    await message.answer("\n".join(lines), parse_mode="HTML", reply_markup=_top_keyboard(period_code))
+    text = "\n".join(lines)
+    if len(text) > 3800:
+        lines = [title, ""]
+        for i, u in enumerate(top):
+            place = _TOP_MEDALS[i] if i < 5 else f"{i + 1}."
+            count = u[count_field] if count_field in u.keys() else 0
+            new_line = f"{place} <b>{html.escape(u['full_name'])}</b> — {count} {count_label}"
+            if len("\n".join(lines + [new_line])) > 3700:
+                lines.append(f"<i>...и ещё {len(top) - i} участников</i>")
+                break
+            lines.append(new_line)
+        text = "\n".join(lines)
+    await message.answer(text, parse_mode="HTML", reply_markup=_top_keyboard(period_code))
 
 
 @router.message(BotCommand("правила", "rules"))
@@ -1056,17 +1081,48 @@ async def cmd_our_links(message: Message):
 
 
 @router.message(BotCommand("автор", "создатель", "creator", "разработчик бота"))
-async def cmd_creator(message: Message, cmd_args: str):
+async def cmd_creator(message: Message, bot: Bot, cmd_args: str):
     """Показать информацию о создателе бота."""
-    from config import DEVELOPER_ID, BOT_CREATOR_NAME, BOT_CREATOR_USERNAME
-    name = html.escape(BOT_CREATOR_NAME or "Разработчик")
-    display = f"@{BOT_CREATOR_USERNAME}" if BOT_CREATOR_USERNAME else name
-    contact = f'<a href="tg://user?id={DEVELOPER_ID}">{html.escape(display)}</a>'
-    await message.answer(
-        f"🛠 <b>Создатель бота</b>\n\n"
-        f"👤 {contact}\n"
-        f"🆆 Telegram ID: <code>{DEVELOPER_ID}</code>",
-        parse_mode="HTML",
-        disable_web_page_preview=True,
-    )
+    from config import DEVELOPER_ID
+    from database.db import xp_for_level
+
+    try:
+        chat = await bot.get_chat(DEVELOPER_ID)
+        first = chat.first_name or ""
+        last = chat.last_name or ""
+        full_name = html.escape(f"{first} {last}".strip() or "Разработчик")
+        username = chat.username or ""
+        bio_tg = html.escape(getattr(chat, "bio", None) or "")
+    except Exception:
+        full_name = "Разработчик"
+        username = ""
+        bio_tg = ""
+
+    stats = await get_user_stats(DEVELOPER_ID, message.chat.id)
+    rep  = stats["reputation"]    if stats else 0
+    lvl  = stats["level"]         if stats else 1
+    xp   = stats["xp"]            if stats else 0
+    msgs = stats["message_count"] if stats else 0
+    bio_db = html.escape(stats["bio"] or "") if stats else ""
+
+    next_xp = xp_for_level(lvl + 1)
+    bar_filled = min(10, int((xp - xp_for_level(lvl)) / max(1, next_xp - xp_for_level(lvl)) * 10))
+    bar = "█" * bar_filled + "░" * (10 - bar_filled)
+
+    contact = f'<a href="tg://user?id={DEVELOPER_ID}">{full_name}</a>'
+    lines = [f"🛠 <b>Создатель бота</b>\n"]
+    lines.append(f"👤 Имя: {contact}")
+    if username:
+        lines.append(f"📛 Username: @{html.escape(username)}")
+    lines += [
+        f"🆔 ID: <code>{DEVELOPER_ID}</code>",
+        f"🎖 Ранг: {rank_name('developer')}",
+        f"💬 Сообщений: {msgs}",
+        f"⭐ Репутация: <b>{rep:+d}</b>",
+        f"🌟 Уровень: <b>{lvl}</b>  [{bar}]  {xp}/{next_xp} XP",
+    ]
+    bio = bio_db or bio_tg
+    if bio:
+        lines.append(f"\n📝 <i>{bio}</i>")
+    await message.answer("\n".join(lines), parse_mode="HTML", disable_web_page_preview=True)
 
