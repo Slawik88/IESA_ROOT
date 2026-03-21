@@ -49,17 +49,17 @@ async def handle_rep_plus(message: Message):
         if last:
             try:
                 last_dt = datetime.fromisoformat(last)
-                next_dt = last_dt + timedelta(hours=24)
+                next_dt = last_dt + timedelta(hours=2)
                 now = datetime.utcnow()
                 remaining = next_dt - now
                 if remaining.total_seconds() > 0:
                     hours = int(remaining.total_seconds() // 3600)
                     minutes = int((remaining.total_seconds() % 3600) // 60)
-                    await message.reply(f"⏳ Ты уже давал репутацию этому пользователю. Следующая через {hours}ч {minutes}м.")
+                    await message.reply(f"⏳ Уже давал репутацию этому пользователю. Следующая через {hours}ч {minutes}м.")
                     return
             except (ValueError, TypeError):
                 pass
-        await message.reply("⏳ Ты уже давал репутацию этому пользователю сегодня.")
+        await message.reply("⏳ Уже давал репутацию этому пользователю недавно. Повтори чуть позже.")
         return
 
     new_rep = await add_reputation_in_chat(message.from_user.id, target.id, message.chat.id, 1)
