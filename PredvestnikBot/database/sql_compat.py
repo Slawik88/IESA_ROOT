@@ -69,8 +69,9 @@ def _normalize_sql_for_postgres(sql: str) -> str | None:
 
 
 class _PgCursor:
-    def __init__(self, rows: list[Any] | None = None):
+    def __init__(self, rows: list[Any] | None = None, rowcount: int = 0):
         self._rows = rows or []
+        self.rowcount = rowcount
 
     async def fetchall(self):
         return self._rows
@@ -102,8 +103,14 @@ class _PgExecuteOp:
             rows = await self._conn._raw.fetch(transformed, *self._params)
             self._cursor = _PgCursor(list(rows))
         else:
-            await self._conn._raw.execute(transformed, *self._params)
-            self._cursor = _PgCursor([])
+            status = await self._conn._raw.execute(transformed, *self._params)
+            # asyncpg returns status strings like "DELETE 1", "UPDATE 3", "INSERT 0 1"
+            rowcount = 0
+            try:
+                rowcount = int(str(status).split()[-1])
+            except (ValueError, IndexError, AttributeError):
+                pass
+            self._cursor = _PgCursor([], rowcount=rowcount)
         return self._cursor
 
     def __await__(self):
