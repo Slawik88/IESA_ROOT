@@ -9,7 +9,7 @@ from aiogram.types import Message
 
 from config import BIO_MAX_LENGTH, REP_PLUS_TRIGGERS, TOP_LIMIT
 from database.db import (
-    add_reputation_in_chat, can_give_rep, get_rep_last_time,
+    add_mora, add_reputation_in_chat, can_give_rep, get_rep_last_time,
     get_top_by_xp_in_chat, get_top_reputation_in_chat, get_user,
     get_user_stats, set_bio_in_chat, level_for_xp, xp_for_level,
 )
@@ -69,6 +69,10 @@ async def handle_rep_plus(message: Message):
         parse_mode="HTML",
     )
 
+    # Мора: +2 получившему, +1 давшему
+    await add_mora(target.id, message.chat.id, 2)
+    await add_mora(message.from_user.id, message.chat.id, 1)
+
     # Quest progress ("rep" type)
     from database.db import get_todays_quest, quest_tick, mark_quest_rewarded, add_xp_in_chat
     quest = get_todays_quest()
@@ -79,12 +83,14 @@ async def handle_rep_plus(message: Message):
             message.from_user.id, message.chat.id, today, quest["type"], quest["goal"],
         )
         if just_done:
+            _mora_reward = quest.get("mora", 5)
             await add_xp_in_chat(message.from_user.id, message.chat.id, quest["xp"])
+            await add_mora(message.from_user.id, message.chat.id, _mora_reward)
             await mark_quest_rewarded(message.from_user.id, message.chat.id, today)
             try:
                 await message.answer(
                     f"🎉 {user_mention(message.from_user.id, message.from_user.full_name)} "
-                    f"выполнил ежедневное задание! <b>+{quest['xp']} XP</b>",
+                    f"выполнил ежедневное задание! <b>+{quest['xp']} XP</b>  <b>+{_mora_reward} Моры</b> 🪙",
                     parse_mode="HTML",
                 )
             except Exception:

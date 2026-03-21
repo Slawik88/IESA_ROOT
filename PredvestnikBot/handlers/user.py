@@ -6,8 +6,9 @@ import html
 
 from config import REPORT_NOTIFY_RANK
 from database.db import (
-    get_daily_top, get_marriage, get_staff_in_chat, get_top_by_messages_in_chat,
-    get_top_by_xp_in_chat, get_user, get_user_stats, get_weekly_top, set_bio_in_chat,
+    get_daily_top, get_marriage, get_prev_weekly_top, get_staff_in_chat,
+    get_top_by_messages_in_chat, get_top_by_xp_in_chat, get_user, get_user_stats,
+    get_weekly_top, get_yesterday_top, set_bio_in_chat,
 )
 from filters.bot_command import BotCommand
 from utils.helpers import resolve_target, user_mention
@@ -416,12 +417,15 @@ def _back_to_section_keyboard(parent_id: str, owner_id: int, lvl: int) -> Inline
 
 
 def _top_keyboard(active: str) -> InlineKeyboardMarkup:
-    periods = [("📅 День", "d"), ("📆 Неделя", "w"), ("🏆 Всё время", "a")]
-    buttons = []
-    for label, code in periods:
+    row1 = []
+    for label, code in [("📅 День", "d"), ("📆 Неделя", "w"), ("🏆 Всё время", "a")]:
         text = f"· {label} ·" if code == active else label
-        buttons.append(InlineKeyboardButton(text=text, callback_data=f"top:{code}"))
-    return InlineKeyboardMarkup(inline_keyboard=[buttons])
+        row1.append(InlineKeyboardButton(text=text, callback_data=f"top:{code}"))
+    row2 = []
+    for label, code in [("◀ Вчера", "pd"), ("◀ Прошлая нед.", "pw")]:
+        text = f"· {label} ·" if code == active else label
+        row2.append(InlineKeyboardButton(text=text, callback_data=f"top:{code}"))
+    return InlineKeyboardMarkup(inline_keyboard=[row1, row2])
 
 
 @router.message(BotCommand("помощь", "help", "команды", "справка"))
@@ -558,6 +562,14 @@ async def cb_top(callback: CallbackQuery):
     elif period == "w":
         top = await get_weekly_top(chat_id, 500)
         title = "📆 <b>Рейтинг активных за неделю:</b>"
+        count_field = "wc"
+    elif period == "pd":
+        top = await get_yesterday_top(chat_id, 500)
+        title = "📅 <b>Рейтинг активных за вчера:</b>"
+        count_field = "dc"
+    elif period == "pw":
+        top = await get_prev_weekly_top(chat_id, 500)
+        title = "📆 <b>Рейтинг активных за прошлую неделю:</b>"
         count_field = "wc"
     else:
         top = await get_top_by_messages_in_chat(chat_id, 500)

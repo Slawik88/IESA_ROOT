@@ -8,7 +8,7 @@ from aiogram.enums import ParseMode
 from aiogram.types import ChatPermissions
 from config import BOT_TOKEN
 from database.db import get_locked_chats, init_db, set_chat_setting
-from handlers import admin, auto_mod, dm_roles, extras, fun, helper, moderator, notes, owner, pets, quests, reputation, user
+from handlers import admin, auto_mod, dm_roles, economy, extras, fun, helper, moderator, notes, owner, pets, quests, reputation, user, weather
 from middlewares.message_counter import AutoModMiddleware
 
 logging.basicConfig(level=logging.INFO)
@@ -63,6 +63,8 @@ async def main():
     dp.include_router(fun.router)          # весёлые команды
     dp.include_router(quests.router)       # ежедневные задания
     dp.include_router(pets.router)         # система питомцев
+    dp.include_router(economy.router)      # экономика (Мора, балансы)
+    dp.include_router(weather.router)      # погода
     dp.include_router(user.router)
     dp.include_router(dm_roles.router)  # DM-онбординг ролей
     dp.include_router(extras.router)   # ← catch-all последним

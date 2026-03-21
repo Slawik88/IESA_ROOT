@@ -14,8 +14,8 @@ from config import (
     BLACKLIST_USE_MORPHOLOGY,
 )
 from database.db import (
-    add_xp_in_chat, apply_pending_import, apply_pending_marriages,
-    get_blacklist, get_chat_settings, get_filters, get_locks,
+    add_mora, add_xp_in_chat, apply_pending_import, apply_pending_marriages,
+    check_daily_mora, get_blacklist, get_chat_settings, get_filters, get_locks,
     get_todays_quest, get_user_stats, increment_cleanup_count,
     increment_message_count_chat, is_group_allowed,
     mark_quest_rewarded, quest_tick,
@@ -54,6 +54,9 @@ _CHECKED_TTL = 3600.0  # перепроверять раз в час
 
 # Кулдаун XP: (user_id, chat_id) -> timestamp последнего начисления
 _xp_cooldown: dict[tuple[int, int], float] = {}
+
+# Кэш «первое сообщение за день» для Моры: (user_id, chat_id) -> iso-date
+_mora_daily_checked: dict[tuple[int, int], str] = {}
 
 # Трекер юзеров, у которых pending-импорт уже проверен/применён
 _pending_resolved: set[tuple[int, int]] = set()   # (user_id, chat_id)
@@ -120,8 +123,32 @@ class AutoModMiddleware(BaseMiddleware):
                     await apply_pending_import(user.username, user.id, event.chat.id)
                     await apply_pending_marriages(user.username, user.id, event.chat.id)
 
-            await increment_message_count_chat(user.id, event.chat.id)
+            msg_count = await increment_message_count_chat(user.id, event.chat.id)
             await increment_cleanup_count(event.chat.id, user.id)
+
+            # ── Мора: первое сообщение дня (+3) и 7-дневный стрик (+50) ──
+            from datetime import date as _mora_date
+            _today_str = _mora_date.today().isoformat()
+            _mora_key = (user.id, event.chat.id)
+            if _mora_daily_checked.get(_mora_key) != _today_str:
+                _mora_daily_checked[_mora_key] = _today_str
+                is_daily, streak, streak_bonus = await check_daily_mora(user.id, event.chat.id)
+                if is_daily:
+                    await add_mora(user.id, event.chat.id, 3)
+                    if streak_bonus:
+                        await add_mora(user.id, event.chat.id, 50)
+                        try:
+                            await event.answer(
+                                f"🔥 {user_mention(user.id, user.full_name)} — 7-дневный стрик! "
+                                f"<b>+50 Моры</b> 🪙",
+                                parse_mode="HTML",
+                            )
+                        except Exception:
+                            pass
+
+            # ── Мора: каждые 40 сообщений +5 ─────────────────────────────
+            if msg_count % 40 == 0:
+                await add_mora(user.id, event.chat.id, 5)
 
             # Quest progress ("messages" type)
             quest = get_todays_quest()
@@ -132,12 +159,14 @@ class AutoModMiddleware(BaseMiddleware):
                     user.id, event.chat.id, _today, quest["type"], quest["goal"],
                 )
                 if just_done:
+                    _mora_reward = quest.get("mora", 5)
                     await add_xp_in_chat(user.id, event.chat.id, quest["xp"])
+                    await add_mora(user.id, event.chat.id, _mora_reward)
                     await mark_quest_rewarded(user.id, event.chat.id, _today)
                     try:
                         await event.answer(
                             f"🎉 {user_mention(user.id, user.full_name)} выполнил ежедневное задание! "
-                            f"<b>+{quest['xp']} XP</b>",
+                            f"<b>+{quest['xp']} XP</b>  <b>+{_mora_reward} Моры</b> 🪙",
                             parse_mode="HTML",
                         )
                     except Exception:
@@ -155,15 +184,17 @@ class AutoModMiddleware(BaseMiddleware):
             if now - _xp_cooldown.get(xp_key, 0) >= XP_COOLDOWN:
                 _xp_cooldown[xp_key] = now
                 new_xp, new_level, leveled_up = await add_xp_in_chat(user.id, event.chat.id, XP_PER_MESSAGE)
-                if leveled_up and LEVEL_UP_ANNOUNCE:
-                    try:
-                        await event.answer(
-                            f"🌟 {user_mention(user.id, user.full_name)} достиг <b>{new_level} уровня</b>! "
-                            f"(XP: {new_xp})",
-                            parse_mode="HTML",
-                        )
-                    except Exception:
-                        pass
+                if leveled_up:
+                    await add_mora(user.id, event.chat.id, 5)
+                    if LEVEL_UP_ANNOUNCE:
+                        try:
+                            await event.answer(
+                                f"🌟 {user_mention(user.id, user.full_name)} достиг <b>{new_level} уровня</b>! "
+                                f"(XP: {new_xp}) <b>+5 Моры</b> 🪙",
+                                parse_mode="HTML",
+                            )
+                        except Exception:
+                            pass
 
         # 3. Проверка статуса выполняется без авто-повышений (все ранги выдаются вручную)
         if in_group:

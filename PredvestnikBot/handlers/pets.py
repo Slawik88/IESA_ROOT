@@ -32,7 +32,7 @@ from database.db import (
     rename_pet,
 )
 from filters.bot_command import BotCommand
-from utils.helpers import user_mention
+from utils.helpers import format_duration, user_mention
 
 router = Router()
 
@@ -143,12 +143,12 @@ async def _show_pet(message: Message, pet: dict, uid: int):
     emoji   = _PET_EMOJI.get(ptype, "🐾")
     kind    = _PET_NAME.get(ptype, "Питомец")
     name    = html.escape(pet["name"]) if pet.get("name") else f"<i>без имени</i>"
-    age_days = (datetime.utcnow() - datetime.fromisoformat(pet["adopted_at"])).days
+    age     = format_duration(pet["adopted_at"])
 
     await message.answer(
         f"{emoji} <b>Питомец: {name}</b>\n\n"
         f"🏷 Вид: {kind}\n"
-        f"🎂 Возраст: <b>{age_days} дн.</b>\n\n"
+        f"🎂 Возраст: <b>{age}</b>\n\n"
         f"Переименовать: <code>бот назвать питомца Мурзик</code>",
         parse_mode="HTML",
     )

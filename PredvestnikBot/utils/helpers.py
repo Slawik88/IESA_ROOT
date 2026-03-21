@@ -59,6 +59,29 @@ def user_mention(user_id: int, full_name: str) -> str:
     return f'<a href="tg://user?id={user_id}">{html.escape(full_name)}</a>'
 
 
+def format_duration(iso_str: str) -> str:
+    """Форматирует ISO-datetime строку как 'X дн. Y ч. Z мин.' относительно текущего UTC времени."""
+    from datetime import datetime, timezone
+    try:
+        dt = datetime.fromisoformat(iso_str)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        total_seconds = max(0, int((datetime.now(timezone.utc) - dt).total_seconds()))
+        days    = total_seconds // 86400
+        hours   = (total_seconds % 86400) // 3600
+        minutes = (total_seconds % 3600) // 60
+        parts = []
+        if days:
+            parts.append(f"{days} дн.")
+        if hours:
+            parts.append(f"{hours} ч.")
+        if minutes or not parts:
+            parts.append(f"{minutes} мин.")
+        return " ".join(parts)
+    except Exception:
+        return "?"
+
+
 async def notify_admins(bot, text: str, source_chat_id: int | None = None):
     """Send a system notification to all admin groups.
     Falls back to individual staff DMs if no admin groups are configured.
