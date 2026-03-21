@@ -234,6 +234,10 @@ async def init_db():
             "social_youtube    TEXT    DEFAULT NULL",
             "social_instagram  TEXT    DEFAULT NULL",
             "cleanup_locked    INTEGER DEFAULT 0",
+            "inactivity_warn_enabled INTEGER DEFAULT 0",
+            "inactivity_warn_days    INTEGER DEFAULT 5",
+            "next_cleanup_at         TEXT    DEFAULT NULL",
+            "cleanup_reminder_sent   INTEGER DEFAULT 0",
         ]:
             try:
                 await db.execute(
@@ -244,9 +248,10 @@ async def init_db():
 
         # Миграция: добавить message_count в user_stats (для обновлений БД)
         for col_def in [
-            "message_count  INTEGER DEFAULT 0",
-            "first_active   TEXT    DEFAULT NULL",
-            "last_active    TEXT    DEFAULT NULL",
+            "message_count       INTEGER DEFAULT 0",
+            "first_active        TEXT    DEFAULT NULL",
+            "last_active         TEXT    DEFAULT NULL",
+            "inactivity_warned_at TEXT   DEFAULT NULL",
         ]:
             try:
                 await db.execute(f"ALTER TABLE user_stats ADD COLUMN {col_def}")
@@ -858,6 +863,8 @@ _ALLOWED_CHAT_SETTING_KEYS = {
     "cleanup_threshold", "blacklist_enabled", "welcome_call",
     "social_tiktok", "social_youtube", "social_instagram",
     "cleanup_locked",
+    "inactivity_warn_enabled", "inactivity_warn_days",
+    "next_cleanup_at", "cleanup_reminder_sent",
 }
 _ALLOWED_LOCK_TYPES = {"links", "stickers", "gifs", "forwards", "voice", "video", "photo", "audio"}
 
@@ -1021,8 +1028,8 @@ async def set_lock(chat_id: int, lock_type: str, value: int):
 # ─── Reputation ───────────────────────────────────────────────────────────────
 
 async def can_give_rep(from_uid: int, to_uid: int, chat_id: int) -> bool:
-    """True если from_uid ещё не давал репутацию to_uid сегодня в этом чате."""
-    cutoff = (datetime.utcnow() - timedelta(hours=24)).isoformat()
+    """True если from_uid ещё не давал репутацию to_uid в течение 2 часов в этом чате."""
+    cutoff = (datetime.utcnow() - timedelta(hours=2)).isoformat()
     async with aiosqlite.connect(DATABASE_PATH) as db:
         async with db.execute(
             "SELECT COUNT(*) FROM rep_log WHERE from_uid=? AND to_uid=? AND chat_id=? AND given_at>?",
