@@ -3,9 +3,10 @@ from aiogram.types import ChatPermissions, InlineKeyboardButton, InlineKeyboardM
 
 from config import DEVELOPER_ID
 from database.db import (
-    get_activity_report, get_chat_settings, get_chat_stats_for_chat,
+    get_activity_report, get_chat_banlist_users, get_chat_settings, get_chat_stats_for_chat,
     get_rest_info_map, get_rest_users, get_staff_in_chat, get_user_stats,
     get_voluntary_leaves,
+    add_user_to_banlist, remove_user_from_banlist,
     set_chat_setting, set_rank_in_chat,
     add_rest_user, remove_rest_user,
 )
@@ -598,5 +599,79 @@ async def cmd_leave_log(message: Message, cmd_args: str):
             f"  • <a href='tg://user?id={r[\"user_id\"]}'>{safe_name}</a>{uname} — {left_at}"
         )
     lines.append(f"\n<i>Используй «бот ушли N» для другого числа записей.</i>")
+
+    await message.answer("\n".join(lines), parse_mode="HTML")
+
+
+# ─── ЧС по Telegram ID пользователя ──────────────────────────────────────────
+
+@router.message(BotCommand("юзбан", "usrban", "банюзер"), RankFilter("moderator"))
+async def cmd_user_ban(message: Message, cmd_args: str):
+    """Добавить Telegram ID в чёрный список чата."""
+    import html as _html
+    raw = (cmd_args or "").strip()
+    # Поддержка: числовой ID или @username (если есть в БД)
+    if raw.lstrip("-").isdigit():
+        user_id = int(raw)
+        display = str(user_id)
+    else:
+        from utils.helpers import resolve_target
+        uid, name, _ = await resolve_target(message, raw)
+        if not uid:
+            await message.answer(
+                "❌ Укажи числовой ID или @username.\n"
+                "Пример: <code>бот юзбан 123456789</code>",
+                parse_mode="HTML",
+            )
+            return
+        user_id = uid
+        display = f"{name} (ID: {user_id})"
+
+    added = await add_user_to_banlist(message.chat.id, user_id, added_by=message.from_user.id)
+    if added:
+        await message.answer(
+            f"🚫 <b>ID {_html.escape(str(user_id))} добавлен в ЧС чата.</b>\n"
+            f"При попытке вернуться бот заблокирует автоматически.",
+            parse_mode="HTML",
+        )
+    else:
+        await message.answer(f"⚠️ ID {user_id} уже в чёрном списке.", parse_mode="HTML")
+
+
+@router.message(BotCommand("юзразбан", "usrunban", "разбанюзер"), RankFilter("moderator"))
+async def cmd_user_unban(message: Message, cmd_args: str):
+    """Убрать Telegram ID из чёрного списка чата."""
+    raw = (cmd_args or "").strip()
+    if not raw.lstrip("-").isdigit():
+        await message.answer(
+            "❌ Укажи числовой ID.\n"
+            "Пример: <code>бот юзразбан 123456789</code>",
+            parse_mode="HTML",
+        )
+        return
+    user_id = int(raw)
+    removed = await remove_user_from_banlist(message.chat.id, user_id)
+    if removed:
+        await message.answer(f"✅ ID {user_id} убран из ЧС чата.", parse_mode="HTML")
+    else:
+        await message.answer(f"❌ ID {user_id} не найден в ЧС.", parse_mode="HTML")
+
+
+@router.message(BotCommand("юзбаны", "usrbans", "чспользователей"), RankFilter("moderator"))
+async def cmd_user_banlist(message: Message, cmd_args: str):
+    """Показать чёрный список пользователей по ID для этого чата."""
+    import html as _html
+    rows = await get_chat_banlist_users(message.chat.id, limit=50)
+    if not rows:
+        await message.answer("📋 Чёрный список по ID пуст.")
+        return
+
+    lines = [f"🚫 <b>ЧС по ID ({len(rows)} чел.):</b>\n"]
+    for r in rows:
+        name = _html.escape(r.get("full_name") or "")
+        uname = f" @{_html.escape(r['username'])}" if r.get("username") else ""
+        added = (r.get("added_at") or "")[:10]
+        display = f"{name}{uname}".strip() or "—"
+        lines.append(f"  • <code>{r['user_id']}</code> {display} — {added}")
 
     await message.answer("\n".join(lines), parse_mode="HTML")

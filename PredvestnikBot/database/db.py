@@ -312,6 +312,28 @@ async def init_db():
             )
         """)
 
+        # Чёрный список пользователей по Telegram ID (per-chat)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS user_banlist (
+                id        INTEGER PRIMARY KEY AUTOINCREMENT,
+                chat_id   INTEGER NOT NULL,
+                user_id   INTEGER NOT NULL,
+                added_by  INTEGER DEFAULT 0,
+                reason    TEXT    DEFAULT '',
+                added_at  TEXT    NOT NULL,
+                UNIQUE(chat_id, user_id)
+            )
+        """)
+
+        # Ожидающие назначения ролей (до вступления в основной чат)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS pending_roles (
+                user_id     INTEGER PRIMARY KEY,
+                role_name   TEXT    NOT NULL,
+                reserved_at TEXT    NOT NULL
+            )
+        """)
+
         await db.commit()
 
     # PostgreSQL: widen all Telegram ID columns from int32 (INTEGER) → int64 (BIGINT).
@@ -353,6 +375,10 @@ async def init_db():
             ("user_roles",        "user_id"),
             ("leave_log",         "chat_id"),
             ("leave_log",         "user_id"),
+            ("user_banlist",      "chat_id"),
+            ("user_banlist",      "user_id"),
+            ("user_banlist",      "added_by"),
+            ("pending_roles",     "user_id"),
         ]
         for _tbl, _col in _bigint_migrations:
             try:
@@ -1938,4 +1964,115 @@ async def get_voluntary_leaves(chat_id: int, limit: int = 20) -> list[dict]:
             (chat_id, limit),
         ) as c:
             return [dict(r) for r in await c.fetchall()]
+
+
+# ─── User Banlist (ID-based, per-chat) ────────────────────────────────────────
+
+async def add_user_to_banlist(
+    chat_id: int, user_id: int, added_by: int = 0, reason: str = ""
+) -> bool:
+    """Add a user to the chat banlist. Returns False if already banned."""
+    now_iso = datetime.utcnow().isoformat(timespec="seconds")
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        try:
+            await db.execute(
+                "INSERT INTO user_banlist (chat_id, user_id, added_by, reason, added_at)"
+                " VALUES (?, ?, ?, ?, ?)",
+                (chat_id, user_id, added_by, reason, now_iso),
+            )
+            await db.commit()
+            return True
+        except Exception:
+            return False
+
+
+async def remove_user_from_banlist(chat_id: int, user_id: int) -> bool:
+    """Remove a user from the chat banlist. Returns True if removed."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        result = await db.execute(
+            "DELETE FROM user_banlist WHERE chat_id = ? AND user_id = ?",
+            (chat_id, user_id),
+        )
+        await db.commit()
+        return result.rowcount > 0
+
+
+async def is_user_in_banlist(chat_id: int, user_id: int) -> bool:
+    """Check if a user is in the chat banlist."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        async with db.execute(
+            "SELECT 1 FROM user_banlist WHERE chat_id = ? AND user_id = ? LIMIT 1",
+            (chat_id, user_id),
+        ) as c:
+            return (await c.fetchone()) is not None
+
+
+async def get_chat_banlist_users(chat_id: int, limit: int = 50) -> list[dict]:
+    """Return user banlist for a chat."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            """SELECT ub.user_id, ub.added_by, ub.reason, ub.added_at,
+                      u.full_name, u.username
+               FROM user_banlist ub
+               LEFT JOIN users u ON u.user_id = ub.user_id
+               WHERE ub.chat_id = ?
+               ORDER BY ub.added_at DESC LIMIT ?""",
+            (chat_id, limit),
+        ) as c:
+            return [dict(r) for r in await c.fetchall()]
+
+
+async def get_senior_users_in_chat(chat_id: int) -> list[dict]:
+    """Return users with rank co_owner, owner, or developer in a chat."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            """SELECT us.user_id, u.full_name, u.username
+               FROM user_stats us
+               JOIN users u ON u.user_id = us.user_id
+               WHERE us.chat_id = ? AND us.rank IN ('co_owner', 'owner', 'developer')
+               ORDER BY CASE us.rank
+                   WHEN 'developer' THEN 3
+                   WHEN 'owner'     THEN 2
+                   WHEN 'co_owner'  THEN 1
+               END DESC""",
+            (chat_id,),
+        ) as c:
+            return [dict(r) for r in await c.fetchall()]
+
+
+# ─── Pending role assignments (waiting for main chat join) ────────────────────
+
+async def set_pending_role(user_id: int, role_name: str) -> None:
+    """Reserve a role in DM; it becomes active once the user joins the main chat."""
+    now_iso = datetime.utcnow().isoformat(timespec="seconds")
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        await db.execute(
+            """INSERT INTO pending_roles (user_id, role_name, reserved_at)
+               VALUES (?, ?, ?)
+               ON CONFLICT(user_id) DO UPDATE SET
+                   role_name   = excluded.role_name,
+                   reserved_at = excluded.reserved_at""",
+            (user_id, role_name, now_iso),
+        )
+        await db.commit()
+
+
+async def get_pending_role(user_id: int) -> str | None:
+    """Return the pending role name for a user, or None."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        async with db.execute(
+            "SELECT role_name FROM pending_roles WHERE user_id = ?",
+            (user_id,),
+        ) as c:
+            row = await c.fetchone()
+        return row[0] if row else None
+
+
+async def clear_pending_role(user_id: int) -> None:
+    """Remove any pending role for a user."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        await db.execute("DELETE FROM pending_roles WHERE user_id = ?", (user_id,))
+        await db.commit()
 

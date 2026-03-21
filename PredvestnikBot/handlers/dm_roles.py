@@ -23,11 +23,14 @@ from aiogram.types import (
 
 from database.db import (
     assign_community_role,
+    clear_pending_role,
     get_channel_type,
     get_chat_settings,
     get_community_roles,
+    get_pending_role,
     get_user_community_roles,
     revoke_community_role,
+    set_pending_role,
 )
 
 router = Router()
@@ -55,10 +58,15 @@ async def _get_rules_text() -> str:
 
 
 async def _build_role_keyboard(user_id: int) -> InlineKeyboardMarkup:
-    """Строить клавиатуру выбора роли с актуальным статусом (свободна / занята / моя)."""
+    """Строить клавиатуру выбора роли с актуальным статусом.
+    ✅ моя  |  🕐 зарезервирована (ждёт чата)  |  🔴 занята  |  🟢 свободная
+    """
     roles = await get_community_roles()
     user_roles = await get_user_community_roles(user_id)
+    user_pending = await get_pending_role(user_id)  # ожидающая роль или None
+
     user_role_names = {r["name"].lower() for r in user_roles}
+    pending_lower = user_pending.lower() if user_pending else None
 
     buttons: list[list[InlineKeyboardButton]] = []
     for r in roles:
@@ -66,11 +74,15 @@ async def _build_role_keyboard(user_id: int) -> InlineKeyboardMarkup:
         name = r["name"]
         display = f"{emoji} {name}".strip()
         is_mine = name.lower() in user_role_names
+        is_pending_mine = pending_lower == name.lower()
         is_taken = r.get("holder_count", 0) > 0
 
         if is_mine:
             btn_text = f"✅ {display}"
             cb = f"dr:info:{name[:60]}"
+        elif is_pending_mine:
+            btn_text = f"🕐 {display}"
+            cb = f"dr:pending:{name[:60]}"
         elif is_taken:
             btn_text = f"🔴 {display}"
             cb = f"dr:taken:{name[:60]}"
@@ -89,11 +101,12 @@ async def _build_role_keyboard(user_id: int) -> InlineKeyboardMarkup:
 def _roles_caption(first_name: str) -> str:
     return (
         f"🎭 <b>Выбор роли, {html.escape(first_name)}</b>\n\n"
-        "🟢 — свободная роль, нажми чтобы взять\n"
+        "🟢 — свободная роль, нажми чтобы зарезервировать\n"
+        "🕐 — зарезервирована тобой, зайди в основной чат\n"
         "🔴 — занята другим участником\n"
         "✅ — твоя текущая роль\n\n"
         "<i>Каждая роль принадлежит только одному человеку.\n"
-        "Нажми «Обновить список» чтобы увидеть актуальный статус.</i>"
+        "Роль активируется автоматически после вступления в основной чат.</i>"
     )
 
 
@@ -189,7 +202,17 @@ async def cb_role_taken(callback: CallbackQuery) -> None:
 @router.callback_query(F.data.startswith("dr:info:"))
 async def cb_role_mine(callback: CallbackQuery) -> None:
     role_name = callback.data.split(":", 2)[2]
-    await callback.answer(f"✅ «{role_name}» — это твоя роль.", show_alert=True)
+    await callback.answer(f"✅ «{role_name}» — это твоя активная роль.", show_alert=True)
+
+
+@router.callback_query(F.data.startswith("dr:pending:"))
+async def cb_role_pending(callback: CallbackQuery) -> None:
+    role_name = callback.data.split(":", 2)[2]
+    await callback.answer(
+        f"⏳ Роль «{role_name}» зарезервирована!\n"
+        "Зайди в основной чат — она активируется автоматически.",
+        show_alert=True,
+    )
 
 
 @router.callback_query(F.data.startswith("dr:pick:"))
@@ -242,56 +265,95 @@ async def cb_role_confirm(callback: CallbackQuery, bot: Bot) -> None:
 
 
 async def _do_assign_role(callback: CallbackQuery, bot: Bot, role_name: str) -> None:
-    """Назначить роль с блокировкой от гонки условий."""
+    """Назначить или зарезервировать роль.
+
+    Если основной чат настроен и пользователь ещё не в нём — роль становится
+    «ожидающей» (pending) и активируется автоматически при вступлении в чат.
+    Если пользователь уже в основном чате — прямое назначение.
+    Если основного чата нет — всегда прямое назначение.
+    """
     user = callback.from_user
-    lock = _get_role_lock(role_name)
-
-    async with lock:
-        result = await assign_community_role(user.id, role_name)
-
     first_name = user.first_name or str(user.id)
 
-    if result == "not_found":
-        await callback.answer("❌ Роль не найдена — список мог измениться.", show_alert=True)
-        kb = await _build_role_keyboard(user.id)
+    # Сбросить старую pending-запись (если есть) перед новым выбором
+    await clear_pending_role(user.id)
+
+    main_chat_id = await get_channel_type("main")
+
+    # Проверить, нахожится ли пользователь уже в основном чате
+    already_in_chat = False
+    if main_chat_id:
         try:
-            await callback.message.edit_text(_roles_caption(first_name), reply_markup=kb)
+            cm = await bot.get_chat_member(main_chat_id, user.id)
+            if cm.status in ("member", "administrator", "creator", "restricted"):
+                already_in_chat = True
         except Exception:
             pass
-        return
 
-    if result == "taken":
-        # Гонка условий — роль взяли пока ты выбирал
-        await callback.answer(
-            f"⚡ Роль «{role_name}» только что заняли! Выбери другую.",
-            show_alert=True,
-        )
-        kb = await _build_role_keyboard(user.id)
+    # ─── Прямое назначение (в чате или основного чата нет) ───────────────
+    if not main_chat_id or already_in_chat:
+        lock = _get_role_lock(role_name)
+        async with lock:
+            result = await assign_community_role(user.id, role_name)
+
+        if result == "not_found":
+            await callback.answer("❌ Роль не найдена — список мог измениться.", show_alert=True)
+            kb = await _build_role_keyboard(user.id)
+            try:
+                await callback.message.edit_text(_roles_caption(first_name), reply_markup=kb)
+            except Exception:
+                pass
+            return
+
+        if result == "taken":
+            await callback.answer(
+                f"⚡ Роль «{role_name}» только что заняли! Выбери другую.",
+                show_alert=True,
+            )
+            kb = await _build_role_keyboard(user.id)
+            try:
+                await callback.message.edit_text(_roles_caption(first_name), reply_markup=kb)
+            except Exception:
+                pass
+            return
+
+        # Успешно назначено
+        safe_role = html.escape(role_name)
+        main_btn = await _main_chat_button(bot)
+        rows: list[list[InlineKeyboardButton]] = []
+        if main_btn:
+            rows.append(main_btn)
+        rows.append([InlineKeyboardButton(text="🔄 Сменить роль", callback_data="dr:list")])
+        kb = InlineKeyboardMarkup(inline_keyboard=rows)
         try:
-            await callback.message.edit_text(_roles_caption(first_name), reply_markup=kb)
+            await callback.message.edit_text(
+                f"✅ <b>Роль «{safe_role}» активна!</b>\n\n"
+                f"Добро пожаловать в сообщество 🎉",
+                reply_markup=kb,
+            )
         except Exception:
             pass
+        await _try_set_custom_title(bot, user.id, role_name)
+        await callback.answer(f"✅ Роль «{role_name}» активирована!")
         return
 
-    # Успешно назначено (result == 'ok' or 'already')
+    # ─── Ожидающее назначение (пользователь ещё не в основном чате) ──────
+    await set_pending_role(user.id, role_name)
     safe_role = html.escape(role_name)
     main_btn = await _main_chat_button(bot)
-    rows: list[list[InlineKeyboardButton]] = []
+    rows_p: list[list[InlineKeyboardButton]] = []
     if main_btn:
-        rows.append(main_btn)
-    rows.append([InlineKeyboardButton(text="🔄 Сменить роль", callback_data="dr:list")])
-    kb = InlineKeyboardMarkup(inline_keyboard=rows)
-
+        rows_p.append(main_btn)
+    rows_p.append([InlineKeyboardButton(text="🔄 Выбрать другую роль", callback_data="dr:list")])
+    kb_p = InlineKeyboardMarkup(inline_keyboard=rows_p)
     try:
         await callback.message.edit_text(
-            f"✅ <b>Ты выбрал роль: {safe_role}!</b>\n\n"
-            f"Добро пожаловать в сообщество 🎉\n\n"
-            f"<i>Чтобы сменить роль — нажми кнопку ниже.</i>",
-            reply_markup=kb,
+            f"⏳ <b>Роль «{safe_role}» зарезервирована!</b>\n\n"
+            "Зайди в основной чат — я автоматически активирую её для тебя.\n\n"
+            "<i>Пока не зайдёшь в чат, роль видна другим как свободная.\n"
+            "Первый вступивший в чат получает её.</i>",
+            reply_markup=kb_p,
         )
     except Exception:
         pass
-
-    # Попробовать установить роль как Telegram custom title (если пользователь — админ чата)
-    await _try_set_custom_title(bot, user.id, role_name)
-    await callback.answer(f"✅ Роль «{role_name}» выбрана!")
+    await callback.answer(f"⏳ Роль «{role_name}» зарезервирована — зайди в чат!")
