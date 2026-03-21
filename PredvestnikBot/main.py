@@ -8,7 +8,7 @@ from aiogram.enums import ParseMode
 from aiogram.types import ChatPermissions
 from config import BOT_TOKEN
 from database.db import get_locked_chats, init_db, set_chat_setting
-from handlers import admin, auto_mod, dm_roles, extras, fun, helper, moderator, notes, owner, quests, reputation, user
+from handlers import admin, auto_mod, dm_roles, extras, fun, helper, moderator, notes, owner, pets, quests, reputation, user
 from middlewares.message_counter import AutoModMiddleware
 
 logging.basicConfig(level=logging.INFO)
@@ -62,6 +62,7 @@ async def main():
     dp.include_router(reputation.router)   # репутация/XP/bio — до catch-all
     dp.include_router(fun.router)          # весёлые команды
     dp.include_router(quests.router)       # ежедневные задания
+    dp.include_router(pets.router)         # система питомцев
     dp.include_router(user.router)
     dp.include_router(dm_roles.router)  # DM-онбординг ролей
     dp.include_router(extras.router)   # ← catch-all последним
@@ -69,6 +70,10 @@ async def main():
     from config import BOT_STARTED_MSG, BOT_STOPPED_MSG
     print("✅ Бот запущен! Пиши 'бот помощь' в чат.")
     await notify_developer(bot, BOT_STARTED_MSG)
+
+    # Фоновый планировщик (авто-варн, напоминания о чистке)
+    from utils.scheduler import run_scheduler
+    asyncio.create_task(run_scheduler(bot))
 
     try:
         await dp.start_polling(bot, drop_pending_updates=True)
