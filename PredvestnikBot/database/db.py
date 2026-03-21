@@ -339,6 +339,18 @@ async def init_db():
             )
         """)
 
+        # ─── Питомцы (разблокируются через брак) ───────────────────────────
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS pets (
+                user_id    INTEGER NOT NULL,
+                chat_id    INTEGER NOT NULL,
+                pet_type   TEXT    NOT NULL,
+                name       TEXT    DEFAULT NULL,
+                adopted_at TEXT    NOT NULL,
+                PRIMARY KEY (user_id, chat_id)
+            )
+        """)
+
         await db.commit()
 
     # PostgreSQL: widen all Telegram ID columns from int32 (INTEGER) → int64 (BIGINT).
@@ -384,6 +396,8 @@ async def init_db():
             ("user_banlist",      "user_id"),
             ("user_banlist",      "added_by"),
             ("pending_roles",     "user_id"),
+            ("pets",              "user_id"),
+            ("pets",              "chat_id"),
         ]
         for _tbl, _col in _bigint_migrations:
             try:
@@ -2082,4 +2096,123 @@ async def clear_pending_role(user_id: int) -> None:
     async with aiosqlite.connect(DATABASE_PATH) as db:
         await db.execute("DELETE FROM pending_roles WHERE user_id = ?", (user_id,))
         await db.commit()
+
+
+# ─── Авто-варн за неактив ─────────────────────────────────────────────────────
+
+async def get_chats_with_inactivity_warn() -> list[dict]:
+    """Return all chats where inactivity_warn_enabled=1."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT chat_id, inactivity_warn_days FROM chat_settings WHERE inactivity_warn_enabled = 1"
+        ) as c:
+            return [dict(r) for r in await c.fetchall()]
+
+
+async def get_inactive_users_for_warn(chat_id: int, cutoff_iso: str) -> list[dict]:
+    """
+    Возвращает пользователей в чате, которые:
+    - не стафф (ранг user/vip)
+    - не забанены
+    - неактивны дольше cutoff
+    - ещё не получали авто-варн в текущем периоде неактивности
+    """
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            """
+            SELECT us.user_id,
+                   COALESCE(u.full_name, CAST(us.user_id AS TEXT)) AS full_name,
+                   u.username,
+                   COALESCE(us.last_active, us.first_active) AS last_seen,
+                   us.inactivity_warned_at
+            FROM user_stats us
+            LEFT JOIN users u ON u.user_id = us.user_id
+            WHERE us.chat_id = ?
+              AND us.is_banned = 0
+              AND us.rank IN ('user', 'vip')
+              AND COALESCE(us.last_active, us.first_active) IS NOT NULL
+              AND COALESCE(us.last_active, us.first_active) < ?
+              AND (
+                  us.inactivity_warned_at IS NULL
+                  OR COALESCE(us.last_active, '') > us.inactivity_warned_at
+              )
+            """,
+            (chat_id, cutoff_iso),
+        ) as c:
+            return [dict(r) for r in await c.fetchall()]
+
+
+async def set_inactivity_warned(user_id: int, chat_id: int, when_iso: str) -> None:
+    """Записать время авто-варна за неактив."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        await db.execute(
+            """INSERT INTO user_stats (user_id, chat_id, inactivity_warned_at)
+               VALUES (?, ?, ?)
+               ON CONFLICT(user_id, chat_id)
+               DO UPDATE SET inactivity_warned_at = excluded.inactivity_warned_at""",
+            (user_id, chat_id, when_iso),
+        )
+        await db.commit()
+
+
+# ─── Запланированная чистка ───────────────────────────────────────────────────
+
+async def get_chats_with_scheduled_cleanup() -> list[dict]:
+    """Все чаты у которых задана дата следующей чистки."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            """SELECT chat_id, next_cleanup_at, cleanup_reminder_sent
+               FROM chat_settings
+               WHERE next_cleanup_at IS NOT NULL"""
+        ) as c:
+            return [dict(r) for r in await c.fetchall()]
+
+
+async def set_cleanup_reminder_sent(chat_id: int, sent: int) -> None:
+    await set_chat_setting(chat_id, "cleanup_reminder_sent", sent)
+
+
+# ─── Питомцы ──────────────────────────────────────────────────────────────────
+
+async def get_pet(user_id: int, chat_id: int) -> dict | None:
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT * FROM pets WHERE user_id = ? AND chat_id = ?",
+            (user_id, chat_id),
+        ) as c:
+            row = await c.fetchone()
+            return dict(row) if row else None
+
+
+async def adopt_pet(user_id: int, partner_id: int, chat_id: int, pet_type: str) -> None:
+    """Создаёт питомца для обоих партнёров."""
+    now = datetime.utcnow().isoformat()
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        for uid in (user_id, partner_id):
+            await db.execute(
+                """INSERT INTO pets (user_id, chat_id, pet_type, adopted_at)
+                   VALUES (?, ?, ?, ?)
+                   ON CONFLICT(user_id, chat_id) DO NOTHING""",
+                (uid, chat_id, pet_type, now),
+            )
+        await db.commit()
+
+
+async def rename_pet(user_id: int, chat_id: int, name: str) -> bool:
+    """Переименовать питомца. Возвращает True если питомец найден."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        await db.execute(
+            "UPDATE pets SET name = ? WHERE user_id = ? AND chat_id = ?",
+            (name, user_id, chat_id),
+        )
+        await db.commit()
+        async with db.execute(
+            "SELECT user_id FROM pets WHERE user_id = ? AND chat_id = ?",
+            (user_id, chat_id),
+        ) as c:
+            return await c.fetchone() is not None
 

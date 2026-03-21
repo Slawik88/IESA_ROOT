@@ -9,7 +9,7 @@ from database.db import (
     add_user_to_banlist, remove_user_from_banlist,
     set_chat_setting, set_rank_in_chat,
     add_rest_user, remove_rest_user,
-    upsert_user,
+    set_cleanup_reminder_sent, upsert_user,
 )
 from filters.bot_command import BotCommand
 from filters.rank_filter import RankFilter
@@ -450,6 +450,140 @@ async def cmd_cleanup(message: Message, bot: Bot, cmd_args: str):
         if chunk:
             await message.answer("\n".join(chunk), parse_mode="HTML")
 
+@router.message(BotCommand("чистка дата", "cleanup date", "cleanup_date"), RankFilter("admin_junior"))
+async def cmd_cleanup_date(message: Message, cmd_args: str):
+    """
+    бот чистка дата                   — показать запланированную дату
+    бот чистка дата ДД.ММ.ГГГГ ЧЧ:ММ  — установить дату чистки
+    бот чистка дата сбросить             — убрать запланирование
+    """
+    if message.chat.type == "private":
+        await message.answer("❌ Команда работает только в чате.")
+        return
+
+    chat_id = message.chat.id
+    arg = (cmd_args or "").strip().lower()
+
+    if not arg:
+        settings = await get_chat_settings(chat_id)
+        sched = settings["next_cleanup_at"] if settings else None
+        if sched:
+            from datetime import datetime as _dt
+            try:
+                dt = _dt.fromisoformat(sched)
+                fmt = dt.strftime("%d.%m.%Y %H:%M UTC")
+            except Exception:
+                fmt = sched
+            await message.answer(
+                f"📅 Запланированная чистка: <b>{fmt}</b>\n"
+                f"Изменить: <code>бот чистка дата ДД.ММ.ГГГГ ЧЧ:ММ</code>\n"
+                f"Сбросить: <code>бот чистка дата сбросить</code>",
+                parse_mode="HTML",
+            )
+        else:
+            await message.answer(
+                "📅 Дата чистки не установлена.\n"
+                "Установить: <code>бот чистка дата ДД.ММ.ГГГГ ЧЧ:ММ</code>",
+                parse_mode="HTML",
+            )
+        return
+
+    if arg in ("сбросить", "reset", "clear", "убрать"):
+        await set_chat_setting(chat_id, "next_cleanup_at", None)
+        await set_cleanup_reminder_sent(chat_id, 0)
+        await message.answer("✅ Запланированная дата чистки сброшена.")
+        return
+
+    # Парсим дату: ДД.ММ.ГГГГ ЧЧ:ММ  или  ДД.ММ.ГГГГ
+    from datetime import datetime as _dt
+    raw = cmd_args.strip()
+    dt = None
+    for fmt in ("%d.%m.%Y %H:%M", "%d.%m.%Y"):
+        try:
+            dt = _dt.strptime(raw, fmt)
+            break
+        except ValueError:
+            pass
+
+    if dt is None:
+        await message.answer(
+            "❌ Не удалось распознать дату.\n"
+            "Пример: <code>бот чистка дата 25.03.2026 20:00</code>",
+            parse_mode="HTML",
+        )
+        return
+
+    if dt < _dt.utcnow():
+        await message.answer("❌ Дата уже в прошлом. Укажи будущую дату.")
+        return
+
+    await set_chat_setting(chat_id, "next_cleanup_at", dt.isoformat())
+    await set_cleanup_reminder_sent(chat_id, 0)  # сбросить флаг напоминания
+    fmt_str = dt.strftime("%d.%m.%Y %H:%M UTC")
+    delta = dt - _dt.utcnow()
+    days_left = delta.days
+    await message.answer(
+        f"✅ Чистка запланирована на <b>{fmt_str}</b>\n"
+        f"⏳ Осталось: <b>{days_left} дн.</b>\n"
+        f"🔔 Напоминание в чат придёт за 2 дня до начала.",
+        parse_mode="HTML",
+    )
+
+
+@router.message(BotCommand("неактив", "inactivity", "неактивность"), RankFilter("admin_junior"))
+async def cmd_inactivity(message: Message, cmd_args: str):
+    """
+    бот неактив         — показать текущие настройки
+    бот неактив вкл     — включить авто-варн за неактив
+    бот неактив выкл    — выключить
+    бот неактив дни N  — установить порог в N дней
+    """
+    if message.chat.type == "private":
+        await message.answer("❌ Команда работает только в чате.")
+        return
+
+    chat_id = message.chat.id
+    parts = (cmd_args or "").strip().lower().split()
+    settings = await get_chat_settings(chat_id)
+
+    if not parts:
+        enabled = bool(settings.get("inactivity_warn_enabled")) if settings else False
+        days    = (settings.get("inactivity_warn_days") or 5) if settings else 5
+        status  = "✅ Включён" if enabled else "❌ Выключён"
+        await message.answer(
+            f"⏰ <b>Авто-варн за неактивность</b>\n\n"
+            f"Статус: {status}\n"
+            f"Порог: <b>{days} дн.()ей</b>\n\n"
+            f"<code>бот неактив вкл</code> / <code>выкл</code>\n"
+            f"<code>бот неактив дни 5</code> — порог 5 дней",
+            parse_mode="HTML",
+        )
+        return
+
+    if parts[0] in ("вкл", "on", "enable"):
+        await set_chat_setting(chat_id, "inactivity_warn_enabled", 1)
+        days = (settings.get("inactivity_warn_days") or 5) if settings else 5
+        await message.answer(
+            f"✅ Авто-варн за неактивность <b>включён</b>.\n"
+            f"Порог: {days} дн. без сообщений → варн.",
+            parse_mode="HTML",
+        )
+    elif parts[0] in ("выкл", "off", "disable"):
+        await set_chat_setting(chat_id, "inactivity_warn_enabled", 0)
+        await message.answer("❌ Авто-варн выключён.")
+    elif parts[0] in ("дни", "days", "день", "day") and len(parts) > 1 and parts[1].isdigit():
+        new_days = max(1, int(parts[1]))
+        await set_chat_setting(chat_id, "inactivity_warn_days", new_days)
+        await message.answer(f"✅ Порог неактивности: <b>{new_days} дн.</b>", parse_mode="HTML")
+    else:
+        await message.answer(
+            "❌ Неверные аргументы.\n"
+            "Примеры:\n"
+            "<code>бот неактив вкл</code>\n"
+            "<code>бот неактив выкл</code>\n"
+            "<code>бот неактив дни 5</code>",
+            parse_mode="HTML",
+        )
 
 # ─── Соцсети ──────────────────────────────────────────────────────────────────
 
