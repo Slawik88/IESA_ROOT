@@ -468,10 +468,11 @@ async def cmd_cleanup_date(message: Message, cmd_args: str):
         settings = await get_chat_settings(chat_id)
         sched = settings["next_cleanup_at"] if settings else None
         if sched:
-            from datetime import datetime as _dt
+            from datetime import datetime as _dt, timezone
+            from zoneinfo import ZoneInfo
             try:
-                dt = _dt.fromisoformat(sched)
-                fmt = dt.strftime("%d.%m.%Y %H:%M UTC")
+                dt = _dt.fromisoformat(sched).replace(tzinfo=timezone.utc)
+                fmt = dt.astimezone(ZoneInfo("Europe/Zurich")).strftime("%d.%m.%Y %H:%M (Цюрих)")
             except Exception:
                 fmt = sched
             await message.answer(
@@ -494,18 +495,20 @@ async def cmd_cleanup_date(message: Message, cmd_args: str):
         await message.answer("✅ Запланированная дата чистки сброшена.")
         return
 
-    # Парсим дату: ДД.ММ.ГГГГ ЧЧ:ММ  или  ДД.ММ.ГГГГ
-    from datetime import datetime as _dt
+    # Парсим дату: ДД.ММ.ГГГГ ЧЧ:ММ  или  ДД.ММ.ГГГГ (ввод — по Цюриху)
+    from datetime import datetime as _dt, timezone
+    from zoneinfo import ZoneInfo
+    _ZURICH = ZoneInfo("Europe/Zurich")
     raw = cmd_args.strip()
-    dt = None
+    dt_local = None
     for fmt in ("%d.%m.%Y %H:%M", "%d.%m.%Y"):
         try:
-            dt = _dt.strptime(raw, fmt)
+            dt_local = _dt.strptime(raw, fmt).replace(tzinfo=_ZURICH)
             break
         except ValueError:
             pass
 
-    if dt is None:
+    if dt_local is None:
         await message.answer(
             "❌ Не удалось распознать дату.\n"
             "Пример: <code>бот чистка дата 25.03.2026 20:00</code>",
@@ -513,14 +516,15 @@ async def cmd_cleanup_date(message: Message, cmd_args: str):
         )
         return
 
-    if dt < _dt.utcnow():
+    if dt_local < _dt.now(_ZURICH):
         await message.answer("❌ Дата уже в прошлом. Укажи будущую дату.")
         return
 
-    await set_chat_setting(chat_id, "next_cleanup_at", dt.isoformat())
+    dt_utc = dt_local.astimezone(timezone.utc)
+    await set_chat_setting(chat_id, "next_cleanup_at", dt_utc.replace(tzinfo=None).isoformat())
     await set_cleanup_reminder_sent(chat_id, 0)  # сбросить флаг напоминания
-    fmt_str = dt.strftime("%d.%m.%Y %H:%M UTC")
-    delta = dt - _dt.utcnow()
+    fmt_str = dt_local.strftime("%d.%m.%Y %H:%M (Цюрих)")
+    delta = dt_utc - _dt.now(timezone.utc)
     days_left = delta.days
     await message.answer(
         f"✅ Чистка запланирована на <b>{fmt_str}</b>\n"

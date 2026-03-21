@@ -113,7 +113,10 @@ async def _task_cleanup_reminders(bot) -> None:
 
         # Напоминание: от 48ч до 0ч до чистки, один раз
         if 0 <= delta.total_seconds() <= 172800 and not already_sent:
-            date_str = dt.strftime("%d.%m.%Y %H:%M UTC")
+            from zoneinfo import ZoneInfo
+            from datetime import timezone as _tz
+            dt_zurich = dt.replace(tzinfo=_tz.utc).astimezone(ZoneInfo("Europe/Zurich"))
+            date_str = dt_zurich.strftime("%d.%m.%Y %H:%M (Цюрих)")
             days_left = int(delta.total_seconds() // 86400)
             hours_left = int((delta.total_seconds() % 86400) // 3600)
             time_label = f"{days_left}д {hours_left}ч" if days_left else f"{hours_left}ч"
