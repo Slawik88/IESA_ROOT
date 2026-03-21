@@ -9,6 +9,7 @@ from database.db import (
     add_user_to_banlist, remove_user_from_banlist,
     set_chat_setting, set_rank_in_chat,
     add_rest_user, remove_rest_user,
+    upsert_user,
 )
 from filters.bot_command import BotCommand
 from filters.rank_filter import RankFilter
@@ -81,6 +82,12 @@ async def cmd_setrank(message: Message, cmd_args: str):
     if uid is None:
         await message.answer(name)
         return
+
+    # Ensure target user exists in `users` table — otherwise staff JOIN queries miss them
+    if message.reply_to_message and getattr(message.reply_to_message, "from_user", None):
+        tg_u = message.reply_to_message.from_user
+        if tg_u and tg_u.id == uid:
+            await upsert_user(uid, tg_u.username or "", tg_u.full_name or "")
 
     my_stats = await get_user_stats(message.from_user.id, message.chat.id)
     my_rank = "developer" if (DEVELOPER_ID and message.from_user.id == DEVELOPER_ID) else (my_stats["rank"] if my_stats else "user")
