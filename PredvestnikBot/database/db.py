@@ -748,7 +748,7 @@ async def import_users_bulk(records: list[dict], chat_id: int) -> dict:
                         INSERT INTO user_stats (user_id, chat_id, message_count)
                         VALUES (?, ?, ?)
                         ON CONFLICT(user_id, chat_id) DO UPDATE SET
-                            message_count = MAX(user_stats.message_count, excluded.message_count)
+                            message_count = GREATEST(user_stats.message_count, excluded.message_count)
                         """,
                         (uid, chat_id, msg_count),
                     )
@@ -799,7 +799,7 @@ async def store_pending_users(records: list[dict], chat_id: int) -> dict:
                     INSERT INTO pending_user_imports (username, chat_id, message_count)
                     VALUES (?, ?, ?)
                     ON CONFLICT(username, chat_id) DO UPDATE SET
-                        message_count = MAX(pending_user_imports.message_count, excluded.message_count)
+                        message_count = GREATEST(pending_user_imports.message_count, excluded.message_count)
                     """,
                     (uname, chat_id, msg_count),
                 )
@@ -830,7 +830,7 @@ async def apply_pending_import(username: str, user_id: int, chat_id: int) -> boo
             INSERT INTO user_stats (user_id, chat_id, message_count)
             VALUES (?, ?, ?)
             ON CONFLICT(user_id, chat_id) DO UPDATE SET
-                message_count = MAX(user_stats.message_count, excluded.message_count)
+                message_count = GREATEST(user_stats.message_count, excluded.message_count)
             """,
             (user_id, chat_id, pending_count),
         )
@@ -975,7 +975,7 @@ async def add_warn(user_id: int) -> int:
 async def remove_warn(user_id: int) -> int:
     async with aiosqlite.connect(DATABASE_PATH) as db:
         await db.execute(
-            "UPDATE users SET warns = MAX(0, warns - 1) WHERE user_id = ?",
+            "UPDATE users SET warns = GREATEST(0, warns - 1) WHERE user_id = ?",
             (user_id,),
         )
         await db.commit()
@@ -1824,7 +1824,7 @@ async def add_warn_in_chat(user_id: int, chat_id: int) -> int:
 async def remove_warn_in_chat(user_id: int, chat_id: int) -> int:
     async with aiosqlite.connect(DATABASE_PATH) as db:
         await db.execute(
-            "UPDATE user_stats SET warns = MAX(0, warns - 1) WHERE user_id = ? AND chat_id = ?",
+            "UPDATE user_stats SET warns = GREATEST(0, warns - 1) WHERE user_id = ? AND chat_id = ?",
             (user_id, chat_id),
         )
         await db.commit()
