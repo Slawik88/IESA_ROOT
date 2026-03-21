@@ -215,12 +215,13 @@ async def cmd_blacklist_toggle(message: Message, cmd_args: str):
 
 @router.callback_query(F.data.startswith("lk:"))
 async def cb_lock_toggle(callback: CallbackQuery):
-    from utils.ranks import rank_level
-    stats = await get_user_stats(callback.from_user.id, callback.message.chat.id)
-    user_rank = stats["rank"] if stats else "user"
-    if rank_level(user_rank) < rank_level("admin_junior"):
-        await callback.answer("❌ Недостаточно прав.", show_alert=True)
-        return
+    from utils.ranks import rank_level, is_developer
+    if not is_developer(callback.from_user.id):
+        stats = await get_user_stats(callback.from_user.id, callback.message.chat.id)
+        user_rank = stats["rank"] if stats else "user"
+        if rank_level(user_rank) < rank_level("admin_junior"):
+            await callback.answer("❌ Недостаточно прав.", show_alert=True)
+            return
 
     lock_type = callback.data.split(":")[1]
     if lock_type not in LOCK_LABELS:
@@ -245,12 +246,13 @@ async def cb_lock_toggle(callback: CallbackQuery):
 
 @router.callback_query(F.data.startswith("dbw:"))
 async def cb_del_blacklist_word(callback: CallbackQuery):
-    from utils.ranks import rank_level
-    stats = await get_user_stats(callback.from_user.id, callback.message.chat.id)
-    user_rank = stats["rank"] if stats else "user"
-    if rank_level(user_rank) < rank_level("moderator"):
-        await callback.answer("❌ Недостаточно прав.", show_alert=True)
-        return
+    from utils.ranks import rank_level, is_developer
+    if not is_developer(callback.from_user.id):
+        stats = await get_user_stats(callback.from_user.id, callback.message.chat.id)
+        user_rank = stats["rank"] if stats else "user"
+        if rank_level(user_rank) < rank_level("moderator"):
+            await callback.answer("❌ Недостаточно прав.", show_alert=True)
+            return
 
     word = callback.data[4:]
     removed = await remove_blacklist_word(callback.message.chat.id, word)
@@ -272,12 +274,13 @@ async def cb_del_blacklist_word(callback: CallbackQuery):
 
 @router.callback_query(F.data.startswith("blt:"))
 async def cb_blacklist_toggle(callback: CallbackQuery):
-    from utils.ranks import rank_level
-    stats = await get_user_stats(callback.from_user.id, callback.message.chat.id)
-    user_rank = stats["rank"] if stats else "user"
-    if rank_level(user_rank) < rank_level("admin_junior"):
-        await callback.answer("❌ Недостаточно прав.", show_alert=True)
-        return
+    from utils.ranks import rank_level, is_developer
+    if not is_developer(callback.from_user.id):
+        stats = await get_user_stats(callback.from_user.id, callback.message.chat.id)
+        user_rank = stats["rank"] if stats else "user"
+        if rank_level(user_rank) < rank_level("admin_junior"):
+            await callback.answer("❌ Недостаточно прав.", show_alert=True)
+            return
 
     new_val = int(callback.data.split(":")[1])
     await set_chat_setting(callback.message.chat.id, "blacklist_enabled", new_val)

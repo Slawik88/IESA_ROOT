@@ -9,7 +9,7 @@ from database.db import add_warn_in_chat, get_user_stats
 from filters.bot_command import BotCommand
 from filters.rank_filter import RankFilter
 from utils.helpers import parse_time, resolve_target, user_mention
-from utils.ranks import rank_level
+from utils.ranks import is_developer, rank_level
 
 router = Router()
 
@@ -35,6 +35,10 @@ async def cmd_warn(message: Message, bot: Bot, cmd_args: str):
         _bot_id = (await bot.get_me()).id
     if uid == _bot_id:
         await message.answer("❌ Нельзя предупредить бота.")
+        return
+
+    if is_developer(uid):
+        await message.answer("❌ Нельзя предупредить разработчика.")
         return
 
     target_stats = await get_user_stats(uid, message.chat.id)
@@ -88,6 +92,10 @@ async def cmd_mute(message: Message, bot: Bot, cmd_args: str):
 
     if uid == message.from_user.id:
         await message.answer("❌ Нельзя заглушить самого себя.")
+        return
+
+    if is_developer(uid):
+        await message.answer("❌ Нельзя заглушить разработчика.")
         return
 
     target_stats = await get_user_stats(uid, message.chat.id)

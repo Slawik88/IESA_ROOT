@@ -43,3 +43,9 @@ def rank_name(rank: str, custom_title: str | None = None) -> str:
 def has_permission(user_rank: str, min_rank: str) -> bool:
     return rank_level(user_rank) >= rank_level(min_rank)
 
+
+def is_developer(user_id: int) -> bool:
+    """Check if user_id is the developer (always passes rank checks)."""
+    from config import DEVELOPER_ID
+    return bool(DEVELOPER_ID and user_id == DEVELOPER_ID)
+
