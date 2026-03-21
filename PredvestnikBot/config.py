@@ -39,6 +39,11 @@ if DATABASE_PATH == "bot.db":
 # Telegram ID разработчика (автоматически получает ранг developer)
 DEVELOPER_ID = 1460945748
 
+# Имя и username создателя бота для команды «бот автор»
+# BOT_CREATOR_USERNAME без символа @; оставь пустым если нет username.
+BOT_CREATOR_NAME: str = "Slawik"
+BOT_CREATOR_USERNAME: str = "Slawik_Danko"
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 #  🛡  Модерация

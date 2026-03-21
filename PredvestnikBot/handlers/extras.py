@@ -1,4 +1,4 @@
-from aiogram import F, Router
+from aiogram import Bot, F, Router
 from aiogram.types import (
     CallbackQuery,
     ChatMemberUpdated,
@@ -9,8 +9,12 @@ from aiogram.types import (
 import html as _html
 
 from database.db import (
-    add_filter, delete_filter, get_chat_members, get_chat_settings, get_filters,
-    get_note, get_user_stats, is_group_allowed, log_voluntary_leave,
+    add_filter, add_user_to_banlist, assign_community_role,
+    clear_pending_role, delete_filter, get_channel_type,
+    get_chat_members, get_chat_settings, get_filters,
+    get_note, get_pending_role, get_senior_users_in_chat,
+    get_user_stats, is_group_allowed, is_user_in_banlist,
+    log_voluntary_leave, remove_user_from_banlist,
     set_chat_active, upsert_chat, upsert_user, upsert_user_stats,
 )
 from filters.bot_command import BotCommand
@@ -44,6 +48,97 @@ async def _sync_chat_administrators(bot, chat_id: int) -> int:
         await _register_member_in_chat(chat_id, user)
         synced += 1
     return synced
+
+
+# ─── Вспомогательные функции для бана по ID ───────────────────────────────────
+
+async def _send_banlist_prompt(bot: Bot, chat_id: int, member, action: str) -> None:
+    """Отправить в чат предложение добавить ушедшего/кикнутого в ЧС по ID."""
+    verb = "покинул чат" if action == "left" else "был кикнут"
+    name = _html.escape(member.full_name or str(member.id))
+    uname = f" (@{member.username})" if member.username else ""
+    try:
+        await bot.send_message(
+            chat_id,
+            f"👤 <b>{name}{uname}</b> [ID: <code>{member.id}</code>] {verb}.\n"
+            "Добавить в чёрный список по ID?",
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
+                InlineKeyboardButton(text="🚫 В ЧС по ID", callback_data=f"ban_u:add:{member.id}"),
+                InlineKeyboardButton(text="❌ Пропустить", callback_data=f"ban_u:skip:{member.id}"),
+            ]]),
+        )
+    except Exception:
+        pass
+
+
+async def _handle_banned_join(bot: Bot, chat_id: int, member) -> None:
+    """Кикнуть забаненного пользователя и уведомить старший стафф."""
+    try:
+        await bot.ban_chat_member(chat_id, member.id)
+    except Exception:
+        try:
+            await bot.kick_chat_member(chat_id, member.id)
+        except Exception:
+            pass
+
+    seniors = await get_senior_users_in_chat(chat_id)
+    if seniors:
+        mentions = " ".join(
+            f"@{u['username']}" if u.get("username")
+            else f"<a href='tg://user?id={u['user_id']}'>"
+                 f"{_html.escape(u['full_name'] or str(u['user_id']))}</a>"
+            for u in seniors
+        )
+    else:
+        from config import DEVELOPER_ID
+        mentions = f"<a href='tg://user?id={DEVELOPER_ID}'>Разработчик</a>"
+
+    name = _html.escape(member.full_name or str(member.id))
+    uname = f" (@{member.username})" if member.username else ""
+    try:
+        await bot.send_message(
+            chat_id,
+            f"⛔️ <b>Участник из чёрного списка пытался войти в чат!</b>\n\n"
+            f"👤 {name}{uname} [ID: <code>{member.id}</code>]\n\n"
+            f"🔔 {mentions}",
+            parse_mode="HTML",
+        )
+    except Exception:
+        pass
+
+
+async def _activate_pending_role(bot: Bot, chat_id: int, member, role_name: str) -> None:
+    """Подтвердить ожидающую роль — выполняется когда юзер вступает в основной чат."""
+    result = await assign_community_role(member.id, role_name)
+    await clear_pending_role(member.id)
+
+    if result in ("ok", "already"):
+        try:
+            await bot.send_message(
+                member.id,
+                f"🎉 <b>Добро пожаловать!</b>\n\n"
+                f"Твоя роль <b>{_html.escape(role_name)}</b> теперь активна ✅",
+                parse_mode="HTML",
+            )
+        except Exception:
+            pass
+        try:
+            from handlers.dm_roles import _try_set_custom_title
+            await _try_set_custom_title(bot, member.id, role_name)
+        except Exception:
+            pass
+    elif result == "taken":
+        try:
+            await bot.send_message(
+                member.id,
+                f"😕 <b>Роль «{_html.escape(role_name)}» уже занята!</b>\n\n"
+                "Пока ты добирался, её занял кто-то другой.\n"
+                "Выбери другую роль — напиши мне /start.",
+                parse_mode="HTML",
+            )
+        except Exception:
+            pass
 
 
 @router.my_chat_member()
@@ -84,7 +179,7 @@ async def track_bot_chat_state(event: ChatMemberUpdated):
 
 @router.chat_member()
 async def track_chat_member_state(event: ChatMemberUpdated):
-    """Register users on membership updates; log voluntary leaves."""
+    """Handle all membership changes: log leaves, check bans, activate pending roles."""
     if event.chat.type not in ("group", "supergroup"):
         return
     if not is_group_allowed(event.chat.id):
@@ -96,21 +191,36 @@ async def track_chat_member_state(event: ChatMemberUpdated):
 
     new_status = getattr(event.new_chat_member, "status", "")
 
-    # Track voluntary exits (status == "left" = left by own will, "kicked" = removed by admin)
-    if new_status == "left":
-        await log_voluntary_leave(
-            event.chat.id,
-            member.id,
-            member.full_name or "",
-            member.username or "",
-        )
+    # ─── Ушёл сам или кикнут ─────────────────────────────────────
+    if new_status in ("left", "kicked"):
+        if new_status == "left":
+            await log_voluntary_leave(
+                event.chat.id, member.id,
+                member.full_name or "", member.username or "",
+            )
+        # Предложить добавить в чёрный список по ID
+        if not (await is_user_in_banlist(event.chat.id, member.id)):
+            await _send_banlist_prompt(event.bot, event.chat.id, member, new_status)
         return
 
+    # ─── Вступил в чат ────────────────────────────────────────────
     active_statuses = {"member", "administrator", "creator", "restricted"}
     if new_status not in active_statuses:
         return
 
+    # Проверить чёрный список по ID
+    if await is_user_in_banlist(event.chat.id, member.id):
+        await _handle_banned_join(event.bot, event.chat.id, member)
+        return
+
     await _register_member_in_chat(event.chat.id, member)
+
+    # Активировать ожидающую роль, если юзер вступил в основной чат
+    main_chat_id = await get_channel_type("main")
+    if main_chat_id and event.chat.id == main_chat_id:
+        pending = await get_pending_role(member.id)
+        if pending:
+            await _activate_pending_role(event.bot, event.chat.id, member, pending)
 
 
 # ─── Управление фильтрами (авто-ответами) ─────────────────────────────────────
@@ -344,6 +454,48 @@ async def on_leave(message: Message):
         await message.answer(text, parse_mode="HTML")
     except Exception:
         pass
+
+
+# ─── Чёрный список по ID: обработка кнопок ───────────────────────────────────
+
+@router.callback_query(F.data.startswith("ban_u:"))
+async def cb_user_banlist(callback: CallbackQuery):
+    parts = callback.data.split(":", 2)
+    action = parts[1]          # "add" или "skip"
+    user_id = int(parts[2])
+    chat_id = callback.message.chat.id
+
+    if action == "skip":
+        try:
+            await callback.message.delete()
+        except Exception:
+            pass
+        await callback.answer("Пропущено.")
+        return
+
+    # action == "add" — только модераторы+
+    stats = await get_user_stats(callback.from_user.id, chat_id)
+    user_rank = stats["rank"] if stats else "user"
+    if rank_level(user_rank) < rank_level("moderator"):
+        await callback.answer("❌ Только модераторы+ могут добавлять в ЧС по ID.", show_alert=True)
+        return
+
+    added = await add_user_to_banlist(chat_id, user_id, added_by=callback.from_user.id)
+    mod_name = _html.escape(callback.from_user.full_name or str(callback.from_user.id))
+    if added:
+        try:
+            await callback.message.edit_text(
+                f"🚫 <b>ID {user_id} добавлен в чёрный список чата.</b>\n"
+                f"При попытке вернуться — бот автоматически заблокирует.\n"
+                f"Добавил: {mod_name}",
+                parse_mode="HTML",
+                reply_markup=None,
+            )
+        except Exception:
+            pass
+        await callback.answer("✅ Добавлен в ЧС по ID.")
+    else:
+        await callback.answer("⚠️ Уже в чёрном списке.", show_alert=True)
 
 
 # ─── Шорткат #заметка и авто-фильтры (catch-all) ─────────────────────────────

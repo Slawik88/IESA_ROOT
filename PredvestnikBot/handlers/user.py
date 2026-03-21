@@ -111,7 +111,8 @@ def _help_sections() -> list[tuple[str, str, str, str, str]]:
             "  <code>бот время [город]</code> — текущее время\n"
             "  <i>└ Москва, Берлин, Лондон, Нью-Йорк, Токио, Дубай…</i>\n"
             "  <code>бот наши ссылки</code> — соцсети чата (TikTok, YouTube…)\n"
-            "  <code>#название</code> — показать сохранённую заметку",
+            "  <code>#название</code> — показать сохранённую заметку\n"
+            "  <code>бот автор</code> — создатель этого бота",
         ),
         (
             "limits", "⚠️", "Мут & варны", "moderator",
@@ -145,7 +146,13 @@ def _help_sections() -> list[tuple[str, str, str, str, str]]:
             "  <code>бот блок [слово]</code> — запретить слово\n"
             "  <code>бот разблок [слово]</code> — разрешить слово\n"
             "  <code>бот чс</code> — просмотр и управление чёрным списком слов\n"
-            "  <code>бот ушли [N]</code> — последние N участников, покинувших чат",
+            "  <code>бот ушли [N]</code> — последние N участников, покинувших чат\n\n"
+            "🚷 <b>ЧС по ID пользователя</b>\n"
+            "  <i>└ при выходе/кике бот предложит добавить участника в ID-бан\n"
+            "     при попытке зайти — автоматический кик + уведомление владельцев</i>\n"
+            "  <code>бот юзбан [ID]</code> — добавить ID в ЧС\n"
+            "  <code>бот юзразбан [ID]</code> — убрать ID из ЧС\n"
+            "  <code>бот юзбаны</code> — список забаненных по ID",
         ),
         (
             "settings", "⚙️", "Настройки", "admin_junior",
@@ -933,5 +940,23 @@ async def cmd_our_links(message: Message):
         "🔗 <b>Наши ссылки:</b>",
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons),
+    )
+
+
+@router.message(BotCommand("автор", "создатель", "creator", "разработчик бота"))
+async def cmd_creator(message: Message, cmd_args: str):
+    """Показать информацию о создателе бота."""
+    from config import DEVELOPER_ID, BOT_CREATOR_NAME, BOT_CREATOR_USERNAME
+    name = html.escape(BOT_CREATOR_NAME or "Разработчик")
+    if BOT_CREATOR_USERNAME:
+        contact = f"@{BOT_CREATOR_USERNAME}"
+    else:
+        contact = f"<a href='tg://user?id={DEVELOPER_ID}'>{name}</a>"
+    await message.answer(
+        f"🛠 <b>Создатель бота</b>\n\n"
+        f"👤 {contact}\n"
+        f"🆆 Telegram ID: <code>{DEVELOPER_ID}</code>",
+        parse_mode="HTML",
+        disable_web_page_preview=True,
     )
 
