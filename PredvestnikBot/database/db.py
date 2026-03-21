@@ -1569,8 +1569,9 @@ async def get_weekly_top(chat_id: int, limit: int = 10) -> list:
                JOIN users u ON u.user_id=cc.user_id
                LEFT JOIN user_stats us ON us.user_id=cc.user_id AND us.chat_id=cc.chat_id
                WHERE cc.chat_id=? AND COALESCE(us.is_banned,0)=0
+                 AND CASE WHEN cc.week_start=? THEN COALESCE(cc.week_count,0) ELSE 0 END >= 1
                ORDER BY wc DESC LIMIT ?""",
-            (week_key, chat_id, limit),
+            (week_key, chat_id, week_key, limit),
         ) as c:
             return await c.fetchall()
 
@@ -1586,8 +1587,9 @@ async def get_daily_top(chat_id: int, limit: int = 10) -> list:
                JOIN users u ON u.user_id=cc.user_id
                LEFT JOIN user_stats us ON us.user_id=cc.user_id AND us.chat_id=cc.chat_id
                WHERE cc.chat_id=? AND COALESCE(us.is_banned,0)=0
+                 AND CASE WHEN cc.day_start=? THEN COALESCE(cc.day_count,0) ELSE 0 END >= 1
                ORDER BY dc DESC LIMIT ?""",
-            (today, chat_id, limit),
+            (today, chat_id, today, limit),
         ) as c:
             return await c.fetchall()
 
@@ -1931,7 +1933,7 @@ async def get_top_by_messages_in_chat(chat_id: int, limit: int = 10):
             """SELECT us.*, u.full_name, u.username
                FROM user_stats us
                JOIN users u ON u.user_id = us.user_id
-               WHERE us.chat_id = ? AND us.is_banned = 0
+               WHERE us.chat_id = ? AND us.is_banned = 0 AND us.message_count >= 1
                ORDER BY us.message_count DESC LIMIT ?""",
             (chat_id, limit),
         ) as c:
