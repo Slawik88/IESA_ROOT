@@ -208,6 +208,15 @@ class AutoModMiddleware(BaseMiddleware):
 
         # 4б. Антифлуд (настраиваемый)
         settings = await get_chat_settings(chat_id)
+
+        # Блокировка сообщений во время чистки (для rank < moderator)
+        if settings and settings.get("cleanup_locked"):
+            try:
+                await event.delete()
+            except Exception:
+                pass
+            return
+
         # Если настроек нет — используем умолчания из config.py
         af_enabled = settings["antiflood_enabled"] if settings else int(DEFAULT_ANTIFLOOD_ENABLED)
         af_limit   = settings["antiflood_limit"]   if settings else DEFAULT_ANTIFLOOD_LIMIT

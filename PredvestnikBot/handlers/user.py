@@ -1053,10 +1053,8 @@ async def cmd_creator(message: Message, cmd_args: str):
     """Показать информацию о создателе бота."""
     from config import DEVELOPER_ID, BOT_CREATOR_NAME, BOT_CREATOR_USERNAME
     name = html.escape(BOT_CREATOR_NAME or "Разработчик")
-    if BOT_CREATOR_USERNAME:
-        contact = f"@{BOT_CREATOR_USERNAME}"
-    else:
-        contact = f"<a href='tg://user?id={DEVELOPER_ID}'>{name}</a>"
+    display = f"@{BOT_CREATOR_USERNAME}" if BOT_CREATOR_USERNAME else name
+    contact = f'<a href="tg://user?id={DEVELOPER_ID}">{html.escape(display)}</a>'
     await message.answer(
         f"🛠 <b>Создатель бота</b>\n\n"
         f"👤 {contact}\n"
