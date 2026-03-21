@@ -16,7 +16,7 @@ from database.db import (
     set_chat_setting, set_rank_in_chat,
     add_rest_user, remove_rest_user,
     set_cleanup_reminder_sent, upsert_user,
-    import_marriage_with_date, get_migration_stats,
+    import_marriage_with_date, get_migration_stats, import_users_bulk,
 )
 from filters.bot_command import BotCommand
 from filters.rank_filter import RankFilter
@@ -28,6 +28,7 @@ router = Router()
 # ─── Ожидание JSON браков (двухшаговый ввод) ─────────────────────────────────
 # chat_id -> (admin_user_id, expires_at)
 _awaiting_marriages: dict[int, tuple[int, float]] = {}
+_awaiting_users:     dict[int, tuple[int, float]] = {}
 
 # Полные разрешения чата (Bot API 6.3+, гранулярные медиа-поля)
 _FULL_PERMISSIONS = ChatPermissions(
@@ -783,6 +784,100 @@ async def _catch_marriages_json(message: Message, bot: Bot):
     """Перехватывает JSON-ответ в режиме ожидания бракоимпорта."""
     del _awaiting_marriages[message.chat.id]
     await _process_marriages_json(message, bot, message.text)
+
+
+# ─── Импорт данных пользователей из JSON ──────────────────────────────────────
+
+_USERS_JSON_EXAMPLE = (
+    "[\n"
+    '  {"user_id": 123456789, "message_count": 1234, "full_name": "Иван Иванов", "username": "ivan"},\n'
+    '  {"user_id": 987654321, "message_count": 567,  "full_name": "Мария Петрова"},\n'
+    '  {"user_id": 111111111, "message_count": 89}\n'
+    "]"
+)
+_USERS_HELP = (
+    "👥 <b>Импорт данных пользователей из JSON</b>\n\n"
+    "Формат каждого пользователя:\n"
+    "<code>{\"user_id\": число, \"message_count\": число, \"full_name\": \"Имя\", \"username\": \"ник\"}</code>\n\n"
+    "Обязателен только <code>user_id</code>. Остальные поля — необязательны.\n"
+    "Если пользователь уже есть в БД — берётся <b>MAX</b> из двух счётчиков сообщений,\n"
+    "имя/ник обновляются только если переданы непустыми.\n\n"
+    "Пример JSON:\n"
+    f"<pre>{html.escape(_USERS_JSON_EXAMPLE)}</pre>\n\n"
+    "👉 Отправь JSON <b>следующим сообщением</b> (ожидание 3 минуты).\n"
+    "Или укажи сразу после команды:\n"
+    "<code>бот загрузить данные [{\"user_id\":123,\"message_count\":500}]</code>"
+)
+
+
+async def _process_users_json(message: Message, raw: str) -> None:
+    chat_id = message.chat.id
+    raw = raw.strip()
+
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        await message.answer(
+            f"❌ Ошибка разбора JSON: <code>{html.escape(str(exc))}</code>",
+            parse_mode="HTML",
+        )
+        return
+
+    if not isinstance(data, list):
+        await message.answer("❌ JSON должен быть <b>списком</b> (массивом).", parse_mode="HTML")
+        return
+
+    result = await import_users_bulk(data, chat_id)
+    ok  = result["ok"]
+    errs = result["errors"]
+
+    lines = [f"✅ Импортировано: <b>{ok}</b> пользователей"]
+    if errs:
+        lines.append(f"\n⚠️ Ошибки ({len(errs)}):")
+        lines.extend(f"  • {html.escape(e)}" for e in errs[:10])
+        if len(errs) > 10:
+            lines.append(f"  … и ещё {len(errs) - 10}")
+
+    await message.answer("\n".join(lines), parse_mode="HTML")
+
+
+@router.message(BotCommand("загрузить данные", "загрузить юзеров", "load_users"), RankFilter("admin_junior"))
+async def cmd_load_users(message: Message, cmd_args: str):
+    """
+    бот загрузить данные                — показать формат + ждать JSON
+    бот загрузить данные [{...}]        — импортировать сразу
+    """
+    if message.chat.type == "private":
+        await message.answer("❌ Команда работает только в чате.")
+        return
+
+    raw = (cmd_args or "").strip()
+    if raw:
+        await _process_users_json(message, raw)
+        return
+
+    _awaiting_users[message.chat.id] = (message.from_user.id, time.time() + 180)
+    await message.answer(_USERS_HELP, parse_mode="HTML")
+
+
+async def _is_awaiting_users_json(message: Message) -> bool:
+    if not message.chat or not message.from_user or not message.text:
+        return False
+    entry = _awaiting_users.get(message.chat.id)
+    if entry is None:
+        return False
+    admin_id, expires = entry
+    if time.time() > expires:
+        del _awaiting_users[message.chat.id]
+        return False
+    return message.from_user.id == admin_id
+
+
+@router.message(_is_awaiting_users_json)
+async def _catch_users_json(message: Message):
+    """Перехватывает JSON-ответ в режиме ожидания импорта данных пользователей."""
+    del _awaiting_users[message.chat.id]
+    await _process_users_json(message, message.text)
 
 
 # ─── Соцсети ──────────────────────────────────────────────────────────────────

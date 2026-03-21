@@ -680,15 +680,65 @@ async def upsert_user(user_id: int, username: str, full_name: str):
             INSERT INTO users (user_id, username, full_name, first_seen)
             VALUES (?, ?, ?, ?)
             ON CONFLICT(user_id) DO UPDATE SET
-                username  = excluded.username,
-                full_name = excluded.full_name
+                username  = CASE WHEN excluded.username  != '' THEN excluded.username  ELSE users.username  END,
+                full_name = CASE WHEN excluded.full_name != '' THEN excluded.full_name ELSE users.full_name END
             """,
             (user_id, username, full_name, now),
         )
         await db.commit()
 
 
-async def increment_message_count(user_id: int):
+async def import_users_bulk(records: list[dict], chat_id: int) -> dict:
+    """
+    Импортирует список пользователей в БД.
+    Каждый record: {user_id, message_count?, full_name?, username?}
+    - users: создаёт запись если нет; обновляет имя/юзернейм только ненулевыми значениями
+    - user_stats: создаёт запись если нет; берёт MAX(existing, imported) для message_count
+    Возвращает {'ok': int, 'errors': list[str]}
+    """
+    now = datetime.utcnow().isoformat()
+    ok_count = 0
+    errors: list[str] = []
+
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        for idx, rec in enumerate(records, 1):
+            uid = rec.get("user_id")
+            if not uid or not isinstance(uid, int):
+                errors.append(f"#{idx}: нет user_id или не число")
+                continue
+            msg_count = int(rec.get("message_count") or 0)
+            full_name = (rec.get("full_name") or "").strip()
+            username  = (rec.get("username")  or "").strip().lstrip("@")
+            try:
+                # Создаём/обновляем строку в users (не затираем непустые значения)
+                await db.execute(
+                    """
+                    INSERT INTO users (user_id, username, full_name, first_seen)
+                    VALUES (?, ?, ?, ?)
+                    ON CONFLICT(user_id) DO UPDATE SET
+                        username  = CASE WHEN excluded.username  != '' THEN excluded.username  ELSE users.username  END,
+                        full_name = CASE WHEN excluded.full_name != '' THEN excluded.full_name ELSE users.full_name END
+                    """,
+                    (uid, username, full_name, now),
+                )
+                # Создаём/обновляем user_stats: message_count = MAX(existing, imported)
+                await db.execute(
+                    """
+                    INSERT INTO user_stats (user_id, chat_id, message_count)
+                    VALUES (?, ?, ?)
+                    ON CONFLICT(user_id, chat_id) DO UPDATE SET
+                        message_count = MAX(user_stats.message_count, excluded.message_count)
+                    """,
+                    (uid, chat_id, msg_count),
+                )
+                ok_count += 1
+            except Exception as exc:
+                errors.append(f"#{idx} uid={uid}: {exc}")
+        await db.commit()
+
+    return {"ok": ok_count, "errors": errors}
+
+
     async with aiosqlite.connect(DATABASE_PATH) as db:
         await db.execute(
             "UPDATE users SET message_count = message_count + 1 WHERE user_id = ?",
