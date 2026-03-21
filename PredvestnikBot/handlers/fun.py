@@ -4,7 +4,7 @@
 import html
 import random
 import time
-from datetime import date
+from datetime import date  # noqa: F401 — may be used by proposal timeout checks
 
 from aiogram import F, Router
 from aiogram.types import (
@@ -17,7 +17,7 @@ from aiogram.types import (
 from config import MARRIAGE_PROPOSAL_TIMEOUT
 from database.db import create_marriage, delete_marriage, get_marriage, get_user
 from filters.bot_command import BotCommand
-from utils.helpers import resolve_target, user_mention
+from utils.helpers import format_duration, resolve_target, user_mention
 
 router = Router()
 
@@ -332,18 +332,15 @@ async def cmd_partner(message: Message, cmd_args: str):
     partner = await get_user(marriage["partner_id"])
     p_name = partner["full_name"] if partner else "?"
     p_id = marriage["partner_id"]
-    married_at = (marriage["married_at"] or "")[:10]
-    try:
-        start = date.fromisoformat(married_at)
-        days = (date.today() - start).days
-    except Exception:
-        days = 0
+    married_at_iso = marriage["married_at"] or ""
+    married_at_date = married_at_iso[:10]
+    together = format_duration(married_at_iso) if married_at_iso else "?"
 
     await message.answer(
         f"💍 <b>Твоя пара</b>\n\n"
         f"❤️ Партнёр: {user_mention(p_id, p_name)}\n"
-        f"📅 Вместе с: {married_at}\n"
-        f"🗓 Дней вместе: <b>{days}</b>",
+        f"📅 Вместе с: {married_at_date}\n"
+        f"🗓 Вместе: <b>{together}</b>",
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
             [

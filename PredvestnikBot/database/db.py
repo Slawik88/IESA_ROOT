@@ -371,6 +371,20 @@ async def init_db():
             )
         """)
 
+        # Система экономики: валюта Мора
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS user_mora (
+                user_id      INTEGER NOT NULL,
+                chat_id      INTEGER NOT NULL,
+                balance      INTEGER DEFAULT 0,
+                total_earned INTEGER DEFAULT 0,
+                streak_days  INTEGER DEFAULT 0,
+                last_daily   TEXT    DEFAULT NULL,
+                mora_public  INTEGER DEFAULT 0,
+                PRIMARY KEY (user_id, chat_id)
+            )
+        """)
+
         await db.commit()
 
     # PostgreSQL: widen all Telegram ID columns from int32 (INTEGER) → int64 (BIGINT).
@@ -420,6 +434,8 @@ async def init_db():
             ("pending_marriage_imports", "chat_id"),
             ("pets",              "user_id"),
             ("pets",              "chat_id"),
+            ("user_mora",         "user_id"),
+            ("user_mora",         "chat_id"),
         ]
         for _tbl, _col in _bigint_migrations:
             try:
@@ -1295,15 +1311,15 @@ async def get_top_reputation(limit: int = 10):
 
 def xp_for_level(level: int) -> int:
     """Сколько XP нужно чтобы ДОСТИЧЬ этого уровня."""
-    return level * (level - 1) * 50  # lv2=100, lv3=300, lv4=600, lv5=1000...
+    return level * (level - 1) * 100  # lv2=200, lv3=600, lv4=1200, lv5=2000...
 
 
 def level_for_xp(xp: int) -> int:
     if xp < 0:
         xp = 0
-    if xp < 100:
+    if xp < 200:
         return 1
-    return max(1, int((1 + math.sqrt(1 + 4 * xp / 50)) / 2))
+    return max(1, int((1 + math.sqrt(1 + xp / 25)) / 2))
 
 
 async def add_xp(user_id: int, amount: int) -> tuple[int, int, bool]:
@@ -1594,6 +1610,46 @@ async def get_daily_top(chat_id: int, limit: int = 10) -> list:
             return await c.fetchall()
 
 
+async def get_prev_weekly_top(chat_id: int, limit: int = 10) -> list:
+    """Top users for the previous calendar week."""
+    prev_week_date = date.today() - timedelta(days=7)
+    iso = prev_week_date.isocalendar()
+    week_key = f"{iso.year}-W{iso.week:02d}"
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            """SELECT u.user_id, u.full_name, u.username,
+                      CASE WHEN cc.week_start=? THEN COALESCE(cc.week_count,0) ELSE 0 END AS wc
+               FROM cleanup_counts cc
+               JOIN users u ON u.user_id=cc.user_id
+               LEFT JOIN user_stats us ON us.user_id=cc.user_id AND us.chat_id=cc.chat_id
+               WHERE cc.chat_id=? AND COALESCE(us.is_banned,0)=0
+                 AND CASE WHEN cc.week_start=? THEN COALESCE(cc.week_count,0) ELSE 0 END >= 1
+               ORDER BY wc DESC LIMIT ?""",
+            (week_key, chat_id, week_key, limit),
+        ) as c:
+            return await c.fetchall()
+
+
+async def get_yesterday_top(chat_id: int, limit: int = 10) -> list:
+    """Top users for yesterday."""
+    yesterday = (date.today() - timedelta(days=1)).isoformat()
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            """SELECT u.user_id, u.full_name, u.username,
+                      CASE WHEN cc.day_start=? THEN COALESCE(cc.day_count,0) ELSE 0 END AS dc
+               FROM cleanup_counts cc
+               JOIN users u ON u.user_id=cc.user_id
+               LEFT JOIN user_stats us ON us.user_id=cc.user_id AND us.chat_id=cc.chat_id
+               WHERE cc.chat_id=? AND COALESCE(us.is_banned,0)=0
+                 AND CASE WHEN cc.day_start=? THEN COALESCE(cc.day_count,0) ELSE 0 END >= 1
+               ORDER BY dc DESC LIMIT ?""",
+            (yesterday, chat_id, yesterday, limit),
+        ) as c:
+            return await c.fetchall()
+
+
 async def get_chat_members(chat_id: int, ranks: list[str] | None = None) -> list:
     async with aiosqlite.connect(DATABASE_PATH) as db:
         db.row_factory = aiosqlite.Row
@@ -1747,7 +1803,8 @@ async def upsert_user_stats(user_id: int, chat_id: int):
         await db.commit()
 
 
-async def increment_message_count_chat(user_id: int, chat_id: int):
+async def increment_message_count_chat(user_id: int, chat_id: int) -> int:
+    """Increment message count and return the new value."""
     now_iso = datetime.utcnow().isoformat(timespec="seconds")
     async with aiosqlite.connect(DATABASE_PATH) as db:
         await db.execute(
@@ -1760,6 +1817,12 @@ async def increment_message_count_chat(user_id: int, chat_id: int):
             (user_id, chat_id, now_iso, now_iso),
         )
         await db.commit()
+        async with db.execute(
+            "SELECT message_count FROM user_stats WHERE user_id=? AND chat_id=?",
+            (user_id, chat_id),
+        ) as c:
+            row = await c.fetchone()
+            return row[0] if row else 1
 
 
 async def set_rank_in_chat(user_id: int, chat_id: int, rank: str):
@@ -1886,6 +1949,102 @@ async def add_xp_in_chat(user_id: int, chat_id: int, amount: int) -> tuple[int, 
         )
         await db.commit()
     return new_xp, new_level, leveled_up
+
+
+# ─── Мора (внутричатовая валюта) ──────────────────────────────────────────────
+
+async def get_mora(user_id: int, chat_id: int):
+    """Returns user_mora row or None."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT * FROM user_mora WHERE user_id=? AND chat_id=?",
+            (user_id, chat_id),
+        ) as c:
+            return await c.fetchone()
+
+
+async def add_mora(user_id: int, chat_id: int, amount: int) -> int:
+    """Add (or subtract) Мора. Balance never goes below 0. Returns new balance."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        await db.execute(
+            """INSERT INTO user_mora (user_id, chat_id, balance, total_earned)
+               VALUES (?, ?, GREATEST(0, ?), CASE WHEN ? > 0 THEN ? ELSE 0 END)
+               ON CONFLICT(user_id, chat_id) DO UPDATE SET
+                   balance      = GREATEST(0, user_mora.balance + ?),
+                   total_earned = user_mora.total_earned + CASE WHEN ? > 0 THEN ? ELSE 0 END""",
+            (user_id, chat_id, amount, amount, amount, amount, amount, amount),
+        )
+        await db.commit()
+        async with db.execute(
+            "SELECT balance FROM user_mora WHERE user_id=? AND chat_id=?",
+            (user_id, chat_id),
+        ) as c:
+            row = await c.fetchone()
+            return row[0] if row else 0
+
+
+async def check_daily_mora(user_id: int, chat_id: int) -> tuple[bool, int, bool]:
+    """
+    Check if this is the first message today for Мора purposes.
+    Updates streak and last_daily. Returns (is_first_daily, new_streak, streak_7day_bonus).
+    """
+    today = date.today().isoformat()
+    yesterday = (date.today() - timedelta(days=1)).isoformat()
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT last_daily, streak_days FROM user_mora WHERE user_id=? AND chat_id=?",
+            (user_id, chat_id),
+        ) as c:
+            row = await c.fetchone()
+
+        if row is None:
+            await db.execute(
+                """INSERT OR IGNORE INTO user_mora (user_id, chat_id, last_daily, streak_days)
+                   VALUES (?, ?, ?, 1)""",
+                (user_id, chat_id, today),
+            )
+            await db.commit()
+            return True, 1, False
+
+        last_daily = row["last_daily"]
+        streak = row["streak_days"] or 0
+
+        if last_daily == today:
+            return False, streak, False
+
+        if last_daily == yesterday:
+            new_streak = streak + 1
+        else:
+            new_streak = 1  # Streak broken
+
+        streak_bonus = (new_streak == 7)
+        if new_streak > 7:
+            new_streak = 0  # Reset after claiming 7-day bonus
+
+        await db.execute(
+            """INSERT INTO user_mora (user_id, chat_id, last_daily, streak_days)
+               VALUES (?, ?, ?, ?)
+               ON CONFLICT(user_id, chat_id) DO UPDATE SET
+                   last_daily  = excluded.last_daily,
+                   streak_days = excluded.streak_days""",
+            (user_id, chat_id, today, new_streak),
+        )
+        await db.commit()
+        return True, new_streak, streak_bonus
+
+
+async def set_mora_public(user_id: int, chat_id: int, public: int):
+    """Set whether this user's Мора balance is visible to others in this chat."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        await db.execute(
+            """INSERT INTO user_mora (user_id, chat_id, mora_public)
+               VALUES (?, ?, ?)
+               ON CONFLICT(user_id, chat_id) DO UPDATE SET mora_public = excluded.mora_public""",
+            (user_id, chat_id, public),
+        )
+        await db.commit()
 
 
 async def add_reputation_in_chat(from_uid: int, to_uid: int, chat_id: int, amount: int = 1) -> int:
