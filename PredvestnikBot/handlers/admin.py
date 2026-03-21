@@ -17,6 +17,7 @@ from database.db import (
     add_rest_user, remove_rest_user,
     set_cleanup_reminder_sent, upsert_user,
     import_marriage_with_date, get_migration_stats, import_users_bulk,
+    store_pending_marriages,
 )
 from filters.bot_command import BotCommand
 from filters.rank_filter import RankFilter
@@ -690,8 +691,9 @@ async def _process_marriages_json(message: Message, bot: Bot, raw: str) -> None:
         await message.answer("❌ JSON должен быть <b>списком</b> (массивом) пар.", parse_mode="HTML")
         return
 
-    ok_pairs: list[str] = []
-    fail_pairs: list[str] = []
+    ok_pairs: list[str]      = []
+    pending_pairs: list[str] = []
+    fail_pairs: list[str]    = []
 
     today_utc = _dt.now(_ZURICH).astimezone(timezone.utc).replace(tzinfo=None).isoformat()
 
@@ -700,23 +702,23 @@ async def _process_marriages_json(message: Message, bot: Bot, raw: str) -> None:
             fail_pairs.append(f"#{idx}: не объект")
             continue
 
-        u1_raw = entry.get("user1")
-        u2_raw = entry.get("user2")
+        u1_raw    = entry.get("user1")
+        u2_raw    = entry.get("user2")
         since_raw = entry.get("since", "")
 
         if u1_raw is None or u2_raw is None:
             fail_pairs.append(f"#{idx}: нет user1 или user2")
             continue
 
-        uid1 = await _resolve_uid(bot, chat_id, u1_raw)
-        uid2 = await _resolve_uid(bot, chat_id, u2_raw)
+        # Чистый username (без @, нижний регистр) если значение начинается с @
+        def _uname(v) -> str | None:
+            s = str(v or "").strip()
+            return s[1:].lower() if s.startswith("@") else None
 
-        if uid1 is None:
-            fail_pairs.append(f"#{idx}: не удалось определить {u1_raw!r}")
-            continue
-        if uid2 is None:
-            fail_pairs.append(f"#{idx}: не удалось определить {u2_raw!r}")
-            continue
+        u1_uname = _uname(u1_raw)
+        u2_uname = _uname(u2_raw)
+        uid1     = await _resolve_uid(bot, chat_id, u1_raw)
+        uid2     = await _resolve_uid(bot, chat_id, u2_raw)
 
         # Парсим дату since
         married_at = today_utc
@@ -729,16 +731,33 @@ async def _process_marriages_json(message: Message, bot: Bot, raw: str) -> None:
                 except ValueError:
                     pass
 
-        try:
-            await import_marriage_with_date(uid1, uid2, chat_id, married_at)
-            ok_pairs.append(f"[{uid1}] ↔ [{uid2}]")
-        except Exception as exc:
-            fail_pairs.append(f"#{idx}: ошибка БД — {exc}")
+        if uid1 is not None and uid2 is not None:
+            # Оба ID известны — пишем напрямую
+            try:
+                await import_marriage_with_date(uid1, uid2, chat_id, married_at)
+                ok_pairs.append(f"[{uid1}] ↔ [{uid2}]")
+            except Exception as exc:
+                fail_pairs.append(f"#{idx}: ошибка БД — {exc}")
+        elif u1_uname and u2_uname:
+            # Оба — @username (идентифицировать ID нельзя без сообщения) — откладываем
+            try:
+                await store_pending_marriages(u1_uname, u2_uname, chat_id, married_at)
+                pending_pairs.append(f"@{u1_uname} ↔ @{u2_uname}")
+            except Exception as exc:
+                fail_pairs.append(f"#{idx}: ошибка БД — {exc}")
+        else:
+            label1 = f"@{u1_uname}" if u1_uname else repr(u1_raw)
+            label2 = f"@{u2_uname}" if u2_uname else repr(u2_raw)
+            fail_pairs.append(f"#{idx}: не удалось определить {label1} или {label2}")
 
     lines = []
     if ok_pairs:
-        lines.append(f"✅ Импортировано <b>{len(ok_pairs)}</b> пар:")
+        lines.append(f"✅ Записано сразу <b>{len(ok_pairs)}</b> пар:")
         lines.extend(f"  • {p}" for p in ok_pairs)
+    if pending_pairs:
+        lines.append(f"\n⏳ <b>{len(pending_pairs)}</b> пар ожидают первого сообщения обоих партнёров:")
+        lines.extend(f"  • {p}" for p in pending_pairs)
+        lines.append("\nБрак создастся автоматически, как только каждый напишет хоть одно сообщение в чат.")
     if fail_pairs:
         lines.append(f"\n⚠️ Ошибки ({len(fail_pairs)}):")
         lines.extend(f"  • {html.escape(p)}" for p in fail_pairs)
@@ -790,23 +809,24 @@ async def _catch_marriages_json(message: Message, bot: Bot):
 
 _USERS_JSON_EXAMPLE = (
     "[\n"
-    '  {"user_id": 123456789, "message_count": 1234, "full_name": "Иван Иванов", "username": "ivan"},\n'
-    '  {"user_id": 987654321, "message_count": 567,  "full_name": "Мария Петрова"},\n'
-    '  {"user_id": 111111111, "message_count": 89}\n'
+    '  {"username": "@Buy_me_Acoffee", "messages": 3047},\n'
+    '  {"username": "@Kovid2004",       "messages": 2077},\n'
+    '  {"username": "@ichessekid",      "messages": 1589}\n'
     "]"
 )
 _USERS_HELP = (
     "👥 <b>Импорт данных пользователей из JSON</b>\n\n"
-    "Формат каждого пользователя:\n"
-    "<code>{\"user_id\": число, \"message_count\": число, \"full_name\": \"Имя\", \"username\": \"ник\"}</code>\n\n"
-    "Обязателен только <code>user_id</code>. Остальные поля — необязательны.\n"
-    "Если пользователь уже есть в БД — берётся <b>MAX</b> из двух счётчиков сообщений,\n"
-    "имя/ник обновляются только если переданы непустыми.\n\n"
+    "Поддерживаемые форматы:\n"
+    "• <code>{\"username\": \"@ник\", \"messages\": 1234}</code> — основной\n"
+    "• <code>{\"user_id\": 123456789, \"messages\": 1234, \"full_name\": \"Имя\"}</code>\n\n"
+    "Вариант с <b>@username</b>: запись хранится как ожидающая — автоматически применяется\n"
+    "при первом сообщении юзера в чат. Счётчик берётся MAX(существующий, импорт) —\n"
+    "никогда не сбрасывает. Имя/ник обновляется автоматически из Telegram.\n\n"
     "Пример JSON:\n"
     f"<pre>{html.escape(_USERS_JSON_EXAMPLE)}</pre>\n\n"
     "👉 Отправь JSON <b>следующим сообщением</b> (ожидание 3 минуты).\n"
-    "Или укажи сразу после команды:\n"
-    "<code>бот загрузить данные [{\"user_id\":123,\"message_count\":500}]</code>"
+    "Или сразу после команды:\n"
+    "<code>бот загрузить данные [{\"username\":\"@foo\",\"messages\":500}]</code>"
 )
 
 
@@ -827,11 +847,21 @@ async def _process_users_json(message: Message, raw: str) -> None:
         await message.answer("❌ JSON должен быть <b>списком</b> (массивом).", parse_mode="HTML")
         return
 
-    result = await import_users_bulk(data, chat_id)
-    ok  = result["ok"]
-    errs = result["errors"]
+    result  = await import_users_bulk(data, chat_id)
+    direct  = result["ok_direct"]
+    pending = result["ok_pending"]
+    errs    = result["errors"]
 
-    lines = [f"✅ Импортировано: <b>{ok}</b> пользователей"]
+    lines = []
+    if direct:
+        lines.append(f"✅ Записано сразу: <b>{direct}</b> (есть user_id)")
+    if pending:
+        lines.append(
+            f"⏳ Очередь (только @username): <b>{pending}</b>\n"
+            f"   → Счётчик сообщений автоматически применится, как только каждый напишет в чат."
+        )
+    if not lines:
+        lines.append("Импорт: 0 пользователей.")
     if errs:
         lines.append(f"\n⚠️ Ошибки ({len(errs)}):")
         lines.extend(f"  • {html.escape(e)}" for e in errs[:10])

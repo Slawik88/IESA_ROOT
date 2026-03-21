@@ -174,6 +174,26 @@ async def init_db():
             )
         """)
 
+        # Ожидающие импорты — применяются при первом сообщении юзера в чат
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS pending_user_imports (
+                username      TEXT    NOT NULL COLLATE NOCASE,
+                chat_id       INTEGER NOT NULL,
+                message_count INTEGER DEFAULT 0,
+                PRIMARY KEY (username, chat_id)
+            )
+        """)
+
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS pending_marriage_imports (
+                username1  TEXT    NOT NULL COLLATE NOCASE,
+                username2  TEXT    NOT NULL COLLATE NOCASE,
+                chat_id    INTEGER NOT NULL,
+                married_at TEXT    NOT NULL,
+                PRIMARY KEY (username1, chat_id)
+            )
+        """)
+
         await db.execute("""
             CREATE TABLE IF NOT EXISTS allowed_groups (
                 chat_id INTEGER PRIMARY KEY
@@ -690,60 +710,197 @@ async def upsert_user(user_id: int, username: str, full_name: str):
 
 async def import_users_bulk(records: list[dict], chat_id: int) -> dict:
     """
-    Импортирует список пользователей в БД.
-    Каждый record: {user_id, message_count?, full_name?, username?}
-    - users: создаёт запись если нет; обновляет имя/юзернейм только ненулевыми значениями
-    - user_stats: создаёт запись если нет; берёт MAX(existing, imported) для message_count
-    Возвращает {'ok': int, 'errors': list[str]}
+    Импортирует список пользователей в БД. Поддерживаемые форматы записей:
+      • {user_id: int, message_count/messages: int, full_name?, username?}  → прямая запись
+      • {username: "@foo", messages/message_count: int}                     → pending (применится при первом сообщении)
+    Возвращает {'ok_direct': int, 'ok_pending': int, 'errors': list[str]}
     """
     now = datetime.utcnow().isoformat()
-    ok_count = 0
+    ok_direct = 0
     errors: list[str] = []
+    pending_records: list[dict] = []
 
     async with aiosqlite.connect(DATABASE_PATH) as db:
         for idx, rec in enumerate(records, 1):
-            uid = rec.get("user_id")
-            if not uid or not isinstance(uid, int):
-                errors.append(f"#{idx}: нет user_id или не число")
-                continue
-            msg_count = int(rec.get("message_count") or 0)
+            uid       = rec.get("user_id")
+            uname_raw = (rec.get("username") or "").strip()
+            msg_count = int(rec.get("message_count") or rec.get("messages") or 0)
             full_name = (rec.get("full_name") or "").strip()
-            username  = (rec.get("username")  or "").strip().lstrip("@")
-            try:
-                # Создаём/обновляем строку в users (не затираем непустые значения)
-                await db.execute(
-                    """
-                    INSERT INTO users (user_id, username, full_name, first_seen)
-                    VALUES (?, ?, ?, ?)
-                    ON CONFLICT(user_id) DO UPDATE SET
-                        username  = CASE WHEN excluded.username  != '' THEN excluded.username  ELSE users.username  END,
-                        full_name = CASE WHEN excluded.full_name != '' THEN excluded.full_name ELSE users.full_name END
-                    """,
-                    (uid, username, full_name, now),
-                )
-                # Создаём/обновляем user_stats: message_count = MAX(existing, imported)
-                await db.execute(
-                    """
-                    INSERT INTO user_stats (user_id, chat_id, message_count)
-                    VALUES (?, ?, ?)
-                    ON CONFLICT(user_id, chat_id) DO UPDATE SET
-                        message_count = MAX(user_stats.message_count, excluded.message_count)
-                    """,
-                    (uid, chat_id, msg_count),
-                )
-                ok_count += 1
-            except Exception as exc:
-                errors.append(f"#{idx} uid={uid}: {exc}")
+            username  = uname_raw.lstrip("@")
+
+            if uid and isinstance(uid, int):
+                # Есть числовой user_id — пишем напрямую
+                try:
+                    await db.execute(
+                        """
+                        INSERT INTO users (user_id, username, full_name, first_seen)
+                        VALUES (?, ?, ?, ?)
+                        ON CONFLICT(user_id) DO UPDATE SET
+                            username  = CASE WHEN excluded.username  != '' THEN excluded.username  ELSE users.username  END,
+                            full_name = CASE WHEN excluded.full_name != '' THEN excluded.full_name ELSE users.full_name END
+                        """,
+                        (uid, username, full_name, now),
+                    )
+                    await db.execute(
+                        """
+                        INSERT INTO user_stats (user_id, chat_id, message_count)
+                        VALUES (?, ?, ?)
+                        ON CONFLICT(user_id, chat_id) DO UPDATE SET
+                            message_count = MAX(user_stats.message_count, excluded.message_count)
+                        """,
+                        (uid, chat_id, msg_count),
+                    )
+                    ok_direct += 1
+                except Exception as exc:
+                    errors.append(f"#{idx} uid={uid}: {exc}")
+            elif username:
+                # Только username — откладываем до первого сообщения
+                pending_records.append({"username": username, "messages": msg_count})
+            else:
+                errors.append(f"#{idx}: нет user_id и нет username")
         await db.commit()
 
-    return {"ok": ok_count, "errors": errors}
+    ok_pending = 0
+    if pending_records:
+        result = await store_pending_users(pending_records, chat_id)
+        ok_pending = result["ok"]
+        errors.extend(result["errors"])
+
+    return {"ok_direct": ok_direct, "ok_pending": ok_pending, "errors": errors}
 
 
+async def increment_message_count(user_id: int):
     async with aiosqlite.connect(DATABASE_PATH) as db:
         await db.execute(
             "UPDATE users SET message_count = message_count + 1 WHERE user_id = ?",
             (user_id,),
         )
+        await db.commit()
+
+
+# ─── Pending imports ───────────────────────────────────────────────────────────────────────
+
+async def store_pending_users(records: list[dict], chat_id: int) -> dict:
+    """Хранит username-ключевые пендинг-записи для применения при первом сообщении."""
+    ok_count = 0
+    errors: list[str] = []
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        for idx, rec in enumerate(records, 1):
+            uname = (rec.get("username") or "").strip().lstrip("@").lower()
+            if not uname:
+                errors.append(f"#{idx}: нет username")
+                continue
+            msg_count = int(rec.get("messages") or rec.get("message_count") or 0)
+            try:
+                await db.execute(
+                    """
+                    INSERT INTO pending_user_imports (username, chat_id, message_count)
+                    VALUES (?, ?, ?)
+                    ON CONFLICT(username, chat_id) DO UPDATE SET
+                        message_count = MAX(pending_user_imports.message_count, excluded.message_count)
+                    """,
+                    (uname, chat_id, msg_count),
+                )
+                ok_count += 1
+            except Exception as exc:
+                errors.append(f"#{idx} @{uname}: {exc}")
+        await db.commit()
+    return {"ok": ok_count, "errors": errors}
+
+
+async def apply_pending_import(username: str, user_id: int, chat_id: int) -> bool:
+    """Применяет pending message_count при первом сообщении юзера. Возвращает True если данные были применены."""
+    uname_lower = username.strip().lstrip("@").lower()
+    if not uname_lower:
+        return False
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        async with db.execute(
+            "SELECT message_count FROM pending_user_imports WHERE username=? AND chat_id=?",
+            (uname_lower, chat_id),
+        ) as c:
+            row = await c.fetchone()
+        if not row:
+            return False
+        pending_count = row[0] or 0
+        # Записываем MAX(существующий, pending), чтобы не сбросить уже накопленные сообщения
+        await db.execute(
+            """
+            INSERT INTO user_stats (user_id, chat_id, message_count)
+            VALUES (?, ?, ?)
+            ON CONFLICT(user_id, chat_id) DO UPDATE SET
+                message_count = MAX(user_stats.message_count, excluded.message_count)
+            """,
+            (user_id, chat_id, pending_count),
+        )
+        await db.execute(
+            "DELETE FROM pending_user_imports WHERE username=? AND chat_id=?",
+            (uname_lower, chat_id),
+        )
+        await db.commit()
+    return True
+
+
+async def store_pending_marriages(username1: str, username2: str, chat_id: int, married_at: str):
+    """Хранит оба направления ожидающего брака (по username)."""
+    u1 = username1.strip().lstrip("@").lower()
+    u2 = username2.strip().lstrip("@").lower()
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        for a, b in [(u1, u2), (u2, u1)]:
+            await db.execute(
+                """
+                INSERT INTO pending_marriage_imports (username1, username2, chat_id, married_at)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT(username1, chat_id) DO UPDATE SET
+                    username2  = excluded.username2,
+                    married_at = excluded.married_at
+                """,
+                (a, b, chat_id, married_at),
+            )
+        await db.commit()
+
+
+async def apply_pending_marriages(username: str, user_id: int, chat_id: int):
+    """Пытается создать ожидающие браки при первом сообщении юзера."""
+    uname_lower = username.strip().lstrip("@").lower()
+    if not uname_lower:
+        return
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT username2, married_at FROM pending_marriage_imports WHERE username1=? AND chat_id=?",
+            (uname_lower, chat_id),
+        ) as c:
+            rows = await c.fetchall()
+        if not rows:
+            return
+        for row in rows:
+            partner_uname = row["username2"]
+            married_at    = row["married_at"]
+            # Ищем партнёра в таблице users по username (регистрируется при первом сообщении)
+            async with db.execute(
+                "SELECT user_id FROM users WHERE LOWER(username)=?",
+                (partner_uname,),
+            ) as c2:
+                partner_row = await c2.fetchone()
+            if partner_row:
+                partner_id = partner_row["user_id"]
+                await db.execute(
+                    "DELETE FROM marriages WHERE chat_id=? AND (user_id=? OR user_id=?)",
+                    (chat_id, user_id, partner_id),
+                )
+                await db.execute(
+                    "INSERT OR IGNORE INTO marriages (user_id, chat_id, partner_id, married_at) VALUES (?,?,?,?)",
+                    (user_id, chat_id, partner_id, married_at),
+                )
+                await db.execute(
+                    "INSERT OR IGNORE INTO marriages (user_id, chat_id, partner_id, married_at) VALUES (?,?,?,?)",
+                    (partner_id, chat_id, user_id, married_at),
+                )
+                for u in [uname_lower, partner_uname]:
+                    await db.execute(
+                        "DELETE FROM pending_marriage_imports WHERE chat_id=? AND username1=?",
+                        (chat_id, u),
+                    )
         await db.commit()
 
 
