@@ -14,7 +14,8 @@ from config import (
     BLACKLIST_USE_MORPHOLOGY,
 )
 from database.db import (
-    add_xp_in_chat, get_blacklist, get_chat_settings, get_filters, get_locks,
+    add_xp_in_chat, apply_pending_import, apply_pending_marriages,
+    get_blacklist, get_chat_settings, get_filters, get_locks,
     get_todays_quest, get_user_stats, increment_cleanup_count,
     increment_message_count_chat, is_group_allowed,
     mark_quest_rewarded, quest_tick,
@@ -53,6 +54,10 @@ _CHECKED_TTL = 3600.0  # перепроверять раз в час
 
 # Кулдаун XP: (user_id, chat_id) -> timestamp последнего начисления
 _xp_cooldown: dict[tuple[int, int], float] = {}
+
+# Трекер юзеров, у которых pending-импорт уже проверен/применён
+_pending_resolved: set[tuple[int, int]] = set()   # (user_id, chat_id)
+_PENDING_RESOLVED_LIMIT = 5000
 
 
 async def _delete_after(msg, delay: int = 5) -> None:
@@ -104,6 +109,17 @@ class AutoModMiddleware(BaseMiddleware):
         # 2. Per-chat profile + подсчёт сообщений (только в группах)
         if in_group:
             await upsert_user_stats(user.id, event.chat.id)
+
+            # Pending import: применяем один раз при первом сообщении юзера в этом чате
+            if user.username:
+                _key = (user.id, event.chat.id)
+                if _key not in _pending_resolved:
+                    _pending_resolved.add(_key)
+                    if len(_pending_resolved) > _PENDING_RESOLVED_LIMIT:
+                        _pending_resolved.clear()
+                    await apply_pending_import(user.username, user.id, event.chat.id)
+                    await apply_pending_marriages(user.username, user.id, event.chat.id)
+
             await increment_message_count_chat(user.id, event.chat.id)
             await increment_cleanup_count(event.chat.id, user.id)
 
