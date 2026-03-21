@@ -20,7 +20,7 @@ from database.db import (
     # Community roles
     add_community_role, remove_community_role, get_community_roles,
     assign_community_role, revoke_community_role, get_user_community_roles,
-    get_role_holders,
+    get_role_holders, force_assign_community_role,
 )
 from filters.bot_command import BotCommand
 from filters.rank_filter import RankFilter
@@ -914,13 +914,18 @@ async def cmd_assign_role(message: Message) -> None:
             current = user_mention(holder["user_id"], holder["full_name"] or str(holder["user_id"]))
             await message.reply(
                 f"❌ Роль <b>{safe_role}</b> уже занята — {current}.\n"
-                f"Сначала сними её командой: <code>бот снятьроль @user {html.escape(role_name)}</code>",
+                f"Сначала сними её командой: <code>бот снятьроль @user {html.escape(role_name)}</code>\n"
+                f"Или принудительно: <code>бот сменить роль @user {html.escape(role_name)}</code>",
                 parse_mode="HTML",
             )
         else:
             await message.reply(f"❌ Роль <b>{safe_role}</b> уже занята другим участником.", parse_mode="HTML")
     else:
         await message.reply(f"✅ {mention} получил роль <b>{safe_role}</b>!", parse_mode="HTML")
+        # Попробовать установить Telegram custom title
+        main_chat_id = await get_channel_type("main")
+        if main_chat_id:
+            await _try_set_custom_title(message.bot, main_chat_id, uid, role_name)
 
 
 @router.message(BotCommand("снять роль", "снятьроль"), RankFilter("admin_junior"))
@@ -1009,3 +1014,86 @@ async def _parse_target_and_role(
         return None, None, None
 
     return uid, fname, role_name
+
+
+# ─── Try to set Telegram admin custom title ───────────────────────────────────
+
+async def _try_set_custom_title(bot, chat_id: int, user_id: int, title: str) -> None:
+    """Попытаться установить роль как кастомный титул администратора в чате.
+
+    Если пользователь не является администратором, попытаться повысить до
+    администратора с нулевыми дополнительными правами (чисто декоративно),
+    а затем установить титул.
+    """
+    title_short = title[:16]  # Telegram limit
+    try:
+        await bot.set_chat_administrator_custom_title(chat_id, user_id, title_short)
+        return
+    except Exception:
+        pass
+
+    # Пользователь не администратор — повышаем с нулевыми правами
+    try:
+        from aiogram.types import ChatAdministratorRights
+        minimal = ChatAdministratorRights(
+            is_anonymous=False,
+            can_manage_chat=False,
+            can_delete_messages=False,
+            can_manage_video_chats=False,
+            can_restrict_members=False,
+            can_promote_members=False,
+            can_change_info=False,
+            can_invite_users=False,
+            can_pin_messages=False,
+        )
+        await bot.promote_chat_member(chat_id, user_id, **minimal.__dict__)
+        await bot.set_chat_administrator_custom_title(chat_id, user_id, title_short)
+    except Exception:
+        pass  # Нет прав или не суперчат — молча пропускаем
+
+
+# ─── Принудительная смена роли участника ─────────────────────────────────────
+
+@router.message(BotCommand("сменить роль", "сменитьроль", "forced role", "форсдроль"), RankFilter("co_owner"))
+async def cmd_force_change_role(message: Message) -> None:
+    """бот сменить роль @user НоваяРоль
+    Принудительно назначает роль, выгоняя текущего держателя (если есть).
+    Требует ранг co_owner+.
+    """
+    args = (message.text or "").split(maxsplit=2)
+    rest = args[2].strip() if len(args) >= 3 else ""
+
+    uid, fname, role_name = await _parse_target_and_role(message, rest)
+    if uid is None:
+        return
+
+    status, evicted_id = await force_assign_community_role(uid, role_name)
+    mention = user_mention(uid, fname)
+    safe_role = html.escape(role_name)
+
+    if status == "not_found":
+        await message.reply(f"❌ Роль <b>{safe_role}</b> не найдена.", parse_mode="HTML")
+        return
+
+    if status == "already":
+        await message.reply(
+            f"ℹ️ У {mention} уже есть роль <b>{safe_role}</b>.", parse_mode="HTML"
+        )
+        return
+
+    # status == 'ok'
+    lines = [f"✅ Роль <b>{safe_role}</b> принудительно назначена {mention}!"]
+    if evicted_id is not None:
+        from database.db import get_user
+        evicted_user = await get_user(evicted_id)
+        evicted_name = (evicted_user["full_name"] if evicted_user else None) or str(evicted_id)
+        evicted_mention = user_mention(evicted_id, evicted_name)
+        lines.append(f"⚠️ Роль освобождена у {evicted_mention}.")
+
+    await message.reply("\n".join(lines), parse_mode="HTML")
+
+    # Обновить Telegram custom title в основном чате
+    main_chat_id = await get_channel_type("main")
+    if main_chat_id:
+        await _try_set_custom_title(message.bot, main_chat_id, uid, role_name)
+

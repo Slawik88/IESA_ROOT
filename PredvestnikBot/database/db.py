@@ -300,6 +300,18 @@ async def init_db():
             )
         """)
 
+        # Журнал добровольных выходов из чата
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS leave_log (
+                id        INTEGER PRIMARY KEY AUTOINCREMENT,
+                chat_id   INTEGER NOT NULL,
+                user_id   INTEGER NOT NULL,
+                full_name TEXT    DEFAULT '',
+                username  TEXT    DEFAULT '',
+                left_at   TEXT    NOT NULL
+            )
+        """)
+
         await db.commit()
 
     # PostgreSQL: widen all Telegram ID columns from int32 (INTEGER) → int64 (BIGINT).
@@ -339,6 +351,8 @@ async def init_db():
             ("admin_groups",      "chat_id"),
             ("channel_types",     "chat_id"),
             ("user_roles",        "user_id"),
+            ("leave_log",         "chat_id"),
+            ("leave_log",         "user_id"),
         ]
         for _tbl, _col in _bigint_migrations:
             try:
@@ -1858,6 +1872,70 @@ async def get_role_holders(role_name: str) -> list[dict]:
                WHERE r.name = ?
                ORDER BY u.full_name""",
             (role_name,),
+        ) as c:
+            return [dict(r) for r in await c.fetchall()]
+
+
+async def force_assign_community_role(user_id: int, role_name: str) -> tuple[str, int | None]:
+    """Force-assign a role, evicting any current holder.
+
+    Returns:
+        ('ok', None)         – assigned, role was free
+        ('ok', evicted_id)   – assigned, previous holder evicted
+        ('not_found', None)  – role doesn't exist
+        ('already', None)    – user already has this role
+    """
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT id FROM community_roles WHERE name = ? COLLATE NOCASE", (role_name,)
+        ) as c:
+            row = await c.fetchone()
+        if not row:
+            return ("not_found", None)
+        role_id = row[0]
+
+        async with db.execute(
+            "SELECT user_id FROM user_roles WHERE role_id = ?", (role_id,)
+        ) as c:
+            existing = await c.fetchone()
+
+        evicted_id: int | None = None
+        if existing:
+            holder_id = existing[0]
+            if holder_id == user_id:
+                return ("already", None)
+            await db.execute("DELETE FROM user_roles WHERE role_id = ?", (role_id,))
+            evicted_id = holder_id
+
+        await db.execute(
+            "INSERT INTO user_roles (role_id, user_id) VALUES (?, ?)",
+            (role_id, user_id),
+        )
+        await db.commit()
+        return ("ok", evicted_id)
+
+
+async def log_voluntary_leave(chat_id: int, user_id: int, full_name: str, username: str) -> None:
+    """Log a user who voluntarily left a chat."""
+    now_iso = datetime.utcnow().isoformat(timespec="seconds")
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        await db.execute(
+            "INSERT INTO leave_log (chat_id, user_id, full_name, username, left_at) VALUES (?, ?, ?, ?, ?)",
+            (chat_id, user_id, full_name, username, now_iso),
+        )
+        await db.commit()
+
+
+async def get_voluntary_leaves(chat_id: int, limit: int = 20) -> list[dict]:
+    """Return recent voluntary leaves for a chat, newest first."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            """SELECT user_id, full_name, username, left_at
+               FROM leave_log WHERE chat_id = ?
+               ORDER BY left_at DESC LIMIT ?""",
+            (chat_id, limit),
         ) as c:
             return [dict(r) for r in await c.fetchall()]
 
