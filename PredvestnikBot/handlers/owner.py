@@ -25,7 +25,7 @@ from database.db import (
 from filters.bot_command import BotCommand
 from filters.rank_filter import RankFilter
 from utils.helpers import resolve_target, user_mention
-from utils.ranks import rank_level, rank_name
+from utils.ranks import is_developer, rank_level, rank_name
 
 _CONFIG_PATH = pathlib.Path(__file__).parent.parent / "config.py"
 
@@ -265,11 +265,12 @@ async def cmd_list_groups(message: Message, cmd_args: str):
 
 @router.callback_query(F.data.startswith("rmg:"))
 async def cb_remove_group(callback: CallbackQuery):
-    caller_stats = await get_user_stats(callback.from_user.id, callback.message.chat.id)
-    caller_rank = caller_stats["rank"] if caller_stats else "user"
-    if rank_level(caller_rank) < rank_level("developer"):
-        await callback.answer("❌ Недостаточно прав.", show_alert=True)
-        return
+    if not is_developer(callback.from_user.id):
+        caller_stats = await get_user_stats(callback.from_user.id, callback.message.chat.id)
+        caller_rank = caller_stats["rank"] if caller_stats else "user"
+        if rank_level(caller_rank) < rank_level("developer"):
+            await callback.answer("❌ Недостаточно прав.", show_alert=True)
+            return
 
     chat_id = int(callback.data.split(":")[1])
     await remove_allowed_group(chat_id)
@@ -603,10 +604,11 @@ async def cb_remove_admin_group(callback: CallbackQuery):
     # Developer-only check
     uid = callback.from_user.id
     cid = callback.message.chat.id
-    stats = await get_user_stats(uid, cid)
-    if not stats or rank_level(stats["rank"]) < rank_level("developer"):
-        await callback.answer("⛔ Только для разработчика.", show_alert=True)
-        return
+    if not is_developer(uid):
+        stats = await get_user_stats(uid, cid)
+        if not stats or rank_level(stats["rank"]) < rank_level("developer"):
+            await callback.answer("⛔ Только для разработчика.", show_alert=True)
+            return
 
     raw = callback.data.split(":", 1)[1]
     try:
@@ -751,10 +753,11 @@ async def cb_remove_channel_type(callback: CallbackQuery) -> None:
     # Developer-only check
     uid = callback.from_user.id
     cid = callback.message.chat.id
-    stats = await get_user_stats(uid, cid)
-    if not stats or rank_level(stats["rank"]) < rank_level("developer"):
-        await callback.answer("⛔ Только для разработчика.", show_alert=True)
-        return
+    if not is_developer(uid):
+        stats = await get_user_stats(uid, cid)
+        if not stats or rank_level(stats["rank"]) < rank_level("developer"):
+            await callback.answer("⛔ Только для разработчика.", show_alert=True)
+            return
 
     type_key = callback.data.split(":", 2)[2]
     label = _CHANNEL_TYPE_LABELS.get(type_key, type_key)

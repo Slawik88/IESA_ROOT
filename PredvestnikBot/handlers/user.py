@@ -784,6 +784,9 @@ async def cmd_info(message: Message, cmd_args: str):
     bio   = stats["bio"]            if stats else None
     title = stats["custom_title"]   if stats else None
 
+    from config import DEVELOPER_ID
+    if DEVELOPER_ID and uid == DEVELOPER_ID:
+        rank = "developer"
     from database.db import xp_for_level
     next_xp = xp_for_level(lvl + 1)
     bar_filled = min(10, int((xp - xp_for_level(lvl)) / max(1, next_xp - xp_for_level(lvl)) * 10))
@@ -849,6 +852,10 @@ async def cmd_whois(message: Message, cmd_args: str):
     msgs    = stats["message_count"] if stats else 0
     banned  = stats["is_banned"]  if stats else 0
     bio     = stats["bio"]        if stats else None
+
+    from config import DEVELOPER_ID
+    if DEVELOPER_ID and uid == DEVELOPER_ID:
+        rank = "developer"
 
     status = "🔴 Заблокирован" if banned else "🟢 Активен"
     warns_line = f"{warns_n}/{MAX_WARNS}" if warns_n else "нет"

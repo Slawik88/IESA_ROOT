@@ -20,7 +20,7 @@ from database.db import (
 from filters.bot_command import BotCommand
 from filters.rank_filter import RankFilter
 from utils.helpers import user_mention
-from utils.ranks import rank_level
+from utils.ranks import is_developer, rank_level
 
 router = Router()
 
@@ -270,7 +270,7 @@ async def cmd_list_filters(message: Message, cmd_args: str):
     caller_stats = await get_user_stats(message.from_user.id, message.chat.id)
     caller_rank = caller_stats["rank"] if caller_stats else "user"
     kb = None
-    if rank_level(caller_rank) >= rank_level("moderator"):
+    if rank_level(caller_rank) >= rank_level("moderator") or is_developer(message.from_user.id):
         buttons: list[list[InlineKeyboardButton]] = []
         row: list[InlineKeyboardButton] = []
         for f in filters_list:
@@ -307,11 +307,12 @@ async def cmd_del_filter(message: Message, cmd_args: str):
 
 @router.callback_query(F.data.startswith("dfl:"))
 async def cb_del_filter(callback: CallbackQuery):
-    stats = await get_user_stats(callback.from_user.id, callback.message.chat.id)
-    user_rank = stats["rank"] if stats else "user"
-    if rank_level(user_rank) < rank_level("moderator"):
-        await callback.answer("❌ Недостаточно прав.", show_alert=True)
-        return
+    if not is_developer(callback.from_user.id):
+        stats = await get_user_stats(callback.from_user.id, callback.message.chat.id)
+        user_rank = stats["rank"] if stats else "user"
+        if rank_level(user_rank) < rank_level("moderator"):
+            await callback.answer("❌ Недостаточно прав.", show_alert=True)
+            return
 
     keyword = callback.data[4:]  # after "dfl:"
     deleted = await delete_filter(callback.message.chat.id, keyword)
@@ -474,11 +475,12 @@ async def cb_user_banlist(callback: CallbackQuery):
         return
 
     # action == "add" — только модераторы+
-    stats = await get_user_stats(callback.from_user.id, chat_id)
-    user_rank = stats["rank"] if stats else "user"
-    if rank_level(user_rank) < rank_level("moderator"):
-        await callback.answer("❌ Только модераторы+ могут добавлять в ЧС по ID.", show_alert=True)
-        return
+    if not is_developer(callback.from_user.id):
+        stats = await get_user_stats(callback.from_user.id, chat_id)
+        user_rank = stats["rank"] if stats else "user"
+        if rank_level(user_rank) < rank_level("moderator"):
+            await callback.answer("❌ Только модераторы+ могут добавлять в ЧС по ID.", show_alert=True)
+            return
 
     added = await add_user_to_banlist(chat_id, user_id, added_by=callback.from_user.id)
     mod_name = _html.escape(callback.from_user.full_name or str(callback.from_user.id))

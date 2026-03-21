@@ -17,7 +17,7 @@ from database.db import (
 from filters.bot_command import BotCommand
 from filters.rank_filter import RankFilter
 from utils.helpers import resolve_target, user_mention
-from utils.ranks import rank_level
+from utils.ranks import is_developer, rank_level
 
 router = Router()
 
@@ -31,6 +31,10 @@ async def cmd_ban(message: Message, bot: Bot, cmd_args: str):
     uid, name, reason = await resolve_target(message, cmd_args)
     if uid is None:
         await message.answer(name)
+        return
+
+    if is_developer(uid):
+        await message.answer("❌ Нельзя заблокировать разработчика.")
         return
 
     target_stats = await get_user_stats(uid, message.chat.id)
@@ -58,6 +62,10 @@ async def cmd_kick(message: Message, bot: Bot, cmd_args: str):
     uid, name, reason = await resolve_target(message, cmd_args)
     if uid is None:
         await message.answer(name)
+        return
+
+    if is_developer(uid):
+        await message.answer("❌ Нельзя выгнать разработчика.")
         return
 
     target_stats = await get_user_stats(uid, message.chat.id)
@@ -271,11 +279,12 @@ async def cmd_bans(message: Message, cmd_args: str):
 
 @router.callback_query(F.data.startswith("ub:"))
 async def cb_unban(callback: CallbackQuery, bot: Bot):
-    caller_stats = await get_user_stats(callback.from_user.id, callback.message.chat.id)
-    caller_rank = caller_stats["rank"] if caller_stats else "user"
-    if rank_level(caller_rank) < rank_level("moderator"):
-        await callback.answer("❌ Недостаточно прав.", show_alert=True)
-        return
+    if not is_developer(callback.from_user.id):
+        caller_stats = await get_user_stats(callback.from_user.id, callback.message.chat.id)
+        caller_rank = caller_stats["rank"] if caller_stats else "user"
+        if rank_level(caller_rank) < rank_level("moderator"):
+            await callback.answer("❌ Недостаточно прав.", show_alert=True)
+            return
 
     uid = int(callback.data.split(":")[1])
     await unban_user_in_chat(uid, callback.message.chat.id)
@@ -316,11 +325,12 @@ async def cb_unban(callback: CallbackQuery, bot: Bot):
 
 @router.callback_query(F.data.startswith("uw:"))
 async def cb_unwarn(callback: CallbackQuery):
-    caller_stats = await get_user_stats(callback.from_user.id, callback.message.chat.id)
-    caller_rank = caller_stats["rank"] if caller_stats else "user"
-    if rank_level(caller_rank) < rank_level("moderator"):
-        await callback.answer("❌ Недостаточно прав.", show_alert=True)
-        return
+    if not is_developer(callback.from_user.id):
+        caller_stats = await get_user_stats(callback.from_user.id, callback.message.chat.id)
+        caller_rank = caller_stats["rank"] if caller_stats else "user"
+        if rank_level(caller_rank) < rank_level("moderator"):
+            await callback.answer("❌ Недостаточно прав.", show_alert=True)
+            return
 
     uid = int(callback.data.split(":")[1])
     warns = await remove_warn_in_chat(uid, callback.message.chat.id)
