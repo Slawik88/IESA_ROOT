@@ -592,11 +592,12 @@ async def cmd_leave_log(message: Message, cmd_args: str):
     import html as _html
     lines = [f"🚪 <b>Последние {len(rows)} добровольных выходов:</b>\n"]
     for r in rows:
-        safe_name = _html.escape(r["full_name"] or str(r["user_id"]))
+        uid_val = r["user_id"]
+        safe_name = _html.escape(r["full_name"] or str(uid_val))
         uname = f" (@{_html.escape(r['username'])})" if r.get("username") else ""
         left_at = (r["left_at"] or "")[:16].replace("T", " ")
         lines.append(
-            f"  • <a href='tg://user?id={r[\"user_id\"]}'>{safe_name}</a>{uname} — {left_at}"
+            f"  • <a href='tg://user?id={uid_val}'>{safe_name}</a>{uname} — {left_at}"
         )
     lines.append(f"\n<i>Используй «бот ушли N» для другого числа записей.</i>")
 
