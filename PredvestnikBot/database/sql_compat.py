@@ -64,6 +64,17 @@ def _normalize_sql_for_postgres(sql: str) -> str | None:
         if "ON CONFLICT" not in normalized.upper():
             normalized = normalized.rstrip().rstrip(";") + " ON CONFLICT DO NOTHING"
 
+    # Handle INSERT OR REPLACE for channel_types table
+    if re.search(r"\bINSERT\s+OR\s+REPLACE\s+INTO\s+channel_types\b", normalized, flags=re.IGNORECASE):
+        normalized = re.sub(
+            r"\bINSERT\s+OR\s+REPLACE\s+INTO\s+channel_types\s+\(type,\s*chat_id\)",
+            "INSERT INTO channel_types (type, chat_id)",
+            normalized,
+            flags=re.IGNORECASE,
+        )
+        if "ON CONFLICT" not in normalized.upper():
+            normalized = normalized.rstrip().rstrip(";") + " ON CONFLICT (type) DO UPDATE SET chat_id = EXCLUDED.chat_id"
+
     normalized = _convert_placeholders(normalized)
     return normalized
 

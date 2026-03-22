@@ -1,14 +1,13 @@
 """
 Ежедневные задания: бот задание / бот перебросить задание
 """
-from datetime import date
-
 from aiogram import Router
 from aiogram.types import Message
 
 from config import QUEST_REROLL_PRICE
 from database.db import deduct_mora, get_mora, get_quest_progress, get_todays_quest, reset_user_quest
 from filters.bot_command import BotCommand
+from utils.helpers import bot_today
 
 router = Router()
 
@@ -16,7 +15,7 @@ router = Router()
 @router.message(BotCommand("задание", "quest", "квест", "задания"))
 async def cmd_quest(message: Message, cmd_args: str):
     quest = get_todays_quest()
-    today = date.today().isoformat()
+    today = bot_today()
     row = await get_quest_progress(message.from_user.id, message.chat.id, today)
 
     progress  = row["progress"]  if row else 0
@@ -55,7 +54,7 @@ async def cmd_reroll_quest(message: Message, cmd_args: str):
 
     uid = message.from_user.id
     chat_id = message.chat.id
-    today = date.today().isoformat()
+    today = bot_today()
 
     # Проверяем, не выполнено ли уже сегодня
     row = await get_quest_progress(uid, chat_id, today)

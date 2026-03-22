@@ -16,9 +16,7 @@ from datetime import datetime, timedelta
 
 log = logging.getLogger(__name__)
 
-# In-memory guards to avoid double-awarding per hour run
-_anniversary_awarded: set[tuple[int, int, str]] = set()  # (user_id, chat_id, date_str)
-_lottery_drawn_weeks: set[str] = set()                    # week keys already drawn
+# In-memory guards REMOVED — now using persistent DB to survive restarts
 
 
 async def run_scheduler(bot) -> None:
@@ -41,6 +39,10 @@ async def run_scheduler(bot) -> None:
             await _task_lottery_draw(bot)
         except Exception as exc:
             log.error("Scheduler [lottery] error: %s", exc, exc_info=True)
+        try:
+            await _task_weekly_singles_bonus(bot)
+        except Exception as exc:
+            log.error("Scheduler [singles_bonus] error: %s", exc, exc_info=True)
         await asyncio.sleep(3600)  # следующий прогон через час
 
 
@@ -154,10 +156,13 @@ async def _task_cleanup_reminders(bot) -> None:
 
 async def _task_marriage_anniversary(bot) -> None:
     from config import ANNIVERSARY_MORA
-    from database.db import add_mora, get_all_marriages_for_anniversary, get_user
-    from utils.helpers import user_mention
+    from database.db import (
+        add_mora, get_all_marriages_for_anniversary, get_user,
+        is_anniversary_awarded, mark_anniversary_awarded,
+    )
+    from utils.helpers import user_mention, bot_today
 
-    today_str = datetime.utcnow().date().isoformat()
+    today_str = bot_today()
 
     marriages = await get_all_marriages_for_anniversary()
     for row in marriages:
@@ -179,10 +184,10 @@ async def _task_marriage_anniversary(bot) -> None:
         if days < 7 or days % 7 != 0:
             continue
 
-        guard_key = (uid, chat_id, today_str)
-        if guard_key in _anniversary_awarded:
+        # Persistent DB guard — survives restarts
+        if await is_anniversary_awarded(uid, chat_id, today_str):
             continue
-        _anniversary_awarded.add(guard_key)
+        await mark_anniversary_awarded(uid, chat_id, today_str)
 
         await add_mora(uid, chat_id, ANNIVERSARY_MORA)
         await add_mora(partner_id, chat_id, ANNIVERSARY_MORA)
@@ -204,16 +209,15 @@ async def _task_marriage_anniversary(bot) -> None:
         except Exception as exc:
             log.warning("Cannot send anniversary to %s: %s", chat_id, exc)
 
-    # Prune guard set to avoid unbounded growth
-    if len(_anniversary_awarded) > 10000:
-        _anniversary_awarded.clear()
-
 
 # ─── Еженедельный розыгрыш лотереи (по воскресеньям) ─────────────────────────
 
 async def _task_lottery_draw(bot) -> None:
     from config import LOTTERY_WIN_CHANCE, LOTTERY_WIN_MIN, LOTTERY_WIN_MAX
-    from database.db import add_mora, get_all_lottery_chats_week, get_all_lottery_participants, get_user
+    from database.db import (
+        add_mora, get_all_lottery_chats_week, get_all_lottery_participants, get_user,
+        is_lottery_drawn, mark_lottery_drawn,
+    )
     from utils.helpers import user_mention
 
     now = datetime.utcnow()
@@ -224,17 +228,17 @@ async def _task_lottery_draw(bot) -> None:
     year, week, _ = now.isocalendar()
     week_key = f"{year}-W{week:02d}"
 
-    if week_key in _lottery_drawn_weeks:
+    # Persistent DB guard — survives restarts
+    if await is_lottery_drawn(week_key):
         return
-    _lottery_drawn_weeks.add(week_key)
+    await mark_lottery_drawn(week_key)
 
     WIN_CHANCE = LOTTERY_WIN_CHANCE
     WIN_MIN    = LOTTERY_WIN_MIN
     WIN_MAX    = LOTTERY_WIN_MAX
 
     chats = await get_all_lottery_chats_week(week_key)
-    for chat_row in chats:
-        chat_id = chat_row["chat_id"]
+    for chat_id in chats:
         participants = await get_all_lottery_participants(chat_id, week_key)
 
         if not participants:
@@ -275,4 +279,50 @@ async def _task_lottery_draw(bot) -> None:
             await bot.send_message(chat_id, text, parse_mode="HTML")
         except Exception as exc:
             log.warning("Cannot send lottery results to %s: %s", chat_id, exc)
+
+
+# ─── Еженедельный бонус для одиночек ──────────────────────────────────────────
+
+async def _task_weekly_singles_bonus(bot) -> None:
+    from config import SINGLES_WEEKLY_BONUS
+    from database.db import (
+        add_mora, get_all_singles_for_weekly_bonus, get_user,
+        is_singles_bonus_awarded, mark_singles_bonus_awarded,
+    )
+    from utils.helpers import user_mention, bot_today
+
+    now = datetime.utcnow()
+    # Only award on Sundays
+    if now.weekday() != 6:
+        return
+
+    today_str = bot_today()
+    year, week, _ = now.isocalendar()
+    week_key = f"{year}-W{week:02d}"
+
+    # Persistent DB guard — survives restarts
+    if await is_singles_bonus_awarded(week_key):
+        return
+    await mark_singles_bonus_awarded(week_key)
+
+    singles = await get_all_singles_for_weekly_bonus()
+    for single_user in singles:
+        uid = single_user["user_id"] 
+        chat_id = single_user["chat_id"]
+        
+        # Award the bonus
+        await add_mora(uid, chat_id, SINGLES_WEEKLY_BONUS)
+        
+        # Try to send notification
+        try:
+            user = await get_user(uid)
+            name = html.escape(user["full_name"]) if user else str(uid)
+            text = (
+                f"💎 <b>Еженедельный бонус одиночки!</b>\n\n"
+                f"🪙 <b>+{SINGLES_WEEKLY_BONUS} Мора</b> за активность без пары\n"
+                f"<i>Каждое воскресенье — бонус за независимость! 🕊</i>"
+            )
+            await bot.send_message(chat_id, text, parse_mode="HTML")
+        except Exception as exc:
+            log.warning("Cannot send singles bonus to %s/%s: %s", chat_id, uid, exc)
 

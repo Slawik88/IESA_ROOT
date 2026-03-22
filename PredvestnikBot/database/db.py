@@ -392,7 +392,7 @@ async def init_db():
                 total_earned   INTEGER DEFAULT 0,
                 streak_days    INTEGER DEFAULT 0,
                 last_daily     TEXT    DEFAULT NULL,
-                mora_public    INTEGER DEFAULT 0,
+                mora_public    INTEGER DEFAULT 1,
                 vip            INTEGER DEFAULT 0,
                 xp_boost_until TEXT    DEFAULT NULL,
                 top_frame      TEXT    DEFAULT NULL,
@@ -435,6 +435,22 @@ async def init_db():
                 PRIMARY KEY (chat_id, user_id)
             )
         """)
+
+        # Журнал розыгрышей лотереи (персистентный guard, выживает перезапуск)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS lottery_draws (
+                week_key TEXT PRIMARY KEY
+            )
+        """)
+
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS singles_bonus_log (
+                week_key TEXT PRIMARY KEY
+            )
+        """)
+
+        # Миграция: сделать баланс Моры видимым по умолчанию для всех
+        await db.execute("UPDATE user_mora SET mora_public = 1 WHERE mora_public = 0")
 
         await db.commit()
 
@@ -2356,6 +2372,118 @@ async def get_all_marriages_for_anniversary() -> list:
             "SELECT user_id, chat_id, partner_id, married_at FROM marriages"
         ) as c:
             return await c.fetchall()
+
+
+async def is_anniversary_awarded(user_id: int, chat_id: int, date_str: str) -> bool:
+    """True если юбилейная Мора уже была начислена этому пользователю сегодня."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        async with db.execute(
+            "SELECT 1 FROM anniversary_log WHERE user_id=? AND chat_id=? AND date_str=?",
+            (user_id, chat_id, date_str),
+        ) as c:
+            return (await c.fetchone()) is not None
+
+
+async def mark_anniversary_awarded(user_id: int, chat_id: int, date_str: str):
+    """Записать факт начисления юбилейной Моры."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        await db.execute(
+            "INSERT OR IGNORE INTO anniversary_log (user_id, chat_id, date_str) VALUES (?,?,?)",
+            (user_id, chat_id, date_str),
+        )
+        await db.commit()
+        # Автоочистка: удаляем записи старше 90 дней
+        cutoff = (datetime.utcnow().date().isoformat()[:7])  # "YYYY-MM"
+        await db.execute(
+            "DELETE FROM anniversary_log WHERE date_str < ?",
+            (cutoff + "-01",),
+        )
+        await db.commit()
+
+
+# ─── Singles weekly bonus log (persistent guard) ─────────────────────────────
+
+async def is_singles_bonus_awarded(week_key: str) -> bool:
+    """Check if singles bonus has been awarded for this week."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        async with db.execute(
+            "SELECT 1 FROM singles_bonus_log WHERE week_key=?", (week_key,)
+        ) as c:
+            return bool(await c.fetchone())
+
+
+async def mark_singles_bonus_awarded(week_key: str):
+    """Mark singles bonus as awarded for this week and cleanup old records."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        await db.execute(
+            "INSERT OR IGNORE INTO singles_bonus_log (week_key) VALUES (?)", (week_key,)
+        )
+        
+        # Auto-cleanup: remove records older than 12 weeks
+        cutoff_year = datetime.utcnow().year
+        if week_key.startswith(str(cutoff_year)) and int(week_key[-2:]) <= 12:
+            cutoff_year -= 1
+        await db.execute(
+            "DELETE FROM singles_bonus_log WHERE week_key < ?", (f"{cutoff_year}-W01",)
+        )
+        await db.commit()
+
+
+async def get_all_singles_for_weekly_bonus():
+    """Get all single (unmarried) users who are active."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute("""
+            SELECT us.user_id, us.chat_id
+            FROM user_stats us
+            LEFT JOIN marriages m ON ((m.user_id_1 = us.user_id OR m.user_id_2 = us.user_id) 
+                                     AND m.chat_id = us.chat_id AND m.is_active = 1)
+            WHERE us.is_banned = 0 
+              AND us.message_count > 10  -- at least some activity
+              AND m.id IS NULL  -- no active marriage
+        """) as c:
+            return await c.fetchall()
+
+
+# ─── Lottery draw log (persistent guard) ─────────────────────────────────────
+
+async def is_lottery_drawn(week_key: str) -> bool:
+    """True если розыгрыш лотереи уже был проведён на этой неделе (выживает перезапуск)."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        async with db.execute(
+            "SELECT 1 FROM lottery_draws WHERE week_key=?", (week_key,)
+        ) as c:
+            return (await c.fetchone()) is not None
+
+
+async def mark_lottery_drawn(week_key: str):
+    """Записать факт проведения розыгрыша лотереи на этой неделе."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        await db.execute(
+            "INSERT OR IGNORE INTO lottery_draws (week_key) VALUES (?)", (week_key,)
+        )
+        await db.commit()
+        # Автоочистка: удаляем записи старше 12 недель
+        cutoff_year = datetime.utcnow().year - 1
+        await db.execute(
+            "DELETE FROM lottery_draws WHERE week_key < ?", (f"{cutoff_year}-W01",)
+        )
+        await db.commit()
+
+
+# ─── Mora balance management ──────────────────────────────────────────────────
+
+async def set_mora_balance(user_id: int, chat_id: int, new_balance: int):
+    """Устанавливает баланс Моры напрямую (для developer-команд)."""
+    new_balance = max(0, new_balance)
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        await db.execute(
+            """INSERT INTO user_mora (user_id, chat_id, balance)
+               VALUES (?, ?, ?)
+               ON CONFLICT(user_id, chat_id) DO UPDATE SET balance = excluded.balance""",
+            (user_id, chat_id, new_balance),
+        )
+        await db.commit()
 
 
 async def reset_user_quest(user_id: int, chat_id: int, quest_date: str):
