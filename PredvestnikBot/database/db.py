@@ -568,6 +568,93 @@ async def init_db():
             except Exception:
                 pass
 
+        # ─── Темы профиля (какие куплены/получены и какая активна) ────────
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS user_themes (
+                user_id   INTEGER NOT NULL,
+                chat_id   INTEGER NOT NULL,
+                theme_key TEXT    NOT NULL,
+                source    TEXT    NOT NULL DEFAULT 'shop',
+                obtained_at TEXT  NOT NULL,
+                PRIMARY KEY (user_id, chat_id, theme_key)
+            )
+        """)
+
+        # ─── Активная тема (у каждого юзера одна на чат) ──────────────────
+        for col_def in [
+            "active_theme TEXT DEFAULT 'default'",
+        ]:
+            try:
+                await db.execute(f"ALTER TABLE user_mora ADD COLUMN {col_def}")
+            except Exception:
+                pass
+
+        # ─── Бейджи (значки) профиля ─────────────────────────────────────
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS user_badges (
+                user_id   INTEGER NOT NULL,
+                chat_id   INTEGER NOT NULL,
+                badge_key TEXT    NOT NULL,
+                obtained_at TEXT  NOT NULL,
+                PRIMARY KEY (user_id, chat_id, badge_key)
+            )
+        """)
+
+        # ─── Личные приветствия ───────────────────────────────────────────
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS user_greetings (
+                user_id      INTEGER NOT NULL,
+                chat_id      INTEGER NOT NULL,
+                template_key TEXT    NOT NULL,
+                source       TEXT    NOT NULL DEFAULT 'gacha',
+                obtained_at  TEXT    NOT NULL,
+                PRIMARY KEY (user_id, chat_id)
+            )
+        """)
+
+        # ─── Богатый сундук (замена налогового ивента) ────────────────────
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS chest_events (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                chat_id     INTEGER NOT NULL,
+                message_id  INTEGER,
+                started_at  TEXT    NOT NULL,
+                expires_at  TEXT    NOT NULL,
+                finished    INTEGER DEFAULT 0
+            )
+        """)
+
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS chest_event_clicks (
+                event_id    INTEGER NOT NULL,
+                user_id     INTEGER NOT NULL,
+                clicked_at  TEXT    NOT NULL,
+                position    INTEGER NOT NULL,
+                reward      INTEGER NOT NULL DEFAULT 0,
+                PRIMARY KEY (event_id, user_id)
+            )
+        """)
+
+        # ─── Трекинг для бейджей ─────────────────────────────────────────
+        for col_def in [
+            "expeditions_sent INTEGER DEFAULT 0",
+            "chests_opened    INTEGER DEFAULT 0",
+            "casino_wins      INTEGER DEFAULT 0",
+        ]:
+            try:
+                await db.execute(f"ALTER TABLE user_mora ADD COLUMN {col_def}")
+            except Exception:
+                pass
+
+        # ─── Трекинг: юзер видел приветствие сегодня ──────────────────────
+        for col_def in [
+            "last_greeting_date TEXT DEFAULT NULL",
+        ]:
+            try:
+                await db.execute(f"ALTER TABLE user_stats ADD COLUMN {col_def}")
+            except Exception:
+                pass
+
         # Миграция: сделать баланс Моры видимым по умолчанию для всех
         await db.execute("UPDATE user_mora SET mora_public = 1 WHERE mora_public = 0")
 
@@ -3675,4 +3762,213 @@ async def get_tax_event_prize(event_id: int) -> int:
         ) as c:
             row = await c.fetchone()
             return row["prize"] if row else 0
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  🎨  Темы профиля
+# ═══════════════════════════════════════════════════════════════════════════════
+
+async def get_user_themes(user_id: int, chat_id: int) -> list:
+    """Вернуть все темы, которыми владеет юзер."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT * FROM user_themes WHERE user_id=? AND chat_id=?",
+            (user_id, chat_id),
+        ) as c:
+            return await c.fetchall()
+
+
+async def add_user_theme(user_id: int, chat_id: int, theme_key: str, source: str = "shop"):
+    """Добавить тему юзеру (если ещё нет)."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        await db.execute(
+            """INSERT OR IGNORE INTO user_themes (user_id, chat_id, theme_key, source, obtained_at)
+               VALUES (?, ?, ?, ?, ?)""",
+            (user_id, chat_id, theme_key, source, datetime.utcnow().isoformat()),
+        )
+        await db.commit()
+
+
+async def set_active_theme(user_id: int, chat_id: int, theme_key: str):
+    """Установить активную тему профиля."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        await db.execute(
+            """INSERT INTO user_mora (user_id, chat_id, active_theme)
+               VALUES (?, ?, ?)
+               ON CONFLICT(user_id, chat_id) DO UPDATE SET active_theme=?""",
+            (user_id, chat_id, theme_key, theme_key),
+        )
+        await db.commit()
+
+
+async def get_active_theme(user_id: int, chat_id: int) -> str:
+    """Вернуть ключ активной темы (по умолчанию 'default')."""
+    row = await get_mora(user_id, chat_id)
+    if row and row["active_theme"]:
+        return row["active_theme"]
+    return "default"
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  🏅  Бейджи (значки)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+async def get_user_badges(user_id: int, chat_id: int) -> list:
+    """Вернуть все бейджи юзера."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT badge_key FROM user_badges WHERE user_id=? AND chat_id=?",
+            (user_id, chat_id),
+        ) as c:
+            return [r["badge_key"] for r in await c.fetchall()]
+
+
+async def award_badge(user_id: int, chat_id: int, badge_key: str):
+    """Дать бейдж юзеру (если ещё нет)."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        await db.execute(
+            """INSERT OR IGNORE INTO user_badges (user_id, chat_id, badge_key, obtained_at)
+               VALUES (?, ?, ?, ?)""",
+            (user_id, chat_id, badge_key, datetime.utcnow().isoformat()),
+        )
+        await db.commit()
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  👋  Личные приветствия
+# ═══════════════════════════════════════════════════════════════════════════════
+
+async def get_user_greeting(user_id: int, chat_id: int):
+    """Вернуть строку greeting (template_key) или None."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT * FROM user_greetings WHERE user_id=? AND chat_id=?",
+            (user_id, chat_id),
+        ) as c:
+            return await c.fetchone()
+
+
+async def set_user_greeting(user_id: int, chat_id: int, template_key: str, source: str = "gacha"):
+    """Назначить или сменить приветствие юзеру."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        await db.execute(
+            """INSERT INTO user_greetings (user_id, chat_id, template_key, source, obtained_at)
+               VALUES (?, ?, ?, ?, ?)
+               ON CONFLICT(user_id, chat_id) DO UPDATE SET template_key=?, source=?""",
+            (user_id, chat_id, template_key, source, datetime.utcnow().isoformat(),
+             template_key, source),
+        )
+        await db.commit()
+
+
+async def check_greeting_today(user_id: int, chat_id: int, today_str: str) -> bool:
+    """True если приветствие уже показано сегодня."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT last_greeting_date FROM user_stats WHERE user_id=? AND chat_id=?",
+            (user_id, chat_id),
+        ) as c:
+            row = await c.fetchone()
+            if row and row["last_greeting_date"] == today_str:
+                return True
+    return False
+
+
+async def mark_greeting_shown(user_id: int, chat_id: int, today_str: str):
+    """Отметить что приветствие показано сегодня."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        await db.execute(
+            "UPDATE user_stats SET last_greeting_date=? WHERE user_id=? AND chat_id=?",
+            (today_str, user_id, chat_id),
+        )
+        await db.commit()
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  ✨  Богатый сундук (замена налогового ивента)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+async def create_chest_event(chat_id: int, duration_sec: int = 60) -> int:
+    """Создать ивент сундука. Возвращает event_id."""
+    now = datetime.utcnow()
+    expires = now + timedelta(seconds=duration_sec)
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        cur = await db.execute(
+            """INSERT INTO chest_events (chat_id, started_at, expires_at)
+               VALUES (?, ?, ?)""",
+            (chat_id, now.isoformat(), expires.isoformat()),
+        )
+        await db.commit()
+        return cur.lastrowid
+
+
+async def set_chest_event_message(event_id: int, message_id: int):
+    """Обновить message_id ивента сундука."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        await db.execute(
+            "UPDATE chest_events SET message_id=? WHERE id=?",
+            (message_id, event_id),
+        )
+        await db.commit()
+
+
+async def add_chest_click(event_id: int, user_id: int, position: int, reward: int) -> bool:
+    """Кликнуть по сундуку. Возвращает True если клик записан (первый для юзера)."""
+    try:
+        async with aiosqlite.connect(DATABASE_PATH) as db:
+            await db.execute(
+                """INSERT INTO chest_event_clicks (event_id, user_id, clicked_at, position, reward)
+                   VALUES (?, ?, ?, ?, ?)""",
+                (event_id, user_id, datetime.utcnow().isoformat(), position, reward),
+            )
+            await db.commit()
+            return True
+    except Exception:
+        return False
+
+
+async def get_chest_click_count(event_id: int) -> int:
+    """Количество кликов по сундуку."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        async with db.execute(
+            "SELECT COUNT(*) FROM chest_event_clicks WHERE event_id=?",
+            (event_id,),
+        ) as c:
+            return (await c.fetchone())[0]
+
+
+async def finish_chest_event(event_id: int):
+    """Пометить ивент как завершённый."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        await db.execute(
+            "UPDATE chest_events SET finished=1 WHERE id=?", (event_id,),
+        )
+        await db.commit()
+
+
+async def get_equipped_legendary(user_id: int, chat_id: int):
+    """Вернуть экипированный легендарный предмет или None."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT item_name, item_key FROM gacha_inventory WHERE user_id=? AND chat_id=? AND equipped=1 LIMIT 1",
+            (user_id, chat_id),
+        ) as c:
+            return await c.fetchone()
+
+
+async def increment_tracker(user_id: int, chat_id: int, field: str, amount: int = 1):
+    """Инкрементировать один из трекинг-счётчиков в user_mora."""
+    if field not in ("expeditions_sent", "chests_opened", "casino_wins"):
+        return
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        await db.execute(
+            f"UPDATE user_mora SET {field} = COALESCE({field}, 0) + ? WHERE user_id=? AND chat_id=?",
+            (amount, user_id, chat_id),
+        )
+        await db.commit()
 

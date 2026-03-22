@@ -15,7 +15,7 @@ from aiogram.types import (
     Message,
 )
 
-from config import BANK_EARLY_PENALTY, BANK_MAX_DEPOSIT, BANK_MIN_DEPOSIT, BANK_PLANS
+from config import BANK_EARLY_PENALTY_PCT, BANK_MAX_DEPOSIT, BANK_MIN_DEPOSIT, BANK_PLANS
 from database.db import (
     add_mora,
     create_deposit,
@@ -64,7 +64,7 @@ async def cmd_bank(message: Message, cmd_args: str):
     for key in ("short", "medium", "long"):
         lines.append(f"  • {_plan_desc(key)}")
 
-    lines.append(f"\n⚠️ Досрочное снятие: штраф <b>{int(BANK_EARLY_PENALTY * 100)}%</b> от суммы\n")
+    lines.append(f"\n⚠️ Досрочное снятие: потеря ВСЕХ процентов + штраф <b>{int(BANK_EARLY_PENALTY_PCT * 100)}%</b> от вклада\n")
 
     if deposits:
         lines.append("📦 <b>Твои вклады:</b>")
@@ -236,7 +236,8 @@ async def cb_bank_withdraw(callback: CallbackQuery):
     if is_mature:
         payout = amount + int(amount * rate)
     else:
-        payout = amount - int(amount * BANK_EARLY_PENALTY)
+        penalty = int(amount * BANK_EARLY_PENALTY_PCT)
+        payout = amount - penalty
         if payout < 0:
             payout = 0
 
@@ -249,11 +250,11 @@ async def cb_bank_withdraw(callback: CallbackQuery):
             f"💳 Получено: <b>{payout} 🪙</b>"
         )
     else:
-        penalty = int(amount * BANK_EARLY_PENALTY)
         text = (
             f"⚠️ <b>Вклад #{dep_id} снят досрочно!</b>\n\n"
-            f"💰 Сумма: {amount} 🪙\n"
-            f"📉 Штраф: -{penalty} 🪙\n"
+            f"💰 Сумма вклада: {amount} 🪙\n"
+            f"📉 Проценты: 0 (потеряны)\n"
+            f"📉 Штраф {int(BANK_EARLY_PENALTY_PCT * 100)}%: -{penalty} 🪙\n"
             f"💳 Получено: <b>{payout} 🪙</b>"
         )
 
