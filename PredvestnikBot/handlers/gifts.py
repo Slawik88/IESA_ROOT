@@ -112,7 +112,7 @@ async def cb_gift(callback: CallbackQuery):
         return
 
     # Записываем подарок
-    await give_gift(uid, partner_id, chat_id, gift_key, price)
+    await give_gift(uid, partner_id, chat_id, gift_key, gift_info["name"], price)
 
     # Если есть бафф — активируем для обоих
     buff = gift_info.get("buff")

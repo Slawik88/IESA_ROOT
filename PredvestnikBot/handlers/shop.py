@@ -15,7 +15,21 @@ from aiogram.types import (
     Message,
 )
 
-from config import SHOP_ITEMS
+from config import (
+    ANON_MSG_PRICE,
+    BANK_PLANS,
+    GACHA_MULTI_PRICE,
+    GACHA_SINGLE_PRICE,
+    LOTTERY_TICKET_PRICE,
+    MARRIAGE_GIFTS,
+    PET_ADOPT_PRICE,
+    PET_MORA_SKIP_PRICE,
+    PET_RENAME_PRICE,
+    QUEST_REROLL_PRICE,
+    SECRET_MSG_PRICE,
+    SHOP_ITEMS,
+    VIP_PRICE,
+)
 from database.db import (
     buy_shop_item,
     deduct_mora,
@@ -25,6 +39,7 @@ from database.db import (
     set_custom_title_in_chat,
 )
 from filters.bot_command import BotCommand
+from handlers.economy import TOP_FRAMES, XP_BOOST_OPTIONS
 
 router = Router()
 
@@ -37,10 +52,162 @@ _PET_COLORS = {
     "cyan":   "🩵 Бирюзовый",
 }
 
+_SHOP_SECTIONS = {
+    "all": "🧾 Всё",
+    "economy": "🪙 Экономика",
+    "pets": "🐾 Питомцы",
+    "gacha": "🎲 Молитвы",
+    "bank": "🏦 Банк",
+    "gifts": "🎁 Подарки",
+    "casino": "🎰 Казино",
+    "cosmetics": "🎨 Косметика",
+}
+
+
+def _section_keyboard(uid: int, active: str) -> InlineKeyboardMarkup:
+    buttons = []
+    row = []
+    for key in ("all", "economy", "pets", "gacha", "bank", "gifts", "casino", "cosmetics"):
+        label = _SHOP_SECTIONS[key]
+        text = f"· {label} ·" if key == active else label
+        row.append(InlineKeyboardButton(text=text, callback_data=f"shop_nav:{uid}:{key}"))
+        if len(row) == 2:
+            buttons.append(row)
+            row = []
+    if row:
+        buttons.append(row)
+
+    if active == "cosmetics":
+        for key, item in SHOP_ITEMS.items():
+            buttons.append([InlineKeyboardButton(
+                text=f"{item['name']} — {item['price']} 🪙",
+                callback_data=f"shop_buy:{uid}:{key}",
+            )])
+
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+
+def _shop_text(section: str, bal: int) -> str:
+    boost_prices = " · ".join(f"{label}={price} 🪙" for _key, _hours, price, label in XP_BOOST_OPTIONS)
+    frame_lines = "\n".join(
+        f"  • {emoji} <b>{name}</b> — {price} 🪙"
+        for _key, emoji, name, price, _desc in TOP_FRAMES
+        if price > 0
+    )
+    bank_lines = "\n".join(
+        f"  • <b>{entry['label']}</b>"
+        for entry in BANK_PLANS.values()
+    )
+    gift_lines = "\n".join(
+        f"  • {gift['name']} — <b>{gift['price']} 🪙</b>"
+        for gift in MARRIAGE_GIFTS.values()
+    )
+    cosmetics_lines = "\n".join(
+        f"  • {item['name']} — <b>{item['price']} 🪙</b>\n    <i>{item['desc']}</i>"
+        for item in SHOP_ITEMS.values()
+    )
+
+    sections = {
+        "all": (
+            "🛍 <b>Единый магазин Предвестника</b>\n\n"
+            f"💰 Твой баланс: <b>{bal} 🪙</b>\n\n"
+            "🪙 <b>Экономика</b>\n"
+            f"  • VIP — <b>{VIP_PRICE} 🪙</b> · <code>бот купить вип</code>\n"
+            f"  • Буст XP ×2 — {boost_prices} · <code>бот купить буст</code>\n"
+            "  • Рамки профиля — <code>бот рамки</code> / <code>бот купить рамку</code>\n"
+            f"  • Анонимка — <b>{ANON_MSG_PRICE} 🪙</b> · <code>бот анонимка текст</code>\n"
+            f"  • Секретное сообщение — <b>{SECRET_MSG_PRICE} 🪙</b> · <code>бот секрет @user текст</code>\n"
+            f"  • Переброс задания — <b>{QUEST_REROLL_PRICE} 🪙</b> · <code>бот перебросить задание</code>\n\n"
+            "🐾 <b>Питомцы</b>\n"
+            f"  • Завести питомца — <b>{PET_ADOPT_PRICE} 🪙</b> · <code>бот завести питомца</code>\n"
+            f"  • Пропуск ожидания брака — <b>{PET_MORA_SKIP_PRICE} 🪙</b> · <code>бот питомец</code>\n"
+            f"  • Переименование — <b>{PET_RENAME_PRICE} 🪙</b> · <code>бот назвать питомца Имя</code>\n"
+            "  • Экспедиции — <code>бот экспедиция</code>\n\n"
+            "🎲 <b>Молитвы</b>\n"
+            f"  • Крутка x1 — <b>{GACHA_SINGLE_PRICE} 🪙</b>\n"
+            f"  • Крутка x10 — <b>{GACHA_MULTI_PRICE} 🪙</b>\n"
+            "  • Инвентарь / продажа мусора — <code>бот инвентарь</code>, <code>бот продать мусор</code>\n\n"
+            "🏦 <b>Банк</b>\n"
+            f"{bank_lines}\n"
+            "  • Открыть вклад — <code>бот банк</code>\n\n"
+            "🎁 <b>Пара и подарки</b>\n"
+            f"{gift_lines}\n"
+            "  • Купить/подарить — <code>бот подарки</code>\n\n"
+            "🎨 <b>Косметика</b>\n"
+            f"{cosmetics_lines}\n\n"
+            "🎰 <b>Казино</b>\n"
+            f"  • Лотерейный билет — <b>{LOTTERY_TICKET_PRICE} 🪙</b> · <code>бот купить лотерею</code>\n\n"
+            "<i>Переключай категории кнопками ниже.</i>"
+        ),
+        "economy": (
+            "🪙 <b>Магазин</b> › <b>Экономика</b>\n\n"
+            f"💰 Баланс: <b>{bal} 🪙</b>\n\n"
+            f"💎 VIP — <b>{VIP_PRICE} 🪙</b>\n  <code>бот купить вип</code>\n\n"
+            f"⚡ Буст XP ×2\n  {boost_prices}\n  <code>бот купить буст</code>\n\n"
+            "🖼 Рамки профиля\n"
+            f"{frame_lines}\n"
+            "  <code>бот рамки</code> · <code>бот купить рамку название</code>\n\n"
+            f"📨 Анонимка — <b>{ANON_MSG_PRICE} 🪙</b>\n  <code>бот анонимка текст</code>\n\n"
+            f"🔐 Секретное сообщение — <b>{SECRET_MSG_PRICE} 🪙</b>\n  <code>бот секрет @user текст</code>\n\n"
+            f"🎯 Переброс задания — <b>{QUEST_REROLL_PRICE} 🪙</b>\n  <code>бот перебросить задание</code>"
+        ),
+        "pets": (
+            "🐾 <b>Магазин</b> › <b>Питомцы</b>\n\n"
+            f"💰 Баланс: <b>{bal} 🪙</b>\n\n"
+            f"🐱 Завести питомца — <b>{PET_ADOPT_PRICE} 🪙</b>\n"
+            "  <code>бот завести питомца</code>\n\n"
+            f"⏩ Пропуск ожидания брака — <b>{PET_MORA_SKIP_PRICE} 🪙</b>\n"
+            "  <code>бот питомец</code>\n\n"
+            f"✏️ Переименование питомца — <b>{PET_RENAME_PRICE} 🪙</b>\n"
+            "  <code>бот назвать питомца Имя</code>\n\n"
+            "🗺 Экспедиции питомца\n"
+            "  <code>бот экспедиция</code>"
+        ),
+        "gacha": (
+            "🎲 <b>Магазин</b> › <b>Молитвы</b>\n\n"
+            f"💰 Баланс: <b>{bal} 🪙</b>\n\n"
+            f"🙏 Одна молитва — <b>{GACHA_SINGLE_PRICE} 🪙</b>\n"
+            f"🙏 Десять молитв — <b>{GACHA_MULTI_PRICE} 🪙</b>\n\n"
+            "📦 Сопутствующие команды\n"
+            "  <code>бот молитва</code>\n"
+            "  <code>бот инвентарь</code>\n"
+            "  <code>бот продать мусор</code>\n"
+            "  <code>бот экипировать #ID</code>"
+        ),
+        "bank": (
+            "🏦 <b>Магазин</b> › <b>Банк</b>\n\n"
+            f"💰 Баланс: <b>{bal} 🪙</b>\n\n"
+            "Вклады доступны через <code>бот банк</code>.\n\n"
+            f"{bank_lines}\n\n"
+            "<i>Досрочное снятие уменьшает выплату.</i>"
+        ),
+        "gifts": (
+            "🎁 <b>Магазин</b> › <b>Подарки партнёру</b>\n\n"
+            f"💰 Баланс: <b>{bal} 🪙</b>\n\n"
+            f"{gift_lines}\n\n"
+            "Купить и отправить: <code>бот подарки</code>\n"
+            "Подарки с баффами усиливают добычу моры для пары."
+        ),
+        "casino": (
+            "🎰 <b>Магазин</b> › <b>Казино</b>\n\n"
+            f"💰 Баланс: <b>{bal} 🪙</b>\n\n"
+            f"🎟 Лотерейный билет — <b>{LOTTERY_TICKET_PRICE} 🪙</b>\n"
+            "  <code>бот купить лотерею</code>\n\n"
+            "Монетка и кубик не продаются заранее — там ставка списывается в момент игры."
+        ),
+        "cosmetics": (
+            "🎨 <b>Магазин</b> › <b>Косметика</b>\n\n"
+            f"💰 Баланс: <b>{bal} 🪙</b>\n\n"
+            f"{cosmetics_lines}\n\n"
+            "Для покупки используй кнопки ниже."
+        ),
+    }
+    return sections.get(section, sections["all"])
+
 
 # ─── бот магазин ──────────────────────────────────────────────────────────────
 
-@router.message(BotCommand("магазин", "лавка", "shop", "store"))
+@router.message(BotCommand("магазин", "лавка", "shop", "store", "маркет", "каталог покупок"))
 async def cmd_shop(message: Message, cmd_args: str):
     if message.chat.type == "private":
         await message.answer("❌ Магазин доступен только в группах.")
@@ -51,20 +218,51 @@ async def cmd_shop(message: Message, cmd_args: str):
     mora = await get_mora(uid, chat_id)
     bal = mora["balance"] if mora else 0
 
-    lines = [
-        "🛍 <b>Магазин Предвестника</b>\n",
-        f"💰 Баланс: <b>{bal} 🪙</b>\n",
-    ]
-    buttons = []
-    for key, item in SHOP_ITEMS.items():
-        lines.append(f"  • {item['name']} — <b>{item['price']} 🪙</b>\n    <i>{item['desc']}</i>")
-        buttons.append([InlineKeyboardButton(
-            text=f"{item['name']} — {item['price']} 🪙",
-            callback_data=f"shop_buy:{uid}:{key}",
-        )])
+    arg = (cmd_args or "").strip().lower()
+    section = "all"
+    arg_map = {
+        "все": "all",
+        "всё": "all",
+        "экономика": "economy",
+        "питомцы": "pets",
+        "молитвы": "gacha",
+        "гача": "gacha",
+        "банк": "bank",
+        "подарки": "gifts",
+        "казино": "casino",
+        "косметика": "cosmetics",
+    }
+    if arg in arg_map:
+        section = arg_map[arg]
 
-    kb = InlineKeyboardMarkup(inline_keyboard=buttons)
-    await message.answer("\n".join(lines), parse_mode="HTML", reply_markup=kb)
+    await message.answer(
+        _shop_text(section, bal),
+        parse_mode="HTML",
+        reply_markup=_section_keyboard(uid, section),
+    )
+
+
+@router.callback_query(lambda c: c.data and c.data.startswith("shop_nav:"))
+async def cb_shop_nav(callback: CallbackQuery):
+    _prefix, owner_str, section = callback.data.split(":", 2)
+    owner = int(owner_str)
+
+    if callback.from_user.id != owner:
+        await callback.answer("❌ Это не твой магазин!", show_alert=True)
+        return
+
+    mora = await get_mora(owner, callback.message.chat.id)
+    bal = mora["balance"] if mora else 0
+
+    try:
+        await callback.message.edit_text(
+            _shop_text(section, bal),
+            parse_mode="HTML",
+            reply_markup=_section_keyboard(owner, section),
+        )
+    except Exception:
+        pass
+    await callback.answer()
 
 
 # ─── Покупка ──────────────────────────────────────────────────────────────────
