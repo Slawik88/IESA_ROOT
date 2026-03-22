@@ -51,6 +51,23 @@ def _write_whitelist_to_config(groups: list[int]) -> bool:
     except Exception:
         return False
 
+
+def _write_timezone_to_config(tz_name: str) -> bool:
+    """Overwrite the BOT_TIMEZONE line in config.py. Returns True on success."""
+    try:
+        content = _CONFIG_PATH.read_text(encoding="utf-8")
+        new_content, n = re.subn(
+            r'BOT_TIMEZONE\s*=\s*"[^"]*"',
+            f'BOT_TIMEZONE = "{tz_name}"',
+            content,
+        )
+        if n == 0:
+            return False
+        _CONFIG_PATH.write_text(new_content, encoding="utf-8")
+        return True
+    except Exception:
+        return False
+
 router = Router()
 
 # ─── Фильтрация по ролям для колл-команды ─────────────────────────────────────
@@ -333,6 +350,44 @@ _STAT_MAP = {
     "title":       ("custom_title", str),
 }
 
+# Поля, которые обрабатываются отдельно (не через set_user_stat_in_chat)
+_SPECIAL_FIELDS = {"мора", "mora"}
+
+_SETUSER_LABELS = {
+    "xp":        "💠 XP",
+    "уровень":   "🌟 Уровень",
+    "сообщения": "💬 Сообщения",
+    "репутация": "⭐ Репутация",
+    "варны":     "⚠️ Варны",
+    "бан":       "🔴 Бан",
+    "bio":       "📝 Био",
+    "титул":     "🎖 Титул",
+    "мора":      "🪙 Мора",
+}
+
+_SETUSER_HINTS = {
+    "xp":        ("<code>бот сетюзер @user xp 5000</code>\n"
+                  "<i>Значение XP в текущем чате (абсолютное).</i>"),
+    "уровень":   ("<code>бот сетюзер @user уровень 10</code>\n"
+                  "<i>Уровень напрямую (без пересчёта XP).</i>"),
+    "сообщения": ("<code>бот сетюзер @user сообщения 300</code>\n"
+                  "<i>Счётчик сообщений в текущем чате.</i>"),
+    "репутация": ("<code>бот сетюзер @user репутация 50</code>\n"
+                  "<i>Устанавливает значение репутации.</i>"),
+    "варны":     ("<code>бот сетюзер @user варны 0</code>\n"
+                  "<i>Количество предупреждений (0 = снять все).</i>"),
+    "бан":       ("<code>бот сетюзер @user бан 1</code>  (0 = разбан)\n"
+                  "<i>Заблокировать (1) или разблокировать (0) пользователя.</i>"),
+    "bio":       ("<code>бот сетюзер @user bio Текст биографии</code>\n"
+                  "<i>Биография в текущем чате (можно очистить — bio пробел).</i>"),
+    "титул":     ("<code>бот сетюзер @user титул 🌟 Мой титул</code>\n"
+                  "<i>Кастомный отображаемый титул (любой текст/эмодзи).</i>"),
+    "мора":      ("<code>бот сетюзер @user мора 500</code>  — установить баланс\n"
+                  "<code>бот сетюзер @user мора +200</code> — начислить +200\n"
+                  "<code>бот сетюзер @user мора -100</code> — списать 100\n"
+                  "<i>Мора в текущем чате. Баланс не опускается ниже 0.</i>"),
+}
+
 
 @router.message(BotCommand("сетюзер", "setuser", "редактор", "edituser"), RankFilter("developer"))
 async def cmd_set_user(message: Message, cmd_args: str):
@@ -341,36 +396,22 @@ async def cmd_set_user(message: Message, cmd_args: str):
     Пример:    бот сетюзер @makss xp 5000
     """
     if not cmd_args:
-        # Показываем инлайн-кнопки с полями
         buttons = []
         row = []
-        _labels = {
-            "xp": "💠 XP",
-            "уровень": "🌟 Уровень",
-            "сообщения": "💬 Сообщения",
-            "репутация": "⭐ Репутация",
-            "варны": "⚠️ Варны",
-            "бан": "🔴 Бан",
-            "bio": "📝 Био",
-            "титул": "🎖 Титул",
-        }
-        for i, (key, label) in enumerate(_labels.items()):
-            row.append(InlineKeyboardButton(
-                text=label, callback_data=f"su:f:{key}",
-            ))
+        for i, (key, label) in enumerate(_SETUSER_LABELS.items()):
+            row.append(InlineKeyboardButton(text=label, callback_data=f"su:f:{key}"))
             if len(row) == 2:
                 buttons.append(row)
                 row = []
         if row:
             buttons.append(row)
+        all_fields = " · ".join(_SETUSER_LABELS.keys())
         await message.answer(
             "🛠 <b>Редактор данных пользователя</b>\n\n"
             "Синтаксис:\n"
-            "<code>бот сетюзер @user поле значение</code>\n\n"
-            "Нажми кнопку для подсказки поля, или введи команду целиком.\n\n"
-            "Примеры:\n"
-            "<code>бот сетюзер @makss xp 5000</code>\n"
-            "<code>бот сетюзер @makss титул 🌟 Stardish Admin</code>",
+            "  <code>бот сетюзер @user поле значение</code>\n\n"
+            f"Поля: <code>{all_fields}</code>\n\n"
+            "Нажми кнопку для подробной подсказки по полю 👇",
             parse_mode="HTML",
             reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons),
         )
@@ -391,9 +432,50 @@ async def cmd_set_user(message: Message, cmd_args: str):
         await message.answer(name)
         return
 
-    field_info = _STAT_MAP.get(field_key.lower())
+    fk = field_key.lower()
+
+    # ─── Специальный обработчик для Моры ───────────────────────────────────
+    if fk in _SPECIAL_FIELDS:
+        from database.db import add_mora, get_mora, set_mora_balance
+        rv = raw_value.strip()
+        mora = await get_mora(uid, message.chat.id)
+        cur_bal = mora["balance"] if mora else 0
+        try:
+            if rv.startswith("+"):
+                delta = int(rv[1:])
+                new_bal = await add_mora(uid, message.chat.id, delta)
+                await message.answer(
+                    f"✅ <b>{name}</b>: мора +{delta} → баланс <b>{new_bal} 🪙</b>",
+                    parse_mode="HTML",
+                )
+            elif rv.startswith("-"):
+                delta = int(rv[1:])
+                new_bal = await add_mora(uid, message.chat.id, -delta)
+                await message.answer(
+                    f"✅ <b>{name}</b>: мора −{delta} → баланс <b>{new_bal} 🪙</b>",
+                    parse_mode="HTML",
+                )
+            else:
+                new_val = int(rv)
+                await set_mora_balance(uid, message.chat.id, new_val)
+                await message.answer(
+                    f"✅ <b>{name}</b>: мора = <b>{new_val} 🪙</b> (было {cur_bal})",
+                    parse_mode="HTML",
+                )
+        except (ValueError, TypeError):
+            await message.answer(
+                "❌ Неверное значение. Примеры:\n"
+                "  <code>бот сетюзер @user мора 500</code>  (установить)\n"
+                "  <code>бот сетюзер @user мора +200</code> (начислить)\n"
+                "  <code>бот сетюзер @user мора -100</code> (списать)",
+                parse_mode="HTML",
+            )
+        return
+
+    # ─── Обычные поля через set_user_stat_in_chat ───────────────────────────
+    field_info = _STAT_MAP.get(fk)
     if not field_info:
-        fields = " | ".join(sorted(_STAT_MAP.keys()))
+        fields = " · ".join(sorted(list(_STAT_MAP.keys()) + list(_SPECIAL_FIELDS)))
         await message.answer(
             f"❌ Неизвестное поле «{field_key}».\n"
             f"Доступные: <code>{fields}</code>",
@@ -423,22 +505,15 @@ async def cmd_set_user(message: Message, cmd_args: str):
 @router.callback_query(F.data.startswith("su:f:"))
 async def cb_setuser_field_hint(callback: CallbackQuery):
     field = callback.data.split(":", 2)[2]
-    _hints = {
-        "xp": "<code>бот сетюзер @user xp 5000</code>",
-        "уровень": "<code>бот сетюзер @user уровень 10</code>",
-        "сообщения": "<code>бот сетюзер @user сообщения 300</code>",
-        "репутация": "<code>бот сетюзер @user репутация 50</code>",
-        "варны": "<code>бот сетюзер @user варны 0</code>",
-        "бан": "<code>бот сетюзер @user бан 1</code>  (0 = разбан)",
-        "bio": "<code>бот сетюзер @user bio Текст биографии</code>",
-        "титул": "<code>бот сетюзер @user титул 🌟 Мой титул</code>",
-    }
-    hint = _hints.get(field, "неизвестное поле")
-    await callback.answer(f"Пример: {field}", show_alert=False)
-    await callback.message.answer(
-        f"📝 Введи команду:\n{hint}",
-        parse_mode="HTML",
-    )
+    hint = _SETUSER_HINTS.get(field)
+    if hint:
+        await callback.answer(show_alert=False)
+        await callback.message.answer(
+            f"📝 <b>Поле «{field}»</b>\n\n{hint}",
+            parse_mode="HTML",
+        )
+    else:
+        await callback.answer("Неизвестное поле", show_alert=True)
 
 
 @router.message(BotCommand("прибавитьxp", "addxp"), RankFilter("developer"))
@@ -1112,4 +1187,50 @@ async def cmd_force_change_role(message: Message) -> None:
     main_chat_id = await get_channel_type("main")
     if main_chat_id:
         await _try_set_custom_title(message.bot, main_chat_id, uid, role_name)
+
+
+# ─── Часовой пояс бота ────────────────────────────────────────────────────────
+
+@router.message(BotCommand("таймзона", "timezone", "часовой пояс", "tz"), RankFilter("owner"))
+async def cmd_set_timezone(message: Message, cmd_args: str):
+    """Установить часовой пояс бота (IANA name)."""
+    tz_name = (cmd_args or "").strip()
+    if not tz_name:
+        from config import BOT_TIMEZONE
+        await message.answer(
+            f"🕐 <b>Часовой пояс бота</b>\n\n"
+            f"Текущий: <code>{BOT_TIMEZONE}</code>\n\n"
+            "Чтобы изменить:\n"
+            "<code>бот таймзона Europe/Zurich</code>\n"
+            "<code>бот таймзона Europe/Moscow</code>\n"
+            "<code>бот таймзона UTC</code>\n\n"
+            "<i>Используй IANA-имена: https://en.wikipedia.org/wiki/List_of_tz_database_time_zones</i>",
+            parse_mode="HTML",
+        )
+        return
+    
+    # Validate timezone
+    try:
+        from zoneinfo import ZoneInfo
+        ZoneInfo(tz_name)
+    except Exception:
+        await message.answer(
+            f"❌ Неизвестный часовой пояс: <code>{tz_name}</code>\n"
+            "Используй IANA-имена: <code>Europe/Zurich</code>, <code>Europe/Moscow</code>, <code>UTC</code>…",
+            parse_mode="HTML",
+        )
+        return
+    
+    ok = _write_timezone_to_config(tz_name)
+    if ok:
+        # Reload config in-process
+        import importlib, config as _config_mod
+        importlib.reload(_config_mod)
+        await message.answer(
+            f"✅ Часовой пояс обновлён: <code>{tz_name}</code>\n"
+            "<i>Квесты и задания теперь сбрасываются по полуночи этого пояса.</i>",
+            parse_mode="HTML",
+        )
+    else:
+        await message.answer("❌ Не удалось записать настройку в config.py.")
 

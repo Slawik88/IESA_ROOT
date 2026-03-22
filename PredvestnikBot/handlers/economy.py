@@ -132,20 +132,17 @@ async def cmd_balance(message: Message, cmd_args: str):
             return
 
         mora = await get_mora(uid, chat_id)
-        if mora and mora["mora_public"]:
-            balance = mora["balance"] or 0
-            total   = mora["total_earned"] or 0
-            user    = await get_user(uid)
-            display = html.escape(user["full_name"]) if user else html.escape(name)
-            vip_badge = " 💎" if (mora["vip"] or 0) else ""
-            await message.answer(
-                f"💰 <b>Баланс</b>{vip_badge} {user_mention(uid, display)}\n\n"
-                f"Мора: <b>{balance} 🪙</b>\n"
-                f"Всего заработано: {total} 🪙",
-                parse_mode="HTML",
-            )
-        else:
-            await message.answer("🔒 Этот пользователь скрыл свой баланс.")
+        balance = (mora["balance"] or 0) if mora else 0
+        total   = (mora["total_earned"] or 0) if mora else 0
+        user    = await get_user(uid)
+        display = html.escape(user["full_name"]) if user else html.escape(name)
+        vip_badge = " 💎" if mora and (mora["vip"] or 0) else ""
+        await message.answer(
+            f"💰 <b>Баланс</b>{vip_badge} {user_mention(uid, display)}\n\n"
+            f"Мора: <b>{balance} 🪙</b>\n"
+            f"Всего заработано: {total} 🪙",
+            parse_mode="HTML",
+        )
         return
 
     uid    = message.from_user.id

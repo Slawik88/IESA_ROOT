@@ -59,6 +59,18 @@ def user_mention(user_id: int, full_name: str) -> str:
     return f'<a href="tg://user?id={user_id}">{html.escape(full_name)}</a>'
 
 
+def bot_today() -> str:
+    """Возвращает 'сегодняшнюю' дату (YYYY-MM-DD) в часовом поясе бота (BOT_TIMEZONE из config)."""
+    from datetime import datetime, timezone
+    try:
+        from zoneinfo import ZoneInfo
+        from config import BOT_TIMEZONE
+        tz = ZoneInfo(BOT_TIMEZONE)
+        return datetime.now(tz).date().isoformat()
+    except Exception:
+        return datetime.now(timezone.utc).date().isoformat()
+
+
 def format_duration(iso_str: str) -> str:
     """Форматирует ISO-datetime строку как 'X дн. Y ч. Z мин.' относительно текущего UTC времени."""
     from datetime import datetime, timezone
