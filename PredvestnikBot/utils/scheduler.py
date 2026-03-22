@@ -361,14 +361,15 @@ async def _task_tax_event(bot) -> None:
 # ─── Уведомления о завершённых экспедициях ─────────────────────────────────────
 
 async def _task_expedition_notifications(bot) -> None:
-    from database.db import get_all_finished_expeditions, finish_expedition
+    from database.db import add_mora, finish_expedition, get_all_finished_expeditions
     finished = await get_all_finished_expeditions()
     for exp in finished:
         uid = exp["user_id"]
         chat_id = exp["chat_id"]
-        reward = exp["reward"]
+        reward = random.randint(exp["reward_min"], exp["reward_max"])
         try:
-            await finish_expedition(exp["id"], uid, chat_id)
+            await add_mora(uid, chat_id, reward)
+            await finish_expedition(uid, chat_id)
             await bot.send_message(
                 chat_id,
                 f"🏕 <b>Экспедиция завершена!</b>\n"
