@@ -44,6 +44,7 @@ from database.db import (
 )
 from config import (
     ANON_MSG_PRICE,
+    SECRET_MSG_PRICE,
     VIP_PRICE,
 )
 from filters.bot_command import BotCommand
@@ -765,10 +766,10 @@ async def cb_anon_forward_to_main_chat(callback: CallbackQuery):
         return
     
     try:
-        # Send to main chat
+        # Send to main chat as anonymous user message  
         await callback.bot.send_message(
             main_chat_id,
-            f"📣 <b>Сообщение от администрации</b>\n\n{html.escape(anon_text.strip())}",
+            f"📨 <b>Анонимное сообщение</b>\n\n{html.escape(anon_text.strip())}",
             parse_mode="HTML",
         )
         
@@ -786,4 +787,147 @@ async def cb_anon_forward_to_main_chat(callback: CallbackQuery):
         
     except Exception as e:
         await callback.answer(f"❌ Ошибка отправки: {str(e)[:50]}", show_alert=True)
+
+
+# ─── Секретные сообщения ─────────────────────────────────────────────────────
+
+@router.message(BotCommand("секрет", "приват", "secret"))
+async def cmd_secret_message(message: Message, cmd_args: str):
+    """Send a secret message that only recipient can read."""
+    
+    if message.chat.type not in ("group", "supergroup"):
+        await message.answer("❌ Команда работает только в группах.")
+        return
+
+    uid = message.from_user.id
+    chat_id = message.chat.id
+    
+    # Parse target and message text
+    parts = (cmd_args or "").split(maxsplit=1)
+    if len(parts) < 2:
+        await message.answer(
+            f"📨 <b>Секретное сообщение</b>\n\n"
+            f"Стоимость: <b>{SECRET_MSG_PRICE} 🪙</b>\n\n" 
+            f"Использование: <code>бот секрет @user текст</code>\n"
+            f"<i>Только получатель сможет прочитать сообщение.</i>",
+            parse_mode="HTML",
+        )
+        return
+        
+    target_str, secret_text = parts
+    
+    # Resolve target user
+    target_uid, target_name, _ = await resolve_target(message, target_str)
+    if target_uid is None:
+        await message.answer("❌ Пользователь не найден.")
+        return
+        
+    if target_uid == uid:
+        await message.answer("❌ Нельзя отправить секретное сообщение самому себе.")
+        return
+        
+    if len(secret_text) > 30:
+        await message.answer("❌ Секретное сообщение слишком длинное (макс. 30 символов).")
+        return
+
+    # Check balance
+    mora = await get_mora(uid, chat_id)
+    bal = mora["balance"] if mora else 0
+    if bal < SECRET_MSG_PRICE:
+        await message.answer(
+            f"❌ Для отправки секретного сообщения нужно <b>{SECRET_MSG_PRICE} 🪙</b>.\n"
+            f"У тебя: <b>{bal} 🪙</b>.",
+            parse_mode="HTML",
+        )
+        return
+
+    # Deduct mora
+    ok, _ = await deduct_mora(uid, chat_id, SECRET_MSG_PRICE)
+    if not ok:
+        await message.answer("❌ Не удалось списать Мору. Попробуй ещё раз.")
+        return
+        
+    # Create short unique ID for secret message
+    import hashlib
+    import time
+    secret_id = hashlib.md5(f"{uid}:{target_uid}:{time.time()}:{secret_text}".encode()).hexdigest()[:8]
+    
+    # Store secret text temporarily in database 
+    # For now, use base64 encoding in callback (limited to ~40 chars of original text)
+    import base64
+    # Truncate text to fit in callback_data limit (64 bytes total)
+    text_for_callback = secret_text[:30]  # Conservative limit
+    encoded_text = base64.b64encode(text_for_callback.encode()).decode()
+    
+    # Create callback data: secret:target_uid:sender_uid:encoded_text
+    callback_data = f"secret:{target_uid}:{uid}:{encoded_text}"
+    
+    # Create button for recipient
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(
+            text="🔐 Прочитать секретное сообщение",
+            callback_data=callback_data
+        )]
+    ])
+    
+    sender_name = message.from_user.first_name or str(uid)
+    
+    try:
+        # Delete original command
+        await message.delete()
+    except Exception:
+        pass
+    
+    # Send secret message prompt
+    await message.answer(
+        f"📨 <b>Секретное сообщение</b>\n"
+        f"От: {html.escape(sender_name)}\n"
+        f"Для: {html.escape(target_name)}\n\n"
+        f"🔐 <i>Только получатель может прочитать содержимое.</i>",
+        parse_mode="HTML",
+        reply_markup=keyboard,
+    )
+
+
+@router.callback_query(F.data.startswith("secret:"))
+async def cb_read_secret_message(callback: CallbackQuery):
+    """Handle reading secret messages."""
+    caller_id = callback.from_user.id
+    
+    try:
+        # Parse callback data: secret:target_uid:sender_uid:encoded_text
+        parts = callback.data.split(":", 3)
+        if len(parts) != 4:
+            await callback.answer("❌ Ошибка данных.", show_alert=True)
+            return
+            
+        _, target_uid_str, sender_uid_str, encoded_text = parts
+        target_uid = int(target_uid_str)
+        sender_uid = int(sender_uid_str)
+        
+        # Check if caller is the intended recipient
+        if caller_id != target_uid:
+            await callback.answer("🔐 Это сообщение не для тебя!", show_alert=True)
+            return
+            
+        # Decode message
+        import base64
+        try:
+            secret_text = base64.b64decode(encoded_text.encode()).decode()
+        except Exception:
+            await callback.answer("❌ Не удалось расшифровать сообщение.", show_alert=True)
+            return
+            
+        # Get sender info
+        sender_user = await get_user(sender_uid)
+        sender_name = sender_user["full_name"] if sender_user else str(sender_uid)
+        
+        # Show secret message in alert popup (private)
+        await callback.answer(
+            f"🔐 Секретное сообщение от {sender_name}:\n\n{secret_text}",
+            show_alert=True
+        )
+        
+    except (ValueError, IndexError) as e:
+        await callback.answer("❌ Некорректные данные.", show_alert=True)
 
