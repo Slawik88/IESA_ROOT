@@ -4,14 +4,21 @@
 Задачи:
   • авто-варн за неактив (проверка каждый час)
   • напоминание о чистке за 2 дня (проверка каждый час)
+  • юбилей брака +15 Моры каждые 7 дней (проверка каждый час)
+  • розыгрыш лотереи по воскресеньям (проверка каждый час)
 """
 
 import asyncio
 import html
 import logging
+import random
 from datetime import datetime, timedelta
 
 log = logging.getLogger(__name__)
+
+# In-memory guards to avoid double-awarding per hour run
+_anniversary_awarded: set[tuple[int, int, str]] = set()  # (user_id, chat_id, date_str)
+_lottery_drawn_weeks: set[str] = set()                    # week keys already drawn
 
 
 async def run_scheduler(bot) -> None:
@@ -26,6 +33,14 @@ async def run_scheduler(bot) -> None:
             await _task_cleanup_reminders(bot)
         except Exception as exc:
             log.error("Scheduler [cleanup_reminder] error: %s", exc, exc_info=True)
+        try:
+            await _task_marriage_anniversary(bot)
+        except Exception as exc:
+            log.error("Scheduler [anniversary] error: %s", exc, exc_info=True)
+        try:
+            await _task_lottery_draw(bot)
+        except Exception as exc:
+            log.error("Scheduler [lottery] error: %s", exc, exc_info=True)
         await asyncio.sleep(3600)  # следующий прогон через час
 
 
@@ -133,3 +148,130 @@ async def _task_cleanup_reminders(bot) -> None:
                 await set_cleanup_reminder_sent(chat_id, 1)
             except Exception as exc:
                 log.warning("Cannot send cleanup reminder to %s: %s", chat_id, exc)
+
+
+# ─── Юбилей брака +15 Моры каждые 7 дней ─────────────────────────────────────
+
+async def _task_marriage_anniversary(bot) -> None:
+    from database.db import add_mora, get_all_marriages_for_anniversary, get_user
+    from utils.helpers import user_mention
+
+    ANNIVERSARY_MORA = 15
+    today_str = datetime.utcnow().date().isoformat()
+
+    marriages = await get_all_marriages_for_anniversary()
+    for row in marriages:
+        uid        = row["user_id"]
+        partner_id = row["partner_id"]
+        chat_id    = row["chat_id"]
+        married_at = row.get("married_at", "")
+
+        if not married_at:
+            continue
+
+        try:
+            dt = datetime.fromisoformat(married_at)
+        except (ValueError, TypeError):
+            continue
+
+        days = (datetime.utcnow() - dt).days
+        # Award every 7 days (after at least 7 days), once per calendar day
+        if days < 7 or days % 7 != 0:
+            continue
+
+        guard_key = (uid, chat_id, today_str)
+        if guard_key in _anniversary_awarded:
+            continue
+        _anniversary_awarded.add(guard_key)
+
+        await add_mora(uid, chat_id, ANNIVERSARY_MORA)
+        await add_mora(partner_id, chat_id, ANNIVERSARY_MORA)
+
+        user = await get_user(uid)
+        partner = await get_user(partner_id)
+        u_name = html.escape(user["full_name"]) if user else str(uid)
+        p_name = html.escape(partner["full_name"]) if partner else str(partner_id)
+
+        weeks = days // 7
+        try:
+            await bot.send_message(
+                chat_id,
+                f"💍 <b>Юбилей!</b> {user_mention(uid, u_name)} и {user_mention(partner_id, p_name)} "
+                f"вместе уже <b>{weeks} нед.</b> ({days} дн.)\n"
+                f"Каждый получает <b>+{ANNIVERSARY_MORA} 🪙</b> в подарок! 🎁",
+                parse_mode="HTML",
+            )
+        except Exception as exc:
+            log.warning("Cannot send anniversary to %s: %s", chat_id, exc)
+
+    # Prune guard set to avoid unbounded growth
+    if len(_anniversary_awarded) > 10000:
+        _anniversary_awarded.clear()
+
+
+# ─── Еженедельный розыгрыш лотереи (по воскресеньям) ─────────────────────────
+
+async def _task_lottery_draw(bot) -> None:
+    from database.db import add_mora, get_all_lottery_chats_week, get_all_lottery_participants, get_user
+    from utils.helpers import user_mention
+
+    now = datetime.utcnow()
+    # Only draw on Sundays
+    if now.weekday() != 6:
+        return
+
+    year, week, _ = now.isocalendar()
+    week_key = f"{year}-W{week:02d}"
+
+    if week_key in _lottery_drawn_weeks:
+        return
+    _lottery_drawn_weeks.add(week_key)
+
+    WIN_CHANCE = 0.20   # 20% per ticket
+    WIN_MIN    = 20
+    WIN_MAX    = 50
+
+    chats = await get_all_lottery_chats_week(week_key)
+    for chat_row in chats:
+        chat_id = chat_row["chat_id"]
+        participants = await get_all_lottery_participants(chat_id, week_key)
+
+        if not participants:
+            continue
+
+        winner_lines: list[str] = []
+        for p in participants:
+            uid     = p["user_id"]
+            tickets = p["tickets"]
+            # Each ticket is an independent draw
+            winnings = sum(
+                random.randint(WIN_MIN, WIN_MAX)
+                for _ in range(tickets)
+                if random.random() < WIN_CHANCE
+            )
+            if winnings > 0:
+                await add_mora(uid, chat_id, winnings)
+                user = await get_user(uid)
+                name = html.escape(user["full_name"]) if user else str(uid)
+                winner_lines.append(
+                    f"  🏆 {user_mention(uid, name)} — <b>+{winnings} 🪙</b> ({tickets} билет(ов))"
+                )
+
+        if winner_lines:
+            text = (
+                f"🎟 <b>Итоги лотереи</b> (неделя {week_key})\n\n"
+                + "\n".join(winner_lines)
+                + "\n\n<i>Купить билет: <code>бот купить лотерею</code></i>"
+            )
+        else:
+            text = (
+                f"🎟 <b>Итоги лотереи</b> (неделя {week_key})\n\n"
+                f"На этой неделе победителей нет. Удачи в следующий раз!\n"
+                f"<i>Купить билет: <code>бот купить лотерею</code></i>"
+            )
+
+        try:
+            await bot.send_message(chat_id, text, parse_mode="HTML")
+        except Exception as exc:
+            log.warning("Cannot send lottery results to %s: %s", chat_id, exc)
+

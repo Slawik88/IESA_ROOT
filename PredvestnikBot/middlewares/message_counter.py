@@ -130,6 +130,9 @@ class AutoModMiddleware(BaseMiddleware):
             from datetime import date as _mora_date
             _today_str = _mora_date.today().isoformat()
             _mora_key = (user.id, event.chat.id)
+            # Периодическая очистка кэша ежедневной проверки
+            if len(_mora_daily_checked) > 2000:
+                _mora_daily_checked.clear()
             if _mora_daily_checked.get(_mora_key) != _today_str:
                 _mora_daily_checked[_mora_key] = _today_str
                 is_daily, streak, streak_bonus = await check_daily_mora(user.id, event.chat.id)
@@ -183,7 +186,9 @@ class AutoModMiddleware(BaseMiddleware):
                     del _xp_cooldown[k]
             if now - _xp_cooldown.get(xp_key, 0) >= XP_COOLDOWN:
                 _xp_cooldown[xp_key] = now
-                new_xp, new_level, leveled_up = await add_xp_in_chat(user.id, event.chat.id, XP_PER_MESSAGE)
+                from database.db import get_xp_boost_active
+                xp_amount = XP_PER_MESSAGE * 2 if await get_xp_boost_active(user.id, event.chat.id) else XP_PER_MESSAGE
+                new_xp, new_level, leveled_up = await add_xp_in_chat(user.id, event.chat.id, xp_amount)
                 if leveled_up:
                     await add_mora(user.id, event.chat.id, 5)
                     if LEVEL_UP_ANNOUNCE:
@@ -271,8 +276,9 @@ class AutoModMiddleware(BaseMiddleware):
         # Если настроек нет — используем умолчания из config.py
         af_enabled = settings["antiflood_enabled"] if settings else int(DEFAULT_ANTIFLOOD_ENABLED)
         af_limit   = settings["antiflood_limit"]   if settings else DEFAULT_ANTIFLOOD_LIMIT
+        af_window  = (settings["antiflood_window"] if settings and settings["antiflood_window"] else None) or FLOOD_WINDOW
         if af_enabled and af_limit > 0:
-            if check_flood(chat_id, user.id, af_limit, FLOOD_WINDOW):
+            if check_flood(chat_id, user.id, af_limit, af_window):
                 try:
                     await event.delete()
                     until = datetime.now() + timedelta(seconds=DEFAULT_FLOOD_MUTE)

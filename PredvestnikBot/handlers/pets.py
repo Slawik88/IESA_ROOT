@@ -2,13 +2,12 @@
 Система питомцев.
 
 Разблокируется для пары в браке:
-  • брак существует >= PET_MIN_MARRIAGE_DAYS дней
-  • сумма репутации обоих партнёров >= PET_MIN_COMBINED_REP
+  • брак существует >= PET_MIN_MARRIAGE_DAYS дней (или заблаговременно за Мору)
 
 Команды:
   бот питомец              — посмотреть питомца (или условия для получения)
   бот завести питомца      — выбрать и завести питомца (котёнок / щенок)
-  бот назвать питомца <имя> — дать питомцу имя
+  бот назвать питомца <имя> — дать питомцу имя (стоит 40 Моры)
 """
 
 import html
@@ -22,13 +21,15 @@ from aiogram.types import (
     Message,
 )
 
-from config import PET_MIN_COMBINED_REP, PET_MIN_MARRIAGE_DAYS
+from config import PET_MIN_MARRIAGE_DAYS
 from database.db import (
     adopt_pet,
+    add_mora,
+    deduct_mora,
     get_marriage,
+    get_mora,
     get_pet,
     get_user,
-    get_user_stats,
     rename_pet,
 )
 from filters.bot_command import BotCommand
@@ -50,14 +51,18 @@ def _marriage_age_days(married_at_iso: str) -> int:
         return 0
 
 
+# Pet unlock price when bypassing age requirement
+PET_MORA_SKIP_PRICE = 200
+
+
 async def _check_unlock(user_id: int, chat_id: int) -> tuple[bool, str]:
     """
-    Проверяет, может ли пользователь завести питомца.
+    Проверяет, может ли пользователь завести питомца бесплатно.
     Возвращает (can_adopt: bool, reason: str).
     """
     marriage = await get_marriage(user_id, chat_id)
     if not marriage:
-        return False, f"💍 Нужно быть в браке ({PET_MIN_MARRIAGE_DAYS}+ дн. и репутация {PET_MIN_COMBINED_REP}+)."
+        return False, "💍 Нужно быть в браке."
 
     age = _marriage_age_days(marriage["married_at"])
     if age < PET_MIN_MARRIAGE_DAYS:
@@ -65,21 +70,6 @@ async def _check_unlock(user_id: int, chat_id: int) -> tuple[bool, str]:
         return False, (
             f"⏳ Брак слишком молодой.\n"
             f"Нужно ещё <b>{left} дн.</b> (требуется {PET_MIN_MARRIAGE_DAYS} дн.)."
-        )
-
-    partner_id = marriage["partner_id"]
-    my_stats = await get_user_stats(user_id, chat_id)
-    partner_stats = await get_user_stats(partner_id, chat_id)
-    my_rep      = (my_stats["reputation"]      if my_stats      else 0) or 0
-    partner_rep = (partner_stats["reputation"] if partner_stats else 0) or 0
-    combined = my_rep + partner_rep
-
-    if combined < PET_MIN_COMBINED_REP:
-        need = PET_MIN_COMBINED_REP - combined
-        return False, (
-            f"⭐ Не хватает репутации.\n"
-            f"Совместная репутация: <b>{combined}</b> / {PET_MIN_COMBINED_REP} "
-            f"(ещё нужно <b>{need}</b>)."
         )
 
     return True, ""
@@ -115,26 +105,23 @@ async def cmd_pet(message: Message, cmd_args: str):
             reply_markup=kb,
         )
     else:
+        # Брак есть но слишком молодой — предлагаем пропустить за Мору
         marriage = await get_marriage(uid, chat_id)
         age = _marriage_age_days(marriage["married_at"]) if marriage else 0
-        partner_id = marriage["partner_id"] if marriage else None
-        my_stats = await get_user_stats(uid, chat_id)
-        partner_stats = await get_user_stats(partner_id, chat_id) if partner_id else None
-        my_rep      = ((my_stats["reputation"]      or 0) if my_stats      else 0)
-        partner_rep = ((partner_stats["reputation"] or 0) if partner_stats else 0)
-        combined = my_rep + partner_rep
-
-        rep_bar = "█" * min(10, combined) + "░" * max(0, 10 - combined)
-        age_bar = "█" * min(10, age)      + "░" * max(0, 10 - age)
-
+        left = max(0, PET_MIN_MARRIAGE_DAYS - age)
+        age_bar = "█" * min(10, age) + "░" * max(0, 10 - age)
+        kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(
+            text=f"🐾 Взять сейчас за {PET_MORA_SKIP_PRICE} 🪙",
+            callback_data=f"pet_skip:{uid}",
+        )]])
         await message.answer(
-            "🐾 <b>Питомец</b>\n\n"
-            "Заведите питомца вместе с партнёром!\n\n"
-            f"📋 <b>Условия:</b>\n"
-            f"  💍 Возраст брака: <b>{age}</b> / {PET_MIN_MARRIAGE_DAYS} дн.  [{age_bar}]\n"
-            f"  ⭐ Совм. репутация: <b>{combined}</b> / {PET_MIN_COMBINED_REP}  [{rep_bar}]\n\n"
-            f"{reason if reason else ''}",
+            f"🐾 <b>Питомец</b>\n\n"
+            f"📋 <b>Условие:</b>\n"
+            f"  💍 Возраст брака: <b>{age}</b> / {PET_MIN_MARRIAGE_DAYS} дн.  [{age_bar}]\n\n"
+            f"Осталось: <b>{left} дн.</b> до автоматической разблокировки.\n"
+            f"Или заплатите <b>{PET_MORA_SKIP_PRICE} 🪙</b> чтобы взять питомца сейчас:",
             parse_mode="HTML",
+            reply_markup=kb,
         )
 
 
@@ -177,7 +164,29 @@ async def cmd_adopt_pet(message: Message, cmd_args: str):
 
     can, reason = await _check_unlock(uid, chat_id)
     if not can:
-        await message.answer(f"❌ <b>Нельзя завести питомца.</b>\n\n{reason}", parse_mode="HTML")
+        marriage = await get_marriage(uid, chat_id)
+        if not marriage:
+            await message.answer(
+                "❌ Для питомца нужно быть в браке.\n"
+                "Найди свою пару: <code>бот брак @username</code>",
+                parse_mode="HTML",
+            )
+            return
+        age = _marriage_age_days(marriage["married_at"])
+        left = max(0, PET_MIN_MARRIAGE_DAYS - age)
+        age_bar = "█" * min(10, age) + "░" * max(0, 10 - age)
+        kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(
+            text=f"🐾 Взять сейчас за {PET_MORA_SKIP_PRICE} 🪙",
+            callback_data=f"pet_skip:{uid}",
+        )]])
+        await message.answer(
+            f"❌ <b>Нельзя завести питомца.</b>\n\n"
+            f"📝 Возраст брака: <b>{age}</b> / {PET_MIN_MARRIAGE_DAYS} дн.  [{age_bar}]\n"
+            f"Осталось: <b>{left} дн.</b>\n\n"
+            f"💎 Или заплати <b>{PET_MORA_SKIP_PRICE} 🪙</b> чтобы взять питомца сейчас:",
+            parse_mode="HTML",
+            reply_markup=kb,
+        )
         return
 
     kb = InlineKeyboardMarkup(inline_keyboard=[[
@@ -232,6 +241,58 @@ async def cb_pet_adopt(callback: CallbackQuery):
     await callback.answer(f"{emoji} Питомец заведён!")
 
 
+@router.callback_query(lambda c: c.data and c.data.startswith("pet_skip:"))
+async def cb_pet_skip(callback: CallbackQuery):
+    """Купить питомца за Мору, пропустив ожидание возраста брака."""
+    owner = int(callback.data.split(":")[1])
+    uid = callback.from_user.id
+    chat_id = callback.message.chat.id
+
+    if uid != owner:
+        await callback.answer("❌ Это не твоя кнопка!", show_alert=True)
+        return
+
+    existing = await get_pet(uid, chat_id)
+    if existing:
+        await callback.answer("У тебя уже есть питомец!", show_alert=True)
+        return
+
+    marriage = await get_marriage(uid, chat_id)
+    if not marriage:
+        await callback.answer("❌ Нужно быть в браке!", show_alert=True)
+        return
+
+    mora = await get_mora(uid, chat_id)
+    bal = mora["balance"] if mora else 0
+    if bal < PET_MORA_SKIP_PRICE:
+        await callback.answer(
+            f"❌ Недостаточно Моры: {bal} / {PET_MORA_SKIP_PRICE} 🪙",
+            show_alert=True,
+        )
+        return
+
+    ok, new_bal = await deduct_mora(uid, chat_id, PET_MORA_SKIP_PRICE)
+    if not ok:
+        await callback.answer("❌ Не удалось списать Мору.", show_alert=True)
+        return
+
+    kb = InlineKeyboardMarkup(inline_keyboard=[[
+        InlineKeyboardButton(text="🐱 Котёнок", callback_data=f"pet_adopt:{uid}:cat"),
+        InlineKeyboardButton(text="🐶 Щенок",   callback_data=f"pet_adopt:{uid}:dog"),
+    ]])
+    try:
+        await callback.message.edit_text(
+            f"✅ <b>Оплачено!</b> Потрачено <b>{PET_MORA_SKIP_PRICE} 🪙</b>\n"
+            f"Баланс: <b>{new_bal} 🪙</b>\n\n"
+            f"Теперь выбери питомца:",
+            parse_mode="HTML",
+            reply_markup=kb,
+        )
+    except Exception:
+        pass
+    await callback.answer("✅ Мора списана, выбирай питомца!")
+
+
 # ─── бот назвать питомца ──────────────────────────────────────────────────────
 
 @router.message(BotCommand("назвать питомца", "питомец имя", "pet name"))
@@ -243,7 +304,8 @@ async def cmd_rename_pet(message: Message, cmd_args: str):
     name = (cmd_args or "").strip()
     if not name:
         await message.answer(
-            "❌ Укажи имя.\nПример: <code>бот назвать питомца Мурзик</code>",
+            "❌ Укажи имя.\nПример: <code>бот назвать питомца Мурзик</code>\n"
+            "<i>Стоимость: 40 🪙</i>",
             parse_mode="HTML",
         )
         return
@@ -254,13 +316,43 @@ async def cmd_rename_pet(message: Message, cmd_args: str):
 
     uid     = message.from_user.id
     chat_id = message.chat.id
-    found   = await rename_pet(uid, chat_id, name)
+
+    # Проверяем доступность питомца
+    pet = await get_pet(uid, chat_id)
+    if not pet:
+        await message.answer(
+            "❌ Питомца нет. Сначала заведи его: <code>бот завести питомца</code>",
+            parse_mode="HTML",
+        )
+        return
+
+    # Проверяем и списываем 40 Моры
+    RENAME_PRICE = 40
+    mora = await get_mora(uid, chat_id)
+    bal  = mora["balance"] if mora else 0
+    if bal < RENAME_PRICE:
+        await message.answer(
+            f"❌ Для переименования питомца нужно <b>{RENAME_PRICE} 🪙</b>.\n"
+            f"У тебя: <b>{bal} 🪙</b>.",
+            parse_mode="HTML",
+        )
+        return
+
+    ok, new_bal = await deduct_mora(uid, chat_id, RENAME_PRICE)
+    if not ok:
+        await message.answer("❌ Не удалось списать Мору. Попробуй ещё раз.")
+        return
+
+    found = await rename_pet(uid, chat_id, name)
     if found:
         await message.answer(
-            f"✅ Питомец переименован в <b>{html.escape(name)}</b>!",
+            f"✅ Питомец переименован в <b>{html.escape(name)}</b>! (<b>-{RENAME_PRICE} 🪙</b>)\n"
+            f"Твой баланс: <b>{new_bal} 🪙</b>",
             parse_mode="HTML",
         )
     else:
+        # Маловероятно, но если питомец исчез — вернуть деньги
+        await add_mora(uid, chat_id, RENAME_PRICE)
         await message.answer(
             "❌ Питомца нет. Сначала заведи его: <code>бот завести питомца</code>",
             parse_mode="HTML",

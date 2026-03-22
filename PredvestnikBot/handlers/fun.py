@@ -15,7 +15,7 @@ from aiogram.types import (
 )
 
 from config import MARRIAGE_PROPOSAL_TIMEOUT
-from database.db import create_marriage, delete_marriage, get_marriage, get_user
+from database.db import create_marriage, delete_marriage, get_marriage, get_mora, get_pet, get_user
 from filters.bot_command import BotCommand
 from utils.helpers import format_duration, resolve_target, user_mention
 
@@ -349,7 +349,13 @@ async def cmd_partner(message: Message, cmd_args: str):
                     callback_data=f"act:hug:{p_id}",
                 ),
                 InlineKeyboardButton(
-                    text="💔 Развестись",
+                    text="� Питомец",
+                    callback_data=f"pair:pet:{me_id}",
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    text="�💔 Развестись",
                     callback_data=f"div:ask:{me_id}",
                 ),
             ],
@@ -424,6 +430,51 @@ async def cb_divorce(callback: CallbackQuery):
     except Exception:
         pass
     await callback.answer()
+
+
+@router.callback_query(F.data.startswith("pair:pet:"))
+async def cb_pair_pet(callback: CallbackQuery):
+    """Show pet status from the couple view."""
+    uid = int(callback.data.split(":")[2])
+    if callback.from_user.id != uid:
+        await callback.answer("🚫 Это не твой профиль!", show_alert=True)
+        return
+    chat_id = callback.message.chat.id
+    pet = await get_pet(uid, chat_id)
+    if pet:
+        from handlers.pets import _PET_EMOJI, _PET_NAME
+        from utils.helpers import format_duration
+        ptype = pet["pet_type"]
+        emoji = _PET_EMOJI.get(ptype, "🐾")
+        kind  = _PET_NAME.get(ptype, "Питомец")
+        import html as _html
+        name  = _html.escape(pet["name"]) if pet.get("name") else "<i>без имени</i>"
+        age   = format_duration(pet["adopted_at"])
+        await callback.answer(
+            f"{emoji} {kind}: {pet.get('name') or 'без имени'}\n🎂 Возраст: {age}",
+            show_alert=True,
+        )
+    else:
+        from handlers.pets import PET_MIN_MARRIAGE_DAYS, PET_MORA_SKIP_PRICE, _marriage_age_days
+        marriage = await get_marriage(uid, chat_id)
+        age_days = _marriage_age_days(marriage["married_at"]) if marriage else 0
+        left = max(0, PET_MIN_MARRIAGE_DAYS - age_days)
+        if left == 0:
+            await callback.answer(
+                "🎉 Условия выполнены!\n"
+                "Напиши бот завести питомца чтобы выбрать.",
+                show_alert=True,
+            )
+        else:
+            mora = await get_mora(uid, chat_id)
+            bal = mora["balance"] if mora else 0
+            await callback.answer(
+                f"🐾 Питомца нет\n"
+                f"Брак: {age_days}/{PET_MIN_MARRIAGE_DAYS} дн. (осталось {left} дн.)\n"
+                f"Или заплати {PET_MORA_SKIP_PRICE} 🪙 (у тебя {bal} 🪙)\n"
+                f"→ напиши бот питомец",
+                show_alert=True,
+            )
 
 
 @router.callback_query(F.data.startswith("act:hug:"))
