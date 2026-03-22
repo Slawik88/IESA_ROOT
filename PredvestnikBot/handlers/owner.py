@@ -171,7 +171,10 @@ async def cmd_broadcast(message: Message, bot: Bot, cmd_args: str):
         batch = members[i : i + BROADCAST_BATCH]
         mentions = " ".join(user_mention(u["user_id"], u["full_name"]) for u in batch)
         chunk = f"{header}\n\n{mentions}" if i == 0 else mentions
-        await message.answer(chunk, parse_mode="HTML")
+        try:
+            await message.answer(chunk, parse_mode="HTML")
+        except Exception:
+            pass
 
     # Удаляем исходную команду чтобы не засорять чат (не критично, игнорируем ошибку)
     try:

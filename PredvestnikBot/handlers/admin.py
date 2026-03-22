@@ -471,21 +471,24 @@ async def cmd_cleanup(message: Message, bot: Bot, cmd_args: str):
 
     # Telegram has a 4096 char limit per message — split if needed
     text = "\n".join(lines)
-    if len(text) <= 4096:
-        await message.answer(text, parse_mode="HTML")
-    else:
-        # Send in chunks
-        chunk: list[str] = []
-        chunk_len = 0
-        for line in lines:
-            if chunk_len + len(line) + 1 > 4000:
+    try:
+        if len(text) <= 4096:
+            await message.answer(text, parse_mode="HTML")
+        else:
+            # Send in chunks
+            chunk: list[str] = []
+            chunk_len = 0
+            for line in lines:
+                if chunk_len + len(line) + 1 > 4000:
+                    await message.answer("\n".join(chunk), parse_mode="HTML")
+                    chunk = []
+                    chunk_len = 0
+                chunk.append(line)
+                chunk_len += len(line) + 1
+            if chunk:
                 await message.answer("\n".join(chunk), parse_mode="HTML")
-                chunk = []
-                chunk_len = 0
-            chunk.append(line)
-            chunk_len += len(line) + 1
-        if chunk:
-            await message.answer("\n".join(chunk), parse_mode="HTML")
+    except Exception:
+        await message.answer("❌ Ошибка при отправке отчёта о чистке.")
 
 @router.message(BotCommand("чистка дата", "cleanup date", "cleanup_date"), RankFilter("admin_junior"))
 async def cmd_cleanup_date(message: Message, cmd_args: str):
