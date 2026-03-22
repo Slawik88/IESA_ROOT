@@ -1317,8 +1317,21 @@ async def set_lock(chat_id: int, lock_type: str, value: int):
 
 # ─── Reputation ───────────────────────────────────────────────────────────────
 
+async def get_rep_count_today(from_uid: int, to_uid: int, chat_id: int) -> int:
+    """Сколько раз from_uid давал репутацию to_uid в чате за сегодня (UTC)."""
+    today = datetime.utcnow().date().isoformat()  # "YYYY-MM-DD"
+    cutoff = today + "T00:00:00"
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        async with db.execute(
+            "SELECT COUNT(*) FROM rep_log WHERE from_uid=? AND to_uid=? AND chat_id=? AND given_at>=?",
+            (from_uid, to_uid, chat_id, cutoff),
+        ) as c:
+            row = await c.fetchone()
+            return row[0] if row else 0
+
+
 async def can_give_rep(from_uid: int, to_uid: int, chat_id: int) -> bool:
-    """True если from_uid ещё не давал репутацию to_uid в течение 2 часов в этом чате."""
+    """Обратная совместимость: проверяет 2-часовой кулдаун (устарела, используй get_rep_count_today)."""
     cutoff = (datetime.utcnow() - timedelta(hours=2)).isoformat()
     async with aiosqlite.connect(DATABASE_PATH) as db:
         async with db.execute(
