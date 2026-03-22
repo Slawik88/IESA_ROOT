@@ -589,7 +589,10 @@ async def cmd_family_deposit(message: Message, cmd_args: str):
         await message.answer(f"❌ Недостаточно Моры. У тебя: <b>{bal} 🪙</b>", parse_mode="HTML")
         return
 
-    _, new_personal = await deduct_mora(uid, chat_id, amount)
+    ok, new_personal = await deduct_mora(uid, chat_id, amount)
+    if not ok:
+        await message.answer("❌ Не удалось списать Мору. Попробуй ещё раз.")
+        return
     new_family = await add_to_family_wallet(chat_id, uid, amount)
     await message.answer(
         f"✅ Переведено <b>{amount} 🪙</b> в семейный кошелёк.\n"

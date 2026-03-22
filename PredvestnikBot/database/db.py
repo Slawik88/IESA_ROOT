@@ -1212,124 +1212,6 @@ async def apply_pending_marriages(username: str, user_id: int, chat_id: int):
         await db.commit()
 
 
-async def get_top_users(limit: int = 10):
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
-        async with db.execute(
-            "SELECT * FROM users ORDER BY message_count DESC LIMIT ?", (limit,)
-        ) as cursor:
-            return await cursor.fetchall()
-
-
-async def get_top_by_xp(limit: int = 10):
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
-        async with db.execute(
-            "SELECT * FROM users ORDER BY xp DESC LIMIT ?", (limit,)
-        ) as cursor:
-            return await cursor.fetchall()
-
-
-async def get_all_users():
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
-        async with db.execute(
-            "SELECT * FROM users WHERE is_banned = 0"
-        ) as cursor:
-            return await cursor.fetchall()
-
-
-async def set_rank(user_id: int, rank: str):
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        await db.execute(
-            "UPDATE users SET rank = ? WHERE user_id = ?", (rank, user_id)
-        )
-        await db.commit()
-
-
-async def ban_user(user_id: int, reason: str = None):
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        await db.execute(
-            "UPDATE users SET is_banned = 1, ban_reason = ? WHERE user_id = ?",
-            (reason, user_id),
-        )
-        await db.commit()
-
-
-async def unban_user(user_id: int):
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        await db.execute(
-            "UPDATE users SET is_banned = 0, ban_reason = NULL WHERE user_id = ?",
-            (user_id,),
-        )
-        await db.commit()
-
-
-async def add_warn(user_id: int) -> int:
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        await db.execute(
-            "UPDATE users SET warns = warns + 1 WHERE user_id = ?", (user_id,)
-        )
-        await db.commit()
-        async with db.execute(
-            "SELECT warns FROM users WHERE user_id = ?", (user_id,)
-        ) as cursor:
-            row = await cursor.fetchone()
-            return row[0] if row else 0
-
-
-async def remove_warn(user_id: int) -> int:
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        await db.execute(
-            "UPDATE users SET warns = GREATEST(0, warns - 1) WHERE user_id = ?",
-            (user_id,),
-        )
-        await db.commit()
-        async with db.execute(
-            "SELECT warns FROM users WHERE user_id = ?", (user_id,)
-        ) as cursor:
-            row = await cursor.fetchone()
-            return row[0] if row else 0
-
-
-async def get_staff():
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
-        async with db.execute(
-            """
-            SELECT * FROM users
-            WHERE rank NOT IN ('user', 'vip', 'moderator', 'helper')
-            ORDER BY CASE rank
-                WHEN 'developer'    THEN 6
-                WHEN 'owner'        THEN 5
-                WHEN 'co_owner'     THEN 4
-                WHEN 'admin_senior' THEN 3
-                WHEN 'admin_junior' THEN 2
-                WHEN 'admin'        THEN 2
-                WHEN 'moderator'    THEN 1
-                WHEN 'helper'       THEN 1
-                ELSE 0
-            END DESC
-            """
-        ) as cursor:
-            return await cursor.fetchall()
-
-
-async def get_chat_stats():
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        async with db.execute("SELECT COUNT(*) FROM users") as c:
-            total = (await c.fetchone())[0]
-        async with db.execute("SELECT COUNT(*) FROM users WHERE is_banned = 1") as c:
-            banned = (await c.fetchone())[0]
-        async with db.execute("SELECT SUM(message_count) FROM users") as c:
-            messages = (await c.fetchone())[0] or 0
-        async with db.execute(
-            "SELECT COUNT(*) FROM users WHERE rank NOT IN ('user', 'vip', 'helper')"
-        ) as c:
-            staff = (await c.fetchone())[0]
-    return {"total": total, "banned": banned, "messages": messages, "staff": staff}
-
-
 # ─── Chat Settings ────────────────────────────────────────────────────────────
 
 async def upsert_chat(
@@ -1581,33 +1463,6 @@ async def can_give_rep(from_uid: int, to_uid: int, chat_id: int) -> bool:
             return row[0] == 0
 
 
-async def add_reputation(from_uid: int, to_uid: int, chat_id: int, amount: int = 1) -> int:
-    """Записывает репутацию и возвращает новое суммарное значение."""
-    now = datetime.utcnow().isoformat()
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        await db.execute(
-            "INSERT INTO rep_log (from_uid, to_uid, chat_id, amount, given_at) VALUES (?,?,?,?,?)",
-            (from_uid, to_uid, chat_id, amount, now),
-        )
-        await db.execute(
-            "UPDATE users SET reputation = reputation + ? WHERE user_id = ?",
-            (amount, to_uid),
-        )
-        await db.commit()
-        async with db.execute(
-            "SELECT reputation FROM users WHERE user_id = ?", (to_uid,)
-        ) as c:
-            row = await c.fetchone()
-            return row[0] if row else 0
-
-
-async def get_top_reputation(limit: int = 10):
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
-        async with db.execute(
-            "SELECT * FROM users ORDER BY reputation DESC LIMIT ?", (limit,)
-        ) as c:
-            return await c.fetchall()
 
 
 # ─── XP / Levels ──────────────────────────────────────────────────────────────
@@ -1623,37 +1478,6 @@ def level_for_xp(xp: int) -> int:
     if xp < 200:
         return 1
     return max(1, int((1 + math.sqrt(1 + xp / 25)) / 2))
-
-
-async def add_xp(user_id: int, amount: int) -> tuple[int, int, bool]:
-    """Добавляет XP и возвращает (new_xp, new_level, leveled_up)."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        async with db.execute(
-            "SELECT xp, level FROM users WHERE user_id = ?", (user_id,)
-        ) as c:
-            row = await c.fetchone()
-        if not row:
-            return 0, 1, False
-        new_xp = (row[0] or 0) + amount
-        old_level = row[1] or 1
-        new_level = level_for_xp(new_xp)
-        leveled_up = new_level > old_level
-        await db.execute(
-            "UPDATE users SET xp = ?, level = ? WHERE user_id = ?",
-            (new_xp, new_level, user_id),
-        )
-        await db.commit()
-    return new_xp, new_level, leveled_up
-
-
-# ─── Bio ──────────────────────────────────────────────────────────────────────
-
-async def set_bio(user_id: int, bio: str | None):
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        await db.execute(
-            "UPDATE users SET bio = ? WHERE user_id = ?", (bio, user_id)
-        )
-        await db.commit()
 
 
 # Допустимые поля для developer-редактора (защита от SQL-инъекций)
@@ -2356,24 +2180,29 @@ async def set_mora_public(user_id: int, chat_id: int, public: int):
 
 
 async def deduct_mora(user_id: int, chat_id: int, amount: int) -> tuple[bool, int]:
-    """Deduct Мора if balance is sufficient. Returns (success, new_balance)."""
+    """Deduct Мора if balance is sufficient. Atomic UPDATE prevents race conditions."""
     async with aiosqlite.connect(DATABASE_PATH) as db:
         db.row_factory = aiosqlite.Row
+        cursor = await db.execute(
+            """UPDATE user_mora
+               SET balance = balance - ?
+               WHERE user_id = ? AND chat_id = ? AND balance >= ?""",
+            (amount, user_id, chat_id, amount),
+        )
+        if cursor.rowcount == 0:
+            async with db.execute(
+                "SELECT balance FROM user_mora WHERE user_id=? AND chat_id=?",
+                (user_id, chat_id),
+            ) as c:
+                row = await c.fetchone()
+            return False, (row["balance"] if row else 0)
+        await db.commit()
         async with db.execute(
             "SELECT balance FROM user_mora WHERE user_id=? AND chat_id=?",
             (user_id, chat_id),
         ) as c:
             row = await c.fetchone()
-        balance = row["balance"] if row else 0
-        if balance < amount:
-            return False, balance
-        new_balance = balance - amount
-        await db.execute(
-            "UPDATE user_mora SET balance=? WHERE user_id=? AND chat_id=?",
-            (new_balance, user_id, chat_id),
-        )
-        await db.commit()
-        return True, new_balance
+        return True, (row["balance"] if row else 0)
 
 
 async def get_vip(user_id: int, chat_id: int) -> int:
