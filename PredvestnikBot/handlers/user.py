@@ -6,9 +6,11 @@ import html
 
 from config import REPORT_NOTIFY_RANK
 from database.db import (
-    get_daily_top, get_marriage, get_mora, get_prev_weekly_top, get_staff_in_chat,
-    get_top_by_messages_in_chat, get_top_by_xp_in_chat, get_user, get_user_stats,
-    get_weekly_top, get_yesterday_top, set_bio_in_chat, get_xp_boost_active,
+    get_active_theme, get_daily_top, get_equipped_legendary, get_marriage, get_mora,
+    get_prev_weekly_top, get_staff_in_chat, get_top_by_messages_in_chat,
+    get_top_by_xp_in_chat, get_user, get_user_badges, get_user_stats,
+    get_user_themes, get_weekly_top, get_yesterday_top, set_bio_in_chat,
+    get_xp_boost_active, add_user_theme, set_active_theme,
 )
 from filters.bot_command import BotCommand
 from utils.helpers import resolve_target, user_mention
@@ -67,415 +69,350 @@ _DEFAULT_TZ_LIST = [
 ]
 
 
-# ─── Inline-помощь (Вариант K) ────────────────────────────────────────────────
+# ─── Пагинированное Inline-меню помощи ─────────────────────────────────────
 
-# Разделы справки: (id, emoji, label, min_rank, текст)
-def _help_sections() -> list[tuple[str, str, str, str, str]]:
+# Структура: секция -> подсекции (для глубокой навигации edit_message_text)
+# Callback формат: h:<section>:<uid>:<rank_lvl>
+
+def _help_pages() -> dict[str, dict]:
+    """Все страницы справки. Ключ = page_id, значение = {text, buttons, min_rank}."""
     from config import (
-        ANON_MSG_PRICE,
-        GACHA_MULTI_PRICE,
-        GACHA_SINGLE_PRICE,
-        MAX_WARNS,
-        PET_MORA_SKIP_PRICE,
-        PET_RENAME_PRICE,
-        QUEST_REROLL_PRICE,
-        SECRET_MSG_PRICE,
-        VIP_PRICE,
+        ANON_MSG_PRICE, GACHA_SINGLE_PRICE, GACHA_MULTI_PRICE,
+        MAX_WARNS, PET_MORA_SKIP_PRICE, PET_RENAME_PRICE,
+        QUEST_REROLL_PRICE, SECRET_MSG_PRICE, VIP_PRICE,
     )
-    return [
-        (
-            "profile", "👤", "Профиль", "user",
-            "👤 <b>Профиль</b>\n"
-            "━━━━━━━━━━━━━━━━━━━━\n\n"
-            "📊 <b>Просмотр</b>\n"
-            "  <code>бот я</code> — свой профиль (уровень, XP, репутация)\n"
-            "  <code>бот инфо [@юзер|ответ]</code> — краткая справка\n"
-            "  <code>бот досье [@юзер|ответ]</code> — полное досье\n"
-            "  <code>бот айди [@юзер|ответ]</code> — Telegram ID пользователя\n"
-            "  <code>бот чат</code> — ID и информация о текущем чате\n\n"
-            "✏️ <b>Редактирование</b>\n"
-            "  <code>бот обо мне [текст]</code> — биография в этом чате\n\n"
-            "🚨 <b>Жалобы</b>\n"
-            "  <code>бот жалоба [причина]</code> — анонимная жалоба администрации (ответом)",
-        ),
-        (
-            "xp", "⭐", "Репутация & XP", "user",
-            "⭐ <b>Репутация & XP</b>\n"
-            "━━━━━━━━━━━━━━━━━━━━\n\n"
-            "👍 <b>Репутация</b>\n"
-            "  <code>+</code> ответом — дать +1 репутацию\n"
-            "  До 10 раз в сутки одному пользователю (каждому отдельно!)\n"
-            "  <code>бот репутация [@юзер]</code> — посмотреть репутацию\n"
-            "  <code>бот топ репутация</code> — топ-10 по репутации\n\n"
-            "🎓 <b>Уровни & XP</b>\n"
-            "  <code>бот уровень [@юзер]</code> — текущий уровень и XP\n"
-            "  <code>бот топ уровень</code> — топ-10 по уровням\n\n"
-            "📋 <b>Задания</b>\n"
-            "  <code>бот задание</code> — ежедневное задание (+XP за выполнение)",
-        ),
-        (
-            "fun", "🎉", "Развлечения", "user",
-            f"🎉 <b>Развлечения</b>\n"
-            f"━━━━━━━━━━━━━━━━━━━━\n\n"
-            f"👊 <b>Действия</b> (ответом или <code>бот [действие] @юзер</code>)\n"
-            f"  <code>пни · укуси · обними · шлёпни</code>\n"
-            f"  <code>лизни · погладь · кинь</code>\n\n"
-            f"💍 <b>Отношения</b>\n"
-            f"  <code>бот брак @юзер</code> — предложить пожениться\n"
-            f"  <code>бот пара</code> — партнёр, стаж и подарки\n"
-            f"  <code>бот развод</code> — расторгнуть брак\n"
-            f"  <code>бот подарки</code> — витрина подарков для пары\n\n"
-            f"🐾 <b>Питомец</b>\n"
-            f"  <code>бот питомец</code> — посмотреть своего питомца\n"
-            f"  <code>бот завести питомца</code> — завести питомца\n"
-            f"  <i>└ или заплати {PET_MORA_SKIP_PRICE} 🪙 чтобы пропустить ожидание</i>\n"
-            f"  <code>бот назвать питомца [имя]</code> — дать/сменить имя <i>({PET_RENAME_PRICE} 🪙 после первого раза)</i>\n"
-            f"  <code>бот экспедиция</code> — отправить питомца за Морой",
-        ),
-        (
-            "economy", "🪙", "Экономика", "user",
-            f"🪙 <b>Экономика (Мора)</b>\n"
-            f"━━━━━━━━━━━━━━━━━━━━\n\n"
-            f"📊 <b>Как заработать Мору:</b>\n"
-            f"  💬 Сообщения, ежедневный бонус, стрики\n"
-            f"  ✅ Ежедневные задания\n"
-            f"  🐾 Экспедиции питомца\n"
-            f"  💍 Годовщины брака и бонусы пары\n"
-            f"  🎰 Казино и лотерея\n\n"
-            f"💰 <b>Основные команды:</b>\n"
-            f"  <code>бот баланс</code> — Мора, VIP, рамка, буст\n"
-            f"  <code>бот магазин</code> — единый каталог всего, что можно купить\n"
-            f"  <code>бот банк</code> — вклады с процентами\n"
-            f"  <code>бот молитва</code> — молитвы x1/x10 ({GACHA_SINGLE_PRICE}/{GACHA_MULTI_PRICE} 🪙)\n\n"
-            f"👑 <b>Покупки:</b>\n"
-            f"  <code>бот купить вип</code> — VIP <i>({VIP_PRICE} 🪙)</i>\n"
-            f"  <code>бот купить буст</code> — XP x2 на время\n"
-            f"  <code>бот рамки</code> / <code>бот купить рамку</code> — рамки профиля\n"
-            f"  <code>бот анонимка [текст]</code> — анонимное сообщение <i>({ANON_MSG_PRICE} 🪙)</i>\n"
-            f"  <code>бот секрет @user текст</code> — секретное сообщение <i>({SECRET_MSG_PRICE} 🪙)</i>\n"
-            f"  <code>бот перебросить задание</code> — сменить задание <i>({QUEST_REROLL_PRICE} 🪙)</i>\n\n"
-            f"👨‍👩‍👧 <b>Для пар:</b>\n"
-            f"  <code>бот семейный кошелёк</code>\n"
-            f"  <code>бот пополнить семью N</code>\n"
-            f"  <code>бот снять семью N</code>",
-        ),
-        (
-            "casino", "🎰", "Казино", "user",
-            "🎰 <b>Казино</b>\n"
-            "━━━━━━━━━━━━━━━━━━━━\n\n"
-            "🪙 <b>Монетка</b>\n"
-            "  <code>бот монетка N</code> — ставка N Моры, 50/50: выиграй ×2 или потеряй всё\n"
-            "  <i>Макс. ставка: 5000 🪙</i>\n\n"
-            "🎲 <b>Дуэль на кубиках</b>\n"
-            "  <code>бот кубик @юзер N</code> — вызов на дуэль, ставка N Моры\n"
-            "  <i>└ соперник принимает вызов, бросаются кубики — больше побеждает</i>\n"
-            "  <i>└ победитель забирает всё, ставки хранятся у бота до результата</i>\n"
-            "  <i>Макс. ставка: 5000 🪙</i>\n\n"
-            "🎟 <b>Лотерея</b> (еженедельная)\n"
-            "  <code>бот купить лотерею</code> — купить билет на текущую неделю <i>(10 🪙)</i>\n"
-            "  <code>бот мои билеты</code> — сколько билетов куплено\n"
-            "  <i>└ по воскресеньям розыгрыш: 20% шанс выиграть 20–50 🪙 за каждый билет</i>",
-        ),
-        (
-            "info", "📋", "Инфо & чат", "user",
-            "📋 <b>Инфо & чат</b>\n"
-            "━━━━━━━━━━━━━━━━━━━━\n\n"
-            "🏆 <b>Рейтинги</b>\n"
-            "  <code>бот топ</code> — общий рейтинг активности (🥇🥈🥉🏅🏅)\n"
-            "  <code>бот топ день</code> — рейтинг за сегодня\n"
-            "  <code>бот топ неделя</code> — рейтинг за неделю\n\n"
-            "📌 <b>Полезное</b>\n"
-            "  <code>бот правила</code> — правила чата\n"
-            "  <code>бот время [город]</code> — текущее время\n"
-            "  <i>└ Москва · Берлин · Лондон · Нью-Йорк · Токио · Дубай…</i>\n"
-            "  <code>бот наши ссылки</code> — соцсети сообщества\n"
-            "  <code>#название</code> — показать сохранённую заметку\n\n"
-            "💬 <b>Чат</b>\n"
-            "  <code>бот чат</code> — информация о текущем чате и его ID\n"
-            "  <code>бот автор</code> — о создателе бота",
-        ),
-        (
-            "limits", "⚠️", "Мут & варны", "moderator",
-            f"⚠️ <b>Мут & варны</b>\n"
-            f"━━━━━━━━━━━━━━━━━━━━\n\n"
-            f"🔴 <b>Предупреждения</b>\n"
-            f"  <code>бот варн [@юзер|ответ] [причина]</code> — выдать варн\n"
-            f"  <i>└ {MAX_WARNS} варнов подряд → уведомление администраторов</i>\n"
-            f"  <code>бот предупреждения [@юзер|ответ]</code> — посмотреть варны\n"
-            f"  <code>бот снять варн [@юзер|ответ]</code> — снять 1 варн\n\n"
-            f"🔇 <b>Мут</b>\n"
-            f"  <code>бот мут [@юзер|ответ] [время] [причина]</code> — заглушить\n"
-            f"  <i>└ время: <code>30с</code> · <code>10м</code> · <code>2ч</code> · <code>1д</code> (по умолч. 5 мин)</i>\n"
-            f"  <code>бот размут [@юзер|ответ]</code> — снять мут",
-        ),
-        (
-            "mod", "🔨", "Модерация", "moderator",
-            None,  # has sub-sections — see _help_subsections()
-        ),
-        (
-            "settings", "⚙️", "Настройки", "admin_junior",
-            None,  # has sub-sections — see _help_subsections()
-        ),
-        (
-            "owner", "🔱", "Владелец", "owner",
-            "🔱 <b>Владелец+</b>\n"
-            "━━━━━━━━━━━━━━━━━━━━\n\n"
-            "👑 <b>Со-владелец</b>\n"
-            "  <code>бот совладелец [@юзер|ответ]</code> — назначить со-владельца\n\n"
-            "🎭 <b>Управление ролями</b>\n"
-            "  <code>бот добавить роль [эмодзи] название [описание]</code> — создать роль\n"
-            "  <code>бот убрать роль название</code> — удалить роль\n"
-            "  <code>бот сменить роль [@юзер|ответ] роль</code> — принудительно сменить\n"
-            "  <i>└ освобождает старую, занимает новую; минимум co_owner</i>\n\n"
-            "📣 <b>Рассылка</b>\n"
-            "  <code>бот колл [текст]</code> — тегнуть всех участников\n"
-            "  <code>бот колл #все [текст]</code> — то же самое\n"
-            "  <code>бот колл #юзеры [текст]</code> — только участники\n"
-            "  <code>бот колл #стафф [текст]</code> — только стафф\n"
-            "  <code>бот колл #модеры [текст]</code> — модераторы+\n"
-            "  <code>бот колл #админы [текст]</code> — администраторы+",
-        ),
-        (
-            "dev", "🛠", "Разработчик", "developer",
-            "🛠 <b>Разработчик</b>\n"
-            "━━━━━━━━━━━━━━━━━━━━\n\n"
-            "🧑‍💻 <b>Управление данными</b>\n"
-            "  <code>бот разработчик</code> — панель разработчика\n"
-            "  <code>бот скан</code> — статистика БД + топ-5 по сообщениям\n"
-            "  <code>бот сетюзер @user поле значение</code> — редактор данных\n"
-            "  <i>└ поля: сообщения · xp · уровень · репутация · варны · бан · bio · титул · мора</i>\n"
-            "  <code>бот прибавитьxp @user N</code> — добавить XP (можно отрицательное)\n"
-            "  <code>бот сеттитул @user титул</code> — кастомный титул\n\n"
-            "🕐 <b>Настройки времени</b> (owner+)\n"
-            "  <code>бот таймзона Europe/Zurich</code> — часовой пояс бота\n"
-            "  <i>└ влияет на сброс квестов, годовщины, топы в полночь</i>\n\n"
-            "📡 <b>Типы каналов</b> (owner+)\n"
-            "  <code>бот канал правила &lt;chat_id&gt;</code> — канал с правилами и ролями\n"
-            "  <code>бот канал основной &lt;chat_id&gt;</code> — основной чат сообщества\n"
-            "  <code>бот канал удалить правила|основной</code> — убрать тип\n"
-            "  <code>бот каналы</code> — все настроенные каналы\n\n"
-            "🔐 <b>Белый список групп</b>\n"
-            "  <code>бот разрешить [chat_id]</code> — добавить группу в список\n"
-            "  <code>бот запретить [chat_id]</code> — убрать из списка\n"
-            "  <code>бот группы</code> — все разрешённые группы\n"
-            "  <i>└ пустой список = бот работает во всех чатах</i>\n\n"
-            "📣 <b>Админ-группы (уведомления)</b>\n"
-            "  <code>бот админгруппа [chat_id]</code> — добавить группу для уведомлений\n"
-            "  <code>бот удадмингруппу [chat_id]</code> — удалить AdminGroup\n"
-            "  <code>бот админгруппы</code> — все настроенные AdminGroup\n"
-            "  <i>└ репорты, варны, авто-кик → в эти группы</i>",
-        ),
-    ]
-
-
-def _help_subsections() -> dict[str, list[tuple[str, str, str, str]]]:
-    """Sub-sections for large sections. Dict: {section_id: [(sub_id, emoji, label, text), ...]}"""
     return {
-        "mod": [
-            (
-                "mod.blocks", "🚫", "Блокировки & кик",
-                "🔨 <b>Модерация</b> › 🚫 <b>Блокировки & кик</b>\n"
+        # ─── Главное меню ─────────────────────────────────────────────────
+        "main": {
+            "text": (
+                "📖 <b>Предвестник — Справка</b>\n"
                 "━━━━━━━━━━━━━━━━━━━━\n\n"
-                "🚫 <b>Бан</b>\n"
-                "  <code>бот бан [@юзер|ответ] [причина]</code> — заблокировать в чате\n"
-                "  <code>бот разбан [@юзер|ответ]</code> — снять бан\n"
-                "  <code>бот баны</code> — список заблокированных\n\n"
-                "👟 <b>Кик</b>\n"
-                "  <code>бот кик [@юзер|ответ] [причина]</code> — выгнать (может вернуться)",
+                "Добро пожаловать! Выбери раздел 👇\n\n"
+                "<i>💡 Команды пишутся текстом — без «/»\n"
+                "🎯 Таргет — @юзер или ответ на сообщение</i>"
             ),
-            (
-                "mod.msgs", "📌", "Сообщения",
-                "🔨 <b>Модерация</b> › 📌 <b>Сообщения</b>\n"
+            "buttons": [
+                [("🛍 Экономика", "economy"), ("🎲 Игры", "games")],
+                [("🐾 Питомцы", "pets"), ("👤 Профиль", "profile")],
+                [("📋 Инфо & чат", "info"), ("⚙️ Настройки", "settings")],
+            ],
+            "min_rank": "user",
+        },
+
+        # ─── 🛍 Экономика ────────────────────────────────────────────────
+        "economy": {
+            "text": (
+                f"🛍 <b>Экономика (Мора)</b>\n"
+                f"━━━━━━━━━━━━━━━━━━━━\n\n"
+                f"💰 <b>Основные:</b>\n"
+                f"  <code>бот баланс</code> — Мора, VIP, рамка, буст\n"
+                f"  <code>бот магазин</code> — всё, что можно купить\n"
+                f"  <code>бот банк</code> — вклады с процентами\n"
+                f"  <code>бот молитва</code> — гача x1/x10 ({GACHA_SINGLE_PRICE}/{GACHA_MULTI_PRICE} 🪙)\n\n"
+                f"👑 <b>Покупки:</b>\n"
+                f"  <code>бот купить вип</code> — VIP ({VIP_PRICE} 🪙)\n"
+                f"  <code>бот купить буст</code> — XP x2 на время\n"
+                f"  <code>бот рамки</code> — рамки для топа\n"
+                f"  <code>бот анонимка [текст]</code> — анонимное сообщение ({ANON_MSG_PRICE} 🪙)\n"
+                f"  <code>бот секрет @user текст</code> — секретное сообщение ({SECRET_MSG_PRICE} 🪙)\n\n"
+                f"👨‍👩‍👧 <b>Для пар:</b>\n"
+                f"  <code>бот семейный кошелёк</code> · <code>бот пополнить семью N</code> · <code>бот снять семью N</code>"
+            ),
+            "buttons": [
+                [("🏦 Банк", "bank_help"), ("🎰 Гача", "gacha_help")],
+                [("🔙 Назад", "main")],
+            ],
+            "min_rank": "user",
+        },
+        "bank_help": {
+            "text": (
+                "🏦 <b>Банк Северного Королевства</b>\n"
                 "━━━━━━━━━━━━━━━━━━━━\n\n"
-                "  <code>бот закрепить</code> (ответом) — закрепить сообщение\n"
-                "  <code>бот открепить</code> — открепить последнее\n"
-                "  <code>бот очистить N</code> — удалить N последних сообщений\n"
-                "  <i>└ или ответом — удалит всё от той точки до команды</i>",
+                "<code>бот банк</code> — открыть банк\n\n"
+                "📊 <b>Планы вкладов:</b>\n"
+                "  💰 3 дня — 1.5%\n"
+                "  💰 7 дней — 4%\n"
+                "  💰 14 дней — 10%\n\n"
+                "⚠️ Досрочное снятие: теряешь ВСЕ проценты + 1% суммы"
             ),
-            (
-                "mod.notes", "📒", "Заметки & автоответы",
-                "🔨 <b>Модерация</b> › 📒 <b>Заметки & автоответы</b>\n"
+            "buttons": [[("🔙 Назад", "economy")]],
+            "min_rank": "user",
+        },
+        "gacha_help": {
+            "text": (
+                f"🎰 <b>Молитвы (Гача)</b>\n"
+                f"━━━━━━━━━━━━━━━━━━━━\n\n"
+                f"<code>бот молитва</code> — x1 ({GACHA_SINGLE_PRICE} 🪙) или x10 ({GACHA_MULTI_PRICE} 🪙)\n"
+                f"<code>бот инвентарь</code> — все предметы\n"
+                f"<code>бот продать мусор</code> — продать весь мусор\n"
+                f"<code>бот экипировать #ID</code> — легендарка в профиль\n\n"
+                f"📊 <b>Шансы:</b>\n"
+                f"  ⚪ 70% Мусор → продаётся за 2–5 🪙\n"
+                f"  🟢 20% Обычный → зелья XP, мора\n"
+                f"  🟣 8% Редкий → бейджи, титулы\n"
+                f"  🟡 2% Легендарный → VIP-темы, эмодзи\n\n"
+                f"✨ Гарант: лега каждые 50 круток!"
+            ),
+            "buttons": [[("🔙 Назад", "economy")]],
+            "min_rank": "user",
+        },
+
+        # ─── 🎲 Игры ─────────────────────────────────────────────────────
+        "games": {
+            "text": (
+                "🎲 <b>Игры & Развлечения</b>\n"
                 "━━━━━━━━━━━━━━━━━━━━\n\n"
-                "📒 <b>Заметки</b>\n"
-                "  <code>бот заметка [имя] [текст]</code> — сохранить заметку (или ответом)\n"
-                "  <code>бот заметки</code> — список всех заметок чата\n"
-                "  <code>бот убрать заметку [имя]</code> — удалить заметку\n"
-                "  <code>#название</code> — показать заметку в чате\n\n"
-                "🔁 <b>Автоответы</b>\n"
-                "  <code>бот автоответ [фраза] | [ответ]</code> — задать авто-ответ на фразу\n"
-                "  <code>бот автоответы</code> — список всех автоответов\n"
-                "  <code>бот убрать ответ [фраза]</code> — удалить автоответ\n\n"
-                "🚷 <b>Чёрный список слов</b>\n"
-                "  <code>бот блок [слово]</code> — запретить слово\n"
-                "  <code>бот разблок [слово]</code> — разрешить слово\n"
-                "  <code>бот чс</code> — список запрещённых слов (с кнопками удаления)\n\n"
-                "🚪 <b>Покинувшие чат</b>\n"
-                "  <code>бот ушли [N]</code> — последние N человек покинувших чат",
+                "🪙 <b>Монетка</b>\n"
+                "  <code>бот монетка N</code> — 50/50, ×2 или потеряй\n\n"
+                "🎲 <b>Дуэль на кубиках</b>\n"
+                "  <code>бот кубик @юзер N</code> — дуэль на мору\n\n"
+                "🎟 <b>Лотерея</b>\n"
+                "  <code>бот купить лотерею</code> — билет (10 🪙)\n"
+                "  <code>бот мои билеты</code>\n\n"
+                "👊 <b>Действия</b> (ответом/через @юзер)\n"
+                "  <code>пни · укуси · обними · шлёпни · лизни · погладь · кинь</code>\n\n"
+                "💍 <b>Отношения</b>\n"
+                "  <code>бот брак @юзер</code> · <code>бот пара</code> · <code>бот развод</code>\n"
+                "  <code>бот подарки</code> — витрина подарков"
             ),
-            (
-                "mod.ban", "🚷", "ЧС по юзер-ID",
-                "🔨 <b>Модерация</b> › 🚷 <b>ЧС по юзер-ID</b>\n"
+            "buttons": [[("🔙 Назад", "main")]],
+            "min_rank": "user",
+        },
+
+        # ─── 🐾 Питомцы ──────────────────────────────────────────────────
+        "pets": {
+            "text": (
+                f"🐾 <b>Питомцы & Экспедиции</b>\n"
+                f"━━━━━━━━━━━━━━━━━━━━\n\n"
+                f"🐾 <b>Питомец</b>\n"
+                f"  <code>бот питомец</code> — посмотреть\n"
+                f"  <code>бот завести питомца</code> — завести ({PET_MORA_SKIP_PRICE} 🪙 скипнуть ожидание)\n"
+                f"  <code>бот назвать питомца [имя]</code> — {PET_RENAME_PRICE} 🪙 после первого раза\n\n"
+                f"🧭 <b>Экспедиции</b>\n"
+                f"  <code>бот экспедиция</code> — отправить за добычей\n"
+                f"  ⏱ 2ч (бесплатно) · 4ч (10 🪙) · 8ч (25 🪙)\n\n"
+                f"📋 <b>Задания</b>\n"
+                f"  <code>бот задание</code> — ежедневное задание\n"
+                f"  <code>бот перебросить задание</code> — сменить ({QUEST_REROLL_PRICE} 🪙)"
+            ),
+            "buttons": [[("🔙 Назад", "main")]],
+            "min_rank": "user",
+        },
+
+        # ─── 👤 Профиль ──────────────────────────────────────────────────
+        "profile": {
+            "text": (
+                "👤 <b>Профиль & Репутация</b>\n"
                 "━━━━━━━━━━━━━━━━━━━━\n\n"
-                "<i>💡 При выходе/кике бот предложит добавить участника в ID-бан.\n"
-                "    При попытке вернуться — авто-кик + уведомление владельцев.</i>\n\n"
-                "  <code>бот юзбан [ID]</code> — добавить ID в ЧС чата\n"
-                "  <code>бот юзразбан [ID]</code> — убрать ID из ЧС\n"
-                "  <code>бот юзбаны</code> — список забаненных по ID",
+                "📊 <b>Просмотр</b>\n"
+                "  <code>бот я</code> — профиль с темой и бейджами\n"
+                "  <code>бот инфо [@юзер]</code> — краткая справка\n"
+                "  <code>бот досье [@юзер]</code> — полное досье\n\n"
+                "✏️ <b>Кастомизация</b>\n"
+                "  <code>бот тема</code> — выбрать тему профиля\n"
+                "  <code>бот обо мне [текст]</code> — биография\n\n"
+                "⭐ <b>Репутация & XP</b>\n"
+                "  <code>+</code> ответом — +1 репутация\n"
+                "  <code>бот уровень</code> · <code>бот репутация</code>\n"
+                "  <code>бот топ</code> — рейтинги активности"
             ),
-        ],
-        "settings": [
-            (
-                "settings.staff", "👥", "Персонал & роли",
-                "⚙️ <b>Настройки</b> › 👥 <b>Персонал & роли</b>\n"
+            "buttons": [[("🔙 Назад", "main")]],
+            "min_rank": "user",
+        },
+
+        # ─── 📋 Инфо ─────────────────────────────────────────────────────
+        "info": {
+            "text": (
+                "📋 <b>Инфо & чат</b>\n"
                 "━━━━━━━━━━━━━━━━━━━━\n\n"
-                "🏅 <b>Ранги</b>\n"
-                "  <code>бот ранг [ранг] [@юзер|ответ]</code> — выдать ранг\n"
-                "  <i>└ user · moderator · admin_junior · admin_senior · co_owner · owner</i>\n"
-                "  <code>бот состав</code> — список администрации\n"
-                "  <code>бот статистика</code> — статистика чата\n\n"
-                "🎭 <b>Роли</b>\n"
-                "  <code>бот выдать роль [@юзер|ответ] [роль]</code> — выдать роль\n"
-                "  <code>бот снять роль [@юзер|ответ] [роль]</code> — снять роль\n"
-                "  <code>бот роли</code> — список всех ролей\n"
-                "  <code>бот мои роли</code> — твои текущие роли",
+                "🏆 <b>Рейтинги</b>\n"
+                "  <code>бот топ</code> · <code>бот топ день</code> · <code>бот топ неделя</code>\n\n"
+                "📌 <b>Полезное</b>\n"
+                "  <code>бот правила</code> — правила чата\n"
+                "  <code>бот время [город]</code> — текущее время\n"
+                "  <code>бот наши ссылки</code> — соцсети\n"
+                "  <code>#название</code> — заметка\n\n"
+                "💬 <b>Чат</b>\n"
+                "  <code>бот чат</code> · <code>бот айди</code> · <code>бот автор</code>\n\n"
+                "🚨 <b>Жалобы</b>\n"
+                "  <code>бот жалоба [причина]</code> ответом на нарушителя"
             ),
-            (
-                "settings.rules", "💬", "Правила & приветствие",
-                "⚙️ <b>Настройки</b> › 💬 <b>Правила & приветствие</b>\n"
+            "buttons": [[("🔙 Назад", "main")]],
+            "min_rank": "user",
+        },
+
+        # ─── ⚙️ Настройки (hub) ──────────────────────────────────────────
+        "settings": {
+            "text": (
+                "⚙️ <b>Настройки & Администрирование</b>\n"
                 "━━━━━━━━━━━━━━━━━━━━\n\n"
-                "📜 <b>Правила</b>\n"
-                "  <code>бот правила установить [текст]</code> — задать правила чата\n\n"
-                "👋 <b>Авто-сообщения</b>\n"
-                "  <code>бот приветствие [текст]</code> — при входе нового участника\n"
-                "  <i>└ переменные: {name} · {username} · {chat}</i>\n"
-                "  <code>бот прощание [текст]</code> — при выходе участника\n"
-                "  <code>бот тег входа [вкл/выкл]</code> — тегать всех при входе",
+                "Выбери подраздел 👇"
             ),
-            (
-                "settings.locks", "🔒", "Замки контента",
-                "⚙️ <b>Настройки</b> › 🔒 <b>Замки контента</b>\n"
+            "buttons": [
+                [("⚠️ Мут & варны", "s_warns"), ("🔨 Модерация", "s_mod")],
+                [("👥 Персонал", "s_staff"), ("💬 Правила", "s_rules")],
+                [("🔒 Замки", "s_locks"), ("🛡 Антифлуд", "s_flood")],
+                [("📥 Импорт", "s_import"), ("🔗 Соцсети", "s_social")],
+                [("🔱 Владелец", "s_owner"), ("🛠 Разработчик", "s_dev")],
+                [("🔙 Назад", "main")],
+            ],
+            "min_rank": "moderator",
+        },
+
+        # ─── Подразделы настроек ──────────────────────────────────────────
+        "s_warns": {
+            "text": (
+                f"⚠️ <b>Мут & варны</b>\n"
+                f"━━━━━━━━━━━━━━━━━━━━\n\n"
+                f"🔴 <b>Предупреждения</b>\n"
+                f"  <code>бот варн [@юзер] [причина]</code>\n"
+                f"  <i>└ {MAX_WARNS} варнов → уведомление админам</i>\n"
+                f"  <code>бот предупреждения [@юзер]</code> · <code>бот снять варн</code>\n\n"
+                f"🔇 <b>Мут</b>\n"
+                f"  <code>бот мут [@юзер] [30с|10м|2ч|1д]</code>\n"
+                f"  <code>бот размут [@юзер]</code>"
+            ),
+            "buttons": [[("🔙 Назад", "settings")]],
+            "min_rank": "moderator",
+        },
+        "s_mod": {
+            "text": (
+                "🔨 <b>Модерация</b>\n"
                 "━━━━━━━━━━━━━━━━━━━━\n\n"
-                "  <code>бот замок [тип]</code> — заблокировать тип контента\n"
-                "  <code>бот открыть [тип]</code> — разрешить тип контента\n"
-                "  <code>бот замки</code> — все активные замки\n\n"
-                "  <i>Доступные типы:</i>\n"
-                "  <code>links · stickers · gifs · forwards · voice · video · photo · audio</code>",
+                "🚫 <code>бот бан · разбан · баны · кик</code>\n\n"
+                "📌 <code>бот закрепить · открепить · очистить N</code>\n\n"
+                "📒 <code>бот заметка [имя] [текст]</code> · <code>бот заметки</code>\n"
+                "🔁 <code>бот автоответ [фраза] | [ответ]</code>\n"
+                "🚷 <code>бот блок · разблок · чс</code>\n"
+                "🚪 <code>бот ушли [N]</code>\n\n"
+                "🚷 <b>ID-бан:</b>\n"
+                "  <code>бот юзбан · юзразбан · юзбаны</code>"
             ),
-            (
-                "settings.flood", "🛡", "Антифлуд & чистка",
-                "⚙️ <b>Настройки</b> › 🛡 <b>Антифлуд & чистка</b>\n"
+            "buttons": [[("🔙 Назад", "settings")]],
+            "min_rank": "moderator",
+        },
+        "s_staff": {
+            "text": (
+                "👥 <b>Персонал & роли</b>\n"
                 "━━━━━━━━━━━━━━━━━━━━\n\n"
-                "🌊 <b>Антифлуд</b>\n"
-                "  <code>бот антифлуд N</code> — макс. N сообщений за 2 сек. (по умолч.)\n"
-                "  <code>бот антифлуд N Xс</code> — N сообщений за X секунд (1–60с)\n"
-                "  <code>бот антифлуд выкл</code> — отключить\n"
-                "  <code>бот фильтрмат [вкл/выкл]</code> — авто-удаление мата\n\n"
-                "🧹 <b>Чистка</b>\n"
-                "  <code>бот чистка [N]</code> — заблокировать чат + отчёт активности\n"
-                "  <code>бот чистка открыть</code> — разблокировать чат\n"
-                "  <code>бот чистка порог N</code> — порог мин. сообщений в неделю\n"
-                "  <code>бот чистка дата</code> — посмотреть / установить дату следующей чистки\n\n"
-                "😴 <b>Отдых</b>\n"
-                "  <code>бот отдых @user [дней]</code> — освобождение от чистки (по умолч. 7 дней)\n"
-                "  <code>бот отдых снять @user</code> — вернуть из отдыха\n"
-                "  <code>бот отдых список</code> — кто сейчас на отдыхе\n\n"
-                "🔕 <b>Неактивность</b>\n"
-                "  <code>бот неактив</code> — настройка авто-варнов за неактивность",
+                "🏅 <code>бот ранг [ранг] [@юзер]</code>\n"
+                "  <i>user · moderator · admin_junior · admin_senior · co_owner · owner</i>\n"
+                "<code>бот состав</code> · <code>бот статистика</code>\n\n"
+                "🎭 <code>бот выдать роль · снять роль · роли · мои роли</code>"
             ),
-            (
-                "settings.import", "📥", "Импорт данных",
-                "⚙️ <b>Настройки</b> › 📥 <b>Импорт данных</b>\n"
+            "buttons": [[("🔙 Назад", "settings")]],
+            "min_rank": "admin_junior",
+        },
+        "s_rules": {
+            "text": (
+                "💬 <b>Правила & приветствие</b>\n"
                 "━━━━━━━━━━━━━━━━━━━━\n\n"
-                "<i>💡 Данные хранятся до первого сообщения юзера — применяются автоматически.</i>\n\n"
-                "💬 <b>Счётчики сообщений</b>\n"
-                "  <code>бот загрузить данные</code> — импорт из JSON (ждёт следующее сообщение)\n"
-                "  Формат: <code>[{\"username\": \"@ник\", \"messages\": 1234}]</code>\n"
-                "  или: <code>[{\"user_id\": 123, \"messages\": 1234, \"full_name\": \"Имя\"}]</code>\n\n"
-                "💍 <b>Браки</b>\n"
-                "  <code>бот загрузить браки</code> — импорт пар из JSON\n"
-                "  Формат: <code>[{\"user1\": \"@ник1\", \"user2\": \"@ник2\", \"since\": \"01.01.2025\"}]</code>",
+                "📜 <code>бот правила установить [текст]</code>\n\n"
+                "👋 <code>бот приветствие [текст]</code>\n"
+                "  <i>Переменные: {name} · {username} · {chat}</i>\n"
+                "<code>бот прощание [текст]</code>\n"
+                "<code>бот тег входа [вкл/выкл]</code>"
             ),
-            (
-                "settings.social", "🔗", "Соцсети",
-                "⚙️ <b>Настройки</b> › 🔗 <b>Соцсети</b>\n"
+            "buttons": [[("🔙 Назад", "settings")]],
+            "min_rank": "admin_junior",
+        },
+        "s_locks": {
+            "text": (
+                "🔒 <b>Замки контента</b>\n"
                 "━━━━━━━━━━━━━━━━━━━━\n\n"
-                "  <code>бот соцсети tiktok [URL]</code> — ссылка на TikTok\n"
-                "  <code>бот соцсети youtube [URL]</code> — ссылка на YouTube\n"
-                "  <code>бот соцсети instagram [URL]</code> — ссылка на Instagram\n"
-                "  <code>бот наши ссылки</code> — показать все соцсети\n"
-                "  <code>бот история чата</code> — как включить историю для новых",
+                "<code>бот замок [тип]</code> · <code>бот открыть [тип]</code> · <code>бот замки</code>\n\n"
+                "<i>Типы: links · stickers · gifs · forwards · voice · video · photo · audio</i>"
             ),
-        ],
+            "buttons": [[("🔙 Назад", "settings")]],
+            "min_rank": "admin_junior",
+        },
+        "s_flood": {
+            "text": (
+                "🛡 <b>Антифлуд & чистка</b>\n"
+                "━━━━━━━━━━━━━━━━━━━━\n\n"
+                "🌊 <code>бот антифлуд N [Xс]</code> · <code>бот антифлуд выкл</code>\n"
+                "<code>бот фильтрмат [вкл/выкл]</code>\n\n"
+                "🧹 <code>бот чистка [N]</code> · <code>бот чистка открыть</code>\n"
+                "<code>бот чистка порог N</code> · <code>бот чистка дата</code>\n\n"
+                "😴 <code>бот отдых @user [дней]</code> · <code>бот отдых снять</code> · <code>бот отдых список</code>\n"
+                "🔕 <code>бот неактив</code>"
+            ),
+            "buttons": [[("🔙 Назад", "settings")]],
+            "min_rank": "admin_junior",
+        },
+        "s_import": {
+            "text": (
+                "📥 <b>Импорт данных</b>\n"
+                "━━━━━━━━━━━━━━━━━━━━\n\n"
+                "💬 <code>бот загрузить данные</code> — JSON-импорт сообщений\n"
+                "💍 <code>бот загрузить браки</code> — JSON-импорт пар\n\n"
+                "<i>Данные привяжутся при первом сообщении юзера.</i>"
+            ),
+            "buttons": [[("🔙 Назад", "settings")]],
+            "min_rank": "admin_junior",
+        },
+        "s_social": {
+            "text": (
+                "🔗 <b>Соцсети</b>\n"
+                "━━━━━━━━━━━━━━━━━━━━\n\n"
+                "<code>бот соцсети tiktok|youtube|instagram [URL]</code>\n"
+                "<code>бот наши ссылки</code>\n"
+                "<code>бот история чата</code>"
+            ),
+            "buttons": [[("🔙 Назад", "settings")]],
+            "min_rank": "admin_junior",
+        },
+        "s_owner": {
+            "text": (
+                "🔱 <b>Владелец+</b>\n"
+                "━━━━━━━━━━━━━━━━━━━━\n\n"
+                "👑 <code>бот совладелец [@юзер]</code>\n"
+                "🎭 <code>бот добавить роль · убрать роль · сменить роль</code>\n\n"
+                "📣 <b>Рассылка:</b>\n"
+                "  <code>бот колл [#все|#юзеры|#стафф|#модеры|#админы] [текст]</code>"
+            ),
+            "buttons": [[("🔙 Назад", "settings")]],
+            "min_rank": "owner",
+        },
+        "s_dev": {
+            "text": (
+                "🛠 <b>Разработчик</b>\n"
+                "━━━━━━━━━━━━━━━━━━━━\n\n"
+                "🧑‍💻 <code>бот разработчик · скан · сетюзер · прибавитьxp · сеттитул</code>\n"
+                "🕐 <code>бот таймзона [tz]</code>\n"
+                "📡 <code>бот канал правила|основной &lt;id&gt;</code> · <code>бот каналы</code>\n"
+                "🔐 <code>бот разрешить · запретить · группы</code>\n"
+                "📣 <code>бот админгруппа · удадмингруппу · админгруппы</code>"
+            ),
+            "buttons": [[("🔙 Назад", "settings")]],
+            "min_rank": "developer",
+        },
     }
 
 
-def _help_menu_text(rank: str) -> str:
-    rn = rank_name(rank)
-    return (
-        f"📖 <b>Справка — Предвестник</b>\n"
-        f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"🎖 Ранг: <b>{rn}</b>\n\n"
-        "Выбери раздел ниже 👇\n\n"
-        "<i>💡 Команды пишутся просто текстом — без «/»\n"
-        "🎯 Таргет — @юзер или ответ на сообщение</i>"
-    )
-
-
-def _help_keyboard(user_id: int, lvl: int) -> InlineKeyboardMarkup:
-    sections = _help_sections()
-    buttons: list[list[InlineKeyboardButton]] = []
-    row: list[InlineKeyboardButton] = []
-    for sid, emoji, label, min_rank, _text in sections:
-        if lvl < rank_level(min_rank):
-            continue
-        row.append(InlineKeyboardButton(
-            text=f"{emoji} {label}",
-            callback_data=f"h:{sid}:{user_id}:{lvl}",
-        ))
-        if len(row) == 2:
-            buttons.append(row)
-            row = []
-    if row:
-        buttons.append(row)
-    buttons.append([InlineKeyboardButton(
-        text="❌ Закрыть",
-        callback_data=f"h:close:{user_id}:{lvl}",
+def _build_help_kb(page_id: str, uid: int, lvl: int) -> InlineKeyboardMarkup:
+    """Построить Inline-клавиатуру для страницы справки."""
+    pages = _help_pages()
+    page = pages.get(page_id)
+    if not page:
+        return InlineKeyboardMarkup(inline_keyboard=[])
+    rows: list[list[InlineKeyboardButton]] = []
+    for btn_row in page["buttons"]:
+        row: list[InlineKeyboardButton] = []
+        for label, target in btn_row:
+            target_page = pages.get(target)
+            if target_page and lvl < rank_level(target_page["min_rank"]):
+                continue
+            row.append(InlineKeyboardButton(
+                text=label,
+                callback_data=f"h:{target}:{uid}:{lvl}",
+            ))
+        if row:
+            rows.append(row)
+    rows.append([InlineKeyboardButton(
+        text="❌ Закрыть", callback_data=f"h:close:{uid}:{lvl}",
     )])
-    return InlineKeyboardMarkup(inline_keyboard=buttons)
-
-
-def _sub_menu_keyboard(parent_id: str, subs: list, owner_id: int, lvl: int) -> InlineKeyboardMarkup:
-    buttons: list[list[InlineKeyboardButton]] = []
-    row: list[InlineKeyboardButton] = []
-    for sub_id, emoji, label, _text in subs:
-        row.append(InlineKeyboardButton(
-            text=f"{emoji} {label}",
-            callback_data=f"h:{sub_id}:{owner_id}:{lvl}",
-        ))
-        if len(row) == 2:
-            buttons.append(row)
-            row = []
-    if row:
-        buttons.append(row)
-    buttons.append([
-        InlineKeyboardButton(text="⬅️ Меню", callback_data=f"h:menu:{owner_id}:{lvl}"),
-        InlineKeyboardButton(text="❌ Закрыть", callback_data=f"h:close:{owner_id}:{lvl}"),
-    ])
-    return InlineKeyboardMarkup(inline_keyboard=buttons)
-
-
-def _back_keyboard(user_id: int, lvl: int) -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(inline_keyboard=[[
-        InlineKeyboardButton(text="⬅️ Меню", callback_data=f"h:menu:{user_id}:{lvl}"),
-        InlineKeyboardButton(text="❌ Закрыть", callback_data=f"h:close:{user_id}:{lvl}"),
-    ]])
-
-
-def _back_to_section_keyboard(parent_id: str, owner_id: int, lvl: int) -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(inline_keyboard=[[
-        InlineKeyboardButton(text="⬅️ Назад", callback_data=f"h:{parent_id}:{owner_id}:{lvl}"),
-        InlineKeyboardButton(text="❌ Закрыть", callback_data=f"h:close:{owner_id}:{lvl}"),
-    ]])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
 def _top_keyboard(active: str) -> InlineKeyboardMarkup:
@@ -500,8 +437,9 @@ async def cmd_help(message: Message, cmd_args: str):
     lvl = rank_level(rank)
     uid = message.from_user.id
 
-    text = _help_menu_text(rank)
-    kb = _help_keyboard(uid, lvl)
+    pages = _help_pages()
+    text = pages["main"]["text"]
+    kb = _build_help_kb("main", uid, lvl)
     await message.answer(text, parse_mode="HTML", reply_markup=kb)
 
 
@@ -511,7 +449,7 @@ async def cb_help(callback: CallbackQuery):
     if len(parts) != 4:
         await callback.answer()
         return
-    section, owner_id_str, lvl_str = parts[1], parts[2], parts[3]
+    page_id, owner_id_str, lvl_str = parts[1], parts[2], parts[3]
 
     try:
         owner_id = int(owner_id_str)
@@ -520,12 +458,11 @@ async def cb_help(callback: CallbackQuery):
         await callback.answer()
         return
 
-    # Только автор может нажимать кнопки
     if callback.from_user.id != owner_id:
-        await callback.answer("🚫 Эта справка не твоя. Напиши «бот помощь» или «бот меню».", show_alert=True)
+        await callback.answer("🚫 Это меню не твоё. Напиши «бот помощь».", show_alert=True)
         return
 
-    if section == "close":
+    if page_id == "close":
         try:
             await callback.message.delete()
         except Exception:
@@ -533,79 +470,21 @@ async def cb_help(callback: CallbackQuery):
         await callback.answer()
         return
 
-    if section == "menu":
-        # Определяем ранг по lvl для отображения
-        rank_names_by_lvl = {
-            rank_level(r): r
-            for r in ("user", "moderator", "admin_junior", "admin_senior", "co_owner", "owner", "developer")
-        }
-        rank = rank_names_by_lvl.get(lvl, "user")
-        text = _help_menu_text(rank)
-        kb = _help_keyboard(owner_id, lvl)
-        try:
-            await callback.message.edit_text(text, parse_mode="HTML", reply_markup=kb)
-        except Exception:
-            pass
+    pages = _help_pages()
+    page = pages.get(page_id)
+    if not page:
         await callback.answer()
         return
 
-    # Ищем раздел
-    all_subsections = _help_subsections()
-    sections = _help_sections()
-
-    # Sub-section click (e.g. "mod.blocks", "settings.staff")
-    if "." in section:
-        parent_id = section.split(".")[0]
-        parent_min_rank = next((mr for sid, _e, _l, mr, _t in sections if sid == parent_id), "user")
-        if lvl < rank_level(parent_min_rank):
-            await callback.answer("🚫 Нет доступа.", show_alert=True)
-            return
-        subs = all_subsections.get(parent_id, [])
-        for sub_id, _e, _l, sub_text in subs:
-            if sub_id == section:
-                kb = _back_to_section_keyboard(parent_id, owner_id, lvl)
-                try:
-                    await callback.message.edit_text(sub_text, parse_mode="HTML", reply_markup=kb)
-                except Exception:
-                    pass
-                await callback.answer()
-                return
-        await callback.answer()
+    if lvl < rank_level(page["min_rank"]):
+        await callback.answer("🚫 Нет доступа.", show_alert=True)
         return
 
-    # Section with sub-sections — show sub-menu
-    if section in all_subsections:
-        section_min_rank = next((mr for sid, _e, _l, mr, _t in sections if sid == section), "user")
-        if lvl < rank_level(section_min_rank):
-            await callback.answer("🚫 Нет доступа.", show_alert=True)
-            return
-        section_emoji, section_label = next(
-            ((e, l) for sid, e, l, _mr, _t in sections if sid == section), ("", section)
-        )
-        subs = all_subsections[section]
-        kb = _sub_menu_keyboard(section, subs, owner_id, lvl)
-        text = f"{section_emoji} <b>{section_label}</b>\n━━━━━━━━━━━━━━━━━━━━\n\nВыбери подраздел 👇"
-        try:
-            await callback.message.edit_text(text, parse_mode="HTML", reply_markup=kb)
-        except Exception:
-            pass
-        await callback.answer()
-        return
-
-    # Regular section with direct text
-    for sid, _emoji, _label, min_rank, section_text in sections:
-        if sid == section:
-            if lvl < rank_level(min_rank):
-                await callback.answer("🚫 Нет доступа.", show_alert=True)
-                return
-            kb = _back_keyboard(owner_id, lvl)
-            try:
-                await callback.message.edit_text(section_text, parse_mode="HTML", reply_markup=kb)
-            except Exception:
-                pass
-            await callback.answer()
-            return
-
+    kb = _build_help_kb(page_id, owner_id, lvl)
+    try:
+        await callback.message.edit_text(page["text"], parse_mode="HTML", reply_markup=kb)
+    except Exception:
+        pass
     await callback.answer()
 
 
@@ -763,30 +642,127 @@ async def cb_profile_nav(callback: CallbackQuery):
         if not user:
             await callback.answer("❌ Не найден", show_alert=True)
             return
-        stats = await get_user_stats(uid, callback.message.chat.id)
-        rank    = stats["rank"]         if stats else "user"
-        xp      = stats["xp"]          if stats else 0
-        lvl_val = stats["level"]        if stats else 1
-        rep     = stats["reputation"]   if stats else 0
+        from config import PROFILE_THEMES, BADGE_DEFINITIONS
+        from handlers.economy import TOP_FRAMES, _frame_emoji
+        chat_id = callback.message.chat.id
+        stats = await get_user_stats(uid, chat_id)
+        rank    = stats["rank"]          if stats else "user"
+        xp      = stats["xp"]           if stats else 0
+        lvl_val = stats["level"]         if stats else 1
+        rep     = stats["reputation"]    if stats else 0
         msgs    = stats["message_count"] if stats else 0
-        bio     = stats["bio"]          if stats else None
-        lines = [
-            f"👤 <b>Профиль</b>\n",
-            f"🏷 Имя: {html.escape(user['full_name'])}",
-            f"🆔 ID: <code>{user['user_id']}</code>",
-            f"🎖 Ранг: {rank_name(rank)}",
-            f"💬 Сообщений: {msgs}",
+        bio     = stats["bio"]           if stats else None
+
+        mora_row = await get_mora(uid, chat_id)
+        mora_bal = (mora_row["balance"] or 0) if mora_row else 0
+        frame_key = mora_row["top_frame"] if mora_row else None
+
+        theme_key = await get_active_theme(uid, chat_id)
+        theme = PROFILE_THEMES.get(theme_key, PROFILE_THEMES["default"])
+        badge_keys = await get_user_badges(uid, chat_id)
+        badges_str = " ".join(
+            BADGE_DEFINITIONS[bk]["emoji"] for bk in badge_keys if bk in BADGE_DEFINITIONS
+        )
+        equipped = await get_equipped_legendary(uid, chat_id)
+
+        from database.db import xp_for_level
+        next_xp = xp_for_level(lvl_val + 1)
+        bar_filled = min(10, int((xp - xp_for_level(lvl_val)) / max(1, next_xp - xp_for_level(lvl_val)) * 10))
+        bar = "█" * bar_filled + "░" * (10 - bar_filled)
+
+        sep = theme["separator"]
+        lines = [f"{theme['header']}", sep]
+        if badges_str:
+            lines.append(f"🏅 {badges_str}")
+        lines += [
+            f"🏷 {html.escape(user['full_name'])}",
+            f"🎖 {rank_name(rank)}",
+            f"🌟 Ур. <b>{lvl_val}</b>  [{bar}]  {xp}/{next_xp}",
             f"⭐ Репутация: <b>{rep:+d}</b>",
-            f"🌟 Уровень: <b>{lvl_val}</b>",
+            f"💬 Сообщений: {msgs}",
+            f"🪙 Мора: <b>{mora_bal}</b> 🪙",
         ]
+        if equipped:
+            lines.append(f"⚔️ Экипировка: {equipped['item_name']}")
+        if frame_key:
+            frame_label = next((f[2] for f in TOP_FRAMES if f[0] == frame_key), None)
+            if frame_label:
+                lines.append(f"🖼 Рамка: {_frame_emoji(frame_key)} {frame_label}")
         if bio:
-            lines.append(f"\n📝 Bio: <i>{html.escape(bio)}</i>")
-        kb = InlineKeyboardMarkup(inline_keyboard=[[
-            InlineKeyboardButton(text="🏆 Топ чата", callback_data="top:a"),
-            InlineKeyboardButton(text="⭐ Репутация", callback_data=f"pn:rep:{uid}"),
-        ], [
-            InlineKeyboardButton(text="❌ Закрыть", callback_data=f"pn:close:{uid}"),
-        ]])
+            lines.append(f"\n📝 <i>{html.escape(bio)}</i>")
+        if theme["footer"]:
+            lines.append(f"\n{theme['footer']}")
+
+        kb = InlineKeyboardMarkup(inline_keyboard=[
+            [
+                InlineKeyboardButton(text="🎨 Тема", callback_data=f"pn:themes:{uid}"),
+                InlineKeyboardButton(text="🏅 Бейджи", callback_data=f"pn:badges:{uid}"),
+            ],
+            [
+                InlineKeyboardButton(text="🏆 Топ чата", callback_data="top:a"),
+                InlineKeyboardButton(text="⭐ Репутация", callback_data=f"pn:rep:{uid}"),
+            ],
+            [
+                InlineKeyboardButton(text="❌ Закрыть", callback_data=f"pn:close:{uid}"),
+            ],
+        ])
+        try:
+            await callback.message.edit_text("\n".join(lines), parse_mode="HTML", reply_markup=kb)
+        except Exception:
+            pass
+
+    elif action == "themes":
+        from config import PROFILE_THEMES
+        chat_id = callback.message.chat.id
+        if callback.from_user.id != uid:
+            await callback.answer("🚫 Не твоё меню.", show_alert=True)
+            return
+        owned = {t["theme_key"] for t in await get_user_themes(uid, chat_id)}
+        owned.add("default")
+        active = await get_active_theme(uid, chat_id)
+        lines = ["🎨 <b>Темы профиля</b>\n━━━━━━━━━━━━━━━━━━━━\n"]
+        btns: list[list[InlineKeyboardButton]] = []
+        row: list[InlineKeyboardButton] = []
+        for key, info in PROFILE_THEMES.items():
+            mark = " ✅" if key == active else (" 🔓" if key in owned else " 🔒")
+            src = {"default": "бесплатно", "shop": f"{info['price']} 🪙", "gacha": "гача"}.get(info["source"], "")
+            lines.append(f"{info['name']}{mark} — <i>{src}</i>")
+            if key in owned:
+                label = f"· {info['name']} ·" if key == active else info["name"]
+                row.append(InlineKeyboardButton(text=label, callback_data=f"theme_set:{uid}:{key}"))
+                if len(row) == 2:
+                    btns.append(row)
+                    row = []
+            elif info["source"] == "shop" and info["price"] > 0:
+                row.append(InlineKeyboardButton(text=f"🛒 {info['name']}", callback_data=f"theme_buy:{uid}:{key}"))
+                if len(row) == 2:
+                    btns.append(row)
+                    row = []
+        if row:
+            btns.append(row)
+        btns.append([InlineKeyboardButton(text="🔙 Назад", callback_data=f"pn:me:{uid}")])
+        try:
+            await callback.message.edit_text("\n".join(lines), parse_mode="HTML",
+                                             reply_markup=InlineKeyboardMarkup(inline_keyboard=btns))
+        except Exception:
+            pass
+
+    elif action == "badges":
+        from config import BADGE_DEFINITIONS
+        chat_id = callback.message.chat.id
+        badge_keys = await get_user_badges(uid, chat_id)
+        lines = ["🏅 <b>Бейджи</b>\n━━━━━━━━━━━━━━━━━━━━\n"]
+        if badge_keys:
+            for bk in badge_keys:
+                bd = BADGE_DEFINITIONS.get(bk)
+                if bd:
+                    lines.append(f"{bd['emoji']} <b>{bd['name']}</b> — <i>{bd['desc']}</i>")
+        else:
+            lines.append("<i>Пока нет бейджей. Играй и зарабатывай!</i>")
+        lines.append("\n━━━━━━━━━━━━━━━━━━━━")
+        kb = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="🔙 Назад", callback_data=f"pn:me:{uid}")],
+        ])
         try:
             await callback.message.edit_text("\n".join(lines), parse_mode="HTML", reply_markup=kb)
         except Exception:
@@ -891,16 +867,20 @@ async def cmd_time(message: Message, cmd_args: str):
 
 @router.message(BotCommand("я", "профиль", "me", "мой профиль"))
 async def cmd_me(message: Message, cmd_args: str):
-    from config import DEVELOPER_ID
+    from config import DEVELOPER_ID, PROFILE_THEMES, BADGE_DEFINITIONS
     from handlers.economy import TOP_FRAMES, _frame_emoji
-    user = await get_user(message.from_user.id)
+    uid = message.from_user.id
+    chat_id = message.chat.id
+    is_group = message.chat.type in ("group", "supergroup")
+
+    user = await get_user(uid)
     if not user:
         await message.answer("❌ Тебя ещё нет в базе. Напиши любое сообщение в чат.")
         return
 
-    stats = await get_user_stats(message.from_user.id, message.chat.id)
+    stats = await get_user_stats(uid, chat_id)
     rank    = stats["rank"]         if stats else "user"
-    if DEVELOPER_ID and message.from_user.id == DEVELOPER_ID:
+    if DEVELOPER_ID and uid == DEVELOPER_ID:
         rank = "developer"
     warns_n = stats["warns"]        if stats else 0
     xp      = stats["xp"]          if stats else 0
@@ -911,72 +891,184 @@ async def cmd_me(message: Message, cmd_args: str):
     banned  = stats["is_banned"]    if stats else 0
     title   = stats["custom_title"] if stats else None
 
-    # Экономика
-    mora_row = await get_mora(message.from_user.id, message.chat.id) if message.chat.type in ("group", "supergroup") else None
-    vip       = (mora_row["vip"] or 0)        if mora_row else 0
-    mora_bal  = (mora_row["balance"] or 0)    if mora_row else 0
-    frame_key = mora_row["top_frame"]          if mora_row else None
-    boost_active = await get_xp_boost_active(message.from_user.id, message.chat.id) if message.chat.type in ("group", "supergroup") else False
+    mora_row = await get_mora(uid, chat_id) if is_group else None
+    vip       = (mora_row["vip"] or 0)     if mora_row else 0
+    mora_bal  = (mora_row["balance"] or 0) if mora_row else 0
+    frame_key = mora_row["top_frame"]       if mora_row else None
+    boost_active = await get_xp_boost_active(uid, chat_id) if is_group else False
 
-    status = "🔴 Заблокирован" if banned else "🟢 Активен"
-    from config import MAX_WARNS
-    warns_line = "⚠️" * warns_n + f"({warns_n}/{MAX_WARNS})" if warns_n else "нет"
+    # ── Тема профиля ──────────────────────────────────────────────────────
+    theme_key = await get_active_theme(uid, chat_id) if is_group else "default"
+    theme = PROFILE_THEMES.get(theme_key, PROFILE_THEMES["default"])
 
+    # ── Бейджи ────────────────────────────────────────────────────────────
+    badge_keys = await get_user_badges(uid, chat_id) if is_group else []
+    badges_str = " ".join(
+        BADGE_DEFINITIONS[bk]["emoji"] for bk in badge_keys if bk in BADGE_DEFINITIONS
+    )
+
+    # ── Экипированный легендарный предмет из гачи ────────────────────────
+    equipped = await get_equipped_legendary(uid, chat_id) if is_group else None
+
+    # ── XP-бар ────────────────────────────────────────────────────────────
     from database.db import xp_for_level
+    from config import MAX_WARNS
     next_xp = xp_for_level(lvl + 1)
     bar_filled = min(10, int((xp - xp_for_level(lvl)) / max(1, next_xp - xp_for_level(lvl)) * 10))
     bar = "█" * bar_filled + "░" * (10 - bar_filled)
 
-    # VIP badge in header
-    vip_line = "\n💎 <b>VIP</b>" if vip else ""
-    # Frame
-    frame_label = next((f[2] for f in TOP_FRAMES if f[0] == frame_key), None) if frame_key else None
-    frame_str   = f"\n🖼 Рамка: {_frame_emoji(frame_key)} {frame_label}" if frame_label else ""
-    boost_str   = "\n⚡ <b>Буст XP x2 активен</b>" if boost_active else ""
+    status = "🔴 Заблокирован" if banned else "🟢 Активен"
+    warns_line = "⚠️" * warns_n + f"({warns_n}/{MAX_WARNS})" if warns_n else "нет"
+    vip_tag = " 💎" if vip else ""
 
+    # ── Сборка текста по теме ─────────────────────────────────────────────
+    sep = theme["separator"]
     lines = [
-        f"👤 <b>Профиль</b>{vip_line}\n",
-        f"🏷 Имя: {html.escape(user['full_name'])}",
-        f"📛 Username: @{user['username'] or 'скрыт'}",
-        f"🆔 ID: <code>{user['user_id']}</code>",
-        f"🎖 Ранг: {rank_name(rank, title)}",
-        f"💬 Сообщений: {msgs}",
-        f"⭐ Репутация: <b>{rep:+d}</b>",
-        f"🌟 Уровень: <b>{lvl}</b>  [{bar}]  {xp}/{next_xp} XP",
+        f"{theme['header']}{vip_tag}",
+        sep,
+        "",
     ]
-    if message.chat.type in ("group", "supergroup"):
-        lines.append(f"🪙 Мора: <b>{mora_bal} 🪙</b>")
+    if badges_str:
+        lines.append(f"🏅 {badges_str}")
     lines += [
-        f"⚠️ Предупреждения: {warns_line}",
-        f"📊 Статус: {status}",
-        f"🟢 Первая активность: {_fmt_dt(stats['first_active'] if stats else None)}",
-        f"🔵 Последняя активность: {_fmt_dt(stats['last_active'] if stats else None)}",
+        f"🏷 {html.escape(user['full_name'])}",
+        f"🎖 {rank_name(rank, title)}",
+        f"🌟 Ур. <b>{lvl}</b>  [{bar}]  {xp}/{next_xp}",
+        f"⭐ Репутация: <b>{rep:+d}</b>",
+        f"💬 Сообщений: {msgs}",
     ]
-    if frame_str:
-        lines.append(frame_str)
-    if boost_str:
-        lines.append(boost_str)
+    if is_group:
+        lines.append(f"🪙 Мора: <b>{mora_bal}</b> 🪙")
+    if equipped:
+        lines.append(f"⚔️ Экипировка: {equipped['item_name']}")
+    if frame_key:
+        frame_label = next((f[2] for f in TOP_FRAMES if f[0] == frame_key), None)
+        if frame_label:
+            lines.append(f"🖼 Рамка: {_frame_emoji(frame_key)} {frame_label}")
+    if boost_active:
+        lines.append("⚡ <b>XP x2 активен</b>")
+
+    lines += [
+        "",
+        sep,
+        f"⚠️ Варны: {warns_line}  |  📊 {status}",
+    ]
     if bio:
-        lines.append(f"\n📝 Bio: <i>{html.escape(bio)}</i>")
+        lines.append(f"\n📝 <i>{html.escape(bio)}</i>")
 
     # Брак
-    if message.chat.type in ("group", "supergroup"):
-        marriage = await get_marriage(message.from_user.id, message.chat.id)
+    if is_group:
+        marriage = await get_marriage(uid, chat_id)
         if marriage:
             partner = await get_user(marriage["partner_id"])
             partner_name = html.escape(partner["full_name"]) if partner else "?"
             lines.append(f"💍 Партнёр: {user_mention(marriage['partner_id'], partner_name)}")
 
+    if theme["footer"]:
+        lines.append(f"\n{theme['footer']}")
+
     me_kb = InlineKeyboardMarkup(inline_keyboard=[
         [
-            InlineKeyboardButton(text="🏆 Топ чата", callback_data="top:a"),
-            InlineKeyboardButton(text="⭐ Репутация", callback_data=f"pn:rep:{message.from_user.id}"),
+            InlineKeyboardButton(text="🎨 Тема", callback_data=f"pn:themes:{uid}"),
+            InlineKeyboardButton(text="🏅 Бейджи", callback_data=f"pn:badges:{uid}"),
         ],
         [
-            InlineKeyboardButton(text="❌ Закрыть", callback_data=f"pn:close:{message.from_user.id}"),
+            InlineKeyboardButton(text="🏆 Топ чата", callback_data="top:a"),
+            InlineKeyboardButton(text="⭐ Репутация", callback_data=f"pn:rep:{uid}"),
+        ],
+        [
+            InlineKeyboardButton(text="❌ Закрыть", callback_data=f"pn:close:{uid}"),
         ],
     ])
     await message.answer("\n".join(lines), parse_mode="HTML", reply_markup=me_kb)
+
+
+@router.message(BotCommand("тема", "темы", "theme"))
+async def cmd_themes(message: Message, cmd_args: str):
+    """Показать доступные темы профиля как Inline-меню."""
+    from config import PROFILE_THEMES
+    uid = message.from_user.id
+    chat_id = message.chat.id
+    if message.chat.type not in ("group", "supergroup"):
+        await message.answer("ℹ️ Темы доступны только в групповых чатах.")
+        return
+
+    owned = {t["theme_key"] for t in await get_user_themes(uid, chat_id)}
+    owned.add("default")
+    active = await get_active_theme(uid, chat_id)
+
+    lines = ["🎨 <b>Темы профиля</b>\n━━━━━━━━━━━━━━━━━━━━\n"]
+    btns: list[list[InlineKeyboardButton]] = []
+    row: list[InlineKeyboardButton] = []
+    for key, info in PROFILE_THEMES.items():
+        mark = " ✅" if key == active else (" 🔓" if key in owned else " 🔒")
+        src = {"default": "бесплатно", "shop": f"{info['price']} 🪙", "gacha": "гача"}.get(info["source"], "")
+        lines.append(f"{info['name']}{mark} — <i>{src}</i>")
+        if key in owned:
+            label = f"· {info['name']} ·" if key == active else info["name"]
+            row.append(InlineKeyboardButton(
+                text=label, callback_data=f"theme_set:{uid}:{key}",
+            ))
+            if len(row) == 2:
+                btns.append(row)
+                row = []
+        elif info["source"] == "shop" and info["price"] > 0:
+            row.append(InlineKeyboardButton(
+                text=f"🛒 {info['name']}", callback_data=f"theme_buy:{uid}:{key}",
+            ))
+            if len(row) == 2:
+                btns.append(row)
+                row = []
+    if row:
+        btns.append(row)
+    btns.append([InlineKeyboardButton(text="❌ Закрыть", callback_data=f"pn:close:{uid}")])
+    await message.answer("\n".join(lines), parse_mode="HTML",
+                         reply_markup=InlineKeyboardMarkup(inline_keyboard=btns))
+
+
+@router.callback_query(F.data.startswith("theme_set:"))
+async def cb_theme_set(callback: CallbackQuery):
+    parts = callback.data.split(":")
+    uid, key = int(parts[1]), parts[2]
+    if callback.from_user.id != uid:
+        await callback.answer("🚫 Не твоё меню.", show_alert=True)
+        return
+    await set_active_theme(uid, callback.message.chat.id, key)
+    await callback.answer(f"✅ Тема «{key}» активирована!")
+    try:
+        await callback.message.delete()
+    except Exception:
+        pass
+
+
+@router.callback_query(F.data.startswith("theme_buy:"))
+async def cb_theme_buy(callback: CallbackQuery):
+    from config import PROFILE_THEMES
+    from database.db import add_mora
+    parts = callback.data.split(":")
+    uid, key = int(parts[1]), parts[2]
+    if callback.from_user.id != uid:
+        await callback.answer("🚫 Не твоё меню.", show_alert=True)
+        return
+    theme = PROFILE_THEMES.get(key)
+    if not theme or theme["source"] != "shop":
+        await callback.answer("❌ Тема недоступна.", show_alert=True)
+        return
+    chat_id = callback.message.chat.id
+    mora_row = await get_mora(uid, chat_id)
+    bal = (mora_row["balance"] or 0) if mora_row else 0
+    price = theme["price"]
+    if bal < price:
+        await callback.answer(f"❌ Не хватает моры ({bal}/{price}).", show_alert=True)
+        return
+    await add_mora(uid, chat_id, -price)
+    await add_user_theme(uid, chat_id, key, "shop")
+    await set_active_theme(uid, chat_id, key)
+    await callback.answer(f"✅ Тема «{theme['name']}» куплена и активирована!")
+    try:
+        await callback.message.delete()
+    except Exception:
+        pass
 
 
 @router.message(BotCommand("инфо", "info", "кто это"))

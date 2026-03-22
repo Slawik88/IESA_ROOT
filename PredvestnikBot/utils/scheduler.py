@@ -46,9 +46,9 @@ async def run_scheduler(bot) -> None:
         except Exception as exc:
             log.error("Scheduler [singles_bonus] error: %s", exc, exc_info=True)
         try:
-            await _task_tax_event(bot)
+            await _task_chest_event(bot)
         except Exception as exc:
-            log.error("Scheduler [tax_event] error: %s", exc, exc_info=True)
+            log.error("Scheduler [chest_event] error: %s", exc, exc_info=True)
         try:
             await _task_expedition_notifications(bot)
         except Exception as exc:
@@ -337,25 +337,24 @@ async def _task_weekly_singles_bonus(bot) -> None:
             log.warning("Cannot send singles bonus to %s/%s: %s", chat_id, uid, exc)
 
 
-# ─── Налоговая инспекция (раз в 4-8 часов) ────────────────────────────────────
+# ─── Богатый сундук (раз в 4-8 часов) ──────────────────────────────────────
 
-# Храним последний запуск в памяти; при рестарте — сразу через randint часов
-_next_tax_hour: int | None = None
+_next_chest_hour: int | None = None
 
 
-async def _task_tax_event(bot) -> None:
-    global _next_tax_hour
-    from config import TAX_EVENT_INTERVAL_MIN, TAX_EVENT_INTERVAL_MAX
-    if _next_tax_hour is None:
-        _next_tax_hour = random.randint(TAX_EVENT_INTERVAL_MIN, TAX_EVENT_INTERVAL_MAX)
+async def _task_chest_event(bot) -> None:
+    global _next_chest_hour
+    from config import CHEST_EVENT_INTERVAL_MIN, CHEST_EVENT_INTERVAL_MAX
+    if _next_chest_hour is None:
+        _next_chest_hour = random.randint(CHEST_EVENT_INTERVAL_MIN, CHEST_EVENT_INTERVAL_MAX)
 
-    _next_tax_hour -= 1
-    if _next_tax_hour > 0:
+    _next_chest_hour -= 1
+    if _next_chest_hour > 0:
         return
-    _next_tax_hour = random.randint(TAX_EVENT_INTERVAL_MIN, TAX_EVENT_INTERVAL_MAX)
+    _next_chest_hour = random.randint(CHEST_EVENT_INTERVAL_MIN, CHEST_EVENT_INTERVAL_MAX)
 
-    from handlers.tax_event import run_tax_events_cycle
-    await run_tax_events_cycle(bot)
+    from handlers.tax_event import run_chest_events_cycle
+    await run_chest_events_cycle(bot)
 
 
 # ─── Уведомления о завершённых экспедициях ─────────────────────────────────────
