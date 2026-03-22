@@ -6,12 +6,11 @@ from datetime import date
 from aiogram import Router
 from aiogram.types import Message
 
+from config import QUEST_REROLL_PRICE
 from database.db import deduct_mora, get_mora, get_quest_progress, get_todays_quest, reset_user_quest
 from filters.bot_command import BotCommand
 
 router = Router()
-
-QUEST_REROLL_PRICE = 25
 
 
 @router.message(BotCommand("задание", "quest", "квест", "задания"))

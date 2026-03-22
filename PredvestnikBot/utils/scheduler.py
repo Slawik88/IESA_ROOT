@@ -153,10 +153,10 @@ async def _task_cleanup_reminders(bot) -> None:
 # ─── Юбилей брака +15 Моры каждые 7 дней ─────────────────────────────────────
 
 async def _task_marriage_anniversary(bot) -> None:
+    from config import ANNIVERSARY_MORA
     from database.db import add_mora, get_all_marriages_for_anniversary, get_user
     from utils.helpers import user_mention
 
-    ANNIVERSARY_MORA = 15
     today_str = datetime.utcnow().date().isoformat()
 
     marriages = await get_all_marriages_for_anniversary()
@@ -212,6 +212,7 @@ async def _task_marriage_anniversary(bot) -> None:
 # ─── Еженедельный розыгрыш лотереи (по воскресеньям) ─────────────────────────
 
 async def _task_lottery_draw(bot) -> None:
+    from config import LOTTERY_WIN_CHANCE, LOTTERY_WIN_MIN, LOTTERY_WIN_MAX
     from database.db import add_mora, get_all_lottery_chats_week, get_all_lottery_participants, get_user
     from utils.helpers import user_mention
 
@@ -227,9 +228,9 @@ async def _task_lottery_draw(bot) -> None:
         return
     _lottery_drawn_weeks.add(week_key)
 
-    WIN_CHANCE = 0.20   # 20% per ticket
-    WIN_MIN    = 20
-    WIN_MAX    = 50
+    WIN_CHANCE = LOTTERY_WIN_CHANCE
+    WIN_MIN    = LOTTERY_WIN_MIN
+    WIN_MAX    = LOTTERY_WIN_MAX
 
     chats = await get_all_lottery_chats_week(week_key)
     for chat_row in chats:

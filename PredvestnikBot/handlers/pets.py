@@ -21,7 +21,7 @@ from aiogram.types import (
     Message,
 )
 
-from config import PET_MIN_MARRIAGE_DAYS
+from config import PET_MIN_MARRIAGE_DAYS, PET_MORA_SKIP_PRICE, PET_RENAME_PRICE
 from database.db import (
     adopt_pet,
     add_mora,
@@ -49,10 +49,6 @@ def _marriage_age_days(married_at_iso: str) -> int:
         return (datetime.now(timezone.utc) - dt).days
     except Exception:
         return 0
-
-
-# Pet unlock price when bypassing age requirement
-PET_MORA_SKIP_PRICE = 200
 
 
 async def _check_unlock(user_id: int, chat_id: int) -> tuple[bool, str]:
@@ -304,8 +300,8 @@ async def cmd_rename_pet(message: Message, cmd_args: str):
     name = (cmd_args or "").strip()
     if not name:
         await message.answer(
-            "❌ Укажи имя.\nПример: <code>бот назвать питомца Мурзик</code>\n"
-            "<i>Стоимость: 40 🪙</i>",
+            f"❌ Укажи имя.\nПример: <code>бот назвать питомца Мурзик</code>\n"
+            f"<i>Стоимость: {PET_RENAME_PRICE} 🪙</i>",
             parse_mode="HTML",
         )
         return
@@ -326,19 +322,18 @@ async def cmd_rename_pet(message: Message, cmd_args: str):
         )
         return
 
-    # Проверяем и списываем 40 Моры
-    RENAME_PRICE = 40
+    # Проверяем и списываем Мору за переименование
     mora = await get_mora(uid, chat_id)
     bal  = mora["balance"] if mora else 0
-    if bal < RENAME_PRICE:
+    if bal < PET_RENAME_PRICE:
         await message.answer(
-            f"❌ Для переименования питомца нужно <b>{RENAME_PRICE} 🪙</b>.\n"
+            f"❌ Для переименования питомца нужно <b>{PET_RENAME_PRICE} 🪙</b>.\n"
             f"У тебя: <b>{bal} 🪙</b>.",
             parse_mode="HTML",
         )
         return
 
-    ok, new_bal = await deduct_mora(uid, chat_id, RENAME_PRICE)
+    ok, new_bal = await deduct_mora(uid, chat_id, PET_RENAME_PRICE)
     if not ok:
         await message.answer("❌ Не удалось списать Мору. Попробуй ещё раз.")
         return
@@ -346,13 +341,13 @@ async def cmd_rename_pet(message: Message, cmd_args: str):
     found = await rename_pet(uid, chat_id, name)
     if found:
         await message.answer(
-            f"✅ Питомец переименован в <b>{html.escape(name)}</b>! (<b>-{RENAME_PRICE} 🪙</b>)\n"
+            f"✅ Питомец переименован в <b>{html.escape(name)}</b>! (<b>-{PET_RENAME_PRICE} 🪙</b>)\n"
             f"Твой баланс: <b>{new_bal} 🪙</b>",
             parse_mode="HTML",
         )
     else:
         # Маловероятно, но если питомец исчез — вернуть деньги
-        await add_mora(uid, chat_id, RENAME_PRICE)
+        await add_mora(uid, chat_id, PET_RENAME_PRICE)
         await message.answer(
             "❌ Питомца нет. Сначала заведи его: <code>бот завести питомца</code>",
             parse_mode="HTML",

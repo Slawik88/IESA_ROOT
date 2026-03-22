@@ -30,14 +30,13 @@ from database.db import (
     get_user,
     set_duel_status,
 )
+from config import COIN_MAX_BET, DICE_MAX_BET, LOTTERY_TICKET_PRICE
 from filters.bot_command import BotCommand
 from utils.helpers import resolve_target, user_mention
 
 router = Router()
 
-LOTTERY_PRICE   = 10    # Мора за билет
-COIN_MAX_BET    = 5000  # максимальная ставка на монетку
-DICE_MAX_BET    = 5000  # максимальная ставка на кубик
+LOTTERY_PRICE   = LOTTERY_TICKET_PRICE  # алиас для обратной совместимости
 DUEL_EXPIRE_SEC = 300   # 5 минут для принятия дуэли
 
 

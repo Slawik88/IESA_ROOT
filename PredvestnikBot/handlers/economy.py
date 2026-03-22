@@ -42,6 +42,10 @@ from database.db import (
     set_xp_boost,
     get_marriage,
 )
+from config import (
+    ANON_MSG_PRICE,
+    VIP_PRICE,
+)
 from filters.bot_command import BotCommand
 from filters.rank_filter import RankFilter
 from utils.helpers import resolve_target, user_mention
@@ -194,8 +198,6 @@ async def cb_mora_public(callback: CallbackQuery):
 
 
 # ─── VIP Статус ───────────────────────────────────────────────────────────────
-
-VIP_PRICE = 1000
 
 
 @router.message(BotCommand("купить вип", "купить vip", "vip", "вип"))
@@ -633,8 +635,6 @@ async def cmd_family_withdraw(message: Message, cmd_args: str):
 
 
 # ─── Анонимное сообщение в чат администрации ──────────────────────────────────
-
-ANON_MSG_PRICE = 50
 
 
 @router.message(BotCommand("анонимка", "анонимное сообщение", "аноним"))

@@ -2,14 +2,14 @@
 Репутация, уровни XP и биография пользователя.
 """
 import html as _html
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from aiogram import Router
 from aiogram.types import Message
 
-from config import BIO_MAX_LENGTH, REP_PLUS_TRIGGERS, TOP_LIMIT
+from config import BIO_MAX_LENGTH, REP_DAILY_LIMIT, REP_MORA_REWARD_FROM, REP_MORA_REWARD_TO, REP_PLUS_TRIGGERS, TOP_LIMIT
 from database.db import (
-    add_mora, add_reputation_in_chat, can_give_rep, get_rep_last_time,
+    add_mora, add_reputation_in_chat, get_rep_count_today,
     get_top_by_xp_in_chat, get_top_reputation_in_chat, get_user,
     get_user_stats, set_bio_in_chat, level_for_xp, xp_for_level,
 )
@@ -43,35 +43,27 @@ async def handle_rep_plus(message: Message):
     if target.is_bot:
         return
 
-    ok = await can_give_rep(message.from_user.id, target.id, message.chat.id)
-    if not ok:
-        last = await get_rep_last_time(message.from_user.id, target.id, message.chat.id)
-        if last:
-            try:
-                last_dt = datetime.fromisoformat(last)
-                next_dt = last_dt + timedelta(hours=2)
-                now = datetime.utcnow()
-                remaining = next_dt - now
-                if remaining.total_seconds() > 0:
-                    hours = int(remaining.total_seconds() // 3600)
-                    minutes = int((remaining.total_seconds() % 3600) // 60)
-                    await message.reply(f"⏳ Уже давал репутацию этому пользователю. Следующая через {hours}ч {minutes}м.")
-                    return
-            except (ValueError, TypeError):
-                pass
-        await message.reply("⏳ Уже давал репутацию этому пользователю недавно. Повтори чуть позже.")
+    count_today = await get_rep_count_today(message.from_user.id, target.id, message.chat.id)
+    if count_today >= REP_DAILY_LIMIT:
+        await message.reply(
+            f"⏳ Достигнут дневной лимит репутации для этого пользователя "
+            f"(<b>{count_today}/{REP_DAILY_LIMIT}</b>). Сбросится в полночь UTC.",
+            parse_mode="HTML",
+        )
         return
 
     new_rep = await add_reputation_in_chat(message.from_user.id, target.id, message.chat.id, 1)
+    count_today += 1
     await message.reply(
         f"⬆️ {user_mention(target.id, target.full_name)} получил +1 репутацию! "
-        f"Теперь: <b>{new_rep:+d}</b>",
+        f"Теперь: <b>{new_rep:+d}</b>  "
+        f"<i>({count_today}/{REP_DAILY_LIMIT} сегодня)</i>",
         parse_mode="HTML",
     )
 
-    # Мора: +2 получившему, +1 давшему
-    await add_mora(target.id, message.chat.id, 2)
-    await add_mora(message.from_user.id, message.chat.id, 1)
+    # Мора: +N получившему, +N давшему
+    await add_mora(target.id, message.chat.id, REP_MORA_REWARD_TO)
+    await add_mora(message.from_user.id, message.chat.id, REP_MORA_REWARD_FROM)
 
     # Quest progress ("rep" type)
     from database.db import get_todays_quest, quest_tick, mark_quest_rewarded, add_xp_in_chat
