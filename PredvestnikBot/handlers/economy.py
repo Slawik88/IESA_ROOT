@@ -681,6 +681,15 @@ async def cmd_anon_message(message: Message, cmd_args: str):
     from aiogram import Bot
     bot: Bot = message.bot
     sent_count = 0
+    
+    # Create inline keyboard with "Forward to main chat" button
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(
+            text="📢 В основной чат", 
+            callback_data=f"anon_forward:{chat_id}"
+        )]
+    ])
+    
     for ag_id in admin_groups:
         try:
             await bot.send_message(
@@ -689,6 +698,7 @@ async def cmd_anon_message(message: Message, cmd_args: str):
                 f"💬 Чат: {html.escape(message.chat.title or str(chat_id))}\n\n"
                 f"{html.escape(text)}",
                 parse_mode="HTML",
+                reply_markup=keyboard,
             )
             sent_count += 1
         except Exception:
@@ -707,4 +717,73 @@ async def cmd_anon_message(message: Message, cmd_args: str):
         # Вернём деньги, если не смогли отправить
         await add_mora(uid, chat_id, ANON_MSG_PRICE)
         await message.answer("❌ Не удалось отправить сообщение. Деньги возвращены.")
+
+
+# ─── Callback: переслать анонимное сообщение в основной чат ───────────────────
+
+@router.callback_query(F.data.startswith("anon_forward:"))
+async def cb_anon_forward_to_main_chat(callback: CallbackQuery):
+    """Forward anonymous message to main chat."""
+    from database.db import get_channel_type, get_user_stats
+    from utils.ranks import rank_level
+    
+    caller_id = callback.from_user.id
+    admin_chat_id = callback.message.chat.id
+    
+    # Check if caller has admin rights
+    caller_stats = await get_user_stats(caller_id, admin_chat_id)
+    if not caller_stats or rank_level(caller_stats["rank"]) < rank_level("moderator"):
+        await callback.answer("❌ Недостаточно прав.", show_alert=True)
+        return
+    
+    # Extract original chat_id from callback data
+    original_chat_id = int(callback.data.split(":", 1)[1])
+    
+    # Get main chat ID
+    main_chat_id = await get_channel_type("main")
+    if not main_chat_id:
+        await callback.answer("❌ Основной чат не настроен.", show_alert=True)
+        return
+    
+    # Extract anonymous message text from current message
+    current_text = callback.message.text or callback.message.caption or ""
+    if "📨 Анонимное сообщение" not in current_text:
+        await callback.answer("❌ Не удалось получить текст сообщения.", show_alert=True)
+        return
+    
+    # Extract just the anonymous message content (after the header)
+    try:
+        lines = current_text.split("\n")
+        # Skip "📨 Анонимное сообщение", "💬 Чат: ...", and empty line
+        anon_text = "\n".join(lines[3:]) if len(lines) > 3 else ""
+    except Exception:
+        await callback.answer("❌ Ошибка обработки текста.", show_alert=True)
+        return
+    
+    if not anon_text.strip():
+        await callback.answer("❌ Пустое сообщение.", show_alert=True)
+        return
+    
+    try:
+        # Send to main chat
+        await callback.bot.send_message(
+            main_chat_id,
+            f"📣 <b>Сообщение от администрации</b>\n\n{html.escape(anon_text.strip())}",
+            parse_mode="HTML",
+        )
+        
+        # Update the admin message to show it was forwarded
+        caller_name = callback.from_user.first_name or str(caller_id)
+        try:
+            await callback.message.edit_text(
+                current_text + f"\n\n✅ <i>Переслано в основной чат администратором {html.escape(caller_name)}</i>",
+                parse_mode="HTML",
+            )
+        except Exception:
+            pass  # Ignore if can't edit (message too old, etc.)
+            
+        await callback.answer("✅ Сообщение переслано в основной чат!")
+        
+    except Exception as e:
+        await callback.answer(f"❌ Ошибка отправки: {str(e)[:50]}", show_alert=True)
 
