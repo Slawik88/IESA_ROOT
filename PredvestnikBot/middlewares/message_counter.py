@@ -55,6 +55,9 @@ _CHECKED_TTL = 3600.0  # перепроверять раз в час
 # Кулдаун XP: (user_id, chat_id) -> timestamp последнего начисления
 _xp_cooldown: dict[tuple[int, int], float] = {}
 
+# Кулдаун моры за сообщения: (user_id, chat_id) -> timestamp последнего дропа
+_mora_cooldown: dict[tuple[int, int], float] = {}
+
 # Кэш «первое сообщение за день» для Моры: (user_id, chat_id) -> iso-date
 _mora_daily_checked: dict[tuple[int, int], str] = {}
 
@@ -127,8 +130,8 @@ class AutoModMiddleware(BaseMiddleware):
             await increment_cleanup_count(event.chat.id, user.id)
 
             # ── Мора: первое сообщение дня (+3) и 7-дневный стрик (+50) ──
-            from datetime import date as _mora_date
-            _today_str = _mora_date.today().isoformat()
+            from utils.helpers import bot_today as _bot_today
+            _today_str = _bot_today()
             _mora_key = (user.id, event.chat.id)
             # Периодическая очистка кэша ежедневной проверки
             if len(_mora_daily_checked) > 2000:
@@ -137,32 +140,41 @@ class AutoModMiddleware(BaseMiddleware):
                 _mora_daily_checked[_mora_key] = _today_str
                 is_daily, streak, streak_bonus = await check_daily_mora(user.id, event.chat.id)
                 if is_daily:
-                    await add_mora(user.id, event.chat.id, 3)
+                    from config import MORA_DAILY_BONUS, MORA_STREAK_BONUS
+                    await add_mora(user.id, event.chat.id, MORA_DAILY_BONUS)
                     if streak_bonus:
-                        await add_mora(user.id, event.chat.id, 50)
+                        await add_mora(user.id, event.chat.id, MORA_STREAK_BONUS)
                         try:
                             await event.answer(
                                 f"🔥 {user_mention(user.id, user.full_name)} — 7-дневный стрик! "
-                                f"<b>+50 Моры</b> 🪙",
+                                f"<b>+{MORA_STREAK_BONUS} Моры</b> 🪙",
                                 parse_mode="HTML",
                             )
                         except Exception:
                             pass
 
-            # ── Мора: каждые 40 сообщений +5 ─────────────────────────────
-            if msg_count % 40 == 0:
-                await add_mora(user.id, event.chat.id, 5)
+            # ── Мора: шанс получить за сообщение (с кулдауном) ────────────
+            from config import (MORA_MSG_CHANCE, MORA_MSG_MIN, MORA_MSG_MAX,
+                                MORA_MSG_COOLDOWN, MORA_QUEST_REWARD, MORA_LEVELUP_BONUS)
+            import random as _mora_rng
+            _mora_cd_key = (user.id, event.chat.id)
+            _now_mora = time.monotonic()
+            if _now_mora - _mora_cooldown.get(_mora_cd_key, 0) >= MORA_MSG_COOLDOWN:
+                if _mora_rng.random() < MORA_MSG_CHANCE:
+                    _mora_cooldown[_mora_cd_key] = _now_mora
+                    _mora_drop = _mora_rng.randint(MORA_MSG_MIN, MORA_MSG_MAX)
+                    await add_mora(user.id, event.chat.id, _mora_drop)
 
             # Quest progress ("messages" type)
-            quest = get_todays_quest()
+            from utils.helpers import bot_today as _quest_today
+            quest = get_todays_quest(_quest_today())
             if quest["type"] == "messages":
-                from datetime import date as _date
-                _today = _date.today().isoformat()
+                _today = _quest_today()
                 new_p, goal, just_done = await quest_tick(
                     user.id, event.chat.id, _today, quest["type"], quest["goal"],
                 )
                 if just_done:
-                    _mora_reward = quest.get("mora", 5)
+                    _mora_reward = quest.get("mora", MORA_QUEST_REWARD)
                     await add_xp_in_chat(user.id, event.chat.id, quest["xp"])
                     await add_mora(user.id, event.chat.id, _mora_reward)
                     await mark_quest_rewarded(user.id, event.chat.id, _today)
@@ -190,12 +202,12 @@ class AutoModMiddleware(BaseMiddleware):
                 xp_amount = XP_PER_MESSAGE * 2 if await get_xp_boost_active(user.id, event.chat.id) else XP_PER_MESSAGE
                 new_xp, new_level, leveled_up = await add_xp_in_chat(user.id, event.chat.id, xp_amount)
                 if leveled_up:
-                    await add_mora(user.id, event.chat.id, 5)
+                    await add_mora(user.id, event.chat.id, MORA_LEVELUP_BONUS)
                     if LEVEL_UP_ANNOUNCE:
                         try:
                             await event.answer(
                                 f"🌟 {user_mention(user.id, user.full_name)} достиг <b>{new_level} уровня</b>! "
-                                f"(XP: {new_xp}) <b>+5 Моры</b> 🪙",
+                                f"(XP: {new_xp}) <b>+{MORA_LEVELUP_BONUS} Моры</b> 🪙",
                                 parse_mode="HTML",
                             )
                         except Exception:

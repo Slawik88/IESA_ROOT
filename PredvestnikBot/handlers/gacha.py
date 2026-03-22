@@ -1,0 +1,339 @@
+"""
+Система Молитв (Гача).
+
+Команды:
+  бот молитва / бот помолиться   — крутка гачи (x1 за 160 🪙, x10 за 1440 🪙)
+  бот инвентарь / бот предметы   — список полученных предметов
+  бот продать мусор              — продать весь junk (по 5 🪙 за штуку)
+  бот экипировать <id>           — экипировать лего-предмет для профиля
+"""
+
+import html
+import random
+from datetime import datetime
+
+from aiogram import Router
+from aiogram.types import (
+    CallbackQuery,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    Message,
+)
+
+from config import GACHA_SINGLE_PRICE, GACHA_MULTI_PRICE, GACHA_PITY_COUNT
+from database.db import (
+    add_gacha_item,
+    add_mora,
+    deduct_mora,
+    equip_gacha_item,
+    get_gacha_inventory,
+    get_gacha_pity,
+    get_mora,
+    sell_gacha_junk,
+)
+from filters.bot_command import BotCommand
+
+router = Router()
+
+# ─── Пул предметов ───────────────────────────────────────────────────────────
+_JUNK_ITEMS = [
+    ("junk_stone",   "🪨 Камень Маслоу"),
+    ("junk_stick",   "🪵 Палка путника"),
+    ("junk_dust",    "💨 Пыль забвения"),
+    ("junk_bone",    "🦴 Кость хиличурла"),
+    ("junk_mushroom","🍄 Сомнительный гриб"),
+]
+
+_COMMON_ITEMS = [
+    ("cmn_sword",  "⚔️ Тупой клинок"),
+    ("cmn_bow",    "🏹 Кривой лук"),
+    ("cmn_book",   "📕 Потрёпанный дневник"),
+    ("cmn_ring",   "💍 Дешёвое кольцо"),
+    ("cmn_shield", "🛡 Ржавый щит"),
+]
+
+_RARE_ITEMS = [
+    ("rare_crown",   "👑 Серебряная корона"),
+    ("rare_catalyst","🔮 Магический катализатор"),
+    ("rare_cape",    "🧣 Алый плащ"),
+    ("rare_gem",     "💎 Сапфир полуночи"),
+]
+
+_LEGENDARY_ITEMS = [
+    ("lego_gnosis",    "✨ Гнозис Балладеера"),
+    ("lego_scepter",   "🏛 Скипетр Дендро Архонта"),
+    ("lego_pantalone", "🎩 Маска Панталоне"),
+    ("lego_abyss",     "🌀 Корона Бездны"),
+    ("lego_fatui",     "⚡ Перст Предвестника"),
+]
+
+_RARITY_EMOJI = {
+    "junk":      "⚪",
+    "common":    "🟢",
+    "rare":      "🟣",
+    "legendary": "🟡",
+}
+
+_RARITY_LABEL = {
+    "junk":      "Мусор",
+    "common":    "Обычный",
+    "rare":      "Редкий",
+    "legendary": "Легендарный",
+}
+
+
+def _roll_one(pity: int) -> tuple[str, str, str]:
+    """Выполнить один ролл. Возвращает (item_key, item_name, rarity)."""
+    # Гарант
+    if pity >= GACHA_PITY_COUNT - 1:
+        key, name = random.choice(_LEGENDARY_ITEMS)
+        return key, name, "legendary"
+
+    roll = random.random()
+    if roll < 0.02:  # 2% леги
+        key, name = random.choice(_LEGENDARY_ITEMS)
+        return key, name, "legendary"
+    elif roll < 0.10:  # 8% редкие
+        key, name = random.choice(_RARE_ITEMS)
+        return key, name, "rare"
+    elif roll < 0.30:  # 20% обычные
+        key, name = random.choice(_COMMON_ITEMS)
+        return key, name, "common"
+    else:  # 70% мусор
+        key, name = random.choice(_JUNK_ITEMS)
+        return key, name, "junk"
+
+
+async def _do_rolls(uid: int, chat_id: int, count: int) -> list[tuple[str, str, str]]:
+    """Выполнить N роллов и записать в БД. Возвращает список (key, name, rarity)."""
+    pity = await get_gacha_pity(uid, chat_id)
+    results = []
+    for _ in range(count):
+        key, name, rarity = _roll_one(pity)
+        await add_gacha_item(uid, chat_id, key, name, rarity)
+        if rarity == "legendary":
+            pity = 0
+        else:
+            pity += 1
+        results.append((key, name, rarity))
+    return results
+
+
+def _format_results(results: list[tuple[str, str, str]]) -> str:
+    lines = []
+    for key, name, rarity in results:
+        emoji = _RARITY_EMOJI.get(rarity, "⚪")
+        lines.append(f"  {emoji} {name} <i>({_RARITY_LABEL.get(rarity, rarity)})</i>")
+    return "\n".join(lines)
+
+
+# ─── бот молитва ──────────────────────────────────────────────────────────────
+
+@router.message(BotCommand(
+    "молитва", "помолиться", "крутка", "wish", "pray",
+    "молитвы", "гача", "gacha",
+))
+async def cmd_gacha(message: Message, cmd_args: str):
+    if message.chat.type == "private":
+        await message.answer("❌ Молитвы доступны только в группах.")
+        return
+
+    uid = message.from_user.id
+    chat_id = message.chat.id
+    mora = await get_mora(uid, chat_id)
+    bal = mora["balance"] if mora else 0
+    pity = await get_gacha_pity(uid, chat_id)
+
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(
+            text=f"🙏 x1 — {GACHA_SINGLE_PRICE} 🪙",
+            callback_data=f"gacha:{uid}:1",
+        )],
+        [InlineKeyboardButton(
+            text=f"🙏 x10 — {GACHA_MULTI_PRICE} 🪙 (скидка!)",
+            callback_data=f"gacha:{uid}:10",
+        )],
+    ])
+
+    await message.answer(
+        f"🙏 <b>Молитвы Предвестника</b>\n\n"
+        f"Испытай удачу и получи редкие предметы!\n\n"
+        f"💰 Твой баланс: <b>{bal} 🪙</b>\n"
+        f"🔄 До гаранта: <b>{GACHA_PITY_COUNT - pity}</b> круток\n\n"
+        f"<i>🟡 Легендарный — 2% (гарант {GACHA_PITY_COUNT})\n"
+        f"🟣 Редкий — 8%\n"
+        f"🟢 Обычный — 20%\n"
+        f"⚪ Мусор — 70% (продаётся по 5 🪙)</i>",
+        parse_mode="HTML",
+        reply_markup=kb,
+    )
+
+
+@router.callback_query(lambda c: c.data and c.data.startswith("gacha:"))
+async def cb_gacha_roll(callback: CallbackQuery):
+    parts = callback.data.split(":")
+    owner = int(parts[1])
+    count = int(parts[2])
+
+    if callback.from_user.id != owner:
+        await callback.answer("❌ Это не твоя молитва!", show_alert=True)
+        return
+
+    uid = owner
+    chat_id = callback.message.chat.id
+
+    price = GACHA_SINGLE_PRICE if count == 1 else GACHA_MULTI_PRICE
+    ok, new_bal = await deduct_mora(uid, chat_id, price)
+    if not ok:
+        mora = await get_mora(uid, chat_id)
+        bal = mora["balance"] if mora else 0
+        await callback.answer(
+            f"❌ Недостаточно Моры! ({bal} / {price})", show_alert=True
+        )
+        return
+
+    results = await _do_rolls(uid, chat_id, count)
+
+    # Определяем лучшую редкость
+    rarities = [r[2] for r in results]
+    best_rarity = "junk"
+    for check in ("legendary", "rare", "common"):
+        if check in rarities:
+            best_rarity = check
+            break
+
+    result_text = _format_results(results)
+    pity = await get_gacha_pity(uid, chat_id)
+
+    header = "🌟" if best_rarity == "legendary" else "✨" if best_rarity == "rare" else "🙏"
+
+    # Кнопки для повторных круток
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(
+            text=f"🙏 Ещё x1 — {GACHA_SINGLE_PRICE} 🪙",
+            callback_data=f"gacha:{uid}:1",
+        ),
+        InlineKeyboardButton(
+            text=f"🙏 Ещё x10 — {GACHA_MULTI_PRICE} 🪙",
+            callback_data=f"gacha:{uid}:10",
+        )],
+    ])
+
+    try:
+        await callback.message.edit_text(
+            f"{header} <b>Результат молитвы (x{count})</b>\n\n"
+            f"{result_text}\n\n"
+            f"💰 Баланс: <b>{new_bal} 🪙</b>\n"
+            f"🔄 До гаранта: <b>{GACHA_PITY_COUNT - pity}</b>",
+            parse_mode="HTML",
+            reply_markup=kb,
+        )
+    except Exception:
+        pass
+    await callback.answer()
+
+
+# ─── бот инвентарь ────────────────────────────────────────────────────────────
+
+@router.message(BotCommand("инвентарь", "предметы", "inventory", "рюкзак"))
+async def cmd_inventory(message: Message, cmd_args: str):
+    if message.chat.type == "private":
+        await message.answer("❌ Инвентарь доступен только в группах.")
+        return
+
+    uid = message.from_user.id
+    chat_id = message.chat.id
+
+    items = await get_gacha_inventory(uid, chat_id)
+    if not items:
+        await message.answer(
+            "🎒 <b>Инвентарь пуст.</b>\n\n"
+            "Получи предметы: <code>бот молитва</code>",
+            parse_mode="HTML",
+        )
+        return
+
+    # Группируем по редкости
+    by_rarity: dict[str, list] = {}
+    for item in items:
+        r = item["rarity"]
+        by_rarity.setdefault(r, []).append(item)
+
+    lines = ["🎒 <b>Твой инвентарь</b>\n"]
+    order = ["legendary", "rare", "common", "junk"]
+    for rarity in order:
+        group = by_rarity.get(rarity)
+        if not group:
+            continue
+        emoji = _RARITY_EMOJI.get(rarity, "⚪")
+        label = _RARITY_LABEL.get(rarity, rarity)
+        lines.append(f"\n{emoji} <b>{label}</b> ({len(group)}):")
+        for item in group[:10]:  # Max 10 per rarity to avoid flood
+            equipped = " ◀ экип." if item["equipped"] else ""
+            lines.append(f"  {item['item_name']}{equipped} <code>#{item['id']}</code>")
+        if len(group) > 10:
+            lines.append(f"  <i>...и ещё {len(group) - 10}</i>")
+
+    junk_count = len(by_rarity.get("junk", []))
+    if junk_count > 0:
+        lines.append(f"\n🗑 Продать мусор ({junk_count} шт.): <code>бот продать мусор</code>")
+
+    lego_count = len(by_rarity.get("legendary", []))
+    if lego_count > 0:
+        lines.append(f"🏆 Экипировать: <code>бот экипировать #ID</code>")
+
+    await message.answer("\n".join(lines), parse_mode="HTML")
+
+
+# ─── бот продать мусор ────────────────────────────────────────────────────────
+
+@router.message(BotCommand("продать мусор", "sell junk", "продать хлам"))
+async def cmd_sell_junk(message: Message, cmd_args: str):
+    if message.chat.type == "private":
+        return
+
+    uid = message.from_user.id
+    chat_id = message.chat.id
+
+    count, total = await sell_gacha_junk(uid, chat_id)
+    if count == 0:
+        await message.answer("🗑 Нет мусора для продажи.")
+        return
+
+    await message.answer(
+        f"🗑 <b>Продано {count} шт. мусора</b>\n"
+        f"💰 Получено: <b>+{total} 🪙</b>",
+        parse_mode="HTML",
+    )
+
+
+# ─── бот экипировать ──────────────────────────────────────────────────────────
+
+@router.message(BotCommand("экипировать", "equip", "надеть"))
+async def cmd_equip(message: Message, cmd_args: str):
+    if message.chat.type == "private":
+        return
+
+    arg = (cmd_args or "").strip().lstrip("#")
+    if not arg.isdigit():
+        await message.answer(
+            "❌ Укажи ID предмета.\nПример: <code>бот экипировать #42</code>",
+            parse_mode="HTML",
+        )
+        return
+
+    uid = message.from_user.id
+    chat_id = message.chat.id
+    item_id = int(arg)
+
+    ok = await equip_gacha_item(uid, chat_id, item_id)
+    if ok:
+        await message.answer(
+            f"✅ Предмет <b>#{item_id}</b> экипирован!\n"
+            f"Он теперь отображается в твоём профиле.",
+            parse_mode="HTML",
+        )
+    else:
+        await message.answer(
+            "❌ Предмет не найден, не принадлежит тебе или не является легендарным.",
+        )

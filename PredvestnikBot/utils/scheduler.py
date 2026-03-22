@@ -6,6 +6,8 @@
   • напоминание о чистке за 2 дня (проверка каждый час)
   • юбилей брака +15 Моры каждые 7 дней (проверка каждый час)
   • розыгрыш лотереи по воскресеньям (проверка каждый час)
+  • налоговая инспекция — случайный ивент каждые 4-8 часов
+  • уведомления о завершённых экспедициях
 """
 
 import asyncio
@@ -43,6 +45,14 @@ async def run_scheduler(bot) -> None:
             await _task_weekly_singles_bonus(bot)
         except Exception as exc:
             log.error("Scheduler [singles_bonus] error: %s", exc, exc_info=True)
+        try:
+            await _task_tax_event(bot)
+        except Exception as exc:
+            log.error("Scheduler [tax_event] error: %s", exc, exc_info=True)
+        try:
+            await _task_expedition_notifications(bot)
+        except Exception as exc:
+            log.error("Scheduler [expeditions] error: %s", exc, exc_info=True)
         await asyncio.sleep(3600)  # следующий прогон через час
 
 
@@ -325,4 +335,46 @@ async def _task_weekly_singles_bonus(bot) -> None:
             await bot.send_message(chat_id, text, parse_mode="HTML")
         except Exception as exc:
             log.warning("Cannot send singles bonus to %s/%s: %s", chat_id, uid, exc)
+
+
+# ─── Налоговая инспекция (раз в 4-8 часов) ────────────────────────────────────
+
+# Храним последний запуск в памяти; при рестарте — сразу через randint часов
+_next_tax_hour: int | None = None
+
+
+async def _task_tax_event(bot) -> None:
+    global _next_tax_hour
+    from config import TAX_EVENT_INTERVAL_MIN, TAX_EVENT_INTERVAL_MAX
+    if _next_tax_hour is None:
+        _next_tax_hour = random.randint(TAX_EVENT_INTERVAL_MIN, TAX_EVENT_INTERVAL_MAX)
+
+    _next_tax_hour -= 1
+    if _next_tax_hour > 0:
+        return
+    _next_tax_hour = random.randint(TAX_EVENT_INTERVAL_MIN, TAX_EVENT_INTERVAL_MAX)
+
+    from handlers.tax_event import run_tax_events_cycle
+    await run_tax_events_cycle(bot)
+
+
+# ─── Уведомления о завершённых экспедициях ─────────────────────────────────────
+
+async def _task_expedition_notifications(bot) -> None:
+    from database.db import get_all_finished_expeditions, finish_expedition
+    finished = await get_all_finished_expeditions()
+    for exp in finished:
+        uid = exp["user_id"]
+        chat_id = exp["chat_id"]
+        reward = exp["reward"]
+        try:
+            await finish_expedition(exp["id"], uid, chat_id)
+            await bot.send_message(
+                chat_id,
+                f"🏕 <b>Экспедиция завершена!</b>\n"
+                f"Твой питомец вернулся и принёс <b>+{reward} 🪙</b>!",
+                parse_mode="HTML",
+            )
+        except Exception as exc:
+            log.warning("Expedition notify %s/%s: %s", chat_id, uid, exc)
 

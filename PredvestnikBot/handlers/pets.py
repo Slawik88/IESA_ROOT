@@ -21,11 +21,13 @@ from aiogram.types import (
     Message,
 )
 
-from config import PET_MIN_MARRIAGE_DAYS, PET_MORA_SKIP_PRICE, PET_RENAME_PRICE
+from config import PET_ADOPT_PRICE, PET_MIN_MARRIAGE_DAYS, PET_MORA_SKIP_PRICE, PET_RENAME_PRICE
 from database.db import (
+    add_to_family_wallet,
     adopt_pet,
     add_mora,
     deduct_mora,
+    get_family_wallet,
     get_marriage,
     get_mora,
     get_pet,
@@ -95,7 +97,8 @@ async def cmd_pet(message: Message, cmd_args: str):
             InlineKeyboardButton(text="🐶 Щенок",   callback_data=f"pet_adopt:{uid}:dog"),
         ]])
         await message.answer(
-            "🎉 <b>Питомец разблокирован!</b>\n\n"
+            "🎉 <b>Питомец разблокировован!</b>\n\n"
+            f"💰 Стоимость заведения: <b>{PET_ADOPT_PRICE} мора</b>\n\n"
             "Ваша пара выполнила все условия. Выбери питомца:",
             parse_mode="HTML",
             reply_markup=kb,
@@ -128,11 +131,15 @@ async def _show_pet(message: Message, pet: dict, uid: int):
     name    = html.escape(pet["name"]) if pet.get("name") else f"<i>без имени</i>"
     age     = format_duration(pet["adopted_at"])
 
+    # Проверяем, первое это будет именование или переименование
+    is_first_naming = pet.get("name") is None or pet.get("name") == ""
+    rename_info = "Дать имя: <code>бот назвать питомца Мурзик</code> (бесплатно)" if is_first_naming else f"Переименовать: <code>бот назвать питомца Мурзик</code> ({PET_RENAME_PRICE} мора)"
+    
     await message.answer(
         f"{emoji} <b>Питомец: {name}</b>\n\n"
         f"🏷 Вид: {kind}\n"
         f"🎂 Возраст: <b>{age}</b>\n\n"
-        f"Переименовать: <code>бот назвать питомца Мурзик</code>",
+        f"{rename_info}",
         parse_mode="HTML",
     )
 
@@ -189,7 +196,13 @@ async def cmd_adopt_pet(message: Message, cmd_args: str):
         InlineKeyboardButton(text="🐱 Котёнок", callback_data=f"pet_adopt:{uid}:cat"),
         InlineKeyboardButton(text="🐶 Щенок",   callback_data=f"pet_adopt:{uid}:dog"),
     ]])
-    await message.answer("Выбери питомца:", reply_markup=kb)
+    await message.answer(
+        f"🐾 <b>Заведение питомца</b>\n\n"
+        f"💰 Стоимость: <b>{PET_ADOPT_PRICE} мора</b>\n\n"
+        f"Выбери питомца:",
+        parse_mode="HTML",
+        reply_markup=kb
+    )
 
 
 @router.callback_query(lambda c: c.data and c.data.startswith("pet_adopt:"))
@@ -214,27 +227,190 @@ async def cb_pet_adopt(callback: CallbackQuery):
         await callback.answer(reason, show_alert=True)
         return
 
+    # Теперь показываем выбор оплаты
+    emoji = _PET_EMOJI.get(ptype, "🐾")
+    kind  = _PET_NAME.get(ptype, "Питомец")
+    
+    mora = await get_mora(uid, chat_id)
+    personal_balance = mora["balance"] if mora else 0
+    
+    family_balance = await get_family_wallet(chat_id, uid)
+    
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(
+            text=f"💰 Личный баланс ({personal_balance} мора)", 
+            callback_data=f"pet_pay:{uid}:{ptype}:personal"
+        )],
+        [InlineKeyboardButton(
+            text=f"👨‍👩‍👧‍👦 Семейный баланс ({family_balance} мора)", 
+            callback_data=f"pet_pay:{uid}:{ptype}:family"
+        )],
+        [InlineKeyboardButton(text="❌ Отмена", callback_data=f"pet_cancel:{uid}")]
+    ])
+    
+    try:
+        await callback.message.edit_text(
+            f"{emoji} <b>Завести {kind.lower()}а</b>\n\n"
+            f"💰 Стоимость: <b>{PET_ADOPT_PRICE} мора</b>\n\n"
+            f"Выберите способ оплаты:",
+            parse_mode="HTML",
+            reply_markup=kb
+        )
+    except Exception:
+        pass
+    await callback.answer()
+
+
+@router.callback_query(lambda c: c.data and c.data.startswith("pet_pay:"))
+async def cb_pet_pay(callback: CallbackQuery):
+    """Обработка оплаты питомца."""
+    parts = callback.data.split(":")
+    owner = int(parts[1])
+    ptype = parts[2]
+    payment_type = parts[3]  # "personal" или "family"
+    uid = callback.from_user.id
+    chat_id = callback.message.chat.id
+
+    if uid != owner:
+        await callback.answer("❌ Это не твой выбор.", show_alert=True)
+        return
+
+    existing = await get_pet(uid, chat_id)
+    if existing:
+        await callback.answer("У тебя уже есть питомец!", show_alert=True)
+        return
+
     marriage = await get_marriage(uid, chat_id)
+    if not marriage:
+        await callback.answer("❌ Нужно быть в браке!", show_alert=True)
+        return
+
     partner_id = marriage["partner_id"]
 
+    # Проверяем баланс в зависимости от выбранного типа оплаты
+    if payment_type == "personal":
+        mora = await get_mora(uid, chat_id)
+        balance = mora["balance"] if mora else 0
+        if balance < PET_ADOPT_PRICE:
+            await callback.answer(
+                f"❌ Недостаточно личной моры: {balance} / {PET_ADOPT_PRICE} 🪙",
+                show_alert=True
+            )
+            return
+        # Списываем с личного баланса
+        await add_mora(uid, chat_id, -PET_ADOPT_PRICE)
+    else:  # family
+        balance = await get_family_wallet(chat_id, uid)
+        if balance < PET_ADOPT_PRICE:
+            await callback.answer(
+                f"❌ Недостаточно семейной моры: {balance} / {PET_ADOPT_PRICE} 🪙",
+                show_alert=True
+            )
+            return
+        # Списываем с семейного баланса
+        await add_to_family_wallet(chat_id, uid, -PET_ADOPT_PRICE)
+
+    # Заводим питомца
     await adopt_pet(uid, partner_id, chat_id, ptype)
 
     emoji = _PET_EMOJI.get(ptype, "🐾")
-    kind  = _PET_NAME.get(ptype, "Питомец")
+    kind = _PET_NAME.get(ptype, "Питомец")
 
     partner = await get_user(partner_id)
     partner_name = html.escape(partner["full_name"]) if partner else str(partner_id)
+
+    payment_text = "личного" if payment_type == "personal" else "семейного"
 
     try:
         await callback.message.edit_text(
             f"{emoji} <b>Поздравляем!</b>\n\n"
             f"Вы с {user_mention(partner_id, partner_name)} завели <b>{kind.lower()}а</b>! 🎉\n\n"
+            f"💰 Стоимость {PET_ADOPT_PRICE} мора списана с {payment_text} баланса.\n\n"
             f"Дайте ему имя: <code>бот назвать питомца Мурзик</code>",
             parse_mode="HTML",
         )
     except Exception:
         pass
     await callback.answer(f"{emoji} Питомец заведён!")
+
+
+@router.callback_query(lambda c: c.data and c.data.startswith("pet_cancel:"))
+async def cb_pet_cancel(callback: CallbackQuery):
+    """Отмена заведения питомца."""
+    owner = int(callback.data.split(":")[1])
+    uid = callback.from_user.id
+
+    if uid != owner:
+        await callback.answer("❌ Это не твоя кнопка!", show_alert=True)
+        return
+
+    try:
+        await callback.message.edit_text("❌ Заведение питомца отменено.")
+    except Exception:
+        pass
+    await callback.answer()
+
+
+@router.callback_query(lambda c: c.data and c.data.startswith("pet_rename_confirm:"))
+async def cb_pet_rename_confirm(callback: CallbackQuery):
+    """Подтверждение переименования питомца."""
+    data_parts = callback.data.split(":", 2)
+    owner = int(data_parts[1])
+    name = data_parts[2]
+    uid = callback.from_user.id
+    chat_id = callback.message.chat.id
+
+    if uid != owner:
+        await callback.answer("❌ Это не твоя кнопка!", show_alert=True)
+        return
+
+    # Проверяем и списываем Мору за переименование
+    mora = await get_mora(uid, chat_id)
+    bal = mora["balance"] if mora else 0
+    if bal < PET_RENAME_PRICE:
+        await callback.answer(
+            f"❌ Недостаточно моры: {bal} / {PET_RENAME_PRICE} 🪙",
+            show_alert=True,
+        )
+        return
+
+    ok, new_bal = await deduct_mora(uid, chat_id, PET_RENAME_PRICE)
+    if not ok:
+        await callback.answer("❌ Не удалось списать Мору. Попробуй ещё раз.", show_alert=True)
+        return
+
+    found = await rename_pet(uid, chat_id, name)
+    if found:
+        try:
+            await callback.message.edit_text(
+                f"✅ Питомец переименован в <b>{html.escape(name)}</b>! (<b>-{PET_RENAME_PRICE} 🪙</b>)\n"
+                f"Твой баланс: <b>{new_bal} 🪙</b>",
+                parse_mode="HTML",
+            )
+        except Exception:
+            pass
+        await callback.answer("✅ Переименование завершено!")
+    else:
+        # Возвращаем деньги, если не удалось переименовать
+        await add_mora(uid, chat_id, PET_RENAME_PRICE)
+        await callback.answer("❌ Не удалось переименовать питомца.", show_alert=True)
+
+
+@router.callback_query(lambda c: c.data and c.data.startswith("pet_rename_cancel:"))
+async def cb_pet_rename_cancel(callback: CallbackQuery):
+    """Отмена переименования питомца."""
+    owner = int(callback.data.split(":")[1])
+    uid = callback.from_user.id
+
+    if uid != owner:
+        await callback.answer("❌ Это не твоя кнопка!", show_alert=True)
+        return
+
+    try:
+        await callback.message.edit_text("❌ Переименование питомца отменено.")
+    except Exception:
+        pass
+    await callback.answer()
 
 
 @router.callback_query(lambda c: c.data and c.data.startswith("pet_skip:"))
@@ -300,8 +476,7 @@ async def cmd_rename_pet(message: Message, cmd_args: str):
     name = (cmd_args or "").strip()
     if not name:
         await message.answer(
-            f"❌ Укажи имя.\nПример: <code>бот назвать питомца Мурзик</code>\n"
-            f"<i>Стоимость: {PET_RENAME_PRICE} 🪙</i>",
+            f"❌ Укажи имя.\nПример: <code>бот назвать питомца Мурзик</code>",
             parse_mode="HTML",
         )
         return
@@ -322,33 +497,50 @@ async def cmd_rename_pet(message: Message, cmd_args: str):
         )
         return
 
-    # Проверяем и списываем Мору за переименование
-    mora = await get_mora(uid, chat_id)
-    bal  = mora["balance"] if mora else 0
-    if bal < PET_RENAME_PRICE:
-        await message.answer(
-            f"❌ Для переименования питомца нужно <b>{PET_RENAME_PRICE} 🪙</b>.\n"
-            f"У тебя: <b>{bal} 🪙</b>.",
-            parse_mode="HTML",
-        )
-        return
-
-    ok, new_bal = await deduct_mora(uid, chat_id, PET_RENAME_PRICE)
-    if not ok:
-        await message.answer("❌ Не удалось списать Мору. Попробуй ещё раз.")
-        return
-
-    found = await rename_pet(uid, chat_id, name)
-    if found:
-        await message.answer(
-            f"✅ Питомец переименован в <b>{html.escape(name)}</b>! (<b>-{PET_RENAME_PRICE} 🪙</b>)\n"
-            f"Твой баланс: <b>{new_bal} 🪙</b>",
-            parse_mode="HTML",
-        )
+    # Проверяем, первое это именование или переименование
+    is_first_naming = pet["name"] is None or pet["name"] == ""
+    
+    if is_first_naming:
+        # Первое именование бесплатно
+        found = await rename_pet(uid, chat_id, name)
+        if found:
+            await message.answer(
+                f"✅ Питомец получил имя <b>{html.escape(name)}</b>! 🎉\n"
+                f"(Первое именование бесплатно)",
+                parse_mode="HTML",
+            )
+        else:
+            await message.answer("❌ Не удалось дать имя питомцу. Попробуй ещё раз.")
     else:
-        # Маловероятно, но если питомец исчез — вернуть деньги
-        await add_mora(uid, chat_id, PET_RENAME_PRICE)
-        await message.answer(
-            "❌ Питомца нет. Сначала заведи его: <code>бот завести питомца</code>",
-            parse_mode="HTML",
-        )
+        # Переименование платное - показываем предупреждение
+        kb = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(
+                text=f"💰 Переименовать за {PET_RENAME_PRICE} мора", 
+                callback_data=f"pet_rename_confirm:{uid}:{name}"
+            )],
+            [InlineKeyboardButton(text="❌ Отмена", callback_data=f"pet_rename_cancel:{uid}")]
+        ])
+        
+        mora = await get_mora(uid, chat_id)
+        bal = mora["balance"] if mora else 0
+        
+        current_name = html.escape(pet["name"])
+        new_name = html.escape(name)
+        
+        if bal < PET_RENAME_PRICE:
+            await message.answer(
+                f"❌ Для переименования питомца нужно <b>{PET_RENAME_PRICE} 🪙</b>.\n"
+                f"У тебя: <b>{bal} 🪙</b>.",
+                parse_mode="HTML",
+            )
+        else:
+            await message.answer(
+                f"🔄 Переименование питомца\n\n"
+                f"Текущее имя: <b>{current_name}</b>\n"
+                f"Новое имя: <b>{new_name}</b>\n\n"
+                f"💰 <b>Стоимость: {PET_RENAME_PRICE} мора</b>\n"
+                f"Ваш баланс: <b>{bal} мора</b>\n\n"
+                f"⚠️ Переименование платное! Подтвердите операцию:",
+                parse_mode="HTML",
+                reply_markup=kb
+            )
