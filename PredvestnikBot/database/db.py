@@ -258,6 +258,7 @@ async def init_db():
             "inactivity_warn_days    INTEGER DEFAULT 5",
             "next_cleanup_at         TEXT    DEFAULT NULL",
             "cleanup_reminder_sent   INTEGER DEFAULT 0",
+            "antiflood_window  REAL    DEFAULT 2.0",
         ]:
             try:
                 await db.execute(
@@ -275,6 +276,17 @@ async def init_db():
         ]:
             try:
                 await db.execute(f"ALTER TABLE user_stats ADD COLUMN {col_def}")
+            except Exception:
+                pass
+
+        # Миграция: новые колонки user_mora (VIP, буст XP, рамка топа)
+        for col_def in [
+            "vip            INTEGER DEFAULT 0",
+            "xp_boost_until TEXT    DEFAULT NULL",
+            "top_frame      TEXT    DEFAULT NULL",
+        ]:
+            try:
+                await db.execute(f"ALTER TABLE user_mora ADD COLUMN {col_def}")
             except Exception:
                 pass
 
@@ -374,14 +386,53 @@ async def init_db():
         # Система экономики: валюта Мора
         await db.execute("""
             CREATE TABLE IF NOT EXISTS user_mora (
-                user_id      INTEGER NOT NULL,
-                chat_id      INTEGER NOT NULL,
-                balance      INTEGER DEFAULT 0,
-                total_earned INTEGER DEFAULT 0,
-                streak_days  INTEGER DEFAULT 0,
-                last_daily   TEXT    DEFAULT NULL,
-                mora_public  INTEGER DEFAULT 0,
+                user_id        INTEGER NOT NULL,
+                chat_id        INTEGER NOT NULL,
+                balance        INTEGER DEFAULT 0,
+                total_earned   INTEGER DEFAULT 0,
+                streak_days    INTEGER DEFAULT 0,
+                last_daily     TEXT    DEFAULT NULL,
+                mora_public    INTEGER DEFAULT 0,
+                vip            INTEGER DEFAULT 0,
+                xp_boost_until TEXT    DEFAULT NULL,
+                top_frame      TEXT    DEFAULT NULL,
                 PRIMARY KEY (user_id, chat_id)
+            )
+        """)
+
+        # Казино: вызовы на дуэль (кубик)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS casino_duels (
+                id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                chat_id       INTEGER NOT NULL,
+                challenger_id INTEGER NOT NULL,
+                target_id     INTEGER NOT NULL,
+                bet           INTEGER NOT NULL,
+                status        TEXT    DEFAULT 'pending',
+                msg_id        INTEGER DEFAULT NULL,
+                created_at    TEXT    NOT NULL
+            )
+        """)
+
+        # Казино: лотерейные билеты (обновляются еженедельно)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS casino_lottery (
+                id       INTEGER PRIMARY KEY AUTOINCREMENT,
+                chat_id  INTEGER NOT NULL,
+                user_id  INTEGER NOT NULL,
+                week_key TEXT    NOT NULL,
+                tickets  INTEGER DEFAULT 1,
+                UNIQUE(chat_id, user_id, week_key)
+            )
+        """)
+
+        # Семейный кошелёк (совместный баланс для пар)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS family_wallet (
+                chat_id   INTEGER NOT NULL,
+                user_id   INTEGER NOT NULL,
+                balance   INTEGER DEFAULT 0,
+                PRIMARY KEY (chat_id, user_id)
             )
         """)
 
@@ -2043,6 +2094,263 @@ async def set_mora_public(user_id: int, chat_id: int, public: int):
                VALUES (?, ?, ?)
                ON CONFLICT(user_id, chat_id) DO UPDATE SET mora_public = excluded.mora_public""",
             (user_id, chat_id, public),
+        )
+        await db.commit()
+
+
+async def deduct_mora(user_id: int, chat_id: int, amount: int) -> tuple[bool, int]:
+    """Deduct Мора if balance is sufficient. Returns (success, new_balance)."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT balance FROM user_mora WHERE user_id=? AND chat_id=?",
+            (user_id, chat_id),
+        ) as c:
+            row = await c.fetchone()
+        balance = row["balance"] if row else 0
+        if balance < amount:
+            return False, balance
+        new_balance = balance - amount
+        await db.execute(
+            "UPDATE user_mora SET balance=? WHERE user_id=? AND chat_id=?",
+            (new_balance, user_id, chat_id),
+        )
+        await db.commit()
+        return True, new_balance
+
+
+async def get_vip(user_id: int, chat_id: int) -> int:
+    """Returns 1 if user has VIP in this chat, else 0."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT vip FROM user_mora WHERE user_id=? AND chat_id=?",
+            (user_id, chat_id),
+        ) as c:
+            row = await c.fetchone()
+    return (row["vip"] or 0) if row else 0
+
+
+async def set_vip(user_id: int, chat_id: int, value: int):
+    """Set VIP status for user in chat."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        await db.execute(
+            """INSERT INTO user_mora (user_id, chat_id, vip) VALUES (?, ?, ?)
+               ON CONFLICT(user_id, chat_id) DO UPDATE SET vip = excluded.vip""",
+            (user_id, chat_id, value),
+        )
+        await db.commit()
+
+
+async def get_xp_boost_active(user_id: int, chat_id: int) -> bool:
+    """Returns True if user has an active XP boost right now."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT xp_boost_until FROM user_mora WHERE user_id=? AND chat_id=?",
+            (user_id, chat_id),
+        ) as c:
+            row = await c.fetchone()
+    if not row or not row["xp_boost_until"]:
+        return False
+    try:
+        until = datetime.fromisoformat(row["xp_boost_until"])
+        return datetime.utcnow() < until
+    except Exception:
+        return False
+
+
+async def set_xp_boost(user_id: int, chat_id: int, until_iso: str):
+    """Set XP boost expiry for user."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        await db.execute(
+            """INSERT INTO user_mora (user_id, chat_id, xp_boost_until) VALUES (?, ?, ?)
+               ON CONFLICT(user_id, chat_id) DO UPDATE SET xp_boost_until = excluded.xp_boost_until""",
+            (user_id, chat_id, until_iso),
+        )
+        await db.commit()
+
+
+async def get_top_frame(user_id: int, chat_id: int) -> str | None:
+    """Returns the active top frame key for user, or None."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT top_frame FROM user_mora WHERE user_id=? AND chat_id=?",
+            (user_id, chat_id),
+        ) as c:
+            row = await c.fetchone()
+    return row["top_frame"] if row else None
+
+
+async def set_top_frame(user_id: int, chat_id: int, frame: str | None):
+    """Set top frame for user."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        await db.execute(
+            """INSERT INTO user_mora (user_id, chat_id, top_frame) VALUES (?, ?, ?)
+               ON CONFLICT(user_id, chat_id) DO UPDATE SET top_frame = excluded.top_frame""",
+            (user_id, chat_id, frame),
+        )
+        await db.commit()
+
+
+# ─── Казино ───────────────────────────────────────────────────────────────────
+
+async def create_duel(chat_id: int, challenger_id: int, target_id: int, bet: int, msg_id: int) -> int:
+    """Create a pending dice duel. Returns duel id."""
+    now = datetime.utcnow().isoformat()
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        cursor = await db.execute(
+            """INSERT INTO casino_duels (chat_id, challenger_id, target_id, bet, status, msg_id, created_at)
+               VALUES (?, ?, ?, ?, 'pending', ?, ?)""",
+            (chat_id, challenger_id, target_id, bet, msg_id, now),
+        )
+        await db.commit()
+        return cursor.lastrowid
+
+
+async def get_duel(duel_id: int):
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT * FROM casino_duels WHERE id=?", (duel_id,)
+        ) as c:
+            return await c.fetchone()
+
+
+async def set_duel_status(duel_id: int, status: str):
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        await db.execute(
+            "UPDATE casino_duels SET status=? WHERE id=?",
+            (status, duel_id),
+        )
+        await db.commit()
+
+
+async def cancel_expired_duels():
+    """Cancel duels older than 5 minutes that are still pending."""
+    cutoff = (datetime.utcnow() - timedelta(minutes=5)).isoformat()
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        await db.execute(
+            "UPDATE casino_duels SET status='expired' WHERE status='pending' AND created_at < ?",
+            (cutoff,),
+        )
+        await db.commit()
+
+
+async def get_pending_duels_for_chat(chat_id: int, challenger_id: int) -> list:
+    """Return pending duels by this challenger in this chat (to prevent spam)."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT * FROM casino_duels WHERE chat_id=? AND challenger_id=? AND status='pending'",
+            (chat_id, challenger_id),
+        ) as c:
+            return await c.fetchall()
+
+
+async def buy_lottery_ticket(chat_id: int, user_id: int, week_key: str):
+    """Buy one lottery ticket for this week. Returns new ticket count."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        await db.execute(
+            """INSERT INTO casino_lottery (chat_id, user_id, week_key, tickets)
+               VALUES (?, ?, ?, 1)
+               ON CONFLICT(chat_id, user_id, week_key) DO UPDATE SET
+                   tickets = casino_lottery.tickets + 1""",
+            (chat_id, user_id, week_key),
+        )
+        await db.commit()
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT tickets FROM casino_lottery WHERE chat_id=? AND user_id=? AND week_key=?",
+            (chat_id, user_id, week_key),
+        ) as c:
+            row = await c.fetchone()
+        return row["tickets"] if row else 1
+
+
+async def get_lottery_tickets(chat_id: int, user_id: int, week_key: str) -> int:
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT tickets FROM casino_lottery WHERE chat_id=? AND user_id=? AND week_key=?",
+            (chat_id, user_id, week_key),
+        ) as c:
+            row = await c.fetchone()
+    return (row["tickets"] or 0) if row else 0
+
+
+async def get_all_lottery_participants(chat_id: int, week_key: str) -> list:
+    """Return all (user_id, tickets) rows for this chat and week."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT user_id, tickets FROM casino_lottery WHERE chat_id=? AND week_key=?",
+            (chat_id, week_key),
+        ) as c:
+            return await c.fetchall()
+
+
+async def get_all_lottery_chats_week(week_key: str) -> list[int]:
+    """Return distinct chat_ids that have tickets for this week."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        async with db.execute(
+            "SELECT DISTINCT chat_id FROM casino_lottery WHERE week_key=?",
+            (week_key,),
+        ) as c:
+            return [r[0] for r in await c.fetchall()]
+
+
+# ─── Семейный кошелёк ─────────────────────────────────────────────────────────
+
+async def get_family_wallet(chat_id: int, user_id: int) -> int:
+    """Returns the shared family wallet balance, or 0 if not found."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT balance FROM family_wallet WHERE chat_id=? AND user_id=?",
+            (chat_id, user_id),
+        ) as c:
+            row = await c.fetchone()
+    return (row["balance"] or 0) if row else 0
+
+
+async def add_to_family_wallet(chat_id: int, user_id: int, amount: int) -> int:
+    """Add or subtract from family wallet. Returns new balance."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        await db.execute(
+            """INSERT INTO family_wallet (chat_id, user_id, balance)
+               VALUES (?, ?, GREATEST(0, ?))
+               ON CONFLICT(chat_id, user_id) DO UPDATE SET
+                   balance = GREATEST(0, family_wallet.balance + ?)""",
+            (chat_id, user_id, amount, amount),
+        )
+        await db.commit()
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT balance FROM family_wallet WHERE chat_id=? AND user_id=?",
+            (chat_id, user_id),
+        ) as c:
+            row = await c.fetchone()
+        return (row["balance"] or 0) if row else 0
+
+
+async def get_all_marriages_for_anniversary() -> list:
+    """Return all marriages for anniversary check (all chats)."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT user_id, chat_id, partner_id, married_at FROM marriages"
+        ) as c:
+            return await c.fetchall()
+
+
+async def reset_user_quest(user_id: int, chat_id: int, quest_date: str):
+    """Delete today's quest progress so it will be re-assigned fresh."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        await db.execute(
+            "DELETE FROM user_quests WHERE user_id=? AND chat_id=? AND quest_date=?",
+            (user_id, chat_id, quest_date),
         )
         await db.commit()
 

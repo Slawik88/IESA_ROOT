@@ -6,9 +6,9 @@ import html
 
 from config import REPORT_NOTIFY_RANK
 from database.db import (
-    get_daily_top, get_marriage, get_prev_weekly_top, get_staff_in_chat,
+    get_daily_top, get_marriage, get_mora, get_prev_weekly_top, get_staff_in_chat,
     get_top_by_messages_in_chat, get_top_by_xp_in_chat, get_user, get_user_stats,
-    get_weekly_top, get_yesterday_top, set_bio_in_chat,
+    get_weekly_top, get_yesterday_top, set_bio_in_chat, get_xp_boost_active,
 )
 from filters.bot_command import BotCommand
 from utils.helpers import resolve_target, user_mention
@@ -115,8 +115,55 @@ def _help_sections() -> list[tuple[str, str, str, str, str]]:
             "  <code>бот развод</code> — расторгнуть брак\n\n"
             "🐾 <b>Питомец</b>\n"
             "  <code>бот питомец</code> — посмотреть своего питомца\n"
-            "  <code>бот завести питомца</code> — завести питомца (нужен брак)\n"
-            "  <code>бот назвать питомца [имя]</code> — дать питомцу имя",
+            "  <code>бот завести питомца</code> — завести питомца (нужен брак ≥7 дн.)\n"
+            "  <i>└ или заплати 200 🪙 чтобы пропустить ожидание</i>\n"
+            "  <code>бот назвать питомца [имя]</code> — дать питомцу имя <i>(40 🪙)</i>",
+        ),
+        (
+            "economy", "🪙", "Экономика", "user",
+            "🪙 <b>Экономика (Мора)</b>\n"
+            "━━━━━━━━━━━━━━━━━━━━\n\n"
+            "📊 <b>Как заработать Мору:</b>\n"
+            "  💬 Писать сообщения в чате — +1 Мора за сообщение (раз в 5 мин)\n"
+            "  ✅ Выполнять ежедневные задания\n"
+            "  🎰 Казино: победа в монетке или дуэли\n"
+            "  🎟 Лотерея: удача (20% шанс выиграть 20–50 🪙)\n\n"
+            "💎 <b>Баланс и профиль:</b>\n"
+            "  <code>бот баланс</code> — твоя Мора, VIP, рамка, буст\n\n"
+            "👑 <b>VIP статус</b> — значок 💎 в профиле и топе\n"
+            "  <code>бот купить вип</code> — купить VIP <i>(1000 🪙)</i>\n\n"
+            "⚡ <b>Буст XP ×2</b>\n"
+            "  <code>бот купить буст</code> — x2 XP за сообщения\n"
+            "  <i>└ 1ч→75🪙 · 2ч→140🪙 · 4ч→260🪙 · 8ч→480🪙 · 24ч→1000🪙</i>\n\n"
+            "🖼 <b>Рамки топа</b>\n"
+            "  <code>бот рамки</code> — посмотреть все рамки и цены\n"
+            "  <code>бот купить рамку [название]</code> — купить рамку\n\n"
+            "👨‍👩‍👧 <b>Семейный кошелёк</b> (для пар)\n"
+            "  <code>бот семейный кошелёк</code> — остаток общей казны\n"
+            "  <code>бот пополнить семью N</code> — положить N Моры в казну\n"
+            "  <code>бот снять семью N</code> — забрать N Моры из казны\n\n"
+            "📮 <b>Анонимка</b>\n"
+            "  <code>бот анонимка [текст]</code> — анонимное сообщение администрации <i>(50 🪙)</i>\n\n"
+            "🎯 <b>Задания</b>\n"
+            "  <code>бот задание</code> — ежедневное задание (+XP)\n"
+            "  <code>бот перебросить задание</code> — сменить задание <i>(25 🪙)</i>",
+        ),
+        (
+            "casino", "🎰", "Казино", "user",
+            "🎰 <b>Казино</b>\n"
+            "━━━━━━━━━━━━━━━━━━━━\n\n"
+            "🪙 <b>Монетка</b>\n"
+            "  <code>бот монетка N</code> — ставка N Моры, 50/50: выиграй ×2 или потеряй всё\n"
+            "  <i>Макс. ставка: 5000 🪙</i>\n\n"
+            "🎲 <b>Дуэль на кубиках</b>\n"
+            "  <code>бот кубик @юзер N</code> — вызов на дуэль, ставка N Моры\n"
+            "  <i>└ соперник принимает вызов, бросаются кубики — больше побеждает</i>\n"
+            "  <i>└ победитель забирает всё, ставки хранятся у бота до результата</i>\n"
+            "  <i>Макс. ставка: 5000 🪙</i>\n\n"
+            "🎟 <b>Лотерея</b> (еженедельная)\n"
+            "  <code>бот купить лотерею</code> — купить билет на текущую неделю <i>(10 🪙)</i>\n"
+            "  <code>бот мои билеты</code> — сколько билетов куплено\n"
+            "  <i>└ по воскресеньям розыгрыш: 20% шанс выиграть 20–50 🪙 за каждый билет</i>",
         ),
         (
             "info", "📋", "Инфо & чат", "user",
@@ -188,9 +235,9 @@ def _help_sections() -> list[tuple[str, str, str, str, str]]:
             "  <i>└ поля: сообщения · xp · уровень · репутация · варны · бан · bio · титул</i>\n"
             "  <code>бот прибавитьxp @user N</code> — добавить XP (можно отрицательное)\n"
             "  <code>бот сеттитул @user титул</code> — кастомный титул\n\n"
-            "📡 <b>Типы каналов</b>\n"
-            "  <code>бот канал правила [chat_id]</code> — канал с правилами и ролями\n"
-            "  <code>бот канал основной [chat_id]</code> — основной чат сообщества\n"
+            "📡 <b>Типы каналов</b> (owner+)\n"
+            "  <code>бот канал правила &lt;chat_id&gt;</code> — канал с правилами и ролями\n"
+            "  <code>бот канал основной &lt;chat_id&gt;</code> — основной чат сообщества\n"
             "  <code>бот канал удалить правила|основной</code> — убрать тип\n"
             "  <code>бот каналы</code> — все настроенные каналы\n\n"
             "🔐 <b>Белый список групп</b>\n"
@@ -305,7 +352,8 @@ def _help_subsections() -> dict[str, list[tuple[str, str, str, str]]]:
                 "⚙️ <b>Настройки</b> › 🛡 <b>Антифлуд & чистка</b>\n"
                 "━━━━━━━━━━━━━━━━━━━━\n\n"
                 "🌊 <b>Антифлуд</b>\n"
-                "  <code>бот антифлуд N</code> — макс. N сообщений за 5 сек.\n"
+                "  <code>бот антифлуд N</code> — макс. N сообщений за 2 сек. (по умолч.)\n"
+                "  <code>бот антифлуд N Xс</code> — N сообщений за X секунд (1–60с)\n"
                 "  <code>бот антифлуд выкл</code> — отключить\n"
                 "  <code>бот фильтрмат [вкл/выкл]</code> — авто-удаление мата\n\n"
                 "🧹 <b>Чистка</b>\n"
@@ -555,6 +603,14 @@ async def cb_top(callback: CallbackQuery):
     period = callback.data.split(":")[1]
     chat_id = callback.message.chat.id
 
+    if period == "close":
+        try:
+            await callback.message.delete()
+        except Exception:
+            pass
+        await callback.answer()
+        return
+
     if period == "d":
         top = await get_daily_top(chat_id, 500)
         title = "📅 <b>Рейтинг активных за сегодня:</b>"
@@ -591,7 +647,15 @@ async def cb_top(callback: CallbackQuery):
     for i, u in enumerate(top):
         place = _TOP_MEDALS[i] if i < 5 else f"{i + 1}."
         count = u[count_field] if count_field in u.keys() else 0
-        lines.append(f"{place} <b>{html.escape(u['full_name'])}</b> — {count} сообщений")
+        # VIP badge + frame
+        uid_top = u["user_id"] if "user_id" in u.keys() else None
+        mora_row = await get_mora(uid_top, chat_id) if uid_top else None
+        vip_badge  = " 💎" if (mora_row and mora_row["vip"])  else ""
+        frame_e    = ""
+        if mora_row and mora_row["top_frame"]:
+            from handlers.economy import _frame_emoji
+            frame_e = _frame_emoji(mora_row["top_frame"]) + " "
+        lines.append(f"{frame_e}{place}{vip_badge} <b>{html.escape(u['full_name'])}</b> — {count} сообщений")
 
     text = "\n".join(lines)
     if len(text) > 3800:
@@ -599,7 +663,14 @@ async def cb_top(callback: CallbackQuery):
         for i, u in enumerate(top):
             place = _TOP_MEDALS[i] if i < 5 else f"{i + 1}."
             count = u[count_field] if count_field in u.keys() else 0
-            new_line = f"{place} <b>{html.escape(u['full_name'])}</b> — {count} сообщений"
+            uid_top = u["user_id"] if "user_id" in u.keys() else None
+            mora_row = await get_mora(uid_top, chat_id) if uid_top else None
+            vip_badge  = " 💎" if (mora_row and mora_row["vip"])  else ""
+            frame_e    = ""
+            if mora_row and mora_row["top_frame"]:
+                from handlers.economy import _frame_emoji
+                frame_e = _frame_emoji(mora_row["top_frame"]) + " "
+            new_line = f"{frame_e}{place}{vip_badge} <b>{html.escape(u['full_name'])}</b> — {count} сообщений"
             if len("\n".join(lines + [new_line])) > 3700:
                 lines.append(f"<i>...и ещё {len(top) - i} участников</i>")
                 break
@@ -622,6 +693,14 @@ async def cb_profile_nav(callback: CallbackQuery):
     parts = callback.data.split(":")
     action = parts[1]
     uid = int(parts[2])
+
+    if action == "close":
+        try:
+            await callback.message.delete()
+        except Exception:
+            pass
+        await callback.answer()
+        return
 
     if action == "rep":
         stats = await get_user_stats(uid, callback.message.chat.id)
@@ -657,6 +736,8 @@ async def cb_profile_nav(callback: CallbackQuery):
         kb = InlineKeyboardMarkup(inline_keyboard=[[
             InlineKeyboardButton(text="⭐ Репутация", callback_data=f"pn:rep:{uid}"),
             InlineKeyboardButton(text="👤 Профиль", callback_data=f"pn:me:{uid}"),
+        ], [
+            InlineKeyboardButton(text="❌ Закрыть", callback_data=f"pn:close:{uid}"),
         ]])
         try:
             await callback.message.edit_text(text, parse_mode="HTML", reply_markup=kb)
@@ -689,6 +770,8 @@ async def cb_profile_nav(callback: CallbackQuery):
         kb = InlineKeyboardMarkup(inline_keyboard=[[
             InlineKeyboardButton(text="🏆 Топ чата", callback_data="top:a"),
             InlineKeyboardButton(text="⭐ Репутация", callback_data=f"pn:rep:{uid}"),
+        ], [
+            InlineKeyboardButton(text="❌ Закрыть", callback_data=f"pn:close:{uid}"),
         ]])
         try:
             await callback.message.edit_text("\n".join(lines), parse_mode="HTML", reply_markup=kb)
@@ -795,6 +878,7 @@ async def cmd_time(message: Message, cmd_args: str):
 @router.message(BotCommand("я", "профиль", "me", "мой профиль"))
 async def cmd_me(message: Message, cmd_args: str):
     from config import DEVELOPER_ID
+    from handlers.economy import TOP_FRAMES, _frame_emoji
     user = await get_user(message.from_user.id)
     if not user:
         await message.answer("❌ Тебя ещё нет в базе. Напиши любое сообщение в чат.")
@@ -802,7 +886,6 @@ async def cmd_me(message: Message, cmd_args: str):
 
     stats = await get_user_stats(message.from_user.id, message.chat.id)
     rank    = stats["rank"]         if stats else "user"
-    # Разработчик всегда получает свой ранг независимо от чата
     if DEVELOPER_ID and message.from_user.id == DEVELOPER_ID:
         rank = "developer"
     warns_n = stats["warns"]        if stats else 0
@@ -814,6 +897,13 @@ async def cmd_me(message: Message, cmd_args: str):
     banned  = stats["is_banned"]    if stats else 0
     title   = stats["custom_title"] if stats else None
 
+    # Экономика
+    mora_row = await get_mora(message.from_user.id, message.chat.id) if message.chat.type in ("group", "supergroup") else None
+    vip       = (mora_row["vip"] or 0)        if mora_row else 0
+    mora_bal  = (mora_row["balance"] or 0)    if mora_row else 0
+    frame_key = mora_row["top_frame"]          if mora_row else None
+    boost_active = await get_xp_boost_active(message.from_user.id, message.chat.id) if message.chat.type in ("group", "supergroup") else False
+
     status = "🔴 Заблокирован" if banned else "🟢 Активен"
     from config import MAX_WARNS
     warns_line = "⚠️" * warns_n + f"({warns_n}/{MAX_WARNS})" if warns_n else "нет"
@@ -823,8 +913,15 @@ async def cmd_me(message: Message, cmd_args: str):
     bar_filled = min(10, int((xp - xp_for_level(lvl)) / max(1, next_xp - xp_for_level(lvl)) * 10))
     bar = "█" * bar_filled + "░" * (10 - bar_filled)
 
+    # VIP badge in header
+    vip_line = "\n💎 <b>VIP</b>" if vip else ""
+    # Frame
+    frame_label = next((f[2] for f in TOP_FRAMES if f[0] == frame_key), None) if frame_key else None
+    frame_str   = f"\n🖼 Рамка: {_frame_emoji(frame_key)} {frame_label}" if frame_label else ""
+    boost_str   = "\n⚡ <b>Буст XP x2 активен</b>" if boost_active else ""
+
     lines = [
-        f"👤 <b>Профиль</b>\n",
+        f"👤 <b>Профиль</b>{vip_line}\n",
         f"🏷 Имя: {html.escape(user['full_name'])}",
         f"📛 Username: @{user['username'] or 'скрыт'}",
         f"🆔 ID: <code>{user['user_id']}</code>",
@@ -832,11 +929,19 @@ async def cmd_me(message: Message, cmd_args: str):
         f"💬 Сообщений: {msgs}",
         f"⭐ Репутация: <b>{rep:+d}</b>",
         f"🌟 Уровень: <b>{lvl}</b>  [{bar}]  {xp}/{next_xp} XP",
+    ]
+    if message.chat.type in ("group", "supergroup"):
+        lines.append(f"🪙 Мора: <b>{mora_bal} 🪙</b>")
+    lines += [
         f"⚠️ Предупреждения: {warns_line}",
         f"📊 Статус: {status}",
         f"🟢 Первая активность: {_fmt_dt(stats['first_active'] if stats else None)}",
         f"🔵 Последняя активность: {_fmt_dt(stats['last_active'] if stats else None)}",
     ]
+    if frame_str:
+        lines.append(frame_str)
+    if boost_str:
+        lines.append(boost_str)
     if bio:
         lines.append(f"\n📝 Bio: <i>{html.escape(bio)}</i>")
 
@@ -852,6 +957,9 @@ async def cmd_me(message: Message, cmd_args: str):
         [
             InlineKeyboardButton(text="🏆 Топ чата", callback_data="top:a"),
             InlineKeyboardButton(text="⭐ Репутация", callback_data=f"pn:rep:{message.from_user.id}"),
+        ],
+        [
+            InlineKeyboardButton(text="❌ Закрыть", callback_data=f"pn:close:{message.from_user.id}"),
         ],
     ])
     await message.answer("\n".join(lines), parse_mode="HTML", reply_markup=me_kb)

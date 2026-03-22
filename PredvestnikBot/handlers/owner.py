@@ -667,19 +667,21 @@ _CHANNEL_TYPE_LABELS = {
 }
 
 
-@router.message(BotCommand("канал"), RankFilter("developer"))
+@router.message(BotCommand("канал"), RankFilter("owner"))
 async def cmd_set_channel(message: Message) -> None:
-    """бот канал <тип> [chat_id]  — назначить канал по типу.
+    """бот канал <тип> <chat_id>  — назначить канал по типу.
     Типы: правила, основной.
-    Если chat_id не указан — используется текущий чат.
+    chat_id ОБЯЗАТЕЛЕН — ID нужной группы/канала.
     """
     args = (message.text or "").split()[2:]  # skip "бот" "канал"
     if not args:
         await message.reply(
             "❓ Использование:\n"
-            "  <code>бот канал правила [chat_id]</code>\n"
-            "  <code>бот канал основной [chat_id]</code>\n"
-            "  <code>бот канал удалить правила|основной</code>",
+            "  <code>бот канал правила &lt;chat_id&gt;</code>\n"
+            "  <code>бот канал основной &lt;chat_id&gt;</code>\n"
+            "  <code>бот канал удалить правила|основной</code>\n\n"
+            "💡 <b>Как узнать chat_id:</b>\n"
+            "  Напиши <code>бот чат</code> в нужной группе — ID покажется там.",
             parse_mode="HTML",
         )
         return
@@ -705,19 +707,30 @@ async def cmd_set_channel(message: Message) -> None:
         await message.reply("❌ Неизвестный тип. Используй: <b>правила</b> или <b>основной</b>.", parse_mode="HTML")
         return
 
-    # Determine chat_id
-    if len(args) >= 2:
-        try:
-            chat_id = int(args[1])
-        except ValueError:
-            await message.reply("❌ chat_id должен быть числом.", parse_mode="HTML")
-            return
-    else:
-        chat_id = message.chat.id
+    # chat_id REQUIRED — never fallback to current chat
+    if len(args) < 2:
+        label = _CHANNEL_TYPE_LABELS.get(type_key, type_key)
+        await message.reply(
+            f"❌ Укажи <b>chat_id</b> для типа «{label}»:\n"
+            f"  <code>бот канал {type_arg} -100XXXXXXXXXX</code>\n\n"
+            f"💡 Напиши <code>бот чат</code> в нужной группе чтобы узнать её ID.",
+            parse_mode="HTML",
+        )
+        return
+
+    try:
+        chat_id = int(args[1])
+    except ValueError:
+        await message.reply("❌ chat_id должен быть числом, например <code>-1001234567890</code>.", parse_mode="HTML")
+        return
 
     await set_channel_type(type_key, chat_id)
     label = _CHANNEL_TYPE_LABELS.get(type_key, type_key)
-    await message.reply(f"✅ <b>{label}</b> → <code>{chat_id}</code>", parse_mode="HTML")
+    await message.reply(
+        f"✅ <b>{label}</b> → <code>{chat_id}</code>\n"
+        f"<i>Тип канала сохранён.</i>",
+        parse_mode="HTML",
+    )
 
 
 def _resolve_channel_type(arg: str) -> str | None:
@@ -729,7 +742,7 @@ def _resolve_channel_type(arg: str) -> str | None:
     return mapping.get(arg)
 
 
-@router.message(BotCommand("каналы"), RankFilter("developer"))
+@router.message(BotCommand("каналы"), RankFilter("owner"))
 async def cmd_list_channels(message: Message) -> None:
     """бот каналы — показать все настроенные типы каналов."""
     channels = await get_all_channel_types()

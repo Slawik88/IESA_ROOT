@@ -236,24 +236,49 @@ async def cmd_farewell(message: Message, cmd_args: str):
 
 @router.message(BotCommand("антифлуд", "antiflood"), RankFilter("admin_junior"))
 async def cmd_antiflood(message: Message, cmd_args: str):
-    from config import FLOOD_WINDOW, DEFAULT_FLOOD_MUTE
-    arg = cmd_args.lower()
+    from config import FLOOD_WINDOW, DEFAULT_FLOOD_MUTE, DEFAULT_ANTIFLOOD_LIMIT
+    arg = (cmd_args or "").strip().lower()
     if arg in ("выкл", "off", "0"):
         await set_chat_setting(message.chat.id, "antiflood_enabled", 0)
         await message.answer("✅ Антифлуд отключён.")
-    elif arg.isdigit() and int(arg) > 0:
-        limit = int(arg)
+    elif arg:
+        # Поддерживаемые форматы:
+        #   бот антифлуд 5          → 5 сообщений за 2с (по умолч.)
+        #   бот антифлуд 5 3с       → 5 сообщений за 3 секунды
+        #   бот антифлуд 5 10с      → 5 сообщений за 10 секунд
+        import re
+        m = re.match(r'^(\d+)(?:\s+(\d+(?:\.\d+)?)с(?:ек)?)?$', arg)
+        if not m or int(m.group(1)) <= 0:
+            await message.answer(
+                "❌ Укажи число или <code>выкл</code>.\n"
+                "Примеры:\n"
+                "  <code>бот антифлуд 5</code> — 5 сообщений за {:.0f} сек. (по умолч.)\n"
+                "  <code>бот антифлуд 5 3с</code> — 5 сообщений за 3 сек.".format(FLOOD_WINDOW),
+                parse_mode="HTML",
+            )
+            return
+        limit = int(m.group(1))
+        window = float(m.group(2)) if m.group(2) else FLOOD_WINDOW
+        window = max(1.0, min(60.0, window))  # зажимаем: 1–60 секунд
         mute_mins = DEFAULT_FLOOD_MUTE // 60
         await set_chat_setting(message.chat.id, "antiflood_enabled", 1)
         await set_chat_setting(message.chat.id, "antiflood_limit", limit)
+        await set_chat_setting(message.chat.id, "antiflood_window", window)
         await message.answer(
-            f"✅ Антифлуд включён: максимум {limit} сообщений за {int(FLOOD_WINDOW)} сек.\n"
+            f"✅ Антифлуд включён: максимум {limit} сообщений за {window:.0f} сек.\n"
             f"При нарушении — мут на {mute_mins} мин."
         )
     else:
+        settings = await get_chat_settings(message.chat.id)
+        enabled = settings["antiflood_enabled"] if settings else 0
+        limit   = settings["antiflood_limit"]   if settings and "antiflood_limit" in settings.keys() else DEFAULT_ANTIFLOOD_LIMIT
+        window  = settings["antiflood_window"]  if settings and "antiflood_window" in settings.keys() and settings["antiflood_window"] else FLOOD_WINDOW
+        status  = "🟢 Включён" if enabled else "🔴 Отключён"
         await message.answer(
-            "❌ Укажи число или <code>выкл</code>.\n"
-            "Пример: <code>бот антифлуд 5</code>",
+            f"🛡 <b>Антифлуд:</b> {status}\n"
+            f"Лимит: <b>{limit}</b> сообщений за <b>{window:.0f}</b> сек.\n\n"
+            f"Изменить: <code>бот антифлуд 5</code> или <code>бот антифлуд 5 3с</code>\n"
+            f"Выключить: <code>бот антифлуд выкл</code>",
             parse_mode="HTML",
         )
 
