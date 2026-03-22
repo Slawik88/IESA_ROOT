@@ -449,6 +449,125 @@ async def init_db():
             )
         """)
 
+        # ─── Новые таблицы (обновление v2: экспедиции, гача, банк, налоги, магазин, подарки, баффы) ────
+
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS pet_expeditions (
+                user_id     INTEGER NOT NULL,
+                chat_id     INTEGER NOT NULL,
+                started_at  TEXT    NOT NULL,
+                duration_h  INTEGER NOT NULL,
+                reward_min  INTEGER NOT NULL,
+                reward_max  INTEGER NOT NULL,
+                finished    INTEGER DEFAULT 0,
+                PRIMARY KEY (user_id, chat_id)
+            )
+        """)
+
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS gacha_inventory (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id     INTEGER NOT NULL,
+                chat_id     INTEGER NOT NULL,
+                item_key    TEXT    NOT NULL,
+                item_name   TEXT    NOT NULL,
+                rarity      TEXT    NOT NULL,
+                obtained_at TEXT    NOT NULL,
+                equipped    INTEGER DEFAULT 0
+            )
+        """)
+
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS bank_deposits (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id     INTEGER NOT NULL,
+                chat_id     INTEGER NOT NULL,
+                amount      INTEGER NOT NULL,
+                rate        REAL    NOT NULL,
+                created_at  TEXT    NOT NULL,
+                matures_at  TEXT    NOT NULL,
+                withdrawn   INTEGER DEFAULT 0
+            )
+        """)
+
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS tax_events (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                chat_id     INTEGER NOT NULL,
+                message_id  INTEGER,
+                prize       INTEGER NOT NULL,
+                penalty_pct REAL    DEFAULT 0.05,
+                started_at  TEXT    NOT NULL,
+                expires_at  TEXT    NOT NULL,
+                finished    INTEGER DEFAULT 0
+            )
+        """)
+
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS tax_event_clicks (
+                event_id    INTEGER NOT NULL,
+                user_id     INTEGER NOT NULL,
+                clicked_at  TEXT    NOT NULL,
+                position    INTEGER NOT NULL,
+                PRIMARY KEY (event_id, user_id)
+            )
+        """)
+
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS shop_items (
+                id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id      INTEGER NOT NULL,
+                chat_id      INTEGER NOT NULL,
+                item_type    TEXT    NOT NULL,
+                item_value   TEXT    NOT NULL,
+                purchased_at TEXT    NOT NULL,
+                active       INTEGER DEFAULT 1
+            )
+        """)
+
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS marriage_gifts (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                from_user   INTEGER NOT NULL,
+                to_user     INTEGER NOT NULL,
+                chat_id     INTEGER NOT NULL,
+                gift_key    TEXT    NOT NULL,
+                gift_name   TEXT    NOT NULL,
+                gift_price  INTEGER NOT NULL,
+                gifted_at   TEXT    NOT NULL
+            )
+        """)
+
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS active_buffs (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id     INTEGER NOT NULL,
+                chat_id     INTEGER NOT NULL,
+                buff_type   TEXT    NOT NULL,
+                expires_at  TEXT    NOT NULL,
+                source      TEXT
+            )
+        """)
+
+        # ─── Миграция: новые колонки в user_mora ──────────────────────────
+        for col_def in [
+            "gacha_display TEXT DEFAULT NULL",
+        ]:
+            try:
+                await db.execute(f"ALTER TABLE user_mora ADD COLUMN {col_def}")
+            except Exception:
+                pass
+
+        # ─── Миграция: новые колонки в pets (косметика) ───────────────────
+        for col_def in [
+            "color_name   TEXT DEFAULT NULL",
+            "emoji_status TEXT DEFAULT NULL",
+        ]:
+            try:
+                await db.execute(f"ALTER TABLE pets ADD COLUMN {col_def}")
+            except Exception:
+                pass
+
         # Миграция: сделать баланс Моры видимым по умолчанию для всех
         await db.execute("UPDATE user_mora SET mora_public = 1 WHERE mora_public = 0")
 
@@ -503,6 +622,23 @@ async def init_db():
             ("pets",              "chat_id"),
             ("user_mora",         "user_id"),
             ("user_mora",         "chat_id"),
+            # Новые таблицы v2
+            ("pet_expeditions",    "user_id"),
+            ("pet_expeditions",    "chat_id"),
+            ("gacha_inventory",    "user_id"),
+            ("gacha_inventory",    "chat_id"),
+            ("bank_deposits",      "user_id"),
+            ("bank_deposits",      "chat_id"),
+            ("tax_events",         "chat_id"),
+            ("tax_events",         "message_id"),
+            ("tax_event_clicks",   "user_id"),
+            ("shop_items",         "user_id"),
+            ("shop_items",         "chat_id"),
+            ("marriage_gifts",     "from_user"),
+            ("marriage_gifts",     "to_user"),
+            ("marriage_gifts",     "chat_id"),
+            ("active_buffs",       "user_id"),
+            ("active_buffs",       "chat_id"),
         ]
         for _tbl, _col in _bigint_migrations:
             try:
@@ -1565,8 +1701,13 @@ DAILY_QUESTS: list[dict] = [
 ]
 
 
-def get_todays_quest() -> dict:
-    idx = date.today().toordinal() % len(DAILY_QUESTS)
+def get_todays_quest(today_str: str | None = None) -> dict:
+    """Возвращает задание для указанного дня (YYYY-MM-DD) или для сегодня по таймзоне бота."""
+    if today_str is None:
+        from utils.helpers import bot_today
+        today_str = bot_today()
+    d = date.fromisoformat(today_str)
+    idx = d.toordinal() % len(DAILY_QUESTS)
     return DAILY_QUESTS[idx]
 
 
@@ -3089,16 +3230,449 @@ async def adopt_pet(user_id: int, partner_id: int, chat_id: int, pet_type: str) 
 
 
 async def rename_pet(user_id: int, chat_id: int, name: str) -> bool:
-    """Переименовать питомца. Возвращает True если питомец найден."""
+    """Переименовать питомца обоих партнёров. Возвращает True если питомец найден."""
     async with aiosqlite.connect(DATABASE_PATH) as db:
+        # Обновляем имя у самого юзера
         await db.execute(
             "UPDATE pets SET name = ? WHERE user_id = ? AND chat_id = ?",
             (name, user_id, chat_id),
         )
+        # Обновляем имя и у партнёра (питомец общий на двоих)
+        async with db.execute(
+            "SELECT partner_id FROM marriages WHERE user_id = ? AND chat_id = ?",
+            (user_id, chat_id),
+        ) as c:
+            marriage_row = await c.fetchone()
+        if marriage_row:
+            partner_id = marriage_row[0]
+            await db.execute(
+                "UPDATE pets SET name = ? WHERE user_id = ? AND chat_id = ?",
+                (name, partner_id, chat_id),
+            )
         await db.commit()
         async with db.execute(
             "SELECT user_id FROM pets WHERE user_id = ? AND chat_id = ?",
             (user_id, chat_id),
         ) as c:
             return await c.fetchone() is not None
+
+
+# ─── Экспедиции питомцев ──────────────────────────────────────────────────────
+
+async def start_expedition(user_id: int, chat_id: int, duration_h: int,
+                           reward_min: int, reward_max: int) -> bool:
+    """Начать экспедицию. Возвращает False если экспедиция уже идёт."""
+    now = datetime.utcnow().isoformat(timespec="seconds")
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        async with db.execute(
+            "SELECT 1 FROM pet_expeditions WHERE user_id=? AND chat_id=? AND finished=0",
+            (user_id, chat_id),
+        ) as c:
+            if await c.fetchone():
+                return False
+        await db.execute(
+            """INSERT INTO pet_expeditions (user_id, chat_id, started_at, duration_h,
+                                           reward_min, reward_max, finished)
+               VALUES (?, ?, ?, ?, ?, ?, 0)
+               ON CONFLICT(user_id, chat_id) DO UPDATE SET
+                   started_at=excluded.started_at, duration_h=excluded.duration_h,
+                   reward_min=excluded.reward_min, reward_max=excluded.reward_max, finished=0""",
+            (user_id, chat_id, now, duration_h, reward_min, reward_max),
+        )
+        await db.commit()
+        return True
+
+
+async def get_active_expedition(user_id: int, chat_id: int):
+    """Возвращает активную экспедицию или None."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT * FROM pet_expeditions WHERE user_id=? AND chat_id=? AND finished=0",
+            (user_id, chat_id),
+        ) as c:
+            return await c.fetchone()
+
+
+async def get_all_finished_expeditions() -> list:
+    """Вернуть все незавершённые экспедиции, время которых истекло."""
+    now = datetime.utcnow()
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT * FROM pet_expeditions WHERE finished=0"
+        ) as c:
+            rows = await c.fetchall()
+    result = []
+    for r in rows:
+        started = datetime.fromisoformat(r["started_at"])
+        if now >= started + timedelta(hours=r["duration_h"]):
+            result.append(r)
+    return result
+
+
+async def finish_expedition(user_id: int, chat_id: int):
+    """Пометить экспедицию как завершённую."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        await db.execute(
+            "UPDATE pet_expeditions SET finished=1 WHERE user_id=? AND chat_id=?",
+            (user_id, chat_id),
+        )
+        await db.commit()
+
+
+# ─── Гача (Молитвы) ──────────────────────────────────────────────────────────
+
+async def get_gacha_pity(user_id: int, chat_id: int) -> int:
+    """Сколько круток без леги (pity counter). Считаем непрерывную серию без lego."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        async with db.execute(
+            """SELECT COUNT(*) FROM gacha_inventory
+               WHERE user_id=? AND chat_id=?
+               AND id > COALESCE(
+                   (SELECT MAX(id) FROM gacha_inventory
+                    WHERE user_id=? AND chat_id=? AND rarity='legendary'), 0)""",
+            (user_id, chat_id, user_id, chat_id),
+        ) as c:
+            row = await c.fetchone()
+            return row[0] if row else 0
+
+
+async def add_gacha_item(user_id: int, chat_id: int, item_key: str,
+                         item_name: str, rarity: str):
+    now = datetime.utcnow().isoformat(timespec="seconds")
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        await db.execute(
+            """INSERT INTO gacha_inventory (user_id, chat_id, item_key, item_name, rarity, obtained_at)
+               VALUES (?, ?, ?, ?, ?, ?)""",
+            (user_id, chat_id, item_key, item_name, rarity, now),
+        )
+        await db.commit()
+
+
+async def get_gacha_inventory(user_id: int, chat_id: int) -> list:
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT * FROM gacha_inventory WHERE user_id=? AND chat_id=? ORDER BY id DESC",
+            (user_id, chat_id),
+        ) as c:
+            return await c.fetchall()
+
+
+async def sell_gacha_junk(user_id: int, chat_id: int) -> tuple[int, int]:
+    """Продать весь мусор (rarity='junk'). Возвращает (count, total_mora)."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        async with db.execute(
+            "SELECT COUNT(*) FROM gacha_inventory WHERE user_id=? AND chat_id=? AND rarity='junk'",
+            (user_id, chat_id),
+        ) as c:
+            count = (await c.fetchone())[0]
+        if count == 0:
+            return 0, 0
+        await db.execute(
+            "DELETE FROM gacha_inventory WHERE user_id=? AND chat_id=? AND rarity='junk'",
+            (user_id, chat_id),
+        )
+        await db.commit()
+    from config import GACHA_SELL_PRICES
+    sell_price = count * GACHA_SELL_PRICES.get("junk", 10)
+    await add_mora(user_id, chat_id, sell_price)
+    return count, sell_price
+
+
+async def equip_gacha_item(user_id: int, chat_id: int, item_id: int) -> bool:
+    """Экипировать лего-предмет (обновить gacha_display). Возвращает False если не найден/не лего."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT * FROM gacha_inventory WHERE id=? AND user_id=? AND chat_id=?",
+            (item_id, user_id, chat_id),
+        ) as c:
+            item = await c.fetchone()
+        if not item or item["rarity"] != "legendary":
+            return False
+        # Убираем экипировку с других предметов
+        await db.execute(
+            "UPDATE gacha_inventory SET equipped=0 WHERE user_id=? AND chat_id=? AND equipped=1",
+            (user_id, chat_id),
+        )
+        await db.execute(
+            "UPDATE gacha_inventory SET equipped=1 WHERE id=?", (item_id,),
+        )
+        # Обновляем gacha_display в user_mora
+        await db.execute(
+            """INSERT INTO user_mora (user_id, chat_id, gacha_display) VALUES (?, ?, ?)
+               ON CONFLICT(user_id, chat_id) DO UPDATE SET gacha_display = excluded.gacha_display""",
+            (user_id, chat_id, item["item_name"]),
+        )
+        await db.commit()
+        return True
+
+
+# ─── Банк Северного Королевства ───────────────────────────────────────────────
+
+async def create_deposit(user_id: int, chat_id: int, amount: int,
+                         rate: float, days: int) -> int:
+    """Создать вклад. Возвращает id вклада."""
+    now = datetime.utcnow()
+    matures = now + timedelta(days=days)
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        cursor = await db.execute(
+            """INSERT INTO bank_deposits (user_id, chat_id, amount, rate, created_at, matures_at)
+               VALUES (?, ?, ?, ?, ?, ?)""",
+            (user_id, chat_id, amount, rate, now.isoformat(timespec="seconds"),
+             matures.isoformat(timespec="seconds")),
+        )
+        await db.commit()
+        return cursor.lastrowid
+
+
+async def get_user_deposits(user_id: int, chat_id: int) -> list:
+    """Вернуть все активные (не снятые) вклады пользователя."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT * FROM bank_deposits WHERE user_id=? AND chat_id=? AND withdrawn=0 ORDER BY id",
+            (user_id, chat_id),
+        ) as c:
+            return await c.fetchall()
+
+
+async def withdraw_deposit(deposit_id: int) -> dict | None:
+    """Снять вклад. Возвращает dict с инфо о вкладе или None."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT * FROM bank_deposits WHERE id=? AND withdrawn=0",
+            (deposit_id,),
+        ) as c:
+            dep = await c.fetchone()
+        if not dep:
+            return None
+        await db.execute(
+            "UPDATE bank_deposits SET withdrawn=1 WHERE id=?", (deposit_id,),
+        )
+        await db.commit()
+        return dict(dep)
+
+
+# ─── Налоговые ивенты ─────────────────────────────────────────────────────────
+
+async def create_tax_event(chat_id: int, message_id: int, prize: int,
+                           penalty_pct: float, duration_sec: int) -> int:
+    """Создать ивент. Возвращает id."""
+    now = datetime.utcnow()
+    expires = now + timedelta(seconds=duration_sec)
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        cursor = await db.execute(
+            """INSERT INTO tax_events (chat_id, message_id, prize, penalty_pct, started_at, expires_at)
+               VALUES (?, ?, ?, ?, ?, ?)""",
+            (chat_id, message_id, prize, penalty_pct,
+             now.isoformat(timespec="seconds"), expires.isoformat(timespec="seconds")),
+        )
+        await db.commit()
+        return cursor.lastrowid
+
+
+async def add_tax_click(event_id: int, user_id: int) -> int | None:
+    """Записать клик. Возвращает позицию (1-based) или None если уже кликнул."""
+    now = datetime.utcnow().isoformat(timespec="seconds")
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        async with db.execute(
+            "SELECT 1 FROM tax_event_clicks WHERE event_id=? AND user_id=?",
+            (event_id, user_id),
+        ) as c:
+            if await c.fetchone():
+                return None
+        async with db.execute(
+            "SELECT COUNT(*) FROM tax_event_clicks WHERE event_id=?",
+            (event_id,),
+        ) as c:
+            position = (await c.fetchone())[0] + 1
+        await db.execute(
+            "INSERT INTO tax_event_clicks (event_id, user_id, clicked_at, position) VALUES (?,?,?,?)",
+            (event_id, user_id, now, position),
+        )
+        await db.commit()
+        return position
+
+
+async def finish_tax_event(event_id: int):
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        await db.execute(
+            "UPDATE tax_events SET finished=1 WHERE id=?", (event_id,),
+        )
+        await db.commit()
+
+
+async def get_tax_event_clicks(event_id: int) -> list:
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT * FROM tax_event_clicks WHERE event_id=? ORDER BY position",
+            (event_id,),
+        ) as c:
+            return await c.fetchall()
+
+
+# ─── Магазин (покупки) ─────────────────────────────────────────────────────────
+
+async def buy_shop_item(user_id: int, chat_id: int, item_type: str,
+                        item_value: str) -> int:
+    """Записать покупку товара. Возвращает id."""
+    now = datetime.utcnow().isoformat(timespec="seconds")
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        cursor = await db.execute(
+            """INSERT INTO shop_items (user_id, chat_id, item_type, item_value, purchased_at)
+               VALUES (?, ?, ?, ?, ?)""",
+            (user_id, chat_id, item_type, item_value, now),
+        )
+        await db.commit()
+        return cursor.lastrowid
+
+
+async def set_pet_color(user_id: int, chat_id: int, color_name: str):
+    """Установить цвет имени питомца."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        await db.execute(
+            "UPDATE pets SET color_name=? WHERE user_id=? AND chat_id=?",
+            (color_name, user_id, chat_id),
+        )
+        # Обновить и у партнёра
+        async with db.execute(
+            "SELECT partner_id FROM marriages WHERE user_id=? AND chat_id=?",
+            (user_id, chat_id),
+        ) as c:
+            m = await c.fetchone()
+        if m:
+            await db.execute(
+                "UPDATE pets SET color_name=? WHERE user_id=? AND chat_id=?",
+                (color_name, m[0], chat_id),
+            )
+        await db.commit()
+
+
+async def set_pet_emoji_status(user_id: int, chat_id: int, emoji_status: str):
+    """Установить эмодзи-статус питомца."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        await db.execute(
+            "UPDATE pets SET emoji_status=? WHERE user_id=? AND chat_id=?",
+            (emoji_status, user_id, chat_id),
+        )
+        async with db.execute(
+            "SELECT partner_id FROM marriages WHERE user_id=? AND chat_id=?",
+            (user_id, chat_id),
+        ) as c:
+            m = await c.fetchone()
+        if m:
+            await db.execute(
+                "UPDATE pets SET emoji_status=? WHERE user_id=? AND chat_id=?",
+                (emoji_status, m[0], chat_id),
+            )
+        await db.commit()
+
+
+async def set_custom_title_in_chat(user_id: int, chat_id: int, title: str):
+    """Установить кастомный титул."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        await db.execute(
+            """INSERT INTO user_stats (user_id, chat_id, custom_title) VALUES (?, ?, ?)
+               ON CONFLICT(user_id, chat_id) DO UPDATE SET custom_title = excluded.custom_title""",
+            (user_id, chat_id, title),
+        )
+        await db.commit()
+
+
+# ─── Подарки (брак) ───────────────────────────────────────────────────────────
+
+async def give_gift(from_user: int, to_user: int, chat_id: int,
+                    gift_key: str, gift_name: str, gift_price: int):
+    now = datetime.utcnow().isoformat(timespec="seconds")
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        await db.execute(
+            """INSERT INTO marriage_gifts (from_user, to_user, chat_id, gift_key, gift_name, gift_price, gifted_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            (from_user, to_user, chat_id, gift_key, gift_name, gift_price, now),
+        )
+        await db.commit()
+
+
+async def get_gifts_summary(user_id: int, partner_id: int, chat_id: int) -> tuple[int, int]:
+    """Возвращает (count, total_value) подарков между парой."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        async with db.execute(
+            """SELECT COUNT(*), COALESCE(SUM(gift_price), 0)
+               FROM marriage_gifts
+               WHERE chat_id=? AND (
+                   (from_user=? AND to_user=?) OR (from_user=? AND to_user=?)
+               )""",
+            (chat_id, user_id, partner_id, partner_id, user_id),
+        ) as c:
+            row = await c.fetchone()
+            return (row[0] or 0, row[1] or 0)
+
+
+# ─── Баффы ────────────────────────────────────────────────────────────────────
+
+async def add_buff(user_id: int, chat_id: int, buff_type: str,
+                   hours: int, source: str = ""):
+    now = datetime.utcnow()
+    expires = now + timedelta(hours=hours)
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        await db.execute(
+            """INSERT INTO active_buffs (user_id, chat_id, buff_type, expires_at, source)
+               VALUES (?, ?, ?, ?, ?)""",
+            (user_id, chat_id, buff_type, expires.isoformat(timespec="seconds"), source),
+        )
+        await db.commit()
+
+
+async def get_active_buffs(user_id: int, chat_id: int) -> list:
+    """Вернуть все активные (не истёкшие) баффы."""
+    now = datetime.utcnow().isoformat(timespec="seconds")
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT * FROM active_buffs WHERE user_id=? AND chat_id=? AND expires_at > ?",
+            (user_id, chat_id, now),
+        ) as c:
+            return await c.fetchall()
+
+
+async def get_mora_boost_pct(user_id: int, chat_id: int) -> float:
+    """Вернуть суммарный процент бонуса к добыче моры из баффов (0.0 – 1.0)."""
+    buffs = await get_active_buffs(user_id, chat_id)
+    pct = 0.0
+    for b in buffs:
+        bt = b["buff_type"]
+        if bt == "mora_boost_10":
+            pct += 0.10
+        elif bt == "mora_boost_15":
+            pct += 0.15
+        elif bt == "mora_boost_20":
+            pct += 0.20
+    return pct
+
+
+# ─── Активные чаты для налоговых/scheduler ивентов ────────────────────────────
+
+async def get_active_group_chat_ids() -> list[int]:
+    """Вернуть все активные групповые чаты."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        async with db.execute(
+            "SELECT chat_id FROM chats WHERE is_active=1 AND chat_type IN ('group','supergroup')"
+        ) as c:
+            return [r[0] for r in await c.fetchall()]
+
+
+async def get_tax_event_prize(event_id: int) -> int:
+    """Вернуть приз указанного налогового ивента."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT prize FROM tax_events WHERE id=?", (event_id,),
+        ) as c:
+            row = await c.fetchone()
+            return row["prize"] if row else 0
 

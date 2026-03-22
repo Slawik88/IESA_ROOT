@@ -14,8 +14,8 @@ router = Router()
 
 @router.message(BotCommand("задание", "quest", "квест", "задания"))
 async def cmd_quest(message: Message, cmd_args: str):
-    quest = get_todays_quest()
     today = bot_today()
+    quest = get_todays_quest(today)
     row = await get_quest_progress(message.from_user.id, message.chat.id, today)
 
     progress  = row["progress"]  if row else 0
@@ -82,7 +82,7 @@ async def cmd_reroll_quest(message: Message, cmd_args: str):
     await reset_user_quest(uid, chat_id, today)
 
     # Показываем новое задание
-    quest = get_todays_quest()
+    quest = get_todays_quest(today)
     await message.answer(
         f"🔄 <b>Задание сброшено!</b>  (<b>-{QUEST_REROLL_PRICE} 🪙</b>)\n"
         f"Твой баланс: <b>{new_bal} 🪙</b>\n\n"

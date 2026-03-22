@@ -15,7 +15,7 @@ from aiogram.types import (
 )
 
 from config import MARRIAGE_PROPOSAL_TIMEOUT
-from database.db import create_marriage, delete_marriage, get_marriage, get_mora, get_pet, get_user
+from database.db import create_marriage, delete_marriage, get_gifts_summary, get_marriage, get_mora, get_pet, get_user
 from filters.bot_command import BotCommand
 from utils.helpers import format_duration, resolve_target, user_mention
 
@@ -336,11 +336,28 @@ async def cmd_partner(message: Message, cmd_args: str):
     married_at_date = married_at_iso[:10]
     together = format_duration(married_at_iso) if married_at_iso else "?"
 
+    # Check if couple has a pet
+    pet = await get_pet(me_id, chat_id)
+    pet_info = ""
+    if pet:
+        pet_emoji = {"cat": "🐱", "dog": "🐶"}.get(pet["pet_type"], "🐾")
+        pet_name = pet["name"] if pet.get("name") else "без имени"
+        pet_age = format_duration(pet["adopted_at"])
+        pet_info = f"\n🐾 Питомец: {pet_emoji} <b>{html.escape(pet_name)}</b> ({pet_age})"
+
+    # Статистика подарков
+    gift_count, gift_total = await get_gifts_summary(me_id, p_id, chat_id)
+    gift_info = ""
+    if gift_count > 0:
+        gift_info = f"\n🎁 Подарков: <b>{gift_count}</b> (на {gift_total} 🪙)"
+
     await message.answer(
         f"💍 <b>Твоя пара</b>\n\n"
         f"❤️ Партнёр: {user_mention(p_id, p_name)}\n"
         f"📅 Вместе с: {married_at_date}\n"
-        f"🗓 Вместе: <b>{together}</b>",
+        f"🗓 Вместе: <b>{together}</b>"
+        f"{pet_info}"
+        f"{gift_info}",
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
             [
@@ -349,18 +366,19 @@ async def cmd_partner(message: Message, cmd_args: str):
                     callback_data=f"act:hug:{p_id}",
                 ),
                 InlineKeyboardButton(
-                    text="� Питомец",
+                    text="🐾 Питомец",
                     callback_data=f"pair:pet:{me_id}",
                 ),
             ],
             [
                 InlineKeyboardButton(
-                    text="�💔 Развестись",
+                    text="💔 Развестись",
                     callback_data=f"div:ask:{me_id}",
                 ),
             ],
         ]),
     )
+
 
 
 @router.callback_query(F.data.startswith("div:"))
