@@ -658,6 +658,19 @@ async def init_db():
         # Миграция: сделать баланс Моры видимым по умолчанию для всех
         await db.execute("UPDATE user_mora SET mora_public = 1 WHERE mora_public = 0")
 
+        # ─── Переводы и долги ─────────────────────────────────────────────
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS mora_loans (
+                id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                lender_id    INTEGER NOT NULL,
+                borrower_id  INTEGER NOT NULL,
+                chat_id      INTEGER NOT NULL,
+                amount       INTEGER NOT NULL,
+                loaned_at    TEXT    NOT NULL,
+                repaid_at    TEXT    DEFAULT NULL
+            )
+        """)
+
         await db.commit()
 
     # PostgreSQL: widen all Telegram ID columns from int32 (INTEGER) → int64 (BIGINT).
@@ -2598,6 +2611,182 @@ async def set_mora_balance(user_id: int, chat_id: int, new_balance: int):
             (user_id, chat_id, new_balance),
         )
         await db.commit()
+
+
+# ─── Переводы Моры ────────────────────────────────────────────────────────────
+
+async def transfer_mora(from_uid: int, to_uid: int, chat_id: int, amount: int) -> tuple[bool, int, int]:
+    """Атомарный перевод Моры. Возвращает (ok, from_new_bal, to_new_bal)."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT balance FROM user_mora WHERE user_id=? AND chat_id=?",
+            (from_uid, chat_id),
+        ) as c:
+            row = await c.fetchone()
+        from_bal = row["balance"] if row else 0
+        if from_bal < amount:
+            return False, from_bal, 0
+
+        new_from_bal = from_bal - amount
+        await db.execute(
+            "UPDATE user_mora SET balance=? WHERE user_id=? AND chat_id=?",
+            (new_from_bal, from_uid, chat_id),
+        )
+        await db.execute(
+            """INSERT INTO user_mora (user_id, chat_id, balance, total_earned) VALUES (?,?,?,?)
+               ON CONFLICT(user_id, chat_id) DO UPDATE SET
+                   balance = balance + ?,
+                   total_earned = total_earned + ?""",
+            (to_uid, chat_id, amount, amount, amount, amount),
+        )
+        await db.commit()
+
+        async with db.execute(
+            "SELECT balance FROM user_mora WHERE user_id=? AND chat_id=?", (to_uid, chat_id)
+        ) as c:
+            row = await c.fetchone()
+        to_new_bal = row["balance"] if row else 0
+        return True, new_from_bal, to_new_bal
+
+
+# ─── Долги (займы) ────────────────────────────────────────────────────────────
+
+async def create_loan(lender_id: int, borrower_id: int, chat_id: int, amount: int) -> tuple[bool, int, int]:
+    """Создаёт заём: списывает с кредитора, зачисляет заёмщику.
+    Возвращает (ok, lender_new_bal, loan_id)."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT balance FROM user_mora WHERE user_id=? AND chat_id=?",
+            (lender_id, chat_id),
+        ) as c:
+            row = await c.fetchone()
+        lender_bal = row["balance"] if row else 0
+        if lender_bal < amount:
+            return False, lender_bal, 0
+
+        now = datetime.utcnow().isoformat()
+        new_lender_bal = lender_bal - amount
+
+        await db.execute(
+            "UPDATE user_mora SET balance=? WHERE user_id=? AND chat_id=?",
+            (new_lender_bal, lender_id, chat_id),
+        )
+        await db.execute(
+            """INSERT INTO user_mora (user_id, chat_id, balance, total_earned) VALUES (?,?,?,?)
+               ON CONFLICT(user_id, chat_id) DO UPDATE SET
+                   balance = balance + ?,
+                   total_earned = total_earned + ?""",
+            (borrower_id, chat_id, amount, amount, amount, amount),
+        )
+        cursor = await db.execute(
+            "INSERT INTO mora_loans (lender_id, borrower_id, chat_id, amount, loaned_at) VALUES (?,?,?,?,?)",
+            (lender_id, borrower_id, chat_id, amount, now),
+        )
+        loan_id = cursor.lastrowid
+        await db.commit()
+        return True, new_lender_bal, loan_id
+
+
+async def get_active_loans_as_lender(user_id: int, chat_id: int) -> list:
+    """Займы, выданные пользователем (не погашенные)."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            """SELECT * FROM mora_loans
+               WHERE lender_id=? AND chat_id=? AND repaid_at IS NULL
+               ORDER BY loaned_at ASC""",
+            (user_id, chat_id),
+        ) as c:
+            return list(await c.fetchall())
+
+
+async def get_active_loans_as_borrower(user_id: int, chat_id: int) -> list:
+    """Займы, которые пользователь должен вернуть."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            """SELECT * FROM mora_loans
+               WHERE borrower_id=? AND chat_id=? AND repaid_at IS NULL
+               ORDER BY loaned_at ASC""",
+            (user_id, chat_id),
+        ) as c:
+            return list(await c.fetchall())
+
+
+async def repay_loan(loan_id: int, borrower_id: int, chat_id: int) -> tuple[bool, int]:
+    """Полностью погашает заём. Возвращает (ok, borrower_new_bal)."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT * FROM mora_loans WHERE id=? AND chat_id=? AND borrower_id=? AND repaid_at IS NULL",
+            (loan_id, chat_id, borrower_id),
+        ) as c:
+            loan = await c.fetchone()
+        if not loan:
+            return False, 0
+
+        amount = loan["amount"]
+        lender_id = loan["lender_id"]
+
+        async with db.execute(
+            "SELECT balance FROM user_mora WHERE user_id=? AND chat_id=?",
+            (borrower_id, chat_id),
+        ) as c:
+            row = await c.fetchone()
+        borrower_bal = row["balance"] if row else 0
+        if borrower_bal < amount:
+            return False, borrower_bal
+
+        now = datetime.utcnow().isoformat()
+        new_borrower_bal = borrower_bal - amount
+
+        await db.execute(
+            "UPDATE user_mora SET balance=? WHERE user_id=? AND chat_id=?",
+            (new_borrower_bal, borrower_id, chat_id),
+        )
+        await db.execute(
+            """INSERT INTO user_mora (user_id, chat_id, balance) VALUES (?,?,?)
+               ON CONFLICT(user_id, chat_id) DO UPDATE SET balance = balance + ?""",
+            (lender_id, chat_id, amount, amount),
+        )
+        await db.execute(
+            "UPDATE mora_loans SET repaid_at=? WHERE id=?",
+            (now, loan_id),
+        )
+        await db.commit()
+        return True, new_borrower_bal
+
+
+# ─── Смена вида питомца ───────────────────────────────────────────────────────
+
+async def change_pet_type(user_id: int, chat_id: int, new_type: str) -> bool:
+    """Меняет вид питомца (user + партнёр). Возвращает True если питомец найден."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT 1 FROM pets WHERE user_id=? AND chat_id=?",
+            (user_id, chat_id),
+        ) as c:
+            if not await c.fetchone():
+                return False
+        await db.execute(
+            "UPDATE pets SET pet_type=? WHERE user_id=? AND chat_id=?",
+            (new_type, user_id, chat_id),
+        )
+        async with db.execute(
+            "SELECT partner_id FROM marriages WHERE user_id=? AND chat_id=?",
+            (user_id, chat_id),
+        ) as c:
+            row = await c.fetchone()
+        if row:
+            await db.execute(
+                "UPDATE pets SET pet_type=? WHERE user_id=? AND chat_id=?",
+                (new_type, row[0], chat_id),
+            )
+        await db.commit()
+        return True
 
 
 async def reset_user_quest(user_id: int, chat_id: int, quest_date: str):

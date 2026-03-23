@@ -11,7 +11,7 @@ from database.db import get_locked_chats, init_db, set_chat_setting
 from handlers import (admin, auto_mod, bank, casino, dm_roles, economy,
                      expeditions, extras, fun, gacha, gifts, helper,
                      moderator, notes, owner, pets, quests, reputation,
-                     shop, tax_event, user, weather)
+                     shop, tax_event, user, wallet, weather)
 from middlewares.message_counter import AutoModMiddleware
 
 logging.basicConfig(level=logging.INFO)
@@ -66,6 +66,7 @@ async def main():
     dp.include_router(fun.router)          # весёлые команды
     dp.include_router(quests.router)       # ежедневные задания
     dp.include_router(pets.router)         # система питомцев
+    dp.include_router(wallet.router)       # переводы и займы Моры
     dp.include_router(economy.router)      # экономика (Мора, балансы)
     dp.include_router(casino.router)       # казино (монетка, кубик, лотерея)
     dp.include_router(expeditions.router)  # экспедиции питомцев
