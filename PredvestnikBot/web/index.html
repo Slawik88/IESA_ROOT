@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Предвестник — Mini App</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -65,8 +66,11 @@
   </div>
 
   <script>
-    const tg = window.Telegram?.WebApp;
-    const userId = tg?.initDataUnsafe?.user?.id;
+    function getTelegramUserId() {
+      const tg = window.Telegram?.WebApp;
+      if (!tg) return null;
+      return tg.initDataUnsafe?.user?.id || null;
+    }
 
     async function loadProfile(uid) {
       const res = await fetch(`/api/user_data?user_id=${uid}`);
@@ -119,9 +123,11 @@
     }
 
     async function init() {
+      const tg = window.Telegram?.WebApp;
+      const userId = getTelegramUserId();
       if (!userId) {
         document.getElementById('app').innerHTML =
-          '<div class="error">❌ Открой это приложение через бота в Telegram.</div>';
+          '<div class="error">❌ Telegram не передал данные Mini App.<br><small>Открой приложение через кнопку <b>Открыть App</b> в личном чате с ботом.</small></div>';
         return;
       }
       try {
@@ -136,6 +142,7 @@
     if (tg) {
       tg.ready();
       tg.expand();
+      tg.enableClosingConfirmation();
     }
     init();
   </script>
