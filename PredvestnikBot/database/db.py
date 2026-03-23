@@ -2363,7 +2363,7 @@ async def create_duel(chat_id: int, challenger_id: int, target_id: int, bet: int
         )
         row = await cursor.fetchone()
         await db.commit()
-        return row[0] if row else None
+        return row[0] if row else cursor.lastrowid
 
 
 async def get_duel(duel_id: int):
@@ -2688,7 +2688,7 @@ async def create_loan(lender_id: int, borrower_id: int, chat_id: int, amount: in
             (lender_id, borrower_id, chat_id, amount, now),
         )
         row = await cursor.fetchone()
-        loan_id = row[0] if row else None
+        loan_id = row[0] if row else cursor.lastrowid
         await db.commit()
         return True, new_lender_bal, loan_id
 
@@ -3584,7 +3584,6 @@ async def create_deposit(user_id: int, chat_id: int, amount: int,
     now = datetime.utcnow()
     matures = now + timedelta(days=days)
     async with aiosqlite.connect(DATABASE_PATH) as db:
-        # Используем RETURNING для совместимости с PostgreSQL
         cursor = await db.execute(
             """INSERT INTO bank_deposits (user_id, chat_id, amount, rate, created_at, matures_at)
                VALUES (?, ?, ?, ?, ?, ?) RETURNING id""",
@@ -3593,7 +3592,7 @@ async def create_deposit(user_id: int, chat_id: int, amount: int,
         )
         row = await cursor.fetchone()
         await db.commit()
-        return row[0] if row else None
+        return row[0] if row else cursor.lastrowid
 
 
 async def get_user_deposits(user_id: int, chat_id: int) -> list:
@@ -3639,7 +3638,7 @@ async def buy_shop_item(user_id: int, chat_id: int, item_type: str,
         )
         row = await cursor.fetchone()
         await db.commit()
-        return row[0] if row else None
+        return row[0] if row else cursor.lastrowid
 
 
 async def has_shop_item(user_id: int, chat_id: int, item_type: str,
@@ -3945,7 +3944,7 @@ async def create_chest_event(chat_id: int, duration_sec: int = 60) -> int:
         )
         row = await cur.fetchone()
         await db.commit()
-        return row[0] if row else None
+        return row[0] if row else cur.lastrowid
 
 
 async def get_chest_event_winners(event_id: int) -> list:
