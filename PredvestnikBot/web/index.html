@@ -69,7 +69,7 @@
     const userId = tg?.initDataUnsafe?.user?.id;
 
     async function loadProfile(uid) {
-      const res = await fetch(`/api/profile/${uid}`);
+      const res = await fetch(`/api/user_data?user_id=${uid}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       return res.json();
     }
@@ -93,6 +93,12 @@
           ).join('')}</ul>`
         : '<p style="color:#888;font-size:.85rem">Инвентарь пуст</p>';
 
+      const petHtml = p.pet
+        ? `<div class="card"><h2>${p.pet.emoji} Питомец: ${p.pet.name}</h2>
+            <div class="info-row"><span class="info-label">😴 Усталость</span><span class="info-value">${p.pet.fatigue}/100</span></div>
+           </div>`
+        : '';
+
       document.getElementById('app').innerHTML = `
         <div class="card">
           <h2>👤 ${p.name} ${vipBadge}</h2>
@@ -108,6 +114,7 @@
           <h2>🎒 Предметы</h2>
           ${itemsHtml}
         </div>
+        ${petHtml}
       `;
     }
 
