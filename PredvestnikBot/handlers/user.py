@@ -461,15 +461,15 @@ def _build_help_kb(page_id: str, uid: int, lvl: int) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
-def _top_keyboard(active: str) -> InlineKeyboardMarkup:
+def _top_keyboard(active: str, uid: int) -> InlineKeyboardMarkup:
     row1 = []
     for label, code in [("📅 День", "d"), ("📆 Неделя", "w"), ("🏆 Всё время", "a")]:
         text = f"· {label} ·" if code == active else label
-        row1.append(InlineKeyboardButton(text=text, callback_data=f"top:{code}"))
+        row1.append(InlineKeyboardButton(text=text, callback_data=f"top:{uid}:{code}"))
     row2 = []
     for label, code in [("◀ Вчера", "pd"), ("◀ Прошлая нед.", "pw")]:
         text = f"· {label} ·" if code == active else label
-        row2.append(InlineKeyboardButton(text=text, callback_data=f"top:{code}"))
+        row2.append(InlineKeyboardButton(text=text, callback_data=f"top:{uid}:{code}"))
     return InlineKeyboardMarkup(inline_keyboard=[row1, row2])
 
 
@@ -539,7 +539,19 @@ _TOP_MEDALS = ["🥇", "🥈", "🥉", "🎖", "🎗"]
 
 @router.callback_query(F.data.startswith("top:"))
 async def cb_top(callback: CallbackQuery):
-    period = callback.data.split(":")[1]
+    parts = callback.data.split(":")
+    if len(parts) < 3:
+        await callback.answer()
+        return
+    owner_id_str, period = parts[1], parts[2]
+    try:
+        owner_id = int(owner_id_str)
+    except ValueError:
+        await callback.answer()
+        return
+    if callback.from_user.id != owner_id:
+        await callback.answer("🚫 Это меню не твоё. Напиши «бот топ».", show_alert=True)
+        return
     chat_id = callback.message.chat.id
 
     if period == "close":
@@ -575,14 +587,13 @@ async def cb_top(callback: CallbackQuery):
         try:
             await callback.message.edit_text(
                 "📊 Статистика пока пуста.",
-                reply_markup=_top_keyboard(period),
+                reply_markup=_top_keyboard(period, owner_id),
             )
         except Exception:
             pass
         await callback.answer()
         return
 
-    lines: list[str] = [title, ""]
     for i, u in enumerate(top):
         place = _TOP_MEDALS[i] if i < 5 else f"{i + 1}."
         count = u[count_field] if count_field in u.keys() else 0
@@ -620,7 +631,7 @@ async def cb_top(callback: CallbackQuery):
         await callback.message.edit_text(
             text,
             parse_mode="HTML",
-            reply_markup=_top_keyboard(period),
+            reply_markup=_top_keyboard(period, owner_id),
         )
     except Exception:
         pass
@@ -632,6 +643,10 @@ async def cb_profile_nav(callback: CallbackQuery):
     parts = callback.data.split(":")
     action = parts[1]
     uid = int(parts[2])
+
+    if callback.from_user.id != uid:
+        await callback.answer("🚫 Это меню не твоё. Напиши «бот профиль».", show_alert=True)
+        return
 
     if action == "close":
         try:
@@ -1019,7 +1034,7 @@ async def cmd_me(message: Message, cmd_args: str):
             InlineKeyboardButton(text="🏅 Бейджи", callback_data=f"pn:badges:{uid}"),
         ],
         [
-            InlineKeyboardButton(text="🏆 Топ чата", callback_data="top:a"),
+            InlineKeyboardButton(text="🏆 Топ чата", callback_data=f"top:{uid}:a"),
             InlineKeyboardButton(text="⭐ Репутация", callback_data=f"pn:rep:{uid}"),
         ],
         [
@@ -1292,7 +1307,7 @@ async def cmd_top(message: Message, cmd_args: str):
                 break
             lines.append(new_line)
         text = "\n".join(lines)
-    await message.answer(text, parse_mode="HTML", reply_markup=_top_keyboard(period_code))
+    await message.answer(text, parse_mode="HTML", reply_markup=_top_keyboard(period_code, message.from_user.id))
 
 
 @router.message(BotCommand("правила", "rules"))

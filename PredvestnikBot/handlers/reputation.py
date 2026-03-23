@@ -66,11 +66,11 @@ async def handle_rep_plus(message: Message):
     await add_mora(message.from_user.id, message.chat.id, REP_MORA_REWARD_FROM)
 
     # Quest progress ("rep" type)
-    from database.db import get_todays_quest, quest_tick, mark_quest_rewarded, add_xp_in_chat
-    quest = get_todays_quest()
+    from database.db import get_user_quest, quest_tick, mark_quest_rewarded, add_xp_in_chat
+    from utils.helpers import bot_today
+    today = bot_today()
+    quest = await get_user_quest(message.from_user.id, message.chat.id, today)
     if quest["type"] == "rep":
-        from datetime import date
-        today = date.today().isoformat()
         new_p, goal, just_done = await quest_tick(
             message.from_user.id, message.chat.id, today, quest["type"], quest["goal"],
         )

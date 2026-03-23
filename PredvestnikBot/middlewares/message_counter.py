@@ -167,9 +167,10 @@ class AutoModMiddleware(BaseMiddleware):
 
             # Quest progress ("messages" type)
             from utils.helpers import bot_today as _quest_today
-            quest = get_todays_quest(_quest_today())
+            from database.db import get_user_quest as _get_uq
+            _today = _quest_today()
+            quest = await _get_uq(user.id, event.chat.id, _today)
             if quest["type"] == "messages":
-                _today = _quest_today()
                 new_p, goal, just_done = await quest_tick(
                     user.id, event.chat.id, _today, quest["type"], quest["goal"],
                 )

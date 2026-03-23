@@ -103,8 +103,26 @@ async def cmd_coin(message: Message, cmd_args: str):
         parse_mode="HTML",
     )
 
-
-# ─── бот кубик @user N ────────────────────────────────────────────────────────
+    # Quest tick: coinflip
+    try:
+        from utils.helpers import bot_today
+        from database.db import get_user_quest, quest_tick, mark_quest_rewarded, add_xp_in_chat
+        today = bot_today()
+        quest = await get_user_quest(uid, chat_id, today)
+        if quest["type"] == "coinflip":
+            new_p, goal, just_done = await quest_tick(uid, chat_id, today, quest["type"], quest["goal"])
+            if just_done:
+                _mr = quest.get("mora", 5)
+                await add_xp_in_chat(uid, chat_id, quest["xp"])
+                await add_mora(uid, chat_id, _mr)
+                await mark_quest_rewarded(uid, chat_id, today)
+                await message.answer(
+                    f"🎉 {user_mention(uid, name)} выполнил ежедневное задание! "
+                    f"<b>+{quest['xp']} XP</b>  <b>+{_mr} Моры</b> 🪙",
+                    parse_mode="HTML",
+                )
+    except Exception:
+        pass
 
 @router.message(BotCommand("кубик", "dice", "дуэль", "duel"))
 async def cmd_dice(message: Message, cmd_args: str, bot):

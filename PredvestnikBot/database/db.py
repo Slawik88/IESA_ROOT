@@ -1602,13 +1602,31 @@ async def reset_cleanup_counts(chat_id: int):
 # ─── Quests ───────────────────────────────────────────────────────────────────
 
 DAILY_QUESTS: list[dict] = [
-    {"type": "messages", "goal": 20, "xp": 50,  "desc": "✍️ Написать 20 сообщений в чате"},
-    {"type": "rep",      "goal": 3,  "xp": 75,  "desc": "⭐ Выдать репутацию 3 раза"},
-    {"type": "messages", "goal": 30, "xp": 70,  "desc": "✍️ Написать 30 сообщений в чате"},
-    {"type": "rep",      "goal": 2,  "xp": 60,  "desc": "⭐ Выдать репутацию 2 раза"},
-    {"type": "messages", "goal": 15, "xp": 40,  "desc": "✍️ Написать 15 сообщений в чате"},
-    {"type": "rep",      "goal": 5,  "xp": 100, "desc": "⭐ Выдать репутацию 5 раз"},
-    {"type": "messages", "goal": 50, "xp": 120, "desc": "✍️ Написать 50 сообщений в чате"},
+    # messages
+    {"type": "messages", "goal": 10, "xp": 30,  "mora": 3, "desc": "✍️ Написать 10 сообщений в чате"},
+    {"type": "messages", "goal": 20, "xp": 50,  "mora": 5, "desc": "✍️ Написать 20 сообщений в чате"},
+    {"type": "messages", "goal": 30, "xp": 70,  "mora": 7, "desc": "✍️ Написать 30 сообщений в чате"},
+    {"type": "messages", "goal": 50, "xp": 120, "mora": 12, "desc": "✍️ Написать 50 сообщений в чате"},
+    # rep
+    {"type": "rep",      "goal": 2,  "xp": 60,  "mora": 5, "desc": "⭐ Выдать репутацию 2 раза"},
+    {"type": "rep",      "goal": 3,  "xp": 75,  "mora": 7, "desc": "⭐ Выдать репутацию 3 раза"},
+    {"type": "rep",      "goal": 5,  "xp": 100, "mora": 10, "desc": "⭐ Выдать репутацию 5 раз"},
+    # coinflip
+    {"type": "coinflip", "goal": 2,  "xp": 40,  "mora": 4, "desc": "🪙 Сыграть в монетку 2 раза"},
+    {"type": "coinflip", "goal": 3,  "xp": 55,  "mora": 6, "desc": "🪙 Сыграть в монетку 3 раза"},
+    {"type": "coinflip", "goal": 5,  "xp": 80,  "mora": 8, "desc": "🪙 Сыграть в монетку 5 раз"},
+    # expedition
+    {"type": "expedition", "goal": 1, "xp": 50, "mora": 5, "desc": "🗺 Отправить питомца в экспедицию"},
+    {"type": "expedition", "goal": 2, "xp": 80, "mora": 8, "desc": "🗺 Отправить питомца в 2 экспедиции"},
+    # gacha
+    {"type": "gacha",   "goal": 1,  "xp": 45,  "mora": 4, "desc": "🎰 Крутануть гачу 1 раз"},
+    {"type": "gacha",   "goal": 3,  "xp": 90,  "mora": 9, "desc": "🎰 Крутануть гачу 3 раза"},
+    # gift
+    {"type": "gift",    "goal": 1,  "xp": 60,  "mora": 6, "desc": "🎁 Отправить подарок"},
+    {"type": "gift",    "goal": 2,  "xp": 90,  "mora": 9, "desc": "🎁 Отправить 2 подарка"},
+    # mixed variety
+    {"type": "messages", "goal": 40, "xp": 90,  "mora": 9, "desc": "✍️ Написать 40 сообщений в чате"},
+    {"type": "rep",      "goal": 1,  "xp": 35,  "mora": 3, "desc": "⭐ Выдать репутацию 1 раз"},
 ]
 
 
@@ -1620,6 +1638,45 @@ def get_todays_quest(today_str: str | None = None) -> dict:
     d = date.fromisoformat(today_str)
     idx = d.toordinal() % len(DAILY_QUESTS)
     return DAILY_QUESTS[idx]
+
+
+async def get_user_quest(user_id: int, chat_id: int, today_str: str) -> dict:
+    """Return the user's actual quest for today (may differ from default after reroll)."""
+    row = await get_quest_progress(user_id, chat_id, today_str)
+    if row and row["quest_type"]:
+        # Find matching quest in DAILY_QUESTS by type+goal
+        for q in DAILY_QUESTS:
+            if q["type"] == row["quest_type"] and q["goal"] == row["goal"]:
+                return q
+        # Fallback: build from stored data
+        return {"type": row["quest_type"], "goal": row["goal"],
+                "xp": 50, "mora": 5, "desc": f"Задание: {row['quest_type']}"}
+    return get_todays_quest(today_str)
+
+
+async def reroll_user_quest(user_id: int, chat_id: int, quest_date: str) -> dict:
+    """Delete old progress and assign a random DIFFERENT quest. Returns the new quest."""
+    import random
+    old_quest = await get_user_quest(user_id, chat_id, quest_date)
+    candidates = [q for q in DAILY_QUESTS
+                  if q["type"] != old_quest["type"] or q["goal"] != old_quest["goal"]]
+    if not candidates:
+        candidates = DAILY_QUESTS
+    new_quest = random.choice(candidates)
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        await db.execute(
+            "DELETE FROM user_quests WHERE user_id=? AND chat_id=? AND quest_date=?",
+            (user_id, chat_id, quest_date),
+        )
+        # Create fresh row with the new quest type/goal so it persists
+        await db.execute(
+            """INSERT INTO user_quests
+               (user_id, chat_id, quest_date, quest_type, goal, progress, completed, rewarded)
+               VALUES (?,?,?,?,?,0,0,0)""",
+            (user_id, chat_id, quest_date, new_quest["type"], new_quest["goal"]),
+        )
+        await db.commit()
+    return new_quest
 
 
 async def get_quest_progress(user_id: int, chat_id: int, quest_date: str):
