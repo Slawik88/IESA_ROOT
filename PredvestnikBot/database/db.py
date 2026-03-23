@@ -1283,7 +1283,7 @@ async def get_chat_settings(chat_id: int):
 # Допустимые колонки для защиты от SQL-инъекции
 _ALLOWED_CHAT_SETTING_KEYS = {
     "welcome_text", "farewell_text", "rules_text",
-    "antiflood_enabled", "antiflood_limit", "antiflood_action",
+    "antiflood_enabled", "antiflood_limit", "antiflood_action", "antiflood_window",
     "cleanup_threshold", "blacklist_enabled", "welcome_call",
     "social_tiktok", "social_youtube", "social_instagram",
     "cleanup_locked",
@@ -3580,14 +3580,16 @@ async def create_deposit(user_id: int, chat_id: int, amount: int,
     now = datetime.utcnow()
     matures = now + timedelta(days=days)
     async with aiosqlite.connect(DATABASE_PATH) as db:
+        # Используем RETURNING для совместимости с PostgreSQL
         cursor = await db.execute(
             """INSERT INTO bank_deposits (user_id, chat_id, amount, rate, created_at, matures_at)
-               VALUES (?, ?, ?, ?, ?, ?)""",
+               VALUES (?, ?, ?, ?, ?, ?) RETURNING id""",
             (user_id, chat_id, amount, rate, now.isoformat(timespec="seconds"),
              matures.isoformat(timespec="seconds")),
         )
         await db.commit()
-        return cursor.lastrowid
+        row = await cursor.fetchone()
+        return row[0] if row else None
 
 
 async def get_user_deposits(user_id: int, chat_id: int) -> list:
