@@ -1094,7 +1094,7 @@ async def cmd_leave_log(message: Message, cmd_args: str):
 
 # ─── ЧС по Telegram ID пользователя ──────────────────────────────────────────
 
-@router.message(BotCommand("юзбан", "usrban", "банюзер"), RankFilter("moderator"))
+@router.message(BotCommand("юзбан", "usrban", "банюзер"), RankFilter("co_owner"))
 async def cmd_user_ban(message: Message, cmd_args: str):
     """Добавить Telegram ID в чёрный список чата."""
     import html as _html
