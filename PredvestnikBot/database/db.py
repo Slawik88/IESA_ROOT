@@ -2361,8 +2361,8 @@ async def create_duel(chat_id: int, challenger_id: int, target_id: int, bet: int
                VALUES (?, ?, ?, ?, 'pending', ?, ?) RETURNING id""",
             (chat_id, challenger_id, target_id, bet, msg_id, now),
         )
-        await db.commit()
         row = await cursor.fetchone()
+        await db.commit()
         return row[0] if row else None
 
 
@@ -3591,8 +3591,8 @@ async def create_deposit(user_id: int, chat_id: int, amount: int,
             (user_id, chat_id, amount, rate, now.isoformat(timespec="seconds"),
              matures.isoformat(timespec="seconds")),
         )
-        await db.commit()
         row = await cursor.fetchone()
+        await db.commit()
         return row[0] if row else None
 
 
@@ -3943,8 +3943,8 @@ async def create_chest_event(chat_id: int, duration_sec: int = 60) -> int:
                VALUES (?, ?, ?) RETURNING id""",
             (chat_id, now.isoformat(), expires.isoformat()),
         )
-        await db.commit()
         row = await cur.fetchone()
+        await db.commit()
         return row[0] if row else None
 
 
