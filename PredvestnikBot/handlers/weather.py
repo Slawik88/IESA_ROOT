@@ -99,3 +99,4 @@ async def cmd_weather(message: Message, cmd_args: str):
         return
 
     await message.answer(text, parse_mode="HTML")
+
