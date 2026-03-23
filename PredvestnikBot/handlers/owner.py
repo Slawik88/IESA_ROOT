@@ -159,6 +159,36 @@ async def cmd_broadcast(message: Message, bot: Bot, cmd_args: str):
         )
         return
 
+    # Фильтрация «мёртвых душ»: исключаем тех, кто вышел или кикнут
+    import asyncio as _asyncio
+
+    _DEAD_STATUSES = {"left", "kicked", "banned"}
+
+    async def _is_active(uid: int) -> bool:
+        try:
+            cm = await bot.get_chat_member(message.chat.id, uid)
+            return cm.status not in _DEAD_STATUSES
+        except Exception:
+            return False  # нет в чате — пропускаем
+
+    # Проверяем батчами по 25, чтобы не превысить rate-limit
+    live_members = []
+    _batch_size = 25
+    for _i in range(0, len(members), _batch_size):
+        _batch = members[_i:_i + _batch_size]
+        _results = await _asyncio.gather(*[_is_active(u["user_id"]) for u in _batch])
+        live_members.extend(u for u, ok in zip(_batch, _results) if ok)
+    members = live_members
+
+    if not members:
+        label = _role_label(ranks_filter) if filter_set else "все участники"
+        await message.answer(
+            f"❌ Нет активных участников для тега ({label}).\n"
+            f"<i>Все записанные участники покинули чат.</i>",
+            parse_mode="HTML",
+        )
+        return
+
     label = _role_label(ranks_filter) if filter_set else "все участники"
     header_parts = [f"📢 <b>Внимание — {label}!</b>"]
     if text:

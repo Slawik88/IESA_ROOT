@@ -815,14 +815,14 @@ async def cb_profile_nav(callback: CallbackQuery):
             if key in owned:
                 label = f"· {info['name']} ·" if key == active else info["name"]
                 row.append(InlineKeyboardButton(text=label, callback_data=f"theme_set:{uid}:{key}"))
-                if len(row) == 2:
-                    btns.append(row)
-                    row = []
             elif info["source"] == "shop" and info["price"] > 0:
                 row.append(InlineKeyboardButton(text=f"🛒 {info['name']}", callback_data=f"theme_buy:{uid}:{key}"))
-                if len(row) == 2:
-                    btns.append(row)
-                    row = []
+            else:
+                # gacha / locked — show as unclickable info button
+                row.append(InlineKeyboardButton(text=f"🎲 {info['name']} 🔒", callback_data=f"theme_locked:{uid}:{key}"))
+            if len(row) == 2:
+                btns.append(row)
+                row = []
         if row:
             btns.append(row)
         btns.append([InlineKeyboardButton(text="🔙 Назад", callback_data=f"pn:me:{uid}")])
@@ -1106,16 +1106,17 @@ async def cmd_themes(message: Message, cmd_args: str):
             row.append(InlineKeyboardButton(
                 text=label, callback_data=f"theme_set:{uid}:{key}",
             ))
-            if len(row) == 2:
-                btns.append(row)
-                row = []
         elif info["source"] == "shop" and info["price"] > 0:
             row.append(InlineKeyboardButton(
                 text=f"🛒 {info['name']}", callback_data=f"theme_buy:{uid}:{key}",
             ))
-            if len(row) == 2:
-                btns.append(row)
-                row = []
+        else:
+            row.append(InlineKeyboardButton(
+                text=f"🎲 {info['name']} 🔒", callback_data=f"theme_locked:{uid}:{key}",
+            ))
+        if len(row) == 2:
+            btns.append(row)
+            row = []
     if row:
         btns.append(row)
     btns.append([InlineKeyboardButton(text="❌ Закрыть", callback_data=f"pn:close:{uid}")])
@@ -1169,6 +1170,20 @@ async def cb_theme_buy(callback: CallbackQuery):
         await callback.message.delete()
     except Exception:
         pass
+
+
+@router.callback_query(F.data.startswith("theme_locked:"))
+async def cb_theme_locked(callback: CallbackQuery):
+    parts = callback.data.split(":")
+    uid, key = int(parts[1]), parts[2]
+    from config import PROFILE_THEMES
+    info = PROFILE_THEMES.get(key, {})
+    tier = info.get("tier", "")
+    await callback.answer(
+        f"🎲 Тема «{info.get('name', key)}» ({tier}) выдаётся из гачи!\n"
+        f"Попробуй «бот молитва» — вдруг повезёт 🍀",
+        show_alert=True,
+    )
 
 
 @router.message(BotCommand("инфо", "info", "кто это"))
@@ -1331,7 +1346,14 @@ async def cmd_top(message: Message, cmd_args: str):
     for i, u in enumerate(top):
         place = _TOP_MEDALS[i] if i < 5 else f"{i + 1}."
         count = u[count_field] if count_field in u.keys() else 0
-        lines.append(f"{place} <b>{html.escape(u['full_name'])}</b> — {count} {count_label}")
+        uid_top = u["user_id"] if "user_id" in u.keys() else None
+        mora_row = await get_mora(uid_top, message.chat.id) if uid_top else None
+        vip_badge = " 💎" if (mora_row and mora_row["vip"]) else ""
+        frame_e = ""
+        if mora_row and mora_row["top_frame"]:
+            from handlers.economy import _frame_emoji
+            frame_e = _frame_emoji(mora_row["top_frame"]) + " "
+        lines.append(f"{frame_e}{place}{vip_badge} <b>{html.escape(u['full_name'])}</b> — {count} {count_label}")
 
     period_code = "d" if arg in ("день", "day", "д") else ("w" if arg in ("неделя", "week", "н") else "a")
     text = "\n".join(lines)
@@ -1340,7 +1362,14 @@ async def cmd_top(message: Message, cmd_args: str):
         for i, u in enumerate(top):
             place = _TOP_MEDALS[i] if i < 5 else f"{i + 1}."
             count = u[count_field] if count_field in u.keys() else 0
-            new_line = f"{place} <b>{html.escape(u['full_name'])}</b> — {count} {count_label}"
+            uid_top2 = u["user_id"] if "user_id" in u.keys() else None
+            mora_row2 = await get_mora(uid_top2, message.chat.id) if uid_top2 else None
+            vip_badge2 = " 💎" if (mora_row2 and mora_row2["vip"]) else ""
+            frame_e2 = ""
+            if mora_row2 and mora_row2["top_frame"]:
+                from handlers.economy import _frame_emoji
+                frame_e2 = _frame_emoji(mora_row2["top_frame"]) + " "
+            new_line = f"{frame_e2}{place}{vip_badge2} <b>{html.escape(u['full_name'])}</b> — {count} {count_label}"
             if len("\n".join(lines + [new_line])) > 3700:
                 lines.append(f"<i>...и ещё {len(top) - i} участников</i>")
                 break

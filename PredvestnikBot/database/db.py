@@ -3969,7 +3969,7 @@ async def get_chest_event_winners(event_id: int) -> list:
         async with db.execute(
             """
             SELECT c.position, c.reward, c.user_id,
-                   u.username
+                   u.username, u.full_name
             FROM chest_event_clicks c
             LEFT JOIN users u ON u.user_id = c.user_id
             WHERE c.event_id = ?
@@ -3977,7 +3977,7 @@ async def get_chest_event_winners(event_id: int) -> list:
             """,
             (event_id,),
         ) as cur:
-            return await cur.fetchall()
+            return [dict(r) for r in await cur.fetchall()]
 
 
 async def get_expired_unfinished_chest_events() -> list:
