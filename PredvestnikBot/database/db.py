@@ -2294,7 +2294,8 @@ async def get_mora_batch(user_ids: list[int], chat_id: int) -> dict[int, dict]:
             rows = await c.fetchall()
     return {row["user_id"]: dict(row) for row in rows}
 
-(user_id: int, chat_id: int, amount: int) -> int:
+
+async def add_mora(user_id: int, chat_id: int, amount: int) -> int:
     """Add (or subtract) Мора. Balance never goes below 0. Returns new balance."""
     async with aiosqlite.connect(DATABASE_PATH) as db:
         await db.execute(
