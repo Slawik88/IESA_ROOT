@@ -49,7 +49,7 @@ LOCK_LABELS = {
 
 # ─── Замки ────────────────────────────────────────────────────────────────────
 
-@router.message(BotCommand("замок", "lock", "заблокировать"), RankFilter("admin_junior"))
+@router.message(BotCommand("замок", "lock", "заблокировать"), RankFilter("co_owner"))
 async def cmd_lock(message: Message, cmd_args: str):
     lock_key = LOCK_TYPES.get(cmd_args.lower())
     if not lock_key:
@@ -66,7 +66,7 @@ async def cmd_lock(message: Message, cmd_args: str):
     await message.answer(f"🔒 {LOCK_LABELS[lock_key]} — заблокированы.")
 
 
-@router.message(BotCommand("открыть", "unlock", "разблокировать"), RankFilter("admin_junior"))
+@router.message(BotCommand("открыть", "unlock", "разблокировать"), RankFilter("co_owner"))
 async def cmd_unlock(message: Message, cmd_args: str):
     lock_key = LOCK_TYPES.get(cmd_args.lower())
     if not lock_key:
@@ -102,7 +102,7 @@ def _locks_text_and_kb(locks) -> tuple[str, InlineKeyboardMarkup]:
     return "\n".join(lines), InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
-@router.message(BotCommand("замки", "locks", "локи"), RankFilter("moderator"))
+@router.message(BotCommand("замки", "locks", "локи"), RankFilter("co_owner"))
 async def cmd_locks(message: Message, cmd_args: str):
     locks = await get_locks(message.chat.id)
     text, kb = _locks_text_and_kb(locks)
@@ -111,7 +111,7 @@ async def cmd_locks(message: Message, cmd_args: str):
 
 # ─── Чёрный список слов ───────────────────────────────────────────────────────
 
-@router.message(BotCommand("блок", "block", "чсдобавить"), RankFilter("moderator"))
+@router.message(BotCommand("блок", "block", "чсдобавить"), RankFilter("co_owner"))
 async def cmd_block(message: Message, cmd_args: str):
     word = cmd_args.lower().strip()
     if not word:
@@ -128,7 +128,7 @@ async def cmd_block(message: Message, cmd_args: str):
         await message.answer(f"⚠️ Слово <code>{word}</code> уже в чёрном списке.", parse_mode="HTML")
 
 
-@router.message(BotCommand("разблок", "unblock", "чсубрать"), RankFilter("moderator"))
+@router.message(BotCommand("разблок", "unblock", "чсубрать"), RankFilter("co_owner"))
 async def cmd_unblock(message: Message, cmd_args: str):
     word = cmd_args.lower().strip()
     if not word:
@@ -174,7 +174,7 @@ def _blacklist_text_and_kb(words, enabled: int) -> tuple[str, InlineKeyboardMark
     )
 
 
-@router.message(BotCommand("чёрныйсписок", "черныйсписок", "чслова", "чс", "blacklist", "blocklist"), RankFilter("moderator"))
+@router.message(BotCommand("чёрныйсписок", "черныйсписок", "чслова", "чс", "blacklist", "blocklist"), RankFilter("co_owner"))
 async def cmd_blacklist(message: Message, cmd_args: str):
     words = await get_blacklist(message.chat.id)
     settings = await get_chat_settings(message.chat.id)
@@ -183,7 +183,7 @@ async def cmd_blacklist(message: Message, cmd_args: str):
     await message.answer(text, parse_mode="HTML", reply_markup=kb)
 
 
-@router.message(BotCommand("фильтрмат", "матфильтр", "блоксловавкл"), RankFilter("admin_junior"))
+@router.message(BotCommand("фильтрмат", "матфильтр", "блоксловавкл"), RankFilter("co_owner"))
 async def cmd_blacklist_toggle(message: Message, cmd_args: str):
     """Включить / отключить фильтр слов из чёрного списка для этого чата."""
     arg = (cmd_args or "").strip().lower()

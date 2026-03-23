@@ -7,7 +7,7 @@ import html
 from config import REPORT_NOTIFY_RANK
 from database.db import (
     get_active_theme, get_daily_top, get_equipped_legendary, get_marriage, get_mora,
-    get_prev_weekly_top, get_staff_in_chat, get_top_by_messages_in_chat,
+    get_prev_weekly_top, get_received_gifts, get_staff_in_chat, get_top_by_messages_in_chat,
     get_top_by_xp_in_chat, get_user, get_user_badges, get_user_stats,
     get_user_themes, get_weekly_top, get_yesterday_top, set_bio_in_chat,
     get_xp_boost_active, add_user_theme, set_active_theme,
@@ -92,9 +92,9 @@ def _help_pages() -> dict[str, dict]:
                 "🎯 Таргет — @юзер или ответ на сообщение</i>"
             ),
             "buttons": [
-                [("🛍 Экономика", "economy"), ("🎲 Игры", "games")],
-                [("🐾 Питомцы", "pets"), ("� Отношения", "relations")],
-                [("👤 Профиль", "profile"), ("📋 Инфо", "info")],
+                [("👤 Профиль", "profile"), ("💍 Отношения", "relations")],
+                [("🐾 Питомцы", "pets"), ("🎲 Игры", "games")],
+                [("💰 Экономика", "economy"), ("📋 Инфо", "info")],
                 [("👮 Модерация", "moderation"), ("⚙️ Настройки", "settings")],
                 [("👑 Управление", "management")],
             ],
@@ -104,7 +104,7 @@ def _help_pages() -> dict[str, dict]:
         # ─── 🛍 Экономика ────────────────────────────────────────────────
         "economy": {
             "text": (
-                f"🛍 <b>Экономика (Мора)</b>\n"
+                f"💰 <b>Экономика (Мора)</b>\n"
                 f"━━━━━━━━━━━━━━━━━━━━\n\n"
                 f"💰 <b>Основные:</b>\n"
                 f"  <code>бот баланс</code> — Мора, VIP, рамка, буст\n"
@@ -150,9 +150,9 @@ def _help_pages() -> dict[str, dict]:
                 f"<code>бот экипировать #ID</code> — легендарка в профиль\n\n"
                 f"📊 <b>Шансы:</b>\n"
                 f"  ⚪ 70% Мусор → продаётся за 2–5 🪙\n"
-                f"  🟢 20% Обычный → зелья XP, мора\n"
-                f"  🟣 8% Редкий → бейджи, титулы\n"
-                f"  🟡 2% Легендарный → VIP-темы, эмодзи\n\n"
+                f"  🟢 20% Обычный → разовый бонус XP/мора\n"
+                f"  🟣  8% Редкий → косметика, бейджи\n"
+                f"  🟡  2% Легендарный → VIP-темы, экипировка\n\n"
                 f"✨ Гарант: лега каждые 50 круток!"
             ),
             "buttons": [[("🔙 Назад", "economy")]],
@@ -229,7 +229,9 @@ def _help_pages() -> dict[str, dict]:
                 "  <code>бот досье [@юзер]</code> — полное досье\n\n"
                 "✏️ <b>Кастомизация</b>\n"
                 "  <code>бот тема</code> — выбрать тему профиля\n"
-                "  <code>бот обо мне [текст]</code> — биография\n\n"
+                "  <code>бот обо мне [текст]</code> — биография\n"
+                "  <code>бот инвентарь</code> — предметы из гачи\n"
+                "  <code>бот экипировать #ID</code> — лего в профиль\n\n"
                 "⭐ <b>Репутация & XP</b>\n"
                 "  <code>+</code> ответом — +1 репутация\n"
                 "  <code>бот уровень</code> · <code>бот репутация</code>\n"
@@ -263,15 +265,16 @@ def _help_pages() -> dict[str, dict]:
         # ─── 👮 Модерация [👮 Модер+] ────────────────────────────────────
         "moderation": {
             "text": (
-                "👮 <b>Модерация</b>  <code>[👮 Модер+]</code>\n"
+                "👮 <b>Модерация</b>\n"
                 "━━━━━━━━━━━━━━━━━━━━\n\n"
                 "Выбери подраздел 👇"
             ),
             "buttons": [
-                [("⚠️ Мут & варны", "s_warns"), ("🔨 Бан & кик", "s_mod")],
+                [("⚠️ Мут & варны [⚡АдминМл+]", "s_warns")],
+                [("🔨 Бан & управление [👑СоВлад+]", "s_mod")],
                 [("🔙 Назад", "main")],
             ],
-            "min_rank": "moderator",
+            "min_rank": "admin_junior",
         },
         "s_warns": {
             "text": (
@@ -286,7 +289,7 @@ def _help_pages() -> dict[str, dict]:
                 f"  <code>бот размут [@юзер]</code>"
             ),
             "buttons": [[("🔙 Назад", "moderation")]],
-            "min_rank": "moderator",
+            "min_rank": "admin_junior",
         },
         "s_mod": {
             "text": (
@@ -302,13 +305,13 @@ def _help_pages() -> dict[str, dict]:
                 "  <code>бот юзбан · юзразбан · юзбаны</code>"
             ),
             "buttons": [[("🔙 Назад", "moderation")]],
-            "min_rank": "moderator",
+            "min_rank": "co_owner",
         },
 
         # ─── ⚙️ Настройки [⚡ Админ+] ────────────────────────────────────
         "settings": {
             "text": (
-                "⚙️ <b>Настройки чата</b>  <code>[⚡ Админ+]</code>\n"
+                "⚙️ <b>Настройки чата</b>  <code>[👑 СоВлад+]</code>\n"
                 "━━━━━━━━━━━━━━━━━━━━\n\n"
                 "Выбери подраздел 👇"
             ),
@@ -318,11 +321,11 @@ def _help_pages() -> dict[str, dict]:
                 [("📥 Импорт", "s_import"), ("🔗 Соцсети", "s_social")],
                 [("🔙 Назад", "main")],
             ],
-            "min_rank": "admin_junior",
+            "min_rank": "co_owner",
         },
         "s_staff": {
             "text": (
-                "👥 <b>Персонал & роли</b>  <code>[⚡ Админ+]</code>\n"
+                "👥 <b>Персонал & роли</b>  <code>[👑 СоВлад+]</code>\n"
                 "━━━━━━━━━━━━━━━━━━━━\n\n"
                 "🏅 <code>бот ранг [ранг] [@юзер]</code>\n"
                 "  <i>user · moderator · admin_junior · admin_senior · co_owner · owner</i>\n"
@@ -330,11 +333,11 @@ def _help_pages() -> dict[str, dict]:
                 "🎭 <code>бот выдать роль · снять роль · роли · мои роли</code>"
             ),
             "buttons": [[("🔙 Назад", "settings")]],
-            "min_rank": "admin_junior",
+            "min_rank": "co_owner",
         },
         "s_rules": {
             "text": (
-                "💬 <b>Правила & приветствие</b>  <code>[⚡ Админ+]</code>\n"
+                "💬 <b>Правила & приветствие</b>  <code>[⚡ АдминСт+]</code>\n"
                 "━━━━━━━━━━━━━━━━━━━━\n\n"
                 "📜 <code>бот правила установить [текст]</code>\n\n"
                 "👋 <code>бот приветствие [текст]</code>\n"
@@ -343,21 +346,21 @@ def _help_pages() -> dict[str, dict]:
                 "<code>бот тег входа [вкл/выкл]</code>"
             ),
             "buttons": [[("🔙 Назад", "settings")]],
-            "min_rank": "admin_junior",
+            "min_rank": "admin_senior",
         },
         "s_locks": {
             "text": (
-                "🔒 <b>Замки контента</b>  <code>[⚡ Админ+]</code>\n"
+                "🔒 <b>Замки контента</b>  <code>[👑 СоВлад+]</code>\n"
                 "━━━━━━━━━━━━━━━━━━━━\n\n"
                 "<code>бот замок [тип]</code> · <code>бот открыть [тип]</code> · <code>бот замки</code>\n\n"
                 "<i>Типы: links · stickers · gifs · forwards · voice · video · photo · audio</i>"
             ),
             "buttons": [[("🔙 Назад", "settings")]],
-            "min_rank": "admin_junior",
+            "min_rank": "co_owner",
         },
         "s_flood": {
             "text": (
-                "🛡 <b>Антифлуд & чистка</b>  <code>[⚡ Админ+]</code>\n"
+                "🛡 <b>Антифлуд & чистка</b>  <code>[👑 СоВлад+]</code>\n"
                 "━━━━━━━━━━━━━━━━━━━━\n\n"
                 "🌊 <code>бот антифлуд N [Xс]</code> · <code>бот антифлуд выкл</code>\n"
                 "<code>бот фильтрмат [вкл/выкл]</code>\n\n"
@@ -367,29 +370,29 @@ def _help_pages() -> dict[str, dict]:
                 "🔕 <code>бот неактив</code>"
             ),
             "buttons": [[("🔙 Назад", "settings")]],
-            "min_rank": "admin_junior",
+            "min_rank": "co_owner",
         },
         "s_import": {
             "text": (
-                "📥 <b>Импорт данных</b>  <code>[⚡ Админ+]</code>\n"
+                "📥 <b>Импорт данных</b>  <code>[🛠 Дев]</code>\n"
                 "━━━━━━━━━━━━━━━━━━━━\n\n"
                 "💬 <code>бот загрузить данные</code> — JSON-импорт сообщений\n"
                 "💍 <code>бот загрузить браки</code> — JSON-импорт пар\n\n"
                 "<i>Данные привяжутся при первом сообщении юзера.</i>"
             ),
             "buttons": [[("🔙 Назад", "settings")]],
-            "min_rank": "admin_junior",
+            "min_rank": "developer",
         },
         "s_social": {
             "text": (
-                "🔗 <b>Соцсети</b>  <code>[⚡ Админ+]</code>\n"
+                "🔗 <b>Соцсети</b>  <code>[👑 СоВлад+]</code>\n"
                 "━━━━━━━━━━━━━━━━━━━━\n\n"
                 "<code>бот соцсети tiktok|youtube|instagram [URL]</code>\n"
                 "<code>бот наши ссылки</code>\n"
                 "<code>бот история чата</code>"
             ),
             "buttons": [[("🔙 Назад", "settings")]],
-            "min_rank": "admin_junior",
+            "min_rank": "co_owner",
         },
 
         # ─── 👑 Управление [👑 Влад+ / 🛠 Дев] ──────────────────────────
@@ -747,6 +750,10 @@ async def cb_profile_nav(callback: CallbackQuery):
             f"💬 Сообщений: {msgs}",
             f"🪙 Мора: <b>{mora_bal}</b> 🪙",
         ]
+        if theme_key != "default":
+            from config import COSMETIC_TIER_LABELS
+            tier_label = COSMETIC_TIER_LABELS.get(theme.get("tier", "common"), "")
+            lines.append(f"🎨 Тема: {theme['name']} [{tier_label}]")
         if equipped:
             lines.append(f"⚔️ Экипировка: {equipped['item_name']}")
         if frame_key:
@@ -755,6 +762,18 @@ async def cb_profile_nav(callback: CallbackQuery):
                 lines.append(f"🖼 Рамка: {_frame_emoji(frame_key)} {frame_label}")
         if bio:
             lines.append(f"\n📝 <i>{html.escape(bio)}</i>")
+        marriage = await get_marriage(uid, chat_id)
+        if marriage:
+            partner = await get_user(marriage["partner_id"])
+            p_name = html.escape(partner["full_name"]) if partner else "?"
+            lines.append(f"💍 Партнёр: {user_mention(marriage['partner_id'], p_name)}")
+            received = await get_received_gifts(uid, chat_id)
+            if received:
+                gifts_str = ", ".join(
+                    f"{g['gift_name']}×{g['cnt']}" if g["cnt"] > 1 else g["gift_name"]
+                    for g in received
+                )
+                lines.append(f"🎁 Подарки: {gifts_str}")
         if theme["footer"]:
             lines.append(f"\n{theme['footer']}")
 
@@ -777,7 +796,7 @@ async def cb_profile_nav(callback: CallbackQuery):
             pass
 
     elif action == "themes":
-        from config import PROFILE_THEMES
+        from config import PROFILE_THEMES, COSMETIC_TIER_LABELS
         chat_id = callback.message.chat.id
         if callback.from_user.id != uid:
             await callback.answer("🚫 Не твоё меню.", show_alert=True)
@@ -791,7 +810,8 @@ async def cb_profile_nav(callback: CallbackQuery):
         for key, info in PROFILE_THEMES.items():
             mark = " ✅" if key == active else (" 🔓" if key in owned else " 🔒")
             src = {"default": "бесплатно", "shop": f"{info['price']} 🪙", "gacha": "гача"}.get(info["source"], "")
-            lines.append(f"{info['name']}{mark} — <i>{src}</i>")
+            tier = COSMETIC_TIER_LABELS.get(info.get("tier", "common"), "")
+            lines.append(f"{info['name']}{mark} [{tier}] — <i>{src}</i>")
             if key in owned:
                 label = f"· {info['name']} ·" if key == active else info["name"]
                 row.append(InlineKeyboardButton(text=label, callback_data=f"theme_set:{uid}:{key}"))
@@ -1004,6 +1024,10 @@ async def cmd_me(message: Message, cmd_args: str):
     ]
     if is_group:
         lines.append(f"🪙 Мора: <b>{mora_bal}</b> 🪙")
+    if theme_key != "default":
+        from config import COSMETIC_TIER_LABELS
+        tier_label = COSMETIC_TIER_LABELS.get(theme.get("tier", "common"), "")
+        lines.append(f"🎨 Тема: {theme['name']} [{tier_label}]")
     if equipped:
         lines.append(f"⚔️ Экипировка: {equipped['item_name']}")
     if frame_key:
@@ -1028,6 +1052,13 @@ async def cmd_me(message: Message, cmd_args: str):
             partner = await get_user(marriage["partner_id"])
             partner_name = html.escape(partner["full_name"]) if partner else "?"
             lines.append(f"💍 Партнёр: {user_mention(marriage['partner_id'], partner_name)}")
+            received = await get_received_gifts(uid, chat_id)
+            if received:
+                gifts_str = ", ".join(
+                    f"{g['gift_name']}×{g['cnt']}" if g["cnt"] > 1 else g["gift_name"]
+                    for g in received
+                )
+                lines.append(f"🎁 Подарки: {gifts_str}")
 
     if theme["footer"]:
         lines.append(f"\n{theme['footer']}")
@@ -1051,7 +1082,7 @@ async def cmd_me(message: Message, cmd_args: str):
 @router.message(BotCommand("тема", "темы", "theme"))
 async def cmd_themes(message: Message, cmd_args: str):
     """Показать доступные темы профиля как Inline-меню."""
-    from config import PROFILE_THEMES
+    from config import PROFILE_THEMES, COSMETIC_TIER_LABELS
     uid = message.from_user.id
     chat_id = message.chat.id
     if message.chat.type not in ("group", "supergroup"):
@@ -1068,7 +1099,8 @@ async def cmd_themes(message: Message, cmd_args: str):
     for key, info in PROFILE_THEMES.items():
         mark = " ✅" if key == active else (" 🔓" if key in owned else " 🔒")
         src = {"default": "бесплатно", "shop": f"{info['price']} 🪙", "gacha": "гача"}.get(info["source"], "")
-        lines.append(f"{info['name']}{mark} — <i>{src}</i>")
+        tier = COSMETIC_TIER_LABELS.get(info.get("tier", "common"), "")
+        lines.append(f"{info['name']}{mark} [{tier}] — <i>{src}</i>")
         if key in owned:
             label = f"· {info['name']} ·" if key == active else info["name"]
             row.append(InlineKeyboardButton(
