@@ -20,7 +20,7 @@ def _protected(rank: str) -> bool:
     return rank_level(rank) >= rank_level("moderator")
 
 
-@router.message(BotCommand("варн", "warn", "предупредить", "предупреждение"), RankFilter("moderator"))
+@router.message(BotCommand("варн", "warn", "предупредить", "предупреждение"), RankFilter("admin_junior"))
 async def cmd_warn(message: Message, bot: Bot, cmd_args: str):
     global _bot_id
     uid, name, reason = await resolve_target(message, cmd_args)
@@ -80,7 +80,7 @@ async def cmd_warn(message: Message, bot: Bot, cmd_args: str):
         )
 
 
-@router.message(BotCommand("мут", "mute", "замутить", "заглушить"), RankFilter("moderator"))
+@router.message(BotCommand("мут", "mute", "замутить", "заглушить"), RankFilter("admin_junior"))
 async def cmd_mute(message: Message, bot: Bot, cmd_args: str):
     uid, name, rest = await resolve_target(message, cmd_args)
     if uid is None:
