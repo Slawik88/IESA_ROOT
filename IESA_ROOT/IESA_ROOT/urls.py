@@ -15,6 +15,9 @@ from .miniapp_views import (
     miniapp_leaderboard, miniapp_checkin, miniapp_boss_damage,
     miniapp_marriage, miniapp_marriage_propose, miniapp_bonds, miniapp_equip,
     miniapp_dev_stats, miniapp_dev_setbalance,
+    miniapp_dev_add_mora, miniapp_dev_add_xp, miniapp_dev_give_item, miniapp_dev_users,
+    miniapp_family_deposit, miniapp_family_withdraw,
+    miniapp_inventory,
 )
 
 # Переопределить стандартный админ на кастомный
@@ -64,6 +67,13 @@ urlpatterns = [
     path('api/equip', miniapp_equip, name='miniapp_equip'),
     path('api/dev/stats', miniapp_dev_stats, name='miniapp_dev_stats'),
     path('api/dev/setbalance', miniapp_dev_setbalance, name='miniapp_dev_setbalance'),
+    path('api/dev/add_mora', miniapp_dev_add_mora, name='miniapp_dev_add_mora'),
+    path('api/dev/add_xp', miniapp_dev_add_xp, name='miniapp_dev_add_xp'),
+    path('api/dev/give_item', miniapp_dev_give_item, name='miniapp_dev_give_item'),
+    path('api/dev/users', miniapp_dev_users, name='miniapp_dev_users'),
+    path('api/family/deposit', miniapp_family_deposit, name='miniapp_family_deposit'),
+    path('api/family/withdraw', miniapp_family_withdraw, name='miniapp_family_withdraw'),
+    path('api/inventory', miniapp_inventory, name='miniapp_inventory'),
     # ───────────────────────────────────────────────────────────────────────────
     path('protected/<path:file_path>', serve_protected_media, name='serve_protected_media'),
     
