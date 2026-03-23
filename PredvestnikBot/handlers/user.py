@@ -16,6 +16,9 @@ from filters.bot_command import BotCommand
 from utils.helpers import resolve_target, user_mention
 from utils.ranks import rank_level, rank_name
 
+# Module-level constant to avoid repeated local imports
+from config import MINI_APP_URL as _MINI_APP_URL
+
 router = Router()
 
 def _fmt_dt(iso_str: str | None) -> str:
@@ -1146,6 +1149,12 @@ async def cmd_me(message: Message, cmd_args: str):
         [
             InlineKeyboardButton(text="🏆 Топ чата", callback_data=f"top:{uid}:a"),
             InlineKeyboardButton(text="⭐ Репутация", callback_data=f"pn:rep:{uid}"),
+        ],
+        [
+            InlineKeyboardButton(
+                text="📱 Mini App",
+                web_app=WebAppInfo(url=_MINI_APP_URL),
+            ),
         ],
         [
             InlineKeyboardButton(text="❌ Закрыть", callback_data=f"pn:close:{uid}"),

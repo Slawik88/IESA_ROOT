@@ -13,6 +13,7 @@ from aiogram.types import (
     InlineKeyboardButton,
     InlineKeyboardMarkup,
     Message,
+    WebAppInfo,
 )
 
 from config import (
@@ -22,6 +23,7 @@ from config import (
     GACHA_SINGLE_PRICE,
     LOTTERY_TICKET_PRICE,
     MARRIAGE_GIFTS,
+    MINI_APP_URL,
     PET_ADOPT_PRICE,
     PET_MORA_SKIP_PRICE,
     PET_RENAME_PRICE,
@@ -261,10 +263,18 @@ async def cmd_shop(message: Message, cmd_args: str):
         section = arg_map[arg]
 
     owned = await _get_owned_keys(uid, chat_id) if section == "cosmetics" else None
+    kb = _section_keyboard(uid, section, owned)
+    # Append Mini App quick-access button
+    kb.inline_keyboard.append([
+        InlineKeyboardButton(
+            text="📱 Открыть в Mini App",
+            web_app=WebAppInfo(url=MINI_APP_URL),
+        )
+    ])
     await message.answer(
         _shop_text(section, bal),
         parse_mode="HTML",
-        reply_markup=_section_keyboard(uid, section, owned),
+        reply_markup=kb,
     )
 
 
