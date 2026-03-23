@@ -20,6 +20,7 @@ from aiogram.types import (
 
 from database.db import (
     add_mora,
+    add_to_treasury,
     buy_lottery_ticket,
     create_duel,
     deduct_mora,
@@ -93,6 +94,9 @@ async def cmd_coin(message: Message, cmd_args: str):
         new_bal = bal - bet
         result_emoji = "⚫"
         result_text  = f"<b>Решка!</b> Ты потерял <b>-{bet} 🪙</b>. 😢"
+        # 1% налог с потерь в казну чата
+        tax = max(1, int(bet * 0.01))
+        await add_to_treasury(chat_id, tax)
 
     name = html.escape(message.from_user.full_name)
     await message.answer(
@@ -286,6 +290,9 @@ async def cb_duel_accept(callback: CallbackQuery):
         loser_roll  = challenger_roll
 
     new_bal = await add_mora(winner_id, chat_id, total_pot)
+    # 1% налог с проигрыша в казну чата
+    duel_tax = max(1, int(bet * 0.01))
+    await add_to_treasury(chat_id, duel_tax)
 
     result_text = (
         f"🎲 <b>Дуэль завершена!</b>\n\n"

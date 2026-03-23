@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Предвестник — Mini App</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', Tahoma, sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+      color: #e0e0e0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 24px 16px;
+    }
+    header {
+      font-size: 1.6rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      color: #ffd700;
+      text-shadow: 0 0 12px rgba(255,215,0,0.5);
+      margin-bottom: 8px;
+    }
+    .subtitle { font-size: 0.85rem; color: #aaa; margin-bottom: 32px; }
+    .card {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,215,0,0.2);
+      border-radius: 18px;
+      padding: 24px;
+      width: 100%;
+      max-width: 440px;
+      margin-bottom: 16px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+    }
+    .card h2 { font-size: 1rem; color: #ffd700; margin-bottom: 16px; }
+    .info-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      font-size: 0.9rem;
+    }
+    .info-row:last-child { border-bottom: none; }
+    .info-label { color: #9a9aaa; }
+    .info-value { font-weight: 600; color: #fff; }
+    .badge { background: rgba(255,215,0,0.15); border-radius: 8px; padding: 2px 8px; font-size: 0.78rem; color: #ffd700; }
+    .loading { text-align: center; color: #888; padding: 40px; font-size: 0.9rem; }
+    .error { color: #ff6b6b; text-align: center; padding: 20px; }
+    .bonds-list { list-style: none; padding: 0; }
+    .bonds-list li { padding: 6px 0; font-size: 0.88rem; color: #ccc; }
+    .items-list { list-style: none; padding: 0; }
+    .items-list li { padding: 4px 0; font-size: 0.85rem; }
+  </style>
+</head>
+<body>
+  <header>⚜ Предвестник</header>
+  <p class="subtitle">Твой игровой профиль</p>
+
+  <div id="app">
+    <div class="loading">⏳ Загружаем данные профиля…</div>
+  </div>
+
+  <script>
+    const tg = window.Telegram?.WebApp;
+    const userId = tg?.initDataUnsafe?.user?.id;
+
+    async function loadProfile(uid) {
+      const res = await fetch(`/api/profile/${uid}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.json();
+    }
+
+    function renderProfile(p) {
+      const vipBadge = p.vip ? '<span class="badge">💎 VIP</span>' : '';
+      const frameLine = p.active_frame && p.active_frame !== 'default'
+        ? `<div class="info-row"><span class="info-label">🖼 Рамка</span><span class="info-value">${p.active_frame}</span></div>` : '';
+      const themeLine = p.active_theme && p.active_theme !== 'default'
+        ? `<div class="info-row"><span class="info-label">🎨 Тема</span><span class="info-value">${p.active_theme}</span></div>` : '';
+
+      const bondsHtml = p.bonds && p.bonds.length
+        ? `<ul class="bonds-list">${p.bonds.map(b =>
+            `<li>📜 ${b.name}: <b>${b.amount} шт.</b> (~${b.value} 🪙)</li>`
+          ).join('')}</ul>`
+        : '<p style="color:#888;font-size:.85rem">Облигаций нет</p>';
+
+      const itemsHtml = p.items && p.items.length
+        ? `<ul class="items-list">${p.items.slice(0,10).map(i =>
+            `<li>${i}</li>`
+          ).join('')}</ul>`
+        : '<p style="color:#888;font-size:.85rem">Инвентарь пуст</p>';
+
+      document.getElementById('app').innerHTML = `
+        <div class="card">
+          <h2>👤 ${p.name} ${vipBadge}</h2>
+          <div class="info-row"><span class="info-label">💰 Баланс</span><span class="info-value">${p.balance} 🪙</span></div>
+          <div class="info-row"><span class="info-label">⭐ XP</span><span class="info-value">${p.xp}</span></div>
+          ${frameLine}${themeLine}
+        </div>
+        <div class="card">
+          <h2>📊 Облигации</h2>
+          ${bondsHtml}
+        </div>
+        <div class="card">
+          <h2>🎒 Предметы</h2>
+          ${itemsHtml}
+        </div>
+      `;
+    }
+
+    async function init() {
+      if (!userId) {
+        document.getElementById('app').innerHTML =
+          '<div class="error">❌ Открой это приложение через бота в Telegram.</div>';
+        return;
+      }
+      try {
+        const profile = await loadProfile(userId);
+        renderProfile(profile);
+      } catch (e) {
+        document.getElementById('app').innerHTML =
+          `<div class="error">❌ Не удалось загрузить профиль.<br><small>${e.message}</small></div>`;
+      }
+    }
+
+    if (tg) {
+      tg.ready();
+      tg.expand();
+    }
+    init();
+  </script>
+</body>
+</html>

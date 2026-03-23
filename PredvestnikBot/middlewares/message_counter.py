@@ -169,6 +169,15 @@ class AutoModMiddleware(BaseMiddleware):
                 if _mora_rng.random() < _chance:
                     _mora_cooldown[_mora_cd_key] = _now_mora
                     _mora_drop = _mora_rng.randint(_min_drop, _max_drop)
+                    # Ночная смена 00:00–06:00 (Europe/Zurich) → x2 Мора
+                    try:
+                        import zoneinfo as _zi
+                        _tz_zurich = _zi.ZoneInfo("Europe/Zurich")
+                        _now_tz = datetime.now(_tz_zurich)
+                        if 0 <= _now_tz.hour < 6:
+                            _mora_drop *= 2
+                    except Exception:
+                        pass
                     await add_mora(user.id, event.chat.id, _mora_drop)
 
             # Quest progress ("messages" type)

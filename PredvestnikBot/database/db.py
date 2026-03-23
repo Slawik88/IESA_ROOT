@@ -706,6 +706,21 @@ async def init_db():
             )
         """)
 
+        # ─── Казна чата ───────────────────────────────────────────────────
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS chat_treasury (
+                chat_id   INTEGER PRIMARY KEY,
+                balance   INTEGER DEFAULT 0
+            )
+        """)
+
+        # ─── Миграция: усталость питомца ──────────────────────────────────
+        for col_def in ["fatigue INTEGER DEFAULT 0"]:
+            try:
+                await db.execute(f"ALTER TABLE pets ADD COLUMN {col_def}")
+            except Exception:
+                pass
+
         await db.commit()
 
     # PostgreSQL: widen all Telegram ID columns from int32 (INTEGER) → int64 (BIGINT).
@@ -4242,4 +4257,113 @@ async def sell_bonds(user_id: int, chat_id: int, bond_key: str, amount: int) -> 
             )
         await db.commit()
     return (True, amount)
+
+
+# ─── Казна чата ──────────────────────────────────────────────────────────────
+
+async def get_treasury(chat_id: int) -> int:
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        async with db.execute(
+            "SELECT balance FROM chat_treasury WHERE chat_id=?", (chat_id,)
+        ) as c:
+            row = await c.fetchone()
+    return row[0] if row else 0
+
+
+async def add_to_treasury(chat_id: int, amount: int) -> int:
+    """Добавляет amount в казну чата. Возвращает новый баланс."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        await db.execute(
+            "INSERT INTO chat_treasury (chat_id, balance) VALUES (?,?)"
+            " ON CONFLICT(chat_id) DO UPDATE SET balance = balance + excluded.balance",
+            (chat_id, amount),
+        )
+        await db.commit()
+        async with db.execute(
+            "SELECT balance FROM chat_treasury WHERE chat_id=?", (chat_id,)
+        ) as c:
+            row = await c.fetchone()
+    return row[0] if row else amount
+
+
+async def reset_treasury(chat_id: int):
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        await db.execute(
+            "UPDATE chat_treasury SET balance = 0 WHERE chat_id=?", (chat_id,)
+        )
+        await db.commit()
+
+
+# ─── Усталость питомца ───────────────────────────────────────────────────────
+
+async def get_pet_fatigue(user_id: int, chat_id: int) -> int:
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        async with db.execute(
+            "SELECT fatigue FROM pets WHERE user_id=? AND chat_id=?",
+            (user_id, chat_id),
+        ) as c:
+            row = await c.fetchone()
+    return row[0] if row else 0
+
+
+async def add_pet_fatigue(user_id: int, chat_id: int, amount: int):
+    """Увеличивает усталость питомца (max 100)."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        await db.execute(
+            "UPDATE pets SET fatigue = MIN(100, COALESCE(fatigue,0) + ?) WHERE user_id=? AND chat_id=?",
+            (amount, user_id, chat_id),
+        )
+        await db.commit()
+
+
+async def reduce_pet_fatigue(user_id: int, chat_id: int, amount: int):
+    """Уменьшает усталость питомца (min 0)."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        await db.execute(
+            "UPDATE pets SET fatigue = MAX(0, COALESCE(fatigue,0) - ?) WHERE user_id=? AND chat_id=?",
+            (amount, user_id, chat_id),
+        )
+        await db.commit()
+
+
+# ─── Топ-10 по недельной активности (для дивидендов) ─────────────────────────
+
+async def get_weekly_top_users(chat_id: int, limit: int = 10) -> list[int]:
+    """Возвращает list user_id по убыванию сообщений за текущую неделю."""
+    from datetime import date
+    week_start = date.today().strftime("%Y-%m-") + str(
+        date.today().day - date.today().weekday()
+    ).zfill(2)
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        async with db.execute(
+            """SELECT user_id, SUM(message_count) as cnt
+               FROM user_stats
+               WHERE chat_id=?
+               GROUP BY user_id
+               ORDER BY cnt DESC LIMIT ?""",
+            (chat_id, limit),
+        ) as c:
+            rows = await c.fetchall()
+    return [r[0] for r in rows]
+
+
+async def get_vip_users(chat_id: int) -> list[int]:
+    """Возвращает list user_id у кого vip=1 в данном чате."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        async with db.execute(
+            "SELECT user_id FROM user_mora WHERE chat_id=? AND vip=1",
+            (chat_id,),
+        ) as c:
+            rows = await c.fetchall()
+    return [r[0] for r in rows]
+
+
+async def get_all_active_chats() -> list[int]:
+    """Все чаты где бот активен (is_active=1)."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        async with db.execute(
+            "SELECT chat_id FROM chats WHERE is_active=1"
+        ) as c:
+            rows = await c.fetchall()
+    return [r[0] for r in rows]
 
