@@ -16,8 +16,9 @@ from filters.bot_command import BotCommand
 from utils.helpers import resolve_target, user_mention
 from utils.ranks import rank_level, rank_name
 
-# Module-level constant to avoid repeated local imports
+# Module-level constants to avoid repeated local imports
 from config import MINI_APP_URL as _MINI_APP_URL
+from config import MINI_APP_TG_URL as _MINI_APP_TG_URL
 
 router = Router()
 
@@ -1141,7 +1142,8 @@ async def cmd_me(message: Message, cmd_args: str):
     if theme["footer"]:
         lines.append(f"\n{theme['footer']}")
 
-    # web_app buttons only work in private chats; groups get a plain URL link
+    # web_app= only works in private chats.
+    # In groups, use t.me/Bot/AppName link — Telegram opens it as Mini App with initData.
     if message.chat.type == "private":
         miniapp_btn = [InlineKeyboardButton(
             text="📱 Mini App",
@@ -1150,7 +1152,7 @@ async def cmd_me(message: Message, cmd_args: str):
     else:
         miniapp_btn = [InlineKeyboardButton(
             text="📱 Mini App",
-            url=_MINI_APP_URL,
+            url=_MINI_APP_TG_URL,
         )]
     me_kb = InlineKeyboardMarkup(inline_keyboard=[
         [

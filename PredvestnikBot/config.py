@@ -39,10 +39,15 @@ if DATABASE_PATH == "bot.db":
 # Telegram ID разработчика (автоматически получает ранг developer)
 DEVELOPER_ID = 1460945748
 
-# URL Mini App для Telegram Web App кнопки и команд открытия.
+# URL Mini App — прямая ссылка на DO (используется в web_app= кнопках в ЛС).
 MINI_APP_URL: str = os.getenv(
     "MINI_APP_URL",
     "https://iesaroot-app-8kuyb.ondigitalocean.app/app",
+)
+# t.me ссылка на Mini App (для кнопок в группах — Telegram открывает как WebApp с initData).
+MINI_APP_TG_URL: str = os.getenv(
+    "MINI_APP_TG_URL",
+    "https://t.me/IIIPredvestnikIIIBot/Predvestnik",
 )
 
 # Запасные значения для команды «бот автор» (если Telegram API недоступен).
