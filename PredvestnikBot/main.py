@@ -89,6 +89,13 @@ async def main():
     from utils.scheduler import run_scheduler
     asyncio.create_task(run_scheduler(bot))
 
+    # Удаляем вебхук перед поллингом — предотвращает ConflictError,
+    # если другой инстанс зарегистрировал webhook для этого же бота.
+    try:
+        await bot.delete_webhook(drop_pending_updates=True)
+    except Exception as _wh_exc:
+        logging.warning("Could not delete webhook before polling: %s", _wh_exc)
+
     try:
         await dp.start_polling(bot, drop_pending_updates=True)
     except TelegramConflictError:

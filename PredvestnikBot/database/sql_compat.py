@@ -80,9 +80,11 @@ def _normalize_sql_for_postgres(sql: str) -> str | None:
 
 
 class _PgCursor:
-    def __init__(self, rows: list[Any] | None = None, rowcount: int = 0):
+    def __init__(self, rows: list[Any] | None = None, rowcount: int = 0,
+                 lastrowid: int | None = None):
         self._rows = rows or []
         self.rowcount = rowcount
+        self.lastrowid = lastrowid
 
     async def fetchall(self):
         return self._rows
@@ -109,10 +111,17 @@ class _PgExecuteOp:
 
         stmt = transformed.lstrip().lower()
         is_select = stmt.startswith("select") or stmt.startswith("with")
+        has_returning = "returning" in stmt
 
-        if is_select:
+        if is_select or has_returning:
             rows = await self._conn._raw.fetch(transformed, *self._params)
-            self._cursor = _PgCursor(list(rows))
+            row_list = list(rows)
+            lastrowid = None
+            if has_returning and row_list:
+                # Extract first column of first row as lastrowid
+                first = row_list[0]
+                lastrowid = first[0] if first else None
+            self._cursor = _PgCursor(row_list, lastrowid=lastrowid)
         else:
             status = await self._conn._raw.execute(transformed, *self._params)
             # asyncpg returns status strings like "DELETE 1", "UPDATE 3", "INSERT 0 1"
