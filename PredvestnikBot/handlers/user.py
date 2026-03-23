@@ -1,5 +1,5 @@
 from aiogram import Bot, F, Router
-from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
+from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message, WebAppInfo
 from datetime import datetime
 from zoneinfo import ZoneInfo
 import html
@@ -545,15 +545,28 @@ async def cmd_help(message: Message, cmd_args: str):
 async def cmd_open_app(message: Message, cmd_args: str):
     from config import MINI_APP_URL
 
-    kb = InlineKeyboardMarkup(inline_keyboard=[[
-        InlineKeyboardButton(text="🚀 Открыть Mini App", url=MINI_APP_URL),
-    ]])
+    if message.chat.type == "private":
+        kb = InlineKeyboardMarkup(inline_keyboard=[[
+            InlineKeyboardButton(
+                text="🚀 Открыть Mini App",
+                web_app=WebAppInfo(url=MINI_APP_URL),
+            ),
+        ]])
+        await message.answer(
+            "🌐 <b>Mini App</b>\n\n"
+            "Нажми кнопку ниже, чтобы открыть приложение внутри Telegram Mini App.\n"
+            "Также кнопка <b>Открыть App</b> доступна возле строки ввода в Telegram.",
+            parse_mode="HTML",
+            reply_markup=kb,
+        )
+        return
+
     await message.answer(
         "🌐 <b>Mini App</b>\n\n"
-        "Нажми кнопку ниже, чтобы открыть приложение.\n"
-        "Также кнопка <b>Открыть App</b> доступна возле строки ввода в Telegram.",
+        "В группах Telegram не всегда передаёт данные Mini App через обычную ссылку.\n"
+        "Открой личный чат с ботом и нажми кнопку <b>Открыть App</b> возле строки ввода.\n\n"
+        f"Прямая ссылка: <code>{html.escape(MINI_APP_URL)}</code>",
         parse_mode="HTML",
-        reply_markup=kb,
     )
 
 
