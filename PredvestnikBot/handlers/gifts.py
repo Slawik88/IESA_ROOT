@@ -138,3 +138,28 @@ async def cb_gift(callback: CallbackQuery):
     except Exception:
         pass
     await callback.answer("🎁 Подарок отправлен!")
+
+    # Quest tick: gift
+    try:
+        from utils.helpers import bot_today
+        from database.db import get_user_quest, quest_tick, mark_quest_rewarded, add_xp_in_chat, add_mora
+        today = bot_today()
+        quest = await get_user_quest(uid, chat_id, today)
+        if quest["type"] == "gift":
+            new_p, goal, just_done = await quest_tick(uid, chat_id, today, quest["type"], quest["goal"])
+            if just_done:
+                _mr = quest.get("mora", 5)
+                await add_xp_in_chat(uid, chat_id, quest["xp"])
+                await add_mora(uid, chat_id, _mr)
+                await mark_quest_rewarded(uid, chat_id, today)
+                try:
+                    name = html.escape(callback.from_user.full_name)
+                    await callback.message.answer(
+                        f"🎉 {name} выполнил ежедневное задание! "
+                        f"<b>+{quest['xp']} XP</b>  <b>+{_mr} Моры</b> 🪙",
+                        parse_mode="HTML",
+                    )
+                except Exception:
+                    pass
+    except Exception:
+        pass
