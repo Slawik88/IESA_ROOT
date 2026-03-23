@@ -111,29 +111,25 @@ _BOOST_MAP: dict[str, tuple] = {b[0]: b for b in XP_BOOST_OPTIONS}
 
 # ─── Баланс ───────────────────────────────────────────────────────────────────
 
-def _mora_text(balance: int, total: int, streak: int, public: int, vip: int = 0, boost: bool = False, frame: str | None = None) -> str:
+def _mora_text(balance: int, total: int, streak: int, display_name: str, vip: int = 0, boost: bool = False, frame: str | None = None) -> str:
     streak_line = f"\n🔥 Стрик: <b>{streak} дн.</b>" if streak > 0 else ""
-    privacy_line = "🔓 Баланс виден другим" if public else "🔒 Баланс скрыт от других"
     vip_line = "\n💎 <b>VIP статус активен</b>" if vip else ""
     boost_line = "\n⚡ <b>Буст XP x2 активен</b>" if boost else ""
     frame_label = _FRAME_MAP.get(frame, ("", "", frame or "—"))[2] if frame else "—"
     frame_emoji_str = _frame_emoji(frame)
     return (
-        f"💰 <b>Твой баланс</b>{vip_line}\n\n"
+        f"💰 <b>Баланс</b>{vip_line}: {display_name}\n\n"
         f"Мора: <b>{balance} 🪙</b>\n"
         f"Всего заработано: {total} 🪙"
         f"{streak_line}\n"
         f"🖼 Рамка: {frame_emoji_str} {frame_label}"
-        f"{boost_line}\n\n"
-        f"{privacy_line}"
+        f"{boost_line}"
     )
 
 
-def _mora_keyboard(uid: int, public: int) -> InlineKeyboardMarkup:
-    label = "🔒 Скрыть баланс" if public else "🔓 Показать другим"
-    new_val = 0 if public else 1
+def _mora_keyboard(uid: int) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[[
-        InlineKeyboardButton(text=label, callback_data=f"mora_pub:{uid}:{new_val}"),
+        InlineKeyboardButton(text="❌ Закрыть", callback_data=f"mora_close:{uid}"),
     ]])
 
 
@@ -167,63 +163,58 @@ async def cmd_balance(message: Message, cmd_args: str):
         balance = (mora["balance"] or 0) if mora else 0
         total   = (mora["total_earned"] or 0) if mora else 0
         user    = await get_user(uid)
+        uname   = f" (@{user['username']})" if user and user.get("username") else ""
         display = html.escape(user["full_name"]) if user else html.escape(name)
         vip_badge = " 💎" if mora and (mora["vip"] or 0) else ""
+        frame   = mora["top_frame"] if mora else None
+        frame_label = _FRAME_MAP.get(frame, ("", "", frame or "—"))[2] if frame else "—"
+        frame_emoji_str = _frame_emoji(frame)
         await message.answer(
-            f"💰 <b>Баланс</b>{vip_badge} {user_mention(uid, display)}\n\n"
+            f"💰 <b>Баланс</b>{vip_badge}: {user_mention(uid, display)}{uname}\n\n"
             f"Мора: <b>{balance} 🪙</b>\n"
-            f"Всего заработано: {total} 🪙",
+            f"Всего заработано: {total} 🪙\n"
+            f"🖼 Рамка: {frame_emoji_str} {frame_label}",
             parse_mode="HTML",
         )
         return
 
     uid    = message.from_user.id
+    own_user = message.from_user
+    own_name = html.escape(own_user.full_name or "")
+    own_uname = f" (@{own_user.username})" if own_user.username else ""
+    display_self = f"{user_mention(uid, own_name)}{own_uname}"
     mora   = await get_mora(uid, chat_id)
     bal    = mora["balance"]     if mora else 0
     total  = mora["total_earned"] if mora else 0
     streak = mora["streak_days"] if mora else 0
-    public = mora["mora_public"] if mora else 0
     vip    = mora["vip"]         if mora else 0
     frame  = mora["top_frame"]   if mora else None
     boost  = await get_xp_boost_active(uid, chat_id)
 
     await message.answer(
-        _mora_text(bal, total, streak, public, vip, boost, frame),
+        _mora_text(bal, total, streak, display_self, vip, boost, frame),
         parse_mode="HTML",
-        reply_markup=_mora_keyboard(uid, public),
+        reply_markup=_mora_keyboard(uid),
     )
 
 
-@router.callback_query(F.data.startswith("mora_pub:"))
-async def cb_mora_public(callback: CallbackQuery):
-    parts   = callback.data.split(":")
-    uid     = int(parts[1])
-    new_val = int(parts[2])
-
+@router.callback_query(F.data.startswith("mora_close:"))
+async def cb_mora_close(callback: CallbackQuery):
+    uid = int(callback.data.split(":")[1])
     if callback.from_user.id != uid:
         await callback.answer("🚫 Это не твоё меню!", show_alert=True)
         return
-
-    chat_id = callback.message.chat.id
-    await set_mora_public(uid, chat_id, new_val)
-
-    mora   = await get_mora(uid, chat_id)
-    bal    = mora["balance"]      if mora else 0
-    total  = mora["total_earned"] if mora else 0
-    streak = mora["streak_days"]  if mora else 0
-    vip    = mora["vip"]          if mora else 0
-    frame  = mora["top_frame"]    if mora else None
-    boost  = await get_xp_boost_active(uid, chat_id)
-
     try:
-        await callback.message.edit_text(
-            _mora_text(bal, total, streak, new_val, vip, boost, frame),
-            parse_mode="HTML",
-            reply_markup=_mora_keyboard(uid, new_val),
-        )
+        await callback.message.delete()
     except Exception:
         pass
-    await callback.answer("✅ Настройки обновлены!")
+    await callback.answer()
+
+
+# Обратная совместимость: старые кнопки mora_pub больше не используются
+@router.callback_query(F.data.startswith("mora_pub:"))
+async def cb_mora_public_legacy(callback: CallbackQuery):
+    await callback.answer("ℹ️ Настройка приватности удалена. Баланс теперь всегда скрыт.", show_alert=True)
 
 
 # ─── VIP Статус ───────────────────────────────────────────────────────────────

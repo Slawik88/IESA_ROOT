@@ -60,10 +60,12 @@ async def _build_results_text(event_id: int, total_clicks: int) -> str:
     if winners:
         lines.append("\n🏆 <b>Победители:</b>")
         for w in winners:
-            pos = w["position"]
-            emoji = _PLACE_EMOJI[pos - 1] if pos <= len(_PLACE_EMOJI) else f"#{pos}"
-            uname = f"@{w['username']}" if w.get("username") else f"[id{w['user_id']}](tg://user?id={w['user_id']})"
-            lines.append(f"{emoji} {uname} — <b>{w['reward']} 🪙</b>")
+            pos = w.get("position") or 0
+            emoji = _PLACE_EMOJI[pos - 1] if 1 <= pos <= len(_PLACE_EMOJI) else f"#{pos}"
+            username = w.get("username")
+            name = html.escape(w.get("full_name") or "")
+            uname = f"@{username}" if username else name or f"[id{w['user_id']}]"
+            lines.append(f"{emoji} {uname} — <b>{w.get('reward', 0)} 🪙</b>")
     else:
         lines.append("\n<i>Никто не успел открыть сундук 😢</i>")
     return "\n".join(lines)
@@ -184,11 +186,16 @@ async def cb_chest_click(callback: CallbackQuery):
 
     # Атомарная проверка: позицию назначаем в самом INSERT (через триггер COUNT)
     count = await get_chest_click_count(event_id)
+    count = count if count is not None else 0
     if count >= len(CHEST_REWARDS):
         await callback.answer("❌ Сундук уже пуст!", show_alert=False)
         return
 
     position = count + 1
+    # Защита от IndexError при гонках (position может обогнать len при параллельных кликах)
+    if position > len(CHEST_REWARDS):
+        await callback.answer("❌ Сундук уже пуст!", show_alert=False)
+        return
     reward = CHEST_REWARDS[position - 1]
 
     ok = await add_chest_click(event_id, uid, position, reward)
