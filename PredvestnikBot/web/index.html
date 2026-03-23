@@ -2,33 +2,24 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Предвестник — Mini App</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
-      --gold: #ffd700;
-      --gold-dim: rgba(255,215,0,0.15);
+      --gold: #ffd700; --gold-dim: rgba(255,215,0,0.15);
       --bg: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
-      --card: rgba(255,255,255,0.06);
-      --border: rgba(255,215,0,0.2);
-      --text: #e0e0e0;
-      --muted: #9a9aaa;
-      --radius: 18px;
-      --green: #4caf50;
-      --red: #e53935;
+      --card: rgba(255,255,255,0.06); --border: rgba(255,215,0,0.2);
+      --text: #e0e0e0; --muted: #9a9aaa; --radius: 18px;
+      --green: #4caf50; --red: #e53935;
     }
     html, body { height: 100%; }
     body {
       font-family: 'Segoe UI', Tahoma, sans-serif;
-      background: var(--bg);
-      background-attachment: fixed;
-      color: var(--text);
-      display: flex;
-      flex-direction: column;
-      min-height: 100vh;
+      background: var(--bg); background-attachment: fixed;
+      color: var(--text); display: flex; flex-direction: column; min-height: 100vh;
     }
     .app-header { padding: 10px 16px 0; text-align: center; flex-shrink: 0; }
     .app-header h1 { font-size: 1.3rem; font-weight: 700; color: var(--gold); text-shadow: 0 0 12px rgba(255,215,0,.45); }
@@ -39,12 +30,12 @@
       flex-shrink: 0; position: sticky; top: 0; z-index: 20; overflow-x: auto;
     }
     .tab-btn {
-      flex: 1; min-width: 54px; background: none; border: none;
-      color: var(--muted); font-size: 0.6rem; padding: 8px 2px 6px;
+      flex: 1; min-width: 48px; background: none; border: none;
+      color: var(--muted); font-size: 0.58rem; padding: 8px 2px 6px;
       cursor: pointer; display: flex; flex-direction: column;
       align-items: center; gap: 1px; transition: color 0.2s;
     }
-    .tab-btn .ti { font-size: 1.15rem; }
+    .tab-btn .ti { font-size: 1.1rem; }
     .tab-btn.active { color: var(--gold); }
     .tab-content { display: none; flex: 1; padding: 10px 10px 72px; overflow-y: auto; }
     .tab-content.active { display: block; }
@@ -62,6 +53,28 @@
     .info-label { color: var(--muted); }
     .info-value { font-weight: 600; color: #fff; }
     .badge { background: var(--gold-dim); border-radius: 8px; padding: 2px 7px; font-size: 0.72rem; color: var(--gold); }
+    /* Progress bars */
+    .stat-bar { margin-bottom: 8px; }
+    .stat-bar-label { display: flex; justify-content: space-between; font-size: .75rem; color: var(--muted); margin-bottom: 3px; }
+    .stat-bar-track { height: 10px; border-radius: 5px; background: rgba(255,255,255,.08); overflow: hidden; }
+    .stat-bar-fill { height: 100%; border-radius: 5px; transition: width .4s ease; }
+    .stat-bar-fill.hp { background: linear-gradient(90deg, #e53935, #ff7043); }
+    .stat-bar-fill.mp { background: linear-gradient(90deg, #42a5f5, #7c4dff); }
+    .stat-bar-fill.xp { background: linear-gradient(90deg, #ffd740, #ffab00); }
+    /* RPG stat badges */
+    .rpg-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 8px; }
+    .rpg-stat { text-align: center; padding: 8px 4px; background: rgba(255,255,255,.04); border-radius: 10px; border: 1px solid rgba(255,255,255,.08); }
+    .rpg-stat .val { font-size: 1rem; font-weight: 700; color: #fff; }
+    .rpg-stat .lbl { font-size: .62rem; color: var(--muted); margin-top: 2px; }
+    /* Action buttons row */
+    .action-row { display: flex; gap: 8px; margin-top: 10px; }
+    .action-btn {
+      flex: 1; padding: 10px 4px; border: 1px solid var(--border); border-radius: 12px;
+      background: var(--gold-dim); color: var(--gold); font-size: .78rem;
+      cursor: pointer; text-align: center; transition: background .15s;
+    }
+    .action-btn:active { background: rgba(255,215,0,.25); }
+    /* Leaderboard */
     .lb-tabs { display: flex; gap: 5px; margin-bottom: 10px; }
     .lbt {
       flex: 1; border: 1px solid var(--border); background: none;
@@ -74,72 +87,109 @@
     .lb-rank { font-size: .9rem; width: 24px; text-align: center; flex-shrink: 0; }
     .lb-name { flex: 1; font-size: .82rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .lb-score { font-weight: 700; color: var(--gold); font-size: .8rem; flex-shrink: 0; }
+    /* Union */
     .partner-heart { font-size: 2.4rem; text-align: center; animation: heartbeat 1.2s infinite; margin-bottom: 10px; }
     @keyframes heartbeat { 0%,100% { transform: scale(1); } 50% { transform: scale(1.18); } }
     .singles-item { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,.05); }
     .singles-item:last-child { border-bottom: none; }
     .singles-name { font-size: .82rem; color: #ddd; }
     .singles-xp { font-size: .72rem; color: var(--muted); margin-top: 2px; }
+    /* Family wallet controls */
+    .wallet-row { display: flex; gap: 6px; margin-top: 8px; align-items: center; }
+    .wallet-input { flex: 1; padding: 7px; border-radius: 8px; border: 1px solid rgba(255,255,255,.2); background: rgba(255,255,255,.07); color: #eee; font-size: .82rem; }
+    .wallet-btn { padding: 7px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--gold-dim); color: var(--gold); font-size: .75rem; cursor: pointer; white-space: nowrap; }
+    /* Inventory */
     .inv-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 8px; }
     .inv-item {
       background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1);
-      border-radius: 12px; padding: 10px 8px; cursor: pointer; transition: background .15s;
+      border-radius: 12px; padding: 10px 8px; cursor: pointer; transition: background .15s; position: relative;
     }
     .inv-item:hover { background: rgba(255,215,0,.08); }
     .inv-item.equipped { border-color: var(--gold); background: var(--gold-dim); }
     .inv-name { font-size: .78rem; font-weight: 600; color: #eee; margin-bottom: 3px; }
-    .inv-rarity { font-size: .65rem; color: var(--muted); }
-    .rarity-legendary { color: #ffd700; }
-    .rarity-epic { color: #c084fc; }
-    .rarity-rare { color: #60a5fa; }
-    .rarity-uncommon { color: #4ade80; }
+    .inv-rarity { font-size: .65rem; }
+    .inv-stats { font-size: .6rem; color: var(--muted); margin-top: 3px; }
+    .inv-equip-btn {
+      position: absolute; top: 6px; right: 6px; font-size: .6rem; padding: 2px 6px;
+      border-radius: 6px; border: 1px solid var(--border); background: var(--gold-dim);
+      color: var(--gold); cursor: pointer;
+    }
+    .rarity-legendary { color: #ffd700; } .rarity-epic { color: #c084fc; }
+    .rarity-rare { color: #60a5fa; } .rarity-uncommon { color: #4ade80; }
+    .rarity-common { color: #9a9aaa; } .rarity-junk { color: #666; }
+    /* Bonds */
     .bond-card { margin-bottom: 12px; }
     .bond-header { display: flex; justify-content: space-between; margin-bottom: 6px; }
     .bond-name { font-size: .88rem; font-weight: 700; color: var(--gold); }
     .bond-price { font-size: .88rem; font-weight: 700; }
-    .bond-price.up { color: var(--green); }
-    .bond-price.down { color: var(--red); }
+    .bond-price.up { color: var(--green); } .bond-price.down { color: var(--red); }
     .chart-wrap { height: 110px; }
+    /* Dev panel */
+    .dev-section { margin-bottom: 14px; }
+    .dev-section-title { font-size: .8rem; font-weight: 700; color: var(--gold); margin-bottom: 8px; }
+    .dev-input { width: 100%; padding: 8px; margin-bottom: 6px; border-radius: 8px; border: 1px solid rgba(255,255,255,.2); background: rgba(255,255,255,.07); color: #eee; font-size: .82rem; }
     .dev-btn {
-      display: block; width: 100%; padding: 10px; margin-bottom: 8px;
+      display: block; width: 100%; padding: 10px; margin-bottom: 6px;
       border: 1px solid rgba(255,50,50,.4); border-radius: 10px;
       background: rgba(255,50,50,.08); color: #ff9a9a;
       font-size: .84rem; cursor: pointer; text-align: left;
     }
-    .dev-input { width: 100%; padding: 8px; margin-bottom: 6px; border-radius: 8px; border: 1px solid rgba(255,255,255,.2); background: rgba(255,255,255,.07); color: #eee; font-size: .82rem; }
+    .dev-btn-row { display: flex; gap: 6px; margin-bottom: 6px; }
+    .dev-btn-half {
+      flex: 1; padding: 8px; border: 1px solid rgba(255,50,50,.4); border-radius: 8px;
+      background: rgba(255,50,50,.08); color: #ff9a9a; font-size: .78rem; cursor: pointer; text-align: center;
+    }
+    .dev-user-dropdown {
+      position: absolute; left: 0; right: 0; top: 100%; max-height: 180px; overflow-y: auto;
+      background: #1a1a2e; border: 1px solid var(--border); border-radius: 0 0 8px 8px;
+      z-index: 30;
+    }
+    .dev-user-opt { padding: 7px 10px; font-size: .8rem; color: #ddd; cursor: pointer; border-bottom: 1px solid rgba(255,255,255,.05); }
+    .dev-user-opt:hover { background: var(--gold-dim); color: var(--gold); }
+    .dev-search-wrap { position: relative; }
     pre.dev-out { background: rgba(0,0,0,.5); border-radius: 8px; padding: 10px; font-size: .72rem; color: #a0d9ff; overflow-x: auto; white-space: pre-wrap; max-height: 200px; overflow-y: auto; }
     .btn-small { padding: 5px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--gold-dim); color: var(--gold); font-size: .75rem; cursor: pointer; }
     .loading-msg { text-align: center; color: var(--muted); padding: 24px 0; font-size: .86rem; }
     .error-msg { color: #ff6b6b; text-align: center; padding: 14px; font-size: .83rem; }
     .ok-msg { color: var(--green); text-align: center; font-size: .83rem; margin-top: 8px; min-height: 18px; }
-    .plain-list { list-style: none; }
-    .plain-list li { padding: 4px 0; font-size: .82rem; color: #ccc; border-bottom: 1px solid rgba(255,255,255,.04); }
-    .plain-list li:last-child { border-bottom: none; }
     .sep { height: 1px; background: rgba(255,255,255,.07); margin: 10px 0; }
+    .pity-bar { margin-top: 10px; }
   </style>
 </head>
 <body>
-
   <div class="app-header">
     <h1>&#x2734; Предвестник</h1>
     <p id="header-sub">Загрузка&#x2026;</p>
   </div>
-
   <nav class="tab-bar" id="tab-bar">
     <button class="tab-btn active" data-tab="profile"><span class="ti">&#x1F3F0;</span>Профиль</button>
-    <button class="tab-btn" data-tab="uzы"><span class="ti">&#x1F91D;</span>Узы</button>
+    <button class="tab-btn" data-tab="uzy"><span class="ti">&#x1F91D;</span>Узы</button>
+    <button class="tab-btn" data-tab="inv"><span class="ti">&#x1F392;</span>Инвент.</button>
     <button class="tab-btn" data-tab="market"><span class="ti">&#x1F6D2;</span>Рынок</button>
     <button class="tab-btn" data-tab="bonds"><span class="ti">&#x1F4C8;</span>Биржа</button>
     <button class="tab-btn" data-tab="glory"><span class="ti">&#x1F3C6;</span>Слава</button>
     <button class="tab-btn" data-tab="dev" id="dev-tab-btn" style="display:none"><span class="ti">&#x1F6E0;</span>Дев</button>
   </nav>
 
+  <!-- PROFILE -->
   <section class="tab-content active" id="tab-profile">
     <div id="profile-root"><div class="loading-msg">&#x23F3; Загрузка профиля&#x2026;</div></div>
   </section>
 
-  <section class="tab-content" id="tab-uzы">
+  <!-- UNIONS -->
+  <section class="tab-content" id="tab-uzy">
     <div class="card" id="union-status"><div class="loading-msg">&#x23F3;&#x2026;</div></div>
+    <div class="card" id="family-wallet-card" style="display:none">
+      <div class="card-title">&#x1F4B0; Семейный Банк</div>
+      <div class="info-row"><span class="info-label">Личный баланс</span><span class="info-value" id="fw-personal">0</span></div>
+      <div class="info-row"><span class="info-label">Семейный баланс</span><span class="info-value" id="fw-family">0</span></div>
+      <div class="wallet-row">
+        <input class="wallet-input" id="fw-amount" type="number" placeholder="Сумма" min="1" />
+        <button class="wallet-btn" onclick="familyAction('deposit')">&#x2B06; Внести</button>
+        <button class="wallet-btn" onclick="familyAction('withdraw')">&#x2B07; Снять</button>
+      </div>
+      <div id="fw-msg" class="ok-msg"></div>
+    </div>
     <div class="card" id="singles-card" style="display:none">
       <div class="card-title">&#x1F48C; Свободны в чате</div>
       <div id="singles-list"></div>
@@ -147,22 +197,47 @@
     <div id="union-msg" class="ok-msg"></div>
   </section>
 
-  <section class="tab-content" id="tab-market">
+  <!-- INVENTORY -->
+  <section class="tab-content" id="tab-inv">
     <div class="card">
-      <div class="card-title">&#x1F3BA; Инвентарь</div>
+      <div class="card-title">&#x1F392; Инвентарь</div>
       <div id="inv-root"><div class="loading-msg">&#x23F3;&#x2026;</div></div>
+    </div>
+    <div class="card">
+      <div class="card-title">&#x2694; RPG Характеристики</div>
+      <div id="rpg-root"></div>
     </div>
   </section>
 
+  <!-- MARKET -->
+  <section class="tab-content" id="tab-market">
+    <div class="card">
+      <div class="card-title">&#x1F3B0; Гача-Молитва</div>
+      <div class="info-row"><span class="info-label">До гаранта (Pity)</span><span class="info-value" id="market-pity">—</span></div>
+      <div class="stat-bar pity-bar">
+        <div class="stat-bar-track"><div class="stat-bar-fill xp" id="pity-bar-fill" style="width:0%"></div></div>
+      </div>
+      <p style="color:var(--muted);font-size:.75rem;margin-top:8px">Используй <code>бот молитва</code> в чате (30&#x1FAA9; / 10x за 270&#x1FAA9;)</p>
+    </div>
+    <div class="card">
+      <div class="card-title">&#x1F6D2; Магазин</div>
+      <p style="color:var(--muted);font-size:.8rem;text-align:center;padding:10px">Рамки, темы, бусты — через <code>бот магазин</code></p>
+      <div class="action-row">
+        <button class="action-btn" onclick="tg&&tg.close()">&#x1F5E8; Вернуться в чат</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- BONDS -->
   <section class="tab-content" id="tab-bonds">
     <div id="bonds-root"><div class="loading-msg">&#x23F3; Загрузка биржи&#x2026;</div></div>
   </section>
 
+  <!-- GLORY -->
   <section class="tab-content" id="tab-glory">
     <div class="lb-tabs">
       <button class="lbt active" data-lbtype="xp">&#x2B50; XP</button>
       <button class="lbt" data-lbtype="messages">&#x1F4AC; Сообщ.</button>
-      <button class="lbt" data-lbtype="boss">&#x2694; Урон</button>
     </div>
     <div class="card">
       <div class="card-title">&#x1F3C6; Зал Славы</div>
@@ -170,42 +245,81 @@
     </div>
   </section>
 
+  <!-- DEV -->
   <section class="tab-content" id="tab-dev">
     <div class="card">
       <div class="card-title">&#x1F6E0; Панель Разработчика</div>
       <button class="dev-btn" id="dev-stats-btn">&#x1F4CA; Загрузить статистику</button>
       <pre class="dev-out" id="dev-stats-out" style="display:none"></pre>
-      <div class="sep"></div>
-      <div class="card-title" style="font-size:.8rem">&#x26A1; Запустить ивент в чате</div>
-      <input class="dev-input" id="dev-event-chat" placeholder="chat_id (оставь пустым = текущий)" />
-      <button class="dev-btn" id="dev-chest-btn">&#x1F381; Запустить Сундук</button>
-      <button class="dev-btn" id="dev-diligence-btn">&#x1F68C; Запустить Дилижанс</button>
+    </div>
+    <div class="card dev-section">
+      <div class="dev-section-title">&#x1F50D; Поиск пользователя</div>
+      <div class="dev-search-wrap">
+        <input class="dev-input" id="dev-search" placeholder="Имя или ID..." autocomplete="off" />
+        <div class="dev-user-dropdown" id="dev-dropdown" style="display:none"></div>
+      </div>
+      <div class="info-row" id="dev-selected-user" style="display:none">
+        <span class="info-label">Выбран:</span>
+        <span class="info-value" id="dev-selected-name">—</span>
+      </div>
+      <input type="hidden" id="dev-target-uid" value="" />
+    </div>
+    <div class="card dev-section">
+      <div class="dev-section-title">&#x1FAA9; Мора</div>
+      <input class="dev-input" id="dev-mora-amount" type="number" placeholder="Сумма" />
+      <div class="dev-btn-row">
+        <button class="dev-btn-half" onclick="devMora('add')">&#x2795; Добавить</button>
+        <button class="dev-btn-half" onclick="devMora('set')">&#x1F518; Установить</button>
+      </div>
+      <div id="dev-mora-msg" class="ok-msg"></div>
+    </div>
+    <div class="card dev-section">
+      <div class="dev-section-title">&#x2B50; XP</div>
+      <input class="dev-input" id="dev-xp-amount" type="number" placeholder="Кол-во XP" />
+      <div class="dev-btn-row">
+        <button class="dev-btn-half" onclick="devXP('add')">&#x2795; Добавить</button>
+        <button class="dev-btn-half" onclick="devXP('set')">&#x1F518; Установить</button>
+      </div>
+      <div id="dev-xp-msg" class="ok-msg"></div>
+    </div>
+    <div class="card dev-section">
+      <div class="dev-section-title">&#x1F381; Предмет</div>
+      <input class="dev-input" id="dev-item-name" placeholder="Название предмета" />
+      <select class="dev-input" id="dev-item-rarity" style="margin-bottom:6px">
+        <option value="common">Common</option><option value="uncommon">Uncommon</option>
+        <option value="rare" selected>Rare</option><option value="epic">Epic</option>
+        <option value="legendary">Legendary</option>
+      </select>
+      <button class="dev-btn" onclick="devGiveItem()">&#x1F381; Выдать предмет</button>
+      <div id="dev-item-msg" class="ok-msg"></div>
+    </div>
+    <div class="card dev-section">
+      <div class="dev-section-title">&#x26A1; Ивенты</div>
+      <input class="dev-input" id="dev-event-chat" placeholder="chat_id (пусто = текущий)" />
+      <div class="dev-btn-row">
+        <button class="dev-btn-half" onclick="devEvent('chest')">&#x1F4E6; Сундук</button>
+        <button class="dev-btn-half" onclick="devEvent('diligence')">&#x1F69A; Дилижанс</button>
+        <button class="dev-btn-half" onclick="devEvent('trader')">&#x1F4B0; Торговец</button>
+      </div>
       <div id="dev-event-msg" class="ok-msg"></div>
-      <div class="sep"></div>
-      <div class="card-title" style="font-size:.8rem">&#x1F4B0; Установить баланс</div>
-      <input class="dev-input" id="dev-bal-uid" placeholder="target user_id" type="number" />
-      <input class="dev-input" id="dev-bal-chat" placeholder="chat_id (оставь пустым = текущий)" />
-      <input class="dev-input" id="dev-bal-amount" placeholder="новая сумма" type="number" />
-      <button class="dev-btn" id="dev-bal-btn">&#x1F4BE; Установить</button>
-      <div id="dev-bal-msg" class="ok-msg"></div>
     </div>
   </section>
-
   <script>
-  const DEV_ID = 1460945748;
-  const tg = window.Telegram && window.Telegram.WebApp || null;
-  if (tg) { tg.ready(); tg.expand(); tg.enableClosingConfirmation(); }
-  const initData = tg ? tg.initData || '' : '';
-  const tgUser   = tg && tg.initDataUnsafe ? tg.initDataUnsafe.user || null : null;
-  const myUid    = tgUser ? tgUser.id || null : null;
-  const _sp      = tg && tg.initDataUnsafe ? tg.initDataUnsafe.start_param : null;
-  const chatId   = _sp ? -Math.abs(parseInt(_sp, 10)) : null;
-  const HDR = { 'X-Telegram-Init-Data': initData, 'Content-Type': 'application/json' };
+  var DEV_ID = 1460945748;
+  var PITY_MAX = 90;
+  var tg = window.Telegram && window.Telegram.WebApp || null;
+  if (tg) { tg.ready(); tg.expand(); }
+  var initData = tg ? tg.initData || '' : '';
+  var tgUser = tg && tg.initDataUnsafe ? tg.initDataUnsafe.user || null : null;
+  var myUid = tgUser ? tgUser.id || null : null;
+  var _sp = tg && tg.initDataUnsafe ? tg.initDataUnsafe.start_param : null;
+  var chatId = _sp ? -Math.abs(parseInt(_sp, 10)) : null;
+  var HDR = { 'X-Telegram-Init-Data': initData, 'Content-Type': 'application/json' };
 
   if (myUid === DEV_ID) document.getElementById('dev-tab-btn').style.display = '';
-  document.getElementById('header-sub').textContent = chatId ? 'чат: ' + chatId : 'нет чата';
+  document.getElementById('header-sub').textContent = chatId ? 'чат: ' + chatId : (tgUser ? tgUser.first_name : 'нет чата');
 
-  // ── tab routing ──────────────────────────────────────────────────────────
+  // ── Tab routing ──
   var _tabLoaded = {};
   document.querySelectorAll('.tab-btn').forEach(function(btn) {
     btn.addEventListener('click', function() {
@@ -216,71 +330,70 @@
     });
   });
   function _loadTab(t) {
-    if (t === 'uzы') loadUnion();
-    else if (t === 'market') loadMarket();
+    if (t === 'uzy') loadUnion();
+    else if (t === 'inv') loadInventory();
+    else if (t === 'market') loadMarketInfo();
     else if (t === 'bonds') loadBonds();
     else if (t === 'glory') loadLB('xp');
-    else if (t === 'dev') loadDevStats();
+    else if (t === 'dev') { loadDevStats(); initDevSearch(); }
   }
 
-  // ── util ─────────────────────────────────────────────────────────────────
-  function _esc(s) {
-    return String(s == null ? '' : s)
-      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-  }
+  function _esc(s) { return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
   function _api(path, opts) { return fetch(path, opts).then(function(r){ return r.json(); }); }
 
-  // ── PROFILE ──────────────────────────────────────────────────────────────
+  // ═══════════ PROFILE ═══════════
+  var _profileData = null;
   function loadProfile() {
     var root = document.getElementById('profile-root');
-    if (!initData) {
-      root.innerHTML = '<div class="error-msg">&#x274C; Открой через Telegram.</div>';
-      document.getElementById('header-sub').textContent = 'не авторизован';
-      return;
-    }
+    if (!initData) { root.innerHTML = '<div class="error-msg">Открой через Telegram.</div>'; return; }
     var url = '/api/user_data' + (chatId ? '?chat_id=' + chatId : '');
     _api(url, { headers: HDR }).then(function(p) {
       if (p.error) throw new Error(p.error);
+      _profileData = p;
       document.getElementById('header-sub').textContent = p.name;
       var vip = p.vip ? ' <span class="badge">&#x1F48E; VIP</span>' : '';
-      var frameLine = p.active_frame && p.active_frame !== 'default'
-        ? '<div class="info-row"><span class="info-label">&#x1F5BC; Рамка</span><span class="info-value">' + _esc(p.active_frame) + '</span></div>' : '';
-      var themeLine = p.active_theme && p.active_theme !== 'default'
-        ? '<div class="info-row"><span class="info-label">&#x1F3A8; Тема</span><span class="info-value">' + _esc(p.active_theme) + '</span></div>' : '';
-      var bondsHtml = (p.bonds && p.bonds.length)
-        ? '<ul class="plain-list">' + p.bonds.map(function(b) { return '<li>&#x1F4DC; ' + _esc(b.name) + ': ' + b.amount + ' шт. (~' + (b.value||0).toLocaleString() + ' &#x1FAA9;)</li>'; }).join('') + '</ul>'
-        : '<p style="color:var(--muted);font-size:.8rem;text-align:center;padding:10px 0">Облигаций нет</p>';
-      var petHtml = p.pet
-        ? '<div class="card"><div class="card-title">' + p.pet.emoji + ' ' + _esc(p.pet.name) + '</div><div class="info-row"><span class="info-label">&#x1F4A4; Усталость</span><span class="info-value">' + p.pet.fatigue + '/100</span></div></div>'
-        : '';
+      var rpg = p.rpg || { hp:100, atk:50, def:20, crit:0.05 };
+      var xpLevel = Math.floor((p.xp||0) / 100);
+      var xpPct = Math.min(100, ((p.xp||0) % 100));
+      var hpPct = Math.min(100, rpg.hp / 5);
+      var mpPct = 75;
       root.innerHTML =
         '<div class="card"><div class="card-title">&#x1F3F0; ' + _esc(p.name) + vip + '</div>' +
-        '<div class="info-row"><span class="info-label">&#x2B50; XP</span><span class="info-value">' + (p.xp||0).toLocaleString() + '</span></div>' +
-        '<div class="info-row"><span class="info-label">&#x1F4B0; Баланс</span><span class="info-value">' + (p.balance||0).toLocaleString() + ' &#x1FAA9;</span></div>' +
-        frameLine + themeLine + '</div>' +
-        petHtml +
-        '<div class="card"><div class="card-title">&#x1F4DC; Облигации</div>' + bondsHtml + '</div>' +
-        '<div class="card"><div class="card-title">&#x1F4D6; Команды</div><ul class="plain-list">' +
-        '<li>бот баланс — мора, VIP, рамка</li>' +
-        '<li>бот молитва — гача (30&#x1FAA9; / 10x за 270&#x1FAA9;)</li>' +
-        '<li>бот топ — рейтинг чата</li>' +
-        '<li>бот чекин — ежедневный бонус</li>' +
-        '<li>бот босс атака — атака Boss (КД 30 с)</li>' +
-        '<li>бот брак @user — предложить союз</li>' +
-        '</ul></div>';
+        '<div class="stat-bar"><div class="stat-bar-label"><span>&#x2764; HP</span><span>' + rpg.hp + '</span></div>' +
+        '<div class="stat-bar-track"><div class="stat-bar-fill hp" style="width:' + hpPct + '%"></div></div></div>' +
+        '<div class="stat-bar"><div class="stat-bar-label"><span>&#x1F535; MP</span><span>∞</span></div>' +
+        '<div class="stat-bar-track"><div class="stat-bar-fill mp" style="width:' + mpPct + '%"></div></div></div>' +
+        '<div class="stat-bar"><div class="stat-bar-label"><span>&#x2B50; XP</span><span>Lvl ' + xpLevel + ' (' + (p.xp||0).toLocaleString() + ')</span></div>' +
+        '<div class="stat-bar-track"><div class="stat-bar-fill xp" style="width:' + xpPct + '%"></div></div></div>' +
+        '<div class="rpg-stats">' +
+        '<div class="rpg-stat"><div class="val">&#x2694;' + rpg.atk + '</div><div class="lbl">ATK</div></div>' +
+        '<div class="rpg-stat"><div class="val">&#x1F6E1;' + rpg.def + '</div><div class="lbl">DEF</div></div>' +
+        '<div class="rpg-stat"><div class="val">&#x2764;' + rpg.hp + '</div><div class="lbl">HP</div></div>' +
+        '<div class="rpg-stat"><div class="val">' + (rpg.crit * 100).toFixed(1) + '%</div><div class="lbl">CRIT</div></div>' +
+        '</div>' +
+        '<div class="info-row"><span class="info-label">&#x1FAA9; Баланс</span><span class="info-value">' + (p.balance||0).toLocaleString() + '</span></div>' +
+        (p.has_partner ? '<div class="info-row"><span class="info-label">&#x1F4B0; Семейный</span><span class="info-value">' + (p.family_balance||0).toLocaleString() + '</span></div>' : '') +
+        '</div>' +
+        (p.pet ? '<div class="card"><div class="card-title">' + p.pet.emoji + ' ' + _esc(p.pet.name) + '</div><div class="info-row"><span class="info-label">Усталость</span><span class="info-value">' + p.pet.fatigue + '/100</span></div></div>' : '') +
+        '<div class="action-row">' +
+        '<button class="action-btn" onclick="switchTab(\'market\')">&#x1F6D2; Магазин</button>' +
+        '<button class="action-btn" onclick="switchTab(\'inv\')">&#x1F392; Инвентарь</button>' +
+        '<button class="action-btn" onclick="switchTab(\'bonds\')">&#x1F4C8; Биржа</button>' +
+        '</div>';
     }).catch(function(e) {
-      root.innerHTML = '<div class="error-msg">&#x274C; ' + _esc(e.message) + '</div>';
-      document.getElementById('header-sub').textContent = 'ошибка';
+      root.innerHTML = '<div class="error-msg">' + _esc(e.message) + '</div>';
     });
   }
+  function switchTab(t) {
+    document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.toggle('active', b.dataset.tab === t); });
+    document.querySelectorAll('.tab-content').forEach(function(s) { s.classList.toggle('active', s.id === 'tab-' + t); });
+    if (!_tabLoaded[t]) { _tabLoaded[t] = true; _loadTab(t); }
+  }
 
-  // ── UNION ────────────────────────────────────────────────────────────────
+  // ═══════════ UNION ═══════════
   function loadUnion() {
     var statusDiv = document.getElementById('union-status');
-    if (!initData || !chatId) {
-      statusDiv.innerHTML = '<div class="error-msg">&#x274C; Нужна авторизация и чат.</div>';
-      return;
-    }
+    if (!initData || !chatId) { statusDiv.innerHTML = '<div class="error-msg">Нужна авторизация и чат.</div>'; return; }
     _api('/api/marriage?chat_id=' + chatId, { headers: HDR }).then(function(d) {
       if (d.error) throw new Error(d.error);
       if (d.has_partner) {
@@ -290,6 +403,12 @@
           '<div class="info-row"><span class="info-label">Партнёр</span><span class="info-value">' + _esc(d.partner_name) + '</span></div>' +
           '<div class="info-row"><span class="info-label">С</span><span class="info-value">' + (d.married_at ? d.married_at.slice(0,10) : '—') + '</span></div>' +
           '<p style="color:var(--muted);font-size:.75rem;margin-top:10px;text-align:center">Разорвать: <code>бот развод</code></p>';
+        // Show family wallet card with balances
+        document.getElementById('family-wallet-card').style.display = '';
+        _api('/api/user_data' + (chatId ? '?chat_id=' + chatId : ''), { headers: HDR }).then(function(p) {
+          document.getElementById('fw-personal').textContent = (p.balance||0).toLocaleString() + ' \u1FAA9';
+          document.getElementById('fw-family').textContent = (p.family_balance||0).toLocaleString() + ' \u1FAA9';
+        });
       } else {
         statusDiv.innerHTML =
           '<div class="card-title">&#x1F494; Свободен(а)</div>' +
@@ -303,191 +422,305 @@
           }).join('');
         }
       }
-    }).catch(function(e) {
-      statusDiv.innerHTML = '<div class="error-msg">&#x274C; ' + _esc(e.message) + '</div>';
-    });
+    }).catch(function(e) { statusDiv.innerHTML = '<div class="error-msg">' + _esc(e.message) + '</div>'; });
   }
-
-  function proposeUnion(targetId) {
+  function proposeUnion(tid) {
     var msg = document.getElementById('union-msg');
-    msg.textContent = '&#x23F3; …';
-    _api('/api/marriage/propose', {
-      method: 'POST', headers: HDR,
-      body: JSON.stringify({ chat_id: chatId, target_id: targetId })
+    msg.textContent = '';
+    _api('/api/marriage/propose', { method:'POST', headers:HDR, body:JSON.stringify({chat_id:chatId,target_id:tid})
+    }).then(function(d) { msg.textContent = d.message||d.error||'OK'; }).catch(function(e){ msg.textContent=e.message; });
+  }
+  function familyAction(action) {
+    var msg = document.getElementById('fw-msg');
+    var amount = parseInt(document.getElementById('fw-amount').value, 10);
+    if (!amount || amount <= 0) { msg.textContent = 'Введи сумму > 0'; return; }
+    msg.textContent = '...';
+    _api('/api/family/' + action, {
+      method:'POST', headers:HDR, body:JSON.stringify({chat_id:chatId,amount:amount})
     }).then(function(d) {
-      msg.textContent = d.error ? ('&#x274C; ' + d.error) : (d.message || '&#x1F48C; Напиши в боте: бот брак @user');
-    }).catch(function(e) { msg.textContent = '&#x274C; ' + _esc(e.message); });
+      if (d.error) { msg.style.color='var(--red)'; msg.textContent = d.error; return; }
+      msg.style.color='var(--green)'; msg.textContent = 'OK';
+      document.getElementById('fw-personal').textContent = (d.personal||0).toLocaleString() + ' \u1FAA9';
+      document.getElementById('fw-family').textContent = (d.family||0).toLocaleString() + ' \u1FAA9';
+      document.getElementById('fw-amount').value = '';
+    }).catch(function(e){ msg.style.color='var(--red)'; msg.textContent=e.message; });
   }
-
-  // ── MARKET ───────────────────────────────────────────────────────────────
-  function loadMarket() {
+  // ═══════════ INVENTORY ═══════════
+  function loadInventory() {
     var root = document.getElementById('inv-root');
-    if (!initData) { root.innerHTML = '<div class="error-msg">&#x274C; Auth required.</div>'; return; }
-    var url = '/api/user_data' + (chatId ? '?chat_id=' + chatId : '');
-    _api(url, { headers: HDR }).then(function(p) {
-      if (p.error) throw new Error(p.error);
-      if (!p.items || !p.items.length) {
-        root.innerHTML = '<p style="color:var(--muted);text-align:center;padding:20px">Инвентарь пуст. Попробуй <code>бот молитва</code>!</p>';
-        return;
+    var rpgRoot = document.getElementById('rpg-root');
+    if (!initData || !chatId) { root.innerHTML = '<div class="error-msg">Auth required.</div>'; return; }
+    _api('/api/inventory?chat_id=' + chatId, { headers: HDR }).then(function(d) {
+      if (d.error) throw new Error(d.error);
+      if (!d.items || !d.items.length) {
+        root.innerHTML = '<p style="color:var(--muted);text-align:center;padding:20px">Инвентарь пуст. <code>бот молитва</code></p>';
+      } else {
+        root.innerHTML = '<div class="inv-grid">' + d.items.map(function(it) {
+          var rc = 'rarity-' + (it.rarity||'common').toLowerCase();
+          var statLine = '';
+          if (it.atk||it.def||it.hp||it.crit) {
+            var parts = [];
+            if (it.atk) parts.push('ATK+' + it.atk);
+            if (it.def) parts.push('DEF+' + it.def);
+            if (it.hp) parts.push('HP+' + it.hp);
+            if (it.crit) parts.push('CRIT+' + (it.crit*100).toFixed(1) + '%');
+            statLine = '<div class="inv-stats">' + parts.join(' ') + '</div>';
+          }
+          return '<div class="inv-item ' + (it.equipped ? 'equipped' : '') + '" data-id="' + it.id + '">' +
+            '<button class="inv-equip-btn" onclick="toggleEquip(' + it.id + ',event)">' + (it.equipped ? 'Снять' : 'Надеть') + '</button>' +
+            '<div class="inv-name">' + (it.equipped ? '&#x2605; ' : '') + _esc(it.name) + '</div>' +
+            '<div class="inv-rarity ' + rc + '">' + _esc(it.rarity) + (it.slot ? ' [' + it.slot + ']' : '') + '</div>' +
+            statLine + '</div>';
+        }).join('') + '</div>';
       }
-      root.innerHTML = '<div class="inv-grid">' + p.items.map(function(label) {
-        var m = label.match(/^([\u2605]?)(.+)\s\((.+)\)$/);
-        var equipped = label.startsWith('\u2605');
-        var name = m ? m[2] : label;
-        var rarity = m ? m[3] : '';
-        var rc = 'rarity-' + rarity.toLowerCase();
-        return '<div class="inv-item ' + (equipped ? 'equipped' : '') + '">' +
-          '<div class="inv-name">' + (equipped ? '&#x2605; ' : '') + _esc(name) + '</div>' +
-          '<div class="inv-rarity ' + rc + '">' + _esc(rarity) + '</div></div>';
-      }).join('') + '</div>' +
-      '<p style="color:var(--muted);font-size:.72rem;margin-top:8px;text-align:center">Экипировать: <code>бот экипировать #ID</code></p>';
-    }).catch(function(e) { root.innerHTML = '<div class="error-msg">&#x274C; ' + _esc(e.message) + '</div>'; });
+      // RPG stats
+      var rpg = d.rpg || {hp:100,atk:50,def:20,crit:0.05};
+      rpgRoot.innerHTML =
+        '<div class="rpg-stats">' +
+        '<div class="rpg-stat"><div class="val">&#x2694;' + rpg.atk + '</div><div class="lbl">ATK</div></div>' +
+        '<div class="rpg-stat"><div class="val">&#x1F6E1;' + rpg.def + '</div><div class="lbl">DEF</div></div>' +
+        '<div class="rpg-stat"><div class="val">&#x2764;' + rpg.hp + '</div><div class="lbl">HP</div></div>' +
+        '<div class="rpg-stat"><div class="val">' + (rpg.crit*100).toFixed(1) + '%</div><div class="lbl">CRIT</div></div>' +
+        '</div>';
+      // Update market pity
+      var pity = d.pity || 0;
+      document.getElementById('market-pity').textContent = pity + ' / ' + PITY_MAX;
+      var pityPct = Math.min(100, (pity / PITY_MAX) * 100);
+      document.getElementById('pity-bar-fill').style.width = pityPct + '%';
+    }).catch(function(e) { root.innerHTML = '<div class="error-msg">' + _esc(e.message) + '</div>'; });
+  }
+  function toggleEquip(itemId, evt) {
+    if (evt) evt.stopPropagation();
+    _api('/api/inventory', {
+      method:'POST', headers:HDR, body:JSON.stringify({chat_id:chatId, item_id:itemId})
+    }).then(function(d) {
+      if (d.error) { alert(d.error); return; }
+      _tabLoaded['inv'] = false; loadInventory();
+    }).catch(function(e){ alert(e.message); });
   }
 
-  // ── BONDS ────────────────────────────────────────────────────────────────
+  // ═══════════ MARKET ═══════════
+  function loadMarketInfo() {
+    if (_profileData && _profileData.pity !== undefined) {
+      var pity = _profileData.pity || 0;
+      document.getElementById('market-pity').textContent = pity + ' / ' + PITY_MAX;
+      document.getElementById('pity-bar-fill').style.width = Math.min(100,(pity/PITY_MAX)*100) + '%';
+    } else if (initData && chatId) {
+      _api('/api/inventory?chat_id=' + chatId, { headers: HDR }).then(function(d) {
+        if (!d.error) {
+          document.getElementById('market-pity').textContent = (d.pity||0) + ' / ' + PITY_MAX;
+          document.getElementById('pity-bar-fill').style.width = Math.min(100,((d.pity||0)/PITY_MAX)*100) + '%';
+        }
+      });
+    }
+  }
+
+  // ═══════════ BONDS ═══════════
   var _charts = {};
   var BOND_BASE = { mondstadt: 100, inazuma: 150 };
   var BOND_NAMES = { mondstadt: '&#x1F338; Мондштадт', inazuma: '&#x26A1; Инадзума' };
-
   function loadBonds() {
     var root = document.getElementById('bonds-root');
-    if (!initData || !chatId) {
-      root.innerHTML = '<div class="error-msg">&#x274C; Нужна авторизация и чат.</div>';
-      return;
-    }
-    root.innerHTML = '<div class="loading-msg">&#x23F3; Загрузка биржи&#x2026;</div>';
-    _api('/api/bonds?chat_id=' + chatId, { headers: HDR }).then(function(d) {
+    if (!initData || !chatId) { root.innerHTML = '<div class="error-msg">Нужна авторизация и чат.</div>'; return; }
+    root.innerHTML = '<div class="loading-msg">&#x23F3; Загрузка&#x2026;</div>';
+    _api('/api/bonds?chat_id=' + chatId, { headers:HDR }).then(function(d) {
       if (d.error) throw new Error(d.error);
       root.innerHTML = '';
       d.bonds.forEach(function(b) {
-        var base = BOND_BASE[b.key] || 100;
+        var base = BOND_BASE[b.key]||100;
         var delta = b.price - base;
-        var priceClass = delta >= 0 ? 'up' : 'down';
-        var priceSign  = delta >= 0 ? '+' : '';
+        var cls = delta >= 0 ? 'up' : 'down';
+        var sign = delta >= 0 ? '+' : '';
         var canvasId = 'chart-' + b.key;
-
         var card = document.createElement('div');
         card.className = 'card bond-card';
         var histHtml = b.history && b.history.length
           ? '<div class="chart-wrap"><canvas id="' + canvasId + '"></canvas></div>'
-          : '<p style="color:var(--muted);font-size:.75rem;text-align:center;padding:8px">История цен появится после торгов</p>';
+          : '<p style="color:var(--muted);font-size:.75rem;text-align:center">Недостаточно данных для графика</p>';
         card.innerHTML =
-          '<div class="bond-header">' +
-          '<span class="bond-name">' + (BOND_NAMES[b.key] || b.key) + '</span>' +
-          '<span class="bond-price ' + priceClass + '">' + b.price + ' &#x1FAA9; (' + priceSign + delta + ')</span></div>' +
-          '<div class="info-row"><span class="info-label">&#x1F4CA; У вас</span><span class="info-value">' + b.amount + ' шт. = ' + (b.value||0).toLocaleString() + ' &#x1FAA9;</span></div>' +
-          '<div class="info-row"><span class="info-label">&#x1F4B8; Вложено</span><span class="info-value">' + (b.invested||0).toLocaleString() + ' &#x1FAA9;</span></div>' +
+          '<div class="bond-header"><span class="bond-name">' + (BOND_NAMES[b.key]||b.key) + '</span>' +
+          '<span class="bond-price ' + cls + '">' + b.price + ' &#x1FAA9; (' + sign + delta + ')</span></div>' +
+          '<div class="info-row"><span class="info-label">У вас</span><span class="info-value">' + b.amount + ' шт. = ' + (b.value||0).toLocaleString() + ' &#x1FAA9;</span></div>' +
+          '<div class="info-row"><span class="info-label">Вложено</span><span class="info-value">' + (b.invested||0).toLocaleString() + ' &#x1FAA9;</span></div>' +
           histHtml +
           '<p style="color:var(--muted);font-size:.72rem;margin-top:6px">Купить: <code>бот облиг купить ' + b.key + ' N</code></p>';
         root.appendChild(card);
-
         if (b.history && b.history.length) {
           var ctx = document.getElementById(canvasId).getContext('2d');
           if (_charts[b.key]) _charts[b.key].destroy();
-          var histPrices = b.history.map(function(h) { return h.price; });
-          var histLabels = b.history.map(function(_, i) { return i + 1; });
           _charts[b.key] = new Chart(ctx, {
-            type: 'line',
-            data: {
-              labels: histLabels,
-              datasets: [{
-                data: histPrices,
-                borderColor: delta >= 0 ? '#4ade80' : '#f87171',
-                backgroundColor: delta >= 0 ? 'rgba(74,222,128,.12)' : 'rgba(248,113,113,.12)',
-                borderWidth: 2,
-                pointRadius: histPrices.length > 15 ? 0 : 3,
-                tension: 0.35,
-                fill: true,
-              }]
-            },
-            options: {
-              responsive: true, maintainAspectRatio: false,
-              plugins: { legend: { display: false },
-                tooltip: { callbacks: { label: function(c) { return ' ' + c.parsed.y + ' \u1FAA9'; } } } },
-              scales: {
-                x: { display: false },
-                y: { grid: { color: 'rgba(255,255,255,.06)' }, ticks: { color: '#9a9aaa', font: { size: 9 } } }
-              }
-            }
+            type:'line',
+            data:{ labels:b.history.map(function(_,i){return i+1}),
+              datasets:[{ data:b.history.map(function(h){return h.price}),
+                borderColor: delta>=0?'#4ade80':'#f87171',
+                backgroundColor: delta>=0?'rgba(74,222,128,.12)':'rgba(248,113,113,.12)',
+                borderWidth:2, pointRadius: b.history.length>15?0:3, tension:.35, fill:true }]},
+            options:{ responsive:true, maintainAspectRatio:false,
+              plugins:{legend:{display:false}},
+              scales:{ x:{display:false}, y:{grid:{color:'rgba(255,255,255,.06)'}, ticks:{color:'#9a9aaa',font:{size:9}}} }}
           });
         }
       });
-    }).catch(function(e) {
-      root.innerHTML = '<div class="error-msg">&#x274C; ' + _esc(e.message) + '</div>';
-    });
+    }).catch(function(e){ root.innerHTML='<div class="error-msg">'+_esc(e.message)+'</div>'; });
   }
 
-  // ── GLORY (leaderboard) ──────────────────────────────────────────────────
+  // ═══════════ GLORY ═══════════
   document.querySelectorAll('.lbt').forEach(function(btn) {
     btn.addEventListener('click', function() {
-      document.querySelectorAll('.lbt').forEach(function(b) { b.classList.remove('active'); });
+      document.querySelectorAll('.lbt').forEach(function(b){b.classList.remove('active');});
       btn.classList.add('active');
       loadLB(btn.dataset.lbtype);
     });
   });
-
   function loadLB(type) {
     var el = document.getElementById('lb-list');
     el.innerHTML = '<div class="loading-msg">&#x23F3;&#x2026;</div>';
-    if (!chatId) { el.innerHTML = '<div class="error-msg">Нет chat_id.</div>'; return; }
+    if (!chatId) { el.innerHTML='<div class="error-msg">Нет chat_id.</div>'; return; }
     _api('/api/leaderboard?chat_id=' + chatId + '&type=' + type).then(function(d) {
       if (d.error) throw new Error(d.error);
       var M = ['\uD83E\uDD47','\uD83E\uDD48','\uD83E\uDD49','\uD83C\uDF96','\uD83C\uDF97'];
-      var lblMap = { xp: 'XP', messages: 'сообщ.', boss: 'урон' };
-      var lbl = lblMap[type] || '';
-      if (!d.entries || !d.entries.length) {
-        el.innerHTML = '<p style="color:var(--muted);text-align:center;padding:20px">Нет данных</p>';
-        return;
-      }
+      var lbl = { xp:'XP', messages:'сообщ.' }[type]||'';
+      if (!d.entries||!d.entries.length) { el.innerHTML='<p style="color:var(--muted);text-align:center;padding:20px">Нет данных</p>'; return; }
       el.innerHTML = d.entries.map(function(e) {
-        return '<div class="lb-row"><span class="lb-rank">' + (M[e.rank-1] || e.rank) + '</span>' +
-          '<span class="lb-name">' + _esc(e.name) + '</span>' +
-          '<span class="lb-score">' + (e.score||0).toLocaleString() + ' ' + lbl + '</span></div>';
+        return '<div class="lb-row"><span class="lb-rank">'+(M[e.rank-1]||e.rank)+'</span>'+
+          '<span class="lb-name">'+_esc(e.name)+'</span>'+
+          '<span class="lb-score">'+(e.score||0).toLocaleString()+' '+lbl+'</span></div>';
       }).join('');
-    }).catch(function(e) { el.innerHTML = '<div class="error-msg">&#x274C; ' + _esc(e.message) + '</div>'; });
+    }).catch(function(e){ el.innerHTML='<div class="error-msg">'+_esc(e.message)+'</div>'; });
   }
-
-  // ── DEV ──────────────────────────────────────────────────────────────────
+  // ═══════════ DEV PANEL ═══════════
   function loadDevStats() {
     var out = document.getElementById('dev-stats-out');
     out.style.display = 'block';
-    out.textContent = '&#x23F3; Загрузка&#x2026;';
-    _api('/api/dev/stats', { headers: HDR }).then(function(d) {
+    out.textContent = 'Загрузка...';
+    _api('/api/dev/stats', { headers:HDR }).then(function(d) {
       out.textContent = JSON.stringify(d, null, 2);
-    }).catch(function(e) { out.textContent = '&#x274C; ' + e.message; });
+    }).catch(function(e){ out.textContent = 'Error: ' + e.message; });
   }
   document.getElementById('dev-stats-btn').addEventListener('click', loadDevStats);
 
-  document.getElementById('dev-chest-btn').addEventListener('click', function() {
-    var raw = document.getElementById('dev-event-chat').value.trim();
-    var tc = raw ? parseInt(raw, 10) : chatId;
-    document.getElementById('dev-event-msg').textContent = 'Используй в боте: бот эвент сундук ' + (tc || '');
-  });
-  document.getElementById('dev-diligence-btn').addEventListener('click', function() {
-    var raw = document.getElementById('dev-event-chat').value.trim();
-    var tc = raw ? parseInt(raw, 10) : chatId;
-    document.getElementById('dev-event-msg').textContent = 'Используй в боте: бот эвент дилижанс ' + (tc || '');
-  });
+  var _devSearchTimer = null;
+  function initDevSearch() {
+    var input = document.getElementById('dev-search');
+    var dropdown = document.getElementById('dev-dropdown');
+    input.addEventListener('input', function() {
+      clearTimeout(_devSearchTimer);
+      var q = input.value.trim();
+      if (q.length < 1) { dropdown.style.display='none'; return; }
+      _devSearchTimer = setTimeout(function() {
+        var c = chatId || '';
+        _api('/api/dev/users?chat_id=' + c + '&q=' + encodeURIComponent(q), { headers:HDR }).then(function(d) {
+          if (!d.users||!d.users.length) { dropdown.style.display='none'; return; }
+          dropdown.style.display='block';
+          dropdown.innerHTML = d.users.map(function(u) {
+            return '<div class="dev-user-opt" data-uid="'+u.user_id+'" data-name="'+_esc(u.name)+'">' +
+              _esc(u.name) + ' <small style="color:var(--muted)">('+u.user_id+')</small></div>';
+          }).join('');
+          dropdown.querySelectorAll('.dev-user-opt').forEach(function(opt) {
+            opt.addEventListener('click', function() {
+              document.getElementById('dev-target-uid').value = opt.dataset.uid;
+              document.getElementById('dev-selected-name').textContent = opt.dataset.name + ' (' + opt.dataset.uid + ')';
+              document.getElementById('dev-selected-user').style.display = '';
+              input.value = opt.dataset.name;
+              dropdown.style.display = 'none';
+            });
+          });
+        });
+      }, 300);
+    });
+    document.addEventListener('click', function(e) {
+      if (!e.target.closest('.dev-search-wrap')) dropdown.style.display='none';
+    });
+  }
 
-  document.getElementById('dev-bal-btn').addEventListener('click', function() {
-    var msg = document.getElementById('dev-bal-msg');
-    var target = parseInt(document.getElementById('dev-bal-uid').value, 10);
-    var rawC = document.getElementById('dev-bal-chat').value.trim();
-    var chat = rawC ? parseInt(rawC, 10) : chatId;
-    var bal = parseInt(document.getElementById('dev-bal-amount').value, 10);
-    if (!target || !bal || !chat) { msg.textContent = '&#x274C; Заполни все поля'; return; }
-    msg.textContent = '&#x23F3;&#x2026;';
-    _api('/api/dev/setbalance', {
-      method: 'POST', headers: HDR,
-      body: JSON.stringify({ target_id: target, chat_id: chat, balance: bal })
+  function _devTarget() {
+    var uid = document.getElementById('dev-target-uid').value;
+    return uid ? parseInt(uid, 10) : null;
+  }
+
+  function devMora(mode) {
+    var msg = document.getElementById('dev-mora-msg');
+    var target = _devTarget();
+    var amount = parseInt(document.getElementById('dev-mora-amount').value, 10);
+    if (!target) { msg.textContent = 'Сначала выбери юзера'; return; }
+    if (isNaN(amount)) { msg.textContent = 'Введи сумму'; return; }
+    msg.textContent = '...';
+    if (mode === 'set') {
+      _api('/api/dev/setbalance', { method:'POST', headers:HDR,
+        body:JSON.stringify({target_id:target, chat_id:chatId, balance:amount})
+      }).then(function(d) {
+        msg.style.color = d.ok ? 'var(--green)' : 'var(--red)';
+        msg.textContent = d.ok ? 'Баланс: ' + d.balance : (d.error||'Error');
+      }).catch(function(e){msg.style.color='var(--red)';msg.textContent=e.message;});
+    } else {
+      _api('/api/dev/add_mora', { method:'POST', headers:HDR,
+        body:JSON.stringify({target_id:target, chat_id:chatId, amount:amount})
+      }).then(function(d) {
+        msg.style.color = d.ok ? 'var(--green)' : 'var(--red)';
+        msg.textContent = d.ok ? 'Баланс: ' + d.balance : (d.error||'Error');
+      }).catch(function(e){msg.style.color='var(--red)';msg.textContent=e.message;});
+    }
+  }
+
+  function devXP(mode) {
+    var msg = document.getElementById('dev-xp-msg');
+    var target = _devTarget();
+    var amount = parseInt(document.getElementById('dev-xp-amount').value, 10);
+    if (!target) { msg.textContent = 'Сначала выбери юзера'; return; }
+    if (isNaN(amount)) { msg.textContent = 'Введи кол-во'; return; }
+    msg.textContent = '...';
+    if (mode === 'set') {
+      // For set: subtract current, then add desired
+      _api('/api/dev/add_xp', { method:'POST', headers:HDR,
+        body:JSON.stringify({target_id:target, chat_id:chatId, amount: -999999})
+      }).then(function() {
+        return _api('/api/dev/add_xp', { method:'POST', headers:HDR,
+          body:JSON.stringify({target_id:target, chat_id:chatId, amount:amount})
+        });
+      }).then(function(d) {
+        msg.style.color = d.ok ? 'var(--green)' : 'var(--red)';
+        msg.textContent = d.ok ? 'XP: ' + d.xp : (d.error||'Error');
+      }).catch(function(e){msg.style.color='var(--red)';msg.textContent=e.message;});
+    } else {
+      _api('/api/dev/add_xp', { method:'POST', headers:HDR,
+        body:JSON.stringify({target_id:target, chat_id:chatId, amount:amount})
+      }).then(function(d) {
+        msg.style.color = d.ok ? 'var(--green)' : 'var(--red)';
+        msg.textContent = d.ok ? 'XP: ' + d.xp : (d.error||'Error');
+      }).catch(function(e){msg.style.color='var(--red)';msg.textContent=e.message;});
+    }
+  }
+
+  function devGiveItem() {
+    var msg = document.getElementById('dev-item-msg');
+    var target = _devTarget();
+    var name = document.getElementById('dev-item-name').value.trim();
+    var rarity = document.getElementById('dev-item-rarity').value;
+    if (!target) { msg.textContent = 'Сначала выбери юзера'; return; }
+    if (!name) { msg.textContent = 'Введи название предмета'; return; }
+    msg.textContent = '...';
+    _api('/api/dev/give_item', { method:'POST', headers:HDR,
+      body:JSON.stringify({target_id:target, chat_id:chatId, item_name:name, rarity:rarity})
     }).then(function(d) {
-      msg.textContent = d.ok
-        ? ('&#x2705; Баланс ' + d.balance + ' для ' + d.target_id)
-        : ('&#x274C; ' + (d.error || 'Ошибка'));
-    }).catch(function(e) { msg.textContent = '&#x274C; ' + _esc(e.message); });
-  });
+      msg.style.color = d.ok ? 'var(--green)' : 'var(--red)';
+      msg.textContent = d.ok ? 'Выдан: ' + d.item_name + ' (' + d.rarity + ')' : (d.error||'Error');
+    }).catch(function(e){msg.style.color='var(--red)';msg.textContent=e.message;});
+  }
 
-  // ── Boot ─────────────────────────────────────────────────────────────────
+  function devEvent(type) {
+    var msg = document.getElementById('dev-event-msg');
+    var raw = document.getElementById('dev-event-chat').value.trim();
+    var tc = raw ? parseInt(raw, 10) : chatId;
+    var cmds = {
+      chest: 'бот эвент сундук',
+      diligence: 'бот эвент дилижанс',
+      trader: 'бот эвент торговец'
+    };
+    msg.style.color = 'var(--gold)';
+    msg.textContent = 'Используй в чате: ' + (cmds[type]||type) + (tc ? ' (чат: ' + tc + ')' : '');
+  }
+
+  // ═══════════ BOOT ═══════════
   loadProfile();
   </script>
 </body>

@@ -10,8 +10,8 @@ import html as _html
 
 from database.db import (
     add_filter, add_user_to_banlist, assign_community_role,
-    clear_pending_role, delete_filter, get_channel_type,
-    get_chat_members, get_chat_settings, get_filters,
+    clear_pending_role, delete_filter, delete_marriage, get_channel_type,
+    get_chat_members, get_chat_settings, get_filters, get_marriage,
     get_note, get_pending_role, get_senior_users_in_chat,
     get_user_stats, is_group_allowed, is_user_in_banlist,
     log_voluntary_leave, remove_user_from_banlist,
@@ -198,6 +198,10 @@ async def track_chat_member_state(event: ChatMemberUpdated):
                 event.chat.id, member.id,
                 member.full_name or "", member.username or "",
             )
+        # Авто-развод при выходе из группы
+        marriage = await get_marriage(member.id, event.chat.id)
+        if marriage:
+            await delete_marriage(member.id, event.chat.id)
         # Предложить добавить в чёрный список по ID
         if not (await is_user_in_banlist(event.chat.id, member.id)):
             await _send_banlist_prompt(event.bot, event.chat.id, member, new_status)
