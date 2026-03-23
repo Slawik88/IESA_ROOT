@@ -264,11 +264,11 @@ async def cmd_shop(message: Message, cmd_args: str):
 
     owned = await _get_owned_keys(uid, chat_id) if section == "cosmetics" else None
     kb = _section_keyboard(uid, section, owned)
-    # Append Mini App quick-access button
+    # Mini App link — use plain URL since shop is group-only (web_app only works in private chats)
     kb.inline_keyboard.append([
         InlineKeyboardButton(
             text="📱 Открыть в Mini App",
-            web_app=WebAppInfo(url=MINI_APP_URL),
+            url=MINI_APP_URL,
         )
     ])
     await message.answer(
