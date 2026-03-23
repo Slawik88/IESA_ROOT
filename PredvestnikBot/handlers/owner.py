@@ -1004,8 +1004,11 @@ async def cmd_spawn_chest(message: Message) -> None:
     from handlers.tax_event import launch_chest_event
     
     chat_id = message.chat.id
-    await launch_chest_event(message.bot, chat_id)
-    await message.reply("✅ Сундук запущен в этом чате!")
+    event_id = await launch_chest_event(message.bot, chat_id)
+    if event_id is None:
+        await message.reply("❌ Не удалось запустить сундук. Проверь логи бота.")
+        return
+    await message.reply(f"✅ Сундук запущен в этом чате! ID: {event_id}")
 
 
 @router.message(BotCommand("групчаты"), RankFilter("owner"))

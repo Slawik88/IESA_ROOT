@@ -89,8 +89,11 @@ async def _do_finalize(bot: Bot, chat_id: int, event_id: int, msg_id: int):
         log.warning("Chest finalize edit failed (%s/%s): %s", chat_id, event_id, exc)
 
 
-async def launch_chest_event(bot: Bot, chat_id: int):
-    """Запускает ивент «Богатый сундук» в одном чате."""
+async def launch_chest_event(bot: Bot, chat_id: int) -> int | None:
+    """Запускает ивент «Богатый сундук» в одном чате.
+
+    Возвращает event_id при успехе, иначе None.
+    """
     rewards_desc = " / ".join(f"{r} 🪙" for r in CHEST_REWARDS)
 
     kb = InlineKeyboardMarkup(inline_keyboard=[
@@ -117,7 +120,7 @@ async def launch_chest_event(bot: Bot, chat_id: int):
             await bot.delete_message(chat_id, msg.message_id)
         except TelegramBadRequest:
             pass
-        return
+        return None
     await set_chest_event_message(event_id, msg.message_id)
     _active_events[chat_id] = event_id
 
@@ -137,6 +140,7 @@ async def launch_chest_event(bot: Bot, chat_id: int):
 
     # Таймер в памяти (для нормального процесса)
     asyncio.create_task(_finalize_after_delay(bot, chat_id, event_id, msg.message_id))
+    return event_id
 
 
 async def _finalize_after_delay(bot: Bot, chat_id: int, event_id: int, msg_id: int):
