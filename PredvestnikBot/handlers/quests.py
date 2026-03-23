@@ -5,7 +5,7 @@ from aiogram import Router
 from aiogram.types import Message
 
 from config import QUEST_REROLL_PRICE
-from database.db import deduct_mora, get_mora, get_quest_progress, get_todays_quest, get_user_quest, reroll_user_quest
+from database.db import deduct_mora, get_mora, get_quest_progress, get_user_quest, reroll_user_quest
 from filters.bot_command import BotCommand
 from utils.helpers import bot_today
 
@@ -14,6 +14,9 @@ router = Router()
 
 @router.message(BotCommand("задание", "quest", "квест", "задания"))
 async def cmd_quest(message: Message, cmd_args: str):
+    if message.chat.type not in ("group", "supergroup"):
+        await message.answer("❌ Задания доступны только в группах.")
+        return
     today = bot_today()
     quest = await get_user_quest(message.from_user.id, message.chat.id, today)
     row = await get_quest_progress(message.from_user.id, message.chat.id, today)

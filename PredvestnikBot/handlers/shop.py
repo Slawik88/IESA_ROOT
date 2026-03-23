@@ -332,6 +332,7 @@ async def cb_shop_buy(callback: CallbackQuery):
             pass
 
     elif item_key == "pet_color":
+        await buy_shop_item(uid, chat_id, "pet_color", "pending")
         # Предлагаем выбрать цвет
         buttons = []
         row = []
@@ -367,6 +368,13 @@ async def cb_shop_buy(callback: CallbackQuery):
             )
         except Exception:
             pass
+
+    else:
+        # Неизвестный товар — возвращаем деньги
+        from database.db import add_mora
+        await add_mora(uid, chat_id, price)
+        await callback.answer("❌ Ошибка: товар не обработан.", show_alert=True)
+        return
 
     await callback.answer("✅ Покупка совершена!")
 
@@ -423,6 +431,12 @@ async def cmd_set_title(message: Message, cmd_args: str):
 
     uid = message.from_user.id
     chat_id = message.chat.id
+    if not await has_shop_item(uid, chat_id, "custom_title"):
+        await message.answer(
+            "❌ Сначала купи кастомный титул в магазине: <code>бот магазин</code>",
+            parse_mode="HTML",
+        )
+        return
     await set_custom_title_in_chat(uid, chat_id, title)
     await message.answer(f"✅ Титул установлен: <b>{html.escape(title)}</b>", parse_mode="HTML")
 
@@ -444,5 +458,11 @@ async def cmd_set_emoji_status(message: Message, cmd_args: str):
 
     uid = message.from_user.id
     chat_id = message.chat.id
+    if not await has_shop_item(uid, chat_id, "pet_emoji_status"):
+        await message.answer(
+            "❌ Сначала купи эмодзи-статус в магазине: <code>бот магазин</code>",
+            parse_mode="HTML",
+        )
+        return
     await set_pet_emoji_status(uid, chat_id, emoji)
     await message.answer(f"✅ Эмодзи-статус питомца: {html.escape(emoji)}", parse_mode="HTML")

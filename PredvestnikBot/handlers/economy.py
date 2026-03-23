@@ -646,6 +646,11 @@ async def cmd_family_withdraw(message: Message, cmd_args: str):
         return
 
     new_family = await add_to_family_wallet(chat_id, uid, -amount)
+    if new_family < 0:
+        # Гонка: баланс ушёл в минус — откат
+        await add_to_family_wallet(chat_id, uid, amount)
+        await message.answer("❌ Недостаточно средств в семейном кошельке.")
+        return
     new_personal = await add_mora(uid, chat_id, amount)
     await message.answer(
         f"✅ Снято <b>{amount} 🪙</b> из семейного кошелька.\n"

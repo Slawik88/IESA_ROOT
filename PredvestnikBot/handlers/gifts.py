@@ -8,6 +8,8 @@
 Элитные подарки (trip/crown/castle) дают баффы к добыче моры.
 """
 
+import html
+
 from aiogram import Router
 from aiogram.types import (
     CallbackQuery,

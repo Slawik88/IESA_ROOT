@@ -594,6 +594,7 @@ async def cb_top(callback: CallbackQuery):
         await callback.answer()
         return
 
+    lines = [title, ""]
     for i, u in enumerate(top):
         place = _TOP_MEDALS[i] if i < 5 else f"{i + 1}."
         count = u[count_field] if count_field in u.keys() else 0
@@ -760,7 +761,7 @@ async def cb_profile_nav(callback: CallbackQuery):
                 InlineKeyboardButton(text="🏅 Бейджи", callback_data=f"pn:badges:{uid}"),
             ],
             [
-                InlineKeyboardButton(text="🏆 Топ чата", callback_data="top:a"),
+                InlineKeyboardButton(text="🏆 Топ чата", callback_data=f"top:{uid}:a"),
                 InlineKeyboardButton(text="⭐ Репутация", callback_data=f"pn:rep:{uid}"),
             ],
             [
@@ -1105,7 +1106,7 @@ async def cb_theme_set(callback: CallbackQuery):
 @router.callback_query(F.data.startswith("theme_buy:"))
 async def cb_theme_buy(callback: CallbackQuery):
     from config import PROFILE_THEMES
-    from database.db import add_mora
+    from database.db import deduct_mora as _deduct
     parts = callback.data.split(":")
     uid, key = int(parts[1]), parts[2]
     if callback.from_user.id != uid:
@@ -1122,7 +1123,10 @@ async def cb_theme_buy(callback: CallbackQuery):
     if bal < price:
         await callback.answer(f"❌ Не хватает моры ({bal}/{price}).", show_alert=True)
         return
-    await add_mora(uid, chat_id, -price)
+    ok, new_bal = await _deduct(uid, chat_id, price)
+    if not ok:
+        await callback.answer("❌ Не удалось списать Мору.", show_alert=True)
+        return
     await add_user_theme(uid, chat_id, key, "shop")
     await set_active_theme(uid, chat_id, key)
     await callback.answer(f"✅ Тема «{theme['name']}» куплена и активирована!")
