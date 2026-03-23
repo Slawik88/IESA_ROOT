@@ -9,7 +9,7 @@ from aiogram.exceptions import TelegramConflictError
 from aiogram.types import ChatPermissions
 from config import BOT_TOKEN
 from database.db import get_locked_chats, init_db, set_chat_setting
-from handlers import (admin, auto_mod, bank, casino, dm_roles, economy,
+from handlers import (admin, auto_mod, bank, casino, dm_roles, economy, espionage,
                      expeditions, extras, fun, gacha, gifts, helper,
                      moderator, notes, owner, pets, quests, reputation,
                      shop, tax_event, user, wallet, weather)
@@ -73,6 +73,7 @@ async def main():
     dp.include_router(expeditions.router)  # экспедиции питомцев
     dp.include_router(gacha.router)        # молитвы (гача)
     dp.include_router(bank.router)         # банк вкладов
+    dp.include_router(espionage.router)    # шпионаж + облигации
     dp.include_router(shop.router)         # магазин
     dp.include_router(gifts.router)        # подарки партнёру
     dp.include_router(tax_event.router)    # налоговая инспекция
