@@ -24,6 +24,7 @@ from database.db import (
     get_family_wallet,
     get_mora,
     get_user_deposits,
+    is_user_single,
     withdraw_deposit,
 )
 from filters.bot_command import BotCommand
@@ -37,11 +38,18 @@ _PLAN_LABELS = {
 }
 
 
-def _plan_desc(key: str) -> str:
+# Бонус одиночки: +2% к любому вкладу
+SINGLES_BANK_BONUS = 0.02
+
+
+def _plan_desc(key: str, singles_bonus: bool = False) -> str:
     p = BANK_PLANS[key]
     label = _PLAN_LABELS.get(key, key)
-    pct = int(p["rate"] * 100)
-    return f"{label} — {p['days']} д., +{pct}%"
+    base_rate = p["rate"]
+    effective_rate = base_rate + SINGLES_BANK_BONUS if singles_bonus else base_rate
+    pct = int(effective_rate * 100)
+    bonus_tag = " 💼" if singles_bonus else ""
+    return f"{label} — {p['days']} д., +{pct}%{bonus_tag}"
 
 
 # ─── бот банк ─────────────────────────────────────────────────────────────────
@@ -57,14 +65,17 @@ async def cmd_bank(message: Message, cmd_args: str):
     mora = await get_mora(uid, chat_id)
     bal = mora["balance"] if mora else 0
     deposits = await get_user_deposits(uid, chat_id)
+    single = await is_user_single(uid, chat_id)
 
     lines = [
-        "🏦 <b>Банк Северного Королевства</b>\n",
+        "🏦 <b>Банк Северного Королевства</b>​",
         f"💰 Баланс: <b>{bal} 🪙</b>\n",
-        "📊 <b>Планы вкладов:</b>",
     ]
+    if single:
+        lines.append("💼 <i>Бафф одиночки: Ваши ставки повышены на 2%!</i>\n")
+    lines.append("📊 <b>Планы вкладов:</b>")
     for key in ("short", "medium", "long"):
-        lines.append(f"  • {_plan_desc(key)}")
+        lines.append(f"  • {_plan_desc(key, single)}")
 
     lines.append(f"\n⚠️ Досрочное снятие: потеря ВСЕХ процентов + штраф <b>{int(BANK_EARLY_PENALTY_PCT * 100)}%</b> от вклада\n")
 
@@ -95,7 +106,7 @@ async def cmd_bank(message: Message, cmd_args: str):
     buttons = []
     for key in ("short", "medium", "long"):
         buttons.append([InlineKeyboardButton(
-            text=f"➕ {_plan_desc(key)}",
+            text=f"➕ {_plan_desc(key, single)}",
             callback_data=f"bank_open:{uid}:{key}",
         )])
     if deposits:
@@ -168,6 +179,9 @@ async def cb_bank_source_select(callback: CallbackQuery):
     mora = await get_mora(uid, chat_id)
     personal_bal = mora["balance"] if mora else 0
     family_bal = await get_family_wallet(chat_id, uid)
+    single = await is_user_single(uid, chat_id)
+    p = BANK_PLANS.get(plan_key)
+    effective_rate = p["rate"] + (SINGLES_BANK_BONUS if single else 0.0)
 
     buttons = []
     if personal_bal >= amount:
@@ -193,14 +207,14 @@ async def cb_bank_source_select(callback: CallbackQuery):
         )])
     
     kb = InlineKeyboardMarkup(inline_keyboard=buttons)
-    p = BANK_PLANS.get(plan_key)
-    pct = int(p["rate"] * 100)
+    pct = int(effective_rate * 100)
+    singles_note = "\n💼 <i>Бафф одиночки: +2% к ставке!</i>" if single else ""
     try:
         await callback.message.edit_text(
             f"🏦 <b>Открыть вклад: {_PLAN_LABELS.get(plan_key, plan_key)}</b>\n\n"
             f"💳 Сумма: <b>{amount} 🪙</b>\n"
             f"📅 Срок: {p['days']} дней\n"
-            f"📊 Процент: +{pct}%\n\n"
+            f"📊 Процент: +{pct}%{singles_note}\n\n"
             f"💰 Выбери способ оплаты:",
             parse_mode="HTML",
             reply_markup=kb,
@@ -238,7 +252,9 @@ async def cb_bank_confirm(callback: CallbackQuery):
         )
         return
 
-    # Списываем средства в зависимости от источника
+    # Применяем бонус одиночки к ставке
+    single = await is_user_single(uid, chat_id)
+    effective_rate = p["rate"] + (SINGLES_BANK_BONUS if single else 0.0)
     payment_text = "личного баланса"
     if source == "family":
         family_bal = await get_family_wallet(chat_id, uid)
@@ -260,14 +276,15 @@ async def cb_bank_confirm(callback: CallbackQuery):
             await callback.answer(f"❌ Недостаточно Моры ({bal} / {amount})", show_alert=True)
             return
 
-    await create_deposit(uid, chat_id, amount, p["rate"], p["days"])
+    await create_deposit(uid, chat_id, amount, effective_rate, p["days"])
 
-    reward = int(amount * p["rate"])
+    reward = int(amount * effective_rate)
+    singles_line = "\n💼 <i>(Бафф одиночки +2% применён)</i>" if single else ""
     try:
         await callback.message.edit_text(
             f"✅ <b>Вклад открыт!</b>\n\n"
             f"💳 Сумма: {amount} 🪙 с {payment_text}\n"
-            f"📊 Доход: +{reward} 🪙 через {p['days']} д.\n",
+            f"📊 Доход: +{reward} 🪙 через {p['days']} д.{singles_line}\n",
             parse_mode="HTML",
         )
     except Exception:

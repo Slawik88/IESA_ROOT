@@ -156,13 +156,19 @@ class AutoModMiddleware(BaseMiddleware):
             # ── Мора: шанс получить за сообщение (с кулдауном) ────────────
             from config import (MORA_MSG_CHANCE, MORA_MSG_MIN, MORA_MSG_MAX,
                                 MORA_MSG_COOLDOWN, MORA_QUEST_REWARD, MORA_LEVELUP_BONUS)
+            from database.db import is_user_single as _is_single
             import random as _mora_rng
             _mora_cd_key = (user.id, event.chat.id)
             _now_mora = time.monotonic()
             if _now_mora - _mora_cooldown.get(_mora_cd_key, 0) >= MORA_MSG_COOLDOWN:
-                if _mora_rng.random() < MORA_MSG_CHANCE:
+                # Перк одиночки: 20% шанс, 2-4 Моры (vs 17% и 1-3 для пар)
+                _single = await _is_single(user.id, event.chat.id)
+                _chance  = 0.20          if _single else MORA_MSG_CHANCE  # 20% vs 17%
+                _min_drop = MORA_MSG_MIN + 1 if _single else MORA_MSG_MIN  # 2 vs 1
+                _max_drop = MORA_MSG_MAX + 1 if _single else MORA_MSG_MAX  # 4 vs 3
+                if _mora_rng.random() < _chance:
                     _mora_cooldown[_mora_cd_key] = _now_mora
-                    _mora_drop = _mora_rng.randint(MORA_MSG_MIN, MORA_MSG_MAX)
+                    _mora_drop = _mora_rng.randint(_min_drop, _max_drop)
                     await add_mora(user.id, event.chat.id, _mora_drop)
 
             # Quest progress ("messages" type)

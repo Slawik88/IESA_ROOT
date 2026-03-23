@@ -4,9 +4,16 @@
 Появляется в чате раз в 4-8 часов (через scheduler).
 Первые 3 кликнувших получают награды (50 / 25 / 10 мора).
 Через CHEST_EVENT_DURATION секунд сундук исчезает.
+
+ВАЖНО: финализация ивента выполняется двумя путями:
+  1. asyncio.create_task(_finalize_after_delay) — для живых процессов (60 сек)
+  2. finalize_expired_chest_events() — вызывается из scheduler каждый час,
+     подбирает любые протухшие ивенты после перезапуска процесса.
 """
 
 import asyncio
+import html
+import logging
 import random
 
 from aiogram import Bot, Router
@@ -27,16 +34,56 @@ from database.db import (
     finish_chest_event,
     get_active_group_chat_ids,
     get_chest_click_count,
+    get_chest_event_winners,
+    get_expired_unfinished_chest_events,
     set_chest_event_message,
     increment_tracker,
 )
 
+log = logging.getLogger(__name__)
 router = Router()
 
 # Хранение активных ивентов {chat_id: event_id}
 _active_events: dict[int, int] = {}
 
 _PLACE_EMOJI = ["🥇", "🥈", "🥉"]
+
+
+async def _build_results_text(event_id: int, total_clicks: int) -> str:
+    """Собрать финальный текст с победителями из БД."""
+    winners = await get_chest_event_winners(event_id)
+    lines = [
+        f"🎁 <b>Богатый сундук закрыт!</b>",
+        f"Всего попытались открыть: <b>{total_clicks}</b> чел.",
+    ]
+    if winners:
+        lines.append("\n🏆 <b>Победители:</b>")
+        for w in winners:
+            pos = w["position"]
+            emoji = _PLACE_EMOJI[pos - 1] if pos <= len(_PLACE_EMOJI) else f"#{pos}"
+            uname = f"@{w['username']}" if w.get("username") else f"[id{w['user_id']}](tg://user?id={w['user_id']})"
+            lines.append(f"{emoji} {uname} — <b>{w['reward']} 🪙</b>")
+    else:
+        lines.append("\n<i>Никто не успел открыть сундук 😢</i>")
+    return "\n".join(lines)
+
+
+async def _do_finalize(bot: Bot, chat_id: int, event_id: int, msg_id: int):
+    """Финализирует ивент: помечает в БД, обновляет сообщение."""
+    await finish_chest_event(event_id)
+    _active_events.pop(chat_id, None)
+
+    try:
+        total = await get_chest_click_count(event_id)
+        result_text = await _build_results_text(event_id, total)
+        await bot.edit_message_text(
+            result_text,
+            chat_id=chat_id,
+            message_id=msg_id,
+            parse_mode="HTML",
+        )
+    except Exception as exc:
+        log.warning("Chest finalize edit failed (%s/%s): %s", chat_id, event_id, exc)
 
 
 async def launch_chest_event(bot: Bot, chat_id: int):
@@ -64,6 +111,7 @@ async def launch_chest_event(bot: Bot, chat_id: int):
     await set_chest_event_message(event_id, msg.message_id)
     _active_events[chat_id] = event_id
 
+    # Обновляем кнопку — теперь с реальным event_id (защита от chest:0 до создания)
     new_kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(
             text="💰 Открыть сундук!",
@@ -77,32 +125,37 @@ async def launch_chest_event(bot: Bot, chat_id: int):
     except Exception:
         pass
 
+    # Таймер в памяти (для нормального процесса)
     asyncio.create_task(_finalize_after_delay(bot, chat_id, event_id, msg.message_id))
 
 
 async def _finalize_after_delay(bot: Bot, chat_id: int, event_id: int, msg_id: int):
-    """Ожидает CHEST_EVENT_DURATION, затем подводит итоги."""
+    """Ждёт CHEST_EVENT_DURATION секунд, затем подводит итоги."""
     await asyncio.sleep(CHEST_EVENT_DURATION)
+    await _do_finalize(bot, chat_id, event_id, msg_id)
 
-    await finish_chest_event(event_id)
-    _active_events.pop(chat_id, None)
 
-    # Собираем клики из памяти callback (они уже записаны в DB)
-    # Просто обновляем сообщение
-    try:
-        await bot.edit_message_text(
-            "🎁 <b>Сундук закрылся!</b>\n\nВсе награды розданы. До следующего раза!",
-            chat_id=chat_id,
-            message_id=msg_id,
-            parse_mode="HTML",
-        )
-    except Exception:
-        pass
+async def finalize_expired_chest_events(bot: Bot):
+    """Финализирует все протухшие ивенты (перезапуск процесса, упавший таймер).
+    Вызывается из scheduler каждый час."""
+    expired = await get_expired_unfinished_chest_events()
+    for ev in expired:
+        event_id = ev["id"]
+        chat_id  = ev["chat_id"]
+        msg_id   = ev["message_id"]
+        if not msg_id:
+            # Сообщение неизвестно — просто закрываем в БД
+            await finish_chest_event(event_id)
+            _active_events.pop(chat_id, None)
+            continue
+        log.info("Finalizing expired chest event %s in chat %s", event_id, chat_id)
+        await _do_finalize(bot, chat_id, event_id, msg_id)
 
 
 @router.callback_query(lambda c: c.data and c.data.startswith("chest:"))
 async def cb_chest_click(callback: CallbackQuery):
-    event_id = int(callback.data.split(":")[1])
+    raw_id = callback.data.split(":")[1]
+    event_id = int(raw_id)
     if event_id == 0:
         await callback.answer("⏳ Подожди, сундук открывается...", show_alert=False)
         return
@@ -110,28 +163,39 @@ async def cb_chest_click(callback: CallbackQuery):
     uid = callback.from_user.id
     chat_id = callback.message.chat.id
 
+    # Атомарная проверка: позицию назначаем в самом INSERT (через триггер COUNT)
     count = await get_chest_click_count(event_id)
-    position = count + 1
-
-    if position > len(CHEST_REWARDS):
+    if count >= len(CHEST_REWARDS):
         await callback.answer("❌ Сундук уже пуст!", show_alert=False)
         return
 
+    position = count + 1
     reward = CHEST_REWARDS[position - 1]
+
     ok = await add_chest_click(event_id, uid, position, reward)
     if not ok:
         await callback.answer("⚠️ Ты уже открывал!", show_alert=False)
         return
 
+    # Начисляем мору атомарно
     await add_mora(uid, chat_id, reward)
     await increment_tracker(uid, chat_id, "chests_opened")
 
     emoji = _PLACE_EMOJI[position - 1] if position <= len(_PLACE_EMOJI) else f"#{position}"
-    await callback.answer(f"{emoji} +{reward} 🪙!", show_alert=True)
+    name = html.escape(callback.from_user.full_name or "")
+    await callback.answer(f"{emoji} {name}, ты получил +{reward} 🪙!", show_alert=True)
+
+    # Если последний слот — сразу закрываем не дожидаясь таймера
+    if position >= len(CHEST_REWARDS):
+        msg_id = callback.message.message_id
+        asyncio.create_task(_do_finalize(callback.bot, chat_id, event_id, msg_id))
 
 
 async def run_chest_events_cycle(bot: Bot):
     """Запускает Rich Chest в случайном активном чате. Вызывается из scheduler."""
+    # Сначала закрываем протухшие ивенты (защита после перезапуска)
+    await finalize_expired_chest_events(bot)
+
     chat_ids = await get_active_group_chat_ids()
     if not chat_ids:
         return

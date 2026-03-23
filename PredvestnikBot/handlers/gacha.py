@@ -29,11 +29,17 @@ from database.db import (
     get_gacha_inventory,
     get_gacha_pity,
     get_mora,
+    is_user_single,
     sell_gacha_junk,
 )
 from filters.bot_command import BotCommand
 
 router = Router()
+
+# Скидка для одиночек (меньше базовых цен)
+SINGLES_GACHA_SINGLE = 150
+SINGLES_GACHA_MULTI  = 1350
+
 
 # ─── Пул предметов ───────────────────────────────────────────────────────────
 _JUNK_ITEMS = [
@@ -143,14 +149,20 @@ async def cmd_gacha(message: Message, cmd_args: str):
     mora = await get_mora(uid, chat_id)
     bal = mora["balance"] if mora else 0
     pity = await get_gacha_pity(uid, chat_id)
+    single = await is_user_single(uid, chat_id)
+
+    # Цены с учётом баффа одиночки
+    price1  = SINGLES_GACHA_SINGLE if single else GACHA_SINGLE_PRICE
+    price10 = SINGLES_GACHA_MULTI  if single else GACHA_MULTI_PRICE
+    discount_note = "\n🆓 <i>Холостяцкая скидка активна!</i>" if single else ""
 
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(
-            text=f"🙏 x1 — {GACHA_SINGLE_PRICE} 🪙",
+            text=f"🙏 x1 — {price1} 🪙",
             callback_data=f"gacha:{uid}:1",
         )],
         [InlineKeyboardButton(
-            text=f"🙏 x10 — {GACHA_MULTI_PRICE} 🪙 (скидка!)",
+            text=f"🙏 x10 — {price10} 🪙 (скидка!)",
             callback_data=f"gacha:{uid}:10",
         )],
     ])
@@ -159,7 +171,7 @@ async def cmd_gacha(message: Message, cmd_args: str):
         f"🙏 <b>Молитвы Предвестника</b>\n\n"
         f"Испытай удачу и получи редкие предметы!\n\n"
         f"💰 Твой баланс: <b>{bal} 🪙</b>\n"
-        f"🔄 До гаранта: <b>{GACHA_PITY_COUNT - pity}</b> круток\n\n"
+        f"🔄 До гаранта: <b>{GACHA_PITY_COUNT - pity}</b> круток{discount_note}\n\n"
         f"<i>🟡 Легендарный — 2% (гарант {GACHA_PITY_COUNT})\n"
         f"🟣 Редкий — 8%\n"
         f"🟢 Обычный — 20%\n"
@@ -182,7 +194,11 @@ async def cb_gacha_roll(callback: CallbackQuery):
     uid = owner
     chat_id = callback.message.chat.id
 
-    price = GACHA_SINGLE_PRICE if count == 1 else GACHA_MULTI_PRICE
+    # Проверяем статус одиночки для цены
+    single = await is_user_single(uid, chat_id)
+    price = (SINGLES_GACHA_SINGLE if count == 1 else SINGLES_GACHA_MULTI) if single else (
+        GACHA_SINGLE_PRICE if count == 1 else GACHA_MULTI_PRICE
+    )
     ok, new_bal = await deduct_mora(uid, chat_id, price)
     if not ok:
         mora = await get_mora(uid, chat_id)
@@ -206,15 +222,18 @@ async def cb_gacha_roll(callback: CallbackQuery):
     pity = await get_gacha_pity(uid, chat_id)
 
     header = "🌟" if best_rarity == "legendary" else "✨" if best_rarity == "rare" else "🙏"
+    discount_note = "\n🆓 <i>(Применена холостяцкая скидка)</i>" if single else ""
+    price1_next  = SINGLES_GACHA_SINGLE if single else GACHA_SINGLE_PRICE
+    price10_next = SINGLES_GACHA_MULTI  if single else GACHA_MULTI_PRICE
 
     # Кнопки для повторных круток
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(
-            text=f"🙏 Ещё x1 — {GACHA_SINGLE_PRICE} 🪙",
+            text=f"🙏 Ещё x1 — {price1_next} 🪙",
             callback_data=f"gacha:{uid}:1",
         ),
         InlineKeyboardButton(
-            text=f"🙏 Ещё x10 — {GACHA_MULTI_PRICE} 🪙",
+            text=f"🙏 Ещё x10 — {price10_next} 🪙",
             callback_data=f"gacha:{uid}:10",
         )],
     ])
@@ -224,7 +243,7 @@ async def cb_gacha_roll(callback: CallbackQuery):
             f"{header} <b>Результат молитвы (x{count})</b>\n\n"
             f"{result_text}\n\n"
             f"💰 Баланс: <b>{new_bal} 🪙</b>\n"
-            f"🔄 До гаранта: <b>{GACHA_PITY_COUNT - pity}</b>",
+            f"🔄 До гаранта: <b>{GACHA_PITY_COUNT - pity}</b>{discount_note}",
             parse_mode="HTML",
             reply_markup=kb,
         )

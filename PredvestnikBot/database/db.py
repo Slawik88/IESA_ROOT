@@ -2358,11 +2358,12 @@ async def create_duel(chat_id: int, challenger_id: int, target_id: int, bet: int
     async with aiosqlite.connect(DATABASE_PATH) as db:
         cursor = await db.execute(
             """INSERT INTO casino_duels (chat_id, challenger_id, target_id, bet, status, msg_id, created_at)
-               VALUES (?, ?, ?, ?, 'pending', ?, ?)""",
+               VALUES (?, ?, ?, ?, 'pending', ?, ?) RETURNING id""",
             (chat_id, challenger_id, target_id, bet, msg_id, now),
         )
         await db.commit()
-        return cursor.lastrowid
+        row = await cursor.fetchone()
+        return row[0] if row else None
 
 
 async def get_duel(duel_id: int):
@@ -2563,11 +2564,13 @@ async def get_all_singles_for_weekly_bonus():
         async with db.execute("""
             SELECT us.user_id, us.chat_id
             FROM user_stats us
-            LEFT JOIN marriages m ON ((m.user_id_1 = us.user_id OR m.user_id_2 = us.user_id) 
-                                     AND m.chat_id = us.chat_id AND m.is_active = 1)
-            WHERE us.is_banned = 0 
-              AND us.message_count > 10  -- at least some activity
-              AND m.id IS NULL  -- no active marriage
+            WHERE us.is_banned = 0
+              AND us.message_count > 10
+              AND NOT EXISTS (
+                  SELECT 1 FROM marriages m
+                  WHERE (m.user_id = us.user_id OR m.partner_id = us.user_id)
+                    AND m.chat_id = us.chat_id
+              )
         """) as c:
             return await c.fetchall()
 
@@ -2681,10 +2684,11 @@ async def create_loan(lender_id: int, borrower_id: int, chat_id: int, amount: in
             (borrower_id, chat_id, amount, amount, amount, amount),
         )
         cursor = await db.execute(
-            "INSERT INTO mora_loans (lender_id, borrower_id, chat_id, amount, loaned_at) VALUES (?,?,?,?,?)",
+            "INSERT INTO mora_loans (lender_id, borrower_id, chat_id, amount, loaned_at) VALUES (?,?,?,?,?) RETURNING id",
             (lender_id, borrower_id, chat_id, amount, now),
         )
-        loan_id = cursor.lastrowid
+        row = await cursor.fetchone()
+        loan_id = row[0] if row else None
         await db.commit()
         return True, new_lender_bal, loan_id
 
@@ -3621,65 +3625,6 @@ async def withdraw_deposit(deposit_id: int) -> dict | None:
         return dict(dep)
 
 
-# ─── Налоговые ивенты ─────────────────────────────────────────────────────────
-
-async def create_tax_event(chat_id: int, message_id: int, prize: int,
-                           penalty_pct: float, duration_sec: int) -> int:
-    """Создать ивент. Возвращает id."""
-    now = datetime.utcnow()
-    expires = now + timedelta(seconds=duration_sec)
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        cursor = await db.execute(
-            """INSERT INTO tax_events (chat_id, message_id, prize, penalty_pct, started_at, expires_at)
-               VALUES (?, ?, ?, ?, ?, ?)""",
-            (chat_id, message_id, prize, penalty_pct,
-             now.isoformat(timespec="seconds"), expires.isoformat(timespec="seconds")),
-        )
-        await db.commit()
-        return cursor.lastrowid
-
-
-async def add_tax_click(event_id: int, user_id: int) -> int | None:
-    """Записать клик. Возвращает позицию (1-based) или None если уже кликнул."""
-    now = datetime.utcnow().isoformat(timespec="seconds")
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        async with db.execute(
-            "SELECT 1 FROM tax_event_clicks WHERE event_id=? AND user_id=?",
-            (event_id, user_id),
-        ) as c:
-            if await c.fetchone():
-                return None
-        async with db.execute(
-            "SELECT COUNT(*) FROM tax_event_clicks WHERE event_id=?",
-            (event_id,),
-        ) as c:
-            position = (await c.fetchone())[0] + 1
-        await db.execute(
-            "INSERT INTO tax_event_clicks (event_id, user_id, clicked_at, position) VALUES (?,?,?,?)",
-            (event_id, user_id, now, position),
-        )
-        await db.commit()
-        return position
-
-
-async def finish_tax_event(event_id: int):
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        await db.execute(
-            "UPDATE tax_events SET finished=1 WHERE id=?", (event_id,),
-        )
-        await db.commit()
-
-
-async def get_tax_event_clicks(event_id: int) -> list:
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
-        async with db.execute(
-            "SELECT * FROM tax_event_clicks WHERE event_id=? ORDER BY position",
-            (event_id,),
-        ) as c:
-            return await c.fetchall()
-
-
 # ─── Магазин (покупки) ─────────────────────────────────────────────────────────
 
 async def buy_shop_item(user_id: int, chat_id: int, item_type: str,
@@ -3689,11 +3634,12 @@ async def buy_shop_item(user_id: int, chat_id: int, item_type: str,
     async with aiosqlite.connect(DATABASE_PATH) as db:
         cursor = await db.execute(
             """INSERT INTO shop_items (user_id, chat_id, item_type, item_value, purchased_at)
-               VALUES (?, ?, ?, ?, ?)""",
+               VALUES (?, ?, ?, ?, ?) RETURNING id""",
             (user_id, chat_id, item_type, item_value, now),
         )
+        row = await cursor.fetchone()
         await db.commit()
-        return cursor.lastrowid
+        return row[0] if row else None
 
 
 async def has_shop_item(user_id: int, chat_id: int, item_type: str,
@@ -3859,17 +3805,6 @@ async def get_active_group_chat_ids() -> list[int]:
             return [r[0] for r in await c.fetchall()]
 
 
-async def get_tax_event_prize(event_id: int) -> int:
-    """Вернуть приз указанного налогового ивента."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
-        async with db.execute(
-            "SELECT prize FROM tax_events WHERE id=?", (event_id,),
-        ) as c:
-            row = await c.fetchone()
-            return row["prize"] if row else 0
-
-
 # ═══════════════════════════════════════════════════════════════════════════════
 #  🎨  Темы профиля
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -4005,11 +3940,52 @@ async def create_chest_event(chat_id: int, duration_sec: int = 60) -> int:
     async with aiosqlite.connect(DATABASE_PATH) as db:
         cur = await db.execute(
             """INSERT INTO chest_events (chat_id, started_at, expires_at)
-               VALUES (?, ?, ?)""",
+               VALUES (?, ?, ?) RETURNING id""",
             (chat_id, now.isoformat(), expires.isoformat()),
         )
         await db.commit()
-        return cur.lastrowid
+        row = await cur.fetchone()
+        return row[0] if row else None
+
+
+async def get_chest_event_winners(event_id: int) -> list:
+    """Вернуть победителей сундука с именами пользователей."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            """
+            SELECT c.position, c.reward, c.user_id,
+                   u.username
+            FROM chest_event_clicks c
+            LEFT JOIN users u ON u.user_id = c.user_id
+            WHERE c.event_id = ?
+            ORDER BY c.position
+            """,
+            (event_id,),
+        ) as cur:
+            return await cur.fetchall()
+
+
+async def get_expired_unfinished_chest_events() -> list:
+    """Вернуть все ивенты с просроченным expires_at и finished=0."""
+    now = datetime.utcnow().isoformat()
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT id, chat_id, message_id FROM chest_events WHERE finished=0 AND expires_at < ?",
+            (now,),
+        ) as cur:
+            return await cur.fetchall()
+
+
+async def is_user_single(user_id: int, chat_id: int) -> bool:
+    """Вернуть True если у пользователя нет активного брака в этом чате."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        async with db.execute(
+            "SELECT 1 FROM marriages WHERE (user_id=? OR partner_id=?) AND chat_id=?",
+            (user_id, user_id, chat_id),
+        ) as cur:
+            return (await cur.fetchone()) is None
 
 
 async def set_chest_event_message(event_id: int, message_id: int):
