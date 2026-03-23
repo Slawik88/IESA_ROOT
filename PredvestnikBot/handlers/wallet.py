@@ -14,7 +14,9 @@ from aiogram.types import Message
 
 from config import LOAN_MAX_ACTIVE, LOAN_MAX_AMOUNT, MORA_TRANSFER_MAX, MORA_TRANSFER_MIN
 from database.db import (
+    add_to_treasury,
     create_loan,
+    deduct_mora,
     get_active_loans_as_borrower,
     get_active_loans_as_lender,
     get_mora,
@@ -90,12 +92,20 @@ async def cmd_transfer(message: Message, cmd_args: str):
         )
         return
 
+    # 0.5% налог с переводов в казну чата (списывается дополнительно)
+    tax = max(1, int(amount * 0.005))
+    ok_tax, _ = await deduct_mora(uid, chat_id, tax)
+    if ok_tax:
+        from_bal = max(0, from_bal - tax)
+        await add_to_treasury(chat_id, tax)
+
     sender = user_mention(uid, message.from_user.full_name)
     receiver = user_mention(target_id, target_name)
+    tax_note = f"\n🏦 Налог казны: <b>-{tax} 🪙</b>" if ok_tax else ""
     await message.answer(
         f"💸 <b>Перевод выполнен!</b>\n\n"
         f"{sender} → {receiver}\n"
-        f"Сумма: <b>{amount} 🪙</b>\n\n"
+        f"Сумма: <b>{amount} 🪙</b>{tax_note}\n\n"
         f"Твой баланс: <b>{from_bal} 🪙</b>",
         parse_mode="HTML",
     )

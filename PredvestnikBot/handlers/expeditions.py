@@ -20,6 +20,7 @@ from aiogram.types import (
 from config import EXPEDITION_OPTIONS
 from database.db import (
     add_mora,
+    add_pet_fatigue,
     add_to_family_wallet,
     deduct_mora,
     get_active_expedition,
@@ -27,6 +28,7 @@ from database.db import (
     get_marriage,
     get_mora,
     get_pet,
+    get_pet_fatigue,
     start_expedition,
 )
 from filters.bot_command import BotCommand
@@ -70,12 +72,29 @@ async def cmd_expedition(message: Message, cmd_args: str):
         )
         return
 
+    # Проверяем усталость питомца
+    fatigue = pet.get("fatigue") or await get_pet_fatigue(uid, chat_id)
+    pet_emoji = {"cat": "🐱", "dog": "🐶"}.get(pet["pet_type"], "🐾")
+    pet_name = html.escape(pet["name"]) if pet.get("name") else "безымянный"
+    if fatigue >= 100:
+        await message.answer(
+            f"{pet_emoji} <b>{pet_name}</b> полностью измотан и не может идти в экспедицию!\n\n"
+            f"😴 Усталость: <b>{fatigue}/100</b>\n"
+            f"🍖 Покорми питомца командой <code>бот еда</code> чтобы снизить усталость.",
+            parse_mode="HTML",
+        )
+        return
+    if fatigue >= 80:
+        await message.answer(
+            f"⚠️ {pet_emoji} <b>{pet_name}</b> очень устал!\n"
+            f"😓 Усталость: <b>{fatigue}/100</b> — рекомендуем покормить его перед следующим походом.\n",
+            parse_mode="HTML",
+        )
+
     # Проверяем, не в экспедиции ли уже
     active = await get_active_expedition(uid, chat_id)
     if active:
         left = _time_left(active["started_at"], active["duration_h"])
-        pet_emoji = {"cat": "🐱", "dog": "🐶"}.get(pet["pet_type"], "🐾")
-        pet_name = html.escape(pet["name"]) if pet.get("name") else "безымянный"
         await message.answer(
             f"🗺 <b>Питомец в экспедиции</b>\n\n"
             f"{pet_emoji} <b>{pet_name}</b> сейчас в походе.\n"
@@ -301,6 +320,9 @@ async def cb_expedition_start(callback: CallbackQuery):
                 await add_mora(uid, chat_id, cost)
         await callback.answer("❌ Не удалось начать экспедицию.", show_alert=True)
         return
+
+    # +20 усталости за каждую экспедицию
+    await add_pet_fatigue(uid, chat_id, 20)
 
     pet_emoji = {"cat": "🐱", "dog": "🐶"}.get(pet["pet_type"], "🐾")
     pet_name = html.escape(pet["name"]) if pet.get("name") else "безымянный"

@@ -148,15 +148,15 @@ async def cmd_balance(message: Message, cmd_args: str):
             await message.answer(name)
             return
 
-        # Приватность: чужой баланс виден только admin_junior+
+        # Приватность: чужой баланс можно смотреть только admin_senior+
         from database.db import get_user_stats
         from utils.ranks import is_developer
         caller_id = message.from_user.id
         if uid != caller_id and not is_developer(caller_id):
             caller_stats = await get_user_stats(caller_id, chat_id)
             caller_rank = caller_stats["rank"] if caller_stats else "user"
-            if rank_level(caller_rank) < rank_level("admin_junior"):
-                await message.answer("🔒 Ты можешь смотреть только свой баланс.")
+            if rank_level(caller_rank) < rank_level("admin_senior"):
+                await message.answer("🔒 Баланс других участников могут смотреть только Старшие Администраторы и выше.")
                 return
 
         mora = await get_mora(uid, chat_id)
