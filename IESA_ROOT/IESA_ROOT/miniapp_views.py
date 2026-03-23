@@ -112,6 +112,12 @@ def miniapp_user_data(request):
             return JsonResponse({"error": "missing or invalid user_id"}, status=400, headers=headers)
         uid = int(uid_str)
 
+    # ── Optional chat_id to scope data to a specific chat ────────────────
+    chat_id_str = request.GET.get("chat_id", "").lstrip()
+    specific_chat_id: int | None = None
+    if chat_id_str.lstrip("-").isdigit():
+        specific_chat_id = int(chat_id_str)
+
     try:
         conn, db_type = _get_bot_db_connection()
     except Exception as exc:
@@ -131,23 +137,37 @@ def miniapp_user_data(request):
         user_row = cur.fetchone()
         full_name = user_row[0] if user_row else str(uid)
 
-        # Best mora row (highest balance)
-        cur.execute(
-            f"SELECT chat_id, balance, vip, top_frame, active_theme FROM user_mora "
-            f"WHERE user_id={ph} ORDER BY balance DESC LIMIT 1",
-            (uid,),
-        )
+        # Mora row: use specific chat if provided, otherwise best (highest balance)
+        if specific_chat_id:
+            cur.execute(
+                f"SELECT chat_id, balance, vip, top_frame, active_theme FROM user_mora "
+                f"WHERE user_id={ph} AND chat_id={ph}",
+                (uid, specific_chat_id),
+            )
+        else:
+            cur.execute(
+                f"SELECT chat_id, balance, vip, top_frame, active_theme FROM user_mora "
+                f"WHERE user_id={ph} ORDER BY balance DESC LIMIT 1",
+                (uid,),
+            )
         mora_row = cur.fetchone()
         if mora_row:
             chat_id, balance, vip, top_frame, active_theme = mora_row
         else:
             chat_id, balance, vip, top_frame, active_theme = 0, 0, 0, None, None
 
-        # XP
-        cur.execute(
-            f"SELECT xp FROM user_stats WHERE user_id={ph} ORDER BY xp DESC LIMIT 1",
-            (uid,),
-        )
+        # XP: scope to same chat when possible
+        if specific_chat_id or chat_id:
+            effective_cid = specific_chat_id or chat_id
+            cur.execute(
+                f"SELECT xp FROM user_stats WHERE user_id={ph} AND chat_id={ph}",
+                (uid, effective_cid),
+            )
+        else:
+            cur.execute(
+                f"SELECT xp FROM user_stats WHERE user_id={ph} ORDER BY xp DESC LIMIT 1",
+                (uid,),
+            )
         xp_row = cur.fetchone()
         xp = xp_row[0] if xp_row else 0
 

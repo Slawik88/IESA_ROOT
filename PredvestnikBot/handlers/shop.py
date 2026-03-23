@@ -264,11 +264,12 @@ async def cmd_shop(message: Message, cmd_args: str):
 
     owned = await _get_owned_keys(uid, chat_id) if section == "cosmetics" else None
     kb = _section_keyboard(uid, section, owned)
-    # Use t.me Mini App link — Telegram opens it as WebApp with initData (unlike plain DO URL)
+    # Use t.me Mini App link with startapp=abs(chat_id) so the app knows which chat context
+    abs_cid = abs(message.chat.id)
     kb.inline_keyboard.append([
         InlineKeyboardButton(
             text="📱 Открыть в Mini App",
-            url=MINI_APP_TG_URL,
+            url=f"{MINI_APP_TG_URL}?startapp={abs_cid}",
         )
     ])
     await message.answer(
