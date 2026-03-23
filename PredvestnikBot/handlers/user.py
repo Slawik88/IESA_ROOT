@@ -1141,6 +1141,17 @@ async def cmd_me(message: Message, cmd_args: str):
     if theme["footer"]:
         lines.append(f"\n{theme['footer']}")
 
+    # web_app buttons only work in private chats; groups get a plain URL link
+    if message.chat.type == "private":
+        miniapp_btn = [InlineKeyboardButton(
+            text="📱 Mini App",
+            web_app=WebAppInfo(url=_MINI_APP_URL),
+        )]
+    else:
+        miniapp_btn = [InlineKeyboardButton(
+            text="📱 Mini App",
+            url=_MINI_APP_URL,
+        )]
     me_kb = InlineKeyboardMarkup(inline_keyboard=[
         [
             InlineKeyboardButton(text="🎨 Тема", callback_data=f"pn:themes:{uid}"),
@@ -1150,12 +1161,7 @@ async def cmd_me(message: Message, cmd_args: str):
             InlineKeyboardButton(text="🏆 Топ чата", callback_data=f"top:{uid}:a"),
             InlineKeyboardButton(text="⭐ Репутация", callback_data=f"pn:rep:{uid}"),
         ],
-        [
-            InlineKeyboardButton(
-                text="📱 Mini App",
-                web_app=WebAppInfo(url=_MINI_APP_URL),
-            ),
-        ],
+        miniapp_btn,
         [
             InlineKeyboardButton(text="❌ Закрыть", callback_data=f"pn:close:{uid}"),
         ],
