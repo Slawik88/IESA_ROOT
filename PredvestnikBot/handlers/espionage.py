@@ -260,7 +260,7 @@ async def cmd_buy_bond(message: Message, cmd_args: str):
 @router.callback_query(lambda c: c.data and c.data.startswith("bond_buy:"))
 async def cb_bond_buy(callback: CallbackQuery):
     parts = callback.data.split(":")
-    if len(parts) < 7:
+    if len(parts) < 6:
         await callback.answer()
         return
     _, wallet, owner_str, chat_str, bond_key, amount_str = parts[:6]
