@@ -17,6 +17,7 @@ import logging
 import random
 
 from aiogram import Bot, Router
+from aiogram.exceptions import TelegramBadRequest
 from aiogram.types import (
     CallbackQuery,
     InlineKeyboardButton,
@@ -82,6 +83,8 @@ async def _do_finalize(bot: Bot, chat_id: int, event_id: int, msg_id: int):
             message_id=msg_id,
             parse_mode="HTML",
         )
+    except TelegramBadRequest as exc:
+        log.warning("Chest finalize edit failed (message gone?) (%s/%s): %s", chat_id, event_id, exc)
     except Exception as exc:
         log.warning("Chest finalize edit failed (%s/%s): %s", chat_id, event_id, exc)
 
@@ -108,6 +111,13 @@ async def launch_chest_event(bot: Bot, chat_id: int):
     )
 
     event_id = await create_chest_event(chat_id, CHEST_EVENT_DURATION)
+    if event_id is None:
+        log.error("create_chest_event returned None for chat %s — aborting", chat_id)
+        try:
+            await bot.delete_message(chat_id, msg.message_id)
+        except TelegramBadRequest:
+            pass
+        return
     await set_chest_event_message(event_id, msg.message_id)
     _active_events[chat_id] = event_id
 
@@ -155,7 +165,12 @@ async def finalize_expired_chest_events(bot: Bot):
 @router.callback_query(lambda c: c.data and c.data.startswith("chest:"))
 async def cb_chest_click(callback: CallbackQuery):
     raw_id = callback.data.split(":")[1]
-    event_id = int(raw_id)
+    try:
+        event_id = int(raw_id)
+    except (ValueError, TypeError):
+        log.warning("cb_chest_click: bad callback_data=%r", callback.data)
+        await callback.answer("⚠️ Ошибка данных, попробуй ещё раз.", show_alert=False)
+        return
     if event_id == 0:
         await callback.answer("⏳ Подожди, сундук открывается...", show_alert=False)
         return
@@ -183,7 +198,10 @@ async def cb_chest_click(callback: CallbackQuery):
 
     emoji = _PLACE_EMOJI[position - 1] if position <= len(_PLACE_EMOJI) else f"#{position}"
     name = html.escape(callback.from_user.full_name or "")
-    await callback.answer(f"{emoji} {name}, ты получил +{reward} 🪙!", show_alert=True)
+    try:
+        await callback.answer(f"{emoji} {name}, ты получил +{reward} 🪙!", show_alert=True)
+    except TelegramBadRequest:
+        pass
 
     # Если последний слот — сразу закрываем не дожидаясь таймера
     if position >= len(CHEST_REWARDS):

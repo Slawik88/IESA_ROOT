@@ -4,6 +4,7 @@ import logging
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
+from aiogram.exceptions import TelegramConflictError
 
 from aiogram.types import ChatPermissions
 from config import BOT_TOKEN
@@ -90,6 +91,12 @@ async def main():
 
     try:
         await dp.start_polling(bot, drop_pending_updates=True)
+    except TelegramConflictError:
+        logging.critical(
+            "TelegramConflictError: another bot instance is already running! "
+            "Ensure only one process polls at a time. Exiting."
+        )
+        raise
     finally:
         try:
             await notify_developer(bot, BOT_STOPPED_MSG)
