@@ -384,6 +384,7 @@ async def _task_expedition_notifications(bot) -> None:
         chat_id = exp["chat_id"]
         reward = random.randint(exp["reward_min"], exp["reward_max"])
         try:
+            # Начисляем мору владельцу питомца
             await add_mora(uid, chat_id, reward)
             await finish_expedition(uid, chat_id)
 
@@ -393,27 +394,29 @@ async def _task_expedition_notifications(bot) -> None:
             exp_label = _label_by_h.get(exp["duration_h"], f"{exp['duration_h']}ч")
             loot      = _loot_flavor(reward)
 
-            # Check if user is married for family notification
+            # Проверяем брак и начисляем мору партнёру тоже
             marriage = await get_marriage(uid, chat_id)
-            family_tag = ""
+            partner_tag = ""
             if marriage:
                 partner_id = marriage["partner_id"]
+                # Начисляем мору партнёру
+                await add_mora(partner_id, chat_id, reward)
                 try:
                     partner_member = await bot.get_chat_member(chat_id, partner_id)
                     if partner_member.user.username:
-                        family_tag = f"\n👋 @{partner_member.user.username}"
+                        partner_tag = f"\n👋 @{partner_member.user.username} тоже получил <b>{reward} 🪙</b>"
                     else:
-                        family_tag = f"\n👋 Партнёр [id{partner_id}](tg://user?id={partner_id})"
+                        partner_tag = f"\n👋 [Партнёр](tg://user?id={partner_id}) тоже получил <b>{reward} 🪙</b>"
                 except Exception:
                     # Fallback если не можем получить данные партнёра
-                    family_tag = f"\n👋 [Партнёр](tg://user?id={partner_id})"
+                    partner_tag = f"\n👋 [Партнёр](tg://user?id={partner_id}) тоже получил <b>{reward} 🪙</b>"
 
             await bot.send_message(
                 chat_id,
                 f"🏕 <b>Экспедиция завершена!</b>\n\n"
                 f"{pet_emoji} <b>{pet_name}</b> вернулся из похода <b>{exp_label}</b>\n"
                 f"и принёс {loot}\n\n"
-                f"💰 <b>+{reward} 🪙</b>{family_tag}",
+                f"💰 <b>+{reward} 🪙</b>{partner_tag}",
                 parse_mode="HTML",
             )
         except Exception as exc:
