@@ -1173,6 +1173,66 @@ async def cmd_user_roles(message: Message) -> None:
     if uid is None:
         await message.reply("❓ Укажи пользователя: <code>бот ролипользователя @user</code> или ответь на его сообщение.", parse_mode="HTML")
         return
+
+
+# ─── Developer: смена вида питомца ────────────────────────────────────────────
+
+_DEV_PET_NAME  = {"cat": "Котёнок", "dog": "Щенок"}
+_DEV_PET_EMOJI = {"cat": "🐱", "dog": "🐶"}
+_DEV_PET_TYPE_MAP = {
+    "кот": "cat", "кошка": "cat", "котёнок": "cat", "котенок": "cat", "cat": "cat",
+    "собака": "dog", "собак": "dog", "щенок": "dog", "dog": "dog", "пёс": "dog", "пес": "dog",
+}
+
+
+@router.message(BotCommand("смена питомца", "смена вид питомца", "change pet"), RankFilter("developer"))
+async def cmd_dev_change_pet_type(message: Message, cmd_args: str):
+    """Developer-only: бесплатно сменить вид питомца любому пользователю.
+    Формат: бот смена питомца @user кот|собака
+    """
+    parts = (cmd_args or "").split(maxsplit=1)
+    if len(parts) < 2:
+        await message.answer(
+            "❓ Использование: <code>бот смена питомца @user кот|собака</code>",
+            parse_mode="HTML",
+        )
+        return
+
+    target_id, target_name, _ = await resolve_target(message, parts[0])
+    if target_id is None:
+        await message.answer(target_name)
+        return
+
+    new_type = _DEV_PET_TYPE_MAP.get(parts[1].strip().lower())
+    if not new_type:
+        await message.answer("❌ Укажи вид питомца: <b>кот</b> или <b>собака</b>.", parse_mode="HTML")
+        return
+
+    from database.db import change_pet_type, get_pet
+    chat_id = message.chat.id
+    pet = await get_pet(target_id, chat_id)
+    if not pet:
+        await message.answer(
+            f"❌ У {html.escape(target_name)} нет питомца в этом чате.",
+            parse_mode="HTML",
+        )
+        return
+
+    if pet["pet_type"] == new_type:
+        await message.answer(
+            f"ℹ️ У {html.escape(target_name)} уже {_DEV_PET_NAME.get(new_type, new_type)}.",
+            parse_mode="HTML",
+        )
+        return
+
+    await change_pet_type(target_id, chat_id, new_type)
+    old_e = _DEV_PET_EMOJI.get(pet["pet_type"], "🐾")
+    new_e = _DEV_PET_EMOJI.get(new_type, "🐾")
+    await message.answer(
+        f"✅ <b>Питомец изменён:</b> {html.escape(target_name)}\n"
+        f"{old_e} {_DEV_PET_NAME.get(pet['pet_type'], '?')} → {new_e} {_DEV_PET_NAME.get(new_type, '?')}",
+        parse_mode="HTML",
+    )
     await _show_user_roles(message, uid, fname)
 
 

@@ -21,11 +21,12 @@ from aiogram.types import (
     Message,
 )
 
-from config import PET_ADOPT_PRICE, PET_MIN_MARRIAGE_DAYS, PET_MORA_SKIP_PRICE, PET_RENAME_PRICE
+from config import PET_ADOPT_PRICE, PET_CHANGE_TYPE_PRICE, PET_MIN_MARRIAGE_DAYS, PET_MORA_SKIP_PRICE, PET_RENAME_PRICE
 from database.db import (
     add_to_family_wallet,
     adopt_pet,
     add_mora,
+    change_pet_type,
     deduct_mora,
     get_family_wallet,
     get_marriage,
@@ -544,3 +545,70 @@ async def cmd_rename_pet(message: Message, cmd_args: str):
                 parse_mode="HTML",
                 reply_markup=kb
             )
+
+
+# ─── Смена вида питомца (платная, обычные пользователи) ───────────────────────
+
+@router.message(BotCommand("сменить вид питомца", "сменить питомца", "поменять питомца", "смена вида питомца"))
+async def cmd_change_pet_type(message: Message, cmd_args: str):
+    if message.chat.type == "private":
+        await message.answer("❌ Питомцы доступны только в группах.")
+        return
+    uid = message.from_user.id
+    chat_id = message.chat.id
+    try:
+        pet = await get_pet(uid, chat_id)
+        if not pet:
+            await message.answer("❌ У тебя нет питомца.")
+            return
+
+        arg = (cmd_args or "").strip().lower()
+        type_map = {
+            "кот": "cat", "кошка": "cat", "котёнок": "cat", "котенок": "cat", "cat": "cat",
+            "собака": "dog", "собак": "dog", "щенок": "dog", "dog": "dog", "пёс": "dog", "пес": "dog",
+        }
+        new_type = type_map.get(arg)
+        if not new_type:
+            await message.answer(
+                f"🐾 <b>Смена вида питомца</b>\n\n"
+                f"Укажи нового питомца:\n"
+                f"  <code>бот сменить вид питомца кот</code>\n"
+                f"  <code>бот сменить вид питомца собака</code>\n\n"
+                f"💰 Стоимость: <b>{PET_CHANGE_TYPE_PRICE} 🪙</b>",
+                parse_mode="HTML",
+            )
+            return
+
+        if pet["pet_type"] == new_type:
+            await message.answer(f"❌ У тебя уже {_PET_NAME.get(new_type, 'этот питомец')}!")
+            return
+
+        mora = await get_mora(uid, chat_id)
+        bal = mora["balance"] if mora else 0
+        if bal < PET_CHANGE_TYPE_PRICE:
+            await message.answer(
+                f"❌ Недостаточно Моры!\n"
+                f"Нужно: <b>{PET_CHANGE_TYPE_PRICE} 🪙</b>\n"
+                f"У тебя: <b>{bal} 🪙</b>",
+                parse_mode="HTML",
+            )
+            return
+
+        ok, new_bal = await deduct_mora(uid, chat_id, PET_CHANGE_TYPE_PRICE)
+        if not ok:
+            await message.answer("❌ Не удалось списать Мору.")
+            return
+
+        await change_pet_type(uid, chat_id, new_type)
+        old_emoji = _PET_EMOJI.get(pet["pet_type"], "🐾")
+        new_emoji = _PET_EMOJI.get(new_type, "🐾")
+        old_name  = _PET_NAME.get(pet["pet_type"], "?")
+        new_name  = _PET_NAME.get(new_type, "?")
+        await message.answer(
+            f"✅ <b>Вид питомца изменён!</b>\n\n"
+            f"{old_emoji} {old_name} → {new_emoji} {new_name}\n\n"
+            f"💰 Баланс: <b>{new_bal} 🪙</b>",
+            parse_mode="HTML",
+        )
+    except Exception:
+        await message.answer("❌ Произошла ошибка при смене вида питомца.")
