@@ -77,11 +77,19 @@
     console.log('[MiniApp] tg object:', tg ? 'loaded' : 'MISSING');
     console.log('[MiniApp] initData:', tg?.initData ? tg.initData.substring(0, 60) + '…' : 'EMPTY');
     console.log('[MiniApp] user:', tg?.initDataUnsafe?.user || 'none');
+    console.log('[MiniApp] start_param:', tg?.initDataUnsafe?.start_param || 'none');
 
-    async function loadProfile(initData) {
-      console.log('[MiniApp] loadProfile(), initData len:', initData?.length || 0);
+    // start_param = abs(chat_id) passed via ?startapp= in the t.me link
+    // Group chats have negative IDs, so we negate the abs value back.
+    const _startParam = tg?.initDataUnsafe?.start_param;
+    const chatId = _startParam ? -Math.abs(parseInt(_startParam)) : null;
+    console.log('[MiniApp] resolved chatId:', chatId);
+
+    async function loadProfile(initData, chatId) {
+      console.log('[MiniApp] loadProfile(), chatId:', chatId);
+      const url = chatId ? `/api/user_data?chat_id=${chatId}` : '/api/user_data';
       const headers = { 'X-Telegram-Init-Data': initData || '' };
-      const res = await fetch('/api/user_data', { headers });
+      const res = await fetch(url, { headers });
       if (!res.ok) {
         const body = await res.text().catch(() => '');
         throw new Error(`HTTP ${res.status}: ${body}`);
@@ -147,7 +155,7 @@
         return;
       }
       try {
-        const profile = await loadProfile(initData);
+        const profile = await loadProfile(initData, chatId);
         if (profile.error) throw new Error(profile.error);
         renderProfile(profile);
       } catch (e) {

@@ -547,7 +547,7 @@ async def cmd_help(message: Message, cmd_args: str):
 
 @router.message(BotCommand("app", "miniapp", "миниапп", "сайт", "открыть app"))
 async def cmd_open_app(message: Message, cmd_args: str):
-    from config import MINI_APP_URL
+    from config import MINI_APP_URL, MINI_APP_TG_URL
 
     if message.chat.type == "private":
         kb = InlineKeyboardMarkup(inline_keyboard=[[
@@ -565,12 +565,16 @@ async def cmd_open_app(message: Message, cmd_args: str):
         )
         return
 
+    abs_cid = abs(message.chat.id)
+    app_link = f"{MINI_APP_TG_URL}?startapp={abs_cid}"
+    kb = InlineKeyboardMarkup(inline_keyboard=[[
+        InlineKeyboardButton(text="🚀 Открыть Mini App", url=app_link),
+    ]])
     await message.answer(
         "🌐 <b>Mini App</b>\n\n"
-        "В группах Telegram не всегда передаёт данные Mini App через обычную ссылку.\n"
-        "Открой личный чат с ботом и нажми кнопку <b>Открыть App</b> возле строки ввода.\n\n"
-        f"Прямая ссылка: <code>{html.escape(MINI_APP_URL)}</code>",
+        "Нажми кнопку — откроется профиль именно этого чата.",
         parse_mode="HTML",
+        reply_markup=kb,
     )
 
 
@@ -1143,16 +1147,17 @@ async def cmd_me(message: Message, cmd_args: str):
         lines.append(f"\n{theme['footer']}")
 
     # web_app= only works in private chats.
-    # In groups, use t.me/Bot/AppName link — Telegram opens it as Mini App with initData.
+    # In groups, use t.me Mini App link with startapp=abs(chat_id) so the app knows which chat.
     if message.chat.type == "private":
         miniapp_btn = [InlineKeyboardButton(
             text="📱 Mini App",
             web_app=WebAppInfo(url=_MINI_APP_URL),
         )]
     else:
+        abs_cid = abs(message.chat.id)
         miniapp_btn = [InlineKeyboardButton(
             text="📱 Mini App",
-            url=_MINI_APP_TG_URL,
+            url=f"{_MINI_APP_TG_URL}?startapp={abs_cid}",
         )]
     me_kb = InlineKeyboardMarkup(inline_keyboard=[
         [
