@@ -737,6 +737,29 @@ async def init_db():
                 session_date TEXT    NOT NULL
             )
         """)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS bond_price_history (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                chat_id     INTEGER NOT NULL,
+                bond_key    TEXT    NOT NULL,
+                price       INTEGER NOT NULL,
+                recorded_at TEXT    NOT NULL
+            )
+        """)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS user_rpg_stats (
+                user_id     INTEGER NOT NULL,
+                chat_id     INTEGER NOT NULL,
+                base_hp     INTEGER DEFAULT 100,
+                base_atk    INTEGER DEFAULT 50,
+                base_def    INTEGER DEFAULT 20,
+                base_crit   REAL    DEFAULT 0.05,
+                weapon_id   INTEGER DEFAULT NULL,
+                armor_id    INTEGER DEFAULT NULL,
+                artifact_id INTEGER DEFAULT NULL,
+                PRIMARY KEY (user_id, chat_id)
+            )
+        """)
 
         # ─── Миграция: РПГ-статы гача-предметов ──────────────────────────
         for col_def in [
@@ -2257,7 +2280,21 @@ async def get_mora(user_id: int, chat_id: int):
             return await c.fetchone()
 
 
-async def add_mora(user_id: int, chat_id: int, amount: int) -> int:
+async def get_mora_batch(user_ids: list[int], chat_id: int) -> dict[int, dict]:
+    """Fetch mora rows for multiple users in one query. Returns dict user_id → dict."""
+    if not user_ids:
+        return {}
+    placeholders = ",".join("?" * len(user_ids))
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            f"SELECT * FROM user_mora WHERE chat_id=? AND user_id IN ({placeholders})",
+            (chat_id, *user_ids),
+        ) as c:
+            rows = await c.fetchall()
+    return {row["user_id"]: dict(row) for row in rows}
+
+(user_id: int, chat_id: int, amount: int) -> int:
     """Add (or subtract) Мора. Balance never goes below 0. Returns new balance."""
     async with aiosqlite.connect(DATABASE_PATH) as db:
         await db.execute(
@@ -4242,6 +4279,11 @@ async def update_bond_prices(chat_id: int):
                    ON CONFLICT(bond_key, chat_id) DO UPDATE SET price=excluded.price, updated_at=excluded.updated_at""",
                 (key, chat_id, new_price, now),
             )
+            # Record price history for Chart.js graphs
+            await db.execute(
+                "INSERT INTO bond_price_history (chat_id, bond_key, price, recorded_at) VALUES (?,?,?,?)",
+                (chat_id, key, new_price, now),
+            )
         await db.commit()
 
 
@@ -4253,6 +4295,99 @@ async def get_user_bonds(user_id: int, chat_id: int) -> list[dict]:
             (user_id, chat_id),
         ) as c:
             return [dict(r) for r in await c.fetchall()]
+
+
+async def get_bond_price_history(chat_id: int, bond_key: str, limit: int = 30) -> list[dict]:
+    """Return recent price history for a bond in a chat (oldest first)."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            """SELECT price, recorded_at FROM bond_price_history
+               WHERE chat_id=? AND bond_key=?
+               ORDER BY id DESC LIMIT ?""",
+            (chat_id, bond_key, limit),
+        ) as c:
+            rows = [dict(r) for r in await c.fetchall()]
+    return list(reversed(rows))  # return oldest first
+
+
+async def get_singles(chat_id: int, limit: int = 20) -> list[dict]:
+    """Return users in this chat who have no active marriage."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            """SELECT s.user_id, u.full_name, s.xp, s.level
+               FROM user_stats s
+               LEFT JOIN users u ON u.user_id = s.user_id
+               WHERE s.chat_id = ?
+                 AND s.user_id NOT IN (SELECT user_id FROM marriages WHERE chat_id = ?)
+               ORDER BY s.xp DESC LIMIT ?""",
+            (chat_id, chat_id, limit),
+        ) as c:
+            return [dict(r) for r in await c.fetchall()]
+
+
+async def get_rpg_stats(user_id: int, chat_id: int) -> dict:
+    """Return combined RPG stats: base + equipped item bonuses."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT * FROM user_rpg_stats WHERE user_id=? AND chat_id=?",
+            (user_id, chat_id),
+        ) as c:
+            row = await c.fetchone()
+        base = dict(row) if row else {
+            "base_hp": 100, "base_atk": 50, "base_def": 20, "base_crit": 0.05,
+            "weapon_id": None, "armor_id": None, "artifact_id": None,
+        }
+        # Sum bonuses from equipped gacha items
+        bonus_atk = bonus_def = bonus_hp = bonus_crit = 0.0
+        for slot_col in ("weapon_id", "armor_id", "artifact_id"):
+            iid = base.get(slot_col)
+            if iid:
+                async with db.execute(
+                    "SELECT atk, def_val, hp, crit_rate FROM gacha_inventory WHERE id=?",
+                    (iid,),
+                ) as ci:
+                    item = await ci.fetchone()
+                if item:
+                    bonus_atk  += item["atk"] or 0
+                    bonus_def  += item["def_val"] or 0
+                    bonus_hp   += item["hp"] or 0
+                    bonus_crit += item["crit_rate"] or 0.0
+    return {
+        "hp":        base["base_hp"] + int(bonus_hp),
+        "atk":       base["base_atk"] + int(bonus_atk),
+        "def":       base["base_def"] + int(bonus_def),
+        "crit_rate": round(base["base_crit"] + bonus_crit, 3),
+        "weapon_id": base.get("weapon_id"),
+        "armor_id":  base.get("armor_id"),
+        "artifact_id": base.get("artifact_id"),
+    }
+
+
+async def equip_item(user_id: int, chat_id: int, item_id: int, slot: str) -> bool:
+    """Equip a gacha item into a slot (weapon/armor/artifact). Returns True on success."""
+    col = {"weapon": "weapon_id", "armor": "armor_id", "artifact": "artifact_id"}.get(slot)
+    if not col:
+        return False
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        # Verify item belongs to user
+        async with db.execute(
+            "SELECT id FROM gacha_inventory WHERE id=? AND user_id=? AND chat_id=?",
+            (item_id, user_id, chat_id),
+        ) as c:
+            if not await c.fetchone():
+                return False
+        await db.execute(
+            f"""INSERT INTO user_rpg_stats (user_id, chat_id, {col})
+                VALUES (?,?,?)
+                ON CONFLICT(user_id, chat_id) DO UPDATE SET {col}=excluded.{col}""",
+            (user_id, chat_id, item_id),
+        )
+        await db.commit()
+    return True
+
 
 
 async def buy_bonds(user_id: int, chat_id: int, bond_key: str, amount: int, price_per: int) -> bool:

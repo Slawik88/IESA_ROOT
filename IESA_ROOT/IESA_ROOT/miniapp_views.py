@@ -565,3 +565,403 @@ def miniapp_boss_damage(request):
         except Exception:
             pass
         return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+
+
+# ─── Developer ID ─────────────────────────────────────────────────────────────
+_DEVELOPER_ID = 1460945748
+
+
+def _require_auth(request, headers):
+    """Validate initData. Returns uid (int) on success or a JsonResponse error."""
+    init_data = request.headers.get("X-Telegram-Init-Data", "").strip()
+    if not init_data:
+        if _BOT_TOKEN:
+            return None, JsonResponse({"error": "X-Telegram-Init-Data required"}, status=401, headers=headers)
+        uid_str = request.GET.get("user_id", "") if request.method == "GET" else ""
+        if uid_str.isdigit():
+            return int(uid_str), None
+        return None, JsonResponse({"error": "auth required"}, status=401, headers=headers)
+    uid = _validate_init_data(init_data)
+    if uid is None:
+        return None, JsonResponse({"error": "invalid initData"}, status=401, headers=headers)
+    return uid, None
+
+
+# ─── Marriage ─────────────────────────────────────────────────────────────────
+
+@csrf_exempt
+def miniapp_marriage(request):
+    """GET /api/marriage?chat_id=X — marriage status + singles list."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "GET":
+        return JsonResponse({"error": "GET required"}, status=405, headers=headers)
+
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+
+    chat_id_str = request.GET.get("chat_id", "")
+    if not chat_id_str.lstrip("-").isdigit():
+        return JsonResponse({"error": "chat_id required"}, status=400, headers=headers)
+    chat_id = int(chat_id_str)
+
+    try:
+        conn, db_type = _get_bot_db_connection()
+    except Exception as exc:
+        return JsonResponse({"error": f"DB: {exc}"}, status=503, headers=headers)
+
+    try:
+        cur = conn.cursor()
+        ph = "%s" if db_type == "pg" else "?"
+
+        # Current marriage
+        cur.execute(
+            f"SELECT partner_id, married_at FROM marriages WHERE user_id={ph} AND chat_id={ph}",
+            (uid, chat_id),
+        )
+        row = cur.fetchone()
+        has_partner = row is not None
+        partner_id = row[0] if row else None
+        married_at = row[1] if row else None
+        partner_name = None
+        if partner_id:
+            cur.execute(f"SELECT full_name FROM users WHERE user_id={ph}", (partner_id,))
+            prow = cur.fetchone()
+            partner_name = prow[0] if prow else f"user_{partner_id}"
+
+        # Singles: users in this chat with no marriage row, ordered by xp desc
+        cur.execute(
+            f"SELECT s.user_id, u.full_name, COALESCE(s.xp, 0) as xp "
+            f"FROM user_stats s LEFT JOIN users u ON u.user_id=s.user_id "
+            f"WHERE s.chat_id={ph} AND s.user_id!={ph} "
+            f"AND s.user_id NOT IN (SELECT user_id FROM marriages WHERE chat_id={ph}) "
+            f"ORDER BY s.xp DESC LIMIT 20",
+            (chat_id, uid, chat_id),
+        )
+        singles = [
+            {"user_id": r[0], "name": r[1] or f"user_{r[0]}", "xp": r[2]}
+            for r in cur.fetchall()
+        ]
+
+        conn.close()
+        return JsonResponse({
+            "has_partner": has_partner,
+            "partner_id": partner_id,
+            "partner_name": partner_name,
+            "married_at": married_at,
+            "singles": singles,
+        }, json_dumps_params={"ensure_ascii": False}, headers=headers)
+
+    except Exception as exc:
+        try:
+            conn.close()
+        except Exception:
+            pass
+        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+
+
+# ─── Marriage: propose ────────────────────────────────────────────────────────
+
+@csrf_exempt
+def miniapp_marriage_propose(request):
+    """POST /api/marriage/propose — returns bot command instruction."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=405, headers=headers)
+
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+
+    try:
+        body = json.loads(request.body)
+        target_id = int(body.get("target_id", 0))
+    except Exception:
+        return JsonResponse({"error": "invalid JSON"}, status=400, headers=headers)
+
+    if not target_id:
+        return JsonResponse({"error": "target_id required"}, status=400, headers=headers)
+
+    return JsonResponse(
+        {"message": f"Напиши в Telegram: бот брак @user (или ID: {target_id})"},
+        json_dumps_params={"ensure_ascii": False},
+        headers=headers,
+    )
+
+
+# ─── Bonds + price history ────────────────────────────────────────────────────
+
+@csrf_exempt
+def miniapp_bonds(request):
+    """GET /api/bonds?chat_id=X — bond prices, user holdings, price history."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "GET":
+        return JsonResponse({"error": "GET required"}, status=405, headers=headers)
+
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+
+    chat_id_str = request.GET.get("chat_id", "")
+    if not chat_id_str.lstrip("-").isdigit():
+        return JsonResponse({"error": "chat_id required"}, status=400, headers=headers)
+    chat_id = int(chat_id_str)
+
+    try:
+        conn, db_type = _get_bot_db_connection()
+    except Exception as exc:
+        return JsonResponse({"error": f"DB: {exc}"}, status=503, headers=headers)
+
+    try:
+        cur = conn.cursor()
+        ph = "%s" if db_type == "pg" else "?"
+
+        # Current prices
+        cur.execute(
+            f"SELECT bond_key, price, updated_at FROM bond_prices WHERE chat_id={ph}",
+            (chat_id,),
+        )
+        price_map = {r[0]: {"price": r[1], "updated_at": r[2]} for r in cur.fetchall()}
+
+        # User holdings
+        cur.execute(
+            f"SELECT bond_key, amount, invested FROM user_bonds WHERE user_id={ph} AND chat_id={ph}",
+            (uid, chat_id),
+        )
+        holdings = {r[0]: {"amount": r[1], "invested": r[2]} for r in cur.fetchall()}
+
+        # Price history (last 30 points per bond)
+        _BOND_KEYS = ["mondstadt", "inazuma"]
+        history = {}
+        for bk in _BOND_KEYS:
+            cur.execute(
+                f"SELECT price, recorded_at FROM bond_price_history "
+                f"WHERE chat_id={ph} AND bond_key={ph} ORDER BY id DESC LIMIT 30",
+                (chat_id, bk),
+            )
+            rows = cur.fetchall()
+            rows.reverse()
+            history[bk] = [{"price": r[0], "ts": r[1]} for r in rows]
+
+        conn.close()
+
+        bonds_out = []
+        for bk in _BOND_KEYS:
+            current_price = price_map.get(bk, {}).get("price", 100)
+            holding = holdings.get(bk, {"amount": 0, "invested": 0})
+            bonds_out.append({
+                "key": bk,
+                "price": current_price,
+                "amount": holding["amount"],
+                "invested": holding["invested"],
+                "value": holding["amount"] * current_price,
+                "history": history.get(bk, []),
+            })
+
+        return JsonResponse({"bonds": bonds_out},
+                            json_dumps_params={"ensure_ascii": False}, headers=headers)
+
+    except Exception as exc:
+        try:
+            conn.close()
+        except Exception:
+            pass
+        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+
+
+# ─── Equip item ───────────────────────────────────────────────────────────────
+
+@csrf_exempt
+def miniapp_equip(request):
+    """POST /api/equip — equip a gacha item into a slot."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=405, headers=headers)
+
+    init_data = request.headers.get("X-Telegram-Init-Data", "").strip()
+    uid = _validate_init_data(init_data) if init_data else None
+    if uid is None:
+        return JsonResponse({"error": "X-Telegram-Init-Data required"}, status=401, headers=headers)
+
+    try:
+        body = json.loads(request.body)
+        chat_id = int(str(body.get("chat_id", "0")).lstrip())
+        item_id = int(body.get("item_id", 0))
+        slot = str(body.get("slot", "")).lower()
+    except (json.JSONDecodeError, ValueError, AttributeError):
+        return JsonResponse({"error": "invalid JSON body"}, status=400, headers=headers)
+
+    if slot not in ("weapon", "armor", "artifact"):
+        return JsonResponse({"error": "slot must be weapon/armor/artifact"}, status=400, headers=headers)
+
+    try:
+        conn, db_type = _get_bot_db_connection()
+    except Exception as exc:
+        return JsonResponse({"error": f"DB: {exc}"}, status=503, headers=headers)
+
+    try:
+        cur = conn.cursor()
+        ph = "%s" if db_type == "pg" else "?"
+        col = {"weapon": "weapon_id", "armor": "armor_id", "artifact": "artifact_id"}[slot]
+
+        # Verify item belongs to user
+        cur.execute(
+            f"SELECT id, item_name, slot FROM gacha_inventory WHERE id={ph} AND user_id={ph} AND chat_id={ph}",
+            (item_id, uid, chat_id),
+        )
+        irow = cur.fetchone()
+        if not irow:
+            conn.close()
+            return JsonResponse({"error": "item not found or not yours"}, status=404, headers=headers)
+        item_name = irow[1]
+
+        # Upsert user_rpg_stats with new equipped slot
+        if db_type == "pg":
+            cur.execute(
+                f"INSERT INTO user_rpg_stats (user_id, chat_id, {col}) VALUES ({ph},{ph},{ph}) "
+                f"ON CONFLICT (user_id, chat_id) DO UPDATE SET {col}=EXCLUDED.{col}",
+                (uid, chat_id, item_id),
+            )
+        else:
+            cur.execute(
+                f"INSERT INTO user_rpg_stats (user_id, chat_id, {col}) VALUES (?,?,?) "
+                f"ON CONFLICT(user_id, chat_id) DO UPDATE SET {col}=excluded.{col}",
+                (uid, chat_id, item_id),
+            )
+        conn.commit()
+        conn.close()
+        return JsonResponse({"ok": True, "equipped": item_name, "slot": slot}, headers=headers)
+
+    except Exception as exc:
+        try:
+            conn.close()
+        except Exception:
+            pass
+        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+
+
+# ─── Developer panel ──────────────────────────────────────────────────────────
+
+@csrf_exempt
+def miniapp_dev_stats(request):
+    """GET /api/dev/stats — developer only: active chats + recent error summary."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "GET":
+        return JsonResponse({"error": "GET required"}, status=405, headers=headers)
+
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+    if uid != _DEVELOPER_ID:
+        return JsonResponse({"error": "forbidden"}, status=403, headers=headers)
+
+    try:
+        conn, db_type = _get_bot_db_connection()
+    except Exception as exc:
+        return JsonResponse({"error": f"DB: {exc}"}, status=503, headers=headers)
+
+    try:
+        cur = conn.cursor()
+        ph = "%s" if db_type == "pg" else "?"
+
+        # Active chats (groups that have at least 1 user_stats entry)
+        cur.execute(
+            "SELECT cs.chat_id, cs.title, COUNT(DISTINCT s.user_id) as member_count "
+            "FROM chats cs LEFT JOIN user_stats s ON s.chat_id=cs.chat_id "
+            "GROUP BY cs.chat_id, cs.title ORDER BY member_count DESC LIMIT 50"
+        )
+        chats = [{"chat_id": r[0], "title": r[1] or f"chat_{r[0]}", "members": r[2]}
+                 for r in cur.fetchall()]
+
+        # Total users
+        cur.execute("SELECT COUNT(*) FROM users")
+        total_users = (cur.fetchone() or [0])[0]
+
+        # Recent boss damage (last 24h)
+        cur.execute(
+            "SELECT COUNT(*) FROM boss_damage_log WHERE session_date >= date('now', '-1 day')"
+            if db_type == "sqlite"
+            else "SELECT COUNT(*) FROM boss_damage_log WHERE session_date >= CURRENT_DATE - INTERVAL '1 day'"
+        )
+        boss_hits_today = (cur.fetchone() or [0])[0]
+
+        conn.close()
+        return JsonResponse({
+            "total_users": total_users,
+            "boss_hits_today": boss_hits_today,
+            "chats": chats,
+        }, json_dumps_params={"ensure_ascii": False}, headers=headers)
+
+    except Exception as exc:
+        try:
+            conn.close()
+        except Exception:
+            pass
+        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+
+
+@csrf_exempt
+def miniapp_dev_setbalance(request):
+    """POST /api/dev/setbalance — developer only: set a user's mora balance."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=405, headers=headers)
+
+    init_data = request.headers.get("X-Telegram-Init-Data", "").strip()
+    uid = _validate_init_data(init_data) if init_data else None
+    if uid != _DEVELOPER_ID:
+        return JsonResponse({"error": "forbidden"}, status=403, headers=headers)
+
+    try:
+        body = json.loads(request.body)
+        target_id = int(body.get("target_id", 0))
+        chat_id = int(str(body.get("chat_id", "0")))
+        balance = int(body.get("balance", 0))
+    except (json.JSONDecodeError, ValueError, AttributeError):
+        return JsonResponse({"error": "invalid JSON"}, status=400, headers=headers)
+
+    if balance < 0 or balance > 10_000_000:
+        return JsonResponse({"error": "balance out of range"}, status=400, headers=headers)
+
+    try:
+        conn, db_type = _get_bot_db_connection()
+    except Exception as exc:
+        return JsonResponse({"error": f"DB: {exc}"}, status=503, headers=headers)
+
+    try:
+        cur = conn.cursor()
+        ph = "%s" if db_type == "pg" else "?"
+        if db_type == "pg":
+            cur.execute(
+                f"INSERT INTO user_mora (user_id, chat_id, balance) VALUES ({ph},{ph},{ph}) "
+                f"ON CONFLICT (user_id, chat_id) DO UPDATE SET balance=EXCLUDED.balance",
+                (target_id, chat_id, balance),
+            )
+        else:
+            cur.execute(
+                "INSERT INTO user_mora (user_id, chat_id, balance) VALUES (?,?,?) "
+                "ON CONFLICT(user_id, chat_id) DO UPDATE SET balance=excluded.balance",
+                (target_id, chat_id, balance),
+            )
+        conn.commit()
+        conn.close()
+        return JsonResponse({"ok": True, "target_id": target_id, "balance": balance}, headers=headers)
+
+    except Exception as exc:
+        try:
+            conn.close()
+        except Exception:
+            pass
+        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
