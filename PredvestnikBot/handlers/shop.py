@@ -23,7 +23,7 @@ from config import (
     GACHA_SINGLE_PRICE,
     LOTTERY_TICKET_PRICE,
     MARRIAGE_GIFTS,
-    MINI_APP_URL,
+    MINI_APP_TG_URL,
     PET_ADOPT_PRICE,
     PET_MORA_SKIP_PRICE,
     PET_RENAME_PRICE,
@@ -264,11 +264,11 @@ async def cmd_shop(message: Message, cmd_args: str):
 
     owned = await _get_owned_keys(uid, chat_id) if section == "cosmetics" else None
     kb = _section_keyboard(uid, section, owned)
-    # Mini App link — use plain URL since shop is group-only (web_app only works in private chats)
+    # Use t.me Mini App link — Telegram opens it as WebApp with initData (unlike plain DO URL)
     kb.inline_keyboard.append([
         InlineKeyboardButton(
             text="📱 Открыть в Mini App",
-            url=MINI_APP_URL,
+            url=MINI_APP_TG_URL,
         )
     ])
     await message.answer(
