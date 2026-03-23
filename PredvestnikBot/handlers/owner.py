@@ -1139,7 +1139,7 @@ async def cb_role_holders(callback: CallbackQuery) -> None:
     await callback.answer()
 
 
-@router.message(BotCommand("выдать роль", "выдатьроль"), RankFilter("admin_junior"))
+@router.message(BotCommand("выдать роль", "выдатьроль"), RankFilter("co_owner"))
 async def cmd_assign_role(message: Message) -> None:
     """бот выдатьроль <@user|reply> <название роли>"""
     args = (message.text or "").split(maxsplit=2)
@@ -1178,7 +1178,7 @@ async def cmd_assign_role(message: Message) -> None:
             await _try_set_custom_title(message.bot, main_chat_id, uid, role_name)
 
 
-@router.message(BotCommand("снять роль", "снятьроль"), RankFilter("admin_junior"))
+@router.message(BotCommand("снять роль", "снятьроль"), RankFilter("co_owner"))
 async def cmd_revoke_role(message: Message) -> None:
     """бот снятьроль <@user|reply> <название роли>"""
     args = (message.text or "").split(maxsplit=2)

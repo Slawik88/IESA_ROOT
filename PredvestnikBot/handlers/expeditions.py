@@ -20,8 +20,11 @@ from aiogram.types import (
 from config import EXPEDITION_OPTIONS
 from database.db import (
     add_mora,
+    add_to_family_wallet,
     deduct_mora,
     get_active_expedition,
+    get_family_wallet,
+    get_marriage,
     get_mora,
     get_pet,
     start_expedition,
@@ -82,30 +85,151 @@ async def cmd_expedition(message: Message, cmd_args: str):
         )
         return
 
-    # Показываем меню выбора
-    mora = await get_mora(uid, chat_id)
-    bal = mora["balance"] if mora else 0
+    # Проверяем брак для выбора кошелька
+    marriage = await get_marriage(uid, chat_id)
+    
+    # Показываем меню выбора кошелька (если в браке) или сразу экспедицию
+    if marriage:
+        mora = await get_mora(uid, chat_id)
+        personal_bal = mora["balance"] if mora else 0
+        family_bal = await get_family_wallet(chat_id, uid)
+        
+        kb = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(
+                text=f"💰 Личный кошелёк ({personal_bal} 🪙)",
+                callback_data=f"exped_wallet:{uid}:personal"
+            )],
+            [InlineKeyboardButton(
+                text=f"👨‍👩‍👧 Семейный кошелёк ({family_bal} 🪙)", 
+                callback_data=f"exped_wallet:{uid}:family"
+            )]
+        ])
+        
+        pet_emoji = {"cat": "🐱", "dog": "🐶"}.get(pet["pet_type"], "🐾")
+        pet_name = html.escape(pet["name"]) if pet.get("name") else "безымянный"
+        await message.answer(
+            f"🗺 <b>Экспедиция</b>\n\n"
+            f"Отправь {pet_emoji} <b>{pet_name}</b> в поход за Морой!\n\n"
+            f"💳 Выбери кошелёк для оплаты:",
+            parse_mode="HTML",
+            reply_markup=kb,
+        )
+    else:
+        # Одинокий игрок — только личный кошелёк
+        await _show_expedition_menu(message, uid, "personal")
 
+
+async def _show_expedition_menu(message: Message, uid: int, wallet_type: str):
+    """Показывает меню выбора экспедиции с учётом выбранного кошелька."""
+    chat_id = message.chat.id
+    
+    if wallet_type == "personal":
+        mora = await get_mora(uid, chat_id)
+        balance = mora["balance"] if mora else 0
+        wallet_icon = "💰"
+        wallet_name = "личного кошелька"
+    else:  # family
+        balance = await get_family_wallet(chat_id, uid)
+        wallet_icon = "👨‍👩‍👧"
+        wallet_name = "семейного кошелька"
+    
     rows = []
     for key, opt in EXPEDITION_OPTIONS.items():
         cost_text = f"{opt['cost']} 🪙" if opt["cost"] > 0 else "бесплатно"
+        # Проверяем, хватает ли денег
+        can_afford = balance >= opt["cost"] if opt["cost"] > 0 else True
+        prefix = "🗺" if can_afford else "🚫"
         rows.append([InlineKeyboardButton(
-            text=f"🗺 {opt['label']} — {cost_text} (награда {opt['reward_min']}–{opt['reward_max']})",
-            callback_data=f"exped:{uid}:{key}",
+            text=f"{prefix} {opt['label']} — {cost_text} (награда {opt['reward_min']}–{opt['reward_max']})",
+            callback_data=f"exped:{uid}:{key}:{wallet_type}",
         )])
-
+    
+    # Кнопка "Назад" если это семья
+    marriage = await get_marriage(uid, chat_id)
+    if marriage:
+        rows.append([InlineKeyboardButton(
+            text="🔙 Выбрать другой кошелёк",
+            callback_data=f"exped_wallet:{uid}:back"
+        )])
+    
     kb = InlineKeyboardMarkup(inline_keyboard=rows)
-
+    
+    pet = await get_pet(uid, chat_id)
     pet_emoji = {"cat": "🐱", "dog": "🐶"}.get(pet["pet_type"], "🐾")
     pet_name = html.escape(pet["name"]) if pet.get("name") else "безымянный"
-    await message.answer(
-        f"🗺 <b>Экспедиция</b>\n\n"
-        f"Отправь {pet_emoji} <b>{pet_name}</b> в поход за Морой!\n"
-        f"Твой баланс: <b>{bal} 🪙</b>\n\n"
-        f"Выбери длительность:",
-        parse_mode="HTML",
-        reply_markup=kb,
-    )
+    
+    try:
+        await message.edit_text(
+            f"🗺 <b>Экспедиция</b>\n\n"
+            f"Отправь {pet_emoji} <b>{pet_name}</b> в поход за Морой!\n"
+            f"{wallet_icon} Баланс {wallet_name}: <b>{balance} 🪙</b>\n\n"
+            f"Выбери длительность:",
+            parse_mode="HTML",
+            reply_markup=kb,
+        )
+    except AttributeError:
+        # Если это обычное сообщение, не callback
+        await message.answer(
+            f"🗺 <b>Экспедиция</b>\n\n"
+            f"Отправь {pet_emoji} <b>{pet_name}</b> в поход за Морой!\n"
+            f"{wallet_icon} Баланс {wallet_name}: <b>{balance} 🪙</b>\n\n"
+            f"Выбери длительность:",
+            parse_mode="HTML",
+            reply_markup=kb,
+        )
+
+
+@router.callback_query(lambda c: c.data and c.data.startswith("exped_wallet:"))
+async def cb_expedition_wallet_choice(callback: CallbackQuery):
+    parts = callback.data.split(":")
+    owner = int(parts[1])
+    choice = parts[2]
+    
+    if callback.from_user.id != owner:
+        await callback.answer("❌ Это не твоя кнопка!", show_alert=True)
+        return
+    
+    if choice == "back":
+        # Возвращаемся к выбору кошелька
+        uid = owner
+        chat_id = callback.message.chat.id
+        marriage = await get_marriage(uid, chat_id)
+        
+        mora = await get_mora(uid, chat_id)
+        personal_bal = mora["balance"] if mora else 0
+        family_bal = await get_family_wallet(chat_id, uid)
+        
+        kb = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(
+                text=f"💰 Личный кошелёк ({personal_bal} 🪙)",
+                callback_data=f"exped_wallet:{uid}:personal"
+            )],
+            [InlineKeyboardButton(
+                text=f"👨‍👩‍👧 Семейный кошелёк ({family_bal} 🪙)", 
+                callback_data=f"exped_wallet:{uid}:family"
+            )]
+        ])
+        
+        pet = await get_pet(uid, chat_id)
+        pet_emoji = {"cat": "🐱", "dog": "🐶"}.get(pet["pet_type"], "🐾")
+        pet_name = html.escape(pet["name"]) if pet.get("name") else "безымянный"
+        
+        try:
+            await callback.message.edit_text(
+                f"🗺 <b>Экспедиция</b>\n\n"
+                f"Отправь {pet_emoji} <b>{pet_name}</b> в поход за Морой!\n\n"
+                f"💳 Выбери кошелёк для оплаты:",
+                parse_mode="HTML",
+                reply_markup=kb,
+            )
+        except Exception:
+            pass
+        await callback.answer()
+        return
+    
+    # Переходим к выбору экспедиции
+    await _show_expedition_menu(callback.message, owner, choice)
+    await callback.answer()
 
 
 @router.callback_query(lambda c: c.data and c.data.startswith("exped:"))
@@ -113,6 +237,7 @@ async def cb_expedition_start(callback: CallbackQuery):
     parts = callback.data.split(":")
     owner = int(parts[1])
     key = parts[2]
+    wallet_type = parts[3] if len(parts) > 3 else "personal"
 
     if callback.from_user.id != owner:
         await callback.answer("❌ Это не твоя кнопка!", show_alert=True)
@@ -137,28 +262,48 @@ async def cb_expedition_start(callback: CallbackQuery):
         return
 
     cost = opt["cost"]
+    cost_text = ""
     if cost > 0:
-        ok, new_bal = await deduct_mora(uid, chat_id, cost)
-        if not ok:
-            mora = await get_mora(uid, chat_id)
-            bal = mora["balance"] if mora else 0
-            await callback.answer(
-                f"❌ Недостаточно Моры! ({bal} / {cost})", show_alert=True
-            )
-            return
+        if wallet_type == "family":
+            # Оплата с семейного кошелька
+            family_bal = await get_family_wallet(chat_id, uid)
+            if family_bal < cost:
+                await callback.answer(
+                    f"❌ Недостаточно Моры в семейном кошельке! ({family_bal} / {cost})", 
+                    show_alert=True
+                )
+                return
+            await add_to_family_wallet(chat_id, uid, -cost)
+            cost_text = f"Списано <b>{cost} 🪙</b> с семейного кошелька"
+        else:
+            # Оплата с личного кошелька
+            ok, new_bal = await deduct_mora(uid, chat_id, cost)
+            if not ok:
+                mora = await get_mora(uid, chat_id)
+                bal = mora["balance"] if mora else 0
+                await callback.answer(
+                    f"❌ Недостаточно Моры! ({bal} / {cost})", show_alert=True
+                )
+                return
+            cost_text = f"Списано <b>{cost} 🪙</b> с личного кошелька"
+    else:
+        cost_text = "Бесплатно"
 
     ok = await start_expedition(
         uid, chat_id, opt["hours"], opt["reward_min"], opt["reward_max"]
     )
     if not ok:
+        # Возвращаем деньги обратно при ошибке
         if cost > 0:
-            await add_mora(uid, chat_id, cost)
+            if wallet_type == "family":
+                await add_to_family_wallet(chat_id, uid, cost)
+            else:
+                await add_mora(uid, chat_id, cost)
         await callback.answer("❌ Не удалось начать экспедицию.", show_alert=True)
         return
 
     pet_emoji = {"cat": "🐱", "dog": "🐶"}.get(pet["pet_type"], "🐾")
     pet_name = html.escape(pet["name"]) if pet.get("name") else "безымянный"
-    cost_text = f"Списано <b>{cost} 🪙</b>" if cost > 0 else "Бесплатно"
 
     try:
         await callback.message.edit_text(
