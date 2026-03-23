@@ -360,7 +360,24 @@ async def _task_chest_event(bot) -> None:
 # ─── Уведомления о завершённых экспедициях ─────────────────────────────────────
 
 async def _task_expedition_notifications(bot) -> None:
-    from database.db import add_mora, finish_expedition, get_all_finished_expeditions
+    from database.db import add_mora, finish_expedition, get_all_finished_expeditions, get_pet
+    from config import EXPEDITION_OPTIONS
+    _PET_EMOJI = {"cat": "🐱", "dog": "🐶"}
+
+    # Build a lookup: duration_h -> expedition label
+    _label_by_h = {opt["hours"]: opt["label"] for opt in EXPEDITION_OPTIONS.values()}
+
+    # Flavor text: what the pet found, by reward tier
+    def _loot_flavor(reward: int) -> str:
+        if reward <= 25:
+            return "немного монет и старые тряпки 👜"
+        elif reward <= 50:
+            return "мешочек с монетами и редкие травы 🌿"
+        elif reward <= 75:
+            return "ценные артефакты и полные карманы моры 💎"
+        else:
+            return "сокровища из заброшенных руин! 🏺✨"
+
     finished = await get_all_finished_expeditions()
     for exp in finished:
         uid = exp["user_id"]
@@ -369,10 +386,19 @@ async def _task_expedition_notifications(bot) -> None:
         try:
             await add_mora(uid, chat_id, reward)
             await finish_expedition(uid, chat_id)
+
+            pet = await get_pet(uid, chat_id)
+            pet_emoji = _PET_EMOJI.get(pet["pet_type"], "🐾") if pet else "🐾"
+            pet_name  = pet["name"] if (pet and pet.get("name")) else "Питомец"
+            exp_label = _label_by_h.get(exp["duration_h"], f"{exp['duration_h']}ч")
+            loot      = _loot_flavor(reward)
+
             await bot.send_message(
                 chat_id,
-                f"🏕 <b>Экспедиция завершена!</b>\n"
-                f"Твой питомец вернулся и принёс <b>+{reward} 🪙</b>!",
+                f"🏕 <b>Экспедиция завершена!</b>\n\n"
+                f"{pet_emoji} <b>{pet_name}</b> вернулся из похода <b>{exp_label}</b>\n"
+                f"и принёс {loot}\n\n"
+                f"💰 <b>+{reward} 🪙</b>",
                 parse_mode="HTML",
             )
         except Exception as exc:
