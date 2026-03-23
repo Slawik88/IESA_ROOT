@@ -12,7 +12,7 @@ from aiogram.exceptions import TelegramConflictError
 from aiogram.types import ChatPermissions, MenuButtonWebApp, WebAppInfo
 from config import BOT_TOKEN, MINI_APP_URL
 from database.db import get_locked_chats, init_db, set_chat_setting
-from handlers import (admin, auto_mod, bank, casino, dev_panel, diligence, dm_roles, economy, espionage,
+from handlers import (admin, auto_mod, bank, boss, casino, checkin, dev_panel, diligence, dm_roles, economy, espionage,
                      expeditions, extras, food, fun, gacha, gifts, helper,
                      moderator, notes, owner, pets, quests, reputation,
                      shop, tax_event, user, wallet, weather)
@@ -94,6 +94,8 @@ async def main():
     dp.include_router(espionage.router)    # шпионаж + облигации
     dp.include_router(diligence.router)    # ивент «Дилижанс»
     dp.include_router(food.router)         # магазин еды для питомцев
+    dp.include_router(checkin.router)      # ежедневный чекин
+    dp.include_router(boss.router)         # битва с боссом
     dp.include_router(dev_panel.router)    # панель разработчика
     dp.include_router(shop.router)         # магазин
     dp.include_router(gifts.router)        # подарки партнёру
@@ -111,6 +113,16 @@ async def main():
     # Фоновый планировщик (авто-варн, напоминания о чистке)
     from utils.scheduler import run_scheduler
     asyncio.create_task(run_scheduler(bot))
+
+    # Boss damage buffer flush (every 60s)
+    async def _boss_flush_loop():
+        while True:
+            await asyncio.sleep(60)
+            try:
+                await boss.flush_damage_buffer()
+            except Exception as _e:
+                logging.warning("boss flush error: %s", _e)
+    asyncio.create_task(_boss_flush_loop())
 
     # Mini App веб-сервер (aiohttp)
     asyncio.create_task(_run_webserver(bot))
