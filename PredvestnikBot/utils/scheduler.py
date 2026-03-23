@@ -360,7 +360,7 @@ async def _task_chest_event(bot) -> None:
 # ─── Уведомления о завершённых экспедициях ─────────────────────────────────────
 
 async def _task_expedition_notifications(bot) -> None:
-    from database.db import add_mora, finish_expedition, get_all_finished_expeditions, get_pet
+    from database.db import add_mora, finish_expedition, get_all_finished_expeditions, get_pet, get_marriage
     from config import EXPEDITION_OPTIONS
     _PET_EMOJI = {"cat": "🐱", "dog": "🐶"}
 
@@ -393,12 +393,27 @@ async def _task_expedition_notifications(bot) -> None:
             exp_label = _label_by_h.get(exp["duration_h"], f"{exp['duration_h']}ч")
             loot      = _loot_flavor(reward)
 
+            # Check if user is married for family notification
+            marriage = await get_marriage(uid, chat_id)
+            family_tag = ""
+            if marriage:
+                partner_id = marriage["partner_id"]
+                try:
+                    partner_member = await bot.get_chat_member(chat_id, partner_id)
+                    if partner_member.user.username:
+                        family_tag = f"\n👋 @{partner_member.user.username}"
+                    else:
+                        family_tag = f"\n👋 Партнёр [id{partner_id}](tg://user?id={partner_id})"
+                except Exception:
+                    # Fallback если не можем получить данные партнёра
+                    family_tag = f"\n👋 [Партнёр](tg://user?id={partner_id})"
+
             await bot.send_message(
                 chat_id,
                 f"🏕 <b>Экспедиция завершена!</b>\n\n"
                 f"{pet_emoji} <b>{pet_name}</b> вернулся из похода <b>{exp_label}</b>\n"
                 f"и принёс {loot}\n\n"
-                f"💰 <b>+{reward} 🪙</b>",
+                f"💰 <b>+{reward} 🪙</b>{family_tag}",
                 parse_mode="HTML",
             )
         except Exception as exc:

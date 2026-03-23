@@ -18,8 +18,10 @@ from aiogram.types import (
 from config import BANK_EARLY_PENALTY_PCT, BANK_MAX_DEPOSIT, BANK_MIN_DEPOSIT, BANK_PLANS
 from database.db import (
     add_mora,
+    add_to_family_wallet,
     create_deposit,
     deduct_mora,
+    get_family_wallet,
     get_mora,
     get_user_deposits,
     withdraw_deposit,
@@ -129,7 +131,7 @@ async def cb_bank_open(callback: CallbackQuery):
     for amt in amounts:
         buttons.append(InlineKeyboardButton(
             text=f"{amt} 🪙",
-            callback_data=f"bank_confirm:{owner}:{plan_key}:{amt}",
+            callback_data=f"bank_source:{owner}:{plan_key}:{amt}",
         ))
     kb = InlineKeyboardMarkup(inline_keyboard=[buttons[:2], buttons[2:]])
 
@@ -148,6 +150,66 @@ async def cb_bank_open(callback: CallbackQuery):
     await callback.answer()
 
 
+# ─── Выбор источника средств ──────────────────────────────────────────────────
+
+@router.callback_query(lambda c: c.data and c.data.startswith("bank_source:"))
+async def cb_bank_source_select(callback: CallbackQuery):
+    parts = callback.data.split(":")
+    owner = int(parts[1])
+    plan_key = parts[2]
+    amount = int(parts[3])
+
+    if callback.from_user.id != owner:
+        await callback.answer("❌ Это не твой банк!", show_alert=True)
+        return
+
+    uid = owner
+    chat_id = callback.message.chat.id
+    mora = await get_mora(uid, chat_id)
+    personal_bal = mora["balance"] if mora else 0
+    family_bal = await get_family_wallet(chat_id, uid)
+
+    buttons = []
+    if personal_bal >= amount:
+        buttons.append([InlineKeyboardButton(
+            text=f"💰 Личные средства ({personal_bal} 🪙)",
+            callback_data=f"bank_confirm:{owner}:{plan_key}:{amount}:personal",
+        )])
+    else:
+        buttons.append([InlineKeyboardButton(
+            text=f"💰 Личные средства ({personal_bal} 🪙) - недостаточно",
+            callback_data="disabled",
+        )])
+    
+    if family_bal >= amount:
+        buttons.append([InlineKeyboardButton(
+            text=f"👨‍👩‍👧‍👦 Семейные средства ({family_bal} 🪙)",
+            callback_data=f"bank_confirm:{owner}:{plan_key}:{amount}:family",
+        )])
+    else:
+        buttons.append([InlineKeyboardButton(
+            text=f"👨‍👩‍👧‍👦 Семейные средства ({family_bal} 🪙) - недостаточно",
+            callback_data="disabled",
+        )])
+    
+    kb = InlineKeyboardMarkup(inline_keyboard=buttons)
+    p = BANK_PLANS.get(plan_key)
+    pct = int(p["rate"] * 100)
+    try:
+        await callback.message.edit_text(
+            f"🏦 <b>Открыть вклад: {_PLAN_LABELS.get(plan_key, plan_key)}</b>\n\n"
+            f"💳 Сумма: <b>{amount} 🪙</b>\n"
+            f"📅 Срок: {p['days']} дней\n"
+            f"📊 Процент: +{pct}%\n\n"
+            f"💰 Выбери способ оплаты:",
+            parse_mode="HTML",
+            reply_markup=kb,
+        )
+    except Exception:
+        pass
+    await callback.answer()
+
+
 # ─── Подтверждение вклада ─────────────────────────────────────────────────────
 
 @router.callback_query(lambda c: c.data and c.data.startswith("bank_confirm:"))
@@ -156,6 +218,7 @@ async def cb_bank_confirm(callback: CallbackQuery):
     owner = int(parts[1])
     plan_key = parts[2]
     amount = int(parts[3])
+    source = parts[4] if len(parts) > 4 else "personal"  # backward compat
 
     if callback.from_user.id != owner:
         await callback.answer("❌ Это не твой банк!", show_alert=True)
@@ -175,12 +238,27 @@ async def cb_bank_confirm(callback: CallbackQuery):
         )
         return
 
-    ok, new_bal = await deduct_mora(uid, chat_id, amount)
-    if not ok:
-        mora = await get_mora(uid, chat_id)
-        bal = mora["balance"] if mora else 0
-        await callback.answer(f"❌ Недостаточно Моры ({bal} / {amount})", show_alert=True)
-        return
+    # Списываем средства в зависимости от источника
+    payment_text = "личного баланса"
+    if source == "family":
+        family_bal = await get_family_wallet(chat_id, uid)
+        if family_bal < amount:
+            await callback.answer(f"❌ Недостаточно семейных средств ({family_bal} / {amount})", show_alert=True)
+            return
+        new_family_bal = await add_to_family_wallet(chat_id, uid, -amount)
+        if new_family_bal < 0:
+            # Откат при гонке
+            await add_to_family_wallet(chat_id, uid, amount)
+            await callback.answer("❌ Недостаточно средств в семейном кошельке.", show_alert=True)
+            return
+        payment_text = "семейного кошелька"
+    else:
+        ok, new_bal = await deduct_mora(uid, chat_id, amount)
+        if not ok:
+            mora = await get_mora(uid, chat_id)
+            bal = mora["balance"] if mora else 0
+            await callback.answer(f"❌ Недостаточно Моры ({bal} / {amount})", show_alert=True)
+            return
 
     await create_deposit(uid, chat_id, amount, p["rate"], p["days"])
 
@@ -188,9 +266,8 @@ async def cb_bank_confirm(callback: CallbackQuery):
     try:
         await callback.message.edit_text(
             f"✅ <b>Вклад открыт!</b>\n\n"
-            f"💳 Сумма: {amount} 🪙\n"
-            f"📊 Доход: +{reward} 🪙 через {p['days']} д.\n"
-            f"💰 Баланс: {new_bal} 🪙",
+            f"💳 Сумма: {amount} 🪙 с {payment_text}\n"
+            f"📊 Доход: +{reward} 🪙 через {p['days']} д.\n",
             parse_mode="HTML",
         )
     except Exception:

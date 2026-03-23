@@ -994,6 +994,43 @@ async def cb_remove_channel_type(callback: CallbackQuery) -> None:
     await callback.answer(f"✅ {label} удалён")
 
 
+# ─────────────────────── CHEST DEBUG COMMANDS ────────────────────────────────── 
+# бот сундук
+# бот групчаты
+
+@router.message(BotCommand("сундук"), RankFilter("owner"))
+async def cmd_spawn_chest(message: Message) -> None:
+    """бот сундук — запустить сундук в текущем чате (для отладки)."""
+    from handlers.tax_event import launch_chest_event
+    
+    chat_id = message.chat.id
+    await launch_chest_event(message.bot, chat_id)
+    await message.reply("✅ Сундук запущен в этом чате!")
+
+
+@router.message(BotCommand("групчаты"), RankFilter("owner"))
+async def cmd_group_chats(message: Message) -> None:
+    """бот групчаты — показать все активные групповые чаты для сундуков."""
+    from database.db import get_active_group_chat_ids
+    
+    chat_ids = await get_active_group_chat_ids()
+    if not chat_ids:
+        await message.reply("❌ Нет активных групповых чатов для сундуков.")
+        return
+    
+    lines = ["🏘️ <b>Активные групповые чаты для сундуков:</b>\n"]
+    for i, chat_id in enumerate(chat_ids, 1):
+        chat_info = f"<code>{chat_id}</code>"
+        try:
+            chat = await message.bot.get_chat(chat_id)
+            chat_info = f"{chat.title} (<code>{chat_id}</code>)"
+        except Exception:
+            pass
+        lines.append(f"{i}. {chat_info}")
+    
+    await message.reply("\n".join(lines), parse_mode="HTML")
+
+
 # ─────────────────────── COMMUNITY ROLES ─────────────────────────────────────
 # бот рольдобавить [emoji] <название> [описание]
 # бот рольудалить <название>
