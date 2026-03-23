@@ -552,7 +552,7 @@ async def cmd_emit_xp(message: Message, cmd_args: str):
     new_xp = old_xp + amount
     await set_user_stat_in_chat(uid, chat_id, "xp", new_xp)
 
-    issuer = user_mention(message.from_user)
+    issuer = user_mention(message.from_user.id, message.from_user.full_name or str(message.from_user.id))
     await message.answer(
         f"⚡ <b>Эмиссия XP</b>\n\n"
         f"👤 {name}: <b>+{amount} XP</b> → {new_xp}\n"
@@ -609,7 +609,7 @@ async def cmd_emit_mora(message: Message, cmd_args: str):
     chat_id = message.chat.id
     new_bal = await add_mora(uid, chat_id, amount)
 
-    issuer = user_mention(message.from_user)
+    issuer = user_mention(message.from_user.id, message.from_user.full_name or str(message.from_user.id))
     await message.answer(
         f"💰 <b>Эмиссия Моры</b>\n\n"
         f"👤 {name}: <b>+{amount} 🪙</b> → {new_bal} 🪙\n"
@@ -1233,7 +1233,6 @@ async def cmd_dev_change_pet_type(message: Message, cmd_args: str):
         f"{old_e} {_DEV_PET_NAME.get(pet['pet_type'], '?')} → {new_e} {_DEV_PET_NAME.get(new_type, '?')}",
         parse_mode="HTML",
     )
-    await _show_user_roles(message, uid, fname)
 
 
 async def _show_user_roles(message: Message, user_id: int, name: str) -> None:
