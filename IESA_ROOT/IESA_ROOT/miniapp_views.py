@@ -243,3 +243,325 @@ def miniapp_user_data(request):
         except Exception:
             pass
         return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+
+
+# ─── Leaderboard ──────────────────────────────────────────────────────────────
+
+@csrf_exempt
+def miniapp_leaderboard(request):
+    """GET /api/leaderboard?chat_id=X&type=xp|messages|boss"""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "GET":
+        return JsonResponse({"error": "GET required"}, status=405, headers=headers)
+
+    chat_id_str = request.GET.get("chat_id", "")
+    if not chat_id_str.lstrip("-").isdigit():
+        return JsonResponse({"error": "chat_id required"}, status=400, headers=headers)
+    chat_id = int(chat_id_str)
+    lb_type = request.GET.get("type", "xp")
+
+    try:
+        conn, db_type = _get_bot_db_connection()
+    except Exception as exc:
+        return JsonResponse({"error": f"DB: {exc}"}, status=503, headers=headers)
+
+    try:
+        cur = conn.cursor()
+        ph = "%s" if db_type == "pg" else "?"
+
+        if lb_type == "messages":
+            cur.execute(
+                f"SELECT s.user_id, u.full_name, s.message_count "
+                f"FROM user_stats s LEFT JOIN users u ON u.user_id=s.user_id "
+                f"WHERE s.chat_id={ph} ORDER BY s.message_count DESC LIMIT 10",
+                (chat_id,),
+            )
+        elif lb_type == "boss":
+            cur.execute(
+                f"SELECT b.user_id, u.full_name, SUM(b.damage) "
+                f"FROM boss_damage_log b LEFT JOIN users u ON u.user_id=b.user_id "
+                f"WHERE b.chat_id={ph} GROUP BY b.user_id ORDER BY SUM(b.damage) DESC LIMIT 10",
+                (chat_id,),
+            )
+        else:  # xp
+            cur.execute(
+                f"SELECT s.user_id, u.full_name, s.xp "
+                f"FROM user_stats s LEFT JOIN users u ON u.user_id=s.user_id "
+                f"WHERE s.chat_id={ph} ORDER BY s.xp DESC LIMIT 10",
+                (chat_id,),
+            )
+
+        rows = cur.fetchall()
+        conn.close()
+        entries = [
+            {"rank": i + 1, "user_id": r[0], "name": r[1] or f"user_{r[0]}", "score": r[2] or 0}
+            for i, r in enumerate(rows)
+        ]
+        return JsonResponse({"type": lb_type, "entries": entries},
+                            json_dumps_params={"ensure_ascii": False}, headers=headers)
+
+    except Exception as exc:
+        try:
+            conn.close()
+        except Exception:
+            pass
+        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+
+
+# ─── Daily check-in ───────────────────────────────────────────────────────────
+
+_CHECKIN_REWARDS_SYNC = {
+    1: 30, 2: 30, 3: 35, 4: 35, 5: 60,
+    6: 40, 7: 40, 8: 45, 9: 45, 10: 80,
+    11: 50, 12: 50, 13: 55, 14: 55, 15: 100,
+    16: 60, 17: 60, 18: 70, 19: 70, 20: 150,
+}
+_CHECKIN_CHECKPOINTS_SYNC = {5, 10, 15, 20}
+
+
+@csrf_exempt
+def miniapp_checkin(request):
+    """GET or POST /api/checkin — check-in status or perform check-in."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method not in ("GET", "POST"):
+        return JsonResponse({"error": "method not allowed"}, status=405, headers=headers)
+
+    # Auth
+    init_data = request.headers.get("X-Telegram-Init-Data", "").strip()
+    uid: int | None = None
+    if init_data:
+        uid = _validate_init_data(init_data)
+        if uid is None:
+            return JsonResponse({"error": "invalid initData"}, status=401, headers=headers)
+    else:
+        if _BOT_TOKEN:
+            return JsonResponse({"error": "X-Telegram-Init-Data required"}, status=401, headers=headers)
+        uid_str = request.GET.get("user_id", "")
+        if not uid_str.isdigit():
+            return JsonResponse({"error": "missing user_id"}, status=400, headers=headers)
+        uid = int(uid_str)
+
+    # chat_id
+    if request.method == "GET":
+        chat_id_str = request.GET.get("chat_id", "")
+    else:
+        try:
+            body = json.loads(request.body)
+            chat_id_str = str(body.get("chat_id", ""))
+        except (json.JSONDecodeError, AttributeError):
+            return JsonResponse({"error": "invalid JSON"}, status=400, headers=headers)
+
+    if not chat_id_str.lstrip("-").isdigit():
+        return JsonResponse({"error": "chat_id required"}, status=400, headers=headers)
+    chat_id = int(chat_id_str)
+
+    try:
+        conn, db_type = _get_bot_db_connection()
+    except Exception as exc:
+        return JsonResponse({"error": f"DB: {exc}"}, status=503, headers=headers)
+
+    try:
+        cur = conn.cursor()
+        ph = "%s" if db_type == "pg" else "?"
+
+        cur.execute(
+            f"SELECT streak, total_days, last_checkin, checkpoint "
+            f"FROM daily_checkin WHERE user_id={ph} AND chat_id={ph}",
+            (uid, chat_id),
+        )
+        row = cur.fetchone()
+
+        if request.method == "GET":
+            from datetime import datetime as _dt, timezone as _tz
+            today = _dt.now(_tz.utc).strftime("%Y-%m-%d")
+            if not row:
+                data = {"streak": 0, "total_days": 0, "last_checkin": None, "checkpoint": 0, "today_done": False}
+            else:
+                streak, total_days, last_checkin, checkpoint = row
+                data = {
+                    "streak": streak, "total_days": total_days,
+                    "last_checkin": last_checkin, "checkpoint": checkpoint,
+                    "today_done": last_checkin == today,
+                }
+            conn.close()
+            return JsonResponse(data, headers=headers)
+
+        # POST: perform check-in
+        from datetime import datetime as _dt, date as _date, timezone as _tz
+        today = _dt.now(_tz.utc).strftime("%Y-%m-%d")
+
+        if row and row[2] == today:
+            conn.close()
+            return JsonResponse({"already_done": True, "streak": row[0], "total_days": row[1]},
+                                headers=headers)
+
+        streak = (row[0] if row else 0) + 1
+        total_days = (row[1] if row else 0) + 1
+        checkpoint = row[3] if row else 0
+
+        if row and row[2]:
+            try:
+                diff = (_date.fromisoformat(today) - _date.fromisoformat(row[2])).days
+                if diff > 1:
+                    streak = min(streak - 1, checkpoint) if checkpoint else 1
+            except (ValueError, TypeError):
+                pass
+
+        day_idx = min(streak, 20)
+        mora_reward = _CHECKIN_REWARDS_SYNC.get(day_idx, 40)
+        is_checkpoint = day_idx in _CHECKIN_CHECKPOINTS_SYNC
+        if is_checkpoint:
+            checkpoint = day_idx
+
+        if db_type == "pg":
+            cur.execute(
+                f"INSERT INTO daily_checkin (user_id, chat_id, streak, total_days, last_checkin, checkpoint) "
+                f"VALUES ({ph},{ph},{ph},{ph},{ph},{ph}) "
+                f"ON CONFLICT (user_id, chat_id) DO UPDATE SET "
+                f"streak=EXCLUDED.streak, total_days=EXCLUDED.total_days, "
+                f"last_checkin=EXCLUDED.last_checkin, checkpoint=EXCLUDED.checkpoint",
+                (uid, chat_id, streak, total_days, today, checkpoint),
+            )
+            cur.execute(
+                f"INSERT INTO user_mora (user_id, chat_id, balance) VALUES ({ph},{ph},{ph}) "
+                f"ON CONFLICT (user_id, chat_id) DO UPDATE SET balance=user_mora.balance+EXCLUDED.balance",
+                (uid, chat_id, mora_reward),
+            )
+        else:
+            cur.execute(
+                "INSERT INTO daily_checkin (user_id, chat_id, streak, total_days, last_checkin, checkpoint) "
+                "VALUES (?,?,?,?,?,?) "
+                "ON CONFLICT(user_id, chat_id) DO UPDATE SET "
+                "streak=excluded.streak, total_days=excluded.total_days, "
+                "last_checkin=excluded.last_checkin, checkpoint=excluded.checkpoint",
+                (uid, chat_id, streak, total_days, today, checkpoint),
+            )
+            cur.execute(
+                "INSERT INTO user_mora (user_id, chat_id, balance) VALUES (?,?,?) "
+                "ON CONFLICT(user_id, chat_id) DO UPDATE SET balance=user_mora.balance+excluded.balance",
+                (uid, chat_id, mora_reward),
+            )
+
+        conn.commit()
+        conn.close()
+        return JsonResponse({
+            "ok": True, "already_done": False,
+            "mora": mora_reward, "streak": streak,
+            "total_days": total_days, "is_checkpoint": is_checkpoint,
+            "free_gacha": day_idx == 20,
+        }, headers=headers)
+
+    except Exception as exc:
+        try:
+            conn.close()
+        except Exception:
+            pass
+        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+
+
+# ─── Boss damage ──────────────────────────────────────────────────────────────
+
+_BOSS_MAX_HP = 500_000
+_BOSS_DAILY_DAMAGE_LIMIT = 50_000
+
+
+@csrf_exempt
+def miniapp_boss_damage(request):
+    """POST /api/boss/submit_damage — submit boss attack damage."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=405, headers=headers)
+
+    init_data = request.headers.get("X-Telegram-Init-Data", "").strip()
+    uid: int | None = None
+    if init_data:
+        uid = _validate_init_data(init_data)
+        if uid is None:
+            return JsonResponse({"error": "invalid initData"}, status=401, headers=headers)
+    else:
+        return JsonResponse({"error": "X-Telegram-Init-Data required"}, status=401, headers=headers)
+
+    try:
+        body = json.loads(request.body)
+        chat_id_str = str(body.get("chat_id", ""))
+        damage = int(body.get("damage", 0))
+    except (json.JSONDecodeError, ValueError, AttributeError):
+        return JsonResponse({"error": "invalid JSON body"}, status=400, headers=headers)
+
+    if not chat_id_str.lstrip("-").isdigit():
+        return JsonResponse({"error": "chat_id required"}, status=400, headers=headers)
+    chat_id = int(chat_id_str)
+
+    if damage <= 0 or damage > _BOSS_DAILY_DAMAGE_LIMIT:
+        return JsonResponse({"error": "damage out of valid range"}, status=400, headers=headers)
+
+    try:
+        conn, db_type = _get_bot_db_connection()
+    except Exception as exc:
+        return JsonResponse({"error": f"DB: {exc}"}, status=503, headers=headers)
+
+    try:
+        from datetime import datetime as _dt, timezone as _tz
+        today = _dt.now(_tz.utc).strftime("%Y-%m-%d")
+        cur = conn.cursor()
+        ph = "%s" if db_type == "pg" else "?"
+
+        # Anti-cheat: per-user daily damage cap
+        cur.execute(
+            f"SELECT COALESCE(SUM(damage),0) FROM boss_damage_log "
+            f"WHERE user_id={ph} AND chat_id={ph} AND session_date={ph}",
+            (uid, chat_id, today),
+        )
+        today_total = (cur.fetchone() or [0])[0]
+        if today_total + damage > _BOSS_DAILY_DAMAGE_LIMIT:
+            conn.close()
+            return JsonResponse({"error": "daily damage limit reached", "limit": _BOSS_DAILY_DAMAGE_LIMIT},
+                                status=429, headers=headers)
+
+        cur.execute(
+            f"INSERT INTO boss_damage_log (user_id, chat_id, damage, session_date) "
+            f"VALUES ({ph},{ph},{ph},{ph})",
+            (uid, chat_id, damage, today),
+        )
+
+        mora_reward = max(5, damage // 20)
+        if db_type == "pg":
+            cur.execute(
+                f"INSERT INTO user_mora (user_id, chat_id, balance) VALUES ({ph},{ph},{ph}) "
+                f"ON CONFLICT (user_id, chat_id) DO UPDATE SET balance=user_mora.balance+EXCLUDED.balance",
+                (uid, chat_id, mora_reward),
+            )
+        else:
+            cur.execute(
+                "INSERT INTO user_mora (user_id, chat_id, balance) VALUES (?,?,?) "
+                "ON CONFLICT(user_id, chat_id) DO UPDATE SET balance=user_mora.balance+excluded.balance",
+                (uid, chat_id, mora_reward),
+            )
+
+        cur.execute(
+            f"SELECT COALESCE(SUM(damage),0) FROM boss_damage_log WHERE chat_id={ph} AND session_date={ph}",
+            (chat_id, today),
+        )
+        total_chat_damage = (cur.fetchone() or [0])[0]
+        conn.commit()
+        conn.close()
+
+        return JsonResponse({
+            "ok": True,
+            "damage": damage,
+            "mora_earned": mora_reward,
+            "boss_hp_remaining": max(0, _BOSS_MAX_HP - total_chat_damage),
+        }, headers=headers)
+
+    except Exception as exc:
+        try:
+            conn.close()
+        except Exception:
+            pass
+        return JsonResponse({"error": str(exc)}, status=500, headers=headers)

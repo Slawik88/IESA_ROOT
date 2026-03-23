@@ -10,7 +10,10 @@ from pathlib import Path
 from blog.sitemaps import sitemaps
 from .protected_media_views import serve_protected_media
 from core.admin_site import CustomAdminSite
-from .miniapp_views import miniapp_index, miniapp_user_data
+from .miniapp_views import (
+    miniapp_index, miniapp_user_data,
+    miniapp_leaderboard, miniapp_checkin, miniapp_boss_damage,
+)
 
 # Переопределить стандартный админ на кастомный
 admin.site.__class__ = CustomAdminSite
@@ -50,6 +53,9 @@ urlpatterns = [
     path('app/', miniapp_index, name='miniapp_slash'),
     path('api/user_data', miniapp_user_data, name='miniapp_api'),
     path('api/user_data/', miniapp_user_data, name='miniapp_api_slash'),
+    path('api/leaderboard', miniapp_leaderboard, name='miniapp_leaderboard'),
+    path('api/checkin', miniapp_checkin, name='miniapp_checkin'),
+    path('api/boss/submit_damage', miniapp_boss_damage, name='miniapp_boss_damage'),
     # ───────────────────────────────────────────────────────────────────────────
     path('protected/<path:file_path>', serve_protected_media, name='serve_protected_media'),
     

@@ -714,6 +714,43 @@ async def init_db():
             )
         """)
 
+        # ─── Ежедневный чекин (стрики и чекпоинты) ───────────────────────
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS daily_checkin (
+                user_id      INTEGER NOT NULL,
+                chat_id      INTEGER NOT NULL,
+                streak       INTEGER DEFAULT 0,
+                total_days   INTEGER DEFAULT 0,
+                last_checkin TEXT    DEFAULT NULL,
+                checkpoint   INTEGER DEFAULT 0,
+                PRIMARY KEY (user_id, chat_id)
+            )
+        """)
+
+        # ─── Урон по Боссу (лог + лидерборд) ────────────────────────────
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS boss_damage_log (
+                id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id      INTEGER NOT NULL,
+                chat_id      INTEGER NOT NULL,
+                damage       INTEGER NOT NULL,
+                session_date TEXT    NOT NULL
+            )
+        """)
+
+        # ─── Миграция: РПГ-статы гача-предметов ──────────────────────────
+        for col_def in [
+            "atk       INTEGER DEFAULT 0",
+            "def_val   INTEGER DEFAULT 0",
+            "hp        INTEGER DEFAULT 0",
+            "crit_rate REAL    DEFAULT 0.0",
+            "slot      TEXT    DEFAULT NULL",
+        ]:
+            try:
+                await db.execute(f"ALTER TABLE gacha_inventory ADD COLUMN {col_def}")
+            except Exception:
+                pass
+
         # ─── Миграция: усталость питомца ──────────────────────────────────
         for col_def in ["fatigue INTEGER DEFAULT 0"]:
             try:
@@ -789,6 +826,10 @@ async def init_db():
             ("marriage_gifts",     "chat_id"),
             ("active_buffs",       "user_id"),
             ("active_buffs",       "chat_id"),
+            ("daily_checkin",      "user_id"),
+            ("daily_checkin",      "chat_id"),
+            ("boss_damage_log",    "user_id"),
+            ("boss_damage_log",    "chat_id"),
         ]
         for _tbl, _col in _bigint_migrations:
             try:
@@ -4367,3 +4408,157 @@ async def get_all_active_chats() -> list[int]:
             rows = await c.fetchall()
     return [r[0] for r in rows]
 
+
+
+# ─── Ежедневный чекин ─────────────────────────────────────────────────────────
+
+_CHECKIN_REWARDS = {
+    1: 30, 2: 30, 3: 35, 4: 35, 5: 60,   # чекпоинт 5
+    6: 40, 7: 40, 8: 45, 9: 45, 10: 80,   # чекпоинт 10
+    11: 50, 12: 50, 13: 55, 14: 55, 15: 100, # чекпоинт 15
+    16: 60, 17: 60, 18: 70, 19: 70, 20: 150,  # день 20 = финал
+}
+_CHECKIN_CHECKPOINTS = {5, 10, 15, 20}
+_CHECKIN_RESET_TO = {5: 5, 10: 10, 15: 15, 20: 20}  # пробел → к последнему чекпоинту
+
+
+async def get_daily_checkin(user_id: int, chat_id: int) -> dict:
+    """Вернуть данные ежедневного чекина юзера."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT * FROM daily_checkin WHERE user_id=? AND chat_id=?",
+            (user_id, chat_id),
+        ) as c:
+            row = await c.fetchone()
+    if not row:
+        return {"streak": 0, "total_days": 0, "last_checkin": None, "checkpoint": 0}
+    return dict(row)
+
+
+async def perform_checkin(user_id: int, chat_id: int) -> dict:
+    """Выполнить чекин. Возвращает {ok, mora, streak, total_days, is_checkpoint, free_gacha, already_done}."""
+    from datetime import timezone
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT * FROM daily_checkin WHERE user_id=? AND chat_id=?",
+            (user_id, chat_id),
+        ) as c:
+            row = await c.fetchone()
+
+        if row and row["last_checkin"] == today:
+            return {"already_done": True, "streak": row["streak"], "total_days": row["total_days"]}
+
+        streak = (row["streak"] if row else 0) + 1
+        total_days = (row["total_days"] if row else 0) + 1
+        checkpoint = row["checkpoint"] if row else 0
+
+        # Если пропустить день — сброс к последнему чекпоинту
+        if row and row["last_checkin"]:
+            from datetime import date
+            prev = date.fromisoformat(row["last_checkin"])
+            diff = (date.fromisoformat(today) - prev).days
+            if diff > 1:
+                streak = min(streak, checkpoint) if checkpoint else 1
+
+        # Capped at 20
+        day_idx = min(streak, 20)
+        mora_reward = _CHECKIN_REWARDS.get(day_idx, 40)
+        is_checkpoint = day_idx in _CHECKIN_CHECKPOINTS
+        free_gacha = (day_idx == 20)
+        if is_checkpoint:
+            checkpoint = day_idx
+
+        await db.execute("""
+            INSERT INTO daily_checkin (user_id, chat_id, streak, total_days, last_checkin, checkpoint)
+            VALUES (?, ?, ?, ?, ?, ?)
+            ON CONFLICT(user_id, chat_id) DO UPDATE SET
+                streak=excluded.streak, total_days=excluded.total_days,
+                last_checkin=excluded.last_checkin, checkpoint=excluded.checkpoint
+        """, (user_id, chat_id, streak, total_days, today, checkpoint))
+        await db.commit()
+
+    return {
+        "already_done": False,
+        "ok": True,
+        "mora": mora_reward,
+        "streak": streak,
+        "total_days": total_days,
+        "is_checkpoint": is_checkpoint,
+        "free_gacha": free_gacha,
+    }
+
+
+# ─── Boss damage log ──────────────────────────────────────────────────────────
+
+async def add_boss_damage(user_id: int, chat_id: int, damage: int):
+    """Записать урон по боссу (batch-safe, потом суммируется)."""
+    from datetime import timezone
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        await db.execute(
+            "INSERT INTO boss_damage_log (user_id, chat_id, damage, session_date) VALUES (?, ?, ?, ?)",
+            (user_id, chat_id, damage, today),
+        )
+        await db.commit()
+
+
+async def get_boss_leaderboard(chat_id: int, limit: int = 10) -> list[dict]:
+    """Топ по суммарному урону боссу в текущем чате."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            """SELECT b.user_id, u.full_name, SUM(b.damage) as total_damage
+               FROM boss_damage_log b
+               LEFT JOIN users u ON u.user_id = b.user_id
+               WHERE b.chat_id = ?
+               GROUP BY b.user_id
+               ORDER BY total_damage DESC LIMIT ?""",
+            (chat_id, limit),
+        ) as c:
+            rows = await c.fetchall()
+    return [dict(r) for r in rows]
+
+
+async def get_boss_my_damage(user_id: int, chat_id: int) -> int:
+    """Вернуть суммарный урон конкретного юзера по боссу в чате."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        async with db.execute(
+            "SELECT COALESCE(SUM(damage), 0) FROM boss_damage_log WHERE user_id=? AND chat_id=?",
+            (user_id, chat_id),
+        ) as c:
+            row = await c.fetchone()
+    return row[0] if row else 0
+
+
+# ─── Leaderboard helpers ──────────────────────────────────────────────────────
+
+async def get_leaderboard_xp(chat_id: int, limit: int = 10) -> list[dict]:
+    """Топ по XP в чате."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            """SELECT s.user_id, u.full_name, s.xp, s.level
+               FROM user_stats s LEFT JOIN users u ON u.user_id = s.user_id
+               WHERE s.chat_id = ? ORDER BY s.xp DESC LIMIT ?""",
+            (chat_id, limit),
+        ) as c:
+            rows = await c.fetchall()
+    return [dict(r) for r in rows]
+
+
+async def get_leaderboard_messages(chat_id: int, limit: int = 10) -> list[dict]:
+    """Топ по сообщениям в чате."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            """SELECT s.user_id, u.full_name, s.message_count
+               FROM user_stats s LEFT JOIN users u ON u.user_id = s.user_id
+               WHERE s.chat_id = ? ORDER BY s.message_count DESC LIMIT ?""",
+            (chat_id, limit),
+        ) as c:
+            rows = await c.fetchall()
+    return [dict(r) for r in rows]

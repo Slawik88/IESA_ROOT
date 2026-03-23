@@ -21,6 +21,8 @@ from database.db import (
     get_treasury,
     get_user,
     set_mora_balance,
+    add_gacha_item,
+    get_user_stats,
 )
 from filters.bot_command import BotCommand
 from utils.helpers import resolve_target, user_mention
@@ -169,3 +171,84 @@ async def cmd_treasury(message: Message):
         f"Дивиденды выплачиваются каждую субботу в 18:00 (Цюрих)</i>",
         parse_mode="HTML",
     )
+
+
+# ─── бот датьпредмет [key] [@user] ───────────────────────────────────────────
+
+_DEV_ITEM_CATALOG = {
+    # Legendary
+    "lego_gnosis":    ("✨ Гнозис Балладеера",       "legendary"),
+    "lego_scepter":   ("🏛 Скипетр Дендро Архонта",  "legendary"),
+    "lego_pantalone": ("🎩 Маска Панталоне",          "legendary"),
+    "lego_abyss":     ("🌀 Корона Бездны",            "legendary"),
+    "lego_fatui":     ("⚡ Перст Предвестника",       "legendary"),
+    # Rare
+    "rare_crown":     ("👑 Серебряная корона",        "rare"),
+    "rare_catalyst":  ("🔮 Магический катализатор",   "rare"),
+    "rare_cape":      ("🧣 Алый плащ",                "rare"),
+    "rare_gem":       ("💎 Сапфир полуночи",          "rare"),
+    # Common
+    "cmn_sword":      ("⚔️ Тупой клинок",            "common"),
+    "cmn_bow":        ("🏹 Кривой лук",               "common"),
+    "cmn_book":       ("📕 Потрёпанный дневник",       "common"),
+    "cmn_ring":       ("💍 Дешёвое кольцо",           "common"),
+    "cmn_shield":     ("🛡 Ржавый щит",               "common"),
+    # Dev-only special
+    "dev_crown":      ("👑 Корона Разработчика",       "legendary"),
+}
+
+
+@router.message(BotCommand("датьпредмет", "giveitem", "give_item", "выдатьпредмет"))
+async def cmd_dev_give_item(message: Message, cmd_args: str):
+    if not _dev_only(message.from_user.id):
+        return
+
+    args = (cmd_args or "").strip().split()
+    chat_id = message.chat.id
+    bot = message.bot
+
+    if not args:
+        catalog_text = "\n".join(
+            f"  <code>{k}</code> — {v[0]} ({v[1]})"
+            for k, v in _DEV_ITEM_CATALOG.items()
+        )
+        await message.answer(
+            "🛠 <b>Dev: Дать предмет</b>\n\n"
+            "Использование:\n"
+            "  <code>бот датьпредмет [key] [@user]</code>\n\n"
+            f"<b>Доступные ключи:</b>\n{catalog_text}",
+            parse_mode="HTML",
+        )
+        return
+
+    # Парсим: [key] или [key @user] или [@user key]
+    item_key = None
+    for a in args:
+        if a in _DEV_ITEM_CATALOG:
+            item_key = a
+            break
+
+    if not item_key:
+        await message.answer(f"❌ Неизвестный предмет. Список: <code>бот датьпредмет</code>", parse_mode="HTML")
+        return
+
+    remaining = " ".join(a for a in args if a != item_key)
+    target_id, target_name, _ = await resolve_target(message, remaining)
+    if not target_id:
+        target_id = message.from_user.id
+        target_name = message.from_user.full_name
+
+    item_name, rarity = _DEV_ITEM_CATALOG[item_key]
+    await add_gacha_item(target_id, chat_id, item_key, item_name, rarity)
+
+    result = (
+        f"✅ Выдан предмет <b>{item_name}</b> ({rarity})\n"
+        f"👤 Получатель: {html.escape(str(target_name))} ({target_id})"
+    )
+    await message.answer(result, parse_mode="HTML")
+    await _log_to_dev(
+        bot,
+        f"бот датьпредмет: {item_key} → uid={target_id} ({target_name})\n"
+        f"Исполнитель: {message.from_user.id} в chat {chat_id}",
+    )
+

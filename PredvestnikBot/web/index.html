@@ -6,166 +6,538 @@
   <title>Предвестник — Mini App</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --gold: #ffd700;
+      --gold-dim: rgba(255,215,0,0.15);
+      --bg: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+      --card: rgba(255,255,255,0.06);
+      --border: rgba(255,215,0,0.2);
+      --text: #e0e0e0;
+      --muted: #9a9aaa;
+      --radius: 18px;
+    }
+    html, body { height: 100%; }
     body {
       font-family: 'Segoe UI', Tahoma, sans-serif;
-      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
-      color: #e0e0e0;
+      background: var(--bg);
+      background-attachment: fixed;
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
       min-height: 100vh;
+    }
+
+    /* ── Top header ── */
+    .app-header {
+      padding: 14px 16px 0;
+      text-align: center;
+      flex-shrink: 0;
+    }
+    .app-header h1 {
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: var(--gold);
+      text-shadow: 0 0 12px rgba(255,215,0,0.45);
+    }
+    .app-header p { font-size: 0.78rem; color: var(--muted); margin-top: 2px; }
+
+    /* ── Tab bar ── */
+    .tab-bar {
+      display: flex;
+      justify-content: space-around;
+      background: rgba(0,0,0,0.4);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    .tab-btn {
+      flex: 1;
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-size: 0.65rem;
+      padding: 9px 2px 7px;
+      cursor: pointer;
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 24px 16px;
+      gap: 2px;
+      transition: color 0.2s;
     }
-    header {
-      font-size: 1.6rem;
-      font-weight: 700;
-      letter-spacing: 0.05em;
-      color: #ffd700;
-      text-shadow: 0 0 12px rgba(255,215,0,0.5);
-      margin-bottom: 8px;
-    }
-    .subtitle { font-size: 0.85rem; color: #aaa; margin-bottom: 32px; }
+    .tab-btn .tab-icon { font-size: 1.2rem; }
+    .tab-btn.active { color: var(--gold); }
+
+    /* ── Content area ── */
+    .tab-content { display: none; flex: 1; padding: 12px 12px 70px; overflow-y: auto; }
+    .tab-content.active { display: block; }
+
+    /* ── Cards ── */
     .card {
-      background: rgba(255,255,255,0.06);
-      border: 1px solid rgba(255,215,0,0.2);
-      border-radius: 18px;
-      padding: 24px;
-      width: 100%;
-      max-width: 440px;
-      margin-bottom: 16px;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      margin-bottom: 12px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.35);
     }
-    .card h2 { font-size: 1rem; color: #ffd700; margin-bottom: 16px; }
+    .card-title { font-size: 0.9rem; font-weight: 700; color: var(--gold); margin-bottom: 12px; }
     .info-row {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 8px 0;
-      border-bottom: 1px solid rgba(255,255,255,0.06);
-      font-size: 0.9rem;
+      padding: 7px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+      font-size: 0.86rem;
     }
     .info-row:last-child { border-bottom: none; }
-    .info-label { color: #9a9aaa; }
+    .info-label { color: var(--muted); }
     .info-value { font-weight: 600; color: #fff; }
-    .badge { background: rgba(255,215,0,0.15); border-radius: 8px; padding: 2px 8px; font-size: 0.78rem; color: #ffd700; }
-    .loading { text-align: center; color: #888; padding: 40px; font-size: 0.9rem; }
-    .error { color: #ff6b6b; text-align: center; padding: 20px; }
-    .bonds-list { list-style: none; padding: 0; }
-    .bonds-list li { padding: 6px 0; font-size: 0.88rem; color: #ccc; }
-    .items-list { list-style: none; padding: 0; }
-    .items-list li { padding: 4px 0; font-size: 0.85rem; }
+    .badge { background: var(--gold-dim); border-radius: 8px; padding: 2px 8px; font-size: 0.74rem; color: var(--gold); }
+
+    .plain-list { list-style: none; }
+    .plain-list li { padding: 5px 0; font-size: 0.84rem; color: #ccc; border-bottom: 1px solid rgba(255,255,255,0.04); }
+    .plain-list li:last-child { border-bottom: none; }
+
+    /* ── Leaderboard ── */
+    .lb-tabs { display: flex; gap: 6px; margin-bottom: 12px; }
+    .lb-tab-btn {
+      flex: 1;
+      border: 1px solid var(--border);
+      background: none;
+      color: var(--muted);
+      border-radius: 10px;
+      padding: 6px 4px;
+      font-size: 0.76rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .lb-tab-btn.active { background: var(--gold-dim); color: var(--gold); border-color: var(--gold); }
+    .lb-row { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
+    .lb-row:last-child { border-bottom: none; }
+    .lb-rank { font-size: 1rem; width: 26px; text-align: center; flex-shrink: 0; }
+    .lb-name { flex: 1; font-size: 0.86rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .lb-score { font-weight: 700; color: var(--gold); font-size: 0.84rem; flex-shrink: 0; }
+
+    /* ── Check-in ── */
+    .cal-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; margin-bottom: 14px; }
+    .cal-day {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 9px;
+      padding: 6px 3px;
+      text-align: center;
+      font-size: 0.68rem;
+    }
+    .cal-day .day-num { font-size: 0.6rem; color: var(--muted); }
+    .cal-day.done { background: rgba(30,180,60,0.15); border-color: rgba(30,180,60,0.4); }
+    .cal-day.checkpoint { border-color: var(--gold); }
+    .cal-day.next { border-color: #4fc3f7; background: rgba(79,195,247,0.1); }
+    .cal-day.future { opacity: 0.38; }
+    .checkin-btn {
+      width: 100%;
+      padding: 12px;
+      border-radius: 12px;
+      border: none;
+      background: linear-gradient(135deg, #ffd700, #f59e0b);
+      color: #1a1a2e;
+      font-size: 0.95rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    .checkin-btn:disabled { opacity: 0.45; cursor: default; }
+
+    /* ── Boss ── */
+    .hp-bar-bg { height: 16px; border-radius: 8px; background: rgba(255,255,255,0.08); overflow: hidden; }
+    .hp-bar-fill { height: 100%; background: linear-gradient(90deg, #e53935, #ff6f60); transition: width 0.5s ease; border-radius: 8px; }
+    .hp-text { font-size: 0.77rem; color: var(--muted); text-align: right; margin-top: 4px; }
+    .attack-btn {
+      width: 100%;
+      padding: 13px;
+      border: none;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #e53935, #b71c1c);
+      color: #fff;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      margin-top: 14px;
+      transition: opacity 0.2s;
+    }
+    .attack-btn:disabled { opacity: 0.45; cursor: default; }
+    .boss-msg { text-align: center; font-size: 0.85rem; color: var(--muted); min-height: 20px; margin-top: 8px; }
+    .cooldown-bar-wrap { margin-top: 6px; height: 4px; border-radius: 2px; background: rgba(255,255,255,0.08); overflow: hidden; display: none; }
+    .cooldown-bar { height: 100%; background: #e53935; }
+
+    /* ── Help ── */
+    .help-section { margin-bottom: 16px; }
+    .help-section h3 { font-size: 0.88rem; color: var(--gold); margin-bottom: 7px; }
+    .help-section ul { list-style: none; }
+    .help-section li { font-size: 0.81rem; color: #ccc; padding: 3px 0; }
+    .help-section code { background: rgba(255,255,255,0.1); border-radius: 4px; padding: 1px 5px; font-size: 0.78rem; color: #a0d9ff; }
+
+    /* ── Misc ── */
+    .loading-msg { text-align: center; color: var(--muted); padding: 28px 0; font-size: 0.88rem; }
+    .error-msg { color: #ff6b6b; text-align: center; padding: 18px; font-size: 0.85rem; }
+    .success-msg { color: #4caf50; text-align: center; font-size: 0.86rem; margin-top: 10px; min-height: 20px; }
   </style>
 </head>
 <body>
-  <header>⚜ Предвестник</header>
-  <p class="subtitle">Твой игровой профиль</p>
 
-  <div id="app">
-    <div class="loading">⏳ Загружаем данные профиля…</div>
+  <div class="app-header">
+    <h1>⚜ Предвестник</h1>
+    <p id="header-sub">Загрузка…</p>
   </div>
 
+  <nav class="tab-bar">
+    <button class="tab-btn active" data-tab="profile"><span class="tab-icon">👤</span>Профиль</button>
+    <button class="tab-btn" data-tab="leaderboard"><span class="tab-icon">🏆</span>Топ</button>
+    <button class="tab-btn" data-tab="checkin"><span class="tab-icon">📅</span>Чекин</button>
+    <button class="tab-btn" data-tab="boss"><span class="tab-icon">⚔️</span>Босс</button>
+    <button class="tab-btn" data-tab="help"><span class="tab-icon">📖</span>Справка</button>
+  </nav>
+
+  <!-- PROFILE -->
+  <section class="tab-content active" id="tab-profile">
+    <div id="profile-root"><div class="loading-msg">⏳ Загрузка профиля…</div></div>
+  </section>
+
+  <!-- LEADERBOARD -->
+  <section class="tab-content" id="tab-leaderboard">
+    <div class="lb-tabs">
+      <button class="lb-tab-btn active" data-lbtype="xp">⭐ XP</button>
+      <button class="lb-tab-btn" data-lbtype="messages">💬 Сообщ.</button>
+      <button class="lb-tab-btn" data-lbtype="boss">⚔️ Урон</button>
+    </div>
+    <div class="card">
+      <div class="card-title">🏆 Рейтинг чата</div>
+      <div id="lb-list"><div class="loading-msg">⏳ Загрузка…</div></div>
+    </div>
+  </section>
+
+  <!-- CHECKIN -->
+  <section class="tab-content" id="tab-checkin">
+    <div class="card">
+      <div class="card-title">📅 Ежедневный чекин</div>
+      <div id="checkin-cal"><div class="loading-msg">⏳ Загрузка…</div></div>
+      <button class="checkin-btn" id="checkin-btn" disabled>Отметиться</button>
+      <div id="checkin-msg" class="success-msg"></div>
+    </div>
+    <div class="card" id="checkin-stats-card" style="display:none">
+      <div class="card-title">📊 Статистика</div>
+      <div id="checkin-stats"></div>
+    </div>
+  </section>
+
+  <!-- BOSS -->
+  <section class="tab-content" id="tab-boss">
+    <div class="card">
+      <div class="card-title">🔥 Босс Бездны</div>
+      <div class="hp-bar-bg"><div class="hp-bar-fill" id="boss-hp-bar" style="width:100%"></div></div>
+      <div class="hp-text" id="boss-hp-text">HP: загрузка…</div>
+      <button class="attack-btn" id="attack-btn">⚔️ Атаковать!</button>
+      <div class="boss-msg" id="boss-msg"></div>
+      <div class="cooldown-bar-wrap" id="cd-wrap"><div class="cooldown-bar" id="cd-bar"></div></div>
+    </div>
+    <div class="card">
+      <div class="card-title">⚔️ Мои атрибуты</div>
+      <div id="boss-attrs"><div class="loading-msg">⏳ Загрузка…</div></div>
+    </div>
+  </section>
+
+  <!-- HELP -->
+  <section class="tab-content" id="tab-help">
+    <div class="card">
+      <div class="card-title">📖 Команды Предвестника</div>
+      <p style="font-size:0.78rem;color:var(--muted);margin-bottom:12px">Пишутся текстом — без «/»</p>
+
+      <div class="help-section"><h3>💰 Экономика</h3><ul>
+        <li><code>бот баланс</code> — Мора, VIP, буст</li>
+        <li><code>бот перевести N @user</code> — перевод</li>
+        <li><code>бот магазин</code> — открыть магазин</li>
+        <li><code>бот банк</code> — вклады с %</li>
+        <li><code>бот казино</code> — монетка/кубик</li>
+      </ul></div>
+
+      <div class="help-section"><h3>🎰 Гача (Молитвы)</h3><ul>
+        <li><code>бот молитва</code> — x1 (30 🪙)</li>
+        <li><code>бот молитва 10</code> — x10 (270 🪙)</li>
+        <li><code>бот инвентарь</code> — твои предметы</li>
+        <li><code>бот продать мусор</code> — продать хлам</li>
+        <li><code>бот экипировать #ID</code> — легендарка в профиль</li>
+      </ul></div>
+
+      <div class="help-section"><h3>📅 Чекин</h3><ul>
+        <li><code>бот чекин</code> — отметиться сегодня</li>
+        <li><code>бот чекин стрик</code> — посмотреть стрик</li>
+        <li>Чекпоинты на днях 5, 10, 15, 20</li>
+        <li>День 20: 150 🪙 + бесплатная молитва!</li>
+      </ul></div>
+
+      <div class="help-section"><h3>⚔️ Босс</h3><ul>
+        <li><code>бот босс</code> — статус и HP</li>
+        <li><code>бот босс атака</code> — атака (КД 30 с)</li>
+        <li>Урон = ATK × крит × разброс</li>
+        <li>Reward: Мора за каждый удар</li>
+      </ul></div>
+
+      <div class="help-section"><h3>🐾 Питомцы & задания</h3><ul>
+        <li><code>бот питомец</code> — мой питомец</li>
+        <li><code>бот экспедиция</code> — отправить за добычей</li>
+        <li><code>бот задание</code> — ежедневное задание</li>
+      </ul></div>
+
+      <div class="help-section"><h3>👤 Профиль & репутация</h3><ul>
+        <li><code>бот я</code> — полный профиль</li>
+        <li><code>бот топ</code> — рейтинг чата</li>
+        <li><code>бот обо мне [текст]</code> — bio</li>
+        <li><code>+ ответом</code> — дать репутацию</li>
+      </ul></div>
+
+      <div class="help-section"><h3>💍 Отношения</h3><ul>
+        <li><code>бот брак @user</code> — предложить руку</li>
+        <li><code>бот подарки</code> — отправить подарок</li>
+      </ul></div>
+    </div>
+  </section>
+
   <script>
-    // ── Инициализация Telegram WebApp SDK ─────────────────────────────────
+    // ── SDK ──────────────────────────────────────────────────────────────────
     const tg = window.Telegram?.WebApp || null;
-    if (tg) {
-      tg.ready();
-      tg.expand();
-      tg.enableClosingConfirmation();
-    }
+    if (tg) { tg.ready(); tg.expand(); tg.enableClosingConfirmation(); }
+    const initData = tg?.initData || '';
+    const _sp = tg?.initDataUnsafe?.start_param;
+    const chatId = _sp ? -Math.abs(parseInt(_sp)) : null;
+    console.log('[App]', { tg: !!tg, initData: initData.length, chatId });
 
-    console.log('[MiniApp] tg object:', tg ? 'loaded' : 'MISSING');
-    console.log('[MiniApp] initData:', tg?.initData ? tg.initData.substring(0, 60) + '…' : 'EMPTY');
-    console.log('[MiniApp] user:', tg?.initDataUnsafe?.user || 'none');
-    console.log('[MiniApp] start_param:', tg?.initDataUnsafe?.start_param || 'none');
+    const AUTH = { 'X-Telegram-Init-Data': initData, 'Content-Type': 'application/json' };
 
-    // start_param = abs(chat_id) passed via ?startapp= in the t.me link
-    // Group chats have negative IDs, so we negate the abs value back.
-    const _startParam = tg?.initDataUnsafe?.start_param;
-    const chatId = _startParam ? -Math.abs(parseInt(_startParam)) : null;
-    console.log('[MiniApp] resolved chatId:', chatId);
+    // ── Tabs ─────────────────────────────────────────────────────────────────
+    let activeTab = 'profile';
+    const lbState = { loaded: false }; const ciState = { loaded: false }; const bossState = { loaded: false };
+    document.querySelectorAll('.tab-btn').forEach(btn => btn.addEventListener('click', () => {
+      const t = btn.dataset.tab;
+      if (t === activeTab) return;
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === t));
+      document.querySelectorAll('.tab-content').forEach(s => s.classList.toggle('active', s.id === `tab-${t}`));
+      activeTab = t;
+      if (t === 'leaderboard' && !lbState.loaded) loadLeaderboard('xp');
+      if (t === 'checkin' && !ciState.loaded) loadCheckin();
+      if (t === 'boss' && !bossState.loaded) loadBoss();
+    }));
 
-    async function loadProfile(initData, chatId) {
-      console.log('[MiniApp] loadProfile(), chatId:', chatId);
-      const url = chatId ? `/api/user_data?chat_id=${chatId}` : '/api/user_data';
-      const headers = { 'X-Telegram-Init-Data': initData || '' };
-      const res = await fetch(url, { headers });
-      if (!res.ok) {
-        const body = await res.text().catch(() => '');
-        throw new Error(`HTTP ${res.status}: ${body}`);
-      }
-      return res.json();
-    }
-
-    function renderProfile(p) {
-      const vipBadge = p.vip ? '<span class="badge">💎 VIP</span>' : '';
-      const frameLine = p.active_frame && p.active_frame !== 'default'
-        ? `<div class="info-row"><span class="info-label">🖼 Рамка</span><span class="info-value">${p.active_frame}</span></div>` : '';
-      const themeLine = p.active_theme && p.active_theme !== 'default'
-        ? `<div class="info-row"><span class="info-label">🎨 Тема</span><span class="info-value">${p.active_theme}</span></div>` : '';
-
-      const bondsHtml = p.bonds && p.bonds.length
-        ? `<ul class="bonds-list">${p.bonds.map(b =>
-            `<li>📜 ${b.name}: <b>${b.amount} шт.</b> (~${b.value} 🪙)</li>`
-          ).join('')}</ul>`
-        : '<p style="color:#888;font-size:.85rem">Облигаций нет</p>';
-
-      const itemsHtml = p.items && p.items.length
-        ? `<ul class="items-list">${p.items.slice(0,10).map(i =>
-            `<li>${i}</li>`
-          ).join('')}</ul>`
-        : '<p style="color:#888;font-size:.85rem">Инвентарь пуст</p>';
-
-      const petHtml = p.pet
-        ? `<div class="card"><h2>${p.pet.emoji} Питомец: ${p.pet.name}</h2>
-            <div class="info-row"><span class="info-label">😴 Усталость</span><span class="info-value">${p.pet.fatigue}/100</span></div>
-           </div>`
-        : '';
-
-      document.getElementById('app').innerHTML = `
-        <div class="card">
-          <h2>👤 ${p.name} ${vipBadge}</h2>
-          <div class="info-row"><span class="info-label">💰 Баланс</span><span class="info-value">${p.balance} 🪙</span></div>
-          <div class="info-row"><span class="info-label">⭐ XP</span><span class="info-value">${p.xp}</span></div>
-          ${frameLine}${themeLine}
-        </div>
-        <div class="card">
-          <h2>📊 Облигации</h2>
-          ${bondsHtml}
-        </div>
-        <div class="card">
-          <h2>🎒 Предметы</h2>
-          ${itemsHtml}
-        </div>
-        ${petHtml}
-      `;
-    }
-
-    async function init() {
-      console.log('[MiniApp] init() running');
-      if (!tg) {
-        document.getElementById('app').innerHTML =
-          '<div class="error">❌ Telegram SDK не загрузился.<br><small>Открой приложение через кнопку <b>Открыть App</b> в личном чате с ботом.</small></div>';
-        return;
-      }
-      const initData = tg.initData;
-      if (!initData) {
-        document.getElementById('app').innerHTML =
-          '<div class="error">❌ Telegram не передал данные сессии.<br><small>Открой через кнопку <b>📱 Mini App</b> в профиле или меню бота.</small></div>';
+    // ── PROFILE ──────────────────────────────────────────────────────────────
+    async function loadProfile() {
+      const root = document.getElementById('profile-root');
+      if (!tg || !initData) {
+        root.innerHTML = '<div class="error-msg">❌ Открой через Telegram — нужна авторизация.</div>';
+        document.getElementById('header-sub').textContent = 'не авторизован';
         return;
       }
       try {
-        const profile = await loadProfile(initData, chatId);
-        if (profile.error) throw new Error(profile.error);
-        renderProfile(profile);
+        const url = chatId ? `/api/user_data?chat_id=${chatId}` : '/api/user_data';
+        const res = await fetch(url, { headers: AUTH });
+        const p = await res.json();
+        if (p.error) throw new Error(p.error);
+        document.getElementById('header-sub').textContent = p.name;
+        root.innerHTML = _profileHtml(p);
+        _setBossAttrs(p);
       } catch (e) {
-        console.error('[MiniApp] load error:', e);
-        document.getElementById('app').innerHTML =
-          `<div class="error">❌ Не удалось загрузить профиль.<br><small>${e.message}</small></div>`;
+        root.innerHTML = `<div class="error-msg">❌ ${_esc(e.message)}</div>`;
+        document.getElementById('header-sub').textContent = 'ошибка';
       }
     }
 
-    init();
+    function _profileHtml(p) {
+      const vip = p.vip ? ' <span class="badge">💎 VIP</span>' : '';
+      const frame = p.active_frame && p.active_frame !== 'default'
+        ? `<div class="info-row"><span class="info-label">🖼 Рамка</span><span class="info-value">${_esc(p.active_frame)}</span></div>` : '';
+      const theme = p.active_theme && p.active_theme !== 'default'
+        ? `<div class="info-row"><span class="info-label">🎨 Тема</span><span class="info-value">${_esc(p.active_theme)}</span></div>` : '';
+      const bonds = p.bonds?.length
+        ? `<ul class="plain-list">${p.bonds.map(b => `<li>📜 ${_esc(b.name)}: ${b.amount} шт. (~${b.value} 🪙)</li>`).join('')}</ul>`
+        : '<p style="color:var(--muted);font-size:.82rem">Облигаций нет</p>';
+      const items = p.items?.length
+        ? `<ul class="plain-list">${p.items.slice(0,12).map(i => `<li>${_esc(i)}</li>`).join('')}</ul>`
+        : '<p style="color:var(--muted);font-size:.82rem">Инвентарь пуст</p>';
+      const pet = p.pet ? `<div class="card"><div class="card-title">${p.pet.emoji} Питомец: ${_esc(p.pet.name)}</div>
+        <div class="info-row"><span class="info-label">😴 Усталость</span><span class="info-value">${p.pet.fatigue}/100</span></div></div>` : '';
+      return `
+        <div class="card">
+          <div class="card-title">👤 ${_esc(p.name)}${vip}</div>
+          <div class="info-row"><span class="info-label">💰 Баланс</span><span class="info-value">${p.balance} 🪙</span></div>
+          <div class="info-row"><span class="info-label">⭐ XP</span><span class="info-value">${p.xp}</span></div>
+          ${frame}${theme}
+        </div>
+        <div class="card"><div class="card-title">📊 Облигации</div>${bonds}</div>
+        <div class="card"><div class="card-title">🎒 Инвентарь</div>${items}</div>
+        ${pet}`;
+    }
+
+    // ── LEADERBOARD ──────────────────────────────────────────────────────────
+    document.querySelectorAll('.lb-tab-btn').forEach(btn => btn.addEventListener('click', () => {
+      document.querySelectorAll('.lb-tab-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      loadLeaderboard(btn.dataset.lbtype);
+    }));
+
+    async function loadLeaderboard(type) {
+      lbState.loaded = true;
+      const el = document.getElementById('lb-list');
+      el.innerHTML = '<div class="loading-msg">⏳ Загрузка…</div>';
+      if (!chatId) { el.innerHTML = '<div class="error-msg">Не удалось определить чат.</div>'; return; }
+      try {
+        const res = await fetch(`/api/leaderboard?chat_id=${chatId}&type=${type}`);
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+        const M = ['🥇','🥈','🥉'];
+        const lbl = type === 'boss' ? 'урон' : type === 'messages' ? 'сообщ.' : 'XP';
+        if (!data.entries.length) { el.innerHTML = '<p style="color:var(--muted);text-align:center;padding:20px">Нет данных</p>'; return; }
+        el.innerHTML = data.entries.map(e =>
+          `<div class="lb-row"><span class="lb-rank">${M[e.rank-1]||e.rank}</span><span class="lb-name">${_esc(e.name)}</span><span class="lb-score">${e.score.toLocaleString()} ${lbl}</span></div>`
+        ).join('');
+      } catch (e) { el.innerHTML = `<div class="error-msg">❌ ${_esc(e.message)}</div>`; }
+    }
+
+    // ── CHECK-IN ─────────────────────────────────────────────────────────────
+    const CI_REWARDS = {1:30,2:30,3:35,4:35,5:60,6:40,7:40,8:45,9:45,10:80,11:50,12:50,13:55,14:55,15:100,16:60,17:60,18:70,19:70,20:150};
+    const CI_CP = new Set([5,10,15,20]);
+    let ciDone = false;
+
+    async function loadCheckin() {
+      ciState.loaded = true;
+      if (!initData) { document.getElementById('checkin-cal').innerHTML = '<div class="error-msg">Нужна авторизация.</div>'; return; }
+      try {
+        const url = chatId ? `/api/checkin?chat_id=${chatId}` : '/api/checkin';
+        const r = await fetch(url, { headers: AUTH });
+        const d = await r.json();
+        if (d.error) throw new Error(d.error);
+        _renderCheckin(d);
+      } catch (e) { document.getElementById('checkin-cal').innerHTML = `<div class="error-msg">❌ ${_esc(e.message)}</div>`; }
+    }
+
+    function _renderCheckin(d) {
+      ciDone = d.today_done;
+      const streak = d.streak || 0;
+      const dayIdx = Math.min(streak, 20);
+      let cal = '<div class="cal-grid">';
+      for (let i = 1; i <= 20; i++) {
+        const r = CI_REWARDS[i] || 40;
+        const isCP = CI_CP.has(i);
+        let cls = 'cal-day' + (i <= dayIdx ? ' done' : i === dayIdx+1 && !ciDone ? ' next' : ' future') + (isCP ? ' checkpoint' : '');
+        const icon = i <= dayIdx ? '✅' : isCP ? '🏆' : i === 20 ? '🎁' : '';
+        cal += `<div class="${cls}"><div class="day-num">День ${i}</div>${icon || r+'🪙'}</div>`;
+      }
+      cal += '</div>';
+      document.getElementById('checkin-cal').innerHTML = cal;
+      const btn = document.getElementById('checkin-btn');
+      if (ciDone) { btn.textContent = '✅ Уже отмечено сегодня'; btn.disabled = true; }
+      else { const n = Math.min(dayIdx+1,20); btn.textContent = `Отметиться (+${CI_REWARDS[n]||40} 🪙)`; btn.disabled = false; }
+      if (streak > 0) {
+        document.getElementById('checkin-stats-card').style.display = '';
+        document.getElementById('checkin-stats').innerHTML =
+          `<div class="info-row"><span class="info-label">🔥 Стрик</span><span class="info-value">${streak} дн.</span></div>
+           <div class="info-row"><span class="info-label">📆 Всего дней</span><span class="info-value">${d.total_days}</span></div>
+           <div class="info-row"><span class="info-label">🏆 Чекпоинт</span><span class="info-value">День ${d.checkpoint||'—'}</span></div>`;
+      }
+    }
+
+    document.getElementById('checkin-btn').addEventListener('click', async () => {
+      if (ciDone || !initData) return;
+      const btn = document.getElementById('checkin-btn');
+      btn.disabled = true; btn.textContent = '⏳…';
+      try {
+        const res = await fetch('/api/checkin', { method:'POST', headers: AUTH, body: JSON.stringify({ chat_id: chatId }) });
+        const d = await res.json();
+        if (d.error) throw new Error(d.error);
+        if (d.already_done) { document.getElementById('checkin-msg').textContent = '✅ Уже отмечено'; return; }
+        let msg = `+${d.mora} 🪙 | Стрик: ${d.streak} дн.`;
+        if (d.is_checkpoint) msg += ' 🏆 Чекпоинт!';
+        if (d.free_gacha) msg += ' 🎁 Бесплатная молитва! (бот молитва)';
+        document.getElementById('checkin-msg').textContent = msg;
+        _renderCheckin({ ...d, today_done: true });
+      } catch (e) {
+        document.getElementById('checkin-msg').textContent = `❌ ${_esc(e.message)}`;
+        btn.disabled = false; btn.textContent = 'Отметиться';
+      }
+    });
+
+    // ── BOSS ─────────────────────────────────────────────────────────────────
+    const BOSS_MAX = 500_000;
+    const ATTACK_CD = 30_000;
+    let atk = 100, critRate = 0.05, onCooldown = false;
+
+    function _setBossAttrs(p) {
+      // placeholder: profile API doesn't expose numeric RPG stats yet
+      document.getElementById('boss-attrs').innerHTML =
+        `<div class="info-row"><span class="info-label">⚔️ ATK</span><span class="info-value">${atk}</span></div>
+         <div class="info-row"><span class="info-label">💥 CRIT Rate</span><span class="info-value">${(critRate*100).toFixed(0)}%</span></div>
+         <div class="info-row"><span class="info-label">💡 Урон/удар</span><span class="info-value">~${Math.floor(atk*0.8)}–${Math.floor(atk*1.2*(1+critRate*0.5))}</span></div>`;
+    }
+
+    async function loadBoss() {
+      bossState.loaded = true;
+      if (!chatId) return;
+      try {
+        const res = await fetch(`/api/leaderboard?chat_id=${chatId}&type=boss`);
+        const d = await res.json();
+        const totalDmg = (d.entries||[]).reduce((s,e) => s+e.score, 0);
+        _updateHp(Math.max(0, BOSS_MAX - totalDmg));
+      } catch (_) { document.getElementById('boss-hp-text').textContent = 'Ошибка загрузки HP'; }
+      _setBossAttrs(null);
+    }
+
+    function _updateHp(hp) {
+      const pct = (hp / BOSS_MAX * 100).toFixed(1);
+      document.getElementById('boss-hp-bar').style.width = pct + '%';
+      document.getElementById('boss-hp-text').textContent = `HP: ${hp.toLocaleString()} / ${BOSS_MAX.toLocaleString()} (${pct}%)`;
+    }
+
+    function _calcDmg() {
+      const v = 0.8 + Math.random() * 0.4;
+      const crit = Math.random() < critRate;
+      return { dmg: Math.floor(atk * v * (crit ? 1.5 : 1)), crit };
+    }
+
+    function _startCooldown() {
+      onCooldown = true;
+      const btn = document.getElementById('attack-btn');
+      btn.disabled = true;
+      const wrap = document.getElementById('cd-wrap'), bar = document.getElementById('cd-bar');
+      wrap.style.display = 'block';
+      bar.style.transition = 'none'; bar.style.width = '100%';
+      requestAnimationFrame(() => { bar.style.transition = `width ${ATTACK_CD/1000}s linear`; bar.style.width = '0%'; });
+      setTimeout(() => {
+        onCooldown = false; btn.disabled = false; btn.textContent = '⚔️ Атаковать!';
+        wrap.style.display = 'none';
+        document.getElementById('boss-msg').textContent = 'Готов к атаке!';
+      }, ATTACK_CD);
+    }
+
+    document.getElementById('attack-btn').addEventListener('click', async () => {
+      if (onCooldown || !initData || !chatId) return;
+      const { dmg, crit } = _calcDmg();
+      document.getElementById('attack-btn').textContent = `💥 −${dmg}${crit?' КРИТ!':''}`;
+      _startCooldown();
+      try {
+        const res = await fetch('/api/boss/submit_damage', { method:'POST', headers: AUTH, body: JSON.stringify({ chat_id: chatId, damage: dmg }) });
+        const d = await res.json();
+        if (d.error) { document.getElementById('boss-msg').textContent = `❌ ${_esc(d.error)}`; return; }
+        _updateHp(d.boss_hp_remaining);
+        document.getElementById('boss-msg').textContent = `${crit?'💥 КРИТ! ':''}−${d.damage} HP | +${d.mora_earned} 🪙`;
+      } catch (e) { document.getElementById('boss-msg').textContent = `❌ ${_esc(e.message)}`; }
+    });
+
+    // ── Utils ────────────────────────────────────────────────────────────────
+    function _esc(s) {
+      return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    // ── Boot ─────────────────────────────────────────────────────────────────
+    loadProfile();
   </script>
 </body>
 </html>
