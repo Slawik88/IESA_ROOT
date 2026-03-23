@@ -29,6 +29,10 @@ from database.db import (
     get_gacha_inventory,
     get_gacha_pity,
     get_mora,
+    get_received_gifts,
+    get_top_frame,
+    get_user_owned_frames,
+    get_user_themes,
     is_user_single,
     sell_gacha_junk,
 )
@@ -284,23 +288,53 @@ async def cmd_inventory(message: Message, cmd_args: str):
 
     uid = message.from_user.id
     chat_id = message.chat.id
+    text, kb = await _build_inventory_page(uid, chat_id, "items")
+    await message.answer(text, parse_mode="HTML", reply_markup=kb)
 
+
+async def _build_inventory_page(uid: int, chat_id: int, section: str) -> tuple[str, InlineKeyboardMarkup]:
+    """Собирает текст + клавиатуру для одной секции инвентаря."""
+    tab_buttons = [
+        InlineKeyboardButton(
+            text=f"{'▶ ' if section == 'items' else ''}📦 Предметы",
+            callback_data=f"inv:items:{uid}:{chat_id}",
+        ),
+        InlineKeyboardButton(
+            text=f"{'▶ ' if section == 'cosmetics' else ''}🎨 Косметика",
+            callback_data=f"inv:cosmetics:{uid}:{chat_id}",
+        ),
+        InlineKeyboardButton(
+            text=f"{'▶ ' if section == 'gifts' else ''}🎁 Подарки",
+            callback_data=f"inv:gifts:{uid}:{chat_id}",
+        ),
+    ]
+
+    if section == "items":
+        text = await _inv_items(uid, chat_id)
+    elif section == "cosmetics":
+        text = await _inv_cosmetics(uid, chat_id)
+    else:
+        text = await _inv_gifts(uid, chat_id)
+
+    kb = InlineKeyboardMarkup(inline_keyboard=[tab_buttons])
+    return text, kb
+
+
+async def _inv_items(uid: int, chat_id: int) -> str:
     items = await get_gacha_inventory(uid, chat_id)
     if not items:
-        await message.answer(
-            "🎒 <b>Инвентарь пуст.</b>\n\n"
-            "Получи предметы: <code>бот молитва</code>",
-            parse_mode="HTML",
+        return (
+            "🎒 <b>Предметы</b>\n\n"
+            "Инвентарь пуст.\n"
+            "Получи предметы: <code>бот молитва</code>"
         )
-        return
 
-    # Группируем по редкости
     by_rarity: dict[str, list] = {}
     for item in items:
         r = item["rarity"]
         by_rarity.setdefault(r, []).append(item)
 
-    lines = ["🎒 <b>Твой инвентарь</b>\n"]
+    lines = ["📦 <b>Предметы</b>\n"]
     order = ["legendary", "rare", "common", "junk"]
     for rarity in order:
         group = by_rarity.get(rarity)
@@ -309,21 +343,112 @@ async def cmd_inventory(message: Message, cmd_args: str):
         emoji = _RARITY_EMOJI.get(rarity, "⚪")
         label = _RARITY_LABEL.get(rarity, rarity)
         lines.append(f"\n{emoji} <b>{label}</b> ({len(group)}):")
-        for item in group[:10]:  # Max 10 per rarity to avoid flood
-            equipped = " ◀ экип." if item["equipped"] else ""
-            lines.append(f"  {item['item_name']}{equipped} <code>#{item['id']}</code>")
-        if len(group) > 10:
-            lines.append(f"  <i>...и ещё {len(group) - 10}</i>")
+        # Look up description from item pools
+        for item in group[:8]:
+            desc = _ITEM_DESC.get(item["item_key"], "")
+            equipped = " ◀ <b>экип.</b>" if item.get("equipped") else ""
+            desc_line = f"\n      <i>{desc}</i>" if desc else ""
+            lines.append(f"  {item['item_name']}{equipped} <code>#{item['id']}</code>{desc_line}")
+        if len(group) > 8:
+            lines.append(f"  <i>...и ещё {len(group) - 8}</i>")
 
     junk_count = len(by_rarity.get("junk", []))
     if junk_count > 0:
-        lines.append(f"\n🗑 Продать мусор ({junk_count} шт.): <code>бот продать мусор</code>")
-
+        lines.append(f"\n🗑 <code>бот продать мусор</code> — продать мусор ({junk_count} шт.)")
     lego_count = len(by_rarity.get("legendary", []))
     if lego_count > 0:
-        lines.append(f"🏆 Экипировать: <code>бот экипировать #ID</code>")
+        lines.append("🏆 <code>бот экипировать #ID</code>")
+    return "\n".join(lines)
 
-    await message.answer("\n".join(lines), parse_mode="HTML")
+
+async def _inv_cosmetics(uid: int, chat_id: int) -> str:
+    from config import PROFILE_THEMES
+    from handlers.economy import TOP_FRAMES
+
+    owned_themes = {t["theme_key"] for t in await get_user_themes(uid, chat_id)}
+    active_theme = None
+    mora_row = await get_mora(uid, chat_id)
+    if mora_row:
+        active_theme = mora_row.get("active_theme") or "default"
+    equipped_frame = await get_top_frame(uid, chat_id) or "default"
+    owned_frames = await get_user_owned_frames(uid, chat_id)
+    owned_frames.add("default")  # default is always owned
+
+    lines = ["🎨 <b>Косметика</b>\n"]
+
+    # ─── Рамки ───
+    lines.append("🖼 <b>Рамки</b>:")
+    any_frame = False
+    for key, emoji, name, price, desc in TOP_FRAMES:
+        if key not in owned_frames:
+            continue
+        any_frame = True
+        equipped_mark = " ◀ <b>надета</b>" if key == equipped_frame else ""
+        lines.append(f"  {emoji} {name}{equipped_mark}")
+        if desc:
+            lines.append(f"      <i>{desc}</i>")
+    if not any_frame:
+        lines.append("  <i>Нет рамок. Купи в магазине: <code>бот магазин</code></i>")
+
+    # ─── Темы ───
+    lines.append("\n🌈 <b>Темы профиля</b>:")
+    any_theme = False
+    for key, info in PROFILE_THEMES.items():
+        if key not in owned_themes and key != "default":
+            continue
+        any_theme = True
+        active_mark = " ◀ <b>активна</b>" if key == active_theme else ""
+        lines.append(f"  {info.get('name', key)}{active_mark}")
+    if not any_theme:
+        lines.append("  <i>Нет тем. Открываются через гачу или покупку.</i>")
+
+    lines.append("\n🎨 Сменить тему: <code>бот темы</code>")
+    return "\n".join(lines)
+
+
+async def _inv_gifts(uid: int, chat_id: int) -> str:
+    gifts = await get_received_gifts(uid, chat_id)
+    if not gifts:
+        return (
+            "🎁 <b>Подарки</b>\n\n"
+            "<i>Ты ещё не получал подарков.</i>\n"
+            "Партнёр может подарить: <code>бот подарить</code>"
+        )
+    lines = ["🎁 <b>Полученные подарки</b>\n"]
+    for g in gifts:
+        cnt = g["cnt"]
+        lines.append(f"  {g['gift_name']} × {cnt}")
+    return "\n".join(lines)
+
+
+@router.callback_query(lambda c: c.data and c.data.startswith("inv:"))
+async def cb_inventory_tab(callback: CallbackQuery):
+    parts = callback.data.split(":")
+    if len(parts) < 4:
+        await callback.answer()
+        return
+    _, section, owner_str, chat_str = parts[:4]
+    owner = int(owner_str)
+    chat_id = int(chat_str)
+
+    if callback.from_user.id != owner:
+        await callback.answer("❌ Это не твой инвентарь.", show_alert=True)
+        return
+
+    text, kb = await _build_inventory_page(owner, chat_id, section)
+    try:
+        await callback.message.edit_text(text, parse_mode="HTML", reply_markup=kb)
+    except Exception:
+        pass
+    await callback.answer()
+
+
+# helper: pre-built item description lookup
+_ITEM_DESC: dict[str, str] = {
+    item[0]: item[2]
+    for pool in (_JUNK_ITEMS, _COMMON_ITEMS, _RARE_ITEMS, _LEGENDARY_ITEMS)
+    for item in pool
+}
 
 
 # ─── бот продать мусор ────────────────────────────────────────────────────────

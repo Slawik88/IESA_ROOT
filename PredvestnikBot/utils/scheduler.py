@@ -53,6 +53,10 @@ async def run_scheduler(bot) -> None:
             await _task_expedition_notifications(bot)
         except Exception as exc:
             log.error("Scheduler [expeditions] error: %s", exc, exc_info=True)
+        try:
+            await _task_bond_price_update(bot)
+        except Exception as exc:
+            log.error("Scheduler [bond_prices] error: %s", exc, exc_info=True)
         await asyncio.sleep(3600)  # следующий прогон через час
 
 
@@ -421,4 +425,34 @@ async def _task_expedition_notifications(bot) -> None:
             )
         except Exception as exc:
             log.warning("Expedition notify %s/%s: %s", chat_id, uid, exc)
+
+
+# ─── Обновление цен облигаций каждые 6 часов ─────────────────────────────────
+
+async def _task_bond_price_update(bot) -> None:
+    """Обновляет цены облигаций для всех чатов раз в 6 часов."""
+    now = datetime.utcnow()
+    # Запускаем только в часы кратные 6 (0, 6, 12, 18 UTC)
+    if now.hour % 6 != 0:
+        return
+
+    from database.db import update_bond_prices
+    import aiosqlite
+    from database.db import DATABASE_PATH
+
+    # Получаем все активные chat_id из chat_settings
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute("SELECT chat_id FROM chat_settings") as c:
+            rows = await c.fetchall()
+
+    chat_ids = [r["chat_id"] for r in rows]
+    for chat_id in chat_ids:
+        try:
+            await update_bond_prices(chat_id)
+        except Exception as exc:
+            log.warning("Bond price update for chat %s: %s", chat_id, exc)
+
+    if chat_ids:
+        log.info("Bond prices updated for %d chats at %s UTC", len(chat_ids), now.strftime("%H:%M"))
 

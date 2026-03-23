@@ -671,6 +671,41 @@ async def init_db():
             )
         """)
 
+        # ─── Облигации ────────────────────────────────────────────────────
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS bond_prices (
+                bond_key     TEXT    NOT NULL,
+                chat_id      INTEGER NOT NULL DEFAULT 0,
+                price        INTEGER NOT NULL,
+                updated_at   TEXT    NOT NULL,
+                PRIMARY KEY (bond_key, chat_id)
+            )
+        """)
+
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS user_bonds (
+                id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id      INTEGER NOT NULL,
+                chat_id      INTEGER NOT NULL,
+                bond_key     TEXT    NOT NULL,
+                amount       INTEGER NOT NULL DEFAULT 0,
+                invested     INTEGER NOT NULL DEFAULT 0,
+                UNIQUE (user_id, chat_id, bond_key)
+            )
+        """)
+
+        # ─── Лог шпионажа ─────────────────────────────────────────────────
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS espionage_log (
+                id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                spy_id       INTEGER NOT NULL,
+                target_id    INTEGER NOT NULL,
+                chat_id      INTEGER NOT NULL,
+                success      INTEGER NOT NULL,
+                attempted_at TEXT    NOT NULL
+            )
+        """)
+
         await db.commit()
 
     # PostgreSQL: widen all Telegram ID columns from int32 (INTEGER) → int64 (BIGINT).
@@ -4067,4 +4102,144 @@ async def increment_tracker(user_id: int, chat_id: int, field: str, amount: int 
             (amount, user_id, chat_id),
         )
         await db.commit()
+
+
+# ─── Шпионаж ──────────────────────────────────────────────────────────────────
+
+async def log_espionage(spy_id: int, target_id: int, chat_id: int, success: bool):
+    now = datetime.utcnow().isoformat()
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        await db.execute(
+            "INSERT INTO espionage_log (spy_id, target_id, chat_id, success, attempted_at) VALUES (?,?,?,?,?)",
+            (spy_id, target_id, chat_id, 1 if success else 0, now),
+        )
+        await db.commit()
+
+
+async def get_espionage_cooldown(spy_id: int, target_id: int, chat_id: int) -> int:
+    """Сколько секунд осталось до следующей возможности шпионить за target_id. 0 = можно."""
+    cooldown_sec = 3600  # 1 час кулдаун на одну пару
+    since = (datetime.utcnow() - timedelta(seconds=cooldown_sec)).isoformat()
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        async with db.execute(
+            "SELECT COUNT(*) FROM espionage_log WHERE spy_id=? AND target_id=? AND chat_id=? AND attempted_at > ?",
+            (spy_id, target_id, chat_id, since),
+        ) as c:
+            count = (await c.fetchone())[0]
+    if count == 0:
+        return 0
+    # Find the most recent attempt to calculate remaining cooldown
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        async with db.execute(
+            "SELECT attempted_at FROM espionage_log WHERE spy_id=? AND target_id=? AND chat_id=? ORDER BY id DESC LIMIT 1",
+            (spy_id, target_id, chat_id),
+        ) as c:
+            row = await c.fetchone()
+    if not row:
+        return 0
+    last = datetime.fromisoformat(row[0])
+    elapsed = (datetime.utcnow() - last).total_seconds()
+    remaining = cooldown_sec - int(elapsed)
+    return max(0, remaining)
+
+
+# ─── Облигации ────────────────────────────────────────────────────────────────
+
+BOND_DEFAULTS = {
+    "mondstadt": {"name": "📜 Холодный Ветер (Мондштадт)", "base_price": 100},
+    "inazuma":   {"name": "⚡ Вишнёвый Гром (Инадзума)",   "base_price": 150},
+}
+
+
+async def get_bond_prices(chat_id: int) -> dict:
+    """Вернуть текущие цены облигаций {key: price}."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT bond_key, price FROM bond_prices WHERE chat_id=?",
+            (chat_id,),
+        ) as c:
+            rows = await c.fetchall()
+    prices = {r["bond_key"]: r["price"] for r in rows}
+    # Fill defaults for any missing bonds
+    for key, info in BOND_DEFAULTS.items():
+        if key not in prices:
+            prices[key] = info["base_price"]
+    return prices
+
+
+async def update_bond_prices(chat_id: int):
+    """Обновить цены облигаций случайным блужданием ±5..20%."""
+    import random
+    current = await get_bond_prices(chat_id)
+    now = datetime.utcnow().isoformat()
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        for key, info in BOND_DEFAULTS.items():
+            old_price = current.get(key, info["base_price"])
+            delta_pct = random.uniform(-0.20, 0.20)
+            new_price = max(10, int(old_price * (1 + delta_pct)))
+            # Cap at 5x base to prevent runaway inflation
+            new_price = min(new_price, info["base_price"] * 5)
+            await db.execute(
+                """INSERT INTO bond_prices (bond_key, chat_id, price, updated_at)
+                   VALUES (?,?,?,?)
+                   ON CONFLICT(bond_key, chat_id) DO UPDATE SET price=excluded.price, updated_at=excluded.updated_at""",
+                (key, chat_id, new_price, now),
+            )
+        await db.commit()
+
+
+async def get_user_bonds(user_id: int, chat_id: int) -> list[dict]:
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT * FROM user_bonds WHERE user_id=? AND chat_id=?",
+            (user_id, chat_id),
+        ) as c:
+            return [dict(r) for r in await c.fetchall()]
+
+
+async def buy_bonds(user_id: int, chat_id: int, bond_key: str, amount: int, price_per: int) -> bool:
+    """Купить облигации. Возвращает True при успехе. Деньги уже списаны вызывающим."""
+    total_invested = amount * price_per
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        await db.execute(
+            """INSERT INTO user_bonds (user_id, chat_id, bond_key, amount, invested)
+               VALUES (?,?,?,?,?)
+               ON CONFLICT(user_id, chat_id, bond_key)
+               DO UPDATE SET amount = amount + excluded.amount,
+                             invested = invested + excluded.invested""",
+            (user_id, chat_id, bond_key, amount, total_invested),
+        )
+        await db.commit()
+    return True
+
+
+async def sell_bonds(user_id: int, chat_id: int, bond_key: str, amount: int) -> tuple[bool, int]:
+    """Продать облигации. Возвращает (success, actual_amount_sold)."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT amount, invested FROM user_bonds WHERE user_id=? AND chat_id=? AND bond_key=?",
+            (user_id, chat_id, bond_key),
+        ) as c:
+            row = await c.fetchone()
+        if not row or row["amount"] < amount:
+            return (False, 0)
+        new_amount = row["amount"] - amount
+        if new_amount == 0:
+            await db.execute(
+                "DELETE FROM user_bonds WHERE user_id=? AND chat_id=? AND bond_key=?",
+                (user_id, chat_id, bond_key),
+            )
+        else:
+            # Proportionally reduce invested
+            frac = amount / row["amount"]
+            new_invested = max(0, int(row["invested"] * (1 - frac)))
+            await db.execute(
+                "UPDATE user_bonds SET amount=?, invested=? WHERE user_id=? AND chat_id=? AND bond_key=?",
+                (new_amount, new_invested, user_id, chat_id, bond_key),
+            )
+        await db.commit()
+    return (True, amount)
 
