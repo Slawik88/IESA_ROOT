@@ -18,6 +18,10 @@ from .miniapp_views import (
     miniapp_dev_add_mora, miniapp_dev_add_xp, miniapp_dev_give_item, miniapp_dev_users,
     miniapp_family_deposit, miniapp_family_withdraw,
     miniapp_inventory,
+    miniapp_gacha_roll,
+    miniapp_bonds_buy, miniapp_bonds_sell,
+    miniapp_pet_walk, miniapp_pet_feed,
+    miniapp_shop_catalog, miniapp_shop_buy,
 )
 
 # Переопределить стандартный админ на кастомный
@@ -74,6 +78,13 @@ urlpatterns = [
     path('api/family/deposit', miniapp_family_deposit, name='miniapp_family_deposit'),
     path('api/family/withdraw', miniapp_family_withdraw, name='miniapp_family_withdraw'),
     path('api/inventory', miniapp_inventory, name='miniapp_inventory'),
+    path('api/gacha/roll', miniapp_gacha_roll, name='miniapp_gacha_roll'),
+    path('api/bonds/buy', miniapp_bonds_buy, name='miniapp_bonds_buy'),
+    path('api/bonds/sell', miniapp_bonds_sell, name='miniapp_bonds_sell'),
+    path('api/pet/walk', miniapp_pet_walk, name='miniapp_pet_walk'),
+    path('api/pet/feed', miniapp_pet_feed, name='miniapp_pet_feed'),
+    path('api/shop/catalog', miniapp_shop_catalog, name='miniapp_shop_catalog'),
+    path('api/shop/buy', miniapp_shop_buy, name='miniapp_shop_buy'),
     # ───────────────────────────────────────────────────────────────────────────
     path('protected/<path:file_path>', serve_protected_media, name='serve_protected_media'),
     

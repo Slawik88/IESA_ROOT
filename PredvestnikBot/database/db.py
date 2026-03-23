@@ -774,8 +774,8 @@ async def init_db():
             except Exception:
                 pass
 
-        # ─── Миграция: усталость питомца ──────────────────────────────────
-        for col_def in ["fatigue INTEGER DEFAULT 0"]:
+        # ─── Миграция: усталость питомца + время прогулки ──────────────────
+        for col_def in ["fatigue INTEGER DEFAULT 0", "last_walked TEXT DEFAULT NULL"]:
             try:
                 await db.execute(f"ALTER TABLE pets ADD COLUMN {col_def}")
             except Exception:
