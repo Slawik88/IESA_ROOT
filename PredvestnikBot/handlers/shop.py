@@ -33,6 +33,8 @@ from config import (
 from database.db import (
     buy_shop_item,
     deduct_mora,
+    get_family_wallet,
+    get_marriage,
     get_mora,
     has_shop_item,
     set_pet_color,
@@ -40,7 +42,7 @@ from database.db import (
     set_custom_title_in_chat,
 )
 from filters.bot_command import BotCommand
-from handlers.economy import TOP_FRAMES, XP_BOOST_OPTIONS
+from handlers.economy import TOP_FRAMES, XP_BOOST_OPTIONS, deduct_wallet
 
 router = Router()
 
@@ -84,13 +86,19 @@ def _section_keyboard(uid: int, active: str, owned_keys: set[str] | None = None)
             if key in owned:
                 buttons.append([InlineKeyboardButton(
                     text=f"✅ {item['name']} (куплено)",
-                    callback_data=f"shop_buy:{uid}:{key}",
+                    callback_data=f"shop_buy:{uid}:{key}:personal",
                 )])
             else:
-                buttons.append([InlineKeyboardButton(
-                    text=f"💳 {item['name']} — {item['price']} 🪙",
-                    callback_data=f"shop_buy:{uid}:{key}",
-                )])
+                buttons.append([
+                    InlineKeyboardButton(
+                        text=f"💰 {item['name']} — {item['price']} 🪙",
+                        callback_data=f"shop_buy:{uid}:{key}:personal",
+                    ),
+                    InlineKeyboardButton(
+                        text="👨‍👩‍👧",
+                        callback_data=f"shop_buy:{uid}:{key}:family",
+                    ),
+                ])
 
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
@@ -292,6 +300,7 @@ async def cb_shop_buy(callback: CallbackQuery):
     parts = callback.data.split(":")
     owner = int(parts[1])
     item_key = parts[2]
+    wallet = parts[3] if len(parts) > 3 else "personal"
 
     if callback.from_user.id != owner:
         await callback.answer("❌ Это не твой магазин!", show_alert=True)
@@ -311,11 +320,9 @@ async def cb_shop_buy(callback: CallbackQuery):
         await callback.answer("✅ У тебя уже есть этот товар!", show_alert=True)
         return
 
-    ok, new_bal = await deduct_mora(uid, chat_id, price)
+    ok, new_bal = await deduct_wallet(uid, chat_id, price, wallet)
     if not ok:
-        mora = await get_mora(uid, chat_id)
-        bal = mora["balance"] if mora else 0
-        await callback.answer(f"❌ Недостаточно Моры ({bal} / {price})", show_alert=True)
+        await callback.answer(f"❌ Недостаточно Моры ({new_bal} / {price})", show_alert=True)
         return
 
     # Для каждого товара — свой flow

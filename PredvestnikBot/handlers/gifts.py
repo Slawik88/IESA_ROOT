@@ -21,7 +21,9 @@ from aiogram.types import (
 from config import MARRIAGE_GIFTS
 from database.db import (
     add_buff,
+    add_to_family_wallet,
     deduct_mora,
+    get_family_wallet,
     get_marriage,
     get_mora,
     give_gift,
@@ -54,11 +56,12 @@ async def cmd_gifts(message: Message, cmd_args: str):
         return
 
     mora = await get_mora(uid, chat_id)
-    bal = mora["balance"] if mora else 0
+    personal_bal = mora["balance"] if mora else 0
+    family_bal = await get_family_wallet(chat_id, uid)
 
     lines = [
         "🎁 <b>Витрина подарков</b>\n",
-        f"💰 Баланс: <b>{bal} 🪙</b>\n",
+        f"💰 Личный: <b>{personal_bal} 🪙</b> | 👨‍👩‍👧 Семейный: <b>{family_bal} 🪙</b>\n",
     ]
     buttons = []
     for key, gift in MARRIAGE_GIFTS.items():
@@ -68,10 +71,16 @@ async def cmd_gifts(message: Message, cmd_args: str):
             pct = buff["type"].replace("mora_boost_", "")
             buff_info = f" | 🔥 +{pct}% мора на {buff['hours']}ч"
         lines.append(f"  {gift['name']} — <b>{gift['price']} 🪙</b>{buff_info}")
-        buttons.append([InlineKeyboardButton(
-            text=f"{gift['name']} — {gift['price']} 🪙",
-            callback_data=f"gift:{uid}:{key}",
-        )])
+        buttons.append([
+            InlineKeyboardButton(
+                text=f"💰 {gift['name']} — {gift['price']} 🪙",
+                callback_data=f"gift:{uid}:{key}:personal",
+            ),
+            InlineKeyboardButton(
+                text=f"👨‍👩‍👧",
+                callback_data=f"gift:{uid}:{key}:family",
+            ),
+        ])
 
     kb = InlineKeyboardMarkup(inline_keyboard=buttons)
     await message.answer("\n".join(lines), parse_mode="HTML", reply_markup=kb)
@@ -84,6 +93,7 @@ async def cb_gift(callback: CallbackQuery):
     parts = callback.data.split(":")
     owner = int(parts[1])
     gift_key = parts[2]
+    wallet = parts[3] if len(parts) > 3 else "personal"
 
     if callback.from_user.id != owner:
         await callback.answer("❌ Это не для тебя!", show_alert=True)
@@ -104,14 +114,28 @@ async def cb_gift(callback: CallbackQuery):
         return
 
     partner_id = marriage["partner_id"]
+
+    # Нельзя дарить самому себе
+    if partner_id == uid:
+        await callback.answer("❌ Нельзя дарить подарок самому себе!", show_alert=True)
+        return
+
     price = gift_info["price"]
 
-    ok, new_bal = await deduct_mora(uid, chat_id, price)
-    if not ok:
-        mora = await get_mora(uid, chat_id)
-        bal = mora["balance"] if mora else 0
-        await callback.answer(f"❌ Недостаточно Моры ({bal} / {price})", show_alert=True)
-        return
+    if wallet == "family":
+        bal = await get_family_wallet(chat_id, uid)
+        if bal < price:
+            await callback.answer(f"❌ Недостаточно Моры в семейном кошельке ({bal} / {price})", show_alert=True)
+            return
+        new_bal = await add_to_family_wallet(chat_id, uid, -price)
+        ok = True
+    else:
+        ok, new_bal = await deduct_mora(uid, chat_id, price)
+        if not ok:
+            mora = await get_mora(uid, chat_id)
+            bal = mora["balance"] if mora else 0
+            await callback.answer(f"❌ Недостаточно Моры ({bal} / {price})", show_alert=True)
+            return
 
     # Записываем подарок
     await give_gift(uid, partner_id, chat_id, gift_key, gift_info["name"], price)
@@ -127,13 +151,15 @@ async def cb_gift(callback: CallbackQuery):
 
     # Получаем общую статистику
     count, total = await get_gifts_summary(uid, partner_id, chat_id)
+    wallet_label = "семейного" if wallet == "family" else "личного"
 
     try:
         await callback.message.edit_text(
             f"🎁 <b>Подарок отправлен!</b>\n\n"
             f"{gift_info['name']} → партнёру"
             f"{buff_text}\n\n"
-            f"💰 Баланс: {new_bal} 🪙\n"
+            f"Списано из {wallet_label} кошелька.\n"
+            f"Баланс: {new_bal} 🪙\n"
             f"📊 Всего подарков паре: {count} (на {total} 🪙)",
             parse_mode="HTML",
         )

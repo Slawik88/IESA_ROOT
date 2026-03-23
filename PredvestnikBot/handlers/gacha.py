@@ -43,34 +43,34 @@ SINGLES_GACHA_MULTI  = 1350
 
 # ─── Пул предметов ───────────────────────────────────────────────────────────
 _JUNK_ITEMS = [
-    ("junk_stone",   "🪨 Камень Маслоу"),
-    ("junk_stick",   "🪵 Палка путника"),
-    ("junk_dust",    "💨 Пыль забвения"),
-    ("junk_bone",    "🦴 Кость хиличурла"),
-    ("junk_mushroom","🍄 Сомнительный гриб"),
+    ("junk_stone",   "🪨 Камень Маслоу",       "Бесполезный хлам — продай кнопкой «Продать мусор»"),
+    ("junk_stick",   "🪵 Палка путника",       "Сломанная палка, годится только на продажу"),
+    ("junk_dust",    "💨 Пыль забвения",       "Пыль из неизвестного мира — никому не нужна"),
+    ("junk_bone",    "🦴 Кость хиличурла",     "Древняя кость. Продай и забудь"),
+    ("junk_mushroom","🍄 Сомнительный гриб",   "Лучше не пробовать. Зато можно продать"),
 ]
 
 _COMMON_ITEMS = [
-    ("cmn_sword",  "⚔️ Тупой клинок"),
-    ("cmn_bow",    "🏹 Кривой лук"),
-    ("cmn_book",   "📕 Потрёпанный дневник"),
-    ("cmn_ring",   "💍 Дешёвое кольцо"),
-    ("cmn_shield", "🛡 Ржавый щит"),
+    ("cmn_sword",  "⚔️ Тупой клинок",        "Разовый бонус: +5 XP при получении"),
+    ("cmn_bow",    "🏹 Кривой лук",          "Разовый бонус: +3 Моры при получении"),
+    ("cmn_book",   "📕 Потрёпанный дневник",  "Разовый бонус: +8 XP при получении"),
+    ("cmn_ring",   "💍 Дешёвое кольцо",       "Разовый бонус: +4 Моры при получении"),
+    ("cmn_shield", "🛡 Ржавый щит",           "Разовый бонус: +6 XP при получении"),
 ]
 
 _RARE_ITEMS = [
-    ("rare_crown",   "👑 Серебряная корона"),
-    ("rare_catalyst","🔮 Магический катализатор"),
-    ("rare_cape",    "🧣 Алый плащ"),
-    ("rare_gem",     "💎 Сапфир полуночи"),
+    ("rare_crown",   "👑 Серебряная корона",       "Косметика: элегантная корона для профиля"),
+    ("rare_catalyst","🔮 Магический катализатор", "Косметика: мистический атрибут мага"),
+    ("rare_cape",    "🧣 Алый плащ",              "Косметика: плащ героя ветров"),
+    ("rare_gem",     "💎 Сапфир полуночи",        "Косметика: сверкающий камень ночи"),
 ]
 
 _LEGENDARY_ITEMS = [
-    ("lego_gnosis",    "✨ Гнозис Балладеера"),
-    ("lego_scepter",   "🏛 Скипетр Дендро Архонта"),
-    ("lego_pantalone", "🎩 Маска Панталоне"),
-    ("lego_abyss",     "🌀 Корона Бездны"),
-    ("lego_fatui",     "⚡ Перст Предвестника"),
+    ("lego_gnosis",    "✨ Гнозис Балладеера",       "Экипировка: уникальный символ Предвестника в профиле"),
+    ("lego_scepter",   "🏛 Скипетр Дендро Архонта",  "Экипировка: могущественный скипетр в профиле"),
+    ("lego_pantalone", "🎩 Маска Панталоне",          "Экипировка: таинственная маска дельца в профиле"),
+    ("lego_abyss",     "🌀 Корона Бездны",            "Экипировка: корона из глубин Бездны в профиле"),
+    ("lego_fatui",     "⚡ Перст Предвестника",       "Экипировка: эксклюзивный знак верности"),
 ]
 
 _RARITY_EMOJI = {
@@ -88,48 +88,48 @@ _RARITY_LABEL = {
 }
 
 
-def _roll_one(pity: int) -> tuple[str, str, str]:
-    """Выполнить один ролл. Возвращает (item_key, item_name, rarity)."""
+def _roll_one(pity: int) -> tuple[str, str, str, str]:
+    """Выполнить один ролл. Возвращает (item_key, item_name, rarity, description)."""
     # Гарант
     if pity >= GACHA_PITY_COUNT - 1:
-        key, name = random.choice(_LEGENDARY_ITEMS)
-        return key, name, "legendary"
+        key, name, desc = random.choice(_LEGENDARY_ITEMS)
+        return key, name, "legendary", desc
 
     roll = random.random()
     if roll < 0.02:  # 2% леги
-        key, name = random.choice(_LEGENDARY_ITEMS)
-        return key, name, "legendary"
+        key, name, desc = random.choice(_LEGENDARY_ITEMS)
+        return key, name, "legendary", desc
     elif roll < 0.10:  # 8% редкие
-        key, name = random.choice(_RARE_ITEMS)
-        return key, name, "rare"
+        key, name, desc = random.choice(_RARE_ITEMS)
+        return key, name, "rare", desc
     elif roll < 0.30:  # 20% обычные
-        key, name = random.choice(_COMMON_ITEMS)
-        return key, name, "common"
+        key, name, desc = random.choice(_COMMON_ITEMS)
+        return key, name, "common", desc
     else:  # 70% мусор
-        key, name = random.choice(_JUNK_ITEMS)
-        return key, name, "junk"
+        key, name, desc = random.choice(_JUNK_ITEMS)
+        return key, name, "junk", desc
 
 
-async def _do_rolls(uid: int, chat_id: int, count: int) -> list[tuple[str, str, str]]:
-    """Выполнить N роллов и записать в БД. Возвращает список (key, name, rarity)."""
+async def _do_rolls(uid: int, chat_id: int, count: int) -> list[tuple[str, str, str, str]]:
+    """Выполнить N роллов и записать в БД. Возвращает список (key, name, rarity, desc)."""
     pity = await get_gacha_pity(uid, chat_id)
     results = []
     for _ in range(count):
-        key, name, rarity = _roll_one(pity)
+        key, name, rarity, desc = _roll_one(pity)
         await add_gacha_item(uid, chat_id, key, name, rarity)
         if rarity == "legendary":
             pity = 0
         else:
             pity += 1
-        results.append((key, name, rarity))
+        results.append((key, name, rarity, desc))
     return results
 
 
-def _format_results(results: list[tuple[str, str, str]]) -> str:
+def _format_results(results: list[tuple[str, str, str, str]]) -> str:
     lines = []
-    for key, name, rarity in results:
+    for key, name, rarity, desc in results:
         emoji = _RARITY_EMOJI.get(rarity, "⚪")
-        lines.append(f"  {emoji} {name} <i>({_RARITY_LABEL.get(rarity, rarity)})</i>")
+        lines.append(f"  {emoji} {name}\n      <i>{desc}</i>")
     return "\n".join(lines)
 
 

@@ -50,7 +50,7 @@ _ADMIN_SENIOR_MAX = "admin_junior"
 _CO_OWNER_MAX = "admin_senior"
 
 
-@router.message(BotCommand("ранг", "выдать ранг", "setrank"), RankFilter("admin_junior"))
+@router.message(BotCommand("ранг", "выдать ранг", "setrank"), RankFilter("co_owner"))
 async def cmd_setrank(message: Message, cmd_args: str):
     # Синтаксис: бот ранг <ранг> @user   или   бот ранг @user <ранг>   или ответом
     parts = cmd_args.split(maxsplit=1) if cmd_args else []
@@ -169,7 +169,7 @@ async def cmd_stats(message: Message, cmd_args: str):
     )
 
 
-@router.message(BotCommand("правила"), RankFilter("admin_junior"))
+@router.message(BotCommand("правила"), RankFilter("admin_senior"))
 async def cmd_rules_set(message: Message, cmd_args: str):
     # Только "установить" / "set" — показ правил делает user.py (нет RankFilter)
     if cmd_args.lower().startswith("установить") or cmd_args.lower().startswith("set"):
@@ -195,7 +195,7 @@ async def cmd_rules_set(message: Message, cmd_args: str):
             await message.answer("📜 Правила чата ещё не установлены.")
 
 
-@router.message(BotCommand("приветствие", "welcome"), RankFilter("admin_junior"))
+@router.message(BotCommand("приветствие", "welcome"), RankFilter("admin_senior"))
 async def cmd_welcome(message: Message, cmd_args: str):
     if cmd_args.lower() in ("выкл", "off", "удалить"):
         await set_chat_setting(message.chat.id, "welcome_text", None)
@@ -215,7 +215,7 @@ async def cmd_welcome(message: Message, cmd_args: str):
         )
 
 
-@router.message(BotCommand("прощание", "farewell", "goodbye"), RankFilter("admin_junior"))
+@router.message(BotCommand("прощание", "farewell", "goodbye"), RankFilter("admin_senior"))
 async def cmd_farewell(message: Message, cmd_args: str):
     if cmd_args.lower() in ("выкл", "off", "удалить"):
         await set_chat_setting(message.chat.id, "farewell_text", None)
@@ -234,7 +234,7 @@ async def cmd_farewell(message: Message, cmd_args: str):
         )
 
 
-@router.message(BotCommand("антифлуд", "antiflood"), RankFilter("admin_junior"))
+@router.message(BotCommand("антифлуд", "antiflood"), RankFilter("co_owner"))
 async def cmd_antiflood(message: Message, cmd_args: str):
     from config import FLOOD_WINDOW, DEFAULT_FLOOD_MUTE, DEFAULT_ANTIFLOOD_LIMIT
     arg = (cmd_args or "").strip().lower()
@@ -283,7 +283,7 @@ async def cmd_antiflood(message: Message, cmd_args: str):
         )
 
 
-@router.message(BotCommand("тег входа", "коллприветствие", "welcomecall"), RankFilter("admin_junior"))
+@router.message(BotCommand("тег входа", "коллприветствие", "welcomecall"), RankFilter("co_owner"))
 async def cmd_welcome_call(message: Message, cmd_args: str):
     """Включить/выключить массовое упоминание всех при входе нового участника."""
     arg = (cmd_args or "").strip().lower()
@@ -310,7 +310,7 @@ async def cmd_welcome_call(message: Message, cmd_args: str):
         )
 
 
-@router.message(BotCommand("чистка", "cleanup", "прочистка"), RankFilter("admin_junior"))
+@router.message(BotCommand("чистка", "cleanup", "прочистка"), RankFilter("co_owner"))
 async def cmd_cleanup(message: Message, bot: Bot, cmd_args: str):
     """
     бот чистка [N]          — заблокировать чат + отчёт активности за неделю
@@ -490,7 +490,7 @@ async def cmd_cleanup(message: Message, bot: Bot, cmd_args: str):
     except Exception:
         await message.answer("❌ Ошибка при отправке отчёта о чистке.")
 
-@router.message(BotCommand("чистка дата", "cleanup date", "cleanup_date"), RankFilter("admin_junior"))
+@router.message(BotCommand("чистка дата", "cleanup date", "cleanup_date"), RankFilter("co_owner"))
 async def cmd_cleanup_date(message: Message, cmd_args: str):
     """
     бот чистка дата                   — показать запланированную дату
@@ -569,7 +569,7 @@ async def cmd_cleanup_date(message: Message, cmd_args: str):
     )
 
 
-@router.message(BotCommand("неактив", "inactivity", "неактивность"), RankFilter("admin_junior"))
+@router.message(BotCommand("неактив", "inactivity", "неактивность"), RankFilter("co_owner"))
 async def cmd_inactivity(message: Message, cmd_args: str):
     """
     бот неактив         — показать текущие настройки
@@ -788,7 +788,7 @@ async def _process_marriages_json(message: Message, bot: Bot, raw: str) -> None:
     await message.answer("\n".join(lines) or "Нет пар для импорта.", parse_mode="HTML")
 
 
-@router.message(BotCommand("загрузить браки", "load_marriages", "импорт браки"), RankFilter("admin_junior"))
+@router.message(BotCommand("загрузить браки", "load_marriages", "импорт браки"), RankFilter("developer"))
 async def cmd_load_marriages(message: Message, cmd_args: str, bot: Bot):
     """
     бот загрузить браки                — показать формат + ждать JSON
@@ -894,7 +894,7 @@ async def _process_users_json(message: Message, raw: str) -> None:
     await message.answer("\n".join(lines), parse_mode="HTML")
 
 
-@router.message(BotCommand("загрузить данные", "загрузить юзеров", "load_users"), RankFilter("admin_junior"))
+@router.message(BotCommand("загрузить данные", "загрузить юзеров", "load_users"), RankFilter("developer"))
 async def cmd_load_users(message: Message, cmd_args: str):
     """
     бот загрузить данные                — показать формат + ждать JSON
@@ -935,7 +935,7 @@ async def _catch_users_json(message: Message):
 
 # ─── Соцсети ──────────────────────────────────────────────────────────────────
 
-@router.message(BotCommand("соцсети", "соцсеть", "socials"), RankFilter("admin_junior"))
+@router.message(BotCommand("соцсети", "соцсеть", "socials"), RankFilter("co_owner"))
 async def cmd_set_social(message: Message, cmd_args: str):
     _valid = {"tiktok", "youtube", "instagram"}
     args = (cmd_args or "").strip()
@@ -974,7 +974,7 @@ async def cmd_set_social(message: Message, cmd_args: str):
 
 # ─── Подсказка по истории чата ────────────────────────────────────────────────
 
-@router.message(BotCommand("история чата", "историячата", "chathistory"), RankFilter("admin_junior"))
+@router.message(BotCommand("история чата", "историячата", "chathistory"), RankFilter("co_owner"))
 async def cmd_chat_history_hint(message: Message, cmd_args: str):
     await message.answer(
         "📋 <b>Как включить видимую историю для новых участников</b>\n\n"
@@ -1062,7 +1062,7 @@ async def cmd_rest(message: Message, cmd_args: str):
     )
 
 
-@router.message(BotCommand("ушли", "leavelog", "покинули"), RankFilter("moderator"))
+@router.message(BotCommand("ушли", "leavelog", "покинули"), RankFilter("co_owner"))
 async def cmd_leave_log(message: Message, cmd_args: str):
     """Показать последних пользователей, которые добровольно покинули чат."""
     try:

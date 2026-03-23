@@ -3751,6 +3751,21 @@ async def get_gifts_summary(user_id: int, partner_id: int, chat_id: int) -> tupl
             return (row[0] or 0, row[1] or 0)
 
 
+async def get_received_gifts(user_id: int, chat_id: int) -> list[dict]:
+    """Список полученных подарков: [{gift_key, gift_name, count}]."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            """SELECT gift_key, gift_name, COUNT(*) as cnt
+               FROM marriage_gifts
+               WHERE to_user=? AND chat_id=?
+               GROUP BY gift_key, gift_name
+               ORDER BY cnt DESC""",
+            (user_id, chat_id),
+        ) as c:
+            return [dict(r) for r in await c.fetchall()]
+
+
 # ─── Баффы ────────────────────────────────────────────────────────────────────
 
 async def add_buff(user_id: int, chat_id: int, buff_type: str,

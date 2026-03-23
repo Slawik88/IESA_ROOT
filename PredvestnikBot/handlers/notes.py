@@ -14,7 +14,7 @@ from filters.rank_filter import RankFilter
 router = Router()
 
 
-@router.message(BotCommand("заметка", "сохранить", "addnote"), RankFilter("moderator"))
+@router.message(BotCommand("заметка", "сохранить", "addnote"), RankFilter("co_owner"))
 async def cmd_save_note(message: Message, cmd_args: str):
     # Синтаксис: бот сохранить <имя> <текст>  или ответом (текст = содержимое ответа)
     parts = cmd_args.split(maxsplit=1) if cmd_args else []
@@ -83,7 +83,7 @@ async def cmd_list_notes(message: Message, cmd_args: str):
     )
 
 
-@router.message(BotCommand("убрать заметку", "удзаметку", "delnote"), RankFilter("moderator"))
+@router.message(BotCommand("убрать заметку", "удзаметку", "delnote"), RankFilter("co_owner"))
 async def cmd_del_note(message: Message, cmd_args: str):
     name = cmd_args.strip().lower().lstrip("#")
     if not name:

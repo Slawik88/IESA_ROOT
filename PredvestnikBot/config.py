@@ -282,8 +282,8 @@ BANK_EARLY_PENALTY_PCT = 0.01   # 1% от суммы вклада при дос�
 
 CHEST_EVENT_INTERVAL_MIN = 4    # минимум часов между сундуками
 CHEST_EVENT_INTERVAL_MAX = 8    # максимум часов между сундуками
-CHEST_EVENT_DURATION     = 60   # секунд до исчезновения
-CHEST_REWARDS = [50, 25, 10]    # 1-й, 2-й, 3-й (только первые 3 получают)
+CHEST_EVENT_DURATION     = 180  # секунд до исчезновения
+CHEST_REWARDS = [60, 50, 40, 30, 20, 10]  # 6 победителей
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -430,11 +430,19 @@ BOT_TIMEZONE = "Europe/Zurich"
 # ═══════════════════════════════════════════════════════════════════════════════
 
 # Источник получения: "default" — у всех, "gacha" — из гачи, "shop" — за мору
+# Грейд: "common" | "rare" | "epic" | "legendary"
+COSMETIC_TIER_LABELS = {
+    "common":    "⚪ Common",
+    "rare":      "🔵 Rare",
+    "epic":      "🟣 Epic",
+    "legendary": "🟡 Legendary",
+}
 PROFILE_THEMES: dict[str, dict] = {
     "default": {
         "name": "📋 Стандарт",
         "source": "default",
         "price": 0,
+        "tier": "common",
         "header": "👤 <b>Профиль</b>",
         "separator": "━━━━━━━━━━━━━━━━━━━━",
         "footer": "",
@@ -443,6 +451,7 @@ PROFILE_THEMES: dict[str, dict] = {
         "name": "🔥 Огненный",
         "source": "shop",
         "price": 2000,
+        "tier": "rare",
         "header": "🔥🔥🔥 <b>ПРОФИЛЬ</b> 🔥🔥🔥",
         "separator": "─🔥─🔥─🔥─🔥─🔥─🔥─🔥─🔥─🔥─",
         "footer": "🔥 <i>В огне не горит!</i>",
@@ -451,6 +460,7 @@ PROFILE_THEMES: dict[str, dict] = {
         "name": "❄️ Ледяной",
         "source": "shop",
         "price": 2000,
+        "tier": "rare",
         "header": "❄️✦ <b>ПРОФИЛЬ</b> ✦❄️",
         "separator": "─❄─✦─❄─✦─❄─✦─❄─✦─❄─",
         "footer": "❄️ <i>Холоден как лёд</i>",
@@ -459,6 +469,7 @@ PROFILE_THEMES: dict[str, dict] = {
         "name": "👑 Королевский",
         "source": "gacha",
         "price": 0,
+        "tier": "epic",
         "header": "👑✨ <b>КОРОЛЕВСКИЙ ПРОФИЛЬ</b> ✨👑",
         "separator": "═══✦═══✦═══✦═══✦═══",
         "footer": "👑 <i>Королевская кровь</i>",
@@ -467,6 +478,7 @@ PROFILE_THEMES: dict[str, dict] = {
         "name": "🌀 Бездна",
         "source": "gacha",
         "price": 0,
+        "tier": "legendary",
         "header": "🌀🖤 <b>БЕЗДНА</b> 🖤🌀",
         "separator": "▓░▓░▓░▓░▓░▓░▓░▓░▓░▓",
         "footer": "🌀 <i>Бездна вглядывается в тебя</i>",
@@ -475,6 +487,7 @@ PROFILE_THEMES: dict[str, dict] = {
         "name": "💜 Неоновый",
         "source": "shop",
         "price": 3000,
+        "tier": "epic",
         "header": "💜⚡ <b>N E O N</b> ⚡💜",
         "separator": "─💜─💙─💜─💙─💜─💙─💜─💙─",
         "footer": "⚡ <i>Сияй ярче неона</i>",
@@ -483,6 +496,7 @@ PROFILE_THEMES: dict[str, dict] = {
         "name": "🌸 Сакура",
         "source": "gacha",
         "price": 0,
+        "tier": "legendary",
         "header": "🌸🍃 <b>ПРОФИЛЬ</b> 🍃🌸",
         "separator": "─🌸─🍃─🌸─🍃─🌸─🍃─🌸─🍃─",
         "footer": "🌸 <i>Лепестки сакуры кружатся…</i>",

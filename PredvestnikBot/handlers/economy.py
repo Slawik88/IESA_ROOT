@@ -56,6 +56,24 @@ from utils.ranks import rank_level
 
 router = Router()
 
+
+# ─── Утилита списания из личного/семейного кошелька ───────────────────────────
+
+async def deduct_wallet(uid: int, chat_id: int, amount: int, wallet: str) -> tuple[bool, int]:
+    """Списать amount из указанного кошелька.
+    wallet: 'personal' | 'family'.
+    Возвращает (ok, new_balance).
+    """
+    if wallet == "family":
+        bal = await get_family_wallet(chat_id, uid)
+        if bal < amount:
+            return False, bal
+        new_bal = await add_to_family_wallet(chat_id, uid, -amount)
+        return True, new_bal
+    # personal
+    return await deduct_mora(uid, chat_id, amount)
+
+
 # ─── Рамки профиля в топе ─────────────────────────────────────────────────────
 #  (ключ, emoji, название, цена в Море, описание)
 TOP_FRAMES: list[tuple[str, str, str, int, str]] = [
@@ -133,6 +151,17 @@ async def cmd_balance(message: Message, cmd_args: str):
         if uid is None:
             await message.answer(name)
             return
+
+        # Приватность: чужой баланс виден только admin_junior+
+        from database.db import get_user_stats
+        from utils.ranks import is_developer
+        caller_id = message.from_user.id
+        if uid != caller_id and not is_developer(caller_id):
+            caller_stats = await get_user_stats(caller_id, chat_id)
+            caller_rank = caller_stats["rank"] if caller_stats else "user"
+            if rank_level(caller_rank) < rank_level("admin_junior"):
+                await message.answer("🔒 Ты можешь смотреть только свой баланс.")
+                return
 
         mora = await get_mora(uid, chat_id)
         balance = (mora["balance"] or 0) if mora else 0
@@ -214,24 +243,41 @@ async def cmd_buy_vip(message: Message, cmd_args: str):
         return
 
     mora = await get_mora(uid, chat_id)
-    bal = mora["balance"] if mora else 0
-    if bal < VIP_PRICE:
-        await message.answer(
-            f"💎 <b>VIP статус</b> стоит <b>{VIP_PRICE} Моры</b>.\n\n"
-            f"У тебя: <b>{bal} 🪙</b> — недостаточно.\n"
-            f"Зарабатывай Мору, общаясь в чате!",
-            parse_mode="HTML",
-        )
-        return
+    personal_bal = mora["balance"] if mora else 0
 
-    kb = InlineKeyboardMarkup(inline_keyboard=[[
-        InlineKeyboardButton(text=f"✅ Купить за {VIP_PRICE} Моры", callback_data=f"buy_vip:{uid}"),
-        InlineKeyboardButton(text="❌ Отмена", callback_data=f"buy_cancel:{uid}"),
-    ]])
+    marriage = await get_marriage(uid, chat_id)
+    buttons = []
+    if marriage:
+        family_bal = await get_family_wallet(chat_id, uid)
+        buttons.append([
+            InlineKeyboardButton(
+                text=f"💰 Личный ({personal_bal} 🪙)",
+                callback_data=f"buy_vip:{uid}:personal",
+            ),
+            InlineKeyboardButton(
+                text=f"👨‍👩‍👧 Семейный ({family_bal} 🪙)",
+                callback_data=f"buy_vip:{uid}:family",
+            ),
+        ])
+    else:
+        if personal_bal < VIP_PRICE:
+            await message.answer(
+                f"💎 <b>VIP статус</b> стоит <b>{VIP_PRICE} Моры</b>.\n\n"
+                f"У тебя: <b>{personal_bal} 🪙</b> — недостаточно.\n"
+                f"Зарабатывай Мору, общаясь в чате!",
+                parse_mode="HTML",
+            )
+            return
+        buttons.append([
+            InlineKeyboardButton(text=f"✅ Купить за {VIP_PRICE} Моры", callback_data=f"buy_vip:{uid}:personal"),
+            InlineKeyboardButton(text="❌ Отмена", callback_data=f"buy_cancel:{uid}"),
+        ])
+
+    kb = InlineKeyboardMarkup(inline_keyboard=buttons)
     await message.answer(
         f"💎 <b>VIP Статус</b>\n\n"
         f"Стоимость: <b>{VIP_PRICE} 🪙</b>\n"
-        f"Твой баланс: <b>{bal} 🪙</b>\n\n"
+        f"💰 Личный: <b>{personal_bal} 🪙</b>\n\n"
         f"Что даёт VIP:\n"
         f"  💎 Значок VIP в профиле и топе\n"
         f"  👑 Красивое оформление профиля\n"
@@ -245,6 +291,7 @@ async def cmd_buy_vip(message: Message, cmd_args: str):
 async def cb_buy_vip(callback: CallbackQuery):
     parts = callback.data.split(":")
     uid = int(parts[1])
+    wallet = parts[2] if len(parts) > 2 else "personal"
 
     if callback.from_user.id != uid:
         await callback.answer("🚫 Это не твоя кнопка!", show_alert=True)
@@ -256,18 +303,18 @@ async def cb_buy_vip(callback: CallbackQuery):
         await callback.answer("💎 У тебя уже есть VIP!", show_alert=True)
         return
 
-    ok, new_bal = await deduct_mora(uid, chat_id, VIP_PRICE)
+    ok, new_bal = await deduct_wallet(uid, chat_id, VIP_PRICE, wallet)
     if not ok:
-        mora = await get_mora(uid, chat_id)
-        bal = mora["balance"] if mora else 0
-        await callback.answer(f"❌ Недостаточно Моры! ({bal} / {VIP_PRICE})", show_alert=True)
+        await callback.answer(f"❌ Недостаточно Моры! ({new_bal} / {VIP_PRICE})", show_alert=True)
         return
 
     await set_vip(uid, chat_id, 1)
+    wallet_label = "семейного" if wallet == "family" else "личного"
     try:
         await callback.message.edit_text(
             f"💎 <b>VIP получен!</b>\n\n"
-            f"Поздравляем! Твой баланс: <b>{new_bal} 🪙</b>\n\n"
+            f"Списано из {wallet_label} кошелька.\n"
+            f"Баланс: <b>{new_bal} 🪙</b>\n\n"
             f"Значок 💎 теперь отображается в профиле и топе.",
             parse_mode="HTML",
         )
@@ -338,21 +385,39 @@ async def cmd_buy_boost(message: Message, cmd_args: str):
         return
 
     mora = await get_mora(uid, chat_id)
-    bal = mora["balance"] if mora else 0
+    personal_bal = mora["balance"] if mora else 0
 
+    marriage = await get_marriage(uid, chat_id)
     rows = []
-    for key, hours, price, label in XP_BOOST_OPTIONS:
-        rows.append([InlineKeyboardButton(
-            text=f"⚡ {label} — {price} 🪙",
-            callback_data=f"boost_buy:{uid}:{key}",
-        )])
+    if marriage:
+        family_bal = await get_family_wallet(chat_id, uid)
+        for key, hours, price, label in XP_BOOST_OPTIONS:
+            rows.append([
+                InlineKeyboardButton(
+                    text=f"💰 {label} — {price} 🪙",
+                    callback_data=f"boost_buy:{uid}:{key}:personal",
+                ),
+                InlineKeyboardButton(
+                    text=f"👨‍👩‍👧 {label}",
+                    callback_data=f"boost_buy:{uid}:{key}:family",
+                ),
+            ])
+        bal_info = f"💰 Личный: <b>{personal_bal} 🪙</b> | 👨‍👩‍👧 Семейный: <b>{family_bal} 🪙</b>"
+    else:
+        for key, hours, price, label in XP_BOOST_OPTIONS:
+            rows.append([InlineKeyboardButton(
+                text=f"⚡ {label} — {price} 🪙",
+                callback_data=f"boost_buy:{uid}:{key}:personal",
+            )])
+        bal_info = f"Твой баланс: <b>{personal_bal} 🪙</b>"
+
     rows.append([InlineKeyboardButton(text="❌ Отмена", callback_data=f"buy_cancel:{uid}")])
     kb = InlineKeyboardMarkup(inline_keyboard=rows)
 
     await message.answer(
         f"⚡ <b>Буст XP x2</b>\n\n"
         f"Делает все начисления XP вдвое больше на выбранное время.\n"
-        f"Твой баланс: <b>{bal} 🪙</b>\n\n"
+        f"{bal_info}\n\n"
         f"Выбери продолжительность:",
         parse_mode="HTML",
         reply_markup=kb,
@@ -364,6 +429,7 @@ async def cb_boost_buy(callback: CallbackQuery):
     parts = callback.data.split(":")
     uid = int(parts[1])
     key = parts[2]
+    wallet = parts[3] if len(parts) > 3 else "personal"
 
     if callback.from_user.id != uid:
         await callback.answer("🚫 Это не твоя кнопка!", show_alert=True)
@@ -381,20 +447,20 @@ async def cb_boost_buy(callback: CallbackQuery):
         await callback.answer("⚡ Буст уже активен!", show_alert=True)
         return
 
-    ok, new_bal = await deduct_mora(uid, chat_id, price)
+    ok, new_bal = await deduct_wallet(uid, chat_id, price, wallet)
     if not ok:
-        mora = await get_mora(uid, chat_id)
-        bal = mora["balance"] if mora else 0
-        await callback.answer(f"❌ Недостаточно Моры! ({bal} / {price})", show_alert=True)
+        await callback.answer(f"❌ Недостаточно Моры! ({new_bal} / {price})", show_alert=True)
         return
 
     until = (datetime.utcnow() + timedelta(hours=hours)).isoformat()
     await set_xp_boost(uid, chat_id, until)
+    wallet_label = "семейного" if wallet == "family" else "личного"
     try:
         await callback.message.edit_text(
             f"⚡ <b>Буст XP x2 активирован!</b>\n\n"
             f"Продолжительность: <b>{label}</b>\n"
-            f"Твой баланс: <b>{new_bal} 🪙</b>",
+            f"Списано из {wallet_label} кошелька.\n"
+            f"Баланс: <b>{new_bal} 🪙</b>",
             parse_mode="HTML",
         )
     except Exception:
@@ -527,11 +593,16 @@ async def cb_frame_buy(callback: CallbackQuery):
     new_bal = mora["balance"] if mora else 0
 
     if price > 0 and fkey not in owned:
-        ok, new_bal = await deduct_mora(uid, chat_id, price)
+        # Пробуем списать из личного кошелька
+        ok, new_bal = await deduct_wallet(uid, chat_id, price, "personal")
         if not ok:
-            bal = mora["balance"] if mora else 0
-            await callback.answer(f"❌ Недостаточно Моры! ({bal} / {price})", show_alert=True)
-            return
+            # Пробуем семейный
+            marriage = await get_marriage(uid, chat_id)
+            if marriage:
+                ok, new_bal = await deduct_wallet(uid, chat_id, price, "family")
+            if not ok:
+                await callback.answer(f"❌ Недостаточно Моры! ({new_bal} / {price})", show_alert=True)
+                return
         await buy_shop_item(uid, chat_id, "frame", fkey)
 
     await set_top_frame(uid, chat_id, fkey)
