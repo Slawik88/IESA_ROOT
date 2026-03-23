@@ -3,13 +3,16 @@ Mini App views — serve the Telegram Mini App from Django.
 
 Routes:
   GET /app          → index.html (Mini App entry point)
-  GET /api/user_data?user_id=<tg_id>  → JSON user profile from bot DB
+  GET /api/user_data  → JSON user profile from bot DB (auth via X-Telegram-Init-Data header)
 """
 
+import hashlib
+import hmac
 import json
 import os
 import sqlite3
 from pathlib import Path
+from urllib.parse import parse_qsl
 
 from django.http import HttpResponse, JsonResponse
 from django.views.decorators.http import require_GET
@@ -19,6 +22,29 @@ from django.views.decorators.csrf import csrf_exempt
 _BOT_DIR = Path(__file__).resolve().parent.parent.parent / "PredvestnikBot"
 _INDEX_HTML = _BOT_DIR / "web" / "index.html"
 _BOT_DB_URL = os.environ.get("PREDVESTNIK_DATABASE_URL", "")
+_BOT_TOKEN = os.environ.get("PREDVESTNIK_BOT_TOKEN") or os.environ.get("BOT_TOKEN", "")
+
+
+def _validate_init_data(init_data: str) -> int | None:
+    """Validate Telegram WebApp initData HMAC. Returns user_id (int) if valid, else None."""
+    if not _BOT_TOKEN or not init_data:
+        return None
+    params = dict(parse_qsl(init_data, keep_blank_values=True))
+    received_hash = params.pop("hash", None)
+    if not received_hash:
+        return None
+    data_check_string = "\n".join(sorted(f"{k}={v}" for k, v in params.items()))
+    secret_key = hmac.new(b"WebAppData", _BOT_TOKEN.encode(), hashlib.sha256).digest()
+    computed_hash = hmac.new(secret_key, data_check_string.encode(), hashlib.sha256).hexdigest()
+    if not hmac.compare_digest(computed_hash, received_hash):
+        return None
+    user_str = params.get("user", "{}")
+    try:
+        user_data = json.loads(user_str)
+        uid = user_data.get("id")
+        return int(uid) if uid else None
+    except (json.JSONDecodeError, AttributeError, ValueError):
+        return None
 
 
 def _get_bot_db_connection():
@@ -45,19 +71,46 @@ def miniapp_index(request):
     return HttpResponse(content, content_type="text/html")
 
 
-@require_GET
-@csrf_exempt
-def miniapp_user_data(request):
-    """Return JSON profile data for a Telegram user from the bot's database."""
-    uid_str = request.GET.get("user_id", "")
-    if not uid_str.isdigit():
-        return JsonResponse({"error": "missing or invalid user_id"}, status=400)
-    uid = int(uid_str)
-
-    headers = {
+def _cors_headers():
+    return {
         "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Headers": "X-Telegram-Init-Data, Content-Type",
         "Cache-Control": "no-cache",
     }
+
+
+@csrf_exempt
+def miniapp_user_data(request):
+    """Return JSON profile data for a Telegram user from the bot's database.
+
+    Auth: X-Telegram-Init-Data header (validated HMAC).
+    Fallback for development: ?user_id=N query param (only if no bot token configured).
+    """
+    headers = _cors_headers()
+
+    # Handle CORS preflight
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+
+    if request.method != "GET":
+        return JsonResponse({"error": "method not allowed"}, status=405, headers=headers)
+
+    # ── Auth: validate initData from header ─────────────────────────────
+    init_data = request.headers.get("X-Telegram-Init-Data", "").strip()
+    uid: int | None = None
+
+    if init_data:
+        uid = _validate_init_data(init_data)
+        if uid is None:
+            return JsonResponse({"error": "invalid or expired initData"}, status=401, headers=headers)
+    else:
+        # Dev fallback: plain user_id param (only allowed if bot token not set)
+        if _BOT_TOKEN:
+            return JsonResponse({"error": "X-Telegram-Init-Data header required"}, status=401, headers=headers)
+        uid_str = request.GET.get("user_id", "")
+        if not uid_str.isdigit():
+            return JsonResponse({"error": "missing or invalid user_id"}, status=400, headers=headers)
+        uid = int(uid_str)
 
     try:
         conn, db_type = _get_bot_db_connection()

@@ -66,15 +66,26 @@
   </div>
 
   <script>
-    function getTelegramUserId() {
-      const tg = window.Telegram?.WebApp;
-      if (!tg) return null;
-      return tg.initDataUnsafe?.user?.id || null;
+    // ── Инициализация Telegram WebApp SDK ─────────────────────────────────
+    const tg = window.Telegram?.WebApp || null;
+    if (tg) {
+      tg.ready();
+      tg.expand();
+      tg.enableClosingConfirmation();
     }
 
-    async function loadProfile(uid) {
-      const res = await fetch(`/api/user_data?user_id=${uid}`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    console.log('[MiniApp] tg object:', tg ? 'loaded' : 'MISSING');
+    console.log('[MiniApp] initData:', tg?.initData ? tg.initData.substring(0, 60) + '…' : 'EMPTY');
+    console.log('[MiniApp] user:', tg?.initDataUnsafe?.user || 'none');
+
+    async function loadProfile(initData) {
+      console.log('[MiniApp] loadProfile(), initData len:', initData?.length || 0);
+      const headers = { 'X-Telegram-Init-Data': initData || '' };
+      const res = await fetch('/api/user_data', { headers });
+      if (!res.ok) {
+        const body = await res.text().catch(() => '');
+        throw new Error(`HTTP ${res.status}: ${body}`);
+      }
       return res.json();
     }
 
@@ -123,27 +134,29 @@
     }
 
     async function init() {
-      const tg = window.Telegram?.WebApp;
-      const userId = getTelegramUserId();
-      if (!userId) {
+      console.log('[MiniApp] init() running');
+      if (!tg) {
         document.getElementById('app').innerHTML =
-          '<div class="error">❌ Telegram не передал данные Mini App.<br><small>Открой приложение через кнопку <b>Открыть App</b> в личном чате с ботом.</small></div>';
+          '<div class="error">❌ Telegram SDK не загрузился.<br><small>Открой приложение через кнопку <b>Открыть App</b> в личном чате с ботом.</small></div>';
+        return;
+      }
+      const initData = tg.initData;
+      if (!initData) {
+        document.getElementById('app').innerHTML =
+          '<div class="error">❌ Telegram не передал данные сессии.<br><small>Открой через кнопку <b>📱 Mini App</b> в профиле или меню бота.</small></div>';
         return;
       }
       try {
-        const profile = await loadProfile(userId);
+        const profile = await loadProfile(initData);
+        if (profile.error) throw new Error(profile.error);
         renderProfile(profile);
       } catch (e) {
+        console.error('[MiniApp] load error:', e);
         document.getElementById('app').innerHTML =
           `<div class="error">❌ Не удалось загрузить профиль.<br><small>${e.message}</small></div>`;
       }
     }
 
-    if (tg) {
-      tg.ready();
-      tg.expand();
-      tg.enableClosingConfirmation();
-    }
     init();
   </script>
 </body>
