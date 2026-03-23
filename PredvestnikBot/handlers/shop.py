@@ -34,6 +34,7 @@ from database.db import (
     buy_shop_item,
     deduct_mora,
     get_mora,
+    has_shop_item,
     set_pet_color,
     set_pet_emoji_status,
     set_custom_title_in_chat,
@@ -64,7 +65,7 @@ _SHOP_SECTIONS = {
 }
 
 
-def _section_keyboard(uid: int, active: str) -> InlineKeyboardMarkup:
+def _section_keyboard(uid: int, active: str, owned_keys: set[str] | None = None) -> InlineKeyboardMarkup:
     buttons = []
     row = []
     for key in ("all", "economy", "pets", "gacha", "bank", "gifts", "casino", "cosmetics"):
@@ -78,11 +79,18 @@ def _section_keyboard(uid: int, active: str) -> InlineKeyboardMarkup:
         buttons.append(row)
 
     if active == "cosmetics":
+        owned = owned_keys or set()
         for key, item in SHOP_ITEMS.items():
-            buttons.append([InlineKeyboardButton(
-                text=f"{item['name']} — {item['price']} 🪙",
-                callback_data=f"shop_buy:{uid}:{key}",
-            )])
+            if key in owned:
+                buttons.append([InlineKeyboardButton(
+                    text=f"✅ {item['name']} (куплено)",
+                    callback_data=f"shop_buy:{uid}:{key}",
+                )])
+            else:
+                buttons.append([InlineKeyboardButton(
+                    text=f"💳 {item['name']} — {item['price']} 🪙",
+                    callback_data=f"shop_buy:{uid}:{key}",
+                )])
 
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
@@ -205,6 +213,15 @@ def _shop_text(section: str, bal: int) -> str:
     return sections.get(section, sections["all"])
 
 
+async def _get_owned_keys(uid: int, chat_id: int) -> set[str]:
+    """Return set of SHOP_ITEMS keys the user already purchased."""
+    owned = set()
+    for key in SHOP_ITEMS:
+        if await has_shop_item(uid, chat_id, key):
+            owned.add(key)
+    return owned
+
+
 # ─── бот магазин ──────────────────────────────────────────────────────────────
 
 @router.message(BotCommand("магазин", "лавка", "shop", "store", "маркет", "каталог покупок"))
@@ -235,10 +252,11 @@ async def cmd_shop(message: Message, cmd_args: str):
     if arg in arg_map:
         section = arg_map[arg]
 
+    owned = await _get_owned_keys(uid, chat_id) if section == "cosmetics" else None
     await message.answer(
         _shop_text(section, bal),
         parse_mode="HTML",
-        reply_markup=_section_keyboard(uid, section),
+        reply_markup=_section_keyboard(uid, section, owned),
     )
 
 
@@ -251,14 +269,16 @@ async def cb_shop_nav(callback: CallbackQuery):
         await callback.answer("❌ Это не твой магазин!", show_alert=True)
         return
 
-    mora = await get_mora(owner, callback.message.chat.id)
+    chat_id = callback.message.chat.id
+    mora = await get_mora(owner, chat_id)
     bal = mora["balance"] if mora else 0
+    owned = await _get_owned_keys(owner, chat_id) if section == "cosmetics" else None
 
     try:
         await callback.message.edit_text(
             _shop_text(section, bal),
             parse_mode="HTML",
-            reply_markup=_section_keyboard(owner, section),
+            reply_markup=_section_keyboard(owner, section, owned),
         )
     except Exception:
         pass
@@ -285,6 +305,11 @@ async def cb_shop_buy(callback: CallbackQuery):
     uid = owner
     chat_id = callback.message.chat.id
     price = item["price"]
+
+    already_owned = await has_shop_item(uid, chat_id, item_key)
+    if already_owned:
+        await callback.answer("✅ У тебя уже есть этот товар!", show_alert=True)
+        return
 
     ok, new_bal = await deduct_mora(uid, chat_id, price)
     if not ok:

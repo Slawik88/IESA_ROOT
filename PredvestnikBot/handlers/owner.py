@@ -519,6 +519,122 @@ async def cb_setuser_field_hint(callback: CallbackQuery):
         await callback.answer("Неизвестное поле", show_alert=True)
 
 
+@router.message(BotCommand("выдать xp", "выдатьxp", "give xp", "givexp"), RankFilter("owner"))
+async def cmd_emit_xp(message: Message, cmd_args: str):
+    """Owner+: начислить XP пользователю.
+    бот выдать xp [кол-во] @user [причина]
+    """
+    parts = (cmd_args or "").split(maxsplit=2)
+    if len(parts) < 2:
+        await message.answer(
+            "❌ Формат: <code>бот выдать xp [кол-во] @user [причина]</code>",
+            parse_mode="HTML",
+        )
+        return
+    try:
+        amount = int(parts[0])
+    except ValueError:
+        await message.answer("❌ Укажи целое число XP.")
+        return
+    if amount <= 0:
+        await message.answer("❌ Сумма должна быть > 0.")
+        return
+
+    uid, name, _ = await resolve_target(message, parts[1])
+    if uid is None:
+        await message.answer(name)
+        return
+    reason = parts[2].strip() if len(parts) > 2 else "без причины"
+
+    chat_id = message.chat.id
+    user_stats = await get_user_stats(uid, chat_id)
+    old_xp = (user_stats["xp"] or 0) if user_stats else 0
+    new_xp = old_xp + amount
+    await set_user_stat_in_chat(uid, chat_id, "xp", new_xp)
+
+    issuer = user_mention(message.from_user)
+    await message.answer(
+        f"⚡ <b>Эмиссия XP</b>\n\n"
+        f"👤 {name}: <b>+{amount} XP</b> → {new_xp}\n"
+        f"📝 Причина: {html.escape(reason)}\n"
+        f"👑 Выдал: {issuer}",
+        parse_mode="HTML",
+    )
+
+    from config import DEVELOPER_ID
+    if DEVELOPER_ID:
+        try:
+            await message.bot.send_message(
+                DEVELOPER_ID,
+                f"🔔 <b>Лог эмиссии XP</b>\n"
+                f"Чат: {html.escape(message.chat.title or str(chat_id))}\n"
+                f"Кто: {issuer} (id={message.from_user.id})\n"
+                f"Кому: {name} (id={uid})\n"
+                f"Сумма: +{amount} XP → {new_xp}\n"
+                f"Причина: {html.escape(reason)}",
+                parse_mode="HTML",
+            )
+        except Exception:
+            pass
+
+
+@router.message(BotCommand("выдать", "give", "emit"), RankFilter("owner"))
+async def cmd_emit_mora(message: Message, cmd_args: str):
+    """Owner+: начислить мору пользователю.
+    бот выдать [кол-во] @user [причина]
+    """
+    parts = (cmd_args or "").split(maxsplit=2)
+    if len(parts) < 2:
+        await message.answer(
+            "❌ Формат: <code>бот выдать [кол-во] @user [причина]</code>",
+            parse_mode="HTML",
+        )
+        return
+    try:
+        amount = int(parts[0])
+    except ValueError:
+        await message.answer("❌ Укажи целое число моры.")
+        return
+    if amount <= 0:
+        await message.answer("❌ Сумма должна быть > 0.")
+        return
+
+    uid, name, _ = await resolve_target(message, parts[1])
+    if uid is None:
+        await message.answer(name)
+        return
+    reason = parts[2].strip() if len(parts) > 2 else "без причины"
+
+    from database.db import add_mora
+    chat_id = message.chat.id
+    new_bal = await add_mora(uid, chat_id, amount)
+
+    issuer = user_mention(message.from_user)
+    await message.answer(
+        f"💰 <b>Эмиссия Моры</b>\n\n"
+        f"👤 {name}: <b>+{amount} 🪙</b> → {new_bal} 🪙\n"
+        f"📝 Причина: {html.escape(reason)}\n"
+        f"👑 Выдал: {issuer}",
+        parse_mode="HTML",
+    )
+
+    from config import DEVELOPER_ID
+    if DEVELOPER_ID:
+        try:
+            await message.bot.send_message(
+                DEVELOPER_ID,
+                f"🔔 <b>Лог эмиссии Моры</b>\n"
+                f"Чат: {html.escape(message.chat.title or str(chat_id))}\n"
+                f"Кто: {issuer} (id={message.from_user.id})\n"
+                f"Кому: {name} (id={uid})\n"
+                f"Сумма: +{amount} 🪙 → {new_bal}\n"
+                f"Причина: {html.escape(reason)}",
+                parse_mode="HTML",
+            )
+        except Exception:
+            pass
+
+
 @router.message(BotCommand("прибавитьxp", "addxp"), RankFilter("developer"))
 async def cmd_add_xp_dev(message: Message, cmd_args: str):
     """Developer-only: add XP to user (positive or negative).
