@@ -215,15 +215,106 @@ async def _run_webserver(bot: Bot) -> None:
             headers={"Access-Control-Allow-Origin": "*"},
         )
 
+    async def handle_user_data(request: _web.Request) -> _web.Response:
+        """Alias for /api/user_data?user_id=N (standalone bot mode)."""
+        try:
+            uid = int(request.rel_url.query.get("user_id", "0"))
+        except ValueError:
+            return _web.Response(status=400, text="bad user_id")
+        if not uid:
+            return _web.Response(status=400, text="missing user_id")
+
+        user = await get_user(uid)
+        if not user:
+            return _web.Response(status=404, text="user not found")
+
+        from database.db import DATABASE_PATH
+        import aiosqlite
+        async with aiosqlite.connect(DATABASE_PATH) as db:
+            db.row_factory = aiosqlite.Row
+            async with db.execute(
+                "SELECT * FROM user_mora WHERE user_id=? ORDER BY balance DESC LIMIT 1",
+                (uid,),
+            ) as c:
+                mora = await c.fetchone()
+            async with db.execute(
+                "SELECT xp FROM user_stats WHERE user_id=? ORDER BY xp DESC LIMIT 1",
+                (uid,),
+            ) as c:
+                xp_row = await c.fetchone()
+            async with db.execute(
+                "SELECT b.bond_key, b.amount, COALESCE(p.price,100) as price "
+                "FROM user_bonds b "
+                "LEFT JOIN bond_prices p ON p.bond_key=b.bond_key AND p.chat_id=b.chat_id "
+                "WHERE b.user_id=? AND b.chat_id=?",
+                (uid, mora["chat_id"] if mora else 0),
+            ) as c:
+                bond_rows = await c.fetchall()
+            async with db.execute(
+                "SELECT item_name, rarity, equipped FROM gacha_inventory "
+                "WHERE user_id=? AND chat_id=? LIMIT 20",
+                (uid, mora["chat_id"] if mora else 0),
+            ) as c:
+                inv_rows = await c.fetchall()
+            async with db.execute(
+                "SELECT pet_type, name, COALESCE(fatigue,0) FROM pets "
+                "WHERE user_id=? AND chat_id=?",
+                (uid, mora["chat_id"] if mora else 0),
+            ) as c:
+                pet_row = await c.fetchone()
+
+        chat_id = mora["chat_id"] if mora else 0
+        balance = mora["balance"] if mora else 0
+        vip = bool(mora and mora["vip"])
+        active_frame = mora["top_frame"] if mora else None
+        active_theme = mora.get("active_theme") if mora else None
+        xp = xp_row["xp"] if xp_row else 0
+
+        bonds_data = [
+            {"name": r["bond_key"], "amount": r["amount"], "value": r["amount"] * r["price"]}
+            for r in bond_rows
+        ]
+        items = [
+            f"{'★' if r['equipped'] else ''}{r['item_name']} ({r['rarity']})"
+            for r in inv_rows
+        ]
+        pet_info = None
+        if pet_row:
+            emoji = {"cat": "🐱", "dog": "🐶"}.get(pet_row[0], "🐾")
+            pet_info = {"type": pet_row[0], "name": pet_row[1] or "безымянный",
+                        "emoji": emoji, "fatigue": pet_row[2]}
+
+        payload = {
+            "name": user["full_name"],
+            "balance": balance,
+            "xp": xp,
+            "vip": vip,
+            "active_frame": active_frame or "default",
+            "active_theme": active_theme or "default",
+            "bonds": bonds_data,
+            "items": items,
+            "pet": pet_info,
+        }
+        return _web.Response(
+            text=json.dumps(payload, ensure_ascii=False),
+            content_type="application/json",
+            headers={"Access-Control-Allow-Origin": "*"},
+        )
+
     app = _web.Application()
     app.router.add_get("/", handle_index)
     app.router.add_get("/app", handle_index)
+    app.router.add_get("/app/", handle_index)
+    app.router.add_get("/api/user_data", handle_user_data)
+    app.router.add_get("/api/user_data/", handle_user_data)
+    # Legacy /api/profile/{user_id} kept for backwards compat
     app.router.add_get("/api/profile/{user_id}", handle_profile)
     # Serve static files from /web
     if _web_dir.exists():
         app.router.add_static("/static", _web_dir)
 
-    port = int(os.environ.get("PORT", 8080))
+    # Use BOT_WEB_PORT (default 8081) to avoid conflicting with Django/Daphne on PORT=8080
+    port = int(os.environ.get("BOT_WEB_PORT", os.environ.get("PORT", 8081)))
     runner = _web.AppRunner(app)
     await runner.setup()
     site = _web.TCPSite(runner, "0.0.0.0", port)

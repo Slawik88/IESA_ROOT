@@ -10,6 +10,7 @@ from pathlib import Path
 from blog.sitemaps import sitemaps
 from .protected_media_views import serve_protected_media
 from core.admin_site import CustomAdminSite
+from .miniapp_views import miniapp_index, miniapp_user_data
 
 # Переопределить стандартный админ на кастомный
 admin.site.__class__ = CustomAdminSite
@@ -43,8 +44,13 @@ def serve_service_worker(request):
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('i18n/', include('django.conf.urls.i18n')),
-    
-    # Protected media files (requires authentication)
+
+    # ─── Telegram Mini App ─────────────────────────────────────────────────────
+    path('app', miniapp_index, name='miniapp'),
+    path('app/', miniapp_index, name='miniapp_slash'),
+    path('api/user_data', miniapp_user_data, name='miniapp_api'),
+    path('api/user_data/', miniapp_user_data, name='miniapp_api_slash'),
+    # ───────────────────────────────────────────────────────────────────────────
     path('protected/<path:file_path>', serve_protected_media, name='serve_protected_media'),
     
     # Core app (Главная страница)
