@@ -13,6 +13,8 @@ from core.admin_site import CustomAdminSite
 from .miniapp_views import (
     miniapp_index, miniapp_user_data,
     miniapp_leaderboard, miniapp_checkin, miniapp_boss_damage,
+    miniapp_marriage, miniapp_marriage_propose, miniapp_bonds, miniapp_equip,
+    miniapp_dev_stats, miniapp_dev_setbalance,
 )
 
 # Переопределить стандартный админ на кастомный
@@ -56,6 +58,12 @@ urlpatterns = [
     path('api/leaderboard', miniapp_leaderboard, name='miniapp_leaderboard'),
     path('api/checkin', miniapp_checkin, name='miniapp_checkin'),
     path('api/boss/submit_damage', miniapp_boss_damage, name='miniapp_boss_damage'),
+    path('api/marriage', miniapp_marriage, name='miniapp_marriage'),
+    path('api/marriage/propose', miniapp_marriage_propose, name='miniapp_marriage_propose'),
+    path('api/bonds', miniapp_bonds, name='miniapp_bonds'),
+    path('api/equip', miniapp_equip, name='miniapp_equip'),
+    path('api/dev/stats', miniapp_dev_stats, name='miniapp_dev_stats'),
+    path('api/dev/setbalance', miniapp_dev_setbalance, name='miniapp_dev_setbalance'),
     # ───────────────────────────────────────────────────────────────────────────
     path('protected/<path:file_path>', serve_protected_media, name='serve_protected_media'),
     

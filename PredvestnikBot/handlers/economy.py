@@ -488,6 +488,39 @@ async def cmd_frames(message: Message, cmd_args: str):
     await message.answer("\n".join(lines), parse_mode="HTML")
 
 
+_FRAME_PAGE_SIZE = 4
+
+
+def _frame_keyboard(uid: int, current_frame: str | None, owned: list, page: int) -> InlineKeyboardMarkup:
+    """Build a paginated frame selection keyboard."""
+    total = len(TOP_FRAMES)
+    pages = (total + _FRAME_PAGE_SIZE - 1) // _FRAME_PAGE_SIZE
+    page = max(0, min(page, pages - 1))
+    start = page * _FRAME_PAGE_SIZE
+    slice_ = TOP_FRAMES[start: start + _FRAME_PAGE_SIZE]
+
+    rows = []
+    for key, emoji, name, price, _ in slice_:
+        if key == current_frame:
+            label = f"· {emoji} {name} · (активна)"
+        elif price == 0 or key in owned:
+            label = f"✅ {emoji} {name} — Надеть"
+        else:
+            label = f"💳 {emoji} {name} — {price} 🪙"
+        rows.append([InlineKeyboardButton(text=label, callback_data=f"frame_buy:{uid}:{key}")])
+
+    nav = []
+    if page > 0:
+        nav.append(InlineKeyboardButton(text="◀", callback_data=f"frame_page:{uid}:{page - 1}"))
+    nav.append(InlineKeyboardButton(text=f"{page + 1}/{pages}", callback_data="noop"))
+    if page < pages - 1:
+        nav.append(InlineKeyboardButton(text="▶", callback_data=f"frame_page:{uid}:{page + 1}"))
+    if len(nav) > 1 or pages > 1:
+        rows.append(nav)
+    rows.append([InlineKeyboardButton(text="❌ Отмена", callback_data=f"buy_cancel:{uid}")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
 @router.message(BotCommand("купить рамку", "рамку", "купить frame"))
 async def cmd_buy_frame(message: Message, cmd_args: str):
     if message.chat.type not in ("group", "supergroup"):
@@ -504,23 +537,10 @@ async def cmd_buy_frame(message: Message, cmd_args: str):
     arg = (cmd_args or "").strip().lower()
 
     if not arg:
-        rows = []
-        for key, emoji, name, price, _ in TOP_FRAMES:
-            if key == current_frame:
-                label = f"· {emoji} {name} · (активна)"
-            elif price == 0 or key in owned:
-                label = f"✅ {emoji} {name} — Надеть"
-            else:
-                label = f"💳 {emoji} {name} — {price} 🪙"
-            rows.append([InlineKeyboardButton(
-                text=label,
-                callback_data=f"frame_buy:{uid}:{key}",
-            )])
-        rows.append([InlineKeyboardButton(text="❌ Отмена", callback_data=f"buy_cancel:{uid}")])
         await message.answer(
             f"🖼 <b>Выбери рамку</b>\n\nТвой баланс: <b>{bal} 🪙</b>",
             parse_mode="HTML",
-            reply_markup=InlineKeyboardMarkup(inline_keyboard=rows),
+            reply_markup=_frame_keyboard(uid, current_frame, owned, 0),
         )
         return
 
@@ -554,6 +574,28 @@ async def cmd_buy_frame(message: Message, cmd_args: str):
         parse_mode="HTML",
         reply_markup=kb,
     )
+
+
+@router.callback_query(F.data.startswith("frame_page:"))
+async def cb_frame_page(callback: CallbackQuery):
+    parts = callback.data.split(":")
+    uid = int(parts[1])
+    page = int(parts[2])
+    if callback.from_user.id != uid:
+        await callback.answer("🚫 Это не твоя кнопка!", show_alert=True)
+        return
+    chat_id = callback.message.chat.id
+    mora = await get_mora(uid, chat_id)
+    current_frame = mora["top_frame"] if mora else None
+    owned = await get_user_owned_frames(uid, chat_id)
+    bal = mora["balance"] if mora else 0
+    try:
+        await callback.message.edit_reply_markup(
+            reply_markup=_frame_keyboard(uid, current_frame, owned, page)
+        )
+    except Exception:
+        pass
+    await callback.answer()
 
 
 @router.callback_query(F.data.startswith("frame_buy:"))

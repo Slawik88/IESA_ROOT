@@ -7,7 +7,7 @@ import html
 from config import REPORT_NOTIFY_RANK
 from database.db import (
     get_active_theme, get_daily_top, get_equipped_legendary, get_marriage, get_mora,
-    get_prev_weekly_top, get_received_gifts, get_staff_in_chat, get_top_by_messages_in_chat,
+    get_mora_batch, get_prev_weekly_top, get_received_gifts, get_staff_in_chat, get_top_by_messages_in_chat,
     get_top_by_xp_in_chat, get_user, get_user_badges, get_user_stats,
     get_user_themes, get_weekly_top, get_yesterday_top, set_bio_in_chat,
     get_xp_boost_active, add_user_theme, set_active_theme,
@@ -728,17 +728,19 @@ async def cb_top(callback: CallbackQuery):
         await callback.answer()
         return
 
+    from handlers.economy import _frame_emoji
+    uid_list = [u["user_id"] for u in top if "user_id" in u.keys()]
+    mora_map = await get_mora_batch(uid_list, chat_id)
+
     lines = [title, ""]
     for i, u in enumerate(top):
         place = _TOP_MEDALS[i] if i < 5 else f"{i + 1}."
         count = u[count_field] if count_field in u.keys() else 0
-        # VIP badge + frame
         uid_top = u["user_id"] if "user_id" in u.keys() else None
-        mora_row = await get_mora(uid_top, chat_id) if uid_top else None
-        vip_badge  = " 💎" if (mora_row and mora_row["vip"])  else ""
-        frame_e    = ""
-        if mora_row and mora_row["top_frame"]:
-            from handlers.economy import _frame_emoji
+        mora_row = mora_map.get(uid_top) if uid_top else None
+        vip_badge = " 💎" if (mora_row and mora_row.get("vip")) else ""
+        frame_e   = ""
+        if mora_row and mora_row.get("top_frame"):
             frame_e = _frame_emoji(mora_row["top_frame"]) + " "
         lines.append(f"{frame_e}{place}{vip_badge} <b>{html.escape(u['full_name'])}</b> — {count} сообщений")
 
@@ -749,11 +751,10 @@ async def cb_top(callback: CallbackQuery):
             place = _TOP_MEDALS[i] if i < 5 else f"{i + 1}."
             count = u[count_field] if count_field in u.keys() else 0
             uid_top = u["user_id"] if "user_id" in u.keys() else None
-            mora_row = await get_mora(uid_top, chat_id) if uid_top else None
-            vip_badge  = " 💎" if (mora_row and mora_row["vip"])  else ""
-            frame_e    = ""
-            if mora_row and mora_row["top_frame"]:
-                from handlers.economy import _frame_emoji
+            mora_row = mora_map.get(uid_top) if uid_top else None
+            vip_badge = " 💎" if (mora_row and mora_row.get("vip")) else ""
+            frame_e   = ""
+            if mora_row and mora_row.get("top_frame"):
                 frame_e = _frame_emoji(mora_row["top_frame"]) + " "
             new_line = f"{frame_e}{place}{vip_badge} <b>{html.escape(u['full_name'])}</b> — {count} сообщений"
             if len("\n".join(lines + [new_line])) > 3700:
@@ -1484,16 +1485,19 @@ async def cmd_top(message: Message, cmd_args: str):
         await message.answer("📊 Статистика пока пуста.")
         return
 
+    from handlers.economy import _frame_emoji
+    uid_list = [u["user_id"] for u in top if "user_id" in u.keys()]
+    mora_map = await get_mora_batch(uid_list, message.chat.id)
+
     lines: list[str] = [title, ""]
     for i, u in enumerate(top):
         place = _TOP_MEDALS[i] if i < 5 else f"{i + 1}."
         count = u[count_field] if count_field in u.keys() else 0
         uid_top = u["user_id"] if "user_id" in u.keys() else None
-        mora_row = await get_mora(uid_top, message.chat.id) if uid_top else None
-        vip_badge = " 💎" if (mora_row and mora_row["vip"]) else ""
+        mora_row = mora_map.get(uid_top) if uid_top else None
+        vip_badge = " 💎" if (mora_row and mora_row.get("vip")) else ""
         frame_e = ""
-        if mora_row and mora_row["top_frame"]:
-            from handlers.economy import _frame_emoji
+        if mora_row and mora_row.get("top_frame"):
             frame_e = _frame_emoji(mora_row["top_frame"]) + " "
         lines.append(f"{frame_e}{place}{vip_badge} <b>{html.escape(u['full_name'])}</b> — {count} {count_label}")
 
@@ -1505,11 +1509,10 @@ async def cmd_top(message: Message, cmd_args: str):
             place = _TOP_MEDALS[i] if i < 5 else f"{i + 1}."
             count = u[count_field] if count_field in u.keys() else 0
             uid_top2 = u["user_id"] if "user_id" in u.keys() else None
-            mora_row2 = await get_mora(uid_top2, message.chat.id) if uid_top2 else None
-            vip_badge2 = " 💎" if (mora_row2 and mora_row2["vip"]) else ""
+            mora_row2 = mora_map.get(uid_top2) if uid_top2 else None
+            vip_badge2 = " 💎" if (mora_row2 and mora_row2.get("vip")) else ""
             frame_e2 = ""
-            if mora_row2 and mora_row2["top_frame"]:
-                from handlers.economy import _frame_emoji
+            if mora_row2 and mora_row2.get("top_frame"):
                 frame_e2 = _frame_emoji(mora_row2["top_frame"]) + " "
             new_line = f"{frame_e2}{place}{vip_badge2} <b>{html.escape(u['full_name'])}</b> — {count} {count_label}"
             if len("\n".join(lines + [new_line])) > 3700:
