@@ -9,8 +9,8 @@ from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.exceptions import TelegramConflictError
 
-from aiogram.types import ChatPermissions
-from config import BOT_TOKEN
+from aiogram.types import ChatPermissions, MenuButtonWebApp, WebAppInfo
+from config import BOT_TOKEN, MINI_APP_URL
 from database.db import get_locked_chats, init_db, set_chat_setting
 from handlers import (admin, auto_mod, bank, casino, dev_panel, diligence, dm_roles, economy, espionage,
                      expeditions, extras, food, fun, gacha, gifts, helper,
@@ -29,6 +29,21 @@ async def notify_developer(bot: Bot, text: str):
         await bot.send_message(DEVELOPER_ID, text)
     except Exception:
         pass
+
+
+async def configure_mini_app_menu_button(bot: Bot):
+    if not MINI_APP_URL:
+        return
+    try:
+        await bot.set_chat_menu_button(
+            menu_button=MenuButtonWebApp(
+                text="Открыть App",
+                web_app=WebAppInfo(url=MINI_APP_URL),
+            )
+        )
+        logging.info("Mini App menu button configured: %s", MINI_APP_URL)
+    except Exception as exc:
+        logging.warning("Could not configure Mini App menu button: %s", exc)
 
 
 async def main():
@@ -91,6 +106,7 @@ async def main():
     from config import BOT_STARTED_MSG, BOT_STOPPED_MSG
     print("✅ Бот запущен! Пиши 'бот помощь' в чат.")
     await notify_developer(bot, BOT_STARTED_MSG)
+    await configure_mini_app_menu_button(bot)
 
     # Фоновый планировщик (авто-варн, напоминания о чистке)
     from utils.scheduler import run_scheduler

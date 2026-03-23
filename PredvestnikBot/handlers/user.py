@@ -78,6 +78,7 @@ def _help_pages() -> dict[str, dict]:
     """Все страницы справки. Ключ = page_id, значение = {text, buttons, min_rank}."""
     from config import (
         ANON_MSG_PRICE, GACHA_SINGLE_PRICE, GACHA_MULTI_PRICE,
+        MINI_APP_URL,
         MAX_WARNS, PET_MORA_SKIP_PRICE, PET_RENAME_PRICE,
         QUEST_REROLL_PRICE, SECRET_MSG_PRICE, VIP_PRICE,
     )
@@ -88,15 +89,35 @@ def _help_pages() -> dict[str, dict]:
                 "📖 <b>Предвестник — Справка</b>\n"
                 "━━━━━━━━━━━━━━━━━━━━\n\n"
                 "Добро пожаловать! Выбери раздел 👇\n\n"
+                "🌐 <b>Mini App:</b> кнопка <b>Открыть App</b> доступна возле строки ввода.\n"
+                "Также можно написать <code>бот app</code>.\n\n"
                 "<i>💡 Команды пишутся текстом — без «/»\n"
                 "🎯 Таргет — @юзер или ответ на сообщение</i>"
             ),
             "buttons": [
+                [("🌐 Mini App", "miniapp_help")],
                 [("👤 Профиль", "profile"), ("💍 Отношения", "relations")],
                 [("🐾 Питомцы", "pets"), ("🎲 Игры", "games")],
                 [("💰 Экономика", "economy"), ("📋 Инфо", "info")],
                 [("👮 Модерация", "moderation"), ("⚙️ Настройки", "settings")],
                 [("👑 Управление", "management")],
+            ],
+            "min_rank": "user",
+        },
+        "miniapp_help": {
+            "text": (
+                "🌐 <b>Mini App / Сайт</b>\n"
+                "━━━━━━━━━━━━━━━━━━━━\n\n"
+                "🚀 <b>Как открыть:</b>\n"
+                "  <code>бот app</code> — прислать кнопку входа\n"
+                "  Кнопка <b>Открыть App</b> — всегда возле строки ввода в Telegram\n\n"
+                "🔗 <b>Прямая ссылка:</b>\n"
+                f"  <code>{html.escape(MINI_APP_URL)}</code>\n\n"
+                "📱 Внутри App доступны: баланс, рамка, XP, облигации, инвентарь и питомец."
+            ),
+            "buttons": [
+                [("🚀 Открыть Mini App", f"url:{MINI_APP_URL}")],
+                [("🔙 Назад", "main")],
             ],
             "min_rank": "user",
         },
@@ -474,6 +495,9 @@ def _build_help_kb(page_id: str, uid: int, lvl: int) -> InlineKeyboardMarkup:
     for btn_row in page["buttons"]:
         row: list[InlineKeyboardButton] = []
         for label, target in btn_row:
+            if target.startswith("url:"):
+                row.append(InlineKeyboardButton(text=label, url=target[4:]))
+                continue
             target_page = pages.get(target)
             if target_page and lvl < rank_level(target_page["min_rank"]):
                 continue
@@ -515,6 +539,22 @@ async def cmd_help(message: Message, cmd_args: str):
     text = pages["main"]["text"]
     kb = _build_help_kb("main", uid, lvl)
     await message.answer(text, parse_mode="HTML", reply_markup=kb)
+
+
+@router.message(BotCommand("app", "miniapp", "миниапп", "сайт", "открыть app"))
+async def cmd_open_app(message: Message, cmd_args: str):
+    from config import MINI_APP_URL
+
+    kb = InlineKeyboardMarkup(inline_keyboard=[[
+        InlineKeyboardButton(text="🚀 Открыть Mini App", url=MINI_APP_URL),
+    ]])
+    await message.answer(
+        "🌐 <b>Mini App</b>\n\n"
+        "Нажми кнопку ниже, чтобы открыть приложение.\n"
+        "Также кнопка <b>Открыть App</b> доступна возле строки ввода в Telegram.",
+        parse_mode="HTML",
+        reply_markup=kb,
+    )
 
 
 @router.callback_query(F.data.startswith("h:"))
