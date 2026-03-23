@@ -28,12 +28,14 @@ from aiogram.types import (
 from database.db import (
     add_mora,
     add_to_family_wallet,
+    buy_shop_item,
     deduct_mora,
     get_admin_group_ids,
     get_family_wallet,
     get_mora,
     get_top_frame,
     get_user,
+    get_user_owned_frames,
     get_vip,
     get_xp_boost_active,
     set_mora_public,
@@ -413,15 +415,19 @@ async def cmd_frames(message: Message, cmd_args: str):
     mora = await get_mora(uid, chat_id)
     bal = mora["balance"] if mora else 0
     current_frame = mora["top_frame"] if mora else None
+    owned = await get_user_owned_frames(uid, chat_id)
 
-    lines = ["🖼 <b>Рамки профиля в топе</b>\n\n"]
+    lines = ["🖼 <b>Рамки профиля в топе</b>\n"]
     for key, emoji, name, price, desc in TOP_FRAMES:
         active = " ◀ активна" if key == current_frame else ""
-        price_str = "бесплатно" if price == 0 else f"{price} 🪙"
-        lines.append(f"{emoji} <b>{name}</b> — {price_str}{active}\n  <i>{desc}</i>")
+        if price == 0 or key in owned:
+            status = "✅ в коллекции"
+        else:
+            status = f"💳 {price} 🪙"
+        lines.append(f"{emoji} <b>{name}</b> — {status}{active}\n  <i>{desc}</i>")
 
-    lines.append(f"\nТвой баланс: <b>{bal} 🪙</b>")
-    lines.append("\nКупить: <code>бот купить рамку [название]</code>")
+    lines.append(f"\n💰 Баланс: <b>{bal} 🪙</b>")
+    lines.append("\n<code>бот купить рамку</code> — выбрать / сменить")
     await message.answer("\n".join(lines), parse_mode="HTML")
 
 
@@ -433,19 +439,27 @@ async def cmd_buy_frame(message: Message, cmd_args: str):
 
     uid = message.from_user.id
     chat_id = message.chat.id
+    mora = await get_mora(uid, chat_id)
+    bal = mora["balance"] if mora else 0
+    current_frame = mora["top_frame"] if mora else None
+    owned = await get_user_owned_frames(uid, chat_id)
+
     arg = (cmd_args or "").strip().lower()
 
     if not arg:
         rows = []
         for key, emoji, name, price, _ in TOP_FRAMES:
-            price_str = "бесплатно" if price == 0 else f"{price} 🪙"
+            if key == current_frame:
+                label = f"· {emoji} {name} · (активна)"
+            elif price == 0 or key in owned:
+                label = f"✅ {emoji} {name} — Надеть"
+            else:
+                label = f"💳 {emoji} {name} — {price} 🪙"
             rows.append([InlineKeyboardButton(
-                text=f"{emoji} {name} — {price_str}",
+                text=label,
                 callback_data=f"frame_buy:{uid}:{key}",
             )])
         rows.append([InlineKeyboardButton(text="❌ Отмена", callback_data=f"buy_cancel:{uid}")])
-        mora = await get_mora(uid, chat_id)
-        bal = mora["balance"] if mora else 0
         await message.answer(
             f"🖼 <b>Выбери рамку</b>\n\nТвой баланс: <b>{bal} 🪙</b>",
             parse_mode="HTML",
@@ -453,7 +467,6 @@ async def cmd_buy_frame(message: Message, cmd_args: str):
         )
         return
 
-    # Поиск по ключу или названию
     found = None
     for key, emoji, name, price, desc in TOP_FRAMES:
         if arg in (key, name.lower()):
@@ -468,14 +481,19 @@ async def cmd_buy_frame(message: Message, cmd_args: str):
         return
 
     key, emoji, name, price, desc = found
+    if key == current_frame:
+        await message.answer(f"{emoji} Рамка «{name}» уже активна!")
+        return
+    if price == 0 or key in owned:
+        btn_text = f"✅ Надеть «{name}»"
+    else:
+        btn_text = f"💳 Купить за {price} 🪙"
     kb = InlineKeyboardMarkup(inline_keyboard=[[
-        InlineKeyboardButton(text=f"✅ {('Активировать' if price == 0 else f'Купить за {price} Моры')}", callback_data=f"frame_buy:{uid}:{key}"),
+        InlineKeyboardButton(text=btn_text, callback_data=f"frame_buy:{uid}:{key}"),
         InlineKeyboardButton(text="❌ Отмена", callback_data=f"buy_cancel:{uid}"),
     ]])
-    mora = await get_mora(uid, chat_id)
-    bal = mora["balance"] if mora else 0
     await message.answer(
-        f"{emoji} <b>{name}</b>\n{desc}\n\nЦена: {price} 🪙\nТвой баланс: {bal} 🪙",
+        f"{emoji} <b>{name}</b>\n{desc}\n\nЦена: {'бесплатно' if price == 0 or key in owned else f'{price} 🪙'}\nТвой баланс: {bal} 🪙",
         parse_mode="HTML",
         reply_markup=kb,
     )
@@ -505,21 +523,23 @@ async def cb_frame_buy(callback: CallbackQuery):
         await callback.answer("Эта рамка уже активна!", show_alert=True)
         return
 
-    if price > 0:
+    owned = await get_user_owned_frames(uid, chat_id)
+    new_bal = mora["balance"] if mora else 0
+
+    if price > 0 and fkey not in owned:
         ok, new_bal = await deduct_mora(uid, chat_id, price)
         if not ok:
             bal = mora["balance"] if mora else 0
             await callback.answer(f"❌ Недостаточно Моры! ({bal} / {price})", show_alert=True)
             return
-    else:
-        new_bal = mora["balance"] if mora else 0
+        await buy_shop_item(uid, chat_id, "frame", fkey)
 
     await set_top_frame(uid, chat_id, fkey)
     try:
         await callback.message.edit_text(
             f"{emoji} <b>Рамка «{fname}» активирована!</b>\n\n"
             f"Теперь она будет отображаться в топе чата.\n"
-            f"Твой баланс: <b>{new_bal} 🪙</b>",
+            f"💰 Баланс: <b>{new_bal} 🪙</b>",
             parse_mode="HTML",
         )
     except Exception:

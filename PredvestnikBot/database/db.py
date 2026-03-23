@@ -3448,6 +3448,35 @@ async def buy_shop_item(user_id: int, chat_id: int, item_type: str,
         return cursor.lastrowid
 
 
+async def has_shop_item(user_id: int, chat_id: int, item_type: str,
+                        item_value: str | None = None) -> bool:
+    """Проверить, есть ли у юзера купленный товар данного типа (и значения)."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        if item_value is not None:
+            async with db.execute(
+                "SELECT 1 FROM shop_items WHERE user_id=? AND chat_id=? AND item_type=? AND item_value=?",
+                (user_id, chat_id, item_type, item_value),
+            ) as c:
+                return await c.fetchone() is not None
+        else:
+            async with db.execute(
+                "SELECT 1 FROM shop_items WHERE user_id=? AND chat_id=? AND item_type=?",
+                (user_id, chat_id, item_type),
+            ) as c:
+                return await c.fetchone() is not None
+
+
+async def get_user_owned_frames(user_id: int, chat_id: int) -> set[str]:
+    """Вернуть set ключей рамок, которые юзер уже купил."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        async with db.execute(
+            "SELECT item_value FROM shop_items WHERE user_id=? AND chat_id=? AND item_type='frame'",
+            (user_id, chat_id),
+        ) as c:
+            rows = await c.fetchall()
+    return {r[0] for r in rows}
+
+
 async def set_pet_color(user_id: int, chat_id: int, color_name: str):
     """Установить цвет имени питомца."""
     async with aiosqlite.connect(DATABASE_PATH) as db:
