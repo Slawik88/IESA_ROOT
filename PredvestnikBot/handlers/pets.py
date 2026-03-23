@@ -288,7 +288,7 @@ async def cb_pet_pay(callback: CallbackQuery):
 
     partner_id = marriage["partner_id"]
 
-    # Проверяем баланс в зависимости от выбранного типа оплаты
+    # Проверяем баланс и списываем атомарно
     if payment_type == "personal":
         mora = await get_mora(uid, chat_id)
         balance = mora["balance"] if mora else 0
@@ -298,8 +298,10 @@ async def cb_pet_pay(callback: CallbackQuery):
                 show_alert=True
             )
             return
-        # Списываем с личного баланса
-        await add_mora(uid, chat_id, -PET_ADOPT_PRICE)
+        ok, _ = await deduct_mora(uid, chat_id, PET_ADOPT_PRICE)
+        if not ok:
+            await callback.answer("❌ Не удалось списать Мору. Попробуй ещё раз.", show_alert=True)
+            return
     else:  # family
         balance = await get_family_wallet(chat_id, uid)
         if balance < PET_ADOPT_PRICE:
@@ -470,6 +472,7 @@ async def cb_pet_skip(callback: CallbackQuery):
 async def cb_pet_adopt_after_skip(callback: CallbackQuery):
     """Выбор типа питомца после оплаченного пропуска ожидания.
     Возраст брака НЕ проверяется — пользователь уже заплатил за пропуск.
+    Дополнительная оплата НЕ взимается — скип-цена уже включает всё.
     """
     parts   = callback.data.split(":")
     owner   = int(parts[1])
@@ -491,35 +494,27 @@ async def cb_pet_adopt_after_skip(callback: CallbackQuery):
         await callback.answer("❌ Нужно быть в браке!", show_alert=True)
         return
 
+    partner_id = marriage["partner_id"]
+
+    # Сразу заводим питомца — доп. оплата не нужна, скип уже оплачен
+    await adopt_pet(uid, partner_id, chat_id, ptype)
+
     emoji = _PET_EMOJI.get(ptype, "🐾")
     kind  = _PET_NAME.get(ptype, "Питомец")
 
-    mora = await get_mora(uid, chat_id)
-    personal_balance = mora["balance"] if mora else 0
-    family_balance   = await get_family_wallet(chat_id, uid)
+    partner = await get_user(partner_id)
+    partner_name = html.escape(partner["full_name"]) if partner else str(partner_id)
 
-    kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(
-            text=f"💰 Личный баланс ({personal_balance} мора)",
-            callback_data=f"pet_pay:{uid}:{ptype}:personal",
-        )],
-        [InlineKeyboardButton(
-            text=f"👨\u200d👩\u200d👧\u200d👦 Семейный баланс ({family_balance} мора)",
-            callback_data=f"pet_pay:{uid}:{ptype}:family",
-        )],
-        [InlineKeyboardButton(text="❌ Отмена", callback_data=f"pet_cancel:{uid}")],
-    ])
     try:
         await callback.message.edit_text(
-            f"{emoji} <b>Завести {kind.lower()}а</b>\n\n"
-            f"💰 Стоимость: <b>{PET_ADOPT_PRICE} мора</b>\n\n"
-            f"Выберите способ оплаты:",
+            f"{emoji} <b>Поздравляем!</b>\n\n"
+            f"Вы с {user_mention(partner_id, partner_name)} завели <b>{kind.lower()}а</b>! 🎉\n\n"
+            f"Дайте ему имя: <code>бот назвать питомца Мурзик</code>",
             parse_mode="HTML",
-            reply_markup=kb,
         )
     except Exception:
         pass
-    await callback.answer()
+    await callback.answer(f"{emoji} Питомец заведён!")
 
 
 # ─── бот назвать питомца ──────────────────────────────────────────────────────
