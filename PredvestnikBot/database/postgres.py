@@ -49,13 +49,14 @@ def _convert_placeholders(sql, params):
 
 
 class _ExecuteContext:
-    __slots__ = ('_conn', '_sql', '_params', '_rows', '_executed')
+    __slots__ = ('_conn', '_sql', '_params', '_rows', '_status', '_executed')
 
     def __init__(self, conn, sql, params):
         self._conn = conn
         self._sql = sql
         self._params = params
         self._rows = None
+        self._status = None
         self._executed = False
 
     async def _do_execute(self):
@@ -66,8 +67,9 @@ class _ExecuteContext:
         sql_upper = sql.strip().upper()
         if sql_upper.startswith(('SELECT', 'WITH')) or 'RETURNING' in sql_upper:
             self._rows = list(await self._conn.fetch(sql, *params))
+            self._status = f"SELECT {len(self._rows)}"
         else:
-            await self._conn.execute(sql, *params)
+            self._status = await self._conn.execute(sql, *params)  # e.g. "UPDATE 3"
             self._rows = []
 
     def __await__(self):
@@ -104,6 +106,16 @@ class _ExecuteContext:
             except (KeyError, IndexError, TypeError):
                 pass
         return None
+
+    @property
+    def rowcount(self):
+        # asyncpg returns status like "UPDATE 3", "DELETE 1", "INSERT 0 1"
+        if self._status:
+            try:
+                return int(str(self._status).split()[-1])
+            except (IndexError, ValueError):
+                pass
+        return len(self._rows) if self._rows else 0
 
     def __iter__(self):
         return iter(self._rows or [])
