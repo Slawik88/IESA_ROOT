@@ -3427,9 +3427,9 @@ def miniapp_consume_potion(request):
 
     try:
         from database.db import consume_potion
-        import asyncio
+        from asgiref.sync import async_to_sync
         
-        success, message = asyncio.run(consume_potion(uid, chat_id, item_id))
+        success, message = async_to_sync(consume_potion)(uid, chat_id, item_id)
         
         return JsonResponse({
             "success": success,
@@ -3686,9 +3686,9 @@ def miniapp_couple_boss_start(request):
         
         # Create session using existing function
         from database.db import create_couple_boss_session
-        import asyncio
+        from asgiref.sync import async_to_sync
         
-        session = asyncio.run(create_couple_boss_session(user_a_id, user_b_id, chat_id, boss_level))
+        session = async_to_sync(create_couple_boss_session)(user_a_id, user_b_id, chat_id, boss_level)
         
         return JsonResponse({
             "ok": True,
@@ -3797,13 +3797,13 @@ def miniapp_couple_boss_attack(request):
         
         # Apply damage using existing function
         from database.db import apply_couple_boss_damage
-        import asyncio
+        from asgiref.sync import async_to_sync
         import random
         
         # Base damage calculation
         base_damage = random.randint(int(user_stats["atk"] * 0.8), int(user_stats["atk"] * 1.2)) + 50
         
-        result = asyncio.run(apply_couple_boss_damage(uid, session_data, base_damage, user_stats))
+        result = async_to_sync(apply_couple_boss_damage)(uid, session_data, base_damage, user_stats)
         
         response = {
             "ok": True,
@@ -3824,7 +3824,7 @@ def miniapp_couple_boss_attack(request):
         if result["boss_defeated"]:
             # Calculate rewards
             from database.db import get_couple_boss_rewards
-            rewards = asyncio.run(get_couple_boss_rewards(session_data))
+            rewards = async_to_sync(get_couple_boss_rewards)(session_data)
             
             # Give rewards to both players
             try:
@@ -3834,10 +3834,28 @@ def miniapp_couple_boss_attack(request):
                 
                 # Add mora and XP to both users
                 for player_id in [user_a_id, user_b_id]:
-                    cur.execute(f"INSERT OR REPLACE INTO user_mora (user_id, chat_id, balance) VALUES ({ph}, {ph}, COALESCE((SELECT balance FROM user_mora WHERE user_id={ph} AND chat_id={ph}), 0) + {ph})", 
-                               (player_id, chat_id, player_id, chat_id, rewards["mora_each"]))
-                    cur.execute(f"INSERT OR REPLACE INTO user_stats (user_id, chat_id, xp) VALUES ({ph}, {ph}, COALESCE((SELECT xp FROM user_stats WHERE user_id={ph} AND chat_id={ph}), 0) + {ph})", 
-                               (player_id, chat_id, player_id, chat_id, rewards["xp_each"]))
+                    if db_type == "pg":
+                        cur.execute(
+                            f"INSERT INTO user_mora (user_id, chat_id, balance) VALUES ({ph},{ph},{ph}) "
+                            f"ON CONFLICT (user_id, chat_id) DO UPDATE SET balance = user_mora.balance + EXCLUDED.balance",
+                            (player_id, chat_id, rewards["mora_each"]),
+                        )
+                        cur.execute(
+                            f"INSERT INTO user_stats (user_id, chat_id, xp) VALUES ({ph},{ph},{ph}) "
+                            f"ON CONFLICT (user_id, chat_id) DO UPDATE SET xp = user_stats.xp + EXCLUDED.xp",
+                            (player_id, chat_id, rewards["xp_each"]),
+                        )
+                    else:
+                        cur.execute(
+                            "INSERT INTO user_mora (user_id, chat_id, balance) VALUES (?,?,?) "
+                            "ON CONFLICT(user_id, chat_id) DO UPDATE SET balance = user_mora.balance + excluded.balance",
+                            (player_id, chat_id, rewards["mora_each"]),
+                        )
+                        cur.execute(
+                            "INSERT INTO user_stats (user_id, chat_id, xp) VALUES (?,?,?) "
+                            "ON CONFLICT(user_id, chat_id) DO UPDATE SET xp = user_stats.xp + excluded.xp",
+                            (player_id, chat_id, rewards["xp_each"]),
+                        )
                 
                 conn.commit()
                 conn.close()

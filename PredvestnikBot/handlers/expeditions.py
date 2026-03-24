@@ -29,9 +29,11 @@ from database.db import (
     get_mora,
     get_pet,
     get_pet_fatigue,
+    get_total_family_balance,
     start_expedition,
 )
 from filters.bot_command import BotCommand
+from handlers.economy import deduct_wallet
 from utils.helpers import user_mention
 
 router = Router()
@@ -124,7 +126,7 @@ async def cmd_expedition(message: Message, cmd_args: str):
     if marriage:
         mora = await get_mora(uid, chat_id)
         personal_bal = mora["balance"] if mora else 0
-        family_bal = await get_family_wallet(chat_id, uid)
+        total_family_bal, _, _ = await get_total_family_balance(chat_id, uid)
         
         kb = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(
@@ -132,7 +134,7 @@ async def cmd_expedition(message: Message, cmd_args: str):
                 callback_data=f"exped_wallet:{uid}:personal"
             )],
             [InlineKeyboardButton(
-                text=f"👨‍👩‍👧 Семейный кошелёк ({family_bal} 🪙)", 
+                text=f"👨‍👩‍👧 Семейный кошелёк ({total_family_bal} 🪙)", 
                 callback_data=f"exped_wallet:{uid}:family"
             )]
         ])
@@ -161,7 +163,8 @@ async def _show_expedition_menu(message: Message, uid: int, wallet_type: str):
         wallet_icon = "💰"
         wallet_name = "личного кошелька"
     else:  # family
-        balance = await get_family_wallet(chat_id, uid)
+        total_family_bal, _, _ = await get_total_family_balance(chat_id, uid)
+        balance = total_family_bal
         wallet_icon = "👨‍👩‍👧"
         wallet_name = "семейного кошелька"
     
@@ -229,7 +232,7 @@ async def cb_expedition_wallet_choice(callback: CallbackQuery):
         
         mora = await get_mora(uid, chat_id)
         personal_bal = mora["balance"] if mora else 0
-        family_bal = await get_family_wallet(chat_id, uid)
+        total_family_bal, _, _ = await get_total_family_balance(chat_id, uid)
         
         kb = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(
@@ -237,7 +240,7 @@ async def cb_expedition_wallet_choice(callback: CallbackQuery):
                 callback_data=f"exped_wallet:{uid}:personal"
             )],
             [InlineKeyboardButton(
-                text=f"👨‍👩‍👧 Семейный кошелёк ({family_bal} 🪙)", 
+                text=f"👨‍👩‍👧 Семейный кошелёк ({total_family_bal} 🪙)", 
                 callback_data=f"exped_wallet:{uid}:family"
             )]
         ])
@@ -298,14 +301,13 @@ async def cb_expedition_start(callback: CallbackQuery):
     if cost > 0:
         if wallet_type == "family":
             # Оплата с семейного кошелька
-            family_bal = await get_family_wallet(chat_id, uid)
-            if family_bal < cost:
+            ok, new_family_bal = await deduct_wallet(uid, chat_id, cost, "family")
+            if not ok:
                 await callback.answer(
-                    f"❌ Недостаточно Моры в семейном кошельке! ({family_bal} / {cost})", 
+                    f"❌ Недостаточно Моры в семейном кошельке! ({new_family_bal} / {cost})", 
                     show_alert=True
                 )
                 return
-            await add_to_family_wallet(chat_id, uid, -cost)
             cost_text = f"Списано <b>{cost} 🪙</b> с семейного кошелька"
         else:
             # Оплата с личного кошелька

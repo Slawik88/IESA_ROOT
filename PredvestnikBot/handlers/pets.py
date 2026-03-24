@@ -32,9 +32,11 @@ from database.db import (
     get_marriage,
     get_mora,
     get_pet,
+    get_total_family_balance,
     get_user,
     rename_pet,
 )
+from handlers.economy import deduct_wallet
 from filters.bot_command import BotCommand
 from utils.helpers import format_duration, user_mention
 
@@ -235,7 +237,7 @@ async def cb_pet_adopt(callback: CallbackQuery):
     mora = await get_mora(uid, chat_id)
     personal_balance = mora["balance"] if mora else 0
     
-    family_balance = await get_family_wallet(chat_id, uid)
+    total_family_balance, _, _ = await get_total_family_balance(chat_id, uid)
     
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(
@@ -243,7 +245,7 @@ async def cb_pet_adopt(callback: CallbackQuery):
             callback_data=f"pet_pay:{uid}:{ptype}:personal"
         )],
         [InlineKeyboardButton(
-            text=f"👨‍👩‍👧‍👦 Семейный баланс ({family_balance} мора)", 
+            text=f"👨‍👩‍👧‍👦 Семейный баланс ({total_family_balance} мора)", 
             callback_data=f"pet_pay:{uid}:{ptype}:family"
         )],
         [InlineKeyboardButton(text="❌ Отмена", callback_data=f"pet_cancel:{uid}")]
@@ -303,15 +305,13 @@ async def cb_pet_pay(callback: CallbackQuery):
             await callback.answer("❌ Не удалось списать Мору. Попробуй ещё раз.", show_alert=True)
             return
     else:  # family
-        balance = await get_family_wallet(chat_id, uid)
-        if balance < PET_ADOPT_PRICE:
+        ok, new_bal = await deduct_wallet(uid, chat_id, PET_ADOPT_PRICE, "family")
+        if not ok:
             await callback.answer(
-                f"❌ Недостаточно семейной моры: {balance} / {PET_ADOPT_PRICE} 🪙",
+                f"❌ Недостаточно Моры в семейном кошельке ({new_bal} / {PET_ADOPT_PRICE} 🪙)",
                 show_alert=True
             )
             return
-        # Списываем с семейного баланса
-        await add_to_family_wallet(chat_id, uid, -PET_ADOPT_PRICE)
 
     # Заводим питомца
     await adopt_pet(uid, partner_id, chat_id, ptype)
