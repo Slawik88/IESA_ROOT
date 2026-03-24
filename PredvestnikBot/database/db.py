@@ -859,7 +859,7 @@ async def init_db():
             except Exception:
                 pass
 
-        await db.commit()
+        # DDL соединение не поддерживает транзакции - commit() не нужен
 
     # PostgreSQL: widen all Telegram ID columns from int32 (INTEGER) → int64 (BIGINT).
     # Telegram supergroup/channel IDs like -1003xxxxxxxxx exceed int32 range.
