@@ -1,4 +1,4 @@
-import math
+﻿import math
 from datetime import datetime, timedelta, date
 
 from database.postgres import connect as postgres_connect, ddl_connect
@@ -228,7 +228,7 @@ async def init_db():
             "custom_title TEXT   DEFAULT NULL",
         ]:
             try:
-                await db.execute(f"ALTER TABLE users ADD COLUMN {col_def}")
+                await db.execute(f"ALTER TABLE users ADD COLUMN IF NOT EXISTS {col_def}")
             except Exception:
                 pass  # колонка уже существует
 
@@ -240,7 +240,7 @@ async def init_db():
             "day_start  TEXT    DEFAULT NULL",
         ]:
             try:
-                await db.execute(f"ALTER TABLE cleanup_counts ADD COLUMN {col_def}")
+                await db.execute(f"ALTER TABLE cleanup_counts ADD COLUMN IF NOT EXISTS {col_def}")
             except Exception:
                 pass
 
@@ -261,7 +261,7 @@ async def init_db():
         ]:
             try:
                 await db.execute(
-                    f"ALTER TABLE chat_settings ADD COLUMN {col_def}"
+                    f"ALTER TABLE chat_settings ADD COLUMN IF NOT EXISTS {col_def}"
                 )
             except Exception:
                 pass
@@ -274,7 +274,7 @@ async def init_db():
             "inactivity_warned_at TIMESTAMPTZ DEFAULT NULL",
         ]:
             try:
-                await db.execute(f"ALTER TABLE user_stats ADD COLUMN {col_def}")
+                await db.execute(f"ALTER TABLE user_stats ADD COLUMN IF NOT EXISTS {col_def}")
             except Exception:
                 pass
 
@@ -285,7 +285,7 @@ async def init_db():
             "top_frame      TEXT    DEFAULT NULL",
         ]:
             try:
-                await db.execute(f"ALTER TABLE user_mora ADD COLUMN {col_def}")
+                await db.execute(f"ALTER TABLE user_mora ADD COLUMN IF NOT EXISTS {col_def}")
             except Exception:
                 pass
 
@@ -593,7 +593,7 @@ async def init_db():
             "gacha_display TEXT DEFAULT NULL",
         ]:
             try:
-                await db.execute(f"ALTER TABLE user_mora ADD COLUMN {col_def}")
+                await db.execute(f"ALTER TABLE user_mora ADD COLUMN IF NOT EXISTS {col_def}")
             except Exception:
                 pass
 
@@ -603,7 +603,7 @@ async def init_db():
             "emoji_status TEXT DEFAULT NULL",
         ]:
             try:
-                await db.execute(f"ALTER TABLE pets ADD COLUMN {col_def}")
+                await db.execute(f"ALTER TABLE pets ADD COLUMN IF NOT EXISTS {col_def}")
             except Exception:
                 pass
 
@@ -624,7 +624,7 @@ async def init_db():
             "active_theme TEXT DEFAULT 'default'",
         ]:
             try:
-                await db.execute(f"ALTER TABLE user_mora ADD COLUMN {col_def}")
+                await db.execute(f"ALTER TABLE user_mora ADD COLUMN IF NOT EXISTS {col_def}")
             except Exception:
                 pass
 
@@ -681,7 +681,7 @@ async def init_db():
             "casino_wins      INTEGER DEFAULT 0",
         ]:
             try:
-                await db.execute(f"ALTER TABLE user_mora ADD COLUMN {col_def}")
+                await db.execute(f"ALTER TABLE user_mora ADD COLUMN IF NOT EXISTS {col_def}")
             except Exception:
                 pass
 
@@ -690,7 +690,7 @@ async def init_db():
             "last_greeting_date TEXT DEFAULT NULL",
         ]:
             try:
-                await db.execute(f"ALTER TABLE user_stats ADD COLUMN {col_def}")
+                await db.execute(f"ALTER TABLE user_stats ADD COLUMN IF NOT EXISTS {col_def}")
             except Exception:
                 pass
 
@@ -848,14 +848,14 @@ async def init_db():
             "enhancement_level INTEGER DEFAULT 0",
         ]:
             try:
-                await db.execute(f"ALTER TABLE gacha_inventory ADD COLUMN {col_def}")
+                await db.execute(f"ALTER TABLE gacha_inventory ADD COLUMN IF NOT EXISTS {col_def}")
             except Exception:
                 pass
 
         # ─── Миграция: усталость питомца + время прогулки ──────────────────
         for col_def in ["fatigue INTEGER DEFAULT 0", "last_walked TIMESTAMPTZ DEFAULT NULL", "walk_end_at TIMESTAMPTZ DEFAULT NULL"]:
             try:
-                await db.execute(f"ALTER TABLE pets ADD COLUMN {col_def}")
+                await db.execute(f"ALTER TABLE pets ADD COLUMN IF NOT EXISTS {col_def}")
             except Exception:
                 pass
 
