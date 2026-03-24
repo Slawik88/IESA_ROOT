@@ -10,7 +10,7 @@ async def init_db():
 
         await db.execute("""
             CREATE TABLE IF NOT EXISTS users (
-                user_id       INTEGER PRIMARY KEY,
+                user_id BIGINT PRIMARY KEY,
                 username      TEXT    DEFAULT '',
                 full_name     TEXT    DEFAULT '',
                 rank          TEXT    DEFAULT 'user',
@@ -23,7 +23,7 @@ async def init_db():
 
         await db.execute("""
             CREATE TABLE IF NOT EXISTS chat_settings (
-                chat_id           INTEGER PRIMARY KEY,
+                chat_id BIGINT PRIMARY KEY,
                 welcome_text      TEXT    DEFAULT NULL,
                 farewell_text     TEXT    DEFAULT NULL,
                 rules_text        TEXT    DEFAULT NULL,
@@ -37,7 +37,7 @@ async def init_db():
 
         await db.execute("""
             CREATE TABLE IF NOT EXISTS chats (
-                chat_id   INTEGER PRIMARY KEY,
+                chat_id BIGINT PRIMARY KEY,
                 title     TEXT    DEFAULT '',
                 username  TEXT    DEFAULT '',
                 chat_type TEXT    DEFAULT 'private',
@@ -47,9 +47,9 @@ async def init_db():
 
         await db.execute("""
             CREATE TABLE IF NOT EXISTS notes (
-                id      INTEGER PRIMARY KEY AUTOINCREMENT,
+                id SERIAL PRIMARY KEY,
                 chat_id INTEGER NOT NULL,
-                name    TEXT    NOT NULL COLLATE NOCASE,
+                name    TEXT    NOT NULL,
                 content TEXT    NOT NULL,
                 UNIQUE(chat_id, name)
             )
@@ -57,7 +57,7 @@ async def init_db():
 
         await db.execute("""
             CREATE TABLE IF NOT EXISTS chat_filters (
-                id       INTEGER PRIMARY KEY AUTOINCREMENT,
+                id SERIAL PRIMARY KEY,
                 chat_id  INTEGER NOT NULL,
                 keyword  TEXT    NOT NULL,
                 response TEXT    NOT NULL,
@@ -67,16 +67,16 @@ async def init_db():
 
         await db.execute("""
             CREATE TABLE IF NOT EXISTS blacklist (
-                id      INTEGER PRIMARY KEY AUTOINCREMENT,
+                id SERIAL PRIMARY KEY,
                 chat_id INTEGER NOT NULL,
-                word    TEXT    NOT NULL COLLATE NOCASE,
+                word    TEXT    NOT NULL,
                 UNIQUE(chat_id, word)
             )
         """)
 
         await db.execute("""
             CREATE TABLE IF NOT EXISTS locks (
-                chat_id  INTEGER PRIMARY KEY,
+                chat_id BIGINT PRIMARY KEY,
                 links    INTEGER DEFAULT 0,
                 stickers INTEGER DEFAULT 0,
                 gifs     INTEGER DEFAULT 0,
@@ -90,7 +90,7 @@ async def init_db():
 
         await db.execute("""
             CREATE TABLE IF NOT EXISTS rep_log (
-                id        INTEGER PRIMARY KEY AUTOINCREMENT,
+                id SERIAL PRIMARY KEY,
                 from_uid  INTEGER NOT NULL,
                 to_uid    INTEGER NOT NULL,
                 chat_id   INTEGER NOT NULL,
@@ -137,7 +137,7 @@ async def init_db():
 
         await db.execute("""
             CREATE TABLE IF NOT EXISTS polls (
-                id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                id SERIAL PRIMARY KEY,
                 chat_id      INTEGER NOT NULL,
                 message_id   INTEGER NOT NULL,
                 question     TEXT    NOT NULL,
@@ -158,7 +158,7 @@ async def init_db():
 
         await db.execute("""
             CREATE TABLE IF NOT EXISTS birthdays (
-                user_id  INTEGER PRIMARY KEY,
+                user_id BIGINT PRIMARY KEY,
                 birthday TEXT    NOT NULL
             )
         """)
@@ -176,7 +176,7 @@ async def init_db():
         # Ожидающие импорты — применяются при первом сообщении юзера в чат
         await db.execute("""
             CREATE TABLE IF NOT EXISTS pending_user_imports (
-                username      TEXT    NOT NULL COLLATE NOCASE,
+                username      TEXT    NOT NULL,
                 chat_id       INTEGER NOT NULL,
                 message_count INTEGER DEFAULT 0,
                 PRIMARY KEY (username, chat_id)
@@ -185,8 +185,8 @@ async def init_db():
 
         await db.execute("""
             CREATE TABLE IF NOT EXISTS pending_marriage_imports (
-                username1  TEXT    NOT NULL COLLATE NOCASE,
-                username2  TEXT    NOT NULL COLLATE NOCASE,
+                username1  TEXT    NOT NULL,
+                username2  TEXT    NOT NULL,
                 chat_id    INTEGER NOT NULL,
                 married_at TEXT    NOT NULL,
                 PRIMARY KEY (username1, chat_id)
@@ -319,8 +319,8 @@ async def init_db():
         # Таблица ролей сообщества
         await db.execute("""
             CREATE TABLE IF NOT EXISTS community_roles (
-                id          INTEGER PRIMARY KEY AUTOINCREMENT,
-                name        TEXT    NOT NULL UNIQUE COLLATE NOCASE,
+                id SERIAL PRIMARY KEY,
+                name        TEXT    NOT NULL UNIQUE,
                 emoji       TEXT    NOT NULL DEFAULT '',
                 description TEXT    NOT NULL DEFAULT '',
                 created_at  TEXT    NOT NULL
@@ -339,7 +339,7 @@ async def init_db():
         # Журнал добровольных выходов из чата
         await db.execute("""
             CREATE TABLE IF NOT EXISTS leave_log (
-                id        INTEGER PRIMARY KEY AUTOINCREMENT,
+                id SERIAL PRIMARY KEY,
                 chat_id   INTEGER NOT NULL,
                 user_id   INTEGER NOT NULL,
                 full_name TEXT    DEFAULT '',
@@ -351,7 +351,7 @@ async def init_db():
         # Чёрный список пользователей по Telegram ID (per-chat)
         await db.execute("""
             CREATE TABLE IF NOT EXISTS user_banlist (
-                id        INTEGER PRIMARY KEY AUTOINCREMENT,
+                id SERIAL PRIMARY KEY,
                 chat_id   INTEGER NOT NULL,
                 user_id   INTEGER NOT NULL,
                 added_by  INTEGER DEFAULT 0,
@@ -364,7 +364,7 @@ async def init_db():
         # Ожидающие назначения ролей (до вступления в основной чат)
         await db.execute("""
             CREATE TABLE IF NOT EXISTS pending_roles (
-                user_id     INTEGER PRIMARY KEY,
+                user_id BIGINT PRIMARY KEY,
                 role_name   TEXT    NOT NULL,
                 reserved_at TEXT    NOT NULL
             )
@@ -402,7 +402,7 @@ async def init_db():
         # Казино: вызовы на дуэль (кубик)
         await db.execute("""
             CREATE TABLE IF NOT EXISTS casino_duels (
-                id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                id SERIAL PRIMARY KEY,
                 chat_id       INTEGER NOT NULL,
                 challenger_id INTEGER NOT NULL,
                 target_id     INTEGER NOT NULL,
@@ -416,7 +416,7 @@ async def init_db():
         # Казино: лотерейные билеты (обновляются еженедельно)
         await db.execute("""
             CREATE TABLE IF NOT EXISTS casino_lottery (
-                id       INTEGER PRIMARY KEY AUTOINCREMENT,
+                id SERIAL PRIMARY KEY,
                 chat_id  INTEGER NOT NULL,
                 user_id  INTEGER NOT NULL,
                 week_key TEXT    NOT NULL,
@@ -438,7 +438,7 @@ async def init_db():
         # Журнал транзакций семейного кошелька (хранится 2 месяца)
         await db.execute("""
             CREATE TABLE IF NOT EXISTS family_wallet_log (
-                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                id SERIAL PRIMARY KEY,
                 chat_id     INTEGER NOT NULL,
                 user_id     INTEGER NOT NULL,
                 action      TEXT    NOT NULL,
@@ -449,7 +449,7 @@ async def init_db():
         """)
         # Очищаем записи старше 2 месяцев при каждом старте
         await db.execute(
-            "DELETE FROM family_wallet_log WHERE created_at < datetime('now', '-60 days')"
+            "DELETE FROM family_wallet_log WHERE created_at < NOW() - INTERVAL '60 days'"
         )
 
         # Журнал розыгрышей лотереи (персистентный guard, выживает перезапуск)
@@ -482,7 +482,7 @@ async def init_db():
 
         await db.execute("""
             CREATE TABLE IF NOT EXISTS gacha_inventory (
-                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                id SERIAL PRIMARY KEY,
                 user_id     INTEGER NOT NULL,
                 chat_id     INTEGER NOT NULL,
                 item_key    TEXT    NOT NULL,
@@ -495,7 +495,7 @@ async def init_db():
 
         await db.execute("""
             CREATE TABLE IF NOT EXISTS bank_deposits (
-                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                id SERIAL PRIMARY KEY,
                 user_id     INTEGER NOT NULL,
                 chat_id     INTEGER NOT NULL,
                 amount      INTEGER NOT NULL,
@@ -508,7 +508,7 @@ async def init_db():
 
         await db.execute("""
             CREATE TABLE IF NOT EXISTS tax_events (
-                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                id SERIAL PRIMARY KEY,
                 chat_id     INTEGER NOT NULL,
                 message_id  INTEGER,
                 prize       INTEGER NOT NULL,
@@ -531,7 +531,7 @@ async def init_db():
 
         await db.execute("""
             CREATE TABLE IF NOT EXISTS shop_items (
-                id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                id SERIAL PRIMARY KEY,
                 user_id      INTEGER NOT NULL,
                 chat_id      INTEGER NOT NULL,
                 item_type    TEXT    NOT NULL,
@@ -543,7 +543,7 @@ async def init_db():
 
         await db.execute("""
             CREATE TABLE IF NOT EXISTS marriage_gifts (
-                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                id SERIAL PRIMARY KEY,
                 from_user   INTEGER NOT NULL,
                 to_user     INTEGER NOT NULL,
                 chat_id     INTEGER NOT NULL,
@@ -556,7 +556,7 @@ async def init_db():
 
         await db.execute("""
             CREATE TABLE IF NOT EXISTS active_buffs (
-                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                id SERIAL PRIMARY KEY,
                 user_id     INTEGER NOT NULL,
                 chat_id     INTEGER NOT NULL,
                 buff_type   TEXT    NOT NULL,
@@ -631,7 +631,7 @@ async def init_db():
         # ─── Богатый сундук (замена налогового ивента) ────────────────────
         await db.execute("""
             CREATE TABLE IF NOT EXISTS chest_events (
-                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                id SERIAL PRIMARY KEY,
                 chat_id     INTEGER NOT NULL,
                 message_id  INTEGER,
                 started_at  TEXT    NOT NULL,
@@ -677,7 +677,7 @@ async def init_db():
         # ─── Переводы и долги ─────────────────────────────────────────────
         await db.execute("""
             CREATE TABLE IF NOT EXISTS mora_loans (
-                id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                id SERIAL PRIMARY KEY,
                 lender_id    INTEGER NOT NULL,
                 borrower_id  INTEGER NOT NULL,
                 chat_id      INTEGER NOT NULL,
@@ -700,7 +700,7 @@ async def init_db():
 
         await db.execute("""
             CREATE TABLE IF NOT EXISTS user_bonds (
-                id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                id SERIAL PRIMARY KEY,
                 user_id      INTEGER NOT NULL,
                 chat_id      INTEGER NOT NULL,
                 bond_key     TEXT    NOT NULL,
@@ -713,7 +713,7 @@ async def init_db():
         # ─── Лог шпионажа ─────────────────────────────────────────────────
         await db.execute("""
             CREATE TABLE IF NOT EXISTS espionage_log (
-                id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                id SERIAL PRIMARY KEY,
                 spy_id       INTEGER NOT NULL,
                 target_id    INTEGER NOT NULL,
                 chat_id      INTEGER NOT NULL,
@@ -725,7 +725,7 @@ async def init_db():
         # ─── Казна чата ───────────────────────────────────────────────────
         await db.execute("""
             CREATE TABLE IF NOT EXISTS chat_treasury (
-                chat_id   INTEGER PRIMARY KEY,
+                chat_id BIGINT PRIMARY KEY,
                 balance   INTEGER DEFAULT 0
             )
         """)
@@ -746,7 +746,7 @@ async def init_db():
         # ─── Урон по Боссу (лог + лидерборд) ────────────────────────────
         await db.execute("""
             CREATE TABLE IF NOT EXISTS boss_damage_log (
-                id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                id SERIAL PRIMARY KEY,
                 user_id      INTEGER NOT NULL,
                 chat_id      INTEGER NOT NULL,
                 damage       INTEGER NOT NULL,
@@ -757,7 +757,7 @@ async def init_db():
         # ─── Парные Боссы (для пар в браке) ─────────────────────────────
         await db.execute("""
             CREATE TABLE IF NOT EXISTS couple_boss_sessions (
-                id             INTEGER PRIMARY KEY AUTOINCREMENT,
+                id SERIAL PRIMARY KEY,
                 user_a_id      INTEGER NOT NULL,
                 user_b_id      INTEGER NOT NULL,
                 chat_id        INTEGER NOT NULL,
@@ -792,7 +792,7 @@ async def init_db():
         
         await db.execute("""
             CREATE TABLE IF NOT EXISTS bond_price_history (
-                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                id SERIAL PRIMARY KEY,
                 chat_id     INTEGER NOT NULL,
                 bond_key    TEXT    NOT NULL,
                 price       INTEGER NOT NULL,
@@ -841,8 +841,8 @@ async def init_db():
     # PostgreSQL: widen all Telegram ID columns from int32 (INTEGER) → int64 (BIGINT).
     # Telegram supergroup/channel IDs like -1003xxxxxxxxx exceed int32 range.
     # Each ALTER runs in its own transaction so one failure doesn't abort the rest.
-    from database.sql_compat import _is_postgres_dsn
-    if _is_postgres_dsn(DATABASE_PATH):
+    from config import DATABASE_PATH
+    # Всегда выполняем миграции для PostgreSQL (теперь единственная СУБД)
         _bigint_migrations = [
             ("users",             "user_id"),
             ("chat_settings",     "chat_id"),
@@ -930,7 +930,7 @@ async def init_db():
         async with postgres_connect() as db:
             for cid in ALLOWED_GROUPS:
                 await db.execute(
-                    "INSERT OR IGNORE INTO allowed_groups (chat_id) VALUES (?)",
+                    "INSERT INTO allowed_groups (chat_id) VALUES (?) ON CONFLICT (chat_id) DO NOTHING",
                     (cid,),
                 )
             await db.commit()
@@ -1009,7 +1009,7 @@ async def add_allowed_group(chat_id: int):
     """Add a group to the whitelist (DB + cache)."""
     async with postgres_connect() as db:
         await db.execute(
-            "INSERT OR IGNORE INTO allowed_groups (chat_id) VALUES (?)",
+            "INSERT INTO allowed_groups (chat_id) VALUES (?) ON CONFLICT DO NOTHING",
             (chat_id,),
         )
         await db.commit()
@@ -1049,7 +1049,7 @@ async def get_admin_groups() -> list[int]:
 async def add_admin_group(chat_id: int):
     async with postgres_connect() as db:
         await db.execute(
-            "INSERT OR IGNORE INTO admin_groups (chat_id) VALUES (?)",
+            "INSERT INTO admin_groups (chat_id) VALUES (?) ON CONFLICT DO NOTHING",
             (chat_id,),
         )
         await db.commit()
@@ -1378,11 +1378,11 @@ async def apply_pending_marriages(username: str, user_id: int, chat_id: int):
                     (chat_id, user_id, partner_id),
                 )
                 await db.execute(
-                    "INSERT OR IGNORE INTO marriages (user_id, chat_id, partner_id, married_at) VALUES (?,?,?,?)",
+                    "INSERT INTO marriages (user_id, chat_id, partner_id, married_at) VALUES (?,?,?,?) ON CONFLICT DO NOTHING",
                     (user_id, chat_id, partner_id, married_at),
                 )
                 await db.execute(
-                    "INSERT OR IGNORE INTO marriages (user_id, chat_id, partner_id, married_at) VALUES (?,?,?,?)",
+                    "INSERT INTO marriages (user_id, chat_id, partner_id, married_at) VALUES (?,?,?,?) ON CONFLICT DO NOTHING",
                     (partner_id, chat_id, user_id, married_at),
                 )
                 for u in [uname_lower, partner_uname]:
@@ -1421,7 +1421,7 @@ async def upsert_chat(
 async def set_chat_active(chat_id: int, is_active: int):
     async with postgres_connect() as db:
         await db.execute(
-            "INSERT OR IGNORE INTO chats (chat_id, is_active) VALUES (?, ?)",
+            "INSERT INTO chats (chat_id, is_active) VALUES (?, ?) ON CONFLICT DO NOTHING",
             (chat_id, is_active),
         )
         await db.execute(
@@ -1464,7 +1464,7 @@ async def set_chat_setting(chat_id: int, key: str, value):
         raise ValueError(f"Invalid chat setting key: {key!r}")
     async with postgres_connect() as db:
         await db.execute(
-            "INSERT OR IGNORE INTO chat_settings (chat_id) VALUES (?)", (chat_id,)
+            "INSERT INTO chat_settings (chat_id) VALUES (?) ON CONFLICT DO NOTHING", (chat_id,)
         )
         await db.execute(
             f"UPDATE chat_settings SET {key} = ? WHERE chat_id = ?", (value, chat_id)
@@ -1602,7 +1602,7 @@ async def set_lock(chat_id: int, lock_type: str, value: int):
         raise ValueError(f"Invalid lock type: {lock_type!r}")
     async with postgres_connect() as db:
         await db.execute(
-            "INSERT OR IGNORE INTO locks (chat_id) VALUES (?)", (chat_id,)
+            "INSERT INTO locks (chat_id) VALUES (?) ON CONFLICT DO NOTHING", (chat_id,)
         )
         await db.execute(
             f"UPDATE locks SET {lock_type} = ? WHERE chat_id = ?", (value, chat_id)
@@ -1872,9 +1872,7 @@ async def quest_tick(user_id: int, chat_id: int, quest_date: str, quest_type: st
             new_progress = 1
             just_completed = new_progress >= goal
             await db.execute(
-                """INSERT OR IGNORE INTO user_quests
-                   (user_id, chat_id, quest_date, quest_type, goal, progress, completed)
-                   VALUES (?,?,?,?,?,?,?)""",
+                """INSERT INTO user_quests (user_id, chat_id, quest_date, quest_type, goal, progress, completed) VALUES (?,?,?,?,?,?,?) ON CONFLICT DO NOTHING""",
                 (user_id, chat_id, quest_date, quest_type, goal, new_progress, 1 if just_completed else 0),
             )
             await db.commit()
@@ -2146,7 +2144,7 @@ async def upsert_user_stats(user_id: int, chat_id: int):
     """Ensure a row exists in user_stats for this user+chat."""
     async with postgres_connect() as db:
         await db.execute(
-            "INSERT OR IGNORE INTO user_stats (user_id, chat_id) VALUES (?, ?)",
+            "INSERT INTO user_stats (user_id, chat_id) VALUES (?, ?) ON CONFLICT DO NOTHING",
             (user_id, chat_id),
         )
         await db.commit()
@@ -2279,7 +2277,7 @@ async def add_xp_in_chat(user_id: int, chat_id: int, amount: int) -> tuple[int, 
     """Add XP in a specific chat. Returns (new_xp, new_level, leveled_up)."""
     async with postgres_connect() as db:
         await db.execute(
-            "INSERT OR IGNORE INTO user_stats (user_id, chat_id) VALUES (?, ?)",
+            "INSERT INTO user_stats (user_id, chat_id) VALUES (?, ?) ON CONFLICT DO NOTHING",
             (user_id, chat_id),
         )
         async with db.execute(
@@ -2361,8 +2359,7 @@ async def check_daily_mora(user_id: int, chat_id: int) -> tuple[bool, int, bool]
 
         if row is None:
             await db.execute(
-                """INSERT OR IGNORE INTO user_mora (user_id, chat_id, last_daily, streak_days)
-                   VALUES (?, ?, ?, 1)""",
+                """INSERT INTO user_mora (user_id, chat_id, last_daily, streak_days) VALUES (?, ?, ?, 1) ON CONFLICT DO NOTHING""",
                 (user_id, chat_id, today),
             )
             await db.commit()
@@ -2780,7 +2777,7 @@ async def mark_anniversary_awarded(user_id: int, chat_id: int, date_str: str):
     """Записать факт начисления юбилейной Моры."""
     async with postgres_connect() as db:
         await db.execute(
-            "INSERT OR IGNORE INTO anniversary_log (user_id, chat_id, date_str) VALUES (?,?,?)",
+            "INSERT INTO anniversary_log (user_id, chat_id, date_str) VALUES (?,?,?) ON CONFLICT DO NOTHING",
             (user_id, chat_id, date_str),
         )
         await db.commit()
@@ -2808,7 +2805,7 @@ async def mark_singles_bonus_awarded(week_key: str):
     """Mark singles bonus as awarded for this week and cleanup old records."""
     async with postgres_connect() as db:
         await db.execute(
-            "INSERT OR IGNORE INTO singles_bonus_log (week_key) VALUES (?)", (week_key,)
+            "INSERT INTO singles_bonus_log (week_key) VALUES (?) ON CONFLICT DO NOTHING", (week_key,)
         )
         
         # Auto-cleanup: remove records older than 12 weeks
@@ -2853,7 +2850,7 @@ async def mark_lottery_drawn(week_key: str):
     """Записать факт проведения розыгрыша лотереи на этой неделе."""
     async with postgres_connect() as db:
         await db.execute(
-            "INSERT OR IGNORE INTO lottery_draws (week_key) VALUES (?)", (week_key,)
+            "INSERT INTO lottery_draws (week_key) VALUES (?) ON CONFLICT DO NOTHING", (week_key,)
         )
         await db.commit()
         # Автоочистка: удаляем записи старше 12 недель
@@ -3069,7 +3066,7 @@ async def add_reputation_in_chat(from_uid: int, to_uid: int, chat_id: int, amoun
             (from_uid, to_uid, chat_id, amount, now),
         )
         await db.execute(
-            "INSERT OR IGNORE INTO user_stats (user_id, chat_id) VALUES (?, ?)",
+            "INSERT INTO user_stats (user_id, chat_id) VALUES (?, ?) ON CONFLICT DO NOTHING",
             (to_uid, chat_id),
         )
         await db.execute(
@@ -3305,7 +3302,7 @@ async def assign_community_role(user_id: int, role_name: str) -> str:
     """
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT id FROM community_roles WHERE name = ? COLLATE NOCASE", (role_name,)
+            "SELECT id FROM community_roles WHERE name = ?", (role_name,)
         ) as c:
             row = await c.fetchone()
         if not row:
@@ -3336,7 +3333,7 @@ async def revoke_community_role(user_id: int, role_name: str) -> bool:
     """Remove a role from a user. Returns False if user didn't have it."""
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT id FROM community_roles WHERE name = ? COLLATE NOCASE", (role_name,)
+            "SELECT id FROM community_roles WHERE name = ?", (role_name,)
         ) as c:
             row = await c.fetchone()
         if not row:
@@ -3375,7 +3372,7 @@ async def force_assign_community_role(user_id: int, role_name: str) -> tuple[str
     """
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT id FROM community_roles WHERE name = ? COLLATE NOCASE", (role_name,)
+            "SELECT id FROM community_roles WHERE name = ?", (role_name,)
         ) as c:
             row = await c.fetchone()
         if not row:
@@ -4069,8 +4066,7 @@ async def add_user_theme(user_id: int, chat_id: int, theme_key: str, source: str
     """Добавить тему юзеру (если ещё нет)."""
     async with postgres_connect() as db:
         await db.execute(
-            """INSERT OR IGNORE INTO user_themes (user_id, chat_id, theme_key, source, obtained_at)
-               VALUES (?, ?, ?, ?, ?)""",
+            """INSERT INTO user_themes (user_id, chat_id, theme_key, source, obtained_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT DO NOTHING""",
             (user_id, chat_id, theme_key, source, datetime.utcnow().isoformat()),
         )
         await db.commit()
@@ -4114,8 +4110,7 @@ async def award_badge(user_id: int, chat_id: int, badge_key: str):
     """Дать бейдж юзеру (если ещё нет)."""
     async with postgres_connect() as db:
         await db.execute(
-            """INSERT OR IGNORE INTO user_badges (user_id, chat_id, badge_key, obtained_at)
-               VALUES (?, ?, ?, ?)""",
+            """INSERT INTO user_badges (user_id, chat_id, badge_key, obtained_at) VALUES (?, ?, ?, ?) ON CONFLICT DO NOTHING""",
             (user_id, chat_id, badge_key, datetime.utcnow().isoformat()),
         )
         await db.commit()
