@@ -803,8 +803,31 @@ async function loadProfile(){
       document.getElementById('partnersCard').style.display='block';
     }
     if(uid===DEV_UID) document.getElementById('devTabBtn').style.display='';
+    
+    // ── ИСПРАВЛЕНИЕ БАГА: Проверяем статус couple boss при загрузке ──
+    checkCoupleBossAvailability();
+    
   } catch(e){
     document.getElementById('profileLoading').textContent = '⚠️ '+e.message;
+  }
+}
+
+// ── ИСПРАВЛЕНИЕ БАГА: Функция проверки доступности couple boss при инициализации ──
+async function checkCoupleBossAvailability() {
+  if (!chatId) return null; // Нужен chat_id для проверки
+  
+  try {
+    const r = await api('/api/couple_boss/status?chat_id=' + chatId);
+    if (r.married) {
+      // Пользователь женат - показываем кнопку couple boss
+      document.getElementById('coupleBossTabBtn').style.display = 'block';
+      return r; // Возвращаем данные для использования в других функциях
+    }
+    return null;
+  } catch (e) {
+    // Не женат или другая ошибка - кнопка остаётся скрытой
+    console.log('Couple boss not available:', e.message);
+    return null;
   }
 }
 
@@ -1182,10 +1205,21 @@ async function loadShop(){
 }
 
 function renderShop(d){
-  // Gacha prices (singles discount if no partner)
-  const isMarried=!!(profileData&&profileData.partner_name);
-  document.getElementById('gachaSinglePrice').textContent=isMarried?'160':'150';
-  document.getElementById('gachaMultiPrice').textContent=isMarried?'1440':'1350';
+  // Gacha prices - check real marriage status via API (not just partner_name field)
+  let isMarried = false;
+  checkCoupleBossAvailability().then((result) => {
+    // Update prices when marriage status is confirmed
+    if (result && result.married) {
+      document.getElementById('gachaSinglePrice').textContent = '160';
+      document.getElementById('gachaMultiPrice').textContent = '1440';
+    }
+  }).catch(() => {
+    // Keep default (unmarried) prices
+  });
+  
+  // Default to unmarried prices initially
+  document.getElementById('gachaSinglePrice').textContent = '150';
+  document.getElementById('gachaMultiPrice').textContent = '1350';
 
   // Custom title — show active title if any
   const activeTitle=(profileData&&profileData.custom_title)||'';
@@ -2155,6 +2189,9 @@ function renderBossSelection(availableLevels) {
 }
 
 function renderActiveBossSession(data) {
+  // Store session data globally for optimized updates
+  window.currentBossSession = data;
+  
   // Update HP bar
   const hpBar = document.getElementById('bossHpBar');
   hpBar.style.width = data.boss_hp_percent + '%';
@@ -2259,9 +2296,15 @@ async function attackCoupleBoss() {
       }, 1500);
     }
     
-    // Update boss data
-    tabLoaded['couple_boss'] = false;
-    loadCoupleBoss();
+    // Update boss data efficiently - avoid full reload
+    if (r.boss_defeated) {
+      // Boss defeated - need full reload for rewards and new level selection
+      tabLoaded['couple_boss'] = false;
+      loadCoupleBoss();
+    } else {
+      // Boss still alive - just update HP and stats
+      updateBossHpOnly(r);
+    }
     
     // Reset attack button after delay
     setTimeout(() => {
@@ -2275,6 +2318,36 @@ async function attackCoupleBoss() {
     toast('❌ ' + e.message, 'error');
     attackBtn.disabled = false;
     attackBtn.innerHTML = '⚔️ АТАКОВАТЬ БОССА';
+  }
+}
+
+// ── ИСПРАВЛЕНИЕ БАГА: Оптимизированное обновление HP босса ──
+function updateBossHpOnly(attackResult) {
+  // Update HP bar efficiently without full reload
+  const hpBar = document.getElementById('bossHpBar');
+  const hpText = document.getElementById('bossHpText');
+  
+  if (hpBar && attackResult.boss_hp !== undefined) {
+    const session = window.currentBossSession; // Store session data globally
+    if (session) {
+      const hpPercent = (attackResult.boss_hp / session.boss_max_hp) * 100;
+      hpBar.style.width = hpPercent + '%';
+      
+      if (hpText) {
+        hpText.textContent = `${attackResult.boss_hp.toLocaleString()} / ${session.boss_max_hp.toLocaleString()}`;
+      }
+    }
+  }
+  
+  // Update damage counters if available
+  if (attackResult.my_damage !== undefined) {
+    const myDamageEl = document.getElementById('myDamage');
+    if (myDamageEl) myDamageEl.textContent = attackResult.my_damage.toLocaleString();
+  }
+  
+  if (attackResult.partner_damage !== undefined) {
+    const partnerDamageEl = document.getElementById('partnerDamage');
+    if (partnerDamageEl) partnerDamageEl.textContent = attackResult.partner_damage.toLocaleString();
   }
 }
 
