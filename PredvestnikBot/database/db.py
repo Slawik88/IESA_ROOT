@@ -967,6 +967,10 @@ async def init_db():
     # ═══════════════════════════════════════════════════════════════════════════════
     
     _timestamptz_migrations = [
+        ("users",               "first_seen"),
+        ("user_stats",          "first_active"),
+        ("user_stats",          "last_active"),
+        ("user_stats",          "inactivity_warned_at"),
         ("shop_items",          "purchased_at"),
         ("marriage_gifts",      "gifted_at"),
         ("user_themes",         "obtained_at"),

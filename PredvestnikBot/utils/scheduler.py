@@ -14,7 +14,10 @@ import asyncio
 import html
 import logging
 import random
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
+
+ZURICH = ZoneInfo("Europe/Zurich")
 
 log = logging.getLogger(__name__)
 
@@ -89,11 +92,11 @@ async def _task_inactivity_warns(bot) -> None:
     if not chats:
         return
 
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     for chat_row in chats:
         chat_id = chat_row["chat_id"]
         days     = chat_row.get("inactivity_warn_days") or 5
-        cutoff   = (now - timedelta(days=days)).isoformat()
+        cutoff   = now - timedelta(days=days)
 
         users = await get_inactive_users_for_warn(chat_id, cutoff)
         if not users:
@@ -107,7 +110,7 @@ async def _task_inactivity_warns(bot) -> None:
                 continue
 
             warns = await add_warn_in_chat(uid, chat_id)
-            await set_inactivity_warned(uid, chat_id, now.isoformat())
+            await set_inactivity_warned(uid, chat_id, now)
 
             name = html.escape(u.get("full_name") or str(uid))
             warned_lines.append(
@@ -131,18 +134,23 @@ async def _task_inactivity_warns(bot) -> None:
 async def _task_cleanup_reminders(bot) -> None:
     from database.db import get_chats_with_scheduled_cleanup, set_cleanup_reminder_sent
 
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     chats = await get_chats_with_scheduled_cleanup()
     for row in chats:
-        chat_id     = row["chat_id"]
-        scheduled   = row.get("next_cleanup_at")
+        chat_id      = row["chat_id"]
+        scheduled    = row.get("next_cleanup_at")
         already_sent = row.get("cleanup_reminder_sent", 0)
 
         if not scheduled:
             continue
 
         try:
-            dt = datetime.fromisoformat(scheduled)
+            if isinstance(scheduled, str):
+                dt = datetime.fromisoformat(scheduled)
+            else:
+                dt = scheduled  # asyncpg returns datetime object for TIMESTAMPTZ
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
         except (ValueError, TypeError):
             continue
 
@@ -156,9 +164,7 @@ async def _task_cleanup_reminders(bot) -> None:
 
         # Напоминание: от 48ч до 0ч до чистки, один раз
         if 0 <= delta.total_seconds() <= 172800 and not already_sent:
-            from zoneinfo import ZoneInfo
-            from datetime import timezone as _tz
-            dt_zurich = dt.replace(tzinfo=_tz.utc).astimezone(ZoneInfo("Europe/Zurich"))
+            dt_zurich = dt.astimezone(ZURICH)
             date_str = dt_zurich.strftime("%d.%m.%Y %H:%M (Цюрих)")
             days_left = int(delta.total_seconds() // 86400)
             hours_left = int((delta.total_seconds() % 86400) // 3600)
@@ -200,12 +206,17 @@ async def _task_marriage_anniversary(bot) -> None:
         if not married_at:
             continue
 
-        try:
-            dt = datetime.fromisoformat(married_at)
-        except (ValueError, TypeError):
-            continue
+        if isinstance(married_at, str):
+            try:
+                dt = datetime.fromisoformat(married_at)
+            except ValueError:
+                continue
+        else:
+            dt = married_at  # asyncpg returns datetime from TIMESTAMPTZ
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
 
-        days = (datetime.utcnow() - dt).days
+        days = (datetime.now(timezone.utc) - dt).days
         # Award every 7 days (after at least 7 days), once per calendar day
         if days < 7 or days % 7 != 0:
             continue
@@ -246,7 +257,8 @@ async def _task_lottery_draw(bot) -> None:
     )
     from utils.helpers import user_mention
 
-    now = datetime.utcnow()
+    # Розыгрыш по воскресеньям по Цюрихскому времени
+    now = datetime.now(ZURICH)
     # Only draw on Sundays
     if now.weekday() != 6:
         return
@@ -450,7 +462,7 @@ async def _task_bond_price_update(bot) -> None:
     Использует внутренний таймер вместо жёсткой привязки к UTC-часу,
     чтобы не пропускать обновления после перезапуска бота."""
     global _bond_price_last_update
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
 
     # Пропускаем, если прошло меньше 6 часов с последнего обновления
     if _bond_price_last_update is not None:
