@@ -26,10 +26,12 @@ from database.db import (
     get_family_wallet,
     get_marriage,
     get_mora,
+    get_total_family_balance,
     give_gift,
     get_gifts_summary,
 )
 from filters.bot_command import BotCommand
+from handlers.economy import deduct_wallet
 
 router = Router()
 
@@ -70,11 +72,11 @@ async def cmd_gifts(message: Message, cmd_args: str):
 
     mora = await get_mora(uid, chat_id)
     personal_bal = mora["balance"] if mora else 0
-    family_bal = await get_family_wallet(chat_id, uid)
+    total_family_bal, _, _ = await get_total_family_balance(chat_id, uid)
 
     lines = [
         "🎁 <b>Витрина подарков</b>\n",
-        f"💰 Личный: <b>{personal_bal} 🪙</b> | 👨‍👩‍👧 Семейный: <b>{family_bal} 🪙</b>\n",
+        f"💰 Личный: <b>{personal_bal} 🪙</b> | 👨‍👩‍👧 Семейный: <b>{total_family_bal} 🪙</b>\n",
     ]
     buttons = []
     for key, gift in MARRIAGE_GIFTS.items():
@@ -136,11 +138,10 @@ async def cb_gift(callback: CallbackQuery):
     price = gift_info["price"]
 
     if wallet == "family":
-        bal = await get_family_wallet(chat_id, uid)
-        if bal < price:
-            await callback.answer(f"❌ Недостаточно Моры в семейном кошельке ({bal} / {price})", show_alert=True)
+        ok, new_bal = await deduct_wallet(uid, chat_id, price, "family")
+        if not ok:
+            await callback.answer(f"❌ Недостаточно Моры в семейном кошельке ({new_bal} / {price})", show_alert=True)
             return
-        new_bal = await add_to_family_wallet(chat_id, uid, -price)
         ok = True
     else:
         ok, new_bal = await deduct_mora(uid, chat_id, price)

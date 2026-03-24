@@ -23,11 +23,13 @@ from database.db import (
     deduct_mora,
     get_family_wallet,
     get_mora,
+    get_total_family_balance,
     get_user_deposits,
     is_user_single,
     withdraw_deposit,
 )
 from filters.bot_command import BotCommand
+from handlers.economy import deduct_wallet
 
 router = Router()
 
@@ -191,7 +193,7 @@ async def cb_bank_source_select(callback: CallbackQuery):
     chat_id = callback.message.chat.id
     mora = await get_mora(uid, chat_id)
     personal_bal = mora["balance"] if mora else 0
-    family_bal = await get_family_wallet(chat_id, uid)
+    total_family_bal, _, _ = await get_total_family_balance(chat_id, uid)
     single = await is_user_single(uid, chat_id)
     p = BANK_PLANS.get(plan_key)
     effective_rate = p["rate"] + (SINGLES_BANK_BONUS if single else 0.0)
@@ -208,14 +210,14 @@ async def cb_bank_source_select(callback: CallbackQuery):
             callback_data="disabled",
         )])
     
-    if family_bal >= amount:
+    if total_family_bal >= amount:
         buttons.append([InlineKeyboardButton(
-            text=f"👨‍👩‍👧‍👦 Семейные средства ({family_bal} 🪙)",
+            text=f"👨‍👩‍👧‍👦 Семейные средства ({total_family_bal} 🪙)",
             callback_data=f"bank_confirm:{owner}:{plan_key}:{amount}:family",
         )])
     else:
         buttons.append([InlineKeyboardButton(
-            text=f"👨‍👩‍👧‍👦 Семейные средства ({family_bal} 🪙) - недостаточно",
+            text=f"👨‍👩‍👧‍👦 Семейные средства ({total_family_bal} 🪙) - недостаточно",
             callback_data="disabled",
         )])
     
@@ -270,15 +272,9 @@ async def cb_bank_confirm(callback: CallbackQuery):
     effective_rate = p["rate"] + (SINGLES_BANK_BONUS if single else 0.0)
     payment_text = "личного баланса"
     if source == "family":
-        family_bal = await get_family_wallet(chat_id, uid)
-        if family_bal < amount:
-            await callback.answer(f"❌ Недостаточно семейных средств ({family_bal} / {amount})", show_alert=True)
-            return
-        new_family_bal = await add_to_family_wallet(chat_id, uid, -amount)
-        if new_family_bal < 0:
-            # Откат при гонке
-            await add_to_family_wallet(chat_id, uid, amount)
-            await callback.answer("❌ Недостаточно средств в семейном кошельке.", show_alert=True)
+        ok, new_family_bal = await deduct_wallet(owner, chat_id, amount, "family")
+        if not ok:
+            await callback.answer(f"❌ Недостаточно семейных средств ({new_family_bal} / {amount})", show_alert=True)
             return
         payment_text = "семейного кошелька"
     else:

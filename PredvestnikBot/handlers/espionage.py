@@ -234,8 +234,8 @@ async def cmd_buy_bond(message: Message, cmd_args: str):
     mora = await get_mora(uid, chat_id)
     pers_bal = (mora["balance"] or 0) if mora else 0
     try:
-        from database.db import get_family_wallet
-        fam_bal = await get_family_wallet(chat_id, uid)
+        from database.db import get_total_family_balance
+        fam_bal, _, _ = await get_total_family_balance(chat_id, uid)
     except Exception:
         fam_bal = 0
 
@@ -488,8 +488,8 @@ async def cmd_buy_bonds_mora(message: Message, cmd_args: str):
     mora = await get_mora(uid, chat_id)
     pers_bal = (mora["balance"] or 0) if mora else 0
     try:
-        from database.db import get_family_wallet
-        fam_bal = await get_family_wallet(chat_id, uid)
+        from database.db import get_total_family_balance
+        fam_bal, _, _ = await get_total_family_balance(chat_id, uid)
     except Exception:
         fam_bal = 0
 
