@@ -321,7 +321,8 @@ const tg = window.Telegram && window.Telegram.WebApp;
 if(tg){tg.ready();tg.expand();}
 
 const BASE = '';
-let initData = tg ? tg.initData : '';
+const qp = new URLSearchParams(window.location.search);
+let initData = (tg && tg.initData) || qp.get('tgWebAppData') || qp.get('initData') || '';
 let chatId = 0;
 let uid = 0;
 let profileData = null;
@@ -339,7 +340,11 @@ function toast(msg, type='', dur=3000){
 }
 
 async function api(url, method='GET', body=null){
-  const opts = {method, headers:{'Content-Type':'application/json','X-Init-Data':initData}};
+  const opts = {method, headers:{
+    'Content-Type':'application/json',
+    'X-Init-Data': initData,
+    'X-Telegram-Init-Data': initData,
+  }};
   if(body) opts.body = JSON.stringify(body);
   const r = await fetch(BASE+url, opts);
   const j = await r.json();

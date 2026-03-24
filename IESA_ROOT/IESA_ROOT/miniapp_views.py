@@ -74,9 +74,19 @@ def miniapp_index(request):
 def _cors_headers():
     return {
         "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Headers": "X-Telegram-Init-Data, Content-Type",
+        "Access-Control-Allow-Headers": "X-Telegram-Init-Data, X-Init-Data, Content-Type",
         "Cache-Control": "no-cache",
     }
+
+
+def _get_init_data(request) -> str:
+    """Return initData from supported headers (and URL fallback for webview edge cases)."""
+    return (
+        request.headers.get("X-Telegram-Init-Data", "")
+        or request.headers.get("X-Init-Data", "")
+        or request.GET.get("initData", "")
+        or request.GET.get("tgWebAppData", "")
+    ).strip()
 
 
 @csrf_exempt
@@ -96,7 +106,7 @@ def miniapp_user_data(request):
         return JsonResponse({"error": "method not allowed"}, status=405, headers=headers)
 
     # ── Auth: validate initData from header ─────────────────────────────
-    init_data = request.headers.get("X-Telegram-Init-Data", "").strip()
+    init_data = _get_init_data(request)
     uid: int | None = None
 
     if init_data:
@@ -106,7 +116,7 @@ def miniapp_user_data(request):
     else:
         # Dev fallback: plain user_id param (only allowed if bot token not set)
         if _BOT_TOKEN:
-            return JsonResponse({"error": "X-Telegram-Init-Data header required"}, status=401, headers=headers)
+            return JsonResponse({"error": "initData required"}, status=401, headers=headers)
         uid_str = request.GET.get("user_id", "")
         if not uid_str.isdigit():
             return JsonResponse({"error": "missing or invalid user_id"}, status=400, headers=headers)
@@ -363,7 +373,7 @@ def miniapp_leaderboard(request):
 
         # Check if requesting user is in top 20
         uid_lb = None
-        init_data_lb = request.headers.get("X-Telegram-Init-Data", "").strip()
+        init_data_lb = _get_init_data(request)
         if init_data_lb:
             uid_lb = _validate_init_data(init_data_lb)
 
@@ -437,7 +447,7 @@ def miniapp_checkin(request):
         return JsonResponse({"error": "method not allowed"}, status=405, headers=headers)
 
     # Auth
-    init_data = request.headers.get("X-Telegram-Init-Data", "").strip()
+    init_data = _get_init_data(request)
     uid: int | None = None
     if init_data:
         uid = _validate_init_data(init_data)
@@ -445,7 +455,7 @@ def miniapp_checkin(request):
             return JsonResponse({"error": "invalid initData"}, status=401, headers=headers)
     else:
         if _BOT_TOKEN:
-            return JsonResponse({"error": "X-Telegram-Init-Data required"}, status=401, headers=headers)
+            return JsonResponse({"error": "initData required"}, status=401, headers=headers)
         uid_str = request.GET.get("user_id", "")
         if not uid_str.isdigit():
             return JsonResponse({"error": "missing user_id"}, status=400, headers=headers)
@@ -584,14 +594,14 @@ def miniapp_boss_damage(request):
     if request.method != "POST":
         return JsonResponse({"error": "POST required"}, status=405, headers=headers)
 
-    init_data = request.headers.get("X-Telegram-Init-Data", "").strip()
+    init_data = _get_init_data(request)
     uid: int | None = None
     if init_data:
         uid = _validate_init_data(init_data)
         if uid is None:
             return JsonResponse({"error": "invalid initData"}, status=401, headers=headers)
     else:
-        return JsonResponse({"error": "X-Telegram-Init-Data required"}, status=401, headers=headers)
+        return JsonResponse({"error": "initData required"}, status=401, headers=headers)
 
     try:
         body = json.loads(request.body)
@@ -679,10 +689,10 @@ _DEVELOPER_ID = 1460945748
 
 def _require_auth(request, headers):
     """Validate initData. Returns uid (int) on success or a JsonResponse error."""
-    init_data = request.headers.get("X-Telegram-Init-Data", "").strip()
+    init_data = _get_init_data(request)
     if not init_data:
         if _BOT_TOKEN:
-            return None, JsonResponse({"error": "X-Telegram-Init-Data required"}, status=401, headers=headers)
+            return None, JsonResponse({"error": "initData required"}, status=401, headers=headers)
         uid_str = request.GET.get("user_id", "") if request.method == "GET" else ""
         if uid_str.isdigit():
             return int(uid_str), None
@@ -892,10 +902,10 @@ def miniapp_equip(request):
     if request.method != "POST":
         return JsonResponse({"error": "POST required"}, status=405, headers=headers)
 
-    init_data = request.headers.get("X-Telegram-Init-Data", "").strip()
+    init_data = _get_init_data(request)
     uid = _validate_init_data(init_data) if init_data else None
     if uid is None:
-        return JsonResponse({"error": "X-Telegram-Init-Data required"}, status=401, headers=headers)
+        return JsonResponse({"error": "initData required"}, status=401, headers=headers)
 
     try:
         body = json.loads(request.body)
@@ -1028,7 +1038,7 @@ def miniapp_dev_setbalance(request):
     if request.method != "POST":
         return JsonResponse({"error": "POST required"}, status=405, headers=headers)
 
-    init_data = request.headers.get("X-Telegram-Init-Data", "").strip()
+    init_data = _get_init_data(request)
     uid = _validate_init_data(init_data) if init_data else None
     if uid != _DEVELOPER_ID:
         return JsonResponse({"error": "forbidden"}, status=403, headers=headers)
