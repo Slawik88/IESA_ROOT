@@ -441,12 +441,22 @@ async def _task_expedition_notifications(bot) -> None:
 
 # ─── Обновление цен облигаций каждые 6 часов ─────────────────────────────────
 
+_bond_price_last_update: "datetime | None" = None
+_BOND_UPDATE_INTERVAL_HOURS = 6
+
+
 async def _task_bond_price_update(bot) -> None:
-    """Обновляет цены облигаций для всех чатов раз в 6 часов."""
+    """Обновляет цены облигаций для всех чатов раз в 6 часов.
+    Использует внутренний таймер вместо жёсткой привязки к UTC-часу,
+    чтобы не пропускать обновления после перезапуска бота."""
+    global _bond_price_last_update
     now = datetime.utcnow()
-    # Запускаем только в часы кратные 6 (0, 6, 12, 18 UTC)
-    if now.hour % 6 != 0:
-        return
+
+    # Пропускаем, если прошло меньше 6 часов с последнего обновления
+    if _bond_price_last_update is not None:
+        elapsed = (now - _bond_price_last_update).total_seconds()
+        if elapsed < _BOND_UPDATE_INTERVAL_HOURS * 3600:
+            return
 
     from database.db import update_bond_prices
     import aiosqlite
@@ -459,6 +469,8 @@ async def _task_bond_price_update(bot) -> None:
             rows = await c.fetchall()
 
     chat_ids = [r["chat_id"] for r in rows]
+    _bond_price_last_update = now  # обновляем метку времени до цикла, чтобы не было двойного запуска
+
     for chat_id in chat_ids:
         try:
             await update_bond_prices(chat_id)
@@ -467,6 +479,8 @@ async def _task_bond_price_update(bot) -> None:
 
     if chat_ids:
         log.info("Bond prices updated for %d chats at %s UTC", len(chat_ids), now.strftime("%H:%M"))
+    else:
+        log.info("Bond price update: no chats in chat_settings yet")
 
 
 # ─── Пятница 20:00 Zurich — Дилижанс ─────────────────────────────────────────

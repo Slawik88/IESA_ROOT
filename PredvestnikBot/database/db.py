@@ -4800,52 +4800,92 @@ async def enhance_item(user_id: int, chat_id: int, item_id: int) -> tuple[bool, 
         current_level = item[1] or 0
         if current_level >= 20:
             return False, "Максимальный уровень заточки (20)", current_level
-        
-        # Enhancement cost grows geometrically [РЕБАЛАНС: снижена цена и уменьшена экспонента]
-        base_cost = 80  # было 100
-        cost = int(base_cost * (1.3 ** current_level))  # было 1.5
-        
+
+        # Стоимость растёт геометрически
+        base_cost = 80
+        cost = int(base_cost * (1.3 ** current_level))
+
         # Check mora balance
         async with db.execute(
-            "SELECT balance FROM user_mora WHERE user_id=? AND chat_id=?", 
+            "SELECT balance FROM user_mora WHERE user_id=? AND chat_id=?",
             (user_id, chat_id)
         ) as c:
             balance_row = await c.fetchone()
-        
+
         balance = balance_row[0] if balance_row else 0
         if balance < cost:
             return False, f"Недостаточно Моры ({balance}/{cost} 🪙)", current_level
-        
-        # Calculate success chance [РЕБАЛАНС: провал с +7 (было +5), меньше штраф за уровень]
-        if current_level < 7:  # было 5
-            success_rate = 1.0
+
+        # ─── НОВАЯ ЛОГИКА ЗАТОЧКИ ─────────────────────────────────────────
+        # До +5 включительно: ВСЕГДА успешно (100%)
+        # После +5: может не пройти (остаться на уровне) или с малым шансом упасть
+        #
+        # Таблица при current_level < 5 (будет +1 100%)
+        # +5  → 85% успех, 12% нейтрально, 3% понижение
+        # +6  → 80% успех, 14% нейтрально, 6% понижение
+        # +7  → 70% успех, 18% нейтрально, 12% понижение
+        # +8  → 60% успех, 22% нейтрально, 18% понижение
+        # +9  → 50% успех, 25% нейтрально, 25% понижение
+        # +10 → 40% успех, 30% нейтрально, 30% понижение
+        # +11–20 → 30% успех, 40% нейтрально, 30% понижение
+
+        if current_level < 5:
+            success_pct = 100
+            neutral_pct = 0
+            fail_pct = 0
+        elif current_level == 5:
+            success_pct, neutral_pct, fail_pct = 85, 12, 3
+        elif current_level == 6:
+            success_pct, neutral_pct, fail_pct = 80, 14, 6
+        elif current_level == 7:
+            success_pct, neutral_pct, fail_pct = 70, 18, 12
+        elif current_level == 8:
+            success_pct, neutral_pct, fail_pct = 60, 22, 18
+        elif current_level == 9:
+            success_pct, neutral_pct, fail_pct = 50, 25, 25
+        elif current_level == 10:
+            success_pct, neutral_pct, fail_pct = 40, 30, 30
         else:
-            success_rate = max(0.3, 1.0 - (current_level - 6) * 0.08)  # было: (current_level - 4) * 0.1
-        
-        # Deduct mora regardless of outcome
+            success_pct, neutral_pct, fail_pct = 30, 40, 30
+
+        # Деduct мору всегда
         await db.execute(
             "UPDATE user_mora SET balance = balance - ? WHERE user_id=? AND chat_id=?",
             (cost, user_id, chat_id)
         )
-        
-        if random.random() <= success_rate:
-            # Success - level up
+
+        roll = random.randint(1, 100)
+        if roll <= success_pct:
+            # ✅ Успех — +1 уровень
             new_level = current_level + 1
             await db.execute(
                 "UPDATE gacha_inventory SET enhancement_level=? WHERE id=?",
                 (new_level, item_id)
             )
             await db.commit()
-            return True, f"✨ Заточка успешна! {item[6]} +{new_level}", new_level
+            return True, (
+                f"✨ Заточка успешна! {item[6]} → <b>+{new_level}</b>\n"
+                f"Шанс успеха был: {success_pct}%"
+            ), new_level
+        elif roll <= success_pct + neutral_pct:
+            # ⚡ Нейтрально — уровень не меняется
+            await db.commit()
+            return False, (
+                f"⚡ Заточка не прошла! {item[6]} остался <b>+{current_level}</b>\n"
+                f"Предмет цел. Шанс успеха был: {success_pct}%"
+            ), current_level
         else:
-            # Failure - level down (but not below 0)
+            # 💔 Неудача — уровень понижается на 1 (но не ниже 0), предмет НЕ ломается
             new_level = max(0, current_level - 1)
             await db.execute(
-                "UPDATE gacha_inventory SET enhancement_level=? WHERE id=?", 
+                "UPDATE gacha_inventory SET enhancement_level=? WHERE id=?",
                 (new_level, item_id)
             )
             await db.commit()
-            return False, f"💔 Заточка неудачна! {item[6]} +{new_level} (уровень упал)", new_level
+            return False, (
+                f"💔 Неудача! {item[6]}: +{current_level} → <b>+{new_level}</b>\n"
+                f"Предмет цел. Шанс успеха был: {success_pct}%"
+            ), new_level
 
 
 async def get_active_buffs(user_id: int, chat_id: int) -> list[dict]:
@@ -4868,6 +4908,14 @@ async def get_active_buffs(user_id: int, chat_id: int) -> list[dict]:
         await db.commit()
     
     return [dict(r) for r in rows]
+
+
+async def get_user_name(user_id: int) -> str | None:
+    """Get user's full name from database."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        async with db.execute("SELECT full_name FROM users WHERE user_id=?", (user_id,)) as c:
+            row = await c.fetchone()
+        return row[0] if row else None
 
 
 async def consume_potion(user_id: int, chat_id: int, item_id: int) -> tuple[bool, str]:

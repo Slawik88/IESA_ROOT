@@ -788,6 +788,18 @@ async function loadProfile(){
     document.getElementById('profileContent').style.display='block';
     document.getElementById('profileName').textContent = p.name || 'Игрок';
     document.getElementById('profileTitle').textContent = '';
+    
+    // ➕ НОВАЯ ФУНКЦИЯ: Отображаем аватарку из Telegram
+    const avatarDiv = document.getElementById('profileAvatar');
+    if (p.avatar_url) {
+      // Показываем аватарку из Telegram
+      avatarDiv.innerHTML = `<img src="${p.avatar_url}" style="width:52px;height:52px;border-radius:50%;object-fit:cover;" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">`;
+      avatarDiv.innerHTML += '<div style="width:52px;height:52px;border-radius:50%;background:var(--bg3);border:2px solid var(--accent);display:none;align-items:center;justify-content:center;font-size:24px">👤</div>';
+    } else {
+      // Дефолтный человечек если аватарка не загрузилась
+      avatarDiv.innerHTML = '<div style="width:52px;height:52px;border-radius:50%;background:var(--bg3);border:2px solid var(--accent);display:flex;align-items:center;justify-content:center;font-size:24px">👤</div>';
+    }
+    
     document.getElementById('pLevel').textContent = p.level || 1;
     document.getElementById('pMora').textContent = (p.balance||0) + ' 🪙';
     document.getElementById('pRank').textContent = '—';
@@ -1961,19 +1973,32 @@ function canSelectItem(item) {
   return !item.equipped && (item.key.startsWith('junk_') || item.sell_price > 0);
 }
 
+// Таблица шансов заточки — должна совпадать с бэкендом
+function getEnhanceChances(level) {
+  if (level < 5)  return { success: 100, neutral: 0,  fail: 0  };
+  if (level === 5) return { success: 85,  neutral: 12, fail: 3  };
+  if (level === 6) return { success: 80,  neutral: 14, fail: 6  };
+  if (level === 7) return { success: 70,  neutral: 18, fail: 12 };
+  if (level === 8) return { success: 60,  neutral: 22, fail: 18 };
+  if (level === 9) return { success: 50,  neutral: 25, fail: 25 };
+  if (level === 10) return { success: 40, neutral: 30, fail: 30 };
+  return { success: 30, neutral: 40, fail: 30 };
+}
+
 function getEnhancementInfo(item) {
   const level = item.enhancement_level || 0;
-  const cost = Math.floor(100 * Math.pow(1.5, level));
-  let successRate = 100;
-  if (level >= 5) {
-    successRate = Math.max(30, 100 - (level - 4) * 10);
-  }
+  if (level >= 20) return `<div class="enhance-cost" style="color:var(--gold);font-weight:700">⭐ МАКС. УРОВЕНЬ +20</div>`;
+  const cost = Math.floor(80 * Math.pow(1.3, level));
+  const ch = getEnhanceChances(level);
 
-  return `<div class="enhance-cost">
-    Заточка: ${cost} 🪙
-    <span class="">
-      (${successRate}%)
-    </span>
+  const successColor = ch.success >= 70 ? 'var(--green)' : ch.success >= 40 ? 'var(--gold)' : 'var(--red)';
+
+  return `<div class="enhance-cost" style="margin-top:4px">
+    <span style="font-size:11px">⚡ +${level}→+${level+1}: </span>
+    <span style="color:${successColor};font-weight:700">${ch.success}% ✅</span>
+    ${ch.neutral > 0 ? `<span style="color:var(--text2)"> ${ch.neutral}% ⚡</span>` : ''}
+    ${ch.fail > 0 ? `<span style="color:var(--red)"> ${ch.fail}% 💔</span>` : ''}
+    <span style="color:var(--text2);margin-left:4px">· ${cost} 🪙</span>
   </div>`;
 }
 
@@ -2043,19 +2068,30 @@ async function enhanceItem(itemId) {
   if (!item) return;
 
   const level = item.enhancement_level || 0;
-  const cost = Math.floor(100 * Math.pow(1.5, level));
-  const successRate = level >= 5 ? Math.max(30, 100 - (level - 4) * 10) : 100;
+  if (level >= 20) { toast('⭐ Максимальный уровень заточки!', 'info'); return; }
 
-  const confirmed = confirm(`Заточить ${item.name} до +${level+1}?\n\nСтоимость: ${cost} 🪙\nШанс успеха: ${successRate}%\n\nПри неудаче с +5 предмет может сломаться!`);
+  const cost = Math.floor(80 * Math.pow(1.3, level));
+  const ch = getEnhanceChances(level);
+
+  let chanceText = `✅ ${ch.success}% — успех (+1)`;
+  if (ch.neutral > 0) chanceText += `\n⚡ ${ch.neutral}% — нейтрально (уровень не меняется)`;
+  if (ch.fail > 0)    chanceText += `\n💔 ${ch.fail}% — понижение (−1, предмет цел)`;
+
+  const confirmed = confirm(
+    `⚡ Заточить ${item.name} до +${level+1}?\n\n`+
+    `Стоимость: ${cost} 🪙\n\n`+
+    `${chanceText}\n\n`+
+    `Предметы никогда не уничтожаются.`
+  );
   if (!confirmed) return;
 
   try {
     const r = await api('/api/enhance', 'POST', {chat_id: chatId, item_id: itemId});
 
     if (r.success) {
-      toast(`✅ Заточка успешна! Уровень +${r.enhancement_level}`, 'success');
+      toast(`✨ Заточка успешна! ${item.name} → +${r.enhancement_level}`, 'success');
     } else {
-      toast(`❌ Заточка неуспешна! ${r.message}`, 'error');
+      toast(`⚡ ${r.message || 'Заточка не прошла'}`, 'info');
     }
 
     // Update balance
