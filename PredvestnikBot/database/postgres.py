@@ -3,14 +3,22 @@
 Совместимость с aiosqlite API: поддерживает и await, и async with db.execute()
 """
 
+import asyncio
 import re
+import threading
 import asyncpg
 from datetime import datetime
 from typing import Any, List, Dict
 from config import DATABASE_PATH
 
 
-_pg_pool = None
+# ─── Per-event-loop pool registry ────────────────────────────────────────────
+# Each asyncio event loop (bot loop, Daphne/Django ASGI loop, etc.) gets its
+# own dedicated connection pool so that asyncpg sockets are never shared across
+# loops ("attached to a different loop" crash).
+_pg_pools: dict[int, asyncpg.Pool] = {}
+_pg_pool_locks: dict[int, asyncio.Lock] = {}
+_pg_meta_lock = threading.Lock()   # protects the dicts themselves
 
 def _maybe_datetime(val):
     """Convert ISO datetime strings to datetime objects for asyncpg TIMESTAMPTZ columns.
@@ -27,23 +35,56 @@ def _maybe_datetime(val):
         return val
 
 
-async def get_pg_pool():
-    global _pg_pool
-    if _pg_pool is None:
-        if not DATABASE_PATH.startswith(('postgresql://', 'postgres://')):
-            raise RuntimeError(f"DATABASE_PATH должен быть PostgreSQL DSN, получен: {DATABASE_PATH}")
-        _pg_pool = await asyncpg.create_pool(
-            DATABASE_PATH, min_size=2, max_size=20,
-            server_settings={'application_name': 'PredvestnikBot', 'timezone': 'UTC'}
-        )
-    return _pg_pool
+async def get_pg_pool() -> asyncpg.Pool:
+    """Return the asyncpg pool bound to the currently running event loop.
+
+    Creates a fresh pool on first call per loop so that the bot's pool and
+    the Django/Daphne ASGI pool are always separate objects living on their
+    own loops — preventing "attached to a different loop" errors.
+    """
+    loop = asyncio.get_running_loop()
+    loop_id = id(loop)
+
+    # Fast path — pool already initialised for this loop
+    if loop_id in _pg_pools:
+        return _pg_pools[loop_id]
+
+    # Ensure a per-loop asyncio.Lock exists (thread-safe dict update)
+    with _pg_meta_lock:
+        if loop_id not in _pg_pool_locks:
+            _pg_pool_locks[loop_id] = asyncio.Lock()
+
+    # Slow path — create pool (coroutine-safe within THIS loop via asyncio.Lock)
+    async with _pg_pool_locks[loop_id]:
+        if loop_id not in _pg_pools:
+            if not DATABASE_PATH.startswith(('postgresql://', 'postgres://')):
+                raise RuntimeError(
+                    f"DATABASE_PATH должен быть PostgreSQL DSN, получен: {DATABASE_PATH}"
+                )
+            pool = await asyncpg.create_pool(
+                DATABASE_PATH,
+                min_size=2,
+                max_size=20,
+                server_settings={
+                    'application_name': 'PredvestnikBot',
+                    'timezone': 'UTC',
+                    'client_encoding': 'UTF8',
+                },
+            )
+            _pg_pools[loop_id] = pool
+
+    return _pg_pools[loop_id]
 
 
 async def close_pg_pool():
-    global _pg_pool
-    if _pg_pool:
-        await _pg_pool.close()
-        _pg_pool = None
+    """Close the pool bound to the currently running event loop."""
+    loop = asyncio.get_running_loop()
+    loop_id = id(loop)
+    pool = _pg_pools.pop(loop_id, None)
+    if pool:
+        await pool.close()
+    with _pg_meta_lock:
+        _pg_pool_locks.pop(loop_id, None)
 
 
 def _convert_placeholders(sql, params):
