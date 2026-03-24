@@ -967,6 +967,7 @@ async def init_db():
     # ═══════════════════════════════════════════════════════════════════════════════
     
     _timestamptz_migrations = [
+        # Round 1 (original)
         ("users",               "first_seen"),
         ("user_stats",          "first_active"),
         ("user_stats",          "last_active"),
@@ -982,6 +983,19 @@ async def init_db():
         ("mora_loans",          "repaid_at"),
         ("pets",                "last_walked"),
         ("pets",                "walk_end_at"),
+        # Round 2 — global audit: every table where datetime is passed as query param
+        ("rest_users",          "added_at"),
+        ("user_achievements",   "earned_at"),
+        ("rep_log",             "given_at"),
+        ("community_roles",     "created_at"),
+        ("leave_log",           "left_at"),
+        ("user_banlist",        "added_at"),
+        ("pending_roles",       "reserved_at"),
+        ("chest_events",        "started_at"),
+        ("chest_events",        "expires_at"),
+        ("chest_event_clicks",  "clicked_at"),
+        ("espionage_log",       "attempted_at"),
+        ("active_buffs",        "expires_at"),
     ]
     
     for table, column in _timestamptz_migrations:

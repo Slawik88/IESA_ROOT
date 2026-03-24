@@ -132,13 +132,33 @@ async def main():
     # Mini App веб-сервер (aiohttp)
     asyncio.create_task(_run_webserver(bot))
 
-    # Если задан webhook URL — работаем в webhook-режиме (продакшн).
-    # Поллинг не запускаем, чтобы не было TelegramConflictError.
-    _webhook_url = os.getenv("BOT_WEBHOOK_URL") or os.getenv("WEBHOOK_URL", "")
-    if _webhook_url:
-        logging.info("Webhook mode active (%s) — polling disabled.", _webhook_url)
+    # ─────────────────────────────────────────────────────────────────────────
+    # WEBHOOK vs POLLING GUARD — двухуровневая защита от TelegramConflictError
+    #
+    # Уровень 1: env-переменная (быстро, без сети)
+    # Уровень 2: Telegram API — если у бота зарегистрирован webhook, поллинг
+    #            КАТЕГОРИЧЕСКИ запрещён независимо от env-переменных.
+    # ─────────────────────────────────────────────────────────────────────────
+    _webhook_url = (
+        os.getenv("BOT_WEBHOOK_URL") or
+        os.getenv("WEBHOOK_URL") or
+        ""
+    ).strip()
+
+    # Уровень 2: спросить Telegram, есть ли активный webhook
+    _registered_webhook = ""
+    try:
+        _whi = await bot.get_webhook_info()
+        _registered_webhook = (_whi.url or "").strip()
+    except Exception as _whi_exc:
+        logging.warning("Could not fetch webhook info from Telegram: %s", _whi_exc)
+
+    _use_webhook = bool(_webhook_url or _registered_webhook)
+
+    if _use_webhook:
+        active = _webhook_url or _registered_webhook
+        logging.info("⛔ POLLING DISABLED — webhook mode active: %s", active)
         try:
-            # Держим процесс живым (планировщик работает в фоне)
             await asyncio.Event().wait()
         finally:
             try:
@@ -147,8 +167,8 @@ async def main():
                 await bot.session.close()
         return
 
-    # Polling-режим (локальная разработка / окружение без webhook).
-    # Удаляем вебхук перед поллингом — предотвращает ConflictError.
+    # ── Polling-режим (только локальная разработка без webhook) ───────────────
+    logging.info("📡 No webhook registered — starting polling mode (local dev only).")
     try:
         await bot.delete_webhook(drop_pending_updates=True)
     except Exception as _wh_exc:
