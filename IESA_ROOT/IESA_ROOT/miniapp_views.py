@@ -2506,7 +2506,8 @@ def miniapp_gacha_roll(request):
         for item in results:
             rarity_emoji = {"common": "⚪", "uncommon": "🟢", "rare": "🔵", "epic": "🟣", "legendary": "🟡"}
             emoji = rarity_emoji.get(item["rarity"], "⚪")
-            loot_text += f"\\n{emoji} {item['name']}"
+            loot_text += f"
+{emoji} {item['name']}"
         
         roll_type = f"{count}x крутка" if count > 1 else "Одиночная крутка"
         from asgiref.sync import async_to_sync as _a2s
@@ -3938,7 +3939,8 @@ async def log_action_to_chat(user_id: int, chat_id: int, action: str, details: s
         # Формируем сообщение
         message = f"🎮 <b>{user_name}</b> выполнил: {action}"
         if details:
-            message += f"\\n{details}"
+            message += f"
+{details}"
         
         # Отправляем в чат
         url = f"https://api.telegram.org/bot{_BOT_TOKEN}/sendMessage"
