@@ -27,17 +27,17 @@ _CONFIG = {
         'refill_rate': 1.0,  # 1 token per second (~60 per minute)
     },
     'command': {
-        'capacity': 10,
-        'refill_rate': 0.2,  # 0.2 tokens per second (~12 per minute)
+        'capacity': 8,
+        'refill_rate': 2.0,  # commands are independent from normal chatter
     },
     'action': {
         'capacity': 5,
-        'refill_rate': 0.1,  # 0.1 tokens per second (~6 per minute)
+        'refill_rate': 1.0,
     },
 }
 
 
-def check_spam(user_id: int, chat_id: int, event_type: str = 'message') -> bool:
+def _check_spam_impl(user_id: int, chat_id: int, event_type: str = 'message') -> bool:
     """
     Check if user should be blocked. Uses Token Bucket algorithm.
     
@@ -114,8 +114,7 @@ def _tick_cleanup() -> None:
     if _call_count % 10000 == 0:
         _maybe_cleanup()
 
-check_spam.__wrapped__ = check_spam
-_orig_check_spam = check_spam
+
 def check_spam(user_id: int, chat_id: int, event_type: str = 'message') -> bool:
     _tick_cleanup()
-    return _orig_check_spam(user_id, chat_id, event_type)
+    return _check_spam_impl(user_id, chat_id, event_type)

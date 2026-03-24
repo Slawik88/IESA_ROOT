@@ -3268,36 +3268,45 @@ async def get_top_by_messages_in_chat(
     If *pending* is provided (a snapshot from services.message_buffer.get_all_pending()),
     unsaved in-memory counts are merged before sorting so the top is always up-to-date.
     """
+    pending_for_chat = {
+        uid: delta
+        for (uid, cid), delta in (pending or {}).items()
+        if cid == chat_id and delta > 0
+    }
+
     async with postgres_connect() as db:
+        if not pending_for_chat:
+            async with db.execute(
+                """SELECT us.*, u.full_name, u.username
+                   FROM user_stats us
+                   JOIN users u ON u.user_id = us.user_id
+                   WHERE us.chat_id = ? AND us.is_banned = 0 AND us.message_count >= 1
+                   ORDER BY us.message_count DESC LIMIT ?""",
+                (chat_id, limit),
+            ) as c:
+                return await c.fetchall()
+
+        pending_user_ids = list(pending_for_chat.keys())
+        placeholders = ", ".join("?" for _ in pending_user_ids)
         async with db.execute(
-            """SELECT us.*, u.full_name, u.username
-               FROM user_stats us
-               JOIN users u ON u.user_id = us.user_id
-               WHERE us.chat_id = ? AND us.is_banned = 0 AND us.message_count >= 1
-               ORDER BY us.message_count DESC LIMIT ?""",
-            (chat_id, limit),
+            f"""SELECT us.*, u.full_name, u.username
+                  FROM user_stats us
+                  JOIN users u ON u.user_id = us.user_id
+                  WHERE us.chat_id = ? AND us.is_banned = 0
+                    AND (us.message_count >= 1 OR us.user_id IN ({placeholders}))""",
+            (chat_id, *pending_user_ids),
         ) as c:
             rows = await c.fetchall()
 
-    if not pending:
-        return rows
-
-    # Merge pending counts into the result set (Smart Top)
-    # Build a mutable dict for fast lookup: user_id → mutable copy
-    mutable: dict[int, dict] = {}
-    for row in rows:
-        uid = row["user_id"]
-        mutable[uid] = dict(row)
-
-    for (uid, cid), delta in pending.items():
-        if cid != chat_id or delta <= 0:
+    mutable: dict[int, dict] = {row["user_id"]: dict(row) for row in rows}
+    for uid, delta in pending_for_chat.items():
+        row = mutable.get(uid)
+        if not row:
             continue
-        if uid in mutable:
-            mutable[uid]["message_count"] = (mutable[uid]["message_count"] or 0) + delta
-        # Users not in rows yet (count was 0) are ignored — they'll appear after the
-        # next flush once the DB row exists.
+        row["message_count"] = (row.get("message_count") or 0) + delta
 
-    merged = sorted(mutable.values(), key=lambda r: r["message_count"], reverse=True)
+    merged = [row for row in mutable.values() if (row.get("message_count") or 0) >= 1]
+    merged.sort(key=lambda r: ((r.get("message_count") or 0), (r.get("xp") or 0)), reverse=True)
     return merged[:limit]
 
 
