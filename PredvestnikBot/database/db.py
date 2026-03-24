@@ -1130,14 +1130,14 @@ def get_admin_group_ids() -> set[int]:
 # ─── Rest users (отдыхающие — защита от чистки) ──────────────────────────────
 
 async def add_rest_user(user_id: int, chat_id: int, days: int, added_by: int):
-    now_iso = datetime.utcnow().isoformat(timespec="seconds")
+    now = datetime.now(timezone.utc)
     async with postgres_connect() as db:
         await db.execute(
             """INSERT INTO rest_users (user_id, chat_id, days, added_at, added_by)
                VALUES (?, ?, ?, ?, ?)
                ON CONFLICT(user_id, chat_id) DO UPDATE
                SET days = excluded.days, added_at = excluded.added_at, added_by = excluded.added_by""",
-            (user_id, chat_id, days, now_iso, added_by),
+            (user_id, chat_id, days, now, added_by),
         )
         await db.commit()
 
@@ -1174,8 +1174,12 @@ async def is_on_rest(user_id: int, chat_id: int) -> bool:
             row = await c.fetchone()
     if not row:
         return False
-    added = datetime.fromisoformat(row["added_at"])
-    return (datetime.utcnow() - added).days < row["days"]
+    added = row["added_at"]
+    if isinstance(added, str):
+        added = datetime.fromisoformat(added)
+    if added.tzinfo is None:
+        added = added.replace(tzinfo=timezone.utc)
+    return (datetime.now(timezone.utc) - added).days < row["days"]
 
 
 async def get_resting_user_ids(chat_id: int) -> set[int]:
@@ -1187,9 +1191,13 @@ async def get_resting_user_ids(chat_id: int) -> set[int]:
         ) as c:
             rows = await c.fetchall()
     result: set[int] = set()
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     for r in rows:
-        added = datetime.fromisoformat(r["added_at"])
+        added = r["added_at"]
+        if isinstance(added, str):
+            added = datetime.fromisoformat(added)
+        if added.tzinfo is None:
+            added = added.replace(tzinfo=timezone.utc)
         if (now - added).days < r["days"]:
             result.add(r["user_id"])
     return result
@@ -1204,9 +1212,13 @@ async def get_rest_info_map(chat_id: int) -> dict[int, dict]:
         ) as c:
             rows = await c.fetchall()
     result: dict[int, dict] = {}
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     for r in rows:
-        added = datetime.fromisoformat(r["added_at"])
+        added = r["added_at"]
+        if isinstance(added, str):
+            added = datetime.fromisoformat(added)
+        if added.tzinfo is None:
+            added = added.replace(tzinfo=timezone.utc)
         elapsed = (now - added).days
         if elapsed < r["days"]:
             expires = added + timedelta(days=r["days"])
@@ -1241,7 +1253,7 @@ async def get_user_by_username(username: str):
 
 
 async def upsert_user(user_id: int, username: str, full_name: str):
-    now = datetime.utcnow().isoformat()
+    now = datetime.now(timezone.utc)
     async with postgres_connect() as db:
         await db.execute(
             """
@@ -1263,7 +1275,7 @@ async def import_users_bulk(records: list[dict], chat_id: int) -> dict:
       • {username: "@foo", messages/message_count: int}                     → pending (применится при первом сообщении)
     Возвращает {'ok_direct': int, 'ok_pending': int, 'errors': list[str]}
     """
-    now = datetime.utcnow().isoformat()
+    now = datetime.now(timezone.utc)
     ok_direct = 0
     errors: list[str] = []
     pending_records: list[dict] = []
@@ -1685,7 +1697,7 @@ async def get_rep_count_today(from_uid: int, to_uid: int, chat_id: int) -> int:
 
 async def can_give_rep(from_uid: int, to_uid: int, chat_id: int) -> bool:
     """Обратная совместимость: проверяет 2-часовой кулдаун (устарела, используй get_rep_count_today)."""
-    cutoff = (datetime.utcnow() - timedelta(hours=2)).isoformat()
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=2)
     async with postgres_connect() as db:
         async with db.execute(
             "SELECT COUNT(*) FROM rep_log WHERE from_uid=? AND to_uid=? AND chat_id=? AND given_at>?",
@@ -1971,7 +1983,7 @@ async def get_achievements(user_id: int) -> list:
 
 async def award_achievement(user_id: int, badge: str) -> bool:
     """Awards achievement. Returns True if newly awarded."""
-    now = datetime.utcnow().isoformat()
+    now = datetime.now(timezone.utc)
     async with postgres_connect() as db:
         try:
             await db.execute(
@@ -2088,7 +2100,7 @@ async def get_marriage(user_id: int, chat_id: int):
 
 
 async def create_marriage(user_a: int, user_b: int, chat_id: int):
-    now = datetime.utcnow().isoformat()
+    now = datetime.now(timezone.utc)
     async with postgres_connect() as db:
         await db.execute(
             "DELETE FROM marriages WHERE chat_id=? AND (user_id=? OR user_id=?)",
@@ -2210,7 +2222,7 @@ async def upsert_user_stats(user_id: int, chat_id: int):
 
 async def increment_message_count_chat(user_id: int, chat_id: int) -> int:
     """Increment message count and return the new value."""
-    now_iso = datetime.utcnow().isoformat(timespec="seconds")
+    now = datetime.now(timezone.utc)
     async with postgres_connect() as db:
         await db.execute(
             """INSERT INTO user_stats (user_id, chat_id, message_count, first_active, last_active)
@@ -2219,7 +2231,7 @@ async def increment_message_count_chat(user_id: int, chat_id: int) -> int:
                    message_count = user_stats.message_count + 1,
                    first_active = COALESCE(user_stats.first_active, EXCLUDED.first_active),
                    last_active = EXCLUDED.last_active""",
-            (user_id, chat_id, now_iso, now_iso),
+            (user_id, chat_id, now, now),
         )
         await db.commit()
         async with db.execute(
@@ -2520,8 +2532,12 @@ async def get_xp_boost_active(user_id: int, chat_id: int) -> bool:
     if not row or not row["xp_boost_until"]:
         return False
     try:
-        until = datetime.fromisoformat(row["xp_boost_until"])
-        return datetime.utcnow() < until
+        until = row["xp_boost_until"]
+        if isinstance(until, str):
+            until = datetime.fromisoformat(until)
+        if until.tzinfo is None:
+            until = until.replace(tzinfo=timezone.utc)
+        return datetime.now(timezone.utc) < until
     except Exception:
         return False
 
@@ -2563,7 +2579,7 @@ async def set_top_frame(user_id: int, chat_id: int, frame: str | None):
 
 async def create_duel(chat_id: int, challenger_id: int, target_id: int, bet: int, msg_id: int) -> int:
     """Create a pending dice duel. Returns duel id."""
-    now = datetime.utcnow().isoformat()
+    now = datetime.now(timezone.utc)
     async with postgres_connect() as db:
         cursor = await db.execute(
             """INSERT INTO casino_duels (chat_id, challenger_id, target_id, bet, status, msg_id, created_at)
@@ -2594,7 +2610,7 @@ async def set_duel_status(duel_id: int, status: str):
 
 async def cancel_expired_duels():
     """Cancel duels older than 5 minutes that are still pending."""
-    cutoff = (datetime.utcnow() - timedelta(minutes=5)).isoformat()
+    cutoff = datetime.now(timezone.utc) - timedelta(minutes=5)
     async with postgres_connect() as db:
         await db.execute(
             "UPDATE casino_duels SET status='expired' WHERE status='pending' AND created_at < ?",
@@ -2786,8 +2802,7 @@ async def log_family_transaction(
 ) -> None:
     """Записать транзакцию в журнал семейного кошелька.
     action: 'deposit' | 'withdraw' | 'purchase'"""
-    from datetime import timezone
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(timezone.utc)
     async with postgres_connect() as db:
         await db.execute(
             "INSERT INTO family_wallet_log (chat_id, user_id, action, amount, description, created_at) "
@@ -2985,7 +3000,7 @@ async def create_loan(lender_id: int, borrower_id: int, chat_id: int, amount: in
         if lender_bal < amount:
             return False, lender_bal, 0
 
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc)
         new_lender_bal = lender_bal - amount
 
         await db.execute(
@@ -3056,7 +3071,7 @@ async def repay_loan(loan_id: int, borrower_id: int, chat_id: int) -> tuple[bool
         if borrower_bal < amount:
             return False, borrower_bal
 
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc)
         new_borrower_bal = borrower_bal - amount
 
         await db.execute(
@@ -3117,7 +3132,7 @@ async def reset_user_quest(user_id: int, chat_id: int, quest_date: str):
 
 async def add_reputation_in_chat(from_uid: int, to_uid: int, chat_id: int, amount: int = 1) -> int:
     """Add reputation in chat. Returns new rep value."""
-    now = datetime.utcnow().isoformat()
+    now = datetime.now(timezone.utc)
     async with postgres_connect() as db:
         await db.execute(
             "INSERT INTO rep_log (from_uid, to_uid, chat_id, amount, given_at) VALUES (?,?,?,?,?)",
@@ -3291,8 +3306,7 @@ async def get_all_channel_types() -> list[dict]:
 
 async def add_community_role(name: str, emoji: str = "", description: str = "") -> bool:
     """Add a new community role. Returns False if name already exists."""
-    from datetime import datetime
-    now = datetime.utcnow().isoformat()
+    now = datetime.now(timezone.utc)
     async with postgres_connect() as db:
         try:
             await db.execute(
@@ -3460,11 +3474,11 @@ async def force_assign_community_role(user_id: int, role_name: str) -> tuple[str
 
 async def log_voluntary_leave(chat_id: int, user_id: int, full_name: str, username: str) -> None:
     """Log a user who voluntarily left a chat."""
-    now_iso = datetime.utcnow().isoformat(timespec="seconds")
+    now = datetime.now(timezone.utc)
     async with postgres_connect() as db:
         await db.execute(
             "INSERT INTO leave_log (chat_id, user_id, full_name, username, left_at) VALUES (?, ?, ?, ?, ?)",
-            (chat_id, user_id, full_name, username, now_iso),
+            (chat_id, user_id, full_name, username, now),
         )
         await db.commit()
 
@@ -3487,13 +3501,13 @@ async def add_user_to_banlist(
     chat_id: int, user_id: int, added_by: int = 0, reason: str = ""
 ) -> bool:
     """Add a user to the chat banlist. Returns False if already banned."""
-    now_iso = datetime.utcnow().isoformat(timespec="seconds")
+    now = datetime.now(timezone.utc)
     async with postgres_connect() as db:
         try:
             await db.execute(
                 "INSERT INTO user_banlist (chat_id, user_id, added_by, reason, added_at)"
                 " VALUES (?, ?, ?, ?, ?)",
-                (chat_id, user_id, added_by, reason, now_iso),
+                (chat_id, user_id, added_by, reason, now),
             )
             await db.commit()
             return True
@@ -3559,7 +3573,7 @@ async def get_senior_users_in_chat(chat_id: int) -> list[dict]:
 
 async def set_pending_role(user_id: int, role_name: str) -> None:
     """Reserve a role in DM; it becomes active once the user joins the main chat."""
-    now_iso = datetime.utcnow().isoformat(timespec="seconds")
+    now = datetime.now(timezone.utc)
     async with postgres_connect() as db:
         await db.execute(
             """INSERT INTO pending_roles (user_id, role_name, reserved_at)
@@ -3567,7 +3581,7 @@ async def set_pending_role(user_id: int, role_name: str) -> None:
                ON CONFLICT(user_id) DO UPDATE SET
                    role_name   = excluded.role_name,
                    reserved_at = excluded.reserved_at""",
-            (user_id, role_name, now_iso),
+            (user_id, role_name, now),
         )
         await db.commit()
 
@@ -3678,7 +3692,7 @@ async def get_pet(user_id: int, chat_id: int) -> dict | None:
 
 async def adopt_pet(user_id: int, partner_id: int, chat_id: int, pet_type: str) -> None:
     """Создаёт питомца для обоих партнёров."""
-    now = datetime.utcnow().isoformat()
+    now = datetime.now(timezone.utc)
     async with postgres_connect() as db:
         for uid in (user_id, partner_id):
             await db.execute(
@@ -3723,7 +3737,7 @@ async def rename_pet(user_id: int, chat_id: int, name: str) -> bool:
 async def start_expedition(user_id: int, chat_id: int, duration_h: int,
                            reward_min: int, reward_max: int) -> bool:
     """Начать экспедицию. Возвращает False если экспедиция уже идёт."""
-    now = datetime.utcnow().isoformat(timespec="seconds")
+    now = datetime.now(timezone.utc)
     async with postgres_connect() as db:
         async with db.execute(
             "SELECT 1 FROM pet_expeditions WHERE user_id=? AND chat_id=? AND finished=0",
@@ -3756,7 +3770,7 @@ async def get_active_expedition(user_id: int, chat_id: int):
 
 async def get_all_finished_expeditions() -> list:
     """Вернуть все незавершённые экспедиции, время которых истекло."""
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     async with postgres_connect() as db:
         async with db.execute(
             "SELECT * FROM pet_expeditions WHERE finished=0"
@@ -3764,7 +3778,11 @@ async def get_all_finished_expeditions() -> list:
             rows = await c.fetchall()
     result = []
     for r in rows:
-        started = datetime.fromisoformat(r["started_at"])
+        started = r["started_at"]
+        if isinstance(started, str):
+            started = datetime.fromisoformat(started)
+        if started.tzinfo is None:
+            started = started.replace(tzinfo=timezone.utc)
         if now >= started + timedelta(hours=r["duration_h"]):
             result.append(r)
     return result
@@ -3799,7 +3817,7 @@ async def get_gacha_pity(user_id: int, chat_id: int) -> int:
 
 async def add_gacha_item(user_id: int, chat_id: int, item_key: str,
                          item_name: str, rarity: str):
-    now = datetime.utcnow().isoformat(timespec="seconds")
+    now = datetime.now(timezone.utc)
     async with postgres_connect() as db:
         await db.execute(
             """INSERT INTO gacha_inventory (user_id, chat_id, item_key, item_name, rarity, obtained_at)
@@ -3872,14 +3890,13 @@ async def equip_gacha_item(user_id: int, chat_id: int, item_id: int) -> bool:
 async def create_deposit(user_id: int, chat_id: int, amount: int,
                          rate: float, days: int) -> int:
     """Создать вклад. Возвращает id вклада."""
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     matures = now + timedelta(days=days)
     async with postgres_connect() as db:
         cursor = await db.execute(
             """INSERT INTO bank_deposits (user_id, chat_id, amount, rate, created_at, matures_at)
                VALUES (?, ?, ?, ?, ?, ?) RETURNING id""",
-            (user_id, chat_id, amount, rate, now.isoformat(timespec="seconds"),
-             matures.isoformat(timespec="seconds")),
+            (user_id, chat_id, amount, rate, now, matures),
         )
         row = await cursor.fetchone()
         await db.commit()
@@ -3918,7 +3935,7 @@ async def withdraw_deposit(deposit_id: int) -> dict | None:
 async def buy_shop_item(user_id: int, chat_id: int, item_type: str,
                         item_value: str) -> int:
     """Записать покупку товара. Возвращает id."""
-    now = datetime.utcnow().isoformat(timespec="seconds")
+    now = datetime.now(timezone.utc)
     async with postgres_connect() as db:
         cursor = await db.execute(
             """INSERT INTO shop_items (user_id, chat_id, item_type, item_value, purchased_at)
@@ -4015,7 +4032,7 @@ async def set_custom_title_in_chat(user_id: int, chat_id: int, title: str):
 
 async def give_gift(from_user: int, to_user: int, chat_id: int,
                     gift_key: str, gift_name: str, gift_price: int):
-    now = datetime.utcnow().isoformat(timespec="seconds")
+    now = datetime.now(timezone.utc)
     async with postgres_connect() as db:
         await db.execute(
             """INSERT INTO marriage_gifts (from_user, to_user, chat_id, gift_key, gift_name, gift_price, gifted_at)
@@ -4058,20 +4075,20 @@ async def get_received_gifts(user_id: int, chat_id: int) -> list[dict]:
 
 async def add_buff(user_id: int, chat_id: int, buff_type: str,
                    hours: int, source: str = ""):
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     expires = now + timedelta(hours=hours)
     async with postgres_connect() as db:
         await db.execute(
             """INSERT INTO active_buffs (user_id, chat_id, buff_type, expires_at, source)
                VALUES (?, ?, ?, ?, ?)""",
-            (user_id, chat_id, buff_type, expires.isoformat(timespec="seconds"), source),
+            (user_id, chat_id, buff_type, expires, source),
         )
         await db.commit()
 
 
 async def get_active_buffs(user_id: int, chat_id: int) -> list:
     """Вернуть все активные (не истёкшие) баффы."""
-    now = datetime.utcnow().isoformat(timespec="seconds")
+    now = datetime.now(timezone.utc)
     async with postgres_connect() as db:
         async with db.execute(
             "SELECT * FROM active_buffs WHERE user_id=? AND chat_id=? AND expires_at > ?",
@@ -4125,7 +4142,7 @@ async def add_user_theme(user_id: int, chat_id: int, theme_key: str, source: str
     async with postgres_connect() as db:
         await db.execute(
             """INSERT INTO user_themes (user_id, chat_id, theme_key, source, obtained_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT DO NOTHING""",
-            (user_id, chat_id, theme_key, source, datetime.utcnow().isoformat()),
+            (user_id, chat_id, theme_key, source, datetime.now(timezone.utc)),
         )
         await db.commit()
 
@@ -4169,7 +4186,7 @@ async def award_badge(user_id: int, chat_id: int, badge_key: str):
     async with postgres_connect() as db:
         await db.execute(
             """INSERT INTO user_badges (user_id, chat_id, badge_key, obtained_at) VALUES (?, ?, ?, ?) ON CONFLICT DO NOTHING""",
-            (user_id, chat_id, badge_key, datetime.utcnow().isoformat()),
+            (user_id, chat_id, badge_key, datetime.now(timezone.utc)),
         )
         await db.commit()
 
@@ -4195,7 +4212,7 @@ async def set_user_greeting(user_id: int, chat_id: int, template_key: str, sourc
             """INSERT INTO user_greetings (user_id, chat_id, template_key, source, obtained_at)
                VALUES (?, ?, ?, ?, ?)
                ON CONFLICT(user_id, chat_id) DO UPDATE SET template_key=?, source=?""",
-            (user_id, chat_id, template_key, source, datetime.utcnow().isoformat(),
+            (user_id, chat_id, template_key, source, datetime.now(timezone.utc),
              template_key, source),
         )
         await db.commit()
@@ -4230,13 +4247,13 @@ async def mark_greeting_shown(user_id: int, chat_id: int, today_str: str):
 
 async def create_chest_event(chat_id: int, duration_sec: int = 60) -> int:
     """Создать ивент сундука. Возвращает event_id."""
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     expires = now + timedelta(seconds=duration_sec)
     async with postgres_connect() as db:
         cur = await db.execute(
             """INSERT INTO chest_events (chat_id, started_at, expires_at)
                VALUES (?, ?, ?) RETURNING id""",
-            (chat_id, now.isoformat(), expires.isoformat()),
+            (chat_id, now, expires),
         )
         row = await cur.fetchone()
         await db.commit()
@@ -4262,7 +4279,7 @@ async def get_chest_event_winners(event_id: int) -> list:
 
 async def get_expired_unfinished_chest_events() -> list:
     """Вернуть все ивенты с просроченным expires_at и finished=0."""
-    now = datetime.utcnow().isoformat()
+    now = datetime.now(timezone.utc)
     async with postgres_connect() as db:
         async with db.execute(
             "SELECT id, chat_id, message_id FROM chest_events WHERE finished=0 AND expires_at < ?",
@@ -4298,7 +4315,7 @@ async def add_chest_click(event_id: int, user_id: int, position: int, reward: in
             await db.execute(
                 """INSERT INTO chest_event_clicks (event_id, user_id, clicked_at, position, reward)
                    VALUES (?, ?, ?, ?, ?)""",
-                (event_id, user_id, datetime.utcnow().isoformat(), position, reward),
+                (event_id, user_id, datetime.now(timezone.utc), position, reward),
             )
             await db.commit()
             return True
@@ -4350,7 +4367,7 @@ async def increment_tracker(user_id: int, chat_id: int, field: str, amount: int 
 # ─── Шпионаж ──────────────────────────────────────────────────────────────────
 
 async def log_espionage(spy_id: int, target_id: int, chat_id: int, success: bool):
-    now = datetime.utcnow().isoformat()
+    now = datetime.now(timezone.utc)
     async with postgres_connect() as db:
         await db.execute(
             "INSERT INTO espionage_log (spy_id, target_id, chat_id, success, attempted_at) VALUES (?,?,?,?,?)",
@@ -4362,7 +4379,7 @@ async def log_espionage(spy_id: int, target_id: int, chat_id: int, success: bool
 async def get_espionage_cooldown(spy_id: int, target_id: int, chat_id: int) -> int:
     """Сколько секунд осталось до следующей возможности шпионить за target_id. 0 = можно."""
     cooldown_sec = 3600  # 1 час кулдаун на одну пару
-    since = (datetime.utcnow() - timedelta(seconds=cooldown_sec)).isoformat()
+    since = datetime.now(timezone.utc) - timedelta(seconds=cooldown_sec)
     async with postgres_connect() as db:
         async with db.execute(
             "SELECT COUNT(*) FROM espionage_log WHERE spy_id=? AND target_id=? AND chat_id=? AND attempted_at > ?",
@@ -4380,8 +4397,12 @@ async def get_espionage_cooldown(spy_id: int, target_id: int, chat_id: int) -> i
             row = await c.fetchone()
     if not row:
         return 0
-    last = datetime.fromisoformat(row[0])
-    elapsed = (datetime.utcnow() - last).total_seconds()
+    last = row[0]
+    if isinstance(last, str):
+        last = datetime.fromisoformat(last)
+    if last.tzinfo is None:
+        last = last.replace(tzinfo=timezone.utc)
+    elapsed = (datetime.now(timezone.utc) - last).total_seconds()
     remaining = cooldown_sec - int(elapsed)
     return max(0, remaining)
 
@@ -4712,10 +4733,10 @@ async def start_pet_walk_full(user_id: int, chat_id: int) -> dict:
 
         # 3. Обновляем питомца
         new_fatigue = max(0, pet["fatigue"] - WALK_FATIGUE_REDUCTION)
-        walk_end_iso = (now + timedelta(hours=WALK_DURATION_HOURS)).isoformat()
+        walk_end_dt = now + timedelta(hours=WALK_DURATION_HOURS)
         await db.execute(
             "UPDATE pets SET fatigue=?, walk_end_at=? WHERE user_id=? AND chat_id=?",
-            (new_fatigue, walk_end_iso, user_id, chat_id),
+            (new_fatigue, walk_end_dt, user_id, chat_id),
         )
 
         # 4. Начисляем Мору хозяину
@@ -5088,7 +5109,7 @@ async def get_active_buffs(user_id: int, chat_id: int) -> list[dict]:
     
     async with postgres_connect() as db:
         # Clean expired buffs first
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(timezone.utc)
         await db.execute(
             "DELETE FROM active_buffs WHERE expires_at < ?", (now,)
         )
@@ -5144,7 +5165,7 @@ async def consume_potion(user_id: int, chat_id: int, item_id: int) -> tuple[bool
         await db.execute(
             "INSERT INTO active_buffs (user_id, chat_id, buff_type, expires_at, source) "
             "VALUES (?,?,?,?,?)",
-            (user_id, chat_id, potion_data["buff_type"], expires_at.isoformat(), f"potion:{item[0]}")
+            (user_id, chat_id, potion_data["buff_type"], expires_at, f"potion:{item[0]}")
         )
         
         # Remove consumed potion from inventory
