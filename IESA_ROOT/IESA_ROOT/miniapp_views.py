@@ -2833,7 +2833,7 @@ def miniapp_pet_feed(request):
         # ➕ ЛОГИРУЕМ КОРМЕЖКУ ПИТОМЦА В ЧАТ
         from asgiref.sync import async_to_sync as _a2s
         emoji = {"cat": "🐱", "dog": "🐶"}.get(ptype, "🐾")
-        wallet_text = f" из {wallet} кошелька" if wallet == "family" else ""
+        wallet_text = f" из {wallet_type} кошелька" if wallet_type == "family" else ""
         _a2s(log_action_to_chat)(
             uid, chat_id,
             f"{emoji} Покормил питомца {pname or 'Питомец'}",
