@@ -3284,7 +3284,7 @@ def miniapp_public_profile(request):
 
 @csrf_exempt
 def miniapp_enhance_item(request):
-    """POST /api/enhance � enhance an equipped RPG item."""
+    """POST /api/enhance - enhance an equipped RPG item."""
     headers = _cors_headers()
     if request.method == "OPTIONS":
         return HttpResponse("", status=204, headers=headers)
@@ -3341,7 +3341,7 @@ def miniapp_enhance_item(request):
 
 @csrf_exempt  
 def miniapp_consume_potion(request):
-    """POST /api/consume_potion � consume a potion to gain buff."""
+    """POST /api/consume_potion - consume a potion to gain buff."""
     headers = _cors_headers()
     if request.method == "OPTIONS":
         return HttpResponse("", status=204, headers=headers)
@@ -3380,7 +3380,7 @@ def miniapp_consume_potion(request):
 
 @csrf_exempt
 def miniapp_batch_sell(request):
-    """POST /api/batch_sell � sell multiple items at once."""
+    """POST /api/batch_sell - sell multiple items at once."""
     headers = _cors_headers()
     if request.method == "OPTIONS":
         return HttpResponse("", status=204, headers=headers)  
@@ -3436,7 +3436,7 @@ def miniapp_batch_sell(request):
 
 @csrf_exempt
 def miniapp_couple_boss_status(request):
-    """"""GET /api/couple_boss/status?chat_id=X � get couple boss session status.""""""
+    """GET /api/couple_boss/status?chat_id=X - get couple boss session status."""
     headers = _cors_headers()
     if request.method == "OPTIONS":
         return HttpResponse("", status=204, headers=headers)
@@ -3462,7 +3462,7 @@ def miniapp_couple_boss_status(request):
         marriage_row = cur.fetchone()
         if not marriage_row:
             conn.close()
-            return JsonResponse({"error": "� ���� ��� �������� ��� ������ ������"}, status=400, headers=headers)
+            return JsonResponse({"error": "No active marriage found in this chat"}, status=400, headers=headers)
         
         partner_id = marriage_row[0]
         user_a_id = min(uid, partner_id)
@@ -3473,8 +3473,8 @@ def miniapp_couple_boss_status(request):
         import datetime
         today = datetime.datetime.now(timezone.utc).strftime("%Y-%m-%d")
         
-        cur.execute(f""""""SELECT * FROM couple_boss_sessions 
-                     WHERE user_a_id={ph} AND user_b_id={ph} AND chat_id={ph} AND session_date={ph} AND is_completed=0"""""", 
+        cur.execute(f"""SELECT * FROM couple_boss_sessions 
+                     WHERE user_a_id={ph} AND user_b_id={ph} AND chat_id={ph} AND session_date={ph} AND is_completed=0""", 
                      (user_a_id, user_b_id, chat_id, today))
         session = cur.fetchone()
         
@@ -3486,9 +3486,9 @@ def miniapp_couple_boss_status(request):
         
         # Get user names
         cur.execute(f"SELECT full_name FROM users WHERE id={ph}", (uid,))
-        user_name = (cur.fetchone() or ["�����"])[0]
+        user_name = (cur.fetchone() or ["Player"])[0]
         cur.execute(f"SELECT full_name FROM users WHERE id={ph}", (partner_id,))
-        partner_name = (cur.fetchone() or ["�������"])[0]
+        partner_name = (cur.fetchone() or ["Partner"])[0]
         
         conn.close()
         
@@ -3551,7 +3551,7 @@ def miniapp_couple_boss_status(request):
 
 @csrf_exempt
 def miniapp_couple_boss_start(request):
-    """"""POST /api/couple_boss/start � start new couple boss session.""""""
+    """POST /api/couple_boss/start - start new couple boss session."""
     headers = _cors_headers()
     if request.method == "OPTIONS":
         return HttpResponse("", status=204, headers=headers)
@@ -3579,7 +3579,7 @@ def miniapp_couple_boss_start(request):
         marriage_row = cur.fetchone()
         if not marriage_row:
             conn.close()
-            return JsonResponse({"error": "� ���� ��� �������� ��� ������ ������"}, status=400, headers=headers)
+            return JsonResponse({"error": "No active marriage found in this chat"}, status=400, headers=headers)
         
         partner_id = marriage_row[0]
         user_a_id = min(uid, partner_id)
@@ -3590,17 +3590,17 @@ def miniapp_couple_boss_start(request):
         import datetime
         today = datetime.datetime.now(timezone.utc).strftime("%Y-%m-%d")
         
-        cur.execute(f""""""SELECT 1 FROM couple_boss_sessions 
-                     WHERE user_a_id={ph} AND user_b_id={ph} AND chat_id={ph} AND session_date={ph} AND is_completed=0"""""", 
+        cur.execute(f"""SELECT 1 FROM couple_boss_sessions 
+                     WHERE user_a_id={ph} AND user_b_id={ph} AND chat_id={ph} AND session_date={ph} AND is_completed=0""", 
                      (user_a_id, user_b_id, chat_id, today))
         if cur.fetchone():
             conn.close()
-            return JsonResponse({"error": "�������� ������ ��� ����������"}, status=400, headers=headers)
+            return JsonResponse({"error": "Active boss session already exists for today"}, status=400, headers=headers)
         
         # Validate boss level
         if boss_level < 1 or boss_level > 50:  # Reasonable limit
             conn.close()
-            return JsonResponse({"error": "������������ ������� �����"}, status=400, headers=headers)
+            return JsonResponse({"error": "Invalid boss level"}, status=400, headers=headers)
         
         # Check if level is available (can't skip levels)
         cur.execute(f"SELECT max_level FROM couple_boss_progress WHERE user_a_id={ph} AND user_b_id={ph} AND chat_id={ph}", 
@@ -3610,7 +3610,7 @@ def miniapp_couple_boss_start(request):
         
         if boss_level > max_level + 1:
             conn.close()
-            return JsonResponse({"error": f"������� ������ ������� {max_level + 1}"}, status=400, headers=headers)
+            return JsonResponse({"error": f"Can only challenge level {max_level + 1}"}, status=400, headers=headers)
         
         conn.close()
         
@@ -3638,7 +3638,7 @@ def miniapp_couple_boss_start(request):
 
 @csrf_exempt
 def miniapp_couple_boss_attack(request):
-    """"""POST /api/couple_boss/attack � attack couple boss.""""""
+    """POST /api/couple_boss/attack - attack couple boss."""
     headers = _cors_headers()
     if request.method == "OPTIONS":
         return HttpResponse("", status=204, headers=headers)
@@ -3665,7 +3665,7 @@ def miniapp_couple_boss_attack(request):
         marriage_row = cur.fetchone()
         if not marriage_row:
             conn.close()
-            return JsonResponse({"error": "� ���� ��� �������� ��� ������ ������"}, status=400, headers=headers)
+            return JsonResponse({"error": "No active marriage found in this chat"}, status=400, headers=headers)
         
         partner_id = marriage_row[0]
         user_a_id = min(uid, partner_id)
@@ -3676,16 +3676,16 @@ def miniapp_couple_boss_attack(request):
         import datetime
         today = datetime.datetime.now(timezone.utc).strftime("%Y-%m-%d")
         
-        cur.execute(f""""""SELECT * FROM couple_boss_sessions 
-                     WHERE user_a_id={ph} AND user_b_id={ph} AND chat_id={ph} AND session_date={ph} AND is_completed=0"""""", 
+        cur.execute(f"""SELECT * FROM couple_boss_sessions 
+                     WHERE user_a_id={ph} AND user_b_id={ph} AND chat_id={ph} AND session_date={ph} AND is_completed=0""", 
                      (user_a_id, user_b_id, chat_id, today))
         session_row = cur.fetchone()
         if not session_row:
             conn.close()
-            return JsonResponse({"error": "��� �������� ������ ������� �����"}, status=400, headers=headers)
+            return JsonResponse({"error": "No active boss session"}, status=400, headers=headers)
         
         # Get user's combat stats
-        cur.execute(f""""""SELECT 
+        cur.execute(f"""SELECT 
                      COALESCE(SUM(
                          CASE WHEN gi.slot = 'weapon' OR gi.slot = 'armor' THEN 
                              CASE WHEN m.atk IS NOT NULL THEN m.atk + (gi.enhancement_level * COALESCE(m.atk, 0) * 0.1) 
@@ -3707,7 +3707,7 @@ def miniapp_couple_boss_attack(request):
                      COALESCE(SUM(COALESCE(m.crit_rate, 0)), 0) as total_crit
                  FROM gacha_inventory gi
                  LEFT JOIN item_metadata m ON gi.item_key = m.item_key
-                 WHERE gi.user_id={ph} AND gi.chat_id={ph} AND gi.equipped=1"""""", (uid, chat_id))
+                 WHERE gi.user_id={ph} AND gi.chat_id={ph} AND gi.equipped=1""", (uid, chat_id))
         stats_row = cur.fetchone()
         user_stats = {
             "atk": int(stats_row[0]) if stats_row and stats_row[0] else 50,  # Base ATK
@@ -3747,9 +3747,9 @@ def miniapp_couple_boss_attack(request):
         if result["boss_retaliation"]:
             response["boss_retaliation"] = result["boss_retaliation"]
             if result["boss_retaliation"]["target"] == uid:
-                response["retaliation_message"] = f"���� �������� ���� �� {result['boss_retaliation']['damage']} �����!"
+                response["retaliation_message"] = f"Boss attacked you for {result['boss_retaliation']['damage']} HP!"
             else:
-                response["retaliation_message"] = f"���� �������� ������ �������� �� {result['boss_retaliation']['damage']} �����!"
+                response["retaliation_message"] = f"Boss attacked your partner for {result['boss_retaliation']['damage']} HP!"
         
         if result["boss_defeated"]:
             # Calculate rewards
