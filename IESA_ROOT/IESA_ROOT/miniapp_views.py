@@ -747,68 +747,25 @@ def miniapp_boss_damage(request):
         return JsonResponse({"error": "damage out of valid range"}, status=400, headers=headers)
 
     try:
-        conn, db_type = _get_bot_db_connection()
+        from asgiref.sync import async_to_sync
+        from services.boss_service import record_miniapp_damage
+        from services.exceptions import BossLimitError
+
+        result = async_to_sync(record_miniapp_damage)(
+            uid, chat_id, damage,
+            daily_limit=_BOSS_DAILY_DAMAGE_LIMIT,
+            boss_max_hp=_BOSS_MAX_HP,
+        )
+        return JsonResponse({"ok": True, **result}, headers=headers)
+
+    except BossLimitError:
+        return JsonResponse(
+            {"error": "daily damage limit reached", "limit": _BOSS_DAILY_DAMAGE_LIMIT},
+            status=429, headers=headers,
+        )
+    except ValueError as exc:
+        return JsonResponse({"error": str(exc)}, status=400, headers=headers)
     except Exception as exc:
-        return JsonResponse({"error": f"DB: {exc}"}, status=503, headers=headers)
-
-    try:
-        from datetime import datetime as _dt, timezone as _tz
-        today = _dt.now(_tz.utc).strftime("%Y-%m-%d")
-        cur = conn.cursor()
-        ph = "%s" if db_type == "pg" else "?"
-
-        # Anti-cheat: per-user daily damage cap
-        cur.execute(
-            f"SELECT COALESCE(SUM(damage),0) FROM boss_damage_log "
-            f"WHERE user_id={ph} AND chat_id={ph} AND session_date={ph}",
-            (uid, chat_id, today),
-        )
-        today_total = (cur.fetchone() or [0])[0]
-        if today_total + damage > _BOSS_DAILY_DAMAGE_LIMIT:
-            conn.close()
-            return JsonResponse({"error": "daily damage limit reached", "limit": _BOSS_DAILY_DAMAGE_LIMIT},
-                                status=429, headers=headers)
-
-        cur.execute(
-            f"INSERT INTO boss_damage_log (user_id, chat_id, damage, session_date) "
-            f"VALUES ({ph},{ph},{ph},{ph})",
-            (uid, chat_id, damage, today),
-        )
-
-        mora_reward = max(5, damage // 20)
-        if db_type == "pg":
-            cur.execute(
-                f"INSERT INTO user_mora (user_id, chat_id, balance) VALUES ({ph},{ph},{ph}) "
-                f"ON CONFLICT (user_id, chat_id) DO UPDATE SET balance=user_mora.balance+EXCLUDED.balance",
-                (uid, chat_id, mora_reward),
-            )
-        else:
-            cur.execute(
-                "INSERT INTO user_mora (user_id, chat_id, balance) VALUES (?,?,?) "
-                "ON CONFLICT(user_id, chat_id) DO UPDATE SET balance=user_mora.balance+excluded.balance",
-                (uid, chat_id, mora_reward),
-            )
-
-        cur.execute(
-            f"SELECT COALESCE(SUM(damage),0) FROM boss_damage_log WHERE chat_id={ph} AND session_date={ph}",
-            (chat_id, today),
-        )
-        total_chat_damage = (cur.fetchone() or [0])[0]
-        conn.commit()
-        conn.close()
-
-        return JsonResponse({
-            "ok": True,
-            "damage": damage,
-            "mora_earned": mora_reward,
-            "boss_hp_remaining": max(0, _BOSS_MAX_HP - total_chat_damage),
-        }, headers=headers)
-
-    except Exception as exc:
-        try:
-            conn.close()
-        except Exception:
-            pass
         return JsonResponse({"error": str(exc)}, status=500, headers=headers)
 
 
@@ -1026,7 +983,7 @@ def miniapp_bonds(request):
 
 @csrf_exempt
 def miniapp_equip(request):
-    """POST /api/equip — equip a gacha item into a slot."""
+    """POST /api/equip — equip a gacha item into an RPG slot."""
     headers = _cors_headers()
     if request.method == "OPTIONS":
         return HttpResponse("", status=204, headers=headers)
@@ -1050,48 +1007,18 @@ def miniapp_equip(request):
         return JsonResponse({"error": "slot must be weapon/armor/artifact"}, status=400, headers=headers)
 
     try:
-        conn, db_type = _get_bot_db_connection()
-    except Exception as exc:
-        return JsonResponse({"error": f"DB: {exc}"}, status=503, headers=headers)
+        from asgiref.sync import async_to_sync
+        from services.inventory_service import equip_rpg_slot
+        from services.exceptions import ItemNotFoundError
 
-    try:
-        cur = conn.cursor()
-        ph = "%s" if db_type == "pg" else "?"
-        col = {"weapon": "weapon_id", "armor": "armor_id", "artifact": "artifact_id"}[slot]
-
-        # Verify item belongs to user
-        cur.execute(
-            f"SELECT id, item_name, slot FROM gacha_inventory WHERE id={ph} AND user_id={ph} AND chat_id={ph}",
-            (item_id, uid, chat_id),
-        )
-        irow = cur.fetchone()
-        if not irow:
-            conn.close()
-            return JsonResponse({"error": "item not found or not yours"}, status=404, headers=headers)
-        item_name = irow[1]
-
-        # Upsert user_rpg_stats with new equipped slot
-        if db_type == "pg":
-            cur.execute(
-                f"INSERT INTO user_rpg_stats (user_id, chat_id, {col}) VALUES ({ph},{ph},{ph}) "
-                f"ON CONFLICT (user_id, chat_id) DO UPDATE SET {col}=EXCLUDED.{col}",
-                (uid, chat_id, item_id),
-            )
-        else:
-            cur.execute(
-                f"INSERT INTO user_rpg_stats (user_id, chat_id, {col}) VALUES (?,?,?) "
-                f"ON CONFLICT(user_id, chat_id) DO UPDATE SET {col}=excluded.{col}",
-                (uid, chat_id, item_id),
-            )
-        conn.commit()
-        conn.close()
+        item_name = async_to_sync(equip_rpg_slot)(uid, chat_id, item_id, slot)
         return JsonResponse({"ok": True, "equipped": item_name, "slot": slot}, headers=headers)
 
+    except ItemNotFoundError as exc:
+        return JsonResponse({"error": str(exc)}, status=404, headers=headers)
+    except ValueError as exc:
+        return JsonResponse({"error": str(exc)}, status=400, headers=headers)
     except Exception as exc:
-        try:
-            conn.close()
-        except Exception:
-            pass
         return JsonResponse({"error": str(exc)}, status=500, headers=headers)
 
 

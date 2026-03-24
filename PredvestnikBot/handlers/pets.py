@@ -34,8 +34,6 @@ from database.db import (
     get_pet,
     get_user,
     rename_pet,
-    start_pet_walk,
-    start_pet_walk_full,
 )
 from filters.bot_command import BotCommand
 from utils.helpers import format_duration, user_mention
@@ -688,22 +686,23 @@ async def cmd_pet_walk(message: Message, cmd_args: str):
         )
         return
 
-    result = await start_pet_walk_full(uid, chat_id)
-    ok = result["ok"]
-    mins_left = result.get("mins_left", 0)
-    if not ok:
-        if mins_left > 0:
-            h, m = divmod(mins_left, 60)
-            time_str = f"{h} ч {m} мин" if h else f"{m} мин"
-            ptype = pet.get("pet_type", "")
-            emoji = _PET_EMOJI.get(ptype, "🐾")
-            await message.answer(
-                f"{emoji} <b>{html.escape(pet.get('name') or 'Питомец')}</b> уже на прогулке!\n"
-                f"⏳ Вернётся через <b>{time_str}</b>.",
-                parse_mode="HTML",
-            )
-        else:
-            await message.answer(f"❌ {result.get('error', 'Не удалось отправить питомца на прогулку.')}")
+    from services.pet_service import walk as pet_walk
+    from services.exceptions import PetAlreadyWalkingError, PetNotFoundError
+    try:
+        result = await pet_walk(uid, chat_id)
+    except PetAlreadyWalkingError as e:
+        h, m = divmod(e.mins_left, 60)
+        time_str = f"{h} ч {m} мин" if h else f"{m} мин"
+        ptype = pet.get("pet_type", "")
+        emoji = _PET_EMOJI.get(ptype, "🐾")
+        await message.answer(
+            f"{emoji} <b>{html.escape(pet.get('name') or 'Питомец')}</b> уже на прогулке!\n"
+            f"⏳ Вернётся через <b>{time_str}</b>.",
+            parse_mode="HTML",
+        )
+        return
+    except PetNotFoundError as e:
+        await message.answer(f"❌ {e}")
         return
 
     ptype = result.get("pet_type") or pet.get("pet_type", "")

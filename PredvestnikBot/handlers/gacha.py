@@ -25,7 +25,6 @@ from database.db import (
     add_gacha_item,
     add_mora,
     deduct_mora,
-    equip_gacha_item,
     get_gacha_inventory,
     get_gacha_pity,
     get_mora,
@@ -495,14 +494,16 @@ async def cmd_equip(message: Message, cmd_args: str):
     chat_id = message.chat.id
     item_id = int(arg)
 
-    ok = await equip_gacha_item(uid, chat_id, item_id)
-    if ok:
+    from services.inventory_service import equip_legendary
+    from services.exceptions import ItemNotFoundError
+    try:
+        await equip_legendary(uid, chat_id, item_id)
         await message.answer(
             f"✅ Предмет <b>#{item_id}</b> экипирован!\n"
             f"Он теперь отображается в твоём профиле.",
             parse_mode="HTML",
         )
-    else:
+    except ItemNotFoundError:
         await message.answer(
             "❌ Предмет не найден, не принадлежит тебе или не является легендарным.",
         )

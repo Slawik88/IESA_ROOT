@@ -4550,19 +4550,25 @@ async def get_rpg_stats(user_id: int, chat_id: int) -> dict:
     }
 
 
-async def equip_item(user_id: int, chat_id: int, item_id: int, slot: str) -> bool:
-    """Equip a gacha item into a slot (weapon/armor/artifact). Returns True on success."""
+async def equip_item(user_id: int, chat_id: int, item_id: int, slot: str) -> str | None:
+    """Equip a gacha item into a slot (weapon/armor/artifact).
+
+    Returns the item_name on success, or None if the item wasn't found / slot invalid.
+    """
     col = {"weapon": "weapon_id", "armor": "armor_id", "artifact": "artifact_id"}.get(slot)
     if not col:
-        return False
+        return None
     async with aiosqlite.connect(DATABASE_PATH) as db:
-        # Verify item belongs to user
+        db.row_factory = aiosqlite.Row
+        # Verify item belongs to user and fetch its name
         async with db.execute(
-            "SELECT id FROM gacha_inventory WHERE id=? AND user_id=? AND chat_id=?",
+            "SELECT id, item_name FROM gacha_inventory WHERE id=? AND user_id=? AND chat_id=?",
             (item_id, user_id, chat_id),
         ) as c:
-            if not await c.fetchone():
-                return False
+            row = await c.fetchone()
+        if not row:
+            return None
+        item_name = row["item_name"]
         await db.execute(
             f"""INSERT INTO user_rpg_stats (user_id, chat_id, {col})
                 VALUES (?,?,?)
@@ -4570,7 +4576,7 @@ async def equip_item(user_id: int, chat_id: int, item_id: int, slot: str) -> boo
             (user_id, chat_id, item_id),
         )
         await db.commit()
-    return True
+    return item_name
 
 
 
@@ -4928,6 +4934,34 @@ async def add_boss_damage(user_id: int, chat_id: int, damage: int):
             (user_id, chat_id, damage, today),
         )
         await db.commit()
+
+
+async def get_boss_daily_user_damage(user_id: int, chat_id: int) -> int:
+    """Get today's total damage by *user_id* in *chat_id* (UTC date)."""
+    from datetime import timezone
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        async with db.execute(
+            "SELECT COALESCE(SUM(damage), 0) FROM boss_damage_log "
+            "WHERE user_id=? AND chat_id=? AND session_date=?",
+            (user_id, chat_id, today),
+        ) as c:
+            row = await c.fetchone()
+    return row[0] if row else 0
+
+
+async def get_boss_chat_damage_today(chat_id: int) -> int:
+    """Get today's total damage for the whole chat (UTC date)."""
+    from datetime import timezone
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        async with db.execute(
+            "SELECT COALESCE(SUM(damage), 0) FROM boss_damage_log "
+            "WHERE chat_id=? AND session_date=?",
+            (chat_id, today),
+        ) as c:
+            row = await c.fetchone()
+    return row[0] if row else 0
 
 
 async def get_boss_leaderboard(chat_id: int, limit: int = 10) -> list[dict]:
