@@ -5,11 +5,29 @@
 
 import re
 import asyncpg
+from datetime import datetime
 from typing import Any, List, Dict
 from config import DATABASE_PATH
 
 
 _pg_pool = None
+
+# Matches full ISO datetime strings like "2026-03-24T18:17:11" or "2026-03-24 18:17:11.123456"
+# but NOT date-only strings like "2026-03-24" (those go into TEXT columns and stay as strings)
+_ISO_DT_RE = re.compile(
+    r'^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})?$'
+)
+
+
+def _maybe_datetime(val):
+    """Convert ISO datetime strings to datetime objects for asyncpg TIMESTAMPTZ columns."""
+    if isinstance(val, str) and _ISO_DT_RE.match(val):
+        try:
+            s = val.replace('Z', '+00:00').replace(' ', 'T')
+            return datetime.fromisoformat(s)
+        except ValueError:
+            pass
+    return val
 
 
 async def get_pg_pool():
@@ -38,6 +56,8 @@ def _convert_placeholders(sql, params):
         params_list = list(params.values())
     else:
         params_list = list(params)
+    # Auto-convert ISO datetime strings to datetime objects for asyncpg
+    params_list = [_maybe_datetime(p) for p in params_list]
     if not params_list or '?' not in sql:
         return sql, params_list
     counter = [0]
