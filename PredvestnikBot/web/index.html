@@ -323,7 +323,16 @@ if(tg){tg.ready();tg.expand();}
 const BASE = '';
 const qp = new URLSearchParams(window.location.search);
 let initData = (tg && tg.initData) || qp.get('tgWebAppData') || qp.get('initData') || '';
-let chatId = 0;
+
+// ── Извлекаем chat_id из текущего контекста ДО первого API-запроса ──────────
+const _tgUnsafe = (tg && tg.initDataUnsafe) || {};
+let chatId = (
+  (_tgUnsafe.chat && _tgUnsafe.chat.id) ||
+  parseInt(qp.get('chat_id') || '0') ||
+  0
+);
+// chat_instance — строка-идентификатор, не подходит как chat_id группы;
+// его не используем, только реальный tg.initDataUnsafe.chat.id
 let uid = 0;
 let profileData = null;
 let shopData = null;
@@ -374,7 +383,7 @@ function switchTab(name){
 // ── Profile ───────────────────────────────────────────────────────────────────
 async function loadProfile(){
   try{
-    const p = await api('/api/user_data');
+    const p = await api('/api/user_data' + (chatId ? '?chat_id=' + chatId : ''));
     profileData = p;
     uid = p.uid || 0;
     chatId = p.chat_id || 0;

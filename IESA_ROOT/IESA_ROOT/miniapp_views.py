@@ -127,6 +127,18 @@ def miniapp_user_data(request):
     specific_chat_id: int | None = None
     if chat_id_str.lstrip("-").isdigit():
         specific_chat_id = int(chat_id_str)
+    # Fallback: parse chat from signed initData (contains "chat" field for group contexts)
+    if not specific_chat_id and init_data:
+        try:
+            _iparams = dict(parse_qsl(init_data, keep_blank_values=True))
+            _chat_raw = _iparams.get("chat", "")
+            if _chat_raw:
+                _chat_data = json.loads(_chat_raw)
+                _cid = _chat_data.get("id")
+                if _cid:
+                    specific_chat_id = int(_cid)
+        except Exception:
+            pass
 
     try:
         conn, db_type = _get_bot_db_connection()
