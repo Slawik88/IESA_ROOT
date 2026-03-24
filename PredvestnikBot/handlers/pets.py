@@ -35,6 +35,7 @@ from database.db import (
     get_user,
     rename_pet,
     start_pet_walk,
+    start_pet_walk_full,
 )
 from filters.bot_command import BotCommand
 from utils.helpers import format_duration, user_mention
@@ -687,7 +688,9 @@ async def cmd_pet_walk(message: Message, cmd_args: str):
         )
         return
 
-    ok, mins_left = await start_pet_walk(uid, chat_id)
+    result = await start_pet_walk_full(uid, chat_id)
+    ok = result["ok"]
+    mins_left = result.get("mins_left", 0)
     if not ok:
         if mins_left > 0:
             h, m = divmod(mins_left, 60)
@@ -700,16 +703,20 @@ async def cmd_pet_walk(message: Message, cmd_args: str):
                 parse_mode="HTML",
             )
         else:
-            await message.answer("❌ Не удалось отправить питомца на прогулку.")
+            await message.answer(f"❌ {result.get('error', 'Не удалось отправить питомца на прогулку.')}")
         return
 
-    ptype = pet.get("pet_type", "")
+    ptype = result.get("pet_type") or pet.get("pet_type", "")
     emoji = _PET_EMOJI.get(ptype, "🐾")
-    pet_name = html.escape(pet.get("name") or "Питомец")
-    new_fatigue = max(0, (pet.get("fatigue") or 0) - 30)
+    pet_name = html.escape(result.get("pet_name") or pet.get("name") or "Питомец")
+    old_fatigue = pet.get("fatigue") or 0
+    new_fatigue = result.get("fatigue", max(0, old_fatigue - 30))
+    reward = result.get("reward", 0)
+    partner_line = f"\n💕 Партнёр получил <b>+{reward} 🪙</b>" if result.get("partner_rewarded") else ""
     await message.answer(
         f"{emoji} <b>{pet_name}</b> пошёл гулять на <b>3 часа</b>!\n"
-        f"😴 Усталость: {pet.get('fatigue', 0)} → <b>{new_fatigue}</b>\n\n"
+        f"😴 Усталость: {old_fatigue} → <b>{new_fatigue}</b>\n"
+        f"🪙 Награда: <b>+{reward} 🪙</b>{partner_line}\n\n"
         f"<i>Питомец вернётся автоматически. Проверь статус в Mini App.</i>",
         parse_mode="HTML",
     )

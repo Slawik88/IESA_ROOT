@@ -43,6 +43,9 @@ from database.db import (
     set_vip,
     set_xp_boost,
     get_marriage,
+    get_total_family_balance,
+    deduct_family_pool,
+    log_family_transaction,
 )
 from config import (
     ANON_MSG_PRICE,
@@ -63,13 +66,14 @@ async def deduct_wallet(uid: int, chat_id: int, amount: int, wallet: str) -> tup
     """Списать amount из указанного кошелька.
     wallet: 'personal' | 'family'.
     Возвращает (ok, new_balance).
+    Для семейного кошелька: проверяет СУММАРНЫЙ баланс обоих партнёров.
     """
     if wallet == "family":
-        bal = await get_family_wallet(chat_id, uid)
-        if bal < amount:
-            return False, bal
-        new_bal = await add_to_family_wallet(chat_id, uid, -amount)
-        return True, new_bal
+        total_bal, my_bal, partner_id = await get_total_family_balance(chat_id, uid)
+        if total_bal < amount:
+            return False, total_bal
+        new_total = await deduct_family_pool(chat_id, uid, partner_id, amount)
+        return True, new_total
     # personal
     return await deduct_mora(uid, chat_id, amount)
 
@@ -718,6 +722,7 @@ async def cmd_family_deposit(message: Message, cmd_args: str):
         await message.answer("❌ Не удалось списать Мору. Попробуй ещё раз.")
         return
     new_family = await add_to_family_wallet(chat_id, uid, amount)
+    await log_family_transaction(chat_id, uid, "deposit", amount, "Пополнение через бот")
     await message.answer(
         f"✅ Переведено <b>{amount} 🪙</b> в семейный кошелёк.\n"
         f"Личный баланс: <b>{new_personal} 🪙</b>\n"
@@ -744,22 +749,26 @@ async def cmd_family_withdraw(message: Message, cmd_args: str):
         return
 
     amount = int(arg)
-    family_bal = await get_family_wallet(chat_id, uid)
-    if family_bal < amount:
-        await message.answer(f"❌ В твоей части кошелька только <b>{family_bal} 🪙</b>", parse_mode="HTML")
+    total_bal, my_bal, _ = await get_total_family_balance(chat_id, uid)
+    if total_bal < amount:
+        await message.answer(
+            f"❌ В семейном кошельке только <b>{total_bal} 🪙</b>\n"
+            f"  (твой вклад: {my_bal} 🪙, вклад партнёра: {total_bal - my_bal} 🪙)",
+            parse_mode="HTML",
+        )
         return
 
-    new_family = await add_to_family_wallet(chat_id, uid, -amount)
-    if new_family < 0:
-        # Гонка: баланс ушёл в минус — откат
-        await add_to_family_wallet(chat_id, uid, amount)
+    new_total = await deduct_family_pool(chat_id, uid, partner_id, amount)
+    if new_total < 0:
+        # Гонка условий — откат (крайне маловероятно)
         await message.answer("❌ Недостаточно средств в семейном кошельке.")
         return
+    await log_family_transaction(chat_id, uid, "withdraw", amount, "Снятие через бот")
     new_personal = await add_mora(uid, chat_id, amount)
     await message.answer(
         f"✅ Снято <b>{amount} 🪙</b> из семейного кошелька.\n"
         f"Личный баланс: <b>{new_personal} 🪙</b>\n"
-        f"В семейном кошельке: <b>{new_family} 🪙</b>",
+        f"В семейном кошельке: <b>{new_total} 🪙</b>",
         parse_mode="HTML",
     )
 

@@ -436,6 +436,23 @@ async def init_db():
             )
         """)
 
+        # Журнал транзакций семейного кошелька (хранится 2 месяца)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS family_wallet_log (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                chat_id     INTEGER NOT NULL,
+                user_id     INTEGER NOT NULL,
+                action      TEXT    NOT NULL,
+                amount      INTEGER NOT NULL,
+                description TEXT    DEFAULT '',
+                created_at  TEXT    NOT NULL
+            )
+        """)
+        # Очищаем записи старше 2 месяцев при каждом старте
+        await db.execute(
+            "DELETE FROM family_wallet_log WHERE created_at < datetime('now', '-60 days')"
+        )
+
         # Журнал розыгрышей лотереи (персистентный guard, выживает перезапуск)
         await db.execute("""
             CREATE TABLE IF NOT EXISTS lottery_draws (
@@ -2666,6 +2683,127 @@ async def add_to_family_wallet(chat_id: int, user_id: int, amount: int) -> int:
         return (row["balance"] or 0) if row else 0
 
 
+# ──────────────────────────────────────────────────────────────────────────────
+# ЕДИНЫЙ СЕРВИСНЫЙ СЛОЙ — СЕМЕЙНЫЙ КОШЕЛЁК
+# Брак — это ОБЩИЕ деньги. Каждый член пары может тратить ВЕСЬ семейный баланс.
+# ──────────────────────────────────────────────────────────────────────────────
+
+async def get_total_family_balance(chat_id: int, user_id: int) -> tuple[int, int, int | None]:
+    """Returns (total_balance, my_balance, partner_id).
+    total_balance = сумма вкладов обоих партнёров.
+    partner_id = None если брак не найден."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        # Получаем partner_id из таблицы браков
+        async with db.execute(
+            "SELECT partner_id FROM marriages WHERE user_id=? AND chat_id=?",
+            (user_id, chat_id),
+        ) as c:
+            marriage = await c.fetchone()
+
+        partner_id: int | None = marriage["partner_id"] if marriage else None
+
+        async with db.execute(
+            "SELECT balance FROM family_wallet WHERE chat_id=? AND user_id=?",
+            (chat_id, user_id),
+        ) as c:
+            my_row = await c.fetchone()
+        my_balance = (my_row["balance"] or 0) if my_row else 0
+
+        partner_balance = 0
+        if partner_id:
+            async with db.execute(
+                "SELECT balance FROM family_wallet WHERE chat_id=? AND user_id=?",
+                (chat_id, partner_id),
+            ) as c:
+                p_row = await c.fetchone()
+            partner_balance = (p_row["balance"] or 0) if p_row else 0
+
+    return my_balance + partner_balance, my_balance, partner_id
+
+
+async def deduct_family_pool(
+    chat_id: int, user_id: int, partner_id: int | None, amount: int
+) -> int:
+    """Списать amount из семейного пула (вклад обоих партнёров).
+    Сначала списывает с вклада user_id, затем — с вклада partner_id.
+    Возвращает новый суммарный баланс.
+    ВАЖНО: вызывать только после проверки get_total_family_balance >= amount."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+
+        async with db.execute(
+            "SELECT balance FROM family_wallet WHERE chat_id=? AND user_id=?",
+            (chat_id, user_id),
+        ) as c:
+            my_row = await c.fetchone()
+        my_bal = (my_row["balance"] or 0) if my_row else 0
+
+        if my_bal >= amount:
+            # Всё списывается с моего вклада
+            await db.execute(
+                "UPDATE family_wallet SET balance=balance-? WHERE chat_id=? AND user_id=?",
+                (amount, chat_id, user_id),
+            )
+        elif partner_id:
+            # Списываем полностью мой вклад, остаток — с партнёра
+            rest = amount - my_bal
+            await db.execute(
+                "UPDATE family_wallet SET balance=0 WHERE chat_id=? AND user_id=?",
+                (chat_id, user_id),
+            )
+            await db.execute(
+                "UPDATE family_wallet SET balance=MAX(0,balance-?) WHERE chat_id=? AND user_id=?",
+                (rest, chat_id, partner_id),
+            )
+
+        await db.commit()
+
+        # Суммируем оба остатка
+        total = 0
+        for uid_check in ([user_id] + ([partner_id] if partner_id else [])):
+            async with db.execute(
+                "SELECT balance FROM family_wallet WHERE chat_id=? AND user_id=?",
+                (chat_id, uid_check),
+            ) as c:
+                row = await c.fetchone()
+            total += (row["balance"] or 0) if row else 0
+
+    return total
+
+
+async def log_family_transaction(
+    chat_id: int, user_id: int, action: str, amount: int, description: str = ""
+) -> None:
+    """Записать транзакцию в журнал семейного кошелька.
+    action: 'deposit' | 'withdraw' | 'purchase'"""
+    from datetime import timezone
+    now = datetime.now(timezone.utc).isoformat()
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        await db.execute(
+            "INSERT INTO family_wallet_log (chat_id, user_id, action, amount, description, created_at) "
+            "VALUES (?,?,?,?,?,?)",
+            (chat_id, user_id, action, amount, description, now),
+        )
+        await db.commit()
+
+
+async def get_family_wallet_log(chat_id: int, limit: int = 30) -> list:
+    """Последние транзакции семейного кошелька в чате (для обоих партнёров)."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT fw.*, u.full_name "
+            "FROM family_wallet_log fw "
+            "LEFT JOIN users u ON u.user_id = fw.user_id "
+            "WHERE fw.chat_id=? "
+            "ORDER BY fw.created_at DESC LIMIT ?",
+            (chat_id, limit),
+        ) as c:
+            rows = await c.fetchall()
+    return [dict(r) for r in rows]
+
+
 async def get_all_marriages_for_anniversary() -> list:
     """Return all marriages for anniversary check (all chats)."""
     async with aiosqlite.connect(DATABASE_PATH) as db:
@@ -4551,37 +4689,106 @@ async def reduce_pet_fatigue(user_id: int, chat_id: int, amount: int):
 async def start_pet_walk(user_id: int, chat_id: int) -> tuple[bool, int]:
     """Start a 3-hour pet walk. Returns (ok, mins_left_existing_walk).
     On success: reduces fatigue by 30, sets walk_end_at = now+3h.
-    Returns (False, mins_left) if walk already in progress."""
+    Returns (False, mins_left) if walk already in progress.
+    NOTE: This is a thin wrapper — prefer start_pet_walk_full() for new code."""
+    result = await start_pet_walk_full(user_id, chat_id)
+    if result["ok"]:
+        return True, 0
+    return False, result.get("mins_left", 0)
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# ЕДИНАЯ СЕРВИСНАЯ ФУНКЦИЯ — ЕДИНСТВЕННЫЙ ИСТОЧНИК ПРАВДЫ ДЛЯ ЛОГИКИ ПРОГУЛКИ
+# Используется и ботом, и Mini App. НЕ ДУБЛИРОВАТЬ ЛОГИКУ НИГДЕ БОЛЬШЕ.
+# ──────────────────────────────────────────────────────────────────────────────
+WALK_DURATION_HOURS = 3
+WALK_FATIGUE_REDUCTION = 30
+WALK_MORA_REWARD = 20  # получает хозяин И партнёр
+
+
+async def start_pet_walk_full(user_id: int, chat_id: int) -> dict:
+    """Единая логика выгула питомца.
+
+    Returns dict:
+      ok=True  → "pet_type","pet_name","fatigue","walk_mins","reward","partner_rewarded"
+      ok=False → "error" (str), optional "mins_left" (int) if already walking
+    """
     from datetime import timedelta, timezone
     async with aiosqlite.connect(DATABASE_PATH) as db:
         db.row_factory = aiosqlite.Row
+
+        # 1. Читаем питомца
         async with db.execute(
-            "SELECT fatigue, walk_end_at FROM pets WHERE user_id=? AND chat_id=?",
+            "SELECT pet_type, name, COALESCE(fatigue,0) AS fatigue, walk_end_at "
+            "FROM pets WHERE user_id=? AND chat_id=?",
             (user_id, chat_id),
         ) as c:
-            row = await c.fetchone()
-        if not row:
-            return False, 0
-        walk_end_at = row["walk_end_at"]
+            pet = await c.fetchone()
+
+        if not pet:
+            return {"ok": False, "error": "У тебя нет питомца"}
+
         now = datetime.now(timezone.utc)
-        if walk_end_at:
+
+        # 2. Проверяем уже идущую прогулку
+        if pet["walk_end_at"]:
             try:
-                end_dt = datetime.fromisoformat(str(walk_end_at))
+                end_dt = datetime.fromisoformat(str(pet["walk_end_at"]))
                 if end_dt.tzinfo is None:
                     end_dt = end_dt.replace(tzinfo=timezone.utc)
                 if end_dt > now:
-                    mins = int((end_dt - now).total_seconds() / 60) + 1
-                    return False, mins
+                    mins_left = int((end_dt - now).total_seconds() / 60) + 1
+                    return {
+                        "ok": False,
+                        "error": f"Питомец уже на прогулке. Осталось {mins_left} мин.",
+                        "mins_left": mins_left,
+                    }
             except Exception:
                 pass
-        new_fatigue = max(0, (row["fatigue"] or 0) - 30)
-        end_time = (datetime.now(timezone.utc) + timedelta(hours=3)).isoformat()
+
+        # 3. Обновляем питомца
+        new_fatigue = max(0, pet["fatigue"] - WALK_FATIGUE_REDUCTION)
+        walk_end_iso = (now + timedelta(hours=WALK_DURATION_HOURS)).isoformat()
         await db.execute(
             "UPDATE pets SET fatigue=?, walk_end_at=? WHERE user_id=? AND chat_id=?",
-            (new_fatigue, end_time, user_id, chat_id),
+            (new_fatigue, walk_end_iso, user_id, chat_id),
         )
+
+        # 4. Начисляем Мору хозяину
+        await db.execute(
+            "INSERT INTO user_mora (user_id, chat_id, balance) VALUES (?,?,?) "
+            "ON CONFLICT(user_id, chat_id) DO UPDATE SET balance=user_mora.balance+excluded.balance",
+            (user_id, chat_id, WALK_MORA_REWARD),
+        )
+
+        # 5. Начисляем Мору партнёру (если есть брак)
+        partner_id: int | None = None
+        async with db.execute(
+            "SELECT partner_id FROM marriages WHERE user_id=? AND chat_id=?",
+            (user_id, chat_id),
+        ) as c:
+            marriage = await c.fetchone()
+        if marriage:
+            partner_id = marriage["partner_id"]
+            await db.execute(
+                "INSERT INTO user_mora (user_id, chat_id, balance) VALUES (?,?,?) "
+                "ON CONFLICT(user_id, chat_id) DO UPDATE SET balance=user_mora.balance+excluded.balance",
+                (partner_id, chat_id, WALK_MORA_REWARD),
+            )
+
         await db.commit()
-    return True, 0
+
+    return {
+        "ok": True,
+        "pet_type": pet["pet_type"],
+        "pet_name": pet["name"] or "Питомец",
+        "fatigue": new_fatigue,
+        "fatigue_reduced": WALK_FATIGUE_REDUCTION,
+        "walk_mins": WALK_DURATION_HOURS * 60,
+        "reward": WALK_MORA_REWARD,
+        "partner_rewarded": partner_id is not None,
+        "partner_id": partner_id,
+    }
 
 
 # ─── Топ-10 по недельной активности (для дивидендов) ─────────────────────────

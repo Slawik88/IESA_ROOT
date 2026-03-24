@@ -1927,6 +1927,16 @@ def miniapp_family_deposit(request):
                 "ON CONFLICT(chat_id, user_id) DO UPDATE SET balance=family_wallet.balance+excluded.balance",
                 (chat_id, uid, amount),
             )
+        # Log the transaction
+        from datetime import datetime, timezone
+        _now_iso = datetime.now(timezone.utc).isoformat()
+        cur.execute(
+            "INSERT INTO family_wallet_log (chat_id, user_id, action, amount, description, created_at) "
+            "VALUES (?,?,?,?,?,?)" if db_type != "pg" else
+            "INSERT INTO family_wallet_log (chat_id, user_id, action, amount, description, created_at) "
+            "VALUES (%s,%s,%s,%s,%s,%s)",
+            (chat_id, uid, "deposit", amount, "Пополнение через Mini App", _now_iso),
+        )
         # Read new balances
         cur.execute(f"SELECT balance FROM user_mora WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
         new_personal = (cur.fetchone() or [0])[0]
@@ -1980,26 +1990,51 @@ def miniapp_family_withdraw(request):
             f"SELECT partner_id FROM marriages WHERE user_id={ph} AND chat_id={ph}",
             (uid, chat_id),
         )
-        if not cur.fetchone():
+        marriage_row = cur.fetchone()
+        if not marriage_row:
             conn.close()
             return JsonResponse({"error": "Нет союза"}, status=400, headers=headers)
 
+        partner_id = marriage_row[0]
+
+        # Проверяем СУММАРНЫЙ семейный баланс (вклад обоих партнёров)
         cur.execute(
-            f"SELECT balance FROM family_wallet WHERE chat_id={ph} AND user_id={ph}",
+            f"SELECT COALESCE(balance,0) FROM family_wallet WHERE chat_id={ph} AND user_id={ph}",
             (chat_id, uid),
         )
-        row = cur.fetchone()
-        family_bal = row[0] if row else 0
-        if family_bal < amount:
-            conn.close()
-            return JsonResponse({"error": f"Недостаточно в семейном ({family_bal})"}, status=400, headers=headers)
-
-        # Deduct family
+        my_bal = (cur.fetchone() or [0])[0]
         cur.execute(
-            f"UPDATE family_wallet SET balance=balance-{ph} WHERE chat_id={ph} AND user_id={ph}",
-            (amount, chat_id, uid),
+            f"SELECT COALESCE(balance,0) FROM family_wallet WHERE chat_id={ph} AND user_id={ph}",
+            (chat_id, partner_id),
         )
-        # Add to personal
+        partner_bal = (cur.fetchone() or [0])[0]
+        total_bal = my_bal + partner_bal
+
+        if total_bal < amount:
+            conn.close()
+            return JsonResponse(
+                {"error": f"В семейном кошельке недостаточно средств ({total_bal} 🪙)"},
+                status=400, headers=headers,
+            )
+
+        # Списываем из пула: сначала мой вклад, затем вклад партнёра
+        if my_bal >= amount:
+            cur.execute(
+                f"UPDATE family_wallet SET balance=balance-{ph} WHERE chat_id={ph} AND user_id={ph}",
+                (amount, chat_id, uid),
+            )
+        else:
+            rest = amount - my_bal
+            cur.execute(
+                f"UPDATE family_wallet SET balance=0 WHERE chat_id={ph} AND user_id={ph}",
+                (chat_id, uid),
+            )
+            cur.execute(
+                f"UPDATE family_wallet SET balance=MAX(0,balance-{ph}) WHERE chat_id={ph} AND user_id={ph}",
+                (rest, chat_id, partner_id),
+            )
+
+        # Добавляем на личный счёт
         if db_type == "pg":
             cur.execute(
                 f"INSERT INTO user_mora (user_id, chat_id, balance) VALUES ({ph},{ph},{ph}) "
@@ -2012,14 +2047,101 @@ def miniapp_family_withdraw(request):
                 "ON CONFLICT(user_id, chat_id) DO UPDATE SET balance=user_mora.balance+excluded.balance",
                 (uid, chat_id, amount),
             )
+
+        # Log the transaction
+        from datetime import datetime, timezone
+        _now_iso = datetime.now(timezone.utc).isoformat()
+        cur.execute(
+            "INSERT INTO family_wallet_log (chat_id, user_id, action, amount, description, created_at) "
+            "VALUES (?,?,?,?,?,?)" if db_type != "pg" else
+            "INSERT INTO family_wallet_log (chat_id, user_id, action, amount, description, created_at) "
+            "VALUES (%s,%s,%s,%s,%s,%s)",
+            (chat_id, uid, "withdraw", amount, "Снятие через Mini App", _now_iso),
+        )
+
         cur.execute(f"SELECT balance FROM user_mora WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
         new_personal = (cur.fetchone() or [0])[0]
-        cur.execute(f"SELECT balance FROM family_wallet WHERE chat_id={ph} AND user_id={ph}", (chat_id, uid))
-        new_family = (cur.fetchone() or [0])[0]
+        cur.execute(f"SELECT COALESCE(balance,0) FROM family_wallet WHERE chat_id={ph} AND user_id={ph}", (chat_id, uid))
+        new_my = (cur.fetchone() or [0])[0]
+        cur.execute(f"SELECT COALESCE(balance,0) FROM family_wallet WHERE chat_id={ph} AND user_id={ph}", (chat_id, partner_id))
+        new_partner = (cur.fetchone() or [0])[0]
 
         conn.commit()
         conn.close()
-        return JsonResponse({"ok": True, "personal": new_personal, "family": new_family}, headers=headers)
+        return JsonResponse({"ok": True, "personal": new_personal, "family": new_my + new_partner}, headers=headers)
+    except Exception as exc:
+        try:
+            conn.close()
+        except Exception:
+            pass
+        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+
+
+# ─── Family wallet: transaction log ─────────────────────────────────────────
+
+@csrf_exempt
+def miniapp_family_log(request):
+    """GET /api/family/log?chat_id=X — last 30 family transactions."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+
+    chat_id_str = request.GET.get("chat_id", "")
+    if not chat_id_str.lstrip("-").isdigit():
+        return JsonResponse({"error": "chat_id required"}, status=400, headers=headers)
+    chat_id = int(chat_id_str)
+
+    try:
+        conn, db_type = _get_bot_db_connection()
+    except Exception as exc:
+        return JsonResponse({"error": f"DB: {exc}"}, status=503, headers=headers)
+
+    try:
+        cur = conn.cursor()
+        ph = "%s" if db_type == "pg" else "?"
+
+        cur.execute(f"SELECT 1 FROM marriages WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
+        if not cur.fetchone():
+            conn.close()
+            return JsonResponse({"log": []}, headers=headers)
+
+        # Auto-cleanup old records (> 60 days)
+        if db_type == "pg":
+            cur.execute(
+                f"DELETE FROM family_wallet_log WHERE chat_id={ph} AND created_at < NOW() - INTERVAL '60 days'",
+                (chat_id,),
+            )
+        else:
+            cur.execute(
+                "DELETE FROM family_wallet_log WHERE chat_id=? AND created_at < datetime('now', '-60 days')",
+                (chat_id,),
+            )
+
+        cur.execute(
+            f"SELECT fw.id, fw.user_id, fw.action, fw.amount, fw.description, fw.created_at, u.full_name "
+            f"FROM family_wallet_log fw "
+            f"LEFT JOIN users u ON u.user_id = fw.user_id "
+            f"WHERE fw.chat_id={ph} "
+            f"ORDER BY fw.created_at DESC LIMIT 30",
+            (chat_id,),
+        )
+        rows = cur.fetchall()
+        conn.commit()
+        conn.close()
+
+        log = [
+            {
+                "id": r[0], "user_id": r[1], "action": r[2],
+                "amount": r[3], "description": r[4] or "",
+                "created_at": r[5], "user_name": r[6] or str(r[1]),
+            }
+            for r in rows
+        ]
+        return JsonResponse({"ok": True, "log": log}, headers=headers)
     except Exception as exc:
         try:
             conn.close()
@@ -2665,7 +2787,11 @@ def miniapp_bonds_sell(request):
 
 @csrf_exempt
 def miniapp_pet_walk(request):
-    """POST /api/pet/walk — start a 3-hour pet walk (−30 fatigue)."""
+    """POST /api/pet/walk — start a 3-hour pet walk.
+
+    ЕДИНЫЙ ИСТОЧНИК ПРАВДЫ: вся логика вынесена в start_pet_walk_full()
+    в PredvestnikBot/database/db.py. Здесь — только HTTP-обёртка.
+    """
     headers = _cors_headers()
     if request.method == "OPTIONS":
         return HttpResponse("", status=204, headers=headers)
@@ -2683,94 +2809,30 @@ def miniapp_pet_walk(request):
         return JsonResponse({"error": "invalid JSON"}, status=400, headers=headers)
 
     try:
-        conn, db_type = _get_bot_db_connection()
+        from database.db import start_pet_walk_full
+        from asgiref.sync import async_to_sync
+        result = async_to_sync(start_pet_walk_full)(uid, chat_id)
     except Exception as exc:
-        return JsonResponse({"error": f"DB: {exc}"}, status=503, headers=headers)
-
-    try:
-        cur = conn.cursor()
-        ph = "%s" if db_type == "pg" else "?"
-
-        try:
-            cur.execute(f"SELECT pet_type, name, COALESCE(fatigue,0), walk_end_at FROM pets WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
-            pet_row = cur.fetchone()
-            walk_end_at = pet_row[3] if pet_row else None
-        except Exception:
-            cur.execute(f"SELECT pet_type, name, COALESCE(fatigue,0) FROM pets WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
-            pet_row = cur.fetchone()
-            walk_end_at = None
-            if pet_row:
-                pet_row = (pet_row[0], pet_row[1], pet_row[2], None)
-
-        if not pet_row:
-            conn.close()
-            return JsonResponse({"error": "У тебя нет питомца"}, status=400, headers=headers)
-
-        ptype, pname, fatigue = pet_row[0], pet_row[1], pet_row[2]
-
-        from datetime import datetime, timezone, timedelta
-        now = datetime.now(timezone.utc)
-
-        # Check if already on walk
-        if walk_end_at:
-            try:
-                end_dt = datetime.fromisoformat(str(walk_end_at).replace("Z", "+00:00"))
-                if end_dt.tzinfo is None:
-                    end_dt = end_dt.replace(tzinfo=timezone.utc)
-                diff = (end_dt - now).total_seconds()
-                if diff > 0:
-                    mins_left = int(diff / 60) + 1
-                    conn.close()
-                    return JsonResponse({"error": f"Питомец уже на прогулке. Осталось {mins_left} мин."}, status=429, headers=headers)
-            except Exception:
-                pass
-
-        new_fatigue = max(0, fatigue - 30)
-        walk_end_iso = (now + timedelta(hours=3)).isoformat()
-        try:
-            cur.execute(f"UPDATE pets SET fatigue={ph}, walk_end_at={ph} WHERE user_id={ph} AND chat_id={ph}", (new_fatigue, walk_end_iso, uid, chat_id))
-        except Exception:
-            cur.execute(f"UPDATE pets SET fatigue={ph} WHERE user_id={ph} AND chat_id={ph}", (new_fatigue, uid, chat_id))
-
-        # Mora reward for walk owner and partner (if married)
-        WALK_REWARD = 20
-        upsert_mora_sql = (
-            f"INSERT INTO user_mora (user_id, chat_id, balance) VALUES ({ph},{ph},{ph}) "
-            f"ON CONFLICT (user_id, chat_id) DO UPDATE SET balance=user_mora.balance+EXCLUDED.balance"
-            if db_type == "pg" else
-            "INSERT INTO user_mora (user_id, chat_id, balance) VALUES (?,?,?) "
-            "ON CONFLICT(user_id, chat_id) DO UPDATE SET balance=user_mora.balance+excluded.balance"
-        )
-        cur.execute(upsert_mora_sql, (uid, chat_id, WALK_REWARD))
-        cur.execute(f"SELECT partner_id FROM marriages WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
-        partner_walk_row = cur.fetchone()
-        if partner_walk_row:
-            cur.execute(upsert_mora_sql, (partner_walk_row[0], chat_id, WALK_REWARD))
-
-        conn.commit()
-        conn.close()
-        
-        # ➕ ЛОГИРУЕМ ВЫГУЛ ПИТОМЦА В ЧАТ
-        import asyncio
-        emoji = {"cat": "🐱", "dog": "🐶"}.get(ptype, "🐾")
-        partner_text = f" (+{WALK_REWARD} 🪙 партнёру)" if partner_walk_row else ""
-        asyncio.create_task(log_action_to_chat(
-            uid, chat_id,
-            f"{emoji} Выгулял питомца {pname or 'Питомец'} (3 часа)",
-            f"Усталость: -{30}, награда: +{WALK_REWARD} 🪙{partner_text}"
-        ))
-        
-        return JsonResponse(
-            {"ok": True, "fatigue": new_fatigue, "reduced": 30, "pet_emoji": emoji,
-             "pet_name": pname or "Питомец", "walk_mins": 180, "reward": WALK_REWARD},
-            json_dumps_params={"ensure_ascii": False}, headers=headers,
-        )
-    except Exception as exc:
-        try:
-            conn.close()
-        except Exception:
-            pass
         return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+
+    if not result["ok"]:
+        status_code = 429 if result.get("mins_left") else 400
+        return JsonResponse({"error": result["error"]}, status=status_code, headers=headers)
+
+    emoji = {"cat": "🐱", "dog": "🐶"}.get(result.get("pet_type", ""), "🐾")
+    return JsonResponse(
+        {
+            "ok": True,
+            "fatigue": result["fatigue"],
+            "reduced": result["fatigue_reduced"],
+            "pet_emoji": emoji,
+            "pet_name": result["pet_name"],
+            "walk_mins": result["walk_mins"],
+            "reward": result["reward"],
+        },
+        json_dumps_params={"ensure_ascii": False},
+        headers=headers,
+    )
 
 
 @csrf_exempt
