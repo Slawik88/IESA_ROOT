@@ -2,7 +2,7 @@ import asyncio
 import json
 import logging
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from aiogram import Bot, Dispatcher
@@ -15,7 +15,7 @@ from config import BOT_TOKEN, MINI_APP_URL
 from database.db import get_locked_chats, init_db, set_chat_setting
 
 # Время запуска бота (для игнорирования старых сообщений)
-BOT_START_TIME = datetime.utcnow()
+BOT_START_TIME = datetime.now(timezone.utc)
 from handlers import (admin, auto_mod, bank, boss, casino, checkin, dev_panel, diligence, dm_roles, economy, espionage,
                      expeditions, extras, food, fun, gacha, gifts, helper,
                      moderator, notes, owner, pets, quests, reputation,

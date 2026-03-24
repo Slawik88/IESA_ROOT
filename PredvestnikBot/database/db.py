@@ -1,5 +1,5 @@
 ﻿import math
-from datetime import datetime, timedelta, date
+from datetime import datetime, timedelta, date, timezone
 
 from database.postgres import connect as postgres_connect, ddl_connect
 
@@ -4414,7 +4414,7 @@ async def update_bond_prices(chat_id: int):
     """Обновить цены облигаций случайным блужданием ±5..20%."""
     import random
     current = await get_bond_prices(chat_id)
-    now = datetime.utcnow().isoformat()
+    now = datetime.now(timezone.utc)
     async with postgres_connect() as db:
         for key, info in BOND_DEFAULTS.items():
             old_price = current.get(key, info["base_price"])

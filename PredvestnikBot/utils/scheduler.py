@@ -594,9 +594,9 @@ async def _task_dev_event_queue(bot) -> None:
             # Ensure table exists (may not yet if Django hasn't created it)
             await db.execute(
                 "CREATE TABLE IF NOT EXISTS dev_event_queue ("
-                "id INTEGER PRIMARY KEY AUTOINCREMENT, "
-                "chat_id INTEGER NOT NULL, event_type TEXT NOT NULL, "
-                "requested_by INTEGER NOT NULL, created_at TEXT NOT NULL, processed INTEGER DEFAULT 0)"
+                "id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY, "
+                "chat_id BIGINT NOT NULL, event_type TEXT NOT NULL, "
+                "requested_by BIGINT NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), processed INTEGER DEFAULT 0)"
             )
             async with db.execute(
                 "SELECT id, chat_id, event_type FROM dev_event_queue WHERE processed=0 ORDER BY id LIMIT 20"
