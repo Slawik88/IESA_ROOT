@@ -8,11 +8,13 @@ Routes:
 
 import hashlib
 import hmac
+import html
 import json
 import math
 import os
 import sqlite3
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import parse_qsl
 
@@ -789,6 +791,72 @@ def _require_auth(request, headers):
     return uid, None
 
 
+_EDITABLE_RANKS = (
+    "user",
+    "moderator",
+    "admin_junior",
+    "admin_senior",
+    "co_owner",
+    "owner",
+    "developer",
+)
+
+
+def _ensure_wallet_ledger_table(cur, db_type: str) -> None:
+    if db_type == "pg":
+        cur.execute(
+            "CREATE TABLE IF NOT EXISTS wallet_ledger ("
+            "id SERIAL PRIMARY KEY, "
+            "chat_id BIGINT NOT NULL, user_id BIGINT NOT NULL, "
+            "direction TEXT NOT NULL, amount INTEGER NOT NULL, source TEXT NOT NULL, "
+            "description TEXT DEFAULT '', actor_id BIGINT DEFAULT NULL, "
+            "created_at TIMESTAMPTZ NOT NULL)"
+        )
+    else:
+        cur.execute(
+            "CREATE TABLE IF NOT EXISTS wallet_ledger ("
+            "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+            "chat_id INTEGER NOT NULL, user_id INTEGER NOT NULL, "
+            "direction TEXT NOT NULL, amount INTEGER NOT NULL, source TEXT NOT NULL, "
+            "description TEXT DEFAULT '', actor_id INTEGER DEFAULT NULL, "
+            "created_at TEXT NOT NULL)"
+        )
+
+
+def _insert_wallet_ledger(cur, db_type: str, chat_id: int, user_id: int, direction: str,
+                          amount: int, source: str, description: str = "",
+                          actor_id: int | None = None) -> None:
+    if amount <= 0:
+        return
+    _ensure_wallet_ledger_table(cur, db_type)
+    ph = "%s" if db_type == "pg" else "?"
+    created_at = datetime.now(timezone.utc).isoformat()
+    cur.execute(
+        f"INSERT INTO wallet_ledger (chat_id, user_id, direction, amount, source, description, actor_id, created_at) "
+        f"VALUES ({ph},{ph},{ph},{ph},{ph},{ph},{ph},{ph})",
+        (chat_id, user_id, direction, amount, source, description or "", actor_id, created_at),
+    )
+
+
+def _send_salary_announcement(chat_id: int, target_name: str) -> None:
+    if not _BOT_TOKEN:
+        return
+    try:
+        import requests
+        url = f"https://api.telegram.org/bot{_BOT_TOKEN}/sendMessage"
+        requests.post(
+            url,
+            json={
+                "chat_id": chat_id,
+                "text": f"🎉 <b>{html.escape(target_name)}</b> получил зарплату от администрации!",
+                "parse_mode": "HTML",
+            },
+            timeout=5,
+        )
+    except Exception:
+        pass
+
+
 # ─── Marriage ─────────────────────────────────────────────────────────────────
 
 @csrf_exempt
@@ -1120,6 +1188,12 @@ def miniapp_dev_setbalance(request):
     try:
         cur = conn.cursor()
         ph = "%s" if db_type == "pg" else "?"
+        _ensure_wallet_ledger_table(cur, db_type)
+        cur.execute(
+            f"SELECT COALESCE(balance,0) FROM user_mora WHERE user_id={ph} AND chat_id={ph}",
+            (target_id, chat_id),
+        )
+        old_balance = (cur.fetchone() or [0])[0]
         if db_type == "pg":
             cur.execute(
                 f"INSERT INTO user_mora (user_id, chat_id, balance) VALUES ({ph},{ph},{ph}) "
@@ -1131,6 +1205,17 @@ def miniapp_dev_setbalance(request):
                 "INSERT INTO user_mora (user_id, chat_id, balance) VALUES (?,?,?) "
                 "ON CONFLICT(user_id, chat_id) DO UPDATE SET balance=excluded.balance",
                 (target_id, chat_id, balance),
+            )
+        delta = balance - old_balance
+        if delta > 0:
+            _insert_wallet_ledger(
+                cur, db_type, chat_id, target_id, "income", delta,
+                "admin_setbalance", "CRM: установлен баланс", uid,
+            )
+        elif delta < 0:
+            _insert_wallet_ledger(
+                cur, db_type, chat_id, target_id, "expense", abs(delta),
+                "admin_setbalance", "CRM: установлен баланс", uid,
             )
         conn.commit()
         conn.close()
@@ -1180,6 +1265,7 @@ def miniapp_dev_add_mora(request):
     try:
         cur = conn.cursor()
         ph = "%s" if db_type == "pg" else "?"
+        _ensure_wallet_ledger_table(cur, db_type)
         if db_type == "pg":
             cur.execute(
                 f"INSERT INTO user_mora (user_id, chat_id, balance) VALUES ({ph},{ph},GREATEST(0,{ph})) "
@@ -1197,6 +1283,16 @@ def miniapp_dev_add_mora(request):
             (target_id, chat_id),
         )
         new_bal = (cur.fetchone() or [0])[0]
+        if amount > 0:
+            _insert_wallet_ledger(
+                cur, db_type, chat_id, target_id, "income", amount,
+                "admin_adjustment", "Админская корректировка баланса", uid,
+            )
+        elif amount < 0:
+            _insert_wallet_ledger(
+                cur, db_type, chat_id, target_id, "expense", abs(amount),
+                "admin_adjustment", "Админская корректировка баланса", uid,
+            )
         conn.commit()
         conn.close()
         return JsonResponse({"ok": True, "target_id": target_id, "new_balance": new_bal}, headers=headers)
@@ -1230,6 +1326,7 @@ def miniapp_dev_add_xp(request):
         target_id = int(body.get("target_id", 0) or body.get("target_uid", 0))
         chat_id = int(str(body.get("chat_id", "0")))
         amount = int(body.get("amount", 0))
+        set_mode = bool(body.get("set_mode", False))
     except Exception:
         return JsonResponse({"error": "invalid JSON"}, status=400, headers=headers)
 
@@ -1244,18 +1341,35 @@ def miniapp_dev_add_xp(request):
     try:
         cur = conn.cursor()
         ph = "%s" if db_type == "pg" else "?"
+        new_level = max(1, _level_for_xp(amount if set_mode else 0))
+        if set_mode:
+            new_level = _level_for_xp(max(0, amount))
         if db_type == "pg":
-            cur.execute(
-                f"INSERT INTO user_stats (user_id, chat_id, xp) VALUES ({ph},{ph},{ph}) "
-                f"ON CONFLICT (user_id, chat_id) DO UPDATE SET xp=GREATEST(0, user_stats.xp + EXCLUDED.xp)",
-                (target_id, chat_id, amount),
-            )
+            if set_mode:
+                cur.execute(
+                    f"INSERT INTO user_stats (user_id, chat_id, xp, level) VALUES ({ph},{ph},{ph},{ph}) "
+                    f"ON CONFLICT (user_id, chat_id) DO UPDATE SET xp=EXCLUDED.xp, level=EXCLUDED.level",
+                    (target_id, chat_id, max(0, amount), new_level),
+                )
+            else:
+                cur.execute(
+                    f"INSERT INTO user_stats (user_id, chat_id, xp, level) VALUES ({ph},{ph},{ph},1) "
+                    f"ON CONFLICT (user_id, chat_id) DO UPDATE SET xp=GREATEST(0, user_stats.xp + EXCLUDED.xp)",
+                    (target_id, chat_id, amount),
+                )
         else:
-            cur.execute(
-                "INSERT INTO user_stats (user_id, chat_id, xp) VALUES (?,?,?) "
-                "ON CONFLICT(user_id, chat_id) DO UPDATE SET xp=MAX(0, user_stats.xp + ?)",
-                (target_id, chat_id, amount, amount),
-            )
+            if set_mode:
+                cur.execute(
+                    "INSERT INTO user_stats (user_id, chat_id, xp, level) VALUES (?,?,?,?) "
+                    "ON CONFLICT(user_id, chat_id) DO UPDATE SET xp=excluded.xp, level=excluded.level",
+                    (target_id, chat_id, max(0, amount), new_level),
+                )
+            else:
+                cur.execute(
+                    "INSERT INTO user_stats (user_id, chat_id, xp) VALUES (?,?,?) "
+                    "ON CONFLICT(user_id, chat_id) DO UPDATE SET xp=MAX(0, user_stats.xp + ?)",
+                    (target_id, chat_id, amount, amount),
+                )
         cur.execute(
             f"SELECT xp, COALESCE(level, 1) FROM user_stats WHERE user_id={ph} AND chat_id={ph}",
             (target_id, chat_id),
@@ -1268,6 +1382,241 @@ def miniapp_dev_add_xp(request):
         conn.commit()
         conn.close()
         return JsonResponse({"ok": True, "target_id": target_id, "xp": new_xp, "new_level": new_level}, headers=headers)
+    except Exception as exc:
+        try:
+            conn.close()
+        except Exception:
+            pass
+        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+
+
+@csrf_exempt
+def miniapp_wallet_history(request):
+    """GET /api/wallet/history?chat_id=X — authenticated user's personal wallet ledger."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "GET":
+        return JsonResponse({"error": "GET required"}, status=405, headers=headers)
+
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+
+    chat_id_str = request.GET.get("chat_id", "")
+    if not chat_id_str.lstrip("-").isdigit():
+        return JsonResponse({"error": "chat_id required"}, status=400, headers=headers)
+    chat_id = int(chat_id_str)
+
+    try:
+        conn, db_type = _get_bot_db_connection()
+    except Exception as exc:
+        return JsonResponse({"error": f"DB: {exc}"}, status=503, headers=headers)
+
+    try:
+        cur = conn.cursor()
+        ph = "%s" if db_type == "pg" else "?"
+        _ensure_wallet_ledger_table(cur, db_type)
+        cur.execute(
+            f"SELECT direction, amount, source, description, created_at "
+            f"FROM wallet_ledger WHERE user_id={ph} AND chat_id={ph} "
+            f"ORDER BY created_at DESC LIMIT 50",
+            (uid, chat_id),
+        )
+        rows = cur.fetchall()
+        conn.close()
+        history = [
+            {
+                "direction": r[0],
+                "amount": r[1],
+                "source": r[2],
+                "description": r[3] or "",
+                "created_at": str(r[4]),
+            }
+            for r in rows
+        ]
+        return JsonResponse({"history": history}, json_dumps_params={"ensure_ascii": False}, headers=headers)
+    except Exception as exc:
+        try:
+            conn.close()
+        except Exception:
+            pass
+        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+
+
+@csrf_exempt
+def miniapp_dev_member_update(request):
+    """POST /api/dev/member_update — developer CRM row save for balance/xp/rank."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=405, headers=headers)
+
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+    if uid != _DEVELOPER_ID:
+        return JsonResponse({"error": "forbidden"}, status=403, headers=headers)
+
+    try:
+        body = json.loads(request.body or b"{}")
+        target_id = int(body.get("target_id", 0))
+        chat_id = int(str(body.get("chat_id", "0")))
+        balance = int(body.get("balance", 0))
+        xp = int(body.get("xp", 0))
+        rank = str(body.get("rank", "user")).strip().lower()
+    except Exception:
+        return JsonResponse({"error": "invalid JSON"}, status=400, headers=headers)
+
+    if not target_id or not chat_id:
+        return JsonResponse({"error": "target_id and chat_id required"}, status=400, headers=headers)
+    if balance < 0 or balance > 10_000_000:
+        return JsonResponse({"error": "balance out of range"}, status=400, headers=headers)
+    if xp < 0 or xp > 100_000_000:
+        return JsonResponse({"error": "xp out of range"}, status=400, headers=headers)
+    if rank not in _EDITABLE_RANKS:
+        return JsonResponse({"error": "invalid rank"}, status=400, headers=headers)
+
+    try:
+        conn, db_type = _get_bot_db_connection()
+    except Exception as exc:
+        return JsonResponse({"error": f"DB: {exc}"}, status=503, headers=headers)
+
+    try:
+        cur = conn.cursor()
+        ph = "%s" if db_type == "pg" else "?"
+        _ensure_wallet_ledger_table(cur, db_type)
+        cur.execute(
+            f"SELECT COALESCE(balance,0) FROM user_mora WHERE user_id={ph} AND chat_id={ph}",
+            (target_id, chat_id),
+        )
+        old_balance = (cur.fetchone() or [0])[0]
+        new_level = _level_for_xp(xp)
+
+        if db_type == "pg":
+            cur.execute(
+                f"INSERT INTO user_mora (user_id, chat_id, balance) VALUES ({ph},{ph},{ph}) "
+                f"ON CONFLICT (user_id, chat_id) DO UPDATE SET balance=EXCLUDED.balance",
+                (target_id, chat_id, balance),
+            )
+            cur.execute(
+                f"INSERT INTO user_stats (user_id, chat_id, xp, level, rank) VALUES ({ph},{ph},{ph},{ph},{ph}) "
+                f"ON CONFLICT (user_id, chat_id) DO UPDATE SET xp=EXCLUDED.xp, level=EXCLUDED.level, rank=EXCLUDED.rank",
+                (target_id, chat_id, xp, new_level, rank),
+            )
+        else:
+            cur.execute(
+                "INSERT INTO user_mora (user_id, chat_id, balance) VALUES (?,?,?) "
+                "ON CONFLICT(user_id, chat_id) DO UPDATE SET balance=excluded.balance",
+                (target_id, chat_id, balance),
+            )
+            cur.execute(
+                "INSERT INTO user_stats (user_id, chat_id, xp, level, rank) VALUES (?,?,?,?,?) "
+                "ON CONFLICT(user_id, chat_id) DO UPDATE SET xp=excluded.xp, level=excluded.level, rank=excluded.rank",
+                (target_id, chat_id, xp, new_level, rank),
+            )
+
+        delta = balance - old_balance
+        if delta > 0:
+            _insert_wallet_ledger(cur, db_type, chat_id, target_id, "income", delta,
+                                  "crm_editor", "CRM: правка участника", uid)
+        elif delta < 0:
+            _insert_wallet_ledger(cur, db_type, chat_id, target_id, "expense", abs(delta),
+                                  "crm_editor", "CRM: правка участника", uid)
+
+        conn.commit()
+        conn.close()
+        return JsonResponse(
+            {"ok": True, "target_id": target_id, "balance": balance, "xp": xp,
+             "level": new_level, "rank": rank},
+            headers=headers,
+        )
+    except Exception as exc:
+        try:
+            conn.close()
+        except Exception:
+            pass
+        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+
+
+@csrf_exempt
+def miniapp_dev_salary(request):
+    """POST /api/dev/salary — grant salary privately, announce publicly without amount."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=405, headers=headers)
+
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+    if uid != _DEVELOPER_ID:
+        return JsonResponse({"error": "forbidden"}, status=403, headers=headers)
+
+    try:
+        body = json.loads(request.body or b"{}")
+        target_id = int(body.get("target_id", 0))
+        chat_id = int(str(body.get("chat_id", "0")))
+        days = max(1, int(body.get("days", 1)))
+        amount = int(body.get("amount", 0))
+        reason = str(body.get("reason", "")).strip()
+    except Exception:
+        return JsonResponse({"error": "invalid JSON"}, status=400, headers=headers)
+
+    if not target_id or not chat_id or amount <= 0:
+        return JsonResponse({"error": "target_id, chat_id and positive amount required"}, status=400, headers=headers)
+
+    try:
+        conn, db_type = _get_bot_db_connection()
+    except Exception as exc:
+        return JsonResponse({"error": f"DB: {exc}"}, status=503, headers=headers)
+
+    try:
+        cur = conn.cursor()
+        ph = "%s" if db_type == "pg" else "?"
+        _ensure_wallet_ledger_table(cur, db_type)
+        cur.execute(f"SELECT COALESCE(full_name, '') FROM users WHERE user_id={ph}", (target_id,))
+        name_row = cur.fetchone()
+        target_name = (name_row or [""])[0] or f"Игрок {target_id}"
+
+        if db_type == "pg":
+            cur.execute(
+                f"INSERT INTO user_mora (user_id, chat_id, balance, total_earned) VALUES ({ph},{ph},{ph},{ph}) "
+                f"ON CONFLICT (user_id, chat_id) DO UPDATE SET "
+                f"balance=user_mora.balance + EXCLUDED.balance, "
+                f"total_earned=user_mora.total_earned + EXCLUDED.total_earned",
+                (target_id, chat_id, amount, amount),
+            )
+        else:
+            cur.execute(
+                "INSERT INTO user_mora (user_id, chat_id, balance, total_earned) VALUES (?,?,?,?) "
+                "ON CONFLICT(user_id, chat_id) DO UPDATE SET balance=user_mora.balance + excluded.balance, total_earned=user_mora.total_earned + excluded.total_earned",
+                (target_id, chat_id, amount, amount),
+            )
+
+        desc = f"Зарплата за {days} дн."
+        if reason:
+            desc = f"{desc}: {reason}"
+        _insert_wallet_ledger(cur, db_type, chat_id, target_id, "income", amount, "salary", desc, uid)
+
+        cur.execute(
+            f"SELECT COALESCE(balance,0) FROM user_mora WHERE user_id={ph} AND chat_id={ph}",
+            (target_id, chat_id),
+        )
+        new_balance = (cur.fetchone() or [0])[0]
+        conn.commit()
+        conn.close()
+
+        _send_salary_announcement(chat_id, target_name)
+
+        return JsonResponse(
+            {"ok": True, "target_id": target_id, "days": days, "amount": amount,
+             "reason": reason, "new_balance": new_balance},
+            json_dumps_params={"ensure_ascii": False},
+            headers=headers,
+        )
     except Exception as exc:
         try:
             conn.close()

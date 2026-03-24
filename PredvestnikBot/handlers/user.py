@@ -911,6 +911,21 @@ async def cb_profile_nav(callback: CallbackQuery):
         if theme["footer"]:
             lines.append(f"\n{theme['footer']}")
 
+        if callback.message.chat.type == "private":
+            miniapp_row = [
+                InlineKeyboardButton(text="📱 Mini App", web_app=WebAppInfo(url=_MINI_APP_URL)),
+                InlineKeyboardButton(
+                    text="📋 История кошелька",
+                    web_app=WebAppInfo(url=f"{_MINI_APP_URL}?open=wallet_history"),
+                ),
+            ]
+        else:
+            abs_cid = abs(callback.message.chat.id)
+            miniapp_row = [
+                InlineKeyboardButton(text="📱 Mini App", url=f"{_MINI_APP_TG_URL}?startapp={abs_cid}"),
+                InlineKeyboardButton(text="📋 История кошелька", url=f"{_MINI_APP_TG_URL}?startapp={abs_cid}"),
+            ]
+
         kb = InlineKeyboardMarkup(inline_keyboard=[
             [
                 InlineKeyboardButton(text="🎨 Тема", callback_data=f"pn:themes:{uid}"),
@@ -920,6 +935,7 @@ async def cb_profile_nav(callback: CallbackQuery):
                 InlineKeyboardButton(text="🏆 Топ чата", callback_data=f"top:{uid}:a"),
                 InlineKeyboardButton(text="⭐ Репутация", callback_data=f"pn:rep:{uid}"),
             ],
+            miniapp_row,
             [
                 InlineKeyboardButton(text="❌ Закрыть", callback_data=f"pn:close:{uid}"),
             ],
@@ -1228,16 +1244,19 @@ async def cmd_me(message: Message, cmd_args: str):
     # web_app= only works in private chats.
     # In groups, use t.me Mini App link with startapp=abs(chat_id) so the app knows which chat.
     if message.chat.type == "private":
-        miniapp_btn = [InlineKeyboardButton(
-            text="📱 Mini App",
-            web_app=WebAppInfo(url=_MINI_APP_URL),
-        )]
+        miniapp_row = [
+            InlineKeyboardButton(text="📱 Mini App", web_app=WebAppInfo(url=_MINI_APP_URL)),
+            InlineKeyboardButton(
+                text="📋 История кошелька",
+                web_app=WebAppInfo(url=f"{_MINI_APP_URL}?open=wallet_history"),
+            ),
+        ]
     else:
         abs_cid = abs(message.chat.id)
-        miniapp_btn = [InlineKeyboardButton(
-            text="📱 Mini App",
-            url=f"{_MINI_APP_TG_URL}?startapp={abs_cid}",
-        )]
+        miniapp_row = [
+            InlineKeyboardButton(text="📱 Mini App", url=f"{_MINI_APP_TG_URL}?startapp={abs_cid}"),
+            InlineKeyboardButton(text="📋 История кошелька", url=f"{_MINI_APP_TG_URL}?startapp={abs_cid}"),
+        ]
     me_kb = InlineKeyboardMarkup(inline_keyboard=[
         [
             InlineKeyboardButton(text="🎨 Тема", callback_data=f"pn:themes:{uid}"),
@@ -1247,7 +1266,7 @@ async def cmd_me(message: Message, cmd_args: str):
             InlineKeyboardButton(text="🏆 Топ чата", callback_data=f"top:{uid}:a"),
             InlineKeyboardButton(text="⭐ Репутация", callback_data=f"pn:rep:{uid}"),
         ],
-        miniapp_btn,
+        miniapp_row,
         [
             InlineKeyboardButton(text="❌ Закрыть", callback_data=f"pn:close:{uid}"),
         ],
