@@ -267,7 +267,7 @@ select{background:var(--bg3);border:1px solid var(--border);border-radius:8px;pa
   </div>
   <div class="loading" id="lbLoading">⏳ Загрузка…</div>
   <div id="lbList"></div>
-  <div id="lbUserRankCard" style="display:none" class="card" style="margin-top:8px">
+  <div id="lbUserRankCard" class="card" style="display:none;margin-top:8px">
     <div style="font-size:12px;color:var(--text2)">Твоя позиция</div>
     <div style="font-size:15px;font-weight:700;margin-top:4px" id="lbUserRankText"></div>
   </div>
@@ -333,7 +333,7 @@ let chatId = (
 );
 // chat_instance — строка-идентификатор, не подходит как chat_id группы;
 // его не используем, только реальный tg.initDataUnsafe.chat.id
-let uid = 0;
+let uid = (_tgUnsafe.user && _tgUnsafe.user.id) || 0;
 let profileData = null;
 let shopData = null;
 let currentLbType = 'xp';
@@ -385,15 +385,15 @@ async function loadProfile(){
   try{
     const p = await api('/api/user_data' + (chatId ? '?chat_id=' + chatId : ''));
     profileData = p;
-    uid = p.uid || 0;
-    chatId = p.chat_id || 0;
+    uid = p.uid || uid;
+    chatId = p.chat_id || chatId;
     document.getElementById('profileLoading').style.display='none';
     document.getElementById('profileContent').style.display='block';
-    document.getElementById('profileName').textContent = p.first_name || 'Игрок';
-    document.getElementById('profileTitle').textContent = p.title || '';
+    document.getElementById('profileName').textContent = p.name || 'Игрок';
+    document.getElementById('profileTitle').textContent = '';
     document.getElementById('pLevel').textContent = p.level || 1;
     document.getElementById('pMora').textContent = (p.balance||0) + ' 🪙';
-    document.getElementById('pRank').textContent = p.rank || '—';
+    document.getElementById('pRank').textContent = '—';
     document.getElementById('pStreak').textContent = (p.streak||0) + ' дн.';
     const xp = p.xp||0, xpMax = p.xp_max||100;
     document.getElementById('pXp').textContent = xp;
@@ -412,8 +412,9 @@ async function loadProfile(){
 async function doCheckin(){
   try{
     const r = await api('/api/checkin','POST',{chat_id:chatId});
-    toast('✅ '+r.message,'success');
-    profileData.balance=(profileData.balance||0)+r.mora_earned;
+    if(r.already_done){toast('📅 Уже отмечено сегодня','error');return;}
+    toast('✅ Чек-ин! +'+r.mora+' 🪙 (стрик: '+r.streak+')','success');
+    profileData.balance=(profileData.balance||0)+(r.mora||0);
     document.getElementById('pMora').textContent=profileData.balance+' 🪙';
     document.getElementById('pStreak').textContent=(r.streak||0)+' дн.';
   } catch(e){toast('❌ '+e.message,'error')}
@@ -427,19 +428,18 @@ async function loadUnion(){
   document.getElementById('unionLoading').style.display='none';
   document.getElementById('unionContent').style.display='block';
   const p = profileData;
-  if(p.partner_name){
+  if(p.has_partner){
     document.getElementById('familyWalletCard').style.display='block';
     document.getElementById('famTotal').textContent=(p.family_balance||0)+' 🪙';
     document.getElementById('famMy').textContent=(p.my_family_balance||0)+' 🪙';
   } else {
     document.getElementById('noPartnerCard').style.display='block';
   }
-  if(p.pet_type){
+  if(p.pet){
     document.getElementById('petCard').style.display='block';
-    const emojis={cat:'🐱',dog:'🐶'};
-    document.getElementById('petEmoji').textContent=emojis[p.pet_type]||'🐾';
-    document.getElementById('petName').textContent=p.pet_name||'Питомец';
-    updatePetFatigue(p.pet_fatigue||0);
+    document.getElementById('petEmoji').textContent=p.pet.emoji||'🐾';
+    document.getElementById('petName').textContent=p.pet.name||'Питомец';
+    updatePetFatigue(p.pet.fatigue||0);
   }
 }
 
@@ -455,10 +455,13 @@ async function familyAction(action){
   if(!amt||amt<=0){toast('Введи сумму','error');return;}
   try{
     const r=await api('/api/family/'+action,'POST',{chat_id:chatId,amount:amt});
-    toast('✅ '+r.message,'success');
-    document.getElementById('famTotal').textContent=r.family_balance+' 🪙';
-    document.getElementById('famMy').textContent=(r.my_family_balance!==undefined?r.my_family_balance:r.family_balance)+' 🪙';
-    if(r.personal_balance!==undefined){document.getElementById('pMora').textContent=r.personal_balance+' 🪙';}
+    toast('✅ Операция выполнена','success');
+    document.getElementById('famTotal').textContent=(r.family!==undefined?r.family:'?')+' 🪙';
+    document.getElementById('famMy').textContent=(r.family!==undefined?r.family:'?')+' 🪙';
+    if(r.personal!==undefined){
+      document.getElementById('pMora').textContent=r.personal+' 🪙';
+      if(profileData) profileData.balance=r.personal;
+    }
   } catch(e){toast('❌ '+e.message,'error')}
 }
 
@@ -493,8 +496,8 @@ async function loadInventory(){
         <div class="inv-item">
           <div class="ii-emoji">${rarityEmoji(i.rarity)}</div>
           <div class="ii-info">
-            <div class="ii-name">${esc(i.item_name)}</div>
-            <div class="ii-rarity"><span class="badge badge-${i.rarity}">${rarityLabel(i.rarity)}</span> · ${esc(i.item_key)}</div>
+            <div class="ii-name">${esc(i.name)}</div>
+            <div class="ii-rarity"><span class="badge badge-${i.rarity}">${rarityLabel(i.rarity)}</span>${i.slot?' · '+esc(i.slot):''}</div>
           </div>
         </div>`).join('');
     }
@@ -669,7 +672,7 @@ async function loadBondsTab(){
 }
 
 function bondCard(b){
-  const hist=b.price_history||[];
+  const hist=b.history||[];
   const bars=hist.slice(-10).map(h=>{
     const max=Math.max(...hist.map(x=>x.price),1);
     const pct=Math.max(10,Math.round(h.price/max*100));
@@ -678,21 +681,21 @@ function bondCard(b){
   return `
 <div class="card">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-    <div style="font-size:15px;font-weight:800">${esc(b.name||b.bond_key)}</div>
-    <div style="font-size:16px;font-weight:700;color:var(--gold)">${b.current_price||'?'} 🪙</div>
+    <div style="font-size:15px;font-weight:800">${esc(b.name||b.key)}</div>
+    <div style="font-size:16px;font-weight:700;color:var(--gold)">${b.price||'?'} 🪙</div>
   </div>
   <div class="bond-chart"><div class="bond-chart-line">${bars||'<div class="bond-bar" style="height:50%"></div>'}</div></div>
-  <div class="stat-row"><span class="stat-label">📦 В портфеле</span><span class="stat-value">${b.holdings||0} шт.</span></div>
+  <div class="stat-row"><span class="stat-label">📦 В портфеле</span><span class="stat-value">${b.amount||0} шт.</span></div>
   <div class="stat-row"><span class="stat-label">💰 Вложено</span><span class="stat-value">${b.invested||0} 🪙</span></div>
   <div style="margin-top:8px">
     <div class="input-group">
-      <input type="number" id="bondAmt_${b.bond_key}" placeholder="Количество" min="1" style="font-size:13px"/>
+      <input type="number" id="bondAmt_${b.key}" placeholder="Количество" min="1" style="font-size:13px"/>
     </div>
     <div class="btn-row" style="margin-top:6px">
-      <button class="btn btn-green btn-sm" onclick="buyBonds('${b.bond_key}','personal')">💼 Купить (личн.)</button>
-      <button class="btn btn-primary btn-sm" onclick="buyBonds('${b.bond_key}','family')">🏦 Семейн.</button>
+      <button class="btn btn-green btn-sm" onclick="buyBonds('${b.key}','personal')">💼 Купить (личн.)</button>
+      <button class="btn btn-primary btn-sm" onclick="buyBonds('${b.key}','family')">🏦 Семейн.</button>
     </div>
-    <button class="btn btn-red" style="margin-top:6px" onclick="sellBonds('${b.bond_key}')">📤 Продать</button>
+    <button class="btn btn-red" style="margin-top:6px" onclick="sellBonds('${b.key}')">📤 Продать</button>
   </div>
 </div>`;
 }
@@ -738,8 +741,8 @@ async function loadLB(type){
     document.getElementById('lbList').innerHTML=entries.map((e,i)=>`
       <div class="lb-entry ${e.user_id===myUid?'highlight':''}">
         <div class="lb-rank ${i<3?'top3':''}">${ranks[i]||('#'+(i+1))}</div>
-        <div class="lb-name">${esc(e.name||e.first_name||'???')}</div>
-        <div class="lb-score">${e.score||e.value||0}</div>
+        <div class="lb-name">${esc(e.name||'???')}</div>
+        <div class="lb-score">${e.score||0}</div>
       </div>`).join('');
     if(r.user_rank){
       document.getElementById('lbUserRankCard').style.display='block';
@@ -754,9 +757,15 @@ async function loadLB(type){
 async function loadDevStats(){
   try{
     const r=await api('/api/dev/stats?chat_id='+chatId);
-    const keys=Object.keys(r).filter(k=>k!=='ok');
-    document.getElementById('devStatsGrid').innerHTML=keys.map(k=>`
-      <div class="dev-stat"><span>${k}</span><span class="dv">${r[k]}</span></div>`).join('');
+    let html='';
+    html+=`<div class="dev-stat"><span>Пользователей</span><span class="dv">${r.total_users||0}</span></div>`;
+    html+=`<div class="dev-stat"><span>Атак босса (24ч)</span><span class="dv">${r.boss_hits_today||0}</span></div>`;
+    const chats=r.chats||[];
+    html+=`<div class="dev-stat"><span>Чатов</span><span class="dv">${chats.length}</span></div>`;
+    chats.forEach(c=>{
+      html+=`<div class="dev-stat"><span>${esc(c.title||c.chat_id)}</span><span class="dv">${c.members||0} чел.</span></div>`;
+    });
+    document.getElementById('devStatsGrid').innerHTML=html;
   } catch(e){toast('❌ '+e.message,'error')}
 }
 
@@ -765,8 +774,8 @@ async function devSetBalance(){
   const amt=parseInt(document.getElementById('devMoraAmt').value||0);
   const cid=parseInt(document.getElementById('devMoraCid').value||chatId)||chatId;
   try{
-    const r=await api('/api/dev/setbalance','POST',{target_uid:tuid,amount:amt,chat_id:cid});
-    toast('✅ Баланс обновлён: '+r.new_balance,'success');
+    const r=await api('/api/dev/setbalance','POST',{target_id:tuid,balance:amt,chat_id:cid});
+    toast('✅ Баланс установлен: '+r.balance,'success');
   } catch(e){toast('❌ '+e.message,'error')}
 }
 
@@ -775,8 +784,8 @@ async function devAddMora(){
   const amt=parseInt(document.getElementById('devMoraAmt').value||0);
   const cid=parseInt(document.getElementById('devMoraCid').value||chatId)||chatId;
   try{
-    const r=await api('/api/dev/add_mora','POST',{target_uid:tuid,amount:amt,chat_id:cid});
-    toast('✅ Добавлено '+amt+' 🪙','success');
+    const r=await api('/api/dev/add_mora','POST',{target_id:tuid,amount:amt,chat_id:cid});
+    toast('✅ Баланс: '+r.new_balance+' 🪙','success');
   } catch(e){toast('❌ '+e.message,'error')}
 }
 
@@ -785,8 +794,8 @@ async function devAddXp(){
   const amt=parseInt(document.getElementById('devXpAmt').value||0);
   const cid=parseInt(document.getElementById('devXpCid').value||chatId)||chatId;
   try{
-    const r=await api('/api/dev/add_xp','POST',{target_uid:tuid,amount:amt,chat_id:cid});
-    toast('✅ +'+amt+' XP → LVL '+r.new_level,'success');
+    const r=await api('/api/dev/add_xp','POST',{target_id:tuid,amount:amt,chat_id:cid});
+    toast('✅ +'+amt+' XP → LVL '+(r.new_level||'?'),'success');
   } catch(e){toast('❌ '+e.message,'error')}
 }
 
@@ -798,8 +807,8 @@ async function devGiveItem(){
   const cid=parseInt(document.getElementById('devItemCid').value||chatId)||chatId;
   if(!key||!name){toast('Заполни ключ и имя','error');return;}
   try{
-    const r=await api('/api/dev/give_item','POST',{target_uid:tuid,item_key:key,item_name:name,rarity,chat_id:cid});
-    toast('✅ '+r.message,'success');
+    const r=await api('/api/dev/give_item','POST',{target_id:tuid,item_key:key,item_name:name,rarity,chat_id:cid});
+    toast('✅ Предмет '+r.item_name+' (редк.: '+r.rarity+') выдан','success');
   } catch(e){toast('❌ '+e.message,'error')}
 }
 
@@ -808,7 +817,7 @@ async function loadDevUsers(){
     const r=await api('/api/dev/users?chat_id='+chatId);
     const users=r.users||[];
     document.getElementById('devUsersList').innerHTML=users.map(u=>`
-      <div class="dev-stat"><span>${esc(u.first_name||'?')} <small style="color:var(--text2)">#${u.user_id}</small></span><span class="dv">${u.balance||0} 🪙 · LV${u.level||1}</span></div>`
+      <div class="dev-stat"><span>${esc(u.name||'?')} <small style="color:var(--text2)">#${u.user_id}</small></span><span class="dv">${u.user_id}</span></div>`
     ).join('');
   } catch(e){toast('❌ '+e.message,'error')}
 }
