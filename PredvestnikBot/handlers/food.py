@@ -24,6 +24,7 @@ from database.db import (
     reduce_pet_fatigue,
 )
 from filters.bot_command import BotCommand
+from config import MINI_APP_TG_URL
 from utils.helpers import user_mention
 
 router = Router()
@@ -66,7 +67,20 @@ async def cmd_food_shop(message: Message):
         await message.answer("❌ Магазин еды доступен только в группах.")
         return
 
-    uid     = message.from_user.id
+    # PHASE 3: Pet food → Mini App in groups
+    abs_cid = abs(message.chat.id)
+    btn = InlineKeyboardButton(
+        text="🍖 Кормить в Mini App",
+        url=f"{MINI_APP_TG_URL}?startapp={abs_cid}",
+    )
+    await message.answer(
+        "🍖 <b>Кормление питомца переехало в Mini App!</b>",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[[btn]]),
+    )
+    return
+
+    uid     = message.from_user.id  # noqa: unreachable (Phase 3 — superseded by Mini App)
     chat_id = message.chat.id
 
     pet = await get_pet(uid, chat_id)

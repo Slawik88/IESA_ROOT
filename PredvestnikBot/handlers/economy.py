@@ -49,6 +49,7 @@ from database.db import (
 )
 from config import (
     ANON_MSG_PRICE,
+    MINI_APP_TG_URL,
     SECRET_MSG_PRICE,
     VIP_PRICE,
 )
@@ -184,23 +185,16 @@ async def cmd_balance(message: Message, cmd_args: str):
         )
         return
 
-    uid    = message.from_user.id
-    own_user = message.from_user
-    own_name = html.escape(own_user.full_name or "")
-    own_uname = f" (@{own_user.username})" if own_user.username else ""
-    display_self = f"{user_mention(uid, own_name)}{own_uname}"
-    mora   = await get_mora(uid, chat_id)
-    bal    = mora["balance"]     if mora else 0
-    total  = mora["total_earned"] if mora else 0
-    streak = mora["streak_days"] if mora else 0
-    vip    = mora["vip"]         if mora else 0
-    frame  = mora["top_frame"]   if mora else None
-    boost  = await get_xp_boost_active(uid, chat_id)
-
+    # PHASE 3: own balance → Mini App in public groups
+    abs_cid = abs(message.chat.id)
+    btn = InlineKeyboardButton(
+        text="💰 Мой баланс в Mini App",
+        url=f"{MINI_APP_TG_URL}?startapp={abs_cid}",
+    )
     await message.answer(
-        _mora_text(bal, total, streak, display_self, vip, boost, frame),
+        "🔒 <b>Баланс скрыт в общих чатах — открой Mini App:</b>",
         parse_mode="HTML",
-        reply_markup=_mora_keyboard(uid),
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[[btn]]),
     )
 
 

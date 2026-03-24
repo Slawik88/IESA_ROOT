@@ -15,7 +15,7 @@ from aiogram.types import (
     Message,
 )
 
-from config import BANK_EARLY_PENALTY_PCT, BANK_MAX_DEPOSIT, BANK_MIN_DEPOSIT, BANK_PLANS
+from config import BANK_EARLY_PENALTY_PCT, BANK_MAX_DEPOSIT, BANK_MIN_DEPOSIT, BANK_PLANS, MINI_APP_TG_URL
 from database.db import (
     add_mora,
     add_to_family_wallet,
@@ -59,6 +59,19 @@ async def cmd_bank(message: Message, cmd_args: str):
     if message.chat.type == "private":
         await message.answer("❌ Банк доступен только в группах.")
         return
+
+    # PHASE 3: Bank → Mini App in groups
+    abs_cid = abs(message.chat.id)
+    btn = InlineKeyboardButton(
+        text="🏦 Банк в Mini App",
+        url=f"{MINI_APP_TG_URL}?startapp={abs_cid}",
+    )
+    await message.answer(
+        "🏦 <b>Банк переехал в Mini App!</b>",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[[btn]]),
+    )
+    return
 
     uid = message.from_user.id
     chat_id = message.chat.id
