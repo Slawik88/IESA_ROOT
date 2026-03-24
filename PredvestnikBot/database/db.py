@@ -476,6 +476,24 @@ async def init_db():
             "DELETE FROM family_wallet_log WHERE created_at < NOW() - INTERVAL '60 days'"
         )
 
+        # Персональный ledger кошелька (зарплаты, админ-правки, доходы/расходы)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS wallet_ledger (
+                id SERIAL PRIMARY KEY,
+                chat_id BIGINT NOT NULL,
+                user_id BIGINT NOT NULL,
+                direction TEXT NOT NULL,
+                amount INTEGER NOT NULL,
+                source TEXT NOT NULL,
+                description TEXT DEFAULT '',
+                actor_id BIGINT DEFAULT NULL,
+                created_at TIMESTAMPTZ NOT NULL
+            )
+        """)
+        await db.execute(
+            "DELETE FROM wallet_ledger WHERE created_at < NOW() - INTERVAL '60 days'"
+        )
+
         # Журнал розыгрышей лотереи (персистентный guard, выживает перезапуск)
         await db.execute("""
             CREATE TABLE IF NOT EXISTS lottery_draws (
