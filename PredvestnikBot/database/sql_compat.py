@@ -75,6 +75,42 @@ def _normalize_sql_for_postgres(sql: str) -> str | None:
         if "ON CONFLICT" not in normalized.upper():
             normalized = normalized.rstrip().rstrip(";") + " ON CONFLICT (type) DO UPDATE SET chat_id = EXCLUDED.chat_id"
 
+    # Convert SQLite datetime/date functions to PostgreSQL equivalents
+    # datetime('now') → NOW()
+    normalized = re.sub(r"\bdatetime\s*\(\s*'now'\s*\)", "NOW()", normalized, flags=re.IGNORECASE)
+    
+    # datetime('now', '-N unit') → NOW() - INTERVAL 'N unit'
+    # datetime('now', '+N unit') → NOW() + INTERVAL 'N unit'
+    def replace_datetime_offset(match):
+        sign = match.group(1)[0]  # + or -
+        number = match.group(1)[1:]  # Remove sign
+        unit = match.group(2)
+        return f"NOW() {sign} INTERVAL '{number} {unit}'"
+    
+    normalized = re.sub(
+        r"\bdatetime\s*\(\s*'now'\s*,\s*'([+-]\d+)\s+(days?|hours?|minutes?|seconds?)'\s*\)",
+        replace_datetime_offset,
+        normalized,
+        flags=re.IGNORECASE,
+    )
+    
+    # date('now') → CURRENT_DATE
+    normalized = re.sub(r"\bdate\s*\(\s*'now'\s*\)", "CURRENT_DATE", normalized, flags=re.IGNORECASE)
+    
+    # date('now', '-N days') → CURRENT_DATE - INTERVAL 'N days'
+    # date('now', '+N days') → CURRENT_DATE + INTERVAL 'N days'
+    def replace_date_offset(match):
+        sign = match.group(1)[0]  # + or -
+        number = match.group(1)[1:]  # Remove sign
+        return f"CURRENT_DATE {sign} INTERVAL '{number} days'"
+    
+    normalized = re.sub(
+        r"\bdate\s*\(\s*'now'\s*,\s*'([+-]\d+)\s+days?'\s*\)",
+        replace_date_offset,
+        normalized,
+        flags=re.IGNORECASE,
+    )
+
     normalized = _convert_placeholders(normalized)
     return normalized
 
