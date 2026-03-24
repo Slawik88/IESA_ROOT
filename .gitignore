@@ -52,3 +52,4 @@ htmlcov/
 
 # mypy
 .mypy_cache/
+.venv/
