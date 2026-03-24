@@ -1,13 +1,12 @@
 import math
 from datetime import datetime, timedelta, date
 
-from database.sql_compat import aiosqlite_compat as aiosqlite
-from config import DATABASE_PATH
+from database.postgres import connect as postgres_connect
 
 
 async def init_db():
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        await db.execute("PRAGMA journal_mode=WAL")
+    async with postgres_connect() as db:
+        # PostgreSQL не нужен PRAGMA journal_mode
 
         await db.execute("""
             CREATE TABLE IF NOT EXISTS users (
@@ -918,7 +917,7 @@ async def init_db():
         ]
         for _tbl, _col in _bigint_migrations:
             try:
-                async with aiosqlite.connect(DATABASE_PATH) as db:
+                async with postgres_connect() as db:
                     await db.execute(
                         f"ALTER TABLE {_tbl} ALTER COLUMN {_col} TYPE BIGINT"
                     )
@@ -928,7 +927,7 @@ async def init_db():
     # Seed allowed_groups from config (if any)
     from config import ALLOWED_GROUPS
     if ALLOWED_GROUPS:
-        async with aiosqlite.connect(DATABASE_PATH) as db:
+        async with postgres_connect() as db:
             for cid in ALLOWED_GROUPS:
                 await db.execute(
                     "INSERT OR IGNORE INTO allowed_groups (chat_id) VALUES (?)",
@@ -949,7 +948,7 @@ async def enforce_rank_invariants():
     """
     from config import DEVELOPER_ID
 
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         if DEVELOPER_ID:
             await db.execute(
                 "UPDATE user_stats SET rank = 'owner' WHERE rank = 'developer' AND user_id <> ?",
@@ -986,7 +985,7 @@ _whitelist: set[int] = set()
 async def load_whitelist():
     """Load allowed groups from DB into the in-memory cache."""
     global _whitelist
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         async with db.execute("SELECT chat_id FROM allowed_groups") as c:
             rows = await c.fetchall()
     _whitelist = {r[0] for r in rows}
@@ -1001,14 +1000,14 @@ def is_group_allowed(chat_id: int) -> bool:
 
 async def get_allowed_groups() -> list[int]:
     """Return list of all whitelisted chat_ids from DB."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         async with db.execute("SELECT chat_id FROM allowed_groups") as c:
             return [r[0] for r in await c.fetchall()]
 
 
 async def add_allowed_group(chat_id: int):
     """Add a group to the whitelist (DB + cache)."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         await db.execute(
             "INSERT OR IGNORE INTO allowed_groups (chat_id) VALUES (?)",
             (chat_id,),
@@ -1019,7 +1018,7 @@ async def add_allowed_group(chat_id: int):
 
 async def remove_allowed_group(chat_id: int):
     """Remove a group from the whitelist (DB + cache)."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         await db.execute(
             "DELETE FROM allowed_groups WHERE chat_id = ?",
             (chat_id,),
@@ -1035,20 +1034,20 @@ _admin_groups: set[int] = set()
 
 async def load_admin_groups():
     global _admin_groups
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         async with db.execute("SELECT chat_id FROM admin_groups") as c:
             rows = await c.fetchall()
     _admin_groups = {r[0] for r in rows}
 
 
 async def get_admin_groups() -> list[int]:
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         async with db.execute("SELECT chat_id FROM admin_groups") as c:
             return [r[0] for r in await c.fetchall()]
 
 
 async def add_admin_group(chat_id: int):
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         await db.execute(
             "INSERT OR IGNORE INTO admin_groups (chat_id) VALUES (?)",
             (chat_id,),
@@ -1058,7 +1057,7 @@ async def add_admin_group(chat_id: int):
 
 
 async def remove_admin_group(chat_id: int):
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         await db.execute(
             "DELETE FROM admin_groups WHERE chat_id = ?", (chat_id,),
         )
@@ -1074,7 +1073,7 @@ def get_admin_group_ids() -> set[int]:
 
 async def add_rest_user(user_id: int, chat_id: int, days: int, added_by: int):
     now_iso = datetime.utcnow().isoformat(timespec="seconds")
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         await db.execute(
             """INSERT INTO rest_users (user_id, chat_id, days, added_at, added_by)
                VALUES (?, ?, ?, ?, ?)
@@ -1086,7 +1085,7 @@ async def add_rest_user(user_id: int, chat_id: int, days: int, added_by: int):
 
 
 async def remove_rest_user(user_id: int, chat_id: int):
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         await db.execute(
             "DELETE FROM rest_users WHERE user_id = ? AND chat_id = ?",
             (user_id, chat_id),
@@ -1095,8 +1094,7 @@ async def remove_rest_user(user_id: int, chat_id: int):
 
 
 async def get_rest_users(chat_id: int):
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         async with db.execute(
             """SELECT r.user_id, r.days, r.added_at, r.added_by,
                       u.full_name, u.username
@@ -1110,8 +1108,7 @@ async def get_rest_users(chat_id: int):
 
 async def is_on_rest(user_id: int, chat_id: int) -> bool:
     """Check if user is on rest and rest hasn't expired."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         async with db.execute(
             "SELECT days, added_at FROM rest_users WHERE user_id = ? AND chat_id = ?",
             (user_id, chat_id),
@@ -1125,8 +1122,7 @@ async def is_on_rest(user_id: int, chat_id: int) -> bool:
 
 async def get_resting_user_ids(chat_id: int) -> set[int]:
     """Return set of user_ids currently on active rest in this chat."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         async with db.execute(
             "SELECT user_id, days, added_at FROM rest_users WHERE chat_id = ?",
             (chat_id,),
@@ -1143,8 +1139,7 @@ async def get_resting_user_ids(chat_id: int) -> set[int]:
 
 async def get_rest_info_map(chat_id: int) -> dict[int, dict]:
     """Return {user_id: {'days': N, 'days_left': N, 'expires': datetime}} for active rest users."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         async with db.execute(
             "SELECT user_id, days, added_at FROM rest_users WHERE chat_id = ?",
             (chat_id,),
@@ -1168,8 +1163,7 @@ async def get_rest_info_map(chat_id: int) -> dict[int, dict]:
 # ─── Users ────────────────────────────────────────────────────────────────────
 
 async def get_user(user_id: int):
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         async with db.execute(
             "SELECT * FROM users WHERE user_id = ?", (user_id,)
         ) as cursor:
@@ -1180,8 +1174,7 @@ async def get_user_by_username(username: str):
     uname = (username or "").strip().lstrip("@").lower()
     if not uname:
         return None
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         async with db.execute(
             "SELECT * FROM users WHERE LOWER(username) IN (?, ?)",
             (uname, f"@{uname}"),
@@ -1191,7 +1184,7 @@ async def get_user_by_username(username: str):
 
 async def upsert_user(user_id: int, username: str, full_name: str):
     now = datetime.utcnow().isoformat()
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         await db.execute(
             """
             INSERT INTO users (user_id, username, full_name, first_seen)
@@ -1217,7 +1210,7 @@ async def import_users_bulk(records: list[dict], chat_id: int) -> dict:
     errors: list[str] = []
     pending_records: list[dict] = []
 
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         for idx, rec in enumerate(records, 1):
             uid       = rec.get("user_id")
             uname_raw = (rec.get("username") or "").strip()
@@ -1267,7 +1260,7 @@ async def import_users_bulk(records: list[dict], chat_id: int) -> dict:
 
 
 async def increment_message_count(user_id: int):
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         await db.execute(
             "UPDATE users SET message_count = message_count + 1 WHERE user_id = ?",
             (user_id,),
@@ -1281,7 +1274,7 @@ async def store_pending_users(records: list[dict], chat_id: int) -> dict:
     """Хранит username-ключевые пендинг-записи для применения при первом сообщении."""
     ok_count = 0
     errors: list[str] = []
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         for idx, rec in enumerate(records, 1):
             uname = (rec.get("username") or "").strip().lstrip("@").lower()
             if not uname:
@@ -1310,7 +1303,7 @@ async def apply_pending_import(username: str, user_id: int, chat_id: int) -> boo
     uname_lower = username.strip().lstrip("@").lower()
     if not uname_lower:
         return False
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         async with db.execute(
             "SELECT message_count FROM pending_user_imports WHERE username=? AND chat_id=?",
             (uname_lower, chat_id),
@@ -1341,7 +1334,7 @@ async def store_pending_marriages(username1: str, username2: str, chat_id: int, 
     """Хранит оба направления ожидающего брака (по username)."""
     u1 = username1.strip().lstrip("@").lower()
     u2 = username2.strip().lstrip("@").lower()
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         for a, b in [(u1, u2), (u2, u1)]:
             await db.execute(
                 """
@@ -1361,8 +1354,7 @@ async def apply_pending_marriages(username: str, user_id: int, chat_id: int):
     uname_lower = username.strip().lstrip("@").lower()
     if not uname_lower:
         return
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         async with db.execute(
             "SELECT username2, married_at FROM pending_marriage_imports WHERE username1=? AND chat_id=?",
             (uname_lower, chat_id),
@@ -1410,7 +1402,7 @@ async def upsert_chat(
     chat_type: str = "private",
     is_active: int = 1,
 ):
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         await db.execute(
             """
             INSERT INTO chats (chat_id, title, username, chat_type, is_active)
@@ -1427,7 +1419,7 @@ async def upsert_chat(
 
 
 async def set_chat_active(chat_id: int, is_active: int):
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         await db.execute(
             "INSERT OR IGNORE INTO chats (chat_id, is_active) VALUES (?, ?)",
             (chat_id, is_active),
@@ -1440,16 +1432,14 @@ async def set_chat_active(chat_id: int, is_active: int):
 
 
 async def get_active_chats():
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         async with db.execute(
             "SELECT * FROM chats WHERE is_active = 1"
         ) as cursor:
             return await cursor.fetchall()
 
 async def get_chat_settings(chat_id: int):
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         async with db.execute(
             "SELECT * FROM chat_settings WHERE chat_id = ?", (chat_id,)
         ) as cursor:
@@ -1472,7 +1462,7 @@ _ALLOWED_LOCK_TYPES = {"links", "stickers", "gifs", "forwards", "voice", "video"
 async def set_chat_setting(chat_id: int, key: str, value):
     if key not in _ALLOWED_CHAT_SETTING_KEYS:
         raise ValueError(f"Invalid chat setting key: {key!r}")
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         await db.execute(
             "INSERT OR IGNORE INTO chat_settings (chat_id) VALUES (?)", (chat_id,)
         )
@@ -1484,7 +1474,7 @@ async def set_chat_setting(chat_id: int, key: str, value):
 
 async def get_locked_chats() -> list[int]:
     """Return chat_ids where cleanup_locked=1 (чаты заблокированные чисткой)."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         async with db.execute(
             "SELECT chat_id FROM chat_settings WHERE cleanup_locked = 1"
         ) as c:
@@ -1494,7 +1484,7 @@ async def get_locked_chats() -> list[int]:
 # ─── Notes ────────────────────────────────────────────────────────────────────
 
 async def save_note(chat_id: int, name: str, content: str):
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         await db.execute(
             """
             INSERT INTO notes (chat_id, name, content) VALUES (?, ?, ?)
@@ -1506,8 +1496,7 @@ async def save_note(chat_id: int, name: str, content: str):
 
 
 async def get_note(chat_id: int, name: str):
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         async with db.execute(
             "SELECT * FROM notes WHERE chat_id = ? AND name = ?",
             (chat_id, name.lower()),
@@ -1516,8 +1505,7 @@ async def get_note(chat_id: int, name: str):
 
 
 async def list_notes(chat_id: int):
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         async with db.execute(
             "SELECT name FROM notes WHERE chat_id = ? ORDER BY name", (chat_id,)
         ) as cursor:
@@ -1525,7 +1513,7 @@ async def list_notes(chat_id: int):
 
 
 async def delete_note(chat_id: int, name: str) -> bool:
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         cursor = await db.execute(
             "DELETE FROM notes WHERE chat_id = ? AND name = ?",
             (chat_id, name.lower()),
@@ -1537,7 +1525,7 @@ async def delete_note(chat_id: int, name: str) -> bool:
 # ─── Filters ──────────────────────────────────────────────────────────────────
 
 async def add_filter(chat_id: int, keyword: str, response: str):
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         await db.execute(
             """
             INSERT INTO chat_filters (chat_id, keyword, response) VALUES (?, ?, ?)
@@ -1549,8 +1537,7 @@ async def add_filter(chat_id: int, keyword: str, response: str):
 
 
 async def get_filters(chat_id: int):
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         async with db.execute(
             "SELECT * FROM chat_filters WHERE chat_id = ?", (chat_id,)
         ) as cursor:
@@ -1558,7 +1545,7 @@ async def get_filters(chat_id: int):
 
 
 async def delete_filter(chat_id: int, keyword: str) -> bool:
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         cursor = await db.execute(
             "DELETE FROM chat_filters WHERE chat_id = ? AND keyword = ?",
             (chat_id, keyword.lower()),
@@ -1570,7 +1557,7 @@ async def delete_filter(chat_id: int, keyword: str) -> bool:
 # ─── Blacklist ────────────────────────────────────────────────────────────────
 
 async def add_blacklist_word(chat_id: int, word: str) -> bool:
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         try:
             await db.execute(
                 "INSERT INTO blacklist (chat_id, word) VALUES (?, ?)",
@@ -1583,7 +1570,7 @@ async def add_blacklist_word(chat_id: int, word: str) -> bool:
 
 
 async def remove_blacklist_word(chat_id: int, word: str) -> bool:
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         cursor = await db.execute(
             "DELETE FROM blacklist WHERE chat_id = ? AND word = ?",
             (chat_id, word.lower()),
@@ -1593,8 +1580,7 @@ async def remove_blacklist_word(chat_id: int, word: str) -> bool:
 
 
 async def get_blacklist(chat_id: int):
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         async with db.execute(
             "SELECT word FROM blacklist WHERE chat_id = ? ORDER BY word", (chat_id,)
         ) as cursor:
@@ -1604,8 +1590,7 @@ async def get_blacklist(chat_id: int):
 # ─── Locks ────────────────────────────────────────────────────────────────────
 
 async def get_locks(chat_id: int):
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         async with db.execute(
             "SELECT * FROM locks WHERE chat_id = ?", (chat_id,)
         ) as cursor:
@@ -1615,7 +1600,7 @@ async def get_locks(chat_id: int):
 async def set_lock(chat_id: int, lock_type: str, value: int):
     if lock_type not in _ALLOWED_LOCK_TYPES:
         raise ValueError(f"Invalid lock type: {lock_type!r}")
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         await db.execute(
             "INSERT OR IGNORE INTO locks (chat_id) VALUES (?)", (chat_id,)
         )
@@ -1631,7 +1616,7 @@ async def get_rep_count_today(from_uid: int, to_uid: int, chat_id: int) -> int:
     """Сколько раз from_uid давал репутацию to_uid в чате за сегодня (UTC)."""
     today = datetime.utcnow().date().isoformat()  # "YYYY-MM-DD"
     cutoff = today + "T00:00:00"
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         async with db.execute(
             "SELECT COUNT(*) FROM rep_log WHERE from_uid=? AND to_uid=? AND chat_id=? AND given_at>=?",
             (from_uid, to_uid, chat_id, cutoff),
@@ -1643,7 +1628,7 @@ async def get_rep_count_today(from_uid: int, to_uid: int, chat_id: int) -> int:
 async def can_give_rep(from_uid: int, to_uid: int, chat_id: int) -> bool:
     """Обратная совместимость: проверяет 2-часовой кулдаун (устарела, используй get_rep_count_today)."""
     cutoff = (datetime.utcnow() - timedelta(hours=2)).isoformat()
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         async with db.execute(
             "SELECT COUNT(*) FROM rep_log WHERE from_uid=? AND to_uid=? AND chat_id=? AND given_at>?",
             (from_uid, to_uid, chat_id, cutoff),
@@ -1680,7 +1665,7 @@ async def set_user_stat(user_id: int, field: str, value) -> bool:
     """Developer-only: set any editable field on a user. Returns False if field not allowed."""
     if field not in _EDITABLE_USER_FIELDS:
         return False
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         await db.execute(
             f"UPDATE users SET {field} = ? WHERE user_id = ?", (value, user_id)
         )
@@ -1695,8 +1680,7 @@ async def increment_cleanup_count(chat_id: int, user_id: int):
     iso      = date.today().isocalendar()
     week_key = f"{iso.year}-W{iso.week:02d}"
 
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         async with db.execute(
             "SELECT * FROM cleanup_counts WHERE chat_id=? AND user_id=?",
             (chat_id, user_id),
@@ -1739,8 +1723,7 @@ async def get_activity_report(chat_id: int):
     iso      = date.today().isocalendar()
     week_key = f"{iso.year}-W{iso.week:02d}"
 
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         async with db.execute(
             """
             SELECT u.user_id, u.full_name, u.username, COALESCE(us.rank, u.rank) AS rank,
@@ -1761,8 +1744,7 @@ async def get_activity_report(chat_id: int):
 
 async def get_inactive_users(chat_id: int, min_msgs: int):
     """Возвращает пользователей с кол-вом сообщений < min_msgs с момента последнего сброса."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         async with db.execute(
             """
             SELECT u.user_id, u.full_name, u.username, COALESCE(us.rank, u.rank) AS rank, COALESCE(us.warns, u.warns) AS warns,
@@ -1781,7 +1763,7 @@ async def get_inactive_users(chat_id: int, min_msgs: int):
 
 
 async def reset_cleanup_counts(chat_id: int):
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         await db.execute(
             "UPDATE cleanup_counts SET count = 0 WHERE chat_id = ?", (chat_id,)
         )
@@ -1852,7 +1834,7 @@ async def reroll_user_quest(user_id: int, chat_id: int, quest_date: str) -> dict
     if not candidates:
         candidates = DAILY_QUESTS
     new_quest = random.choice(candidates)
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         await db.execute(
             "DELETE FROM user_quests WHERE user_id=? AND chat_id=? AND quest_date=?",
             (user_id, chat_id, quest_date),
@@ -1869,8 +1851,7 @@ async def reroll_user_quest(user_id: int, chat_id: int, quest_date: str) -> dict
 
 
 async def get_quest_progress(user_id: int, chat_id: int, quest_date: str):
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         async with db.execute(
             "SELECT * FROM user_quests WHERE user_id=? AND chat_id=? AND quest_date=?",
             (user_id, chat_id, quest_date),
@@ -1880,8 +1861,7 @@ async def get_quest_progress(user_id: int, chat_id: int, quest_date: str):
 
 async def quest_tick(user_id: int, chat_id: int, quest_date: str, quest_type: str, goal: int) -> tuple[int, int, bool]:
     """Ticks progress +1. Returns (new_progress, goal, just_completed). Creates row on first call."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         async with db.execute(
             "SELECT progress, goal, completed FROM user_quests WHERE user_id=? AND chat_id=? AND quest_date=?",
             (user_id, chat_id, quest_date),
@@ -1914,7 +1894,7 @@ async def quest_tick(user_id: int, chat_id: int, quest_date: str, quest_type: st
 
 
 async def mark_quest_rewarded(user_id: int, chat_id: int, quest_date: str):
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         await db.execute(
             "UPDATE user_quests SET rewarded=1 WHERE user_id=? AND chat_id=? AND quest_date=?",
             (user_id, chat_id, quest_date),
@@ -1925,8 +1905,7 @@ async def mark_quest_rewarded(user_id: int, chat_id: int, quest_date: str):
 # ─── Achievements ─────────────────────────────────────────────────────────────
 
 async def get_achievements(user_id: int) -> list:
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         async with db.execute(
             "SELECT badge, earned_at FROM user_achievements WHERE user_id=? ORDER BY earned_at",
             (user_id,),
@@ -1937,7 +1916,7 @@ async def get_achievements(user_id: int) -> list:
 async def award_achievement(user_id: int, badge: str) -> bool:
     """Awards achievement. Returns True if newly awarded."""
     now = datetime.utcnow().isoformat()
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         try:
             await db.execute(
                 "INSERT INTO user_achievements (user_id, badge, earned_at) VALUES (?,?,?)",
@@ -1954,8 +1933,7 @@ async def award_achievement(user_id: int, badge: str) -> bool:
 async def get_weekly_top(chat_id: int, limit: int = 10) -> list:
     iso = date.today().isocalendar()
     week_key = f"{iso.year}-W{iso.week:02d}"
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         async with db.execute(
             """SELECT u.user_id, u.full_name, u.username,
                       CASE WHEN cc.week_start=? THEN COALESCE(cc.week_count,0) ELSE 0 END AS wc
@@ -1972,8 +1950,7 @@ async def get_weekly_top(chat_id: int, limit: int = 10) -> list:
 
 async def get_daily_top(chat_id: int, limit: int = 10) -> list:
     today = date.today().isoformat()
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         async with db.execute(
             """SELECT u.user_id, u.full_name, u.username,
                       CASE WHEN cc.day_start=? THEN COALESCE(cc.day_count,0) ELSE 0 END AS dc
@@ -1993,8 +1970,7 @@ async def get_prev_weekly_top(chat_id: int, limit: int = 10) -> list:
     prev_week_date = date.today() - timedelta(days=7)
     iso = prev_week_date.isocalendar()
     week_key = f"{iso.year}-W{iso.week:02d}"
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         async with db.execute(
             """SELECT u.user_id, u.full_name, u.username,
                       CASE WHEN cc.week_start=? THEN COALESCE(cc.week_count,0) ELSE 0 END AS wc
@@ -2012,8 +1988,7 @@ async def get_prev_weekly_top(chat_id: int, limit: int = 10) -> list:
 async def get_yesterday_top(chat_id: int, limit: int = 10) -> list:
     """Top users for yesterday."""
     yesterday = (date.today() - timedelta(days=1)).isoformat()
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         async with db.execute(
             """SELECT u.user_id, u.full_name, u.username,
                       CASE WHEN cc.day_start=? THEN COALESCE(cc.day_count,0) ELSE 0 END AS dc
@@ -2029,8 +2004,7 @@ async def get_yesterday_top(chat_id: int, limit: int = 10) -> list:
 
 
 async def get_chat_members(chat_id: int, ranks: list[str] | None = None) -> list:
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         async with db.execute(
             """SELECT DISTINCT u.user_id, u.full_name, u.username, COALESCE(us.rank, u.rank) AS rank
                FROM cleanup_counts cc
@@ -2049,8 +2023,7 @@ async def get_chat_members(chat_id: int, ranks: list[str] | None = None) -> list
 # ─── Marriages ──────────────────────────────────────────────────────────────
 
 async def get_marriage(user_id: int, chat_id: int):
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         async with db.execute(
             "SELECT * FROM marriages WHERE user_id=? AND chat_id=?",
             (user_id, chat_id),
@@ -2060,7 +2033,7 @@ async def get_marriage(user_id: int, chat_id: int):
 
 async def create_marriage(user_a: int, user_b: int, chat_id: int):
     now = datetime.utcnow().isoformat()
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         await db.execute(
             "DELETE FROM marriages WHERE chat_id=? AND (user_id=? OR user_id=?)",
             (chat_id, user_a, user_b),
@@ -2077,7 +2050,7 @@ async def create_marriage(user_a: int, user_b: int, chat_id: int):
 
 
 async def delete_marriage(user_id: int, chat_id: int):
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         async with db.execute(
             "SELECT partner_id FROM marriages WHERE user_id=? AND chat_id=?",
             (user_id, chat_id),
@@ -2094,7 +2067,7 @@ async def delete_marriage(user_id: int, chat_id: int):
 
 async def import_marriage_with_date(user_a: int, user_b: int, chat_id: int, married_at: str):
     """Создаёт/обновляет брак с указанной датой (для импорта из JSON)."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         await db.execute(
             "DELETE FROM marriages WHERE chat_id=? AND (user_id=? OR user_id=?)",
             (chat_id, user_a, user_b),
@@ -2112,8 +2085,7 @@ async def import_marriage_with_date(user_a: int, user_b: int, chat_id: int, marr
 
 async def get_migration_stats(chat_id: int) -> dict:
     """Возвращает статистику по данным в БД для данного чата (для команды бот скан)."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         async with db.execute(
             "SELECT COUNT(*) AS cnt FROM user_stats WHERE chat_id=?", (chat_id,)
         ) as c:
@@ -2162,8 +2134,7 @@ async def get_migration_stats(chat_id: int) -> dict:
 # ─── Per-chat user stats ─────────────────────────────────────────────────────
 
 async def get_user_stats(user_id: int, chat_id: int):
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         async with db.execute(
             "SELECT * FROM user_stats WHERE user_id = ? AND chat_id = ?",
             (user_id, chat_id),
@@ -2173,7 +2144,7 @@ async def get_user_stats(user_id: int, chat_id: int):
 
 async def upsert_user_stats(user_id: int, chat_id: int):
     """Ensure a row exists in user_stats for this user+chat."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         await db.execute(
             "INSERT OR IGNORE INTO user_stats (user_id, chat_id) VALUES (?, ?)",
             (user_id, chat_id),
@@ -2184,7 +2155,7 @@ async def upsert_user_stats(user_id: int, chat_id: int):
 async def increment_message_count_chat(user_id: int, chat_id: int) -> int:
     """Increment message count and return the new value."""
     now_iso = datetime.utcnow().isoformat(timespec="seconds")
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         await db.execute(
             """INSERT INTO user_stats (user_id, chat_id, message_count, first_active, last_active)
                VALUES (?, ?, 1, ?, ?)
@@ -2206,7 +2177,7 @@ async def increment_message_count_chat(user_id: int, chat_id: int) -> int:
 async def set_rank_in_chat(user_id: int, chat_id: int, rank: str):
     from config import DEVELOPER_ID
 
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         if rank == "developer":
             if not DEVELOPER_ID or user_id != DEVELOPER_ID:
                 raise ValueError("Только указанный DEVELOPER_ID может иметь ранг developer.")
@@ -2230,7 +2201,7 @@ async def set_rank_in_chat(user_id: int, chat_id: int, rank: str):
 
 
 async def ban_user_in_chat(user_id: int, chat_id: int, reason: str = None):
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         await db.execute(
             """INSERT INTO user_stats (user_id, chat_id, is_banned, ban_reason) VALUES (?, ?, 1, ?)
                ON CONFLICT(user_id, chat_id) DO UPDATE SET is_banned = 1, ban_reason = excluded.ban_reason""",
@@ -2240,7 +2211,7 @@ async def ban_user_in_chat(user_id: int, chat_id: int, reason: str = None):
 
 
 async def unban_user_in_chat(user_id: int, chat_id: int):
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         await db.execute(
             "UPDATE user_stats SET is_banned = 0, ban_reason = NULL WHERE user_id = ? AND chat_id = ?",
             (user_id, chat_id),
@@ -2249,7 +2220,7 @@ async def unban_user_in_chat(user_id: int, chat_id: int):
 
 
 async def add_warn_in_chat(user_id: int, chat_id: int) -> int:
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         await db.execute(
             """INSERT INTO user_stats (user_id, chat_id, warns) VALUES (?, ?, 1)
                ON CONFLICT(user_id, chat_id) DO UPDATE SET warns = user_stats.warns + 1""",
@@ -2265,7 +2236,7 @@ async def add_warn_in_chat(user_id: int, chat_id: int) -> int:
 
 
 async def remove_warn_in_chat(user_id: int, chat_id: int) -> int:
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         await db.execute(
             "UPDATE user_stats SET warns = GREATEST(0, warns - 1) WHERE user_id = ? AND chat_id = ?",
             (user_id, chat_id),
@@ -2280,8 +2251,7 @@ async def remove_warn_in_chat(user_id: int, chat_id: int) -> int:
 
 
 async def get_staff_in_chat(chat_id: int):
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         async with db.execute(
             """
             SELECT us.*, u.username, u.full_name
@@ -2307,7 +2277,7 @@ async def get_staff_in_chat(chat_id: int):
 
 async def add_xp_in_chat(user_id: int, chat_id: int, amount: int) -> tuple[int, int, bool]:
     """Add XP in a specific chat. Returns (new_xp, new_level, leveled_up)."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         await db.execute(
             "INSERT OR IGNORE INTO user_stats (user_id, chat_id) VALUES (?, ?)",
             (user_id, chat_id),
@@ -2333,8 +2303,7 @@ async def add_xp_in_chat(user_id: int, chat_id: int, amount: int) -> tuple[int, 
 
 async def get_mora(user_id: int, chat_id: int):
     """Returns user_mora row or None."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         async with db.execute(
             "SELECT * FROM user_mora WHERE user_id=? AND chat_id=?",
             (user_id, chat_id),
@@ -2347,8 +2316,7 @@ async def get_mora_batch(user_ids: list[int], chat_id: int) -> dict[int, dict]:
     if not user_ids:
         return {}
     placeholders = ",".join("?" * len(user_ids))
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         async with db.execute(
             f"SELECT * FROM user_mora WHERE chat_id=? AND user_id IN ({placeholders})",
             (chat_id, *user_ids),
@@ -2359,7 +2327,7 @@ async def get_mora_batch(user_ids: list[int], chat_id: int) -> dict[int, dict]:
 
 async def add_mora(user_id: int, chat_id: int, amount: int) -> int:
     """Add (or subtract) Мора. Balance never goes below 0. Returns new balance."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         await db.execute(
             """INSERT INTO user_mora (user_id, chat_id, balance, total_earned)
                VALUES (?, ?, GREATEST(0, ?), CASE WHEN ? > 0 THEN ? ELSE 0 END)
@@ -2384,8 +2352,7 @@ async def check_daily_mora(user_id: int, chat_id: int) -> tuple[bool, int, bool]
     """
     today = date.today().isoformat()
     yesterday = (date.today() - timedelta(days=1)).isoformat()
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         async with db.execute(
             "SELECT last_daily, streak_days FROM user_mora WHERE user_id=? AND chat_id=?",
             (user_id, chat_id),
@@ -2430,7 +2397,7 @@ async def check_daily_mora(user_id: int, chat_id: int) -> tuple[bool, int, bool]
 
 async def set_mora_public(user_id: int, chat_id: int, public: int):
     """Set whether this user's Мора balance is visible to others in this chat."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         await db.execute(
             """INSERT INTO user_mora (user_id, chat_id, mora_public)
                VALUES (?, ?, ?)
@@ -2442,8 +2409,7 @@ async def set_mora_public(user_id: int, chat_id: int, public: int):
 
 async def deduct_mora(user_id: int, chat_id: int, amount: int) -> tuple[bool, int]:
     """Deduct Мора if balance is sufficient. Atomic UPDATE prevents race conditions."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         cursor = await db.execute(
             """UPDATE user_mora
                SET balance = balance - ?
@@ -2468,8 +2434,7 @@ async def deduct_mora(user_id: int, chat_id: int, amount: int) -> tuple[bool, in
 
 async def get_vip(user_id: int, chat_id: int) -> int:
     """Returns 1 if user has VIP in this chat, else 0."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         async with db.execute(
             "SELECT vip FROM user_mora WHERE user_id=? AND chat_id=?",
             (user_id, chat_id),
@@ -2480,7 +2445,7 @@ async def get_vip(user_id: int, chat_id: int) -> int:
 
 async def set_vip(user_id: int, chat_id: int, value: int):
     """Set VIP status for user in chat."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         await db.execute(
             """INSERT INTO user_mora (user_id, chat_id, vip) VALUES (?, ?, ?)
                ON CONFLICT(user_id, chat_id) DO UPDATE SET vip = excluded.vip""",
@@ -2491,8 +2456,7 @@ async def set_vip(user_id: int, chat_id: int, value: int):
 
 async def get_xp_boost_active(user_id: int, chat_id: int) -> bool:
     """Returns True if user has an active XP boost right now."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         async with db.execute(
             "SELECT xp_boost_until FROM user_mora WHERE user_id=? AND chat_id=?",
             (user_id, chat_id),
@@ -2509,7 +2473,7 @@ async def get_xp_boost_active(user_id: int, chat_id: int) -> bool:
 
 async def set_xp_boost(user_id: int, chat_id: int, until_iso: str):
     """Set XP boost expiry for user."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         await db.execute(
             """INSERT INTO user_mora (user_id, chat_id, xp_boost_until) VALUES (?, ?, ?)
                ON CONFLICT(user_id, chat_id) DO UPDATE SET xp_boost_until = excluded.xp_boost_until""",
@@ -2520,8 +2484,7 @@ async def set_xp_boost(user_id: int, chat_id: int, until_iso: str):
 
 async def get_top_frame(user_id: int, chat_id: int) -> str | None:
     """Returns the active top frame key for user, or None."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         async with db.execute(
             "SELECT top_frame FROM user_mora WHERE user_id=? AND chat_id=?",
             (user_id, chat_id),
@@ -2532,7 +2495,7 @@ async def get_top_frame(user_id: int, chat_id: int) -> str | None:
 
 async def set_top_frame(user_id: int, chat_id: int, frame: str | None):
     """Set top frame for user."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         await db.execute(
             """INSERT INTO user_mora (user_id, chat_id, top_frame) VALUES (?, ?, ?)
                ON CONFLICT(user_id, chat_id) DO UPDATE SET top_frame = excluded.top_frame""",
@@ -2546,7 +2509,7 @@ async def set_top_frame(user_id: int, chat_id: int, frame: str | None):
 async def create_duel(chat_id: int, challenger_id: int, target_id: int, bet: int, msg_id: int) -> int:
     """Create a pending dice duel. Returns duel id."""
     now = datetime.utcnow().isoformat()
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         cursor = await db.execute(
             """INSERT INTO casino_duels (chat_id, challenger_id, target_id, bet, status, msg_id, created_at)
                VALUES (?, ?, ?, ?, 'pending', ?, ?) RETURNING id""",
@@ -2558,8 +2521,7 @@ async def create_duel(chat_id: int, challenger_id: int, target_id: int, bet: int
 
 
 async def get_duel(duel_id: int):
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         async with db.execute(
             "SELECT * FROM casino_duels WHERE id=?", (duel_id,)
         ) as c:
@@ -2567,7 +2529,7 @@ async def get_duel(duel_id: int):
 
 
 async def set_duel_status(duel_id: int, status: str):
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         await db.execute(
             "UPDATE casino_duels SET status=? WHERE id=?",
             (status, duel_id),
@@ -2578,7 +2540,7 @@ async def set_duel_status(duel_id: int, status: str):
 async def cancel_expired_duels():
     """Cancel duels older than 5 minutes that are still pending."""
     cutoff = (datetime.utcnow() - timedelta(minutes=5)).isoformat()
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         await db.execute(
             "UPDATE casino_duels SET status='expired' WHERE status='pending' AND created_at < ?",
             (cutoff,),
@@ -2588,8 +2550,7 @@ async def cancel_expired_duels():
 
 async def get_pending_duels_for_chat(chat_id: int, challenger_id: int) -> list:
     """Return pending duels by this challenger in this chat (to prevent spam)."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         async with db.execute(
             "SELECT * FROM casino_duels WHERE chat_id=? AND challenger_id=? AND status='pending'",
             (chat_id, challenger_id),
@@ -2599,7 +2560,7 @@ async def get_pending_duels_for_chat(chat_id: int, challenger_id: int) -> list:
 
 async def buy_lottery_ticket(chat_id: int, user_id: int, week_key: str):
     """Buy one lottery ticket for this week. Returns new ticket count."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         await db.execute(
             """INSERT INTO casino_lottery (chat_id, user_id, week_key, tickets)
                VALUES (?, ?, ?, 1)
@@ -2608,7 +2569,6 @@ async def buy_lottery_ticket(chat_id: int, user_id: int, week_key: str):
             (chat_id, user_id, week_key),
         )
         await db.commit()
-        db.row_factory = aiosqlite.Row
         async with db.execute(
             "SELECT tickets FROM casino_lottery WHERE chat_id=? AND user_id=? AND week_key=?",
             (chat_id, user_id, week_key),
@@ -2618,8 +2578,7 @@ async def buy_lottery_ticket(chat_id: int, user_id: int, week_key: str):
 
 
 async def get_lottery_tickets(chat_id: int, user_id: int, week_key: str) -> int:
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         async with db.execute(
             "SELECT tickets FROM casino_lottery WHERE chat_id=? AND user_id=? AND week_key=?",
             (chat_id, user_id, week_key),
@@ -2630,8 +2589,7 @@ async def get_lottery_tickets(chat_id: int, user_id: int, week_key: str) -> int:
 
 async def get_all_lottery_participants(chat_id: int, week_key: str) -> list:
     """Return all (user_id, tickets) rows for this chat and week."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         async with db.execute(
             "SELECT user_id, tickets FROM casino_lottery WHERE chat_id=? AND week_key=?",
             (chat_id, week_key),
@@ -2641,7 +2599,7 @@ async def get_all_lottery_participants(chat_id: int, week_key: str) -> list:
 
 async def get_all_lottery_chats_week(week_key: str) -> list[int]:
     """Return distinct chat_ids that have tickets for this week."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         async with db.execute(
             "SELECT DISTINCT chat_id FROM casino_lottery WHERE week_key=?",
             (week_key,),
@@ -2653,8 +2611,7 @@ async def get_all_lottery_chats_week(week_key: str) -> list[int]:
 
 async def get_family_wallet(chat_id: int, user_id: int) -> int:
     """Returns the shared family wallet balance, or 0 if not found."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         async with db.execute(
             "SELECT balance FROM family_wallet WHERE chat_id=? AND user_id=?",
             (chat_id, user_id),
@@ -2665,7 +2622,7 @@ async def get_family_wallet(chat_id: int, user_id: int) -> int:
 
 async def add_to_family_wallet(chat_id: int, user_id: int, amount: int) -> int:
     """Add or subtract from family wallet. Returns new balance."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         await db.execute(
             """INSERT INTO family_wallet (chat_id, user_id, balance)
                VALUES (?, ?, GREATEST(0, ?))
@@ -2674,7 +2631,6 @@ async def add_to_family_wallet(chat_id: int, user_id: int, amount: int) -> int:
             (chat_id, user_id, amount, amount),
         )
         await db.commit()
-        db.row_factory = aiosqlite.Row
         async with db.execute(
             "SELECT balance FROM family_wallet WHERE chat_id=? AND user_id=?",
             (chat_id, user_id),
@@ -2692,8 +2648,7 @@ async def get_total_family_balance(chat_id: int, user_id: int) -> tuple[int, int
     """Returns (total_balance, my_balance, partner_id).
     total_balance = сумма вкладов обоих партнёров.
     partner_id = None если брак не найден."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         # Получаем partner_id из таблицы браков
         async with db.execute(
             "SELECT partner_id FROM marriages WHERE user_id=? AND chat_id=?",
@@ -2729,8 +2684,7 @@ async def deduct_family_pool(
     Сначала списывает с вклада user_id, затем — с вклада partner_id.
     Возвращает новый суммарный баланс.
     ВАЖНО: вызывать только после проверки get_total_family_balance >= amount."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
 
         async with db.execute(
             "SELECT balance FROM family_wallet WHERE chat_id=? AND user_id=?",
@@ -2779,7 +2733,7 @@ async def log_family_transaction(
     action: 'deposit' | 'withdraw' | 'purchase'"""
     from datetime import timezone
     now = datetime.now(timezone.utc).isoformat()
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         await db.execute(
             "INSERT INTO family_wallet_log (chat_id, user_id, action, amount, description, created_at) "
             "VALUES (?,?,?,?,?,?)",
@@ -2790,8 +2744,7 @@ async def log_family_transaction(
 
 async def get_family_wallet_log(chat_id: int, limit: int = 30) -> list:
     """Последние транзакции семейного кошелька в чате (для обоих партнёров)."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         async with db.execute(
             "SELECT fw.*, u.full_name "
             "FROM family_wallet_log fw "
@@ -2806,8 +2759,7 @@ async def get_family_wallet_log(chat_id: int, limit: int = 30) -> list:
 
 async def get_all_marriages_for_anniversary() -> list:
     """Return all marriages for anniversary check (all chats)."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         async with db.execute(
             "SELECT user_id, chat_id, partner_id, married_at FROM marriages"
         ) as c:
@@ -2816,7 +2768,7 @@ async def get_all_marriages_for_anniversary() -> list:
 
 async def is_anniversary_awarded(user_id: int, chat_id: int, date_str: str) -> bool:
     """True если юбилейная Мора уже была начислена этому пользователю сегодня."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         async with db.execute(
             "SELECT 1 FROM anniversary_log WHERE user_id=? AND chat_id=? AND date_str=?",
             (user_id, chat_id, date_str),
@@ -2826,7 +2778,7 @@ async def is_anniversary_awarded(user_id: int, chat_id: int, date_str: str) -> b
 
 async def mark_anniversary_awarded(user_id: int, chat_id: int, date_str: str):
     """Записать факт начисления юбилейной Моры."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         await db.execute(
             "INSERT OR IGNORE INTO anniversary_log (user_id, chat_id, date_str) VALUES (?,?,?)",
             (user_id, chat_id, date_str),
@@ -2845,7 +2797,7 @@ async def mark_anniversary_awarded(user_id: int, chat_id: int, date_str: str):
 
 async def is_singles_bonus_awarded(week_key: str) -> bool:
     """Check if singles bonus has been awarded for this week."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         async with db.execute(
             "SELECT 1 FROM singles_bonus_log WHERE week_key=?", (week_key,)
         ) as c:
@@ -2854,7 +2806,7 @@ async def is_singles_bonus_awarded(week_key: str) -> bool:
 
 async def mark_singles_bonus_awarded(week_key: str):
     """Mark singles bonus as awarded for this week and cleanup old records."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         await db.execute(
             "INSERT OR IGNORE INTO singles_bonus_log (week_key) VALUES (?)", (week_key,)
         )
@@ -2871,8 +2823,7 @@ async def mark_singles_bonus_awarded(week_key: str):
 
 async def get_all_singles_for_weekly_bonus():
     """Get all single (unmarried) users who are active."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         async with db.execute("""
             SELECT us.user_id, us.chat_id
             FROM user_stats us
@@ -2891,7 +2842,7 @@ async def get_all_singles_for_weekly_bonus():
 
 async def is_lottery_drawn(week_key: str) -> bool:
     """True если розыгрыш лотереи уже был проведён на этой неделе (выживает перезапуск)."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         async with db.execute(
             "SELECT 1 FROM lottery_draws WHERE week_key=?", (week_key,)
         ) as c:
@@ -2900,7 +2851,7 @@ async def is_lottery_drawn(week_key: str) -> bool:
 
 async def mark_lottery_drawn(week_key: str):
     """Записать факт проведения розыгрыша лотереи на этой неделе."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         await db.execute(
             "INSERT OR IGNORE INTO lottery_draws (week_key) VALUES (?)", (week_key,)
         )
@@ -2918,7 +2869,7 @@ async def mark_lottery_drawn(week_key: str):
 async def set_mora_balance(user_id: int, chat_id: int, new_balance: int):
     """Устанавливает баланс Моры напрямую (для developer-команд)."""
     new_balance = max(0, new_balance)
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         await db.execute(
             """INSERT INTO user_mora (user_id, chat_id, balance)
                VALUES (?, ?, ?)
@@ -2932,8 +2883,7 @@ async def set_mora_balance(user_id: int, chat_id: int, new_balance: int):
 
 async def transfer_mora(from_uid: int, to_uid: int, chat_id: int, amount: int) -> tuple[bool, int, int]:
     """Атомарный перевод Моры. Возвращает (ok, from_new_bal, to_new_bal)."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         async with db.execute(
             "SELECT balance FROM user_mora WHERE user_id=? AND chat_id=?",
             (from_uid, chat_id),
@@ -2970,8 +2920,7 @@ async def transfer_mora(from_uid: int, to_uid: int, chat_id: int, amount: int) -
 async def create_loan(lender_id: int, borrower_id: int, chat_id: int, amount: int) -> tuple[bool, int, int]:
     """Создаёт заём: списывает с кредитора, зачисляет заёмщику.
     Возвращает (ok, lender_new_bal, loan_id)."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         async with db.execute(
             "SELECT balance FROM user_mora WHERE user_id=? AND chat_id=?",
             (lender_id, chat_id),
@@ -3007,8 +2956,7 @@ async def create_loan(lender_id: int, borrower_id: int, chat_id: int, amount: in
 
 async def get_active_loans_as_lender(user_id: int, chat_id: int) -> list:
     """Займы, выданные пользователем (не погашенные)."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         async with db.execute(
             """SELECT * FROM mora_loans
                WHERE lender_id=? AND chat_id=? AND repaid_at IS NULL
@@ -3020,8 +2968,7 @@ async def get_active_loans_as_lender(user_id: int, chat_id: int) -> list:
 
 async def get_active_loans_as_borrower(user_id: int, chat_id: int) -> list:
     """Займы, которые пользователь должен вернуть."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         async with db.execute(
             """SELECT * FROM mora_loans
                WHERE borrower_id=? AND chat_id=? AND repaid_at IS NULL
@@ -3033,8 +2980,7 @@ async def get_active_loans_as_borrower(user_id: int, chat_id: int) -> list:
 
 async def repay_loan(loan_id: int, borrower_id: int, chat_id: int) -> tuple[bool, int]:
     """Полностью погашает заём. Возвращает (ok, borrower_new_bal)."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         async with db.execute(
             "SELECT * FROM mora_loans WHERE id=? AND chat_id=? AND borrower_id=? AND repaid_at IS NULL",
             (loan_id, chat_id, borrower_id),
@@ -3079,8 +3025,7 @@ async def repay_loan(loan_id: int, borrower_id: int, chat_id: int) -> tuple[bool
 
 async def change_pet_type(user_id: int, chat_id: int, new_type: str) -> bool:
     """Меняет вид питомца (user + партнёр). Возвращает True если питомец найден."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         async with db.execute(
             "SELECT 1 FROM pets WHERE user_id=? AND chat_id=?",
             (user_id, chat_id),
@@ -3107,7 +3052,7 @@ async def change_pet_type(user_id: int, chat_id: int, new_type: str) -> bool:
 
 async def reset_user_quest(user_id: int, chat_id: int, quest_date: str):
     """Delete today's quest progress so it will be re-assigned fresh."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         await db.execute(
             "DELETE FROM user_quests WHERE user_id=? AND chat_id=? AND quest_date=?",
             (user_id, chat_id, quest_date),
@@ -3118,7 +3063,7 @@ async def reset_user_quest(user_id: int, chat_id: int, quest_date: str):
 async def add_reputation_in_chat(from_uid: int, to_uid: int, chat_id: int, amount: int = 1) -> int:
     """Add reputation in chat. Returns new rep value."""
     now = datetime.utcnow().isoformat()
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         await db.execute(
             "INSERT INTO rep_log (from_uid, to_uid, chat_id, amount, given_at) VALUES (?,?,?,?,?)",
             (from_uid, to_uid, chat_id, amount, now),
@@ -3141,8 +3086,7 @@ async def add_reputation_in_chat(from_uid: int, to_uid: int, chat_id: int, amoun
 
 
 async def get_banned_in_chat(chat_id: int):
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         async with db.execute(
             """SELECT us.user_id, us.ban_reason, u.full_name, u.username
                FROM user_stats us
@@ -3154,8 +3098,7 @@ async def get_banned_in_chat(chat_id: int):
 
 
 async def get_top_by_messages_in_chat(chat_id: int, limit: int = 10):
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         async with db.execute(
             """SELECT us.*, u.full_name, u.username
                FROM user_stats us
@@ -3168,8 +3111,7 @@ async def get_top_by_messages_in_chat(chat_id: int, limit: int = 10):
 
 
 async def get_top_by_xp_in_chat(chat_id: int, limit: int = 10):
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         async with db.execute(
             """SELECT us.*, u.full_name, u.username
                FROM user_stats us
@@ -3182,8 +3124,7 @@ async def get_top_by_xp_in_chat(chat_id: int, limit: int = 10):
 
 
 async def get_top_reputation_in_chat(chat_id: int, limit: int = 10):
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         async with db.execute(
             """SELECT us.*, u.full_name, u.username
                FROM user_stats us
@@ -3196,7 +3137,7 @@ async def get_top_reputation_in_chat(chat_id: int, limit: int = 10):
 
 
 async def get_chat_stats_for_chat(chat_id: int):
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         async with db.execute(
             "SELECT COUNT(*) FROM user_stats WHERE chat_id = ?", (chat_id,)
         ) as c:
@@ -3218,7 +3159,7 @@ async def get_chat_stats_for_chat(chat_id: int):
 
 
 async def set_bio_in_chat(user_id: int, chat_id: int, bio: str | None):
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         await db.execute(
             """INSERT INTO user_stats (user_id, chat_id, bio) VALUES (?, ?, ?)
                ON CONFLICT(user_id, chat_id) DO UPDATE SET bio = excluded.bio""",
@@ -3229,7 +3170,7 @@ async def set_bio_in_chat(user_id: int, chat_id: int, bio: str | None):
 
 async def get_rep_last_time(from_uid: int, to_uid: int, chat_id: int) -> str | None:
     """Get ISO timestamp of last rep given from_uid to to_uid in chat."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         async with db.execute(
             "SELECT given_at FROM rep_log WHERE from_uid=? AND to_uid=? AND chat_id=? ORDER BY given_at DESC LIMIT 1",
             (from_uid, to_uid, chat_id),
@@ -3247,7 +3188,7 @@ _EDITABLE_STATS_FIELDS = {
 async def set_user_stat_in_chat(user_id: int, chat_id: int, field: str, value) -> bool:
     if field not in _EDITABLE_STATS_FIELDS:
         return False
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         await db.execute(
             f"UPDATE user_stats SET {field} = ? WHERE user_id = ? AND chat_id = ?",
             (value, user_id, chat_id),
@@ -3262,7 +3203,7 @@ async def set_user_stat_in_chat(user_id: int, chat_id: int, field: str, value) -
 # "admin" groups managed separately via admin_groups table
 
 async def set_channel_type(type_name: str, chat_id: int):
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         await db.execute(
             "INSERT OR REPLACE INTO channel_types (type, chat_id) VALUES (?, ?)",
             (type_name, chat_id),
@@ -3271,13 +3212,13 @@ async def set_channel_type(type_name: str, chat_id: int):
 
 
 async def remove_channel_type(type_name: str):
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         await db.execute("DELETE FROM channel_types WHERE type = ?", (type_name,))
         await db.commit()
 
 
 async def get_channel_type(type_name: str) -> int | None:
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         async with db.execute(
             "SELECT chat_id FROM channel_types WHERE type = ?", (type_name,)
         ) as c:
@@ -3286,8 +3227,7 @@ async def get_channel_type(type_name: str) -> int | None:
 
 
 async def get_all_channel_types() -> list[dict]:
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         async with db.execute("SELECT type, chat_id FROM channel_types ORDER BY type") as c:
             return [dict(r) for r in await c.fetchall()]
 
@@ -3298,7 +3238,7 @@ async def add_community_role(name: str, emoji: str = "", description: str = "") 
     """Add a new community role. Returns False if name already exists."""
     from datetime import datetime
     now = datetime.utcnow().isoformat()
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         try:
             await db.execute(
                 "INSERT INTO community_roles (name, emoji, description, created_at) VALUES (?, ?, ?, ?)",
@@ -3312,7 +3252,7 @@ async def add_community_role(name: str, emoji: str = "", description: str = "") 
 
 async def remove_community_role(name: str) -> bool:
     """Remove a community role by name. Returns False if not found."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         async with db.execute(
             "SELECT id FROM community_roles WHERE name = ?", (name,)
         ) as c:
@@ -3326,8 +3266,7 @@ async def remove_community_role(name: str) -> bool:
 
 async def get_community_roles() -> list[dict]:
     """Return all roles with their holder count."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         async with db.execute(
             """SELECT r.id, r.name, r.emoji, r.description,
                       COUNT(ur.user_id) AS holder_count
@@ -3341,8 +3280,7 @@ async def get_community_roles() -> list[dict]:
 
 async def get_user_community_roles(user_id: int) -> list[dict]:
     """Get all community roles assigned to a user."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         async with db.execute(
             """SELECT r.name, r.emoji, r.description
                FROM user_roles ur
@@ -3365,8 +3303,7 @@ async def assign_community_role(user_id: int, role_name: str) -> str:
 
     Enforces 1-role-1-person: a role can belong to only one person at a time.
     """
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         async with db.execute(
             "SELECT id FROM community_roles WHERE name = ? COLLATE NOCASE", (role_name,)
         ) as c:
@@ -3397,7 +3334,7 @@ async def assign_community_role(user_id: int, role_name: str) -> str:
 
 async def revoke_community_role(user_id: int, role_name: str) -> bool:
     """Remove a role from a user. Returns False if user didn't have it."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         async with db.execute(
             "SELECT id FROM community_roles WHERE name = ? COLLATE NOCASE", (role_name,)
         ) as c:
@@ -3414,8 +3351,7 @@ async def revoke_community_role(user_id: int, role_name: str) -> bool:
 
 async def get_role_holders(role_name: str) -> list[dict]:
     """Get all users who have a specific role."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         async with db.execute(
             """SELECT u.user_id, u.full_name, u.username
                FROM user_roles ur
@@ -3437,8 +3373,7 @@ async def force_assign_community_role(user_id: int, role_name: str) -> tuple[str
         ('not_found', None)  – role doesn't exist
         ('already', None)    – user already has this role
     """
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         async with db.execute(
             "SELECT id FROM community_roles WHERE name = ? COLLATE NOCASE", (role_name,)
         ) as c:
@@ -3471,7 +3406,7 @@ async def force_assign_community_role(user_id: int, role_name: str) -> tuple[str
 async def log_voluntary_leave(chat_id: int, user_id: int, full_name: str, username: str) -> None:
     """Log a user who voluntarily left a chat."""
     now_iso = datetime.utcnow().isoformat(timespec="seconds")
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         await db.execute(
             "INSERT INTO leave_log (chat_id, user_id, full_name, username, left_at) VALUES (?, ?, ?, ?, ?)",
             (chat_id, user_id, full_name, username, now_iso),
@@ -3481,8 +3416,7 @@ async def log_voluntary_leave(chat_id: int, user_id: int, full_name: str, userna
 
 async def get_voluntary_leaves(chat_id: int, limit: int = 20) -> list[dict]:
     """Return recent voluntary leaves for a chat, newest first."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         async with db.execute(
             """SELECT user_id, full_name, username, left_at
                FROM leave_log WHERE chat_id = ?
@@ -3499,7 +3433,7 @@ async def add_user_to_banlist(
 ) -> bool:
     """Add a user to the chat banlist. Returns False if already banned."""
     now_iso = datetime.utcnow().isoformat(timespec="seconds")
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         try:
             await db.execute(
                 "INSERT INTO user_banlist (chat_id, user_id, added_by, reason, added_at)"
@@ -3514,7 +3448,7 @@ async def add_user_to_banlist(
 
 async def remove_user_from_banlist(chat_id: int, user_id: int) -> bool:
     """Remove a user from the chat banlist. Returns True if removed."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         result = await db.execute(
             "DELETE FROM user_banlist WHERE chat_id = ? AND user_id = ?",
             (chat_id, user_id),
@@ -3525,7 +3459,7 @@ async def remove_user_from_banlist(chat_id: int, user_id: int) -> bool:
 
 async def is_user_in_banlist(chat_id: int, user_id: int) -> bool:
     """Check if a user is in the chat banlist."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         async with db.execute(
             "SELECT 1 FROM user_banlist WHERE chat_id = ? AND user_id = ? LIMIT 1",
             (chat_id, user_id),
@@ -3535,8 +3469,7 @@ async def is_user_in_banlist(chat_id: int, user_id: int) -> bool:
 
 async def get_chat_banlist_users(chat_id: int, limit: int = 50) -> list[dict]:
     """Return user banlist for a chat."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         async with db.execute(
             """SELECT ub.user_id, ub.added_by, ub.reason, ub.added_at,
                       u.full_name, u.username
@@ -3551,8 +3484,7 @@ async def get_chat_banlist_users(chat_id: int, limit: int = 50) -> list[dict]:
 
 async def get_senior_users_in_chat(chat_id: int) -> list[dict]:
     """Return users with rank co_owner, owner, or developer in a chat."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         async with db.execute(
             """SELECT us.user_id, u.full_name, u.username
                FROM user_stats us
@@ -3573,7 +3505,7 @@ async def get_senior_users_in_chat(chat_id: int) -> list[dict]:
 async def set_pending_role(user_id: int, role_name: str) -> None:
     """Reserve a role in DM; it becomes active once the user joins the main chat."""
     now_iso = datetime.utcnow().isoformat(timespec="seconds")
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         await db.execute(
             """INSERT INTO pending_roles (user_id, role_name, reserved_at)
                VALUES (?, ?, ?)
@@ -3587,7 +3519,7 @@ async def set_pending_role(user_id: int, role_name: str) -> None:
 
 async def get_pending_role(user_id: int) -> str | None:
     """Return the pending role name for a user, or None."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         async with db.execute(
             "SELECT role_name FROM pending_roles WHERE user_id = ?",
             (user_id,),
@@ -3598,7 +3530,7 @@ async def get_pending_role(user_id: int) -> str | None:
 
 async def clear_pending_role(user_id: int) -> None:
     """Remove any pending role for a user."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         await db.execute("DELETE FROM pending_roles WHERE user_id = ?", (user_id,))
         await db.commit()
 
@@ -3607,8 +3539,7 @@ async def clear_pending_role(user_id: int) -> None:
 
 async def get_chats_with_inactivity_warn() -> list[dict]:
     """Return all chats where inactivity_warn_enabled=1."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         async with db.execute(
             "SELECT chat_id, inactivity_warn_days FROM chat_settings WHERE inactivity_warn_enabled = 1"
         ) as c:
@@ -3623,8 +3554,7 @@ async def get_inactive_users_for_warn(chat_id: int, cutoff_iso: str) -> list[dic
     - неактивны дольше cutoff
     - ещё не получали авто-варн в текущем периоде неактивности
     """
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         async with db.execute(
             """
             SELECT us.user_id,
@@ -3651,7 +3581,7 @@ async def get_inactive_users_for_warn(chat_id: int, cutoff_iso: str) -> list[dic
 
 async def set_inactivity_warned(user_id: int, chat_id: int, when_iso: str) -> None:
     """Записать время авто-варна за неактив."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         await db.execute(
             """INSERT INTO user_stats (user_id, chat_id, inactivity_warned_at)
                VALUES (?, ?, ?)
@@ -3666,8 +3596,7 @@ async def set_inactivity_warned(user_id: int, chat_id: int, when_iso: str) -> No
 
 async def get_chats_with_scheduled_cleanup() -> list[dict]:
     """Все чаты у которых задана дата следующей чистки."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         async with db.execute(
             """SELECT chat_id, next_cleanup_at, cleanup_reminder_sent
                FROM chat_settings
@@ -3683,8 +3612,7 @@ async def set_cleanup_reminder_sent(chat_id: int, sent: int) -> None:
 # ─── Питомцы ──────────────────────────────────────────────────────────────────
 
 async def get_pet(user_id: int, chat_id: int) -> dict | None:
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         async with db.execute(
             "SELECT * FROM pets WHERE user_id = ? AND chat_id = ?",
             (user_id, chat_id),
@@ -3696,7 +3624,7 @@ async def get_pet(user_id: int, chat_id: int) -> dict | None:
 async def adopt_pet(user_id: int, partner_id: int, chat_id: int, pet_type: str) -> None:
     """Создаёт питомца для обоих партнёров."""
     now = datetime.utcnow().isoformat()
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         for uid in (user_id, partner_id):
             await db.execute(
                 """INSERT INTO pets (user_id, chat_id, pet_type, adopted_at)
@@ -3709,7 +3637,7 @@ async def adopt_pet(user_id: int, partner_id: int, chat_id: int, pet_type: str) 
 
 async def rename_pet(user_id: int, chat_id: int, name: str) -> bool:
     """Переименовать питомца обоих партнёров. Возвращает True если питомец найден."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         # Обновляем имя у самого юзера
         await db.execute(
             "UPDATE pets SET name = ? WHERE user_id = ? AND chat_id = ?",
@@ -3741,7 +3669,7 @@ async def start_expedition(user_id: int, chat_id: int, duration_h: int,
                            reward_min: int, reward_max: int) -> bool:
     """Начать экспедицию. Возвращает False если экспедиция уже идёт."""
     now = datetime.utcnow().isoformat(timespec="seconds")
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         async with db.execute(
             "SELECT 1 FROM pet_expeditions WHERE user_id=? AND chat_id=? AND finished=0",
             (user_id, chat_id),
@@ -3763,8 +3691,7 @@ async def start_expedition(user_id: int, chat_id: int, duration_h: int,
 
 async def get_active_expedition(user_id: int, chat_id: int):
     """Возвращает активную экспедицию или None."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         async with db.execute(
             "SELECT * FROM pet_expeditions WHERE user_id=? AND chat_id=? AND finished=0",
             (user_id, chat_id),
@@ -3775,8 +3702,7 @@ async def get_active_expedition(user_id: int, chat_id: int):
 async def get_all_finished_expeditions() -> list:
     """Вернуть все незавершённые экспедиции, время которых истекло."""
     now = datetime.utcnow()
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         async with db.execute(
             "SELECT * FROM pet_expeditions WHERE finished=0"
         ) as c:
@@ -3791,7 +3717,7 @@ async def get_all_finished_expeditions() -> list:
 
 async def finish_expedition(user_id: int, chat_id: int):
     """Пометить экспедицию как завершённую."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         await db.execute(
             "UPDATE pet_expeditions SET finished=1 WHERE user_id=? AND chat_id=?",
             (user_id, chat_id),
@@ -3803,7 +3729,7 @@ async def finish_expedition(user_id: int, chat_id: int):
 
 async def get_gacha_pity(user_id: int, chat_id: int) -> int:
     """Сколько круток без леги (pity counter). Считаем непрерывную серию без lego."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         async with db.execute(
             """SELECT COUNT(*) FROM gacha_inventory
                WHERE user_id=? AND chat_id=?
@@ -3819,7 +3745,7 @@ async def get_gacha_pity(user_id: int, chat_id: int) -> int:
 async def add_gacha_item(user_id: int, chat_id: int, item_key: str,
                          item_name: str, rarity: str):
     now = datetime.utcnow().isoformat(timespec="seconds")
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         await db.execute(
             """INSERT INTO gacha_inventory (user_id, chat_id, item_key, item_name, rarity, obtained_at)
                VALUES (?, ?, ?, ?, ?, ?)""",
@@ -3829,8 +3755,7 @@ async def add_gacha_item(user_id: int, chat_id: int, item_key: str,
 
 
 async def get_gacha_inventory(user_id: int, chat_id: int) -> list:
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         async with db.execute(
             "SELECT * FROM gacha_inventory WHERE user_id=? AND chat_id=? ORDER BY id DESC",
             (user_id, chat_id),
@@ -3840,7 +3765,7 @@ async def get_gacha_inventory(user_id: int, chat_id: int) -> list:
 
 async def sell_gacha_junk(user_id: int, chat_id: int) -> tuple[int, int]:
     """Продать весь мусор (rarity='junk'). Возвращает (count, total_mora)."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         async with db.execute(
             "SELECT COUNT(*) FROM gacha_inventory WHERE user_id=? AND chat_id=? AND rarity='junk'",
             (user_id, chat_id),
@@ -3861,8 +3786,7 @@ async def sell_gacha_junk(user_id: int, chat_id: int) -> tuple[int, int]:
 
 async def equip_gacha_item(user_id: int, chat_id: int, item_id: int) -> bool:
     """Экипировать лего-предмет (обновить gacha_display). Возвращает False если не найден/не лего."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         async with db.execute(
             "SELECT * FROM gacha_inventory WHERE id=? AND user_id=? AND chat_id=?",
             (item_id, user_id, chat_id),
@@ -3895,7 +3819,7 @@ async def create_deposit(user_id: int, chat_id: int, amount: int,
     """Создать вклад. Возвращает id вклада."""
     now = datetime.utcnow()
     matures = now + timedelta(days=days)
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         cursor = await db.execute(
             """INSERT INTO bank_deposits (user_id, chat_id, amount, rate, created_at, matures_at)
                VALUES (?, ?, ?, ?, ?, ?) RETURNING id""",
@@ -3909,8 +3833,7 @@ async def create_deposit(user_id: int, chat_id: int, amount: int,
 
 async def get_user_deposits(user_id: int, chat_id: int) -> list:
     """Вернуть все активные (не снятые) вклады пользователя."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         async with db.execute(
             "SELECT * FROM bank_deposits WHERE user_id=? AND chat_id=? AND withdrawn=0 ORDER BY id",
             (user_id, chat_id),
@@ -3920,8 +3843,7 @@ async def get_user_deposits(user_id: int, chat_id: int) -> list:
 
 async def withdraw_deposit(deposit_id: int) -> dict | None:
     """Снять вклад. Возвращает dict с инфо о вкладе или None."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         async with db.execute(
             "SELECT * FROM bank_deposits WHERE id=? AND withdrawn=0",
             (deposit_id,),
@@ -3942,7 +3864,7 @@ async def buy_shop_item(user_id: int, chat_id: int, item_type: str,
                         item_value: str) -> int:
     """Записать покупку товара. Возвращает id."""
     now = datetime.utcnow().isoformat(timespec="seconds")
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         cursor = await db.execute(
             """INSERT INTO shop_items (user_id, chat_id, item_type, item_value, purchased_at)
                VALUES (?, ?, ?, ?, ?) RETURNING id""",
@@ -3956,7 +3878,7 @@ async def buy_shop_item(user_id: int, chat_id: int, item_type: str,
 async def has_shop_item(user_id: int, chat_id: int, item_type: str,
                         item_value: str | None = None) -> bool:
     """Проверить, есть ли у юзера купленный товар данного типа (и значения)."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         if item_value is not None:
             async with db.execute(
                 "SELECT 1 FROM shop_items WHERE user_id=? AND chat_id=? AND item_type=? AND item_value=?",
@@ -3973,7 +3895,7 @@ async def has_shop_item(user_id: int, chat_id: int, item_type: str,
 
 async def get_user_owned_frames(user_id: int, chat_id: int) -> set[str]:
     """Вернуть set ключей рамок, которые юзер уже купил."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         async with db.execute(
             "SELECT item_value FROM shop_items WHERE user_id=? AND chat_id=? AND item_type='frame'",
             (user_id, chat_id),
@@ -3984,7 +3906,7 @@ async def get_user_owned_frames(user_id: int, chat_id: int) -> set[str]:
 
 async def set_pet_color(user_id: int, chat_id: int, color_name: str):
     """Установить цвет имени питомца."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         await db.execute(
             "UPDATE pets SET color_name=? WHERE user_id=? AND chat_id=?",
             (color_name, user_id, chat_id),
@@ -4005,7 +3927,7 @@ async def set_pet_color(user_id: int, chat_id: int, color_name: str):
 
 async def set_pet_emoji_status(user_id: int, chat_id: int, emoji_status: str):
     """Установить эмодзи-статус питомца."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         await db.execute(
             "UPDATE pets SET emoji_status=? WHERE user_id=? AND chat_id=?",
             (emoji_status, user_id, chat_id),
@@ -4025,7 +3947,7 @@ async def set_pet_emoji_status(user_id: int, chat_id: int, emoji_status: str):
 
 async def set_custom_title_in_chat(user_id: int, chat_id: int, title: str):
     """Установить кастомный титул."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         await db.execute(
             """INSERT INTO user_stats (user_id, chat_id, custom_title) VALUES (?, ?, ?)
                ON CONFLICT(user_id, chat_id) DO UPDATE SET custom_title = excluded.custom_title""",
@@ -4039,7 +3961,7 @@ async def set_custom_title_in_chat(user_id: int, chat_id: int, title: str):
 async def give_gift(from_user: int, to_user: int, chat_id: int,
                     gift_key: str, gift_name: str, gift_price: int):
     now = datetime.utcnow().isoformat(timespec="seconds")
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         await db.execute(
             """INSERT INTO marriage_gifts (from_user, to_user, chat_id, gift_key, gift_name, gift_price, gifted_at)
                VALUES (?, ?, ?, ?, ?, ?, ?)""",
@@ -4050,7 +3972,7 @@ async def give_gift(from_user: int, to_user: int, chat_id: int,
 
 async def get_gifts_summary(user_id: int, partner_id: int, chat_id: int) -> tuple[int, int]:
     """Возвращает (count, total_value) подарков между парой."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         async with db.execute(
             """SELECT COUNT(*), COALESCE(SUM(gift_price), 0)
                FROM marriage_gifts
@@ -4065,8 +3987,7 @@ async def get_gifts_summary(user_id: int, partner_id: int, chat_id: int) -> tupl
 
 async def get_received_gifts(user_id: int, chat_id: int) -> list[dict]:
     """Список полученных подарков: [{gift_key, gift_name, count}]."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         async with db.execute(
             """SELECT gift_key, gift_name, COUNT(*) as cnt
                FROM marriage_gifts
@@ -4084,7 +4005,7 @@ async def add_buff(user_id: int, chat_id: int, buff_type: str,
                    hours: int, source: str = ""):
     now = datetime.utcnow()
     expires = now + timedelta(hours=hours)
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         await db.execute(
             """INSERT INTO active_buffs (user_id, chat_id, buff_type, expires_at, source)
                VALUES (?, ?, ?, ?, ?)""",
@@ -4096,8 +4017,7 @@ async def add_buff(user_id: int, chat_id: int, buff_type: str,
 async def get_active_buffs(user_id: int, chat_id: int) -> list:
     """Вернуть все активные (не истёкшие) баффы."""
     now = datetime.utcnow().isoformat(timespec="seconds")
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         async with db.execute(
             "SELECT * FROM active_buffs WHERE user_id=? AND chat_id=? AND expires_at > ?",
             (user_id, chat_id, now),
@@ -4124,7 +4044,7 @@ async def get_mora_boost_pct(user_id: int, chat_id: int) -> float:
 
 async def get_active_group_chat_ids() -> list[int]:
     """Вернуть все активные групповые чаты."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         async with db.execute(
             "SELECT chat_id FROM chats WHERE is_active=1 AND chat_type IN ('group','supergroup')"
         ) as c:
@@ -4137,8 +4057,7 @@ async def get_active_group_chat_ids() -> list[int]:
 
 async def get_user_themes(user_id: int, chat_id: int) -> list:
     """Вернуть все темы, которыми владеет юзер."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         async with db.execute(
             "SELECT * FROM user_themes WHERE user_id=? AND chat_id=?",
             (user_id, chat_id),
@@ -4148,7 +4067,7 @@ async def get_user_themes(user_id: int, chat_id: int) -> list:
 
 async def add_user_theme(user_id: int, chat_id: int, theme_key: str, source: str = "shop"):
     """Добавить тему юзеру (если ещё нет)."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         await db.execute(
             """INSERT OR IGNORE INTO user_themes (user_id, chat_id, theme_key, source, obtained_at)
                VALUES (?, ?, ?, ?, ?)""",
@@ -4159,7 +4078,7 @@ async def add_user_theme(user_id: int, chat_id: int, theme_key: str, source: str
 
 async def set_active_theme(user_id: int, chat_id: int, theme_key: str):
     """Установить активную тему профиля."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         await db.execute(
             """INSERT INTO user_mora (user_id, chat_id, active_theme)
                VALUES (?, ?, ?)
@@ -4183,8 +4102,7 @@ async def get_active_theme(user_id: int, chat_id: int) -> str:
 
 async def get_user_badges(user_id: int, chat_id: int) -> list:
     """Вернуть все бейджи юзера."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         async with db.execute(
             "SELECT badge_key FROM user_badges WHERE user_id=? AND chat_id=?",
             (user_id, chat_id),
@@ -4194,7 +4112,7 @@ async def get_user_badges(user_id: int, chat_id: int) -> list:
 
 async def award_badge(user_id: int, chat_id: int, badge_key: str):
     """Дать бейдж юзеру (если ещё нет)."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         await db.execute(
             """INSERT OR IGNORE INTO user_badges (user_id, chat_id, badge_key, obtained_at)
                VALUES (?, ?, ?, ?)""",
@@ -4209,8 +4127,7 @@ async def award_badge(user_id: int, chat_id: int, badge_key: str):
 
 async def get_user_greeting(user_id: int, chat_id: int):
     """Вернуть строку greeting (template_key) или None."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         async with db.execute(
             "SELECT * FROM user_greetings WHERE user_id=? AND chat_id=?",
             (user_id, chat_id),
@@ -4220,7 +4137,7 @@ async def get_user_greeting(user_id: int, chat_id: int):
 
 async def set_user_greeting(user_id: int, chat_id: int, template_key: str, source: str = "gacha"):
     """Назначить или сменить приветствие юзеру."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         await db.execute(
             """INSERT INTO user_greetings (user_id, chat_id, template_key, source, obtained_at)
                VALUES (?, ?, ?, ?, ?)
@@ -4233,8 +4150,7 @@ async def set_user_greeting(user_id: int, chat_id: int, template_key: str, sourc
 
 async def check_greeting_today(user_id: int, chat_id: int, today_str: str) -> bool:
     """True если приветствие уже показано сегодня."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         async with db.execute(
             "SELECT last_greeting_date FROM user_stats WHERE user_id=? AND chat_id=?",
             (user_id, chat_id),
@@ -4247,7 +4163,7 @@ async def check_greeting_today(user_id: int, chat_id: int, today_str: str) -> bo
 
 async def mark_greeting_shown(user_id: int, chat_id: int, today_str: str):
     """Отметить что приветствие показано сегодня."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         await db.execute(
             "UPDATE user_stats SET last_greeting_date=? WHERE user_id=? AND chat_id=?",
             (today_str, user_id, chat_id),
@@ -4263,7 +4179,7 @@ async def create_chest_event(chat_id: int, duration_sec: int = 60) -> int:
     """Создать ивент сундука. Возвращает event_id."""
     now = datetime.utcnow()
     expires = now + timedelta(seconds=duration_sec)
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         cur = await db.execute(
             """INSERT INTO chest_events (chat_id, started_at, expires_at)
                VALUES (?, ?, ?) RETURNING id""",
@@ -4276,8 +4192,7 @@ async def create_chest_event(chat_id: int, duration_sec: int = 60) -> int:
 
 async def get_chest_event_winners(event_id: int) -> list:
     """Вернуть победителей сундука с именами пользователей."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         async with db.execute(
             """
             SELECT c.position, c.reward, c.user_id,
@@ -4295,8 +4210,7 @@ async def get_chest_event_winners(event_id: int) -> list:
 async def get_expired_unfinished_chest_events() -> list:
     """Вернуть все ивенты с просроченным expires_at и finished=0."""
     now = datetime.utcnow().isoformat()
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         async with db.execute(
             "SELECT id, chat_id, message_id FROM chest_events WHERE finished=0 AND expires_at < ?",
             (now,),
@@ -4306,7 +4220,7 @@ async def get_expired_unfinished_chest_events() -> list:
 
 async def is_user_single(user_id: int, chat_id: int) -> bool:
     """Вернуть True если у пользователя нет активного брака в этом чате."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         async with db.execute(
             "SELECT 1 FROM marriages WHERE (user_id=? OR partner_id=?) AND chat_id=?",
             (user_id, user_id, chat_id),
@@ -4316,7 +4230,7 @@ async def is_user_single(user_id: int, chat_id: int) -> bool:
 
 async def set_chest_event_message(event_id: int, message_id: int):
     """Обновить message_id ивента сундука."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         await db.execute(
             "UPDATE chest_events SET message_id=? WHERE id=?",
             (message_id, event_id),
@@ -4327,7 +4241,7 @@ async def set_chest_event_message(event_id: int, message_id: int):
 async def add_chest_click(event_id: int, user_id: int, position: int, reward: int) -> bool:
     """Кликнуть по сундуку. Возвращает True если клик записан (первый для юзера)."""
     try:
-        async with aiosqlite.connect(DATABASE_PATH) as db:
+        async with postgres_connect() as db:
             await db.execute(
                 """INSERT INTO chest_event_clicks (event_id, user_id, clicked_at, position, reward)
                    VALUES (?, ?, ?, ?, ?)""",
@@ -4341,7 +4255,7 @@ async def add_chest_click(event_id: int, user_id: int, position: int, reward: in
 
 async def get_chest_click_count(event_id: int) -> int:
     """Количество кликов по сундуку."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         async with db.execute(
             "SELECT COUNT(*) FROM chest_event_clicks WHERE event_id=?",
             (event_id,),
@@ -4351,7 +4265,7 @@ async def get_chest_click_count(event_id: int) -> int:
 
 async def finish_chest_event(event_id: int):
     """Пометить ивент как завершённый."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         await db.execute(
             "UPDATE chest_events SET finished=1 WHERE id=?", (event_id,),
         )
@@ -4360,8 +4274,7 @@ async def finish_chest_event(event_id: int):
 
 async def get_equipped_legendary(user_id: int, chat_id: int):
     """Вернуть экипированный легендарный предмет или None."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         async with db.execute(
             "SELECT item_name, item_key FROM gacha_inventory WHERE user_id=? AND chat_id=? AND equipped=1 LIMIT 1",
             (user_id, chat_id),
@@ -4373,7 +4286,7 @@ async def increment_tracker(user_id: int, chat_id: int, field: str, amount: int 
     """Инкрементировать один из трекинг-счётчиков в user_mora."""
     if field not in ("expeditions_sent", "chests_opened", "casino_wins"):
         return
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         await db.execute(
             f"UPDATE user_mora SET {field} = COALESCE({field}, 0) + ? WHERE user_id=? AND chat_id=?",
             (amount, user_id, chat_id),
@@ -4385,7 +4298,7 @@ async def increment_tracker(user_id: int, chat_id: int, field: str, amount: int 
 
 async def log_espionage(spy_id: int, target_id: int, chat_id: int, success: bool):
     now = datetime.utcnow().isoformat()
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         await db.execute(
             "INSERT INTO espionage_log (spy_id, target_id, chat_id, success, attempted_at) VALUES (?,?,?,?,?)",
             (spy_id, target_id, chat_id, 1 if success else 0, now),
@@ -4397,7 +4310,7 @@ async def get_espionage_cooldown(spy_id: int, target_id: int, chat_id: int) -> i
     """Сколько секунд осталось до следующей возможности шпионить за target_id. 0 = можно."""
     cooldown_sec = 3600  # 1 час кулдаун на одну пару
     since = (datetime.utcnow() - timedelta(seconds=cooldown_sec)).isoformat()
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         async with db.execute(
             "SELECT COUNT(*) FROM espionage_log WHERE spy_id=? AND target_id=? AND chat_id=? AND attempted_at > ?",
             (spy_id, target_id, chat_id, since),
@@ -4406,7 +4319,7 @@ async def get_espionage_cooldown(spy_id: int, target_id: int, chat_id: int) -> i
     if count == 0:
         return 0
     # Find the most recent attempt to calculate remaining cooldown
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         async with db.execute(
             "SELECT attempted_at FROM espionage_log WHERE spy_id=? AND target_id=? AND chat_id=? ORDER BY id DESC LIMIT 1",
             (spy_id, target_id, chat_id),
@@ -4430,8 +4343,7 @@ BOND_DEFAULTS = {
 
 async def get_bond_prices(chat_id: int) -> dict:
     """Вернуть текущие цены облигаций {key: price}."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         async with db.execute(
             "SELECT bond_key, price FROM bond_prices WHERE chat_id=?",
             (chat_id,),
@@ -4450,7 +4362,7 @@ async def update_bond_prices(chat_id: int):
     import random
     current = await get_bond_prices(chat_id)
     now = datetime.utcnow().isoformat()
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         for key, info in BOND_DEFAULTS.items():
             old_price = current.get(key, info["base_price"])
             delta_pct = random.uniform(-0.20, 0.20)
@@ -4472,8 +4384,7 @@ async def update_bond_prices(chat_id: int):
 
 
 async def get_user_bonds(user_id: int, chat_id: int) -> list[dict]:
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         async with db.execute(
             "SELECT * FROM user_bonds WHERE user_id=? AND chat_id=?",
             (user_id, chat_id),
@@ -4483,8 +4394,7 @@ async def get_user_bonds(user_id: int, chat_id: int) -> list[dict]:
 
 async def get_bond_price_history(chat_id: int, bond_key: str, limit: int = 30) -> list[dict]:
     """Return recent price history for a bond in a chat (oldest first)."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         async with db.execute(
             """SELECT price, recorded_at FROM bond_price_history
                WHERE chat_id=? AND bond_key=?
@@ -4497,8 +4407,7 @@ async def get_bond_price_history(chat_id: int, bond_key: str, limit: int = 30) -
 
 async def get_singles(chat_id: int, limit: int = 20) -> list[dict]:
     """Return users in this chat who have no active marriage."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         async with db.execute(
             """SELECT s.user_id, u.full_name, s.xp, s.level
                FROM user_stats s
@@ -4513,8 +4422,7 @@ async def get_singles(chat_id: int, limit: int = 20) -> list[dict]:
 
 async def get_rpg_stats(user_id: int, chat_id: int) -> dict:
     """Return combined RPG stats: base + equipped item bonuses."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         async with db.execute(
             "SELECT * FROM user_rpg_stats WHERE user_id=? AND chat_id=?",
             (user_id, chat_id),
@@ -4558,8 +4466,7 @@ async def equip_item(user_id: int, chat_id: int, item_id: int, slot: str) -> str
     col = {"weapon": "weapon_id", "armor": "armor_id", "artifact": "artifact_id"}.get(slot)
     if not col:
         return None
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         # Verify item belongs to user and fetch its name
         async with db.execute(
             "SELECT id, item_name FROM gacha_inventory WHERE id=? AND user_id=? AND chat_id=?",
@@ -4583,7 +4490,7 @@ async def equip_item(user_id: int, chat_id: int, item_id: int, slot: str) -> str
 async def buy_bonds(user_id: int, chat_id: int, bond_key: str, amount: int, price_per: int) -> bool:
     """Купить облигации. Возвращает True при успехе. Деньги уже списаны вызывающим."""
     total_invested = amount * price_per
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         await db.execute(
             """INSERT INTO user_bonds (user_id, chat_id, bond_key, amount, invested)
                VALUES (?,?,?,?,?)
@@ -4598,8 +4505,7 @@ async def buy_bonds(user_id: int, chat_id: int, bond_key: str, amount: int, pric
 
 async def sell_bonds(user_id: int, chat_id: int, bond_key: str, amount: int) -> tuple[bool, int]:
     """Продать облигации. Возвращает (success, actual_amount_sold)."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         async with db.execute(
             "SELECT amount, invested FROM user_bonds WHERE user_id=? AND chat_id=? AND bond_key=?",
             (user_id, chat_id, bond_key),
@@ -4628,7 +4534,7 @@ async def sell_bonds(user_id: int, chat_id: int, bond_key: str, amount: int) -> 
 # ─── Казна чата ──────────────────────────────────────────────────────────────
 
 async def get_treasury(chat_id: int) -> int:
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         async with db.execute(
             "SELECT balance FROM chat_treasury WHERE chat_id=?", (chat_id,)
         ) as c:
@@ -4638,7 +4544,7 @@ async def get_treasury(chat_id: int) -> int:
 
 async def add_to_treasury(chat_id: int, amount: int) -> int:
     """Добавляет amount в казну чата. Возвращает новый баланс."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         await db.execute(
             "INSERT INTO chat_treasury (chat_id, balance) VALUES (?,?)"
             " ON CONFLICT(chat_id) DO UPDATE SET balance = balance + excluded.balance",
@@ -4653,7 +4559,7 @@ async def add_to_treasury(chat_id: int, amount: int) -> int:
 
 
 async def reset_treasury(chat_id: int):
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         await db.execute(
             "UPDATE chat_treasury SET balance = 0 WHERE chat_id=?", (chat_id,)
         )
@@ -4663,7 +4569,7 @@ async def reset_treasury(chat_id: int):
 # ─── Усталость питомца ───────────────────────────────────────────────────────
 
 async def get_pet_fatigue(user_id: int, chat_id: int) -> int:
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         async with db.execute(
             "SELECT fatigue FROM pets WHERE user_id=? AND chat_id=?",
             (user_id, chat_id),
@@ -4674,7 +4580,7 @@ async def get_pet_fatigue(user_id: int, chat_id: int) -> int:
 
 async def add_pet_fatigue(user_id: int, chat_id: int, amount: int):
     """Увеличивает усталость питомца (max 100)."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         await db.execute(
             "UPDATE pets SET fatigue = MIN(100, COALESCE(fatigue,0) + ?) WHERE user_id=? AND chat_id=?",
             (amount, user_id, chat_id),
@@ -4684,7 +4590,7 @@ async def add_pet_fatigue(user_id: int, chat_id: int, amount: int):
 
 async def reduce_pet_fatigue(user_id: int, chat_id: int, amount: int):
     """Уменьшает усталость питомца (min 0)."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         await db.execute(
             "UPDATE pets SET fatigue = MAX(0, COALESCE(fatigue,0) - ?) WHERE user_id=? AND chat_id=?",
             (amount, user_id, chat_id),
@@ -4720,8 +4626,7 @@ async def start_pet_walk_full(user_id: int, chat_id: int) -> dict:
       ok=False → "error" (str), optional "mins_left" (int) if already walking
     """
     from datetime import timedelta, timezone
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
 
         # 1. Читаем питомца
         async with db.execute(
@@ -4805,7 +4710,7 @@ async def get_weekly_top_users(chat_id: int, limit: int = 10) -> list[int]:
     week_start = date.today().strftime("%Y-%m-") + str(
         date.today().day - date.today().weekday()
     ).zfill(2)
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         async with db.execute(
             """SELECT user_id, SUM(message_count) as cnt
                FROM user_stats
@@ -4820,7 +4725,7 @@ async def get_weekly_top_users(chat_id: int, limit: int = 10) -> list[int]:
 
 async def get_vip_users(chat_id: int) -> list[int]:
     """Возвращает list user_id у кого vip=1 в данном чате."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         async with db.execute(
             "SELECT user_id FROM user_mora WHERE chat_id=? AND vip=1",
             (chat_id,),
@@ -4831,7 +4736,7 @@ async def get_vip_users(chat_id: int) -> list[int]:
 
 async def get_all_active_chats() -> list[int]:
     """Все чаты где бот активен (is_active=1)."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         async with db.execute(
             "SELECT chat_id FROM chats WHERE is_active=1"
         ) as c:
@@ -4854,8 +4759,7 @@ _CHECKIN_RESET_TO = {5: 5, 10: 10, 15: 15, 20: 20}  # пробел → к пос
 
 async def get_daily_checkin(user_id: int, chat_id: int) -> dict:
     """Вернуть данные ежедневного чекина юзера."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         async with db.execute(
             "SELECT * FROM daily_checkin WHERE user_id=? AND chat_id=?",
             (user_id, chat_id),
@@ -4871,8 +4775,7 @@ async def perform_checkin(user_id: int, chat_id: int) -> dict:
     from datetime import timezone
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         async with db.execute(
             "SELECT * FROM daily_checkin WHERE user_id=? AND chat_id=?",
             (user_id, chat_id),
@@ -4928,7 +4831,7 @@ async def add_boss_damage(user_id: int, chat_id: int, damage: int):
     """Записать урон по боссу (batch-safe, потом суммируется)."""
     from datetime import timezone
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         await db.execute(
             "INSERT INTO boss_damage_log (user_id, chat_id, damage, session_date) VALUES (?, ?, ?, ?)",
             (user_id, chat_id, damage, today),
@@ -4940,7 +4843,7 @@ async def get_boss_daily_user_damage(user_id: int, chat_id: int) -> int:
     """Get today's total damage by *user_id* in *chat_id* (UTC date)."""
     from datetime import timezone
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         async with db.execute(
             "SELECT COALESCE(SUM(damage), 0) FROM boss_damage_log "
             "WHERE user_id=? AND chat_id=? AND session_date=?",
@@ -4954,7 +4857,7 @@ async def get_boss_chat_damage_today(chat_id: int) -> int:
     """Get today's total damage for the whole chat (UTC date)."""
     from datetime import timezone
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         async with db.execute(
             "SELECT COALESCE(SUM(damage), 0) FROM boss_damage_log "
             "WHERE chat_id=? AND session_date=?",
@@ -4966,8 +4869,7 @@ async def get_boss_chat_damage_today(chat_id: int) -> int:
 
 async def get_boss_leaderboard(chat_id: int, limit: int = 10) -> list[dict]:
     """Топ по суммарному урону боссу в текущем чате."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         async with db.execute(
             """SELECT b.user_id, u.full_name, SUM(b.damage) as total_damage
                FROM boss_damage_log b
@@ -4983,7 +4885,7 @@ async def get_boss_leaderboard(chat_id: int, limit: int = 10) -> list[dict]:
 
 async def get_boss_my_damage(user_id: int, chat_id: int) -> int:
     """Вернуть суммарный урон конкретного юзера по боссу в чате."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         async with db.execute(
             "SELECT COALESCE(SUM(damage), 0) FROM boss_damage_log WHERE user_id=? AND chat_id=?",
             (user_id, chat_id),
@@ -4996,8 +4898,7 @@ async def get_boss_my_damage(user_id: int, chat_id: int) -> int:
 
 async def get_leaderboard_xp(chat_id: int, limit: int = 10) -> list[dict]:
     """Топ по XP в чате."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         async with db.execute(
             """SELECT s.user_id, u.full_name, s.xp, s.level
                FROM user_stats s LEFT JOIN users u ON u.user_id = s.user_id
@@ -5010,8 +4911,7 @@ async def get_leaderboard_xp(chat_id: int, limit: int = 10) -> list[dict]:
 
 async def get_leaderboard_messages(chat_id: int, limit: int = 10) -> list[dict]:
     """Топ по сообщениям в чате."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         async with db.execute(
             """SELECT s.user_id, u.full_name, s.message_count
                FROM user_stats s LEFT JOIN users u ON u.user_id = s.user_id
@@ -5027,7 +4927,7 @@ async def enhance_item(user_id: int, chat_id: int, item_id: int) -> tuple[bool, 
     import random
     from datetime import datetime
     
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         async with db.execute(
             "SELECT slot, enhancement_level, atk, def_val, hp, crit_rate, item_name FROM gacha_inventory "
             "WHERE id=? AND user_id=? AND chat_id=? AND slot IN ('weapon', 'armor', 'artifact')",
@@ -5133,14 +5033,12 @@ async def get_active_buffs(user_id: int, chat_id: int) -> list[dict]:
     """Get active potion buffs for user."""
     from datetime import datetime, timezone
     
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         # Clean expired buffs first
         now = datetime.now(timezone.utc).isoformat()
         await db.execute(
             "DELETE FROM active_buffs WHERE expires_at < ?", (now,)
         )
-        
-        db.row_factory = aiosqlite.Row
         async with db.execute(
             "SELECT * FROM active_buffs WHERE user_id=? AND chat_id=? AND expires_at > ?",
             (user_id, chat_id, now)
@@ -5153,7 +5051,7 @@ async def get_active_buffs(user_id: int, chat_id: int) -> list[dict]:
 
 async def get_user_name(user_id: int) -> str | None:
     """Get user's full name from database."""
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         async with db.execute("SELECT full_name FROM users WHERE user_id=?", (user_id,)) as c:
             row = await c.fetchone()
         return row[0] if row else None
@@ -5163,7 +5061,7 @@ async def consume_potion(user_id: int, chat_id: int, item_id: int) -> tuple[bool
     """Consume a potion item to gain buff."""
     from datetime import datetime, timezone, timedelta
     
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         async with db.execute(
             "SELECT item_key, item_name, slot FROM gacha_inventory "
             "WHERE id=? AND user_id=? AND chat_id=? AND slot='potion'",
@@ -5210,7 +5108,7 @@ async def batch_sell_items(user_id: int, chat_id: int, item_ids: list[int]) -> t
     if not item_ids:
         return 0, 0
     
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         total_mora = 0
         sold_count = 0
         
@@ -5262,8 +5160,7 @@ async def get_couple_boss_session(user_a_id: int, user_b_id: int, chat_id: int) 
     if user_a_id > user_b_id:
         user_a_id, user_b_id = user_b_id, user_a_id
     
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         async with db.execute(
             """SELECT * FROM couple_boss_sessions 
                WHERE user_a_id=? AND user_b_id=? AND chat_id=? AND session_date=? AND is_completed=0""",
@@ -5291,7 +5188,7 @@ async def create_couple_boss_session(user_a_id: int, user_b_id: int, chat_id: in
     progress = await get_couple_boss_progress(user_a_id, user_b_id, chat_id)
     is_repeat = progress and progress.get("max_level", 0) >= boss_level
     
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         await db.execute(
             """INSERT INTO couple_boss_sessions 
                (user_a_id, user_b_id, chat_id, boss_level, boss_max_hp, boss_current_hp, 
@@ -5387,7 +5284,7 @@ async def apply_couple_boss_damage(user_id: int, session: dict, damage: int, use
                       new_b_damage, new_b_hits, new_b_aggro)
     
     # Update database
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         await db.execute(
             """UPDATE couple_boss_sessions SET 
                boss_current_hp=?, user_a_damage=?, user_a_hits=?, user_a_aggro=?,
@@ -5419,8 +5316,7 @@ async def get_couple_boss_progress(user_a_id: int, user_b_id: int, chat_id: int)
     if user_a_id > user_b_id:
         user_a_id, user_b_id = user_b_id, user_a_id
         
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         async with db.execute(
             "SELECT * FROM couple_boss_progress WHERE user_a_id=? AND user_b_id=? AND chat_id=?",
             (user_a_id, user_b_id, chat_id),
@@ -5439,7 +5335,7 @@ async def update_couple_boss_progress(user_a_id: int, user_b_id: int, chat_id: i
         
     now = datetime.now(timezone.utc).isoformat()
     
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    async with postgres_connect() as db:
         await db.execute(
             """INSERT INTO couple_boss_progress (user_a_id, user_b_id, chat_id, max_level, last_completed)
                VALUES (?,?,?,?,?)

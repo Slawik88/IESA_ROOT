@@ -213,9 +213,8 @@ async def cmd_dice(message: Message, cmd_args: str, bot):
     )
 
     # Обновляем msg_id в дуэли
-    from database.sql_compat import aiosqlite_compat as aiosqlite
-    from config import DATABASE_PATH
-    async with aiosqlite.connect(DATABASE_PATH) as db:
+    from database.postgres import connect as postgres_connect
+    async with postgres_connect() as db:
         await db.execute(
             "UPDATE casino_duels SET msg_id=? WHERE id=?",
             (sent.message_id, duel_id),

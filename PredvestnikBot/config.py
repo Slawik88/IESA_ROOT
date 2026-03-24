@@ -35,18 +35,17 @@ if not BOT_TOKEN:
         "❌ Не задан токен бота! Укажи PREDVESTNIK_BOT_TOKEN (или BOT_TOKEN для локального запуска)."
     )
 
-# База данных бота (изолированно от сайта):
-# 1) PREDVESTNIK_DATABASE_URL=postgresql://...  -> прод с PostgreSQL
-# 2) иначе локальный SQLite bot.db              -> разработка
-DATABASE_PATH = os.getenv("PREDVESTNIK_DATABASE_URL") or "bot.db"
-
-if DATABASE_PATH == "bot.db":
-    import logging as _logging
-    _logging.warning(
-        "⚠️  PREDVESTNIK_DATABASE_URL не задан! "
-        "Используется SQLite bot.db — ВСЕ ДАННЫЕ БУДУТ ПОТЕРЯНЫ ПРИ ПЕРЕЗАПУСКЕ КОНТЕЙНЕРА! "
-        "Задайте переменную окружения PREDVESTNIK_DATABASE_URL=postgresql://... для хранения данных."
+# База данных бота - только PostgreSQL:
+DATABASE_URL = os.getenv("PREDVESTNIK_DATABASE_URL") or os.getenv("DATABASE_URL")
+if not DATABASE_URL:
+    raise RuntimeError(
+        "❌ Не задан DATABASE URL! Укажи переменную окружения:\n"
+        "PREDVESTNIK_DATABASE_URL=postgresql://user:password@host:port/db\n"
+        "Бот теперь работает только с PostgreSQL."
     )
+
+# Для обратной совместимости в других модулях
+DATABASE_PATH = DATABASE_URL
 
 # Telegram ID разработчика (автоматически получает ранг developer)
 DEVELOPER_ID = 1460945748
