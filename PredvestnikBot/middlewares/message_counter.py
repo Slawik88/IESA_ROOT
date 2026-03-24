@@ -78,6 +78,15 @@ _URL_RE = re.compile(
 )
 
 
+# Время запуска бота для защиты от старых сообщений
+_bot_start_time = None
+
+def set_bot_start_time(start_time: datetime):
+    \"\"\"Установить время запуска бота для защиты от старых сообщений\"\"\"
+    global _bot_start_time
+    _bot_start_time = start_time
+
+
 class AutoModMiddleware(BaseMiddleware):
     async def __call__(
         self,
@@ -88,6 +97,12 @@ class AutoModMiddleware(BaseMiddleware):
         user = event.from_user
         if not user or user.is_bot:
             return await handler(event, data)
+
+        # 🛡️ Защита от обработки старых сообщений после перезапуска бота
+        # (предотвращает муты/кики за сообщения, отправленные пока бот был неактивен)
+        if _bot_start_time and event.date < _bot_start_time:
+            # Игнорируем сообщения, отправленные до запуска бота
+            return
 
         # 0. Белый список групп — если включён, игнорируем неразрешённые группы
         #    (разработчик всегда проходит, чтобы мог добавить группу)

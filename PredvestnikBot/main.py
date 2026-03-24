@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 import os
+from datetime import datetime
 from pathlib import Path
 
 from aiogram import Bot, Dispatcher
@@ -12,11 +13,13 @@ from aiogram.exceptions import TelegramConflictError
 from aiogram.types import ChatPermissions, MenuButtonWebApp, WebAppInfo
 from config import BOT_TOKEN, MINI_APP_URL
 from database.db import get_locked_chats, init_db, set_chat_setting
+
+# Время запуска бота (для игнорирования старых сообщений)
+BOT_START_TIME = datetime.utcnow()
 from handlers import (admin, auto_mod, bank, boss, casino, checkin, dev_panel, diligence, dm_roles, economy, espionage,
                      expeditions, extras, food, fun, gacha, gifts, helper,
                      moderator, notes, owner, pets, quests, reputation,
                      shop, tax_event, user, wallet, weather)
-from middlewares.message_counter import AutoModMiddleware
 
 logging.basicConfig(level=logging.INFO)
 
@@ -72,6 +75,8 @@ async def main():
             logging.warning("Could not auto-unlock chat %s: %s", _locked_chat_id, _e)
 
     # Middleware: регистрация юзеров + антифлуд + замки + чёрный список
+    from middlewares.message_counter import AutoModMiddleware, set_bot_start_time
+    set_bot_start_time(BOT_START_TIME)  # Защита от обработки старых сообщений
     dp.message.outer_middleware(AutoModMiddleware())
 
     # Роутеры — от специфичных к общим (extras должен быть последним!)
