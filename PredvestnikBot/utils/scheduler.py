@@ -65,6 +65,10 @@ async def run_scheduler(bot) -> None:
             await _task_treasury_dividends(bot)
         except Exception as exc:
             log.error("Scheduler [treasury_dividends] error: %s", exc, exc_info=True)
+        try:
+            await _task_dev_event_queue(bot)
+        except Exception as exc:
+            log.error("Scheduler [dev_event_queue] error: %s", exc, exc_info=True)
         await asyncio.sleep(3600)  # следующий прогон через час
 
 
@@ -565,5 +569,45 @@ async def _task_treasury_dividends(bot) -> None:
             await bot.send_message(cid, "\n".join(lines), parse_mode="HTML")
         except Exception as exc:
             log.warning("Treasury dividends in %s: %s", cid, exc)
+
+
+# ─── Dev event queue (Mini App → bot) ────────────────────────────────────────
+
+async def _task_dev_event_queue(bot) -> None:
+    """Process pending dev_event_queue rows left by the Mini App's /api/dev/trigger_event."""
+    import aiosqlite
+    from config import DATABASE_PATH, DEVELOPER_ID
+    try:
+        async with aiosqlite.connect(DATABASE_PATH) as db:
+            db.row_factory = aiosqlite.Row
+            # Ensure table exists (may not yet if Django hasn't created it)
+            await db.execute(
+                "CREATE TABLE IF NOT EXISTS dev_event_queue ("
+                "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+                "chat_id INTEGER NOT NULL, event_type TEXT NOT NULL, "
+                "requested_by INTEGER NOT NULL, created_at TEXT NOT NULL, processed INTEGER DEFAULT 0)"
+            )
+            async with db.execute(
+                "SELECT id, chat_id, event_type FROM dev_event_queue WHERE processed=0 ORDER BY id LIMIT 20"
+            ) as cur:
+                rows = await cur.fetchall()
+            for row in rows:
+                ev_id, cid, etype = row["id"], row["chat_id"], row["event_type"].lower().strip()
+                try:
+                    if etype in ("chest", "сундук"):
+                        from handlers.tax_event import launch_chest_event
+                        await launch_chest_event(bot, cid)
+                    elif etype in ("дилижанс", "diligence"):
+                        from handlers.diligence import _launch_diligence
+                        await _launch_diligence(bot, cid)
+                    else:
+                        log.info("Dev event queue: unknown type %r for chat %s", etype, cid)
+                except Exception as exc:
+                    log.warning("Dev event queue item %s (%s / %s) failed: %s", ev_id, cid, etype, exc)
+                # Mark processed regardless (prevent retry storms)
+                await db.execute("UPDATE dev_event_queue SET processed=1 WHERE id=?", (ev_id,))
+            await db.commit()
+    except Exception as exc:
+        log.warning("_task_dev_event_queue: %s", exc)
 
 

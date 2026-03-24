@@ -36,9 +36,12 @@ from shared_prices import (  # noqa: E402
     FRAMES_CATALOG as _FRAMES_CATALOG,
     COSMETICS_CATALOG as _COSMETICS_CATALOG,
     FOOD_ITEMS as _FOOD_ITEMS,
+    POTIONS_CATALOG as _POTIONS_CATALOG,
     BOND_DEFAULTS as _BOND_DEFAULTS_SYNC,
     CHECKIN_REWARDS as _CHECKIN_REWARDS_SYNC,
     CHECKIN_CHECKPOINTS as _CHECKIN_CHECKPOINTS_SYNC,
+    ITEM_METADATA as _ITEM_METADATA,
+    CUSTOM_TITLE_PRICE as _CUSTOM_TITLE_PRICE,
 )
 _INDEX_HTML = _BOT_DIR / "web" / "index.html"
 _BOT_DB_URL = os.environ.get("PREDVESTNIK_DATABASE_URL", "")
@@ -212,17 +215,18 @@ def miniapp_user_data(request):
         if specific_chat_id or chat_id:
             effective_cid = specific_chat_id or chat_id
             cur.execute(
-                f"SELECT xp, COALESCE(level, 1) FROM user_stats WHERE user_id={ph} AND chat_id={ph}",
+                f"SELECT xp, COALESCE(level, 1), custom_title FROM user_stats WHERE user_id={ph} AND chat_id={ph}",
                 (uid, effective_cid),
             )
         else:
             cur.execute(
-                f"SELECT xp, COALESCE(level, 1) FROM user_stats WHERE user_id={ph} ORDER BY xp DESC LIMIT 1",
+                f"SELECT xp, COALESCE(level, 1), custom_title FROM user_stats WHERE user_id={ph} ORDER BY xp DESC LIMIT 1",
                 (uid,),
             )
         xp_row = cur.fetchone()
         xp = xp_row[0] if xp_row else 0
         db_level = xp_row[1] if xp_row else 1
+        custom_title = xp_row[2] if xp_row else None
 
         # Bonds
         bonds_data = []
@@ -259,19 +263,36 @@ def miniapp_user_data(request):
         pet_info = None
         if chat_id:
             cur.execute(
-                f"SELECT pet_type, name, COALESCE(fatigue,0) FROM pets "
+                f"SELECT pet_type, name, COALESCE(fatigue,0), walk_end_at FROM pets "
                 f"WHERE user_id={ph} AND chat_id={ph}",
                 (uid, chat_id),
             )
             pet_row = cur.fetchone()
             if pet_row:
-                ptype, pname, pfatigue = pet_row
+                ptype, pname, pfatigue, pwalk_end = pet_row
                 emoji = {"cat": "🐱", "dog": "🐶"}.get(ptype, "🐾")
+                on_walk = False
+                walk_mins_left = 0
+                if pwalk_end:
+                    try:
+                        from datetime import datetime as _dt, timezone as _tz
+                        end_dt = _dt.fromisoformat(str(pwalk_end))
+                        if end_dt.tzinfo is None:
+                            end_dt = end_dt.replace(tzinfo=_tz.utc)
+                        diff = (end_dt - _dt.now(_tz.utc)).total_seconds()
+                        if diff > 0:
+                            on_walk = True
+                            walk_mins_left = int(diff / 60) + 1
+                    except Exception:
+                        pass
                 pet_info = {
                     "type": ptype,
                     "name": pname or "безымянный",
                     "emoji": emoji,
                     "fatigue": pfatigue,
+                    "on_walk": on_walk,
+                    "walk_mins_left": walk_mins_left,
+                    "walk_end_at": pwalk_end or None,
                 }
 
         # RPG stats
@@ -298,8 +319,10 @@ def miniapp_user_data(request):
         # Family wallet (if married) — show total of both spouses
         family_balance = 0
         my_family_balance = 0
+        partner_family_balance = 0
         has_partner = False
         partner_name = None
+        partner_id_val = None
         if chat_id:
             cur.execute(
                 f"SELECT partner_id FROM marriages WHERE user_id={ph} AND chat_id={ph}",
@@ -309,6 +332,7 @@ def miniapp_user_data(request):
             has_partner = m_row is not None
             if has_partner:
                 partner_id = m_row[0]
+                partner_id_val = partner_id
                 cur.execute(f"SELECT full_name FROM users WHERE user_id={ph}", (partner_id,))
                 pn_row = cur.fetchone()
                 partner_name = pn_row[0] if pn_row else None
@@ -371,10 +395,13 @@ def miniapp_user_data(request):
             "rpg": rpg,
             "family_balance": family_balance,
             "my_family_balance": my_family_balance,
+            "partner_family_balance": partner_family_balance,
             "has_partner": has_partner,
             "partner_name": partner_name,
+            "partner_id": partner_id_val,
             "pity": pity,
             "streak": streak,
+            "custom_title": custom_title or "",
         }
         return JsonResponse(payload, json_dumps_params={"ensure_ascii": False},
                             headers=headers)
@@ -491,10 +518,17 @@ def miniapp_leaderboard(request):
                     user_rank_data = {"rank": rank_row[0] if rank_row else 0, "score": score_row[0] if score_row else 0}
 
         conn.close()
-        entries = [
-            {"rank": i + 1, "user_id": r[0], "name": r[1] or f"user_{r[0]}", "score": r[2] or 0}
-            for i, r in enumerate(rows)
-        ]
+        if lb_type == "mora":
+            entries = [
+                {"rank": i + 1, "user_id": r[0], "name": r[1] or f"user_{r[0]}",
+                 "score": (r[2] or 0) if r[0] == uid_lb else None}
+                for i, r in enumerate(rows)
+            ]
+        else:
+            entries = [
+                {"rank": i + 1, "user_id": r[0], "name": r[1] or f"user_{r[0]}", "score": r[2] or 0}
+                for i, r in enumerate(rows)
+            ]
         resp = {"type": lb_type, "entries": entries, "uid": uid_lb}
         if user_rank_data:
             resp["user_rank"] = user_rank_data
@@ -1415,6 +1449,381 @@ def miniapp_dev_users(request):
         return JsonResponse({"error": str(exc)}, status=500, headers=headers)
 
 
+# ─── Dev: list all chats (grouped) ────────────────────────────────────────────
+
+@csrf_exempt
+def miniapp_dev_chats(request):
+    """GET /api/dev/chats — developer only: all known chats split by type."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "GET":
+        return JsonResponse({"error": "GET required"}, status=405, headers=headers)
+
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+    if uid != _DEVELOPER_ID:
+        return JsonResponse({"error": "forbidden"}, status=403, headers=headers)
+
+    try:
+        conn, db_type = _get_bot_db_connection()
+    except Exception as exc:
+        return JsonResponse({"error": f"DB: {exc}"}, status=503, headers=headers)
+
+    try:
+        cur = conn.cursor()
+        ph = "%s" if db_type == "pg" else "?"
+        cur.execute(
+            "SELECT c.chat_id, c.title, c.chat_type, COUNT(DISTINCT s.user_id) AS members "
+            "FROM chats c LEFT JOIN user_stats s ON s.chat_id=c.chat_id "
+            "GROUP BY c.chat_id, c.title, c.chat_type ORDER BY members DESC LIMIT 100"
+        )
+        rows = cur.fetchall()
+        conn.close()
+        groups, admin_chats = [], []
+        for r in rows:
+            ctype = (r[2] or "").lower()
+            obj = {"chat_id": r[0], "title": r[1] or f"chat_{r[0]}", "chat_type": ctype, "members": r[3]}
+            if ctype in ("group", "supergroup"):
+                groups.append(obj)
+            else:
+                admin_chats.append(obj)
+        return JsonResponse({"groups": groups, "admin_chats": admin_chats},
+                            json_dumps_params={"ensure_ascii": False}, headers=headers)
+    except Exception as exc:
+        try:
+            conn.close()
+        except Exception:
+            pass
+        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+
+
+# ─── Dev: chat admins with balances ───────────────────────────────────────────
+
+@csrf_exempt
+def miniapp_dev_chat_admins(request):
+    """GET /api/dev/chat_admins?chat_id=X — developer only: members with rank/balance."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "GET":
+        return JsonResponse({"error": "GET required"}, status=405, headers=headers)
+
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+    if uid != _DEVELOPER_ID:
+        return JsonResponse({"error": "forbidden"}, status=403, headers=headers)
+
+    chat_id_str = request.GET.get("chat_id", "")
+    if not chat_id_str.lstrip("-").isdigit():
+        return JsonResponse({"error": "chat_id required"}, status=400, headers=headers)
+    chat_id = int(chat_id_str)
+
+    try:
+        conn, db_type = _get_bot_db_connection()
+    except Exception as exc:
+        return JsonResponse({"error": f"DB: {exc}"}, status=503, headers=headers)
+
+    try:
+        cur = conn.cursor()
+        ph = "%s" if db_type == "pg" else "?"
+        cur.execute(
+            f"SELECT s.user_id, u.full_name, COALESCE(s.rank,'user') AS rank, "
+            f"COALESCE(s.level,1) AS level, COALESCE(s.xp,0) AS xp, "
+            f"COALESCE(m.balance,0) AS balance "
+            f"FROM user_stats s "
+            f"LEFT JOIN users u ON u.user_id=s.user_id "
+            f"LEFT JOIN user_mora m ON m.user_id=s.user_id AND m.chat_id=s.chat_id "
+            f"WHERE s.chat_id={ph} "
+            f"ORDER BY s.xp DESC LIMIT 50",
+            (chat_id,),
+        )
+        rows = cur.fetchall()
+        conn.close()
+        members = [
+            {"user_id": r[0], "name": r[1] or f"user_{r[0]}", "rank": r[2],
+             "level": r[3], "xp": r[4], "balance": r[5]}
+            for r in rows
+        ]
+        return JsonResponse({"members": members}, json_dumps_params={"ensure_ascii": False}, headers=headers)
+    except Exception as exc:
+        try:
+            conn.close()
+        except Exception:
+            pass
+        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+
+
+# ─── Dev: blacklist (global ban by user_id) ────────────────────────────────────
+
+@csrf_exempt
+def miniapp_dev_banlist(request):
+    """GET /api/dev/banlist — list banned users.
+    POST /api/dev/banlist {user_id, reason} — add ban.
+    DELETE /api/dev/banlist {user_id} — remove ban."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+    if uid != _DEVELOPER_ID:
+        return JsonResponse({"error": "forbidden"}, status=403, headers=headers)
+
+    try:
+        conn, db_type = _get_bot_db_connection()
+    except Exception as exc:
+        return JsonResponse({"error": f"DB: {exc}"}, status=503, headers=headers)
+
+    ph = "%s" if db_type == "pg" else "?"
+
+    try:
+        cur = conn.cursor()
+
+        if request.method == "GET":
+            cur.execute(
+                "SELECT bl.user_id, u.full_name, bl.reason, bl.added_at "
+                "FROM user_banlist bl "
+                "LEFT JOIN users u ON u.user_id=bl.user_id "
+                "WHERE bl.chat_id=0 ORDER BY bl.added_at DESC LIMIT 100"
+            )
+            rows = cur.fetchall()
+            conn.close()
+            banned = [
+                {"user_id": r[0], "name": r[1] or f"user_{r[0]}", "reason": r[2] or "", "added_at": r[3]}
+                for r in rows
+            ]
+            return JsonResponse({"banned": banned}, json_dumps_params={"ensure_ascii": False}, headers=headers)
+
+        body = json.loads(request.body or b"{}")
+        target_id = int(body.get("user_id", 0))
+        if not target_id:
+            conn.close()
+            return JsonResponse({"error": "user_id required"}, status=400, headers=headers)
+
+        if request.method == "POST":
+            reason = str(body.get("reason", ""))[:200]
+            import datetime as _dt
+            now_iso = _dt.datetime.utcnow().isoformat()
+            if db_type == "pg":
+                cur.execute(
+                    f"INSERT INTO user_banlist (chat_id,user_id,added_by,reason,added_at) "
+                    f"VALUES ({ph},{ph},{ph},{ph},{ph}) "
+                    f"ON CONFLICT (chat_id,user_id) DO UPDATE SET reason=EXCLUDED.reason",
+                    (0, target_id, uid, reason, now_iso),
+                )
+            else:
+                cur.execute(
+                    "INSERT INTO user_banlist (chat_id,user_id,added_by,reason,added_at) "
+                    "VALUES (?,?,?,?,?) ON CONFLICT(chat_id,user_id) DO UPDATE SET reason=excluded.reason",
+                    (0, target_id, uid, reason, now_iso),
+                )
+            conn.commit()
+            conn.close()
+            return JsonResponse({"ok": True, "banned": target_id}, headers=headers)
+
+        if request.method == "DELETE":
+            cur.execute(
+                f"DELETE FROM user_banlist WHERE chat_id=0 AND user_id={ph}", (target_id,)
+            )
+            conn.commit()
+            conn.close()
+            return JsonResponse({"ok": True, "unbanned": target_id}, headers=headers)
+
+        conn.close()
+        return JsonResponse({"error": "method not allowed"}, status=405, headers=headers)
+
+    except Exception as exc:
+        try:
+            conn.close()
+        except Exception:
+            pass
+        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+
+
+# ─── Dev: activity logs ───────────────────────────────────────────────────────
+
+@csrf_exempt
+def miniapp_dev_logs(request):
+    """GET /api/dev/logs?chat_id=X — last leave events + server error log."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "GET":
+        return JsonResponse({"error": "GET required"}, status=405, headers=headers)
+
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+    if uid != _DEVELOPER_ID:
+        return JsonResponse({"error": "forbidden"}, status=403, headers=headers)
+
+    chat_id_str = request.GET.get("chat_id", "0")
+    chat_id = int(chat_id_str) if chat_id_str.lstrip("-").isdigit() else 0
+
+    try:
+        conn, db_type = _get_bot_db_connection()
+    except Exception as exc:
+        return JsonResponse({"error": f"DB: {exc}"}, status=503, headers=headers)
+
+    try:
+        cur = conn.cursor()
+        ph = "%s" if db_type == "pg" else "?"
+
+        # Leave log (who left/was kicked)
+        if chat_id:
+            cur.execute(
+                f"SELECT user_id, full_name, left_at FROM leave_log "
+                f"WHERE chat_id={ph} ORDER BY left_at DESC LIMIT 20",
+                (chat_id,),
+            )
+        else:
+            cur.execute(
+                "SELECT user_id, full_name, left_at FROM leave_log ORDER BY left_at DESC LIMIT 20"
+            )
+        leave_rows = cur.fetchall()
+        leave_log = [{"user_id": r[0], "name": r[1] or f"user_{r[0]}", "left_at": r[2]} for r in leave_rows]
+
+        # Server errors from log file
+        import os, pathlib
+        error_lines = []
+        log_candidates = [
+            pathlib.Path(__file__).parent.parent.parent / "logs" / "bot.log",
+            pathlib.Path(__file__).parent.parent.parent / "logs" / "app.log",
+            pathlib.Path(__file__).parent.parent.parent / "server_output.txt",
+        ]
+        for lp in log_candidates:
+            if lp.exists() and lp.stat().st_size > 0:
+                try:
+                    with open(lp, "r", encoding="utf-8", errors="replace") as f:
+                        all_lines = f.readlines()
+                    errs = [l.strip() for l in all_lines if "error" in l.lower() or "exception" in l.lower() or "traceback" in l.lower()]
+                    error_lines = errs[-5:]  # last 5 error lines
+                    break
+                except Exception:
+                    pass
+
+        conn.close()
+        return JsonResponse({
+            "leave_log": leave_log,
+            "server_errors": error_lines,
+        }, json_dumps_params={"ensure_ascii": False}, headers=headers)
+    except Exception as exc:
+        try:
+            conn.close()
+        except Exception:
+            pass
+        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+
+
+# ─── Dev: event trigger ───────────────────────────────────────────────────────
+
+@csrf_exempt
+def miniapp_dev_trigger_event(request):
+    """POST /api/dev/trigger_event {event_type, chat_id} — fire an event in a chat."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=405, headers=headers)
+
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+    if uid != _DEVELOPER_ID:
+        return JsonResponse({"error": "forbidden"}, status=403, headers=headers)
+
+    try:
+        body = json.loads(request.body or b"{}")
+        event_type = str(body.get("event_type", "")).strip().lower()
+        target_chat = int(str(body.get("chat_id", "0")))
+    except Exception:
+        return JsonResponse({"error": "invalid JSON"}, status=400, headers=headers)
+
+    if not event_type:
+        return JsonResponse({"error": "event_type required"}, status=400, headers=headers)
+    if not target_chat:
+        return JsonResponse({"error": "chat_id required"}, status=400, headers=headers)
+
+    # We enqueue the event request into a small DB table so the bot process can pick it up.
+    # This avoids needing to share bot instance state with Django.
+    try:
+        conn, db_type = _get_bot_db_connection()
+    except Exception as exc:
+        return JsonResponse({"error": f"DB: {exc}"}, status=503, headers=headers)
+
+    ph = "%s" if db_type == "pg" else "?"
+    try:
+        cur = conn.cursor()
+        # Ensure table exists (idempotent)
+        cur.execute(
+            "CREATE TABLE IF NOT EXISTS dev_event_queue ("
+            "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+            "chat_id INTEGER NOT NULL, event_type TEXT NOT NULL, "
+            "requested_by INTEGER NOT NULL, created_at TEXT NOT NULL, processed INTEGER DEFAULT 0)"
+        )
+        import datetime as _dt
+        cur.execute(
+            f"INSERT INTO dev_event_queue (chat_id, event_type, requested_by, created_at) "
+            f"VALUES ({ph},{ph},{ph},{ph})",
+            (target_chat, event_type, uid, _dt.datetime.utcnow().isoformat()),
+        )
+        conn.commit()
+        conn.close()
+        return JsonResponse({"ok": True, "event_type": event_type, "chat_id": target_chat,
+                             "note": "queued — bot will fire within ~60s"}, headers=headers)
+    except Exception as exc:
+        try:
+            conn.close()
+        except Exception:
+            pass
+        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+
+
+# ─── Dev: list all available items ────────────────────────────────────────────
+
+@csrf_exempt
+def miniapp_dev_items(request):
+    """GET /api/dev/items — developer only: all available gacha items."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "GET":
+        return JsonResponse({"error": "GET required"}, status=405, headers=headers)
+
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+    if uid != _DEVELOPER_ID:
+        return JsonResponse({"error": "forbidden"}, status=403, headers=headers)
+
+    # Build flat list from the pool defined lower in this file
+    # We re-declare the mapping here to avoid forward-reference issues
+    _pool = {
+        "junk":      [("junk_stone", "🪨 Камень Маслоу"), ("junk_stick", "🪴 Палка путника"),
+                      ("junk_dust", "💨 Пыль забвения"), ("junk_bone", "🦴 Кость хиличурла"),
+                      ("junk_mushroom", "🍄 Сомнительный гриб")],
+        "common":    [("cmn_sword", "⚔️ Тупой клинок"), ("cmn_bow", "🏹 Кривой лук"),
+                      ("cmn_book", "📕 Потрёпанный дневник"), ("cmn_ring", "💍 Дешёвое кольцо"),
+                      ("cmn_shield", "🛡 Ржавый щит")],
+        "rare":      [("rare_crown", "👑 Серебряная корона"), ("rare_catalyst", "🔮 Магический катализатор"),
+                      ("rare_cape", "🧣 Алый плащ"), ("rare_gem", "💎 Сапфир полуночи")],
+        "legendary": [("lego_gnosis", "✨ Гнозис Балладеера"), ("lego_scepter", "🏛 Скипетр Дендро Архонта"),
+                      ("lego_pantalone", "🎩 Маска Панталоне"), ("lego_abyss", "🌀 Корона Бездны"),
+                      ("lego_fatui", "⚡ Перст Предвестника")],
+    }
+    items = []
+    rarity_emoji = {"junk": "🪨", "common": "💙", "rare": "💜", "legendary": "⭐"}
+    for rarity, pool in _pool.items():
+        for key, name in pool:
+            items.append({"key": key, "name": name, "rarity": rarity,
+                          "rarity_emoji": rarity_emoji.get(rarity, "")})
+    return JsonResponse({"items": items}, json_dumps_params={"ensure_ascii": False}, headers=headers)
+
+
 # ─── Family wallet: deposit / withdraw ────────────────────────────────────────
 
 @csrf_exempt
@@ -1617,16 +2026,20 @@ def miniapp_inventory(request):
             cur = conn.cursor()
             ph = "%s" if db_type == "pg" else "?"
             cur.execute(
-                f"SELECT id, item_name, rarity, equipped, "
-                f"COALESCE(atk,0), COALESCE(def_val,0), COALESCE(hp,0), COALESCE(crit_rate,0), slot "
+                f"SELECT id, item_key, item_name, rarity, equipped, "
+                f"COALESCE(atk,0), COALESCE(def_val,0), COALESCE(hp,0), COALESCE(crit_rate,0), slot, COALESCE(enhancement_level,0) "
                 f"FROM gacha_inventory WHERE user_id={ph} AND chat_id={ph} ORDER BY id DESC",
                 (uid, chat_id),
             )
             items = []
             for r in cur.fetchall():
+                meta = _ITEM_METADATA.get(r[1], {})
                 items.append({
-                    "id": r[0], "name": r[1], "rarity": r[2], "equipped": bool(r[3]),
-                    "atk": r[4], "def": r[5], "hp": r[6], "crit": r[7], "slot": r[8],
+                    "id": r[0], "key": r[1], "name": r[2], "rarity": r[3], "equipped": bool(r[4]),
+                    "atk": r[5], "def": r[6], "hp": r[7], "crit": r[8], "slot": r[9],
+                    "enhancement_level": r[10],
+                    "desc": meta.get("desc", ""),
+                    "sell_price": meta.get("sell", 0),
                 })
 
             # RPG stats (base + equipped bonuses)
@@ -1694,7 +2107,7 @@ def miniapp_inventory(request):
             ph = "%s" if db_type == "pg" else "?"
 
             cur.execute(
-                f"SELECT id, equipped FROM gacha_inventory WHERE id={ph} AND user_id={ph} AND chat_id={ph}",
+                f"SELECT id, equipped, slot FROM gacha_inventory WHERE id={ph} AND user_id={ph} AND chat_id={ph}",
                 (item_id, uid, chat_id),
             )
             irow = cur.fetchone()
@@ -1703,19 +2116,40 @@ def miniapp_inventory(request):
                 return JsonResponse({"error": "item not found"}, status=404, headers=headers)
 
             currently_equipped = bool(irow[1])
+            slot = irow[2]  # "weapon"|"armor"|"artifact"|None
+            slot_col = {"weapon": "weapon_id", "armor": "armor_id", "artifact": "artifact_id"}.get(slot or "")
+
             if currently_equipped:
-                # Unequip
                 cur.execute(f"UPDATE gacha_inventory SET equipped=0 WHERE id={ph}", (item_id,))
+                if slot_col:
+                    cur.execute(
+                        f"UPDATE user_rpg_stats SET {slot_col}=NULL WHERE user_id={ph} AND chat_id={ph}",
+                        (uid, chat_id),
+                    )
             else:
-                # Unequip previous, equip this one
-                cur.execute(
-                    f"UPDATE gacha_inventory SET equipped=0 WHERE user_id={ph} AND chat_id={ph} AND equipped=1",
-                    (uid, chat_id),
-                )
+                # Unequip all items sharing this slot first
+                if slot:
+                    cur.execute(
+                        f"UPDATE gacha_inventory SET equipped=0 WHERE user_id={ph} AND chat_id={ph} AND slot={ph} AND equipped=1",
+                        (uid, chat_id, slot),
+                    )
                 cur.execute(f"UPDATE gacha_inventory SET equipped=1 WHERE id={ph}", (item_id,))
+                if slot_col:
+                    if db_type == "pg":
+                        cur.execute(
+                            f"INSERT INTO user_rpg_stats (user_id, chat_id, {slot_col}) VALUES ({ph},{ph},{ph}) "
+                            f"ON CONFLICT (user_id, chat_id) DO UPDATE SET {slot_col}=EXCLUDED.{slot_col}",
+                            (uid, chat_id, item_id),
+                        )
+                    else:
+                        cur.execute(
+                            f"INSERT INTO user_rpg_stats (user_id, chat_id, {slot_col}) VALUES (?,?,?) "
+                            f"ON CONFLICT(user_id, chat_id) DO UPDATE SET {slot_col}=excluded.{slot_col}",
+                            (uid, chat_id, item_id),
+                        )
             conn.commit()
             conn.close()
-            return JsonResponse({"ok": True, "equipped": not currently_equipped}, headers=headers)
+            return JsonResponse({"ok": True, "equipped": not currently_equipped, "slot": slot}, headers=headers)
         except Exception as exc:
             try:
                 conn.close()
@@ -1724,6 +2158,151 @@ def miniapp_inventory(request):
             return JsonResponse({"error": str(exc)}, status=500, headers=headers)
 
     return JsonResponse({"error": "method not allowed"}, status=405, headers=headers)
+
+
+@csrf_exempt
+def miniapp_inventory_sell_junk(request):
+    """POST /api/inventory/sell_junk — sell all junk-rarity items at 50% price."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=405, headers=headers)
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+    try:
+        body = json.loads(request.body)
+        chat_id = int(str(body.get("chat_id", "0")))
+    except Exception:
+        return JsonResponse({"error": "invalid JSON"}, status=400, headers=headers)
+    try:
+        conn, db_type = _get_bot_db_connection()
+    except Exception as exc:
+        return JsonResponse({"error": f"DB: {exc}"}, status=503, headers=headers)
+    try:
+        cur = conn.cursor()
+        ph = "%s" if db_type == "pg" else "?"
+        cur.execute(
+            f"SELECT id, item_key FROM gacha_inventory WHERE user_id={ph} AND chat_id={ph} AND rarity='junk'",
+            (uid, chat_id),
+        )
+        junk_items = cur.fetchall()
+        if not junk_items:
+            cur.execute(f"SELECT balance FROM user_mora WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
+            bal = (cur.fetchone() or [0])[0]
+            conn.close()
+            return JsonResponse({"ok": True, "sold": 0, "mora": 0, "balance": bal}, headers=headers)
+        total_mora = 0
+        ids_to_delete = []
+        for row in junk_items:
+            iid, ikey = row
+            meta = _ITEM_METADATA.get(ikey, {})
+            sell = meta.get("sell", 0)
+            total_mora += max(1, sell // 2)
+            ids_to_delete.append(iid)
+        placeholders = ",".join([ph] * len(ids_to_delete))
+        cur.execute(f"DELETE FROM gacha_inventory WHERE id IN ({placeholders})", ids_to_delete)
+        if db_type == "pg":
+            cur.execute(
+                f"INSERT INTO user_mora (user_id, chat_id, balance) VALUES ({ph},{ph},{ph}) "
+                f"ON CONFLICT (user_id, chat_id) DO UPDATE SET balance=user_mora.balance+EXCLUDED.balance",
+                (uid, chat_id, total_mora),
+            )
+        else:
+            cur.execute(
+                "INSERT INTO user_mora (user_id, chat_id, balance) VALUES (?,?,?) "
+                "ON CONFLICT(user_id, chat_id) DO UPDATE SET balance=user_mora.balance+excluded.balance",
+                (uid, chat_id, total_mora),
+            )
+        conn.commit()
+        cur.execute(f"SELECT balance FROM user_mora WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
+        new_bal = (cur.fetchone() or [0])[0]
+        conn.close()
+        return JsonResponse({"ok": True, "sold": len(ids_to_delete), "mora": total_mora, "balance": new_bal}, headers=headers)
+    except Exception as exc:
+        try:
+            conn.close()
+        except Exception:
+            pass
+        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+
+
+@csrf_exempt
+def miniapp_shop_set_title(request):
+    """POST /api/shop/set_title — buy/update custom title for CUSTOM_TITLE_PRICE mora."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=405, headers=headers)
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+    try:
+        body = json.loads(request.body)
+        chat_id = int(str(body.get("chat_id", "0")))
+        title = str(body.get("title", "")).strip()[:30]
+        wallet_type = str(body.get("wallet_type", "personal")).lower()
+        if wallet_type not in ("personal", "family"):
+            wallet_type = "personal"
+    except Exception:
+        return JsonResponse({"error": "invalid JSON"}, status=400, headers=headers)
+    if not title:
+        return JsonResponse({"error": "title cannot be empty"}, status=400, headers=headers)
+    try:
+        conn, db_type = _get_bot_db_connection()
+    except Exception as exc:
+        return JsonResponse({"error": f"DB: {exc}"}, status=503, headers=headers)
+    try:
+        cur = conn.cursor()
+        ph = "%s" if db_type == "pg" else "?"
+        if wallet_type == "family":
+            cur.execute(f"SELECT partner_id FROM marriages WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
+            if not cur.fetchone():
+                conn.close()
+                return JsonResponse({"error": "Нет семейного кошелька"}, status=400, headers=headers)
+            cur.execute(f"SELECT balance FROM family_wallet WHERE chat_id={ph} AND user_id={ph}", (chat_id, uid))
+            fam_bal = (cur.fetchone() or [0])[0]
+            if fam_bal < _CUSTOM_TITLE_PRICE:
+                conn.close()
+                return JsonResponse({"error": f"Недостаточно моры. Нужно {_CUSTOM_TITLE_PRICE} 🪙"}, status=400, headers=headers)
+            cur.execute(f"UPDATE family_wallet SET balance=balance-{ph} WHERE chat_id={ph} AND user_id={ph}", (_CUSTOM_TITLE_PRICE, chat_id, uid))
+        else:
+            cur.execute(f"SELECT balance FROM user_mora WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
+            row = cur.fetchone()
+            balance = row[0] if row else 0
+            if balance < _CUSTOM_TITLE_PRICE:
+                conn.close()
+                return JsonResponse({"error": f"Недостаточно моры. Нужно {_CUSTOM_TITLE_PRICE} 🪙"}, status=400, headers=headers)
+            cur.execute(
+                f"UPDATE user_mora SET balance=balance-{ph} WHERE user_id={ph} AND chat_id={ph}",
+                (_CUSTOM_TITLE_PRICE, uid, chat_id),
+            )
+        if db_type == "pg":
+            cur.execute(
+                f"INSERT INTO user_stats (user_id, chat_id, custom_title) VALUES ({ph},{ph},{ph}) "
+                f"ON CONFLICT (user_id, chat_id) DO UPDATE SET custom_title=EXCLUDED.custom_title",
+                (uid, chat_id, title),
+            )
+        else:
+            cur.execute(
+                "INSERT INTO user_stats (user_id, chat_id, custom_title) VALUES (?,?,?) "
+                "ON CONFLICT(user_id, chat_id) DO UPDATE SET custom_title=excluded.custom_title",
+                (uid, chat_id, title),
+            )
+        conn.commit()
+        cur.execute(f"SELECT balance FROM user_mora WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
+        new_bal = (cur.fetchone() or [0])[0]
+        conn.close()
+        return JsonResponse({"ok": True, "title": title, "balance": new_bal}, headers=headers)
+    except Exception as exc:
+        try:
+            conn.close()
+        except Exception:
+            pass
+        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+
 
 import random as _random
 
@@ -1770,6 +2349,9 @@ def miniapp_gacha_roll(request):
         body = json.loads(request.body)
         chat_id = int(str(body.get("chat_id", "0")))
         count = int(body.get("count", 1))
+        wallet_type = str(body.get("wallet_type", "personal")).lower()
+        if wallet_type not in ("personal", "family"):
+            wallet_type = "personal"
     except Exception:
         return JsonResponse({"error": "invalid JSON"}, status=400, headers=headers)
 
@@ -1792,13 +2374,24 @@ def miniapp_gacha_roll(request):
         price = (_GACHA_SINGLES_SINGLE if count == 1 else _GACHA_SINGLES_MULTI) if is_single else (
             _GACHA_SINGLE_PRICE if count == 1 else _GACHA_MULTI_PRICE)
 
-        cur.execute(f"SELECT balance FROM user_mora WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
-        bal = (cur.fetchone() or [0])[0]
-        if bal < price:
-            conn.close()
-            return JsonResponse({"error": f"Недостаточно Моры ({bal}/{price} 🪙)"}, status=400, headers=headers)
-
-        cur.execute(f"UPDATE user_mora SET balance=balance-{ph} WHERE user_id={ph} AND chat_id={ph}", (price, uid, chat_id))
+        if wallet_type == "family":
+            cur.execute(f"SELECT partner_id FROM marriages WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
+            if not cur.fetchone():
+                conn.close()
+                return JsonResponse({"error": "Нет семейного кошелька"}, status=400, headers=headers)
+            cur.execute(f"SELECT balance FROM family_wallet WHERE chat_id={ph} AND user_id={ph}", (chat_id, uid))
+            fam_bal = (cur.fetchone() or [0])[0]
+            if fam_bal < price:
+                conn.close()
+                return JsonResponse({"error": f"Недостаточно в семейном ({fam_bal}/{price} 🪙)"}, status=400, headers=headers)
+            cur.execute(f"UPDATE family_wallet SET balance=balance-{ph} WHERE chat_id={ph} AND user_id={ph}", (price, chat_id, uid))
+        else:
+            cur.execute(f"SELECT balance FROM user_mora WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
+            bal = (cur.fetchone() or [0])[0]
+            if bal < price:
+                conn.close()
+                return JsonResponse({"error": f"Недостаточно Моры ({bal}/{price} 🪙)"}, status=400, headers=headers)
+            cur.execute(f"UPDATE user_mora SET balance=balance-{ph} WHERE user_id={ph} AND chat_id={ph}", (price, uid, chat_id))
 
         cur.execute(
             f"SELECT COUNT(*) FROM gacha_inventory WHERE user_id={ph} AND chat_id={ph} "
@@ -1811,10 +2404,14 @@ def miniapp_gacha_roll(request):
         for _ in range(count):
             item_key, item_name, rarity = _gacha_roll_one_sync(pity)
             now_expr = "NOW()" if db_type == "pg" else "datetime('now')"
+            _meta = _ITEM_METADATA.get(item_key, {})
             cur.execute(
-                f"INSERT INTO gacha_inventory (user_id, chat_id, item_key, item_name, rarity, obtained_at) "
-                f"VALUES ({ph},{ph},{ph},{ph},{ph},{now_expr})",
-                (uid, chat_id, item_key, item_name, rarity),
+                f"INSERT INTO gacha_inventory "
+                f"(user_id, chat_id, item_key, item_name, rarity, obtained_at, atk, def_val, hp, crit_rate, slot) "
+                f"VALUES ({ph},{ph},{ph},{ph},{ph},{now_expr},{ph},{ph},{ph},{ph},{ph})",
+                (uid, chat_id, item_key, item_name, rarity,
+                 _meta.get("atk", 0), _meta.get("def_val", 0), _meta.get("hp", 0),
+                 _meta.get("crit_rate", 0.0), _meta.get("slot")),
             )
             pity = 0 if rarity == "legendary" else pity + 1
             results.append({"key": item_key, "name": item_name, "rarity": rarity})
@@ -2022,7 +2619,7 @@ def miniapp_bonds_sell(request):
 
 @csrf_exempt
 def miniapp_pet_walk(request):
-    """POST /api/pet/walk — walk pet (−15 fatigue, 60min cooldown)."""
+    """POST /api/pet/walk — start a 3-hour pet walk (−30 fatigue)."""
     headers = _cors_headers()
     if request.method == "OPTIONS":
         return HttpResponse("", status=204, headers=headers)
@@ -2049,13 +2646,13 @@ def miniapp_pet_walk(request):
         ph = "%s" if db_type == "pg" else "?"
 
         try:
-            cur.execute(f"SELECT pet_type, name, COALESCE(fatigue,0), last_walked FROM pets WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
+            cur.execute(f"SELECT pet_type, name, COALESCE(fatigue,0), walk_end_at FROM pets WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
             pet_row = cur.fetchone()
-            last_walked = pet_row[3] if pet_row else None
+            walk_end_at = pet_row[3] if pet_row else None
         except Exception:
             cur.execute(f"SELECT pet_type, name, COALESCE(fatigue,0) FROM pets WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
             pet_row = cur.fetchone()
-            last_walked = None
+            walk_end_at = None
             if pet_row:
                 pet_row = (pet_row[0], pet_row[1], pet_row[2], None)
 
@@ -2065,33 +2662,53 @@ def miniapp_pet_walk(request):
 
         ptype, pname, fatigue = pet_row[0], pet_row[1], pet_row[2]
 
-        from datetime import datetime, timezone
+        from datetime import datetime, timezone, timedelta
         now = datetime.now(timezone.utc)
-        if last_walked:
+
+        # Check if already on walk
+        if walk_end_at:
             try:
-                lw = datetime.fromisoformat(str(last_walked).replace("Z", "+00:00"))
-                if lw.tzinfo is None:
-                    lw = lw.replace(tzinfo=timezone.utc)
-                diff = (now - lw).total_seconds()
-                if diff < 3600:
-                    mins_left = int((3600 - diff) / 60) + 1
+                end_dt = datetime.fromisoformat(str(walk_end_at).replace("Z", "+00:00"))
+                if end_dt.tzinfo is None:
+                    end_dt = end_dt.replace(tzinfo=timezone.utc)
+                diff = (end_dt - now).total_seconds()
+                if diff > 0:
+                    mins_left = int(diff / 60) + 1
                     conn.close()
-                    return JsonResponse({"error": f"Можно гулять раз в час. Ещё {mins_left} мин."}, status=429, headers=headers)
+                    return JsonResponse({"error": f"Питомец уже на прогулке. Осталось {mins_left} мин."}, status=429, headers=headers)
             except Exception:
                 pass
 
-        new_fatigue = max(0, fatigue - 15)
-        now_iso = now.isoformat()
+        new_fatigue = max(0, fatigue - 30)
+        walk_end_iso = (now + timedelta(hours=3)).isoformat()
         try:
-            cur.execute(f"UPDATE pets SET fatigue={ph}, last_walked={ph} WHERE user_id={ph} AND chat_id={ph}", (new_fatigue, now_iso, uid, chat_id))
+            cur.execute(f"UPDATE pets SET fatigue={ph}, walk_end_at={ph} WHERE user_id={ph} AND chat_id={ph}", (new_fatigue, walk_end_iso, uid, chat_id))
         except Exception:
             cur.execute(f"UPDATE pets SET fatigue={ph} WHERE user_id={ph} AND chat_id={ph}", (new_fatigue, uid, chat_id))
+
+        # Mora reward for walk owner and partner (if married)
+        WALK_REWARD = 20
+        upsert_mora_sql = (
+            f"INSERT INTO user_mora (user_id, chat_id, balance) VALUES ({ph},{ph},{ph}) "
+            f"ON CONFLICT (user_id, chat_id) DO UPDATE SET balance=user_mora.balance+EXCLUDED.balance"
+            if db_type == "pg" else
+            "INSERT INTO user_mora (user_id, chat_id, balance) VALUES (?,?,?) "
+            "ON CONFLICT(user_id, chat_id) DO UPDATE SET balance=user_mora.balance+excluded.balance"
+        )
+        cur.execute(upsert_mora_sql, (uid, chat_id, WALK_REWARD))
+        cur.execute(f"SELECT partner_id FROM marriages WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
+        partner_walk_row = cur.fetchone()
+        if partner_walk_row:
+            cur.execute(upsert_mora_sql, (partner_walk_row[0], chat_id, WALK_REWARD))
 
         conn.commit()
         conn.close()
         emoji = {"cat": "🐱", "dog": "🐶"}.get(ptype, "🐾")
-        return JsonResponse({"ok": True, "fatigue": new_fatigue, "reduced": 15, "pet_emoji": emoji, "pet_name": pname or "Питомец"},
-                            json_dumps_params={"ensure_ascii": False}, headers=headers)
+        return JsonResponse(
+            {"ok": True, "fatigue": new_fatigue, "reduced": 30, "pet_emoji": emoji,
+             "pet_name": pname or "Питомец", "walk_mins": 180, "reward": WALK_REWARD},
+            json_dumps_params={"ensure_ascii": False}, headers=headers,
+        )
     except Exception as exc:
         try:
             conn.close()
@@ -2117,6 +2734,9 @@ def miniapp_pet_feed(request):
         body = json.loads(request.body)
         chat_id = int(str(body.get("chat_id", "0")))
         food_key = str(body.get("food_key", "")).strip()
+        wallet_type = str(body.get("wallet_type", "personal")).lower()
+        if wallet_type not in ("personal", "family"):
+            wallet_type = "personal"
     except Exception:
         return JsonResponse({"error": "invalid JSON"}, status=400, headers=headers)
 
@@ -2140,13 +2760,24 @@ def miniapp_pet_feed(request):
             return JsonResponse({"error": "У тебя нет питомца"}, status=400, headers=headers)
         ptype, pname, fatigue = pet_row
 
-        cur.execute(f"SELECT balance FROM user_mora WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
-        bal = (cur.fetchone() or [0])[0]
-        if bal < food["price"]:
-            conn.close()
-            return JsonResponse({"error": f"Недостаточно Моры ({bal}/{food['price']})"}, status=400, headers=headers)
-
-        cur.execute(f"UPDATE user_mora SET balance=balance-{ph} WHERE user_id={ph} AND chat_id={ph}", (food["price"], uid, chat_id))
+        if wallet_type == "family":
+            cur.execute(f"SELECT partner_id FROM marriages WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
+            if not cur.fetchone():
+                conn.close()
+                return JsonResponse({"error": "Нет семейного кошелька"}, status=400, headers=headers)
+            cur.execute(f"SELECT balance FROM family_wallet WHERE chat_id={ph} AND user_id={ph}", (chat_id, uid))
+            fam_bal = (cur.fetchone() or [0])[0]
+            if fam_bal < food["price"]:
+                conn.close()
+                return JsonResponse({"error": f"Недостаточно в семейном ({fam_bal}/{food['price']})"}, status=400, headers=headers)
+            cur.execute(f"UPDATE family_wallet SET balance=balance-{ph} WHERE chat_id={ph} AND user_id={ph}", (food["price"], chat_id, uid))
+        else:
+            cur.execute(f"SELECT balance FROM user_mora WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
+            bal = (cur.fetchone() or [0])[0]
+            if bal < food["price"]:
+                conn.close()
+                return JsonResponse({"error": f"Недостаточно Моры ({bal}/{food['price']})"}, status=400, headers=headers)
+            cur.execute(f"UPDATE user_mora SET balance=balance-{ph} WHERE user_id={ph} AND chat_id={ph}", (food["price"], uid, chat_id))
         new_fatigue = max(0, fatigue - food["fatigue"])
         cur.execute(f"UPDATE pets SET fatigue={ph} WHERE user_id={ph} AND chat_id={ph}", (new_fatigue, uid, chat_id))
         conn.commit()
@@ -2222,9 +2853,16 @@ def miniapp_shop_catalog(request):
             {"key": k, "name": v["name"], "emoji": v["emoji"], "price": v["price"], "fatigue": v["fatigue"]}
             for k, v in _FOOD_ITEMS.items()
         ]
+        potions_list = [
+            {"key": k, "name": v["name"], "emoji": v["emoji"], "price": v["price"], 
+             "buff_type": v["buff_type"], "buff_amount": v["buff_amount"], 
+             "duration": v["duration"], "desc": v["desc"]}
+            for k, v in _POTIONS_CATALOG.items()
+            if v["price"] > 0  # Only show purchasable potions (not gacha-only)
+        ]
         return JsonResponse({
             "balance": balance, "frames": frames, "cosmetics": cosmetics,
-            "food": food_list, "has_vip": has_vip, "active_frame": active_frame or "default",
+            "food": food_list, "potions": potions_list, "has_vip": has_vip, "active_frame": active_frame or "default",
         }, json_dumps_params={"ensure_ascii": False}, headers=headers)
     except Exception as exc:
         try:
@@ -2253,6 +2891,9 @@ def miniapp_shop_buy(request):
         item_type = str(body.get("item_type", "")).lower()
         item_key = str(body.get("item_key", "")).lower()
         equip = bool(body.get("equip", True))
+        wallet_type = str(body.get("wallet_type", "personal")).lower()
+        if wallet_type not in ("personal", "family"):
+            wallet_type = "personal"
     except Exception:
         return JsonResponse({"error": "invalid JSON"}, status=400, headers=headers)
 
@@ -2298,13 +2939,24 @@ def miniapp_shop_buy(request):
                 conn.close()
                 return JsonResponse({"ok": True, "already_owned": True, "equipped": item_type == "frame" and equip}, headers=headers)
 
-        cur.execute(f"SELECT balance FROM user_mora WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
-        bal = (cur.fetchone() or [0])[0]
-        if bal < price:
-            conn.close()
-            return JsonResponse({"error": f"Недостаточно Моры ({bal}/{price})"}, status=400, headers=headers)
-
-        cur.execute(f"UPDATE user_mora SET balance=balance-{ph} WHERE user_id={ph} AND chat_id={ph}", (price, uid, chat_id))
+        if wallet_type == "family":
+            cur.execute(f"SELECT partner_id FROM marriages WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
+            if not cur.fetchone():
+                conn.close()
+                return JsonResponse({"error": "Нет семейного кошелька"}, status=400, headers=headers)
+            cur.execute(f"SELECT balance FROM family_wallet WHERE chat_id={ph} AND user_id={ph}", (chat_id, uid))
+            fam_bal = (cur.fetchone() or [0])[0]
+            if fam_bal < price:
+                conn.close()
+                return JsonResponse({"error": f"Недостаточно в семейном ({fam_bal}/{price})"}, status=400, headers=headers)
+            cur.execute(f"UPDATE family_wallet SET balance=balance-{ph} WHERE chat_id={ph} AND user_id={ph}", (price, chat_id, uid))
+        else:
+            cur.execute(f"SELECT balance FROM user_mora WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
+            bal = (cur.fetchone() or [0])[0]
+            if bal < price:
+                conn.close()
+                return JsonResponse({"error": f"Недостаточно Моры ({bal}/{price})"}, status=400, headers=headers)
+            cur.execute(f"UPDATE user_mora SET balance=balance-{ph} WHERE user_id={ph} AND chat_id={ph}", (price, uid, chat_id))
 
         now_expr = "NOW()" if db_type == "pg" else "datetime('now')"
         if item_type in ("frame", "cosmetic"):
@@ -2330,4 +2982,451 @@ def miniapp_shop_buy(request):
             conn.close()
         except Exception:
             pass
+        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+
+
+# ─── Profile themes (list / set active) ──────────────────────────────────────
+
+@csrf_exempt
+def miniapp_themes(request):
+    """GET /api/themes?chat_id=X — list all themes with ownership status.
+       POST /api/themes — activate an owned theme {chat_id, theme_key}."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+
+    try:
+        from config import PROFILE_THEMES
+    except ImportError:
+        return JsonResponse({"error": "themes config unavailable"}, status=503, headers=headers)
+
+    if request.method == "GET":
+        chat_id_str = request.GET.get("chat_id", "")
+        if not chat_id_str.lstrip("-").isdigit():
+            return JsonResponse({"error": "chat_id required"}, status=400, headers=headers)
+        chat_id = int(chat_id_str)
+        try:
+            conn, db_type = _get_bot_db_connection()
+        except Exception as exc:
+            return JsonResponse({"error": f"DB: {exc}"}, status=503, headers=headers)
+        try:
+            cur = conn.cursor()
+            ph = "%s" if db_type == "pg" else "?"
+            cur.execute(
+                f"SELECT theme_key FROM user_themes WHERE user_id={ph} AND chat_id={ph}",
+                (uid, chat_id),
+            )
+            owned_keys = {r[0] for r in cur.fetchall()}
+            owned_keys.add("default")
+            cur.execute(f"SELECT active_theme FROM user_mora WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
+            mora_row = cur.fetchone()
+            active = (mora_row[0] if mora_row else None) or "default"
+            conn.close()
+        except Exception as exc:
+            try:
+                conn.close()
+            except Exception:
+                pass
+            return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+
+        themes_out = []
+        for key, info in PROFILE_THEMES.items():
+            themes_out.append({
+                "key": key,
+                "name": info["name"],
+                "tier": info.get("tier", "common"),
+                "source": info.get("source", "shop"),
+                "price": info.get("price", 0),
+                "header": info.get("header", ""),
+                "separator": info.get("separator", ""),
+                "footer": info.get("footer", ""),
+                "owned": key in owned_keys,
+                "active": key == active,
+            })
+        return JsonResponse({"themes": themes_out, "active": active},
+                            json_dumps_params={"ensure_ascii": False}, headers=headers)
+
+    if request.method == "POST":
+        try:
+            body = json.loads(request.body)
+            chat_id = int(str(body.get("chat_id", "0")))
+            theme_key = str(body.get("theme_key", "")).strip()
+        except Exception:
+            return JsonResponse({"error": "invalid JSON"}, status=400, headers=headers)
+
+        if not theme_key or theme_key not in PROFILE_THEMES:
+            return JsonResponse({"error": "Unknown theme"}, status=400, headers=headers)
+        try:
+            conn, db_type = _get_bot_db_connection()
+        except Exception as exc:
+            return JsonResponse({"error": f"DB: {exc}"}, status=503, headers=headers)
+        try:
+            cur = conn.cursor()
+            ph = "%s" if db_type == "pg" else "?"
+            if theme_key != "default":
+                cur.execute(
+                    f"SELECT 1 FROM user_themes WHERE user_id={ph} AND chat_id={ph} AND theme_key={ph}",
+                    (uid, chat_id, theme_key),
+                )
+                if not cur.fetchone():
+                    conn.close()
+                    return JsonResponse({"error": "Тема не куплена"}, status=403, headers=headers)
+            cur.execute(
+                f"UPDATE user_mora SET active_theme={ph} WHERE user_id={ph} AND chat_id={ph}",
+                (theme_key, uid, chat_id),
+            )
+            conn.commit()
+            conn.close()
+            return JsonResponse({"ok": True, "active": theme_key}, headers=headers)
+        except Exception as exc:
+            try:
+                conn.close()
+            except Exception:
+                pass
+            return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+
+    return JsonResponse({"error": "method not allowed"}, status=405, headers=headers)
+
+
+# ─── Public profile (privacy-filtered view for other users) ──────────────────
+
+@csrf_exempt
+def miniapp_public_profile(request):
+    """GET /api/public_profile?user_id=X&chat_id=Y
+    Returns public data of another user.
+    Shows: level, xp, vip, title, frame, theme + cosmetics, equipped items, rpg stats, marriage, pet.
+    HIDES: mora balance, non-equipped inventory items."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "GET":
+        return JsonResponse({"error": "GET required"}, status=405, headers=headers)
+
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+
+    target_id_str = request.GET.get("user_id", "")
+    chat_id_str = request.GET.get("chat_id", "")
+    if not target_id_str.lstrip("-").isdigit() or not chat_id_str.lstrip("-").isdigit():
+        return JsonResponse({"error": "user_id and chat_id required"}, status=400, headers=headers)
+    target_id = int(target_id_str)
+    chat_id = int(chat_id_str)
+
+    try:
+        conn, db_type = _get_bot_db_connection()
+    except Exception as exc:
+        return JsonResponse({"error": f"DB: {exc}"}, status=503, headers=headers)
+
+    try:
+        cur = conn.cursor()
+        ph = "%s" if db_type == "pg" else "?"
+
+        # Basic user info
+        cur.execute(f"SELECT full_name FROM users WHERE user_id={ph}", (target_id,))
+        user_row = cur.fetchone()
+        if not user_row:
+            conn.close()
+            return JsonResponse({"error": "User not found"}, status=404, headers=headers)
+        full_name = user_row[0]
+
+        # Stats (level, xp, rank, custom_title)
+        cur.execute(
+            f"SELECT xp, COALESCE(level,1), COALESCE(rank,'user'), custom_title "
+            f"FROM user_stats WHERE user_id={ph} AND chat_id={ph}",
+            (target_id, chat_id),
+        )
+        stats_row = cur.fetchone()
+        xp = stats_row[0] if stats_row else 0
+        level = stats_row[1] if stats_row else 1
+        rank = stats_row[2] if stats_row else "user"
+        custom_title = stats_row[3] if stats_row else None
+
+        # Mora row (vip, frame, theme)
+        cur.execute(
+            f"SELECT vip, top_frame, active_theme FROM user_mora WHERE user_id={ph} AND chat_id={ph}",
+            (target_id, chat_id),
+        )
+        mora_r = cur.fetchone()
+        vip = bool(mora_r[0]) if mora_r else False
+        active_frame = (mora_r[1] if mora_r else None) or "default"
+        active_theme = (mora_r[2] if mora_r else None) or "default"
+
+        # Resolve theme visual data from config
+        theme_header = "👤 <b>Профиль</b>"
+        theme_separator = "━━━━━━━━━━━━━━━━━━━━"
+        theme_footer = ""
+        theme_name = "Стандарт"
+        try:
+            from config import PROFILE_THEMES
+            t = PROFILE_THEMES.get(active_theme, PROFILE_THEMES.get("default", {}))
+            theme_header = t.get("header", theme_header)
+            theme_separator = t.get("separator", theme_separator)
+            theme_footer = t.get("footer", theme_footer)
+            theme_name = t.get("name", theme_name)
+        except Exception:
+            pass
+
+        # RPG stats + equipped items
+        rpg = {"hp": 100, "atk": 50, "def": 20, "crit": 0.05}
+        equipped_items = []
+        cur.execute(
+            f"SELECT base_hp, base_atk, base_def, base_crit, weapon_id, armor_id, artifact_id "
+            f"FROM user_rpg_stats WHERE user_id={ph} AND chat_id={ph}",
+            (target_id, chat_id),
+        )
+        rpg_row = cur.fetchone()
+        if rpg_row:
+            rpg = {"hp": rpg_row[0], "atk": rpg_row[1], "def": rpg_row[2], "crit": rpg_row[3]}
+            for eid in [rpg_row[4], rpg_row[5], rpg_row[6]]:
+                if eid:
+                    cur.execute(
+                        f"SELECT item_name, rarity, slot, COALESCE(atk,0), COALESCE(def_val,0), "
+                        f"COALESCE(hp,0), COALESCE(crit_rate,0) FROM gacha_inventory WHERE id={ph}",
+                        (eid,),
+                    )
+                    er = cur.fetchone()
+                    if er:
+                        rpg["atk"] += er[3]
+                        rpg["def"] += er[4]
+                        rpg["hp"] += er[5]
+                        rpg["crit"] += er[6]
+                        equipped_items.append({"name": er[0], "rarity": er[1], "slot": er[2] or "gear"})
+        # Also grab equipped=1 items not already included via rpg_stats
+        cur.execute(
+            f"SELECT item_name, rarity, slot FROM gacha_inventory "
+            f"WHERE user_id={ph} AND chat_id={ph} AND equipped=1",
+            (target_id, chat_id),
+        )
+        for r in cur.fetchall():
+            if not any(i["name"] == r[0] for i in equipped_items):
+                equipped_items.append({"name": r[0], "rarity": r[1], "slot": r[2] or "gear"})
+
+        # Marriage partner
+        partner_name = None
+        partner_id = None
+        cur.execute(
+            f"SELECT partner_id FROM marriages WHERE user_id={ph} AND chat_id={ph}",
+            (target_id, chat_id),
+        )
+        m_row = cur.fetchone()
+        if m_row:
+            partner_id = m_row[0]
+            cur.execute(f"SELECT full_name FROM users WHERE user_id={ph}", (partner_id,))
+            pn = cur.fetchone()
+            partner_name = pn[0] if pn else f"user_{partner_id}"
+
+        # Pet (basic public info)
+        pet_info = None
+        cur.execute(
+            f"SELECT pet_type, name, COALESCE(fatigue,0), walk_end_at FROM pets "
+            f"WHERE user_id={ph} AND chat_id={ph}",
+            (target_id, chat_id),
+        )
+        pet_row = cur.fetchone()
+        if pet_row:
+            from datetime import datetime as _dt2, timezone as _tz2
+            ptype, pname, pfatigue, pwalk_end = pet_row
+            emoji = {"cat": "🐱", "dog": "🐶"}.get(ptype, "🐾")
+            on_walk = False
+            if pwalk_end:
+                try:
+                    end_dt = _dt2.fromisoformat(str(pwalk_end))
+                    if end_dt.tzinfo is None:
+                        end_dt = end_dt.replace(tzinfo=_tz2.utc)
+                    if (end_dt - _dt2.now(_tz2.utc)).total_seconds() > 0:
+                        on_walk = True
+                except Exception:
+                    pass
+            pet_info = {
+                "type": ptype, "name": pname or "Питомец",
+                "emoji": emoji, "fatigue": pfatigue, "on_walk": on_walk,
+            }
+
+        conn.close()
+        return JsonResponse({
+            "uid": target_id,
+            "name": full_name,
+            "level": level,
+            "xp": xp,
+            "xp_max": _xp_for_level(level + 1),
+            "rank": rank,
+            "vip": vip,
+            "custom_title": custom_title or "",
+            "active_frame": active_frame,
+            "active_theme": active_theme,
+            "theme_header": theme_header,
+            "theme_separator": theme_separator,
+            "theme_footer": theme_footer,
+            "theme_name": theme_name,
+            "rpg": rpg,
+            "equipped_items": equipped_items,
+            "partner_name": partner_name,
+            "partner_id": partner_id,
+            "pet": pet_info,
+            "is_own": target_id == uid,
+        }, json_dumps_params={"ensure_ascii": False}, headers=headers)
+    except Exception as exc:
+        try:
+            conn.close()
+        except Exception:
+            pass
+        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+
+
+# ===============================================================================
+# -- ENHANCEMENT SYSTEM ---------------------------------------------------------
+# ===============================================================================
+
+@csrf_exempt
+def miniapp_enhance_item(request):
+    """POST /api/enhance � enhance an equipped RPG item."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=405, headers=headers)
+
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+
+    try:
+        data = json.loads(request.body)
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return JsonResponse({"error": "invalid JSON"}, status=400, headers=headers)
+
+    item_id = data.get("item_id")
+    chat_id = data.get("chat_id")
+
+    if not item_id or not chat_id:
+        return JsonResponse({"error": "item_id and chat_id required"}, status=400, headers=headers)
+
+    try:
+        conn, db_type = _get_bot_db_connection()
+    except Exception as exc:
+        return JsonResponse({"error": f"DB: {exc}"}, status=503, headers=headers)
+
+    try:
+        from database.db import enhance_item
+        import asyncio
+        
+        success, message, new_level = asyncio.run(enhance_item(uid, chat_id, item_id))
+        
+        # Get updated balance
+        cur = conn.cursor()
+        ph = "%s" if db_type == "pg" else "?"
+        cur.execute(f"SELECT balance FROM user_mora WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
+        balance = (cur.fetchone() or [0])[0]
+        conn.close()
+
+        return JsonResponse({
+            "success": success,
+            "message": message,
+            "enhancement_level": new_level,
+            "balance": balance,
+        }, json_dumps_params={"ensure_ascii": False}, headers=headers)
+
+    except Exception as exc:
+        try:
+            conn.close()
+        except Exception:
+            pass
+        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+
+
+@csrf_exempt  
+def miniapp_consume_potion(request):
+    """POST /api/consume_potion � consume a potion to gain buff."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=405, headers=headers)
+
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+
+    try:
+        data = json.loads(request.body)
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return JsonResponse({"error": "invalid JSON"}, status=400, headers=headers)
+
+    item_id = data.get("item_id")
+    chat_id = data.get("chat_id")
+
+    if not item_id or not chat_id:
+        return JsonResponse({"error": "item_id and chat_id required"}, status=400, headers=headers)
+
+    try:
+        from database.db import consume_potion
+        import asyncio
+        
+        success, message = asyncio.run(consume_potion(uid, chat_id, item_id))
+        
+        return JsonResponse({
+            "success": success,
+            "message": message,
+        }, json_dumps_params={"ensure_ascii": False}, headers=headers)
+
+    except Exception as exc:
+        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+
+
+@csrf_exempt
+def miniapp_batch_sell(request):
+    """POST /api/batch_sell � sell multiple items at once."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)  
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=405, headers=headers)
+
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+
+    try:
+        data = json.loads(request.body)
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return JsonResponse({"error": "invalid JSON"}, status=400, headers=headers)
+
+    item_ids = data.get("item_ids", [])
+    chat_id = data.get("chat_id")
+
+    if not chat_id:
+        return JsonResponse({"error": "chat_id required"}, status=400, headers=headers)
+
+    if not isinstance(item_ids, list):
+        return JsonResponse({"error": "item_ids must be array"}, status=400, headers=headers)
+
+    try:
+        from database.db import batch_sell_items
+        import asyncio
+        
+        sold_count, total_mora = asyncio.run(batch_sell_items(uid, chat_id, item_ids))
+
+        # Get updated balance
+        try:
+            conn, db_type = _get_bot_db_connection()
+            cur = conn.cursor()
+            ph = "%s" if db_type == "pg" else "?"
+            cur.execute(f"SELECT balance FROM user_mora WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
+            balance = (cur.fetchone() or [0])[0]
+            conn.close()
+        except Exception:
+            balance = 0
+
+        return JsonResponse({
+            "sold": sold_count,
+            "mora": total_mora,
+            "balance": balance,
+        }, json_dumps_params={"ensure_ascii": False}, headers=headers)
+
+    except Exception as exc:
         return JsonResponse({"error": str(exc)}, status=500, headers=headers)

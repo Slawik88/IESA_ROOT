@@ -768,6 +768,8 @@ async def init_db():
             "hp        INTEGER DEFAULT 0",
             "crit_rate REAL    DEFAULT 0.0",
             "slot      TEXT    DEFAULT NULL",
+            "description TEXT  DEFAULT NULL",
+            "enhancement_level INTEGER DEFAULT 0",
         ]:
             try:
                 await db.execute(f"ALTER TABLE gacha_inventory ADD COLUMN {col_def}")
@@ -775,7 +777,7 @@ async def init_db():
                 pass
 
         # ─── Миграция: усталость питомца + время прогулки ──────────────────
-        for col_def in ["fatigue INTEGER DEFAULT 0", "last_walked TEXT DEFAULT NULL"]:
+        for col_def in ["fatigue INTEGER DEFAULT 0", "last_walked TEXT DEFAULT NULL", "walk_end_at TEXT DEFAULT NULL"]:
             try:
                 await db.execute(f"ALTER TABLE pets ADD COLUMN {col_def}")
             except Exception:
@@ -4503,6 +4505,42 @@ async def reduce_pet_fatigue(user_id: int, chat_id: int, amount: int):
         await db.commit()
 
 
+async def start_pet_walk(user_id: int, chat_id: int) -> tuple[bool, int]:
+    """Start a 3-hour pet walk. Returns (ok, mins_left_existing_walk).
+    On success: reduces fatigue by 30, sets walk_end_at = now+3h.
+    Returns (False, mins_left) if walk already in progress."""
+    from datetime import timedelta, timezone
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT fatigue, walk_end_at FROM pets WHERE user_id=? AND chat_id=?",
+            (user_id, chat_id),
+        ) as c:
+            row = await c.fetchone()
+        if not row:
+            return False, 0
+        walk_end_at = row["walk_end_at"]
+        now = datetime.now(timezone.utc)
+        if walk_end_at:
+            try:
+                end_dt = datetime.fromisoformat(str(walk_end_at))
+                if end_dt.tzinfo is None:
+                    end_dt = end_dt.replace(tzinfo=timezone.utc)
+                if end_dt > now:
+                    mins = int((end_dt - now).total_seconds() / 60) + 1
+                    return False, mins
+            except Exception:
+                pass
+        new_fatigue = max(0, (row["fatigue"] or 0) - 30)
+        end_time = (datetime.now(timezone.utc) + timedelta(hours=3)).isoformat()
+        await db.execute(
+            "UPDATE pets SET fatigue=?, walk_end_at=? WHERE user_id=? AND chat_id=?",
+            (new_fatigue, end_time, user_id, chat_id),
+        )
+        await db.commit()
+    return True, 0
+
+
 # ─── Топ-10 по недельной активности (для дивидендов) ─────────────────────────
 
 async def get_weekly_top_users(chat_id: int, limit: int = 10) -> list[int]:
@@ -4698,3 +4736,185 @@ async def get_leaderboard_messages(chat_id: int, limit: int = 10) -> list[dict]:
         ) as c:
             rows = await c.fetchall()
     return [dict(r) for r in rows]
+
+# ─── Enhancement System ──────────────────────────────────────────────────────
+async def enhance_item(user_id: int, chat_id: int, item_id: int) -> tuple[bool, str, int]:
+    """Enhance an RPG item. Returns (success, message, new_enhancement_level)."""
+    import random
+    from datetime import datetime
+    
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        async with db.execute(
+            "SELECT slot, enhancement_level, atk, def_val, hp, crit_rate, item_name FROM gacha_inventory "
+            "WHERE id=? AND user_id=? AND chat_id=? AND slot IN ('weapon', 'armor', 'artifact')",
+            (item_id, user_id, chat_id),
+        ) as c:
+            item = await c.fetchone()
+        
+        if not item:
+            return False, "Предмет не найден или его нельзя заточить", 0
+        
+        current_level = item[1] or 0
+        if current_level >= 20:
+            return False, "Максимальный уровень заточки (20)", current_level
+        
+        # Enhancement cost grows geometrically
+        base_cost = 100
+        cost = int(base_cost * (1.5 ** current_level))
+        
+        # Check mora balance
+        async with db.execute(
+            "SELECT balance FROM user_mora WHERE user_id=? AND chat_id=?", 
+            (user_id, chat_id)
+        ) as c:
+            balance_row = await c.fetchone()
+        
+        balance = balance_row[0] if balance_row else 0
+        if balance < cost:
+            return False, f"Недостаточно Моры ({balance}/{cost} 🪙)", current_level
+        
+        # Calculate success chance (guaranteed until +5, then starts failing)
+        if current_level < 5:
+            success_rate = 1.0
+        else:
+            success_rate = max(0.3, 1.0 - (current_level - 4) * 0.1)  # 90%, 80%, 70%...30% min
+        
+        # Deduct mora regardless of outcome
+        await db.execute(
+            "UPDATE user_mora SET balance = balance - ? WHERE user_id=? AND chat_id=?",
+            (cost, user_id, chat_id)
+        )
+        
+        if random.random() <= success_rate:
+            # Success - level up
+            new_level = current_level + 1
+            await db.execute(
+                "UPDATE gacha_inventory SET enhancement_level=? WHERE id=?",
+                (new_level, item_id)
+            )
+            await db.commit()
+            return True, f"✨ Заточка успешна! {item[6]} +{new_level}", new_level
+        else:
+            # Failure - level down (but not below 0)
+            new_level = max(0, current_level - 1)
+            await db.execute(
+                "UPDATE gacha_inventory SET enhancement_level=? WHERE id=?", 
+                (new_level, item_id)
+            )
+            await db.commit()
+            return False, f"💔 Заточка неудачна! {item[6]} +{new_level} (уровень упал)", new_level
+
+
+async def get_active_buffs(user_id: int, chat_id: int) -> list[dict]:
+    """Get active potion buffs for user."""
+    from datetime import datetime, timezone
+    
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        # Clean expired buffs first
+        now = datetime.now(timezone.utc).isoformat()
+        await db.execute(
+            "DELETE FROM active_buffs WHERE expires_at < ?", (now,)
+        )
+        
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT * FROM active_buffs WHERE user_id=? AND chat_id=? AND expires_at > ?",
+            (user_id, chat_id, now)
+        ) as c:
+            rows = await c.fetchall()
+        await db.commit()
+    
+    return [dict(r) for r in rows]
+
+
+async def consume_potion(user_id: int, chat_id: int, item_id: int) -> tuple[bool, str]:
+    """Consume a potion item to gain buff."""
+    from datetime import datetime, timezone, timedelta
+    
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        async with db.execute(
+            "SELECT item_key, item_name, slot FROM gacha_inventory "
+            "WHERE id=? AND user_id=? AND chat_id=? AND slot='potion'",
+            (item_id, user_id, chat_id)
+        ) as c:
+            item = await c.fetchone()
+        
+        if not item:
+            return False, "Зелье не найдено"
+        
+        from shared_prices import POTIONS_CATALOG
+        potion_data = POTIONS_CATALOG.get(item[0])
+        if not potion_data:
+            return False, "Неизвестный тип зелья"
+        
+        # Calculate expiration time
+        now = datetime.now(timezone.utc)
+        expires_at = now + timedelta(minutes=potion_data["duration"])
+        
+        # Remove any existing buff of the same type (refreshes timer)
+        await db.execute(
+            "DELETE FROM active_buffs WHERE user_id=? AND chat_id=? AND buff_type=?",
+            (user_id, chat_id, potion_data["buff_type"])
+        )
+        
+        # Add new buff
+        await db.execute(
+            "INSERT INTO active_buffs (user_id, chat_id, buff_type, expires_at, source) "
+            "VALUES (?,?,?,?,?)",
+            (user_id, chat_id, potion_data["buff_type"], expires_at.isoformat(), f"potion:{item[0]}")
+        )
+        
+        # Remove consumed potion from inventory
+        await db.execute("DELETE FROM gacha_inventory WHERE id=?", (item_id,))
+        
+        await db.commit()
+        
+        duration_text = f"{potion_data['duration']//60}ч {potion_data['duration']%60}м" if potion_data['duration'] >= 60 else f"{potion_data['duration']}м"
+        return True, f"🧪 {item[1]} выпито! {potion_data['desc'].split(':')[1]} ({duration_text})"
+
+
+async def batch_sell_items(user_id: int, chat_id: int, item_ids: list[int]) -> tuple[int, int]:
+    """Batch sell multiple items. Returns (items_sold, total_mora)."""
+    if not item_ids:
+        return 0, 0
+    
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        total_mora = 0
+        sold_count = 0
+        
+        placeholders = ",".join(["?"] * len(item_ids))
+        async with db.execute(
+            f"SELECT id, item_key FROM gacha_inventory WHERE id IN ({placeholders}) AND user_id=? AND chat_id=?",
+            (*item_ids, user_id, chat_id)
+        ) as c:
+            items = await c.fetchall()
+        
+        if not items:
+            return 0, 0
+        
+        from shared_prices import ITEM_METADATA
+        valid_ids = []
+        
+        for item_id, item_key in items:
+            meta = ITEM_METADATA.get(item_key, {})
+            sell_price = meta.get("sell", 0)
+            
+            if sell_price > 0:  # Can't sell items with sell price 0 (legendaries)
+                total_mora += sell_price
+                valid_ids.append(item_id)
+                sold_count += 1
+        
+        if valid_ids:
+            # Remove sold items
+            valid_placeholders = ",".join(["?"] * len(valid_ids))
+            await db.execute(f"DELETE FROM gacha_inventory WHERE id IN ({valid_placeholders})", valid_ids)
+            
+            # Add mora
+            await db.execute(
+                "UPDATE user_mora SET balance = balance + ? WHERE user_id=? AND chat_id=?",
+                (total_mora, user_id, chat_id)
+            )
+        
+        await db.commit()
+    
+    return sold_count, total_mora

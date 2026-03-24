@@ -1189,6 +1189,34 @@ async def cmd_me(message: Message, cmd_args: str):
                 )
                 lines.append(f"🎁 Подарки: {gifts_str}")
 
+    # Active potion buffs
+    if is_group:
+        from database.db import get_active_buffs
+        active_buffs = await get_active_buffs(uid, chat_id)
+        if active_buffs:
+            buffs_text = ", ".join([
+                f"{buff['name']} ({buff['minutes_left']}м)"
+                for buff in active_buffs
+            ])
+            lines.append(f"💫 Эффекты: {buffs_text}")
+
+    # Pet walk status
+    if is_group:
+        from database.db import get_pet
+        pet_for_walk = await get_pet(uid, chat_id)
+        if pet_for_walk and pet_for_walk.get("walk_end_at"):
+            try:
+                from datetime import timezone
+                end_dt = datetime.fromisoformat(str(pet_for_walk["walk_end_at"]))
+                if end_dt.tzinfo is None:
+                    end_dt = end_dt.replace(tzinfo=timezone.utc)
+                mins = int((end_dt - datetime.now(timezone.utc)).total_seconds() / 60)
+                if mins > 0:
+                    pet_emoji = {"cat": "🐱", "dog": "🐶"}.get(pet_for_walk.get("pet_type", ""), "🐾")
+                    lines.append(f"{pet_emoji} На прогулке (осталось {mins} мин)")
+            except Exception:
+                pass
+
     if theme["footer"]:
         lines.append(f"\n{theme['footer']}")
 
@@ -1427,14 +1455,28 @@ async def cmd_whois(message: Message, cmd_args: str):
     if DEVELOPER_ID and uid == DEVELOPER_ID:
         rank = "developer"
 
+    is_group_w = message.chat.type in ("group", "supergroup")
     status = "🔴 Заблокирован" if banned else "🟢 Активен"
     warns_line = f"{warns_n}/{MAX_WARNS}" if warns_n else "нет"
 
     from database.db import xp_for_level
+    from config import PROFILE_THEMES
+    from handlers.economy import TOP_FRAMES, _frame_emoji
     next_xp = xp_for_level(lvl + 1)
+    mora_row_t = await get_mora(uid, message.chat.id) if is_group_w else None
+    frame_key_t = mora_row_t["top_frame"] if mora_row_t else None
+    vip_t = (mora_row_t["vip"] or 0) if mora_row_t else 0
+    theme_key_t = await get_active_theme(uid, message.chat.id) if is_group_w else "default"
+    theme_t = PROFILE_THEMES.get(theme_key_t, PROFILE_THEMES["default"])
+    equipped_t = await get_equipped_legendary(uid, message.chat.id) if is_group_w else None
+    sep_t = theme_t["separator"]
+    vip_tag_t = " 💎" if vip_t else ""
 
     lines = [
-        f"🔍 <b>Кто это?</b>\n",
+        f"{theme_t['header']}{vip_tag_t}",
+        sep_t,
+        "",
+        f"🔍 <b>Досье</b>",
         f"🏷 Имя: {user_mention(user['user_id'], user['full_name'])}",
         f"📛 Username: @{user['username'] or 'скрыт'}",
         f"🆔 ID: <code>{user['user_id']}</code>",
@@ -1451,12 +1493,25 @@ async def cmd_whois(message: Message, cmd_args: str):
         lines.append(f"\n📝 Bio: <i>{html.escape(bio)}</i>")
 
     # Брак
-    if message.chat.type in ("group", "supergroup"):
+    if is_group_w:
         marriage = await get_marriage(uid, message.chat.id)
         if marriage:
             partner = await get_user(marriage["partner_id"])
             partner_name = html.escape(partner["full_name"]) if partner else "?"
             lines.append(f"💍 Партнёр: {user_mention(marriage['partner_id'], partner_name)}")
+
+    if equipped_t:
+        lines.append(f"⚔️ Экипировка: {equipped_t['item_name']}")
+    if frame_key_t:
+        frame_label_t = next((f[2] for f in TOP_FRAMES if f[0] == frame_key_t), None)
+        if frame_label_t:
+            lines.append(f"🖼️ Рамка: {_frame_emoji(frame_key_t)} {frame_label_t}")
+    if theme_key_t != "default":
+        from config import COSMETIC_TIER_LABELS
+        tier_label_t = COSMETIC_TIER_LABELS.get(theme_t.get("tier", "common"), "")
+        lines.append(f"🎨 Тема: {theme_t['name']} [{tier_label_t}]")
+    if theme_t["footer"]:
+        lines.append(f"\n{theme_t['footer']}")
 
     await message.answer("\n".join(lines), parse_mode="HTML")
 

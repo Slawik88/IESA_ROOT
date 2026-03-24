@@ -34,6 +34,7 @@ from database.db import (
     get_pet,
     get_user,
     rename_pet,
+    start_pet_walk,
 )
 from filters.bot_command import BotCommand
 from utils.helpers import format_duration, user_mention
@@ -663,3 +664,52 @@ async def cmd_change_pet_type(message: Message, cmd_args: str):
         )
     except Exception:
         await message.answer("❌ Произошла ошибка при смене вида питомца.")
+
+
+# ─── бот прогулка ─────────────────────────────────────────────────────────────
+
+@router.message(BotCommand("прогулка", "гулять", "walk"))
+async def cmd_pet_walk(message: Message, cmd_args: str):
+    """бот прогулка — отправить питомца гулять на 3 часа."""
+    if message.chat.type not in ("group", "supergroup"):
+        await message.answer("❌ Команда работает только в группах.")
+        return
+
+    uid = message.from_user.id
+    chat_id = message.chat.id
+
+    pet = await get_pet(uid, chat_id)
+    if not pet:
+        await message.answer(
+            "❌ У тебя нет питомца.\n"
+            "Заведи его: <code>бот завести питомца</code>",
+            parse_mode="HTML",
+        )
+        return
+
+    ok, mins_left = await start_pet_walk(uid, chat_id)
+    if not ok:
+        if mins_left > 0:
+            h, m = divmod(mins_left, 60)
+            time_str = f"{h} ч {m} мин" if h else f"{m} мин"
+            ptype = pet.get("pet_type", "")
+            emoji = _PET_EMOJI.get(ptype, "🐾")
+            await message.answer(
+                f"{emoji} <b>{html.escape(pet.get('name') or 'Питомец')}</b> уже на прогулке!\n"
+                f"⏳ Вернётся через <b>{time_str}</b>.",
+                parse_mode="HTML",
+            )
+        else:
+            await message.answer("❌ Не удалось отправить питомца на прогулку.")
+        return
+
+    ptype = pet.get("pet_type", "")
+    emoji = _PET_EMOJI.get(ptype, "🐾")
+    pet_name = html.escape(pet.get("name") or "Питомец")
+    new_fatigue = max(0, (pet.get("fatigue") or 0) - 30)
+    await message.answer(
+        f"{emoji} <b>{pet_name}</b> пошёл гулять на <b>3 часа</b>!\n"
+        f"😴 Усталость: {pet.get('fatigue', 0)} → <b>{new_fatigue}</b>\n\n"
+        f"<i>Питомец вернётся автоматически. Проверь статус в Mini App.</i>",
+        parse_mode="HTML",
+    )

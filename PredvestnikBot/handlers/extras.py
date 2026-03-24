@@ -448,6 +448,8 @@ async def on_leave(message: Message):
     if member.is_bot:
         return
 
+    await delete_marriage(member.id, message.chat.id)
+
     safe_name = _html.escape(member.full_name)
     safe_username = f"@{member.username}" if member.username else safe_name
     text = custom_text.replace(

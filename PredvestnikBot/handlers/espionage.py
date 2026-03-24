@@ -21,7 +21,7 @@ from aiogram.types import (
 from database.db import (
     deduct_mora, add_mora, get_mora, get_user,
     log_espionage, get_espionage_cooldown,
-    get_bond_prices, get_user_bonds, buy_bonds, sell_bonds,
+    get_bond_prices, get_bond_price_history, get_user_bonds, buy_bonds, sell_bonds,
     BOND_DEFAULTS,
 )
 from filters.bot_command import BotCommand
@@ -189,6 +189,8 @@ async def cmd_bonds(message: Message, cmd_args: str):
         "",
         "🛒 <code>бот купить обл [mondstadt/inazuma] [кол-во]</code>",
         "💵 <code>бот продать обл [mondstadt/inazuma] [кол-во]</code>",
+        "💸 <code>бот купить акции [mondstadt/inazuma] [сумма Моры]</code>",
+        "📊 <code>бот акции</code> — график цен",
     ]
     await message.answer("\n".join(lines), parse_mode="HTML")
 
@@ -356,3 +358,157 @@ async def cmd_sell_bond(message: Message, cmd_args: str):
         f"Получено: <b>{revenue} 🪙</b> ({price_per} за шт.)",
         parse_mode="HTML",
     )
+
+
+# ─── Акции: график цен ────────────────────────────────────────────────────────
+
+@router.message(BotCommand("акции", "биржа", "charts"))
+async def cmd_bonds_chart(message: Message, cmd_args: str):
+    """бот акции — сгенерировать matplotlib-график цен облигаций для чата."""
+    if message.chat.type not in ("group", "supergroup"):
+        await message.answer("❌ Команда работает только в группах.")
+        return
+
+    chat_id = message.chat.id
+    prices = await get_bond_prices(chat_id)
+
+    try:
+        import io
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+        import matplotlib.ticker as mticker
+    except ImportError:
+        await message.answer("⚠️ Модуль matplotlib не установлен.")
+        return
+
+    bond_keys = list(BOND_DEFAULTS.keys())
+    n = len(bond_keys)
+    fig, axes = plt.subplots(1, n, figsize=(5 * n, 3))
+    if n == 1:
+        axes = [axes]
+    fig.patch.set_facecolor("#0f1117")
+
+    for ax, key in zip(axes, bond_keys):
+        info = BOND_DEFAULTS[key]
+        hist = await get_bond_price_history(chat_id, key, limit=30)
+        cur_price = prices.get(key, info["base_price"])
+        pct = (cur_price - info["base_price"]) / info["base_price"] * 100
+
+        ax.set_facecolor("#1a1d2e")
+        for spine in ax.spines.values():
+            spine.set_color("#2d3151")
+        ax.tick_params(colors="#94a3b8", labelsize=8)
+
+        if hist and len(hist) >= 2:
+            ys = [h["price"] for h in hist]
+            xs = list(range(len(ys)))
+            color = "#22c55e" if ys[-1] >= ys[0] else "#ef4444"
+            ax.plot(xs, ys, color=color, linewidth=2)
+            ax.fill_between(xs, ys, alpha=0.15, color=color)
+            ax.yaxis.set_major_formatter(mticker.FormatStrFormatter('%d'))
+            ax.set_xticks([])
+        else:
+            ax.text(0.5, 0.5, "Нет данных", ha="center", va="center",
+                    transform=ax.transAxes, color="#94a3b8", fontsize=10)
+            ax.set_xticks([])
+            ax.set_yticks([])
+
+        sign = "+" if pct >= 0 else ""
+        ax.set_title(
+            f"{info['name']}\n{cur_price} 🪙  ({sign}{pct:.0f}% к базе)",
+            color="#e2e8f0", fontsize=9, pad=5,
+        )
+
+    fig.tight_layout(pad=1.2)
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png", dpi=130, bbox_inches="tight",
+                facecolor=fig.get_facecolor())
+    plt.close(fig)
+    buf.seek(0)
+
+    from aiogram.types import BufferedInputFile
+    await message.answer_photo(
+        BufferedInputFile(buf.read(), filename="bonds.png"),
+        caption="📊 <b>Биржа Тейвата</b> — динамика цен",
+        parse_mode="HTML",
+    )
+
+
+# ─── Купить акции на сумму Моры ───────────────────────────────────────────────
+
+@router.message(BotCommand("купить акции", "buy bonds mora", "вложить"))
+async def cmd_buy_bonds_mora(message: Message, cmd_args: str):
+    """бот купить акции [ключ] [сумма] — купить облигации на указанную сумму Моры."""
+    if message.chat.type not in ("group", "supergroup"):
+        await message.answer("❌ Команда работает только в группах.")
+        return
+
+    args = (cmd_args or "").strip().split()
+    if len(args) < 2:
+        await message.answer(
+            "Пример: <code>бот купить акции mondstadt 500</code>\n"
+            "Мора конвертируется в максимальное кол-во облигаций.",
+            parse_mode="HTML",
+        )
+        return
+
+    bond_key = args[0].lower()
+    if bond_key not in BOND_DEFAULTS:
+        keys = ", ".join(BOND_DEFAULTS.keys())
+        await message.answer(f"❌ Неизвестная облигация. Доступные: {keys}")
+        return
+
+    try:
+        mora_amount = int(args[1])
+        if mora_amount <= 0:
+            raise ValueError
+    except ValueError:
+        await message.answer("❌ Сумма Моры должна быть положительным числом.")
+        return
+
+    uid = message.from_user.id
+    chat_id = message.chat.id
+
+    prices = await get_bond_prices(chat_id)
+    price_per = prices.get(bond_key, BOND_DEFAULTS[bond_key]["base_price"])
+    shares = mora_amount // price_per
+
+    if shares <= 0:
+        await message.answer(
+            f"❌ Недостаточно для покупки 1 облигации.\n"
+            f"Текущая цена: <b>{price_per} 🪙</b>",
+            parse_mode="HTML",
+        )
+        return
+
+    total_cost = shares * price_per
+    bname = BOND_DEFAULTS[bond_key]["name"]
+
+    mora = await get_mora(uid, chat_id)
+    pers_bal = (mora["balance"] or 0) if mora else 0
+    try:
+        from database.db import get_family_wallet
+        fam_bal = await get_family_wallet(chat_id, uid)
+    except Exception:
+        fam_bal = 0
+
+    kb = InlineKeyboardMarkup(inline_keyboard=[[
+        InlineKeyboardButton(
+            text=f"💳 Личный ({pers_bal} 🪙)",
+            callback_data=f"bond_buy:personal:{uid}:{chat_id}:{bond_key}:{shares}",
+        ),
+        InlineKeyboardButton(
+            text=f"👨‍👩‍👧 Семейный ({fam_bal} 🪙)",
+            callback_data=f"bond_buy:family:{uid}:{chat_id}:{bond_key}:{shares}",
+        ),
+    ]])
+    await message.answer(
+        f"💸 <b>Купить на Мору</b>\n"
+        f"{bname}: <b>{shares} шт.</b>\n"
+        f"Итого: <b>{total_cost} 🪙</b> ({price_per} за шт.)\n\n"
+        f"Выбери кошелёк:",
+        parse_mode="HTML",
+        reply_markup=kb,
+    )
+
