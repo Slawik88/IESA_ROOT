@@ -48,7 +48,7 @@ async def init_db():
         await db.execute("""
             CREATE TABLE IF NOT EXISTS notes (
                 id SERIAL PRIMARY KEY,
-                chat_id INTEGER NOT NULL,
+                chat_id BIGINT NOT NULL,
                 name    TEXT    NOT NULL,
                 content TEXT    NOT NULL,
                 UNIQUE(chat_id, name)
@@ -58,7 +58,7 @@ async def init_db():
         await db.execute("""
             CREATE TABLE IF NOT EXISTS chat_filters (
                 id SERIAL PRIMARY KEY,
-                chat_id  INTEGER NOT NULL,
+                chat_id BIGINT NOT NULL,
                 keyword  TEXT    NOT NULL,
                 response TEXT    NOT NULL,
                 UNIQUE(chat_id, keyword)
@@ -68,7 +68,7 @@ async def init_db():
         await db.execute("""
             CREATE TABLE IF NOT EXISTS blacklist (
                 id SERIAL PRIMARY KEY,
-                chat_id INTEGER NOT NULL,
+                chat_id BIGINT NOT NULL,
                 word    TEXT    NOT NULL,
                 UNIQUE(chat_id, word)
             )
@@ -93,7 +93,7 @@ async def init_db():
                 id SERIAL PRIMARY KEY,
                 from_uid  INTEGER NOT NULL,
                 to_uid    INTEGER NOT NULL,
-                chat_id   INTEGER NOT NULL,
+                chat_id BIGINT NOT NULL,
                 amount    INTEGER NOT NULL DEFAULT 1,
                 given_at  TEXT    NOT NULL
             )
@@ -101,8 +101,8 @@ async def init_db():
 
         await db.execute("""
             CREATE TABLE IF NOT EXISTS cleanup_counts (
-                chat_id    INTEGER NOT NULL,
-                user_id    INTEGER NOT NULL,
+                chat_id BIGINT NOT NULL,
+                user_id BIGINT NOT NULL,
                 count      INTEGER DEFAULT 0,
                 week_count INTEGER DEFAULT 0,
                 day_count  INTEGER DEFAULT 0,
@@ -114,8 +114,8 @@ async def init_db():
 
         await db.execute("""
             CREATE TABLE IF NOT EXISTS user_quests (
-                user_id    INTEGER NOT NULL,
-                chat_id    INTEGER NOT NULL,
+                user_id BIGINT NOT NULL,
+                chat_id BIGINT NOT NULL,
                 quest_date TEXT    NOT NULL,
                 quest_type TEXT    NOT NULL,
                 goal       INTEGER NOT NULL,
@@ -128,7 +128,7 @@ async def init_db():
 
         await db.execute("""
             CREATE TABLE IF NOT EXISTS user_achievements (
-                user_id   INTEGER NOT NULL,
+                user_id BIGINT NOT NULL,
                 badge     TEXT    NOT NULL,
                 earned_at TEXT    NOT NULL,
                 PRIMARY KEY (user_id, badge)
@@ -138,8 +138,8 @@ async def init_db():
         await db.execute("""
             CREATE TABLE IF NOT EXISTS polls (
                 id SERIAL PRIMARY KEY,
-                chat_id      INTEGER NOT NULL,
-                message_id   INTEGER NOT NULL,
+                chat_id BIGINT NOT NULL,
+                message_id BIGINT NOT NULL,
                 question     TEXT    NOT NULL,
                 options_json TEXT    NOT NULL,
                 created_at   TEXT    NOT NULL,
@@ -150,7 +150,7 @@ async def init_db():
         await db.execute("""
             CREATE TABLE IF NOT EXISTS poll_votes (
                 poll_id    INTEGER NOT NULL,
-                user_id    INTEGER NOT NULL,
+                user_id BIGINT NOT NULL,
                 option_idx INTEGER NOT NULL,
                 PRIMARY KEY (poll_id, user_id)
             )
@@ -165,8 +165,8 @@ async def init_db():
 
         await db.execute("""
             CREATE TABLE IF NOT EXISTS marriages (
-                user_id    INTEGER NOT NULL,
-                chat_id    INTEGER NOT NULL,
+                user_id BIGINT NOT NULL,
+                chat_id BIGINT NOT NULL,
                 partner_id INTEGER NOT NULL,
                 married_at TEXT    NOT NULL,
                 PRIMARY KEY (user_id, chat_id)
@@ -177,7 +177,7 @@ async def init_db():
         await db.execute("""
             CREATE TABLE IF NOT EXISTS pending_user_imports (
                 username      TEXT    NOT NULL,
-                chat_id       INTEGER NOT NULL,
+                chat_id BIGINT NOT NULL,
                 message_count INTEGER DEFAULT 0,
                 PRIMARY KEY (username, chat_id)
             )
@@ -187,7 +187,7 @@ async def init_db():
             CREATE TABLE IF NOT EXISTS pending_marriage_imports (
                 username1  TEXT    NOT NULL,
                 username2  TEXT    NOT NULL,
-                chat_id    INTEGER NOT NULL,
+                chat_id BIGINT NOT NULL,
                 married_at TEXT    NOT NULL,
                 PRIMARY KEY (username1, chat_id)
             )
@@ -195,15 +195,15 @@ async def init_db():
 
         await db.execute("""
             CREATE TABLE IF NOT EXISTS allowed_groups (
-                chat_id INTEGER PRIMARY KEY
+                chat_id BIGINT PRIMARY KEY
             )
         """)
 
         # ─── Профили пользователей привязанные к конкретному чату ─────────────
         await db.execute("""
             CREATE TABLE IF NOT EXISTS user_stats (
-                user_id       INTEGER NOT NULL,
-                chat_id       INTEGER NOT NULL,
+                user_id BIGINT NOT NULL,
+                chat_id BIGINT NOT NULL,
                 rank          TEXT    DEFAULT 'user',
                 message_count INTEGER DEFAULT 0,
                 xp            INTEGER DEFAULT 0,
@@ -292,8 +292,8 @@ async def init_db():
         # Таблица отдыхающих (защита от чистки)
         await db.execute("""
             CREATE TABLE IF NOT EXISTS rest_users (
-                user_id    INTEGER NOT NULL,
-                chat_id    INTEGER NOT NULL,
+                user_id BIGINT NOT NULL,
+                chat_id BIGINT NOT NULL,
                 days       INTEGER NOT NULL DEFAULT 7,
                 added_at   TEXT    NOT NULL,
                 added_by   INTEGER NOT NULL,
@@ -304,7 +304,7 @@ async def init_db():
         # Таблица админ-групп (для системных уведомлений)
         await db.execute("""
             CREATE TABLE IF NOT EXISTS admin_groups (
-                chat_id INTEGER PRIMARY KEY
+                chat_id BIGINT PRIMARY KEY
             )
         """)
 
@@ -312,7 +312,7 @@ async def init_db():
         await db.execute("""
             CREATE TABLE IF NOT EXISTS channel_types (
                 type     TEXT PRIMARY KEY,
-                chat_id  INTEGER NOT NULL
+                chat_id BIGINT NOT NULL
             )
         """)
 
@@ -332,7 +332,7 @@ async def init_db():
         await db.execute("""
             CREATE TABLE IF NOT EXISTS user_roles (
                 role_id INTEGER NOT NULL UNIQUE REFERENCES community_roles(id) ON DELETE CASCADE,
-                user_id INTEGER NOT NULL
+                user_id BIGINT NOT NULL
             )
         """)
 
@@ -340,8 +340,8 @@ async def init_db():
         await db.execute("""
             CREATE TABLE IF NOT EXISTS leave_log (
                 id SERIAL PRIMARY KEY,
-                chat_id   INTEGER NOT NULL,
-                user_id   INTEGER NOT NULL,
+                chat_id BIGINT NOT NULL,
+                user_id BIGINT NOT NULL,
                 full_name TEXT    DEFAULT '',
                 username  TEXT    DEFAULT '',
                 left_at   TEXT    NOT NULL
@@ -352,8 +352,8 @@ async def init_db():
         await db.execute("""
             CREATE TABLE IF NOT EXISTS user_banlist (
                 id SERIAL PRIMARY KEY,
-                chat_id   INTEGER NOT NULL,
-                user_id   INTEGER NOT NULL,
+                chat_id BIGINT NOT NULL,
+                user_id BIGINT NOT NULL,
                 added_by  INTEGER DEFAULT 0,
                 reason    TEXT    DEFAULT '',
                 added_at  TEXT    NOT NULL,
@@ -373,8 +373,8 @@ async def init_db():
         # ─── Питомцы (разблокируются через брак) ───────────────────────────
         await db.execute("""
             CREATE TABLE IF NOT EXISTS pets (
-                user_id    INTEGER NOT NULL,
-                chat_id    INTEGER NOT NULL,
+                user_id BIGINT NOT NULL,
+                chat_id BIGINT NOT NULL,
                 pet_type   TEXT    NOT NULL,
                 name       TEXT    DEFAULT NULL,
                 adopted_at TEXT    NOT NULL,
@@ -385,8 +385,8 @@ async def init_db():
         # Система экономики: валюта Мора
         await db.execute("""
             CREATE TABLE IF NOT EXISTS user_mora (
-                user_id        INTEGER NOT NULL,
-                chat_id        INTEGER NOT NULL,
+                user_id BIGINT NOT NULL,
+                chat_id BIGINT NOT NULL,
                 balance        INTEGER DEFAULT 0,
                 total_earned   INTEGER DEFAULT 0,
                 streak_days    INTEGER DEFAULT 0,
@@ -403,7 +403,7 @@ async def init_db():
         await db.execute("""
             CREATE TABLE IF NOT EXISTS casino_duels (
                 id SERIAL PRIMARY KEY,
-                chat_id       INTEGER NOT NULL,
+                chat_id BIGINT NOT NULL,
                 challenger_id INTEGER NOT NULL,
                 target_id     INTEGER NOT NULL,
                 bet           INTEGER NOT NULL,
@@ -417,8 +417,8 @@ async def init_db():
         await db.execute("""
             CREATE TABLE IF NOT EXISTS casino_lottery (
                 id SERIAL PRIMARY KEY,
-                chat_id  INTEGER NOT NULL,
-                user_id  INTEGER NOT NULL,
+                chat_id BIGINT NOT NULL,
+                user_id BIGINT NOT NULL,
                 week_key TEXT    NOT NULL,
                 tickets  INTEGER DEFAULT 1,
                 UNIQUE(chat_id, user_id, week_key)
@@ -428,8 +428,8 @@ async def init_db():
         # Семейный кошелёк (совместный баланс для пар)
         await db.execute("""
             CREATE TABLE IF NOT EXISTS family_wallet (
-                chat_id   INTEGER NOT NULL,
-                user_id   INTEGER NOT NULL,
+                chat_id BIGINT NOT NULL,
+                user_id BIGINT NOT NULL,
                 balance   INTEGER DEFAULT 0,
                 PRIMARY KEY (chat_id, user_id)
             )
@@ -439,8 +439,8 @@ async def init_db():
         await db.execute("""
             CREATE TABLE IF NOT EXISTS family_wallet_log (
                 id SERIAL PRIMARY KEY,
-                chat_id     INTEGER NOT NULL,
-                user_id     INTEGER NOT NULL,
+                chat_id BIGINT NOT NULL,
+                user_id BIGINT NOT NULL,
                 action      TEXT    NOT NULL,
                 amount      INTEGER NOT NULL,
                 description TEXT    DEFAULT '',
@@ -469,8 +469,8 @@ async def init_db():
 
         await db.execute("""
             CREATE TABLE IF NOT EXISTS pet_expeditions (
-                user_id     INTEGER NOT NULL,
-                chat_id     INTEGER NOT NULL,
+                user_id BIGINT NOT NULL,
+                chat_id BIGINT NOT NULL,
                 started_at  TEXT    NOT NULL,
                 duration_h  INTEGER NOT NULL,
                 reward_min  INTEGER NOT NULL,
@@ -483,8 +483,8 @@ async def init_db():
         await db.execute("""
             CREATE TABLE IF NOT EXISTS gacha_inventory (
                 id SERIAL PRIMARY KEY,
-                user_id     INTEGER NOT NULL,
-                chat_id     INTEGER NOT NULL,
+                user_id BIGINT NOT NULL,
+                chat_id BIGINT NOT NULL,
                 item_key    TEXT    NOT NULL,
                 item_name   TEXT    NOT NULL,
                 rarity      TEXT    NOT NULL,
@@ -496,8 +496,8 @@ async def init_db():
         await db.execute("""
             CREATE TABLE IF NOT EXISTS bank_deposits (
                 id SERIAL PRIMARY KEY,
-                user_id     INTEGER NOT NULL,
-                chat_id     INTEGER NOT NULL,
+                user_id BIGINT NOT NULL,
+                chat_id BIGINT NOT NULL,
                 amount      INTEGER NOT NULL,
                 rate        REAL    NOT NULL,
                 created_at  TEXT    NOT NULL,
@@ -509,8 +509,8 @@ async def init_db():
         await db.execute("""
             CREATE TABLE IF NOT EXISTS tax_events (
                 id SERIAL PRIMARY KEY,
-                chat_id     INTEGER NOT NULL,
-                message_id  INTEGER,
+                chat_id BIGINT NOT NULL,
+                message_id BIGINT,
                 prize       INTEGER NOT NULL,
                 penalty_pct REAL    DEFAULT 0.05,
                 started_at  TEXT    NOT NULL,
@@ -522,7 +522,7 @@ async def init_db():
         await db.execute("""
             CREATE TABLE IF NOT EXISTS tax_event_clicks (
                 event_id    INTEGER NOT NULL,
-                user_id     INTEGER NOT NULL,
+                user_id BIGINT NOT NULL,
                 clicked_at  TEXT    NOT NULL,
                 position    INTEGER NOT NULL,
                 PRIMARY KEY (event_id, user_id)
@@ -532,8 +532,8 @@ async def init_db():
         await db.execute("""
             CREATE TABLE IF NOT EXISTS shop_items (
                 id SERIAL PRIMARY KEY,
-                user_id      INTEGER NOT NULL,
-                chat_id      INTEGER NOT NULL,
+                user_id BIGINT NOT NULL,
+                chat_id BIGINT NOT NULL,
                 item_type    TEXT    NOT NULL,
                 item_value   TEXT    NOT NULL,
                 purchased_at TEXT    NOT NULL,
@@ -546,7 +546,7 @@ async def init_db():
                 id SERIAL PRIMARY KEY,
                 from_user   INTEGER NOT NULL,
                 to_user     INTEGER NOT NULL,
-                chat_id     INTEGER NOT NULL,
+                chat_id BIGINT NOT NULL,
                 gift_key    TEXT    NOT NULL,
                 gift_name   TEXT    NOT NULL,
                 gift_price  INTEGER NOT NULL,
@@ -557,8 +557,8 @@ async def init_db():
         await db.execute("""
             CREATE TABLE IF NOT EXISTS active_buffs (
                 id SERIAL PRIMARY KEY,
-                user_id     INTEGER NOT NULL,
-                chat_id     INTEGER NOT NULL,
+                user_id BIGINT NOT NULL,
+                chat_id BIGINT NOT NULL,
                 buff_type   TEXT    NOT NULL,
                 expires_at  TEXT    NOT NULL,
                 source      TEXT
@@ -587,8 +587,8 @@ async def init_db():
         # ─── Темы профиля (какие куплены/получены и какая активна) ────────
         await db.execute("""
             CREATE TABLE IF NOT EXISTS user_themes (
-                user_id   INTEGER NOT NULL,
-                chat_id   INTEGER NOT NULL,
+                user_id BIGINT NOT NULL,
+                chat_id BIGINT NOT NULL,
                 theme_key TEXT    NOT NULL,
                 source    TEXT    NOT NULL DEFAULT 'shop',
                 obtained_at TEXT  NOT NULL,
@@ -608,8 +608,8 @@ async def init_db():
         # ─── Бейджи (значки) профиля ─────────────────────────────────────
         await db.execute("""
             CREATE TABLE IF NOT EXISTS user_badges (
-                user_id   INTEGER NOT NULL,
-                chat_id   INTEGER NOT NULL,
+                user_id BIGINT NOT NULL,
+                chat_id BIGINT NOT NULL,
                 badge_key TEXT    NOT NULL,
                 obtained_at TEXT  NOT NULL,
                 PRIMARY KEY (user_id, chat_id, badge_key)
@@ -619,8 +619,8 @@ async def init_db():
         # ─── Личные приветствия ───────────────────────────────────────────
         await db.execute("""
             CREATE TABLE IF NOT EXISTS user_greetings (
-                user_id      INTEGER NOT NULL,
-                chat_id      INTEGER NOT NULL,
+                user_id BIGINT NOT NULL,
+                chat_id BIGINT NOT NULL,
                 template_key TEXT    NOT NULL,
                 source       TEXT    NOT NULL DEFAULT 'gacha',
                 obtained_at  TEXT    NOT NULL,
@@ -632,8 +632,8 @@ async def init_db():
         await db.execute("""
             CREATE TABLE IF NOT EXISTS chest_events (
                 id SERIAL PRIMARY KEY,
-                chat_id     INTEGER NOT NULL,
-                message_id  INTEGER,
+                chat_id BIGINT NOT NULL,
+                message_id BIGINT,
                 started_at  TEXT    NOT NULL,
                 expires_at  TEXT    NOT NULL,
                 finished    INTEGER DEFAULT 0
@@ -643,7 +643,7 @@ async def init_db():
         await db.execute("""
             CREATE TABLE IF NOT EXISTS chest_event_clicks (
                 event_id    INTEGER NOT NULL,
-                user_id     INTEGER NOT NULL,
+                user_id BIGINT NOT NULL,
                 clicked_at  TEXT    NOT NULL,
                 position    INTEGER NOT NULL,
                 reward      INTEGER NOT NULL DEFAULT 0,
@@ -680,7 +680,7 @@ async def init_db():
                 id SERIAL PRIMARY KEY,
                 lender_id    INTEGER NOT NULL,
                 borrower_id  INTEGER NOT NULL,
-                chat_id      INTEGER NOT NULL,
+                chat_id BIGINT NOT NULL,
                 amount       INTEGER NOT NULL,
                 loaned_at    TEXT    NOT NULL,
                 repaid_at    TEXT    DEFAULT NULL
@@ -691,7 +691,7 @@ async def init_db():
         await db.execute("""
             CREATE TABLE IF NOT EXISTS bond_prices (
                 bond_key     TEXT    NOT NULL,
-                chat_id      INTEGER NOT NULL DEFAULT 0,
+                chat_id BIGINT NOT NULL DEFAULT 0,
                 price        INTEGER NOT NULL,
                 updated_at   TEXT    NOT NULL,
                 PRIMARY KEY (bond_key, chat_id)
@@ -701,8 +701,8 @@ async def init_db():
         await db.execute("""
             CREATE TABLE IF NOT EXISTS user_bonds (
                 id SERIAL PRIMARY KEY,
-                user_id      INTEGER NOT NULL,
-                chat_id      INTEGER NOT NULL,
+                user_id BIGINT NOT NULL,
+                chat_id BIGINT NOT NULL,
                 bond_key     TEXT    NOT NULL,
                 amount       INTEGER NOT NULL DEFAULT 0,
                 invested     INTEGER NOT NULL DEFAULT 0,
@@ -716,7 +716,7 @@ async def init_db():
                 id SERIAL PRIMARY KEY,
                 spy_id       INTEGER NOT NULL,
                 target_id    INTEGER NOT NULL,
-                chat_id      INTEGER NOT NULL,
+                chat_id BIGINT NOT NULL,
                 success      INTEGER NOT NULL,
                 attempted_at TEXT    NOT NULL
             )
@@ -733,8 +733,8 @@ async def init_db():
         # ─── Ежедневный чекин (стрики и чекпоинты) ───────────────────────
         await db.execute("""
             CREATE TABLE IF NOT EXISTS daily_checkin (
-                user_id      INTEGER NOT NULL,
-                chat_id      INTEGER NOT NULL,
+                user_id BIGINT NOT NULL,
+                chat_id BIGINT NOT NULL,
                 streak       INTEGER DEFAULT 0,
                 total_days   INTEGER DEFAULT 0,
                 last_checkin TEXT    DEFAULT NULL,
@@ -747,8 +747,8 @@ async def init_db():
         await db.execute("""
             CREATE TABLE IF NOT EXISTS boss_damage_log (
                 id SERIAL PRIMARY KEY,
-                user_id      INTEGER NOT NULL,
-                chat_id      INTEGER NOT NULL,
+                user_id BIGINT NOT NULL,
+                chat_id BIGINT NOT NULL,
                 damage       INTEGER NOT NULL,
                 session_date TEXT    NOT NULL
             )
@@ -760,7 +760,7 @@ async def init_db():
                 id SERIAL PRIMARY KEY,
                 user_a_id      INTEGER NOT NULL,
                 user_b_id      INTEGER NOT NULL,
-                chat_id        INTEGER NOT NULL,
+                chat_id BIGINT NOT NULL,
                 boss_level     INTEGER DEFAULT 1,
                 boss_max_hp    INTEGER NOT NULL,
                 boss_current_hp INTEGER NOT NULL,
@@ -783,7 +783,7 @@ async def init_db():
             CREATE TABLE IF NOT EXISTS couple_boss_progress (
                 user_a_id      INTEGER NOT NULL,
                 user_b_id      INTEGER NOT NULL,
-                chat_id        INTEGER NOT NULL,
+                chat_id BIGINT NOT NULL,
                 max_level      INTEGER DEFAULT 0,
                 last_completed TEXT    DEFAULT NULL,
                 PRIMARY KEY (user_a_id, user_b_id, chat_id)
@@ -793,7 +793,7 @@ async def init_db():
         await db.execute("""
             CREATE TABLE IF NOT EXISTS bond_price_history (
                 id SERIAL PRIMARY KEY,
-                chat_id     INTEGER NOT NULL,
+                chat_id BIGINT NOT NULL,
                 bond_key    TEXT    NOT NULL,
                 price       INTEGER NOT NULL,
                 recorded_at TEXT    NOT NULL
@@ -801,8 +801,8 @@ async def init_db():
         """)
         await db.execute("""
             CREATE TABLE IF NOT EXISTS user_rpg_stats (
-                user_id     INTEGER NOT NULL,
-                chat_id     INTEGER NOT NULL,
+                user_id BIGINT NOT NULL,
+                chat_id BIGINT NOT NULL,
                 base_hp     INTEGER DEFAULT 150,  -- РЕБАЛАНС: было 100
                 base_atk    INTEGER DEFAULT 75,   -- РЕБАЛАНС: было 50
                 base_def    INTEGER DEFAULT 30,   -- РЕБАЛАНС: было 20
@@ -1009,7 +1009,7 @@ async def add_allowed_group(chat_id: int):
     """Add a group to the whitelist (DB + cache)."""
     async with postgres_connect() as db:
         await db.execute(
-            "INSERT INTO allowed_groups (chat_id) VALUES (?) ON CONFLICT DO NOTHING",
+            "INSERT INTO allowed_groups (chat_id) VALUES (?) ON CONFLICT (chat_id) DO NOTHING",
             (chat_id,),
         )
         await db.commit()
@@ -1049,7 +1049,7 @@ async def get_admin_groups() -> list[int]:
 async def add_admin_group(chat_id: int):
     async with postgres_connect() as db:
         await db.execute(
-            "INSERT INTO admin_groups (chat_id) VALUES (?) ON CONFLICT DO NOTHING",
+            "INSERT INTO admin_groups (chat_id) VALUES (?) ON CONFLICT (chat_id) DO NOTHING",
             (chat_id,),
         )
         await db.commit()
@@ -1421,7 +1421,7 @@ async def upsert_chat(
 async def set_chat_active(chat_id: int, is_active: int):
     async with postgres_connect() as db:
         await db.execute(
-            "INSERT INTO chats (chat_id, is_active) VALUES (?, ?) ON CONFLICT DO NOTHING",
+            "INSERT INTO chats (chat_id, is_active) VALUES (?, ?) ON CONFLICT (chat_id) DO NOTHING",
             (chat_id, is_active),
         )
         await db.execute(
@@ -1464,7 +1464,7 @@ async def set_chat_setting(chat_id: int, key: str, value):
         raise ValueError(f"Invalid chat setting key: {key!r}")
     async with postgres_connect() as db:
         await db.execute(
-            "INSERT INTO chat_settings (chat_id) VALUES (?) ON CONFLICT DO NOTHING", (chat_id,)
+            "INSERT INTO chat_settings (chat_id) VALUES (?) ON CONFLICT (chat_id) DO NOTHING", (chat_id,)
         )
         await db.execute(
             f"UPDATE chat_settings SET {key} = ? WHERE chat_id = ?", (value, chat_id)
@@ -1602,7 +1602,7 @@ async def set_lock(chat_id: int, lock_type: str, value: int):
         raise ValueError(f"Invalid lock type: {lock_type!r}")
     async with postgres_connect() as db:
         await db.execute(
-            "INSERT INTO locks (chat_id) VALUES (?) ON CONFLICT DO NOTHING", (chat_id,)
+            "INSERT INTO locks (chat_id) VALUES (?) ON CONFLICT (chat_id) DO NOTHING", (chat_id,)
         )
         await db.execute(
             f"UPDATE locks SET {lock_type} = ? WHERE chat_id = ?", (value, chat_id)
@@ -3202,7 +3202,7 @@ async def set_user_stat_in_chat(user_id: int, chat_id: int, field: str, value) -
 async def set_channel_type(type_name: str, chat_id: int):
     async with postgres_connect() as db:
         await db.execute(
-            "INSERT OR REPLACE INTO channel_types (type, chat_id) VALUES (?, ?)",
+            "INSERT INTO channel_types (type, chat_id) VALUES (?, ?) ON CONFLICT (type, chat_id) DO UPDATE SET type, chat_id = EXCLUDED.type, chat_id",
             (type_name, chat_id),
         )
         await db.commit()
@@ -5284,7 +5284,7 @@ async def apply_couple_boss_damage(user_id: int, session: dict, damage: int, use
             """UPDATE couple_boss_sessions SET 
                boss_current_hp=?, user_a_damage=?, user_a_hits=?, user_a_aggro=?,
                user_b_damage=?, user_b_hits=?, user_b_aggro=?, is_completed=?,
-               completed_at=CASE WHEN ? THEN datetime('now') ELSE completed_at END
+               completed_at=CASE WHEN ? THEN NOW() ELSE completed_at END
                WHERE id=?""",
             (new_hp, *user_values, 1 if is_defeated else 0, is_defeated, session_id),
         )
