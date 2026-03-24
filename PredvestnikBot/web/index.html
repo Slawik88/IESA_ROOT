@@ -1789,16 +1789,14 @@ async function devGiveItem_legacy(){}
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 loadProfile();
-</script>
-</body>
-</html>
-// ── New Inventory Helper Functions ────────────────────────────────────────────
+
+// ▓▓ Enhanced Inventory Functions ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
 
 function formatBuffTime(expiresAt) {
   const now = new Date().getTime();
   const expires = new Date(expiresAt).getTime();
   const diff = expires - now;
-  if (diff <= 0) return 'Истёк';
+  if (diff <= 0) return '▮▮▮▮▮';
   const mins = Math.floor(diff / 60000);
   const hours = Math.floor(mins / 60);
   if (hours > 0) return hours + 'ч ' + (mins % 60) + 'м';
@@ -1809,24 +1807,23 @@ function renderCosmeticsInventory(cosmetics, allItems) {
   const cosmeticItems = cosmetics.concat(allItems.filter(i => i.key.startsWith('junk_') && i.rarity !== 'junk'));
   
   document.getElementById('invCosmeticsList').innerHTML = cosmeticItems.length ? cosmeticItems.map(i => 
-    <div class="inv-item +(canSelectItem(i) ? 'selectable' : '') +" id="item-+i.id+">
-      +(canSelectItem(i) ? <input type="checkbox" class="inv-item-select" onchange="toggleItemSelection(+i.id+, this.checked)"> : '')+
-      <div class="ii-emoji">+rarityEmoji(i.rarity)+</div>
+    `<div class="inv-item ${canSelectItem(i) ? 'selectable' : ''}" id="item-${i.id}">
+      ${canSelectItem(i) ? `<input type="checkbox" class="inv-item-select" onchange="toggleItemSelection(${i.id}, this.checked)">` : ''}
+      <div class="ii-emoji">${rarityEmoji(i.rarity)}</div>
       <div class="ii-info">
-        <div class="ii-name">+esc(i.name)+</div>
+        <div class="ii-name">${esc(i.name)}</div>
         <div class="ii-rarity">
-          <span class="badge badge-+i.rarity+">+rarityLabel(i.rarity)+</span>
-          +(i.slot ? ' · '+esc(i.slot) : '')+
-          +(canSelectItem(i) ? '<span style="font-size:10px;color:var(--text2)"> · Продать: '+Math.max(1,Math.floor((i.sell_price||0)/2))+' 🪙</span>' : '')+
+          <span class="badge badge-${i.rarity}">${rarityLabel(i.rarity)}</span>  
+          ${i.slot ? ' · '+esc(i.slot) : ''}
+          ${canSelectItem(i) ? `<span style="font-size:10px;color:var(--text2)"> · Продать: ${Math.max(1,Math.floor((i.sell_price||0)/2))} 🪙</span>` : ''}
         </div>
-        +(i.desc ? '<div style="font-size:10px;color:var(--text2);margin-top:2px;font-style:italic">'+esc(i.desc)+'</div>' : '')+
+        ${i.desc ? `<div style="font-size:10px;color:var(--text2);margin-top:2px;font-style:italic">${esc(i.desc)}</div>` : ''}
       </div>
-      +(!canSelectItem(i) && (i.slot === 'cosmetic' || i.key.startsWith('rare_')) ? 
-        <button class="btn btn-sm +(i.equipped?'btn-gold':'btn-primary')+" onclick="toggleEquip(+i.id+)" style="width:auto;min-width:68px">
-          +(i.equipped?'✓ Снять':'Надеть')+
-        </button>
-       : '')+
-    </div>
+      ${!canSelectItem(i) && (i.slot === 'cosmetic' || i.key.startsWith('rare_')) ? 
+        `<button class="btn btn-sm ${i.equipped?'btn-gold':'btn-primary'}" onclick="toggleEquip(${i.id})" style="width:auto;min-width:68px">
+          ${i.equipped?'✓ Снять':'Надеть'}
+        </button>` : ''}
+    </div>`
   ).join('') : '<div style="color:var(--text2);text-align:center;padding:20px">Нет косметики</div>';
   
   updateBatchSellUI();
@@ -1834,36 +1831,34 @@ function renderCosmeticsInventory(cosmetics, allItems) {
 
 function renderWeaponsInventory(weapons) {
   document.getElementById('invWeaponsList').innerHTML = weapons.length ? weapons.map(i => 
-    <div class="inv-item +(canSelectItem(i) ? 'selectable' : '') +" id="item-+i.id+">
-      +(canSelectItem(i) ? <input type="checkbox" class="inv-item-select" onchange="toggleItemSelection(+i.id+, this.checked)"> : '')+
-      <div class="ii-emoji">+rarityEmoji(i.rarity)+</div>
+    `<div class="inv-item ${canSelectItem(i) ? 'selectable' : ''}" id="item-${i.id}">
+      ${canSelectItem(i) ? `<input type="checkbox" class="inv-item-select" onchange="toggleItemSelection(${i.id}, this.checked)">` : ''}
+      <div class="ii-emoji">${rarityEmoji(i.rarity)}</div>
       <div class="ii-info">
         <div class="ii-name">
-          +esc(i.name)+
-          +(i.equipped && i.enhancement_level > 0 ? '<span class="enhance-level">+'+i.enhancement_level+'</span>' : '')+
+          ${esc(i.name)}
+          ${i.equipped && i.enhancement_level > 0 ? `<span class="enhance-level">+${i.enhancement_level}</span>` : ''}
         </div>
         <div class="ii-rarity">
-          <span class="badge badge-+i.rarity+">+rarityLabel(i.rarity)+</span>
-          +(i.slot ? ' · '+esc(i.slot) : '')+
-          +(canSelectItem(i) ? '<span style="font-size:10px;color:var(--text2)"> · Продать: '+Math.max(1,Math.floor((i.sell_price||0)/2))+' 🪙</span>' : '')+
+          <span class="badge badge-${i.rarity}">${rarityLabel(i.rarity)}</span>
+          ${i.slot ? ' · '+esc(i.slot) : ''}
+          ${canSelectItem(i) ? `<span style="font-size:10px;color:var(--text2)"> · Продать: ${Math.max(1,Math.floor((i.sell_price||0)/2))} 🪙</span>` : ''}
         </div>
-        +(i.atk ? '<div style="font-size:10px;color:var(--text2);margin-top:2px">ATK+'+i.atk+(i.crit_rate ? ' Crit+'+(Math.round(i.crit_rate*100))+'%' : '')+'</div>' : '')+
-        +(i.equipped && i.enhancement_level >= 0 ? getEnhancementInfo(i) : '')+
-        +(i.desc ? '<div style="font-size:10px;color:var(--text2);margin-top:2px;font-style:italic">'+esc(i.desc)+'</div>' : '')+
+        ${i.atk ? `<div style="font-size:10px;color:var(--text2);margin-top:2px">ATK+${i.atk}${i.crit_rate ? ` Crit+${Math.round(i.crit_rate*100)}%` : ''}</div>` : ''}
+        ${i.equipped && i.enhancement_level >= 0 ? getEnhancementInfo(i) : ''}
+        ${i.desc ? `<div style="font-size:10px;color:var(--text2);margin-top:2px;font-style:italic">${esc(i.desc)}</div>` : ''}
       </div>
       <div style="display:flex;gap:4px;align-items:center">
-        +(!canSelectItem(i) ? 
-          <button class="btn btn-sm +(i.equipped?'btn-gold':'btn-primary')+" onclick="toggleEquip(+i.id+)" style="width:auto;min-width:68px">
-            +(i.equipped?'✓ Снять':'Надеть')+
-          </button>
-         : '')+
-        +(i.equipped ? 
-          <button class="btn btn-sm" style="background:var(--gold);color:#000;width:auto" onclick="enhanceItem(+i.id+)">
+        ${!canSelectItem(i) ? 
+          `<button class="btn btn-sm ${i.equipped?'btn-gold':'btn-primary'}" onclick="toggleEquip(${i.id})" style="width:auto;min-width:68px">
+            ${i.equipped?'✓ Снять':'Надеть'}
+          </button>` : ''}
+        ${i.equipped ? 
+          `<button class="btn btn-sm" style="background:var(--gold);color:#000;width:auto" onclick="enhanceItem(${i.id})">
             ⚡ Заточка
-          </button>
-         : '')+
+          </button>` : ''}
       </div>
-    </div>
+    </div>`
   ).join('') : '<div style="color:var(--text2);text-align:center;padding:20px">Нет оружия</div>';
   
   updateBatchSellUI();
@@ -1871,36 +1866,34 @@ function renderWeaponsInventory(weapons) {
 
 function renderArmorInventory(armor) {
   document.getElementById('invArmorList').innerHTML = armor.length ? armor.map(i => 
-    <div class="inv-item +(canSelectItem(i) ? 'selectable' : '') +" id="item-+i.id+">
-      +(canSelectItem(i) ? <input type="checkbox" class="inv-item-select" onchange="toggleItemSelection(+i.id+, this.checked)"> : '')+
-      <div class="ii-emoji">+rarityEmoji(i.rarity)+</div>
+    `<div class="inv-item ${canSelectItem(i) ? 'selectable' : ''}" id="item-${i.id}">
+      ${canSelectItem(i) ? `<input type="checkbox" class="inv-item-select" onchange="toggleItemSelection(${i.id}, this.checked)">` : ''}
+      <div class="ii-emoji">${rarityEmoji(i.rarity)}</div>
       <div class="ii-info">
         <div class="ii-name">
-          +esc(i.name)+
-          +(i.equipped && i.enhancement_level > 0 ? '<span class="enhance-level">+'+i.enhancement_level+'</span>' : '')+
+          ${esc(i.name)}
+          ${i.equipped && i.enhancement_level > 0 ? `<span class="enhance-level">+${i.enhancement_level}</span>` : ''}
         </div>
         <div class="ii-rarity">
-          <span class="badge badge-+i.rarity+">+rarityLabel(i.rarity)+</span>
-          +(i.slot ? ' · '+esc(i.slot) : '')+
-          +(canSelectItem(i) ? '<span style="font-size:10px;color:var(--text2)"> · Продать: '+Math.max(1,Math.floor((i.sell_price||0)/2))+' 🪙</span>' : '')+
+          <span class="badge badge-${i.rarity}">${rarityLabel(i.rarity)}</span>
+          ${i.slot ? ' · '+esc(i.slot) : ''}
+          ${canSelectItem(i) ? `<span style="font-size:10px;color:var(--text2)"> · Продать: ${Math.max(1,Math.floor((i.sell_price||0)/2))} 🪙</span>` : ''}
         </div>
-        +((i.def_val||i.hp) ? '<div style="font-size:10px;color:var(--text2);margin-top:2px">'+(i.def_val?'DEF+'+i.def_val:'')+(i.def_val&&i.hp?' ':'')+(i.hp?'HP+'+i.hp:'')+'</div>' : '')+
-        +(i.equipped && i.enhancement_level >= 0 ? getEnhancementInfo(i) : '')+
-        +(i.desc ? '<div style="font-size:10px;color:var(--text2);margin-top:2px;font-style:italic">'+esc(i.desc)+'</div>' : '')+
+        ${(i.def_val||i.hp) ? `<div style="font-size:10px;color:var(--text2);margin-top:2px">${i.def_val?'DEF+'+i.def_val:''}${i.def_val&&i.hp?' ':''}${i.hp?'HP+'+i.hp:''}</div>` : ''}
+        ${i.equipped && i.enhancement_level >= 0 ? getEnhancementInfo(i) : ''}
+        ${i.desc ? `<div style="font-size:10px;color:var(--text2);margin-top:2px;font-style:italic">${esc(i.desc)}</div>` : ''}
       </div>
       <div style="display:flex;gap:4px;align-items:center">
-        +(!canSelectItem(i) ? 
-          <button class="btn btn-sm +(i.equipped?'btn-gold':'btn-primary')+" onclick="toggleEquip(+i.id+)" style="width:auto;min-width:68px">
-            +(i.equipped?'✓ Снять':'Надеть')+
-          </button>
-         : '')+
-        +(i.equipped ? 
-          <button class="btn btn-sm" style="background:var(--gold);color:#000;width:auto" onclick="enhanceItem(+i.id+)">
+        ${!canSelectItem(i) ? 
+          `<button class="btn btn-sm ${i.equipped?'btn-gold':'btn-primary'}" onclick="toggleEquip(${i.id})" style="width:auto;min-width:68px">
+            ${i.equipped?'✓ Снять':'Надеть'}
+          </button>` : ''}
+        ${i.equipped ? 
+          `<button class="btn btn-sm" style="background:var(--gold);color:#000;width:auto" onclick="enhanceItem(${i.id})">
             ⚡ Заточка
-          </button>
-         : '')+
+          </button>` : ''}
       </div>
-    </div>
+    </div>`
   ).join('') : '<div style="color:var(--text2);text-align:center;padding:20px">Нет брони</div>';
   
   updateBatchSellUI();
@@ -1908,24 +1901,23 @@ function renderArmorInventory(armor) {
 
 function renderPotionsInventory(potions) {
   document.getElementById('invPotionsList').innerHTML = potions.length ? potions.map(i => 
-    <div class="inv-item +(canSelectItem(i) ? 'selectable' : '') +" id="item-+i.id+">
-      +(canSelectItem(i) ? <input type="checkbox" class="inv-item-select" onchange="toggleItemSelection(+i.id+, this.checked)"> : '')+
-      <div class="ii-emoji">+rarityEmoji(i.rarity)+</div>
+    `<div class="inv-item ${canSelectItem(i) ? 'selectable' : ''}" id="item-${i.id}">
+      ${canSelectItem(i) ? `<input type="checkbox" class="inv-item-select" onchange="toggleItemSelection(${i.id}, this.checked)">` : ''}
+      <div class="ii-emoji">${rarityEmoji(i.rarity)}</div>
       <div class="ii-info">
-        <div class="ii-name">+esc(i.name)+</div>
+        <div class="ii-name">${esc(i.name)}</div>
         <div class="ii-rarity">
-          <span class="badge badge-+i.rarity+">+rarityLabel(i.rarity)+</span>
-          +(i.slot ? ' · '+esc(i.slot) : '')+
-          +(canSelectItem(i) ? '<span style="font-size:10px;color:var(--text2)"> · Продать: '+Math.max(1,Math.floor((i.sell_price||0)/2))+' 🪙</span>' : '')+
+          <span class="badge badge-${i.rarity}">${rarityLabel(i.rarity)}</span>
+          ${i.slot ? ' · '+esc(i.slot) : ''}  
+          ${canSelectItem(i) ? `<span style="font-size:10px;color:var(--text2)"> · Продать: ${Math.max(1,Math.floor((i.sell_price||0)/2))} 🪙</span>` : ''}
         </div>
-        +(i.desc ? '<div style="font-size:10px;color:var(--text2);margin-top:2px;font-style:italic">'+esc(i.desc)+'</div>' : '')+
+        ${i.desc ? `<div style="font-size:10px;color:var(--text2);margin-top:2px;font-style:italic">${esc(i.desc)}</div>` : ''}
       </div>
-      +(!canSelectItem(i) ? 
-        <button class="btn btn-sm btn-green" onclick="consumePotion(+i.id+)" style="width:auto;min-width:68px">
-          🧪 Выпить
-        </button>
-       : '')+
-    </div>
+      ${!canSelectItem(i) ? 
+        `<button class="btn btn-sm btn-green" onclick="consumePotion(${i.id})" style="width:auto;min-width:68px">
+          ⚗️ Выпить
+        </button>` : ''}
+    </div>`
   ).join('') : '<div style="color:var(--text2);text-align:center;padding:20px">Нет зелий</div>';
   
   updateBatchSellUI();
@@ -1942,18 +1934,18 @@ function getEnhancementInfo(item) {
   if (level >= 5) {
     successRate = Math.max(30, 100 - (level - 4) * 10);
   }
-  
-  return <div class="enhance-cost">
-    Улучшение:  🪙 
+
+  return `<div class="enhance-cost">
+    Заточка: ${cost} 🪙
     <span class="">
-      (%)
+      (${successRate}%)
     </span>
-  </div>;
+  </div>`;
 }
 
 function switchSubtab(name) {
   document.querySelectorAll('.subtab-btn').forEach(b => b.classList.toggle('active', b.getAttribute('onclick').includes("'"+name+"'")));
-  ['cosmetics','weapons','armor','potions'].forEach(n => 
+  ['cosmetics','weapons','armor','potions'].forEach(n =>
     document.getElementById('subtab-'+n).style.display = n === name ? 'block' : 'none'
   );
 }
@@ -1961,7 +1953,7 @@ function switchSubtab(name) {
 function toggleItemSelection(itemId, checked) {
   const item = document.getElementById('item-' + itemId);
   if (checked) {
-    window.selectedItems.add(itemId);
+    window.selectedItems.add(itemId); 
     item.classList.add('selected');
   } else {
     window.selectedItems.delete(itemId);
@@ -2003,10 +1995,10 @@ function updateBatchSellUI() {
       const item = window.inventoryItems.find(i => i.id === itemId);
       return sum + (item ? Math.max(1, Math.floor((item.sell_price || 0) / 2)) : 0);
     }, 0);
-    
+
     document.getElementById('batchSellCard').style.display = 'block';
     const sellBtn = document.querySelector('#batchSellCard .btn-gold');
-    sellBtn.innerHTML = 🪙 Продать <span class="selected-count"></span> за <span class="sell-value"></span> 🪙;
+    sellBtn.innerHTML = `✨ Продать <span class="selected-count">${selectedCount}</span> за <span class="sell-value">${totalValue}</span> 🪙`;
   } else {
     document.getElementById('batchSellCard').style.display = 'none';
   }
@@ -2015,102 +2007,102 @@ function updateBatchSellUI() {
 async function enhanceItem(itemId) {
   const item = window.inventoryItems.find(i => i.id === itemId);
   if (!item) return;
-  
+
   const level = item.enhancement_level || 0;
   const cost = Math.floor(100 * Math.pow(1.5, level));
   const successRate = level >= 5 ? Math.max(30, 100 - (level - 4) * 10) : 100;
-  
-  const confirmed = confirm(Заточить  до +?\n\nСтоимость:  🪙\nШанс успеха: %\n\nПри провале с +5 уровень может снизиться!);
+
+  const confirmed = confirm(`Заточить ${item.name} до +${level+1}?\n\nСтоимость: ${cost} 🪙\nШанс успеха: ${successRate}%\n\nПри неудаче с +5 предмет может сломаться!`);
   if (!confirmed) return;
-  
+
   try {
     const r = await api('/api/enhance', 'POST', {chat_id: chatId, item_id: itemId});
-    
+
     if (r.success) {
-      toast(✅ Заточка успешна!  теперь +, 'success');
+      toast(`✅ Заточка успешна! Уровень +${r.enhancement_level}`, 'success');
     } else {
-      toast(💥 Заточка провалилась! , 'error');
+      toast(`❌ Заточка неуспешна! ${r.message}`, 'error');
     }
-    
+
     // Update balance
-    if (profileData && r.new_balance !== undefined) {
-      profileData.balance = r.new_balance;
-      document.getElementById('pMora').textContent = r.new_balance + ' 🪙';
+    if (profileData && r.balance !== undefined) {
+      profileData.balance = r.balance;
+      document.getElementById('pMora').textContent = r.balance + ' 🪙';
     }
-    
+
     // Reload inventory
     tabLoaded['inventory'] = false;
     loadInventory();
-    
+
   } catch(e) {
     toast('❌ ' + e.message, 'error');
   }
 }
 
-async function consumePotion(itemId) {
+async function consumePotion(itemId) {  
   const item = window.inventoryItems.find(i => i.id === itemId);
   if (!item) return;
-  
-  const confirmed = confirm(Выпить ?\n\nЗелье будет потрачено и даст временный эффект.);
+
+  const confirmed = confirm(`Выпить ${item.name}?\n\nПосле этого предмет исчезнет и даст вам временный эффект.`);
   if (!confirmed) return;
-  
+
   try {
     const r = await api('/api/consume_potion', 'POST', {chat_id: chatId, item_id: itemId});
-    toast(🧪 Выпил ! , 'success');
-    
+    toast(`⚗️ Выпито! ${r.message}`, 'success');
+
     // Reload inventory
     tabLoaded['inventory'] = false;
     loadInventory();
-    
+
   } catch(e) {
-    toast('❌ ' + e.message, 'error');
+    toast('❌ ' + e.message, 'error'); 
   }
 }
 
 async function confirmBatchSell() {
   if (window.selectedItems.size === 0) return;
-  
+
   const selectedIds = Array.from(window.selectedItems);
   const totalValue = selectedIds.reduce((sum, itemId) => {
     const item = window.inventoryItems.find(i => i.id === itemId);
     return sum + (item ? Math.max(1, Math.floor((item.sell_price || 0) / 2)) : 0);
   }, 0);
-  
-  const confirmed = confirm(Продать  предметов за  🪙?);
+
+  const confirmed = confirm(`Продать ${selectedIds.length} предметов за ${totalValue} 🪙?`);
   if (!confirmed) return;
-  
+
   try {
     const r = await api('/api/batch_sell', 'POST', {chat_id: chatId, item_ids: selectedIds});
-    toast(✅ Продано  предметов за  🪙, 'success');
-    
+    toast(`✨ Продано ${r.sold} предметов за ${r.mora} 🪙`, 'success');
+
     // Update balance
-    if (profileData && r.new_balance !== undefined) {
-      profileData.balance = r.new_balance;
-      document.getElementById('pMora').textContent = r.new_balance + ' 🪙';
+    if (profileData && r.balance !== undefined) {
+      profileData.balance = r.balance;
+      document.getElementById('pMora').textContent = r.balance + ' 🪙';
     }
-    
+
     // Clear selection and reload inventory
     clearSelection();
     tabLoaded['inventory'] = false;
     loadInventory();
-    
+
   } catch(e) {
     toast('❌ ' + e.message, 'error');
   }
 }
 
 
-// ── Couple Boss System ────────────────────────────────────────────────────────
+// ▓▓ Couple Boss System ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
 
 async function loadCoupleBoss() {
   document.getElementById('coupleBossLoading').style.display = 'block';
   document.getElementById('coupleBossContent').style.display = 'none';
-  
+
   try {
     const r = await api('/api/couple_boss/status?chat_id=' + chatId);
     document.getElementById('coupleBossLoading').style.display = 'none';
     document.getElementById('coupleBossContent').style.display = 'block';
-    
+
     if (!r.married) {
       document.getElementById('noMarriageCard').style.display = 'block';
       document.getElementById('partnerInfo').style.display = 'none';
@@ -2119,16 +2111,16 @@ async function loadCoupleBoss() {
       document.getElementById('activeBossCard').style.display = 'none';
       return;
     }
-    
+
     // Show partner info
     document.getElementById('partnerName').textContent = r.partner_name;
     document.getElementById('partnerInfo').style.display = 'block';
     document.getElementById('noMarriageCard').style.display = 'none';
-    
+
     // Show progress
     document.getElementById('maxLevelCompleted').textContent = r.max_level_completed;
     document.getElementById('progressInfo').style.display = 'block';
-    
+
     if (r.has_active_session) {
       // Active boss session
       renderActiveBossSession(r);
@@ -2140,41 +2132,37 @@ async function loadCoupleBoss() {
       document.getElementById('bossSelection').style.display = 'block';
       document.getElementById('activeBossCard').style.display = 'none';
     }
-    
+
     // Show couple boss tab
     document.getElementById('coupleBossTabBtn').style.display = 'block';
-    
+
   } catch (e) {
-    document.getElementById('coupleBossLoading').textContent = '⚠️ ' + e.message;
-    document.getElementById('coupleBossTabBtn').style.display = 'none';
+    document.getElementById('coupleBossLoading').textContent = '❌ ' + e.message;
   }
 }
 
 function renderBossSelection(availableLevels) {
-  const container = document.getElementById('levelButtons');
-  container.innerHTML = availableLevels.map(level => 
-    <button class="btn btn-sm btn-primary" onclick="startCoupleBoss()" style="font-size:11px">
-      Lv.
-    </button>
-  ).join('');
+  const container = document.getElementById('bossSelection');
+  const html = `
+    <div style="text-align:center;margin-bottom:12px;color:var(--text2)">Выберите уровень босса</div>
+    <div class="boss-levels">
+      ${availableLevels.map(level => 
+        `<button class="btn btn-boss-level" onclick="startCoupleBoss(${level})">${level}</button>`
+      ).join('')}
+    </div>
+  `;
+  container.innerHTML = html;
 }
 
 function renderActiveBossSession(data) {
-  document.getElementById('bossLevel').textContent = data.boss_level;
-  document.getElementById('bossCurrentHp').textContent = data.boss_current_hp.toLocaleString();
-  document.getElementById('bossMaxHp').textContent = data.boss_max_hp.toLocaleString();
-  document.getElementById('bossHpPercent').textContent = data.boss_hp_percent;
-  
   // Update HP bar
   const hpBar = document.getElementById('bossHpBar');
   hpBar.style.width = data.boss_hp_percent + '%';
   
-  // Update damage stats
-  document.getElementById('myDamage').textContent = data.my_damage.toLocaleString();
-  document.getElementById('myHits').textContent = data.my_hits;
-  document.getElementById('partnerDamage').textContent = data.partner_damage.toLocaleString();
-  document.getElementById('partnerHits').textContent = data.partner_hits;
-  document.getElementById('totalDamage').textContent = (data.my_damage + data.partner_damage).toLocaleString();
+  document.getElementById('bossHpText').textContent = `${Math.floor(data.boss_current_hp).toLocaleString()} / ${Math.floor(data.boss_max_hp).toLocaleString()}`;
+  document.getElementById('bossLevel').textContent = data.boss_level;
+  document.getElementById('myDamage').textContent = Math.floor(data.my_damage).toLocaleString();
+  document.getElementById('partnerDamage').textContent = Math.floor(data.partner_damage).toLocaleString();
   
   // Status indicators
   const resistanceWarning = document.getElementById('resistanceWarning');
@@ -2191,13 +2179,13 @@ function renderActiveBossSession(data) {
     repeatWarning.style.display = 'none';
   }
   
-  // Disable attack if boss is defeated
+  // Enable/disable attack button based on boss status
   const attackBtn = document.getElementById('attackBossBtn');
   if (data.boss_current_hp <= 0) {
     attackBtn.disabled = true;
-    attackBtn.innerHTML = '🏆 БОСС ПОВЕРЖЁН!';
-    attackBtn.style.background = 'var(--gold)';
-    attackBtn.style.color = '#000';
+    attackBtn.innerHTML = '🏆 ПОБЕДА!';
+    attackBtn.style.background = 'var(--green)';
+    attackBtn.style.color = '#fff';
   } else {
     attackBtn.disabled = false;
     attackBtn.innerHTML = '⚔️ АТАКОВАТЬ БОССА';
@@ -2207,7 +2195,7 @@ function renderActiveBossSession(data) {
 }
 
 async function startCoupleBoss(level) {
-  const confirmed = confirm(Начать бой с боссом уровня ?);
+  const confirmed = confirm(`Начать бой с боссом уровня ${level}?`);
   if (!confirmed) return;
   
   try {
@@ -2216,10 +2204,10 @@ async function startCoupleBoss(level) {
       boss_level: level
     });
     
-    toast(⚔️ Начат бой с боссом уровня !, 'success');
+    toast(`⚔️ Начат бой с боссом уровня ${level}!`, 'success');
     
     // Reload couple boss data
-    tabLoaded['couple_boss'] = false;
+    tabLoaded['couple_boss'] = false;  
     loadCoupleBoss();
     
   } catch (e) {
@@ -2233,7 +2221,7 @@ async function attackCoupleBoss() {
   const now = Date.now();
   if (now < coupleBossAttackCooldown) {
     const remaining = Math.ceil((coupleBossAttackCooldown - now) / 1000);
-    toast(⏳ Подожди  сек., 'error');
+    toast(`⏳ Подожди ${remaining} сек.`, 'error');
     return;
   }
   
@@ -2250,9 +2238,9 @@ async function attackCoupleBoss() {
     coupleBossAttackCooldown = now + 1000;
     
     if (r.crit) {
-      toast(💥 КРИТИЧЕСКИЙ УДАР! Урон: , 'success');
+      toast(`💥 КРИТИЧЕСКИЙ УДАР! Урон: ${Math.floor(r.damage_dealt)}`, 'success');
     } else {
-      toast(⚔️ Урон: , 'success');
+      toast(`⚔️ Урон: ${Math.floor(r.damage_dealt)}`, 'success');
     }
     
     if (r.boss_retaliation && r.retaliation_message) {
@@ -2261,41 +2249,35 @@ async function attackCoupleBoss() {
       }, 1000);
     }
     
-    if (r.boss_defeated) {
-      if (r.rewards) {
-        toast(🎉 БОСС ПОВЕРЖЁН! Награда: + 🪙, + XP, 'success');
-        
-        // Update balance
-        if (profileData && r.rewards.mora) {
-          profileData.balance += r.rewards.mora;
-          document.getElementById('pMora').textContent = profileData.balance + ' 🪙';
-        }
-      } else {
-        toast('🎉 БОСС ПОВЕРЖЁН!', 'success');
-      }
-      
+    if (r.boss_defeated) { 
       setTimeout(() => {
-        // Reload couple boss data after victory
-        tabLoaded['couple_boss'] = false;
-        loadCoupleBoss();
-      }, 2000);
-    } else {
-      // Just update the current session without full reload
-      const status = await api('/api/couple_boss/status?chat_id=' + chatId);
-      if (status.has_active_session) {
-        renderActiveBossSession(status);
-      }
+        if (r.rewards) {
+          toast(`🎉 БОСС ПОВЕРЖЕН! +${r.rewards.mora} 🪙, +${r.rewards.xp} XP`, 'success');
+        } else {
+          toast('🎉 БОСС ПОВЕРЖЕН!', 'success'); 
+        }
+      }, 1500);
     }
     
-  } catch (e) {
-    toast('❌ ' + e.message, 'error');
-  } finally {
+    // Update boss data
+    tabLoaded['couple_boss'] = false;
+    loadCoupleBoss();
+    
+    // Reset attack button after delay
     setTimeout(() => {
-      if (!document.getElementById('attackBossBtn').innerHTML.includes('ПОВЕРЖЁН')) {
+      if (!document.getElementById('attackBossBtn').innerHTML.includes('ПОБЕДА')) {
         attackBtn.disabled = false;
         attackBtn.innerHTML = '⚔️ АТАКОВАТЬ БОССА';
       }
     }, 1000);
+    
+  } catch (e) {
+    toast('❌ ' + e.message, 'error');
+    attackBtn.disabled = false;
+    attackBtn.innerHTML = '⚔️ АТАКОВАТЬ БОССА';
   }
 }
 
+</script>
+</body>
+</html>
