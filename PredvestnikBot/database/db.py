@@ -4965,7 +4965,7 @@ async def batch_sell_items(user_id: int, chat_id: int, item_ids: list[int]) -> t
 # --- Couple Boss System (Married Pairs) --------------------------------------
 
 async def get_couple_boss_session(user_a_id: int, user_b_id: int, chat_id: int) -> dict | None:
-    """"""Get active couple boss session for married pair.""""""
+    """Get active couple boss session for married pair."""
     from datetime import timezone
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     
@@ -4976,8 +4976,8 @@ async def get_couple_boss_session(user_a_id: int, user_b_id: int, chat_id: int) 
     async with aiosqlite.connect(DATABASE_PATH) as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
-            """"""SELECT * FROM couple_boss_sessions 
-               WHERE user_a_id=? AND user_b_id=? AND chat_id=? AND session_date=? AND is_completed=0"""""",
+            """SELECT * FROM couple_boss_sessions 
+               WHERE user_a_id=? AND user_b_id=? AND chat_id=? AND session_date=? AND is_completed=0""",
             (user_a_id, user_b_id, chat_id, today),
         ) as c:
             row = await c.fetchone()
@@ -4985,7 +4985,7 @@ async def get_couple_boss_session(user_a_id: int, user_b_id: int, chat_id: int) 
 
 
 async def create_couple_boss_session(user_a_id: int, user_b_id: int, chat_id: int, boss_level: int = 1) -> dict:
-    """"""Create new couple boss session.""""""
+    """Create new couple boss session."""
     from datetime import timezone
     import random
     
@@ -5004,10 +5004,10 @@ async def create_couple_boss_session(user_a_id: int, user_b_id: int, chat_id: in
     
     async with aiosqlite.connect(DATABASE_PATH) as db:
         await db.execute(
-            """"""INSERT INTO couple_boss_sessions 
+            """INSERT INTO couple_boss_sessions 
                (user_a_id, user_b_id, chat_id, boss_level, boss_max_hp, boss_current_hp, 
                 is_repeat, session_date)
-               VALUES (?,?,?,?,?,?,?,?)"""""",
+               VALUES (?,?,?,?,?,?,?,?)""",
             (user_a_id, user_b_id, chat_id, boss_level, boss_max_hp, boss_max_hp, 
              1 if is_repeat else 0, today),
         )
@@ -5034,7 +5034,7 @@ async def create_couple_boss_session(user_a_id: int, user_b_id: int, chat_id: in
 
 
 async def apply_couple_boss_damage(user_id: int, session: dict, damage: int, user_stats: dict = None) -> dict:
-    """"""Apply damage to couple boss and handle aggro system.""""""
+    """Apply damage to couple boss and handle aggro system."""
     import random
     
     session_id = session["id"]
@@ -5100,11 +5100,11 @@ async def apply_couple_boss_damage(user_id: int, session: dict, damage: int, use
     # Update database
     async with aiosqlite.connect(DATABASE_PATH) as db:
         await db.execute(
-            """"""UPDATE couple_boss_sessions SET 
+            """UPDATE couple_boss_sessions SET 
                boss_current_hp=?, user_a_damage=?, user_a_hits=?, user_a_aggro=?,
                user_b_damage=?, user_b_hits=?, user_b_aggro=?, is_completed=?,
                completed_at=CASE WHEN ? THEN datetime('now') ELSE completed_at END
-               WHERE id=?"""""",
+               WHERE id=?""",
             (new_hp, *user_values, 1 if is_defeated else 0, is_defeated, session_id),
         )
         
@@ -5125,7 +5125,7 @@ async def apply_couple_boss_damage(user_id: int, session: dict, damage: int, use
 
 
 async def get_couple_boss_progress(user_a_id: int, user_b_id: int, chat_id: int) -> dict | None:
-    """"""Get couple's boss progress (max level completed).""""""
+    """Get couple's boss progress (max level completed)."""
     # Ensure user_a_id < user_b_id for consistency
     if user_a_id > user_b_id:
         user_a_id, user_b_id = user_b_id, user_a_id
@@ -5141,7 +5141,7 @@ async def get_couple_boss_progress(user_a_id: int, user_b_id: int, chat_id: int)
 
 
 async def update_couple_boss_progress(user_a_id: int, user_b_id: int, chat_id: int, completed_level: int):
-    """"""Update couple's maximum completed boss level.""""""
+    """Update couple's maximum completed boss level."""
     from datetime import timezone
     
     # Ensure user_a_id < user_b_id for consistency
@@ -5152,18 +5152,18 @@ async def update_couple_boss_progress(user_a_id: int, user_b_id: int, chat_id: i
     
     async with aiosqlite.connect(DATABASE_PATH) as db:
         await db.execute(
-            """"""INSERT INTO couple_boss_progress (user_a_id, user_b_id, chat_id, max_level, last_completed)
+            """INSERT INTO couple_boss_progress (user_a_id, user_b_id, chat_id, max_level, last_completed)
                VALUES (?,?,?,?,?)
                ON CONFLICT(user_a_id, user_b_id, chat_id) DO UPDATE SET
                max_level=MAX(max_level, excluded.max_level),
-               last_completed=excluded.last_completed"""""",
+               last_completed=excluded.last_completed""",
             (user_a_id, user_b_id, chat_id, completed_level, now),
         )
         await db.commit()
 
 
 async def get_couple_boss_rewards(session: dict) -> dict:
-    """"""Calculate rewards for couple boss completion.""""""
+    """Calculate rewards for couple boss completion."""
     boss_level = session["boss_level"]
     is_repeat = session["is_repeat"]
     
