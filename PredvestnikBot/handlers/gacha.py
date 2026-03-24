@@ -103,7 +103,7 @@ def _roll_one(pity: int) -> tuple[str, str, str, str]:
         return key, name, "legendary", desc
 
     roll = random.random()
-    if roll < 0.02:  # 2% леги
+    if roll < 0.03:  # 3% леги [РЕБАЛАНС: было 2%]
         key, name, desc = random.choice(_LEGENDARY_ITEMS)
         return key, name, "legendary", desc
     elif roll < 0.10:  # 8% редкие
@@ -179,7 +179,7 @@ async def cmd_gacha(message: Message, cmd_args: str):
         f"Испытай удачу и получи редкие предметы!\n\n"
         f"💰 Твой баланс: <b>{bal} 🪙</b>\n"
         f"🔄 До гаранта: <b>{GACHA_PITY_COUNT - pity}</b> круток{discount_note}\n\n"
-        f"<i>🟡 Легендарный — 2% (гарант {GACHA_PITY_COUNT})\n"
+        f"<i>🟡 Легендарный — 3% (гарант {GACHA_PITY_COUNT})\n"  # РЕБАЛАНС: было 2%
         f"🟣 Редкий — 8%\n"
         f"🟢 Обычный — 20%\n"
         f"⚪ Мусор — 70% (продаётся по 5 🪙)</i>",

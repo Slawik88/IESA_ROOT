@@ -251,9 +251,9 @@ LOAN_MAX_ACTIVE = 5
 # ═══════════════════════════════════════════════════════════════════════════════
 
 EXPEDITION_OPTIONS = {
-    "short":  {"hours": 2, "cost": 0,  "reward_min": 10,  "reward_max": 25,  "label": "2ч (бесплатно)"},
-    "medium": {"hours": 4, "cost": 10, "reward_min": 25,  "reward_max": 50,  "label": "4ч (10 🪙)"},
-    "long":   {"hours": 8, "cost": 25, "reward_min": 50,  "reward_max": 100, "label": "8ч (25 🪙)"},
+    "short":  {"hours": 2, "cost": 0,  "reward_min": 50,  "reward_max": 80,  "label": "2ч (бесплатно)"},        # было: 10-25
+    "medium": {"hours": 4, "cost": 10, "reward_min": 120, "reward_max": 200, "label": "4ч (10 🪙)"},           # было: 25-50  
+    "long":   {"hours": 8, "cost": 25, "reward_min": 200, "reward_max": 300, "label": "8ч (25 🪙)"},           # было: 50-100
 }
 
 
@@ -263,12 +263,12 @@ EXPEDITION_OPTIONS = {
 
 # GACHA_SINGLE_PRICE / GACHA_MULTI_PRICE / GACHA_PITY_COUNT импортированы наверху.
 
-# Шансы: junk(1-2★)=70%, common(3★)=20%, rare(4★)=8%, legendary(5★)=2%
+# Шансы: [РЕБАЛАНС] junk=55%, common=28%, rare=14%, legendary=3% (было: 70%,20%,8%,2%)
 GACHA_CHANCES = [
-    ("junk",      0.70),
-    ("common",    0.20),
-    ("rare",      0.08),
-    ("legendary", 0.02),
+    ("junk",      0.55),  # было 0.70
+    ("common",    0.28),  # было 0.20
+    ("rare",      0.14),  # было 0.08
+    ("legendary", 0.03),  # было 0.02 - теперь легендарки более доступны
 ]
 
 # Цена продажи по редкости

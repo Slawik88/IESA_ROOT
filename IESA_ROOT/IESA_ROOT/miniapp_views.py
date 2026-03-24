@@ -2316,7 +2316,7 @@ _GACHA_POOL = {
 
 def _gacha_roll_one_sync(pity: int):
     roll = _random.random()
-    if pity >= _GACHA_PITY_MAX - 1 or roll < 0.02:
+    if pity >= _GACHA_PITY_MAX - 1 or roll < 0.03:  # РЕБАЛАНС: было 0.02
         key, name = _random.choice(_GACHA_POOL["legendary"])
         return key, name, "legendary"
     elif roll < 0.10:
@@ -3284,7 +3284,7 @@ def miniapp_public_profile(request):
 
 @csrf_exempt
 def miniapp_enhance_item(request):
-    """POST /api/enhance � enhance an equipped RPG item."""
+    """POST /api/enhance � enhance an equipped RPG item."""
     headers = _cors_headers()
     if request.method == "OPTIONS":
         return HttpResponse("", status=204, headers=headers)
@@ -3341,7 +3341,7 @@ def miniapp_enhance_item(request):
 
 @csrf_exempt  
 def miniapp_consume_potion(request):
-    """POST /api/consume_potion � consume a potion to gain buff."""
+    """POST /api/consume_potion � consume a potion to gain buff."""
     headers = _cors_headers()
     if request.method == "OPTIONS":
         return HttpResponse("", status=204, headers=headers)
@@ -3380,7 +3380,7 @@ def miniapp_consume_potion(request):
 
 @csrf_exempt
 def miniapp_batch_sell(request):
-    """POST /api/batch_sell � sell multiple items at once."""
+    """POST /api/batch_sell � sell multiple items at once."""
     headers = _cors_headers()
     if request.method == "OPTIONS":
         return HttpResponse("", status=204, headers=headers)  
@@ -3430,3 +3430,363 @@ def miniapp_batch_sell(request):
 
     except Exception as exc:
         return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+
+
+# --- Couple Boss System (Married Pairs) --------------------------------------
+
+@csrf_exempt
+def miniapp_couple_boss_status(request):
+    """"""GET /api/couple_boss/status?chat_id=X � get couple boss session status.""""""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "GET":
+        return JsonResponse({"error": "GET required"}, status=405, headers=headers)
+
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+
+    chat_id_str = request.GET.get("chat_id", "")
+    if not chat_id_str.lstrip("-").isdigit():
+        return JsonResponse({"error": "chat_id required"}, status=400, headers=headers)
+    chat_id = int(chat_id_str)
+
+    try:
+        conn, db_type = _get_bot_db_connection()
+        cur = conn.cursor()
+        ph = "%s" if db_type == "pg" else "?"
+        
+        # Check if user is married
+        cur.execute(f"SELECT partner_id FROM marriages WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
+        marriage_row = cur.fetchone()
+        if not marriage_row:
+            conn.close()
+            return JsonResponse({"error": "� ���� ��� �������� ��� ������ ������"}, status=400, headers=headers)
+        
+        partner_id = marriage_row[0]
+        user_a_id = min(uid, partner_id)
+        user_b_id = max(uid, partner_id)
+        
+        # Get current session
+        from datetime import timezone
+        import datetime
+        today = datetime.datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        
+        cur.execute(f""""""SELECT * FROM couple_boss_sessions 
+                     WHERE user_a_id={ph} AND user_b_id={ph} AND chat_id={ph} AND session_date={ph} AND is_completed=0"""""", 
+                     (user_a_id, user_b_id, chat_id, today))
+        session = cur.fetchone()
+        
+        # Get progress
+        cur.execute(f"SELECT max_level FROM couple_boss_progress WHERE user_a_id={ph} AND user_b_id={ph} AND chat_id={ph}", 
+                   (user_a_id, user_b_id, chat_id))
+        progress_row = cur.fetchone()
+        max_level = progress_row[0] if progress_row else 0
+        
+        # Get user names
+        cur.execute(f"SELECT full_name FROM users WHERE id={ph}", (uid,))
+        user_name = (cur.fetchone() or ["�����"])[0]
+        cur.execute(f"SELECT full_name FROM users WHERE id={ph}", (partner_id,))
+        partner_name = (cur.fetchone() or ["�������"])[0]
+        
+        conn.close()
+        
+        result = {
+            "married": True,
+            "partner_id": partner_id,
+            "partner_name": partner_name,
+            "max_level_completed": max_level,
+            "available_levels": list(range(1, max_level + 2)),  # Can challenge next level
+        }
+        
+        if session:
+            # Active session exists
+            session_data = dict(zip([
+                "id", "user_a_id", "user_b_id", "chat_id", "boss_level", "boss_max_hp", "boss_current_hp",
+                "user_a_damage", "user_b_damage", "user_a_hits", "user_b_hits", "user_a_aggro", "user_b_aggro",
+                "is_repeat", "is_completed", "session_date"
+            ], session))
+            
+            hp_pct = (session_data["boss_current_hp"] / session_data["boss_max_hp"]) * 100
+            
+            # Determine which user is A/B
+            if uid == user_a_id:
+                my_damage = session_data["user_a_damage"]
+                my_hits = session_data["user_a_hits"]
+                partner_damage = session_data["user_b_damage"]
+                partner_hits = session_data["user_b_hits"]
+            else:
+                my_damage = session_data["user_b_damage"]
+                my_hits = session_data["user_b_hits"]
+                partner_damage = session_data["user_a_damage"]
+                partner_hits = session_data["user_a_hits"]
+                
+            result.update({
+                "has_active_session": True,
+                "boss_level": session_data["boss_level"],
+                "boss_max_hp": session_data["boss_max_hp"],
+                "boss_current_hp": session_data["boss_current_hp"],
+                "boss_hp_percent": round(hp_pct, 1),
+                "my_damage": my_damage,
+                "my_hits": my_hits,
+                "partner_damage": partner_damage,
+                "partner_hits": partner_hits,
+                "total_damage": my_damage + partner_damage,
+                "is_repeat": session_data["is_repeat"],
+                "resistance_active": session_data["user_a_hits"] > 0 and session_data["user_b_hits"] > 0,
+            })
+        else:
+            result["has_active_session"] = False
+        
+        return JsonResponse(result, json_dumps_params={"ensure_ascii": False}, headers=headers)
+        
+    except Exception as exc:
+        try:
+            conn.close()
+        except Exception:
+            pass
+        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+
+
+@csrf_exempt
+def miniapp_couple_boss_start(request):
+    """"""POST /api/couple_boss/start � start new couple boss session.""""""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=405, headers=headers)
+
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+
+    try:
+        data = json.loads(request.body)
+        chat_id = int(data.get("chat_id", 0))
+        boss_level = int(data.get("boss_level", 1))
+    except Exception:
+        return JsonResponse({"error": "invalid JSON or chat_id/boss_level"}, status=400, headers=headers)
+
+    try:
+        conn, db_type = _get_bot_db_connection()
+        cur = conn.cursor()
+        ph = "%s" if db_type == "pg" else "?"
+        
+        # Check if user is married
+        cur.execute(f"SELECT partner_id FROM marriages WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
+        marriage_row = cur.fetchone()
+        if not marriage_row:
+            conn.close()
+            return JsonResponse({"error": "� ���� ��� �������� ��� ������ ������"}, status=400, headers=headers)
+        
+        partner_id = marriage_row[0]
+        user_a_id = min(uid, partner_id)
+        user_b_id = max(uid, partner_id)
+        
+        # Check if session already exists
+        from datetime import timezone
+        import datetime
+        today = datetime.datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        
+        cur.execute(f""""""SELECT 1 FROM couple_boss_sessions 
+                     WHERE user_a_id={ph} AND user_b_id={ph} AND chat_id={ph} AND session_date={ph} AND is_completed=0"""""", 
+                     (user_a_id, user_b_id, chat_id, today))
+        if cur.fetchone():
+            conn.close()
+            return JsonResponse({"error": "�������� ������ ��� ����������"}, status=400, headers=headers)
+        
+        # Validate boss level
+        if boss_level < 1 or boss_level > 50:  # Reasonable limit
+            conn.close()
+            return JsonResponse({"error": "������������ ������� �����"}, status=400, headers=headers)
+        
+        # Check if level is available (can't skip levels)
+        cur.execute(f"SELECT max_level FROM couple_boss_progress WHERE user_a_id={ph} AND user_b_id={ph} AND chat_id={ph}", 
+                   (user_a_id, user_b_id, chat_id))
+        progress_row = cur.fetchone()
+        max_level = progress_row[0] if progress_row else 0
+        
+        if boss_level > max_level + 1:
+            conn.close()
+            return JsonResponse({"error": f"������� ������ ������� {max_level + 1}"}, status=400, headers=headers)
+        
+        conn.close()
+        
+        # Create session using existing function
+        from database.db import create_couple_boss_session
+        import asyncio
+        
+        session = asyncio.run(create_couple_boss_session(user_a_id, user_b_id, chat_id, boss_level))
+        
+        return JsonResponse({
+            "ok": True,
+            "session_id": session["id"],
+            "boss_level": session["boss_level"],
+            "boss_max_hp": session["boss_max_hp"],
+            "is_repeat": session["is_repeat"],
+        }, json_dumps_params={"ensure_ascii": False}, headers=headers)
+        
+    except Exception as exc:
+        try:
+            conn.close()
+        except Exception:
+            pass
+        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+
+
+@csrf_exempt
+def miniapp_couple_boss_attack(request):
+    """"""POST /api/couple_boss/attack � attack couple boss.""""""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=405, headers=headers)
+
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+
+    try:
+        data = json.loads(request.body)
+        chat_id = int(data.get("chat_id", 0))
+    except Exception:
+        return JsonResponse({"error": "invalid JSON or chat_id"}, status=400, headers=headers)
+
+    try:
+        conn, db_type = _get_bot_db_connection()
+        cur = conn.cursor()
+        ph = "%s" if db_type == "pg" else "?"
+        
+        # Check if user is married
+        cur.execute(f"SELECT partner_id FROM marriages WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
+        marriage_row = cur.fetchone()
+        if not marriage_row:
+            conn.close()
+            return JsonResponse({"error": "� ���� ��� �������� ��� ������ ������"}, status=400, headers=headers)
+        
+        partner_id = marriage_row[0]
+        user_a_id = min(uid, partner_id)
+        user_b_id = max(uid, partner_id)
+        
+        # Get current session
+        from datetime import timezone
+        import datetime
+        today = datetime.datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        
+        cur.execute(f""""""SELECT * FROM couple_boss_sessions 
+                     WHERE user_a_id={ph} AND user_b_id={ph} AND chat_id={ph} AND session_date={ph} AND is_completed=0"""""", 
+                     (user_a_id, user_b_id, chat_id, today))
+        session_row = cur.fetchone()
+        if not session_row:
+            conn.close()
+            return JsonResponse({"error": "��� �������� ������ ������� �����"}, status=400, headers=headers)
+        
+        # Get user's combat stats
+        cur.execute(f""""""SELECT 
+                     COALESCE(SUM(
+                         CASE WHEN gi.slot = 'weapon' OR gi.slot = 'armor' THEN 
+                             CASE WHEN m.atk IS NOT NULL THEN m.atk + (gi.enhancement_level * COALESCE(m.atk, 0) * 0.1) 
+                                  ELSE COALESCE(m.atk, 0) END
+                         ELSE COALESCE(m.atk, 0) END
+                     ), 0) as total_atk,
+                     COALESCE(SUM(
+                         CASE WHEN gi.slot = 'weapon' OR gi.slot = 'armor' THEN 
+                             CASE WHEN m.def_val IS NOT NULL THEN m.def_val + (gi.enhancement_level * COALESCE(m.def_val, 0) * 0.1)
+                                  ELSE COALESCE(m.def_val, 0) END
+                         ELSE COALESCE(m.def_val, 0) END
+                     ), 0) as total_def,
+                     COALESCE(SUM(
+                         CASE WHEN gi.slot = 'weapon' OR gi.slot = 'armor' THEN 
+                             CASE WHEN m.hp IS NOT NULL THEN m.hp + (gi.enhancement_level * COALESCE(m.hp, 0) * 0.1)
+                                  ELSE COALESCE(m.hp, 0) END
+                         ELSE COALESCE(m.hp, 0) END
+                     ), 0) as total_hp,
+                     COALESCE(SUM(COALESCE(m.crit_rate, 0)), 0) as total_crit
+                 FROM gacha_inventory gi
+                 LEFT JOIN item_metadata m ON gi.item_key = m.item_key
+                 WHERE gi.user_id={ph} AND gi.chat_id={ph} AND gi.equipped=1"""""", (uid, chat_id))
+        stats_row = cur.fetchone()
+        user_stats = {
+            "atk": int(stats_row[0]) if stats_row and stats_row[0] else 50,  # Base ATK
+            "def": int(stats_row[1]) if stats_row and stats_row[1] else 20,  # Base DEF
+            "hp": int(stats_row[2]) if stats_row and stats_row[2] else 100,   # Base HP
+            "crit_rate": float(stats_row[3]) if stats_row and stats_row[3] else 0.05  # Base crit
+        }
+        
+        conn.close()
+        
+        # Convert session row to dict
+        session_data = dict(zip([
+            "id", "user_a_id", "user_b_id", "chat_id", "boss_level", "boss_max_hp", "boss_current_hp",
+            "user_a_damage", "user_b_damage", "user_a_hits", "user_b_hits", "user_a_aggro", "user_b_aggro",
+            "is_repeat", "is_completed", "session_date"
+        ], session_row))
+        
+        # Apply damage using existing function
+        from database.db import apply_couple_boss_damage
+        import asyncio
+        import random
+        
+        # Base damage calculation
+        base_damage = random.randint(int(user_stats["atk"] * 0.8), int(user_stats["atk"] * 1.2)) + 50
+        
+        result = asyncio.run(apply_couple_boss_damage(uid, session_data, base_damage, user_stats))
+        
+        response = {
+            "ok": True,
+            "damage_dealt": result["damage_dealt"],
+            "boss_hp": result["boss_hp"],
+            "boss_defeated": result["boss_defeated"],
+            "resistance_active": result["resistance_active"],
+            "crit": result["crit"],
+        }
+        
+        if result["boss_retaliation"]:
+            response["boss_retaliation"] = result["boss_retaliation"]
+            if result["boss_retaliation"]["target"] == uid:
+                response["retaliation_message"] = f"���� �������� ���� �� {result['boss_retaliation']['damage']} �����!"
+            else:
+                response["retaliation_message"] = f"���� �������� ������ �������� �� {result['boss_retaliation']['damage']} �����!"
+        
+        if result["boss_defeated"]:
+            # Calculate rewards
+            from database.db import get_couple_boss_rewards
+            rewards = asyncio.run(get_couple_boss_rewards(session_data))
+            
+            # Give rewards to both players
+            try:
+                conn, db_type = _get_bot_db_connection()
+                cur = conn.cursor()
+                ph = "%s" if db_type == "pg" else "?"
+                
+                # Add mora and XP to both users
+                for player_id in [user_a_id, user_b_id]:
+                    cur.execute(f"INSERT OR REPLACE INTO user_mora (user_id, chat_id, balance) VALUES ({ph}, {ph}, COALESCE((SELECT balance FROM user_mora WHERE user_id={ph} AND chat_id={ph}), 0) + {ph})", 
+                               (player_id, chat_id, player_id, chat_id, rewards["mora_each"]))
+                    cur.execute(f"INSERT OR REPLACE INTO user_stats (user_id, chat_id, xp) VALUES ({ph}, {ph}, COALESCE((SELECT xp FROM user_stats WHERE user_id={ph} AND chat_id={ph}), 0) + {ph})", 
+                               (player_id, chat_id, player_id, chat_id, rewards["xp_each"]))
+                
+                conn.commit()
+                conn.close()
+                
+                response["rewards"] = {
+                    "mora": rewards["mora_each"],
+                    "xp": rewards["xp_each"],
+                    "is_repeat": rewards["is_repeat"],
+                }
+                
+            except Exception as e:
+                response["rewards_error"] = str(e)
+        
+        return JsonResponse(response, json_dumps_params={"ensure_ascii": False}, headers=headers)
+        
+    except Exception as exc:
+        try:
+            conn.close()
+        except Exception:
+            pass
+        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+

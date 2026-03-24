@@ -127,14 +127,14 @@ async def cmd_boss(message: Message, cmd_args: str):
             await message.answer(f"⏳ Следующая атака через <b>{wait} сек.</b>", parse_mode="HTML")
             return
 
-        dmg = _calc_damage(atk=100, crit_rate=0.05)
+        dmg = _calc_damage(atk=150, crit_rate=0.08)  # РЕБАЛАНС: было atk=100, crit=0.05
         new_hp = apply_damage(chat_id, dmg)
         _attack_cooldown[cooldown_key] = now
 
         # Сохранить в буфер
         buffer_damage(uid, chat_id, dmg)
 
-        reward = max(5, dmg // 20)
+        reward = max(15, dmg // 15)  # РЕБАЛАНС: было max(5, dmg // 20)
         await add_mora(uid, chat_id, reward)
 
         bar = _hp_bar(new_hp)

@@ -737,6 +737,43 @@ async def init_db():
                 session_date TEXT    NOT NULL
             )
         """)
+        
+        # ─── Парные Боссы (для пар в браке) ─────────────────────────────
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS couple_boss_sessions (
+                id             INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_a_id      INTEGER NOT NULL,
+                user_b_id      INTEGER NOT NULL,
+                chat_id        INTEGER NOT NULL,
+                boss_level     INTEGER DEFAULT 1,
+                boss_max_hp    INTEGER NOT NULL,
+                boss_current_hp INTEGER NOT NULL,
+                user_a_damage  INTEGER DEFAULT 0,
+                user_b_damage  INTEGER DEFAULT 0,
+                user_a_hits    INTEGER DEFAULT 0,
+                user_b_hits    INTEGER DEFAULT 0,
+                user_a_aggro   INTEGER DEFAULT 0,
+                user_b_aggro   INTEGER DEFAULT 0,
+                is_completed   INTEGER DEFAULT 0,
+                is_repeat      INTEGER DEFAULT 0,
+                session_date   TEXT    NOT NULL,
+                completed_at   TEXT    DEFAULT NULL,
+                UNIQUE(user_a_id, user_b_id, chat_id, session_date)
+            )
+        """)
+        
+        # ─── Прогресс парных боссов (максимальный пройденный уровень) ─
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS couple_boss_progress (
+                user_a_id      INTEGER NOT NULL,
+                user_b_id      INTEGER NOT NULL,
+                chat_id        INTEGER NOT NULL,
+                max_level      INTEGER DEFAULT 0,
+                last_completed TEXT    DEFAULT NULL,
+                PRIMARY KEY (user_a_id, user_b_id, chat_id)
+            )
+        """)
+        
         await db.execute("""
             CREATE TABLE IF NOT EXISTS bond_price_history (
                 id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -750,10 +787,10 @@ async def init_db():
             CREATE TABLE IF NOT EXISTS user_rpg_stats (
                 user_id     INTEGER NOT NULL,
                 chat_id     INTEGER NOT NULL,
-                base_hp     INTEGER DEFAULT 100,
-                base_atk    INTEGER DEFAULT 50,
-                base_def    INTEGER DEFAULT 20,
-                base_crit   REAL    DEFAULT 0.05,
+                base_hp     INTEGER DEFAULT 150,  -- РЕБАЛАНС: было 100
+                base_atk    INTEGER DEFAULT 75,   -- РЕБАЛАНС: было 50
+                base_def    INTEGER DEFAULT 30,   -- РЕБАЛАНС: было 20
+                base_crit   REAL    DEFAULT 0.08, -- РЕБАЛАНС: было 0.05
                 weapon_id   INTEGER DEFAULT NULL,
                 armor_id    INTEGER DEFAULT NULL,
                 artifact_id INTEGER DEFAULT NULL,
@@ -855,6 +892,12 @@ async def init_db():
             ("daily_checkin",      "chat_id"),
             ("boss_damage_log",    "user_id"),
             ("boss_damage_log",    "chat_id"),
+            ("couple_boss_sessions", "user_a_id"),
+            ("couple_boss_sessions", "user_b_id"),
+            ("couple_boss_sessions", "chat_id"),
+            ("couple_boss_progress", "user_a_id"),
+            ("couple_boss_progress", "user_b_id"),
+            ("couple_boss_progress", "chat_id"),
         ]
         for _tbl, _col in _bigint_migrations:
             try:
@@ -4340,7 +4383,7 @@ async def get_rpg_stats(user_id: int, chat_id: int) -> dict:
         ) as c:
             row = await c.fetchone()
         base = dict(row) if row else {
-            "base_hp": 100, "base_atk": 50, "base_def": 20, "base_crit": 0.05,
+            "base_hp": 150, "base_atk": 75, "base_def": 30, "base_crit": 0.08,  # РЕБАЛАНС: увеличены базовые статы
             "weapon_id": None, "armor_id": None, "artifact_id": None,
         }
         # Sum bonuses from equipped gacha items
@@ -4758,9 +4801,9 @@ async def enhance_item(user_id: int, chat_id: int, item_id: int) -> tuple[bool, 
         if current_level >= 20:
             return False, "Максимальный уровень заточки (20)", current_level
         
-        # Enhancement cost grows geometrically
-        base_cost = 100
-        cost = int(base_cost * (1.5 ** current_level))
+        # Enhancement cost grows geometrically [РЕБАЛАНС: снижена цена и уменьшена экспонента]
+        base_cost = 80  # было 100
+        cost = int(base_cost * (1.3 ** current_level))  # было 1.5
         
         # Check mora balance
         async with db.execute(
@@ -4773,11 +4816,11 @@ async def enhance_item(user_id: int, chat_id: int, item_id: int) -> tuple[bool, 
         if balance < cost:
             return False, f"Недостаточно Моры ({balance}/{cost} 🪙)", current_level
         
-        # Calculate success chance (guaranteed until +5, then starts failing)
-        if current_level < 5:
+        # Calculate success chance [РЕБАЛАНС: провал с +7 (было +5), меньше штраф за уровень]
+        if current_level < 7:  # было 5
             success_rate = 1.0
         else:
-            success_rate = max(0.3, 1.0 - (current_level - 4) * 0.1)  # 90%, 80%, 70%...30% min
+            success_rate = max(0.3, 1.0 - (current_level - 6) * 0.08)  # было: (current_level - 4) * 0.1
         
         # Deduct mora regardless of outcome
         await db.execute(
@@ -4918,3 +4961,225 @@ async def batch_sell_items(user_id: int, chat_id: int, item_ids: list[int]) -> t
         await db.commit()
     
     return sold_count, total_mora
+
+# --- Couple Boss System (Married Pairs) --------------------------------------
+
+async def get_couple_boss_session(user_a_id: int, user_b_id: int, chat_id: int) -> dict | None:
+    """"""Get active couple boss session for married pair.""""""
+    from datetime import timezone
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    
+    # Ensure user_a_id < user_b_id for consistency
+    if user_a_id > user_b_id:
+        user_a_id, user_b_id = user_b_id, user_a_id
+    
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            """"""SELECT * FROM couple_boss_sessions 
+               WHERE user_a_id=? AND user_b_id=? AND chat_id=? AND session_date=? AND is_completed=0"""""",
+            (user_a_id, user_b_id, chat_id, today),
+        ) as c:
+            row = await c.fetchone()
+    return dict(row) if row else None
+
+
+async def create_couple_boss_session(user_a_id: int, user_b_id: int, chat_id: int, boss_level: int = 1) -> dict:
+    """"""Create new couple boss session.""""""
+    from datetime import timezone
+    import random
+    
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    
+    # Ensure user_a_id < user_b_id for consistency
+    if user_a_id > user_b_id:
+        user_a_id, user_b_id = user_b_id, user_a_id
+        
+    # Boss HP scales with level: base 500k + 250k per level
+    boss_max_hp = 500_000 + (boss_level - 1) * 250_000
+    
+    # Check if this is a repeat (already cleared this level today)
+    progress = await get_couple_boss_progress(user_a_id, user_b_id, chat_id)
+    is_repeat = progress and progress.get("max_level", 0) >= boss_level
+    
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        await db.execute(
+            """"""INSERT INTO couple_boss_sessions 
+               (user_a_id, user_b_id, chat_id, boss_level, boss_max_hp, boss_current_hp, 
+                is_repeat, session_date)
+               VALUES (?,?,?,?,?,?,?,?)"""""",
+            (user_a_id, user_b_id, chat_id, boss_level, boss_max_hp, boss_max_hp, 
+             1 if is_repeat else 0, today),
+        )
+        await db.commit()
+        session_id = db.lastrowid
+    
+    return {
+        "id": session_id,
+        "user_a_id": user_a_id,
+        "user_b_id": user_b_id,
+        "chat_id": chat_id,
+        "boss_level": boss_level,
+        "boss_max_hp": boss_max_hp,
+        "boss_current_hp": boss_max_hp,
+        "user_a_damage": 0,
+        "user_b_damage": 0,
+        "user_a_hits": 0,
+        "user_b_hits": 0,
+        "user_a_aggro": 0,
+        "user_b_aggro": 0,
+        "is_repeat": is_repeat,
+        "is_completed": 0,
+    }
+
+
+async def apply_couple_boss_damage(user_id: int, session: dict, damage: int, user_stats: dict = None) -> dict:
+    """"""Apply damage to couple boss and handle aggro system.""""""
+    import random
+    
+    session_id = session["id"]
+    user_a_id = session["user_a_id"]
+    user_b_id = session["user_b_id"]
+    
+    # Determine which user is attacking
+    is_user_a = (user_id == user_a_id)
+    
+    # Get user's combat stats from RPG system
+    total_atk = (user_stats.get("atk", 0) if user_stats else 0) if user_stats else 0
+    total_crit_rate = (user_stats.get("crit_rate", 0.0) if user_stats else 0.0) if user_stats else 0.0
+    
+    # Calculate actual damage with crit chance
+    base_damage = damage
+    if random.random() < total_crit_rate:
+        base_damage = int(base_damage * 1.5)
+        
+    # Apply resistance if both players are active (hit within last 5 minutes)
+    resistance = 1.0
+    if session["user_a_hits"] > 0 and session["user_b_hits"] > 0:
+        # Both partners active - boss gets 25% resistance
+        resistance = 0.75
+        
+    actual_damage = int(base_damage * resistance)
+    
+    # Update boss HP
+    new_hp = max(0, session["boss_current_hp"] - actual_damage)
+    is_defeated = (new_hp == 0)
+    
+    # Update user's stats
+    if is_user_a:
+        new_a_damage = session["user_a_damage"] + actual_damage
+        new_a_hits = session["user_a_hits"] + 1
+        new_a_aggro = session["user_a_aggro"] + 1
+        
+        # Check for aggro trigger (3-8 hits)
+        boss_retaliation = None
+        if new_a_aggro >= random.randint(3, 8):
+            # Boss attacks user A
+            boss_damage = random.randint(50, 150) + session["boss_level"] * 10
+            boss_retaliation = {"target": user_a_id, "damage": boss_damage}
+            new_a_aggro = 0  # Reset aggro
+            
+        user_values = (new_a_damage, new_a_hits, new_a_aggro, session["user_b_damage"], 
+                      session["user_b_hits"], session["user_b_aggro"])
+    else:
+        new_b_damage = session["user_b_damage"] + actual_damage
+        new_b_hits = session["user_b_hits"] + 1
+        new_b_aggro = session["user_b_aggro"] + 1
+        
+        # Check for aggro trigger (3-8 hits)
+        boss_retaliation = None
+        if new_b_aggro >= random.randint(3, 8):
+            # Boss attacks user B
+            boss_damage = random.randint(50, 150) + session["boss_level"] * 10
+            boss_retaliation = {"target": user_b_id, "damage": boss_damage}
+            new_b_aggro = 0  # Reset aggro
+            
+        user_values = (session["user_a_damage"], session["user_a_hits"], session["user_a_aggro"],
+                      new_b_damage, new_b_hits, new_b_aggro)
+    
+    # Update database
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        await db.execute(
+            """"""UPDATE couple_boss_sessions SET 
+               boss_current_hp=?, user_a_damage=?, user_a_hits=?, user_a_aggro=?,
+               user_b_damage=?, user_b_hits=?, user_b_aggro=?, is_completed=?,
+               completed_at=CASE WHEN ? THEN datetime('now') ELSE completed_at END
+               WHERE id=?"""""",
+            (new_hp, *user_values, 1 if is_defeated else 0, is_defeated, session_id),
+        )
+        
+        # If boss defeated, update progress
+        if is_defeated:
+            await update_couple_boss_progress(user_a_id, user_b_id, session["chat_id"], session["boss_level"])
+            
+        await db.commit()
+    
+    return {
+        "damage_dealt": actual_damage,
+        "boss_hp": new_hp,
+        "boss_defeated": is_defeated,
+        "boss_retaliation": boss_retaliation,
+        "resistance_active": resistance < 1.0,
+        "crit": base_damage != damage,
+    }
+
+
+async def get_couple_boss_progress(user_a_id: int, user_b_id: int, chat_id: int) -> dict | None:
+    """"""Get couple's boss progress (max level completed).""""""
+    # Ensure user_a_id < user_b_id for consistency
+    if user_a_id > user_b_id:
+        user_a_id, user_b_id = user_b_id, user_a_id
+        
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT * FROM couple_boss_progress WHERE user_a_id=? AND user_b_id=? AND chat_id=?",
+            (user_a_id, user_b_id, chat_id),
+        ) as c:
+            row = await c.fetchone()
+    return dict(row) if row else None
+
+
+async def update_couple_boss_progress(user_a_id: int, user_b_id: int, chat_id: int, completed_level: int):
+    """"""Update couple's maximum completed boss level.""""""
+    from datetime import timezone
+    
+    # Ensure user_a_id < user_b_id for consistency
+    if user_a_id > user_b_id:
+        user_a_id, user_b_id = user_b_id, user_a_id
+        
+    now = datetime.now(timezone.utc).isoformat()
+    
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        await db.execute(
+            """"""INSERT INTO couple_boss_progress (user_a_id, user_b_id, chat_id, max_level, last_completed)
+               VALUES (?,?,?,?,?)
+               ON CONFLICT(user_a_id, user_b_id, chat_id) DO UPDATE SET
+               max_level=MAX(max_level, excluded.max_level),
+               last_completed=excluded.last_completed"""""",
+            (user_a_id, user_b_id, chat_id, completed_level, now),
+        )
+        await db.commit()
+
+
+async def get_couple_boss_rewards(session: dict) -> dict:
+    """"""Calculate rewards for couple boss completion.""""""
+    boss_level = session["boss_level"]
+    is_repeat = session["is_repeat"]
+    
+    # Base rewards scale with boss level
+    base_mora_each = 200 + (boss_level - 1) * 100
+    base_xp_each = 150 + (boss_level - 1) * 75
+    
+    # Repeat runs give only 25% rewards
+    if is_repeat:
+        base_mora_each = int(base_mora_each * 0.25)
+        base_xp_each = int(base_xp_each * 0.25)
+    
+    return {
+        "mora_each": base_mora_each,
+        "xp_each": base_xp_each,
+        "is_repeat": is_repeat,
+        "level": boss_level,
+    }
+
