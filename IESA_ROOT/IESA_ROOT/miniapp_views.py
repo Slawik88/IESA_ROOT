@@ -9,6 +9,7 @@ Routes:
 import hashlib
 import hmac
 import json
+import math
 import os
 import sqlite3
 from pathlib import Path
@@ -23,6 +24,16 @@ _BOT_DIR = Path(__file__).resolve().parent.parent.parent / "PredvestnikBot"
 _INDEX_HTML = _BOT_DIR / "web" / "index.html"
 _BOT_DB_URL = os.environ.get("PREDVESTNIK_DATABASE_URL", "")
 _BOT_TOKEN = os.environ.get("PREDVESTNIK_BOT_TOKEN") or os.environ.get("BOT_TOKEN", "")
+
+
+def _xp_for_level(level: int) -> int:
+    return level * (level - 1) * 100
+
+
+def _level_for_xp(xp: int) -> int:
+    if xp < 200:
+        return 1
+    return max(1, int((1 + math.sqrt(1 + xp / 25)) / 2))
 
 
 def _validate_init_data(init_data: str) -> int | None:
@@ -178,20 +189,21 @@ def miniapp_user_data(request):
         else:
             chat_id, balance, vip, top_frame, active_theme = 0, 0, 0, None, None
 
-        # XP: scope to same chat when possible
+        # XP + level: scope to same chat when possible
         if specific_chat_id or chat_id:
             effective_cid = specific_chat_id or chat_id
             cur.execute(
-                f"SELECT xp FROM user_stats WHERE user_id={ph} AND chat_id={ph}",
+                f"SELECT xp, COALESCE(level, 1) FROM user_stats WHERE user_id={ph} AND chat_id={ph}",
                 (uid, effective_cid),
             )
         else:
             cur.execute(
-                f"SELECT xp FROM user_stats WHERE user_id={ph} ORDER BY xp DESC LIMIT 1",
+                f"SELECT xp, COALESCE(level, 1) FROM user_stats WHERE user_id={ph} ORDER BY xp DESC LIMIT 1",
                 (uid,),
             )
         xp_row = cur.fetchone()
         xp = xp_row[0] if xp_row else 0
+        db_level = xp_row[1] if xp_row else 1
 
         # Bonds
         bonds_data = []
@@ -268,6 +280,7 @@ def miniapp_user_data(request):
         family_balance = 0
         my_family_balance = 0
         has_partner = False
+        partner_name = None
         if chat_id:
             cur.execute(
                 f"SELECT partner_id FROM marriages WHERE user_id={ph} AND chat_id={ph}",
@@ -277,6 +290,9 @@ def miniapp_user_data(request):
             has_partner = m_row is not None
             if has_partner:
                 partner_id = m_row[0]
+                cur.execute(f"SELECT full_name FROM users WHERE user_id={ph}", (partner_id,))
+                pn_row = cur.fetchone()
+                partner_name = pn_row[0] if pn_row else None
                 cur.execute(
                     f"SELECT COALESCE(balance,0) FROM family_wallet WHERE chat_id={ph} AND user_id={ph}",
                     (chat_id, uid),
@@ -304,12 +320,29 @@ def miniapp_user_data(request):
             )
             pity = (cur.fetchone() or [0])[0]
 
+        # Streak from daily_checkin
+        streak = 0
+        if chat_id:
+            cur.execute(
+                f"SELECT streak FROM daily_checkin WHERE user_id={ph} AND chat_id={ph}",
+                (uid, chat_id),
+            )
+            str_row = cur.fetchone()
+            streak = str_row[0] if str_row else 0
+
         conn.close()
 
+        computed_level = db_level if db_level > 1 else _level_for_xp(xp)
+        xp_max = _xp_for_level(computed_level + 1)
+
         payload = {
+            "uid": uid,
+            "chat_id": chat_id,
             "name": full_name,
             "balance": balance,
             "xp": xp,
+            "level": computed_level,
+            "xp_max": xp_max,
             "vip": bool(vip),
             "active_frame": top_frame or "default",
             "active_theme": active_theme or "default",
@@ -320,7 +353,9 @@ def miniapp_user_data(request):
             "family_balance": family_balance,
             "my_family_balance": my_family_balance,
             "has_partner": has_partner,
+            "partner_name": partner_name,
             "pity": pity,
+            "streak": streak,
         }
         return JsonResponse(payload, json_dumps_params={"ensure_ascii": False},
                             headers=headers)
@@ -373,6 +408,13 @@ def miniapp_leaderboard(request):
                 f"WHERE b.chat_id={ph} GROUP BY b.user_id ORDER BY SUM(b.damage) DESC LIMIT 20",
                 (chat_id,),
             )
+        elif lb_type == "mora":
+            cur.execute(
+                f"SELECT m.user_id, u.full_name, m.balance "
+                f"FROM user_mora m LEFT JOIN users u ON u.user_id=m.user_id "
+                f"WHERE m.chat_id={ph} ORDER BY m.balance DESC LIMIT 20",
+                (chat_id,),
+            )
         else:  # xp
             cur.execute(
                 f"SELECT s.user_id, u.full_name, s.xp "
@@ -406,6 +448,16 @@ def miniapp_leaderboard(request):
                     )
                     rank_row = cur.fetchone()
                     cur.execute(f"SELECT COALESCE(message_count,0) FROM user_stats WHERE user_id={ph} AND chat_id={ph}", (uid_lb, chat_id))
+                    score_row = cur.fetchone()
+                    user_rank_data = {"rank": rank_row[0] if rank_row else 0, "score": score_row[0] if score_row else 0}
+                elif lb_type == "mora":
+                    cur.execute(
+                        f"SELECT COUNT(*)+1 FROM user_mora WHERE chat_id={ph} AND balance > "
+                        f"  COALESCE((SELECT balance FROM user_mora WHERE user_id={ph} AND chat_id={ph}),0)",
+                        (chat_id, uid_lb, chat_id),
+                    )
+                    rank_row = cur.fetchone()
+                    cur.execute(f"SELECT COALESCE(balance,0) FROM user_mora WHERE user_id={ph} AND chat_id={ph}", (uid_lb, chat_id))
                     score_row = cur.fetchone()
                     user_rank_data = {"rank": rank_row[0] if rank_row else 0, "score": score_row[0] if score_row else 0}
                 else:  # xp
@@ -883,8 +935,10 @@ def miniapp_bonds(request):
         for bk in _BOND_KEYS:
             current_price = price_map.get(bk, {}).get("price", 100)
             holding = holdings.get(bk, {"amount": 0, "invested": 0})
+            bname = _BOND_DEFAULTS_SYNC.get(bk, {}).get("name", bk)
             bonds_out.append({
                 "key": bk,
+                "name": bname,
                 "price": current_price,
                 "amount": holding["amount"],
                 "invested": holding["invested"],
@@ -1057,9 +1111,9 @@ def miniapp_dev_setbalance(request):
 
     try:
         body = json.loads(request.body)
-        target_id = int(body.get("target_id", 0))
+        target_id = int(body.get("target_id", 0) or body.get("target_uid", 0))
         chat_id = int(str(body.get("chat_id", "0")))
-        balance = int(body.get("balance", 0))
+        balance = int(body.get("balance", 0) or body.get("amount", 0))
     except (json.JSONDecodeError, ValueError, AttributeError):
         return JsonResponse({"error": "invalid JSON"}, status=400, headers=headers)
 
@@ -1117,7 +1171,7 @@ def miniapp_dev_add_mora(request):
 
     try:
         body = json.loads(request.body)
-        target_id = int(body.get("target_id", 0))
+        target_id = int(body.get("target_id", 0) or body.get("target_uid", 0))
         chat_id = int(str(body.get("chat_id", "0")))
         amount = int(body.get("amount", 0))
     except Exception:
@@ -1153,7 +1207,7 @@ def miniapp_dev_add_mora(request):
         new_bal = (cur.fetchone() or [0])[0]
         conn.commit()
         conn.close()
-        return JsonResponse({"ok": True, "target_id": target_id, "balance": new_bal}, headers=headers)
+        return JsonResponse({"ok": True, "target_id": target_id, "new_balance": new_bal}, headers=headers)
     except Exception as exc:
         try:
             conn.close()
@@ -1181,7 +1235,7 @@ def miniapp_dev_add_xp(request):
 
     try:
         body = json.loads(request.body)
-        target_id = int(body.get("target_id", 0))
+        target_id = int(body.get("target_id", 0) or body.get("target_uid", 0))
         chat_id = int(str(body.get("chat_id", "0")))
         amount = int(body.get("amount", 0))
     except Exception:
@@ -1211,13 +1265,17 @@ def miniapp_dev_add_xp(request):
                 (target_id, chat_id, amount, amount),
             )
         cur.execute(
-            f"SELECT xp FROM user_stats WHERE user_id={ph} AND chat_id={ph}",
+            f"SELECT xp, COALESCE(level, 1) FROM user_stats WHERE user_id={ph} AND chat_id={ph}",
             (target_id, chat_id),
         )
-        new_xp = (cur.fetchone() or [0])[0]
+        row = cur.fetchone()
+        new_xp = row[0] if row else 0
+        new_level = row[1] if row else 1
+        if new_level <= 1:
+            new_level = _level_for_xp(new_xp)
         conn.commit()
         conn.close()
-        return JsonResponse({"ok": True, "target_id": target_id, "xp": new_xp}, headers=headers)
+        return JsonResponse({"ok": True, "target_id": target_id, "xp": new_xp, "new_level": new_level}, headers=headers)
     except Exception as exc:
         try:
             conn.close()
@@ -1245,7 +1303,7 @@ def miniapp_dev_give_item(request):
 
     try:
         body = json.loads(request.body)
-        target_id = int(body.get("target_id", 0))
+        target_id = int(body.get("target_id", 0) or body.get("target_uid", 0))
         chat_id = int(str(body.get("chat_id", "0")))
         item_name = str(body.get("item_name", "")).strip()
         rarity = str(body.get("rarity", "rare")).strip().lower()
