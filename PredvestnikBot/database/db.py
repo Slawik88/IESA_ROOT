@@ -2,7 +2,7 @@
 import math
 from datetime import datetime, timedelta, date, timezone
 
-from database.postgres import connect as postgres_connect, ddl_connect
+from database.postgres import connect as postgres_connect, ddl_connect, get_pg_pool
 
 
 async def init_db():
@@ -1527,15 +1527,35 @@ async def get_active_chats():
         ) as cursor:
             return await cursor.fetchall()
 
+
+# ─── Simple TTL cache for chat_settings ──────────────────────────────────────
+# Called on every Telegram message in the middleware — one DB round-trip per
+# message was expensive.  We keep a 60-second in-memory cache per chat_id.
+import time as _time
+_chat_settings_cache: dict[int, tuple[float, object]] = {}
+_CHAT_SETTINGS_TTL = 60.0  # seconds
+
+
+def _invalidate_chat_settings(chat_id: int) -> None:
+    """Drop the cached entry so the next read hits the DB."""
+    _chat_settings_cache.pop(chat_id, None)
+
+
 async def get_chat_settings(chat_id: int):
+    now = _time.monotonic()
+    cached = _chat_settings_cache.get(chat_id)
+    if cached and now - cached[0] < _CHAT_SETTINGS_TTL:
+        return cached[1]
     async with postgres_connect() as db:
         async with db.execute(
             "SELECT * FROM chat_settings WHERE chat_id = ?", (chat_id,)
         ) as cursor:
-            return await cursor.fetchone()
+            row = await cursor.fetchone()
+    _chat_settings_cache[chat_id] = (now, row)
+    return row
 
 
-# Допустимые колонки для защиты от SQL-инъекции
+# ─── Допустимые колонки для защиты от SQL-инъекции ───────────────────────────
 _ALLOWED_CHAT_SETTING_KEYS = {
     "welcome_text", "farewell_text", "rules_text",
     "antiflood_enabled", "antiflood_limit", "antiflood_action", "antiflood_window",
@@ -1559,6 +1579,7 @@ async def set_chat_setting(chat_id: int, key: str, value):
             f"UPDATE chat_settings SET {key} = ? WHERE chat_id = ?", (value, chat_id)
         )
         await db.commit()
+    _invalidate_chat_settings(chat_id)
 
 
 async def get_locked_chats() -> list[int]:
@@ -2259,6 +2280,39 @@ async def increment_message_count_chat(user_id: int, chat_id: int) -> int:
         ) as c:
             row = await c.fetchone()
             return row[0] if row else 1
+
+
+async def batch_increment_message_counts(counts: dict) -> None:
+    """Batch-update message_count for multiple (user_id, chat_id) pairs.
+
+    Uses PostgreSQL unnest() to perform a single UPDATE round-trip instead of
+    one query per message — the core of the Phase-2 batch-write optimisation.
+
+    counts: dict[(user_id, chat_id) → delta]
+    """
+    if not counts:
+        return
+    now = datetime.now(timezone.utc)
+    user_ids: list[int] = []
+    chat_ids: list[int] = []
+    deltas: list[int]   = []
+    for (uid, cid), delta in counts.items():
+        user_ids.append(uid)
+        chat_ids.append(cid)
+        deltas.append(delta)
+    pool = await get_pg_pool()
+    async with pool.acquire() as conn:
+        await conn.execute(
+            """UPDATE user_stats
+                  SET message_count = message_count + v.delta,
+                      last_active   = $4
+               FROM (SELECT unnest($1::bigint[])  AS user_id,
+                            unnest($2::bigint[])  AS chat_id,
+                            unnest($3::integer[]) AS delta) AS v
+               WHERE user_stats.user_id = v.user_id
+                 AND user_stats.chat_id = v.chat_id""",
+            user_ids, chat_ids, deltas, now,
+        )
 
 
 async def set_rank_in_chat(user_id: int, chat_id: int, rank: str):
@@ -3186,7 +3240,16 @@ async def get_banned_in_chat(chat_id: int):
             return await c.fetchall()
 
 
-async def get_top_by_messages_in_chat(chat_id: int, limit: int = 10):
+async def get_top_by_messages_in_chat(
+    chat_id: int,
+    limit: int = 10,
+    pending: "dict | None" = None,
+):
+    """Return top users sorted by message_count.
+
+    If *pending* is provided (a snapshot from services.message_buffer.get_all_pending()),
+    unsaved in-memory counts are merged before sorting so the top is always up-to-date.
+    """
     async with postgres_connect() as db:
         async with db.execute(
             """SELECT us.*, u.full_name, u.username
@@ -3196,7 +3259,28 @@ async def get_top_by_messages_in_chat(chat_id: int, limit: int = 10):
                ORDER BY us.message_count DESC LIMIT ?""",
             (chat_id, limit),
         ) as c:
-            return await c.fetchall()
+            rows = await c.fetchall()
+
+    if not pending:
+        return rows
+
+    # Merge pending counts into the result set (Smart Top)
+    # Build a mutable dict for fast lookup: user_id → mutable copy
+    mutable: dict[int, dict] = {}
+    for row in rows:
+        uid = row["user_id"]
+        mutable[uid] = dict(row)
+
+    for (uid, cid), delta in pending.items():
+        if cid != chat_id or delta <= 0:
+            continue
+        if uid in mutable:
+            mutable[uid]["message_count"] = (mutable[uid]["message_count"] or 0) + delta
+        # Users not in rows yet (count was 0) are ignored — they'll appear after the
+        # next flush once the DB row exists.
+
+    merged = sorted(mutable.values(), key=lambda r: r["message_count"], reverse=True)
+    return merged[:limit]
 
 
 async def get_top_by_xp_in_chat(chat_id: int, limit: int = 10):

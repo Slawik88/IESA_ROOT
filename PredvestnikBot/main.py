@@ -129,6 +129,19 @@ async def main():
                 logging.warning("boss flush error: %s", _e)
     asyncio.create_task(_boss_flush_loop())
 
+    # Message counter batch flush (every 3 minutes)
+    async def _msg_buffer_flush_loop():
+        from services.message_buffer import flush_buffer as _flush_msg
+        while True:
+            await asyncio.sleep(180)
+            try:
+                n = await _flush_msg()
+                if n:
+                    logging.debug("msg_buffer: flushed %d entries", n)
+            except Exception as _e:
+                logging.warning("msg_buffer flush error: %s", _e)
+    asyncio.create_task(_msg_buffer_flush_loop())
+
     # Mini App веб-сервер (aiohttp)
     asyncio.create_task(_run_webserver(bot))
 
