@@ -66,16 +66,18 @@ async def deduct_wallet(uid: int, chat_id: int, amount: int, wallet: str) -> tup
     """Списать amount из указанного кошелька.
     wallet: 'personal' | 'family'.
     Возвращает (ok, new_balance).
-    Для семейного кошелька: проверяет СУММАРНЫЙ баланс обоих партнёров.
+
+    Thin wrapper around economy_service.process_payment for backward compatibility.
     """
-    if wallet == "family":
-        total_bal, my_bal, partner_id = await get_total_family_balance(chat_id, uid)
-        if total_bal < amount:
-            return False, total_bal
-        new_total = await deduct_family_pool(chat_id, uid, partner_id, amount)
-        return True, new_total
-    # personal
-    return await deduct_mora(uid, chat_id, amount)
+    from services.economy_service import process_payment
+    from services.exceptions import NotEnoughMoraError, NotMarriedError
+    try:
+        new_bal = await process_payment(uid, chat_id, amount, wallet_type=wallet)
+        return True, new_bal
+    except (NotEnoughMoraError, NotMarriedError) as e:
+        # Return current balance on failure
+        have = getattr(e, "have", 0)
+        return False, have
 
 
 # ─── Рамки профиля в топе ─────────────────────────────────────────────────────
