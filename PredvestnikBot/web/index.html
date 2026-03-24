@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"/>
 <title>Предвестник</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
 :root{--bg:#0f1117;--bg2:#1a1d2e;--bg3:#252840;--accent:#7c6af7;--accent2:#a855f7;--gold:#f4c542;--green:#22c55e;--red:#ef4444;--red2:#dc2626;--text:#e2e8f0;--text2:#94a3b8;--border:#2d3151;--card:#1e2138;--radius:12px}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -91,23 +92,95 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 .subtabs{display:flex;gap:6px;margin-bottom:12px;border-bottom:1px solid var(--border);padding-bottom:8px}
 .subtab-btn{padding:5px 12px;border:none;background:var(--bg3);color:var(--text2);border-radius:20px;cursor:pointer;font-size:12px;font-weight:600}
 .subtab-btn.active{background:var(--accent);color:#fff}
-.inv-item{display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--bg2);border-radius:8px;margin-bottom:6px}
+.inv-item{display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--bg2);border-radius:8px;margin-bottom:6px;position:relative}
 .inv-item .ii-emoji{font-size:22px;min-width:30px;text-align:center}
 .inv-item .ii-info{flex:1}
 .inv-item .ii-info .ii-name{font-size:13px;font-weight:600}
 .inv-item .ii-info .ii-rarity{font-size:11px;color:var(--text2)}
+/* Inventory item selection */
+.inv-item-select{position:absolute;top:8px;left:8px;width:18px;height:18px;z-index:10}
+.inv-item.selectable{padding-left:36px}
+.inv-item.selected{background:rgba(124,106,247,.15);border:1px solid var(--accent)}
+/* Enhancement level badge */
+.enhance-level{display:inline-block;background:var(--gold);color:#000;font-size:10px;font-weight:800;padding:2px 6px;border-radius:10px;margin-left:6px}
+/* Enhancement cost display */
+.enhance-cost{font-size:10px;color:var(--text2);margin-top:2px}
+.enhance-success{color:var(--green)}
+.enhance-danger{color:var(--red)}
+/* Potion buff effects */
+.buff-item{display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:12px}
+.buff-name{color:var(--green);font-weight:600}
+.buff-time{color:var(--text2);font-size:10px}
+/* Batch sell controls */
+.selected-count{font-weight:700;color:var(--accent)}
+.sell-value{font-weight:700;color:var(--gold)}
 /* Bond chart */
-.bond-chart{height:50px;background:var(--bg3);border-radius:8px;overflow:hidden;position:relative;margin:8px 0}
-.bond-chart-line{position:absolute;bottom:0;left:0;right:0;top:0;display:flex;align-items:flex-end;gap:2px;padding:2px}
-.bond-bar{flex:1;background:linear-gradient(0deg,var(--accent),var(--accent2));border-radius:2px 2px 0 0;min-height:4px}
+.bond-canvas-wrap{height:70px;margin:6px 0;position:relative;background:var(--bg3);border-radius:8px;overflow:hidden}
 /* Dev */
 .dev-stat{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px}
 .dev-stat:last-child{border:none}
 .dev-stat .dv{font-weight:700;color:var(--gold)}
+/* Dev user picker */
+.dev-search-wrap{position:relative;margin-bottom:8px}
+.dev-search-wrap input{padding-right:32px}
+.dev-dropdown{position:absolute;top:100%;left:0;right:0;background:var(--bg2);border:1px solid var(--border);border-radius:0 0 8px 8px;max-height:180px;overflow-y:auto;z-index:200;display:none}
+.dev-dropdown.open{display:block}
+.dev-dd-item{padding:8px 10px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--border)}
+.dev-dd-item:last-child{border:none}
+.dev-dd-item:hover{background:var(--bg3)}
+.dev-dd-item .dd-uid{font-size:11px;color:var(--text2);margin-left:6px}
+/* Highlighted selected user badge */
+.dev-sel-badge{display:none;align-items:center;gap:8px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px 10px;font-size:13px;margin-bottom:10px}
+.dev-sel-badge.show{display:flex}
+.dev-sel-badge-clear{margin-left:auto;cursor:pointer;color:var(--text2);font-size:16px;line-height:1}
+/* Chat list */
+.dev-chat-row{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);cursor:pointer;font-size:13px}
+.dev-chat-row:last-child{border:none}
+.dev-chat-row:hover .dev-chat-title{color:var(--gold)}
+.dev-chat-badge{font-size:10px;padding:2px 6px;border-radius:10px;background:var(--bg3);color:var(--text2)}
+.dev-chat-badge.group{background:#1e3a5f;color:#60a5fa}
+/* Member table */
+.dev-member-row{display:grid;grid-template-columns:1fr auto auto;gap:6px;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px}
+.dev-member-row:last-child{border:none}
+.dev-rank-badge{font-size:10px;padding:1px 5px;border-radius:8px;background:var(--bg3)}
+/* Banlist */
+.dev-ban-row{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px}
+.dev-ban-row:last-child{border:none}
+.dev-ban-unban{cursor:pointer;color:#f87171;font-size:15px;margin-left:auto}
+/* Event buttons */
+.dev-event-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:8px}
+.dev-event-btn{padding:10px 6px;border-radius:10px;background:var(--bg3);border:1px solid var(--border);font-size:18px;text-align:center;cursor:pointer;transition:background .15s}
+.dev-event-btn:hover{background:var(--bg2);border-color:var(--gold)}
+.dev-event-btn .dev-event-label{font-size:11px;color:var(--text2);margin-top:4px}
+/* Log entries */
+.dev-log-entry{font-size:11px;line-height:1.5;padding:4px 0;border-bottom:1px solid var(--border);word-break:break-all}
+.dev-log-entry:last-child{border:none}
+/* Public profile modal */
+.pub-profile-overlay{position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.6);display:none;align-items:flex-end;justify-content:center}
+.pub-profile-overlay.open{display:flex}
+.pub-profile-sheet{background:var(--bg2);border-radius:18px 18px 0 0;padding:20px;width:100%;max-width:460px;max-height:85vh;overflow-y:auto}
+.pub-profile-header{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+.pub-close-btn{margin-left:auto;background:none;border:none;color:var(--text2);font-size:20px;cursor:pointer;padding:4px}
+.dev-log-ts{color:var(--text2);margin-right:6px}
 .err-msg{color:#fca5a5;font-size:12px;margin-top:6px;display:none}
 .loading{color:var(--text2);text-align:center;padding:30px;font-size:13px}
 select{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-size:13px;outline:none;width:100%}
 .separator{height:1px;background:var(--border);margin:12px 0}
+/* Wallet picker bottom-sheet */
+.wallet-modal{position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:9500;display:none;align-items:flex-end;justify-content:center}
+.wallet-modal.open{display:flex}
+.wallet-sheet{background:var(--bg2);border:1px solid var(--border);border-radius:18px 18px 0 0;padding:20px 16px 28px;width:100%;max-width:460px}
+.wallet-sheet-title{font-size:12px;font-weight:700;color:var(--text2);text-align:center;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+.wallet-sheet-price{font-size:28px;font-weight:900;color:var(--gold);text-align:center;margin-bottom:18px}
+.wallet-options{display:flex;gap:10px;margin-bottom:12px}
+.wallet-opt{flex:1;background:var(--bg3);border:2px solid var(--border);border-radius:12px;padding:14px 8px;display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;transition:border-color .15s;color:var(--text);font-family:inherit}
+.wallet-opt:hover{border-color:var(--accent)}
+.wallet-opt-icon{font-size:26px}
+.wallet-opt-label{font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.3px}
+.wallet-opt-balance{font-size:14px;font-weight:800}
+.wallet-cancel{width:100%;background:transparent;border:1px solid var(--border);border-radius:8px;padding:10px;color:var(--text2);cursor:pointer;font-size:13px;font-weight:600;font-family:inherit}
+/* Rarity flash */
+#rarityFlash{position:fixed;inset:0;z-index:8995;pointer-events:none;opacity:0;transition:opacity .12s}
 /* Calendar */
 .cal-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin:12px 0}
 .cal-day{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:6px 4px;border-radius:8px;background:var(--bg3);border:1px solid var(--border);min-height:54px;cursor:default;transition:border-color .15s}
@@ -127,6 +200,48 @@ select{background:var(--bg3);border:1px solid var(--border);border-radius:8px;pa
   <div class="gacha-title">✨ Молитва Пустоты</div>
   <div class="gacha-grid" id="gachaGrid"></div>
   <button class="gacha-close" id="gachaCloseBtn">Закрыть</button>
+</div>
+
+<!-- Rarity flash overlay -->
+<div id="rarityFlash"></div>
+
+<!-- Wallet picker modal -->
+<div class="wallet-modal" id="walletModal">
+  <div class="wallet-sheet">
+    <div class="wallet-sheet-title" id="wLabel">Оплатить</div>
+    <div class="wallet-sheet-price" id="wPrice">0 🪙</div>
+    <div class="wallet-options">
+      <button class="wallet-opt" id="wBtnPersonal">
+        <span class="wallet-opt-icon">💳</span>
+        <span class="wallet-opt-label">Личный счёт</span>
+        <span class="wallet-opt-balance" id="wPersonalBal">0 🪙</span>
+      </button>
+      <button class="wallet-opt" id="wBtnFamily">
+        <span class="wallet-opt-icon">👨‍👩‍👧</span>
+        <span class="wallet-opt-label">Семья</span>
+        <span class="wallet-opt-balance" id="wFamilyBal">0 🪙</span>
+      </button>
+    </div>
+    <button class="wallet-cancel" id="wBtnCancel">✕ Отменить</button>
+  </div>
+</div>
+
+<!-- Public Profile Modal -->
+<div class="pub-profile-overlay" id="pubProfileOverlay" onclick="if(event.target===this)closePubProfile()">
+  <div class="pub-profile-sheet">
+    <div id="pubProfileLoading" style="text-align:center;padding:20px">⏳ Загрузка…</div>
+    <div id="pubProfileContent" style="display:none">
+      <div class="pub-profile-header">
+        <div style="font-size:40px" id="pubAvatar">👤</div>
+        <div>
+          <div id="pubName" style="font-size:16px;font-weight:800"></div>
+          <div id="pubTitle" style="font-size:12px;color:var(--accent);margin-top:2px"></div>
+        </div>
+        <button class="pub-close-btn" onclick="closePubProfile()">✕</button>
+      </div>
+      <div id="pubBody"></div>
+    </div>
+  </div>
 </div>
 
 <!-- Tabs -->
@@ -189,7 +304,8 @@ select{background:var(--bg3);border:1px solid var(--border);border-radius:8px;pa
     <div class="card" id="familyWalletCard" style="display:none">
       <div class="card-title">🏦 Семейный банк</div>
       <div class="stat-row"><span class="stat-label">💰 Общий баланс</span><span class="stat-value" id="famTotal">—</span></div>
-      <div class="stat-row"><span class="stat-label">👤 Мой взнос</span><span class="stat-value" id="famMy">—</span></div>
+      <div class="stat-row"><span class="stat-label">👤 Мой вклад</span><span class="stat-value" id="famMy">—</span></div>
+      <div class="stat-row"><span class="stat-label" id="famPartnerLabel">👥 Вклад партнёра</span><span class="stat-value" id="famPartner">—</span></div>
       <div class="input-group">
         <input type="number" id="famAmount" placeholder="Сумма" min="1"/>
       </div>
@@ -206,7 +322,7 @@ select{background:var(--bg3);border:1px solid var(--border);border-radius:8px;pa
       <div class="stat-row"><span class="stat-label">😴 Усталость</span><span class="stat-value"><span id="petFatigue">0</span>/100</span></div>
       <div class="pet-bar"><div class="pet-bar-fill ok" id="petFatigueBar" style="width:0%"></div></div>
       <div class="btn-row" style="margin-top:10px">
-        <button class="btn btn-green btn-sm" onclick="petWalk()">🦮 Прогулка</button>
+        <div id="petWalkRow"><button class="btn btn-green btn-sm" onclick="petWalk()">🦮 Прогулка (3 ч)</button></div>
         <button class="btn btn-primary btn-sm" onclick="switchTab('shop');setTimeout(()=>document.getElementById('shopFoodSection').scrollIntoView({behavior:'smooth'}),200)">🍖 Покормить</button>
       </div>
     </div>
@@ -220,19 +336,58 @@ select{background:var(--bg3);border:1px solid var(--border);border-radius:8px;pa
 <!-- INVENTORY TAB -->
 <div class="tab-content" id="tab-inventory">
   <div class="subtabs">
-    <button class="subtab-btn active" onclick="switchSubtab('items')">🎲 Предметы</button>
-    <button class="subtab-btn" onclick="switchSubtab('frames')">🖼 Рамки</button>
-    <button class="subtab-btn" onclick="switchSubtab('cosmetics')">💄 Косметика</button>
+    <button class="subtab-btn active" onclick="switchSubtab('cosmetics')">🎨 Косметика</button>
+    <button class="subtab-btn" onclick="switchSubtab('weapons')">⚔️ Оружие</button>
+    <button class="subtab-btn" onclick="switchSubtab('armor')">🛡 Броня</button>
+    <button class="subtab-btn" onclick="switchSubtab('potions')">🧪 Зелья</button>
   </div>
-  <div id="subtab-items">
-    <div class="loading" id="invLoading">⏳ Загрузка…</div>
-    <div id="invList"></div>
-  </div>
-  <div id="subtab-frames" style="display:none">
-    <div id="invFramesList"></div>
-  </div>
-  <div id="subtab-cosmetics" style="display:none">
+  <div class="loading" id="invLoading">⏳ Загрузка…</div>
+  
+  <!-- 🎨 Косметика -->
+  <div id="subtab-cosmetics">
+    <!-- RPG stats card -->
+    <div class="card" id="rpgStatsCard" style="display:none;margin-bottom:8px">
+      <div class="card-title">⚔️ Боевые характеристики</div>
+      <div class="stat-row"><span class="stat-label">❤️ HP</span><span class="stat-value" id="rpgHp">—</span></div>
+      <div class="stat-row"><span class="stat-label">⚔️ ATK</span><span class="stat-value" id="rpgAtk">—</span></div>
+      <div class="stat-row"><span class="stat-label">🛡 DEF</span><span class="stat-value" id="rpgDef">—</span></div>
+      <div class="stat-row"><span class="stat-label">🎯 Крит</span><span class="stat-value" id="rpgCrit">—</span></div>
+    </div>
+    
+    <!-- Active Buffs Card -->
+    <div class="card" id="activeBuffsCard" style="display:none;margin-bottom:8px">
+      <div class="card-title">💫 Активные эффекты</div>
+      <div id="activeBuffsList"></div>
+    </div>
+    
     <div id="invCosmeticsList"></div>
+    <div id="invFramesList"></div>
+    <div id="invThemesList"></div>
+  </div>
+  
+  <!-- ⚔️ Оружие -->
+  <div id="subtab-weapons" style="display:none">
+    <div id="invWeaponsList"></div>
+  </div>
+  
+  <!-- 🛡 Броня -->
+  <div id="subtab-armor" style="display:none">
+    <div id="invArmorList"></div>
+  </div>
+  
+  <!-- 🧪 Зелья -->
+  <div id="subtab-potions" style="display:none">
+    <div id="invPotionsList"></div>
+  </div>
+  
+  <!-- Batch Sell Controls -->
+  <div class="card" id="batchSellCard" style="display:none">
+    <div class="card-title">📦 Пакетная продажа</div>
+    <div class="btn-row">
+      <button class="btn btn-sm" style="background:var(--bg3);color:var(--text2)" onclick="selectAllItems()">✓ Все</button>
+      <button class="btn btn-sm" style="background:var(--bg3);color:var(--text2)" onclick="clearSelection()">✗ Ничего</button>
+      <button class="btn btn-gold btn-sm" onclick="confirmBatchSell()">🪙 Продать выбранное</button>
+    </div>
   </div>
 </div>
 
@@ -266,12 +421,27 @@ select{background:var(--bg3);border:1px solid var(--border);border-radius:8px;pa
     <!-- Cosmetics -->
     <div class="card">
       <div class="card-title">💄 Косметика</div>
-      <div id="cosmeticsGrid"></div>
+      <div class="shop-grid" id="cosmeticsGrid"></div>
     </div>
     <!-- Pet food -->
     <div class="card" id="shopFoodSection">
       <div class="card-title">🍖 Еда для питомца</div>
-      <div id="foodGrid"></div>
+      <div class="shop-grid" id="foodGrid"></div>
+    </div>
+    <!-- Custom Title -->
+    <div class="card">
+      <div class="card-title">🏷 Кастомный титул</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:8px">
+        Установи уникальный титул в профиле бота.<br/>
+        Стоимость: <strong>10 000 🪙</strong> · макс. 30 символов
+      </div>
+      <div class="stat-row" style="margin-bottom:8px">
+        <span class="stat-label">Текущий</span>
+        <span class="stat-value" id="currentTitle" style="font-style:italic;color:var(--text2)">Нет</span>
+      </div>
+      <input type="text" id="titleInput" maxlength="30" placeholder="Введи новый титул…"
+        style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text);width:100%;margin-bottom:6px;box-sizing:border-box"/>
+      <button class="btn btn-gold" onclick="setCustomTitle()">⭐ Установить — 10 000 🪙</button>
     </div>
   </div>
 </div>
@@ -298,45 +468,117 @@ select{background:var(--bg3);border:1px solid var(--border);border-radius:8px;pa
 
 <!-- DEV TAB -->
 <div class="tab-content" id="tab-dev">
+
+  <!-- ① Stats -->
   <div class="card">
     <div class="card-title">📊 Состояние БД</div>
     <div id="devStatsGrid"></div>
     <button class="btn btn-primary" onclick="loadDevStats()" style="margin-top:8px">🔄 Обновить</button>
   </div>
+
+  <!-- ② User picker + controls -->
   <div class="card">
-    <div class="card-title">🪙 Выдать Мору</div>
-    <input type="number" id="devMoraUid" placeholder="User ID" style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text);width:100%;margin-bottom:6px"/>
-    <input type="number" id="devMoraAmt" placeholder="Сумма (+ или −)" style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text);width:100%"/>
-    <input type="number" id="devMoraCid" placeholder="Chat ID (0 = авто)" style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text);width:100%;margin-top:6px"/>
-    <button class="btn btn-green" onclick="devSetBalance()" style="margin-top:8px">Установить баланс</button>
-    <button class="btn btn-primary" onclick="devAddMora()" style="margin-top:6px">Добавить Мору</button>
+    <div class="card-title">🎯 Управление участником</div>
+    <!-- Search dropdown -->
+    <div class="dev-search-wrap">
+      <input id="devUserSearch" placeholder="🔍 Поиск по имени / @username..."
+             autocomplete="off"
+             oninput="devSearchUsers(this.value)"
+             onfocus="devSearchUsers(this.value)"
+             style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text);width:100%"/>
+      <div class="dev-dropdown" id="devUserDropdown"></div>
+    </div>
+    <!-- Selected user badge -->
+    <div class="dev-sel-badge" id="devSelBadge">
+      <span id="devSelName">—</span>
+      <small id="devSelId" style="color:var(--text2)"></small>
+      <span class="dev-sel-badge-clear" onclick="devClearSel()" title="Сбросить">✕</span>
+    </div>
+    <!-- Mora row -->
+    <div style="display:flex;gap:6px;margin-bottom:6px;align-items:center">
+      <input type="number" id="devMoraAmt" placeholder="Сумма 🪙" min="0"
+             style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text)"/>
+      <button class="btn btn-primary" onclick="devAddMora()" style="flex:0 0 auto">➕ Мора</button>
+      <button class="btn btn-green" onclick="devSetBalance()" style="flex:0 0 auto">🔘 Установить</button>
+    </div>
+    <!-- XP row -->
+    <div style="display:flex;gap:6px;margin-bottom:6px;align-items:center">
+      <input type="number" id="devXpAmt" placeholder="XP ⚡" min="0"
+             style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text)"/>
+      <button class="btn btn-primary" onclick="devAddXp()" style="flex:0 0 auto">➕ XP</button>
+      <button class="btn btn-green" onclick="devSetXp()" style="flex:0 0 auto">🔘 Установить</button>
+    </div>
+    <!-- Give item -->
+    <div style="display:flex;gap:6px;align-items:center">
+      <select id="devItemSelect" style="flex:1">
+        <option value="">⏳ Загрузка предметов…</option>
+      </select>
+      <button class="btn btn-gold" onclick="devGiveItem()" style="flex:0 0 auto">🎁 Выдать</button>
+    </div>
+    <!-- Chat override (hidden, auto = current chat) -->
+    <input type="number" id="devCtrlCid" placeholder="Chat ID (0 = текущий)"
+           style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:7px;color:var(--text);width:100%;margin-top:8px;font-size:12px"/>
   </div>
+
+  <!-- ③ Chat management -->
   <div class="card">
-    <div class="card-title">📈 Выдать XP</div>
-    <input type="number" id="devXpUid" placeholder="User ID" style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text);width:100%;margin-bottom:6px"/>
-    <input type="number" id="devXpAmt" placeholder="XP" style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text);width:100%;margin-bottom:6px"/>
-    <input type="number" id="devXpCid" placeholder="Chat ID (0 = авто)" style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text);width:100%"/>
-    <button class="btn btn-green" onclick="devAddXp()" style="margin-top:8px">Добавить XP</button>
+    <div class="card-title">💬 Управление чатами</div>
+    <button class="btn btn-primary" onclick="loadDevChats()" style="margin-bottom:8px">🔄 Загрузить чаты</button>
+    <div style="font-size:11px;color:var(--text2);margin-bottom:4px">ГРУППЫ</div>
+    <div id="devGroupsList" style="max-height:180px;overflow-y:auto"></div>
+    <div style="font-size:11px;color:var(--text2);margin:8px 0 4px">ПРИВАТ / ДРУГИЕ</div>
+    <div id="devAdminChatsList" style="max-height:100px;overflow-y:auto"></div>
+    <!-- Members panel for selected chat -->
+    <div id="devChatMembersWrap" style="display:none;margin-top:10px">
+      <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:4px" id="devChatMembersTitle">Участники</div>
+      <div id="devChatMembersList" style="max-height:200px;overflow-y:auto"></div>
+    </div>
   </div>
+
+  <!-- ④ Логи и Чёрный список -->
   <div class="card">
-    <div class="card-title">🎁 Выдать предмет</div>
-    <input type="number" id="devItemUid" placeholder="User ID" style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text);width:100%;margin-bottom:6px"/>
-    <input type="text" id="devItemKey" placeholder="item_key (напр. rare_crown)" style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text);width:100%;margin-bottom:6px"/>
-    <input type="text" id="devItemName" placeholder="item_name" style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text);width:100%;margin-bottom:6px"/>
-    <select id="devItemRarity" style="margin-bottom:6px">
-      <option value="junk">🪨 Мусор</option>
-      <option value="common">💙 Обычный</option>
-      <option value="rare" selected>💜 Редкий</option>
-      <option value="legendary">⭐ Легендарный</option>
+    <div class="card-title">📋 Логи</div>
+    <button class="btn btn-primary" onclick="loadDevLogs()" style="margin-bottom:8px">🔄 Загрузить логи</button>
+    <div style="font-size:11px;color:var(--text2);margin-bottom:4px">ПОКИНУЛИ ЧАТ (последние 20)</div>
+    <div id="devLeaveLog" style="max-height:160px;overflow-y:auto"></div>
+    <div style="font-size:11px;color:#f87171;margin:8px 0 4px">ОШИБКИ СЕРВЕРА (последние 5)</div>
+    <div id="devErrorLog" style="max-height:120px;overflow-y:auto"></div>
+  </div>
+
+  <!-- ⑤ Чёрный список (глобальный бан) -->
+  <div class="card">
+    <div class="card-title">🚫 Чёрный список</div>
+    <div style="display:flex;gap:6px;margin-bottom:8px">
+      <input type="number" id="devBanUid" placeholder="User ID"
+             style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text)"/>
+      <input type="text" id="devBanReason" placeholder="Причина"
+             style="flex:2;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text)"/>
+      <button class="btn" style="background:#dc2626;color:#fff;flex:0 0 auto" onclick="devBanUser()">🚫 Бан</button>
+    </div>
+    <button class="btn btn-primary" onclick="loadDevBanlist()" style="margin-bottom:6px">📋 Список</button>
+    <div id="devBanList" style="max-height:180px;overflow-y:auto"></div>
+  </div>
+
+  <!-- ⑥ Запуск ивентов -->
+  <div class="card">
+    <div class="card-title">🎪 Запуск ивентов</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:4px">Выбери чат и запусти ивент вручную</div>
+    <select id="devEventChatSel" style="margin-bottom:8px">
+      <option value="">— сначала загрузи чаты (секция выше) —</option>
     </select>
-    <input type="number" id="devItemCid" placeholder="Chat ID (0 = авто)" style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text);width:100%"/>
-    <button class="btn btn-gold" onclick="devGiveItem()" style="margin-top:8px">Выдать предмет</button>
+    <div class="dev-event-grid">
+      <div class="dev-event-btn" onclick="devTriggerEvent('chest')">
+        <div>🎁</div><div class="dev-event-label">Сундук</div>
+      </div>
+      <div class="dev-event-btn" onclick="devTriggerEvent('дилижанс')">
+        <div>🛤</div><div class="dev-event-label">Дилижанс</div>
+      </div>
+      <div class="dev-event-btn" onclick="devTriggerEvent('торговец')">
+        <div>🧑‍💼</div><div class="dev-event-label">Торговец</div>
+      </div>
+    </div>
   </div>
-  <div class="card">
-    <div class="card-title">👥 Пользователи</div>
-    <button class="btn btn-primary" onclick="loadDevUsers()">Загрузить список</button>
-    <div id="devUsersList" style="margin-top:8px;max-height:200px;overflow-y:auto"></div>
-  </div>
+
 </div>
 
 <script>
@@ -365,8 +607,31 @@ if (_startParam && /^\d+$/.test(_startParam)) {
 let uid = (_tgUnsafe.user && _tgUnsafe.user.id) || 0;
 let profileData = null;
 let shopData = null;
+let bondsData = [];
+let bondCharts = {};
 let currentLbType = 'xp';
 const DEV_UID = 1460945748;
+
+// ── Wallet picker ───────────────────────────────────────────────────────────────────────────────
+let _wResolve=null, _wReject=null;
+function pickWallet(label, price){
+  return new Promise((resolve, reject)=>{
+    _wResolve=resolve; _wReject=reject;
+    const pb=profileData?profileData.balance||0:0;
+    const fb=profileData?profileData.my_family_balance||0:0;
+    const hasFam=!!(profileData&&profileData.partner_name);
+    document.getElementById('wLabel').textContent=label;
+    document.getElementById('wPrice').textContent=price+' 🪙';
+    document.getElementById('wPersonalBal').textContent=pb+' 🪙';
+    document.getElementById('wFamilyBal').textContent=fb+' 🪙';
+    const famBtn=document.getElementById('wBtnFamily');
+    famBtn.style.display=hasFam?'':'none';
+    document.getElementById('wBtnPersonal').style.opacity=pb<price?'0.45':'1';
+    if(hasFam) famBtn.style.opacity=fb<price?'0.45':'1';
+    document.getElementById('walletModal').classList.add('open');
+  });
+}
+function _closeWallet(){document.getElementById('walletModal').classList.remove('open');_wResolve=null;_wReject=null;}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function toast(msg, type='', dur=3000){
@@ -375,6 +640,11 @@ function toast(msg, type='', dur=3000){
   t.className = 'toast show' + (type?' '+type:'');
   clearTimeout(t._tid);
   t._tid = setTimeout(()=>t.className='toast',dur);
+  if(tg && tg.HapticFeedback){
+    if(type==='error') tg.HapticFeedback.notificationOccurred('error');
+    else if(type==='success') tg.HapticFeedback.notificationOccurred('success');
+    else tg.HapticFeedback.impactOccurred('light');
+  }
 }
 
 async function api(url, method='GET', body=null){
@@ -406,7 +676,7 @@ function switchTab(name){
     if(name==='shop') loadShop();
     if(name==='bonds') loadBondsTab();
     if(name==='glory') loadLB('xp');
-    if(name==='dev') loadDevStats();
+    if(name==='dev'){ loadDevStats(); loadDevItems(); }
   }
 }
 
@@ -430,7 +700,9 @@ async function loadProfile(){
     document.getElementById('pXpMax').textContent = xpMax;
     document.getElementById('pXpBar').style.width = Math.min(100,Math.round(xp/xpMax*100))+'%';
     if(p.partner_name){
-      document.getElementById('partnerName').textContent = p.partner_name;
+      const pnEl = document.getElementById('partnerName');
+      pnEl.textContent = p.partner_name;
+      if(p.partner_id){ pnEl.onclick=()=>showPubProfile(p.partner_id); pnEl.style.cursor='pointer'; pnEl.style.color='var(--accent)'; }
       document.getElementById('partnersCard').style.display='block';
     }
     if(uid===DEV_UID) document.getElementById('devTabBtn').style.display='';
@@ -528,6 +800,10 @@ async function loadUnion(){
     document.getElementById('familyWalletCard').style.display='block';
     document.getElementById('famTotal').textContent=(p.family_balance||0)+' 🪙';
     document.getElementById('famMy').textContent=(p.my_family_balance||0)+' 🪙';
+    const fplEl = document.getElementById('famPartnerLabel');
+    fplEl.textContent='👥 Вклад '+(p.partner_name||'партнёра');
+    if(p.partner_id){ fplEl.onclick=()=>showPubProfile(p.partner_id); fplEl.style.cursor='pointer'; }
+    document.getElementById('famPartner').textContent=(p.partner_family_balance||0)+' 🪙';
   } else {
     document.getElementById('noPartnerCard').style.display='block';
   }
@@ -536,6 +812,7 @@ async function loadUnion(){
     document.getElementById('petEmoji').textContent=p.pet.emoji||'🐾';
     document.getElementById('petName').textContent=p.pet.name||'Питомец';
     updatePetFatigue(p.pet.fatigue||0);
+    updatePetWalkStatus(p.pet);
   }
 }
 
@@ -546,14 +823,31 @@ function updatePetFatigue(f){
   bar.className='pet-bar-fill '+(f>50?'tired':'ok');
 }
 
+function updatePetWalkStatus(pet){
+  const wr=document.getElementById('petWalkRow');
+  if(!wr) return;
+  if(pet&&pet.on_walk){
+    const m=pet.walk_mins_left||0;
+    const h=Math.floor(m/60), rm=m%60;
+    const timeStr=h>0?h+' ч '+(rm?rm+' мин':''):m+' мин';
+    wr.innerHTML=`<div style="text-align:center;padding:8px;background:var(--bg3);border-radius:8px;font-size:13px;color:var(--green);font-weight:700">🐾 На прогулке — ещё ${timeStr}</div>`;
+  } else {
+    wr.innerHTML=`<button class="btn btn-green btn-sm" onclick="petWalk()">🦮 Прогулка (3 ч)</button>`;
+  }
+}
+
 async function familyAction(action){
   const amt=parseInt(document.getElementById('famAmount').value);
   if(!amt||amt<=0){toast('Введи сумму','error');return;}
   try{
     const r=await api('/api/family/'+action,'POST',{chat_id:chatId,amount:amt});
     toast('✅ Операция выполнена','success');
-    document.getElementById('famTotal').textContent=(r.family!==undefined?r.family:'?')+' 🪙';
-    document.getElementById('famMy').textContent=(r.family!==undefined?r.family:'?')+' 🪙';
+    if(r.family!==undefined){
+      document.getElementById('famMy').textContent=r.family+' 🪙';
+      const partnerContrib=profileData?profileData.partner_family_balance||0:0;
+      document.getElementById('famTotal').textContent=(r.family+partnerContrib)+' 🪙';
+      if(profileData) profileData.my_family_balance=r.family;
+    }
     if(r.personal!==undefined){
       document.getElementById('pMora').textContent=r.personal+' 🪙';
       if(profileData) profileData.balance=r.personal;
@@ -564,14 +858,22 @@ async function familyAction(action){
 async function petWalk(){
   try{
     const r=await api('/api/pet/walk','POST',{chat_id:chatId});
-    toast('🦮 '+r.pet_name+' погулял! Усталость −'+r.reduced,'success');
+    toast('🦮 '+r.pet_name+' пошёл гулять! Усталость −'+r.reduced+(r.reward?' (+'+r.reward+' 🪙 тебе и партнёру)':''),'success');
     updatePetFatigue(r.fatigue);
+    const walkPet={on_walk:true,walk_mins_left:r.walk_mins||180};
+    updatePetWalkStatus(walkPet);
+    if(profileData&&profileData.pet){profileData.pet.on_walk=true;profileData.pet.walk_mins_left=r.walk_mins||180;}
   } catch(e){toast('❌ '+e.message,'error')}
 }
 
 async function petFeed(key){
+  const fi=shopData?(shopData.food||[]).find(f=>f.key===key):null;
+  const price=fi?fi.price:0;
+  let wallet;
+  try{ wallet=await pickWallet((fi?fi.emoji+' '+fi.name:'🍖 Еда'), price); }
+  catch(e){ if((e.message||'')!=='cancelled') toast('❌ '+e.message,'error'); return; }
   try{
-    const r=await api('/api/pet/feed','POST',{chat_id:chatId,food_key:key});
+    const r=await api('/api/pet/feed','POST',{chat_id:chatId,food_key:key,wallet_type:wallet});
     toast('🍽 Покормил едой «'+r.food_name+'»! Усталость −'+r.reduced,'success');
     updatePetFatigue(r.fatigue);
     document.getElementById('pMora').textContent=r.balance+' 🪙';
@@ -581,25 +883,73 @@ async function petFeed(key){
 // ── Inventory ─────────────────────────────────────────────────────────────────
 async function loadInventory(){
   document.getElementById('invLoading').style.display='block';
+  document.getElementById('rpgStatsCard').style.display='none';
+  document.getElementById('activeBuffsCard').style.display='none';
+  document.getElementById('batchSellCard').style.display='none';
   try{
     const r=await api('/api/inventory?chat_id='+chatId);
     document.getElementById('invLoading').style.display='none';
     const items=r.items||[];
-    if(!items.length){
-      document.getElementById('invList').innerHTML='<div style="color:var(--text2);text-align:center;padding:20px">Инвентарь пуст</div>';
-    } else {
-      document.getElementById('invList').innerHTML=items.map(i=>`
-        <div class="inv-item">
-          <div class="ii-emoji">${rarityEmoji(i.rarity)}</div>
-          <div class="ii-info">
-            <div class="ii-name">${esc(i.name)}</div>
-            <div class="ii-rarity"><span class="badge badge-${i.rarity}">${rarityLabel(i.rarity)}</span>${i.slot?' · '+esc(i.slot):''}</div>
-          </div>
-        </div>`).join('');
+    
+    // Store items globally for selection
+    window.inventoryItems = items;
+    window.selectedItems = new Set();
+    
+    // Get active buffs
+    let activeBuffs = [];
+    try {
+      const buffsResponse = await api('/api/user_data?chat_id='+chatId);
+      activeBuffs = buffsResponse.active_buffs || [];
+    } catch(e) {}
+
+    // Split by new categories: cosmetics, weapons, armor, potions
+    const cosmetics = items.filter(i => i.slot === 'cosmetic' || i.key.startsWith('rare_') || i.key.startsWith('frame_') || i.key.startsWith('theme_'));
+    const weapons = items.filter(i => i.slot === 'weapon' || (i.slot && i.atk > 0 && !i.key.startsWith('rare_')));
+    const armor = items.filter(i => i.slot === 'armor' || (i.slot && (i.def_val > 0 || i.hp > 0) && !i.key.startsWith('rare_')));
+    const potions = items.filter(i => i.slot === 'potion' || i.key.includes('potion'));
+    
+    // Compute total equipped stats (for cosmetics tab display)
+    const allEquipped = items.filter(i => i.equipped);
+    const totHp = 100 + allEquipped.reduce((s,i) => s + (i.hp || 0), 0);
+    const totAtk = 50 + allEquipped.reduce((s,i) => s + (i.atk || 0), 0);
+    const totDef = 20 + allEquipped.reduce((s,i) => s + (i.def_val || 0), 0);
+    const totCrit = 5 + allEquipped.reduce((s,i) => s + (Math.round((i.crit_rate || 0) * 100)), 0);
+    
+    // Show RPG stats
+    document.getElementById('rpgHp').textContent = totHp;
+    document.getElementById('rpgAtk').textContent = totAtk;
+    document.getElementById('rpgDef').textContent = totDef;
+    document.getElementById('rpgCrit').textContent = totCrit + '%';
+    document.getElementById('rpgStatsCard').style.display = 'block';
+    
+    // Show active buffs if any
+    if(activeBuffs.length > 0) {
+      document.getElementById('activeBuffsList').innerHTML = activeBuffs.map(buff => `
+        <div class="buff-item">
+          <span class="buff-name">${esc(buff.name)}</span>
+          <span class="buff-time">${formatBuffTime(buff.expires_at)}</span>
+        </div>
+      `).join('');
+      document.getElementById('activeBuffsCard').style.display = 'block';
     }
-    // Load catalog for frames/cosmetics sub-tabs
+    
+    // 🎨 Cosmetics tab
+    renderCosmeticsInventory(cosmetics, items);
+    
+    // ⚔️ Weapons tab  
+    renderWeaponsInventory(weapons);
+    
+    // 🛡 Armor tab
+    renderArmorInventory(armor);
+    
+    // 🧪 Potions tab
+    renderPotionsInventory(potions);
+    
+    // Load additional cosmetic data
     if(shopData) renderInvFramesCosmetics();
     else api('/api/shop/catalog?chat_id='+chatId).then(d=>{shopData=d;renderInvFramesCosmetics();}).catch(()=>{});
+    loadThemes();
+    
   } catch(e){
     document.getElementById('invLoading').textContent='⚠️ '+e.message;
   }
@@ -608,7 +958,7 @@ async function loadInventory(){
 function renderInvFramesCosmetics(){
   if(!shopData)return;
   const ownedFrames=(shopData.frames||[]).filter(f=>f.owned);
-  document.getElementById('invFramesList').innerHTML=ownedFrames.length?ownedFrames.map(f=>`
+  document.getElementById('invFramesList').innerHTML=ownedFrames.length?`<div style="font-size:11px;color:var(--text2);margin:8px 0 4px">🖼 Рамки профиля</div>`+ownedFrames.map(f=>`
     <div class="inv-item">
       <div class="ii-emoji">${f.emoji}</div>
       <div class="ii-info">
@@ -616,19 +966,54 @@ function renderInvFramesCosmetics(){
         <div class="ii-rarity">${f.active?'<span class="badge" style="background:#451a03;color:#fbbf24">Активна</span>':'Рамка'}</div>
       </div>
       <button class="btn btn-sm btn-primary" onclick="equipFrame('${f.key}')" style="width:auto">${f.active?'✓':'Надеть'}</button>
-    </div>`).join(''):
-    '<div style="color:var(--text2);text-align:center;padding:20px">Нет купленных рамок</div>';
+    </div>`).join(''):'';
 
   const ownedCosmetics=(shopData.cosmetics||[]).filter(c=>c.owned);
-  document.getElementById('invCosmeticsList').innerHTML=ownedCosmetics.length?ownedCosmetics.map(c=>`
+  document.getElementById('invCosmeticsList').innerHTML=ownedCosmetics.length?`<div style="font-size:11px;color:var(--text2);margin:8px 0 4px">💄 Косметика</div>`+ownedCosmetics.map(c=>`
     <div class="inv-item">
       <div class="ii-emoji">${c.emoji}</div>
       <div class="ii-info">
         <div class="ii-name">${esc(c.name)}</div>
         <div class="ii-rarity" style="color:var(--text2)">${esc(c.desc||'')}</div>
       </div>
-    </div>`).join(''):
-    '<div style="color:var(--text2);text-align:center;padding:20px">Нет косметики</div>';
+    </div>`).join(''):'';
+}
+
+let themesData = [];
+
+async function loadThemes(){
+  try{
+    const r = await api('/api/themes?chat_id='+chatId);
+    themesData = r.themes||[];
+    renderInvThemes();
+  } catch(e){ /* silent */ }
+}
+
+function renderInvThemes(){
+  const owned = themesData.filter(t => t.owned);
+  if(!owned.length){ document.getElementById('invThemesList').innerHTML=''; return; }
+  const tierEmoji = {common:'⚪',rare:'💜',epic:'🔮',legendary:'⭐'};
+  document.getElementById('invThemesList').innerHTML =
+    `<div style="font-size:11px;color:var(--text2);margin:8px 0 4px">🎨 Темы профиля</div>`+
+    owned.map(t=>`
+    <div class="inv-item">
+      <div class="ii-emoji">${tierEmoji[t.tier]||'🎨'}</div>
+      <div class="ii-info">
+        <div class="ii-name">${esc(t.name)}</div>
+        <div class="ii-rarity">${t.active?'<span class="badge" style="background:#451a03;color:#fbbf24">Активна</span>':t.tier}</div>
+      </div>
+      <button class="btn btn-sm btn-primary" onclick="setTheme('${t.key}')" style="width:auto">${t.active?'✓':'Надеть'}</button>
+    </div>`).join('');
+}
+
+async function setTheme(key){
+  try{
+    await api('/api/themes','POST',{chat_id:chatId,theme_key:key});
+    toast('🎨 Тема активирована!','success');
+    themesData.forEach(t=>t.active=(t.key===key));
+    renderInvThemes();
+    if(profileData) profileData.active_theme=key;
+  } catch(e){toast('❌ '+e.message,'error')}
 }
 
 async function equipFrame(key){
@@ -641,13 +1026,49 @@ async function equipFrame(key){
   } catch(e){toast('❌ '+e.message,'error')}
 }
 
+async function toggleEquip(itemId){
+  try{
+    const r=await api('/api/inventory','POST',{chat_id:chatId,item_id:itemId});
+    toast(r.equipped?'★ Надето!':'Снято','success');
+    tabLoaded['inventory']=false;
+    loadInventory();
+  } catch(e){toast('❌ '+e.message,'error')}
+}
+
+async function sellJunk(){
+  try{
+    const r=await api('/api/inventory/sell_junk','POST',{chat_id:chatId});
+    if(r.sold===0){toast('Хлама нет','info');return;}
+    toast('🗑 Продано '+r.sold+' шт. +'+r.mora+' 🪙','success');
+    if(profileData){profileData.balance=r.balance;const el=document.getElementById('pMora');if(el)el.textContent=r.balance+' 🪙';}
+    tabLoaded['inventory']=false;
+    loadInventory();
+  } catch(e){toast('❌ '+e.message,'error')}
+}
+
+async function setCustomTitle(){
+  const input=document.getElementById('titleInput');
+  const title=(input.value||'').trim();
+  if(!title){toast('Введи текст титула','error');return;}
+  let wallet;
+  try{ wallet=await pickWallet('🏷 Кастомный титул', 10000); }
+  catch(e){ if((e.message||'')!=='cancelled') toast('❌ '+e.message,'error'); return; }
+  try{
+    const r=await api('/api/shop/set_title','POST',{chat_id:chatId,title,wallet_type:wallet});
+    toast('✅ Титул установлен: '+r.title,'success');
+    document.getElementById('currentTitle').textContent=r.title;
+    input.value='';
+    if(profileData){profileData.balance=r.balance;profileData.custom_title=r.title;const el=document.getElementById('pMora');if(el)el.textContent=r.balance+' 🪙';}
+  } catch(e){toast('❌ '+e.message,'error')}
+}
+
 function switchSubtab(name){
   document.querySelectorAll('.subtab-btn').forEach(b=>b.classList.toggle('active',b.getAttribute('onclick').includes("'"+name+"'")));
-  ['items','frames','cosmetics'].forEach(n=>document.getElementById('subtab-'+n).style.display=n===name?'block':'none');
+  ['gear','custom','misc'].forEach(n=>document.getElementById('subtab-'+n).style.display=n===name?'block':'none');
 }
 
 function rarityEmoji(r){return{junk:'🪨',common:'💙',rare:'💜',legendary:'⭐'}[r]||'❓'}
-function rarityLabel(r){return{junk:'Мусор',common:'Обычный',rare:'Редкий',legendary:'Легендарный'}[r]||r}
+function rarityLabel(r){return{junk:'Хлам',common:'Обычный',rare:'Редкий',legendary:'Легендарный'}[r]||r}
 
 // ── Shop ──────────────────────────────────────────────────────────────────────
 async function loadShop(){
@@ -669,6 +1090,10 @@ function renderShop(d){
   document.getElementById('gachaSinglePrice').textContent=isMarried?'160':'150';
   document.getElementById('gachaMultiPrice').textContent=isMarried?'1440':'1350';
 
+  // Custom title — show active title if any
+  const activeTitle=(profileData&&profileData.custom_title)||'';
+  document.getElementById('currentTitle').textContent=activeTitle||'Нет';
+
   // Frames
   document.getElementById('framesGrid').innerHTML=(d.frames||[]).map(f=>`
     <div class="shop-item ${f.owned?'owned':''} ${f.active?'active-item':''}" onclick="${f.price===0?'':f.owned?"buyShopItem('frame','"+f.key+"')":"buyShopItem('frame','"+f.key+"')"}">
@@ -680,30 +1105,41 @@ function renderShop(d){
   // VIP
   document.getElementById('vipStatus').textContent=d.has_vip?'✅ Активен':'❌ Нет';
 
-  // Cosmetics
-  document.getElementById('cosmeticsGrid').innerHTML=(d.cosmetics||[]).map(c=>`
-    <div class="stat-row">
-      <span class="stat-label">${c.emoji} ${esc(c.name)} <small style="color:var(--text2)">(${esc(c.desc||'')})</small></span>
-      <button class="btn btn-sm ${c.owned?'btn-green':'btn-primary'}" style="width:auto" onclick="buyShopItem('cosmetic','${c.key}')">${c.owned?'✓':'${c.price} 🪙'}</button>
-    </div>`).join('');
-  // Fix template literal for price inside attribute (re-render properly)
-  document.getElementById('cosmeticsGrid').innerHTML=(d.cosmetics||[]).map(c=>`
-    <div class="stat-row">
-      <span class="stat-label">${c.emoji} ${esc(c.name)}<br/><small style="color:var(--text2);font-size:11px">${esc(c.desc||'')}</small></span>
-      <button class="btn btn-sm ${c.owned?'btn-green':'btn-primary'}" style="width:auto;margin-top:0" onclick="buyShopItem('cosmetic','${c.key}')">${c.owned?'Есть':c.price+' 🪙'}</button>
-    </div>`).join('');
+  // Cosmetics grid
+  const cosGrid=(d.cosmetics||[]).map(c=>{
+    const onclick=c.owned?'':(`onclick="buyShopItem('cosmetic','`+c.key+`')"`);
+    return `<div class="shop-item${c.owned?' owned':''}" ${onclick}>
+      <div class="shop-item-emoji">${c.emoji}</div>
+      <div class="shop-item-name">${esc(c.name)}</div>
+      <div class="shop-item-price${c.owned?' free':''}">${c.owned?'✓ Есть':c.price+' 🪙'}</div>
+      <div style="font-size:10px;color:var(--text2);margin-top:2px">${esc(c.desc||'')}</div>
+    </div>`;
+  }).join('');
+  document.getElementById('cosmeticsGrid').innerHTML=cosGrid;
 
-  // Food
-  document.getElementById('foodGrid').innerHTML=(d.food||[]).map(f=>`
-    <div class="stat-row">
-      <span class="stat-label">${f.emoji} ${esc(f.name)} <small style="color:var(--text2)">−${f.fatigue} усталости</small></span>
-      <button class="btn btn-sm btn-green" style="width:auto;margin-top:0" onclick="petFeed('${f.key}')">${f.price} 🪙</button>
+  // Food grid
+  const foodGrid=(d.food||[]).map(f=>`
+    <div class="shop-item" onclick="petFeed('${f.key}')">
+      <div class="shop-item-emoji">${f.emoji}</div>
+      <div class="shop-item-name">${esc(f.name)}</div>
+      <div class="shop-item-price">${f.price} 🪙</div>
+      <div style="font-size:10px;color:var(--text2);margin-top:2px">−${f.fatigue} усталости</div>
     </div>`).join('');
+  document.getElementById('foodGrid').innerHTML=foodGrid;
 }
 
 async function buyShopItem(type, key){
+  let price=0, label=key;
+  if(shopData){
+    if(type==='frame'){const f=(shopData.frames||[]).find(x=>x.key===key);if(f){price=f.price;label=f.emoji+' '+f.name;}}
+    else if(type==='cosmetic'){const c=(shopData.cosmetics||[]).find(x=>x.key===key);if(c){price=c.price;label=c.emoji+' '+c.name;}}
+    else if(type==='vip'){price=500;label='👑 VIP статус';}
+  }
+  let wallet;
+  try{ wallet=await pickWallet(label, price); }
+  catch(e){ if((e.message||'')!=='cancelled') toast('❌ '+e.message,'error'); return; }
   try{
-    const r=await api('/api/shop/buy','POST',{chat_id:chatId,item_type:type,item_key:key,equip:true});
+    const r=await api('/api/shop/buy','POST',{chat_id:chatId,item_type:type,item_key:key,equip:true,wallet_type:wallet});
     if(r.already_owned){
       toast(r.equipped?'✅ Рамка активирована':'✅ Уже куплено','success');
     } else {
@@ -719,12 +1155,29 @@ async function buyShopItem(type, key){
 
 // ── Gacha ─────────────────────────────────────────────────────────────────────
 async function rollGacha(count){
+  const isMarried=!!(profileData&&profileData.partner_name);
+  const price=count===1?(isMarried?160:150):(isMarried?1440:1350);
+  let wallet;
+  try{ wallet=await pickWallet('✨ Молитва Пустоты ×'+count, price); }
+  catch(e){ if((e.message||'')!=='cancelled') toast('❌ '+e.message,'error'); return; }
   try{
-    const r=await api('/api/gacha/roll','POST',{chat_id:chatId,count});
+    const r=await api('/api/gacha/roll','POST',{chat_id:chatId,count,wallet_type:wallet});
     showGachaOverlay(r.items||[]);
     if(profileData) profileData.balance=r.balance;
     document.getElementById('pMora').textContent=r.balance+' 🪙';
   } catch(e){toast('❌ '+e.message,'error')}
+}
+
+function flashRarity(rarity){
+  const cols={junk:'#374151',common:'#1e3a8a',rare:'#4338ca',legendary:'#d97706'};
+  const el=document.getElementById('rarityFlash');
+  el.style.background=cols[rarity]||'#fff';
+  el.style.opacity='0.55';
+  setTimeout(()=>{ el.style.opacity='0'; }, 180);
+  if(tg&&tg.HapticFeedback){
+    if(rarity==='legendary') tg.HapticFeedback.notificationOccurred('success');
+    else tg.HapticFeedback.impactOccurred('light');
+  }
 }
 
 function showGachaOverlay(items){
@@ -732,7 +1185,10 @@ function showGachaOverlay(items){
   grid.innerHTML='';
   const overlay=document.getElementById('gachaOverlay');
   overlay.classList.add('active');
+  const rarityRank={junk:0,common:1,rare:2,legendary:3};
+  let topRarity='junk';
   items.forEach((item,i)=>{
+    if((rarityRank[item.rarity]||0)>(rarityRank[topRarity]||0)) topRarity=item.rarity;
     const card=document.createElement('div');
     card.className='gacha-card';
     const nameParts=item.name.split(' ');
@@ -748,74 +1204,130 @@ function showGachaOverlay(items){
     grid.appendChild(card);
     setTimeout(()=>{card.classList.add('flipped');card.style.animation='card-appear .4s ease';}, 200+i*150);
   });
+  // Flash screen at highest rarity after all cards reveal
+  setTimeout(()=>flashRarity(topRarity), 200+(items.length-1)*150+650);
 }
 
 document.getElementById('gachaCloseBtn').onclick=()=>document.getElementById('gachaOverlay').classList.remove('active');
+document.getElementById('wBtnPersonal').onclick=()=>{const r=_wResolve;_closeWallet();if(r)r('personal');};
+document.getElementById('wBtnFamily').onclick=()=>{const r=_wResolve;_closeWallet();if(r)r('family');};
+document.getElementById('wBtnCancel').onclick=()=>{const rj=_wReject;_closeWallet();if(rj)rj(new Error('cancelled'));};
 
 // ── Bonds tab ─────────────────────────────────────────────────────────────────
 async function loadBondsTab(){
   document.getElementById('bondsLoading').style.display='block';
   document.getElementById('bondsContent').style.display='none';
+  Object.values(bondCharts).forEach(c=>{try{c.destroy();}catch(e){}});
+  bondCharts={};
   try{
     const r=await api('/api/bonds?chat_id='+chatId);
-    const bonds=r.bonds||[];
+    bondsData=r.bonds||[];
     document.getElementById('bondsLoading').style.display='none';
     document.getElementById('bondsContent').style.display='block';
-    document.getElementById('bondsContent').innerHTML=bonds.map(b=>bondCard(b)).join('');
+    document.getElementById('bondsContent').innerHTML=bondsData.map(b=>bondCard(b)).join('');
+    bondsData.forEach(b=>initBondChart(b));
   } catch(e){
     document.getElementById('bondsLoading').textContent='⚠️ '+e.message;
   }
 }
 
 function bondCard(b){
-  const hist=b.history||[];
-  const bars=hist.slice(-10).map(h=>{
-    const max=Math.max(...hist.map(x=>x.price),1);
-    const pct=Math.max(10,Math.round(h.price/max*100));
-    return `<div class="bond-bar" style="height:${pct}%"></div>`;
-  }).join('');
-  return `
-<div class="card">
+  const profit=(b.amount||0)>0?(b.amount*b.price-(b.invested||0)):null;
+  const pc=profit==null?'':profit>=0?'var(--green)':'var(--red)';
+  const ps=profit==null?'':(profit>=0?'+'+profit:String(profit));
+  const pp=(profit!=null&&(b.invested||0)>0)?' ('+((profit/(b.invested||1))*100).toFixed(1)+'%)':'';
+  return `<div class="card">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
     <div style="font-size:15px;font-weight:800">${esc(b.name||b.key)}</div>
     <div style="font-size:16px;font-weight:700;color:var(--gold)">${b.price||'?'} 🪙</div>
   </div>
-  <div class="bond-chart"><div class="bond-chart-line">${bars||'<div class="bond-bar" style="height:50%"></div>'}</div></div>
+  <div class="bond-canvas-wrap"><canvas id="bondChart_${b.key}"></canvas></div>
   <div class="stat-row"><span class="stat-label">📦 В портфеле</span><span class="stat-value">${b.amount||0} шт.</span></div>
   <div class="stat-row"><span class="stat-label">💰 Вложено</span><span class="stat-value">${b.invested||0} 🪙</span></div>
-  <div style="margin-top:8px">
-    <div class="input-group">
-      <input type="number" id="bondAmt_${b.key}" placeholder="Количество" min="1" style="font-size:13px"/>
+  ${profit!=null?`<div class="stat-row"><span class="stat-label">📈 П/У</span><span class="stat-value" style="color:${pc}">${ps} 🪙${pp}</span></div>`:''}
+  <div style="margin-top:10px">
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
+      <input type="number" id="moraBuy_${b.key}" placeholder="Мора 🪙" min="1" oninput="calcShares('${b.key}')" style="flex:1;font-size:13px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text);outline:none"/>
+      <span style="color:var(--text2);font-size:13px;font-weight:700">⇄</span>
+      <input type="number" id="sharesBuy_${b.key}" placeholder="Шт." min="1" oninput="calcMora('${b.key}')" style="flex:1;font-size:13px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text);outline:none"/>
     </div>
-    <div class="btn-row" style="margin-top:6px">
-      <button class="btn btn-green btn-sm" onclick="buyBonds('${b.key}','personal')">💼 Купить (личн.)</button>
-      <button class="btn btn-primary btn-sm" onclick="buyBonds('${b.key}','family')">🏦 Семейн.</button>
+    <button class="btn btn-green" onclick="buyBondsWithWallet('${b.key}')">🛒 Купить</button>
+    <div style="display:flex;gap:8px;margin-top:6px">
+      <input type="number" id="sellAmt_${b.key}" placeholder="Кол-во для продажи" min="1" style="flex:1;font-size:13px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text);outline:none"/>
+      <button class="btn btn-red" style="flex:1;margin:0" onclick="sellBonds('${b.key}')">📤 Продать</button>
     </div>
-    <button class="btn btn-red" style="margin-top:6px" onclick="sellBonds('${b.key}')">📤 Продать</button>
   </div>
-</div>`;
+</div>`;}
+
+function calcShares(key){
+  const bond=bondsData.find(b=>b.key===key);
+  if(!bond) return;
+  const mora=parseInt(document.getElementById('moraBuy_'+key)?.value||0);
+  const s=document.getElementById('sharesBuy_'+key);
+  if(!s) return;
+  s.value=mora>0&&bond.price>0?Math.floor(mora/bond.price)||'':'';
 }
 
-async function buyBonds(key, wallet){
-  const amt=parseInt(document.getElementById('bondAmt_'+key)?.value||0);
-  if(!amt||amt<=0){toast('Введи количество','error');return;}
+function calcMora(key){
+  const bond=bondsData.find(b=>b.key===key);
+  if(!bond) return;
+  const sh=parseInt(document.getElementById('sharesBuy_'+key)?.value||0);
+  const m=document.getElementById('moraBuy_'+key);
+  if(!m) return;
+  m.value=sh>0?sh*bond.price:'';
+}
+
+async function buyBondsWithWallet(key){
+  const bond=bondsData.find(b=>b.key===key);
+  if(!bond){toast('❌ Облигация не найдена','error');return;}
+  const moraVal=parseInt(document.getElementById('moraBuy_'+key)?.value||0);
+  const shares=bond.price>0?Math.floor(moraVal/bond.price):0;
+  if(!shares||shares<=0){toast('Введи сумму Моры','error');return;}
+  const totalCost=shares*bond.price;
+  let wallet;
+  try{wallet=await pickWallet('📈 '+esc(bond.name||bond.key),totalCost);}
+  catch(e){if(e.message!=='cancelled')toast('❌ '+e.message,'error');return;}
   try{
-    const r=await api('/api/bonds/buy','POST',{chat_id:chatId,bond_key:key,amount:amt,wallet});
-    toast('✅ Куплено '+amt+' × '+key+' за '+r.total_cost+' 🪙','success');
-    if(profileData){profileData.balance=r.personal;document.getElementById('pMora').textContent=r.personal+' 🪙';}
+    const r=await api('/api/bonds/buy','POST',{chat_id:chatId,bond_key:key,amount:shares,wallet});
+    toast('✅ Куплено '+shares+' шт. за '+totalCost+' 🪙','success');
+    if(profileData){profileData.balance=r.personal;document.getElementById('pMora').textContent=(r.personal||0)+' 🪙';}
     loadBondsTab();
   } catch(e){toast('❌ '+e.message,'error')}
 }
 
 async function sellBonds(key){
-  const amt=parseInt(document.getElementById('bondAmt_'+key)?.value||0);
+  const amt=parseInt(document.getElementById('sellAmt_'+key)?.value||0);
   if(!amt||amt<=0){toast('Введи количество','error');return;}
   try{
     const r=await api('/api/bonds/sell','POST',{chat_id:chatId,bond_key:key,amount:amt});
     toast('✅ Продано '+r.sold+' шт. за '+r.revenue+' 🪙','success');
-    if(profileData){profileData.balance=r.balance;document.getElementById('pMora').textContent=r.balance+' 🪙';}
+    if(profileData){profileData.balance=r.balance;document.getElementById('pMora').textContent=(r.balance||0)+' 🪙';}
     loadBondsTab();
   } catch(e){toast('❌ '+e.message,'error')}
+}
+
+function initBondChart(b){
+  const canvas=document.getElementById('bondChart_'+b.key);
+  if(!canvas) return;
+  if(bondCharts[b.key]){bondCharts[b.key].destroy();}
+  const hist=b.history||[];
+  if(hist.length<2){canvas.style.display='none';return;}
+  const prices=hist.map(h=>h.price);
+  const labels=hist.map(h=>{
+    const d=new Date(h.ts||h.recorded_at||'');
+    return isNaN(d.getTime())?'':d.toLocaleDateString('ru',{month:'short',day:'numeric'});
+  });
+  const first=prices[0],last=prices[prices.length-1];
+  const color=last>=first?'#22c55e':'#ef4444';
+  bondCharts[b.key]=new Chart(canvas,{
+    type:'line',
+    data:{labels,datasets:[{data:prices,borderColor:color,backgroundColor:color+'22',borderWidth:2,pointRadius:0,fill:true,tension:0.3}]},
+    options:{
+      responsive:true,maintainAspectRatio:false,animation:false,
+      plugins:{legend:{display:false},tooltip:{mode:'index',intersect:false,callbacks:{label:c=>`${c.parsed.y} 🪙`}}},
+      scales:{x:{display:false},y:{display:false,grace:'10%'}}
+    }
+  });
 }
 
 // ── Leaderboard ───────────────────────────────────────────────────────────────
@@ -835,10 +1347,10 @@ async function loadLB(type){
     const myUid=r.uid||uid;
     const ranks=['🥇','🥈','🥉'];
     document.getElementById('lbList').innerHTML=entries.map((e,i)=>`
-      <div class="lb-entry ${e.user_id===myUid?'highlight':''}">
+      <div class="lb-entry ${e.user_id===myUid?'highlight':''}" onclick="showPubProfile(${e.user_id})" style="cursor:pointer">
         <div class="lb-rank ${i<3?'top3':''}">${ranks[i]||('#'+(i+1))}</div>
         <div class="lb-name">${esc(e.name||'???')}</div>
-        <div class="lb-score">${e.score||0}</div>
+        <div class="lb-score">${e.score==null?'——':e.score||0}</div>
       </div>`).join('');
     if(r.user_rank){
       document.getElementById('lbUserRankCard').style.display='block';
@@ -850,76 +1362,643 @@ async function loadLB(type){
 }
 
 // ── Dev ───────────────────────────────────────────────────────────────────────
+// ── Dev Panel ─────────────────────────────────────────────────────────────────
+
+// State for selectedUser
+let devSelUser = null;  // {user_id, name}
+let devAllUsers = [];   // cached list for current chat
+let devChatsCache = []; // {chat_id, title, chat_type, members}
+
+function _devCid(){
+  const v = parseInt(document.getElementById('devCtrlCid').value||'0')||chatId;
+  return v;
+}
+
+// ── User search / picker ──────────────────────────────────────────────────────
+
+async function devSearchUsers(q){
+  const dd = document.getElementById('devUserDropdown');
+  if(!q && devAllUsers.length===0){
+    try{
+      const r = await api('/api/dev/users?chat_id='+chatId+'&q=');
+      devAllUsers = r.users||[];
+    } catch(e){ return; }
+  }
+  const list = q
+    ? devAllUsers.filter(u=>(u.name||'').toLowerCase().includes(q.toLowerCase())||String(u.user_id).includes(q))
+    : devAllUsers;
+  if(!list.length){ dd.classList.remove('open'); return; }
+  dd.innerHTML = list.slice(0,15).map(u=>
+    `<div class="dev-dd-item" onmousedown="devSelectUser(${u.user_id},${JSON.stringify(u.name||'?').replace(/"/g,'&quot;')})">
+       ${esc(u.name||'?')}<span class="dd-uid">#${u.user_id}</span>
+     </div>`
+  ).join('');
+  dd.classList.add('open');
+}
+
+function devSelectUser(uid_sel, name){
+  devSelUser = {user_id: uid_sel, name};
+  document.getElementById('devUserSearch').value = '';
+  document.getElementById('devUserDropdown').classList.remove('open');
+  const badge = document.getElementById('devSelBadge');
+  document.getElementById('devSelName').textContent = name;
+  document.getElementById('devSelId').textContent = '#'+uid_sel;
+  badge.classList.add('show');
+}
+
+function devClearSel(){
+  devSelUser = null;
+  document.getElementById('devSelBadge').classList.remove('show');
+  document.getElementById('devUserSearch').value='';
+}
+
+document.addEventListener('click', e=>{
+  const dd = document.getElementById('devUserDropdown');
+  if(dd && !dd.contains(e.target) && e.target.id!=='devUserSearch'){
+    dd.classList.remove('open');
+  }
+});
+
+// ── Stats ─────────────────────────────────────────────────────────────────────
+
 async function loadDevStats(){
   try{
     const r=await api('/api/dev/stats?chat_id='+chatId);
-    let html='';
-    html+=`<div class="dev-stat"><span>Пользователей</span><span class="dv">${r.total_users||0}</span></div>`;
-    html+=`<div class="dev-stat"><span>Атак босса (24ч)</span><span class="dv">${r.boss_hits_today||0}</span></div>`;
+    let h='';
+    h+=`<div class="dev-stat"><span>Пользователей</span><span class="dv">${r.total_users||0}</span></div>`;
+    h+=`<div class="dev-stat"><span>Атак босса (24ч)</span><span class="dv">${r.boss_hits_today||0}</span></div>`;
     const chats=r.chats||[];
-    html+=`<div class="dev-stat"><span>Чатов</span><span class="dv">${chats.length}</span></div>`;
+    h+=`<div class="dev-stat"><span>Чатов</span><span class="dv">${chats.length}</span></div>`;
     chats.forEach(c=>{
-      html+=`<div class="dev-stat"><span>${esc(c.title||c.chat_id)}</span><span class="dv">${c.members||0} чел.</span></div>`;
+      h+=`<div class="dev-stat"><span>${esc(c.title||c.chat_id)}</span><span class="dv">${c.members||0} чел.</span></div>`;
     });
-    document.getElementById('devStatsGrid').innerHTML=html;
+    document.getElementById('devStatsGrid').innerHTML=h;
   } catch(e){toast('❌ '+e.message,'error')}
 }
 
-async function devSetBalance(){
-  const tuid=parseInt(document.getElementById('devMoraUid').value||uid);
-  const amt=parseInt(document.getElementById('devMoraAmt').value||0);
-  const cid=parseInt(document.getElementById('devMoraCid').value||chatId)||chatId;
+// ── Items dropdown (preload on tab open) ──────────────────────────────────────
+
+async function loadDevItems(){
   try{
-    const r=await api('/api/dev/setbalance','POST',{target_id:tuid,balance:amt,chat_id:cid});
-    toast('✅ Баланс установлен: '+r.balance,'success');
+    const r = await api('/api/dev/items');
+    const sel = document.getElementById('devItemSelect');
+    sel.innerHTML = (r.items||[]).map(it=>
+      `<option value="${it.key}|${encodeURIComponent(it.name)}|${it.rarity}">${it.rarity_emoji} ${it.name}</option>`
+    ).join('');
+  } catch(e){ /* silent */ }
+}
+
+// ── User controls ─────────────────────────────────────────────────────────────
+
+async function devSetBalance(){
+  if(!devSelUser){toast('Сначала выбери участника','error');return;}
+  const amt=parseInt(document.getElementById('devMoraAmt').value||'0');
+  const cid=_devCid();
+  try{
+    const r=await api('/api/dev/setbalance','POST',{target_id:devSelUser.user_id,balance:amt,chat_id:cid});
+    toast('✅ Баланс установлен: '+r.balance+' 🪙','success');
   } catch(e){toast('❌ '+e.message,'error')}
 }
 
 async function devAddMora(){
-  const tuid=parseInt(document.getElementById('devMoraUid').value||uid);
-  const amt=parseInt(document.getElementById('devMoraAmt').value||0);
-  const cid=parseInt(document.getElementById('devMoraCid').value||chatId)||chatId;
+  if(!devSelUser){toast('Сначала выбери участника','error');return;}
+  const amt=parseInt(document.getElementById('devMoraAmt').value||'0');
+  const cid=_devCid();
   try{
-    const r=await api('/api/dev/add_mora','POST',{target_id:tuid,amount:amt,chat_id:cid});
+    const r=await api('/api/dev/add_mora','POST',{target_id:devSelUser.user_id,amount:amt,chat_id:cid});
     toast('✅ Баланс: '+r.new_balance+' 🪙','success');
   } catch(e){toast('❌ '+e.message,'error')}
 }
 
 async function devAddXp(){
-  const tuid=parseInt(document.getElementById('devXpUid').value||uid);
-  const amt=parseInt(document.getElementById('devXpAmt').value||0);
-  const cid=parseInt(document.getElementById('devXpCid').value||chatId)||chatId;
+  if(!devSelUser){toast('Сначала выбери участника','error');return;}
+  const amt=parseInt(document.getElementById('devXpAmt').value||'0');
+  const cid=_devCid();
   try{
-    const r=await api('/api/dev/add_xp','POST',{target_id:tuid,amount:amt,chat_id:cid});
+    const r=await api('/api/dev/add_xp','POST',{target_id:devSelUser.user_id,amount:amt,chat_id:cid});
     toast('✅ +'+amt+' XP → LVL '+(r.new_level||'?'),'success');
   } catch(e){toast('❌ '+e.message,'error')}
 }
 
-async function devGiveItem(){
-  const tuid=parseInt(document.getElementById('devItemUid').value||uid);
-  const key=document.getElementById('devItemKey').value.trim();
-  const name=document.getElementById('devItemName').value.trim();
-  const rarity=document.getElementById('devItemRarity').value;
-  const cid=parseInt(document.getElementById('devItemCid').value||chatId)||chatId;
-  if(!key||!name){toast('Заполни ключ и имя','error');return;}
+async function devSetXp(){
+  if(!devSelUser){toast('Сначала выбери участника','error');return;}
+  const amt=parseInt(document.getElementById('devXpAmt').value||'0');
+  const cid=_devCid();
   try{
-    const r=await api('/api/dev/give_item','POST',{target_id:tuid,item_key:key,item_name:name,rarity,chat_id:cid});
-    toast('✅ Предмет '+r.item_name+' (редк.: '+r.rarity+') выдан','success');
+    const r=await api('/api/dev/add_xp','POST',{target_id:devSelUser.user_id,amount:amt,chat_id:cid,set_mode:true});
+    toast('✅ XP = '+r.xp+' → LVL '+(r.new_level||'?'),'success');
   } catch(e){toast('❌ '+e.message,'error')}
 }
 
-async function loadDevUsers(){
+async function devGiveItem(){
+  if(!devSelUser){toast('Сначала выбери участника','error');return;}
+  const selVal = document.getElementById('devItemSelect').value;
+  if(!selVal){toast('Выбери предмет','error');return;}
+  const [key, encName, rarity] = selVal.split('|');
+  const item_name = decodeURIComponent(encName);
+  const cid=_devCid();
   try{
-    const r=await api('/api/dev/users?chat_id='+chatId);
-    const users=r.users||[];
-    document.getElementById('devUsersList').innerHTML=users.map(u=>`
-      <div class="dev-stat"><span>${esc(u.name||'?')} <small style="color:var(--text2)">#${u.user_id}</small></span><span class="dv">${u.user_id}</span></div>`
-    ).join('');
+    const r=await api('/api/dev/give_item','POST',{target_id:devSelUser.user_id,item_key:key,item_name,rarity,chat_id:cid});
+    toast('✅ '+r.item_name+' выдан ('+r.rarity+')','success');
   } catch(e){toast('❌ '+e.message,'error')}
 }
+
+// ── Chat management ───────────────────────────────────────────────────────────
+
+function _buildChatRow(c){
+  const badge = (c.chat_type==='group'||c.chat_type==='supergroup') ? 'group' : '';
+  return `<div class="dev-chat-row" onclick="loadDevChatMembers(${c.chat_id},'${esc(c.title)}')">
+    <span class="dev-chat-title">${esc(c.title)}</span>
+    <span class="dev-chat-badge ${badge}">${c.chat_type||'?'}</span>
+    <span style="font-size:11px;color:var(--text2)">${c.members} чел.</span>
+  </div>`;
+}
+
+async function loadDevChats(){
+  try{
+    const r = await api('/api/dev/chats');
+    devChatsCache = [...(r.groups||[]), ...(r.admin_chats||[])];
+    document.getElementById('devGroupsList').innerHTML = (r.groups||[]).map(_buildChatRow).join('')||'<div style="color:var(--text2);font-size:12px;padding:6px">—</div>';
+    document.getElementById('devAdminChatsList').innerHTML = (r.admin_chats||[]).map(_buildChatRow).join('')||'<div style="color:var(--text2);font-size:12px;padding:6px">—</div>';
+    // Populate event trigger select
+    const evSel = document.getElementById('devEventChatSel');
+    evSel.innerHTML = devChatsCache.map(c=>`<option value="${c.chat_id}">${esc(c.title)} (${c.chat_id})</option>`).join('');
+  } catch(e){toast('❌ '+e.message,'error')}
+}
+
+async function loadDevChatMembers(cid, title){
+  const wrap = document.getElementById('devChatMembersWrap');
+  const list = document.getElementById('devChatMembersList');
+  document.getElementById('devChatMembersTitle').textContent = '👥 ' + title;
+  list.innerHTML = '<div style="color:var(--text2);font-size:12px;padding:10px">Загрузка…</div>';
+  wrap.style.display='block';
+  try{
+    const r = await api('/api/dev/chat_admins?chat_id='+cid);
+    const members = r.members||[];
+    list.innerHTML = members.map(m=>`
+      <div class="dev-member-row">
+        <span>${esc(m.name)} <span class="dev-rank-badge">${esc(m.rank)}</span></span>
+        <span style="color:var(--gold)">${m.balance} 🪙</span>
+        <span style="color:var(--text2)">LVL ${m.level}</span>
+      </div>`).join('') || '<div style="color:var(--text2);font-size:12px;padding:6px">—</div>';
+  } catch(e){list.innerHTML='<div style="color:#f87171;font-size:12px;padding:6px">'+esc(e.message)+'</div>';}
+}
+
+// ── Logs ──────────────────────────────────────────────────────────────────────
+
+async function loadDevLogs(){
+  try{
+    const r = await api('/api/dev/logs?chat_id='+chatId);
+    const leave = r.leave_log||[];
+    document.getElementById('devLeaveLog').innerHTML = leave.length
+      ? leave.map(l=>`<div class="dev-log-entry"><span class="dev-log-ts">${(l.left_at||'').slice(0,16)}</span><span onclick="showPubProfile(${l.user_id})" style="cursor:pointer;color:var(--accent)">${esc(l.name||'?')}</span> <span style="color:var(--text2)">#${l.user_id}</span></div>`).join('')
+      : '<div style="color:var(--text2);font-size:12px;padding:4px">Нет данных</div>';
+    const errs = r.server_errors||[];
+    document.getElementById('devErrorLog').innerHTML = errs.length
+      ? errs.map(e=>`<div class="dev-log-entry" style="color:#fca5a5">${esc(e)}</div>`).join('')
+      : '<div style="color:var(--text2);font-size:12px;padding:4px">Ошибок не найдено</div>';
+  } catch(e){toast('❌ '+e.message,'error')}
+}
+
+// ── Public Profile ────────────────────────────────────────────────────────────
+function closePubProfile(){
+  document.getElementById('pubProfileOverlay').classList.remove('open');
+}
+
+async function showPubProfile(userId){
+  if(!userId) return;
+  const overlay = document.getElementById('pubProfileOverlay');
+  document.getElementById('pubProfileContent').style.display='none';
+  document.getElementById('pubProfileLoading').style.display='block';
+  document.getElementById('pubProfileLoading').textContent='⏳ Загрузка…';
+  overlay.classList.add('open');
+  try{
+    const p = await api('/api/public_profile?user_id='+userId+'&chat_id='+chatId);
+    document.getElementById('pubProfileLoading').style.display='none';
+    document.getElementById('pubProfileContent').style.display='block';
+    document.getElementById('pubAvatar').textContent = p.vip ? '💎' : '👤';
+    document.getElementById('pubName').textContent = (p.name||'Игрок')+(p.vip?' 💎':'');
+    document.getElementById('pubTitle').textContent = p.custom_title || '';
+    let html = '';
+    html += `<div class="stat-row"><span class="stat-label">💠 Уровень</span><span class="stat-value">${p.level||1}</span></div>`;
+    html += `<div class="stat-row"><span class="stat-label">📊 XP</span><span class="stat-value">${p.xp||0}/${p.xp_max||100}</span></div>`;
+    if(p.rpg){
+      html += `<div class="stat-row"><span class="stat-label">⚔️ ATK</span><span class="stat-value">${p.rpg.atk||0}</span></div>`;
+      html += `<div class="stat-row"><span class="stat-label">🛡 DEF</span><span class="stat-value">${p.rpg.def||0}</span></div>`;
+      html += `<div class="stat-row"><span class="stat-label">❤️ HP</span><span class="stat-value">${p.rpg.hp||0}</span></div>`;
+    }
+    if(p.equipped_items && p.equipped_items.length){
+      html += `<div style="font-size:11px;color:var(--text2);margin:8px 0 4px">⚔️ Снаряжение:</div>`;
+      p.equipped_items.forEach(i=>{ html += `<div style="font-size:12px;padding:2px 0">• ${esc(i.name)} <span style="color:var(--text2)">(${i.rarity})</span></div>`; });
+    }
+    if(p.active_frame && p.active_frame!=='default'){
+      html += `<div class="stat-row"><span class="stat-label">🖼 Рамка</span><span class="stat-value">${esc(p.active_frame)}</span></div>`;
+    }
+    if(p.active_theme && p.active_theme!=='default'){
+      html += `<div class="stat-row"><span class="stat-label">🎨 Тема</span><span class="stat-value">${esc(p.theme_name||p.active_theme)}</span></div>`;
+    }
+    if(p.partner_name){
+      const partnerEl = p.partner_id
+        ? `<span onclick="showPubProfile(${p.partner_id})" style="cursor:pointer;color:var(--accent)">${esc(p.partner_name)}</span>`
+        : esc(p.partner_name);
+      html += `<div class="stat-row"><span class="stat-label">💍 Партнёр</span><span class="stat-value">${partnerEl}</span></div>`;
+    }
+    if(p.pet){
+      const walkStr = p.pet.on_walk ? ' 🦮 На прогулке' : '';
+      html += `<div class="stat-row"><span class="stat-label">${p.pet.emoji||'🐾'} Питомец</span><span class="stat-value">${esc(p.pet.name||'Питомец')}${walkStr}</span></div>`;
+    }
+    document.getElementById('pubBody').innerHTML = html;
+  } catch(e){
+    document.getElementById('pubProfileLoading').style.display='block';
+    document.getElementById('pubProfileLoading').textContent='⚠️ '+e.message;
+  }
+}
+
+// ── Blacklist ─────────────────────────────────────────────────────────────────
+
+async function loadDevBanlist(){
+  try{
+    const r = await api('/api/dev/banlist');
+    const banned = r.banned||[];
+    document.getElementById('devBanList').innerHTML = banned.length
+      ? banned.map(b=>`<div class="dev-ban-row">
+          <span><b>${esc(b.name||'?')}</b> <span style="color:var(--text2)">#${b.user_id}</span></span>
+          <span style="color:var(--text2);font-size:11px;flex:1;margin-left:6px">${esc(b.reason||'')}</span>
+          <span class="dev-ban-unban" title="Разбанить" onclick="devUnbanUser(${b.user_id})">✕</span>
+        </div>`).join('')
+      : '<div style="color:var(--text2);font-size:12px;padding:4px">Список пуст</div>';
+  } catch(e){toast('❌ '+e.message,'error')}
+}
+
+async function devBanUser(){
+  const uid_b = parseInt(document.getElementById('devBanUid').value||'0');
+  const reason = document.getElementById('devBanReason').value.trim();
+  if(!uid_b){toast('Введи User ID','error');return;}
+  try{
+    await api('/api/dev/banlist','POST',{user_id:uid_b,reason});
+    toast('🚫 Пользователь #'+uid_b+' добавлен в ЧС','success');
+    document.getElementById('devBanUid').value='';
+    document.getElementById('devBanReason').value='';
+    loadDevBanlist();
+  } catch(e){toast('❌ '+e.message,'error')}
+}
+
+async function devUnbanUser(uid_b){
+  try{
+    await api('/api/dev/banlist','DELETE',{user_id:uid_b});
+    toast('✅ Разбанен #'+uid_b,'success');
+    loadDevBanlist();
+  } catch(e){toast('❌ '+e.message,'error')}
+}
+
+// ── Event trigger ─────────────────────────────────────────────────────────────
+
+async function devTriggerEvent(type){
+  const sel = document.getElementById('devEventChatSel');
+  const cid = parseInt(sel.value||'0');
+  if(!cid){toast('Сначала выбери чат (загрузи список чатов)','error');return;}
+  try{
+    const r = await api('/api/dev/trigger_event','POST',{event_type:type,chat_id:cid});
+    toast('✅ '+r.event_type+' → поставлен в очередь для чата '+cid,'success');
+  } catch(e){toast('❌ '+e.message,'error')}
+}
+
+// Override api() DELETE support (pass method as arg)
+// The api() helper likely only supports GET/POST – extend it here:
+async function _devApiDelete(url, body){
+  const resp = await fetch(BASE+url,{
+    method:'DELETE',
+    headers:{'Content-Type':'application/json','X-Telegram-Init-Data':initData},
+    body: JSON.stringify(body),
+  });
+  const data = await resp.json();
+  if(!resp.ok) throw new Error(data.error||resp.statusText);
+  return data;
+}
+
+// Patch devUnbanUser to use DELETE (need overriding generic api call)
+// Reassign after initial def:
+async function devUnbanUser(uid_b){
+  try{
+    await _devApiDelete('/api/dev/banlist',{user_id:uid_b});
+    toast('✅ Разбанен #'+uid_b,'success');
+    loadDevBanlist();
+  } catch(e){toast('❌ '+e.message,'error')}
+}
+
+// Deprecated stubs kept for any residual references
+async function loadDevUsers(){}
+async function devGiveItem_legacy(){}
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 loadProfile();
 </script>
 </body>
 </html>
+// ── New Inventory Helper Functions ────────────────────────────────────────────
+
+function formatBuffTime(expiresAt) {
+  const now = new Date().getTime();
+  const expires = new Date(expiresAt).getTime();
+  const diff = expires - now;
+  if (diff <= 0) return 'Истёк';
+  const mins = Math.floor(diff / 60000);
+  const hours = Math.floor(mins / 60);
+  if (hours > 0) return hours + 'ч ' + (mins % 60) + 'м';
+  return mins + 'м';
+}
+
+function renderCosmeticsInventory(cosmetics, allItems) {
+  const cosmeticItems = cosmetics.concat(allItems.filter(i => i.key.startsWith('junk_') && i.rarity !== 'junk'));
+  
+  document.getElementById('invCosmeticsList').innerHTML = cosmeticItems.length ? cosmeticItems.map(i => 
+    <div class="inv-item +(canSelectItem(i) ? 'selectable' : '') +" id="item-+i.id+">
+      +(canSelectItem(i) ? <input type="checkbox" class="inv-item-select" onchange="toggleItemSelection(+i.id+, this.checked)"> : '')+
+      <div class="ii-emoji">+rarityEmoji(i.rarity)+</div>
+      <div class="ii-info">
+        <div class="ii-name">+esc(i.name)+</div>
+        <div class="ii-rarity">
+          <span class="badge badge-+i.rarity+">+rarityLabel(i.rarity)+</span>
+          +(i.slot ? ' · '+esc(i.slot) : '')+
+          +(canSelectItem(i) ? '<span style="font-size:10px;color:var(--text2)"> · Продать: '+Math.max(1,Math.floor((i.sell_price||0)/2))+' 🪙</span>' : '')+
+        </div>
+        +(i.desc ? '<div style="font-size:10px;color:var(--text2);margin-top:2px;font-style:italic">'+esc(i.desc)+'</div>' : '')+
+      </div>
+      +(!canSelectItem(i) && (i.slot === 'cosmetic' || i.key.startsWith('rare_')) ? 
+        <button class="btn btn-sm +(i.equipped?'btn-gold':'btn-primary')+" onclick="toggleEquip(+i.id+)" style="width:auto;min-width:68px">
+          +(i.equipped?'✓ Снять':'Надеть')+
+        </button>
+       : '')+
+    </div>
+  ).join('') : '<div style="color:var(--text2);text-align:center;padding:20px">Нет косметики</div>';
+  
+  updateBatchSellUI();
+}
+
+function renderWeaponsInventory(weapons) {
+  document.getElementById('invWeaponsList').innerHTML = weapons.length ? weapons.map(i => 
+    <div class="inv-item +(canSelectItem(i) ? 'selectable' : '') +" id="item-+i.id+">
+      +(canSelectItem(i) ? <input type="checkbox" class="inv-item-select" onchange="toggleItemSelection(+i.id+, this.checked)"> : '')+
+      <div class="ii-emoji">+rarityEmoji(i.rarity)+</div>
+      <div class="ii-info">
+        <div class="ii-name">
+          +esc(i.name)+
+          +(i.equipped && i.enhancement_level > 0 ? '<span class="enhance-level">+'+i.enhancement_level+'</span>' : '')+
+        </div>
+        <div class="ii-rarity">
+          <span class="badge badge-+i.rarity+">+rarityLabel(i.rarity)+</span>
+          +(i.slot ? ' · '+esc(i.slot) : '')+
+          +(canSelectItem(i) ? '<span style="font-size:10px;color:var(--text2)"> · Продать: '+Math.max(1,Math.floor((i.sell_price||0)/2))+' 🪙</span>' : '')+
+        </div>
+        +(i.atk ? '<div style="font-size:10px;color:var(--text2);margin-top:2px">ATK+'+i.atk+(i.crit_rate ? ' Crit+'+(Math.round(i.crit_rate*100))+'%' : '')+'</div>' : '')+
+        +(i.equipped && i.enhancement_level >= 0 ? getEnhancementInfo(i) : '')+
+        +(i.desc ? '<div style="font-size:10px;color:var(--text2);margin-top:2px;font-style:italic">'+esc(i.desc)+'</div>' : '')+
+      </div>
+      <div style="display:flex;gap:4px;align-items:center">
+        +(!canSelectItem(i) ? 
+          <button class="btn btn-sm +(i.equipped?'btn-gold':'btn-primary')+" onclick="toggleEquip(+i.id+)" style="width:auto;min-width:68px">
+            +(i.equipped?'✓ Снять':'Надеть')+
+          </button>
+         : '')+
+        +(i.equipped ? 
+          <button class="btn btn-sm" style="background:var(--gold);color:#000;width:auto" onclick="enhanceItem(+i.id+)">
+            ⚡ Заточка
+          </button>
+         : '')+
+      </div>
+    </div>
+  ).join('') : '<div style="color:var(--text2);text-align:center;padding:20px">Нет оружия</div>';
+  
+  updateBatchSellUI();
+}
+
+function renderArmorInventory(armor) {
+  document.getElementById('invArmorList').innerHTML = armor.length ? armor.map(i => 
+    <div class="inv-item +(canSelectItem(i) ? 'selectable' : '') +" id="item-+i.id+">
+      +(canSelectItem(i) ? <input type="checkbox" class="inv-item-select" onchange="toggleItemSelection(+i.id+, this.checked)"> : '')+
+      <div class="ii-emoji">+rarityEmoji(i.rarity)+</div>
+      <div class="ii-info">
+        <div class="ii-name">
+          +esc(i.name)+
+          +(i.equipped && i.enhancement_level > 0 ? '<span class="enhance-level">+'+i.enhancement_level+'</span>' : '')+
+        </div>
+        <div class="ii-rarity">
+          <span class="badge badge-+i.rarity+">+rarityLabel(i.rarity)+</span>
+          +(i.slot ? ' · '+esc(i.slot) : '')+
+          +(canSelectItem(i) ? '<span style="font-size:10px;color:var(--text2)"> · Продать: '+Math.max(1,Math.floor((i.sell_price||0)/2))+' 🪙</span>' : '')+
+        </div>
+        +((i.def_val||i.hp) ? '<div style="font-size:10px;color:var(--text2);margin-top:2px">'+(i.def_val?'DEF+'+i.def_val:'')+(i.def_val&&i.hp?' ':'')+(i.hp?'HP+'+i.hp:'')+'</div>' : '')+
+        +(i.equipped && i.enhancement_level >= 0 ? getEnhancementInfo(i) : '')+
+        +(i.desc ? '<div style="font-size:10px;color:var(--text2);margin-top:2px;font-style:italic">'+esc(i.desc)+'</div>' : '')+
+      </div>
+      <div style="display:flex;gap:4px;align-items:center">
+        +(!canSelectItem(i) ? 
+          <button class="btn btn-sm +(i.equipped?'btn-gold':'btn-primary')+" onclick="toggleEquip(+i.id+)" style="width:auto;min-width:68px">
+            +(i.equipped?'✓ Снять':'Надеть')+
+          </button>
+         : '')+
+        +(i.equipped ? 
+          <button class="btn btn-sm" style="background:var(--gold);color:#000;width:auto" onclick="enhanceItem(+i.id+)">
+            ⚡ Заточка
+          </button>
+         : '')+
+      </div>
+    </div>
+  ).join('') : '<div style="color:var(--text2);text-align:center;padding:20px">Нет брони</div>';
+  
+  updateBatchSellUI();
+}
+
+function renderPotionsInventory(potions) {
+  document.getElementById('invPotionsList').innerHTML = potions.length ? potions.map(i => 
+    <div class="inv-item +(canSelectItem(i) ? 'selectable' : '') +" id="item-+i.id+">
+      +(canSelectItem(i) ? <input type="checkbox" class="inv-item-select" onchange="toggleItemSelection(+i.id+, this.checked)"> : '')+
+      <div class="ii-emoji">+rarityEmoji(i.rarity)+</div>
+      <div class="ii-info">
+        <div class="ii-name">+esc(i.name)+</div>
+        <div class="ii-rarity">
+          <span class="badge badge-+i.rarity+">+rarityLabel(i.rarity)+</span>
+          +(i.slot ? ' · '+esc(i.slot) : '')+
+          +(canSelectItem(i) ? '<span style="font-size:10px;color:var(--text2)"> · Продать: '+Math.max(1,Math.floor((i.sell_price||0)/2))+' 🪙</span>' : '')+
+        </div>
+        +(i.desc ? '<div style="font-size:10px;color:var(--text2);margin-top:2px;font-style:italic">'+esc(i.desc)+'</div>' : '')+
+      </div>
+      +(!canSelectItem(i) ? 
+        <button class="btn btn-sm btn-green" onclick="consumePotion(+i.id+)" style="width:auto;min-width:68px">
+          🧪 Выпить
+        </button>
+       : '')+
+    </div>
+  ).join('') : '<div style="color:var(--text2);text-align:center;padding:20px">Нет зелий</div>';
+  
+  updateBatchSellUI();
+}
+
+function canSelectItem(item) {
+  return !item.equipped && (item.key.startsWith('junk_') || item.sell_price > 0);
+}
+
+function getEnhancementInfo(item) {
+  const level = item.enhancement_level || 0;
+  const cost = Math.floor(100 * Math.pow(1.5, level));
+  let successRate = 100;
+  if (level >= 5) {
+    successRate = Math.max(30, 100 - (level - 4) * 10);
+  }
+  
+  return <div class="enhance-cost">
+    Улучшение:  🪙 
+    <span class="">
+      (%)
+    </span>
+  </div>;
+}
+
+function switchSubtab(name) {
+  document.querySelectorAll('.subtab-btn').forEach(b => b.classList.toggle('active', b.getAttribute('onclick').includes("'"+name+"'")));
+  ['cosmetics','weapons','armor','potions'].forEach(n => 
+    document.getElementById('subtab-'+n).style.display = n === name ? 'block' : 'none'
+  );
+}
+
+function toggleItemSelection(itemId, checked) {
+  const item = document.getElementById('item-' + itemId);
+  if (checked) {
+    window.selectedItems.add(itemId);
+    item.classList.add('selected');
+  } else {
+    window.selectedItems.delete(itemId);
+    item.classList.remove('selected');
+  }
+  updateBatchSellUI();
+}
+
+function selectAllItems() {
+  if (!window.inventoryItems) return;
+  window.inventoryItems.forEach(item => {
+    if (canSelectItem(item)) {
+      window.selectedItems.add(item.id);
+      const itemEl = document.getElementById('item-' + item.id);
+      if (itemEl) {
+        itemEl.classList.add('selected');
+        const checkbox = itemEl.querySelector('.inv-item-select');
+        if (checkbox) checkbox.checked = true;
+      }
+    }
+  });
+  updateBatchSellUI();
+}
+
+function clearSelection() {
+  window.selectedItems.clear();
+  document.querySelectorAll('.inv-item').forEach(item => {
+    item.classList.remove('selected');
+    const checkbox = item.querySelector('.inv-item-select');
+    if (checkbox) checkbox.checked = false;
+  });
+  updateBatchSellUI();
+}
+
+function updateBatchSellUI() {
+  const selectedCount = window.selectedItems.size;
+  if (selectedCount > 0) {
+    const totalValue = Array.from(window.selectedItems).reduce((sum, itemId) => {
+      const item = window.inventoryItems.find(i => i.id === itemId);
+      return sum + (item ? Math.max(1, Math.floor((item.sell_price || 0) / 2)) : 0);
+    }, 0);
+    
+    document.getElementById('batchSellCard').style.display = 'block';
+    const sellBtn = document.querySelector('#batchSellCard .btn-gold');
+    sellBtn.innerHTML = 🪙 Продать <span class="selected-count"></span> за <span class="sell-value"></span> 🪙;
+  } else {
+    document.getElementById('batchSellCard').style.display = 'none';
+  }
+}
+
+async function enhanceItem(itemId) {
+  const item = window.inventoryItems.find(i => i.id === itemId);
+  if (!item) return;
+  
+  const level = item.enhancement_level || 0;
+  const cost = Math.floor(100 * Math.pow(1.5, level));
+  const successRate = level >= 5 ? Math.max(30, 100 - (level - 4) * 10) : 100;
+  
+  const confirmed = confirm(Заточить  до +?\n\nСтоимость:  🪙\nШанс успеха: %\n\nПри провале с +5 уровень может снизиться!);
+  if (!confirmed) return;
+  
+  try {
+    const r = await api('/api/enhance', 'POST', {chat_id: chatId, item_id: itemId});
+    
+    if (r.success) {
+      toast(✅ Заточка успешна!  теперь +, 'success');
+    } else {
+      toast(💥 Заточка провалилась! , 'error');
+    }
+    
+    // Update balance
+    if (profileData && r.new_balance !== undefined) {
+      profileData.balance = r.new_balance;
+      document.getElementById('pMora').textContent = r.new_balance + ' 🪙';
+    }
+    
+    // Reload inventory
+    tabLoaded['inventory'] = false;
+    loadInventory();
+    
+  } catch(e) {
+    toast('❌ ' + e.message, 'error');
+  }
+}
+
+async function consumePotion(itemId) {
+  const item = window.inventoryItems.find(i => i.id === itemId);
+  if (!item) return;
+  
+  const confirmed = confirm(Выпить ?\n\nЗелье будет потрачено и даст временный эффект.);
+  if (!confirmed) return;
+  
+  try {
+    const r = await api('/api/consume_potion', 'POST', {chat_id: chatId, item_id: itemId});
+    toast(🧪 Выпил ! , 'success');
+    
+    // Reload inventory
+    tabLoaded['inventory'] = false;
+    loadInventory();
+    
+  } catch(e) {
+    toast('❌ ' + e.message, 'error');
+  }
+}
+
+async function confirmBatchSell() {
+  if (window.selectedItems.size === 0) return;
+  
+  const selectedIds = Array.from(window.selectedItems);
+  const totalValue = selectedIds.reduce((sum, itemId) => {
+    const item = window.inventoryItems.find(i => i.id === itemId);
+    return sum + (item ? Math.max(1, Math.floor((item.sell_price || 0) / 2)) : 0);
+  }, 0);
+  
+  const confirmed = confirm(Продать  предметов за  🪙?);
+  if (!confirmed) return;
+  
+  try {
+    const r = await api('/api/batch_sell', 'POST', {chat_id: chatId, item_ids: selectedIds});
+    toast(✅ Продано  предметов за  🪙, 'success');
+    
+    // Update balance
+    if (profileData && r.new_balance !== undefined) {
+      profileData.balance = r.new_balance;
+      document.getElementById('pMora').textContent = r.new_balance + ' 🪙';
+    }
+    
+    // Clear selection and reload inventory
+    clearSelection();
+    tabLoaded['inventory'] = false;
+    loadInventory();
+    
+  } catch(e) {
+    toast('❌ ' + e.message, 'error');
+  }
+}
+
