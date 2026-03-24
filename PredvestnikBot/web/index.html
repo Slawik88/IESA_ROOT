@@ -108,6 +108,15 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 .loading{color:var(--text2);text-align:center;padding:30px;font-size:13px}
 select{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-size:13px;outline:none;width:100%}
 .separator{height:1px;background:var(--border);margin:12px 0}
+/* Calendar */
+.cal-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin:12px 0}
+.cal-day{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:6px 4px;border-radius:8px;background:var(--bg3);border:1px solid var(--border);min-height:54px;cursor:default;transition:border-color .15s}
+.cal-day.done{background:rgba(34,197,94,.12);border-color:var(--green)}
+.cal-day.today{background:rgba(124,106,247,.18);border-color:var(--accent);box-shadow:0 0 8px rgba(124,106,247,.4)}
+.cal-day.checkpoint{border-color:var(--gold)}
+.cal-day .cd-num{font-size:10px;font-weight:700;color:var(--text2);margin-bottom:2px}
+.cal-day .cd-icon{font-size:16px;line-height:1}
+.cal-day .cd-mora{font-size:10px;color:var(--gold);font-weight:700;margin-top:2px}
 </style>
 </head>
 <body>
@@ -123,6 +132,7 @@ select{background:var(--bg3);border:1px solid var(--border);border-radius:8px;pa
 <!-- Tabs -->
 <div class="tabs">
   <button class="tab-btn active" onclick="switchTab('profile')">🏰 Профиль</button>
+  <button class="tab-btn" onclick="switchTab('calendar')">📅 Календарь</button>
   <button class="tab-btn" onclick="switchTab('union')">🤝 Узы</button>
   <button class="tab-btn" onclick="switchTab('inventory')">🎒 Инвент.</button>
   <button class="tab-btn" onclick="switchTab('shop')">🛒 Магазин</button>
@@ -154,7 +164,20 @@ select{background:var(--bg3);border:1px solid var(--border);border-radius:8px;pa
       <div class="card-title">💕 Партнёр</div>
       <div class="stat-row"><span class="stat-label">👤 Имя</span><span class="stat-value" id="partnerName">—</span></div>
     </div>
-    <button class="btn btn-primary" onclick="doCheckin()" id="checkinBtn">📅 Чек-ин</button>
+  </div>
+</div>
+
+<!-- CALENDAR TAB -->
+<div class="tab-content" id="tab-calendar">
+  <div class="loading" id="calLoading">⏳ Загрузка…</div>
+  <div id="calContent" style="display:none">
+    <div class="card">
+      <div class="card-title">📅 Ежедневный чекин</div>
+      <div class="stat-row"><span class="stat-label">🔥 Текущий стрик</span><span class="stat-value" id="calStreak">—</span></div>
+      <div class="stat-row"><span class="stat-label">📊 Всего отмечено</span><span class="stat-value" id="calTotal">—</span></div>
+      <div class="cal-grid" id="calGrid"></div>
+      <button class="btn btn-primary" onclick="doCheckin()" id="checkinBtn">📅 Отметиться</button>
+    </div>
   </div>
 </div>
 
@@ -326,11 +349,17 @@ let initData = (tg && tg.initData) || qp.get('tgWebAppData') || qp.get('initData
 
 // ── Извлекаем chat_id из текущего контекста ДО первого API-запроса ──────────
 const _tgUnsafe = (tg && tg.initDataUnsafe) || {};
-let chatId = (
-  (_tgUnsafe.chat && _tgUnsafe.chat.id) ||
-  parseInt(qp.get('chat_id') || '0') ||
-  0
-);
+// start_param — бот передаёт abs(group_chat_id) при открытии из группы
+const _startParam = _tgUnsafe.start_param || qp.get('tgWebAppStartParam') || '';
+let chatId = 0;
+if (_startParam && /^\d+$/.test(_startParam)) {
+  // Бот передаёт abs(group_chat_id); группы всегда имеют отрицательный ID
+  chatId = -parseInt(_startParam, 10);
+} else if (_tgUnsafe.chat && _tgUnsafe.chat.id) {
+  chatId = _tgUnsafe.chat.id;
+} else {
+  chatId = parseInt(qp.get('chat_id') || '0') || 0;
+}
 // chat_instance — строка-идентификатор, не подходит как chat_id группы;
 // его не используем, только реальный tg.initDataUnsafe.chat.id
 let uid = (_tgUnsafe.user && _tgUnsafe.user.id) || 0;
@@ -371,6 +400,7 @@ function switchTab(name){
   document.getElementById('tab-'+name).classList.add('active');
   if(!tabLoaded[name]){
     tabLoaded[name]=true;
+    if(name==='calendar') loadCalendar();
     if(name==='union') loadUnion();
     if(name==='inventory') loadInventory();
     if(name==='shop') loadShop();
@@ -409,15 +439,81 @@ async function loadProfile(){
   }
 }
 
+// ── Calendar ──────────────────────────────────────────────────────────────────
+const CAL_REWARDS = {1:30,2:30,3:35,4:35,5:60,6:40,7:40,8:45,9:45,10:80,
+  11:50,12:50,13:55,14:55,15:100,16:60,17:60,18:70,19:70,20:150};
+const CAL_CHECKPOINTS = new Set([5,10,15,20]);
+
+function _buildCalGrid(streak, todayDone){
+  const grid = document.getElementById('calGrid');
+  grid.innerHTML = '';
+  for(let day=1;day<=20;day++){
+    const mora = CAL_REWARDS[day] || 40;
+    const isCheckpoint = CAL_CHECKPOINTS.has(day);
+    const isDone = day <= streak;
+    const isToday = (day === streak + 1) && !todayDone;
+    const div = document.createElement('div');
+    div.className = 'cal-day' + (isDone?' done':'') + (isToday?' today':'') + (isCheckpoint&&!isDone?' checkpoint':'');
+    const icon = isDone ? '✅' : isToday ? '⭐' : isCheckpoint ? '🏆' : '○';
+    div.innerHTML = `<span class="cd-num">день ${day}</span><span class="cd-icon">${icon}</span><span class="cd-mora">${mora}🪙</span>`;
+    grid.appendChild(div);
+  }
+}
+
+async function loadCalendar(){
+  document.getElementById('calLoading').style.display='block';
+  document.getElementById('calContent').style.display='none';
+  try{
+    if(!profileData) await loadProfile();
+    const data = await api('/api/checkin?chat_id='+chatId);
+    document.getElementById('calLoading').style.display='none';
+    document.getElementById('calContent').style.display='block';
+    document.getElementById('calStreak').textContent = (data.streak||0)+' дн.';
+    document.getElementById('calTotal').textContent = (data.total_days||0)+' дн.';
+    _buildCalGrid(data.streak||0, data.today_done||false);
+    const btn = document.getElementById('checkinBtn');
+    if(data.today_done){
+      btn.disabled=true;
+      btn.textContent='✅ Уже отмечено сегодня';
+      btn.style.opacity='0.5';
+    } else {
+      btn.disabled=false;
+      btn.textContent='📅 Отметиться';
+      btn.style.opacity='';
+    }
+  } catch(e){
+    document.getElementById('calLoading').textContent='⚠️ '+e.message;
+  }
+}
+
 async function doCheckin(){
+  const btn = document.getElementById('checkinBtn');
+  if(btn) btn.disabled=true;
   try{
     const r = await api('/api/checkin','POST',{chat_id:chatId});
-    if(r.already_done){toast('📅 Уже отмечено сегодня','error');return;}
+    if(r.already_done){
+      toast('📅 Уже отмечено сегодня','error');
+      if(btn){btn.textContent='✅ Уже отмечено сегодня';btn.style.opacity='0.5';}
+      return;
+    }
     toast('✅ Чек-ин! +'+r.mora+' 🪙 (стрик: '+r.streak+')','success');
-    profileData.balance=(profileData.balance||0)+(r.mora||0);
-    document.getElementById('pMora').textContent=profileData.balance+' 🪙';
-    document.getElementById('pStreak').textContent=(r.streak||0)+' дн.';
-  } catch(e){toast('❌ '+e.message,'error')}
+    // Update profile mora display if loaded
+    if(profileData){
+      profileData.balance=(profileData.balance||0)+(r.mora||0);
+      const pm=document.getElementById('pMora');
+      if(pm) pm.textContent=profileData.balance+' 🪙';
+      const ps=document.getElementById('pStreak');
+      if(ps) ps.textContent=(r.streak||0)+' дн.';
+    }
+    // Refresh the calendar grid
+    document.getElementById('calStreak').textContent=(r.streak||0)+' дн.';
+    document.getElementById('calTotal').textContent=(r.total_days||0)+' дн.';
+    _buildCalGrid(r.streak||0, true);
+    if(btn){btn.textContent='✅ Уже отмечено сегодня';btn.style.opacity='0.5';}
+  } catch(e){
+    toast('❌ '+e.message,'error');
+    if(btn) btn.disabled=false;
+  }
 }
 
 // ── Union ─────────────────────────────────────────────────────────────────────
