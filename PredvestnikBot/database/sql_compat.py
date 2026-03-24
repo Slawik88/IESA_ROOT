@@ -204,10 +204,12 @@ class _CompatAioSqlite:
     Row = _sqlite.Row
 
     @staticmethod
-    def connect(path_or_dsn: str):
+    def connect(path_or_dsn: str, timeout: float = 20.0):
         if _is_postgres_dsn(path_or_dsn):
             return _PgConnectCtx(path_or_dsn)
-        return _sqlite.connect(path_or_dsn)
+        # timeout=20.0 — SQLite will wait up to 20 s for a write lock instead
+        # of raising "database is locked" immediately (default timeout=0).
+        return _sqlite.connect(path_or_dsn, timeout=timeout)
 
 
 aiosqlite_compat = _CompatAioSqlite()

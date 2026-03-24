@@ -342,12 +342,20 @@ async def _run_webserver(bot: Bot) -> None:
         app.router.add_static("/static", _web_dir)
 
     # Use BOT_WEB_PORT (default 8081) to avoid conflicting with Django/Daphne on PORT=8080
-    port = int(os.environ.get("BOT_WEB_PORT", os.environ.get("PORT", 8081)))
+    # Use BOT_WEB_PORT only — never inherit PORT (Daphne/Gunicorn holds that).
+    port = int(os.environ.get("BOT_WEB_PORT", 8081))
     runner = _web.AppRunner(app)
     await runner.setup()
     site = _web.TCPSite(runner, "0.0.0.0", port)
-    await site.start()
-    logging.info("Mini App web server started on port %d", port)
+    try:
+        await site.start()
+        logging.info("Mini App web server started on port %d", port)
+    except OSError as _port_err:
+        logging.error(
+            "Mini App web server could not bind to port %d: %s. "
+            "Set BOT_WEB_PORT to a free port. Bot continues without web server.",
+            port, _port_err,
+        )
 
 
 if __name__ == "__main__":

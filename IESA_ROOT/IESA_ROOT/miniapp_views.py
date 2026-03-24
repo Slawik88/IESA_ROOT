@@ -680,18 +680,18 @@ def miniapp_checkin(request):
         conn.close()
         
         # ➕ ЛОГИРУЕМ ДЕЙСТВИЕ В ЧАТ
-        import asyncio
+        from asgiref.sync import async_to_sync as _a2s
         reward_text = f"+{mora_reward} 🪙"
         if is_checkpoint:
             reward_text += f" | День {day_idx} - ЧЕКПОИНТ! ✨"
         if day_idx == 20:
             reward_text += " | Бесплатная гача! 🎁"
-            
-        asyncio.create_task(log_action_to_chat(
-            uid, chat_id, 
-            f"Забрал ежедневную награду (день {streak})", 
+
+        _a2s(log_action_to_chat)(
+            uid, chat_id,
+            f"Забрал ежедневную награду (день {streak})",
             reward_text
-        ))
+        )
         
         return JsonResponse({
             "ok": True, "already_done": False,
@@ -2502,7 +2502,6 @@ def miniapp_gacha_roll(request):
         conn.close()
         
         # ➕ ЛОГИРУЕМ КРУТКУ ГАЧИ В ЧАТ
-        import asyncio
         loot_text = ""
         for item in results:
             rarity_emoji = {"common": "⚪", "uncommon": "🟢", "rare": "🔵", "epic": "🟣", "legendary": "🟡"}
@@ -2510,11 +2509,12 @@ def miniapp_gacha_roll(request):
             loot_text += f"\\n{emoji} {item['name']}"
         
         roll_type = f"{count}x крутка" if count > 1 else "Одиночная крутка"
-        asyncio.create_task(log_action_to_chat(
+        from asgiref.sync import async_to_sync as _a2s
+        _a2s(log_action_to_chat)(
             uid, chat_id,
             f"🎲 {roll_type} гачи (-{price} 🪙)",
             f"Выпало:{loot_text}"
-        ))
+        )
 
         return JsonResponse({"ok": True, "items": results, "balance": new_bal, "pity": pity, "spent": price},
                             json_dumps_params={"ensure_ascii": False}, headers=headers)
@@ -2831,14 +2831,14 @@ def miniapp_pet_feed(request):
         conn.close()
         
         # ➕ ЛОГИРУЕМ КОРМЕЖКУ ПИТОМЦА В ЧАТ
-        import asyncio
+        from asgiref.sync import async_to_sync as _a2s
         emoji = {"cat": "🐱", "dog": "🐶"}.get(ptype, "🐾")
         wallet_text = f" из {wallet} кошелька" if wallet == "family" else ""
-        asyncio.create_task(log_action_to_chat(
+        _a2s(log_action_to_chat)(
             uid, chat_id,
             f"{emoji} Покормил питомца {pname or 'Питомец'}",
-            f"Еда: {food['name']} (-{food['price']} 🪙{wallet_text})\\nУсталость: -{food['fatigue']}"
-        ))
+            f"Еда: {food['name']} (-{food['price']} 🪙{wallet_text})\nУсталость: -{food['fatigue']}"
+        )
 
         return JsonResponse({"ok": True, "fatigue": new_fatigue, "reduced": food["fatigue"], "balance": new_bal,
                              "pet_emoji": emoji, "pet_name": pname or "Питомец", "food_name": food["name"]},
@@ -3367,18 +3367,17 @@ def miniapp_enhance_item(request):
 
     try:
         from database.db import enhance_item
-        import asyncio
-        
-        success, message, new_level = asyncio.run(enhance_item(uid, chat_id, item_id))
-        
+        from asgiref.sync import async_to_sync as _a2s
+
+        success, message, new_level = _a2s(enhance_item)(uid, chat_id, item_id)
+
         # ➕ ЛОГИРУЕМ ЗАТОЧКУ В ЧАТ
         if success:
-            import asyncio
-            asyncio.create_task(log_action_to_chat(
+            _a2s(log_action_to_chat)(
                 uid, chat_id,
                 f"✨ Заточил предмет до +{new_level}",
                 message
-            ))
+            )
         
         # Get updated balance
         cur = conn.cursor()
@@ -3470,18 +3469,17 @@ def miniapp_batch_sell(request):
 
     try:
         from database.db import batch_sell_items
-        import asyncio
-        
-        sold_count, total_mora = asyncio.run(batch_sell_items(uid, chat_id, item_ids))
-        
+        from asgiref.sync import async_to_sync as _a2s
+
+        sold_count, total_mora = _a2s(batch_sell_items)(uid, chat_id, item_ids)
+
         # ➕ ЛОГИРУЕМ ПРОДАЖУ ВЕЩЕЙ В ЧАТ
         if sold_count > 0:
-            import asyncio
-            asyncio.create_task(log_action_to_chat(
+            _a2s(log_action_to_chat)(
                 uid, chat_id,
                 f"💰 Продал {sold_count} предметов",
                 f"Получено: +{total_mora} 🪙"
-            ))
+            )
 
         # Get updated balance
         try:
@@ -3557,9 +3555,9 @@ def miniapp_couple_boss_status(request):
         max_level = progress_row[0] if progress_row else 0
         
         # Get user names
-        cur.execute(f"SELECT full_name FROM users WHERE id={ph}", (uid,))
+        cur.execute(f"SELECT full_name FROM users WHERE user_id={ph}", (uid,))
         user_name = (cur.fetchone() or ["Player"])[0]
-        cur.execute(f"SELECT full_name FROM users WHERE id={ph}", (partner_id,))
+        cur.execute(f"SELECT full_name FROM users WHERE user_id={ph}", (partner_id,))
         partner_name = (cur.fetchone() or ["Partner"])[0]
         
         conn.close()
