@@ -12,6 +12,7 @@ import json
 import math
 import os
 import sqlite3
+import sys
 from pathlib import Path
 from urllib.parse import parse_qsl
 
@@ -21,6 +22,24 @@ from django.views.decorators.csrf import csrf_exempt
 
 # Path to the bot's web/index.html (relative to this file's location)
 _BOT_DIR = Path(__file__).resolve().parent.parent.parent / "PredvestnikBot"
+
+# Import shared price catalogue from the bot package
+if str(_BOT_DIR) not in sys.path:
+    sys.path.insert(0, str(_BOT_DIR))
+from shared_prices import (  # noqa: E402
+    GACHA_SINGLE_PRICE as _GACHA_SINGLE_PRICE,
+    GACHA_MULTI_PRICE as _GACHA_MULTI_PRICE,
+    GACHA_SINGLES_SINGLE as _GACHA_SINGLES_SINGLE,
+    GACHA_SINGLES_MULTI as _GACHA_SINGLES_MULTI,
+    GACHA_PITY_MAX as _GACHA_PITY_MAX,
+    PRICE_VIP as _PRICE_VIP,
+    FRAMES_CATALOG as _FRAMES_CATALOG,
+    COSMETICS_CATALOG as _COSMETICS_CATALOG,
+    FOOD_ITEMS as _FOOD_ITEMS,
+    BOND_DEFAULTS as _BOND_DEFAULTS_SYNC,
+    CHECKIN_REWARDS as _CHECKIN_REWARDS_SYNC,
+    CHECKIN_CHECKPOINTS as _CHECKIN_CHECKPOINTS_SYNC,
+)
 _INDEX_HTML = _BOT_DIR / "web" / "index.html"
 _BOT_DB_URL = os.environ.get("PREDVESTNIK_DATABASE_URL", "")
 _BOT_TOKEN = os.environ.get("PREDVESTNIK_BOT_TOKEN") or os.environ.get("BOT_TOKEN", "")
@@ -491,14 +510,7 @@ def miniapp_leaderboard(request):
 
 
 # ─── Daily check-in ───────────────────────────────────────────────────────────
-
-_CHECKIN_REWARDS_SYNC = {
-    1: 30, 2: 30, 3: 35, 4: 35, 5: 60,
-    6: 40, 7: 40, 8: 45, 9: 45, 10: 80,
-    11: 50, 12: 50, 13: 55, 14: 55, 15: 100,
-    16: 60, 17: 60, 18: 70, 19: 70, 20: 150,
-}
-_CHECKIN_CHECKPOINTS_SYNC = {5, 10, 15, 20}
+# _CHECKIN_REWARDS_SYNC and _CHECKIN_CHECKPOINTS_SYNC imported from shared_prices at top
 
 
 @csrf_exempt
@@ -1715,44 +1727,11 @@ def miniapp_inventory(request):
 
 import random as _random
 
-# ─── Gacha constants (mirrored from bot config) ───────────────────────────────
-_GACHA_SINGLE_PRICE   = 160
-_GACHA_MULTI_PRICE    = 1440
-_GACHA_SINGLES_SINGLE = 150
-_GACHA_SINGLES_MULTI  = 1350
-_GACHA_PITY_MAX       = 50
-
 _GACHA_POOL = {
     "junk":      [("junk_stone","\U0001faa8 Камень Маслоу"),("junk_stick","\U0001fab5 Палка путника"),("junk_dust","💨 Пыль забвения"),("junk_bone","🦴 Кость хиличурла"),("junk_mushroom","🍄 Сомнительный гриб")],
     "common":    [("cmn_sword","⚔️ Тупой клинок"),("cmn_bow","🏹 Кривой лук"),("cmn_book","📕 Потрёпанный дневник"),("cmn_ring","💍 Дешёвое кольцо"),("cmn_shield","🛡 Ржавый щит")],
     "rare":      [("rare_crown","👑 Серебряная корона"),("rare_catalyst","🔮 Магический катализатор"),("rare_cape","🧣 Алый плащ"),("rare_gem","💎 Сапфир полуночи")],
     "legendary": [("lego_gnosis","✨ Гнозис Балладеера"),("lego_scepter","🏛 Скипетр Дендро Архонта"),("lego_pantalone","🎩 Маска Панталоне"),("lego_abyss","🌀 Корона Бездны"),("lego_fatui","⚡ Перст Предвестника")],
-}
-
-_FRAMES_CATALOG = [
-    ("default",  "🔰", "Стандарт",   0),
-    ("warrior",  "⚔️", "Воин",        500),
-    ("king",     "👑", "Король",      1000),
-    ("moon",     "🌙", "Ночной",      800),
-    ("fire",     "🔥", "Огненный",    700),
-    ("diamond",  "💎", "Алмазный",    1200),
-    ("star",     "⭐", "Звёздный",    600),
-]
-
-_COSMETICS_CATALOG = [
-    ("custom_title",     "🏷",  "Кастомный титул",       3000, "Текст рядом с ником"),
-    ("pet_color",        "🎨",  "Цвет имени питомца",    2000, "Выбор из 6 цветов"),
-    ("pet_emoji_status", "😎",  "Эмодзи-статус питомца", 1500, "Эмодзи рядом с именем"),
-]
-
-_FOOD_ITEMS = {
-    "краб":  {"name": "Золотой краб",  "emoji": "🦀", "price": 50, "fatigue": 40},
-    "лапша": {"name": "Лапша путника", "emoji": "🍜", "price": 25, "fatigue": 20},
-}
-
-_BOND_DEFAULTS_SYNC = {
-    "mondstadt": {"name": "🌸 Мондштадт", "base_price": 100},
-    "inazuma":   {"name": "⚡ Инадзума",   "base_price": 150},
 }
 
 
@@ -2294,7 +2273,7 @@ def miniapp_shop_buy(request):
             return JsonResponse({"error": "Unknown cosmetic"}, status=400, headers=headers)
         price = cosm[3]
     elif item_type == "vip":
-        price = 500
+        price = _PRICE_VIP
     else:
         return JsonResponse({"error": "item_type must be frame/cosmetic/vip"}, status=400, headers=headers)
 

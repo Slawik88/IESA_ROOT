@@ -12,17 +12,9 @@ from aiogram.types import Message
 
 from database.db import add_mora, get_daily_checkin, perform_checkin
 from filters.bot_command import BotCommand
+from shared_prices import CHECKIN_REWARDS as _REWARDS, CHECKIN_CHECKPOINTS as _CHECKPOINTS
 
 router = Router()
-
-# Таблица наград (день → мора)
-_REWARDS = {
-    1: 30, 2: 30, 3: 35, 4: 35, 5: 60,
-    6: 40, 7: 40, 8: 45, 9: 45, 10: 80,
-    11: 50, 12: 50, 13: 55, 14: 55, 15: 100,
-    16: 60, 17: 60, 18: 70, 19: 70, 20: 150,
-}
-_CHECKPOINTS = {5, 10, 15, 20}
 
 
 def _render_calendar(streak: int) -> str:

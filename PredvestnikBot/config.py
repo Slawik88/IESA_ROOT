@@ -5,6 +5,18 @@
 
 import os
 from dotenv import load_dotenv
+from shared_prices import (
+    GACHA_SINGLE_PRICE,
+    GACHA_MULTI_PRICE,
+    GACHA_PITY_MAX as GACHA_PITY_COUNT,
+    CHECKIN_REWARDS,
+    CHECKIN_CHECKPOINTS,
+    FOOD_ITEMS,
+    FRAMES_CATALOG,
+    COSMETICS_CATALOG,
+    BOND_DEFAULTS,
+    PRICE_VIP,
+)
 
 load_dotenv()  # Загружает переменные из .env (если файл есть)
 
@@ -246,12 +258,10 @@ EXPEDITION_OPTIONS = {
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-#  🎲  Гача (Молитвы)
+#  🎲  Гача (Молитвы)  — цены из shared_prices.py
 # ═══════════════════════════════════════════════════════════════════════════════
 
-GACHA_SINGLE_PRICE = 160
-GACHA_MULTI_PRICE  = 1440       # 10 круток со скидкой ~10%
-GACHA_PITY_COUNT   = 50         # гарант 5★ каждые N круток
+# GACHA_SINGLE_PRICE / GACHA_MULTI_PRICE / GACHA_PITY_COUNT импортированы наверху.
 
 # Шансы: junk(1-2★)=70%, common(3★)=20%, rare(4★)=8%, legendary(5★)=2%
 GACHA_CHANCES = [
