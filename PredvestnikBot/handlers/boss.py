@@ -17,8 +17,9 @@ import time
 from datetime import datetime, timezone
 
 from aiogram import Router
-from aiogram.types import Message
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message
 
+from config import MINI_APP_TG_URL
 from database.db import add_boss_damage, add_mora, get_boss_leaderboard, get_boss_my_damage
 from filters.bot_command import BotCommand
 
@@ -119,46 +120,17 @@ async def cmd_boss(message: Message, cmd_args: str):
 
     # Атака
     if arg in ("атака", "атаковать", "attack", "удар"):
-        now = time.time()
-        cooldown_key = (uid, chat_id)
-        last = _attack_cooldown.get(cooldown_key, 0)
-        if now - last < 30:
-            wait = int(30 - (now - last))
-            await message.answer(f"⏳ Следующая атака через <b>{wait} сек.</b>", parse_mode="HTML")
-            return
-
-        dmg = _calc_damage(atk=150, crit_rate=0.08)  # РЕБАЛАНС: было atk=100, crit=0.05
-        new_hp = apply_damage(chat_id, dmg)
-        _attack_cooldown[cooldown_key] = now
-
-        # Сохранить в буфер
-        buffer_damage(uid, chat_id, dmg)
-
-        reward = max(15, dmg // 15)  # РЕБАЛАНС: было max(5, dmg // 20)
-        await add_mora(uid, chat_id, reward)
-
-        bar = _hp_bar(new_hp)
-        defeated = new_hp == 0
-
-        lines = [
-            f"⚔️ <b>Атака по Боссу!</b>",
-            f"",
-            f"💥 Урон: <b>{dmg}</b>",
-            f"💰 Награда: <b>+{reward} 🪙</b>",
-            f"",
-            f"👹 <b>Мировой Босс</b>",
-            f"❤️ {bar}",
-            f"HP: {new_hp:,} / {BOSS_MAX_HP:,}",
-        ]
-
-        if defeated:
-            lines += ["", "🎉 <b>БОСС ПОВЕРЖЕН!</b> Мора распределена среди участников!"]
-            # Восстановить HP для нового раунда
-            _boss_hp[chat_id] = BOSS_MAX_HP
-            # Сохранить накопленный буфер
-            await flush_damage_buffer()
-
-        await message.answer("\n".join(lines), parse_mode="HTML")
+        # PHASE 3: Boss attack → Mini App
+        abs_cid = abs(message.chat.id)
+        btn = InlineKeyboardButton(
+            text="⚔️ Атаковать в Mini App",
+            url=f"{MINI_APP_TG_URL}?startapp={abs_cid}",
+        )
+        await message.answer(
+            "⚔️ <b>Атаки на Босса — в Mini App!</b> (до 30 ударов за сессию)",
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[[btn]]),
+        )
         return
 
     # Статус босса

@@ -2506,8 +2506,7 @@ def miniapp_gacha_roll(request):
         for item in results:
             rarity_emoji = {"common": "⚪", "uncommon": "🟢", "rare": "🔵", "epic": "🟣", "legendary": "🟡"}
             emoji = rarity_emoji.get(item["rarity"], "⚪")
-            loot_text += f"
-{emoji} {item['name']}"
+            loot_text += f"{emoji} {item['name']}"
         
         roll_type = f"{count}x крутка" if count > 1 else "Одиночная крутка"
         from asgiref.sync import async_to_sync as _a2s
@@ -3925,9 +3924,29 @@ def miniapp_get_avatar(request):
 # ─── НОВАЯ ФУНКЦИЯ: Логирование действий в чат ──────────────────────────────
 
 async def log_action_to_chat(user_id: int, chat_id: int, action: str, details: str = ""):
-    """Отправить сообщение о действии пользователя в чат."""
+    """Отправить сообщение о действии пользователя в чат.
+    
+    PHASE 3 — social hub filter: только важные события попадают в общий чат.
+    Обычные действия (чекин, кормёжка питомца, мелкие покупки) не публикуются.
+    """
     if not _BOT_TOKEN:
         return
+
+    # ── Фильтр социального хаба ─────────────────────────────────────────────
+    # Пропускаем шумные/рутинные события
+    _SKIP_KEYWORDS = (
+        "ежедневную награду",   # ежедневный чекин
+        "Покормил питомца",     # кормёжка питомца
+        "Продал ",              # продажа предметов
+    )
+    if any(kw in action for kw in _SKIP_KEYWORDS):
+        return
+
+    # Гача: публикуем только легендарные (🟡) или эпические (🟣) дропы
+    if "гачи" in action.lower():
+        if "🟡" not in (details or "") and "🟣" not in (details or ""):
+            return
+    # ────────────────────────────────────────────────────────────────────────
         
     try:
         import requests
@@ -3939,8 +3958,7 @@ async def log_action_to_chat(user_id: int, chat_id: int, action: str, details: s
         # Формируем сообщение
         message = f"🎮 <b>{user_name}</b> выполнил: {action}"
         if details:
-            message += f"
-{details}"
+            message += f"{details}"
         
         # Отправляем в чат
         url = f"https://api.telegram.org/bot{_BOT_TOKEN}/sendMessage"

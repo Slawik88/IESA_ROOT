@@ -297,7 +297,7 @@ async def _task_lottery_draw(bot) -> None:
                 user = await get_user(uid)
                 name = html.escape(user["full_name"]) if user else str(uid)
                 winner_lines.append(
-                    f"  🏆 {user_mention(uid, name)} — <b>+{winnings} 🪙</b> ({tickets} билет(ов))"
+                    f"  🏆 {user_mention(uid, name)} выиграл! ({tickets} билет(ов))"
                 )
 
         if winner_lines:
@@ -578,7 +578,7 @@ async def _task_treasury_dividends(bot) -> None:
                 per_vip = max(1, vip_pool // len(vip_users))
                 for uid in vip_users:
                     await add_mora(uid, cid, per_vip)
-                lines.append(f"\n⭐ VIP ({len(vip_users)} чел.): по <b>{per_vip} 🪙</b> каждому")
+                lines.append(f"\n⭐ VIP ({len(vip_users)} чел.) получили дивиденды")
             else:
                 top_pool += vip_pool  # Переносим VIP-долю в топ если VIP нет
 
@@ -586,7 +586,7 @@ async def _task_treasury_dividends(bot) -> None:
                 per_top = max(1, top_pool // len(top_users))
                 for uid in top_users:
                     await add_mora(uid, cid, per_top)
-                lines.append(f"🏆 Топ-10 актива: по <b>{per_top} 🪙</b> каждому")
+                lines.append(f"🏆 Топ-10 активных получили дивиденды")
 
             await reset_treasury(cid)
             lines.append("\n🏦 Казна обнулена до следующей субботы.")

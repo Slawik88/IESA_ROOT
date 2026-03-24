@@ -20,7 +20,7 @@ from aiogram.types import (
     Message,
 )
 
-from config import GACHA_SINGLE_PRICE, GACHA_MULTI_PRICE, GACHA_PITY_COUNT
+from config import GACHA_SINGLE_PRICE, GACHA_MULTI_PRICE, GACHA_PITY_COUNT, MINI_APP_TG_URL
 from database.db import (
     add_gacha_item,
     add_mora,
@@ -152,38 +152,17 @@ async def cmd_gacha(message: Message, cmd_args: str):
 
     uid = message.from_user.id
     chat_id = message.chat.id
-    mora = await get_mora(uid, chat_id)
-    bal = mora["balance"] if mora else 0
-    pity = await get_gacha_pity(uid, chat_id)
-    single = await is_user_single(uid, chat_id)
 
-    # Цены с учётом баффа одиночки
-    price1  = SINGLES_GACHA_SINGLE if single else GACHA_SINGLE_PRICE
-    price10 = SINGLES_GACHA_MULTI  if single else GACHA_MULTI_PRICE
-    discount_note = "\n🆓 <i>Холостяцкая скидка активна!</i>" if single else ""
-
-    kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(
-            text=f"🙏 x1 — {price1} 🪙",
-            callback_data=f"gacha:{uid}:1",
-        )],
-        [InlineKeyboardButton(
-            text=f"🙏 x10 — {price10} 🪙 (скидка!)",
-            callback_data=f"gacha:{uid}:10",
-        )],
-    ])
-
+    # PHASE 3: Gacha → Mini App in groups
+    abs_cid = abs(message.chat.id)
+    btn = InlineKeyboardButton(
+        text="🙏 Молитвы в Mini App",
+        url=f"{MINI_APP_TG_URL}?startapp={abs_cid}",
+    )
     await message.answer(
-        f"🙏 <b>Молитвы Предвестника</b>\n\n"
-        f"Испытай удачу и получи редкие предметы!\n\n"
-        f"💰 Твой баланс: <b>{bal} 🪙</b>\n"
-        f"🔄 До гаранта: <b>{GACHA_PITY_COUNT - pity}</b> круток{discount_note}\n\n"
-        f"<i>🟡 Легендарный — 3% (гарант {GACHA_PITY_COUNT})\n"  # РЕБАЛАНС: было 2%
-        f"🟣 Редкий — 8%\n"
-        f"🟢 Обычный — 20%\n"
-        f"⚪ Мусор — 70% (продаётся по 5 🪙)</i>",
+        "🙏 <b>Молитвы переехали в Mini App!</b>",
         parse_mode="HTML",
-        reply_markup=kb,
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[[btn]]),
     )
 
 
@@ -288,10 +267,17 @@ async def cmd_inventory(message: Message, cmd_args: str):
         await message.answer("❌ Инвентарь доступен только в группах.")
         return
 
-    uid = message.from_user.id
-    chat_id = message.chat.id
-    text, kb = await _build_inventory_page(uid, chat_id, "items")
-    await message.answer(text, parse_mode="HTML", reply_markup=kb)
+    # PHASE 3: Inventory → Mini App in groups
+    abs_cid = abs(message.chat.id)
+    btn = InlineKeyboardButton(
+        text="🎒 Инвентарь в Mini App",
+        url=f"{MINI_APP_TG_URL}?startapp={abs_cid}",
+    )
+    await message.answer(
+        "🎒 <b>Инвентарь переехал в Mini App!</b>",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[[btn]]),
+    )
 
 
 async def _build_inventory_page(uid: int, chat_id: int, section: str) -> tuple[str, InlineKeyboardMarkup]:

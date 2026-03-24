@@ -17,7 +17,7 @@ from aiogram.types import (
     Message,
 )
 
-from config import EXPEDITION_OPTIONS
+from config import EXPEDITION_OPTIONS, MINI_APP_TG_URL
 from database.db import (
     add_mora,
     add_pet_fatigue,
@@ -58,6 +58,19 @@ async def cmd_expedition(message: Message, cmd_args: str):
     if message.chat.type == "private":
         await message.answer("❌ Экспедиции доступны только в группах.")
         return
+
+    # PHASE 3: Expeditions → Mini App in groups
+    abs_cid = abs(message.chat.id)
+    btn = InlineKeyboardButton(
+        text="🏕 Экспедиции в Mini App",
+        url=f"{MINI_APP_TG_URL}?startapp={abs_cid}",
+    )
+    await message.answer(
+        "🏕 <b>Экспедиции переехали в Mini App!</b>",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[[btn]]),
+    )
+    return
 
     uid = message.from_user.id
     chat_id = message.chat.id
