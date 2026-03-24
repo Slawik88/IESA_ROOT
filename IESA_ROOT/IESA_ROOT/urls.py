@@ -31,6 +31,9 @@ from .miniapp_views import (
     miniapp_enhance_item,
     miniapp_consume_potion,
     miniapp_batch_sell,
+    miniapp_couple_boss_status,
+    miniapp_couple_boss_start,
+    miniapp_couple_boss_attack,
 )
 
 # Переопределить стандартный админ на кастомный
@@ -107,6 +110,9 @@ urlpatterns = [
     path('api/enhance', miniapp_enhance_item, name='miniapp_enhance_item'),
     path('api/consume_potion', miniapp_consume_potion, name='miniapp_consume_potion'),
     path('api/batch_sell', miniapp_batch_sell, name='miniapp_batch_sell'),
+    path('api/couple_boss/status', miniapp_couple_boss_status, name='miniapp_couple_boss_status'),
+    path('api/couple_boss/start', miniapp_couple_boss_start, name='miniapp_couple_boss_start'),
+    path('api/couple_boss/attack', miniapp_couple_boss_attack, name='miniapp_couple_boss_attack'),
     # ───────────────────────────────────────────────────────────────────────────
     path('protected/<path:file_path>', serve_protected_media, name='serve_protected_media'),
     
