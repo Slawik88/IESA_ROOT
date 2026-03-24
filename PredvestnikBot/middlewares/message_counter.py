@@ -22,7 +22,8 @@ from database.db import (
     upsert_chat, upsert_user, upsert_user_stats,
 )
 from services.message_buffer import buffer_message
-from utils.flood import check_flood, check_spam
+from utils.flood import check_flood
+from services.antispam import check_spam
 from utils.helpers import user_mention
 from utils.ranks import rank_level
 
@@ -276,8 +277,8 @@ class AutoModMiddleware(BaseMiddleware):
         bot_: Bot = data["bot"]
         chat_id = event.chat.id
 
-        # 4Р°. РђРІС‚Рѕ-РґРµС‚РµРєС‚ СЃРїР°РјР°: > 3 СЃРѕРѕР±С‰РµРЅРёР№ Р·Р° 1 СЃРµРєСѓРЅРґСѓ в†’ РјСѓС‚ 5 РјРёРЅСѓС‚ (РІСЃРµРіРґР° РІРєР»СЋС‡С‘РЅ)
-        if check_spam(chat_id, user.id, 3, 1.0):
+        # 4Р°. РђРІС‚Рѕ-РґРµС‚РµРєС‚ СЃРїР°РјР°: вЂ" Token Bucket РЗ-Рѕ-P В¿РЁpY Р°Р·Р»РѕР п‚ Р"Р± РґРѕ Р±Р°РЅР¶ Р (РІСЃРµРіРґР° РІРєР»СЋС‡С'РЅ)
+        if check_spam(user.id, chat_id, 'message'):
             try:
                 await event.delete()
                 until = datetime.now() + timedelta(seconds=DEFAULT_FLOOD_MUTE)

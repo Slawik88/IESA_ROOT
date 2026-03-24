@@ -75,6 +75,36 @@ _THROW = [
     "{a} метнул(а) в {b} банановую кожуру! 🍌",
 ]
 
+_BONK = [
+    "{a} ударил(а) {b} битой! 💥",
+    "{a} нанёс(ла) мощный удар битой {b}! 🏏",
+    "{a} забил(а) {b} по голове роликовыми коньками! ⛸️",
+]
+
+_POKE = [
+    "{a} ткнул(а) {b} пальцем в грудь! 👉",
+    "{a} тихонько ткнул(а) {b} в бок. 👉",
+    "{a} провёл(а) пальцем по лицу {b}. 👉",
+]
+
+_KISS = [
+    "{a} поцеловал(а) {b}! 💋",
+    "{a} украл(а) поцелуй у {b}! 😘",
+    "{a} нежно поцеловал(а) {b} в щёчку. 💕",
+]
+
+_HEAL = [
+    "{a} исцелил(а) {b} светлой магией! ✨",
+    "{a} наложил(а) исцеляющее заклинание на {b}! 🌟",
+    "{a} вернул(а) {b} здоровье волшебством! 💚",
+]
+
+_SHOOT = [
+    "{a} выстрелил(а) в {b} пистолетом (водяным)! 💦",
+    "{a} запустил(а) в {b} арбалетом... с помидорами! 🍅",
+    "{a} пролетел(а) над {b} на летающем ковре-самолёте и ударил(а) посохом! 🧙",
+]
+
 
 async def _action(
     message: Message,
@@ -132,6 +162,31 @@ async def cmd_pat(message: Message, cmd_args: str):
 @router.message(BotCommand("кинь", "бросить", "кинуть"))
 async def cmd_throw(message: Message, cmd_args: str):
     await _action(message, cmd_args, _THROW, "🤔 Бросаться в себя? Интересный выбор.")
+
+
+@router.message(BotCommand("бонк", "бить", "ударить"))
+async def cmd_bonk(message: Message, cmd_args: str):
+    await _action(message, cmd_args, _BONK, "🏏 Ударить себя битой? Может, позже...")
+
+
+@router.message(BotCommand("ткни", "ткнуть", "тыкать"))
+async def cmd_poke(message: Message, cmd_args: str):
+    await _action(message, cmd_args, _POKE, "👉 Тыкаешь себе в грудь? Странно.")
+
+
+@router.message(BotCommand("поцелуй", "целовать", "целоваться"))
+async def cmd_kiss(message: Message, cmd_args: str):
+    await _action(message, cmd_args, _KISS, "😶 Целовать себя? Скромничаешь?")
+
+
+@router.message(BotCommand("вылечи", "исцелить", "heal"))
+async def cmd_heal(message: Message, cmd_args: str):
+    await _action(message, cmd_args, _HEAL, "💚 Исцелил(а) себя! Молодец, забота о здоровье!")
+
+
+@router.message(BotCommand("выстрели", "стрелять", "shoot"))
+async def cmd_shoot(message: Message, cmd_args: str):
+    await _action(message, cmd_args, _SHOOT, "💦 Выстрелил(а) в себя? Может, нужна помощь?")
 
 
 # ─── Брак (с приглашениями) ────────────────────────────────────────────────────
