@@ -17,10 +17,11 @@ from database.db import (
     add_mora, add_xp_in_chat, apply_pending_import, apply_pending_marriages,
     check_daily_mora, get_blacklist, get_chat_settings, get_filters, get_locks,
     get_todays_quest, get_user_stats, increment_cleanup_count,
-    increment_message_count_chat, is_group_allowed,
+    is_group_allowed,
     mark_quest_rewarded, quest_tick,
     upsert_chat, upsert_user, upsert_user_stats,
 )
+from services.message_buffer import buffer_message
 from utils.flood import check_flood, check_spam
 from utils.helpers import user_mention
 from utils.ranks import rank_level
@@ -141,7 +142,7 @@ class AutoModMiddleware(BaseMiddleware):
                     await apply_pending_import(user.username, user.id, event.chat.id)
                     await apply_pending_marriages(user.username, user.id, event.chat.id)
 
-            msg_count = await increment_message_count_chat(user.id, event.chat.id)
+            await buffer_message(user.id, event.chat.id)
             await increment_cleanup_count(event.chat.id, user.id)
 
             # в”Ђв”Ђ РњРѕСЂР°: РїРµСЂРІРѕРµ СЃРѕРѕР±С‰РµРЅРёРµ РґРЅСЏ (+3) Рё 7-РґРЅРµРІРЅС‹Р№ СЃС‚СЂРёРє (+50) в”Ђв”Ђ
