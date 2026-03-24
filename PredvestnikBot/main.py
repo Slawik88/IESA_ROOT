@@ -132,8 +132,23 @@ async def main():
     # Mini App веб-сервер (aiohttp)
     asyncio.create_task(_run_webserver(bot))
 
-    # Удаляем вебхук перед поллингом — предотвращает ConflictError,
-    # если другой инстанс зарегистрировал webhook для этого же бота.
+    # Если задан webhook URL — работаем в webhook-режиме (продакшн).
+    # Поллинг не запускаем, чтобы не было TelegramConflictError.
+    _webhook_url = os.getenv("BOT_WEBHOOK_URL") or os.getenv("WEBHOOK_URL", "")
+    if _webhook_url:
+        logging.info("Webhook mode active (%s) — polling disabled.", _webhook_url)
+        try:
+            # Держим процесс живым (планировщик работает в фоне)
+            await asyncio.Event().wait()
+        finally:
+            try:
+                await notify_developer(bot, BOT_STOPPED_MSG)
+            finally:
+                await bot.session.close()
+        return
+
+    # Polling-режим (локальная разработка / окружение без webhook).
+    # Удаляем вебхук перед поллингом — предотвращает ConflictError.
     try:
         await bot.delete_webhook(drop_pending_updates=True)
     except Exception as _wh_exc:
