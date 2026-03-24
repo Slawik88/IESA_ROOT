@@ -447,6 +447,29 @@ async def init_db():
                 created_at  TIMESTAMPTZ NOT NULL
             )
         """)
+        
+        # Миграция: исправляем тип поля created_at с TEXT на TIMESTAMPTZ
+        try:
+            await db.execute("""
+                ALTER TABLE family_wallet_log 
+                ALTER COLUMN created_at TYPE TIMESTAMPTZ 
+                USING created_at::TIMESTAMPTZ
+            """)
+        except Exception:
+            # Если миграция не удалась, пересоздаем таблицу
+            await db.execute("DROP TABLE IF EXISTS family_wallet_log")
+            await db.execute("""
+                CREATE TABLE family_wallet_log (
+                    id SERIAL PRIMARY KEY,
+                    chat_id BIGINT NOT NULL,
+                    user_id BIGINT NOT NULL,
+                    action      TEXT    NOT NULL,
+                    amount      INTEGER NOT NULL,
+                    description TEXT    DEFAULT '',
+                    created_at  TIMESTAMPTZ NOT NULL
+                )
+            """)
+        
         # Очищаем записи старше 2 месяцев при каждом старте
         await db.execute(
             "DELETE FROM family_wallet_log WHERE created_at < NOW() - INTERVAL '60 days'"
@@ -938,6 +961,41 @@ async def init_db():
     # Load whitelist into memory
     await load_whitelist()
     await load_admin_groups()
+    
+    # ═══════════════════════════════════════════════════════════════════════════════
+    #  🔄 PostgreSQL TIMESTAMPTZ миграции для TEXT полей дат
+    # ═══════════════════════════════════════════════════════════════════════════════
+    
+    _timestamptz_migrations = [
+        ("shop_items",          "purchased_at"),
+        ("marriage_gifts",      "gifted_at"),
+        ("user_themes",         "obtained_at"),
+        ("user_badges",         "obtained_at"),
+        ("bond_prices",         "updated_at"),
+        ("couple_boss_sessions","completed_at"),
+        ("bond_price_history",  "recorded_at"),
+        ("mora_loans",          "loaned_at"),
+        ("mora_loans",          "repaid_at"),
+        ("pets",                "last_walked"),
+        ("pets",                "walk_end_at"),
+    ]
+    
+    for table, column in _timestamptz_migrations:
+        try:
+            async with postgres_connect() as db:
+                await db.execute(f"""
+                    ALTER TABLE {table} 
+                    ALTER COLUMN {column} TYPE TIMESTAMPTZ 
+                    USING CASE 
+                        WHEN {column} IS NULL THEN NULL
+                        ELSE {column}::TIMESTAMPTZ 
+                    END
+                """)
+                await db.commit()
+        except Exception as e:
+            # Игнорируем ошибки миграций (колонка уже правильного типа, таблица не существует и т.д.)
+            pass
+    
     await enforce_rank_invariants()
 
 
