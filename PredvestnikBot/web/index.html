@@ -315,6 +315,16 @@ select{background:var(--bg3);border:1px solid var(--border);border-radius:8px;pa
         <button class="btn btn-red btn-sm" onclick="familyAction('withdraw')">📤 Вывести</button>
       </div>
     </div>
+    <!-- Family wallet history -->
+    <div class="card" id="familyLogCard" style="display:none">
+      <div class="card-title" style="display:flex;justify-content:space-between;align-items:center">
+        <span>📋 История кошелька</span>
+        <button onclick="loadFamilyLog()" style="background:none;border:none;color:var(--accent);cursor:pointer;font-size:13px">↻ Обновить</button>
+      </div>
+      <div id="familyLogList" style="margin-top:4px;font-size:12px;max-height:260px;overflow-y:auto">
+        <div style="color:var(--text2);text-align:center;padding:10px">Загрузка…</div>
+      </div>
+    </div>
     <!-- Pet -->
     <div class="card" id="petCard" style="display:none">
       <div class="card-title">🐾 Питомец</div>
@@ -936,6 +946,9 @@ async function loadUnion(){
     fplEl.textContent='👥 Вклад '+(p.partner_name||'партнёра');
     if(p.partner_id){ fplEl.onclick=()=>showPubProfile(p.partner_id); fplEl.style.cursor='pointer'; }
     document.getElementById('famPartner').textContent=(p.partner_family_balance||0)+' 🪙';
+    // Show family log card and trigger load
+    document.getElementById('familyLogCard').style.display='block';
+    loadFamilyLog();
   } else {
     document.getElementById('noPartnerCard').style.display='block';
   }
@@ -953,6 +966,33 @@ function updatePetFatigue(f){
   const bar=document.getElementById('petFatigueBar');
   bar.style.width=f+'%';
   bar.className='pet-bar-fill '+(f>50?'tired':'ok');
+}
+
+async function loadFamilyLog(){
+  const el = document.getElementById('familyLogList');
+  if(!el) return;
+  try {
+    const r = await api('/api/family/log?chat_id=' + chatId);
+    const log = r.log || [];
+    if(!log.length){
+      el.innerHTML='<div style="color:var(--text2);text-align:center;padding:10px">Транзакций ещё нет</div>';
+      return;
+    }
+    const ACTION_ICON = {deposit:'📥', withdraw:'📤', purchase:'🛍'};
+    const ACTION_COLOR = {deposit:'var(--green)', withdraw:'var(--red)', purchase:'var(--gold)'};
+    el.innerHTML = log.map(t => {
+      const dt = t.created_at ? new Date(t.created_at).toLocaleString('ru-RU',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '';
+      const icon = ACTION_ICON[t.action] || '💸';
+      const color = ACTION_COLOR[t.action] || 'var(--text)';
+      const sign = t.action === 'deposit' ? '+' : '-';
+      return `<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border)">
+        <span>${icon} <b style="color:${color}">${sign}${t.amount} 🪙</b></span>
+        <span style="color:var(--text2);font-size:11px;text-align:right">${esc(t.user_name||'')}<br>${dt}</span>
+      </div>`;
+    }).join('');
+  } catch(e){
+    if(el) el.innerHTML='<div style="color:var(--text2);text-align:center;padding:8px">Нет данных</div>';
+  }
 }
 
 function updatePetWalkStatus(pet){
@@ -974,12 +1014,12 @@ async function familyAction(action){
   try{
     const r=await api('/api/family/'+action,'POST',{chat_id:chatId,amount:amt});
     toast('✅ Операция выполнена','success');
-    if(r.family!==undefined){
-      document.getElementById('famMy').textContent=r.family+' 🪙';
-      const partnerContrib=profileData?profileData.partner_family_balance||0:0;
-      document.getElementById('famTotal').textContent=(r.family+partnerContrib)+' 🪙';
-      if(profileData) profileData.my_family_balance=r.family;
-    }
+    document.getElementById('famAmount').value='';
+    // Refresh full balance from server
+    tabLoaded['union'] = false;
+    loadUnion();
+    // Refresh log
+    loadFamilyLog();
     if(r.personal!==undefined){
       document.getElementById('pMora').textContent=r.personal+' 🪙';
       if(profileData) profileData.balance=r.personal;
