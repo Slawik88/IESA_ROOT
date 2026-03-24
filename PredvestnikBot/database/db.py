@@ -95,7 +95,7 @@ async def init_db():
                 to_uid    INTEGER NOT NULL,
                 chat_id BIGINT NOT NULL,
                 amount    INTEGER NOT NULL DEFAULT 1,
-                given_at  TEXT    NOT NULL
+                given_at  TIMESTAMPTZ NOT NULL
             )
         """)
 
@@ -116,7 +116,7 @@ async def init_db():
             CREATE TABLE IF NOT EXISTS user_quests (
                 user_id BIGINT NOT NULL,
                 chat_id BIGINT NOT NULL,
-                quest_date TEXT    NOT NULL,
+                quest_date TIMESTAMPTZ NOT NULL,
                 quest_type TEXT    NOT NULL,
                 goal       INTEGER NOT NULL,
                 progress   INTEGER DEFAULT 0,
@@ -130,7 +130,7 @@ async def init_db():
             CREATE TABLE IF NOT EXISTS user_achievements (
                 user_id BIGINT NOT NULL,
                 badge     TEXT    NOT NULL,
-                earned_at TEXT    NOT NULL,
+                earned_at TIMESTAMPTZ NOT NULL,
                 PRIMARY KEY (user_id, badge)
             )
         """)
@@ -142,7 +142,7 @@ async def init_db():
                 message_id BIGINT NOT NULL,
                 question     TEXT    NOT NULL,
                 options_json TEXT    NOT NULL,
-                created_at   TEXT    NOT NULL,
+                created_at   TIMESTAMPTZ NOT NULL,
                 closed       INTEGER DEFAULT 0
             )
         """)
@@ -168,7 +168,7 @@ async def init_db():
                 user_id BIGINT NOT NULL,
                 chat_id BIGINT NOT NULL,
                 partner_id BIGINT NOT NULL,
-                married_at TEXT    NOT NULL,
+                married_at TIMESTAMPTZ NOT NULL,
                 PRIMARY KEY (user_id, chat_id)
             )
         """)
@@ -188,7 +188,7 @@ async def init_db():
                 username1  TEXT    NOT NULL,
                 username2  TEXT    NOT NULL,
                 chat_id BIGINT NOT NULL,
-                married_at TEXT    NOT NULL,
+                married_at TIMESTAMPTZ NOT NULL,
                 PRIMARY KEY (username1, chat_id)
             )
         """)
@@ -224,7 +224,7 @@ async def init_db():
             "xp          INTEGER DEFAULT 0",
             "level       INTEGER DEFAULT 1",
             "bio         TEXT    DEFAULT NULL",
-            "first_seen  TEXT    DEFAULT NULL",
+            "first_seen  TIMESTAMPTZ DEFAULT NULL",
             "custom_title TEXT   DEFAULT NULL",
         ]:
             try:
@@ -255,7 +255,7 @@ async def init_db():
             "cleanup_locked    INTEGER DEFAULT 0",
             "inactivity_warn_enabled INTEGER DEFAULT 0",
             "inactivity_warn_days    INTEGER DEFAULT 5",
-            "next_cleanup_at         TEXT    DEFAULT NULL",
+            "next_cleanup_at         TIMESTAMPTZ DEFAULT NULL",
             "cleanup_reminder_sent   INTEGER DEFAULT 0",
             "antiflood_window  REAL    DEFAULT 2.0",
         ]:
@@ -269,9 +269,9 @@ async def init_db():
         # Миграция: добавить message_count в user_stats (для обновлений БД)
         for col_def in [
             "message_count       INTEGER DEFAULT 0",
-            "first_active        TEXT    DEFAULT NULL",
-            "last_active         TEXT    DEFAULT NULL",
-            "inactivity_warned_at TEXT   DEFAULT NULL",
+            "first_active        TIMESTAMPTZ DEFAULT NULL",
+            "last_active         TIMESTAMPTZ DEFAULT NULL",
+            "inactivity_warned_at TIMESTAMPTZ DEFAULT NULL",
         ]:
             try:
                 await db.execute(f"ALTER TABLE user_stats ADD COLUMN {col_def}")
@@ -281,7 +281,7 @@ async def init_db():
         # Миграция: новые колонки user_mora (VIP, буст XP, рамка топа)
         for col_def in [
             "vip            INTEGER DEFAULT 0",
-            "xp_boost_until TEXT    DEFAULT NULL",
+            "xp_boost_until TIMESTAMPTZ DEFAULT NULL",
             "top_frame      TEXT    DEFAULT NULL",
         ]:
             try:
@@ -295,7 +295,7 @@ async def init_db():
                 user_id BIGINT NOT NULL,
                 chat_id BIGINT NOT NULL,
                 days       INTEGER NOT NULL DEFAULT 7,
-                added_at   TEXT    NOT NULL,
+                added_at   TIMESTAMPTZ NOT NULL,
                 added_by   BIGINT NOT NULL,
                 PRIMARY KEY (user_id, chat_id)
             )
@@ -323,7 +323,7 @@ async def init_db():
                 name        TEXT    NOT NULL UNIQUE,
                 emoji       TEXT    NOT NULL DEFAULT '',
                 description TEXT    NOT NULL DEFAULT '',
-                created_at  TEXT    NOT NULL
+                created_at  TIMESTAMPTZ NOT NULL
             )
         """)
 
@@ -344,7 +344,7 @@ async def init_db():
                 user_id BIGINT NOT NULL,
                 full_name TEXT    DEFAULT '',
                 username  TEXT    DEFAULT '',
-                left_at   TEXT    NOT NULL
+                left_at   TIMESTAMPTZ NOT NULL
             )
         """)
 
@@ -356,7 +356,7 @@ async def init_db():
                 user_id BIGINT NOT NULL,
                 added_by  BIGINT DEFAULT 0,
                 reason    TEXT    DEFAULT '',
-                added_at  TEXT    NOT NULL,
+                added_at  TIMESTAMPTZ NOT NULL,
                 UNIQUE(chat_id, user_id)
             )
         """)
@@ -366,7 +366,7 @@ async def init_db():
             CREATE TABLE IF NOT EXISTS pending_roles (
                 user_id BIGINT PRIMARY KEY,
                 role_name   TEXT    NOT NULL,
-                reserved_at TEXT    NOT NULL
+                reserved_at TIMESTAMPTZ NOT NULL
             )
         """)
 
@@ -377,7 +377,7 @@ async def init_db():
                 chat_id BIGINT NOT NULL,
                 pet_type   TEXT    NOT NULL,
                 name       TEXT    DEFAULT NULL,
-                adopted_at TEXT    NOT NULL,
+                adopted_at TIMESTAMPTZ NOT NULL,
                 PRIMARY KEY (user_id, chat_id)
             )
         """)
@@ -393,7 +393,7 @@ async def init_db():
                 last_daily     TEXT    DEFAULT NULL,
                 mora_public    INTEGER DEFAULT 1,
                 vip            INTEGER DEFAULT 0,
-                xp_boost_until TEXT    DEFAULT NULL,
+                xp_boost_until TIMESTAMPTZ DEFAULT NULL,
                 top_frame      TEXT    DEFAULT NULL,
                 PRIMARY KEY (user_id, chat_id)
             )
@@ -409,7 +409,7 @@ async def init_db():
                 bet           INTEGER NOT NULL,
                 status        TEXT    DEFAULT 'pending',
                 msg_id        INTEGER DEFAULT NULL,
-                created_at    TEXT    NOT NULL
+                created_at    TIMESTAMPTZ NOT NULL
             )
         """)
 
@@ -444,7 +444,7 @@ async def init_db():
                 action      TEXT    NOT NULL,
                 amount      INTEGER NOT NULL,
                 description TEXT    DEFAULT '',
-                created_at  TEXT    NOT NULL
+                created_at  TIMESTAMPTZ NOT NULL
             )
         """)
         # Очищаем записи старше 2 месяцев при каждом старте
@@ -471,7 +471,7 @@ async def init_db():
             CREATE TABLE IF NOT EXISTS pet_expeditions (
                 user_id BIGINT NOT NULL,
                 chat_id BIGINT NOT NULL,
-                started_at  TEXT    NOT NULL,
+                started_at  TIMESTAMPTZ NOT NULL,
                 duration_h  INTEGER NOT NULL,
                 reward_min  INTEGER NOT NULL,
                 reward_max  INTEGER NOT NULL,
@@ -488,7 +488,7 @@ async def init_db():
                 item_key    TEXT    NOT NULL,
                 item_name   TEXT    NOT NULL,
                 rarity      TEXT    NOT NULL,
-                obtained_at TEXT    NOT NULL,
+                obtained_at TIMESTAMPTZ NOT NULL,
                 equipped    INTEGER DEFAULT 0
             )
         """)
@@ -500,8 +500,8 @@ async def init_db():
                 chat_id BIGINT NOT NULL,
                 amount      INTEGER NOT NULL,
                 rate        REAL    NOT NULL,
-                created_at  TEXT    NOT NULL,
-                matures_at  TEXT    NOT NULL,
+                created_at  TIMESTAMPTZ NOT NULL,
+                matures_at  TIMESTAMPTZ NOT NULL,
                 withdrawn   INTEGER DEFAULT 0
             )
         """)
@@ -513,8 +513,8 @@ async def init_db():
                 message_id BIGINT,
                 prize       INTEGER NOT NULL,
                 penalty_pct REAL    DEFAULT 0.05,
-                started_at  TEXT    NOT NULL,
-                expires_at  TEXT    NOT NULL,
+                started_at  TIMESTAMPTZ NOT NULL,
+                expires_at  TIMESTAMPTZ NOT NULL,
                 finished    INTEGER DEFAULT 0
             )
         """)
@@ -523,7 +523,7 @@ async def init_db():
             CREATE TABLE IF NOT EXISTS tax_event_clicks (
                 event_id    INTEGER NOT NULL,
                 user_id BIGINT NOT NULL,
-                clicked_at  TEXT    NOT NULL,
+                clicked_at  TIMESTAMPTZ NOT NULL,
                 position    INTEGER NOT NULL,
                 PRIMARY KEY (event_id, user_id)
             )
@@ -536,7 +536,7 @@ async def init_db():
                 chat_id BIGINT NOT NULL,
                 item_type    TEXT    NOT NULL,
                 item_value   TEXT    NOT NULL,
-                purchased_at TEXT    NOT NULL,
+                purchased_at TIMESTAMPTZ NOT NULL,
                 active       INTEGER DEFAULT 1
             )
         """)
@@ -550,7 +550,7 @@ async def init_db():
                 gift_key    TEXT    NOT NULL,
                 gift_name   TEXT    NOT NULL,
                 gift_price  INTEGER NOT NULL,
-                gifted_at   TEXT    NOT NULL
+                gifted_at   TIMESTAMPTZ NOT NULL
             )
         """)
 
@@ -560,7 +560,7 @@ async def init_db():
                 user_id BIGINT NOT NULL,
                 chat_id BIGINT NOT NULL,
                 buff_type   TEXT    NOT NULL,
-                expires_at  TEXT    NOT NULL,
+                expires_at  TIMESTAMPTZ NOT NULL,
                 source      TEXT
             )
         """)
@@ -591,7 +591,7 @@ async def init_db():
                 chat_id BIGINT NOT NULL,
                 theme_key TEXT    NOT NULL,
                 source    TEXT    NOT NULL DEFAULT 'shop',
-                obtained_at TEXT  NOT NULL,
+                obtained_at TIMESTAMPTZ NOT NULL,
                 PRIMARY KEY (user_id, chat_id, theme_key)
             )
         """)
@@ -611,7 +611,7 @@ async def init_db():
                 user_id BIGINT NOT NULL,
                 chat_id BIGINT NOT NULL,
                 badge_key TEXT    NOT NULL,
-                obtained_at TEXT  NOT NULL,
+                obtained_at TIMESTAMPTZ NOT NULL,
                 PRIMARY KEY (user_id, chat_id, badge_key)
             )
         """)
@@ -623,7 +623,7 @@ async def init_db():
                 chat_id BIGINT NOT NULL,
                 template_key TEXT    NOT NULL,
                 source       TEXT    NOT NULL DEFAULT 'gacha',
-                obtained_at  TEXT    NOT NULL,
+                obtained_at  TIMESTAMPTZ NOT NULL,
                 PRIMARY KEY (user_id, chat_id)
             )
         """)
@@ -634,8 +634,8 @@ async def init_db():
                 id SERIAL PRIMARY KEY,
                 chat_id BIGINT NOT NULL,
                 message_id BIGINT,
-                started_at  TEXT    NOT NULL,
-                expires_at  TEXT    NOT NULL,
+                started_at  TIMESTAMPTZ NOT NULL,
+                expires_at  TIMESTAMPTZ NOT NULL,
                 finished    INTEGER DEFAULT 0
             )
         """)
@@ -644,7 +644,7 @@ async def init_db():
             CREATE TABLE IF NOT EXISTS chest_event_clicks (
                 event_id    INTEGER NOT NULL,
                 user_id BIGINT NOT NULL,
-                clicked_at  TEXT    NOT NULL,
+                clicked_at  TIMESTAMPTZ NOT NULL,
                 position    INTEGER NOT NULL,
                 reward      INTEGER NOT NULL DEFAULT 0,
                 PRIMARY KEY (event_id, user_id)
@@ -682,8 +682,8 @@ async def init_db():
                 borrower_id  BIGINT NOT NULL,
                 chat_id BIGINT NOT NULL,
                 amount       INTEGER NOT NULL,
-                loaned_at    TEXT    NOT NULL,
-                repaid_at    TEXT    DEFAULT NULL
+                loaned_at    TIMESTAMPTZ NOT NULL,
+                repaid_at    TIMESTAMPTZ DEFAULT NULL
             )
         """)
 
@@ -718,7 +718,7 @@ async def init_db():
                 target_id    BIGINT NOT NULL,
                 chat_id BIGINT NOT NULL,
                 success      INTEGER NOT NULL,
-                attempted_at TEXT    NOT NULL
+                attempted_at TIMESTAMPTZ NOT NULL
             )
         """)
 
@@ -773,7 +773,7 @@ async def init_db():
                 is_completed   INTEGER DEFAULT 0,
                 is_repeat      INTEGER DEFAULT 0,
                 session_date   TEXT    NOT NULL,
-                completed_at   TEXT    DEFAULT NULL,
+                completed_at   TIMESTAMPTZ DEFAULT NULL,
                 UNIQUE(user_a_id, user_b_id, chat_id, session_date)
             )
         """)
@@ -796,7 +796,7 @@ async def init_db():
                 chat_id BIGINT NOT NULL,
                 bond_key    TEXT    NOT NULL,
                 price       INTEGER NOT NULL,
-                recorded_at TEXT    NOT NULL
+                recorded_at TIMESTAMPTZ NOT NULL
             )
         """)
         await db.execute("""
@@ -830,7 +830,7 @@ async def init_db():
                 pass
 
         # ─── Миграция: усталость питомца + время прогулки ──────────────────
-        for col_def in ["fatigue INTEGER DEFAULT 0", "last_walked TEXT DEFAULT NULL", "walk_end_at TEXT DEFAULT NULL"]:
+        for col_def in ["fatigue INTEGER DEFAULT 0", "last_walked TIMESTAMPTZ DEFAULT NULL", "walk_end_at TIMESTAMPTZ DEFAULT NULL"]:
             try:
                 await db.execute(f"ALTER TABLE pets ADD COLUMN {col_def}")
             except Exception:
