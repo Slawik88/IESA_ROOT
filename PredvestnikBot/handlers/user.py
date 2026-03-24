@@ -534,7 +534,7 @@ def _help_pages() -> dict[str, dict]:
     }
 
 
-def _build_help_kb(page_id: str, uid: int, lvl: int) -> InlineKeyboardMarkup:
+def _build_help_kb(page_id: str, uid: int, lvl: int, chat_id: int = 0) -> InlineKeyboardMarkup:
     """Построить Inline-клавиатуру для страницы справки."""
     pages = _help_pages()
     page = pages.get(page_id)
@@ -545,7 +545,12 @@ def _build_help_kb(page_id: str, uid: int, lvl: int) -> InlineKeyboardMarkup:
         row: list[InlineKeyboardButton] = []
         for label, target in btn_row:
             if target.startswith("url:"):
-                row.append(InlineKeyboardButton(text=label, url=target[4:]))
+                btn_url = target[4:]
+                # Override Mini App URL to include startapp chat context
+                if chat_id and btn_url == _MINI_APP_URL:
+                    abs_cid = abs(chat_id)
+                    btn_url = f"{_MINI_APP_TG_URL}?startapp={abs_cid}"
+                row.append(InlineKeyboardButton(text=label, url=btn_url))
                 continue
             target_page = pages.get(target)
             if target_page and lvl < rank_level(target_page["min_rank"]):
@@ -586,7 +591,7 @@ async def cmd_help(message: Message, cmd_args: str):
 
     pages = _help_pages()
     text = pages["main"]["text"]
-    kb = _build_help_kb("main", uid, lvl)
+    kb = _build_help_kb("main", uid, lvl, chat_id=message.chat.id)
     await message.answer(text, parse_mode="HTML", reply_markup=kb)
 
 
@@ -660,7 +665,7 @@ async def cb_help(callback: CallbackQuery):
         await callback.answer("🚫 Нет доступа.", show_alert=True)
         return
 
-    kb = _build_help_kb(page_id, owner_id, lvl)
+    kb = _build_help_kb(page_id, owner_id, lvl, chat_id=callback.message.chat.id)
     try:
         await callback.message.edit_text(page["text"], parse_mode="HTML", reply_markup=kb)
     except Exception:

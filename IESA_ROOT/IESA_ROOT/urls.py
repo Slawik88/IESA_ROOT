@@ -34,6 +34,7 @@ from .miniapp_views import (
     miniapp_couple_boss_status,
     miniapp_couple_boss_start,
     miniapp_couple_boss_attack,
+    miniapp_get_avatar,  # ➕ Новая функция для аватарок
 )
 
 # Переопределить стандартный админ на кастомный
@@ -113,6 +114,7 @@ urlpatterns = [
     path('api/couple_boss/status', miniapp_couple_boss_status, name='miniapp_couple_boss_status'),
     path('api/couple_boss/start', miniapp_couple_boss_start, name='miniapp_couple_boss_start'),
     path('api/couple_boss/attack', miniapp_couple_boss_attack, name='miniapp_couple_boss_attack'),
+    path('api/get_avatar', miniapp_get_avatar, name='miniapp_get_avatar'),  # ➕ Новый API для аватарок
     # ───────────────────────────────────────────────────────────────────────────
     path('protected/<path:file_path>', serve_protected_media, name='serve_protected_media'),
     

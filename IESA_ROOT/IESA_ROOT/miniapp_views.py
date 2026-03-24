@@ -377,6 +377,9 @@ def miniapp_user_data(request):
 
         computed_level = db_level if db_level > 1 else _level_for_xp(xp)
         xp_max = _xp_for_level(computed_level + 1)
+        
+        # ➕ НОВАЯ ФУНКЦИЯ: Получаем аватарку из Telegram
+        avatar_url = get_telegram_avatar_url(uid)
 
         payload = {
             "uid": uid,
@@ -387,6 +390,7 @@ def miniapp_user_data(request):
             "level": computed_level,
             "xp_max": xp_max,
             "vip": bool(vip),
+            "avatar_url": avatar_url,  # ➕ Добавляем аватарку
             "active_frame": top_frame or "default",
             "active_theme": active_theme or "default",
             "bonds": bonds_data,
@@ -674,6 +678,21 @@ def miniapp_checkin(request):
 
         conn.commit()
         conn.close()
+        
+        # ➕ ЛОГИРУЕМ ДЕЙСТВИЕ В ЧАТ
+        import asyncio
+        reward_text = f"+{mora_reward} 🪙"
+        if is_checkpoint:
+            reward_text += f" | День {day_idx} - ЧЕКПОИНТ! ✨"
+        if day_idx == 20:
+            reward_text += " | Бесплатная гача! 🎁"
+            
+        asyncio.create_task(log_action_to_chat(
+            uid, chat_id, 
+            f"Забрал ежедневную награду (день {streak})", 
+            reward_text
+        ))
+        
         return JsonResponse({
             "ok": True, "already_done": False,
             "mora": mora_reward, "streak": streak,
@@ -1474,9 +1493,11 @@ def miniapp_dev_chats(request):
     try:
         cur = conn.cursor()
         ph = "%s" if db_type == "pg" else "?"
+        # БАГ ИСПРАВЛЕН: Фильтруем только группы и каналы, исключаем личные чаты
         cur.execute(
             "SELECT c.chat_id, c.title, c.chat_type, COUNT(DISTINCT s.user_id) AS members "
             "FROM chats c LEFT JOIN user_stats s ON s.chat_id=c.chat_id "
+            "WHERE c.chat_type IN ('group', 'supergroup', 'channel') "
             "GROUP BY c.chat_id, c.title, c.chat_type ORDER BY members DESC LIMIT 100"
         )
         rows = cur.fetchall()
@@ -1759,12 +1780,22 @@ def miniapp_dev_trigger_event(request):
     try:
         cur = conn.cursor()
         # Ensure table exists (idempotent)
-        cur.execute(
-            "CREATE TABLE IF NOT EXISTS dev_event_queue ("
-            "id INTEGER PRIMARY KEY AUTOINCREMENT, "
-            "chat_id INTEGER NOT NULL, event_type TEXT NOT NULL, "
-            "requested_by INTEGER NOT NULL, created_at TEXT NOT NULL, processed INTEGER DEFAULT 0)"
-        )
+        if db_type == "pg":
+            # PostgreSQL syntax
+            cur.execute(
+                "CREATE TABLE IF NOT EXISTS dev_event_queue ("
+                "id SERIAL PRIMARY KEY, "
+                "chat_id BIGINT NOT NULL, event_type TEXT NOT NULL, "
+                "requested_by BIGINT NOT NULL, created_at TEXT NOT NULL, processed INTEGER DEFAULT 0)"
+            )
+        else:
+            # SQLite syntax
+            cur.execute(
+                "CREATE TABLE IF NOT EXISTS dev_event_queue ("
+                "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+                "chat_id INTEGER NOT NULL, event_type TEXT NOT NULL, "
+                "requested_by INTEGER NOT NULL, created_at TEXT NOT NULL, processed INTEGER DEFAULT 0)"
+            )
         import datetime as _dt
         cur.execute(
             f"INSERT INTO dev_event_queue (chat_id, event_type, requested_by, created_at) "
@@ -2420,6 +2451,21 @@ def miniapp_gacha_roll(request):
         cur.execute(f"SELECT balance FROM user_mora WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
         new_bal = (cur.fetchone() or [0])[0]
         conn.close()
+        
+        # ➕ ЛОГИРУЕМ КРУТКУ ГАЧИ В ЧАТ
+        import asyncio
+        loot_text = ""
+        for item in results:
+            rarity_emoji = {"common": "⚪", "uncommon": "🟢", "rare": "🔵", "epic": "🟣", "legendary": "🟡"}
+            emoji = rarity_emoji.get(item["rarity"], "⚪")
+            loot_text += f"\\n{emoji} {item['name']}"
+        
+        roll_type = f"{count}x крутка" if count > 1 else "Одиночная крутка"
+        asyncio.create_task(log_action_to_chat(
+            uid, chat_id,
+            f"🎲 {roll_type} гачи (-{price} 🪙)",
+            f"Выпало:{loot_text}"
+        ))
 
         return JsonResponse({"ok": True, "items": results, "balance": new_bal, "pity": pity, "spent": price},
                             json_dumps_params={"ensure_ascii": False}, headers=headers)
@@ -2703,7 +2749,17 @@ def miniapp_pet_walk(request):
 
         conn.commit()
         conn.close()
+        
+        # ➕ ЛОГИРУЕМ ВЫГУЛ ПИТОМЦА В ЧАТ
+        import asyncio
         emoji = {"cat": "🐱", "dog": "🐶"}.get(ptype, "🐾")
+        partner_text = f" (+{WALK_REWARD} 🪙 партнёру)" if partner_walk_row else ""
+        asyncio.create_task(log_action_to_chat(
+            uid, chat_id,
+            f"{emoji} Выгулял питомца {pname or 'Питомец'} (3 часа)",
+            f"Усталость: -{30}, награда: +{WALK_REWARD} 🪙{partner_text}"
+        ))
+        
         return JsonResponse(
             {"ok": True, "fatigue": new_fatigue, "reduced": 30, "pet_emoji": emoji,
              "pet_name": pname or "Питомец", "walk_mins": 180, "reward": WALK_REWARD},
@@ -2784,8 +2840,17 @@ def miniapp_pet_feed(request):
         cur.execute(f"SELECT balance FROM user_mora WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
         new_bal = (cur.fetchone() or [0])[0]
         conn.close()
-
+        
+        # ➕ ЛОГИРУЕМ КОРМЕЖКУ ПИТОМЦА В ЧАТ
+        import asyncio
         emoji = {"cat": "🐱", "dog": "🐶"}.get(ptype, "🐾")
+        wallet_text = f" из {wallet} кошелька" if wallet == "family" else ""
+        asyncio.create_task(log_action_to_chat(
+            uid, chat_id,
+            f"{emoji} Покормил питомца {pname or 'Питомец'}",
+            f"Еда: {food['name']} (-{food['price']} 🪙{wallet_text})\\nУсталость: -{food['fatigue']}"
+        ))
+
         return JsonResponse({"ok": True, "fatigue": new_fatigue, "reduced": food["fatigue"], "balance": new_bal,
                              "pet_emoji": emoji, "pet_name": pname or "Питомец", "food_name": food["name"]},
                             json_dumps_params={"ensure_ascii": False}, headers=headers)
@@ -3317,6 +3382,15 @@ def miniapp_enhance_item(request):
         
         success, message, new_level = asyncio.run(enhance_item(uid, chat_id, item_id))
         
+        # ➕ ЛОГИРУЕМ ЗАТОЧКУ В ЧАТ
+        if success:
+            import asyncio
+            asyncio.create_task(log_action_to_chat(
+                uid, chat_id,
+                f"✨ Заточил предмет до +{new_level}",
+                message
+            ))
+        
         # Get updated balance
         cur = conn.cursor()
         ph = "%s" if db_type == "pg" else "?"
@@ -3410,6 +3484,15 @@ def miniapp_batch_sell(request):
         import asyncio
         
         sold_count, total_mora = asyncio.run(batch_sell_items(uid, chat_id, item_ids))
+        
+        # ➕ ЛОГИРУЕМ ПРОДАЖУ ВЕЩЕЙ В ЧАТ
+        if sold_count > 0:
+            import asyncio
+            asyncio.create_task(log_action_to_chat(
+                uid, chat_id,
+                f"💰 Продал {sold_count} предметов",
+                f"Получено: +{total_mora} 🪙"
+            ))
 
         # Get updated balance
         try:
@@ -3789,4 +3872,96 @@ def miniapp_couple_boss_attack(request):
         except Exception:
             pass
         return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+
+
+# ─── НОВЫЕ ФУНКЦИИ: Аватарки из Telegram ─────────────────────────────────────
+
+def get_telegram_avatar_url(user_id: int) -> str | None:
+    """Получить URL аватарки пользователя из Telegram API."""
+    if not _BOT_TOKEN:
+        return None
+    
+    try:
+        import requests
+        url = f"https://api.telegram.org/bot{_BOT_TOKEN}/getUserProfilePhotos"
+        response = requests.get(url, params={
+            "user_id": user_id,
+            "limit": 1
+        }, timeout=5)
+        
+        data = response.json()
+        if not data.get("ok") or not data["result"]["photos"]:
+            return None
+        
+        # Берем самый большой размер фото
+        photo = data["result"]["photos"][0][-1]  # Последний элемент = самый большой
+        file_id = photo["file_id"]
+        
+        # Получаем file_path
+        file_url = f"https://api.telegram.org/bot{_BOT_TOKEN}/getFile"
+        file_response = requests.get(file_url, params={"file_id": file_id}, timeout=5)
+        file_data = file_response.json()
+        
+        if not file_data.get("ok"):
+            return None
+            
+        file_path = file_data["result"]["file_path"]
+        return f"https://api.telegram.org/file/bot{_BOT_TOKEN}/{file_path}"
+        
+    except Exception:
+        return None
+
+
+@csrf_exempt
+def miniapp_get_avatar(request):
+    """GET /api/get_avatar?user_id=X - получить аватарку пользователя из Telegram."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "GET":
+        return JsonResponse({"error": "GET required"}, status=405, headers=headers)
+
+    user_id_str = request.GET.get("user_id", "")
+    if not user_id_str.isdigit():
+        return JsonResponse({"error": "user_id required"}, status=400, headers=headers)
+    
+    user_id = int(user_id_str)
+    avatar_url = get_telegram_avatar_url(user_id)
+    
+    return JsonResponse({
+        "user_id": user_id,
+        "avatar_url": avatar_url
+    }, headers=headers)
+
+
+# ─── НОВАЯ ФУНКЦИЯ: Логирование действий в чат ──────────────────────────────
+
+async def log_action_to_chat(user_id: int, chat_id: int, action: str, details: str = ""):
+    """Отправить сообщение о действии пользователя в чат."""
+    if not _BOT_TOKEN:
+        return
+        
+    try:
+        import requests
+        from database.db import get_user_name
+        
+        # Получаем имя пользователя
+        user_name = await get_user_name(user_id) or f"Игрок {user_id}"
+        
+        # Формируем сообщение
+        message = f"🎮 <b>{user_name}</b> выполнил: {action}"
+        if details:
+            message += f"\\n{details}"
+        
+        # Отправляем в чат
+        url = f"https://api.telegram.org/bot{_BOT_TOKEN}/sendMessage"
+        requests.post(url, json={
+            "chat_id": chat_id,
+            "text": message,
+            "parse_mode": "HTML"
+        }, timeout=5)
+        
+    except Exception:
+        pass  # Не критично если не получилось отправить
+
 
