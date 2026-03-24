@@ -181,10 +181,8 @@ async def _run_webserver(bot: Bot) -> None:
             return _web.Response(status=404, text="user not found")
 
         # Find a group chat for this user (use first mora row)
-        from database.db import DATABASE_PATH
-        import aiosqlite
-        async with aiosqlite.connect(DATABASE_PATH) as db:
-            db.row_factory = aiosqlite.Row
+        from database.postgres import connect as postgres_connect
+        async with postgres_connect() as db:
             async with db.execute(
                 "SELECT * FROM user_mora WHERE user_id=? ORDER BY balance DESC LIMIT 1",
                 (uid,),
@@ -256,10 +254,8 @@ async def _run_webserver(bot: Bot) -> None:
         if not user:
             return _web.Response(status=404, text="user not found")
 
-        from database.db import DATABASE_PATH
-        import aiosqlite
-        async with aiosqlite.connect(DATABASE_PATH) as db:
-            db.row_factory = aiosqlite.Row
+        from database.postgres import connect as postgres_connect
+        async with postgres_connect() as db:
             async with db.execute(
                 "SELECT * FROM user_mora WHERE user_id=? ORDER BY balance DESC LIMIT 1",
                 (uid,),

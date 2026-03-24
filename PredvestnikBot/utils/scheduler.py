@@ -459,12 +459,10 @@ async def _task_bond_price_update(bot) -> None:
             return
 
     from database.db import update_bond_prices
-    import aiosqlite
-    from database.db import DATABASE_PATH
+    from database.postgres import connect as postgres_connect
 
     # Получаем все активные chat_id из chat_settings
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
+    async with postgres_connect() as db:
         async with db.execute("SELECT chat_id FROM chat_settings") as c:
             rows = await c.fetchall()
 
@@ -589,11 +587,10 @@ async def _task_treasury_dividends(bot) -> None:
 
 async def _task_dev_event_queue(bot) -> None:
     """Process pending dev_event_queue rows left by the Mini App's /api/dev/trigger_event."""
-    import aiosqlite
-    from config import DATABASE_PATH, DEVELOPER_ID
+    from database.postgres import connect as postgres_connect
+    from config import DEVELOPER_ID
     try:
-        async with aiosqlite.connect(DATABASE_PATH) as db:
-            db.row_factory = aiosqlite.Row
+        async with postgres_connect() as db:
             # Ensure table exists (may not yet if Django hasn't created it)
             await db.execute(
                 "CREATE TABLE IF NOT EXISTS dev_event_queue ("
