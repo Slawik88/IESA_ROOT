@@ -880,8 +880,9 @@ async def cb_profile_nav(callback: CallbackQuery):
             f"🌟 Ур. <b>{lvl_val}</b>  [{bar}]  {xp}/{next_xp}",
             f"⭐ Репутация: <b>{rep:+d}</b>",
             f"💬 Сообщений: {msgs}",
-            f"🪙 Мора: <b>{mora_bal}</b> 🪙",
         ]
+        if callback.message.chat.type == "private":
+            lines.append(f"🪙 Мора: <b>{mora_bal}</b> 🪙")
         if theme_key != "default":
             from config import COSMETIC_TIER_LABELS
             tier_label = COSMETIC_TIER_LABELS.get(theme.get("tier", "common"), "")
@@ -1154,7 +1155,7 @@ async def cmd_me(message: Message, cmd_args: str):
         f"⭐ Репутация: <b>{rep:+d}</b>",
         f"💬 Сообщений: {msgs}",
     ]
-    if is_group:
+    if not is_group:
         lines.append(f"🪙 Мора: <b>{mora_bal}</b> 🪙")
     if theme_key != "default":
         from config import COSMETIC_TIER_LABELS
