@@ -1,4 +1,5 @@
-﻿import math
+﻿import asyncpg
+import math
 from datetime import datetime, timedelta, date, timezone
 
 from database.postgres import connect as postgres_connect, ddl_connect
@@ -1653,7 +1654,7 @@ async def add_blacklist_word(chat_id: int, word: str) -> bool:
             )
             await db.commit()
             return True
-        except aiosqlite.IntegrityError:
+        except asyncpg.UniqueViolationError:
             return False
 
 
@@ -2010,7 +2011,7 @@ async def award_achievement(user_id: int, badge: str) -> bool:
             )
             await db.commit()
             return True
-        except aiosqlite.IntegrityError:
+        except asyncpg.UniqueViolationError:
             return False
 
 
@@ -3333,7 +3334,7 @@ async def add_community_role(name: str, emoji: str = "", description: str = "") 
             )
             await db.commit()
             return True
-        except aiosqlite.IntegrityError:
+        except asyncpg.UniqueViolationError:
             return False
 
 
