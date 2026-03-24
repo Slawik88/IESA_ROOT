@@ -1,6 +1,7 @@
 from aiogram.types import Message
 import html
 from database.db import get_user, get_user_by_username
+from services.recent_users import get_recent_user, get_recent_user_by_username
 
 
 async def resolve_target(message: Message, cmd_args: str) -> tuple:
@@ -20,10 +21,16 @@ async def resolve_target(message: Message, cmd_args: str) -> tuple:
         arg = parts[0]
         remaining = parts[1] if len(parts) > 1 else ""
         if arg.startswith("@"):
+            recent_user = get_recent_user_by_username(arg)
+            if recent_user:
+                return recent_user["user_id"], recent_user["full_name"], remaining
             user = await get_user_by_username(arg)
             if user:
                 return user["user_id"], user["full_name"], remaining
         elif arg.isdigit():
+            recent_user = get_recent_user(int(arg))
+            if recent_user:
+                return recent_user["user_id"], recent_user["full_name"], remaining
             user = await get_user(int(arg))
             if user:
                 return user["user_id"], user["full_name"], remaining

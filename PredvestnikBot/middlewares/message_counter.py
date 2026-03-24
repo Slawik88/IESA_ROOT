@@ -22,6 +22,7 @@ from database.db import (
     upsert_chat, upsert_user, upsert_user_stats,
 )
 from services.message_buffer import buffer_message
+from services.recent_users import remember_user
 from utils.flood import check_flood
 from services.antispam import check_spam
 from utils.helpers import user_mention
@@ -89,6 +90,13 @@ def set_bot_start_time(start_time: datetime):
     _bot_start_time = start_time
 
 
+def _get_event_antispam_type(event: Message) -> str:
+    text = (event.text or event.caption or "").strip().lower()
+    if text.startswith("бот "):
+        return "command"
+    return "message"
+
+
 class AutoModMiddleware(BaseMiddleware):
     async def __call__(
         self,
@@ -99,6 +107,7 @@ class AutoModMiddleware(BaseMiddleware):
         user = event.from_user
         if not user or user.is_bot:
             return await handler(event, data)
+        remember_user(user.id, user.username, user.full_name)
 
         # рџ›ЎпёЏ Р—Р°С‰РёС‚Р° РѕС‚ РѕР±СЂР°Р±РѕС‚РєРё СЃС‚Р°СЂС‹С… СЃРѕРѕР±С‰РµРЅРёР№ РїРѕСЃР»Рµ РїРµСЂРµР·Р°РїСѓСЃРєР° Р±РѕС‚Р°
         # (РїСЂРµРґРѕС‚РІСЂР°С‰Р°РµС‚ РјСѓС‚С‹/РєРёРєРё Р·Р° СЃРѕРѕР±С‰РµРЅРёСЏ, РѕС‚РїСЂР°РІР»РµРЅРЅС‹Рµ РїРѕРєР° Р±РѕС‚ Р±С‹Р» РЅРµР°РєС‚РёРІРµРЅ)
@@ -278,7 +287,7 @@ class AutoModMiddleware(BaseMiddleware):
         chat_id = event.chat.id
 
         # 4Р°. РђРІС‚Рѕ-РґРµС‚РµРєС‚ СЃРїР°РјР°: вЂ" Token Bucket РЗ-Рѕ-P В¿РЁpY Р°Р·Р»РѕР п‚ Р"Р± РґРѕ Р±Р°РЅР¶ Р (РІСЃРµРіРґР° РІРєР»СЋС‡С'РЅ)
-        if check_spam(user.id, chat_id, 'message'):
+        if check_spam(user.id, chat_id, _get_event_antispam_type(event)):
             try:
                 await event.delete()
                 until = datetime.now() + timedelta(seconds=DEFAULT_FLOOD_MUTE)
