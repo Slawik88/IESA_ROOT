@@ -185,7 +185,44 @@ connect = PostgresConnection
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-#  📋 Row-совместимость для плавного перехода
+#  � DDL-соединения без автоматических транзакций
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class PostgresDDLConnection:
+    """Контекстный менеджер для DDL операций без автоматических транзакций"""
+    
+    def __init__(self):
+        self._conn: asyncpg.Connection | None = None
+        
+    async def __aenter__(self) -> 'PostgresDDLConnection':
+        pool = await get_pg_pool()
+        self._conn = await pool.acquire()
+        return self
+        
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        if self._conn:
+            pool = await get_pg_pool()
+            await pool.release(self._conn)
+            self._conn = None
+
+    async def execute(self, sql: str, params=None) -> Any:
+        """Выполнить DDL запрос без транзакции"""
+        if not self._conn:
+            raise RuntimeError("Соединение не установлено")
+        
+        if params is None:
+            params = []
+        elif isinstance(params, dict):
+            params = list(params.values())
+            
+        return await self._conn.execute(sql, *params)
+
+
+ddl_connect = PostgresDDLConnection
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  �📋 Row-совместимость для плавного перехода
 # ═══════════════════════════════════════════════════════════════════════════════
 
 # asyncpg.Record уже работает как dict и как tuple,

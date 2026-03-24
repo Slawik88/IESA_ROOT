@@ -1,11 +1,11 @@
 import math
 from datetime import datetime, timedelta, date
 
-from database.postgres import connect as postgres_connect
+from database.postgres import connect as postgres_connect, ddl_connect
 
 
 async def init_db():
-    async with postgres_connect() as db:
+    async with ddl_connect() as db:
         # PostgreSQL не нужен PRAGMA journal_mode
 
         await db.execute("""
@@ -167,7 +167,7 @@ async def init_db():
             CREATE TABLE IF NOT EXISTS marriages (
                 user_id BIGINT NOT NULL,
                 chat_id BIGINT NOT NULL,
-                partner_id INTEGER NOT NULL,
+                partner_id BIGINT NOT NULL,
                 married_at TEXT    NOT NULL,
                 PRIMARY KEY (user_id, chat_id)
             )
@@ -296,7 +296,7 @@ async def init_db():
                 chat_id BIGINT NOT NULL,
                 days       INTEGER NOT NULL DEFAULT 7,
                 added_at   TEXT    NOT NULL,
-                added_by   INTEGER NOT NULL,
+                added_by   BIGINT NOT NULL,
                 PRIMARY KEY (user_id, chat_id)
             )
         """)
@@ -354,7 +354,7 @@ async def init_db():
                 id SERIAL PRIMARY KEY,
                 chat_id BIGINT NOT NULL,
                 user_id BIGINT NOT NULL,
-                added_by  INTEGER DEFAULT 0,
+                added_by  BIGINT DEFAULT 0,
                 reason    TEXT    DEFAULT '',
                 added_at  TEXT    NOT NULL,
                 UNIQUE(chat_id, user_id)
@@ -405,7 +405,7 @@ async def init_db():
                 id SERIAL PRIMARY KEY,
                 chat_id BIGINT NOT NULL,
                 challenger_id INTEGER NOT NULL,
-                target_id     INTEGER NOT NULL,
+                target_id     BIGINT NOT NULL,
                 bet           INTEGER NOT NULL,
                 status        TEXT    DEFAULT 'pending',
                 msg_id        INTEGER DEFAULT NULL,
@@ -544,8 +544,8 @@ async def init_db():
         await db.execute("""
             CREATE TABLE IF NOT EXISTS marriage_gifts (
                 id SERIAL PRIMARY KEY,
-                from_user   INTEGER NOT NULL,
-                to_user     INTEGER NOT NULL,
+                from_user   BIGINT NOT NULL,
+                to_user     BIGINT NOT NULL,
                 chat_id BIGINT NOT NULL,
                 gift_key    TEXT    NOT NULL,
                 gift_name   TEXT    NOT NULL,
@@ -678,8 +678,8 @@ async def init_db():
         await db.execute("""
             CREATE TABLE IF NOT EXISTS mora_loans (
                 id SERIAL PRIMARY KEY,
-                lender_id    INTEGER NOT NULL,
-                borrower_id  INTEGER NOT NULL,
+                lender_id    BIGINT NOT NULL,
+                borrower_id  BIGINT NOT NULL,
                 chat_id BIGINT NOT NULL,
                 amount       INTEGER NOT NULL,
                 loaned_at    TEXT    NOT NULL,
@@ -714,8 +714,8 @@ async def init_db():
         await db.execute("""
             CREATE TABLE IF NOT EXISTS espionage_log (
                 id SERIAL PRIMARY KEY,
-                spy_id       INTEGER NOT NULL,
-                target_id    INTEGER NOT NULL,
+                spy_id       BIGINT NOT NULL,
+                target_id    BIGINT NOT NULL,
                 chat_id BIGINT NOT NULL,
                 success      INTEGER NOT NULL,
                 attempted_at TEXT    NOT NULL
@@ -758,8 +758,8 @@ async def init_db():
         await db.execute("""
             CREATE TABLE IF NOT EXISTS couple_boss_sessions (
                 id SERIAL PRIMARY KEY,
-                user_a_id      INTEGER NOT NULL,
-                user_b_id      INTEGER NOT NULL,
+                user_a_id      BIGINT NOT NULL,
+                user_b_id      BIGINT NOT NULL,
                 chat_id BIGINT NOT NULL,
                 boss_level     INTEGER DEFAULT 1,
                 boss_max_hp    INTEGER NOT NULL,
@@ -781,8 +781,8 @@ async def init_db():
         # ─── Прогресс парных боссов (максимальный пройденный уровень) ─
         await db.execute("""
             CREATE TABLE IF NOT EXISTS couple_boss_progress (
-                user_a_id      INTEGER NOT NULL,
-                user_b_id      INTEGER NOT NULL,
+                user_a_id      BIGINT NOT NULL,
+                user_b_id      BIGINT NOT NULL,
                 chat_id BIGINT NOT NULL,
                 max_level      INTEGER DEFAULT 0,
                 last_completed TEXT    DEFAULT NULL,
