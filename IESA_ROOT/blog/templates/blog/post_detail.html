@@ -10,12 +10,12 @@
 {% block og_type %}article{% endblock %}
 {% block og_title %}{{ post.title }}{% endblock %}
 {% block og_description %}{{ post.text|striptags|truncatewords:30 }}{% endblock %}
-{% block og_image %}{% if post.preview_image %}{{ request.scheme }}://{{ request.get_host }}{{ post.preview_image.url }}{% else %}{{ request.scheme }}://{{ request.get_host }}{% static 'img/og-default.jpg' %}{% endif %}{% endblock %}
+{% block og_image %}{% if post.preview_image %}{{ request.scheme }}://{{ request.get_host }}{{ post.preview_image.url }}{% else %}{{ request.scheme }}://{{ request.get_host }}{% static 'img/logo.png' %}{% endif %}{% endblock %}
 
 {% block twitter_card %}summary_large_image{% endblock %}
 {% block twitter_title %}{{ post.title }}{% endblock %}
 {% block twitter_description %}{{ post.text|striptags|truncatewords:30 }}{% endblock %}
-{% block twitter_image %}{% if post.preview_image %}{{ request.scheme }}://{{ request.get_host }}{{ post.preview_image.url }}{% else %}{{ request.scheme }}://{{ request.get_host }}{% static 'img/og-default.jpg' %}{% endif %}{% endblock %}
+{% block twitter_image %}{% if post.preview_image %}{{ request.scheme }}://{{ request.get_host }}{{ post.preview_image.url }}{% else %}{{ request.scheme }}://{{ request.get_host }}{% static 'img/logo.png' %}{% endif %}{% endblock %}
 
 {% block container_wrap_start %}{% endblock %}
 {% block container_wrap_end %}{% endblock %}

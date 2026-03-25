@@ -47,13 +47,21 @@ except ImportError:
 # ─── Static files storage ─────────────────────────────────────────────────────
 
 class WhitenoiseManifestStorage(CompressedManifestStaticFilesStorage):
-    """WhiteNoise storage with manifest_strict=False.
+    """WhiteNoise storage that never raises on missing static files.
 
-    Django 5.x passes STORAGES['OPTIONS'] as **kwargs to __init__(), but
-    manifest_strict is a class attribute on ManifestFilesMixin, not an
-    __init__ parameter. Subclassing is the correct way to override it.
+    manifest_strict=False suppresses the ManifestFilesMixin.stored_name()
+    branch, but hashed_name() (called via HashedFilesMixin in some Django/
+    WhiteNoise versions) still raises ValueError for files absent from disk.
+    We catch that here so a missing file degrades to its original path (404)
+    rather than causing a 500.
     """
     manifest_strict = False
+
+    def hashed_name(self, name, content=None, filename=None):
+        try:
+            return super().hashed_name(name, content=content, filename=filename)
+        except ValueError:
+            return name
 
 
 # ─── Image helpers ────────────────────────────────────────────────────────────
