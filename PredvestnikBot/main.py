@@ -164,6 +164,11 @@ async def main():
         _registered_webhook = (_whi.url or "").strip()
     except Exception as _whi_exc:
         logging.warning("Could not fetch webhook info from Telegram: %s", _whi_exc)
+        # Fail-safe: if we can't query Telegram AND either the webhook URL env var is
+        # set or DATABASE_URL is present (production indicator), assume a webhook IS
+        # active and refuse to fall through to polling — avoids TelegramConflictError.
+        if _webhook_url or os.getenv("DATABASE_URL"):
+            _registered_webhook = "assumed-active (get_webhook_info failed)"
 
     _use_webhook = bool(_webhook_url or _registered_webhook)
 

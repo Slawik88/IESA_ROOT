@@ -147,13 +147,13 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 .dev-rank-badge{font-size:10px;padding:1px 5px;border-radius:8px;background:var(--bg3)}
 /* Dev member CRM table — columns never squish; wrapping div scrolls horizontally */
 .dev-member-table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:8px}
-.dev-member-head,.dev-member-edit{display:grid;grid-template-columns:160px 80px 80px 140px 86px 72px 72px auto;gap:6px;align-items:center;min-width:640px}
+.dev-member-head,.dev-member-edit{display:grid;grid-template-columns:160px 80px 80px 140px 86px 66px 66px 66px 66px auto;gap:6px;align-items:center;min-width:720px}
 .dev-member-head{padding:0 0 6px;color:var(--text2);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;border-bottom:2px solid var(--border);margin-bottom:4px}
 .dev-member-edit{padding:7px 0;border-bottom:1px solid var(--border)}
 .dev-member-edit:last-child{border-bottom:none}
 .dev-member-edit input,.dev-member-edit select{width:100%;min-width:0;padding:6px 8px;font-size:12px}
 .dev-member-name{font-size:12px;font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-@media(min-width:600px){.dev-member-head,.dev-member-edit{grid-template-columns:200px 90px 90px 160px 90px 80px 80px auto;min-width:800px;gap:8px}.dev-member-edit input,.dev-member-edit select{padding:8px 10px;font-size:13px}.dev-member-table-scroll{border:1px solid var(--border);border-radius:10px;padding:0 10px}}
+@media(min-width:600px){.dev-member-head,.dev-member-edit{grid-template-columns:200px 90px 90px 160px 90px 74px 74px 74px 74px auto;min-width:920px;gap:8px}.dev-member-edit input,.dev-member-edit select{padding:8px 10px;font-size:13px}.dev-member-table-scroll{border:1px solid var(--border);border-radius:10px;padding:0 10px}}
 .dev-inline-btn{width:auto;margin-top:0;padding:8px 10px;font-size:12px}
 .dev-salary-grid{display:grid;grid-template-columns:minmax(70px,.8fr) minmax(88px,1fr) minmax(0,2fr) auto;gap:6px;align-items:center}
 .wallet-history-row{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);font-size:12px}
@@ -736,7 +736,9 @@ select{background:var(--bg3);border:1px solid var(--border);border-radius:8px;pa
           <span>Ранг</span>
           <span>Всего сообщ.</span>
           <span>За нед.</span>
+          <span>Пр. нед.</span>
           <span>За день</span>
+          <span>Вчера</span>
           <span></span>
         </div>
         <div id="devChatMembersList" style="max-height:260px;overflow-y:auto"></div>
@@ -1930,7 +1932,9 @@ async function loadDevChatMembers(cid, title){
         </select>
         <input type="number" id="devMsgTotal_${m.user_id}" value="${m.message_count||0}" min="0" title="user_stats.message_count" />
         <input type="number" id="devMsgWeek_${m.user_id}" value="${m.week_count||0}" min="0" title="За неделю" />
+        <input type="number" id="devMsgLastWeek_${m.user_id}" value="${m.last_week_count||0}" min="0" title="Прошлая неделя" />
         <input type="number" id="devMsgDay_${m.user_id}" value="${m.day_count||0}" min="0" title="За сегодня" />
+        <input type="number" id="devMsgYesterday_${m.user_id}" value="${m.yesterday_count||0}" min="0" title="Вчера" />
         <button class="btn btn-green dev-inline-btn" onclick="devSaveMember(${cid},${m.user_id})">💾 Сохранить</button>
       </div>`).join('') || '<div style="color:var(--text2);font-size:12px;padding:6px">—</div>';
   } catch(e){list.innerHTML='<div style="color:#f87171;font-size:12px;padding:6px">'+esc(e.message)+'</div>';}
@@ -1940,11 +1944,13 @@ async function devSaveMember(cid, userId){
   const balance      = parseInt(document.getElementById('devBal_'+userId)?.value||'0')||0;
   const xp           = parseInt(document.getElementById('devXp_'+userId)?.value||'0')||0;
   const rank         = document.getElementById('devRank_'+userId)?.value || 'user';
-  const message_count = parseInt(document.getElementById('devMsgTotal_'+userId)?.value??'')||0;
-  const week_count   = parseInt(document.getElementById('devMsgWeek_'+userId)?.value??'')||0;
-  const day_count    = parseInt(document.getElementById('devMsgDay_'+userId)?.value??'')||0;
+  const message_count  = parseInt(document.getElementById('devMsgTotal_'+userId)?.value??'')||0;
+  const week_count      = parseInt(document.getElementById('devMsgWeek_'+userId)?.value??'')||0;
+  const last_week_count = parseInt(document.getElementById('devMsgLastWeek_'+userId)?.value??'')||0;
+  const day_count       = parseInt(document.getElementById('devMsgDay_'+userId)?.value??'')||0;
+  const yesterday_count = parseInt(document.getElementById('devMsgYesterday_'+userId)?.value??'')||0;
   try{
-    const r = await api('/api/dev/member_update','POST',{target_id:userId,chat_id:cid,balance,xp,rank,message_count,week_count,day_count});
+    const r = await api('/api/dev/member_update','POST',{target_id:userId,chat_id:cid,balance,xp,rank,message_count,week_count,last_week_count,day_count,yesterday_count});
     toast(`✅ ${userId}: ${r.rank}, ${r.balance} 🪙, LVL ${r.level}`,'success');
   } catch(e){
     toast('❌ '+e.message,'error');
