@@ -46,6 +46,7 @@ from .miniapp_views import (
     miniapp_quest,
     miniapp_quest_reroll,
     miniapp_spy,
+    miniapp_members,
     miniapp_transfer,
     miniapp_loans,
     miniapp_loans_create,
@@ -152,6 +153,7 @@ urlpatterns = [
     path('api/quest/reroll', miniapp_quest_reroll, name='miniapp_quest_reroll'),
     # ─── Spy / Шпионаж ────────────────────────────────────────────────────────
     path('api/spy', miniapp_spy, name='miniapp_spy'),
+    path('api/members', miniapp_members, name='miniapp_members'),
     # ─── Transfers / Переводы ─────────────────────────────────────────────────
     path('api/transfer', miniapp_transfer, name='miniapp_transfer'),
     # ─── Loans / Долги ────────────────────────────────────────────────────────
