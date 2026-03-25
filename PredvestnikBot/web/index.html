@@ -1631,6 +1631,7 @@ function bondCard(b){
   <div class="bond-canvas-wrap"><canvas id="bondChart_${b.key}"></canvas></div>
   <div class="stat-row"><span class="stat-label">📦 В портфеле</span><span class="stat-value">${b.amount||0} шт.</span></div>
   <div class="stat-row"><span class="stat-label">💰 Вложено</span><span class="stat-value">${b.invested||0} 🪙</span></div>
+  ${(b.amount||0)>0?`<div class="stat-row"><span class="stat-label">📊 Ср. цена входа</span><span class="stat-value">${b.avg_price||0} 🪙</span></div>`:''}
   ${profit!=null?`<div class="stat-row"><span class="stat-label">📈 П/У</span><span class="stat-value" style="color:${pc}">${ps} 🪙${pp}</span></div>`:''}
   <div style="margin-top:10px">
     <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
