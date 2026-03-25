@@ -388,9 +388,6 @@ def miniapp_user_data(request):
         computed_level = db_level if db_level > 1 else _level_for_xp(xp)
         xp_max = _xp_for_level(computed_level + 1)
         
-        # ➕ НОВАЯ ФУНКЦИЯ: Получаем аватарку из Telegram
-        avatar_url = get_telegram_avatar_url(uid)
-
         payload = {
             "uid": uid,
             "chat_id": chat_id,
@@ -400,7 +397,6 @@ def miniapp_user_data(request):
             "level": computed_level,
             "xp_max": xp_max,
             "vip": bool(vip),
-            "avatar_url": avatar_url,  # ➕ Добавляем аватарку
             "active_frame": top_frame or "default",
             "active_theme": active_theme or "default",
             "bonds": bonds_data,
@@ -4759,29 +4755,13 @@ def miniapp_couple_boss_attack(request):
             conn.close()
             return JsonResponse({"error": "No active boss session"}, status=400, headers=headers)
         
-        # Get user's combat stats
-        cur.execute(f"""SELECT 
-                     COALESCE(SUM(
-                         CASE WHEN gi.slot = 'weapon' OR gi.slot = 'armor' THEN 
-                             CASE WHEN m.atk IS NOT NULL THEN m.atk + (gi.enhancement_level * COALESCE(m.atk, 0) * 0.1) 
-                                  ELSE COALESCE(m.atk, 0) END
-                         ELSE COALESCE(m.atk, 0) END
-                     ), 0) as total_atk,
-                     COALESCE(SUM(
-                         CASE WHEN gi.slot = 'weapon' OR gi.slot = 'armor' THEN 
-                             CASE WHEN m.def_val IS NOT NULL THEN m.def_val + (gi.enhancement_level * COALESCE(m.def_val, 0) * 0.1)
-                                  ELSE COALESCE(m.def_val, 0) END
-                         ELSE COALESCE(m.def_val, 0) END
-                     ), 0) as total_def,
-                     COALESCE(SUM(
-                         CASE WHEN gi.slot = 'weapon' OR gi.slot = 'armor' THEN 
-                             CASE WHEN m.hp IS NOT NULL THEN m.hp + (gi.enhancement_level * COALESCE(m.hp, 0) * 0.1)
-                                  ELSE COALESCE(m.hp, 0) END
-                         ELSE COALESCE(m.hp, 0) END
-                     ), 0) as total_hp,
-                     COALESCE(SUM(COALESCE(m.crit_rate, 0)), 0) as total_crit
+        # Get user's combat stats (stats stored directly in gacha_inventory rows)
+        cur.execute(f"""SELECT
+                     COALESCE(SUM(COALESCE(gi.atk, 0) + gi.enhancement_level * COALESCE(gi.atk, 0) * 0.1), 0),
+                     COALESCE(SUM(COALESCE(gi.def_val, 0) + gi.enhancement_level * COALESCE(gi.def_val, 0) * 0.1), 0),
+                     COALESCE(SUM(COALESCE(gi.hp, 0) + gi.enhancement_level * COALESCE(gi.hp, 0) * 0.1), 0),
+                     COALESCE(SUM(COALESCE(gi.crit_rate, 0)), 0)
                  FROM gacha_inventory gi
-                 LEFT JOIN item_metadata m ON gi.item_key = m.item_key
                  WHERE gi.user_id={ph} AND gi.chat_id={ph} AND gi.equipped=1""", (uid, chat_id))
         stats_row = cur.fetchone()
         user_stats = {
@@ -5018,9 +4998,9 @@ def miniapp_solo_boss_attack(request):
         conn, db_type = _get_bot_db_connection()
         cur = conn.cursor()
         ph = "%s" if db_type == "pg" else "?"
-        cur.execute(f"""SELECT COALESCE(SUM(COALESCE(m.atk, 0) + gi.enhancement_level * COALESCE(m.atk, 0) * 0.1), 50)
+        # Stats stored directly in gacha_inventory (no item_metadata table needed)
+        cur.execute(f"""SELECT COALESCE(SUM(COALESCE(gi.atk, 0) + gi.enhancement_level * COALESCE(gi.atk, 0) * 0.1), 50)
                     FROM gacha_inventory gi
-                    LEFT JOIN item_metadata m ON gi.item_key = m.item_key
                     WHERE gi.user_id={ph} AND gi.chat_id={ph} AND gi.equipped=1""", (uid, chat_id))
         atk_row = cur.fetchone()
         base_atk = int(atk_row[0]) if atk_row and atk_row[0] else 50
@@ -5763,10 +5743,11 @@ def miniapp_loans(request):
             r = cur.fetchone()
             return r[0] if r else f"Игрок {user_id}"
 
-        # Loans I borrowed
+        # Loans I borrowed (accepted)
         cur.execute(
             f"SELECT id, lender_id, amount, loaned_at FROM mora_loans "
-            f"WHERE borrower_id={ph} AND chat_id={ph} AND repaid_at IS NULL ORDER BY id",
+            f"WHERE borrower_id={ph} AND chat_id={ph} AND repaid_at IS NULL "
+            f"AND COALESCE(status,'accepted')='accepted' ORDER BY id",
             (uid, chat_id),
         )
         borrowed = []
@@ -5781,10 +5762,30 @@ def miniapp_loans(request):
                 "loaned_at": loaned_at_str,
             })
 
-        # Loans I gave
+        # Pending incoming requests (someone wants to lend me money)
+        cur.execute(
+            f"SELECT id, lender_id, amount, loaned_at FROM mora_loans "
+            f"WHERE borrower_id={ph} AND chat_id={ph} AND repaid_at IS NULL "
+            f"AND status='pending' ORDER BY id",
+            (uid, chat_id),
+        )
+        pending_incoming = []
+        for row in cur.fetchall():
+            loan_id, lender_id, amount, loaned_at = row
+            loaned_at_str = loaned_at.isoformat() if hasattr(loaned_at, "isoformat") else str(loaned_at)
+            pending_incoming.append({
+                "id": loan_id,
+                "lender_id": lender_id,
+                "lender_name": _get_name(lender_id),
+                "amount": amount,
+                "loaned_at": loaned_at_str,
+            })
+
+        # Loans I gave (accepted)
         cur.execute(
             f"SELECT id, borrower_id, amount, loaned_at FROM mora_loans "
-            f"WHERE lender_id={ph} AND chat_id={ph} AND repaid_at IS NULL ORDER BY id",
+            f"WHERE lender_id={ph} AND chat_id={ph} AND repaid_at IS NULL "
+            f"AND COALESCE(status,'accepted')='accepted' ORDER BY id",
             (uid, chat_id),
         )
         lent = []
@@ -5799,11 +5800,32 @@ def miniapp_loans(request):
                 "loaned_at": loaned_at_str,
             })
 
+        # Pending outgoing requests (I'm waiting for the borrower to accept)
+        cur.execute(
+            f"SELECT id, borrower_id, amount, loaned_at FROM mora_loans "
+            f"WHERE lender_id={ph} AND chat_id={ph} AND repaid_at IS NULL "
+            f"AND status='pending' ORDER BY id",
+            (uid, chat_id),
+        )
+        pending_outgoing = []
+        for row in cur.fetchall():
+            loan_id, borrower_id, amount, loaned_at = row
+            loaned_at_str = loaned_at.isoformat() if hasattr(loaned_at, "isoformat") else str(loaned_at)
+            pending_outgoing.append({
+                "id": loan_id,
+                "borrower_id": borrower_id,
+                "borrower_name": _get_name(borrower_id),
+                "amount": amount,
+                "loaned_at": loaned_at_str,
+            })
+
         conn.close()
         return JsonResponse({
             "ok": True,
             "borrowed": borrowed,
             "lent": lent,
+            "pending_incoming": pending_incoming,
+            "pending_outgoing": pending_outgoing,
         }, json_dumps_params={"ensure_ascii": False}, headers=headers)
 
     except Exception as exc:
@@ -5866,7 +5888,7 @@ def miniapp_loans_create(request):
             conn.close()
             return JsonResponse({"error": f"У заёмщика уже {active} активных долгов (максимум {LOAN_MAX_ACTIVE})"}, status=400, headers=headers)
 
-        # Check lender balance
+        # Check lender has enough balance to "reserve"
         cur.execute(f"SELECT balance FROM user_mora WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
         bal_row = cur.fetchone()
         balance = bal_row[0] if bal_row else 0
@@ -5874,34 +5896,24 @@ def miniapp_loans_create(request):
             conn.close()
             return JsonResponse({"error": f"Недостаточно Моры. У тебя {balance} 🪙"}, status=400, headers=headers)
 
-        # Deduct from lender
-        cur.execute(
-            f"UPDATE user_mora SET balance=balance-{ph} WHERE user_id={ph} AND chat_id={ph} AND balance>={ph}",
-            (amount, uid, chat_id, amount),
-        )
-        if cur.rowcount == 0:
-            conn.close()
-            return JsonResponse({"error": "Не удалось списать Мору"}, status=400, headers=headers)
+        # Ensure status column exists (migration-safe)
+        try:
+            cur.execute("ALTER TABLE mora_loans ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'accepted'")
+        except Exception:
+            pass
 
-        # Add to borrower
-        cur.execute(
-            f"INSERT INTO user_mora (user_id, chat_id, balance) VALUES ({ph},{ph},{ph}) "
-            f"ON CONFLICT(user_id, chat_id) DO UPDATE SET balance=user_mora.balance+excluded.balance",
-            (target_id, chat_id, amount),
-        )
-
-        # Create loan record
+        # Create PENDING loan request (money NOT transferred until borrower accepts)
         now_iso = datetime.now(timezone.utc).isoformat()
         if db_type == "pg":
             cur.execute(
-                "INSERT INTO mora_loans (lender_id, borrower_id, chat_id, amount, loaned_at) "
-                "VALUES (%s,%s,%s,%s,%s) RETURNING id",
+                "INSERT INTO mora_loans (lender_id, borrower_id, chat_id, amount, loaned_at, status) "
+                "VALUES (%s,%s,%s,%s,%s,'pending') RETURNING id",
                 (uid, target_id, chat_id, amount, now_iso),
             )
             loan_id = cur.fetchone()[0]
         else:
             cur.execute(
-                "INSERT INTO mora_loans (lender_id, borrower_id, chat_id, amount, loaned_at) VALUES (?,?,?,?,?)",
+                "INSERT INTO mora_loans (lender_id, borrower_id, chat_id, amount, loaned_at, status) VALUES (?,?,?,?,?,'pending')",
                 (uid, target_id, chat_id, amount, now_iso),
             )
             loan_id = cur.lastrowid
@@ -5916,6 +5928,7 @@ def miniapp_loans_create(request):
             "loan_id": loan_id,
             "amount": amount,
             "new_balance": new_balance,
+            "pending": True,
         }, json_dumps_params={"ensure_ascii": False}, headers=headers)
 
     except Exception as exc:
@@ -6007,6 +6020,107 @@ def miniapp_loans_repay(request):
 
         return JsonResponse({
             "ok": True,
+            "loan_id": loan_id,
+            "amount": amount,
+            "new_balance": new_balance,
+        }, json_dumps_params={"ensure_ascii": False}, headers=headers)
+
+    except Exception as exc:
+        try:
+            conn.close()
+        except Exception:
+            pass
+        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+
+
+@csrf_exempt
+def miniapp_loans_respond(request):
+    """POST /api/loans/respond {chat_id, loan_id, action: accept|reject} — borrower accepts or rejects a pending loan."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=405, headers=headers)
+
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+
+    try:
+        data = json.loads(request.body)
+    except Exception:
+        return JsonResponse({"error": "bad JSON"}, status=400, headers=headers)
+
+    chat_id = int(data.get("chat_id", 0))
+    loan_id = int(data.get("loan_id", 0))
+    action = str(data.get("action", "")).lower()
+
+    if action not in ("accept", "reject"):
+        return JsonResponse({"error": "action must be accept or reject"}, status=400, headers=headers)
+
+    try:
+        conn, db_type = _get_bot_db_connection()
+    except Exception as exc:
+        return JsonResponse({"error": f"DB: {exc}"}, status=503, headers=headers)
+
+    try:
+        cur = conn.cursor()
+        ph = "%s" if db_type == "pg" else "?"
+
+        # Find the pending loan for this borrower
+        cur.execute(
+            f"SELECT id, lender_id, amount FROM mora_loans "
+            f"WHERE id={ph} AND borrower_id={ph} AND chat_id={ph} AND status='pending' AND repaid_at IS NULL",
+            (loan_id, uid, chat_id),
+        )
+        row = cur.fetchone()
+        if not row:
+            conn.close()
+            return JsonResponse({"error": "Заявка не найдена или уже обработана"}, status=404, headers=headers)
+
+        _, lender_id, amount = row
+
+        if action == "reject":
+            # Just mark status as rejected (no money moved)
+            cur.execute(f"UPDATE mora_loans SET status='rejected', repaid_at=NOW() WHERE id={ph}", (loan_id,))
+            conn.commit()
+            conn.close()
+            return JsonResponse({"ok": True, "action": "rejected"}, json_dumps_params={"ensure_ascii": False}, headers=headers)
+
+        # Accept: transfer money from lender to borrower
+        cur.execute(f"SELECT balance FROM user_mora WHERE user_id={ph} AND chat_id={ph}", (lender_id, chat_id))
+        lender_bal = (cur.fetchone() or [0])[0]
+        if lender_bal < amount:
+            conn.close()
+            return JsonResponse({"error": f"У кредитора недостаточно Моры ({lender_bal}/{amount} 🪙)"}, status=400, headers=headers)
+
+        # Deduct from lender
+        cur.execute(
+            f"UPDATE user_mora SET balance=balance-{ph} WHERE user_id={ph} AND chat_id={ph} AND balance>={ph}",
+            (amount, lender_id, chat_id, amount),
+        )
+        if cur.rowcount == 0:
+            conn.close()
+            return JsonResponse({"error": "Не удалось списать Мору с кредитора"}, status=400, headers=headers)
+
+        # Add to borrower
+        cur.execute(
+            f"INSERT INTO user_mora (user_id, chat_id, balance) VALUES ({ph},{ph},{ph}) "
+            f"ON CONFLICT(user_id, chat_id) DO UPDATE SET balance=user_mora.balance+excluded.balance",
+            (uid, chat_id, amount),
+        )
+
+        # Mark loan as accepted
+        cur.execute(f"UPDATE mora_loans SET status='accepted' WHERE id={ph}", (loan_id,))
+
+        cur.execute(f"SELECT balance FROM user_mora WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
+        new_balance = (cur.fetchone() or [0])[0]
+        conn.commit()
+        conn.close()
+
+        return JsonResponse({
+            "ok": True,
+            "action": "accepted",
             "loan_id": loan_id,
             "amount": amount,
             "new_balance": new_balance,
