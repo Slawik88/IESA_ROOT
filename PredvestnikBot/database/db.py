@@ -1109,6 +1109,16 @@ async def init_db():
             # Игнорируем ошибки миграций (колонка уже правильного типа, таблица не существует и т.д.)
             pass
     
+    # Add status column to mora_loans if not present (pending/accepted/rejected flow)
+    try:
+        async with postgres_connect() as db:
+            await db.execute(
+                "ALTER TABLE mora_loans ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'accepted'"
+            )
+            await db.commit()
+    except Exception:
+        pass
+
     await enforce_rank_invariants()
 
 

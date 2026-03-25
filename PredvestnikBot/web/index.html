@@ -775,7 +775,7 @@ select{background:var(--bg3);border:1px solid var(--border);border-radius:8px;pa
   <!-- ② User picker + controls -->
   <div class="card">
     <div class="card-title">🎯 Управление участником</div>
-    <!-- Search dropdown -->
+    <!-- Search dropdown + list picker -->
     <div class="dev-search-wrap">
       <input id="devUserSearch" placeholder="🔍 Поиск по имени / @username..."
              autocomplete="off"
@@ -784,6 +784,7 @@ select{background:var(--bg3);border:1px solid var(--border);border-radius:8px;pa
              style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text);width:100%"/>
       <div class="dev-dropdown" id="devUserDropdown"></div>
     </div>
+    <button class="btn" style="width:100%;margin-bottom:8px;background:var(--bg3);border:1px solid var(--border);color:var(--text)" onclick="openUserPicker('🎯 Выбери участника', function(id,n){ devSelectUser(id,n) })">👥 Выбрать из полного списка…</button>
     <!-- Selected user badge -->
     <div class="dev-sel-badge" id="devSelBadge">
       <span id="devSelName">—</span>
@@ -1062,14 +1063,18 @@ function renderUserPickerList(users) {
     el.innerHTML = '<div style="text-align:center;padding:24px;color:var(--text2)">Ничего не найдено</div>';
     return;
   }
-  el.innerHTML = users.map(u => {
+  el.innerHTML = users.map((u, i) => {
     const initials = (u.name || '?').replace(/[^а-яёa-zA-Z]/gi, '').slice(0, 2).toUpperCase() || '??';
-    return `<div class="user-picker-item" onclick="selectUserFromPicker(${u.user_id},${JSON.stringify(u.name)})">
+    return `<div class="user-picker-item" data-idx="${i}">
       <div class="user-picker-avatar">${initials}</div>
       <div style="flex:1"><div style="font-weight:600;font-size:14px">${esc(u.name)}</div><div style="color:var(--text2);font-size:11px">ID: ${u.user_id}</div></div>
       <div style="color:var(--accent);font-size:16px">›</div>
     </div>`;
   }).join('');
+  // Use addEventListener to avoid HTML-quote conflicts with special characters in names
+  el.querySelectorAll('.user-picker-item').forEach((item, i) => {
+    item.addEventListener('click', () => selectUserFromPicker(users[i].user_id, users[i].name));
+  });
 }
 
 function selectUserFromPicker(userId, name) {
@@ -1123,16 +1128,10 @@ async function loadProfile(){
     document.getElementById('profileName').textContent = p.name || 'Игрок';
     document.getElementById('profileTitle').textContent = '';
     
-    // ➕ НОВАЯ ФУНКЦИЯ: Отображаем аватарку из Telegram
+    // Initials-based avatar (no external network calls)
     const avatarDiv = document.getElementById('profileAvatar');
-    if (p.avatar_url) {
-      // Показываем аватарку из Telegram
-      avatarDiv.innerHTML = `<img src="${p.avatar_url}" style="width:52px;height:52px;border-radius:50%;object-fit:cover;" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">`;
-      avatarDiv.innerHTML += '<div style="width:52px;height:52px;border-radius:50%;background:var(--bg3);border:2px solid var(--accent);display:none;align-items:center;justify-content:center;font-size:24px">👤</div>';
-    } else {
-      // Дефолтный человечек если аватарка не загрузилась
-      avatarDiv.innerHTML = '<div style="width:52px;height:52px;border-radius:50%;background:var(--bg3);border:2px solid var(--accent);display:flex;align-items:center;justify-content:center;font-size:24px">👤</div>';
-    }
+    const _initials = (p.name||'').replace(/[^а-яёa-zA-Z]/gi,'').slice(0,2).toUpperCase() || '👤';
+    avatarDiv.innerHTML = `<div style="width:52px;height:52px;border-radius:50%;background:var(--accent);border:2px solid var(--accent);display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;color:#fff">${_initials}</div>`;
     
     document.getElementById('pLevel').textContent = p.level || 1;
     syncBalance(p.balance||0);
@@ -1670,6 +1669,7 @@ async function toggleEquip(itemId){
 }
 
 async function sellJunk(){
+  if(!confirm('Продать весь хлам? Это действие необратимо.')) return;
   try{
     const r=await api('/api/inventory/sell_junk','POST',{chat_id:chatId});
     if(r.sold===0){toast('Хлама нет','info');return;}
@@ -3471,7 +3471,7 @@ async function loadTransfersTab(){
   }
 }
 function renderTransfersTab(){
-  const {borrowed=[],lent=[]} = transfersData || {};
+  const {borrowed=[],lent=[],pending_incoming=[],pending_outgoing=[]} = transfersData || {};
   let html = `
     <div class="card" style="padding:10px 14px;display:flex;align-items:center;justify-content:space-between">
       <span style="color:var(--text2);font-size:13px">💰 Твой баланс</span>
@@ -3518,6 +3518,21 @@ function renderTransfersTab(){
       <div id="loanCreateResult" style="margin-top:8px;font-weight:700;text-align:center"></div>
     </div>`;
 
+  if(pending_incoming.length){
+    html += `<div class="card" style="border:1.5px solid var(--gold)">
+      <div class="card-title">⏳ Входящие заявки на займ (${pending_incoming.length})</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:8px">Тебе хотят дать в долг — прими или отклони.</div>`;
+    pending_incoming.forEach(l=>{
+      html += `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;padding:8px;background:var(--bg3);border-radius:8px">
+        <div><b>${esc(l.lender_name)}</b><br><span style="font-size:12px;color:var(--text2)">${l.amount} 🪙</span></div>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-sm" style="background:#22c55e;color:#fff;min-height:44px" onclick="doLoanRespond(${l.id},'accept')">✅ Принять</button>
+          <button class="btn btn-sm" style="background:#ef4444;color:#fff;min-height:44px" onclick="doLoanRespond(${l.id},'reject')">❌ Отказ</button>
+        </div>
+      </div>`;
+    });
+    html += `</div>`;
+  }
   if(borrowed.length){
     html += `<div class="card"><div class="card-title">💳 Я должен (${borrowed.length})</div>`;
     borrowed.forEach(l=>{
@@ -3528,8 +3543,14 @@ function renderTransfersTab(){
     });
     html += `</div>`;
   }
-  if(lent.length){
-    html += `<div class="card"><div class="card-title">💰 Мне должны (${lent.length})</div>`;
+  if(lent.length || pending_outgoing.length){
+    const total = lent.length + pending_outgoing.length;
+    html += `<div class="card"><div class="card-title">💰 Мне должны / ожидание (${total})</div>`;
+    pending_outgoing.forEach(l=>{
+      html += `<div style="margin-bottom:8px;padding:8px;background:var(--bg3);border-radius:8px;border-left:3px solid var(--gold)">
+        <b>${esc(l.borrower_name)}</b> — ${l.amount} 🪙 <span style="font-size:11px;color:var(--gold)">⏳ ждёт принятия</span>
+      </div>`;
+    });
     lent.forEach(l=>{
       html += `<div style="margin-bottom:8px;padding:8px;background:var(--bg3);border-radius:8px">
         <b>${esc(l.borrower_name)}</b> — ${l.amount} 🪙 <span style="font-size:11px;color:var(--text2)">(займ #${l.id})</span>
@@ -3578,10 +3599,21 @@ async function doLoanCreate(){
   if(!amt||amt<=0){el.innerHTML='<span style="color:#f87171">❌ Введи сумму</span>';return;}
   try{
     const r=await api('/api/loans/create','POST',{chat_id:chatId,target_id:target,amount:amt});
-    el.innerHTML=`<span style="color:var(--green)">✅ Займ #${r.loan_id} выдан (${r.amount} 🪙). Баланс: ${r.new_balance} 🪙</span>`;
-    if(r.new_balance !== undefined) syncBalance(r.new_balance);
+    el.innerHTML=`<span style="color:var(--gold)">⏳ Заявка #${r.loan_id} отправлена! Ждём подтверждения заёмщика.</span>`;
     tabLoaded['transfers']=false; setTimeout(()=>loadTransfersTab(),800);
   }catch(e){el.innerHTML=`<span style="color:#f87171">❌ ${esc(e.message)}</span>`;}
+}
+async function doLoanRespond(loanId, action){
+  try{
+    const r=await api('/api/loans/respond','POST',{chat_id:chatId,loan_id:loanId,action});
+    if(action==='accept'){
+      if(r.new_balance !== undefined) syncBalance(r.new_balance);
+      toast(`✅ Займ принят! +${r.amount} 🪙`,'success');
+    } else {
+      toast('❌ Займ отклонён','info');
+    }
+    tabLoaded['transfers']=false; loadTransfersTab();
+  }catch(e){toast('❌ '+e.message,'error');}
 }
 async function doLoanRepay(loanId){
   try{
