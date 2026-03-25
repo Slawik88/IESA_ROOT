@@ -3655,6 +3655,8 @@ async function doSpy(){
     if(r.new_balance !== undefined) syncBalance(r.new_balance);
   }catch(e){el.innerHTML=`<span style="color:#f87171">❌ ${esc(e.message)}</span>`;}
 }
+
+</script>
 <!-- User picker bottom sheet modal -->
 <div class="user-picker-modal" id="userPickerModal" onclick="if(event.target===this)closeUserPicker()">
   <div class="user-picker-sheet">
@@ -3670,7 +3672,5 @@ async function doSpy(){
     </div>
   </div>
 </div>
-
-</script>
 </body>
 </html>
