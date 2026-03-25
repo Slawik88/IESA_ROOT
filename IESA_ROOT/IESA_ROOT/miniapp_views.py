@@ -5417,6 +5417,54 @@ def miniapp_quest_reroll(request):
 
 
 # =============================================================================
+# MEMBERS LIST
+# =============================================================================
+
+@csrf_exempt
+def miniapp_members(request):
+    """GET /api/members?chat_id=X — return chat member list for user picker."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "GET":
+        return JsonResponse({"error": "GET required"}, status=405, headers=headers)
+
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+
+    chat_id_str = request.GET.get("chat_id", "")
+    if not chat_id_str.lstrip("-").isdigit():
+        return JsonResponse({"error": "chat_id required"}, status=400, headers=headers)
+    chat_id = int(chat_id_str)
+
+    try:
+        conn, db_type = _get_bot_db_connection()
+    except Exception as exc:
+        return JsonResponse({"error": f"DB: {exc}"}, status=503, headers=headers)
+
+    try:
+        cur = conn.cursor()
+        ph = "%s" if db_type == "pg" else "?"
+        cur.execute(
+            f"SELECT s.user_id, u.full_name "
+            f"FROM user_stats s LEFT JOIN users u ON u.user_id=s.user_id "
+            f"WHERE s.chat_id={ph} AND s.user_id != {ph} "
+            f"ORDER BY s.xp DESC LIMIT 60",
+            (chat_id, uid),
+        )
+        rows = cur.fetchall()
+        conn.close()
+        members = [{"user_id": r[0], "name": r[1] or f"user_{r[0]}"} for r in rows]
+        return JsonResponse({"members": members}, json_dumps_params={"ensure_ascii": False}, headers=headers)
+    except Exception as exc:
+        try:
+            conn.close()
+        except Exception:
+            pass
+        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+
+
 # SPY / ШПИОНАЖ
 # =============================================================================
 
