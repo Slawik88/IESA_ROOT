@@ -9,12 +9,12 @@
 {% block og_type %}article{% endblock %}
 {% block og_title %}{{ event.title }}{% endblock %}
 {% block og_description %}{{ event.description|striptags|truncatewords:30 }}{% endblock %}
-{% block og_image %}{% if event.image %}{{ request.scheme }}://{{ request.get_host }}{{ event.image.url }}{% else %}{{ request.scheme }}://{{ request.get_host }}{% static 'img/og-default.jpg' %}{% endif %}{% endblock %}
+{% block og_image %}{% if event.image %}{{ request.scheme }}://{{ request.get_host }}{{ event.image.url }}{% else %}{{ request.scheme }}://{{ request.get_host }}{% static 'img/logo.png' %}{% endif %}{% endblock %}
 
 {% block twitter_card %}summary_large_image{% endblock %}
 {% block twitter_title %}{{ event.title }}{% endblock %}
 {% block twitter_description %}{{ event.description|striptags|truncatewords:30 }}{% endblock %}
-{% block twitter_image %}{% if event.image %}{{ request.scheme }}://{{ request.get_host }}{{ event.image.url }}{% else %}{{ request.scheme }}://{{ request.get_host }}{% static 'img/og-default.jpg' %}{% endif %}{% endblock %}
+{% block twitter_image %}{% if event.image %}{{ request.scheme }}://{{ request.get_host }}{{ event.image.url }}{% else %}{{ request.scheme }}://{{ request.get_host }}{% static 'img/logo.png' %}{% endif %}{% endblock %}
 
 {% block extra_css %}
 <style>
