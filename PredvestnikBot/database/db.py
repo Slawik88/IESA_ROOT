@@ -2365,7 +2365,7 @@ async def batch_increment_message_counts(counts: dict) -> None:
         await conn.execute(
             """UPDATE user_stats
                   SET message_count = message_count + v.delta,
-                      last_active   = $4
+                      last_active   = $4::TIMESTAMPTZ
                FROM (SELECT unnest($1::bigint[])  AS user_id,
                             unnest($2::bigint[])  AS chat_id,
                             unnest($3::integer[]) AS delta) AS v

@@ -2228,6 +2228,14 @@ def miniapp_dev_trigger_event(request):
     if not target_chat:
         return JsonResponse({"error": "chat_id required"}, status=400, headers=headers)
 
+    _SUPPORTED_EVENTS = {"chest", "сундук", "дилижанс", "diligence"}
+    if event_type not in _SUPPORTED_EVENTS:
+        return JsonResponse(
+            {"error": f"Неизвестный тип события: '{event_type}'. "
+                      f"Поддерживаются: сундук, дилижанс"},
+            status=400, headers=headers,
+        )
+
     # We enqueue the event request into a small DB table so the bot process can pick it up.
     # This avoids needing to share bot instance state with Django.
     try:
@@ -2264,7 +2272,7 @@ def miniapp_dev_trigger_event(request):
         conn.commit()
         conn.close()
         return JsonResponse({"ok": True, "event_type": event_type, "chat_id": target_chat,
-                             "note": "queued — bot will fire within ~60s"}, headers=headers)
+                             "note": "queued — bot will fire within ~30s"}, headers=headers)
     except Exception as exc:
         try:
             conn.close()
