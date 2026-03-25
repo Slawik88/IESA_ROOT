@@ -1649,6 +1649,15 @@ def miniapp_dev_member_update(request):
         balance = int(body.get("balance", 0))
         xp = int(body.get("xp", 0))
         rank = str(body.get("rank", "user")).strip().lower()
+        # Message count fields (None means "not provided — don't update")
+        msg_count      = body.get("message_count")     # user_stats.message_count
+        day_count      = body.get("day_count")         # cleanup_counts.day_count
+        week_count     = body.get("week_count")        # cleanup_counts.week_count
+        total_count    = body.get("total_count")       # cleanup_counts.count
+        if msg_count  is not None: msg_count      = max(0, int(msg_count))
+        if day_count  is not None: day_count      = max(0, int(day_count))
+        if week_count is not None: week_count     = max(0, int(week_count))
+        if total_count is not None: total_count   = max(0, int(total_count))
     except Exception:
         return JsonResponse({"error": "invalid JSON"}, status=400, headers=headers)
 
@@ -1707,6 +1716,38 @@ def miniapp_dev_member_update(request):
         elif delta < 0:
             _insert_wallet_ledger(cur, db_type, chat_id, target_id, "expense", abs(delta),
                                   "crm_editor", "CRM: правка участника", uid)
+
+        # Update message_count in user_stats if provided
+        if msg_count is not None:
+            cur.execute(
+                f"UPDATE user_stats SET message_count={ph} WHERE user_id={ph} AND chat_id={ph}",
+                (msg_count, target_id, chat_id),
+            )
+
+        # Update cleanup_counts (day/week/total) if provided
+        if day_count is not None or week_count is not None or total_count is not None:
+            # Ensure row exists first
+            cur.execute(
+                f"INSERT INTO cleanup_counts (chat_id, user_id, count, week_count, day_count) "
+                f"VALUES ({ph},{ph},0,0,0) "
+                f"ON CONFLICT(chat_id, user_id) DO NOTHING",
+                (chat_id, target_id),
+            )
+            if day_count is not None:
+                cur.execute(
+                    f"UPDATE cleanup_counts SET day_count={ph} WHERE user_id={ph} AND chat_id={ph}",
+                    (day_count, target_id, chat_id),
+                )
+            if week_count is not None:
+                cur.execute(
+                    f"UPDATE cleanup_counts SET week_count={ph} WHERE user_id={ph} AND chat_id={ph}",
+                    (week_count, target_id, chat_id),
+                )
+            if total_count is not None:
+                cur.execute(
+                    f"UPDATE cleanup_counts SET count={ph} WHERE user_id={ph} AND chat_id={ph}",
+                    (total_count, target_id, chat_id),
+                )
 
         conn.commit()
         conn.close()
@@ -2012,10 +2053,15 @@ def miniapp_dev_chat_admins(request):
         cur.execute(
             f"SELECT s.user_id, u.full_name, COALESCE(s.rank,'user') AS rank, "
             f"COALESCE(s.level,1) AS level, COALESCE(s.xp,0) AS xp, "
-            f"COALESCE(m.balance,0) AS balance "
+            f"COALESCE(m.balance,0) AS balance, "
+            f"COALESCE(s.message_count,0) AS message_count, "
+            f"COALESCE(cc.count,0) AS total_count, "
+            f"COALESCE(cc.week_count,0) AS week_count, "
+            f"COALESCE(cc.day_count,0) AS day_count "
             f"FROM user_stats s "
             f"LEFT JOIN users u ON u.user_id=s.user_id "
             f"LEFT JOIN user_mora m ON m.user_id=s.user_id AND m.chat_id=s.chat_id "
+            f"LEFT JOIN cleanup_counts cc ON cc.user_id=s.user_id AND cc.chat_id=s.chat_id "
             f"WHERE s.chat_id={ph} "
             f"ORDER BY s.xp DESC LIMIT 50",
             (chat_id,),
@@ -2024,7 +2070,9 @@ def miniapp_dev_chat_admins(request):
         conn.close()
         members = [
             {"user_id": r[0], "name": r[1] or f"user_{r[0]}", "rank": r[2],
-             "level": r[3], "xp": r[4], "balance": r[5]}
+             "level": r[3], "xp": r[4], "balance": r[5],
+             "message_count": r[6], "total_count": r[7],
+             "week_count": r[8], "day_count": r[9]}
             for r in rows
         ]
         return JsonResponse({"members": members}, json_dumps_params={"ensure_ascii": False}, headers=headers)

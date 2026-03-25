@@ -18,6 +18,7 @@ from database.db import (
     set_cleanup_reminder_sent, upsert_user,
     import_marriage_with_date, get_migration_stats, import_users_bulk,
     store_pending_marriages,
+    get_inactive_users_24h,
 )
 from filters.bot_command import BotCommand
 from filters.rank_filter import RankFilter
@@ -623,6 +624,46 @@ async def cmd_inactivity(message: Message, cmd_args: str):
             "<code>бот неактив дни 5</code>",
             parse_mode="HTML",
         )
+
+
+@router.message(BotCommand("неактив24", "inactive_24h", "inactive24h"), RankFilter("moderator"))
+async def cmd_inactive_24h(message: Message):
+    """Список участников, неактивных более 24 часов."""
+    if message.chat.type == "private":
+        await message.answer("❌ Команда работает только в чате.")
+        return
+
+    chat_id = message.chat.id
+    users = await get_inactive_users_24h(chat_id, limit=50)
+
+    if not users:
+        await message.answer("✅ Все участники были активны в последние 24 часа.")
+        return
+
+    lines = []
+    now = _dt.now(timezone.utc)
+    for u in users:
+        last = u.get("last_seen")
+        if last:
+            if hasattr(last, "tzinfo") and last.tzinfo is None:
+                last = last.replace(tzinfo=timezone.utc)
+            ago_h = int((now - last).total_seconds() // 3600)
+            ago_str = f"{ago_h} ч. назад"
+        else:
+            ago_str = "неизвестно"
+
+        name = html.escape(u.get("full_name") or str(u["user_id"]))
+        username = u.get("username")
+        tag = f" (@{html.escape(username)})" if username else ""
+        msgs = u.get("message_count", 0)
+        lines.append(f"• <b>{name}</b>{tag} — {ago_str} (сообщений: {msgs})")
+
+    header = f"⏰ <b>Неактивны >24 ч.</b> ({len(users)} чел.):\n\n"
+    text = header + "\n".join(lines)
+    # Telegram message limit
+    if len(text) > 4000:
+        text = text[:3990] + "\n…"
+    await message.answer(text, parse_mode="HTML")
 
 
 # ─── Скан / статистика данных в БД ───────────────────────────────────────────

@@ -144,7 +144,7 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 .dev-member-row{display:grid;grid-template-columns:1fr auto auto;gap:6px;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px}
 .dev-member-row:last-child{border:none}
 .dev-rank-badge{font-size:10px;padding:1px 5px;border-radius:8px;background:var(--bg3)}
-.dev-member-head,.dev-member-edit{display:grid;grid-template-columns:minmax(120px,1.4fr) minmax(74px,.7fr) minmax(74px,.7fr) minmax(116px,.9fr) auto;gap:6px;align-items:center}
+.dev-member-head,.dev-member-edit{display:grid;grid-template-columns:minmax(120px,1.4fr) minmax(74px,.7fr) minmax(74px,.7fr) minmax(116px,.9fr) minmax(70px,.6fr) minmax(60px,.5fr) minmax(60px,.5fr) auto;gap:6px;align-items:center}
 .dev-member-head{padding:0 0 6px;color:var(--text2);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;border-bottom:1px solid var(--border);margin-bottom:6px}
 .dev-member-edit{padding:7px 0;border-bottom:1px solid var(--border)}
 .dev-member-edit:last-child{border-bottom:none}
@@ -211,7 +211,7 @@ select{background:var(--bg3);border:1px solid var(--border);border-radius:8px;pa
 .cal-day .cd-mora{font-size:10px;color:var(--gold);font-weight:700;margin-top:2px}
 @media (max-width:420px){
   .dev-member-head{display:none}
-  .dev-member-edit{grid-template-columns:1fr 1fr;gap:8px}
+  .dev-member-edit{grid-template-columns:1fr 1fr 1fr;gap:8px}
   .dev-member-name{grid-column:1/-1}
   .dev-inline-btn{grid-column:1/-1}
   .dev-salary-grid{grid-template-columns:1fr 1fr}
@@ -729,6 +729,9 @@ select{background:var(--bg3);border:1px solid var(--border);border-radius:8px;pa
         <span>Мора</span>
         <span>XP</span>
         <span>Ранг</span>
+        <span>Всего сообщ.</span>
+        <span>За нед.</span>
+        <span>За день</span>
         <span></span>
       </div>
       <div id="devChatMembersList" style="max-height:200px;overflow-y:auto"></div>
@@ -1910,17 +1913,23 @@ async function loadDevChatMembers(cid, title){
         <select id="devRank_${m.user_id}">
           ${['user','moderator','admin_junior','admin_senior','co_owner','owner','developer'].map(rank=>`<option value="${rank}" ${m.rank===rank?'selected':''}>${rank}</option>`).join('')}
         </select>
+        <input type="number" id="devMsgTotal_${m.user_id}" value="${m.message_count||0}" min="0" title="user_stats.message_count" />
+        <input type="number" id="devMsgWeek_${m.user_id}" value="${m.week_count||0}" min="0" title="За неделю" />
+        <input type="number" id="devMsgDay_${m.user_id}" value="${m.day_count||0}" min="0" title="За сегодня" />
         <button class="btn btn-green dev-inline-btn" onclick="devSaveMember(${cid},${m.user_id})">💾 Сохранить</button>
       </div>`).join('') || '<div style="color:var(--text2);font-size:12px;padding:6px">—</div>';
   } catch(e){list.innerHTML='<div style="color:#f87171;font-size:12px;padding:6px">'+esc(e.message)+'</div>';}
 }
 
 async function devSaveMember(cid, userId){
-  const balance = parseInt(document.getElementById('devBal_'+userId)?.value||'0')||0;
-  const xp = parseInt(document.getElementById('devXp_'+userId)?.value||'0')||0;
-  const rank = document.getElementById('devRank_'+userId)?.value || 'user';
+  const balance      = parseInt(document.getElementById('devBal_'+userId)?.value||'0')||0;
+  const xp           = parseInt(document.getElementById('devXp_'+userId)?.value||'0')||0;
+  const rank         = document.getElementById('devRank_'+userId)?.value || 'user';
+  const message_count = parseInt(document.getElementById('devMsgTotal_'+userId)?.value??'')||0;
+  const week_count   = parseInt(document.getElementById('devMsgWeek_'+userId)?.value??'')||0;
+  const day_count    = parseInt(document.getElementById('devMsgDay_'+userId)?.value??'')||0;
   try{
-    const r = await api('/api/dev/member_update','POST',{target_id:userId,chat_id:cid,balance,xp,rank});
+    const r = await api('/api/dev/member_update','POST',{target_id:userId,chat_id:cid,balance,xp,rank,message_count,week_count,day_count});
     toast(`✅ ${userId}: ${r.rank}, ${r.balance} 🪙, LVL ${r.level}`,'success');
   } catch(e){
     toast('❌ '+e.message,'error');
