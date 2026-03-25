@@ -26,9 +26,9 @@ logger = logging.getLogger(__name__)
 
 # ─── Tunables ─────────────────────────────────────────────────────────────────
 
-WEBP_QUALITY = 80            # WebP encode quality (0–100)
-ART_MAX_SIZE  = (1024, 1024) # blog posts, events, gallery, products
-ICON_MAX_SIZE = (512, 512)   # avatars, member photos, partner logos
+WEBP_QUALITY = 65            # WebP encode quality (0–100). 65 saves ~30% vs 80 with no visible diff
+ART_MAX_SIZE  = (800, 800)   # blog posts, events, gallery, products (was 1024)
+ICON_MAX_SIZE = (300, 300)   # avatars, member photos, partner logos (was 512)
 
 # upload_to prefixes that get the smaller ICON_MAX_SIZE budget
 _ICON_PREFIXES = ("avatars/", "members/", "partners/", "cards/")

@@ -1228,13 +1228,13 @@ def miniapp_bonds(request):
         )
         holdings = {r[0]: {"amount": r[1], "invested": r[2]} for r in cur.fetchall()}
 
-        # Price history (last 30 points per bond—all defined bonds)
+        # Price history (last 120 points per bond = ~15 days at 3h ticks)
         _BOND_KEYS = list(_BOND_DEFAULTS_SYNC.keys())
         history = {}
         for bk in _BOND_KEYS:
             cur.execute(
                 f"SELECT price, recorded_at FROM bond_price_history "
-                f"WHERE chat_id={ph} AND bond_key={ph} ORDER BY id DESC LIMIT 30",
+                f"WHERE chat_id={ph} AND bond_key={ph} ORDER BY id DESC LIMIT 120",
                 (chat_id, bk),
             )
             rows = cur.fetchall()

@@ -4760,13 +4760,13 @@ async def update_bond_prices(chat_id: int):
                 "INSERT INTO bond_price_history (chat_id, bond_key, price, recorded_at) VALUES (?,?,?,?)",
                 (chat_id, key, new_price, now),
             )
-            # Prune history — keep only the last 24 ticks per asset
+            # Prune history — keep last 120 ticks per asset (~15 days at 3h intervals)
             await db.execute(
                 """DELETE FROM bond_price_history
                    WHERE chat_id=? AND bond_key=? AND id NOT IN (
                        SELECT id FROM bond_price_history
                        WHERE chat_id=? AND bond_key=?
-                       ORDER BY id DESC LIMIT 24
+                       ORDER BY id DESC LIMIT 120
                    )""",
                 (chat_id, key, chat_id, key),
             )
