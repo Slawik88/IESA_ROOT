@@ -752,6 +752,18 @@ async def init_db():
             )
         """)
 
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS user_bond_lots (
+                id        SERIAL PRIMARY KEY,
+                user_id   BIGINT NOT NULL,
+                chat_id   BIGINT NOT NULL,
+                bond_key  TEXT   NOT NULL,
+                quantity  INTEGER NOT NULL,
+                price_per INTEGER NOT NULL,
+                bought_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """)
+
         # ─── Лог шпионажа ─────────────────────────────────────────────────
         await db.execute("""
             CREATE TABLE IF NOT EXISTS espionage_log (
@@ -3820,6 +3832,33 @@ async def get_inactive_users_for_warn(chat_id: int, cutoff_iso: str) -> list[dic
             return [dict(r) for r in await c.fetchall()]
 
 
+async def get_inactive_users_24h(chat_id: int, limit: int = 50) -> list[dict]:
+    """Вернуть участников чата, чья last_active < 24 часа назад.
+    Исключает стафф и забаненных. Сортировка: самые давно-неактивные первыми."""
+    async with postgres_connect() as db:
+        async with db.execute(
+            """
+            SELECT us.user_id,
+                   COALESCE(u.full_name, CAST(us.user_id AS TEXT)) AS full_name,
+                   u.username,
+                   us.rank,
+                   COALESCE(us.last_active, us.first_active) AS last_seen,
+                   COALESCE(us.message_count, 0) AS message_count
+            FROM user_stats us
+            LEFT JOIN users u ON u.user_id = us.user_id
+            WHERE us.chat_id = ?
+              AND us.is_banned = 0
+              AND COALESCE(us.rank, 'user') IN ('user', 'vip')
+              AND COALESCE(us.last_active, us.first_active) IS NOT NULL
+              AND COALESCE(us.last_active, us.first_active) < NOW() - INTERVAL '24 hours'
+            ORDER BY COALESCE(us.last_active, us.first_active) ASC
+            LIMIT ?
+            """,
+            (chat_id, limit),
+        ) as c:
+            return [dict(r) for r in await c.fetchall()]
+
+
 async def set_inactivity_warned(user_id: int, chat_id: int, when_iso: str) -> None:
     """Записать время авто-варна за неактив."""
     async with postgres_connect() as db:
@@ -4584,6 +4623,10 @@ async def get_espionage_cooldown(spy_id: int, target_id: int, chat_id: int) -> i
 BOND_DEFAULTS = {
     "mondstadt": {"name": "📜 Холодный Ветер (Мондштадт)", "base_price": 100},
     "inazuma":   {"name": "⚡ Вишнёвый Гром (Инадзума)",   "base_price": 150},
+    "liyue":     {"name": "💎 Нефритовый Слиток (Ли Юэ)",  "base_price": 120},
+    "sumeru":    {"name": "🌿 Зелёный Лист (Сумеру)",      "base_price":  90},
+    "fontaine":  {"name": "💧 Хрустальный Поток (Фонтэн)", "base_price": 200},
+    "natlan":    {"name": "🔥 Пламенный Клык (Натлан)",    "base_price": 175},
 }
 
 
@@ -4734,15 +4777,23 @@ async def equip_item(user_id: int, chat_id: int, item_id: int, slot: str) -> str
 
 
 async def buy_bonds(user_id: int, chat_id: int, bond_key: str, amount: int, price_per: int) -> bool:
-    """Купить облигации. Возвращает True при успехе. Деньги уже списаны вызывающим."""
+    """Купить облигации. Записывает лот в user_bond_lots и обновляет агрегат user_bonds."""
     total_invested = amount * price_per
+    now = datetime.now(timezone.utc)
     async with postgres_connect() as db:
+        # Record individual lot for per-lot tracking (FIFO sell)
+        await db.execute(
+            """INSERT INTO user_bond_lots (user_id, chat_id, bond_key, quantity, price_per, bought_at)
+               VALUES (?,?,?,?,?,?)""",
+            (user_id, chat_id, bond_key, amount, price_per, now),
+        )
+        # Keep aggregate table in sync for display compatibility
         await db.execute(
             """INSERT INTO user_bonds (user_id, chat_id, bond_key, amount, invested)
                VALUES (?,?,?,?,?)
                ON CONFLICT(user_id, chat_id, bond_key)
-               DO UPDATE SET amount = amount + excluded.amount,
-                             invested = invested + excluded.invested""",
+               DO UPDATE SET amount   = user_bonds.amount   + excluded.amount,
+                             invested = user_bonds.invested + excluded.invested""",
             (user_id, chat_id, bond_key, amount, total_invested),
         )
         await db.commit()
@@ -4750,29 +4801,61 @@ async def buy_bonds(user_id: int, chat_id: int, bond_key: str, amount: int, pric
 
 
 async def sell_bonds(user_id: int, chat_id: int, bond_key: str, amount: int) -> tuple[bool, int]:
-    """Продать облигации. Возвращает (success, actual_amount_sold)."""
+    """Продать облигации методом FIFO по лотам. Возвращает (success, actual_amount_sold)."""
     async with postgres_connect() as db:
+        # Verify total holding
+        async with db.execute(
+            "SELECT COALESCE(SUM(quantity),0) AS total FROM user_bond_lots WHERE user_id=? AND chat_id=? AND bond_key=?",
+            (user_id, chat_id, bond_key),
+        ) as c:
+            row = await c.fetchone()
+        total_held = row["total"] if row else 0
+        if total_held < amount:
+            return (False, 0)
+
+        # Fetch lots oldest-first (FIFO)
+        async with db.execute(
+            "SELECT id, quantity FROM user_bond_lots WHERE user_id=? AND chat_id=? AND bond_key=? ORDER BY bought_at ASC, id ASC",
+            (user_id, chat_id, bond_key),
+        ) as c:
+            lots = [dict(r) for r in await c.fetchall()]
+
+        remaining = amount
+        for lot in lots:
+            if remaining <= 0:
+                break
+            if lot["quantity"] <= remaining:
+                # Consume this lot entirely
+                await db.execute("DELETE FROM user_bond_lots WHERE id=?", (lot["id"],))
+                remaining -= lot["quantity"]
+            else:
+                # Partially consume this lot
+                await db.execute(
+                    "UPDATE user_bond_lots SET quantity = quantity - ? WHERE id=?",
+                    (remaining, lot["id"]),
+                )
+                remaining = 0
+
+        # Update aggregate; proportionally reduce invested
         async with db.execute(
             "SELECT amount, invested FROM user_bonds WHERE user_id=? AND chat_id=? AND bond_key=?",
             (user_id, chat_id, bond_key),
         ) as c:
-            row = await c.fetchone()
-        if not row or row["amount"] < amount:
-            return (False, 0)
-        new_amount = row["amount"] - amount
-        if new_amount == 0:
-            await db.execute(
-                "DELETE FROM user_bonds WHERE user_id=? AND chat_id=? AND bond_key=?",
-                (user_id, chat_id, bond_key),
-            )
-        else:
-            # Proportionally reduce invested
-            frac = amount / row["amount"]
-            new_invested = max(0, int(row["invested"] * (1 - frac)))
-            await db.execute(
-                "UPDATE user_bonds SET amount=?, invested=? WHERE user_id=? AND chat_id=? AND bond_key=?",
-                (new_amount, new_invested, user_id, chat_id, bond_key),
-            )
+            agg = await c.fetchone()
+        if agg:
+            new_amount = agg["amount"] - amount
+            if new_amount <= 0:
+                await db.execute(
+                    "DELETE FROM user_bonds WHERE user_id=? AND chat_id=? AND bond_key=?",
+                    (user_id, chat_id, bond_key),
+                )
+            else:
+                frac = amount / agg["amount"]
+                new_invested = max(0, int(agg["invested"] * (1 - frac)))
+                await db.execute(
+                    "UPDATE user_bonds SET amount=?, invested=? WHERE user_id=? AND chat_id=? AND bond_key=?",
+                    (new_amount, new_invested, user_id, chat_id, bond_key),
+                )
         await db.commit()
     return (True, amount)
 
