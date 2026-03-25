@@ -1,4 +1,4 @@
-{% load static i18n %}
+﻿{% load static i18n %}
 
 {% for post in posts %}
 <article class="card card-modern mb-3 htmx-fade-in">
@@ -30,7 +30,7 @@
                 <div class="d-flex justify-content-between align-items-center">
                     <div class="d-flex align-items-center gap-2">
                         {% if post.author.avatar %}
-                        <img src="{{ post.author.avatar.url }}" class="rounded-circle" width="24" height="24" alt="{{ post.author.username }}">
+                        <img loading="lazy" src="{{ post.author.avatar.url }}" class="rounded-circle" width="24" height="24" alt="{{ post.author.username }}">
                         {% else %}
                         <div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center" style="width: 24px; height: 24px;">
                             <i class="fas fa-user text-white" style="font-size: 10px;"></i>
@@ -80,3 +80,4 @@ HTMX Infinite Scroll - Лучшая практика:
     </div>
 </div>
 {% endif %}
+

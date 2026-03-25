@@ -570,7 +570,7 @@ html, body { background: var(--bg0) !important; }
           <p class="cab-card-title">{% trans "Your QR Card" %}</p>
           <div class="qr-wrap">
             <a href="{% url 'users:profile_by_card' permanent_id=profile_user.permanent_id %}">
-              <img src="{% url 'users:user_qr' permanent_id=profile_user.permanent_id %}" alt="QR Code">
+              <img loading="lazy" src="{% url 'users:user_qr' permanent_id=profile_user.permanent_id %}" alt="QR Code">
             </a>
             <p class="mt-2 mb-0" style="font-size:.78rem;color:var(--muted);">{% trans "Scan to open your public profile" %}</p>
           </div>

@@ -1,10 +1,10 @@
-{% load i18n %}
+﻿{% load i18n %}
 <div class="partner-details-modal">
   <!-- Header Section with Logo and Name -->
   <div class="partner-details-header">
     <div class="partner-details-logo">
       {% if partner.logo %}
-        <img src="{{ partner.logo.url }}" alt="{{ partner.name }}" class="partner-logo-img">
+        <img loading="lazy" src="{{ partner.logo.url }}" alt="{{ partner.name }}" class="partner-logo-img">
       {% else %}
         <div class="partner-logo-large">{{ partner.name|slice:":2"|upper }}</div>
       {% endif %}
@@ -37,7 +37,7 @@
       <i class="fas fa-file-contract me-2" style="color:var(--primary);"></i>{% trans "Partnership Agreement" %}
     </h5>
     <div class="contract-preview">
-      <img src="{{ partner.contract.url }}" alt="{% trans "Contract" %}" class="contract-image">
+      <img loading="lazy" src="{{ partner.contract.url }}" alt="{% trans "Contract" %}" class="contract-image">
       <div class="contract-actions">
         <a href="{{ partner.contract.url }}" target="_blank" download class="pm-btn-ghost">
           <i class="fas fa-download me-1"></i>{% trans "Download" %}
@@ -237,3 +237,4 @@
   }
 }
 </style>
+

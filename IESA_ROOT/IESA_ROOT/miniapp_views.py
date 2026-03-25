@@ -5189,3 +5189,1308 @@ async def log_action_to_chat(user_id: int, chat_id: int, action: str, details: s
         pass  # Не критично если не получилось отправить
 
 
+# =============================================================================
+# QUEST / ЗАДАНИЯ
+# =============================================================================
+
+def _quest_today() -> str:
+    """Return today's date string matching bot_today() (UTC or BOT_TIMEZONE)."""
+    try:
+        from zoneinfo import ZoneInfo
+        from config import BOT_TIMEZONE
+        tz = ZoneInfo(BOT_TIMEZONE)
+        return datetime.now(tz).date().isoformat()
+    except Exception:
+        return datetime.now(timezone.utc).date().isoformat()
+
+
+def _quest_default_for_date(today_str: str) -> dict:
+    """Compute the rotation quest for a given date without DB lookup."""
+    from datetime import date as _date
+    try:
+        from database.db import DAILY_QUESTS
+    except Exception:
+        return {"type": "messages", "goal": 10, "xp": 30, "mora": 3, "desc": "✍️ Написать 10 сообщений в чате"}
+    d = _date.fromisoformat(today_str)
+    idx = d.toordinal() % len(DAILY_QUESTS)
+    return DAILY_QUESTS[idx]
+
+
+@csrf_exempt
+def miniapp_quest(request):
+    """GET /api/quest?chat_id=X — current daily quest + progress."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "GET":
+        return JsonResponse({"error": "GET required"}, status=405, headers=headers)
+
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+
+    chat_id_str = request.GET.get("chat_id", "0")
+    if not chat_id_str.lstrip("-").isdigit():
+        return JsonResponse({"error": "chat_id required"}, status=400, headers=headers)
+    chat_id = int(chat_id_str)
+    today = _quest_today()
+
+    try:
+        conn, db_type = _get_bot_db_connection()
+    except Exception as exc:
+        return JsonResponse({"error": f"DB: {exc}"}, status=503, headers=headers)
+
+    try:
+        cur = conn.cursor()
+        ph = "%s" if db_type == "pg" else "?"
+
+        cur.execute(
+            f"SELECT quest_type, goal, progress, completed, rewarded "
+            f"FROM user_quests WHERE user_id={ph} AND chat_id={ph} AND quest_date={ph}",
+            (uid, chat_id, today),
+        )
+        row = cur.fetchone()
+        conn.close()
+
+        if row:
+            quest_type, goal, progress, completed, rewarded = row
+            # Find matching quest in DAILY_QUESTS
+            try:
+                from database.db import DAILY_QUESTS
+                quest = next(
+                    (q for q in DAILY_QUESTS if q["type"] == quest_type and q["goal"] == goal),
+                    None,
+                )
+                if not quest:
+                    quest = {"type": quest_type, "goal": goal, "xp": 50, "mora": 5, "desc": f"Задание: {quest_type}"}
+            except Exception:
+                quest = {"type": quest_type, "goal": goal, "xp": 50, "mora": 5, "desc": f"Задание: {quest_type}"}
+        else:
+            quest = _quest_default_for_date(today)
+            progress = 0
+            completed = 0
+            rewarded = 0
+
+        return JsonResponse({
+            "ok": True,
+            "quest": {
+                "type": quest["type"],
+                "goal": quest["goal"],
+                "desc": quest["desc"],
+                "xp": quest["xp"],
+                "mora": quest.get("mora", 5),
+            },
+            "progress": progress,
+            "completed": bool(completed),
+            "rewarded": bool(rewarded),
+            "today": today,
+        }, json_dumps_params={"ensure_ascii": False}, headers=headers)
+
+    except Exception as exc:
+        try:
+            conn.close()
+        except Exception:
+            pass
+        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+
+
+@csrf_exempt
+def miniapp_quest_reroll(request):
+    """POST /api/quest/reroll {chat_id} — spend QUEST_REROLL_PRICE mora to get a new quest."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=405, headers=headers)
+
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+
+    try:
+        data = json.loads(request.body)
+    except Exception:
+        return JsonResponse({"error": "bad JSON"}, status=400, headers=headers)
+
+    chat_id = int(data.get("chat_id", 0))
+    today = _quest_today()
+
+    try:
+        from config import QUEST_REROLL_PRICE
+    except Exception:
+        QUEST_REROLL_PRICE = 25
+
+    try:
+        conn, db_type = _get_bot_db_connection()
+    except Exception as exc:
+        return JsonResponse({"error": f"DB: {exc}"}, status=503, headers=headers)
+
+    try:
+        cur = conn.cursor()
+        ph = "%s" if db_type == "pg" else "?"
+
+        # Check if already completed
+        cur.execute(
+            f"SELECT completed FROM user_quests WHERE user_id={ph} AND chat_id={ph} AND quest_date={ph}",
+            (uid, chat_id, today),
+        )
+        row = cur.fetchone()
+        if row and row[0]:
+            conn.close()
+            return JsonResponse({"error": "Задание уже выполнено — переброс не нужен"}, status=400, headers=headers)
+
+        # Check balance
+        cur.execute(f"SELECT balance FROM user_mora WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
+        bal_row = cur.fetchone()
+        balance = bal_row[0] if bal_row else 0
+        if balance < QUEST_REROLL_PRICE:
+            conn.close()
+            return JsonResponse({"error": f"Недостаточно Моры. Нужно {QUEST_REROLL_PRICE} 🪙"}, status=400, headers=headers)
+
+        # Deduct mora
+        cur.execute(
+            f"UPDATE user_mora SET balance=balance-{ph} WHERE user_id={ph} AND chat_id={ph} AND balance>={ph}",
+            (QUEST_REROLL_PRICE, uid, chat_id, QUEST_REROLL_PRICE),
+        )
+        if cur.rowcount == 0:
+            conn.close()
+            return JsonResponse({"error": "Не удалось списать Мору"}, status=400, headers=headers)
+
+        # Pick new quest
+        try:
+            from database.db import DAILY_QUESTS
+            import random as _random
+            # Get old quest to avoid repeating it
+            cur.execute(
+                f"SELECT quest_type, goal FROM user_quests WHERE user_id={ph} AND chat_id={ph} AND quest_date={ph}",
+                (uid, chat_id, today),
+            )
+            old_row = cur.fetchone()
+            if old_row:
+                old_type, old_goal = old_row
+                candidates = [q for q in DAILY_QUESTS if not (q["type"] == old_type and q["goal"] == old_goal)]
+                if not candidates:
+                    candidates = DAILY_QUESTS
+            else:
+                old_quest = _quest_default_for_date(today)
+                candidates = [q for q in DAILY_QUESTS if not (q["type"] == old_quest["type"] and q["goal"] == old_quest["goal"])]
+                if not candidates:
+                    candidates = DAILY_QUESTS
+            new_quest = _random.choice(candidates)
+        except Exception:
+            new_quest = _quest_default_for_date(today)
+
+        # Delete old row and insert new
+        cur.execute(
+            f"DELETE FROM user_quests WHERE user_id={ph} AND chat_id={ph} AND quest_date={ph}",
+            (uid, chat_id, today),
+        )
+        cur.execute(
+            f"INSERT INTO user_quests (user_id, chat_id, quest_date, quest_type, goal, progress, completed, rewarded) "
+            f"VALUES ({ph},{ph},{ph},{ph},{ph},0,0,0)",
+            (uid, chat_id, today, new_quest["type"], new_quest["goal"]),
+        )
+        cur.execute(f"SELECT balance FROM user_mora WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
+        new_balance = (cur.fetchone() or [balance])[0]
+        conn.commit()
+        conn.close()
+
+        return JsonResponse({
+            "ok": True,
+            "quest": {
+                "type": new_quest["type"],
+                "goal": new_quest["goal"],
+                "desc": new_quest["desc"],
+                "xp": new_quest["xp"],
+                "mora": new_quest.get("mora", 5),
+            },
+            "cost": QUEST_REROLL_PRICE,
+            "new_balance": new_balance,
+        }, json_dumps_params={"ensure_ascii": False}, headers=headers)
+
+    except Exception as exc:
+        try:
+            conn.close()
+        except Exception:
+            pass
+        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+
+
+# =============================================================================
+# SPY / ШПИОНАЖ
+# =============================================================================
+
+@csrf_exempt
+def miniapp_spy(request):
+    """POST /api/spy {chat_id, target_id} — spy on another user's balance."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=405, headers=headers)
+
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+
+    try:
+        data = json.loads(request.body)
+    except Exception:
+        return JsonResponse({"error": "bad JSON"}, status=400, headers=headers)
+
+    chat_id = int(data.get("chat_id", 0))
+    target_id_raw = data.get("target_id")
+    if not target_id_raw:
+        return JsonResponse({"error": "target_id required"}, status=400, headers=headers)
+    target_id = int(target_id_raw)
+
+    if target_id == uid:
+        return JsonResponse({"error": "Нельзя шпионить за собой"}, status=400, headers=headers)
+
+    SPY_COST = 50
+
+    try:
+        conn, db_type = _get_bot_db_connection()
+    except Exception as exc:
+        return JsonResponse({"error": f"DB: {exc}"}, status=503, headers=headers)
+
+    try:
+        import random as _random
+        cur = conn.cursor()
+        ph = "%s" if db_type == "pg" else "?"
+        now_utc = datetime.now(timezone.utc)
+        cooldown_sec = 3600
+
+        # Check cooldown
+        if db_type == "pg":
+            cur.execute(
+                "SELECT COUNT(*) FROM espionage_log WHERE spy_id=%s AND target_id=%s AND chat_id=%s "
+                "AND attempted_at > NOW() - INTERVAL '3600 seconds'",
+                (uid, target_id, chat_id),
+            )
+        else:
+            since_iso = (now_utc.replace(tzinfo=None) - __import__("datetime").timedelta(seconds=cooldown_sec)).isoformat()
+            cur.execute(
+                "SELECT COUNT(*) FROM espionage_log WHERE spy_id=? AND target_id=? AND chat_id=? AND attempted_at > ?",
+                (uid, target_id, chat_id, since_iso),
+            )
+        count = (cur.fetchone() or [0])[0]
+        if count > 0:
+            # Get remaining cooldown
+            cur.execute(
+                f"SELECT attempted_at FROM espionage_log WHERE spy_id={ph} AND target_id={ph} AND chat_id={ph} "
+                f"ORDER BY id DESC LIMIT 1",
+                (uid, target_id, chat_id),
+            )
+            row = cur.fetchone()
+            remaining = 0
+            if row:
+                last = row[0]
+                if isinstance(last, str):
+                    last = datetime.fromisoformat(last.replace("Z", "+00:00"))
+                if last.tzinfo is None:
+                    last = last.replace(tzinfo=timezone.utc)
+                elapsed = (now_utc - last).total_seconds()
+                remaining = max(0, int(cooldown_sec - elapsed))
+            conn.close()
+            mins = remaining // 60
+            secs = remaining % 60
+            return JsonResponse({"error": f"Кулдаун: {mins} мин. {secs} сек."}, status=429, headers=headers)
+
+        # Check own balance
+        cur.execute(f"SELECT balance FROM user_mora WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
+        bal_row = cur.fetchone()
+        balance = bal_row[0] if bal_row else 0
+        if balance < SPY_COST:
+            conn.close()
+            return JsonResponse({"error": f"Недостаточно Моры. Нужно {SPY_COST} 🪙"}, status=400, headers=headers)
+
+        # Deduct cost
+        cur.execute(
+            f"UPDATE user_mora SET balance=balance-{ph} WHERE user_id={ph} AND chat_id={ph} AND balance>={ph}",
+            (SPY_COST, uid, chat_id, SPY_COST),
+        )
+        if cur.rowcount == 0:
+            conn.close()
+            return JsonResponse({"error": "Не удалось списать Мору"}, status=400, headers=headers)
+
+        # 30% fail
+        failed = _random.random() < 0.30
+        success_int = 0 if failed else 1
+
+        # Log espionage
+        now_iso = now_utc.isoformat()
+        cur.execute(
+            f"INSERT INTO espionage_log (spy_id, target_id, chat_id, success, attempted_at) VALUES ({ph},{ph},{ph},{ph},{ph})",
+            (uid, target_id, chat_id, success_int, now_iso),
+        )
+        conn.commit()
+
+        cur.execute(f"SELECT balance FROM user_mora WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
+        new_balance = (cur.fetchone() or [0])[0]
+
+        if failed:
+            conn.close()
+            return JsonResponse({
+                "ok": True,
+                "success": False,
+                "cost": SPY_COST,
+                "new_balance": new_balance,
+                "message": "💥 Провал! Агент обнаружен.",
+            }, json_dumps_params={"ensure_ascii": False}, headers=headers)
+
+        # Success — get target info
+        cur.execute(f"SELECT balance, vip FROM user_mora WHERE user_id={ph} AND chat_id={ph}", (target_id, chat_id))
+        t_row = cur.fetchone()
+        t_balance = t_row[0] if t_row else 0
+        t_vip = bool(t_row[1]) if t_row else False
+
+        # Get target name
+        cur.execute(f"SELECT full_name, username FROM users WHERE user_id={ph}", (target_id,))
+        u_row = cur.fetchone()
+        t_name = u_row[0] if u_row else f"Игрок {target_id}"
+        t_username = u_row[1] if u_row else None
+
+        conn.close()
+        return JsonResponse({
+            "ok": True,
+            "success": True,
+            "cost": SPY_COST,
+            "new_balance": new_balance,
+            "target": {
+                "id": target_id,
+                "name": t_name,
+                "username": t_username,
+                "balance": t_balance,
+                "vip": t_vip,
+            },
+        }, json_dumps_params={"ensure_ascii": False}, headers=headers)
+
+    except Exception as exc:
+        try:
+            conn.close()
+        except Exception:
+            pass
+        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+
+
+# =============================================================================
+# TRANSFERS / ПЕРЕВОДЫ
+# =============================================================================
+
+@csrf_exempt
+def miniapp_transfer(request):
+    """POST /api/transfer {chat_id, target_id, amount} — send mora to another user."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=405, headers=headers)
+
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+
+    try:
+        data = json.loads(request.body)
+    except Exception:
+        return JsonResponse({"error": "bad JSON"}, status=400, headers=headers)
+
+    chat_id = int(data.get("chat_id", 0))
+    target_id = int(data.get("target_id", 0))
+    amount = int(data.get("amount", 0))
+
+    if target_id == uid:
+        return JsonResponse({"error": "Нельзя переводить самому себе"}, status=400, headers=headers)
+
+    try:
+        from config import MORA_TRANSFER_MIN, MORA_TRANSFER_MAX
+    except Exception:
+        MORA_TRANSFER_MIN, MORA_TRANSFER_MAX = 1, 5000
+
+    if amount < MORA_TRANSFER_MIN:
+        return JsonResponse({"error": f"Минимальная сумма: {MORA_TRANSFER_MIN} 🪙"}, status=400, headers=headers)
+    if amount > MORA_TRANSFER_MAX:
+        return JsonResponse({"error": f"Максимальная сумма: {MORA_TRANSFER_MAX} 🪙"}, status=400, headers=headers)
+
+    try:
+        conn, db_type = _get_bot_db_connection()
+    except Exception as exc:
+        return JsonResponse({"error": f"DB: {exc}"}, status=503, headers=headers)
+
+    try:
+        cur = conn.cursor()
+        ph = "%s" if db_type == "pg" else "?"
+
+        # Check sender balance
+        cur.execute(f"SELECT balance FROM user_mora WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
+        bal_row = cur.fetchone()
+        balance = bal_row[0] if bal_row else 0
+        tax = max(1, int(amount * 0.005))
+        total_needed = amount + tax
+        if balance < total_needed:
+            conn.close()
+            return JsonResponse({"error": f"Недостаточно Моры. Нужно {total_needed} 🪙 (сумма + налог {tax})"}, status=400, headers=headers)
+
+        # Deduct from sender (amount + tax)
+        cur.execute(
+            f"UPDATE user_mora SET balance=balance-{ph} WHERE user_id={ph} AND chat_id={ph} AND balance>={ph}",
+            (total_needed, uid, chat_id, total_needed),
+        )
+        if cur.rowcount == 0:
+            conn.close()
+            return JsonResponse({"error": "Не удалось списать Мору"}, status=400, headers=headers)
+
+        # Add to receiver
+        cur.execute(
+            f"INSERT INTO user_mora (user_id, chat_id, balance) VALUES ({ph},{ph},{ph}) "
+            f"ON CONFLICT(user_id, chat_id) DO UPDATE SET balance=user_mora.balance+excluded.balance",
+            (target_id, chat_id, amount),
+        )
+        # Tax to treasury
+        cur.execute(
+            f"INSERT INTO chat_treasury (chat_id, balance) VALUES ({ph},{ph}) "
+            f"ON CONFLICT(chat_id) DO UPDATE SET balance=chat_treasury.balance+excluded.balance",
+            (chat_id, tax),
+        )
+        cur.execute(f"SELECT balance FROM user_mora WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
+        new_balance = (cur.fetchone() or [0])[0]
+        conn.commit()
+        conn.close()
+
+        return JsonResponse({
+            "ok": True,
+            "amount": amount,
+            "tax": tax,
+            "new_balance": new_balance,
+        }, json_dumps_params={"ensure_ascii": False}, headers=headers)
+
+    except Exception as exc:
+        try:
+            conn.close()
+        except Exception:
+            pass
+        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+
+
+# =============================================================================
+# LOANS / ДОЛГИ
+# =============================================================================
+
+@csrf_exempt
+def miniapp_loans(request):
+    """GET /api/loans?chat_id=X — list active loans (as borrower and as lender)."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "GET":
+        return JsonResponse({"error": "GET required"}, status=405, headers=headers)
+
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+
+    chat_id_str = request.GET.get("chat_id", "0")
+    if not chat_id_str.lstrip("-").isdigit():
+        return JsonResponse({"error": "chat_id required"}, status=400, headers=headers)
+    chat_id = int(chat_id_str)
+
+    try:
+        conn, db_type = _get_bot_db_connection()
+    except Exception as exc:
+        return JsonResponse({"error": f"DB: {exc}"}, status=503, headers=headers)
+
+    try:
+        cur = conn.cursor()
+        ph = "%s" if db_type == "pg" else "?"
+
+        def _get_name(user_id: int) -> str:
+            cur.execute(f"SELECT full_name FROM users WHERE user_id={ph}", (user_id,))
+            r = cur.fetchone()
+            return r[0] if r else f"Игрок {user_id}"
+
+        # Loans I borrowed
+        cur.execute(
+            f"SELECT id, lender_id, amount, loaned_at FROM mora_loans "
+            f"WHERE borrower_id={ph} AND chat_id={ph} AND repaid_at IS NULL ORDER BY id",
+            (uid, chat_id),
+        )
+        borrowed = []
+        for row in cur.fetchall():
+            loan_id, lender_id, amount, loaned_at = row
+            loaned_at_str = loaned_at.isoformat() if hasattr(loaned_at, "isoformat") else str(loaned_at)
+            borrowed.append({
+                "id": loan_id,
+                "lender_id": lender_id,
+                "lender_name": _get_name(lender_id),
+                "amount": amount,
+                "loaned_at": loaned_at_str,
+            })
+
+        # Loans I gave
+        cur.execute(
+            f"SELECT id, borrower_id, amount, loaned_at FROM mora_loans "
+            f"WHERE lender_id={ph} AND chat_id={ph} AND repaid_at IS NULL ORDER BY id",
+            (uid, chat_id),
+        )
+        lent = []
+        for row in cur.fetchall():
+            loan_id, borrower_id, amount, loaned_at = row
+            loaned_at_str = loaned_at.isoformat() if hasattr(loaned_at, "isoformat") else str(loaned_at)
+            lent.append({
+                "id": loan_id,
+                "borrower_id": borrower_id,
+                "borrower_name": _get_name(borrower_id),
+                "amount": amount,
+                "loaned_at": loaned_at_str,
+            })
+
+        conn.close()
+        return JsonResponse({
+            "ok": True,
+            "borrowed": borrowed,
+            "lent": lent,
+        }, json_dumps_params={"ensure_ascii": False}, headers=headers)
+
+    except Exception as exc:
+        try:
+            conn.close()
+        except Exception:
+            pass
+        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+
+
+@csrf_exempt
+def miniapp_loans_create(request):
+    """POST /api/loans/create {chat_id, target_id, amount} — give a loan."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=405, headers=headers)
+
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+
+    try:
+        data = json.loads(request.body)
+    except Exception:
+        return JsonResponse({"error": "bad JSON"}, status=400, headers=headers)
+
+    chat_id = int(data.get("chat_id", 0))
+    target_id = int(data.get("target_id", 0))
+    amount = int(data.get("amount", 0))
+
+    if target_id == uid:
+        return JsonResponse({"error": "Нельзя давать в долг самому себе"}, status=400, headers=headers)
+
+    try:
+        from config import LOAN_MAX_AMOUNT, LOAN_MAX_ACTIVE
+    except Exception:
+        LOAN_MAX_AMOUNT, LOAN_MAX_ACTIVE = 2000, 5
+
+    if amount <= 0 or amount > LOAN_MAX_AMOUNT:
+        return JsonResponse({"error": f"Сумма: 1–{LOAN_MAX_AMOUNT} 🪙"}, status=400, headers=headers)
+
+    try:
+        conn, db_type = _get_bot_db_connection()
+    except Exception as exc:
+        return JsonResponse({"error": f"DB: {exc}"}, status=503, headers=headers)
+
+    try:
+        cur = conn.cursor()
+        ph = "%s" if db_type == "pg" else "?"
+
+        # Check borrower's active loan count
+        cur.execute(
+            f"SELECT COUNT(*) FROM mora_loans WHERE borrower_id={ph} AND chat_id={ph} AND repaid_at IS NULL",
+            (target_id, chat_id),
+        )
+        active = (cur.fetchone() or [0])[0]
+        if active >= LOAN_MAX_ACTIVE:
+            conn.close()
+            return JsonResponse({"error": f"У заёмщика уже {active} активных долгов (максимум {LOAN_MAX_ACTIVE})"}, status=400, headers=headers)
+
+        # Check lender balance
+        cur.execute(f"SELECT balance FROM user_mora WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
+        bal_row = cur.fetchone()
+        balance = bal_row[0] if bal_row else 0
+        if balance < amount:
+            conn.close()
+            return JsonResponse({"error": f"Недостаточно Моры. У тебя {balance} 🪙"}, status=400, headers=headers)
+
+        # Deduct from lender
+        cur.execute(
+            f"UPDATE user_mora SET balance=balance-{ph} WHERE user_id={ph} AND chat_id={ph} AND balance>={ph}",
+            (amount, uid, chat_id, amount),
+        )
+        if cur.rowcount == 0:
+            conn.close()
+            return JsonResponse({"error": "Не удалось списать Мору"}, status=400, headers=headers)
+
+        # Add to borrower
+        cur.execute(
+            f"INSERT INTO user_mora (user_id, chat_id, balance) VALUES ({ph},{ph},{ph}) "
+            f"ON CONFLICT(user_id, chat_id) DO UPDATE SET balance=user_mora.balance+excluded.balance",
+            (target_id, chat_id, amount),
+        )
+
+        # Create loan record
+        now_iso = datetime.now(timezone.utc).isoformat()
+        if db_type == "pg":
+            cur.execute(
+                "INSERT INTO mora_loans (lender_id, borrower_id, chat_id, amount, loaned_at) "
+                "VALUES (%s,%s,%s,%s,%s) RETURNING id",
+                (uid, target_id, chat_id, amount, now_iso),
+            )
+            loan_id = cur.fetchone()[0]
+        else:
+            cur.execute(
+                "INSERT INTO mora_loans (lender_id, borrower_id, chat_id, amount, loaned_at) VALUES (?,?,?,?,?)",
+                (uid, target_id, chat_id, amount, now_iso),
+            )
+            loan_id = cur.lastrowid
+
+        cur.execute(f"SELECT balance FROM user_mora WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
+        new_balance = (cur.fetchone() or [0])[0]
+        conn.commit()
+        conn.close()
+
+        return JsonResponse({
+            "ok": True,
+            "loan_id": loan_id,
+            "amount": amount,
+            "new_balance": new_balance,
+        }, json_dumps_params={"ensure_ascii": False}, headers=headers)
+
+    except Exception as exc:
+        try:
+            conn.close()
+        except Exception:
+            pass
+        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+
+
+@csrf_exempt
+def miniapp_loans_repay(request):
+    """POST /api/loans/repay {chat_id, loan_id} — repay a loan."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=405, headers=headers)
+
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+
+    try:
+        data = json.loads(request.body)
+    except Exception:
+        return JsonResponse({"error": "bad JSON"}, status=400, headers=headers)
+
+    chat_id = int(data.get("chat_id", 0))
+    loan_id = int(data.get("loan_id", 0))
+
+    try:
+        conn, db_type = _get_bot_db_connection()
+    except Exception as exc:
+        return JsonResponse({"error": f"DB: {exc}"}, status=503, headers=headers)
+
+    try:
+        cur = conn.cursor()
+        ph = "%s" if db_type == "pg" else "?"
+
+        # Find loan
+        cur.execute(
+            f"SELECT id, lender_id, amount FROM mora_loans "
+            f"WHERE id={ph} AND borrower_id={ph} AND chat_id={ph} AND repaid_at IS NULL",
+            (loan_id, uid, chat_id),
+        )
+        row = cur.fetchone()
+        if not row:
+            conn.close()
+            return JsonResponse({"error": "Долг не найден или уже погашен"}, status=404, headers=headers)
+
+        _, lender_id, amount = row
+
+        # Check borrower balance
+        cur.execute(f"SELECT balance FROM user_mora WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
+        bal_row = cur.fetchone()
+        balance = bal_row[0] if bal_row else 0
+        if balance < amount:
+            conn.close()
+            return JsonResponse({"error": f"Недостаточно Моры. Нужно {amount} 🪙, у тебя {balance}"}, status=400, headers=headers)
+
+        # Deduct from borrower
+        cur.execute(
+            f"UPDATE user_mora SET balance=balance-{ph} WHERE user_id={ph} AND chat_id={ph} AND balance>={ph}",
+            (amount, uid, chat_id, amount),
+        )
+        if cur.rowcount == 0:
+            conn.close()
+            return JsonResponse({"error": "Не удалось списать Мору"}, status=400, headers=headers)
+
+        # Add to lender
+        cur.execute(
+            f"INSERT INTO user_mora (user_id, chat_id, balance) VALUES ({ph},{ph},{ph}) "
+            f"ON CONFLICT(user_id, chat_id) DO UPDATE SET balance=user_mora.balance+excluded.balance",
+            (lender_id, chat_id, amount),
+        )
+
+        # Mark repaid
+        now_iso = datetime.now(timezone.utc).isoformat()
+        cur.execute(
+            f"UPDATE mora_loans SET repaid_at={ph} WHERE id={ph}",
+            (now_iso, loan_id),
+        )
+
+        cur.execute(f"SELECT balance FROM user_mora WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
+        new_balance = (cur.fetchone() or [0])[0]
+        conn.commit()
+        conn.close()
+
+        return JsonResponse({
+            "ok": True,
+            "loan_id": loan_id,
+            "amount": amount,
+            "new_balance": new_balance,
+        }, json_dumps_params={"ensure_ascii": False}, headers=headers)
+
+    except Exception as exc:
+        try:
+            conn.close()
+        except Exception:
+            pass
+        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+
+
+# =============================================================================
+# CASINO / КАЗИНО
+# =============================================================================
+
+@csrf_exempt
+def miniapp_casino_coin(request):
+    """POST /api/casino/coin {chat_id, amount} — 30% win x2, 70% lose."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=405, headers=headers)
+
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+
+    try:
+        data = json.loads(request.body)
+    except Exception:
+        return JsonResponse({"error": "bad JSON"}, status=400, headers=headers)
+
+    chat_id = int(data.get("chat_id", 0))
+    amount = int(data.get("amount", 0))
+
+    try:
+        from config import COIN_MAX_BET
+    except Exception:
+        COIN_MAX_BET = 5000
+
+    if amount <= 0:
+        return JsonResponse({"error": "Укажи ставку > 0"}, status=400, headers=headers)
+    if amount > COIN_MAX_BET:
+        return JsonResponse({"error": f"Максимальная ставка: {COIN_MAX_BET} 🪙"}, status=400, headers=headers)
+
+    try:
+        conn, db_type = _get_bot_db_connection()
+    except Exception as exc:
+        return JsonResponse({"error": f"DB: {exc}"}, status=503, headers=headers)
+
+    try:
+        import random as _random
+        cur = conn.cursor()
+        ph = "%s" if db_type == "pg" else "?"
+
+        # Check balance
+        cur.execute(f"SELECT balance FROM user_mora WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
+        bal_row = cur.fetchone()
+        balance = bal_row[0] if bal_row else 0
+        if balance < amount:
+            conn.close()
+            return JsonResponse({"error": f"Недостаточно Моры. У тебя {balance} 🪙"}, status=400, headers=headers)
+
+        # Deduct bet
+        cur.execute(
+            f"UPDATE user_mora SET balance=balance-{ph} WHERE user_id={ph} AND chat_id={ph} AND balance>={ph}",
+            (amount, uid, chat_id, amount),
+        )
+        if cur.rowcount == 0:
+            conn.close()
+            return JsonResponse({"error": "Не удалось списать ставку"}, status=400, headers=headers)
+
+        win = _random.random() < 0.30
+        if win:
+            prize = amount * 2
+            cur.execute(
+                f"UPDATE user_mora SET balance=balance+{ph} WHERE user_id={ph} AND chat_id={ph}",
+                (prize, uid, chat_id),
+            )
+        else:
+            # 1% of bet goes to treasury
+            tax = max(1, int(amount * 0.01))
+            cur.execute(
+                f"INSERT INTO chat_treasury (chat_id, balance) VALUES ({ph},{ph}) "
+                f"ON CONFLICT(chat_id) DO UPDATE SET balance=chat_treasury.balance+excluded.balance",
+                (chat_id, tax),
+            )
+
+        cur.execute(f"SELECT balance FROM user_mora WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
+        new_balance = (cur.fetchone() or [0])[0]
+        conn.commit()
+        conn.close()
+
+        return JsonResponse({
+            "ok": True,
+            "win": win,
+            "bet": amount,
+            "prize": amount * 2 if win else 0,
+            "new_balance": new_balance,
+        }, json_dumps_params={"ensure_ascii": False}, headers=headers)
+
+    except Exception as exc:
+        try:
+            conn.close()
+        except Exception:
+            pass
+        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+
+
+@csrf_exempt
+def miniapp_casino_lottery(request):
+    """GET /api/casino/lottery?chat_id=X — ticket count this week.
+       POST /api/casino/lottery {chat_id} — buy one ticket."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+
+    try:
+        from config import LOTTERY_TICKET_PRICE
+    except Exception:
+        LOTTERY_TICKET_PRICE = 10
+
+    from datetime import date as _date
+
+    def _week_key() -> str:
+        today = _date.today()
+        iso = today.isocalendar()
+        return f"{iso.year}-W{iso.week:02d}"
+
+    week = _week_key()
+
+    try:
+        conn, db_type = _get_bot_db_connection()
+    except Exception as exc:
+        return JsonResponse({"error": f"DB: {exc}"}, status=503, headers=headers)
+
+    try:
+        cur = conn.cursor()
+        ph = "%s" if db_type == "pg" else "?"
+
+        if request.method == "GET":
+            chat_id_str = request.GET.get("chat_id", "0")
+            chat_id = int(chat_id_str)
+            cur.execute(
+                f"SELECT tickets FROM casino_lottery WHERE user_id={ph} AND chat_id={ph} AND week_key={ph}",
+                (uid, chat_id, week),
+            )
+            row = cur.fetchone()
+            tickets = row[0] if row else 0
+            conn.close()
+            return JsonResponse({
+                "ok": True,
+                "tickets": tickets,
+                "week": week,
+                "ticket_price": LOTTERY_TICKET_PRICE,
+            }, json_dumps_params={"ensure_ascii": False}, headers=headers)
+
+        elif request.method == "POST":
+            try:
+                data = json.loads(request.body)
+            except Exception:
+                conn.close()
+                return JsonResponse({"error": "bad JSON"}, status=400, headers=headers)
+            chat_id = int(data.get("chat_id", 0))
+
+            # Check balance
+            cur.execute(f"SELECT balance FROM user_mora WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
+            bal_row = cur.fetchone()
+            balance = bal_row[0] if bal_row else 0
+            if balance < LOTTERY_TICKET_PRICE:
+                conn.close()
+                return JsonResponse({"error": f"Нужно {LOTTERY_TICKET_PRICE} 🪙"}, status=400, headers=headers)
+
+            cur.execute(
+                f"UPDATE user_mora SET balance=balance-{ph} WHERE user_id={ph} AND chat_id={ph} AND balance>={ph}",
+                (LOTTERY_TICKET_PRICE, uid, chat_id, LOTTERY_TICKET_PRICE),
+            )
+            if cur.rowcount == 0:
+                conn.close()
+                return JsonResponse({"error": "Не удалось списать Мору"}, status=400, headers=headers)
+
+            # Upsert ticket
+            if db_type == "pg":
+                cur.execute(
+                    "INSERT INTO casino_lottery (chat_id, user_id, week_key, tickets) VALUES (%s,%s,%s,1) "
+                    "ON CONFLICT(chat_id, user_id, week_key) DO UPDATE SET tickets=casino_lottery.tickets+1",
+                    (chat_id, uid, week),
+                )
+            else:
+                cur.execute(
+                    "INSERT INTO casino_lottery (chat_id, user_id, week_key, tickets) VALUES (?,?,?,1) "
+                    "ON CONFLICT(chat_id, user_id, week_key) DO UPDATE SET tickets=casino_lottery.tickets+1",
+                    (chat_id, uid, week),
+                )
+
+            cur.execute(
+                f"SELECT tickets FROM casino_lottery WHERE user_id={ph} AND chat_id={ph} AND week_key={ph}",
+                (uid, chat_id, week),
+            )
+            tickets = (cur.fetchone() or [0])[0]
+            cur.execute(f"SELECT balance FROM user_mora WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
+            new_balance = (cur.fetchone() or [0])[0]
+            conn.commit()
+            conn.close()
+            return JsonResponse({
+                "ok": True,
+                "tickets": tickets,
+                "ticket_price": LOTTERY_TICKET_PRICE,
+                "new_balance": new_balance,
+            }, json_dumps_params={"ensure_ascii": False}, headers=headers)
+
+        conn.close()
+        return JsonResponse({"error": "method not allowed"}, status=405, headers=headers)
+
+    except Exception as exc:
+        try:
+            conn.close()
+        except Exception:
+            pass
+        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+
+
+# =============================================================================
+# EXPEDITIONS / ЭКСПЕДИЦИИ
+# =============================================================================
+
+@csrf_exempt
+def miniapp_expeditions(request):
+    """GET /api/expeditions?chat_id=X — current expedition status + pet info."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "GET":
+        return JsonResponse({"error": "GET required"}, status=405, headers=headers)
+
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+
+    chat_id_str = request.GET.get("chat_id", "0")
+    if not chat_id_str.lstrip("-").isdigit():
+        return JsonResponse({"error": "chat_id required"}, status=400, headers=headers)
+    chat_id = int(chat_id_str)
+
+    try:
+        from config import EXPEDITION_OPTIONS
+    except Exception:
+        EXPEDITION_OPTIONS = {
+            "short":  {"hours": 2, "cost": 0,  "reward_min": 50,  "reward_max": 80,  "label": "2ч (бесплатно)"},
+            "medium": {"hours": 4, "cost": 10, "reward_min": 120, "reward_max": 200, "label": "4ч (10 🪙)"},
+            "long":   {"hours": 8, "cost": 25, "reward_min": 200, "reward_max": 300, "label": "8ч (25 🪙)"},
+        }
+
+    try:
+        conn, db_type = _get_bot_db_connection()
+    except Exception as exc:
+        return JsonResponse({"error": f"DB: {exc}"}, status=503, headers=headers)
+
+    try:
+        cur = conn.cursor()
+        ph = "%s" if db_type == "pg" else "?"
+
+        # Pet info
+        cur.execute(
+            f"SELECT pet_type, name, COALESCE(fatigue,0) FROM pets WHERE user_id={ph} AND chat_id={ph}",
+            (uid, chat_id),
+        )
+        pet_row = cur.fetchone()
+        pet = None
+        if pet_row:
+            pet = {"type": pet_row[0], "name": pet_row[1], "fatigue": pet_row[2]}
+
+        # Active expedition
+        cur.execute(
+            f"SELECT started_at, duration_h, reward_min, reward_max FROM pet_expeditions "
+            f"WHERE user_id={ph} AND chat_id={ph} AND finished=0",
+            (uid, chat_id),
+        )
+        exp_row = cur.fetchone()
+        expedition = None
+        if exp_row:
+            started_at, duration_h, reward_min, reward_max = exp_row
+            if isinstance(started_at, str):
+                started_at = datetime.fromisoformat(started_at.replace("Z", "+00:00"))
+            if started_at.tzinfo is None:
+                started_at = started_at.replace(tzinfo=timezone.utc)
+            now = datetime.now(timezone.utc)
+            end_at = started_at + __import__("datetime").timedelta(hours=duration_h)
+            done = now >= end_at
+            secs_left = max(0, (end_at - now).total_seconds())
+            h_left = int(secs_left // 3600)
+            m_left = int((secs_left % 3600) // 60)
+            expedition = {
+                "started_at": started_at.isoformat(),
+                "duration_h": duration_h,
+                "reward_min": reward_min,
+                "reward_max": reward_max,
+                "done": done,
+                "time_left_h": h_left,
+                "time_left_m": m_left,
+            }
+
+        # Mora balance
+        cur.execute(f"SELECT balance FROM user_mora WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
+        bal_row = cur.fetchone()
+        balance = bal_row[0] if bal_row else 0
+
+        conn.close()
+        return JsonResponse({
+            "ok": True,
+            "pet": pet,
+            "expedition": expedition,
+            "balance": balance,
+            "options": {k: {"hours": v["hours"], "cost": v["cost"], "reward_min": v["reward_min"],
+                            "reward_max": v["reward_max"], "label": v["label"]}
+                        for k, v in EXPEDITION_OPTIONS.items()},
+        }, json_dumps_params={"ensure_ascii": False}, headers=headers)
+
+    except Exception as exc:
+        try:
+            conn.close()
+        except Exception:
+            pass
+        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+
+
+@csrf_exempt
+def miniapp_expeditions_start(request):
+    """POST /api/expeditions/start {chat_id, option_key} — start expedition."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=405, headers=headers)
+
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+
+    try:
+        data = json.loads(request.body)
+    except Exception:
+        return JsonResponse({"error": "bad JSON"}, status=400, headers=headers)
+
+    chat_id = int(data.get("chat_id", 0))
+    option_key = str(data.get("option_key", ""))
+
+    try:
+        from config import EXPEDITION_OPTIONS
+    except Exception:
+        EXPEDITION_OPTIONS = {
+            "short":  {"hours": 2, "cost": 0,  "reward_min": 50,  "reward_max": 80,  "label": "2ч (бесплатно)"},
+            "medium": {"hours": 4, "cost": 10, "reward_min": 120, "reward_max": 200, "label": "4ч (10 🪙)"},
+            "long":   {"hours": 8, "cost": 25, "reward_min": 200, "reward_max": 300, "label": "8ч (25 🪙)"},
+        }
+
+    opt = EXPEDITION_OPTIONS.get(option_key)
+    if not opt:
+        return JsonResponse({"error": "Неизвестный тип экспедиции"}, status=400, headers=headers)
+
+    try:
+        conn, db_type = _get_bot_db_connection()
+    except Exception as exc:
+        return JsonResponse({"error": f"DB: {exc}"}, status=503, headers=headers)
+
+    try:
+        cur = conn.cursor()
+        ph = "%s" if db_type == "pg" else "?"
+
+        # Pet must exist
+        cur.execute(f"SELECT pet_type, name, COALESCE(fatigue,0) FROM pets WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
+        pet_row = cur.fetchone()
+        if not pet_row:
+            conn.close()
+            return JsonResponse({"error": "У тебя нет питомца"}, status=400, headers=headers)
+        pet_type, pet_name, fatigue = pet_row
+
+        if fatigue >= 100:
+            conn.close()
+            return JsonResponse({"error": "Питомец слишком устал (100/100). Покорми его!"}, status=400, headers=headers)
+
+        # Check no active expedition
+        cur.execute(f"SELECT 1 FROM pet_expeditions WHERE user_id={ph} AND chat_id={ph} AND finished=0", (uid, chat_id))
+        if cur.fetchone():
+            conn.close()
+            return JsonResponse({"error": "Питомец уже в экспедиции"}, status=400, headers=headers)
+
+        # Check cost
+        cost = opt["cost"]
+        if cost > 0:
+            cur.execute(f"SELECT balance FROM user_mora WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
+            bal_row = cur.fetchone()
+            balance = bal_row[0] if bal_row else 0
+            if balance < cost:
+                conn.close()
+                return JsonResponse({"error": f"Недостаточно Моры. Нужно {cost} 🪙"}, status=400, headers=headers)
+            cur.execute(
+                f"UPDATE user_mora SET balance=balance-{ph} WHERE user_id={ph} AND chat_id={ph} AND balance>={ph}",
+                (cost, uid, chat_id, cost),
+            )
+            if cur.rowcount == 0:
+                conn.close()
+                return JsonResponse({"error": "Не удалось списать Мору"}, status=400, headers=headers)
+
+        now_iso = datetime.now(timezone.utc).isoformat()
+        # Insert/replace expedition (UPSERT)
+        if db_type == "pg":
+            cur.execute(
+                "INSERT INTO pet_expeditions (user_id, chat_id, started_at, duration_h, reward_min, reward_max, finished) "
+                "VALUES (%s,%s,%s,%s,%s,%s,0) "
+                "ON CONFLICT(user_id, chat_id) DO UPDATE SET started_at=excluded.started_at, "
+                "duration_h=excluded.duration_h, reward_min=excluded.reward_min, "
+                "reward_max=excluded.reward_max, finished=0",
+                (uid, chat_id, now_iso, opt["hours"], opt["reward_min"], opt["reward_max"]),
+            )
+        else:
+            cur.execute(
+                "INSERT INTO pet_expeditions (user_id, chat_id, started_at, duration_h, reward_min, reward_max, finished) "
+                "VALUES (?,?,?,?,?,?,0) "
+                "ON CONFLICT(user_id, chat_id) DO UPDATE SET started_at=excluded.started_at, "
+                "duration_h=excluded.duration_h, reward_min=excluded.reward_min, "
+                "reward_max=excluded.reward_max, finished=0",
+                (uid, chat_id, now_iso, opt["hours"], opt["reward_min"], opt["reward_max"]),
+            )
+
+        # Add +20 fatigue
+        cur.execute(
+            f"UPDATE pets SET fatigue=LEAST(100, COALESCE(fatigue,0)+20) WHERE user_id={ph} AND chat_id={ph}",
+            (uid, chat_id),
+        )
+
+        conn.commit()
+        conn.close()
+        return JsonResponse({
+            "ok": True,
+            "option": option_key,
+            "duration_h": opt["hours"],
+            "reward_min": opt["reward_min"],
+            "reward_max": opt["reward_max"],
+            "cost": cost,
+        }, json_dumps_params={"ensure_ascii": False}, headers=headers)
+
+    except Exception as exc:
+        try:
+            conn.close()
+        except Exception:
+            pass
+        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+
+
+@csrf_exempt
+def miniapp_expeditions_collect(request):
+    """POST /api/expeditions/collect {chat_id} — collect finished expedition reward."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=405, headers=headers)
+
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+
+    try:
+        data = json.loads(request.body)
+    except Exception:
+        return JsonResponse({"error": "bad JSON"}, status=400, headers=headers)
+
+    chat_id = int(data.get("chat_id", 0))
+
+    try:
+        conn, db_type = _get_bot_db_connection()
+    except Exception as exc:
+        return JsonResponse({"error": f"DB: {exc}"}, status=503, headers=headers)
+
+    try:
+        import random as _random
+        import datetime as _dt_mod
+        cur = conn.cursor()
+        ph = "%s" if db_type == "pg" else "?"
+
+        cur.execute(
+            f"SELECT started_at, duration_h, reward_min, reward_max "
+            f"FROM pet_expeditions WHERE user_id={ph} AND chat_id={ph} AND finished=0",
+            (uid, chat_id),
+        )
+        row = cur.fetchone()
+        if not row:
+            conn.close()
+            return JsonResponse({"error": "Нет активной экспедиции"}, status=404, headers=headers)
+
+        started_at, duration_h, reward_min, reward_max = row
+        if isinstance(started_at, str):
+            started_at = datetime.fromisoformat(started_at.replace("Z", "+00:00"))
+        if started_at.tzinfo is None:
+            started_at = started_at.replace(tzinfo=timezone.utc)
+        now = datetime.now(timezone.utc)
+        end_at = started_at + _dt_mod.timedelta(hours=duration_h)
+        if now < end_at:
+            secs_left = int((end_at - now).total_seconds())
+            h_left = secs_left // 3600
+            m_left = (secs_left % 3600) // 60
+            conn.close()
+            return JsonResponse({"error": f"Экспедиция ещё не завершена. Осталось: {h_left}ч {m_left}мин"}, status=400, headers=headers)
+
+        reward = _random.randint(reward_min, reward_max)
+
+        # Mark finished
+        cur.execute(f"UPDATE pet_expeditions SET finished=1 WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
+
+        # Add mora
+        cur.execute(
+            f"INSERT INTO user_mora (user_id, chat_id, balance) VALUES ({ph},{ph},{ph}) "
+            f"ON CONFLICT(user_id, chat_id) DO UPDATE SET balance=user_mora.balance+excluded.balance",
+            (uid, chat_id, reward),
+        )
+        cur.execute(f"SELECT balance FROM user_mora WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
+        new_balance = (cur.fetchone() or [0])[0]
+        conn.commit()
+        conn.close()
+
+        return JsonResponse({
+            "ok": True,
+            "reward": reward,
+            "new_balance": new_balance,
+        }, json_dumps_params={"ensure_ascii": False}, headers=headers)
+
+    except Exception as exc:
+        try:
+            conn.close()
+        except Exception:
+            pass
+        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+

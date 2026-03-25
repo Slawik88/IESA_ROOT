@@ -200,7 +200,7 @@
                     <span class="pp-card-title">{% trans "YOUR QR CODE" %}</span>
                     <div class="pp-qr-block">
                         <a href="{% url 'users:profile_by_card' permanent_id=user_obj.permanent_id %}">
-                            <img src="{% url 'users:user_qr' permanent_id=user_obj.permanent_id %}" alt="{% trans 'QR' %}">
+                            <img loading="lazy" src="{% url 'users:user_qr' permanent_id=user_obj.permanent_id %}" alt="{% trans 'QR' %}">
                         </a>
                         <div>
                             <p style="font-size:.8rem;color:rgba(255,255,255,.45);margin-bottom:.6rem;">{% trans "Scan to view profile" %}</p>

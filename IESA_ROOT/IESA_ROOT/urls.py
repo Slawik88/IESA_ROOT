@@ -43,6 +43,18 @@ from .miniapp_views import (
     miniapp_solo_boss_status,
     miniapp_solo_boss_start,
     miniapp_solo_boss_attack,
+    miniapp_quest,
+    miniapp_quest_reroll,
+    miniapp_spy,
+    miniapp_transfer,
+    miniapp_loans,
+    miniapp_loans_create,
+    miniapp_loans_repay,
+    miniapp_casino_coin,
+    miniapp_casino_lottery,
+    miniapp_expeditions,
+    miniapp_expeditions_start,
+    miniapp_expeditions_collect,
 )
 
 # Переопределить стандартный админ на кастомный
@@ -134,7 +146,25 @@ urlpatterns = [
     path('api/couple_boss/status', miniapp_couple_boss_status, name='miniapp_couple_boss_status'),
     path('api/couple_boss/start', miniapp_couple_boss_start, name='miniapp_couple_boss_start'),
     path('api/couple_boss/attack', miniapp_couple_boss_attack, name='miniapp_couple_boss_attack'),
-    path('api/get_avatar', miniapp_get_avatar, name='miniapp_get_avatar'),  # ➕ Новый API для аватарок
+    path('api/get_avatar', miniapp_get_avatar, name='miniapp_get_avatar'),
+    # ─── Quest / Quests ────────────────────────────────────────────────────────
+    path('api/quest', miniapp_quest, name='miniapp_quest'),
+    path('api/quest/reroll', miniapp_quest_reroll, name='miniapp_quest_reroll'),
+    # ─── Spy / Шпионаж ────────────────────────────────────────────────────────
+    path('api/spy', miniapp_spy, name='miniapp_spy'),
+    # ─── Transfers / Переводы ─────────────────────────────────────────────────
+    path('api/transfer', miniapp_transfer, name='miniapp_transfer'),
+    # ─── Loans / Долги ────────────────────────────────────────────────────────
+    path('api/loans', miniapp_loans, name='miniapp_loans'),
+    path('api/loans/create', miniapp_loans_create, name='miniapp_loans_create'),
+    path('api/loans/repay', miniapp_loans_repay, name='miniapp_loans_repay'),
+    # ─── Casino / Казино ──────────────────────────────────────────────────────
+    path('api/casino/coin', miniapp_casino_coin, name='miniapp_casino_coin'),
+    path('api/casino/lottery', miniapp_casino_lottery, name='miniapp_casino_lottery'),
+    # ─── Expeditions / Экспедиции ─────────────────────────────────────────────
+    path('api/expeditions', miniapp_expeditions, name='miniapp_expeditions'),
+    path('api/expeditions/start', miniapp_expeditions_start, name='miniapp_expeditions_start'),
+    path('api/expeditions/collect', miniapp_expeditions_collect, name='miniapp_expeditions_collect'),
     # ───────────────────────────────────────────────────────────────────────────
     path('protected/<path:file_path>', serve_protected_media, name='serve_protected_media'),
     

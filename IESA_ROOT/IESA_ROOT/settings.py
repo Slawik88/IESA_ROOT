@@ -271,7 +271,7 @@ if spaces_key and spaces_secret and spaces_bucket and not DEBUG:
     AWS_S3_ENDPOINT_URL = os.getenv('SPACES_ENDPOINT', 'https://fra1.digitaloceanspaces.com')
     AWS_S3_REGION_NAME = 'fra1'
     AWS_S3_OBJECT_PARAMETERS = {
-        'CacheControl': 'max-age=86400',
+        'CacheControl': 'max-age=31536000',
     }
     AWS_DEFAULT_ACL = 'public-read'  # Make all uploaded files public by default
     AWS_QUERYSTRING_AUTH = False  # Don't use query string auth for public files
@@ -377,6 +377,17 @@ CKEDITOR_5_CONFIGS = {
 CKEDITOR_5_UPLOAD_PATH = 'ckeditor5/uploads/'
 CKEDITOR_5_ALLOW_ALL_FILE_TYPES = False
 CKEDITOR_5_FILE_UPLOAD_PERMISSION = 'staff'
+
+# Image upload size limits (5 MB)
+DATA_UPLOAD_MAX_MEMORY_SIZE = 5 * 1024 * 1024
+FILE_UPLOAD_MAX_MEMORY_SIZE = 5 * 1024 * 1024
+
+# django-imagekit: disable on-demand thumbnail generation in production
+# (we convert to WebP ourselves in MediaOptimizationStorage)
+IMAGEKIT_CACHEFILE_STRATEGY = 'imagekit.cachefiles.strategies.Optimistic'
+if not DEBUG:
+    IMAGEKIT_DEFAULT_CACHEFILE_STRATEGY = 'imagekit.cachefiles.strategies.Optimistic'
+    IMAGEKIT_SPEC_CACHEFILE_NAMER = 'imagekit.cachefiles.namers.source_name_dot_hash'
 
 # Кастомная модель пользователя
 AUTH_USER_MODEL = 'users.User'
