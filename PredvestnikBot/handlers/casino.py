@@ -37,6 +37,9 @@ from utils.helpers import resolve_target, user_mention
 
 router = Router()
 
+# Защита от двойного клика: хранит (user_id, message_id) активных броскoв
+_active_coins: set[tuple] = set()
+
 LOTTERY_PRICE   = LOTTERY_TICKET_PRICE  # алиас для обратной совместимости
 DUEL_EXPIRE_SEC = 300   # 5 минут для принятия дуэли
 
@@ -60,7 +63,8 @@ async def cmd_coin(message: Message, cmd_args: str):
     if not arg.isdigit() or int(arg) <= 0:
         await message.answer(
             "🪙 <b>Монетка</b>\n\n"
-            "Поставь Мору — 50/50 шанс удвоить или потерять.\n\n"
+            "Ставишь Мору — <b>30%</b> шанс выиграть ×2, <b>70%</b> проигрыш.\n"
+            "Выбор орла/решки — косметический, математика решает всё.\n\n"
             "Использование: <code>бот монетка N</code>",
             parse_mode="HTML",
         )
@@ -85,27 +89,87 @@ async def cmd_coin(message: Message, cmd_args: str):
         await message.answer("❌ Не удалось принять ставку.")
         return
 
-    win = random.random() < 0.5
+    # Ставка снята — показываем inline-клавиатуру
+    name = html.escape(message.from_user.full_name)
+    kb = InlineKeyboardMarkup(inline_keyboard=[[
+        InlineKeyboardButton(text="🦅 Орёл", callback_data=f"coin:eagle:{uid}:{chat_id}:{bet}"),
+        InlineKeyboardButton(text="🪙 Решка", callback_data=f"coin:tails:{uid}:{chat_id}:{bet}"),
+    ]])
+    sent = await message.answer(
+        f"🪙 {user_mention(uid, name)} ставит <b>{bet} 🪙</b> на монетку!\n\n"
+        f"Ставка снята. Выбери сторону и испытай удачу:\n"
+        f"<i>Шанс победы: 30% · Подбрасывает монетку случай</i>",
+        parse_mode="HTML",
+        reply_markup=kb,
+    )
+    _active_coins.add((uid, sent.message_id))
+
+
+@router.callback_query(lambda c: c.data and c.data.startswith("coin:"))
+async def cb_coin_choice(callback: CallbackQuery):
+    """Обработка выбора стороны монетки. 30% WIN / 70% LOSE."""
+    parts = callback.data.split(":")
+    if len(parts) < 5:
+        await callback.answer()
+        return
+    _, side, uid_str, chat_str, bet_str = parts[:5]
+    uid      = int(uid_str)
+    chat_id  = int(chat_str)
+    bet      = int(bet_str)
+
+    # Только владелец может нажимать
+    if callback.from_user.id != uid:
+        await callback.answer("❌ Это не твоя монетка!", show_alert=True)
+        return
+
+    # Защита от двойного клика (или перезапуска бота)
+    key = (uid, callback.message.message_id)
+    if key not in _active_coins:
+        await callback.answer(
+            "🎰 Монетка уже разыграна или бот перезапускался. Попробуй снова.",
+            show_alert=True,
+        )
+        return
+    _active_coins.discard(key)
+
+    chosen_label = "🦅 Орёл" if side == "eagle" else "🪙 Решка"
+    # Реальный результат — случаен, выбор юзера только косметический
+    actual = random.choice(["🦅 Орёл", "🪙 Решка"])
+    win    = random.random() < 0.30   # 30% шанс победы
+
+    name    = html.escape(callback.from_user.full_name)
+    mention = user_mention(uid, name)
+
     if win:
-        new_bal = await add_mora(uid, chat_id, bet * 2)
-        result_emoji = "🟡"
-        result_text  = f"<b>Орёл!</b> Ты выиграл <b>+{bet} 🪙</b>! 🎉"
+        prize   = bet * 2
+        new_bal = await add_mora(uid, chat_id, prize)
+        result  = (
+            f"{actual} выпал!\n\n"
+            f"🎉 {mention} <b>выиграл +{bet} 🪙</b>!\n"
+            f"Ставка {bet} → Выплата <b>{prize} 🪙</b>\n"
+            f"Баланс: <b>{new_bal} 🪙</b>"
+        )
     else:
-        new_bal = bal - bet
-        result_emoji = "⚫"
-        result_text  = f"<b>Решка!</b> Ты потерял <b>-{bet} 🪙</b>. 😢"
-        # 1% налог с потерь в казну чата
         tax = max(1, int(bet * 0.01))
         await add_to_treasury(chat_id, tax)
+        mora_now = await get_mora(uid, chat_id)
+        new_bal  = (mora_now["balance"] if mora_now else 0)
+        result  = (
+            f"{actual} выпал...\n\n"
+            f"😢 {mention} потерял <b>-{bet} 🪙</b>.\n"
+            f"Казино всегда в плюсе. 🏦\n"
+            f"Баланс: <b>{new_bal} 🪙</b>"
+        )
 
-    name = html.escape(message.from_user.full_name)
-    await message.answer(
-        f"{result_emoji} {user_mention(uid, name)} подбросил монетку!\n\n"
-        f"Ставка: <b>{bet} 🪙</b>\n"
-        f"{result_text}\n"
-        f"Баланс: <b>{new_bal} 🪙</b>",
-        parse_mode="HTML",
-    )
+    try:
+        await callback.message.edit_text(
+            f"🪙 <b>Монетка</b> — ставка {bet} 🪙 | Выбор: {chosen_label}\n\n"
+            + result,
+            parse_mode="HTML",
+        )
+    except Exception:
+        pass
+    await callback.answer()
 
     # Quest tick: coinflip
     try:
@@ -114,19 +178,20 @@ async def cmd_coin(message: Message, cmd_args: str):
         today = bot_today()
         quest = await get_user_quest(uid, chat_id, today)
         if quest["type"] == "coinflip":
-            new_p, goal, just_done = await quest_tick(uid, chat_id, today, quest["type"], quest["goal"])
+            _new_p, _goal, just_done = await quest_tick(uid, chat_id, today, quest["type"], quest["goal"])
             if just_done:
                 _mr = quest.get("mora", 5)
                 await add_xp_in_chat(uid, chat_id, quest["xp"])
                 await add_mora(uid, chat_id, _mr)
                 await mark_quest_rewarded(uid, chat_id, today)
-                await message.answer(
-                    f"🎉 {user_mention(uid, name)} выполнил ежедневное задание! "
+                await callback.message.answer(
+                    f"🎉 {mention} выполнил ежедневное задание! "
                     f"<b>+{quest['xp']} XP</b>  <b>+{_mr} Моры</b> 🪙",
                     parse_mode="HTML",
                 )
     except Exception:
         pass
+
 
 @router.message(BotCommand("кубик", "dice", "дуэль", "duel"))
 async def cmd_dice(message: Message, cmd_args: str, bot):

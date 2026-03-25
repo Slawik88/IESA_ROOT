@@ -4633,12 +4633,20 @@ async def get_espionage_cooldown(spy_id: int, target_id: int, chat_id: int) -> i
 # ─── Облигации ────────────────────────────────────────────────────────────────
 
 BOND_DEFAULTS = {
-    "mondstadt": {"name": "📜 Холодный Ветер (Мондштадт)", "base_price": 100},
-    "inazuma":   {"name": "⚡ Вишнёвый Гром (Инадзума)",   "base_price": 150},
-    "liyue":     {"name": "💎 Нефритовый Слиток (Ли Юэ)",  "base_price": 120},
-    "sumeru":    {"name": "🌿 Зелёный Лист (Сумеру)",      "base_price":  90},
-    "fontaine":  {"name": "💧 Хрустальный Поток (Фонтэн)", "base_price": 200},
-    "natlan":    {"name": "🔥 Пламенный Клык (Натлан)",    "base_price": 175},
+    # ── Blue chips — низкая волатильность, стабильный доход ――――――――――
+    "mondstadt":  {"name": "📜 Холодный Ветер (Мондштадт)", "base_price":  100, "volatility": 0.08, "cap_mult": 3},
+    "liyue":      {"name": "💎 Нефритовый Слиток (Ли Юэ)",  "base_price":  120, "volatility": 0.07, "cap_mult": 3},
+    "north_bank": {"name": "🏦 Банк Северного Королевства",  "base_price":  500, "volatility": 0.05, "cap_mult": 3},
+    # ── Mid-caps — средняя волатильность ―――――――――――――――――――――
+    "inazuma":    {"name": "⚡ Вишнёвый Гром (Инадзума)",   "base_price":  150, "volatility": 0.15, "cap_mult": 5},
+    "sumeru":     {"name": "🌿 Зелёный Лист (Сумеру)",      "base_price":   90, "volatility": 0.18, "cap_mult": 5},
+    "fontaine":   {"name": "💧 Хрустальный Поток (Фонтэн)", "base_price":  200, "volatility": 0.14, "cap_mult": 5},
+    "natlan":     {"name": "🔥 Пламенный Клык (Натлан)",    "base_price":  175, "volatility": 0.20, "cap_mult": 5},
+    # ── High-risk — высокая волатильность ――――――――――――――――――
+    "naku_grass": {"name": "🌾 Трава Наку",                  "base_price":   40, "volatility": 0.35, "cap_mult": 8},
+    # ── Meme-монеты — экстремальная волатильность ―――――――――――――
+    "itto_coin":  {"name": "🐂 Итто-Коин",                   "base_price":   10, "volatility": 0.50, "cap_mult": 20},
+    "dori_corp":  {"name": "💰 Дори-Инвестментс",             "base_price":   25, "volatility": 0.45, "cap_mult": 15},
 }
 
 
@@ -4666,10 +4674,11 @@ async def update_bond_prices(chat_id: int):
     async with postgres_connect() as db:
         for key, info in BOND_DEFAULTS.items():
             old_price = current.get(key, info["base_price"])
-            delta_pct = random.uniform(-0.20, 0.20)
+            vol       = info.get("volatility", 0.20)
+            delta_pct = random.uniform(-vol, vol)
             new_price = max(10, int(old_price * (1 + delta_pct)))
-            # Cap at 5x base to prevent runaway inflation
-            new_price = min(new_price, info["base_price"] * 5)
+            # Cap at N× base to prevent runaway inflation (varies per tier)
+            new_price = min(new_price, info["base_price"] * info.get("cap_mult", 5))
             await db.execute(
                 """INSERT INTO bond_prices (bond_key, chat_id, price, updated_at)
                    VALUES (?,?,?,?)

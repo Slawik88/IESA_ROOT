@@ -1224,8 +1224,8 @@ def miniapp_bonds(request):
         )
         holdings = {r[0]: {"amount": r[1], "invested": r[2]} for r in cur.fetchall()}
 
-        # Price history (last 30 points per bond)
-        _BOND_KEYS = ["mondstadt", "inazuma"]
+        # Price history (last 30 points per bond—all defined bonds)
+        _BOND_KEYS = list(_BOND_DEFAULTS_SYNC.keys())
         history = {}
         for bk in _BOND_KEYS:
             cur.execute(
@@ -1242,16 +1242,24 @@ def miniapp_bonds(request):
         bonds_out = []
         for bk in _BOND_KEYS:
             current_price = price_map.get(bk, {}).get("price", 100)
-            holding = holdings.get(bk, {"amount": 0, "invested": 0})
-            bname = _BOND_DEFAULTS_SYNC.get(bk, {}).get("name", bk)
+            holding       = holdings.get(bk, {"amount": 0, "invested": 0})
+            amount        = holding["amount"]
+            invested      = holding["invested"]
+            bname         = _BOND_DEFAULTS_SYNC.get(bk, {}).get("name", bk)
+            avg_price     = round(invested / amount, 1) if amount > 0 else 0
+            pnl_mora      = amount * current_price - invested if amount > 0 else 0
+            pnl_pct       = round(pnl_mora / invested * 100, 1) if invested > 0 else 0
             bonds_out.append({
-                "key": bk,
-                "name": bname,
-                "price": current_price,
-                "amount": holding["amount"],
-                "invested": holding["invested"],
-                "value": holding["amount"] * current_price,
-                "history": history.get(bk, []),
+                "key":       bk,
+                "name":      bname,
+                "price":     current_price,
+                "amount":    amount,
+                "invested":  invested,
+                "avg_price": avg_price,
+                "pnl_mora":  pnl_mora,
+                "pnl_pct":   pnl_pct,
+                "value":     amount * current_price,
+                "history":   history.get(bk, []),
             })
 
         return JsonResponse({"bonds": bonds_out},

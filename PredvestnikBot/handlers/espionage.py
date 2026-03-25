@@ -176,20 +176,26 @@ async def cmd_bonds(message: Message, cmd_args: str):
 
         if key in my_bonds:
             b = my_bonds[key]
-            cur_val = b["amount"] * price
-            profit = cur_val - b["invested"]
-            profit_str = f"+{profit}" if profit >= 0 else str(profit)
+            cur_val  = b["amount"] * price
+            invested = b["invested"]
+            avg_entry = round(invested / b["amount"], 1) if b["amount"] > 0 else 0
+            profit    = cur_val - invested
+            pct       = round(profit / invested * 100, 1) if invested > 0 else 0
+            sign      = "+" if profit >= 0 else ""
+            pnl_emoji = "📈" if profit >= 0 else "📉"
             lines.append(
-                f"  Твои: {b['amount']} шт. | Вложено: {b['invested']} 🪙 | "
-                f"Сейчас: {cur_val} 🪙 (<b>{profit_str}</b>)"
+                f"  📄 {b['amount']} шт. | Ср. цена: <b>{avg_entry} 🪙</b> | Сейчас: {cur_val} 🪙"
+            )
+            lines.append(
+                f"  {pnl_emoji} П/У: <b>{sign}{profit} 🪙</b> ({sign}{pct}%)"
             )
     lines += [
         "",
         f"💰 Твой баланс: <b>{balance} 🪙</b>",
         "",
-        "🛒 <code>бот купить обл [mondstadt/inazuma] [кол-во]</code>",
-        "💵 <code>бот продать обл [mondstadt/inazuma] [кол-во]</code>",
-        "💸 <code>бот купить акции [mondstadt/inazuma] [сумма Моры]</code>",
+        "🛒 <code>бот купить обл [key] [кол-во]</code>",
+        "💵 <code>бот продать обл [key] [кол-во]</code>",
+        "💸 <code>бот купить акции [key] [сумма Моры]</code>",
         "📊 <code>бот акции</code> — график цен",
     ]
     await message.answer("\n".join(lines), parse_mode="HTML")
