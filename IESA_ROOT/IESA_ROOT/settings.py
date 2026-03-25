@@ -290,8 +290,13 @@ if spaces_key and spaces_secret and spaces_bucket and not DEBUG:
         },
         # Explicitly use Whitenoise here — Django 5.x ignores the deprecated
         # STATICFILES_STORAGE setting when STORAGES is defined.
+        # manifest_strict=False prevents 500s when third-party CSS/JS
+        # references assets not listed in staticfiles.json.
         "staticfiles": {
             "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+            "OPTIONS": {
+                "manifest_strict": False,
+            },
         },
     }
     
