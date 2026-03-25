@@ -1,4 +1,4 @@
-{% load i18n %}
+﻿{% load i18n %}
 <style>
 /* Dark theme for blog search results */
 .search-results .list-group-item-action {
@@ -95,7 +95,7 @@
                             </small>
                         </div>
                         {% if post.preview_image %}
-                        <img src="{{ post.preview_image.url }}" class="search-thumbnail rounded-1 ms-3 object-cover" alt="{{ post.title }}">
+                        <img loading="lazy" src="{{ post.preview_image.url }}" class="search-thumbnail rounded-1 ms-3 object-cover" alt="{{ post.title }}">
                         {% endif %}
                     </div>
                 </a>
@@ -127,7 +127,7 @@
                             </small>
                         </div>
                         {% if event.image %}
-                        <img src="{{ event.image.url }}" class="search-thumbnail rounded-1 ms-3 object-cover" alt="{{ event.title }}">
+                        <img loading="lazy" src="{{ event.image.url }}" class="search-thumbnail rounded-1 ms-3 object-cover" alt="{{ event.title }}">
                         {% endif %}
                     </div>
                 </a>
@@ -154,7 +154,7 @@
                    class="list-group-item list-group-item-action hx-item animation-delay-{{ forloop.counter0|default:0 }}">
                     <div class="d-flex w-100 align-items-center">
                         {% if partner.logo %}
-                        <img src="{{ partner.logo.url }}" class="search-partner-logo rounded-1 me-3 object-contain" alt="{{ partner.name }}">
+                        <img loading="lazy" src="{{ partner.logo.url }}" class="search-partner-logo rounded-1 me-3 object-contain" alt="{{ partner.name }}">
                         {% else %}
                         <div class="search-partner-fallback bg-secondary text-white d-flex align-items-center justify-content-center fw-bold rounded-1 me-3">
                             {{ partner.name|slice:":1"|upper }}
@@ -188,3 +188,4 @@
         <i class="fas fa-search me-2"></i>{% trans "Start typing to search..." %}
     </div>
 {% endif %}
+

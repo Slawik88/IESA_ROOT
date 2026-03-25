@@ -29,7 +29,7 @@
         <a href="{% url 'users:profile_public_username' username=user.username %}" 
            class="list-group-item list-group-item-action search-item d-flex align-items-center hx-item animation-delay-{{ forloop.counter0|default:0 }}">
           {% if user.avatar %}
-            <img src="{{ user.avatar.url }}" 
+            <img src="{{ user.avatar.url }}" loading="lazy"
                  class="rounded-circle me-3 size-48 object-cover" 
                  alt="{{ user.username }}">
           {% else %}
@@ -88,7 +88,7 @@
               </div>
             </div>
             {% if post.preview_image %}
-            <img src="{{ post.preview_image.url }}" 
+            <img src="{{ post.preview_image.url }}" loading="lazy"
                  class="rounded ms-3 size-80 object-cover" 
                  alt="{{ post.title }}">
             {% endif %}
@@ -126,7 +126,7 @@
               </div>
             </div>
             {% if event.image %}
-            <img src="{{ event.image.url }}" 
+            <img src="{{ event.image.url }}" loading="lazy"
                  class="rounded ms-3 size-80 object-cover" 
                  alt="{{ event.title }}">
             {% endif %}
@@ -156,7 +156,7 @@
            class="list-group-item list-group-item-action search-item hx-item animation-delay-{{ forloop.counter0|default:0 }}">
           <div class="d-flex w-100 align-items-center">
             {% if partner.logo %}
-            <img src="{{ partner.logo.url }}" 
+            <img src="{{ partner.logo.url }}" loading="lazy"
                  class="rounded me-3 size-56 object-contain border p-1" 
                  alt="{{ partner.name }}">
             {% else %}

@@ -316,6 +316,11 @@ select{background:var(--bg3);border:1px solid var(--border);border-radius:8px;pa
   <button class="tab-btn" onclick="switchTab('couple_boss')" id="coupleBossTabBtn" style="display:none">👹 Парный Босс</button>
   <button class="tab-btn" onclick="switchTab('bonds')">📈 Биржа</button>
   <button class="tab-btn" onclick="switchTab('bank')">🏦 Банк</button>
+  <button class="tab-btn" onclick="switchTab('quest')">📋 Задания</button>
+  <button class="tab-btn" onclick="switchTab('casino')">🎰 Казино</button>
+  <button class="tab-btn" onclick="switchTab('expedition')">🏕 Экспед.</button>
+  <button class="tab-btn" onclick="switchTab('transfers')">💸 Долги</button>
+  <button class="tab-btn" onclick="switchTab('spy')">🕵️ Шпион</button>
   <button class="tab-btn" onclick="switchTab('glory')">🏆 Слава</button>
   <button class="tab-btn" onclick="switchTab('dev')" id="devTabBtn" style="display:none">🛠 Дев</button>
 </div>
@@ -679,6 +684,36 @@ select{background:var(--bg3);border:1px solid var(--border);border-radius:8px;pa
   <div id="bankContent" style="display:none"></div>
 </div>
 
+<!-- QUEST TAB -->
+<div class="tab-content" id="tab-quest">
+  <div class="loading" id="questLoading">⏳ Загрузка…</div>
+  <div id="questContent" style="display:none"></div>
+</div>
+
+<!-- CASINO TAB -->
+<div class="tab-content" id="tab-casino">
+  <div class="loading" id="casinoLoading">⏳ Загрузка…</div>
+  <div id="casinoContent" style="display:none"></div>
+</div>
+
+<!-- EXPEDITION TAB -->
+<div class="tab-content" id="tab-expedition">
+  <div class="loading" id="expedLoading">⏳ Загрузка…</div>
+  <div id="expedContent" style="display:none"></div>
+</div>
+
+<!-- TRANSFERS TAB -->
+<div class="tab-content" id="tab-transfers">
+  <div class="loading" id="transfersLoading">⏳ Загрузка…</div>
+  <div id="transfersContent" style="display:none"></div>
+</div>
+
+<!-- SPY TAB -->
+<div class="tab-content" id="tab-spy">
+  <div class="loading" id="spyLoading">⏳ Загрузка…</div>
+  <div id="spyContent" style="display:none"></div>
+</div>
+
 <!-- GLORY TAB -->
 <div class="tab-content" id="tab-glory">
   <div style="display:flex;gap:8px;margin-bottom:12px">
@@ -924,6 +959,11 @@ function switchTab(name){
     if(name==='couple_boss') loadCoupleBoss();
     if(name==='bonds') loadBondsTab();
     if(name==='bank') loadBankTab();
+    if(name==='quest') loadQuestTab();
+    if(name==='casino') loadCasinoTab();
+    if(name==='expedition') loadExpeditionTab();
+    if(name==='transfers') loadTransfersTab();
+    if(name==='spy') renderSpyTab();
     if(name==='glory') loadLB('xp');
     if(name==='dev'){ loadDevStats(); loadDevItems(); }
   }
@@ -3025,6 +3065,350 @@ async function attackSoloBoss(){
     toast('❌ '+e.message,'error');
     btn.disabled=false; btn.innerHTML='⚔️ АТАКОВАТЬ';
   }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// QUEST / ЗАДАНИЯ
+// ═══════════════════════════════════════════════════════════════════
+let questData = null;
+async function loadQuestTab(){
+  document.getElementById('questLoading').style.display='block';
+  document.getElementById('questContent').style.display='none';
+  try{
+    questData = await api('/api/quest?chat_id='+chatId);
+    document.getElementById('questLoading').style.display='none';
+    document.getElementById('questContent').style.display='block';
+    renderQuestTab();
+  } catch(e){
+    document.getElementById('questLoading').textContent='⚠️ '+e.message;
+  }
+}
+function renderQuestTab(){
+  if(!questData) return;
+  const {quest, progress, completed, rewarded} = questData;
+  const pct = quest.goal ? Math.min(100, Math.round(progress/quest.goal*100)) : 0;
+  let statusHtml = '';
+  if(completed && rewarded) statusHtml = '<div style="color:var(--green);font-weight:700">✅ Выполнено! Бонус получен.</div>';
+  else if(completed) statusHtml = '<div style="color:var(--green);font-weight:700">✅ Выполнено!</div>';
+  else statusHtml = `<div style="color:var(--text2);font-size:12px">⏳ Прогресс: ${progress}/${quest.goal}</div>`;
+  document.getElementById('questContent').innerHTML = `
+    <div class="card">
+      <div class="card-title">📋 Ежедневное задание</div>
+      <div style="font-size:15px;font-weight:700;margin-bottom:8px">${esc(quest.desc)}</div>
+      <div style="display:flex;gap:12px;margin-bottom:10px">
+        <span style="font-size:13px">🏆 +${quest.xp} XP</span>
+        <span style="font-size:13px">🪙 +${quest.mora} Моры</span>
+      </div>
+      <div class="progress-bar" style="margin-bottom:6px"><div class="progress-fill" style="width:${pct}%"></div></div>
+      ${statusHtml}
+      ${!completed ? `<button class="btn btn-primary" style="margin-top:12px;width:100%" onclick="doQuestReroll()">🔄 Перебросить (25 🪙)</button>` : ''}
+    </div>
+    <div class="card" style="font-size:12px;color:var(--text2)">ℹ️ Задание обновляется каждый день автоматически.<br>Типы: сообщения, репутация, монетка, экспедиция, гача, подарок.</div>
+  `;
+}
+async function doQuestReroll(){
+  try{
+    const r = await api('/api/quest/reroll','POST',{chat_id:chatId});
+    tabLoaded['quest']=false;
+    loadQuestTab();
+    toast('🔄 Новое задание! -25 🪙');
+  } catch(e){ toast('❌ '+e.message,'error'); }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// CASINO / КАЗИНО
+// ═══════════════════════════════════════════════════════════════════
+let casinoLotteryData = null;
+async function loadCasinoTab(){
+  document.getElementById('casinoLoading').style.display='block';
+  document.getElementById('casinoContent').style.display='none';
+  try{
+    casinoLotteryData = await api('/api/casino/lottery?chat_id='+chatId);
+    document.getElementById('casinoLoading').style.display='none';
+    document.getElementById('casinoContent').style.display='block';
+    renderCasinoTab();
+  } catch(e){
+    document.getElementById('casinoLoading').textContent='⚠️ '+e.message;
+  }
+}
+function renderCasinoTab(){
+  const tickets = casinoLotteryData ? casinoLotteryData.tickets || 0 : 0;
+  const price = casinoLotteryData ? casinoLotteryData.ticket_price || 10 : 10;
+  const week = casinoLotteryData ? casinoLotteryData.week : '';
+  document.getElementById('casinoContent').innerHTML = `
+    <div class="card">
+      <div class="card-title">🪙 Монетка</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:10px">Ставишь Мору — <b>30%</b> шанс выиграть ×2, <b>70%</b> проигрыш.</div>
+      <div style="display:flex;gap:8px;margin-bottom:8px">
+        ${[50,100,200,500,1000].map(a=>`<button class='btn btn-sm' style='background:var(--bg3);color:var(--text2)' onclick='selectCoinBet(${a})'>${a}</button>`).join('')}
+      </div>
+      <input type="number" id="coinBetAmt" placeholder="Своя ставка 🪙" min="1" max="5000"
+        style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text);width:100%;margin-bottom:8px;box-sizing:border-box"/>
+      <button class="btn btn-primary" style="width:100%" onclick="doCoinFlip()">🪙 Подбросить монетку</button>
+      <div id="coinResult" style="margin-top:10px;font-weight:700;font-size:14px;text-align:center"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">🎫 Лотерея</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:8px">Еженедельный розыгрыш. Неделя: <b>${esc(week)}</b></div>
+      <div class="stat-row"><span class="stat-label">🎫 Твоих билетов</span><span class="stat-value" id="lotteryTickets">${tickets}</span></div>
+      <button class="btn btn-gold" style="width:100%;margin-top:8px" onclick="doBuyLotteryTicket()">🎫 Купить билет (${price} 🪙)</button>
+    </div>
+  `;
+}
+function selectCoinBet(amt){ document.getElementById('coinBetAmt').value=amt; }
+async function doCoinFlip(){
+  const amt = parseInt(document.getElementById('coinBetAmt').value||0);
+  if(!amt||amt<=0){ toast('❌ Введи ставку','error'); return; }
+  const el = document.getElementById('coinResult');
+  el.textContent = '⏳ Подбрасываем...';
+  try{
+    const r = await api('/api/casino/coin','POST',{chat_id:chatId,amount:amt});
+    if(r.win){
+      el.innerHTML = `<span style="color:var(--green)">🎉 Победа! +${r.bet} 🪙 (выплата ${r.prize} 🪙)</span><br><small>Баланс: ${r.new_balance} 🪙</small>`;
+    } else {
+      el.innerHTML = `<span style="color:#f87171">😢 Проигрыш. -${r.bet} 🪙</span><br><small>Баланс: ${r.new_balance} 🪙</small>`;
+    }
+  } catch(e){ el.innerHTML = `<span style="color:#f87171">❌ ${esc(e.message)}</span>`; }
+}
+async function doBuyLotteryTicket(){
+  try{
+    const r = await api('/api/casino/lottery','POST',{chat_id:chatId});
+    document.getElementById('lotteryTickets').textContent = r.tickets;
+    toast(`🎫 Куплен билет! Всего: ${r.tickets} | Баланс: ${r.new_balance} 🪙`);
+  } catch(e){ toast('❌ '+e.message,'error'); }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// EXPEDITIONS / ЭКСПЕДИЦИИ
+// ═══════════════════════════════════════════════════════════════════
+let expedData = null;
+async function loadExpeditionTab(){
+  document.getElementById('expedLoading').style.display='block';
+  document.getElementById('expedContent').style.display='none';
+  try{
+    expedData = await api('/api/expeditions?chat_id='+chatId);
+    document.getElementById('expedLoading').style.display='none';
+    document.getElementById('expedContent').style.display='block';
+    renderExpeditionTab();
+  } catch(e){
+    document.getElementById('expedLoading').textContent='⚠️ '+e.message;
+  }
+}
+function renderExpeditionTab(){
+  if(!expedData) return;
+  const {pet, expedition, balance, options} = expedData;
+  let html = '';
+
+  if(!pet){
+    html = `<div class="card"><div style="text-align:center;padding:20px">
+      <div style="font-size:48px">🐾</div>
+      <div style="font-size:15px;font-weight:700;margin-top:8px">Питомца нет</div>
+      <div style="font-size:12px;color:var(--text2);margin-top:4px">Чтобы заводить питомца, нужен брак и репутация.</div>
+    </div></div>`;
+  } else {
+    const petEmoji = pet.type === 'cat' ? '🐱' : pet.type === 'dog' ? '🐶' : '🐾';
+    const fatColor = pet.fatigue >= 80 ? '#f87171' : pet.fatigue >= 50 ? '#fbbf24' : 'var(--green)';
+    html += `<div class="card">
+      <div class="card-title">${petEmoji} ${esc(pet.name||'Питомец')}</div>
+      <div class="stat-row"><span class="stat-label">😓 Усталость</span><span class="stat-value" style="color:${fatColor}">${pet.fatigue}/100</span></div>
+      <div class="progress-bar"><div class="progress-fill" style="width:${pet.fatigue}%;background:${fatColor}"></div></div>
+      <div class="stat-row" style="margin-top:6px"><span class="stat-label">💰 Баланс</span><span class="stat-value">${balance} 🪙</span></div>
+    </div>`;
+
+    if(expedition){
+      if(expedition.done){
+        html += `<div class="card">
+          <div class="card-title">✅ Экспедиция завершена!</div>
+          <div style="font-size:12px;color:var(--text2);margin-bottom:10px">Награда: ${expedition.reward_min}–${expedition.reward_max} 🪙</div>
+          <button class="btn btn-green" style="width:100%" onclick="doExpedCollect()">💰 Забрать награду</button>
+          <div id="expedResult" style="margin-top:8px;font-weight:700;text-align:center"></div>
+        </div>`;
+      } else {
+        const timeStr = expedition.time_left_h > 0 ? `${expedition.time_left_h}ч ${expedition.time_left_m}мин` : `${expedition.time_left_m}мин`;
+        html += `<div class="card">
+          <div class="card-title">🗺 Питомец в экспедиции</div>
+          <div class="stat-row"><span class="stat-label">⏳ Осталось</span><span class="stat-value">${timeStr}</span></div>
+          <div class="stat-row"><span class="stat-label">🎁 Награда</span><span class="stat-value">${expedition.reward_min}–${expedition.reward_max} 🪙</span></div>
+        </div>`;
+      }
+    } else if(pet.fatigue < 100){
+      html += `<div class="card"><div class="card-title">🗺 Выбери экспедицию</div>`;
+      Object.entries(options||{}).forEach(([key, opt]) => {
+        const canAfford = opt.cost === 0 || balance >= opt.cost;
+        const icon = canAfford ? '🗺' : '🚫';
+        html += `<button class="btn" style="width:100%;margin-bottom:6px;text-align:left;${
+          canAfford ? 'background:var(--bg3);color:var(--text)' : 'background:rgba(200,200,200,.1);color:var(--text2)'
+        }" onclick="doExpedStart('${key}')" ${!canAfford?'disabled':''}>
+          ${icon} <b>${esc(opt.label)}</b><br>
+          <small style="color:var(--text2)">Награда: ${opt.reward_min}–${opt.reward_max} 🪙${opt.cost>0?' | Стоимость: '+opt.cost+' 🪙':''}</small>
+        </button>`;
+      });
+      html += `</div>`;
+    } else {
+      html += `<div class="card"><div style="text-align:center;color:#f87171;padding:12px">
+        😴 Питомец полностью измотан (100/100)! Покорми его командой <b>бот еда</b>.
+      </div></div>`;
+    }
+  }
+  document.getElementById('expedContent').innerHTML = html;
+}
+async function doExpedStart(key){
+  try{
+    await api('/api/expeditions/start','POST',{chat_id:chatId,option_key:key});
+    toast('🏕 Экспедиция начата!');
+    tabLoaded['expedition']=false;
+    loadExpeditionTab();
+  } catch(e){ toast('❌ '+e.message,'error'); }
+}
+async function doExpedCollect(){
+  const el = document.getElementById('expedResult');
+  try{
+    const r = await api('/api/expeditions/collect','POST',{chat_id:chatId});
+    el.innerHTML = `<span style="color:var(--green)">+${r.reward} 🪙 получено! Баланс: ${r.new_balance} 🪙</span>`;
+    tabLoaded['expedition']=false;
+    setTimeout(()=>loadExpeditionTab(),1500);
+  } catch(e){ el.innerHTML=`<span style="color:#f87171">❌ ${esc(e.message)}</span>`; }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// TRANSFERS + LOANS / ПЕРЕВОДЫ И ДОЛГИ
+// ═══════════════════════════════════════════════════════════════════
+let transfersData = null;
+async function loadTransfersTab(){
+  document.getElementById('transfersLoading').style.display='block';
+  document.getElementById('transfersContent').style.display='none';
+  try{
+    transfersData = await api('/api/loans?chat_id='+chatId);
+    document.getElementById('transfersLoading').style.display='none';
+    document.getElementById('transfersContent').style.display='block';
+    renderTransfersTab();
+  } catch(e){
+    document.getElementById('transfersLoading').textContent='⚠️ '+e.message;
+  }
+}
+function renderTransfersTab(){
+  const {borrowed=[],lent=[]} = transfersData || {};
+  let html = `
+    <div class="card">
+      <div class="card-title">💸 Перевод Моры</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:8px">Безвозмездно отправить Мору другому участнику. Налог 0.5%.</div>
+      <input type="number" id="transferTarget" placeholder="Telegram User ID получателя"
+        style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text);width:100%;box-sizing:border-box;margin-bottom:6px"/>
+      <input type="number" id="transferAmt" placeholder="Сумма 🪙 (1–5000)"
+        style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text);width:100%;box-sizing:border-box;margin-bottom:6px"/>
+      <button class="btn btn-primary" style="width:100%" onclick="doTransfer()">💸 Перевести</button>
+      <div id="transferResult" style="margin-top:8px;font-weight:700;text-align:center"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">📋 Дать в долг</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:8px">Заёмщик обязан вернуть. Макс. долг: 2000 🪙, до 5 займов.</div>
+      <input type="number" id="loanTarget" placeholder="Telegram User ID заёмщика"
+        style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text);width:100%;box-sizing:border-box;margin-bottom:6px"/>
+      <input type="number" id="loanAmt" placeholder="Сумма 🪙 (1–2000)"
+        style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text);width:100%;box-sizing:border-box;margin-bottom:6px"/>
+      <button class="btn btn-gold" style="width:100%" onclick="doLoanCreate()">📋 Дать в долг</button>
+      <div id="loanCreateResult" style="margin-top:8px;font-weight:700;text-align:center"></div>
+    </div>`;
+
+  if(borrowed.length){
+    html += `<div class="card"><div class="card-title">💳 Я должен (${borrowed.length})</div>`;
+    borrowed.forEach(l=>{
+      html += `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;padding:6px;background:var(--bg3);border-radius:8px">
+        <div><b>${esc(l.lender_name)}</b> — ${l.amount} 🪙</div>
+        <button class="btn btn-sm" style="background:#22c55e;color:#fff" onclick="doLoanRepay(${l.id})">↩ Вернуть</button>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+  if(lent.length){
+    html += `<div class="card"><div class="card-title">💰 Мне должны (${lent.length})</div>`;
+    lent.forEach(l=>{
+      html += `<div style="margin-bottom:8px;padding:6px;background:var(--bg3);border-radius:8px">
+        <b>${esc(l.borrower_name)}</b> — ${l.amount} 🪙 <span style="font-size:11px;color:var(--text2)">(займ #${l.id})</span>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+  document.getElementById('transfersContent').innerHTML = html;
+}
+async function doTransfer(){
+  const target=parseInt(document.getElementById('transferTarget').value||0);
+  const amt=parseInt(document.getElementById('transferAmt').value||0);
+  const el=document.getElementById('transferResult');
+  if(!target){el.innerHTML='<span style="color:#f87171">❌ Введи User ID</span>';return;}
+  if(!amt||amt<=0){el.innerHTML='<span style="color:#f87171">❌ Введи сумму</span>';return;}
+  try{
+    const r=await api('/api/transfer','POST',{chat_id:chatId,target_id:target,amount:amt});
+    el.innerHTML=`<span style="color:var(--green)">✅ Переведено ${r.amount} 🪙 (налог ${r.tax} 🪙). Баланс: ${r.new_balance} 🪙</span>`;
+  }catch(e){el.innerHTML=`<span style="color:#f87171">❌ ${esc(e.message)}</span>`;}
+}
+async function doLoanCreate(){
+  const target=parseInt(document.getElementById('loanTarget').value||0);
+  const amt=parseInt(document.getElementById('loanAmt').value||0);
+  const el=document.getElementById('loanCreateResult');
+  if(!target){el.innerHTML='<span style="color:#f87171">❌ Введи User ID</span>';return;}
+  if(!amt||amt<=0){el.innerHTML='<span style="color:#f87171">❌ Введи сумму</span>';return;}
+  try{
+    const r=await api('/api/loans/create','POST',{chat_id:chatId,target_id:target,amount:amt});
+    el.innerHTML=`<span style="color:var(--green)">✅ Займ #${r.loan_id} выдан (${r.amount} 🪙). Баланс: ${r.new_balance} 🪙</span>`;
+    tabLoaded['transfers']=false; setTimeout(()=>loadTransfersTab(),800);
+  }catch(e){el.innerHTML=`<span style="color:#f87171">❌ ${esc(e.message)}</span>`;}
+}
+async function doLoanRepay(loanId){
+  try{
+    const r=await api('/api/loans/repay','POST',{chat_id:chatId,loan_id:loanId});
+    toast(`✅ Долг #${loanId} погашен! Баланс: ${r.new_balance} 🪙`);
+    tabLoaded['transfers']=false; loadTransfersTab();
+  }catch(e){toast('❌ '+e.message,'error');}
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// SPY / ШПИОНАЖ
+// ═══════════════════════════════════════════════════════════════════
+function renderSpyTab(){
+  document.getElementById('spyLoading').style.display='none';
+  document.getElementById('spyContent').style.display='block';
+  document.getElementById('spyContent').innerHTML = `
+    <div class="card">
+      <div class="card-title">🕵️ Шпионаж</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:10px">
+        Разведай баланс другого участника.<br>
+        Стоимость: <b>50 🪙</b> | Шанс провала: <b>30%</b> | Кулдаун: <b>1 час</b> на цель.
+      </div>
+      <input type="number" id="spyTarget" placeholder="Telegram User ID цели"
+        style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text);width:100%;box-sizing:border-box;margin-bottom:8px"/>
+      <button class="btn btn-primary" style="width:100%" onclick="doSpy()">🕵️ Шпионить (50 🪙)</button>
+      <div id="spyResult" style="margin-top:12px"></div>
+    </div>
+    <div class="card" style="font-size:12px;color:var(--text2)">
+      ℹ️ При провале жертва получает уведомление в чат. При успехе — видишь баланс и VIP-статус.
+    </div>
+  `;
+}
+async function doSpy(){
+  const target=parseInt(document.getElementById('spyTarget').value||0);
+  const el=document.getElementById('spyResult');
+  if(!target){el.innerHTML='<span style="color:#f87171">❌ Введи User ID цели</span>';return;}
+  el.innerHTML='<span style="color:var(--text2)">⏳ Шпионим…</span>';
+  try{
+    const r=await api('/api/spy','POST',{chat_id:chatId,target_id:target});
+    if(r.success){
+      const t=r.target;
+      el.innerHTML=`<div style="background:var(--bg3);border-radius:10px;padding:12px">
+        <div style="font-weight:700;margin-bottom:6px">🕵️ Разведданные</div>
+        <div class="stat-row"><span class="stat-label">👤 Цель</span><span class="stat-value">${esc(t.name)}</span></div>
+        ${t.username?`<div class="stat-row"><span class="stat-label">@</span><span class="stat-value">@${esc(t.username)}</span></div>`:''}
+        <div class="stat-row"><span class="stat-label">💰 Баланс</span><span class="stat-value">${t.balance} 🪙</span></div>
+        ${t.vip?'<div class="stat-row"><span class="stat-label">💎</span><span class="stat-value">VIP активен</span></div>':''}
+        <div style="font-size:11px;color:var(--text2);margin-top:6px">Ты потратил ${r.cost} 🪙. Баланс: ${r.new_balance} 🪙</div>
+      </div>`;
+    } else {
+      el.innerHTML=`<div style="background:rgba(239,68,68,.1);border-radius:10px;padding:12px;color:#f87171;font-weight:700">
+        💥 Провал! Агент обнаружен. Жертва уведомлена. -${r.cost} 🪙
+        <div style="font-size:11px;font-weight:400;margin-top:4px">Баланс: ${r.new_balance} 🪙</div>
+      </div>`;
+    }
+  }catch(e){el.innerHTML=`<span style="color:#f87171">❌ ${esc(e.message)}</span>`;}
 }
 
 </script>

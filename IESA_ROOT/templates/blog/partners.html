@@ -1,4 +1,4 @@
-{% load static %}
+﻿{% load static %}
 {% load i18n %}
 
 <div class="hp-container py-5" id="partners-section">
@@ -15,7 +15,7 @@
         <!-- Logo area -->
         <div class="p-card-logo-area">
           {% if partner.logo %}
-            <img src="{{ partner.logo.url }}" alt="{{ partner.name }}" class="p-card-logo">
+            <img loading="lazy" src="{{ partner.logo.url }}" alt="{{ partner.name }}" class="p-card-logo">
           {% else %}
             <div class="p-card-logo-placeholder">
               <span>{{ partner.name|truncatechars:3|upper }}</span>
@@ -170,3 +170,4 @@
   transform: translateY(-1px);
 }
 </style>
+

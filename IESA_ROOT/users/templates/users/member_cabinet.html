@@ -761,7 +761,7 @@ html, body { background: var(--bg0) !important; }
                 {% endif %}
                 <div class="card-qr-row">
                     <div class="card-qr-thumb">
-                        <img src="{% url 'users:user_qr' user.permanent_id %}" alt="QR">
+                        <img loading="lazy" src="{% url 'users:user_qr' user.permanent_id %}" alt="QR">
                     </div>
                     <div class="card-qr-info">
                         <div class="card-qr-id">{{ user.permanent_id }}</div>

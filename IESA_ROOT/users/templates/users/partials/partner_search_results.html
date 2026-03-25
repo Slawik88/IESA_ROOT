@@ -13,7 +13,7 @@
                   <a href="{% url 'users:log_visit' member.id %}" class="psr-item-inner" style="flex:1;display:flex;align-items:center;gap:12px;padding:12px 14px;text-decoration:none;color:inherit;">
                     <div class="d-flex align-items-center gap-3" style="flex:1;">
                         {% if member.avatar and member.avatar.name != 'avatars/default.png' %}
-                            <img src="{{ member.avatar.url }}" alt="{{ member.username }}"
+                            <img src="{{ member.avatar.url }}" loading="lazy" alt="{{ member.username }}"
                                  class="psr-avatar">
                         {% else %}
                             <div class="psr-avatar-placeholder">
