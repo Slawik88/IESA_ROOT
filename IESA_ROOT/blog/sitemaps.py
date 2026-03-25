@@ -34,7 +34,12 @@ class StaticViewSitemap(Sitemap):
         return ['home', 'blog:post_list', 'blog:event_list', 'products:product_list', 'gallery:gallery']
     
     def location(self, item):
-        return reverse(item)
+        try:
+            return reverse(item)
+        except Exception:
+            import logging
+            logging.getLogger(__name__).warning("Sitemap: could not reverse URL name %r — skipping", item)
+            return '/'
 
 
 # Sitemap registry

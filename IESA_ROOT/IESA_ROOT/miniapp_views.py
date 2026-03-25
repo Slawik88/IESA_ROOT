@@ -1685,14 +1685,18 @@ def miniapp_dev_member_update(request):
         xp = int(body.get("xp", 0))
         rank = str(body.get("rank", "user")).strip().lower()
         # Message count fields (None means "not provided — don't update")
-        msg_count      = body.get("message_count")     # user_stats.message_count
-        day_count      = body.get("day_count")         # cleanup_counts.day_count
-        week_count     = body.get("week_count")        # cleanup_counts.week_count
-        total_count    = body.get("total_count")       # cleanup_counts.count
-        if msg_count  is not None: msg_count      = max(0, int(msg_count))
-        if day_count  is not None: day_count      = max(0, int(day_count))
-        if week_count is not None: week_count     = max(0, int(week_count))
-        if total_count is not None: total_count   = max(0, int(total_count))
+        msg_count        = body.get("message_count")     # user_stats.message_count
+        day_count        = body.get("day_count")         # cleanup_counts.day_count
+        week_count       = body.get("week_count")        # cleanup_counts.week_count
+        total_count      = body.get("total_count")       # cleanup_counts.count
+        yesterday_count  = body.get("yesterday_count")   # cleanup_counts.yesterday_count
+        last_week_count  = body.get("last_week_count")   # cleanup_counts.last_week_count
+        if msg_count        is not None: msg_count        = max(0, int(msg_count))
+        if day_count        is not None: day_count        = max(0, int(day_count))
+        if week_count       is not None: week_count       = max(0, int(week_count))
+        if total_count      is not None: total_count      = max(0, int(total_count))
+        if yesterday_count  is not None: yesterday_count  = max(0, int(yesterday_count))
+        if last_week_count  is not None: last_week_count  = max(0, int(last_week_count))
     except Exception:
         return JsonResponse({"error": "invalid JSON"}, status=400, headers=headers)
 
@@ -1759,8 +1763,9 @@ def miniapp_dev_member_update(request):
                 (msg_count, target_id, chat_id),
             )
 
-        # Update cleanup_counts (day/week/total) if provided
-        if day_count is not None or week_count is not None or total_count is not None:
+        # Update cleanup_counts (day/week/today/yesterday/last_week/total) if provided
+        _cc_fields = (day_count, week_count, total_count, yesterday_count, last_week_count)
+        if any(v is not None for v in _cc_fields):
             # Ensure row exists first
             cur.execute(
                 f"INSERT INTO cleanup_counts (chat_id, user_id, count, week_count, day_count) "
@@ -1782,6 +1787,16 @@ def miniapp_dev_member_update(request):
                 cur.execute(
                     f"UPDATE cleanup_counts SET count={ph} WHERE user_id={ph} AND chat_id={ph}",
                     (total_count, target_id, chat_id),
+                )
+            if yesterday_count is not None:
+                cur.execute(
+                    f"UPDATE cleanup_counts SET yesterday_count={ph} WHERE user_id={ph} AND chat_id={ph}",
+                    (yesterday_count, target_id, chat_id),
+                )
+            if last_week_count is not None:
+                cur.execute(
+                    f"UPDATE cleanup_counts SET last_week_count={ph} WHERE user_id={ph} AND chat_id={ph}",
+                    (last_week_count, target_id, chat_id),
                 )
 
         conn.commit()
@@ -2092,7 +2107,9 @@ def miniapp_dev_chat_admins(request):
             f"COALESCE(s.message_count,0) AS message_count, "
             f"COALESCE(cc.count,0) AS total_count, "
             f"COALESCE(cc.week_count,0) AS week_count, "
-            f"COALESCE(cc.day_count,0) AS day_count "
+            f"COALESCE(cc.day_count,0) AS day_count, "
+            f"COALESCE(cc.yesterday_count,0) AS yesterday_count, "
+            f"COALESCE(cc.last_week_count,0) AS last_week_count "
             f"FROM user_stats s "
             f"LEFT JOIN users u ON u.user_id=s.user_id "
             f"LEFT JOIN user_mora m ON m.user_id=s.user_id AND m.chat_id=s.chat_id "
@@ -2107,7 +2124,8 @@ def miniapp_dev_chat_admins(request):
             {"user_id": r[0], "name": r[1] or f"user_{r[0]}", "rank": r[2],
              "level": r[3], "xp": r[4], "balance": r[5],
              "message_count": r[6], "total_count": r[7],
-             "week_count": r[8], "day_count": r[9]}
+             "week_count": r[8], "day_count": r[9],
+             "yesterday_count": r[10], "last_week_count": r[11]}
             for r in rows
         ]
         return JsonResponse({"members": members}, json_dumps_params={"ensure_ascii": False}, headers=headers)

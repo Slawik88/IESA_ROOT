@@ -174,6 +174,16 @@ async def init_db():
             )
         """)
 
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS anniversary_log (
+                id       SERIAL PRIMARY KEY,
+                user_id  BIGINT NOT NULL,
+                chat_id  BIGINT NOT NULL,
+                date_str TEXT   NOT NULL,
+                UNIQUE (user_id, chat_id, date_str)
+            )
+        """)
+
         # Ожидающие импорты — применяются при первом сообщении юзера в чат
         await db.execute("""
             CREATE TABLE IF NOT EXISTS pending_user_imports (
@@ -235,10 +245,12 @@ async def init_db():
 
         # Добавляем новые колонки в cleanup_counts (для обновлений существующей БД)
         for col_def in [
-            "week_count INTEGER DEFAULT 0",
-            "day_count  INTEGER DEFAULT 0",
-            "week_start TEXT    DEFAULT NULL",
-            "day_start  TEXT    DEFAULT NULL",
+            "week_count      INTEGER DEFAULT 0",
+            "day_count       INTEGER DEFAULT 0",
+            "week_start      TEXT    DEFAULT NULL",
+            "day_start       TEXT    DEFAULT NULL",
+            "yesterday_count INTEGER DEFAULT 0",
+            "last_week_count INTEGER DEFAULT 0",
         ]:
             try:
                 await db.execute(f"ALTER TABLE cleanup_counts ADD COLUMN IF NOT EXISTS {col_def}")
