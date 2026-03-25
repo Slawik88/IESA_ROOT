@@ -40,6 +40,10 @@ from shared_prices import (  # noqa: E402
     FOOD_ITEMS as _FOOD_ITEMS,
     POTIONS_CATALOG as _POTIONS_CATALOG,
     BOND_DEFAULTS as _BOND_DEFAULTS_SYNC,
+    BANK_PLANS as _BANK_PLANS_SYNC,
+    BANK_MIN_DEPOSIT as _BANK_MIN_DEPOSIT,
+    BANK_MAX_DEPOSIT as _BANK_MAX_DEPOSIT,
+    BANK_EARLY_PENALTY_PCT as _BANK_EARLY_PENALTY_PCT,
     CHECKIN_REWARDS as _CHECKIN_REWARDS_SYNC,
     CHECKIN_CHECKPOINTS as _CHECKIN_CHECKPOINTS_SYNC,
     ITEM_METADATA as _ITEM_METADATA,
@@ -3364,6 +3368,306 @@ def miniapp_bonds_sell(request):
             "ok": True, "bond_key": bond_key, "sold": amount, "price_per": price_per,
             "revenue": revenue, "remaining": new_amount, "balance": new_bal,
         }, json_dumps_params={"ensure_ascii": False}, headers=headers)
+    except Exception as exc:
+        try:
+            conn.close()
+        except Exception:
+            pass
+        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+
+
+# ─── 🏦 Bank (deposits) ───────────────────────────────────────────────────────
+
+@csrf_exempt
+def miniapp_bank(request):
+    """GET /api/bank?chat_id=X — returns user deposits + balance."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "GET":
+        return JsonResponse({"error": "GET required"}, status=405, headers=headers)
+
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+
+    chat_id_str = request.GET.get("chat_id", "")
+    if not chat_id_str.lstrip("-").isdigit():
+        return JsonResponse({"error": "chat_id required"}, status=400, headers=headers)
+    chat_id = int(chat_id_str)
+
+    try:
+        conn, db_type = _get_bot_db_connection()
+    except Exception as exc:
+        return JsonResponse({"error": f"DB: {exc}"}, status=503, headers=headers)
+
+    try:
+        cur = conn.cursor()
+        ph = "%s" if db_type == "pg" else "?"
+
+        cur.execute(
+            f"SELECT balance FROM user_mora WHERE user_id={ph} AND chat_id={ph}",
+            (uid, chat_id),
+        )
+        balance_row = cur.fetchone()
+        balance = balance_row[0] if balance_row else 0
+
+        cur.execute(
+            f"SELECT id, amount, rate, created_at, matures_at "
+            f"FROM bank_deposits WHERE user_id={ph} AND chat_id={ph} AND withdrawn=0 ORDER BY id",
+            (uid, chat_id),
+        )
+        rows = cur.fetchall()
+        conn.close()
+
+        now = datetime.now(timezone.utc)
+        deposits = []
+        for row in rows:
+            dep_id, amount, rate, created_at, matures_at = row
+            if isinstance(matures_at, str):
+                from datetime import datetime as _dt
+                matures_at = _dt.fromisoformat(matures_at.replace("Z", "+00:00"))
+            mature = now >= matures_at
+            reward = int(amount * rate)
+            time_left_h = max(0, int((matures_at - now).total_seconds() // 3600)) if not mature else 0
+            deposits.append({
+                "id": dep_id,
+                "amount": amount,
+                "rate": rate,
+                "rate_pct": round(rate * 100, 1),
+                "reward": reward,
+                "mature": mature,
+                "time_left_h": time_left_h,
+            })
+
+        plans_out = []
+        for key, p in _BANK_PLANS_SYNC.items():
+            plans_out.append({
+                "key": key,
+                "days": p["days"],
+                "rate_pct": round(p["rate"] * 100, 1),
+                "label": p["label"],
+                "amounts": [a for a in (100, 250, 500, 1_000, 2_500, 5_000, 10_000)
+                            if _BANK_MIN_DEPOSIT <= a <= _BANK_MAX_DEPOSIT],
+            })
+
+        return JsonResponse({
+            "balance": balance,
+            "deposits": deposits,
+            "plans": plans_out,
+            "min_deposit": _BANK_MIN_DEPOSIT,
+            "max_deposit": _BANK_MAX_DEPOSIT,
+            "early_penalty_pct": round(_BANK_EARLY_PENALTY_PCT * 100, 1),
+        }, json_dumps_params={"ensure_ascii": False}, headers=headers)
+
+    except Exception as exc:
+        try:
+            conn.close()
+        except Exception:
+            pass
+        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+
+
+@csrf_exempt
+def miniapp_bank_deposit(request):
+    """POST /api/bank/deposit {chat_id, plan_key, amount, wallet} — open a deposit."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=405, headers=headers)
+
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+
+    try:
+        data = json.loads(request.body)
+    except Exception:
+        return JsonResponse({"error": "bad JSON"}, status=400, headers=headers)
+
+    chat_id = int(data.get("chat_id", 0))
+    plan_key = str(data.get("plan_key", ""))
+    amount = int(data.get("amount", 0))
+    wallet = str(data.get("wallet", "personal"))
+
+    if plan_key not in _BANK_PLANS_SYNC:
+        return JsonResponse({"error": "Invalid plan"}, status=400, headers=headers)
+    if not (_BANK_MIN_DEPOSIT <= amount <= _BANK_MAX_DEPOSIT):
+        return JsonResponse(
+            {"error": f"Amount must be {_BANK_MIN_DEPOSIT}–{_BANK_MAX_DEPOSIT}"}, status=400, headers=headers
+        )
+    if wallet not in ("personal", "family"):
+        wallet = "personal"
+
+    plan = _BANK_PLANS_SYNC[plan_key]
+
+    try:
+        conn, db_type = _get_bot_db_connection()
+    except Exception as exc:
+        return JsonResponse({"error": f"DB: {exc}"}, status=503, headers=headers)
+
+    try:
+        cur = conn.cursor()
+        ph = "%s" if db_type == "pg" else "?"
+
+        if wallet == "family":
+            cur.execute(
+                f"SELECT balance FROM family_wallet WHERE chat_id={ph}",
+                (chat_id,),
+            )
+            frow = cur.fetchone()
+            fbal = frow[0] if frow else 0
+            if fbal < amount:
+                conn.close()
+                return JsonResponse({"error": f"Недостаточно семейных средств ({fbal}/{amount} 🪙)"}, status=400, headers=headers)
+            cur.execute(
+                f"UPDATE family_wallet SET balance=balance-{ph} WHERE chat_id={ph}",
+                (amount, chat_id),
+            )
+        else:
+            cur.execute(
+                f"SELECT balance FROM user_mora WHERE user_id={ph} AND chat_id={ph}",
+                (uid, chat_id),
+            )
+            brow = cur.fetchone()
+            bal = brow[0] if brow else 0
+            if bal < amount:
+                conn.close()
+                return JsonResponse({"error": f"Недостаточно Моры ({bal}/{amount} 🪙)"}, status=400, headers=headers)
+            cur.execute(
+                f"UPDATE user_mora SET balance=balance-{ph} WHERE user_id={ph} AND chat_id={ph}",
+                (amount, uid, chat_id),
+            )
+
+        now = datetime.now(timezone.utc)
+        matures = now + __import__("datetime").timedelta(days=plan["days"])
+
+        if db_type == "pg":
+            cur.execute(
+                "INSERT INTO bank_deposits (user_id, chat_id, amount, rate, created_at, matures_at) "
+                "VALUES (%s,%s,%s,%s,%s,%s) RETURNING id",
+                (uid, chat_id, amount, plan["rate"], now, matures),
+            )
+            dep_id = (cur.fetchone() or [None])[0]
+        else:
+            cur.execute(
+                "INSERT INTO bank_deposits (user_id, chat_id, amount, rate, created_at, matures_at) "
+                "VALUES (?,?,?,?,?,?)",
+                (uid, chat_id, amount, plan["rate"], now, matures),
+            )
+            dep_id = cur.lastrowid
+
+        conn.commit()
+
+        # Fetch new balance
+        if wallet == "family":
+            cur.execute(f"SELECT balance FROM family_wallet WHERE chat_id={ph}", (chat_id,))
+        else:
+            cur.execute(f"SELECT balance FROM user_mora WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
+        brow2 = cur.fetchone()
+        new_balance = brow2[0] if brow2 else 0
+        conn.close()
+
+        return JsonResponse({
+            "ok": True,
+            "deposit_id": dep_id,
+            "amount": amount,
+            "rate_pct": round(plan["rate"] * 100, 1),
+            "reward": int(amount * plan["rate"]),
+            "days": plan["days"],
+            "new_balance": new_balance,
+            "wallet": wallet,
+        }, json_dumps_params={"ensure_ascii": False}, headers=headers)
+
+    except Exception as exc:
+        try:
+            conn.close()
+        except Exception:
+            pass
+        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+
+
+@csrf_exempt
+def miniapp_bank_withdraw(request):
+    """POST /api/bank/withdraw {chat_id, deposit_id} — withdraw a deposit."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=405, headers=headers)
+
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+
+    try:
+        data = json.loads(request.body)
+    except Exception:
+        return JsonResponse({"error": "bad JSON"}, status=400, headers=headers)
+
+    chat_id = int(data.get("chat_id", 0))
+    deposit_id = int(data.get("deposit_id", 0))
+
+    try:
+        conn, db_type = _get_bot_db_connection()
+    except Exception as exc:
+        return JsonResponse({"error": f"DB: {exc}"}, status=503, headers=headers)
+
+    try:
+        cur = conn.cursor()
+        ph = "%s" if db_type == "pg" else "?"
+
+        cur.execute(
+            f"SELECT id, user_id, amount, rate, matures_at FROM bank_deposits "
+            f"WHERE id={ph} AND chat_id={ph} AND withdrawn=0",
+            (deposit_id, chat_id),
+        )
+        dep = cur.fetchone()
+        if not dep:
+            conn.close()
+            return JsonResponse({"error": "Вклад не найден или уже снят"}, status=404, headers=headers)
+
+        dep_id, owner_id, amount, rate, matures_at = dep
+        if owner_id != uid:
+            conn.close()
+            return JsonResponse({"error": "Это не твой вклад"}, status=403, headers=headers)
+
+        if isinstance(matures_at, str):
+            from datetime import datetime as _dt
+            matures_at = _dt.fromisoformat(matures_at.replace("Z", "+00:00"))
+
+        now = datetime.now(timezone.utc)
+        mature = now >= matures_at
+        if mature:
+            payout = amount + int(amount * rate)
+            early = False
+        else:
+            penalty = int(amount * _BANK_EARLY_PENALTY_PCT)
+            payout = max(0, amount - penalty)
+            early = True
+
+        cur.execute(f"UPDATE bank_deposits SET withdrawn=1 WHERE id={ph}", (deposit_id,))
+
+        cur.execute(
+            f"INSERT INTO user_mora (user_id, chat_id, balance) VALUES ({ph},{ph},{ph}) "
+            f"ON CONFLICT(user_id, chat_id) DO UPDATE SET balance=user_mora.balance+excluded.balance",
+            (uid, chat_id, payout),
+        )
+        conn.commit()
+
+        cur.execute(f"SELECT balance FROM user_mora WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
+        new_balance = (cur.fetchone() or [0])[0]
+        conn.close()
+
+        return JsonResponse({
+            "ok": True,
+            "deposit_id": deposit_id,
+            "payout": payout,
+            "early": early,
+            "new_balance": new_balance,
+        }, json_dumps_params={"ensure_ascii": False}, headers=headers)
+
     except Exception as exc:
         try:
             conn.close()

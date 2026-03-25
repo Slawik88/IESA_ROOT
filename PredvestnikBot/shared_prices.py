@@ -52,11 +52,34 @@ POTIONS_CATALOG = {
     "def_superior":   {"name": "Зелье Защиты Superior","emoji": "🛡️✨", "price": 0,   "buff_type": "def", "buff_amount": 40, "duration": 120, "desc": "+40 DEF на 2 часа (только из гачи)"},
 }
 
-# ─── Узы (облигации) ─────────────────────────────────────────────────────────
-# Формат: key → {name, base_price}
+# ─── Узы (облигации / биржа) ─────────────────────────────────────────────────
+# Формат: key → {name, base_price, volatility, cap_mult}
 BOND_DEFAULTS = {
-    "mondstadt": {"name": "🌸 Мондштадт", "base_price": 100},
-    "inazuma":   {"name": "⚡ Инадзума",   "base_price": 150},
+    # Blue chips (low vol, 3× cap)
+    "mondstadt":  {"name": "📜 Холодный Ветер (Мондштадт)", "base_price": 100, "volatility": 0.08, "cap_mult": 3},
+    "liyue":      {"name": "💎 Нефритовый Слиток (Ли Юэ)",  "base_price": 120, "volatility": 0.07, "cap_mult": 3},
+    "north_bank": {"name": "🏦 Банк Северного Королевства",  "base_price": 500, "volatility": 0.05, "cap_mult": 3},
+    # Mid-caps (vol 14-20%, 5× cap)
+    "inazuma":    {"name": "⚡ Вишнёвый Гром (Инадзума)",    "base_price": 150, "volatility": 0.15, "cap_mult": 5},
+    "sumeru":     {"name": "🌿 Зелёный Лист (Сумеру)",       "base_price":  90, "volatility": 0.18, "cap_mult": 5},
+    "fontaine":   {"name": "💧 Хрустальный Поток (Фонтэн)",  "base_price": 200, "volatility": 0.14, "cap_mult": 5},
+    "natlan":     {"name": "🔥 Пламенный Клык (Натлан)",     "base_price": 175, "volatility": 0.20, "cap_mult": 5},
+    # High-risk (35% vol, 8× cap)
+    "naku_grass": {"name": "🌾 Трава Наку",                   "base_price":  40, "volatility": 0.35, "cap_mult": 8},
+    # Meme coins (vol 45-50%, 15-20× cap)
+    "itto_coin":  {"name": "🐂 Итто-Коин",                    "base_price":  10, "volatility": 0.50, "cap_mult": 20},
+    "dori_corp":  {"name": "💰 Дори-Инвестментс",              "base_price":  25, "volatility": 0.45, "cap_mult": 15},
+}
+
+# ─── Банк (вклады) ────────────────────────────────────────────────────────────
+BANK_MIN_DEPOSIT = 100
+BANK_MAX_DEPOSIT = 10_000
+BANK_EARLY_PENALTY_PCT = 0.01   # 1% от суммы при досрочном снятии
+
+BANK_PLANS = {
+    "short":  {"days": 3,  "rate": 0.015, "label": "📅 3 дня  — 1.5%"},
+    "medium": {"days": 7,  "rate": 0.04,  "label": "📆 7 дней — 4%"},
+    "long":   {"days": 14, "rate": 0.10,  "label": "📋 14 дней — 10%"},
 }
 
 # ─── Кастомный титул ─────────────────────────────────────────────────────────

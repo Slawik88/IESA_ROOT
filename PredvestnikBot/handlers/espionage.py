@@ -164,7 +164,7 @@ async def cmd_bonds(message: Message, cmd_args: str):
     lines = [
         "📊 <b>Облигации Тейвата</b>",
         "━━━━━━━━━━━━━━━━━━━━",
-        "Цены обновляются каждые 6 часов.\n",
+        "Цены обновляются каждые 3 часа.\n",
     ]
     for key, info in BOND_DEFAULTS.items():
         price = prices.get(key, info["base_price"])
