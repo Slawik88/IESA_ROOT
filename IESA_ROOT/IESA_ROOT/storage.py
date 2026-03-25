@@ -20,6 +20,7 @@ import os
 from django.conf import settings
 from django.core.files.base import ContentFile
 from django.core.files.storage import FileSystemStorage
+from whitenoise.storage import CompressedManifestStaticFilesStorage
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +42,18 @@ try:
     _OPTIMISABLE = _OPTIMISABLE | {"HEIF"}
 except ImportError:
     pass
+
+
+# ─── Static files storage ─────────────────────────────────────────────────────
+
+class WhitenoiseManifestStorage(CompressedManifestStaticFilesStorage):
+    """WhiteNoise storage with manifest_strict=False.
+
+    Django 5.x passes STORAGES['OPTIONS'] as **kwargs to __init__(), but
+    manifest_strict is a class attribute on ManifestFilesMixin, not an
+    __init__ parameter. Subclassing is the correct way to override it.
+    """
+    manifest_strict = False
 
 
 # ─── Image helpers ────────────────────────────────────────────────────────────
