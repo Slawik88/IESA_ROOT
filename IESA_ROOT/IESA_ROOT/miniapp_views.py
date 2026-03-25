@@ -1237,6 +1237,18 @@ def miniapp_bonds(request):
             rows.reverse()
             history[bk] = [{"price": r[0], "ts": r[1]} for r in rows]
 
+        # Market trend state
+        market_trend = "neutral"
+        market_ticks = 0
+        cur.execute(
+            f"SELECT trend, ticks_left FROM market_state WHERE chat_id={ph}",
+            (chat_id,)
+        )
+        trend_row = cur.fetchone()
+        if trend_row:
+            market_trend = trend_row[0]
+            market_ticks = trend_row[1]
+
         conn.close()
 
         bonds_out = []
@@ -1262,8 +1274,9 @@ def miniapp_bonds(request):
                 "history":   history.get(bk, []),
             })
 
-        return JsonResponse({"bonds": bonds_out},
-                            json_dumps_params={"ensure_ascii": False}, headers=headers)
+        return JsonResponse(
+            {"bonds": bonds_out, "market_trend": market_trend, "market_ticks": market_ticks},
+            json_dumps_params={"ensure_ascii": False}, headers=headers)
 
     except Exception as exc:
         try:
