@@ -1078,8 +1078,9 @@ function renderUserPickerList(users) {
 }
 
 function selectUserFromPicker(userId, name) {
+  const cb = _userPickerCB;  // save before closeUserPicker nulls it
   closeUserPicker();
-  if (_userPickerCB) _userPickerCB(userId, name);
+  if (cb) cb(userId, name);
 }
 
 function closeUserPicker() {
