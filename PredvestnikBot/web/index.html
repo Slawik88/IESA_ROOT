@@ -964,16 +964,25 @@ function toast(msg, type='', dur=3000){
 }
 
 async function api(url, method='GET', body=null){
-  const opts = {method, headers:{
+  const controller = new AbortController();
+  const _tid = setTimeout(()=>controller.abort(), 15000);
+  const opts = {method, signal: controller.signal, headers:{
     'Content-Type':'application/json',
     'X-Init-Data': initData,
     'X-Telegram-Init-Data': initData,
   }};
   if(body) opts.body = JSON.stringify(body);
-  const r = await fetch(BASE+url, opts);
-  const j = await r.json();
-  if(!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
-  return j;
+  try {
+    const r = await fetch(BASE+url, opts);
+    clearTimeout(_tid);
+    const j = await r.json();
+    if(!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
+    return j;
+  } catch(e) {
+    clearTimeout(_tid);
+    if(e.name === 'AbortError') throw new Error('Сервер не отвечает (тайм-аут 15 с)');
+    throw e;
+  }
 }
 
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
@@ -1001,25 +1010,22 @@ function switchCategory(cat) {
   _currentCat = cat;
   document.querySelectorAll('.cat-btn').forEach(b => b.classList.toggle('active', b.dataset.cat === cat));
   const allowed = TAB_CATS[cat] || [];
+  // Update every tab button's visibility in one pass
   document.querySelectorAll('.tab-btn[data-tab]').forEach(btn => {
     const tab = btn.dataset.tab;
-    if (!allowed.includes(tab)) { btn.style.display = 'none'; return; }
-    // couple_boss and dev only visible when previously unlocked
-    if (tab === 'couple_boss' && btn.id === 'coupleBossTabBtn' && !btn.hasAttribute('data-unlocked')) { return; }
-    if (tab === 'dev' && btn.id === 'devTabBtn' && !btn.hasAttribute('data-unlocked')) { return; }
-    btn.style.removeProperty('display');
+    const inCat = allowed.includes(tab);
+    const locked = (tab === 'couple_boss' || tab === 'dev') && !btn.hasAttribute('data-unlocked');
+    btn.style.display = (!inCat || locked) ? 'none' : '';
   });
-  // If active tab is not in this category, switch to first visible tab in category
-  const active = document.querySelector('.tab-content.active');
-  if (active) {
-    const activeId = active.id.replace('tab-', '');
-    if (!allowed.includes(activeId)) {
-      const first = allowed.find(t => {
-        const b = document.querySelector(`.tab-btn[data-tab="${t}"]`);
-        return b && b.style.display !== 'none';
-      });
-      if (first) switchTab(first);
-    }
+  // If the currently active tab is not in this category, switch to first available tab
+  const activeContent = document.querySelector('.tab-content.active');
+  const activeId = activeContent ? activeContent.id.replace('tab-', '') : '';
+  if (!allowed.includes(activeId)) {
+    const firstTab = allowed.find(t => {
+      const btn = document.querySelector(`.tab-btn[data-tab="${t}"]`);
+      return btn && btn.style.display !== 'none';
+    });
+    if (firstTab) switchTab(firstTab);
   }
 }
 
@@ -1131,7 +1137,8 @@ async function loadProfile(){
     document.getElementById('pLevel').textContent = p.level || 1;
     syncBalance(p.balance||0);
     document.getElementById('globalBalanceBar').style.display = '';
-    document.getElementById('pRank').textContent = '—';
+    const RANK_LABELS = {developer:'💻 Разработчик', owner:'👑 Владелец', co_owner:'⭐ Со-владелец', moderator:'🛡 Модератор', user:'👤 Участник'};
+    document.getElementById('pRank').textContent = RANK_LABELS[p.rank] || p.rank || '—';
     document.getElementById('pStreak').textContent = (p.streak||0) + ' дн.';
     const xp = p.xp||0, xpMax = p.xp_max||100;
     document.getElementById('pXp').textContent = xp;
@@ -1143,10 +1150,10 @@ async function loadProfile(){
       if(p.partner_id){ pnEl.onclick=()=>showPubProfile(p.partner_id); pnEl.style.cursor='pointer'; pnEl.style.color='var(--accent)'; }
       document.getElementById('partnersCard').style.display='block';
     }
-    if(uid===DEV_UID){
+    if(uid===DEV_UID || p.is_dev || p.rank === 'developer'){
       const devBtn = document.getElementById('devTabBtn');
       devBtn.setAttribute('data-unlocked','1');
-      if(_currentCat === 'fun') devBtn.style.removeProperty('display');
+      if(_currentCat === 'fun') devBtn.style.display = '';
     }
     document.getElementById('walletHistoryCard').style.display='block';
     loadWalletHistory();
@@ -1237,7 +1244,7 @@ async function checkCoupleBossAvailability() {
       // Пользователь женат - показываем кнопку couple boss
       const cbBtn = document.getElementById('coupleBossTabBtn');
       cbBtn.setAttribute('data-unlocked','1');
-      if(_currentCat === 'hero') cbBtn.style.removeProperty('display');
+      if(_currentCat === 'hero') cbBtn.style.display = '';
       return r; // Возвращаем данные для использования в других функциях
     }
     return null;
@@ -2917,7 +2924,7 @@ async function loadCoupleBoss() {
     // Show couple boss tab
     const cbBtn = document.getElementById('coupleBossTabBtn');
     cbBtn.setAttribute('data-unlocked','1');
-    if(_currentCat === 'hero') cbBtn.style.removeProperty('display');
+    if(_currentCat === 'hero') cbBtn.style.display = '';
 
     // Also load solo boss for married users
     loadSoloBoss();

@@ -221,18 +221,22 @@ def miniapp_user_data(request):
         if specific_chat_id or chat_id:
             effective_cid = specific_chat_id or chat_id
             cur.execute(
-                f"SELECT xp, COALESCE(level, 1), custom_title FROM user_stats WHERE user_id={ph} AND chat_id={ph}",
+                f"SELECT xp, COALESCE(level, 1), custom_title, COALESCE(rank,'user') FROM user_stats WHERE user_id={ph} AND chat_id={ph}",
                 (uid, effective_cid),
             )
         else:
             cur.execute(
-                f"SELECT xp, COALESCE(level, 1), custom_title FROM user_stats WHERE user_id={ph} ORDER BY xp DESC LIMIT 1",
+                f"SELECT xp, COALESCE(level, 1), custom_title, COALESCE(rank,'user') FROM user_stats WHERE user_id={ph} ORDER BY xp DESC LIMIT 1",
                 (uid,),
             )
         xp_row = cur.fetchone()
         xp = xp_row[0] if xp_row else 0
         db_level = xp_row[1] if xp_row else 1
         custom_title = xp_row[2] if xp_row else None
+        user_rank = xp_row[3] if xp_row else 'user'
+        # Developer ID always gets developer rank regardless of DB value
+        if uid == _DEVELOPER_ID:
+            user_rank = 'developer'
 
         # Bonds
         bonds_data = []
@@ -411,6 +415,8 @@ def miniapp_user_data(request):
             "partner_id": partner_id_val,
             "pity": pity,
             "streak": streak,
+            "rank": user_rank,
+            "is_dev": user_rank in ('developer', 'owner'),
             "custom_title": custom_title or "",
         }
         return JsonResponse(payload, json_dumps_params={"ensure_ascii": False},
