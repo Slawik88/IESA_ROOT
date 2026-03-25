@@ -907,6 +907,16 @@ async def init_db():
                 recorded_at TIMESTAMPTZ NOT NULL
             )
         """)
+
+        # Market-wide trend state persisted across bot restarts
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS market_state (
+                chat_id     BIGINT  PRIMARY KEY,
+                trend       TEXT    NOT NULL DEFAULT 'neutral',
+                ticks_left  INTEGER NOT NULL DEFAULT 0,
+                updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """)
         await db.execute("""
             CREATE TABLE IF NOT EXISTS user_rpg_stats (
                 user_id BIGINT NOT NULL,
@@ -4667,30 +4677,111 @@ async def get_bond_prices(chat_id: int) -> dict:
 
 
 async def update_bond_prices(chat_id: int):
-    """Обновить цены облигаций случайным блужданием ±5..20%."""
+    """
+    Update bond prices with realistic market dynamics:
+      • Gaussian random walk  (σ = per-asset volatility)
+      • Market correlation    (global_mood ±2% applied to every asset)
+      • Mean reversion        (if price > 40% off base, 60% chance to pull back)
+      • Volatility spikes     (1% chance per asset — "black swan" σ × 5-10×)
+      • Bull / Bear trend     (10% chance per tick to enter; lasts 2-3 ticks; ±5% mood bias)
+      • History pruning       (keep only last 24 records per (chat_id, bond_key))
+    """
     import random
+    import math
+
     current = await get_bond_prices(chat_id)
     now = datetime.now(timezone.utc)
+
+    # ── 1. Load / advance bull/bear state ────────────────────────────────────
+    async with postgres_connect() as db:
+        async with db.execute(
+            "SELECT trend, ticks_left FROM market_state WHERE chat_id=?",
+            (chat_id,),
+        ) as c:
+            state_row = await c.fetchone()
+
+    trend = "neutral"
+    ticks_left = 0
+    if state_row:
+        trend      = state_row["trend"]
+        ticks_left = state_row["ticks_left"]
+
+    # Decrement active trend; roll for new one if expired
+    if ticks_left > 0:
+        ticks_left -= 1
+        if ticks_left == 0:
+            trend = "neutral"
+    if trend == "neutral" and random.random() < 0.12:   # 12% chance each tick
+        trend      = random.choice(["bull", "bear"])
+        ticks_left = random.randint(2, 3)
+
+    # Trend bias on global mood
+    trend_bias = 0.05 if trend == "bull" else (-0.05 if trend == "bear" else 0.0)
+
+    # ── 2. Global market mood (correlation) ──────────────────────────────────
+    global_mood = random.gauss(0, 0.01) + trend_bias   # σ=1%, shifted by trend
+
+    # ── 3. Per-asset price calculation ───────────────────────────────────────
+    new_prices: dict[str, int] = {}
     async with postgres_connect() as db:
         for key, info in BOND_DEFAULTS.items():
-            old_price = current.get(key, info["base_price"])
-            vol       = info.get("volatility", 0.20)
-            delta_pct = random.uniform(-vol, vol)
-            new_price = max(10, int(old_price * (1 + delta_pct)))
-            # Cap at N× base to prevent runaway inflation (varies per tier)
-            new_price = min(new_price, info["base_price"] * info.get("cap_mult", 5))
+            base_price  = info["base_price"]
+            vol         = info["volatility"]
+            cap_mult    = info.get("cap_mult", 5)
+            old_price   = current.get(key, base_price)
+
+            # Volatility spike (black swan) — 1% chance
+            sigma = vol
+            if random.random() < 0.01:
+                sigma = vol * random.uniform(5, 10)
+
+            # Gaussian random walk
+            delta = random.gauss(0, sigma) + global_mood
+
+            # Mean reversion: if price is >40% off base, 60% chance to correct
+            deviation = (old_price - base_price) / base_price
+            if abs(deviation) > 0.40 and random.random() < 0.60:
+                # Pull toward base proportional to deviation
+                reversion = -math.copysign(min(abs(deviation) * 0.30, vol * 2), deviation)
+                delta += reversion
+
+            new_price = max(10, int(old_price * (1 + delta)))
+            new_price = min(new_price, base_price * cap_mult)
+            new_prices[key] = new_price
+
             await db.execute(
                 """INSERT INTO bond_prices (bond_key, chat_id, price, updated_at)
                    VALUES (?,?,?,?)
-                   ON CONFLICT(bond_key, chat_id) DO UPDATE SET price=excluded.price, updated_at=excluded.updated_at""",
+                   ON CONFLICT(bond_key, chat_id) DO UPDATE
+                   SET price=excluded.price, updated_at=excluded.updated_at""",
                 (key, chat_id, new_price, now),
             )
-            # Record price history for Chart.js graphs
             await db.execute(
                 "INSERT INTO bond_price_history (chat_id, bond_key, price, recorded_at) VALUES (?,?,?,?)",
                 (chat_id, key, new_price, now),
             )
+            # Prune history — keep only the last 24 ticks per asset
+            await db.execute(
+                """DELETE FROM bond_price_history
+                   WHERE chat_id=? AND bond_key=? AND id NOT IN (
+                       SELECT id FROM bond_price_history
+                       WHERE chat_id=? AND bond_key=?
+                       ORDER BY id DESC LIMIT 24
+                   )""",
+                (chat_id, key, chat_id, key),
+            )
+
+        # Persist updated market state
+        await db.execute(
+            """INSERT INTO market_state (chat_id, trend, ticks_left, updated_at)
+               VALUES (?,?,?,?)
+               ON CONFLICT(chat_id) DO UPDATE
+               SET trend=excluded.trend, ticks_left=excluded.ticks_left, updated_at=excluded.updated_at""",
+            (chat_id, trend, ticks_left, now),
+        )
         await db.commit()
+
+    return {"trend": trend, "ticks_left": ticks_left, "global_mood": round(global_mood * 100, 2)}
 
 
 async def get_user_bonds(user_id: int, chat_id: int) -> list[dict]:

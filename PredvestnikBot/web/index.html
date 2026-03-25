@@ -1601,6 +1601,7 @@ document.getElementById('wBtnFamily').onclick=()=>{const r=_wResolve;_closeWalle
 document.getElementById('wBtnCancel').onclick=()=>{const rj=_wReject;_closeWallet();if(rj)rj(new Error('cancelled'));};
 
 // ── Bonds tab ─────────────────────────────────────────────────────────────────
+let marketTrend='neutral';
 async function loadBondsTab(){
   document.getElementById('bondsLoading').style.display='block';
   document.getElementById('bondsContent').style.display='none';
@@ -1609,9 +1610,17 @@ async function loadBondsTab(){
   try{
     const r=await api('/api/bonds?chat_id='+chatId);
     bondsData=r.bonds||[];
+    marketTrend=r.market_trend||'neutral';
+    const ticks=r.market_ticks||0;
     document.getElementById('bondsLoading').style.display='none';
     document.getElementById('bondsContent').style.display='block';
-    document.getElementById('bondsContent').innerHTML=bondsData.map(b=>bondCard(b)).join('');
+    let bannerHtml='';
+    if(marketTrend==='bull'){
+      bannerHtml=`<div style="background:rgba(34,197,94,.15);border:1px solid #22c55e;border-radius:10px;padding:8px 12px;margin-bottom:8px;display:flex;align-items:center;gap:8px;font-size:13px"><span style="font-size:18px">🐂</span><div><b style="color:#22c55e">Бычий рынок!</b> <span style="color:var(--text2)">Рынок растёт — осталось тиков: ${ticks}</span></div></div>`;
+    } else if(marketTrend==='bear'){
+      bannerHtml=`<div style="background:rgba(239,68,68,.15);border:1px solid #ef4444;border-radius:10px;padding:8px 12px;margin-bottom:8px;display:flex;align-items:center;gap:8px;font-size:13px"><span style="font-size:18px">🐻</span><div><b style="color:#ef4444">Медвежий рынок!</b> <span style="color:var(--text2)">Рынок падает — осталось тиков: ${ticks}</span></div></div>`;
+    }
+    document.getElementById('bondsContent').innerHTML=bannerHtml+bondsData.map(b=>bondCard(b)).join('');
     bondsData.forEach(b=>initBondChart(b));
   } catch(e){
     document.getElementById('bondsLoading').textContent='⚠️ '+e.message;
@@ -1619,20 +1628,37 @@ async function loadBondsTab(){
 }
 
 function bondCard(b){
-  const profit=(b.amount||0)>0?(b.amount*b.price-(b.invested||0)):null;
-  const pc=profit==null?'':profit>=0?'var(--green)':'var(--red)';
-  const ps=profit==null?'':(profit>=0?'+'+profit:String(profit));
-  const pp=(profit!=null&&(b.invested||0)>0)?' ('+((profit/(b.invested||1))*100).toFixed(1)+'%)':'';
+  const hist=b.history||[];
+  const prevPrice=hist.length>=2?hist[hist.length-2].price:b.price;
+  const chg=prevPrice>0?((b.price-prevPrice)/prevPrice*100):0;
+  const chgColor=chg>=0?'#22c55e':'#ef4444';
+  const chgSign=chg>=0?'+':'';
+  const pnlM=b.pnl_mora||0;
+  const pnlP=b.pnl_pct||0;
+  const pnlColor=pnlM>=0?'#22c55e':'#ef4444';
+  const pnlSign=pnlM>=0?'+':'';
+  const _TIERS={mondstadt:'blue-chip',liyue:'blue-chip',north_bank:'blue-chip',inazuma:'mid-cap',sumeru:'mid-cap',fontaine:'mid-cap',natlan:'mid-cap',naku_grass:'high-risk',itto_coin:'meme',dori_corp:'meme'};
+  const _TIER_LABEL={'blue-chip':'🟦 Blue chip','mid-cap':'🟪 Mid-cap','high-risk':'🟧 High-risk','meme':'🎯 Meme'};
+  const _TIER_COLOR={'blue-chip':'#3b82f6','mid-cap':'#a78bfa','high-risk':'#f97316','meme':'#ec4899'};
+  const tier=_TIERS[b.key]||'mid-cap';
+  const tierLabel=_TIER_LABEL[tier];
+  const tierColor=_TIER_COLOR[tier];
   return `<div class="card">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
     <div style="font-size:15px;font-weight:800">${esc(b.name||b.key)}</div>
     <div style="font-size:16px;font-weight:700;color:var(--gold)">${b.price||'?'} 🪙</div>
+  </div>
+  <div style="display:flex;gap:6px;margin-bottom:6px;flex-wrap:wrap">
+    <span style="font-size:11px;background:${tierColor}22;color:${tierColor};border-radius:6px;padding:2px 7px;font-weight:700">${tierLabel}</span>
+    <span style="font-size:11px;background:${chgColor}22;color:${chgColor};border-radius:6px;padding:2px 7px;font-weight:700">${chgSign}${chg.toFixed(2)}% от пред. тика</span>
+    ${marketTrend==='bull'?'<span style="font-size:11px;background:#22c55e22;color:#22c55e;border-radius:6px;padding:2px 7px">🐂 BULL</span>':''}
+    ${marketTrend==='bear'?'<span style="font-size:11px;background:#ef444422;color:#ef4444;border-radius:6px;padding:2px 7px">🐻 BEAR</span>':''}
   </div>
   <div class="bond-canvas-wrap"><canvas id="bondChart_${b.key}"></canvas></div>
   <div class="stat-row"><span class="stat-label">📦 В портфеле</span><span class="stat-value">${b.amount||0} шт.</span></div>
   <div class="stat-row"><span class="stat-label">💰 Вложено</span><span class="stat-value">${b.invested||0} 🪙</span></div>
   ${(b.amount||0)>0?`<div class="stat-row"><span class="stat-label">📊 Ср. цена входа</span><span class="stat-value">${b.avg_price||0} 🪙</span></div>`:''}
-  ${profit!=null?`<div class="stat-row"><span class="stat-label">📈 П/У</span><span class="stat-value" style="color:${pc}">${ps} 🪙${pp}</span></div>`:''}
+  ${(b.amount||0)>0?`<div class="stat-row"><span class="stat-label">📈 П/У</span><span class="stat-value" style="color:${pnlColor}">${pnlSign}${pnlM} 🪙 (${pnlSign}${pnlP}%)</span></div>`:''}
   <div style="margin-top:10px">
     <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
       <input type="number" id="moraBuy_${b.key}" placeholder="Мора 🪙" min="1" oninput="calcShares('${b.key}')" style="flex:1;font-size:13px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text);outline:none"/>
@@ -1700,19 +1726,55 @@ function initBondChart(b){
   if(bondCharts[b.key]){bondCharts[b.key].destroy();}
   const hist=b.history||[];
   if(hist.length<2){canvas.style.display='none';return;}
+  canvas.style.display='';
   const prices=hist.map(h=>h.price);
   const labels=hist.map(h=>{
     const d=new Date(h.ts||h.recorded_at||'');
-    return isNaN(d.getTime())?'':d.toLocaleDateString('ru',{month:'short',day:'numeric'});
+    return isNaN(d.getTime())?'':d.toLocaleString('ru',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
   });
-  const first=prices[0],last=prices[prices.length-1];
-  const color=last>=first?'#22c55e':'#ef4444';
+  // Per-segment color: green if price rose vs previous point, red if fell
+  const segmentColors=prices.map((p,i)=>i===0?'#94a3b8':(p>=prices[i-1]?'#22c55e':'#ef4444'));
+  const last=prices[prices.length-1],first=prices[0];
+  const overallColor=last>=first?'#22c55e':'#ef4444';
   bondCharts[b.key]=new Chart(canvas,{
     type:'line',
-    data:{labels,datasets:[{data:prices,borderColor:color,backgroundColor:color+'22',borderWidth:2,pointRadius:0,fill:true,tension:0.3}]},
+    data:{labels,datasets:[{
+      data:prices,
+      borderColor:ctx=>{
+        if(!ctx.chart.chartArea) return overallColor;
+        const i=ctx.dataIndex;
+        return i==null?overallColor:segmentColors[i]||overallColor;
+      },
+      segment:{
+        borderColor:ctx=>{
+          const i=ctx.p1DataIndex;
+          return prices[i]>=prices[i-1]?'#22c55e':'#ef4444';
+        },
+      },
+      backgroundColor:overallColor+'18',
+      borderWidth:2,
+      pointRadius:ctx=>ctx.dataIndex===prices.length-1?4:0,
+      pointBackgroundColor:overallColor,
+      fill:true,
+      tension:0.25,
+    }]},
     options:{
       responsive:true,maintainAspectRatio:false,animation:false,
-      plugins:{legend:{display:false},tooltip:{mode:'index',intersect:false,callbacks:{label:c=>`${c.parsed.y} 🪙`}}},
+      plugins:{
+        legend:{display:false},
+        tooltip:{
+          mode:'index',intersect:false,
+          callbacks:{
+            title:items=>labels[items[0].dataIndex]||'',
+            label:c=>{
+              const i=c.dataIndex;
+              const chg=i>0?((prices[i]-prices[i-1])/prices[i-1]*100):0;
+              const sign=chg>=0?'+':'';
+              return `${c.parsed.y} 🪙  (${sign}${chg.toFixed(1)}%)`;
+            }
+          }
+        }
+      },
       scales:{x:{display:false},y:{display:false,grace:'10%'}}
     }
   });
