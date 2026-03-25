@@ -282,14 +282,16 @@ if spaces_key and spaces_secret and spaces_bucket and not DEBUG:
     # STORAGES dict (Django 5.x format) - заменяет DEFAULT_FILE_STORAGE
     STORAGES = {
         "default": {
-            "BACKEND": "storages.backends.s3boto3.S3Boto3Storage",
+            "BACKEND": "IESA_ROOT.storage.MediaOptimizationStorage",
             "OPTIONS": {
-                "file_overwrite": True,  # Overwrite files with same name
-                "default_acl": "public-read",  # Make all files public by default
+                "file_overwrite": True,   # django-cleanup replaces old files by name
+                "default_acl": "public-read",
             },
         },
+        # Explicitly use Whitenoise here — Django 5.x ignores the deprecated
+        # STATICFILES_STORAGE setting when STORAGES is defined.
         "staticfiles": {
-            "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+            "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
         },
     }
     
