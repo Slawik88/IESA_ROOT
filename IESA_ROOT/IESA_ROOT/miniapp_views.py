@@ -3418,18 +3418,43 @@ def miniapp_bank(request):
             (uid, chat_id),
         )
         rows = cur.fetchall()
+
+        # Fetch family balance for display reference
+        family_balance = 0
+        try:
+            cur.execute(f"SELECT balance FROM family_wallet WHERE chat_id={ph}", (chat_id,))
+            frow = cur.fetchone()
+            family_balance = frow[0] if frow else 0
+        except Exception:
+            family_balance = 0
+
         conn.close()
 
         now = datetime.now(timezone.utc)
         deposits = []
         for row in rows:
             dep_id, amount, rate, created_at, matures_at = row
+            # Normalize str -> datetime
             if isinstance(matures_at, str):
                 from datetime import datetime as _dt
                 matures_at = _dt.fromisoformat(matures_at.replace("Z", "+00:00"))
+            if isinstance(created_at, str):
+                from datetime import datetime as _dt
+                created_at = _dt.fromisoformat(created_at.replace("Z", "+00:00"))
+            # Fix offset-naive vs offset-aware error: assume UTC for naive datetimes
+            if matures_at is not None and getattr(matures_at, 'tzinfo', None) is None:
+                matures_at = matures_at.replace(tzinfo=timezone.utc)
+            if created_at is not None and getattr(created_at, 'tzinfo', None) is None:
+                created_at = created_at.replace(tzinfo=timezone.utc)
             mature = now >= matures_at
             reward = int(amount * rate)
-            time_left_h = max(0, int((matures_at - now).total_seconds() // 3600)) if not mature else 0
+            time_left_secs = max(0, (matures_at - now).total_seconds()) if not mature else 0
+            time_left_h = int(time_left_secs // 3600)
+            time_left_m = int((time_left_secs % 3600) // 60)
+            total_secs = max(1, (matures_at - created_at).total_seconds())
+            elapsed_secs = (now - created_at).total_seconds()
+            progress_pct = min(100, max(0, int(elapsed_secs / total_secs * 100)))
+            plan_days = max(1, round(total_secs / 86400))
             deposits.append({
                 "id": dep_id,
                 "amount": amount,
@@ -3438,6 +3463,10 @@ def miniapp_bank(request):
                 "reward": reward,
                 "mature": mature,
                 "time_left_h": time_left_h,
+                "time_left_m": time_left_m,
+                "progress_pct": progress_pct,
+                "plan_days": plan_days,
+                "matures_at_iso": matures_at.strftime("%d.%m %H:%M"),
             })
 
         plans_out = []
@@ -3453,6 +3482,7 @@ def miniapp_bank(request):
 
         return JsonResponse({
             "balance": balance,
+            "family_balance": family_balance,
             "deposits": deposits,
             "plans": plans_out,
             "min_deposit": _BANK_MIN_DEPOSIT,
@@ -3636,6 +3666,9 @@ def miniapp_bank_withdraw(request):
         if isinstance(matures_at, str):
             from datetime import datetime as _dt
             matures_at = _dt.fromisoformat(matures_at.replace("Z", "+00:00"))
+        # Fix offset-naive vs offset-aware error
+        if matures_at is not None and getattr(matures_at, 'tzinfo', None) is None:
+            matures_at = matures_at.replace(tzinfo=timezone.utc)
 
         now = datetime.now(timezone.utc)
         mature = now >= matures_at
