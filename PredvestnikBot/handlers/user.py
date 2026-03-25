@@ -716,8 +716,7 @@ async def cb_top(callback: CallbackQuery):
         title = "📆 <b>Рейтинг активных за прошлую неделю:</b>"
         count_field = "wc"
     else:
-        from services.message_buffer import get_all_pending as _pending
-        top = await get_top_by_messages_in_chat(chat_id, 500, pending=_pending())
+        top = await get_top_by_messages_in_chat(chat_id, 500)
         title = "🏆 <b>Рейтинг активных за всё время:</b>"
         count_field = "message_count"
 
@@ -1555,8 +1554,7 @@ async def cmd_top(message: Message, cmd_args: str):
         count_field = "wc"
         count_label = "сообщений"
     else:
-        from services.message_buffer import get_all_pending as _pending
-        top = await get_top_by_messages_in_chat(message.chat.id, 500, pending=_pending())
+        top = await get_top_by_messages_in_chat(message.chat.id, 500)
         title = "🏆 <b>Рейтинг активных за всё время:</b>"
         count_field = "message_count"
         count_label = "сообщений"

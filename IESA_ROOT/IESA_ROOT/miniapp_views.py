@@ -950,17 +950,200 @@ def miniapp_marriage_propose(request):
     try:
         body = json.loads(request.body)
         target_id = int(body.get("target_id", 0))
+        chat_id = int(body.get("chat_id", 0))
     except Exception:
         return JsonResponse({"error": "invalid JSON"}, status=400, headers=headers)
 
-    if not target_id:
-        return JsonResponse({"error": "target_id required"}, status=400, headers=headers)
+    if not target_id or not chat_id:
+        return JsonResponse({"error": "target_id and chat_id required"}, status=400, headers=headers)
 
-    return JsonResponse(
-        {"message": f"Напиши в Telegram: бот брак @user (или ID: {target_id})"},
-        json_dumps_params={"ensure_ascii": False},
-        headers=headers,
-    )
+    if target_id == uid:
+        return JsonResponse({"error": "Нельзя предложить руку самому себе"}, status=400,
+                            json_dumps_params={"ensure_ascii": False}, headers=headers)
+
+    try:
+        conn, db_type = _get_bot_db_connection()
+        cur = conn.cursor()
+        ph = "%s" if db_type == "pg" else "?"
+
+        # Check if requester is already married
+        cur.execute(f"SELECT 1 FROM marriages WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
+        if cur.fetchone():
+            conn.close()
+            return JsonResponse({"error": "Ты уже в браке. Сначала разведись."}, status=400,
+                                json_dumps_params={"ensure_ascii": False}, headers=headers)
+
+        # Check if target is already married
+        cur.execute(f"SELECT 1 FROM marriages WHERE user_id={ph} AND chat_id={ph}", (target_id, chat_id))
+        if cur.fetchone():
+            conn.close()
+            return JsonResponse({"error": "Этот игрок уже состоит в браке."}, status=400,
+                                json_dumps_params={"ensure_ascii": False}, headers=headers)
+
+        # Get names
+        cur.execute(f"SELECT full_name FROM users WHERE user_id={ph}", (uid,))
+        from_name = (cur.fetchone() or [f"user_{uid}"])[0]
+        cur.execute(f"SELECT full_name FROM users WHERE user_id={ph}", (target_id,))
+        to_name = (cur.fetchone() or [f"user_{target_id}"])[0]
+        conn.close()
+    except Exception as exc:
+        try: conn.close()
+        except Exception: pass
+        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+
+    # Create proposal in DB
+    from database.db import create_marriage_proposal
+    from asgiref.sync import async_to_sync
+    proposal_id = async_to_sync(create_marriage_proposal)(uid, target_id, chat_id)
+
+    # Send Telegram notification to target
+    try:
+        import asyncio
+        from aiogram import Bot as _AiogramBot
+        from config import BOT_TOKEN as _BOT_TOKEN
+
+        proposal_text = (
+            f"💍 <b>{html.escape(from_name)}</b> делает тебе предложение руки и сердца!\n\n"
+            f"Открой Mini App, вкладку 🤝 Узы, чтобы принять или отклонить."
+        )
+
+        async def _notify():
+            bot = _AiogramBot(token=_BOT_TOKEN)
+            try:
+                await bot.send_message(chat_id, proposal_text, parse_mode="HTML")
+            except Exception:
+                pass
+            finally:
+                await bot.session.close()
+
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                asyncio.create_task(_notify())
+            else:
+                loop.run_until_complete(_notify())
+        except Exception:
+            pass
+    except Exception:
+        pass
+
+    return JsonResponse({
+        "ok": True,
+        "proposal_id": proposal_id,
+        "message": f"Предложение отправлено игроку {html.escape(to_name)}!",
+    }, json_dumps_params={"ensure_ascii": False}, headers=headers)
+
+
+# ─── Marriage: list pending proposals ────────────────────────────────────────
+
+@csrf_exempt
+def miniapp_marriage_proposals_list(request):
+    """GET /api/marriage/proposals?chat_id=X — list pending incoming proposals."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "GET":
+        return JsonResponse({"error": "GET required"}, status=405, headers=headers)
+
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+
+    chat_id_str = request.GET.get("chat_id", "")
+    if not chat_id_str.lstrip("-").isdigit():
+        return JsonResponse({"error": "chat_id required"}, status=400, headers=headers)
+    chat_id = int(chat_id_str)
+
+    from database.db import get_pending_proposals
+    from asgiref.sync import async_to_sync
+    proposals = async_to_sync(get_pending_proposals)(uid, chat_id)
+
+    return JsonResponse({
+        "proposals": [
+            {"id": p["id"], "from_user_id": p["from_user_id"],
+             "from_name": p["from_name"], "created_at": str(p.get("created_at", ""))}
+            for p in proposals
+        ]
+    }, json_dumps_params={"ensure_ascii": False}, headers=headers)
+
+
+# ─── Marriage: respond to proposal ───────────────────────────────────────────
+
+@csrf_exempt
+def miniapp_marriage_respond(request):
+    """POST /api/marriage/respond — accept or decline a proposal."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=405, headers=headers)
+
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+
+    try:
+        body = json.loads(request.body)
+        proposal_id = int(body.get("proposal_id", 0))
+        accept = bool(body.get("accept", False))
+        chat_id = int(body.get("chat_id", 0))
+    except Exception:
+        return JsonResponse({"error": "invalid JSON"}, status=400, headers=headers)
+
+    if not proposal_id or not chat_id:
+        return JsonResponse({"error": "proposal_id and chat_id required"}, status=400, headers=headers)
+
+    from database.db import respond_to_proposal, create_marriage
+    from asgiref.sync import async_to_sync
+
+    # First fetch the proposal without changing status — verify ownership
+    from database.db import get_pending_proposals
+    # Use a direct DB check instead
+    try:
+        conn, db_type = _get_bot_db_connection()
+        cur = conn.cursor()
+        ph = "%s" if db_type == "pg" else "?"
+        cur.execute(f"SELECT id, from_user_id, to_user_id, chat_id, status FROM marriage_proposals WHERE id={ph}", (proposal_id,))
+        prow = cur.fetchone()
+        conn.close()
+    except Exception as exc:
+        try: conn.close()
+        except Exception: pass
+        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+
+    if not prow:
+        return JsonResponse({"error": "Предложение не найдено"}, status=404,
+                            json_dumps_params={"ensure_ascii": False}, headers=headers)
+
+    p_to_user = prow[2]
+    p_status = prow[4]
+    if p_to_user != uid:
+        return JsonResponse({"error": "Forbidden"}, status=403, headers=headers)
+    if p_status != "pending":
+        return JsonResponse({"error": "Предложение уже обработано"}, status=400,
+                            json_dumps_params={"ensure_ascii": False}, headers=headers)
+
+    # Now update the status
+    proposal = async_to_sync(respond_to_proposal)(proposal_id, "accepted" if accept else "declined")
+    if not proposal:
+        return JsonResponse({"error": "Ошибка обновления"}, status=500,
+                            json_dumps_params={"ensure_ascii": False}, headers=headers)
+
+    if accept:
+        from_id = proposal["from_user_id"]
+        # Also decline all other pending proposals for both users
+        try:
+            async_to_sync(create_marriage)(from_id, uid, chat_id)
+        except Exception as exc:
+            return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+
+        return JsonResponse({"ok": True, "married": True,
+                             "message": "Поздравляем! Вы теперь в браке! 💍"},
+                            json_dumps_params={"ensure_ascii": False}, headers=headers)
+    else:
+        return JsonResponse({"ok": True, "married": False,
+                             "message": "Предложение отклонено."},
+                            json_dumps_params={"ensure_ascii": False}, headers=headers)
 
 
 # ─── Bonds + price history ────────────────────────────────────────────────────
@@ -3924,7 +4107,7 @@ def miniapp_couple_boss_status(request):
             session_data = dict(zip([
                 "id", "user_a_id", "user_b_id", "chat_id", "boss_level", "boss_max_hp", "boss_current_hp",
                 "user_a_damage", "user_b_damage", "user_a_hits", "user_b_hits", "user_a_aggro", "user_b_aggro",
-                "is_repeat", "is_completed", "session_date"
+                "is_completed", "is_repeat", "session_date", "completed_at"
             ], session))
             
             hp_pct = (session_data["boss_current_hp"] / session_data["boss_max_hp"]) * 100
@@ -4226,6 +4409,206 @@ def miniapp_couple_boss_attack(request):
         except Exception:
             pass
         return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+
+
+# ─── Solo Boss ────────────────────────────────────────────────────────────────
+
+@csrf_exempt
+def miniapp_solo_boss_status(request):
+    """GET /api/solo_boss/status?chat_id=X — current solo boss session for the user."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "GET":
+        return JsonResponse({"error": "GET required"}, status=405, headers=headers)
+
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+
+    chat_id_str = request.GET.get("chat_id", "")
+    if not chat_id_str.lstrip("-").isdigit():
+        return JsonResponse({"error": "chat_id required"}, status=400, headers=headers)
+    chat_id = int(chat_id_str)
+
+    from database.db import get_solo_boss_session, get_solo_boss_progress
+    from asgiref.sync import async_to_sync
+
+    session = async_to_sync(get_solo_boss_session)(uid, chat_id)
+    progress = async_to_sync(get_solo_boss_progress)(uid, chat_id)
+
+    next_level = (progress["max_level"] + 1) if progress else 1
+
+    # Check if user completed a session today (get_solo_boss_session only returns incomplete)
+    completed_today = None
+    if not session:
+        import datetime as _dt
+        today_str = _dt.datetime.now(_dt.timezone.utc).strftime("%Y-%m-%d")
+        try:
+            conn, db_type = _get_bot_db_connection()
+            cur = conn.cursor()
+            ph = "%s" if db_type == "pg" else "?"
+            cur.execute(
+                f"SELECT * FROM solo_boss_sessions WHERE user_id={ph} AND chat_id={ph} AND session_date={ph} AND is_completed=1",
+                (uid, chat_id, today_str))
+            crow = cur.fetchone()
+            conn.close()
+            if crow:
+                cols = [d[0] for d in cur.description]
+                completed_today = dict(zip(cols, crow))
+        except Exception:
+            try: conn.close()
+            except Exception: pass
+
+    return JsonResponse({
+        "session": session or completed_today,
+        "progress": progress,
+        "next_level": next_level,
+    }, json_dumps_params={"ensure_ascii": False}, headers=headers)
+
+
+@csrf_exempt
+def miniapp_solo_boss_start(request):
+    """POST /api/solo_boss/start — start a new solo boss session."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=405, headers=headers)
+
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+
+    try:
+        body = json.loads(request.body)
+        chat_id = int(body.get("chat_id", 0))
+    except Exception:
+        return JsonResponse({"error": "invalid JSON"}, status=400, headers=headers)
+
+    if not chat_id:
+        return JsonResponse({"error": "chat_id required"}, status=400, headers=headers)
+
+    from database.db import get_solo_boss_session, get_solo_boss_progress, create_solo_boss_session
+    from asgiref.sync import async_to_sync
+
+    # Check no active session today
+    existing = async_to_sync(get_solo_boss_session)(uid, chat_id)
+    if existing and not existing.get("is_completed"):
+        return JsonResponse({"error": "У тебя уже есть активная битва с боссом сегодня!",
+                             "session": existing},
+                            status=400, json_dumps_params={"ensure_ascii": False}, headers=headers)
+
+    progress = async_to_sync(get_solo_boss_progress)(uid, chat_id)
+    boss_level = (progress["max_level"] + 1) if progress else 1
+
+    session = async_to_sync(create_solo_boss_session)(uid, chat_id, boss_level)
+    return JsonResponse({"ok": True, "session": session},
+                        json_dumps_params={"ensure_ascii": False}, headers=headers)
+
+
+@csrf_exempt
+def miniapp_solo_boss_attack(request):
+    """POST /api/solo_boss/attack — attack solo boss."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=405, headers=headers)
+
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+
+    try:
+        body = json.loads(request.body)
+        chat_id = int(body.get("chat_id", 0))
+    except Exception:
+        return JsonResponse({"error": "invalid JSON"}, status=400, headers=headers)
+
+    if not chat_id:
+        return JsonResponse({"error": "chat_id required"}, status=400, headers=headers)
+
+    from database.db import get_solo_boss_session, apply_solo_boss_damage
+    from asgiref.sync import async_to_sync
+
+    session = async_to_sync(get_solo_boss_session)(uid, chat_id)
+    if not session:
+        return JsonResponse({"error": "Нет активной битвы — сначала запусти босса!"},
+                            status=400, json_dumps_params={"ensure_ascii": False}, headers=headers)
+    if session.get("is_completed"):
+        return JsonResponse({"error": "Эта битва уже завершена."},
+                            status=400, json_dumps_params={"ensure_ascii": False}, headers=headers)
+
+    # Get user attack stat from equipped items
+    try:
+        conn, db_type = _get_bot_db_connection()
+        cur = conn.cursor()
+        ph = "%s" if db_type == "pg" else "?"
+        cur.execute(f"""SELECT COALESCE(SUM(COALESCE(m.atk, 0) + gi.enhancement_level * COALESCE(m.atk, 0) * 0.1), 50)
+                    FROM gacha_inventory gi
+                    LEFT JOIN item_metadata m ON gi.item_key = m.item_key
+                    WHERE gi.user_id={ph} AND gi.chat_id={ph} AND gi.equipped=1""", (uid, chat_id))
+        atk_row = cur.fetchone()
+        base_atk = int(atk_row[0]) if atk_row and atk_row[0] else 50
+        conn.close()
+    except Exception:
+        try: conn.close()
+        except Exception: pass
+        base_atk = 50
+
+    import random
+    damage = random.randint(int(base_atk * 0.8), int(base_atk * 1.2)) + 50
+
+    result = async_to_sync(apply_solo_boss_damage)(uid, session, damage)
+
+    response = {
+        "ok": True,
+        "damage_dealt": result["damage_dealt"],
+        "crit": result["crit"],
+        "boss_hp": result["boss_hp"],
+        "boss_defeated": result["boss_defeated"],
+    }
+
+    if result["boss_defeated"]:
+        # Give rewards
+        mora_reward = 500 + (session["boss_level"] - 1) * 200
+        xp_reward = 300 + (session["boss_level"] - 1) * 100
+        try:
+            conn, db_type = _get_bot_db_connection()
+            cur = conn.cursor()
+            ph = "%s" if db_type == "pg" else "?"
+            if db_type == "pg":
+                cur.execute(
+                    f"INSERT INTO user_mora (user_id, chat_id, balance) VALUES ({ph},{ph},{ph}) "
+                    f"ON CONFLICT (user_id, chat_id) DO UPDATE SET balance = user_mora.balance + EXCLUDED.balance",
+                    (uid, chat_id, mora_reward),
+                )
+                cur.execute(
+                    f"INSERT INTO user_stats (user_id, chat_id, xp) VALUES ({ph},{ph},{ph}) "
+                    f"ON CONFLICT (user_id, chat_id) DO UPDATE SET xp = user_stats.xp + EXCLUDED.xp",
+                    (uid, chat_id, xp_reward),
+                )
+            else:
+                cur.execute(
+                    "INSERT INTO user_mora (user_id, chat_id, balance) VALUES (?,?,?) "
+                    "ON CONFLICT(user_id, chat_id) DO UPDATE SET balance = user_mora.balance + excluded.balance",
+                    (uid, chat_id, mora_reward),
+                )
+                cur.execute(
+                    "INSERT INTO user_stats (user_id, chat_id, xp) VALUES (?,?,?) "
+                    "ON CONFLICT(user_id, chat_id) DO UPDATE SET xp = user_stats.xp + excluded.xp",
+                    (uid, chat_id, xp_reward),
+                )
+            conn.commit()
+            conn.close()
+            response["rewards"] = {"mora": mora_reward, "xp": xp_reward}
+        except Exception as e:
+            try: conn.close()
+            except Exception: pass
+            response["rewards_error"] = str(e)
+
+    return JsonResponse(response, json_dumps_params={"ensure_ascii": False}, headers=headers)
 
 
 # ─── НОВЫЕ ФУНКЦИИ: Аватарки из Telegram ─────────────────────────────────────

@@ -1,4 +1,4 @@
-﻿import asyncio
+import asyncio
 import re
 import time
 from datetime import datetime, timedelta
@@ -17,20 +17,20 @@ from database.db import (
     add_mora, add_xp_in_chat, apply_pending_import, apply_pending_marriages,
     check_daily_mora, get_blacklist, get_chat_settings, get_filters, get_locks,
     get_todays_quest, get_user_stats, increment_cleanup_count,
+    increment_message_count_chat,
     is_group_allowed,
     mark_quest_rewarded, quest_tick,
     upsert_chat, upsert_user, upsert_user_stats,
 )
-from services.message_buffer import buffer_message
 from services.recent_users import remember_user
 from utils.flood import check_flood
 from services.antispam import check_spam
 from utils.helpers import user_mention
 from utils.ranks import rank_level
 
-# в”Ђв”Ђв”Ђ pymorphy3 РґР»СЏ РјРѕСЂС„РѕР»РѕРіРёРё С‡С‘СЂРЅРѕРіРѕ СЃРїРёСЃРєР° в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
+# --- pymorphy3 для морфологии чёрного списка ---
 _morph = None
-_word_re = re.compile(r'[Р°-СЏС‘a-z0-9]+', re.IGNORECASE)
+_word_re = re.compile(r'[а-яёa-z0-9]+', re.IGNORECASE)
 
 def _get_morph():
     global _morph
@@ -51,20 +51,20 @@ def _check_blacklist_morph(text_lower: str, blacklist) -> bool:
             return True
     return False
 
-# РљСЌС€: (chat_id, user_id) -> timestamp РїРѕСЃР»РµРґРЅРµР№ РїСЂРѕРІРµСЂРєРё СЃС‚Р°С‚СѓСЃР°
+# Кэш: (chat_id, user_id) -> timestamp последней проверки статуса
 _checked: dict[tuple[int, int], float] = {}
-_CHECKED_TTL = 3600.0  # РїРµСЂРµРїСЂРѕРІРµСЂСЏС‚СЊ СЂР°Р· РІ С‡Р°СЃ
+_CHECKED_TTL = 3600.0  # перепроверять раз в час
 
-# РљСѓР»РґР°СѓРЅ XP: (user_id, chat_id) -> timestamp РїРѕСЃР»РµРґРЅРµРіРѕ РЅР°С‡РёСЃР»РµРЅРёСЏ
+# Кулдаун XP: (user_id, chat_id) -> timestamp последнего начисления
 _xp_cooldown: dict[tuple[int, int], float] = {}
 
-# РљСѓР»РґР°СѓРЅ РјРѕСЂС‹ Р·Р° СЃРѕРѕР±С‰РµРЅРёСЏ: (user_id, chat_id) -> timestamp РїРѕСЃР»РµРґРЅРµРіРѕ РґСЂРѕРїР°
+# Кулдаун моры за сообщения: (user_id, chat_id) -> timestamp последнего дропа
 _mora_cooldown: dict[tuple[int, int], float] = {}
 
-# РљСЌС€ В«РїРµСЂРІРѕРµ СЃРѕРѕР±С‰РµРЅРёРµ Р·Р° РґРµРЅСЊВ» РґР»СЏ РњРѕСЂС‹: (user_id, chat_id) -> iso-date
+# Кэш «первое сообщение за день» для Моры: (user_id, chat_id) -> iso-date
 _mora_daily_checked: dict[tuple[int, int], str] = {}
 
-# РўСЂРµРєРµСЂ СЋР·РµСЂРѕРІ, Сѓ РєРѕС‚РѕСЂС‹С… pending-РёРјРїРѕСЂС‚ СѓР¶Рµ РїСЂРѕРІРµСЂРµРЅ/РїСЂРёРјРµРЅС‘РЅ
+# Трекер юзеров, у которых pending-импорт уже проверен/применён
 _pending_resolved: set[tuple[int, int]] = set()   # (user_id, chat_id)
 _PENDING_RESOLVED_LIMIT = 5000
 
@@ -81,18 +81,18 @@ _URL_RE = re.compile(
 )
 
 
-# Р’СЂРµРјСЏ Р·Р°РїСѓСЃРєР° Р±РѕС‚Р° РґР»СЏ Р·Р°С‰РёС‚С‹ РѕС‚ СЃС‚Р°СЂС‹С… СЃРѕРѕР±С‰РµРЅРёР№
+# Время запуска бота для защиты от старых сообщений
 _bot_start_time = None
 
 def set_bot_start_time(start_time: datetime):
-    """РЈСЃС‚Р°РЅРѕРІРёС‚СЊ РІСЂРµРјСЏ Р·Р°РїСѓСЃРєР° Р±РѕС‚Р° РґР»СЏ Р·Р°С‰РёС‚С‹ РѕС‚ СЃС‚Р°СЂС‹С… СЃРѕРѕР±С‰РµРЅРёР№"""
+    """Установить время запуска бота для защиты от старых сообщений"""
     global _bot_start_time
     _bot_start_time = start_time
 
 
 def _get_event_antispam_type(event: Message) -> str:
     text = (event.text or event.caption or "").strip().lower()
-    if text.startswith("бот "):
+    if text.startswith("\u0431\u043e\u0442 "):
         return "command"
     return "message"
 
@@ -109,23 +109,23 @@ class AutoModMiddleware(BaseMiddleware):
             return await handler(event, data)
         remember_user(user.id, user.username, user.full_name)
 
-        # рџ›ЎпёЏ Р—Р°С‰РёС‚Р° РѕС‚ РѕР±СЂР°Р±РѕС‚РєРё СЃС‚Р°СЂС‹С… СЃРѕРѕР±С‰РµРЅРёР№ РїРѕСЃР»Рµ РїРµСЂРµР·Р°РїСѓСЃРєР° Р±РѕС‚Р°
-        # (РїСЂРµРґРѕС‚РІСЂР°С‰Р°РµС‚ РјСѓС‚С‹/РєРёРєРё Р·Р° СЃРѕРѕР±С‰РµРЅРёСЏ, РѕС‚РїСЂР°РІР»РµРЅРЅС‹Рµ РїРѕРєР° Р±РѕС‚ Р±С‹Р» РЅРµР°РєС‚РёРІРµРЅ)
+        # Защита от обработки старых сообщений после перезапуска бота
         if _bot_start_time and event.date < _bot_start_time:
-            # РРіРЅРѕСЂРёСЂСѓРµРј СЃРѕРѕР±С‰РµРЅРёСЏ, РѕС‚РїСЂР°РІР»РµРЅРЅС‹Рµ РґРѕ Р·Р°РїСѓСЃРєР° Р±РѕС‚Р°
             return
 
-        # 0. Р‘РµР»С‹Р№ СЃРїРёСЃРѕРє РіСЂСѓРїРї вЂ” РµСЃР»Рё РІРєР»СЋС‡С‘РЅ, РёРіРЅРѕСЂРёСЂСѓРµРј РЅРµСЂР°Р·СЂРµС€С‘РЅРЅС‹Рµ РіСЂСѓРїРїС‹
-        #    (СЂР°Р·СЂР°Р±РѕС‚С‡РёРє РІСЃРµРіРґР° РїСЂРѕС…РѕРґРёС‚, С‡С‚РѕР±С‹ РјРѕРі РґРѕР±Р°РІРёС‚СЊ РіСЂСѓРїРїСѓ)
+        # Возраст сообщения: пакетная доставка после реконнекта не должна мутить
+        _msg_age_secs = time.time() - event.date.timestamp()
+        _is_stale_msg = _msg_age_secs > 30
+
+        # 0. Белый список групп — разработчик проходит всегда
+        _is_admin_group = False
         if event.chat.type in ("group", "supergroup"):
             if not is_group_allowed(event.chat.id) and user.id != DEVELOPER_ID:
                 return
-            # РђРґРјРёРЅ-РіСЂСѓРїРїС‹ вЂ” С‚РѕР»СЊРєРѕ РґР»СЏ СЃРёСЃС‚РµРјРЅС‹С… СѓРІРµРґРѕРјР»РµРЅРёР№, Р±РµР· СЃС‚Р°С‚РёСЃС‚РёРєРё/Р°РІС‚Рѕ-РјРѕРґР°
             from database.db import get_admin_group_ids
-            if event.chat.id in get_admin_group_ids():
-                return await handler(event, data)
+            _is_admin_group = event.chat.id in get_admin_group_ids()
 
-        # 1. Р РµРіРёСЃС‚СЂР°С†РёСЏ / РѕР±РЅРѕРІР»РµРЅРёРµ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ
+        # 1. Регистрация / обновление пользователя
         await upsert_user(user.id, user.username or "", user.full_name or "")
 
         await upsert_chat(
@@ -138,11 +138,11 @@ class AutoModMiddleware(BaseMiddleware):
 
         in_group = event.chat.type in ("group", "supergroup")
 
-        # 2. Per-chat profile + РїРѕРґСЃС‡С‘С‚ СЃРѕРѕР±С‰РµРЅРёР№ (С‚РѕР»СЊРєРѕ РІ РіСЂСѓРїРїР°С…)
+        # 2. Per-chat profile + подсчёт сообщений (только в группах)
         if in_group:
             await upsert_user_stats(user.id, event.chat.id)
 
-            # Pending import: РїСЂРёРјРµРЅСЏРµРј РѕРґРёРЅ СЂР°Р· РїСЂРё РїРµСЂРІРѕРј СЃРѕРѕР±С‰РµРЅРёРё СЋР·РµСЂР° РІ СЌС‚РѕРј С‡Р°С‚Рµ
+            # Pending import
             if user.username:
                 _key = (user.id, event.chat.id)
                 if _key not in _pending_resolved:
@@ -152,14 +152,18 @@ class AutoModMiddleware(BaseMiddleware):
                     await apply_pending_import(user.username, user.id, event.chat.id)
                     await apply_pending_marriages(user.username, user.id, event.chat.id)
 
-            await buffer_message(user.id, event.chat.id)
+            # ПРЯМАЯ запись в БД — каждое сообщение обновляет message_count + last_active
+            await increment_message_count_chat(user.id, event.chat.id)
             await increment_cleanup_count(event.chat.id, user.id)
 
-            # в”Ђв”Ђ РњРѕСЂР°: РїРµСЂРІРѕРµ СЃРѕРѕР±С‰РµРЅРёРµ РґРЅСЏ (+3) Рё 7-РґРЅРµРІРЅС‹Р№ СЃС‚СЂРёРє (+50) в”Ђв”Ђ
+            # Чат администрации: только подсчёт сообщений, без моры/XP/квестов
+            if _is_admin_group:
+                return await handler(event, data)
+
+            # -- Мора: первое сообщение дня (+3) и 7-дневный стрик (+50) --
             from utils.helpers import bot_today as _bot_today
             _today_str = _bot_today()
             _mora_key = (user.id, event.chat.id)
-            # РџРµСЂРёРѕРґРёС‡РµСЃРєР°СЏ РѕС‡РёСЃС‚РєР° РєСЌС€Р° РµР¶РµРґРЅРµРІРЅРѕР№ РїСЂРѕРІРµСЂРєРё
             if len(_mora_daily_checked) > 2000:
                 _mora_daily_checked.clear()
             if _mora_daily_checked.get(_mora_key) != _today_str:
@@ -172,14 +176,14 @@ class AutoModMiddleware(BaseMiddleware):
                         await add_mora(user.id, event.chat.id, MORA_STREAK_BONUS)
                         try:
                             await event.answer(
-                                f"рџ”Ґ {user_mention(user.id, user.full_name)} вЂ” 7-РґРЅРµРІРЅС‹Р№ СЃС‚СЂРёРє! "
-                                f"<b>+{MORA_STREAK_BONUS} РњРѕСЂС‹</b> рџЄ™",
+                                f"\U0001f525 {user_mention(user.id, user.full_name)} \u2014 7-\u0434\u043d\u0435\u0432\u043d\u044b\u0439 \u0441\u0442\u0440\u0438\u043a! "
+                                f"<b>+{MORA_STREAK_BONUS} \u041c\u043e\u0440\u044b</b> \U0001fa99",
                                 parse_mode="HTML",
                             )
                         except Exception:
                             pass
 
-            # в”Ђв”Ђ РњРѕСЂР°: С€Р°РЅСЃ РїРѕР»СѓС‡РёС‚СЊ Р·Р° СЃРѕРѕР±С‰РµРЅРёРµ (СЃ РєСѓР»РґР°СѓРЅРѕРј) в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
+            # -- Мора: шанс получить за сообщение (с кулдауном) --
             from config import (MORA_MSG_CHANCE, MORA_MSG_MIN, MORA_MSG_MAX,
                                 MORA_MSG_COOLDOWN, MORA_QUEST_REWARD, MORA_LEVELUP_BONUS)
             from database.db import is_user_single as _is_single
@@ -187,15 +191,13 @@ class AutoModMiddleware(BaseMiddleware):
             _mora_cd_key = (user.id, event.chat.id)
             _now_mora = time.monotonic()
             if _now_mora - _mora_cooldown.get(_mora_cd_key, 0) >= MORA_MSG_COOLDOWN:
-                # РџРµСЂРє РѕРґРёРЅРѕС‡РєРё: 20% С€Р°РЅСЃ, 2-4 РњРѕСЂС‹ (vs 17% Рё 1-3 РґР»СЏ РїР°СЂ)
                 _single = await _is_single(user.id, event.chat.id)
-                _chance  = 0.20          if _single else MORA_MSG_CHANCE  # 20% vs 17%
-                _min_drop = MORA_MSG_MIN + 1 if _single else MORA_MSG_MIN  # 2 vs 1
-                _max_drop = MORA_MSG_MAX + 1 if _single else MORA_MSG_MAX  # 4 vs 3
+                _chance  = 0.20          if _single else MORA_MSG_CHANCE
+                _min_drop = MORA_MSG_MIN + 1 if _single else MORA_MSG_MIN
+                _max_drop = MORA_MSG_MAX + 1 if _single else MORA_MSG_MAX
                 if _mora_rng.random() < _chance:
                     _mora_cooldown[_mora_cd_key] = _now_mora
                     _mora_drop = _mora_rng.randint(_min_drop, _max_drop)
-                    # РќРѕС‡РЅР°СЏ СЃРјРµРЅР° 00:00вЂ“06:00 (Europe/Zurich) в†’ x2 РњРѕСЂР°
                     try:
                         import zoneinfo as _zi
                         _tz_zurich = _zi.ZoneInfo("Europe/Zurich")
@@ -222,16 +224,15 @@ class AutoModMiddleware(BaseMiddleware):
                     await mark_quest_rewarded(user.id, event.chat.id, _today)
                     try:
                         await event.answer(
-                            f"рџЋ‰ {user_mention(user.id, user.full_name)} РІС‹РїРѕР»РЅРёР» РµР¶РµРґРЅРµРІРЅРѕРµ Р·Р°РґР°РЅРёРµ! "
-                            f"<b>+{quest['xp']} XP</b>  <b>+{_mora_reward} РњРѕСЂС‹</b> рџЄ™",
+                            f"\U0001f389 {user_mention(user.id, user.full_name)} \u0432\u044b\u043f\u043e\u043b\u043d\u0438\u043b \u0435\u0436\u0435\u0434\u043d\u0435\u0432\u043d\u043e\u0435 \u0437\u0430\u0434\u0430\u043d\u0438\u0435! "
+                            f"<b>+{quest['xp']} XP</b>  <b>+{_mora_reward} \u041c\u043e\u0440\u044b</b> \U0001fa99",
                             parse_mode="HTML",
                         )
                     except Exception:
                         pass
 
-            # XP СЂР°Р· РІ РјРёРЅСѓС‚Сѓ (per-chat)
+            # XP раз в минуту (per-chat)
             now = time.monotonic()
-            # РћС‡РёС‰Р°РµРј РїСЂРѕСЃСЂРѕС‡РµРЅРЅС‹Рµ Р·Р°РїРёСЃРё (РІС‹Р±РѕСЂРѕС‡РЅРѕ, РЅРµ РїРѕР»РЅР°СЏ РѕС‡РёСЃС‚РєР°)
             xp_key = (user.id, event.chat.id)
             if len(_xp_cooldown) > 500:
                 cutoff = now - XP_COOLDOWN * 2
@@ -248,78 +249,77 @@ class AutoModMiddleware(BaseMiddleware):
                     if LEVEL_UP_ANNOUNCE:
                         try:
                             await event.answer(
-                                f"рџЊџ {user_mention(user.id, user.full_name)} РґРѕСЃС‚РёРі <b>{new_level} СѓСЂРѕРІРЅСЏ</b>! "
-                                f"(XP: {new_xp}) <b>+{MORA_LEVELUP_BONUS} РњРѕСЂС‹</b> рџЄ™",
+                                f"\U0001f31f {user_mention(user.id, user.full_name)} \u0434\u043e\u0441\u0442\u0438\u0433 <b>{new_level} \u0443\u0440\u043e\u0432\u043d\u044f</b>! "
+                                f"(XP: {new_xp}) <b>+{MORA_LEVELUP_BONUS} \u041c\u043e\u0440\u044b</b> \U0001fa99",
                                 parse_mode="HTML",
                             )
                         except Exception:
                             pass
 
-        # 3. РџСЂРѕРІРµСЂРєР° СЃС‚Р°С‚СѓСЃР° РІС‹РїРѕР»РЅСЏРµС‚СЃСЏ Р±РµР· Р°РІС‚Рѕ-РїРѕРІС‹С€РµРЅРёР№ (РІСЃРµ СЂР°РЅРіРё РІС‹РґР°СЋС‚СЃСЏ РІСЂСѓС‡РЅСѓСЋ)
+        # 3. Проверка статуса (все ранги выдаются вручную)
         if in_group:
             key = (event.chat.id, user.id)
             now_mono = time.monotonic()
             if key not in _checked or now_mono - _checked[key] > _CHECKED_TTL:
                 _checked[key] = now_mono
-                # РџРµСЂРёРѕРґРёС‡РµСЃРєР°СЏ РѕС‡РёСЃС‚РєР° СѓСЃС‚Р°СЂРµРІС€РёС… Р·Р°РїРёСЃРµР№
                 if len(_checked) > 1000:
                     cutoff = now_mono - _CHECKED_TTL
                     expired = [k for k, v in _checked.items() if v <= cutoff]
                     for k in expired:
                         del _checked[k]
 
-        # РђРІС‚Рѕ-РјРѕРґ С‚РѕР»СЊРєРѕ РІ РіСЂСѓРїРїР°С…
+        # Авто-мод только в группах
         if not in_group:
             return await handler(event, data)
 
-        # Р Р°Р·СЂР°Р±РѕС‚С‡РёРє РІСЃРµРіРґР° РїСЂРѕС…РѕРґРёС‚ Р°РІС‚Рѕ-РјРѕРґ РЅРµР·Р°РІРёСЃРёРјРѕ РѕС‚ СЃРѕСЃС‚РѕСЏРЅРёСЏ Р‘Р”
+        # Разработчик всегда проходит авто-мод
         if DEVELOPER_ID and user.id == DEVELOPER_ID:
             return await handler(event, data)
 
         stats = await get_user_stats(user.id, event.chat.id)
         user_rank = stats["rank"] if stats else "user"
 
-        # РњРѕРґРµСЂР°С‚РѕСЂС‹ Рё РІС‹С€Рµ РѕСЃРІРѕР±РѕР¶РґРµРЅС‹ РѕС‚ Р°РІС‚Рѕ-РјРѕРґР°
+        # Модераторы и выше освобождены от авто-мода
         if rank_level(user_rank) >= rank_level("moderator"):
             return await handler(event, data)
 
         bot_: Bot = data["bot"]
         chat_id = event.chat.id
 
-        # 4Р°. РђРІС‚Рѕ-РґРµС‚РµРєС‚ СЃРїР°РјР°: вЂ" Token Bucket РЗ-Рѕ-P В¿РЁpY Р°Р·Р»РѕР п‚ Р"Р± РґРѕ Р±Р°РЅР¶ Р (РІСЃРµРіРґР° РІРєР»СЋС‡С'РЅ)
+        # 4а. Авто-детект спама: Token Bucket (всегда включён)
         if check_spam(user.id, chat_id, _get_event_antispam_type(event)):
-            try:
-                await event.delete()
-                until = datetime.now() + timedelta(seconds=DEFAULT_FLOOD_MUTE)
-                await bot_.restrict_chat_member(
-                    chat_id, user.id,
-                    permissions=ChatPermissions(can_send_messages=False),
-                    until_date=until,
-                )
-                mute_mins = DEFAULT_FLOOD_MUTE // 60
-                mute_label = f"{mute_mins} РјРёРЅ." if mute_mins < 60 else f"{mute_mins // 60} С‡."
-                warn_msg = await bot_.send_message(
-                    chat_id,
-                    f"рџљ« {user_mention(user.id, user.full_name)} Р·Р°РіР»СѓС€РµРЅ РЅР° {mute_label} Р·Р° СЃРїР°Рј "
-                    f"(3+ СЃРѕРѕР±С‰РµРЅРёСЏ РІ СЃРµРєСѓРЅРґСѓ).",
-                    parse_mode="HTML",
-                )
-                from utils.helpers import notify_admins
-                await notify_admins(
-                    bot_,
-                    f"рџљ« <b>РђРІС‚Рѕ-Р°РЅС‚РёСЃРїР°Рј</b>\n"
-                    f"рџ‘¤ {user_mention(user.id, user.full_name)} (<code>{user.id}</code>)\n"
-                    f"рџ’¬ Р—Р°РіР»СѓС€РµРЅ РЅР° {mute_label} РІ С‡Р°С‚Рµ Р·Р° СЃРїР°Рј.",
-                    source_chat_id=chat_id,
-                )
-            except Exception:
-                pass
+            if not _is_stale_msg:
+                try:
+                    await event.delete()
+                    until = datetime.now() + timedelta(seconds=DEFAULT_FLOOD_MUTE)
+                    await bot_.restrict_chat_member(
+                        chat_id, user.id,
+                        permissions=ChatPermissions(can_send_messages=False),
+                        until_date=until,
+                    )
+                    mute_mins = DEFAULT_FLOOD_MUTE // 60
+                    mute_label = f"{mute_mins} \u043c\u0438\u043d." if mute_mins < 60 else f"{mute_mins // 60} \u0447."
+                    await bot_.send_message(
+                        chat_id,
+                        f"\U0001f6ab {user_mention(user.id, user.full_name)} \u0437\u0430\u0433\u043b\u0443\u0448\u0435\u043d \u043d\u0430 {mute_label} \u0437\u0430 \u0441\u043f\u0430\u043c.",
+                        parse_mode="HTML",
+                    )
+                    from utils.helpers import notify_admins
+                    await notify_admins(
+                        bot_,
+                        f"\U0001f6ab <b>\u0410\u0432\u0442\u043e-\u0430\u043d\u0442\u0438\u0441\u043f\u0430\u043c</b>\n"
+                        f"\U0001f464 {user_mention(user.id, user.full_name)} (<code>{user.id}</code>)\n"
+                        f"\U0001f4ac \u0417\u0430\u0433\u043b\u0443\u0448\u0435\u043d \u043d\u0430 {mute_label} \u0432 \u0447\u0430\u0442\u0435 \u0437\u0430 \u0441\u043f\u0430\u043c.",
+                        source_chat_id=chat_id,
+                    )
+                except Exception:
+                    pass
             return
 
-        # 4Р±. РђРЅС‚РёС„Р»СѓРґ (РЅР°СЃС‚СЂР°РёРІР°РµРјС‹Р№)
+        # 4б. Антифлуд (настраиваемый)
         settings = await get_chat_settings(chat_id)
 
-        # Р‘Р»РѕРєРёСЂРѕРІРєР° СЃРѕРѕР±С‰РµРЅРёР№ РІРѕ РІСЂРµРјСЏ С‡РёСЃС‚РєРё (РґР»СЏ rank < moderator)
+        # Блокировка сообщений во время чистки
         if settings and settings.get("cleanup_locked"):
             try:
                 await event.delete()
@@ -327,7 +327,6 @@ class AutoModMiddleware(BaseMiddleware):
                 pass
             return
 
-        # Р•СЃР»Рё РЅР°СЃС‚СЂРѕРµРє РЅРµС‚ вЂ” РёСЃРїРѕР»СЊР·СѓРµРј СѓРјРѕР»С‡Р°РЅРёСЏ РёР· config.py
         af_enabled = settings["antiflood_enabled"] if settings else int(DEFAULT_ANTIFLOOD_ENABLED)
         af_limit   = settings["antiflood_limit"]   if settings else DEFAULT_ANTIFLOOD_LIMIT
         af_window  = (settings["antiflood_window"] if settings and settings["antiflood_window"] else None) or FLOOD_WINDOW
@@ -342,51 +341,50 @@ class AutoModMiddleware(BaseMiddleware):
                         until_date=until,
                     )
                     mute_mins = DEFAULT_FLOOD_MUTE // 60
-                    mute_label = f"{mute_mins} РјРёРЅ." if mute_mins < 60 else f"{mute_mins // 60} С‡."
+                    mute_label = f"{mute_mins} \u043c\u0438\u043d." if mute_mins < 60 else f"{mute_mins // 60} \u0447."
                     await bot_.send_message(
                         chat_id,
-                        f"вљЎ {user_mention(user.id, user.full_name)} Р·Р°РіР»СѓС€РµРЅ РЅР° {mute_label} Р·Р° С„Р»СѓРґ.",
+                        f"\u26a1 {user_mention(user.id, user.full_name)} \u0437\u0430\u0433\u043b\u0443\u0448\u0435\u043d \u043d\u0430 {mute_label} \u0437\u0430 \u0444\u043b\u0443\u0434.",
                         parse_mode="HTML",
                     )
                 except Exception:
                     pass
                 return
 
-        # 5. Р—Р°РјРєРё (locks)
+        # 5. Замки (locks)
         locks = await get_locks(chat_id)
         if locks:
             reason = None
             if locks["links"] and event.text and _URL_RE.search(event.text):
-                reason = "СЃСЃС‹Р»РєРё"
+                reason = "\u0441\u0441\u044b\u043b\u043a\u0438"
             elif locks["stickers"] and event.sticker:
-                reason = "СЃС‚РёРєРµСЂС‹"
+                reason = "\u0441\u0442\u0438\u043a\u0435\u0440\u044b"
             elif locks["gifs"] and event.animation:
-                reason = "РіРёС„РєРё"
+                reason = "\u0433\u0438\u0444\u043a\u0438"
             elif locks["forwards"] and event.forward_origin:
-                reason = "РїРµСЂРµСЃС‹Р»РєР°"
+                reason = "\u043f\u0435\u0440\u0435\u0441\u044b\u043b\u043a\u0430"
             elif locks["voice"] and event.voice:
-                reason = "РіРѕР»РѕСЃРѕРІС‹Рµ"
+                reason = "\u0433\u043e\u043b\u043e\u0441\u043e\u0432\u044b\u0435"
             elif locks["video"] and event.video_note:
-                reason = "РєСЂСѓР¶РѕС‡РєРё"
+                reason = "\u043a\u0440\u0443\u0436\u043e\u0447\u043a\u0438"
             elif locks["photo"] and event.photo:
-                reason = "С„РѕС‚Рѕ"
+                reason = "\u0444\u043e\u0442\u043e"
             elif locks["audio"] and event.audio:
-                reason = "Р°СѓРґРёРѕ"
+                reason = "\u0430\u0443\u0434\u0438\u043e"
 
             if reason:
                 try:
                     await event.delete()
                     msg = await bot_.send_message(
                         chat_id,
-                        f"рџ”’ РЎРѕРѕР±С‰РµРЅРёРµ СѓРґР°Р»РµРЅРѕ вЂ” РІ С‡Р°С‚Рµ Р·Р°Р±Р»РѕРєРёСЂРѕРІР°РЅС‹: {reason}.",
+                        f"\U0001f512 \u0421\u043e\u043e\u0431\u0449\u0435\u043d\u0438\u0435 \u0443\u0434\u0430\u043b\u0435\u043d\u043e \u2014 \u0432 \u0447\u0430\u0442\u0435 \u0437\u0430\u0431\u043b\u043e\u043a\u0438\u0440\u043e\u0432\u0430\u043d\u044b: {reason}.",
                     )
-                    # РЈРґР°Р»СЏРµРј СѓРІРµРґРѕРјР»РµРЅРёРµ С‡РµСЂРµР· 5 СЃРµРєСѓРЅРґ
                     asyncio.create_task(_delete_after(msg))
                 except Exception:
                     pass
                 return
 
-        # 6. Р§С‘СЂРЅС‹Р№ СЃРїРёСЃРѕРє СЃР»РѕРІ
+        # 6. Чёрный список слов
         if event.text:
             settings_bl = settings or await get_chat_settings(chat_id)
             bl_enabled = (
@@ -411,8 +409,8 @@ class AutoModMiddleware(BaseMiddleware):
                         await event.delete()
                         msg = await bot_.send_message(
                             chat_id,
-                            f"вљ пёЏ РЎРѕРѕР±С‰РµРЅРёРµ {user_mention(user.id, user.full_name)} СѓРґР°Р»РµРЅРѕ "
-                            f"(Р·Р°РїСЂРµС‰С‘РЅРЅРѕРµ СЃР»РѕРІРѕ).",
+                            f"\u26a0\ufe0f \u0421\u043e\u043e\u0431\u0449\u0435\u043d\u0438\u0435 {user_mention(user.id, user.full_name)} \u0443\u0434\u0430\u043b\u0435\u043d\u043e "
+                            f"(\u0437\u0430\u043f\u0440\u0435\u0449\u0451\u043d\u043d\u043e\u0435 \u0441\u043b\u043e\u0432\u043e).",
                             parse_mode="HTML",
                         )
                         asyncio.create_task(_delete_after(msg))
@@ -421,4 +419,3 @@ class AutoModMiddleware(BaseMiddleware):
                     return
 
         return await handler(event, data)
-
