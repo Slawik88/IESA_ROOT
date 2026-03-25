@@ -510,7 +510,7 @@ select{background:var(--bg3);border:1px solid var(--border);border-radius:8px;pa
       <div style="display:flex;align-items:center;gap:10px">
         <div style="font-size:24px">👤</div>
         <div style="flex:1">
-          <div id="partnerName" style="font-weight:600"></div>
+          <div id="bossPartnerName" style="font-weight:600"></div>
           <div style="font-size:12px;color:var(--text2)">Твой партнёр для парных боссов</div>
         </div>
       </div>
@@ -772,9 +772,6 @@ select{background:var(--bg3);border:1px solid var(--border);border-radius:8px;pa
       </div>
       <div class="dev-event-btn" onclick="devTriggerEvent('дилижанс')">
         <div>🛤</div><div class="dev-event-label">Дилижанс</div>
-      </div>
-      <div class="dev-event-btn" onclick="devTriggerEvent('торговец')">
-        <div>🧑‍💼</div><div class="dev-event-label">Торговец</div>
       </div>
     </div>
   </div>
@@ -1102,7 +1099,7 @@ async function loadSinglesAndProposals(){
     if(singles.length){
       el.innerHTML = '<div style="font-size:13px;color:var(--text2);margin-bottom:6px">💍 Предложить руку и сердце:</div>' +
         singles.map(s => `<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid var(--border)">
-          <span style="font-size:13px">${esc(s.full_name||'user_'+s.user_id)}</span>
+          <span style="font-size:13px">${esc(s.name||'user_'+s.user_id)}</span>
           <button class="btn btn-sm" style="background:var(--accent);font-size:11px;padding:2px 8px" onclick="sendProposal(${s.user_id})">💍</button>
         </div>`).join('');
     } else {
@@ -2444,7 +2441,7 @@ async function loadCoupleBoss() {
     }
 
     // Show partner info
-    document.getElementById('partnerName').textContent = r.partner_name;
+    document.getElementById('bossPartnerName').textContent = r.partner_name;
     document.getElementById('partnerInfo').style.display = 'block';
     document.getElementById('noMarriageCard').style.display = 'none';
 
