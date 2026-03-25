@@ -77,18 +77,23 @@ async def _finish_event(bot, chat_id: int, reason: str):
             pass
         return
 
+    # Если цель НЕ достигнута — участники получают лишь 10% награды
+    goal_reached = total >= _DILIGENCE_GOAL
+    effective_reward = _DILIGENCE_REWARD if goal_reached else round(_DILIGENCE_REWARD * 0.10)
+
     # Один раз пишем в БД за всех
     rewards: list[tuple[int, int]] = []
     for uid, clicks in participants.items():
-        share = round(_DILIGENCE_REWARD * clicks / total)
+        share = round(effective_reward * clicks / total)
         if share > 0:
             await add_mora(uid, chat_id, share)
             rewards.append((uid, share))
 
     # Топ-5 для итогового сообщения
     top = sorted(rewards, key=lambda x: x[1], reverse=True)[:5]
-    lines = [f"🚚 <b>Дилижанс разгромлен!</b> ({reason})\n",
-             f"🏆 <b>Общий котёл: {_DILIGENCE_REWARD} 🪙</b>\n",
+    status = "Дилижанс разгромлен!" if goal_reached else "Дилижанс уехал... цель не достигнута."
+    lines = [f"🚚 <b>{status}</b> ({reason})\n",
+             f"🏆 <b>Общий котёл: {effective_reward} 🪙</b>{'' if goal_reached else ' (штраф: цель не достигнута)'}\n",
              f"<b>Топ участников:</b>"]
     for uid, mora in top:
         lines.append(f"  ⚔️ {user_mention(uid, str(uid))} — <b>+{mora} 🪙</b>")

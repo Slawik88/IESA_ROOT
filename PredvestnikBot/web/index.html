@@ -376,6 +376,12 @@ select{background:var(--bg3);border:1px solid var(--border);border-radius:8px;pa
     <!-- No partner -->
     <div id="noPartnerCard" class="card" style="display:none">
       <div style="text-align:center;color:var(--text2);padding:10px">💔 Нет партнёра</div>
+      <div id="singlesList" style="margin-top:8px"></div>
+    </div>
+    <!-- Incoming proposals -->
+    <div id="proposalsCard" class="card" style="display:none">
+      <div class="card-title">💍 Входящие предложения</div>
+      <div id="proposalsList"></div>
     </div>
   </div>
 </div>
@@ -578,10 +584,47 @@ select{background:var(--bg3);border:1px solid var(--border);border-radius:8px;pa
     <!-- No Marriage Warning -->
     <div class="card" id="noMarriageCard">
       <div class="card-title">💔 Не в браке</div>
-      <div style="text-align:center;color:var(--text2);padding:20px">
+      <div style="text-align:center;color:var(--text2);padding:12px">
         Парные боссы доступны только для состоящих в браке игроков.
-        <br><br>
-        Найди себе партнёра и заключи брак в разделе 🤝 Узы!
+        <br>Найди себе партнёра и заключи брак в разделе 🤝 Узы!
+      </div>
+    </div>
+    
+    <!-- Solo Boss Section -->
+    <div class="card" id="soloBossCard" style="display:none">
+      <div class="card-title">🗡 Одиночный Босс</div>
+      <div id="soloBossProgress" style="font-size:12px;color:var(--text2);margin-bottom:8px"></div>
+      
+      <!-- Solo boss active session -->
+      <div id="soloBossActive" style="display:none">
+        <div style="text-align:center;margin:10px 0">
+          <div style="font-size:16px;font-weight:700;margin-bottom:4px">👹 Босс Ур. <span id="soloBossLevel">1</span></div>
+          <div class="progress-bar" style="height:12px">
+            <div class="progress-fill" id="soloBossHpBar"></div>
+          </div>
+          <div style="font-size:12px;color:var(--text2);margin-top:4px">
+            HP: <span id="soloBossHp">0</span> / <span id="soloBossMaxHp">0</span>
+          </div>
+        </div>
+        <div style="text-align:center;font-size:12px;color:var(--text2);margin-bottom:8px">
+          Твой урон: <b id="soloBossMyDmg">0</b> · Удары: <span id="soloBossMyHits">0</span>
+        </div>
+        <button class="btn btn-red" onclick="attackSoloBoss()" id="soloBossAtkBtn" style="font-size:16px;padding:12px;width:100%">
+          ⚔️ АТАКОВАТЬ
+        </button>
+      </div>
+      
+      <!-- Solo boss start button -->
+      <div id="soloBossIdle" style="text-align:center;padding:10px">
+        <div style="margin-bottom:8px;font-size:13px">Следующий уровень: <b id="soloBossNextLvl">1</b></div>
+        <button class="btn btn-primary" onclick="startSoloBoss()" style="font-size:14px;padding:10px 24px">
+          🗡 Начать бой
+        </button>
+      </div>
+      
+      <!-- Solo boss completed today -->
+      <div id="soloBossCompleted" style="display:none;text-align:center;padding:10px;color:var(--green)">
+        ✅ Ты уже победил босса сегодня! Возвращайся завтра.
       </div>
     </div>
     
@@ -1039,6 +1082,7 @@ async function loadUnion(){
     loadFamilyLog();
   } else {
     document.getElementById('noPartnerCard').style.display='block';
+    loadSinglesAndProposals();
   }
   if(p.pet){
     document.getElementById('petCard').style.display='block';
@@ -1047,6 +1091,61 @@ async function loadUnion(){
     updatePetFatigue(p.pet.fatigue||0);
     updatePetWalkStatus(p.pet);
   }
+}
+
+async function loadSinglesAndProposals(){
+  // Load singles list for proposals
+  try {
+    const r = await api('/api/marriage?chat_id=' + chatId);
+    const singles = (r.singles || []).filter(s => s.user_id !== profileData.user_id);
+    const el = document.getElementById('singlesList');
+    if(singles.length){
+      el.innerHTML = '<div style="font-size:13px;color:var(--text2);margin-bottom:6px">💍 Предложить руку и сердце:</div>' +
+        singles.map(s => `<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid var(--border)">
+          <span style="font-size:13px">${esc(s.full_name||'user_'+s.user_id)}</span>
+          <button class="btn btn-sm" style="background:var(--accent);font-size:11px;padding:2px 8px" onclick="sendProposal(${s.user_id})">💍</button>
+        </div>`).join('');
+    } else {
+      el.innerHTML = '<div style="text-align:center;color:var(--text2);font-size:12px;padding:6px">Нет доступных кандидатов</div>';
+    }
+  } catch(e){ /* ignore */ }
+
+  // Load incoming proposals
+  try {
+    const r = await api('/api/marriage/proposals?chat_id=' + chatId);
+    const proposals = r.proposals || [];
+    const card = document.getElementById('proposalsCard');
+    const list = document.getElementById('proposalsList');
+    if(proposals.length){
+      card.style.display = 'block';
+      list.innerHTML = proposals.map(p => `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border)">
+        <span style="font-size:13px">💌 <b>${esc(p.from_name)}</b></span>
+        <div>
+          <button class="btn btn-sm btn-green" style="font-size:11px;padding:2px 8px;margin-right:4px" onclick="respondProposal(${p.id},true)">✅</button>
+          <button class="btn btn-sm btn-red" style="font-size:11px;padding:2px 8px" onclick="respondProposal(${p.id},false)">❌</button>
+        </div>
+      </div>`).join('');
+    }
+  } catch(e){ /* ignore */ }
+}
+
+async function sendProposal(targetId){
+  try {
+    const r = await api('/api/marriage/propose','POST',{target_id:targetId,chat_id:chatId});
+    if(r.ok) toast('💍 ' + (r.message||'Предложение отправлено!'));
+    else toast('❌ ' + (r.error||'Ошибка'));
+  } catch(e){ toast('❌ ' + e.message); }
+}
+
+async function respondProposal(proposalId, accept){
+  try {
+    const r = await api('/api/marriage/respond','POST',{proposal_id:proposalId,accept:accept,chat_id:chatId});
+    if(r.ok){
+      toast(accept ? '💍 ' + (r.message||'Вы теперь в браке!') : '💔 ' + (r.message||'Отклонено'));
+      if(accept) { await loadProfile(); loadUnion(); }
+      else loadSinglesAndProposals();
+    } else toast('❌ ' + (r.error||'Ошибка'));
+  } catch(e){ toast('❌ ' + e.message); }
 }
 
 function updatePetFatigue(f){
@@ -2339,6 +2438,8 @@ async function loadCoupleBoss() {
       document.getElementById('progressInfo').style.display = 'none';
       document.getElementById('bossSelection').style.display = 'none';
       document.getElementById('activeBossCard').style.display = 'none';
+      // Show solo boss even without marriage
+      loadSoloBoss();
       return;
     }
 
@@ -2366,6 +2467,9 @@ async function loadCoupleBoss() {
     // Show couple boss tab
     document.getElementById('coupleBossTabBtn').style.display = 'block';
 
+    // Also load solo boss for married users
+    loadSoloBoss();
+
   } catch (e) {
     document.getElementById('coupleBossLoading').textContent = '❌ ' + e.message;
   }
@@ -2390,9 +2494,13 @@ function renderActiveBossSession(data) {
   
   // Update HP bar
   const hpBar = document.getElementById('bossHpBar');
-  hpBar.style.width = data.boss_hp_percent + '%';
-  
-  document.getElementById('bossHpText').textContent = `${Math.floor(data.boss_current_hp).toLocaleString()} / ${Math.floor(data.boss_max_hp).toLocaleString()}`;
+  hpBar.style.width = (data.boss_hp_percent || 0) + '%';
+  const curHpEl = document.getElementById('bossCurrentHp');
+  const maxHpEl = document.getElementById('bossMaxHp');
+  const pctEl   = document.getElementById('bossHpPercent');
+  if (curHpEl) curHpEl.textContent = Math.floor(data.boss_current_hp).toLocaleString();
+  if (maxHpEl) maxHpEl.textContent = Math.floor(data.boss_max_hp).toLocaleString();
+  if (pctEl)   pctEl.textContent = Math.round(data.boss_hp_percent || 0);
   document.getElementById('bossLevel').textContent = data.boss_level;
   document.getElementById('myDamage').textContent = Math.floor(data.my_damage).toLocaleString();
   document.getElementById('partnerDamage').textContent = Math.floor(data.partner_damage).toLocaleString();
@@ -2524,14 +2632,14 @@ function updateBossHpOnly(attackResult) {
   const hpText = document.getElementById('bossHpText');
   
   if (hpBar && attackResult.boss_hp !== undefined) {
-    const session = window.currentBossSession; // Store session data globally
+    const session = window.currentBossSession;
     if (session) {
       const hpPercent = (attackResult.boss_hp / session.boss_max_hp) * 100;
       hpBar.style.width = hpPercent + '%';
-      
-      if (hpText) {
-        hpText.textContent = `${attackResult.boss_hp.toLocaleString()} / ${session.boss_max_hp.toLocaleString()}`;
-      }
+      const curEl = document.getElementById('bossCurrentHp');
+      const pctEl = document.getElementById('bossHpPercent');
+      if (curEl) curEl.textContent = attackResult.boss_hp.toLocaleString();
+      if (pctEl) pctEl.textContent = Math.round(hpPercent);
     }
   }
   
@@ -2544,6 +2652,100 @@ function updateBossHpOnly(attackResult) {
   if (attackResult.partner_damage !== undefined) {
     const partnerDamageEl = document.getElementById('partnerDamage');
     if (partnerDamageEl) partnerDamageEl.textContent = attackResult.partner_damage.toLocaleString();
+  }
+}
+
+// ▓▓ Solo Boss System ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
+
+async function loadSoloBoss(){
+  const card = document.getElementById('soloBossCard');
+  if(!card) return;
+  card.style.display = 'block';
+  try {
+    const r = await api('/api/solo_boss/status?chat_id=' + chatId);
+    const prog = r.progress;
+    const sess = r.session;
+    const progEl = document.getElementById('soloBossProgress');
+    if(prog) progEl.textContent = 'Макс. уровень: ' + prog.max_level;
+    else progEl.textContent = 'Ещё не начинал';
+
+    document.getElementById('soloBossNextLvl').textContent = r.next_level || 1;
+
+    if(sess && !sess.is_completed){
+      // Active session
+      renderSoloBossActive(sess);
+    } else if(sess && sess.is_completed){
+      // Completed today
+      document.getElementById('soloBossActive').style.display = 'none';
+      document.getElementById('soloBossIdle').style.display = 'none';
+      document.getElementById('soloBossCompleted').style.display = 'block';
+    } else {
+      // No session — show start
+      document.getElementById('soloBossActive').style.display = 'none';
+      document.getElementById('soloBossIdle').style.display = 'block';
+      document.getElementById('soloBossCompleted').style.display = 'none';
+    }
+  } catch(e){
+    card.style.display = 'none';
+  }
+}
+
+function renderSoloBossActive(s){
+  document.getElementById('soloBossActive').style.display = 'block';
+  document.getElementById('soloBossIdle').style.display = 'none';
+  document.getElementById('soloBossCompleted').style.display = 'none';
+  document.getElementById('soloBossLevel').textContent = s.boss_level;
+  document.getElementById('soloBossHp').textContent = Math.floor(s.boss_current_hp).toLocaleString();
+  document.getElementById('soloBossMaxHp').textContent = Math.floor(s.boss_max_hp).toLocaleString();
+  document.getElementById('soloBossMyDmg').textContent = Math.floor(s.user_damage||0).toLocaleString();
+  document.getElementById('soloBossMyHits').textContent = s.user_hits||0;
+  const bar = document.getElementById('soloBossHpBar');
+  if(bar) bar.style.width = (s.boss_current_hp / s.boss_max_hp * 100) + '%';
+  window._soloBossSession = s;
+}
+
+async function startSoloBoss(){
+  try {
+    const r = await api('/api/solo_boss/start','POST',{chat_id:chatId});
+    if(r.ok){
+      toast('🗡 Бой начат!','success');
+      renderSoloBossActive(r.session);
+    } else toast('❌ '+(r.error||'Ошибка'),'error');
+  } catch(e){ toast('❌ '+e.message,'error'); }
+}
+
+let _soloBossAtkCD = 0;
+async function attackSoloBoss(){
+  const now = Date.now();
+  if(now < _soloBossAtkCD){ toast('⏳ Подожди...','error'); return; }
+  const btn = document.getElementById('soloBossAtkBtn');
+  btn.disabled = true; btn.innerHTML = '⏳ Атакую...';
+  try {
+    const r = await api('/api/solo_boss/attack','POST',{chat_id:chatId});
+    _soloBossAtkCD = now + 1000;
+    if(r.crit) toast('💥 КРИТ! Урон: '+Math.floor(r.damage_dealt),'success');
+    else toast('⚔️ Урон: '+Math.floor(r.damage_dealt),'success');
+
+    if(r.boss_defeated){
+      setTimeout(()=>{
+        if(r.rewards) toast('🎉 БОСС ПОВЕРЖЕН! +'+r.rewards.mora+' 🪙, +'+r.rewards.xp+' XP','success');
+        else toast('🎉 БОСС ПОВЕРЖЕН!','success');
+        loadSoloBoss();
+      },1500);
+    } else {
+      // Update HP inline
+      const s = window._soloBossSession;
+      if(s){
+        s.boss_current_hp = r.boss_hp;
+        s.user_damage = (s.user_damage||0) + r.damage_dealt;
+        s.user_hits = (s.user_hits||0) + 1;
+        renderSoloBossActive(s);
+      }
+    }
+    setTimeout(()=>{ btn.disabled=false; btn.innerHTML='⚔️ АТАКОВАТЬ'; },1000);
+  } catch(e){
+    toast('❌ '+e.message,'error');
+    btn.disabled=false; btn.innerHTML='⚔️ АТАКОВАТЬ';
   }
 }
 

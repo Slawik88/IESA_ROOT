@@ -37,6 +37,11 @@ from .miniapp_views import (
     miniapp_couple_boss_start,
     miniapp_couple_boss_attack,
     miniapp_get_avatar,  # ➕ Новая функция для аватарок
+    miniapp_marriage_proposals_list,
+    miniapp_marriage_respond,
+    miniapp_solo_boss_status,
+    miniapp_solo_boss_start,
+    miniapp_solo_boss_attack,
 )
 
 # Переопределить стандартный админ на кастомный
@@ -82,6 +87,11 @@ urlpatterns = [
     path('api/boss/submit_damage', miniapp_boss_damage, name='miniapp_boss_damage'),
     path('api/marriage', miniapp_marriage, name='miniapp_marriage'),
     path('api/marriage/propose', miniapp_marriage_propose, name='miniapp_marriage_propose'),
+    path('api/marriage/proposals', miniapp_marriage_proposals_list, name='miniapp_marriage_proposals_list'),
+    path('api/marriage/respond', miniapp_marriage_respond, name='miniapp_marriage_respond'),
+    path('api/solo_boss/status', miniapp_solo_boss_status, name='miniapp_solo_boss_status'),
+    path('api/solo_boss/start', miniapp_solo_boss_start, name='miniapp_solo_boss_start'),
+    path('api/solo_boss/attack', miniapp_solo_boss_attack, name='miniapp_solo_boss_attack'),
     path('api/bonds', miniapp_bonds, name='miniapp_bonds'),
     path('api/equip', miniapp_equip, name='miniapp_equip'),
     path('api/dev/stats', miniapp_dev_stats, name='miniapp_dev_stats'),

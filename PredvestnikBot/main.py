@@ -129,18 +129,17 @@ async def main():
                 logging.warning("boss flush error: %s", _e)
     asyncio.create_task(_boss_flush_loop())
 
-    # Message counter batch flush (every 3 minutes)
-    async def _msg_buffer_flush_loop():
-        from services.message_buffer import flush_buffer as _flush_msg
+    # Dev event queue — fast poll every 30 seconds so events from Mini App fire quickly
+    async def _dev_event_fast_poll():
+        await asyncio.sleep(10)
+        from utils.scheduler import _task_dev_event_queue
         while True:
-            await asyncio.sleep(180)
             try:
-                n = await _flush_msg()
-                if n:
-                    logging.debug("msg_buffer: flushed %d entries", n)
+                await _task_dev_event_queue(bot)
             except Exception as _e:
-                logging.warning("msg_buffer flush error: %s", _e)
-    asyncio.create_task(_msg_buffer_flush_loop())
+                logging.warning("dev_event_queue fast poll error: %s", _e)
+            await asyncio.sleep(30)
+    asyncio.create_task(_dev_event_fast_poll())
 
     # Mini App веб-сервер (aiohttp)
     asyncio.create_task(_run_webserver(bot))

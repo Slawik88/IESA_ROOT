@@ -831,6 +831,48 @@ async def init_db():
                 PRIMARY KEY (user_a_id, user_b_id, chat_id)
             )
         """)
+
+        # ─── Предложения руки и сердца ────────────────────────────────
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS marriage_proposals (
+                id           SERIAL PRIMARY KEY,
+                from_user_id BIGINT NOT NULL,
+                to_user_id   BIGINT NOT NULL,
+                chat_id      BIGINT NOT NULL,
+                status       TEXT   DEFAULT 'pending',
+                created_at   TIMESTAMPTZ DEFAULT NOW(),
+                UNIQUE(from_user_id, to_user_id, chat_id)
+            )
+        """)
+
+        # ─── Одиночные боссы ─────────────────────────────────────────
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS solo_boss_sessions (
+                id              SERIAL PRIMARY KEY,
+                user_id         BIGINT NOT NULL,
+                chat_id         BIGINT NOT NULL,
+                boss_level      INTEGER DEFAULT 1,
+                boss_max_hp     INTEGER NOT NULL,
+                boss_current_hp INTEGER NOT NULL,
+                user_damage     INTEGER DEFAULT 0,
+                user_hits       INTEGER DEFAULT 0,
+                is_completed    INTEGER DEFAULT 0,
+                is_repeat       INTEGER DEFAULT 0,
+                session_date    TEXT    NOT NULL,
+                completed_at    TIMESTAMPTZ DEFAULT NULL,
+                UNIQUE(user_id, chat_id, session_date)
+            )
+        """)
+
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS solo_boss_progress (
+                user_id        BIGINT NOT NULL,
+                chat_id        BIGINT NOT NULL,
+                max_level      INTEGER DEFAULT 0,
+                last_completed TEXT    DEFAULT NULL,
+                PRIMARY KEY (user_id, chat_id)
+            )
+        """)
         
         await db.execute("""
             CREATE TABLE IF NOT EXISTS bond_price_history (
@@ -3770,7 +3812,7 @@ async def get_inactive_users_for_warn(chat_id: int, cutoff_iso: str) -> list[dic
               AND COALESCE(us.last_active, us.first_active) < ?
               AND (
                   us.inactivity_warned_at IS NULL
-                  OR COALESCE(us.last_active, '') > us.inactivity_warned_at
+                  OR us.last_active > us.inactivity_warned_at
               )
             """,
             (chat_id, cutoff_iso),
@@ -5393,16 +5435,17 @@ async def create_couple_boss_session(user_a_id: int, user_b_id: int, chat_id: in
     is_repeat = progress and progress.get("max_level", 0) >= boss_level
     
     async with postgres_connect() as db:
-        await db.execute(
+        cursor = await db.execute(
             """INSERT INTO couple_boss_sessions 
                (user_a_id, user_b_id, chat_id, boss_level, boss_max_hp, boss_current_hp, 
                 is_repeat, session_date)
-               VALUES (?,?,?,?,?,?,?,?)""",
+               VALUES (?,?,?,?,?,?,?,?) RETURNING id""",
             (user_a_id, user_b_id, chat_id, boss_level, boss_max_hp, boss_max_hp, 
              1 if is_repeat else 0, today),
         )
+        row = await cursor.fetchone()
         await db.commit()
-        session_id = db.lastrowid
+        session_id = row[0] if row else None
     
     return {
         "id": session_id,
@@ -5570,5 +5613,152 @@ async def get_couple_boss_rewards(session: dict) -> dict:
         "xp_each": base_xp_each,
         "is_repeat": is_repeat,
         "level": boss_level,
+    }
+
+
+# ─── Marriage proposals ───────────────────────────────────────────────────────
+
+async def create_marriage_proposal(from_user_id: int, to_user_id: int, chat_id: int) -> int | None:
+    """Create a marriage proposal. Returns new proposal id, or None if duplicate."""
+    async with postgres_connect() as db:
+        cursor = await db.execute(
+            """INSERT INTO marriage_proposals (from_user_id, to_user_id, chat_id)
+               VALUES (?, ?, ?) ON CONFLICT(from_user_id, to_user_id, chat_id) DO UPDATE
+               SET status='pending', created_at=NOW()
+               RETURNING id""",
+            (from_user_id, to_user_id, chat_id),
+        )
+        row = await cursor.fetchone()
+        await db.commit()
+        return row[0] if row else None
+
+
+async def get_pending_proposals(to_user_id: int, chat_id: int) -> list:
+    """Return incoming pending proposals for a user in a chat."""
+    async with postgres_connect() as db:
+        async with db.execute(
+            """SELECT mp.id, mp.from_user_id, u.full_name as from_name, mp.created_at
+               FROM marriage_proposals mp
+               JOIN users u ON u.user_id = mp.from_user_id
+               WHERE mp.to_user_id=? AND mp.chat_id=? AND mp.status='pending'
+               ORDER BY mp.created_at DESC""",
+            (to_user_id, chat_id),
+        ) as c:
+            rows = await c.fetchall()
+    return [dict(r) for r in rows]
+
+
+async def respond_to_proposal(proposal_id: int, status: str) -> dict | None:
+    """Accept or decline a proposal. Returns proposal data if found."""
+    async with postgres_connect() as db:
+        async with db.execute(
+            "SELECT * FROM marriage_proposals WHERE id=? AND status='pending'",
+            (proposal_id,),
+        ) as c:
+            row = await c.fetchone()
+        if not row:
+            return None
+        proposal = dict(row)
+        await db.execute(
+            "UPDATE marriage_proposals SET status=? WHERE id=?",
+            (status, proposal_id),
+        )
+        await db.commit()
+    return proposal
+
+
+# ─── Solo Boss ────────────────────────────────────────────────────────────────
+
+async def get_solo_boss_session(user_id: int, chat_id: int) -> dict | None:
+    """Return the current incomplete solo boss session, or None."""
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    async with postgres_connect() as db:
+        async with db.execute(
+            """SELECT * FROM solo_boss_sessions
+               WHERE user_id=? AND chat_id=? AND session_date=? AND is_completed=0""",
+            (user_id, chat_id, today),
+        ) as c:
+            row = await c.fetchone()
+    return dict(row) if row else None
+
+
+async def get_solo_boss_progress(user_id: int, chat_id: int) -> dict | None:
+    async with postgres_connect() as db:
+        async with db.execute(
+            "SELECT * FROM solo_boss_progress WHERE user_id=? AND chat_id=?",
+            (user_id, chat_id),
+        ) as c:
+            row = await c.fetchone()
+    return dict(row) if row else None
+
+
+async def create_solo_boss_session(user_id: int, chat_id: int, boss_level: int = 1) -> dict:
+    """Create a new solo boss session and return its data."""
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    progress = await get_solo_boss_progress(user_id, chat_id)
+    is_repeat = progress and progress.get("max_level", 0) >= boss_level
+    boss_max_hp = 300_000 + (boss_level - 1) * 150_000
+
+    async with postgres_connect() as db:
+        cursor = await db.execute(
+            """INSERT INTO solo_boss_sessions
+               (user_id, chat_id, boss_level, boss_max_hp, boss_current_hp, is_repeat, session_date)
+               VALUES (?,?,?,?,?,?,?) RETURNING id""",
+            (user_id, chat_id, boss_level, boss_max_hp, boss_max_hp, 1 if is_repeat else 0, today),
+        )
+        row = await cursor.fetchone()
+        await db.commit()
+
+    return {
+        "id": row[0] if row else None,
+        "user_id": user_id,
+        "chat_id": chat_id,
+        "boss_level": boss_level,
+        "boss_max_hp": boss_max_hp,
+        "boss_current_hp": boss_max_hp,
+        "user_damage": 0,
+        "user_hits": 0,
+        "is_completed": 0,
+        "is_repeat": is_repeat,
+    }
+
+
+async def apply_solo_boss_damage(user_id: int, session: dict, damage: int) -> dict:
+    """Apply damage to a solo boss session. Returns result dict."""
+    import random as _rnd
+    session_id = session["id"]
+    current_hp = session["boss_current_hp"]
+    crit = _rnd.random() < 0.08
+    actual_damage = int(damage * 1.5) if crit else damage
+    new_hp = max(0, current_hp - actual_damage)
+    is_defeated = new_hp == 0
+
+    update_fields = "boss_current_hp=?, user_damage=user_damage+?, user_hits=user_hits+1"
+    params: list = [new_hp, actual_damage]
+    if is_defeated:
+        update_fields += ", is_completed=1, completed_at=NOW()"
+
+    async with postgres_connect() as db:
+        await db.execute(
+            f"UPDATE solo_boss_sessions SET {update_fields} WHERE id=?",
+            (*params, session_id),
+        )
+        if is_defeated:
+            boss_level = session["boss_level"]
+            await db.execute(
+                """INSERT INTO solo_boss_progress (user_id, chat_id, max_level, last_completed)
+                   VALUES (?,?,?,NOW()::text)
+                   ON CONFLICT(user_id, chat_id) DO UPDATE
+                   SET max_level=GREATEST(solo_boss_progress.max_level, excluded.max_level),
+                       last_completed=excluded.last_completed""",
+                (user_id, session["chat_id"], boss_level),
+            )
+        await db.commit()
+
+    return {
+        "damage_dealt": actual_damage,
+        "boss_hp": new_hp,
+        "boss_defeated": is_defeated,
+        "crit": crit,
     }
 
