@@ -118,6 +118,11 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 .sell-value{font-weight:700;color:var(--gold)}
 /* Bond chart */
 .bond-canvas-wrap{height:70px;margin:6px 0;position:relative;background:var(--bg3);border-radius:8px;overflow:hidden}
+/* Global balance bar */
+.balance-bar{display:flex;align-items:center;justify-content:flex-end;gap:6px;padding:5px 14px;background:var(--bg2);border-bottom:1px solid var(--border);font-size:13px;font-weight:700;color:var(--gold);position:sticky;top:38px;z-index:90}
+/* Input field utility */
+.input-field{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);width:100%;box-sizing:border-box;font-size:14px;outline:none}
+.input-field:focus{border-color:var(--accent)}
 /* Dev */
 .dev-stat{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px}
 .dev-stat:last-child{border:none}
@@ -323,6 +328,11 @@ select{background:var(--bg3);border:1px solid var(--border);border-radius:8px;pa
   <button class="tab-btn" onclick="switchTab('spy')">🕵️ Шпион</button>
   <button class="tab-btn" onclick="switchTab('glory')">🏆 Слава</button>
   <button class="tab-btn" onclick="switchTab('dev')" id="devTabBtn" style="display:none">🛠 Дев</button>
+</div>
+
+<!-- Global balance bar -->
+<div class="balance-bar" id="globalBalanceBar" style="display:none">
+  💰 <span id="globalBalance">0</span> 🪙
 </div>
 
 <!-- PROFILE TAB -->
@@ -944,6 +954,16 @@ async function api(url, method='GET', body=null){
 
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
 
+// ── Balance sync ─────────────────────────────────────────────────────────────
+function syncBalance(n){
+  n = n || 0;
+  if(profileData) profileData.balance = n;
+  const pMoraEl = document.getElementById('pMora');
+  if(pMoraEl) pMoraEl.textContent = n + ' 🪙';
+  const gbEl = document.getElementById('globalBalance');
+  if(gbEl) gbEl.textContent = n;
+}
+
 // ── Tab switching ─────────────────────────────────────────────────────────────
 const tabLoaded = {};
 function switchTab(name){
@@ -993,7 +1013,8 @@ async function loadProfile(){
     }
     
     document.getElementById('pLevel').textContent = p.level || 1;
-    document.getElementById('pMora').textContent = (p.balance||0) + ' 🪙';
+    syncBalance(p.balance||0);
+    document.getElementById('globalBalanceBar').style.display = '';
     document.getElementById('pRank').textContent = '—';
     document.getElementById('pStreak').textContent = (p.streak||0) + ' дн.';
     const xp = p.xp||0, xpMax = p.xp_max||100;
@@ -1148,9 +1169,7 @@ async function doCheckin(){
     toast('✅ Чек-ин! +'+r.mora+' 🪙 (стрик: '+r.streak+')','success');
     // Update profile mora display if loaded
     if(profileData){
-      profileData.balance=(profileData.balance||0)+(r.mora||0);
-      const pm=document.getElementById('pMora');
-      if(pm) pm.textContent=profileData.balance+' 🪙';
+      syncBalance((profileData.balance||0)+(r.mora||0));
       const ps=document.getElementById('pStreak');
       if(ps) ps.textContent=(r.streak||0)+' дн.';
     }
@@ -1320,10 +1339,7 @@ async function familyAction(action){
     loadUnion();
     // Refresh log
     loadFamilyLog();
-    if(r.personal!==undefined){
-      document.getElementById('pMora').textContent=r.personal+' 🪙';
-      if(profileData) profileData.balance=r.personal;
-    }
+    if(r.personal!==undefined) syncBalance(r.personal);
   } catch(e){toast('❌ '+e.message,'error')}
 }
 
@@ -1348,7 +1364,7 @@ async function petFeed(key){
     const r=await api('/api/pet/feed','POST',{chat_id:chatId,food_key:key,wallet_type:wallet});
     toast('🍽 Покормил едой «'+r.food_name+'»! Усталость −'+r.reduced,'success');
     updatePetFatigue(r.fatigue);
-    document.getElementById('pMora').textContent=r.balance+' 🪙';
+    syncBalance(r.balance);
   } catch(e){toast('❌ '+e.message,'error')}
 }
 
@@ -1512,7 +1528,7 @@ async function sellJunk(){
     const r=await api('/api/inventory/sell_junk','POST',{chat_id:chatId});
     if(r.sold===0){toast('Хлама нет','info');return;}
     toast('🗑 Продано '+r.sold+' шт. +'+r.mora+' 🪙','success');
-    if(profileData){profileData.balance=r.balance;const el=document.getElementById('pMora');if(el)el.textContent=r.balance+' 🪙';}
+    syncBalance(r.balance);
     tabLoaded['inventory']=false;
     loadInventory();
   } catch(e){toast('❌ '+e.message,'error')}
@@ -1530,13 +1546,9 @@ async function setCustomTitle(){
     toast('✅ Титул установлен: '+r.title,'success');
     document.getElementById('currentTitle').textContent=r.title;
     input.value='';
-    if(profileData){profileData.balance=r.balance;profileData.custom_title=r.title;const el=document.getElementById('pMora');if(el)el.textContent=r.balance+' 🪙';}
+    if(profileData) profileData.custom_title=r.title;
+    syncBalance(r.balance);
   } catch(e){toast('❌ '+e.message,'error')}
-}
-
-function switchSubtab(name){
-  document.querySelectorAll('.subtab-btn').forEach(b=>b.classList.toggle('active',b.getAttribute('onclick').includes("'"+name+"'")));
-  ['gear','custom','misc'].forEach(n=>document.getElementById('subtab-'+n).style.display=n===name?'block':'none');
 }
 
 function rarityEmoji(r){return{junk:'🪨',common:'💙',rare:'💜',legendary:'⭐'}[r]||'❓'}
@@ -1557,21 +1569,10 @@ async function loadShop(){
 }
 
 function renderShop(d){
-  // Gacha prices - check real marriage status via API (not just partner_name field)
-  let isMarried = false;
-  checkCoupleBossAvailability().then((result) => {
-    // Update prices when marriage status is confirmed
-    if (result && result.married) {
-      document.getElementById('gachaSinglePrice').textContent = '160';
-      document.getElementById('gachaMultiPrice').textContent = '1440';
-    }
-  }).catch(() => {
-    // Keep default (unmarried) prices
-  });
-  
-  // Default to unmarried prices initially
-  document.getElementById('gachaSinglePrice').textContent = '150';
-  document.getElementById('gachaMultiPrice').textContent = '1350';
+  // Use already-loaded profileData to determine marriage status (no race condition)
+  const isMarried = !!(profileData && profileData.partner_name);
+  document.getElementById('gachaSinglePrice').textContent = isMarried ? '160' : '150';
+  document.getElementById('gachaMultiPrice').textContent = isMarried ? '1440' : '1350';
 
   // Custom title — show active title if any
   const activeTitle=(profileData&&profileData.custom_title)||'';
@@ -1627,8 +1628,7 @@ async function buyShopItem(type, key){
       toast(r.equipped?'✅ Рамка активирована':'✅ Уже куплено','success');
     } else {
       toast('✅ Куплено! Баланс: '+r.balance+' 🪙','success');
-      if(profileData) profileData.balance=r.balance;
-      document.getElementById('pMora').textContent=r.balance+' 🪙';
+      syncBalance(r.balance);
     }
     shopData=null;
     await loadShop();
@@ -1646,8 +1646,7 @@ async function rollGacha(count){
   try{
     const r=await api('/api/gacha/roll','POST',{chat_id:chatId,count,wallet_type:wallet});
     showGachaOverlay(r.items||[]);
-    if(profileData) profileData.balance=r.balance;
-    document.getElementById('pMora').textContent=r.balance+' 🪙';
+    syncBalance(r.balance);
   } catch(e){toast('❌ '+e.message,'error')}
 }
 
@@ -1800,7 +1799,7 @@ async function buyBondsWithWallet(key){
   try{
     const r=await api('/api/bonds/buy','POST',{chat_id:chatId,bond_key:key,amount:shares,wallet});
     toast('✅ Куплено '+shares+' шт. за '+totalCost+' 🪙','success');
-    if(profileData){profileData.balance=r.personal;document.getElementById('pMora').textContent=(r.personal||0)+' 🪙';}
+    syncBalance(r.personal||0);
     loadBondsTab();
   } catch(e){toast('❌ '+e.message,'error')}
 }
@@ -1811,7 +1810,7 @@ async function sellBonds(key){
   try{
     const r=await api('/api/bonds/sell','POST',{chat_id:chatId,bond_key:key,amount:amt});
     toast('✅ Продано '+r.sold+' шт. за '+r.revenue+' 🪙','success');
-    if(profileData){profileData.balance=r.balance;document.getElementById('pMora').textContent=(r.balance||0)+' 🪙';}
+    syncBalance(r.balance||0);
     loadBondsTab();
   } catch(e){toast('❌ '+e.message,'error')}
 }
@@ -1928,7 +1927,7 @@ async function doDeposit(planKey, wallet){
   try{
     const r = await api('/api/bank/deposit','POST',{chat_id:chatId,plan_key:planKey,amount,wallet});
     toast(`✅ Вклад открыт! +${r.reward} 🪙 через ${r.days} дней`,'success');
-    if(profileData){profileData.balance=r.new_balance;const el=document.getElementById('pMora');if(el)el.textContent=r.new_balance+' 🪙';}
+    syncBalance(r.new_balance);
     tabLoaded['bank']=false;
     loadBankTab();
   } catch(e){toast('❌ '+e.message,'error');}
@@ -1942,7 +1941,7 @@ async function doWithdraw(depositId){
     } else {
       toast(`✅ Снято: ${r.payout} 🪙`,'success');
     }
-    if(profileData){profileData.balance=r.new_balance;const el=document.getElementById('pMora');if(el)el.textContent=r.new_balance+' 🪙';}
+    syncBalance(r.new_balance);
     tabLoaded['bank']=false;
     loadBankTab();
   } catch(e){toast('❌ '+e.message,'error')}
@@ -2672,10 +2671,7 @@ async function enhanceItem(itemId) {
     }
 
     // Update balance
-    if (profileData && r.balance !== undefined) {
-      profileData.balance = r.balance;
-      document.getElementById('pMora').textContent = r.balance + ' 🪙';
-    }
+    if (r.balance !== undefined) syncBalance(r.balance);
 
     // Reload inventory
     tabLoaded['inventory'] = false;
@@ -2723,10 +2719,7 @@ async function confirmBatchSell() {
     toast(`✨ Продано ${r.sold} предметов за ${r.mora} 🪙`, 'success');
 
     // Update balance
-    if (profileData && r.balance !== undefined) {
-      profileData.balance = r.balance;
-      document.getElementById('pMora').textContent = r.balance + ' 🪙';
-    }
+    if (r.balance !== undefined) syncBalance(r.balance);
 
     // Clear selection and reload inventory
     clearSelection();
@@ -3091,7 +3084,17 @@ function renderQuestTab(){
   if(completed && rewarded) statusHtml = '<div style="color:var(--green);font-weight:700">✅ Выполнено! Бонус получен.</div>';
   else if(completed) statusHtml = '<div style="color:var(--green);font-weight:700">✅ Выполнено!</div>';
   else statusHtml = `<div style="color:var(--text2);font-size:12px">⏳ Прогресс: ${progress}/${quest.goal}</div>`;
+  // Hint for chat-only quest types
+  const chatTypes = ['messages','rep','reputation'];
+  const needsChatHint = quest.type && chatTypes.includes(quest.type) && !completed;
+  const chatHintHtml = needsChatHint
+    ? `<div style="background:rgba(124,106,247,.1);border:1px solid var(--accent);border-radius:8px;padding:8px;font-size:12px;color:var(--accent);margin-top:10px">💬 Это задание выполняется в чате Telegram, а не в мини-апп.</div>`
+    : '';
   document.getElementById('questContent').innerHTML = `
+    <div class="card" style="padding:10px 14px;display:flex;align-items:center;justify-content:space-between">
+      <span style="color:var(--text2);font-size:13px">💰 Твой баланс</span>
+      <span style="font-weight:700;color:var(--gold)">${profileData?.balance||0} 🪙</span>
+    </div>
     <div class="card">
       <div class="card-title">📋 Ежедневное задание</div>
       <div style="font-size:15px;font-weight:700;margin-bottom:8px">${esc(quest.desc)}</div>
@@ -3101,6 +3104,7 @@ function renderQuestTab(){
       </div>
       <div class="progress-bar" style="margin-bottom:6px"><div class="progress-fill" style="width:${pct}%"></div></div>
       ${statusHtml}
+      ${chatHintHtml}
       ${!completed ? `<button class="btn btn-primary" style="margin-top:12px;width:100%" onclick="doQuestReroll()">🔄 Перебросить (25 🪙)</button>` : ''}
     </div>
     <div class="card" style="font-size:12px;color:var(--text2)">ℹ️ Задание обновляется каждый день автоматически.<br>Типы: сообщения, репутация, монетка, экспедиция, гача, подарок.</div>
@@ -3109,6 +3113,7 @@ function renderQuestTab(){
 async function doQuestReroll(){
   try{
     const r = await api('/api/quest/reroll','POST',{chat_id:chatId});
+    if(r.new_balance !== undefined) syncBalance(r.new_balance);
     tabLoaded['quest']=false;
     loadQuestTab();
     toast('🔄 Новое задание! -25 🪙');
@@ -3136,6 +3141,10 @@ function renderCasinoTab(){
   const price = casinoLotteryData ? casinoLotteryData.ticket_price || 10 : 10;
   const week = casinoLotteryData ? casinoLotteryData.week : '';
   document.getElementById('casinoContent').innerHTML = `
+    <div class="card" style="padding:10px 14px;display:flex;align-items:center;justify-content:space-between">
+      <span style="color:var(--text2);font-size:13px">💰 Твой баланс</span>
+      <span id="casinoBalance" style="font-weight:700;color:var(--gold)">${profileData?.balance||0} 🪙</span>
+    </div>
     <div class="card">
       <div class="card-title">🪙 Монетка</div>
       <div style="font-size:12px;color:var(--text2);margin-bottom:10px">Ставишь Мору — <b>30%</b> шанс выиграть ×2, <b>70%</b> проигрыш.</div>
@@ -3168,12 +3177,14 @@ async function doCoinFlip(){
     } else {
       el.innerHTML = `<span style="color:#f87171">😢 Проигрыш. -${r.bet} 🪙</span><br><small>Баланс: ${r.new_balance} 🪙</small>`;
     }
+    if(r.new_balance !== undefined) syncBalance(r.new_balance);
   } catch(e){ el.innerHTML = `<span style="color:#f87171">❌ ${esc(e.message)}</span>`; }
 }
 async function doBuyLotteryTicket(){
   try{
     const r = await api('/api/casino/lottery','POST',{chat_id:chatId});
     document.getElementById('lotteryTickets').textContent = r.tickets;
+    if(r.new_balance !== undefined) syncBalance(r.new_balance);
     toast(`🎫 Куплен билет! Всего: ${r.tickets} | Баланс: ${r.new_balance} 🪙`);
   } catch(e){ toast('❌ '+e.message,'error'); }
 }
@@ -3265,6 +3276,7 @@ async function doExpedCollect(){
   try{
     const r = await api('/api/expeditions/collect','POST',{chat_id:chatId});
     el.innerHTML = `<span style="color:var(--green)">+${r.reward} 🪙 получено! Баланс: ${r.new_balance} 🪙</span>`;
+    if(r.new_balance !== undefined) syncBalance(r.new_balance);
     tabLoaded['expedition']=false;
     setTimeout(()=>loadExpeditionTab(),1500);
   } catch(e){ el.innerHTML=`<span style="color:#f87171">❌ ${esc(e.message)}</span>`; }
@@ -3289,6 +3301,10 @@ async function loadTransfersTab(){
 function renderTransfersTab(){
   const {borrowed=[],lent=[]} = transfersData || {};
   let html = `
+    <div class="card" style="padding:10px 14px;display:flex;align-items:center;justify-content:space-between">
+      <span style="color:var(--text2);font-size:13px">💰 Твой баланс</span>
+      <span style="font-weight:700;color:var(--gold)">${profileData?.balance||0} 🪙</span>
+    </div>
     <div class="card">
       <div class="card-title">💸 Перевод Моры</div>
       <div style="font-size:12px;color:var(--text2);margin-bottom:8px">Безвозмездно отправить Мору другому участнику. Налог 0.5%.</div>
@@ -3340,6 +3356,7 @@ async function doTransfer(){
   try{
     const r=await api('/api/transfer','POST',{chat_id:chatId,target_id:target,amount:amt});
     el.innerHTML=`<span style="color:var(--green)">✅ Переведено ${r.amount} 🪙 (налог ${r.tax} 🪙). Баланс: ${r.new_balance} 🪙</span>`;
+    if(r.new_balance !== undefined) syncBalance(r.new_balance);
   }catch(e){el.innerHTML=`<span style="color:#f87171">❌ ${esc(e.message)}</span>`;}
 }
 async function doLoanCreate(){
@@ -3351,12 +3368,14 @@ async function doLoanCreate(){
   try{
     const r=await api('/api/loans/create','POST',{chat_id:chatId,target_id:target,amount:amt});
     el.innerHTML=`<span style="color:var(--green)">✅ Займ #${r.loan_id} выдан (${r.amount} 🪙). Баланс: ${r.new_balance} 🪙</span>`;
+    if(r.new_balance !== undefined) syncBalance(r.new_balance);
     tabLoaded['transfers']=false; setTimeout(()=>loadTransfersTab(),800);
   }catch(e){el.innerHTML=`<span style="color:#f87171">❌ ${esc(e.message)}</span>`;}
 }
 async function doLoanRepay(loanId){
   try{
     const r=await api('/api/loans/repay','POST',{chat_id:chatId,loan_id:loanId});
+    if(r.new_balance !== undefined) syncBalance(r.new_balance);
     toast(`✅ Долг #${loanId} погашен! Баланс: ${r.new_balance} 🪙`);
     tabLoaded['transfers']=false; loadTransfersTab();
   }catch(e){toast('❌ '+e.message,'error');}
@@ -3369,6 +3388,10 @@ function renderSpyTab(){
   document.getElementById('spyLoading').style.display='none';
   document.getElementById('spyContent').style.display='block';
   document.getElementById('spyContent').innerHTML = `
+    <div class="card" style="padding:10px 14px;display:flex;align-items:center;justify-content:space-between">
+      <span style="color:var(--text2);font-size:13px">💰 Твой баланс</span>
+      <span style="font-weight:700;color:var(--gold)">${profileData?.balance||0} 🪙</span>
+    </div>
     <div class="card">
       <div class="card-title">🕵️ Шпионаж</div>
       <div style="font-size:12px;color:var(--text2);margin-bottom:10px">
@@ -3408,6 +3431,7 @@ async function doSpy(){
         <div style="font-size:11px;font-weight:400;margin-top:4px">Баланс: ${r.new_balance} 🪙</div>
       </div>`;
     }
+    if(r.new_balance !== undefined) syncBalance(r.new_balance);
   }catch(e){el.innerHTML=`<span style="color:#f87171">❌ ${esc(e.message)}</span>`;}
 }
 
