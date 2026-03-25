@@ -1093,50 +1093,85 @@ def miniapp_marriage_respond(request):
     if not proposal_id or not chat_id:
         return JsonResponse({"error": "proposal_id and chat_id required"}, status=400, headers=headers)
 
-    from database.db import respond_to_proposal, create_marriage
+    from database.db import create_marriage
     from asgiref.sync import async_to_sync
 
-    # First fetch the proposal without changing status — verify ownership
-    from database.db import get_pending_proposals
-    # Use a direct DB check instead
+    new_status = "accepted" if accept else "declined"
+
+    # ── Atomic update: flip status only if it is still 'pending' AND the
+    #    target user matches the authenticated user.  This single statement
+    #    in PostgreSQL prevents the TOCTOU race that caused "уже обработано"
+    #    on rapid double-clicks or simultaneous requests.
     try:
         conn, db_type = _get_bot_db_connection()
         cur = conn.cursor()
-        ph = "%s" if db_type == "pg" else "?"
-        cur.execute(f"SELECT id, from_user_id, to_user_id, chat_id, status FROM marriage_proposals WHERE id={ph}", (proposal_id,))
-        prow = cur.fetchone()
+        if db_type == "pg":
+            cur.execute(
+                """UPDATE marriage_proposals
+                      SET status = %s
+                    WHERE id = %s
+                      AND to_user_id = %s
+                      AND status = 'pending'
+                    RETURNING id, from_user_id, to_user_id, chat_id, status""",
+                (new_status, proposal_id, uid),
+            )
+            row = cur.fetchone()
+        else:
+            # SQLite path: UPDATE then check rowcount
+            cur.execute(
+                "UPDATE marriage_proposals SET status=? WHERE id=? AND to_user_id=? AND status='pending'",
+                (new_status, proposal_id, uid),
+            )
+            if cur.rowcount == 1:
+                cur.execute(
+                    "SELECT id, from_user_id, to_user_id, chat_id, status FROM marriage_proposals WHERE id=?",
+                    (proposal_id,),
+                )
+                row = cur.fetchone()
+            else:
+                row = None
+        conn.commit()
         conn.close()
     except Exception as exc:
         try: conn.close()
         except Exception: pass
         return JsonResponse({"error": str(exc)}, status=500, headers=headers)
 
-    if not prow:
-        return JsonResponse({"error": "Предложение не найдено"}, status=404,
+    if not row:
+        # Either the proposal doesn't exist, belongs to a different user,
+        # or was already accepted/declined before this request landed.
+        try:
+            conn2, db_type2 = _get_bot_db_connection()
+            cur2 = conn2.cursor()
+            ph = "%s" if db_type2 == "pg" else "?"
+            cur2.execute(
+                f"SELECT status, to_user_id FROM marriage_proposals WHERE id={ph}",
+                (proposal_id,),
+            )
+            check = cur2.fetchone()
+            conn2.close()
+        except Exception:
+            try: conn2.close()
+            except Exception: pass
+            check = None
+        if not check:
+            return JsonResponse({"error": "Предложение не найдено"}, status=404,
+                                json_dumps_params={"ensure_ascii": False}, headers=headers)
+        if check[1] != uid:
+            return JsonResponse({"error": "Forbidden"}, status=403, headers=headers)
+        # check[0] is not 'pending' — already processed
+        return JsonResponse({"error": "Предложение уже обработано"},
                             json_dumps_params={"ensure_ascii": False}, headers=headers)
 
-    p_to_user = prow[2]
-    p_status = prow[4]
-    if p_to_user != uid:
-        return JsonResponse({"error": "Forbidden"}, status=403, headers=headers)
-    if p_status != "pending":
-        return JsonResponse({"error": "Предложение уже обработано"}, status=400,
-                            json_dumps_params={"ensure_ascii": False}, headers=headers)
-
-    # Now update the status
-    proposal = async_to_sync(respond_to_proposal)(proposal_id, "accepted" if accept else "declined")
-    if not proposal:
-        return JsonResponse({"error": "Ошибка обновления"}, status=500,
-                            json_dumps_params={"ensure_ascii": False}, headers=headers)
+    from_id = row[1]  # from_user_id
 
     if accept:
-        from_id = proposal["from_user_id"]
-        # Also decline all other pending proposals for both users
+        from database.db import create_marriage
+        from asgiref.sync import async_to_sync
         try:
             async_to_sync(create_marriage)(from_id, uid, chat_id)
         except Exception as exc:
             return JsonResponse({"error": str(exc)}, status=500, headers=headers)
-
         return JsonResponse({"ok": True, "married": True,
                              "message": "Поздравляем! Вы теперь в браке! 💍"},
                             json_dumps_params={"ensure_ascii": False}, headers=headers)

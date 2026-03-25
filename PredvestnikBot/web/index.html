@@ -15,6 +15,7 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 .tab-btn{flex:0 0 auto;padding:10px 12px;font-size:12px;font-weight:600;color:var(--text2);border:none;background:none;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;transition:all .2s}
 .tab-btn.active{color:var(--accent);border-bottom-color:var(--accent)}
 .tab-content{display:none;padding:12px;max-width:460px;margin:0 auto}
+@media(min-width:600px){.tab-content{max-width:min(920px,98vw);padding:16px 20px}}
 .tab-content.active{display:block}
 .card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:10px}
 .card-title{font-size:13px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px}
@@ -144,12 +145,15 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 .dev-member-row{display:grid;grid-template-columns:1fr auto auto;gap:6px;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px}
 .dev-member-row:last-child{border:none}
 .dev-rank-badge{font-size:10px;padding:1px 5px;border-radius:8px;background:var(--bg3)}
-.dev-member-head,.dev-member-edit{display:grid;grid-template-columns:minmax(120px,1.4fr) minmax(74px,.7fr) minmax(74px,.7fr) minmax(116px,.9fr) minmax(70px,.6fr) minmax(60px,.5fr) minmax(60px,.5fr) auto;gap:6px;align-items:center}
-.dev-member-head{padding:0 0 6px;color:var(--text2);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;border-bottom:1px solid var(--border);margin-bottom:6px}
+/* Dev member CRM table — columns never squish; wrapping div scrolls horizontally */
+.dev-member-table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:8px}
+.dev-member-head,.dev-member-edit{display:grid;grid-template-columns:160px 80px 80px 140px 86px 72px 72px auto;gap:6px;align-items:center;min-width:640px}
+.dev-member-head{padding:0 0 6px;color:var(--text2);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;border-bottom:2px solid var(--border);margin-bottom:4px}
 .dev-member-edit{padding:7px 0;border-bottom:1px solid var(--border)}
 .dev-member-edit:last-child{border-bottom:none}
-.dev-member-edit input,.dev-member-edit select{width:100%;min-width:0;padding:7px 8px;font-size:12px}
+.dev-member-edit input,.dev-member-edit select{width:100%;min-width:0;padding:6px 8px;font-size:12px}
 .dev-member-name{font-size:12px;font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media(min-width:600px){.dev-member-head,.dev-member-edit{grid-template-columns:200px 90px 90px 160px 90px 80px 80px auto;min-width:800px;gap:8px}.dev-member-edit input,.dev-member-edit select{padding:8px 10px;font-size:13px}.dev-member-table-scroll{border:1px solid var(--border);border-radius:10px;padding:0 10px}}
 .dev-inline-btn{width:auto;margin-top:0;padding:8px 10px;font-size:12px}
 .dev-salary-grid{display:grid;grid-template-columns:minmax(70px,.8fr) minmax(88px,1fr) minmax(0,2fr) auto;gap:6px;align-items:center}
 .wallet-history-row{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);font-size:12px}
@@ -211,7 +215,7 @@ select{background:var(--bg3);border:1px solid var(--border);border-radius:8px;pa
 .cal-day .cd-mora{font-size:10px;color:var(--gold);font-weight:700;margin-top:2px}
 @media (max-width:420px){
   .dev-member-head{display:none}
-  .dev-member-edit{grid-template-columns:1fr 1fr 1fr;gap:8px}
+  .dev-member-edit{grid-template-columns:1fr 1fr 1fr;gap:8px;min-width:0}
   .dev-member-name{grid-column:1/-1}
   .dev-inline-btn{grid-column:1/-1}
   .dev-salary-grid{grid-template-columns:1fr 1fr}
@@ -723,18 +727,20 @@ select{background:var(--bg3);border:1px solid var(--border);border-radius:8px;pa
     <div id="devAdminChatsList" style="max-height:100px;overflow-y:auto"></div>
     <!-- Members panel for selected chat -->
     <div id="devChatMembersWrap" style="display:none;margin-top:10px">
-      <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:4px" id="devChatMembersTitle">Участники</div>
-      <div class="dev-member-head">
-        <span>Участник</span>
-        <span>Мора</span>
-        <span>XP</span>
-        <span>Ранг</span>
-        <span>Всего сообщ.</span>
-        <span>За нед.</span>
-        <span>За день</span>
-        <span></span>
+      <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:6px" id="devChatMembersTitle">Участники</div>
+      <div class="dev-member-table-scroll">
+        <div class="dev-member-head">
+          <span>Участник</span>
+          <span>Мора</span>
+          <span>XP</span>
+          <span>Ранг</span>
+          <span>Всего сообщ.</span>
+          <span>За нед.</span>
+          <span>За день</span>
+          <span></span>
+        </div>
+        <div id="devChatMembersList" style="max-height:260px;overflow-y:auto"></div>
       </div>
-      <div id="devChatMembersList" style="max-height:200px;overflow-y:auto"></div>
     </div>
   </div>
 
@@ -1121,8 +1127,8 @@ async function loadSinglesAndProposals(){
       list.innerHTML = proposals.map(p => `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border)">
         <span style="font-size:13px">💌 <b>${esc(p.from_name)}</b></span>
         <div>
-          <button class="btn btn-sm btn-green" style="font-size:11px;padding:2px 8px;margin-right:4px" onclick="respondProposal(${p.id},true)">✅</button>
-          <button class="btn btn-sm btn-red" style="font-size:11px;padding:2px 8px" onclick="respondProposal(${p.id},false)">❌</button>
+          <button class="btn btn-sm btn-green" data-proposal="${p.id}" style="font-size:11px;padding:2px 8px;margin-right:4px" onclick="respondProposal(${p.id},true)">✅</button>
+          <button class="btn btn-sm btn-red" data-proposal="${p.id}" style="font-size:11px;padding:2px 8px" onclick="respondProposal(${p.id},false)">❌</button>
         </div>
       </div>`).join('');
     }
@@ -1138,14 +1144,23 @@ async function sendProposal(targetId){
 }
 
 async function respondProposal(proposalId, accept){
+  // Disable both action buttons for this proposal to prevent double-POST
+  const btns = document.querySelectorAll(`[data-proposal="${proposalId}"]`);
+  btns.forEach(b => { b.disabled = true; b.style.opacity = '0.5'; });
   try {
     const r = await api('/api/marriage/respond','POST',{proposal_id:proposalId,accept:accept,chat_id:chatId});
     if(r.ok){
       toast(accept ? '💍 ' + (r.message||'Вы теперь в браке!') : '💔 ' + (r.message||'Отклонено'));
       if(accept) { await loadProfile(); loadUnion(); }
       else loadSinglesAndProposals();
-    } else toast('❌ ' + (r.error||'Ошибка'));
-  } catch(e){ toast('❌ ' + e.message); }
+    } else {
+      toast('❌ ' + (r.error||'Ошибка'));
+      btns.forEach(b => { b.disabled = false; b.style.opacity = ''; });
+    }
+  } catch(e){
+    toast('❌ ' + e.message);
+    btns.forEach(b => { b.disabled = false; b.style.opacity = ''; });
+  }
 }
 
 function updatePetFatigue(f){
