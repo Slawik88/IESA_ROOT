@@ -259,3 +259,22 @@ class AdminAppeal(models.Model):
 
     def __str__(self):
         return f'[{self.get_status_display()}] {self.get_reason_display()} — {self.name} ({self.email})'
+
+
+class MediaHash(models.Model):
+    """
+    SHA-256 index of every image that has been processed and uploaded by
+    MediaOptimizationStorage.  Used for deduplication: if the same image
+    is uploaded a second time (same processed bytes), the existing S3 key
+    is reused and no duplicate object is stored in Spaces.
+    """
+    sha256  = models.CharField(max_length=64, unique=True, db_index=True, verbose_name='SHA-256')
+    s3_key  = models.CharField(max_length=500, verbose_name='S3 key')
+    created = models.DateTimeField(auto_now_add=True, verbose_name=_('Created'))
+
+    class Meta:
+        verbose_name        = _('Media hash (dedup)')
+        verbose_name_plural = _('Media hashes (dedup)')
+
+    def __str__(self):
+        return f'{self.sha256[:12]}… → {self.s3_key}'

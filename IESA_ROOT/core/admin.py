@@ -4,7 +4,7 @@ from django.utils.translation import gettext_lazy as _
 from django_ckeditor_5.widgets import CKEditor5Widget
 from django import forms
 from modeltranslation.admin import TabbedTranslationAdmin
-from .models import Partner, AssociationMember, President, SocialNetwork, CoreProduct, MemberBenefit, AdminAppeal
+from .models import Partner, AssociationMember, President, SocialNetwork, CoreProduct, MemberBenefit, AdminAppeal, MediaHash
 from . import translation  # noqa: F401
 
 
@@ -245,3 +245,14 @@ class AdminAppealAdmin(admin.ModelAdmin):
 			'classes': ('collapse',)
 		}),
 	)
+
+
+@admin.register(MediaHash)
+class MediaHashAdmin(admin.ModelAdmin):
+	list_display  = ('sha256_short', 's3_key', 'created')
+	search_fields = ('sha256', 's3_key')
+	readonly_fields = ('sha256', 's3_key', 'created')
+
+	def sha256_short(self, obj):
+		return obj.sha256[:16] + '…'
+	sha256_short.short_description = 'SHA-256'
