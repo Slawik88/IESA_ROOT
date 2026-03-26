@@ -248,7 +248,8 @@ async def _task_marriage_anniversary(bot) -> None:
 async def _task_lottery_draw(bot) -> None:
     from config import LOTTERY_WIN_CHANCE, LOTTERY_WIN_MIN, LOTTERY_WIN_MAX
     from database.db import (
-        add_mora, get_all_lottery_chats_week, get_all_lottery_participants, get_user,
+        add_mora, add_to_treasury,
+        get_all_lottery_chats_week, get_all_lottery_participants, get_user,
         is_lottery_drawn, mark_lottery_drawn,
     )
     from utils.helpers import user_mention
@@ -289,11 +290,19 @@ async def _task_lottery_draw(bot) -> None:
                 if random.random() < WIN_CHANCE
             )
             if winnings > 0:
-                await add_mora(uid, chat_id, winnings)
+                if winnings >= 50:
+                    lottery_tax = max(1, int(winnings * 0.08))
+                    net_winnings = winnings - lottery_tax
+                    await add_to_treasury(chat_id, lottery_tax)
+                else:
+                    net_winnings = winnings
+                    lottery_tax = 0
+                await add_mora(uid, chat_id, net_winnings)
                 user = await get_user(uid)
                 name = html.escape(user["full_name"]) if user else str(uid)
+                tax_note = f", налог −{lottery_tax}🏦" if lottery_tax else ""
                 winner_lines.append(
-                    f"  🏆 {user_mention(uid, name)} выиграл! ({tickets} билет(ов))"
+                    f"  🏆 {user_mention(uid, name)} выиграл {net_winnings}🪙! ({tickets} билет(ов){tax_note})"
                 )
 
         if winner_lines:

@@ -141,20 +141,20 @@ async def cb_coin_choice(callback: CallbackQuery):
     mention = user_mention(uid, name)
 
     if win:
-        prize   = bet * 2
-        new_bal = await add_mora(uid, chat_id, prize)
-        result  = (
+        win_tax  = max(1, int(bet * 0.05))
+        prize    = bet * 2 - win_tax
+        await add_to_treasury(chat_id, win_tax)
+        new_bal  = await add_mora(uid, chat_id, prize)
+        result   = (
             f"{actual} выпал!\n\n"
-            f"🎉 {mention} <b>выиграл +{bet} 🪙</b>!\n"
-            f"Ставка {bet} → Выплата <b>{prize} 🪙</b>\n"
+            f"🎉 {mention} <b>выиграл +{bet - win_tax} 🪙</b>!\n"
+            f"Ставка {bet} → Выплата <b>{prize} 🪙</b> (−{win_tax}🏦)\n"
             f"Баланс: <b>{new_bal} 🪙</b>"
         )
     else:
-        tax = max(1, int(bet * 0.01))
-        await add_to_treasury(chat_id, tax)
         mora_now = await get_mora(uid, chat_id)
         new_bal  = (mora_now["balance"] if mora_now else 0)
-        result  = (
+        result   = (
             f"{actual} выпал...\n\n"
             f"😢 {mention} потерял <b>-{bet} 🪙</b>.\n"
             f"Казино всегда в плюсе. 🏦\n"
@@ -353,9 +353,10 @@ async def cb_duel_accept(callback: CallbackQuery):
         winner_roll = target_roll
         loser_roll  = challenger_roll
 
-    new_bal = await add_mora(winner_id, chat_id, total_pot)
-    # 1% налог с проигрыша в казну чата
-    duel_tax = max(1, int(bet * 0.01))
+    # 5% налог с выигрыша победителя в казну чата
+    duel_tax = max(1, int(bet * 0.05))
+    net_pot   = total_pot - duel_tax
+    new_bal   = await add_mora(winner_id, chat_id, net_pot)
     await add_to_treasury(chat_id, duel_tax)
 
     result_text = (
@@ -363,7 +364,7 @@ async def cb_duel_accept(callback: CallbackQuery):
         f"{user_mention(challenger_id, challenger_name)}: {_DICE_FACE[challenger_roll]} {challenger_roll}\n"
         f"{user_mention(target_id, target_name)}: {_DICE_FACE[target_roll]} {target_roll}\n\n"
         f"🏆 Победитель: {user_mention(winner_id, winner_name)}!\n"
-        f"Приз: <b>+{bet} 🪙</b>  (банк: {total_pot} 🪙)\n"
+        f"Приз: <b>+{bet - duel_tax} 🪙</b>  (банк: {net_pot} 🪙, налог: {duel_tax} 🪙)\n"
         f"Баланс победителя: <b>{new_bal} 🪙</b>"
     )
     try:

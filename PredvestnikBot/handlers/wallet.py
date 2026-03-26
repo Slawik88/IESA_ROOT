@@ -92,8 +92,14 @@ async def cmd_transfer(message: Message, cmd_args: str):
         )
         return
 
-    # 0.5% налог с переводов в казну чата (списывается дополнительно)
-    tax = max(1, int(amount * 0.005))
+    # Прогрессивный НДС с переводов в казну чата
+    if amount <= 500:
+        _tax_rate = 0.03
+    elif amount <= 2000:
+        _tax_rate = 0.07
+    else:
+        _tax_rate = 0.08
+    tax = max(1, int(amount * _tax_rate))
     ok_tax, _ = await deduct_mora(uid, chat_id, tax)
     if ok_tax:
         from_bal = max(0, from_bal - tax)

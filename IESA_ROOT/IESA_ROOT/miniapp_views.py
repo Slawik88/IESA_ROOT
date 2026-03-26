@@ -3341,6 +3341,19 @@ def miniapp_bonds_sell(request):
         price_per = price_row[0] if price_row else _BOND_DEFAULTS_SYNC[bond_key]["base_price"]
         revenue = price_per * amount
 
+        # НДС с чистой прибыли (прогрессивный): учитываем среднюю цену покупки
+        avg_buy_price = (bond_row[1] / bond_row[0]) if bond_row[0] > 0 else price_per
+        profit = max(0, int((price_per - avg_buy_price) * amount))
+        if profit <= 50:
+            bond_tax = max(0, int(profit * 0.10))
+        elif profit <= 100:
+            bond_tax = int(profit * 0.20)
+        elif profit <= 1800:
+            bond_tax = int(profit * 0.30)
+        else:
+            bond_tax = int(profit * 0.40)
+        net_revenue = revenue - bond_tax
+
         new_amount = bond_row[0] - amount
         new_invested = max(0, int(bond_row[1] * new_amount / bond_row[0])) if bond_row[0] > 0 else 0
         if new_amount <= 0:
@@ -3352,13 +3365,21 @@ def miniapp_bonds_sell(request):
             cur.execute(
                 f"INSERT INTO user_mora (user_id, chat_id, balance) VALUES ({ph},{ph},{ph}) "
                 f"ON CONFLICT(user_id, chat_id) DO UPDATE SET balance=user_mora.balance+EXCLUDED.balance",
-                (uid, chat_id, revenue),
+                (uid, chat_id, net_revenue),
             )
         else:
             cur.execute(
                 "INSERT INTO user_mora (user_id, chat_id, balance) VALUES (?,?,?) "
                 "ON CONFLICT(user_id, chat_id) DO UPDATE SET balance=user_mora.balance+excluded.balance",
-                (uid, chat_id, revenue),
+                (uid, chat_id, net_revenue),
+            )
+
+        # НДС в казну
+        if bond_tax > 0:
+            cur.execute(
+                f"INSERT INTO chat_treasury (chat_id, balance) VALUES ({ph},{ph}) "
+                f"ON CONFLICT(chat_id) DO UPDATE SET balance=balance+excluded.balance",
+                (chat_id, bond_tax),
             )
 
         conn.commit()
@@ -3368,7 +3389,7 @@ def miniapp_bonds_sell(request):
 
         return JsonResponse({
             "ok": True, "bond_key": bond_key, "sold": amount, "price_per": price_per,
-            "revenue": revenue, "remaining": new_amount, "balance": new_bal,
+            "revenue": net_revenue, "profit": profit, "tax": bond_tax, "remaining": new_amount, "balance": new_bal,
         }, json_dumps_params={"ensure_ascii": False}, headers=headers)
     except Exception as exc:
         try:
@@ -3675,11 +3696,14 @@ def miniapp_bank_withdraw(request):
         now = datetime.now(timezone.utc)
         mature = now >= matures_at
         if mature:
-            payout = amount + int(amount * rate)
+            interest = int(amount * rate)
+            interest_tax = max(0, int(interest * 0.10))
+            payout = amount + interest - interest_tax
             early = False
         else:
             penalty = int(amount * _BANK_EARLY_PENALTY_PCT)
             payout = max(0, amount - penalty)
+            interest_tax = 0
             early = True
 
         cur.execute(f"UPDATE bank_deposits SET withdrawn=1 WHERE id={ph}", (deposit_id,))
@@ -3689,6 +3713,12 @@ def miniapp_bank_withdraw(request):
             f"ON CONFLICT(user_id, chat_id) DO UPDATE SET balance=user_mora.balance+excluded.balance",
             (uid, chat_id, payout),
         )
+        if interest_tax > 0:
+            cur.execute(
+                f"INSERT INTO chat_treasury (chat_id, balance) VALUES ({ph},{ph}) "
+                f"ON CONFLICT(chat_id) DO UPDATE SET balance=balance+excluded.balance",
+                (chat_id, interest_tax),
+            )
         conn.commit()
 
         cur.execute(f"SELECT balance FROM user_mora WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
@@ -6663,15 +6693,30 @@ def miniapp_expeditions_collect(request):
 
         reward = _random.randint(reward_min, reward_max)
 
+        # НДС по типу экспедиции: short=0%, medium=6.5%, long=7%
+        if duration_h <= 2:
+            exped_tax = 0
+        elif duration_h <= 4:
+            exped_tax = max(0, int(reward * 0.065))
+        else:
+            exped_tax = max(0, int(reward * 0.07))
+        net_reward = reward - exped_tax
+
         # Mark finished
         cur.execute(f"UPDATE pet_expeditions SET finished=1 WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
 
-        # Add mora
+        # Add mora (net of tax)
         cur.execute(
             f"INSERT INTO user_mora (user_id, chat_id, balance) VALUES ({ph},{ph},{ph}) "
             f"ON CONFLICT(user_id, chat_id) DO UPDATE SET balance=user_mora.balance+excluded.balance",
-            (uid, chat_id, reward),
+            (uid, chat_id, net_reward),
         )
+        if exped_tax > 0:
+            cur.execute(
+                f"INSERT INTO chat_treasury (chat_id, balance) VALUES ({ph},{ph}) "
+                f"ON CONFLICT(chat_id) DO UPDATE SET balance=balance+excluded.balance",
+                (chat_id, exped_tax),
+            )
         cur.execute(f"SELECT balance FROM user_mora WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
         new_balance = (cur.fetchone() or [0])[0]
         conn.commit()
@@ -6679,7 +6724,7 @@ def miniapp_expeditions_collect(request):
 
         return JsonResponse({
             "ok": True,
-            "reward": reward,
+            "reward": net_reward,
             "new_balance": new_balance,
         }, json_dumps_params={"ensure_ascii": False}, headers=headers)
 
