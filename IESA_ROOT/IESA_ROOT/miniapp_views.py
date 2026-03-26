@@ -3671,11 +3671,19 @@ def miniapp_admin_chat_summary(request):
         )
         total_members = (cur.fetchone() or [0])[0]
 
-        # Active today (message in last 24h via daily_count)
-        cur.execute(
-            f"SELECT COUNT(*) FROM user_stats WHERE chat_id={ph} AND daily_count > 0",
-            (chat_id,),
-        )
+        # Active today (message in last 24h via last_active)
+        if db_type == "pg":
+            cur.execute(
+                "SELECT COUNT(*) FROM user_stats WHERE chat_id=%s "
+                "AND last_active >= NOW() - INTERVAL '1 day'",
+                (chat_id,),
+            )
+        else:
+            cur.execute(
+                "SELECT COUNT(*) FROM user_stats WHERE chat_id=? "
+                "AND last_active >= datetime('now', '-1 day')",
+                (chat_id,),
+            )
         active_today = (cur.fetchone() or [0])[0]
 
         # Total warns outstanding
