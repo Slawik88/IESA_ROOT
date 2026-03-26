@@ -2532,6 +2532,21 @@ async def remove_warn_in_chat(user_id: int, chat_id: int) -> int:
             return row[0] if row else 0
 
 
+async def get_warned_users(chat_id: int) -> list[dict]:
+    """Return all users with warns > 0 in the given chat."""
+    async with postgres_connect() as db:
+        async with db.execute(
+            """SELECT us.user_id, COALESCE(u.full_name, CAST(us.user_id AS TEXT)) AS full_name,
+                      u.username, us.warns
+               FROM user_stats us
+               LEFT JOIN users u ON u.user_id = us.user_id
+               WHERE us.chat_id = ? AND us.warns > 0
+               ORDER BY us.warns DESC, us.user_id""",
+            (chat_id,),
+        ) as cursor:
+            return [dict(r) for r in await cursor.fetchall()]
+
+
 async def get_staff_in_chat(chat_id: int):
     async with postgres_connect() as db:
         async with db.execute(
@@ -2992,7 +3007,7 @@ async def deduct_family_pool(
                 (chat_id, user_id),
             )
             await db.execute(
-                "UPDATE family_wallet SET balance=MAX(0,balance-?) WHERE chat_id=? AND user_id=?",
+                "UPDATE family_wallet SET balance=GREATEST(0,balance-?) WHERE chat_id=? AND user_id=?",
                 (rest, chat_id, partner_id),
             )
 
@@ -3266,7 +3281,7 @@ async def repay_loan(loan_id: int, borrower_id: int, chat_id: int) -> tuple[bool
     """Полностью погашает заём. Возвращает (ok, borrower_new_bal)."""
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT * FROM mora_loans WHERE id=? AND chat_id=? AND borrower_id=? AND repaid_at IS NULL",
+            "SELECT * FROM mora_loans WHERE id=? AND chat_id=? AND borrower_id=? AND repaid_at IS NULL AND COALESCE(status,'accepted')='accepted'",
             (loan_id, chat_id, borrower_id),
         ) as c:
             loan = await c.fetchone()

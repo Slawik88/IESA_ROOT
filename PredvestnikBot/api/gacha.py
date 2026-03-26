@@ -101,12 +101,11 @@ async def gacha_roll(uid: int, chat_id: int, count: int,
 
     # ── Deduct cost ────────────────────────────────────────────────────────────
     if wallet_type == "family":
-        fam_row = await get_family_wallet(uid, chat_id)
-        if fam_row is None:
+        if single:
             raise ValueError("Нет семейного кошелька")
-        fam_bal = fam_row["balance"] if "balance" in fam_row.keys() else 0
-        if fam_bal < price:
-            raise ValueError(f"Недостаточно в семейном ({fam_bal}/{price} 🪙)")
+        fam_balance = await get_family_wallet(chat_id, uid)  # returns int
+        if fam_balance < price:
+            raise ValueError(f"Недостаточно в семейном ({fam_balance}/{price} 🪙)")
         from database.postgres import connect as postgres_connect
         async with postgres_connect() as db:
             await db.execute(

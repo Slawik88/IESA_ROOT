@@ -7,7 +7,7 @@
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
-:root{--bg:#0f1117;--bg2:#1a1d2e;--bg3:#252840;--accent:#7c6af7;--accent2:#a855f7;--gold:#f4c542;--green:#22c55e;--red:#ef4444;--red2:#dc2626;--text:#e2e8f0;--text2:#94a3b8;--border:#2d3151;--card:#1e2138;--radius:12px}
+:root{--bg:#0f1117;--bg2:#1a1d2e;--bg3:#252840;--accent:#7c6af7;--accent2:#a855f7;--gold:#f4c542;--green:#22c55e;--red:#ef4444;--red2:#dc2626;--text:#e2e8f0;--text2:#a1b0c4;--border:#2d3151;--card:#1e2138;--radius:12px}
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:14px;min-height:100vh;overflow-x:hidden}
 .cat-bar{display:flex;background:var(--bg2);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:102;flex-shrink:0}
@@ -18,7 +18,7 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 .tabs::-webkit-scrollbar{display:none}
 .tab-btn{flex:0 0 auto;padding:10px 12px;font-size:12px;font-weight:600;color:var(--text2);border:none;background:none;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;transition:all .2s}
 .tab-btn.active{color:var(--accent);border-bottom-color:var(--accent)}
-.tab-content{display:none;padding:12px;max-width:460px;margin:0 auto}
+.tab-content{display:none;padding:12px;padding-bottom:max(env(safe-area-inset-bottom,0px),12px);max-width:460px;margin:0 auto}
 @media(min-width:600px){.tab-content{max-width:min(920px,98vw);padding:16px 20px}}
 .tab-content.active{display:block}
 .card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:10px}
@@ -36,6 +36,7 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 .btn-red:hover{background:var(--red2)}
 .btn-gold{background:var(--gold);color:#000}
 .btn-gold:hover{background:#e0b230}
+.btn:disabled,.btn[disabled]{opacity:.5;pointer-events:none;cursor:not-allowed}
 .btn-sm{padding:6px 12px;font-size:12px;width:auto}
 .btn-row{display:flex;gap:8px}
 .btn-row .btn{flex:1}
@@ -43,7 +44,7 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 .input-group input{flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-size:14px;outline:none}
 .input-group input:focus{border-color:var(--accent)}
 .badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700}
-.badge-junk{background:#374151;color:#9ca3af}
+.badge-junk{background:#374151;color:#c9d1d9}
 .badge-common{background:#1e3a5f;color:#60a5fa}
 .badge-rare{background:#312e81;color:#a78bfa}
 .badge-legendary{background:#451a03;color:#fbbf24}
@@ -53,7 +54,7 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 .pet-bar-fill{height:100%;border-radius:4px;transition:width .3s}
 .pet-bar-fill.tired{background:linear-gradient(90deg,#ef4444,#f97316)}
 .pet-bar-fill.ok{background:linear-gradient(90deg,var(--green),#86efac)}
-.toast{position:fixed;bottom:70px;left:50%;transform:translateX(-50%) translateY(20px);background:#1e293b;border:1px solid var(--border);border-radius:10px;padding:10px 18px;color:var(--text);font-size:13px;opacity:0;transition:all .3s;z-index:9999;pointer-events:none;max-width:300px;text-align:center;white-space:pre-wrap}
+.toast{position:fixed;bottom:70px;left:50%;transform:translateX(-50%) translateY(20px);background:#1e293b;border:1px solid var(--border);border-radius:10px;padding:10px 18px;color:var(--text);font-size:13px;opacity:0;transition:all .3s;z-index:9999;pointer-events:none;max-width:min(360px,85vw);text-align:center;white-space:pre-wrap}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 .toast.error{border-color:var(--red);color:#fca5a5}
 .toast.success{border-color:var(--green);color:#86efac}
@@ -61,7 +62,7 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 #gachaOverlay{position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:9000;display:none;flex-direction:column;align-items:center;justify-content:flex-start;padding:20px;overflow-y:auto}
 #gachaOverlay.active{display:flex}
 .gacha-title{font-size:22px;font-weight:800;background:linear-gradient(135deg,#a855f7,#f4c542);background-clip:text;-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:20px;text-align:center}
-.gacha-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;width:100%;max-width:420px}
+.gacha-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(68px,1fr));gap:8px;width:100%;max-width:420px}
 .gacha-card{aspect-ratio:3/4;border-radius:10px;position:relative;perspective:600px;cursor:default}
 .gacha-card-inner{width:100%;height:100%;transform-style:preserve-3d;transition:transform .6s ease;position:relative}
 .gacha-card.flipped .gacha-card-inner{transform:rotateY(180deg)}
@@ -73,7 +74,7 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 .gacha-card-back.rare{background:linear-gradient(135deg,#312e81,#4f46e5);border:2px solid #818cf8}
 .gacha-card-back.legendary{background:linear-gradient(135deg,#451a03,#92400e);border:2px solid #f59e0b;animation:legendary-glow 1.5s ease-in-out infinite alternate}
 .gacha-card-back .card-emoji{font-size:22px;margin-bottom:4px}
-.gacha-card-back .card-name{font-size:9px;font-weight:600;color:#fff;word-break:break-word;line-height:1.2}
+.gacha-card-back .card-name{font-size:11px;font-weight:600;color:#fff;word-break:break-word;line-height:1.2}
 @keyframes legendary-glow{from{box-shadow:0 0 6px #f59e0b}to{box-shadow:0 0 20px #f59e0b,0 0 40px #f59e0b55}}
 @keyframes card-appear{from{opacity:0;transform:scale(.7)}to{opacity:1;transform:scale(1)}}
 .gacha-close{margin-top:16px;padding:10px 30px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;color:var(--text);cursor:pointer;font-size:14px;font-weight:600}
@@ -123,7 +124,7 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 /* Bond chart */
 .bond-canvas-wrap{height:70px;margin:6px 0;position:relative;background:var(--bg3);border-radius:8px;overflow:hidden}
 /* Global balance bar */
-.balance-bar{display:flex;align-items:center;justify-content:flex-end;gap:6px;padding:5px 14px;background:var(--bg2);border-bottom:1px solid var(--border);font-size:13px;font-weight:700;color:var(--gold);position:sticky;top:82px;z-index:90}
+.balance-bar{display:flex;align-items:center;justify-content:flex-end;gap:6px;padding:5px 14px;background:var(--bg2);border-bottom:1px solid var(--border);font-size:13px;font-weight:700;color:var(--gold);position:sticky;top:88px;z-index:90}
 /* User picker bottom sheet */
 .user-picker-modal{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9500;display:none;align-items:flex-end}
 .user-picker-modal.open{display:flex}
@@ -200,7 +201,7 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 .dev-log-entry{font-size:11px;line-height:1.5;padding:4px 0;border-bottom:1px solid var(--border);word-break:break-all}
 .dev-log-entry:last-child{border:none}
 /* Public profile modal */
-.pub-profile-overlay{position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.6);display:none;align-items:flex-end;justify-content:center}
+.pub-profile-overlay{position:fixed;inset:0;z-index:9100;background:rgba(0,0,0,.6);display:none;align-items:flex-end;justify-content:center}
 .pub-profile-overlay.open{display:flex}
 .pub-profile-sheet{background:var(--bg2);border-radius:18px 18px 0 0;padding:20px;width:100%;max-width:460px;max-height:85vh;overflow-y:auto}
 .pub-profile-header{display:flex;align-items:center;gap:12px;margin-bottom:14px}
@@ -213,12 +214,13 @@ select{background:var(--bg3);border:1px solid var(--border);border-radius:8px;pa
 /* Wallet picker bottom-sheet */
 .wallet-modal{position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:9500;display:none;align-items:flex-end;justify-content:center}
 .wallet-modal.open{display:flex}
-.wallet-sheet{background:var(--bg2);border:1px solid var(--border);border-radius:18px 18px 0 0;padding:20px 16px 28px;width:100%;max-width:460px}
+.wallet-sheet{background:var(--bg2);border:1px solid var(--border);border-radius:18px 18px 0 0;padding:20px 16px max(env(safe-area-inset-bottom,0px),28px);width:100%;max-width:460px}
 .wallet-sheet-title{font-size:12px;font-weight:700;color:var(--text2);text-align:center;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
 .wallet-sheet-price{font-size:28px;font-weight:900;color:var(--gold);text-align:center;margin-bottom:18px}
 .wallet-options{display:flex;gap:10px;margin-bottom:12px}
 .wallet-opt{flex:1;background:var(--bg3);border:2px solid var(--border);border-radius:12px;padding:14px 8px;display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;transition:border-color .15s;color:var(--text);font-family:inherit}
 .wallet-opt:hover{border-color:var(--accent)}
+.wallet-opt.insufficient{opacity:.45;pointer-events:none}
 .wallet-opt-icon{font-size:26px}
 .wallet-opt-label{font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.3px}
 .wallet-opt-balance{font-size:14px;font-weight:800}
@@ -381,7 +383,11 @@ select{background:var(--bg3);border:1px solid var(--border);border-radius:8px;pa
       <div class="progress-bar"><div class="progress-fill" id="pXpBar" style="width:0%"></div></div>
       <div class="stat-row"><span class="stat-label">🪙 Мора</span><span class="stat-value" id="pMora">—</span></div>
       <div class="stat-row"><span class="stat-label">🏅 Ранг</span><span class="stat-value" id="pRank">—</span></div>
-      <div class="stat-row"><span class="stat-label">🔥 Стрик</span><span class="stat-value" id="pStreak">—</span></div>
+      <div class="stat-row"><span class="stat-label">� Сообщений</span><span class="stat-value" id="pMsgCount">—</span></div>
+      <div class="stat-row"><span class="stat-label">⚠️ Предупреждения</span><span class="stat-value" id="pWarns">—</span></div>
+      <div class="stat-row"><span class="stat-label">🟢 Первая активность</span><span class="stat-value" id="pFirstActive">—</span></div>
+      <div class="stat-row"><span class="stat-label">🔵 Последняя активность</span><span class="stat-value" id="pLastActive">—</span></div>
+      <div class="stat-row"><span class="stat-label">�🔥 Стрик</span><span class="stat-value" id="pStreak">—</span></div>
     </div>
     <div class="card" id="partnersCard" style="display:none">
       <div class="card-title">💕 Партнёр</div>
@@ -881,6 +887,13 @@ select{background:var(--bg3);border:1px solid var(--border);border-radius:8px;pa
     <div id="devBanList" style="max-height:180px;overflow-y:auto"></div>
   </div>
 
+  <!-- ⚠️ Варн-лист (видим всем админам) -->
+  <div class="card" id="warnlistCard" style="display:none">
+    <div class="card-title">⚠️ Варн-лист</div>
+    <button class="btn btn-primary" onclick="loadWarnlist()" style="margin-bottom:6px">📋 Загрузить</button>
+    <div id="warnlistContent" style="max-height:260px;overflow-y:auto"></div>
+  </div>
+
   <!-- ⑥ Запуск ивентов -->
   <div class="card" id="devEventCard">
     <div class="card-title">🎪 Запуск ивентов</div>
@@ -955,8 +968,9 @@ function pickWallet(label, price){
     document.getElementById('wFamilyBal').textContent=fb+' 🪙';
     const famBtn=document.getElementById('wBtnFamily');
     famBtn.style.display=hasFam?'':'none';
-    document.getElementById('wBtnPersonal').style.opacity=pb<price?'0.45':'1';
-    if(hasFam) famBtn.style.opacity=fb<price?'0.45':'1';
+    const personalBtn=document.getElementById('wBtnPersonal');
+    personalBtn.classList.toggle('insufficient',pb<price);
+    if(hasFam) famBtn.classList.toggle('insufficient',fb<price);
     document.getElementById('walletModal').classList.add('open');
   });
 }
@@ -975,6 +989,8 @@ function toast(msg, type='', dur=3000){
     else tg.HapticFeedback.impactOccurred('light');
   }
 }
+const _busyOps=new Set();
+function withBusy(key,fn){if(_busyOps.has(key))return Promise.resolve();_busyOps.add(key);return fn().finally(()=>_busyOps.delete(key));}
 
 async function api(url, method='GET', body=null){
   const controller = new AbortController();
@@ -999,6 +1015,12 @@ async function api(url, method='GET', body=null){
 }
 
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+
+function _fmtDt(iso){
+  if(!iso) return 'нет данных';
+  try{const d=new Date(iso);if(isNaN(d))return 'нет данных';return d.toLocaleDateString('ru-RU',{day:'2-digit',month:'2-digit',year:'numeric'})+' '+d.toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'});}
+  catch(e){return 'нет данных';}
+}
 
 // ── Balance sync ─────────────────────────────────────────────────────────────
 function syncBalance(n){
@@ -1151,6 +1173,10 @@ async function loadProfile(){
     document.getElementById('globalBalanceBar').style.display = '';
     const RANK_LABELS = {developer:'💻 Разработчик', owner:'👑 Владелец', co_owner:'⭐ Со-владелец', moderator:'🛡 Модератор', user:'👤 Участник'};
     document.getElementById('pRank').textContent = RANK_LABELS[p.rank] || p.rank || '—';
+    document.getElementById('pMsgCount').textContent = (p.message_count||0).toLocaleString();
+    document.getElementById('pWarns').textContent = (p.warns||0) + '/4';
+    document.getElementById('pFirstActive').textContent = _fmtDt(p.first_active);
+    document.getElementById('pLastActive').textContent = _fmtDt(p.last_active);
     document.getElementById('pStreak').textContent = (p.streak||0) + ' дн.';
     const xp = p.xp||0, xpMax = p.xp_max||100;
     document.getElementById('pXp').textContent = xp;
@@ -1168,12 +1194,21 @@ async function loadProfile(){
       if(_currentCat === 'fun') devBtn.style.display = '';
       // Full admin cards visible only to developer
       document.querySelectorAll('#tab-dev .card').forEach((c,i)=>{ if(i<6) c.style.display=''; });
+      document.getElementById('warnlistCard').style.display='';
     } else if(p.rank === 'owner') {
       // Owner sees the dev tab but only the treasury section
       const devBtn = document.getElementById('devTabBtn');
       devBtn.setAttribute('data-unlocked','1');
       if(_currentCat === 'fun') devBtn.style.display = '';
       document.querySelectorAll('#tab-dev .card').forEach((c,i)=>{ if(i<6) c.style.display='none'; });
+      document.getElementById('warnlistCard').style.display='';
+    } else if(['co_owner','admin_senior','admin_junior','moderator'].includes(p.rank)) {
+      // Admins see the dev tab with only warnlist + treasury
+      const devBtn = document.getElementById('devTabBtn');
+      devBtn.setAttribute('data-unlocked','1');
+      if(_currentCat === 'fun') devBtn.style.display = '';
+      document.querySelectorAll('#tab-dev .card').forEach((c,i)=>{ if(i<6) c.style.display='none'; });
+      document.getElementById('warnlistCard').style.display='';
     }
     document.getElementById('walletHistoryCard').style.display='block';
     loadWalletHistory();
@@ -1973,13 +2008,15 @@ async function buyBondsWithWallet(key){
 async function sellBonds(key){
   const amt=parseInt(document.getElementById('sellAmt_'+key)?.value||0);
   if(!amt||amt<=0){toast('Введи количество','error');return;}
-  try{
-    const r=await api('/api/bonds/sell','POST',{chat_id:chatId,bond_key:key,amount:amt});
-    const taxStr = r.tax > 0 ? ` (−${r.tax} 🏦 НДС)` : '';
-    toast(`✅ Продано ${r.sold} шт. за ${r.revenue} 🪙${taxStr}`,'success');
-    syncBalance(r.balance||0);
-    loadBondsTab();
-  } catch(e){toast('❌ '+e.message,'error')}
+  return withBusy('sellBonds_'+key,async()=>{
+    try{
+      const r=await api('/api/bonds/sell','POST',{chat_id:chatId,bond_key:key,amount:amt});
+      const taxStr = r.tax > 0 ? ` (−${r.tax} 🏦 НДС)` : '';
+      toast(`✅ Продано ${r.sold} шт. за ${r.revenue} 🪙${taxStr}`,'success');
+      syncBalance(r.balance||0);
+      loadBondsTab();
+    } catch(e){toast('❌ '+e.message,'error')}
+  });
 }
 
 // ── Bank tab ──────────────────────────────────────────────────────────────────
@@ -2091,16 +2128,19 @@ async function doDeposit(planKey, wallet){
   const inp = document.getElementById('depAmt');
   const amount = parseInt(inp?.value || 0);
   if(!amount || amount <= 0){toast('Введи сумму','error');return;}
-  try{
-    const r = await api('/api/bank/deposit','POST',{chat_id:chatId,plan_key:planKey,amount,wallet});
-    toast(`✅ Вклад открыт! +${r.reward} 🪙 через ${r.days} дней`,'success');
-    syncBalance(r.new_balance);
-    tabLoaded['bank']=false;
-    loadBankTab();
-  } catch(e){toast('❌ '+e.message,'error');}
+  return withBusy('deposit',async()=>{
+    try{
+      const r = await api('/api/bank/deposit','POST',{chat_id:chatId,plan_key:planKey,amount,wallet});
+      toast(`✅ Вклад открыт! +${r.reward} 🪙 через ${r.days} дней`,'success');
+      syncBalance(r.new_balance);
+      tabLoaded['bank']=false;
+      loadBankTab();
+    } catch(e){toast('❌ '+e.message,'error');}
+  });
 }
 
 async function doWithdraw(depositId){
+  return withBusy('withdraw_'+depositId,async()=>{
   try{
     const r=await api('/api/bank/withdraw','POST',{chat_id:chatId,deposit_id:depositId});
     if(r.early){
@@ -2113,6 +2153,7 @@ async function doWithdraw(depositId){
     tabLoaded['bank']=false;
     loadBankTab();
   } catch(e){toast('❌ '+e.message,'error')}
+  });
 }
 
 function initBondChart(b){
@@ -2494,6 +2535,11 @@ async function showPubProfile(userId){
       const walkStr = p.pet.on_walk ? ' 🦮 На прогулке' : '';
       html += `<div class="stat-row"><span class="stat-label">${p.pet.emoji||'🐾'} Питомец</span><span class="stat-value">${esc(p.pet.name||'Питомец')}${walkStr}</span></div>`;
     }
+    html += `<div class="stat-row"><span class="stat-label">💬 Сообщений</span><span class="stat-value">${(p.message_count||0).toLocaleString()}</span></div>`;
+    if(p.warns>0) html += `<div class="stat-row"><span class="stat-label">⚠️ Предупреждения</span><span class="stat-value" style="color:var(--red)">${p.warns}/4</span></div>`;
+    html += `<div class="stat-row"><span class="stat-label">🟢 Первая активность</span><span class="stat-value">${_fmtDt(p.first_active)}</span></div>`;
+    html += `<div class="stat-row"><span class="stat-label">🔵 Последняя активность</span><span class="stat-value">${_fmtDt(p.last_active)}</span></div>`;
+    }
     document.getElementById('pubBody').innerHTML = html;
   } catch(e){
     document.getElementById('pubProfileLoading').style.display='block';
@@ -2536,6 +2582,23 @@ async function devUnbanUser(uid_b){
     toast('✅ Разбанен #'+uid_b,'success');
     loadDevBanlist();
   } catch(e){toast('❌ '+e.message,'error')}
+}
+
+// ── Warn list ─────────────────────────────────────────────────────────────────
+
+async function loadWarnlist(){
+  const el = document.getElementById('warnlistContent');
+  el.innerHTML = '<div style="color:var(--text2);font-size:12px;padding:6px">Загрузка…</div>';
+  try{
+    const r = await api('/api/warnlist?chat_id='+chatId);
+    const warned = r.warned||[];
+    el.innerHTML = warned.length
+      ? warned.map(w=>`<div class="dev-ban-row" onclick="showPubProfile(${w.user_id})" style="cursor:pointer">
+          <span><b>${esc(w.name||'?')}</b> <span style="color:var(--text2)">#${w.user_id}</span></span>
+          <span style="color:var(--red);font-weight:700;margin-left:auto">⚠️ ${w.warns}/4</span>
+        </div>`).join('')
+      : '<div style="color:var(--text2);font-size:12px;padding:6px">✅ Нет пользователей с предупреждениями</div>';
+  } catch(e){el.innerHTML='<div style="color:#f87171;font-size:12px;padding:6px">'+esc(e.message)+'</div>';}
 }
 
 // ── Event trigger ─────────────────────────────────────────────────────────────
@@ -3710,11 +3773,13 @@ async function doTransfer(){
   const el=document.getElementById('transferResult');
   if(!target){el.innerHTML='<span style="color:#f87171">❌ Введи User ID</span>';return;}
   if(!amt||amt<=0){el.innerHTML='<span style="color:#f87171">❌ Введи сумму</span>';return;}
-  try{
-    const r=await api('/api/transfer','POST',{chat_id:chatId,target_id:target,amount:amt});
-    el.innerHTML=`<span style="color:var(--green)">✅ Переведено ${r.amount} 🪙 (налог ${r.tax} 🪙). Баланс: ${r.new_balance} 🪙</span>`;
-    if(r.new_balance !== undefined) syncBalance(r.new_balance);
-  }catch(e){el.innerHTML=`<span style="color:#f87171">❌ ${esc(e.message)}</span>`;}
+  return withBusy('transfer',async()=>{
+    try{
+      const r=await api('/api/transfer','POST',{chat_id:chatId,target_id:target,amount:amt});
+      el.innerHTML=`<span style="color:var(--green)">✅ Переведено ${r.amount} 🪙 (налог ${r.tax} 🪙). Баланс: ${r.new_balance} 🪙</span>`;
+      if(r.new_balance !== undefined) syncBalance(r.new_balance);
+    }catch(e){el.innerHTML=`<span style="color:#f87171">❌ ${esc(e.message)}</span>`;}
+  });
 }
 async function doLoanCreate(){
   const target=parseInt(document.getElementById('loanTarget').value||0);
@@ -3722,11 +3787,13 @@ async function doLoanCreate(){
   const el=document.getElementById('loanCreateResult');
   if(!target){el.innerHTML='<span style="color:#f87171">❌ Введи User ID</span>';return;}
   if(!amt||amt<=0){el.innerHTML='<span style="color:#f87171">❌ Введи сумму</span>';return;}
-  try{
-    const r=await api('/api/loans/create','POST',{chat_id:chatId,target_id:target,amount:amt});
-    el.innerHTML=`<span style="color:var(--gold)">⏳ Заявка #${r.loan_id} отправлена! Ждём подтверждения заёмщика.</span>`;
-    tabLoaded['transfers']=false; setTimeout(()=>loadTransfersTab(),800);
-  }catch(e){el.innerHTML=`<span style="color:#f87171">❌ ${esc(e.message)}</span>`;}
+  return withBusy('loanCreate',async()=>{
+    try{
+      const r=await api('/api/loans/create','POST',{chat_id:chatId,target_id:target,amount:amt});
+      el.innerHTML=`<span style="color:var(--gold)">⏳ Заявка #${r.loan_id} отправлена! Ждём подтверждения заёмщика.</span>`;
+      tabLoaded['transfers']=false; setTimeout(()=>loadTransfersTab(),800);
+    }catch(e){el.innerHTML=`<span style="color:#f87171">❌ ${esc(e.message)}</span>`;}
+  });
 }
 async function doLoanRespond(loanId, action){
   try{
@@ -3748,12 +3815,14 @@ async function doLoanCancel(loanId){
   }catch(e){toast('❌ '+e.message,'error');}
 }
 async function doLoanRepay(loanId){
-  try{
-    const r=await api('/api/loans/repay','POST',{chat_id:chatId,loan_id:loanId});
-    if(r.new_balance !== undefined) syncBalance(r.new_balance);
-    toast(`✅ Долг #${loanId} погашен! Баланс: ${r.new_balance} 🪙`);
-    tabLoaded['transfers']=false; loadTransfersTab();
-  }catch(e){toast('❌ '+e.message,'error');}
+  return withBusy('repay_'+loanId,async()=>{
+    try{
+      const r=await api('/api/loans/repay','POST',{chat_id:chatId,loan_id:loanId});
+      if(r.new_balance !== undefined) syncBalance(r.new_balance);
+      toast(`✅ Долг #${loanId} погашен! Баланс: ${r.new_balance} 🪙`);
+      tabLoaded['transfers']=false; loadTransfersTab();
+    }catch(e){toast('❌ '+e.message,'error');}
+  });
 }
 
 // ═══════════════════════════════════════════════════════════════════

@@ -198,3 +198,58 @@ async def claim_expedition(uid: int, chat_id: int) -> dict:
         "tax":          exped_tax,
         "new_balance":  new_balance,
     }
+
+
+async def get_status(uid: int, chat_id: int) -> dict:
+    """Return current expedition status and pet info.
+
+    Returns {active, started_at?, duration_h?, reward_min?, reward_max?,
+             remaining_sec?, pet?}.
+    """
+    from database.db import get_active_expedition, get_pet
+
+    active = await get_active_expedition(uid, chat_id)
+    pet = await get_pet(uid, chat_id)
+
+    pet_info = None
+    if pet:
+        walk_end = pet.get("walk_end_at")
+        walking = False
+        if walk_end:
+            if isinstance(walk_end, str):
+                walk_end = datetime.fromisoformat(walk_end.replace("Z", "+00:00"))
+            if hasattr(walk_end, "tzinfo") and walk_end.tzinfo is None:
+                walk_end = walk_end.replace(tzinfo=timezone.utc)
+            walking = walk_end > datetime.now(timezone.utc)
+        pet_info = {
+            "pet_type": pet.get("pet_type"),
+            "name": pet.get("name"),
+            "fatigue": pet.get("fatigue") or 0,
+            "walking": walking,
+        }
+
+    if not active:
+        return {"ok": True, "active": False, "pet": pet_info}
+
+    started_at = active["started_at"]
+    duration_h = active["duration_h"]
+
+    if isinstance(started_at, str):
+        started_at = datetime.fromisoformat(started_at.replace("Z", "+00:00"))
+    if started_at.tzinfo is None:
+        started_at = started_at.replace(tzinfo=timezone.utc)
+
+    end_at = started_at + timedelta(hours=duration_h)
+    now = datetime.now(timezone.utc)
+    remaining = max(0, int((end_at - now).total_seconds()))
+
+    return {
+        "ok": True,
+        "active": True,
+        "started_at": started_at.isoformat(),
+        "duration_h": duration_h,
+        "reward_min": active["reward_min"],
+        "reward_max": active["reward_max"],
+        "remaining_sec": remaining,
+        "pet": pet_info,
+    }

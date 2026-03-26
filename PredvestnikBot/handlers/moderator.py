@@ -12,7 +12,7 @@ from aiogram.types import (
 
 from database.db import (
     ban_user_in_chat, get_banned_in_chat, get_user, get_user_stats,
-    remove_warn_in_chat, unban_user_in_chat,
+    get_warned_users, remove_warn_in_chat, unban_user_in_chat,
 )
 from filters.bot_command import BotCommand
 from filters.rank_filter import RankFilter
@@ -252,6 +252,25 @@ async def cmd_warns(message: Message, cmd_args: str):
         parse_mode="HTML",
         reply_markup=kb,
     )
+
+
+@router.message(BotCommand("варнлист", "warnlist", "списокварнов"), RankFilter("admin_junior"))
+async def cmd_warnlist(message: Message, cmd_args: str):
+    if message.chat.type == "private":
+        await message.answer("❌ Команда работает только в чате.")
+        return
+    warned = await get_warned_users(message.chat.id)
+    if not warned:
+        await message.answer("✅ Нет пользователей с предупреждениями.")
+        return
+    from config import MAX_WARNS
+    lines = [f"⚠️ <b>Пользователи с предупреждениями ({len(warned)}):</b>\n"]
+    for u in warned:
+        lines.append(
+            f"  • {user_mention(u['user_id'], html.escape(u['full_name']))} "
+            f"— <b>{u['warns']}/{MAX_WARNS}</b>"
+        )
+    await message.answer("\n".join(lines), parse_mode="HTML")
 
 
 @router.message(BotCommand("баны", "банлист", "bans"), RankFilter("moderator"))

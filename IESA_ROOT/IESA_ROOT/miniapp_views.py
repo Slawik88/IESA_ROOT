@@ -221,12 +221,12 @@ def miniapp_user_data(request):
         if specific_chat_id or chat_id:
             effective_cid = specific_chat_id or chat_id
             cur.execute(
-                f"SELECT xp, COALESCE(level, 1), custom_title, COALESCE(rank,'user') FROM user_stats WHERE user_id={ph} AND chat_id={ph}",
+                f"SELECT xp, COALESCE(level, 1), custom_title, COALESCE(rank,'user'), first_active, last_active, COALESCE(warns,0), COALESCE(message_count,0) FROM user_stats WHERE user_id={ph} AND chat_id={ph}",
                 (uid, effective_cid),
             )
         else:
             cur.execute(
-                f"SELECT xp, COALESCE(level, 1), custom_title, COALESCE(rank,'user') FROM user_stats WHERE user_id={ph} ORDER BY xp DESC LIMIT 1",
+                f"SELECT xp, COALESCE(level, 1), custom_title, COALESCE(rank,'user'), first_active, last_active, COALESCE(warns,0), COALESCE(message_count,0) FROM user_stats WHERE user_id={ph} ORDER BY xp DESC LIMIT 1",
                 (uid,),
             )
         xp_row = cur.fetchone()
@@ -234,6 +234,10 @@ def miniapp_user_data(request):
         db_level = xp_row[1] if xp_row else 1
         custom_title = xp_row[2] if xp_row else None
         user_rank = xp_row[3] if xp_row else 'user'
+        first_active = str(xp_row[4]) if xp_row and xp_row[4] else None
+        last_active = str(xp_row[5]) if xp_row and xp_row[5] else None
+        warns_count = xp_row[6] if xp_row else 0
+        message_count = xp_row[7] if xp_row else 0
         # Developer ID always gets developer rank regardless of DB value
         if uid == _DEVELOPER_ID:
             user_rank = 'developer'
@@ -414,6 +418,10 @@ def miniapp_user_data(request):
             "rank": user_rank,
             "is_dev": user_rank in ('developer', 'owner'),
             "custom_title": custom_title or "",
+            "first_active": first_active,
+            "last_active": last_active,
+            "warns": warns_count,
+            "message_count": message_count,
         }
         return JsonResponse(payload, json_dumps_params={"ensure_ascii": False},
                             headers=headers)
@@ -624,42 +632,6 @@ _EDITABLE_RANKS = (
     "owner",
     "developer",
 )
-
-
-def _ensure_wallet_ledger_table(cur, db_type: str) -> None:
-    if db_type == "pg":
-        cur.execute(
-            "CREATE TABLE IF NOT EXISTS wallet_ledger ("
-            "id SERIAL PRIMARY KEY, "
-            "chat_id BIGINT NOT NULL, user_id BIGINT NOT NULL, "
-            "direction TEXT NOT NULL, amount INTEGER NOT NULL, source TEXT NOT NULL, "
-            "description TEXT DEFAULT '', actor_id BIGINT DEFAULT NULL, "
-            "created_at TIMESTAMPTZ NOT NULL)"
-        )
-    else:
-        cur.execute(
-            "CREATE TABLE IF NOT EXISTS wallet_ledger ("
-            "id INTEGER PRIMARY KEY AUTOINCREMENT, "
-            "chat_id INTEGER NOT NULL, user_id INTEGER NOT NULL, "
-            "direction TEXT NOT NULL, amount INTEGER NOT NULL, source TEXT NOT NULL, "
-            "description TEXT DEFAULT '', actor_id INTEGER DEFAULT NULL, "
-            "created_at TEXT NOT NULL)"
-        )
-
-
-def _insert_wallet_ledger(cur, db_type: str, chat_id: int, user_id: int, direction: str,
-                          amount: int, source: str, description: str = "",
-                          actor_id: int | None = None) -> None:
-    if amount <= 0:
-        return
-    _ensure_wallet_ledger_table(cur, db_type)
-    ph = "%s" if db_type == "pg" else "?"
-    created_at = datetime.now(timezone.utc).isoformat()
-    cur.execute(
-        f"INSERT INTO wallet_ledger (chat_id, user_id, direction, amount, source, description, actor_id, created_at) "
-        f"VALUES ({ph},{ph},{ph},{ph},{ph},{ph},{ph},{ph})",
-        (chat_id, user_id, direction, amount, source, description or "", actor_id, created_at),
-    )
 
 
 def _send_salary_announcement(chat_id: int, target_name: str) -> None:
@@ -1240,40 +1212,11 @@ def miniapp_wallet_history(request):
     chat_id = int(chat_id_str)
 
     try:
-        conn, db_type = _get_bot_db_connection()
-    except Exception as exc:
-        return JsonResponse({"error": f"DB: {exc}"}, status=503, headers=headers)
-
-    try:
-        cur = conn.cursor()
-        ph = "%s" if db_type == "pg" else "?"
-        _ensure_wallet_ledger_table(cur, db_type)
-        _7d = "NOW() - INTERVAL '7 days'" if db_type == "pg" else "datetime('now','-7 days')"
-        cur.execute(
-            f"SELECT direction, amount, source, description, created_at "
-            f"FROM wallet_ledger WHERE user_id={ph} AND chat_id={ph} "
-            f"AND created_at >= {_7d} "
-            f"ORDER BY created_at DESC LIMIT 100",
-            (uid, chat_id),
-        )
-        rows = cur.fetchall()
-        conn.close()
-        history = [
-            {
-                "direction": r[0],
-                "amount": r[1],
-                "source": r[2],
-                "description": r[3] or "",
-                "created_at": str(r[4]),
-            }
-            for r in rows
-        ]
+        from asgiref.sync import async_to_sync as _a2s
+        from api.economy import wallet_history
+        history = _a2s(wallet_history)(uid, chat_id)
         return JsonResponse({"history": history}, json_dumps_params={"ensure_ascii": False}, headers=headers)
     except Exception as exc:
-        try:
-            conn.close()
-        except Exception:
-            pass
         return JsonResponse({"error": str(exc)}, status=500, headers=headers)
 
 
@@ -1715,93 +1658,18 @@ def miniapp_family_deposit(request):
     except Exception:
         return JsonResponse({"error": "invalid JSON"}, status=400, headers=headers)
 
-    if amount <= 0:
-        return JsonResponse({"error": "amount must be positive"}, status=400, headers=headers)
-
     try:
-        conn, db_type = _get_bot_db_connection()
+        from asgiref.sync import async_to_sync as _a2s
+        from api.marriage import family_deposit
+        result = _a2s(family_deposit)(uid, chat_id, amount)
+        return JsonResponse({
+            "ok": True,
+            "personal": result["personal_balance"],
+            "family": result["family_balance"],
+        }, headers=headers)
+    except ValueError as ve:
+        return JsonResponse({"error": str(ve)}, status=400, headers=headers)
     except Exception as exc:
-        return JsonResponse({"error": f"DB: {exc}"}, status=503, headers=headers)
-
-    try:
-        cur = conn.cursor()
-        ph = "%s" if db_type == "pg" else "?"
-
-        # Check marriage exists
-        cur.execute(
-            f"SELECT partner_id FROM marriages WHERE user_id={ph} AND chat_id={ph}",
-            (uid, chat_id),
-        )
-        marriage_row = cur.fetchone()
-        if not marriage_row:
-            conn.close()
-            return JsonResponse({"error": "Нет союза — семейный кошелёк недоступен"}, status=400, headers=headers)
-        partner_id = marriage_row[0]
-
-        # Check personal balance
-        cur.execute(
-            f"SELECT balance FROM user_mora WHERE user_id={ph} AND chat_id={ph}",
-            (uid, chat_id),
-        )
-        row = cur.fetchone()
-        personal = row[0] if row else 0
-        if personal < amount:
-            conn.close()
-            return JsonResponse({"error": f"Недостаточно Моры ({personal})"}, status=400, headers=headers)
-
-        # Deduct personal
-        cur.execute(
-            f"UPDATE user_mora SET balance=balance-{ph} WHERE user_id={ph} AND chat_id={ph}",
-            (amount, uid, chat_id),
-        )
-        # Add to family wallet
-        if db_type == "pg":
-            cur.execute(
-                f"INSERT INTO family_wallet (chat_id, user_id, balance) VALUES ({ph},{ph},{ph}) "
-                f"ON CONFLICT (chat_id, user_id) DO UPDATE SET balance=family_wallet.balance+EXCLUDED.balance",
-                (chat_id, uid, amount),
-            )
-        else:
-            cur.execute(
-                "INSERT INTO family_wallet (chat_id, user_id, balance) VALUES (?,?,?) "
-                "ON CONFLICT(chat_id, user_id) DO UPDATE SET balance=family_wallet.balance+excluded.balance",
-                (chat_id, uid, amount),
-            )
-        # Log the transaction
-        from datetime import datetime, timezone
-        _now_iso = datetime.now(timezone.utc).isoformat()
-        cur.execute(
-            "INSERT INTO family_wallet_log (chat_id, user_id, action, amount, description, created_at) "
-            "VALUES (?,?,?,?,?,?)" if db_type != "pg" else
-            "INSERT INTO family_wallet_log (chat_id, user_id, action, amount, description, created_at) "
-            "VALUES (%s,%s,%s,%s,%s,%s)",
-            (chat_id, uid, "deposit", amount, "Пополнение через Mini App", _now_iso),
-        )
-        # Also write to personal wallet_ledger so it shows in wallet history
-        _ensure_wallet_ledger_table(cur, db_type)
-        _insert_wallet_ledger(cur, db_type, chat_id, uid, "expense", amount,
-                              "family_deposit", f"→ Семейный кошелёк (+{amount} 🪙)", uid)
-        # Notify partner's ledger so they see the deposit in their history too
-        cur.execute(f"SELECT full_name FROM users WHERE user_id={ph}", (uid,))
-        _name_row = cur.fetchone()
-        _depositor_name = _name_row[0] if _name_row else str(uid)
-        _insert_wallet_ledger(cur, db_type, chat_id, partner_id, "income", 0,
-                              "family_partner_deposit",
-                              f"📥 +{amount} 🪙 в сем. кошелёк от {_depositor_name}", uid)
-        # Read new balances
-        cur.execute(f"SELECT balance FROM user_mora WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
-        new_personal = (cur.fetchone() or [0])[0]
-        cur.execute(f"SELECT balance FROM family_wallet WHERE chat_id={ph} AND user_id={ph}", (chat_id, uid))
-        new_family = (cur.fetchone() or [0])[0]
-
-        conn.commit()
-        conn.close()
-        return JsonResponse({"ok": True, "personal": new_personal, "family": new_family}, headers=headers)
-    except Exception as exc:
-        try:
-            conn.close()
-        except Exception:
-            pass
         return JsonResponse({"error": str(exc)}, status=500, headers=headers)
 
 
@@ -1825,110 +1693,18 @@ def miniapp_family_withdraw(request):
     except Exception:
         return JsonResponse({"error": "invalid JSON"}, status=400, headers=headers)
 
-    if amount <= 0:
-        return JsonResponse({"error": "amount must be positive"}, status=400, headers=headers)
-
     try:
-        conn, db_type = _get_bot_db_connection()
+        from asgiref.sync import async_to_sync as _a2s
+        from api.marriage import family_withdraw
+        result = _a2s(family_withdraw)(uid, chat_id, amount)
+        return JsonResponse({
+            "ok": True,
+            "personal": result["personal_balance"],
+            "family": result["family_balance"],
+        }, headers=headers)
+    except ValueError as ve:
+        return JsonResponse({"error": str(ve)}, status=400, headers=headers)
     except Exception as exc:
-        return JsonResponse({"error": f"DB: {exc}"}, status=503, headers=headers)
-
-    try:
-        cur = conn.cursor()
-        ph = "%s" if db_type == "pg" else "?"
-
-        cur.execute(
-            f"SELECT partner_id FROM marriages WHERE user_id={ph} AND chat_id={ph}",
-            (uid, chat_id),
-        )
-        marriage_row = cur.fetchone()
-        if not marriage_row:
-            conn.close()
-            return JsonResponse({"error": "Нет союза"}, status=400, headers=headers)
-
-        partner_id = marriage_row[0]
-
-        # Проверяем СУММАРНЫЙ семейный баланс (вклад обоих партнёров)
-        cur.execute(
-            f"SELECT COALESCE(balance,0) FROM family_wallet WHERE chat_id={ph} AND user_id={ph}",
-            (chat_id, uid),
-        )
-        my_bal = (cur.fetchone() or [0])[0]
-        cur.execute(
-            f"SELECT COALESCE(balance,0) FROM family_wallet WHERE chat_id={ph} AND user_id={ph}",
-            (chat_id, partner_id),
-        )
-        partner_bal = (cur.fetchone() or [0])[0]
-        total_bal = my_bal + partner_bal
-
-        if total_bal < amount:
-            conn.close()
-            return JsonResponse(
-                {"error": f"В семейном кошельке недостаточно средств ({total_bal} 🪙)"},
-                status=400, headers=headers,
-            )
-
-        # Списываем из пула: сначала мой вклад, затем вклад партнёра
-        if my_bal >= amount:
-            cur.execute(
-                f"UPDATE family_wallet SET balance=balance-{ph} WHERE chat_id={ph} AND user_id={ph}",
-                (amount, chat_id, uid),
-            )
-        else:
-            rest = amount - my_bal
-            cur.execute(
-                f"UPDATE family_wallet SET balance=0 WHERE chat_id={ph} AND user_id={ph}",
-                (chat_id, uid),
-            )
-            cur.execute(
-                f"UPDATE family_wallet SET balance=MAX(0,balance-{ph}) WHERE chat_id={ph} AND user_id={ph}",
-                (rest, chat_id, partner_id),
-            )
-
-        # Добавляем на личный счёт
-        if db_type == "pg":
-            cur.execute(
-                f"INSERT INTO user_mora (user_id, chat_id, balance) VALUES ({ph},{ph},{ph}) "
-                f"ON CONFLICT (user_id, chat_id) DO UPDATE SET balance=user_mora.balance+EXCLUDED.balance",
-                (uid, chat_id, amount),
-            )
-        else:
-            cur.execute(
-                "INSERT INTO user_mora (user_id, chat_id, balance) VALUES (?,?,?) "
-                "ON CONFLICT(user_id, chat_id) DO UPDATE SET balance=user_mora.balance+excluded.balance",
-                (uid, chat_id, amount),
-            )
-
-        # Log the transaction
-        from datetime import datetime, timezone
-        _now_iso = datetime.now(timezone.utc).isoformat()
-        cur.execute(
-            "INSERT INTO family_wallet_log (chat_id, user_id, action, amount, description, created_at) "
-            "VALUES (?,?,?,?,?,?)" if db_type != "pg" else
-            "INSERT INTO family_wallet_log (chat_id, user_id, action, amount, description, created_at) "
-            "VALUES (%s,%s,%s,%s,%s,%s)",
-            (chat_id, uid, "withdraw", amount, "Снятие через Mini App", _now_iso),
-        )
-        # Also write to personal wallet_ledger so it shows in wallet history
-        _ensure_wallet_ledger_table(cur, db_type)
-        _insert_wallet_ledger(cur, db_type, chat_id, uid, "income", amount,
-                              "family_withdraw", f"← Из семейного кошелька (+{amount} 🪙)", uid)
-
-        cur.execute(f"SELECT balance FROM user_mora WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
-        new_personal = (cur.fetchone() or [0])[0]
-        cur.execute(f"SELECT COALESCE(balance,0) FROM family_wallet WHERE chat_id={ph} AND user_id={ph}", (chat_id, uid))
-        new_my = (cur.fetchone() or [0])[0]
-        cur.execute(f"SELECT COALESCE(balance,0) FROM family_wallet WHERE chat_id={ph} AND user_id={ph}", (chat_id, partner_id))
-        new_partner = (cur.fetchone() or [0])[0]
-
-        conn.commit()
-        conn.close()
-        return JsonResponse({"ok": True, "personal": new_personal, "family": new_my + new_partner}, headers=headers)
-    except Exception as exc:
-        try:
-            conn.close()
-        except Exception:
-            pass
         return JsonResponse({"error": str(exc)}, status=500, headers=headers)
 
 
@@ -1951,57 +1727,11 @@ def miniapp_family_log(request):
     chat_id = int(chat_id_str)
 
     try:
-        conn, db_type = _get_bot_db_connection()
+        from asgiref.sync import async_to_sync as _a2s
+        from api.marriage import get_family_log
+        result = _a2s(get_family_log)(uid, chat_id)
+        return JsonResponse(result, headers=headers)
     except Exception as exc:
-        return JsonResponse({"error": f"DB: {exc}"}, status=503, headers=headers)
-
-    try:
-        cur = conn.cursor()
-        ph = "%s" if db_type == "pg" else "?"
-
-        cur.execute(f"SELECT 1 FROM marriages WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
-        if not cur.fetchone():
-            conn.close()
-            return JsonResponse({"log": []}, headers=headers)
-
-        # Auto-cleanup old records (> 60 days)
-        if db_type == "pg":
-            cur.execute(
-                f"DELETE FROM family_wallet_log WHERE chat_id={ph} AND created_at < NOW() - INTERVAL '60 days'",
-                (chat_id,),
-            )
-        else:
-            cur.execute(
-                "DELETE FROM family_wallet_log WHERE chat_id=? AND created_at < datetime('now', '-60 days')",
-                (chat_id,),
-            )
-
-        cur.execute(
-            f"SELECT fw.id, fw.user_id, fw.action, fw.amount, fw.description, fw.created_at, u.full_name "
-            f"FROM family_wallet_log fw "
-            f"LEFT JOIN users u ON u.user_id = fw.user_id "
-            f"WHERE fw.chat_id={ph} "
-            f"ORDER BY fw.created_at DESC LIMIT 30",
-            (chat_id,),
-        )
-        rows = cur.fetchall()
-        conn.commit()
-        conn.close()
-
-        log = [
-            {
-                "id": r[0], "user_id": r[1], "action": r[2],
-                "amount": r[3], "description": r[4] or "",
-                "created_at": r[5], "user_name": r[6] or str(r[1]),
-            }
-            for r in rows
-        ]
-        return JsonResponse({"ok": True, "log": log}, headers=headers)
-    except Exception as exc:
-        try:
-            conn.close()
-        except Exception:
-            pass
         return JsonResponse({"error": str(exc)}, status=500, headers=headers)
 
 
@@ -2882,9 +2612,10 @@ def miniapp_public_profile(request):
             return JsonResponse({"error": "User not found"}, status=404, headers=headers)
         full_name = user_row[0]
 
-        # Stats (level, xp, rank, custom_title)
+        # Stats (level, xp, rank, custom_title, activity, warns, messages)
         cur.execute(
-            f"SELECT xp, COALESCE(level,1), COALESCE(rank,'user'), custom_title "
+            f"SELECT xp, COALESCE(level,1), COALESCE(rank,'user'), custom_title, "
+            f"first_active, last_active, COALESCE(warns,0), COALESCE(message_count,0) "
             f"FROM user_stats WHERE user_id={ph} AND chat_id={ph}",
             (target_id, chat_id),
         )
@@ -2893,6 +2624,10 @@ def miniapp_public_profile(request):
         level = stats_row[1] if stats_row else 1
         rank = stats_row[2] if stats_row else "user"
         custom_title = stats_row[3] if stats_row else None
+        pub_first_active = str(stats_row[4]) if stats_row and stats_row[4] else None
+        pub_last_active = str(stats_row[5]) if stats_row and stats_row[5] else None
+        pub_warns = stats_row[6] if stats_row else 0
+        pub_message_count = stats_row[7] if stats_row else 0
 
         # Mora row (vip, frame, theme)
         cur.execute(
@@ -3017,6 +2752,10 @@ def miniapp_public_profile(request):
             "partner_id": partner_id,
             "pet": pet_info,
             "is_own": target_id == uid,
+            "first_active": pub_first_active,
+            "last_active": pub_last_active,
+            "warns": pub_warns,
+            "message_count": pub_message_count,
         }, json_dumps_params={"ensure_ascii": False}, headers=headers)
     except Exception as exc:
         try:
@@ -3055,30 +2794,20 @@ def miniapp_enhance_item(request):
         return JsonResponse({"error": "item_id and chat_id required"}, status=400, headers=headers)
 
     try:
-        conn, db_type = _get_bot_db_connection()
-    except Exception as exc:
-        return JsonResponse({"error": f"DB: {exc}"}, status=503, headers=headers)
-
-    try:
         from database.db import enhance_item
+        from api.economy import get_balance
         from asgiref.sync import async_to_sync as _a2s
 
         success, message, new_level = _a2s(enhance_item)(uid, chat_id, item_id)
 
-        # ➕ ЛОГИРУЕМ ЗАТОЧКУ В ЧАТ
         if success:
             _a2s(log_action_to_chat)(
                 uid, chat_id,
                 f"✨ Заточил предмет до +{new_level}",
                 message
             )
-        
-        # Get updated balance
-        cur = conn.cursor()
-        ph = "%s" if db_type == "pg" else "?"
-        cur.execute(f"SELECT balance FROM user_mora WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
-        balance = (cur.fetchone() or [0])[0]
-        conn.close()
+
+        balance = _a2s(get_balance)(uid, chat_id)
 
         return JsonResponse({
             "success": success,
@@ -3088,10 +2817,6 @@ def miniapp_enhance_item(request):
         }, json_dumps_params={"ensure_ascii": False}, headers=headers)
 
     except Exception as exc:
-        try:
-            conn.close()
-        except Exception:
-            pass
         return JsonResponse({"error": str(exc)}, status=500, headers=headers)
 
 
@@ -3163,11 +2888,11 @@ def miniapp_batch_sell(request):
 
     try:
         from database.db import batch_sell_items
+        from api.economy import get_balance
         from asgiref.sync import async_to_sync as _a2s
 
         sold_count, total_mora = _a2s(batch_sell_items)(uid, chat_id, item_ids)
 
-        # ➕ ЛОГИРУЕМ ПРОДАЖУ ВЕЩЕЙ В ЧАТ
         if sold_count > 0:
             _a2s(log_action_to_chat)(
                 uid, chat_id,
@@ -3175,16 +2900,7 @@ def miniapp_batch_sell(request):
                 f"Получено: +{total_mora} 🪙"
             )
 
-        # Get updated balance
-        try:
-            conn, db_type = _get_bot_db_connection()
-            cur = conn.cursor()
-            ph = "%s" if db_type == "pg" else "?"
-            cur.execute(f"SELECT balance FROM user_mora WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
-            balance = (cur.fetchone() or [0])[0]
-            conn.close()
-        except Exception:
-            balance = 0
+        balance = _a2s(get_balance)(uid, chat_id)
 
         return JsonResponse({
             "sold": sold_count,
@@ -3470,7 +3186,7 @@ def miniapp_couple_boss_attack(request):
         session_data = dict(zip([
             "id", "user_a_id", "user_b_id", "chat_id", "boss_level", "boss_max_hp", "boss_current_hp",
             "user_a_damage", "user_b_damage", "user_a_hits", "user_b_hits", "user_a_aggro", "user_b_aggro",
-            "is_repeat", "is_completed", "session_date"
+            "is_completed", "is_repeat", "session_date", "completed_at"
         ], session_row))
         
         # Apply damage using existing function
@@ -3501,42 +3217,14 @@ def miniapp_couple_boss_attack(request):
         
         if result["boss_defeated"]:
             # Calculate rewards
-            from database.db import get_couple_boss_rewards
+            from database.db import get_couple_boss_rewards, add_mora, add_xp_in_chat
             rewards = async_to_sync(get_couple_boss_rewards)(session_data)
             
             # Give rewards to both players
             try:
-                conn, db_type = _get_bot_db_connection()
-                cur = conn.cursor()
-                ph = "%s" if db_type == "pg" else "?"
-                
-                # Add mora and XP to both users
                 for player_id in [user_a_id, user_b_id]:
-                    if db_type == "pg":
-                        cur.execute(
-                            f"INSERT INTO user_mora (user_id, chat_id, balance) VALUES ({ph},{ph},{ph}) "
-                            f"ON CONFLICT (user_id, chat_id) DO UPDATE SET balance = user_mora.balance + EXCLUDED.balance",
-                            (player_id, chat_id, rewards["mora_each"]),
-                        )
-                        cur.execute(
-                            f"INSERT INTO user_stats (user_id, chat_id, xp) VALUES ({ph},{ph},{ph}) "
-                            f"ON CONFLICT (user_id, chat_id) DO UPDATE SET xp = user_stats.xp + EXCLUDED.xp",
-                            (player_id, chat_id, rewards["xp_each"]),
-                        )
-                    else:
-                        cur.execute(
-                            "INSERT INTO user_mora (user_id, chat_id, balance) VALUES (?,?,?) "
-                            "ON CONFLICT(user_id, chat_id) DO UPDATE SET balance = user_mora.balance + excluded.balance",
-                            (player_id, chat_id, rewards["mora_each"]),
-                        )
-                        cur.execute(
-                            "INSERT INTO user_stats (user_id, chat_id, xp) VALUES (?,?,?) "
-                            "ON CONFLICT(user_id, chat_id) DO UPDATE SET xp = user_stats.xp + excluded.xp",
-                            (player_id, chat_id, rewards["xp_each"]),
-                        )
-                
-                conn.commit()
-                conn.close()
+                    async_to_sync(add_mora)(player_id, chat_id, rewards["mora_each"])
+                    async_to_sync(add_xp_in_chat)(player_id, chat_id, rewards["xp_each"])
                 
                 response["rewards"] = {
                     "mora": rewards["mora_each"],
@@ -3721,37 +3409,11 @@ def miniapp_solo_boss_attack(request):
         mora_reward = 500 + (session["boss_level"] - 1) * 200
         xp_reward = 300 + (session["boss_level"] - 1) * 100
         try:
-            conn, db_type = _get_bot_db_connection()
-            cur = conn.cursor()
-            ph = "%s" if db_type == "pg" else "?"
-            if db_type == "pg":
-                cur.execute(
-                    f"INSERT INTO user_mora (user_id, chat_id, balance) VALUES ({ph},{ph},{ph}) "
-                    f"ON CONFLICT (user_id, chat_id) DO UPDATE SET balance = user_mora.balance + EXCLUDED.balance",
-                    (uid, chat_id, mora_reward),
-                )
-                cur.execute(
-                    f"INSERT INTO user_stats (user_id, chat_id, xp) VALUES ({ph},{ph},{ph}) "
-                    f"ON CONFLICT (user_id, chat_id) DO UPDATE SET xp = user_stats.xp + EXCLUDED.xp",
-                    (uid, chat_id, xp_reward),
-                )
-            else:
-                cur.execute(
-                    "INSERT INTO user_mora (user_id, chat_id, balance) VALUES (?,?,?) "
-                    "ON CONFLICT(user_id, chat_id) DO UPDATE SET balance = user_mora.balance + excluded.balance",
-                    (uid, chat_id, mora_reward),
-                )
-                cur.execute(
-                    "INSERT INTO user_stats (user_id, chat_id, xp) VALUES (?,?,?) "
-                    "ON CONFLICT(user_id, chat_id) DO UPDATE SET xp = user_stats.xp + excluded.xp",
-                    (uid, chat_id, xp_reward),
-                )
-            conn.commit()
-            conn.close()
+            from database.db import add_mora, add_xp_in_chat
+            async_to_sync(add_mora)(uid, chat_id, mora_reward)
+            async_to_sync(add_xp_in_chat)(uid, chat_id, xp_reward)
             response["rewards"] = {"mora": mora_reward, "xp": xp_reward}
         except Exception as e:
-            try: conn.close()
-            except Exception: pass
             response["rewards_error"] = str(e)
 
     return JsonResponse(response, json_dumps_params={"ensure_ascii": False}, headers=headers)
@@ -3804,13 +3466,20 @@ def miniapp_get_avatar(request):
     if request.method != "GET":
         return JsonResponse({"error": "GET required"}, status=405, headers=headers)
 
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+
     user_id_str = request.GET.get("user_id", "")
     if not user_id_str.isdigit():
         return JsonResponse({"error": "user_id required"}, status=400, headers=headers)
     
     user_id = int(user_id_str)
     avatar_url = get_telegram_avatar_url(user_id)
-    
+    if not avatar_url:
+        return JsonResponse({"user_id": user_id, "avatar_url": None}, headers=headers)
+
+    # Proxy through our server to avoid leaking bot token
     return JsonResponse({
         "user_id": user_id,
         "avatar_url": avatar_url
@@ -3979,6 +3648,52 @@ def miniapp_members(request):
         return JsonResponse({"error": str(exc)}, status=500, headers=headers)
 
 
+@csrf_exempt
+def miniapp_warnlist(request):
+    """GET /api/warnlist?chat_id=X — return users with warns > 0."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "GET":
+        return JsonResponse({"error": "GET required"}, status=405, headers=headers)
+
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+
+    chat_id_str = request.GET.get("chat_id", "")
+    if not chat_id_str.lstrip("-").isdigit():
+        return JsonResponse({"error": "chat_id required"}, status=400, headers=headers)
+    chat_id = int(chat_id_str)
+
+    try:
+        conn, db_type = _get_bot_db_connection()
+    except Exception as exc:
+        return JsonResponse({"error": f"DB: {exc}"}, status=503, headers=headers)
+
+    try:
+        cur = conn.cursor()
+        ph = "%s" if db_type == "pg" else "?"
+        cur.execute(
+            f"SELECT s.user_id, COALESCE(u.full_name, CAST(s.user_id AS TEXT)) AS full_name, "
+            f"u.username, s.warns "
+            f"FROM user_stats s LEFT JOIN users u ON u.user_id=s.user_id "
+            f"WHERE s.chat_id={ph} AND s.warns > 0 "
+            f"ORDER BY s.warns DESC, s.user_id",
+            (chat_id,),
+        )
+        rows = cur.fetchall()
+        conn.close()
+        warned = [{"user_id": r[0], "name": r[1], "username": r[2], "warns": r[3]} for r in rows]
+        return JsonResponse({"warned": warned}, json_dumps_params={"ensure_ascii": False}, headers=headers)
+    except Exception as exc:
+        try:
+            conn.close()
+        except Exception:
+            pass
+        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+
+
 # SPY / ШПИОНАЖ
 # =============================================================================
 
@@ -4006,133 +3721,17 @@ def miniapp_spy(request):
         return JsonResponse({"error": "target_id required"}, status=400, headers=headers)
     target_id = int(target_id_raw)
 
-    if target_id == uid:
-        return JsonResponse({"error": "Нельзя шпионить за собой"}, status=400, headers=headers)
-
-    SPY_COST = 50
-
     try:
-        conn, db_type = _get_bot_db_connection()
+        from asgiref.sync import async_to_sync as _a2s
+        from api.spy import spy as spy_action
+        result = _a2s(spy_action)(uid, chat_id, target_id)
+        return JsonResponse(result, json_dumps_params={"ensure_ascii": False}, headers=headers)
+    except ValueError as ve:
+        # Cooldown errors → 429, balance errors → 400
+        msg = str(ve)
+        status_code = 429 if "Кулдаун" in msg else 400
+        return JsonResponse({"error": msg}, status=status_code, headers=headers)
     except Exception as exc:
-        return JsonResponse({"error": f"DB: {exc}"}, status=503, headers=headers)
-
-    try:
-        import random as _random
-        cur = conn.cursor()
-        ph = "%s" if db_type == "pg" else "?"
-        now_utc = datetime.now(timezone.utc)
-        cooldown_sec = 3600
-
-        # Check cooldown
-        if db_type == "pg":
-            cur.execute(
-                "SELECT COUNT(*) FROM espionage_log WHERE spy_id=%s AND target_id=%s AND chat_id=%s "
-                "AND attempted_at > NOW() - INTERVAL '3600 seconds'",
-                (uid, target_id, chat_id),
-            )
-        else:
-            since_iso = (now_utc.replace(tzinfo=None) - __import__("datetime").timedelta(seconds=cooldown_sec)).isoformat()
-            cur.execute(
-                "SELECT COUNT(*) FROM espionage_log WHERE spy_id=? AND target_id=? AND chat_id=? AND attempted_at > ?",
-                (uid, target_id, chat_id, since_iso),
-            )
-        count = (cur.fetchone() or [0])[0]
-        if count > 0:
-            # Get remaining cooldown
-            cur.execute(
-                f"SELECT attempted_at FROM espionage_log WHERE spy_id={ph} AND target_id={ph} AND chat_id={ph} "
-                f"ORDER BY id DESC LIMIT 1",
-                (uid, target_id, chat_id),
-            )
-            row = cur.fetchone()
-            remaining = 0
-            if row:
-                last = row[0]
-                if isinstance(last, str):
-                    last = datetime.fromisoformat(last.replace("Z", "+00:00"))
-                if last.tzinfo is None:
-                    last = last.replace(tzinfo=timezone.utc)
-                elapsed = (now_utc - last).total_seconds()
-                remaining = max(0, int(cooldown_sec - elapsed))
-            conn.close()
-            mins = remaining // 60
-            secs = remaining % 60
-            return JsonResponse({"error": f"Кулдаун: {mins} мин. {secs} сек."}, status=429, headers=headers)
-
-        # Check own balance
-        cur.execute(f"SELECT balance FROM user_mora WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
-        bal_row = cur.fetchone()
-        balance = bal_row[0] if bal_row else 0
-        if balance < SPY_COST:
-            conn.close()
-            return JsonResponse({"error": f"Недостаточно Моры. Нужно {SPY_COST} 🪙"}, status=400, headers=headers)
-
-        # Deduct cost
-        cur.execute(
-            f"UPDATE user_mora SET balance=balance-{ph} WHERE user_id={ph} AND chat_id={ph} AND balance>={ph}",
-            (SPY_COST, uid, chat_id, SPY_COST),
-        )
-        if cur.rowcount == 0:
-            conn.close()
-            return JsonResponse({"error": "Не удалось списать Мору"}, status=400, headers=headers)
-
-        # 30% fail
-        failed = _random.random() < 0.30
-        success_int = 0 if failed else 1
-
-        # Log espionage
-        now_iso = now_utc.isoformat()
-        cur.execute(
-            f"INSERT INTO espionage_log (spy_id, target_id, chat_id, success, attempted_at) VALUES ({ph},{ph},{ph},{ph},{ph})",
-            (uid, target_id, chat_id, success_int, now_iso),
-        )
-        conn.commit()
-
-        cur.execute(f"SELECT balance FROM user_mora WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
-        new_balance = (cur.fetchone() or [0])[0]
-
-        if failed:
-            conn.close()
-            return JsonResponse({
-                "ok": True,
-                "success": False,
-                "cost": SPY_COST,
-                "new_balance": new_balance,
-                "message": "💥 Провал! Агент обнаружен.",
-            }, json_dumps_params={"ensure_ascii": False}, headers=headers)
-
-        # Success — get target info
-        cur.execute(f"SELECT balance, vip FROM user_mora WHERE user_id={ph} AND chat_id={ph}", (target_id, chat_id))
-        t_row = cur.fetchone()
-        t_balance = t_row[0] if t_row else 0
-        t_vip = bool(t_row[1]) if t_row else False
-
-        # Get target name
-        cur.execute(f"SELECT full_name, username FROM users WHERE user_id={ph}", (target_id,))
-        u_row = cur.fetchone()
-        t_name = u_row[0] if u_row else f"Игрок {target_id}"
-        t_username = u_row[1] if u_row else None
-
-        conn.close()
-        return JsonResponse({
-            "ok": True,
-            "success": True,
-            "cost": SPY_COST,
-            "new_balance": new_balance,
-            "target": {
-                "id": target_id,
-                "name": t_name,
-                "username": t_username,
-                "balance": t_balance,
-                "vip": t_vip,
-            },
-        }, json_dumps_params={"ensure_ascii": False}, headers=headers)
-
-    except Exception as exc:
-        try:
-            conn.close()
-        except Exception:
-            pass
         return JsonResponse({"error": str(exc)}, status=500, headers=headers)
 
 
@@ -4209,109 +3808,11 @@ def miniapp_loans(request):
     chat_id = int(chat_id_str)
 
     try:
-        conn, db_type = _get_bot_db_connection()
+        from asgiref.sync import async_to_sync as _a2s
+        from api.loans import get_loans
+        result = _a2s(get_loans)(uid, chat_id)
+        return JsonResponse(result, json_dumps_params={"ensure_ascii": False}, headers=headers)
     except Exception as exc:
-        return JsonResponse({"error": f"DB: {exc}"}, status=503, headers=headers)
-
-    try:
-        cur = conn.cursor()
-        ph = "%s" if db_type == "pg" else "?"
-
-        def _get_name(user_id: int) -> str:
-            cur.execute(f"SELECT full_name FROM users WHERE user_id={ph}", (user_id,))
-            r = cur.fetchone()
-            return r[0] if r else f"Игрок {user_id}"
-
-        # Loans I borrowed (accepted)
-        cur.execute(
-            f"SELECT id, lender_id, amount, loaned_at FROM mora_loans "
-            f"WHERE borrower_id={ph} AND chat_id={ph} AND repaid_at IS NULL "
-            f"AND COALESCE(status,'accepted')='accepted' ORDER BY id",
-            (uid, chat_id),
-        )
-        borrowed = []
-        for row in cur.fetchall():
-            loan_id, lender_id, amount, loaned_at = row
-            loaned_at_str = loaned_at.isoformat() if hasattr(loaned_at, "isoformat") else str(loaned_at)
-            borrowed.append({
-                "id": loan_id,
-                "lender_id": lender_id,
-                "lender_name": _get_name(lender_id),
-                "amount": amount,
-                "loaned_at": loaned_at_str,
-            })
-
-        # Pending incoming requests (someone wants to lend me money)
-        cur.execute(
-            f"SELECT id, lender_id, amount, loaned_at FROM mora_loans "
-            f"WHERE borrower_id={ph} AND chat_id={ph} AND repaid_at IS NULL "
-            f"AND status='pending' ORDER BY id",
-            (uid, chat_id),
-        )
-        pending_incoming = []
-        for row in cur.fetchall():
-            loan_id, lender_id, amount, loaned_at = row
-            loaned_at_str = loaned_at.isoformat() if hasattr(loaned_at, "isoformat") else str(loaned_at)
-            pending_incoming.append({
-                "id": loan_id,
-                "lender_id": lender_id,
-                "lender_name": _get_name(lender_id),
-                "amount": amount,
-                "loaned_at": loaned_at_str,
-            })
-
-        # Loans I gave (accepted)
-        cur.execute(
-            f"SELECT id, borrower_id, amount, loaned_at FROM mora_loans "
-            f"WHERE lender_id={ph} AND chat_id={ph} AND repaid_at IS NULL "
-            f"AND COALESCE(status,'accepted')='accepted' ORDER BY id",
-            (uid, chat_id),
-        )
-        lent = []
-        for row in cur.fetchall():
-            loan_id, borrower_id, amount, loaned_at = row
-            loaned_at_str = loaned_at.isoformat() if hasattr(loaned_at, "isoformat") else str(loaned_at)
-            lent.append({
-                "id": loan_id,
-                "borrower_id": borrower_id,
-                "borrower_name": _get_name(borrower_id),
-                "amount": amount,
-                "loaned_at": loaned_at_str,
-            })
-
-        # Pending outgoing requests (I'm waiting for the borrower to accept)
-        cur.execute(
-            f"SELECT id, borrower_id, amount, loaned_at FROM mora_loans "
-            f"WHERE lender_id={ph} AND chat_id={ph} AND repaid_at IS NULL "
-            f"AND status='pending' ORDER BY id",
-            (uid, chat_id),
-        )
-        pending_outgoing = []
-        for row in cur.fetchall():
-            loan_id, borrower_id, amount, loaned_at = row
-            loaned_at_str = loaned_at.isoformat() if hasattr(loaned_at, "isoformat") else str(loaned_at)
-            pending_outgoing.append({
-                "id": loan_id,
-                "borrower_id": borrower_id,
-                "borrower_name": _get_name(borrower_id),
-                "amount": amount,
-                "loaned_at": loaned_at_str,
-            })
-
-        conn.close()
-        return JsonResponse({
-            "ok": True,
-            "borrowed": borrowed,
-            "lent": lent,
-            "pending_incoming": pending_incoming,
-            "pending_outgoing": pending_outgoing,
-        }, json_dumps_params={"ensure_ascii": False}, headers=headers)
-
-    except Exception as exc:
-        try:
-            conn.close()
-        except Exception:
-            pass
         return JsonResponse({"error": str(exc)}, status=500, headers=headers)
 
 
@@ -4337,84 +3838,14 @@ def miniapp_loans_create(request):
     target_id = int(data.get("target_id", 0))
     amount = int(data.get("amount", 0))
 
-    if target_id == uid:
-        return JsonResponse({"error": "Нельзя давать в долг самому себе"}, status=400, headers=headers)
-
     try:
-        from config import LOAN_MAX_AMOUNT, LOAN_MAX_ACTIVE
-    except Exception:
-        LOAN_MAX_AMOUNT, LOAN_MAX_ACTIVE = 2000, 5
-
-    if amount <= 0 or amount > LOAN_MAX_AMOUNT:
-        return JsonResponse({"error": f"Сумма: 1–{LOAN_MAX_AMOUNT} 🪙"}, status=400, headers=headers)
-
-    try:
-        conn, db_type = _get_bot_db_connection()
+        from asgiref.sync import async_to_sync as _a2s
+        from api.loans import create_loan
+        result = _a2s(create_loan)(uid, target_id, chat_id, amount)
+        return JsonResponse(result, json_dumps_params={"ensure_ascii": False}, headers=headers)
+    except ValueError as ve:
+        return JsonResponse({"error": str(ve)}, status=400, headers=headers)
     except Exception as exc:
-        return JsonResponse({"error": f"DB: {exc}"}, status=503, headers=headers)
-
-    try:
-        cur = conn.cursor()
-        ph = "%s" if db_type == "pg" else "?"
-
-        # Check borrower's active loan count
-        cur.execute(
-            f"SELECT COUNT(*) FROM mora_loans WHERE borrower_id={ph} AND chat_id={ph} AND repaid_at IS NULL",
-            (target_id, chat_id),
-        )
-        active = (cur.fetchone() or [0])[0]
-        if active >= LOAN_MAX_ACTIVE:
-            conn.close()
-            return JsonResponse({"error": f"У заёмщика уже {active} активных долгов (максимум {LOAN_MAX_ACTIVE})"}, status=400, headers=headers)
-
-        # Check lender has enough balance to "reserve"
-        cur.execute(f"SELECT balance FROM user_mora WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
-        bal_row = cur.fetchone()
-        balance = bal_row[0] if bal_row else 0
-        if balance < amount:
-            conn.close()
-            return JsonResponse({"error": f"Недостаточно Моры. У тебя {balance} 🪙"}, status=400, headers=headers)
-
-        # Ensure status column exists (migration-safe)
-        try:
-            cur.execute("ALTER TABLE mora_loans ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'accepted'")
-        except Exception:
-            pass
-
-        # Create PENDING loan request (money NOT transferred until borrower accepts)
-        now_iso = datetime.now(timezone.utc).isoformat()
-        if db_type == "pg":
-            cur.execute(
-                "INSERT INTO mora_loans (lender_id, borrower_id, chat_id, amount, loaned_at, status) "
-                "VALUES (%s,%s,%s,%s,%s,'pending') RETURNING id",
-                (uid, target_id, chat_id, amount, now_iso),
-            )
-            loan_id = cur.fetchone()[0]
-        else:
-            cur.execute(
-                "INSERT INTO mora_loans (lender_id, borrower_id, chat_id, amount, loaned_at, status) VALUES (?,?,?,?,?,'pending')",
-                (uid, target_id, chat_id, amount, now_iso),
-            )
-            loan_id = cur.lastrowid
-
-        cur.execute(f"SELECT balance FROM user_mora WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
-        new_balance = (cur.fetchone() or [0])[0]
-        conn.commit()
-        conn.close()
-
-        return JsonResponse({
-            "ok": True,
-            "loan_id": loan_id,
-            "amount": amount,
-            "new_balance": new_balance,
-            "pending": True,
-        }, json_dumps_params={"ensure_ascii": False}, headers=headers)
-
-    except Exception as exc:
-        try:
-            conn.close()
-        except Exception:
-            pass
         return JsonResponse({"error": str(exc)}, status=500, headers=headers)
 
 
@@ -4440,75 +3871,13 @@ def miniapp_loans_repay(request):
     loan_id = int(data.get("loan_id", 0))
 
     try:
-        conn, db_type = _get_bot_db_connection()
+        from asgiref.sync import async_to_sync as _a2s
+        from api.loans import repay_loan
+        result = _a2s(repay_loan)(uid, chat_id, loan_id)
+        return JsonResponse(result, json_dumps_params={"ensure_ascii": False}, headers=headers)
+    except ValueError as ve:
+        return JsonResponse({"error": str(ve)}, status=400, headers=headers)
     except Exception as exc:
-        return JsonResponse({"error": f"DB: {exc}"}, status=503, headers=headers)
-
-    try:
-        cur = conn.cursor()
-        ph = "%s" if db_type == "pg" else "?"
-
-        # Find loan
-        cur.execute(
-            f"SELECT id, lender_id, amount FROM mora_loans "
-            f"WHERE id={ph} AND borrower_id={ph} AND chat_id={ph} AND repaid_at IS NULL",
-            (loan_id, uid, chat_id),
-        )
-        row = cur.fetchone()
-        if not row:
-            conn.close()
-            return JsonResponse({"error": "Долг не найден или уже погашен"}, status=404, headers=headers)
-
-        _, lender_id, amount = row
-
-        # Check borrower balance
-        cur.execute(f"SELECT balance FROM user_mora WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
-        bal_row = cur.fetchone()
-        balance = bal_row[0] if bal_row else 0
-        if balance < amount:
-            conn.close()
-            return JsonResponse({"error": f"Недостаточно Моры. Нужно {amount} 🪙, у тебя {balance}"}, status=400, headers=headers)
-
-        # Deduct from borrower
-        cur.execute(
-            f"UPDATE user_mora SET balance=balance-{ph} WHERE user_id={ph} AND chat_id={ph} AND balance>={ph}",
-            (amount, uid, chat_id, amount),
-        )
-        if cur.rowcount == 0:
-            conn.close()
-            return JsonResponse({"error": "Не удалось списать Мору"}, status=400, headers=headers)
-
-        # Add to lender
-        cur.execute(
-            f"INSERT INTO user_mora (user_id, chat_id, balance) VALUES ({ph},{ph},{ph}) "
-            f"ON CONFLICT(user_id, chat_id) DO UPDATE SET balance=user_mora.balance+excluded.balance",
-            (lender_id, chat_id, amount),
-        )
-
-        # Mark repaid
-        now_iso = datetime.now(timezone.utc).isoformat()
-        cur.execute(
-            f"UPDATE mora_loans SET repaid_at={ph} WHERE id={ph}",
-            (now_iso, loan_id),
-        )
-
-        cur.execute(f"SELECT balance FROM user_mora WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
-        new_balance = (cur.fetchone() or [0])[0]
-        conn.commit()
-        conn.close()
-
-        return JsonResponse({
-            "ok": True,
-            "loan_id": loan_id,
-            "amount": amount,
-            "new_balance": new_balance,
-        }, json_dumps_params={"ensure_ascii": False}, headers=headers)
-
-    except Exception as exc:
-        try:
-            conn.close()
-        except Exception:
-            pass
         return JsonResponse({"error": str(exc)}, status=500, headers=headers)
 
 
@@ -4534,83 +3903,14 @@ def miniapp_loans_respond(request):
     loan_id = int(data.get("loan_id", 0))
     action = str(data.get("action", "")).lower()
 
-    if action not in ("accept", "reject"):
-        return JsonResponse({"error": "action must be accept or reject"}, status=400, headers=headers)
-
     try:
-        conn, db_type = _get_bot_db_connection()
+        from asgiref.sync import async_to_sync as _a2s
+        from api.loans import respond_to_loan
+        result = _a2s(respond_to_loan)(uid, chat_id, loan_id, action)
+        return JsonResponse(result, json_dumps_params={"ensure_ascii": False}, headers=headers)
+    except ValueError as ve:
+        return JsonResponse({"error": str(ve)}, status=400, headers=headers)
     except Exception as exc:
-        return JsonResponse({"error": f"DB: {exc}"}, status=503, headers=headers)
-
-    try:
-        cur = conn.cursor()
-        ph = "%s" if db_type == "pg" else "?"
-
-        # Find the pending loan for this borrower
-        cur.execute(
-            f"SELECT id, lender_id, amount FROM mora_loans "
-            f"WHERE id={ph} AND borrower_id={ph} AND chat_id={ph} AND status='pending' AND repaid_at IS NULL",
-            (loan_id, uid, chat_id),
-        )
-        row = cur.fetchone()
-        if not row:
-            conn.close()
-            return JsonResponse({"error": "Заявка не найдена или уже обработана"}, status=404, headers=headers)
-
-        _, lender_id, amount = row
-
-        if action == "reject":
-            # Just mark status as rejected (no money moved)
-            now_iso = datetime.now(timezone.utc).isoformat()
-            cur.execute(f"UPDATE mora_loans SET status='rejected', repaid_at={ph} WHERE id={ph}", (now_iso, loan_id,))
-            conn.commit()
-            conn.close()
-            return JsonResponse({"ok": True, "action": "rejected"}, json_dumps_params={"ensure_ascii": False}, headers=headers)
-
-        # Accept: transfer money from lender to borrower
-        cur.execute(f"SELECT balance FROM user_mora WHERE user_id={ph} AND chat_id={ph}", (lender_id, chat_id))
-        lender_bal = (cur.fetchone() or [0])[0]
-        if lender_bal < amount:
-            conn.close()
-            return JsonResponse({"error": f"У кредитора недостаточно Моры ({lender_bal}/{amount} 🪙)"}, status=400, headers=headers)
-
-        # Deduct from lender
-        cur.execute(
-            f"UPDATE user_mora SET balance=balance-{ph} WHERE user_id={ph} AND chat_id={ph} AND balance>={ph}",
-            (amount, lender_id, chat_id, amount),
-        )
-        if cur.rowcount == 0:
-            conn.close()
-            return JsonResponse({"error": "Не удалось списать Мору с кредитора"}, status=400, headers=headers)
-
-        # Add to borrower
-        cur.execute(
-            f"INSERT INTO user_mora (user_id, chat_id, balance) VALUES ({ph},{ph},{ph}) "
-            f"ON CONFLICT(user_id, chat_id) DO UPDATE SET balance=user_mora.balance+excluded.balance",
-            (uid, chat_id, amount),
-        )
-
-        # Mark loan as accepted
-        cur.execute(f"UPDATE mora_loans SET status='accepted' WHERE id={ph}", (loan_id,))
-
-        cur.execute(f"SELECT balance FROM user_mora WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
-        new_balance = (cur.fetchone() or [0])[0]
-        conn.commit()
-        conn.close()
-
-        return JsonResponse({
-            "ok": True,
-            "action": "accepted",
-            "loan_id": loan_id,
-            "amount": amount,
-            "new_balance": new_balance,
-        }, json_dumps_params={"ensure_ascii": False}, headers=headers)
-
-    except Exception as exc:
-        try:
-            conn.close()
-        except Exception:
-            pass
         return JsonResponse({"error": str(exc)}, status=500, headers=headers)
 
 
@@ -4640,37 +3940,13 @@ def miniapp_loans_cancel(request):
     loan_id = int(data.get("loan_id", 0))
 
     try:
-        conn, db_type = _get_bot_db_connection()
+        from asgiref.sync import async_to_sync as _a2s
+        from api.loans import cancel_loan
+        result = _a2s(cancel_loan)(uid, chat_id, loan_id)
+        return JsonResponse(result, json_dumps_params={"ensure_ascii": False}, headers=headers)
+    except ValueError as ve:
+        return JsonResponse({"error": str(ve)}, status=400, headers=headers)
     except Exception as exc:
-        return JsonResponse({"error": f"DB: {exc}"}, status=503, headers=headers)
-
-    try:
-        cur = conn.cursor()
-        ph = "%s" if db_type == "pg" else "?"
-
-        # Only the lender can cancel, and only while status is pending
-        cur.execute(
-            f"SELECT id FROM mora_loans WHERE id={ph} AND lender_id={ph} AND chat_id={ph} AND status='pending' AND repaid_at IS NULL",
-            (loan_id, uid, chat_id),
-        )
-        if not cur.fetchone():
-            conn.close()
-            return JsonResponse({"error": "Заявка не найдена или уже обработана"}, status=404, headers=headers)
-
-        now_iso = datetime.now(timezone.utc).isoformat()
-        cur.execute(
-            f"UPDATE mora_loans SET status='cancelled', repaid_at={ph} WHERE id={ph}",
-            (now_iso, loan_id),
-        )
-        conn.commit()
-        conn.close()
-        return JsonResponse({"ok": True, "action": "cancelled"}, json_dumps_params={"ensure_ascii": False}, headers=headers)
-
-    except Exception as exc:
-        try:
-            conn.close()
-        except Exception:
-            pass
         return JsonResponse({"error": str(exc)}, status=500, headers=headers)
 
 
@@ -4734,107 +4010,30 @@ def miniapp_casino_lottery(request):
         return err
 
     try:
-        from config import LOTTERY_TICKET_PRICE
-    except Exception:
-        LOTTERY_TICKET_PRICE = 10
-
-    from datetime import date as _date
-
-    def _week_key() -> str:
-        today = _date.today()
-        iso = today.isocalendar()
-        return f"{iso.year}-W{iso.week:02d}"
-
-    week = _week_key()
-
-    try:
-        conn, db_type = _get_bot_db_connection()
-    except Exception as exc:
-        return JsonResponse({"error": f"DB: {exc}"}, status=503, headers=headers)
-
-    try:
-        cur = conn.cursor()
-        ph = "%s" if db_type == "pg" else "?"
+        from asgiref.sync import async_to_sync as _a2s
 
         if request.method == "GET":
             chat_id_str = request.GET.get("chat_id", "0")
             chat_id = int(chat_id_str)
-            cur.execute(
-                f"SELECT tickets FROM casino_lottery WHERE user_id={ph} AND chat_id={ph} AND week_key={ph}",
-                (uid, chat_id, week),
-            )
-            row = cur.fetchone()
-            tickets = row[0] if row else 0
-            conn.close()
-            return JsonResponse({
-                "ok": True,
-                "tickets": tickets,
-                "week": week,
-                "ticket_price": LOTTERY_TICKET_PRICE,
-            }, json_dumps_params={"ensure_ascii": False}, headers=headers)
+            from api.casino import get_lottery_status
+            result = _a2s(get_lottery_status)(uid, chat_id)
+            return JsonResponse(result, json_dumps_params={"ensure_ascii": False}, headers=headers)
 
         elif request.method == "POST":
             try:
                 data = json.loads(request.body)
             except Exception:
-                conn.close()
                 return JsonResponse({"error": "bad JSON"}, status=400, headers=headers)
             chat_id = int(data.get("chat_id", 0))
+            from api.casino import buy_lottery_ticket
+            result = _a2s(buy_lottery_ticket)(uid, chat_id)
+            return JsonResponse(result, json_dumps_params={"ensure_ascii": False}, headers=headers)
 
-            # Check balance
-            cur.execute(f"SELECT balance FROM user_mora WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
-            bal_row = cur.fetchone()
-            balance = bal_row[0] if bal_row else 0
-            if balance < LOTTERY_TICKET_PRICE:
-                conn.close()
-                return JsonResponse({"error": f"Нужно {LOTTERY_TICKET_PRICE} 🪙"}, status=400, headers=headers)
-
-            cur.execute(
-                f"UPDATE user_mora SET balance=balance-{ph} WHERE user_id={ph} AND chat_id={ph} AND balance>={ph}",
-                (LOTTERY_TICKET_PRICE, uid, chat_id, LOTTERY_TICKET_PRICE),
-            )
-            if cur.rowcount == 0:
-                conn.close()
-                return JsonResponse({"error": "Не удалось списать Мору"}, status=400, headers=headers)
-
-            # Upsert ticket
-            if db_type == "pg":
-                cur.execute(
-                    "INSERT INTO casino_lottery (chat_id, user_id, week_key, tickets) VALUES (%s,%s,%s,1) "
-                    "ON CONFLICT(chat_id, user_id, week_key) DO UPDATE SET tickets=casino_lottery.tickets+1",
-                    (chat_id, uid, week),
-                )
-            else:
-                cur.execute(
-                    "INSERT INTO casino_lottery (chat_id, user_id, week_key, tickets) VALUES (?,?,?,1) "
-                    "ON CONFLICT(chat_id, user_id, week_key) DO UPDATE SET tickets=casino_lottery.tickets+1",
-                    (chat_id, uid, week),
-                )
-
-            cur.execute(
-                f"SELECT tickets FROM casino_lottery WHERE user_id={ph} AND chat_id={ph} AND week_key={ph}",
-                (uid, chat_id, week),
-            )
-            tickets = (cur.fetchone() or [0])[0]
-            cur.execute(f"SELECT balance FROM user_mora WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
-            new_balance = (cur.fetchone() or [0])[0]
-            conn.commit()
-            conn.close()
-            return JsonResponse({
-                "ok": True,
-                "tickets": tickets,
-                "ticket_price": LOTTERY_TICKET_PRICE,
-                "new_balance": new_balance,
-            }, json_dumps_params={"ensure_ascii": False}, headers=headers)
-
-        conn.close()
         return JsonResponse({"error": "method not allowed"}, status=405, headers=headers)
 
+    except ValueError as ve:
+        return JsonResponse({"error": str(ve)}, status=400, headers=headers)
     except Exception as exc:
-        try:
-            conn.close()
-        except Exception:
-            pass
         return JsonResponse({"error": str(exc)}, status=500, headers=headers)
 
 
@@ -4880,7 +4079,7 @@ def miniapp_expeditions(request):
 
         # Pet info
         cur.execute(
-            f"SELECT pet_type, name, COALESCE(fatigue,0) FROM pets WHERE user_id={ph} AND chat_id={ph}",
+            f"SELECT pet_type, name, COALESCE(fatigue,0), walk_end_at FROM pets WHERE user_id={ph} AND chat_id={ph}",
             (uid, chat_id),
         )
         pet_row = cur.fetchone()
