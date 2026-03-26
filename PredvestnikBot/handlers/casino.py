@@ -63,8 +63,8 @@ async def cmd_coin(message: Message, cmd_args: str):
     if not arg.isdigit() or int(arg) <= 0:
         await message.answer(
             "🪙 <b>Монетка</b>\n\n"
-            "Ставишь Мору — <b>30%</b> шанс выиграть ×2, <b>70%</b> проигрыш.\n"
-            "Выбор орла/решки — косметический, математика решает всё.\n\n"
+            "Ставишь Мору — испытай удачу! Выиграй ×2 или потеряй всё.\n"
+            "Выбор орла/решки — косметический, судьба решает всё.\n\n"
             "Использование: <code>бот монетка N</code>",
             parse_mode="HTML",
         )
@@ -98,7 +98,7 @@ async def cmd_coin(message: Message, cmd_args: str):
     sent = await message.answer(
         f"🪙 {user_mention(uid, name)} ставит <b>{bet} 🪙</b> на монетку!\n\n"
         f"Ставка снята. Выбери сторону и испытай удачу:\n"
-        f"<i>Шанс победы: 30% · Подбрасывает монетку случай</i>",
+        f"<i>Удача решает всё — подброс монетки...</i>",
         parse_mode="HTML",
         reply_markup=kb,
     )
@@ -107,7 +107,7 @@ async def cmd_coin(message: Message, cmd_args: str):
 
 @router.callback_query(lambda c: c.data and c.data.startswith("coin:"))
 async def cb_coin_choice(callback: CallbackQuery):
-    """Обработка выбора стороны монетки. 30% WIN / 70% LOSE."""
+    """Обработка выбора стороны монетки."""
     parts = callback.data.split(":")
     if len(parts) < 5:
         await callback.answer()
@@ -135,7 +135,7 @@ async def cb_coin_choice(callback: CallbackQuery):
     chosen_label = "🦅 Орёл" if side == "eagle" else "🪙 Решка"
     # Реальный результат — случаен, выбор юзера только косметический
     actual = random.choice(["🦅 Орёл", "🪙 Решка"])
-    win    = random.random() < 0.30   # 30% шанс победы
+    win    = random.random() < 0.40   # internal win rate
 
     name    = html.escape(callback.from_user.full_name)
     mention = user_mention(uid, name)
