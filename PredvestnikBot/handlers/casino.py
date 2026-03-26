@@ -135,26 +135,25 @@ async def cb_coin_choice(callback: CallbackQuery):
     chosen_label = "🦅 Орёл" if side == "eagle" else "🪙 Решка"
     # Реальный результат — случаен, выбор юзера только косметический
     actual = random.choice(["🦅 Орёл", "🪙 Решка"])
-    win    = random.random() < 0.40   # internal win rate
+
+    from api.casino import coin_flip_resolve as _coin_flip_resolve
+    res = await _coin_flip_resolve(uid, chat_id, bet)
 
     name    = html.escape(callback.from_user.full_name)
     mention = user_mention(uid, name)
+    new_bal = res["new_balance"]
 
-    if win:
-        win_tax  = max(1, int(bet * 0.05))
-        prize    = bet * 2 - win_tax
-        await add_to_treasury(chat_id, win_tax)
-        new_bal  = await add_mora(uid, chat_id, prize)
-        result   = (
+    if res["win"]:
+        win_tax = res["win_tax"]
+        prize   = res["prize"]
+        result  = (
             f"{actual} выпал!\n\n"
             f"🎉 {mention} <b>выиграл +{bet - win_tax} 🪙</b>!\n"
             f"Ставка {bet} → Выплата <b>{prize} 🪙</b> (−{win_tax}🏦)\n"
             f"Баланс: <b>{new_bal} 🪙</b>"
         )
     else:
-        mora_now = await get_mora(uid, chat_id)
-        new_bal  = (mora_now["balance"] if mora_now else 0)
-        result   = (
+        result = (
             f"{actual} выпал...\n\n"
             f"😢 {mention} потерял <b>-{bet} 🪙</b>.\n"
             f"Казино всегда в плюсе. 🏦\n"
@@ -171,26 +170,12 @@ async def cb_coin_choice(callback: CallbackQuery):
         pass
     await callback.answer()
 
-    # Quest tick: coinflip
-    try:
-        from utils.helpers import bot_today
-        from database.db import get_user_quest, quest_tick, mark_quest_rewarded, add_xp_in_chat
-        today = bot_today()
-        quest = await get_user_quest(uid, chat_id, today)
-        if quest["type"] == "coinflip":
-            _new_p, _goal, just_done = await quest_tick(uid, chat_id, today, quest["type"], quest["goal"])
-            if just_done:
-                _mr = quest.get("mora", 5)
-                await add_xp_in_chat(uid, chat_id, quest["xp"])
-                await add_mora(uid, chat_id, _mr)
-                await mark_quest_rewarded(uid, chat_id, today)
-                await callback.message.answer(
-                    f"🎉 {mention} выполнил ежедневное задание! "
-                    f"<b>+{quest['xp']} XP</b>  <b>+{_mr} Моры</b> 🪙",
-                    parse_mode="HTML",
-                )
-    except Exception:
-        pass
+    if res.get("quest_done"):
+        await callback.message.answer(
+            f"🎉 {mention} выполнил ежедневное задание! "
+            f"<b>+{res['quest_xp']} XP</b>  <b>+{res['quest_mora']} Моры</b> 🪙",
+            parse_mode="HTML",
+        )
 
 
 @router.message(BotCommand("кубик", "dice", "дуэль", "duel"))

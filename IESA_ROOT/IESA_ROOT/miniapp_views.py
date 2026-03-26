@@ -3113,9 +3113,9 @@ def miniapp_gacha_roll(request):
         return err
 
     try:
-        body = json.loads(request.body)
-        chat_id = int(str(body.get("chat_id", "0")))
-        count = int(body.get("count", 1))
+        body        = json.loads(request.body)
+        chat_id     = int(str(body.get("chat_id", "0")))
+        count       = int(body.get("count", 1))
         wallet_type = str(body.get("wallet_type", "personal")).lower()
         if wallet_type not in ("personal", "family"):
             wallet_type = "personal"
@@ -3128,88 +3128,37 @@ def miniapp_gacha_roll(request):
         return JsonResponse({"error": "chat_id required"}, status=400, headers=headers)
 
     try:
-        conn, db_type = _get_bot_db_connection()
-    except Exception as exc:
-        return JsonResponse({"error": f"DB: {exc}"}, status=503, headers=headers)
-
-    try:
-        cur = conn.cursor()
-        ph = "%s" if db_type == "pg" else "?"
-
-        cur.execute(f"SELECT partner_id FROM marriages WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
-        is_single = cur.fetchone() is None
-        price = (_GACHA_SINGLES_SINGLE if count == 1 else _GACHA_SINGLES_MULTI) if is_single else (
-            _GACHA_SINGLE_PRICE if count == 1 else _GACHA_MULTI_PRICE)
-
-        if wallet_type == "family":
-            cur.execute(f"SELECT partner_id FROM marriages WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
-            if not cur.fetchone():
-                conn.close()
-                return JsonResponse({"error": "Нет семейного кошелька"}, status=400, headers=headers)
-            cur.execute(f"SELECT balance FROM family_wallet WHERE chat_id={ph} AND user_id={ph}", (chat_id, uid))
-            fam_bal = (cur.fetchone() or [0])[0]
-            if fam_bal < price:
-                conn.close()
-                return JsonResponse({"error": f"Недостаточно в семейном ({fam_bal}/{price} 🪙)"}, status=400, headers=headers)
-            cur.execute(f"UPDATE family_wallet SET balance=balance-{ph} WHERE chat_id={ph} AND user_id={ph}", (price, chat_id, uid))
-        else:
-            cur.execute(f"SELECT balance FROM user_mora WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
-            bal = (cur.fetchone() or [0])[0]
-            if bal < price:
-                conn.close()
-                return JsonResponse({"error": f"Недостаточно Моры ({bal}/{price} 🪙)"}, status=400, headers=headers)
-            cur.execute(f"UPDATE user_mora SET balance=balance-{ph} WHERE user_id={ph} AND chat_id={ph}", (price, uid, chat_id))
-
-        cur.execute(
-            f"SELECT COUNT(*) FROM gacha_inventory WHERE user_id={ph} AND chat_id={ph} "
-            f"AND id > COALESCE((SELECT MAX(id) FROM gacha_inventory WHERE user_id={ph} AND chat_id={ph} AND rarity='legendary'),0)",
-            (uid, chat_id, uid, chat_id),
-        )
-        pity = (cur.fetchone() or [0])[0]
-
-        results = []
-        for _ in range(count):
-            item_key, item_name, rarity = _gacha_roll_one_sync(pity)
-            now_expr = "NOW()" if db_type == "pg" else "datetime('now')"
-            _meta = _ITEM_METADATA.get(item_key, {})
-            cur.execute(
-                f"INSERT INTO gacha_inventory "
-                f"(user_id, chat_id, item_key, item_name, rarity, obtained_at, atk, def_val, hp, crit_rate, slot) "
-                f"VALUES ({ph},{ph},{ph},{ph},{ph},{now_expr},{ph},{ph},{ph},{ph},{ph})",
-                (uid, chat_id, item_key, item_name, rarity,
-                 _meta.get("atk", 0), _meta.get("def_val", 0), _meta.get("hp", 0),
-                 _meta.get("crit_rate", 0.0), _meta.get("slot")),
-            )
-            pity = 0 if rarity == "legendary" else pity + 1
-            results.append({"key": item_key, "name": item_name, "rarity": rarity})
-
-        conn.commit()
-        cur.execute(f"SELECT balance FROM user_mora WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
-        new_bal = (cur.fetchone() or [0])[0]
-        conn.close()
-        
-        # ➕ ЛОГИРУЕМ КРУТКУ ГАЧИ В ЧАТ
-        loot_text = ""
-        for item in results:
-            rarity_emoji = {"common": "⚪", "uncommon": "🟢", "rare": "🔵", "epic": "🟣", "legendary": "🟡"}
-            emoji = rarity_emoji.get(item["rarity"], "⚪")
-            loot_text += f"{emoji} {item['name']}"
-        
-        roll_type = f"{count}x крутка" if count > 1 else "Одиночная крутка"
+        from api.gacha import gacha_roll as _bot_gacha_roll
         from asgiref.sync import async_to_sync as _a2s
-        _a2s(log_action_to_chat)(
-            uid, chat_id,
-            f"🎲 {roll_type} гачи (-{price} 🪙)",
-            f"Выпало:{loot_text}"
-        )
+        result = _a2s(_bot_gacha_roll)(uid, chat_id, count, wallet_type)
 
-        return JsonResponse({"ok": True, "items": results, "balance": new_bal, "pity": pity, "spent": price},
-                            json_dumps_params={"ensure_ascii": False}, headers=headers)
-    except Exception as exc:
+        # Log to chat
         try:
-            conn.close()
+            _rarity_emoji = {"junk": "⚪", "common": "🟢", "rare": "🟣", "legendary": "🟡"}
+            loot_text = " ".join(
+                f"{_rarity_emoji.get(it['rarity'], '⚪')} {it['name']}"
+                for it in result["items"]
+            )
+            roll_type = f"{count}x крутка" if count > 1 else "Одиночная крутка"
+            _a2s(log_action_to_chat)(
+                uid, chat_id,
+                f"🎲 {roll_type} гачи (-{result['spent']} 🪙)",
+                f"Выпало: {loot_text}",
+            )
         except Exception:
             pass
+
+        return JsonResponse({
+            "ok":         True,
+            "items":      result["items"],
+            "balance":    result["new_balance"],
+            "pity":       result["pity"],
+            "spent":      result["spent"],
+            "quest_done": result["quest_done"],
+        }, json_dumps_params={"ensure_ascii": False}, headers=headers)
+    except ValueError as e:
+        return JsonResponse({"error": str(e)}, status=400, headers=headers)
+    except Exception as exc:
         return JsonResponse({"error": str(exc)}, status=500, headers=headers)
 
 
@@ -6257,7 +6206,7 @@ def miniapp_loans_cancel(request):
 
 @csrf_exempt
 def miniapp_casino_coin(request):
-    """POST /api/casino/coin {chat_id, amount} — 30% win x2, 70% lose."""
+    """POST /api/casino/coin {chat_id, amount} — 40% win x2, 60% lose."""
     headers = _cors_headers()
     if request.method == "OPTIONS":
         return HttpResponse("", status=204, headers=headers)
@@ -6274,79 +6223,26 @@ def miniapp_casino_coin(request):
         return JsonResponse({"error": "bad JSON"}, status=400, headers=headers)
 
     chat_id = int(data.get("chat_id", 0))
-    amount = int(data.get("amount", 0))
+    amount  = int(data.get("amount", 0))
+
+    if not chat_id:
+        return JsonResponse({"error": "chat_id required"}, status=400, headers=headers)
 
     try:
-        from config import COIN_MAX_BET
-    except Exception:
-        COIN_MAX_BET = 5000
-
-    if amount <= 0:
-        return JsonResponse({"error": "Укажи ставку > 0"}, status=400, headers=headers)
-    if amount > COIN_MAX_BET:
-        return JsonResponse({"error": f"Максимальная ставка: {COIN_MAX_BET} 🪙"}, status=400, headers=headers)
-
-    try:
-        conn, db_type = _get_bot_db_connection()
-    except Exception as exc:
-        return JsonResponse({"error": f"DB: {exc}"}, status=503, headers=headers)
-
-    try:
-        import random as _random
-        cur = conn.cursor()
-        ph = "%s" if db_type == "pg" else "?"
-
-        # Check balance
-        cur.execute(f"SELECT balance FROM user_mora WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
-        bal_row = cur.fetchone()
-        balance = bal_row[0] if bal_row else 0
-        if balance < amount:
-            conn.close()
-            return JsonResponse({"error": f"Недостаточно Моры. У тебя {balance} 🪙"}, status=400, headers=headers)
-
-        # Deduct bet
-        cur.execute(
-            f"UPDATE user_mora SET balance=balance-{ph} WHERE user_id={ph} AND chat_id={ph} AND balance>={ph}",
-            (amount, uid, chat_id, amount),
-        )
-        if cur.rowcount == 0:
-            conn.close()
-            return JsonResponse({"error": "Не удалось списать ставку"}, status=400, headers=headers)
-
-        win = _random.random() < 0.30
-        if win:
-            prize = amount * 2
-            cur.execute(
-                f"UPDATE user_mora SET balance=balance+{ph} WHERE user_id={ph} AND chat_id={ph}",
-                (prize, uid, chat_id),
-            )
-        else:
-            # 1% of bet goes to treasury
-            tax = max(1, int(amount * 0.01))
-            cur.execute(
-                f"INSERT INTO chat_treasury (chat_id, balance) VALUES ({ph},{ph}) "
-                f"ON CONFLICT(chat_id) DO UPDATE SET balance=chat_treasury.balance+excluded.balance",
-                (chat_id, tax),
-            )
-
-        cur.execute(f"SELECT balance FROM user_mora WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
-        new_balance = (cur.fetchone() or [0])[0]
-        conn.commit()
-        conn.close()
-
+        from api.casino import coin_flip as _bot_coin_flip
+        from asgiref.sync import async_to_sync as _a2s
+        result = _a2s(_bot_coin_flip)(uid, chat_id, amount)
         return JsonResponse({
-            "ok": True,
-            "win": win,
-            "bet": amount,
-            "prize": amount * 2 if win else 0,
-            "new_balance": new_balance,
+            "ok":          True,
+            "win":         result["win"],
+            "bet":         result["bet"],
+            "prize":       result["prize"],
+            "new_balance": result["new_balance"],
+            "quest_done":  result["quest_done"],
         }, json_dumps_params={"ensure_ascii": False}, headers=headers)
-
+    except ValueError as e:
+        return JsonResponse({"error": str(e)}, status=400, headers=headers)
     except Exception as exc:
-        try:
-            conn.close()
-        except Exception:
-            pass
         return JsonResponse({"error": str(exc)}, status=500, headers=headers)
 
 
@@ -6494,8 +6390,8 @@ def miniapp_expeditions(request):
     except Exception:
         EXPEDITION_OPTIONS = {
             "short":  {"hours": 2, "cost": 0,  "reward_min": 10,  "reward_max": 15,  "label": "2ч (бесплатно)"},
-            "medium": {"hours": 4, "cost": 5,  "reward_min": 35,  "reward_max": 40,  "label": "4ч (5 🪙)"},
-            "long":   {"hours": 8, "cost": 10, "reward_min": 55,  "reward_max": 60,  "label": "8ч (10 🪙)"},
+            "medium": {"hours": 4, "cost": 5,  "reward_min": 30,  "reward_max": 35,  "label": "4ч (5 🪙)"},
+            "long":   {"hours": 8, "cost": 10, "reward_min": 45,  "reward_max": 50,  "label": "8ч (10 🪙)"},
         }
 
     try:
@@ -6611,8 +6507,8 @@ def miniapp_expeditions_start(request):
     except Exception:
         EXPEDITION_OPTIONS = {
             "short":  {"hours": 2, "cost": 0,  "reward_min": 10,  "reward_max": 15,  "label": "2ч (бесплатно)"},
-            "medium": {"hours": 4, "cost": 5,  "reward_min": 35,  "reward_max": 40,  "label": "4ч (5 🪙)"},
-            "long":   {"hours": 8, "cost": 10, "reward_min": 55,  "reward_max": 60,  "label": "8ч (10 🪙)"},
+            "medium": {"hours": 4, "cost": 5,  "reward_min": 30,  "reward_max": 35,  "label": "4ч (5 🪙)"},
+            "long":   {"hours": 8, "cost": 10, "reward_min": 45,  "reward_max": 50,  "label": "8ч (10 🪙)"},
         }
 
     opt = EXPEDITION_OPTIONS.get(option_key)

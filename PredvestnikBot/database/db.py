@@ -4090,13 +4090,16 @@ async def get_gacha_pity(user_id: int, chat_id: int) -> int:
 
 
 async def add_gacha_item(user_id: int, chat_id: int, item_key: str,
-                         item_name: str, rarity: str):
+                         item_name: str, rarity: str,
+                         atk: int = 0, def_val: int = 0, hp: int = 0,
+                         crit_rate: float = 0.0, slot=None):
     now = datetime.now(timezone.utc)
     async with postgres_connect() as db:
         await db.execute(
-            """INSERT INTO gacha_inventory (user_id, chat_id, item_key, item_name, rarity, obtained_at)
-               VALUES (?, ?, ?, ?, ?, ?)""",
-            (user_id, chat_id, item_key, item_name, rarity, now),
+            """INSERT INTO gacha_inventory
+               (user_id, chat_id, item_key, item_name, rarity, obtained_at, atk, def_val, hp, crit_rate, slot)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (user_id, chat_id, item_key, item_name, rarity, now, atk, def_val, hp, crit_rate, slot),
         )
         await db.commit()
 
