@@ -443,7 +443,7 @@ async def cmd_bonds_chart(message: Message, cmd_args: str):
 
 # ─── Купить акции на сумму Моры ───────────────────────────────────────────────
 
-@router.message(BotCommand("купить акции", "buy bonds mora", "вложить"))
+@router.message(BotCommand("купить акции", "вложить"))
 async def cmd_buy_bonds_mora(message: Message, cmd_args: str):
     """бот купить акции [ключ] [сумма] — купить облигации на указанную сумму Моры."""
     if message.chat.type not in ("group", "supergroup"):

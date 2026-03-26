@@ -894,6 +894,22 @@ select{background:var(--bg3);border:1px solid var(--border);border-radius:8px;pa
     <div id="warnlistContent" style="max-height:260px;overflow-y:auto"></div>
   </div>
 
+  <!-- 🛡 Обзор модерации (admin_junior+) -->
+  <div class="card" id="modSummaryCard" style="display:none">
+    <div class="card-title">🛡 Обзор чата</div>
+    <div id="modSummaryGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+      <div class="stat-row"><span class="stat-label">👥 Участников</span><span class="stat-value" id="modTotalMembers">—</span></div>
+      <div class="stat-row"><span class="stat-label">💬 Активных сегодня</span><span class="stat-value" id="modActiveToday">—</span></div>
+      <div class="stat-row"><span class="stat-label">⚠️ С варнами</span><span class="stat-value" id="modWarnedCount">—</span></div>
+      <div class="stat-row"><span class="stat-label">🔇 Замьючено</span><span class="stat-value" id="modMutedCount">—</span></div>
+    </div>
+    <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:4px">ТОП НАРУШИТЕЛЕЙ</div>
+    <div id="modTopWarned" style="max-height:160px;overflow-y:auto;margin-bottom:8px"></div>
+    <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:4px">СОСТАВ ЧАТА</div>
+    <div id="modRankBreakdown" style="font-size:12px"></div>
+    <button class="btn btn-primary" onclick="loadModSummary()" style="margin-top:8px">🔄 Обновить</button>
+  </div>
+
   <!-- ⑥ Запуск ивентов -->
   <div class="card" id="devEventCard">
     <div class="card-title">🎪 Запуск ивентов</div>
@@ -1147,7 +1163,7 @@ function switchTab(name){
     if(name==='transfers') loadTransfersTab();
     if(name==='spy') renderSpyTab();
     if(name==='glory') loadLB('xp');
-    if(name==='dev'){ loadDevStats(); loadDevItems(); loadDevTreasury(); }
+    if(name==='dev'){ loadDevStats(); loadDevItems(); loadDevTreasury(); loadModSummary(); }
   }
 }
 
@@ -1192,23 +1208,39 @@ async function loadProfile(){
       const devBtn = document.getElementById('devTabBtn');
       devBtn.setAttribute('data-unlocked','1');
       if(_currentCat === 'fun') devBtn.style.display = '';
-      // Full admin cards visible only to developer
-      document.querySelectorAll('#tab-dev .card').forEach((c,i)=>{ if(i<6) c.style.display=''; });
-      document.getElementById('warnlistCard').style.display='';
+      // Full panel visible to developer
+      document.querySelectorAll('#tab-dev .card').forEach(c=>{ c.style.display=''; });
     } else if(p.rank === 'owner') {
-      // Owner sees the dev tab but only the treasury section
+      // Owner: members table + warnlist + mod overview + events + treasury
       const devBtn = document.getElementById('devTabBtn');
       devBtn.setAttribute('data-unlocked','1');
       if(_currentCat === 'fun') devBtn.style.display = '';
-      document.querySelectorAll('#tab-dev .card').forEach((c,i)=>{ if(i<6) c.style.display='none'; });
+      document.querySelectorAll('#tab-dev .card').forEach(c=>{ c.style.display='none'; });
+      document.querySelectorAll('#tab-dev .card')[2].style.display=''; // chat management
       document.getElementById('warnlistCard').style.display='';
-    } else if(['co_owner','admin_senior','admin_junior','moderator'].includes(p.rank)) {
-      // Admins see the dev tab with only warnlist + treasury
+      document.getElementById('modSummaryCard').style.display='';
+      document.getElementById('devEventCard').style.display='';
+      document.querySelectorAll('#tab-dev .card')[8].style.display=''; // treasury
+    } else if(['co_owner','admin_senior'].includes(p.rank)) {
+      // Senior admins: user editor (salary) + members + warnlist + mod overview + treasury
       const devBtn = document.getElementById('devTabBtn');
       devBtn.setAttribute('data-unlocked','1');
       if(_currentCat === 'fun') devBtn.style.display = '';
-      document.querySelectorAll('#tab-dev .card').forEach((c,i)=>{ if(i<6) c.style.display='none'; });
+      document.querySelectorAll('#tab-dev .card').forEach(c=>{ c.style.display='none'; });
+      document.querySelectorAll('#tab-dev .card')[1].style.display=''; // user editor
+      document.querySelectorAll('#tab-dev .card')[2].style.display=''; // chat management
       document.getElementById('warnlistCard').style.display='';
+      document.getElementById('modSummaryCard').style.display='';
+      document.querySelectorAll('#tab-dev .card')[8].style.display=''; // treasury
+    } else if(['admin_junior','moderator'].includes(p.rank)) {
+      // Junior admins / moderators: warnlist + mod overview + treasury
+      const devBtn = document.getElementById('devTabBtn');
+      devBtn.setAttribute('data-unlocked','1');
+      if(_currentCat === 'fun') devBtn.style.display = '';
+      document.querySelectorAll('#tab-dev .card').forEach(c=>{ c.style.display='none'; });
+      document.getElementById('warnlistCard').style.display='';
+      document.getElementById('modSummaryCard').style.display='';
+      document.querySelectorAll('#tab-dev .card')[8].style.display=''; // treasury
     }
     document.getElementById('walletHistoryCard').style.display='block';
     loadWalletHistory();
@@ -2539,7 +2571,6 @@ async function showPubProfile(userId){
     if(p.warns>0) html += `<div class="stat-row"><span class="stat-label">⚠️ Предупреждения</span><span class="stat-value" style="color:var(--red)">${p.warns}/4</span></div>`;
     html += `<div class="stat-row"><span class="stat-label">🟢 Первая активность</span><span class="stat-value">${_fmtDt(p.first_active)}</span></div>`;
     html += `<div class="stat-row"><span class="stat-label">🔵 Последняя активность</span><span class="stat-value">${_fmtDt(p.last_active)}</span></div>`;
-    }
     document.getElementById('pubBody').innerHTML = html;
   } catch(e){
     document.getElementById('pubProfileLoading').style.display='block';
@@ -2599,6 +2630,42 @@ async function loadWarnlist(){
         </div>`).join('')
       : '<div style="color:var(--text2);font-size:12px;padding:6px">✅ Нет пользователей с предупреждениями</div>';
   } catch(e){el.innerHTML='<div style="color:#f87171;font-size:12px;padding:6px">'+esc(e.message)+'</div>';}
+}
+
+// ── Moderation summary ────────────────────────────────────────────────────────
+
+const _RANK_LABELS_RU = {
+  developer:'💻 Разработчик', owner:'👑 Владелец', co_owner:'⭐ Со-владелец',
+  admin_senior:'🔱 Ст.Админ', admin_junior:'⚡ Мл.Админ', moderator:'🛡 Модератор',
+  user:'👤 Участник', helper:'🔧 Помощник',
+};
+
+async function loadModSummary(){
+  if(!chatId) return;
+  const tw = document.getElementById('modTopWarned');
+  const rb = document.getElementById('modRankBreakdown');
+  if(tw) tw.innerHTML = '<div style="color:var(--text2);font-size:12px;padding:4px">Загрузка…</div>';
+  try{
+    const r = await api('/api/admin/chat_summary?chat_id='+chatId);
+    document.getElementById('modTotalMembers').textContent = r.total_members ?? '—';
+    document.getElementById('modActiveToday').textContent = r.active_today ?? '—';
+    document.getElementById('modWarnedCount').textContent = (r.warned_count ?? 0) + ' (∑' + (r.total_warns ?? 0) + ')';
+    document.getElementById('modMutedCount').textContent = r.muted_count ?? '—';
+    const top = r.top_warned || [];
+    if(tw) tw.innerHTML = top.length
+      ? top.map(w=>`<div class="dev-ban-row" onclick="showPubProfile(${w.user_id})" style="cursor:pointer">
+          <span><b>${esc(w.name||'?')}</b></span>
+          <span style="color:var(--red);font-weight:700;margin-left:auto">⚠️ ${w.warns}/4</span>
+        </div>`).join('')
+      : '<div style="color:var(--text2);font-size:12px;padding:4px">✅ Нарушителей нет</div>';
+    const ranks = r.rank_breakdown || [];
+    if(rb) rb.innerHTML = ranks.map(rv=>`<div style="display:flex;justify-content:space-between;padding:2px 0">
+        <span>${esc(_RANK_LABELS_RU[rv.rank] || rv.rank)}</span>
+        <span style="font-weight:700">${rv.count}</span>
+      </div>`).join('') || '<div style="color:var(--text2);font-size:12px">нет данных</div>';
+  } catch(e){
+    if(tw) tw.innerHTML='<div style="color:#f87171;font-size:12px;padding:4px">'+esc(e.message)+'</div>';
+  }
 }
 
 // ── Event trigger ─────────────────────────────────────────────────────────────

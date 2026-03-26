@@ -1255,7 +1255,7 @@ _DEV_PET_TYPE_MAP = {
 }
 
 
-@router.message(BotCommand("смена питомца", "смена вид питомца", "change pet"), RankFilter("developer"))
+@router.message(BotCommand("смена питомца", "change pet"), RankFilter("developer"))
 async def cmd_dev_change_pet_type(message: Message, cmd_args: str):
     """Developer-only: бесплатно сменить вид питомца любому пользователю.
     Формат: бот смена питомца @user кот|собака

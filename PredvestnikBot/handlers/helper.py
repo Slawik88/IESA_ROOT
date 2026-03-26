@@ -20,7 +20,7 @@ def _protected(rank: str) -> bool:
     return rank_level(rank) >= rank_level("moderator")
 
 
-@router.message(BotCommand("варн", "warn", "предупредить", "предупреждение"), RankFilter("admin_junior"))
+@router.message(BotCommand("варн", "warn", "предупредить"), RankFilter("admin_junior"))
 async def cmd_warn(message: Message, bot: Bot, cmd_args: str):
     global _bot_id
     uid, name, reason = await resolve_target(message, cmd_args)
