@@ -85,13 +85,13 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 .lb-name{flex:1;font-size:13px;font-weight:600}
 .lb-score{font-weight:700;color:var(--accent);font-size:13px}
 /* Shop grid */
-.shop-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.shop-item{background:var(--bg2);border:2px solid var(--border);border-radius:10px;padding:10px;text-align:center;cursor:pointer;transition:border-color .2s}
+.shop-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(95px,1fr));gap:8px}
+.shop-item{background:var(--bg2);border:2px solid var(--border);border-radius:10px;padding:10px 6px;text-align:center;cursor:pointer;transition:border-color .2s;display:flex;flex-direction:column;align-items:center;justify-content:space-between;min-height:88px}
 .shop-item.owned{border-color:var(--green)}
 .shop-item.active-item{border-color:var(--gold)}
-.shop-item-emoji{font-size:26px;margin-bottom:4px}
-.shop-item-name{font-size:12px;font-weight:600;margin-bottom:4px}
-.shop-item-price{font-size:11px;color:var(--text2)}
+.shop-item-emoji{font-size:24px;margin-bottom:4px;line-height:1}
+.shop-item-name{font-size:11px;font-weight:600;margin-bottom:4px;word-break:break-word;line-height:1.3}
+.shop-item-price{font-size:11px;color:var(--text2);margin-top:auto}
 .shop-item-price.free{color:var(--green)}
 /* Inventory sub-tabs */
 .subtabs{display:flex;gap:6px;margin-bottom:12px;border-bottom:1px solid var(--border);padding-bottom:8px;overflow-x:auto;scrollbar-width:none}
@@ -1746,7 +1746,7 @@ function renderShop(d){
 
   // Frames
   document.getElementById('framesGrid').innerHTML=(d.frames||[]).map(f=>`
-    <div class="shop-item ${f.owned?'owned':''} ${f.active?'active-item':''}" onclick="${f.price===0?'':f.owned?"buyShopItem('frame','"+f.key+"')":"buyShopItem('frame','"+f.key+"')"}">
+    <div class="shop-item ${f.owned?'owned':''} ${f.active?'active-item':''}" onclick="buyShopItem('frame','${f.key}')">
       <div class="shop-item-emoji">${f.emoji}</div>
       <div class="shop-item-name">${esc(f.name)}</div>
       <div class="shop-item-price ${f.price===0?'free':''}">${f.price===0?'Бесплатно':f.owned?(f.active?'✓ Активна':'✓ Надеть'):(f.price+' 🪙')}</div>
