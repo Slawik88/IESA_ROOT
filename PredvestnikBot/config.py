@@ -250,9 +250,9 @@ LOAN_MAX_ACTIVE = 5
 # ═══════════════════════════════════════════════════════════════════════════════
 
 EXPEDITION_OPTIONS = {
-    "short":  {"hours": 2, "cost": 0,  "reward_min": 50,  "reward_max": 80,  "label": "2ч (бесплатно)"},        # было: 10-25
-    "medium": {"hours": 4, "cost": 10, "reward_min": 120, "reward_max": 200, "label": "4ч (10 🪙)"},           # было: 25-50  
-    "long":   {"hours": 8, "cost": 25, "reward_min": 200, "reward_max": 300, "label": "8ч (25 🪙)"},           # было: 50-100
+    "short":  {"hours": 2, "cost": 0,  "reward_min": 10,  "reward_max": 15,  "label": "2ч (бесплатно)"},
+    "medium": {"hours": 4, "cost": 5,  "reward_min": 30,  "reward_max": 35,  "label": "4ч (5 🪙)"},
+    "long":   {"hours": 8, "cost": 10, "reward_min": 45,  "reward_max": 50,  "label": "8ч (10 🪙)"},
 }
 
 

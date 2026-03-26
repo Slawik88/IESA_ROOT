@@ -692,8 +692,6 @@ def _build_top_text(
     count_field: str,
     caller_uid: int | None = None,
 ) -> str:
-    from handlers.economy import _frame_emoji
-
     # Previous period rank lookup
     prev_rank: dict[int, int] = {}
     for i, u in enumerate(prev_top):
@@ -705,92 +703,88 @@ def _build_top_text(
     top10_cur = {u["user_id"] for u in top[:10] if "user_id" in u.keys()}
     top10_prv = {u["user_id"] for u in prev_top[:10] if "user_id" in u.keys()}
 
-    # Max count for progress bars
     max_count = max((u[count_field] if count_field in u.keys() else 0 for u in top), default=1) or 1
 
-    sep = "─" * 28
-    lines: list[str] = [sep, title, sep]
+    # ── Fixed column widths ────────────────────────────────────────────────────
+    PLACE_W = 4   # "  1." / " 10." / "★ 1."
+    NAME_W  = 15  # name column
+    COUNT_W = 5   # right-aligned score
+    BAR_W   = 8   # progress bar
 
-    # News section (only when we have previous period data)
+    col_hdr = f"{'#':>{PLACE_W}} │ {'Имя':<{NAME_W}} │ {'Счёт':>{COUNT_W}} │ Прогресс"
+    sep_ln  = "─" * PLACE_W + "─┼─" + "─" * NAME_W + "─┼─" + "─" * COUNT_W + "─┼─" + "─" * BAR_W
+
+    # ── HTML header (title + news) ─────────────────────────────────────────────
+    html_lines: list[str] = [title]
     if prev_top and top10_prv:
         entered = [html.escape(u["full_name"]) for u in top[:10]
                    if "user_id" in u.keys() and u["user_id"] not in top10_prv]
         exited  = [html.escape(u["full_name"]) for u in prev_top[:10]
                    if "user_id" in u.keys() and u["user_id"] not in top10_cur]
         if entered or exited:
-            lines.append("")
             if entered:
                 e_str = ", ".join(entered[:4]) + (f" +{len(entered)-4}" if len(entered) > 4 else "")
-                lines.append(f"🆙 <i>В топ-10: {e_str}</i>")
+                html_lines.append(f"🆙 <i>В топ-10: {e_str}</i>")
             if exited:
                 x_str = ", ".join(exited[:4]) + (f" +{len(exited)-4}" if len(exited) > 4 else "")
-                lines.append(f"📉 <i>Вышли: {x_str}</i>")
+                html_lines.append(f"📉 <i>Вышли: {x_str}</i>")
 
-    lines.append("")
+    # ── Monospace table rows ───────────────────────────────────────────────────
+    table_rows: list[str] = [col_hdr, sep_ln]
+    budget = 2400
+    used   = len(col_hdr) + 1 + len(sep_ln) + 1
 
-    # User rows — budget-aware
-    budget = 3400
-    used = sum(len(l) + 1 for l in lines)
     for i, u in enumerate(top):
-        place    = _TOP_MEDALS[i] if i < 5 else f"{i + 1}."
         count    = u[count_field] if count_field in u.keys() else 0
         uid_top  = u["user_id"] if "user_id" in u.keys() else None
         mora_row = mora_map.get(uid_top) if uid_top else None
 
-        # Frame
-        frame_e = ""
+        # Place column (4 chars): star prefix for top-frame users
         if mora_row and mora_row.get("top_frame"):
-            frame_e = _frame_emoji(mora_row["top_frame"]) + " "
+            place_str = "★" + f"{i + 1:>2}."
+        else:
+            place_str = f"{i + 1:>3}."
 
-        # VIP badge
-        vip = " 💎" if (mora_row and mora_row.get("vip")) else ""
-
-        # Trend vs previous period
-        trend = ""
-        if prev_rank and uid_top is not None:
-            if uid_top not in prev_rank:
-                trend = "🆕 "
-            else:
-                delta = prev_rank[uid_top] - (i + 1)
-                if delta > 0:
-                    trend = f"▲{min(delta, 9)} "
-                elif delta < 0:
-                    trend = f"▼{min(abs(delta), 9)} "
-                else:
-                    trend = "= "
-
-        # Streak days
-        streak_badge = ""
+        # Badges appended after progress bar
+        badges = ""
+        if mora_row and mora_row.get("vip"):
+            badges += " 💎"
         if mora_row:
             sd = mora_row.get("streak_days") or 0
             if sd >= 3:
-                streak_badge = f" 🔥{sd}"
+                badges += f" 🔥{sd}"
 
-        # Progress bar — top-20 only to save space
-        bar_part = " " + _make_top_bar(count, max_count) if i < 20 else ""
+        # Name: truncate → ljust → html.escape (alignment preserved when Telegram renders entities)
+        raw_name = u["full_name"] if "full_name" in u.keys() else "?"
+        if len(raw_name) > NAME_W:
+            display_name = raw_name[:NAME_W - 1] + "…"
+        else:
+            display_name = raw_name
+        name_col  = html.escape(display_name.ljust(NAME_W))
+        count_col = f"{count:>{COUNT_W}}"
+        bar       = _make_top_bar(count, max_count, BAR_W)
 
-        # Clickable name via tg:// link
-        name_e = html.escape(u["full_name"])
-        name_link = f'<a href="tg://user?id={uid_top}">{name_e}</a>' if uid_top else f"<b>{name_e}</b>"
-
-        line = f"{frame_e}{place}{vip} {trend}{name_link}{streak_badge} — {count}{bar_part}"
-        if used + len(line) + 1 > budget:
-            lines.append(f"<i>…и ещё {len(top) - i} участников</i>")
+        row      = f"{place_str} │ {name_col} │ {count_col} │ {bar}{badges}"
+        line_len = len(row) + 1
+        if used + line_len > budget:
+            table_rows.append(f"  …+{len(top) - i} чел.")
             break
-        lines.append(line)
-        used += len(line) + 1
+        table_rows.append(row)
+        used += line_len
 
-    # Personal placement footer
+    pre_block = "<pre>" + "\n".join(table_rows) + "</pre>"
+
+    # ── Personal placement footer ──────────────────────────────────────────────
+    footer = ""
     if caller_uid:
         for i, u in enumerate(top):
             if "user_id" in u.keys() and u["user_id"] == caller_uid:
                 total = len(top)
-                pct = round((i + 1) / total * 100) if total else 100
-                lines.append("")
-                lines.append(f"👤 <i>Ты на {i + 1} месте из {total} (топ {100 - pct + 1}%)</i>")
+                pct   = round((i + 1) / total * 100) if total else 100
+                footer = f"\n\n👤 <i>Ты на {i + 1} месте из {total} (топ {100 - pct + 1}%)</i>"
                 break
 
-    return "\n".join(lines)
+    return "\n".join(html_lines) + "\n\n" + pre_block + footer
 
 
 @router.callback_query(F.data.startswith("top:"))

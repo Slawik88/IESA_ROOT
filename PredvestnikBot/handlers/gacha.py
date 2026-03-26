@@ -179,21 +179,19 @@ async def cb_gacha_roll(callback: CallbackQuery):
     uid = owner
     chat_id = callback.message.chat.id
 
-    # Проверяем статус одиночки для цены
-    single = await is_user_single(uid, chat_id)
-    price = (SINGLES_GACHA_SINGLE if count == 1 else SINGLES_GACHA_MULTI) if single else (
-        GACHA_SINGLE_PRICE if count == 1 else GACHA_MULTI_PRICE
-    )
-    ok, new_bal = await deduct_mora(uid, chat_id, price)
-    if not ok:
-        mora = await get_mora(uid, chat_id)
-        bal = mora["balance"] if mora else 0
-        await callback.answer(
-            f"❌ Недостаточно Моры! ({bal} / {price})", show_alert=True
-        )
+    # Проверяем статус одиночки для цены (делегируем в api.gacha)
+    try:
+        from api.gacha import gacha_roll as _api_gacha_roll
+        res = await _api_gacha_roll(uid, chat_id, count)
+    except ValueError as e:
+        await callback.answer(str(e), show_alert=True)
         return
 
-    results = await _do_rolls(uid, chat_id, count)
+    results  = [(it["key"], it["name"], it["rarity"], it["desc"]) for it in res["items"]]
+    new_bal  = res["new_balance"]
+    pity     = res["pity"]
+    single   = res["is_single"]
+    price    = res["spent"]
 
     # Определяем лучшую редкость
     rarities = [r[2] for r in results]
@@ -203,10 +201,8 @@ async def cb_gacha_roll(callback: CallbackQuery):
             best_rarity = check
             break
 
-    result_text = _format_results(results)
-    pity = await get_gacha_pity(uid, chat_id)
-
-    header = "🌟" if best_rarity == "legendary" else "✨" if best_rarity == "rare" else "🙏"
+    result_text  = _format_results(results)
+    header       = "🌟" if best_rarity == "legendary" else "✨" if best_rarity == "rare" else "🙏"
     discount_note = "\n🆓 <i>(Применена холостяцкая скидка)</i>" if single else ""
     price1_next  = SINGLES_GACHA_SINGLE if single else GACHA_SINGLE_PRICE
     price10_next = SINGLES_GACHA_MULTI  if single else GACHA_MULTI_PRICE
@@ -236,30 +232,16 @@ async def cb_gacha_roll(callback: CallbackQuery):
         pass
     await callback.answer()
 
-    # Quest tick: gacha (tick per roll action, not per item)
-    try:
-        from utils.helpers import bot_today
-        from database.db import get_user_quest, quest_tick, mark_quest_rewarded, add_xp_in_chat, add_mora
-        today = bot_today()
-        quest = await get_user_quest(uid, chat_id, today)
-        if quest["type"] == "gacha":
-            new_p, goal, just_done = await quest_tick(uid, chat_id, today, quest["type"], quest["goal"])
-            if just_done:
-                _mr = quest.get("mora", 5)
-                await add_xp_in_chat(uid, chat_id, quest["xp"])
-                await add_mora(uid, chat_id, _mr)
-                await mark_quest_rewarded(uid, chat_id, today)
-                try:
-                    name = html.escape(callback.from_user.full_name)
-                    await callback.message.answer(
-                        f"🎉 {name} выполнил ежедневное задание! "
-                        f"<b>+{quest['xp']} XP</b>  <b>+{_mr} Моры</b> 🪙",
-                        parse_mode="HTML",
-                    )
-                except Exception:
-                    pass
-    except Exception:
-        pass
+    if res.get("quest_done"):
+        try:
+            name = html.escape(callback.from_user.full_name)
+            await callback.message.answer(
+                f"🎉 {name} выполнил ежедневное задание! "
+                f"<b>+{res['quest_xp']} XP</b>  <b>+{res['quest_mora']} Моры</b> 🪙",
+                parse_mode="HTML",
+            )
+        except Exception:
+            pass
 
 @router.message(BotCommand("инвентарь", "предметы", "inventory", "рюкзак"))
 async def cmd_inventory(message: Message, cmd_args: str):
