@@ -10,7 +10,8 @@ import html
 from aiogram import Router
 from aiogram.types import Message
 
-from database.db import add_mora, get_daily_checkin, perform_checkin
+from database.db import get_daily_checkin
+from api.checkin import do_checkin
 from filters.bot_command import BotCommand
 from shared_prices import CHECKIN_REWARDS as _REWARDS, CHECKIN_CHECKPOINTS as _CHECKPOINTS
 
@@ -65,7 +66,7 @@ async def cmd_checkin(message: Message, cmd_args: str):
         )
         return
 
-    result = await perform_checkin(uid, chat_id)
+    result = await do_checkin(uid, chat_id)
 
     if result.get("already_done"):
         data = await get_daily_checkin(uid, chat_id)
@@ -78,9 +79,7 @@ async def cmd_checkin(message: Message, cmd_args: str):
         )
         return
 
-    # Начислить мору
     mora_reward = result["mora"]
-    await add_mora(uid, chat_id, mora_reward)
 
     streak = result["streak"]
     total = result["total_days"]
