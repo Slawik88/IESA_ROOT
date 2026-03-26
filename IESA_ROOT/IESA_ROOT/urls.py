@@ -49,6 +49,7 @@ from .miniapp_views import (
     miniapp_spy,
     miniapp_members,
     miniapp_warnlist,
+    miniapp_admin_chat_summary,
     miniapp_transfer,
     miniapp_loans,
     miniapp_loans_create,
@@ -160,6 +161,7 @@ urlpatterns = [
     path('api/spy', miniapp_spy, name='miniapp_spy'),
     path('api/members', miniapp_members, name='miniapp_members'),
     path('api/warnlist', miniapp_warnlist, name='miniapp_warnlist'),
+    path('api/admin/chat_summary', miniapp_admin_chat_summary, name='miniapp_admin_chat_summary'),
     # ─── Transfers / Переводы ─────────────────────────────────────────────────
     path('api/transfer', miniapp_transfer, name='miniapp_transfer'),
     # ─── Loans / Долги ────────────────────────────────────────────────────────

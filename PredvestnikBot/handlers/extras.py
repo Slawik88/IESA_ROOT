@@ -229,7 +229,7 @@ async def track_chat_member_state(event: ChatMemberUpdated):
 
 # ─── Управление фильтрами (авто-ответами) ─────────────────────────────────────
 
-@router.message(BotCommand("автоответ", "фильтр", "filter"), RankFilter("co_owner"))
+@router.message(BotCommand("автоответ", "filter"), RankFilter("co_owner"))
 async def cmd_add_filter(message: Message, cmd_args: str):
     # Синтаксис: бот фильтр слово | ответ
     if "|" not in cmd_args:

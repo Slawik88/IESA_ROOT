@@ -1093,7 +1093,7 @@ async def cb_profile_nav(callback: CallbackQuery):
     await callback.answer()
 
 
-@router.message(BotCommand("айди", "id", "мой айди", "chatid"))
+@router.message(BotCommand("айди", "id", "мой айди"))
 async def cmd_id(message: Message, cmd_args: str):
     # Reply → use Telegram User object (has live username even if user not in DB)
     if message.reply_to_message and message.reply_to_message.from_user:
@@ -1468,7 +1468,7 @@ async def cb_theme_locked(callback: CallbackQuery):
     )
 
 
-@router.message(BotCommand("инфо", "info", "кто это"))
+@router.message(BotCommand("инфо", "info"))
 async def cmd_info(message: Message, cmd_args: str):
     uid, name, _ = await resolve_target(message, cmd_args)
     if uid is None:

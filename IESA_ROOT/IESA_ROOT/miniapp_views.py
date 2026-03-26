@@ -3694,6 +3694,127 @@ def miniapp_warnlist(request):
         return JsonResponse({"error": str(exc)}, status=500, headers=headers)
 
 
+# ADMIN CHAT SUMMARY
+# =============================================================================
+
+@csrf_exempt
+def miniapp_admin_chat_summary(request):
+    """GET /api/admin/chat_summary?chat_id=X — moderation overview for admin_junior+."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "GET":
+        return JsonResponse({"error": "GET required"}, status=405, headers=headers)
+
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+
+    chat_id_str = request.GET.get("chat_id", "")
+    if not chat_id_str.lstrip("-").isdigit():
+        return JsonResponse({"error": "chat_id required"}, status=400, headers=headers)
+    chat_id = int(chat_id_str)
+
+    # Verify caller has at least admin_junior rank in the target chat
+    try:
+        conn, db_type = _get_bot_db_connection()
+    except Exception as exc:
+        return JsonResponse({"error": f"DB: {exc}"}, status=503, headers=headers)
+
+    _RANK_LEVELS = {
+        "user": 0, "moderator": 1, "admin_junior": 2, "admin_senior": 3,
+        "co_owner": 4, "owner": 5, "developer": 6, "helper": 1,
+    }
+
+    try:
+        cur = conn.cursor()
+        ph = "%s" if db_type == "pg" else "?"
+        # Check caller rank
+        cur.execute(
+            f"SELECT rank FROM user_stats WHERE user_id={ph} AND chat_id={ph}",
+            (uid, chat_id),
+        )
+        row = cur.fetchone()
+        caller_rank = row[0] if row else "user"
+        if _RANK_LEVELS.get(caller_rank, 0) < _RANK_LEVELS["admin_junior"] and uid != _DEVELOPER_ID:
+            conn.close()
+            return JsonResponse({"error": "forbidden"}, status=403, headers=headers)
+
+        # Total members
+        cur.execute(
+            f"SELECT COUNT(*) FROM user_stats WHERE chat_id={ph}",
+            (chat_id,),
+        )
+        total_members = (cur.fetchone() or [0])[0]
+
+        # Active today (message in last 24h via daily_count)
+        cur.execute(
+            f"SELECT COUNT(*) FROM user_stats WHERE chat_id={ph} AND daily_count > 0",
+            (chat_id,),
+        )
+        active_today = (cur.fetchone() or [0])[0]
+
+        # Total warns outstanding
+        cur.execute(
+            f"SELECT COUNT(*), COALESCE(SUM(warns), 0) FROM user_stats WHERE chat_id={ph} AND warns > 0",
+            (chat_id,),
+        )
+        row = cur.fetchone() or (0, 0)
+        warned_count, total_warns = row[0], int(row[1])
+
+        # Currently muted (restrict_until > now)
+        try:
+            if db_type == "pg":
+                cur.execute(
+                    "SELECT COUNT(*) FROM user_stats WHERE chat_id=%s AND restrict_until IS NOT NULL "
+                    "AND restrict_until > NOW()",
+                    (chat_id,),
+                )
+            else:
+                cur.execute(
+                    "SELECT COUNT(*) FROM user_stats WHERE chat_id=? AND restrict_until IS NOT NULL "
+                    "AND restrict_until > datetime('now')",
+                    (chat_id,),
+                )
+            muted_count = (cur.fetchone() or [0])[0]
+        except Exception:
+            muted_count = 0
+
+        # Rank breakdown
+        cur.execute(
+            f"SELECT rank, COUNT(*) FROM user_stats WHERE chat_id={ph} GROUP BY rank ORDER BY COUNT(*) DESC",
+            (chat_id,),
+        )
+        rank_rows = cur.fetchall()
+        rank_breakdown = [{"rank": r[0], "count": r[1]} for r in rank_rows]
+
+        # Top warned users (up to 5)
+        cur.execute(
+            f"SELECT s.user_id, COALESCE(u.full_name, CAST(s.user_id AS TEXT)), s.warns "
+            f"FROM user_stats s LEFT JOIN users u ON u.user_id=s.user_id "
+            f"WHERE s.chat_id={ph} AND s.warns > 0 ORDER BY s.warns DESC LIMIT 5",
+            (chat_id,),
+        )
+        top_warned = [{"user_id": r[0], "name": r[1], "warns": r[2]} for r in cur.fetchall()]
+
+        conn.close()
+        return JsonResponse({
+            "total_members": total_members,
+            "active_today": active_today,
+            "warned_count": warned_count,
+            "total_warns": total_warns,
+            "muted_count": muted_count,
+            "rank_breakdown": rank_breakdown,
+            "top_warned": top_warned,
+        }, json_dumps_params={"ensure_ascii": False}, headers=headers)
+    except Exception as exc:
+        try:
+            conn.close()
+        except Exception:
+            pass
+        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+
+
 # SPY / ШПИОНАЖ
 # =============================================================================
 
