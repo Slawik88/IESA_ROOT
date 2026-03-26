@@ -959,12 +959,25 @@ async def init_db():
             except Exception:
                 pass
 
-        # ─── Миграция: усталость питомца + время прогулки ──────────────────
+        # ─── Миграция: usталость питомца + время прогулки ──────────────────
         for col_def in ["fatigue INTEGER DEFAULT 0", "last_walked TIMESTAMPTZ DEFAULT NULL", "walk_end_at TIMESTAMPTZ DEFAULT NULL"]:
             try:
                 await db.execute(f"ALTER TABLE pets ADD COLUMN IF NOT EXISTS {col_def}")
             except Exception:
                 pass
+
+        # ─── Миграция: исправить тип obtained_at если он был создан как TEXT ──
+        try:
+            await db.execute("""
+                ALTER TABLE gacha_inventory
+                ALTER COLUMN obtained_at TYPE TIMESTAMPTZ
+                USING CASE
+                    WHEN obtained_at ~ '^\\d{4}-\\d{2}-\\d{2}' THEN obtained_at::TIMESTAMPTZ
+                    ELSE NOW()
+                END
+            """)
+        except Exception:
+            pass
 
         # DDL соединение не поддерживает транзакции - commit() не нужен
 
@@ -4117,13 +4130,12 @@ async def add_gacha_item(user_id: int, chat_id: int, item_key: str,
                          item_name: str, rarity: str,
                          atk: int = 0, def_val: int = 0, hp: int = 0,
                          crit_rate: float = 0.0, slot=None):
-    now = datetime.now(timezone.utc)
     async with postgres_connect() as db:
         await db.execute(
             """INSERT INTO gacha_inventory
                (user_id, chat_id, item_key, item_name, rarity, obtained_at, atk, def_val, hp, crit_rate, slot)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            (user_id, chat_id, item_key, item_name, rarity, now, atk, def_val, hp, crit_rate, slot),
+               VALUES (?, ?, ?, ?, ?, NOW(), ?, ?, ?, ?, ?)""",
+            (user_id, chat_id, item_key, item_name, rarity, atk, def_val, hp, crit_rate, slot),
         )
         await db.commit()
 
