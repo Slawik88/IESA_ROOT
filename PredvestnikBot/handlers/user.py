@@ -11,6 +11,7 @@ from database.db import (
     get_top_by_xp_in_chat, get_user, get_user_badges, get_user_stats,
     get_user_themes, get_weekly_top, get_yesterday_top, set_bio_in_chat,
     get_xp_boost_active, add_user_theme, set_active_theme,
+    get_weekly_top_reward_history, WEEKLY_TOP_REWARDS,
 )
 from filters.bot_command import BotCommand
 from utils.helpers import resolve_target, user_mention
@@ -694,6 +695,8 @@ def _build_top_text(
     title: str,
     count_field: str,
     caller_uid: int | None = None,
+    chat_id: int | None = None,
+    hof_data: list | None = None,
 ) -> str:
     # Previous period rank lookup
     prev_rank: dict[int, int] = {}
@@ -754,6 +757,29 @@ def _build_top_text(
 
     if rest > 0:
         html_lines.append(f"  <i>+{rest} участник(ов)…</i>")
+
+    # ── Weekly prize pool info (for weekly / all-time views) ───────────────────
+    if count_field in ("wc", "message_count"):
+        prize_lines = ["", "🏅 <b>Призы за топ-10 недели:</b>"]
+        _MEDALS = ["🥇", "🥈", "🥉"]
+        for place, amount in WEEKLY_TOP_REWARDS.items():
+            medal = _MEDALS[place - 1] if place <= 3 else f"{place}."
+            prize_lines.append(f"  {medal} {amount} 🪙")
+        prize_lines.append("<i>Начисляются каждый понедельник в 00:00 Цюрих</i>")
+        html_lines.extend(prize_lines)
+
+    # ── Hall of Fame: last week's winners ──────────────────────────────────────
+    if hof_data:
+        _MEDALS2 = ["🥇", "🥈", "🥉"]
+        html_lines.append("")
+        html_lines.append("🏆 <b>Зал Славы — прошлая неделя:</b>")
+        for row in hof_data:
+            place  = row["place"]
+            uid    = row["user_id"]
+            fname  = html.escape(row.get("full_name") or str(uid))
+            amount = row["amount"]
+            medal  = _MEDALS2[place - 1] if place <= 3 else f"{place}."
+            html_lines.append(f"  {medal} {user_mention(uid, fname)} — {amount} 🪙")
 
     # ── Personal placement footer ──────────────────────────────────────────────
     footer = ""
@@ -833,7 +859,17 @@ async def cb_top(callback: CallbackQuery):
 
     uid_list = [u["user_id"] for u in top if "user_id" in u.keys()]
     mora_map = await get_mora_batch(uid_list, chat_id)
-    text = _build_top_text(top, prev_top, mora_map, title, count_field, callback.from_user.id)
+    # Load Hall of Fame for weekly/all-time views
+    hof_data = None
+    if count_field in ("wc", "message_count"):
+        from zoneinfo import ZoneInfo as _ZI
+        from datetime import datetime as _dt, timedelta as _td
+        _now = _dt.now(_ZI("Europe/Zurich"))
+        _prev_iso = (_now - _td(days=7)).isocalendar()
+        _prev_key = f"{_prev_iso.year}-W{_prev_iso.week:02d}"
+        hof_data = await get_weekly_top_reward_history(chat_id, _prev_key)
+    text = _build_top_text(top, prev_top, mora_map, title, count_field, callback.from_user.id,
+                           chat_id=chat_id, hof_data=hof_data)
 
     try:
         await callback.message.edit_text(
@@ -1635,7 +1671,17 @@ async def cmd_top(message: Message, cmd_args: str):
     period_code = "d" if arg in ("день", "day", "д") else ("w" if arg in ("неделя", "week", "н") else "a")
     uid_list = [u["user_id"] for u in top if "user_id" in u.keys()]
     mora_map = await get_mora_batch(uid_list, message.chat.id)
-    text = _build_top_text(top, prev_top, mora_map, title, count_field, message.from_user.id)
+    # Load Hall of Fame for weekly/all-time views
+    hof_data = None
+    if count_field in ("wc", "message_count"):
+        from zoneinfo import ZoneInfo as _ZI
+        from datetime import datetime as _dt, timedelta as _td
+        _now = _dt.now(_ZI("Europe/Zurich"))
+        _prev_iso = (_now - _td(days=7)).isocalendar()
+        _prev_key = f"{_prev_iso.year}-W{_prev_iso.week:02d}"
+        hof_data = await get_weekly_top_reward_history(message.chat.id, _prev_key)
+    text = _build_top_text(top, prev_top, mora_map, title, count_field, message.from_user.id,
+                           chat_id=message.chat.id, hof_data=hof_data)
     await message.answer(text, parse_mode="HTML", reply_markup=_top_keyboard(period_code, message.from_user.id))
 
 
