@@ -200,6 +200,88 @@ async def claim_expedition(uid: int, chat_id: int) -> dict:
     }
 
 
+async def get_expedition_status(uid: int, chat_id: int) -> dict:
+    """Full expedition page payload: pet, active expedition, balance, options.
+
+    Returns the same shape the miniapp_expeditions GET view expects.
+    """
+    from database.db import get_active_expedition, get_mora, get_pet
+
+    try:
+        from config import EXPEDITION_OPTIONS
+    except Exception:
+        EXPEDITION_OPTIONS = {
+            "short":  {"hours": 2, "cost": 0,  "reward_min": 10, "reward_max": 15,  "label": "2ч (бесплатно)"},
+            "medium": {"hours": 4, "cost": 5,  "reward_min": 30, "reward_max": 35,  "label": "4ч (5 🪙)"},
+            "long":   {"hours": 8, "cost": 10, "reward_min": 45, "reward_max": 50,  "label": "8ч (10 🪙)"},
+        }
+
+    pet_row = await get_pet(uid, chat_id)
+    pet = None
+    if pet_row:
+        pet = {
+            "type": pet_row.get("pet_type"),
+            "name": pet_row.get("name") or "безымянный",
+            "fatigue": pet_row.get("fatigue") or 0,
+        }
+        walk_end = pet_row.get("walk_end_at")
+        if walk_end:
+            try:
+                if not hasattr(walk_end, "tzinfo"):
+                    walk_end = datetime.fromisoformat(str(walk_end).replace("Z", "+00:00"))
+                if walk_end.tzinfo is None:
+                    walk_end = walk_end.replace(tzinfo=timezone.utc)
+                if walk_end > datetime.now(timezone.utc):
+                    secs = (walk_end - datetime.now(timezone.utc)).total_seconds()
+                    pet["walking"] = True
+                    pet["walk_mins_left"] = int(secs / 60) + 1
+            except Exception:
+                pass
+
+    active = await get_active_expedition(uid, chat_id)
+    expedition = None
+    if active:
+        started_at = active["started_at"]
+        duration_h = active["duration_h"]
+        if isinstance(started_at, str):
+            started_at = datetime.fromisoformat(started_at.replace("Z", "+00:00"))
+        if started_at.tzinfo is None:
+            started_at = started_at.replace(tzinfo=timezone.utc)
+        now = datetime.now(timezone.utc)
+        end_at = started_at + timedelta(hours=duration_h)
+        done = now >= end_at
+        secs_left = max(0, (end_at - now).total_seconds())
+        expedition = {
+            "started_at": started_at.isoformat(),
+            "duration_h": duration_h,
+            "reward_min": active["reward_min"],
+            "reward_max": active["reward_max"],
+            "done": done,
+            "time_left_h": int(secs_left // 3600),
+            "time_left_m": int((secs_left % 3600) // 60),
+        }
+
+    mora_row = await get_mora(uid, chat_id)
+    balance = mora_row["balance"] if mora_row else 0
+
+    return {
+        "ok": True,
+        "pet": pet,
+        "expedition": expedition,
+        "balance": balance,
+        "options": {
+            k: {
+                "hours": v["hours"],
+                "cost": v["cost"],
+                "reward_min": v["reward_min"],
+                "reward_max": v["reward_max"],
+                "label": v["label"],
+            }
+            for k, v in EXPEDITION_OPTIONS.items()
+        },
+    }
+
+
 async def get_status(uid: int, chat_id: int) -> dict:
     """Return current expedition status and pet info.
 

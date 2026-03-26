@@ -207,3 +207,77 @@ async def get_portfolio(uid: int, chat_id: int) -> dict:
         "holdings":   holdings,
         "prices":     all_prices,
     }
+
+
+async def get_bonds_status(uid: int, chat_id: int) -> dict:
+    """Full bonds page payload: prices, user holdings, history, market trend.
+
+    Returns the same shape the miniapp_bonds GET view expects.
+    """
+    from database.db import get_bond_price_history, get_bond_prices, get_user_bonds
+
+    try:
+        from config import BOND_DEFAULTS
+    except Exception:
+        from shared_prices import BOND_DEFAULTS
+
+    bond_keys = list(BOND_DEFAULTS.keys())
+
+    # Current prices
+    prices = await get_bond_prices(chat_id)
+
+    # User holdings
+    user_bonds = await get_user_bonds(uid, chat_id)
+    holdings = {b["bond_key"]: {"amount": b["amount"], "invested": b["invested"]} for b in user_bonds}
+
+    # Price history (last 120 ticks per bond, oldest first)
+    history = {}
+    for bk in bond_keys:
+        rows = await get_bond_price_history(chat_id, bk, limit=120)
+        history[bk] = [{"price": r["price"], "ts": str(r["recorded_at"])} for r in rows]
+
+    # Market trend
+    from database.postgres import connect as postgres_connect
+    market_trend = "neutral"
+    market_ticks = 0
+    try:
+        async with postgres_connect() as db:
+            async with db.execute(
+                "SELECT trend, ticks_left FROM market_state WHERE chat_id=?",
+                (chat_id,),
+            ) as c:
+                state_row = await c.fetchone()
+        if state_row:
+            market_trend = state_row["trend"]
+            market_ticks = state_row["ticks_left"]
+    except Exception:
+        pass
+
+    bonds_out = []
+    for bk in bond_keys:
+        current_price = prices.get(bk, BOND_DEFAULTS[bk]["base_price"])
+        holding = holdings.get(bk, {"amount": 0, "invested": 0})
+        amount = holding["amount"]
+        invested = holding["invested"]
+        bname = BOND_DEFAULTS.get(bk, {}).get("name", bk)
+        avg_price = round(invested / amount, 1) if amount > 0 else 0
+        pnl_mora = amount * current_price - invested if amount > 0 else 0
+        pnl_pct = round(pnl_mora / invested * 100, 1) if invested > 0 else 0
+        bonds_out.append({
+            "key":       bk,
+            "name":      bname,
+            "price":     current_price,
+            "amount":    amount,
+            "invested":  invested,
+            "avg_price": avg_price,
+            "pnl_mora":  pnl_mora,
+            "pnl_pct":   pnl_pct,
+            "value":     amount * current_price,
+            "history":   history.get(bk, []),
+        })
+
+    return {
+        "bonds":        bonds_out,
+        "market_trend": market_trend,
+        "market_ticks": market_ticks,
+    }

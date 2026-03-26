@@ -112,7 +112,7 @@ async def _action(
     phrases: list[str],
     self_msg: str,
 ):
-    uid, name, _ = await resolve_target(message, cmd_args)
+    uid, name, remaining = await resolve_target(message, cmd_args)
     if uid is None:
         await message.answer(name)
         return
@@ -121,8 +121,11 @@ async def _action(
         return
     actor = user_mention(message.from_user.id, message.from_user.full_name)
     target = user_mention(uid, name)
+    text = random.choice(phrases).format(a=actor, b=target)
+    if remaining and remaining.strip():
+        text += f'\n\n💬 <i>«{html.escape(remaining.strip())}»</i>'
     await message.answer(
-        random.choice(phrases).format(a=actor, b=target),
+        text,
         parse_mode="HTML",
     )
 
