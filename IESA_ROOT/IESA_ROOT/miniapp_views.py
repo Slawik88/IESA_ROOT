@@ -931,87 +931,11 @@ def miniapp_bonds(request):
     chat_id = int(chat_id_str)
 
     try:
-        conn, db_type = _get_bot_db_connection()
+        from asgiref.sync import async_to_sync as _a2s
+        from api.bonds import get_bonds_status
+        result = _a2s(get_bonds_status)(uid, chat_id)
+        return JsonResponse(result, json_dumps_params={"ensure_ascii": False}, headers=headers)
     except Exception as exc:
-        return JsonResponse({"error": f"DB: {exc}"}, status=503, headers=headers)
-
-    try:
-        cur = conn.cursor()
-        ph = "%s" if db_type == "pg" else "?"
-
-        # Current prices
-        cur.execute(
-            f"SELECT bond_key, price, updated_at FROM bond_prices WHERE chat_id={ph}",
-            (chat_id,),
-        )
-        price_map = {r[0]: {"price": r[1], "updated_at": r[2]} for r in cur.fetchall()}
-
-        # User holdings
-        cur.execute(
-            f"SELECT bond_key, amount, invested FROM user_bonds WHERE user_id={ph} AND chat_id={ph}",
-            (uid, chat_id),
-        )
-        holdings = {r[0]: {"amount": r[1], "invested": r[2]} for r in cur.fetchall()}
-
-        # Price history (last 120 points per bond = ~15 days at 3h ticks)
-        _BOND_KEYS = list(_BOND_DEFAULTS_SYNC.keys())
-        history = {}
-        for bk in _BOND_KEYS:
-            cur.execute(
-                f"SELECT price, recorded_at FROM bond_price_history "
-                f"WHERE chat_id={ph} AND bond_key={ph} ORDER BY id DESC LIMIT 120",
-                (chat_id, bk),
-            )
-            rows = cur.fetchall()
-            rows.reverse()
-            history[bk] = [{"price": r[0], "ts": r[1]} for r in rows]
-
-        # Market trend state
-        market_trend = "neutral"
-        market_ticks = 0
-        cur.execute(
-            f"SELECT trend, ticks_left FROM market_state WHERE chat_id={ph}",
-            (chat_id,)
-        )
-        trend_row = cur.fetchone()
-        if trend_row:
-            market_trend = trend_row[0]
-            market_ticks = trend_row[1]
-
-        conn.close()
-
-        bonds_out = []
-        for bk in _BOND_KEYS:
-            current_price = price_map.get(bk, {}).get("price", 100)
-            holding       = holdings.get(bk, {"amount": 0, "invested": 0})
-            amount        = holding["amount"]
-            invested      = holding["invested"]
-            bname         = _BOND_DEFAULTS_SYNC.get(bk, {}).get("name", bk)
-            avg_price     = round(invested / amount, 1) if amount > 0 else 0
-            pnl_mora      = amount * current_price - invested if amount > 0 else 0
-            pnl_pct       = round(pnl_mora / invested * 100, 1) if invested > 0 else 0
-            bonds_out.append({
-                "key":       bk,
-                "name":      bname,
-                "price":     current_price,
-                "amount":    amount,
-                "invested":  invested,
-                "avg_price": avg_price,
-                "pnl_mora":  pnl_mora,
-                "pnl_pct":   pnl_pct,
-                "value":     amount * current_price,
-                "history":   history.get(bk, []),
-            })
-
-        return JsonResponse(
-            {"bonds": bonds_out, "market_trend": market_trend, "market_ticks": market_ticks},
-            json_dumps_params={"ensure_ascii": False}, headers=headers)
-
-    except Exception as exc:
-        try:
-            conn.close()
-        except Exception:
-            pass
         return JsonResponse({"error": str(exc)}, status=500, headers=headers)
 
 
@@ -2448,8 +2372,8 @@ def miniapp_shop_buy(request):
 
     if not chat_id:
         return JsonResponse({"error": "chat_id required"}, status=400, headers=headers)
-    if item_type not in ("frame", "cosmetic", "vip"):
-        return JsonResponse({"error": "item_type must be frame/cosmetic/vip"}, status=400, headers=headers)
+    if item_type not in ("frame", "cosmetic", "vip", "potion"):
+        return JsonResponse({"error": "item_type must be frame/cosmetic/vip/potion"}, status=400, headers=headers)
 
     try:
         from asgiref.sync import async_to_sync as _a2s
@@ -4181,98 +4105,13 @@ def miniapp_expeditions(request):
     chat_id = int(chat_id_str)
 
     try:
-        from config import EXPEDITION_OPTIONS
-    except Exception:
-        EXPEDITION_OPTIONS = {
-            "short":  {"hours": 2, "cost": 0,  "reward_min": 10,  "reward_max": 15,  "label": "2ч (бесплатно)"},
-            "medium": {"hours": 4, "cost": 5,  "reward_min": 30,  "reward_max": 35,  "label": "4ч (5 🪙)"},
-            "long":   {"hours": 8, "cost": 10, "reward_min": 45,  "reward_max": 50,  "label": "8ч (10 🪙)"},
-        }
-
-    try:
-        conn, db_type = _get_bot_db_connection()
+        from asgiref.sync import async_to_sync as _a2s
+        from api.expeditions import get_expedition_status
+        result = _a2s(get_expedition_status)(uid, chat_id)
+        return JsonResponse(result, json_dumps_params={"ensure_ascii": False}, headers=headers)
+    except ValueError as exc:
+        return JsonResponse({"error": str(exc)}, status=400, headers=headers)
     except Exception as exc:
-        return JsonResponse({"error": f"DB: {exc}"}, status=503, headers=headers)
-
-    try:
-        cur = conn.cursor()
-        ph = "%s" if db_type == "pg" else "?"
-
-        # Pet info
-        cur.execute(
-            f"SELECT pet_type, name, COALESCE(fatigue,0), walk_end_at FROM pets WHERE user_id={ph} AND chat_id={ph}",
-            (uid, chat_id),
-        )
-        pet_row = cur.fetchone()
-        pet = None
-        if pet_row:
-            pet = {"type": pet_row[0], "name": pet_row[1], "fatigue": pet_row[2]}
-            # Check if currently walking
-            walk_end = pet_row[3] if len(pet_row) > 3 else None
-            if walk_end:
-                try:
-                    we = walk_end if hasattr(walk_end, 'tzinfo') else datetime.fromisoformat(str(walk_end).replace('Z','+00:00'))
-                    if we.tzinfo is None:
-                        we = we.replace(tzinfo=timezone.utc)
-                    now_utc = datetime.now(timezone.utc)
-                    if we > now_utc:
-                        secs = (we - now_utc).total_seconds()
-                        pet["walking"] = True
-                        pet["walk_mins_left"] = int(secs / 60) + 1
-                except Exception:
-                    pass
-
-        # Active expedition
-        cur.execute(
-            f"SELECT started_at, duration_h, reward_min, reward_max FROM pet_expeditions "
-            f"WHERE user_id={ph} AND chat_id={ph} AND finished=0",
-            (uid, chat_id),
-        )
-        exp_row = cur.fetchone()
-        expedition = None
-        if exp_row:
-            started_at, duration_h, reward_min, reward_max = exp_row
-            if isinstance(started_at, str):
-                started_at = datetime.fromisoformat(started_at.replace("Z", "+00:00"))
-            if started_at.tzinfo is None:
-                started_at = started_at.replace(tzinfo=timezone.utc)
-            now = datetime.now(timezone.utc)
-            end_at = started_at + __import__("datetime").timedelta(hours=duration_h)
-            done = now >= end_at
-            secs_left = max(0, (end_at - now).total_seconds())
-            h_left = int(secs_left // 3600)
-            m_left = int((secs_left % 3600) // 60)
-            expedition = {
-                "started_at": started_at.isoformat(),
-                "duration_h": duration_h,
-                "reward_min": reward_min,
-                "reward_max": reward_max,
-                "done": done,
-                "time_left_h": h_left,
-                "time_left_m": m_left,
-            }
-
-        # Mora balance
-        cur.execute(f"SELECT balance FROM user_mora WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
-        bal_row = cur.fetchone()
-        balance = bal_row[0] if bal_row else 0
-
-        conn.close()
-        return JsonResponse({
-            "ok": True,
-            "pet": pet,
-            "expedition": expedition,
-            "balance": balance,
-            "options": {k: {"hours": v["hours"], "cost": v["cost"], "reward_min": v["reward_min"],
-                            "reward_max": v["reward_max"], "label": v["label"]}
-                        for k, v in EXPEDITION_OPTIONS.items()},
-        }, json_dumps_params={"ensure_ascii": False}, headers=headers)
-
-    except Exception as exc:
-        try:
-            conn.close()
-        except Exception:
-            pass
         return JsonResponse({"error": str(exc)}, status=500, headers=headers)
 
 

@@ -94,6 +94,33 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 .shop-item-name{font-size:11px;font-weight:600;margin-bottom:4px;word-break:break-word;line-height:1.3}
 .shop-item-price{font-size:11px;color:var(--text2);margin-top:auto}
 .shop-item-price.free{color:var(--green)}
+/* Shop redesigned list cards */
+.scard{background:var(--bg2);border:1.5px solid var(--border);border-radius:12px;padding:12px 12px 12px 16px;display:flex;gap:12px;align-items:flex-start;cursor:pointer;transition:border-color .2s,box-shadow .2s;position:relative;margin-bottom:8px;overflow:hidden}
+.scard:active{transform:scale(.985)}.scard.owned{border-color:var(--green)}.scard.scard-active{border-color:var(--gold);background:rgba(244,197,66,.05)}
+.scard-accent{position:absolute;left:0;top:0;bottom:0;width:4px}
+.scard-icon{font-size:28px;min-width:36px;text-align:center;margin-top:2px}
+.scard-body{flex:1;min-width:0}.scard-name{font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px}
+.scard-desc{font-size:12px;color:var(--text2);line-height:1.45;margin-bottom:7px}
+.scard-footer{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.sbadge{font-size:11px;font-weight:600;padding:3px 9px;border-radius:20px;white-space:nowrap}
+.sbadge-price{background:rgba(99,102,241,.18);color:#a5b4fc}.sbadge-owned{background:rgba(34,197,94,.15);color:#4ade80}
+.sbadge-active{background:rgba(244,197,66,.2);color:var(--gold)}.sbadge-free{background:rgba(34,197,94,.1);color:#4ade80}
+/* Gacha drop rates modal */
+.rates-modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9200;display:none;align-items:flex-end}
+.rates-modal-overlay.open{display:flex}
+.rates-sheet{background:var(--bg2);border-radius:16px 16px 0 0;width:100%;max-height:82vh;display:flex;flex-direction:column;overflow:hidden}
+.rates-header{padding:14px 16px;border-bottom:1px solid var(--border);font-weight:700;font-size:15px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.rates-body{overflow-y:auto;padding:8px 12px 24px}
+.rarity-section{margin-bottom:12px}
+.rarity-section-hdr{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:10px;margin-bottom:6px;font-weight:700;font-size:13px}
+.rarity-section-hdr.junk{background:rgba(107,114,128,.15);color:#9ca3af}
+.rarity-section-hdr.common{background:rgba(59,130,246,.15);color:#60a5fa}
+.rarity-section-hdr.rare{background:rgba(139,92,246,.15);color:#a78bfa}
+.rarity-section-hdr.legendary{background:rgba(245,158,11,.2);color:#f59e0b}
+.rates-row{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:8px;font-size:12px}
+.rates-row:nth-child(even){background:var(--bg3)}
+.rates-row-icon{font-size:18px;min-width:26px;text-align:center}.rates-row-name{flex:1}
+.rates-row-pct{font-weight:700;color:var(--text2);min-width:44px;text-align:right}
 /* Inventory sub-tabs */
 .subtabs{display:flex;gap:6px;margin-bottom:12px;border-bottom:1px solid var(--border);padding-bottom:8px;overflow-x:auto;scrollbar-width:none}
 .subtabs::-webkit-scrollbar{display:none}
@@ -290,6 +317,17 @@ select{background:var(--bg3);border:1px solid var(--border);border-radius:8px;pa
   <div class="gacha-title">✨ Молитва Пустоты</div>
   <div class="gacha-grid" id="gachaGrid"></div>
   <button class="gacha-close" id="gachaCloseBtn">Закрыть</button>
+</div>
+
+<!-- Gacha drop rates modal -->
+<div class="rates-modal-overlay" id="gachaRatesModal" onclick="if(event.target===this)event.target.classList.remove('open')">
+  <div class="rates-sheet">
+    <div class="rates-header">
+      <span>📊 Шансы дропа</span>
+      <button onclick="document.getElementById('gachaRatesModal').classList.remove('open')" style="background:none;border:none;color:var(--text2);font-size:20px;cursor:pointer;padding:0;line-height:1">✕</button>
+    </div>
+    <div class="rates-body" id="gachaRatesBody"></div>
+  </div>
 </div>
 
 <!-- Rarity flash overlay -->
@@ -535,50 +573,58 @@ select{background:var(--bg3);border:1px solid var(--border);border-radius:8px;pa
     <!-- Gacha -->
     <div class="card">
       <div class="card-title">✨ Молитва Пустоты</div>
-      <div style="text-align:center;font-size:12px;color:var(--text2);margin-bottom:8px">
-        Гача крутки — шанс на легендарку&nbsp;<strong>3%</strong>, гарантия на&nbsp;<strong>40</strong> кр.<br/>  <!-- РЕБАЛАНС: было 2% и 50 -->
-        Семейная скидка: <span id="gachaSinglePrice">160</span> / <span id="gachaMultiPrice">1440</span> 🪙
+      <div style="text-align:center;font-size:12px;color:var(--text2);margin-bottom:10px">
+        Шанс на легендарку: <strong style="color:#f59e0b">3%</strong> · гарантия через <strong>40</strong> кр.<br/>
+        Цена: <span id="gachaSinglePrice">150</span> / <span id="gachaMultiPrice">1350</span> 🪙
       </div>
-      <div class="btn-row">
+      <div class="btn-row" style="margin-bottom:8px">
         <button class="btn btn-primary" onclick="rollGacha(1)">🌟 ×1</button>
         <button class="btn btn-gold" onclick="rollGacha(10)">💫 ×10</button>
       </div>
+      <button class="btn" style="width:100%;background:var(--bg3);color:var(--text2);font-size:12px;border:1px solid var(--border)" onclick="showGachaRates()">📊 Шансы дропа всех предметов</button>
     </div>
     <!-- Frames -->
     <div class="card">
       <div class="card-title">🖼 Рамки профиля</div>
+      <div style="font-size:11px;color:var(--text2);margin-bottom:8px">Отображается рядом с именем в топе и профиле</div>
       <div class="shop-grid" id="framesGrid"></div>
     </div>
     <!-- VIP -->
     <div class="card">
       <div class="card-title">👑 VIP статус</div>
-      <div class="stat-row"><span class="stat-label">💎 VIP</span><span class="stat-value" id="vipStatus">Нет</span></div>
-      <button class="btn btn-gold" onclick="buyShopItem('vip','vip')">Купить VIP — 500 🪙</button>
+      <div id="shopVipContent"></div>
     </div>
     <!-- Cosmetics -->
     <div class="card">
-      <div class="card-title">💄 Косметика</div>
-      <div class="shop-grid" id="cosmeticsGrid"></div>
+      <div class="card-title">🎭 Косметика и эффекты</div>
+      <div id="cosmeticsSection"></div>
+    </div>
+    <!-- Potions -->
+    <div class="card">
+      <div class="card-title">🧪 Зелья и расходники</div>
+      <div style="font-size:11px;color:var(--text2);margin-bottom:8px">Действуют временно · после покупки перейди в инвентарь чтобы использовать</div>
+      <div id="potionsSection"></div>
     </div>
     <!-- Pet food -->
     <div class="card" id="shopFoodSection">
       <div class="card-title">🍖 Еда для питомца</div>
-      <div class="shop-grid" id="foodGrid"></div>
+      <div style="font-size:11px;color:var(--text2);margin-bottom:8px">Снижает усталость питомца — нужна для экспедиций</div>
+      <div id="foodSection"></div>
     </div>
     <!-- Custom Title -->
     <div class="card">
       <div class="card-title">🏷 Кастомный титул</div>
       <div style="font-size:12px;color:var(--text2);margin-bottom:8px">
-        Установи уникальный титул в профиле бота.<br/>
-        Стоимость: <strong>10 000 🪙</strong> · макс. 30 символов
+        Уникальный текст, который отображается рядом с твоим ником.<br/>
+        Стоимость: <strong>4 000 🪙</strong> · максимум 30 символов
       </div>
       <div class="stat-row" style="margin-bottom:8px">
-        <span class="stat-label">Текущий</span>
+        <span class="stat-label">Активный</span>
         <span class="stat-value" id="currentTitle" style="font-style:italic;color:var(--text2)">Нет</span>
       </div>
       <input type="text" id="titleInput" maxlength="30" placeholder="Введи новый титул…"
         style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text);width:100%;margin-bottom:6px;box-sizing:border-box"/>
-      <button class="btn btn-gold" onclick="setCustomTitle()">⭐ Установить — 10 000 🪙</button>
+      <button class="btn btn-gold" onclick="setCustomTitle()">⭐ Установить — 4 000 🪙</button>
     </div>
   </div>
 </div>
@@ -976,7 +1022,7 @@ function pickWallet(label, price){
   return new Promise((resolve, reject)=>{
     _wResolve=resolve; _wReject=reject;
     const pb=profileData?profileData.balance||0:0;
-    const fb=profileData?profileData.my_family_balance||0:0;
+    const fb=profileData?profileData.family_balance||0:0;
     const hasFam=!!(profileData&&profileData.partner_name);
     document.getElementById('wLabel').textContent=label;
     document.getElementById('wPrice').textContent=price+' 🪙';
@@ -1801,16 +1847,13 @@ async function loadShop(){
 }
 
 function renderShop(d){
-  // Use already-loaded profileData to determine marriage status (no race condition)
-  const isMarried = !!(profileData && profileData.partner_name);
-  document.getElementById('gachaSinglePrice').textContent = isMarried ? '160' : '150';
-  document.getElementById('gachaMultiPrice').textContent = isMarried ? '1440' : '1350';
-
-  // Custom title — show active title if any
+  const isMarried=!!(profileData&&profileData.partner_name);
+  document.getElementById('gachaSinglePrice').textContent=isMarried?'160':'150';
+  document.getElementById('gachaMultiPrice').textContent=isMarried?'1440':'1350';
   const activeTitle=(profileData&&profileData.custom_title)||'';
   document.getElementById('currentTitle').textContent=activeTitle||'Нет';
 
-  // Frames
+  // Frames (still use grid — purely cosmetic, no effects to explain)
   document.getElementById('framesGrid').innerHTML=(d.frames||[]).map(f=>`
     <div class="shop-item ${f.owned?'owned':''} ${f.active?'active-item':''}" onclick="buyShopItem('frame','${f.key}')">
       <div class="shop-item-emoji">${f.emoji}</div>
@@ -1818,30 +1861,138 @@ function renderShop(d){
       <div class="shop-item-price ${f.price===0?'free':''}">${f.price===0?'Бесплатно':f.owned?(f.active?'✓ Активна':'✓ Надеть'):(f.price+' 🪙')}</div>
     </div>`).join('');
 
-  // VIP
-  document.getElementById('vipStatus').textContent=d.has_vip?'✅ Активен':'❌ Нет';
+  // VIP — show perks clearly
+  document.getElementById('shopVipContent').innerHTML=d.has_vip
+    ?`<div style="display:flex;align-items:center;gap:12px;padding:10px;background:rgba(244,197,66,.08);border:1px solid rgba(244,197,66,.3);border-radius:10px">
+        <span style="font-size:30px">👑</span>
+        <div>
+          <div style="font-size:13px;font-weight:700;color:var(--gold)">VIP активен ✅</div>
+          <div style="font-size:11px;color:var(--text2);margin-top:3px">💎 Значок в профиле и топе<br>🎰 Семейная цена на гача-крутки<br>🖼 Рамка «Алмазный» доступна</div>
+        </div></div>`
+    :`<div class="scard" onclick="buyShopItem('vip','vip')" style="margin-bottom:0">
+        <div class="scard-accent" style="background:linear-gradient(180deg,#f59e0b,#d97706)"></div>
+        <div class="scard-icon">👑</div>
+        <div class="scard-body">
+          <div class="scard-name">VIP статус</div>
+          <div class="scard-desc">💎 Золотой значок рядом с ником в профиле и топе<br>🎰 Скидка на гача-крутки (семейная цена без брака)<br>🖼 Разблокирует рамку «Алмазный» для покупки</div>
+          <div class="scard-footer"><span class="sbadge sbadge-price">300 🪙</span></div>
+        </div></div>`;
 
-  // Cosmetics grid
-  const cosGrid=(d.cosmetics||[]).map(c=>{
-    const onclick=c.owned?'':(`onclick="buyShopItem('cosmetic','`+c.key+`')"`);
-    return `<div class="shop-item${c.owned?' owned':''}" ${onclick}>
-      <div class="shop-item-emoji">${c.emoji}</div>
-      <div class="shop-item-name">${esc(c.name)}</div>
-      <div class="shop-item-price${c.owned?' free':''}">${c.owned?'✓ Есть':c.price+' 🪙'}</div>
-      <div style="font-size:10px;color:var(--text2);margin-top:2px">${esc(c.desc||'')}</div>
-    </div>`;
-  }).join('');
-  document.getElementById('cosmeticsGrid').innerHTML=cosGrid;
+  // Cosmetics — full list cards with visible descriptions
+  const cosAccents={'custom_title':'#a855f7','pet_color':'#ec4899','pet_emoji_status':'#f97316',
+    'xp_boost_24h':'#06b6d4','streak_guard':'#3b82f6','expedition_boost':'#10b981',
+    'mora_shield':'#eab308','lucky_sign':'#22c55e','name_glow':'#f59e0b'};
+  document.getElementById('cosmeticsSection').innerHTML=(d.cosmetics||[]).map(c=>`
+    <div class="scard${c.owned?' owned':''}" ${c.owned?'':('onclick="buyShopItem(\'cosmetic\',\''+c.key+'\')"')}>
+      <div class="scard-accent" style="background:${cosAccents[c.key]||'var(--accent)'}"></div>
+      <div class="scard-icon">${c.emoji}</div>
+      <div class="scard-body">
+        <div class="scard-name">${esc(c.name)}</div>
+        <div class="scard-desc">${esc(c.desc||'')}</div>
+        <div class="scard-footer">
+          ${c.owned?'<span class="sbadge sbadge-owned">✓ Куплено</span>':'<span class="sbadge sbadge-price">'+c.price+' 🪙</span>'}
+        </div>
+      </div></div>`).join('');
 
-  // Food grid
-  const foodGrid=(d.food||[]).map(f=>`
-    <div class="shop-item" onclick="petFeed('${f.key}')">
-      <div class="shop-item-emoji">${f.emoji}</div>
-      <div class="shop-item-name">${esc(f.name)}</div>
-      <div class="shop-item-price">${f.price} 🪙</div>
-      <div style="font-size:10px;color:var(--text2);margin-top:2px">−${f.fatigue} усталости</div>
-    </div>`).join('');
-  document.getElementById('foodGrid').innerHTML=foodGrid;
+  // Potions
+  const potAccent={atk:'#ef4444',def:'#3b82f6',hp:'#22c55e'};
+  document.getElementById('potionsSection').innerHTML=(d.potions||[]).map(p=>`
+    <div class="scard" onclick="buyPotion('${p.key}','${p.price}','${p.emoji} ${p.name}')">
+      <div class="scard-accent" style="background:${potAccent[p.buff_type]||'var(--accent)'}"></div>
+      <div class="scard-icon">${p.emoji}</div>
+      <div class="scard-body">
+        <div class="scard-name">${esc(p.name)}</div>
+        <div class="scard-desc">${esc(p.desc)}</div>
+        <div class="scard-footer"><span class="sbadge sbadge-price">${p.price} 🪙</span></div>
+      </div></div>`).join('');
+
+  // Food
+  document.getElementById('foodSection').innerHTML=(d.food||[]).map(f=>`
+    <div class="scard" onclick="petFeed('${f.key}')">
+      <div class="scard-accent" style="background:#a3e635"></div>
+      <div class="scard-icon">${f.emoji}</div>
+      <div class="scard-body">
+        <div class="scard-name">${esc(f.name)}</div>
+        <div class="scard-desc">Снижает усталость питомца на <b>${f.fatigue}</b> единиц — чем меньше усталость, тем лучше экспедиции</div>
+        <div class="scard-footer"><span class="sbadge sbadge-price">${f.price} 🪙</span></div>
+      </div></div>`).join('');
+}
+
+async function buyPotion(key, price, label){
+  let wallet;
+  try{ wallet=await pickWallet(label, parseInt(price)); }
+  catch(e){ if((e.message||'')!=='cancelled') toast('❌ '+e.message,'error'); return; }
+  try{
+    const r=await api('/api/shop/buy','POST',{chat_id:chatId,item_type:'potion',item_key:key,wallet_type:wallet});
+    toast('✅ Куплено! Используй в инвентаре 🧪','success');
+    syncBalance(r.balance);
+    shopData=null;
+    await loadShop();
+  } catch(e){toast('❌ '+e.message,'error')}
+}
+
+function showGachaRates(){
+  const JUNK=[
+    ['🪨','Камень Маслоу','Мусор — продай за 5 🪙'],
+    ['🪵','Палка путника','Мусор — продай за 3 🪙'],
+    ['💨','Пыль забвения','Мусор — продай за 2 🪙'],
+    ['🦴','Кость хиличурла','Мусор — продай за 4 🪙'],
+    ['🍄','Сомнительный гриб','Мусор — продай за 3 🪙'],
+    ['🪶','Перо Штормпиха','Мусор — продай за 4 🪙'],
+    ['🧵','Верёвка странника','Мусор — продай за 3 🪙'],
+  ];
+  const COMMON=[
+    ['⚔️','Тупой клинок','Оружие: +15 ATK оснащению'],
+    ['🏹','Кривой лук','Оружие: +12 ATK оснащению'],
+    ['📕','Потрёпанный дневник','Артефакт: +8 ATK, 3% крит'],
+    ['💍','Дешёвое кольцо','Броня: +15 DEF, +30 HP'],
+    ['🛡','Ржавый щит','Броня: +20 DEF'],
+    ['⚔️','Зелье Силы','Расходник: +15 ATK на 1 час'],
+    ['🛡️','Зелье Защиты','Расходник: +20 DEF на 1 час'],
+    ['❤️','Зелье Здоровья','Расходник: +50 HP на 1.5 часа'],
+    ['✨','Осколок Опыта','Моментально: +25 XP'],
+    ['🌿','Трава Сесилии','Моментально: +15 🪙'],
+    ['✒️','Перо ученика','Артефакт: +8 ATK, +15 HP, 2% крит'],
+    ['🔮','Амулет удачи','Артефакт: +5 DEF, 1.5% крит'],
+  ];
+  const RARE=[
+    ['👑','Серебряная корона','Артефакт: +25 ATK, +15 DEF, 4% крит'],
+    ['🔮','Магический катализатор','Оружие: +30 ATK, 4% крит'],
+    ['🧣','Алый плащ','Броня: +25 DEF, +80 HP'],
+    ['💎','Сапфир полуночи','Артефакт: +20 DEF, 6% крит'],
+    ['💠','Кристалл Опыта XL','Моментально: +150 XP'],
+    ['💰','Мешок Моры','Моментально: +120 🪙'],
+    ['📿','Кармин змеи','Артефакт: +20 DEF, 8% крит'],
+    ['🧧','Красный конверт','Моментально: +250 🪙'],
+    ['⚡','Лазурное копьё','Оружие: +35 ATK, 5% крит'],
+  ];
+  const LEGO=[
+    ['✨','Гнозис Балладеера','Оружие: +60 ATK, 8% крит'],
+    ['🏛','Скипетр Дендро Архонта','Оружие: +70 ATK, +15 DEF, 6% крит'],
+    ['🎩','Маска Панталоне','Броня: +60 DEF, +300 HP'],
+    ['🌀','Корона Бездны','Артефакт: +45 ATK, 12% крит'],
+    ['⚡','Перст Предвестника','Оружие: +55 ATK, +150 HP, 10% крит'],
+    ['⭐','Звёздное Сияние','Косметика: золотой ореол в Mini App'],
+    ['🌌','Мерцание Бездны','Косметика: тёмно-мистический эффект'],
+    ['🔥','Пламя Предвестника','Косметика: огненный ореол'],
+    ['🌸','Благодать Архонта','Косметика: нежный розовый ореол'],
+    ['⚔️✨','Зелье Силы Superior','Расходник: +30 ATK на 2 часа (только гача)'],
+    ['🛡️✨','Зелье Защиты Superior','Расходник: +40 DEF на 2 часа (только гача)'],
+    ['⚡','Клинок Ей','Оружие: +80 ATK, 12% крит'],
+    ['🏯','Нефритовое зерцало','Артефакт: +20 ATK, +40 DEF, 15% крит'],
+  ];
+  const pctJ=(70/JUNK.length).toFixed(1);
+  const pctC=(20/COMMON.length).toFixed(1);
+  const pctR=(7/RARE.length).toFixed(1);
+  const pctL=(3/LEGO.length).toFixed(2);
+  function rows(arr,pct){return arr.map(([em,nm,desc])=>`<div class="rates-row"><span class="rates-row-icon">${em}</span><span class="rates-row-name"><b>${esc(nm)}</b><br><span style="font-size:10px;color:var(--text2)">${esc(desc)}</span></span><span class="rates-row-pct">${pct}%</span></div>`).join('');}
+  document.getElementById('gachaRatesBody').innerHTML=
+    `<div style="font-size:11px;color:var(--text2);padding:6px 0 12px;text-align:center">Гарантия легендарки каждые <b>40</b> круток (пити-система)</div>
+    <div class="rarity-section"><div class="rarity-section-hdr junk">💤 Мусор — 70%</div>${rows(JUNK,pctJ)}</div>
+    <div class="rarity-section"><div class="rarity-section-hdr common">⚔️ Обычный — 20%</div>${rows(COMMON,pctC)}</div>
+    <div class="rarity-section"><div class="rarity-section-hdr rare">💜 Редкий — 7%</div>${rows(RARE,pctR)}</div>
+    <div class="rarity-section"><div class="rarity-section-hdr legendary">⭐ Легендарный — 3%</div>${rows(LEGO,pctL)}</div>`;
+  document.getElementById('gachaRatesModal').classList.add('open');
 }
 
 async function buyShopItem(type, key){
