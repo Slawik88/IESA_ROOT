@@ -706,16 +706,7 @@ def _build_top_text(
     top10_cur = {u["user_id"] for u in top[:10] if "user_id" in u.keys()}
     top10_prv = {u["user_id"] for u in prev_top[:10] if "user_id" in u.keys()}
 
-    max_count = max((u[count_field] if count_field in u.keys() else 0 for u in top), default=1) or 1
-
-    # ── Fixed column widths ────────────────────────────────────────────────────
-    PLACE_W = 4   # "  1." / " 10." / "★ 1."
-    NAME_W  = 15  # name column
-    COUNT_W = 5   # right-aligned score
-    BAR_W   = 8   # progress bar
-
-    col_hdr = f"{'#':>{PLACE_W}} │ {'Имя':<{NAME_W}} │ {'Счёт':>{COUNT_W}} │ Прогресс"
-    sep_ln  = "─" * PLACE_W + "─┼─" + "─" * NAME_W + "─┼─" + "─" * COUNT_W + "─┼─" + "─" * BAR_W
+    _MEDALS = ["🥇", "🥈", "🥉"]
 
     # ── HTML header (title + news) ─────────────────────────────────────────────
     html_lines: list[str] = [title]
@@ -732,23 +723,24 @@ def _build_top_text(
                 x_str = ", ".join(exited[:4]) + (f" +{len(exited)-4}" if len(exited) > 4 else "")
                 html_lines.append(f"📉 <i>Вышли: {x_str}</i>")
 
-    # ── Monospace table rows ───────────────────────────────────────────────────
-    table_rows: list[str] = [col_hdr, sep_ln]
-    budget = 2400
-    used   = len(col_hdr) + 1 + len(sep_ln) + 1
+    html_lines.append("")
 
-    for i, u in enumerate(top):
+    # ── Mobile-friendly rows ───────────────────────────────────────────────────
+    visible = top[:20]
+    rest    = len(top) - len(visible)
+
+    for i, u in enumerate(visible):
         count    = u[count_field] if count_field in u.keys() else 0
         uid_top  = u["user_id"] if "user_id" in u.keys() else None
         mora_row = mora_map.get(uid_top) if uid_top else None
 
-        # Place column (4 chars): star prefix for top-frame users
-        if mora_row and mora_row.get("top_frame"):
-            place_str = "★" + f"{i + 1:>2}."
-        else:
-            place_str = f"{i + 1:>3}."
+        place = _MEDALS[i] if i < 3 else f"{i + 1}."
 
-        # Badges appended after progress bar
+        raw_name = u["full_name"] if "full_name" in u.keys() else "?"
+        if len(raw_name) > 18:
+            raw_name = raw_name[:17] + "…"
+        name = html.escape(raw_name)
+
         badges = ""
         if mora_row and mora_row.get("vip"):
             badges += " 💎"
@@ -757,25 +749,11 @@ def _build_top_text(
             if sd >= 3:
                 badges += f" 🔥{sd}"
 
-        # Name: truncate → ljust → html.escape (alignment preserved when Telegram renders entities)
-        raw_name = u["full_name"] if "full_name" in u.keys() else "?"
-        if len(raw_name) > NAME_W:
-            display_name = raw_name[:NAME_W - 1] + "…"
-        else:
-            display_name = raw_name
-        name_col  = html.escape(display_name.ljust(NAME_W))
-        count_col = f"{count:>{COUNT_W}}"
-        bar       = _make_top_bar(count, max_count, BAR_W)
+        count_str = f"{count:,}".replace(",", "\u00a0")
+        html_lines.append(f"{place} {name} — {count_str}{badges}")
 
-        row      = f"{place_str} │ {name_col} │ {count_col} │ {bar}{badges}"
-        line_len = len(row) + 1
-        if used + line_len > budget:
-            table_rows.append(f"  …+{len(top) - i} чел.")
-            break
-        table_rows.append(row)
-        used += line_len
-
-    pre_block = "<pre>" + "\n".join(table_rows) + "</pre>"
+    if rest > 0:
+        html_lines.append(f"  <i>+{rest} участник(ов)…</i>")
 
     # ── Personal placement footer ──────────────────────────────────────────────
     footer = ""
@@ -787,7 +765,7 @@ def _build_top_text(
                 footer = f"\n\n👤 <i>Ты на {i + 1} месте из {total} (топ {100 - pct + 1}%)</i>"
                 break
 
-    return "\n".join(html_lines) + "\n\n" + pre_block + footer
+    return "\n".join(html_lines) + footer
 
 
 @router.callback_query(F.data.startswith("top:"))

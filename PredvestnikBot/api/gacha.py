@@ -33,6 +33,7 @@ _COMMON_ITEMS = [
     ("str_potion", "⚔️ Зелье Силы",           "Расходник: +15 ATK на 1 час"),
     ("def_potion", "🛡️ Зелье Защиты",         "Расходник: +20 DEF на 1 час"),
     ("hp_potion",  "❤️ Зелье Здоровья",       "Расходник: +50 HP на 1.5 часа"),
+    ("cmn_xp_shard", "✨ Осколок Опыта",       "Сразу даёт +25 XP"),
 ]
 
 _RARE_ITEMS = [
@@ -40,6 +41,8 @@ _RARE_ITEMS = [
     ("rare_catalyst", "🔮 Магический катализатор",   "Косметика: мистический атрибут мага"),
     ("rare_cape",     "🧣 Алый плащ",                "Косметика: плащ героя ветров"),
     ("rare_gem",      "💎 Сапфир полуночи",           "Косметика: сверкающий камень ночи"),
+    ("rare_xp_crystal", "💠 Кристалл Опыта XL",    "Сразу даёт +150 XP"),
+    ("rare_mora_bag",   "💰 Мешок Моры",             "Сразу даёт +120 🪙"),
 ]
 
 _LEGENDARY_ITEMS = [
@@ -48,6 +51,10 @@ _LEGENDARY_ITEMS = [
     ("lego_pantalone", "🎩 Маска Панталоне",           "Экипировка: таинственная маска дельца в профиле"),
     ("lego_abyss",     "🌀 Корона Бездны",             "Экипировка: корона из глубин Бездны в профиле"),
     ("lego_fatui",     "⚡ Перст Предвестника",        "Экипировка: эксклюзивный знак верности"),
+    ("lego_flair_star",  "⭐ Звёздное Сияние",        "Косметика Mini App: золотой ореол рядом с именем"),
+    ("lego_flair_void",  "🌌 Мерцание Бездны",        "Косметика Mini App: тёмно-мистический эффект имени"),
+    ("lego_flair_flame", "🔥 Пламя Предвестника",     "Косметика Mini App: огненный эффект рядом с именем"),
+    ("lego_flair_arch",  "🌸 Благодать Архонта",      "Косметика Mini App: нежный розовый ореол имени"),
     ("str_superior",   "⚔️✨ Зелье Силы Superior",    "Расходник: +30 ATK на 2 часа (редкое!)"),
     ("def_superior",   "🛡️✨ Зелье Защиты Superior",  "Расходник: +40 DEF на 2 часа (редкое!)"),
 ]
@@ -136,6 +143,13 @@ async def gacha_roll(uid: int, chat_id: int, count: int,
             crit_rate=meta.get("crit_rate", 0.0),
             slot=meta.get("slot"),
         )
+        # Instant-grant items — apply effect immediately
+        if key == "cmn_xp_shard":
+            await add_xp_in_chat(uid, chat_id, 25)
+        elif key == "rare_xp_crystal":
+            await add_xp_in_chat(uid, chat_id, 150)
+        elif key == "rare_mora_bag":
+            await add_mora(uid, chat_id, 120)
         pity = 0 if rarity == "legendary" else pity + 1
         results.append({"key": key, "name": name, "rarity": rarity, "desc": desc})
 
