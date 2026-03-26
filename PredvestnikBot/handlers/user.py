@@ -22,12 +22,14 @@ from config import MINI_APP_TG_URL as _MINI_APP_TG_URL
 
 router = Router()
 
-def _fmt_dt(iso_str: str | None) -> str:
-    """Format ISO datetime as dd.mm.yyyy HH:MM or 'нет данных'."""
-    if not iso_str:
+def _fmt_dt(val) -> str:
+    """Format datetime/ISO string as dd.mm.yyyy HH:MM or 'нет данных'."""
+    if not val:
         return "нет данных"
     try:
-        dt = datetime.fromisoformat(iso_str)
+        if isinstance(val, datetime):
+            return val.strftime("%d.%m.%Y %H:%M")
+        dt = datetime.fromisoformat(str(val))
         return dt.strftime("%d.%m.%Y %H:%M")
     except (ValueError, TypeError):
         return "нет данных"
@@ -353,7 +355,8 @@ def _help_pages() -> dict[str, dict]:
                 f"🔴 <b>Предупреждения</b>\n"
                 f"  <code>бот варн [@юзер] [причина]</code>\n"
                 f"  <i>└ {MAX_WARNS} варнов → уведомление админам</i>\n"
-                f"  <code>бот предупреждения [@юзер]</code> · <code>бот снять варн</code>\n\n"
+                f"  <code>бот предупреждения [@юзер]</code> · <code>бот снять варн</code>\n"
+                f"  <code>бот варнлист</code> — список участников с варнами\n\n"
                 f"🔇 <b>Мут</b>\n"
                 f"  <code>бот мут [@юзер] [30с|10м|2ч|1д]</code>\n"
                 f"  <code>бот размут [@юзер]</code>"

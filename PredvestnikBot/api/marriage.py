@@ -1,5 +1,5 @@
 """
-api/marriage.py — marriage status and proposal operations.
+api/marriage.py — marriage status, proposal, and family wallet operations.
 
 All functions are async; the mini app wraps them with async_to_sync.
 """
@@ -72,3 +72,157 @@ async def propose(uid: int, target_id: int, chat_id: int) -> dict:
         "proposal_id": proposal_id,
         "message":     f"Предложение отправлено игроку {_html.escape(to_name)}!",
     }
+
+
+async def respond_to_proposal_api(uid: int, chat_id: int, proposal_id: int, action: str) -> dict:
+    """Accept or reject a proposal as the recipient.
+
+    On accept, creates the marriage.
+    Raises ValueError on error.
+    Returns {ok, action, partner_id?, partner_name?}.
+    """
+    from database.db import (
+        respond_to_proposal, create_marriage, get_user, get_pending_proposals,
+    )
+
+    if action not in ("accept", "reject"):
+        raise ValueError("action must be accept or reject")
+
+    # Verify this proposal is for the current user
+    proposals = await get_pending_proposals(uid, chat_id)
+    proposal = None
+    for p in proposals:
+        if p.get("id") == proposal_id:
+            proposal = p
+            break
+    if not proposal:
+        raise ValueError("Предложение не найдено или уже обработано")
+
+    status = "accepted" if action == "accept" else "rejected"
+    result = await respond_to_proposal(proposal_id, status)
+    if not result:
+        raise ValueError("Не удалось обработать предложение")
+
+    if action == "accept":
+        from_uid = result["from_user_id"]
+        await create_marriage(from_uid, uid, chat_id)
+        partner = await get_user(from_uid)
+        partner_name = partner["full_name"] if partner else f"user_{from_uid}"
+        return {
+            "ok": True,
+            "action": "accepted",
+            "partner_id": from_uid,
+            "partner_name": partner_name,
+        }
+
+    return {"ok": True, "action": "rejected"}
+
+
+async def family_deposit(uid: int, chat_id: int, amount: int) -> dict:
+    """Deposit mora into the family wallet.
+
+    Raises ValueError on error.
+    Returns {ok, amount, personal_balance, family_balance}.
+    """
+    from database.db import (
+        deduct_mora, get_mora, add_to_family_wallet,
+        log_family_transaction, is_user_single,
+    )
+
+    if amount <= 0:
+        raise ValueError("Сумма должна быть > 0")
+
+    single = await is_user_single(uid, chat_id)
+    if single:
+        raise ValueError("Нет семейного кошелька — ты не в браке")
+
+    mora_row = await get_mora(uid, chat_id)
+    balance = mora_row["balance"] if mora_row else 0
+    if balance < amount:
+        raise ValueError(f"Недостаточно Моры ({balance}/{amount} 🪙)")
+
+    ok, _ = await deduct_mora(uid, chat_id, amount)
+    if not ok:
+        raise ValueError("Не удалось списать Мору")
+
+    family_bal = await add_to_family_wallet(chat_id, uid, amount)
+    await log_family_transaction(chat_id, uid, "deposit", amount)
+
+    new_mora = await get_mora(uid, chat_id)
+    personal_balance = new_mora["balance"] if new_mora else 0
+
+    return {
+        "ok": True,
+        "amount": amount,
+        "personal_balance": personal_balance,
+        "family_balance": family_bal,
+    }
+
+
+async def family_withdraw(uid: int, chat_id: int, amount: int) -> dict:
+    """Withdraw mora from the family wallet to personal balance.
+
+    Deducts from the user's own contribution first, then partner's.
+    Raises ValueError on error.
+    Returns {ok, amount, personal_balance, family_balance}.
+    """
+    from database.db import (
+        add_mora, get_mora, get_total_family_balance,
+        deduct_family_pool, log_family_transaction, is_user_single,
+    )
+
+    if amount <= 0:
+        raise ValueError("Сумма должна быть > 0")
+
+    single = await is_user_single(uid, chat_id)
+    if single:
+        raise ValueError("Нет семейного кошелька — ты не в браке")
+
+    total_bal, _my_bal, partner_id = await get_total_family_balance(chat_id, uid)
+    if total_bal < amount:
+        raise ValueError(f"В семейном кошельке {total_bal} 🪙 (нужно {amount})")
+
+    new_family_bal = await deduct_family_pool(chat_id, uid, partner_id, amount)
+    await add_mora(uid, chat_id, amount)
+    await log_family_transaction(chat_id, uid, "withdraw", amount)
+
+    new_mora = await get_mora(uid, chat_id)
+    personal_balance = new_mora["balance"] if new_mora else 0
+
+    return {
+        "ok": True,
+        "amount": amount,
+        "personal_balance": personal_balance,
+        "family_balance": new_family_bal,
+    }
+
+
+async def get_family_log(uid: int, chat_id: int, limit: int = 30) -> dict:
+    """Return family wallet transaction log.
+
+    Returns {ok, log: [{user_id, user_name, action, amount, description, created_at}]}.
+    """
+    from database.db import get_family_wallet_log
+    from database.postgres import connect as postgres_connect
+
+    # Auto-cleanup old records (> 60 days)
+    async with postgres_connect() as db:
+        await db.execute(
+            "DELETE FROM family_wallet_log WHERE chat_id=? AND created_at < NOW() - INTERVAL '60 days'",
+            (chat_id,),
+        )
+        await db.commit()
+
+    rows = await get_family_wallet_log(chat_id, limit)
+    log_entries = []
+    for r in rows:
+        log_entries.append({
+            "user_id": r.get("user_id"),
+            "user_name": r.get("full_name") or f"Игрок {r.get('user_id')}",
+            "action": r.get("action"),
+            "amount": r.get("amount"),
+            "description": r.get("description") or "",
+            "created_at": str(r.get("created_at") or ""),
+        })
+
+    return {"ok": True, "log": log_entries}

@@ -380,11 +380,13 @@ async def cmd_cleanup(message: Message, bot: Bot, cmd_args: str):
         await message.answer("ℹ️ Нет данных об активности за эту неделю.")
         return
 
-    def _short_dt(iso_str):
-        if not iso_str:
+    def _short_dt(val):
+        if not val:
             return "—"
         try:
-            return _dt.fromisoformat(iso_str).strftime("%d.%m")
+            if isinstance(val, _dt):
+                return val.strftime("%d.%m")
+            return _dt.fromisoformat(str(val)).strftime("%d.%m")
         except Exception:
             return "—"
 

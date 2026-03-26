@@ -360,20 +360,20 @@ MORA_LEVELUP_BONUS    = 10      # было 5
 # ═══════════════════════════════════════════════════════════════════════════════
 
 # Максимальная ставка для монетки
-COIN_MAX_BET = 5000
+COIN_MAX_BET = 100
 
 # Максимальная ставка для кубика-дуэли
 DICE_MAX_BET = 5000
 
 # Цена лотерейного билета
-LOTTERY_TICKET_PRICE = 10
+LOTTERY_TICKET_PRICE = 40
 
 # Шанс выигрыша в лотерее (0..1)
 LOTTERY_WIN_CHANCE = 0.05
 
 # Диапазон выигрыша в лотерее (Мора)
-LOTTERY_WIN_MIN = 20
-LOTTERY_WIN_MAX = 70
+LOTTERY_WIN_MIN = 60
+LOTTERY_WIN_MAX = 120
 
 # Размер батча при рассылке (по сколько упоминаний за сообщение)
 BROADCAST_BATCH = 200

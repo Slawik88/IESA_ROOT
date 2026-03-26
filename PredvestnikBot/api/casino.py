@@ -97,3 +97,72 @@ async def coin_flip(uid: int, chat_id: int, bet: int) -> dict:
         raise ValueError("Не удалось списать ставку")
 
     return await coin_flip_resolve(uid, chat_id, bet)
+
+
+# ─── Lottery ──────────────────────────────────────────────────────────────────
+
+def _week_key() -> str:
+    """ISO week key like '2026-W13'."""
+    from datetime import date
+    iso = date.today().isocalendar()
+    return f"{iso.year}-W{iso.week:02d}"
+
+
+async def get_lottery_status(uid: int, chat_id: int) -> dict:
+    """Return current lottery ticket count for this week.
+
+    Returns {ok, tickets, week, ticket_price}.
+    """
+    from database.db import get_lottery_tickets
+
+    try:
+        from config import LOTTERY_TICKET_PRICE
+    except Exception:
+        LOTTERY_TICKET_PRICE = 10
+
+    week = _week_key()
+    tickets = await get_lottery_tickets(chat_id, uid, week)
+
+    return {
+        "ok": True,
+        "tickets": tickets,
+        "week": week,
+        "ticket_price": LOTTERY_TICKET_PRICE,
+    }
+
+
+async def buy_lottery_ticket(uid: int, chat_id: int) -> dict:
+    """Buy one lottery ticket for the current week.
+
+    Raises ValueError on insufficient balance.
+    Returns {ok, tickets, ticket_price, new_balance}.
+    """
+    from database.db import deduct_mora, get_mora
+    from database.db import buy_lottery_ticket as _db_buy_ticket
+
+    try:
+        from config import LOTTERY_TICKET_PRICE
+    except Exception:
+        LOTTERY_TICKET_PRICE = 10
+
+    mora_row = await get_mora(uid, chat_id)
+    balance = mora_row["balance"] if mora_row else 0
+    if balance < LOTTERY_TICKET_PRICE:
+        raise ValueError(f"Нужно {LOTTERY_TICKET_PRICE} 🪙")
+
+    ok, _ = await deduct_mora(uid, chat_id, LOTTERY_TICKET_PRICE)
+    if not ok:
+        raise ValueError("Не удалось списать Мору")
+
+    week = _week_key()
+    tickets = await _db_buy_ticket(chat_id, uid, week)
+
+    new_mora = await get_mora(uid, chat_id)
+    new_balance = new_mora["balance"] if new_mora else 0
+
+    return {
+        "ok": True,
+        "tickets": tickets,
+        "ticket_price": LOTTERY_TICKET_PRICE,
+        "new_balance": new_balance,
+    }
