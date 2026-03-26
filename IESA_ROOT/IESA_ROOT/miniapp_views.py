@@ -1646,6 +1646,53 @@ def miniapp_dev_items(request):
     return JsonResponse(_get_items(), json_dumps_params={"ensure_ascii": False}, headers=headers)
 
 
+# ─── Treasury / Казна + НДС-лог ───────────────────────────────────────────────
+
+@csrf_exempt
+def miniapp_treasury(request):
+    """GET /api/treasury?chat_id=X — казна чата (только developer и owner)."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "GET":
+        return JsonResponse({"error": "GET required"}, status=405, headers=headers)
+
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+
+    chat_id_str = request.GET.get("chat_id", "0")
+    if not chat_id_str.lstrip("-").isdigit():
+        return JsonResponse({"error": "chat_id required"}, status=400, headers=headers)
+    chat_id = int(chat_id_str)
+
+    # Allow developer by Telegram ID, or owner rank in this chat
+    if uid != _DEVELOPER_ID:
+        try:
+            conn, db_type = _get_bot_db_connection()
+            cur = conn.cursor()
+            ph = "%s" if db_type == "pg" else "?"
+            cur.execute(
+                f"SELECT rank FROM user_stats WHERE user_id={ph} AND chat_id={ph}",
+                (uid, chat_id),
+            )
+            row = cur.fetchone()
+            conn.close()
+            rank = row[0] if row else "user"
+        except Exception:
+            rank = "user"
+        if rank not in ("owner", "developer"):
+            return JsonResponse({"error": "forbidden"}, status=403, headers=headers)
+
+    try:
+        from asgiref.sync import async_to_sync as _a2s
+        from api.admin import get_treasury as _get_treasury
+        result = _a2s(_get_treasury)(chat_id)
+        return JsonResponse(result, json_dumps_params={"ensure_ascii": False}, headers=headers)
+    except Exception as exc:
+        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+
+
 # ─── Family wallet: deposit / withdraw ────────────────────────────────────────
 
 @csrf_exempt
@@ -4690,6 +4737,7 @@ def miniapp_casino_coin(request):
             "win":         result["win"],
             "bet":         result["bet"],
             "prize":       result["prize"],
+            "win_tax":     result.get("win_tax", 0),
             "new_balance": result["new_balance"],
             "quest_done":  result["quest_done"],
         }, json_dumps_params={"ensure_ascii": False}, headers=headers)
