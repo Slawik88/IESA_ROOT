@@ -132,8 +132,16 @@ async def buy_item(
         current_vip = await get_vip(uid, chat_id)
         if current_vip:
             raise ValueError("У тебя уже есть VIP статус! 👑")
+    elif item_type == "potion":
+        from shared_prices import POTIONS_CATALOG
+        pot = POTIONS_CATALOG.get(item_key)
+        if not pot:
+            raise ValueError("Неизвестное зелье")
+        price = pot["price"]
+        if price == 0:
+            raise ValueError("Это зелье можно получить только из гачи")
     else:
-        raise ValueError("item_type должен быть frame/cosmetic/vip")
+        raise ValueError("item_type должен быть frame/cosmetic/vip/potion")
 
     # Check ownership (frame/cosmetic only) — equip if already owned
     if item_type in ("frame", "cosmetic"):
@@ -152,10 +160,18 @@ async def buy_item(
         marriage = await get_marriage(uid, chat_id)
         if not marriage:
             raise ValueError("Нет семейного кошелька")
-        fam_bal = await get_family_wallet(chat_id, uid)
-        if fam_bal < price:
-            raise ValueError(f"Недостаточно в семейном ({fam_bal}/{price})")
-        await add_to_family_wallet(chat_id, uid, -price)
+        partner_id = marriage["partner_id"]
+        my_fam     = await get_family_wallet(chat_id, uid)
+        partner_fam = await get_family_wallet(chat_id, partner_id)
+        total_fam  = my_fam + partner_fam
+        if total_fam < price:
+            raise ValueError(f"Недостаточно в семейном ({total_fam}/{price})")
+        # Deduct from user's slot first, then partner's if needed
+        deduct_me      = min(my_fam, price)
+        deduct_partner = price - deduct_me
+        await add_to_family_wallet(chat_id, uid, -deduct_me)
+        if deduct_partner > 0:
+            await add_to_family_wallet(chat_id, partner_id, -deduct_partner)
         mora = await get_mora(uid, chat_id)
         new_bal = mora["balance"] if mora else 0
     else:
@@ -174,6 +190,17 @@ async def buy_item(
             await set_top_frame(uid, chat_id, item_key)
     elif item_type == "vip":
         await set_vip(uid, chat_id, 1)
+    elif item_type == "potion":
+        from shared_prices import POTIONS_CATALOG, ITEM_METADATA
+        from database.db import add_gacha_item
+        pot_data = POTIONS_CATALOG.get(item_key, {})
+        meta = ITEM_METADATA.get(item_key, {})
+        await add_gacha_item(
+            uid, chat_id, item_key, pot_data.get("name", item_key), "common",
+            atk=meta.get("atk", 0), def_val=meta.get("def_val", 0),
+            hp=meta.get("hp", 0), crit_rate=meta.get("crit_rate", 0.0),
+            slot=meta.get("slot"),
+        )
 
     return {
         "ok":            True,

@@ -761,8 +761,11 @@ def _build_top_text(
         for i, u in enumerate(top):
             if "user_id" in u.keys() and u["user_id"] == caller_uid:
                 total = len(top)
-                pct   = round((i + 1) / total * 100) if total else 100
-                footer = f"\n\n👤 <i>Ты на {i + 1} месте из {total} (топ {100 - pct + 1}%)</i>"
+                if i == 0:
+                    footer = "\n\n🥇 <i>Ты на 1 месте — лучший в чате!</i>"
+                else:
+                    pct = round((i + 1) / total * 100) if total else 100
+                    footer = f"\n\n👤 <i>Ты на {i + 1} месте из {total} (топ {pct}%)</i>"
                 break
 
     return "\n".join(html_lines) + footer

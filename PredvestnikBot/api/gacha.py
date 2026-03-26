@@ -22,27 +22,35 @@ _JUNK_ITEMS = [
     ("junk_dust",     "💨 Пыль забвения",        "Пыль из неизвестного мира — никому не нужна"),
     ("junk_bone",     "🦴 Кость хиличурла",      "Древняя кость. Продай и забудь"),
     ("junk_mushroom", "🍄 Сомнительный гриб",    "Лучше не пробовать. Зато можно продать"),
+    ("junk_feather",  "🪶 Перо Штормпиха",       "Перо химеры-штормпиха. Продай за 4 🪙"),
+    ("junk_rope",     "🧵 Верёвка странника",    "Оборванная верёвка. Продай за 3 🪙"),
 ]
 
 _COMMON_ITEMS = [
-    ("cmn_sword",  "⚔️ Тупой клинок",        "Разовый бонус: +5 XP при получении"),
-    ("cmn_bow",    "🏹 Кривой лук",           "Разовый бонус: +3 Моры при получении"),
-    ("cmn_book",   "📕 Потрёпанный дневник",   "Разовый бонус: +8 XP при получении"),
-    ("cmn_ring",   "💍 Дешёвое кольцо",        "Разовый бонус: +4 Моры при получении"),
-    ("cmn_shield", "🛡 Ржавый щит",            "Разовый бонус: +6 XP при получении"),
-    ("str_potion", "⚔️ Зелье Силы",           "Расходник: +15 ATK на 1 час"),
-    ("def_potion", "🛡️ Зелье Защиты",         "Расходник: +20 DEF на 1 час"),
-    ("hp_potion",  "❤️ Зелье Здоровья",       "Расходник: +50 HP на 1.5 часа"),
-    ("cmn_xp_shard", "✨ Осколок Опыта",       "Сразу даёт +25 XP"),
+    ("cmn_sword",    "⚔️ Тупой клинок",        "Экипировка: +15 ATK"),
+    ("cmn_bow",      "🏹 Кривой лук",           "Экипировка: +12 ATK"),
+    ("cmn_book",     "📕 Потрёпанный дневник",  "Экипировка: +8 ATK, 3% крит"),
+    ("cmn_ring",     "💍 Дешёвое кольцо",       "Экипировка: +15 DEF, +30 HP"),
+    ("cmn_shield",   "🛡 Ржавый щит",           "Экипировка: +20 DEF"),
+    ("str_potion",   "⚔️ Зелье Силы",          "Расходник: +15 ATK на 1 час"),
+    ("def_potion",   "🛡️ Зелье Защиты",        "Расходник: +20 DEF на 1 час"),
+    ("hp_potion",    "❤️ Зелье Здоровья",      "Расходник: +50 HP на 1.5 часа"),
+    ("cmn_xp_shard", "✨ Осколок Опыта",        "Сразу даёт +25 XP"),
+    ("cmn_herb",     "🌿 Трава Сесилии",        "Сразу даёт +15 🪙"),
+    ("cmn_quill",    "✒️ Перо ученика",         "Экипировка: +8 ATK, +15 HP, 2% крит"),
+    ("cmn_talisman", "🔮 Амулет удачи",         "Экипировка: +5 DEF, 1.5% крит"),
 ]
 
 _RARE_ITEMS = [
-    ("rare_crown",    "👑 Серебряная корона",        "Косметика: элегантная корона для профиля"),
-    ("rare_catalyst", "🔮 Магический катализатор",   "Косметика: мистический атрибут мага"),
-    ("rare_cape",     "🧣 Алый плащ",                "Косметика: плащ героя ветров"),
-    ("rare_gem",      "💎 Сапфир полуночи",           "Косметика: сверкающий камень ночи"),
-    ("rare_xp_crystal", "💠 Кристалл Опыта XL",    "Сразу даёт +150 XP"),
-    ("rare_mora_bag",   "💰 Мешок Моры",             "Сразу даёт +120 🪙"),
+    ("rare_crown",      "👑 Серебряная корона",       "Экипировка: +25 ATK, +15 DEF, 4% крит"),
+    ("rare_catalyst",   "🔮 Магический катализатор",  "Экипировка: +30 ATK, 4% крит"),
+    ("rare_cape",       "🧣 Алый плащ",               "Экипировка: +25 DEF, +80 HP"),
+    ("rare_gem",        "💎 Сапфир полуночи",          "Экипировка: +20 DEF, 6% крит"),
+    ("rare_xp_crystal", "💠 Кристалл Опыта XL",       "Сразу даёт +150 XP"),
+    ("rare_mora_bag",   "💰 Мешок Моры",               "Сразу даёт +120 🪙"),
+    ("rare_amulet",     "📿 Кармин змеи",              "Экипировка: +20 DEF, 8% крит"),
+    ("rare_mora_chest", "🧧 Красный конверт",          "Сразу даёт +250 🪙"),
+    ("rare_lance",      "⚡ Лазурное копьё",           "Экипировка: +35 ATK, 5% крит"),
 ]
 
 _LEGENDARY_ITEMS = [
@@ -57,6 +65,8 @@ _LEGENDARY_ITEMS = [
     ("lego_flair_arch",  "🌸 Благодать Архонта",      "Косметика Mini App: нежный розовый ореол имени"),
     ("str_superior",   "⚔️✨ Зелье Силы Superior",    "Расходник: +30 ATK на 2 часа (редкое!)"),
     ("def_superior",   "🛡️✨ Зелье Защиты Superior",  "Расходник: +40 DEF на 2 часа (редкое!)"),
+    ("lego_raiden",    "⚡ Клинок Ей",                "Экипировка: лучший ATK (+80), 12% крит"),
+    ("lego_jade",      "🏯 Нефритовое зерцало",       "Экипировка: баланс ATK/DEF/CRIT (+20/+40/15%)"),
 ]
 
 
@@ -110,16 +120,22 @@ async def gacha_roll(uid: int, chat_id: int, count: int,
     if wallet_type == "family":
         if single:
             raise ValueError("Нет семейного кошелька")
-        fam_balance = await get_family_wallet(chat_id, uid)  # returns int
-        if fam_balance < price:
-            raise ValueError(f"Недостаточно в семейном ({fam_balance}/{price} 🪙)")
-        from database.postgres import connect as postgres_connect
-        async with postgres_connect() as db:
-            await db.execute(
-                "UPDATE family_wallet SET balance=balance-? WHERE chat_id=? AND user_id=? AND balance>=?",
-                (price, chat_id, uid, price),
-            )
-            await db.commit()
+        from database.db import get_marriage as _get_marriage
+        marriage = await _get_marriage(uid, chat_id)
+        if not marriage:
+            raise ValueError("Нет семейного кошелька")
+        partner_id  = marriage["partner_id"]
+        my_fam      = await get_family_wallet(chat_id, uid)
+        partner_fam = await get_family_wallet(chat_id, partner_id)
+        total_fam   = my_fam + partner_fam
+        if total_fam < price:
+            raise ValueError(f"Недостаточно в семейном ({total_fam}/{price} 🪙)")
+        from database.db import add_to_family_wallet as _add_fam
+        deduct_me      = min(my_fam, price)
+        deduct_partner = price - deduct_me
+        await _add_fam(chat_id, uid, -deduct_me)
+        if deduct_partner > 0:
+            await _add_fam(chat_id, partner_id, -deduct_partner)
         mora_row = await get_mora(uid, chat_id)
         new_bal  = mora_row["balance"] if mora_row else 0
     else:
@@ -146,10 +162,14 @@ async def gacha_roll(uid: int, chat_id: int, count: int,
         # Instant-grant items — apply effect immediately
         if key == "cmn_xp_shard":
             await add_xp_in_chat(uid, chat_id, 25)
+        elif key == "cmn_herb":
+            await add_mora(uid, chat_id, 15)
         elif key == "rare_xp_crystal":
             await add_xp_in_chat(uid, chat_id, 150)
         elif key == "rare_mora_bag":
             await add_mora(uid, chat_id, 120)
+        elif key == "rare_mora_chest":
+            await add_mora(uid, chat_id, 250)
         pity = 0 if rarity == "legendary" else pity + 1
         results.append({"key": key, "name": name, "rarity": rarity, "desc": desc})
 
