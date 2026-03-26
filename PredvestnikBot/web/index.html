@@ -3377,12 +3377,20 @@ function renderExpeditionTab(){
 
     // Walk button — shown when pet is not on expedition
     if(!expedition) {
-      html += `<div class="card">
-        <div class="card-title">🦮 Прогулка</div>
-        <div style="font-size:12px;color:var(--text2);margin-bottom:8px">Снижает усталость питомца. Кулдаун 3 часа.</div>
-        <button class="btn btn-green" onclick="petWalkFromExped()">🦮 Отправить на прогулку</button>
-        <div id="petWalkExpedResult" style="margin-top:8px;font-weight:700;text-align:center"></div>
-      </div>`;
+      if(pet.walking) {
+        html += `<div class="card">
+          <div class="card-title">🦮 Питомец на прогулке</div>
+          <div style="font-size:13px;color:var(--text2);margin-bottom:6px">Вернётся через <b style="color:var(--green)">${pet.walk_mins_left} мин.</b></div>
+          <div style="font-size:12px;color:var(--text2)">⛔ Нельзя отправить в экспедицию пока питомец гуляет.</div>
+        </div>`;
+      } else {
+        html += `<div class="card">
+          <div class="card-title">🦮 Прогулка</div>
+          <div style="font-size:12px;color:var(--text2);margin-bottom:8px">Снижает усталость питомца. Кулдаун 3 часа.</div>
+          <button class="btn btn-green" onclick="petWalkFromExped()">🦮 Отправить на прогулку</button>
+          <div id="petWalkExpedResult" style="margin-top:8px;font-weight:700;text-align:center"></div>
+        </div>`;
+      }
     }
 
     if(expedition){
@@ -3401,6 +3409,11 @@ function renderExpeditionTab(){
           <div class="stat-row"><span class="stat-label">🎁 Награда</span><span class="stat-value">${expedition.reward_min}–${expedition.reward_max} 🪙</span></div>
         </div>`;
       }
+    } else if(pet.walking) {
+      html += `<div class="card"><div style="text-align:center;padding:12px">
+        🦮 Питомец на прогулке — вернётся через <b>${pet.walk_mins_left} мин.</b><br>
+        <span style="font-size:12px;color:var(--text2)">После прогулки можно отправить в экспедицию.</span>
+      </div></div>`;
     } else if(pet.fatigue < 100){
       html += `<div class="card"><div class="card-title">🗺 Выбери экспедицию</div>`;
       Object.entries(options||{}).forEach(([key, opt]) => {
