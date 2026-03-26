@@ -3711,6 +3711,37 @@ async def get_voluntary_leaves(chat_id: int, limit: int = 20) -> list[dict]:
             return [dict(r) for r in await c.fetchall()]
 
 
+async def cleanup_left_inactive_users(cutoff_days: int = 7) -> int:
+    """Delete per-chat data for users who left > cutoff_days ago.
+
+    Only removes user_stats and user_mora rows for the specific chat the
+    user left. The global users record and leave_log entry are kept.
+    Returns the number of (user_id, chat_id) pairs cleaned up.
+    """
+    from datetime import datetime, timedelta, timezone
+    cutoff = datetime.now(timezone.utc) - timedelta(days=cutoff_days)
+    cleaned = 0
+    async with postgres_connect() as db:
+        async with db.execute(
+            "SELECT DISTINCT user_id, chat_id FROM leave_log WHERE left_at < ?",
+            (cutoff,),
+        ) as c:
+            rows = await c.fetchall()
+        for row in rows:
+            uid, cid = row["user_id"], row["chat_id"]
+            # Remove per-chat economy and stats rows only
+            await db.execute(
+                "DELETE FROM user_stats WHERE user_id = ? AND chat_id = ?", (uid, cid)
+            )
+            await db.execute(
+                "DELETE FROM user_mora WHERE user_id = ? AND chat_id = ?", (uid, cid)
+            )
+            cleaned += 1
+        if cleaned:
+            await db.commit()
+    return cleaned
+
+
 # ─── User Banlist (ID-based, per-chat) ────────────────────────────────────────
 
 async def add_user_to_banlist(

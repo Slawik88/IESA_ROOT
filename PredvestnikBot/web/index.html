@@ -755,7 +755,7 @@ select{background:var(--bg3);border:1px solid var(--border);border-radius:8px;pa
 <div class="tab-content" id="tab-glory">
   <div style="display:flex;gap:8px;margin-bottom:12px">
     <button class="btn btn-primary btn-sm" onclick="loadLB('xp')" id="lbXpBtn">🏅 XP</button>
-    <button class="btn btn-sm" style="background:var(--bg3);color:var(--text2)" onclick="loadLB('mora')" id="lbMoraBtn">🪙 Мора</button>
+    <button class="btn btn-sm" style="background:var(--bg3);color:var(--text2)" onclick="loadLB('messages')" id="lbMsgBtn">💬 Сообщения</button>
   </div>
   <div class="loading" id="lbLoading">⏳ Загрузка…</div>
   <div id="lbList"></div>
@@ -1260,8 +1260,8 @@ async function checkCoupleBossAvailability() {
 }
 
 // ── Calendar ──────────────────────────────────────────────────────────────────
-const CAL_REWARDS = {1:30,2:30,3:35,4:35,5:60,6:40,7:40,8:45,9:45,10:80,
-  11:50,12:50,13:55,14:55,15:100,16:60,17:60,18:70,19:70,20:150};
+const CAL_REWARDS = {1:100,2:110,3:120,4:130,5:300,6:140,7:150,8:160,9:170,10:500,
+  11:180,12:190,13:200,14:210,15:700,16:220,17:250,18:280,19:320,20:1000};
 const CAL_CHECKPOINTS = new Set([5,10,15,20]);
 
 function _buildCalGrid(streak, todayDone){
@@ -2160,9 +2160,9 @@ function initBondChart(b){
 async function loadLB(type){
   currentLbType=type;
   document.getElementById('lbXpBtn').className='btn btn-sm'+(type==='xp'?' btn-primary':' ')+' ';
-  document.getElementById('lbMoraBtn').className='btn btn-sm'+(type==='mora'?' btn-primary':' ')+' ';
+  document.getElementById('lbMsgBtn').className='btn btn-sm'+(type==='messages'?' btn-primary':' ')+' ';
   document.getElementById('lbXpBtn').style.cssText=type==='xp'?'':'background:var(--bg3);color:var(--text2)';
-  document.getElementById('lbMoraBtn').style.cssText=type==='mora'?'':'background:var(--bg3);color:var(--text2)';
+  document.getElementById('lbMsgBtn').style.cssText=type==='messages'?'':'background:var(--bg3);color:var(--text2)';
   document.getElementById('lbLoading').style.display='block';
   document.getElementById('lbList').innerHTML='';
   document.getElementById('lbUserRankCard').style.display='none';
@@ -2544,16 +2544,6 @@ async function _devApiDelete(url, body){
   return data;
 }
 
-// Patch devUnbanUser to use DELETE (need overriding generic api call)
-// Reassign after initial def:
-async function devUnbanUser(uid_b){
-  try{
-    await _devApiDelete('/api/dev/banlist',{user_id:uid_b});
-    toast('✅ Разбанен #'+uid_b,'success');
-    loadDevBanlist();
-  } catch(e){toast('❌ '+e.message,'error')}
-}
-
 // Deprecated stubs kept for any residual references
 async function loadDevUsers(){}
 async function devGiveItem_legacy(){}
@@ -2562,13 +2552,35 @@ async function devGiveItem_legacy(){}
 loadProfile();
 
 // ── Dynamic background refresh ────────────────────────────────────────────────
-// Silently refresh balance every 30 seconds
+// Silently refresh balance, XP, level, streak, rank every 30 seconds
 setInterval(async () => {
   if (!chatId) return;
   try {
     const r = await api('/api/user_data?chat_id=' + chatId);
     if (r.balance !== undefined) syncBalance(r.balance);
     if (profileData) { profileData.balance = r.balance; }
+    if (r.xp !== undefined) {
+      const xp = r.xp, xpMax = r.xp_max || 100;
+      const xpEl = document.getElementById('pXp');
+      const xpMaxEl = document.getElementById('pXpMax');
+      const xpBar = document.getElementById('pXpBar');
+      if (xpEl) xpEl.textContent = xp;
+      if (xpMaxEl) xpMaxEl.textContent = xpMax;
+      if (xpBar) xpBar.style.width = Math.min(100, Math.round(xp / xpMax * 100)) + '%';
+    }
+    if (r.level !== undefined) {
+      const lvlEl = document.getElementById('pLevel');
+      if (lvlEl) lvlEl.textContent = r.level;
+    }
+    if (r.streak !== undefined) {
+      const streakEl = document.getElementById('pStreak');
+      if (streakEl) streakEl.textContent = (r.streak || 0) + ' дн.';
+    }
+    if (r.rank !== undefined) {
+      const RANK_LABELS = {developer:'💻 Разработчик', owner:'👑 Владелец', co_owner:'⭐ Со-владелец', moderator:'🛡 Модератор', user:'👤 Участник'};
+      const rankEl = document.getElementById('pRank');
+      if (rankEl) rankEl.textContent = RANK_LABELS[r.rank] || r.rank || '—';
+    }
   } catch(e) {}
 }, 30000);
 
@@ -2580,6 +2592,17 @@ setInterval(() => {
     loadExpeditionTab();
   }
 }, 60000);
+
+// Auto-refresh couple boss tab every 15 seconds when it's visible and there's an active session
+setInterval(async () => {
+  const el = document.getElementById('tab-couple_boss');
+  if (!el || !el.classList.contains('active')) return;
+  if (!window.currentBossSession) return;
+  try {
+    const r = await api('/api/couple_boss/status?chat_id=' + chatId);
+    if (r && r.has_active_session) renderActiveBossSession(r);
+  } catch(e) {}
+}, 15000);
 
 // ▓▓ Enhanced Inventory Functions ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
 
@@ -3318,7 +3341,7 @@ function renderCasinoTab(){
     </div>
     <div class="card">
       <div class="card-title">🪙 Монетка</div>
-      <div style="font-size:12px;color:var(--text2);margin-bottom:10px">Ставишь Мору — <b>30%</b> шанс выиграть ×2, <b>70%</b> проигрыш.</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:10px">Ставишь Мору — <b>50%</b> шанс выиграть ×2, <b>50%</b> шанс проигрыша.</div>
       <div style="display:flex;gap:8px;margin-bottom:8px">
         ${[50,100,200,500,1000].map(a=>`<button class='btn btn-sm' style='background:var(--bg3);color:var(--text2)' onclick='selectCoinBet(${a})'>${a}</button>`).join('')}
       </div>
