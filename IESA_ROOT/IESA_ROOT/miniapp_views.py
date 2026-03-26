@@ -3193,73 +3193,15 @@ def miniapp_bonds_buy(request):
     if wallet not in ("personal", "family"):
         wallet = "personal"
 
+    from api.bonds import buy_bond as _api_buy
+    from asgiref.sync import async_to_sync as _a2s
     try:
-        conn, db_type = _get_bot_db_connection()
+        result = _a2s(_api_buy)(uid, chat_id, bond_key, amount, wallet)
+    except ValueError as e:
+        return JsonResponse({"error": str(e)}, status=400, headers=headers)
     except Exception as exc:
-        return JsonResponse({"error": f"DB: {exc}"}, status=503, headers=headers)
-
-    try:
-        cur = conn.cursor()
-        ph = "%s" if db_type == "pg" else "?"
-
-        cur.execute(f"SELECT price FROM bond_prices WHERE chat_id={ph} AND bond_key={ph}", (chat_id, bond_key))
-        row = cur.fetchone()
-        price_per = row[0] if row else _BOND_DEFAULTS_SYNC[bond_key]["base_price"]
-        total_cost = price_per * amount
-
-        if wallet == "family":
-            cur.execute(f"SELECT partner_id FROM marriages WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
-            if not cur.fetchone():
-                conn.close()
-                return JsonResponse({"error": "Нет семейного кошелька"}, status=400, headers=headers)
-            cur.execute(f"SELECT balance FROM family_wallet WHERE chat_id={ph} AND user_id={ph}", (chat_id, uid))
-            fam_bal = (cur.fetchone() or [0])[0]
-            if fam_bal < total_cost:
-                conn.close()
-                return JsonResponse({"error": f"Недостаточно в семейном ({fam_bal}/{total_cost})"}, status=400, headers=headers)
-            cur.execute(f"UPDATE family_wallet SET balance=balance-{ph} WHERE chat_id={ph} AND user_id={ph}", (total_cost, chat_id, uid))
-        else:
-            cur.execute(f"SELECT balance FROM user_mora WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
-            pers_bal = (cur.fetchone() or [0])[0]
-            if pers_bal < total_cost:
-                conn.close()
-                return JsonResponse({"error": f"Недостаточно Моры ({pers_bal}/{total_cost})"}, status=400, headers=headers)
-            cur.execute(f"UPDATE user_mora SET balance=balance-{ph} WHERE user_id={ph} AND chat_id={ph}", (total_cost, uid, chat_id))
-
-        if db_type == "pg":
-            cur.execute(
-                "INSERT INTO user_bonds (user_id, chat_id, bond_key, amount, invested) VALUES (%s,%s,%s,%s,%s) "
-                "ON CONFLICT(user_id, chat_id, bond_key) DO UPDATE SET amount=user_bonds.amount+EXCLUDED.amount, invested=user_bonds.invested+EXCLUDED.invested",
-                (uid, chat_id, bond_key, amount, total_cost),
-            )
-        else:
-            cur.execute(
-                "INSERT INTO user_bonds (user_id, chat_id, bond_key, amount, invested) VALUES (?,?,?,?,?) "
-                "ON CONFLICT(user_id, chat_id, bond_key) DO UPDATE SET amount=user_bonds.amount+excluded.amount, invested=user_bonds.invested+excluded.invested",
-                (uid, chat_id, bond_key, amount, total_cost),
-            )
-
-        conn.commit()
-        cur.execute(f"SELECT balance FROM user_mora WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
-        new_personal = (cur.fetchone() or [0])[0]
-        cur.execute(f"SELECT balance FROM family_wallet WHERE chat_id={ph} AND user_id={ph}", (chat_id, uid))
-        new_family = (cur.fetchone() or [0])[0]
-        cur.execute(f"SELECT amount, invested FROM user_bonds WHERE user_id={ph} AND chat_id={ph} AND bond_key={ph}", (uid, chat_id, bond_key))
-        bond_row = cur.fetchone()
-        conn.close()
-
-        return JsonResponse({
-            "ok": True, "bond_key": bond_key, "price_per": price_per, "total_cost": total_cost,
-            "holdings": bond_row[0] if bond_row else amount,
-            "invested": bond_row[1] if bond_row else total_cost,
-            "personal": new_personal, "family": new_family,
-        }, json_dumps_params={"ensure_ascii": False}, headers=headers)
-    except Exception as exc:
-        try:
-            conn.close()
-        except Exception:
-            pass
         return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+    return JsonResponse(result, json_dumps_params={"ensure_ascii": False}, headers=headers)
 
 
 @csrf_exempt
@@ -3288,83 +3230,15 @@ def miniapp_bonds_sell(request):
     if amount <= 0:
         return JsonResponse({"error": "amount must be positive"}, status=400, headers=headers)
 
+    from api.bonds import sell_bond as _api_sell
+    from asgiref.sync import async_to_sync as _a2s
     try:
-        conn, db_type = _get_bot_db_connection()
+        result = _a2s(_api_sell)(uid, chat_id, bond_key, amount)
+    except ValueError as e:
+        return JsonResponse({"error": str(e)}, status=400, headers=headers)
     except Exception as exc:
-        return JsonResponse({"error": f"DB: {exc}"}, status=503, headers=headers)
-
-    try:
-        cur = conn.cursor()
-        ph = "%s" if db_type == "pg" else "?"
-
-        cur.execute(f"SELECT amount, invested FROM user_bonds WHERE user_id={ph} AND chat_id={ph} AND bond_key={ph}", (uid, chat_id, bond_key))
-        bond_row = cur.fetchone()
-        if not bond_row or bond_row[0] < amount:
-            conn.close()
-            have = bond_row[0] if bond_row else 0
-            return JsonResponse({"error": f"У тебя только {have} облигаций"}, status=400, headers=headers)
-
-        cur.execute(f"SELECT price FROM bond_prices WHERE chat_id={ph} AND bond_key={ph}", (chat_id, bond_key))
-        price_row = cur.fetchone()
-        price_per = price_row[0] if price_row else _BOND_DEFAULTS_SYNC[bond_key]["base_price"]
-        revenue = price_per * amount
-
-        # НДС с чистой прибыли (прогрессивный): учитываем среднюю цену покупки
-        avg_buy_price = (bond_row[1] / bond_row[0]) if bond_row[0] > 0 else price_per
-        profit = max(0, int((price_per - avg_buy_price) * amount))
-        if profit <= 50:
-            bond_tax = max(0, int(profit * 0.10))
-        elif profit <= 100:
-            bond_tax = int(profit * 0.20)
-        elif profit <= 1800:
-            bond_tax = int(profit * 0.30)
-        else:
-            bond_tax = int(profit * 0.40)
-        net_revenue = revenue - bond_tax
-
-        new_amount = bond_row[0] - amount
-        new_invested = max(0, int(bond_row[1] * new_amount / bond_row[0])) if bond_row[0] > 0 else 0
-        if new_amount <= 0:
-            cur.execute(f"DELETE FROM user_bonds WHERE user_id={ph} AND chat_id={ph} AND bond_key={ph}", (uid, chat_id, bond_key))
-        else:
-            cur.execute(f"UPDATE user_bonds SET amount={ph}, invested={ph} WHERE user_id={ph} AND chat_id={ph} AND bond_key={ph}", (new_amount, new_invested, uid, chat_id, bond_key))
-
-        if db_type == "pg":
-            cur.execute(
-                f"INSERT INTO user_mora (user_id, chat_id, balance) VALUES ({ph},{ph},{ph}) "
-                f"ON CONFLICT(user_id, chat_id) DO UPDATE SET balance=user_mora.balance+EXCLUDED.balance",
-                (uid, chat_id, net_revenue),
-            )
-        else:
-            cur.execute(
-                "INSERT INTO user_mora (user_id, chat_id, balance) VALUES (?,?,?) "
-                "ON CONFLICT(user_id, chat_id) DO UPDATE SET balance=user_mora.balance+excluded.balance",
-                (uid, chat_id, net_revenue),
-            )
-
-        # НДС в казну
-        if bond_tax > 0:
-            cur.execute(
-                f"INSERT INTO chat_treasury (chat_id, balance) VALUES ({ph},{ph}) "
-                f"ON CONFLICT(chat_id) DO UPDATE SET balance=balance+excluded.balance",
-                (chat_id, bond_tax),
-            )
-
-        conn.commit()
-        cur.execute(f"SELECT balance FROM user_mora WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
-        new_bal = (cur.fetchone() or [0])[0]
-        conn.close()
-
-        return JsonResponse({
-            "ok": True, "bond_key": bond_key, "sold": amount, "price_per": price_per,
-            "revenue": net_revenue, "profit": profit, "tax": bond_tax, "remaining": new_amount, "balance": new_bal,
-        }, json_dumps_params={"ensure_ascii": False}, headers=headers)
-    except Exception as exc:
-        try:
-            conn.close()
-        except Exception:
-            pass
         return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+    return JsonResponse(result, json_dumps_params={"ensure_ascii": False}, headers=headers)
 
 
 # ─── 🏦 Bank (deposits) ───────────────────────────────────────────────────────
@@ -3387,106 +3261,13 @@ def miniapp_bank(request):
         return JsonResponse({"error": "chat_id required"}, status=400, headers=headers)
     chat_id = int(chat_id_str)
 
+    from api.bank import get_bank_info as _api_bank_info
+    from asgiref.sync import async_to_sync as _a2s
     try:
-        conn, db_type = _get_bot_db_connection()
+        result = _a2s(_api_bank_info)(uid, chat_id)
     except Exception as exc:
-        return JsonResponse({"error": f"DB: {exc}"}, status=503, headers=headers)
-
-    try:
-        cur = conn.cursor()
-        ph = "%s" if db_type == "pg" else "?"
-
-        cur.execute(
-            f"SELECT balance FROM user_mora WHERE user_id={ph} AND chat_id={ph}",
-            (uid, chat_id),
-        )
-        balance_row = cur.fetchone()
-        balance = balance_row[0] if balance_row else 0
-
-        cur.execute(
-            f"SELECT id, amount, rate, created_at, matures_at "
-            f"FROM bank_deposits WHERE user_id={ph} AND chat_id={ph} AND withdrawn=0 ORDER BY id",
-            (uid, chat_id),
-        )
-        rows = cur.fetchall()
-
-        # Fetch family balance for display reference (sum both partners)
-        family_balance = 0
-        try:
-            cur.execute(f"SELECT COALESCE(SUM(balance),0) FROM family_wallet WHERE chat_id={ph}", (chat_id,))
-            frow = cur.fetchone()
-            family_balance = frow[0] if frow else 0
-        except Exception:
-            family_balance = 0
-
-        conn.close()
-
-        now = datetime.now(timezone.utc)
-        deposits = []
-        for row in rows:
-            dep_id, amount, rate, created_at, matures_at = row
-            # Normalize str -> datetime
-            if isinstance(matures_at, str):
-                from datetime import datetime as _dt
-                matures_at = _dt.fromisoformat(matures_at.replace("Z", "+00:00"))
-            if isinstance(created_at, str):
-                from datetime import datetime as _dt
-                created_at = _dt.fromisoformat(created_at.replace("Z", "+00:00"))
-            # Fix offset-naive vs offset-aware error: assume UTC for naive datetimes
-            if matures_at is not None and getattr(matures_at, 'tzinfo', None) is None:
-                matures_at = matures_at.replace(tzinfo=timezone.utc)
-            if created_at is not None and getattr(created_at, 'tzinfo', None) is None:
-                created_at = created_at.replace(tzinfo=timezone.utc)
-            mature = now >= matures_at
-            reward = int(amount * rate)
-            time_left_secs = max(0, (matures_at - now).total_seconds()) if not mature else 0
-            time_left_h = int(time_left_secs // 3600)
-            time_left_m = int((time_left_secs % 3600) // 60)
-            total_secs = max(1, (matures_at - created_at).total_seconds())
-            elapsed_secs = (now - created_at).total_seconds()
-            progress_pct = min(100, max(0, int(elapsed_secs / total_secs * 100)))
-            plan_days = max(1, round(total_secs / 86400))
-            deposits.append({
-                "id": dep_id,
-                "amount": amount,
-                "rate": rate,
-                "rate_pct": round(rate * 100, 1),
-                "reward": reward,
-                "mature": mature,
-                "time_left_h": time_left_h,
-                "time_left_m": time_left_m,
-                "progress_pct": progress_pct,
-                "plan_days": plan_days,
-                "matures_at_iso": matures_at.strftime("%d.%m %H:%M"),
-            })
-
-        plans_out = []
-        for key, p in _BANK_PLANS_SYNC.items():
-            plans_out.append({
-                "key": key,
-                "days": p["days"],
-                "rate_pct": round(p["rate"] * 100, 1),
-                "label": p["label"],
-                "amounts": [a for a in (100, 250, 500, 1_000, 2_500, 5_000, 10_000)
-                            if _BANK_MIN_DEPOSIT <= a <= _BANK_MAX_DEPOSIT],
-            })
-
-        return JsonResponse({
-            "balance": balance,
-            "family_balance": family_balance,
-            "deposits": deposits,
-            "plans": plans_out,
-            "min_deposit": _BANK_MIN_DEPOSIT,
-            "max_deposit": _BANK_MAX_DEPOSIT,
-            "early_penalty_pct": round(_BANK_EARLY_PENALTY_PCT * 100, 1),
-        }, json_dumps_params={"ensure_ascii": False}, headers=headers)
-
-    except Exception as exc:
-        try:
-            conn.close()
-        except Exception:
-            pass
         return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+    return JsonResponse(result, json_dumps_params={"ensure_ascii": False}, headers=headers)
 
 
 @csrf_exempt
@@ -3521,92 +3302,15 @@ def miniapp_bank_deposit(request):
     if wallet not in ("personal", "family"):
         wallet = "personal"
 
-    plan = _BANK_PLANS_SYNC[plan_key]
-
+    from api.bank import deposit as _api_deposit
+    from asgiref.sync import async_to_sync as _a2s
     try:
-        conn, db_type = _get_bot_db_connection()
+        result = _a2s(_api_deposit)(uid, chat_id, plan_key, amount, wallet)
+    except ValueError as e:
+        return JsonResponse({"error": str(e)}, status=400, headers=headers)
     except Exception as exc:
-        return JsonResponse({"error": f"DB: {exc}"}, status=503, headers=headers)
-
-    try:
-        cur = conn.cursor()
-        ph = "%s" if db_type == "pg" else "?"
-
-        if wallet == "family":
-            cur.execute(
-                f"SELECT balance FROM family_wallet WHERE chat_id={ph}",
-                (chat_id,),
-            )
-            frow = cur.fetchone()
-            fbal = frow[0] if frow else 0
-            if fbal < amount:
-                conn.close()
-                return JsonResponse({"error": f"Недостаточно семейных средств ({fbal}/{amount} 🪙)"}, status=400, headers=headers)
-            cur.execute(
-                f"UPDATE family_wallet SET balance=balance-{ph} WHERE chat_id={ph}",
-                (amount, chat_id),
-            )
-        else:
-            cur.execute(
-                f"SELECT balance FROM user_mora WHERE user_id={ph} AND chat_id={ph}",
-                (uid, chat_id),
-            )
-            brow = cur.fetchone()
-            bal = brow[0] if brow else 0
-            if bal < amount:
-                conn.close()
-                return JsonResponse({"error": f"Недостаточно Моры ({bal}/{amount} 🪙)"}, status=400, headers=headers)
-            cur.execute(
-                f"UPDATE user_mora SET balance=balance-{ph} WHERE user_id={ph} AND chat_id={ph}",
-                (amount, uid, chat_id),
-            )
-
-        now = datetime.now(timezone.utc)
-        matures = now + __import__("datetime").timedelta(days=plan["days"])
-
-        if db_type == "pg":
-            cur.execute(
-                "INSERT INTO bank_deposits (user_id, chat_id, amount, rate, created_at, matures_at) "
-                "VALUES (%s,%s,%s,%s,%s,%s) RETURNING id",
-                (uid, chat_id, amount, plan["rate"], now, matures),
-            )
-            dep_id = (cur.fetchone() or [None])[0]
-        else:
-            cur.execute(
-                "INSERT INTO bank_deposits (user_id, chat_id, amount, rate, created_at, matures_at) "
-                "VALUES (?,?,?,?,?,?)",
-                (uid, chat_id, amount, plan["rate"], now, matures),
-            )
-            dep_id = cur.lastrowid
-
-        conn.commit()
-
-        # Fetch new balance
-        if wallet == "family":
-            cur.execute(f"SELECT balance FROM family_wallet WHERE chat_id={ph}", (chat_id,))
-        else:
-            cur.execute(f"SELECT balance FROM user_mora WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
-        brow2 = cur.fetchone()
-        new_balance = brow2[0] if brow2 else 0
-        conn.close()
-
-        return JsonResponse({
-            "ok": True,
-            "deposit_id": dep_id,
-            "amount": amount,
-            "rate_pct": round(plan["rate"] * 100, 1),
-            "reward": int(amount * plan["rate"]),
-            "days": plan["days"],
-            "new_balance": new_balance,
-            "wallet": wallet,
-        }, json_dumps_params={"ensure_ascii": False}, headers=headers)
-
-    except Exception as exc:
-        try:
-            conn.close()
-        except Exception:
-            pass
         return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+    return JsonResponse(result, json_dumps_params={"ensure_ascii": False}, headers=headers)
 
 
 @csrf_exempt
@@ -3630,83 +3334,16 @@ def miniapp_bank_withdraw(request):
     chat_id = int(data.get("chat_id", 0))
     deposit_id = int(data.get("deposit_id", 0))
 
+    from api.bank import withdraw as _api_withdraw
+    from asgiref.sync import async_to_sync as _a2s
     try:
-        conn, db_type = _get_bot_db_connection()
+        result = _a2s(_api_withdraw)(uid, chat_id, deposit_id)
+    except ValueError as e:
+        status_code = 404 if "не найден" in str(e).lower() else 400
+        return JsonResponse({"error": str(e)}, status=status_code, headers=headers)
     except Exception as exc:
-        return JsonResponse({"error": f"DB: {exc}"}, status=503, headers=headers)
-
-    try:
-        cur = conn.cursor()
-        ph = "%s" if db_type == "pg" else "?"
-
-        cur.execute(
-            f"SELECT id, user_id, amount, rate, matures_at FROM bank_deposits "
-            f"WHERE id={ph} AND chat_id={ph} AND withdrawn=0",
-            (deposit_id, chat_id),
-        )
-        dep = cur.fetchone()
-        if not dep:
-            conn.close()
-            return JsonResponse({"error": "Вклад не найден или уже снят"}, status=404, headers=headers)
-
-        dep_id, owner_id, amount, rate, matures_at = dep
-        if owner_id != uid:
-            conn.close()
-            return JsonResponse({"error": "Это не твой вклад"}, status=403, headers=headers)
-
-        if isinstance(matures_at, str):
-            from datetime import datetime as _dt
-            matures_at = _dt.fromisoformat(matures_at.replace("Z", "+00:00"))
-        # Fix offset-naive vs offset-aware error
-        if matures_at is not None and getattr(matures_at, 'tzinfo', None) is None:
-            matures_at = matures_at.replace(tzinfo=timezone.utc)
-
-        now = datetime.now(timezone.utc)
-        mature = now >= matures_at
-        if mature:
-            interest = int(amount * rate)
-            interest_tax = max(0, int(interest * 0.10))
-            payout = amount + interest - interest_tax
-            early = False
-        else:
-            penalty = int(amount * _BANK_EARLY_PENALTY_PCT)
-            payout = max(0, amount - penalty)
-            interest_tax = 0
-            early = True
-
-        cur.execute(f"UPDATE bank_deposits SET withdrawn=1 WHERE id={ph}", (deposit_id,))
-
-        cur.execute(
-            f"INSERT INTO user_mora (user_id, chat_id, balance) VALUES ({ph},{ph},{ph}) "
-            f"ON CONFLICT(user_id, chat_id) DO UPDATE SET balance=user_mora.balance+excluded.balance",
-            (uid, chat_id, payout),
-        )
-        if interest_tax > 0:
-            cur.execute(
-                f"INSERT INTO chat_treasury (chat_id, balance) VALUES ({ph},{ph}) "
-                f"ON CONFLICT(chat_id) DO UPDATE SET balance=balance+excluded.balance",
-                (chat_id, interest_tax),
-            )
-        conn.commit()
-
-        cur.execute(f"SELECT balance FROM user_mora WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
-        new_balance = (cur.fetchone() or [0])[0]
-        conn.close()
-
-        return JsonResponse({
-            "ok": True,
-            "deposit_id": deposit_id,
-            "payout": payout,
-            "early": early,
-            "new_balance": new_balance,
-        }, json_dumps_params={"ensure_ascii": False}, headers=headers)
-
-    except Exception as exc:
-        try:
-            conn.close()
-        except Exception:
-            pass
         return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+    return JsonResponse(result, json_dumps_params={"ensure_ascii": False}, headers=headers)
 
 
 # ─── Pet Walk & Feed ──────────────────────────────────────────────────────────
@@ -5645,71 +5282,15 @@ def miniapp_transfer(request):
     if amount > MORA_TRANSFER_MAX:
         return JsonResponse({"error": f"Максимальная сумма: {MORA_TRANSFER_MAX} 🪙"}, status=400, headers=headers)
 
+    from api.economy import transfer_mora as _api_tr
+    from asgiref.sync import async_to_sync as _a2s
     try:
-        conn, db_type = _get_bot_db_connection()
+        result = _a2s(_api_tr)(uid, target_id, chat_id, amount)
+    except ValueError as e:
+        return JsonResponse({"error": str(e)}, status=400, headers=headers)
     except Exception as exc:
-        return JsonResponse({"error": f"DB: {exc}"}, status=503, headers=headers)
-
-    try:
-        cur = conn.cursor()
-        ph = "%s" if db_type == "pg" else "?"
-
-        # Check sender balance
-        cur.execute(f"SELECT balance FROM user_mora WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
-        bal_row = cur.fetchone()
-        balance = bal_row[0] if bal_row else 0
-        # Прогрессивный НДС с переводов
-        if amount <= 500:
-            _tax_rate = 0.03
-        elif amount <= 2000:
-            _tax_rate = 0.07
-        else:
-            _tax_rate = 0.08
-        tax = max(1, int(amount * _tax_rate))
-        total_needed = amount + tax
-        if balance < total_needed:
-            conn.close()
-            return JsonResponse({"error": f"Недостаточно Моры. Нужно {total_needed} 🪙 (сумма + налог {tax})"}, status=400, headers=headers)
-
-        # Deduct from sender (amount + tax)
-        cur.execute(
-            f"UPDATE user_mora SET balance=balance-{ph} WHERE user_id={ph} AND chat_id={ph} AND balance>={ph}",
-            (total_needed, uid, chat_id, total_needed),
-        )
-        if cur.rowcount == 0:
-            conn.close()
-            return JsonResponse({"error": "Не удалось списать Мору"}, status=400, headers=headers)
-
-        # Add to receiver
-        cur.execute(
-            f"INSERT INTO user_mora (user_id, chat_id, balance) VALUES ({ph},{ph},{ph}) "
-            f"ON CONFLICT(user_id, chat_id) DO UPDATE SET balance=user_mora.balance+excluded.balance",
-            (target_id, chat_id, amount),
-        )
-        # Tax to treasury
-        cur.execute(
-            f"INSERT INTO chat_treasury (chat_id, balance) VALUES ({ph},{ph}) "
-            f"ON CONFLICT(chat_id) DO UPDATE SET balance=chat_treasury.balance+excluded.balance",
-            (chat_id, tax),
-        )
-        cur.execute(f"SELECT balance FROM user_mora WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
-        new_balance = (cur.fetchone() or [0])[0]
-        conn.commit()
-        conn.close()
-
-        return JsonResponse({
-            "ok": True,
-            "amount": amount,
-            "tax": tax,
-            "new_balance": new_balance,
-        }, json_dumps_params={"ensure_ascii": False}, headers=headers)
-
-    except Exception as exc:
-        try:
-            conn.close()
-        except Exception:
-            pass
         return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+    return JsonResponse(result, json_dumps_params={"ensure_ascii": False}, headers=headers)
 
 
 # =============================================================================
@@ -6502,121 +6083,15 @@ def miniapp_expeditions_start(request):
     chat_id = int(data.get("chat_id", 0))
     option_key = str(data.get("option_key", ""))
 
+    from api.expeditions import start_expedition as _api_start
+    from asgiref.sync import async_to_sync as _a2s
     try:
-        from config import EXPEDITION_OPTIONS
-    except Exception:
-        EXPEDITION_OPTIONS = {
-            "short":  {"hours": 2, "cost": 0,  "reward_min": 10,  "reward_max": 15,  "label": "2ч (бесплатно)"},
-            "medium": {"hours": 4, "cost": 5,  "reward_min": 30,  "reward_max": 35,  "label": "4ч (5 🪙)"},
-            "long":   {"hours": 8, "cost": 10, "reward_min": 45,  "reward_max": 50,  "label": "8ч (10 🪙)"},
-        }
-
-    opt = EXPEDITION_OPTIONS.get(option_key)
-    if not opt:
-        return JsonResponse({"error": "Неизвестный тип экспедиции"}, status=400, headers=headers)
-
-    try:
-        conn, db_type = _get_bot_db_connection()
+        result = _a2s(_api_start)(uid, chat_id, option_key)
+    except ValueError as e:
+        return JsonResponse({"error": str(e)}, status=400, headers=headers)
     except Exception as exc:
-        return JsonResponse({"error": f"DB: {exc}"}, status=503, headers=headers)
-
-    try:
-        cur = conn.cursor()
-        ph = "%s" if db_type == "pg" else "?"
-
-        # Pet must exist
-        cur.execute(f"SELECT pet_type, name, COALESCE(fatigue,0), walk_end_at FROM pets WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
-        pet_row = cur.fetchone()
-        if not pet_row:
-            conn.close()
-            return JsonResponse({"error": "У тебя нет питомца"}, status=400, headers=headers)
-        pet_type, pet_name, fatigue, walk_end_at = pet_row
-
-        if fatigue >= 100:
-            conn.close()
-            return JsonResponse({"error": "Питомец слишком устал (100/100). Покорми его!"}, status=400, headers=headers)
-
-        # Check pet is not currently walking
-        if walk_end_at:
-            try:
-                walk_end_dt = walk_end_at if hasattr(walk_end_at, 'tzinfo') else datetime.fromisoformat(str(walk_end_at).replace('Z', '+00:00'))
-                if walk_end_dt.tzinfo is None:
-                    walk_end_dt = walk_end_dt.replace(tzinfo=timezone.utc)
-                now_utc = datetime.now(timezone.utc)
-                if walk_end_dt > now_utc:
-                    mins = int((walk_end_dt - now_utc).total_seconds() / 60) + 1
-                    conn.close()
-                    return JsonResponse({"error": f"Питомец ещё на прогулке! Осталось {mins} мин."}, status=400, headers=headers)
-            except Exception:
-                pass
-
-        # Check no active expedition
-        cur.execute(f"SELECT 1 FROM pet_expeditions WHERE user_id={ph} AND chat_id={ph} AND finished=0", (uid, chat_id))
-        if cur.fetchone():
-            conn.close()
-            return JsonResponse({"error": "Питомец уже в экспедиции"}, status=400, headers=headers)
-
-        # Check cost
-        cost = opt["cost"]
-        if cost > 0:
-            cur.execute(f"SELECT balance FROM user_mora WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
-            bal_row = cur.fetchone()
-            balance = bal_row[0] if bal_row else 0
-            if balance < cost:
-                conn.close()
-                return JsonResponse({"error": f"Недостаточно Моры. Нужно {cost} 🪙"}, status=400, headers=headers)
-            cur.execute(
-                f"UPDATE user_mora SET balance=balance-{ph} WHERE user_id={ph} AND chat_id={ph} AND balance>={ph}",
-                (cost, uid, chat_id, cost),
-            )
-            if cur.rowcount == 0:
-                conn.close()
-                return JsonResponse({"error": "Не удалось списать Мору"}, status=400, headers=headers)
-
-        now_iso = datetime.now(timezone.utc).isoformat()
-        # Insert/replace expedition (UPSERT)
-        if db_type == "pg":
-            cur.execute(
-                "INSERT INTO pet_expeditions (user_id, chat_id, started_at, duration_h, reward_min, reward_max, finished) "
-                "VALUES (%s,%s,%s,%s,%s,%s,0) "
-                "ON CONFLICT(user_id, chat_id) DO UPDATE SET started_at=excluded.started_at, "
-                "duration_h=excluded.duration_h, reward_min=excluded.reward_min, "
-                "reward_max=excluded.reward_max, finished=0",
-                (uid, chat_id, now_iso, opt["hours"], opt["reward_min"], opt["reward_max"]),
-            )
-        else:
-            cur.execute(
-                "INSERT INTO pet_expeditions (user_id, chat_id, started_at, duration_h, reward_min, reward_max, finished) "
-                "VALUES (?,?,?,?,?,?,0) "
-                "ON CONFLICT(user_id, chat_id) DO UPDATE SET started_at=excluded.started_at, "
-                "duration_h=excluded.duration_h, reward_min=excluded.reward_min, "
-                "reward_max=excluded.reward_max, finished=0",
-                (uid, chat_id, now_iso, opt["hours"], opt["reward_min"], opt["reward_max"]),
-            )
-
-        # Add +20 fatigue
-        cur.execute(
-            f"UPDATE pets SET fatigue=LEAST(100, COALESCE(fatigue,0)+20) WHERE user_id={ph} AND chat_id={ph}",
-            (uid, chat_id),
-        )
-
-        conn.commit()
-        conn.close()
-        return JsonResponse({
-            "ok": True,
-            "option": option_key,
-            "duration_h": opt["hours"],
-            "reward_min": opt["reward_min"],
-            "reward_max": opt["reward_max"],
-            "cost": cost,
-        }, json_dumps_params={"ensure_ascii": False}, headers=headers)
-
-    except Exception as exc:
-        try:
-            conn.close()
-        except Exception:
-            pass
         return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+    return JsonResponse(result, json_dumps_params={"ensure_ascii": False}, headers=headers)
 
 
 @csrf_exempt
@@ -6639,82 +6114,14 @@ def miniapp_expeditions_collect(request):
 
     chat_id = int(data.get("chat_id", 0))
 
+    from api.expeditions import claim_expedition as _api_collect
+    from asgiref.sync import async_to_sync as _a2s
     try:
-        conn, db_type = _get_bot_db_connection()
+        result = _a2s(_api_collect)(uid, chat_id)
+    except ValueError as e:
+        status_code = 404 if "нет актив" in str(e).lower() else 400
+        return JsonResponse({"error": str(e)}, status=status_code, headers=headers)
     except Exception as exc:
-        return JsonResponse({"error": f"DB: {exc}"}, status=503, headers=headers)
-
-    try:
-        import random as _random
-        import datetime as _dt_mod
-        cur = conn.cursor()
-        ph = "%s" if db_type == "pg" else "?"
-
-        cur.execute(
-            f"SELECT started_at, duration_h, reward_min, reward_max "
-            f"FROM pet_expeditions WHERE user_id={ph} AND chat_id={ph} AND finished=0",
-            (uid, chat_id),
-        )
-        row = cur.fetchone()
-        if not row:
-            conn.close()
-            return JsonResponse({"error": "Нет активной экспедиции"}, status=404, headers=headers)
-
-        started_at, duration_h, reward_min, reward_max = row
-        if isinstance(started_at, str):
-            started_at = datetime.fromisoformat(started_at.replace("Z", "+00:00"))
-        if started_at.tzinfo is None:
-            started_at = started_at.replace(tzinfo=timezone.utc)
-        now = datetime.now(timezone.utc)
-        end_at = started_at + _dt_mod.timedelta(hours=duration_h)
-        if now < end_at:
-            secs_left = int((end_at - now).total_seconds())
-            h_left = secs_left // 3600
-            m_left = (secs_left % 3600) // 60
-            conn.close()
-            return JsonResponse({"error": f"Экспедиция ещё не завершена. Осталось: {h_left}ч {m_left}мин"}, status=400, headers=headers)
-
-        reward = _random.randint(reward_min, reward_max)
-
-        # НДС по типу экспедиции: short=0%, medium=6.5%, long=7%
-        if duration_h <= 2:
-            exped_tax = 0
-        elif duration_h <= 4:
-            exped_tax = max(0, int(reward * 0.065))
-        else:
-            exped_tax = max(0, int(reward * 0.07))
-        net_reward = reward - exped_tax
-
-        # Mark finished
-        cur.execute(f"UPDATE pet_expeditions SET finished=1 WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
-
-        # Add mora (net of tax)
-        cur.execute(
-            f"INSERT INTO user_mora (user_id, chat_id, balance) VALUES ({ph},{ph},{ph}) "
-            f"ON CONFLICT(user_id, chat_id) DO UPDATE SET balance=user_mora.balance+excluded.balance",
-            (uid, chat_id, net_reward),
-        )
-        if exped_tax > 0:
-            cur.execute(
-                f"INSERT INTO chat_treasury (chat_id, balance) VALUES ({ph},{ph}) "
-                f"ON CONFLICT(chat_id) DO UPDATE SET balance=balance+excluded.balance",
-                (chat_id, exped_tax),
-            )
-        cur.execute(f"SELECT balance FROM user_mora WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
-        new_balance = (cur.fetchone() or [0])[0]
-        conn.commit()
-        conn.close()
-
-        return JsonResponse({
-            "ok": True,
-            "reward": net_reward,
-            "new_balance": new_balance,
-        }, json_dumps_params={"ensure_ascii": False}, headers=headers)
-
-    except Exception as exc:
-        try:
-            conn.close()
-        except Exception:
-            pass
         return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+    return JsonResponse(result, json_dumps_params={"ensure_ascii": False}, headers=headers)
 

@@ -286,61 +286,18 @@ async def cb_expedition_start(callback: CallbackQuery):
         await callback.answer("❌ Неизвестный вариант.", show_alert=True)
         return
 
+    from api.expeditions import start_expedition as _api_start
+    try:
+        res = await _api_start(uid, chat_id, key, wallet_type)
+    except ValueError as e:
+        await callback.answer(str(e), show_alert=True)
+        return
+
+    # Fetch pet only for display (validation already done in api)
     pet = await get_pet(uid, chat_id)
-    if not pet:
-        await callback.answer("❌ У тебя нет питомца!", show_alert=True)
-        return
-
-    active = await get_active_expedition(uid, chat_id)
-    if active:
-        await callback.answer("❌ Питомец уже в экспедиции!", show_alert=True)
-        return
-
-    cost = opt["cost"]
-    cost_text = ""
-    if cost > 0:
-        if wallet_type == "family":
-            # Оплата с семейного кошелька
-            ok, new_family_bal = await deduct_wallet(uid, chat_id, cost, "family")
-            if not ok:
-                await callback.answer(
-                    f"❌ Недостаточно Моры в семейном кошельке! ({new_family_bal} / {cost})", 
-                    show_alert=True
-                )
-                return
-            cost_text = f"Списано <b>{cost} 🪙</b> с семейного кошелька"
-        else:
-            # Оплата с личного кошелька
-            ok, new_bal = await deduct_mora(uid, chat_id, cost)
-            if not ok:
-                mora = await get_mora(uid, chat_id)
-                bal = mora["balance"] if mora else 0
-                await callback.answer(
-                    f"❌ Недостаточно Моры! ({bal} / {cost})", show_alert=True
-                )
-                return
-            cost_text = f"Списано <b>{cost} 🪙</b> с личного кошелька"
-    else:
-        cost_text = "Бесплатно"
-
-    ok = await start_expedition(
-        uid, chat_id, opt["hours"], opt["reward_min"], opt["reward_max"]
-    )
-    if not ok:
-        # Возвращаем деньги обратно при ошибке
-        if cost > 0:
-            if wallet_type == "family":
-                await add_to_family_wallet(chat_id, uid, cost)
-            else:
-                await add_mora(uid, chat_id, cost)
-        await callback.answer("❌ Не удалось начать экспедицию.", show_alert=True)
-        return
-
-    # +20 усталости за каждую экспедицию
-    await add_pet_fatigue(uid, chat_id, 20)
-
-    pet_emoji = {"cat": "🐱", "dog": "🐶"}.get(pet["pet_type"], "🐾")
-    pet_name = html.escape(pet["name"]) if pet.get("name") else "безымянный"
+    pet_emoji  = {"cat": "🐱", "dog": "🐶"}.get((pet or {}).get("pet_type", ""), "🐾")
+    pet_name   = html.escape((pet or {}).get("name") or "безымянный")
+    cost_text  = f"Списано <b>{res['cost']} 🪙</b>" if res["cost"] > 0 else "Бесплатно"
 
     try:
         await callback.message.edit_text(
@@ -355,27 +312,14 @@ async def cb_expedition_start(callback: CallbackQuery):
         pass
     await callback.answer(f"🗺 Экспедиция на {opt['label']} начата!")
 
-    # Quest tick: expedition
-    try:
-        from utils.helpers import bot_today
-        from database.db import get_user_quest, quest_tick, mark_quest_rewarded, add_xp_in_chat
-        today = bot_today()
-        quest = await get_user_quest(uid, chat_id, today)
-        if quest["type"] == "expedition":
-            new_p, goal, just_done = await quest_tick(uid, chat_id, today, quest["type"], quest["goal"])
-            if just_done:
-                _mr = quest.get("mora", 5)
-                await add_xp_in_chat(uid, chat_id, quest["xp"])
-                await add_mora(uid, chat_id, _mr)
-                await mark_quest_rewarded(uid, chat_id, today)
-                try:
-                    name = html.escape(callback.from_user.full_name)
-                    await callback.message.answer(
-                        f"🎉 {name} выполнил ежедневное задание! "
-                        f"<b>+{quest['xp']} XP</b>  <b>+{_mr} Моры</b> 🪙",
-                        parse_mode="HTML",
-                    )
-                except Exception:
-                    pass
-    except Exception:
-        pass
+    # Quest chat notification
+    if res.get("quest_done"):
+        try:
+            name = html.escape(callback.from_user.full_name)
+            await callback.message.answer(
+                f"🎉 {name} выполнил ежедневное задание! "
+                f"<b>+{res['quest_xp']} XP</b>  <b>+{res['quest_mora']} Моры</b> 🪙",
+                parse_mode="HTML",
+            )
+        except Exception:
+            pass
