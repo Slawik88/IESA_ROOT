@@ -342,7 +342,7 @@ async def cb_duel_accept(callback: CallbackQuery):
     duel_tax = max(1, int(bet * 0.05))
     net_pot   = total_pot - duel_tax
     new_bal   = await add_mora(winner_id, chat_id, net_pot)
-    await add_to_treasury(chat_id, duel_tax)
+    await add_to_treasury(chat_id, duel_tax, "duel", loser_id)
 
     result_text = (
         f"🎲 <b>Дуэль завершена!</b>\n\n"

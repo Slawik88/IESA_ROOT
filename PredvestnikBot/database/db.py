@@ -796,6 +796,18 @@ async def init_db():
             )
         """)
 
+        # ─── НДС-лог казны ────────────────────────────────────────────────
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS treasury_log (
+                id         BIGSERIAL PRIMARY KEY,
+                chat_id    BIGINT NOT NULL,
+                user_id    BIGINT NOT NULL DEFAULT 0,
+                amount     INTEGER NOT NULL,
+                source     TEXT NOT NULL DEFAULT '',
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """)
+
         # ─── Ежедневный чекин (стрики и чекпоинты) ───────────────────────
         await db.execute("""
             CREATE TABLE IF NOT EXISTS daily_checkin (
@@ -2026,7 +2038,8 @@ def get_todays_quest(today_str: str | None = None) -> dict:
 
 
 async def get_user_quest(user_id: int, chat_id: int, today_str: str) -> dict:
-    """Return the user's actual quest for today (may differ from default after reroll)."""
+    """Return the user's actual quest for today (randomly assigned on first look, persisted)."""
+    import random
     row = await get_quest_progress(user_id, chat_id, today_str)
     if row and row["quest_type"]:
         # Find matching quest in DAILY_QUESTS by type+goal
@@ -2036,7 +2049,18 @@ async def get_user_quest(user_id: int, chat_id: int, today_str: str) -> dict:
         # Fallback: build from stored data
         return {"type": row["quest_type"], "goal": row["goal"],
                 "xp": 50, "mora": 5, "desc": f"Задание: {row['quest_type']}"}
-    return get_todays_quest(today_str)
+    # No quest for today — assign a random one and persist it
+    new_quest = random.choice(DAILY_QUESTS)
+    async with postgres_connect() as db:
+        await db.execute(
+            """INSERT INTO user_quests
+               (user_id, chat_id, quest_date, quest_type, goal, progress, completed, rewarded)
+               VALUES (?,?,?,?,?,0,0,0)
+               ON CONFLICT(user_id, chat_id, quest_date) DO NOTHING""",
+            (user_id, chat_id, today_str, new_quest["type"], new_quest["goal"]),
+        )
+        await db.commit()
+    return new_quest
 
 
 async def reroll_user_quest(user_id: int, chat_id: int, quest_date: str) -> dict:
@@ -5027,14 +5051,25 @@ async def get_treasury(chat_id: int) -> int:
     return row[0] if row else 0
 
 
-async def add_to_treasury(chat_id: int, amount: int) -> int:
-    """Добавляет amount в казну чата. Возвращает новый баланс."""
+async def add_to_treasury(
+    chat_id: int,
+    amount: int,
+    source: str = "",
+    user_id: int = 0,
+) -> int:
+    """Добавляет amount в казну чата и логирует НДС-транзакцию. Возвращает новый баланс."""
     async with postgres_connect() as db:
         await db.execute(
             "INSERT INTO chat_treasury (chat_id, balance) VALUES (?,?)"
-            " ON CONFLICT(chat_id) DO UPDATE SET balance = balance + excluded.balance",
+            " ON CONFLICT(chat_id) DO UPDATE SET balance = chat_treasury.balance + excluded.balance",
             (chat_id, amount),
         )
+        if source or user_id:
+            await db.execute(
+                """INSERT INTO treasury_log (chat_id, user_id, amount, source, created_at)
+                   VALUES (?,?,?,?,NOW())""",
+                (chat_id, user_id, amount, source),
+            )
         await db.commit()
         async with db.execute(
             "SELECT balance FROM chat_treasury WHERE chat_id=?", (chat_id,)

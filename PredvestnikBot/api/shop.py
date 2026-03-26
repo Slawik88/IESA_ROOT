@@ -102,7 +102,7 @@ async def buy_item(
     """
     from database.db import (
         get_mora, deduct_mora, has_shop_item, buy_shop_item,
-        set_top_frame, set_vip, get_family_wallet, add_to_family_wallet,
+        set_top_frame, set_vip, get_vip, get_family_wallet, add_to_family_wallet,
         get_marriage,
     )
     from shared_prices import FRAMES_CATALOG, COSMETICS_CATALOG, PRICE_VIP
@@ -128,6 +128,10 @@ async def buy_item(
         price = cosm[3]
     elif item_type == "vip":
         price = PRICE_VIP
+        # Check if user already has VIP
+        current_vip = await get_vip(uid, chat_id)
+        if current_vip:
+            raise ValueError("У тебя уже есть VIP статус! 👑")
     else:
         raise ValueError("item_type должен быть frame/cosmetic/vip")
 

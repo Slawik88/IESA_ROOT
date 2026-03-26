@@ -30,7 +30,7 @@ async def coin_flip_resolve(uid: int, chat_id: int, bet: int) -> dict:
     if win:
         win_tax = max(1, int(bet * 0.05))
         prize   = bet * 2 - win_tax
-        await add_to_treasury(chat_id, win_tax)
+        await add_to_treasury(chat_id, win_tax, "coinflip", uid)
         new_bal = await add_mora(uid, chat_id, prize)
     else:
         mora_row = await get_mora(uid, chat_id)

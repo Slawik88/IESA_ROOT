@@ -53,7 +53,7 @@ async def transfer_mora(from_uid: int, to_uid: int, chat_id: int, amount: int) -
     to_bal = await add_mora(to_uid, chat_id, amount)
 
     # Tax to treasury
-    await add_to_treasury(chat_id, tax)
+    await add_to_treasury(chat_id, tax, "transfer", from_uid)
 
     return {
         "ok":           True,
