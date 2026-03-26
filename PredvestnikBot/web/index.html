@@ -974,7 +974,7 @@ select{background:var(--bg3);border:1px solid var(--border);border-radius:8px;pa
   </div>
 
   <!-- ⑦ Казна + НДС (доступно developer и owner) -->
-  <div class="card">
+  <div class="card" id="devTreasuryCard">
     <div class="card-title">🏛 Казна чата</div>
     <div class="stat-row"><span class="stat-label">💰 Баланс казны</span><span class="stat-value" id="treasuryBalance">—</span></div>
     <button class="btn btn-primary" onclick="loadDevTreasury()" style="margin:8px 0">🔄 Обновить</button>
@@ -1267,25 +1267,23 @@ async function loadProfile(){
       document.getElementById('warnlistCard').style.display='';
       document.getElementById('modSummaryCard').style.display='';
       document.getElementById('devEventCard').style.display='';
-      document.querySelectorAll('#tab-dev .card')[8].style.display=''; // treasury
+      document.getElementById('devTreasuryCard').style.display=''; // treasury
     } else if(['co_owner','admin_senior'].includes(p.rank)) {
-      // Senior admins: warnlist + mod overview + treasury only
+      // Senior admins: warnlist + mod overview only (no treasury)
       const devBtn = document.getElementById('devTabBtn');
       devBtn.setAttribute('data-unlocked','1');
       if(_currentCat === 'fun') devBtn.style.display = '';
       document.querySelectorAll('#tab-dev .card').forEach(c=>{ c.style.display='none'; });
       document.getElementById('warnlistCard').style.display='';
       document.getElementById('modSummaryCard').style.display='';
-      document.querySelectorAll('#tab-dev .card')[8].style.display=''; // treasury
     } else if(['admin_junior','moderator'].includes(p.rank)) {
-      // Junior admins / moderators: warnlist + mod overview + treasury
+      // Junior admins / moderators: warnlist + mod overview only (no treasury)
       const devBtn = document.getElementById('devTabBtn');
       devBtn.setAttribute('data-unlocked','1');
       if(_currentCat === 'fun') devBtn.style.display = '';
       document.querySelectorAll('#tab-dev .card').forEach(c=>{ c.style.display='none'; });
       document.getElementById('warnlistCard').style.display='';
       document.getElementById('modSummaryCard').style.display='';
-      document.querySelectorAll('#tab-dev .card')[8].style.display=''; // treasury
     }
     document.getElementById('walletHistoryCard').style.display='block';
     loadWalletHistory();
