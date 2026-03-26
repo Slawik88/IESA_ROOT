@@ -3805,6 +3805,7 @@ def miniapp_transfer(request):
     chat_id = int(data.get("chat_id", 0))
     target_id = int(data.get("target_id", 0))
     amount = int(data.get("amount", 0))
+    cover_vat = bool(data.get("cover_vat", True))
 
     if target_id == uid:
         return JsonResponse({"error": "Нельзя переводить самому себе"}, status=400, headers=headers)
@@ -3822,7 +3823,7 @@ def miniapp_transfer(request):
     from api.economy import transfer_mora as _api_tr
     from asgiref.sync import async_to_sync as _a2s
     try:
-        result = _a2s(_api_tr)(uid, target_id, chat_id, amount)
+        result = _a2s(_api_tr)(uid, target_id, chat_id, amount, cover_vat=cover_vat)
     except ValueError as e:
         return JsonResponse({"error": str(e)}, status=400, headers=headers)
     except Exception as exc:

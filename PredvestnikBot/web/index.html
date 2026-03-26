@@ -3988,13 +3988,22 @@ async function doTransfer(){
   const target=parseInt(document.getElementById('transferTarget').value||0);
   const amt=parseInt(document.getElementById('transferAmt').value||0);
   const el=document.getElementById('transferResult');
-  if(!target){el.innerHTML='<span style="color:#f87171">❌ Введи User ID</span>';return;}
+  if(!target){el.innerHTML='<span style="color:#f87171">❌ Выбери получателя</span>';return;}
   if(!amt||amt<=0){el.innerHTML='<span style="color:#f87171">❌ Введи сумму</span>';return;}
+  // Calculate tax locally to show in the VAT dialog
+  const taxRate = amt <= 500 ? 0.03 : (amt <= 2000 ? 0.07 : 0.08);
+  const tax = Math.max(1, Math.floor(amt * taxRate));
+  // VAT choice: OK = sender covers tax on top; Cancel = tax deducted from recipient
+  const coverVat = confirm(
+    `💸 Перевод ${amt} 🪙\n\nНДС: ${tax} 🪙\n\n` +
+    `✅ OK — Покрыть НДС сверху\n  С тебя: ${amt + tax} 🪙 → Получатель получит: ${amt} 🪙\n\n` +
+    `❌ Отмена — НДС вычесть у получателя\n  С тебя: ${amt} 🪙 → Получатель получит: ${amt - tax} 🪙`
+  );
   return withBusy('transfer',async()=>{
     try{
-      const r=await api('/api/transfer','POST',{chat_id:chatId,target_id:target,amount:amt});
-      el.innerHTML=`<span style="color:var(--green)">✅ Переведено ${r.amount} 🪙 (налог ${r.tax} 🪙). Баланс: ${r.new_balance} 🪙</span>`;
-      if(r.new_balance !== undefined) syncBalance(r.new_balance);
+      const r=await api('/api/transfer','POST',{chat_id:chatId,target_id:target,amount:amt,cover_vat:coverVat});
+      el.innerHTML=`<span style="color:var(--green)">✅ Переведено ${r.amount} 🪙 (налог ${r.tax} 🪙). Баланс: ${r.from_balance} 🪙</span>`;
+      if(r.from_balance !== undefined) syncBalance(r.from_balance);
     }catch(e){el.innerHTML=`<span style="color:#f87171">❌ ${esc(e.message)}</span>`;}
   });
 }

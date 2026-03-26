@@ -5203,7 +5203,7 @@ async def add_pet_fatigue(user_id: int, chat_id: int, amount: int):
     """Увеличивает усталость питомца (max 100)."""
     async with postgres_connect() as db:
         await db.execute(
-            "UPDATE pets SET fatigue = MIN(100, COALESCE(fatigue,0) + ?) WHERE user_id=? AND chat_id=?",
+            "UPDATE pets SET fatigue = LEAST(100, COALESCE(fatigue,0) + ?) WHERE user_id=? AND chat_id=?",
             (amount, user_id, chat_id),
         )
         await db.commit()
@@ -5213,7 +5213,7 @@ async def reduce_pet_fatigue(user_id: int, chat_id: int, amount: int):
     """Уменьшает усталость питомца (min 0)."""
     async with postgres_connect() as db:
         await db.execute(
-            "UPDATE pets SET fatigue = MAX(0, COALESCE(fatigue,0) - ?) WHERE user_id=? AND chat_id=?",
+            "UPDATE pets SET fatigue = GREATEST(0, COALESCE(fatigue,0) - ?) WHERE user_id=? AND chat_id=?",
             (amount, user_id, chat_id),
         )
         await db.commit()
