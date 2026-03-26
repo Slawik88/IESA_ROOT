@@ -2559,6 +2559,26 @@ async function devGiveItem_legacy(){}
 // ── Init ──────────────────────────────────────────────────────────────────────
 loadProfile();
 
+// ── Dynamic background refresh ────────────────────────────────────────────────
+// Silently refresh balance every 30 seconds
+setInterval(async () => {
+  if (!chatId) return;
+  try {
+    const r = await api('/api/user_data?chat_id=' + chatId);
+    if (r.balance !== undefined) syncBalance(r.balance);
+    if (profileData) { profileData.balance = r.balance; }
+  } catch(e) {}
+}, 30000);
+
+// Auto-refresh expedition tab data every 60 seconds when it's visible
+setInterval(() => {
+  const el = document.getElementById('tab-expedition');
+  if (el && el.classList.contains('active')) {
+    tabLoaded['expedition'] = false;
+    loadExpeditionTab();
+  }
+}, 60000);
+
 // ▓▓ Enhanced Inventory Functions ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
 
 function formatBuffTime(expiresAt) {

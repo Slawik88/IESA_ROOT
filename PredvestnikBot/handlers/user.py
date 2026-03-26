@@ -190,7 +190,7 @@ def _help_pages() -> dict[str, dict]:
                 "🎲 <b>Игры & Развлечения</b>\n"
                 "━━━━━━━━━━━━━━━━━━━━\n\n"
                 "🪙 <b>Монетка</b>\n"
-                "  <code>бот монетка N</code> — 50/50, ×2 или потеряй\n\n"
+                "  <code>бот монетка N</code> — испытай удачу! ×2 или потеряй\n\n"
                 "🎲 <b>Дуэль на кубиках</b>\n"
                 "  <code>бот кубик @юзер N</code> — дуэль на мору\n\n"
                 "🎟 <b>Лотерея</b>\n"
@@ -708,7 +708,7 @@ def _build_top_text(
     # Max count for progress bars
     max_count = max((u[count_field] if count_field in u.keys() else 0 for u in top), default=1) or 1
 
-    sep = "━" * 22
+    sep = "─" * 26
     lines: list[str] = [sep, title, sep]
 
     # News section (only when we have previous period data)
@@ -773,7 +773,7 @@ def _build_top_text(
         name_e = html.escape(u["full_name"])
         name_link = f'<a href="tg://user?id={uid_top}">{name_e}</a>' if uid_top else f"<b>{name_e}</b>"
 
-        line = f"{frame_e}{place}{vip} {trend}{bar_part}{name_link}{streak_badge} — {count}"
+        line = f"│ {frame_e}{place}{vip} {trend}{bar_part}│ {name_link}{streak_badge} — {count} │"
         if used + len(line) + 1 > budget:
             lines.append(f"<i>…и ещё {len(top) - i} участников</i>")
             break
