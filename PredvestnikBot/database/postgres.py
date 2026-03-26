@@ -262,6 +262,7 @@ async def fetch_value(sql, *params):
 
 
 connect = PostgresConnection
+postgres_connect = PostgresConnection  # alias used in api/* modules
 
 
 class PostgresDDLConnection:

@@ -119,6 +119,15 @@ ITEM_METADATA = {
     "hp_potion":      {"slot": "potion",    "atk": 0,  "def_val": 0,  "hp": 0,   "crit_rate": 0.0,  "desc": "Зелье Здоровья: +50 HP на 1.5 часа",     "sell": 45},
     "str_superior":   {"slot": "potion",    "atk": 0,  "def_val": 0,  "hp": 0,   "crit_rate": 0.0,  "desc": "Зелье Силы Superior: +30 ATK на 2 часа",  "sell": 100},
     "def_superior":   {"slot": "potion",    "atk": 0,  "def_val": 0,  "hp": 0,   "crit_rate": 0.0,  "desc": "Зелье Защиты Superior: +40 DEF на 2 часа","sell": 80},
+    # Мгновенный опыт / мора (📦 Расходники — XP/🪙)
+    "cmn_xp_shard":   {"slot": "consume",   "atk": 0,  "def_val": 0,  "hp": 0,   "crit_rate": 0.0,  "desc": "Осколок опыта: мгновенно +25 XP",         "sell": 15},
+    "rare_xp_crystal":{"slot": "consume",   "atk": 0,  "def_val": 0,  "hp": 0,   "crit_rate": 0.0,  "desc": "Кристалл опыта: мгновенно +150 XP",       "sell": 60},
+    "rare_mora_bag":  {"slot": "consume",   "atk": 0,  "def_val": 0,  "hp": 0,   "crit_rate": 0.0,  "desc": "Мешок Моры: мгновенно +120 🪙",            "sell": 55},
+    # Косметика Mini App (🎨 Flair)
+    "lego_flair_star": {"slot": "flair",   "atk": 0,  "def_val": 0,  "hp": 0,   "crit_rate": 0.0,  "desc": "⭐ Золотой ореол рядом с именем",          "sell": 0},
+    "lego_flair_void": {"slot": "flair",   "atk": 0,  "def_val": 0,  "hp": 0,   "crit_rate": 0.0,  "desc": "🌌 Тёмно-мистический эффект имени",        "sell": 0},
+    "lego_flair_flame":{"slot": "flair",   "atk": 0,  "def_val": 0,  "hp": 0,   "crit_rate": 0.0,  "desc": "🔥 Огненный ореол рядом с именем",         "sell": 0},
+    "lego_flair_arch": {"slot": "flair",   "atk": 0,  "def_val": 0,  "hp": 0,   "crit_rate": 0.0,  "desc": "🌸 Нежный розовый ореол имени",            "sell": 0},
 }
 
 # ─── Ежедневный чекин ────────────────────────────────────────────────────────
