@@ -1104,50 +1104,11 @@ def miniapp_dev_stats(request):
         return JsonResponse({"error": "forbidden"}, status=403, headers=headers)
 
     try:
-        conn, db_type = _get_bot_db_connection()
+        from asgiref.sync import async_to_sync as _a2s
+        from api.admin import get_stats as _get_stats
+        result = _a2s(_get_stats)()
+        return JsonResponse(result, json_dumps_params={"ensure_ascii": False}, headers=headers)
     except Exception as exc:
-        return JsonResponse({"error": f"DB: {exc}"}, status=503, headers=headers)
-
-    try:
-        cur = conn.cursor()
-        ph = "%s" if db_type == "pg" else "?"
-
-        # Active chats (groups that have at least 1 user_stats entry)
-        cur.execute(
-            "SELECT cs.chat_id, cs.title, COUNT(DISTINCT s.user_id) as member_count "
-            "FROM chats cs LEFT JOIN user_stats s ON s.chat_id=cs.chat_id "
-            "GROUP BY cs.chat_id, cs.title ORDER BY member_count DESC LIMIT 50"
-        )
-        chats = [{"chat_id": r[0], "title": r[1] or f"chat_{r[0]}", "members": r[2]}
-                 for r in cur.fetchall()]
-
-        # Total users
-        cur.execute("SELECT COUNT(*) FROM users")
-        total_users = (cur.fetchone() or [0])[0]
-
-        # Recent boss damage (last 24h)
-        if db_type == "sqlite":
-            cur.execute(
-                "SELECT COUNT(*) FROM boss_damage_log WHERE session_date >= date('now', '-1 day')"
-            )
-        else:
-            cur.execute(
-                "SELECT COUNT(*) FROM boss_damage_log WHERE session_date::date >= CURRENT_DATE - INTERVAL '1 day'"
-            )
-        boss_hits_today = (cur.fetchone() or [0])[0]
-
-        conn.close()
-        return JsonResponse({
-            "total_users": total_users,
-            "boss_hits_today": boss_hits_today,
-            "chats": chats,
-        }, json_dumps_params={"ensure_ascii": False}, headers=headers)
-
-    except Exception as exc:
-        try:
-            conn.close()
-        except Exception:
-            pass
         return JsonResponse({"error": str(exc)}, status=500, headers=headers)
 
 
@@ -1177,51 +1138,11 @@ def miniapp_dev_setbalance(request):
         return JsonResponse({"error": "balance out of range"}, status=400, headers=headers)
 
     try:
-        conn, db_type = _get_bot_db_connection()
+        from asgiref.sync import async_to_sync as _a2s
+        from api.admin import set_balance as _set_balance
+        result = _a2s(_set_balance)(uid, target_id, chat_id, balance)
+        return JsonResponse(result, headers=headers)
     except Exception as exc:
-        return JsonResponse({"error": f"DB: {exc}"}, status=503, headers=headers)
-
-    try:
-        cur = conn.cursor()
-        ph = "%s" if db_type == "pg" else "?"
-        _ensure_wallet_ledger_table(cur, db_type)
-        cur.execute(
-            f"SELECT COALESCE(balance,0) FROM user_mora WHERE user_id={ph} AND chat_id={ph}",
-            (target_id, chat_id),
-        )
-        old_balance = (cur.fetchone() or [0])[0]
-        if db_type == "pg":
-            cur.execute(
-                f"INSERT INTO user_mora (user_id, chat_id, balance) VALUES ({ph},{ph},{ph}) "
-                f"ON CONFLICT (user_id, chat_id) DO UPDATE SET balance=EXCLUDED.balance",
-                (target_id, chat_id, balance),
-            )
-        else:
-            cur.execute(
-                "INSERT INTO user_mora (user_id, chat_id, balance) VALUES (?,?,?) "
-                "ON CONFLICT(user_id, chat_id) DO UPDATE SET balance=excluded.balance",
-                (target_id, chat_id, balance),
-            )
-        delta = balance - old_balance
-        if delta > 0:
-            _insert_wallet_ledger(
-                cur, db_type, chat_id, target_id, "income", delta,
-                "admin_setbalance", "CRM: установлен баланс", uid,
-            )
-        elif delta < 0:
-            _insert_wallet_ledger(
-                cur, db_type, chat_id, target_id, "expense", abs(delta),
-                "admin_setbalance", "CRM: установлен баланс", uid,
-            )
-        conn.commit()
-        conn.close()
-        return JsonResponse({"ok": True, "target_id": target_id, "balance": balance}, headers=headers)
-
-    except Exception as exc:
-        try:
-            conn.close()
-        except Exception:
-            pass
         return JsonResponse({"error": str(exc)}, status=500, headers=headers)
 
 
@@ -1254,49 +1175,11 @@ def miniapp_dev_add_mora(request):
         return JsonResponse({"error": "target_id and chat_id required"}, status=400, headers=headers)
 
     try:
-        conn, db_type = _get_bot_db_connection()
+        from asgiref.sync import async_to_sync as _a2s
+        from api.admin import admin_add_mora as _admin_add_mora
+        result = _a2s(_admin_add_mora)(uid, target_id, chat_id, amount)
+        return JsonResponse(result, headers=headers)
     except Exception as exc:
-        return JsonResponse({"error": f"DB: {exc}"}, status=503, headers=headers)
-
-    try:
-        cur = conn.cursor()
-        ph = "%s" if db_type == "pg" else "?"
-        _ensure_wallet_ledger_table(cur, db_type)
-        if db_type == "pg":
-            cur.execute(
-                f"INSERT INTO user_mora (user_id, chat_id, balance) VALUES ({ph},{ph},GREATEST(0,{ph})) "
-                f"ON CONFLICT (user_id, chat_id) DO UPDATE SET balance=GREATEST(0, user_mora.balance + EXCLUDED.balance)",
-                (target_id, chat_id, amount),
-            )
-        else:
-            cur.execute(
-                "INSERT INTO user_mora (user_id, chat_id, balance) VALUES (?,?,MAX(0,?)) "
-                "ON CONFLICT(user_id, chat_id) DO UPDATE SET balance=MAX(0, user_mora.balance + ?)",
-                (target_id, chat_id, amount, amount),
-            )
-        cur.execute(
-            f"SELECT balance FROM user_mora WHERE user_id={ph} AND chat_id={ph}",
-            (target_id, chat_id),
-        )
-        new_bal = (cur.fetchone() or [0])[0]
-        if amount > 0:
-            _insert_wallet_ledger(
-                cur, db_type, chat_id, target_id, "income", amount,
-                "admin_adjustment", "Админская корректировка баланса", uid,
-            )
-        elif amount < 0:
-            _insert_wallet_ledger(
-                cur, db_type, chat_id, target_id, "expense", abs(amount),
-                "admin_adjustment", "Админская корректировка баланса", uid,
-            )
-        conn.commit()
-        conn.close()
-        return JsonResponse({"ok": True, "target_id": target_id, "new_balance": new_bal}, headers=headers)
-    except Exception as exc:
-        try:
-            conn.close()
-        except Exception:
-            pass
         return JsonResponse({"error": str(exc)}, status=500, headers=headers)
 
 
@@ -1330,59 +1213,11 @@ def miniapp_dev_add_xp(request):
         return JsonResponse({"error": "target_id and chat_id required"}, status=400, headers=headers)
 
     try:
-        conn, db_type = _get_bot_db_connection()
+        from asgiref.sync import async_to_sync as _a2s
+        from api.admin import admin_add_xp as _admin_add_xp
+        result = _a2s(_admin_add_xp)(uid, target_id, chat_id, amount, set_mode)
+        return JsonResponse(result, headers=headers)
     except Exception as exc:
-        return JsonResponse({"error": f"DB: {exc}"}, status=503, headers=headers)
-
-    try:
-        cur = conn.cursor()
-        ph = "%s" if db_type == "pg" else "?"
-        new_level = max(1, _level_for_xp(amount if set_mode else 0))
-        if set_mode:
-            new_level = _level_for_xp(max(0, amount))
-        if db_type == "pg":
-            if set_mode:
-                cur.execute(
-                    f"INSERT INTO user_stats (user_id, chat_id, xp, level) VALUES ({ph},{ph},{ph},{ph}) "
-                    f"ON CONFLICT (user_id, chat_id) DO UPDATE SET xp=EXCLUDED.xp, level=EXCLUDED.level",
-                    (target_id, chat_id, max(0, amount), new_level),
-                )
-            else:
-                cur.execute(
-                    f"INSERT INTO user_stats (user_id, chat_id, xp, level) VALUES ({ph},{ph},{ph},1) "
-                    f"ON CONFLICT (user_id, chat_id) DO UPDATE SET xp=GREATEST(0, user_stats.xp + EXCLUDED.xp)",
-                    (target_id, chat_id, amount),
-                )
-        else:
-            if set_mode:
-                cur.execute(
-                    "INSERT INTO user_stats (user_id, chat_id, xp, level) VALUES (?,?,?,?) "
-                    "ON CONFLICT(user_id, chat_id) DO UPDATE SET xp=excluded.xp, level=excluded.level",
-                    (target_id, chat_id, max(0, amount), new_level),
-                )
-            else:
-                cur.execute(
-                    "INSERT INTO user_stats (user_id, chat_id, xp) VALUES (?,?,?) "
-                    "ON CONFLICT(user_id, chat_id) DO UPDATE SET xp=MAX(0, user_stats.xp + ?)",
-                    (target_id, chat_id, amount, amount),
-                )
-        cur.execute(
-            f"SELECT xp, COALESCE(level, 1) FROM user_stats WHERE user_id={ph} AND chat_id={ph}",
-            (target_id, chat_id),
-        )
-        row = cur.fetchone()
-        new_xp = row[0] if row else 0
-        new_level = row[1] if row else 1
-        if new_level <= 1:
-            new_level = _level_for_xp(new_xp)
-        conn.commit()
-        conn.close()
-        return JsonResponse({"ok": True, "target_id": target_id, "xp": new_xp, "new_level": new_level}, headers=headers)
-    except Exception as exc:
-        try:
-            conn.close()
-        except Exception:
-            pass
         return JsonResponse({"error": str(exc)}, status=500, headers=headers)
 
 
@@ -1490,107 +1325,16 @@ def miniapp_dev_member_update(request):
         return JsonResponse({"error": "invalid rank"}, status=400, headers=headers)
 
     try:
-        conn, db_type = _get_bot_db_connection()
-    except Exception as exc:
-        return JsonResponse({"error": f"DB: {exc}"}, status=503, headers=headers)
-
-    try:
-        cur = conn.cursor()
-        ph = "%s" if db_type == "pg" else "?"
-        _ensure_wallet_ledger_table(cur, db_type)
-        cur.execute(
-            f"SELECT COALESCE(balance,0) FROM user_mora WHERE user_id={ph} AND chat_id={ph}",
-            (target_id, chat_id),
+        from asgiref.sync import async_to_sync as _a2s
+        from api.admin import member_update as _member_update
+        result = _a2s(_member_update)(
+            uid, target_id, chat_id, balance, xp, rank,
+            msg_count=msg_count, day_count=day_count, week_count=week_count,
+            total_count=total_count, yesterday_count=yesterday_count,
+            last_week_count=last_week_count,
         )
-        old_balance = (cur.fetchone() or [0])[0]
-        new_level = _level_for_xp(xp)
-
-        if db_type == "pg":
-            cur.execute(
-                f"INSERT INTO user_mora (user_id, chat_id, balance) VALUES ({ph},{ph},{ph}) "
-                f"ON CONFLICT (user_id, chat_id) DO UPDATE SET balance=EXCLUDED.balance",
-                (target_id, chat_id, balance),
-            )
-            cur.execute(
-                f"INSERT INTO user_stats (user_id, chat_id, xp, level, rank) VALUES ({ph},{ph},{ph},{ph},{ph}) "
-                f"ON CONFLICT (user_id, chat_id) DO UPDATE SET xp=EXCLUDED.xp, level=EXCLUDED.level, rank=EXCLUDED.rank",
-                (target_id, chat_id, xp, new_level, rank),
-            )
-        else:
-            cur.execute(
-                "INSERT INTO user_mora (user_id, chat_id, balance) VALUES (?,?,?) "
-                "ON CONFLICT(user_id, chat_id) DO UPDATE SET balance=excluded.balance",
-                (target_id, chat_id, balance),
-            )
-            cur.execute(
-                "INSERT INTO user_stats (user_id, chat_id, xp, level, rank) VALUES (?,?,?,?,?) "
-                "ON CONFLICT(user_id, chat_id) DO UPDATE SET xp=excluded.xp, level=excluded.level, rank=excluded.rank",
-                (target_id, chat_id, xp, new_level, rank),
-            )
-
-        delta = balance - old_balance
-        if delta > 0:
-            _insert_wallet_ledger(cur, db_type, chat_id, target_id, "income", delta,
-                                  "crm_editor", "CRM: правка участника", uid)
-        elif delta < 0:
-            _insert_wallet_ledger(cur, db_type, chat_id, target_id, "expense", abs(delta),
-                                  "crm_editor", "CRM: правка участника", uid)
-
-        # Update message_count in user_stats if provided
-        if msg_count is not None:
-            cur.execute(
-                f"UPDATE user_stats SET message_count={ph} WHERE user_id={ph} AND chat_id={ph}",
-                (msg_count, target_id, chat_id),
-            )
-
-        # Update cleanup_counts (day/week/today/yesterday/last_week/total) if provided
-        _cc_fields = (day_count, week_count, total_count, yesterday_count, last_week_count)
-        if any(v is not None for v in _cc_fields):
-            # Ensure row exists first
-            cur.execute(
-                f"INSERT INTO cleanup_counts (chat_id, user_id, count, week_count, day_count) "
-                f"VALUES ({ph},{ph},0,0,0) "
-                f"ON CONFLICT(chat_id, user_id) DO NOTHING",
-                (chat_id, target_id),
-            )
-            if day_count is not None:
-                cur.execute(
-                    f"UPDATE cleanup_counts SET day_count={ph} WHERE user_id={ph} AND chat_id={ph}",
-                    (day_count, target_id, chat_id),
-                )
-            if week_count is not None:
-                cur.execute(
-                    f"UPDATE cleanup_counts SET week_count={ph} WHERE user_id={ph} AND chat_id={ph}",
-                    (week_count, target_id, chat_id),
-                )
-            if total_count is not None:
-                cur.execute(
-                    f"UPDATE cleanup_counts SET count={ph} WHERE user_id={ph} AND chat_id={ph}",
-                    (total_count, target_id, chat_id),
-                )
-            if yesterday_count is not None:
-                cur.execute(
-                    f"UPDATE cleanup_counts SET yesterday_count={ph} WHERE user_id={ph} AND chat_id={ph}",
-                    (yesterday_count, target_id, chat_id),
-                )
-            if last_week_count is not None:
-                cur.execute(
-                    f"UPDATE cleanup_counts SET last_week_count={ph} WHERE user_id={ph} AND chat_id={ph}",
-                    (last_week_count, target_id, chat_id),
-                )
-
-        conn.commit()
-        conn.close()
-        return JsonResponse(
-            {"ok": True, "target_id": target_id, "balance": balance, "xp": xp,
-             "level": new_level, "rank": rank},
-            headers=headers,
-        )
+        return JsonResponse(result, headers=headers)
     except Exception as exc:
-        try:
-            conn.close()
-        except Exception:
-            pass
         return JsonResponse({"error": str(exc)}, status=500, headers=headers)
 
 
@@ -1623,59 +1367,18 @@ def miniapp_dev_salary(request):
         return JsonResponse({"error": "target_id, chat_id and positive amount required"}, status=400, headers=headers)
 
     try:
-        conn, db_type = _get_bot_db_connection()
-    except Exception as exc:
-        return JsonResponse({"error": f"DB: {exc}"}, status=503, headers=headers)
-
-    try:
-        cur = conn.cursor()
-        ph = "%s" if db_type == "pg" else "?"
-        _ensure_wallet_ledger_table(cur, db_type)
-        cur.execute(f"SELECT COALESCE(full_name, '') FROM users WHERE user_id={ph}", (target_id,))
-        name_row = cur.fetchone()
-        target_name = (name_row or [""])[0] or f"Игрок {target_id}"
-
-        if db_type == "pg":
-            cur.execute(
-                f"INSERT INTO user_mora (user_id, chat_id, balance, total_earned) VALUES ({ph},{ph},{ph},{ph}) "
-                f"ON CONFLICT (user_id, chat_id) DO UPDATE SET "
-                f"balance=user_mora.balance + EXCLUDED.balance, "
-                f"total_earned=user_mora.total_earned + EXCLUDED.total_earned",
-                (target_id, chat_id, amount, amount),
-            )
-        else:
-            cur.execute(
-                "INSERT INTO user_mora (user_id, chat_id, balance, total_earned) VALUES (?,?,?,?) "
-                "ON CONFLICT(user_id, chat_id) DO UPDATE SET balance=user_mora.balance + excluded.balance, total_earned=user_mora.total_earned + excluded.total_earned",
-                (target_id, chat_id, amount, amount),
-            )
-
-        desc = f"Зарплата за {days} дн."
-        if reason:
-            desc = f"{desc}: {reason}"
-        _insert_wallet_ledger(cur, db_type, chat_id, target_id, "income", amount, "salary", desc, uid)
-
-        cur.execute(
-            f"SELECT COALESCE(balance,0) FROM user_mora WHERE user_id={ph} AND chat_id={ph}",
-            (target_id, chat_id),
-        )
-        new_balance = (cur.fetchone() or [0])[0]
-        conn.commit()
-        conn.close()
-
-        _send_salary_announcement(chat_id, target_name)
-
+        from asgiref.sync import async_to_sync as _a2s
+        from api.admin import give_salary as _give_salary
+        result = _a2s(_give_salary)(uid, target_id, chat_id, days, amount, reason)
+        _send_salary_announcement(chat_id, result["target_name"])
         return JsonResponse(
-            {"ok": True, "target_id": target_id, "days": days, "amount": amount,
-             "reason": reason, "new_balance": new_balance},
+            {"ok": True, "target_id": result["target_id"], "days": result["days"],
+             "amount": result["amount"], "reason": result["reason"],
+             "new_balance": result["new_balance"]},
             json_dumps_params={"ensure_ascii": False},
             headers=headers,
         )
     except Exception as exc:
-        try:
-            conn.close()
-        except Exception:
-            pass
         return JsonResponse({"error": str(exc)}, status=500, headers=headers)
 
 
@@ -1711,31 +1414,12 @@ def miniapp_dev_give_item(request):
     if rarity not in ("common", "uncommon", "rare", "epic", "legendary"):
         rarity = "rare"
 
-    from datetime import datetime, timezone
-    now = datetime.now(timezone.utc).isoformat(timespec="seconds")
-
     try:
-        conn, db_type = _get_bot_db_connection()
+        from asgiref.sync import async_to_sync as _a2s
+        from api.admin import give_item as _give_item
+        result = _a2s(_give_item)(uid, target_id, chat_id, item_name, rarity)
+        return JsonResponse(result, json_dumps_params={"ensure_ascii": False}, headers=headers)
     except Exception as exc:
-        return JsonResponse({"error": f"DB: {exc}"}, status=503, headers=headers)
-
-    try:
-        cur = conn.cursor()
-        ph = "%s" if db_type == "pg" else "?"
-        cur.execute(
-            f"INSERT INTO gacha_inventory (user_id, chat_id, item_key, item_name, rarity, obtained_at) "
-            f"VALUES ({ph},{ph},{ph},{ph},{ph},{ph})",
-            (target_id, chat_id, item_name.lower().replace(" ", "_"), item_name, rarity, now),
-        )
-        conn.commit()
-        conn.close()
-        return JsonResponse({"ok": True, "target_id": target_id, "item_name": item_name, "rarity": rarity},
-                            json_dumps_params={"ensure_ascii": False}, headers=headers)
-    except Exception as exc:
-        try:
-            conn.close()
-        except Exception:
-            pass
         return JsonResponse({"error": str(exc)}, status=500, headers=headers)
 
 
@@ -1763,38 +1447,11 @@ def miniapp_dev_users(request):
     q = request.GET.get("q", "").strip()
 
     try:
-        conn, db_type = _get_bot_db_connection()
+        from asgiref.sync import async_to_sync as _a2s
+        from api.admin import search_users as _search_users
+        result = _a2s(_search_users)(chat_id, q)
+        return JsonResponse(result, json_dumps_params={"ensure_ascii": False}, headers=headers)
     except Exception as exc:
-        return JsonResponse({"error": f"DB: {exc}"}, status=503, headers=headers)
-
-    try:
-        cur = conn.cursor()
-        ph = "%s" if db_type == "pg" else "?"
-        if q:
-            like = f"%{q}%"
-            cur.execute(
-                f"SELECT s.user_id, u.full_name FROM user_stats s "
-                f"LEFT JOIN users u ON u.user_id=s.user_id "
-                f"WHERE s.chat_id={ph} AND (u.full_name LIKE {ph} OR CAST(s.user_id AS TEXT) LIKE {ph}) "
-                f"ORDER BY s.xp DESC LIMIT 20",
-                (chat_id, like, like),
-            )
-        else:
-            cur.execute(
-                f"SELECT s.user_id, u.full_name FROM user_stats s "
-                f"LEFT JOIN users u ON u.user_id=s.user_id "
-                f"WHERE s.chat_id={ph} ORDER BY s.xp DESC LIMIT 20",
-                (chat_id,),
-            )
-        rows = cur.fetchall()
-        conn.close()
-        users = [{"user_id": r[0], "name": r[1] or f"user_{r[0]}"} for r in rows]
-        return JsonResponse({"users": users}, json_dumps_params={"ensure_ascii": False}, headers=headers)
-    except Exception as exc:
-        try:
-            conn.close()
-        except Exception:
-            pass
         return JsonResponse({"error": str(exc)}, status=500, headers=headers)
 
 
@@ -1816,37 +1473,11 @@ def miniapp_dev_chats(request):
         return JsonResponse({"error": "forbidden"}, status=403, headers=headers)
 
     try:
-        conn, db_type = _get_bot_db_connection()
+        from asgiref.sync import async_to_sync as _a2s
+        from api.admin import get_chats as _get_chats
+        result = _a2s(_get_chats)()
+        return JsonResponse(result, json_dumps_params={"ensure_ascii": False}, headers=headers)
     except Exception as exc:
-        return JsonResponse({"error": f"DB: {exc}"}, status=503, headers=headers)
-
-    try:
-        cur = conn.cursor()
-        ph = "%s" if db_type == "pg" else "?"
-        # БАГ ИСПРАВЛЕН: Фильтруем только группы и каналы, исключаем личные чаты
-        cur.execute(
-            "SELECT c.chat_id, c.title, c.chat_type, COUNT(DISTINCT s.user_id) AS members "
-            "FROM chats c LEFT JOIN user_stats s ON s.chat_id=c.chat_id "
-            "WHERE c.chat_type IN ('group', 'supergroup', 'channel') "
-            "GROUP BY c.chat_id, c.title, c.chat_type ORDER BY members DESC LIMIT 100"
-        )
-        rows = cur.fetchall()
-        conn.close()
-        groups, admin_chats = [], []
-        for r in rows:
-            ctype = (r[2] or "").lower()
-            obj = {"chat_id": r[0], "title": r[1] or f"chat_{r[0]}", "chat_type": ctype, "members": r[3]}
-            if ctype in ("group", "supergroup"):
-                groups.append(obj)
-            else:
-                admin_chats.append(obj)
-        return JsonResponse({"groups": groups, "admin_chats": admin_chats},
-                            json_dumps_params={"ensure_ascii": False}, headers=headers)
-    except Exception as exc:
-        try:
-            conn.close()
-        except Exception:
-            pass
         return JsonResponse({"error": str(exc)}, status=500, headers=headers)
 
 
@@ -1873,47 +1504,11 @@ def miniapp_dev_chat_admins(request):
     chat_id = int(chat_id_str)
 
     try:
-        conn, db_type = _get_bot_db_connection()
+        from asgiref.sync import async_to_sync as _a2s
+        from api.admin import get_chat_members as _get_chat_members
+        result = _a2s(_get_chat_members)(chat_id)
+        return JsonResponse(result, json_dumps_params={"ensure_ascii": False}, headers=headers)
     except Exception as exc:
-        return JsonResponse({"error": f"DB: {exc}"}, status=503, headers=headers)
-
-    try:
-        cur = conn.cursor()
-        ph = "%s" if db_type == "pg" else "?"
-        cur.execute(
-            f"SELECT s.user_id, u.full_name, COALESCE(s.rank,'user') AS rank, "
-            f"COALESCE(s.level,1) AS level, COALESCE(s.xp,0) AS xp, "
-            f"COALESCE(m.balance,0) AS balance, "
-            f"COALESCE(s.message_count,0) AS message_count, "
-            f"COALESCE(cc.count,0) AS total_count, "
-            f"COALESCE(cc.week_count,0) AS week_count, "
-            f"COALESCE(cc.day_count,0) AS day_count, "
-            f"COALESCE(cc.yesterday_count,0) AS yesterday_count, "
-            f"COALESCE(cc.last_week_count,0) AS last_week_count "
-            f"FROM user_stats s "
-            f"LEFT JOIN users u ON u.user_id=s.user_id "
-            f"LEFT JOIN user_mora m ON m.user_id=s.user_id AND m.chat_id=s.chat_id "
-            f"LEFT JOIN cleanup_counts cc ON cc.user_id=s.user_id AND cc.chat_id=s.chat_id "
-            f"WHERE s.chat_id={ph} "
-            f"ORDER BY s.xp DESC LIMIT 50",
-            (chat_id,),
-        )
-        rows = cur.fetchall()
-        conn.close()
-        members = [
-            {"user_id": r[0], "name": r[1] or f"user_{r[0]}", "rank": r[2],
-             "level": r[3], "xp": r[4], "balance": r[5],
-             "message_count": r[6], "total_count": r[7],
-             "week_count": r[8], "day_count": r[9],
-             "yesterday_count": r[10], "last_week_count": r[11]}
-            for r in rows
-        ]
-        return JsonResponse({"members": members}, json_dumps_params={"ensure_ascii": False}, headers=headers)
-    except Exception as exc:
-        try:
-            conn.close()
-        except Exception:
-            pass
         return JsonResponse({"error": str(exc)}, status=500, headers=headers)
 
 
@@ -1935,73 +1530,29 @@ def miniapp_dev_banlist(request):
         return JsonResponse({"error": "forbidden"}, status=403, headers=headers)
 
     try:
-        conn, db_type = _get_bot_db_connection()
-    except Exception as exc:
-        return JsonResponse({"error": f"DB: {exc}"}, status=503, headers=headers)
-
-    ph = "%s" if db_type == "pg" else "?"
-
-    try:
-        cur = conn.cursor()
+        from asgiref.sync import async_to_sync as _a2s
+        from api.admin import get_banlist, ban_user, unban_user
 
         if request.method == "GET":
-            cur.execute(
-                "SELECT bl.user_id, u.full_name, bl.reason, bl.added_at "
-                "FROM user_banlist bl "
-                "LEFT JOIN users u ON u.user_id=bl.user_id "
-                "WHERE bl.chat_id=0 ORDER BY bl.added_at DESC LIMIT 100"
-            )
-            rows = cur.fetchall()
-            conn.close()
-            banned = [
-                {"user_id": r[0], "name": r[1] or f"user_{r[0]}", "reason": r[2] or "", "added_at": r[3]}
-                for r in rows
-            ]
-            return JsonResponse({"banned": banned}, json_dumps_params={"ensure_ascii": False}, headers=headers)
+            result = _a2s(get_banlist)()
+            return JsonResponse(result, json_dumps_params={"ensure_ascii": False}, headers=headers)
 
         body = json.loads(request.body or b"{}")
         target_id = int(body.get("user_id", 0))
         if not target_id:
-            conn.close()
             return JsonResponse({"error": "user_id required"}, status=400, headers=headers)
 
         if request.method == "POST":
             reason = str(body.get("reason", ""))[:200]
-            import datetime as _dt
-            now_iso = _dt.datetime.utcnow().isoformat()
-            if db_type == "pg":
-                cur.execute(
-                    f"INSERT INTO user_banlist (chat_id,user_id,added_by,reason,added_at) "
-                    f"VALUES ({ph},{ph},{ph},{ph},{ph}) "
-                    f"ON CONFLICT (chat_id,user_id) DO UPDATE SET reason=EXCLUDED.reason",
-                    (0, target_id, uid, reason, now_iso),
-                )
-            else:
-                cur.execute(
-                    "INSERT INTO user_banlist (chat_id,user_id,added_by,reason,added_at) "
-                    "VALUES (?,?,?,?,?) ON CONFLICT(chat_id,user_id) DO UPDATE SET reason=excluded.reason",
-                    (0, target_id, uid, reason, now_iso),
-                )
-            conn.commit()
-            conn.close()
-            return JsonResponse({"ok": True, "banned": target_id}, headers=headers)
+            result = _a2s(ban_user)(uid, target_id, reason)
+            return JsonResponse(result, headers=headers)
 
         if request.method == "DELETE":
-            cur.execute(
-                f"DELETE FROM user_banlist WHERE chat_id=0 AND user_id={ph}", (target_id,)
-            )
-            conn.commit()
-            conn.close()
-            return JsonResponse({"ok": True, "unbanned": target_id}, headers=headers)
+            result = _a2s(unban_user)(target_id)
+            return JsonResponse(result, headers=headers)
 
-        conn.close()
         return JsonResponse({"error": "method not allowed"}, status=405, headers=headers)
-
     except Exception as exc:
-        try:
-            conn.close()
-        except Exception:
-            pass
         return JsonResponse({"error": str(exc)}, status=500, headers=headers)
 
 
@@ -2026,57 +1577,11 @@ def miniapp_dev_logs(request):
     chat_id = int(chat_id_str) if chat_id_str.lstrip("-").isdigit() else 0
 
     try:
-        conn, db_type = _get_bot_db_connection()
+        from asgiref.sync import async_to_sync as _a2s
+        from api.admin import get_logs as _get_logs
+        result = _a2s(_get_logs)(chat_id)
+        return JsonResponse(result, json_dumps_params={"ensure_ascii": False}, headers=headers)
     except Exception as exc:
-        return JsonResponse({"error": f"DB: {exc}"}, status=503, headers=headers)
-
-    try:
-        cur = conn.cursor()
-        ph = "%s" if db_type == "pg" else "?"
-
-        # Leave log (who left/was kicked)
-        if chat_id:
-            cur.execute(
-                f"SELECT user_id, full_name, left_at FROM leave_log "
-                f"WHERE chat_id={ph} ORDER BY left_at DESC LIMIT 20",
-                (chat_id,),
-            )
-        else:
-            cur.execute(
-                "SELECT user_id, full_name, left_at FROM leave_log ORDER BY left_at DESC LIMIT 20"
-            )
-        leave_rows = cur.fetchall()
-        leave_log = [{"user_id": r[0], "name": r[1] or f"user_{r[0]}", "left_at": r[2]} for r in leave_rows]
-
-        # Server errors from log file
-        import os, pathlib
-        error_lines = []
-        log_candidates = [
-            pathlib.Path(__file__).parent.parent.parent / "logs" / "bot.log",
-            pathlib.Path(__file__).parent.parent.parent / "logs" / "app.log",
-            pathlib.Path(__file__).parent.parent.parent / "server_output.txt",
-        ]
-        for lp in log_candidates:
-            if lp.exists() and lp.stat().st_size > 0:
-                try:
-                    with open(lp, "r", encoding="utf-8", errors="replace") as f:
-                        all_lines = f.readlines()
-                    errs = [l.strip() for l in all_lines if "error" in l.lower() or "exception" in l.lower() or "traceback" in l.lower()]
-                    error_lines = errs[-5:]  # last 5 error lines
-                    break
-                except Exception:
-                    pass
-
-        conn.close()
-        return JsonResponse({
-            "leave_log": leave_log,
-            "server_errors": error_lines,
-        }, json_dumps_params={"ensure_ascii": False}, headers=headers)
-    except Exception as exc:
-        try:
-            conn.close()
-        except Exception:
-            pass
         return JsonResponse({"error": str(exc)}, status=500, headers=headers)
 
 
@@ -2109,56 +1614,14 @@ def miniapp_dev_trigger_event(request):
     if not target_chat:
         return JsonResponse({"error": "chat_id required"}, status=400, headers=headers)
 
-    _SUPPORTED_EVENTS = {"chest", "сундук", "дилижанс", "diligence"}
-    if event_type not in _SUPPORTED_EVENTS:
-        return JsonResponse(
-            {"error": f"Неизвестный тип события: '{event_type}'. "
-                      f"Поддерживаются: сундук, дилижанс"},
-            status=400, headers=headers,
-        )
-
-    # We enqueue the event request into a small DB table so the bot process can pick it up.
-    # This avoids needing to share bot instance state with Django.
     try:
-        conn, db_type = _get_bot_db_connection()
+        from asgiref.sync import async_to_sync as _a2s
+        from api.admin import trigger_event as _trigger_event
+        result = _a2s(_trigger_event)(uid, target_chat, event_type)
+        return JsonResponse(result, headers=headers)
+    except ValueError as exc:
+        return JsonResponse({"error": str(exc)}, status=400, headers=headers)
     except Exception as exc:
-        return JsonResponse({"error": f"DB: {exc}"}, status=503, headers=headers)
-
-    ph = "%s" if db_type == "pg" else "?"
-    try:
-        cur = conn.cursor()
-        # Ensure table exists (idempotent)
-        if db_type == "pg":
-            # PostgreSQL syntax
-            cur.execute(
-                "CREATE TABLE IF NOT EXISTS dev_event_queue ("
-                "id SERIAL PRIMARY KEY, "
-                "chat_id BIGINT NOT NULL, event_type TEXT NOT NULL, "
-                "requested_by BIGINT NOT NULL, created_at TEXT NOT NULL, processed INTEGER DEFAULT 0)"
-            )
-        else:
-            # SQLite syntax
-            cur.execute(
-                "CREATE TABLE IF NOT EXISTS dev_event_queue ("
-                "id INTEGER PRIMARY KEY AUTOINCREMENT, "
-                "chat_id INTEGER NOT NULL, event_type TEXT NOT NULL, "
-                "requested_by INTEGER NOT NULL, created_at TEXT NOT NULL, processed INTEGER DEFAULT 0)"
-            )
-        import datetime as _dt
-        cur.execute(
-            f"INSERT INTO dev_event_queue (chat_id, event_type, requested_by, created_at) "
-            f"VALUES ({ph},{ph},{ph},{ph})",
-            (target_chat, event_type, uid, _dt.datetime.utcnow().isoformat()),
-        )
-        conn.commit()
-        conn.close()
-        return JsonResponse({"ok": True, "event_type": event_type, "chat_id": target_chat,
-                             "note": "queued — bot will fire within ~30s"}, headers=headers)
-    except Exception as exc:
-        try:
-            conn.close()
-        except Exception:
-            pass
         return JsonResponse({"error": str(exc)}, status=500, headers=headers)
 
 
@@ -2179,28 +1642,8 @@ def miniapp_dev_items(request):
     if uid != _DEVELOPER_ID:
         return JsonResponse({"error": "forbidden"}, status=403, headers=headers)
 
-    # Build flat list from the pool defined lower in this file
-    # We re-declare the mapping here to avoid forward-reference issues
-    _pool = {
-        "junk":      [("junk_stone", "🪨 Камень Маслоу"), ("junk_stick", "🪴 Палка путника"),
-                      ("junk_dust", "💨 Пыль забвения"), ("junk_bone", "🦴 Кость хиличурла"),
-                      ("junk_mushroom", "🍄 Сомнительный гриб")],
-        "common":    [("cmn_sword", "⚔️ Тупой клинок"), ("cmn_bow", "🏹 Кривой лук"),
-                      ("cmn_book", "📕 Потрёпанный дневник"), ("cmn_ring", "💍 Дешёвое кольцо"),
-                      ("cmn_shield", "🛡 Ржавый щит")],
-        "rare":      [("rare_crown", "👑 Серебряная корона"), ("rare_catalyst", "🔮 Магический катализатор"),
-                      ("rare_cape", "🧣 Алый плащ"), ("rare_gem", "💎 Сапфир полуночи")],
-        "legendary": [("lego_gnosis", "✨ Гнозис Балладеера"), ("lego_scepter", "🏛 Скипетр Дендро Архонта"),
-                      ("lego_pantalone", "🎩 Маска Панталоне"), ("lego_abyss", "🌀 Корона Бездны"),
-                      ("lego_fatui", "⚡ Перст Предвестника")],
-    }
-    items = []
-    rarity_emoji = {"junk": "🪨", "common": "💙", "rare": "💜", "legendary": "⭐"}
-    for rarity, pool in _pool.items():
-        for key, name in pool:
-            items.append({"key": key, "name": name, "rarity": rarity,
-                          "rarity_emoji": rarity_emoji.get(rarity, "")})
-    return JsonResponse({"items": items}, json_dumps_params={"ensure_ascii": False}, headers=headers)
+    from api.admin import get_items as _get_items
+    return JsonResponse(_get_items(), json_dumps_params={"ensure_ascii": False}, headers=headers)
 
 
 # ─── Family wallet: deposit / withdraw ────────────────────────────────────────
@@ -4408,29 +3851,6 @@ async def log_action_to_chat(user_id: int, chat_id: int, action: str, details: s
 # QUEST / ЗАДАНИЯ
 # =============================================================================
 
-def _quest_today() -> str:
-    """Return today's date string matching bot_today() (UTC or BOT_TIMEZONE)."""
-    try:
-        from zoneinfo import ZoneInfo
-        from config import BOT_TIMEZONE
-        tz = ZoneInfo(BOT_TIMEZONE)
-        return datetime.now(tz).date().isoformat()
-    except Exception:
-        return datetime.now(timezone.utc).date().isoformat()
-
-
-def _quest_default_for_date(today_str: str) -> dict:
-    """Compute the rotation quest for a given date without DB lookup."""
-    from datetime import date as _date
-    try:
-        from database.db import DAILY_QUESTS
-    except Exception:
-        return {"type": "messages", "goal": 10, "xp": 30, "mora": 3, "desc": "✍️ Написать 10 сообщений в чате"}
-    d = _date.fromisoformat(today_str)
-    idx = d.toordinal() % len(DAILY_QUESTS)
-    return DAILY_QUESTS[idx]
-
-
 @csrf_exempt
 def miniapp_quest(request):
     """GET /api/quest?chat_id=X — current daily quest + progress."""
@@ -4448,64 +3868,14 @@ def miniapp_quest(request):
     if not chat_id_str.lstrip("-").isdigit():
         return JsonResponse({"error": "chat_id required"}, status=400, headers=headers)
     chat_id = int(chat_id_str)
-    today = _quest_today()
-
     try:
-        conn, db_type = _get_bot_db_connection()
+        from asgiref.sync import async_to_sync as _a2s
+        from api.quests import get_quest as _get_quest
+        result = _a2s(_get_quest)(uid, chat_id)
+        return JsonResponse({"ok": True, **result}, json_dumps_params={"ensure_ascii": False}, headers=headers)
+    except ValueError as exc:
+        return JsonResponse({"error": str(exc)}, status=400, headers=headers)
     except Exception as exc:
-        return JsonResponse({"error": f"DB: {exc}"}, status=503, headers=headers)
-
-    try:
-        cur = conn.cursor()
-        ph = "%s" if db_type == "pg" else "?"
-
-        cur.execute(
-            f"SELECT quest_type, goal, progress, completed, rewarded "
-            f"FROM user_quests WHERE user_id={ph} AND chat_id={ph} AND quest_date={ph}",
-            (uid, chat_id, today),
-        )
-        row = cur.fetchone()
-        conn.close()
-
-        if row:
-            quest_type, goal, progress, completed, rewarded = row
-            # Find matching quest in DAILY_QUESTS
-            try:
-                from database.db import DAILY_QUESTS
-                quest = next(
-                    (q for q in DAILY_QUESTS if q["type"] == quest_type and q["goal"] == goal),
-                    None,
-                )
-                if not quest:
-                    quest = {"type": quest_type, "goal": goal, "xp": 50, "mora": 5, "desc": f"Задание: {quest_type}"}
-            except Exception:
-                quest = {"type": quest_type, "goal": goal, "xp": 50, "mora": 5, "desc": f"Задание: {quest_type}"}
-        else:
-            quest = _quest_default_for_date(today)
-            progress = 0
-            completed = 0
-            rewarded = 0
-
-        return JsonResponse({
-            "ok": True,
-            "quest": {
-                "type": quest["type"],
-                "goal": quest["goal"],
-                "desc": quest["desc"],
-                "xp": quest["xp"],
-                "mora": quest.get("mora", 5),
-            },
-            "progress": progress,
-            "completed": bool(completed),
-            "rewarded": bool(rewarded),
-            "today": today,
-        }, json_dumps_params={"ensure_ascii": False}, headers=headers)
-
-    except Exception as exc:
-        try:
-            conn.close()
-        except Exception:
-            pass
         return JsonResponse({"error": str(exc)}, status=500, headers=headers)
 
 
@@ -4528,106 +3898,14 @@ def miniapp_quest_reroll(request):
         return JsonResponse({"error": "bad JSON"}, status=400, headers=headers)
 
     chat_id = int(data.get("chat_id", 0))
-    today = _quest_today()
-
     try:
-        from config import QUEST_REROLL_PRICE
-    except Exception:
-        QUEST_REROLL_PRICE = 25
-
-    try:
-        conn, db_type = _get_bot_db_connection()
+        from asgiref.sync import async_to_sync as _a2s
+        from api.quests import reroll_quest as _reroll_quest
+        result = _a2s(_reroll_quest)(uid, chat_id)
+        return JsonResponse({"ok": True, **result}, json_dumps_params={"ensure_ascii": False}, headers=headers)
+    except ValueError as exc:
+        return JsonResponse({"error": str(exc)}, status=400, headers=headers)
     except Exception as exc:
-        return JsonResponse({"error": f"DB: {exc}"}, status=503, headers=headers)
-
-    try:
-        cur = conn.cursor()
-        ph = "%s" if db_type == "pg" else "?"
-
-        # Check if already completed
-        cur.execute(
-            f"SELECT completed FROM user_quests WHERE user_id={ph} AND chat_id={ph} AND quest_date={ph}",
-            (uid, chat_id, today),
-        )
-        row = cur.fetchone()
-        if row and row[0]:
-            conn.close()
-            return JsonResponse({"error": "Задание уже выполнено — переброс не нужен"}, status=400, headers=headers)
-
-        # Check balance
-        cur.execute(f"SELECT balance FROM user_mora WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
-        bal_row = cur.fetchone()
-        balance = bal_row[0] if bal_row else 0
-        if balance < QUEST_REROLL_PRICE:
-            conn.close()
-            return JsonResponse({"error": f"Недостаточно Моры. Нужно {QUEST_REROLL_PRICE} 🪙"}, status=400, headers=headers)
-
-        # Deduct mora
-        cur.execute(
-            f"UPDATE user_mora SET balance=balance-{ph} WHERE user_id={ph} AND chat_id={ph} AND balance>={ph}",
-            (QUEST_REROLL_PRICE, uid, chat_id, QUEST_REROLL_PRICE),
-        )
-        if cur.rowcount == 0:
-            conn.close()
-            return JsonResponse({"error": "Не удалось списать Мору"}, status=400, headers=headers)
-
-        # Pick new quest
-        try:
-            from database.db import DAILY_QUESTS
-            import random as _random
-            # Get old quest to avoid repeating it
-            cur.execute(
-                f"SELECT quest_type, goal FROM user_quests WHERE user_id={ph} AND chat_id={ph} AND quest_date={ph}",
-                (uid, chat_id, today),
-            )
-            old_row = cur.fetchone()
-            if old_row:
-                old_type, old_goal = old_row
-                candidates = [q for q in DAILY_QUESTS if not (q["type"] == old_type and q["goal"] == old_goal)]
-                if not candidates:
-                    candidates = DAILY_QUESTS
-            else:
-                old_quest = _quest_default_for_date(today)
-                candidates = [q for q in DAILY_QUESTS if not (q["type"] == old_quest["type"] and q["goal"] == old_quest["goal"])]
-                if not candidates:
-                    candidates = DAILY_QUESTS
-            new_quest = _random.choice(candidates)
-        except Exception:
-            new_quest = _quest_default_for_date(today)
-
-        # Delete old row and insert new
-        cur.execute(
-            f"DELETE FROM user_quests WHERE user_id={ph} AND chat_id={ph} AND quest_date={ph}",
-            (uid, chat_id, today),
-        )
-        cur.execute(
-            f"INSERT INTO user_quests (user_id, chat_id, quest_date, quest_type, goal, progress, completed, rewarded) "
-            f"VALUES ({ph},{ph},{ph},{ph},{ph},0,0,0)",
-            (uid, chat_id, today, new_quest["type"], new_quest["goal"]),
-        )
-        cur.execute(f"SELECT balance FROM user_mora WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
-        new_balance = (cur.fetchone() or [balance])[0]
-        conn.commit()
-        conn.close()
-
-        return JsonResponse({
-            "ok": True,
-            "quest": {
-                "type": new_quest["type"],
-                "goal": new_quest["goal"],
-                "desc": new_quest["desc"],
-                "xp": new_quest["xp"],
-                "mora": new_quest.get("mora", 5),
-            },
-            "cost": QUEST_REROLL_PRICE,
-            "new_balance": new_balance,
-        }, json_dumps_params={"ensure_ascii": False}, headers=headers)
-
-    except Exception as exc:
-        try:
-            conn.close()
-        except Exception:
-            pass
         return JsonResponse({"error": str(exc)}, status=500, headers=headers)
 
 
