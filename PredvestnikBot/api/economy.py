@@ -6,11 +6,13 @@ All functions are async; the mini app wraps them with async_to_sync.
 from datetime import datetime, timezone, timedelta
 
 
-async def transfer_mora(from_uid: int, to_uid: int, chat_id: int, amount: int) -> dict:
+async def transfer_mora(from_uid: int, to_uid: int, chat_id: int, amount: int,
+                        cover_vat: bool = True) -> dict:
     """
-    Transfer mora with progressive treasury tax deducted from sender.
+    Transfer mora with progressive treasury tax.
 
-    Total sender deduction = amount + tax.
+    cover_vat=True  → sender pays amount+tax, receiver gets amount  (default)
+    cover_vat=False → sender pays amount,     receiver gets amount-tax
     Raises ValueError with a Russian message on any error.
     Returns {ok, amount, tax, from_balance, to_balance}
     """
@@ -39,25 +41,33 @@ async def transfer_mora(from_uid: int, to_uid: int, chat_id: int, amount: int) -
 
     mora_row = await get_mora(from_uid, chat_id)
     bal = mora_row["balance"] if mora_row else 0
-    if bal < amount + tax:
-        raise ValueError(
-            f"Недостаточно Моры. Нужно {amount + tax} 🪙 (сумма + налог {tax})"
-        )
 
-    # Deduct (amount + tax) from sender atomically
-    ok, from_bal = await deduct_mora(from_uid, chat_id, amount + tax)
+    if cover_vat:
+        deduct_total = amount + tax
+        credit_amount = amount
+    else:
+        deduct_total = amount
+        credit_amount = max(0, amount - tax)
+
+    if bal < deduct_total:
+        need = deduct_total
+        hint = f"сумма + налог {tax}" if cover_vat else f"налог {tax} вычтется у получателя"
+        raise ValueError(f"Недостаточно Моры. Нужно {need} 🪙 ({hint})")
+
+    # Deduct from sender atomically
+    ok, from_bal = await deduct_mora(from_uid, chat_id, deduct_total)
     if not ok:
         raise ValueError("Не удалось выполнить перевод")
 
     # Credit receiver
-    to_bal = await add_mora(to_uid, chat_id, amount)
+    to_bal = await add_mora(to_uid, chat_id, credit_amount)
 
     # Tax to treasury
     await add_to_treasury(chat_id, tax, "transfer", from_uid)
 
     return {
         "ok":           True,
-        "amount":       amount,
+        "amount":       credit_amount,
         "tax":          tax,
         "from_balance": from_bal,
         "to_balance":   to_bal,
