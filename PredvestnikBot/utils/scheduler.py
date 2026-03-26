@@ -8,6 +8,7 @@
   • розыгрыш лотереи по воскресеньям (проверка каждый час)
   • налоговая инспекция — случайный ивент каждые 4-8 часов
   • уведомления о завершённых экспедициях
+  • авто-удаление данных вышедших + неактивных 7+ дней (проверка каждый час)
 """
 
 import asyncio
@@ -68,6 +69,10 @@ async def run_scheduler(bot) -> None:
             await _task_treasury_dividends(bot)
         except Exception as exc:
             log.error("Scheduler [treasury_dividends] error: %s", exc, exc_info=True)
+        try:
+            await _task_cleanup_left_users()
+        except Exception as exc:
+            log.error("Scheduler [cleanup_left_users] error: %s", exc, exc_info=True)
         await asyncio.sleep(3600)  # следующий прогон через час
 
 
@@ -645,3 +650,11 @@ async def _task_dev_event_queue(bot) -> None:
         log.warning("_task_dev_event_queue: %s", exc)
 
 
+# ─── Авто-удаление данных вышедших + неактивных 7+ дней ──────────────────────
+
+async def _task_cleanup_left_users() -> None:
+    """Удаляет user_stats и user_mora для пользователей, покинувших чат 7+ дней назад."""
+    from database.db import cleanup_left_inactive_users
+    cleaned = await cleanup_left_inactive_users(cutoff_days=7)
+    if cleaned:
+        log.info("Scheduler [cleanup_left_users]: cleaned %d (user_id, chat_id) pairs", cleaned)

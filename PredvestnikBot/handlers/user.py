@@ -708,7 +708,7 @@ def _build_top_text(
     # Max count for progress bars
     max_count = max((u[count_field] if count_field in u.keys() else 0 for u in top), default=1) or 1
 
-    sep = "─" * 26
+    sep = "─" * 28
     lines: list[str] = [sep, title, sep]
 
     # News section (only when we have previous period data)
@@ -767,13 +767,13 @@ def _build_top_text(
                 streak_badge = f" 🔥{sd}"
 
         # Progress bar — top-20 only to save space
-        bar_part = _make_top_bar(count, max_count) + " " if i < 20 else ""
+        bar_part = " " + _make_top_bar(count, max_count) if i < 20 else ""
 
         # Clickable name via tg:// link
         name_e = html.escape(u["full_name"])
         name_link = f'<a href="tg://user?id={uid_top}">{name_e}</a>' if uid_top else f"<b>{name_e}</b>"
 
-        line = f"│ {frame_e}{place}{vip} {trend}{bar_part}│ {name_link}{streak_badge} — {count} │"
+        line = f"{frame_e}{place}{vip} {trend}{name_link}{streak_badge} — {count}{bar_part}"
         if used + len(line) + 1 > budget:
             lines.append(f"<i>…и ещё {len(top) - i} участников</i>")
             break
