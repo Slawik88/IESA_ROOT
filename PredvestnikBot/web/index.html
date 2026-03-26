@@ -3523,7 +3523,7 @@ function renderTransfersTab(){
     </div>
     <div class="card">
       <div class="card-title">💸 Перевод Моры</div>
-      <div style="font-size:12px;color:var(--text2);margin-bottom:8px">Безвозмездно отправить Мору другому участнику. Налог 0.5%.</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:8px">Безвозмездно отправить Мору другому участнику. НДС: ≤3% │ 501-2000: 7% │ 2001+: 8%</div>
       <div style="font-size:12px;color:var(--text2);margin-bottom:4px">Получатель:</div>
       <div class="selected-user-btn" style="margin-bottom:8px" onclick="openUserPicker('💸 Выбери получателя', function(id,n){ _setTransferTarget(id,n) })">
         <span id="transferTargetLabel" style="color:var(--text2);flex:1">👆 Выбери из списка…</span>
@@ -3591,8 +3591,12 @@ function renderTransfersTab(){
     const total = lent.length + pending_outgoing.length;
     html += `<div class="card"><div class="card-title">💰 Мне должны / ожидание (${total})</div>`;
     pending_outgoing.forEach(l=>{
-      html += `<div style="margin-bottom:8px;padding:8px;background:var(--bg3);border-radius:8px;border-left:3px solid var(--gold)">
-        <b>${esc(l.borrower_name)}</b> — ${l.amount} 🪙 <span style="font-size:11px;color:var(--gold)">⏳ ждёт принятия</span>
+      html += `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;padding:8px;background:var(--bg3);border-radius:8px;border-left:3px solid var(--gold)">
+        <div><b>${esc(l.borrower_name)}</b><br><span style="font-size:12px;color:var(--text2)">${l.amount} 🪙</span></div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <span style="font-size:11px;color:var(--gold)">⏳ ждёт принятия</span>
+          <button class="btn btn-sm" style="background:#6b7280;color:#fff;min-height:44px" onclick="doLoanCancel(${l.id})">✖ Отмена</button>
+        </div>
       </div>`;
     });
     lent.forEach(l=>{
@@ -3656,6 +3660,13 @@ async function doLoanRespond(loanId, action){
     } else {
       toast('❌ Займ отклонён','info');
     }
+    tabLoaded['transfers']=false; loadTransfersTab();
+  }catch(e){toast('❌ '+e.message,'error');}
+}
+async function doLoanCancel(loanId){
+  try{
+    await api('/api/loans/cancel','POST',{chat_id:chatId,loan_id:loanId});
+    toast('✖ Заявка отменена','info');
     tabLoaded['transfers']=false; loadTransfersTab();
   }catch(e){toast('❌ '+e.message,'error');}
 }

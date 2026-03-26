@@ -52,6 +52,7 @@ from .miniapp_views import (
     miniapp_loans_create,
     miniapp_loans_repay,
     miniapp_loans_respond,
+    miniapp_loans_cancel,
     miniapp_casino_coin,
     miniapp_casino_lottery,
     miniapp_expeditions,
@@ -162,6 +163,7 @@ urlpatterns = [
     path('api/loans/create', miniapp_loans_create, name='miniapp_loans_create'),
     path('api/loans/repay', miniapp_loans_repay, name='miniapp_loans_repay'),
     path('api/loans/respond', miniapp_loans_respond, name='miniapp_loans_respond'),
+    path('api/loans/cancel', miniapp_loans_cancel, name='miniapp_loans_cancel'),
     # ─── Casino / Казино ──────────────────────────────────────────────────────
     path('api/casino/coin', miniapp_casino_coin, name='miniapp_casino_coin'),
     path('api/casino/lottery', miniapp_casino_lottery, name='miniapp_casino_lottery'),

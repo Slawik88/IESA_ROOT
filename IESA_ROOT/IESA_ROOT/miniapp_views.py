@@ -5690,7 +5690,14 @@ def miniapp_transfer(request):
         cur.execute(f"SELECT balance FROM user_mora WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
         bal_row = cur.fetchone()
         balance = bal_row[0] if bal_row else 0
-        tax = max(1, int(amount * 0.005))
+        # Прогрессивный НДС с переводов
+        if amount <= 500:
+            _tax_rate = 0.03
+        elif amount <= 2000:
+            _tax_rate = 0.07
+        else:
+            _tax_rate = 0.08
+        tax = max(1, int(amount * _tax_rate))
         total_needed = amount + tax
         if balance < total_needed:
             conn.close()
@@ -6112,7 +6119,8 @@ def miniapp_loans_respond(request):
 
         if action == "reject":
             # Just mark status as rejected (no money moved)
-            cur.execute(f"UPDATE mora_loans SET status='rejected', repaid_at=NOW() WHERE id={ph}", (loan_id,))
+            now_iso = datetime.now(timezone.utc).isoformat()
+            cur.execute(f"UPDATE mora_loans SET status='rejected', repaid_at={ph} WHERE id={ph}", (now_iso, loan_id,))
             conn.commit()
             conn.close()
             return JsonResponse({"ok": True, "action": "rejected"}, json_dumps_params={"ensure_ascii": False}, headers=headers)
@@ -6155,6 +6163,66 @@ def miniapp_loans_respond(request):
             "amount": amount,
             "new_balance": new_balance,
         }, json_dumps_params={"ensure_ascii": False}, headers=headers)
+
+    except Exception as exc:
+        try:
+            conn.close()
+        except Exception:
+            pass
+        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+
+
+# =============================================================================
+# CASINO / КАЗИНО
+# =============================================================================
+
+@csrf_exempt
+def miniapp_loans_cancel(request):
+    """POST /api/loans/cancel {chat_id, loan_id} — lender cancels a pending outgoing loan request."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=405, headers=headers)
+
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+
+    try:
+        data = json.loads(request.body)
+    except Exception:
+        return JsonResponse({"error": "bad JSON"}, status=400, headers=headers)
+
+    chat_id = int(data.get("chat_id", 0))
+    loan_id = int(data.get("loan_id", 0))
+
+    try:
+        conn, db_type = _get_bot_db_connection()
+    except Exception as exc:
+        return JsonResponse({"error": f"DB: {exc}"}, status=503, headers=headers)
+
+    try:
+        cur = conn.cursor()
+        ph = "%s" if db_type == "pg" else "?"
+
+        # Only the lender can cancel, and only while status is pending
+        cur.execute(
+            f"SELECT id FROM mora_loans WHERE id={ph} AND lender_id={ph} AND chat_id={ph} AND status='pending' AND repaid_at IS NULL",
+            (loan_id, uid, chat_id),
+        )
+        if not cur.fetchone():
+            conn.close()
+            return JsonResponse({"error": "Заявка не найдена или уже обработана"}, status=404, headers=headers)
+
+        now_iso = datetime.now(timezone.utc).isoformat()
+        cur.execute(
+            f"UPDATE mora_loans SET status='cancelled', repaid_at={ph} WHERE id={ph}",
+            (now_iso, loan_id),
+        )
+        conn.commit()
+        conn.close()
+        return JsonResponse({"ok": True, "action": "cancelled"}, json_dumps_params={"ensure_ascii": False}, headers=headers)
 
     except Exception as exc:
         try:
