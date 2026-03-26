@@ -81,38 +81,22 @@ async def cmd_transfer(message: Message, cmd_args: str):
         )
         return
 
-    ok, from_bal, to_bal = await transfer_mora(uid, target_id, chat_id, amount)
-    if not ok:
-        mora = await get_mora(uid, chat_id)
-        bal = mora["balance"] if mora else 0
-        await message.answer(
-            f"❌ Недостаточно Моры.\n"
-            f"У тебя: <b>{bal} 🪙</b>, нужно: <b>{amount} 🪙</b>",
-            parse_mode="HTML",
-        )
+    from api.economy import transfer_mora as _api_transfer
+    try:
+        res = await _api_transfer(uid, target_id, chat_id, amount)
+    except ValueError as e:
+        await message.answer(f"❌ {e}", parse_mode="HTML")
         return
 
-    # Прогрессивный НДС с переводов в казну чата
-    if amount <= 500:
-        _tax_rate = 0.03
-    elif amount <= 2000:
-        _tax_rate = 0.07
-    else:
-        _tax_rate = 0.08
-    tax = max(1, int(amount * _tax_rate))
-    ok_tax, _ = await deduct_mora(uid, chat_id, tax)
-    if ok_tax:
-        from_bal = max(0, from_bal - tax)
-        await add_to_treasury(chat_id, tax)
-
+    tax = res["tax"]
     sender = user_mention(uid, message.from_user.full_name)
     receiver = user_mention(target_id, target_name)
-    tax_note = f"\n🏦 Налог казны: <b>-{tax} 🪙</b>" if ok_tax else ""
+    tax_note = f"\n🏦 Налог казны: <b>-{tax} 🪙</b>" if tax else ""
     await message.answer(
         f"💸 <b>Перевод выполнен!</b>\n\n"
         f"{sender} → {receiver}\n"
         f"Сумма: <b>{amount} 🪙</b>{tax_note}\n\n"
-        f"Твой баланс: <b>{from_bal} 🪙</b>",
+        f"Твой баланс: <b>{res['from_balance']} 🪙</b>",
         parse_mode="HTML",
     )
 

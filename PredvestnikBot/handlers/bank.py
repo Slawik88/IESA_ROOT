@@ -267,33 +267,20 @@ async def cb_bank_confirm(callback: CallbackQuery):
         )
         return
 
-    # Применяем бонус одиночки к ставке
-    single = await is_user_single(uid, chat_id)
-    effective_rate = p["rate"] + (SINGLES_BANK_BONUS if single else 0.0)
-    payment_text = "личного баланса"
-    if source == "family":
-        ok, new_family_bal = await deduct_wallet(owner, chat_id, amount, "family")
-        if not ok:
-            await callback.answer(f"❌ Недостаточно семейных средств ({new_family_bal} / {amount})", show_alert=True)
-            return
-        payment_text = "семейного кошелька"
-    else:
-        ok, new_bal = await deduct_mora(uid, chat_id, amount)
-        if not ok:
-            mora = await get_mora(uid, chat_id)
-            bal = mora["balance"] if mora else 0
-            await callback.answer(f"❌ Недостаточно Моры ({bal} / {amount})", show_alert=True)
-            return
+    from api.bank import deposit as _api_deposit
+    try:
+        res = await _api_deposit(uid, chat_id, plan_key, amount, source)
+    except ValueError as e:
+        await callback.answer(str(e), show_alert=True)
+        return
 
-    await create_deposit(uid, chat_id, amount, effective_rate, p["days"])
-
-    reward = int(amount * effective_rate)
-    singles_line = "\n💼 <i>(Бафф одиночки +2% применён)</i>" if single else ""
+    payment_text = "семейного кошелька" if source == "family" else "личного баланса"
+    singles_line = "\n💼 <i>(Бафф одиночки +2% применён)</i>" if res["singles_bonus"] else ""
     try:
         await callback.message.edit_text(
             f"✅ <b>Вклад открыт!</b>\n\n"
             f"💳 Сумма: {amount} 🪙 с {payment_text}\n"
-            f"📊 Доход: +{reward} 🪙 через {p['days']} д.{singles_line}\n",
+            f"📊 Доход: +{res['reward']} 🪙 через {p['days']} д.{singles_line}\n",
             parse_mode="HTML",
         )
     except Exception:
@@ -320,39 +307,24 @@ async def cb_bank_withdraw(callback: CallbackQuery):
         await callback.answer("📦 У тебя нет вкладов.", show_alert=True)
         return
 
-    now = datetime.utcnow()
-    dep = deposits[0]  # Снимаем первый
-    dep_id = dep["id"]
-    amount = dep["amount"]
-    matures_at = dep["matures_at"]
-    if isinstance(matures_at, str):
-        matures_at = datetime.fromisoformat(matures_at)
-
-    is_mature = now >= matures_at
-
-    dep_data = await withdraw_deposit(dep_id)
-    if not dep_data:
-        await callback.answer("❌ Вклад уже снят.", show_alert=True)
+    dep_id = deposits[0]["id"]
+    from api.bank import withdraw as _api_withdraw
+    try:
+        res = await _api_withdraw(uid, chat_id, dep_id)
+    except ValueError as e:
+        await callback.answer(str(e), show_alert=True)
         return
 
-    rate = dep_data["rate"]
-    if is_mature:
-        payout = amount + int(amount * rate)
-    else:
-        penalty = int(amount * BANK_EARLY_PENALTY_PCT)
-        payout = amount - penalty
-        if payout < 0:
-            payout = 0
-
-    await add_mora(uid, chat_id, payout)
-
-    if is_mature:
+    payout = res["payout"]
+    amount = res["amount"]
+    if not res["early"]:
         text = (
             f"✅ <b>Вклад #{dep_id} снят!</b>\n\n"
             f"💰 Возврат: {amount} 🪙 + {payout - amount} 🪙 проценты\n"
             f"💳 Получено: <b>{payout} 🪙</b>"
         )
     else:
+        penalty = amount - payout
         text = (
             f"⚠️ <b>Вклад #{dep_id} снят досрочно!</b>\n\n"
             f"💰 Сумма вклада: {amount} 🪙\n"
