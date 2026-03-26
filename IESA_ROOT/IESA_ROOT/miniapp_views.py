@@ -2312,32 +2312,6 @@ def miniapp_shop_set_title(request):
         return JsonResponse({"error": str(exc)}, status=500, headers=headers)
 
 
-import random as _random
-
-_GACHA_POOL = {
-    "junk":      [("junk_stone","\U0001faa8 Камень Маслоу"),("junk_stick","\U0001fab5 Палка путника"),("junk_dust","💨 Пыль забвения"),("junk_bone","🦴 Кость хиличурла"),("junk_mushroom","🍄 Сомнительный гриб")],
-    "common":    [("cmn_sword","⚔️ Тупой клинок"),("cmn_bow","🏹 Кривой лук"),("cmn_book","📕 Потрёпанный дневник"),("cmn_ring","💍 Дешёвое кольцо"),("cmn_shield","🛡 Ржавый щит")],
-    "rare":      [("rare_crown","👑 Серебряная корона"),("rare_catalyst","🔮 Магический катализатор"),("rare_cape","🧣 Алый плащ"),("rare_gem","💎 Сапфир полуночи")],
-    "legendary": [("lego_gnosis","✨ Гнозис Балладеера"),("lego_scepter","🏛 Скипетр Дендро Архонта"),("lego_pantalone","🎩 Маска Панталоне"),("lego_abyss","🌀 Корона Бездны"),("lego_fatui","⚡ Перст Предвестника")],
-}
-
-
-def _gacha_roll_one_sync(pity: int):
-    roll = _random.random()
-    if pity >= _GACHA_PITY_MAX - 1 or roll < 0.03:  # РЕБАЛАНС: было 0.02
-        key, name = _random.choice(_GACHA_POOL["legendary"])
-        return key, name, "legendary"
-    elif roll < 0.10:
-        key, name = _random.choice(_GACHA_POOL["rare"])
-        return key, name, "rare"
-    elif roll < 0.30:
-        key, name = _random.choice(_GACHA_POOL["common"])
-        return key, name, "common"
-    else:
-        key, name = _random.choice(_GACHA_POOL["junk"])
-        return key, name, "junk"
-
-
 # ─── Gacha Roll ───────────────────────────────────────────────────────────────
 
 @csrf_exempt
