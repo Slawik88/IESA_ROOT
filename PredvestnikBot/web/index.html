@@ -241,6 +241,11 @@ select{background:var(--bg3);border:1px solid var(--border);border-radius:8px;pa
   .dev-inline-btn{grid-column:1/-1}
   .dev-salary-grid{grid-template-columns:1fr 1fr}
   .dev-salary-grid .dev-inline-btn{grid-column:1/-1}
+  .bank-balance-val{font-size:15px}
+  .bank-balance-cell{padding:8px}
+  #walletHistoryList,.wallet-history-row{font-size:11px}
+  .wallet-history-ts{font-size:10px}
+  #familyLogList{font-size:11px}
 }
 /* Bank */
 .bank-balance-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
@@ -416,8 +421,6 @@ select{background:var(--bg3);border:1px solid var(--border);border-radius:8px;pa
     <div class="card" id="familyWalletCard" style="display:none">
       <div class="card-title">🏦 Семейный банк</div>
       <div class="stat-row"><span class="stat-label">💰 Общий баланс</span><span class="stat-value" id="famTotal">—</span></div>
-      <div class="stat-row"><span class="stat-label">👤 Мой вклад</span><span class="stat-value" id="famMy">—</span></div>
-      <div class="stat-row"><span class="stat-label" id="famPartnerLabel">👥 Вклад партнёра</span><span class="stat-value" id="famPartner">—</span></div>
       <div class="input-group">
         <input type="number" id="famAmount" placeholder="Сумма" min="1"/>
       </div>
@@ -1187,10 +1190,11 @@ async function loadWalletHistory(){
       shop: '🛒 Магазин', bonds_buy: '📊 Биржа (покупка)', bonds_sell: '📊 Биржа (продажа)',
       transfer: '💸 Перевод', transfer_in: '💸 Получен перевод', transfer_out: '💸 Отправлен перевод',
       checkin: '📅 Чекин', reward: '🎁 Награда', family_deposit: '👨‍👩‍👧 Семейный вклад',
-      family_withdraw: '👨‍👩‍👧 Семейное снятие', couple_boss: '👫 Парный босс',
+      family_withdraw: '👨‍👩‍👧 Семейное снятие', family_partner_deposit: '👨‍👩‍👧 Вклад партнёра',
+      couple_boss: '👫 Парный босс',
       gacha: '🎲 Гача', enhance: '⚔️ Улучшение', salary_bonus: '💼 Бонус к зарплате',
     };
-    const FAMILY_SOURCES = new Set(['family_deposit','family_withdraw']);
+    const FAMILY_SOURCES = new Set(['family_deposit','family_withdraw','family_partner_deposit']);
 
     function renderRow(h) {
       const cls = h.direction === 'expense' ? 'expense' : 'income';
@@ -1341,11 +1345,6 @@ async function loadUnion(){
   if(p.has_partner){
     document.getElementById('familyWalletCard').style.display='block';
     document.getElementById('famTotal').textContent=(p.family_balance||0)+' 🪙';
-    document.getElementById('famMy').textContent=(p.my_family_balance||0)+' 🪙';
-    const fplEl = document.getElementById('famPartnerLabel');
-    fplEl.textContent='👥 Вклад '+(p.partner_name||'партнёра');
-    if(p.partner_id){ fplEl.onclick=()=>showPubProfile(p.partner_id); fplEl.style.cursor='pointer'; }
-    document.getElementById('famPartner').textContent=(p.partner_family_balance||0)+' 🪙';
     // Show family log card and trigger load
     document.getElementById('familyLogCard').style.display='block';
     loadFamilyLog();
@@ -1450,9 +1449,12 @@ async function loadFamilyLog(){
       const icon = ACTION_ICON[t.action] || '💸';
       const color = ACTION_COLOR[t.action] || 'var(--text)';
       const sign = t.action === 'deposit' ? '+' : '-';
-      return `<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border)">
-        <span>${icon} <b style="color:${color}">${sign}${t.amount} 🪙</b></span>
-        <span style="color:var(--text2);font-size:11px;text-align:right">${esc(t.user_name||'')}<br>${dt}</span>
+      const label = t.action === 'deposit'
+        ? `+${t.amount} 🪙 → Сем. кошелёк от ${esc(t.user_name||'')}`
+        : `−${t.amount} 🪙 ← Сем. кошелёк — ${esc(t.user_name||'')}`;
+      return `<div style="display:flex;justify-content:space-between;align-items:flex-start;padding:5px 0;border-bottom:1px solid var(--border);gap:6px">
+        <span style="flex:1;min-width:0;word-break:break-word;font-size:12px">${icon} <b style="color:${color}">${label}</b></span>
+        <span style="color:var(--text2);font-size:11px;white-space:nowrap;flex-shrink:0">${dt}</span>
       </div>`;
     }).join('');
   } catch(e){
