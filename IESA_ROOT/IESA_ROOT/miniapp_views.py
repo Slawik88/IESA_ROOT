@@ -6376,9 +6376,9 @@ def miniapp_expeditions(request):
         from config import EXPEDITION_OPTIONS
     except Exception:
         EXPEDITION_OPTIONS = {
-            "short":  {"hours": 2, "cost": 0,  "reward_min": 50,  "reward_max": 80,  "label": "2ч (бесплатно)"},
-            "medium": {"hours": 4, "cost": 10, "reward_min": 120, "reward_max": 200, "label": "4ч (10 🪙)"},
-            "long":   {"hours": 8, "cost": 25, "reward_min": 200, "reward_max": 300, "label": "8ч (25 🪙)"},
+            "short":  {"hours": 2, "cost": 0,  "reward_min": 10,  "reward_max": 15,  "label": "2ч (бесплатно)"},
+            "medium": {"hours": 4, "cost": 5,  "reward_min": 35,  "reward_max": 40,  "label": "4ч (5 🪙)"},
+            "long":   {"hours": 8, "cost": 10, "reward_min": 55,  "reward_max": 60,  "label": "8ч (10 🪙)"},
         }
 
     try:
@@ -6479,9 +6479,9 @@ def miniapp_expeditions_start(request):
         from config import EXPEDITION_OPTIONS
     except Exception:
         EXPEDITION_OPTIONS = {
-            "short":  {"hours": 2, "cost": 0,  "reward_min": 50,  "reward_max": 80,  "label": "2ч (бесплатно)"},
-            "medium": {"hours": 4, "cost": 10, "reward_min": 120, "reward_max": 200, "label": "4ч (10 🪙)"},
-            "long":   {"hours": 8, "cost": 25, "reward_min": 200, "reward_max": 300, "label": "8ч (25 🪙)"},
+            "short":  {"hours": 2, "cost": 0,  "reward_min": 10,  "reward_max": 15,  "label": "2ч (бесплатно)"},
+            "medium": {"hours": 4, "cost": 5,  "reward_min": 35,  "reward_max": 40,  "label": "4ч (5 🪙)"},
+            "long":   {"hours": 8, "cost": 10, "reward_min": 55,  "reward_max": 60,  "label": "8ч (10 🪙)"},
         }
 
     opt = EXPEDITION_OPTIONS.get(option_key)
