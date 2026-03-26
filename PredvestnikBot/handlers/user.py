@@ -674,6 +674,123 @@ async def cb_help(callback: CallbackQuery):
 _TOP_MEDALS = ["🥇", "🥈", "🥉", "🎖", "🎗"]
 
 
+def _make_top_bar(count: int, max_count: int, width: int = 8) -> str:
+    """Unicode █░ progress bar relative to maximum count."""
+    if max_count == 0:
+        return "░" * width
+    filled = max(0, min(width, round((count / max_count) * width)))
+    return "█" * filled + "░" * (width - filled)
+
+
+def _build_top_text(
+    top: list,
+    prev_top: list,
+    mora_map: dict,
+    title: str,
+    count_field: str,
+    caller_uid: int | None = None,
+) -> str:
+    from handlers.economy import _frame_emoji
+
+    # Previous period rank lookup
+    prev_rank: dict[int, int] = {}
+    for i, u in enumerate(prev_top):
+        uid = u["user_id"] if "user_id" in u.keys() else None
+        if uid:
+            prev_rank[uid] = i + 1
+
+    # Top-10 sets for news section
+    top10_cur = {u["user_id"] for u in top[:10] if "user_id" in u.keys()}
+    top10_prv = {u["user_id"] for u in prev_top[:10] if "user_id" in u.keys()}
+
+    # Max count for progress bars
+    max_count = max((u[count_field] if count_field in u.keys() else 0 for u in top), default=1) or 1
+
+    sep = "━" * 22
+    lines: list[str] = [sep, title, sep]
+
+    # News section (only when we have previous period data)
+    if prev_top and top10_prv:
+        entered = [html.escape(u["full_name"]) for u in top[:10]
+                   if "user_id" in u.keys() and u["user_id"] not in top10_prv]
+        exited  = [html.escape(u["full_name"]) for u in prev_top[:10]
+                   if "user_id" in u.keys() and u["user_id"] not in top10_cur]
+        if entered or exited:
+            lines.append("")
+            if entered:
+                e_str = ", ".join(entered[:4]) + (f" +{len(entered)-4}" if len(entered) > 4 else "")
+                lines.append(f"🆙 <i>В топ-10: {e_str}</i>")
+            if exited:
+                x_str = ", ".join(exited[:4]) + (f" +{len(exited)-4}" if len(exited) > 4 else "")
+                lines.append(f"📉 <i>Вышли: {x_str}</i>")
+
+    lines.append("")
+
+    # User rows — budget-aware
+    budget = 3400
+    used = sum(len(l) + 1 for l in lines)
+    for i, u in enumerate(top):
+        place    = _TOP_MEDALS[i] if i < 5 else f"{i + 1}."
+        count    = u[count_field] if count_field in u.keys() else 0
+        uid_top  = u["user_id"] if "user_id" in u.keys() else None
+        mora_row = mora_map.get(uid_top) if uid_top else None
+
+        # Frame
+        frame_e = ""
+        if mora_row and mora_row.get("top_frame"):
+            frame_e = _frame_emoji(mora_row["top_frame"]) + " "
+
+        # VIP badge
+        vip = " 💎" if (mora_row and mora_row.get("vip")) else ""
+
+        # Trend vs previous period
+        trend = ""
+        if prev_rank and uid_top is not None:
+            if uid_top not in prev_rank:
+                trend = "🆕 "
+            else:
+                delta = prev_rank[uid_top] - (i + 1)
+                if delta > 0:
+                    trend = f"▲{min(delta, 9)} "
+                elif delta < 0:
+                    trend = f"▼{min(abs(delta), 9)} "
+                else:
+                    trend = "= "
+
+        # Streak days
+        streak_badge = ""
+        if mora_row:
+            sd = mora_row.get("streak_days") or 0
+            if sd >= 3:
+                streak_badge = f" 🔥{sd}"
+
+        # Progress bar — top-20 only to save space
+        bar_part = _make_top_bar(count, max_count) + " " if i < 20 else ""
+
+        # Clickable name via tg:// link
+        name_e = html.escape(u["full_name"])
+        name_link = f'<a href="tg://user?id={uid_top}">{name_e}</a>' if uid_top else f"<b>{name_e}</b>"
+
+        line = f"{frame_e}{place}{vip} {trend}{bar_part}{name_link}{streak_badge} — {count}"
+        if used + len(line) + 1 > budget:
+            lines.append(f"<i>…и ещё {len(top) - i} участников</i>")
+            break
+        lines.append(line)
+        used += len(line) + 1
+
+    # Personal placement footer
+    if caller_uid:
+        for i, u in enumerate(top):
+            if "user_id" in u.keys() and u["user_id"] == caller_uid:
+                total = len(top)
+                pct = round((i + 1) / total * 100) if total else 100
+                lines.append("")
+                lines.append(f"👤 <i>Ты на {i + 1} месте из {total} (топ {100 - pct + 1}%)</i>")
+                break
+
+    return "\n".join(lines)
+
+
 @router.callback_query(F.data.startswith("top:"))
 async def cb_top(callback: CallbackQuery):
     parts = callback.data.split(":")
@@ -699,12 +816,15 @@ async def cb_top(callback: CallbackQuery):
         await callback.answer()
         return
 
+    prev_top: list = []
     if period == "d":
         top = await get_daily_top(chat_id, 500)
+        prev_top = await get_yesterday_top(chat_id, 500)
         title = "📅 <b>Рейтинг активных за сегодня:</b>"
         count_field = "dc"
     elif period == "w":
         top = await get_weekly_top(chat_id, 500)
+        prev_top = await get_prev_weekly_top(chat_id, 500)
         title = "📆 <b>Рейтинг активных за неделю:</b>"
         count_field = "wc"
     elif period == "pd":
@@ -731,40 +851,9 @@ async def cb_top(callback: CallbackQuery):
         await callback.answer()
         return
 
-    from handlers.economy import _frame_emoji
     uid_list = [u["user_id"] for u in top if "user_id" in u.keys()]
     mora_map = await get_mora_batch(uid_list, chat_id)
-
-    lines = [title, ""]
-    for i, u in enumerate(top):
-        place = _TOP_MEDALS[i] if i < 5 else f"{i + 1}."
-        count = u[count_field] if count_field in u.keys() else 0
-        uid_top = u["user_id"] if "user_id" in u.keys() else None
-        mora_row = mora_map.get(uid_top) if uid_top else None
-        vip_badge = " 💎" if (mora_row and mora_row.get("vip")) else ""
-        frame_e   = ""
-        if mora_row and mora_row.get("top_frame"):
-            frame_e = _frame_emoji(mora_row["top_frame"]) + " "
-        lines.append(f"{frame_e}{place}{vip_badge} <b>{html.escape(u['full_name'])}</b> — {count} сообщений")
-
-    text = "\n".join(lines)
-    if len(text) > 3800:
-        lines = [title, ""]
-        for i, u in enumerate(top):
-            place = _TOP_MEDALS[i] if i < 5 else f"{i + 1}."
-            count = u[count_field] if count_field in u.keys() else 0
-            uid_top = u["user_id"] if "user_id" in u.keys() else None
-            mora_row = mora_map.get(uid_top) if uid_top else None
-            vip_badge = " 💎" if (mora_row and mora_row.get("vip")) else ""
-            frame_e   = ""
-            if mora_row and mora_row.get("top_frame"):
-                frame_e = _frame_emoji(mora_row["top_frame"]) + " "
-            new_line = f"{frame_e}{place}{vip_badge} <b>{html.escape(u['full_name'])}</b> — {count} сообщений"
-            if len("\n".join(lines + [new_line])) > 3700:
-                lines.append(f"<i>...и ещё {len(top) - i} участников</i>")
-                break
-            lines.append(new_line)
-        text = "\n".join(lines)
+    text = _build_top_text(top, prev_top, mora_map, title, count_field, callback.from_user.id)
 
     try:
         await callback.message.edit_text(
@@ -1543,61 +1632,30 @@ async def cmd_whois(message: Message, cmd_args: str):
 async def cmd_top(message: Message, cmd_args: str):
     arg = (cmd_args or "").strip().lower()
 
+    prev_top: list = []
     if arg in ("день", "day", "д"):
         top = await get_daily_top(message.chat.id, 500)
+        prev_top = await get_yesterday_top(message.chat.id, 500)
         title = "📅 <b>Рейтинг активных за сегодня:</b>"
         count_field = "dc"
-        count_label = "сообщений"
     elif arg in ("неделя", "week", "н"):
         top = await get_weekly_top(message.chat.id, 500)
+        prev_top = await get_prev_weekly_top(message.chat.id, 500)
         title = "📆 <b>Рейтинг активных за неделю:</b>"
         count_field = "wc"
-        count_label = "сообщений"
     else:
         top = await get_top_by_messages_in_chat(message.chat.id, 500)
         title = "🏆 <b>Рейтинг активных за всё время:</b>"
         count_field = "message_count"
-        count_label = "сообщений"
 
     if not top:
         await message.answer("📊 Статистика пока пуста.")
         return
 
-    from handlers.economy import _frame_emoji
+    period_code = "d" if arg in ("день", "day", "д") else ("w" if arg in ("неделя", "week", "н") else "a")
     uid_list = [u["user_id"] for u in top if "user_id" in u.keys()]
     mora_map = await get_mora_batch(uid_list, message.chat.id)
-
-    lines: list[str] = [title, ""]
-    for i, u in enumerate(top):
-        place = _TOP_MEDALS[i] if i < 5 else f"{i + 1}."
-        count = u[count_field] if count_field in u.keys() else 0
-        uid_top = u["user_id"] if "user_id" in u.keys() else None
-        mora_row = mora_map.get(uid_top) if uid_top else None
-        vip_badge = " 💎" if (mora_row and mora_row.get("vip")) else ""
-        frame_e = ""
-        if mora_row and mora_row.get("top_frame"):
-            frame_e = _frame_emoji(mora_row["top_frame"]) + " "
-        lines.append(f"{frame_e}{place}{vip_badge} <b>{html.escape(u['full_name'])}</b> — {count} {count_label}")
-
-    period_code = "d" if arg in ("день", "day", "д") else ("w" if arg in ("неделя", "week", "н") else "a")
-    text = "\n".join(lines)
-    if len(text) > 3800:
-        lines = [title, ""]
-        for i, u in enumerate(top):
-            place = _TOP_MEDALS[i] if i < 5 else f"{i + 1}."
-            count = u[count_field] if count_field in u.keys() else 0
-            uid_top2 = u["user_id"] if "user_id" in u.keys() else None
-            mora_row2 = mora_map.get(uid_top2) if uid_top2 else None
-            vip_badge2 = " 💎" if (mora_row2 and mora_row2.get("vip")) else ""
-            frame_e2 = ""
-            if mora_row2 and mora_row2.get("top_frame"):
-                frame_e2 = _frame_emoji(mora_row2["top_frame"]) + " "
-            new_line = f"{frame_e2}{place}{vip_badge2} <b>{html.escape(u['full_name'])}</b> — {count} {count_label}"
-            if len("\n".join(lines + [new_line])) > 3700:
-                lines.append(f"<i>...и ещё {len(top) - i} участников</i>")
-                break
-            lines.append(new_line)
-        text = "\n".join(lines)
+    text = _build_top_text(top, prev_top, mora_map, title, count_field, message.from_user.id)
     await message.answer(text, parse_mode="HTML", reply_markup=_top_keyboard(period_code, message.from_user.id))
 
 
