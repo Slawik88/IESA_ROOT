@@ -73,6 +73,10 @@ async def run_scheduler(bot) -> None:
             await _task_cleanup_left_users()
         except Exception as exc:
             log.error("Scheduler [cleanup_left_users] error: %s", exc, exc_info=True)
+        try:
+            await _task_weekly_top_rewards(bot)
+        except Exception as exc:
+            log.error("Scheduler [weekly_top_rewards] error: %s", exc, exc_info=True)
         await asyncio.sleep(3600)  # следующий прогон через час
 
 
@@ -658,3 +662,68 @@ async def _task_cleanup_left_users() -> None:
     cleaned = await cleanup_left_inactive_users(cutoff_days=7)
     if cleaned:
         log.info("Scheduler [cleanup_left_users]: cleaned %d (user_id, chat_id) pairs", cleaned)
+
+# ─── Еженедельные награды топ-10 по сообщениям ───────────────────────────────────
+
+async def _task_weekly_top_rewards(bot) -> None:
+    """Начисляет награды топ-10 по сообщениям в 00:00 понедельника по Цюрихскому времени.
+    Чествует прошлую неделю (get_prev_weekly_top), т.к. на момент запуска недель уже сменилась.
+    """
+    from database.db import (
+        get_active_chats, get_prev_weekly_top,
+        is_weekly_top_rewarded, record_weekly_top_rewards,
+        WEEKLY_TOP_REWARDS,
+    )
+    from utils.helpers import user_mention
+
+    now = datetime.now(ZURICH)
+    # Запуск только по понедельникам в промежутке 00:00–02:00
+    if now.weekday() != 0:   # 0 = понедельник
+        return
+    if now.hour >= 2:        # даём 2 часа окна на случай запоздало|перезапустился
+        return
+
+    # Ключ ПРОШЛОЙ недели (bot уже на новой)
+    prev_iso = (now - timedelta(days=7)).isocalendar()
+    prev_week_key = f"{prev_iso.year}-W{prev_iso.week:02d}"
+
+    chats = await get_active_chats()
+    for chat_row in chats:
+        chat_id = chat_row["chat_id"]
+
+        if await is_weekly_top_rewarded(chat_id, prev_week_key):
+            continue
+
+        top = await get_prev_weekly_top(chat_id, 10)
+        if not top:
+            continue
+
+        rewards: list[tuple[int, int, int, str]] = []
+        lines: list[str] = []
+        _MEDALS = ["🥇", "🥈", "🥉"]
+
+        for i, row in enumerate(top[:10]):
+            place  = i + 1
+            uid    = row["user_id"]
+            fname  = row.get("full_name") or str(uid)
+            amount = WEEKLY_TOP_REWARDS.get(place, 0)
+            if amount <= 0:
+                continue
+            rewards.append((uid, place, amount, fname))
+            medal = _MEDALS[i] if i < 3 else f"{place}."
+            lines.append(f"{medal} {user_mention(uid, html.escape(fname))} — <b>+{amount} 🪙</b>")
+
+        if not rewards:
+            continue
+
+        await record_weekly_top_rewards(chat_id, prev_week_key, rewards)
+
+        text = (
+            f"🏆 <b>Награды за топ-10 активных недели {prev_week_key}!</b>\n\n"
+            + "\n".join(lines)
+            + "\n\nНарады выдаются еженедельно по понедельникам в 00:00 Цюрих — пиши больше!"
+        )
+        try:
+            await bot.send_message(chat_id, text, parse_mode="HTML")
+        except Exception as exc:
+            log.warning("weekly_top_rewards: cannot send to %s: %s", chat_id, exc)

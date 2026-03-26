@@ -519,6 +519,19 @@ async def init_db():
             )
         """)
 
+        # Журнал выплат наград топ-10 по сообщениям (weekly)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS weekly_top_reward_log (
+                chat_id  BIGINT  NOT NULL,
+                week_key TEXT    NOT NULL,
+                user_id  BIGINT  NOT NULL,
+                place    INTEGER NOT NULL,
+                amount   INTEGER NOT NULL,
+                full_name TEXT   DEFAULT '',
+                PRIMARY KEY (chat_id, week_key, user_id)
+            )
+        """)
+
         # ─── Новые таблицы (обновление v2: экспедиции, гача, банк, налоги, магазин, подарки, баффы) ────
 
         await db.execute("""
@@ -973,6 +986,19 @@ async def init_db():
                 ALTER COLUMN obtained_at TYPE TIMESTAMPTZ
                 USING CASE
                     WHEN obtained_at ~ '^\\d{4}-\\d{2}-\\d{2}' THEN obtained_at::TIMESTAMPTZ
+                    ELSE NOW()
+                END
+            """)
+        except Exception:
+            pass
+
+        # ─── Миграция: исправить тип started_at в pet_expeditions если TEXT ──
+        try:
+            await db.execute("""
+                ALTER TABLE pet_expeditions
+                ALTER COLUMN started_at TYPE TIMESTAMPTZ
+                USING CASE
+                    WHEN started_at::text ~ '^\\d{4}-\\d{2}-\\d{2}' THEN started_at::text::TIMESTAMPTZ
                     ELSE NOW()
                 END
             """)
@@ -1915,8 +1941,12 @@ async def set_user_stat(user_id: int, field: str, value) -> bool:
 # ─── Cleanup counts ───────────────────────────────────────────────────────────
 
 async def increment_cleanup_count(chat_id: int, user_id: int):
-    today    = date.today().isoformat()
-    iso      = date.today().isocalendar()
+    from utils.helpers import bot_today as _bot_today
+    from zoneinfo import ZoneInfo
+    from datetime import datetime as _dt
+    _ZURICH = ZoneInfo("Europe/Zurich")
+    today    = _bot_today()
+    iso      = _dt.now(_ZURICH).isocalendar()
     week_key = f"{iso.year}-W{iso.week:02d}"
 
     async with postgres_connect() as db:
@@ -1938,18 +1968,24 @@ async def increment_cleanup_count(chat_id: int, user_id: int):
         else:
             new_week   = row["week_start"] != week_key
             new_day    = row["day_start"]  != today
+            # On day rollover: snapshot old day_count → yesterday_count
+            yesterday_count = (row["day_count"] or 0) if new_day else (row["yesterday_count"] or 0)
+            # On week rollover: snapshot old week_count → last_week_count
+            last_week_count = (row["week_count"] or 0) if new_week else (row["last_week_count"] or 0)
             week_count = 1 if new_week else (row["week_count"] or 0) + 1
             day_count  = 1 if new_day  else (row["day_count"]  or 0) + 1
             await db.execute(
                 """
                 UPDATE cleanup_counts
-                SET count=count+1, week_count=?, day_count=?, week_start=?, day_start=?
+                SET count=count+1, week_count=?, day_count=?, week_start=?, day_start=?,
+                    yesterday_count=?, last_week_count=?
                 WHERE chat_id=? AND user_id=?
                 """,
                 (
                     week_count, day_count,
                     week_key if new_week else row["week_start"],
                     today    if new_day  else row["day_start"],
+                    yesterday_count, last_week_count,
                     chat_id, user_id,
                 ),
             )
@@ -2180,7 +2216,9 @@ async def award_achievement(user_id: int, badge: str) -> bool:
 # ─── Weekly / Daily top ───────────────────────────────────────────────────────
 
 async def get_weekly_top(chat_id: int, limit: int = 10) -> list:
-    iso = date.today().isocalendar()
+    from zoneinfo import ZoneInfo
+    from datetime import datetime as _dt
+    iso = _dt.now(ZoneInfo("Europe/Zurich")).isocalendar()
     week_key = f"{iso.year}-W{iso.week:02d}"
     async with postgres_connect() as db:
         async with db.execute(
@@ -2198,7 +2236,8 @@ async def get_weekly_top(chat_id: int, limit: int = 10) -> list:
 
 
 async def get_daily_top(chat_id: int, limit: int = 10) -> list:
-    today = date.today().isoformat()
+    from utils.helpers import bot_today as _bot_today
+    today = _bot_today()
     async with postgres_connect() as db:
         async with db.execute(
             """SELECT u.user_id, u.full_name, u.username,
@@ -2215,39 +2254,74 @@ async def get_daily_top(chat_id: int, limit: int = 10) -> list:
 
 
 async def get_prev_weekly_top(chat_id: int, limit: int = 10) -> list:
-    """Top users for the previous calendar week."""
-    prev_week_date = date.today() - timedelta(days=7)
-    iso = prev_week_date.isocalendar()
-    week_key = f"{iso.year}-W{iso.week:02d}"
+    """Top users for the previous calendar week.
+
+    Uses snapshot columns (last_week_count / week_count) so that
+    people who already wrote this week still appear correctly.
+    """
+    from zoneinfo import ZoneInfo
+    from datetime import datetime as _dt
+    _now = _dt.now(ZoneInfo("Europe/Zurich"))
+    this_iso = _now.isocalendar()
+    this_week_key = f"{this_iso.year}-W{this_iso.week:02d}"
+    prev_iso  = (_now - timedelta(days=7)).isocalendar()
+    prev_week_key = f"{prev_iso.year}-W{prev_iso.week:02d}"
     async with postgres_connect() as db:
         async with db.execute(
+            # If the user already wrote THIS week → their last_week_count holds prev week
+            # If the user hasn't written this week yet → week_start=prev_week, week_count is prev
             """SELECT u.user_id, u.full_name, u.username,
-                      CASE WHEN cc.week_start=? THEN COALESCE(cc.week_count,0) ELSE 0 END AS wc
+                      CASE
+                        WHEN cc.week_start=? THEN COALESCE(cc.last_week_count,0)
+                        WHEN cc.week_start=? THEN COALESCE(cc.week_count,0)
+                        ELSE 0
+                      END AS wc
                FROM cleanup_counts cc
                JOIN users u ON u.user_id=cc.user_id
                LEFT JOIN user_stats us ON us.user_id=cc.user_id AND us.chat_id=cc.chat_id
                WHERE cc.chat_id=? AND COALESCE(us.is_banned,0)=0
-                 AND CASE WHEN cc.week_start=? THEN COALESCE(cc.week_count,0) ELSE 0 END >= 1
+                 AND CASE
+                       WHEN cc.week_start=? THEN COALESCE(cc.last_week_count,0)
+                       WHEN cc.week_start=? THEN COALESCE(cc.week_count,0)
+                       ELSE 0
+                     END >= 1
                ORDER BY wc DESC LIMIT ?""",
-            (week_key, chat_id, week_key, limit),
+            (this_week_key, prev_week_key, chat_id,
+             this_week_key, prev_week_key, limit),
         ) as c:
             return await c.fetchall()
 
 
 async def get_yesterday_top(chat_id: int, limit: int = 10) -> list:
-    """Top users for yesterday."""
-    yesterday = (date.today() - timedelta(days=1)).isoformat()
+    """Top users for yesterday.
+
+    Uses snapshot columns so that people who already wrote TODAY still
+    appear with their YESTERDAY count (stored in yesterday_count on rollover).
+    """
+    from utils.helpers import bot_today as _bot_today
+    today     = _bot_today()
+    yesterday = (date.fromisoformat(today) - timedelta(days=1)).isoformat()
     async with postgres_connect() as db:
         async with db.execute(
+            # If user wrote today → their yesterday_count is the snapshot from yesterday
+            # If user hasn't written today → day_start=yesterday, day_count is yesterday's value
             """SELECT u.user_id, u.full_name, u.username,
-                      CASE WHEN cc.day_start=? THEN COALESCE(cc.day_count,0) ELSE 0 END AS dc
+                      CASE
+                        WHEN cc.day_start=? THEN COALESCE(cc.yesterday_count,0)
+                        WHEN cc.day_start=? THEN COALESCE(cc.day_count,0)
+                        ELSE 0
+                      END AS dc
                FROM cleanup_counts cc
                JOIN users u ON u.user_id=cc.user_id
                LEFT JOIN user_stats us ON us.user_id=cc.user_id AND us.chat_id=cc.chat_id
                WHERE cc.chat_id=? AND COALESCE(us.is_banned,0)=0
-                 AND CASE WHEN cc.day_start=? THEN COALESCE(cc.day_count,0) ELSE 0 END >= 1
+                 AND CASE
+                       WHEN cc.day_start=? THEN COALESCE(cc.yesterday_count,0)
+                       WHEN cc.day_start=? THEN COALESCE(cc.day_count,0)
+                       ELSE 0
+                     END >= 1
                ORDER BY dc DESC LIMIT ?""",
-            (yesterday, chat_id, yesterday, limit),
+            (today, yesterday, chat_id, today, yesterday, limit),
         ) as c:
             return await c.fetchall()
 
@@ -5268,6 +5342,55 @@ async def get_weekly_top_users(chat_id: int, limit: int = 10) -> list[int]:
         ) as c:
             rows = await c.fetchall()
     return [r[0] for r in rows]
+
+
+# ─── Weekly top-10 message rewards ───────────────────────────────────────────
+
+WEEKLY_TOP_REWARDS = {1: 500, 2: 450, 3: 400, 4: 350, 5: 300,
+                      6: 250, 7: 200, 8: 150, 9: 100, 10: 50}
+
+
+async def is_weekly_top_rewarded(chat_id: int, week_key: str) -> bool:
+    """True if rewards for this chat+week were already distributed."""
+    async with postgres_connect() as db:
+        async with db.execute(
+            "SELECT 1 FROM weekly_top_reward_log WHERE chat_id=? AND week_key=? LIMIT 1",
+            (chat_id, week_key),
+        ) as c:
+            return (await c.fetchone()) is not None
+
+
+async def record_weekly_top_rewards(chat_id: int, week_key: str,
+                                    rewards: list[tuple[int, int, int, str]]) -> None:
+    """Save reward records and credit each user's mora.
+    rewards: list of (user_id, place, amount, full_name)
+    """
+    async with postgres_connect() as db:
+        for uid, place, amount, fname in rewards:
+            await db.execute(
+                """INSERT INTO weekly_top_reward_log
+                       (chat_id, week_key, user_id, place, amount, full_name)
+                   VALUES (?, ?, ?, ?, ?, ?)
+                   ON CONFLICT DO NOTHING""",
+                (chat_id, week_key, uid, place, amount, fname),
+            )
+        await db.commit()
+    # Credit mora outside the transaction loop to avoid holding connection
+    for uid, place, amount, fname in rewards:
+        await add_mora(uid, chat_id, amount)
+
+
+async def get_weekly_top_reward_history(chat_id: int, week_key: str) -> list:
+    """Return reward records for a given chat+week, ordered by place."""
+    async with postgres_connect() as db:
+        async with db.execute(
+            """SELECT user_id, place, amount, full_name
+               FROM weekly_top_reward_log
+               WHERE chat_id=? AND week_key=?
+               ORDER BY place ASC""",
+            (chat_id, week_key),
+        ) as c:
+            return await c.fetchall()
 
 
 async def get_vip_users(chat_id: int) -> list[int]:
