@@ -6399,6 +6399,20 @@ def miniapp_expeditions(request):
         pet = None
         if pet_row:
             pet = {"type": pet_row[0], "name": pet_row[1], "fatigue": pet_row[2]}
+            # Check if currently walking
+            walk_end = pet_row[3] if len(pet_row) > 3 else None
+            if walk_end:
+                try:
+                    we = walk_end if hasattr(walk_end, 'tzinfo') else datetime.fromisoformat(str(walk_end).replace('Z','+00:00'))
+                    if we.tzinfo is None:
+                        we = we.replace(tzinfo=timezone.utc)
+                    now_utc = datetime.now(timezone.utc)
+                    if we > now_utc:
+                        secs = (we - now_utc).total_seconds()
+                        pet["walking"] = True
+                        pet["walk_mins_left"] = int(secs / 60) + 1
+                except Exception:
+                    pass
 
         # Active expedition
         cur.execute(
@@ -6498,16 +6512,30 @@ def miniapp_expeditions_start(request):
         ph = "%s" if db_type == "pg" else "?"
 
         # Pet must exist
-        cur.execute(f"SELECT pet_type, name, COALESCE(fatigue,0) FROM pets WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
+        cur.execute(f"SELECT pet_type, name, COALESCE(fatigue,0), walk_end_at FROM pets WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
         pet_row = cur.fetchone()
         if not pet_row:
             conn.close()
             return JsonResponse({"error": "У тебя нет питомца"}, status=400, headers=headers)
-        pet_type, pet_name, fatigue = pet_row
+        pet_type, pet_name, fatigue, walk_end_at = pet_row
 
         if fatigue >= 100:
             conn.close()
             return JsonResponse({"error": "Питомец слишком устал (100/100). Покорми его!"}, status=400, headers=headers)
+
+        # Check pet is not currently walking
+        if walk_end_at:
+            try:
+                walk_end_dt = walk_end_at if hasattr(walk_end_at, 'tzinfo') else datetime.fromisoformat(str(walk_end_at).replace('Z', '+00:00'))
+                if walk_end_dt.tzinfo is None:
+                    walk_end_dt = walk_end_dt.replace(tzinfo=timezone.utc)
+                now_utc = datetime.now(timezone.utc)
+                if walk_end_dt > now_utc:
+                    mins = int((walk_end_dt - now_utc).total_seconds() / 60) + 1
+                    conn.close()
+                    return JsonResponse({"error": f"Питомец ещё на прогулке! Осталось {mins} мин."}, status=400, headers=headers)
+            except Exception:
+                pass
 
         # Check no active expedition
         cur.execute(f"SELECT 1 FROM pet_expeditions WHERE user_id={ph} AND chat_id={ph} AND finished=0", (uid, chat_id))
