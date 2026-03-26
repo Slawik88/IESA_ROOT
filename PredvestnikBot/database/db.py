@@ -4665,8 +4665,8 @@ BOND_DEFAULTS = {
     # ── High-risk — высокая волатильность ――――――――――――――――――
     "naku_grass": {"name": "🌾 Трава Наку",                  "base_price":   40, "volatility": 0.35, "cap_mult": 8},
     # ── Meme-монеты — экстремальная волатильность ―――――――――――――
-    "itto_coin":  {"name": "🐂 Итто-Коин",                   "base_price":   10, "volatility": 0.50, "cap_mult": 20},
-    "dori_corp":  {"name": "💰 Дори-Инвестментс",             "base_price":   25, "volatility": 0.45, "cap_mult": 15},
+    "itto_coin":  {"name": "🐂 Итто-Коин",                   "base_price":   10, "volatility": 0.35, "cap_mult": 6},
+    "dori_corp":  {"name": "💰 Дори-Инвестментс",             "base_price":   25, "volatility": 0.35, "cap_mult": 8},
 }
 
 
