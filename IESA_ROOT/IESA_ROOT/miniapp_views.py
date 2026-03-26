@@ -1662,10 +1662,12 @@ def miniapp_wallet_history(request):
         cur = conn.cursor()
         ph = "%s" if db_type == "pg" else "?"
         _ensure_wallet_ledger_table(cur, db_type)
+        _7d = "NOW() - INTERVAL '7 days'" if db_type == "pg" else "datetime('now','-7 days')"
         cur.execute(
             f"SELECT direction, amount, source, description, created_at "
             f"FROM wallet_ledger WHERE user_id={ph} AND chat_id={ph} "
-            f"ORDER BY created_at DESC LIMIT 50",
+            f"AND created_at >= {_7d} "
+            f"ORDER BY created_at DESC LIMIT 100",
             (uid, chat_id),
         )
         rows = cur.fetchall()
@@ -2489,9 +2491,11 @@ def miniapp_family_deposit(request):
             f"SELECT partner_id FROM marriages WHERE user_id={ph} AND chat_id={ph}",
             (uid, chat_id),
         )
-        if not cur.fetchone():
+        marriage_row = cur.fetchone()
+        if not marriage_row:
             conn.close()
             return JsonResponse({"error": "Нет союза — семейный кошелёк недоступен"}, status=400, headers=headers)
+        partner_id = marriage_row[0]
 
         # Check personal balance
         cur.execute(
@@ -2532,6 +2536,17 @@ def miniapp_family_deposit(request):
             "VALUES (%s,%s,%s,%s,%s,%s)",
             (chat_id, uid, "deposit", amount, "Пополнение через Mini App", _now_iso),
         )
+        # Also write to personal wallet_ledger so it shows in wallet history
+        _ensure_wallet_ledger_table(cur, db_type)
+        _insert_wallet_ledger(cur, db_type, chat_id, uid, "expense", amount,
+                              "family_deposit", f"→ Семейный кошелёк (+{amount} 🪙)", uid)
+        # Notify partner's ledger so they see the deposit in their history too
+        cur.execute(f"SELECT full_name FROM users WHERE user_id={ph}", (uid,))
+        _name_row = cur.fetchone()
+        _depositor_name = _name_row[0] if _name_row else str(uid)
+        _insert_wallet_ledger(cur, db_type, chat_id, partner_id, "income", 0,
+                              "family_partner_deposit",
+                              f"📥 +{amount} 🪙 в сем. кошелёк от {_depositor_name}", uid)
         # Read new balances
         cur.execute(f"SELECT balance FROM user_mora WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
         new_personal = (cur.fetchone() or [0])[0]
@@ -2653,6 +2668,10 @@ def miniapp_family_withdraw(request):
             "VALUES (%s,%s,%s,%s,%s,%s)",
             (chat_id, uid, "withdraw", amount, "Снятие через Mini App", _now_iso),
         )
+        # Also write to personal wallet_ledger so it shows in wallet history
+        _ensure_wallet_ledger_table(cur, db_type)
+        _insert_wallet_ledger(cur, db_type, chat_id, uid, "income", amount,
+                              "family_withdraw", f"← Из семейного кошелька (+{amount} 🪙)", uid)
 
         cur.execute(f"SELECT balance FROM user_mora WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
         new_personal = (cur.fetchone() or [0])[0]
@@ -3442,10 +3461,10 @@ def miniapp_bank(request):
         )
         rows = cur.fetchall()
 
-        # Fetch family balance for display reference
+        # Fetch family balance for display reference (sum both partners)
         family_balance = 0
         try:
-            cur.execute(f"SELECT balance FROM family_wallet WHERE chat_id={ph}", (chat_id,))
+            cur.execute(f"SELECT COALESCE(SUM(balance),0) FROM family_wallet WHERE chat_id={ph}", (chat_id,))
             frow = cur.fetchone()
             family_balance = frow[0] if frow else 0
         except Exception:
