@@ -236,7 +236,7 @@ async def withdraw(uid: int, chat_id: int, deposit_id: int) -> dict:
 
     new_balance = await add_mora(uid, chat_id, payout)
     if interest_tax > 0:
-        await add_to_treasury(chat_id, interest_tax)
+        await add_to_treasury(chat_id, interest_tax, "bank_interest", uid)
 
     return {
         "ok":           True,

@@ -148,7 +148,7 @@ async def sell_bond(uid: int, chat_id: int, bond_key: str, amount: int) -> dict:
 
     new_balance = await add_mora(uid, chat_id, net_revenue)
     if bond_tax > 0:
-        await add_to_treasury(chat_id, bond_tax)
+        await add_to_treasury(chat_id, bond_tax, "bonds", uid)
 
     remaining = have - amount
 

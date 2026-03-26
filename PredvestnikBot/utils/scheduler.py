@@ -298,7 +298,7 @@ async def _task_lottery_draw(bot) -> None:
                 if winnings >= 50:
                     lottery_tax = max(1, int(winnings * 0.08))
                     net_winnings = winnings - lottery_tax
-                    await add_to_treasury(chat_id, lottery_tax)
+                    await add_to_treasury(chat_id, lottery_tax, "lottery", uid)
                 else:
                     net_winnings = winnings
                     lottery_tax = 0

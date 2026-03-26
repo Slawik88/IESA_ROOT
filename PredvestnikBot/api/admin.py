@@ -547,3 +547,60 @@ def get_items() -> dict:
             items.append({"key": key, "name": name, "rarity": rarity,
                           "rarity_emoji": _rarity_emoji.get(rarity, "")})
     return {"items": items}
+
+
+# ─── Treasury / НДС-казна ─────────────────────────────────────────────────────
+
+_SOURCE_LABELS = {
+    "coinflip":      "🪙 Монетка",
+    "dice":          "🎲 Кубик",
+    "duel":          "⚔️ Дуэль",
+    "transfer":      "💸 Перевод (НДС)",
+    "bank_interest": "🏦 Банк (проценты)",
+    "bonds":         "📈 Облигации",
+    "expedition":    "🗺 Экспедиция",
+    "lottery":       "🎫 Лотерея",
+    "shop":          "🛍 Магазин",
+}
+
+
+async def get_treasury(chat_id: int, limit: int = 50) -> dict:
+    """
+    Returns treasury balance + recent VAT log for the given chat.
+    Accessible to developer and owner rank only (enforced in the view layer).
+    """
+    from database.db import postgres_connect
+    async with postgres_connect() as db:
+        async with db.execute(
+            "SELECT balance FROM chat_treasury WHERE chat_id=?", (chat_id,)
+        ) as c:
+            row = await c.fetchone()
+        balance = row[0] if row else 0
+
+        async with db.execute(
+            """SELECT tl.id, tl.user_id, u.full_name, tl.amount, tl.source, tl.created_at
+               FROM treasury_log tl
+               LEFT JOIN users u ON u.user_id = tl.user_id
+               WHERE tl.chat_id=?
+               ORDER BY tl.created_at DESC LIMIT ?""",
+            (chat_id, limit),
+        ) as c:
+            rows = await c.fetchall()
+
+    log = []
+    for r in rows:
+        ts = r["created_at"]
+        if hasattr(ts, "isoformat"):
+            ts = ts.isoformat()
+        log.append({
+            "id":        r["id"],
+            "user_id":   r["user_id"],
+            "name":      r["full_name"] or f"user_{r['user_id']}",
+            "amount":    r["amount"],
+            "source":    r["source"],
+            "source_label": _SOURCE_LABELS.get(r["source"], r["source"]),
+            "created_at": ts,
+        })
+
+    return {"balance": balance, "log": log}
+

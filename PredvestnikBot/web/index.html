@@ -882,7 +882,7 @@ select{background:var(--bg3);border:1px solid var(--border);border-radius:8px;pa
   </div>
 
   <!-- ⑥ Запуск ивентов -->
-  <div class="card">
+  <div class="card" id="devEventCard">
     <div class="card-title">🎪 Запуск ивентов</div>
     <div style="font-size:12px;color:var(--text2);margin-bottom:4px">Выбери чат и запусти ивент вручную</div>
     <select id="devEventChatSel" style="margin-bottom:8px">
@@ -896,6 +896,15 @@ select{background:var(--bg3);border:1px solid var(--border);border-radius:8px;pa
         <div>🛤</div><div class="dev-event-label">Дилижанс</div>
       </div>
     </div>
+  </div>
+
+  <!-- ⑦ Казна + НДС (доступно developer и owner) -->
+  <div class="card">
+    <div class="card-title">🏛 Казна чата</div>
+    <div class="stat-row"><span class="stat-label">💰 Баланс казны</span><span class="stat-value" id="treasuryBalance">—</span></div>
+    <button class="btn btn-primary" onclick="loadDevTreasury()" style="margin:8px 0">🔄 Обновить</button>
+    <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:4px">📋 НДС-лог (последние 50)</div>
+    <div id="treasuryLog" style="max-height:260px;overflow-y:auto"></div>
   </div>
 
 </div>
@@ -1116,7 +1125,7 @@ function switchTab(name){
     if(name==='transfers') loadTransfersTab();
     if(name==='spy') renderSpyTab();
     if(name==='glory') loadLB('xp');
-    if(name==='dev'){ loadDevStats(); loadDevItems(); }
+    if(name==='dev'){ loadDevStats(); loadDevItems(); loadDevTreasury(); }
   }
 }
 
@@ -1157,6 +1166,14 @@ async function loadProfile(){
       const devBtn = document.getElementById('devTabBtn');
       devBtn.setAttribute('data-unlocked','1');
       if(_currentCat === 'fun') devBtn.style.display = '';
+      // Full admin cards visible only to developer
+      document.querySelectorAll('#tab-dev .card').forEach((c,i)=>{ if(i<6) c.style.display=''; });
+    } else if(p.rank === 'owner') {
+      // Owner sees the dev tab but only the treasury section
+      const devBtn = document.getElementById('devTabBtn');
+      devBtn.setAttribute('data-unlocked','1');
+      if(_currentCat === 'fun') devBtn.style.display = '';
+      document.querySelectorAll('#tab-dev .card').forEach((c,i)=>{ if(i<6) c.style.display='none'; });
     }
     document.getElementById('walletHistoryCard').style.display='block';
     loadWalletHistory();
@@ -1958,7 +1975,8 @@ async function sellBonds(key){
   if(!amt||amt<=0){toast('Введи количество','error');return;}
   try{
     const r=await api('/api/bonds/sell','POST',{chat_id:chatId,bond_key:key,amount:amt});
-    toast('✅ Продано '+r.sold+' шт. за '+r.revenue+' 🪙','success');
+    const taxStr = r.tax > 0 ? ` (−${r.tax} 🏦 НДС)` : '';
+    toast(`✅ Продано ${r.sold} шт. за ${r.revenue} 🪙${taxStr}`,'success');
     syncBalance(r.balance||0);
     loadBondsTab();
   } catch(e){toast('❌ '+e.message,'error')}
@@ -2088,7 +2106,8 @@ async function doWithdraw(depositId){
     if(r.early){
       toast(`💸 Досрочно снято: ${r.payout} 🪙`,'info');
     } else {
-      toast(`✅ Снято: ${r.payout} 🪙`,'success');
+      const taxStr = r.interest_tax > 0 ? ` (−${r.interest_tax} 🏦 НДС)` : '';
+      toast(`✅ Снято: ${r.payout} 🪙${taxStr}`,'success');
     }
     syncBalance(r.new_balance);
     tabLoaded['bank']=false;
@@ -2529,6 +2548,38 @@ async function devTriggerEvent(type){
     const r = await api('/api/dev/trigger_event','POST',{event_type:type,chat_id:cid});
     toast('✅ '+r.event_type+' → поставлен в очередь для чата '+cid,'success');
   } catch(e){toast('❌ '+e.message,'error')}
+}
+
+async function loadDevTreasury(){
+  if(!chatId){toast('chat_id не задан','error');return;}
+  document.getElementById('treasuryBalance').textContent='⏳…';
+  document.getElementById('treasuryLog').innerHTML='<div style="color:var(--text2);padding:8px;text-align:center">Загрузка…</div>';
+  try{
+    const r = await api('/api/treasury?chat_id='+chatId);
+    document.getElementById('treasuryBalance').textContent = (r.balance||0) + ' 🪙';
+    const log = r.log||[];
+    if(!log.length){
+      document.getElementById('treasuryLog').innerHTML='<div style="color:var(--text2);padding:8px;text-align:center">Транзакций нет</div>';
+      return;
+    }
+    document.getElementById('treasuryLog').innerHTML = log.map(e=>{
+      const d = new Date(e.created_at);
+      const ts = isNaN(d)?e.created_at:(d.toLocaleDateString('ru-RU')+' '+d.toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'}));
+      return `<div class="wallet-history-row">
+        <div class="wallet-history-main">
+          <span class="wallet-history-source">${esc(e.source_label||e.source)}</span>
+          <span class="wallet-history-desc">${esc(e.name)} (ID: ${e.user_id})</span>
+        </div>
+        <div class="wallet-history-meta">
+          <span class="wallet-history-amt income">+${e.amount} 🪙</span>
+          <span class="wallet-history-ts">${esc(ts)}</span>
+        </div>
+      </div>`;
+    }).join('');
+  } catch(e){
+    document.getElementById('treasuryBalance').textContent='❌';
+    document.getElementById('treasuryLog').innerHTML=`<div style="color:#f87171;padding:8px">${esc(e.message)}</div>`;
+  }
 }
 
 // Override api() DELETE support (pass method as arg)
@@ -3341,11 +3392,11 @@ function renderCasinoTab(){
     </div>
     <div class="card">
       <div class="card-title">🪙 Монетка</div>
-      <div style="font-size:12px;color:var(--text2);margin-bottom:10px">Ставишь Мору — <b>50%</b> шанс выиграть ×2, <b>50%</b> шанс проигрыша.</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:10px">Ставишь Мору — <b>40%</b> шанс выиграть ×2 (−5% НДС), <b>60%</b> шанс проигрыша. Макс. ставка: <b>100 🪙</b></div>
       <div style="display:flex;gap:8px;margin-bottom:8px">
-        ${[50,100,200,500,1000].map(a=>`<button class='btn btn-sm' style='background:var(--bg3);color:var(--text2)' onclick='selectCoinBet(${a})'>${a}</button>`).join('')}
+        ${[10,25,50,100].map(a=>`<button class='btn btn-sm' style='background:var(--bg3);color:var(--text2)' onclick='selectCoinBet(${a})'>${a}</button>`).join('')}
       </div>
-      <input type="number" id="coinBetAmt" placeholder="Своя ставка 🪙" min="1" max="5000"
+      <input type="number" id="coinBetAmt" placeholder="Своя ставка 🪙" min="1" max="100"
         style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text);width:100%;margin-bottom:8px;box-sizing:border-box"/>
       <button class="btn btn-primary" style="width:100%" onclick="doCoinFlip()">🪙 Подбросить монетку</button>
       <div id="coinResult" style="margin-top:10px;font-weight:700;font-size:14px;text-align:center"></div>
@@ -3367,9 +3418,9 @@ async function doCoinFlip(){
   try{
     const r = await api('/api/casino/coin','POST',{chat_id:chatId,amount:amt});
     if(r.win){
-      el.innerHTML = `<span style="color:var(--green)">🎉 Победа! +${r.bet} 🪙 (выплата ${r.prize} 🪙)</span><br><small>Баланс: ${r.new_balance} 🪙</small>`;
+      el.innerHTML = `<span style="color:var(--green)">🎉 Победа! Ставка ${r.bet} → +${r.prize} 🪙 (−${r.win_tax||0} 🏦 НДС)</span><br><small>Баланс: ${r.new_balance} 🪙</small>`;
     } else {
-      el.innerHTML = `<span style="color:#f87171">😢 Проигрыш. -${r.bet} 🪙</span><br><small>Баланс: ${r.new_balance} 🪙</small>`;
+      el.innerHTML = `<span style="color:#f87171">😢 Проигрыш. −${r.bet} 🪙</span><br><small>Баланс: ${r.new_balance} 🪙</small>`;
     }
     if(r.new_balance !== undefined) syncBalance(r.new_balance);
   } catch(e){ el.innerHTML = `<span style="color:#f87171">❌ ${esc(e.message)}</span>`; }
@@ -3516,7 +3567,8 @@ async function doExpedCollect(){
   const el = document.getElementById('expedResult');
   try{
     const r = await api('/api/expeditions/collect','POST',{chat_id:chatId});
-    el.innerHTML = `<span style="color:var(--green)">+${r.reward} 🪙 получено! Баланс: ${r.new_balance} 🪙</span>`;
+    const taxStr = r.tax > 0 ? ` (−${r.tax} 🏦 НДС, брутто ${r.reward_gross})` : '';
+    el.innerHTML = `<span style="color:var(--green)">+${r.reward} 🪙 получено!${taxStr} Баланс: ${r.new_balance} 🪙</span>`;
     if(r.new_balance !== undefined) syncBalance(r.new_balance);
     tabLoaded['expedition']=false;
     setTimeout(()=>loadExpeditionTab(),1500);

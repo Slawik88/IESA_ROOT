@@ -189,7 +189,7 @@ async def claim_expedition(uid: int, chat_id: int) -> dict:
     await finish_expedition(uid, chat_id)
     new_balance = await add_mora(uid, chat_id, net_reward)
     if exped_tax > 0:
-        await add_to_treasury(chat_id, exped_tax)
+        await add_to_treasury(chat_id, exped_tax, "expedition", uid)
 
     return {
         "ok":           True,
