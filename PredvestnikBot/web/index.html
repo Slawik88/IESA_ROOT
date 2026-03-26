@@ -1211,24 +1211,23 @@ async function loadProfile(){
       // Full panel visible to developer
       document.querySelectorAll('#tab-dev .card').forEach(c=>{ c.style.display=''; });
     } else if(p.rank === 'owner') {
-      // Owner: members table + warnlist + mod overview + events + treasury
+      // Owner: user editor + members table + events + warnlist + mod overview + treasury
       const devBtn = document.getElementById('devTabBtn');
       devBtn.setAttribute('data-unlocked','1');
       if(_currentCat === 'fun') devBtn.style.display = '';
       document.querySelectorAll('#tab-dev .card').forEach(c=>{ c.style.display='none'; });
-      document.querySelectorAll('#tab-dev .card')[2].style.display=''; // chat management
+      document.querySelectorAll('#tab-dev .card')[1].style.display=''; // user editor + salary
+      document.querySelectorAll('#tab-dev .card')[2].style.display=''; // chat management + members
       document.getElementById('warnlistCard').style.display='';
       document.getElementById('modSummaryCard').style.display='';
       document.getElementById('devEventCard').style.display='';
       document.querySelectorAll('#tab-dev .card')[8].style.display=''; // treasury
     } else if(['co_owner','admin_senior'].includes(p.rank)) {
-      // Senior admins: user editor (salary) + members + warnlist + mod overview + treasury
+      // Senior admins: warnlist + mod overview + treasury only
       const devBtn = document.getElementById('devTabBtn');
       devBtn.setAttribute('data-unlocked','1');
       if(_currentCat === 'fun') devBtn.style.display = '';
       document.querySelectorAll('#tab-dev .card').forEach(c=>{ c.style.display='none'; });
-      document.querySelectorAll('#tab-dev .card')[1].style.display=''; // user editor
-      document.querySelectorAll('#tab-dev .card')[2].style.display=''; // chat management
       document.getElementById('warnlistCard').style.display='';
       document.getElementById('modSummaryCard').style.display='';
       document.querySelectorAll('#tab-dev .card')[8].style.display=''; // treasury

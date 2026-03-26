@@ -16,7 +16,7 @@ from aiogram.types import (
 
 from config import MARRIAGE_PROPOSAL_TIMEOUT
 from database.db import create_marriage, delete_marriage, get_gifts_summary, get_marriage, get_mora, get_pet, get_user
-from filters.bot_command import BotCommand
+from filters.bot_command import BotCommand, PlainCommand
 from utils.helpers import format_duration, resolve_target, user_mention
 
 router = Router()
@@ -129,62 +129,62 @@ async def _action(
 
 # ─── Команды действий ─────────────────────────────────────────────────────────
 
-@router.message(BotCommand("пни", "пнуть", "пинок"))
+@router.message(PlainCommand("пни", "пнуть", "пинок"))
 async def cmd_kick_fun(message: Message, cmd_args: str):
     await _action(message, cmd_args, _KICK, "❌ Себя пинать — больно и бесполезно!")
 
 
-@router.message(BotCommand("укуси", "укусить", "кусь"))
+@router.message(PlainCommand("укуси", "укусить", "кусь"))
 async def cmd_bite(message: Message, cmd_args: str):
     await _action(message, cmd_args, _BITE, "🦷 Кусать себя — это уже что-то новенькое...")
 
 
-@router.message(BotCommand("обними", "обнять", "hug"))
+@router.message(PlainCommand("обними", "обнять", "hug"))
 async def cmd_hug(message: Message, cmd_args: str):
     await _action(message, cmd_args, _HUG, "🤗 Ты обнял(а) самого себя. Всё норм, бывает!")
 
 
-@router.message(BotCommand("шлёпни", "шлепнуть", "шлёп"))
+@router.message(PlainCommand("шлёпни", "шлепнуть", "шлёп"))
 async def cmd_slap(message: Message, cmd_args: str):
     await _action(message, cmd_args, _SLAP, "😶 Шлёпать себя — это уже экстрим.")
 
 
-@router.message(BotCommand("лизни", "лизнуть", "лизь"))
+@router.message(PlainCommand("лизни", "лизнуть", "лизь"))
 async def cmd_lick(message: Message, cmd_args: str):
     await _action(message, cmd_args, _LICK, "😶 Себя лизать... нет.")
 
 
-@router.message(BotCommand("погладь", "погладить", "гладить"))
+@router.message(PlainCommand("погладь", "погладить", "гладить"))
 async def cmd_pat(message: Message, cmd_args: str):
     await _action(message, cmd_args, _PAT, "🥹 Ты погладил(а) себя по голове. Ну и молодец!")
 
 
-@router.message(BotCommand("кинь", "бросить", "кинуть"))
+@router.message(PlainCommand("кинь", "бросить", "кинуть"))
 async def cmd_throw(message: Message, cmd_args: str):
     await _action(message, cmd_args, _THROW, "🤔 Бросаться в себя? Интересный выбор.")
 
 
-@router.message(BotCommand("бонк", "бить", "ударить"))
+@router.message(PlainCommand("бонк", "бить", "ударить"))
 async def cmd_bonk(message: Message, cmd_args: str):
     await _action(message, cmd_args, _BONK, "🏏 Ударить себя битой? Может, позже...")
 
 
-@router.message(BotCommand("ткни", "ткнуть", "тыкать"))
+@router.message(PlainCommand("ткни", "ткнуть", "тыкать"))
 async def cmd_poke(message: Message, cmd_args: str):
     await _action(message, cmd_args, _POKE, "👉 Тыкаешь себе в грудь? Странно.")
 
 
-@router.message(BotCommand("поцелуй", "целовать", "целоваться"))
+@router.message(PlainCommand("поцелуй", "целовать", "целоваться"))
 async def cmd_kiss(message: Message, cmd_args: str):
     await _action(message, cmd_args, _KISS, "😶 Целовать себя? Скромничаешь?")
 
 
-@router.message(BotCommand("вылечи", "исцелить", "heal"))
+@router.message(PlainCommand("вылечи", "исцелить", "heal"))
 async def cmd_heal(message: Message, cmd_args: str):
     await _action(message, cmd_args, _HEAL, "💚 Исцелил(а) себя! Молодец, забота о здоровье!")
 
 
-@router.message(BotCommand("выстрели", "стрелять", "shoot"))
+@router.message(PlainCommand("выстрели", "стрелять", "shoot"))
 async def cmd_shoot(message: Message, cmd_args: str):
     await _action(message, cmd_args, _SHOOT, "💦 Выстрелил(а) в себя? Может, нужна помощь?")
 
