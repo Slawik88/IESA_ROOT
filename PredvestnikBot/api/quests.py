@@ -32,11 +32,11 @@ async def get_quest(uid: int, chat_id: int) -> dict:
     }
 
 
-async def reroll_quest(uid: int, chat_id: int) -> dict:
-    """Spend QUEST_REROLL_PRICE mora to swap to a new random quest.
+async def reroll_quest(uid: int, chat_id: int, use_coupon: bool = False) -> dict:
+    """Spend QUEST_REROLL_PRICE mora to swap to a new random quest, or use a coupon for free.
 
     Raises ValueError with Russian message on business errors.
-    Returns {quest: {type, goal, desc, xp, mora}, cost, new_balance}.
+    Returns {quest: {type, goal, desc, xp, mora}, cost, new_balance, used_coupon}.
     """
     from config import QUEST_REROLL_PRICE
     from database.db import deduct_mora, get_mora, get_quest_progress, reroll_user_quest
@@ -48,14 +48,40 @@ async def reroll_quest(uid: int, chat_id: int) -> dict:
     if row and row["completed"]:
         raise ValueError("Задание уже выполнено — переброс не нужен")
 
-    mora = await get_mora(uid, chat_id)
-    balance = mora["balance"] if mora else 0
-    if balance < QUEST_REROLL_PRICE:
-        raise ValueError(f"Недостаточно Моры. Нужно {QUEST_REROLL_PRICE} 🪙")
+    coupon_used = False
+    if use_coupon:
+        from database.postgres import connect as postgres_connect
+        async with postgres_connect() as db:
+            async with db.execute(
+                "SELECT id, COALESCE(stack_count, 1) FROM gacha_inventory "
+                "WHERE user_id=? AND chat_id=? AND item_key='quest_reroll' LIMIT 1",
+                (uid, chat_id),
+            ) as c:
+                coupon_row = await c.fetchone()
+            if not coupon_row:
+                raise ValueError("Купон реролла не найден в инвентаре")
+            cid, csc = coupon_row[0], coupon_row[1]
+            if csc <= 1:
+                await db.execute("DELETE FROM gacha_inventory WHERE id=?", (cid,))
+            else:
+                await db.execute(
+                    "UPDATE gacha_inventory SET stack_count = stack_count - 1 WHERE id=?", (cid,)
+                )
+            await db.commit()
+        coupon_used = True
+        cost = 0
+        mora = await get_mora(uid, chat_id)
+        new_bal = mora["balance"] if mora else 0
+    else:
+        mora = await get_mora(uid, chat_id)
+        balance = mora["balance"] if mora else 0
+        if balance < QUEST_REROLL_PRICE:
+            raise ValueError(f"Недостаточно Моры. Нужно {QUEST_REROLL_PRICE} 🪙")
 
-    ok, new_bal = await deduct_mora(uid, chat_id, QUEST_REROLL_PRICE)
-    if not ok:
-        raise ValueError("Не удалось списать Мору")
+        ok, new_bal = await deduct_mora(uid, chat_id, QUEST_REROLL_PRICE)
+        if not ok:
+            raise ValueError("Не удалось списать Мору")
+        cost = QUEST_REROLL_PRICE
 
     quest = await reroll_user_quest(uid, chat_id, today)
     return {
@@ -66,6 +92,7 @@ async def reroll_quest(uid: int, chat_id: int) -> dict:
             "xp": quest["xp"],
             "mora": quest.get("mora", 5),
         },
-        "cost": QUEST_REROLL_PRICE,
+        "cost": cost,
         "new_balance": new_bal,
+        "used_coupon": coupon_used,
     }

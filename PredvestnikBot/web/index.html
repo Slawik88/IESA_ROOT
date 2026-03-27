@@ -3761,18 +3761,21 @@ function renderQuestTab(){
       <div class="progress-bar" style="margin-bottom:6px"><div class="progress-fill" style="width:${pct}%"></div></div>
       ${statusHtml}
       ${chatHintHtml}
-      ${!completed ? `<button class="btn btn-primary" style="margin-top:12px;width:100%" onclick="doQuestReroll()">🔄 Перебросить (25 🪙)</button>` : ''}
+      ${!completed ? `
+        <button class="btn btn-primary" style="margin-top:12px;width:100%" onclick="doQuestReroll(false)">🔄 Перебросить (25 🪙)</button>
+        ${(window.inventoryItems||[]).some(i=>i.key==='quest_reroll') ? `<button class="btn btn-green" style="margin-top:6px;width:100%" onclick="doQuestReroll(true)">🔄 Купон реролла (бесплатно)</button>` : ''}
+      ` : ''}
     </div>
     <div class="card" style="font-size:12px;color:var(--text2)">ℹ️ Задание обновляется каждый день автоматически.<br>Типы: сообщения, репутация, монетка, экспедиция, гача, подарок.</div>
   `;
 }
-async function doQuestReroll(){
+async function doQuestReroll(useCoupon=false){
   try{
-    const r = await api('/api/quest/reroll','POST',{chat_id:chatId});
+    const r = await api('/api/quest/reroll','POST',{chat_id:chatId,use_coupon:useCoupon});
     if(r.new_balance !== undefined) syncBalance(r.new_balance);
     tabLoaded['quest']=false;
     loadQuestTab();
-    toast('🔄 Новое задание! -25 🪙');
+    toast(r.used_coupon ? '🔄 Новое задание! (купон использован)' : '🔄 Новое задание! -25 🪙');
   } catch(e){ toast('❌ '+e.message,'error'); }
 }
 
@@ -3910,10 +3913,23 @@ function renderExpeditionTab(){
         </div>`;
       } else {
         const timeStr = expedition.time_left_h > 0 ? `${expedition.time_left_h}ч ${expedition.time_left_m}мин` : `${expedition.time_left_m}мин`;
+        const boostCoupons = (window.inventoryItems||[]).filter(i=>i.key&&i.key.startsWith('exp_boost_'));
+        let boostHtml = '';
+        if(boostCoupons.length){
+          boostHtml = `<div style="margin-top:10px"><div style="font-size:12px;font-weight:700;margin-bottom:6px">⚡ Ускорить экспедицию:</div>`;
+          boostCoupons.forEach(c => {
+            boostHtml += `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;padding:8px;background:var(--bg3);border-radius:8px">
+              <span style="font-size:12px">${esc(c.name)}${c.stack_count>1?' ×'+c.stack_count:''}</span>
+              <button class="btn btn-green" style="width:auto" onclick="doExpedBoost(${c.id})">⚡ Применить</button>
+            </div>`;
+          });
+          boostHtml += `</div>`;
+        }
         html += `<div class="card">
           <div class="card-title">🗺 Питомец в экспедиции</div>
           <div class="stat-row"><span class="stat-label">⏳ Осталось</span><span class="stat-value">${timeStr}</span></div>
           <div class="stat-row"><span class="stat-label">🎁 Награда</span><span class="stat-value">${expedition.reward_min}–${expedition.reward_max} 🪙</span></div>
+          ${boostHtml}
         </div>`;
       }
     } else if(pet.walking) {
@@ -3984,6 +4000,14 @@ async function doExpedCollect(){
     tabLoaded['expedition']=false;
     setTimeout(()=>loadExpeditionTab(),1500);
   } catch(e){ el.innerHTML=`<span style="color:#f87171">❌ ${esc(e.message)}</span>`; }
+}
+async function doExpedBoost(itemId){
+  try{
+    const r = await api('/api/expeditions/boost','POST',{chat_id:chatId,item_id:itemId});
+    toast(`⚡ Ускорение применено! −${r.saved_minutes} мин`,'success');
+    tabLoaded['expedition']=false;
+    loadExpeditionTab();
+  } catch(e){ toast('❌ '+e.message,'error'); }
 }
 
 // ═══════════════════════════════════════════════════════════════════

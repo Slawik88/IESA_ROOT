@@ -153,6 +153,12 @@ ITEM_METADATA = {
     "rare_lance":      {"slot": "weapon",   "atk": 35, "def_val": 0,  "hp": 0,   "crit_rate": 0.05, "desc": "Лазурное копьё воина ветров",              "sell": 85},
     "lego_raiden":     {"slot": "weapon",   "atk": 80, "def_val": 0,  "hp": 0,   "crit_rate": 0.12, "desc": "Клинок Ей — мощь Инадзумы",               "sell": 0},
     "lego_jade":       {"slot": "artifact", "atk": 20, "def_val": 40, "hp": 0,   "crit_rate": 0.15, "desc": "Нефритовое зерцало Архонта",               "sell": 0},
+    # Блок 5: купоны ускорения и переименования
+    "exp_boost_sm":    {"slot": "coupon",   "atk": 0,  "def_val": 0,  "hp": 0,   "crit_rate": 0.0,  "desc": "Ускорение экспедиции −30 мин",             "sell": 15,  "boost_minutes": 30},
+    "exp_boost_md":    {"slot": "coupon",   "atk": 0,  "def_val": 0,  "hp": 0,   "crit_rate": 0.0,  "desc": "Ускорение экспедиции −2 часа",             "sell": 60,  "boost_minutes": 120},
+    "exp_boost_lg":    {"slot": "coupon",   "atk": 0,  "def_val": 0,  "hp": 0,   "crit_rate": 0.0,  "desc": "Ускорение экспедиции −50% времени",        "sell": 200, "boost_pct": 0.5},
+    "quest_reroll":    {"slot": "coupon",   "atk": 0,  "def_val": 0,  "hp": 0,   "crit_rate": 0.0,  "desc": "Сбросить и получить новый квест",          "sell": 25},
+    "pet_rename":      {"slot": "flair",    "atk": 0,  "def_val": 0,  "hp": 0,   "crit_rate": 0.0,  "desc": "Переименовать питомца бесплатно 1 раз",    "sell": 0},
 }
 
 # ─── Ежедневный чекин ────────────────────────────────────────────────────────
