@@ -221,12 +221,12 @@ def miniapp_user_data(request):
         if specific_chat_id or chat_id:
             effective_cid = specific_chat_id or chat_id
             cur.execute(
-                f"SELECT xp, COALESCE(level, 1), custom_title, COALESCE(rank,'user'), first_active, last_active, COALESCE(warns,0), COALESCE(message_count,0) FROM user_stats WHERE user_id={ph} AND chat_id={ph}",
+                f"SELECT xp, COALESCE(level, 1), custom_title, COALESCE(rank,'user'), first_active, last_active, COALESCE(warns,0), COALESCE(message_count,0), newbie_shield_until FROM user_stats WHERE user_id={ph} AND chat_id={ph}",
                 (uid, effective_cid),
             )
         else:
             cur.execute(
-                f"SELECT xp, COALESCE(level, 1), custom_title, COALESCE(rank,'user'), first_active, last_active, COALESCE(warns,0), COALESCE(message_count,0) FROM user_stats WHERE user_id={ph} ORDER BY xp DESC LIMIT 1",
+                f"SELECT xp, COALESCE(level, 1), custom_title, COALESCE(rank,'user'), first_active, last_active, COALESCE(warns,0), COALESCE(message_count,0), newbie_shield_until FROM user_stats WHERE user_id={ph} ORDER BY xp DESC LIMIT 1",
                 (uid,),
             )
         xp_row = cur.fetchone()
@@ -238,6 +238,7 @@ def miniapp_user_data(request):
         last_active = str(xp_row[5]) if xp_row and xp_row[5] else None
         warns_count = xp_row[6] if xp_row else 0
         message_count = xp_row[7] if xp_row else 0
+        newbie_shield_until = str(xp_row[8]) if xp_row and xp_row[8] else None
         # Developer ID always gets developer rank regardless of DB value
         if uid == _DEVELOPER_ID:
             user_rank = 'developer'
@@ -422,6 +423,7 @@ def miniapp_user_data(request):
             "last_active": last_active,
             "warns": warns_count,
             "message_count": message_count,
+            "newbie_shield_until": newbie_shield_until,
         }
         return JsonResponse(payload, json_dumps_params={"ensure_ascii": False},
                             headers=headers)
