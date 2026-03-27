@@ -1,6 +1,6 @@
 from aiogram import Bot, F, Router
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message, WebAppInfo
-from datetime import datetime
+from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 import html
 
@@ -1290,6 +1290,25 @@ async def cmd_me(message: Message, cmd_args: str):
             lines.append(f"🖼 Рамка: {_frame_emoji(frame_key)} {frame_label}")
     if boost_active:
         lines.append("⚡ <b>XP x2 активен</b>")
+
+    # Щит новичка
+    if is_group and stats:
+        _shield_until = stats.get("newbie_shield_until")
+        if _shield_until:
+            if hasattr(_shield_until, 'tzinfo'):
+                _su = _shield_until if _shield_until.tzinfo else _shield_until.replace(tzinfo=timezone.utc)
+            else:
+                try:
+                    _su = datetime.fromisoformat(str(_shield_until))
+                    if _su.tzinfo is None:
+                        _su = _su.replace(tzinfo=timezone.utc)
+                except Exception:
+                    _su = None
+            if _su and _su > datetime.now(timezone.utc):
+                _delta = _su - datetime.now(timezone.utc)
+                _days_left  = _delta.days
+                _hours_left = _delta.seconds // 3600
+                lines.append(f"🛡 Щит новичка: ещё {_days_left}д {_hours_left}ч")
 
     lines += [
         "",

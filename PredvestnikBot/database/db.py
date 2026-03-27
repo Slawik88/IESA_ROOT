@@ -1445,6 +1445,36 @@ async def get_rest_info_map(chat_id: int) -> dict[int, dict]:
     return result
 
 
+async def set_newbie_shield(user_id: int, chat_id: int, days: int = 3) -> None:
+    """Set newbie_shield_until = now + days IF it has not been set yet (idempotent)."""
+    until = datetime.now(timezone.utc) + timedelta(days=days)
+    async with postgres_connect() as db:
+        await db.execute(
+            """UPDATE user_stats
+               SET newbie_shield_until = ?
+               WHERE user_id = ? AND chat_id = ?
+                 AND newbie_shield_until IS NULL""",
+            (until, user_id, chat_id),
+        )
+        await db.commit()
+
+
+async def get_shield_map(chat_id: int) -> dict[int, object]:
+    """Return {user_id: newbie_shield_until} for all users whose shield is still active."""
+    now = datetime.now(timezone.utc)
+    async with postgres_connect() as db:
+        async with db.execute(
+            """SELECT user_id, newbie_shield_until
+               FROM user_stats
+               WHERE chat_id = ?
+                 AND newbie_shield_until IS NOT NULL
+                 AND newbie_shield_until > ?""",
+            (chat_id, now),
+        ) as c:
+            rows = await c.fetchall()
+    return {r["user_id"]: r["newbie_shield_until"] for r in rows}
+
+
 # ─── Users ────────────────────────────────────────────────────────────────────
 
 async def get_user(user_id: int):

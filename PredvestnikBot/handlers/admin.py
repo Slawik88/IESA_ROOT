@@ -10,7 +10,7 @@ from aiogram.types import ChatPermissions, InlineKeyboardButton, InlineKeyboardM
 from config import DEVELOPER_ID
 from database.db import (
     get_activity_report, get_chat_banlist_users, get_chat_settings, get_chat_stats_for_chat,
-    get_rest_info_map, get_rest_users, get_staff_in_chat, get_user_stats,
+    get_rest_info_map, get_rest_users, get_shield_map, get_staff_in_chat, get_user_stats,
     get_voluntary_leaves,
     add_user_to_banlist, remove_user_from_banlist,
     set_chat_setting, set_rank_in_chat,
@@ -399,16 +399,22 @@ async def cmd_cleanup(message: Message, bot: Bot, cmd_args: str):
     # Bulk-проверка отдыха (вместо N+1 запросов)
     rest_info = await get_rest_info_map(chat_id)
 
+    # Bulk-проверка щитов новичков
+    shield_map = await get_shield_map(chat_id)
+
     # Категоризация
     staff_list = [u for u in all_sorted if u["rank"] in staff_ranks]
     non_staff  = [u for u in all_sorted if u["rank"] not in staff_ranks]
 
-    resting = []
-    passed  = []
-    failed  = []
+    resting  = []
+    shielded = []
+    passed   = []
+    failed   = []
     for u in non_staff:
         if u["user_id"] in rest_info:
             resting.append(u)
+        elif u["user_id"] in shield_map:
+            shielded.append(u)
         elif u["week_count"] >= min_msgs:
             passed.append(u)
         else:
@@ -419,7 +425,7 @@ async def cmd_cleanup(message: Message, bot: Bot, cmd_args: str):
     lines = [
         f"📋 <b>Чистка чата</b>",
         f"{lock_line}  ·  Порог: <b>{min_msgs}</b> сообщ./нед.",
-        f"👥 Всего: <b>{total}</b>  |  ✅ {len(passed)}  ❌ {len(failed)}  😴 {len(resting)}  🛡 {len(staff_list)}",
+        f"👥 Всего: <b>{total}</b>  |  ✅ {len(passed)}  ❌ {len(failed)}  😴 {len(resting)}  🛡 {len(shielded)}  🛡 {len(staff_list)}",
         "",
     ]
 
@@ -446,6 +452,30 @@ async def cmd_cleanup(message: Message, bot: Bot, cmd_args: str):
             lines.append(
                 f"  {user_mention(u['user_id'], u['full_name'])} "
                 f"— {u['week_count']} за нед. · {rest_detail}"
+            )
+        lines.append("")
+
+    # С активным щитом новичка
+    if shielded:
+        lines.append(f"🛡 <b>Щит новичка ({len(shielded)}):</b>")
+        from datetime import timezone as _tz
+        _now = _dt.now(_tz.utc)
+        for u in shielded:
+            su = shield_map[u["user_id"]]
+            if hasattr(su, 'tzinfo'):
+                su_dt = su if su.tzinfo else su.replace(tzinfo=_tz.utc)
+            else:
+                try:
+                    su_dt = _dt.fromisoformat(str(su))
+                    if su_dt.tzinfo is None:
+                        su_dt = su_dt.replace(tzinfo=_tz.utc)
+                except Exception:
+                    su_dt = _now
+            _d = (su_dt - _now)
+            _dl = _d.days; _hl = _d.seconds // 3600
+            lines.append(
+                f"  {user_mention(u['user_id'], u['full_name'])} "
+                f"— {u['week_count']} за нед. · щит ещё {_dl}д {_hl}ч"
             )
         lines.append("")
 
