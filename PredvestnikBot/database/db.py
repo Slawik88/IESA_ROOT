@@ -1790,6 +1790,7 @@ _ALLOWED_CHAT_SETTING_KEYS = {
     "cleanup_locked",
     "inactivity_warn_enabled", "inactivity_warn_days",
     "next_cleanup_at", "cleanup_reminder_sent",
+    "cleanup_message_norm", "cleanup_warn_hours",
 }
 _ALLOWED_LOCK_TYPES = {"links", "stickers", "gifs", "forwards", "voice", "video", "photo", "audio"}
 
@@ -4138,7 +4139,9 @@ async def get_chats_with_scheduled_cleanup() -> list[dict]:
     """Все чаты у которых задана дата следующей чистки."""
     async with postgres_connect() as db:
         async with db.execute(
-            """SELECT chat_id, next_cleanup_at, cleanup_reminder_sent
+            """SELECT chat_id, next_cleanup_at, cleanup_reminder_sent,
+                      COALESCE(cleanup_message_norm, 70) AS cleanup_message_norm,
+                      COALESCE(cleanup_warn_hours, 48)   AS cleanup_warn_hours
                FROM chat_settings
                WHERE next_cleanup_at IS NOT NULL"""
         ) as c:
@@ -4147,6 +4150,58 @@ async def get_chats_with_scheduled_cleanup() -> list[dict]:
 
 async def set_cleanup_reminder_sent(chat_id: int, sent: int) -> None:
     await set_chat_setting(chat_id, "cleanup_reminder_sent", sent)
+
+
+async def get_cleanup_config(chat_id: int) -> dict:
+    """Return current cleanup configuration for a chat."""
+    async with postgres_connect() as db:
+        async with db.execute(
+            """SELECT next_cleanup_at, cleanup_reminder_sent,
+                      COALESCE(cleanup_message_norm, 70) AS cleanup_message_norm,
+                      COALESCE(cleanup_warn_hours, 48)   AS cleanup_warn_hours
+               FROM chat_settings WHERE chat_id = ?""",
+            (chat_id,),
+        ) as c:
+            row = await c.fetchone()
+    if row:
+        return dict(row)
+    return {
+        "next_cleanup_at": None,
+        "cleanup_reminder_sent": 0,
+        "cleanup_message_norm": 70,
+        "cleanup_warn_hours": 48,
+    }
+
+
+async def set_cleanup_config(
+    chat_id: int,
+    next_cleanup_at: str | None = None,
+    cleanup_message_norm: int | None = None,
+    cleanup_warn_hours: int | None = None,
+) -> None:
+    """Update one or more cleanup config fields for a chat."""
+    async with postgres_connect() as db:
+        await db.execute(
+            "INSERT INTO chat_settings (chat_id) VALUES (?) ON CONFLICT (chat_id) DO NOTHING",
+            (chat_id,),
+        )
+        if next_cleanup_at is not None:
+            await db.execute(
+                "UPDATE chat_settings SET next_cleanup_at = ?, cleanup_reminder_sent = 0 WHERE chat_id = ?",
+                (next_cleanup_at, chat_id),
+            )
+        if cleanup_message_norm is not None:
+            await db.execute(
+                "UPDATE chat_settings SET cleanup_message_norm = ? WHERE chat_id = ?",
+                (cleanup_message_norm, chat_id),
+            )
+        if cleanup_warn_hours is not None:
+            await db.execute(
+                "UPDATE chat_settings SET cleanup_warn_hours = ? WHERE chat_id = ?",
+                (cleanup_warn_hours, chat_id),
+            )
+        await db.commit()
+    _invalidate_chat_settings(chat_id)
 
 
 # ─── Питомцы ──────────────────────────────────────────────────────────────────

@@ -983,6 +983,22 @@ select{background:var(--bg3);border:1px solid var(--border);border-radius:8px;pa
     <div id="treasuryLog" style="max-height:260px;overflow-y:auto"></div>
   </div>
 
+  <!-- ⑧ Настройка чистки (доступно developer и owner) -->
+  <div class="card" id="devCleanupCard" style="display:none">
+    <div class="card-title">🧹 Настройка чистки</div>
+    <div id="devCleanupCurrent" style="font-size:12px;color:var(--text2);margin-bottom:10px">Загрузка…</div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <label style="font-size:12px;color:var(--text2)">📅 Дата чистки (по Цюриху)</label>
+      <input type="datetime-local" id="devCleanupDate" style="background:var(--card2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:7px 10px;font-size:13px">
+      <label style="font-size:12px;color:var(--text2)">📊 Норма сообщений (за неделю)</label>
+      <input type="number" id="devCleanupNorm" min="1" max="9999" placeholder="70" style="background:var(--card2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:7px 10px;font-size:13px;width:100%">
+      <label style="font-size:12px;color:var(--text2)">🔔 Предупреждение за N часов</label>
+      <input type="number" id="devCleanupWarn" min="1" max="720" placeholder="48" style="background:var(--card2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:7px 10px;font-size:13px;width:100%">
+      <button class="btn btn-primary" onclick="saveCleanupConfig()" style="margin-top:4px">💾 Сохранить</button>
+    </div>
+    <div id="devCleanupMsg" style="margin-top:8px;font-size:12px;min-height:18px"></div>
+  </div>
+
 </div>
 
 <script>
@@ -1210,7 +1226,7 @@ function switchTab(name){
     if(name==='transfers') loadTransfersTab();
     if(name==='spy') renderSpyTab();
     if(name==='glory') loadLB('xp');
-    if(name==='dev'){ loadDevStats(); loadDevItems(); loadDevTreasury(); loadModSummary(); }
+    if(name==='dev'){ loadDevStats(); loadDevItems(); loadDevTreasury(); loadModSummary(); loadCleanupConfig(); }
   }
 }
 
@@ -1268,7 +1284,7 @@ async function loadProfile(){
       // Full panel visible to developer
       document.querySelectorAll('#tab-dev .card').forEach(c=>{ c.style.display=''; });
     } else if(p.rank === 'owner') {
-      // Owner: user editor + members table + events + warnlist + mod overview + treasury
+      // Owner: user editor + members table + events + warnlist + mod overview + treasury + cleanup config
       const devBtn = document.getElementById('devTabBtn');
       devBtn.setAttribute('data-unlocked','1');
       if(_currentCat === 'fun') devBtn.style.display = '';
@@ -1279,6 +1295,7 @@ async function loadProfile(){
       document.getElementById('modSummaryCard').style.display='';
       document.getElementById('devEventCard').style.display='';
       document.getElementById('devTreasuryCard').style.display=''; // treasury
+      document.getElementById('devCleanupCard').style.display='';  // cleanup config
     } else if(['co_owner','admin_senior'].includes(p.rank)) {
       // Senior admins: warnlist + mod overview only (no treasury)
       const devBtn = document.getElementById('devTabBtn');
@@ -2871,7 +2888,84 @@ async function loadDevTreasury(){
   }
 }
 
-// Override api() DELETE support (pass method as arg)
+// ── Cleanup config ────────────────────────────────────────────────────────────
+
+async function loadCleanupConfig(){
+  const card = document.getElementById('devCleanupCard');
+  if(!card || card.style.display==='none') return;
+  if(!chatId){document.getElementById('devCleanupCurrent').textContent='chat_id не задан';return;}
+  document.getElementById('devCleanupCurrent').textContent='Загрузка…';
+  try{
+    const r = await api('/api/cleanup_config?chat_id='+chatId);
+    let dateStr = '—';
+    if(r.next_cleanup_at){
+      const d = new Date(r.next_cleanup_at);
+      if(!isNaN(d)) dateStr = d.toLocaleString('ru-RU',{timeZone:'Europe/Zurich',hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit',year:'numeric'}) + ' (Цюрих)';
+      // Pre-fill datetime-local input (local tz)
+      const dLocal = new Date(r.next_cleanup_at);
+      if(!isNaN(dLocal)){
+        // Convert UTC → Zurich for display in the input
+        const zurichStr = dLocal.toLocaleString('sv-SE',{timeZone:'Europe/Zurich'}).replace(' ','T').slice(0,16);
+        document.getElementById('devCleanupDate').value = zurichStr;
+      }
+    }
+    document.getElementById('devCleanupNorm').value = r.cleanup_message_norm || 70;
+    document.getElementById('devCleanupWarn').value = r.cleanup_warn_hours || 48;
+    document.getElementById('devCleanupCurrent').innerHTML =
+      `📅 <b>${dateStr}</b> &nbsp;|&nbsp; 📊 Норма: <b>${r.cleanup_message_norm||70}</b> &nbsp;|&nbsp; 🔔 Предупр.: <b>${r.cleanup_warn_hours||48}ч</b>`;
+  } catch(e){
+    document.getElementById('devCleanupCurrent').textContent='❌ '+e.message;
+  }
+}
+
+async function saveCleanupConfig(){
+  if(!chatId){toast('chat_id не задан','error');return;}
+  const msgEl = document.getElementById('devCleanupMsg');
+  msgEl.textContent='⏳ Сохранение…';
+  const dateVal = document.getElementById('devCleanupDate').value; // YYYY-MM-DDTHH:MM (Zurich local)
+  const normVal = parseInt(document.getElementById('devCleanupNorm').value||'0');
+  const warnVal = parseInt(document.getElementById('devCleanupWarn').value||'0');
+  const body = {chat_id: chatId};
+  if(dateVal){
+    // Convert Zurich local datetime string to UTC ISO string
+    const zurichDate = new Date(dateVal + ':00'); // treat as local — browser may differ
+    // Use proper Zurich offset conversion via en-US locale
+    const utcMs = new Date(new Date(dateVal).toLocaleString('en-US',{timeZone:'Europe/Zurich'}) === dateVal
+      ? new Date(dateVal).getTime() // fallback
+      : (() => {
+          // Parse as Zurich time: compute offset
+          const ref = new Date(dateVal);
+          const zuLocal = new Date(ref.toLocaleString('en-US',{timeZone:'Europe/Zurich'}));
+          const diff = ref - zuLocal;
+          return ref.getTime() + diff;
+        })()
+    );
+    // Simple approach: treat datetime-local value as Zurich, convert to UTC
+    const isoInput = dateVal + ':00';
+    // Build a date in Zurich by parsing and applying offset
+    const tzOffset = (() => {
+      const d = new Date(isoInput);
+      const zu = new Date(d.toLocaleString('en-US', {timeZone: 'Europe/Zurich'}));
+      return d - zu;  // ms
+    })();
+    const utcDate = new Date(new Date(isoInput).getTime() + tzOffset);
+    body.next_cleanup_at = utcDate.toISOString();
+  }
+  if(normVal > 0) body.cleanup_message_norm = normVal;
+  if(warnVal > 0) body.cleanup_warn_hours = warnVal;
+  try{
+    const r = await api('/api/cleanup_config','POST',body);
+    msgEl.style.color='var(--success,#4ade80)';
+    msgEl.textContent='✅ Сохранено!';
+    await loadCleanupConfig();
+    setTimeout(()=>{msgEl.textContent='';},3000);
+  } catch(e){
+    msgEl.style.color='#f87171';
+    msgEl.textContent='❌ '+e.message;
+  }
+}
+
+
 // The api() helper likely only supports GET/POST – extend it here:
 async function _devApiDelete(url, body){
   const resp = await fetch(BASE+url,{
