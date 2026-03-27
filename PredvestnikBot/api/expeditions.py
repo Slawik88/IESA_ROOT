@@ -282,6 +282,73 @@ async def get_expedition_status(uid: int, chat_id: int) -> dict:
     }
 
 
+async def boost_expedition(uid: int, chat_id: int, item_id: int) -> dict:
+    """Apply an expedition boost coupon. Returns {ok, new_end_at, saved_minutes}."""
+    from database.db import get_active_expedition
+    from database.postgres import connect as postgres_connect
+    from shared_prices import ITEM_METADATA
+
+    active = await get_active_expedition(uid, chat_id)
+    if not active:
+        raise ValueError("Нет активной экспедиции")
+
+    async with postgres_connect() as db:
+        async with db.execute(
+            "SELECT id, item_key, COALESCE(stack_count, 1) FROM gacha_inventory "
+            "WHERE id=? AND user_id=? AND chat_id=?",
+            (item_id, uid, chat_id),
+        ) as c:
+            item_row = await c.fetchone()
+        if not item_row:
+            raise ValueError("Предмет не найден")
+
+        iid, item_key, stack_count = item_row[0], item_row[1], item_row[2]
+        if not item_key.startswith("exp_boost_"):
+            raise ValueError("Этот предмет нельзя использовать как ускорение")
+
+        meta = ITEM_METADATA.get(item_key, {})
+        started_at = active["started_at"]
+        duration_h = active["duration_h"]
+        if isinstance(started_at, str):
+            started_at = datetime.fromisoformat(started_at.replace("Z", "+00:00"))
+        if started_at.tzinfo is None:
+            started_at = started_at.replace(tzinfo=timezone.utc)
+
+        end_at = started_at + timedelta(hours=duration_h)
+        now = datetime.now(timezone.utc)
+        remaining_secs = max(0, (end_at - now).total_seconds())
+        if remaining_secs == 0:
+            raise ValueError("Экспедиция уже завершена — забери награду!")
+
+        boost_pct = meta.get("boost_pct")
+        boost_minutes = meta.get("boost_minutes")
+        if boost_pct:
+            saved_secs = remaining_secs * boost_pct
+        elif boost_minutes:
+            saved_secs = boost_minutes * 60
+        else:
+            raise ValueError("Некорректный купон ускорения")
+
+        saved_secs = min(saved_secs, remaining_secs)
+        new_started_at = started_at - timedelta(seconds=saved_secs)
+        saved_minutes = int(saved_secs / 60)
+
+        await db.execute(
+            "UPDATE pet_expeditions SET started_at=? WHERE user_id=? AND chat_id=? AND finished=0",
+            (new_started_at, uid, chat_id),
+        )
+        if stack_count <= 1:
+            await db.execute("DELETE FROM gacha_inventory WHERE id=?", (iid,))
+        else:
+            await db.execute(
+                "UPDATE gacha_inventory SET stack_count = stack_count - 1 WHERE id=?", (iid,)
+            )
+        await db.commit()
+        new_end_at = (new_started_at + timedelta(hours=duration_h)).isoformat()
+
+    return {"ok": True, "new_end_at": new_end_at, "saved_minutes": saved_minutes}
+
+
 async def get_status(uid: int, chat_id: int) -> dict:
     """Return current expedition status and pet info.
 

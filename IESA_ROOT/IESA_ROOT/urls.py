@@ -61,6 +61,8 @@ from .miniapp_views import (
     miniapp_expeditions,
     miniapp_expeditions_start,
     miniapp_expeditions_collect,
+    miniapp_expeditions_boost,
+    miniapp_pets_rename,
     miniapp_cleanup_config,
 )
 
@@ -178,6 +180,8 @@ urlpatterns = [
     path('api/expeditions', miniapp_expeditions, name='miniapp_expeditions'),
     path('api/expeditions/start', miniapp_expeditions_start, name='miniapp_expeditions_start'),
     path('api/expeditions/collect', miniapp_expeditions_collect, name='miniapp_expeditions_collect'),
+    path('api/expeditions/boost', miniapp_expeditions_boost, name='miniapp_expeditions_boost'),
+    path('api/pets/rename', miniapp_pets_rename, name='miniapp_pets_rename'),
     # ─── Cleanup config / Настройка чистки ────────────────────────────────────
     path('api/cleanup_config', miniapp_cleanup_config, name='miniapp_cleanup_config'),
     # ──────────────────────────────────────────────────────────────────────────

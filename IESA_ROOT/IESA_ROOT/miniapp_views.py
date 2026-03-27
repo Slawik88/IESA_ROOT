@@ -3530,10 +3530,11 @@ def miniapp_quest_reroll(request):
         return JsonResponse({"error": "bad JSON"}, status=400, headers=headers)
 
     chat_id = int(data.get("chat_id", 0))
+    use_coupon = bool(data.get("use_coupon", False))
     try:
         from asgiref.sync import async_to_sync as _a2s
         from api.quests import reroll_quest as _reroll_quest
-        result = _a2s(_reroll_quest)(uid, chat_id)
+        result = _a2s(_reroll_quest)(uid, chat_id, use_coupon=use_coupon)
         return JsonResponse({"ok": True, **result}, json_dumps_params={"ensure_ascii": False}, headers=headers)
     except ValueError as exc:
         return JsonResponse({"error": str(exc)}, status=400, headers=headers)
@@ -4204,6 +4205,112 @@ def miniapp_expeditions_collect(request):
     except Exception as exc:
         return JsonResponse({"error": str(exc)}, status=500, headers=headers)
     return JsonResponse(result, json_dumps_params={"ensure_ascii": False}, headers=headers)
+
+
+@csrf_exempt
+def miniapp_expeditions_boost(request):
+    """POST /api/expeditions/boost {chat_id, item_id} — apply expedition boost coupon."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=405, headers=headers)
+
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+
+    try:
+        data = json.loads(request.body)
+    except Exception:
+        return JsonResponse({"error": "bad JSON"}, status=400, headers=headers)
+
+    chat_id = int(data.get("chat_id", 0))
+    item_id = int(data.get("item_id", 0))
+    if not chat_id or not item_id:
+        return JsonResponse({"error": "chat_id and item_id required"}, status=400, headers=headers)
+
+    try:
+        from api.expeditions import boost_expedition as _boost
+        from asgiref.sync import async_to_sync as _a2s
+        result = _a2s(_boost)(uid, chat_id, item_id)
+        return JsonResponse(result, json_dumps_params={"ensure_ascii": False}, headers=headers)
+    except ValueError as e:
+        return JsonResponse({"error": str(e)}, status=400, headers=headers)
+    except Exception as exc:
+        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+
+
+@csrf_exempt
+def miniapp_pets_rename(request):
+    """POST /api/pets/rename {chat_id, name, use_coupon?} — rename pet (coupon=free, else PET_RENAME_PRICE)."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=405, headers=headers)
+
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+
+    try:
+        data = json.loads(request.body)
+    except Exception:
+        return JsonResponse({"error": "bad JSON"}, status=400, headers=headers)
+
+    chat_id = int(data.get("chat_id", 0))
+    name = str(data.get("name", "")).strip()[:20]
+    use_coupon = bool(data.get("use_coupon", False))
+    if not chat_id or not name:
+        return JsonResponse({"error": "chat_id and name required"}, status=400, headers=headers)
+
+    try:
+        from asgiref.sync import async_to_sync as _a2s
+        from database.db import deduct_mora, get_mora, rename_pet
+
+        async def _do_rename():
+            if use_coupon:
+                from database.postgres import connect as _pg
+                async with _pg() as db:
+                    async with db.execute(
+                        "SELECT id, COALESCE(stack_count, 1) FROM gacha_inventory "
+                        "WHERE user_id=? AND chat_id=? AND item_key='pet_rename' LIMIT 1",
+                        (uid, chat_id),
+                    ) as c:
+                        row = await c.fetchone()
+                    if not row:
+                        raise ValueError("Купон переименования не найден в инвентаре")
+                    cid, csc = row[0], row[1]
+                    if csc <= 1:
+                        await db.execute("DELETE FROM gacha_inventory WHERE id=?", (cid,))
+                    else:
+                        await db.execute(
+                            "UPDATE gacha_inventory SET stack_count = stack_count - 1 WHERE id=?", (cid,)
+                        )
+                    await db.commit()
+                cost = 0
+            else:
+                from config import PET_RENAME_PRICE
+                mora = await get_mora(uid, chat_id)
+                bal = mora["balance"] if mora else 0
+                if bal < PET_RENAME_PRICE:
+                    raise ValueError(f"Недостаточно Моры: {bal}/{PET_RENAME_PRICE} 🪙")
+                ok, _ = await deduct_mora(uid, chat_id, PET_RENAME_PRICE)
+                if not ok:
+                    raise ValueError("Не удалось списать Мору")
+                cost = PET_RENAME_PRICE
+            found = await rename_pet(uid, chat_id, name)
+            if not found:
+                raise ValueError("Питомец не найден")
+            return {"ok": True, "name": name, "cost": cost}
+
+        result = _a2s(_do_rename)()
+        return JsonResponse(result, json_dumps_params={"ensure_ascii": False}, headers=headers)
+    except ValueError as e:
+        return JsonResponse({"error": str(e)}, status=400, headers=headers)
+    except Exception as exc:
+        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
 
 
 # ─── Cleanup config ───────────────────────────────────────────────────────────
