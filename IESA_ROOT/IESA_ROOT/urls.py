@@ -61,6 +61,7 @@ from .miniapp_views import (
     miniapp_expeditions,
     miniapp_expeditions_start,
     miniapp_expeditions_collect,
+    miniapp_cleanup_config,
 )
 
 # Переопределить стандартный админ на кастомный
@@ -177,7 +178,9 @@ urlpatterns = [
     path('api/expeditions', miniapp_expeditions, name='miniapp_expeditions'),
     path('api/expeditions/start', miniapp_expeditions_start, name='miniapp_expeditions_start'),
     path('api/expeditions/collect', miniapp_expeditions_collect, name='miniapp_expeditions_collect'),
-    # ───────────────────────────────────────────────────────────────────────────
+    # ─── Cleanup config / Настройка чистки ────────────────────────────────────
+    path('api/cleanup_config', miniapp_cleanup_config, name='miniapp_cleanup_config'),
+    # ──────────────────────────────────────────────────────────────────────────
     path('protected/<path:file_path>', serve_protected_media, name='serve_protected_media'),
     
     # Core app (Главная страница)

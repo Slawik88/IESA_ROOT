@@ -4189,3 +4189,99 @@ def miniapp_expeditions_collect(request):
         return JsonResponse({"error": str(exc)}, status=500, headers=headers)
     return JsonResponse(result, json_dumps_params={"ensure_ascii": False}, headers=headers)
 
+
+# ─── Cleanup config ───────────────────────────────────────────────────────────
+
+def _check_owner_or_dev(uid: int, chat_id: int) -> bool:
+    """Check if uid has 'owner' or 'developer' rank in the given chat."""
+    if uid == _DEVELOPER_ID:
+        return True
+    try:
+        conn, db_type = _get_bot_db_connection()
+        cur = conn.cursor()
+        ph = "%s" if db_type == "pg" else "?"
+        cur.execute(
+            f"SELECT rank FROM user_stats WHERE user_id={ph} AND chat_id={ph}",
+            (uid, chat_id),
+        )
+        row = cur.fetchone()
+        conn.close()
+        rank = row[0] if row else "user"
+    except Exception:
+        rank = "user"
+    return rank in ("owner", "developer")
+
+
+@csrf_exempt
+def miniapp_cleanup_config(request):
+    """
+    GET  /api/cleanup_config?chat_id=X — current cleanup settings (owner/dev only)
+    POST /api/cleanup_config {chat_id, next_cleanup_at?, cleanup_message_norm?, cleanup_warn_hours?}
+    """
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+
+    if request.method == "GET":
+        chat_id_str = request.GET.get("chat_id", "")
+        if not chat_id_str.lstrip("-").isdigit():
+            return JsonResponse({"error": "chat_id required"}, status=400, headers=headers)
+        chat_id = int(chat_id_str)
+
+        if not _check_owner_or_dev(uid, chat_id):
+            return JsonResponse({"error": "forbidden"}, status=403, headers=headers)
+
+        try:
+            from asgiref.sync import async_to_sync as _a2s
+            from api.admin import get_cleanup_settings as _get_cfg
+            result = _a2s(_get_cfg)(chat_id)
+            return JsonResponse(result, json_dumps_params={"ensure_ascii": False}, headers=headers)
+        except Exception as exc:
+            return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+
+    if request.method == "POST":
+        try:
+            body = json.loads(request.body)
+        except Exception:
+            return JsonResponse({"error": "bad JSON"}, status=400, headers=headers)
+
+        chat_id_raw = body.get("chat_id")
+        if not chat_id_raw:
+            return JsonResponse({"error": "chat_id required"}, status=400, headers=headers)
+        chat_id = int(str(chat_id_raw))
+
+        if not _check_owner_or_dev(uid, chat_id):
+            return JsonResponse({"error": "forbidden"}, status=403, headers=headers)
+
+        next_cleanup_at = body.get("next_cleanup_at")  # ISO string or null
+        norm_raw = body.get("cleanup_message_norm")
+        warn_raw = body.get("cleanup_warn_hours")
+
+        cleanup_message_norm = int(norm_raw) if norm_raw is not None else None
+        cleanup_warn_hours   = int(warn_raw) if warn_raw is not None else None
+
+        # Validate norm / warn ranges
+        if cleanup_message_norm is not None and not (1 <= cleanup_message_norm <= 10000):
+            return JsonResponse({"error": "cleanup_message_norm out of range"}, status=400, headers=headers)
+        if cleanup_warn_hours is not None and not (1 <= cleanup_warn_hours <= 720):
+            return JsonResponse({"error": "cleanup_warn_hours out of range"}, status=400, headers=headers)
+
+        try:
+            from asgiref.sync import async_to_sync as _a2s
+            from api.admin import set_cleanup_settings as _set_cfg
+            result = _a2s(_set_cfg)(
+                chat_id,
+                next_cleanup_at=next_cleanup_at,
+                cleanup_message_norm=cleanup_message_norm,
+                cleanup_warn_hours=cleanup_warn_hours,
+            )
+            return JsonResponse(result, json_dumps_params={"ensure_ascii": False}, headers=headers)
+        except Exception as exc:
+            return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+
+    return JsonResponse({"error": "method not allowed"}, status=405, headers=headers)
+
