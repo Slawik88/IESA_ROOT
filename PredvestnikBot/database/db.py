@@ -271,6 +271,8 @@ async def init_db():
             "next_cleanup_at         TIMESTAMPTZ DEFAULT NULL",
             "cleanup_reminder_sent   INTEGER DEFAULT 0",
             "antiflood_window  REAL    DEFAULT 2.0",
+            "cleanup_message_norm INTEGER DEFAULT 70",
+            "cleanup_warn_hours   INTEGER DEFAULT 48",
         ]:
             try:
                 await db.execute(
@@ -285,6 +287,7 @@ async def init_db():
             "first_active        TIMESTAMPTZ DEFAULT NULL",
             "last_active         TIMESTAMPTZ DEFAULT NULL",
             "inactivity_warned_at TIMESTAMPTZ DEFAULT NULL",
+            "newbie_shield_until TIMESTAMPTZ DEFAULT NULL",
         ]:
             try:
                 await db.execute(f"ALTER TABLE user_stats ADD COLUMN IF NOT EXISTS {col_def}")
@@ -966,6 +969,7 @@ async def init_db():
             "slot      TEXT    DEFAULT NULL",
             "description TEXT  DEFAULT NULL",
             "enhancement_level INTEGER DEFAULT 0",
+            "stack_count INTEGER DEFAULT 1",
         ]:
             try:
                 await db.execute(f"ALTER TABLE gacha_inventory ADD COLUMN IF NOT EXISTS {col_def}")
@@ -1004,6 +1008,43 @@ async def init_db():
             """)
         except Exception:
             pass
+
+        # ─── Донаты в казну ───────────────────────────────────────────────
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS treasury_donations (
+                id         SERIAL PRIMARY KEY,
+                user_id    BIGINT      NOT NULL,
+                chat_id    BIGINT      NOT NULL,
+                amount     INTEGER     NOT NULL,
+                donated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """)
+
+        # ─── Глобальные бафы чата ─────────────────────────────────────────
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS chat_global_buffs (
+                id           SERIAL PRIMARY KEY,
+                chat_id      BIGINT      NOT NULL,
+                buff_type    TEXT        NOT NULL,
+                activated_by BIGINT      NOT NULL,
+                activated_at TIMESTAMPTZ NOT NULL,
+                expires_at   TIMESTAMPTZ NOT NULL,
+                UNIQUE (chat_id, buff_type)
+            )
+        """)
+
+        # ─── Лог чат-пиров (анти-абуз: 1 пир в 12 часов) ─────────────────
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS feast_log (
+                id           SERIAL PRIMARY KEY,
+                chat_id      BIGINT      NOT NULL,
+                triggered_by BIGINT      NOT NULL,
+                cost         INTEGER     NOT NULL,
+                recipients   INTEGER     NOT NULL,
+                total_given  INTEGER     NOT NULL,
+                triggered_at TIMESTAMPTZ NOT NULL
+            )
+        """)
 
         # DDL соединение не поддерживает транзакции - commit() не нужен
 
