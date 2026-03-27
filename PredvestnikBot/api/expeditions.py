@@ -223,6 +223,7 @@ async def get_expedition_status(uid: int, chat_id: int) -> dict:
             "type": pet_row.get("pet_type"),
             "name": pet_row.get("name") or "безымянный",
             "fatigue": pet_row.get("fatigue") or 0,
+            "color": pet_row.get("color_name"),
         }
         walk_end = pet_row.get("walk_end_at")
         if walk_end:

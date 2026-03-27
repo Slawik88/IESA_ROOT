@@ -278,13 +278,13 @@ def miniapp_user_data(request):
         pet_info = None
         if chat_id:
             cur.execute(
-                f"SELECT pet_type, name, COALESCE(fatigue,0), walk_end_at FROM pets "
+                f"SELECT pet_type, name, COALESCE(fatigue,0), walk_end_at, color_name FROM pets "
                 f"WHERE user_id={ph} AND chat_id={ph}",
                 (uid, chat_id),
             )
             pet_row = cur.fetchone()
             if pet_row:
-                ptype, pname, pfatigue, pwalk_end = pet_row
+                ptype, pname, pfatigue, pwalk_end, pcolor = pet_row
                 emoji = {"cat": "🐱", "dog": "🐶"}.get(ptype, "🐾")
                 on_walk = False
                 walk_mins_left = 0
@@ -308,6 +308,7 @@ def miniapp_user_data(request):
                     "on_walk": on_walk,
                     "walk_mins_left": walk_mins_left,
                     "walk_end_at": pwalk_end or None,
+                    "color_name": pcolor,
                 }
 
         # RPG stats
