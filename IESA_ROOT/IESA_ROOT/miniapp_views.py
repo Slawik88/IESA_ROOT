@@ -1691,7 +1691,8 @@ def miniapp_inventory(request):
             ph = "%s" if db_type == "pg" else "?"
             cur.execute(
                 f"SELECT id, item_key, item_name, rarity, equipped, "
-                f"COALESCE(atk,0), COALESCE(def_val,0), COALESCE(hp,0), COALESCE(crit_rate,0), slot, COALESCE(enhancement_level,0) "
+                f"COALESCE(atk,0), COALESCE(def_val,0), COALESCE(hp,0), COALESCE(crit_rate,0), slot, COALESCE(enhancement_level,0), "
+                f"COALESCE(stack_count,1) "
                 f"FROM gacha_inventory WHERE user_id={ph} AND chat_id={ph} ORDER BY id DESC",
                 (uid, chat_id),
             )
@@ -1702,6 +1703,8 @@ def miniapp_inventory(request):
                     "id": r[0], "key": r[1], "name": r[2], "rarity": r[3], "equipped": bool(r[4]),
                     "atk": r[5], "def": r[6], "hp": r[7], "crit": r[8], "slot": r[9],
                     "enhancement_level": r[10],
+                    "stack_count": r[11],
+                    "is_cosmetic": meta.get("slot") == "flair",
                     "desc": meta.get("desc", ""),
                     "sell_price": meta.get("sell", 0),
                 })
@@ -1848,7 +1851,7 @@ def miniapp_inventory_sell_junk(request):
         cur = conn.cursor()
         ph = "%s" if db_type == "pg" else "?"
         cur.execute(
-            f"SELECT id, item_key FROM gacha_inventory WHERE user_id={ph} AND chat_id={ph} AND rarity='junk'",
+            f"SELECT id, item_key, COALESCE(stack_count, 1) FROM gacha_inventory WHERE user_id={ph} AND chat_id={ph} AND rarity='junk'",
             (uid, chat_id),
         )
         junk_items = cur.fetchall()
@@ -1858,12 +1861,14 @@ def miniapp_inventory_sell_junk(request):
             conn.close()
             return JsonResponse({"ok": True, "sold": 0, "mora": 0, "balance": bal}, headers=headers)
         total_mora = 0
+        total_sold = 0
         ids_to_delete = []
         for row in junk_items:
-            iid, ikey = row
+            iid, ikey, sc = row[0], row[1], row[2]
             meta = _ITEM_METADATA.get(ikey, {})
             sell = meta.get("sell", 0)
-            total_mora += max(1, sell // 2)
+            total_mora += max(1, sell // 2) * sc
+            total_sold += sc
             ids_to_delete.append(iid)
         placeholders = ",".join([ph] * len(ids_to_delete))
         cur.execute(f"DELETE FROM gacha_inventory WHERE id IN ({placeholders})", ids_to_delete)
@@ -1883,7 +1888,7 @@ def miniapp_inventory_sell_junk(request):
         cur.execute(f"SELECT balance FROM user_mora WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
         new_bal = (cur.fetchone() or [0])[0]
         conn.close()
-        return JsonResponse({"ok": True, "sold": len(ids_to_delete), "mora": total_mora, "balance": new_bal}, headers=headers)
+        return JsonResponse({"ok": True, "sold": total_sold, "mora": total_mora, "balance": new_bal}, headers=headers)
     except Exception as exc:
         try:
             conn.close()
@@ -2803,21 +2808,32 @@ def miniapp_batch_sell(request):
     except (json.JSONDecodeError, UnicodeDecodeError):
         return JsonResponse({"error": "invalid JSON"}, status=400, headers=headers)
 
-    item_ids = data.get("item_ids", [])
     chat_id = data.get("chat_id")
 
     if not chat_id:
         return JsonResponse({"error": "chat_id required"}, status=400, headers=headers)
 
-    if not isinstance(item_ids, list):
-        return JsonResponse({"error": "item_ids must be array"}, status=400, headers=headers)
+    # Accept new format: items=[{id, qty}] or backward-compat item_ids=[int]
+    items_list = data.get("items")
+    item_ids_raw = data.get("item_ids", [])
+    sell_qtys = None
+    if items_list and isinstance(items_list, list):
+        try:
+            item_ids = [int(x["id"]) for x in items_list if isinstance(x, dict)]
+            sell_qtys = {int(x["id"]): max(1, int(x.get("qty", 1))) for x in items_list if isinstance(x, dict)}
+        except (ValueError, KeyError):
+            return JsonResponse({"error": "invalid items format"}, status=400, headers=headers)
+    elif isinstance(item_ids_raw, list):
+        item_ids = item_ids_raw
+    else:
+        return JsonResponse({"error": "items or item_ids required"}, status=400, headers=headers)
 
     try:
         from database.db import batch_sell_items
         from api.economy import get_balance
         from asgiref.sync import async_to_sync as _a2s
 
-        sold_count, total_mora = _a2s(batch_sell_items)(uid, chat_id, item_ids)
+        sold_count, total_mora = _a2s(batch_sell_items)(uid, chat_id, item_ids, sell_qtys)
 
         if sold_count > 0:
             _a2s(log_action_to_chat)(
