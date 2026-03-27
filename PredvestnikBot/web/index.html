@@ -426,6 +426,7 @@ select{background:var(--bg3);border:1px solid var(--border);border-radius:8px;pa
       <div class="stat-row"><span class="stat-label">🟢 Первая активность</span><span class="stat-value" id="pFirstActive">—</span></div>
       <div class="stat-row"><span class="stat-label">🔵 Последняя активность</span><span class="stat-value" id="pLastActive">—</span></div>
       <div class="stat-row"><span class="stat-label">🔥 Стрик</span><span class="stat-value" id="pStreak">—</span></div>
+      <div class="stat-row" id="pShieldRow" style="display:none"><span class="stat-label">🛡 Щит новичка</span><span class="stat-value" id="pShield">—</span></div>
     </div>
     <div class="card" id="partnersCard" style="display:none">
       <div class="card-title">💕 Партнёр</div>
@@ -1240,6 +1241,16 @@ async function loadProfile(){
     document.getElementById('pFirstActive').textContent = _fmtDt(p.first_active);
     document.getElementById('pLastActive').textContent = _fmtDt(p.last_active);
     document.getElementById('pStreak').textContent = (p.streak||0) + ' дн.';
+    if(p.newbie_shield_until){
+      const _sd = new Date(p.newbie_shield_until);
+      const _diff = _sd - Date.now();
+      if(_diff > 0){
+        const _dl = Math.floor(_diff / 86400000);
+        const _hl = Math.floor((_diff % 86400000) / 3600000);
+        document.getElementById('pShield').textContent = `ещё ${_dl}д ${_hl}ч`;
+        document.getElementById('pShieldRow').style.display = '';
+      }
+    }
     const xp = p.xp||0, xpMax = p.xp_max||100;
     document.getElementById('pXp').textContent = xp;
     document.getElementById('pXpMax').textContent = xpMax;

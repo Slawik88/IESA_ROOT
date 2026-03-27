@@ -20,6 +20,7 @@ from database.db import (
     increment_message_count_chat,
     is_group_allowed,
     mark_quest_rewarded, quest_tick,
+    set_newbie_shield,
     upsert_chat, upsert_user, upsert_user_stats,
 )
 from services.recent_users import remember_user
@@ -67,6 +68,10 @@ _mora_daily_checked: dict[tuple[int, int], str] = {}
 # Трекер юзеров, у которых pending-импорт уже проверен/применён
 _pending_resolved: set[tuple[int, int]] = set()   # (user_id, chat_id)
 _PENDING_RESOLVED_LIMIT = 5000
+
+# Трекер юзеров, у которых уже проверен щит новичка
+_shield_checked: set[tuple[int, int]] = set()     # (user_id, chat_id)
+_SHIELD_CHECKED_LIMIT = 10000
 
 
 async def _delete_after(msg, delay: int = 5) -> None:
@@ -151,6 +156,16 @@ class AutoModMiddleware(BaseMiddleware):
                         _pending_resolved.clear()
                     await apply_pending_import(user.username, user.id, event.chat.id)
                     await apply_pending_marriages(user.username, user.id, event.chat.id)
+
+            # Щит новичка: при самом первом сообщении (first_active IS NULL) ставим щит
+            _shield_key = (user.id, event.chat.id)
+            if _shield_key not in _shield_checked:
+                _shield_checked.add(_shield_key)
+                if len(_shield_checked) > _SHIELD_CHECKED_LIMIT:
+                    _shield_checked.clear()
+                _stats_for_shield = await get_user_stats(user.id, event.chat.id)
+                if not _stats_for_shield or _stats_for_shield["first_active"] is None:
+                    await set_newbie_shield(user.id, event.chat.id, days=3)
 
             # ПРЯМАЯ запись в БД — каждое сообщение обновляет message_count + last_active
             await increment_message_count_chat(user.id, event.chat.id)
