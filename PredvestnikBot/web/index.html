@@ -600,6 +600,12 @@ select{background:var(--bg3);border:1px solid var(--border);border-radius:8px;pa
       <div class="card-title">🎭 Косметика и эффекты</div>
       <div id="cosmeticsSection"></div>
     </div>
+    <!-- Pet Colors -->
+    <div class="card">
+      <div class="card-title">🎨 Цвет имени питомца</div>
+      <div style="font-size:11px;color:var(--text2);margin-bottom:10px">Окрашивает имя питомца в профиле и на странице экспедиций · покупка заменяет текущий цвет</div>
+      <div id="petColorsSection"></div>
+    </div>
     <!-- Potions -->
     <div class="card">
       <div class="card-title">🧪 Зелья и расходники</div>
@@ -1510,7 +1516,10 @@ async function loadUnion(){
   if(p.pet){
     document.getElementById('petCard').style.display='block';
     document.getElementById('petEmoji').textContent=p.pet.emoji||'🐾';
-    document.getElementById('petName').textContent=p.pet.name||'Питомец';
+    const petNameEl=document.getElementById('petName');
+    petNameEl.textContent=p.pet.name||'Питомец';
+    const petColorMap={'red':'#ef4444','blue':'#3b82f6','gold':'#f59e0b','green':'#22c55e','purple':'#a855f7','white':'#f0f0f0'};
+    petNameEl.style.color=petColorMap[p.pet.color_name]||'';
     updatePetFatigue(p.pet.fatigue||0);
     updatePetWalkStatus(p.pet);
   }
@@ -1921,6 +1930,23 @@ function renderShop(d){
         </div>
       </div></div>`).join('');
 
+  // Pet colors
+  const petColorMap={'red':'#ef4444','blue':'#3b82f6','gold':'#f59e0b','green':'#22c55e','purple':'#a855f7','white':'#f0f0f0'};
+  const hasPet=!!(profileData&&profileData.pet);
+  document.getElementById('petColorsSection').innerHTML=(d.pet_colors||[]).map(c=>{
+    const colorKey=c.key.replace('pet_color_','');
+    const hex=petColorMap[colorKey]||'#aaa';
+    return `<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="width:20px;height:20px;border-radius:50%;background:${hex};border:2px solid rgba(255,255,255,.15)"></div>
+        <span style="font-size:13px">${esc(c.label)}</span>
+        ${c.active?'<span class="sbadge sbadge-owned" style="margin-left:4px">✓ Активен</span>':''}
+      </div>
+      <span style="font-size:12px;color:${c.active?'var(--text2)':'var(--green)'};font-weight:700">${c.active?'Уже активен':(!hasPet?'Нет питомца':c.price+' 🪙')}</span>
+      ${(!c.active&&hasPet)?`<button class="btn btn-sm" style="background:${hex};color:#fff;border:none" onclick="buyPetColor('${c.key}','${esc(c.label)}',${c.price})">🎨 Купить</button>`:''}
+    </div>`;
+  }).join('')||'<div style="font-size:12px;color:var(--text2)">Нет питомца — заведи питомца через брак</div>';
+
   // Potions
   const potAccent={atk:'#ef4444',def:'#3b82f6',hp:'#22c55e'};
   document.getElementById('potionsSection').innerHTML=(d.potions||[]).map(p=>`
@@ -1945,7 +1971,18 @@ function renderShop(d){
       </div></div>`).join('');
 }
 
-async function buyPotion(key, price, label){
+async function buyPetColor(key, label, price){
+  let wallet;
+  try{ wallet=await pickWallet('🎨 '+label, price); }
+  catch(e){ if((e.message||'')≠'cancelled') toast('❌ '+e.message,'error'); return; }
+  try{
+    const r=await api('/api/shop/buy','POST',{chat_id:chatId,item_type:'pet_color',item_key:key,wallet_type:wallet});
+    toast('✅ Цвет питомца изменён! Баланс: '+r.balance+' 🪙','success');
+    syncBalance(r.balance);
+    shopData=null;
+    await loadShop();
+  } catch(e){ toast('❌ '+e.message,'error'); }
+}
   let wallet;
   try{ wallet=await pickWallet(label, parseInt(price)); }
   catch(e){ if((e.message||'')!=='cancelled') toast('❌ '+e.message,'error'); return; }
@@ -3878,8 +3915,11 @@ function renderExpeditionTab(){
   } else {
     const petEmoji = pet.type === 'cat' ? '🐱' : pet.type === 'dog' ? '🐶' : '🐾';
     const fatColor = pet.fatigue >= 80 ? '#f87171' : pet.fatigue >= 50 ? '#fbbf24' : 'var(--green)';
+    const petColorMap={'red':'#ef4444','blue':'#3b82f6','gold':'#f59e0b','green':'#22c55e','purple':'#a855f7','white':'#f0f0f0'};
+    const petNameColor = (pet.color && petColorMap[pet.color]) || null;
+    const petNameHtml = petNameColor ? `<span style="color:${petNameColor}">${esc(pet.name||'Питомец')}</span>` : esc(pet.name||'Питомец');
     html += `<div class="card">
-      <div class="card-title">${petEmoji} ${esc(pet.name||'Питомец')}</div>
+      <div class="card-title">${petEmoji} ${petNameHtml}</div>
       <div class="stat-row"><span class="stat-label">😓 Усталость</span><span class="stat-value" style="color:${fatColor}">${pet.fatigue}/100</span></div>
       <div class="progress-bar"><div class="progress-fill" style="width:${pet.fatigue}%;background:${fatColor}"></div></div>
       <div class="stat-row" style="margin-top:6px"><span class="stat-label">💰 Баланс</span><span class="stat-value">${balance} 🪙</span></div>

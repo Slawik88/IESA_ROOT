@@ -12,7 +12,7 @@ async def get_catalog(uid: int, chat_id: int) -> dict:
     """
     from database.db import get_mora, get_user_owned_frames
     from database.postgres import postgres_connect
-    from shared_prices import FRAMES_CATALOG, COSMETICS_CATALOG, FOOD_ITEMS, POTIONS_CATALOG
+    from shared_prices import FRAMES_CATALOG, COSMETICS_CATALOG, FOOD_ITEMS, POTIONS_CATALOG, PET_COLOR_CATALOG
 
     mora = await get_mora(uid, chat_id)
     active_frame = mora["top_frame"] if mora else None
@@ -28,6 +28,13 @@ async def get_catalog(uid: int, chat_id: int) -> dict:
             (uid, chat_id),
         ) as c:
             owned_cosmetics = {r[0] for r in await c.fetchall()}
+
+        async with db.execute(
+            "SELECT color_name FROM pets WHERE user_id=? AND chat_id=?",
+            (uid, chat_id),
+        ) as c:
+            pet_row = await c.fetchone()
+        current_color = pet_row[0] if pet_row else None
 
     frames = [
         {
@@ -50,6 +57,15 @@ async def get_catalog(uid: int, chat_id: int) -> dict:
             "owned": key in owned_cosmetics,
         }
         for key, em, name, price, desc in COSMETICS_CATALOG
+    ]
+    pet_colors = [
+        {
+            "key":    key,
+            "label":  label,
+            "price":  price,
+            "active": current_color == key.replace("pet_color_", ""),
+        }
+        for key, label, price in PET_COLOR_CATALOG
     ]
     food_list = [
         {
@@ -79,6 +95,8 @@ async def get_catalog(uid: int, chat_id: int) -> dict:
         "balance":      balance,
         "frames":       frames,
         "cosmetics":    cosmetics,
+        "pet_colors":   pet_colors,
+        "current_color":current_color,
         "food":         food_list,
         "potions":      potions_list,
         "has_vip":      has_vip,
@@ -140,8 +158,15 @@ async def buy_item(
         price = pot["price"]
         if price == 0:
             raise ValueError("Это зелье можно получить только из гачи")
+    elif item_type == "pet_color":
+        from shared_prices import PET_COLOR_CATALOG
+        color_map = {c[0]: c for c in PET_COLOR_CATALOG}
+        color_entry = color_map.get(item_key)
+        if not color_entry:
+            raise ValueError("Неизвестный цвет питомца")
+        price = color_entry[2]
     else:
-        raise ValueError("item_type должен быть frame/cosmetic/vip/potion")
+        raise ValueError("item_type должен быть frame/cosmetic/vip/potion/pet_color")
 
     # Check ownership (frame/cosmetic only) — equip if already owned
     if item_type in ("frame", "cosmetic"):
@@ -154,6 +179,20 @@ async def buy_item(
                 "already_owned": True,
                 "equipped":      item_type == "frame" and equip,
             }
+    if item_type == "pet_color":
+        # Cannot buy the same color that is already active
+        from database.postgres import postgres_connect as _pg
+        async with _pg() as _db:
+            async with _db.execute(
+                "SELECT color_name FROM pets WHERE user_id=? AND chat_id=?",
+                (uid, chat_id),
+            ) as _c:
+                _pet_row = await _c.fetchone()
+        if not _pet_row:
+            raise ValueError("У тебя нет питомца — цвет применить не к чему")
+        color_key = item_key.replace("pet_color_", "")
+        if _pet_row[0] == color_key:
+            raise ValueError("Этот цвет уже установлен у питомца")
 
     # Deduct payment
     if wallet_type == "family":
@@ -190,6 +229,15 @@ async def buy_item(
             await set_top_frame(uid, chat_id, item_key)
     elif item_type == "vip":
         await set_vip(uid, chat_id, 1)
+    elif item_type == "pet_color":
+        from database.postgres import postgres_connect as _pg2
+        color_key = item_key.replace("pet_color_", "")
+        async with _pg2() as _db2:
+            await _db2.execute(
+                "UPDATE pets SET color_name=? WHERE user_id=? AND chat_id=?",
+                (color_key, uid, chat_id),
+            )
+            await _db2.commit()
     elif item_type == "potion":
         from shared_prices import POTIONS_CATALOG, ITEM_METADATA
         from database.db import add_gacha_item
