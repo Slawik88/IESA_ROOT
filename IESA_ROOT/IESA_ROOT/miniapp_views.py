@@ -3730,6 +3730,7 @@ def miniapp_admin_chat_summary(request):
                 )
             muted_count = (cur.fetchone() or [0])[0]
         except Exception:
+            conn.rollback()  # prevent "current transaction is aborted" on subsequent queries
             muted_count = 0
 
         # Rank breakdown
@@ -4409,3 +4410,73 @@ def miniapp_cleanup_config(request):
 
     return JsonResponse({"error": "method not allowed"}, status=405, headers=headers)
 
+
+# ─── Chat buff (Block 8) ───────────────────────────────────────────────────────
+
+@csrf_exempt
+def miniapp_chat_buff(request):
+    """
+    GET  /api/chat_buff?chat_id=X&buff_type=xp_plus10
+         → {active, buff_type, expires_at, seconds_left} or {active: false}
+    POST /api/chat_buff {chat_id, buff_type?}
+         → buy buff for CHAT_BUFF_PRICE Mora; returns {ok, expires_at, cost, new_balance}
+    """
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+
+    if request.method == "GET":
+        chat_id_str = request.GET.get("chat_id", "")
+        if not chat_id_str.lstrip("-").isdigit():
+            return JsonResponse({"error": "chat_id required"}, status=400, headers=headers)
+        chat_id = int(chat_id_str)
+        buff_type = request.GET.get("buff_type", "xp_plus10")
+
+        try:
+            from asgiref.sync import async_to_sync as _a2s
+            from database.db import get_active_chat_buff as _get_buff
+            buff = _a2s(_get_buff)(chat_id, buff_type)
+            if buff:
+                from datetime import datetime, timezone
+                exp = buff["expires_at"]
+                if hasattr(exp, "isoformat"):
+                    exp_iso = exp.isoformat()
+                    secs = max(0, int((exp - datetime.now(timezone.utc)).total_seconds()))
+                else:
+                    exp_iso = str(exp)
+                    secs = 0
+                return JsonResponse({
+                    "active": True, "buff_type": buff_type,
+                    "expires_at": exp_iso, "seconds_left": secs,
+                }, headers=headers)
+            return JsonResponse({"active": False, "buff_type": buff_type}, headers=headers)
+        except Exception as exc:
+            return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+
+    if request.method == "POST":
+        try:
+            body = json.loads(request.body or b"{}")
+        except Exception:
+            return JsonResponse({"error": "bad JSON"}, status=400, headers=headers)
+
+        chat_id_raw = body.get("chat_id")
+        if not chat_id_raw:
+            return JsonResponse({"error": "chat_id required"}, status=400, headers=headers)
+        chat_id = int(str(chat_id_raw))
+        buff_type = str(body.get("buff_type", "xp_plus10"))
+
+        try:
+            from asgiref.sync import async_to_sync as _a2s
+            from api.economy import buy_chat_buff as _buy_buff
+            result = _a2s(_buy_buff)(uid, chat_id, buff_type)
+            return JsonResponse(result, json_dumps_params={"ensure_ascii": False}, headers=headers)
+        except ValueError as ve:
+            return JsonResponse({"error": str(ve)}, status=400, headers=headers)
+        except Exception as exc:
+            return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+
+    return JsonResponse({"error": "method not allowed"}, status=405, headers=headers)
