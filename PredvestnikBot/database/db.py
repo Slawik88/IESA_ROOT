@@ -4346,10 +4346,26 @@ async def add_gacha_item(user_id: int, chat_id: int, item_key: str,
                          atk: int = 0, def_val: int = 0, hp: int = 0,
                          crit_rate: float = 0.0, slot=None):
     async with postgres_connect() as db:
+        # Stack non-equipment items (no combat stats) up to 99 per stack
+        if atk == 0 and def_val == 0 and hp == 0 and crit_rate == 0.0:
+            async with db.execute(
+                "SELECT id, stack_count FROM gacha_inventory "
+                "WHERE user_id=? AND chat_id=? AND item_key=? AND equipped=0 "
+                "AND COALESCE(enhancement_level,0)=0 ORDER BY id LIMIT 1",
+                (user_id, chat_id, item_key),
+            ) as c:
+                existing = await c.fetchone()
+            if existing and existing[1] < 99:
+                await db.execute(
+                    "UPDATE gacha_inventory SET stack_count = stack_count + 1 WHERE id=?",
+                    (existing[0],),
+                )
+                await db.commit()
+                return
         await db.execute(
             """INSERT INTO gacha_inventory
-               (user_id, chat_id, item_key, item_name, rarity, obtained_at, atk, def_val, hp, crit_rate, slot)
-               VALUES (?, ?, ?, ?, ?, NOW(), ?, ?, ?, ?, ?)""",
+               (user_id, chat_id, item_key, item_name, rarity, obtained_at, atk, def_val, hp, crit_rate, slot, stack_count)
+               VALUES (?, ?, ?, ?, ?, NOW(), ?, ?, ?, ?, ?, 1)""",
             (user_id, chat_id, item_key, item_name, rarity, atk, def_val, hp, crit_rate, slot),
         )
         await db.commit()
@@ -4368,10 +4384,11 @@ async def sell_gacha_junk(user_id: int, chat_id: int) -> tuple[int, int]:
     """Продать весь мусор (rarity='junk'). Возвращает (count, total_mora)."""
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT COUNT(*) FROM gacha_inventory WHERE user_id=? AND chat_id=? AND rarity='junk'",
+            "SELECT COALESCE(stack_count, 1) FROM gacha_inventory WHERE user_id=? AND chat_id=? AND rarity='junk'",
             (user_id, chat_id),
         ) as c:
-            count = (await c.fetchone())[0]
+            rows = await c.fetchall()
+        count = sum(r[0] for r in rows)
         if count == 0:
             return 0, 0
         await db.execute(
@@ -5899,50 +5916,63 @@ async def consume_potion(user_id: int, chat_id: int, item_id: int) -> tuple[bool
         return True, f"🧪 {item[1]} выпито! {potion_data['desc'].split(':')[1]} ({duration_text})"
 
 
-async def batch_sell_items(user_id: int, chat_id: int, item_ids: list[int]) -> tuple[int, int]:
-    """Batch sell multiple items. Returns (items_sold, total_mora)."""
+async def batch_sell_items(
+    user_id: int, chat_id: int, item_ids: list[int],
+    sell_qtys: dict[int, int] | None = None,
+) -> tuple[int, int]:
+    """Batch sell multiple items. Returns (units_sold, total_mora).
+    sell_qtys: optional {item_id: qty} to sell partial stacks."""
     if not item_ids:
         return 0, 0
-    
+
     async with postgres_connect() as db:
         total_mora = 0
         sold_count = 0
-        
+
         placeholders = ",".join(["?"] * len(item_ids))
         async with db.execute(
-            f"SELECT id, item_key FROM gacha_inventory WHERE id IN ({placeholders}) AND user_id=? AND chat_id=?",
+            f"SELECT id, item_key, COALESCE(stack_count, 1) FROM gacha_inventory "
+            f"WHERE id IN ({placeholders}) AND user_id=? AND chat_id=?",
             (*item_ids, user_id, chat_id)
         ) as c:
             items = await c.fetchall()
-        
+
         if not items:
             return 0, 0
-        
+
         from shared_prices import ITEM_METADATA
-        valid_ids = []
-        
-        for item_id, item_key in items:
+
+        for row in items:
+            item_id, item_key, stack_count = row[0], row[1], row[2]
             meta = ITEM_METADATA.get(item_key, {})
             sell_price = meta.get("sell", 0)
-            
-            if sell_price > 0:  # Can't sell items with sell price 0 (legendaries)
-                total_mora += sell_price
-                valid_ids.append(item_id)
-                sold_count += 1
-        
-        if valid_ids:
-            # Remove sold items
-            valid_placeholders = ",".join(["?"] * len(valid_ids))
-            await db.execute(f"DELETE FROM gacha_inventory WHERE id IN ({valid_placeholders})", valid_ids)
-            
-            # Add mora
+
+            if sell_price == 0:  # Skip unsellable items (legendaries, cosmetics)
+                continue
+
+            # Qty to sell: from sell_qtys or default to full stack
+            qty = min(int((sell_qtys or {}).get(item_id, stack_count)), stack_count)
+            qty = max(1, qty)
+
+            total_mora += sell_price * qty
+            sold_count += qty
+
+            if qty >= stack_count:
+                await db.execute("DELETE FROM gacha_inventory WHERE id=?", (item_id,))
+            else:
+                await db.execute(
+                    "UPDATE gacha_inventory SET stack_count = stack_count - ? WHERE id=?",
+                    (qty, item_id),
+                )
+
+        if sold_count > 0:
             await db.execute(
                 "UPDATE user_mora SET balance = balance + ? WHERE user_id=? AND chat_id=?",
                 (total_mora, user_id, chat_id)
             )
-        
+
         await db.commit()
-    
+
     return sold_count, total_mora
 
 # --- Couple Boss System (Married Pairs) --------------------------------------

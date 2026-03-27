@@ -1685,6 +1685,7 @@ async function loadInventory(){
     // Store items globally for selection
     window.inventoryItems = items;
     window.selectedItems = new Set();
+    window.sellQty = {};
     
     // Get active buffs
     let activeBuffs = [];
@@ -3059,11 +3060,11 @@ function renderCosmeticsInventory(cosmetics, allItems) {
       ${canSelectItem(i) ? `<input type="checkbox" class="inv-item-select" onchange="toggleItemSelection(${i.id}, this.checked)">` : ''}
       <div class="ii-emoji">${rarityEmoji(i.rarity)}</div>
       <div class="ii-info">
-        <div class="ii-name">${esc(i.name)}</div>
+        <div class="ii-name">${esc(i.name)}${i.stack_count>1?` <b style="color:var(--accent)">\u00d7${i.stack_count}</b>`:''}</div>
         <div class="ii-rarity">
           <span class="badge badge-${i.rarity}">${rarityLabel(i.rarity)}</span>  
-          ${i.slot ? ' · '+esc(i.slot) : ''}
-          ${canSelectItem(i) ? `<span style="font-size:10px;color:var(--text2)"> · Продать: ${Math.max(1,Math.floor((i.sell_price||0)/2))} 🪙</span>` : ''}
+          ${i.slot ? ' \u00b7 '+esc(i.slot) : ''}
+          ${canSelectItem(i) ? `<span style="font-size:10px;color:var(--text2)"> \u00b7 ${i.stack_count>1?`<input type="number" id="qty-${i.id}" min="1" max="${i.stack_count}" value="${i.stack_count}" style="width:28px;background:var(--card2);border:1px solid #555;border-radius:3px;color:var(--text);font-size:9px;text-align:center;padding:1px" oninput="setSellQty(${i.id},this.value,${i.sell_price||0})"> \u0438\u0437 ${i.stack_count} \u00b7 `:''}\u041f\u0440\u043e\u0434\u0430\u0442\u044c: <span id="sellval-${i.id}">${(i.stack_count||1)*Math.max(1,Math.floor((i.sell_price||0)/2))}</span> \ud83e\ude99</span>` : ''}
         </div>
         ${i.desc ? `<div style="font-size:10px;color:var(--text2);margin-top:2px;font-style:italic">${esc(i.desc)}</div>` : ''}
       </div>
@@ -3084,13 +3085,13 @@ function renderWeaponsInventory(weapons) {
       <div class="ii-emoji">${rarityEmoji(i.rarity)}</div>
       <div class="ii-info">
         <div class="ii-name">
-          ${esc(i.name)}
+          ${esc(i.name)}${i.stack_count>1?` <b style="color:var(--accent)">\u00d7${i.stack_count}</b>`:''}
           ${i.equipped && i.enhancement_level > 0 ? `<span class="enhance-level">+${i.enhancement_level}</span>` : ''}
         </div>
         <div class="ii-rarity">
           <span class="badge badge-${i.rarity}">${rarityLabel(i.rarity)}</span>
           ${i.slot ? ' · '+esc(i.slot) : ''}
-          ${canSelectItem(i) ? `<span style="font-size:10px;color:var(--text2)"> · Продать: ${Math.max(1,Math.floor((i.sell_price||0)/2))} 🪙</span>` : ''}
+          ${canSelectItem(i) ? `<span style="font-size:10px;color:var(--text2)"> · ${i.stack_count>1?`<input type="number" id="qty-${i.id}" min="1" max="${i.stack_count}" value="${i.stack_count}" style="width:28px;background:var(--card2);border:1px solid #555;border-radius:3px;color:var(--text);font-size:9px;text-align:center;padding:1px" oninput="setSellQty(${i.id},this.value,${i.sell_price||0})"> из ${i.stack_count} · `:''}Продать: <span id="sellval-${i.id}">${(i.stack_count||1)*Math.max(1,Math.floor((i.sell_price||0)/2))}</span> 🪙</span>` : ''}
         </div>
         ${i.atk ? `<div style="font-size:10px;color:var(--text2);margin-top:2px">ATK+${i.atk}${i.crit_rate ? ` Crit+${Math.round(i.crit_rate*100)}%` : ''}</div>` : ''}
         ${i.equipped && i.enhancement_level >= 0 ? getEnhancementInfo(i) : ''}
@@ -3119,13 +3120,13 @@ function renderArmorInventory(armor) {
       <div class="ii-emoji">${rarityEmoji(i.rarity)}</div>
       <div class="ii-info">
         <div class="ii-name">
-          ${esc(i.name)}
+          ${esc(i.name)}${i.stack_count>1?` <b style="color:var(--accent)">\u00d7${i.stack_count}</b>`:''}
           ${i.equipped && i.enhancement_level > 0 ? `<span class="enhance-level">+${i.enhancement_level}</span>` : ''}
         </div>
         <div class="ii-rarity">
           <span class="badge badge-${i.rarity}">${rarityLabel(i.rarity)}</span>
           ${i.slot ? ' · '+esc(i.slot) : ''}
-          ${canSelectItem(i) ? `<span style="font-size:10px;color:var(--text2)"> · Продать: ${Math.max(1,Math.floor((i.sell_price||0)/2))} 🪙</span>` : ''}
+          ${canSelectItem(i) ? `<span style="font-size:10px;color:var(--text2)"> · ${i.stack_count>1?`<input type="number" id="qty-${i.id}" min="1" max="${i.stack_count}" value="${i.stack_count}" style="width:28px;background:var(--card2);border:1px solid #555;border-radius:3px;color:var(--text);font-size:9px;text-align:center;padding:1px" oninput="setSellQty(${i.id},this.value,${i.sell_price||0})"> из ${i.stack_count} · `:''}Продать: <span id="sellval-${i.id}">${(i.stack_count||1)*Math.max(1,Math.floor((i.sell_price||0)/2))}</span> 🪙</span>` : ''}
         </div>
         ${(i.def_val||i.hp) ? `<div style="font-size:10px;color:var(--text2);margin-top:2px">${i.def_val?'DEF+'+i.def_val:''}${i.def_val&&i.hp?' ':''}${i.hp?'HP+'+i.hp:''}</div>` : ''}
         ${i.equipped && i.enhancement_level >= 0 ? getEnhancementInfo(i) : ''}
@@ -3153,11 +3154,11 @@ function renderPotionsInventory(potions) {
       ${canSelectItem(i) ? `<input type="checkbox" class="inv-item-select" onchange="toggleItemSelection(${i.id}, this.checked)">` : ''}
       <div class="ii-emoji">${rarityEmoji(i.rarity)}</div>
       <div class="ii-info">
-        <div class="ii-name">${esc(i.name)}</div>
+        <div class="ii-name">${esc(i.name)}${i.stack_count>1?` <b style="color:var(--accent)">\u00d7${i.stack_count}</b>`:''}</div>
         <div class="ii-rarity">
           <span class="badge badge-${i.rarity}">${rarityLabel(i.rarity)}</span>
           ${i.slot ? ' · '+esc(i.slot) : ''}  
-          ${canSelectItem(i) ? `<span style="font-size:10px;color:var(--text2)"> · Продать: ${Math.max(1,Math.floor((i.sell_price||0)/2))} 🪙</span>` : ''}
+          ${canSelectItem(i) ? `<span style="font-size:10px;color:var(--text2)"> · ${i.stack_count>1?`<input type="number" id="qty-${i.id}" min="1" max="${i.stack_count}" value="${i.stack_count}" style="width:28px;background:var(--card2);border:1px solid #555;border-radius:3px;color:var(--text);font-size:9px;text-align:center;padding:1px" oninput="setSellQty(${i.id},this.value,${i.sell_price||0})"> из ${i.stack_count} · `:''}Продать: <span id="sellval-${i.id}">${(i.stack_count||1)*Math.max(1,Math.floor((i.sell_price||0)/2))}</span> 🪙</span>` : ''}
         </div>
         ${i.desc ? `<div style="font-size:10px;color:var(--text2);margin-top:2px;font-style:italic">${esc(i.desc)}</div>` : ''}
       </div>
@@ -3172,7 +3173,7 @@ function renderPotionsInventory(potions) {
 }
 
 function canSelectItem(item) {
-  return !item.equipped && (item.key.startsWith('junk_') || item.sell_price > 0);
+  return !item.equipped && !item.is_cosmetic && (item.key.startsWith('junk_') || item.sell_price > 0);
 }
 
 // Таблица шансов заточки — должна совпадать с бэкендом
@@ -3214,10 +3215,13 @@ function switchSubtab(name) {
 function toggleItemSelection(itemId, checked) {
   const item = document.getElementById('item-' + itemId);
   if (checked) {
-    window.selectedItems.add(itemId); 
+    window.selectedItems.add(itemId);
+    const invItem = window.inventoryItems ? window.inventoryItems.find(i => i.id === itemId) : null;
+    if (!window.sellQty[itemId]) window.sellQty[itemId] = (invItem && invItem.stack_count) || 1;
     item.classList.add('selected');
   } else {
     window.selectedItems.delete(itemId);
+    delete window.sellQty[itemId];
     item.classList.remove('selected');
   }
   updateBatchSellUI();
@@ -3228,6 +3232,7 @@ function selectAllItems() {
   window.inventoryItems.forEach(item => {
     if (canSelectItem(item)) {
       window.selectedItems.add(item.id);
+      window.sellQty[item.id] = item.stack_count || 1;
       const itemEl = document.getElementById('item-' + item.id);
       if (itemEl) {
         itemEl.classList.add('selected');
@@ -3241,6 +3246,7 @@ function selectAllItems() {
 
 function clearSelection() {
   window.selectedItems.clear();
+  window.sellQty = {};
   document.querySelectorAll('.inv-item').forEach(item => {
     item.classList.remove('selected');
     const checkbox = item.querySelector('.inv-item-select');
@@ -3250,16 +3256,21 @@ function clearSelection() {
 }
 
 function updateBatchSellUI() {
+  if (!window.sellQty) window.sellQty = {};
   const selectedCount = window.selectedItems.size;
   if (selectedCount > 0) {
     const totalValue = Array.from(window.selectedItems).reduce((sum, itemId) => {
       const item = window.inventoryItems.find(i => i.id === itemId);
-      return sum + (item ? Math.max(1, Math.floor((item.sell_price || 0) / 2)) : 0);
+      const qty = window.sellQty[itemId] || (item && item.stack_count) || 1;
+      return sum + (item ? qty * Math.max(1, Math.floor((item.sell_price || 0) / 2)) : 0);
+    }, 0);
+    const totalUnits = Array.from(window.selectedItems).reduce((sum, itemId) => {
+      return sum + (window.sellQty[itemId] || 1);
     }, 0);
 
     document.getElementById('batchSellCard').style.display = 'block';
     const sellBtn = document.querySelector('#batchSellCard .btn-gold');
-    sellBtn.innerHTML = `✨ Продать <span class="selected-count">${selectedCount}</span> за <span class="sell-value">${totalValue}</span> 🪙`;
+    sellBtn.innerHTML = `✨ Продать <span class="selected-count">${totalUnits}</span> за <span class="sell-value">${totalValue}</span> 🪙`;
   } else {
     document.getElementById('batchSellCard').style.display = 'none';
   }
@@ -3331,18 +3342,22 @@ async function consumePotion(itemId) {
 async function confirmBatchSell() {
   if (window.selectedItems.size === 0) return;
 
-  const selectedIds = Array.from(window.selectedItems);
-  const totalValue = selectedIds.reduce((sum, itemId) => {
-    const item = window.inventoryItems.find(i => i.id === itemId);
-    return sum + (item ? Math.max(1, Math.floor((item.sell_price || 0) / 2)) : 0);
+  const items = Array.from(window.selectedItems).map(itemId => ({
+    id: itemId,
+    qty: window.sellQty[itemId] || 1,
+  }));
+  const totalValue = items.reduce((sum, {id, qty}) => {
+    const item = window.inventoryItems.find(i => i.id === id);
+    return sum + (item ? qty * Math.max(1, Math.floor((item.sell_price || 0) / 2)) : 0);
   }, 0);
+  const totalUnits = items.reduce((sum, {qty}) => sum + qty, 0);
 
-  const confirmed = confirm(`Продать ${selectedIds.length} предметов за ${totalValue} 🪙?`);
+  const confirmed = confirm(`Продать ${totalUnits} предметов за ${totalValue} 🪙?`);
   if (!confirmed) return;
 
   try {
-    const r = await api('/api/batch_sell', 'POST', {chat_id: chatId, item_ids: selectedIds});
-    toast(`✨ Продано ${r.sold} предметов за ${r.mora} 🪙`, 'success');
+    const r = await api('/api/batch_sell', 'POST', {chat_id: chatId, items: items});
+    toast(`✨ Продано ${r.sold} за ${r.mora} 🪙`, 'success');
 
     // Update balance
     if (r.balance !== undefined) syncBalance(r.balance);
@@ -3355,6 +3370,19 @@ async function confirmBatchSell() {
   } catch(e) {
     toast('❌ ' + e.message, 'error');
   }
+}
+
+function setSellQty(id, val, sellPrice) {
+  const item = window.inventoryItems ? window.inventoryItems.find(i => i.id === id) : null;
+  const maxQty = item ? (item.stack_count || 1) : 1;
+  val = Math.max(1, Math.min(parseInt(val) || 1, maxQty));
+  const inp = document.getElementById('qty-' + id);
+  if (inp) inp.value = val;
+  if (!window.sellQty) window.sellQty = {};
+  window.sellQty[id] = val;
+  const el = document.getElementById('sellval-' + id);
+  if (el) el.textContent = val * Math.max(1, Math.floor((sellPrice || 0) / 2));
+  updateBatchSellUI();
 }
 
 
