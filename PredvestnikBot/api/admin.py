@@ -607,3 +607,38 @@ async def get_treasury(chat_id: int, limit: int = 50) -> dict:
 
     return {"balance": balance, "log": log}
 
+
+# ─── Настройка чистки ─────────────────────────────────────────────────────────
+
+async def get_cleanup_settings(chat_id: int) -> dict:
+    """Return current cleanup config for a chat."""
+    from database.db import get_cleanup_config
+    cfg = await get_cleanup_config(chat_id)
+    # Serialize datetime → ISO string
+    ts = cfg.get("next_cleanup_at")
+    if ts and hasattr(ts, "isoformat"):
+        ts = ts.isoformat()
+    return {
+        "next_cleanup_at":      ts,
+        "cleanup_message_norm": cfg.get("cleanup_message_norm", 70),
+        "cleanup_warn_hours":   cfg.get("cleanup_warn_hours", 48),
+        "cleanup_reminder_sent": cfg.get("cleanup_reminder_sent", 0),
+    }
+
+
+async def set_cleanup_settings(
+    chat_id: int,
+    next_cleanup_at: str | None = None,
+    cleanup_message_norm: int | None = None,
+    cleanup_warn_hours: int | None = None,
+) -> dict:
+    """Update cleanup config. Returns the updated settings."""
+    from database.db import set_cleanup_config
+    await set_cleanup_config(
+        chat_id,
+        next_cleanup_at=next_cleanup_at,
+        cleanup_message_norm=cleanup_message_norm,
+        cleanup_warn_hours=cleanup_warn_hours,
+    )
+    return await get_cleanup_settings(chat_id)
+

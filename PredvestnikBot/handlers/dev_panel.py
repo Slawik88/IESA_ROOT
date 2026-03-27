@@ -252,3 +252,134 @@ async def cmd_dev_give_item(message: Message, cmd_args: str):
         f"Исполнитель: {message.from_user.id} в chat {chat_id}",
     )
 
+
+# ─── бот чистка настройка ─────────────────────────────────────────────────────
+
+@router.message(BotCommand("чистка настройка", "cleanup config", "cleanup_config"))
+async def cmd_cleanup_config(message: Message, cmd_args: str):
+    """
+    бот чистка настройка показать
+    бот чистка настройка [дата YYYY-MM-DD HH:MM] [норма N] [предупредить Xч]
+    Доступно: owner и developer только.
+    """
+    from datetime import datetime as _dt
+    from zoneinfo import ZoneInfo
+    from database.db import get_cleanup_config, set_cleanup_config, set_cleanup_reminder_sent
+    from utils.ranks import rank_level as _rl
+
+    _ZURICH = ZoneInfo("Europe/Zurich")
+
+    uid = message.from_user.id
+    chat_id = message.chat.id
+
+    if message.chat.type == "private":
+        await message.answer("❌ Команда работает только в чате.")
+        return
+
+    # owner или developer
+    if not _dev_only(uid):
+        stats = await get_user_stats(uid, chat_id)
+        rank = stats["rank"] if stats else "user"
+        if _rl(rank) < _rl("owner"):
+            return  # молчим
+
+    raw = (cmd_args or "").strip()
+
+    # ── показать текущие настройки
+    if not raw or raw.lower() in ("показать", "show"):
+        cfg = await get_cleanup_config(chat_id)
+        ts = cfg.get("next_cleanup_at")
+        if ts:
+            if hasattr(ts, "tzinfo") and ts.tzinfo:
+                dt_local = ts.astimezone(_ZURICH)
+            else:
+                from datetime import timezone as _tz
+                dt_local = _dt.fromisoformat(str(ts)).replace(tzinfo=_tz.utc).astimezone(_ZURICH)
+            date_fmt = dt_local.strftime("%d.%m.%Y %H:%M (Цюрих)")
+        else:
+            date_fmt = "не установлена"
+        norm = cfg.get("cleanup_message_norm") or 70
+        warn = cfg.get("cleanup_warn_hours") or 48
+        await message.answer(
+            f"🧹 <b>Текущие настройки чистки:</b>\n\n"
+            f"📅 Дата: <b>{date_fmt}</b>\n"
+            f"📊 Норма: <b>{norm} сообщений</b>\n"
+            f"🔔 Предупреждение: за <b>{warn} ч</b>\n\n"
+            f"Изменить: <code>бот чистка настройка 2026-04-05 20:00 норма 70 предупредить 48</code>",
+            parse_mode="HTML",
+        )
+        return
+
+    # ── парсинг аргументов: выделяем дату, норму, предупреждение
+    import re as _re
+    new_date: str | None = None
+    new_norm: int | None = None
+    new_warn: int | None = None
+
+    # норма N
+    m_norm = _re.search(r'\bнорма\s+(\d+)', raw, _re.IGNORECASE)
+    if m_norm:
+        new_norm = int(m_norm.group(1))
+        raw = raw[:m_norm.start()] + raw[m_norm.end():]
+
+    # предупредить за Xч  / предупредить X
+    m_warn = _re.search(r'\bпредупредит[ьe]\s+(\d+)', raw, _re.IGNORECASE)
+    if m_warn:
+        new_warn = int(m_warn.group(1))
+        raw = raw[:m_warn.start()] + raw[m_warn.end():]
+
+    # дата YYYY-MM-DD HH:MM или DD.MM.YYYY HH:MM
+    raw = raw.strip()
+    dt_local = None
+    for fmt in ("%Y-%m-%d %H:%M", "%d.%m.%Y %H:%M", "%Y-%m-%d", "%d.%m.%Y"):
+        try:
+            dt_local = _dt.strptime(raw, fmt).replace(tzinfo=_ZURICH)
+            break
+        except ValueError:
+            pass
+
+    if dt_local is not None:
+        if dt_local < _dt.now(_ZURICH):
+            await message.answer("❌ Дата уже в прошлом. Укажи будущую дату.")
+            return
+        from datetime import timezone as _tz
+        dt_utc = dt_local.astimezone(_tz.utc)
+        new_date = dt_utc.replace(tzinfo=None).isoformat()
+
+    if new_date is None and new_norm is None and new_warn is None:
+        await message.answer(
+            "❌ Не распознаны параметры.\n\n"
+            "Примеры:\n"
+            "<code>бот чистка настройка 2026-04-05 20:00 норма 70 предупредить 48</code>\n"
+            "<code>бот чистка настройка норма 50</code>\n"
+            "<code>бот чистка настройка показать</code>",
+            parse_mode="HTML",
+        )
+        return
+
+    await set_cleanup_config(chat_id, new_date, new_norm, new_warn)
+    if new_date:
+        await set_cleanup_reminder_sent(chat_id, 0)
+
+    # подтверждение
+    cfg = await get_cleanup_config(chat_id)
+    ts = cfg.get("next_cleanup_at")
+    if ts:
+        if hasattr(ts, "tzinfo") and ts.tzinfo:
+            dt_local2 = ts.astimezone(_ZURICH)
+        else:
+            from datetime import timezone as _tz
+            dt_local2 = _dt.fromisoformat(str(ts)).replace(tzinfo=_tz.utc).astimezone(_ZURICH)
+        date_fmt = dt_local2.strftime("%d.%m.%Y %H:%M (Цюрих)")
+    else:
+        date_fmt = "не установлена"
+    norm = cfg.get("cleanup_message_norm") or 70
+    warn = cfg.get("cleanup_warn_hours") or 48
+    await message.answer(
+        f"✅ <b>Чистка настроена:</b>\n\n"
+        f"📅 Дата: <b>{date_fmt}</b>\n"
+        f"📊 Норма: <b>{norm} сообщений</b>\n"
+        f"🔔 Предупреждение: за <b>{warn} ч</b>",
+        parse_mode="HTML",
+    )
+

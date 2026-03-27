@@ -137,7 +137,7 @@ async def _task_inactivity_warns(bot) -> None:
 # ─── Напоминание о запланированной чистке ─────────────────────────────────────
 
 async def _task_cleanup_reminders(bot) -> None:
-    from database.db import get_chats_with_scheduled_cleanup, set_cleanup_reminder_sent
+    from database.db import get_chats_with_scheduled_cleanup, set_cleanup_reminder_sent, get_shield_map
 
     now = datetime.now(timezone.utc)
     chats = await get_chats_with_scheduled_cleanup()
@@ -145,6 +145,8 @@ async def _task_cleanup_reminders(bot) -> None:
         chat_id      = row["chat_id"]
         scheduled    = row.get("next_cleanup_at")
         already_sent = row.get("cleanup_reminder_sent", 0)
+        warn_hours   = int(row.get("cleanup_warn_hours") or 48)
+        msg_norm     = int(row.get("cleanup_message_norm") or 70)
 
         if not scheduled:
             continue
@@ -167,17 +169,30 @@ async def _task_cleanup_reminders(bot) -> None:
             await set_cleanup_reminder_sent(chat_id, 0)
             continue
 
-        # Напоминание: от 48ч до 0ч до чистки, один раз
-        if 0 <= delta.total_seconds() <= 172800 and not already_sent:
+        # Напоминание: за warn_hours до чистки, один раз
+        warn_seconds = warn_hours * 3600
+        if 0 <= delta.total_seconds() <= warn_seconds and not already_sent:
             dt_zurich = dt.astimezone(ZURICH)
             date_str = dt_zurich.strftime("%d.%m.%Y %H:%M (Цюрих)")
             days_left = int(delta.total_seconds() // 86400)
             hours_left = int((delta.total_seconds() % 86400) // 3600)
             time_label = f"{days_left}д {hours_left}ч" if days_left else f"{hours_left}ч"
+
+            # Проверяем щит новичка
+            shield_map = await get_shield_map(chat_id)
+            shield_note = ""
+            if shield_map:
+                shield_note = (
+                    f"\n🛡 <b>Щит новичка</b>: {len(shield_map)} участн. защищены — "
+                    f"они не попадут под чистку."
+                )
+
             text = (
                 f"🔔 <b>Напоминание о чистке!</b>\n\n"
                 f"📅 Дата чистки: <b>{date_str}</b>\n"
-                f"⏳ Осталось: <b>{time_label}</b>\n\n"
+                f"⏳ Осталось: <b>{time_label}</b>\n"
+                f"📊 Норма активности: <b>{msg_norm} сообщений</b> за неделю"
+                f"{shield_note}\n\n"
                 f"Подготовьтесь — участники с низкой активностью будут отмечены.\n"
                 f"<code>бот чистка</code> — запустить досрочно\n"
                 f"<code>бот чистка дата</code> — показать/изменить дату"
@@ -187,6 +202,7 @@ async def _task_cleanup_reminders(bot) -> None:
                 await set_cleanup_reminder_sent(chat_id, 1)
             except Exception as exc:
                 log.warning("Cannot send cleanup reminder to %s: %s", chat_id, exc)
+
 
 
 # ─── Юбилей брака +15 Моры каждые 7 дней ─────────────────────────────────────
