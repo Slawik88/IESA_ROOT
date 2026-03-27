@@ -2053,34 +2053,52 @@ function renderShop(d){
       </div></div>`).join('');
 }
 
-async function buyPetColor(key, label, price){
+async function buyPetColor(key, label, price) {
   let wallet;
-  try{ wallet=await pickWallet('🎨 '+label, price); }
-  catch(e){ if((e.message||'')≠'cancelled') toast('❌ '+e.message,'error'); return; }
-  try{
-    const r=await api('/api/shop/buy','POST',{chat_id:chatId,item_type:'pet_color',item_key:key,wallet_type:wallet});
-    toast('✅ Цвет питомца изменён! Баланс: '+r.balance+' 🪙','success');
+  try { 
+    wallet = await pickWallet('🎨 ' + label, price); 
+  } catch(e) { 
+    // Исправлено: заменено ≠ на !==
+    if ((e.message || '') !== 'cancelled') toast('❌ ' + e.message, 'error'); 
+    return; 
+  }
+  
+  try {
+    const r = await api('/api/shop/buy', 'POST', {chat_id: chatId, item_type: 'pet_color', item_key: key, wallet_type: wallet});
+    toast('✅ Цвет питомца изменён! Баланс: ' + r.balance + ' 🪙', 'success');
     syncBalance(r.balance);
-    shopData=null;
+    shopData = null;
     await loadShop();
-  } catch(e){ toast('❌ '+e.message,'error'); }
-}
-  let wallet;
-  try{ wallet=await pickWallet(label, parseInt(price)); }
-  catch(e){ if((e.message||'')!=='cancelled') toast('❌ '+e.message,'error'); return; }
-  try{
-    const r=await api('/api/shop/buy','POST',{chat_id:chatId,item_type:'potion',item_key:key,wallet_type:wallet});
-    toast('✅ Куплено! Используй в инвентаре 🧪','success');
-    syncBalance(r.balance);
-    shopData=null;
-    await loadShop();
-  } catch(e){toast('❌ '+e.message,'error')}
+  } catch(e) { 
+    toast('❌ ' + e.message, 'error'); 
+  }
 }
 
-function showGachaRates(){
-  const JUNK=[
-    ['🪨','Камень Маслоу','Мусор — продай за 5 🪙'],
-    ['🪵','Палка путника','Мусор — продай за 3 🪙'],
+// Добавлено: заголовок функции, который, вероятно, был потерян
+async function buyPotion(key, label, price) {
+  let wallet;
+  try { 
+    wallet = await pickWallet(label, parseInt(price)); 
+  } catch(e) { 
+    if ((e.message || '') !== 'cancelled') toast('❌ ' + e.message, 'error'); 
+    return; 
+  }
+  
+  try {
+    const r = await api('/api/shop/buy', 'POST', {chat_id: chatId, item_type: 'potion', item_key: key, wallet_type: wallet});
+    toast('✅ Куплено! Используй в инвентаре 🧪', 'success');
+    syncBalance(r.balance);
+    shopData = null;
+    await loadShop();
+  } catch(e) { 
+    toast('❌ ' + e.message, 'error'); 
+  }
+}
+
+function showGachaRates() {
+  const JUNK = [
+    ['🪨', 'Камень Маслоу', 'Мусор — продай за 5 🪙'],
+    ['🪵', 'Палка путника', 'Мусор — продай за 3 🪙']
     ['💨','Пыль забвения','Мусор — продай за 2 🪙'],
     ['🦴','Кость хиличурла','Мусор — продай за 4 🪙'],
     ['🍄','Сомнительный гриб','Мусор — продай за 3 🪙'],
