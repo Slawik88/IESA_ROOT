@@ -104,3 +104,42 @@ async def wallet_history(uid: int, chat_id: int, days: int = 7) -> list:
         }
         for r in rows
     ]
+
+
+# ─── Chat-global XP buff ──────────────────────────────────────────────────────
+
+CHAT_BUFF_PRICE = 1500        # Мора
+CHAT_BUFF_DURATION_MINUTES = 60
+
+
+async def buy_chat_buff(uid: int, chat_id: int, buff_type: str = "xp_plus10") -> dict:
+    """
+    Deduct CHAT_BUFF_PRICE mora and activate a global XP buff for the chat.
+    Raises ValueError (Russian message) on any failure.
+    Returns {"ok", "expires_at", "cost", "new_balance"}.
+    """
+    from database.db import deduct_mora, get_mora, activate_chat_buff, get_active_chat_buff
+
+    existing = await get_active_chat_buff(chat_id, buff_type)
+    if existing:
+        exp = existing.get("expires_at")
+        raise ValueError(f"Баф уже активен до {exp} ⏰")
+
+    mora_row = await get_mora(uid, chat_id)
+    bal = mora_row["balance"] if mora_row else 0
+    if bal < CHAT_BUFF_PRICE:
+        raise ValueError(f"Недостаточно Моры: {bal}/{CHAT_BUFF_PRICE} 🪙")
+
+    ok, new_bal = await deduct_mora(uid, chat_id, CHAT_BUFF_PRICE)
+    if not ok:
+        raise ValueError("Не удалось списать Мору")
+
+    result = await activate_chat_buff(chat_id, buff_type, uid, CHAT_BUFF_DURATION_MINUTES)
+    return {
+        "ok":          True,
+        "buff_type":   buff_type,
+        "expires_at":  result["expires_at"],
+        "cost":        CHAT_BUFF_PRICE,
+        "new_balance": new_bal,
+    }
+

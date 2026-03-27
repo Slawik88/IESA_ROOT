@@ -258,6 +258,10 @@ class AutoModMiddleware(BaseMiddleware):
                 _xp_cooldown[xp_key] = now
                 from database.db import get_xp_boost_active
                 xp_amount = XP_PER_MESSAGE * 2 if await get_xp_boost_active(user.id, event.chat.id) else XP_PER_MESSAGE
+                # Block 8: global chat XP buff (+10 %)
+                from database.db import get_active_chat_buff as _get_chat_buff
+                if await _get_chat_buff(event.chat.id, "xp_plus10"):
+                    xp_amount = int(xp_amount * 1.1) or 1
                 new_xp, new_level, leveled_up = await add_xp_in_chat(user.id, event.chat.id, xp_amount)
                 if leveled_up:
                     await add_mora(user.id, event.chat.id, MORA_LEVELUP_BONUS)

@@ -4186,9 +4186,30 @@ async def set_cleanup_config(
             (chat_id,),
         )
         if next_cleanup_at is not None:
+            # Ensure asyncpg receives a timezone-aware datetime for TIMESTAMPTZ.
+            # _maybe_datetime in the postgres wrapper auto-converts ISO strings but may
+            # produce naive datetimes (or fail on "...000Z" format on Python ≤3.10).
+            # We normalise here explicitly so the value is always tz-aware.
+            from datetime import datetime as _dt, timezone as _tz
+            _nc = next_cleanup_at
+            if isinstance(_nc, str):
+                _s = _nc.replace('Z', '+00:00')
+                # Python ≤3.10 fromisoformat doesn't handle fractional seconds + offset;
+                # strip the fractional part if present.
+                try:
+                    _parsed = _dt.fromisoformat(_s)
+                except ValueError:
+                    if '.' in _s and ('+' in _s or _s.endswith('00')):
+                        dot = _s.index('.')
+                        off = _s.index('+', dot if '+' in _s[dot:] else 0) if '+' in _s[dot:] else len(_s)
+                        _s = _s[:dot] + _s[off:]
+                    _parsed = _dt.fromisoformat(_s)
+                _nc = _parsed if _parsed.tzinfo else _parsed.replace(tzinfo=_tz.utc)
+            elif hasattr(_nc, 'tzinfo') and _nc.tzinfo is None:
+                _nc = _nc.replace(tzinfo=_tz.utc)
             await db.execute(
                 "UPDATE chat_settings SET next_cleanup_at = ?, cleanup_reminder_sent = 0 WHERE chat_id = ?",
-                (next_cleanup_at, chat_id),
+                (_nc, chat_id),
             )
         if cleanup_message_norm is not None:
             await db.execute(
@@ -4202,6 +4223,55 @@ async def set_cleanup_config(
             )
         await db.commit()
     _invalidate_chat_settings(chat_id)
+
+
+# ─── Глобальные баффы чата ────────────────────────────────────────────────────
+
+async def activate_chat_buff(
+    chat_id: int,
+    buff_type: str,
+    activated_by: int,
+    duration_minutes: int = 60,
+) -> dict:
+    """Activate (or replace an expired) chat-global buff. Returns expires_at ISO string."""
+    from datetime import datetime, timezone, timedelta
+    now = datetime.now(timezone.utc)
+    expires = now + timedelta(minutes=duration_minutes)
+    async with postgres_connect() as db:
+        # Insert or replace only if there is no active (non-expired) buff.
+        await db.execute(
+            """INSERT INTO chat_global_buffs
+                   (chat_id, buff_type, activated_by, activated_at, expires_at)
+               VALUES (?, ?, ?, ?, ?)
+               ON CONFLICT (chat_id, buff_type) DO UPDATE
+                   SET activated_by  = EXCLUDED.activated_by,
+                       activated_at  = EXCLUDED.activated_at,
+                       expires_at    = EXCLUDED.expires_at
+                   WHERE chat_global_buffs.expires_at < NOW()""",
+            (chat_id, buff_type, activated_by, now, expires),
+        )
+        await db.commit()
+    return {"ok": True, "buff_type": buff_type, "expires_at": expires.isoformat()}
+
+
+async def get_active_chat_buff(chat_id: int, buff_type: str) -> dict | None:
+    """Return the active buff row, or None if none / expired."""
+    async with postgres_connect() as db:
+        async with db.execute(
+            "SELECT buff_type, activated_by, activated_at, expires_at "
+            "FROM chat_global_buffs "
+            "WHERE chat_id = ? AND buff_type = ? AND expires_at > NOW()",
+            (chat_id, buff_type),
+        ) as c:
+            row = await c.fetchone()
+    return dict(row) if row else None
+
+
+async def cleanup_expired_chat_buffs() -> None:
+    """Housekeeping: delete all expired buff rows."""
+    async with postgres_connect() as db:
+        await db.execute("DELETE FROM chat_global_buffs WHERE expires_at <= NOW()")
+        await db.commit()
 
 
 # ─── Питомцы ──────────────────────────────────────────────────────────────────
