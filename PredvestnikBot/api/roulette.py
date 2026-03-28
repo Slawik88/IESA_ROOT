@@ -152,20 +152,19 @@ async def roulette_spin(
 
     # ── Deduct bet atomically + read pity counter ─────────────────────────────
     async with postgres_connect() as db:
-        async with db.transaction():
-            row = await db.fetchrow(
-                "SELECT balance, COALESCE(roulette_losses, 0) AS roulette_losses "
-                "FROM user_mora WHERE user_id=$1 AND chat_id=$2 FOR UPDATE",
-                uid, chat_id,
-            )
-            if not row or row["balance"] < bet_amount:
-                bal = row["balance"] if row else 0
-                raise ValueError(f"Недостаточно Моры. У тебя: {bal} 🪙")
-            await db.execute(
-                "UPDATE user_mora SET balance=balance-$1 WHERE user_id=$2 AND chat_id=$3",
-                bet_amount, uid, chat_id,
-            )
-            losses = row["roulette_losses"]
+        row = await db.fetchone(
+            "SELECT balance, COALESCE(roulette_losses, 0) AS roulette_losses "
+            "FROM user_mora WHERE user_id=? AND chat_id=? FOR UPDATE",
+            (uid, chat_id),
+        )
+        if not row or row["balance"] < bet_amount:
+            bal = row["balance"] if row else 0
+            raise ValueError(f"Недостаточно Моры. У тебя: {bal} 🪙")
+        await db.execute(
+            "UPDATE user_mora SET balance=balance-? WHERE user_id=? AND chat_id=?",
+            (bet_amount, uid, chat_id),
+        )
+        losses = row["roulette_losses"]
 
     # ── Spin (with pity boost after losing streak) ────────────────────────────
     # After 3+ consecutive losses, increasingly likely to force a winning number.
@@ -199,14 +198,14 @@ async def roulette_spin(
     async with postgres_connect() as db:
         if win:
             await db.execute(
-                "UPDATE user_mora SET roulette_losses=0 WHERE user_id=$1 AND chat_id=$2",
-                uid, chat_id,
+                "UPDATE user_mora SET roulette_losses=0 WHERE user_id=? AND chat_id=?",
+                (uid, chat_id),
             )
         else:
             await db.execute(
                 "UPDATE user_mora SET roulette_losses=COALESCE(roulette_losses,0)+1 "
-                "WHERE user_id=$1 AND chat_id=$2",
-                uid, chat_id,
+                "WHERE user_id=? AND chat_id=?",
+                (uid, chat_id),
             )
 
     # ── Item prize (18% chance on any win) ────────────────────────────────────

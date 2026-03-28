@@ -22,19 +22,18 @@ async def get_catalog(uid: int, chat_id: int) -> dict:
     owned_frames = await get_user_owned_frames(uid, chat_id)
 
     async with postgres_connect() as db:
-        async with db.execute(
+        rows = await db.fetch(
             "SELECT item_value FROM shop_items "
             "WHERE user_id=? AND chat_id=? AND item_type='cosmetic'",
             (uid, chat_id),
-        ) as c:
-            owned_cosmetics = {r[0] for r in await c.fetchall()}
+        )
+        owned_cosmetics = {r["item_value"] for r in rows}
 
-        async with db.execute(
+        pet_row = await db.fetchone(
             "SELECT color_name FROM pets WHERE user_id=? AND chat_id=?",
             (uid, chat_id),
-        ) as c:
-            pet_row = await c.fetchone()
-        current_color = pet_row[0] if pet_row else None
+        )
+        current_color = pet_row["color_name"] if pet_row else None
 
     frames = [
         {
@@ -183,15 +182,14 @@ async def buy_item(
         # Cannot buy the same color that is already active
         from database.postgres import postgres_connect as _pg
         async with _pg() as _db:
-            async with _db.execute(
+            _pet_row = await _db.fetchone(
                 "SELECT color_name FROM pets WHERE user_id=? AND chat_id=?",
                 (uid, chat_id),
-            ) as _c:
-                _pet_row = await _c.fetchone()
+            )
         if not _pet_row:
             raise ValueError("У тебя нет питомца — цвет применить не к чему")
         color_key = item_key.replace("pet_color_", "")
-        if _pet_row[0] == color_key:
+        if _pet_row["color_name"] == color_key:
             raise ValueError("Этот цвет уже установлен у питомца")
 
     # Deduct payment
@@ -206,21 +204,22 @@ async def buy_item(
     else:
         from database.postgres import postgres_connect
         async with postgres_connect() as db:
-            cursor = await db.execute(
-                "UPDATE user_mora SET balance=balance-? WHERE user_id=? AND chat_id=? AND balance>=?",
-                (price, uid, chat_id, price),
+            row = await db.fetchone(
+                "SELECT balance FROM user_mora WHERE user_id=? AND chat_id=? FOR UPDATE",
+                (uid, chat_id),
             )
-            if cursor.rowcount == 0:
-                mora = await get_mora(uid, chat_id)
-                bal = mora["balance"] if mora else 0
+            bal = row["balance"] if row else 0
+            if bal < price:
                 raise ValueError(f"Недостаточно Моры ({bal}/{price})")
-            await db.commit()
-            async with db.execute(
+            await db.execute(
+                "UPDATE user_mora SET balance=balance-? WHERE user_id=? AND chat_id=?",
+                (price, uid, chat_id),
+            )
+            row2 = await db.fetchone(
                 "SELECT balance FROM user_mora WHERE user_id=? AND chat_id=?",
                 (uid, chat_id),
-            ) as c:
-                row = await c.fetchone()
-            new_bal = row[0] if row else 0
+            )
+            new_bal = row2["balance"] if row2 else 0
 
     # Record purchase and apply effects
     # 5% НДС from shop purchases → treasury
@@ -242,7 +241,6 @@ async def buy_item(
                 "UPDATE pets SET color_name=? WHERE user_id=? AND chat_id=?",
                 (color_key, uid, chat_id),
             )
-            await _db2.commit()
     elif item_type == "potion":
         from shared_prices import POTIONS_CATALOG, ITEM_METADATA
         from database.db import add_gacha_item
