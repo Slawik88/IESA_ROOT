@@ -206,12 +206,16 @@ async def family_withdraw(uid: int, chat_id: int, amount: int) -> dict:
 
 
 async def get_family_log(uid: int, chat_id: int, limit: int = 30) -> dict:
-    """Return family wallet transaction log.
+    """Return family wallet transaction log for the user's pair only.
 
     Returns {ok, log: [{user_id, user_name, action, amount, description, created_at}]}.
     """
-    from database.db import get_family_wallet_log
+    from database.db import get_family_wallet_log, get_marriage
     from database.postgres import connect as postgres_connect
+
+    # Resolve partner_id so query is scoped to this pair only
+    marriage = await get_marriage(uid, chat_id)
+    partner_id: int | None = marriage["partner_id"] if marriage else None
 
     # Auto-cleanup old records (> 60 days)
     async with postgres_connect() as db:
@@ -221,7 +225,7 @@ async def get_family_log(uid: int, chat_id: int, limit: int = 30) -> dict:
         )
         await db.commit()
 
-    rows = await get_family_wallet_log(chat_id, limit)
+    rows = await get_family_wallet_log(chat_id, uid, partner_id, limit)
     log_entries = []
     for r in rows:
         log_entries.append({

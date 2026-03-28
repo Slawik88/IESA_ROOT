@@ -39,21 +39,12 @@ async def buy_bond(uid: int, chat_id: int, bond_key: str,
         single = await is_user_single(uid, chat_id)
         if single:
             raise ValueError("Нет семейного кошелька")
-        from database.postgres import connect as postgres_connect
-        async with postgres_connect() as db:
-            cursor = await db.execute(
-                "UPDATE family_wallet SET balance=balance-? WHERE chat_id=? AND user_id=? AND balance>=?",
-                (total_cost, chat_id, uid, total_cost),
-            )
-            if cursor.rowcount == 0:
-                async with db.execute(
-                    "SELECT COALESCE(balance,0) FROM family_wallet WHERE chat_id=? AND user_id=?",
-                    (chat_id, uid),
-                ) as c:
-                    row = await c.fetchone()
-                fam_bal = row[0] if row else 0
-                raise ValueError(f"Недостаточно в семейном ({fam_bal}/{total_cost} 🪙)")
-            await db.commit()
+        # Use pair-aware atomic deduction (FOR UPDATE, combined pool of both partners)
+        from database.db import deduct_family_pool, get_total_family_balance
+        total_fbal, _my, partner_id = await get_total_family_balance(chat_id, uid)
+        if total_fbal < total_cost:
+            raise ValueError(f"Недостаточно в семейном ({total_fbal}/{total_cost} 🪙)")
+        await deduct_family_pool(chat_id, uid, partner_id, total_cost)
     else:
         from database.postgres import connect as postgres_connect
         async with postgres_connect() as db:
@@ -73,15 +64,10 @@ async def buy_bond(uid: int, chat_id: int, bond_key: str,
     mora_row    = await get_mora(uid, chat_id)
     personal    = mora_row["balance"] if mora_row else 0
     family      = 0
-    from database.postgres import connect as postgres_connect
     try:
-        async with postgres_connect() as db:
-            async with db.execute(
-                "SELECT COALESCE(balance,0) FROM family_wallet WHERE chat_id=? AND user_id=?",
-                (chat_id, uid),
-            ) as c:
-                row = await c.fetchone()
-            family = row[0] if row else 0
+        from database.db import get_total_family_balance
+        total_fbal, _my, _pid = await get_total_family_balance(chat_id, uid)
+        family = total_fbal
     except Exception:
         pass
 
@@ -282,8 +268,17 @@ async def get_bonds_status(uid: int, chat_id: int) -> dict:
             "history":   history.get(bk, []),
         })
 
+    # Timestamp of last price update — used by the mini app to detect price changes
+    prices_updated_at = ""
+    try:
+        from database.db import get_scheduler_state
+        prices_updated_at = await get_scheduler_state("bond_price_last_updated_at") or ""
+    except Exception:
+        pass
+
     return {
-        "bonds":        bonds_out,
-        "market_trend": market_trend,
-        "market_ticks": market_ticks,
+        "bonds":              bonds_out,
+        "market_trend":       market_trend,
+        "market_ticks":       market_ticks,
+        "prices_updated_at":  prices_updated_at,
     }

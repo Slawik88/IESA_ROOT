@@ -28,15 +28,12 @@ async def get_bank_info(uid: int, chat_id: int) -> dict:
     mora_row = await get_mora(uid, chat_id)
     balance  = mora_row["balance"] if mora_row else 0
 
-    # Family balance
+    # Family balance — scoped to this user's pair only
     family_balance = 0
     try:
-        async with postgres_connect() as db:
-            async with db.execute(
-                "SELECT COALESCE(SUM(balance),0) FROM family_wallet WHERE chat_id=?", (chat_id,)
-            ) as c:
-                row = await c.fetchone()
-            family_balance = row[0] if row else 0
+        from database.db import get_total_family_balance
+        total_fbal, _my, _pid = await get_total_family_balance(chat_id, uid)
+        family_balance = total_fbal
     except Exception:
         pass
 
@@ -140,25 +137,21 @@ async def deposit(uid: int, chat_id: int, plan_key: str,
     eff_rate     = plan["rate"] + (SINGLES_BANK_BONUS if single else 0.0)
 
     if wallet == "family":
+        # Use the proper pair-aware deduction (FOR UPDATE, scoped to uid + partner_id)
+        from database.db import deduct_family_pool, get_total_family_balance
+        total_fbal, _my, partner_id = await get_total_family_balance(chat_id, uid)
+        if total_fbal < amount:
+            raise ValueError(f"Недостаточно семейных средств ({total_fbal}/{amount} 🪙)")
+
+        # Atomic deduction from the pair's pool
+        new_family_bal = await deduct_family_pool(chat_id, uid, partner_id, amount)
+
+        # Create deposit
         from database.postgres import connect as postgres_connect
+        now = datetime.now(timezone.utc)
+        from datetime import timedelta
+        matures = now + timedelta(days=plan["days"])
         async with postgres_connect() as db:
-            async with db.execute(
-                "SELECT COALESCE(SUM(balance),0) FROM family_wallet WHERE chat_id=?", (chat_id,)
-            ) as c:
-                row = await c.fetchone()
-            fbal = row[0] if row else 0
-            if fbal < amount:
-                raise ValueError(f"Недостаточно семейных средств ({fbal}/{amount} 🪙)")
-            # Atomic: deduct + create deposit in one transaction
-            cursor = await db.execute(
-                "UPDATE family_wallet SET balance=balance-? WHERE chat_id=? AND balance>=?",
-                (amount, chat_id, amount),
-            )
-            if cursor.rowcount == 0:
-                raise ValueError(f"Недостаточно семейных средств ({fbal}/{amount} 🪙)")
-            now = datetime.now(timezone.utc)
-            from datetime import timedelta
-            matures = now + timedelta(days=plan["days"])
             dep_cursor = await db.execute(
                 "INSERT INTO bank_deposits (user_id, chat_id, amount, rate, created_at, matures_at)"
                 " VALUES (?,?,?,?,?,?) RETURNING id",
@@ -168,12 +161,7 @@ async def deposit(uid: int, chat_id: int, plan_key: str,
             dep_row = await dep_cursor.fetchone()
             dep_id = dep_row[0] if dep_row else 0
             await db.commit()
-            # Read new family balance after commit
-            async with db.execute(
-                "SELECT COALESCE(SUM(balance),0) FROM family_wallet WHERE chat_id=?", (chat_id,)
-            ) as c:
-                row = await c.fetchone()
-        new_balance = row[0] if row else 0
+        new_balance = new_family_bal
     else:
         from database.postgres import connect as postgres_connect
         async with postgres_connect() as db:
