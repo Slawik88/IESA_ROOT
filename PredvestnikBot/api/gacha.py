@@ -108,7 +108,7 @@ async def gacha_roll(uid: int, chat_id: int, count: int,
     Raises ValueError with a Russian message on error.
     """
     from database.db import (
-        add_gacha_item, add_mora,
+        add_gacha_item, add_mora, add_to_treasury,
         get_family_wallet, get_gacha_pity, get_mora, is_user_single,
         get_user_quest, quest_tick, mark_quest_rewarded, add_xp_in_chat,
     )

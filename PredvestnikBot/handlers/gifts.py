@@ -22,7 +22,6 @@ from config import MARRIAGE_GIFTS, MINI_APP_TG_URL
 from database.db import (
     add_buff,
     add_to_family_wallet,
-    deduct_mora,
     get_family_wallet,
     get_marriage,
     get_mora,

@@ -29,7 +29,6 @@ from database.db import (
     add_mora,
     add_to_family_wallet,
     buy_shop_item,
-    deduct_mora,
     get_admin_group_ids,
     get_family_wallet,
     get_mora,

@@ -19,7 +19,7 @@ from aiogram.types import (
 )
 
 from database.db import (
-    deduct_mora, add_mora, get_mora, get_user,
+    add_mora, get_mora, get_user,
     log_espionage, get_espionage_cooldown,
     get_bond_prices, get_bond_price_history, get_user_bonds, buy_bonds, sell_bonds,
     BOND_DEFAULTS,

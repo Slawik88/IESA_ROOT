@@ -16,7 +16,6 @@ from config import LOAN_MAX_ACTIVE, LOAN_MAX_AMOUNT, MORA_TRANSFER_MAX, MORA_TRA
 from database.db import (
     add_to_treasury,
     create_loan,
-    deduct_mora,
     get_active_loans_as_borrower,
     get_active_loans_as_lender,
     get_mora,

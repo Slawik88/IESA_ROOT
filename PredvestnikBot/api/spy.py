@@ -19,7 +19,7 @@ async def spy(uid: int, chat_id: int, target_id: int) -> dict:
     Raises ValueError on validation/cooldown errors.
     Returns {ok, success, cost, new_balance, message?, target?}.
     """
-    from database.db import deduct_mora, get_mora, get_user
+    from database.db import get_mora, get_user
     from database.postgres import connect as postgres_connect
 
     if target_id == uid:

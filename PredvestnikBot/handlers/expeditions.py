@@ -22,7 +22,6 @@ from database.db import (
     add_mora,
     add_pet_fatigue,
     add_to_family_wallet,
-    deduct_mora,
     get_active_expedition,
     get_family_wallet,
     get_marriage,

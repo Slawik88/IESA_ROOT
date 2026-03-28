@@ -119,7 +119,7 @@ async def buy_item(
     balance is always the personal mora balance after the operation.
     """
     from database.db import (
-        get_mora, deduct_mora, has_shop_item, buy_shop_item,
+        get_mora, has_shop_item, buy_shop_item,
         set_top_frame, set_vip, get_vip, get_family_wallet, add_to_family_wallet,
         get_marriage,
     )

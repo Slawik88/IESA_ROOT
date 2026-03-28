@@ -20,7 +20,6 @@ from database.db import (
     add_mora,
     add_to_family_wallet,
     create_deposit,
-    deduct_mora,
     get_family_wallet,
     get_mora,
     get_total_family_balance,
