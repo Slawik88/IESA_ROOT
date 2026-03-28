@@ -770,10 +770,6 @@ def _build_top_text(
         badges = ""
         if mora_row and mora_row.get("vip"):
             badges += " 💎"
-        if mora_row:
-            sd = mora_row.get("streak_days") or 0
-            if sd >= 3:
-                badges += f" 🔥{sd}"
 
         count_str = f"{count:,}".replace(",", "\u00a0")
         html_lines.append(f"{place} {name} — {count_str}{badges}")

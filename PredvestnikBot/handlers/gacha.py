@@ -89,7 +89,7 @@ async def cmd_gacha(message: Message, cmd_args: str):
     abs_cid = abs(message.chat.id)
     btn = InlineKeyboardButton(
         text="🙏 Молитвы в Mini App",
-        url=f"{MINI_APP_TG_URL}?startapp={abs_cid}",
+        url=f"{MINI_APP_TG_URL}?startapp={abs_cid}_gacha",
     )
     await message.answer(
         "🙏 <b>Молитвы переехали в Mini App!</b>",
@@ -185,7 +185,7 @@ async def cmd_inventory(message: Message, cmd_args: str):
     abs_cid = abs(message.chat.id)
     btn = InlineKeyboardButton(
         text="🎒 Инвентарь в Mini App",
-        url=f"{MINI_APP_TG_URL}?startapp={abs_cid}",
+        url=f"{MINI_APP_TG_URL}?startapp={abs_cid}_inventory",
     )
     await message.answer(
         "🎒 <b>Инвентарь переехал в Mini App!</b>",

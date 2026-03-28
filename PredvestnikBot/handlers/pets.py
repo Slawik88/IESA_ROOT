@@ -100,8 +100,8 @@ async def cmd_pet(message: Message, cmd_args: str):
         ]])
         await message.answer(
             "🎉 <b>Питомец разблокировован!</b>\n\n"
-            f"💰 Стоимость заведения: <b>{PET_ADOPT_PRICE} мора</b>\n\n"
-            "Ваша пара выполнила все условия. Выбери питомца:",
+            "🎁 Ваш брак старше 7 дней — питомец <b>бесплатно</b>!\n\n"
+            "Выбери питомца:",
             parse_mode="HTML",
             reply_markup=kb,
         )
@@ -200,7 +200,7 @@ async def cmd_adopt_pet(message: Message, cmd_args: str):
     ]])
     await message.answer(
         f"🐾 <b>Заведение питомца</b>\n\n"
-        f"💰 Стоимость: <b>{PET_ADOPT_PRICE} мора</b>\n\n"
+        f"🎁 Ваш брак старше 7 дней — питомец <b>бесплатно</b>!\n\n"
         f"Выбери питомца:",
         parse_mode="HTML",
         reply_markup=kb
@@ -224,43 +224,38 @@ async def cb_pet_adopt(callback: CallbackQuery):
         await callback.answer("У тебя уже есть питомец!", show_alert=True)
         return
 
-    can, reason = await _check_unlock(uid, chat_id)
-    if not can:
-        await callback.answer(reason, show_alert=True)
+    marriage = await get_marriage(uid, chat_id)
+    if not marriage:
+        await callback.answer("❌ Нужно быть в браке!", show_alert=True)
         return
 
-    # Теперь показываем выбор оплаты
-    emoji = _PET_EMOJI.get(ptype, "🐾")
-    kind  = _PET_NAME.get(ptype, "Питомец")
-    
-    mora = await get_mora(uid, chat_id)
-    personal_balance = mora["balance"] if mora else 0
-    
-    total_family_balance, _, _ = await get_total_family_balance(chat_id, uid)
-    
-    kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(
-            text=f"💰 Личный баланс ({personal_balance} мора)", 
-            callback_data=f"pet_pay:{uid}:{ptype}:personal"
-        )],
-        [InlineKeyboardButton(
-            text=f"👨‍👩‍👧‍👦 Семейный баланс ({total_family_balance} мора)", 
-            callback_data=f"pet_pay:{uid}:{ptype}:family"
-        )],
-        [InlineKeyboardButton(text="❌ Отмена", callback_data=f"pet_cancel:{uid}")]
-    ])
-    
-    try:
-        await callback.message.edit_text(
-            f"{emoji} <b>Завести {kind.lower()}а</b>\n\n"
-            f"💰 Стоимость: <b>{PET_ADOPT_PRICE} мора</b>\n\n"
-            f"Выберите способ оплаты:",
-            parse_mode="HTML",
-            reply_markup=kb
-        )
-    except Exception:
-        pass
-    await callback.answer()
+    partner_id = marriage["partner_id"]
+    age = _marriage_age_days(marriage["married_at"])
+
+    # Брак >= 7 дней — питомец бесплатно
+    if age >= PET_MIN_MARRIAGE_DAYS:
+        await adopt_pet(uid, partner_id, chat_id, ptype)
+
+        emoji = _PET_EMOJI.get(ptype, "🐾")
+        kind = _PET_NAME.get(ptype, "Питомец")
+        partner = await get_user(partner_id)
+        partner_name = html.escape(partner["full_name"]) if partner else str(partner_id)
+
+        try:
+            await callback.message.edit_text(
+                f"{emoji} <b>Поздравляем!</b>\n\n"
+                f"Вы с {user_mention(partner_id, partner_name)} завели <b>{kind.lower()}а</b>! 🎉\n\n"
+                f"🎁 Бесплатно за верность браку ({age} дн.)!\n\n"
+                f"Дайте ему имя: <code>бот назвать питомца Мурзик</code>",
+                parse_mode="HTML",
+            )
+        except Exception:
+            pass
+        await callback.answer(f"{emoji} Питомец заведён!")
+        return
+
+    # Брак < 7 дней — нужна оплата
+    await callback.answer("⚠️ Брак слишком молодой для бесплатного питомца.", show_alert=True)
 
 
 @router.callback_query(lambda c: c.data and c.data.startswith("pet_pay:"))

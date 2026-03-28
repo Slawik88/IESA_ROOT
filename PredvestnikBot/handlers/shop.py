@@ -268,7 +268,7 @@ async def cmd_shop(message: Message, cmd_args: str):
     kb.inline_keyboard.append([
         InlineKeyboardButton(
             text="📱 Открыть в Mini App",
-            url=f"{MINI_APP_TG_URL}?startapp={abs_cid}",
+            url=f"{MINI_APP_TG_URL}?startapp={abs_cid}_shop",
         )
     ])
     await message.answer(

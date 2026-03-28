@@ -3368,20 +3368,19 @@ async def set_mora_balance(user_id: int, chat_id: int, new_balance: int):
 async def transfer_mora(from_uid: int, to_uid: int, chat_id: int, amount: int) -> tuple[bool, int, int]:
     """Атомарный перевод Моры. Возвращает (ok, from_new_bal, to_new_bal)."""
     async with postgres_connect() as db:
-        async with db.execute(
-            "SELECT balance FROM user_mora WHERE user_id=? AND chat_id=?",
-            (from_uid, chat_id),
-        ) as c:
-            row = await c.fetchone()
-        from_bal = row["balance"] if row else 0
-        if from_bal < amount:
-            return False, from_bal, 0
-
-        new_from_bal = from_bal - amount
-        await db.execute(
-            "UPDATE user_mora SET balance=? WHERE user_id=? AND chat_id=?",
-            (new_from_bal, from_uid, chat_id),
+        # Atomic deduction with balance guard
+        cursor = await db.execute(
+            "UPDATE user_mora SET balance=balance-? WHERE user_id=? AND chat_id=? AND balance>=?",
+            (amount, from_uid, chat_id, amount),
         )
+        if cursor.rowcount == 0:
+            async with db.execute(
+                "SELECT balance FROM user_mora WHERE user_id=? AND chat_id=?",
+                (from_uid, chat_id),
+            ) as c:
+                row = await c.fetchone()
+            return False, (row["balance"] if row else 0), 0
+
         await db.execute(
             """INSERT INTO user_mora (user_id, chat_id, balance, total_earned) VALUES (?,?,?,?)
                ON CONFLICT(user_id, chat_id) DO UPDATE SET
@@ -3392,11 +3391,16 @@ async def transfer_mora(from_uid: int, to_uid: int, chat_id: int, amount: int) -
         await db.commit()
 
         async with db.execute(
+            "SELECT balance FROM user_mora WHERE user_id=? AND chat_id=?", (from_uid, chat_id)
+        ) as c:
+            row = await c.fetchone()
+        from_new_bal = row["balance"] if row else 0
+        async with db.execute(
             "SELECT balance FROM user_mora WHERE user_id=? AND chat_id=?", (to_uid, chat_id)
         ) as c:
             row = await c.fetchone()
         to_new_bal = row["balance"] if row else 0
-        return True, new_from_bal, to_new_bal
+        return True, from_new_bal, to_new_bal
 
 
 # ─── Долги (займы) ────────────────────────────────────────────────────────────
@@ -3405,22 +3409,21 @@ async def create_loan(lender_id: int, borrower_id: int, chat_id: int, amount: in
     """Создаёт заём: списывает с кредитора, зачисляет заёмщику.
     Возвращает (ok, lender_new_bal, loan_id)."""
     async with postgres_connect() as db:
-        async with db.execute(
-            "SELECT balance FROM user_mora WHERE user_id=? AND chat_id=?",
-            (lender_id, chat_id),
-        ) as c:
-            row = await c.fetchone()
-        lender_bal = row["balance"] if row else 0
-        if lender_bal < amount:
-            return False, lender_bal, 0
-
         now = datetime.now(timezone.utc)
-        new_lender_bal = lender_bal - amount
 
-        await db.execute(
-            "UPDATE user_mora SET balance=? WHERE user_id=? AND chat_id=?",
-            (new_lender_bal, lender_id, chat_id),
+        # Atomic deduction with balance guard
+        cursor = await db.execute(
+            "UPDATE user_mora SET balance=balance-? WHERE user_id=? AND chat_id=? AND balance>=?",
+            (amount, lender_id, chat_id, amount),
         )
+        if cursor.rowcount == 0:
+            async with db.execute(
+                "SELECT balance FROM user_mora WHERE user_id=? AND chat_id=?",
+                (lender_id, chat_id),
+            ) as c:
+                row = await c.fetchone()
+            return False, (row["balance"] if row else 0), 0
+
         await db.execute(
             """INSERT INTO user_mora (user_id, chat_id, balance, total_earned) VALUES (?,?,?,?)
                ON CONFLICT(user_id, chat_id) DO UPDATE SET
@@ -3435,7 +3438,14 @@ async def create_loan(lender_id: int, borrower_id: int, chat_id: int, amount: in
         row = await cursor.fetchone()
         loan_id = row[0] if row else cursor.lastrowid
         await db.commit()
-        return True, new_lender_bal, loan_id
+
+        async with db.execute(
+            "SELECT balance FROM user_mora WHERE user_id=? AND chat_id=?",
+            (lender_id, chat_id),
+        ) as c:
+            row = await c.fetchone()
+        lender_new_bal = row["balance"] if row else 0
+        return True, lender_new_bal, loan_id
 
 
 async def get_active_loans_as_lender(user_id: int, chat_id: int) -> list:
@@ -3476,22 +3486,21 @@ async def repay_loan(loan_id: int, borrower_id: int, chat_id: int) -> tuple[bool
         amount = loan["amount"]
         lender_id = loan["lender_id"]
 
-        async with db.execute(
-            "SELECT balance FROM user_mora WHERE user_id=? AND chat_id=?",
-            (borrower_id, chat_id),
-        ) as c:
-            row = await c.fetchone()
-        borrower_bal = row["balance"] if row else 0
-        if borrower_bal < amount:
-            return False, borrower_bal
-
         now = datetime.now(timezone.utc)
-        new_borrower_bal = borrower_bal - amount
 
-        await db.execute(
-            "UPDATE user_mora SET balance=? WHERE user_id=? AND chat_id=?",
-            (new_borrower_bal, borrower_id, chat_id),
+        # Atomic deduction with balance guard
+        cursor = await db.execute(
+            "UPDATE user_mora SET balance=balance-? WHERE user_id=? AND chat_id=? AND balance>=?",
+            (amount, borrower_id, chat_id, amount),
         )
+        if cursor.rowcount == 0:
+            async with db.execute(
+                "SELECT balance FROM user_mora WHERE user_id=? AND chat_id=?",
+                (borrower_id, chat_id),
+            ) as c:
+                row = await c.fetchone()
+            return False, (row["balance"] if row else 0)
+
         await db.execute(
             """INSERT INTO user_mora (user_id, chat_id, balance) VALUES (?,?,?)
                ON CONFLICT(user_id, chat_id) DO UPDATE SET balance = balance + ?""",
@@ -3502,7 +3511,13 @@ async def repay_loan(loan_id: int, borrower_id: int, chat_id: int) -> tuple[bool
             (now, loan_id),
         )
         await db.commit()
-        return True, new_borrower_bal
+
+        async with db.execute(
+            "SELECT balance FROM user_mora WHERE user_id=? AND chat_id=?",
+            (borrower_id, chat_id),
+        ) as c:
+            row = await c.fetchone()
+        return True, (row["balance"] if row else 0)
 
 
 # ─── Смена вида питомца ───────────────────────────────────────────────────────
@@ -4355,7 +4370,7 @@ async def get_marriages_batch(pairs: list[tuple[int, int]]) -> dict[tuple[int, i
 
 async def adopt_pet(user_id: int, partner_id: int, chat_id: int, pet_type: str) -> None:
     """Создаёт питомца для обоих партнёров."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(timezone.utc).isoformat()
     async with postgres_connect() as db:
         for uid in (user_id, partner_id):
             await db.execute(
@@ -5179,7 +5194,17 @@ async def update_bond_prices(chat_id: int):
                 reversion = -math.copysign(min(abs(deviation) * 0.30, vol * 2), deviation)
                 delta += reversion
 
-            new_price = max(10, int(old_price * (1 + delta)))
+            # Hard price floor = 15% of base price (prevents trivial buy-the-dip exploit)
+            floor_price = max(10, int(base_price * 0.15))
+
+            # Near-floor rebound: if price is within 30% above floor, add bullish bias
+            # This makes it stochastic, not guaranteed — discourages systematic floor-buying
+            if old_price <= int(floor_price * 1.3):
+                # Only 50% chance of rebound to keep it uncertain
+                if random.random() < 0.50:
+                    delta += vol * random.uniform(0.3, 0.8)
+
+            new_price = max(floor_price, int(old_price * (1 + delta)))
             new_price = min(new_price, base_price * cap_mult)
             new_prices[key] = new_price
 
@@ -5878,8 +5903,12 @@ async def get_leaderboard_xp(chat_id: int, limit: int = 10) -> list[dict]:
     """Топ по XP в чате."""
     async with postgres_connect() as db:
         async with db.execute(
-            """SELECT s.user_id, u.full_name, s.xp, s.level
-               FROM user_stats s LEFT JOIN users u ON u.user_id = s.user_id
+            """SELECT s.user_id, u.full_name, s.xp, s.level,
+                      p.color_name, m.vip
+               FROM user_stats s
+               LEFT JOIN users u ON u.user_id = s.user_id
+               LEFT JOIN pets p ON p.user_id = s.user_id AND p.chat_id = s.chat_id
+               LEFT JOIN user_mora m ON m.user_id = s.user_id AND m.chat_id = s.chat_id
                WHERE s.chat_id = ? ORDER BY s.xp DESC LIMIT ?""",
             (chat_id, limit),
         ) as c:
@@ -5891,8 +5920,12 @@ async def get_leaderboard_messages(chat_id: int, limit: int = 10) -> list[dict]:
     """Топ по сообщениям в чате."""
     async with postgres_connect() as db:
         async with db.execute(
-            """SELECT s.user_id, u.full_name, s.message_count
-               FROM user_stats s LEFT JOIN users u ON u.user_id = s.user_id
+            """SELECT s.user_id, u.full_name, s.message_count,
+                      p.color_name, m.vip
+               FROM user_stats s
+               LEFT JOIN users u ON u.user_id = s.user_id
+               LEFT JOIN pets p ON p.user_id = s.user_id AND p.chat_id = s.chat_id
+               LEFT JOIN user_mora m ON m.user_id = s.user_id AND m.chat_id = s.chat_id
                WHERE s.chat_id = ? ORDER BY s.message_count DESC LIMIT ?""",
             (chat_id, limit),
         ) as c:
@@ -5967,11 +6000,14 @@ async def enhance_item(user_id: int, chat_id: int, item_id: int) -> tuple[bool, 
         else:
             success_pct, neutral_pct, fail_pct = 30, 40, 30
 
-        # Деduct мору всегда
-        await db.execute(
-            "UPDATE user_mora SET balance = balance - ? WHERE user_id=? AND chat_id=?",
-            (cost, user_id, chat_id)
+        # Деduct мору всегда (атомарная проверка баланса)
+        cursor = await db.execute(
+            "UPDATE user_mora SET balance = balance - ? WHERE user_id=? AND chat_id=? AND balance >= ?",
+            (cost, user_id, chat_id, cost)
         )
+        if cursor.rowcount == 0:
+            await db.commit()
+            return False, f"Недостаточно Моры ({balance}/{cost} 🪙)", current_level
 
         roll = random.randint(1, 100)
         if roll <= success_pct:

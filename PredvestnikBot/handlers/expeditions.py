@@ -64,7 +64,7 @@ async def cmd_expedition(message: Message, cmd_args: str):
     abs_cid = abs(message.chat.id)
     btn = InlineKeyboardButton(
         text="🏕 Экспедиции в Mini App",
-        url=f"{MINI_APP_TG_URL}?startapp={abs_cid}",
+        url=f"{MINI_APP_TG_URL}?startapp={abs_cid}_expedition",
     )
     await message.answer(
         "🏕 <b>Экспедиции переехали в Mini App!</b>",

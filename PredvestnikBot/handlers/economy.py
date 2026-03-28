@@ -188,7 +188,7 @@ async def cmd_balance(message: Message, cmd_args: str):
     abs_cid = abs(message.chat.id)
     btn = InlineKeyboardButton(
         text="💰 Мой баланс в Mini App",
-        url=f"{MINI_APP_TG_URL}?startapp={abs_cid}",
+        url=f"{MINI_APP_TG_URL}?startapp={abs_cid}_profile",
     )
     await message.answer(
         "🔒 <b>Баланс скрыт в общих чатах — открой Mini App:</b>",
@@ -269,9 +269,10 @@ async def cmd_buy_vip(message: Message, cmd_args: str):
         f"Стоимость: <b>{VIP_PRICE} 🪙</b>\n"
         f"💰 Личный: <b>{personal_bal} 🪙</b>\n\n"
         f"Что даёт VIP:\n"
-        f"  💎 Значок VIP в профиле и топе\n"
-        f"  👑 Красивое оформление профиля\n"
-        f"  🔮 Доступ к рамке «Алмазный» для топа",
+        f"  💎 Золотой значок 💎 рядом с именем в таблице лидеров\n"
+        f"  📅 +15% к ежедневному чекину (стрик-бонус растёт быстрее)\n"
+        f"  🏆 Питомец подсвечен цветом в зале славы\n"
+        f"  👑 Эксклюзивное оформление профиля в Mini App",
         parse_mode="HTML",
         reply_markup=kb,
     )

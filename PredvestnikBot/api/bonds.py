@@ -60,6 +60,14 @@ async def buy_bond(uid: int, chat_id: int, bond_key: str,
 
     await buy_bonds(uid, chat_id, bond_key, amount, price_per)
 
+    # Log to wallet ledger
+    try:
+        from api.economy import log_wallet_tx
+        await log_wallet_tx(uid, chat_id, "expense", total_cost, "bonds_buy",
+                            f"{bond_key} ×{amount} по {price_per}🪙")
+    except Exception:
+        pass
+
     # Return updated balances
     mora_row    = await get_mora(uid, chat_id)
     personal    = mora_row["balance"] if mora_row else 0
@@ -141,6 +149,14 @@ async def sell_bond(uid: int, chat_id: int, bond_key: str, amount: int) -> dict:
     new_balance = await add_mora(uid, chat_id, net_revenue)
     if bond_tax > 0:
         await add_to_treasury(chat_id, bond_tax, "bonds", uid)
+
+    # Log to wallet ledger
+    try:
+        from api.economy import log_wallet_tx
+        await log_wallet_tx(uid, chat_id, "income", net_revenue, "bonds_sell",
+                            f"{bond_key} ×{amount} по {price_per}🪙")
+    except Exception:
+        pass
 
     remaining = have - amount
 
