@@ -339,6 +339,16 @@ select{background:var(--bg3);border:1px solid var(--border);border-radius:8px;pa
 <!-- Rarity flash overlay -->
 <div id="rarityFlash"></div>
 
+<!-- Inactivity overlay -->
+<div id="inactivityOverlay" style="position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:10000;display:none;flex-direction:column;align-items:center;justify-content:center;padding:20px">
+  <div style="text-align:center;max-width:320px">
+    <div style="font-size:48px;margin-bottom:16px">😴</div>
+    <div style="font-size:18px;font-weight:700;color:#fff;margin-bottom:8px">Ты отошёл?</div>
+    <div style="font-size:13px;color:#94a3b8;margin-bottom:20px">Прошло 7 минут без активности.<br>Нажми кнопку, чтобы продолжить.</div>
+    <button onclick="resumeFromInactivity()" style="background:var(--accent);color:#fff;border:none;border-radius:12px;padding:12px 32px;font-size:15px;font-weight:700;cursor:pointer">🔄 Продолжить</button>
+  </div>
+</div>
+
 <!-- Wallet picker modal -->
 <div class="wallet-modal" id="walletModal">
   <div class="wallet-sheet">
@@ -392,6 +402,7 @@ select{background:var(--bg3);border:1px solid var(--border);border-radius:8px;pa
   <button class="tab-btn" data-tab="calendar" onclick="switchTab('calendar')">📅 Календарь</button>
   <button class="tab-btn" data-tab="union" onclick="switchTab('union')">🤝 Узы</button>
   <button class="tab-btn" data-tab="glory" onclick="switchTab('glory')">🏆 Слава</button>
+  <button class="tab-btn" data-tab="guide" onclick="switchTab('guide')">📖 Гайд</button>
   <button class="tab-btn" data-tab="inventory" style="display:none" onclick="switchTab('inventory')">🎒 Инвент.</button>
   <button class="tab-btn" data-tab="shop" style="display:none" onclick="switchTab('shop')">🛒 Магазин</button>
   <button class="tab-btn" data-tab="couple_boss" id="coupleBossTabBtn" style="display:none" onclick="switchTab('couple_boss')">👹 Парный Босс</button>
@@ -522,6 +533,7 @@ select{background:var(--bg3);border:1px solid var(--border);border-radius:8px;pa
     <button class="subtab-btn" onclick="switchSubtab('weapons')">⚔️ Оружие</button>
     <button class="subtab-btn" onclick="switchSubtab('armor')">🛡 Броня</button>
     <button class="subtab-btn" onclick="switchSubtab('potions')">🧪 Зелья</button>
+    <button class="subtab-btn" onclick="switchSubtab('junk')">🪨 Хлам</button>
   </div>
   <div class="loading" id="invLoading">⏳ Загрузка…</div>
   
@@ -562,6 +574,11 @@ select{background:var(--bg3);border:1px solid var(--border);border-radius:8px;pa
     <div id="invPotionsList"></div>
   </div>
   
+  <!-- 🪨 Хлам -->
+  <div id="subtab-junk" style="display:none">
+    <div id="invJunkList"></div>
+  </div>
+  
   <!-- Batch Sell Controls -->
   <div class="card" id="batchSellCard" style="display:none">
     <div class="card-title">📦 Пакетная продажа</div>
@@ -582,7 +599,7 @@ select{background:var(--bg3);border:1px solid var(--border);border-radius:8px;pa
       <div class="card-title">✨ Молитва Пустоты</div>
       <div style="text-align:center;font-size:12px;color:var(--text2);margin-bottom:10px">
         Шанс на легендарку: <strong style="color:#f59e0b">3%</strong> · гарантия через <strong>40</strong> кр.<br/>
-        Цена: <span id="gachaSinglePrice">150</span> / <span id="gachaMultiPrice">1350</span> 🪙
+        Цена: <span id="gachaSinglePrice">120</span> / <span id="gachaMultiPrice">1000</span> 🪙
       </div>
       <div class="btn-row" style="margin-bottom:8px">
         <button class="btn btn-primary" onclick="rollGacha(1)">🌟 ×1</button>
@@ -839,6 +856,461 @@ select{background:var(--bg3);border:1px solid var(--border);border-radius:8px;pa
   </div>
 </div>
 
+<!-- GUIDE TAB -->
+<div class="tab-content" id="tab-guide">
+  <div class="card" style="border:1px solid rgba(124,106,247,.25)">
+    <div style="text-align:center;margin-bottom:12px">
+      <div style="font-size:28px">📖</div>
+      <div style="font-size:18px;font-weight:800;color:var(--accent)">Полный гайд по боту</div>
+      <div style="font-size:11px;color:var(--text2);margin-top:4px">Всё что нужно знать — от новичка до администратора</div>
+    </div>
+  </div>
+
+  <!-- Guide navigation -->
+  <div class="guide-nav" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">
+    <button class="btn btn-sm" style="background:var(--accent);color:#fff;font-size:11px" onclick="showGuideSection('basics')">🏁 Основы</button>
+    <button class="btn btn-sm" style="background:var(--bg3);color:var(--text2);font-size:11px" onclick="showGuideSection('economy')">💰 Экономика</button>
+    <button class="btn btn-sm" style="background:var(--bg3);color:var(--text2);font-size:11px" onclick="showGuideSection('gacha')">✨ Гача</button>
+    <button class="btn btn-sm" style="background:var(--bg3);color:var(--text2);font-size:11px" onclick="showGuideSection('combat')">⚔️ Бой</button>
+    <button class="btn btn-sm" style="background:var(--bg3);color:var(--text2);font-size:11px" onclick="showGuideSection('social')">💍 Социальное</button>
+    <button class="btn btn-sm" style="background:var(--bg3);color:var(--text2);font-size:11px" onclick="showGuideSection('finance')">🏦 Финансы</button>
+    <button class="btn btn-sm" style="background:var(--bg3);color:var(--text2);font-size:11px" onclick="showGuideSection('events')">🎪 Ивенты</button>
+    <button class="btn btn-sm" style="background:var(--bg3);color:var(--text2);font-size:11px" onclick="showGuideSection('admin')">👮 Админам</button>
+    <button class="btn btn-sm" style="background:var(--bg3);color:var(--text2);font-size:11px" onclick="showGuideSection('tips')">💡 Советы</button>
+  </div>
+
+  <!-- 🏁 Basics -->
+  <div class="guide-section" id="guide-basics">
+    <div class="card">
+      <div class="card-title">🏁 Добро пожаловать, Предвестник!</div>
+      <div style="font-size:12px;line-height:1.7;color:var(--text)">
+        <p>Бот «Предвестник» — это полноценная RPG-экосистема прямо в Telegram. Здесь ты зарабатываешь Мору 🪙, прокачиваешь персонажа, крутишь гачу, сражаешься с боссами, женишься, торгуешь акциями и многое другое.</p>
+        <p style="margin-top:8px"><b>Как начать?</b></p>
+        <ul style="margin:4px 0 4px 16px;padding:0">
+          <li>Просто пиши в чат — за каждое сообщение ты получаешь <b>+2 XP</b> и шанс на <b>1–3 🪙</b></li>
+          <li>Не забывай ежедневный чекин: <code>бот чекин</code> — стрик-бонусы растут!</li>
+          <li>Открой Mini App (эту страницу) для полного доступа ко всем функциям</li>
+          <li>Команда <code>бот помощь</code> покажет интерактивное меню в чате</li>
+        </ul>
+        <p style="margin-top:8px"><b>Система рангов:</b></p>
+        <div style="display:grid;grid-template-columns:auto 1fr;gap:2px 8px;font-size:11px;margin-top:4px">
+          <span>👤</span><span>Участник — базовый ранг</span>
+          <span>🛡</span><span>Модератор — мут, варн, очистка</span>
+          <span>🔰</span><span>Мл. Админ — расширенная модерация</span>
+          <span>⚔️</span><span>Ст. Админ — события, управление</span>
+          <span>⭐</span><span>Со-владелец — почти полный контроль</span>
+          <span>👑</span><span>Владелец — все команды</span>
+          <span>💻</span><span>Разработчик — создатель бота</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 💰 Economy -->
+  <div class="guide-section" id="guide-economy" style="display:none">
+    <div class="card">
+      <div class="card-title">💰 Экономика — Мора</div>
+      <div style="font-size:12px;line-height:1.7;color:var(--text)">
+        <p><b>Мора (🪙)</b> — основная валюта мира Тейвата. Зарабатывай и трать с умом!</p>
+        <p style="margin-top:8px"><b>Как зарабатывать:</b></p>
+        <ul style="margin:4px 0 4px 16px;padding:0">
+          <li>📨 <b>Сообщения</b> — 17% шанс получить 1–3 🪙 (кулдаун 3 мин)</li>
+          <li>📅 <b>Чекин</b> — 30–150 🪙 в зависимости от дня цикла (20 дней)</li>
+          <li>📋 <b>Квест дня</b> — +20 🪙 за выполнение</li>
+          <li>⬆️ <b>Повышение уровня</b> — +10 🪙 за каждый LVL-ап</li>
+          <li>👍 <b>Репутация</b> — +3 🪙 когда тебе дают «+», +1 🪙 когда ты даёшь</li>
+          <li>⚔️ <b>Босс</b> — МОра за урон (damage ÷ 20)</li>
+          <li>🎁 <b>Ивенты</b> — Сундук, Дилижанс, годовщины</li>
+          <li>🏕 <b>Экспедиции</b> — отправь питомца на заработок</li>
+          <li>📈 <b>Биржа</b> — купи акции дёшево, продай дорого</li>
+          <li>🏦 <b>Банк</b> — вклады под процент</li>
+        </ul>
+        <p style="margin-top:8px"><b>Ключевые команды:</b></p>
+        <div style="background:var(--bg3);border-radius:8px;padding:8px;font-size:11px;margin-top:4px">
+          <code>бот баланс</code> — текущий баланс<br>
+          <code>бот перевести @user N</code> — отправить Мору<br>
+          <code>бот семейный кошелёк</code> — общий кошелёк с партнёром<br>
+          <code>бот анонимка текст</code> — анонимное сообщение (75 🪙)
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">⭐ Опыт и Уровни</div>
+      <div style="font-size:12px;line-height:1.7;color:var(--text)">
+        <p>За каждое сообщение ты получаешь <b>+2 XP</b> (кулдаун 60 сек). По достижении нужного XP уровень повышается автоматически.</p>
+        <ul style="margin:4px 0 4px 16px;padding:0">
+          <li>🎉 При LVL-апе — объявление в чате + бонус <b>+10 🪙</b></li>
+          <li>✨ XP-буст ×2 — покупается в магазине за 1200 🪙 (на 24ч)</li>
+          <li>🌍 Глобальные бафы — иногда даются XP-бафы на весь чат</li>
+        </ul>
+        <p style="margin-top:4px"><b>Репутация:</b> ответь на сообщение «+», «спасибо» или 👍 чтобы дать +1 репу (до 10 раз в день).</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ✨ Gacha -->
+  <div class="guide-section" id="guide-gacha" style="display:none">
+    <div class="card">
+      <div class="card-title">✨ Молитва Пустоты (Гача)</div>
+      <div style="font-size:12px;line-height:1.7;color:var(--text)">
+        <p>Система «Молитва Пустоты» — это гача с 4 уровнями редкости. Каждая крутка может дать оружие, броню, зелья, косметику или просто хлам для продажи.</p>
+        <p style="margin-top:8px"><b>Шансы дропа:</b></p>
+        <div style="display:grid;grid-template-columns:auto auto 1fr;gap:2px 8px;font-size:11px;margin-top:4px">
+          <span>💤</span><span style="color:#6b7280"><b>70%</b></span><span>Хлам (7 предметов) — продай за 🪙</span>
+          <span>⚔️</span><span style="color:#3b82f6"><b>20%</b></span><span>Обычный (14 предметов) — экипировка + расходники</span>
+          <span>💜</span><span style="color:#8b5cf6"><b>7%</b></span><span>Редкий (11 предметов) — сильная экипировка</span>
+          <span>⭐</span><span style="color:#f59e0b"><b>3%</b></span><span>Легендарный (14 предметов) — лучшее в игре</span>
+        </div>
+        <p style="margin-top:8px"><b>Пити-система:</b> Гарантия легендарки каждые <b>40</b> круток.</p>
+        <p style="margin-top:8px"><b>Цены:</b></p>
+        <ul style="margin:4px 0 4px 16px;padding:0">
+          <li>🌟 ×1 — <b>120 🪙</b> (одиночная, 110 для холостяков)</li>
+          <li>💫 ×10 — <b>1000 🪙</b> (выгоднее! 950 для холостяков)</li>
+        </ul>
+        <p style="margin-top:4px;font-size:11px;color:var(--text2)">Подробные шансы — кнопка «📊 Шансы дропа» в Магазине.</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🎒 Инвентарь и экипировка</div>
+      <div style="font-size:12px;line-height:1.7;color:var(--text)">
+        <p>Все полученные предметы хранятся в инвентаре. Предметы делятся на категории:</p>
+        <ul style="margin:4px 0 4px 16px;padding:0">
+          <li>🎨 <b>Косметика</b> — рамки, эффекты имени, темы</li>
+          <li>⚔️ <b>Оружие</b> — повышает ATK</li>
+          <li>🛡 <b>Броня</b> — повышает DEF и HP</li>
+          <li>🧪 <b>Зелья</b> — временные бафы (ATK/DEF/HP)</li>
+          <li>🪨 <b>Хлам</b> — продай за Мору</li>
+        </ul>
+        <p style="margin-top:8px"><b>Экипировка:</b> Надень предметы чтобы получить бонусные характеристики. Характеристики влияют на урон боссу и бои.</p>
+        <p style="margin-top:4px"><b>Пакетная продажа:</b> Выбери несколько предметов галочками и продай разом!</p>
+        <p style="margin-top:4px"><b>Заточка:</b> Улучшай оружие до +20! Шансы падают с каждым уровнем, есть риск потерять прогресс.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ⚔️ Combat -->
+  <div class="guide-section" id="guide-combat" style="display:none">
+    <div class="card">
+      <div class="card-title">👹 Мировой Босс</div>
+      <div style="font-size:12px;line-height:1.7;color:var(--text)">
+        <p>В каждом чате живёт Мировой Босс с 500,000 HP. Все участники атакуют его сообща!</p>
+        <ul style="margin:4px 0 4px 16px;padding:0">
+          <li>⚔️ Урон зависит от твоего <b>ATK</b> и <b>% крита</b></li>
+          <li>💰 Награда: <b>damage ÷ 20</b> Моры за каждый удар</li>
+          <li>⏱ Кулдаун: 30 секунд между ударами</li>
+          <li>🏆 Топ урона — доска славы</li>
+          <li>🔄 Босс возрождается когда побеждён</li>
+        </ul>
+        <p style="margin-top:4px"><code>бот босс атака</code> — атаковать (или через Mini App)</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">👹 Парный Босс</div>
+      <div style="font-size:12px;line-height:1.7;color:var(--text)">
+        <p>Особый босс для женатых пар! Сражайтесь <b>вместе</b> со своим партнёром в Mini App.</p>
+        <ul style="margin:4px 0 4px 16px;padding:0">
+          <li>⚡ 30-секундные боевые сессии</li>
+          <li>📊 Прогресс уровней и награды</li>
+          <li>👫 Требуется статус «в браке»</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- 💍 Social -->
+  <div class="guide-section" id="guide-social" style="display:none">
+    <div class="card">
+      <div class="card-title">💍 Брак и семья</div>
+      <div style="font-size:12px;line-height:1.7;color:var(--text)">
+        <p>Найди свою вторую половинку! Брак открывает уникальные возможности.</p>
+        <p style="margin-top:8px"><b>Как пожениться:</b></p>
+        <ul style="margin:4px 0 4px 16px;padding:0">
+          <li><code>бот брак @user</code> — предложить руку и сердце</li>
+          <li>У партнёра 60 секунд на ответ</li>
+          <li><code>бот развод</code> — расторгнуть брак</li>
+        </ul>
+        <p style="margin-top:8px"><b>Бонусы брака:</b></p>
+        <ul style="margin:4px 0 4px 16px;padding:0">
+          <li>👨‍👩‍👧 Семейный кошелёк — общие деньги</li>
+          <li>🐾 Питомец — заведите кота или собаку (150 🪙)</li>
+          <li>🎁 Подарки — 7 видов, дорогие дают бафы Моры</li>
+          <li>👹 Парный Босс — кооп-бой</li>
+          <li>🎉 Годовщина — +20 🪙 каждые 7 дней</li>
+          <li>🏕 Экспедиции — отправляйте питомца на заработок</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🐾 Питомцы</div>
+      <div style="font-size:12px;line-height:1.7;color:var(--text)">
+        <p>Питомец — верный спутник семейной пары.</p>
+        <ul style="margin:4px 0 4px 16px;padding:0">
+          <li>🐱🐶 Кот или собака — на выбор</li>
+          <li>✨ Можно переименовать (60 🪙) и сменить вид (300 🪙)</li>
+          <li>🍖 Кормите специальной едой из магазина</li>
+          <li>🎨 6 цветов для имени (600–1000 🪙)</li>
+          <li>🏕 Экспедиции: 2ч (бесплатно), 4ч (5🪙), 8ч (10🪙)</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🎭 РП-действия</div>
+      <div style="font-size:12px;line-height:1.7;color:var(--text)">
+        <p>13 ролевых действий — без префикса «бот»:</p>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:2px 12px;font-size:11px;margin-top:4px">
+          <span>🤗 <code>обними</code></span><span>👊 <code>пни</code></span>
+          <span>💋 <code>поцелуй</code></span><span>👋 <code>шлёпни</code></span>
+          <span>😌 <code>погладь</code></span><span>🦷 <code>укуси</code></span>
+          <span>💉 <code>вылечи</code></span><span>👅 <code>лизни</code></span>
+          <span>🏏 <code>бонк</code></span><span>👉 <code>ткни</code></span>
+          <span>🪃 <code>кинь</code></span><span>🔫 <code>выстрели</code></span>
+        </div>
+        <p style="margin-top:4px;font-size:11px;color:var(--text2)">Используй в ответ на сообщение или с @mention</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 🏦 Finance -->
+  <div class="guide-section" id="guide-finance" style="display:none">
+    <div class="card">
+      <div class="card-title">🏦 Банковские вклады</div>
+      <div style="font-size:12px;line-height:1.7;color:var(--text)">
+        <p>Приумножай Мору с помощью вкладов!</p>
+        <div style="display:grid;grid-template-columns:auto auto auto;gap:4px 12px;font-size:11px;margin-top:8px;text-align:center">
+          <b>⏱ Срок</b><b>📈 Ставка</b><b>📝 Пример</b>
+          <span>3 дня</span><span style="color:var(--green)">+1.5%</span><span>1000 → +15 🪙</span>
+          <span>7 дней</span><span style="color:var(--green)">+4%</span><span>1000 → +40 🪙</span>
+          <span>14 дней</span><span style="color:var(--green)">+10%</span><span>1000 → +100 🪙</span>
+        </div>
+        <p style="margin-top:8px">📏 Сумма: <b>100–10,000 🪙</b></p>
+        <p>⚠️ Досрочное снятие — штраф <b>1%</b> от вклада + потеря процентов</p>
+        <p>💍 Бонус холостяка: дополнительные <b>+2%</b> к ставке!</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📈 Биржа облигаций</div>
+      <div style="font-size:12px;line-height:1.7;color:var(--text)">
+        <p>11 акций с реальной динамикой цен. Цены обновляются каждые 3 часа.</p>
+        <p style="margin-top:8px"><b>Уровни риска:</b></p>
+        <ul style="margin:4px 0 4px 16px;padding:0">
+          <li>🔵 <b>Blue chips</b> — низкая волатильность, потолок ×3</li>
+          <li>🟡 <b>Mid-caps</b> — средний риск, потолок ×5</li>
+          <li>🔴 <b>High-risk</b> — 35% колебания, потолок ×8</li>
+          <li>🃏 <b>Мем-коины</b> — 45–50% качели, потолок ×15–20!</li>
+        </ul>
+        <p style="margin-top:4px;font-size:11px;color:var(--text2)">Графики цен доступны прямо в Mini App на вкладке «📈 Биржа»</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">💸 Переводы и Долги</div>
+      <div style="font-size:12px;line-height:1.7;color:var(--text)">
+        <ul style="margin:4px 0 4px 16px;padding:0">
+          <li><b>Перевод:</b> <code>бот перевести @user N</code> (1–5000 🪙)</li>
+          <li><b>Кредит:</b> <code>бот дать в долг @user N</code> (макс 2000 🪙, до 5 активных)</li>
+          <li><b>Возврат:</b> <code>бот вернуть долг [ID]</code></li>
+        </ul>
+        <p style="margin-top:4px;font-size:11px;color:var(--text2)">Управление долгами — вкладка «💸 Долги»</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🎰 Казино и Лотерея</div>
+      <div style="font-size:12px;line-height:1.7;color:var(--text)">
+        <ul style="margin:4px 0 4px 16px;padding:0">
+          <li>🪙 <b>Монетка</b> — <code>бот монетка N</code> — орёл/решка, ×2 при выигрыше (макс 100 🪙)</li>
+          <li>🎲 <b>Дуэль на кубиках</b> — <code>бот кубик @user N</code> — больший бросок забирает ставку (макс 5000 🪙)</li>
+          <li>🎟 <b>Лотерея</b> — <code>бот купить лотерею</code> — 40 🪙/билет, 5% шанс выиграть 60–120 🪙, розыгрыш по воскресеньям</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- 🎪 Events -->
+  <div class="guide-section" id="guide-events" style="display:none">
+    <div class="card">
+      <div class="card-title">🎁 Богатый Сундук</div>
+      <div style="font-size:12px;line-height:1.7;color:var(--text)">
+        <p>Внезапный ивент в чате каждые 4–8 часов! Появляется сообщение с кнопкой — жми быстрее!</p>
+        <ul style="margin:4px 0 4px 16px;padding:0">
+          <li>🥇 1 место — <b>60 🪙</b></li>
+          <li>🥈 2 место — <b>50 🪙</b></li>
+          <li>🥉 3 место — <b>40 🪙</b></li>
+          <li>4–6 место — 30/20/10 🪙</li>
+        </ul>
+        <p style="margin-top:4px">⏱ Сундук исчезает через <b>180 секунд</b></p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🛤 Дилижанс</div>
+      <div style="font-size:12px;line-height:1.7;color:var(--text)">
+        <p>Массовый групповой ивент! Все игроки «атакуют» дилижанс (до 30 кликов/чел).</p>
+        <ul style="margin:4px 0 4px 16px;padding:0">
+          <li>💰 Общий банк: <b>2000 🪙</b></li>
+          <li>🎯 Ивент завершается при 500 кликах или через 10 минут</li>
+          <li>📊 Награда делится пропорционально кликам</li>
+          <li>📅 По пятницам в 20:00 (по Цюриху)</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📅 Чекин (ежедневный вход)</div>
+      <div style="font-size:12px;line-height:1.7;color:var(--text)">
+        <p>20-дневный цикл наград. Чем дольше стрик — тем больше бонус!</p>
+        <ul style="margin:4px 0 4px 16px;padding:0">
+          <li>📌 Чекпоинты (дни 5/10/15/20) защищают стрик от полного сброса</li>
+          <li>🎁 День 20 = <b>бесплатная крутка гачи</b>!</li>
+          <li>📊 Награды: от 30 до 150 🪙</li>
+        </ul>
+        <p style="margin-top:4px"><code>бот чекин</code> — отметиться. Визуальный календарь в Mini App!</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 👮 Admin -->
+  <div class="guide-section" id="guide-admin" style="display:none">
+    <div class="card">
+      <div class="card-title">🛡 Модерация (для модеров+)</div>
+      <div style="font-size:12px;line-height:1.7;color:var(--text)">
+        <div style="display:grid;grid-template-columns:auto 1fr;gap:4px 8px;font-size:11px">
+          <code>бот варн @user причина</code><span>Предупреждение (4 = уведомление админам)</span>
+          <code>бот снять варн @user</code><span>Снять предупреждение</span>
+          <code>бот мут @user время</code><span>Замутить (30с/10м/2ч/1д)</span>
+          <code>бот размут @user</code><span>Размутить</span>
+          <code>бот бан @user</code><span>Забанить</span>
+          <code>бот кик @user</code><span>Кикнуть</span>
+          <code>бот разбан @user</code><span>Разбанить</span>
+          <code>бот очистить N</code><span>Удалить N сообщений (до 5000)</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🤖 Авто-модерация</div>
+      <div style="font-size:12px;line-height:1.7;color:var(--text)">
+        <div style="display:grid;grid-template-columns:auto 1fr;gap:4px 8px;font-size:11px">
+          <code>бот замок ссылки</code><span>Заблокировать ссылки (возможен любой тип контента)</span>
+          <code>бот открыть ссылки</code><span>Разблокировать</span>
+          <code>бот блок слово</code><span>Добавить в чёрный список (с морфологией!)</span>
+          <code>бот разблок слово</code><span>Убрать из ЧС</span>
+          <code>бот фильтрмат вкл</code><span>Включить фильтр мата</span>
+          <code>бот антифлуд 5</code><span>Антифлуд: макс 5 сообщений за 2 сек</span>
+        </div>
+        <p style="margin-top:8px"><b>Типы контент-замков:</b> ссылки, стикеры, гифки, пересылки, голосовые, видео, фото, аудио</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">⚙️ Настройки чата</div>
+      <div style="font-size:12px;line-height:1.7;color:var(--text)">
+        <div style="display:grid;grid-template-columns:auto 1fr;gap:4px 8px;font-size:11px">
+          <code>бот правила текст</code><span>Установить правила чата</span>
+          <code>бот приветствие текст</code><span>Приветствие новых участников ({name}, {chat})</span>
+          <code>бот прощание текст</code><span>Прощание уходящих</span>
+          <code>бот автоответ фраза | ответ</code><span>Авто-ответ на ключевую фразу</span>
+          <code>бот заметка имя текст</code><span>Сохранить заметку (#имя для вызова)</span>
+          <code>бот ранг модератор @user</code><span>Назначить ранг</span>
+          <code>бот состав</code><span>Список стаффа</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🧹 Чистка неактивных</div>
+      <div style="font-size:12px;line-height:1.7;color:var(--text)">
+        <p>Система массового удаления неактивных участников с предупреждениями и настройками.</p>
+        <div style="display:grid;grid-template-columns:auto 1fr;gap:4px 8px;font-size:11px;margin-top:4px">
+          <code>бот неактив</code><span>Список неактивных (по норме сообщений)</span>
+          <code>бот чистка 50</code><span>Удалить с нормой 50 сообщений/неделю</span>
+          <code>бот отдых @user 7</code><span>Отправить на отдых (не учитывать при чистке)</span>
+        </div>
+        <p style="margin-top:4px;font-size:11px;color:var(--text2)">Еженедельный планировщик чистки настраивается в Mini App</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">👑 Функции владельца/разработчика</div>
+      <div style="font-size:12px;line-height:1.7;color:var(--text)">
+        <div style="display:grid;grid-template-columns:auto 1fr;gap:4px 8px;font-size:11px">
+          <code>бот выдать N @user</code><span>Выдать Мору</span>
+          <code>бот выдать xp N @user</code><span>Выдать XP</span>
+          <code>бот сетбаланс N @user</code><span>Установить баланс</span>
+          <code>бот датьпредмет key @user</code><span>Выдать предмет</span>
+          <code>бот колл #все текст</code><span>Массовая рассылка</span>
+          <code>бот совладелец @user</code><span>Назначить со-владельца</span>
+        </div>
+        <p style="margin-top:8px;font-size:11px;color:var(--text2)">Полная CRM-панель разработчика — вкладка «🛠 Дев» в Mini App</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 💡 Tips -->
+  <div class="guide-section" id="guide-tips" style="display:none">
+    <div class="card">
+      <div class="card-title">💡 Советы и стратегии</div>
+      <div style="font-size:12px;line-height:1.7;color:var(--text)">
+        <p><b>🚀 Быстрый старт:</b></p>
+        <ol style="margin:4px 0 4px 16px;padding:0">
+          <li>Начни с <code>бот чекин</code> каждый день — стрик = бесплатная Мора</li>
+          <li>Выполняй квест дня — стабильные +20 🪙</li>
+          <li>Не забывай про ивенты (Сундук) — реакция > всё!</li>
+          <li>Копи на ×10 гачу (1000 🪙) — выгоднее поштучной</li>
+          <li>Экипируй лучшие предметы для Босса — больше урона = больше Моры</li>
+        </ol>
+        <p style="margin-top:8px"><b>💰 Как разбогатеть:</b></p>
+        <ul style="margin:4px 0 4px 16px;padding:0">
+          <li>Открой 14-дневный вклад на максимум — <b>+10%</b> пассивного дохода!</li>
+          <li>Торгуй low-buy/high-sell акциями — мониторь графики</li>
+          <li>Продавай весь хлам из гачи — кнопка «📦 Продать мусор»</li>
+          <li>Победи в Дилижансе — до <b>200+ 🪙</b> за один ивент</li>
+          <li>Женись ради годовщин (+20 🪙/7 дней) и семейного кошелька</li>
+        </ul>
+        <p style="margin-top:8px"><b>⚔️ Боевые советы:</b></p>
+        <ul style="margin:4px 0 4px 16px;padding:0">
+          <li>Крит = главный стат. Ищи предметы с высоким % крита</li>
+          <li>Заточка ×10 и выше — рискованно, но мощно</li>
+          <li>Зелья — временное преимущество перед боссом</li>
+          <li>Парный Босс — лучшие награды, нужен партнёр</li>
+        </ul>
+        <p style="margin-top:8px"><b>🏕 Экспедиции:</b></p>
+        <ul style="margin:4px 0 4px 16px;padding:0">
+          <li>8-часовая экспедиция — лучший заработок за вложение</li>
+          <li>Используй «Ускорение экспедиции» из гачи!</li>
+          <li>Кормите питомца чтобы снизить усталость</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🕵️ Шпионаж</div>
+      <div style="font-size:12px;line-height:1.7;color:var(--text)">
+        <p>Хочешь узнать баланс и статы другого игрока? Отправь шпиона!</p>
+        <ul style="margin:4px 0 4px 16px;padding:0">
+          <li>💰 Стоимость: зависит от ранга цели</li>
+          <li>📊 Узнаёшь баланс, предметы, статистику</li>
+          <li>🎭 Есть шанс провала — цель узнает!</li>
+        </ul>
+        <p style="margin-top:4px"><code>бот шпионить @user</code> или через вкладку «🕵️ Шпион»</p>
+      </div>
+    </div>
+
+    <div class="card" style="background:linear-gradient(135deg, rgba(124,106,247,.1), rgba(245,158,11,.1));border:1px solid rgba(124,106,247,.2)">
+      <div style="text-align:center">
+        <div style="font-size:14px;font-weight:700;color:var(--accent)">✨ Приятной игры, Предвестник!</div>
+        <div style="font-size:11px;color:var(--text2);margin-top:4px">Этот гайд обновляется вместе с ботом.<br>Вопросы? Пиши <code>бот помощь</code> в чате.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- DEV TAB -->
 <div class="tab-content" id="tab-dev">
 
@@ -1005,6 +1477,9 @@ select{background:var(--bg3);border:1px solid var(--border);border-radius:8px;pa
       <div class="dev-event-btn" onclick="devTriggerEvent('дилижанс')">
         <div>🛤</div><div class="dev-event-label">Дилижанс</div>
       </div>
+      <div class="dev-event-btn" onclick="devTriggerEvent('boss_reset')">
+        <div>👹</div><div class="dev-event-label">Босс ресет</div>
+      </div>
     </div>
   </div>
 
@@ -1147,7 +1622,7 @@ function syncBalance(n){
 
 // ── Category switching ────────────────────────────────────────────────────────
 const TAB_CATS = {
-  main:    ['profile','calendar','union','glory'],
+  main:    ['profile','calendar','union','glory','guide'],
   hero:    ['inventory','shop','couple_boss','quest'],
   finance: ['bank','bonds','transfers','expedition'],
   fun:     ['casino','spy','dev'],
@@ -1736,6 +2211,7 @@ async function loadInventory(){
     const weapons = items.filter(i => i.slot === 'weapon' || (i.slot && i.atk > 0 && !i.key.startsWith('rare_')));
     const armor = items.filter(i => i.slot === 'armor' || (i.slot && (i.def_val > 0 || i.hp > 0) && !i.key.startsWith('rare_')));
     const potions = items.filter(i => i.slot === 'potion' || i.slot === 'consume' || i.key.includes('potion') || i.key.includes('_shard') || i.key.includes('_crystal') || i.key.includes('_bag'));
+    const junk = items.filter(i => i.rarity === 'junk' || i.key.startsWith('junk_'));
     
     // Compute total equipped stats (for cosmetics tab display)
     const allEquipped = items.filter(i => i.equipped);
@@ -1773,6 +2249,9 @@ async function loadInventory(){
     
     // 🧪 Potions tab
     renderPotionsInventory(potions);
+    
+    // 🪨 Junk tab
+    renderJunkInventory(junk);
     
     // Load additional cosmetic data
     if(shopData) renderInvFramesCosmetics();
@@ -1966,8 +2445,8 @@ async function loadShop(){
 
 function renderShop(d){
   const isMarried=!!(profileData&&profileData.partner_name);
-  document.getElementById('gachaSinglePrice').textContent=isMarried?'160':'150';
-  document.getElementById('gachaMultiPrice').textContent=isMarried?'1440':'1350';
+  document.getElementById('gachaSinglePrice').textContent=isMarried?'120':'110';
+  document.getElementById('gachaMultiPrice').textContent=isMarried?'1000':'950';
   const activeTitle=(profileData&&profileData.custom_title)||'';
   document.getElementById('currentTitle').textContent=activeTitle||'Нет';
 
@@ -2098,7 +2577,7 @@ async function buyPotion(key, label, price) {
 function showGachaRates() {
   const JUNK = [
     ['🪨', 'Камень Маслоу', 'Мусор — продай за 5 🪙'],
-    ['🪵', 'Палка путника', 'Мусор — продай за 3 🪙']
+    ['🪵', 'Палка путника', 'Мусор — продай за 3 🪙'],
     ['💨','Пыль забвения','Мусор — продай за 2 🪙'],
     ['🦴','Кость хиличурла','Мусор — продай за 4 🪙'],
     ['🍄','Сомнительный гриб','Мусор — продай за 3 🪙'],
@@ -2118,6 +2597,8 @@ function showGachaRates() {
     ['🌿','Трава Сесилии','Моментально: +15 🪙'],
     ['✒️','Перо ученика','Артефакт: +8 ATK, +15 HP, 2% крит'],
     ['🔮','Амулет удачи','Артефакт: +5 DEF, 1.5% крит'],
+    ['🗺️','Ускорение экспедиции S','−30 мин от текущей экспедиции'],
+    ['🔄','Купон реролла задания','Сбросить квест дня на новый'],
   ];
   const RARE=[
     ['👑','Серебряная корона','Артефакт: +25 ATK, +15 DEF, 4% крит'],
@@ -2129,13 +2610,15 @@ function showGachaRates() {
     ['📿','Кармин змеи','Артефакт: +20 DEF, 8% крит'],
     ['🧧','Красный конверт','Моментально: +250 🪙'],
     ['⚡','Лазурное копьё','Оружие: +35 ATK, 5% крит'],
+    ['🗺️✨','Ускорение экспедиции M','−2 часа от текущей экспедиции'],
+    ['✏️','Купон переименования питомца','Переименовать питомца 1 раз'],
   ];
   const LEGO=[
-    ['✨','Гнозис Балладеера','Оружие: +60 ATK, 8% крит'],
-    ['🏛','Скипетр Дендро Архонта','Оружие: +70 ATK, +15 DEF, 6% крит'],
-    ['🎩','Маска Панталоне','Броня: +60 DEF, +300 HP'],
-    ['🌀','Корона Бездны','Артефакт: +45 ATK, 12% крит'],
-    ['⚡','Перст Предвестника','Оружие: +55 ATK, +150 HP, 10% крит'],
+    ['✨','Гнозис Балладеера','Уникальный символ Предвестника в профиле'],
+    ['🏛','Скипетр Дендро Архонта','Могущественный скипетр в профиле'],
+    ['🎩','Маска Панталоне','Таинственная маска дельца в профиле'],
+    ['🌀','Корона Бездны','Корона из глубин Бездны в профиле'],
+    ['⚡','Перст Предвестника','Эксклюзивный знак верности'],
     ['⭐','Звёздное Сияние','Косметика: золотой ореол в Mini App'],
     ['🌌','Мерцание Бездны','Косметика: тёмно-мистический эффект'],
     ['🔥','Пламя Предвестника','Косметика: огненный ореол'],
@@ -2144,6 +2627,7 @@ function showGachaRates() {
     ['🛡️✨','Зелье Защиты Superior','Расходник: +40 DEF на 2 часа (только гача)'],
     ['⚡','Клинок Ей','Оружие: +80 ATK, 12% крит'],
     ['🏯','Нефритовое зерцало','Артефакт: +20 ATK, +40 DEF, 15% крит'],
+    ['🗺️⚡','Ускорение экспедиции L','−50% оставшегося времени экспедиции'],
   ];
   const pctJ=(70/JUNK.length).toFixed(1);
   const pctC=(20/COMMON.length).toFixed(1);
@@ -2186,7 +2670,7 @@ async function buyShopItem(type, key){
 // ── Gacha ─────────────────────────────────────────────────────────────────────
 async function rollGacha(count){
   const isMarried=!!(profileData&&profileData.partner_name);
-  const price=count===1?(isMarried?160:150):(isMarried?1440:1350);
+  const price=count===1?(isMarried?120:110):(isMarried?1000:950);
   let wallet;
   try{ wallet=await pickWallet('✨ Молитва Пустоты ×'+count, price); }
   catch(e){ if((e.message||'')!=='cancelled') toast('❌ '+e.message,'error'); return; }
@@ -2480,7 +2964,7 @@ async function doDeposit(planKey, wallet){
       toast(`✅ Вклад открыт! +${r.reward} 🪙 через ${r.days} дней`,'success');
       syncBalance(r.new_balance);
       tabLoaded['bank']=false;
-      loadBankTab();
+      await loadBankTab();
     } catch(e){toast('❌ '+e.message,'error');}
   });
 }
@@ -3322,6 +3806,25 @@ function renderPotionsInventory(potions) {
   updateBatchSellUI();
 }
 
+function renderJunkInventory(junkItems) {
+  document.getElementById('invJunkList').innerHTML = junkItems.length ? junkItems.map(i =>
+    `<div class="inv-item selectable" id="item-${i.id}">
+      <input type="checkbox" class="inv-item-select" onchange="toggleItemSelection(${i.id}, this.checked)">
+      <div class="ii-emoji">${rarityEmoji(i.rarity)}</div>
+      <div class="ii-info">
+        <div class="ii-name">${esc(i.name)}${i.stack_count>1?` <b style="color:var(--accent)">\u00d7${i.stack_count}</b>`:''}</div>
+        <div class="ii-rarity">
+          <span class="badge badge-junk">💤 Хлам</span>
+          <span style="font-size:10px;color:var(--text2)"> · ${i.stack_count>1?`<input type="number" id="qty-${i.id}" min="1" max="${i.stack_count}" value="${i.stack_count}" style="width:28px;background:var(--card2);border:1px solid #555;border-radius:3px;color:var(--text);font-size:9px;text-align:center;padding:1px" oninput="setSellQty(${i.id},this.value,${i.sell_price||0})"> из ${i.stack_count} · `:''}Продать: <span id="sellval-${i.id}">${(i.stack_count||1)*Math.max(1,Math.floor((i.sell_price||0)/2))}</span> 🪙</span>
+        </div>
+        ${i.desc ? `<div style="font-size:10px;color:var(--text2);margin-top:2px;font-style:italic">${esc(i.desc)}</div>` : ''}
+      </div>
+    </div>`
+  ).join('') : '<div style="color:var(--text2);text-align:center;padding:20px">🪨 Нет хлама — вам везёт!</div>';
+  
+  updateBatchSellUI();
+}
+
 function canSelectItem(item) {
   return !item.equipped && !item.is_cosmetic && (item.key.startsWith('junk_') || item.sell_price > 0);
 }
@@ -3357,7 +3860,7 @@ function getEnhancementInfo(item) {
 
 function switchSubtab(name) {
   document.querySelectorAll('.subtab-btn').forEach(b => b.classList.toggle('active', b.getAttribute('onclick').includes("'"+name+"'")));
-  ['cosmetics','weapons','armor','potions'].forEach(n =>
+  ['cosmetics','weapons','armor','potions','junk'].forEach(n =>
     document.getElementById('subtab-'+n).style.display = n === name ? 'block' : 'none'
   );
 }
@@ -4421,6 +4924,42 @@ async function doSpy(){
     }
     if(r.new_balance !== undefined) syncBalance(r.new_balance);
   }catch(e){el.innerHTML=`<span style="color:#f87171">❌ ${esc(e.message)}</span>`;}
+}
+
+// ── 7-minute inactivity auto-disconnect ──────────────────────────────────────
+let _inactivityTimer = null;
+const INACTIVITY_MS = 7 * 60 * 1000;
+function _resetInactivity() {
+  if (_inactivityTimer) clearTimeout(_inactivityTimer);
+  _inactivityTimer = setTimeout(() => {
+    document.getElementById('inactivityOverlay').style.display = 'flex';
+  }, INACTIVITY_MS);
+}
+function resumeFromInactivity() {
+  document.getElementById('inactivityOverlay').style.display = 'none';
+  _resetInactivity();
+  // Refresh current tab data
+  const activeTab = document.querySelector('.tab-btn.active');
+  if (activeTab) {
+    const tabName = activeTab.getAttribute('onclick')?.match(/'([^']+)'/)?.[1];
+    if (tabName) { tabLoaded[tabName] = false; switchTab(tabName); }
+  }
+}
+['click','touchstart','scroll','keydown'].forEach(evt =>
+  document.addEventListener(evt, _resetInactivity, {passive:true})
+);
+_resetInactivity();
+
+// ── Guide section switching ──────────────────────────────────────────────────
+function showGuideSection(name) {
+  document.querySelectorAll('.guide-section').forEach(s => s.style.display = 'none');
+  const el = document.getElementById('guide-' + name);
+  if (el) el.style.display = 'block';
+  document.querySelectorAll('.guide-nav .btn').forEach(b => {
+    const isActive = b.getAttribute('onclick').includes("'" + name + "'");
+    b.style.background = isActive ? 'var(--accent)' : 'var(--bg3)';
+    b.style.color = isActive ? '#fff' : 'var(--text2)';
+  });
 }
 
 </script>

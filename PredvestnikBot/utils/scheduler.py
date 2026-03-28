@@ -659,6 +659,10 @@ async def _task_dev_event_queue(bot) -> None:
                     elif etype in ("дилижанс", "diligence"):
                         from handlers.diligence import _launch_diligence
                         await _launch_diligence(bot, cid)
+                    elif etype == "boss_reset":
+                        from handlers.boss import _boss_hp, BOSS_MAX_HP
+                        _boss_hp[cid] = BOSS_MAX_HP
+                        log.info("Dev event: boss reset for chat %s", cid)
                     else:
                         log.info("Dev event queue: unknown type %r for chat %s", etype, cid)
                 except Exception as exc:

@@ -5024,22 +5024,7 @@ async def get_espionage_cooldown(spy_id: int, target_id: int, chat_id: int) -> i
 
 # ─── Облигации ────────────────────────────────────────────────────────────────
 
-BOND_DEFAULTS = {
-    # ── Blue chips — низкая волатильность, стабильный доход ――――――――――
-    "mondstadt":  {"name": "📜 Холодный Ветер (Мондштадт)", "base_price":  100, "volatility": 0.08, "cap_mult": 3},
-    "liyue":      {"name": "💎 Нефритовый Слиток (Ли Юэ)",  "base_price":  120, "volatility": 0.07, "cap_mult": 3},
-    "north_bank": {"name": "🏦 Банк Северного Королевства",  "base_price":  500, "volatility": 0.05, "cap_mult": 3},
-    # ── Mid-caps — средняя волатильность ―――――――――――――――――――――
-    "inazuma":    {"name": "⚡ Вишнёвый Гром (Инадзума)",   "base_price":  150, "volatility": 0.15, "cap_mult": 5},
-    "sumeru":     {"name": "🌿 Зелёный Лист (Сумеру)",      "base_price":   90, "volatility": 0.18, "cap_mult": 5},
-    "fontaine":   {"name": "💧 Хрустальный Поток (Фонтэн)", "base_price":  200, "volatility": 0.14, "cap_mult": 5},
-    "natlan":     {"name": "🔥 Пламенный Клык (Натлан)",    "base_price":  175, "volatility": 0.20, "cap_mult": 5},
-    # ── High-risk — высокая волатильность ――――――――――――――――――
-    "naku_grass": {"name": "🌾 Трава Наку",                  "base_price":   40, "volatility": 0.35, "cap_mult": 8},
-    # ── Meme-монеты — экстремальная волатильность ―――――――――――――
-    "itto_coin":  {"name": "🐂 Итто-Коин",                   "base_price":   10, "volatility": 0.35, "cap_mult": 6},
-    "dori_corp":  {"name": "💰 Дори-Инвестментс",             "base_price":   25, "volatility": 0.35, "cap_mult": 8},
-}
+from shared_prices import BOND_DEFAULTS
 
 
 async def get_bond_prices(chat_id: int) -> dict:
@@ -6224,22 +6209,18 @@ async def get_couple_boss_progress(user_a_id: int, user_b_id: int, chat_id: int)
 
 async def update_couple_boss_progress(user_a_id: int, user_b_id: int, chat_id: int, completed_level: int):
     """Update couple's maximum completed boss level."""
-    from datetime import timezone
-    
     # Ensure user_a_id < user_b_id for consistency
     if user_a_id > user_b_id:
         user_a_id, user_b_id = user_b_id, user_a_id
         
-    now = datetime.now(timezone.utc).isoformat()
-    
     async with postgres_connect() as db:
         await db.execute(
             """INSERT INTO couple_boss_progress (user_a_id, user_b_id, chat_id, max_level, last_completed)
-               VALUES (?,?,?,?,?)
+               VALUES (?,?,?,?,NOW())
                ON CONFLICT(user_a_id, user_b_id, chat_id) DO UPDATE SET
                max_level=MAX(max_level, excluded.max_level),
-               last_completed=excluded.last_completed""",
-            (user_a_id, user_b_id, chat_id, completed_level, now),
+               last_completed=NOW()""",
+            (user_a_id, user_b_id, chat_id, completed_level),
         )
         await db.commit()
 
