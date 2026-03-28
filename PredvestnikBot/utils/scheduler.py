@@ -494,26 +494,23 @@ async def _task_expedition_notifications(bot) -> None:
             log.warning("Expedition notify %s/%s: %s", chat_id, uid, exc)
 
 
-# ─── Обновление цен облигаций каждые 3 часа ─────────────────────────────────
-
-_BOND_UPDATE_INTERVAL_HOURS = 3
+# ─── Обновление цен облигаций каждые 1-3 часа (случайно) ───────────────────
 
 
 async def _task_bond_price_update(bot) -> None:
-    """Обновляет цены облигаций для всех чатов раз в 3 часа.
+    """Обновляет цены облигаций для всех чатов раз в 1-3 часа (случайный интервал).
     Gaussian walk + mean reversion + bull/bear trend + volatility spikes."""
     from database.db import get_scheduler_state, set_scheduler_state
     now = datetime.now(timezone.utc)
 
-    # Пропускаем, если прошло меньше 3 часов с последнего обновления
-    last_update_str = await get_scheduler_state("bond_price_last_update")
-    if last_update_str:
+    # Пропускаем, пока не настало следующее запланированное время обновления
+    next_update_str = await get_scheduler_state("bond_price_next_update")
+    if next_update_str:
         try:
-            last_update = datetime.fromisoformat(last_update_str)
-            if last_update.tzinfo is None:
-                last_update = last_update.replace(tzinfo=timezone.utc)
-            elapsed = (now - last_update).total_seconds()
-            if elapsed < _BOND_UPDATE_INTERVAL_HOURS * 3600:
+            next_update = datetime.fromisoformat(next_update_str)
+            if next_update.tzinfo is None:
+                next_update = next_update.replace(tzinfo=timezone.utc)
+            if now < next_update:
                 return
         except (ValueError, TypeError):
             pass
@@ -527,7 +524,15 @@ async def _task_bond_price_update(bot) -> None:
             rows = await c.fetchall()
 
     chat_ids = [r["chat_id"] for r in rows]
+
+    # Запоминаем время последнего обновления (используется в mini app для обнаружения изменений)
     await set_scheduler_state("bond_price_last_update", now.strftime("%Y-%m-%dT%H:%M"))
+    await set_scheduler_state("bond_price_last_updated_at", now.strftime("%Y-%m-%dT%H:%M"))
+
+    # Планируем следующее обновление через случайный интервал 1–3 часа
+    delay_secs = random.randint(3600, 10800)
+    next_time = now + timedelta(seconds=delay_secs)
+    await set_scheduler_state("bond_price_next_update", next_time.strftime("%Y-%m-%dT%H:%M"))
 
     trend_summary: dict[str, str] = {}
     for chat_id in chat_ids:
@@ -541,8 +546,8 @@ async def _task_bond_price_update(bot) -> None:
     if chat_ids:
         trends = ", ".join(f"{cid}:{t}" for cid, t in trend_summary.items()) or "—"
         log.info(
-            "Bond prices updated for %d chats at %s UTC | trends: %s",
-            len(chat_ids), now.strftime("%H:%M"), trends,
+            "Bond prices updated for %d chats at %s UTC (next in %dm) | trends: %s",
+            len(chat_ids), now.strftime("%H:%M"), delay_secs // 60, trends,
         )
     else:
         log.info("Bond price update: no chats in chat_settings yet")

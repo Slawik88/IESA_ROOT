@@ -1905,6 +1905,9 @@ function switchTab(name){
   const catForTab = Object.entries(TAB_CATS).find(([,tabs])=>tabs.includes(name));
   if(catForTab && catForTab[0] !== _currentCat) switchCategory(catForTab[0]);
 
+  // Stop bonds auto-refresh when leaving the bonds tab
+  if(name!=='bonds'&&_bondsCheckTimer){clearInterval(_bondsCheckTimer);_bondsCheckTimer=null;}
+
   document.querySelectorAll('.tab-btn').forEach((b)=>{b.classList.toggle('active', b.dataset && b.dataset.tab === name)});
   document.querySelectorAll('.tab-content').forEach(d=>d.classList.remove('active'));
   document.getElementById('tab-'+name).classList.add('active');
@@ -1925,6 +1928,10 @@ function switchTab(name){
     if(name==='glory') loadLB('xp');
     if(name==='treasury') loadTreasuryTab();
     if(name==='dev'){ loadDevStats(); loadDevItems(); loadDevTreasury(); loadModSummary(); loadCleanupConfig(); }
+  }
+  // Start background price-check every 60s while bonds tab is active
+  if(name==='bonds'&&!_bondsCheckTimer){
+    _bondsCheckTimer=setInterval(()=>loadBondsTab(true),60000);
   }
 }
 
@@ -3025,16 +3032,27 @@ document.getElementById('wBtnCancel').onclick=()=>{const rj=_wReject;_closeWalle
 
 // ── Bonds tab ─────────────────────────────────────────────────────────────────
 let marketTrend='neutral';
-async function loadBondsTab(){
-  document.getElementById('bondsLoading').style.display='block';
-  document.getElementById('bondsContent').style.display='none';
-  Object.values(bondCharts).forEach(c=>{try{c.destroy();}catch(e){}});
-  bondCharts={};
+let _bondsLastTs='';      // last known prices_updated_at for change detection
+let _bondsCheckTimer=null; // interval ID for background auto-refresh
+async function loadBondsTab(silent=false){
+  if(!silent){
+    document.getElementById('bondsLoading').style.display='block';
+    document.getElementById('bondsContent').style.display='none';
+    Object.values(bondCharts).forEach(c=>{try{c.destroy();}catch(e){}});
+    bondCharts={};
+  }
   try{
     const r=await api('/api/bonds?chat_id='+chatId);
+    const prevTs=_bondsLastTs;
+    _bondsLastTs=r.prices_updated_at||'';
+    const pricesChanged=prevTs&&_bondsLastTs&&prevTs!==_bondsLastTs;
+    // In silent mode only rebuild UI if prices actually changed
+    if(silent&&!pricesChanged) return;
     bondsData=r.bonds||[];
     marketTrend=r.market_trend||'neutral';
     const ticks=r.market_ticks||0;
+    Object.values(bondCharts).forEach(c=>{try{c.destroy();}catch(e){}});
+    bondCharts={};
     document.getElementById('bondsLoading').style.display='none';
     document.getElementById('bondsContent').style.display='block';
     let bannerHtml='';
@@ -3045,8 +3063,9 @@ async function loadBondsTab(){
     }
     document.getElementById('bondsContent').innerHTML=bannerHtml+bondsData.map(b=>bondCard(b)).join('');
     bondsData.forEach(b=>initBondChart(b));
+    if(pricesChanged) toast('📈 Цены на бирже обновились!','info',4000);
   } catch(e){
-    document.getElementById('bondsLoading').textContent='⚠️ '+e.message;
+    if(!silent) document.getElementById('bondsLoading').textContent='⚠️ '+e.message;
   }
 }
 

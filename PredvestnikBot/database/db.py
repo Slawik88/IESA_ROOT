@@ -3215,18 +3215,29 @@ async def log_family_transaction(
         await db.commit()
 
 
-async def get_family_wallet_log(chat_id: int, limit: int = 30) -> list:
-    """Последние транзакции семейного кошелька в чате (для обоих партнёров)."""
+async def get_family_wallet_log(chat_id: int, uid: int, partner_id: int | None, limit: int = 30) -> list:
+    """Последние транзакции семейного кошелька для конкретной пары (uid + partner_id)."""
     async with postgres_connect() as db:
-        async with db.execute(
-            "SELECT fw.*, u.full_name "
-            "FROM family_wallet_log fw "
-            "LEFT JOIN users u ON u.user_id = fw.user_id "
-            "WHERE fw.chat_id=? "
-            "ORDER BY fw.created_at DESC LIMIT ?",
-            (chat_id, limit),
-        ) as c:
-            rows = await c.fetchall()
+        if partner_id and partner_id != uid:
+            async with db.execute(
+                "SELECT fw.*, u.full_name "
+                "FROM family_wallet_log fw "
+                "LEFT JOIN users u ON u.user_id = fw.user_id "
+                "WHERE fw.chat_id=? AND fw.user_id IN (?,?) "
+                "ORDER BY fw.created_at DESC LIMIT ?",
+                (chat_id, uid, partner_id, limit),
+            ) as c:
+                rows = await c.fetchall()
+        else:
+            async with db.execute(
+                "SELECT fw.*, u.full_name "
+                "FROM family_wallet_log fw "
+                "LEFT JOIN users u ON u.user_id = fw.user_id "
+                "WHERE fw.chat_id=? AND fw.user_id=? "
+                "ORDER BY fw.created_at DESC LIMIT ?",
+                (chat_id, uid, limit),
+            ) as c:
+                rows = await c.fetchall()
     return [dict(r) for r in rows]
 
 
