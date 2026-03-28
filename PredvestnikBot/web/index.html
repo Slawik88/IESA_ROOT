@@ -27,6 +27,9 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 .tab-content.active .card:nth-child(3){animation-delay:.1s}
 .tab-content.active .card:nth-child(4){animation-delay:.15s}
 .tab-content.active .card:nth-child(5){animation-delay:.2s}
+.tab-content.active .card:nth-child(6){animation-delay:.24s}
+.tab-content.active .card:nth-child(7){animation-delay:.28s}
+.tab-content.active .card:nth-child(8){animation-delay:.32s}
 .card-title{font-size:13px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px}
 .stat-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border)}
 .stat-row:last-child{border-bottom:none}
@@ -123,6 +126,18 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 .exped-reward-anim{animation:exped-reward .5s ease-out}
 /* Button press effect */
 .btn:active{transform:scale(.96)}
+.btn:hover:not(:disabled){filter:brightness(1.1)}
+/* Card hover depth */
+.card{transition:box-shadow .2s,transform .2s}
+/* Balance flash */
+@keyframes bal-flash{0%{transform:scale(1)}30%{transform:scale(1.12)}100%{transform:scale(1)}}
+.bal-update{animation:bal-flash .3s ease}
+/* Stat row hover */
+.stat-row{transition:background .15s}
+.stat-row:hover{background:rgba(255,255,255,.03);border-radius:6px}
+/* Smooth modal/overlay openings */
+@keyframes sheet-slide-up{from{transform:translateY(30px);opacity:0}to{transform:translateY(0);opacity:1}}
+.rates-modal-overlay.open .rates-sheet{animation:sheet-slide-up .28s ease}
 /* Shop item hover pulse */
 @keyframes item-pulse{0%{box-shadow:0 0 0 0 rgba(168,85,247,.3)}70%{box-shadow:0 0 0 8px rgba(168,85,247,0)}100%{box-shadow:0 0 0 0 rgba(168,85,247,0)}}
 .shop-item:active{animation:item-pulse .4s ease}
@@ -489,6 +504,7 @@ select{background:var(--bg3);border:1px solid var(--border);border-radius:8px;pa
   <button class="tab-btn" data-tab="casino" style="display:none" onclick="switchTab('casino')">🎰 Казино</button>
   <button class="tab-btn" data-tab="spy" style="display:none" onclick="switchTab('spy')">🕵️ Шпион</button>
   <button class="tab-btn" data-tab="dev" id="devTabBtn" style="display:none" onclick="switchTab('dev')">🛠 Дев</button>
+  <button class="tab-btn" data-tab="treasury" id="treasuryTabBtn" style="display:none" onclick="switchTab('treasury')">🏛 Казна</button>
 </div>
 
 <!-- Global balance bar -->
@@ -1585,6 +1601,57 @@ select{background:var(--bg3);border:1px solid var(--border);border-radius:8px;pa
 
 </div>
 
+<!-- ─── Treasury tab ──────────────────────────────────────────────────────── -->
+<div class="tab-content" id="tab-treasury">
+
+  <!-- Balance header -->
+  <div class="card">
+    <div class="card-title">🏛 Казна чата</div>
+    <div class="stat-row" style="font-size:22px;font-weight:800;margin:8px 0">
+      <span class="stat-label" style="font-size:13px;color:var(--text2)">💰 Баланс</span>
+      <span class="stat-value" id="treasuryTabBalance" style="color:var(--accent)">—</span>
+    </div>
+    <button class="btn btn-primary" onclick="loadTreasuryTab()" style="margin-top:4px">🔄 Обновить</button>
+  </div>
+
+  <!-- Payout form -->
+  <div class="card">
+    <div class="card-title">💸 Выплата из казны</div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <label style="font-size:12px;color:var(--text2)">👤 Получатель</label>
+      <div style="display:flex;gap:6px;align-items:center">
+        <div style="flex:1;position:relative">
+          <input id="trsPayoutSearch" placeholder="🔍 Поиск по имени…" autocomplete="off"
+            oninput="trsSearchUsers(this.value)" onfocus="trsSearchUsers(this.value)"
+            style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text);width:100%"/>
+          <div id="trsPayoutDropdown" class="dev-dropdown"></div>
+        </div>
+        <button class="btn" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);white-space:nowrap;padding:8px 10px;font-size:12px" onclick="openUserPicker('💸 Выбери получателя', function(id,n){ trsSelectUser(id,n) })">👥 Список</button>
+      </div>
+      <div class="dev-sel-badge" id="trsSelBadge">
+        <span id="trsSelName">—</span>
+        <small id="trsSelId" style="color:var(--text2)"></small>
+        <span class="dev-sel-badge-clear" onclick="trsClearSel()" title="Сбросить">✕</span>
+      </div>
+      <label style="font-size:12px;color:var(--text2)">🪙 Сумма (Mora)</label>
+      <input type="number" id="trsPayoutAmt" placeholder="Например 5000" min="1"
+        style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text);font-size:14px;width:100%"/>
+      <label style="font-size:12px;color:var(--text2)">📝 Причина (необязательно)</label>
+      <input type="text" id="trsPayoutReason" placeholder="Выплата за активность…" maxlength="200"
+        style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text);font-size:13px;width:100%"/>
+      <button class="btn btn-green" onclick="payoutFromTreasury()" style="margin-top:4px;font-size:14px;font-weight:700">💸 Выплатить</button>
+      <div id="trsPayoutMsg" style="font-size:12px;min-height:18px;margin-top:2px"></div>
+    </div>
+  </div>
+
+  <!-- Transaction log -->
+  <div class="card">
+    <div class="card-title">📋 НДС-лог <small style="color:var(--text2);font-weight:400">(последние 50)</small></div>
+    <div id="treasuryTabLog" style="max-height:340px;overflow-y:auto"></div>
+  </div>
+
+</div>
+
 <script>
 const tg = window.Telegram && window.Telegram.WebApp;
 if(tg){tg.ready();tg.expand();}
@@ -1686,13 +1753,38 @@ function _fmtDt(iso){
 }
 
 // ── Balance sync ─────────────────────────────────────────────────────────────
+let _balanceCurrent = 0;
+let _balanceRaf = null;
 function syncBalance(n){
   n = n || 0;
   if(profileData) profileData.balance = n;
   const pMoraEl = document.getElementById('pMora');
-  if(pMoraEl) pMoraEl.textContent = n + ' 🪙';
   const gbEl = document.getElementById('globalBalance');
-  if(gbEl) gbEl.textContent = n;
+  // Animate count-up/down for noticeable changes
+  const diff = n - _balanceCurrent;
+  if(Math.abs(diff) > 0 && Math.abs(diff) < 50000 && _balanceCurrent !== 0){
+    const start = _balanceCurrent;
+    const steps = 20;
+    const stepVal = diff / steps;
+    let step = 0;
+    if(_balanceRaf) cancelAnimationFrame(_balanceRaf);
+    function tick(){
+      step++;
+      const cur = step < steps ? Math.round(start + stepVal * step) : n;
+      if(pMoraEl) pMoraEl.textContent = cur + ' 🪙';
+      if(gbEl) gbEl.textContent = cur;
+      if(step < steps){ _balanceRaf = requestAnimationFrame(tick); }
+      else { _balanceCurrent = n; }
+    }
+    _balanceRaf = requestAnimationFrame(tick);
+    // Flash the balance bar
+    const bb = document.getElementById('globalBalanceBar');
+    if(bb){ bb.style.transition='background .15s'; bb.style.background=diff>0?'rgba(34,197,94,.18)':'rgba(239,68,68,.18)'; setTimeout(()=>{ bb.style.background=''; },400); }
+  } else {
+    if(pMoraEl) pMoraEl.textContent = n + ' 🪙';
+    if(gbEl) gbEl.textContent = n;
+    _balanceCurrent = n;
+  }
 }
 
 // ── Category switching ────────────────────────────────────────────────────────
@@ -1700,7 +1792,7 @@ const TAB_CATS = {
   main:    ['profile','calendar','union','glory','guide'],
   hero:    ['inventory','shop','couple_boss','quest'],
   finance: ['bank','bonds','transfers','expedition'],
-  fun:     ['casino','spy','dev'],
+  fun:     ['casino','spy','dev','treasury'],
 };
 let _currentCat = 'main';
 
@@ -1712,7 +1804,7 @@ function switchCategory(cat) {
   document.querySelectorAll('.tab-btn[data-tab]').forEach(btn => {
     const tab = btn.dataset.tab;
     const inCat = allowed.includes(tab);
-    const locked = (tab === 'couple_boss' || tab === 'dev') && !btn.hasAttribute('data-unlocked');
+    const locked = (tab === 'couple_boss' || tab === 'dev' || tab === 'treasury') && !btn.hasAttribute('data-unlocked');
     btn.style.display = (!inCat || locked) ? 'none' : '';
   });
   // If the currently active tab is not in this category, switch to first available tab
@@ -1810,6 +1902,7 @@ function switchTab(name){
     if(name==='transfers') loadTransfersTab();
     if(name==='spy') renderSpyTab();
     if(name==='glory') loadLB('xp');
+    if(name==='treasury') loadTreasuryTab();
     if(name==='dev'){ loadDevStats(); loadDevItems(); loadDevTreasury(); loadModSummary(); loadCleanupConfig(); }
   }
 }
@@ -1865,6 +1958,9 @@ async function loadProfile(){
       const devBtn = document.getElementById('devTabBtn');
       devBtn.setAttribute('data-unlocked','1');
       if(_currentCat === 'fun') devBtn.style.display = '';
+      const trsBtn = document.getElementById('treasuryTabBtn');
+      trsBtn.setAttribute('data-unlocked','1');
+      if(_currentCat === 'fun') trsBtn.style.display = '';
       // Full panel visible to developer
       document.querySelectorAll('#tab-dev .card').forEach(c=>{ c.style.display=''; });
     } else if(p.rank === 'owner') {
@@ -1872,6 +1968,9 @@ async function loadProfile(){
       const devBtn = document.getElementById('devTabBtn');
       devBtn.setAttribute('data-unlocked','1');
       if(_currentCat === 'fun') devBtn.style.display = '';
+      const trsBtn = document.getElementById('treasuryTabBtn');
+      trsBtn.setAttribute('data-unlocked','1');
+      if(_currentCat === 'fun') trsBtn.style.display = '';
       document.querySelectorAll('#tab-dev .card').forEach(c=>{ c.style.display='none'; });
       document.querySelectorAll('#tab-dev .card')[1].style.display=''; // user editor + salary
       document.querySelectorAll('#tab-dev .card')[2].style.display=''; // chat management + members
@@ -2783,56 +2882,85 @@ function showGachaOverlay(items){
   const summon=document.getElementById('gachaSummon');
   const title=document.getElementById('gachaTitle');
   const closeBtn=document.getElementById('gachaCloseBtn');
+
+  // Reset state
   grid.innerHTML='';
-  grid.style.display='none';
-  title.style.display='none';
-  closeBtn.style.display='none';
-  summon.style.display='flex';
+  grid.style.cssText='display:none;opacity:0;transition:opacity .4s ease';
+  title.style.cssText='display:none;opacity:0;transition:opacity .4s ease';
+  closeBtn.style.cssText='display:none;opacity:0;transition:opacity .4s ease';
+  summon.style.cssText='display:flex;opacity:1;transition:opacity .35s ease';
+
   const overlay=document.getElementById('gachaOverlay');
   overlay.classList.add('active');
+
   const rarityRank={junk:0,common:1,rare:2,legendary:3};
   let topRarity='junk';
   items.forEach(item=>{if((rarityRank[item.rarity]||0)>(rarityRank[topRarity]||0)) topRarity=item.rarity;});
-  // Summoning phase duration depends on rarity (legendary = longer suspense)
   const summonDuration=topRarity==='legendary'?2800:topRarity==='rare'?2200:1600;
-  // Flash during summoning for legendary
+  const XFADE=350; // cross-fade overlap ms
+
   if(topRarity==='legendary'){
     setTimeout(()=>flashRarity('rare'),summonDuration-800);
     setTimeout(()=>flashRarity('legendary'),summonDuration-200);
   } else if(topRarity==='rare'){
     setTimeout(()=>flashRarity('rare'),summonDuration-300);
   }
+
+  // Pre-create cards while summon is still showing (no flash visible)
+  items.forEach((item,i)=>{
+    const card=document.createElement('div');
+    card.className='gacha-card';
+    const nameParts=item.name.split(' ');
+    const emoji=nameParts[0]||'❓';
+    const name=nameParts.slice(1).join(' ');
+    card.innerHTML=`<div class="gacha-card-inner">
+      <div class="gacha-card-front">🌀</div>
+      <div class="gacha-card-back ${item.rarity}">
+        <div class="card-emoji">${emoji}</div>
+        <div class="card-name">${esc(name)}</div>
+      </div>
+    </div>`;
+    grid.appendChild(card);
+  });
+
+  // Begin cross-fade: summon fades out, grid/title fade in simultaneously
   setTimeout(()=>{
-    summon.style.display='none';
+    summon.style.opacity='0';
     title.style.display='';
     grid.style.display='';
     closeBtn.style.display='';
-    items.forEach((item,i)=>{
-      const card=document.createElement('div');
-      card.className='gacha-card';
-      const nameParts=item.name.split(' ');
-      const emoji=nameParts[0]||'❓';
-      const name=nameParts.slice(1).join(' ');
-      card.innerHTML=`<div class="gacha-card-inner">
-        <div class="gacha-card-front">🌀</div>
-        <div class="gacha-card-back ${item.rarity}">
-          <div class="card-emoji">${emoji}</div>
-          <div class="card-name">${esc(name)}</div>
-        </div>
-      </div>`;
-      grid.appendChild(card);
-      setTimeout(()=>{card.classList.add('flipped');card.style.animation='card-appear .4s ease';}, 200+i*150);
+    requestAnimationFrame(()=>{
+      requestAnimationFrame(()=>{
+        title.style.opacity='1';
+        grid.style.opacity='1';
+        closeBtn.style.opacity='1';
+      });
     });
-    // Flash screen at highest rarity after all cards reveal
-    setTimeout(()=>flashRarity(topRarity), 200+(items.length-1)*150+650);
-    // Haptic on each card flip
+    setTimeout(()=>{ summon.style.display='none'; }, XFADE+50);
+
+    // Stagger card flips after grid has appeared
+    const flipDelay=XFADE+80;
+    const cards=grid.querySelectorAll('.gacha-card');
+    cards.forEach((card,i)=>{
+      setTimeout(()=>{
+        card.classList.add('flipped');
+        card.style.animation='card-appear .4s ease both';
+      }, flipDelay+i*150);
+    });
+    setTimeout(()=>flashRarity(topRarity), flipDelay+(items.length-1)*150+650);
     items.forEach((_,i)=>{
-      setTimeout(()=>{if(tg&&tg.HapticFeedback)tg.HapticFeedback.impactOccurred('light');},200+i*150);
+      setTimeout(()=>{if(tg&&tg.HapticFeedback)tg.HapticFeedback.impactOccurred('light');}, flipDelay+i*150);
     });
-  },summonDuration);
+  }, summonDuration-XFADE);
 }
 
-document.getElementById('gachaCloseBtn').onclick=()=>{document.getElementById('gachaOverlay').classList.remove('active');document.getElementById('gachaSummon').style.display='none';};
+document.getElementById('gachaCloseBtn').onclick=()=>{
+  const ov=document.getElementById('gachaOverlay');
+  const s=document.getElementById('gachaSummon');
+  ov.classList.remove('active');
+  s.style.display='none';
+  s.style.opacity='1';
+};
 document.getElementById('wBtnPersonal').onclick=()=>{const r=_wResolve;_closeWallet();if(r)r('personal');};
 document.getElementById('wBtnFamily').onclick=()=>{const r=_wResolve;_closeWallet();if(r)r('family');};
 document.getElementById('wBtnCancel').onclick=()=>{const rj=_wReject;_closeWallet();if(rj)rj(new Error('cancelled'));};
@@ -3634,8 +3762,94 @@ async function loadDevTreasury(){
   }
 }
 
-// ── Cleanup config ────────────────────────────────────────────────────────────
+// ── Treasury tab (full autonomous section) ────────────────────────────────────
+let _trsSelId = null;
 
+async function loadTreasuryTab(){
+  if(!chatId){toast('chat_id не задан','error');return;}
+  document.getElementById('treasuryTabBalance').textContent='⏳…';
+  document.getElementById('treasuryTabLog').innerHTML='<div style="color:var(--text2);padding:8px;text-align:center">Загрузка…</div>';
+  try{
+    const r = await api('/api/treasury?chat_id='+chatId);
+    document.getElementById('treasuryTabBalance').textContent = (r.balance||0).toLocaleString() + ' 🪙';
+    const log = r.log||[];
+    if(!log.length){
+      document.getElementById('treasuryTabLog').innerHTML='<div style="color:var(--text2);padding:8px;text-align:center">Транзакций нет</div>';
+      return;
+    }
+    document.getElementById('treasuryTabLog').innerHTML = log.map(e=>{
+      const d = new Date(e.created_at);
+      const ts = isNaN(d)?e.created_at:(d.toLocaleDateString('ru-RU')+' '+d.toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'}));
+      const isPayout = e.source==='treasury_payout';
+      return `<div class="wallet-history-row">
+        <div class="wallet-history-main">
+          <span class="wallet-history-source">${esc(e.source_label||e.source)}</span>
+          <span class="wallet-history-desc">${isPayout?'→ '+esc(e.name):esc(e.name)}</span>
+        </div>
+        <div class="wallet-history-meta">
+          <span class="wallet-history-amt ${isPayout?'expense':'income'}">${isPayout?'-':'+'}${(e.amount||0).toLocaleString()} 🪙</span>
+          <span class="wallet-history-ts">${esc(ts)}</span>
+        </div>
+      </div>`;
+    }).join('');
+  } catch(e){
+    document.getElementById('treasuryTabBalance').textContent='❌';
+    document.getElementById('treasuryTabLog').innerHTML=`<div style="color:#f87171;padding:8px">${esc(e.message)}</div>`;
+  }
+}
+
+function trsSelectUser(id, name){
+  _trsSelId = id;
+  document.getElementById('trsSelName').textContent = name || ('ID: '+id);
+  document.getElementById('trsSelId').textContent = 'ID: ' + id;
+  document.getElementById('trsPayoutSearch').value = '';
+  document.getElementById('trsPayoutDropdown').innerHTML = '';
+  document.getElementById('trsPayoutDropdown').style.display = 'none';
+}
+
+function trsClearSel(){
+  _trsSelId = null;
+  document.getElementById('trsSelName').textContent = '—';
+  document.getElementById('trsSelId').textContent = '';
+  document.getElementById('trsPayoutSearch').value = '';
+}
+
+async function trsSearchUsers(q){
+  const dd = document.getElementById('trsPayoutDropdown');
+  if(!q||q.length<2){ dd.innerHTML=''; dd.style.display='none'; return; }
+  try{
+    const r = await api('/api/dev/users?chat_id='+chatId+'&q='+encodeURIComponent(q));
+    const users = r.users||[];
+    if(!users.length){ dd.innerHTML='<div style="padding:8px;color:var(--text2)">Не найдено</div>'; dd.style.display='block'; return; }
+    dd.innerHTML = users.slice(0,8).map(u=>`<div class="dev-dropdown-item" onclick="trsSelectUser(${u.user_id},${JSON.stringify(esc(u.name))})">${esc(u.name)} <small style="color:var(--text2)">${u.user_id}</small></div>`).join('');
+    dd.style.display='block';
+  } catch(e){ dd.innerHTML=''; dd.style.display='none'; }
+}
+
+async function payoutFromTreasury(){
+  const msg = document.getElementById('trsPayoutMsg');
+  if(!chatId){ msg.style.color='#f87171'; msg.textContent='❌ chat_id не задан'; return; }
+  if(!_trsSelId){ msg.style.color='#f87171'; msg.textContent='❌ Выбери получателя'; return; }
+  const amt = parseInt(document.getElementById('trsPayoutAmt').value)||0;
+  if(amt<=0){ msg.style.color='#f87171'; msg.textContent='❌ Введи сумму'; return; }
+  const reason = document.getElementById('trsPayoutReason').value.trim();
+  msg.style.color='var(--text2)'; msg.textContent='⏳ Отправляем…';
+  try{
+    const r = await api('/api/treasury/payout','POST',{chat_id:chatId,target_id:_trsSelId,amount:amt,reason});
+    msg.style.color='#4ade80';
+    msg.textContent=`✅ ${esc(r.target_name)} получил ${amt.toLocaleString()} 🪙. Казна: ${(r.new_treasury||0).toLocaleString()} 🪙`;
+    document.getElementById('trsPayoutAmt').value='';
+    document.getElementById('trsPayoutReason').value='';
+    document.getElementById('treasuryTabBalance').textContent=(r.new_treasury||0).toLocaleString()+' 🪙';
+    tabLoaded['treasury']=false;
+    trsClearSel();
+    toast(`💸 ${esc(r.target_name)} +${amt.toLocaleString()} 🪙`,'success');
+  } catch(e){
+    msg.style.color='#f87171'; msg.textContent='❌ '+esc(e.message);
+  }
+}
+
+// ── Cleanup config ────────────────────────────────────────────────────────────
 async function loadCleanupConfig(){
   const card = document.getElementById('devCleanupCard');
   if(!card || card.style.display==='none') return;

@@ -615,6 +615,77 @@ async def get_treasury(chat_id: int, limit: int = 50) -> dict:
     return {"balance": balance, "log": log}
 
 
+async def treasury_payout(actor_id: int, target_id: int, chat_id: int,
+                          amount: int, reason: str = "") -> dict:
+    """
+    Pay `amount` mora from the chat treasury to `target_id`.
+    Raises ValueError if treasury balance is insufficient.
+    Returns {ok, new_treasury, new_user_balance, target_name}.
+    """
+    if amount <= 0:
+        raise ValueError("Сумма должна быть больше нуля")
+
+        from database.db import postgres_connect
+    async with postgres_connect() as db:
+        async with db.execute(
+            "SELECT balance FROM chat_treasury WHERE chat_id=?", (chat_id,)
+        ) as c:
+            row = await c.fetchone()
+        treasury_balance = row[0] if row else 0
+
+        if treasury_balance < amount:
+            raise ValueError(f"Недостаточно средств в казне: {treasury_balance:,} 🪙")
+
+        async with db.execute(
+            "SELECT COALESCE(full_name, '') FROM users WHERE user_id=?", (target_id,)
+        ) as c:
+            row = await c.fetchone()
+        target_name = (row[0] if row else "") or f"Игрок {target_id}"
+
+        # Deduct from treasury
+        await db.execute(
+            "UPDATE chat_treasury SET balance = balance - ? WHERE chat_id=?",
+            (amount, chat_id),
+        )
+
+        # Add to user mora
+        await db.execute(
+            "INSERT INTO user_mora (user_id, chat_id, balance, total_earned) VALUES (?,?,?,?) "
+            "ON CONFLICT(user_id, chat_id) DO UPDATE SET "
+            "balance=user_mora.balance + excluded.balance, "
+            "total_earned=user_mora.total_earned + excluded.total_earned",
+            (target_id, chat_id, amount, amount),
+        )
+
+        desc = reason.strip() or "Выплата из казны"
+        await _write_ledger(db, chat_id, target_id, "income", amount, "treasury_payout", desc, actor_id)
+
+        async with db.execute(
+            "SELECT balance FROM chat_treasury WHERE chat_id=?", (chat_id,)
+        ) as c:
+            row = await c.fetchone()
+        new_treasury = row[0] if row else 0
+
+        async with db.execute(
+            "SELECT COALESCE(balance, 0) FROM user_mora WHERE user_id=? AND chat_id=?",
+            (target_id, chat_id),
+        ) as c:
+            row = await c.fetchone()
+        new_user_balance = row[0] if row else 0
+
+        await db.commit()
+
+    return {
+        "ok": True,
+        "target_id": target_id,
+        "target_name": target_name,
+        "amount": amount,
+        "reason": desc,
+        "new_treasury": new_treasury,
+        "new_user_balance": new_user_balance,
+    }
+
+
 # ─── Настройка чистки ─────────────────────────────────────────────────────────
 
 async def get_cleanup_settings(chat_id: int) -> dict:

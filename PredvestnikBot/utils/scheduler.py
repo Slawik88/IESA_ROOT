@@ -510,6 +510,8 @@ async def _task_bond_price_update(bot) -> None:
     if last_update_str:
         try:
             last_update = datetime.fromisoformat(last_update_str)
+            if last_update.tzinfo is None:
+                last_update = last_update.replace(tzinfo=timezone.utc)
             elapsed = (now - last_update).total_seconds()
             if elapsed < _BOND_UPDATE_INTERVAL_HOURS * 3600:
                 return
@@ -525,7 +527,7 @@ async def _task_bond_price_update(bot) -> None:
             rows = await c.fetchall()
 
     chat_ids = [r["chat_id"] for r in rows]
-    await set_scheduler_state("bond_price_last_update", now.isoformat())
+    await set_scheduler_state("bond_price_last_update", now.strftime("%Y-%m-%dT%H:%M"))
 
     trend_summary: dict[str, str] = {}
     for chat_id in chat_ids:
