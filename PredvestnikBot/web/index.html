@@ -171,6 +171,8 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 .sbadge{font-size:11px;font-weight:600;padding:3px 9px;border-radius:20px;white-space:nowrap}
 .sbadge-price{background:rgba(99,102,241,.18);color:#a5b4fc}.sbadge-owned{background:rgba(34,197,94,.15);color:#4ade80}
 .sbadge-active{background:rgba(244,197,66,.2);color:var(--gold)}.sbadge-free{background:rgba(34,197,94,.1);color:#4ade80}
+/* Cosmetic preview mini-boxes */
+.cosmetic-preview{display:flex;align-items:center;gap:6px;margin:5px 0 3px;padding:5px 10px;background:rgba(255,255,255,.04);border-radius:7px;font-size:12px;line-height:1.45;border:1px solid rgba(255,255,255,.07);flex-wrap:wrap;width:fit-content;max-width:100%}
 /* Gacha drop rates modal */
 .rates-modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9200;display:none;align-items:flex-end}
 .rates-modal-overlay.open{display:flex}
@@ -178,6 +180,14 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 .rates-header{padding:14px 16px;border-bottom:1px solid var(--border);font-weight:700;font-size:15px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
 .rates-body{overflow-y:auto;padding:8px 12px 24px}
 .rarity-section{margin-bottom:12px}
+/* Roulette */
+.roulette-bet-chip{display:inline-flex;align-items:center;justify-content:center;padding:6px 12px;border-radius:20px;background:var(--bg3);border:1.5px solid var(--border);cursor:pointer;font-size:12px;font-weight:700;transition:all .15s;user-select:none;white-space:nowrap}
+.roulette-bet-chip:active{transform:scale(.93)}
+.roulette-bet-chip.active{border-color:var(--accent);background:rgba(99,102,241,.18);color:var(--accent)}
+.rbc-red{border-color:rgba(220,38,38,.5);color:#fca5a5}.rbc-red.active{background:rgba(220,38,38,.15);border-color:#dc2626}
+.rbc-black{border-color:rgba(75,85,99,.5);color:#9ca3af}.rbc-black.active{background:rgba(75,85,99,.2);border-color:#4b5563;color:#d1d5db}
+.rbc-green{border-color:rgba(22,163,74,.5);color:#4ade80}.rbc-green.active{background:rgba(22,163,74,.15);border-color:#16a34a}
+@keyframes roulette-result-pop{0%{transform:scale(.8);opacity:0}65%{transform:scale(1.08)}100%{transform:scale(1);opacity:1}}
 .rarity-section-hdr{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:10px;margin-bottom:6px;font-weight:700;font-size:13px}
 .rarity-section-hdr.junk{background:rgba(107,114,128,.15);color:#9ca3af}
 .rarity-section-hdr.common{background:rgba(59,130,246,.15);color:#60a5fa}
@@ -702,7 +712,7 @@ select{background:var(--bg3);border:1px solid var(--border);border-radius:8px;pa
     <div class="card">
       <div class="card-title">🖼 Рамки профиля</div>
       <div style="font-size:11px;color:var(--text2);margin-bottom:8px">Отображается рядом с именем в топе и профиле</div>
-      <div class="shop-grid" id="framesGrid"></div>
+      <div id="framesGrid"></div>
     </div>
     <!-- VIP -->
     <div class="card">
@@ -2634,13 +2644,26 @@ function renderShop(d){
   const activeTitle=(profileData&&profileData.custom_title)||'';
   document.getElementById('currentTitle').textContent=activeTitle||'Нет';
 
-  // Frames (still use grid — purely cosmetic, no effects to explain)
-  document.getElementById('framesGrid').innerHTML=(d.frames||[]).map(f=>`
-    <div class="shop-item ${f.owned?'owned':''} ${f.active?'active-item':''}" onclick="buyShopItem('frame','${f.key}')">
-      <div class="shop-item-emoji">${f.emoji}</div>
-      <div class="shop-item-name">${esc(f.name)}</div>
-      <div class="shop-item-price ${f.price===0?'free':''}">${f.price===0?'Бесплатно':f.owned?(f.active?'✓ Активна':'✓ Надеть'):(f.price+' 🪙')}</div>
-    </div>`).join('');
+  // Frames — scard cards with visual frame preview
+  const frameAccents={'none':'#6b7280','bronze':'#92400e','silver':'#64748b','gold_frame':'#d97706',
+    'diamond':'#06b6d4','cherry':'#ec4899','moon':'#8b5cf6','galaxy':'#4f46e5','fire':'#ea580c',
+    'crystal':'#0891b2','shadow':'#374151','sakura':'#fb7185','neon':'#10b981','royal':'#7c3aed'};
+  document.getElementById('framesGrid').innerHTML=(d.frames||[]).map(f=>{
+    const accent=frameAccents[f.key]||'var(--accent)';
+    return `<div class="scard${f.owned?' owned':''}${f.active?' scard-active':''}" onclick="buyShopItem('frame','${f.key}')">
+      <div class="scard-accent" style="background:${accent}"></div>
+      <div class="scard-icon">${f.emoji}</div>
+      <div class="scard-body">
+        <div class="scard-name">${esc(f.name)}</div>
+        <div class="cosmetic-preview">${f.emoji} <strong>Ваш ник</strong> <span style="color:var(--text2);font-size:11px">— рядом с именем в профиле</span></div>
+        <div class="scard-footer">
+          ${f.price===0?'<span class="sbadge sbadge-free">Бесплатно</span>':
+            f.owned?(f.active?'<span class="sbadge sbadge-active">✓ Активна</span>':
+              '<span class="sbadge sbadge-owned">✓ Надеть</span>'):
+            '<span class="sbadge sbadge-price">'+f.price+' 🪙</span>'}
+        </div>
+      </div></div>`;
+  }).join('');
 
   // VIP — show perks clearly
   document.getElementById('shopVipContent').innerHTML=d.has_vip
@@ -2659,36 +2682,58 @@ function renderShop(d){
           <div class="scard-footer"><span class="sbadge sbadge-price">300 🪙</span></div>
         </div></div>`;
 
-  // Cosmetics — full list cards with visible descriptions
+  // Cosmetics — full list cards with visible previews
   const cosAccents={'custom_title':'#a855f7','pet_color':'#ec4899','pet_emoji_status':'#f97316',
     'xp_boost_24h':'#06b6d4','streak_guard':'#3b82f6','expedition_boost':'#10b981',
     'mora_shield':'#eab308','lucky_sign':'#22c55e','name_glow':'#f59e0b'};
-  document.getElementById('cosmeticsSection').innerHTML=(d.cosmetics||[]).map(c=>`
-    <div class="scard${c.owned?' owned':''}" ${c.owned?'':('onclick="buyShopItem(\'cosmetic\',\''+c.key+'\')"')}>
+  const cosPreviews={
+    'name_glow':        `<span style="text-shadow:0 0 8px #f59e0b,0 0 18px rgba(245,158,11,.4);color:#fff;font-weight:700">✨ Ваш ник ✨</span>`,
+    'xp_boost_24h':     `<span style="color:var(--text2)">XP</span> <span style="display:inline-block;width:52px;height:5px;background:linear-gradient(90deg,#3b82f6,#8b5cf6);border-radius:3px;vertical-align:middle;margin:0 2px"></span> <span style="color:#06b6d4;font-weight:700">×2 на 24ч</span>`,
+    'streak_guard':     `<span>🔥 7 дней</span> <span style="color:#3b82f6;font-weight:600">🛡️ защищён</span>`,
+    'expedition_boost': `🗺️ <del style="opacity:.45">100</del> <span style="color:#10b981;font-weight:700">→ 120 🪙</span> <span style="color:#10b981;font-size:11px">(+20%)</span>`,
+    'mora_shield':      `🎰 <span style="color:var(--text2)">проигрыш</span> <span style="color:#eab308;font-weight:700">→ 🛡️ 1 раз</span>`,
+    'lucky_sign':       `Пити: <del style="opacity:.45">40</del> <span style="color:#22c55e;font-weight:700">→ 35 🍀</span>`,
+    'pet_emoji_status': `🐱 <span style="background:rgba(249,115,22,.12);border-radius:4px;padding:1px 5px">😎</span> <span>Лапка</span>`,
+    'custom_title':     `<span style="background:rgba(168,85,247,.15);border:1px solid rgba(168,85,247,.4);border-radius:4px;padding:0 6px;font-size:11px;color:#a855f7">🏷 Титул</span> <span>Ваш ник</span>`,
+  };
+  document.getElementById('cosmeticsSection').innerHTML=(d.cosmetics||[]).map(c=>{
+    const preview=cosPreviews[c.key]?`<div class="cosmetic-preview">${cosPreviews[c.key]}</div>`:'';
+    return `<div class="scard${c.owned?' owned':''}" ${c.owned?'':('onclick="buyShopItem(\'cosmetic\',\''+c.key+'\')"')}>
       <div class="scard-accent" style="background:${cosAccents[c.key]||'var(--accent)'}"></div>
       <div class="scard-icon">${c.emoji}</div>
       <div class="scard-body">
         <div class="scard-name">${esc(c.name)}</div>
         <div class="scard-desc">${esc(c.desc||'')}</div>
+        ${preview}
         <div class="scard-footer">
           ${c.owned?'<span class="sbadge sbadge-owned">✓ Куплено</span>':'<span class="sbadge sbadge-price">'+c.price+' 🪙</span>'}
         </div>
-      </div></div>`).join('');
+      </div></div>`;
+  }).join('');
 
-  // Pet colors
+  // Pet colors — with colored name preview
   const petColorMap={'red':'#ef4444','blue':'#3b82f6','gold':'#f59e0b','green':'#22c55e','purple':'#a855f7','white':'#f0f0f0'};
   const hasPet=!!(profileData&&profileData.pet);
+  const petName=(profileData&&profileData.pet&&profileData.pet.name)||'Лапка';
+  const petEmoji=(profileData&&profileData.pet&&profileData.pet.emoji)||'🐱';
   document.getElementById('petColorsSection').innerHTML=(d.pet_colors||[]).map(c=>{
     const colorKey=c.key.replace('pet_color_','');
     const hex=petColorMap[colorKey]||'#aaa';
     return `<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">
-      <div style="display:flex;align-items:center;gap:10px">
-        <div style="width:20px;height:20px;border-radius:50%;background:${hex};border:2px solid rgba(255,255,255,.15)"></div>
-        <span style="font-size:13px">${esc(c.label)}</span>
-        ${c.active?'<span class="sbadge sbadge-owned" style="margin-left:4px">✓ Активен</span>':''}
+      <div style="display:flex;align-items:center;gap:10px;flex:1">
+        <div style="width:20px;height:20px;border-radius:50%;background:${hex};border:2px solid rgba(255,255,255,.15);flex-shrink:0"></div>
+        <div>
+          <div style="display:flex;align-items:center;gap:5px">
+            <span style="font-size:13px">${esc(c.label)}</span>
+            ${c.active?'<span class="sbadge sbadge-owned">✓ Активен</span>':''}
+          </div>
+          <div style="font-size:11px;color:var(--text2);margin-top:2px">${petEmoji} <span style="color:${hex};font-weight:600">${esc(petName)}</span></div>
+        </div>
       </div>
-      <span style="font-size:12px;color:${c.active?'var(--text2)':'var(--green)'};font-weight:700">${c.active?'Уже активен':(!hasPet?'Нет питомца':c.price+' 🪙')}</span>
-      ${(!c.active&&hasPet)?`<button class="btn btn-sm" style="background:${hex};color:#fff;border:none" onclick="buyPetColor('${c.key}','${esc(c.label)}',${c.price})">🎨 Купить</button>`:''}
+      <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+        <span style="font-size:12px;color:${c.active?'var(--text2)':'var(--green)'};font-weight:700">${c.active?'Активен':(!hasPet?'Нет питомца':c.price+' 🪙')}</span>
+        ${(!c.active&&hasPet)?`<button class="btn btn-sm" style="background:${hex};color:#fff;border:none" onclick="buyPetColor('${c.key}','${esc(c.label)}',${c.price})">🎨</button>`:''}
+      </div>
     </div>`;
   }).join('')||'<div style="font-size:12px;color:var(--text2)">Нет питомца — заведи питомца через брак</div>';
 
@@ -4782,6 +4827,40 @@ function renderCasinoTab(){
       <span style="color:var(--text2);font-size:13px">💰 Твой баланс</span>
       <span id="casinoBalance" style="font-weight:700;color:var(--gold)">${profileData?.balance||0} 🪙</span>
     </div>
+    <div class="card" id="rouletteCard">
+      <div class="card-title">🎡 Рулетка</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:12px">Европейская рулетка (0–36) · Макс. ставка: <b>500 🪙</b> · Выигрыш −5% НДС</div>
+      <div style="display:flex;justify-content:center;margin-bottom:14px">
+        <div style="position:relative;width:200px;height:200px">
+          <canvas id="rouletteCanvas" width="200" height="200" style="display:block;border-radius:50%;box-shadow:0 0 20px rgba(99,102,241,.35)"></canvas>
+          <div style="position:absolute;top:-8px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:8px solid transparent;border-right:8px solid transparent;border-top:14px solid #8b5cf6;filter:drop-shadow(0 0 5px rgba(139,92,246,.9))"></div>
+        </div>
+      </div>
+      <div style="font-size:10px;color:var(--text2);font-weight:700;letter-spacing:.05em;margin-bottom:6px">ТИП СТАВКИ</div>
+      <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px" id="rouletteBetTypes">
+        <span class="roulette-bet-chip rbc-red" onclick="selectRouletteBet('red')">🔴 Красное ×2</span>
+        <span class="roulette-bet-chip rbc-black" onclick="selectRouletteBet('black')">⚫ Чёрное ×2</span>
+        <span class="roulette-bet-chip" onclick="selectRouletteBet('even')">2️⃣ Чётное ×2</span>
+        <span class="roulette-bet-chip" onclick="selectRouletteBet('odd')">1️⃣ Нечётное ×2</span>
+        <span class="roulette-bet-chip" onclick="selectRouletteBet('low')">📉 1–18 ×2</span>
+        <span class="roulette-bet-chip" onclick="selectRouletteBet('high')">📈 19–36 ×2</span>
+        <span class="roulette-bet-chip rbc-green" onclick="selectRouletteBet('zero')">🟢 Зеро ×36</span>
+        <span class="roulette-bet-chip" onclick="showRouletteNumberInput()">🔢 Число ×36</span>
+      </div>
+      <div id="rouletteNumberRow" style="display:none;margin-bottom:8px">
+        <input id="rouletteNumberInput" type="number" min="0" max="36" placeholder="Число 0–36"
+          style="background:var(--bg3);border:1.5px solid var(--accent);border-radius:8px;padding:8px 10px;color:var(--text);width:100%;box-sizing:border-box;font-size:14px"
+          oninput="onRouletteNumberChanged()"/>
+      </div>
+      <div style="font-size:10px;color:var(--text2);font-weight:700;letter-spacing:.05em;margin-bottom:6px">СТАВКА</div>
+      <div style="display:flex;gap:5px;margin-bottom:8px">
+        ${[10,25,50,100,250,500].map(a=>`<button class='btn btn-sm' style='background:var(--bg3);color:var(--text2);flex:1;padding:5px 2px;font-size:11px' onclick='selectRouletteAmt(${a})'>${a}</button>`).join('')}
+      </div>
+      <input type="number" id="rouletteBetAmt" placeholder="Ставка 🪙" min="10" max="500"
+        style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text);width:100%;margin-bottom:8px;box-sizing:border-box"/>
+      <button class="btn btn-primary" id="rouletteSpinBtn" style="width:100%;font-size:14px;font-weight:700;padding:11px" onclick="spinRoulette()">🎡 Крутить</button>
+      <div id="rouletteResult" style="margin-top:10px;text-align:center;min-height:28px"></div>
+    </div>
     <div class="card">
       <div class="card-title">🪙 Монетка</div>
       <div style="font-size:12px;color:var(--text2);margin-bottom:10px">Ставишь Мору — <b>40%</b> шанс выиграть ×2 (−5% НДС), <b>60%</b> шанс проигрыша. Макс. ставка: <b>100 🪙</b></div>
@@ -4800,6 +4879,12 @@ function renderCasinoTab(){
       <button class="btn btn-gold" style="width:100%;margin-top:8px" onclick="doBuyLotteryTicket()">🎫 Купить билет (${price} 🪙)</button>
     </div>
   `;
+  // Initialize roulette wheel after DOM update
+  requestAnimationFrame(() => {
+    _rouletteBetType = _rouletteBetType || 'red';
+    drawRouletteWheelAt(_rouletteRotation || 0);
+    selectRouletteBet(_rouletteBetType);
+  });
 }
 function selectCoinBet(amt){ document.getElementById('coinBetAmt').value=amt; }
 async function doCoinFlip(){
@@ -4830,6 +4915,163 @@ async function doBuyLotteryTicket(){
     if(r.new_balance !== undefined) syncBalance(r.new_balance);
     toast(`🎫 Куплен билет! Всего: ${r.tickets} | Баланс: ${r.new_balance} 🪙`);
   } catch(e){ toast('❌ '+e.message,'error'); }
+}
+
+// ─── Roulette ─────────────────────────────────────────────────────────────────
+const _WHEEL_ORDER=[0,32,15,19,4,21,2,25,17,34,6,27,13,36,11,30,8,23,10,5,24,16,33,1,20,14,31,9,22,18,29,7,28,12,35,3,26];
+const _ROULETTE_RED=new Set([1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36]);
+let _rouletteBetType='red';
+let _rouletteSpinning=false;
+let _rouletteAnimFrame=null;
+let _rouletteRotation=0;
+
+function drawRouletteWheelAt(rotDeg){
+  const canvas=document.getElementById('rouletteCanvas');
+  if(!canvas)return;
+  const ctx=canvas.getContext('2d');
+  const cx=canvas.width/2,cy=canvas.height/2,r=cx-3;
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  const segAngle=Math.PI*2/37;
+  const startOff=(rotDeg-90)*Math.PI/180;
+  _WHEEL_ORDER.forEach((num,i)=>{
+    const sa=startOff+i*segAngle,ea=sa+segAngle;
+    ctx.beginPath();ctx.moveTo(cx,cy);ctx.arc(cx,cy,r,sa,ea);ctx.closePath();
+    ctx.fillStyle=num===0?'#15803d':_ROULETTE_RED.has(num)?'#dc2626':'#1c1917';
+    ctx.fill();
+    ctx.strokeStyle='rgba(139,92,246,.35)';ctx.lineWidth=0.8;ctx.stroke();
+    const mid=startOff+(i+0.5)*segAngle,tr=r*0.71;
+    ctx.save();
+    ctx.translate(cx+Math.cos(mid)*tr,cy+Math.sin(mid)*tr);
+    ctx.rotate(mid+Math.PI/2);
+    ctx.fillStyle='rgba(255,255,255,.9)';ctx.font='bold 8px sans-serif';
+    ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText(String(num),0,0);
+    ctx.restore();
+  });
+  // Outer ring
+  ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);
+  ctx.strokeStyle='rgba(139,92,246,.6)';ctx.lineWidth=2.5;ctx.stroke();
+  // Inner hub
+  ctx.beginPath();ctx.arc(cx,cy,r*0.22,0,Math.PI*2);
+  ctx.fillStyle='#120929';ctx.fill();
+  ctx.strokeStyle='#8b5cf6';ctx.lineWidth=2;ctx.stroke();
+  ctx.beginPath();ctx.arc(cx,cy,r*0.09,0,Math.PI*2);
+  ctx.fillStyle='#8b5cf6';ctx.fill();
+}
+
+function _getWheelDegForNumber(num){
+  const idx=_WHEEL_ORDER.indexOf(num);
+  if(idx<0)return 0;
+  return idx*360/37+180/37;
+}
+
+function selectRouletteBet(type){
+  _rouletteBetType=type;
+  document.getElementById('rouletteNumberRow').style.display='none';
+  document.querySelectorAll('#rouletteBetTypes .roulette-bet-chip').forEach(el=>{
+    const fn=el.getAttribute('onclick')||'';
+    el.classList.toggle('active',fn.includes("'"+type+"'")||fn.includes('"'+type+'"'));
+  });
+}
+
+function showRouletteNumberInput(){
+  document.querySelectorAll('#rouletteBetTypes .roulette-bet-chip').forEach(el=>{
+    el.classList.toggle('active',(el.getAttribute('onclick')||'').includes('showRouletteNumberInput'));
+  });
+  document.getElementById('rouletteNumberRow').style.display='block';
+  const inp=document.getElementById('rouletteNumberInput');
+  if(inp){inp.focus();const v=parseInt(inp.value);if(v>=0&&v<=36)_rouletteBetType='number_'+v;}
+}
+
+function onRouletteNumberChanged(){
+  const v=parseInt(document.getElementById('rouletteNumberInput').value||'-1');
+  if(v>=0&&v<=36) _rouletteBetType='number_'+v;
+}
+
+function selectRouletteAmt(amt){document.getElementById('rouletteBetAmt').value=amt;}
+
+async function spinRoulette(){
+  if(_rouletteSpinning)return;
+  const amt=parseInt(document.getElementById('rouletteBetAmt').value||0);
+  if(!amt||amt<10){toast('❌ Минимальная ставка 10 🪙','error');return;}
+  if(amt>500){toast('❌ Максимальная ставка 500 🪙','error');return;}
+  if(!_rouletteBetType||_rouletteBetType==='number_'||(/^number_$/).test(_rouletteBetType)){toast('❌ Выбери тип ставки','error');return;}
+  if(_rouletteBetType.startsWith('number_')){
+    const n=parseInt(_rouletteBetType.slice(7));
+    if(isNaN(n)||n<0||n>36){toast('❌ Введи число 0–36','error');return;}
+  }
+  _rouletteSpinning=true;
+  const spinBtn=document.getElementById('rouletteSpinBtn');
+  if(spinBtn){spinBtn.disabled=true;spinBtn.textContent='⏳ Крутим...';}
+  document.getElementById('rouletteResult').innerHTML='';
+
+  // Continuous spin while waiting for API
+  const spinStart=performance.now();
+  const spinSpeed=4*360; // deg/s
+  let frameRot=_rouletteRotation;
+  function animSpin(now){
+    if(!_rouletteSpinning)return;
+    frameRot=_rouletteRotation+(now-spinStart)/1000*spinSpeed;
+    drawRouletteWheelAt(frameRot%360);
+    _rouletteAnimFrame=requestAnimationFrame(animSpin);
+  }
+  _rouletteAnimFrame=requestAnimationFrame(animSpin);
+  if(tg&&tg.HapticFeedback)tg.HapticFeedback.impactOccurred('medium');
+
+  let result=null,apiError=null;
+  try{
+    result=await api('/api/casino/roulette','POST',{chat_id:chatId,bet_type:_rouletteBetType,amount:amt});
+  }catch(e){apiError=e;}
+
+  // Stop continuous spin and decelerate to target
+  if(_rouletteAnimFrame){cancelAnimationFrame(_rouletteAnimFrame);_rouletteAnimFrame=null;}
+  _rouletteSpinning=false;
+  if(spinBtn){spinBtn.disabled=false;spinBtn.textContent='🎡 Крутить';}
+
+  if(apiError){
+    drawRouletteWheelAt(_rouletteRotation);
+    document.getElementById('rouletteResult').innerHTML=`<span style="color:#f87171">❌ ${esc(apiError.message)}</span>`;
+    return;
+  }
+
+  // Decelerate to landing position
+  const endRot=_rouletteRotation+(performance.now()-spinStart)/1000*spinSpeed;
+  const target=_getWheelDegForNumber(result.number);
+  const curNorm=((endRot%360)+360)%360;
+  const extra=((target-curNorm)+360)%360;
+  const finalRot=endRot+3*360+extra;
+  const decDur=2400;
+  const decStart=performance.now();
+  const decFrom=endRot;
+
+  function animDecel(now){
+    const t=Math.min(1,(now-decStart)/decDur);
+    const ease=1-Math.pow(1-t,3);
+    drawRouletteWheelAt((decFrom+(finalRot-decFrom)*ease)%360);
+    if(t<1){_rouletteAnimFrame=requestAnimationFrame(animDecel);}
+    else{_rouletteRotation=finalRot%360;_rouletteAnimFrame=null;_showRouletteResult(result);}
+  }
+  _rouletteAnimFrame=requestAnimationFrame(animDecel);
+}
+
+function _showRouletteResult(r){
+  const resultEl=document.getElementById('rouletteResult');
+  if(!resultEl)return;
+  const icon=r.color==='red'?'🔴':r.color==='black'?'⚫':'🟢';
+  let html=`<div style="animation:roulette-result-pop .45s ease">`;
+  html+=`<div style="font-size:26px;margin-bottom:6px">${icon} <span style="font-size:34px;font-weight:800;vertical-align:middle">${r.number}</span></div>`;
+  if(r.win){
+    html+=`<div style="color:var(--green);font-weight:700;font-size:14px">🎉 Победа! +${r.net_prize} 🪙</div>`;
+    if(r.win_tax)html+=`<div style="color:var(--text2);font-size:11px;margin-top:2px">−${r.win_tax} 🏦 НДС</div>`;
+    if(r.item_prize)html+=`<div style="margin-top:8px;padding:8px;background:rgba(167,139,250,.1);border-radius:8px;border:1px solid rgba(167,139,250,.2)"><div style="font-size:12px;color:#a78bfa;font-weight:700">🎁 ${esc(r.item_prize.item_name)}</div><div style="font-size:11px;color:var(--text2);margin-top:2px">${esc(r.item_prize.effect)}</div></div>`;
+    if(tg&&tg.HapticFeedback)tg.HapticFeedback.notificationOccurred('success');
+  }else{
+    html+=`<div style="color:#f87171;font-weight:700;font-size:14px">😢 Проигрыш. −${document.getElementById('rouletteBetAmt').value||'?'} 🪙</div>`;
+    if(tg&&tg.HapticFeedback)tg.HapticFeedback.notificationOccurred('error');
+  }
+  html+=`<div style="margin-top:4px;font-size:12px;color:var(--text2)">Баланс: ${r.new_balance} 🪙</div></div>`;
+  resultEl.innerHTML=html;
+  if(r.new_balance!==undefined)syncBalance(r.new_balance);
 }
 
 // ═══════════════════════════════════════════════════════════════════
