@@ -5021,7 +5021,7 @@ async function spinRoulette(){
 
   // Continuous spin while waiting for API
   const spinStart=performance.now();
-  const spinSpeed=4*360; // deg/s
+  const spinSpeed=6*360; // deg/s
   let frameRot=_rouletteRotation;
   function animSpin(now){
     if(!_rouletteSpinning)return;
@@ -5053,8 +5053,8 @@ async function spinRoulette(){
   const target=_getWheelDegForNumber(result.number);
   const curNorm=((endRot%360)+360)%360;
   const extra=((target-curNorm)+360)%360;
-  const finalRot=endRot+3*360+extra;
-  const decDur=2400;
+  const finalRot=endRot+6*360+extra;
+  const decDur=5000;
   const decStart=performance.now();
   const decFrom=endRot;
 

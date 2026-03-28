@@ -476,23 +476,23 @@ async def cmd_set_user(message: Message, cmd_args: str):
         try:
             if rv.startswith("+"):
                 delta = int(rv[1:])
-                new_bal = await add_mora(uid, message.chat.id, delta)
+                await add_mora(uid, message.chat.id, delta)
                 await message.answer(
-                    f"✅ <b>{name}</b>: мора +{delta} → баланс <b>{new_bal} 🪙</b>",
+                    f"✅ <b>{name}</b>: мора +{delta} 🪙",
                     parse_mode="HTML",
                 )
             elif rv.startswith("-"):
                 delta = int(rv[1:])
-                new_bal = await add_mora(uid, message.chat.id, -delta)
+                await add_mora(uid, message.chat.id, -delta)
                 await message.answer(
-                    f"✅ <b>{name}</b>: мора −{delta} → баланс <b>{new_bal} 🪙</b>",
+                    f"✅ <b>{name}</b>: мора −{delta} 🪙",
                     parse_mode="HTML",
                 )
             else:
                 new_val = int(rv)
                 await set_mora_balance(uid, message.chat.id, new_val)
                 await message.answer(
-                    f"✅ <b>{name}</b>: мора = <b>{new_val} 🪙</b> (было {cur_bal})",
+                    f"✅ <b>{name}</b>: мора = {new_val} 🪙",
                     parse_mode="HTML",
                 )
         except (ValueError, TypeError):

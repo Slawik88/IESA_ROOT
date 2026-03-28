@@ -732,6 +732,15 @@ async def init_db():
             except Exception:
                 pass
 
+        # ─── Рулетка: счётчик поражений подряд (пити-система) ────────────
+        for col_def in [
+            "roulette_losses INTEGER DEFAULT 0",
+        ]:
+            try:
+                await db.execute(f"ALTER TABLE user_mora ADD COLUMN IF NOT EXISTS {col_def}")
+            except Exception:
+                pass
+
         # ─── Трекинг: юзер видел приветствие сегодня ──────────────────────
         for col_def in [
             "last_greeting_date TEXT DEFAULT NULL",

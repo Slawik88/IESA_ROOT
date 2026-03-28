@@ -23,6 +23,27 @@ def color_of(n: int) -> str:
     return "red" if n in _RED else "black"
 
 
+def _pick_winning_number(bet_type: str) -> int:
+    """Return a random number on the wheel that wins for the given bet_type."""
+    if bet_type == "red":
+        return random.choice(sorted(_RED))
+    if bet_type == "black":
+        return random.choice(sorted(_BLACK))
+    if bet_type == "even":
+        return random.choice(list(range(2, 37, 2)))
+    if bet_type == "odd":
+        return random.choice(list(range(1, 37, 2)))
+    if bet_type == "low":
+        return random.randint(1, 18)
+    if bet_type == "high":
+        return random.randint(19, 36)
+    if bet_type == "zero":
+        return 0
+    if bet_type.startswith("number_"):
+        return int(bet_type[7:])
+    return random.randint(0, 36)
+
+
 def _bet_gross(bet_type: str, number: int, bet_amount: int) -> int:
     """Return profit on a win (excluding original bet). 0 = loss."""
     col = color_of(number)
@@ -129,20 +150,35 @@ async def roulette_spin(
         ):
             raise ValueError(f"Неизвестный тип ставки: {bet_type!r}")
 
-    # ── Deduct bet atomically ─────────────────────────────────────────────────
+    # ── Deduct bet atomically + read pity counter ─────────────────────────────
     async with postgres_connect() as db:
-        cursor = await db.execute(
-            "UPDATE user_mora SET balance=balance-? WHERE user_id=? AND chat_id=? AND balance>=?",
-            (bet_amount, uid, chat_id, bet_amount),
-        )
-        if cursor.rowcount == 0:
-            mora_row = await get_mora(uid, chat_id)
-            bal = mora_row["balance"] if mora_row else 0
-            raise ValueError(f"Недостаточно Моры. У тебя: {bal} 🪙")
-        await db.commit()
+        async with db.transaction():
+            row = await db.fetchrow(
+                "SELECT balance, COALESCE(roulette_losses, 0) AS roulette_losses "
+                "FROM user_mora WHERE user_id=$1 AND chat_id=$2 FOR UPDATE",
+                uid, chat_id,
+            )
+            if not row or row["balance"] < bet_amount:
+                bal = row["balance"] if row else 0
+                raise ValueError(f"Недостаточно Моры. У тебя: {bal} 🪙")
+            await db.execute(
+                "UPDATE user_mora SET balance=balance-$1 WHERE user_id=$2 AND chat_id=$3",
+                bet_amount, uid, chat_id,
+            )
+            losses = row["roulette_losses"]
 
-    # ── Spin ──────────────────────────────────────────────────────────────────
-    number     = random.randint(0, 36)
+    # ── Spin (with pity boost after losing streak) ────────────────────────────
+    # After 3+ consecutive losses, increasingly likely to force a winning number.
+    # Pity: 55% at 3 losses, 70% at 4, 85% at 5, capped at 90% at 6+.
+    if losses >= 3:
+        pity_boost = min(0.90, 0.40 + (losses - 2) * 0.15)
+        if random.random() < pity_boost:
+            number = _pick_winning_number(bet_type)
+        else:
+            number = random.randint(0, 36)
+    else:
+        number     = random.randint(0, 36)
+
     color      = color_of(number)
     gross      = _bet_gross(bet_type, number, bet_amount)
     win        = gross > 0
@@ -150,14 +186,28 @@ async def roulette_spin(
     net_prize  = 0
 
     if win:
-        win_tax   = max(1, int(gross * ROULETTE_TAX))
-        net_prize = gross - win_tax
+        win_tax      = max(1, int(gross * ROULETTE_TAX))
+        net_prize    = gross - win_tax
         total_return = bet_amount + net_prize   # original stake + profit
         await add_to_treasury(chat_id, win_tax, "roulette", uid)
         new_bal = await add_mora(uid, chat_id, total_return)
     else:
         mora_row = await get_mora(uid, chat_id)
         new_bal  = mora_row["balance"] if mora_row else 0
+
+    # ── Update pity (loss streak) counter ────────────────────────────────────
+    async with postgres_connect() as db:
+        if win:
+            await db.execute(
+                "UPDATE user_mora SET roulette_losses=0 WHERE user_id=$1 AND chat_id=$2",
+                uid, chat_id,
+            )
+        else:
+            await db.execute(
+                "UPDATE user_mora SET roulette_losses=COALESCE(roulette_losses,0)+1 "
+                "WHERE user_id=$1 AND chat_id=$2",
+                uid, chat_id,
+            )
 
     # ── Item prize (18% chance on any win) ────────────────────────────────────
     item_prize = None
