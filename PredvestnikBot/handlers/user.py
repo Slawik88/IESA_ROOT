@@ -688,6 +688,30 @@ def _make_top_bar(count: int, max_count: int, width: int = 8) -> str:
     return "█" * filled + "░" * (width - filled)
 
 
+async def _send_long_html(message, text: str, reply_markup=None):
+    """Send text as HTML, splitting into multiple messages if >4096 chars."""
+    MAX = 4000
+    if len(text) <= MAX:
+        await message.answer(text, parse_mode="HTML", reply_markup=reply_markup)
+        return
+    lines = text.split("\n")
+    chunks: list[str] = []
+    buf: list[str] = []
+    buf_len = 0
+    for line in lines:
+        if buf_len + len(line) + 1 > MAX and buf:
+            chunks.append("\n".join(buf))
+            buf = []
+            buf_len = 0
+        buf.append(line)
+        buf_len += len(line) + 1
+    if buf:
+        chunks.append("\n".join(buf))
+    for i, chunk in enumerate(chunks):
+        kb = reply_markup if i == len(chunks) - 1 else None
+        await message.answer(chunk, parse_mode="HTML", reply_markup=kb)
+
+
 def _build_top_text(
     top: list,
     prev_top: list,
@@ -729,8 +753,7 @@ def _build_top_text(
     html_lines.append("")
 
     # ── Mobile-friendly rows ───────────────────────────────────────────────────
-    visible = top[:20]
-    rest    = len(top) - len(visible)
+    visible = top
 
     for i, u in enumerate(visible):
         count    = u[count_field] if count_field in u.keys() else 0
@@ -754,9 +777,6 @@ def _build_top_text(
 
         count_str = f"{count:,}".replace(",", "\u00a0")
         html_lines.append(f"{place} {name} — {count_str}{badges}")
-
-    if rest > 0:
-        html_lines.append(f"  <i>+{rest} участник(ов)…</i>")
 
     # ── Weekly prize pool info (for weekly / all-time views) ───────────────────
     if count_field in ("wc", "message_count"):
@@ -872,11 +892,18 @@ async def cb_top(callback: CallbackQuery):
                            chat_id=chat_id, hof_data=hof_data)
 
     try:
-        await callback.message.edit_text(
-            text,
-            parse_mode="HTML",
-            reply_markup=_top_keyboard(period, owner_id),
-        )
+        if len(text) <= 4000:
+            await callback.message.edit_text(
+                text,
+                parse_mode="HTML",
+                reply_markup=_top_keyboard(period, owner_id),
+            )
+        else:
+            try:
+                await callback.message.delete()
+            except Exception:
+                pass
+            await _send_long_html(callback.message, text, reply_markup=_top_keyboard(period, owner_id))
     except Exception:
         pass
     await callback.answer()
@@ -1460,7 +1487,6 @@ async def cb_theme_set(callback: CallbackQuery):
 @router.callback_query(F.data.startswith("theme_buy:"))
 async def cb_theme_buy(callback: CallbackQuery):
     from config import PROFILE_THEMES
-    from database.db import deduct_mora as _deduct
     parts = callback.data.split(":")
     uid, key = int(parts[1]), parts[2]
     if callback.from_user.id != uid:
@@ -1713,7 +1739,7 @@ async def cmd_top(message: Message, cmd_args: str):
         hof_data = await get_weekly_top_reward_history(message.chat.id, _prev_key)
     text = _build_top_text(top, prev_top, mora_map, title, count_field, message.from_user.id,
                            chat_id=message.chat.id, hof_data=hof_data)
-    await message.answer(text, parse_mode="HTML", reply_markup=_top_keyboard(period_code, message.from_user.id))
+    await _send_long_html(message, text, reply_markup=_top_keyboard(period_code, message.from_user.id))
 
 
 @router.message(BotCommand("правила", "rules"))

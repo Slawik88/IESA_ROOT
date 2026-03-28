@@ -17,7 +17,6 @@ from aiogram.types import (
 )
 
 from database.db import (
-    deduct_mora,
     get_mora,
     get_pet,
     get_pet_fatigue,

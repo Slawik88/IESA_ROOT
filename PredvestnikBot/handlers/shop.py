@@ -34,7 +34,6 @@ from config import (
 )
 from database.db import (
     buy_shop_item,
-    deduct_mora,
     get_family_wallet,
     get_marriage,
     get_mora,

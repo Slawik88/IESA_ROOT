@@ -11,7 +11,6 @@ Usage:
     )
 """
 from database.db import (
-    deduct_mora,
     get_total_family_balance,
     deduct_family_pool,
     log_family_transaction,

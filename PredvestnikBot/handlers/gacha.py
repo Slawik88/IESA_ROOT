@@ -27,7 +27,6 @@ from api.gacha import (
 )
 from database.db import (
     add_mora,
-    deduct_mora,
     get_gacha_inventory,
     get_mora,
     get_received_gifts,

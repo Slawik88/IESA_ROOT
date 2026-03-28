@@ -27,7 +27,6 @@ from database.db import (
     adopt_pet,
     add_mora,
     change_pet_type,
-    deduct_mora,
     get_family_wallet,
     get_marriage,
     get_mora,

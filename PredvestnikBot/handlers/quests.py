@@ -5,7 +5,7 @@ from aiogram import Router
 from aiogram.types import Message
 
 from config import QUEST_REROLL_PRICE
-from database.db import deduct_mora, get_mora, get_quest_progress, get_user_quest, reroll_user_quest
+from database.db import get_mora, get_quest_progress, get_user_quest, reroll_user_quest
 from filters.bot_command import BotCommand
 from utils.helpers import bot_today
 

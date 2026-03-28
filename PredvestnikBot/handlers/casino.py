@@ -23,7 +23,6 @@ from database.db import (
     add_to_treasury,
     buy_lottery_ticket,
     create_duel,
-    deduct_mora,
     get_duel,
     get_lottery_tickets,
     get_mora,
@@ -236,6 +235,7 @@ async def cmd_dice(message: Message, cmd_args: str, bot):
         await message.answer(f"❌ Недостаточно Моры. У тебя: <b>{bal} 🪙</b>", parse_mode="HTML")
         return
 
+    from database.postgres import connect as postgres_connect
     async with postgres_connect() as db:
         cursor = await db.execute(
             "UPDATE user_mora SET balance=balance-? WHERE user_id=? AND chat_id=? AND balance>=?",
@@ -274,7 +274,6 @@ async def cmd_dice(message: Message, cmd_args: str, bot):
     )
 
     # Обновляем msg_id в дуэли
-    from database.postgres import connect as postgres_connect
     async with postgres_connect() as db:
         await db.execute(
             "UPDATE casino_duels SET msg_id=? WHERE id=?",
@@ -312,6 +311,7 @@ async def cb_duel_accept(callback: CallbackQuery):
         )
         return
 
+    from database.postgres import connect as postgres_connect
     async with postgres_connect() as db:
         cursor = await db.execute(
             "UPDATE user_mora SET balance=balance-? WHERE user_id=? AND chat_id=? AND balance>=?",
@@ -447,6 +447,10 @@ async def cmd_lottery(message: Message, cmd_args: str):
             await message.answer("❌ Не удалось купить билет.")
             return
         await db.commit()
+
+    # 10% НДС с лотерейных билетов → казна
+    lottery_tax = max(1, int(LOTTERY_PRICE * 0.10))
+    await add_to_treasury(chat_id, lottery_tax, "lottery_ticket", uid)
 
     new_count = await buy_lottery_ticket(chat_id, uid, week)
     mora_after = await get_mora(uid, chat_id)
