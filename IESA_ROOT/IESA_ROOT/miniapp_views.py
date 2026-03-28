@@ -184,8 +184,9 @@ def miniapp_user_data(request):
 
     try:
         conn, db_type = _get_bot_db_connection()
-    except Exception as exc:
-        return JsonResponse({"error": f"DB connection failed: {exc}"}, status=503,
+    except Exception:
+        logger.exception("miniapp: DB connection failed")
+        return JsonResponse({"error": "Сервис временно недоступен"}, status=503,
                             headers=headers)
 
     try:

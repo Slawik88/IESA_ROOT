@@ -34,9 +34,9 @@ async def transfer_mora(from_uid: int, to_uid: int, chat_id: int, amount: int,
         raise ValueError(f"Максимальная сумма перевода: {MORA_TRANSFER_MAX} 🪙")
 
     # Progressive tax
-    if amount <= 500:
+    if amount <= 1_000:
         tax_rate = 0.03
-    elif amount <= 2_000:
+    elif amount <= 5_000:
         tax_rate = 0.07
     else:
         tax_rate = 0.08

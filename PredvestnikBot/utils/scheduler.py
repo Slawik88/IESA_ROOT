@@ -74,6 +74,10 @@ async def run_scheduler(bot) -> None:
             await _task_weekly_top_rewards(bot)
         except Exception as exc:
             log.error("Scheduler [weekly_top_rewards] error: %s", exc, exc_info=True)
+        try:
+            await _task_dev_event_queue(bot)
+        except Exception as exc:
+            log.error("Scheduler [dev_event_queue] error: %s", exc, exc_info=True)
         await asyncio.sleep(3600)  # следующий прогон через час
 
 
