@@ -77,10 +77,16 @@ async def cmd_spy(message: Message, cmd_args: str):
         await message.answer(f"❌ Недостаточно Моры. Нужно {_SPY_COST} 🪙, у тебя {bal} 🪙.")
         return
 
-    ok, _ = await deduct_mora(uid, chat_id, _SPY_COST)
-    if not ok:
-        await message.answer("❌ Не удалось списать Мору.")
-        return
+    from database.postgres import connect as postgres_connect
+    async with postgres_connect() as db:
+        cursor = await db.execute(
+            "UPDATE user_mora SET balance=balance-? WHERE user_id=? AND chat_id=? AND balance>=?",
+            (_SPY_COST, uid, chat_id, _SPY_COST),
+        )
+        if cursor.rowcount == 0:
+            await message.answer("❌ Не удалось списать Мору.")
+            return
+        await db.commit()
 
     # Проверка: цель существует
     target_user = await get_user(target_id)

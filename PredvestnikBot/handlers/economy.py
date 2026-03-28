@@ -713,10 +713,22 @@ async def cmd_family_deposit(message: Message, cmd_args: str):
         await message.answer(f"❌ Недостаточно Моры. У тебя: <b>{bal} 🪙</b>", parse_mode="HTML")
         return
 
-    ok, new_personal = await deduct_mora(uid, chat_id, amount)
-    if not ok:
-        await message.answer("❌ Не удалось списать Мору. Попробуй ещё раз.")
-        return
+    from database.postgres import connect as postgres_connect
+    async with postgres_connect() as db:
+        cursor = await db.execute(
+            "UPDATE user_mora SET balance=balance-? WHERE user_id=? AND chat_id=? AND balance>=?",
+            (amount, uid, chat_id, amount),
+        )
+        if cursor.rowcount == 0:
+            await message.answer("❌ Не удалось списать Мору. Попробуй ещё раз.")
+            return
+        await db.commit()
+        async with db.execute(
+            "SELECT balance FROM user_mora WHERE user_id=? AND chat_id=?",
+            (uid, chat_id),
+        ) as c:
+            row = await c.fetchone()
+        new_personal = row[0] if row else 0
     new_family = await add_to_family_wallet(chat_id, uid, amount)
     await log_family_transaction(chat_id, uid, "deposit", amount, "Пополнение через бот")
     await message.answer(
@@ -811,10 +823,16 @@ async def cmd_anon_message(message: Message, cmd_args: str):
         )
         return
 
-    ok, _ = await deduct_mora(uid, chat_id, ANON_MSG_PRICE)
-    if not ok:
-        await message.answer("❌ Не удалось списать Мору. Попробуй ещё раз.")
-        return
+    from database.postgres import connect as postgres_connect
+    async with postgres_connect() as db:
+        cursor = await db.execute(
+            "UPDATE user_mora SET balance=balance-? WHERE user_id=? AND chat_id=? AND balance>=?",
+            (ANON_MSG_PRICE, uid, chat_id, ANON_MSG_PRICE),
+        )
+        if cursor.rowcount == 0:
+            await message.answer("❌ Не удалось списать Мору. Попробуй ещё раз.")
+            return
+        await db.commit()
 
     from aiogram import Bot
     bot: Bot = message.bot
@@ -979,10 +997,16 @@ async def cmd_secret_message(message: Message, cmd_args: str):
         return
 
     # Deduct mora
-    ok, _ = await deduct_mora(uid, chat_id, SECRET_MSG_PRICE)
-    if not ok:
-        await message.answer("❌ Не удалось списать Мору. Попробуй ещё раз.")
-        return
+    from database.postgres import connect as postgres_connect
+    async with postgres_connect() as db:
+        cursor = await db.execute(
+            "UPDATE user_mora SET balance=balance-? WHERE user_id=? AND chat_id=? AND balance>=?",
+            (SECRET_MSG_PRICE, uid, chat_id, SECRET_MSG_PRICE),
+        )
+        if cursor.rowcount == 0:
+            await message.answer("❌ Не удалось списать Мору. Попробуй ещё раз.")
+            return
+        await db.commit()
         
     # Create short unique ID for secret message
     import hashlib

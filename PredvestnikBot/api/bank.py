@@ -119,7 +119,7 @@ async def deposit(uid: int, chat_id: int, plan_key: str,
     Returns {ok, deposit_id, amount, rate_pct, reward, days, new_balance, wallet, singles_bonus}
     """
     from database.db import (
-        create_deposit, deduct_mora, get_mora, is_user_single,
+        get_mora, is_user_single,
     )
 
     try:
@@ -147,30 +147,62 @@ async def deposit(uid: int, chat_id: int, plan_key: str,
             ) as c:
                 row = await c.fetchone()
             fbal = row[0] if row else 0
-        if fbal < amount:
-            raise ValueError(f"Недостаточно семейных средств ({fbal}/{amount} 🪙)")
-        from database.postgres import connect as postgres_connect  # noqa: F811
-        async with postgres_connect() as db:
-            await db.execute(
+            if fbal < amount:
+                raise ValueError(f"Недостаточно семейных средств ({fbal}/{amount} 🪙)")
+            # Atomic: deduct + create deposit in one transaction
+            cursor = await db.execute(
                 "UPDATE family_wallet SET balance=balance-? WHERE chat_id=? AND balance>=?",
                 (amount, chat_id, amount),
             )
+            if cursor.rowcount == 0:
+                raise ValueError(f"Недостаточно семейных средств ({fbal}/{amount} 🪙)")
+            now = datetime.now(timezone.utc)
+            from datetime import timedelta
+            matures = now + timedelta(days=plan["days"])
+            dep_cursor = await db.execute(
+                "INSERT INTO bank_deposits (user_id, chat_id, amount, rate, created_at, matures_at)"
+                " VALUES (?,?,?,?,?,?) RETURNING id",
+                (uid, chat_id, amount, eff_rate, now, matures),
+            )
+            dep_row = await dep_cursor.fetchone()
+            dep_id = dep_row[0] if dep_row else 0
             await db.commit()
-        # Return family balance as new_balance
-        async with postgres_connect() as db:
+            # Read new family balance after commit
             async with db.execute(
                 "SELECT COALESCE(SUM(balance),0) FROM family_wallet WHERE chat_id=?", (chat_id,)
             ) as c:
                 row = await c.fetchone()
         new_balance = row[0] if row else 0
     else:
-        ok, new_balance = await deduct_mora(uid, chat_id, amount)
-        if not ok:
-            mora_row = await get_mora(uid, chat_id)
-            bal = mora_row["balance"] if mora_row else 0
-            raise ValueError(f"Недостаточно Моры ({bal}/{amount} 🪙)")
-
-    dep_id = await create_deposit(uid, chat_id, amount, eff_rate, plan["days"])
+        from database.postgres import connect as postgres_connect
+        async with postgres_connect() as db:
+            # Atomic: deduct mora + create deposit in one transaction
+            cursor = await db.execute(
+                "UPDATE user_mora SET balance=balance-? WHERE user_id=? AND chat_id=? AND balance>=?",
+                (amount, uid, chat_id, amount),
+            )
+            if cursor.rowcount == 0:
+                mora_row = await get_mora(uid, chat_id)
+                bal = mora_row["balance"] if mora_row else 0
+                raise ValueError(f"Недостаточно Моры ({bal}/{amount} 🪙)")
+            now = datetime.now(timezone.utc)
+            from datetime import timedelta
+            matures = now + timedelta(days=plan["days"])
+            dep_cursor = await db.execute(
+                "INSERT INTO bank_deposits (user_id, chat_id, amount, rate, created_at, matures_at)"
+                " VALUES (?,?,?,?,?,?) RETURNING id",
+                (uid, chat_id, amount, eff_rate, now, matures),
+            )
+            dep_row = await dep_cursor.fetchone()
+            dep_id = dep_row[0] if dep_row else 0
+            await db.commit()
+            # Read new personal balance
+            async with db.execute(
+                "SELECT balance FROM user_mora WHERE user_id=? AND chat_id=?",
+                (uid, chat_id),
+            ) as c:
+                row = await c.fetchone()
+            new_balance = row[0] if row else 0
     reward = int(amount * eff_rate)
 
     return {

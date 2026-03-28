@@ -15,7 +15,7 @@ async def buy_bond(uid: int, chat_id: int, bond_key: str,
     Returns {ok, bond_key, price_per, total_cost, holdings, invested, personal, family}
     """
     from database.db import (
-        add_mora, buy_bonds, deduct_mora, get_bond_prices, get_mora,
+        add_mora, buy_bonds, get_bond_prices, get_mora,
         get_user_bonds, is_user_single,
     )
 
@@ -55,11 +55,17 @@ async def buy_bond(uid: int, chat_id: int, bond_key: str,
             )
             await db.commit()
     else:
-        ok, _ = await deduct_mora(uid, chat_id, total_cost)
-        if not ok:
-            mora_row = await get_mora(uid, chat_id)
-            bal = mora_row["balance"] if mora_row else 0
-            raise ValueError(f"Недостаточно Моры ({bal}/{total_cost} 🪙)")
+        from database.postgres import connect as postgres_connect
+        async with postgres_connect() as db:
+            cursor = await db.execute(
+                "UPDATE user_mora SET balance=balance-? WHERE user_id=? AND chat_id=? AND balance>=?",
+                (total_cost, uid, chat_id, total_cost),
+            )
+            if cursor.rowcount == 0:
+                mora_row = await get_mora(uid, chat_id)
+                bal = mora_row["balance"] if mora_row else 0
+                raise ValueError(f"Недостаточно Моры ({bal}/{total_cost} 🪙)")
+            await db.commit()
 
     await buy_bonds(uid, chat_id, bond_key, amount, price_per)
 

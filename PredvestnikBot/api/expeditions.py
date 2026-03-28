@@ -25,7 +25,7 @@ async def start_expedition(uid: int, chat_id: int, option_key: str,
     Returns {ok, option, duration_h, reward_min, reward_max, cost, quest_done, quest_xp, quest_mora}
     """
     from database.db import (
-        add_mora, add_pet_fatigue, add_to_family_wallet, deduct_mora,
+        add_mora, add_pet_fatigue, add_to_family_wallet,
         get_active_expedition, get_family_wallet, get_mora, get_pet,
         is_user_single, start_expedition as _db_start_expedition,
     )
@@ -82,11 +82,17 @@ async def start_expedition(uid: int, chat_id: int, option_key: str,
                 )
                 await db.commit()
         else:
-            ok, _ = await deduct_mora(uid, chat_id, cost)
-            if not ok:
-                mora_row = await get_mora(uid, chat_id)
-                bal = mora_row["balance"] if mora_row else 0
-                raise ValueError(f"Недостаточно Моры ({bal}/{cost} 🪙)")
+            from database.postgres import connect as postgres_connect
+            async with postgres_connect() as db:
+                cursor = await db.execute(
+                    "UPDATE user_mora SET balance=balance-? WHERE user_id=? AND chat_id=? AND balance>=?",
+                    (cost, uid, chat_id, cost),
+                )
+                if cursor.rowcount == 0:
+                    mora_row = await get_mora(uid, chat_id)
+                    bal = mora_row["balance"] if mora_row else 0
+                    raise ValueError(f"Недостаточно Моры ({bal}/{cost} 🪙)")
+                await db.commit()
 
     # Start expedition
     ok = await _db_start_expedition(uid, chat_id, opt["hours"], opt["reward_min"], opt["reward_max"])

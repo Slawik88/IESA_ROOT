@@ -300,10 +300,16 @@ async def cb_pet_pay(callback: CallbackQuery):
                 show_alert=True
             )
             return
-        ok, _ = await deduct_mora(uid, chat_id, PET_ADOPT_PRICE)
-        if not ok:
-            await callback.answer("❌ Не удалось списать Мору. Попробуй ещё раз.", show_alert=True)
-            return
+        from database.postgres import connect as postgres_connect
+        async with postgres_connect() as db:
+            cursor = await db.execute(
+                "UPDATE user_mora SET balance=balance-? WHERE user_id=? AND chat_id=? AND balance>=?",
+                (PET_ADOPT_PRICE, uid, chat_id, PET_ADOPT_PRICE),
+            )
+            if cursor.rowcount == 0:
+                await callback.answer("❌ Не удалось списать Мору. Попробуй ещё раз.", show_alert=True)
+                return
+            await db.commit()
     else:  # family
         ok, new_bal = await deduct_wallet(uid, chat_id, PET_ADOPT_PRICE, "family")
         if not ok:
@@ -377,10 +383,22 @@ async def cb_pet_rename_confirm(callback: CallbackQuery):
         )
         return
 
-    ok, new_bal = await deduct_mora(uid, chat_id, PET_RENAME_PRICE)
-    if not ok:
-        await callback.answer("❌ Не удалось списать Мору. Попробуй ещё раз.", show_alert=True)
-        return
+    from database.postgres import connect as postgres_connect
+    async with postgres_connect() as db:
+        cursor = await db.execute(
+            "UPDATE user_mora SET balance=balance-? WHERE user_id=? AND chat_id=? AND balance>=?",
+            (PET_RENAME_PRICE, uid, chat_id, PET_RENAME_PRICE),
+        )
+        if cursor.rowcount == 0:
+            await callback.answer("❌ Не удалось списать Мору. Попробуй ещё раз.", show_alert=True)
+            return
+        await db.commit()
+        async with db.execute(
+            "SELECT balance FROM user_mora WHERE user_id=? AND chat_id=?",
+            (uid, chat_id),
+        ) as c:
+            row = await c.fetchone()
+        new_bal = row[0] if row else 0
 
     found = await rename_pet(uid, chat_id, name)
     if found:
@@ -446,10 +464,22 @@ async def cb_pet_skip(callback: CallbackQuery):
         )
         return
 
-    ok, new_bal = await deduct_mora(uid, chat_id, PET_MORA_SKIP_PRICE)
-    if not ok:
-        await callback.answer("❌ Не удалось списать Мору.", show_alert=True)
-        return
+    from database.postgres import connect as postgres_connect
+    async with postgres_connect() as db:
+        cursor = await db.execute(
+            "UPDATE user_mora SET balance=balance-? WHERE user_id=? AND chat_id=? AND balance>=?",
+            (PET_MORA_SKIP_PRICE, uid, chat_id, PET_MORA_SKIP_PRICE),
+        )
+        if cursor.rowcount == 0:
+            await callback.answer("❌ Не удалось списать Мору.", show_alert=True)
+            return
+        await db.commit()
+        async with db.execute(
+            "SELECT balance FROM user_mora WHERE user_id=? AND chat_id=?",
+            (uid, chat_id),
+        ) as c:
+            row = await c.fetchone()
+        new_bal = row[0] if row else 0
 
     kb = InlineKeyboardMarkup(inline_keyboard=[[
         InlineKeyboardButton(text="🐱 Котёнок", callback_data=f"pet_adopt_skip:{uid}:cat"),
@@ -645,10 +675,22 @@ async def cmd_change_pet_type(message: Message, cmd_args: str):
             )
             return
 
-        ok, new_bal = await deduct_mora(uid, chat_id, PET_CHANGE_TYPE_PRICE)
-        if not ok:
-            await message.answer("❌ Не удалось списать Мору.")
-            return
+        from database.postgres import connect as postgres_connect
+        async with postgres_connect() as db:
+            cursor = await db.execute(
+                "UPDATE user_mora SET balance=balance-? WHERE user_id=? AND chat_id=? AND balance>=?",
+                (PET_CHANGE_TYPE_PRICE, uid, chat_id, PET_CHANGE_TYPE_PRICE),
+            )
+            if cursor.rowcount == 0:
+                await message.answer("❌ Не удалось списать Мору.")
+                return
+            await db.commit()
+            async with db.execute(
+                "SELECT balance FROM user_mora WHERE user_id=? AND chat_id=?",
+                (uid, chat_id),
+            ) as c:
+                row = await c.fetchone()
+            new_bal = row[0] if row else 0
 
         await change_pet_type(uid, chat_id, new_type)
         old_emoji = _PET_EMOJI.get(pet["pet_type"], "🐾")

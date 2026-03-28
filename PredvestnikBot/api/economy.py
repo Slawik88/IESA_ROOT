@@ -156,23 +156,38 @@ async def buy_chat_buff(uid: int, chat_id: int, buff_type: str = "xp_plus10") ->
     Raises ValueError (Russian message) on any failure.
     Returns {"ok", "expires_at", "cost", "new_balance"}.
     """
-    from database.db import deduct_mora, get_mora, activate_chat_buff, get_active_chat_buff
+    from database.db import get_mora, activate_chat_buff, get_active_chat_buff
+    from database.postgres import connect as postgres_connect
 
     existing = await get_active_chat_buff(chat_id, buff_type)
     if existing:
         exp = existing.get("expires_at")
         raise ValueError(f"Баф уже активен до {exp} ⏰")
 
-    mora_row = await get_mora(uid, chat_id)
-    bal = mora_row["balance"] if mora_row else 0
-    if bal < CHAT_BUFF_PRICE:
-        raise ValueError(f"Недостаточно Моры: {bal}/{CHAT_BUFF_PRICE} 🪙")
-
-    ok, new_bal = await deduct_mora(uid, chat_id, CHAT_BUFF_PRICE)
-    if not ok:
-        raise ValueError("Не удалось списать Мору")
+    async with postgres_connect() as db:
+        cursor = await db.execute(
+            "UPDATE user_mora SET balance=balance-? WHERE user_id=? AND chat_id=? AND balance>=?",
+            (CHAT_BUFF_PRICE, uid, chat_id, CHAT_BUFF_PRICE),
+        )
+        if cursor.rowcount == 0:
+            mora_row = await get_mora(uid, chat_id)
+            bal = mora_row["balance"] if mora_row else 0
+            raise ValueError(f"Недостаточно Моры: {bal}/{CHAT_BUFF_PRICE} 🪙")
+        await db.commit()
+        async with db.execute(
+            "SELECT balance FROM user_mora WHERE user_id=? AND chat_id=?",
+            (uid, chat_id),
+        ) as c:
+            row = await c.fetchone()
+        new_bal = row[0] if row else 0
 
     result = await activate_chat_buff(chat_id, buff_type, uid, CHAT_BUFF_DURATION_MINUTES)
+
+    # 5% НДС from chat buff purchases → treasury
+    from database.db import add_to_treasury
+    buff_tax = max(1, int(CHAT_BUFF_PRICE * 0.05))
+    await add_to_treasury(chat_id, buff_tax, "chat_buff", uid)
+
     return {
         "ok":          True,
         "buff_type":   buff_type,

@@ -1477,10 +1477,22 @@ async def cb_theme_buy(callback: CallbackQuery):
     if bal < price:
         await callback.answer(f"❌ Не хватает моры ({bal}/{price}).", show_alert=True)
         return
-    ok, new_bal = await _deduct(uid, chat_id, price)
-    if not ok:
-        await callback.answer("❌ Не удалось списать Мору.", show_alert=True)
-        return
+    from database.postgres import connect as postgres_connect
+    async with postgres_connect() as db:
+        cursor = await db.execute(
+            "UPDATE user_mora SET balance=balance-? WHERE user_id=? AND chat_id=? AND balance>=?",
+            (price, uid, chat_id, price),
+        )
+        if cursor.rowcount == 0:
+            await callback.answer("❌ Не удалось списать Мору.", show_alert=True)
+            return
+        await db.commit()
+        async with db.execute(
+            "SELECT balance FROM user_mora WHERE user_id=? AND chat_id=?",
+            (uid, chat_id),
+        ) as c:
+            row = await c.fetchone()
+        new_bal = row[0] if row else 0
     await add_user_theme(uid, chat_id, key, "shop")
     await set_active_theme(uid, chat_id, key)
     await callback.answer(f"✅ Тема «{theme['name']}» куплена и активирована!")

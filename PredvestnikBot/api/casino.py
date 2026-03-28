@@ -75,7 +75,8 @@ async def coin_flip(uid: int, chat_id: int, bet: int) -> dict:
 
     Raises ValueError with a user-friendly Russian message on any error.
     """
-    from database.db import deduct_mora, get_mora
+    from database.db import get_mora
+    from database.postgres import connect as postgres_connect
 
     try:
         from config import COIN_MAX_BET
@@ -87,14 +88,16 @@ async def coin_flip(uid: int, chat_id: int, bet: int) -> dict:
     if bet > COIN_MAX_BET:
         raise ValueError(f"Максимальная ставка: {COIN_MAX_BET} 🪙")
 
-    mora_row = await get_mora(uid, chat_id)
-    bal = mora_row["balance"] if mora_row else 0
-    if bal < bet:
-        raise ValueError(f"Недостаточно Моры. У тебя: {bal} 🪙")
-
-    ok, _ = await deduct_mora(uid, chat_id, bet)
-    if not ok:
-        raise ValueError("Не удалось списать ставку")
+    async with postgres_connect() as db:
+        cursor = await db.execute(
+            "UPDATE user_mora SET balance=balance-? WHERE user_id=? AND chat_id=? AND balance>=?",
+            (bet, uid, chat_id, bet),
+        )
+        if cursor.rowcount == 0:
+            mora_row = await get_mora(uid, chat_id)
+            bal = mora_row["balance"] if mora_row else 0
+            raise ValueError(f"Недостаточно Моры. У тебя: {bal} 🪙")
+        await db.commit()
 
     return await coin_flip_resolve(uid, chat_id, bet)
 
@@ -137,28 +140,41 @@ async def buy_lottery_ticket(uid: int, chat_id: int) -> dict:
     Raises ValueError on insufficient balance.
     Returns {ok, tickets, ticket_price, new_balance}.
     """
-    from database.db import deduct_mora, get_mora
+    from database.db import get_mora
     from database.db import buy_lottery_ticket as _db_buy_ticket
+    from database.postgres import connect as postgres_connect
 
     try:
         from config import LOTTERY_TICKET_PRICE
     except Exception:
         LOTTERY_TICKET_PRICE = 10
 
-    mora_row = await get_mora(uid, chat_id)
-    balance = mora_row["balance"] if mora_row else 0
-    if balance < LOTTERY_TICKET_PRICE:
-        raise ValueError(f"Нужно {LOTTERY_TICKET_PRICE} 🪙")
-
-    ok, _ = await deduct_mora(uid, chat_id, LOTTERY_TICKET_PRICE)
-    if not ok:
-        raise ValueError("Не удалось списать Мору")
+    async with postgres_connect() as db:
+        cursor = await db.execute(
+            "UPDATE user_mora SET balance=balance-? WHERE user_id=? AND chat_id=? AND balance>=?",
+            (LOTTERY_TICKET_PRICE, uid, chat_id, LOTTERY_TICKET_PRICE),
+        )
+        if cursor.rowcount == 0:
+            mora_row = await get_mora(uid, chat_id)
+            bal = mora_row["balance"] if mora_row else 0
+            raise ValueError(f"Нужно {LOTTERY_TICKET_PRICE} 🪙")
+        await db.commit()
 
     week = _week_key()
     tickets = await _db_buy_ticket(chat_id, uid, week)
 
-    new_mora = await get_mora(uid, chat_id)
-    new_balance = new_mora["balance"] if new_mora else 0
+    # 10% НДС from lottery tickets → treasury
+    from database.db import add_to_treasury
+    lottery_tax = max(1, int(LOTTERY_TICKET_PRICE * 0.10))
+    await add_to_treasury(chat_id, lottery_tax, "lottery_ticket", uid)
+
+    async with postgres_connect() as db:
+        async with db.execute(
+            "SELECT balance FROM user_mora WHERE user_id=? AND chat_id=?",
+            (uid, chat_id),
+        ) as c:
+            row = await c.fetchone()
+    new_balance = row[0] if row else 0
 
     return {
         "ok": True,

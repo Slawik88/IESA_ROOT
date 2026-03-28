@@ -57,7 +57,22 @@ async def process_payment(
         return new_total
 
     # personal wallet
-    ok, new_bal = await deduct_mora(user_id, chat_id, amount)
-    if not ok:
-        raise NotEnoughMoraError(have=new_bal, need=amount)
+    from database.postgres import connect as postgres_connect
+    async with postgres_connect() as db:
+        cursor = await db.execute(
+            "UPDATE user_mora SET balance=balance-? WHERE user_id=? AND chat_id=? AND balance>=?",
+            (amount, user_id, chat_id, amount),
+        )
+        if cursor.rowcount == 0:
+            from database.db import get_mora
+            mora_row = await get_mora(user_id, chat_id)
+            have = mora_row["balance"] if mora_row else 0
+            raise NotEnoughMoraError(have=have, need=amount)
+        await db.commit()
+        async with db.execute(
+            "SELECT balance FROM user_mora WHERE user_id=? AND chat_id=?",
+            (user_id, chat_id),
+        ) as c:
+            row = await c.fetchone()
+        new_bal = row[0] if row else 0
     return new_bal
