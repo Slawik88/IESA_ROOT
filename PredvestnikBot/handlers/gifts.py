@@ -47,7 +47,7 @@ async def cmd_gifts(message: Message, cmd_args: str):
     abs_cid = abs(message.chat.id)
     btn = InlineKeyboardButton(
         text="🎁 Подарки в Mini App",
-        url=f"{MINI_APP_TG_URL}?startapp={abs_cid}",
+        url=f"{MINI_APP_TG_URL}?startapp={abs_cid}_union",
     )
     await message.answer(
         "🎁 <b>Подарки переехали в Mini App!</b>",

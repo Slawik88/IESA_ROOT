@@ -72,6 +72,9 @@ async def cmd_coin(message: Message, cmd_args: str):
         return
 
     bet = int(arg)
+    if bet < 200:
+        await message.answer("❌ Минимальная ставка в чате: <b>200 🪙</b>\nМеньшие ставки доступны в 🎲 Mini App.", parse_mode="HTML")
+        return
     if bet > COIN_MAX_BET:
         await message.answer(f"❌ Максимальная ставка: <b>{COIN_MAX_BET} 🪙</b>", parse_mode="HTML")
         return

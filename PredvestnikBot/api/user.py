@@ -32,10 +32,12 @@ async def get_leaderboard(
         rows = await get_leaderboard_messages(chat_id, limit=limit)
         entries = [
             {
-                "rank":    i + 1,
-                "user_id": r["user_id"],
-                "name":    r["full_name"] or f"user_{r['user_id']}",
-                "score":   r["message_count"] or 0,
+                "rank":       i + 1,
+                "user_id":    r["user_id"],
+                "name":       r["full_name"] or f"user_{r['user_id']}",
+                "score":      r["message_count"] or 0,
+                "color_name": r.get("color_name") or "",
+                "vip":        bool(r.get("vip")),
             }
             for i, r in enumerate(rows)
         ]
@@ -44,10 +46,12 @@ async def get_leaderboard(
         rows = await get_boss_leaderboard(chat_id, limit=limit)
         entries = [
             {
-                "rank":    i + 1,
-                "user_id": r["user_id"],
-                "name":    r["full_name"] or f"user_{r['user_id']}",
-                "score":   r["total_damage"] or 0,
+                "rank":       i + 1,
+                "user_id":    r["user_id"],
+                "name":       r["full_name"] or f"user_{r['user_id']}",
+                "score":      r["total_damage"] or 0,
+                "color_name": "",
+                "vip":        False,
             }
             for i, r in enumerate(rows)
         ]
@@ -55,7 +59,7 @@ async def get_leaderboard(
     elif lb_type == "mora":
         async with postgres_connect() as db:
             async with db.execute(
-                "SELECT m.user_id, u.full_name, m.balance "
+                "SELECT m.user_id, u.full_name, m.balance, m.vip "
                 "FROM user_mora m LEFT JOIN users u ON u.user_id=m.user_id "
                 "WHERE m.chat_id=? ORDER BY m.balance DESC LIMIT ?",
                 (chat_id, limit),
@@ -63,11 +67,13 @@ async def get_leaderboard(
                 rows = await c.fetchall()
         entries = [
             {
-                "rank":    i + 1,
-                "user_id": r[0],
-                "name":    r[1] or f"user_{r[0]}",
+                "rank":       i + 1,
+                "user_id":    r[0],
+                "name":       r[1] or f"user_{r[0]}",
                 # mora balance is private — only show for the requesting user
-                "score":   (r[2] or 0) if r[0] == uid else None,
+                "score":      (r[2] or 0) if r[0] == uid else None,
+                "color_name": "",
+                "vip":        bool(r[3]),
             }
             for i, r in enumerate(rows)
         ]
@@ -76,10 +82,12 @@ async def get_leaderboard(
         rows = await get_leaderboard_xp(chat_id, limit=limit)
         entries = [
             {
-                "rank":    i + 1,
-                "user_id": r["user_id"],
-                "name":    r["full_name"] or f"user_{r['user_id']}",
-                "score":   r["xp"] or 0,
+                "rank":       i + 1,
+                "user_id":    r["user_id"],
+                "name":       r["full_name"] or f"user_{r['user_id']}",
+                "score":      r["xp"] or 0,
+                "color_name": r.get("color_name") or "",
+                "vip":        bool(r.get("vip")),
             }
             for i, r in enumerate(rows)
         ]

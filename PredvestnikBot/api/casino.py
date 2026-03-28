@@ -33,6 +33,11 @@ async def coin_flip_resolve(uid: int, chat_id: int, bet: int) -> dict:
         prize   = bet * 2 - win_tax
         await add_to_treasury(chat_id, win_tax, "coinflip", uid)
         new_bal = await add_mora(uid, chat_id, prize)
+        try:
+            from api.economy import log_wallet_tx
+            await log_wallet_tx(uid, chat_id, "income", prize, "casino", f"Выигрыш {prize}🪙")
+        except Exception:
+            pass
     else:
         mora_row = await get_mora(uid, chat_id)
         new_bal  = mora_row["balance"] if mora_row else 0
@@ -99,6 +104,13 @@ async def coin_flip(uid: int, chat_id: int, bet: int) -> dict:
             bal = mora_row["balance"] if mora_row else 0
             raise ValueError(f"Недостаточно Моры. У тебя: {bal} 🪙")
         await db.commit()
+
+    # Log bet as expense
+    try:
+        from api.economy import log_wallet_tx
+        await log_wallet_tx(uid, chat_id, "expense", bet, "casino", f"Ставка {bet}🪙")
+    except Exception:
+        pass
 
     return await coin_flip_resolve(uid, chat_id, bet)
 

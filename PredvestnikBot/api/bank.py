@@ -195,6 +195,14 @@ async def deposit(uid: int, chat_id: int, plan_key: str,
             new_balance = row[0] if row else 0
     reward = int(amount * eff_rate)
 
+    # Log to wallet ledger
+    try:
+        from api.economy import log_wallet_tx
+        await log_wallet_tx(uid, chat_id, "expense", amount, "bank_deposit",
+                            f"Вклад {plan_key} {plan['days']}д")
+    except Exception:
+        pass
+
     return {
         "ok":            True,
         "deposit_id":    dep_id,
@@ -259,6 +267,14 @@ async def withdraw(uid: int, chat_id: int, deposit_id: int) -> dict:
     new_balance = await add_mora(uid, chat_id, payout)
     if interest_tax > 0:
         await add_to_treasury(chat_id, interest_tax, "bank_interest", uid)
+
+    # Log to wallet ledger
+    try:
+        from api.economy import log_wallet_tx
+        desc = f"Досрочно, штраф {amount - payout}🪙" if early else f"Прибыль {int(amount * rate)}🪙"
+        await log_wallet_tx(uid, chat_id, "income", payout, "bank_withdraw", desc)
+    except Exception:
+        pass
 
     return {
         "ok":           True,

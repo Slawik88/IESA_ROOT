@@ -67,6 +67,8 @@ from .miniapp_views import (
     miniapp_pets_rename,
     miniapp_cleanup_config,
     miniapp_chat_buff,
+    miniapp_gifts_catalog,
+    miniapp_gifts_send,
 )
 
 # Переопределить стандартный админ на кастомный
@@ -191,6 +193,9 @@ urlpatterns = [
     path('api/cleanup_config', miniapp_cleanup_config, name='miniapp_cleanup_config'),
     # ─── Chat buff / Глобальный баф чата (Block 8) ────────────────────────────
     path('api/chat_buff', miniapp_chat_buff, name='miniapp_chat_buff'),
+    # ─── Gifts / Подарки партнёру ─────────────────────────────────────────────
+    path('api/gifts/catalog', miniapp_gifts_catalog, name='miniapp_gifts_catalog'),
+    path('api/gifts/send', miniapp_gifts_send, name='miniapp_gifts_send'),
     # ──────────────────────────────────────────────────────────────────────────
     path('protected/<path:file_path>', serve_protected_media, name='serve_protected_media'),
     

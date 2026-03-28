@@ -6,6 +6,27 @@ All functions are async; the mini app wraps them with async_to_sync.
 from datetime import datetime, timezone, timedelta
 
 
+async def log_wallet_tx(
+    uid: int, chat_id: int, direction: str, amount: int,
+    source: str, description: str = "",
+) -> None:
+    """Write one row to wallet_ledger. Silently no-ops if amount <= 0."""
+    if amount <= 0:
+        return
+    try:
+        from database.postgres import connect as postgres_connect
+        async with postgres_connect() as db:
+            await db.execute(
+                "INSERT INTO wallet_ledger "
+                "(chat_id, user_id, direction, amount, source, description, created_at) "
+                "VALUES (?,?,?,?,?,?,NOW())",
+                (chat_id, uid, direction, amount, source, description or ""),
+            )
+            await db.commit()
+    except Exception:
+        pass  # Never break transactions because of ledger
+
+
 async def transfer_mora(from_uid: int, to_uid: int, chat_id: int, amount: int,
                         cover_vat: bool = True) -> dict:
     """
@@ -103,6 +124,12 @@ async def transfer_mora(from_uid: int, to_uid: int, chat_id: int, amount: int,
             row = await c.fetchone()
         to_bal = row[0] if row else 0
 
+    # Log in ledger (fire-and-forget, never breaks the main transaction)
+    await log_wallet_tx(from_uid, chat_id, "expense", deduct_total, "transfer_out",
+                        f"→ [{to_uid}] -{tax}🪙 налог")
+    await log_wallet_tx(to_uid, chat_id, "income", credit_amount, "transfer_in",
+                        f"← [{from_uid}]")
+
     return {
         "ok":           True,
         "amount":       credit_amount,
@@ -122,7 +149,7 @@ async def get_balance(uid: int, chat_id: int) -> int:
 async def wallet_history(uid: int, chat_id: int, days: int = 7) -> list:
     """Returns up to 100 wallet-ledger entries from the last N days."""
     from database.postgres import connect as postgres_connect
-    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
     async with postgres_connect() as db:
         async with db.execute(
             "SELECT direction, amount, source, description, created_at "

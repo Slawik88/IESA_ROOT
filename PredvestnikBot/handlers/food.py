@@ -70,7 +70,7 @@ async def cmd_food_shop(message: Message):
     abs_cid = abs(message.chat.id)
     btn = InlineKeyboardButton(
         text="🍖 Кормить в Mini App",
-        url=f"{MINI_APP_TG_URL}?startapp={abs_cid}",
+        url=f"{MINI_APP_TG_URL}?startapp={abs_cid}_union",
     )
     await message.answer(
         "🍖 <b>Кормление питомца переехало в Mini App!</b>",

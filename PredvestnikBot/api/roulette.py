@@ -160,10 +160,12 @@ async def roulette_spin(
         if not row or row["balance"] < bet_amount:
             bal = row["balance"] if row else 0
             raise ValueError(f"Недостаточно Моры. У тебя: {bal} 🪙")
-        await db.execute(
-            "UPDATE user_mora SET balance=balance-? WHERE user_id=? AND chat_id=?",
-            (bet_amount, uid, chat_id),
+        cursor = await db.execute(
+            "UPDATE user_mora SET balance=balance-? WHERE user_id=? AND chat_id=? AND balance>=?",
+            (bet_amount, uid, chat_id, bet_amount),
         )
+        if cursor.rowcount == 0:
+            raise ValueError("Недостаточно Моры")
         losses = row["roulette_losses"]
 
     # ── Spin (with pity boost after losing streak) ────────────────────────────

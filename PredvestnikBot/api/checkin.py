@@ -41,5 +41,27 @@ async def do_checkin(uid: int, chat_id: int) -> dict:
     if result.get("already_done"):
         return result
 
-    await add_mora(uid, chat_id, result["mora"])
+    mora = result["mora"]
+
+    # VIP bonus: +15% to checkin reward
+    try:
+        from database.db import get_vip
+        if await get_vip(uid, chat_id):
+            mora = int(mora * 1.15)
+            result["mora"] = mora
+            result["vip_bonus"] = True
+    except Exception:
+        pass
+
+    await add_mora(uid, chat_id, mora)
+
+    # Log to wallet ledger
+    try:
+        from api.economy import log_wallet_tx
+        streak = result.get("streak", 1)
+        await log_wallet_tx(uid, chat_id, "income", mora, "checkin",
+                            f"Стрик {streak} {'день' if streak == 1 else 'дней'}")
+    except Exception:
+        pass
+
     return result

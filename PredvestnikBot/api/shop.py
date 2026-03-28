@@ -211,10 +211,12 @@ async def buy_item(
             bal = row["balance"] if row else 0
             if bal < price:
                 raise ValueError(f"Недостаточно Моры ({bal}/{price})")
-            await db.execute(
-                "UPDATE user_mora SET balance=balance-? WHERE user_id=? AND chat_id=?",
-                (price, uid, chat_id),
+            cursor = await db.execute(
+                "UPDATE user_mora SET balance=balance-? WHERE user_id=? AND chat_id=? AND balance>=?",
+                (price, uid, chat_id, price),
             )
+            if cursor.rowcount == 0:
+                raise ValueError(f"Недостаточно Моры")
             row2 = await db.fetchone(
                 "SELECT balance FROM user_mora WHERE user_id=? AND chat_id=?",
                 (uid, chat_id),
@@ -252,6 +254,15 @@ async def buy_item(
             hp=meta.get("hp", 0), crit_rate=meta.get("crit_rate", 0.0),
             slot=meta.get("slot"),
         )
+
+    # Log purchase to wallet ledger
+    try:
+        from api.economy import log_wallet_tx
+        if price > 0:
+            await log_wallet_tx(uid, chat_id, "expense", price, "shop_buy",
+                                f"{item_type}:{item_key}")
+    except Exception:
+        pass
 
     return {
         "ok":            True,

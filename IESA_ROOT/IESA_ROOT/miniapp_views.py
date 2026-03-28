@@ -4618,3 +4618,167 @@ def miniapp_chat_buff(request):
             logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
 
     return JsonResponse({"error": "method not allowed"}, status=405, headers=headers)
+
+
+# ─── Gifts / Подарки партнёру ─────────────────────────────────────────────────
+
+@csrf_exempt
+def miniapp_gifts_catalog(request):
+    """GET /api/gifts/catalog?chat_id=X
+    Returns catalog of marriage gifts + summary of gifts sent/received in this pair.
+    """
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "GET":
+        return JsonResponse({"error": "GET required"}, status=405, headers=headers)
+
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+
+    chat_id_str = request.GET.get("chat_id", "")
+    if not chat_id_str.lstrip("-").isdigit():
+        return JsonResponse({"error": "chat_id required"}, status=400, headers=headers)
+    chat_id = int(chat_id_str)
+
+    try:
+        from asgiref.sync import async_to_sync as _a2s
+        from database.db import get_marriage, get_gifts_summary, get_received_gifts
+        from shared_prices import MARRIAGE_GIFTS
+
+        marriage = _a2s(get_marriage)(uid, chat_id)
+        if not marriage:
+            return JsonResponse({"ok": True, "married": False, "catalog": [], "summary": None}, headers=headers)
+
+        partner_id = marriage["partner_id"]
+        count, total = _a2s(get_gifts_summary)(uid, partner_id, chat_id)
+        received = _a2s(get_received_gifts)(uid, chat_id)
+
+        catalog = []
+        for key, gift in MARRIAGE_GIFTS.items():
+            buff = gift.get("buff")
+            catalog.append({
+                "key":   key,
+                "name":  gift["name"],
+                "price": gift["price"],
+                "buff":  {"pct": buff["type"].replace("mora_boost_", ""), "hours": buff["hours"]} if buff else None,
+            })
+
+        return JsonResponse({
+            "ok":             True,
+            "married":        True,
+            "partner_id":     partner_id,
+            "catalog":        catalog,
+            "summary":        {"count": count, "total": total},
+            "received":       received,
+        }, json_dumps_params={"ensure_ascii": False}, headers=headers)
+    except Exception as exc:
+        logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
+
+
+@csrf_exempt
+def miniapp_gifts_send(request):
+    """POST /api/gifts/send {chat_id, gift_key, wallet}
+    Deducts mora and records a gift to partner.
+    Returns {ok, gift_name, price, new_balance, buff?}.
+    """
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=405, headers=headers)
+
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+
+    try:
+        body = json.loads(request.body or b"{}")
+        chat_id  = int(str(body.get("chat_id", "0")))
+        gift_key = str(body.get("gift_key", "")).strip()
+        wallet   = str(body.get("wallet", "personal")).lower()
+        if wallet not in ("personal", "family"):
+            wallet = "personal"
+    except Exception:
+        return JsonResponse({"error": "invalid JSON"}, status=400, headers=headers)
+
+    if not gift_key:
+        return JsonResponse({"error": "gift_key required"}, status=400, headers=headers)
+
+    try:
+        from asgiref.sync import async_to_sync as _a2s
+        from database.db import (get_marriage, give_gift, add_buff, get_mora)
+        from shared_prices import MARRIAGE_GIFTS
+
+        gift_info = MARRIAGE_GIFTS.get(gift_key)
+        if not gift_info:
+            return JsonResponse({"error": "Неизвестный подарок"}, status=400, headers=headers)
+
+        marriage = _a2s(get_marriage)(uid, chat_id)
+        if not marriage:
+            return JsonResponse({"error": "Ты не в браке — некому дарить подарок"}, status=400, headers=headers)
+
+        partner_id = marriage["partner_id"]
+        price      = gift_info["price"]
+
+        # Deduct payment
+        if wallet == "family":
+            from database.db import deduct_family_pool, get_total_family_balance
+            total_fbal, _my, _pid = _a2s(get_total_family_balance)(chat_id, uid)
+            if total_fbal < price:
+                return JsonResponse({"error": f"Недостаточно в семейном кошельке ({total_fbal}/{price} 🪙)"}, status=400, headers=headers)
+            _a2s(deduct_family_pool)(chat_id, uid, partner_id, price)
+        else:
+            from database.postgres import connect as postgres_connect
+            from asgiref.sync import async_to_sync as _a2s2
+            async def _deduct():
+                async with postgres_connect() as db:
+                    cursor = await db.execute(
+                        "UPDATE user_mora SET balance=balance-? WHERE user_id=? AND chat_id=? AND balance>=?",
+                        (price, uid, chat_id, price),
+                    )
+                    if cursor.rowcount == 0:
+                        from database.db import get_mora as _gm
+                        m = await _gm(uid, chat_id)
+                        bal = m["balance"] if m else 0
+                        raise ValueError(f"Недостаточно Моры ({bal}/{price} 🪙)")
+                    await db.commit()
+            _a2s2(_deduct)()
+
+        # Record gift
+        _a2s(give_gift)(uid, partner_id, chat_id, gift_key, gift_info["name"], price)
+
+        # Apply buff if any
+        buff_info = gift_info.get("buff")
+        if buff_info:
+            _a2s(add_buff)(uid, chat_id, buff_info["type"], buff_info["hours"], f"gift:{gift_key}")
+            _a2s(add_buff)(partner_id, chat_id, buff_info["type"], buff_info["hours"], f"gift:{gift_key}")
+
+        mora_row = _a2s(get_mora)(uid, chat_id)
+        new_bal  = mora_row["balance"] if mora_row else 0
+
+        resp = {
+            "ok":          True,
+            "gift_name":   gift_info["name"],
+            "price":       price,
+            "new_balance": new_bal,
+        }
+        if buff_info:
+            pct = buff_info["type"].replace("mora_boost_", "")
+            resp["buff"] = {"pct": pct, "hours": buff_info["hours"]}
+
+        # Log to wallet ledger
+        try:
+            from api.economy import log_wallet_tx
+            _a2s(log_wallet_tx)(uid, chat_id, "expense", price, "shop_buy",
+                                f"Подарок: {gift_info['name']}")
+        except Exception:
+            pass
+
+        return JsonResponse(resp, json_dumps_params={"ensure_ascii": False}, headers=headers)
+
+    except ValueError as ve:
+        return JsonResponse({"error": str(ve)}, status=400, headers=headers)
+    except Exception as exc:
+        logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
