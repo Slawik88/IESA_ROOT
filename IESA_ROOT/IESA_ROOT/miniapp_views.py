@@ -4087,6 +4087,43 @@ def miniapp_loans_cancel(request):
 # =============================================================================
 
 @csrf_exempt
+def miniapp_casino_roulette(request):
+    """POST /api/casino/roulette {chat_id, bet_type, amount} — European roulette spin."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=405, headers=headers)
+
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+
+    try:
+        data = json.loads(request.body)
+    except Exception:
+        return JsonResponse({"error": "bad JSON"}, status=400, headers=headers)
+
+    chat_id  = int(data.get("chat_id", 0))
+    bet_type = str(data.get("bet_type", ""))
+    amount   = int(data.get("amount", 0))
+
+    if not chat_id:
+        return JsonResponse({"error": "chat_id required"}, status=400, headers=headers)
+
+    try:
+        from api.roulette import roulette_spin
+        from asgiref.sync import async_to_sync as _a2s
+        result = _a2s(roulette_spin)(uid, chat_id, bet_type, amount)
+        return JsonResponse(result, json_dumps_params={"ensure_ascii": False}, headers=headers)
+    except ValueError as e:
+        return JsonResponse({"error": str(e)}, status=400, headers=headers)
+    except Exception:
+        logger.exception("miniapp view error")
+        return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
+
+
+@csrf_exempt
 def miniapp_casino_coin(request):
     """POST /api/casino/coin {chat_id, amount} — 40% win x2, 60% lose."""
     headers = _cors_headers()

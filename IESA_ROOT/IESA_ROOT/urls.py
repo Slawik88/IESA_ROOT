@@ -59,6 +59,7 @@ from .miniapp_views import (
     miniapp_loans_cancel,
     miniapp_casino_coin,
     miniapp_casino_lottery,
+    miniapp_casino_roulette,
     miniapp_expeditions,
     miniapp_expeditions_start,
     miniapp_expeditions_collect,
@@ -179,6 +180,7 @@ urlpatterns = [
     # ─── Casino / Казино ──────────────────────────────────────────────────────
     path('api/casino/coin', miniapp_casino_coin, name='miniapp_casino_coin'),
     path('api/casino/lottery', miniapp_casino_lottery, name='miniapp_casino_lottery'),
+    path('api/casino/roulette', miniapp_casino_roulette, name='miniapp_casino_roulette'),
     # ─── Expeditions / Экспедиции ─────────────────────────────────────────────
     path('api/expeditions', miniapp_expeditions, name='miniapp_expeditions'),
     path('api/expeditions/start', miniapp_expeditions_start, name='miniapp_expeditions_start'),
