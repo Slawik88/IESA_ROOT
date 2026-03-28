@@ -121,7 +121,7 @@ async def buy_item(
     from database.db import (
         get_mora, has_shop_item, buy_shop_item,
         set_top_frame, set_vip, get_vip, get_family_wallet, add_to_family_wallet,
-        get_marriage,
+        get_marriage, deduct_family_pool,
     )
     from shared_prices import FRAMES_CATALOG, COSMETICS_CATALOG, PRICE_VIP
 
@@ -200,17 +200,7 @@ async def buy_item(
         if not marriage:
             raise ValueError("Нет семейного кошелька")
         partner_id = marriage["partner_id"]
-        my_fam     = await get_family_wallet(chat_id, uid)
-        partner_fam = await get_family_wallet(chat_id, partner_id)
-        total_fam  = my_fam + partner_fam
-        if total_fam < price:
-            raise ValueError(f"Недостаточно в семейном ({total_fam}/{price})")
-        # Deduct from user's slot first, then partner's if needed
-        deduct_me      = min(my_fam, price)
-        deduct_partner = price - deduct_me
-        await add_to_family_wallet(chat_id, uid, -deduct_me)
-        if deduct_partner > 0:
-            await add_to_family_wallet(chat_id, partner_id, -deduct_partner)
+        await deduct_family_pool(chat_id, uid, partner_id, price)
         mora = await get_mora(uid, chat_id)
         new_bal = mora["balance"] if mora else 0
     else:

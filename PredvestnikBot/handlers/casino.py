@@ -38,6 +38,8 @@ router = Router()
 
 # Защита от двойного клика: хранит (user_id, message_id) активных броскoв
 _active_coins: set[tuple] = set()
+# Уже разыгранные монетки в текущей сессии (для предотвращения возврата ставки после результата)
+_resolved_coins: set[tuple] = set()
 
 LOTTERY_PRICE   = LOTTERY_TICKET_PRICE  # алиас для обратной совместимости
 DUEL_EXPIRE_SEC = 300   # 5 минут для принятия дуэли
@@ -130,12 +132,28 @@ async def cb_coin_choice(callback: CallbackQuery):
     # Защита от двойного клика (или перезапуска бота)
     key = (uid, callback.message.message_id)
     if key not in _active_coins:
-        await callback.answer(
-            "🎰 Монетка уже разыграна или бот перезапускался. Попробуй снова.",
-            show_alert=True,
-        )
+        if key in _resolved_coins:
+            # Монетка уже разыграна в этой сессии — просто напоминание
+            await callback.answer("🎰 Монетка уже разыграна.", show_alert=True)
+        else:
+            # Бот перезапускался — ставка ещё не разыграна, возвращаем деньги
+            from database.postgres import connect as postgres_connect
+            async with postgres_connect() as db:
+                await db.execute(
+                    "UPDATE user_mora SET balance=balance+? WHERE user_id=? AND chat_id=?",
+                    (bet, uid, chat_id),
+                )
+            try:
+                await callback.message.edit_text(
+                    f"🔄 Бот перезапускался — ставка <b>{bet} 🪙</b> возвращена.",
+                    parse_mode="HTML",
+                )
+            except Exception:
+                pass
+            await callback.answer(f"Ставка {bet} 🪙 возвращена (перезапуск бота).", show_alert=True)
         return
     _active_coins.discard(key)
+    _resolved_coins.add(key)
 
     chosen_label = "🦅 Орёл" if side == "eagle" else "🪙 Решка"
     # Реальный результат — случаен, выбор юзера только косметический
@@ -365,7 +383,7 @@ async def cb_duel_accept(callback: CallbackQuery):
         f"{user_mention(challenger_id, challenger_name)}: {_DICE_FACE[challenger_roll]} {challenger_roll}\n"
         f"{user_mention(target_id, target_name)}: {_DICE_FACE[target_roll]} {target_roll}\n\n"
         f"🏆 Победитель: {user_mention(winner_id, winner_name)}!\n"
-        f"Приз: <b>+{bet - duel_tax} 🪙</b>  (банк: {net_pot} 🪙, налог: {duel_tax} 🪙)\n"
+        f"Приз: <b>+{net_pot} 🪙</b> (банк: {total_pot} 🪙, налог: −{duel_tax} 🪙)\n"
         f"Баланс победителя: <b>{new_bal} 🪙</b>"
     )
     try:

@@ -41,18 +41,18 @@ async def buy_bond(uid: int, chat_id: int, bond_key: str,
             raise ValueError("Нет семейного кошелька")
         from database.postgres import connect as postgres_connect
         async with postgres_connect() as db:
-            async with db.execute(
-                "SELECT COALESCE(balance,0) FROM family_wallet WHERE chat_id=? AND user_id=?",
-                (chat_id, uid),
-            ) as c:
-                row = await c.fetchone()
-            fam_bal = row[0] if row else 0
-            if fam_bal < total_cost:
-                raise ValueError(f"Недостаточно в семейном ({fam_bal}/{total_cost} 🪙)")
-            await db.execute(
+            cursor = await db.execute(
                 "UPDATE family_wallet SET balance=balance-? WHERE chat_id=? AND user_id=? AND balance>=?",
                 (total_cost, chat_id, uid, total_cost),
             )
+            if cursor.rowcount == 0:
+                async with db.execute(
+                    "SELECT COALESCE(balance,0) FROM family_wallet WHERE chat_id=? AND user_id=?",
+                    (chat_id, uid),
+                ) as c:
+                    row = await c.fetchone()
+                fam_bal = row[0] if row else 0
+                raise ValueError(f"Недостаточно в семейном ({fam_bal}/{total_cost} 🪙)")
             await db.commit()
     else:
         from database.postgres import connect as postgres_connect

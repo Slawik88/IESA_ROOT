@@ -150,42 +150,35 @@ async def repay_loan(uid: int, chat_id: int, loan_id: int) -> dict:
     from database.db import add_mora, get_mora
     from database.postgres import connect as postgres_connect
 
-    # Atomically claim the loan to prevent double-repay race
+    # Atomic: check ownership + sufficient balance + mark as repaid + deduct all in one transaction
     async with postgres_connect() as db:
         async with db.execute(
-            "UPDATE mora_loans SET repaid_at=NOW() "
+            "SELECT id, lender_id, amount FROM mora_loans "
             "WHERE id=? AND borrower_id=? AND chat_id=? AND repaid_at IS NULL "
-            "AND COALESCE(status,'accepted')='accepted' "
-            "RETURNING id, lender_id, amount",
+            "AND COALESCE(status,'accepted')='accepted'",
             (loan_id, uid, chat_id),
         ) as c:
             loan = await c.fetchone()
         if not loan:
             raise ValueError("Долг не найден или уже погашен")
-        await db.commit()
 
-    lender_id = loan[1]
-    amount = loan[2]
+        lender_id = loan[1]
+        amount = loan[2]
 
-    # Atomic deduct from borrower
-    async with postgres_connect() as db:
+        # Atomically deduct + mark repaid in same transaction
         cursor = await db.execute(
             "UPDATE user_mora SET balance=balance-? WHERE user_id=? AND chat_id=? AND balance>=?",
             (amount, uid, chat_id, amount),
         )
         if cursor.rowcount == 0:
-            await db.rollback()
-            # Rollback: un-mark the loan as repaid since we can't pay
-            async with postgres_connect() as db2:
-                await db2.execute(
-                    "UPDATE mora_loans SET repaid_at=NULL WHERE id=?",
-                    (loan_id,),
-                )
-                await db2.commit()
             mora_row = await get_mora(uid, chat_id)
             balance = mora_row["balance"] if mora_row else 0
             raise ValueError(f"Недостаточно Моры. Нужно {amount} 🪙, у тебя {balance}")
-        await db.commit()
+
+        await db.execute(
+            "UPDATE mora_loans SET repaid_at=NOW() WHERE id=?",
+            (loan_id,),
+        )
 
     await add_mora(lender_id, chat_id, amount)
 
@@ -227,41 +220,34 @@ async def respond_to_loan(uid: int, chat_id: int, loan_id: int, action: str) -> 
             await db.commit()
         return {"ok": True, "action": "rejected"}
 
-    # Accept: atomically claim the loan to prevent double-accept race
+    # Accept: atomically check + deduct from lender + activate loan in one transaction
     async with postgres_connect() as db:
         async with db.execute(
-            "UPDATE mora_loans SET status='accepted' "
-            "WHERE id=? AND borrower_id=? AND chat_id=? AND status='pending' AND repaid_at IS NULL "
-            "RETURNING id, lender_id, amount",
+            "SELECT id, lender_id, amount FROM mora_loans "
+            "WHERE id=? AND borrower_id=? AND chat_id=? AND status='pending' AND repaid_at IS NULL",
             (loan_id, uid, chat_id),
         ) as c:
             loan = await c.fetchone()
         if not loan:
             raise ValueError("Заявка не найдена или уже обработана")
-        await db.commit()
 
-    lender_id = loan[1]
-    amount = loan[2]
+        lender_id = loan[1]
+        amount = loan[2]
 
-    # Atomic deduct from lender
-    async with postgres_connect() as db:
+        # Atomically deduct from lender + mark accepted in same transaction
         cursor = await db.execute(
             "UPDATE user_mora SET balance=balance-? WHERE user_id=? AND chat_id=? AND balance>=?",
             (amount, lender_id, chat_id, amount),
         )
         if cursor.rowcount == 0:
-            await db.rollback()
-            # Rollback: revert to pending since lender can't pay
-            async with postgres_connect() as db2:
-                await db2.execute(
-                    "UPDATE mora_loans SET status='pending' WHERE id=?",
-                    (loan_id,),
-                )
-                await db2.commit()
             mora_row = await get_mora(lender_id, chat_id)
             lender_bal = mora_row["balance"] if mora_row else 0
             raise ValueError(f"У кредитора недостаточно Моры ({lender_bal}/{amount} 🪙)")
-        await db.commit()
+
+        await db.execute(
+            "UPDATE mora_loans SET status='accepted' WHERE id=?",
+            (loan_id,),
+        )
 
     await add_mora(uid, chat_id, amount)
 

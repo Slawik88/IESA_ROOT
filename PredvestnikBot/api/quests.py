@@ -51,7 +51,6 @@ async def reroll_quest(uid: int, chat_id: int, use_coupon: bool = False) -> dict
 
     coupon_used = False
     if use_coupon:
-        from database.postgres import connect as postgres_connect
         async with postgres_connect() as db:
             async with db.execute(
                 "SELECT id, COALESCE(stack_count, 1) FROM gacha_inventory "

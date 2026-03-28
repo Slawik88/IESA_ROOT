@@ -77,10 +77,13 @@ async def start_expedition(uid: int, chat_id: int, option_key: str,
             # Deduct from family wallet using add_to_family_wallet with negative value
             from database.postgres import connect as postgres_connect
             async with postgres_connect() as db:
-                await db.execute(
+                cursor = await db.execute(
                     "UPDATE family_wallet SET balance=balance-? WHERE chat_id=? AND user_id=? AND balance>=?",
                     (cost, chat_id, uid, cost),
                 )
+                if cursor.rowcount == 0:
+                    fam_bal2 = await get_family_wallet(chat_id, uid)
+                    raise ValueError(f"Недостаточно Моры в семейном кошельке ({fam_bal2}/{cost} 🪙)")
                 await db.commit()
         else:
             from database.postgres import connect as postgres_connect
