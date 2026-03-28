@@ -4115,6 +4115,50 @@ def miniapp_casino_roulette(request):
         from api.roulette import roulette_spin
         from asgiref.sync import async_to_sync as _a2s
         result = _a2s(roulette_spin)(uid, chat_id, bet_type, amount)
+
+        # ── Mandatory public chat notification ────────────────────────────────
+        try:
+            import requests as _requests
+            init_data_str = _get_init_data(request)
+            try:
+                _params = dict(parse_qsl(init_data_str, keep_blank_values=True))
+                _udata  = json.loads(_params.get("user", "{}"))
+                _uname  = (
+                    (_udata.get("first_name", "") + " " + _udata.get("last_name", "")).strip()
+                    or f"user_{uid}"
+                )
+            except Exception:
+                _uname = f"user_{uid}"
+            _bet_labels = {
+                "red": "🔴 Красное", "black": "⚫ Чёрное",
+                "even": "Чётное", "odd": "Нечётное",
+                "low": "Малое 1–18", "high": "Большое 19–36",
+                "zero": "🟢 Зеро",
+            }
+            _bet_label = _bet_labels.get(bet_type, (
+                f"Номер {bet_type[7:]}" if bet_type.startswith("number_") else bet_type
+            ))
+            if result["win"]:
+                _notif = (
+                    f"🎡 <b>{html.escape(_uname)}</b> крутил рулетку "
+                    f"({_bet_label}, ставка {amount} 🪙)\n"
+                    f"🎉 Победа! +{result['net_prize']} 🪙"
+                )
+            else:
+                _notif = (
+                    f"🎡 <b>{html.escape(_uname)}</b> крутил рулетку "
+                    f"({_bet_label}, ставка {amount} 🪙)\n"
+                    f"💸 Проигрыш"
+                )
+            if _BOT_TOKEN:
+                _requests.post(
+                    f"https://api.telegram.org/bot{_BOT_TOKEN}/sendMessage",
+                    json={"chat_id": chat_id, "text": _notif, "parse_mode": "HTML"},
+                    timeout=5,
+                )
+        except Exception:
+            pass
+
         return JsonResponse(result, json_dumps_params={"ensure_ascii": False}, headers=headers)
     except ValueError as e:
         return JsonResponse({"error": str(e)}, status=400, headers=headers)

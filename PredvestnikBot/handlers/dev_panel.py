@@ -135,8 +135,7 @@ async def cmd_dev_setbalance(message: Message, cmd_args: str):
         op_text = f"изменён на {'+'if amount>=0 else ''}{amount} (итого {new_bal})"
 
     result = (
-        f"✅ Баланс {html.escape(str(target_name))} ({target_id}): "
-        f"{old_bal} → <b>{new_bal} 🪙</b>"
+        f"✅ Баланс {html.escape(str(target_name))}: обновлён ✓"
     )
     await message.answer(result, parse_mode="HTML")
     await _log_to_dev(
@@ -463,8 +462,7 @@ async def cmd_treasury_give(message: Message, cmd_args: str):
     await message.answer(
         f"✅ Из казны выдано <b>{amount} 🪙</b> → {mention}\n\n"
         f"💰 Казна: {new_treasury} 🪙\n"
-        f"👤 Баланс игрока: {new_bal} 🪙\n"
-        f"📝 Выдал: {admin_name}",
+        f" Выдал: {admin_name}",
         parse_mode="HTML",
     )
 
