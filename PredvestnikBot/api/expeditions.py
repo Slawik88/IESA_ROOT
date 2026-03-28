@@ -29,15 +29,7 @@ async def start_expedition(uid: int, chat_id: int, option_key: str,
         get_active_expedition, get_family_wallet, get_mora, get_pet,
         is_user_single, start_expedition as _db_start_expedition,
     )
-
-    try:
-        from config import EXPEDITION_OPTIONS
-    except Exception:
-        EXPEDITION_OPTIONS = {
-            "short":  {"hours": 2, "cost": 0,  "reward_min": 10, "reward_max": 15,  "label": "2ч (бесплатно)"},
-            "medium": {"hours": 4, "cost": 5,  "reward_min": 30, "reward_max": 35,  "label": "4ч (5 🪙)"},
-            "long":   {"hours": 8, "cost": 10, "reward_min": 45, "reward_max": 50,  "label": "8ч (10 🪙)"},
-        }
+    from config import EXPEDITION_OPTIONS
 
     opt = EXPEDITION_OPTIONS.get(option_key)
     if not opt:
@@ -206,15 +198,7 @@ async def get_expedition_status(uid: int, chat_id: int) -> dict:
     Returns the same shape the miniapp_expeditions GET view expects.
     """
     from database.db import get_active_expedition, get_mora, get_pet
-
-    try:
-        from config import EXPEDITION_OPTIONS
-    except Exception:
-        EXPEDITION_OPTIONS = {
-            "short":  {"hours": 2, "cost": 0,  "reward_min": 10, "reward_max": 15,  "label": "2ч (бесплатно)"},
-            "medium": {"hours": 4, "cost": 5,  "reward_min": 30, "reward_max": 35,  "label": "4ч (5 🪙)"},
-            "long":   {"hours": 8, "cost": 10, "reward_min": 45, "reward_max": 50,  "label": "8ч (10 🪙)"},
-        }
+    from config import EXPEDITION_OPTIONS
 
     pet_row = await get_pet(uid, chat_id)
     pet = None

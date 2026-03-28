@@ -10,6 +10,7 @@ import hashlib
 import hmac
 import html
 import json
+import logging
 import math
 import os
 import sqlite3
@@ -21,6 +22,8 @@ from urllib.parse import parse_qsl
 from django.http import HttpResponse, JsonResponse
 from django.views.decorators.http import require_GET
 from django.views.decorators.csrf import csrf_exempt
+
+logger = logging.getLogger(__name__)
 
 # Path to the bot's web/index.html (relative to this file's location)
 _BOT_DIR = Path(__file__).resolve().parent.parent.parent / "PredvestnikBot"
@@ -322,15 +325,15 @@ def miniapp_user_data(request):
             rpg_row = cur.fetchone()
             if rpg_row:
                 rpg = {"hp": rpg_row[0], "atk": rpg_row[1], "def": rpg_row[2], "crit": rpg_row[3]}
-                for eid in [rpg_row[4], rpg_row[5], rpg_row[6]]:
-                    if eid:
-                        cur.execute(
-                            f"SELECT COALESCE(atk,0),COALESCE(def_val,0),COALESCE(hp,0),COALESCE(crit_rate,0) "
-                            f"FROM gacha_inventory WHERE id={ph}", (eid,))
-                        er = cur.fetchone()
-                        if er:
-                            rpg["atk"] += er[0]; rpg["def"] += er[1]
-                            rpg["hp"] += er[2]; rpg["crit"] += er[3]
+                equip_ids = [eid for eid in [rpg_row[4], rpg_row[5], rpg_row[6]] if eid]
+                if equip_ids:
+                    placeholders = ",".join(ph for _ in equip_ids)
+                    cur.execute(
+                        f"SELECT COALESCE(atk,0),COALESCE(def_val,0),COALESCE(hp,0),COALESCE(crit_rate,0) "
+                        f"FROM gacha_inventory WHERE id IN ({placeholders})", equip_ids)
+                    for er in cur.fetchall():
+                        rpg["atk"] += er[0]; rpg["def"] += er[1]
+                        rpg["hp"] += er[2]; rpg["crit"] += er[3]
 
         # Family wallet (if married) — show total of both spouses
         family_balance = 0
@@ -434,7 +437,7 @@ def miniapp_user_data(request):
             conn.close()
         except Exception:
             pass
-        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+        logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
 
 
 # ─── Leaderboard ──────────────────────────────────────────────────────────────
@@ -465,7 +468,7 @@ def miniapp_leaderboard(request):
         result = _a2s(get_leaderboard)(chat_id, lb_type, uid_lb)
         return JsonResponse(result, json_dumps_params={"ensure_ascii": False}, headers=headers)
     except Exception as exc:
-        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+        logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
 
 
 # ─── Daily check-in ───────────────────────────────────────────────────────────
@@ -542,7 +545,7 @@ def miniapp_checkin(request):
         return JsonResponse(result, headers=headers)
 
     except Exception as exc:
-        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+        logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
 
 
 # ─── Boss damage ──────────────────────────────────────────────────────────────
@@ -603,7 +606,7 @@ def miniapp_boss_damage(request):
     except ValueError as exc:
         return JsonResponse({"error": str(exc)}, status=400, headers=headers)
     except Exception as exc:
-        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+        logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
 
 
 # ─── Developer ID ─────────────────────────────────────────────────────────────
@@ -682,7 +685,7 @@ def miniapp_marriage(request):
         data = _a2s(get_status)(uid, chat_id)
         return JsonResponse(data, json_dumps_params={"ensure_ascii": False}, headers=headers)
     except Exception as exc:
-        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+        logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
 
 
 # ─── Marriage: propose ────────────────────────────────────────────────────────
@@ -722,7 +725,7 @@ def miniapp_marriage_propose(request):
         return JsonResponse({"error": str(exc)}, status=400,
                             json_dumps_params={"ensure_ascii": False}, headers=headers)
     except Exception as exc:
-        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+        logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
 
     # Send Telegram notification to the target's chat
     try:
@@ -867,7 +870,7 @@ def miniapp_marriage_respond(request):
     except Exception as exc:
         try: conn.close()
         except Exception: pass
-        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+        logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
 
     if not row:
         # Either the proposal doesn't exist, belongs to a different user,
@@ -903,7 +906,7 @@ def miniapp_marriage_respond(request):
         try:
             async_to_sync(create_marriage)(from_id, uid, chat_id)
         except Exception as exc:
-            return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+            logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
         return JsonResponse({"ok": True, "married": True,
                              "message": "Поздравляем! Вы теперь в браке! 💍"},
                             json_dumps_params={"ensure_ascii": False}, headers=headers)
@@ -939,7 +942,7 @@ def miniapp_bonds(request):
         result = _a2s(get_bonds_status)(uid, chat_id)
         return JsonResponse(result, json_dumps_params={"ensure_ascii": False}, headers=headers)
     except Exception as exc:
-        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+        logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
 
 
 # ─── Equip item ───────────────────────────────────────────────────────────────
@@ -982,7 +985,7 @@ def miniapp_equip(request):
     except ValueError as exc:
         return JsonResponse({"error": str(exc)}, status=400, headers=headers)
     except Exception as exc:
-        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+        logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
 
 
 # ─── Developer panel ──────────────────────────────────────────────────────────
@@ -1008,7 +1011,7 @@ def miniapp_dev_stats(request):
         result = _a2s(_get_stats)()
         return JsonResponse(result, json_dumps_params={"ensure_ascii": False}, headers=headers)
     except Exception as exc:
-        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+        logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
 
 
 @csrf_exempt
@@ -1042,7 +1045,7 @@ def miniapp_dev_setbalance(request):
         result = _a2s(_set_balance)(uid, target_id, chat_id, balance)
         return JsonResponse(result, headers=headers)
     except Exception as exc:
-        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+        logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
 
 
 # ─── Dev: add mora ────────────────────────────────────────────────────────────
@@ -1079,7 +1082,7 @@ def miniapp_dev_add_mora(request):
         result = _a2s(_admin_add_mora)(uid, target_id, chat_id, amount)
         return JsonResponse(result, headers=headers)
     except Exception as exc:
-        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+        logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
 
 
 # ─── Dev: add XP ──────────────────────────────────────────────────────────────
@@ -1117,7 +1120,7 @@ def miniapp_dev_add_xp(request):
         result = _a2s(_admin_add_xp)(uid, target_id, chat_id, amount, set_mode)
         return JsonResponse(result, headers=headers)
     except Exception as exc:
-        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+        logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
 
 
 @csrf_exempt
@@ -1144,7 +1147,7 @@ def miniapp_wallet_history(request):
         history = _a2s(wallet_history)(uid, chat_id)
         return JsonResponse({"history": history}, json_dumps_params={"ensure_ascii": False}, headers=headers)
     except Exception as exc:
-        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+        logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
 
 
 @csrf_exempt
@@ -1205,7 +1208,7 @@ def miniapp_dev_member_update(request):
         )
         return JsonResponse(result, headers=headers)
     except Exception as exc:
-        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+        logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
 
 
 @csrf_exempt
@@ -1249,7 +1252,7 @@ def miniapp_dev_salary(request):
             headers=headers,
         )
     except Exception as exc:
-        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+        logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
 
 
 # ─── Dev: give item ───────────────────────────────────────────────────────────
@@ -1290,7 +1293,7 @@ def miniapp_dev_give_item(request):
         result = _a2s(_give_item)(uid, target_id, chat_id, item_name, rarity)
         return JsonResponse(result, json_dumps_params={"ensure_ascii": False}, headers=headers)
     except Exception as exc:
-        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+        logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
 
 
 # ─── Dev: search users ────────────────────────────────────────────────────────
@@ -1322,7 +1325,7 @@ def miniapp_dev_users(request):
         result = _a2s(_search_users)(chat_id, q)
         return JsonResponse(result, json_dumps_params={"ensure_ascii": False}, headers=headers)
     except Exception as exc:
-        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+        logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
 
 
 # ─── Dev: list all chats (grouped) ────────────────────────────────────────────
@@ -1348,7 +1351,7 @@ def miniapp_dev_chats(request):
         result = _a2s(_get_chats)()
         return JsonResponse(result, json_dumps_params={"ensure_ascii": False}, headers=headers)
     except Exception as exc:
-        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+        logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
 
 
 # ─── Dev: chat admins with balances ───────────────────────────────────────────
@@ -1379,7 +1382,7 @@ def miniapp_dev_chat_admins(request):
         result = _a2s(_get_chat_members)(chat_id)
         return JsonResponse(result, json_dumps_params={"ensure_ascii": False}, headers=headers)
     except Exception as exc:
-        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+        logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
 
 
 # ─── Dev: blacklist (global ban by user_id) ────────────────────────────────────
@@ -1423,7 +1426,7 @@ def miniapp_dev_banlist(request):
 
         return JsonResponse({"error": "method not allowed"}, status=405, headers=headers)
     except Exception as exc:
-        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+        logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
 
 
 # ─── Dev: activity logs ───────────────────────────────────────────────────────
@@ -1452,7 +1455,7 @@ def miniapp_dev_logs(request):
         result = _a2s(_get_logs)(chat_id)
         return JsonResponse(result, json_dumps_params={"ensure_ascii": False}, headers=headers)
     except Exception as exc:
-        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+        logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
 
 
 # ─── Dev: event trigger ───────────────────────────────────────────────────────
@@ -1492,7 +1495,7 @@ def miniapp_dev_trigger_event(request):
     except ValueError as exc:
         return JsonResponse({"error": str(exc)}, status=400, headers=headers)
     except Exception as exc:
-        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+        logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
 
 
 # ─── Dev: list all available items ────────────────────────────────────────────
@@ -1560,7 +1563,7 @@ def miniapp_treasury(request):
         result = _a2s(_get_treasury)(chat_id)
         return JsonResponse(result, json_dumps_params={"ensure_ascii": False}, headers=headers)
     except Exception as exc:
-        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+        logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
 
 
 # ─── Family wallet: deposit / withdraw ────────────────────────────────────────
@@ -1597,7 +1600,7 @@ def miniapp_family_deposit(request):
     except ValueError as ve:
         return JsonResponse({"error": str(ve)}, status=400, headers=headers)
     except Exception as exc:
-        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+        logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
 
 
 @csrf_exempt
@@ -1632,7 +1635,7 @@ def miniapp_family_withdraw(request):
     except ValueError as ve:
         return JsonResponse({"error": str(ve)}, status=400, headers=headers)
     except Exception as exc:
-        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+        logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
 
 
 # ─── Family wallet: transaction log ─────────────────────────────────────────
@@ -1659,7 +1662,7 @@ def miniapp_family_log(request):
         result = _a2s(get_family_log)(uid, chat_id)
         return JsonResponse(result, headers=headers)
     except Exception as exc:
-        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+        logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
 
 
 # ─── Inventory (full, with equip/unequip) ─────────────────────────────────────
@@ -1719,18 +1722,17 @@ def miniapp_inventory(request):
             rpg_row = cur.fetchone()
             if rpg_row:
                 rpg = {"hp": rpg_row[0], "atk": rpg_row[1], "def": rpg_row[2], "crit": rpg_row[3]}
-                equip_ids = [rpg_row[4], rpg_row[5], rpg_row[6]]
-                for eid in equip_ids:
-                    if eid:
-                        cur.execute(
-                            f"SELECT COALESCE(atk,0), COALESCE(def_val,0), COALESCE(hp,0), COALESCE(crit_rate,0) "
-                            f"FROM gacha_inventory WHERE id={ph}",
-                            (eid,),
-                        )
-                        er = cur.fetchone()
-                        if er:
-                            rpg["atk"] += er[0]; rpg["def"] += er[1]
-                            rpg["hp"] += er[2]; rpg["crit"] += er[3]
+                equip_ids = [eid for eid in [rpg_row[4], rpg_row[5], rpg_row[6]] if eid]
+                if equip_ids:
+                    placeholders = ",".join(ph for _ in equip_ids)
+                    cur.execute(
+                        f"SELECT COALESCE(atk,0), COALESCE(def_val,0), COALESCE(hp,0), COALESCE(crit_rate,0) "
+                        f"FROM gacha_inventory WHERE id IN ({placeholders})",
+                        equip_ids,
+                    )
+                    for er in cur.fetchall():
+                        rpg["atk"] += er[0]; rpg["def"] += er[1]
+                        rpg["hp"] += er[2]; rpg["crit"] += er[3]
             else:
                 rpg = {"hp": 100, "atk": 50, "def": 20, "crit": 0.05}
 
@@ -1754,7 +1756,7 @@ def miniapp_inventory(request):
                 conn.close()
             except Exception:
                 pass
-            return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+            logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
 
     elif request.method == "POST":
         # Toggle equip
@@ -1823,7 +1825,7 @@ def miniapp_inventory(request):
                 conn.close()
             except Exception:
                 pass
-            return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+            logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
 
     return JsonResponse({"error": "method not allowed"}, status=405, headers=headers)
 
@@ -1895,7 +1897,7 @@ def miniapp_inventory_sell_junk(request):
             conn.close()
         except Exception:
             pass
-        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+        logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
 
 
 @csrf_exempt
@@ -1971,7 +1973,7 @@ def miniapp_shop_set_title(request):
             conn.close()
         except Exception:
             pass
-        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+        logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
 
 
 # ─── Gacha Roll ───────────────────────────────────────────────────────────────
@@ -2036,7 +2038,7 @@ def miniapp_gacha_roll(request):
     except ValueError as e:
         return JsonResponse({"error": str(e)}, status=400, headers=headers)
     except Exception as exc:
-        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+        logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
 
 
 # ─── Bonds Buy / Sell ─────────────────────────────────────────────────────────
@@ -2077,7 +2079,7 @@ def miniapp_bonds_buy(request):
     except ValueError as e:
         return JsonResponse({"error": str(e)}, status=400, headers=headers)
     except Exception as exc:
-        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+        logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
     return JsonResponse(result, json_dumps_params={"ensure_ascii": False}, headers=headers)
 
 
@@ -2114,7 +2116,7 @@ def miniapp_bonds_sell(request):
     except ValueError as e:
         return JsonResponse({"error": str(e)}, status=400, headers=headers)
     except Exception as exc:
-        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+        logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
     return JsonResponse(result, json_dumps_params={"ensure_ascii": False}, headers=headers)
 
 
@@ -2143,7 +2145,7 @@ def miniapp_bank(request):
     try:
         result = _a2s(_api_bank_info)(uid, chat_id)
     except Exception as exc:
-        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+        logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
     return JsonResponse(result, json_dumps_params={"ensure_ascii": False}, headers=headers)
 
 
@@ -2186,7 +2188,7 @@ def miniapp_bank_deposit(request):
     except ValueError as e:
         return JsonResponse({"error": str(e)}, status=400, headers=headers)
     except Exception as exc:
-        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+        logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
     return JsonResponse(result, json_dumps_params={"ensure_ascii": False}, headers=headers)
 
 
@@ -2219,7 +2221,7 @@ def miniapp_bank_withdraw(request):
         status_code = 404 if "не найден" in str(e).lower() else 400
         return JsonResponse({"error": str(e)}, status=status_code, headers=headers)
     except Exception as exc:
-        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+        logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
     return JsonResponse(result, json_dumps_params={"ensure_ascii": False}, headers=headers)
 
 
@@ -2253,7 +2255,7 @@ def miniapp_pet_walk(request):
         from asgiref.sync import async_to_sync
         result = async_to_sync(start_pet_walk_full)(uid, chat_id)
     except Exception as exc:
-        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+        logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
 
     if not result["ok"]:
         status_code = 429 if result.get("mins_left") else 400
@@ -2310,7 +2312,7 @@ def miniapp_pet_feed(request):
         return JsonResponse({"error": str(exc)}, status=400,
                             json_dumps_params={"ensure_ascii": False}, headers=headers)
     except Exception as exc:
-        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+        logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
 
     # Log feeding action to chat
     from asgiref.sync import async_to_sync as _a2s
@@ -2350,7 +2352,7 @@ def miniapp_shop_catalog(request):
         data = _a2s(get_catalog)(uid, chat_id)
         return JsonResponse(data, json_dumps_params={"ensure_ascii": False}, headers=headers)
     except Exception as exc:
-        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+        logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
 
 
 @csrf_exempt
@@ -2392,7 +2394,7 @@ def miniapp_shop_buy(request):
         return JsonResponse({"error": str(exc)}, status=400,
                             json_dumps_params={"ensure_ascii": False}, headers=headers)
     except Exception as exc:
-        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+        logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
 
 
 # ─── Profile themes (list / set active) ──────────────────────────────────────
@@ -2441,7 +2443,7 @@ def miniapp_themes(request):
                 conn.close()
             except Exception:
                 pass
-            return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+            logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
 
         themes_out = []
         for key, info in PROFILE_THEMES.items():
@@ -2497,7 +2499,7 @@ def miniapp_themes(request):
                 conn.close()
             except Exception:
                 pass
-            return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+            logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
 
     return JsonResponse({"error": "method not allowed"}, status=405, headers=headers)
 
@@ -2597,20 +2599,20 @@ def miniapp_public_profile(request):
         rpg_row = cur.fetchone()
         if rpg_row:
             rpg = {"hp": rpg_row[0], "atk": rpg_row[1], "def": rpg_row[2], "crit": rpg_row[3]}
-            for eid in [rpg_row[4], rpg_row[5], rpg_row[6]]:
-                if eid:
-                    cur.execute(
-                        f"SELECT item_name, rarity, slot, COALESCE(atk,0), COALESCE(def_val,0), "
-                        f"COALESCE(hp,0), COALESCE(crit_rate,0) FROM gacha_inventory WHERE id={ph}",
-                        (eid,),
-                    )
-                    er = cur.fetchone()
-                    if er:
-                        rpg["atk"] += er[3]
-                        rpg["def"] += er[4]
-                        rpg["hp"] += er[5]
-                        rpg["crit"] += er[6]
-                        equipped_items.append({"name": er[0], "rarity": er[1], "slot": er[2] or "gear"})
+            eq_ids = [eid for eid in [rpg_row[4], rpg_row[5], rpg_row[6]] if eid]
+            if eq_ids:
+                placeholders = ",".join([ph] * len(eq_ids))
+                cur.execute(
+                    f"SELECT id, item_name, rarity, slot, COALESCE(atk,0), COALESCE(def_val,0), "
+                    f"COALESCE(hp,0), COALESCE(crit_rate,0) FROM gacha_inventory WHERE id IN ({placeholders})",
+                    tuple(eq_ids),
+                )
+                for er in cur.fetchall():
+                    rpg["atk"] += er[4]
+                    rpg["def"] += er[5]
+                    rpg["hp"] += er[6]
+                    rpg["crit"] += er[7]
+                    equipped_items.append({"name": er[1], "rarity": er[2], "slot": er[3] or "gear"})
         # Also grab equipped=1 items not already included via rpg_stats
         cur.execute(
             f"SELECT item_name, rarity, slot FROM gacha_inventory "
@@ -2694,7 +2696,7 @@ def miniapp_public_profile(request):
             conn.close()
         except Exception:
             pass
-        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+        logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
 
 
 # ===============================================================================
@@ -2749,7 +2751,7 @@ def miniapp_enhance_item(request):
         }, json_dumps_params={"ensure_ascii": False}, headers=headers)
 
     except Exception as exc:
-        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+        logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
 
 
 @csrf_exempt  
@@ -2788,7 +2790,7 @@ def miniapp_consume_potion(request):
         }, json_dumps_params={"ensure_ascii": False}, headers=headers)
 
     except Exception as exc:
-        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+        logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
 
 
 @csrf_exempt
@@ -2852,7 +2854,7 @@ def miniapp_batch_sell(request):
         }, json_dumps_params={"ensure_ascii": False}, headers=headers)
 
     except Exception as exc:
-        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+        logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
 
 
 # --- Couple Boss System (Married Pairs) --------------------------------------
@@ -2969,7 +2971,7 @@ def miniapp_couple_boss_status(request):
             conn.close()
         except Exception:
             pass
-        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+        logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
 
 
 @csrf_exempt
@@ -3056,7 +3058,7 @@ def miniapp_couple_boss_start(request):
             conn.close()
         except Exception:
             pass
-        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+        logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
 
 
 @csrf_exempt
@@ -3185,7 +3187,7 @@ def miniapp_couple_boss_attack(request):
             conn.close()
         except Exception:
             pass
-        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+        logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
 
 
 # ─── Solo Boss ────────────────────────────────────────────────────────────────
@@ -3509,7 +3511,7 @@ def miniapp_quest(request):
     except ValueError as exc:
         return JsonResponse({"error": str(exc)}, status=400, headers=headers)
     except Exception as exc:
-        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+        logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
 
 
 @csrf_exempt
@@ -3540,7 +3542,7 @@ def miniapp_quest_reroll(request):
     except ValueError as exc:
         return JsonResponse({"error": str(exc)}, status=400, headers=headers)
     except Exception as exc:
-        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+        logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
 
 
 # =============================================================================
@@ -3589,7 +3591,7 @@ def miniapp_members(request):
             conn.close()
         except Exception:
             pass
-        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+        logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
 
 
 @csrf_exempt
@@ -3635,7 +3637,7 @@ def miniapp_warnlist(request):
             conn.close()
         except Exception:
             pass
-        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+        logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
 
 
 # ADMIN CHAT SUMMARY
@@ -3765,7 +3767,7 @@ def miniapp_admin_chat_summary(request):
             conn.close()
         except Exception:
             pass
-        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+        logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
 
 
 # SPY / ШПИОНАЖ
@@ -3806,7 +3808,7 @@ def miniapp_spy(request):
         status_code = 429 if "Кулдаун" in msg else 400
         return JsonResponse({"error": msg}, status=status_code, headers=headers)
     except Exception as exc:
-        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+        logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
 
 
 # =============================================================================
@@ -3856,7 +3858,7 @@ def miniapp_transfer(request):
     except ValueError as e:
         return JsonResponse({"error": str(e)}, status=400, headers=headers)
     except Exception as exc:
-        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+        logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
     return JsonResponse(result, json_dumps_params={"ensure_ascii": False}, headers=headers)
 
 
@@ -3888,7 +3890,7 @@ def miniapp_loans(request):
         result = _a2s(get_loans)(uid, chat_id)
         return JsonResponse(result, json_dumps_params={"ensure_ascii": False}, headers=headers)
     except Exception as exc:
-        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+        logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
 
 
 @csrf_exempt
@@ -3921,7 +3923,7 @@ def miniapp_loans_create(request):
     except ValueError as ve:
         return JsonResponse({"error": str(ve)}, status=400, headers=headers)
     except Exception as exc:
-        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+        logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
 
 
 @csrf_exempt
@@ -3953,7 +3955,7 @@ def miniapp_loans_repay(request):
     except ValueError as ve:
         return JsonResponse({"error": str(ve)}, status=400, headers=headers)
     except Exception as exc:
-        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+        logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
 
 
 @csrf_exempt
@@ -3986,7 +3988,7 @@ def miniapp_loans_respond(request):
     except ValueError as ve:
         return JsonResponse({"error": str(ve)}, status=400, headers=headers)
     except Exception as exc:
-        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+        logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
 
 
 # =============================================================================
@@ -4022,7 +4024,7 @@ def miniapp_loans_cancel(request):
     except ValueError as ve:
         return JsonResponse({"error": str(ve)}, status=400, headers=headers)
     except Exception as exc:
-        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+        logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
 
 
 # =============================================================================
@@ -4069,7 +4071,7 @@ def miniapp_casino_coin(request):
     except ValueError as e:
         return JsonResponse({"error": str(e)}, status=400, headers=headers)
     except Exception as exc:
-        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+        logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
 
 
 @csrf_exempt
@@ -4109,7 +4111,7 @@ def miniapp_casino_lottery(request):
     except ValueError as ve:
         return JsonResponse({"error": str(ve)}, status=400, headers=headers)
     except Exception as exc:
-        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+        logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
 
 
 # =============================================================================
@@ -4142,7 +4144,7 @@ def miniapp_expeditions(request):
     except ValueError as exc:
         return JsonResponse({"error": str(exc)}, status=400, headers=headers)
     except Exception as exc:
-        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+        logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
 
 
 @csrf_exempt
@@ -4173,7 +4175,7 @@ def miniapp_expeditions_start(request):
     except ValueError as e:
         return JsonResponse({"error": str(e)}, status=400, headers=headers)
     except Exception as exc:
-        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+        logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
     return JsonResponse(result, json_dumps_params={"ensure_ascii": False}, headers=headers)
 
 
@@ -4205,7 +4207,7 @@ def miniapp_expeditions_collect(request):
         status_code = 404 if "нет актив" in str(e).lower() else 400
         return JsonResponse({"error": str(e)}, status=status_code, headers=headers)
     except Exception as exc:
-        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+        logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
     return JsonResponse(result, json_dumps_params={"ensure_ascii": False}, headers=headers)
 
 
@@ -4240,7 +4242,7 @@ def miniapp_expeditions_boost(request):
     except ValueError as e:
         return JsonResponse({"error": str(e)}, status=400, headers=headers)
     except Exception as exc:
-        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+        logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
 
 
 @csrf_exempt
@@ -4312,7 +4314,7 @@ def miniapp_pets_rename(request):
     except ValueError as e:
         return JsonResponse({"error": str(e)}, status=400, headers=headers)
     except Exception as exc:
-        return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+        logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
 
 
 # ─── Cleanup config ───────────────────────────────────────────────────────────
@@ -4366,7 +4368,7 @@ def miniapp_cleanup_config(request):
             result = _a2s(_get_cfg)(chat_id)
             return JsonResponse(result, json_dumps_params={"ensure_ascii": False}, headers=headers)
         except Exception as exc:
-            return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+            logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
 
     if request.method == "POST":
         try:
@@ -4406,7 +4408,7 @@ def miniapp_cleanup_config(request):
             )
             return JsonResponse(result, json_dumps_params={"ensure_ascii": False}, headers=headers)
         except Exception as exc:
-            return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+            logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
 
     return JsonResponse({"error": "method not allowed"}, status=405, headers=headers)
 
@@ -4455,7 +4457,7 @@ def miniapp_chat_buff(request):
                 }, headers=headers)
             return JsonResponse({"active": False, "buff_type": buff_type}, headers=headers)
         except Exception as exc:
-            return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+            logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
 
     if request.method == "POST":
         try:
@@ -4477,6 +4479,6 @@ def miniapp_chat_buff(request):
         except ValueError as ve:
             return JsonResponse({"error": str(ve)}, status=400, headers=headers)
         except Exception as exc:
-            return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+            logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
 
     return JsonResponse({"error": "method not allowed"}, status=405, headers=headers)

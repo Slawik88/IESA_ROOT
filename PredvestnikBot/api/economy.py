@@ -15,8 +15,11 @@ async def transfer_mora(from_uid: int, to_uid: int, chat_id: int, amount: int,
     cover_vat=False → sender pays amount,     receiver gets amount-tax
     Raises ValueError with a Russian message on any error.
     Returns {ok, amount, tax, from_balance, to_balance}
+
+    Atomic: deduct + credit + treasury tax in single transaction.
     """
-    from database.db import add_mora, add_to_treasury, deduct_mora, get_mora
+    from database.db import get_mora
+    from database.postgres import connect as postgres_connect
 
     try:
         from config import MORA_TRANSFER_MIN, MORA_TRANSFER_MAX
@@ -39,9 +42,6 @@ async def transfer_mora(from_uid: int, to_uid: int, chat_id: int, amount: int,
         tax_rate = 0.08
     tax = max(1, int(amount * tax_rate))
 
-    mora_row = await get_mora(from_uid, chat_id)
-    bal = mora_row["balance"] if mora_row else 0
-
     if cover_vat:
         deduct_total = amount + tax
         credit_amount = amount
@@ -49,21 +49,59 @@ async def transfer_mora(from_uid: int, to_uid: int, chat_id: int, amount: int,
         deduct_total = amount
         credit_amount = max(0, amount - tax)
 
-    if bal < deduct_total:
-        need = deduct_total
-        hint = f"сумма + налог {tax}" if cover_vat else f"налог {tax} вычтется у получателя"
-        raise ValueError(f"Недостаточно Моры. Нужно {need} 🪙 ({hint})")
+    # Atomic transaction: deduct sender → credit receiver → tax to treasury
+    async with postgres_connect() as db:
+        # 1. Deduct from sender (atomic check)
+        cursor = await db.execute(
+            "UPDATE user_mora SET balance = balance - ? "
+            "WHERE user_id = ? AND chat_id = ? AND balance >= ?",
+            (deduct_total, from_uid, chat_id, deduct_total),
+        )
+        if cursor.rowcount == 0:
+            mora_row = await get_mora(from_uid, chat_id)
+            bal = mora_row["balance"] if mora_row else 0
+            hint = f"сумма + налог {tax}" if cover_vat else f"налог {tax} вычтется у получателя"
+            raise ValueError(f"Недостаточно Моры. Нужно {deduct_total} 🪙 ({hint})")
 
-    # Deduct from sender atomically
-    ok, from_bal = await deduct_mora(from_uid, chat_id, deduct_total)
-    if not ok:
-        raise ValueError("Не удалось выполнить перевод")
+        # 2. Credit receiver
+        await db.execute(
+            """INSERT INTO user_mora (user_id, chat_id, balance, total_earned)
+               VALUES (?, ?, ?, ?)
+               ON CONFLICT(user_id, chat_id) DO UPDATE SET
+                   balance      = user_mora.balance + ?,
+                   total_earned = user_mora.total_earned + ?""",
+            (to_uid, chat_id, credit_amount, credit_amount,
+             credit_amount, credit_amount),
+        )
 
-    # Credit receiver
-    to_bal = await add_mora(to_uid, chat_id, credit_amount)
+        # 3. Tax to treasury
+        await db.execute(
+            "INSERT INTO chat_treasury (chat_id, balance) VALUES (?,?)"
+            " ON CONFLICT(chat_id) DO UPDATE SET balance = chat_treasury.balance + excluded.balance",
+            (chat_id, tax),
+        )
+        await db.execute(
+            """INSERT INTO treasury_log (chat_id, user_id, amount, source, created_at)
+               VALUES (?,?,?,?,NOW())""",
+            (chat_id, from_uid, tax, "transfer"),
+        )
 
-    # Tax to treasury
-    await add_to_treasury(chat_id, tax, "transfer", from_uid)
+        await db.commit()
+
+        # Read final balances
+        async with db.execute(
+            "SELECT balance FROM user_mora WHERE user_id=? AND chat_id=?",
+            (from_uid, chat_id),
+        ) as c:
+            row = await c.fetchone()
+        from_bal = row[0] if row else 0
+
+        async with db.execute(
+            "SELECT balance FROM user_mora WHERE user_id=? AND chat_id=?",
+            (to_uid, chat_id),
+        ) as c:
+            row = await c.fetchone()
+        to_bal = row[0] if row else 0
 
     return {
         "ok":           True,

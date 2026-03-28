@@ -19,7 +19,7 @@ from database.db import (
 from .exceptions import BossLimitError
 
 # Must match _BOSS_DAILY_DAMAGE_LIMIT in miniapp_views.py
-BOSS_DAILY_DAMAGE_LIMIT = 500_000
+BOSS_DAILY_DAMAGE_LIMIT = 50_000
 BOSS_MAX_HP = 500_000
 
 

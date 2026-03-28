@@ -15,7 +15,7 @@
 """
 import html
 import random
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from aiogram import F, Router
 from aiogram.types import (
@@ -443,7 +443,7 @@ async def cb_boost_buy(callback: CallbackQuery):
         await callback.answer(f"❌ Недостаточно Моры! ({new_bal} / {price})", show_alert=True)
         return
 
-    until = (datetime.utcnow() + timedelta(hours=hours)).isoformat()
+    until = (datetime.now(timezone.utc) + timedelta(hours=hours)).isoformat()
     await set_xp_boost(uid, chat_id, until)
     wallet_label = "семейного" if wallet == "family" else "личного"
     try:

@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 
 # (user_id, chat_id) → pending delta
 _buffer: dict[tuple[int, int], int] = defaultdict(int)
+_MAX_BUFFER_SIZE = 50_000  # safety cap: drop oldest on overflow
 _lock = asyncio.Lock()
 
 
@@ -28,6 +29,13 @@ async def buffer_message(user_id: int, chat_id: int) -> None:
     """Increment the in-memory counter for (user_id, chat_id) by 1."""
     async with _lock:
         _buffer[(user_id, chat_id)] += 1
+        if len(_buffer) > _MAX_BUFFER_SIZE:
+            # Drop 10% oldest entries to prevent unbounded growth
+            to_drop = _MAX_BUFFER_SIZE // 10
+            keys = list(_buffer.keys())[:to_drop]
+            for k in keys:
+                del _buffer[k]
+            logger.warning("message_buffer: dropped %d entries (cap reached)", to_drop)
 
 
 def get_pending_count(user_id: int, chat_id: int) -> int:
