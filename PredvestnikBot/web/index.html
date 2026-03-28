@@ -50,7 +50,8 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 .btn-row .btn{flex:1}
 .input-group{display:flex;gap:8px;margin-top:8px}
 .input-group input{flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-size:14px;outline:none}
-.input-group input:focus{border-color:var(--accent)}
+.input-group input{transition:border-color .2s,box-shadow .2s}
+.input-group input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(124,106,247,.22)}
 .badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700}
 .badge-junk{background:#374151;color:#c9d1d9}
 .badge-common{background:#1e3a5f;color:#60a5fa}
@@ -129,6 +130,7 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 .btn:hover:not(:disabled){filter:brightness(1.1)}
 /* Card hover depth */
 .card{transition:box-shadow .2s,transform .2s}
+.card:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(0,0,0,.28)}
 /* Balance flash */
 @keyframes bal-flash{0%{transform:scale(1)}30%{transform:scale(1.12)}100%{transform:scale(1)}}
 .bal-update{animation:bal-flash .3s ease}
@@ -141,6 +143,11 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 /* Shop item hover pulse */
 @keyframes item-pulse{0%{box-shadow:0 0 0 0 rgba(168,85,247,.3)}70%{box-shadow:0 0 0 8px rgba(168,85,247,0)}100%{box-shadow:0 0 0 0 rgba(168,85,247,0)}}
 .shop-item:active{animation:item-pulse .4s ease}
+/* Cat-button tap */
+.cat-btn:active{transform:scale(.9)}
+/* Success flash on element */
+@keyframes flash-success{0%{box-shadow:0 0 0 0 rgba(34,197,94,0)}35%{box-shadow:0 0 0 8px rgba(34,197,94,.45)}100%{box-shadow:0 0 0 0 rgba(34,197,94,0)}}
+.flash-success{animation:flash-success .6s ease}
 /* Loading dots */
 @keyframes loading-dots{0%,80%,100%{transform:scale(0)}40%{transform:scale(1)}}
 .gacha-close{margin-top:16px;padding:10px 30px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;color:var(--text);cursor:pointer;font-size:14px;font-weight:600}
@@ -153,7 +160,8 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 .lb-score{font-weight:700;color:var(--accent);font-size:13px}
 /* Shop grid */
 .shop-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(95px,1fr));gap:8px}
-.shop-item{background:var(--bg2);border:2px solid var(--border);border-radius:10px;padding:10px 6px;text-align:center;cursor:pointer;transition:border-color .2s;display:flex;flex-direction:column;align-items:center;justify-content:space-between;min-height:88px}
+.shop-item{background:var(--bg2);border:2px solid var(--border);border-radius:10px;padding:10px 6px;text-align:center;cursor:pointer;transition:border-color .2s,transform .2s,box-shadow .2s;display:flex;flex-direction:column;align-items:center;justify-content:space-between;min-height:88px}
+.shop-item:hover{transform:translateY(-2px);box-shadow:0 4px 14px rgba(0,0,0,.25);border-color:var(--accent)}
 .shop-item.owned{border-color:var(--green)}
 .shop-item.active-item{border-color:var(--gold)}
 .shop-item-emoji{font-size:24px;margin-bottom:4px;line-height:1}
@@ -162,6 +170,7 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 .shop-item-price.free{color:var(--green)}
 /* Shop redesigned list cards */
 .scard{background:var(--bg2);border:1.5px solid var(--border);border-radius:12px;padding:12px 12px 12px 16px;display:flex;gap:12px;align-items:flex-start;cursor:pointer;transition:border-color .2s,box-shadow .2s;position:relative;margin-bottom:8px;overflow:hidden}
+.scard:hover{transform:translateY(-1px);box-shadow:0 4px 16px rgba(124,106,247,.18);border-color:rgba(124,106,247,.45)}
 .scard:active{transform:scale(.985)}.scard.owned{border-color:var(--green)}.scard.scard-active{border-color:var(--gold);background:rgba(244,197,66,.05)}
 .scard-accent{position:absolute;left:0;top:0;bottom:0;width:4px}
 .scard-icon{font-size:28px;min-width:36px;text-align:center;margin-top:2px}
@@ -391,7 +400,7 @@ select{background:var(--bg3);border:1px solid var(--border);border-radius:8px;pa
 .bank-preset-btn{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px 4px;font-size:12px;font-weight:600;color:var(--text);cursor:pointer;text-align:center;transition:all .15s;font-family:inherit}
 .bank-preset-btn:hover{border-color:var(--accent);color:var(--accent)}
 .bank-amount-inp{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);font-size:14px;outline:none;margin-bottom:10px;-webkit-appearance:none;appearance:none}
-.bank-amount-inp:focus{border-color:var(--accent)}
+.bank-amount-inp:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(124,106,247,.22)}
 .bank-wallet-btns{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .bank-wallet-btns .btn{flex-direction:column;gap:2px;line-height:1.3;padding:10px 8px}
 .bank-wallet-btns .btn small{font-size:11px;font-weight:500;opacity:.85}
@@ -1731,6 +1740,8 @@ function toast(msg, type='', dur=3000){
 }
 const _busyOps=new Set();
 function withBusy(key,fn){if(_busyOps.has(key))return Promise.resolve();_busyOps.add(key);return fn().finally(()=>_busyOps.delete(key));}
+function flashEl(el){if(!el)return;el.classList.remove('flash-success');void el.offsetWidth;el.classList.add('flash-success');}
+
 
 async function api(url, method='GET', body=null){
   const controller = new AbortController();
@@ -2888,6 +2899,7 @@ async function buyShopItem(type, key){
       toast(r.equipped?'✅ Рамка активирована':'✅ Уже куплено','success');
     } else {
       toast('✅ Куплено! Баланс: '+r.balance+' 🪙','success');
+      flashEl(document.querySelector('#tab-shop .tab-content.active .card, #tab-shop .card'));
       syncBalance(r.balance);
     }
     shopData=null;
@@ -3114,6 +3126,7 @@ async function buyBondsWithWallet(key){
   try{
     const r=await api('/api/bonds/buy','POST',{chat_id:chatId,bond_key:key,amount:shares,wallet});
     toast('✅ Куплено '+shares+' шт. за '+totalCost+' 🪙','success');
+    flashEl(document.getElementById('moraBuy_'+key)?.closest('.card'));
     syncBalance(r.personal||0);
     loadBondsTab();
   } catch(e){toast('❌ '+e.message,'error')}
@@ -3127,6 +3140,7 @@ async function sellBonds(key){
       const r=await api('/api/bonds/sell','POST',{chat_id:chatId,bond_key:key,amount:amt});
       const taxStr = r.tax > 0 ? ` (−${r.tax} 🏦 НДС)` : '';
       toast(`✅ Продано ${r.sold} шт. за ${r.revenue} 🪙${taxStr}`,'success');
+      flashEl(document.getElementById('sellAmt_'+key)?.closest('.card'));
       syncBalance(r.balance||0);
       loadBondsTab();
     } catch(e){toast('❌ '+e.message,'error')}

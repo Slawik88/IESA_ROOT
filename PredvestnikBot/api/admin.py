@@ -625,7 +625,7 @@ async def treasury_payout(actor_id: int, target_id: int, chat_id: int,
     if amount <= 0:
         raise ValueError("Сумма должна быть больше нуля")
 
-        from database.db import postgres_connect
+    from database.db import postgres_connect
     async with postgres_connect() as db:
         async with db.execute(
             "SELECT balance FROM chat_treasury WHERE chat_id=?", (chat_id,)
