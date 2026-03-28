@@ -3,6 +3,7 @@ api/expeditions.py — unified expedition operations.
 
 All functions are async; the mini app wraps them with async_to_sync.
 """
+import logging
 import random
 from datetime import datetime, timedelta, timezone
 
@@ -126,7 +127,7 @@ async def start_expedition(uid: int, chat_id: int, option_key: str,
                 await mark_quest_rewarded(uid, chat_id, today)
                 quest_done = 1
     except Exception:
-        pass
+        logging.getLogger(__name__).warning("quest_tick failed uid=%s chat=%s", uid, chat_id, exc_info=True)
 
     return {
         "ok":          True,

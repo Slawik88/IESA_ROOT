@@ -21,7 +21,12 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 .tab-content{display:none;padding:12px;padding-bottom:max(env(safe-area-inset-bottom,0px),12px);max-width:460px;margin:0 auto}
 @media(min-width:600px){.tab-content{max-width:min(920px,98vw);padding:16px 20px}}
 .tab-content.active{display:block}
-.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:10px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:10px;animation:fade-in .3s ease backwards}
+.tab-content.active .card:nth-child(1){animation-delay:0s}
+.tab-content.active .card:nth-child(2){animation-delay:.05s}
+.tab-content.active .card:nth-child(3){animation-delay:.1s}
+.tab-content.active .card:nth-child(4){animation-delay:.15s}
+.tab-content.active .card:nth-child(5){animation-delay:.2s}
 .card-title{font-size:13px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px}
 .stat-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border)}
 .stat-row:last-child{border-bottom:none}
@@ -60,7 +65,7 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 .toast.success{border-color:var(--green);color:#86efac}
 /* Gacha overlay */
 #gachaOverlay{position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:9000;display:none;flex-direction:column;align-items:center;justify-content:flex-start;padding:20px;overflow-y:auto}
-#gachaOverlay.active{display:flex}
+#gachaOverlay.active{display:flex;animation:fade-backdrop .3s ease}
 .gacha-title{font-size:22px;font-weight:800;background:linear-gradient(135deg,#a855f7,#f4c542);background-clip:text;-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:20px;text-align:center}
 .gacha-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(68px,1fr));gap:8px;width:100%;max-width:420px}
 .gacha-card{aspect-ratio:3/4;border-radius:10px;position:relative;perspective:600px;cursor:default}
@@ -77,6 +82,52 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 .gacha-card-back .card-name{font-size:11px;font-weight:600;color:#fff;word-break:break-word;line-height:1.2}
 @keyframes legendary-glow{from{box-shadow:0 0 6px #f59e0b}to{box-shadow:0 0 20px #f59e0b,0 0 40px #f59e0b55}}
 @keyframes card-appear{from{opacity:0;transform:scale(.7)}to{opacity:1;transform:scale(1)}}
+/* Summoning animation */
+@keyframes summon-spin{0%{transform:rotate(0deg) scale(.3);opacity:0}30%{opacity:1;transform:rotate(180deg) scale(1)}100%{transform:rotate(720deg) scale(1.1);opacity:0}}
+@keyframes summon-pulse{0%{box-shadow:0 0 20px rgba(168,85,247,.4)}50%{box-shadow:0 0 60px rgba(168,85,247,.8),0 0 100px rgba(244,197,66,.3)}100%{box-shadow:0 0 20px rgba(168,85,247,.4)}}
+@keyframes summon-ring{0%{transform:scale(.5);opacity:0;border-width:3px}50%{opacity:1}100%{transform:scale(2.5);opacity:0;border-width:0px}}
+@keyframes summon-particle{0%{transform:translateY(0) scale(1);opacity:1}100%{transform:translateY(-80px) scale(0);opacity:0}}
+@keyframes summon-star{0%{transform:scale(0) rotate(0deg);opacity:0}50%{transform:scale(1.2) rotate(180deg);opacity:1}100%{transform:scale(0) rotate(360deg);opacity:0}}
+#gachaSummon{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:2}
+.summon-circle{width:160px;height:160px;border-radius:50%;border:3px solid rgba(168,85,247,.6);position:relative;animation:summon-pulse 1s ease-in-out infinite}
+.summon-circle::before,.summon-circle::after{content:'';position:absolute;inset:-12px;border-radius:50%;border:2px solid transparent;border-top-color:#a855f7;border-bottom-color:#f4c542;animation:summon-spin 2s linear infinite}
+.summon-circle::after{inset:-24px;animation-duration:3s;animation-direction:reverse;border-top-color:#f4c542;border-bottom-color:#a855f7}
+.summon-ring{position:absolute;width:80px;height:80px;border-radius:50%;border:2px solid #a855f7;animation:summon-ring 1.2s ease-out infinite}
+.summon-text{margin-top:24px;font-size:16px;font-weight:700;color:#a855f7;text-shadow:0 0 20px rgba(168,85,247,.5);letter-spacing:1px}
+.summon-particles{position:absolute;width:200px;height:200px}
+.summon-particles span{position:absolute;width:4px;height:4px;background:#f4c542;border-radius:50%;animation:summon-particle 1.5s ease-out infinite}
+/* Success celebration */
+@keyframes confetti-fall{0%{transform:translateY(-10px) rotate(0deg);opacity:1}100%{transform:translateY(100vh) rotate(720deg);opacity:0}}
+@keyframes celebrate-pop{0%{transform:scale(0);opacity:0}50%{transform:scale(1.3);opacity:1}100%{transform:scale(1);opacity:1}}
+@keyframes rare-shine{0%{background-position:200% center}100%{background-position:-200% center}}
+.gacha-card-back.rare .card-emoji{animation:celebrate-pop .5s ease backwards}
+.gacha-card-back.legendary .card-emoji{animation:celebrate-pop .5s ease backwards}
+/* Toast bounce */
+@keyframes toast-in{0%{opacity:0;transform:translateX(-50%) translateY(30px) scale(.9)}60%{transform:translateX(-50%) translateY(-4px) scale(1.02)}100%{opacity:1;transform:translateX(-50%) translateY(0) scale(1)}}
+.toast.show{animation:toast-in .35s ease-out forwards}
+/* Tab content fade */
+@keyframes fade-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.tab-content.active{animation:fade-in .25s ease}
+/* Coin flip */
+@keyframes coin-spin{0%{transform:rotateY(0deg) scale(1)}50%{transform:rotateY(900deg) scale(1.3)}100%{transform:rotateY(1800deg) scale(1)}}
+@keyframes coin-land-win{0%{transform:scale(1)}50%{transform:scale(1.4)}100%{transform:scale(1)}}
+@keyframes coin-land-lose{0%{transform:scale(1)}50%{transform:scale(.7);opacity:.5}100%{transform:scale(1);opacity:1}}
+#coinEmoji{display:inline-block;font-size:48px;transition:transform .3s}
+/* Checkin celebration */
+@keyframes checkin-burst{0%{transform:scale(0) rotate(-20deg);opacity:0}60%{transform:scale(1.2) rotate(5deg);opacity:1}100%{transform:scale(1) rotate(0deg);opacity:1}}
+@keyframes streak-fire{0%,100%{text-shadow:0 0 4px #f59e0b}50%{text-shadow:0 0 16px #f59e0b,0 0 30px #f97316}}
+.checkin-celebrate{animation:checkin-burst .5s ease-out}
+/* Expedition animations */
+@keyframes exped-depart{0%{transform:translateX(0) scale(1);opacity:1}100%{transform:translateX(80px) scale(.6);opacity:0}}
+@keyframes exped-reward{0%{transform:scale(0) rotate(-10deg);opacity:0}60%{transform:scale(1.15) rotate(3deg)}100%{transform:scale(1) rotate(0);opacity:1}}
+.exped-reward-anim{animation:exped-reward .5s ease-out}
+/* Button press effect */
+.btn:active{transform:scale(.96)}
+/* Shop item hover pulse */
+@keyframes item-pulse{0%{box-shadow:0 0 0 0 rgba(168,85,247,.3)}70%{box-shadow:0 0 0 8px rgba(168,85,247,0)}100%{box-shadow:0 0 0 0 rgba(168,85,247,0)}}
+.shop-item:active{animation:item-pulse .4s ease}
+/* Loading dots */
+@keyframes loading-dots{0%,80%,100%{transform:scale(0)}40%{transform:scale(1)}}
 .gacha-close{margin-top:16px;padding:10px 30px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;color:var(--text);cursor:pointer;font-size:14px;font-weight:600}
 /* Leaderboard */
 .lb-entry{display:flex;align-items:center;gap:10px;padding:8px;border-radius:8px;margin-bottom:6px;background:var(--bg2)}
@@ -154,8 +205,9 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 .balance-bar{display:flex;align-items:center;justify-content:flex-end;gap:6px;padding:5px 14px;background:var(--bg2);border-bottom:1px solid var(--border);font-size:13px;font-weight:700;color:var(--gold);position:sticky;top:88px;z-index:90}
 /* User picker bottom sheet */
 .user-picker-modal{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9500;display:none;align-items:flex-end}
-.user-picker-modal.open{display:flex}
+.user-picker-modal.open{display:flex;animation:fade-backdrop .2s ease}
 .user-picker-sheet{background:var(--bg2);border-radius:16px 16px 0 0;width:100%;max-height:75vh;display:flex;flex-direction:column;overflow:hidden}
+.user-picker-modal.open .user-picker-sheet{animation:slide-up .3s ease}
 .user-picker-item{display:flex;align-items:center;gap:12px;padding:12px 14px;border-bottom:1px solid var(--border);cursor:pointer;min-height:52px;transition:background .15s}
 .user-picker-item:active{background:var(--bg3)}
 .user-picker-avatar{width:38px;height:38px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;flex-shrink:0;color:#fff}
@@ -233,19 +285,24 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 .dev-log-entry:last-child{border:none}
 /* Public profile modal */
 .pub-profile-overlay{position:fixed;inset:0;z-index:9100;background:rgba(0,0,0,.6);display:none;align-items:flex-end;justify-content:center}
-.pub-profile-overlay.open{display:flex}
+.pub-profile-overlay.open{display:flex;animation:fade-backdrop .2s ease}
 .pub-profile-sheet{background:var(--bg2);border-radius:18px 18px 0 0;padding:20px;width:100%;max-width:460px;max-height:85vh;overflow-y:auto}
+.pub-profile-overlay.open .pub-profile-sheet{animation:slide-up .3s ease}
 .pub-profile-header{display:flex;align-items:center;gap:12px;margin-bottom:14px}
 .pub-close-btn{margin-left:auto;background:none;border:none;color:var(--text2);font-size:20px;cursor:pointer;padding:4px}
 .dev-log-ts{color:var(--text2);margin-right:6px}
 .err-msg{color:#fca5a5;font-size:12px;margin-top:6px;display:none}
-.loading{color:var(--text2);text-align:center;padding:30px;font-size:13px}
+.loading{color:var(--text2);text-align:center;padding:30px;font-size:13px;animation:loading-pulse 1.5s ease-in-out infinite}
+@keyframes loading-pulse{0%,100%{opacity:.5}50%{opacity:1}}
 select{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-size:13px;outline:none;width:100%}
 .separator{height:1px;background:var(--border);margin:12px 0}
 /* Wallet picker bottom-sheet */
 .wallet-modal{position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:9500;display:none;align-items:flex-end;justify-content:center}
-.wallet-modal.open{display:flex}
+.wallet-modal.open{display:flex;animation:fade-backdrop .2s ease}
+@keyframes fade-backdrop{from{opacity:0}to{opacity:1}}
 .wallet-sheet{background:var(--bg2);border:1px solid var(--border);border-radius:18px 18px 0 0;padding:20px 16px max(env(safe-area-inset-bottom,0px),28px);width:100%;max-width:460px}
+.wallet-modal.open .wallet-sheet{animation:slide-up .3s ease}
+@keyframes slide-up{from{transform:translateY(100%)}to{transform:translateY(0)}}
 .wallet-sheet-title{font-size:12px;font-weight:700;color:var(--text2);text-align:center;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
 .wallet-sheet-price{font-size:28px;font-weight:900;color:var(--gold);text-align:center;margin-bottom:18px}
 .wallet-options{display:flex;gap:10px;margin-bottom:12px}
@@ -320,9 +377,27 @@ select{background:var(--bg3);border:1px solid var(--border);border-radius:8px;pa
 
 <!-- Gacha overlay -->
 <div id="gachaOverlay">
-  <div class="gacha-title">✨ Молитва Пустоты</div>
-  <div class="gacha-grid" id="gachaGrid"></div>
-  <button class="gacha-close" id="gachaCloseBtn">Закрыть</button>
+  <div id="gachaSummon">
+    <div class="summon-circle">
+      <div class="summon-ring"></div>
+      <div class="summon-ring" style="animation-delay:.4s"></div>
+      <div class="summon-ring" style="animation-delay:.8s"></div>
+      <div class="summon-particles">
+        <span style="left:20%;top:10%;animation-delay:0s"></span>
+        <span style="left:70%;top:20%;animation-delay:.3s"></span>
+        <span style="left:40%;top:80%;animation-delay:.6s"></span>
+        <span style="left:80%;top:60%;animation-delay:.9s"></span>
+        <span style="left:10%;top:50%;animation-delay:1.2s"></span>
+        <span style="left:60%;top:5%;animation-delay:.5s"></span>
+        <span style="left:30%;top:90%;animation-delay:.8s"></span>
+        <span style="left:90%;top:40%;animation-delay:1.1s"></span>
+      </div>
+    </div>
+    <div class="summon-text">✨ Призыв...</div>
+  </div>
+  <div class="gacha-title" id="gachaTitle" style="display:none">✨ Молитва Пустоты</div>
+  <div class="gacha-grid" id="gachaGrid" style="display:none"></div>
+  <button class="gacha-close" id="gachaCloseBtn" style="display:none">Закрыть</button>
 </div>
 
 <!-- Gacha drop rates modal -->
@@ -1981,6 +2056,7 @@ async function doCheckin(){
       return;
     }
     toast('✅ Чек-ин! +'+r.mora+' 🪙 (стрик: '+r.streak+')','success');
+    if(tg && tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
     // Update profile mora display if loaded
     if(profileData){
       syncBalance((profileData.balance||0)+(r.mora||0));
@@ -1988,10 +2064,19 @@ async function doCheckin(){
       if(ps) ps.textContent=(r.streak||0)+' дн.';
     }
     // Refresh the calendar grid
-    document.getElementById('calStreak').textContent=(r.streak||0)+' дн.';
-    document.getElementById('calTotal').textContent=(r.total_days||0)+' дн.';
+    const calStreak = document.getElementById('calStreak');
+    const calTotal = document.getElementById('calTotal');
+    calStreak.textContent=(r.streak||0)+' дн.';
+    calTotal.textContent=(r.total_days||0)+' дн.';
+    calStreak.classList.add('checkin-celebrate');
+    calStreak.style.animation='streak-fire 1.5s ease-in-out';
+    setTimeout(()=>{calStreak.classList.remove('checkin-celebrate');calStreak.style.animation='';},1600);
     _buildCalGrid(r.streak||0, true);
-    if(btn){btn.textContent='✅ Уже отмечено сегодня';btn.style.opacity='0.5';}
+    if(btn){
+      btn.textContent='✅ Уже отмечено сегодня';
+      btn.style.opacity='0.5';
+      btn.style.animation='checkin-burst .5s ease-out';
+    }
   } catch(e){
     toast('❌ '+e.message,'error');
     if(btn) btn.disabled=false;
@@ -2695,33 +2780,59 @@ function flashRarity(rarity){
 
 function showGachaOverlay(items){
   const grid=document.getElementById('gachaGrid');
+  const summon=document.getElementById('gachaSummon');
+  const title=document.getElementById('gachaTitle');
+  const closeBtn=document.getElementById('gachaCloseBtn');
   grid.innerHTML='';
+  grid.style.display='none';
+  title.style.display='none';
+  closeBtn.style.display='none';
+  summon.style.display='flex';
   const overlay=document.getElementById('gachaOverlay');
   overlay.classList.add('active');
   const rarityRank={junk:0,common:1,rare:2,legendary:3};
   let topRarity='junk';
-  items.forEach((item,i)=>{
-    if((rarityRank[item.rarity]||0)>(rarityRank[topRarity]||0)) topRarity=item.rarity;
-    const card=document.createElement('div');
-    card.className='gacha-card';
-    const nameParts=item.name.split(' ');
-    const emoji=nameParts[0]||'❓';
-    const name=nameParts.slice(1).join(' ');
-    card.innerHTML=`<div class="gacha-card-inner">
-      <div class="gacha-card-front">🌀</div>
-      <div class="gacha-card-back ${item.rarity}">
-        <div class="card-emoji">${emoji}</div>
-        <div class="card-name">${esc(name)}</div>
-      </div>
-    </div>`;
-    grid.appendChild(card);
-    setTimeout(()=>{card.classList.add('flipped');card.style.animation='card-appear .4s ease';}, 200+i*150);
-  });
-  // Flash screen at highest rarity after all cards reveal
-  setTimeout(()=>flashRarity(topRarity), 200+(items.length-1)*150+650);
+  items.forEach(item=>{if((rarityRank[item.rarity]||0)>(rarityRank[topRarity]||0)) topRarity=item.rarity;});
+  // Summoning phase duration depends on rarity (legendary = longer suspense)
+  const summonDuration=topRarity==='legendary'?2800:topRarity==='rare'?2200:1600;
+  // Flash during summoning for legendary
+  if(topRarity==='legendary'){
+    setTimeout(()=>flashRarity('rare'),summonDuration-800);
+    setTimeout(()=>flashRarity('legendary'),summonDuration-200);
+  } else if(topRarity==='rare'){
+    setTimeout(()=>flashRarity('rare'),summonDuration-300);
+  }
+  setTimeout(()=>{
+    summon.style.display='none';
+    title.style.display='';
+    grid.style.display='';
+    closeBtn.style.display='';
+    items.forEach((item,i)=>{
+      const card=document.createElement('div');
+      card.className='gacha-card';
+      const nameParts=item.name.split(' ');
+      const emoji=nameParts[0]||'❓';
+      const name=nameParts.slice(1).join(' ');
+      card.innerHTML=`<div class="gacha-card-inner">
+        <div class="gacha-card-front">🌀</div>
+        <div class="gacha-card-back ${item.rarity}">
+          <div class="card-emoji">${emoji}</div>
+          <div class="card-name">${esc(name)}</div>
+        </div>
+      </div>`;
+      grid.appendChild(card);
+      setTimeout(()=>{card.classList.add('flipped');card.style.animation='card-appear .4s ease';}, 200+i*150);
+    });
+    // Flash screen at highest rarity after all cards reveal
+    setTimeout(()=>flashRarity(topRarity), 200+(items.length-1)*150+650);
+    // Haptic on each card flip
+    items.forEach((_,i)=>{
+      setTimeout(()=>{if(tg&&tg.HapticFeedback)tg.HapticFeedback.impactOccurred('light');},200+i*150);
+    });
+  },summonDuration);
 }
 
-document.getElementById('gachaCloseBtn').onclick=()=>document.getElementById('gachaOverlay').classList.remove('active');
+document.getElementById('gachaCloseBtn').onclick=()=>{document.getElementById('gachaOverlay').classList.remove('active');document.getElementById('gachaSummon').style.display='none';};
 document.getElementById('wBtnPersonal').onclick=()=>{const r=_wResolve;_closeWallet();if(r)r('personal');};
 document.getElementById('wBtnFamily').onclick=()=>{const r=_wResolve;_closeWallet();if(r)r('family');};
 document.getElementById('wBtnCancel').onclick=()=>{const rj=_wReject;_closeWallet();if(rj)rj(new Error('cancelled'));};
@@ -4481,13 +4592,19 @@ async function doCoinFlip(){
   const amt = parseInt(document.getElementById('coinBetAmt').value||0);
   if(!amt||amt<=0){ toast('❌ Введи ставку','error'); return; }
   const el = document.getElementById('coinResult');
-  el.textContent = '⏳ Подбрасываем...';
+  el.innerHTML = '<div id="coinEmoji" style="margin:16px 0">🪙</div><div>⏳ Подбрасываем...</div>';
+  const coinEl = document.getElementById('coinEmoji');
+  if(coinEl) coinEl.style.animation='coin-spin 1.2s ease-in-out';
+  if(tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
   try{
     const r = await api('/api/casino/coin','POST',{chat_id:chatId,amount:amt});
+    if(coinEl) coinEl.style.animation='none';
     if(r.win){
-      el.innerHTML = `<span style="color:var(--green)">🎉 Победа! Ставка ${r.bet} → +${r.prize} 🪙 (−${r.win_tax||0} 🏦 НДС)</span><br><small>Баланс: ${r.new_balance} 🪙</small>`;
+      el.innerHTML = `<div id="coinEmoji" style="margin:8px 0;animation:coin-land-win .4s ease">🪙</div><span style="color:var(--green);animation:celebrate-pop .5s ease">🎉 Победа! Ставка ${r.bet} → +${r.prize} 🪙 (−${r.win_tax||0} 🏦 НДС)</span><br><small>Баланс: ${r.new_balance} 🪙</small>`;
+      if(tg && tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
     } else {
-      el.innerHTML = `<span style="color:#f87171">😢 Проигрыш. −${r.bet} 🪙</span><br><small>Баланс: ${r.new_balance} 🪙</small>`;
+      el.innerHTML = `<div id="coinEmoji" style="margin:8px 0;animation:coin-land-lose .4s ease">🪙</div><span style="color:#f87171">😢 Проигрыш. −${r.bet} 🪙</span><br><small>Баланс: ${r.new_balance} 🪙</small>`;
+      if(tg && tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('error');
     }
     if(r.new_balance !== undefined) syncBalance(r.new_balance);
   } catch(e){ el.innerHTML = `<span style="color:#f87171">❌ ${esc(e.message)}</span>`; }
@@ -4626,11 +4743,17 @@ function renderExpeditionTab(){
 }
 async function doExpedStart(key){
   try{
+    const btn = event && event.target;
+    if(btn){
+      btn.disabled=true;
+      btn.style.animation='exped-depart .6s ease-in forwards';
+    }
+    if(tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
     await api('/api/expeditions/start','POST',{chat_id:chatId,option_key:key});
-    toast('🏕 Экспедиция начата!');
+    toast('🏕 Экспедиция начата!','success');
     tabLoaded['expedition']=false;
-    loadExpeditionTab();
-  } catch(e){ toast('❌ '+e.message,'error'); }
+    setTimeout(()=>loadExpeditionTab(),500);
+  } catch(e){ toast('❌ '+e.message,'error'); tabLoaded['expedition']=false; loadExpeditionTab(); }
 }
 async function petWalkFromExped(){
   const el = document.getElementById('petWalkExpedResult');
@@ -4649,9 +4772,11 @@ async function petWalkFromExped(){
 async function doExpedCollect(){
   const el = document.getElementById('expedResult');
   try{
+    if(tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred('heavy');
     const r = await api('/api/expeditions/collect','POST',{chat_id:chatId});
     const taxStr = r.tax > 0 ? ` (−${r.tax} 🏦 НДС, брутто ${r.reward_gross})` : '';
-    el.innerHTML = `<span style="color:var(--green)">+${r.reward} 🪙 получено!${taxStr} Баланс: ${r.new_balance} 🪙</span>`;
+    el.innerHTML = `<span class="exped-reward-anim" style="display:inline-block;color:var(--green)">+${r.reward} 🪙 получено!${taxStr} Баланс: ${r.new_balance} 🪙</span>`;
+    if(tg && tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
     if(r.new_balance !== undefined) syncBalance(r.new_balance);
     tabLoaded['expedition']=false;
     setTimeout(()=>loadExpeditionTab(),1500);
