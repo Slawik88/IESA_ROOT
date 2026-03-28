@@ -1567,6 +1567,60 @@ def miniapp_treasury(request):
         logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
 
 
+@csrf_exempt
+def miniapp_treasury_payout(request):
+    """POST /api/treasury/payout — pay mora from treasury to a user (developer/owner only)."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=405, headers=headers)
+
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+
+    try:
+        body = json.loads(request.body)
+        chat_id = int(str(body.get("chat_id", "0")))
+        target_id = int(str(body.get("target_id", "0")))
+        amount = int(body.get("amount", 0))
+        reason = str(body.get("reason", ""))[:200]
+    except Exception:
+        return JsonResponse({"error": "invalid JSON"}, status=400, headers=headers)
+
+    if not chat_id or not target_id or amount <= 0:
+        return JsonResponse({"error": "chat_id, target_id и amount обязательны"}, status=400, headers=headers)
+
+    # Allow developer by Telegram ID, or owner rank in this chat
+    if uid != _DEVELOPER_ID:
+        try:
+            conn, db_type = _get_bot_db_connection()
+            cur = conn.cursor()
+            ph = "%s" if db_type == "pg" else "?"
+            cur.execute(
+                f"SELECT rank FROM user_stats WHERE user_id={ph} AND chat_id={ph}",
+                (uid, chat_id),
+            )
+            row = cur.fetchone()
+            conn.close()
+            rank = row[0] if row else "user"
+        except Exception:
+            rank = "user"
+        if rank not in ("owner", "developer"):
+            return JsonResponse({"error": "forbidden"}, status=403, headers=headers)
+
+    try:
+        from asgiref.sync import async_to_sync as _a2s
+        from api.admin import treasury_payout as _treasury_payout
+        result = _a2s(_treasury_payout)(uid, target_id, chat_id, amount, reason)
+        return JsonResponse(result, json_dumps_params={"ensure_ascii": False}, headers=headers)
+    except ValueError as ve:
+        return JsonResponse({"error": str(ve)}, status=400, headers=headers)
+    except Exception as exc:
+        logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
+
+
 # ─── Family wallet: deposit / withdraw ────────────────────────────────────────
 
 @csrf_exempt
