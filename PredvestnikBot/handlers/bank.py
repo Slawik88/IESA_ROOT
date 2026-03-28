@@ -5,7 +5,7 @@
   бот банк / бот вклад   — меню банка (создать вклад / просмотр / снять)
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from aiogram import Router
 from aiogram.types import (
@@ -96,7 +96,7 @@ async def cmd_bank(message: Message, cmd_args: str):
 
     if deposits:
         lines.append("📦 <b>Твои вклады:</b>")
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         for dep in deposits:
             amount = dep["amount"]
             rate = dep["rate"]

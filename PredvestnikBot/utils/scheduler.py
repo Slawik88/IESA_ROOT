@@ -359,7 +359,7 @@ async def _task_weekly_singles_bonus(bot) -> None:
     )
     from utils.helpers import user_mention, bot_today
 
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     # Only award on Sundays
     if now.weekday() != 6:
         return
@@ -397,19 +397,20 @@ async def _task_weekly_singles_bonus(bot) -> None:
 
 # ─── Богатый сундук (раз в 4-8 часов) ──────────────────────────────────────
 
-_next_chest_hour: int | None = None
-
 
 async def _task_chest_event(bot) -> None:
-    global _next_chest_hour
     from config import CHEST_EVENT_INTERVAL_MIN, CHEST_EVENT_INTERVAL_MAX
-    if _next_chest_hour is None:
-        _next_chest_hour = random.randint(CHEST_EVENT_INTERVAL_MIN, CHEST_EVENT_INTERVAL_MAX)
+    from database.db import get_scheduler_state, set_scheduler_state
 
-    _next_chest_hour -= 1
-    if _next_chest_hour > 0:
+    raw = await get_scheduler_state("chest_next_hour")
+    next_hour = int(raw) if raw else random.randint(CHEST_EVENT_INTERVAL_MIN, CHEST_EVENT_INTERVAL_MAX)
+
+    next_hour -= 1
+    if next_hour > 0:
+        await set_scheduler_state("chest_next_hour", str(next_hour))
         return
-    _next_chest_hour = random.randint(CHEST_EVENT_INTERVAL_MIN, CHEST_EVENT_INTERVAL_MAX)
+    next_hour = random.randint(CHEST_EVENT_INTERVAL_MIN, CHEST_EVENT_INTERVAL_MAX)
+    await set_scheduler_state("chest_next_hour", str(next_hour))
 
     from handlers.tax_event import run_chest_events_cycle
     await run_chest_events_cycle(bot)
@@ -418,7 +419,10 @@ async def _task_chest_event(bot) -> None:
 # ─── Уведомления о завершённых экспедициях ─────────────────────────────────────
 
 async def _task_expedition_notifications(bot) -> None:
-    from database.db import add_mora, finish_expedition, get_all_finished_expeditions, get_pet, get_marriage
+    from database.db import (
+        add_mora, finish_expedition, get_all_finished_expeditions,
+        get_pets_batch, get_marriages_batch,
+    )
     from config import EXPEDITION_OPTIONS
     _PET_EMOJI = {"cat": "🐱", "dog": "🐶"}
 
@@ -437,6 +441,14 @@ async def _task_expedition_notifications(bot) -> None:
             return "сокровища из заброшенных руин! 🏺✨"
 
     finished = await get_all_finished_expeditions()
+    if not finished:
+        return
+
+    # Batch-fetch pets and marriages (2 queries instead of 2*N)
+    pairs = [(exp["user_id"], exp["chat_id"]) for exp in finished]
+    pets_map = await get_pets_batch(pairs)
+    marriages_map = await get_marriages_batch(pairs)
+
     for exp in finished:
         uid = exp["user_id"]
         chat_id = exp["chat_id"]
@@ -446,14 +458,14 @@ async def _task_expedition_notifications(bot) -> None:
             await add_mora(uid, chat_id, reward)
             await finish_expedition(uid, chat_id)
 
-            pet = await get_pet(uid, chat_id)
+            pet = pets_map.get((uid, chat_id))
             pet_emoji = _PET_EMOJI.get(pet["pet_type"], "🐾") if pet else "🐾"
             pet_name  = pet["name"] if (pet and pet.get("name")) else "Питомец"
             exp_label = _label_by_h.get(exp["duration_h"], f"{exp['duration_h']}ч")
             loot      = _loot_flavor(reward)
 
             # Проверяем брак и начисляем мору партнёру тоже
-            marriage = await get_marriage(uid, chat_id)
+            marriage = marriages_map.get((uid, chat_id))
             partner_tag = ""
             if marriage:
                 partner_id = marriage["partner_id"]
@@ -483,21 +495,25 @@ async def _task_expedition_notifications(bot) -> None:
 
 # ─── Обновление цен облигаций каждые 3 часа ─────────────────────────────────
 
-_bond_price_last_update: "datetime | None" = None
 _BOND_UPDATE_INTERVAL_HOURS = 3
 
 
 async def _task_bond_price_update(bot) -> None:
     """Обновляет цены облигаций для всех чатов раз в 3 часа.
     Gaussian walk + mean reversion + bull/bear trend + volatility spikes."""
-    global _bond_price_last_update
+    from database.db import get_scheduler_state, set_scheduler_state
     now = datetime.now(timezone.utc)
 
     # Пропускаем, если прошло меньше 3 часов с последнего обновления
-    if _bond_price_last_update is not None:
-        elapsed = (now - _bond_price_last_update).total_seconds()
-        if elapsed < _BOND_UPDATE_INTERVAL_HOURS * 3600:
-            return
+    last_update_str = await get_scheduler_state("bond_price_last_update")
+    if last_update_str:
+        try:
+            last_update = datetime.fromisoformat(last_update_str)
+            elapsed = (now - last_update).total_seconds()
+            if elapsed < _BOND_UPDATE_INTERVAL_HOURS * 3600:
+                return
+        except (ValueError, TypeError):
+            pass
 
     from database.db import update_bond_prices
     from database.postgres import connect as postgres_connect
@@ -508,7 +524,7 @@ async def _task_bond_price_update(bot) -> None:
             rows = await c.fetchall()
 
     chat_ids = [r["chat_id"] for r in rows]
-    _bond_price_last_update = now  # обновляем метку времени до цикла, чтобы не было двойного запуска
+    await set_scheduler_state("bond_price_last_update", now.isoformat())
 
     trend_summary: dict[str, str] = {}
     for chat_id in chat_ids:
@@ -531,12 +547,10 @@ async def _task_bond_price_update(bot) -> None:
 
 # ─── Пятница 20:00 Zurich — Дилижанс ─────────────────────────────────────────
 
-_diligence_last_sent_date: str | None = None
-
 
 async def _task_diligence_event(bot) -> None:
     """Запускает Дилижанс по пятницам в 20:00 (Europe/Zurich)."""
-    global _diligence_last_sent_date
+    from database.db import get_scheduler_state, set_scheduler_state
     try:
         import zoneinfo
         tz = zoneinfo.ZoneInfo("Europe/Zurich")
@@ -548,9 +562,10 @@ async def _task_diligence_event(bot) -> None:
     if now.hour != 20:
         return
     today_str = now.strftime("%Y-%m-%d")
-    if _diligence_last_sent_date == today_str:
+    last_sent = await get_scheduler_state("diligence_last_date")
+    if last_sent == today_str:
         return
-    _diligence_last_sent_date = today_str
+    await set_scheduler_state("diligence_last_date", today_str)
 
     from database.db import get_all_active_chats
     from handlers.diligence import _launch_diligence
@@ -565,14 +580,12 @@ async def _task_diligence_event(bot) -> None:
 
 # ─── Суббота 18:00 Zurich — Дивиденды из казны ───────────────────────────────
 
-_dividend_last_sent_date: str | None = None
-
 
 async def _task_treasury_dividends(bot) -> None:
     """Раздаёт дивиденды из казны каждую субботу в 18:00 (Europe/Zurich).
     40% — VIP-участникам, 60% — топ-10 активных за неделю.
     """
-    global _dividend_last_sent_date
+    from database.db import get_scheduler_state, set_scheduler_state
     try:
         import zoneinfo
         tz = zoneinfo.ZoneInfo("Europe/Zurich")
@@ -584,9 +597,10 @@ async def _task_treasury_dividends(bot) -> None:
     if now.hour != 18:
         return
     today_str = now.strftime("%Y-%m-%d")
-    if _dividend_last_sent_date == today_str:
+    last_sent = await get_scheduler_state("dividend_last_date")
+    if last_sent == today_str:
         return
-    _dividend_last_sent_date = today_str
+    await set_scheduler_state("dividend_last_date", today_str)
 
     from database.db import (
         add_mora,

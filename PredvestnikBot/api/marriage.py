@@ -163,12 +163,14 @@ async def family_withdraw(uid: int, chat_id: int, amount: int) -> dict:
     """Withdraw mora from the family wallet to personal balance.
 
     Deducts from the user's own contribution first, then partner's.
+    Atomic: balance check + deduct happen inside deduct_family_pool with FOR UPDATE.
     Raises ValueError on error.
     Returns {ok, amount, personal_balance, family_balance}.
     """
     from database.db import (
-        add_mora, get_mora, get_total_family_balance,
+        add_mora, get_mora,
         deduct_family_pool, log_family_transaction, is_user_single,
+        get_total_family_balance,
     )
 
     if amount <= 0:
@@ -178,10 +180,10 @@ async def family_withdraw(uid: int, chat_id: int, amount: int) -> dict:
     if single:
         raise ValueError("Нет семейного кошелька — ты не в браке")
 
-    total_bal, _my_bal, partner_id = await get_total_family_balance(chat_id, uid)
-    if total_bal < amount:
-        raise ValueError(f"В семейном кошельке {total_bal} 🪙 (нужно {amount})")
+    # get_total_family_balance нужен только для получения partner_id
+    _total_bal, _my_bal, partner_id = await get_total_family_balance(chat_id, uid)
 
+    # Атомарная проверка + списание (FOR UPDATE внутри deduct_family_pool)
     new_family_bal = await deduct_family_pool(chat_id, uid, partner_id, amount)
     await add_mora(uid, chat_id, amount)
     await log_family_transaction(chat_id, uid, "withdraw", amount)

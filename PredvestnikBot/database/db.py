@@ -1046,6 +1046,15 @@ async def init_db():
             )
         """)
 
+        # Персистентное состояние планировщика (переживает перезапуски)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS scheduler_state (
+                task_key   TEXT PRIMARY KEY,
+                value      TEXT NOT NULL,
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """)
+
         # DDL соединение не поддерживает транзакции - commit() не нужен
 
     # PostgreSQL: widen all Telegram ID columns from int32 (INTEGER) → int64 (BIGINT).
@@ -1951,7 +1960,7 @@ async def set_lock(chat_id: int, lock_type: str, value: int):
 
 async def get_rep_count_today(from_uid: int, to_uid: int, chat_id: int) -> int:
     """Сколько раз from_uid давал репутацию to_uid в чате за сегодня (UTC)."""
-    today = datetime.utcnow().date().isoformat()  # "YYYY-MM-DD"
+    today = datetime.now(timezone.utc).date().isoformat()  # "YYYY-MM-DD"
     cutoff = today + "T00:00:00"
     async with postgres_connect() as db:
         async with db.execute(
@@ -3129,15 +3138,25 @@ async def deduct_family_pool(
     """Списать amount из семейного пула (вклад обоих партнёров).
     Сначала списывает с вклада user_id, затем — с вклада partner_id.
     Возвращает новый суммарный баланс.
-    ВАЖНО: вызывать только после проверки get_total_family_balance >= amount."""
+    Атомарная операция: FOR UPDATE блокирует строки на время транзакции."""
     async with postgres_connect() as db:
 
+        # Блокируем строки обоих партнёров FOR UPDATE — защита от параллельных снятий
+        uids = [user_id] + ([partner_id] if partner_id else [])
+        placeholders = ",".join("?" for _ in uids)
         async with db.execute(
-            "SELECT balance FROM family_wallet WHERE chat_id=? AND user_id=?",
-            (chat_id, user_id),
+            f"SELECT user_id, balance FROM family_wallet "
+            f"WHERE chat_id=? AND user_id IN ({placeholders}) FOR UPDATE",
+            (chat_id, *uids),
         ) as c:
-            my_row = await c.fetchone()
-        my_bal = (my_row["balance"] or 0) if my_row else 0
+            rows = await c.fetchall()
+
+        bal_map = {r["user_id"]: (r["balance"] or 0) for r in rows}
+        my_bal = bal_map.get(user_id, 0)
+        total_available = sum(bal_map.values())
+
+        if total_available < amount:
+            raise ValueError(f"В семейном кошельке {total_available} 🪙 (нужно {amount})")
 
         if my_bal >= amount:
             # Всё списывается с моего вклада
@@ -3161,7 +3180,7 @@ async def deduct_family_pool(
 
         # Суммируем оба остатка
         total = 0
-        for uid_check in ([user_id] + ([partner_id] if partner_id else [])):
+        for uid_check in uids:
             async with db.execute(
                 "SELECT balance FROM family_wallet WHERE chat_id=? AND user_id=?",
                 (chat_id, uid_check),
@@ -3230,7 +3249,7 @@ async def mark_anniversary_awarded(user_id: int, chat_id: int, date_str: str):
         )
         await db.commit()
         # Автоочистка: удаляем записи старше 90 дней
-        cutoff = (datetime.utcnow().date().isoformat()[:7])  # "YYYY-MM"
+        cutoff = (datetime.now(timezone.utc).date().isoformat()[:7])  # "YYYY-MM"
         await db.execute(
             "DELETE FROM anniversary_log WHERE date_str < ?",
             (cutoff + "-01",),
@@ -3257,7 +3276,7 @@ async def mark_singles_bonus_awarded(week_key: str):
         )
         
         # Auto-cleanup: remove records older than 12 weeks
-        cutoff_year = datetime.utcnow().year
+        cutoff_year = datetime.now(timezone.utc).year
         if week_key.startswith(str(cutoff_year)) and int(week_key[-2:]) <= 12:
             cutoff_year -= 1
         await db.execute(
@@ -3302,7 +3321,7 @@ async def mark_lottery_drawn(week_key: str):
         )
         await db.commit()
         # Автоочистка: удаляем записи старше 12 недель
-        cutoff_year = datetime.utcnow().year - 1
+        cutoff_year = datetime.now(timezone.utc).year - 1
         await db.execute(
             "DELETE FROM lottery_draws WHERE week_key < ?", (f"{cutoff_year}-W01",)
         )
@@ -4284,6 +4303,34 @@ async def get_pet(user_id: int, chat_id: int) -> dict | None:
         ) as c:
             row = await c.fetchone()
             return dict(row) if row else None
+
+
+async def get_pets_batch(pairs: list[tuple[int, int]]) -> dict[tuple[int, int], dict]:
+    """Batch-fetch pets for multiple (user_id, chat_id) pairs. Returns {(uid, cid): row}."""
+    if not pairs:
+        return {}
+    async with postgres_connect() as db:
+        conditions = " OR ".join("(user_id=? AND chat_id=?)" for _ in pairs)
+        params = [v for p in pairs for v in p]
+        async with db.execute(
+            f"SELECT * FROM pets WHERE {conditions}", params,
+        ) as c:
+            rows = await c.fetchall()
+    return {(r["user_id"], r["chat_id"]): dict(r) for r in rows}
+
+
+async def get_marriages_batch(pairs: list[tuple[int, int]]) -> dict[tuple[int, int], dict]:
+    """Batch-fetch marriages for multiple (user_id, chat_id) pairs. Returns {(uid, cid): row}."""
+    if not pairs:
+        return {}
+    async with postgres_connect() as db:
+        conditions = " OR ".join("(user_id=? AND chat_id=?)" for _ in pairs)
+        params = [v for p in pairs for v in p]
+        async with db.execute(
+            f"SELECT * FROM marriages WHERE {conditions}", params,
+        ) as c:
+            rows = await c.fetchall()
+    return {(r["user_id"], r["chat_id"]): dict(r) for r in rows}
 
 
 async def adopt_pet(user_id: int, partner_id: int, chat_id: int, pet_type: str) -> None:
@@ -5381,6 +5428,30 @@ async def reset_treasury(chat_id: int):
     async with postgres_connect() as db:
         await db.execute(
             "UPDATE chat_treasury SET balance = 0 WHERE chat_id=?", (chat_id,)
+        )
+        await db.commit()
+
+
+# ─── Персистентное состояние планировщика ─────────────────────────────────────
+
+async def get_scheduler_state(task_key: str) -> str | None:
+    """Получить сохранённое значение для задачи планировщика."""
+    async with postgres_connect() as db:
+        async with db.execute(
+            "SELECT value FROM scheduler_state WHERE task_key=?",
+            (task_key,),
+        ) as c:
+            row = await c.fetchone()
+    return row["value"] if row else None
+
+
+async def set_scheduler_state(task_key: str, value: str) -> None:
+    """Сохранить значение для задачи планировщика (upsert)."""
+    async with postgres_connect() as db:
+        await db.execute(
+            "INSERT INTO scheduler_state (task_key, value, updated_at) VALUES (?,?,NOW()) "
+            "ON CONFLICT(task_key) DO UPDATE SET value=excluded.value, updated_at=NOW()",
+            (task_key, value),
         )
         await db.commit()
 

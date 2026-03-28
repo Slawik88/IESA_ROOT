@@ -21,12 +21,14 @@ from aiogram.types import (
 )
 
 from config import GACHA_SINGLE_PRICE, GACHA_MULTI_PRICE, GACHA_PITY_COUNT, MINI_APP_TG_URL
+from shared_prices import GACHA_SINGLES_SINGLE, GACHA_SINGLES_MULTI
+from api.gacha import (
+    _JUNK_ITEMS, _COMMON_ITEMS, _RARE_ITEMS, _LEGENDARY_ITEMS,
+)
 from database.db import (
-    add_gacha_item,
     add_mora,
     deduct_mora,
     get_gacha_inventory,
-    get_gacha_pity,
     get_mora,
     get_received_gifts,
     get_top_frame,
@@ -39,65 +41,10 @@ from filters.bot_command import BotCommand
 
 router = Router()
 
-# Скидка для одиночек (меньше базовых цен)
-SINGLES_GACHA_SINGLE = 150
-SINGLES_GACHA_MULTI  = 1350
 
-
-# ─── Пул предметов ───────────────────────────────────────────────────────────
-_JUNK_ITEMS = [
-    ("junk_stone",   "🪨 Камень Маслоу",       "Бесполезный хлам — продай кнопкой «Продать мусор»"),
-    ("junk_stick",   "🪵 Палка путника",       "Сломанная палка, годится только на продажу"),
-    ("junk_dust",    "💨 Пыль забвения",       "Пыль из неизвестного мира — никому не нужна"),
-    ("junk_bone",    "🦴 Кость хиличурла",     "Древняя кость. Продай и забудь"),
-    ("junk_mushroom","🍄 Сомнительный гриб",   "Лучше не пробовать. Зато можно продать"),
-    ("junk_feather", "🪶 Перо Штормпиха",       "Перо химеры. Продай за 4 🪙"),
-    ("junk_rope",    "🧵 Верёвка странника",    "Оборванная верёвка. Продай за 3 🪙"),
-]
-
-_COMMON_ITEMS = [
-    ("cmn_sword",    "⚔️ Тупой клинок",        "Экипировка: +15 ATK"),
-    ("cmn_bow",      "🏹 Кривой лук",          "Экипировка: +12 ATK"),
-    ("cmn_book",     "📕 Потрёпанный дневник",  "Экипировка: +8 ATK, 3% крит"),
-    ("cmn_ring",     "💍 Дешёвое кольцо",       "Экипировка: +15 DEF, +30 HP"),
-    ("cmn_shield",   "🛡 Ржавый щит",           "Экипировка: +20 DEF"),
-    ("str_potion",   "⚔️ Зелье Силы",          "Расходник: +15 ATK на 1 час"),
-    ("def_potion",   "🛡️ Зелье Защиты",        "Расходник: +20 DEF на 1 час"),
-    ("hp_potion",    "❤️ Зелье Здоровья",      "Расходник: +50 HP на 1.5 часа"),
-    ("cmn_xp_shard", "✨ Осколок Опыта",        "Сразу даёт +25 XP"),
-    ("cmn_herb",     "🌿 Трава Сесилии",        "Сразу даёт +15 🪙"),
-    ("cmn_quill",    "✒️ Перо ученика",         "Экипировка: +8 ATK, +15 HP, 2% крит"),
-    ("cmn_talisman", "🔮 Амулет удачи",         "Экипировка: +5 DEF, 1.5% крит"),
-    ("exp_boost_sm",  "🗺️ Ускорение экспедиции S",  "−30 мин от времени текущей экспедиции"),
-    ("quest_reroll",  "🔄 Купон реролла задания",    "Сбросить текущий квест дня на новый"),
-]
-
-_RARE_ITEMS = [
-    ("rare_crown",      "👑 Серебряная корона",       "Экипировка: +25 ATK, +15 DEF, 4% крит"),
-    ("rare_catalyst",   "🔮 Магический катализатор",  "Экипировка: +30 ATK, 4% крит"),
-    ("rare_cape",       "🧣 Алый плащ",               "Экипировка: +25 DEF, +80 HP"),
-    ("rare_gem",        "💎 Сапфир полуночи",          "Экипировка: +20 DEF, 6% крит"),
-    ("rare_xp_crystal", "💠 Кристалл Опыта XL",       "Сразу даёт +150 XP"),
-    ("rare_mora_bag",   "💰 Мешок Моры",               "Сразу даёт +120 🪙"),
-    ("rare_amulet",     "📿 Кармин змеи",              "Экипировка: +20 DEF, 8% крит"),
-    ("rare_mora_chest", "🧧 Красный конверт",          "Сразу даёт +250 🪙"),
-    ("rare_lance",      "⚡ Лазурное копьё",           "Экипировка: +35 ATK, 5% крит"),
-    ("exp_boost_md",  "🗺️✨ Ускорение экспедиции M", "−2 часа от времени текущей экспедиции"),
-    ("pet_rename",    "✏️ Купон переименования питомца", "Переименовать питомца бесплатно 1 раз"),
-]
-
-_LEGENDARY_ITEMS = [
-    ("lego_gnosis",    "✨ Гнозис Балладеера",       "Экипировка: уникальный символ Предвестника в профиле"),
-    ("lego_scepter",   "🏛 Скипетр Дендро Архонта",  "Экипировка: могущественный скипетр в профиле"),
-    ("lego_pantalone", "🎩 Маска Панталоне",          "Экипировка: таинственная маска дельца в профиле"),
-    ("lego_abyss",     "🌀 Корона Бездны",            "Экипировка: корона из глубин Бездны в профиле"),
-    ("lego_fatui",     "⚡ Перст Предвестника",        "Экипировка: эксклюзивный знак верности"),
-    ("str_superior",   "⚔️✨ Зелье Силы Superior",   "Расходник: +30 ATK на 2 часа (редкое!)"),
-    ("def_superior",   "🛡️✨ Зелье Защиты Superior", "Расходник: +40 DEF на 2 часа (редкое!)"),
-    ("lego_raiden",    "⚡ Клинок Ей",                "Экипировка: лучший ATK (+80), 12% крит"),
-    ("lego_jade",      "🏯 Нефритовое зерцало",       "Экипировка: баланс ATK/DEF/CRIT (+20/+40/15%)"),
-    ("exp_boost_lg",  "🗺️⚡ Ускорение экспедиции L", "−50% оставшегося времени экспедиции"),
-]
+# ─── Пул предметов (импорт из api/gacha — единый источник) ──────────────────
+# _JUNK_ITEMS, _COMMON_ITEMS, _RARE_ITEMS, _LEGENDARY_ITEMS
+# импортируются из api.gacha (см. imports вверху)
 
 _RARITY_EMOJI = {
     "junk":      "⚪",
@@ -114,41 +61,7 @@ _RARITY_LABEL = {
 }
 
 
-def _roll_one(pity: int) -> tuple[str, str, str, str]:
-    """Выполнить один ролл. Возвращает (item_key, item_name, rarity, description)."""
-    # Гарант
-    if pity >= GACHA_PITY_COUNT - 1:
-        key, name, desc = random.choice(_LEGENDARY_ITEMS)
-        return key, name, "legendary", desc
-
-    roll = random.random()
-    if roll < 0.03:  # 3% леги [РЕБАЛАНС: было 2%]
-        key, name, desc = random.choice(_LEGENDARY_ITEMS)
-        return key, name, "legendary", desc
-    elif roll < 0.10:  # 8% редкие
-        key, name, desc = random.choice(_RARE_ITEMS)
-        return key, name, "rare", desc
-    elif roll < 0.30:  # 20% обычные
-        key, name, desc = random.choice(_COMMON_ITEMS)
-        return key, name, "common", desc
-    else:  # 70% мусор
-        key, name, desc = random.choice(_JUNK_ITEMS)
-        return key, name, "junk", desc
-
-
-async def _do_rolls(uid: int, chat_id: int, count: int) -> list[tuple[str, str, str, str]]:
-    """Выполнить N роллов и записать в БД. Возвращает список (key, name, rarity, desc)."""
-    pity = await get_gacha_pity(uid, chat_id)
-    results = []
-    for _ in range(count):
-        key, name, rarity, desc = _roll_one(pity)
-        await add_gacha_item(uid, chat_id, key, name, rarity)
-        if rarity == "legendary":
-            pity = 0
-        else:
-            pity += 1
-        results.append((key, name, rarity, desc))
-    return results
+# _roll_one / _do_rolls удалены — основной путь через api.gacha.gacha_roll
 
 
 def _format_results(results: list[tuple[str, str, str, str]]) -> str:
@@ -224,8 +137,8 @@ async def cb_gacha_roll(callback: CallbackQuery):
     result_text  = _format_results(results)
     header       = "🌟" if best_rarity == "legendary" else "✨" if best_rarity == "rare" else "🙏"
     discount_note = "\n🆓 <i>(Применена холостяцкая скидка)</i>" if single else ""
-    price1_next  = SINGLES_GACHA_SINGLE if single else GACHA_SINGLE_PRICE
-    price10_next = SINGLES_GACHA_MULTI  if single else GACHA_MULTI_PRICE
+    price1_next  = GACHA_SINGLES_SINGLE if single else GACHA_SINGLE_PRICE
+    price10_next = GACHA_SINGLES_MULTI  if single else GACHA_MULTI_PRICE
 
     # Кнопки для повторных круток
     kb = InlineKeyboardMarkup(inline_keyboard=[
