@@ -4,6 +4,7 @@ api/casino.py — unified coin flip logic.
 Called by both the Telegram bot handlers and the mini app views.
 All public functions are async; the mini app wraps them with async_to_sync.
 """
+import logging
 import random
 
 # House win rate — single source of truth
@@ -51,7 +52,7 @@ async def coin_flip_resolve(uid: int, chat_id: int, bet: int) -> dict:
                 await mark_quest_rewarded(uid, chat_id, today)
                 quest_done = 1
     except Exception:
-        pass
+        logging.getLogger(__name__).warning("quest_tick failed uid=%s chat=%s", uid, chat_id, exc_info=True)
 
     return {
         "ok":          True,

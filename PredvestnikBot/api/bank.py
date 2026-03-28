@@ -162,7 +162,7 @@ async def deposit(uid: int, chat_id: int, plan_key: str,
             dep_cursor = await db.execute(
                 "INSERT INTO bank_deposits (user_id, chat_id, amount, rate, created_at, matures_at)"
                 " VALUES (?,?,?,?,?,?) RETURNING id",
-                (uid, chat_id, amount, eff_rate, now, matures),
+                (uid, chat_id, amount, eff_rate, now.isoformat(), matures.isoformat()),
             )
             dep_row = await dep_cursor.fetchone()
             dep_id = dep_row[0] if dep_row else 0
@@ -191,7 +191,7 @@ async def deposit(uid: int, chat_id: int, plan_key: str,
             dep_cursor = await db.execute(
                 "INSERT INTO bank_deposits (user_id, chat_id, amount, rate, created_at, matures_at)"
                 " VALUES (?,?,?,?,?,?) RETURNING id",
-                (uid, chat_id, amount, eff_rate, now, matures),
+                (uid, chat_id, amount, eff_rate, now.isoformat(), matures.isoformat()),
             )
             dep_row = await dep_cursor.fetchone()
             dep_id = dep_row[0] if dep_row else 0
