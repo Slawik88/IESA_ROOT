@@ -54,55 +54,31 @@ async def _deliver_item_prize(
     uid: int, chat_id: int,
     item_key: str, item_name: str, item_type: str,
 ) -> dict:
-    """Deliver a roulette item prize. Returns description dict."""
-    from database.db import add_mora, add_xp_in_chat, reduce_pet_fatigue, add_gacha_item
-    from shared_prices import ITEM_METADATA, FOOD_ITEMS
+    """Deliver a roulette item prize. All items go to gacha_inventory.
 
-    # ── Food: apply immediately (reduce pet fatigue) ─────────────────────────
+    Buffs apply immediately when activated from inventory.
+    Food/consume items can be activated from inventory.
+    """
+    from database.db import add_gacha_item
+    from shared_prices import ITEM_METADATA
+
+    # ── Determine slot and rarity by item_type ────────────────────────────────
     if item_type == "food":
-        food_info = FOOD_ITEMS.get(item_key, {})
-        reduction = food_info.get("fatigue", 20)
-        try:
-            await reduce_pet_fatigue(uid, chat_id, reduction)
-        except Exception:
-            _log.warning("reduce_pet_fatigue failed uid=%s key=%s", uid, item_key, exc_info=True)
-        return {
-            "item_key":  item_key,
-            "item_name": item_name,
-            "item_type": "food",
-            "effect":    f"−{reduction} усталости питомца",
-        }
+        slot   = "food"
+        rarity = "common"
+    elif item_type == "consume":
+        slot   = "consume"
+        rarity = "common"
+    elif item_type == "coupon":
+        meta   = ITEM_METADATA.get(item_key, {})
+        slot   = meta.get("slot", "coupon")
+        rarity = "rare"
+    else:
+        # buff and anything else
+        meta   = ITEM_METADATA.get(item_key, {})
+        slot   = meta.get("slot")
+        rarity = "common"
 
-    # ── Consumables: apply immediately ───────────────────────────────────────
-    if item_type == "consume":
-        _MORA_AMOUNTS = {
-            "cmn_herb":       15,
-            "rare_mora_bag":  120,
-            "rare_mora_chest": 250,
-        }
-        _XP_AMOUNTS = {
-            "cmn_xp_shard":   25,
-            "rare_xp_crystal": 150,
-        }
-        if item_key in _MORA_AMOUNTS:
-            amount = _MORA_AMOUNTS[item_key]
-            await add_mora(uid, chat_id, amount)
-            return {"item_key": item_key, "item_name": item_name, "item_type": "consume",
-                    "effect": f"+{amount} 🪙"}
-        if item_key in _XP_AMOUNTS:
-            amount = _XP_AMOUNTS[item_key]
-            await add_xp_in_chat(uid, chat_id, amount)
-            return {"item_key": item_key, "item_name": item_name, "item_type": "consume",
-                    "effect": f"+{amount} XP"}
-        # Fallback
-        await add_mora(uid, chat_id, 15)
-        return {"item_key": item_key, "item_name": item_name, "item_type": "consume",
-                "effect": "+15 🪙"}
-
-    # ── Buffs / coupons: store in gacha_inventory ─────────────────────────────
-    meta     = ITEM_METADATA.get(item_key, {})
-    slot     = meta.get("slot")
-    rarity   = "rare" if item_type == "coupon" else "common"
     await add_gacha_item(
         uid, chat_id,
         item_key=item_key,

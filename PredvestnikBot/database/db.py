@@ -4228,7 +4228,7 @@ async def set_cleanup_config(
                 _nc = _nc.replace(tzinfo=_tz.utc)
             await db.execute(
                 "UPDATE chat_settings SET next_cleanup_at = ?, cleanup_reminder_sent = 0 WHERE chat_id = ?",
-                (_nc.isoformat(), chat_id),
+                (_nc.strftime("%Y-%m-%dT%H:%M"), chat_id),
             )
         if cleanup_message_norm is not None:
             await db.execute(
@@ -5337,7 +5337,26 @@ async def sell_bonds(user_id: int, chat_id: int, bond_key: str, amount: int) -> 
             row = await c.fetchone()
         total_held = row["total"] if row else 0
         if total_held < amount:
-            return (False, 0)
+            # Data inconsistency: aggregate may have bonds bought before lot tracking.
+            # Check user_bonds aggregate and synthesize missing lots if needed.
+            async with db.execute(
+                "SELECT amount, invested FROM user_bonds WHERE user_id=? AND chat_id=? AND bond_key=?",
+                (user_id, chat_id, bond_key),
+            ) as c:
+                agg_row = await c.fetchone()
+            agg_amount = agg_row["amount"] if agg_row else 0
+            if agg_amount < amount:
+                return (False, 0)
+            # Reconcile: insert synthetic lot for the delta
+            missing_qty = agg_amount - total_held
+            if missing_qty > 0:
+                avg_price = int(agg_row["invested"] / agg_amount) if agg_amount > 0 else 0
+                await db.execute(
+                    "INSERT INTO user_bond_lots (user_id, chat_id, bond_key, quantity, price_per, bought_at)"
+                    " VALUES (?,?,?,?,?,NOW())",
+                    (user_id, chat_id, bond_key, missing_qty, avg_price),
+                )
+            total_held = agg_amount
 
         # Fetch lots oldest-first (FIFO)
         async with db.execute(
