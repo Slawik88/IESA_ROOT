@@ -150,17 +150,19 @@ async def repay_loan(uid: int, chat_id: int, loan_id: int) -> dict:
     from database.db import deduct_mora, add_mora, get_mora
     from database.postgres import connect as postgres_connect
 
+    # Atomically claim the loan to prevent double-repay race
     async with postgres_connect() as db:
-        # Only repay ACCEPTED loans (not pending/rejected/cancelled)
         async with db.execute(
-            "SELECT id, lender_id, amount FROM mora_loans "
+            "UPDATE mora_loans SET repaid_at=NOW() "
             "WHERE id=? AND borrower_id=? AND chat_id=? AND repaid_at IS NULL "
-            "AND COALESCE(status,'accepted')='accepted'",
+            "AND COALESCE(status,'accepted')='accepted' "
+            "RETURNING id, lender_id, amount",
             (loan_id, uid, chat_id),
         ) as c:
             loan = await c.fetchone()
         if not loan:
             raise ValueError("Долг не найден или уже погашен")
+        await db.commit()
 
     lender_id = loan[1]
     amount = loan[2]
@@ -168,21 +170,26 @@ async def repay_loan(uid: int, chat_id: int, loan_id: int) -> dict:
     mora_row = await get_mora(uid, chat_id)
     balance = mora_row["balance"] if mora_row else 0
     if balance < amount:
+        # Rollback: un-mark the loan as repaid since we can't pay
+        async with postgres_connect() as db:
+            await db.execute(
+                "UPDATE mora_loans SET repaid_at=NULL WHERE id=?",
+                (loan_id,),
+            )
+            await db.commit()
         raise ValueError(f"Недостаточно Моры. Нужно {amount} 🪙, у тебя {balance}")
 
     ok, _ = await deduct_mora(uid, chat_id, amount)
     if not ok:
+        async with postgres_connect() as db:
+            await db.execute(
+                "UPDATE mora_loans SET repaid_at=NULL WHERE id=?",
+                (loan_id,),
+            )
+            await db.commit()
         raise ValueError("Не удалось списать Мору")
 
     await add_mora(lender_id, chat_id, amount)
-
-    now = datetime.now(timezone.utc)
-    async with postgres_connect() as db:
-        await db.execute(
-            "UPDATE mora_loans SET repaid_at=? WHERE id=?",
-            (now, loan_id),
-        )
-        await db.commit()
 
     new_mora = await get_mora(uid, chat_id)
     new_balance = new_mora["balance"] if new_mora else 0
@@ -208,47 +215,60 @@ async def respond_to_loan(uid: int, chat_id: int, loan_id: int, action: str) -> 
     if action not in ("accept", "reject"):
         raise ValueError("action must be accept or reject")
 
+    if action == "reject":
+        async with postgres_connect() as db:
+            async with db.execute(
+                "UPDATE mora_loans SET status='rejected', repaid_at=NOW() "
+                "WHERE id=? AND borrower_id=? AND chat_id=? AND status='pending' "
+                "RETURNING id",
+                (loan_id, uid, chat_id),
+            ) as c:
+                row = await c.fetchone()
+            if not row:
+                raise ValueError("Заявка не найдена или уже обработана")
+            await db.commit()
+        return {"ok": True, "action": "rejected"}
+
+    # Accept: atomically claim the loan to prevent double-accept race
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT id, lender_id, amount FROM mora_loans "
-            "WHERE id=? AND borrower_id=? AND chat_id=? AND status='pending' AND repaid_at IS NULL",
+            "UPDATE mora_loans SET status='accepted' "
+            "WHERE id=? AND borrower_id=? AND chat_id=? AND status='pending' AND repaid_at IS NULL "
+            "RETURNING id, lender_id, amount",
             (loan_id, uid, chat_id),
         ) as c:
             loan = await c.fetchone()
         if not loan:
             raise ValueError("Заявка не найдена или уже обработана")
+        await db.commit()
 
     lender_id = loan[1]
     amount = loan[2]
 
-    if action == "reject":
-        now = datetime.now(timezone.utc)
-        async with postgres_connect() as db:
-            await db.execute(
-                "UPDATE mora_loans SET status='rejected', repaid_at=? WHERE id=?",
-                (now, loan_id),
-            )
-            await db.commit()
-        return {"ok": True, "action": "rejected"}
-
-    # Accept: transfer money from lender to borrower
+    # Transfer money from lender to borrower
     mora_row = await get_mora(lender_id, chat_id)
     lender_bal = mora_row["balance"] if mora_row else 0
     if lender_bal < amount:
+        # Rollback: revert to pending since lender can't pay
+        async with postgres_connect() as db:
+            await db.execute(
+                "UPDATE mora_loans SET status='pending' WHERE id=?",
+                (loan_id,),
+            )
+            await db.commit()
         raise ValueError(f"У кредитора недостаточно Моры ({lender_bal}/{amount} 🪙)")
 
     ok, _ = await deduct_mora(lender_id, chat_id, amount)
     if not ok:
+        async with postgres_connect() as db:
+            await db.execute(
+                "UPDATE mora_loans SET status='pending' WHERE id=?",
+                (loan_id,),
+            )
+            await db.commit()
         raise ValueError("Не удалось списать Мору с кредитора")
 
     await add_mora(uid, chat_id, amount)
-
-    async with postgres_connect() as db:
-        await db.execute(
-            "UPDATE mora_loans SET status='accepted' WHERE id=?",
-            (loan_id,),
-        )
-        await db.commit()
 
     new_mora = await get_mora(uid, chat_id)
     new_balance = new_mora["balance"] if new_mora else 0

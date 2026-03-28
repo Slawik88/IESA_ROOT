@@ -6,23 +6,34 @@ Auth (developer-only check) is handled by the miniapp view layer.
 """
 from datetime import datetime, timezone
 
-_SUPPORTED_EVENTS = frozenset({"chest", "сундук", "дилижанс", "diligence"})
+_SUPPORTED_EVENTS = frozenset({"chest", "сундук", "дилижанс", "diligence", "boss_reset"})
 
 _GACHA_POOL = {
-    "junk":      [("junk_stone", "🪨 Камень Маслоу"), ("junk_stick", "🪴 Палка путника"),
+    "junk":      [("junk_stone", "🪨 Камень Маслоу"), ("junk_stick", "� Палка путника"),
                   ("junk_dust", "💨 Пыль забвения"), ("junk_bone", "🦴 Кость хиличурла"),
-                  ("junk_mushroom", "🍄 Сомнительный гриб")],
+                  ("junk_mushroom", "🍄 Сомнительный гриб"), ("junk_feather", "🪶 Перо Штормпиха"),
+                  ("junk_rope", "🧵 Верёвка странника")],
     "common":    [("cmn_sword", "⚔️ Тупой клинок"), ("cmn_bow", "🏹 Кривой лук"),
                   ("cmn_book", "📕 Потрёпанный дневник"), ("cmn_ring", "💍 Дешёвое кольцо"),
-                  ("cmn_shield", "🛡 Ржавый щит"), ("cmn_xp_shard", "✨ Осколок Опыта")],
+                  ("cmn_shield", "🛡 Ржавый щит"), ("str_potion", "⚔️ Зелье Силы"),
+                  ("def_potion", "🛡️ Зелье Защиты"), ("hp_potion", "❤️ Зелье Здоровья"),
+                  ("cmn_xp_shard", "✨ Осколок Опыта"), ("cmn_herb", "🌿 Трава Сесилии"),
+                  ("cmn_quill", "✒️ Перо ученика"), ("cmn_talisman", "🔮 Амулет удачи"),
+                  ("exp_boost_sm", "🗺️ Ускорение экспедиции S"), ("quest_reroll", "🔄 Купон реролла задания")],
     "rare":      [("rare_crown", "👑 Серебряная корона"), ("rare_catalyst", "🔮 Магический катализатор"),
                   ("rare_cape", "🧣 Алый плащ"), ("rare_gem", "💎 Сапфир полуночи"),
-                  ("rare_xp_crystal", "💠 Кристалл Опыта XL"), ("rare_mora_bag", "💰 Мешок Моры")],
+                  ("rare_xp_crystal", "💠 Кристалл Опыта XL"), ("rare_mora_bag", "💰 Мешок Моры"),
+                  ("rare_amulet", "📿 Кармин змеи"), ("rare_mora_chest", "🧧 Красный конверт"),
+                  ("rare_lance", "⚡ Лазурное копьё"),
+                  ("exp_boost_md", "🗺️✨ Ускорение экспедиции M"), ("pet_rename", "✏️ Купон переименования питомца")],
     "legendary": [("lego_gnosis", "✨ Гнозис Балладеера"), ("lego_scepter", "🏛 Скипетр Дендро Архонта"),
                   ("lego_pantalone", "🎩 Маска Панталоне"), ("lego_abyss", "🌀 Корона Бездны"),
                   ("lego_fatui", "⚡ Перст Предвестника"),
                   ("lego_flair_star", "⭐ Звёздное Сияние"), ("lego_flair_void", "🌌 Мерцание Бездны"),
-                  ("lego_flair_flame", "🔥 Пламя Предвестника"), ("lego_flair_arch", "🌸 Благодать Архонта")],
+                  ("lego_flair_flame", "🔥 Пламя Предвестника"), ("lego_flair_arch", "🌸 Благодать Архонта"),
+                  ("str_superior", "⚔️✨ Зелье Силы Superior"), ("def_superior", "🛡️✨ Зелье Защиты Superior"),
+                  ("lego_raiden", "⚡ Клинок Ей"), ("lego_jade", "🏯 Нефритовое зерцало"),
+                  ("exp_boost_lg", "🗺️⚡ Ускорение экспедиции L")],
 }
 
 
@@ -33,12 +44,11 @@ async def _write_ledger(db, chat_id: int, user_id: int, direction: str, amount: 
     """Insert one wallet_ledger row inside an open postgres_connect() context."""
     if amount <= 0:
         return
-    now_iso = datetime.now(timezone.utc).isoformat()
     await db.execute(
         "INSERT INTO wallet_ledger "
         "(chat_id, user_id, direction, amount, source, description, actor_id, created_at) "
-        "VALUES (?,?,?,?,?,?,?,?)",
-        (chat_id, user_id, direction, amount, source, description or "", actor_id, now_iso),
+        "VALUES (?,?,?,?,?,?,?,NOW())",
+        (chat_id, user_id, direction, amount, source, description or "", actor_id),
     )
 
 
@@ -315,14 +325,13 @@ async def give_item(actor_id: int, target_id: int, chat_id: int,
     """Insert a gacha item directly into a user's inventory."""
     from database.postgres import connect as postgres_connect
 
-    now = datetime.now(timezone.utc).isoformat(timespec="seconds")
     item_key = item_name.lower().replace(" ", "_")
 
     async with postgres_connect() as db:
         await db.execute(
             "INSERT INTO gacha_inventory (user_id, chat_id, item_key, item_name, rarity, obtained_at) "
-            "VALUES (?,?,?,?,?,?)",
-            (target_id, chat_id, item_key, item_name, rarity, now),
+            "VALUES (?,?,?,?,?,NOW())",
+            (target_id, chat_id, item_key, item_name, rarity),
         )
         await db.commit()
 
@@ -444,12 +453,11 @@ async def ban_user(actor_id: int, target_id: int, reason: str = "") -> dict:
     """Add a global ban entry. Idempotent (upserts reason)."""
     from database.postgres import connect as postgres_connect
 
-    now_iso = datetime.now(timezone.utc).isoformat()
     async with postgres_connect() as db:
         await db.execute(
             "INSERT INTO user_banlist (chat_id, user_id, added_by, reason, added_at) "
-            "VALUES (0,?,?,?,?) ON CONFLICT(chat_id, user_id) DO UPDATE SET reason=excluded.reason",
-            (target_id, actor_id, reason[:200], now_iso),
+            "VALUES (0,?,?,?,NOW()) ON CONFLICT(chat_id, user_id) DO UPDATE SET reason=excluded.reason",
+            (target_id, actor_id, reason[:200]),
         )
         await db.commit()
     return {"ok": True, "banned": target_id}
@@ -515,23 +523,22 @@ async def trigger_event(actor_id: int, chat_id: int, event_type: str) -> dict:
     """Enqueue a bot event. The bot process polls dev_event_queue every ~30s."""
     if event_type not in _SUPPORTED_EVENTS:
         raise ValueError(
-            f"Неизвестный тип события: '{event_type}'. Поддерживаются: сундук, дилижанс"
+            f"Неизвестный тип события: '{event_type}'. Поддерживаются: сундук, дилижанс, boss_reset"
         )
 
     from database.postgres import connect as postgres_connect
 
-    now_iso = datetime.now(timezone.utc).isoformat()
     async with postgres_connect() as db:
         await db.execute(
             "CREATE TABLE IF NOT EXISTS dev_event_queue ("
             "id SERIAL PRIMARY KEY, "
             "chat_id BIGINT NOT NULL, event_type TEXT NOT NULL, "
-            "requested_by BIGINT NOT NULL, created_at TEXT NOT NULL, processed INTEGER DEFAULT 0)"
+            "requested_by BIGINT NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), processed INTEGER DEFAULT 0)"
         )
         await db.execute(
-            "INSERT INTO dev_event_queue (chat_id, event_type, requested_by, created_at) "
-            "VALUES (?,?,?,?)",
-            (chat_id, event_type, actor_id, now_iso),
+            "INSERT INTO dev_event_queue (chat_id, event_type, requested_by) "
+            "VALUES (?,?,?)",
+            (chat_id, event_type, actor_id),
         )
         await db.commit()
 
