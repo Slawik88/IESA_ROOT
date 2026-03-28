@@ -1,0 +1,207 @@
+"""api/roulette.py — European roulette with item prize pool.
+
+Classic bets (red/black/even/odd/low/high/zero/number_N) win Mora.
+On winning spins, there's a configurable chance of a bonus item from
+ROULETTE_PRIZE_POOL (pet food, buff potions, coupons, consumables).
+
+Called by both Telegram bot handlers and the mini app views.
+All public functions are async; the mini app wraps them with async_to_sync.
+"""
+import logging
+import random
+
+_log = logging.getLogger(__name__)
+
+# European roulette number sets
+_RED   = {1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36}
+_BLACK = {2, 4, 6, 8, 10, 11, 13, 15, 17, 20, 22, 24, 26, 28, 29, 31, 33, 35}
+
+
+def color_of(n: int) -> str:
+    if n == 0:
+        return "green"
+    return "red" if n in _RED else "black"
+
+
+def _bet_gross(bet_type: str, number: int, bet_amount: int) -> int:
+    """Return profit on a win (excluding original bet). 0 = loss."""
+    col = color_of(number)
+
+    if bet_type == "red":
+        return bet_amount if col == "red" else 0
+    if bet_type == "black":
+        return bet_amount if col == "black" else 0
+    if bet_type == "even":
+        return bet_amount if (number > 0 and number % 2 == 0) else 0
+    if bet_type == "odd":
+        return bet_amount if (number > 0 and number % 2 == 1) else 0
+    if bet_type == "low":
+        return bet_amount if (1 <= number <= 18) else 0
+    if bet_type == "high":
+        return bet_amount if (19 <= number <= 36) else 0
+    if bet_type == "zero":
+        return bet_amount * 35 if number == 0 else 0
+    if bet_type.startswith("number_"):
+        try:
+            target = int(bet_type[7:])
+            return bet_amount * 35 if number == target else 0
+        except ValueError:
+            pass
+    raise ValueError(f"Неизвестный тип ставки: {bet_type!r}")
+
+
+async def _deliver_item_prize(
+    uid: int, chat_id: int,
+    item_key: str, item_name: str, item_type: str,
+) -> dict:
+    """Deliver a roulette item prize. Returns description dict."""
+    from database.db import add_mora, add_xp_in_chat, reduce_pet_fatigue, add_gacha_item
+    from shared_prices import ITEM_METADATA, FOOD_ITEMS
+
+    # ── Food: apply immediately (reduce pet fatigue) ─────────────────────────
+    if item_type == "food":
+        food_info = FOOD_ITEMS.get(item_key, {})
+        reduction = food_info.get("fatigue", 20)
+        try:
+            await reduce_pet_fatigue(uid, chat_id, reduction)
+        except Exception:
+            _log.warning("reduce_pet_fatigue failed uid=%s key=%s", uid, item_key, exc_info=True)
+        return {
+            "item_key":  item_key,
+            "item_name": item_name,
+            "item_type": "food",
+            "effect":    f"−{reduction} усталости питомца",
+        }
+
+    # ── Consumables: apply immediately ───────────────────────────────────────
+    if item_type == "consume":
+        _MORA_AMOUNTS = {
+            "cmn_herb":       15,
+            "rare_mora_bag":  120,
+            "rare_mora_chest": 250,
+        }
+        _XP_AMOUNTS = {
+            "cmn_xp_shard":   25,
+            "rare_xp_crystal": 150,
+        }
+        if item_key in _MORA_AMOUNTS:
+            amount = _MORA_AMOUNTS[item_key]
+            await add_mora(uid, chat_id, amount)
+            return {"item_key": item_key, "item_name": item_name, "item_type": "consume",
+                    "effect": f"+{amount} 🪙"}
+        if item_key in _XP_AMOUNTS:
+            amount = _XP_AMOUNTS[item_key]
+            await add_xp_in_chat(uid, chat_id, amount)
+            return {"item_key": item_key, "item_name": item_name, "item_type": "consume",
+                    "effect": f"+{amount} XP"}
+        # Fallback
+        await add_mora(uid, chat_id, 15)
+        return {"item_key": item_key, "item_name": item_name, "item_type": "consume",
+                "effect": "+15 🪙"}
+
+    # ── Buffs / coupons: store in gacha_inventory ─────────────────────────────
+    meta     = ITEM_METADATA.get(item_key, {})
+    slot     = meta.get("slot")
+    rarity   = "rare" if item_type == "coupon" else "common"
+    await add_gacha_item(
+        uid, chat_id,
+        item_key=item_key,
+        item_name=item_name,
+        rarity=rarity,
+        atk=0, def_val=0, hp=0, crit_rate=0.0,
+        slot=slot,
+    )
+    return {
+        "item_key":  item_key,
+        "item_name": item_name,
+        "item_type": item_type,
+        "effect":    "добавлен в инвентарь",
+    }
+
+
+async def roulette_spin(
+    uid: int, chat_id: int,
+    bet_type: str, bet_amount: int,
+) -> dict:
+    """
+    Full roulette cycle: validate → deduct bet → spin → pay → optional item prize.
+
+    bet_type:   "red" | "black" | "even" | "odd" | "low" | "high" | "zero" | "number_N"
+    bet_amount: ROULETTE_MIN_BET .. ROULETTE_MAX_BET
+
+    Returns {ok, number, color, win, gross_profit, win_tax, net_prize, new_balance, item_prize}
+    """
+    from database.db import add_mora, add_to_treasury, get_mora
+    from database.postgres import connect as postgres_connect
+    from shared_prices import (
+        ROULETTE_MIN_BET, ROULETTE_MAX_BET,
+        ROULETTE_TAX, ROULETTE_ITEM_CHANCE,
+        ROULETTE_PRIZE_POOL,
+    )
+
+    if bet_amount < ROULETTE_MIN_BET:
+        raise ValueError(f"Минимальная ставка: {ROULETTE_MIN_BET} 🪙")
+    if bet_amount > ROULETTE_MAX_BET:
+        raise ValueError(f"Максимальная ставка: {ROULETTE_MAX_BET} 🪙")
+
+    _valid_simple = {"red", "black", "even", "odd", "low", "high", "zero"}
+    if bet_type not in _valid_simple:
+        if not (
+            bet_type.startswith("number_")
+            and bet_type[7:].isdigit()
+            and 0 <= int(bet_type[7:]) <= 36
+        ):
+            raise ValueError(f"Неизвестный тип ставки: {bet_type!r}")
+
+    # ── Deduct bet atomically ─────────────────────────────────────────────────
+    async with postgres_connect() as db:
+        cursor = await db.execute(
+            "UPDATE user_mora SET balance=balance-? WHERE user_id=? AND chat_id=? AND balance>=?",
+            (bet_amount, uid, chat_id, bet_amount),
+        )
+        if cursor.rowcount == 0:
+            mora_row = await get_mora(uid, chat_id)
+            bal = mora_row["balance"] if mora_row else 0
+            raise ValueError(f"Недостаточно Моры. У тебя: {bal} 🪙")
+        await db.commit()
+
+    # ── Spin ──────────────────────────────────────────────────────────────────
+    number     = random.randint(0, 36)
+    color      = color_of(number)
+    gross      = _bet_gross(bet_type, number, bet_amount)
+    win        = gross > 0
+    win_tax    = 0
+    net_prize  = 0
+
+    if win:
+        win_tax   = max(1, int(gross * ROULETTE_TAX))
+        net_prize = gross - win_tax
+        total_return = bet_amount + net_prize   # original stake + profit
+        await add_to_treasury(chat_id, win_tax, "roulette", uid)
+        new_bal = await add_mora(uid, chat_id, total_return)
+    else:
+        mora_row = await get_mora(uid, chat_id)
+        new_bal  = mora_row["balance"] if mora_row else 0
+
+    # ── Item prize (18% chance on any win) ────────────────────────────────────
+    item_prize = None
+    if win and ROULETTE_PRIZE_POOL and random.random() < ROULETTE_ITEM_CHANCE:
+        weights = [w for (_, _, _, w) in ROULETTE_PRIZE_POOL]
+        choice  = random.choices(ROULETTE_PRIZE_POOL, weights=weights, k=1)[0]
+        i_key, i_name, i_type, _ = choice
+        try:
+            item_prize = await _deliver_item_prize(uid, chat_id, i_key, i_name, i_type)
+        except Exception:
+            _log.warning("item prize delivery failed uid=%s key=%s", uid, i_key, exc_info=True)
+
+    return {
+        "ok":          True,
+        "number":      number,
+        "color":       color,
+        "win":         win,
+        "gross_profit": gross,
+        "win_tax":     win_tax,
+        "net_prize":   net_prize,
+        "new_balance": new_bal,
+        "item_prize":  item_prize,
+    }
