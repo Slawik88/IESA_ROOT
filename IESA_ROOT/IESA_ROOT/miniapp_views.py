@@ -2437,8 +2437,8 @@ def miniapp_shop_buy(request):
 
     if not chat_id:
         return JsonResponse({"error": "chat_id required"}, status=400, headers=headers)
-    if item_type not in ("frame", "cosmetic", "vip", "potion"):
-        return JsonResponse({"error": "item_type must be frame/cosmetic/vip/potion"}, status=400, headers=headers)
+    if item_type not in ("frame", "cosmetic", "vip", "potion", "pet_color"):
+        return JsonResponse({"error": "item_type must be frame/cosmetic/vip/potion/pet_color"}, status=400, headers=headers)
 
     try:
         from asgiref.sync import async_to_sync as _a2s

@@ -2650,6 +2650,7 @@ async function loadShop(){
 
 function renderShop(d){
   const isMarried=!!(profileData&&profileData.partner_name);
+  const myName=esc((profileData&&profileData.name)||'Ваш ник');
   document.getElementById('gachaSinglePrice').textContent=isMarried?'120':'110';
   document.getElementById('gachaMultiPrice').textContent=isMarried?'1000':'950';
   const activeTitle=(profileData&&profileData.custom_title)||'';
@@ -2666,7 +2667,7 @@ function renderShop(d){
       <div class="scard-icon">${f.emoji}</div>
       <div class="scard-body">
         <div class="scard-name">${esc(f.name)}</div>
-        <div class="cosmetic-preview">${f.emoji} <strong>Ваш ник</strong> <span style="color:var(--text2);font-size:11px">— рядом с именем в профиле</span></div>
+        <div class="cosmetic-preview">${f.emoji} <strong>${myName}</strong> <span style="color:var(--text2);font-size:11px">— рядом с именем в профиле</span></div>
         <div class="scard-footer">
           ${f.price===0?'<span class="sbadge sbadge-free">Бесплатно</span>':
             f.owned?(f.active?'<span class="sbadge sbadge-active">✓ Активна</span>':
@@ -2698,14 +2699,14 @@ function renderShop(d){
     'xp_boost_24h':'#06b6d4','streak_guard':'#3b82f6','expedition_boost':'#10b981',
     'mora_shield':'#eab308','lucky_sign':'#22c55e','name_glow':'#f59e0b'};
   const cosPreviews={
-    'name_glow':        `<span style="text-shadow:0 0 8px #f59e0b,0 0 18px rgba(245,158,11,.4);color:#fff;font-weight:700">✨ Ваш ник ✨</span>`,
+    'name_glow':        `<span style="text-shadow:0 0 8px #f59e0b,0 0 18px rgba(245,158,11,.4);color:#fff;font-weight:700">✨ ${myName} ✨</span>`,
     'xp_boost_24h':     `<span style="color:var(--text2)">XP</span> <span style="display:inline-block;width:52px;height:5px;background:linear-gradient(90deg,#3b82f6,#8b5cf6);border-radius:3px;vertical-align:middle;margin:0 2px"></span> <span style="color:#06b6d4;font-weight:700">×2 на 24ч</span>`,
     'streak_guard':     `<span>🔥 7 дней</span> <span style="color:#3b82f6;font-weight:600">🛡️ защищён</span>`,
     'expedition_boost': `🗺️ <del style="opacity:.45">100</del> <span style="color:#10b981;font-weight:700">→ 120 🪙</span> <span style="color:#10b981;font-size:11px">(+20%)</span>`,
     'mora_shield':      `🎰 <span style="color:var(--text2)">проигрыш</span> <span style="color:#eab308;font-weight:700">→ 🛡️ 1 раз</span>`,
     'lucky_sign':       `Пити: <del style="opacity:.45">40</del> <span style="color:#22c55e;font-weight:700">→ 35 🍀</span>`,
     'pet_emoji_status': `🐱 <span style="background:rgba(249,115,22,.12);border-radius:4px;padding:1px 5px">😎</span> <span>Лапка</span>`,
-    'custom_title':     `<span style="background:rgba(168,85,247,.15);border:1px solid rgba(168,85,247,.4);border-radius:4px;padding:0 6px;font-size:11px;color:#a855f7">🏷 Титул</span> <span>Ваш ник</span>`,
+    'custom_title':     `<span style="background:rgba(168,85,247,.15);border:1px solid rgba(168,85,247,.4);border-radius:4px;padding:0 6px;font-size:11px;color:#a855f7">🏷 Титул</span> <span>${myName}</span>`,
   };
   document.getElementById('cosmeticsSection').innerHTML=(d.cosmetics||[]).map(c=>{
     const preview=cosPreviews[c.key]?`<div class="cosmetic-preview">${cosPreviews[c.key]}</div>`:'';
