@@ -144,12 +144,18 @@ async def cb_gift(callback: CallbackQuery):
             return
         ok = True
     else:
-        ok, new_bal = await deduct_mora(uid, chat_id, price)
-        if not ok:
-            mora = await get_mora(uid, chat_id)
-            bal = mora["balance"] if mora else 0
-            await callback.answer(f"❌ Недостаточно Моры ({bal} / {price})", show_alert=True)
-            return
+        from database.postgres import connect as postgres_connect
+        async with postgres_connect() as db:
+            cursor = await db.execute(
+                "UPDATE user_mora SET balance=balance-? WHERE user_id=? AND chat_id=? AND balance>=?",
+                (price, uid, chat_id, price),
+            )
+            if cursor.rowcount == 0:
+                mora = await get_mora(uid, chat_id)
+                bal = mora["balance"] if mora else 0
+                await callback.answer(f"❌ Недостаточно Моры ({bal} / {price})", show_alert=True)
+                return
+            await db.commit()
 
     # Записываем подарок
     await give_gift(uid, partner_id, chat_id, gift_key, gift_info["name"], price)

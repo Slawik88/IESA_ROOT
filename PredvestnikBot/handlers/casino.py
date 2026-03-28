@@ -84,10 +84,16 @@ async def cmd_coin(message: Message, cmd_args: str):
         await message.answer(f"❌ Недостаточно Моры. У тебя: <b>{bal} 🪙</b>", parse_mode="HTML")
         return
 
-    ok, _ = await deduct_mora(uid, chat_id, bet)
-    if not ok:
-        await message.answer("❌ Не удалось принять ставку.")
-        return
+    from database.postgres import connect as postgres_connect
+    async with postgres_connect() as db:
+        cursor = await db.execute(
+            "UPDATE user_mora SET balance=balance-? WHERE user_id=? AND chat_id=? AND balance>=?",
+            (bet, uid, chat_id, bet),
+        )
+        if cursor.rowcount == 0:
+            await message.answer("❌ Не удалось принять ставку.")
+            return
+        await db.commit()
 
     # Ставка снята — показываем inline-клавиатуру
     name = html.escape(message.from_user.full_name)
@@ -230,10 +236,15 @@ async def cmd_dice(message: Message, cmd_args: str, bot):
         await message.answer(f"❌ Недостаточно Моры. У тебя: <b>{bal} 🪙</b>", parse_mode="HTML")
         return
 
-    ok, _ = await deduct_mora(uid, chat_id, bet)
-    if not ok:
-        await message.answer("❌ Не удалось принять ставку.")
-        return
+    async with postgres_connect() as db:
+        cursor = await db.execute(
+            "UPDATE user_mora SET balance=balance-? WHERE user_id=? AND chat_id=? AND balance>=?",
+            (bet, uid, chat_id, bet),
+        )
+        if cursor.rowcount == 0:
+            await message.answer("❌ Не удалось принять ставку.")
+            return
+        await db.commit()
 
     target_user = await get_user(target_uid)
     target_display = html.escape(target_user["full_name"]) if target_user else html.escape(target_name)
@@ -301,10 +312,15 @@ async def cb_duel_accept(callback: CallbackQuery):
         )
         return
 
-    ok, _ = await deduct_mora(target_id, chat_id, bet)
-    if not ok:
-        await callback.answer("❌ Не удалось принять ставку. Попробуй ещё раз.", show_alert=True)
-        return
+    async with postgres_connect() as db:
+        cursor = await db.execute(
+            "UPDATE user_mora SET balance=balance-? WHERE user_id=? AND chat_id=? AND balance>=?",
+            (bet, target_id, chat_id, bet),
+        )
+        if cursor.rowcount == 0:
+            await callback.answer("❌ Не удалось принять ставку. Попробуй ещё раз.", show_alert=True)
+            return
+        await db.commit()
 
     await set_duel_status(duel_id, "accepted")
 
@@ -421,10 +437,16 @@ async def cmd_lottery(message: Message, cmd_args: str):
         )
         return
 
-    ok, _ = await deduct_mora(uid, chat_id, LOTTERY_PRICE)
-    if not ok:
-        await message.answer("❌ Не удалось купить билет.")
-        return
+    from database.postgres import connect as postgres_connect
+    async with postgres_connect() as db:
+        cursor = await db.execute(
+            "UPDATE user_mora SET balance=balance-? WHERE user_id=? AND chat_id=? AND balance>=?",
+            (LOTTERY_PRICE, uid, chat_id, LOTTERY_PRICE),
+        )
+        if cursor.rowcount == 0:
+            await message.answer("❌ Не удалось купить билет.")
+            return
+        await db.commit()
 
     new_count = await buy_lottery_ticket(chat_id, uid, week)
     mora_after = await get_mora(uid, chat_id)

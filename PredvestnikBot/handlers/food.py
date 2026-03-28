@@ -152,10 +152,16 @@ async def cb_buy_food(callback: CallbackQuery):
         )
         return
 
-    ok, _ = await deduct_mora(uid, chat_id, item["price"])
-    if not ok:
-        await callback.answer("❌ Не удалось списать Мору.", show_alert=True)
-        return
+    from database.postgres import connect as postgres_connect
+    async with postgres_connect() as db:
+        cursor = await db.execute(
+            "UPDATE user_mora SET balance=balance-? WHERE user_id=? AND chat_id=? AND balance>=?",
+            (item["price"], uid, chat_id, item["price"]),
+        )
+        if cursor.rowcount == 0:
+            await callback.answer("❌ Не удалось списать Мору.", show_alert=True)
+            return
+        await db.commit()
 
     await reduce_pet_fatigue(uid, chat_id, item["fatigue"])
     new_fatigue = max(0, (pet.get("fatigue") or await get_pet_fatigue(uid, chat_id)) - item["fatigue"])
@@ -217,10 +223,16 @@ async def cmd_buy_food_text(message: Message, cmd_args: str):
         )
         return
 
-    ok, _ = await deduct_mora(uid, chat_id, item["price"])
-    if not ok:
-        await message.answer("❌ Не удалось списать Мору.", parse_mode="HTML")
-        return
+    from database.postgres import connect as postgres_connect
+    async with postgres_connect() as db:
+        cursor = await db.execute(
+            "UPDATE user_mora SET balance=balance-? WHERE user_id=? AND chat_id=? AND balance>=?",
+            (item["price"], uid, chat_id, item["price"]),
+        )
+        if cursor.rowcount == 0:
+            await message.answer("❌ Не удалось списать Мору.", parse_mode="HTML")
+            return
+        await db.commit()
 
     await reduce_pet_fatigue(uid, chat_id, item["fatigue"])
 

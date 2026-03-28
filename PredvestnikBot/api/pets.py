@@ -31,7 +31,7 @@ async def feed_pet(
     balance is always the personal mora balance after the operation.
     """
     from database.db import (
-        get_pet, get_mora, deduct_mora,
+        get_pet, get_mora,
         get_family_wallet, add_to_family_wallet, get_marriage,
         reduce_pet_fatigue,
     )
@@ -65,9 +65,21 @@ async def feed_pet(
         bal = mora["balance"] if mora else 0
         if bal < food["price"]:
             raise ValueError(f"Недостаточно Моры ({bal}/{food['price']})")
-        ok, new_bal = await deduct_mora(uid, chat_id, food["price"])
-        if not ok:
-            raise ValueError("Не удалось списать Мору")
+        from database.postgres import connect as postgres_connect
+        async with postgres_connect() as db:
+            cursor = await db.execute(
+                "UPDATE user_mora SET balance=balance-? WHERE user_id=? AND chat_id=? AND balance>=?",
+                (food["price"], uid, chat_id, food["price"]),
+            )
+            if cursor.rowcount == 0:
+                raise ValueError("Не удалось списать Мору")
+            await db.commit()
+            async with db.execute(
+                "SELECT balance FROM user_mora WHERE user_id=? AND chat_id=?",
+                (uid, chat_id),
+            ) as c:
+                row = await c.fetchone()
+            new_bal = row[0] if row else 0
 
     await reduce_pet_fatigue(uid, chat_id, food["fatigue"])
     new_fatigue = max(0, fatigue - food["fatigue"])

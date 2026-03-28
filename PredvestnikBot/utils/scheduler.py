@@ -65,10 +65,7 @@ async def run_scheduler(bot) -> None:
             await _task_diligence_event(bot)
         except Exception as exc:
             log.error("Scheduler [diligence_event] error: %s", exc, exc_info=True)
-        try:
-            await _task_treasury_dividends(bot)
-        except Exception as exc:
-            log.error("Scheduler [treasury_dividends] error: %s", exc, exc_info=True)
+
         try:
             await _task_cleanup_left_users()
         except Exception as exc:
@@ -576,73 +573,6 @@ async def _task_diligence_event(bot) -> None:
         except Exception as exc:
             log.warning("Diligence launch in %s: %s", cid, exc)
     log.info("Diligence event triggered for %d chats", len(chat_ids))
-
-
-# ─── Суббота 18:00 Zurich — Дивиденды из казны ───────────────────────────────
-
-
-async def _task_treasury_dividends(bot) -> None:
-    """Раздаёт дивиденды из казны каждую субботу в 18:00 (Europe/Zurich).
-    40% — VIP-участникам, 60% — топ-10 активных за неделю.
-    """
-    from database.db import get_scheduler_state, set_scheduler_state
-    try:
-        import zoneinfo
-        tz = zoneinfo.ZoneInfo("Europe/Zurich")
-    except Exception:
-        return
-    now = datetime.now(tz)
-    if now.weekday() != 5:  # 5 = суббота
-        return
-    if now.hour != 18:
-        return
-    today_str = now.strftime("%Y-%m-%d")
-    last_sent = await get_scheduler_state("dividend_last_date")
-    if last_sent == today_str:
-        return
-    await set_scheduler_state("dividend_last_date", today_str)
-
-    from database.db import (
-        add_mora,
-        get_all_active_chats,
-        get_treasury,
-        get_vip_users,
-        get_weekly_top_users,
-        reset_treasury,
-    )
-    chat_ids = await get_all_active_chats()
-    for cid in chat_ids:
-        try:
-            treasury = await get_treasury(cid)
-            if treasury < 10:
-                continue
-
-            vip_pool   = int(treasury * 0.40)
-            top_pool   = treasury - vip_pool
-            vip_users  = await get_vip_users(cid)
-            top_users  = await get_weekly_top_users(cid, limit=10)
-
-            lines = [f"📊 <b>Дивиденды казны!</b>\n\n💰 Казна: <b>{treasury} 🪙</b>"]
-
-            if vip_users:
-                per_vip = max(1, vip_pool // len(vip_users))
-                for uid in vip_users:
-                    await add_mora(uid, cid, per_vip)
-                lines.append(f"\n⭐ VIP ({len(vip_users)} чел.) получили дивиденды")
-            else:
-                top_pool += vip_pool  # Переносим VIP-долю в топ если VIP нет
-
-            if top_users:
-                per_top = max(1, top_pool // len(top_users))
-                for uid in top_users:
-                    await add_mora(uid, cid, per_top)
-                lines.append(f"🏆 Топ-10 активных получили дивиденды")
-
-            await reset_treasury(cid)
-            lines.append("\n🏦 Казна обнулена до следующей субботы.")
-            await bot.send_message(cid, "\n".join(lines), parse_mode="HTML")
-        except Exception as exc:
-            log.warning("Treasury dividends in %s: %s", cid, exc)
 
 
 # ─── Dev event queue (Mini App → bot) ────────────────────────────────────────

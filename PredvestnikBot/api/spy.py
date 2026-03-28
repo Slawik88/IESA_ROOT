@@ -57,9 +57,14 @@ async def spy(uid: int, chat_id: int, target_id: int) -> dict:
         raise ValueError(f"Недостаточно Моры. Нужно {SPY_COST} 🪙")
 
     # Deduct cost
-    ok, _ = await deduct_mora(uid, chat_id, SPY_COST)
-    if not ok:
-        raise ValueError("Не удалось списать Мору")
+    async with postgres_connect() as db:
+        cursor = await db.execute(
+            "UPDATE user_mora SET balance=balance-? WHERE user_id=? AND chat_id=? AND balance>=?",
+            (SPY_COST, uid, chat_id, SPY_COST),
+        )
+        if cursor.rowcount == 0:
+            raise ValueError("Не удалось списать Мору")
+        await db.commit()
 
     # Roll success/fail
     failed = random.random() < SPY_FAIL_CHANCE

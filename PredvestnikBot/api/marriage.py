@@ -125,9 +125,10 @@ async def family_deposit(uid: int, chat_id: int, amount: int) -> dict:
     Returns {ok, amount, personal_balance, family_balance}.
     """
     from database.db import (
-        deduct_mora, get_mora, add_to_family_wallet,
+        get_mora, add_to_family_wallet,
         log_family_transaction, is_user_single,
     )
+    from database.postgres import connect as postgres_connect
 
     if amount <= 0:
         raise ValueError("Сумма должна быть > 0")
@@ -141,9 +142,14 @@ async def family_deposit(uid: int, chat_id: int, amount: int) -> dict:
     if balance < amount:
         raise ValueError(f"Недостаточно Моры ({balance}/{amount} 🪙)")
 
-    ok, _ = await deduct_mora(uid, chat_id, amount)
-    if not ok:
-        raise ValueError("Не удалось списать Мору")
+    async with postgres_connect() as db:
+        cursor = await db.execute(
+            "UPDATE user_mora SET balance=balance-? WHERE user_id=? AND chat_id=? AND balance>=?",
+            (amount, uid, chat_id, amount),
+        )
+        if cursor.rowcount == 0:
+            raise ValueError("Не удалось списать Мору")
+        await db.commit()
 
     family_bal = await add_to_family_wallet(chat_id, uid, amount)
     await log_family_transaction(chat_id, uid, "deposit", amount)

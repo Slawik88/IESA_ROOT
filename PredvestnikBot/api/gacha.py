@@ -108,7 +108,7 @@ async def gacha_roll(uid: int, chat_id: int, count: int,
     Raises ValueError with a Russian message on error.
     """
     from database.db import (
-        add_gacha_item, add_mora, deduct_mora,
+        add_gacha_item, add_mora,
         get_family_wallet, get_gacha_pity, get_mora, is_user_single,
         get_user_quest, quest_tick, mark_quest_rewarded, add_xp_in_chat,
     )
@@ -144,13 +144,29 @@ async def gacha_roll(uid: int, chat_id: int, count: int,
         mora_row = await get_mora(uid, chat_id)
         new_bal  = mora_row["balance"] if mora_row else 0
     else:
-        ok, new_bal = await deduct_mora(uid, chat_id, price)
-        if not ok:
-            mora_row = await get_mora(uid, chat_id)
-            bal = mora_row["balance"] if mora_row else 0
-            raise ValueError(f"Недостаточно Моры ({bal}/{price} 🪙)")
+        from database.postgres import connect as postgres_connect
+        async with postgres_connect() as db:
+            cursor = await db.execute(
+                "UPDATE user_mora SET balance=balance-? WHERE user_id=? AND chat_id=? AND balance>=?",
+                (price, uid, chat_id, price),
+            )
+            if cursor.rowcount == 0:
+                mora_row = await get_mora(uid, chat_id)
+                bal = mora_row["balance"] if mora_row else 0
+                raise ValueError(f"Недостаточно Моры ({bal}/{price} 🪙)")
+            await db.commit()
+            async with db.execute(
+                "SELECT balance FROM user_mora WHERE user_id=? AND chat_id=?",
+                (uid, chat_id),
+            ) as c:
+                row = await c.fetchone()
+            new_bal = row[0] if row else 0
 
     # ── Roll ───────────────────────────────────────────────────────────────────
+    # 5% НДС from gacha purchases → treasury
+    gacha_tax = max(1, int(price * 0.05))
+    await add_to_treasury(chat_id, gacha_tax, "gacha", uid)
+
     pity    = await get_gacha_pity(uid, chat_id)
     results = []
     for _ in range(count):

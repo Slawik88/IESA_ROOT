@@ -1,10 +1,14 @@
 """
-🛠 Панель разработчика — команды только для DEVELOPER_ID.
+🛠 Панель разработчика — команды для DEVELOPER_ID и высших рангов.
 
 Команды:
-  бот эвент [сундук|дилижанс]  — принудительно запустить ивент во всех активных чатах
-  бот сетбаланс [сумма] [@user] — установить/прибавить мору пользователю
-  бот казна                    — показать баланс казны в текущем чате
+  бот эвент [сундук|дилижанс]          — принудительно запустить ивент во всех активных чатах
+  бот сетбаланс [сумма] [@user]         — установить/прибавить мору пользователю
+  бот казна                             — показать баланс казны в текущем чате
+  бот казна дать [@user] [сумма]        — выдать мору из казны игроку (owner+)
+  бот казна забрать [@user] [сумма]     — забрать мору у игрока в казну (owner+)
+  бот датьпредмет [key] [@user]         — выдать предмет из каталога
+  бот чистка настройка [параметры]      — настройка чистки чата (owner+)
 """
 
 import html
@@ -16,6 +20,7 @@ from aiogram.types import Message
 from config import DEVELOPER_ID
 from database.db import (
     add_mora,
+    add_to_treasury,
     get_all_active_chats,
     get_mora,
     get_treasury,
@@ -165,10 +170,17 @@ async def cmd_treasury(message: Message):
     await message.answer(
         f"🏦 <b>Казна чата</b>\n\n"
         f"💰 Баланс: <b>{balance} 🪙</b>\n\n"
-        f"<i>Пополняется из налогов:\n"
-        f"• 0.5% с каждого перевода\n"
-        f"• 1% с проигрышей в казино\n\n"
-        f"Дивиденды выплачиваются каждую субботу в 18:00 (Цюрих)</i>",
+        f"<i>Пополняется из налогов (НДС):\n"
+        f"• 3–8% с переводов\n"
+        f"• 5% с выигрышей в казино\n"
+        f"• 5% с покупок в гаче\n"
+        f"• 5% с покупок в магазине\n"
+        f"• 5% с покупки чат-бафа\n"
+        f"• 10% с покупки лотерейных билетов\n"
+        f"• 10% с процентов по вкладам\n"
+        f"• 6.5–7% с экспедиций\n"
+        f"• 10–40% с прибыли по облигациям\n"
+        f"• 8% с лотереи (от 50 🪙)</i>",
         parse_mode="HTML",
     )
 
@@ -380,6 +392,147 @@ async def cmd_cleanup_config(message: Message, cmd_args: str):
         f"📅 Дата: <b>{date_fmt}</b>\n"
         f"📊 Норма: <b>{norm} сообщений</b>\n"
         f"🔔 Предупреждение: за <b>{warn} ч</b>",
+        parse_mode="HTML",
+    )
+
+
+# ─── бот казна дать [@user] [сумма] ──────────────────────────────────────────
+
+@router.message(BotCommand("казна дать", "treasury give", "казна выдать"))
+async def cmd_treasury_give(message: Message, cmd_args: str):
+    """Выдать мору из казны пользователю. Доступно owner+ и developer."""
+    from database.db import get_user_stats as _gs
+    from database.postgres import connect as postgres_connect
+    from utils.ranks import rank_level as _rl
+
+    uid = message.from_user.id
+    chat_id = message.chat.id
+
+    if message.chat.type == "private":
+        await message.answer("❌ Команда работает только в чате.")
+        return
+
+    if not _dev_only(uid):
+        stats = await _gs(uid, chat_id)
+        rank = stats["rank"] if stats else "user"
+        if _rl(rank) < _rl("owner"):
+            await message.answer("🔒 Только Владелец и Разработчик могут управлять казной.")
+            return
+
+    target_id, target_name, rest = await resolve_target(message, cmd_args or "")
+    if not target_id:
+        await message.answer(
+            "❌ Укажи пользователя и сумму.\n"
+            "Пример: <code>бот казна дать @user 500</code>",
+            parse_mode="HTML",
+        )
+        return
+
+    amount_str = (rest or "").strip()
+    if not amount_str.isdigit() or int(amount_str) <= 0:
+        await message.answer("❌ Укажи корректную сумму (> 0).")
+        return
+    amount = int(amount_str)
+
+    treasury_bal = await get_treasury(chat_id)
+    if treasury_bal < amount:
+        await message.answer(f"❌ В казне недостаточно средств ({treasury_bal}/{amount} 🪙)")
+        return
+
+    # Atomic: deduct from treasury + credit to user
+    async with postgres_connect() as db:
+        cursor = await db.execute(
+            "UPDATE chat_treasury SET balance=balance-? WHERE chat_id=? AND balance>=?",
+            (amount, chat_id, amount),
+        )
+        if cursor.rowcount == 0:
+            await message.answer("❌ Не удалось списать из казны.")
+            return
+        await db.execute(
+            """INSERT INTO treasury_log (chat_id, user_id, amount, source, created_at)
+               VALUES (?,?,?,?,NOW())""",
+            (chat_id, uid, -amount, "treasury_give"),
+        )
+        await db.commit()
+
+    new_bal = await add_mora(target_id, chat_id, amount)
+    new_treasury = await get_treasury(chat_id)
+
+    mention = user_mention(target_id, target_name)
+    admin_name = html.escape(message.from_user.full_name)
+    await message.answer(
+        f"✅ Из казны выдано <b>{amount} 🪙</b> → {mention}\n\n"
+        f"💰 Казна: {new_treasury} 🪙\n"
+        f"👤 Баланс игрока: {new_bal} 🪙\n"
+        f"📝 Выдал: {admin_name}",
+        parse_mode="HTML",
+    )
+
+
+# ─── бот казна забрать [@user] [сумма] ───────────────────────────────────────
+
+@router.message(BotCommand("казна забрать", "treasury take", "казна собрать"))
+async def cmd_treasury_take(message: Message, cmd_args: str):
+    """Забрать мору у пользователя в казну. Доступно owner+ и developer."""
+    from database.db import get_user_stats as _gs
+    from database.postgres import connect as postgres_connect
+    from utils.ranks import rank_level as _rl
+
+    uid = message.from_user.id
+    chat_id = message.chat.id
+
+    if message.chat.type == "private":
+        await message.answer("❌ Команда работает только в чате.")
+        return
+
+    if not _dev_only(uid):
+        stats = await _gs(uid, chat_id)
+        rank = stats["rank"] if stats else "user"
+        if _rl(rank) < _rl("owner"):
+            await message.answer("🔒 Только Владелец и Разработчик могут управлять казной.")
+            return
+
+    target_id, target_name, rest = await resolve_target(message, cmd_args or "")
+    if not target_id:
+        await message.answer(
+            "❌ Укажи пользователя и сумму.\n"
+            "Пример: <code>бот казна забрать @user 500</code>",
+            parse_mode="HTML",
+        )
+        return
+
+    amount_str = (rest or "").strip()
+    if not amount_str.isdigit() or int(amount_str) <= 0:
+        await message.answer("❌ Укажи корректную сумму (> 0).")
+        return
+    amount = int(amount_str)
+
+    # Atomic: deduct from user
+    async with postgres_connect() as db:
+        cursor = await db.execute(
+            "UPDATE user_mora SET balance=balance-? WHERE user_id=? AND chat_id=? AND balance>=?",
+            (amount, target_id, chat_id, amount),
+        )
+        if cursor.rowcount == 0:
+            mora_row = await get_mora(target_id, chat_id)
+            bal = mora_row["balance"] if mora_row else 0
+            await message.answer(f"❌ У игрока недостаточно Моры ({bal}/{amount} 🪙)")
+            return
+        await db.commit()
+
+    # Credit treasury
+    new_treasury = await add_to_treasury(chat_id, amount, "treasury_take", uid)
+
+    mora_row = await get_mora(target_id, chat_id)
+    player_bal = mora_row["balance"] if mora_row else 0
+
+    mention = user_mention(target_id, target_name)
+    admin_name = html.escape(message.from_user.full_name)
+    await message.answer(
+        f"✅ Забрано <b>{amount} 🪙</b> у {mention} → в казну\n\n"
+        f"💰 Казна: {new_treasury} 🪙\n"
+        f"👤 Баланс игрока: {player_bal} 🪙\n"
+        f"📝 Забрал: {admin_name}",
         parse_mode="HTML",
     )
 
