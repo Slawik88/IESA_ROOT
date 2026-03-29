@@ -305,12 +305,14 @@ async def cmd_place_bid(message: Message, cmd_args: str):
             try:
                 a = await get_auction_detail(auction_id, chat_id)
                 item_name = a["item_name"] if a else f"Лот #{auction_id}"
+                outbid_uid = result["outbid_user_id"]
+                next_min = result["new_price"] + 1
                 await message.bot.send_message(
                     chat_id,
-                    f"⚡ <a href='tg://user?id={result[\"outbid_user_id\"]}'>Предвестник</a>, "
+                    f"⚡ <a href='tg://user?id={outbid_uid}'>Предвестник</a>, "
                     f"вашу ставку на <b>{esc(item_name)}</b> перебили! "
                     f"Новая цена: <b>{amount} 🪙</b>. "
-                    f"Используйте <code>бот ставка {auction_id} {result['new_price'] + 1}</code>",
+                    f"Используйте <code>бот ставка {auction_id} {next_min}</code>",
                     parse_mode="HTML"
                 )
             except Exception:
