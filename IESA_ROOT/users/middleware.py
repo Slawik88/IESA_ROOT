@@ -1,5 +1,22 @@
+from django.http import HttpResponseNotFound
 from django.utils import timezone
 from django.utils import translation
+
+
+class BlockScannerMiddleware:
+    """Silently reject requests from vulnerability scanners (.php, wp-* paths)."""
+    _BLOCKED_SUFFIXES = ('.php', '.asp', '.aspx', '.cgi', '.env')
+    _BLOCKED_PREFIXES = ('/wp-', '/wordpress/', '/.env', '/vendor/')
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        path = request.path.lower()
+        if any(path.endswith(s) for s in self._BLOCKED_SUFFIXES) or \
+           any(path.startswith(p) for p in self._BLOCKED_PREFIXES):
+            return HttpResponseNotFound(b'', content_type='text/plain')
+        return self.get_response(request)
 
 class LastOnlineMiddleware:
     """

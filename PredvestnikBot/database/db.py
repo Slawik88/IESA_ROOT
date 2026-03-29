@@ -4438,7 +4438,7 @@ async def set_cleanup_config(
                 _nc = _nc.replace(tzinfo=_tz.utc)
             await db.execute(
                 "UPDATE chat_settings SET next_cleanup_at = ?, cleanup_reminder_sent = 0 WHERE chat_id = ?",
-                (_nc.strftime("%Y-%m-%dT%H:%M"), chat_id),
+                (_nc.isoformat(), chat_id),
             )
         if cleanup_message_norm is not None:
             await db.execute(

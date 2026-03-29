@@ -4513,7 +4513,7 @@ def _check_owner_or_dev(uid: int, chat_id: int) -> bool:
         rank = row[0] if row else "user"
     except Exception:
         rank = "user"
-    return rank in ("owner", "developer")
+    return rank in ("owner", "co_owner", "developer")
 
 
 @csrf_exempt
