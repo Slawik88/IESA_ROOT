@@ -176,7 +176,9 @@ async def buy_item(
             raise ValueError("Неизвестная рамка")
         price = frame[3]
         if price == 0:
-            raise ValueError("Рамка по умолчанию бесплатна")
+            # Default/free frame — just equip it directly without charging
+            await set_top_frame(uid, chat_id, item_key)
+            return {"ok": True, "already_owned": True, "equipped": True}
     elif item_type == "cosmetic":
         cosm_map = {c[0]: c for c in COSMETICS_CATALOG}
         cosm = cosm_map.get(item_key)
