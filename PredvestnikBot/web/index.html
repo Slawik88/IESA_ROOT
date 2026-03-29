@@ -8,6 +8,13 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
 :root{--bg:#0f1117;--bg2:#1a1d2e;--bg3:#252840;--accent:#7c6af7;--accent2:#a855f7;--gold:#f4c542;--green:#22c55e;--red:#ef4444;--red2:#dc2626;--text:#e2e8f0;--text2:#a1b0c4;--border:#2d3151;--card:#1e2138;--radius:12px}
+/* 🎨 Profile themes — override CSS variables per theme */
+body[data-theme="fire"]{--bg:#150a00;--bg2:#1f0d00;--bg3:#2d1500;--accent:#f97316;--accent2:#ef4444;--card:#1a0e00;--border:#5c2800}
+body[data-theme="ice"]{--bg:#050f1a;--bg2:#081626;--bg3:#0d2133;--accent:#38bdf8;--accent2:#7dd3fc;--card:#071522;--border:#163354}
+body[data-theme="royal"]{--bg:#0e090e;--bg2:#180d18;--bg3:#261528;--accent:#d4af37;--accent2:#f4c542;--gold:#d4af37;--card:#150b15;--border:#3d2040}
+body[data-theme="abyss"]{--bg:#040406;--bg2:#07070d;--bg3:#0d0d18;--accent:#6366f1;--accent2:#818cf8;--card:#060609;--border:#1a1a30}
+body[data-theme="neon"]{--bg:#0a0012;--bg2:#0f001a;--bg3:#1a0030;--accent:#d946ef;--accent2:#22d3ee;--card:#0c0015;--border:#3d0060}
+body[data-theme="sakura"]{--bg:#12080e;--bg2:#1c0e18;--bg3:#281520;--accent:#f472b6;--accent2:#ec4899;--card:#180b13;--border:#40102e}
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:14px;min-height:100vh;overflow-x:hidden}
 .cat-bar{display:flex;background:var(--bg2);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:102;flex-shrink:0}
@@ -714,66 +721,83 @@ select{background:var(--bg3);border:1px solid var(--border);border-radius:8px;pa
 <div class="tab-content" id="tab-shop">
   <div class="loading" id="shopLoading">⏳ Загрузка…</div>
   <div id="shopContent" style="display:none">
-    <!-- Gacha -->
-    <div class="card">
-      <div class="card-title">✨ Молитва Пустоты</div>
-      <div style="text-align:center;font-size:11px;color:var(--text2);margin-bottom:6px">
-        Шанс на легендарку: <strong style="color:#f59e0b">2%</strong> · гарант через <strong>40</strong> кр. · <span id="gachaSinglePrice">80</span> / <span id="gachaMultiPrice">700</span> 🪙
+    <div class="subtabs" id="shopSubtabs">
+      <button class="subtab-btn active" onclick="switchShopSubtab('gacha')">🎰 Гача</button>
+      <button class="subtab-btn" onclick="switchShopSubtab('appearance')">🎨 Внешность</button>
+      <button class="subtab-btn" onclick="switchShopSubtab('consumables')">🧪 Расходники</button>
+      <button class="subtab-btn" onclick="switchShopSubtab('special')">👑 Особое</button>
+    </div>
+
+    <!-- 🎰 Gacha -->
+    <div id="shop-subtab-gacha">
+      <div class="card">
+        <div class="card-title">✨ Молитва Пустоты</div>
+        <div style="text-align:center;font-size:11px;color:var(--text2);margin-bottom:6px">
+          Шанс на легендарку: <strong style="color:#f59e0b">2%</strong> · гарант через <strong>40</strong> кр. · <span id="gachaSinglePrice">80</span> / <span id="gachaMultiPrice">700</span> 🪙
+        </div>
+        <div class="btn-row" style="margin-bottom:6px">
+          <button class="btn btn-primary" onclick="rollGacha(1)">🌟 ×1</button>
+          <button class="btn btn-gold" onclick="rollGacha(10)">💫 ×10</button>
+        </div>
+        <button class="btn" style="width:100%;background:var(--bg3);color:var(--text2);font-size:11px;border:1px solid var(--border)" onclick="showGachaRates()">📊 Шансы дропа</button>
       </div>
-      <div class="btn-row" style="margin-bottom:6px">
-        <button class="btn btn-primary" onclick="rollGacha(1)">🌟 ×1</button>
-        <button class="btn btn-gold" onclick="rollGacha(10)">💫 ×10</button>
+    </div>
+
+    <!-- 🎨 Appearance: Frames + Themes + Cosmetics + Pet colors -->
+    <div id="shop-subtab-appearance" style="display:none">
+      <div class="card">
+        <div class="card-title">🖼 Рамки профиля</div>
+        <div id="framesGrid"></div>
       </div>
-      <button class="btn" style="width:100%;background:var(--bg3);color:var(--text2);font-size:11px;border:1px solid var(--border)" onclick="showGachaRates()">📊 Шансы дропа</button>
-    </div>
-    <!-- Frames -->
-    <div class="card">
-      <div class="card-title">🖼 Рамки профиля</div>
-      <div id="framesGrid"></div>
-    </div>
-    <!-- VIP -->
-    <div class="card">
-      <div class="card-title">👑 VIP статус</div>
-      <div id="shopVipContent"></div>
-    </div>
-    <!-- Cosmetics -->
-    <div class="card">
-      <div class="card-title">🎭 Косметика и эффекты</div>
-      <div id="cosmeticsSection"></div>
-    </div>
-    <!-- Pet Colors -->
-    <div class="card">
-      <div class="card-title">🎨 Цвет питомца</div>
-      <div id="petColorsSection"></div>
-    </div>
-    <!-- Potions -->
-    <div class="card">
-      <div class="card-title">🧪 Зелья и расходники</div>
-      <div id="potionsSection"></div>
-    </div>
-    <!-- Pet food -->
-    <div class="card" id="shopFoodSection">
-      <div class="card-title">🍖 Еда для питомца</div>
-      <div id="foodSection"></div>
-    </div>
-    <!-- Custom Title -->
-    <div class="card">
-      <div class="card-title">🏷 Кастомный титул</div>
-      <div class="stat-row" style="margin-bottom:6px">
-        <span class="stat-label">Активный</span>
-        <span class="stat-value" id="currentTitle" style="font-style:italic;color:var(--text2)">Нет</span>
+      <div class="card">
+        <div class="card-title">🎨 Темы профиля <small style="font-weight:400;color:var(--text2)">— меняют дизайн приложения</small></div>
+        <div id="themesShopGrid"></div>
       </div>
-      <input type="text" id="titleInput" maxlength="30" placeholder="Введи новый титул…"
-        style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:7px;color:var(--text);width:100%;margin-bottom:4px;box-sizing:border-box;font-size:13px"/>
-      <button class="btn btn-gold" onclick="setCustomTitle()">⭐ Установить — 4 000 🪙</button>
-    </div>
-    <!-- Chat XP Buff -->
-    <div class="card" id="chatBuffCard">
-      <div class="card-title">⚡ Баф XP чата</div>
-      <div id="chatBuffStatus" style="margin-bottom:6px;font-size:12px;text-align:center;min-height:28px">
-        <span style="color:var(--text2)">⏳ Загрузка…</span>
+      <div class="card">
+        <div class="card-title">🎭 Косметика и эффекты</div>
+        <div id="cosmeticsSection"></div>
       </div>
-      <button class="btn btn-gold" id="chatBuffBuyBtn" onclick="buyChatBuff()" style="width:100%">⚡ Активировать — 1 500 🪙</button>
+      <div class="card">
+        <div class="card-title">🎨 Цвет питомца</div>
+        <div id="petColorsSection"></div>
+      </div>
+    </div>
+
+    <!-- 🧪 Consumables: Potions + Food -->
+    <div id="shop-subtab-consumables" style="display:none">
+      <div class="card">
+        <div class="card-title">🧪 Зелья и расходники</div>
+        <div id="potionsSection"></div>
+      </div>
+      <div class="card" id="shopFoodSection">
+        <div class="card-title">🍖 Еда для питомца</div>
+        <div id="foodSection"></div>
+      </div>
+    </div>
+
+    <!-- 👑 Special: VIP + Custom Title + Chat Buff -->
+    <div id="shop-subtab-special" style="display:none">
+      <div class="card">
+        <div class="card-title">👑 VIP статус</div>
+        <div id="shopVipContent"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">🏷 Кастомный титул</div>
+        <div class="stat-row" style="margin-bottom:6px">
+          <span class="stat-label">Активный</span>
+          <span class="stat-value" id="currentTitle" style="font-style:italic;color:var(--text2)">Нет</span>
+        </div>
+        <input type="text" id="titleInput" maxlength="30" placeholder="Введи новый титул…"
+          style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:7px;color:var(--text);width:100%;margin-bottom:4px;box-sizing:border-box;font-size:13px"/>
+        <button class="btn btn-gold" onclick="setCustomTitle()">⭐ Установить — 4 000 🪙</button>
+      </div>
+      <div class="card" id="chatBuffCard">
+        <div class="card-title">⚡ Баф XP чата</div>
+        <div id="chatBuffStatus" style="margin-bottom:6px;font-size:12px;text-align:center;min-height:28px">
+          <span style="color:var(--text2)">⏳ Загрузка…</span>
+        </div>
+        <button class="btn btn-gold" id="chatBuffBuyBtn" onclick="buyChatBuff()" style="width:100%">⚡ Активировать — 1 500 🪙</button>
+      </div>
     </div>
   </div>
 </div>
@@ -1461,16 +1485,19 @@ select{background:var(--bg3);border:1px solid var(--border);border-radius:8px;pa
 
 <!-- DEV TAB -->
 <div class="tab-content" id="tab-dev">
-
-  <!-- ① Stats -->
-  <div class="card">
-    <div class="card-title">📊 Состояние БД</div>
-    <div id="devStatsGrid"></div>
-    <button class="btn btn-primary" onclick="loadDevStats()" style="margin-top:8px">🔄 Обновить</button>
+  <div class="subtabs" id="devSubtabs">
+    <button id="devSubtabUsersBtn" class="subtab-btn active" onclick="switchDevSubtab('users')">👥 Участники</button>
+    <button id="devSubtabModBtn" class="subtab-btn" onclick="switchDevSubtab('moderation')">🛡 Модерация</button>
+    <button id="devSubtabEventsBtn" class="subtab-btn" onclick="switchDevSubtab('events')">🎪 Ивенты</button>
+    <button id="devSubtabTreasuryBtn" class="subtab-btn" onclick="switchDevSubtab('treasury')">🏛 Казна</button>
+    <button id="devSubtabSettingsBtn" class="subtab-btn" onclick="switchDevSubtab('settings')">⚙️ Настройки</button>
   </div>
 
-  <!-- ② User picker + controls -->
-  <div class="card">
+  <!-- 👥 Users sub-tab: User editor + Salary -->
+  <div id="dev-subtab-users">
+
+  <!-- User picker + controls -->
+  <div class="card" id="devUserEditorCard">
     <div class="card-title">🎯 Управление участником</div>
     <!-- Search dropdown + list picker -->
     <div class="dev-search-wrap">
@@ -1515,7 +1542,7 @@ select{background:var(--bg3);border:1px solid var(--border);border-radius:8px;pa
   </div>
 
   <!-- 💼 Salary card (separate) -->
-  <div class="card">
+  <div class="card" id="devSalaryCard">
     <div class="card-title">💼 Выдача зарплаты</div>
     <button class="btn" style="width:100%;margin-bottom:8px;background:var(--bg3);border:1px solid var(--border);color:var(--text)"
             onclick="openUserPicker('💼 Получатель зарплаты', function(id,n){ devSalarySelectUser(id,n) })">👥 Выбрать получателя…</button>
@@ -1534,6 +1561,11 @@ select{background:var(--bg3);border:1px solid var(--border);border-radius:8px;pa
            style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text);width:100%;margin-top:6px;box-sizing:border-box"/>
     <button class="btn btn-gold" onclick="devIssueSalary()" style="width:100%;margin-top:8px">💸 Выдать ЗП</button>
   </div>
+
+  </div><!-- /dev-subtab-users -->
+
+  <!-- 🛡 Moderation sub-tab: Chat mgmt + Logs + Blacklist + Warnlist + Mod Summary -->
+  <div id="dev-subtab-moderation" style="display:none">
 
   <!-- ③ Chat management -->
   <div class="card">
@@ -1611,6 +1643,11 @@ select{background:var(--bg3);border:1px solid var(--border);border-radius:8px;pa
     <button class="btn btn-primary" onclick="loadModSummary()" style="margin-top:8px">🔄 Обновить</button>
   </div>
 
+  </div><!-- /dev-subtab-moderation -->
+
+  <!-- 🎪 Events sub-tab -->
+  <div id="dev-subtab-events" style="display:none">
+
   <!-- ⑥ Запуск ивентов -->
   <div class="card" id="devEventCard">
     <div class="card-title">🎪 Запуск ивентов</div>
@@ -1630,6 +1667,11 @@ select{background:var(--bg3);border:1px solid var(--border);border-radius:8px;pa
       </div>
     </div>
   </div>
+
+  </div><!-- /dev-subtab-events -->
+
+  <!-- 🏛 Treasury sub-tab -->
+  <div id="dev-subtab-treasury" style="display:none">
 
   <!-- ⑦ Казна + выплаты (доступно developer и owner) -->
   <div class="card" id="devTreasuryCard">
@@ -1700,6 +1742,18 @@ select{background:var(--bg3);border:1px solid var(--border);border-radius:8px;pa
     <div id="devWalletResult" style="max-height:340px;overflow-y:auto"></div>
   </div>
 
+  </div><!-- /dev-subtab-treasury -->
+
+  <!-- ⚙️ Settings sub-tab: DB stats + Cleanup config -->
+  <div id="dev-subtab-settings" style="display:none">
+
+  <!-- ① DB Stats -->
+  <div class="card" id="devStatsCard">
+    <div class="card-title">📊 Состояние БД</div>
+    <div id="devStatsGrid"></div>
+    <button class="btn btn-primary" onclick="loadDevStats()" style="margin-top:8px">🔄 Обновить</button>
+  </div>
+
   <!-- ⑧ Настройка чистки (доступно developer и owner) -->
   <div class="card" id="devCleanupCard" style="display:none">
     <div class="card-title">🧹 Настройка чистки</div>
@@ -1716,7 +1770,9 @@ select{background:var(--bg3);border:1px solid var(--border);border-radius:8px;pa
     <div id="devCleanupMsg" style="margin-top:8px;font-size:12px;min-height:18px"></div>
   </div>
 
-</div>
+  </div><!-- /dev-subtab-settings -->
+
+</div><!-- /tab-dev -->
 
 <!-- AUCTION TAB -->
 <div class="tab-content" id="tab-auction">
@@ -2075,6 +2131,7 @@ async function loadProfile(){
     document.getElementById('pLevel').textContent = p.level || 1;
     syncBalance(p.balance||0);
     document.getElementById('globalBalanceBar').style.display = '';
+    applyTheme(p.active_theme || '');
     const RANK_LABELS = {developer:'💻 Разработчик', owner:'👑 Владелец', co_owner:'⭐ Со-владелец', moderator:'🛡 Модератор', user:'👤 Участник'};
     document.getElementById('pRank').textContent = RANK_LABELS[p.rank] || p.rank || '—';
     document.getElementById('pMsgCount').textContent = (p.message_count||0).toLocaleString();
@@ -2109,15 +2166,16 @@ async function loadProfile(){
       document.getElementById('catBtnAdmin').style.display = '';
       // Full panel visible to developer
       document.querySelectorAll('#tab-dev .card').forEach(c=>{ c.style.display=''; });
+      _devBtns(true); switchDevSubtab('users');
     } else if(p.rank === 'owner' || p.rank === 'co_owner') {
-      // Owner/co_owner: user editor + members table + events + warnlist + mod overview + treasury + cleanup config
+      // Owner/co_owner: user editor + salary + events + warnlist + mod overview + treasury + cleanup config
       const devBtn = document.getElementById('devTabBtn');
       devBtn.setAttribute('data-unlocked','1');
       if(_currentCat === 'admin') devBtn.style.display = '';
       document.getElementById('catBtnAdmin').style.display = '';
       document.querySelectorAll('#tab-dev .card').forEach(c=>{ c.style.display='none'; });
-      document.querySelectorAll('#tab-dev .card')[1].style.display=''; // user editor + salary
-      document.querySelectorAll('#tab-dev .card')[2].style.display=''; // chat management + members
+      document.getElementById('devUserEditorCard').style.display='';
+      document.getElementById('devSalaryCard').style.display='';
       document.getElementById('warnlistCard').style.display='';
       document.getElementById('modSummaryCard').style.display='';
       document.getElementById('devEventCard').style.display='';
@@ -2125,6 +2183,7 @@ async function loadProfile(){
       document.getElementById('devTreasuryPayoutCard').style.display=''; // treasury payouts
       document.getElementById('devWalletCard').style.display='';         // wallet history
       document.getElementById('devCleanupCard').style.display='';        // cleanup config
+      _devBtns(true); switchDevSubtab('users');
     } else if(['admin_senior'].includes(p.rank)) {
       // Senior admins: warnlist + mod overview only (no treasury)
       const devBtn = document.getElementById('devTabBtn');
@@ -2134,6 +2193,8 @@ async function loadProfile(){
       document.querySelectorAll('#tab-dev .card').forEach(c=>{ c.style.display='none'; });
       document.getElementById('warnlistCard').style.display='';
       document.getElementById('modSummaryCard').style.display='';
+      _devBtns(false); document.getElementById('devSubtabModBtn').style.display='';
+      switchDevSubtab('moderation');
     } else if(['admin_junior','moderator'].includes(p.rank)) {
       // Junior admins / moderators: warnlist + mod overview only (no treasury)
       const devBtn = document.getElementById('devTabBtn');
@@ -2143,6 +2204,8 @@ async function loadProfile(){
       document.querySelectorAll('#tab-dev .card').forEach(c=>{ c.style.display='none'; });
       document.getElementById('warnlistCard').style.display='';
       document.getElementById('modSummaryCard').style.display='';
+      _devBtns(false); document.getElementById('devSubtabModBtn').style.display='';
+      switchDevSubtab('moderation');
     }
     document.getElementById('walletHistoryCard').style.display='block';
     loadWalletHistory();
@@ -2733,6 +2796,7 @@ async function setTheme(key){
     themesData.forEach(t=>t.active=(t.key===key));
     renderInvThemes();
     if(profileData) profileData.active_theme=key;
+    applyTheme(key);
   } catch(e){toast('❌ '+e.message,'error')}
 }
 
@@ -2886,6 +2950,32 @@ function renderShop(d){
         </div>
       </div></div>`;
   }).join('');
+
+  // Profile Themes
+  const themeAccents={fire:'#f97316',ice:'#38bdf8',royal:'#d4af37',abyss:'#6366f1',neon:'#d946ef',sakura:'#f472b6'};
+  const themeEmoji={fire:'🔥',ice:'❄️',royal:'👑',abyss:'🌌',neon:'⚡',sakura:'🌸'};
+  const activeTheme=(profileData&&profileData.active_theme)||'';
+  document.getElementById('themesShopGrid').innerHTML=(d.themes||[]).map(t=>{
+    const accent=themeAccents[t.key]||'var(--accent)';
+    const emoji=themeEmoji[t.key]||'🎨';
+    const isGacha=t.source==='gacha';
+    return `<div class="scard${t.owned?' owned':''}${t.key===activeTheme?' scard-active':''}" ${isGacha||t.owned?'':'onclick="buyProfileTheme(\''+t.key+'\')"'}>
+      <div class="scard-accent" style="background:${accent}"></div>
+      <div class="scard-icon">${emoji}</div>
+      <div class="scard-body">
+        <div class="scard-name">${esc(t.name)}</div>
+        <div class="cosmetic-preview" style="display:flex;gap:3px">
+          <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${themeAccents[t.key]||'#888'};flex-shrink:0;margin-top:2px"></span>
+          <span style="font-size:10px;color:var(--text2)">меняет весь дизайн приложения</span>
+        </div>
+        <div class="scard-footer">
+          ${isGacha?'<span class="sbadge" style="background:rgba(168,85,247,.15);color:#a855f7;border:1px solid rgba(168,85,247,.3)">🎰 Только гача</span>':
+            t.owned?(t.key===activeTheme?'<span class="sbadge sbadge-active">✓ Активна</span>':
+              `<span class="sbadge sbadge-owned" onclick="activateTheme('${t.key}')" style="cursor:pointer">✓ Надеть</span>`):
+            '<span class="sbadge sbadge-price">'+t.price+' 🪙</span>'}
+        </div>
+      </div></div>`;
+  }).join('')||'<div style="font-size:12px;color:var(--text2);text-align:center;padding:12px">Темы не загружены</div>';
 
   // VIP — show perks clearly
   document.getElementById('shopVipContent').innerHTML=d.has_vip
@@ -3117,6 +3207,41 @@ async function buyShopItem(type, key){
     renderInvFramesCosmetics();
   } catch(e){toast('❌ '+e.message,'error')}
 }
+
+async function buyProfileTheme(key){
+  const theme=shopData&&(shopData.themes||[]).find(t=>t.key===key);
+  const price=theme?theme.price:0;
+  const label=(theme?theme.name:key)+' 🎨';
+  let wallet;
+  try{ wallet=await pickWallet(label, price); }
+  catch(e){ if((e.message||'')!=='cancelled') toast('❌ '+e.message,'error'); return; }
+  try{
+    const r=await api('/api/shop/buy','POST',{chat_id:chatId,item_type:'profile_theme',item_key:key,equip:true,wallet_type:wallet});
+    if(r.already_owned){
+      toast('✅ Тема уже куплена','success');
+    } else {
+      toast('✅ Тема куплена! Баланс: '+r.balance+' 🪙','success');
+      syncBalance(r.balance);
+      if(profileData) profileData.active_theme=key;
+      applyTheme(key);
+    }
+    shopData=null;
+    await loadShop();
+  } catch(e){toast('❌ '+e.message,'error')}
+}
+
+async function activateTheme(key){
+  try{
+    await api('/api/themes','POST',{chat_id:chatId,action:'set',theme_key:key});
+    if(profileData) profileData.active_theme=key;
+    applyTheme(key);
+    shopData=null;
+    await loadShop();
+    toast('✅ Тема активирована','success');
+  }catch(e){toast('❌ '+e.message,'error')}
+}
+
+
 
 // ── Gacha ─────────────────────────────────────────────────────────────────────
 async function rollGacha(count){
@@ -4540,6 +4665,38 @@ function switchSubtab(name) {
     document.getElementById('subtab-'+n).style.display = n === name ? 'block' : 'none'
   );
 }
+
+function switchShopSubtab(name) {
+  document.querySelectorAll('#shopSubtabs .subtab-btn').forEach(b =>
+    b.classList.toggle('active', b.getAttribute('onclick').includes("'"+name+"'"))
+  );
+  ['gacha','appearance','consumables','special'].forEach(n => {
+    const el = document.getElementById('shop-subtab-'+n);
+    if(el) el.style.display = n===name ? '' : 'none';
+  });
+}
+
+function switchDevSubtab(name) {
+  document.querySelectorAll('#devSubtabs .subtab-btn').forEach(b =>
+    b.classList.toggle('active', b.getAttribute('onclick').includes("'"+name+"'"))
+  );
+  ['users','moderation','events','treasury','settings'].forEach(n => {
+    const el = document.getElementById('dev-subtab-'+n);
+    if(el) el.style.display = n===name ? '' : 'none';
+  });
+}
+
+function applyTheme(key) {
+  document.body.dataset.theme = (key && key !== 'default') ? key : '';
+}
+
+function _devBtns(show) {
+  ['devSubtabUsersBtn','devSubtabModBtn','devSubtabEventsBtn','devSubtabTreasuryBtn','devSubtabSettingsBtn'].forEach(id => {
+    const el = document.getElementById(id);
+    if(el) el.style.display = show ? '' : 'none';
+  });
+}
+
 
 function toggleItemSelection(itemId, checked) {
   const item = document.getElementById('item-' + itemId);

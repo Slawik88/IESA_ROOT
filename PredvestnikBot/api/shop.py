@@ -109,7 +109,38 @@ async def get_catalog(uid: int, chat_id: int) -> dict:
         "active_frame": active_frame or "default",
         "gacha_p1":     gacha_p1,
         "gacha_p10":    gacha_p10,
+        "themes":       await _get_themes_for_catalog(uid, chat_id),
     }
+
+
+async def _get_themes_for_catalog(uid: int, chat_id: int) -> list:
+    """Return all non-default profile themes with ownership status."""
+    from config import PROFILE_THEMES
+    from database.postgres import postgres_connect
+    async with postgres_connect() as db:
+        rows = await db.fetch(
+            "SELECT theme_key FROM user_themes WHERE user_id=? AND chat_id=?",
+            (uid, chat_id),
+        )
+        owned_keys = {r["theme_key"] for r in rows}
+        mora_row = await db.fetchone(
+            "SELECT active_theme FROM user_mora WHERE user_id=? AND chat_id=?",
+            (uid, chat_id),
+        )
+    active = (mora_row["active_theme"] if mora_row else None) or "default"
+    return [
+        {
+            "key":    key,
+            "name":   info["name"],
+            "source": info.get("source", "shop"),
+            "price":  info.get("price", 0),
+            "tier":   info.get("tier", "common"),
+            "owned":  key in owned_keys,
+            "active": key == active,
+        }
+        for key, info in PROFILE_THEMES.items()
+        if key != "default"
+    ]
 
 
 async def buy_item(
@@ -173,8 +204,16 @@ async def buy_item(
         if not color_entry:
             raise ValueError("Неизвестный цвет питомца")
         price = color_entry[2]
+    elif item_type == "profile_theme":
+        from config import PROFILE_THEMES
+        theme_info = PROFILE_THEMES.get(item_key)
+        if not theme_info:
+            raise ValueError("Неизвестная тема профиля")
+        if theme_info.get("source") != "shop":
+            raise ValueError("Эта тема доступна только через гачу")
+        price = theme_info["price"]
     else:
-        raise ValueError("item_type должен быть frame/cosmetic/vip/potion/pet_color")
+        raise ValueError("item_type должен быть frame/cosmetic/vip/potion/pet_color/profile_theme")
 
     # Check ownership (frame/cosmetic only) — equip if already owned
     if item_type in ("frame", "cosmetic"):
@@ -200,6 +239,20 @@ async def buy_item(
         color_key = item_key.replace("pet_color_", "")
         if _pet_row["color_name"] == color_key:
             raise ValueError("Этот цвет уже установлен у питомца")
+
+    if item_type == "profile_theme":
+        # Check if already owned — if so, just activate
+        from database.postgres import postgres_connect as _pgt
+        async with _pgt() as _dbt:
+            _theme_row = await _dbt.fetchone(
+                "SELECT 1 FROM user_themes WHERE user_id=? AND chat_id=? AND theme_key=?",
+                (uid, chat_id, item_key),
+            )
+        if _theme_row:
+            if equip:
+                from database.db import set_active_theme
+                await set_active_theme(uid, chat_id, item_key)
+            return {"ok": True, "already_owned": True, "equipped": equip}
 
     # Deduct payment
     if wallet_type == "family":
@@ -263,6 +316,11 @@ async def buy_item(
             hp=meta.get("hp", 0), crit_rate=meta.get("crit_rate", 0.0),
             slot=meta.get("slot"),
         )
+    elif item_type == "profile_theme":
+        from database.db import add_user_theme, set_active_theme
+        await add_user_theme(uid, chat_id, item_key, source="shop")
+        if equip:
+            await set_active_theme(uid, chat_id, item_key)
 
     # Log purchase to wallet ledger
     try:
@@ -276,7 +334,7 @@ async def buy_item(
     return {
         "ok":            True,
         "already_owned": False,
-        "equipped":      item_type == "frame" and equip,
+        "equipped":      equip,
         "item_type":     item_type,
         "item_key":      item_key,
         "price":         price,
