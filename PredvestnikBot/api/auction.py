@@ -172,7 +172,7 @@ async def create_cosmetic_auction(
             """INSERT INTO auctions
                (chat_id, seller_id, item_id, item_key, item_name, item_rarity, item_emoji,
                 start_price, current_price, buyout_price, status, created_at, ends_at)
-               VALUES (?,0,?,?,?,?,?,?,?,?,'active',?,?)
+               VALUES (?,?,0,?,?,?,?,?,?,?,'active',?,?)
                RETURNING id""",
             (chat_id, seller_id, item_key, item_name,
              rarity, emoji, start_price, start_price, buyout_price,

@@ -536,8 +536,8 @@ async def trigger_event(actor_id: int, chat_id: int, event_type: str) -> dict:
             "requested_by BIGINT NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), processed INTEGER DEFAULT 0)"
         )
         await db.execute(
-            "INSERT INTO dev_event_queue (chat_id, event_type, requested_by) "
-            "VALUES (?,?,?)",
+            "INSERT INTO dev_event_queue (chat_id, event_type, requested_by, created_at) "
+            "VALUES (?,?,?,NOW())",
             (chat_id, event_type, actor_id),
         )
         await db.commit()
