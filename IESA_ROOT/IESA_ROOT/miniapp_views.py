@@ -1520,6 +1520,47 @@ def miniapp_dev_items(request):
     return JsonResponse(_get_items(), json_dumps_params={"ensure_ascii": False}, headers=headers)
 
 
+# ─── Dev: wallet history for any user ────────────────────────────────────────
+
+@csrf_exempt
+def miniapp_dev_wallet_user(request):
+    """GET /api/dev/wallet_user?user_id=X&chat_id=Y&days=N — developer: wallet history for any user."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "GET":
+        return JsonResponse({"error": "GET required"}, status=405, headers=headers)
+
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+    if uid != _DEVELOPER_ID:
+        return JsonResponse({"error": "forbidden"}, status=403, headers=headers)
+
+    user_id_str = request.GET.get("user_id", "")
+    chat_id_str = request.GET.get("chat_id", "0")
+    days_str    = request.GET.get("days", "7")
+
+    if not user_id_str.lstrip("-").isdigit():
+        return JsonResponse({"error": "user_id required"}, status=400, headers=headers)
+    target_uid = int(user_id_str)
+    chat_id    = int(chat_id_str) if chat_id_str.lstrip("-").isdigit() else 0
+    days       = max(1, min(int(days_str) if days_str.isdigit() else 7, 90))
+
+    try:
+        from asgiref.sync import async_to_sync as _a2s
+        from api.economy import wallet_history as _wallet_history
+        history = _a2s(_wallet_history)(target_uid, chat_id, days)
+        return JsonResponse(
+            {"history": history, "user_id": target_uid, "chat_id": chat_id, "days": days},
+            json_dumps_params={"ensure_ascii": False},
+            headers=headers,
+        )
+    except Exception:
+        logger.exception("miniapp view error")
+        return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
+
+
 # ─── Treasury / Казна + НДС-лог ───────────────────────────────────────────────
 
 @csrf_exempt

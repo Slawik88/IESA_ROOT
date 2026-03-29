@@ -110,10 +110,13 @@ BANK_PLANS = {
 }
 
 # ─── Рулетка ─────────────────────────────────────────────────────────────────
-ROULETTE_MIN_BET = 10
-ROULETTE_MAX_BET = 500
-ROULETTE_TAX     = 0.05   # 5% комиссия с выигрыша в казну
-ROULETTE_ITEM_CHANCE = 0.18  # 18% шанс бонусного предмета при выигрыше
+ROULETTE_MIN_BET      = 10
+ROULETTE_MAX_BET      = 500
+ROULETTE_TAX          = 0.05   # 5% комиссия с выигрыша в казну
+ROULETTE_ITEM_CHANCE  = 0.18   # 18% шанс бонусного предмета при выигрыше
+# When the pity system is active (3+ losses) max bet is capped to this value.
+# Prevents "bet small to build pity, then bet big" exploit.
+ROULETTE_PITY_BET_CAP = 100
 
 # Призовой пул рулетки: (item_key, item_name, item_type, weight)
 # item_type: "food" | "coupon" | "buff" | "cosmetic"

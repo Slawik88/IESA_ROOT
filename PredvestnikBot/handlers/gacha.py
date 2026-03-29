@@ -125,6 +125,11 @@ async def cb_gacha_roll(callback: CallbackQuery):
     single   = res["is_single"]
     price    = res["spent"]
 
+    # VIP also gets singles pricing — check to correctly show next-roll prices
+    from database.db import get_vip as _get_vip
+    is_vip = bool(await _get_vip(uid, chat_id))
+    use_cheap = single or is_vip
+
     # Определяем лучшую редкость
     rarities = [r[2] for r in results]
     best_rarity = "junk"
@@ -135,9 +140,10 @@ async def cb_gacha_roll(callback: CallbackQuery):
 
     result_text  = _format_results(results)
     header       = "🌟" if best_rarity == "legendary" else "✨" if best_rarity == "rare" else "🙏"
-    discount_note = "\n🆓 <i>(Применена холостяцкая скидка)</i>" if single else ""
-    price1_next  = GACHA_SINGLES_SINGLE if single else GACHA_SINGLE_PRICE
-    price10_next = GACHA_SINGLES_MULTI  if single else GACHA_MULTI_PRICE
+    discount_note = ("\n💎 <i>(Применена VIP-скидка)</i>" if is_vip and not single
+                     else "\n🆓 <i>(Применена холостяцкая скидка)</i>" if single else "")
+    price1_next  = GACHA_SINGLES_SINGLE if use_cheap else GACHA_SINGLE_PRICE
+    price10_next = GACHA_SINGLES_MULTI  if use_cheap else GACHA_MULTI_PRICE
 
     # Кнопки для повторных круток
     kb = InlineKeyboardMarkup(inline_keyboard=[

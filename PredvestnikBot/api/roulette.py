@@ -133,7 +133,7 @@ async def roulette_spin(
     from shared_prices import (
         ROULETTE_MIN_BET, ROULETTE_MAX_BET,
         ROULETTE_TAX, ROULETTE_ITEM_CHANCE,
-        ROULETTE_PRIZE_POOL,
+        ROULETTE_PRIZE_POOL, ROULETTE_PITY_BET_CAP,
     )
 
     if bet_amount < ROULETTE_MIN_BET:
@@ -160,13 +160,23 @@ async def roulette_spin(
         if not row or row["balance"] < bet_amount:
             bal = row["balance"] if row else 0
             raise ValueError(f"Недостаточно Моры. У тебя: {bal} 🪙")
+        losses = row["roulette_losses"]
+
+    # ── Enforce pity bet cap to prevent "build pity with small bets" exploit ──
+    if losses >= 3 and bet_amount > ROULETTE_PITY_BET_CAP:
+        raise ValueError(
+            f"⚠️ Активна полоса неудач ({losses} в ряд) — "
+            f"максимальная ставка сейчас {ROULETTE_PITY_BET_CAP} 🪙"
+        )
+
+    async with postgres_connect() as db:
         cursor = await db.execute(
             "UPDATE user_mora SET balance=balance-? WHERE user_id=? AND chat_id=? AND balance>=?",
             (bet_amount, uid, chat_id, bet_amount),
         )
         if cursor.rowcount == 0:
             raise ValueError("Недостаточно Моры")
-        losses = row["roulette_losses"]
+        await db.commit()
 
     # ── Spin (with pity boost after losing streak) ────────────────────────────
     # After 3+ consecutive losses, increasingly likely to force a winning number.

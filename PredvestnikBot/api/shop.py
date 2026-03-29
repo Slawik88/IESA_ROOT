@@ -10,14 +10,21 @@ async def get_catalog(uid: int, chat_id: int) -> dict:
 
     Returns {balance, frames, cosmetics, food, potions, has_vip, active_frame}.
     """
-    from database.db import get_mora, get_user_owned_frames
+    from database.db import get_mora, get_user_owned_frames, is_user_single
     from database.postgres import postgres_connect
     from shared_prices import FRAMES_CATALOG, COSMETICS_CATALOG, FOOD_ITEMS, POTIONS_CATALOG, PET_COLOR_CATALOG
+    from shared_prices import GACHA_SINGLE_PRICE, GACHA_MULTI_PRICE, GACHA_SINGLES_SINGLE, GACHA_SINGLES_MULTI
 
     mora = await get_mora(uid, chat_id)
     active_frame = mora["top_frame"] if mora else None
     has_vip = bool(mora["vip"]) if mora else False
     balance = mora["balance"] if mora else 0
+
+    # Gacha pricing: VIP and singles both get the cheaper price
+    single = await is_user_single(uid, chat_id)
+    use_cheap = single or has_vip
+    gacha_p1  = GACHA_SINGLES_SINGLE if use_cheap else GACHA_SINGLE_PRICE
+    gacha_p10 = GACHA_SINGLES_MULTI  if use_cheap else GACHA_MULTI_PRICE
 
     owned_frames = await get_user_owned_frames(uid, chat_id)
 
@@ -100,6 +107,8 @@ async def get_catalog(uid: int, chat_id: int) -> dict:
         "potions":      potions_list,
         "has_vip":      has_vip,
         "active_frame": active_frame or "default",
+        "gacha_p1":     gacha_p1,
+        "gacha_p10":    gacha_p10,
     }
 
 
