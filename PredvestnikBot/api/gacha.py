@@ -74,16 +74,16 @@ def roll_one(pity: int) -> tuple[str, str, str, str]:
         return key, name, "legendary", desc
 
     r = random.random()
-    if r < 0.03:
+    if r < 0.02:   # 2% legendary (was 3%)
         key, name, desc = random.choice(_LEGENDARY_ITEMS)
         return key, name, "legendary", desc
-    elif r < 0.10:
+    elif r < 0.08:  # 6% rare (was 7%)
         key, name, desc = random.choice(_RARE_ITEMS)
         return key, name, "rare", desc
-    elif r < 0.30:
+    elif r < 0.25:  # 17% common (was 20%)
         key, name, desc = random.choice(_COMMON_ITEMS)
         return key, name, "common", desc
-    else:
+    else:           # 75% junk (was 70%)
         key, name, desc = random.choice(_JUNK_ITEMS)
         return key, name, "junk", desc
 
@@ -202,6 +202,29 @@ async def gacha_roll(uid: int, chat_id: int, count: int,
                 quest_done = 1
     except Exception:
         logging.getLogger(__name__).warning("quest_tick failed uid=%s chat=%s", uid, chat_id, exc_info=True)
+
+    # Log to wallet ledger
+    try:
+        from api.economy import log_wallet_tx
+        label = f"Гача ×{count}" if count > 1 else "Гача ×1"
+        await log_wallet_tx(uid, chat_id, "expense", price, "gacha", label)
+    except Exception:
+        pass
+
+    # Increment gacha roll counter & check achievements (fire-and-forget)
+    try:
+        from database.db import postgres_connect as _pg
+        async with _pg() as _db:
+            await _db.execute(
+                "UPDATE user_mora SET total_gacha_rolls = COALESCE(total_gacha_rolls,0) + ? WHERE user_id=? AND chat_id=?",
+                count, uid, chat_id
+            )
+            row = await _db.fetchrow("SELECT total_gacha_rolls FROM user_mora WHERE user_id=? AND chat_id=?", uid, chat_id)
+            total_rolls = int(row["total_gacha_rolls"] or 0) if row else count
+        from api.achievements import check_and_award as _ach
+        await _ach(uid, chat_id, "gacha_rolls", total_rolls)
+    except Exception:
+        pass
 
     return {
         "ok":          True,

@@ -185,6 +185,16 @@ async def repay_loan(uid: int, chat_id: int, loan_id: int) -> dict:
     new_mora = await get_mora(uid, chat_id)
     new_balance = new_mora["balance"] if new_mora else 0
 
+    # Log repayment
+    try:
+        from api.economy import log_wallet_tx
+        await log_wallet_tx(uid, chat_id, "expense", amount, "loan_repay",
+                            f"Погашение долга #{loan_id}")
+        await log_wallet_tx(lender_id, chat_id, "income", amount, "loan_repay",
+                            f"Возврат долга #{loan_id}")
+    except Exception:
+        pass
+
     return {
         "ok": True,
         "loan_id": loan_id,
@@ -253,6 +263,16 @@ async def respond_to_loan(uid: int, chat_id: int, loan_id: int, action: str) -> 
 
     new_mora = await get_mora(uid, chat_id)
     new_balance = new_mora["balance"] if new_mora else 0
+
+    # Log loan acceptance
+    try:
+        from api.economy import log_wallet_tx
+        await log_wallet_tx(lender_id, chat_id, "expense", amount, "loan_give",
+                            f"Выдан заём #{loan_id}")
+        await log_wallet_tx(uid, chat_id, "income", amount, "loan_receive",
+                            f"Получен заём #{loan_id}")
+    except Exception:
+        pass
 
     return {
         "ok": True,

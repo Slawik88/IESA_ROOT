@@ -330,6 +330,17 @@ async def cmd_cleanup(message: Message, bot: Bot, cmd_args: str):
         try:
             await bot.set_chat_permissions(chat_id, _FULL_PERMISSIONS)
             await set_chat_setting(chat_id, "cleanup_locked", 0)
+            # Использовать все одобренные пропуски чистки
+            from database.db import use_cleanup_pass as _use_pass
+            from database.postgres import connect as _pg_con
+            async with _pg_con() as _db:
+                async with _db.execute(
+                    "SELECT user_id FROM cleanup_passes WHERE chat_id=? AND status='approved'",
+                    (chat_id,),
+                ) as _c:
+                    _pass_rows = await _c.fetchall()
+            for _pr in _pass_rows:
+                await _use_pass(_pr[0], chat_id)
             await message.answer("✅ Чат разблокирован — участники снова могут писать.")
         except Exception as e:
             await message.answer(f"❌ Не удалось разблокировать: {e}")
@@ -402,6 +413,13 @@ async def cmd_cleanup(message: Message, bot: Bot, cmd_args: str):
     # Bulk-проверка щитов новичков
     shield_map = await get_shield_map(chat_id)
 
+    # Bulk-проверка пропусков чистки
+    from database.db import has_cleanup_pass
+    pass_holders = set()
+    for u in all_sorted:
+        if await has_cleanup_pass(u["user_id"], chat_id):
+            pass_holders.add(u["user_id"])
+
     # Категоризация
     staff_list = [u for u in all_sorted if u["rank"] in staff_ranks]
     non_staff  = [u for u in all_sorted if u["rank"] not in staff_ranks]
@@ -410,11 +428,14 @@ async def cmd_cleanup(message: Message, bot: Bot, cmd_args: str):
     shielded = []
     passed   = []
     failed   = []
+    pass_protected = []
     for u in non_staff:
         if u["user_id"] in rest_info:
             resting.append(u)
         elif u["user_id"] in shield_map:
             shielded.append(u)
+        elif u["user_id"] in pass_holders:
+            pass_protected.append(u)
         elif u["week_count"] >= min_msgs:
             passed.append(u)
         else:
@@ -425,7 +446,7 @@ async def cmd_cleanup(message: Message, bot: Bot, cmd_args: str):
     lines = [
         f"📋 <b>Чистка чата</b>",
         f"{lock_line}  ·  Порог: <b>{min_msgs}</b> сообщ./нед.",
-        f"👥 Всего: <b>{total}</b>  |  ✅ {len(passed)}  ❌ {len(failed)}  😴 {len(resting)}  🛡 {len(shielded)}  🛡 {len(staff_list)}",
+        f"👥 Всего: <b>{total}</b>  |  ✅ {len(passed)}  ❌ {len(failed)}  😴 {len(resting)}  🛡 {len(shielded)}  🎫 {len(pass_protected)}  🛡 {len(staff_list)}",
         "",
     ]
 
@@ -476,6 +497,16 @@ async def cmd_cleanup(message: Message, bot: Bot, cmd_args: str):
             lines.append(
                 f"  {user_mention(u['user_id'], u['full_name'])} "
                 f"— {u['week_count']} за нед. · щит ещё {_dl}д {_hl}ч"
+            )
+        lines.append("")
+
+    # С пропуском чистки
+    if pass_protected:
+        lines.append(f"🎫 <b>Откуп от чистки ({len(pass_protected)}):</b>")
+        for u in pass_protected:
+            lines.append(
+                f"  {user_mention(u['user_id'], u['full_name'])} "
+                f"— {u['week_count']} за нед. · 🎫 пропуск куплен"
             )
         lines.append("")
 

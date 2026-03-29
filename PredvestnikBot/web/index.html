@@ -502,7 +502,7 @@ select{background:var(--bg3);border:1px solid var(--border);border-radius:8px;pa
   <button class="cat-btn active" data-cat="main" onclick="switchCategory('main')">🏠<span>Главная</span></button>
   <button class="cat-btn" data-cat="hero" onclick="switchCategory('hero')">⚔️<span>Герой</span></button>
   <button class="cat-btn" data-cat="finance" onclick="switchCategory('finance')">💰<span>Финансы</span></button>
-  <button class="cat-btn" data-cat="fun" onclick="switchCategory('fun')">🎮<span>Досуг</span></button>
+  <button class="cat-btn" data-cat="admin" id="catBtnAdmin" onclick="switchCategory('admin')" style="display:none">🛡<span>Управление</span></button>
 </div>
 
 <!-- Tabs -->
@@ -516,14 +516,16 @@ select{background:var(--bg3);border:1px solid var(--border);border-radius:8px;pa
   <button class="tab-btn" data-tab="shop" style="display:none" onclick="switchTab('shop')">🛒 Магазин</button>
   <button class="tab-btn" data-tab="couple_boss" id="coupleBossTabBtn" style="display:none" onclick="switchTab('couple_boss')">👹 Парный Босс</button>
   <button class="tab-btn" data-tab="quest" style="display:none" onclick="switchTab('quest')">📋 Задания</button>
+  <button class="tab-btn" data-tab="expedition" style="display:none" onclick="switchTab('expedition')">🏕 Экспед.</button>
+  <button class="tab-btn" data-tab="spy" style="display:none" onclick="switchTab('spy')">🕵️ Шпион</button>
   <button class="tab-btn" data-tab="bank" style="display:none" onclick="switchTab('bank')">🏦 Банк</button>
   <button class="tab-btn" data-tab="bonds" style="display:none" onclick="switchTab('bonds')">📈 Биржа</button>
-  <button class="tab-btn" data-tab="transfers" style="display:none" onclick="switchTab('transfers')">💸 Долги</button>
-  <button class="tab-btn" data-tab="expedition" style="display:none" onclick="switchTab('expedition')">🏕 Экспед.</button>
+  <button class="tab-btn" data-tab="transfers" style="display:none" onclick="switchTab('transfers')">💸 Переводы</button>
   <button class="tab-btn" data-tab="casino" style="display:none" onclick="switchTab('casino')">🎰 Казино</button>
-  <button class="tab-btn" data-tab="spy" style="display:none" onclick="switchTab('spy')">🕵️ Шпион</button>
-  <button class="tab-btn" data-tab="dev" id="devTabBtn" style="display:none" onclick="switchTab('dev')">🛠 Дев</button>
   <button class="tab-btn" data-tab="treasury" id="treasuryTabBtn" style="display:none" onclick="switchTab('treasury')">🏛 Казна</button>
+  <button class="tab-btn" data-tab="dev" id="devTabBtn" style="display:none" onclick="switchTab('dev')">🛠 Панель</button>
+  <button class="tab-btn" data-tab="auction" style="display:none" onclick="switchTab('auction')">🏪 Аукцион</button>
+  <button class="tab-btn" data-tab="achievements" onclick="switchTab('achievements')">🏅 Достиж.</button>
 </div>
 
 <!-- Global balance bar -->
@@ -717,7 +719,7 @@ select{background:var(--bg3);border:1px solid var(--border);border-radius:8px;pa
     <div class="card">
       <div class="card-title">✨ Молитва Пустоты</div>
       <div style="text-align:center;font-size:11px;color:var(--text2);margin-bottom:6px">
-        Шанс на легендарку: <strong style="color:#f59e0b">3%</strong> · гарант через <strong>40</strong> кр. · <span id="gachaSinglePrice">120</span> / <span id="gachaMultiPrice">1000</span> 🪙
+        Шанс на легендарку: <strong style="color:#f59e0b">2%</strong> · гарант через <strong>40</strong> кр. · <span id="gachaSinglePrice">80</span> / <span id="gachaMultiPrice">700</span> 🪙
       </div>
       <div class="btn-row" style="margin-bottom:6px">
         <button class="btn btn-primary" onclick="rollGacha(1)">🌟 ×1</button>
@@ -1024,8 +1026,8 @@ select{background:var(--bg3);border:1px solid var(--border);border-radius:8px;pa
         <p style="margin-top:8px"><b>Как зарабатывать:</b></p>
         <ul style="margin:4px 0 4px 16px;padding:0">
           <li>📨 <b>Сообщения</b> — 17% шанс получить 1–3 🪙 (кулдаун 3 мин)</li>
-          <li>📅 <b>Чекин</b> — 30–150 🪙 в зависимости от дня цикла (20 дней)</li>
-          <li>📋 <b>Квест дня</b> — +20 🪙 за выполнение</li>
+          <li>📅 <b>Чекин</b> — 100–1000 🪙 в зависимости от дня цикла (20 дней)</li>
+          <li>📋 <b>Квест дня</b> — 3–12 🪙 + 30–120 XP за выполнение</li>
           <li>⬆️ <b>Повышение уровня</b> — +10 🪙 за каждый LVL-ап</li>
           <li>👍 <b>Репутация</b> — +3 🪙 когда тебе дают «+», +1 🪙 когда ты даёшь</li>
           <li>⚔️ <b>Босс</b> — МОра за урон (damage ÷ 20)</li>
@@ -1074,8 +1076,8 @@ select{background:var(--bg3);border:1px solid var(--border);border-radius:8px;pa
         <p style="margin-top:8px"><b>Пити-система:</b> Гарантия легендарки каждые <b>40</b> круток.</p>
         <p style="margin-top:8px"><b>Цены:</b></p>
         <ul style="margin:4px 0 4px 16px;padding:0">
-          <li>🌟 ×1 — <b>120 🪙</b> (одиночная, 110 для холостяков)</li>
-          <li>💫 ×10 — <b>1000 🪙</b> (выгоднее! 950 для холостяков)</li>
+          <li>🌟 ×1 — <b>80 🪙</b> (одиночная, 70 для холостяков)</li>
+          <li>💫 ×10 — <b>700 🪙</b> (выгоднее! 650 для холостяков)</li>
         </ul>
         <p style="margin-top:4px;font-size:11px;color:var(--text2)">Подробные шансы — кнопка «📊 Шансы дропа» в Магазине.</p>
       </div>
@@ -1170,7 +1172,7 @@ select{background:var(--bg3);border:1px solid var(--border);border-radius:8px;pa
     <div class="card">
       <div class="card-title">🎭 РП-действия</div>
       <div style="font-size:12px;line-height:1.7;color:var(--text)">
-        <p>13 ролевых действий — без префикса «бот»:</p>
+        <p>12 ролевых действий — без префикса «бот»:</p>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:2px 12px;font-size:11px;margin-top:4px">
           <span>🤗 <code>обними</code></span><span>👊 <code>пни</code></span>
           <span>💋 <code>поцелуй</code></span><span>👋 <code>шлёпни</code></span>
@@ -1236,6 +1238,7 @@ select{background:var(--bg3);border:1px solid var(--border);border-radius:8px;pa
           <li>🪙 <b>Монетка</b> — <code>бот монетка N</code> — орёл/решка, ×2 при выигрыше (макс 100 🪙)</li>
           <li>🎲 <b>Дуэль на кубиках</b> — <code>бот кубик @user N</code> — больший бросок забирает ставку (макс 5000 🪙)</li>
           <li>🎟 <b>Лотерея</b> — <code>бот купить лотерею</code> — 40 🪙/билет, 5% шанс выиграть 60–120 🪙, розыгрыш по воскресеньям</li>
+          <li>🎡 <b>Рулетка</b> — европейская (0–36). Ставки 10–500 🪙. Типы: красное/чёрное/чёт/нечёт/малые/большие (×2), число или зеро (×36). Налог 5% с выигрыша в казну. 18% шанс бонусного предмета!</li>
         </ul>
       </div>
     </div>
@@ -1277,7 +1280,7 @@ select{background:var(--bg3);border:1px solid var(--border);border-radius:8px;pa
         <ul style="margin:4px 0 4px 16px;padding:0">
           <li>📌 Чекпоинты (дни 5/10/15/20) защищают стрик от полного сброса</li>
           <li>🎁 День 20 = <b>бесплатная крутка гачи</b>!</li>
-          <li>📊 Награды: от 30 до 150 🪙</li>
+          <li>📊 Награды: от 100 до 1000 🪙</li>
         </ul>
         <p style="margin-top:4px"><code>бот чекин</code> — отметиться. Визуальный календарь в Mini App!</p>
       </div>
@@ -1399,6 +1402,23 @@ select{background:var(--bg3);border:1px solid var(--border);border-radius:8px;pa
     </div>
 
     <div class="card">
+      <div class="card-title">� Квест дня</div>
+      <div style="font-size:12px;line-height:1.7;color:var(--text)">
+        <p>Каждый день выдаётся случайный квест с наградой в Море и XP.</p>
+        <p style="margin-top:8px"><b>Типы квестов:</b></p>
+        <ul style="margin:4px 0 4px 16px;padding:0">
+          <li>📨 <b>Сообщения</b> — напиши 10–50 сообщений</li>
+          <li>👍 <b>Репутация</b> — дай «+» 1–5 раз</li>
+          <li>🪙 <b>Монетка</b> — сыграй 2–5 раз</li>
+          <li>✨ <b>Гача</b> — крутни 1–3 раза</li>
+          <li>💍 <b>Подарок</b> — отправь 1–2 подарка (только в браке)</li>
+          <li>🏕 <b>Экспедиция</b> — отправь 1–2 экспедиции (только в браке)</li>
+        </ul>
+        <p style="margin-top:4px;font-size:11px;color:var(--text2)">💡 Не нравится квест? Используй купон реролла из гачи! Квесты для женатых не выпадают одиночкам.</p>
+      </div>
+    </div>
+
+    <div class="card">
       <div class="card-title">🕵️ Шпионаж</div>
       <div style="font-size:12px;line-height:1.7;color:var(--text)">
         <p>Хочешь узнать баланс и статы другого игрока? Отправь шпиона!</p>
@@ -1408,6 +1428,26 @@ select{background:var(--bg3);border:1px solid var(--border);border-radius:8px;pa
           <li>🎭 Есть шанс провала — цель узнает!</li>
         </ul>
         <p style="margin-top:4px"><code>бот шпионить @user</code> или через вкладку «🕵️ Шпион»</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🎫 Откуп от чистки</div>
+      <div style="font-size:12px;line-height:1.7;color:var(--text)">
+        <p>Не успеваешь набрать норму? Купи пропуск!</p>
+        <ul style="margin:4px 0 4px 16px;padding:0">
+          <li>💰 Стоимость: <b>1500 🪙</b></li>
+          <li>📝 После оплаты владелец/разработчик одобряет заявку</li>
+          <li>🛡 При следующей чистке ты будешь защищён</li>
+        </ul>
+        <p style="margin-top:4px"><code>бот откуп</code> — купить пропуск</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🏛 Казна чата</div>
+      <div style="font-size:12px;line-height:1.7;color:var(--text)">
+        <p>Общая казна пополняется налогами с казино (5% от выигрышей в рулетке). Владелец/разработчик может распределять средства казны.</p>
       </div>
     </div>
 
@@ -1670,6 +1710,69 @@ select{background:var(--bg3);border:1px solid var(--border);border-radius:8px;pa
 
 </div>
 
+<!-- AUCTION TAB -->
+<div class="tab-content" id="tab-auction">
+  <!-- Active lots -->
+  <div class="card">
+    <div class="card-title">🏪 Активные лоты</div>
+    <div id="auctionLoading" style="text-align:center;color:var(--text2);font-size:13px;padding:16px">⏳ Загрузка…</div>
+    <div id="auctionLotsList" style="display:none"></div>
+    <button class="btn" style="margin-top:8px;width:100%;background:var(--bg3);color:var(--text2);border:1px solid var(--border)" onclick="loadAuctionTab(true)">🔄 Обновить</button>
+  </div>
+
+  <!-- My lots / bids -->
+  <div class="card" id="myLotsCard" style="display:none">
+    <div class="card-title">📋 Мои лоты и ставки</div>
+    <div id="myLotsList"></div>
+  </div>
+
+  <!-- Sell form -->
+  <div class="card">
+    <div class="card-title">📦 Выставить предмет</div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <label style="font-size:12px;color:var(--text2)">ID предмета (из 🎒 Инвентарь)</label>
+      <input type="number" id="auctionItemId" placeholder="Например 42" min="1"
+        style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text);font-size:14px;width:100%;box-sizing:border-box"/>
+      <label style="font-size:12px;color:var(--text2)">Начальная цена 🪙 (мин. 10)</label>
+      <input type="number" id="auctionStartPrice" placeholder="Например 500" min="10"
+        style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text);font-size:14px;width:100%;box-sizing:border-box"/>
+      <label style="font-size:12px;color:var(--text2)">Цена быстрого выкупа 🪙 (необязательно)</label>
+      <input type="number" id="auctionBuyout" placeholder="Например 2000" min="11"
+        style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text);font-size:14px;width:100%;box-sizing:border-box"/>
+      <button class="btn btn-gold" onclick="createAuctionLot()">📦 Выставить на 24 часа</button>
+      <div id="auctionSellMsg" style="font-size:12px;min-height:16px;text-align:center"></div>
+    </div>
+  </div>
+</div>
+
+<!-- BID MODAL -->
+<div id="bidModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:500;align-items:flex-end;justify-content:center"
+     onclick="if(event.target===this)closeBidModal()">
+  <div style="background:var(--bg2);border-radius:16px 16px 0 0;padding:20px;width:100%;max-width:460px;box-sizing:border-box">
+    <div style="font-weight:700;font-size:16px;margin-bottom:12px">⬆️ Сделать ставку</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:6px">Минимальная ставка: <strong id="bidModalMin">—</strong> 🪙</div>
+    <input type="number" id="bidAmount" min="1" placeholder="Сумма ставки"
+      style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px;color:var(--text);font-size:15px;width:100%;box-sizing:border-box;margin-bottom:12px"/>
+    <div style="display:flex;gap:8px">
+      <button class="btn" style="flex:1;background:var(--bg3);color:var(--text2);border:1px solid var(--border)" onclick="closeBidModal()">Отмена</button>
+      <button class="btn btn-primary" style="flex:2" onclick="submitBid()">✅ Поставить</button>
+    </div>
+  </div>
+</div>
+
+<!-- ACHIEVEMENTS TAB -->
+<div class="tab-content" id="tab-achievements">
+  <div class="card">
+    <div class="card-title">🏅 Достижения</div>
+    <div id="achProgress" style="text-align:center;font-size:13px;color:var(--text2);margin-bottom:6px">⏳ Загрузка…</div>
+    <div style="background:var(--bg3);border-radius:8px;height:8px;overflow:hidden;margin-bottom:8px">
+      <div id="achProgressBar" style="background:var(--accent);height:100%;width:0%;transition:width .5s"></div>
+    </div>
+    <button class="btn" style="width:100%;margin-bottom:8px;background:var(--bg3);color:var(--text2);border:1px solid var(--border);font-size:12px" onclick="loadAchievementsTab(true)">🔄 Обновить</button>
+    <div id="achList"></div>
+  </div>
+</div>
+
 <script>
 const tg = window.Telegram && window.Telegram.WebApp;
 if(tg){tg.ready();tg.expand();}
@@ -1816,10 +1919,10 @@ function syncBalance(n){
 
 // ── Category switching ────────────────────────────────────────────────────────
 const TAB_CATS = {
-  main:    ['profile','calendar','union','glory','guide'],
-  hero:    ['inventory','shop','couple_boss','quest'],
-  finance: ['bank','bonds','transfers','expedition'],
-  fun:     ['casino','spy','dev','treasury'],
+  main:    ['profile','calendar','union','glory','guide','achievements'],
+  hero:    ['inventory','shop','couple_boss','quest','expedition','spy','auction'],
+  finance: ['bank','bonds','transfers','casino','treasury'],
+  admin:   ['dev'],
 };
 let _currentCat = 'main';
 
@@ -1934,6 +2037,8 @@ function switchTab(name){
     if(name==='glory') loadLB('xp');
     if(name==='treasury') loadTreasuryTab();
     if(name==='dev'){ loadDevStats(); loadDevItems(); loadDevTreasury(); loadModSummary(); loadCleanupConfig(); }
+    if(name==='auction') loadAuctionTab();
+    if(name==='achievements') loadAchievementsTab();
   }
   // Start background price-check every 60s while bonds tab is active
   if(name==='bonds'&&!_bondsCheckTimer){
@@ -1991,20 +2096,22 @@ async function loadProfile(){
     if(uid===DEV_UID || p.is_dev || p.rank === 'developer'){
       const devBtn = document.getElementById('devTabBtn');
       devBtn.setAttribute('data-unlocked','1');
-      if(_currentCat === 'fun') devBtn.style.display = '';
+      if(_currentCat === 'admin') devBtn.style.display = '';
       const trsBtn = document.getElementById('treasuryTabBtn');
       trsBtn.setAttribute('data-unlocked','1');
-      if(_currentCat === 'fun') trsBtn.style.display = '';
+      if(_currentCat === 'finance') trsBtn.style.display = '';
+      document.getElementById('catBtnAdmin').style.display = '';
       // Full panel visible to developer
       document.querySelectorAll('#tab-dev .card').forEach(c=>{ c.style.display=''; });
     } else if(p.rank === 'owner') {
       // Owner: user editor + members table + events + warnlist + mod overview + treasury + cleanup config
       const devBtn = document.getElementById('devTabBtn');
       devBtn.setAttribute('data-unlocked','1');
-      if(_currentCat === 'fun') devBtn.style.display = '';
+      if(_currentCat === 'admin') devBtn.style.display = '';
       const trsBtn = document.getElementById('treasuryTabBtn');
       trsBtn.setAttribute('data-unlocked','1');
-      if(_currentCat === 'fun') trsBtn.style.display = '';
+      if(_currentCat === 'finance') trsBtn.style.display = '';
+      document.getElementById('catBtnAdmin').style.display = '';
       document.querySelectorAll('#tab-dev .card').forEach(c=>{ c.style.display='none'; });
       document.querySelectorAll('#tab-dev .card')[1].style.display=''; // user editor + salary
       document.querySelectorAll('#tab-dev .card')[2].style.display=''; // chat management + members
@@ -2017,7 +2124,8 @@ async function loadProfile(){
       // Senior admins: warnlist + mod overview only (no treasury)
       const devBtn = document.getElementById('devTabBtn');
       devBtn.setAttribute('data-unlocked','1');
-      if(_currentCat === 'fun') devBtn.style.display = '';
+      if(_currentCat === 'admin') devBtn.style.display = '';
+      document.getElementById('catBtnAdmin').style.display = '';
       document.querySelectorAll('#tab-dev .card').forEach(c=>{ c.style.display='none'; });
       document.getElementById('warnlistCard').style.display='';
       document.getElementById('modSummaryCard').style.display='';
@@ -2025,7 +2133,8 @@ async function loadProfile(){
       // Junior admins / moderators: warnlist + mod overview only (no treasury)
       const devBtn = document.getElementById('devTabBtn');
       devBtn.setAttribute('data-unlocked','1');
-      if(_currentCat === 'fun') devBtn.style.display = '';
+      if(_currentCat === 'admin') devBtn.style.display = '';
+      document.getElementById('catBtnAdmin').style.display = '';
       document.querySelectorAll('#tab-dev .card').forEach(c=>{ c.style.display='none'; });
       document.getElementById('warnlistCard').style.display='';
       document.getElementById('modSummaryCard').style.display='';
@@ -2744,8 +2853,8 @@ async function loadShop(){
 function renderShop(d){
   const isMarried=!!(profileData&&profileData.partner_name);
   const myName=esc((profileData&&profileData.name)||'Ваш ник');
-  document.getElementById('gachaSinglePrice').textContent=isMarried?'120':'110';
-  document.getElementById('gachaMultiPrice').textContent=isMarried?'1000':'950';
+  document.getElementById('gachaSinglePrice').textContent=isMarried?'80':'70';
+  document.getElementById('gachaMultiPrice').textContent=isMarried?'700':'650';
   const activeTitle=(profileData&&profileData.custom_title)||'';
   document.getElementById('currentTitle').textContent=activeTitle||'Нет';
 
@@ -2784,7 +2893,7 @@ function renderShop(d){
         <div class="scard-body">
           <div class="scard-name">VIP статус</div>
           <div class="scard-desc">💎 Золотой значок рядом с ником в профиле и топе<br>🎰 Скидка на гача-крутки (семейная цена без брака)<br>🖼 Разблокирует рамку «Алмазный» для покупки</div>
-          <div class="scard-footer"><span class="sbadge sbadge-price">300 🪙</span></div>
+          <div class="scard-footer"><span class="sbadge sbadge-price">2000 🪙</span></div>
         </div></div>`;
 
   // Cosmetics — full list cards with visible previews
@@ -2962,17 +3071,17 @@ function showGachaRates() {
     ['🏯','Нефритовое зерцало','Артефакт: +20 ATK, +40 DEF, 15% крит'],
     ['🗺️⚡','Ускорение экспедиции L','−50% оставшегося времени экспедиции'],
   ];
-  const pctJ=(70/JUNK.length).toFixed(1);
-  const pctC=(20/COMMON.length).toFixed(1);
-  const pctR=(7/RARE.length).toFixed(1);
-  const pctL=(3/LEGO.length).toFixed(2);
+  const pctJ=(75/JUNK.length).toFixed(1);
+  const pctC=(17/COMMON.length).toFixed(1);
+  const pctR=(6/RARE.length).toFixed(1);
+  const pctL=(2/LEGO.length).toFixed(2);
   function rows(arr,pct){return arr.map(([em,nm,desc])=>`<div class="rates-row"><span class="rates-row-icon">${em}</span><span class="rates-row-name"><b>${esc(nm)}</b><br><span style="font-size:10px;color:var(--text2)">${esc(desc)}</span></span><span class="rates-row-pct">${pct}%</span></div>`).join('');}
   document.getElementById('gachaRatesBody').innerHTML=
     `<div style="font-size:11px;color:var(--text2);padding:6px 0 12px;text-align:center">Гарантия легендарки каждые <b>40</b> круток (пити-система)</div>
-    <div class="rarity-section"><div class="rarity-section-hdr junk">💤 Мусор — 70%</div>${rows(JUNK,pctJ)}</div>
-    <div class="rarity-section"><div class="rarity-section-hdr common">⚔️ Обычный — 20%</div>${rows(COMMON,pctC)}</div>
-    <div class="rarity-section"><div class="rarity-section-hdr rare">💜 Редкий — 7%</div>${rows(RARE,pctR)}</div>
-    <div class="rarity-section"><div class="rarity-section-hdr legendary">⭐ Легендарный — 3%</div>${rows(LEGO,pctL)}</div>`;
+    <div class="rarity-section"><div class="rarity-section-hdr junk">💤 Мусор — 75%</div>${rows(JUNK,pctJ)}</div>
+    <div class="rarity-section"><div class="rarity-section-hdr common">⚔️ Обычный — 17%</div>${rows(COMMON,pctC)}</div>
+    <div class="rarity-section"><div class="rarity-section-hdr rare">💜 Редкий — 6%</div>${rows(RARE,pctR)}</div>
+    <div class="rarity-section"><div class="rarity-section-hdr legendary">⭐ Легендарный — 2%</div>${rows(LEGO,pctL)}</div>`;
   document.getElementById('gachaRatesModal').classList.add('open');
 }
 
@@ -2981,7 +3090,7 @@ async function buyShopItem(type, key){
   if(shopData){
     if(type==='frame'){const f=(shopData.frames||[]).find(x=>x.key===key);if(f){price=f.price;label=f.emoji+' '+f.name;}}
     else if(type==='cosmetic'){const c=(shopData.cosmetics||[]).find(x=>x.key===key);if(c){price=c.price;label=c.emoji+' '+c.name;}}
-    else if(type==='vip'){price=500;label='👑 VIP статус';}
+    else if(type==='vip'){price=2000;label='👑 VIP статус';}
   }
   let wallet;
   try{ wallet=await pickWallet(label, price); }
@@ -3004,7 +3113,7 @@ async function buyShopItem(type, key){
 // ── Gacha ─────────────────────────────────────────────────────────────────────
 async function rollGacha(count){
   const isMarried=!!(profileData&&profileData.partner_name);
-  const price=count===1?(isMarried?120:110):(isMarried?1000:950);
+  const price=count===1?(isMarried?80:70):(isMarried?700:650);
   let wallet;
   try{ wallet=await pickWallet('✨ Молитва Пустоты ×'+count, price); }
   catch(e){ if((e.message||'')!=='cancelled') toast('❌ '+e.message,'error'); return; }
@@ -3770,8 +3879,10 @@ async function showPubProfile(userId){
       html += `<div style="font-size:11px;color:var(--text2);margin:8px 0 4px">⚔️ Снаряжение:</div>`;
       p.equipped_items.forEach(i=>{ html += `<div style="font-size:12px;padding:2px 0">• ${esc(i.name)} <span style="color:var(--text2)">(${i.rarity})</span></div>`; });
     }
+    const _FRAME_NAMES={'sakura':'🌸 Сакура','diamond':'💎 Алмазный','gold':'✨ Золотой','silver':'🌙 Серебряный','fire':'🔥 Огненный','ice':'❄️ Ледяной','shadow':'🖤 Теневой','rainbow':'🌈 Радужный','nature':'🌿 Природный','cosmic':'🌌 Космический','royal':'👑 Королевский','neon':'💡 Неоновый','retro':'🎮 Ретро'};
     if(p.active_frame && p.active_frame!=='default'){
-      html += `<div class="stat-row"><span class="stat-label">🖼 Рамка</span><span class="stat-value">${esc(p.active_frame)}</span></div>`;
+      const _fname=_FRAME_NAMES[p.active_frame]||p.active_frame;
+      html += `<div class="stat-row"><span class="stat-label">🖼 Рамка</span><span class="stat-value">${esc(_fname)}</span></div>`;
     }
     if(p.active_theme && p.active_theme!=='default'){
       html += `<div class="stat-row"><span class="stat-label">🎨 Тема</span><span class="stat-value">${esc(p.theme_name||p.active_theme)}</span></div>`;
@@ -5670,6 +5781,170 @@ function showGuideSection(name) {
     b.style.background = isActive ? 'var(--accent)' : 'var(--bg3)';
     b.style.color = isActive ? '#fff' : 'var(--text2)';
   });
+}
+
+// ── Auction / Аукцион ─────────────────────────────────────────────────────────
+async function loadAuctionTab(forceRefresh) {
+  const loEl = document.getElementById('auctionLoading');
+  const lisEl = document.getElementById('auctionLotsList');
+  if (!forceRefresh) { loEl.style.display=''; lisEl.style.display='none'; }
+  try {
+    const r = await api('/api/auction/list?chat_id=' + chatId);
+    const lots = r.lots || [];
+    loEl.style.display = 'none';
+    lisEl.style.display = '';
+    if (!lots.length) {
+      lisEl.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text2);font-size:13px">Нет активных лотов</div>';
+    } else {
+      lisEl.innerHTML = lots.map(renderAuctionLot).join('');
+    }
+    const myCard = document.getElementById('myLotsCard');
+    const myList = document.getElementById('myLotsList');
+    const ml = r.my_lots || [];
+    const mb = r.my_bids || [];
+    if (ml.length || mb.length) {
+      myCard.style.display = '';
+      let html = '';
+      if (ml.length) {
+        html += '<div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:4px">📦 Мои лоты:</div>';
+        html += ml.map(l =>
+          '<div style="padding:6px 4px;border-bottom:1px solid var(--border);font-size:12px;display:flex;justify-content:space-between;align-items:center">' +
+          '<div>' + esc(l.item_emoji) + ' <strong>' + esc(l.item_name) + '</strong> — ' + l.current_price + '🪙' +
+          ' <span style="color:var(--text2)">' + l.bid_count + ' ставок · ' + esc(l.remaining_str||'—') + '</span></div>' +
+          '<button class="btn btn-sm" style="background:#f87171;color:#fff;font-size:10px" onclick="cancelLot(' + l.id + ')">✕</button>' +
+          '</div>'
+        ).join('');
+      }
+      if (mb.length) {
+        html += '<div style="font-size:12px;font-weight:600;color:var(--text2);margin:8px 0 4px">💰 Мои ставки:</div>';
+        html += mb.map(b =>
+          '<div style="padding:6px 4px;border-bottom:1px solid var(--border);font-size:12px">' +
+          esc(b.item_emoji) + ' <strong>' + esc(b.item_name) + '</strong>' +
+          ' <span style="color:var(--accent)">моя: ' + b.my_bid + '🪙</span>' +
+          ' <span style="color:var(--text2)">/ тек. ' + b.current_price + '🪙 · ' + esc(b.remaining_str||'—') + '</span>' +
+          '</div>'
+        ).join('');
+      }
+      myList.innerHTML = html;
+    } else {
+      myCard.style.display = 'none';
+    }
+  } catch(e) {
+    loEl.style.display = 'none';
+    lisEl.style.display = '';
+    lisEl.innerHTML = '<div style="color:#fca5a5;text-align:center;font-size:12px">❌ ' + esc(e.message) + '</div>';
+  }
+}
+
+function renderAuctionLot(l) {
+  const myUid = profileData ? profileData.uid : 0;
+  const isMine = l.seller_id == myUid;
+  const hasBuyout = l.buyout_price && l.buyout_price > 0;
+  let html = '<div style="padding:10px 4px;border-bottom:1px solid var(--border)">' +
+    '<div style="display:flex;gap:8px;align-items:flex-start">' +
+    '<span style="font-size:22px;min-width:32px;text-align:center">' + esc(l.item_emoji) + '</span>' +
+    '<div style="flex:1;min-width:0">' +
+    '<div style="font-weight:700;font-size:13px">' + esc(l.item_name) + '</div>' +
+    '<div style="font-size:11px;color:var(--text2)">🪙 <strong style="color:var(--accent)">' + l.current_price + '</strong> · ' + l.bid_count + ' ставок · ⏰ ' + esc(l.remaining_str||'—') + '</div>' +
+    (hasBuyout ? '<div style="font-size:11px;color:#10b981">🟢 Выкуп: ' + l.buyout_price + '🪙</div>' : '') +
+    '</div>' +
+    (!isMine
+      ? '<button class="btn btn-sm" style="background:var(--accent);color:#fff;font-size:11px;white-space:nowrap" onclick="openBidModal(' + l.id + ',' + l.current_price + ',' + (l.min_bid||0) + ')">⬆️ Ставка</button>'
+      : '<span style="font-size:10px;color:var(--text2);white-space:nowrap">Мой лот</span>') +
+    '</div>';
+  if (hasBuyout && !isMine) {
+    html += '<button class="btn" style="width:100%;margin-top:6px;background:#10b981;color:#fff;font-size:12px" onclick="doBuyout(' + l.id + ',' + l.buyout_price + ')">💰 Выкупить за ' + l.buyout_price + '🪙</button>';
+  }
+  html += '</div>';
+  return html;
+}
+
+let _bidAuctionId = 0, _bidMinAmount = 0;
+function openBidModal(auctionId, currentPrice, minBid) {
+  _bidAuctionId = auctionId;
+  _bidMinAmount = minBid || Math.ceil(currentPrice * 1.10);
+  const amt = document.getElementById('bidAmount');
+  if(amt) { amt.value = _bidMinAmount; amt.min = _bidMinAmount; }
+  document.getElementById('bidModalMin').textContent = _bidMinAmount;
+  document.getElementById('bidModal').style.display = 'flex';
+}
+
+async function submitBid() {
+  const amt = parseInt(document.getElementById('bidAmount').value)||0;
+  if(amt < _bidMinAmount){ toast('⚠️ Ставка ниже минимума ('+_bidMinAmount+'🪙)','error'); return; }
+  try {
+    const r = await api('/api/auction/bid','POST',{chat_id:chatId, auction_id:_bidAuctionId, amount:amt});
+    if(r.ok){ closeBidModal(); toast('✅ Ставка принята!'); loadAuctionTab(true); if(r.new_balance!=null) syncBalance(r.new_balance); }
+  } catch(e){ toast('❌ '+e.message,'error'); }
+}
+
+function closeBidModal() { document.getElementById('bidModal').style.display='none'; }
+
+async function doBuyout(auctionId, buyoutPrice) {
+  if(!confirm('Выкупить за '+buyoutPrice+'🪙?')) return;
+  try {
+    const r = await api('/api/auction/buyout','POST',{chat_id:chatId, auction_id:auctionId});
+    if(r.ok){ toast('🎉 Предмет выкуплен!'); loadAuctionTab(true); if(r.new_balance!=null) syncBalance(r.new_balance); }
+  } catch(e){ toast('❌ '+e.message,'error'); }
+}
+
+async function cancelLot(auctionId) {
+  if(!confirm('Отменить лот? Если есть ставки — штраф 5%.')) return;
+  try {
+    const r = await api('/api/auction/cancel','POST',{chat_id:chatId, auction_id:auctionId});
+    if(r.ok){ toast('✅ Лот отменён'); loadAuctionTab(true); if(r.new_balance!=null) syncBalance(r.new_balance); }
+  } catch(e){ toast('❌ '+e.message,'error'); }
+}
+
+async function createAuctionLot() {
+  const itemId = parseInt(document.getElementById('auctionItemId').value)||0;
+  const startPrice = parseInt(document.getElementById('auctionStartPrice').value)||0;
+  const buyout = parseInt(document.getElementById('auctionBuyout').value)||0;
+  const msgEl = document.getElementById('auctionSellMsg');
+  if(!itemId || !startPrice){ msgEl.textContent='⚠️ Укажи ID предмета и начальную цену'; msgEl.style.color='#fca5a5'; return; }
+  try {
+    const r = await api('/api/auction/create','POST',{chat_id:chatId, item_id:itemId, start_price:startPrice, buyout_price:buyout||null});
+    if(r.ok){
+      msgEl.textContent='✅ Лот выставлен на 24 часа!'; msgEl.style.color='#10b981';
+      document.getElementById('auctionItemId').value='';
+      document.getElementById('auctionStartPrice').value='';
+      document.getElementById('auctionBuyout').value='';
+      loadAuctionTab(true);
+    }
+  } catch(e){ msgEl.textContent='❌ '+e.message; msgEl.style.color='#fca5a5'; }
+}
+
+// ── Achievements / Достижения ─────────────────────────────────────────────────
+async function loadAchievementsTab(forceRefresh) {
+  const listEl = document.getElementById('achList');
+  const progEl = document.getElementById('achProgress');
+  const barEl = document.getElementById('achProgressBar');
+  if(!forceRefresh) { listEl.innerHTML=''; progEl.textContent='⏳ Загрузка…'; }
+  try {
+    const r = await api('/api/achievements?chat_id=' + chatId);
+    const all = r.achievements || [];
+    const total = r.total || 0;
+    const unlocked = r.unlocked || 0;
+    const pct = total ? Math.round(unlocked/total*100) : 0;
+    progEl.innerHTML = '🏅 <strong>' + unlocked + '</strong> / ' + total + ' достижений <span style="color:var(--accent)">(' + pct + '%)</span>';
+    barEl.style.width = pct + '%';
+    if (!all.length) { listEl.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text2);font-size:13px">Нет данных</div>'; return; }
+    listEl.innerHTML = all.map(function(a) {
+      var done = a.unlocked;
+      return '<div style="display:flex;gap:10px;align-items:center;padding:9px 4px;border-bottom:1px solid var(--border);opacity:' + (done ? 1 : .45) + '">' +
+        '<span style="font-size:26px;min-width:34px;text-align:center">' + esc(a.emoji) + '</span>' +
+        '<div style="flex:1;min-width:0">' +
+        '<div style="font-weight:700;font-size:13px">' + esc(a.title) + '</div>' +
+        '<div style="font-size:11px;color:var(--text2)">' + esc(a.description) + '</div>' +
+        '<div style="font-size:10px;color:var(--accent);margin-top:2px">+' + a.mora + '🪙 +' + a.xp + ' XP' + (done && a.obtained_at ? ' · <span style="color:var(--text2)">' + _fmtDt(a.obtained_at) + '</span>' : '') + '</div>' +
+        '</div>' +
+        '<span style="font-size:18px">' + (done ? '✅' : '🔒') + '</span>' +
+        '</div>';
+    }).join('');
+  } catch(e) {
+    progEl.textContent = '❌ Ошибка загрузки';
+    listEl.innerHTML = '<div style="color:#fca5a5;text-align:center;font-size:12px">' + esc(e.message) + '</div>';
+  }
 }
 
 </script>

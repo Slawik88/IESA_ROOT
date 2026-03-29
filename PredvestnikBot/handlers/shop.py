@@ -160,6 +160,7 @@ def _shop_text(section: str, bal: int) -> str:
             "🪙 <b>Магазин</b> › <b>Экономика</b>\n\n"
             f"💰 Баланс: <b>{bal} 🪙</b>\n\n"
             f"💎 VIP — <b>{VIP_PRICE} 🪙</b>\n  <code>бот купить вип</code>\n\n"
+            f"🎫 Откуп от чистки — <b>1500 🪙</b>\n  <code>бот откуп</code>\n\n"
             f"⚡ Буст XP ×2\n  {boost_prices}\n  <code>бот купить буст</code>\n\n"
             "🖼 Рамки профиля\n"
             f"{frame_lines}\n"
@@ -425,6 +426,175 @@ async def cb_shop_color(callback: CallbackQuery):
         )
     except Exception:
         pass
+
+
+# ─── Пропуск чистки ──────────────────────────────────────────────────────────
+
+@router.message(BotCommand("откуп", "пропуск чистки", "cleanup_pass"))
+async def cmd_buy_cleanup_pass(message: Message, bot, cmd_args: str):
+    """Купить откуп от 1 чистки (макс. 1 активный). Требует одобрения владельца."""
+    if message.chat.type == "private":
+        await message.answer("❌ Команда работает только в чате.")
+        return
+
+    uid = message.from_user.id
+    chat_id = message.chat.id
+    from shared_prices import CLEANUP_PASS_PRICE
+    from database.db import buy_cleanup_pass, get_mora as _gm
+    from handlers.economy import deduct_wallet as _dw
+
+    mora = await _gm(uid, chat_id)
+    bal = mora["balance"] if mora else 0
+    if bal < CLEANUP_PASS_PRICE:
+        await message.answer(
+            f"❌ Недостаточно Моры. Нужно <b>{CLEANUP_PASS_PRICE} 🪙</b>, у тебя <b>{bal} 🪙</b>.",
+            parse_mode="HTML",
+        )
+        return
+
+    try:
+        ok, new_bal = await _dw(uid, chat_id, CLEANUP_PASS_PRICE)
+        if not ok:
+            await message.answer("❌ Не удалось списать Мору.")
+            return
+        pass_id = await buy_cleanup_pass(uid, chat_id, CLEANUP_PASS_PRICE)
+    except ValueError as ve:
+        await message.answer(f"❌ {ve}")
+        return
+
+    # Log to wallet ledger
+    try:
+        from api.economy import log_wallet_tx
+        import asyncio
+        await log_wallet_tx(uid, chat_id, "expense", CLEANUP_PASS_PRICE, "cleanup_pass",
+                            "Откуп от чистки")
+    except Exception:
+        pass
+
+    user_name = html.escape(message.from_user.full_name)
+    chat_title = html.escape(message.chat.title or "чат")
+
+    await message.answer(
+        f"✅ Заявка на пропуск чистки отправлена!\n"
+        f"Списано: <b>{CLEANUP_PASS_PRICE} 🪙</b>\n"
+        f"Ожидай одобрения от владельца/разработчика.",
+        parse_mode="HTML",
+    )
+
+    # Уведомление владельцу и разработчику
+    from config import DEVELOPER_ID
+    from database.db import get_staff_in_chat
+
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="✅ Одобрить", callback_data=f"cpass:approve:{pass_id}:{uid}:{chat_id}"),
+            InlineKeyboardButton(text="❌ Отклонить", callback_data=f"cpass:reject:{pass_id}:{uid}:{chat_id}"),
+        ]
+    ])
+    notify_text = (
+        f"🎫 <b>Заявка на пропуск чистки</b>\n\n"
+        f"👤 {user_name} (<code>{uid}</code>)\n"
+        f"💬 {chat_title}\n"
+        f"💰 Оплачено: <b>{CLEANUP_PASS_PRICE} 🪙</b>\n"
+        f"📋 Заявка #{pass_id}"
+    )
+
+    # Уведомить владельцев чата + разработчика
+    notified = set()
+    staff = await get_staff_in_chat(chat_id)
+    for s in staff:
+        if s["rank"] in ("owner", "developer"):
+            try:
+                await bot.send_message(s["user_id"], notify_text, parse_mode="HTML", reply_markup=kb)
+                notified.add(s["user_id"])
+            except Exception:
+                pass
+    if DEVELOPER_ID and DEVELOPER_ID not in notified:
+        try:
+            await bot.send_message(DEVELOPER_ID, notify_text, parse_mode="HTML", reply_markup=kb)
+        except Exception:
+            pass
+
+
+@router.callback_query(lambda c: c.data and c.data.startswith("cpass:"))
+async def cb_cleanup_pass(callback: CallbackQuery):
+    """Обработка одобрения/отклонения пропуска чистки."""
+    from database.db import resolve_cleanup_pass, add_mora as _am
+    from utils.ranks import is_developer as _is_dev
+
+    parts = callback.data.split(":")
+    if len(parts) < 5:
+        await callback.answer("❌ Некорректные данные", show_alert=True)
+        return
+
+    action = parts[1]  # approve / reject
+    pass_id = int(parts[2])
+    buyer_uid = int(parts[3])
+    chat_id = int(parts[4])
+
+    admin_uid = callback.from_user.id
+
+    # Проверяем права: только owner или developer
+    from database.db import get_user_stats
+    stats = await get_user_stats(admin_uid, chat_id)
+    admin_rank = stats["rank"] if stats else None
+    if admin_rank not in ("owner", "co_owner") and not _is_dev(admin_uid):
+        await callback.answer("❌ Только владелец или разработчик может решать.", show_alert=True)
+        return
+
+    result = await resolve_cleanup_pass(pass_id, "approve" if action == "approve" else "reject", admin_uid)
+    if not result:
+        await callback.answer("⚠️ Заявка уже обработана или не найдена.", show_alert=True)
+        return
+
+    if action == "approve":
+        try:
+            await callback.message.edit_text(
+                callback.message.text + "\n\n✅ <b>Одобрено</b>",
+                parse_mode="HTML",
+            )
+        except Exception:
+            pass
+        # Уведомить покупателя
+        try:
+            await callback.bot.send_message(
+                buyer_uid,
+                f"✅ Твоя заявка на пропуск чистки <b>одобрена</b>!\n"
+                f"При следующей чистке ты будешь защищён.",
+                parse_mode="HTML",
+            )
+        except Exception:
+            pass
+        await callback.answer("✅ Пропуск одобрен!", show_alert=True)
+    else:
+        # Вернуть деньги
+        price = result["price"]
+        await _am(buyer_uid, chat_id, price)
+        # Log refund
+        try:
+            from api.economy import log_wallet_tx
+            await log_wallet_tx(buyer_uid, chat_id, "income", price, "cleanup_pass_refund",
+                                "Возврат за отклонённый пропуск чистки")
+        except Exception:
+            pass
+        try:
+            await callback.message.edit_text(
+                callback.message.text + "\n\n❌ <b>Отклонено</b> (деньги возвращены)",
+                parse_mode="HTML",
+            )
+        except Exception:
+            pass
+        # Уведомить покупателя
+        try:
+            await callback.bot.send_message(
+                buyer_uid,
+                f"❌ Заявка на пропуск чистки <b>отклонена</b>.\n"
+                f"Возврат: <b>{price} 🪙</b>",
+                parse_mode="HTML",
+            )
+        except Exception:
+            pass
+        await callback.answer("❌ Заявка отклонена, деньги возвращены.", show_alert=True)
     await callback.answer()
 
 

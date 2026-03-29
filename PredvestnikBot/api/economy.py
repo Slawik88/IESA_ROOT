@@ -125,10 +125,18 @@ async def transfer_mora(from_uid: int, to_uid: int, chat_id: int, amount: int,
         to_bal = row[0] if row else 0
 
     # Log in ledger (fire-and-forget, never breaks the main transaction)
+    # Resolve nicknames for human-readable history
+    try:
+        from database.db import get_user_name
+        to_name = await get_user_name(to_uid) or str(to_uid)
+        from_name = await get_user_name(from_uid) or str(from_uid)
+    except Exception:
+        to_name, from_name = str(to_uid), str(from_uid)
+
     await log_wallet_tx(from_uid, chat_id, "expense", deduct_total, "transfer_out",
-                        f"→ [{to_uid}] -{tax}🪙 налог")
+                        f"→ {to_name} -{tax}🪙 налог")
     await log_wallet_tx(to_uid, chat_id, "income", credit_amount, "transfer_in",
-                        f"← [{from_uid}]")
+                        f"← {from_name}")
 
     return {
         "ok":           True,

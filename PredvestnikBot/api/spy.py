@@ -66,6 +66,13 @@ async def spy(uid: int, chat_id: int, target_id: int) -> dict:
             raise ValueError("Не удалось списать Мору")
         await db.commit()
 
+    # Log spy cost
+    try:
+        from api.economy import log_wallet_tx
+        await log_wallet_tx(uid, chat_id, "expense", SPY_COST, "spy", "Шпионаж")
+    except Exception:
+        pass
+
     # Roll success/fail
     failed = random.random() < SPY_FAIL_CHANCE
     success_int = 0 if failed else 1

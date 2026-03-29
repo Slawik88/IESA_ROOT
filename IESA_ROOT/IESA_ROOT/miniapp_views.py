@@ -4150,7 +4150,7 @@ def miniapp_casino_roulette(request):
                     f"({_bet_label}, ставка {amount} 🪙)\n"
                     f"💸 Проигрыш"
                 )
-            if _BOT_TOKEN:
+            if _BOT_TOKEN and amount >= 200:  # Only announce bets ≥200🪙 to avoid spam
                 _requests.post(
                     f"https://api.telegram.org/bot{_BOT_TOKEN}/sendMessage",
                     json={"chat_id": chat_id, "text": _notif, "parse_mode": "HTML"},
@@ -4645,7 +4645,7 @@ def miniapp_gifts_catalog(request):
     try:
         from asgiref.sync import async_to_sync as _a2s
         from database.db import get_marriage, get_gifts_summary, get_received_gifts
-        from shared_prices import MARRIAGE_GIFTS
+        from config import MARRIAGE_GIFTS
 
         marriage = _a2s(get_marriage)(uid, chat_id)
         if not marriage:
@@ -4709,7 +4709,7 @@ def miniapp_gifts_send(request):
     try:
         from asgiref.sync import async_to_sync as _a2s
         from database.db import (get_marriage, give_gift, add_buff, get_mora)
-        from shared_prices import MARRIAGE_GIFTS
+        from config import MARRIAGE_GIFTS
 
         gift_info = MARRIAGE_GIFTS.get(gift_key)
         if not gift_info:
@@ -4780,5 +4780,197 @@ def miniapp_gifts_send(request):
 
     except ValueError as ve:
         return JsonResponse({"error": str(ve)}, status=400, headers=headers)
+    except Exception as exc:
+        logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
+
+
+# ─── Аукцион ─────────────────────────────────────────────────────────────────
+
+@csrf_exempt
+def miniapp_auction_list(request):
+    """GET /api/auction/list?chat_id=X — активные лоты."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "GET":
+        return JsonResponse({"error": "GET required"}, status=405, headers=headers)
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+    chat_id_str = request.GET.get("chat_id", "")
+    if not chat_id_str.lstrip("-").isdigit():
+        return JsonResponse({"error": "chat_id required"}, status=400, headers=headers)
+    chat_id = int(chat_id_str)
+    try:
+        from asgiref.sync import async_to_sync as _a2s
+        from api.auction import get_active_auctions, get_user_auctions
+        lots = _a2s(get_active_auctions)(chat_id)
+        my   = _a2s(get_user_auctions)(uid, chat_id)
+        for lot in lots:
+            for k, v in lot.items():
+                if hasattr(v, 'isoformat'):
+                    lot[k] = v.isoformat()
+        for lst in (my.get("my_lots", []), my.get("my_bids", [])):
+            for item in lst:
+                for k, v in item.items():
+                    if hasattr(v, 'isoformat'):
+                        item[k] = v.isoformat()
+        return JsonResponse({"lots": lots, "my": my}, json_dumps_params={"ensure_ascii": False}, headers=headers)
+    except Exception as exc:
+        logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
+
+
+@csrf_exempt
+def miniapp_auction_create(request):
+    """POST /api/auction/create — выставить предмет."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=405, headers=headers)
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+    try:
+        body = json.loads(request.body)
+        chat_id     = int(str(body.get("chat_id", "0")))
+        item_id     = int(str(body.get("item_id", "0")))
+        start_price = int(str(body.get("start_price", "0")))
+        buyout      = body.get("buyout_price")
+        if buyout is not None:
+            buyout = int(str(buyout))
+    except Exception:
+        return JsonResponse({"error": "invalid JSON"}, status=400, headers=headers)
+    if not chat_id or not item_id or start_price <= 0:
+        return JsonResponse({"error": "chat_id, item_id, start_price required"}, status=400, headers=headers)
+    try:
+        from asgiref.sync import async_to_sync as _a2s
+        from api.auction import create_auction
+        result = _a2s(create_auction)(uid, chat_id, item_id, start_price, buyout)
+        return JsonResponse(result, json_dumps_params={"ensure_ascii": False}, headers=headers)
+    except ValueError as ve:
+        return JsonResponse({"error": str(ve)}, status=400, json_dumps_params={"ensure_ascii": False}, headers=headers)
+    except Exception as exc:
+        logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
+
+
+@csrf_exempt
+def miniapp_auction_bid(request):
+    """POST /api/auction/bid — сделать ставку."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=405, headers=headers)
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+    try:
+        body = json.loads(request.body)
+        chat_id    = int(str(body.get("chat_id", "0")))
+        auction_id = int(str(body.get("auction_id", "0")))
+        amount     = int(str(body.get("amount", "0")))
+    except Exception:
+        return JsonResponse({"error": "invalid JSON"}, status=400, headers=headers)
+    if not chat_id or not auction_id or amount <= 0:
+        return JsonResponse({"error": "chat_id, auction_id, amount required"}, status=400, headers=headers)
+    try:
+        from asgiref.sync import async_to_sync as _a2s
+        from api.auction import place_bid
+        result = _a2s(place_bid)(uid, chat_id, auction_id, amount)
+        return JsonResponse(result, json_dumps_params={"ensure_ascii": False}, headers=headers)
+    except ValueError as ve:
+        return JsonResponse({"error": str(ve)}, status=400, json_dumps_params={"ensure_ascii": False}, headers=headers)
+    except Exception as exc:
+        logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
+
+
+@csrf_exempt
+def miniapp_auction_buyout(request):
+    """POST /api/auction/buyout — мгновенный выкуп."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=405, headers=headers)
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+    try:
+        body = json.loads(request.body)
+        chat_id    = int(str(body.get("chat_id", "0")))
+        auction_id = int(str(body.get("auction_id", "0")))
+    except Exception:
+        return JsonResponse({"error": "invalid JSON"}, status=400, headers=headers)
+    if not chat_id or not auction_id:
+        return JsonResponse({"error": "chat_id, auction_id required"}, status=400, headers=headers)
+    try:
+        from asgiref.sync import async_to_sync as _a2s
+        from api.auction import buyout_auction
+        result = _a2s(buyout_auction)(uid, chat_id, auction_id)
+        return JsonResponse(result, json_dumps_params={"ensure_ascii": False}, headers=headers)
+    except ValueError as ve:
+        return JsonResponse({"error": str(ve)}, status=400, json_dumps_params={"ensure_ascii": False}, headers=headers)
+    except Exception as exc:
+        logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
+
+
+@csrf_exempt
+def miniapp_auction_cancel(request):
+    """POST /api/auction/cancel — отменить лот."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=405, headers=headers)
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+    try:
+        body = json.loads(request.body)
+        chat_id    = int(str(body.get("chat_id", "0")))
+        auction_id = int(str(body.get("auction_id", "0")))
+    except Exception:
+        return JsonResponse({"error": "invalid JSON"}, status=400, headers=headers)
+    if not chat_id or not auction_id:
+        return JsonResponse({"error": "chat_id, auction_id required"}, status=400, headers=headers)
+    try:
+        from asgiref.sync import async_to_sync as _a2s
+        from api.auction import cancel_auction
+        result = _a2s(cancel_auction)(uid, chat_id, auction_id)
+        return JsonResponse(result, json_dumps_params={"ensure_ascii": False}, headers=headers)
+    except ValueError as ve:
+        return JsonResponse({"error": str(ve)}, status=400, json_dumps_params={"ensure_ascii": False}, headers=headers)
+    except Exception as exc:
+        logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
+
+
+# ─── Достижения ───────────────────────────────────────────────────────────────
+
+@csrf_exempt
+def miniapp_achievements(request):
+    """GET /api/achievements?chat_id=X — все достижения с флагом unlocked."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "GET":
+        return JsonResponse({"error": "GET required"}, status=405, headers=headers)
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+    chat_id_str = request.GET.get("chat_id", "")
+    if not chat_id_str.lstrip("-").isdigit():
+        return JsonResponse({"error": "chat_id required"}, status=400, headers=headers)
+    chat_id = int(chat_id_str)
+    try:
+        from asgiref.sync import async_to_sync as _a2s
+        from api.achievements import get_all_achievements_with_status
+        data = _a2s(get_all_achievements_with_status)(uid, chat_id)
+        unlocked = sum(1 for a in data if a.get("unlocked"))
+        return JsonResponse(
+            {"achievements": data, "total": len(data), "unlocked": unlocked},
+            json_dumps_params={"ensure_ascii": False},
+            headers=headers
+        )
     except Exception as exc:
         logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)

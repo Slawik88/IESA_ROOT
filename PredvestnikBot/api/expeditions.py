@@ -109,6 +109,15 @@ async def start_expedition(uid: int, chat_id: int, option_key: str,
                 await add_mora(uid, chat_id, cost)
         raise ValueError("Не удалось начать экспедицию")
 
+    # Log expedition cost
+    if cost > 0:
+        try:
+            from api.economy import log_wallet_tx
+            await log_wallet_tx(uid, chat_id, "expense", cost, "expedition",
+                                f"Экспедиция {opt['hours']}ч")
+        except Exception:
+            pass
+
     await add_pet_fatigue(uid, chat_id, 20)
 
     # Quest tick
@@ -192,6 +201,14 @@ async def claim_expedition(uid: int, chat_id: int) -> dict:
     new_balance = await add_mora(uid, chat_id, net_reward)
     if exped_tax > 0:
         await add_to_treasury(chat_id, exped_tax, "expedition", uid)
+
+    # Log reward
+    try:
+        from api.economy import log_wallet_tx
+        await log_wallet_tx(uid, chat_id, "income", net_reward, "expedition",
+                            f"Награда экспедиции ({reward_gross}🪙 - {exped_tax}🪙 налог)")
+    except Exception:
+        pass
 
     return {
         "ok":           True,

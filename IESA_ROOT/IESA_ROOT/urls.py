@@ -69,6 +69,9 @@ from .miniapp_views import (
     miniapp_chat_buff,
     miniapp_gifts_catalog,
     miniapp_gifts_send,
+    miniapp_auction_list, miniapp_auction_create,
+    miniapp_auction_bid, miniapp_auction_buyout, miniapp_auction_cancel,
+    miniapp_achievements,
 )
 
 # Переопределить стандартный админ на кастомный
@@ -196,6 +199,14 @@ urlpatterns = [
     # ─── Gifts / Подарки партнёру ─────────────────────────────────────────────
     path('api/gifts/catalog', miniapp_gifts_catalog, name='miniapp_gifts_catalog'),
     path('api/gifts/send', miniapp_gifts_send, name='miniapp_gifts_send'),
+    # ─── Auction / Аукцион ────────────────────────────────────────────────────
+    path('api/auction/list', miniapp_auction_list, name='miniapp_auction_list'),
+    path('api/auction/create', miniapp_auction_create, name='miniapp_auction_create'),
+    path('api/auction/bid', miniapp_auction_bid, name='miniapp_auction_bid'),
+    path('api/auction/buyout', miniapp_auction_buyout, name='miniapp_auction_buyout'),
+    path('api/auction/cancel', miniapp_auction_cancel, name='miniapp_auction_cancel'),
+    # ─── Achievements / Достижения ────────────────────────────────────────────
+    path('api/achievements', miniapp_achievements, name='miniapp_achievements'),
     # ──────────────────────────────────────────────────────────────────────────
     path('protected/<path:file_path>', serve_protected_media, name='serve_protected_media'),
     

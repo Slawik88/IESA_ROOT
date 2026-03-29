@@ -20,6 +20,7 @@ from handlers import (admin, auto_mod, bank, boss, casino, checkin, dev_panel, d
                      expeditions, extras, food, fun, gacha, gifts, helper,
                      moderator, notes, owner, pets, quests, reputation,
                      shop, tax_event, user, wallet, weather)
+from handlers import auction as auction_handler
 
 logging.basicConfig(level=logging.INFO)
 
@@ -101,6 +102,7 @@ async def main():
     dp.include_router(food.router)         # магазин еды для питомцев
     dp.include_router(checkin.router)      # ежедневный чекин
     dp.include_router(boss.router)         # битва с боссом
+    dp.include_router(auction_handler.router)  # аукцион
     dp.include_router(dev_panel.router)    # панель разработчика
     dp.include_router(shop.router)         # магазин
     dp.include_router(gifts.router)        # подарки партнёру
