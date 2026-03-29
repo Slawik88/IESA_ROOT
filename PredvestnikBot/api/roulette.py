@@ -221,6 +221,15 @@ async def roulette_spin(
         except Exception:
             _log.warning("item prize delivery failed uid=%s key=%s", uid, i_key, exc_info=True)
 
+    # Log to wallet ledger
+    try:
+        from api.economy import log_wallet_tx
+        await log_wallet_tx(uid, chat_id, "expense", bet_amount, "roulette", f"Ставка рулетки {bet_amount}🪙")
+        if win and net_prize > 0:
+            await log_wallet_tx(uid, chat_id, "income", net_prize, "roulette", f"Выигрыш рулетки {net_prize}🪙")
+    except Exception:
+        pass
+
     return {
         "ok":          True,
         "number":      number,

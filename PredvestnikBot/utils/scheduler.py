@@ -78,6 +78,10 @@ async def run_scheduler(bot) -> None:
             await _task_dev_event_queue(bot)
         except Exception as exc:
             log.error("Scheduler [dev_event_queue] error: %s", exc, exc_info=True)
+        try:
+            await _task_auction_finalize(bot)
+        except Exception as exc:
+            log.error("Scheduler [auction_finalize] error: %s", exc, exc_info=True)
         await asyncio.sleep(3600)  # следующий прогон через час
 
 
@@ -375,25 +379,23 @@ async def _task_weekly_singles_bonus(bot) -> None:
     await mark_singles_bonus_awarded(week_key)
 
     singles = await get_all_singles_for_weekly_bonus()
-    for single_user in singles:
-        uid = single_user["user_id"] 
-        chat_id = single_user["chat_id"]
-        
-        # Award the bonus
-        await add_mora(uid, chat_id, SINGLES_WEEKLY_BONUS)
-        
-        # Try to send notification
+    # Group by chat — one notification per chat, not per user
+    chats: dict[int, list[int]] = {}
+    for su in singles:
+        chats.setdefault(su["chat_id"], []).append(su["user_id"])
+    for chat_id, uids in chats.items():
+        for uid in uids:
+            await add_mora(uid, chat_id, SINGLES_WEEKLY_BONUS)
         try:
-            user = await get_user(uid)
-            name = html.escape(user["full_name"]) if user else str(uid)
+            count = len(uids)
             text = (
                 f"💎 <b>Еженедельный бонус одиночки!</b>\n\n"
-                f"🪙 <b>+{SINGLES_WEEKLY_BONUS} Мора</b> за активность без пары\n"
+                f"🪙 <b>+{SINGLES_WEEKLY_BONUS} Мора</b> получили <b>{count}</b> одиноких Предвестников\n"
                 f"<i>Каждое воскресенье — бонус за независимость! 🕊</i>"
             )
             await bot.send_message(chat_id, text, parse_mode="HTML")
         except Exception as exc:
-            log.warning("Cannot send singles bonus to %s/%s: %s", chat_id, uid, exc)
+            log.warning("Cannot send singles bonus to %s: %s", chat_id, exc)
 
 
 # ─── Богатый сундук (раз в 4-8 часов) ──────────────────────────────────────
@@ -702,3 +704,16 @@ async def _task_weekly_top_rewards(bot) -> None:
             await bot.send_message(chat_id, text, parse_mode="HTML")
         except Exception as exc:
             log.warning("weekly_top_rewards: cannot send to %s: %s", chat_id, exc)
+
+
+# ─── Финализация истёкших аукционов ──────────────────────────────────────────
+
+async def _task_auction_finalize(bot) -> None:
+    """Закрыть все истёкшие аукционы. Запускается каждый час."""
+    try:
+        from api.auction import finalize_expired_auctions
+        finalized = await finalize_expired_auctions(bot=bot)
+        if finalized:
+            log.info("Scheduler [auction_finalize]: finalized %d auctions", len(finalized))
+    except Exception as exc:
+        log.warning("_task_auction_finalize error: %s", exc)

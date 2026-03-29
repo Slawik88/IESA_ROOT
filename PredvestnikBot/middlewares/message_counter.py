@@ -168,8 +168,15 @@ class AutoModMiddleware(BaseMiddleware):
                     await set_newbie_shield(user.id, event.chat.id, days=3)
 
             # ПРЯМАЯ запись в БД — каждое сообщение обновляет message_count + last_active
-            await increment_message_count_chat(user.id, event.chat.id)
+            _msg_count = await increment_message_count_chat(user.id, event.chat.id)
             await increment_cleanup_count(event.chat.id, user.id)
+            # Check messages achievements at every 100-message mark (lightweight, idempotent)
+            if _msg_count % 100 == 0:
+                try:
+                    from api.achievements import check_and_award as _ach_check
+                    await _ach_check(user.id, event.chat.id, "messages", _msg_count)
+                except Exception:
+                    pass
 
             # Чат администрации: только подсчёт сообщений, без моры/XP/квестов
             if _is_admin_group:
@@ -265,6 +272,12 @@ class AutoModMiddleware(BaseMiddleware):
                 new_xp, new_level, leveled_up = await add_xp_in_chat(user.id, event.chat.id, xp_amount)
                 if leveled_up:
                     await add_mora(user.id, event.chat.id, MORA_LEVELUP_BONUS)
+                    # Check level achievements
+                    try:
+                        from api.achievements import check_and_award as _ach_lvl
+                        await _ach_lvl(user.id, event.chat.id, "level", new_level)
+                    except Exception:
+                        pass
                     if LEVEL_UP_ANNOUNCE:
                         try:
                             await event.answer(

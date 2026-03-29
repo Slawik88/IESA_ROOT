@@ -64,4 +64,11 @@ async def do_checkin(uid: int, chat_id: int) -> dict:
     except Exception:
         pass
 
+    # Check streak achievements (fire-and-forget)
+    try:
+        from api.achievements import check_and_award as _ach
+        await _ach(uid, chat_id, "checkin_streak", result.get("streak", 1))
+    except Exception:
+        pass
+
     return result

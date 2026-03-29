@@ -635,6 +635,19 @@ async def init_db():
             )
         """)
 
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS cleanup_passes (
+                id SERIAL PRIMARY KEY,
+                user_id    BIGINT NOT NULL,
+                chat_id    BIGINT NOT NULL,
+                status     TEXT NOT NULL DEFAULT 'pending',
+                price      INTEGER NOT NULL,
+                created_at TIMESTAMPTZ NOT NULL,
+                resolved_at TIMESTAMPTZ,
+                resolved_by BIGINT
+            )
+        """)
+
         # ─── Миграция: новые колонки в user_mora ──────────────────────────
         for col_def in [
             "gacha_display TEXT DEFAULT NULL",
@@ -1063,6 +1076,53 @@ async def init_db():
                 updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
             )
         """)
+
+        # ─── Аукцион ──────────────────────────────────────────────────────
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS auctions (
+                id                SERIAL PRIMARY KEY,
+                chat_id           BIGINT NOT NULL,
+                seller_id         BIGINT NOT NULL,
+                item_id           INTEGER NOT NULL,
+                item_key          TEXT NOT NULL,
+                item_name         TEXT NOT NULL,
+                item_rarity       TEXT NOT NULL DEFAULT 'common',
+                item_emoji        TEXT NOT NULL DEFAULT '🎴',
+                start_price       INTEGER NOT NULL,
+                current_price     INTEGER NOT NULL,
+                buyout_price      INTEGER DEFAULT NULL,
+                highest_bidder_id BIGINT DEFAULT NULL,
+                bid_count         INTEGER DEFAULT 0,
+                status            TEXT NOT NULL DEFAULT 'active',
+                created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                ends_at           TIMESTAMPTZ NOT NULL,
+                finished_at       TIMESTAMPTZ DEFAULT NULL
+            )
+        """)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS auction_bids (
+                id          SERIAL PRIMARY KEY,
+                auction_id  INTEGER NOT NULL,
+                bidder_id   BIGINT NOT NULL,
+                chat_id     BIGINT NOT NULL,
+                amount      INTEGER NOT NULL,
+                bid_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """)
+        await db.execute("CREATE INDEX IF NOT EXISTS idx_auctions_status ON auctions(status, ends_at)")
+        await db.execute("CREATE INDEX IF NOT EXISTS idx_auctions_seller ON auctions(seller_id, chat_id)")
+        await db.execute("CREATE INDEX IF NOT EXISTS idx_auction_bids_aid ON auction_bids(auction_id)")
+
+        # ─── Счётчики для системы достижений ──────────────────────────────
+        for col_def in [
+            "total_gacha_rolls INTEGER DEFAULT 0",
+            "total_coinflip    INTEGER DEFAULT 0",
+            "rep_given_count   INTEGER DEFAULT 0",
+        ]:
+            try:
+                await db.execute(f"ALTER TABLE user_mora ADD COLUMN IF NOT EXISTS {col_def}")
+            except Exception:
+                pass
 
         # DDL соединение не поддерживает транзакции - commit() не нужен
 
@@ -2135,6 +2195,83 @@ async def reset_cleanup_counts(chat_id: int):
         await db.commit()
 
 
+# ─── Пропуск чистки ──────────────────────────────────────────────────────────
+
+async def buy_cleanup_pass(user_id: int, chat_id: int, price: int) -> int:
+    """Создать заявку на пропуск чистки. Возвращает id заявки."""
+    now = datetime.now(timezone.utc)
+    async with postgres_connect() as db:
+        # Проверяем, нет ли уже активного или pending пропуска
+        async with db.execute(
+            "SELECT id FROM cleanup_passes WHERE user_id=? AND chat_id=? AND status IN ('pending','approved')",
+            (user_id, chat_id),
+        ) as c:
+            existing = await c.fetchone()
+        if existing:
+            raise ValueError("У тебя уже есть активный пропуск чистки")
+        cursor = await db.execute(
+            "INSERT INTO cleanup_passes (user_id, chat_id, status, price, created_at) "
+            "VALUES (?,?,'pending',?,?) RETURNING id",
+            (user_id, chat_id, price, now),
+        )
+        row = await cursor.fetchone()
+        await db.commit()
+        return row[0]
+
+
+async def resolve_cleanup_pass(pass_id: int, action: str, resolved_by: int) -> dict | None:
+    """Одобрить или отклонить заявку. Возвращает данные заявки или None."""
+    now = datetime.now(timezone.utc)
+    async with postgres_connect() as db:
+        async with db.execute(
+            "SELECT * FROM cleanup_passes WHERE id=? AND status='pending'",
+            (pass_id,),
+        ) as c:
+            row = await c.fetchone()
+        if not row:
+            return None
+        new_status = "approved" if action == "approve" else "rejected"
+        await db.execute(
+            "UPDATE cleanup_passes SET status=?, resolved_at=?, resolved_by=? WHERE id=?",
+            (new_status, now, resolved_by, pass_id),
+        )
+        await db.commit()
+        return dict(row)
+
+
+async def has_cleanup_pass(user_id: int, chat_id: int) -> bool:
+    """Есть ли у пользователя одобренный пропуск чистки."""
+    async with postgres_connect() as db:
+        async with db.execute(
+            "SELECT 1 FROM cleanup_passes WHERE user_id=? AND chat_id=? AND status='approved'",
+            (user_id, chat_id),
+        ) as c:
+            return bool(await c.fetchone())
+
+
+async def use_cleanup_pass(user_id: int, chat_id: int) -> bool:
+    """Использовать пропуск (пометить как used). Возвращает True если был пропуск."""
+    async with postgres_connect() as db:
+        cursor = await db.execute(
+            "UPDATE cleanup_passes SET status='used' WHERE user_id=? AND chat_id=? AND status='approved'",
+            (user_id, chat_id),
+        )
+        await db.commit()
+        return cursor.rowcount > 0
+
+
+async def get_pending_cleanup_passes(chat_id: int) -> list:
+    """Все заявки со статусом pending в чате."""
+    async with postgres_connect() as db:
+        async with db.execute(
+            "SELECT cp.*, u.full_name FROM cleanup_passes cp "
+            "LEFT JOIN users u ON u.user_id = cp.user_id "
+            "WHERE cp.chat_id=? AND cp.status='pending' ORDER BY cp.created_at",
+            (chat_id,),
+        ) as c:
+            return [dict(r) for r in await c.fetchall()]
+
+
 # ─── Quests ───────────────────────────────────────────────────────────────────
 
 DAILY_QUESTS: list[dict] = [
@@ -2189,7 +2326,14 @@ async def get_user_quest(user_id: int, chat_id: int, today_str: str) -> dict:
         return {"type": row["quest_type"], "goal": row["goal"],
                 "xp": 50, "mora": 5, "desc": f"Задание: {row['quest_type']}"}
     # No quest for today — assign a random one and persist it
-    new_quest = random.choice(DAILY_QUESTS)
+    # Filter out marriage-only quests for single users
+    from database.db import get_marriage
+    marriage = await get_marriage(user_id, chat_id)
+    MARRIAGE_QUEST_TYPES = {"gift", "expedition"}
+    pool = [q for q in DAILY_QUESTS if marriage or q["type"] not in MARRIAGE_QUEST_TYPES]
+    if not pool:
+        pool = [q for q in DAILY_QUESTS if q["type"] == "messages"]
+    new_quest = random.choice(pool)
     async with postgres_connect() as db:
         await db.execute(
             """INSERT INTO user_quests
@@ -2206,10 +2350,14 @@ async def reroll_user_quest(user_id: int, chat_id: int, quest_date: str) -> dict
     """Delete old progress and assign a random DIFFERENT quest. Returns the new quest."""
     import random
     old_quest = await get_user_quest(user_id, chat_id, quest_date)
+    # Filter out marriage-only quests for single users
+    marriage = await get_marriage(user_id, chat_id)
+    MARRIAGE_QUEST_TYPES = {"gift", "expedition"}
     candidates = [q for q in DAILY_QUESTS
-                  if q["type"] != old_quest["type"] or q["goal"] != old_quest["goal"]]
+                  if (q["type"] != old_quest["type"] or q["goal"] != old_quest["goal"])
+                  and (marriage or q["type"] not in MARRIAGE_QUEST_TYPES)]
     if not candidates:
-        candidates = DAILY_QUESTS
+        candidates = [q for q in DAILY_QUESTS if q["type"] == "messages"]
     new_quest = random.choice(candidates)
     async with postgres_connect() as db:
         await db.execute(
@@ -2460,6 +2608,13 @@ async def create_marriage(user_a: int, user_b: int, chat_id: int):
             (user_b, chat_id, user_a, now),
         )
         await db.commit()
+    # Marriage achievement for both partners (fire-and-forget)
+    try:
+        from api.achievements import check_and_award as _ach
+        await _ach(user_a, chat_id, "married", 1)
+        await _ach(user_b, chat_id, "married", 1)
+    except Exception:
+        pass
 
 
 async def delete_marriage(user_id: int, chat_id: int):
@@ -3575,13 +3730,33 @@ async def add_reputation_in_chat(from_uid: int, to_uid: int, chat_id: int, amoun
             "UPDATE user_stats SET reputation = reputation + ? WHERE user_id = ? AND chat_id = ?",
             (amount, to_uid, chat_id),
         )
+        # Increment rep_given counter for the giver
+        await db.execute(
+            "UPDATE user_mora SET rep_given_count = COALESCE(rep_given_count,0) + 1 WHERE user_id=? AND chat_id=?",
+            (from_uid, chat_id),
+        )
         await db.commit()
         async with db.execute(
             "SELECT reputation FROM user_stats WHERE user_id = ? AND chat_id = ?",
             (to_uid, chat_id),
         ) as c:
             row = await c.fetchone()
-            return row[0] if row else 0
+            rep_new = row[0] if row else 0
+        async with db.execute(
+            "SELECT rep_given_count FROM user_mora WHERE user_id=? AND chat_id=?",
+            (from_uid, chat_id),
+        ) as c:
+            row2 = await c.fetchone()
+            rgc = row2[0] if row2 else 0
+
+    # Check rep_given achievements (fire-and-forget)
+    try:
+        from api.achievements import check_and_award as _ach
+        await _ach(from_uid, chat_id, "rep_given", rgc)
+    except Exception:
+        pass
+
+    return rep_new
 
 
 async def get_banned_in_chat(chat_id: int):
@@ -4380,6 +4555,14 @@ async def adopt_pet(user_id: int, partner_id: int, chat_id: int, pet_type: str) 
                 (uid, chat_id, pet_type, now),
             )
         await db.commit()
+    # Pet achievement for both owners (fire-and-forget)
+    try:
+        from api.achievements import check_and_award as _ach
+        await _ach(user_id, chat_id, "has_pet", 1)
+        if partner_id != user_id:
+            await _ach(partner_id, chat_id, "has_pet", 1)
+    except Exception:
+        pass
 
 
 async def rename_pet(user_id: int, chat_id: int, name: str) -> bool:
@@ -5059,6 +5242,19 @@ async def increment_tracker(user_id: int, chat_id: int, field: str, amount: int 
             (amount, user_id, chat_id),
         )
         await db.commit()
+        async with db.execute(
+            f"SELECT {field} FROM user_mora WHERE user_id=? AND chat_id=?",
+            (user_id, chat_id),
+        ) as c:
+            row = await c.fetchone()
+            new_val = row[0] if row else amount
+    # Check expedition achievements when expeditions_sent is incremented
+    if field == "expeditions_sent":
+        try:
+            from api.achievements import check_and_award as _ach
+            await _ach(user_id, chat_id, "expeditions", new_val)
+        except Exception:
+            pass
 
 
 # ─── Шпионаж ──────────────────────────────────────────────────────────────────
@@ -5750,13 +5946,7 @@ async def get_all_active_chats() -> list[int]:
 
 # ─── Ежедневный чекин ─────────────────────────────────────────────────────────
 
-_CHECKIN_REWARDS = {
-    1: 30, 2: 30, 3: 35, 4: 35, 5: 60,   # чекпоинт 5
-    6: 40, 7: 40, 8: 45, 9: 45, 10: 80,   # чекпоинт 10
-    11: 50, 12: 50, 13: 55, 14: 55, 15: 100, # чекпоинт 15
-    16: 60, 17: 60, 18: 70, 19: 70, 20: 150,  # день 20 = финал
-}
-_CHECKIN_CHECKPOINTS = {5, 10, 15, 20}
+from shared_prices import CHECKIN_REWARDS as _CHECKIN_REWARDS, CHECKIN_CHECKPOINTS as _CHECKIN_CHECKPOINTS
 _CHECKIN_RESET_TO = {5: 5, 10: 10, 15: 15, 20: 20}  # пробел → к последнему чекпоинту
 
 

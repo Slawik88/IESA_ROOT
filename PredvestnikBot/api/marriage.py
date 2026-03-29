@@ -154,6 +154,14 @@ async def family_deposit(uid: int, chat_id: int, amount: int) -> dict:
     family_bal = await add_to_family_wallet(chat_id, uid, amount)
     await log_family_transaction(chat_id, uid, "deposit", amount)
 
+    # Log to personal wallet ledger
+    try:
+        from api.economy import log_wallet_tx
+        await log_wallet_tx(uid, chat_id, "expense", amount, "family_deposit",
+                            "Вклад в семейный кошелёк")
+    except Exception:
+        pass
+
     new_mora = await get_mora(uid, chat_id)
     personal_balance = new_mora["balance"] if new_mora else 0
 
