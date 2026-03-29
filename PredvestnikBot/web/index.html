@@ -464,11 +464,11 @@ select{background:var(--bg3);border:1px solid var(--border);border-radius:8px;pa
 </div>
 
 <!-- Gacha item detail modal -->
-<div id="gachaItemModal" onclick="if(event.target===this)this.classList.remove('open')"
+<div id="gachaItemModal" onclick="if(event.target===this){this.style.display='none';this.classList.remove('open')}"
      style="position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:9200;display:none;align-items:center;justify-content:center;padding:20px;box-sizing:border-box">
   <div class="gacha-item-sheet">
     <div id="gachaItemModalContent"></div>
-    <button class="btn btn-primary" onclick="document.getElementById('gachaItemModal').classList.remove('open')" style="margin-top:14px;width:100%">Закрыть</button>
+    <button class="btn btn-primary" onclick="var m=document.getElementById('gachaItemModal');m.style.display='none';m.classList.remove('open')" style="margin-top:14px;width:100%">Закрыть</button>
   </div>
 </div>
 

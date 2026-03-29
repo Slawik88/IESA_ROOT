@@ -2097,8 +2097,8 @@ def miniapp_gacha_roll(request):
     except Exception:
         return JsonResponse({"error": "invalid JSON"}, status=400, headers=headers)
 
-    if count not in (1, 10):
-        return JsonResponse({"error": "count must be 1 or 10"}, status=400, headers=headers)
+    if count not in (1, 10, 50):
+        return JsonResponse({"error": "count must be 1, 10 or 50"}, status=400, headers=headers)
     if not chat_id:
         return JsonResponse({"error": "chat_id required"}, status=400, headers=headers)
 
@@ -2829,13 +2829,6 @@ def miniapp_enhance_item(request):
         from asgiref.sync import async_to_sync as _a2s
 
         success, message, new_level = _a2s(enhance_item)(uid, chat_id, item_id)
-
-        if success:
-            _a2s(log_action_to_chat)(
-                uid, chat_id,
-                f"✨ Заточил предмет до +{new_level}",
-                message
-            )
 
         balance = _a2s(get_balance)(uid, chat_id)
 
