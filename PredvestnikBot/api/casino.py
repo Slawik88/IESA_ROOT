@@ -65,9 +65,9 @@ async def coin_flip_resolve(uid: int, chat_id: int, bet: int) -> dict:
         async with _pg() as _db:
             await _db.execute(
                 "UPDATE user_mora SET total_coinflip = COALESCE(total_coinflip,0) + 1 WHERE user_id=? AND chat_id=?",
-                uid, chat_id
+                (uid, chat_id)
             )
-            row = await _db.fetchrow("SELECT total_coinflip FROM user_mora WHERE user_id=? AND chat_id=?", uid, chat_id)
+            row = await _db.fetchone("SELECT total_coinflip FROM user_mora WHERE user_id=? AND chat_id=?", (uid, chat_id))
             total_cf = int(row["total_coinflip"] or 0) if row else 1
         from api.achievements import check_and_award as _ach
         await _ach(uid, chat_id, "coinflip", total_cf)
@@ -85,6 +85,9 @@ async def coin_flip_resolve(uid: int, chat_id: int, bet: int) -> dict:
         "quest_xp":    int(quest_xp),
         "quest_mora":  int(quest_mora),
     }
+
+
+async def coin_flip(uid: int, chat_id: int, bet: int) -> dict:
     """
     Full coin flip: validate + deduct bet + resolve + quest tick.
 

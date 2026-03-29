@@ -522,7 +522,6 @@ select{background:var(--bg3);border:1px solid var(--border);border-radius:8px;pa
   <button class="tab-btn" data-tab="bonds" style="display:none" onclick="switchTab('bonds')">📈 Биржа</button>
   <button class="tab-btn" data-tab="transfers" style="display:none" onclick="switchTab('transfers')">💸 Переводы</button>
   <button class="tab-btn" data-tab="casino" style="display:none" onclick="switchTab('casino')">🎰 Казино</button>
-  <button class="tab-btn" data-tab="treasury" id="treasuryTabBtn" style="display:none" onclick="switchTab('treasury')">🏛 Казна</button>
   <button class="tab-btn" data-tab="dev" id="devTabBtn" style="display:none" onclick="switchTab('dev')">🛠 Панель</button>
   <button class="tab-btn" data-tab="auction" style="display:none" onclick="switchTab('auction')">🏪 Аукцион</button>
   <button class="tab-btn" data-tab="achievements" onclick="switchTab('achievements')">🏅 Достиж.</button>
@@ -1632,48 +1631,22 @@ select{background:var(--bg3);border:1px solid var(--border);border-radius:8px;pa
     </div>
   </div>
 
-  <!-- ⑦ Казна + НДС (доступно developer и owner) -->
+  <!-- ⑦ Казна + выплаты (доступно developer и owner) -->
   <div class="card" id="devTreasuryCard">
-    <div class="card-title">🏛 Казна чата</div>
-    <div class="stat-row"><span class="stat-label">💰 Баланс казны</span><span class="stat-value" id="treasuryBalance">—</span></div>
-    <button class="btn btn-primary" onclick="loadDevTreasury()" style="margin:8px 0">🔄 Обновить</button>
-    <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:4px">📋 НДС-лог (последние 50)</div>
-    <div id="treasuryLog" style="max-height:260px;overflow-y:auto"></div>
-  </div>
-
-  <!-- ⑧ Настройка чистки (доступно developer и owner) -->
-  <div class="card" id="devCleanupCard" style="display:none">
-    <div class="card-title">🧹 Настройка чистки</div>
-    <div id="devCleanupCurrent" style="font-size:12px;color:var(--text2);margin-bottom:10px">Загрузка…</div>
-    <div style="display:flex;flex-direction:column;gap:8px">
-      <label style="font-size:12px;color:var(--text2)">📅 Дата чистки (по Цюриху)</label>
-      <input type="datetime-local" id="devCleanupDate" style="background:var(--card2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:7px 10px;font-size:13px">
-      <label style="font-size:12px;color:var(--text2)">📊 Норма сообщений (за неделю)</label>
-      <input type="number" id="devCleanupNorm" min="1" max="9999" placeholder="70" style="background:var(--card2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:7px 10px;font-size:13px;width:100%">
-      <label style="font-size:12px;color:var(--text2)">🔔 Предупреждение за N часов</label>
-      <input type="number" id="devCleanupWarn" min="1" max="720" placeholder="48" style="background:var(--card2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:7px 10px;font-size:13px;width:100%">
-      <button class="btn btn-primary" onclick="saveCleanupConfig()" style="margin-top:4px">💾 Сохранить</button>
-    </div>
-    <div id="devCleanupMsg" style="margin-top:8px;font-size:12px;min-height:18px"></div>
-  </div>
-
-</div>
-
-<!-- ─── Treasury tab ──────────────────────────────────────────────────────── -->
-<div class="tab-content" id="tab-treasury">
-
-  <!-- Balance header -->
-  <div class="card">
     <div class="card-title">🏛 Казна чата</div>
     <div class="stat-row" style="font-size:22px;font-weight:800;margin:8px 0">
       <span class="stat-label" style="font-size:13px;color:var(--text2)">💰 Баланс</span>
-      <span class="stat-value" id="treasuryTabBalance" style="color:var(--accent)">—</span>
+      <span class="stat-value" id="treasuryBalance" style="color:var(--accent)">—</span>
     </div>
-    <button class="btn btn-primary" onclick="loadTreasuryTab()" style="margin-top:4px">🔄 Обновить</button>
+    <span class="stat-value" id="treasuryTabBalance" style="display:none">—</span>
+    <button class="btn btn-primary" onclick="loadDevTreasury()" style="margin:8px 0">🔄 Обновить</button>
+    <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:4px">📋 НДС-лог (последние 50)</div>
+    <div id="treasuryLog" style="max-height:260px;overflow-y:auto"></div>
+    <div id="treasuryTabLog" style="display:none"></div>
   </div>
 
-  <!-- Payout form -->
-  <div class="card">
+  <!-- 💸 Выплата из казны (доступно developer и owner) -->
+  <div class="card" id="devTreasuryPayoutCard" style="display:none">
     <div class="card-title">💸 Выплата из казны</div>
     <div style="display:flex;flex-direction:column;gap:8px">
       <label style="font-size:12px;color:var(--text2)">👤 Получатель</label>
@@ -1702,14 +1675,8 @@ select{background:var(--bg3);border:1px solid var(--border);border-radius:8px;pa
     </div>
   </div>
 
-  <!-- Transaction log -->
-  <div class="card">
-    <div class="card-title">📋 НДС-лог <small style="color:var(--text2);font-weight:400">(последние 50)</small></div>
-    <div id="treasuryTabLog" style="max-height:340px;overflow-y:auto"></div>
-  </div>
-
-  <!-- ⑧ Wallet history for any user -->
-  <div class="card" id="devWalletCard">
+  <!-- 💸 История кошелька участника (доступно developer и owner) -->
+  <div class="card" id="devWalletCard" style="display:none">
     <div class="card-title">💸 История кошелька участника</div>
     <button class="btn" style="width:100%;margin-bottom:8px;background:var(--bg3);border:1px solid var(--border);color:var(--text)"
             onclick="openUserPicker('💸 История кошелька', function(id,n){ devWalletSelectUser(id,n) })">👥 Выбрать участника…</button>
@@ -1731,6 +1698,22 @@ select{background:var(--bg3);border:1px solid var(--border);border-radius:8px;pa
       <button class="btn btn-primary" onclick="loadDevWalletUser()" style="flex:0 0 auto">🔍 Загрузить</button>
     </div>
     <div id="devWalletResult" style="max-height:340px;overflow-y:auto"></div>
+  </div>
+
+  <!-- ⑧ Настройка чистки (доступно developer и owner) -->
+  <div class="card" id="devCleanupCard" style="display:none">
+    <div class="card-title">🧹 Настройка чистки</div>
+    <div id="devCleanupCurrent" style="font-size:12px;color:var(--text2);margin-bottom:10px">Загрузка…</div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <label style="font-size:12px;color:var(--text2)">📅 Дата чистки (по Цюриху)</label>
+      <input type="datetime-local" id="devCleanupDate" style="background:var(--card2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:7px 10px;font-size:13px">
+      <label style="font-size:12px;color:var(--text2)">📊 Норма сообщений (за неделю)</label>
+      <input type="number" id="devCleanupNorm" min="1" max="9999" placeholder="70" style="background:var(--card2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:7px 10px;font-size:13px;width:100%">
+      <label style="font-size:12px;color:var(--text2)">🔔 Предупреждение за N часов</label>
+      <input type="number" id="devCleanupWarn" min="1" max="720" placeholder="48" style="background:var(--card2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:7px 10px;font-size:13px;width:100%">
+      <button class="btn btn-primary" onclick="saveCleanupConfig()" style="margin-top:4px">💾 Сохранить</button>
+    </div>
+    <div id="devCleanupMsg" style="margin-top:8px;font-size:12px;min-height:18px"></div>
   </div>
 
 </div>
@@ -1755,9 +1738,11 @@ select{background:var(--bg3);border:1px solid var(--border);border-radius:8px;pa
   <div class="card">
     <div class="card-title">📦 Выставить предмет</div>
     <div style="display:flex;flex-direction:column;gap:8px">
-      <label style="font-size:12px;color:var(--text2)">ID предмета (из 🎒 Инвентарь)</label>
-      <input type="number" id="auctionItemId" placeholder="Например 42" min="1"
-        style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text);font-size:14px;width:100%;box-sizing:border-box"/>
+      <label style="font-size:12px;color:var(--text2)">Предмет из инвентаря</label>
+      <select id="auctionItemId"
+        style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text);font-size:14px;width:100%;box-sizing:border-box">
+        <option value="">⏳ Загрузка инвентаря…</option>
+      </select>
       <label style="font-size:12px;color:var(--text2)">Начальная цена 🪙 (мин. 10)</label>
       <input type="number" id="auctionStartPrice" placeholder="Например 500" min="10"
         style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text);font-size:14px;width:100%;box-sizing:border-box"/>
@@ -1946,7 +1931,7 @@ function syncBalance(n){
 const TAB_CATS = {
   main:    ['profile','calendar','union','glory','guide','achievements'],
   hero:    ['inventory','shop','couple_boss','quest','expedition','spy','auction'],
-  finance: ['bank','bonds','transfers','casino','treasury'],
+  finance: ['bank','bonds','transfers','casino'],
   admin:   ['dev'],
 };
 let _currentCat = 'main';
@@ -1959,7 +1944,7 @@ function switchCategory(cat) {
   document.querySelectorAll('.tab-btn[data-tab]').forEach(btn => {
     const tab = btn.dataset.tab;
     const inCat = allowed.includes(tab);
-    const locked = (tab === 'couple_boss' || tab === 'dev' || tab === 'treasury') && !btn.hasAttribute('data-unlocked');
+    const locked = (tab === 'couple_boss' || tab === 'dev') && !btn.hasAttribute('data-unlocked');
     btn.style.display = (!inCat || locked) ? 'none' : '';
   });
   // If the currently active tab is not in this category, switch to first available tab
@@ -2060,7 +2045,6 @@ function switchTab(name){
     if(name==='transfers') loadTransfersTab();
     if(name==='spy') renderSpyTab();
     if(name==='glory') loadLB('xp');
-    if(name==='treasury') loadTreasuryTab();
     if(name==='dev'){ loadDevStats(); loadDevItems(); loadDevTreasury(); loadModSummary(); loadCleanupConfig(); }
     if(name==='auction') loadAuctionTab();
     if(name==='achievements') loadAchievementsTab();
@@ -2122,20 +2106,14 @@ async function loadProfile(){
       const devBtn = document.getElementById('devTabBtn');
       devBtn.setAttribute('data-unlocked','1');
       if(_currentCat === 'admin') devBtn.style.display = '';
-      const trsBtn = document.getElementById('treasuryTabBtn');
-      trsBtn.setAttribute('data-unlocked','1');
-      if(_currentCat === 'finance') trsBtn.style.display = '';
       document.getElementById('catBtnAdmin').style.display = '';
       // Full panel visible to developer
       document.querySelectorAll('#tab-dev .card').forEach(c=>{ c.style.display=''; });
-    } else if(p.rank === 'owner') {
-      // Owner: user editor + members table + events + warnlist + mod overview + treasury + cleanup config
+    } else if(p.rank === 'owner' || p.rank === 'co_owner') {
+      // Owner/co_owner: user editor + members table + events + warnlist + mod overview + treasury + cleanup config
       const devBtn = document.getElementById('devTabBtn');
       devBtn.setAttribute('data-unlocked','1');
       if(_currentCat === 'admin') devBtn.style.display = '';
-      const trsBtn = document.getElementById('treasuryTabBtn');
-      trsBtn.setAttribute('data-unlocked','1');
-      if(_currentCat === 'finance') trsBtn.style.display = '';
       document.getElementById('catBtnAdmin').style.display = '';
       document.querySelectorAll('#tab-dev .card').forEach(c=>{ c.style.display='none'; });
       document.querySelectorAll('#tab-dev .card')[1].style.display=''; // user editor + salary
@@ -2143,9 +2121,11 @@ async function loadProfile(){
       document.getElementById('warnlistCard').style.display='';
       document.getElementById('modSummaryCard').style.display='';
       document.getElementById('devEventCard').style.display='';
-      document.getElementById('devTreasuryCard').style.display=''; // treasury
-      document.getElementById('devCleanupCard').style.display='';  // cleanup config
-    } else if(['co_owner','admin_senior'].includes(p.rank)) {
+      document.getElementById('devTreasuryCard').style.display='';       // treasury balance + log
+      document.getElementById('devTreasuryPayoutCard').style.display=''; // treasury payouts
+      document.getElementById('devWalletCard').style.display='';         // wallet history
+      document.getElementById('devCleanupCard').style.display='';        // cleanup config
+    } else if(['admin_senior'].includes(p.rank)) {
       // Senior admins: warnlist + mod overview only (no treasury)
       const devBtn = document.getElementById('devTabBtn');
       devBtn.setAttribute('data-unlocked','1');
@@ -4267,22 +4247,8 @@ async function saveCleanupConfig(){
   const warnVal = parseInt(document.getElementById('devCleanupWarn').value||'0');
   const body = {chat_id: chatId};
   if(dateVal){
-    // Convert Zurich local datetime string to UTC ISO string
-    const zurichDate = new Date(dateVal + ':00'); // treat as local — browser may differ
-    // Use proper Zurich offset conversion via en-US locale
-    const utcMs = new Date(new Date(dateVal).toLocaleString('en-US',{timeZone:'Europe/Zurich'}) === dateVal
-      ? new Date(dateVal).getTime() // fallback
-      : (() => {
-          // Parse as Zurich time: compute offset
-          const ref = new Date(dateVal);
-          const zuLocal = new Date(ref.toLocaleString('en-US',{timeZone:'Europe/Zurich'}));
-          const diff = ref - zuLocal;
-          return ref.getTime() + diff;
-        })()
-    );
-    // Simple approach: treat datetime-local value as Zurich, convert to UTC
+    // Convert Zurich local datetime-local value to UTC ISO string
     const isoInput = dateVal + ':00';
-    // Build a date in Zurich by parsing and applying offset
     const tzOffset = (() => {
       const d = new Date(isoInput);
       const zu = new Date(d.toLocaleString('en-US', {timeZone: 'Europe/Zurich'}));
@@ -5888,6 +5854,7 @@ async function loadAuctionTab(forceRefresh) {
   const loEl = document.getElementById('auctionLoading');
   const lisEl = document.getElementById('auctionLotsList');
   if (!forceRefresh) { loEl.style.display=''; lisEl.style.display='none'; }
+  loadAuctionInventory();
   try {
     const r = await api('/api/auction/list?chat_id=' + chatId);
     const lots = r.lots || [];
@@ -5996,17 +5963,38 @@ async function cancelLot(auctionId) {
   } catch(e){ toast('❌ '+e.message,'error'); }
 }
 
+const _RARITY_EMOJI = {legendary:'⭐',rare:'💜',common:'⚔️'};
+async function loadAuctionInventory(){
+  const sel = document.getElementById('auctionItemId');
+  sel.innerHTML = '<option value="">⏳ Загрузка…</option>';
+  try{
+    const r = await api('/api/inventory?chat_id='+chatId);
+    const items = (r.items||[]).filter(i=>!i.equipped);
+    if(!items.length){
+      sel.innerHTML = '<option value="">📭 Нет доступных предметов</option>';
+      return;
+    }
+    sel.innerHTML = '<option value="">— Выбери предмет —</option>' +
+      items.map(i=>{
+        const em = _RARITY_EMOJI[i.rarity]||'🎴';
+        return `<option value="${i.id}">${em} ${esc(i.item_name)} [ID:${i.id}]</option>`;
+      }).join('');
+  }catch(e){
+    sel.innerHTML = '<option value="">❌ Ошибка загрузки</option>';
+  }
+}
+
 async function createAuctionLot() {
   const itemId = parseInt(document.getElementById('auctionItemId').value)||0;
   const startPrice = parseInt(document.getElementById('auctionStartPrice').value)||0;
   const buyout = parseInt(document.getElementById('auctionBuyout').value)||0;
   const msgEl = document.getElementById('auctionSellMsg');
-  if(!itemId || !startPrice){ msgEl.textContent='⚠️ Укажи ID предмета и начальную цену'; msgEl.style.color='#fca5a5'; return; }
+  if(!itemId || !startPrice){ msgEl.textContent='⚠️ Выбери предмет и укажи начальную цену'; msgEl.style.color='#fca5a5'; return; }
   try {
     const r = await api('/api/auction/create','POST',{chat_id:chatId, item_id:itemId, start_price:startPrice, buyout_price:buyout||null});
     if(r.ok){
       msgEl.textContent='✅ Лот выставлен на 24 часа!'; msgEl.style.color='#10b981';
-      document.getElementById('auctionItemId').value='';
+      document.getElementById('auctionItemId').selectedIndex = 0;
       document.getElementById('auctionStartPrice').value='';
       document.getElementById('auctionBuyout').value='';
       loadAuctionTab(true);

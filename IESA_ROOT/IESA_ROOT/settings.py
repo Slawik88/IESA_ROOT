@@ -86,6 +86,7 @@ if DEBUG:
 
 # Наше кастомное Middleware для обновления статуса пользователя
 MIDDLEWARE = [
+    'users.middleware.BlockScannerMiddleware',  # Silence .php/.wp scanner spam
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',  # Static files for production
     'django.contrib.sessions.middleware.SessionMiddleware',
