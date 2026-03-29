@@ -48,6 +48,146 @@ async def _get_item(db, item_id: int, user_id: int, chat_id: int) -> dict | None
     return dict(row) if row else None
 
 
+# ─── Вспомогательные: косметика ───────────────────────────────────────────────
+
+def _parse_cosmetic_key(item_key: str) -> tuple[str, str]:
+    """Разобрать 'frame:warrior' → ('frame', 'warrior')."""
+    parts = item_key.split(":", 1)
+    return (parts[0], parts[1]) if len(parts) == 2 else ("", item_key)
+
+
+async def _user_owns_cosmetic(db, item_key: str, user_id: int, chat_id: int) -> bool:
+    """Проверить что косметика принадлежит пользователю."""
+    ctype, ckey = _parse_cosmetic_key(item_key)
+    if ctype in ("frame", "cosmetic"):
+        row = await db.fetchone(
+            "SELECT id FROM shop_items WHERE user_id=? AND chat_id=? AND item_type=? AND item_value=? LIMIT 1",
+            (user_id, chat_id, ctype, ckey)
+        )
+        return row is not None
+    elif ctype == "theme":
+        row = await db.fetchone(
+            "SELECT theme_key FROM user_themes WHERE user_id=? AND chat_id=? AND theme_key=?",
+            (user_id, chat_id, ckey)
+        )
+        return row is not None
+    return False
+
+
+async def _transfer_cosmetic_to_user(db, item_key: str, to_user_id: int, chat_id: int) -> None:
+    """Передать косметику пользователю."""
+    from database.db import postgres_connect as _pg  # noqa
+    ctype, ckey = _parse_cosmetic_key(item_key)
+    if ctype in ("frame", "cosmetic"):
+        await db.execute(
+            "INSERT INTO shop_items (user_id, chat_id, item_type, item_value, purchased_at, active)"
+            " VALUES (?, ?, ?, ?, NOW(), 1)",
+            (to_user_id, chat_id, ctype, ckey)
+        )
+    elif ctype == "theme":
+        await db.execute(
+            "INSERT INTO user_themes (user_id, chat_id, theme_key, source, obtained_at)"
+            " VALUES (?, ?, ?, 'auction', NOW())"
+            " ON CONFLICT (user_id, chat_id, theme_key) DO NOTHING",
+            (to_user_id, chat_id, ckey)
+        )
+
+
+async def _revoke_cosmetic_from_user(db, item_key: str, from_user_id: int, chat_id: int) -> None:
+    """Отозвать косметику у пользователя (удалить одну запись)."""
+    ctype, ckey = _parse_cosmetic_key(item_key)
+    if ctype in ("frame", "cosmetic"):
+        await db.execute(
+            "DELETE FROM shop_items WHERE id = ("
+            "  SELECT id FROM shop_items WHERE user_id=? AND chat_id=? AND item_type=? AND item_value=?"
+            "  ORDER BY id LIMIT 1"
+            ")",
+            (from_user_id, chat_id, ctype, ckey)
+        )
+    elif ctype == "theme":
+        await db.execute(
+            "DELETE FROM user_themes WHERE user_id=? AND chat_id=? AND theme_key=?",
+            (from_user_id, chat_id, ckey)
+        )
+
+
+# ─── Создание аукциона (косметика) ────────────────────────────────────────────
+
+COSMETIC_RARITY_MAP = {"theme": "rare", "frame": "common", "cosmetic": "rare"}
+COSMETIC_EMOJI_MAP  = {"theme": "🎨", "frame": "🖼", "cosmetic": "✨"}
+
+
+async def create_cosmetic_auction(
+    seller_id: int,
+    chat_id: int,
+    item_key: str,
+    item_name: str,
+    start_price: int,
+    buyout_price: Optional[int] = None,
+) -> dict:
+    """
+    Выставить косметику на аукцион.
+    item_key формат: 'frame:warrior', 'cosmetic:name_glow', 'theme:fire'
+    """
+    if start_price < MIN_START_PRICE:
+        raise ValueError(f"Минимальная стартовая цена: {MIN_START_PRICE} 🪙")
+    if buyout_price is not None and buyout_price <= start_price:
+        raise ValueError("Цена мгновенного выкупа должна быть выше стартовой цены")
+
+    ctype, _ = _parse_cosmetic_key(item_key)
+    if ctype not in ("frame", "cosmetic", "theme"):
+        raise ValueError("Неверный тип косметики")
+
+    async with postgres_connect() as db:
+        # 1. Проверяем владение
+        if not await _user_owns_cosmetic(db, item_key, seller_id, chat_id):
+            raise ValueError("Косметика не найдена в вашем инвентаре")
+
+        # 2. Проверяем что не уже на аукционе
+        existing = await db.fetchone(
+            "SELECT id FROM auctions WHERE item_id=0 AND item_key=? AND seller_id=? AND chat_id=? AND status='active'",
+            (item_key, seller_id, chat_id)
+        )
+        if existing:
+            raise ValueError("Этот предмет уже выставлен на аукцион")
+
+        # 3. Проверяем лимит активных лотов
+        active_count = await db.fetchone(
+            "SELECT COUNT(*) AS cnt FROM auctions WHERE seller_id=? AND chat_id=? AND status='active'",
+            (seller_id, chat_id)
+        )
+        if active_count and int(active_count["cnt"] or 0) >= MAX_ACTIVE_PER_USER:
+            raise ValueError(f"Максимум {MAX_ACTIVE_PER_USER} активных лота одновременно")
+
+        # 4. Отзываем косметику у продавца
+        await _revoke_cosmetic_from_user(db, item_key, seller_id, chat_id)
+
+        now = datetime.now(timezone.utc)
+        ends_at = now + timedelta(hours=AUCTION_DURATION_HOURS)
+        rarity  = COSMETIC_RARITY_MAP.get(ctype, "common")
+        emoji   = COSMETIC_EMOJI_MAP.get(ctype, "✨")
+
+        # 5. Создаём запись аукциона (item_id=0 — сигнал что это косметика)
+        row = await db.fetchone(
+            """INSERT INTO auctions
+               (chat_id, seller_id, item_id, item_key, item_name, item_rarity, item_emoji,
+                start_price, current_price, buyout_price, status, created_at, ends_at)
+               VALUES (?,0,?,?,?,?,?,?,?,?,'active',?,?)
+               RETURNING id""",
+            (chat_id, seller_id, item_key, item_name,
+             rarity, emoji, start_price, start_price, buyout_price,
+             now, ends_at)
+        )
+        auction_id = row["id"]
+
+    return {
+        "ok":         True,
+        "auction_id": auction_id,
+        "item_name":  item_name,
+        "ends_at":    ends_at.isoformat(),
+    }
+
+
 # ─── Создание аукциона ─────────────────────────────────────────────────────────
 
 async def create_auction(
@@ -292,15 +432,19 @@ async def buyout_auction(buyer_id: int, chat_id: int, auction_id: int) -> dict:
 
         # Передаём предмет покупателю
         item_id = auction["item_id"]
-        item_exists = await db.fetchone(
-            "SELECT id FROM gacha_inventory WHERE id=? AND user_id=? AND chat_id=?",
-            (item_id, auction["seller_id"], chat_id)
-        )
-        if item_exists:
-            await db.execute(
-                "UPDATE gacha_inventory SET user_id=?, equipped=0 WHERE id=?",
-                (buyer_id, item_id)
+        if item_id == 0:
+            # Косметика — передаём через отдельную логику
+            await _transfer_cosmetic_to_user(db, auction["item_key"], buyer_id, chat_id)
+        else:
+            item_exists = await db.fetchone(
+                "SELECT id FROM gacha_inventory WHERE id=? AND user_id=? AND chat_id=?",
+                (item_id, auction["seller_id"], chat_id)
             )
+            if item_exists:
+                await db.execute(
+                    "UPDATE gacha_inventory SET user_id=?, equipped=0 WHERE id=?",
+                    (buyer_id, item_id)
+                )
 
         # Завершаем аукцион
         await db.execute(
@@ -370,10 +514,14 @@ async def cancel_auction(seller_id: int, chat_id: int, auction_id: int) -> dict:
             )
 
         # Разблокировать предмет
-        await db.execute(
-            "UPDATE gacha_inventory SET equipped=0 WHERE id=? AND user_id=? AND chat_id=?",
-            (auction["item_id"], seller_id, chat_id)
-        )
+        if auction["item_id"] == 0:
+            # Косметика — вернуть продавцу
+            await _transfer_cosmetic_to_user(db, auction["item_key"], seller_id, chat_id)
+        else:
+            await db.execute(
+                "UPDATE gacha_inventory SET equipped=0 WHERE id=? AND user_id=? AND chat_id=?",
+                (auction["item_id"], seller_id, chat_id)
+            )
 
         # Закрыть аукцион
         await db.execute(
@@ -417,10 +565,13 @@ async def finalize_expired_auctions(bot=None) -> list[dict]:
             # Нет ставок — возврат предмета продавцу
             try:
                 async with postgres_connect() as db:
-                    await db.execute(
-                        "UPDATE gacha_inventory SET equipped=0 WHERE id=? AND user_id=? AND chat_id=?",
-                        (item_id, seller_id, chat_id)
-                    )
+                    if item_id == 0:
+                        await _transfer_cosmetic_to_user(db, auction["item_key"], seller_id, chat_id)
+                    else:
+                        await db.execute(
+                            "UPDATE gacha_inventory SET equipped=0 WHERE id=? AND user_id=? AND chat_id=?",
+                            (item_id, seller_id, chat_id)
+                        )
                     await db.execute(
                         "UPDATE auctions SET status='expired', finished_at=? WHERE id=?",
                         (now, auction_id)
@@ -437,28 +588,32 @@ async def finalize_expired_auctions(bot=None) -> list[dict]:
 
             try:
                 async with postgres_connect() as db:
-                    # Проверяем что предмет ещё у продавца
-                    item_exists = await db.fetchone(
-                        "SELECT id FROM gacha_inventory WHERE id=? AND user_id=? AND chat_id=?",
-                        (item_id, seller_id, chat_id)
-                    )
-                    if item_exists:
-                        await db.execute(
-                            "UPDATE gacha_inventory SET user_id=?, equipped=0 WHERE id=?",
-                            (winner_id, item_id)
-                        )
+                    if item_id == 0:
+                        # Косметика — передаём победителю
+                        await _transfer_cosmetic_to_user(db, auction["item_key"], winner_id, chat_id)
                     else:
-                        # Предмет удалён — возвращаем ставку победителю
-                        await db.execute(
-                            "UPDATE user_mora SET balance=balance+? WHERE user_id=? AND chat_id=?",
-                            (final_price, winner_id, chat_id)
+                        # Проверяем что предмет ещё у продавца
+                        item_exists = await db.fetchone(
+                            "SELECT id FROM gacha_inventory WHERE id=? AND user_id=? AND chat_id=?",
+                            (item_id, seller_id, chat_id)
                         )
-                        await db.execute(
-                            "UPDATE auctions SET status='expired', finished_at=? WHERE id=?",
-                            (now, auction_id)
-                        )
-                        finalized.append({**auction, "result": "expired_item_missing"})
-                        continue
+                        if item_exists:
+                            await db.execute(
+                                "UPDATE gacha_inventory SET user_id=?, equipped=0 WHERE id=?",
+                                (winner_id, item_id)
+                            )
+                        else:
+                            # Предмет удалён — возвращаем ставку победителю
+                            await db.execute(
+                                "UPDATE user_mora SET balance=balance+? WHERE user_id=? AND chat_id=?",
+                                (final_price, winner_id, chat_id)
+                            )
+                            await db.execute(
+                                "UPDATE auctions SET status='expired', finished_at=? WHERE id=?",
+                                (now, auction_id)
+                            )
+                            finalized.append({**auction, "result": "expired_item_missing"})
+                            continue
 
                     # Мора продавцу (минус комиссия)
                     await db.execute(

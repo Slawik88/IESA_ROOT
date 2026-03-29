@@ -4875,19 +4875,30 @@ def miniapp_auction_create(request):
     try:
         body = json.loads(request.body)
         chat_id     = int(str(body.get("chat_id", "0")))
-        item_id     = int(str(body.get("item_id", "0")))
         start_price = int(str(body.get("start_price", "0")))
         buyout      = body.get("buyout_price")
         if buyout is not None:
             buyout = int(str(buyout))
+        item_source = str(body.get("item_source", "gacha"))
+        item_key_str = str(body.get("item_key", ""))
+        item_name_str = str(body.get("item_name", item_key_str))
+        item_id     = int(str(body.get("item_id", "0")))
     except Exception:
         return JsonResponse({"error": "invalid JSON"}, status=400, headers=headers)
-    if not chat_id or not item_id or start_price <= 0:
-        return JsonResponse({"error": "chat_id, item_id, start_price required"}, status=400, headers=headers)
+    if not chat_id or start_price <= 0:
+        return JsonResponse({"error": "chat_id, start_price required"}, status=400, headers=headers)
     try:
         from asgiref.sync import async_to_sync as _a2s
-        from api.auction import create_auction
-        result = _a2s(create_auction)(uid, chat_id, item_id, start_price, buyout)
+        if item_source == "shop":
+            if not item_key_str:
+                return JsonResponse({"error": "item_key required for shop items"}, status=400, headers=headers)
+            from api.auction import create_cosmetic_auction
+            result = _a2s(create_cosmetic_auction)(uid, chat_id, item_key_str, item_name_str, start_price, buyout)
+        else:
+            if not item_id:
+                return JsonResponse({"error": "item_id required"}, status=400, headers=headers)
+            from api.auction import create_auction
+            result = _a2s(create_auction)(uid, chat_id, item_id, start_price, buyout)
         return JsonResponse(result, json_dumps_params={"ensure_ascii": False}, headers=headers)
     except ValueError as ve:
         return JsonResponse({"error": str(ve)}, status=400, json_dumps_params={"ensure_ascii": False}, headers=headers)

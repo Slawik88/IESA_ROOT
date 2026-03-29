@@ -37,8 +37,11 @@ _COMMON_ITEMS = [
     ("def_potion",   "🛡️ Зелье Защиты",        "Расходник: +20 DEF на 1 час"),
     ("hp_potion",    "❤️ Зелье Здоровья",      "Расходник: +50 HP на 1.5 часа"),
     ("cmn_quill",    "✒️ Перо ученика",         "Экипировка: +8 ATK, +15 HP, 2% крит"),
-    ("cmn_talisman", "🔮 Амулет удачи",         "Экипировка: +5 DEF, 1.5% крит"),
-]
+    ("cmn_talisman", "🔮 Амулет удачи",         "Экипировка: +5 DEF, 1.5% крит"),    # Instant-grant consumables / coupons (were missing from pool)
+    ("cmn_xp_shard",  "✨ Осколок Опыта",            "Мгновенно +25 XP"),
+    ("cmn_herb",      "🌿 Трава Сесилии",            "Мгновенно +15 🪙"),
+    ("exp_boost_sm",  "🗺️ Ускорение экспедиции S",  "−0 мин от текущей экспедиции"),
+    ("quest_reroll",  "🔄 Купон реролла задания",    "Сбросить квест дня на новый"),]
 
 _RARE_ITEMS = [
     ("rare_crown",      "👑 Серебряная корона",       "Экипировка: +25 ATK, +15 DEF, 4% крит"),
@@ -47,8 +50,11 @@ _RARE_ITEMS = [
     ("rare_gem",        "💎 Сапфир полуночи",          "Экипировка: +20 DEF, 6% крит"),
     ("rare_xp_crystal", "💠 Кристалл Опыта XL",       "Сразу даёт +150 XP"),
     ("rare_amulet",     "📿 Кармин змеи",              "Экипировка: +20 DEF, 8% крит"),
-    ("rare_lance",      "⚡ Лазурное копьё",           "Экипировка: +35 ATK, 5% крит"),
-]
+    ("rare_lance",      "⚡ Лазурное копьё",           "Экипировка: +35 ATK, 5% крит"),    # Instant-grant consumables / coupons (were missing from pool)
+    ("rare_mora_bag",   "💰 Мешок Моры",                   "Мгновенно +120 🪙"),
+    ("rare_mora_chest", "🧧 Красный конверт",               "Мгновенно +250 🪙"),
+    ("exp_boost_md",    "🗺️✨ Ускорение экспедиции M",     "−2 часа от текущей экспедиции"),
+    ("pet_rename",      "✏️ Купон переименования питомца",  "Переименовать питомца 1 раз"),]
 
 _LEGENDARY_ITEMS = [
     ("lego_gnosis",    "✨ Гнозис Балладеера",        "Экипировка: уникальный символ Предвестника в профиле"),
@@ -63,8 +69,8 @@ _LEGENDARY_ITEMS = [
     ("str_superior",   "⚔️✨ Зелье Силы Superior",    "Расходник: +30 ATK на 2 часа (редкое!)"),
     ("def_superior",   "🛡️✨ Зелье Защиты Superior",  "Расходник: +40 DEF на 2 часа (редкое!)"),
     ("lego_raiden",    "⚡ Клинок Ей",                "Экипировка: лучший ATK (+80), 12% крит"),
-    ("lego_jade",      "🏯 Нефритовое зерцало",       "Экипировка: баланс ATK/DEF/CRIT (+20/+40/15%)"),
-]
+    ("lego_jade",      "🏯 Нефритовое зерцало",       "Экипировка: баланс ATK/DEF/CRIT (+20/+40/15%)"),    # Instant-grant coupon (was missing from pool)
+    ("exp_boost_lg",   "🗺️⚡ Ускорение экспедиции L", "Убирает 50% оставшегося времени"),]
 
 
 def roll_one(pity: int) -> tuple[str, str, str, str]:
@@ -106,15 +112,19 @@ async def gacha_roll(uid: int, chat_id: int, count: int,
     )
     from utils.helpers import bot_today
 
-    if count not in (1, 10):
-        raise ValueError("count must be 1 or 10")
+    if count not in (1, 10, 50):
+        raise ValueError("count must be 1, 10, or 50")
 
     single = await is_user_single(uid, chat_id)
     is_vip = bool(await get_vip(uid, chat_id))
     # VIP users get the cheaper singles pricing even if married
     use_cheap_price = single or is_vip
-    price  = (GACHA_SINGLES_SINGLE if count == 1 else GACHA_SINGLES_MULTI) if use_cheap_price else (
-             GACHA_SINGLE_PRICE    if count == 1 else GACHA_MULTI_PRICE)
+    if count == 50:
+        price = (GACHA_SINGLES_MULTI * 5) if use_cheap_price else (GACHA_MULTI_PRICE * 5)
+    elif count == 10:
+        price = GACHA_SINGLES_MULTI if use_cheap_price else GACHA_MULTI_PRICE
+    else:
+        price = GACHA_SINGLES_SINGLE if use_cheap_price else GACHA_SINGLE_PRICE
 
     # ── Deduct cost ────────────────────────────────────────────────────────────
     if wallet_type == "family":
@@ -187,7 +197,12 @@ async def gacha_roll(uid: int, chat_id: int, count: int,
         elif key == "rare_mora_chest":
             await add_mora(uid, chat_id, 250)
         pity = 0 if rarity == "legendary" else pity + 1
-        results.append({"key": key, "name": name, "rarity": rarity, "desc": desc})
+        results.append({
+            "key": key, "name": name, "rarity": rarity, "desc": desc,
+            "atk": meta.get("atk", 0), "def_val": meta.get("def_val", 0),
+            "hp": meta.get("hp", 0), "crit_rate": meta.get("crit_rate", 0.0),
+            "slot": meta.get("slot"), "sell": meta.get("sell", 0),
+        })
 
     # ── Quest tick ─────────────────────────────────────────────────────────────
     quest_done = quest_xp = quest_mora = 0
