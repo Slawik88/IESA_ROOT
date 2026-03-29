@@ -1708,6 +1708,31 @@ select{background:var(--bg3);border:1px solid var(--border);border-radius:8px;pa
     <div id="treasuryTabLog" style="max-height:340px;overflow-y:auto"></div>
   </div>
 
+  <!-- ⑧ Wallet history for any user -->
+  <div class="card" id="devWalletCard">
+    <div class="card-title">💸 История кошелька участника</div>
+    <button class="btn" style="width:100%;margin-bottom:8px;background:var(--bg3);border:1px solid var(--border);color:var(--text)"
+            onclick="openUserPicker('💸 История кошелька', function(id,n){ devWalletSelectUser(id,n) })">👥 Выбрать участника…</button>
+    <div class="dev-sel-badge" id="devWalletSelBadge">
+      <span id="devWalletSelName">—</span>
+      <small id="devWalletSelId" style="color:var(--text2)"></small>
+      <span class="dev-sel-badge-clear" onclick="devWalletClearSel()" title="Сбросить">✕</span>
+    </div>
+    <div style="display:flex;gap:6px;align-items:center;margin:8px 0">
+      <label style="font-size:12px;color:var(--text2);flex:0 0 auto">Дней:</label>
+      <select id="devWalletDays" style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:6px 8px;color:var(--text);font-size:13px">
+        <option value="7" selected>7</option>
+        <option value="14">14</option>
+        <option value="30">30</option>
+        <option value="60">60</option>
+      </select>
+      <input type="number" id="devWalletCid" placeholder="Chat ID (0 = текущий)"
+             style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:6px 8px;color:var(--text);font-size:12px"/>
+      <button class="btn btn-primary" onclick="loadDevWalletUser()" style="flex:0 0 auto">🔍 Загрузить</button>
+    </div>
+    <div id="devWalletResult" style="max-height:340px;overflow-y:auto"></div>
+  </div>
+
 </div>
 
 <!-- AUCTION TAB -->
@@ -2853,15 +2878,18 @@ async function loadShop(){
 function renderShop(d){
   const isMarried=!!(profileData&&profileData.partner_name);
   const myName=esc((profileData&&profileData.name)||'Ваш ник');
-  document.getElementById('gachaSinglePrice').textContent=isMarried?'80':'70';
-  document.getElementById('gachaMultiPrice').textContent=isMarried?'700':'650';
+  document.getElementById('gachaSinglePrice').textContent=d.gacha_p1||(isMarried?'80':'70');
+  document.getElementById('gachaMultiPrice').textContent=d.gacha_p10||(isMarried?'700':'650');
   const activeTitle=(profileData&&profileData.custom_title)||'';
   document.getElementById('currentTitle').textContent=activeTitle||'Нет';
 
   // Frames — scard cards with visual frame preview
-  const frameAccents={'none':'#6b7280','bronze':'#92400e','silver':'#64748b','gold_frame':'#d97706',
-    'diamond':'#06b6d4','cherry':'#ec4899','moon':'#8b5cf6','galaxy':'#4f46e5','fire':'#ea580c',
-    'crystal':'#0891b2','shadow':'#374151','sakura':'#fb7185','neon':'#10b981','royal':'#7c3aed'};
+  const frameAccents={
+    'default':'#6b7280','warrior':'#dc2626','king':'#d97706','moon':'#4338ca',
+    'fire':'#ea580c','diamond':'#06b6d4','star':'#fbbf24','sakura':'#fb7185',
+    'abyss':'#1e1b4b','fatui':'#f59e0b','angel':'#7dd3fc','champion':'#f97316',
+    'celestia':'#8b5cf6',
+  };
   document.getElementById('framesGrid').innerHTML=(d.frames||[]).map(f=>{
     const accent=frameAccents[f.key]||'var(--accent)';
     return `<div class="scard${f.owned?' owned':''}${f.active?' scard-active':''}" onclick="buyShopItem('frame','${f.key}')">
@@ -2885,14 +2913,14 @@ function renderShop(d){
         <span style="font-size:30px">👑</span>
         <div>
           <div style="font-size:13px;font-weight:700;color:var(--gold)">VIP активен ✅</div>
-          <div style="font-size:11px;color:var(--text2);margin-top:3px">💎 Значок в профиле и топе<br>🎰 Семейная цена на гача-крутки<br>🖼 Рамка «Алмазный» доступна</div>
+          <div style="font-size:11px;color:var(--text2);margin-top:3px">💎 Золотой значок рядом с ником (профиль + топ)<br>📅 +15% к награде за ежедневный чекин<br>🎰 Скидка на гача-крутки: ${d.gacha_p1} / ${d.gacha_p10} 🪙<br>🖼 Разблокирует рамку «💎 Алмазный»<br>🏆 Питомец подсвечен в Зале Славы</div>
         </div></div>`
     :`<div class="scard" onclick="buyShopItem('vip','vip')" style="margin-bottom:0">
         <div class="scard-accent" style="background:linear-gradient(180deg,#f59e0b,#d97706)"></div>
         <div class="scard-icon">👑</div>
         <div class="scard-body">
           <div class="scard-name">VIP статус</div>
-          <div class="scard-desc">💎 Золотой значок рядом с ником в профиле и топе<br>🎰 Скидка на гача-крутки (семейная цена без брака)<br>🖼 Разблокирует рамку «Алмазный» для покупки</div>
+          <div class="scard-desc">💎 Золотой значок рядом с ником (профиль + топ)<br>📅 +15% к ежедневному чекину<br>🎰 Скидка на гача-крутки: ${d.gacha_p1??70} / ${d.gacha_p10??650} 🪙<br>🖼 Разблокирует рамку «💎 Алмазный»<br>🏆 Питомец подсвечен в Зале Славы</div>
           <div class="scard-footer"><span class="sbadge sbadge-price">2000 🪙</span></div>
         </div></div>`;
 
@@ -3832,6 +3860,78 @@ async function devIssueSalary(){
   }
 }
 
+// ── Dev: wallet history for any user ─────────────────────────────────────────
+
+let devWalletUser = null;
+
+function devWalletSelectUser(id, name){
+  devWalletUser = {user_id: id, full_name: name};
+  document.getElementById('devWalletSelName').textContent = name;
+  document.getElementById('devWalletSelId').textContent = '#'+id;
+  document.getElementById('devWalletSelBadge').classList.add('show');
+}
+function devWalletClearSel(){
+  devWalletUser = null;
+  document.getElementById('devWalletSelName').textContent = '—';
+  document.getElementById('devWalletSelId').textContent = '';
+  document.getElementById('devWalletSelBadge').classList.remove('show');
+  document.getElementById('devWalletResult').innerHTML = '';
+}
+
+async function loadDevWalletUser(){
+  if(!devWalletUser){toast('Сначала выбери участника','error');return;}
+  const cidRaw = (document.getElementById('devWalletCid').value||'').trim();
+  const cid = (cidRaw && /^-?\d+$/.test(cidRaw)) ? parseInt(cidRaw) : chatId;
+  const days = parseInt(document.getElementById('devWalletDays').value||'7')||7;
+  const el = document.getElementById('devWalletResult');
+  el.innerHTML = '<div style="color:var(--text2);text-align:center;padding:10px">⏳ Загрузка…</div>';
+  try{
+    const r = await api(`/api/dev/wallet_user?user_id=${devWalletUser.user_id}&chat_id=${cid}&days=${days}`);
+    const hist = r.history || [];
+    if(!hist.length){
+      el.innerHTML = '<div style="color:var(--text2);text-align:center;padding:10px">Транзакций нет за указанный период</div>';
+      return;
+    }
+    const SOURCE_MAP = {
+      salary:'💼 Зарплата',crm_editor:'🎛 CRM',admin_adjustment:'🔧 Коррекция',
+      admin_setbalance:'💰 Установка баланса',bank_deposit:'🏦 Банк (вклад)',
+      bank_withdraw:'🏦 Банк (снятие)',casino:'🎰 Казино',shop_buy:'🛒 Магазин',
+      shop:'🛒 Магазин',bonds_buy:'📊 Биржа (покупка)',bonds_sell:'📊 Биржа (продажа)',
+      transfer:'💸 Перевод',transfer_in:'💸 Получен перевод',transfer_out:'💸 Отправлен перевод',
+      checkin:'📅 Чекин',reward:'🎁 Награда',family_deposit:'👨‍👩‍👧 Семейный вклад',
+      family_withdraw:'👨‍👩‍👧 Семейное снятие',family_partner_deposit:'👨‍👩‍👧 Вклад партнёра',
+      couple_boss:'👫 Парный босс',gacha:'🎲 Гача',enhance:'⚔️ Улучшение',
+      salary_bonus:'💼 Бонус к зарплате',
+    };
+    let totalIn = 0, totalOut = 0;
+    const rows = hist.map(h => {
+      const cls = h.direction === 'expense' ? 'expense' : 'income';
+      const sign = h.direction === 'expense' ? '−' : '+';
+      const icon = h.direction === 'expense' ? '📤' : '📥';
+      if(h.direction === 'expense') totalOut += h.amount; else totalIn += h.amount;
+      let src = SOURCE_MAP[h.source] || h.source || 'Операция';
+      let desc = (h.description && h.description !== h.source && !/^\[\d+\/\d+\]$/.test(h.description)) ? h.description : '';
+      return `<div class="wallet-history-row">
+        <div class="wallet-history-main">
+          <span class="wallet-history-source">${icon} ${esc(src)}</span>
+          ${desc ? `<span class="wallet-history-desc">${esc(desc)}</span>` : ''}
+        </div>
+        <div class="wallet-history-meta">
+          <span class="wallet-history-amt ${cls}">${sign}${h.amount} 🪙</span>
+          <span class="wallet-history-ts">${esc(String(h.created_at||'').slice(0,16).replace('T',' '))}</span>
+        </div>
+      </div>`;
+    }).join('');
+    el.innerHTML = `<div style="display:flex;gap:12px;padding:6px 0 8px;font-size:12px">
+      <span style="color:#4ade80">+${totalIn} 🪙 доход</span>
+      <span style="color:#f87171">−${totalOut} 🪙 расход</span>
+      <span style="color:var(--text2)">${hist.length} записей / ${days} дн.</span>
+    </div>${rows}`;
+  } catch(e){
+    el.innerHTML = `<div style="color:#f87171;text-align:center;padding:10px">❌ ${esc(e.message)}</div>`;
+  }
+}
+
 // ── Logs ──────────────────────────────────────────────────────────────────────
 
 async function loadDevLogs(){
@@ -3879,7 +3979,7 @@ async function showPubProfile(userId){
       html += `<div style="font-size:11px;color:var(--text2);margin:8px 0 4px">⚔️ Снаряжение:</div>`;
       p.equipped_items.forEach(i=>{ html += `<div style="font-size:12px;padding:2px 0">• ${esc(i.name)} <span style="color:var(--text2)">(${i.rarity})</span></div>`; });
     }
-    const _FRAME_NAMES={'sakura':'🌸 Сакура','diamond':'💎 Алмазный','gold':'✨ Золотой','silver':'🌙 Серебряный','fire':'🔥 Огненный','ice':'❄️ Ледяной','shadow':'🖤 Теневой','rainbow':'🌈 Радужный','nature':'🌿 Природный','cosmic':'🌌 Космический','royal':'👑 Королевский','neon':'💡 Неоновый','retro':'🎮 Ретро'};
+    const _FRAME_NAMES={'default':'🔰 Стандарт','warrior':'⚔️ Воин','king':'👑 Король','moon':'🌙 Ночной','fire':'🔥 Огненный','diamond':'💎 Алмазный','star':'⭐ Звёздный','sakura':'🌸 Сакура','abyss':'🌀 Бездна','fatui':'⚡ Предвестник','angel':'🕊️ Крылья ветра','champion':'🏆 Чемпион','celestia':'🏰 Целестия'};
     if(p.active_frame && p.active_frame!=='default'){
       const _fname=_FRAME_NAMES[p.active_frame]||p.active_frame;
       html += `<div class="stat-row"><span class="stat-label">🖼 Рамка</span><span class="stat-value">${esc(_fname)}</span></div>`;

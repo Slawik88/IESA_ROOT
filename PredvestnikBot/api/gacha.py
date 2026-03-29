@@ -101,7 +101,7 @@ async def gacha_roll(uid: int, chat_id: int, count: int,
     """
     from database.db import (
         add_gacha_item, add_mora, add_to_treasury,
-        get_family_wallet, get_gacha_pity, get_mora, is_user_single,
+        get_family_wallet, get_gacha_pity, get_mora, get_vip, is_user_single,
         get_user_quest, quest_tick, mark_quest_rewarded, add_xp_in_chat,
     )
     from utils.helpers import bot_today
@@ -110,7 +110,10 @@ async def gacha_roll(uid: int, chat_id: int, count: int,
         raise ValueError("count must be 1 or 10")
 
     single = await is_user_single(uid, chat_id)
-    price  = (GACHA_SINGLES_SINGLE if count == 1 else GACHA_SINGLES_MULTI) if single else (
+    is_vip = bool(await get_vip(uid, chat_id))
+    # VIP users get the cheaper singles pricing even if married
+    use_cheap_price = single or is_vip
+    price  = (GACHA_SINGLES_SINGLE if count == 1 else GACHA_SINGLES_MULTI) if use_cheap_price else (
              GACHA_SINGLE_PRICE    if count == 1 else GACHA_MULTI_PRICE)
 
     # ── Deduct cost ────────────────────────────────────────────────────────────
