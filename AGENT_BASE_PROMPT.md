@@ -88,12 +88,13 @@ IESA_ROOT/
 
 ```python
 # shared_prices.py (фрагмент)
-GACHA_SINGLE_PRICE    = 120   # Стандартная молитва (одиночная)
-GACHA_MULTI_PRICE     = 1000  # Стандартная молитва (×10)
-GACHA_SINGLES_SINGLE  = 110   # Одиночная молитва (singles)
-GACHA_SINGLES_MULTI   = 950   # Х10 молитва (singles)
+GACHA_SINGLE_PRICE    = 80    # Стандартная молитва (одиночная)
+GACHA_MULTI_PRICE     = 700   # Стандартная молитва (×10)
+GACHA_SINGLES_SINGLE  = 70    # Одиночная молитва (singles/VIP)
+GACHA_SINGLES_MULTI   = 650   # Х10 молитва (singles/VIP)
 GACHA_PITY_MAX        = 40    # Гарантированный 5★ каждые N роллов
-PRICE_VIP             = 300
+PRICE_VIP             = 2000
+ROULETTE_PITY_BET_CAP = 100   # Макс. ставка при полосе неудач ≥3
 # Каталоги: FRAMES_CATALOG, COSMETICS_CATALOG, PET_COLOR_CATALOG,
 #           FOOD_ITEMS, POTIONS_CATALOG, BOND_DEFAULTS, BANK_PLANS
 ```
