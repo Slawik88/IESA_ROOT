@@ -8,13 +8,20 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
 :root{--bg:#0f1117;--bg2:#1a1d2e;--bg3:#252840;--accent:#7c6af7;--accent2:#a855f7;--gold:#f4c542;--green:#22c55e;--red:#ef4444;--red2:#dc2626;--text:#e2e8f0;--text2:#a1b0c4;--border:#2d3151;--card:#1e2138;--radius:12px}
-/* 🎨 Profile themes — override CSS variables per theme */
-body[data-theme="fire"]{--bg:#150a00;--bg2:#1f0d00;--bg3:#2d1500;--accent:#f97316;--accent2:#ef4444;--card:#1a0e00;--border:#5c2800}
-body[data-theme="ice"]{--bg:#050f1a;--bg2:#081626;--bg3:#0d2133;--accent:#38bdf8;--accent2:#7dd3fc;--card:#071522;--border:#163354}
-body[data-theme="royal"]{--bg:#0e090e;--bg2:#180d18;--bg3:#261528;--accent:#d4af37;--accent2:#f4c542;--gold:#d4af37;--card:#150b15;--border:#3d2040}
-body[data-theme="abyss"]{--bg:#040406;--bg2:#07070d;--bg3:#0d0d18;--accent:#6366f1;--accent2:#818cf8;--card:#060609;--border:#1a1a30}
-body[data-theme="neon"]{--bg:#0a0012;--bg2:#0f001a;--bg3:#1a0030;--accent:#d946ef;--accent2:#22d3ee;--card:#0c0015;--border:#3d0060}
-body[data-theme="sakura"]{--bg:#12080e;--bg2:#1c0e18;--bg3:#281520;--accent:#f472b6;--accent2:#ec4899;--card:#180b13;--border:#40102e}
+/* 🎨 Profile themes — override CSS variables + animated bg for expensive tiers */
+@keyframes themeGradShift{0%,100%{background-position:0% 50%}50%{background-position:100% 50%}}
+/* Fire 🔥 — warm ember glow (2000🪙) */
+body[data-theme="fire"]{--bg:#160900;--bg2:#1f1000;--bg3:#2e1800;--accent:#fb923c;--accent2:#f97316;--gold:#fbbf24;--card:#1c0c00;--border:#7a3000;--text:#ffe8d6;--text2:#fdba74;background:#160900}
+/* Ice ❄️ — crystalline frost (2000🪙) */
+body[data-theme="ice"]{--bg:#040d18;--bg2:#071320;--bg3:#0d1f30;--accent:#38bdf8;--accent2:#7dd3fc;--card:#060f1c;--border:#1e4976;--text:#e8f4fd;--text2:#93c5fd;background:#040d18}
+/* Neon ⚡ — cyberpunk purple (3000🪙 — animated) */
+body[data-theme="neon"]{--bg:#07000f;--bg2:#0d001b;--bg3:#150028;--accent:#a855f7;--accent2:#7dd3fc;--card:#0a0016;--border:#4c0090;--text:#f0e8ff;--text2:#c084fc;background:linear-gradient(-45deg,#07000f,#0f001e,#07000f,#130024);background-size:400% 400%;animation:themeGradShift 12s ease infinite}
+/* Royal 👑 — golden velvet (gacha — animated) */
+body[data-theme="royal"]{--bg:#0c0900;--bg2:#181100;--bg3:#231900;--accent:#f4c542;--accent2:#fbbf24;--gold:#ffd700;--card:#130c00;--border:#7a5c00;--text:#fff5c8;--text2:#f9d975;background:linear-gradient(-45deg,#0c0900,#1c1200,#0c0900,#241600);background-size:400% 400%;animation:themeGradShift 14s ease infinite}
+/* Abyss 🌌 — cosmic void (gacha — animated) */
+body[data-theme="abyss"]{--bg:#06060f;--bg2:#0b0b1c;--bg3:#111128;--accent:#818cf8;--accent2:#a5b4fc;--card:#080818;--border:#2a2a52;--text:#e4e4ff;--text2:#9999cc;background:linear-gradient(-45deg,#060610,#0a0a1e,#06060f,#0d0d22);background-size:400% 400%;animation:themeGradShift 18s ease infinite}
+/* Sakura 🌸 — cherry blossom (gacha — animated) */
+body[data-theme="sakura"]{--bg:#0d0812;--bg2:#17102a;--bg3:#211838;--accent:#f9a8d4;--accent2:#e879b0;--card:#120a20;--border:#5c1a54;--text:#ffe4f5;--text2:#f0abcb;background:linear-gradient(-45deg,#0d0812,#160e25,#0d0812,#190e22);background-size:400% 400%;animation:themeGradShift 16s ease infinite}
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:14px;min-height:100vh;overflow-x:hidden}
 .cat-bar{display:flex;background:var(--bg2);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:102;flex-shrink:0}
@@ -193,6 +200,10 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 .rates-modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9200;display:none;align-items:flex-end}
 .rates-modal-overlay.open{display:flex}
 .rates-sheet{background:var(--bg2);border-radius:16px 16px 0 0;width:100%;max-height:82vh;display:flex;flex-direction:column;overflow:hidden}
+/* Gacha item detail sheet */
+.gacha-item-sheet{background:var(--bg2);border:1px solid var(--border);border-radius:18px;padding:20px;max-width:320px;width:100%;box-sizing:border-box;animation:sheet-slide-up .28s ease}
+.gitem-stats-row{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:12px}
+.gitem-stat{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:5px 10px;font-size:12px;color:var(--text2);display:flex;gap:5px;align-items:center}
 .rates-header{padding:14px 16px;border-bottom:1px solid var(--border);font-weight:700;font-size:15px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
 .rates-body{overflow-y:auto;padding:8px 12px 24px}
 .rarity-section{margin-bottom:12px}
@@ -449,6 +460,15 @@ select{background:var(--bg3);border:1px solid var(--border);border-radius:8px;pa
       <button onclick="document.getElementById('gachaRatesModal').classList.remove('open')" style="background:none;border:none;color:var(--text2);font-size:20px;cursor:pointer;padding:0;line-height:1">✕</button>
     </div>
     <div class="rates-body" id="gachaRatesBody"></div>
+  </div>
+</div>
+
+<!-- Gacha item detail modal -->
+<div id="gachaItemModal" onclick="if(event.target===this)this.classList.remove('open')"
+     style="position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:9200;display:none;align-items:center;justify-content:center;padding:20px;box-sizing:border-box">
+  <div class="gacha-item-sheet">
+    <div id="gachaItemModalContent"></div>
+    <button class="btn btn-primary" onclick="document.getElementById('gachaItemModal').classList.remove('open')" style="margin-top:14px;width:100%">Закрыть</button>
   </div>
 </div>
 
@@ -733,11 +753,13 @@ select{background:var(--bg3);border:1px solid var(--border);border-radius:8px;pa
       <div class="card">
         <div class="card-title">✨ Молитва Пустоты</div>
         <div style="text-align:center;font-size:11px;color:var(--text2);margin-bottom:6px">
-          Шанс на легендарку: <strong style="color:#f59e0b">2%</strong> · гарант через <strong>40</strong> кр. · <span id="gachaSinglePrice">80</span> / <span id="gachaMultiPrice">700</span> 🪙
+          Шанс на легендарку: <strong style="color:#f59e0b">2%</strong> · гарант через <strong>40</strong> кр.<br>
+          ×1: <span id="gachaSinglePrice">80</span> 🪙 · ×10: <span id="gachaMultiPrice">700</span> 🪙 · ×50: <span id="gacha50Price">3500</span> 🪙
         </div>
         <div class="btn-row" style="margin-bottom:6px">
           <button class="btn btn-primary" onclick="rollGacha(1)">🌟 ×1</button>
           <button class="btn btn-gold" onclick="rollGacha(10)">💫 ×10</button>
+          <button class="btn" onclick="rollGacha(50)" style="background:linear-gradient(135deg,#7c3aed,#9333ea);color:#fff;border:none">⚡ ×50</button>
         </div>
         <button class="btn" style="width:100%;background:var(--bg3);color:var(--text2);font-size:11px;border:1px solid var(--border)" onclick="showGachaRates()">📊 Шансы дропа</button>
       </div>
@@ -2924,6 +2946,7 @@ function renderShop(d){
   const myName=esc((profileData&&profileData.name)||'Ваш ник');
   document.getElementById('gachaSinglePrice').textContent=d.gacha_p1||(isMarried?'80':'70');
   document.getElementById('gachaMultiPrice').textContent=d.gacha_p10||(isMarried?'700':'650');
+  document.getElementById('gacha50Price').textContent=isMarried?'3500':'3250';
   const activeTitle=(profileData&&profileData.custom_title)||'';
   document.getElementById('currentTitle').textContent=activeTitle||'Нет';
 
@@ -3246,7 +3269,7 @@ async function activateTheme(key){
 // ── Gacha ─────────────────────────────────────────────────────────────────────
 async function rollGacha(count){
   const isMarried=!!(profileData&&profileData.partner_name);
-  const price=count===1?(isMarried?80:70):(isMarried?700:650);
+  const price=count===1?(isMarried?80:70):count===10?(isMarried?700:650):(isMarried?3500:3250);
   let wallet;
   try{ wallet=await pickWallet('✨ Молитва Пустоты ×'+count, price); }
   catch(e){ if((e.message||'')!=='cancelled') toast('❌ '+e.message,'error'); return; }
@@ -3312,6 +3335,7 @@ function showGachaOverlay(items){
         <div class="card-name">${esc(name)}</div>
       </div>
     </div>`;
+    card._gachaItem = item;
     grid.appendChild(card);
   });
 
@@ -3337,6 +3361,12 @@ function showGachaOverlay(items){
       setTimeout(()=>{
         card.classList.add('flipped');
         card.style.animation='card-appear .4s ease both';
+        // Enable click after flip animation completes
+        setTimeout(()=>{
+          card.style.cursor='pointer';
+          card.title='🔍 Нажми для подробностей';
+          card.onclick=()=>showGachaItemDetail(card._gachaItem);
+        }, 650);
       }, flipDelay+i*150);
     });
     setTimeout(()=>flashRarity(topRarity), flipDelay+(items.length-1)*150+650);
@@ -3344,6 +3374,35 @@ function showGachaOverlay(items){
       setTimeout(()=>{if(tg&&tg.HapticFeedback)tg.HapticFeedback.impactOccurred('light');}, flipDelay+i*150);
     });
   }, summonDuration-XFADE);
+}
+
+function showGachaItemDetail(item){
+  const SLOT_LABELS={weapon:'⚔️ Оружие',armor:'🛡 Броня',artifact:'🔮 Артефакт',potion:'🧪 Зелье',flair:'✨ Косметика',consume:'⚡ Расходник',coupon:'🎫 Купон'};
+  const RARITY_LABELS={junk:'💀 Мусор',common:'📦 Обычный',rare:'💠 Редкий',legendary:'💛 Легендарный'};
+  const RARITY_COLORS={junk:'#6b7280',common:'#3b82f6',rare:'#818cf8',legendary:'#f59e0b'};
+  const nameParts=(item.name||'').split(' ');
+  const emoji=nameParts[0]||'❓';
+  const name=nameParts.slice(1).join(' ');
+  const rColor=RARITY_COLORS[item.rarity]||'#aaa';
+  let stats='';
+  if(item.atk>0)stats+=`<div class="gitem-stat">⚔️ ATK <strong>+${item.atk}</strong></div>`;
+  if(item.def_val>0)stats+=`<div class="gitem-stat">🛡 DEF <strong>+${item.def_val}</strong></div>`;
+  if(item.hp>0)stats+=`<div class="gitem-stat">❤️ HP <strong>+${item.hp}</strong></div>`;
+  if(item.crit_rate>0)stats+=`<div class="gitem-stat">🎯 КРИТ <strong>+${Math.round(item.crit_rate*100)}%</strong></div>`;
+  if(item.sell>0)stats+=`<div class="gitem-stat" style="color:var(--gold)">🪙 Продать <strong>${item.sell} 🪙</strong></div>`;
+  document.getElementById('gachaItemModalContent').innerHTML=`
+    <div style="text-align:center;margin-bottom:14px">
+      <div style="font-size:52px;line-height:1;margin-bottom:8px">${emoji}</div>
+      <div style="font-size:13px;font-weight:700;color:${rColor};text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">${RARITY_LABELS[item.rarity]||item.rarity}</div>
+      <div style="font-size:18px;font-weight:700;color:var(--text);margin-bottom:6px">${esc(name)}</div>
+      <div style="font-size:12px;color:var(--text2);padding:0 8px">${esc(item.desc||'')}</div>
+    </div>
+    ${stats?`<div class="gitem-stats-row">${stats}</div>`:''}
+    ${item.slot?`<div style="text-align:center;font-size:11px;color:var(--text2);margin-top:10px">${SLOT_LABELS[item.slot]||item.slot}</div>`:''}
+  `;
+  const modal=document.getElementById('gachaItemModal');
+  modal.style.display='flex';
+  modal.classList.add('open');
 }
 
 document.getElementById('gachaCloseBtn').onclick=()=>{
@@ -6127,28 +6186,60 @@ async function loadAuctionInventory(){
   try{
     const r = await api('/api/inventory?chat_id='+chatId);
     const items = (r.items||[]).filter(i=>!i.equipped);
-    if(!items.length){
-      sel.innerHTML = '<option value="">📭 Нет доступных предметов</option>';
-      return;
-    }
-    sel.innerHTML = '<option value="">— Выбери предмет —</option>' +
-      items.map(i=>{
+    let html = '<option value="">— Выбери предмет —</option>';
+    if(items.length){
+      html += '<option disabled>── Гача-предметы ──</option>';
+      html += items.map(i=>{
         const em = _RARITY_EMOJI[i.rarity]||'🎴';
         return `<option value="${i.id}">${em} ${esc(i.item_name)} [ID:${i.id}]</option>`;
       }).join('');
+    }
+    // Also load owned cosmetics/frames/themes
+    try{
+      const sr = await api('/api/shop/catalog?chat_id='+chatId);
+      const ownedFrames    = (sr.frames||[]).filter(f=>f.owned&&f.key!=='default'&&!f.active);
+      const ownedCosmetics = (sr.cosmetics||[]).filter(c=>c.owned);
+      const ownedThemes    = (sr.themes||[]).filter(t=>t.owned&&t.source==='shop'&&!t.active);
+      if(ownedFrames.length||ownedCosmetics.length||ownedThemes.length){
+        html += '<option disabled>── Косметика ──</option>';
+        ownedFrames.forEach(f=>{    html+=`<option value="shop:frame:${f.key}">🖼 ${esc(f.name)}</option>`; });
+        ownedCosmetics.forEach(c=>{ html+=`<option value="shop:cosmetic:${c.key}">✨ ${esc(c.name)}</option>`; });
+        ownedThemes.forEach(t=>{    html+=`<option value="shop:theme:${t.key}">🎨 ${esc(t.name)}</option>`; });
+      }
+    }catch(e2){}
+    if(html==='<option value="">— Выбери предмет —</option>'){
+      sel.innerHTML = '<option value="">📭 Нет доступных предметов</option>';
+      return;
+    }
+    sel.innerHTML = html;
   }catch(e){
     sel.innerHTML = '<option value="">❌ Ошибка загрузки</option>';
   }
 }
 
 async function createAuctionLot() {
-  const itemId = parseInt(document.getElementById('auctionItemId').value)||0;
+  const itemVal = document.getElementById('auctionItemId').value;
   const startPrice = parseInt(document.getElementById('auctionStartPrice').value)||0;
   const buyout = parseInt(document.getElementById('auctionBuyout').value)||0;
   const msgEl = document.getElementById('auctionSellMsg');
-  if(!itemId || !startPrice){ msgEl.textContent='⚠️ Выбери предмет и укажи начальную цену'; msgEl.style.color='#fca5a5'; return; }
+  const isShopItem = itemVal.startsWith('shop:');
+  const itemId = isShopItem ? 0 : (parseInt(itemVal)||0);
+  if((!isShopItem&&!itemId)||!startPrice){ msgEl.textContent='⚠️ Выбери предмет и укажи начальную цену'; msgEl.style.color='#fca5a5'; return; }
+  const payload = {chat_id:chatId, start_price:startPrice, buyout_price:buyout||null};
+  if(isShopItem){
+    const shopKey = itemVal.slice(5); // strip 'shop:' prefix
+    payload.item_source = 'shop';
+    payload.item_key = shopKey;
+    payload.item_id = 0;
+    // Get display name from the select option
+    const selEl = document.getElementById('auctionItemId');
+    const selOpt = selEl.options[selEl.selectedIndex];
+    payload.item_name = selOpt ? selOpt.textContent.replace(/^[^\ ]+\ /,'').trim() : shopKey;
+  } else {
+    payload.item_id = itemId;
+  }
   try {
-    const r = await api('/api/auction/create','POST',{chat_id:chatId, item_id:itemId, start_price:startPrice, buyout_price:buyout||null});
+    const r = await api('/api/auction/create','POST',payload);
     if(r.ok){
       msgEl.textContent='✅ Лот выставлен на 24 часа!'; msgEl.style.color='#10b981';
       document.getElementById('auctionItemId').selectedIndex = 0;
