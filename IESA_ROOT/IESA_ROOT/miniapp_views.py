@@ -393,16 +393,24 @@ def miniapp_user_data(request):
             str_row = cur.fetchone()
             streak = str_row[0] if str_row else 0
 
+        # Crystals balance (global, not chat-scoped)
+        cur.execute(
+            f"SELECT COALESCE(balance,0) FROM user_crystals WHERE user_id={ph}", (uid,)
+        )
+        crystals_row = cur.fetchone()
+        crystals_balance = crystals_row[0] if crystals_row else 0
+
         conn.close()
 
         computed_level = db_level if db_level > 1 else _level_for_xp(xp)
         xp_max = _xp_for_level(computed_level + 1)
-        
+
         payload = {
             "uid": uid,
             "chat_id": chat_id,
             "name": full_name,
             "balance": balance,
+            "crystals": crystals_balance,
             "xp": xp,
             "level": computed_level,
             "xp_max": xp_max,
@@ -5019,3 +5027,57 @@ def miniapp_achievements(request):
         )
     except Exception as exc:
         logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
+
+
+# ─── Crystals spend (POST /api/crystals/spend) ────────────────────────────────
+@csrf_exempt
+def miniapp_crystals_spend(request):
+    """POST /api/crystals/spend {item_key, price} — spend crystals on cosmetic."""
+    from shared_prices import CRYSTAL_COSMETICS
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=405, headers=headers)
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+    try:
+        body = json.loads(request.body or "{}")
+    except ValueError:
+        return JsonResponse({"error": "Invalid JSON"}, status=400, headers=headers)
+
+    item_key = str(body.get("item_key", "")).strip()
+    price_raw = body.get("price", 0)
+    if not item_key:
+        return JsonResponse({"error": "item_key required"}, status=400, headers=headers)
+    try:
+        price = int(price_raw)
+    except (TypeError, ValueError):
+        return JsonResponse({"error": "invalid price"}, status=400, headers=headers)
+
+    # Validate item exists in catalog
+    valid_keys = {c[0]: c[3] for c in CRYSTAL_COSMETICS}
+    if item_key not in valid_keys:
+        return JsonResponse({"error": "Товар не найден"}, status=404, headers=headers)
+    # Server-side price verification
+    if price != valid_keys[item_key]:
+        return JsonResponse({"error": "Некорректная цена"}, status=400, headers=headers)
+
+    try:
+        import asyncpg
+        from asgiref.sync import async_to_sync as _a2s
+        from database.db import spend_crystals, get_crystals
+        ok = _a2s(spend_crystals)(uid, price)
+        if not ok:
+            return JsonResponse({"error": "Недостаточно кристаллов"}, status=400, headers=headers)
+        new_balance = _a2s(get_crystals)(uid)
+        return JsonResponse(
+            {"ok": True, "item_key": item_key, "crystals_balance": new_balance},
+            json_dumps_params={"ensure_ascii": False},
+            headers=headers,
+        )
+    except Exception as exc:
+        logger.exception("crystals_spend error")
+        return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
+
