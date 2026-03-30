@@ -394,11 +394,15 @@ def miniapp_user_data(request):
             streak = str_row[0] if str_row else 0
 
         # Crystals balance (global, not chat-scoped)
-        cur.execute(
-            f"SELECT COALESCE(balance,0) FROM user_crystals WHERE user_id={ph}", (uid,)
-        )
-        crystals_row = cur.fetchone()
-        crystals_balance = crystals_row[0] if crystals_row else 0
+        try:
+            cur.execute(
+                f"SELECT COALESCE(balance,0) FROM user_crystals WHERE user_id={ph}", (uid,)
+            )
+            crystals_row = cur.fetchone()
+            crystals_balance = crystals_row[0] if crystals_row else 0
+        except Exception:
+            conn.rollback()
+            crystals_balance = 0
 
         conn.close()
 
@@ -2138,6 +2142,8 @@ def miniapp_gacha_roll(request):
             "pity":       result["pity"],
             "spent":      result["spent"],
             "quest_done": result["quest_done"],
+            "quest_xp":   result.get("quest_xp", 0),
+            "quest_mora": result.get("quest_mora", 0),
         }, json_dumps_params={"ensure_ascii": False}, headers=headers)
     except ValueError as e:
         return JsonResponse({"error": str(e)}, status=400, headers=headers)
