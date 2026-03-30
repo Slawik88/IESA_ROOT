@@ -3329,6 +3329,127 @@ msgstr "Telegram-ID konnte nicht abgerufen werden."
 msgid "✅ Telegram (%(name)s) linked successfully!"
 msgstr "✅ Telegram (%(name)s) erfolgreich verknüpft!"
 
+msgid "What we do"
+msgstr "Was wir tun"
+
+msgid "Discover a world of"
+msgstr "Entdecke eine Welt aus"
+
+msgid "movement, strength, and real life."
+msgstr "Bewegung, Stärke und echtem Leben."
+
+msgid "Unique trips & experiences"
+msgstr "Einzigartige Reisen & Erlebnisse"
+
+msgid ""
+"We organize unique trips and experiences — for a weekend or a full week — "
+"with extreme sports for adults and teenagers."
+msgstr ""
+"Wir organisieren einzigartige Reisen und Erlebnisse — für ein Wochenende "
+"oder eine ganze Woche — mit Extremsport für Erwachsene und Jugendliche."
+
+msgid "New sports locations worldwide"
+msgstr "Neue Sportstätten weltweit"
+
+msgid ""
+"We develop new sports locations around the world to host our own events and "
+"promote health."
+msgstr ""
+"Wir entwickeln neue Sportstätten weltweit, um eigene Events zu veranstalten "
+"und Gesundheit zu fördern."
+
+msgid "United sports communities"
+msgstr "Vereinte Sportgemeinschaften"
+
+msgid ""
+"We unite sports teams and communities within an international association."
+msgstr ""
+"Wir vereinen Sportmannschaften und Gemeinschaften in einem internationalen "
+"Verband."
+
+msgid "Global network expansion"
+msgstr "Globale Netzwerkerweiterung"
+
+msgid "We expand networks and introduce IESA to a wider audience."
+msgstr ""
+"Wir erweitern Netzwerke und machen IESA einem breiteren Publikum bekannt."
+
+msgid "Event creation & management"
+msgstr "Veranstaltungsplanung & -management"
+
+msgid ""
+"We provide practical knowledge in creating and managing events and projects."
+msgstr ""
+"Wir vermitteln praktisches Wissen zur Erstellung und Verwaltung von "
+"Veranstaltungen und Projekten."
+
+msgid "Chess & strategic thinking"
+msgstr "Schach & strategisches Denken"
+
+msgid ""
+"We teach children and adults unique knowledge and strategic thinking through"
+" chess."
+msgstr ""
+"Wir vermitteln Kindern und Erwachsenen einzigartiges Wissen und "
+"strategisches Denken durch Schach."
+
+msgid "Sports competitions"
+msgstr "Sportwettkämpfe"
+
+msgid ""
+"We organize competitions that strengthen the role of sport in people’s "
+"lives."
+msgstr ""
+"Wir organisieren Wettbewerbe, die die Rolle des Sports im Leben der Menschen"
+" stärken."
+
+msgid "Internal points ecosystem"
+msgstr "Internes Punkteökosystem"
+
+msgid ""
+"We build an internal ecosystem through a points system — internal currency —"
+" for exchanging services between members."
+msgstr ""
+"Wir bauen ein internes Ökosystem durch ein Punktesystem — interne Währung — "
+"zum Austausch von Dienstleistungen zwischen Mitgliedern auf."
+
+msgid "Member promotion & support"
+msgstr "Mitgliederförderung & -unterstützung"
+
+msgid ""
+"We support members in promoting their services, projects, and personal "
+"brands."
+msgstr ""
+"Wir unterstützen Mitglieder bei der Förderung ihrer Dienstleistungen, "
+"Projekte und persönlichen Marken."
+
+msgid "Health & wellbeing for all"
+msgstr "Gesundheit & Wohlbefinden für alle"
+
+msgid ""
+"We care about the physical and mental health of both adults and children "
+"within the association."
+msgstr ""
+"Wir kümmern uns um die körperliche und mentale Gesundheit sowohl der "
+"Erwachsenen als auch der Kinder im Verband."
+
+msgid "IESA — it’s more than sport."
+msgstr "IESA — es ist mehr als Sport."
+
+msgid "It’s a lifestyle, growth, and a strong international community."
+msgstr ""
+"Es ist ein Lebensstil, Wachstum und eine starke internationale Gemeinschaft."
+
+msgid ""
+"IESA rassemble des personnes qui choisissent une vie active, le "
+"développement et de nouveaux horizons. Nous créons un espace où le sport "
+"devient un outil de croissance, de santé et d’un environnement fort et "
+"inspirant."
+msgstr ""
+"IESA vereint Menschen, die ein aktives Leben, Entwicklung und neue Horizonte"
+" wählen. Wir schaffen einen Raum, in dem Sport zum Werkzeug für Wachstum, "
+"Gesundheit und ein starkes, inspirierendes Umfeld wird."
+
 #~ msgid "Extreme sport as a way of thinking and life"
 #~ msgstr "Extremsport als Denk- und Lebensweise"
 
