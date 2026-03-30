@@ -73,6 +73,7 @@ from .miniapp_views import (
     miniapp_auction_list, miniapp_auction_create,
     miniapp_auction_bid, miniapp_auction_buyout, miniapp_auction_cancel,
     miniapp_achievements,
+    miniapp_crystals_spend,
 )
 
 # Переопределить стандартный админ на кастомный
@@ -209,6 +210,8 @@ urlpatterns = [
     path('api/auction/cancel', miniapp_auction_cancel, name='miniapp_auction_cancel'),
     # ─── Achievements / Достижения ────────────────────────────────────────────
     path('api/achievements', miniapp_achievements, name='miniapp_achievements'),
+    # ─── Crystals / Кристаллы ─────────────────────────────────────────────────
+    path('api/crystals/spend', miniapp_crystals_spend, name='miniapp_crystals_spend'),
     # ──────────────────────────────────────────────────────────────────────────
     path('protected/<path:file_path>', serve_protected_media, name='serve_protected_media'),
     

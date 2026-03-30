@@ -133,6 +133,30 @@
 .offer-meta-v2 i { color:var(--primary); width:14px; }
 .offers-footer { display:flex; gap:1rem; flex-wrap:wrap; justify-content:center; margin-top:3rem; row-gap:1rem; }
 
+/* ─── WHAT WE DO (activities grid) ─── */
+.iesa-do-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:1.25rem; margin-top:3.5rem; }
+.iesa-do-item {
+    display:flex; align-items:flex-start; gap:1.25rem;
+    background:#fff; border:1.5px solid var(--border-color); border-radius:16px;
+    padding:1.5rem 1.75rem; transition:border-color .3s, box-shadow .3s, transform .3s;
+}
+.iesa-do-item:hover { border-color:var(--primary); box-shadow:0 12px 40px rgba(220,38,38,.08); transform:translateY(-3px); }
+.iesa-do-icon {
+    flex-shrink:0; width:48px; height:48px; border-radius:12px;
+    background:var(--primary-light); display:flex; align-items:center; justify-content:center;
+    font-size:1.25rem; color:var(--primary); transition:background .3s, transform .3s;
+}
+.iesa-do-item:hover .iesa-do-icon { background:var(--primary); color:#fff; transform:scale(1.08); }
+.iesa-do-content h3 { font-size:.95rem; font-weight:800; color:var(--text-primary); margin-bottom:.35rem; letter-spacing:-.01em; }
+.iesa-do-content p { font-size:.85rem; color:var(--text-muted); line-height:1.65; margin:0; }
+.iesa-tagline {
+    margin-top:2.5rem; padding:2.25rem 3rem;
+    background:linear-gradient(135deg,rgba(220,38,38,.06) 0%,rgba(220,38,38,.02) 100%);
+    border:1.5px solid rgba(220,38,38,.2); border-radius:20px; text-align:center;
+}
+.iesa-tagline .tagline-main { font-size:1.45rem; font-weight:900; color:var(--text-primary); letter-spacing:-.02em; margin:0; line-height:1.5; }
+.iesa-tagline .tagline-main span { color:var(--primary); }
+
 /* ════════════════════════════════════════════════════════════════
    3. STATS BAND
 ════════════════════════════════════════════════════════════════ */
@@ -328,7 +352,7 @@
 
 /* RESPONSIVE */
 @media(max-width:992px){
-    .offers-grid,.products-grid,.mission-grid,.don-grid{grid-template-columns:1fr;gap:2rem}
+    .offers-grid,.iesa-do-grid,.products-grid,.mission-grid,.don-grid{grid-template-columns:1fr;gap:2rem}
     .stats-grid,.members-grid{grid-template-columns:repeat(2,1fr)}
     .benefits-grid,.partners-grid-v2,.events-grid{grid-template-columns:repeat(2,1fr)}
     .pres-hero{grid-template-columns:1fr;text-align:center;padding:2rem}
@@ -366,6 +390,8 @@
     /* Offers footer: stack buttons */
     .offers-footer { flex-direction: column; align-items: stretch; }
     .offers-footer a { width: 100%; justify-content: center !important; }
+    .iesa-tagline { padding: 1.75rem 1.5rem; }
+    .iesa-tagline .tagline-main { font-size: 1.15rem; }
     /* Benefits: 1 col on xs */
     .benefits-grid { grid-template-columns: 1fr !important; }
     /* Partners grid: 1 col on xs */
@@ -444,7 +470,7 @@
             </span>
         </h1>
         <p class="hero-desc">
-            {% trans "IESA unites athletes, active lifestyle communities, and everyone who grows through adventure and extreme challenges." %}
+            {% trans "IESA rassemble des personnes qui choisissent une vie active, le développement et de nouveaux horizons. Nous créons un espace où le sport devient un outil de croissance, de santé et d'un environnement fort et inspirant." %}
         </p>
         <div class="hero-ctas">
             <a href="{% url 'users:register' %}" class="hero-btn-p mag-btn"><i class="fas fa-user-plus"></i> {% trans "Become a member" %}</a>
@@ -464,57 +490,84 @@
 <section id="hp-offers" class="hp-section">
     <div class="hp-container">
         <div class="text-center">
-            <p class="hp-label" data-reveal>{% trans "What we offer" %}</p>
-            <h2 class="hp-h2" data-reveal data-delay="1">{% trans "Four directions" %} <span>{% trans "that deliver results" %}</span></h2>
-            <p class="hp-sub" data-reveal data-delay="2">{% trans "Strong emotions, safe extreme sports, and real team growth" %}</p>
-            <div class="hp-divider" data-reveal data-delay="3"></div>
+            <p class="hp-label" data-reveal>{% trans "What we do" %}</p>
+            <h2 class="hp-h2" data-reveal data-delay="1">{% trans "Discover a world of" %} <span>{% trans "movement, strength, and real life." %}</span></h2>
+            <div class="hp-divider" data-reveal data-delay="2"></div>
         </div>
-        <div class="offers-grid">
-            <article class="offer-card-v2 tilt3d" data-reveal data-delay="1">
-                <div class="offer-num">01</div>
-                <div class="offer-icon-v2"><i class="fas fa-campground"></i></div>
-                <span class="offer-badge-v2"><i class="fas fa-child"></i> {% trans "Kids · Camp" %}</span>
-                <h3 class="offer-title-v2">{% trans "Extreme Scout Camp for Kids" %}</h3>
-                <p class="offer-text-v2">{% trans "One-week seaside camp for teens with sport training, wellness activities, and community that builds resilience and responsibility." %}</p>
-                <ul class="offer-meta-v2">
-                    <li><i class="far fa-clock"></i> {% trans "Duration: 1 week" %}</li>
-                    <li><i class="fas fa-sun"></i> {% trans "Warm countries, seaside" %}</li>
-                    <li><i class="fas fa-user-friends"></i> {% trans "Resilience, health, friendships" %}</li>
-                </ul>
-            </article>
-            <article class="offer-card-v2 tilt3d" data-reveal data-delay="2">
-                <div class="offer-num">02</div>
-                <div class="offer-icon-v2"><i class="fas fa-water"></i></div>
-                <span class="offer-badge-v2"><i class="fas fa-users"></i> {% trans "Adults · Weekend" %}</span>
-                <h3 class="offer-title-v2">{% trans "Extreme Weekends for Adults" %}</h3>
-                <p class="offer-text-v2">{% trans "Regular seaside weekends for adults with diving, surfing, and other extreme sports led by experienced instructors." %}</p>
-                <ul class="offer-meta-v2">
-                    <li><i class="far fa-calendar-alt"></i> {% trans "Friday to Sunday" %}</li>
-                    <li><i class="fas fa-water"></i> {% trans "Diving, surfing, and more" %}</li>
-                </ul>
-            </article>
-            <article class="offer-card-v2 tilt3d" data-reveal data-delay="3">
-                <div class="offer-num">03</div>
-                <div class="offer-icon-v2"><i class="fas fa-anchor"></i></div>
-                <span class="offer-badge-v2"><i class="fas fa-route"></i> {% trans "Adults · Journey" %}</span>
-                <h3 class="offer-title-v2">{% trans "Yachting Week for Adults" %}</h3>
-                <p class="offer-text-v2">{% trans "A one-week sailing expedition with catamaran training, coastal routes, and open-sea diving sessions." %}</p>
-                <ul class="offer-meta-v2">
-                    <li><i class="far fa-clock"></i> {% trans "One week" %}</li>
-                    <li><i class="fas fa-route"></i> {% trans "Scenic coastlines & sea passages" %}</li>
-                    <li><i class="fas fa-anchor"></i> {% trans "Catamaran, open-water practice" %}</li>
-                </ul>
-            </article>
-            <article class="offer-card-v2 tilt3d" data-reveal data-delay="4">
-                <div class="offer-num">04</div>
-                <div class="offer-icon-v2"><i class="fas fa-people-arrows"></i></div>
-                <span class="offer-badge-v2"><i class="fas fa-briefcase"></i> {% trans "Teams · Corporate" %}</span>
-                <h3 class="offer-title-v2">{% trans "Corporate Adventure Offsites" %}</h3>
-                <p class="offer-text-v2">{% trans "Tailored corporate trips with sports, challenges, and team tasks that strengthen culture and communication." %}</p>
-                <ul class="offer-meta-v2">
-                    <li><i class="fas fa-bolt"></i> {% trans "Cohesion, trust, critical thinking" %}</li>
-                </ul>
-            </article>
+        <div class="iesa-do-grid">
+            <div class="iesa-do-item" data-reveal data-delay="1">
+                <div class="iesa-do-icon"><i class="fas fa-map-marked-alt"></i></div>
+                <div class="iesa-do-content">
+                    <h3>{% trans "Unique trips &amp; experiences" %}</h3>
+                    <p>{% trans "We organize unique trips and experiences — for a weekend or a full week — with extreme sports for adults and teenagers." %}</p>
+                </div>
+            </div>
+            <div class="iesa-do-item" data-reveal data-delay="2">
+                <div class="iesa-do-icon"><i class="fas fa-flag"></i></div>
+                <div class="iesa-do-content">
+                    <h3>{% trans "New sports locations worldwide" %}</h3>
+                    <p>{% trans "We develop new sports locations around the world to host our own events and promote health." %}</p>
+                </div>
+            </div>
+            <div class="iesa-do-item" data-reveal data-delay="3">
+                <div class="iesa-do-icon"><i class="fas fa-users"></i></div>
+                <div class="iesa-do-content">
+                    <h3>{% trans "United sports communities" %}</h3>
+                    <p>{% trans "We unite sports teams and communities within an international association." %}</p>
+                </div>
+            </div>
+            <div class="iesa-do-item" data-reveal data-delay="4">
+                <div class="iesa-do-icon"><i class="fas fa-network-wired"></i></div>
+                <div class="iesa-do-content">
+                    <h3>{% trans "Global network expansion" %}</h3>
+                    <p>{% trans "We expand networks and introduce IESA to a wider audience." %}</p>
+                </div>
+            </div>
+            <div class="iesa-do-item" data-reveal data-delay="1">
+                <div class="iesa-do-icon"><i class="fas fa-lightbulb"></i></div>
+                <div class="iesa-do-content">
+                    <h3>{% trans "Event creation &amp; management" %}</h3>
+                    <p>{% trans "We provide practical knowledge in creating and managing events and projects." %}</p>
+                </div>
+            </div>
+            <div class="iesa-do-item" data-reveal data-delay="2">
+                <div class="iesa-do-icon"><i class="fas fa-chess"></i></div>
+                <div class="iesa-do-content">
+                    <h3>{% trans "Chess &amp; strategic thinking" %}</h3>
+                    <p>{% trans "We teach children and adults unique knowledge and strategic thinking through chess." %}</p>
+                </div>
+            </div>
+            <div class="iesa-do-item" data-reveal data-delay="3">
+                <div class="iesa-do-icon"><i class="fas fa-trophy"></i></div>
+                <div class="iesa-do-content">
+                    <h3>{% trans "Sports competitions" %}</h3>
+                    <p>{% trans "We organize competitions that strengthen the role of sport in people's lives." %}</p>
+                </div>
+            </div>
+            <div class="iesa-do-item" data-reveal data-delay="4">
+                <div class="iesa-do-icon"><i class="fas fa-coins"></i></div>
+                <div class="iesa-do-content">
+                    <h3>{% trans "Internal points ecosystem" %}</h3>
+                    <p>{% trans "We build an internal ecosystem through a points system — internal currency — for exchanging services between members." %}</p>
+                </div>
+            </div>
+            <div class="iesa-do-item" data-reveal data-delay="1">
+                <div class="iesa-do-icon"><i class="fas fa-handshake"></i></div>
+                <div class="iesa-do-content">
+                    <h3>{% trans "Member promotion &amp; support" %}</h3>
+                    <p>{% trans "We support members in promoting their services, projects, and personal brands." %}</p>
+                </div>
+            </div>
+            <div class="iesa-do-item" data-reveal data-delay="2">
+                <div class="iesa-do-icon"><i class="fas fa-heart"></i></div>
+                <div class="iesa-do-content">
+                    <h3>{% trans "Health &amp; wellbeing for all" %}</h3>
+                    <p>{% trans "We care about the physical and mental health of both adults and children within the association." %}</p>
+                </div>
+            </div>
+        </div>
+        <div class="iesa-tagline" data-reveal>
+            <p class="tagline-main">{% trans "IESA — it's more than sport." %} <span>{% trans "It's a lifestyle, growth, and a strong international community." %}</span></p>
         </div>
         <div class="offers-footer" data-reveal>
             <a href="{% url 'users:register' %}" class="hero-btn-p mag-btn" style="box-shadow:none;"><i class="fas fa-user-plus"></i> {% trans "Become a member" %}</a>
