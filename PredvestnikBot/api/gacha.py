@@ -210,14 +210,16 @@ async def gacha_roll(uid: int, chat_id: int, count: int,
         today = bot_today()
         quest = await get_user_quest(uid, chat_id, today)
         if quest.get("type") == "gacha":
-            _new_p, _goal, just_done = await quest_tick(uid, chat_id, today, quest["type"], quest["goal"])
-            if just_done:
-                quest_mora = quest.get("mora", 5)
-                quest_xp   = quest.get("xp", 10)
-                await add_xp_in_chat(uid, chat_id, quest_xp)
-                await add_mora(uid, chat_id, quest_mora)
-                await mark_quest_rewarded(uid, chat_id, today)
-                quest_done = 1
+            for _ in range(count):
+                _new_p, _goal, just_done = await quest_tick(uid, chat_id, today, quest["type"], quest["goal"])
+                if just_done:
+                    quest_mora = quest.get("mora", 5)
+                    quest_xp   = quest.get("xp", 10)
+                    await add_xp_in_chat(uid, chat_id, quest_xp)
+                    await add_mora(uid, chat_id, quest_mora)
+                    await mark_quest_rewarded(uid, chat_id, today)
+                    quest_done = 1
+                    break  # quest complete, stop ticking
     except Exception:
         logging.getLogger(__name__).warning("quest_tick failed uid=%s chat=%s", uid, chat_id, exc_info=True)
 

@@ -597,6 +597,8 @@ select:focus{border-color:var(--accent)}
 <!-- Global balance bar -->
 <div class="balance-bar" id="globalBalanceBar" style="display:none">
   💰 <span id="globalBalance">0</span> 🪙
+  <span style="margin-left:10px;color:var(--accent)">|</span>
+  <span style="margin-left:10px;color:#a78bfa;font-weight:800">💎 <span id="globalCrystals">0</span></span>
 </div>
 
 <!-- PROFILE TAB -->
@@ -615,6 +617,7 @@ select:focus{border-color:var(--accent)}
       <div class="stat-row"><span class="stat-label">📊 XP</span><span class="stat-value"><span id="pXp">0</span> / <span id="pXpMax">100</span></span></div>
       <div class="progress-bar"><div class="progress-fill" id="pXpBar" style="width:0%"></div></div>
       <div class="stat-row"><span class="stat-label">🪙 Мора</span><span class="stat-value" id="pMora">—</span></div>
+      <div class="stat-row"><span class="stat-label" style="color:#a78bfa">💎 Кристаллы</span><span class="stat-value" style="color:#a78bfa;font-weight:800" id="pCrystals">—</span></div>
       <div class="stat-row"><span class="stat-label">🏅 Ранг</span><span class="stat-value" id="pRank">—</span></div>
       <div class="stat-row"><span class="stat-label">💬 Сообщений</span><span class="stat-value" id="pMsgCount">—</span></div>
       <div class="stat-row"><span class="stat-label">⚠️ Предупреждения</span><span class="stat-value" id="pWarns">—</span></div>
@@ -786,6 +789,7 @@ select:focus{border-color:var(--accent)}
       <button class="subtab-btn" onclick="switchShopSubtab('appearance')">🎨 Внешность</button>
       <button class="subtab-btn" onclick="switchShopSubtab('consumables')">🧪 Расходники</button>
       <button class="subtab-btn" onclick="switchShopSubtab('special')">👑 Особое</button>
+      <button class="subtab-btn" onclick="switchShopSubtab('crystals')" style="color:#a78bfa">💎 Кристаллы</button>
     </div>
 
     <!-- 🎰 Gacha -->
@@ -859,6 +863,27 @@ select:focus{border-color:var(--accent)}
           <span style="color:var(--text2)">⏳ Загрузка…</span>
         </div>
         <button class="btn btn-gold" id="chatBuffBuyBtn" onclick="buyChatBuff()" style="width:100%">⚡ Активировать — 1 500 🪙</button>
+      </div>
+    </div>
+
+    <!-- 💎 Crystals: buy with Telegram Stars + spend on exclusive cosmetics -->
+    <div id="shop-subtab-crystals" style="display:none">
+      <div class="card" style="border:1px solid #7c3aed33;background:linear-gradient(135deg,rgba(124,58,237,.07),rgba(147,51,234,.04))">
+        <div class="card-title" style="color:#a78bfa">💎 Кристаллы Предвестника</div>
+        <div style="text-align:center;margin-bottom:10px">
+          <div style="font-size:28px;font-weight:900;color:#a78bfa" id="shopCrystalsBalance">0 💎</div>
+          <div style="font-size:11px;color:var(--text2);margin-top:2px">Ваш текущий баланс</div>
+        </div>
+        <div style="font-size:11px;color:var(--text2);line-height:1.6;margin-bottom:10px;text-align:center">
+          Кристаллы — премиум-валюта. Покупаются за ⭐ Telegram Stars.<br>
+          Используются для эксклюзивной косметики, которую нельзя купить за Мору.
+        </div>
+        <div id="crystalPacksGrid"></div>
+      </div>
+      <div class="card">
+        <div class="card-title" style="color:#a78bfa">🛍 Магазин кристаллов</div>
+        <div style="font-size:11px;color:var(--text2);margin-bottom:8px">Эксклюзивная косметика за 💎</div>
+        <div id="crystalCosmeticsGrid"></div>
       </div>
     </div>
   </div>
@@ -2044,6 +2069,14 @@ function syncBalance(n){
     _balanceCurrent = n;
   }
 }
+function syncCrystals(n){
+  n = n || 0;
+  if(profileData) profileData.crystals = n;
+  const el = document.getElementById('globalCrystals');
+  if(el) el.textContent = n;
+  const pCrystalsEl = document.getElementById('pCrystals');
+  if(pCrystalsEl) pCrystalsEl.textContent = n + ' 💎';
+}
 
 // ── Category switching ────────────────────────────────────────────────────────
 const TAB_CATS = {
@@ -2192,6 +2225,7 @@ async function loadProfile(){
     
     document.getElementById('pLevel').textContent = p.level || 1;
     syncBalance(p.balance||0);
+    syncCrystals(p.crystals||0);
     document.getElementById('globalBalanceBar').style.display = '';
     applyTheme(p.active_theme || '');
     const RANK_LABELS = {developer:'💻 Разработчик', owner:'👑 Владелец', co_owner:'⭐ Со-владелец', moderator:'🛡 Модератор', user:'👤 Участник'};
@@ -3133,6 +3167,85 @@ function renderShop(d){
         <div class="scard-desc">-${f.fatigue} усталости</div>
         <div class="scard-footer"><span class="sbadge sbadge-price">${f.price} 🪙</span></div>
       </div></div>`).join('');
+
+  // Crystals subtab — balance + packs + cosmetics
+  renderCrystalsShop();
+}
+
+// ─── Crystals Shop ────────────────────────────────────────────────────────────
+const CRYSTAL_PACKS = [
+  {key:'starter',  stars:50,   crystals:100,  label:'💎 Стартовый',  bonus:0},
+  {key:'basic',    stars:150,  crystals:330,  label:'💎 Базовый',    bonus:10},
+  {key:'advanced', stars:500,  crystals:1200, label:'💎 Продвинутый',bonus:20},
+  {key:'premium',  stars:1000, crystals:2600, label:'💎 Премиум',    bonus:30},
+  {key:'ultimate', stars:2500, crystals:7000, label:'💎 Легендарный', bonus:40},
+];
+const CRYSTAL_COSMETICS_LIST = [
+  {key:'crystal_aura',      emoji:'🔮', name:'Кристальная аура',       price:200,  desc:'Анимированный ореол профиля'},
+  {key:'dark_matter_frame', emoji:'🌑', name:'Рамка «Тёмная материя»', price:350,  desc:'Эксклюзивная рамка только за 💎'},
+  {key:'herald_frame',      emoji:'📯', name:'Рамка «Вестник»',        price:500,  desc:'Легендарная рамка Предвестника'},
+  {key:'rainbow_title',     emoji:'🌈', name:'Радужный титул',          price:150,  desc:'Переливающиеся цвета в имени'},
+  {key:'crystal_pet_skin',  emoji:'✨', name:'Кристальный облик питомца',price:300, desc:'Уникальный вид питомца'},
+  {key:'stealth_mode',      emoji:'🕶️', name:'Режим тени',             price:180,  desc:'Скрыть баланс Моры от других'},
+  {key:'double_pity',       emoji:'⚡', name:'Двойное везение',         price:400,  desc:'×2 скорость пити (7 дней)'},
+  {key:'vip_week',          emoji:'👑', name:'VIP на 7 дней',           price:250,  desc:'VIP-статус без ограничений'},
+];
+
+function renderCrystalsShop(){
+  const bal = (profileData&&profileData.crystals)||0;
+  const el = document.getElementById('shopCrystalsBalance');
+  if(el) el.textContent = bal + ' 💎';
+
+  // Packs — opens Telegram payment invoice
+  const packsEl = document.getElementById('crystalPacksGrid');
+  if(packsEl) packsEl.innerHTML = CRYSTAL_PACKS.map(p=>{
+    const bonusLabel = p.bonus ? `<span style="color:#4ade80;font-size:10px;margin-left:3px">+${p.bonus}% бонус</span>` : '';
+    return `<div class="scard" onclick="buyCrystalPack('${p.key}')" style="border:1px solid rgba(124,58,237,.3)">
+      <div class="scard-accent" style="background:linear-gradient(180deg,#7c3aed,#6d28d9)"></div>
+      <div class="scard-icon">⭐</div>
+      <div class="scard-body">
+        <div class="scard-name">${p.label} ${bonusLabel}</div>
+        <div class="scard-desc" style="color:#a78bfa;font-weight:700">${p.crystals} 💎</div>
+        <div class="scard-footer"><span class="sbadge" style="background:rgba(253,224,71,.12);color:#fbbf24;border:1px solid rgba(253,224,71,.3)">${p.stars} ⭐ Stars</span></div>
+      </div></div>`;
+  }).join('');
+
+  // Crystal cosmetics
+  const cosEl = document.getElementById('crystalCosmeticsGrid');
+  if(cosEl) cosEl.innerHTML = CRYSTAL_COSMETICS_LIST.map(c=>{
+    const canBuy = bal >= c.price;
+    return `<div class="scard${canBuy?'':' owned'}" onclick="${canBuy?`buyCrystalCosmetic('${c.key}','${c.name}',${c.price})`:''}" style="${canBuy?'':'opacity:.5;pointer-events:none'}">
+      <div class="scard-accent" style="background:#7c3aed"></div>
+      <div class="scard-icon">${c.emoji}</div>
+      <div class="scard-body">
+        <div class="scard-name">${esc(c.name)}</div>
+        <div class="scard-desc">${esc(c.desc)}</div>
+        <div class="scard-footer"><span class="sbadge" style="background:rgba(124,58,237,.15);color:#a78bfa;border:1px solid rgba(124,58,237,.3)">${c.price} 💎</span></div>
+      </div></div>`;
+  }).join('');
+}
+
+async function buyCrystalPack(packKey){
+  // Send bot command to open Stars invoice via deep link
+  try {
+    const tg = window.Telegram && window.Telegram.WebApp;
+    if(tg && tg.openTelegramLink){
+      tg.openTelegramLink(`https://t.me/IIIPredvestnikIIIBot?start=buycrystals_${packKey}`);
+    } else {
+      toast('💬 Напиши боту: /кристаллы — и выбери пакет', 'info');
+    }
+  } catch(e) { toast('💬 Открой бота и напиши /кристаллы', 'info'); }
+}
+
+async function buyCrystalCosmetic(key, name, price){
+  if(!confirm(`Потратить ${price} 💎 на «${name}»?`)) return;
+  try {
+    const r = await api('/api/crystals/spend', 'POST', {item_key: key, price});
+    toast(`✅ Куплено: ${name}`, 'success');
+    if(profileData) profileData.crystals = r.crystals_balance;
+    syncCrystals(r.crystals_balance);
+    renderCrystalsShop();
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
 }
 
 async function buyPetColor(key, label, price) {
@@ -3317,6 +3430,10 @@ async function rollGacha(count){
     const r=await api('/api/gacha/roll','POST',{chat_id:chatId,count,wallet_type:wallet});
     showGachaOverlay(r.items||[]);
     syncBalance(r.balance);
+    if(r.quest_done){
+      tabLoaded['quest']=false;
+      setTimeout(()=>toast('🎉 Задание выполнено! +'+r.quest_xp+' XP  +'+r.quest_mora+' 🪙','success'),1800);
+    }
   } catch(e){toast('❌ '+e.message,'error')}
 }
 
