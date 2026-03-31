@@ -206,6 +206,11 @@ async def cb_chest_click(callback: CallbackQuery):
     # Начисляем мору атомарно
     await add_mora(uid, chat_id, reward)
     await increment_tracker(uid, chat_id, "chests_opened")
+    try:
+        from api.economy import log_wallet_tx
+        await log_wallet_tx(uid, chat_id, "income", reward, "event", "💰 Богатый сундук")
+    except Exception:
+        pass
 
     emoji = _PLACE_EMOJI[position - 1] if position <= len(_PLACE_EMOJI) else f"#{position}"
     name = html.escape(callback.from_user.full_name or "")

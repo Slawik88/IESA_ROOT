@@ -88,6 +88,11 @@ async def _finish_event(bot, chat_id: int, reason: str):
         if share > 0:
             await add_mora(uid, chat_id, share)
             rewards.append((uid, share))
+            try:
+                from api.economy import log_wallet_tx
+                await log_wallet_tx(uid, chat_id, "income", share, "event", "🚚 Дилижанс")
+            except Exception:
+                pass
 
     # Топ-5 для итогового сообщения
     top = sorted(rewards, key=lambda x: x[1], reverse=True)[:5]
