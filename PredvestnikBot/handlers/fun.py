@@ -319,7 +319,21 @@ async def on_marry_callback(callback: CallbackQuery):
             await callback.answer()
             return
 
-        await create_marriage(proposer_id, target_id, chat_id)
+        try:
+            await create_marriage(proposer_id, target_id, chat_id)
+        except Exception as _err:
+            import logging as _log
+            import traceback as _tb
+            _tb_text = _tb.format_exc()
+            _log.getLogger(__name__).error("create_marriage failed: %s", _err, exc_info=True)
+            try:
+                from database.db import log_app_error
+                await log_app_error("bot", "on_marry_callback/create_marriage", str(_err), _tb_text,
+                                    user_id=target_id, chat_id=chat_id)
+            except Exception:
+                pass
+            await callback.answer("❌ Произошла ошибка при регистрации брака. Попробуйте снова.", show_alert=True)
+            return
         icon = random.choice(["💍", "💒", "🥂", "💖", "🎊"])
         try:
             await callback.message.edit_text(

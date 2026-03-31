@@ -74,6 +74,8 @@ from .miniapp_views import (
     miniapp_auction_bid, miniapp_auction_buyout, miniapp_auction_cancel,
     miniapp_achievements,
     miniapp_crystals_spend,
+    miniapp_dev_error_logs,
+    miniapp_frontend_error_log,
 )
 
 # Переопределить стандартный админ на кастомный
@@ -212,6 +214,9 @@ urlpatterns = [
     path('api/achievements', miniapp_achievements, name='miniapp_achievements'),
     # ─── Crystals / Кристаллы ─────────────────────────────────────────────────
     path('api/crystals/spend', miniapp_crystals_spend, name='miniapp_crystals_spend'),
+    # ─── Dev: Error logs / Логи ошибок ────────────────────────────────────────
+    path('api/dev/error_logs', miniapp_dev_error_logs, name='miniapp_dev_error_logs'),
+    path('api/frontend_error_log', miniapp_frontend_error_log, name='miniapp_frontend_error_log'),
     # ──────────────────────────────────────────────────────────────────────────
     path('protected/<path:file_path>', serve_protected_media, name='serve_protected_media'),
     

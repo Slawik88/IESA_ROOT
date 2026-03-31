@@ -100,6 +100,27 @@ def _get_bot_db_connection():
     return sqlite3.connect(str(db_path)), "sqlite"
 
 
+def _log_error_to_db(context: str, tb_text: str, uid=None, cid=None):
+    """Write an error entry to app_error_logs. Fire-and-forget, never raises."""
+    try:
+        url = _BOT_DB_URL
+        if not (url.startswith("postgresql://") or url.startswith("postgres://")):
+            return
+        import psycopg2
+        conn = psycopg2.connect(url)
+        cur = conn.cursor()
+        error_line = (tb_text.strip().splitlines() or [""])[-1][:500]
+        cur.execute(
+            "INSERT INTO app_error_logs (source, context, error_msg, traceback, user_id, chat_id) "
+            "VALUES ('backend', %s, %s, %s, %s, %s)",
+            (context[:200], error_line, tb_text[:8000], uid, cid),
+        )
+        conn.commit()
+        conn.close()
+    except Exception:
+        pass
+
+
 @require_GET
 def miniapp_index(request):
     """Serve the Mini App HTML."""
@@ -205,19 +226,33 @@ def miniapp_user_data(request):
         # Mora row: use specific chat if provided, otherwise best (highest balance)
         if specific_chat_id:
             cur.execute(
-                f"SELECT chat_id, balance, vip, top_frame, active_theme FROM user_mora "
+                f"SELECT chat_id, balance, vip, top_frame, active_theme, vip_expires_at FROM user_mora "
                 f"WHERE user_id={ph} AND chat_id={ph}",
                 (uid, specific_chat_id),
             )
         else:
             cur.execute(
-                f"SELECT chat_id, balance, vip, top_frame, active_theme FROM user_mora "
+                f"SELECT chat_id, balance, vip, top_frame, active_theme, vip_expires_at FROM user_mora "
                 f"WHERE user_id={ph} ORDER BY balance DESC LIMIT 1",
                 (uid,),
             )
         mora_row = cur.fetchone()
         if mora_row:
-            chat_id, balance, vip, top_frame, active_theme = mora_row
+            chat_id, balance, vip, top_frame, active_theme, vip_expires_at = mora_row
+            # VIP expiry check
+            if vip and vip_expires_at:
+                from datetime import timezone as _tz
+                import datetime as _dt
+                exp = vip_expires_at
+                if isinstance(exp, str):
+                    try:
+                        exp = _dt.datetime.fromisoformat(exp)
+                    except Exception:
+                        exp = None
+                if exp and exp.tzinfo is None:
+                    exp = exp.replace(tzinfo=_tz.utc)
+                if exp and _dt.datetime.now(_tz.utc) > exp:
+                    vip = 0
         else:
             chat_id, balance, vip, top_frame, active_theme = 0, 0, 0, None, None
 
@@ -883,7 +918,10 @@ def miniapp_marriage_respond(request):
     except Exception as exc:
         try: conn.close()
         except Exception: pass
-        logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
+        import traceback as _tb
+        _log_error_to_db("miniapp_marriage_respond/db_update", _tb.format_exc(), uid=uid)
+        logger.exception("miniapp_marriage_respond db error")
+        return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
 
     if not row:
         # Either the proposal doesn't exist, belongs to a different user,
@@ -912,14 +950,20 @@ def miniapp_marriage_respond(request):
                             json_dumps_params={"ensure_ascii": False}, headers=headers)
 
     from_id = row[1]  # from_user_id
+    db_chat_id = row[3]  # chat_id from the proposal row (authoritative)
 
     if accept:
         from database.db import create_marriage
         from asgiref.sync import async_to_sync
         try:
-            async_to_sync(create_marriage)(from_id, uid, chat_id)
+            async_to_sync(create_marriage)(from_id, uid, db_chat_id)
         except Exception as exc:
-            logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
+            import traceback as _tb
+            _tb_text = _tb.format_exc()
+            logger.exception("miniapp_marriage_respond: create_marriage failed")
+            _log_error_to_db("miniapp_marriage_respond/create_marriage", _tb_text, uid=uid, cid=db_chat_id)
+            return JsonResponse({"error": "Внутренняя ошибка сервера"},
+                                status=500, json_dumps_params={"ensure_ascii": False}, headers=headers)
         return JsonResponse({"ok": True, "married": True,
                              "message": "Поздравляем! Вы теперь в браке! 💍"},
                             json_dumps_params={"ensure_ascii": False}, headers=headers)
@@ -5087,3 +5131,95 @@ def miniapp_crystals_spend(request):
         logger.exception("crystals_spend error")
         return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
 
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+#  Dev: error log endpoints
+# ──────────────────────────────────────────────────────────────────────────────
+
+@csrf_exempt
+def miniapp_dev_error_logs(request):
+    """GET /api/dev/error_logs  — list DB error logs (developer only).
+       DELETE /api/dev/error_logs — clear all DB error logs (developer only)."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+    if uid != _DEVELOPER_ID:
+        return JsonResponse({"error": "Forbidden"}, status=403, headers=headers)
+
+    from asgiref.sync import async_to_sync as _a2s
+
+    if request.method == "GET":
+        try:
+            from database.db import get_app_error_logs
+            logs = _a2s(get_app_error_logs)(200)
+            # Convert datetime objects to ISO strings for JSON serialisation
+            for entry in logs:
+                for k, v in entry.items():
+                    if hasattr(v, "isoformat"):
+                        entry[k] = v.isoformat()
+            return JsonResponse({"ok": True, "logs": logs}, json_dumps_params={"ensure_ascii": False}, headers=headers)
+        except Exception as exc:
+            logger.exception("miniapp_dev_error_logs GET error")
+            return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+
+    if request.method == "DELETE":
+        try:
+            from database.db import clear_app_error_logs
+            _a2s(clear_app_error_logs)()
+            return JsonResponse({"ok": True}, headers=headers)
+        except Exception as exc:
+            logger.exception("miniapp_dev_error_logs DELETE error")
+            return JsonResponse({"error": str(exc)}, status=500, headers=headers)
+
+    return JsonResponse({"error": "Method not allowed"}, status=405, headers=headers)
+
+
+@csrf_exempt
+def miniapp_frontend_error_log(request):
+    """POST /api/frontend_error_log — capture a JS error from the Mini App front-end."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=405, headers=headers)
+
+    uid, err = _require_auth(request, headers)
+    # Allow unauthenticated to not break boot errors, but still log uid if available
+    if err:
+        uid = None
+
+    try:
+        body = json.loads(request.body)
+        context = str(body.get("context", "frontend"))[:200]
+        message = str(body.get("message", ""))[:500]
+        stack = str(body.get("stack", ""))[:8000]
+    except Exception:
+        return JsonResponse({"error": "invalid JSON"}, status=400, headers=headers)
+
+    _log_error_to_db_frontend(context, message, stack, uid)
+    return JsonResponse({"ok": True}, headers=headers)
+
+
+def _log_error_to_db_frontend(context: str, message: str, stack: str, uid=None):
+    """Write a frontend error to app_error_logs. Never raises."""
+    try:
+        url = _BOT_DB_URL
+        if not (url.startswith("postgresql://") or url.startswith("postgres://")):
+            return
+        import psycopg2
+        conn = psycopg2.connect(url)
+        cur = conn.cursor()
+        cur.execute(
+            "INSERT INTO app_error_logs (source, context, error_msg, traceback, user_id) "
+            "VALUES ('frontend', %s, %s, %s, %s)",
+            (context, message, stack, uid),
+        )
+        conn.commit()
+        conn.close()
+    except Exception:
+        pass
