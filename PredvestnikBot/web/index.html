@@ -1685,12 +1685,21 @@ select:focus{border-color:var(--accent)}
 
   <!-- ④ Логи и Чёрный список -->
   <div class="card">
-    <div class="card-title">📋 Логи</div>
-    <button class="btn btn-primary" onclick="loadDevLogs()" style="margin-bottom:8px">🔄 Загрузить логи</button>
+    <div class="card-title">📋 Логи выходов</div>
+    <button class="btn btn-primary" onclick="loadDevLogs()" style="margin-bottom:8px">🔄 Загрузить</button>
     <div style="font-size:11px;color:var(--text2);margin-bottom:4px">ПОКИНУЛИ ЧАТ (последние 20)</div>
     <div id="devLeaveLog" style="max-height:160px;overflow-y:auto"></div>
-    <div style="font-size:11px;color:#f87171;margin:8px 0 4px">ОШИБКИ СЕРВЕРА (последние 5)</div>
-    <div id="devErrorLog" style="max-height:120px;overflow-y:auto"></div>
+  </div>
+
+  <!-- ④b Логи ошибок (DB) -->
+  <div class="card">
+    <div class="card-title">🐛 Логи ошибок</div>
+    <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap">
+      <button class="btn btn-primary" onclick="loadAppErrorLogs()">🔄 Загрузить</button>
+      <button class="btn" id="copyErrLogsBtn" style="background:var(--bg3);color:var(--text)" onclick="copyAppErrorLogs()">📋 Копировать</button>
+      <button class="btn" style="background:#dc2626;color:#fff" onclick="clearAppErrorLogs()">🗑 Очистить</button>
+    </div>
+    <div id="devAppErrorLog" style="max-height:500px;overflow-y:auto;font-size:11px;font-family:monospace"></div>
   </div>
 
   <!-- ⑤ Чёрный список (глобальный бан) -->
@@ -1934,6 +1943,26 @@ const BASE = '';
 const qp = new URLSearchParams(window.location.search);
 const openTarget = qp.get('open') || '';
 let initData = (tg && tg.initData) || qp.get('tgWebAppData') || qp.get('initData') || '';
+
+// ── Frontend error capture ───────────────────────────────────────────────────
+function _sendErrorToServer(ctx, msg, stack){
+  try{
+    fetch(BASE+'/api/frontend_error_log',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','X-Init-Data':initData,'X-Telegram-Init-Data':initData},
+      body:JSON.stringify({context:ctx, message:String(msg).slice(0,500), stack:String(stack||'').slice(0,8000)}),
+      keepalive:true,
+    }).catch(()=>{});
+  }catch(e){}
+}
+window.onerror = function(msg, src, line, col, err){
+  _sendErrorToServer('window.onerror', msg, (err && err.stack) || (src+':'+line+':'+col));
+  return false;
+};
+window.addEventListener('unhandledrejection', function(ev){
+  const reason = ev.reason;
+  _sendErrorToServer('unhandledrejection', reason && reason.message || String(reason), reason && reason.stack || '');
+});
 
 // ── Извлекаем chat_id из текущего контекста ДО первого API-запроса ──────────
 const _tgUnsafe = (tg && tg.initDataUnsafe) || {};
@@ -4262,11 +4291,63 @@ async function loadDevLogs(){
     document.getElementById('devLeaveLog').innerHTML = leave.length
       ? leave.map(l=>`<div class="dev-log-entry"><span class="dev-log-ts">${(l.left_at||'').slice(0,16)}</span><span onclick="showPubProfile(${l.user_id})" style="cursor:pointer;color:var(--accent)">${esc(l.name||'?')}</span> <span style="color:var(--text2)">#${l.user_id}</span></div>`).join('')
       : '<div style="color:var(--text2);font-size:12px;padding:4px">Нет данных</div>';
-    const errs = r.server_errors||[];
-    document.getElementById('devErrorLog').innerHTML = errs.length
-      ? errs.map(e=>`<div class="dev-log-entry" style="color:#fca5a5">${esc(e)}</div>`).join('')
-      : '<div style="color:var(--text2);font-size:12px;padding:4px">Ошибок не найдено</div>';
   } catch(e){toast('❌ '+e.message,'error')}
+}
+
+let _appErrLogsCache = [];
+
+async function loadAppErrorLogs(){
+  const el = document.getElementById('devAppErrorLog');
+  el.innerHTML = '<div style="color:var(--text2);padding:8px">Загрузка…</div>';
+  try{
+    const r = await api('/api/dev/error_logs');
+    _appErrLogsCache = r.logs || [];
+    if(!_appErrLogsCache.length){
+      el.innerHTML = '<div style="color:#4ade80;padding:8px;text-align:center">✅ Ошибок нет</div>';
+      return;
+    }
+    el.innerHTML = _appErrLogsCache.map(lg=>{
+      const ts = (lg.created_at||'').slice(0,19).replace('T',' ');
+      const uid_badge = lg.user_id ? `<span style="color:var(--text2)">uid:${lg.user_id}</span> ` : '';
+      const cid_badge = lg.chat_id ? `<span style="color:var(--text2)">cid:${lg.chat_id}</span> ` : '';
+      const src_color = lg.source==='frontend'?'#facc15':'#f87171';
+      return `<details style="border:1px solid var(--border);border-radius:6px;margin-bottom:4px;background:var(--bg3);padding:4px 8px">
+        <summary style="cursor:pointer;font-size:11px;display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+          <span style="color:${src_color};font-weight:700">[${esc(lg.source||'?')}]</span>
+          <span style="color:var(--text2)">${ts}</span>
+          ${uid_badge}${cid_badge}
+          <span style="color:#fca5a5">${esc((lg.context||'')+': '+(lg.error_msg||'').slice(0,80))}</span>
+        </summary>
+        <pre style="margin:6px 0 2px;white-space:pre-wrap;font-size:10px;color:var(--text2);max-height:200px;overflow-y:auto">${esc(lg.traceback||lg.error_msg||'')}</pre>
+      </details>`;
+    }).join('');
+  } catch(e){
+    el.innerHTML = `<div style="color:#f87171;padding:8px">❌ ${esc(e.message)}</div>`;
+  }
+}
+
+function copyAppErrorLogs(){
+  if(!_appErrLogsCache.length){ toast('Нет данных для копирования','error'); return; }
+  const text = _appErrLogsCache.map(lg=>{
+    const ts = (lg.created_at||'').slice(0,19).replace('T',' ');
+    return `[${lg.source}] ${ts} uid:${lg.user_id} cid:${lg.chat_id}\nContext: ${lg.context}\nError: ${lg.error_msg}\n${lg.traceback||''}\n${'─'.repeat(60)}`;
+  }).join('\n');
+  navigator.clipboard.writeText(text).then(()=>toast('📋 Скопировано!','success')).catch(()=>{
+    const ta = document.createElement('textarea');
+    ta.value = text; document.body.appendChild(ta); ta.select();
+    document.execCommand('copy'); document.body.removeChild(ta);
+    toast('📋 Скопировано!','success');
+  });
+}
+
+async function clearAppErrorLogs(){
+  if(!confirm('Очистить все логи ошибок?')) return;
+  try{
+    await api('/api/dev/error_logs', 'DELETE');
+    _appErrLogsCache = [];
+    document.getElementById('devAppErrorLog').innerHTML = '<div style="color:#4ade80;padding:8px;text-align:center">✅ Логи очищены</div>';
+    toast('🗑 Логи очищены','success');
+  } catch(e){ toast('❌ '+e.message,'error'); }
 }
 
 // ── Public Profile ────────────────────────────────────────────────────────────

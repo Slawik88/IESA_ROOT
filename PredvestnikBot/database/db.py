@@ -296,9 +296,10 @@ async def init_db():
 
         # Миграция: новые колонки user_mora (VIP, буст XP, рамка топа)
         for col_def in [
-            "vip            INTEGER DEFAULT 0",
-            "xp_boost_until TIMESTAMPTZ DEFAULT NULL",
-            "top_frame      TEXT    DEFAULT NULL",
+            "vip              INTEGER   DEFAULT 0",
+            "vip_expires_at   TIMESTAMPTZ DEFAULT NULL",
+            "xp_boost_until   TIMESTAMPTZ DEFAULT NULL",
+            "top_frame        TEXT    DEFAULT NULL",
         ]:
             try:
                 await db.execute(f"ALTER TABLE user_mora ADD COLUMN IF NOT EXISTS {col_def}")
@@ -1123,6 +1124,58 @@ async def init_db():
                 await db.execute(f"ALTER TABLE user_mora ADD COLUMN IF NOT EXISTS {col_def}")
             except Exception:
                 pass
+
+        # ─── Премиум-валюта Кристаллы (покупается за Telegram Stars) ────────
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS user_crystals (
+                user_id         BIGINT  NOT NULL,
+                balance         INTEGER NOT NULL DEFAULT 0,
+                total_purchased INTEGER NOT NULL DEFAULT 0,
+                PRIMARY KEY (user_id)
+            )
+        """)
+
+        # ─── Конфигурация бота для каждого чата (multi-tenant) ───────────
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS chat_configs (
+                chat_id       BIGINT  PRIMARY KEY,
+                display_name  TEXT    NOT NULL DEFAULT 'Предвестник',
+                theme_pack    TEXT    NOT NULL DEFAULT 'default',
+                currency_name TEXT    NOT NULL DEFAULT 'Мора',
+                currency_emoji TEXT   NOT NULL DEFAULT '🪙',
+                gacha_enabled INTEGER NOT NULL DEFAULT 1,
+                casino_enabled INTEGER NOT NULL DEFAULT 1,
+                boss_enabled   INTEGER NOT NULL DEFAULT 1,
+                custom_config  TEXT    NOT NULL DEFAULT '{}',
+                owner_user_id  BIGINT  DEFAULT NULL,
+                created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """)
+
+        # ─── История покупок кристаллов за Stars ──────────────────────────
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS stars_purchases (
+                id              SERIAL PRIMARY KEY,
+                user_id         BIGINT NOT NULL,
+                stars_amount    INTEGER NOT NULL,
+                crystals_amount INTEGER NOT NULL,
+                pack_key        TEXT NOT NULL,
+                telegram_charge_id TEXT DEFAULT NULL,
+                purchased_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS app_error_logs (
+                id          SERIAL PRIMARY KEY,
+                source      TEXT NOT NULL DEFAULT 'backend',
+                context     TEXT NOT NULL DEFAULT '',
+                error_msg   TEXT NOT NULL DEFAULT '',
+                traceback   TEXT NOT NULL DEFAULT '',
+                user_id     BIGINT DEFAULT NULL,
+                chat_id     BIGINT DEFAULT NULL,
+                created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """)
 
         # DDL соединение не поддерживает транзакции - commit() не нужен
 
@@ -3048,23 +3101,30 @@ async def deduct_mora(user_id: int, chat_id: int, amount: int) -> tuple[bool, in
 
 
 async def get_vip(user_id: int, chat_id: int) -> int:
-    """Returns 1 if user has VIP in this chat, else 0."""
+    """Returns 1 if user has active (non-expired) VIP in this chat, else 0."""
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT vip FROM user_mora WHERE user_id=? AND chat_id=?",
+            "SELECT vip, vip_expires_at FROM user_mora WHERE user_id=? AND chat_id=?",
             (user_id, chat_id),
         ) as c:
             row = await c.fetchone()
-    return (row["vip"] or 0) if row else 0
+    if not row or not (row["vip"] or 0):
+        return 0
+    exp = row["vip_expires_at"]
+    if exp is not None and exp < datetime.now(timezone.utc):
+        return 0  # expired  but not yet cleaned up
+    return 1
 
 
 async def set_vip(user_id: int, chat_id: int, value: int):
-    """Set VIP status for user in chat."""
+    """Set VIP status for user in chat. Enabling VIP sets a 30-day expiry."""
+    expires_at = (datetime.now(timezone.utc) + timedelta(days=30)) if value else None
     async with postgres_connect() as db:
         await db.execute(
-            """INSERT INTO user_mora (user_id, chat_id, vip) VALUES (?, ?, ?)
-               ON CONFLICT(user_id, chat_id) DO UPDATE SET vip = excluded.vip""",
-            (user_id, chat_id, value),
+            """INSERT INTO user_mora (user_id, chat_id, vip, vip_expires_at) VALUES (?, ?, ?, ?)
+               ON CONFLICT(user_id, chat_id) DO UPDATE
+               SET vip = excluded.vip, vip_expires_at = excluded.vip_expires_at""",
+            (user_id, chat_id, value, expires_at),
         )
         await db.commit()
 
@@ -5852,6 +5912,136 @@ async def start_pet_walk_full(user_id: int, chat_id: int) -> dict:
     }
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
+#  💎 КРИСТАЛЛЫ — премиум-валюта (Telegram Stars)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+async def get_crystals(user_id: int) -> int:
+    """Возвращает текущий баланс кристаллов пользователя."""
+    async with postgres_connect() as db:
+        row = await db.fetchone(
+            "SELECT balance FROM user_crystals WHERE user_id=$1", (user_id,)
+        )
+    return row["balance"] if row else 0
+
+
+async def add_crystals(user_id: int, amount: int) -> int:
+    """Начисляет кристаллы; возвращает новый баланс."""
+    async with postgres_connect() as db:
+        await db.execute(
+            """INSERT INTO user_crystals (user_id, balance, total_purchased)
+               VALUES ($1, $2, $2)
+               ON CONFLICT(user_id) DO UPDATE
+               SET balance         = user_crystals.balance + EXCLUDED.balance,
+                   total_purchased = user_crystals.total_purchased + EXCLUDED.total_purchased""",
+            (user_id, amount),
+        )
+        row = await db.fetchone(
+            "SELECT balance FROM user_crystals WHERE user_id=$1", (user_id,)
+        )
+        await db.commit()
+    return row["balance"] if row else amount
+
+
+async def spend_crystals(user_id: int, amount: int) -> bool:
+    """Списывает кристаллы. Возвращает True при успехе, False — недостаточно средств."""
+    async with postgres_connect() as db:
+        row = await db.fetchone(
+            "SELECT balance FROM user_crystals WHERE user_id=$1", (user_id,)
+        )
+        balance = row["balance"] if row else 0
+        if balance < amount:
+            return False
+        await db.execute(
+            "UPDATE user_crystals SET balance = balance - $1 WHERE user_id = $2",
+            (amount, user_id),
+        )
+        await db.commit()
+    return True
+
+
+async def log_stars_purchase(
+    user_id: int, stars_amount: int, crystals_amount: int,
+    pack_key: str, telegram_charge_id: str = "",
+) -> None:
+    """Записывает покупку кристаллов за Stars в журнал."""
+    from datetime import datetime, timezone
+    async with postgres_connect() as db:
+        await db.execute(
+            """INSERT INTO stars_purchases
+               (user_id, stars_amount, crystals_amount, pack_key, telegram_charge_id, purchased_at)
+               VALUES ($1, $2, $3, $4, $5, $6)""",
+            (user_id, stars_amount, crystals_amount, pack_key,
+             telegram_charge_id, datetime.now(timezone.utc)),
+        )
+        await db.commit()
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  🏗️ CHAT CONFIGS — конфигурация бота по чатам (multi-tenant)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+_CHAT_CONFIG_DEFAULTS = {
+    "display_name":   "Предвестник",
+    "theme_pack":     "default",
+    "currency_name":  "Мора",
+    "currency_emoji": "🪙",
+    "gacha_enabled":  True,
+    "casino_enabled": True,
+    "boss_enabled":   True,
+    "custom_config":  {},
+    "owner_user_id":  None,
+}
+
+
+async def get_chat_config(chat_id: int) -> dict:
+    """Возвращает конфигурацию чата; если не задана — возвращает дефолты."""
+    async with postgres_connect() as db:
+        row = await db.fetchone(
+            "SELECT * FROM chat_configs WHERE chat_id=$1", (chat_id,)
+        )
+    if not row:
+        return dict(_CHAT_CONFIG_DEFAULTS)
+    import json
+    return {
+        "display_name":   row["display_name"],
+        "theme_pack":     row["theme_pack"],
+        "currency_name":  row["currency_name"],
+        "currency_emoji": row["currency_emoji"],
+        "gacha_enabled":  bool(row["gacha_enabled"]),
+        "casino_enabled": bool(row["casino_enabled"]),
+        "boss_enabled":   bool(row["boss_enabled"]),
+        "custom_config":  json.loads(row["custom_config"] or "{}"),
+        "owner_user_id":  row["owner_user_id"],
+    }
+
+
+async def upsert_chat_config(chat_id: int, **kwargs) -> None:
+    """Обновляет (или создаёт) конфигурацию чата."""
+    import json
+    allowed = {
+        "display_name", "theme_pack", "currency_name", "currency_emoji",
+        "gacha_enabled", "casino_enabled", "boss_enabled",
+        "custom_config", "owner_user_id",
+    }
+    kwargs = {k: v for k, v in kwargs.items() if k in allowed}
+    if "custom_config" in kwargs and isinstance(kwargs["custom_config"], dict):
+        kwargs["custom_config"] = json.dumps(kwargs["custom_config"], ensure_ascii=False)
+
+    async with postgres_connect() as db:
+        await db.execute(
+            "INSERT INTO chat_configs (chat_id) VALUES ($1) ON CONFLICT DO NOTHING",
+            (chat_id,),
+        )
+        for key, value in kwargs.items():
+            await db.execute(
+                f"UPDATE chat_configs SET {key}=$1 WHERE chat_id=$2",
+                (value, chat_id),
+            )
+        await db.commit()
+
+
+
 # ─── Топ-10 по недельной активности (для дивидендов) ─────────────────────────
 
 async def get_weekly_top_users(chat_id: int, limit: int = 10) -> list[int]:
@@ -5923,11 +6113,13 @@ async def get_weekly_top_reward_history(chat_id: int, week_key: str) -> list:
 
 
 async def get_vip_users(chat_id: int) -> list[int]:
-    """Возвращает list user_id у кого vip=1 в данном чате."""
+    """Возвращает list user_id у кого активный (не истёкший) vip=1 в данном чате."""
+    now = datetime.now(timezone.utc)
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT user_id FROM user_mora WHERE chat_id=? AND vip=1",
-            (chat_id,),
+            "SELECT user_id FROM user_mora WHERE chat_id=? AND vip=1 "
+            "AND (vip_expires_at IS NULL OR vip_expires_at > ?)",
+            (chat_id, now),
         ) as c:
             rows = await c.fetchall()
     return [r[0] for r in rows]
@@ -6729,3 +6921,38 @@ async def apply_solo_boss_damage(user_id: int, session: dict, damage: int) -> di
         "crit": crit,
     }
 
+
+
+# ─── Error log helpers ───────────────────────────────────────────────────────
+
+async def log_app_error(source: str, context: str, error_msg: str, traceback_text: str = "", user_id=None, chat_id=None):
+    """Persist an application error to app_error_logs. Never raises."""
+    try:
+        async with postgres_connect() as db:
+            await db.execute(
+                "INSERT INTO app_error_logs (source, context, error_msg, traceback, user_id, chat_id) "
+                "VALUES (?,?,?,?,?,?)",
+                (source, context[:200], error_msg[:500], traceback_text[:8000], user_id, chat_id),
+            )
+            await db.commit()
+    except Exception:
+        pass
+
+
+async def get_app_error_logs(limit: int = 200) -> list:
+    """Return the most recent error log entries (newest first)."""
+    async with postgres_connect() as db:
+        async with db.execute(
+            "SELECT id, source, context, error_msg, traceback, user_id, chat_id, created_at "
+            "FROM app_error_logs ORDER BY created_at DESC LIMIT ?",
+            (limit,),
+        ) as c:
+            rows = await c.fetchall()
+    return [dict(r) for r in rows]
+
+
+async def clear_app_error_logs():
+    """Delete all rows from app_error_logs."""
+    async with postgres_connect() as db:
+        await db.execute("DELETE FROM app_error_logs")
+        await db.commit()

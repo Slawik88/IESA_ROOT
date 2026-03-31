@@ -20,7 +20,7 @@ BOT_START_TIME = datetime.now(timezone.utc)
 from handlers import (admin, auto_mod, bank, boss, casino, checkin, dev_panel, diligence, dm_roles, economy, espionage,
                      expeditions, extras, food, fun, gacha, gifts, helper,
                      moderator, notes, owner, pets, quests, reputation,
-                     shop, tax_event, user, wallet, weather)
+                     shop, stars, tax_event, user, wallet, weather)
 from handlers import auction as auction_handler
 
 logging.basicConfig(level=logging.INFO)
@@ -106,6 +106,7 @@ async def main():
     dp.include_router(auction_handler.router)  # аукцион
     dp.include_router(dev_panel.router)    # панель разработчика
     dp.include_router(shop.router)         # магазин
+    dp.include_router(stars.router)        # Telegram Stars (кристаллы)
     dp.include_router(gifts.router)        # подарки партнёру
     dp.include_router(tax_event.router)    # налоговая инспекция
     dp.include_router(weather.router)      # погода
