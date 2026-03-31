@@ -68,15 +68,15 @@ async def feed_pet(
         from database.postgres import connect as postgres_connect
         async with postgres_connect() as db:
             cursor = await db.execute(
-                "UPDATE user_mora SET balance=balance-? WHERE user_id=? AND chat_id=? AND balance>=?",
-                (food["price"], uid, chat_id, food["price"]),
+                "UPDATE users SET balance=balance-? WHERE user_id=? AND COALESCE(balance,0)>=?",
+                (food["price"], uid, food["price"]),
             )
             if cursor.rowcount == 0:
                 raise ValueError("Не удалось списать Мору")
             await db.commit()
             async with db.execute(
-                "SELECT balance FROM user_mora WHERE user_id=? AND chat_id=?",
-                (uid, chat_id),
+                "SELECT COALESCE(balance, 0) AS balance FROM users WHERE user_id=?",
+                (uid,),
             ) as c:
                 row = await c.fetchone()
             new_bal = row[0] if row else 0

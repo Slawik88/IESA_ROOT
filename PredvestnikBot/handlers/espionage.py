@@ -80,8 +80,8 @@ async def cmd_spy(message: Message, cmd_args: str):
     from database.postgres import connect as postgres_connect
     async with postgres_connect() as db:
         cursor = await db.execute(
-            "UPDATE user_mora SET balance=balance-? WHERE user_id=? AND chat_id=? AND balance>=?",
-            (_SPY_COST, uid, chat_id, _SPY_COST),
+            "UPDATE users SET balance=balance-? WHERE user_id=? AND COALESCE(balance,0)>=?",
+            (_SPY_COST, uid, _SPY_COST),
         )
         if cursor.rowcount == 0:
             await message.answer("❌ Не удалось списать Мору.")

@@ -723,16 +723,16 @@ async def cmd_family_deposit(message: Message, cmd_args: str):
     from database.postgres import connect as postgres_connect
     async with postgres_connect() as db:
         cursor = await db.execute(
-            "UPDATE user_mora SET balance=balance-? WHERE user_id=? AND chat_id=? AND balance>=?",
-            (amount, uid, chat_id, amount),
+            "UPDATE users SET balance=balance-? WHERE user_id=? AND COALESCE(balance,0)>=?",
+            (amount, uid, amount),
         )
         if cursor.rowcount == 0:
             await message.answer("❌ Не удалось списать Мору. Попробуй ещё раз.")
             return
         await db.commit()
         async with db.execute(
-            "SELECT balance FROM user_mora WHERE user_id=? AND chat_id=?",
-            (uid, chat_id),
+            "SELECT COALESCE(balance, 0) AS balance FROM users WHERE user_id=?",
+            (uid,),
         ) as c:
             row = await c.fetchone()
         new_personal = row[0] if row else 0
@@ -833,8 +833,8 @@ async def cmd_anon_message(message: Message, cmd_args: str):
     from database.postgres import connect as postgres_connect
     async with postgres_connect() as db:
         cursor = await db.execute(
-            "UPDATE user_mora SET balance=balance-? WHERE user_id=? AND chat_id=? AND balance>=?",
-            (ANON_MSG_PRICE, uid, chat_id, ANON_MSG_PRICE),
+            "UPDATE users SET balance=balance-? WHERE user_id=? AND COALESCE(balance,0)>=?",
+            (ANON_MSG_PRICE, uid, ANON_MSG_PRICE),
         )
         if cursor.rowcount == 0:
             await message.answer("❌ Не удалось списать Мору. Попробуй ещё раз.")
@@ -1007,8 +1007,8 @@ async def cmd_secret_message(message: Message, cmd_args: str):
     from database.postgres import connect as postgres_connect
     async with postgres_connect() as db:
         cursor = await db.execute(
-            "UPDATE user_mora SET balance=balance-? WHERE user_id=? AND chat_id=? AND balance>=?",
-            (SECRET_MSG_PRICE, uid, chat_id, SECRET_MSG_PRICE),
+            "UPDATE users SET balance=balance-? WHERE user_id=? AND COALESCE(balance,0)>=?",
+            (SECRET_MSG_PRICE, uid, SECRET_MSG_PRICE),
         )
         if cursor.rowcount == 0:
             await message.answer("❌ Не удалось списать Мору. Попробуй ещё раз.")

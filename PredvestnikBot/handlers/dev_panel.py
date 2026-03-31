@@ -508,8 +508,8 @@ async def cmd_treasury_take(message: Message, cmd_args: str):
     # Atomic: deduct from user
     async with postgres_connect() as db:
         cursor = await db.execute(
-            "UPDATE user_mora SET balance=balance-? WHERE user_id=? AND chat_id=? AND balance>=?",
-            (amount, target_id, chat_id, amount),
+            "UPDATE users SET balance=balance-? WHERE user_id=? AND COALESCE(balance,0)>=?",
+            (amount, target_id, amount),
         )
         if cursor.rowcount == 0:
             mora_row = await get_mora(target_id, chat_id)

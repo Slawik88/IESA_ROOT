@@ -144,8 +144,8 @@ async def family_deposit(uid: int, chat_id: int, amount: int) -> dict:
 
     async with postgres_connect() as db:
         cursor = await db.execute(
-            "UPDATE user_mora SET balance=balance-? WHERE user_id=? AND chat_id=? AND balance>=?",
-            (amount, uid, chat_id, amount),
+            "UPDATE users SET balance=balance-? WHERE user_id=? AND COALESCE(balance,0)>=?",
+            (amount, uid, amount),
         )
         if cursor.rowcount == 0:
             raise ValueError("Не удалось списать Мору")

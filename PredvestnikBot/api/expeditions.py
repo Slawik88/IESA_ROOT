@@ -89,8 +89,8 @@ async def start_expedition(uid: int, chat_id: int, option_key: str,
             from database.postgres import connect as postgres_connect
             async with postgres_connect() as db:
                 cursor = await db.execute(
-                    "UPDATE user_mora SET balance=balance-? WHERE user_id=? AND chat_id=? AND balance>=?",
-                    (cost, uid, chat_id, cost),
+                    "UPDATE users SET balance=balance-? WHERE user_id=? AND COALESCE(balance,0)>=?",
+                    (cost, uid, cost),
                 )
                 if cursor.rowcount == 0:
                     mora_row = await get_mora(uid, chat_id)

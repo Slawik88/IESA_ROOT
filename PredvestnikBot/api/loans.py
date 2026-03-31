@@ -167,8 +167,8 @@ async def repay_loan(uid: int, chat_id: int, loan_id: int) -> dict:
 
         # Atomically deduct + mark repaid in same transaction
         cursor = await db.execute(
-            "UPDATE user_mora SET balance=balance-? WHERE user_id=? AND chat_id=? AND balance>=?",
-            (amount, uid, chat_id, amount),
+            "UPDATE users SET balance=balance-? WHERE user_id=? AND COALESCE(balance,0)>=?",
+            (amount, uid, amount),
         )
         if cursor.rowcount == 0:
             mora_row = await get_mora(uid, chat_id)
@@ -246,8 +246,8 @@ async def respond_to_loan(uid: int, chat_id: int, loan_id: int, action: str) -> 
 
         # Atomically deduct from lender + mark accepted in same transaction
         cursor = await db.execute(
-            "UPDATE user_mora SET balance=balance-? WHERE user_id=? AND chat_id=? AND balance>=?",
-            (amount, lender_id, chat_id, amount),
+            "UPDATE users SET balance=balance-? WHERE user_id=? AND COALESCE(balance,0)>=?",
+            (amount, lender_id, amount),
         )
         if cursor.rowcount == 0:
             mora_row = await get_mora(lender_id, chat_id)

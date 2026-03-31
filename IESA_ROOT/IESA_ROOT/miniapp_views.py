@@ -223,17 +223,19 @@ def miniapp_user_data(request):
         user_row = cur.fetchone()
         full_name = user_row[0] if user_row else str(uid)
 
-        # Mora row: use specific chat if provided, otherwise best (highest balance)
+        # Mora row: use specific chat if provided, otherwise any chat row
         if specific_chat_id:
             cur.execute(
-                f"SELECT chat_id, balance, vip, top_frame, active_theme, vip_expires_at FROM user_mora "
-                f"WHERE user_id={ph} AND chat_id={ph}",
-                (uid, specific_chat_id),
+                f"SELECT um.chat_id, COALESCE(u.balance,0) AS balance, COALESCE(um.vip,0), um.top_frame, um.active_theme, um.vip_expires_at "
+                f"FROM users u LEFT JOIN user_mora um ON um.user_id=u.user_id AND um.chat_id={ph} "
+                f"WHERE u.user_id={ph}",
+                (specific_chat_id, uid),
             )
         else:
             cur.execute(
-                f"SELECT chat_id, balance, vip, top_frame, active_theme, vip_expires_at FROM user_mora "
-                f"WHERE user_id={ph} ORDER BY balance DESC LIMIT 1",
+                f"SELECT um.chat_id, COALESCE(u.balance,0) AS balance, COALESCE(um.vip,0), um.top_frame, um.active_theme, um.vip_expires_at "
+                f"FROM users u LEFT JOIN user_mora um ON um.user_id=u.user_id "
+                f"WHERE u.user_id={ph} ORDER BY um.chat_id LIMIT 1",
                 (uid,),
             )
         mora_row = cur.fetchone()
@@ -380,8 +382,8 @@ def miniapp_user_data(request):
         partner_id_val = None
         if chat_id:
             cur.execute(
-                f"SELECT partner_id FROM marriages WHERE user_id={ph} AND chat_id={ph}",
-                (uid, chat_id),
+                f"SELECT partner_id FROM marriages_global WHERE user_id={ph}",
+                (uid,),
             )
             m_row = cur.fetchone()
             has_partner = m_row is not None
@@ -2011,7 +2013,7 @@ def miniapp_inventory_sell_junk(request):
         )
         junk_items = cur.fetchall()
         if not junk_items:
-            cur.execute(f"SELECT balance FROM user_mora WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
+            cur.execute(f"SELECT COALESCE(balance, 0) FROM users WHERE user_id={ph}", (uid,))
             bal = (cur.fetchone() or [0])[0]
             conn.close()
             return JsonResponse({"ok": True, "sold": 0, "mora": 0, "balance": bal}, headers=headers)
@@ -2029,18 +2031,16 @@ def miniapp_inventory_sell_junk(request):
         cur.execute(f"DELETE FROM gacha_inventory WHERE id IN ({placeholders})", ids_to_delete)
         if db_type == "pg":
             cur.execute(
-                f"INSERT INTO user_mora (user_id, chat_id, balance) VALUES ({ph},{ph},{ph}) "
-                f"ON CONFLICT (user_id, chat_id) DO UPDATE SET balance=user_mora.balance+EXCLUDED.balance",
-                (uid, chat_id, total_mora),
+                f"UPDATE users SET balance=COALESCE(balance,0)+{ph} WHERE user_id={ph}",
+                (total_mora, uid),
             )
         else:
             cur.execute(
-                "INSERT INTO user_mora (user_id, chat_id, balance) VALUES (?,?,?) "
-                "ON CONFLICT(user_id, chat_id) DO UPDATE SET balance=user_mora.balance+excluded.balance",
-                (uid, chat_id, total_mora),
+                "UPDATE users SET balance=COALESCE(balance,0)+? WHERE user_id=?",
+                (total_mora, uid),
             )
         conn.commit()
-        cur.execute(f"SELECT balance FROM user_mora WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
+        cur.execute(f"SELECT COALESCE(balance, 0) FROM users WHERE user_id={ph}", (uid,))
         new_bal = (cur.fetchone() or [0])[0]
         conn.close()
         return JsonResponse({"ok": True, "sold": total_sold, "mora": total_mora, "balance": new_bal}, headers=headers)
@@ -2082,7 +2082,7 @@ def miniapp_shop_set_title(request):
         cur = conn.cursor()
         ph = "%s" if db_type == "pg" else "?"
         if wallet_type == "family":
-            cur.execute(f"SELECT partner_id FROM marriages WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
+            cur.execute(f"SELECT partner_id FROM marriages_global WHERE user_id={ph}", (uid,))
             if not cur.fetchone():
                 conn.close()
                 return JsonResponse({"error": "Нет семейного кошелька"}, status=400, headers=headers)
@@ -2093,15 +2093,15 @@ def miniapp_shop_set_title(request):
                 return JsonResponse({"error": f"Недостаточно моры. Нужно {_CUSTOM_TITLE_PRICE} 🪙"}, status=400, headers=headers)
             cur.execute(f"UPDATE family_wallet SET balance=balance-{ph} WHERE chat_id={ph} AND user_id={ph}", (_CUSTOM_TITLE_PRICE, chat_id, uid))
         else:
-            cur.execute(f"SELECT balance FROM user_mora WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
+            cur.execute(f"SELECT COALESCE(balance, 0) FROM users WHERE user_id={ph}", (uid,))
             row = cur.fetchone()
             balance = row[0] if row else 0
             if balance < _CUSTOM_TITLE_PRICE:
                 conn.close()
                 return JsonResponse({"error": f"Недостаточно моры. Нужно {_CUSTOM_TITLE_PRICE} 🪙"}, status=400, headers=headers)
             cur.execute(
-                f"UPDATE user_mora SET balance=balance-{ph} WHERE user_id={ph} AND chat_id={ph}",
-                (_CUSTOM_TITLE_PRICE, uid, chat_id),
+                f"UPDATE users SET balance=balance-{ph} WHERE user_id={ph} AND COALESCE(balance,0)>={ph}",
+                (_CUSTOM_TITLE_PRICE, uid, _CUSTOM_TITLE_PRICE),
             )
         if db_type == "pg":
             cur.execute(
@@ -2116,7 +2116,7 @@ def miniapp_shop_set_title(request):
                 (uid, chat_id, title),
             )
         conn.commit()
-        cur.execute(f"SELECT balance FROM user_mora WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
+        cur.execute(f"SELECT COALESCE(balance, 0) FROM users WHERE user_id={ph}", (uid,))
         new_bal = (cur.fetchone() or [0])[0]
         conn.close()
         return JsonResponse({"ok": True, "title": title, "balance": new_bal}, headers=headers)
@@ -2781,8 +2781,8 @@ def miniapp_public_profile(request):
         partner_name = None
         partner_id = None
         cur.execute(
-            f"SELECT partner_id FROM marriages WHERE user_id={ph} AND chat_id={ph}",
-            (target_id, chat_id),
+            f"SELECT partner_id FROM marriages_global WHERE user_id={ph}",
+            (target_id,),
         )
         m_row = cur.fetchone()
         if m_row:
@@ -3029,8 +3029,8 @@ def miniapp_couple_boss_status(request):
         cur = conn.cursor()
         ph = "%s" if db_type == "pg" else "?"
         
-        # Check if user is married
-        cur.execute(f"SELECT partner_id FROM marriages WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
+        # Check if user is married (global)
+        cur.execute(f"SELECT partner_id FROM marriages_global WHERE user_id={ph}", (uid,))
         marriage_row = cur.fetchone()
         if not marriage_row:
             conn.close()
@@ -3147,7 +3147,7 @@ def miniapp_couple_boss_start(request):
         ph = "%s" if db_type == "pg" else "?"
         
         # Check if user is married
-        cur.execute(f"SELECT partner_id FROM marriages WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
+        cur.execute(f"SELECT partner_id FROM marriages_global WHERE user_id={ph}", (uid,))
         marriage_row = cur.fetchone()
         if not marriage_row:
             conn.close()
@@ -3157,7 +3157,7 @@ def miniapp_couple_boss_start(request):
         user_a_id = min(uid, partner_id)
         user_b_id = max(uid, partner_id)
         
-        # Check if session already exists
+        # Get current session
         from datetime import timezone
         import datetime
         today = datetime.datetime.now(timezone.utc).strftime("%Y-%m-%d")
@@ -3232,8 +3232,8 @@ def miniapp_couple_boss_attack(request):
         cur = conn.cursor()
         ph = "%s" if db_type == "pg" else "?"
         
-        # Check if user is married
-        cur.execute(f"SELECT partner_id FROM marriages WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
+        # Check if user is married (global)
+        cur.execute(f"SELECT partner_id FROM marriages_global WHERE user_id={ph}", (uid,))
         marriage_row = cur.fetchone()
         if not marriage_row:
             conn.close()
@@ -4827,8 +4827,8 @@ def miniapp_gifts_send(request):
             async def _deduct():
                 async with postgres_connect() as db:
                     cursor = await db.execute(
-                        "UPDATE user_mora SET balance=balance-? WHERE user_id=? AND chat_id=? AND balance>=?",
-                        (price, uid, chat_id, price),
+                        "UPDATE users SET balance=balance-? WHERE user_id=? AND COALESCE(balance,0)>=?",
+                        (price, uid, price),
                     )
                     if cursor.rowcount == 0:
                         from database.db import get_mora as _gm

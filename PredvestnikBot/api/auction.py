@@ -327,8 +327,8 @@ async def place_bid(
 
         # Проверяем мору покупателя
         mora_row = await db.fetchone(
-            "SELECT balance FROM user_mora WHERE user_id=? AND chat_id=?",
-            (bidder_id, chat_id)
+            "SELECT COALESCE(balance, 0) AS balance FROM users WHERE user_id=?",
+            (bidder_id,)
         )
         balance = int(mora_row["balance"] or 0) if mora_row else 0
         if balance < amount:
@@ -336,8 +336,8 @@ async def place_bid(
 
         # Списываем с покупателя
         await db.execute(
-            "UPDATE user_mora SET balance=balance-? WHERE user_id=? AND chat_id=? AND balance>=?",
-            (amount, bidder_id, chat_id, amount)
+            "UPDATE users SET balance=balance-? WHERE user_id=? AND COALESCE(balance,0)>=?",
+            (amount, bidder_id, amount)
         )
 
         outbid_user_id   = auction["highest_bidder_id"]
@@ -346,8 +346,8 @@ async def place_bid(
         # Возвращаем предыдущую ставку
         if outbid_user_id and outbid_user_id != bidder_id and outbid_amount > 0:
             await db.execute(
-                "UPDATE user_mora SET balance=balance+? WHERE user_id=? AND chat_id=?",
-                (outbid_amount, outbid_user_id, chat_id)
+                "UPDATE users SET balance=COALESCE(balance,0)+? WHERE user_id=?",
+                (outbid_amount, outbid_user_id)
             )
 
         # Обновляем аукцион
@@ -396,8 +396,8 @@ async def buyout_auction(buyer_id: int, chat_id: int, auction_id: int) -> dict:
 
         # Проверяем мору покупателя
         mora_row = await db.fetchone(
-            "SELECT balance FROM user_mora WHERE user_id=? AND chat_id=?",
-            (buyer_id, chat_id)
+            "SELECT COALESCE(balance, 0) AS balance FROM users WHERE user_id=?",
+            (buyer_id,)
         )
         balance = int(mora_row["balance"] or 0) if mora_row else 0
         if balance < buyout:
@@ -405,8 +405,8 @@ async def buyout_auction(buyer_id: int, chat_id: int, auction_id: int) -> dict:
 
         # Списываем с покупателя
         await db.execute(
-            "UPDATE user_mora SET balance=balance-? WHERE user_id=? AND chat_id=? AND balance>=?",
-            (buyout, buyer_id, chat_id, buyout)
+            "UPDATE users SET balance=balance-? WHERE user_id=? AND COALESCE(balance,0)>=?",
+            (buyout, buyer_id, buyout)
         )
 
         # Возвращаем ставку предыдущему участнику если есть
@@ -414,8 +414,8 @@ async def buyout_auction(buyer_id: int, chat_id: int, auction_id: int) -> dict:
         prev_amount = auction["current_price"] if auction["bid_count"] > 0 else 0
         if prev_bidder and prev_bidder != buyer_id and prev_amount > 0:
             await db.execute(
-                "UPDATE user_mora SET balance=balance+? WHERE user_id=? AND chat_id=?",
-                (prev_amount, prev_bidder, chat_id)
+                "UPDATE users SET balance=COALESCE(balance,0)+? WHERE user_id=?",
+                (prev_amount, prev_bidder)
             )
 
         # 10% комиссия → казна
@@ -426,8 +426,8 @@ async def buyout_auction(buyer_id: int, chat_id: int, auction_id: int) -> dict:
 
         # Продавцу — выручка
         await db.execute(
-            "UPDATE user_mora SET balance=balance+? WHERE user_id=? AND chat_id=?",
-            (seller_gets, auction["seller_id"], chat_id)
+            "UPDATE users SET balance=COALESCE(balance,0)+?, total_earned=COALESCE(total_earned,0)+? WHERE user_id=?",
+            (seller_gets, seller_gets, auction["seller_id"])
         )
 
         # Передаём предмет покупателю
@@ -503,14 +503,14 @@ async def cancel_auction(seller_id: int, chat_id: int, auction_id: int) -> dict:
             refunded_bidder_id = auction["highest_bidder_id"]
             refunded_amount    = int(auction["current_price"])
             await db.execute(
-                "UPDATE user_mora SET balance=balance+? WHERE user_id=? AND chat_id=?",
-                (refunded_amount, refunded_bidder_id, chat_id)
+                "UPDATE users SET balance=COALESCE(balance,0)+? WHERE user_id=?",
+                (refunded_amount, refunded_bidder_id)
             )
             # Штраф продавцу
             penalty = max(5, int(auction["start_price"] * 0.05))
             await db.execute(
-                "UPDATE user_mora SET balance = GREATEST(0, balance - ?) WHERE user_id=? AND chat_id=?",
-                (penalty, seller_id, chat_id)
+                "UPDATE users SET balance=GREATEST(0, COALESCE(balance,0)-?) WHERE user_id=?",
+                (penalty, seller_id)
             )
 
         # Разблокировать предмет
@@ -605,8 +605,8 @@ async def finalize_expired_auctions(bot=None) -> list[dict]:
                         else:
                             # Предмет удалён — возвращаем ставку победителю
                             await db.execute(
-                                "UPDATE user_mora SET balance=balance+? WHERE user_id=? AND chat_id=?",
-                                (final_price, winner_id, chat_id)
+                                "UPDATE users SET balance=COALESCE(balance,0)+? WHERE user_id=?",
+                                (final_price, winner_id)
                             )
                             await db.execute(
                                 "UPDATE auctions SET status='expired', finished_at=? WHERE id=?",
@@ -617,8 +617,8 @@ async def finalize_expired_auctions(bot=None) -> list[dict]:
 
                     # Мора продавцу (минус комиссия)
                     await db.execute(
-                        "UPDATE user_mora SET balance=balance+? WHERE user_id=? AND chat_id=?",
-                        (seller_gets, seller_id, chat_id)
+                        "UPDATE users SET balance=COALESCE(balance,0)+?, total_earned=COALESCE(total_earned,0)+? WHERE user_id=?",
+                        (seller_gets, seller_gets, seller_id)
                     )
                     # Комиссия → казна
                     from database.db import add_to_treasury

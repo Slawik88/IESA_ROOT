@@ -49,8 +49,8 @@ async def buy_bond(uid: int, chat_id: int, bond_key: str,
         from database.postgres import connect as postgres_connect
         async with postgres_connect() as db:
             cursor = await db.execute(
-                "UPDATE user_mora SET balance=balance-? WHERE user_id=? AND chat_id=? AND balance>=?",
-                (total_cost, uid, chat_id, total_cost),
+                "UPDATE users SET balance=balance-? WHERE user_id=? AND COALESCE(balance,0)>=?",
+                (total_cost, uid, total_cost),
             )
             if cursor.rowcount == 0:
                 mora_row = await get_mora(uid, chat_id)

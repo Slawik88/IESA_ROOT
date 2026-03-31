@@ -245,7 +245,12 @@ async def _run_webserver(bot: Bot) -> None:
         from database.postgres import connect as postgres_connect
         async with postgres_connect() as db:
             async with db.execute(
-                "SELECT * FROM user_mora WHERE user_id=? ORDER BY balance DESC LIMIT 1",
+                """SELECT um.chat_id, COALESCE(u.balance, 0) AS balance,
+                          COALESCE(u.total_earned, 0) AS total_earned,
+                          um.vip, um.vip_expires_at, um.top_frame, um.mora_public
+                   FROM user_mora um
+                   JOIN users u ON u.user_id = um.user_id
+                   WHERE um.user_id=? ORDER BY um.balance DESC LIMIT 1""",
                 (uid,),
             ) as c:
                 mora = await c.fetchone()
@@ -318,7 +323,12 @@ async def _run_webserver(bot: Bot) -> None:
         from database.postgres import connect as postgres_connect
         async with postgres_connect() as db:
             async with db.execute(
-                "SELECT * FROM user_mora WHERE user_id=? ORDER BY balance DESC LIMIT 1",
+                """SELECT um.chat_id, COALESCE(u.balance, 0) AS balance,
+                          COALESCE(u.total_earned, 0) AS total_earned,
+                          um.vip, um.vip_expires_at, um.top_frame, um.mora_public
+                   FROM user_mora um
+                   JOIN users u ON u.user_id = um.user_id
+                   WHERE um.user_id=? ORDER BY um.balance DESC LIMIT 1""",
                 (uid,),
             ) as c:
                 mora = await c.fetchone()
@@ -342,9 +352,9 @@ async def _run_webserver(bot: Bot) -> None:
             ) as c:
                 inv_rows = await c.fetchall()
             async with db.execute(
-                "SELECT pet_type, name, COALESCE(fatigue,0) FROM pets "
-                "WHERE user_id=? AND chat_id=?",
-                (uid, mora["chat_id"] if mora else 0),
+                "SELECT pet_type, name, COALESCE(fatigue,0) FROM pets_global "
+                "WHERE user_id=?",
+                (uid,),
             ) as c:
                 pet_row = await c.fetchone()
 
