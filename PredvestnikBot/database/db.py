@@ -2654,11 +2654,11 @@ async def create_marriage(user_a: int, user_b: int, chat_id: int):
         )
         await db.execute(
             "INSERT INTO marriages (user_id, chat_id, partner_id, married_at) VALUES (?,?,?,?)",
-            (user_a, chat_id, user_b, now),
+            (user_a, chat_id, user_b, now.isoformat()),
         )
         await db.execute(
             "INSERT INTO marriages (user_id, chat_id, partner_id, married_at) VALUES (?,?,?,?)",
-            (user_b, chat_id, user_a, now),
+            (user_b, chat_id, user_a, now.isoformat()),
         )
         await db.commit()
     # Marriage achievement for both partners (fire-and-forget)

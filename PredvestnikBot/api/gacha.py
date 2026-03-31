@@ -237,9 +237,9 @@ async def gacha_roll(uid: int, chat_id: int, count: int,
         async with _pg() as _db:
             await _db.execute(
                 "UPDATE user_mora SET total_gacha_rolls = COALESCE(total_gacha_rolls,0) + ? WHERE user_id=? AND chat_id=?",
-                count, uid, chat_id
+                (count, uid, chat_id)
             )
-            row = await _db.fetchrow("SELECT total_gacha_rolls FROM user_mora WHERE user_id=? AND chat_id=?", uid, chat_id)
+            row = await _db.fetchone("SELECT total_gacha_rolls FROM user_mora WHERE user_id=? AND chat_id=?", (uid, chat_id))
             total_rolls = int(row["total_gacha_rolls"] or 0) if row else count
         from api.achievements import check_and_award as _ach
         await _ach(uid, chat_id, "gacha_rolls", total_rolls)
