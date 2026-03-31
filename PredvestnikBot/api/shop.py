@@ -31,8 +31,8 @@ async def get_catalog(uid: int, chat_id: int) -> dict:
     async with postgres_connect() as db:
         rows = await db.fetch(
             "SELECT item_value FROM shop_items "
-            "WHERE user_id=? AND chat_id=? AND item_type='cosmetic'",
-            (uid, chat_id),
+            "WHERE user_id=? AND item_type='cosmetic'",
+            (uid,),
         )
         owned_cosmetics = {r["item_value"] for r in rows}
 
@@ -119,8 +119,8 @@ async def _get_themes_for_catalog(uid: int, chat_id: int) -> list:
     from database.postgres import postgres_connect
     async with postgres_connect() as db:
         rows = await db.fetch(
-            "SELECT theme_key FROM user_themes WHERE user_id=? AND chat_id=?",
-            (uid, chat_id),
+            "SELECT theme_key FROM user_themes WHERE user_id=?",
+            (uid,),
         )
         owned_keys = {r["theme_key"] for r in rows}
         mora_row = await db.fetchone(
@@ -247,8 +247,8 @@ async def buy_item(
         from database.postgres import postgres_connect as _pgt
         async with _pgt() as _dbt:
             _theme_row = await _dbt.fetchone(
-                "SELECT 1 FROM user_themes WHERE user_id=? AND chat_id=? AND theme_key=?",
-                (uid, chat_id, item_key),
+                "SELECT 1 FROM user_themes WHERE user_id=? AND theme_key=?",
+                (uid, item_key),
             )
         if _theme_row:
             if equip:

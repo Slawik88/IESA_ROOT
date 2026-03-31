@@ -1850,13 +1850,30 @@ def miniapp_inventory(request):
             cur.execute(
                 f"SELECT id, item_key, item_name, rarity, equipped, "
                 f"COALESCE(atk,0), COALESCE(def_val,0), COALESCE(hp,0), COALESCE(crit_rate,0), slot, COALESCE(enhancement_level,0), "
-                f"COALESCE(stack_count,1) "
-                f"FROM gacha_inventory WHERE user_id={ph} AND chat_id={ph} ORDER BY id DESC",
-                (uid, chat_id),
+                f"COALESCE(stack_count,1), obtained_at "
+                f"FROM gacha_inventory WHERE user_id={ph} ORDER BY id DESC",
+                (uid,),
             )
             items = []
             for r in cur.fetchall():
                 meta = _ITEM_METADATA.get(r[1], {})
+                acquired = r[12]
+                # 3-day auction eligibility
+                days_owned = None
+                can_auction = True
+                if acquired:
+                    import datetime as _dt
+                    if hasattr(acquired, 'date'):  # datetime object
+                        age_days = (_dt.datetime.now(_dt.timezone.utc) - acquired.replace(tzinfo=acquired.tzinfo or _dt.timezone.utc)).total_seconds() / 86400
+                    else:
+                        try:
+                            acq_dt = _dt.datetime.fromisoformat(str(acquired).replace('Z', '+00:00'))
+                            age_days = (_dt.datetime.now(_dt.timezone.utc) - acq_dt).total_seconds() / 86400
+                        except Exception:
+                            age_days = 999
+                    if age_days < 3:
+                        days_owned = max(0, 3 - int(age_days))
+                        can_auction = False
                 items.append({
                     "id": r[0], "key": r[1], "name": r[2], "rarity": r[3], "equipped": bool(r[4]),
                     "atk": r[5], "def": r[6], "hp": r[7], "crit": r[8], "slot": r[9],
@@ -1865,6 +1882,8 @@ def miniapp_inventory(request):
                     "is_cosmetic": meta.get("slot") == "flair",
                     "desc": meta.get("desc", ""),
                     "sell_price": meta.get("sell", 0),
+                    "can_auction": can_auction,
+                    "days_until_auctionable": days_owned,
                 })
 
             # RPG stats (base + equipped bonuses)
@@ -1931,8 +1950,8 @@ def miniapp_inventory(request):
             ph = "%s" if db_type == "pg" else "?"
 
             cur.execute(
-                f"SELECT id, equipped, slot FROM gacha_inventory WHERE id={ph} AND user_id={ph} AND chat_id={ph}",
-                (item_id, uid, chat_id),
+                f"SELECT id, equipped, slot FROM gacha_inventory WHERE id={ph} AND user_id={ph}",
+                (item_id, uid),
             )
             irow = cur.fetchone()
             if not irow:
@@ -1954,8 +1973,8 @@ def miniapp_inventory(request):
                 # Unequip all items sharing this slot first
                 if slot:
                     cur.execute(
-                        f"UPDATE gacha_inventory SET equipped=0 WHERE user_id={ph} AND chat_id={ph} AND slot={ph} AND equipped=1",
-                        (uid, chat_id, slot),
+                        f"UPDATE gacha_inventory SET equipped=0 WHERE user_id={ph} AND slot={ph} AND equipped=1",
+                        (uid, slot),
                     )
                 cur.execute(f"UPDATE gacha_inventory SET equipped=1 WHERE id={ph}", (item_id,))
                 if slot_col:
@@ -2008,8 +2027,8 @@ def miniapp_inventory_sell_junk(request):
         cur = conn.cursor()
         ph = "%s" if db_type == "pg" else "?"
         cur.execute(
-            f"SELECT id, item_key, COALESCE(stack_count, 1) FROM gacha_inventory WHERE user_id={ph} AND chat_id={ph} AND rarity='junk'",
-            (uid, chat_id),
+            f"SELECT id, item_key, COALESCE(stack_count, 1) FROM gacha_inventory WHERE user_id={ph} AND rarity='junk'",
+            (uid,),
         )
         junk_items = cur.fetchall()
         if not junk_items:

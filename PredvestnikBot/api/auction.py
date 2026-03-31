@@ -42,8 +42,8 @@ def _min_increment(current_price: int) -> int:
 async def _get_item(db, item_id: int, user_id: int, chat_id: int) -> dict | None:
     """Получить предмет из инвентаря, принадлежащий пользователю."""
     row = await db.fetchone(
-        "SELECT * FROM gacha_inventory WHERE id=? AND user_id=? AND chat_id=?",
-        (item_id, user_id, chat_id)
+        "SELECT * FROM gacha_inventory WHERE id=? AND user_id=?",
+        (item_id, user_id)
     )
     return dict(row) if row else None
 
@@ -61,14 +61,14 @@ async def _user_owns_cosmetic(db, item_key: str, user_id: int, chat_id: int) -> 
     ctype, ckey = _parse_cosmetic_key(item_key)
     if ctype in ("frame", "cosmetic"):
         row = await db.fetchone(
-            "SELECT id FROM shop_items WHERE user_id=? AND chat_id=? AND item_type=? AND item_value=? LIMIT 1",
-            (user_id, chat_id, ctype, ckey)
+            "SELECT id FROM shop_items WHERE user_id=? AND item_type=? AND item_value=? LIMIT 1",
+            (user_id, ctype, ckey)
         )
         return row is not None
     elif ctype == "theme":
         row = await db.fetchone(
-            "SELECT theme_key FROM user_themes WHERE user_id=? AND chat_id=? AND theme_key=?",
-            (user_id, chat_id, ckey)
+            "SELECT theme_key FROM user_themes WHERE user_id=? AND theme_key=?",
+            (user_id, ckey)
         )
         return row is not None
     return False
@@ -81,15 +81,15 @@ async def _transfer_cosmetic_to_user(db, item_key: str, to_user_id: int, chat_id
     if ctype in ("frame", "cosmetic"):
         await db.execute(
             "INSERT INTO shop_items (user_id, chat_id, item_type, item_value, purchased_at, active)"
-            " VALUES (?, ?, ?, ?, NOW(), 1)",
-            (to_user_id, chat_id, ctype, ckey)
+            " VALUES (?, 0, ?, ?, NOW(), 1)",
+            (to_user_id, ctype, ckey)
         )
     elif ctype == "theme":
         await db.execute(
             "INSERT INTO user_themes (user_id, chat_id, theme_key, source, obtained_at)"
-            " VALUES (?, ?, ?, 'auction', NOW())"
-            " ON CONFLICT (user_id, chat_id, theme_key) DO NOTHING",
-            (to_user_id, chat_id, ckey)
+            " SELECT ?, 0, ?, 'auction', NOW()"
+            " WHERE NOT EXISTS (SELECT 1 FROM user_themes WHERE user_id=? AND theme_key=?)",
+            (to_user_id, ckey, to_user_id, ckey)
         )
 
 
@@ -99,15 +99,15 @@ async def _revoke_cosmetic_from_user(db, item_key: str, from_user_id: int, chat_
     if ctype in ("frame", "cosmetic"):
         await db.execute(
             "DELETE FROM shop_items WHERE id = ("
-            "  SELECT id FROM shop_items WHERE user_id=? AND chat_id=? AND item_type=? AND item_value=?"
+            "  SELECT id FROM shop_items WHERE user_id=? AND item_type=? AND item_value=?"
             "  ORDER BY id LIMIT 1"
             ")",
-            (from_user_id, chat_id, ctype, ckey)
+            (from_user_id, ctype, ckey)
         )
     elif ctype == "theme":
         await db.execute(
-            "DELETE FROM user_themes WHERE user_id=? AND chat_id=? AND theme_key=?",
-            (from_user_id, chat_id, ckey)
+            "DELETE FROM user_themes WHERE user_id=? AND theme_key=?",
+            (from_user_id, ckey)
         )
 
 
@@ -212,6 +212,19 @@ async def create_auction(
         if not item:
             raise ValueError("Предмет не найден в инвентаре")
 
+        # 1b. 3-дневное правило владения: предмет должен быть в инвентаре ≥ 3 дня
+        acquired = item.get("acquired_at") or item.get("obtained_at")
+        if acquired:
+            if isinstance(acquired, str):
+                from datetime import timezone as _tz
+                acquired = datetime.fromisoformat(acquired.replace("Z", "+00:00"))
+            if acquired.tzinfo is None:
+                acquired = acquired.replace(tzinfo=timezone.utc)
+            item_age_days = (datetime.now(timezone.utc) - acquired).total_seconds() / 86400
+            if item_age_days < 3:
+                days_left = 3 - int(item_age_days)
+                raise ValueError(f"Нельзя выставить на аукцион — нужно владеть предметом ≥3 дня (ещё {days_left} дн. ✅)")
+
         # 2. Проверяем что предмет не уже на аукционе
         existing = await db.fetchone(
             "SELECT id FROM auctions WHERE item_id=? AND seller_id=? AND chat_id=? AND status='active'",
@@ -237,8 +250,8 @@ async def create_auction(
 
         # 5. Помечаем предмет как "на аукционе" (equipped=2 — условное значение «заблокирован»)
         await db.execute(
-            "UPDATE gacha_inventory SET equipped=2 WHERE id=? AND user_id=? AND chat_id=?",
-            (item_id, seller_id, chat_id)
+            "UPDATE gacha_inventory SET equipped=2 WHERE id=? AND user_id=?",
+            (item_id, seller_id)
         )
 
         now = datetime.now(timezone.utc)
@@ -437,8 +450,8 @@ async def buyout_auction(buyer_id: int, chat_id: int, auction_id: int) -> dict:
             await _transfer_cosmetic_to_user(db, auction["item_key"], buyer_id, chat_id)
         else:
             item_exists = await db.fetchone(
-                "SELECT id FROM gacha_inventory WHERE id=? AND user_id=? AND chat_id=?",
-                (item_id, auction["seller_id"], chat_id)
+                "SELECT id FROM gacha_inventory WHERE id=? AND user_id=?",
+                (item_id, auction["seller_id"])
             )
             if item_exists:
                 await db.execute(
@@ -519,8 +532,8 @@ async def cancel_auction(seller_id: int, chat_id: int, auction_id: int) -> dict:
             await _transfer_cosmetic_to_user(db, auction["item_key"], seller_id, chat_id)
         else:
             await db.execute(
-                "UPDATE gacha_inventory SET equipped=0 WHERE id=? AND user_id=? AND chat_id=?",
-                (auction["item_id"], seller_id, chat_id)
+                "UPDATE gacha_inventory SET equipped=0 WHERE id=? AND user_id=?",
+                (auction["item_id"], seller_id)
             )
 
         # Закрыть аукцион
@@ -569,8 +582,8 @@ async def finalize_expired_auctions(bot=None) -> list[dict]:
                         await _transfer_cosmetic_to_user(db, auction["item_key"], seller_id, chat_id)
                     else:
                         await db.execute(
-                            "UPDATE gacha_inventory SET equipped=0 WHERE id=? AND user_id=? AND chat_id=?",
-                            (item_id, seller_id, chat_id)
+                            "UPDATE gacha_inventory SET equipped=0 WHERE id=? AND user_id=?",
+                            (item_id, seller_id)
                         )
                     await db.execute(
                         "UPDATE auctions SET status='expired', finished_at=? WHERE id=?",
@@ -594,8 +607,8 @@ async def finalize_expired_auctions(bot=None) -> list[dict]:
                     else:
                         # Проверяем что предмет ещё у продавца
                         item_exists = await db.fetchone(
-                            "SELECT id FROM gacha_inventory WHERE id=? AND user_id=? AND chat_id=?",
-                            (item_id, seller_id, chat_id)
+                            "SELECT id FROM gacha_inventory WHERE id=? AND user_id=?",
+                            (item_id, seller_id)
                         )
                         if item_exists:
                             await db.execute(

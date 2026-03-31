@@ -1342,6 +1342,21 @@ async def init_db():
     except Exception:
         pass
 
+    # ─── Блок 2: Глобальный инвентарь ─────────────────────────────────────────
+    # Добавляем колонку acquired_at в gacha_inventory для 3-дневного правила аукциона
+    # DEFAULT NOW() - INTERVAL '10 days' чтобы старые предметы сразу считались "достаточно старыми"
+    try:
+        await db.execute(
+            "ALTER TABLE gacha_inventory ADD COLUMN IF NOT EXISTS "
+            "acquired_at TIMESTAMPTZ DEFAULT NOW() - INTERVAL '10 days'"
+        )
+        # Для новых вставок acquired_at = obtained_at (они синонимы)
+        await db.execute(
+            "UPDATE gacha_inventory SET acquired_at = obtained_at WHERE acquired_at IS NULL OR acquired_at < NOW() - INTERVAL '11 days'"
+        )
+    except Exception:
+        pass
+
     # ─── Блок 1: Глобальная архитектура (мора, брак, питомец) ─────────────────
     # Добавляем колонки глобального баланса в таблицу users
     for _col_def in ["balance BIGINT DEFAULT 0", "total_earned BIGINT DEFAULT 0"]:
@@ -3074,6 +3089,7 @@ async def get_mora(user_id: int, chat_id: int):
                       COALESCE(um.streak_days, 0) AS streak_days,
                       um.last_daily,
                       COALESCE(um.rep_given_count, 0) AS rep_given_count,
+                      um.active_theme, um.gacha_display,
                       ? AS chat_id
                FROM users u
                LEFT JOIN user_mora um ON um.user_id = u.user_id AND um.chat_id = ?
@@ -4855,9 +4871,9 @@ async def add_gacha_item(user_id: int, chat_id: int, item_key: str,
         if atk == 0 and def_val == 0 and hp == 0 and crit_rate == 0.0:
             async with db.execute(
                 "SELECT id, stack_count FROM gacha_inventory "
-                "WHERE user_id=? AND chat_id=? AND item_key=? AND equipped=0 "
+                "WHERE user_id=? AND item_key=? AND equipped=0 "
                 "AND COALESCE(enhancement_level,0)=0 ORDER BY id LIMIT 1",
-                (user_id, chat_id, item_key),
+                (user_id, item_key),
             ) as c:
                 existing = await c.fetchone()
             if existing and existing[1] < 99:
@@ -4877,10 +4893,11 @@ async def add_gacha_item(user_id: int, chat_id: int, item_key: str,
 
 
 async def get_gacha_inventory(user_id: int, chat_id: int) -> list:
+    """Global inventory — chat_id param kept for backward compat but ignored."""
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT * FROM gacha_inventory WHERE user_id=? AND chat_id=? ORDER BY id DESC",
-            (user_id, chat_id),
+            "SELECT * FROM gacha_inventory WHERE user_id=? ORDER BY id DESC",
+            (user_id,),
         ) as c:
             return await c.fetchall()
 
@@ -4889,16 +4906,16 @@ async def sell_gacha_junk(user_id: int, chat_id: int) -> tuple[int, int]:
     """Продать весь мусор (rarity='junk'). Возвращает (count, total_mora)."""
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT COALESCE(stack_count, 1) FROM gacha_inventory WHERE user_id=? AND chat_id=? AND rarity='junk'",
-            (user_id, chat_id),
+            "SELECT COALESCE(stack_count, 1) FROM gacha_inventory WHERE user_id=? AND rarity='junk'",
+            (user_id,),
         ) as c:
             rows = await c.fetchall()
         count = sum(r[0] for r in rows)
         if count == 0:
             return 0, 0
         await db.execute(
-            "DELETE FROM gacha_inventory WHERE user_id=? AND chat_id=? AND rarity='junk'",
-            (user_id, chat_id),
+            "DELETE FROM gacha_inventory WHERE user_id=? AND rarity='junk'",
+            (user_id,),
         )
         await db.commit()
     from config import GACHA_SELL_PRICES
@@ -4911,16 +4928,16 @@ async def equip_gacha_item(user_id: int, chat_id: int, item_id: int) -> bool:
     """Экипировать лего-предмет (обновить gacha_display). Возвращает False если не найден/не лего."""
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT * FROM gacha_inventory WHERE id=? AND user_id=? AND chat_id=?",
-            (item_id, user_id, chat_id),
+            "SELECT * FROM gacha_inventory WHERE id=? AND user_id=?",
+            (item_id, user_id),
         ) as c:
             item = await c.fetchone()
         if not item or item["rarity"] != "legendary":
             return False
         # Убираем экипировку с других предметов
         await db.execute(
-            "UPDATE gacha_inventory SET equipped=0 WHERE user_id=? AND chat_id=? AND equipped=1",
-            (user_id, chat_id),
+            "UPDATE gacha_inventory SET equipped=0 WHERE user_id=? AND equipped=1",
+            (user_id,),
         )
         await db.execute(
             "UPDATE gacha_inventory SET equipped=1 WHERE id=?", (item_id,),
@@ -4999,28 +5016,28 @@ async def buy_shop_item(user_id: int, chat_id: int, item_type: str,
 
 async def has_shop_item(user_id: int, chat_id: int, item_type: str,
                         item_value: str | None = None) -> bool:
-    """Проверить, есть ли у юзера купленный товар данного типа (и значения)."""
+    """Проверить, есть ли у юзера купленный товар данного типа (и значения). Global — chat_id ignored."""
     async with postgres_connect() as db:
         if item_value is not None:
             async with db.execute(
-                "SELECT 1 FROM shop_items WHERE user_id=? AND chat_id=? AND item_type=? AND item_value=?",
-                (user_id, chat_id, item_type, item_value),
+                "SELECT 1 FROM shop_items WHERE user_id=? AND item_type=? AND item_value=?",
+                (user_id, item_type, item_value),
             ) as c:
                 return await c.fetchone() is not None
         else:
             async with db.execute(
-                "SELECT 1 FROM shop_items WHERE user_id=? AND chat_id=? AND item_type=?",
-                (user_id, chat_id, item_type),
+                "SELECT 1 FROM shop_items WHERE user_id=? AND item_type=?",
+                (user_id, item_type),
             ) as c:
                 return await c.fetchone() is not None
 
 
 async def get_user_owned_frames(user_id: int, chat_id: int) -> set[str]:
-    """Вернуть set ключей рамок, которые юзер уже купил."""
+    """Вернуть set ключей рамок, которые юзер уже купил. Global — chat_id ignored."""
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT item_value FROM shop_items WHERE user_id=? AND chat_id=? AND item_type='frame'",
-            (user_id, chat_id),
+            "SELECT item_value FROM shop_items WHERE user_id=? AND item_type='frame'",
+            (user_id,),
         ) as c:
             rows = await c.fetchall()
     return {r[0] for r in rows}
@@ -5178,21 +5195,24 @@ async def get_active_group_chat_ids() -> list[int]:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 async def get_user_themes(user_id: int, chat_id: int) -> list:
-    """Вернуть все темы, которыми владеет юзер."""
+    """Вернуть все темы, которыми владеет юзер. Global — chat_id ignored."""
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT * FROM user_themes WHERE user_id=? AND chat_id=?",
-            (user_id, chat_id),
+            "SELECT DISTINCT ON (theme_key) * FROM user_themes WHERE user_id=? ORDER BY theme_key, obtained_at",
+            (user_id,),
         ) as c:
             return await c.fetchall()
 
 
 async def add_user_theme(user_id: int, chat_id: int, theme_key: str, source: str = "shop"):
-    """Добавить тему юзеру (если ещё нет)."""
+    """Добавить тему юзеру (если ещё нет). Global — inserts only when (user_id, theme_key) doesn't exist."""
+    now = datetime.now(timezone.utc)
     async with postgres_connect() as db:
         await db.execute(
-            """INSERT INTO user_themes (user_id, chat_id, theme_key, source, obtained_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT DO NOTHING""",
-            (user_id, chat_id, theme_key, source, datetime.now(timezone.utc)),
+            """INSERT INTO user_themes (user_id, chat_id, theme_key, source, obtained_at)
+               SELECT ?, ?, ?, ?, ?
+               WHERE NOT EXISTS (SELECT 1 FROM user_themes WHERE user_id=? AND theme_key=?)""",
+            (user_id, chat_id, theme_key, source, now, user_id, theme_key),
         )
         await db.commit()
 
@@ -5396,8 +5416,8 @@ async def get_equipped_legendary(user_id: int, chat_id: int):
     """Вернуть экипированный легендарный предмет или None."""
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT item_name, item_key FROM gacha_inventory WHERE user_id=? AND chat_id=? AND equipped=1 LIMIT 1",
-            (user_id, chat_id),
+            "SELECT item_name, item_key FROM gacha_inventory WHERE user_id=? AND equipped=1 LIMIT 1",
+            (user_id,),
         ) as c:
             return await c.fetchone()
 
@@ -5695,8 +5715,8 @@ async def equip_item(user_id: int, chat_id: int, item_id: int, slot: str) -> str
     async with postgres_connect() as db:
         # Verify item belongs to user and fetch its name
         async with db.execute(
-            "SELECT id, item_name FROM gacha_inventory WHERE id=? AND user_id=? AND chat_id=?",
-            (item_id, user_id, chat_id),
+            "SELECT id, item_name FROM gacha_inventory WHERE id=? AND user_id=?",
+            (item_id, user_id),
         ) as c:
             row = await c.fetchone()
         if not row:
