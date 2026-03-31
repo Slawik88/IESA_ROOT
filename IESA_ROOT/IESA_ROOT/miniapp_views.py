@@ -5136,6 +5136,141 @@ def miniapp_crystals_spend(request):
 # ──────────────────────────────────────────────────────────────────────────────
 #  Dev: error log endpoints
 # ──────────────────────────────────────────────────────────────────────────────
+#  Dev: give crystals (developer-only)
+# ──────────────────────────────────────────────────────────────────────────────
+
+@csrf_exempt
+def miniapp_dev_give_crystals(request):
+    """POST /api/dev/give_crystals {target_id, amount} — manually grant crystals (developer only)."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=405, headers=headers)
+
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+    if uid != _DEVELOPER_ID:
+        return JsonResponse({"error": "Forbidden"}, status=403, headers=headers)
+
+    try:
+        body = json.loads(request.body or b"{}")
+        target_id = int(body.get("target_id", 0))
+        amount = int(body.get("amount", 0))
+    except Exception:
+        return JsonResponse({"error": "invalid JSON"}, status=400, headers=headers)
+
+    if not target_id:
+        return JsonResponse({"error": "target_id required"}, status=400, headers=headers)
+    if amount < 1 or amount > 100000:
+        return JsonResponse({"error": "amount must be 1-100000"}, status=400, headers=headers)
+
+    try:
+        from asgiref.sync import async_to_sync as _a2s
+        from database.db import add_crystals
+        new_balance = _a2s(add_crystals)(target_id, amount)
+        return JsonResponse({"ok": True, "target_id": target_id, "amount": amount, "new_balance": new_balance},
+                            json_dumps_params={"ensure_ascii": False}, headers=headers)
+    except Exception as exc:
+        logger.exception("miniapp_dev_give_crystals error")
+        return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+#  Chat ban list (admin view — users banned in a specific chat)
+# ──────────────────────────────────────────────────────────────────────────────
+
+@csrf_exempt
+def miniapp_chat_banlist(request):
+    """GET /api/chat_banlist?chat_id=X — list users banned in this chat (admin_junior+)."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "GET":
+        return JsonResponse({"error": "GET required"}, status=405, headers=headers)
+
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+
+    chat_id_str = request.GET.get("chat_id", "")
+    if not chat_id_str.lstrip("-").isdigit():
+        return JsonResponse({"error": "chat_id required"}, status=400, headers=headers)
+    chat_id = int(chat_id_str)
+
+    _RANK_LEVELS = {
+        "user": 0, "moderator": 1, "admin_junior": 2, "admin_senior": 3,
+        "co_owner": 4, "owner": 5, "developer": 6, "helper": 1,
+    }
+
+    try:
+        conn, db_type = _get_bot_db_connection()
+    except Exception as exc:
+        return JsonResponse({"error": f"DB: {exc}"}, status=503, headers=headers)
+
+    try:
+        cur = conn.cursor()
+        ph = "%s" if db_type == "pg" else "?"
+
+        # Check caller rank
+        if uid != _DEVELOPER_ID:
+            cur.execute(f"SELECT rank FROM user_stats WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
+            row = cur.fetchone()
+            rank = row[0] if row else "user"
+            if _RANK_LEVELS.get(rank, 0) < _RANK_LEVELS["admin_junior"]:
+                conn.close()
+                return JsonResponse({"error": "forbidden"}, status=403, headers=headers)
+
+        # Fetch users with restrict_until in the future (banned = not None and far future)
+        # Also check user_stats for restrict_type = 'ban' if that column exists
+        try:
+            cur.execute(
+                f"SELECT s.user_id, COALESCE(u.full_name, CAST(s.user_id AS TEXT)) AS full_name, "
+                f"u.username, s.restrict_until, s.restrict_type "
+                f"FROM user_stats s LEFT JOIN users u ON u.user_id=s.user_id "
+                f"WHERE s.chat_id={ph} AND s.restrict_type = 'ban' "
+                f"ORDER BY s.restrict_until DESC LIMIT 100",
+                (chat_id,),
+            )
+            rows = cur.fetchall()
+            banned = [{"user_id": r[0], "name": r[1], "username": r[2],
+                       "reason": "бан", "until": str(r[3]) if r[3] else None} for r in rows]
+        except Exception:
+            conn.rollback()
+            # Fallback: users with restrict_until far in the future
+            if db_type == "pg":
+                cur.execute(
+                    "SELECT s.user_id, COALESCE(u.full_name, CAST(s.user_id AS TEXT)), u.username, s.restrict_until "
+                    "FROM user_stats s LEFT JOIN users u ON u.user_id=s.user_id "
+                    "WHERE s.chat_id=%s AND s.restrict_until IS NOT NULL AND s.restrict_until > NOW() + INTERVAL '365 days' "
+                    "ORDER BY s.restrict_until DESC LIMIT 100",
+                    (chat_id,),
+                )
+            else:
+                cur.execute(
+                    "SELECT s.user_id, COALESCE(u.full_name, CAST(s.user_id AS TEXT)), u.username, s.restrict_until "
+                    "FROM user_stats s LEFT JOIN users u ON u.user_id=s.user_id "
+                    "WHERE s.chat_id=? AND s.restrict_until IS NOT NULL "
+                    "ORDER BY s.restrict_until DESC LIMIT 100",
+                    (chat_id,),
+                )
+            rows = cur.fetchall()
+            banned = [{"user_id": r[0], "name": r[1], "username": r[2],
+                       "reason": "бан", "until": str(r[3]) if r[3] else None} for r in rows]
+
+        conn.close()
+        return JsonResponse({"banned": banned}, json_dumps_params={"ensure_ascii": False}, headers=headers)
+    except Exception as exc:
+        try:
+            conn.close()
+        except Exception:
+            pass
+        logger.exception("miniapp_chat_banlist error")
+        return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
+
+
+# ──────────────────────────────────────────────────────────────────────────────
 
 @csrf_exempt
 def miniapp_dev_error_logs(request):

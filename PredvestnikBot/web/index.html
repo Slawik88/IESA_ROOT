@@ -561,7 +561,12 @@ select:focus{border-color:var(--accent)}
       </div>
       <div id="pubBody"></div>
     </div>
-  </div>
+</div>
+
+<!-- Beta notice banner -->
+<div id="betaBanner" style="background:rgba(251,146,60,.1);border-bottom:1px solid rgba(251,146,60,.25);padding:7px 14px;font-size:11px;color:#fb923c;text-align:center;display:flex;align-items:center;justify-content:center;gap:6px">
+  <span>🔒 Закрытое бета-тестирование · Возможны баги · Покупка кристаллов временно недоступна</span>
+  <span onclick="this.parentElement.style.display='none'" style="margin-left:8px;cursor:pointer;opacity:.7;font-size:14px;line-height:1">✕</span>
 </div>
 
 <!-- Category navigation bar -->
@@ -868,22 +873,35 @@ select:focus{border-color:var(--accent)}
 
     <!-- 💎 Crystals: buy with Telegram Stars + spend on exclusive cosmetics -->
     <div id="shop-subtab-crystals" style="display:none">
+      <!-- Balance + info card -->
       <div class="card" style="border:1px solid #7c3aed33;background:linear-gradient(135deg,rgba(124,58,237,.07),rgba(147,51,234,.04))">
         <div class="card-title" style="color:#a78bfa">💎 Кристаллы Предвестника</div>
-        <div style="text-align:center;margin-bottom:10px">
-          <div style="font-size:28px;font-weight:900;color:#a78bfa" id="shopCrystalsBalance">0 💎</div>
-          <div style="font-size:11px;color:var(--text2);margin-top:2px">Ваш текущий баланс</div>
+        <div style="text-align:center;margin-bottom:12px">
+          <div style="font-size:32px;font-weight:900;color:#a78bfa" id="shopCrystalsBalance">0 💎</div>
+          <div style="font-size:11px;color:var(--text2);margin-top:2px">Твой текущий баланс</div>
         </div>
-        <div style="font-size:11px;color:var(--text2);line-height:1.6;margin-bottom:10px;text-align:center">
-          Кристаллы — премиум-валюта. Покупаются за ⭐ Telegram Stars.<br>
-          Используются для эксклюзивной косметики, которую нельзя купить за Мору.
+        <!-- What do crystals give -->
+        <div style="background:rgba(124,58,237,.08);border-radius:8px;padding:10px 12px;margin-bottom:12px">
+          <div style="font-size:11px;font-weight:700;color:#a78bfa;margin-bottom:6px">✨ Что дают кристаллы?</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:11px;color:var(--text2)">
+            <div>🔮 Эксклюзивная косметика</div>
+            <div>🖼 Уникальные рамки профиля</div>
+            <div>👑 VIP-статус без Моры</div>
+            <div>⚡ Двойное везение в гаче</div>
+            <div>🌈 Эффекты и ауры</div>
+            <div>🐾 Облики питомцев</div>
+          </div>
+          <div style="margin-top:6px;font-size:10px;color:var(--text2)">💡 Покупки за кристаллы действуют <b style="color:#a78bfa">во всех чатах</b>, где есть Предвестник</div>
         </div>
-        <div id="crystalPacksGrid"></div>
+        <!-- Packs grid (2-col) -->
+        <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:6px">⭐ Пополнение кристаллов</div>
+        <div id="crystalPacksGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px"></div>
       </div>
+      <!-- Cosmetics shop card -->
       <div class="card">
         <div class="card-title" style="color:#a78bfa">🛍 Магазин кристаллов</div>
-        <div style="font-size:11px;color:var(--text2);margin-bottom:8px">Эксклюзивная косметика за 💎</div>
-        <div id="crystalCosmeticsGrid"></div>
+        <div style="font-size:11px;color:var(--text2);margin-bottom:8px">Эксклюзивный контент только за 💎 · Работает во всех чатах</div>
+        <div id="crystalCosmeticsGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px"></div>
       </div>
     </div>
   </div>
@@ -1580,73 +1598,25 @@ select:focus{border-color:var(--accent)}
     <button id="devSubtabSettingsBtn" class="subtab-btn" onclick="switchDevSubtab('settings')">⚙️ Настройки</button>
   </div>
 
-  <!-- 👥 Users sub-tab: User editor + Salary -->
+  <!-- 👥 Users sub-tab: Crystal grant only -->
   <div id="dev-subtab-users">
 
-  <!-- User picker + controls -->
-  <div class="card" id="devUserEditorCard">
-    <div class="card-title">🎯 Управление участником</div>
-    <!-- Search dropdown + list picker -->
-    <div class="dev-search-wrap">
-      <input id="devUserSearch" placeholder="🔍 Поиск по имени / @username..."
-             autocomplete="off"
-             oninput="devSearchUsers(this.value)"
-             onfocus="devSearchUsers(this.value)"
-             style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text);width:100%"/>
-      <div class="dev-dropdown" id="devUserDropdown"></div>
-    </div>
-    <button class="btn" style="width:100%;margin-bottom:8px;background:var(--bg3);border:1px solid var(--border);color:var(--text)" onclick="openUserPicker('🎯 Выбери участника', function(id,n){ devSelectUser(id,n) })">👥 Выбрать из полного списка…</button>
-    <!-- Selected user badge -->
-    <div class="dev-sel-badge" id="devSelBadge">
-      <span id="devSelName">—</span>
-      <small id="devSelId" style="color:var(--text2)"></small>
-      <span class="dev-sel-badge-clear" onclick="devClearSel()" title="Сбросить">✕</span>
-    </div>
-    <!-- Mora row -->
-    <div class="dev-control-row" style="display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:6px;margin-bottom:6px;align-items:center">
-      <input type="number" id="devMoraAmt" placeholder="Сумма 🪙" min="0"
-             style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text)"/>
-      <button class="btn btn-primary" onclick="devAddMora()" style="flex:0 0 auto">➕ Мора</button>
-      <button class="btn btn-green" onclick="devSetBalance()" style="flex:0 0 auto">🔘 Установить</button>
-    </div>
-    <!-- XP row -->
-    <div class="dev-control-row" style="display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:6px;margin-bottom:6px;align-items:center">
-      <input type="number" id="devXpAmt" placeholder="XP ⚡" min="0"
-             style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text)"/>
-      <button class="btn btn-primary" onclick="devAddXp()" style="flex:0 0 auto">➕ XP</button>
-      <button class="btn btn-green" onclick="devSetXp()" style="flex:0 0 auto">🔘 Установить</button>
-    </div>
-    <!-- Give item -->
-    <div style="display:flex;gap:6px;align-items:center">
-      <select id="devItemSelect" style="flex:1">
-        <option value="">⏳ Загрузка предметов…</option>
-      </select>
-      <button class="btn btn-gold" onclick="devGiveItem()" style="flex:0 0 auto">🎁 Выдать</button>
-    </div>
-    <!-- Chat override (hidden, auto = current chat) -->
-    <input type="number" id="devCtrlCid" placeholder="Chat ID (0 = текущий)"
-           style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:7px;color:var(--text);width:100%;margin-top:8px;font-size:12px"/>
-  </div>
-
-  <!-- 💼 Salary card (separate) -->
-  <div class="card" id="devSalaryCard">
-    <div class="card-title">💼 Выдача зарплаты</div>
+  <!-- 💎 Give crystals card -->
+  <div class="card" id="devCrystalsCard">
+    <div class="card-title">💎 Начислить кристаллы</div>
     <button class="btn" style="width:100%;margin-bottom:8px;background:var(--bg3);border:1px solid var(--border);color:var(--text)"
-            onclick="openUserPicker('💼 Получатель зарплаты', function(id,n){ devSalarySelectUser(id,n) })">👥 Выбрать получателя…</button>
-    <div class="dev-sel-badge" id="devSalarySelBadge">
-      <span id="devSalarySelName">—</span>
-      <small id="devSalarySelId" style="color:var(--text2)"></small>
-      <span class="dev-sel-badge-clear" onclick="devSalaryClearSel()" title="Сбросить">✕</span>
+            onclick="openUserPicker('💎 Выдать кристаллы', function(id,n){ devCrystalSelectUser(id,n) })">👥 Выбрать участника…</button>
+    <div class="dev-sel-badge" id="devCrystalSelBadge">
+      <span id="devCrystalSelName">—</span>
+      <small id="devCrystalSelId" style="color:var(--text2)"></small>
+      <span class="dev-sel-badge-clear" onclick="devCrystalClearSel()" title="Сбросить">✕</span>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px">
-      <input type="number" id="devSalaryDays" placeholder="Дни" min="1" value="1"
-             style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text)"/>
-      <input type="number" id="devSalaryAmt" placeholder="Сумма 🪙" min="1"
-             style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text)"/>
+    <div style="display:flex;gap:6px;margin-top:8px;align-items:center">
+      <input type="number" id="devCrystalAmt" placeholder="Кол-во 💎" min="1"
+             style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text)"/>
+      <button class="btn btn-gold" onclick="devGiveCrystals()" style="flex:0 0 auto">💎 Начислить</button>
     </div>
-    <input type="text" id="devSalaryReason" placeholder="За что"
-           style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text);width:100%;margin-top:6px;box-sizing:border-box"/>
-    <button class="btn btn-gold" onclick="devIssueSalary()" style="width:100%;margin-top:8px">💸 Выдать ЗП</button>
+    <div id="devCrystalMsg" style="font-size:12px;min-height:18px;margin-top:6px"></div>
   </div>
 
   </div><!-- /dev-subtab-users -->
@@ -1657,13 +1627,23 @@ select:focus{border-color:var(--accent)}
   <!-- ③ Chat management -->
   <div class="card">
     <div class="card-title">💬 Управление чатами</div>
-    <button class="btn btn-primary" onclick="loadDevChats()" style="margin-bottom:8px">🔄 Загрузить чаты</button>
-    <div style="font-size:11px;color:var(--text2);margin-bottom:4px">ГРУППЫ</div>
-    <div id="devGroupsList" style="max-height:180px;overflow-y:auto"></div>
-    <div style="font-size:11px;color:var(--text2);margin:8px 0 4px">ПРИВАТ / ДРУГИЕ</div>
-    <div id="devAdminChatsList" style="max-height:100px;overflow-y:auto"></div>
+    <div style="display:flex;gap:6px;margin-bottom:8px;align-items:center">
+      <select id="devChatSelector" style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text);font-size:13px">
+        <option value="">— нажми «Загрузить» —</option>
+      </select>
+      <button class="btn btn-primary" onclick="loadDevChatsDropdown()" style="flex:0 0 auto">🔄 Загрузить</button>
+    </div>
+    <!-- Selected chat info row -->
+    <div id="devSelectedChatInfo" style="display:none;background:var(--bg3);border-radius:8px;padding:8px 10px;margin-bottom:8px;font-size:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span id="devChatInfoTitle" style="font-weight:700;color:var(--text)">—</span>
+        <span id="devChatInfoType" style="color:var(--text2);font-size:11px"></span>
+      </div>
+      <div style="color:var(--text2);margin-top:2px"><span id="devChatInfoMembers">0</span> чел. · ID: <span id="devChatInfoId" style="font-family:monospace"></span></div>
+    </div>
+    <button class="btn" onclick="loadSelectedChatMembers()" style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);margin-bottom:6px">👥 Участники выбранного чата</button>
     <!-- Members panel for selected chat -->
-    <div id="devChatMembersWrap" style="display:none;margin-top:10px">
+    <div id="devChatMembersWrap" style="display:none;margin-top:6px">
       <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:6px" id="devChatMembersTitle">Участники</div>
       <div class="dev-member-table-scroll">
         <div class="dev-member-head">
@@ -1721,6 +1701,13 @@ select:focus{border-color:var(--accent)}
     <div class="card-title">⚠️ Варн-лист</div>
     <button class="btn btn-primary" onclick="loadWarnlist()" style="margin-bottom:6px">📋 Загрузить</button>
     <div id="warnlistContent" style="max-height:260px;overflow-y:auto"></div>
+  </div>
+
+  <!-- ⛔ Список забаненных в чате (admin_junior+) -->
+  <div class="card" id="chatBanlistCard" style="display:none">
+    <div class="card-title">⛔ Забаненные в чате</div>
+    <button class="btn btn-primary" onclick="loadChatBanlist()" style="margin-bottom:6px">📋 Загрузить</button>
+    <div id="chatBanlistContent" style="max-height:260px;overflow-y:auto"></div>
   </div>
 
   <!-- 🛡 Обзор модерации (admin_junior+) -->
@@ -2293,15 +2280,15 @@ async function loadProfile(){
       document.querySelectorAll('#tab-dev .card').forEach(c=>{ c.style.display=''; });
       _devBtns(true); switchDevSubtab('users');
     } else if(p.rank === 'owner' || p.rank === 'co_owner') {
-      // Owner/co_owner: user editor + salary + events + warnlist + mod overview + treasury + cleanup config
+      // Owner/co_owner: crystal grant + events + warnlist + banlist + mod overview + treasury + cleanup config
       const devBtn = document.getElementById('devTabBtn');
       devBtn.setAttribute('data-unlocked','1');
       if(_currentCat === 'admin') devBtn.style.display = '';
       document.getElementById('catBtnAdmin').style.display = '';
       document.querySelectorAll('#tab-dev .card').forEach(c=>{ c.style.display='none'; });
-      document.getElementById('devUserEditorCard').style.display='';
-      document.getElementById('devSalaryCard').style.display='';
+      document.getElementById('devCrystalsCard').style.display='';
       document.getElementById('warnlistCard').style.display='';
+      document.getElementById('chatBanlistCard').style.display='';
       document.getElementById('modSummaryCard').style.display='';
       document.getElementById('devEventCard').style.display='';
       document.getElementById('devTreasuryCard').style.display='';       // treasury balance + log
@@ -2310,24 +2297,26 @@ async function loadProfile(){
       document.getElementById('devCleanupCard').style.display='';        // cleanup config
       _devBtns(true); switchDevSubtab('users');
     } else if(['admin_senior'].includes(p.rank)) {
-      // Senior admins: warnlist + mod overview only (no treasury)
+      // Senior admins: warnlist + banlist + mod overview only (no treasury)
       const devBtn = document.getElementById('devTabBtn');
       devBtn.setAttribute('data-unlocked','1');
       if(_currentCat === 'admin') devBtn.style.display = '';
       document.getElementById('catBtnAdmin').style.display = '';
       document.querySelectorAll('#tab-dev .card').forEach(c=>{ c.style.display='none'; });
       document.getElementById('warnlistCard').style.display='';
+      document.getElementById('chatBanlistCard').style.display='';
       document.getElementById('modSummaryCard').style.display='';
       _devBtns(false); document.getElementById('devSubtabModBtn').style.display='';
       switchDevSubtab('moderation');
     } else if(['admin_junior','moderator'].includes(p.rank)) {
-      // Junior admins / moderators: warnlist + mod overview only (no treasury)
+      // Junior admins / moderators: warnlist + banlist + mod overview only (no treasury)
       const devBtn = document.getElementById('devTabBtn');
       devBtn.setAttribute('data-unlocked','1');
       if(_currentCat === 'admin') devBtn.style.display = '';
       document.getElementById('catBtnAdmin').style.display = '';
       document.querySelectorAll('#tab-dev .card').forEach(c=>{ c.style.display='none'; });
       document.getElementById('warnlistCard').style.display='';
+      document.getElementById('chatBanlistCard').style.display='';
       document.getElementById('modSummaryCard').style.display='';
       _devBtns(false); document.getElementById('devSubtabModBtn').style.display='';
       switchDevSubtab('moderation');
@@ -3225,32 +3214,32 @@ function renderCrystalsShop(){
   const el = document.getElementById('shopCrystalsBalance');
   if(el) el.textContent = bal + ' 💎';
 
-  // Packs — opens Telegram payment invoice
+  // Packs — opens Telegram payment invoice (BETA: disabled)
   const packsEl = document.getElementById('crystalPacksGrid');
-  if(packsEl) packsEl.innerHTML = CRYSTAL_PACKS.map(p=>{
+  if(packsEl) packsEl.innerHTML = `<div style="background:rgba(251,146,60,.08);border:1px solid rgba(251,146,60,.25);border-radius:8px;padding:10px 12px;margin-bottom:8px;font-size:11px;color:#fb923c;text-align:center">
+    🔒 <b>Покупка кристаллов временно недоступна</b><br><span style="color:var(--text2)">Бот в режиме закрытого бета-теста. Покупки будут открыты после релиза.</span>
+  </div>` + CRYSTAL_PACKS.map(p=>{
     const bonusLabel = p.bonus ? `<span style="color:#4ade80;font-size:10px;margin-left:3px">+${p.bonus}% бонус</span>` : '';
-    return `<div class="scard" onclick="buyCrystalPack('${p.key}')" style="border:1px solid rgba(124,58,237,.3)">
+    return `<div class="scard" style="opacity:.45;pointer-events:none;border:1px solid rgba(124,58,237,.2)">
       <div class="scard-accent" style="background:linear-gradient(180deg,#7c3aed,#6d28d9)"></div>
       <div class="scard-icon">⭐</div>
       <div class="scard-body">
         <div class="scard-name">${p.label} ${bonusLabel}</div>
         <div class="scard-desc" style="color:#a78bfa;font-weight:700">${p.crystals} 💎</div>
-        <div class="scard-footer"><span class="sbadge" style="background:rgba(253,224,71,.12);color:#fbbf24;border:1px solid rgba(253,224,71,.3)">${p.stars} ⭐ Stars</span></div>
+        <div class="scard-footer"><span class="sbadge" style="background:rgba(100,116,139,.12);color:#94a3b8;border:1px solid rgba(100,116,139,.3)">${p.stars} ⭐ · Скоро</span></div>
       </div></div>`;
   }).join('');
 
-  // Crystal cosmetics
+  // Crystal cosmetics — 2-column compact cards
   const cosEl = document.getElementById('crystalCosmeticsGrid');
   if(cosEl) cosEl.innerHTML = CRYSTAL_COSMETICS_LIST.map(c=>{
     const canBuy = bal >= c.price;
-    return `<div class="scard${canBuy?'':' owned'}" onclick="${canBuy?`buyCrystalCosmetic('${c.key}','${c.name}',${c.price})`:''}" style="${canBuy?'':'opacity:.5;pointer-events:none'}">
-      <div class="scard-accent" style="background:#7c3aed"></div>
-      <div class="scard-icon">${c.emoji}</div>
-      <div class="scard-body">
-        <div class="scard-name">${esc(c.name)}</div>
-        <div class="scard-desc">${esc(c.desc)}</div>
-        <div class="scard-footer"><span class="sbadge" style="background:rgba(124,58,237,.15);color:#a78bfa;border:1px solid rgba(124,58,237,.3)">${c.price} 💎</span></div>
-      </div></div>`;
+    return `<div onclick="${canBuy?`buyCrystalCosmetic('${c.key}','${c.name}',${c.price})`:''}" style="background:var(--bg3);border:1px solid ${canBuy?'rgba(124,58,237,.35)':'var(--border)'};border-radius:10px;padding:10px;cursor:${canBuy?'pointer':'default'};opacity:${canBuy?'1':'.45'};transition:.15s">
+      <div style="font-size:22px;margin-bottom:4px">${c.emoji}</div>
+      <div style="font-size:12px;font-weight:700;color:var(--text);line-height:1.2;margin-bottom:2px">${esc(c.name)}</div>
+      <div style="font-size:10px;color:var(--text2);margin-bottom:6px;line-height:1.3">${esc(c.desc)}</div>
+      <div style="font-size:11px;font-weight:700;color:#a78bfa">${c.price} 💎</div>
+    </div>`;
   }).join('');
 }
 
@@ -4039,8 +4028,10 @@ async function loadDevStats(){
     h+=`<div class="dev-stat"><span>Пользователей</span><span class="dv">${r.total_users||0}</span></div>`;
     h+=`<div class="dev-stat"><span>Атак босса (24ч)</span><span class="dv">${r.boss_hits_today||0}</span></div>`;
     const chats=r.chats||[];
-    h+=`<div class="dev-stat"><span>Чатов</span><span class="dv">${chats.length}</span></div>`;
-    chats.forEach(c=>{
+    // Фильтруем только группы (chat_id < 0), приватные чаты не показываем
+    const groups=chats.filter(c=>c.chat_id<0);
+    h+=`<div class="dev-stat"><span>Групп</span><span class="dv">${groups.length}</span></div>`;
+    groups.forEach(c=>{
       h+=`<div class="dev-stat"><span>${esc(c.title||c.chat_id)}</span><span class="dv">${c.members||0} чел.</span></div>`;
     });
     document.getElementById('devStatsGrid').innerHTML=h;
@@ -4114,27 +4105,83 @@ async function devGiveItem(){
   } catch(e){toast('❌ '+e.message,'error')}
 }
 
-// ── Chat management ───────────────────────────────────────────────────────────
+// ── Crystal grant (dev) ───────────────────────────────────────────────────────
 
-function _buildChatRow(c){
-  const badge = (c.chat_type==='group'||c.chat_type==='supergroup') ? 'group' : '';
-  return `<div class="dev-chat-row" onclick="loadDevChatMembers(${c.chat_id},'${esc(c.title)}')">
-    <span class="dev-chat-title">${esc(c.title)}</span>
-    <span class="dev-chat-badge ${badge}">${c.chat_type||'?'}</span>
-    <span style="font-size:11px;color:var(--text2)">${c.members} чел.</span>
-  </div>`;
+let devCrystalSelUser = null;
+function devCrystalSelectUser(id, name){
+  devCrystalSelUser = {user_id:id, name};
+  document.getElementById('devCrystalSelName').textContent = name;
+  document.getElementById('devCrystalSelId').textContent = '#'+id;
+}
+function devCrystalClearSel(){
+  devCrystalSelUser = null;
+  document.getElementById('devCrystalSelName').textContent = '—';
+  document.getElementById('devCrystalSelId').textContent = '';
+}
+async function devGiveCrystals(){
+  if(!devCrystalSelUser){toast('Сначала выбери участника','error');return;}
+  const amt = parseInt(document.getElementById('devCrystalAmt').value||'0');
+  if(!amt||amt<1){toast('Укажи кол-во кристаллов','error');return;}
+  try{
+    const r = await api('/api/dev/give_crystals','POST',{target_id:devCrystalSelUser.user_id, amount:amt});
+    const msg = document.getElementById('devCrystalMsg');
+    msg.textContent = '✅ Начислено '+amt+' 💎 → баланс: '+r.new_balance+' 💎';
+    msg.style.color='#4ade80';
+  } catch(e){
+    const msg = document.getElementById('devCrystalMsg');
+    msg.textContent = '❌ '+e.message;
+    msg.style.color='#f87171';
+  }
 }
 
+// ── Chat management ───────────────────────────────────────────────────────────
+
 async function loadDevChats(){
+  // Legacy: kept for event trigger select population
   try{
     const r = await api('/api/dev/chats');
     devChatsCache = [...(r.groups||[]), ...(r.admin_chats||[])];
-    document.getElementById('devGroupsList').innerHTML = (r.groups||[]).map(_buildChatRow).join('')||'<div style="color:var(--text2);font-size:12px;padding:6px">—</div>';
-    document.getElementById('devAdminChatsList').innerHTML = (r.admin_chats||[]).map(_buildChatRow).join('')||'<div style="color:var(--text2);font-size:12px;padding:6px">—</div>';
     // Populate event trigger select
     const evSel = document.getElementById('devEventChatSel');
-    evSel.innerHTML = devChatsCache.map(c=>`<option value="${c.chat_id}">${esc(c.title)} (${c.chat_id})</option>`).join('');
+    if(evSel) evSel.innerHTML = devChatsCache.map(c=>`<option value="${c.chat_id}">${esc(c.title)} (${c.chat_id})</option>`).join('');
+  } catch(e){/* silent */}
+}
+
+async function loadDevChatsDropdown(){
+  try{
+    const r = await api('/api/dev/chats');
+    devChatsCache = [...(r.groups||[]), ...(r.admin_chats||[])];
+    const sel = document.getElementById('devChatSelector');
+    sel.innerHTML = '<option value="">— выбери чат —</option>' +
+      devChatsCache.map(c=>`<option value="${c.chat_id}" data-title="${esc(c.title)}" data-members="${c.members||0}" data-type="${c.chat_type||''}">
+        ${(c.chat_type==='group'||c.chat_type==='supergroup')?'👥':'💬'} ${esc(c.title)} · ${c.members||0} чел.
+      </option>`).join('');
+    // Populate event trigger select too
+    const evSel = document.getElementById('devEventChatSel');
+    if(evSel) evSel.innerHTML = devChatsCache.map(c=>`<option value="${c.chat_id}">${esc(c.title)} (${c.chat_id})</option>`).join('');
+    toast('✅ Загружено чатов: '+devChatsCache.length,'success');
+    // Listen to selection
+    sel.onchange = function(){
+      const opt = sel.options[sel.selectedIndex];
+      const cid = parseInt(sel.value||'0');
+      if(!cid){document.getElementById('devSelectedChatInfo').style.display='none';return;}
+      document.getElementById('devChatInfoTitle').textContent= opt.dataset.title||esc(sel.value);
+      document.getElementById('devChatInfoType').textContent = opt.dataset.type||'';
+      document.getElementById('devChatInfoMembers').textContent = opt.dataset.members||'0';
+      document.getElementById('devChatInfoId').textContent = cid;
+      document.getElementById('devSelectedChatInfo').style.display='';
+      document.getElementById('devChatMembersWrap').style.display='none';
+    };
   } catch(e){toast('❌ '+e.message,'error')}
+}
+
+async function loadSelectedChatMembers(){
+  const sel = document.getElementById('devChatSelector');
+  const cid = parseInt(sel.value||'0');
+  if(!cid){toast('Сначала выбери чат','error');return;}
+  const opt = sel.options[sel.selectedIndex];
+  const title = (opt&&opt.dataset.title)||String(cid);
+  await loadDevChatMembers(cid, title);
 }
 
 async function loadDevChatMembers(cid, title){
@@ -4461,6 +4508,21 @@ async function loadWarnlist(){
           <span style="color:var(--red);font-weight:700;margin-left:auto">⚠️ ${w.warns}/4</span>
         </div>`).join('')
       : '<div style="color:var(--text2);font-size:12px;padding:6px">✅ Нет пользователей с предупреждениями</div>';
+  } catch(e){el.innerHTML='<div style="color:#f87171;font-size:12px;padding:6px">'+esc(e.message)+'</div>';}
+}
+
+async function loadChatBanlist(){
+  const el = document.getElementById('chatBanlistContent');
+  el.innerHTML = '<div style="color:var(--text2);font-size:12px;padding:6px">Загрузка…</div>';
+  try{
+    const r = await api('/api/chat_banlist?chat_id='+chatId);
+    const banned = r.banned||[];
+    el.innerHTML = banned.length
+      ? banned.map(b=>`<div class="dev-ban-row" onclick="showPubProfile(${b.user_id})" style="cursor:pointer">
+          <span><b>${esc(b.name||'?')}</b> <span style="color:var(--text2)">#${b.user_id}</span></span>
+          <span style="color:#ef4444;font-weight:700;margin-left:auto;font-size:11px">⛔ ${esc(b.reason||'бан')}</span>
+        </div>`).join('')
+      : '<div style="color:var(--text2);font-size:12px;padding:6px">✅ Нет забаненных участников</div>';
   } catch(e){el.innerHTML='<div style="color:#f87171;font-size:12px;padding:6px">'+esc(e.message)+'</div>';}
 }
 
