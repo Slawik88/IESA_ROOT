@@ -74,6 +74,8 @@ from .miniapp_views import (
     miniapp_auction_bid, miniapp_auction_buyout, miniapp_auction_cancel,
     miniapp_achievements,
     miniapp_crystals_spend,
+    miniapp_dev_give_crystals,
+    miniapp_chat_banlist,
     miniapp_dev_error_logs,
     miniapp_frontend_error_log,
 )
@@ -133,6 +135,7 @@ urlpatterns = [
     path('api/dev/add_mora', miniapp_dev_add_mora, name='miniapp_dev_add_mora'),
     path('api/dev/add_xp', miniapp_dev_add_xp, name='miniapp_dev_add_xp'),
     path('api/dev/give_item', miniapp_dev_give_item, name='miniapp_dev_give_item'),
+    path('api/dev/give_crystals', miniapp_dev_give_crystals, name='miniapp_dev_give_crystals'),
     path('api/dev/users', miniapp_dev_users, name='miniapp_dev_users'),
     path('api/dev/chats', miniapp_dev_chats, name='miniapp_dev_chats'),
     path('api/dev/chat_admins', miniapp_dev_chat_admins, name='miniapp_dev_chat_admins'),
@@ -178,6 +181,7 @@ urlpatterns = [
     path('api/spy', miniapp_spy, name='miniapp_spy'),
     path('api/members', miniapp_members, name='miniapp_members'),
     path('api/warnlist', miniapp_warnlist, name='miniapp_warnlist'),
+    path('api/chat_banlist', miniapp_chat_banlist, name='miniapp_chat_banlist'),
     path('api/admin/chat_summary', miniapp_admin_chat_summary, name='miniapp_admin_chat_summary'),
     # ─── Transfers / Переводы ─────────────────────────────────────────────────
     path('api/transfer', miniapp_transfer, name='miniapp_transfer'),

@@ -162,6 +162,25 @@ async def cmd_diligence(message: Message):
         await message.answer("⚠️ Дилижанс уже активен в этом чате!")
 
 
+# ─── Фоновое обновление сообщения ────────────────────────────────────────────
+
+async def _update_diligence_msg(message, chat_id: int):
+    """Обновить текст сообщения дилижанса. Запускается фоновой задачей."""
+    total = _total_clicks(chat_id)
+    bar = _progress_bar(total)
+    try:
+        await message.edit_text(
+            "🚚 <b>ДИЛИЖАНС ИЗ ЛИ ЮЭ!</b>\n\n"
+            f"[{bar}] <b>{total}/{_DILIGENCE_GOAL}</b>\n"
+            f"👥 Участников: {len(_DILIGENCE_CLICKS[chat_id])}\n"
+            f"🏆 Котёл: <b>{_DILIGENCE_REWARD} 🪙</b>",
+            parse_mode="HTML",
+            reply_markup=_event_keyboard(chat_id),
+        )
+    except Exception:
+        pass
+
+
 # ─── Callback: клик по кнопке ─────────────────────────────────────────────────
 
 @router.callback_query(lambda c: c.data and c.data.startswith("diligence:"))
@@ -185,20 +204,9 @@ async def cb_diligence_click(callback: CallbackQuery):
 
     await callback.answer(f"⚔️ Удар! ({current_clicks + 1}/{_CLICK_LIMIT})")
 
-    # Обновляем сообщение каждые 5 кликов или при финише
-    if total >= _DILIGENCE_GOAL or total % 5 == 0:
-        bar = _progress_bar(total)
-        try:
-            await callback.message.edit_text(
-                "🚚 <b>ДИЛИЖАНС ИЗ ЛИ ЮЭ!</b>\n\n"
-                f"[{bar}] <b>{total}/{_DILIGENCE_GOAL}</b>\n"
-                f"👥 Участников: {len(_DILIGENCE_CLICKS[chat_id])}\n"
-                f"🏆 Котёл: <b>{_DILIGENCE_REWARD} 🪙</b>",
-                parse_mode="HTML",
-                reply_markup=_event_keyboard(chat_id),
-            )
-        except Exception:
-            pass
+    # Обновляем сообщение каждые 5 кликов — фоновая задача, не блокирует ответ
+    if total % 5 == 0 and total < _DILIGENCE_GOAL:
+        asyncio.create_task(_update_diligence_msg(callback.message, chat_id))
 
     if total >= _DILIGENCE_GOAL:
-        await _finish_event(callback.message.bot, chat_id, "цель достигнута!")
+        asyncio.create_task(_finish_event(callback.message.bot, chat_id, "цель достигнута!"))
