@@ -54,8 +54,8 @@ async def reroll_quest(uid: int, chat_id: int, use_coupon: bool = False) -> dict
         async with postgres_connect() as db:
             async with db.execute(
                 "SELECT id, COALESCE(stack_count, 1) FROM gacha_inventory "
-                "WHERE user_id=? AND chat_id=? AND item_key='quest_reroll' LIMIT 1",
-                (uid, chat_id),
+                "WHERE user_id=? AND item_key='quest_reroll' LIMIT 1",
+                (uid,),
             ) as c:
                 coupon_row = await c.fetchone()
             if not coupon_row:

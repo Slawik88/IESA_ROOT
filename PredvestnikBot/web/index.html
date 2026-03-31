@@ -4901,6 +4901,7 @@ function renderWeaponsInventory(weapons) {
         <div class="ii-rarity">
           <span class="badge badge-${i.rarity}">${rarityLabel(i.rarity)}</span>
           ${i.slot ? ' · '+esc(i.slot) : ''}
+          ${!i.can_auction && i.days_until_auctionable ? `<span style="font-size:10px;color:#f59e0b;margin-left:4px">⏳ аукцион через ${i.days_until_auctionable} дн.</span>` : ''}
           ${canSelectItem(i) ? `<span style="font-size:10px;color:var(--text2)"> · ${i.stack_count>1?`<input type="number" id="qty-${i.id}" min="1" max="${i.stack_count}" value="${i.stack_count}" style="width:28px;background:var(--card2);border:1px solid #555;border-radius:3px;color:var(--text);font-size:9px;text-align:center;padding:1px" oninput="setSellQty(${i.id},this.value,${i.sell_price||0})"> из ${i.stack_count} · `:''}Продать: <span id="sellval-${i.id}">${(i.stack_count||1)*Math.max(1,Math.floor((i.sell_price||0)/2))}</span> 🪙</span>` : ''}
         </div>
         ${i.atk ? `<div style="font-size:10px;color:var(--text2);margin-top:2px">ATK+${i.atk}${i.crit_rate ? ` Crit+${Math.round(i.crit_rate*100)}%` : ''}</div>` : ''}
@@ -4936,6 +4937,7 @@ function renderArmorInventory(armor) {
         <div class="ii-rarity">
           <span class="badge badge-${i.rarity}">${rarityLabel(i.rarity)}</span>
           ${i.slot ? ' · '+esc(i.slot) : ''}
+          ${!i.can_auction && i.days_until_auctionable ? `<span style="font-size:10px;color:#f59e0b;margin-left:4px">⏳ аукцион через ${i.days_until_auctionable} дн.</span>` : ''}
           ${canSelectItem(i) ? `<span style="font-size:10px;color:var(--text2)"> · ${i.stack_count>1?`<input type="number" id="qty-${i.id}" min="1" max="${i.stack_count}" value="${i.stack_count}" style="width:28px;background:var(--card2);border:1px solid #555;border-radius:3px;color:var(--text);font-size:9px;text-align:center;padding:1px" oninput="setSellQty(${i.id},this.value,${i.sell_price||0})"> из ${i.stack_count} · `:''}Продать: <span id="sellval-${i.id}">${(i.stack_count||1)*Math.max(1,Math.floor((i.sell_price||0)/2))}</span> 🪙</span>` : ''}
         </div>
         ${(i.def_val||i.hp) ? `<div style="font-size:10px;color:var(--text2);margin-top:2px">${i.def_val?'DEF+'+i.def_val:''}${i.def_val&&i.hp?' ':''}${i.hp?'HP+'+i.hp:''}</div>` : ''}
@@ -6507,7 +6509,11 @@ async function loadAuctionInventory(){
       html += '<option disabled>── Гача-предметы ──</option>';
       html += items.map(i=>{
         const em = _RARITY_EMOJI[i.rarity]||'🎴';
-        return `<option value="${i.id}">${em} ${esc(i.item_name)} [ID:${i.id}]</option>`;
+        if(!i.can_auction && i.days_until_auctionable){
+          // Item held < 3 days — show disabled option with countdown
+          return `<option value="${i.id}" disabled>⏳ ${esc(i.name)} (ещё ${i.days_until_auctionable} дн.) [ID:${i.id}]</option>`;
+        }
+        return `<option value="${i.id}">${em} ${esc(i.name)} [ID:${i.id}]</option>`;
       }).join('');
     }
     // Also load owned cosmetics/frames/themes

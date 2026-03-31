@@ -307,8 +307,8 @@ async def boost_expedition(uid: int, chat_id: int, item_id: int) -> dict:
     async with postgres_connect() as db:
         async with db.execute(
             "SELECT id, item_key, COALESCE(stack_count, 1) FROM gacha_inventory "
-            "WHERE id=? AND user_id=? AND chat_id=?",
-            (item_id, uid, chat_id),
+            "WHERE id=? AND user_id=?",
+            (item_id, uid),
         ) as c:
             item_row = await c.fetchone()
         if not item_row:
