@@ -111,8 +111,8 @@ async def coin_flip(uid: int, chat_id: int, bet: int) -> dict:
 
     async with postgres_connect() as db:
         cursor = await db.execute(
-            "UPDATE user_mora SET balance=balance-? WHERE user_id=? AND chat_id=? AND balance>=?",
-            (bet, uid, chat_id, bet),
+            "UPDATE users SET balance=balance-? WHERE user_id=? AND COALESCE(balance,0)>=?",
+            (bet, uid, bet),
         )
         if cursor.rowcount == 0:
             mora_row = await get_mora(uid, chat_id)
@@ -179,8 +179,8 @@ async def buy_lottery_ticket(uid: int, chat_id: int) -> dict:
 
     async with postgres_connect() as db:
         cursor = await db.execute(
-            "UPDATE user_mora SET balance=balance-? WHERE user_id=? AND chat_id=? AND balance>=?",
-            (LOTTERY_TICKET_PRICE, uid, chat_id, LOTTERY_TICKET_PRICE),
+            "UPDATE users SET balance=balance-? WHERE user_id=? AND COALESCE(balance,0)>=?",
+            (LOTTERY_TICKET_PRICE, uid, LOTTERY_TICKET_PRICE),
         )
         if cursor.rowcount == 0:
             mora_row = await get_mora(uid, chat_id)
@@ -198,8 +198,8 @@ async def buy_lottery_ticket(uid: int, chat_id: int) -> dict:
 
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT balance FROM user_mora WHERE user_id=? AND chat_id=?",
-            (uid, chat_id),
+            "SELECT COALESCE(balance, 0) AS balance FROM users WHERE user_id=?",
+            (uid,),
         ) as c:
             row = await c.fetchone()
     new_balance = row[0] if row else 0

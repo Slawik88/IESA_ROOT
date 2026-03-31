@@ -37,8 +37,8 @@ async def get_catalog(uid: int, chat_id: int) -> dict:
         owned_cosmetics = {r["item_value"] for r in rows}
 
         pet_row = await db.fetchone(
-            "SELECT color_name FROM pets WHERE user_id=? AND chat_id=?",
-            (uid, chat_id),
+            "SELECT color_name FROM pets_global WHERE user_id=?",
+            (uid,),
         )
         current_color = pet_row["color_name"] if pet_row else None
 
@@ -233,8 +233,8 @@ async def buy_item(
         from database.postgres import postgres_connect as _pg
         async with _pg() as _db:
             _pet_row = await _db.fetchone(
-                "SELECT color_name FROM pets WHERE user_id=? AND chat_id=?",
-                (uid, chat_id),
+                "SELECT color_name FROM pets_global WHERE user_id=?",
+                (uid,),
             )
         if not _pet_row:
             raise ValueError("У тебя нет питомца — цвет применить не к чему")
@@ -269,21 +269,21 @@ async def buy_item(
         from database.postgres import postgres_connect
         async with postgres_connect() as db:
             row = await db.fetchone(
-                "SELECT balance FROM user_mora WHERE user_id=? AND chat_id=? FOR UPDATE",
-                (uid, chat_id),
+                "SELECT COALESCE(balance, 0) AS balance FROM users WHERE user_id=?",
+                (uid,),
             )
             bal = row["balance"] if row else 0
             if bal < price:
                 raise ValueError(f"Недостаточно Моры ({bal}/{price})")
             cursor = await db.execute(
-                "UPDATE user_mora SET balance=balance-? WHERE user_id=? AND chat_id=? AND balance>=?",
-                (price, uid, chat_id, price),
+                "UPDATE users SET balance = balance - ? WHERE user_id=? AND COALESCE(balance, 0) >= ?",
+                (price, uid, price),
             )
             if cursor.rowcount == 0:
                 raise ValueError(f"Недостаточно Моры")
             row2 = await db.fetchone(
-                "SELECT balance FROM user_mora WHERE user_id=? AND chat_id=?",
-                (uid, chat_id),
+                "SELECT COALESCE(balance, 0) AS balance FROM users WHERE user_id=?",
+                (uid,),
             )
             new_bal = row2["balance"] if row2 else 0
 
@@ -304,8 +304,8 @@ async def buy_item(
         color_key = item_key.replace("pet_color_", "")
         async with _pg2() as _db2:
             await _db2.execute(
-                "UPDATE pets SET color_name=? WHERE user_id=? AND chat_id=?",
-                (color_key, uid, chat_id),
+                "UPDATE pets_global SET color_name=? WHERE user_id=?",
+                (color_key, uid),
             )
     elif item_type == "potion":
         from shared_prices import POTIONS_CATALOG, ITEM_METADATA

@@ -154,8 +154,8 @@ async def cb_buy_food(callback: CallbackQuery):
     from database.postgres import connect as postgres_connect
     async with postgres_connect() as db:
         cursor = await db.execute(
-            "UPDATE user_mora SET balance=balance-? WHERE user_id=? AND chat_id=? AND balance>=?",
-            (item["price"], uid, chat_id, item["price"]),
+            "UPDATE users SET balance=balance-? WHERE user_id=? AND COALESCE(balance,0)>=?",
+            (item["price"], uid, item["price"]),
         )
         if cursor.rowcount == 0:
             await callback.answer("❌ Не удалось списать Мору.", show_alert=True)
@@ -225,8 +225,8 @@ async def cmd_buy_food_text(message: Message, cmd_args: str):
     from database.postgres import connect as postgres_connect
     async with postgres_connect() as db:
         cursor = await db.execute(
-            "UPDATE user_mora SET balance=balance-? WHERE user_id=? AND chat_id=? AND balance>=?",
-            (item["price"], uid, chat_id, item["price"]),
+            "UPDATE users SET balance=balance-? WHERE user_id=? AND COALESCE(balance,0)>=?",
+            (item["price"], uid, item["price"]),
         )
         if cursor.rowcount == 0:
             await message.answer("❌ Не удалось списать Мору.", parse_mode="HTML")

@@ -74,9 +74,9 @@ async def transfer_mora(from_uid: int, to_uid: int, chat_id: int, amount: int,
     async with postgres_connect() as db:
         # 1. Deduct from sender (atomic check)
         cursor = await db.execute(
-            "UPDATE user_mora SET balance = balance - ? "
-            "WHERE user_id = ? AND chat_id = ? AND balance >= ?",
-            (deduct_total, from_uid, chat_id, deduct_total),
+            "UPDATE users SET balance = balance - ? "
+            "WHERE user_id = ? AND COALESCE(balance,0) >= ?",
+            (deduct_total, from_uid, deduct_total),
         )
         if cursor.rowcount == 0:
             mora_row = await get_mora(from_uid, chat_id)
@@ -86,13 +86,8 @@ async def transfer_mora(from_uid: int, to_uid: int, chat_id: int, amount: int,
 
         # 2. Credit receiver
         await db.execute(
-            """INSERT INTO user_mora (user_id, chat_id, balance, total_earned)
-               VALUES (?, ?, ?, ?)
-               ON CONFLICT(user_id, chat_id) DO UPDATE SET
-                   balance      = user_mora.balance + ?,
-                   total_earned = user_mora.total_earned + ?""",
-            (to_uid, chat_id, credit_amount, credit_amount,
-             credit_amount, credit_amount),
+            "UPDATE users SET balance=COALESCE(balance,0)+?, total_earned=COALESCE(total_earned,0)+? WHERE user_id=?",
+            (credit_amount, credit_amount, to_uid),
         )
 
         # 3. Tax to treasury
@@ -111,15 +106,15 @@ async def transfer_mora(from_uid: int, to_uid: int, chat_id: int, amount: int,
 
         # Read final balances
         async with db.execute(
-            "SELECT balance FROM user_mora WHERE user_id=? AND chat_id=?",
-            (from_uid, chat_id),
+            "SELECT COALESCE(balance, 0) FROM users WHERE user_id=?",
+            (from_uid,),
         ) as c:
             row = await c.fetchone()
         from_bal = row[0] if row else 0
 
         async with db.execute(
-            "SELECT balance FROM user_mora WHERE user_id=? AND chat_id=?",
-            (to_uid, chat_id),
+            "SELECT COALESCE(balance, 0) FROM users WHERE user_id=?",
+            (to_uid,),
         ) as c:
             row = await c.fetchone()
         to_bal = row[0] if row else 0
@@ -201,8 +196,8 @@ async def buy_chat_buff(uid: int, chat_id: int, buff_type: str = "xp_plus10") ->
 
     async with postgres_connect() as db:
         cursor = await db.execute(
-            "UPDATE user_mora SET balance=balance-? WHERE user_id=? AND chat_id=? AND balance>=?",
-            (CHAT_BUFF_PRICE, uid, chat_id, CHAT_BUFF_PRICE),
+            "UPDATE users SET balance=balance-? WHERE user_id=? AND COALESCE(balance,0)>=?",
+            (CHAT_BUFF_PRICE, uid, CHAT_BUFF_PRICE),
         )
         if cursor.rowcount == 0:
             mora_row = await get_mora(uid, chat_id)
@@ -210,8 +205,8 @@ async def buy_chat_buff(uid: int, chat_id: int, buff_type: str = "xp_plus10") ->
             raise ValueError(f"Недостаточно Моры: {bal}/{CHAT_BUFF_PRICE} 🪙")
         await db.commit()
         async with db.execute(
-            "SELECT balance FROM user_mora WHERE user_id=? AND chat_id=?",
-            (uid, chat_id),
+            "SELECT COALESCE(balance, 0) AS balance FROM users WHERE user_id=?",
+            (uid,),
         ) as c:
             row = await c.fetchone()
         new_bal = row[0] if row else 0

@@ -80,15 +80,15 @@ async def reroll_quest(uid: int, chat_id: int, use_coupon: bool = False) -> dict
 
         async with postgres_connect() as db:
             cursor = await db.execute(
-                "UPDATE user_mora SET balance=balance-? WHERE user_id=? AND chat_id=? AND balance>=?",
-                (QUEST_REROLL_PRICE, uid, chat_id, QUEST_REROLL_PRICE),
+                "UPDATE users SET balance=balance-? WHERE user_id=? AND COALESCE(balance,0)>=?",
+                (QUEST_REROLL_PRICE, uid, QUEST_REROLL_PRICE),
             )
             if cursor.rowcount == 0:
                 raise ValueError("Не удалось списать Мору")
             await db.commit()
             async with db.execute(
-                "SELECT balance FROM user_mora WHERE user_id=? AND chat_id=?",
-                (uid, chat_id),
+                "SELECT COALESCE(balance, 0) AS balance FROM users WHERE user_id=?",
+                (uid,),
             ) as c:
                 row = await c.fetchone()
             new_bal = row[0] if row else 0

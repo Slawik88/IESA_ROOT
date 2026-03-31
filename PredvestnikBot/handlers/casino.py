@@ -91,8 +91,8 @@ async def cmd_coin(message: Message, cmd_args: str):
     from database.postgres import connect as postgres_connect
     async with postgres_connect() as db:
         cursor = await db.execute(
-            "UPDATE user_mora SET balance=balance-? WHERE user_id=? AND chat_id=? AND balance>=?",
-            (bet, uid, chat_id, bet),
+            "UPDATE users SET balance=balance-? WHERE user_id=? AND COALESCE(balance,0)>=?",
+            (bet, uid, bet),
         )
         if cursor.rowcount == 0:
             await message.answer("❌ Не удалось принять ставку.")
@@ -143,8 +143,8 @@ async def cb_coin_choice(callback: CallbackQuery):
             from database.postgres import connect as postgres_connect
             async with postgres_connect() as db:
                 await db.execute(
-                    "UPDATE user_mora SET balance=balance+? WHERE user_id=? AND chat_id=?",
-                    (bet, uid, chat_id),
+                    "UPDATE users SET balance=COALESCE(balance,0)+? WHERE user_id=?",
+                    (bet, uid),
                 )
             try:
                 await callback.message.edit_text(
@@ -259,8 +259,8 @@ async def cmd_dice(message: Message, cmd_args: str, bot):
     from database.postgres import connect as postgres_connect
     async with postgres_connect() as db:
         cursor = await db.execute(
-            "UPDATE user_mora SET balance=balance-? WHERE user_id=? AND chat_id=? AND balance>=?",
-            (bet, uid, chat_id, bet),
+            "UPDATE users SET balance=balance-? WHERE user_id=? AND COALESCE(balance,0)>=?",
+            (bet, uid, bet),
         )
         if cursor.rowcount == 0:
             await message.answer("❌ Не удалось принять ставку.")
@@ -335,8 +335,8 @@ async def cb_duel_accept(callback: CallbackQuery):
     from database.postgres import connect as postgres_connect
     async with postgres_connect() as db:
         cursor = await db.execute(
-            "UPDATE user_mora SET balance=balance-? WHERE user_id=? AND chat_id=? AND balance>=?",
-            (bet, target_id, chat_id, bet),
+            "UPDATE users SET balance=balance-? WHERE user_id=? AND COALESCE(balance,0)>=?",
+            (bet, target_id, bet),
         )
         if cursor.rowcount == 0:
             await callback.answer("❌ Не удалось принять ставку. Попробуй ещё раз.", show_alert=True)
@@ -461,8 +461,8 @@ async def cmd_lottery(message: Message, cmd_args: str):
     from database.postgres import connect as postgres_connect
     async with postgres_connect() as db:
         cursor = await db.execute(
-            "UPDATE user_mora SET balance=balance-? WHERE user_id=? AND chat_id=? AND balance>=?",
-            (LOTTERY_PRICE, uid, chat_id, LOTTERY_PRICE),
+            "UPDATE users SET balance=balance-? WHERE user_id=? AND COALESCE(balance,0)>=?",
+            (LOTTERY_PRICE, uid, LOTTERY_PRICE),
         )
         if cursor.rowcount == 0:
             await message.answer("❌ Не удалось купить билет.")

@@ -59,8 +59,8 @@ async def spy(uid: int, chat_id: int, target_id: int) -> dict:
     # Deduct cost
     async with postgres_connect() as db:
         cursor = await db.execute(
-            "UPDATE user_mora SET balance=balance-? WHERE user_id=? AND chat_id=? AND balance>=?",
-            (SPY_COST, uid, chat_id, SPY_COST),
+            "UPDATE users SET balance=balance-? WHERE user_id=? AND COALESCE(balance,0)>=?",
+            (SPY_COST, uid, SPY_COST),
         )
         if cursor.rowcount == 0:
             raise ValueError("Не удалось списать Мору")
@@ -101,8 +101,10 @@ async def spy(uid: int, chat_id: int, target_id: int) -> dict:
     # Success — get target info
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT balance, vip FROM user_mora WHERE user_id=? AND chat_id=?",
-            (target_id, chat_id),
+            "SELECT COALESCE(u.balance,0) AS balance, COALESCE(um.vip,0) AS vip "
+            "FROM users u LEFT JOIN user_mora um ON um.user_id=u.user_id AND um.chat_id=? "
+            "WHERE u.user_id=?",
+            (chat_id, target_id),
         ) as c:
             t_row = await c.fetchone()
 

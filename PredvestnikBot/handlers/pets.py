@@ -297,8 +297,8 @@ async def cb_pet_pay(callback: CallbackQuery):
         from database.postgres import connect as postgres_connect
         async with postgres_connect() as db:
             cursor = await db.execute(
-                "UPDATE user_mora SET balance=balance-? WHERE user_id=? AND chat_id=? AND balance>=?",
-                (PET_ADOPT_PRICE, uid, chat_id, PET_ADOPT_PRICE),
+                "UPDATE users SET balance=balance-? WHERE user_id=? AND COALESCE(balance,0)>=?",
+                (PET_ADOPT_PRICE, uid, PET_ADOPT_PRICE),
             )
             if cursor.rowcount == 0:
                 await callback.answer("❌ Не удалось списать Мору. Попробуй ещё раз.", show_alert=True)
@@ -380,16 +380,16 @@ async def cb_pet_rename_confirm(callback: CallbackQuery):
     from database.postgres import connect as postgres_connect
     async with postgres_connect() as db:
         cursor = await db.execute(
-            "UPDATE user_mora SET balance=balance-? WHERE user_id=? AND chat_id=? AND balance>=?",
-            (PET_RENAME_PRICE, uid, chat_id, PET_RENAME_PRICE),
+            "UPDATE users SET balance=balance-? WHERE user_id=? AND COALESCE(balance,0)>=?",
+            (PET_RENAME_PRICE, uid, PET_RENAME_PRICE),
         )
         if cursor.rowcount == 0:
             await callback.answer("❌ Не удалось списать Мору. Попробуй ещё раз.", show_alert=True)
             return
         await db.commit()
         async with db.execute(
-            "SELECT balance FROM user_mora WHERE user_id=? AND chat_id=?",
-            (uid, chat_id),
+            "SELECT COALESCE(balance, 0) AS balance FROM users WHERE user_id=?",
+            (uid,),
         ) as c:
             row = await c.fetchone()
         new_bal = row[0] if row else 0
@@ -461,16 +461,16 @@ async def cb_pet_skip(callback: CallbackQuery):
     from database.postgres import connect as postgres_connect
     async with postgres_connect() as db:
         cursor = await db.execute(
-            "UPDATE user_mora SET balance=balance-? WHERE user_id=? AND chat_id=? AND balance>=?",
-            (PET_MORA_SKIP_PRICE, uid, chat_id, PET_MORA_SKIP_PRICE),
+            "UPDATE users SET balance=balance-? WHERE user_id=? AND COALESCE(balance,0)>=?",
+            (PET_MORA_SKIP_PRICE, uid, PET_MORA_SKIP_PRICE),
         )
         if cursor.rowcount == 0:
             await callback.answer("❌ Не удалось списать Мору.", show_alert=True)
             return
         await db.commit()
         async with db.execute(
-            "SELECT balance FROM user_mora WHERE user_id=? AND chat_id=?",
-            (uid, chat_id),
+            "SELECT COALESCE(balance, 0) AS balance FROM users WHERE user_id=?",
+            (uid,),
         ) as c:
             row = await c.fetchone()
         new_bal = row[0] if row else 0
@@ -672,16 +672,16 @@ async def cmd_change_pet_type(message: Message, cmd_args: str):
         from database.postgres import connect as postgres_connect
         async with postgres_connect() as db:
             cursor = await db.execute(
-                "UPDATE user_mora SET balance=balance-? WHERE user_id=? AND chat_id=? AND balance>=?",
-                (PET_CHANGE_TYPE_PRICE, uid, chat_id, PET_CHANGE_TYPE_PRICE),
+                "UPDATE users SET balance=balance-? WHERE user_id=? AND COALESCE(balance,0)>=?",
+                (PET_CHANGE_TYPE_PRICE, uid, PET_CHANGE_TYPE_PRICE),
             )
             if cursor.rowcount == 0:
                 await message.answer("❌ Не удалось списать Мору.")
                 return
             await db.commit()
             async with db.execute(
-                "SELECT balance FROM user_mora WHERE user_id=? AND chat_id=?",
-                (uid, chat_id),
+                "SELECT COALESCE(balance, 0) AS balance FROM users WHERE user_id=?",
+                (uid,),
             ) as c:
                 row = await c.fetchone()
             new_bal = row[0] if row else 0

@@ -167,8 +167,8 @@ async def deposit(uid: int, chat_id: int, plan_key: str,
         async with postgres_connect() as db:
             # Atomic: deduct mora + create deposit in one transaction
             cursor = await db.execute(
-                "UPDATE user_mora SET balance=balance-? WHERE user_id=? AND chat_id=? AND balance>=?",
-                (amount, uid, chat_id, amount),
+                "UPDATE users SET balance=balance-? WHERE user_id=? AND COALESCE(balance,0)>=?",
+                (amount, uid, amount),
             )
             if cursor.rowcount == 0:
                 mora_row = await get_mora(uid, chat_id)
@@ -188,8 +188,8 @@ async def deposit(uid: int, chat_id: int, plan_key: str,
             await db.commit()
             # Read new personal balance
             async with db.execute(
-                "SELECT balance FROM user_mora WHERE user_id=? AND chat_id=?",
-                (uid, chat_id),
+                "SELECT COALESCE(balance, 0) FROM users WHERE user_id=?",
+                (uid,),
             ) as c:
                 row = await c.fetchone()
             new_balance = row[0] if row else 0

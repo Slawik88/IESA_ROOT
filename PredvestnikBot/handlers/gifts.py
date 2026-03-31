@@ -146,8 +146,8 @@ async def cb_gift(callback: CallbackQuery):
         from database.postgres import connect as postgres_connect
         async with postgres_connect() as db:
             cursor = await db.execute(
-                "UPDATE user_mora SET balance=balance-? WHERE user_id=? AND chat_id=? AND balance>=?",
-                (price, uid, chat_id, price),
+                "UPDATE users SET balance=balance-? WHERE user_id=? AND COALESCE(balance,0)>=?",
+                (price, uid, price),
             )
             if cursor.rowcount == 0:
                 mora = await get_mora(uid, chat_id)

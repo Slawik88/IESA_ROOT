@@ -153,9 +153,10 @@ async def roulette_spin(
     # ── Deduct bet atomically + read pity counter ─────────────────────────────
     async with postgres_connect() as db:
         row = await db.fetchone(
-            "SELECT balance, COALESCE(roulette_losses, 0) AS roulette_losses "
-            "FROM user_mora WHERE user_id=? AND chat_id=? FOR UPDATE",
-            (uid, chat_id),
+            "SELECT COALESCE(u.balance,0) AS balance, COALESCE(um.roulette_losses, 0) AS roulette_losses "
+            "FROM users u LEFT JOIN user_mora um ON um.user_id=u.user_id AND um.chat_id=? "
+            "WHERE u.user_id=?",
+            (chat_id, uid),
         )
         if not row or row["balance"] < bet_amount:
             bal = row["balance"] if row else 0
@@ -171,8 +172,8 @@ async def roulette_spin(
 
     async with postgres_connect() as db:
         cursor = await db.execute(
-            "UPDATE user_mora SET balance=balance-? WHERE user_id=? AND chat_id=? AND balance>=?",
-            (bet_amount, uid, chat_id, bet_amount),
+            "UPDATE users SET balance=balance-? WHERE user_id=? AND COALESCE(balance,0)>=?",
+            (bet_amount, uid, bet_amount),
         )
         if cursor.rowcount == 0:
             raise ValueError("Недостаточно Моры")

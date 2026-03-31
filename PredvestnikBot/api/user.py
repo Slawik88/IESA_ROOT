@@ -59,9 +59,9 @@ async def get_leaderboard(
     elif lb_type == "mora":
         async with postgres_connect() as db:
             async with db.execute(
-                "SELECT m.user_id, u.full_name, m.balance, m.vip "
-                "FROM user_mora m LEFT JOIN users u ON u.user_id=m.user_id "
-                "WHERE m.chat_id=? ORDER BY m.balance DESC LIMIT ?",
+                "SELECT u.user_id, u.full_name, COALESCE(u.balance,0) AS balance, COALESCE(um.vip,0) AS vip "
+                "FROM users u LEFT JOIN user_mora um ON um.user_id=u.user_id AND um.chat_id=? "
+                "WHERE u.balance IS NOT NULL ORDER BY u.balance DESC LIMIT ?",
                 (chat_id, limit),
             ) as c:
                 rows = await c.fetchall()
@@ -129,16 +129,15 @@ async def _get_user_rank(uid: int, chat_id: int, lb_type: str) -> dict | None:
 
         elif lb_type == "mora":
             async with db.execute(
-                "SELECT COUNT(*)+1 FROM user_mora WHERE chat_id=? AND balance > "
-                "COALESCE((SELECT balance FROM user_mora "
-                "          WHERE user_id=? AND chat_id=?), 0)",
-                (chat_id, uid, chat_id),
+                "SELECT COUNT(*)+1 FROM users WHERE balance IS NOT NULL AND balance > "
+                "COALESCE((SELECT balance FROM users WHERE user_id=?), 0)",
+                (uid,),
             ) as c:
                 rank_row = await c.fetchone()
             async with db.execute(
-                "SELECT COALESCE(balance, 0) FROM user_mora "
-                "WHERE user_id=? AND chat_id=?",
-                (uid, chat_id),
+                "SELECT COALESCE(balance, 0) FROM users "
+                "WHERE user_id=?",
+                (uid,),
             ) as c:
                 score_row = await c.fetchone()
 

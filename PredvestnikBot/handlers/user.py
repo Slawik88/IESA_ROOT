@@ -1502,16 +1502,16 @@ async def cb_theme_buy(callback: CallbackQuery):
     from database.postgres import connect as postgres_connect
     async with postgres_connect() as db:
         cursor = await db.execute(
-            "UPDATE user_mora SET balance=balance-? WHERE user_id=? AND chat_id=? AND balance>=?",
-            (price, uid, chat_id, price),
+            "UPDATE users SET balance=balance-? WHERE user_id=? AND COALESCE(balance,0)>=?",
+            (price, uid, price),
         )
         if cursor.rowcount == 0:
             await callback.answer("❌ Не удалось списать Мору.", show_alert=True)
             return
         await db.commit()
         async with db.execute(
-            "SELECT balance FROM user_mora WHERE user_id=? AND chat_id=?",
-            (uid, chat_id),
+            "SELECT COALESCE(balance, 0) AS balance FROM users WHERE user_id=?",
+            (uid,),
         ) as c:
             row = await c.fetchone()
         new_bal = row[0] if row else 0

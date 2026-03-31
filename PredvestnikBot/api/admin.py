@@ -90,16 +90,15 @@ async def set_balance(actor_id: int, target_id: int, chat_id: int, balance: int)
 
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT COALESCE(balance, 0) FROM user_mora WHERE user_id=? AND chat_id=?",
-            (target_id, chat_id),
+            "SELECT COALESCE(balance, 0) FROM users WHERE user_id=?",
+            (target_id,),
         ) as c:
             row = await c.fetchone()
         old_balance = row[0] if row else 0
 
         await db.execute(
-            "INSERT INTO user_mora (user_id, chat_id, balance) VALUES (?,?,?) "
-            "ON CONFLICT(user_id, chat_id) DO UPDATE SET balance=excluded.balance",
-            (target_id, chat_id, balance),
+            "UPDATE users SET balance=? WHERE user_id=?",
+            (balance, target_id),
         )
         delta = balance - old_balance
         if delta > 0:
@@ -119,15 +118,12 @@ async def admin_add_mora(actor_id: int, target_id: int, chat_id: int, amount: in
 
     async with postgres_connect() as db:
         await db.execute(
-            "INSERT INTO user_mora (user_id, chat_id, balance) "
-            "VALUES (?,?,GREATEST(0,?)) "
-            "ON CONFLICT(user_id, chat_id) DO UPDATE SET "
-            "balance=GREATEST(0, user_mora.balance + ?)",
-            (target_id, chat_id, amount, amount),
+            "UPDATE users SET balance=GREATEST(0, COALESCE(balance,0)+?) WHERE user_id=?",
+            (amount, target_id),
         )
         async with db.execute(
-            "SELECT balance FROM user_mora WHERE user_id=? AND chat_id=?",
-            (target_id, chat_id),
+            "SELECT COALESCE(balance, 0) FROM users WHERE user_id=?",
+            (target_id,),
         ) as c:
             row = await c.fetchone()
         new_bal = row[0] if row else 0
@@ -205,16 +201,15 @@ async def member_update(
 
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT COALESCE(balance, 0) FROM user_mora WHERE user_id=? AND chat_id=?",
-            (target_id, chat_id),
+            "SELECT COALESCE(balance, 0) FROM users WHERE user_id=?",
+            (target_id,),
         ) as c:
             row = await c.fetchone()
         old_balance = row[0] if row else 0
 
         await db.execute(
-            "INSERT INTO user_mora (user_id, chat_id, balance) VALUES (?,?,?) "
-            "ON CONFLICT(user_id, chat_id) DO UPDATE SET balance=excluded.balance",
-            (target_id, chat_id, balance),
+            "UPDATE users SET balance=? WHERE user_id=?",
+            (balance, target_id),
         )
         await db.execute(
             "INSERT INTO user_stats (user_id, chat_id, xp, level, rank) VALUES (?,?,?,?,?) "
@@ -293,11 +288,8 @@ async def give_salary(actor_id: int, target_id: int, chat_id: int,
         target_name = (row[0] if row else "") or f"Игрок {target_id}"
 
         await db.execute(
-            "INSERT INTO user_mora (user_id, chat_id, balance, total_earned) VALUES (?,?,?,?) "
-            "ON CONFLICT(user_id, chat_id) DO UPDATE SET "
-            "balance=user_mora.balance + excluded.balance, "
-            "total_earned=user_mora.total_earned + excluded.total_earned",
-            (target_id, chat_id, amount, amount),
+            "UPDATE users SET balance=COALESCE(balance,0)+?, total_earned=COALESCE(total_earned,0)+? WHERE user_id=?",
+            (amount, amount, target_id),
         )
         desc = f"Зарплата за {days} дн."
         if reason:
@@ -305,8 +297,8 @@ async def give_salary(actor_id: int, target_id: int, chat_id: int,
         await _write_ledger(db, chat_id, target_id, "income", amount, "salary", desc, actor_id)
 
         async with db.execute(
-            "SELECT COALESCE(balance, 0) FROM user_mora WHERE user_id=? AND chat_id=?",
-            (target_id, chat_id),
+            "SELECT COALESCE(balance, 0) FROM users WHERE user_id=?",
+            (target_id,),
         ) as c:
             row = await c.fetchone()
         new_balance = row[0] if row else 0
@@ -402,13 +394,12 @@ async def get_chat_members(chat_id: int) -> dict:
     async with postgres_connect() as db:
         async with db.execute(
             "SELECT s.user_id, u.full_name, COALESCE(s.rank,'user'), "
-            "COALESCE(s.level,1), COALESCE(s.xp,0), COALESCE(m.balance,0), "
+            "COALESCE(s.level,1), COALESCE(s.xp,0), COALESCE(u.balance,0), "
             "COALESCE(s.message_count,0), COALESCE(cc.count,0), "
             "COALESCE(cc.week_count,0), COALESCE(cc.day_count,0), "
             "COALESCE(cc.yesterday_count,0), COALESCE(cc.last_week_count,0) "
             "FROM user_stats s "
             "LEFT JOIN users u ON u.user_id=s.user_id "
-            "LEFT JOIN user_mora m ON m.user_id=s.user_id AND m.chat_id=s.chat_id "
             "LEFT JOIN cleanup_counts cc ON cc.user_id=s.user_id AND cc.chat_id=s.chat_id "
             "WHERE s.chat_id=? ORDER BY s.xp DESC LIMIT 50",
             (chat_id,),
@@ -650,11 +641,8 @@ async def treasury_payout(actor_id: int, target_id: int, chat_id: int,
 
         # Add to user mora
         await db.execute(
-            "INSERT INTO user_mora (user_id, chat_id, balance, total_earned) VALUES (?,?,?,?) "
-            "ON CONFLICT(user_id, chat_id) DO UPDATE SET "
-            "balance=user_mora.balance + excluded.balance, "
-            "total_earned=user_mora.total_earned + excluded.total_earned",
-            (target_id, chat_id, amount, amount),
+            "UPDATE users SET balance=COALESCE(balance,0)+?, total_earned=COALESCE(total_earned,0)+? WHERE user_id=?",
+            (amount, amount, target_id),
         )
 
         desc = reason.strip() or "Выплата из казны"
@@ -667,8 +655,8 @@ async def treasury_payout(actor_id: int, target_id: int, chat_id: int,
         new_treasury = row[0] if row else 0
 
         async with db.execute(
-            "SELECT COALESCE(balance, 0) FROM user_mora WHERE user_id=? AND chat_id=?",
-            (target_id, chat_id),
+            "SELECT COALESCE(balance, 0) FROM users WHERE user_id=?",
+            (target_id,),
         ) as c:
             row = await c.fetchone()
         new_user_balance = row[0] if row else 0
