@@ -79,7 +79,7 @@ async def respond_to_proposal_api(uid: int, chat_id: int, proposal_id: int, acti
 
     On accept, creates the marriage.
     Raises ValueError on error.
-    Returns {ok, action, partner_id$1, partner_name$2}.
+    Returns {ok, action, partner_id?, partner_name?}.
     """
     from database.db import (
         respond_to_proposal, create_marriage, get_user, get_pending_proposals,
@@ -144,7 +144,7 @@ async def family_deposit(uid: int, chat_id: int, amount: int) -> dict:
 
     async with postgres_connect() as db:
         cursor = await db.execute(
-            "UPDATE users SET balance=balance-$1 WHERE user_id=$2 AND COALESCE(balance,0)>=$3",
+            "UPDATE users SET balance=balance-? WHERE user_id=? AND COALESCE(balance,0)>=?",
             (amount, uid, amount),
         )
         if cursor.rowcount == 0:
@@ -228,7 +228,7 @@ async def get_family_log(uid: int, chat_id: int, limit: int = 30) -> dict:
     # Auto-cleanup old records (> 60 days)
     async with postgres_connect() as db:
         await db.execute(
-            "DELETE FROM family_wallet_log WHERE chat_id=$1 AND created_at < NOW() - INTERVAL '60 days'",
+            "DELETE FROM family_wallet_log WHERE chat_id=? AND created_at < NOW() - INTERVAL '60 days'",
             (chat_id,),
         )
         await db.commit()

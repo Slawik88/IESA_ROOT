@@ -441,7 +441,7 @@ async def cmd_treasury_give(message: Message, cmd_args: str):
     # Atomic: deduct from treasury + credit to user
     async with postgres_connect() as db:
         cursor = await db.execute(
-            "UPDATE chat_treasury SET balance=balance-$1 WHERE chat_id=$2 AND balance>=$3",
+            "UPDATE chat_treasury SET balance=balance-? WHERE chat_id=? AND balance>=?",
             (amount, chat_id, amount),
         )
         if cursor.rowcount == 0:
@@ -449,7 +449,7 @@ async def cmd_treasury_give(message: Message, cmd_args: str):
             return
         await db.execute(
             """INSERT INTO treasury_log (chat_id, user_id, amount, source, created_at)
-               VALUES ($1,$2,$3,$4,NOW())""",
+               VALUES (?,?,?,?,NOW())""",
             (chat_id, uid, -amount, "treasury_give"),
         )
         await db.commit()
@@ -508,7 +508,7 @@ async def cmd_treasury_take(message: Message, cmd_args: str):
     # Atomic: deduct from user
     async with postgres_connect() as db:
         cursor = await db.execute(
-            "UPDATE users SET balance=balance-$1 WHERE user_id=$2 AND COALESCE(balance,0)>=$3",
+            "UPDATE users SET balance=balance-? WHERE user_id=? AND COALESCE(balance,0)>=?",
             (amount, target_id, amount),
         )
         if cursor.rowcount == 0:

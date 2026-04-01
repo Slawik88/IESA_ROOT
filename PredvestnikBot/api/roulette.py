@@ -154,8 +154,8 @@ async def roulette_spin(
     async with postgres_connect() as db:
         row = await db.fetchone(
             "SELECT COALESCE(u.balance,0) AS balance, COALESCE(um.roulette_losses, 0) AS roulette_losses "
-            "FROM users u LEFT JOIN user_mora um ON um.user_id=u.user_id AND um.chat_id=$1 "
-            "WHERE u.user_id=$1",
+            "FROM users u LEFT JOIN user_mora um ON um.user_id=u.user_id AND um.chat_id=? "
+            "WHERE u.user_id=?",
             (chat_id, uid),
         )
         if not row or row["balance"] < bet_amount:
@@ -172,7 +172,7 @@ async def roulette_spin(
 
     async with postgres_connect() as db:
         cursor = await db.execute(
-            "UPDATE users SET balance=balance-$1 WHERE user_id=$2 AND COALESCE(balance,0)>=$3",
+            "UPDATE users SET balance=balance-? WHERE user_id=? AND COALESCE(balance,0)>=?",
             (bet_amount, uid, bet_amount),
         )
         if cursor.rowcount == 0:
@@ -211,13 +211,13 @@ async def roulette_spin(
     async with postgres_connect() as db:
         if win:
             await db.execute(
-                "UPDATE user_mora SET roulette_losses=0 WHERE user_id=$1 AND chat_id=$2",
+                "UPDATE user_mora SET roulette_losses=0 WHERE user_id=? AND chat_id=?",
                 (uid, chat_id),
             )
         else:
             await db.execute(
                 "UPDATE user_mora SET roulette_losses=COALESCE(roulette_losses,0)+1 "
-                "WHERE user_id=$1 AND chat_id=$2",
+                "WHERE user_id=? AND chat_id=?",
                 (uid, chat_id),
             )
 

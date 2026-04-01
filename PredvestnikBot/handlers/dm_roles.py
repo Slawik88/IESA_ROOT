@@ -231,7 +231,7 @@ async def cb_role_pick(callback: CallbackQuery, bot: Bot) -> None:
         try:
             await callback.message.edit_text(
                 f"⚠️ <b>У тебя уже есть роль: {safe_curr}</b>\n\n"
-                f"Заменить на <b>{safe_new}</b>$1\n\n"
+                f"Заменить на <b>{safe_new}</b>?\n\n"
                 f"<i>Старая роль освободится и станет доступна другим.</i>",
                 reply_markup=InlineKeyboardMarkup(inline_keyboard=[
                     [

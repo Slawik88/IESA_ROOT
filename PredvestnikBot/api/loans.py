@@ -18,7 +18,7 @@ async def get_loans(uid: int, chat_id: int) -> dict:
         # Borrowed (accepted, not repaid)
         async with db.execute(
             "SELECT id, lender_id, amount, loaned_at FROM mora_loans "
-            "WHERE borrower_id=$1 AND chat_id=$2 AND repaid_at IS NULL "
+            "WHERE borrower_id=? AND chat_id=? AND repaid_at IS NULL "
             "AND COALESCE(status,'accepted')='accepted' ORDER BY id",
             (uid, chat_id),
         ) as c:
@@ -27,7 +27,7 @@ async def get_loans(uid: int, chat_id: int) -> dict:
         # Pending incoming (someone wants to lend me money)
         async with db.execute(
             "SELECT id, lender_id, amount, loaned_at FROM mora_loans "
-            "WHERE borrower_id=$1 AND chat_id=$2 AND repaid_at IS NULL "
+            "WHERE borrower_id=? AND chat_id=? AND repaid_at IS NULL "
             "AND status='pending' ORDER BY id",
             (uid, chat_id),
         ) as c:
@@ -36,7 +36,7 @@ async def get_loans(uid: int, chat_id: int) -> dict:
         # Lent out (accepted, not repaid)
         async with db.execute(
             "SELECT id, borrower_id, amount, loaned_at FROM mora_loans "
-            "WHERE lender_id=$1 AND chat_id=$2 AND repaid_at IS NULL "
+            "WHERE lender_id=? AND chat_id=? AND repaid_at IS NULL "
             "AND COALESCE(status,'accepted')='accepted' ORDER BY id",
             (uid, chat_id),
         ) as c:
@@ -45,7 +45,7 @@ async def get_loans(uid: int, chat_id: int) -> dict:
         # Pending outgoing (I offered a loan, waiting for borrower)
         async with db.execute(
             "SELECT id, borrower_id, amount, loaned_at FROM mora_loans "
-            "WHERE lender_id=$1 AND chat_id=$2 AND repaid_at IS NULL "
+            "WHERE lender_id=? AND chat_id=? AND repaid_at IS NULL "
             "AND status='pending' ORDER BY id",
             (uid, chat_id),
         ) as c:
@@ -107,7 +107,7 @@ async def create_loan(uid: int, target_id: int, chat_id: int, amount: int) -> di
         # Check borrower's active loan count
         async with db.execute(
             "SELECT COUNT(*) FROM mora_loans "
-            "WHERE borrower_id=$1 AND chat_id=$2 AND repaid_at IS NULL",
+            "WHERE borrower_id=? AND chat_id=? AND repaid_at IS NULL",
             (target_id, chat_id),
         ) as c:
             active = (await c.fetchone())[0]
@@ -125,7 +125,7 @@ async def create_loan(uid: int, target_id: int, chat_id: int, amount: int) -> di
         now = datetime.now(timezone.utc)
         cursor = await db.execute(
             "INSERT INTO mora_loans (lender_id, borrower_id, chat_id, amount, loaned_at, status) "
-            "VALUES ($1,$2,$3,$4,$5,'pending') RETURNING id",
+            "VALUES (?,?,?,?,?,'pending') RETURNING id",
             (uid, target_id, chat_id, amount, now),
         )
         row = await cursor.fetchone()
@@ -154,7 +154,7 @@ async def repay_loan(uid: int, chat_id: int, loan_id: int) -> dict:
     async with postgres_connect() as db:
         async with db.execute(
             "SELECT id, lender_id, amount FROM mora_loans "
-            "WHERE id=$1 AND borrower_id=$2 AND chat_id=$3 AND repaid_at IS NULL "
+            "WHERE id=? AND borrower_id=? AND chat_id=? AND repaid_at IS NULL "
             "AND COALESCE(status,'accepted')='accepted'",
             (loan_id, uid, chat_id),
         ) as c:
@@ -167,7 +167,7 @@ async def repay_loan(uid: int, chat_id: int, loan_id: int) -> dict:
 
         # Atomically deduct + mark repaid in same transaction
         cursor = await db.execute(
-            "UPDATE users SET balance=balance-$1 WHERE user_id=$2 AND COALESCE(balance,0)>=$3",
+            "UPDATE users SET balance=balance-? WHERE user_id=? AND COALESCE(balance,0)>=?",
             (amount, uid, amount),
         )
         if cursor.rowcount == 0:
@@ -176,7 +176,7 @@ async def repay_loan(uid: int, chat_id: int, loan_id: int) -> dict:
             raise ValueError(f"Недостаточно Моры. Нужно {amount} 🪙, у тебя {balance}")
 
         await db.execute(
-            "UPDATE mora_loans SET repaid_at=NOW() WHERE id=$1",
+            "UPDATE mora_loans SET repaid_at=NOW() WHERE id=?",
             (loan_id,),
         )
 
@@ -208,7 +208,7 @@ async def respond_to_loan(uid: int, chat_id: int, loan_id: int, action: str) -> 
 
     On accept: deducts from lender → credits borrower.
     Raises ValueError on error.
-    Returns {ok, action, loan_id, amount, new_balance$1}.
+    Returns {ok, action, loan_id, amount, new_balance?}.
     """
     from database.db import add_mora, get_mora
     from database.postgres import connect as postgres_connect
@@ -220,7 +220,7 @@ async def respond_to_loan(uid: int, chat_id: int, loan_id: int, action: str) -> 
         async with postgres_connect() as db:
             async with db.execute(
                 "UPDATE mora_loans SET status='rejected', repaid_at=NOW() "
-                "WHERE id=$1 AND borrower_id=$2 AND chat_id=$3 AND status='pending' "
+                "WHERE id=? AND borrower_id=? AND chat_id=? AND status='pending' "
                 "RETURNING id",
                 (loan_id, uid, chat_id),
             ) as c:
@@ -234,7 +234,7 @@ async def respond_to_loan(uid: int, chat_id: int, loan_id: int, action: str) -> 
     async with postgres_connect() as db:
         async with db.execute(
             "SELECT id, lender_id, amount FROM mora_loans "
-            "WHERE id=$1 AND borrower_id=$2 AND chat_id=$3 AND status='pending' AND repaid_at IS NULL",
+            "WHERE id=? AND borrower_id=? AND chat_id=? AND status='pending' AND repaid_at IS NULL",
             (loan_id, uid, chat_id),
         ) as c:
             loan = await c.fetchone()
@@ -246,7 +246,7 @@ async def respond_to_loan(uid: int, chat_id: int, loan_id: int, action: str) -> 
 
         # Atomically deduct from lender + mark accepted in same transaction
         cursor = await db.execute(
-            "UPDATE users SET balance=balance-$1 WHERE user_id=$2 AND COALESCE(balance,0)>=$3",
+            "UPDATE users SET balance=balance-? WHERE user_id=? AND COALESCE(balance,0)>=?",
             (amount, lender_id, amount),
         )
         if cursor.rowcount == 0:
@@ -255,7 +255,7 @@ async def respond_to_loan(uid: int, chat_id: int, loan_id: int, action: str) -> 
             raise ValueError(f"У кредитора недостаточно Моры ({lender_bal}/{amount} 🪙)")
 
         await db.execute(
-            "UPDATE mora_loans SET status='accepted' WHERE id=$1",
+            "UPDATE mora_loans SET status='accepted' WHERE id=?",
             (loan_id,),
         )
 
@@ -294,7 +294,7 @@ async def cancel_loan(uid: int, chat_id: int, loan_id: int) -> dict:
     async with postgres_connect() as db:
         async with db.execute(
             "SELECT id FROM mora_loans "
-            "WHERE id=$1 AND lender_id=$2 AND chat_id=$3 AND status='pending' AND repaid_at IS NULL",
+            "WHERE id=? AND lender_id=? AND chat_id=? AND status='pending' AND repaid_at IS NULL",
             (loan_id, uid, chat_id),
         ) as c:
             loan = await c.fetchone()
@@ -303,7 +303,7 @@ async def cancel_loan(uid: int, chat_id: int, loan_id: int) -> dict:
 
         now = datetime.now(timezone.utc)
         await db.execute(
-            "UPDATE mora_loans SET status='cancelled', repaid_at=$1 WHERE id=$2",
+            "UPDATE mora_loans SET status='cancelled', repaid_at=? WHERE id=?",
             (now, loan_id),
         )
         await db.commit()

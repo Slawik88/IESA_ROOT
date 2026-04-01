@@ -61,7 +61,7 @@ async def _send_banlist_prompt(bot: Bot, chat_id: int, member, action: str) -> N
         await bot.send_message(
             chat_id,
             f"👤 <b>{name}{uname}</b> [ID: <code>{member.id}</code>] {verb}.\n"
-            "Добавить в чёрный список по ID$1",
+            "Добавить в чёрный список по ID?",
             parse_mode="HTML",
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
                 InlineKeyboardButton(text="🚫 В ЧС по ID", callback_data=f"ban_u:add:{member.id}"),
@@ -86,13 +86,13 @@ async def _handle_banned_join(bot: Bot, chat_id: int, member) -> None:
     if seniors:
         mentions = " ".join(
             f"@{u['username']}" if u.get("username")
-            else f"<a href='tg://user$1id={u['user_id']}'>"
+            else f"<a href='tg://user?id={u['user_id']}'>"
                  f"{_html.escape(u['full_name'] or str(u['user_id']))}</a>"
             for u in seniors
         )
     else:
         from config import DEVELOPER_ID
-        mentions = f"<a href='tg://user$1id={DEVELOPER_ID}'>Разработчик</a>"
+        mentions = f"<a href='tg://user?id={DEVELOPER_ID}'>Разработчик</a>"
 
     name = _html.escape(member.full_name or str(member.id))
     uname = f" (@{member.username})" if member.username else ""
@@ -235,7 +235,7 @@ async def cmd_add_filter(message: Message, cmd_args: str):
     if "|" not in cmd_args:
         await message.answer(
             "❌ Неверный формат.\n"
-            "Пример: <code>бот автоответ привет | Привет! Как дела$1</code>",
+            "Пример: <code>бот автоответ привет | Привет! Как дела?</code>",
             parse_mode="HTML",
         )
         return
@@ -247,7 +247,7 @@ async def cmd_add_filter(message: Message, cmd_args: str):
     if not keyword or not response:
         await message.answer(
             "❌ Укажи и ключевое слово, и ответ.\n"
-            "Пример: <code>бот автоответ привет | Привет! Как дела$1</code>",
+            "Пример: <code>бот автоответ привет | Привет! Как дела?</code>",
             parse_mode="HTML",
         )
         return

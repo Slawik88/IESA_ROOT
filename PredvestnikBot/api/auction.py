@@ -42,7 +42,7 @@ def _min_increment(current_price: int) -> int:
 async def _get_item(db, item_id: int, user_id: int, chat_id: int) -> dict | None:
     """Получить предмет из инвентаря, принадлежащий пользователю."""
     row = await db.fetchone(
-        "SELECT * FROM gacha_inventory WHERE id=$1 AND user_id=$2",
+        "SELECT * FROM gacha_inventory WHERE id=? AND user_id=?",
         (item_id, user_id)
     )
     return dict(row) if row else None
@@ -61,13 +61,13 @@ async def _user_owns_cosmetic(db, item_key: str, user_id: int, chat_id: int) -> 
     ctype, ckey = _parse_cosmetic_key(item_key)
     if ctype in ("frame", "cosmetic"):
         row = await db.fetchone(
-            "SELECT id FROM shop_items WHERE user_id=$1 AND item_type=$2 AND item_value=$3 LIMIT 1",
+            "SELECT id FROM shop_items WHERE user_id=? AND item_type=? AND item_value=? LIMIT 1",
             (user_id, ctype, ckey)
         )
         return row is not None
     elif ctype == "theme":
         row = await db.fetchone(
-            "SELECT theme_key FROM user_themes WHERE user_id=$1 AND theme_key=$2",
+            "SELECT theme_key FROM user_themes WHERE user_id=? AND theme_key=?",
             (user_id, ckey)
         )
         return row is not None
@@ -81,14 +81,14 @@ async def _transfer_cosmetic_to_user(db, item_key: str, to_user_id: int, chat_id
     if ctype in ("frame", "cosmetic"):
         await db.execute(
             "INSERT INTO shop_items (user_id, chat_id, item_type, item_value, purchased_at, active)"
-            " VALUES ($1, 0, $2, $3, NOW(), 1)",
+            " VALUES (?, 0, ?, ?, NOW(), 1)",
             (to_user_id, ctype, ckey)
         )
     elif ctype == "theme":
         await db.execute(
             "INSERT INTO user_themes (user_id, chat_id, theme_key, source, obtained_at)"
-            " SELECT $1, 0, $2, 'auction', NOW()"
-            " WHERE NOT EXISTS (SELECT 1 FROM user_themes WHERE user_id=$1 AND theme_key=$2)",
+            " SELECT ?, 0, ?, 'auction', NOW()"
+            " WHERE NOT EXISTS (SELECT 1 FROM user_themes WHERE user_id=? AND theme_key=?)",
             (to_user_id, ckey, to_user_id, ckey)
         )
 
@@ -99,14 +99,14 @@ async def _revoke_cosmetic_from_user(db, item_key: str, from_user_id: int, chat_
     if ctype in ("frame", "cosmetic"):
         await db.execute(
             "DELETE FROM shop_items WHERE id = ("
-            "  SELECT id FROM shop_items WHERE user_id=$1 AND item_type=$2 AND item_value=$3"
+            "  SELECT id FROM shop_items WHERE user_id=? AND item_type=? AND item_value=?"
             "  ORDER BY id LIMIT 1"
             ")",
             (from_user_id, ctype, ckey)
         )
     elif ctype == "theme":
         await db.execute(
-            "DELETE FROM user_themes WHERE user_id=$1 AND theme_key=$2",
+            "DELETE FROM user_themes WHERE user_id=? AND theme_key=?",
             (from_user_id, ckey)
         )
 
@@ -145,7 +145,7 @@ async def create_cosmetic_auction(
 
         # 2. Проверяем что не уже на аукционе
         existing = await db.fetchone(
-            "SELECT id FROM auctions WHERE item_id=0 AND item_key=$1 AND seller_id=$2 AND chat_id=$3 AND status='active'",
+            "SELECT id FROM auctions WHERE item_id=0 AND item_key=? AND seller_id=? AND chat_id=? AND status='active'",
             (item_key, seller_id, chat_id)
         )
         if existing:
@@ -153,7 +153,7 @@ async def create_cosmetic_auction(
 
         # 3. Проверяем лимит активных лотов
         active_count = await db.fetchone(
-            "SELECT COUNT(*) AS cnt FROM auctions WHERE seller_id=$1 AND chat_id=$2 AND status='active'",
+            "SELECT COUNT(*) AS cnt FROM auctions WHERE seller_id=? AND chat_id=? AND status='active'",
             (seller_id, chat_id)
         )
         if active_count and int(active_count["cnt"] or 0) >= MAX_ACTIVE_PER_USER:
@@ -172,7 +172,7 @@ async def create_cosmetic_auction(
             """INSERT INTO auctions
                (chat_id, seller_id, item_id, item_key, item_name, item_rarity, item_emoji,
                 start_price, current_price, buyout_price, status, created_at, ends_at)
-               VALUES ($1,$2,0,$3,$4,$5,$6,$7,$8,$9,'active',$10,$11)
+               VALUES (?,?,0,?,?,?,?,?,?,?,'active',?,?)
                RETURNING id""",
             (chat_id, seller_id, item_key, item_name,
              rarity, emoji, start_price, start_price, buyout_price,
@@ -240,7 +240,7 @@ async def create_auction(
 
         # 2. Проверяем что предмет не уже на аукционе
         existing = await db.fetchone(
-            "SELECT id FROM auctions WHERE item_id=$1 AND seller_id=$2 AND chat_id=$3 AND status='active'",
+            "SELECT id FROM auctions WHERE item_id=? AND seller_id=? AND chat_id=? AND status='active'",
             (item_id, seller_id, chat_id)
         )
         if existing:
@@ -248,7 +248,7 @@ async def create_auction(
 
         # 3. Проверяем лимит активных лотов
         active_count = await db.fetchone(
-            "SELECT COUNT(*) AS cnt FROM auctions WHERE seller_id=$1 AND chat_id=$2 AND status='active'",
+            "SELECT COUNT(*) AS cnt FROM auctions WHERE seller_id=? AND chat_id=? AND status='active'",
             (seller_id, chat_id)
         )
         if active_count and int(active_count["cnt"] or 0) >= MAX_ACTIVE_PER_USER:
@@ -257,13 +257,13 @@ async def create_auction(
         # 4. Если предмет экипирован — снимаем
         if item.get("equipped"):
             await db.execute(
-                "UPDATE gacha_inventory SET equipped=0 WHERE id=$1",
+                "UPDATE gacha_inventory SET equipped=0 WHERE id=?",
                 (item_id,)
             )
 
         # 5. Помечаем предмет как "на аукционе" (equipped=2 — условное значение «заблокирован»)
         await db.execute(
-            "UPDATE gacha_inventory SET equipped=2 WHERE id=$1 AND user_id=$2",
+            "UPDATE gacha_inventory SET equipped=2 WHERE id=? AND user_id=?",
             (item_id, seller_id)
         )
 
@@ -277,7 +277,7 @@ async def create_auction(
             """INSERT INTO auctions
                (chat_id, seller_id, item_id, item_key, item_name, item_rarity, item_emoji,
                 start_price, current_price, buyout_price, status, created_at, ends_at)
-               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'active',$11,$12)
+               VALUES (?,?,?,?,?,?,?,?,?,?,'active',?,?)
                RETURNING id""",
             (chat_id, seller_id, item_id,
             item["item_key"], item["item_name"],
@@ -286,7 +286,7 @@ async def create_auction(
             now, ends_at)
         )
         auction_id = row["id"]
-        await db.execute("UPDATE auctions SET id=id WHERE id=$1", (auction_id,))  # flush
+        await db.execute("UPDATE auctions SET id=id WHERE id=?", (auction_id,))  # flush
 
     # Достижение за первую продажу
     try:
@@ -311,7 +311,7 @@ def _rarity_emoji(rarity: str) -> str:
 async def _count_user_auctions_total(user_id: int, chat_id: int) -> int:
     async with postgres_connect() as db:
         row = await db.fetchone(
-            "SELECT COUNT(*) AS cnt FROM auctions WHERE seller_id=$1 AND chat_id=$2",
+            "SELECT COUNT(*) AS cnt FROM auctions WHERE seller_id=? AND chat_id=?",
             (user_id, chat_id)
         )
         return int(row["cnt"] or 0) if row else 0
@@ -332,7 +332,7 @@ async def place_bid(
     async with postgres_connect() as db:
         # FOR UPDATE: блокируем строку от гонок
         auction = await db.fetchone(
-            "SELECT * FROM auctions WHERE id=$1 AND chat_id=$2 FOR UPDATE",
+            "SELECT * FROM auctions WHERE id=? AND chat_id=? FOR UPDATE",
             (auction_id, chat_id)
         )
         if not auction:
@@ -353,7 +353,7 @@ async def place_bid(
 
         # Проверяем мору покупателя
         mora_row = await db.fetchone(
-            "SELECT COALESCE(balance, 0) AS balance FROM users WHERE user_id=$1",
+            "SELECT COALESCE(balance, 0) AS balance FROM users WHERE user_id=?",
             (bidder_id,)
         )
         balance = int(mora_row["balance"] or 0) if mora_row else 0
@@ -362,7 +362,7 @@ async def place_bid(
 
         # Списываем с покупателя
         await db.execute(
-            "UPDATE users SET balance=balance-$1 WHERE user_id=$2 AND COALESCE(balance,0)>=$3",
+            "UPDATE users SET balance=balance-? WHERE user_id=? AND COALESCE(balance,0)>=?",
             (amount, bidder_id, amount)
         )
 
@@ -372,20 +372,20 @@ async def place_bid(
         # Возвращаем предыдущую ставку
         if outbid_user_id and outbid_user_id != bidder_id and outbid_amount > 0:
             await db.execute(
-                "UPDATE users SET balance=COALESCE(balance,0)+$1 WHERE user_id=$2",
+                "UPDATE users SET balance=COALESCE(balance,0)+? WHERE user_id=?",
                 (outbid_amount, outbid_user_id)
             )
 
         # Обновляем аукцион
         await db.execute(
-            """UPDATE auctions SET current_price=$1, highest_bidder_id=$2, bid_count=bid_count+1
-               WHERE id=$3""",
+            """UPDATE auctions SET current_price=?, highest_bidder_id=?, bid_count=bid_count+1
+               WHERE id=?""",
             (amount, bidder_id, auction_id)
         )
 
         # Логируем ставку
         await db.execute(
-            "INSERT INTO auction_bids (auction_id, bidder_id, chat_id, amount) VALUES ($1,$2,$3,$4)",
+            "INSERT INTO auction_bids (auction_id, bidder_id, chat_id, amount) VALUES (?,?,?,?)",
             (auction_id, bidder_id, chat_id, amount)
         )
 
@@ -406,7 +406,7 @@ async def buyout_auction(buyer_id: int, chat_id: int, auction_id: int) -> dict:
     """
     async with postgres_connect() as db:
         auction = await db.fetchone(
-            "SELECT * FROM auctions WHERE id=$1 AND chat_id=$2 FOR UPDATE",
+            "SELECT * FROM auctions WHERE id=? AND chat_id=? FOR UPDATE",
             (auction_id, chat_id)
         )
         if not auction:
@@ -422,7 +422,7 @@ async def buyout_auction(buyer_id: int, chat_id: int, auction_id: int) -> dict:
 
         # Проверяем мору покупателя
         mora_row = await db.fetchone(
-            "SELECT COALESCE(balance, 0) AS balance FROM users WHERE user_id=$1",
+            "SELECT COALESCE(balance, 0) AS balance FROM users WHERE user_id=?",
             (buyer_id,)
         )
         balance = int(mora_row["balance"] or 0) if mora_row else 0
@@ -431,7 +431,7 @@ async def buyout_auction(buyer_id: int, chat_id: int, auction_id: int) -> dict:
 
         # Списываем с покупателя
         await db.execute(
-            "UPDATE users SET balance=balance-$1 WHERE user_id=$2 AND COALESCE(balance,0)>=$3",
+            "UPDATE users SET balance=balance-? WHERE user_id=? AND COALESCE(balance,0)>=?",
             (buyout, buyer_id, buyout)
         )
 
@@ -440,7 +440,7 @@ async def buyout_auction(buyer_id: int, chat_id: int, auction_id: int) -> dict:
         prev_amount = auction["current_price"] if auction["bid_count"] > 0 else 0
         if prev_bidder and prev_bidder != buyer_id and prev_amount > 0:
             await db.execute(
-                "UPDATE users SET balance=COALESCE(balance,0)+$1 WHERE user_id=$2",
+                "UPDATE users SET balance=COALESCE(balance,0)+? WHERE user_id=?",
                 (prev_amount, prev_bidder)
             )
 
@@ -452,7 +452,7 @@ async def buyout_auction(buyer_id: int, chat_id: int, auction_id: int) -> dict:
 
         # Продавцу — выручка
         await db.execute(
-            "UPDATE users SET balance=COALESCE(balance,0)+$1, total_earned=COALESCE(total_earned,0)+$2 WHERE user_id=$3",
+            "UPDATE users SET balance=COALESCE(balance,0)+?, total_earned=COALESCE(total_earned,0)+? WHERE user_id=?",
             (seller_gets, seller_gets, auction["seller_id"])
         )
 
@@ -463,18 +463,18 @@ async def buyout_auction(buyer_id: int, chat_id: int, auction_id: int) -> dict:
             await _transfer_cosmetic_to_user(db, auction["item_key"], buyer_id, chat_id)
         else:
             item_exists = await db.fetchone(
-                "SELECT id FROM gacha_inventory WHERE id=$1 AND user_id=$2",
+                "SELECT id FROM gacha_inventory WHERE id=? AND user_id=?",
                 (item_id, auction["seller_id"])
             )
             if item_exists:
                 await db.execute(
-                    "UPDATE gacha_inventory SET user_id=$1, equipped=0 WHERE id=$2",
+                    "UPDATE gacha_inventory SET user_id=?, equipped=0 WHERE id=?",
                     (buyer_id, item_id)
                 )
 
         # Завершаем аукцион
         await db.execute(
-            "UPDATE auctions SET status='sold', highest_bidder_id=$1, current_price=$2, finished_at=NOW() WHERE id=$3",
+            "UPDATE auctions SET status='sold', highest_bidder_id=?, current_price=?, finished_at=NOW() WHERE id=?",
             (buyer_id, buyout, auction_id)
         )
 
@@ -497,7 +497,7 @@ async def buyout_auction(buyer_id: int, chat_id: int, auction_id: int) -> dict:
 async def _count_user_wins(user_id: int, chat_id: int) -> int:
     async with postgres_connect() as db:
         row = await db.fetchone(
-            "SELECT COUNT(*) AS cnt FROM auctions WHERE highest_bidder_id=$1 AND chat_id=$2 AND status='sold'",
+            "SELECT COUNT(*) AS cnt FROM auctions WHERE highest_bidder_id=? AND chat_id=? AND status='sold'",
             (user_id, chat_id)
         )
         return int(row["cnt"] or 0) if row else 0
@@ -513,7 +513,7 @@ async def cancel_auction(seller_id: int, chat_id: int, auction_id: int) -> dict:
     """
     async with postgres_connect() as db:
         auction = await db.fetchone(
-            "SELECT * FROM auctions WHERE id=$1 AND seller_id=$2 AND chat_id=$3 FOR UPDATE",
+            "SELECT * FROM auctions WHERE id=? AND seller_id=? AND chat_id=? FOR UPDATE",
             (auction_id, seller_id, chat_id)
         )
         if not auction:
@@ -529,13 +529,13 @@ async def cancel_auction(seller_id: int, chat_id: int, auction_id: int) -> dict:
             refunded_bidder_id = auction["highest_bidder_id"]
             refunded_amount    = int(auction["current_price"])
             await db.execute(
-                "UPDATE users SET balance=COALESCE(balance,0)+$1 WHERE user_id=$2",
+                "UPDATE users SET balance=COALESCE(balance,0)+? WHERE user_id=?",
                 (refunded_amount, refunded_bidder_id)
             )
             # Штраф продавцу
             penalty = max(5, int(auction["start_price"] * 0.05))
             await db.execute(
-                "UPDATE users SET balance=GREATEST(0, COALESCE(balance,0)-$1) WHERE user_id=$2",
+                "UPDATE users SET balance=GREATEST(0, COALESCE(balance,0)-?) WHERE user_id=?",
                 (penalty, seller_id)
             )
 
@@ -545,13 +545,13 @@ async def cancel_auction(seller_id: int, chat_id: int, auction_id: int) -> dict:
             await _transfer_cosmetic_to_user(db, auction["item_key"], seller_id, chat_id)
         else:
             await db.execute(
-                "UPDATE gacha_inventory SET equipped=0 WHERE id=$1 AND user_id=$2",
+                "UPDATE gacha_inventory SET equipped=0 WHERE id=? AND user_id=?",
                 (auction["item_id"], seller_id)
             )
 
         # Закрыть аукцион
         await db.execute(
-            "UPDATE auctions SET status='cancelled', finished_at=NOW() WHERE id=$1",
+            "UPDATE auctions SET status='cancelled', finished_at=NOW() WHERE id=?",
             (auction_id,)
         )
 
@@ -576,7 +576,7 @@ async def finalize_expired_auctions(bot=None) -> list[dict]:
 
     async with postgres_connect() as db:
         expired = await db.fetch(
-            "SELECT * FROM auctions WHERE status='active' AND ends_at <= $1",
+            "SELECT * FROM auctions WHERE status='active' AND ends_at <= ?",
             (now,)
         )
 
@@ -595,11 +595,11 @@ async def finalize_expired_auctions(bot=None) -> list[dict]:
                         await _transfer_cosmetic_to_user(db, auction["item_key"], seller_id, chat_id)
                     else:
                         await db.execute(
-                            "UPDATE gacha_inventory SET equipped=0 WHERE id=$1 AND user_id=$2",
+                            "UPDATE gacha_inventory SET equipped=0 WHERE id=? AND user_id=?",
                             (item_id, seller_id)
                         )
                     await db.execute(
-                        "UPDATE auctions SET status='expired', finished_at=$1 WHERE id=$2",
+                        "UPDATE auctions SET status='expired', finished_at=? WHERE id=?",
                         (now, auction_id)
                     )
                 finalized.append({**auction, "result": "expired_no_bids"})
@@ -620,22 +620,22 @@ async def finalize_expired_auctions(bot=None) -> list[dict]:
                     else:
                         # Проверяем что предмет ещё у продавца
                         item_exists = await db.fetchone(
-                            "SELECT id FROM gacha_inventory WHERE id=$1 AND user_id=$2",
+                            "SELECT id FROM gacha_inventory WHERE id=? AND user_id=?",
                             (item_id, seller_id)
                         )
                         if item_exists:
                             await db.execute(
-                                "UPDATE gacha_inventory SET user_id=$1, equipped=0 WHERE id=$2",
+                                "UPDATE gacha_inventory SET user_id=?, equipped=0 WHERE id=?",
                                 (winner_id, item_id)
                             )
                         else:
                             # Предмет удалён — возвращаем ставку победителю
                             await db.execute(
-                                "UPDATE users SET balance=COALESCE(balance,0)+$1 WHERE user_id=$2",
+                                "UPDATE users SET balance=COALESCE(balance,0)+? WHERE user_id=?",
                                 (final_price, winner_id)
                             )
                             await db.execute(
-                                "UPDATE auctions SET status='expired', finished_at=$1 WHERE id=$2",
+                                "UPDATE auctions SET status='expired', finished_at=? WHERE id=?",
                                 (now, auction_id)
                             )
                             finalized.append({**auction, "result": "expired_item_missing"})
@@ -643,7 +643,7 @@ async def finalize_expired_auctions(bot=None) -> list[dict]:
 
                     # Мора продавцу (минус комиссия)
                     await db.execute(
-                        "UPDATE users SET balance=COALESCE(balance,0)+$1, total_earned=COALESCE(total_earned,0)+$2 WHERE user_id=$3",
+                        "UPDATE users SET balance=COALESCE(balance,0)+?, total_earned=COALESCE(total_earned,0)+? WHERE user_id=?",
                         (seller_gets, seller_gets, seller_id)
                     )
                     # Комиссия → казна
@@ -652,7 +652,7 @@ async def finalize_expired_auctions(bot=None) -> list[dict]:
 
                     # Завершаем аукцион
                     await db.execute(
-                        "UPDATE auctions SET status='sold', finished_at=$1 WHERE id=$2",
+                        "UPDATE auctions SET status='sold', finished_at=? WHERE id=?",
                         (now, auction_id)
                     )
 
@@ -677,21 +677,21 @@ async def finalize_expired_auctions(bot=None) -> list[dict]:
                 cid = a["chat_id"]
                 if a["result"] == "sold":
                     winner_id  = a.get("winner_id")
-                    item_name  = a.get("item_name", "$1")
+                    item_name  = a.get("item_name", "?")
                     s_gets     = a.get("seller_gets", 0)
                     f_price    = a.get("current_price", 0)
                     await bot.send_message(
                         cid,
                         f"🔨 <b>Аукцион завершён!</b>\n\n"
                         f"📦 <b>{item_name}</b>\n"
-                        f"🏆 Победитель: <a href='tg://user$1id={winner_id}'>Предвестник</a>\n"
+                        f"🏆 Победитель: <a href='tg://user?id={winner_id}'>Предвестник</a>\n"
                         f"💰 Продавец получил: <b>{s_gets} 🪙</b> (финальная цена {f_price} 🪙)",
                         parse_mode="HTML",
                     )
                 elif a["result"] == "expired_no_bids":
                     await bot.send_message(
                         cid,
-                        f"📦 Аукцион «<b>{a.get('item_name', '$1')}</b>» истёк без ставок. "
+                        f"📦 Аукцион «<b>{a.get('item_name', '?')}</b>» истёк без ставок. "
                         f"Предмет возвращён продавцу.",
                         parse_mode="HTML",
                     )
@@ -710,9 +710,9 @@ async def get_active_auctions(chat_id: int, limit: int = 20, offset: int = 0) ->
             """SELECT a.*, u.full_name AS seller_name
                FROM auctions a
                LEFT JOIN users u ON u.user_id = a.seller_id
-               WHERE a.chat_id=$1 AND a.status='active'
+               WHERE a.chat_id=? AND a.status='active'
                ORDER BY a.ends_at ASC
-               LIMIT $2 OFFSET $3""",
+               LIMIT ? OFFSET ?""",
             (chat_id, limit, offset)
         )
     result = []
@@ -739,7 +739,7 @@ async def get_auction_detail(auction_id: int, chat_id: int) -> dict | None:
     """Полная информация об аукционе с историей ставок."""
     async with postgres_connect() as db:
         auction = await db.fetchone(
-            "SELECT * FROM auctions WHERE id=$1 AND chat_id=$2",
+            "SELECT * FROM auctions WHERE id=? AND chat_id=?",
             (auction_id, chat_id)
         )
         if not auction:
@@ -748,7 +748,7 @@ async def get_auction_detail(auction_id: int, chat_id: int) -> dict | None:
             """SELECT ab.amount, ab.bid_at, u.full_name
                FROM auction_bids ab
                LEFT JOIN users u ON u.user_id = ab.bidder_id
-               WHERE ab.auction_id=$1
+               WHERE ab.auction_id=?
                ORDER BY ab.bid_at DESC LIMIT 10""",
             (auction_id,)
         )
@@ -762,16 +762,16 @@ async def get_user_auctions(user_id: int, chat_id: int) -> dict:
     """Мои лоты и мои ставки."""
     async with postgres_connect() as db:
         my_lots = await db.fetch(
-            "SELECT * FROM auctions WHERE seller_id=$1 AND chat_id=$2 ORDER BY created_at DESC LIMIT 10",
+            "SELECT * FROM auctions WHERE seller_id=? AND chat_id=? ORDER BY created_at DESC LIMIT 10",
             (user_id, chat_id)
         )
         my_bids = await db.fetch(
             """SELECT a.id, a.item_name, a.current_price, a.status, a.ends_at,
                       a.highest_bidder_id,
-                      (SELECT MAX(amount) FROM auction_bids WHERE auction_id=a.id AND bidder_id=$1) AS my_bid
+                      (SELECT MAX(amount) FROM auction_bids WHERE auction_id=a.id AND bidder_id=?) AS my_bid
                FROM auctions a
-               WHERE a.chat_id=$2 AND EXISTS (
-                   SELECT 1 FROM auction_bids WHERE auction_id=a.id AND bidder_id=$3
+               WHERE a.chat_id=? AND EXISTS (
+                   SELECT 1 FROM auction_bids WHERE auction_id=a.id AND bidder_id=?
                )
                ORDER BY a.created_at DESC LIMIT 10""",
             (user_id, chat_id, user_id)

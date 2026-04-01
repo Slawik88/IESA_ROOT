@@ -3630,9 +3630,10 @@ def miniapp_get_avatar(request):
         return JsonResponse({"user_id": user_id, "avatar_url": None}, headers=headers)
 
     # Proxy through our server to avoid leaking bot token
+    # Return the server-side proxy URL instead of the raw Telegram URL
     return JsonResponse({
         "user_id": user_id,
-        "avatar_url": avatar_url
+        "avatar_url": f"/api/user_avatar/{user_id}/"
     }, headers=headers)
 
 

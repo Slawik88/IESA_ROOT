@@ -59,7 +59,7 @@ async def cmd_spy(message: Message, cmd_args: str):
         return
 
     if target_id == uid:
-        await message.answer("🤦 Зачем шпионить за самим собой$1")
+        await message.answer("🤦 Зачем шпионить за самим собой?")
         return
 
     # Кулдаун: нельзя следить за одним человеком чаще раза в час
@@ -80,7 +80,7 @@ async def cmd_spy(message: Message, cmd_args: str):
     from database.postgres import connect as postgres_connect
     async with postgres_connect() as db:
         cursor = await db.execute(
-            "UPDATE users SET balance=balance-$1 WHERE user_id=$2 AND COALESCE(balance,0)>=$3",
+            "UPDATE users SET balance=balance-? WHERE user_id=? AND COALESCE(balance,0)>=?",
             (_SPY_COST, uid, _SPY_COST),
         )
         if cursor.rowcount == 0:

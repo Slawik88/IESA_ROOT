@@ -1159,7 +1159,7 @@ async def cb_role_holders(callback: CallbackQuery) -> None:
 
     lines = [f"👥 <b>Участники с ролью «{role_name}»:</b>\n"]
     for h in holders:
-        mention = f"<a href='tg://user$1id={h['user_id']}'>{h.get('full_name') or str(h['user_id'])}</a>"
+        mention = f"<a href='tg://user?id={h['user_id']}'>{h.get('full_name') or str(h['user_id'])}</a>"
         lines.append(f"  • {mention}")
 
     try:
@@ -1300,7 +1300,7 @@ async def cmd_dev_change_pet_type(message: Message, cmd_args: str):
     new_e = _DEV_PET_EMOJI.get(new_type, "🐾")
     await message.answer(
         f"✅ <b>Питомец изменён:</b> {html.escape(target_name)}\n"
-        f"{old_e} {_DEV_PET_NAME.get(pet['pet_type'], '$1')} → {new_e} {_DEV_PET_NAME.get(new_type, '$2')}",
+        f"{old_e} {_DEV_PET_NAME.get(pet['pet_type'], '?')} → {new_e} {_DEV_PET_NAME.get(new_type, '?')}",
         parse_mode="HTML",
     )
 

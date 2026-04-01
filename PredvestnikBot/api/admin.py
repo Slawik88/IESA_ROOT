@@ -47,7 +47,7 @@ async def _write_ledger(db, chat_id: int, user_id: int, direction: str, amount: 
     await db.execute(
         "INSERT INTO wallet_ledger "
         "(chat_id, user_id, direction, amount, source, description, actor_id, created_at) "
-        "VALUES ($1,$2,$3,$4,$5,$6,$7,NOW())",
+        "VALUES (?,?,?,?,?,?,?,NOW())",
         (chat_id, user_id, direction, amount, source, description or "", actor_id),
     )
 
@@ -90,14 +90,14 @@ async def set_balance(actor_id: int, target_id: int, chat_id: int, balance: int)
 
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT COALESCE(balance, 0) FROM users WHERE user_id=$1",
+            "SELECT COALESCE(balance, 0) FROM users WHERE user_id=?",
             (target_id,),
         ) as c:
             row = await c.fetchone()
         old_balance = row[0] if row else 0
 
         await db.execute(
-            "UPDATE users SET balance=$1 WHERE user_id=$2",
+            "UPDATE users SET balance=? WHERE user_id=?",
             (balance, target_id),
         )
         delta = balance - old_balance
@@ -118,11 +118,11 @@ async def admin_add_mora(actor_id: int, target_id: int, chat_id: int, amount: in
 
     async with postgres_connect() as db:
         await db.execute(
-            "UPDATE users SET balance=GREATEST(0, COALESCE(balance,0)+$1) WHERE user_id=$2",
+            "UPDATE users SET balance=GREATEST(0, COALESCE(balance,0)+?) WHERE user_id=?",
             (amount, target_id),
         )
         async with db.execute(
-            "SELECT COALESCE(balance, 0) FROM users WHERE user_id=$1",
+            "SELECT COALESCE(balance, 0) FROM users WHERE user_id=?",
             (target_id,),
         ) as c:
             row = await c.fetchone()
@@ -152,26 +152,26 @@ async def admin_add_xp(actor_id: int, target_id: int, chat_id: int,
             new_xp = max(0, amount)
             new_level = level_for_xp(new_xp)
             await db.execute(
-                "INSERT INTO user_stats (user_id, chat_id, xp, level) VALUES ($1,$2,$3,$4) "
+                "INSERT INTO user_stats (user_id, chat_id, xp, level) VALUES (?,?,?,?) "
                 "ON CONFLICT(user_id, chat_id) DO UPDATE SET xp=excluded.xp, level=excluded.level",
                 (target_id, chat_id, new_xp, new_level),
             )
         else:
             await db.execute(
-                "INSERT INTO user_stats (user_id, chat_id, xp, level) VALUES ($1,$2,$3,1) "
+                "INSERT INTO user_stats (user_id, chat_id, xp, level) VALUES (?,?,?,1) "
                 "ON CONFLICT(user_id, chat_id) DO UPDATE SET "
-                "xp=GREATEST(0, user_stats.xp + $3)",
+                "xp=GREATEST(0, user_stats.xp + ?)",
                 (target_id, chat_id, amount, amount),
             )
             async with db.execute(
-                "SELECT xp, COALESCE(level, 1) FROM user_stats WHERE user_id=$1 AND chat_id=$2",
+                "SELECT xp, COALESCE(level, 1) FROM user_stats WHERE user_id=? AND chat_id=?",
                 (target_id, chat_id),
             ) as c:
                 row = await c.fetchone()
             new_xp = row[0] if row else 0
             new_level = level_for_xp(new_xp)
             await db.execute(
-                "UPDATE user_stats SET level=$1 WHERE user_id=$2 AND chat_id=$3",
+                "UPDATE user_stats SET level=? WHERE user_id=? AND chat_id=?",
                 (new_level, target_id, chat_id),
             )
         await db.commit()
@@ -201,18 +201,18 @@ async def member_update(
 
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT COALESCE(balance, 0) FROM users WHERE user_id=$1",
+            "SELECT COALESCE(balance, 0) FROM users WHERE user_id=?",
             (target_id,),
         ) as c:
             row = await c.fetchone()
         old_balance = row[0] if row else 0
 
         await db.execute(
-            "UPDATE users SET balance=$1 WHERE user_id=$2",
+            "UPDATE users SET balance=? WHERE user_id=?",
             (balance, target_id),
         )
         await db.execute(
-            "INSERT INTO user_stats (user_id, chat_id, xp, level, rank) VALUES ($1,$2,$3,$4,$5) "
+            "INSERT INTO user_stats (user_id, chat_id, xp, level, rank) VALUES (?,?,?,?,?) "
             "ON CONFLICT(user_id, chat_id) DO UPDATE SET "
             "xp=excluded.xp, level=excluded.level, rank=excluded.rank",
             (target_id, chat_id, xp, new_level, rank),
@@ -228,7 +228,7 @@ async def member_update(
 
         if msg_count is not None:
             await db.execute(
-                "UPDATE user_stats SET message_count=$1 WHERE user_id=$2 AND chat_id=$3",
+                "UPDATE user_stats SET message_count=? WHERE user_id=? AND chat_id=?",
                 (msg_count, target_id, chat_id),
             )
 
@@ -236,32 +236,32 @@ async def member_update(
         if any(v is not None for v in cc_fields):
             await db.execute(
                 "INSERT INTO cleanup_counts (chat_id, user_id, count, week_count, day_count) "
-                "VALUES ($1,$2,0,0,0) ON CONFLICT(chat_id, user_id) DO NOTHING",
+                "VALUES (?,?,0,0,0) ON CONFLICT(chat_id, user_id) DO NOTHING",
                 (chat_id, target_id),
             )
             if day_count is not None:
                 await db.execute(
-                    "UPDATE cleanup_counts SET day_count=$1 WHERE user_id=$2 AND chat_id=$3",
+                    "UPDATE cleanup_counts SET day_count=? WHERE user_id=? AND chat_id=?",
                     (day_count, target_id, chat_id),
                 )
             if week_count is not None:
                 await db.execute(
-                    "UPDATE cleanup_counts SET week_count=$1 WHERE user_id=$2 AND chat_id=$3",
+                    "UPDATE cleanup_counts SET week_count=? WHERE user_id=? AND chat_id=?",
                     (week_count, target_id, chat_id),
                 )
             if total_count is not None:
                 await db.execute(
-                    "UPDATE cleanup_counts SET count=$1 WHERE user_id=$2 AND chat_id=$3",
+                    "UPDATE cleanup_counts SET count=? WHERE user_id=? AND chat_id=?",
                     (total_count, target_id, chat_id),
                 )
             if yesterday_count is not None:
                 await db.execute(
-                    "UPDATE cleanup_counts SET yesterday_count=$1 WHERE user_id=$2 AND chat_id=$3",
+                    "UPDATE cleanup_counts SET yesterday_count=? WHERE user_id=? AND chat_id=?",
                     (yesterday_count, target_id, chat_id),
                 )
             if last_week_count is not None:
                 await db.execute(
-                    "UPDATE cleanup_counts SET last_week_count=$1 WHERE user_id=$2 AND chat_id=$3",
+                    "UPDATE cleanup_counts SET last_week_count=? WHERE user_id=? AND chat_id=?",
                     (last_week_count, target_id, chat_id),
                 )
 
@@ -282,13 +282,13 @@ async def give_salary(actor_id: int, target_id: int, chat_id: int,
 
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT COALESCE(full_name, '') FROM users WHERE user_id=$1", (target_id,)
+            "SELECT COALESCE(full_name, '') FROM users WHERE user_id=?", (target_id,)
         ) as c:
             row = await c.fetchone()
         target_name = (row[0] if row else "") or f"Игрок {target_id}"
 
         await db.execute(
-            "UPDATE users SET balance=COALESCE(balance,0)+$1, total_earned=COALESCE(total_earned,0)+$2 WHERE user_id=$3",
+            "UPDATE users SET balance=COALESCE(balance,0)+?, total_earned=COALESCE(total_earned,0)+? WHERE user_id=?",
             (amount, amount, target_id),
         )
         desc = f"Зарплата за {days} дн."
@@ -297,7 +297,7 @@ async def give_salary(actor_id: int, target_id: int, chat_id: int,
         await _write_ledger(db, chat_id, target_id, "income", amount, "salary", desc, actor_id)
 
         async with db.execute(
-            "SELECT COALESCE(balance, 0) FROM users WHERE user_id=$1",
+            "SELECT COALESCE(balance, 0) FROM users WHERE user_id=?",
             (target_id,),
         ) as c:
             row = await c.fetchone()
@@ -322,7 +322,7 @@ async def give_item(actor_id: int, target_id: int, chat_id: int,
     async with postgres_connect() as db:
         await db.execute(
             "INSERT INTO gacha_inventory (user_id, chat_id, item_key, item_name, rarity, obtained_at) "
-            "VALUES ($1,$2,$3,$4,$5,NOW())",
+            "VALUES (?,?,?,?,?,NOW())",
             (target_id, chat_id, item_key, item_name, rarity),
         )
         await db.commit()
@@ -342,7 +342,7 @@ async def search_users(chat_id: int, q: str = "") -> dict:
             async with db.execute(
                 "SELECT s.user_id, u.full_name FROM user_stats s "
                 "LEFT JOIN users u ON u.user_id=s.user_id "
-                "WHERE s.chat_id=$1 AND (u.full_name LIKE $2 OR CAST(s.user_id AS TEXT) LIKE $3) "
+                "WHERE s.chat_id=? AND (u.full_name LIKE ? OR CAST(s.user_id AS TEXT) LIKE ?) "
                 "ORDER BY s.xp DESC LIMIT 20",
                 (chat_id, like, like),
             ) as c:
@@ -351,7 +351,7 @@ async def search_users(chat_id: int, q: str = "") -> dict:
             async with db.execute(
                 "SELECT s.user_id, u.full_name FROM user_stats s "
                 "LEFT JOIN users u ON u.user_id=s.user_id "
-                "WHERE s.chat_id=$1 ORDER BY s.xp DESC LIMIT 20",
+                "WHERE s.chat_id=? ORDER BY s.xp DESC LIMIT 20",
                 (chat_id,),
             ) as c:
                 rows = await c.fetchall()
@@ -401,7 +401,7 @@ async def get_chat_members(chat_id: int) -> dict:
             "FROM user_stats s "
             "LEFT JOIN users u ON u.user_id=s.user_id "
             "LEFT JOIN cleanup_counts cc ON cc.user_id=s.user_id AND cc.chat_id=s.chat_id "
-            "WHERE s.chat_id=$1 ORDER BY s.xp DESC LIMIT 50",
+            "WHERE s.chat_id=? ORDER BY s.xp DESC LIMIT 50",
             (chat_id,),
         ) as c:
             rows = await c.fetchall()
@@ -447,7 +447,7 @@ async def ban_user(actor_id: int, target_id: int, reason: str = "") -> dict:
     async with postgres_connect() as db:
         await db.execute(
             "INSERT INTO user_banlist (chat_id, user_id, added_by, reason, added_at) "
-            "VALUES (0,$1,$2,$3,NOW()) ON CONFLICT(chat_id, user_id) DO UPDATE SET reason=excluded.reason",
+            "VALUES (0,?,?,?,NOW()) ON CONFLICT(chat_id, user_id) DO UPDATE SET reason=excluded.reason",
             (target_id, actor_id, reason[:200]),
         )
         await db.commit()
@@ -460,7 +460,7 @@ async def unban_user(target_id: int) -> dict:
 
     async with postgres_connect() as db:
         await db.execute(
-            "DELETE FROM user_banlist WHERE chat_id=0 AND user_id=$1", (target_id,)
+            "DELETE FROM user_banlist WHERE chat_id=0 AND user_id=?", (target_id,)
         )
         await db.commit()
     return {"ok": True, "unbanned": target_id}
@@ -477,7 +477,7 @@ async def get_logs(chat_id: int = 0) -> dict:
         if chat_id:
             async with db.execute(
                 "SELECT user_id, full_name, left_at FROM leave_log "
-                "WHERE chat_id=$1 ORDER BY left_at DESC LIMIT 20",
+                "WHERE chat_id=? ORDER BY left_at DESC LIMIT 20",
                 (chat_id,),
             ) as c:
                 rows = await c.fetchall()
@@ -528,7 +528,7 @@ async def trigger_event(actor_id: int, chat_id: int, event_type: str) -> dict:
         )
         await db.execute(
             "INSERT INTO dev_event_queue (chat_id, event_type, requested_by, created_at) "
-            "VALUES ($1,$2,$3,NOW())",
+            "VALUES (?,?,?,NOW())",
             (chat_id, event_type, actor_id),
         )
         await db.commit()
@@ -573,7 +573,7 @@ async def get_treasury(chat_id: int, limit: int = 50) -> dict:
     from database.db import postgres_connect
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT balance FROM chat_treasury WHERE chat_id=$1", (chat_id,)
+            "SELECT balance FROM chat_treasury WHERE chat_id=?", (chat_id,)
         ) as c:
             row = await c.fetchone()
         balance = row[0] if row else 0
@@ -582,8 +582,8 @@ async def get_treasury(chat_id: int, limit: int = 50) -> dict:
             """SELECT tl.id, tl.user_id, u.full_name, tl.amount, tl.source, tl.created_at
                FROM treasury_log tl
                LEFT JOIN users u ON u.user_id = tl.user_id
-               WHERE tl.chat_id=$1
-               ORDER BY tl.created_at DESC LIMIT $2""",
+               WHERE tl.chat_id=?
+               ORDER BY tl.created_at DESC LIMIT ?""",
             (chat_id, limit),
         ) as c:
             rows = await c.fetchall()
@@ -619,7 +619,7 @@ async def treasury_payout(actor_id: int, target_id: int, chat_id: int,
     from database.db import postgres_connect
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT balance FROM chat_treasury WHERE chat_id=$1", (chat_id,)
+            "SELECT balance FROM chat_treasury WHERE chat_id=?", (chat_id,)
         ) as c:
             row = await c.fetchone()
         treasury_balance = row[0] if row else 0
@@ -628,20 +628,20 @@ async def treasury_payout(actor_id: int, target_id: int, chat_id: int,
             raise ValueError(f"Недостаточно средств в казне: {treasury_balance:,} 🪙")
 
         async with db.execute(
-            "SELECT COALESCE(full_name, '') FROM users WHERE user_id=$1", (target_id,)
+            "SELECT COALESCE(full_name, '') FROM users WHERE user_id=?", (target_id,)
         ) as c:
             row = await c.fetchone()
         target_name = (row[0] if row else "") or f"Игрок {target_id}"
 
         # Deduct from treasury
         await db.execute(
-            "UPDATE chat_treasury SET balance = balance - $1 WHERE chat_id=$2",
+            "UPDATE chat_treasury SET balance = balance - ? WHERE chat_id=?",
             (amount, chat_id),
         )
 
         # Add to user mora
         await db.execute(
-            "UPDATE users SET balance=COALESCE(balance,0)+$1, total_earned=COALESCE(total_earned,0)+$2 WHERE user_id=$3",
+            "UPDATE users SET balance=COALESCE(balance,0)+?, total_earned=COALESCE(total_earned,0)+? WHERE user_id=?",
             (amount, amount, target_id),
         )
 
@@ -649,13 +649,13 @@ async def treasury_payout(actor_id: int, target_id: int, chat_id: int,
         await _write_ledger(db, chat_id, target_id, "income", amount, "treasury_payout", desc, actor_id)
 
         async with db.execute(
-            "SELECT balance FROM chat_treasury WHERE chat_id=$1", (chat_id,)
+            "SELECT balance FROM chat_treasury WHERE chat_id=?", (chat_id,)
         ) as c:
             row = await c.fetchone()
         new_treasury = row[0] if row else 0
 
         async with db.execute(
-            "SELECT COALESCE(balance, 0) FROM users WHERE user_id=$1",
+            "SELECT COALESCE(balance, 0) FROM users WHERE user_id=?",
             (target_id,),
         ) as c:
             row = await c.fetchone()

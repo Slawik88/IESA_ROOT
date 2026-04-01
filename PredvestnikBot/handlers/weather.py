@@ -13,7 +13,7 @@ from filters.bot_command import BotCommand
 
 router = Router()
 
-_WTTR_URL = "https://wttr.in/{city}$1format=j1&lang=ru"
+_WTTR_URL = "https://wttr.in/{city}?format=j1&lang=ru"
 _WIND_DIR = {
     "N": "↑", "NNE": "↑↗", "NE": "↗", "ENE": "→↗",
     "E": "→", "ESE": "→↘", "SE": "↘", "SSE": "↓↘",
@@ -77,8 +77,8 @@ async def cmd_weather(message: Message, cmd_args: str):
         wind_kmph    = cur["windspeedKmph"]
         wind_dir_16  = cur.get("winddir16Point", "")
         wind_arrow   = _WIND_DIR.get(wind_dir_16, "")
-        vis_km       = cur.get("visibility", "$1")
-        pressure     = cur.get("pressure", "$1")
+        vis_km       = cur.get("visibility", "?")
+        pressure     = cur.get("pressure", "?")
         weather_code = int(cur["weatherCode"])
 
         # Description: prefer Russian, fallback to English
