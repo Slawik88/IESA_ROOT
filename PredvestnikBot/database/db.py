@@ -3258,12 +3258,11 @@ async def get_mora(user_id: int, chat_id: int):
                       COALESCE(um.streak_days, 0) AS streak_days,
                       um.last_daily,
                       COALESCE(um.rep_given_count, 0) AS rep_given_count,
-                      um.active_theme, um.gacha_display,
-                      ? AS chat_id
+                      um.active_theme, um.gacha_display
                FROM users u
                LEFT JOIN user_mora um ON um.user_id = u.user_id AND um.chat_id = ?
                WHERE u.user_id = ?""",
-            (chat_id, chat_id, user_id),
+            (chat_id, user_id),
         ) as c:
             return await c.fetchone()
 
@@ -3767,10 +3766,26 @@ async def get_family_wallet_log(chat_id: int, uid: int, partner_id: int | None, 
 
 
 async def get_all_marriages_for_anniversary() -> list:
-    """Return all marriages for anniversary check (all chats)."""
+    """Return all marriages for anniversary check.
+
+    Includes a representative shared chat_id (from user_stats) so the
+    scheduler can send the anniversary notification somewhere meaningful.
+    chat_id may be NULL when both users share no common chat.
+    """
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT user_id, partner_id, married_at FROM marriages_global"
+            """SELECT mg.user_id, mg.partner_id, mg.married_at,
+                      (
+                          SELECT us.chat_id
+                          FROM user_stats us
+                          JOIN user_stats us2
+                               ON us2.user_id = mg.partner_id
+                              AND us2.chat_id  = us.chat_id
+                          WHERE us.user_id = mg.user_id
+                          ORDER BY us.chat_id
+                          LIMIT 1
+                      ) AS chat_id
+               FROM marriages_global mg"""
         ) as c:
             return await c.fetchall()
 
