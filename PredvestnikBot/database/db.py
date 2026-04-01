@@ -3209,7 +3209,19 @@ async def get_staff_in_chat(chat_id: int):
 
 
 async def add_xp_in_chat(user_id: int, chat_id: int, amount: int) -> tuple[int, int, bool]:
-    """Add XP in a specific chat. Returns (new_xp, new_level, leveled_up)."""
+    """Add XP in a specific chat. Returns (new_xp, new_level, leveled_up).
+
+    Guard: if chat_id is an isolated chat, silently skip.
+    """
+    if is_isolated_chat(chat_id):
+        # Return current values without modifying anything
+        async with postgres_connect() as db:
+            async with db.execute(
+                "SELECT COALESCE(xp, 0), COALESCE(level, 1) FROM user_stats WHERE user_id=? AND chat_id=?",
+                (user_id, chat_id),
+            ) as c:
+                row = await c.fetchone()
+                return (row[0], row[1], False) if row else (0, 1, False)
     async with postgres_connect() as db:
         await db.execute(
             "INSERT INTO user_stats (user_id, chat_id) VALUES (?, ?) ON CONFLICT (user_id, chat_id) DO NOTHING",
@@ -3281,7 +3293,20 @@ async def get_mora_batch(user_ids: list[int], chat_id: int) -> dict[int, dict]:
 
 
 async def add_mora(user_id: int, chat_id: int, amount: int) -> int:
-    """Add (or subtract) Мора globally. Balance never goes below 0. Returns new balance."""
+    """Add (or subtract) Мора globally. Balance never goes below 0. Returns new balance.
+
+    Guard: if chat_id is an isolated chat (admin group / test chat), this is a no-op.
+    This is the final safety net — no code path can bypass it.
+    Pass chat_id=0 for purely global rewards (e.g. season rewards).
+    """
+    if chat_id and is_isolated_chat(chat_id):
+        # Silently skip — return current balance without modifying it
+        async with postgres_connect() as db:
+            async with db.execute(
+                "SELECT COALESCE(balance, 0) FROM users WHERE user_id=?", (user_id,)
+            ) as c:
+                row = await c.fetchone()
+                return row[0] if row else 0
     async with postgres_connect() as db:
         await db.execute(
             """UPDATE users SET
