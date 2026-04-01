@@ -172,10 +172,32 @@ async def gacha_roll(uid: int, chat_id: int, count: int,
     gacha_tax = max(1, int(price * 0.05))
     await add_to_treasury(chat_id, gacha_tax, "gacha", uid)
 
+    # Block 3: Check guarantee scroll for ×10 pulls
+    use_guarantee = False
+    if count == 10:
+        from database.db import get_guarantee_scrolls, use_guarantee_scroll
+        guarantee_scrolls = await get_guarantee_scrolls(uid)
+        if guarantee_scrolls > 0:
+            use_guarantee = True
+            await use_guarantee_scroll(uid)
+
     pity    = await get_gacha_pity(uid, chat_id)
     results = []
-    for _ in range(count):
-        key, name, rarity, desc = roll_one(pity)
+    guaranteed_rare_used = False
+    for i in range(count):
+        # Block 3: Guarantee rare+ on ×10 if scroll used and no rare+ yet
+        if (use_guarantee and count == 10 and i == count - 1 and 
+            not guaranteed_rare_used and 
+            not any(r.get("rarity") in ["rare", "legendary"] for r in results)):
+            # Force at least rare on last roll
+            key, name, desc = random.choice(_RARE_ITEMS)
+            rarity = "rare"
+            guaranteed_rare_used = True
+        else:
+            key, name, rarity, desc = roll_one(pity)
+            if rarity in ["rare", "legendary"]:
+                guaranteed_rare_used = True
+        
         meta = ITEM_METADATA.get(key, {})
         await add_gacha_item(
             uid, chat_id, key, name, rarity,

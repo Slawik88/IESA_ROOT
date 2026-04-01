@@ -78,6 +78,8 @@ from .miniapp_views import (
     miniapp_chat_banlist,
     miniapp_dev_error_logs,
     miniapp_frontend_error_log,
+    miniapp_convert_crystals,  # Block 3
+    miniapp_user_avatar,       # Block 3
 )
 
 # Переопределить стандартный админ на кастомный
@@ -218,6 +220,9 @@ urlpatterns = [
     path('api/achievements', miniapp_achievements, name='miniapp_achievements'),
     # ─── Crystals / Кристаллы ─────────────────────────────────────────────────
     path('api/crystals/spend', miniapp_crystals_spend, name='miniapp_crystals_spend'),
+    path('api/convert_crystals', miniapp_convert_crystals, name='miniapp_convert_crystals'),
+    # ─── Avatar serving / Аватары ─────────────────────────────────────────────
+    path('api/user_avatar/<int:user_id>/', miniapp_user_avatar, name='miniapp_user_avatar'),
     # ─── Dev: Error logs / Логи ошибок ────────────────────────────────────────
     path('api/dev/error_logs', miniapp_dev_error_logs, name='miniapp_dev_error_logs'),
     path('api/frontend_error_log', miniapp_frontend_error_log, name='miniapp_frontend_error_log'),

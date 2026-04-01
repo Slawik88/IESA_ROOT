@@ -1152,6 +1152,86 @@ async def init_db():
             )
         """)
 
+        # ─── Block 3: кастомные роли в чате за кристаллы ─────────────────
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS crystal_chat_roles (
+                user_id     BIGINT NOT NULL,
+                chat_id     BIGINT NOT NULL,
+                role_text   TEXT   NOT NULL DEFAULT '',
+                purchased_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                PRIMARY KEY (user_id, chat_id)
+            )
+        """)
+
+        # ─── Block 3: пропуска на аукционный перенос ──────────────────────
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS crystal_transfer_passes (
+                user_id  BIGINT NOT NULL PRIMARY KEY,
+                passes   INTEGER NOT NULL DEFAULT 0
+            )
+        """)
+
+        # ─── Block 3: свитки гаранта (×10 гача → guaranteed rare+) ────────
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS crystal_guarantee_scrolls (
+                user_id  BIGINT NOT NULL PRIMARY KEY,
+                scrolls  INTEGER NOT NULL DEFAULT 0
+            )
+        """)
+
+        # ─── Block 3: камни улучшения за кристаллы ────────────────────────
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS crystal_enhancement_stones (
+                user_id  BIGINT NOT NULL PRIMARY KEY,
+                stones   INTEGER NOT NULL DEFAULT 0
+            )
+        """)
+
+        # ─── Block 3: разблокированные аватары ────────────────────────────
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS crystal_avatar_unlocks (
+                user_id      BIGINT NOT NULL PRIMARY KEY,
+                avatar_path  TEXT   DEFAULT NULL,
+                unlocked_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """)
+
+        # ─── Block 4: Season Pass (Боевой Пропуск) ─────────────────────────
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS seasons (
+                id         SERIAL PRIMARY KEY,
+                name       TEXT NOT NULL,
+                start_date TIMESTAMPTZ NOT NULL,
+                end_date   TIMESTAMPTZ NOT NULL,
+                active     BOOLEAN DEFAULT TRUE
+            )
+        """)
+        
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS season_progress (
+                user_id      BIGINT NOT NULL,
+                season_id    INTEGER NOT NULL,
+                season_xp    INTEGER NOT NULL DEFAULT 0,
+                level        INTEGER NOT NULL DEFAULT 0,
+                claimed_levels TEXT NOT NULL DEFAULT '[]',  -- JSON array of claimed level numbers
+                premium_purchased BOOLEAN DEFAULT FALSE,
+                PRIMARY KEY (user_id, season_id),
+                FOREIGN KEY (season_id) REFERENCES seasons(id) ON DELETE CASCADE
+            )
+        """)
+        
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS season_rewards (
+                season_id   INTEGER NOT NULL,
+                level       INTEGER NOT NULL,
+                is_premium  BOOLEAN NOT NULL DEFAULT FALSE,
+                reward_type TEXT NOT NULL,  -- 'mora', 'crystals', 'item', 'title'
+                reward_data TEXT NOT NULL,  -- amount or item_key or title text
+                PRIMARY KEY (season_id, level, is_premium),
+                FOREIGN KEY (season_id) REFERENCES seasons(id) ON DELETE CASCADE
+            )
+        """)
+
         # ─── История покупок кристаллов за Stars ──────────────────────────
         await db.execute("""
             CREATE TABLE IF NOT EXISTS stars_purchases (
@@ -1447,6 +1527,9 @@ async def init_db():
     except Exception:
         pass
 
+    # ─── 🅱️ Block 4: Season Pass seed data ──────────────────────────────────
+    await seed_first_season()
+    
     await enforce_rank_invariants()
 
 
@@ -2581,6 +2664,13 @@ async def mark_quest_rewarded(user_id: int, chat_id: int, quest_date: str):
             (user_id, chat_id, quest_date),
         )
         await db.commit()
+
+    # Block 4: Add season XP for quest completion
+    try:
+        season_result = await add_season_xp(user_id, 20)  # +20 season XP
+        return season_result  # Return for potential level-up notification
+    except Exception:
+        return {"level_up": False, "new_level": 0}
 
 
 # ─── Achievements ─────────────────────────────────────────────────────────────
@@ -6107,6 +6197,452 @@ async def log_stars_purchase(
         await db.commit()
 
 
+# ── Block 3: Crystal shop item helpers ────────────────────────────────────────
+
+async def get_transfer_passes(user_id: int) -> int:
+    """Возвращает количество пропусков переноса (для обхода 3-дневного правила)."""
+    async with postgres_connect() as db:
+        row = await db.fetchone(
+            "SELECT passes FROM crystal_transfer_passes WHERE user_id=$1", (user_id,)
+        )
+    return int(row["passes"]) if row else 0
+
+
+async def use_transfer_pass(user_id: int) -> bool:
+    """Тратит 1 пропуск переноса. Возвращает True если успешно."""
+    async with postgres_connect() as db:
+        cursor = await db.execute(
+            "UPDATE crystal_transfer_passes SET passes = passes - 1 "
+            "WHERE user_id=$1 AND passes >= 1",
+            (user_id,),
+        )
+        await db.commit()
+    return cursor.rowcount > 0
+
+
+async def add_transfer_passes(user_id: int, amount: int) -> int:
+    """Добавляет пропуска переноса. Возвращает новое количество."""
+    async with postgres_connect() as db:
+        row = await db.fetchone(
+            """INSERT INTO crystal_transfer_passes (user_id, passes)
+               VALUES ($1, $2)
+               ON CONFLICT (user_id) DO UPDATE
+               SET passes = crystal_transfer_passes.passes + $2
+               RETURNING passes""",
+            (user_id, amount),
+        )
+        await db.commit()
+    return int(row["passes"]) if row else amount
+
+
+async def get_guarantee_scrolls(user_id: int) -> int:
+    """Возвращает количество свитков гаранта."""
+    async with postgres_connect() as db:
+        row = await db.fetchone(
+            "SELECT scrolls FROM crystal_guarantee_scrolls WHERE user_id=$1", (user_id,)
+        )
+    return int(row["scrolls"]) if row else 0
+
+
+async def add_guarantee_scrolls(user_id: int, amount: int) -> int:
+    """Добавляет свитки гаранта. Возвращает новое количество."""
+    async with postgres_connect() as db:
+        row = await db.fetchone(
+            """INSERT INTO crystal_guarantee_scrolls (user_id, scrolls)
+               VALUES ($1, $2)
+               ON CONFLICT (user_id) DO UPDATE
+               SET scrolls = crystal_guarantee_scrolls.scrolls + $2
+               RETURNING scrolls""",
+            (user_id, amount),
+        )
+        await db.commit()
+    return int(row["scrolls"]) if row else amount
+
+
+async def use_guarantee_scroll(user_id: int) -> bool:
+    """Тратит 1 свиток гаранта. Возвращает True если успешно."""
+    async with postgres_connect() as db:
+        cursor = await db.execute(
+            "UPDATE crystal_guarantee_scrolls SET scrolls = scrolls - 1 "
+            "WHERE user_id=$1 AND scrolls >= 1",
+            (user_id,),
+        )
+        await db.commit()
+    return cursor.rowcount > 0
+
+
+async def get_enhancement_stones(user_id: int) -> int:
+    """Возвращает количество камней улучшения."""
+    async with postgres_connect() as db:
+        row = await db.fetchone(
+            "SELECT stones FROM crystal_enhancement_stones WHERE user_id=$1", (user_id,)
+        )
+    return int(row["stones"]) if row else 0
+
+
+async def add_enhancement_stones(user_id: int, amount: int) -> int:
+    """Добавляет камни улучшения. Возвращает новое количество."""
+    async with postgres_connect() as db:
+        row = await db.fetchone(
+            """INSERT INTO crystal_enhancement_stones (user_id, stones)
+               VALUES ($1, $2)
+               ON CONFLICT (user_id) DO UPDATE
+               SET stones = crystal_enhancement_stones.stones + $2
+               RETURNING stones""",
+            (user_id, amount),
+        )
+        await db.commit()
+    return int(row["stones"]) if row else amount
+
+
+async def use_enhancement_stone(user_id: int) -> bool:
+    """Тратит 1 камень улучшения. Возвращает True если успешно."""
+    async with postgres_connect() as db:
+        cursor = await db.execute(
+            "UPDATE crystal_enhancement_stones SET stones = stones - 1 "
+            "WHERE user_id=$1 AND stones >= 1",
+            (user_id,),
+        )
+        await db.commit()
+    return cursor.rowcount > 0
+
+
+async def is_avatar_unlocked(user_id: int) -> bool:
+    """Возвращает True если аватар уже разблокирован."""
+    async with postgres_connect() as db:
+        row = await db.fetchone(
+            "SELECT user_id FROM crystal_avatar_unlocks WHERE user_id=$1", (user_id,)
+        )
+    return row is not None
+
+
+async def unlock_avatar(user_id: int, avatar_path: str | None = None) -> None:
+    """Записывает разблокировку аватара, опционально сохраняя path."""
+    from datetime import datetime, timezone
+    async with postgres_connect() as db:
+        await db.execute(
+            """INSERT INTO crystal_avatar_unlocks (user_id, avatar_path, unlocked_at)
+               VALUES ($1, $2, $3)
+               ON CONFLICT (user_id) DO UPDATE
+               SET avatar_path = EXCLUDED.avatar_path""",
+            (user_id, avatar_path, datetime.now(timezone.utc)),
+        )
+        await db.commit()
+
+
+async def get_avatar_path(user_id: int) -> str | None:
+    """Возвращает путь к аватару или None."""
+    async with postgres_connect() as db:
+        row = await db.fetchone(
+            "SELECT avatar_path FROM crystal_avatar_unlocks WHERE user_id=$1", (user_id,)
+        )
+    return row["avatar_path"] if row else None
+
+
+async def get_crystal_chat_role(user_id: int, chat_id: int) -> str | None:
+    """Возвращает кастомную роль юзера в чате или None."""
+    async with postgres_connect() as db:
+        row = await db.fetchone(
+            "SELECT role_text FROM crystal_chat_roles WHERE user_id=$1 AND chat_id=$2",
+            (user_id, chat_id),
+        )
+    return row["role_text"] if row else None
+
+
+# ─── 🅱️ Block 4: Season Pass functions ──────────────────────────────────────
+
+async def seed_first_season():
+    """Create the first test season if no seasons exist."""
+    from datetime import datetime, timezone, timedelta
+    
+    async with postgres_connect() as db:
+        # Check if any seasons exist
+        row = await db.fetchone("SELECT id FROM seasons LIMIT 1")
+        if row:
+            return  # Season already exists
+            
+        # Create first test season
+        now = datetime.now(timezone.utc)
+        start_date = now
+        end_date = now + timedelta(days=30)
+        
+        season_row = await db.fetchone(
+            "INSERT INTO seasons (name, start_date, end_date, active) "
+            "VALUES ($1, $2, $3, $4) RETURNING id",
+            ("Сезон Предвестника", start_date, end_date, True)
+        )
+        season_id = season_row["id"]
+        
+        # Add sample rewards for levels 1-30
+        rewards = []
+        for level in range(1, 31):
+            # Free track rewards
+            if level % 5 == 0:  # Every 5th level
+                rewards.append((season_id, level, False, "mora", str(level * 50)))
+            elif level % 3 == 0:  # Every 3rd level
+                rewards.append((season_id, level, False, "item", "gacha_ticket"))
+            else:
+                rewards.append((season_id, level, False, "mora", str(level * 20)))
+                
+            # Premium track rewards
+            if level == 30:
+                rewards.append((season_id, level, True, "title", "🌟 Завершитель Сезона"))
+            elif level % 10 == 0:  # Every 10th level
+                rewards.append((season_id, level, True, "crystals", str(level)))
+            elif level % 7 == 0:  # Every 7th level
+                rewards.append((season_id, level, True, "item", "enhancement_stone"))
+            else:
+                rewards.append((season_id, level, True, "mora", str(level * 40)))
+        
+        # Insert all rewards
+        for season_id, level, is_premium, reward_type, reward_data in rewards:
+            await db.execute(
+                "INSERT INTO season_rewards (season_id, level, is_premium, reward_type, reward_data) "
+                "VALUES ($1, $2, $3, $4, $5)",
+                (season_id, level, is_premium, reward_type, reward_data)
+            )
+        
+        await db.commit()
+
+
+async def get_active_season() -> dict | None:
+    """Get currently active season."""
+    from datetime import datetime, timezone
+    
+    async with postgres_connect() as db:
+        row = await db.fetchone(
+            "SELECT * FROM seasons WHERE active = TRUE "
+            "AND start_date <= $1 AND end_date >= $1 "
+            "ORDER BY start_date DESC LIMIT 1",
+            (datetime.now(timezone.utc),)
+        )
+    return dict(row) if row else None
+
+
+async def get_season_progress(user_id: int, season_id: int) -> dict:
+    """Get user's progress in a specific season."""
+    import json
+    
+    async with postgres_connect() as db:
+        row = await db.fetchone(
+            "SELECT * FROM season_progress WHERE user_id = $1 AND season_id = $2",
+            (user_id, season_id)
+        )
+    
+    if row:
+        data = dict(row)
+        data["claimed_levels"] = json.loads(data["claimed_levels"] or "[]")
+        return data
+    else:
+        return {
+            "user_id": user_id,
+            "season_id": season_id,
+            "season_xp": 0,
+            "level": 0,
+            "claimed_levels": [],
+            "premium_purchased": False
+        }
+
+
+async def add_season_xp(user_id: int, xp_amount: int) -> dict:
+    """Add season XP to user. Returns {"level_up": bool, "new_level": int, "new_xp": int}."""
+    import json
+    
+    # Check if there's an active season
+    season = await get_active_season()
+    if not season:
+        return {"level_up": False, "new_level": 0, "new_xp": 0}
+    
+    season_id = season["id"]
+    
+    async with postgres_connect() as db:
+        # Get or create progress record
+        row = await db.fetchone(
+            "SELECT * FROM season_progress WHERE user_id = $1 AND season_id = $2",
+            (user_id, season_id)
+        )
+        
+        if row:
+            current_xp = row["season_xp"]
+            current_level = row["level"]
+            claimed_levels = json.loads(row["claimed_levels"] or "[]")
+            premium_purchased = row["premium_purchased"]
+        else:
+            current_xp = 0
+            current_level = 0
+            claimed_levels = []
+            premium_purchased = False
+        
+        # Add XP
+        new_xp = current_xp + xp_amount
+        
+        # Calculate new level (150 XP per level, max level 30)
+        new_level = min(30, new_xp // 150)
+        level_up = new_level > current_level
+        
+        # Update or insert progress
+        await db.execute(
+            """INSERT INTO season_progress (user_id, season_id, season_xp, level, claimed_levels, premium_purchased)
+               VALUES ($1, $2, $3, $4, $5, $6)
+               ON CONFLICT (user_id, season_id) DO UPDATE
+               SET season_xp = $3, level = $4""",
+            (user_id, season_id, new_xp, new_level, json.dumps(claimed_levels), premium_purchased)
+        )
+        await db.commit()
+        
+        return {
+            "level_up": level_up,
+            "new_level": new_level,
+            "new_xp": new_xp,
+            "season_name": season.get("name", "")
+        }
+
+
+async def claim_season_reward(user_id: int, season_id: int, level: int, is_premium: bool) -> dict:
+    """Claim a season reward. Returns {"ok": bool, "reward": dict}."""
+    import json
+    
+    async with postgres_connect() as db:
+        # Get progress
+        progress_row = await db.fetchone(
+            "SELECT * FROM season_progress WHERE user_id = $1 AND season_id = $2",
+            (user_id, season_id)
+        )
+        
+        if not progress_row:
+            return {"ok": False, "error": "No progress found"}
+        
+        user_level = progress_row["level"]
+        claimed_levels = json.loads(progress_row["claimed_levels"] or "[]")
+        premium_purchased = progress_row["premium_purchased"]
+        
+        # Check if user has reached this level
+        if user_level < level:
+            return {"ok": False, "error": "Level not reached"}
+        
+        # Check if premium reward requires premium pass
+        if is_premium and not premium_purchased:
+            return {"ok": False, "error": "Premium pass required"}
+        
+        # Check if already claimed
+        claim_key = f"{level}_{'premium' if is_premium else 'free'}"
+        if claim_key in claimed_levels:
+            return {"ok": False, "error": "Already claimed"}
+        
+        # Get reward data
+        reward_row = await db.fetchone(
+            "SELECT * FROM season_rewards WHERE season_id = $1 AND level = $2 AND is_premium = $3",
+            (season_id, level, is_premium)
+        )
+        
+        if not reward_row:
+            return {"ok": False, "error": "Reward not found"}
+        
+        reward_type = reward_row["reward_type"]
+        reward_data = reward_row["reward_data"]
+        
+        # Apply reward
+        if reward_type == "mora":
+            await add_mora(user_id, int(reward_data))
+        elif reward_type == "crystals":
+            await add_crystals(user_id, int(reward_data))
+        elif reward_type == "item":
+            # Handle specific items
+            if reward_data == "gacha_ticket":
+                # Give free gacha ticket (not implemented yet, just give mora equivalent)
+                await add_mora(user_id, 120)
+            elif reward_data == "enhancement_stone":
+                await add_enhancement_stones(user_id, 1)
+        # title rewards are cosmetic only
+        
+        # Mark as claimed
+        claimed_levels.append(claim_key)
+        await db.execute(
+            "UPDATE season_progress SET claimed_levels = $1 WHERE user_id = $2 AND season_id = $3",
+            (json.dumps(claimed_levels), user_id, season_id)
+        )
+        await db.commit()
+        
+        return {
+            "ok": True,
+            "reward": {
+                "type": reward_type,
+                "data": reward_data,
+                "level": level,
+                "is_premium": is_premium
+            }
+        }
+
+
+async def buy_season_premium(user_id: int, season_id: int) -> bool:
+    """Buy premium pass for season. Returns True if successful."""
+    import json
+    
+    # Check crystal balance (500 crystals for premium)
+    crystals = await get_crystals(user_id)
+    if crystals < 500:
+        return False
+    
+    async with postgres_connect() as db:
+        # Check if already purchased
+        progress_row = await db.fetchone(
+            "SELECT premium_purchased FROM season_progress WHERE user_id = $1 AND season_id = $2",
+            (user_id, season_id)
+        )
+        
+        if progress_row and progress_row["premium_purchased"]:
+            return False  # Already purchased
+        
+        # Spend crystals
+        ok = await spend_crystals(user_id, 500)
+        if not ok:
+            return False
+        
+        # Mark premium as purchased
+        if progress_row:
+            await db.execute(
+                "UPDATE season_progress SET premium_purchased = TRUE WHERE user_id = $1 AND season_id = $2",
+                (user_id, season_id)
+            )
+        else:
+            # Create new progress record with premium
+            await db.execute(
+                """INSERT INTO season_progress (user_id, season_id, season_xp, level, claimed_levels, premium_purchased)
+                   VALUES ($1, $2, 0, 0, '[]', TRUE)""",
+                (user_id, season_id)
+            )
+        
+        await db.commit()
+        return True
+
+
+async def get_season_rewards(season_id: int) -> list[dict]:
+    """Get all rewards for a season."""
+    async with postgres_connect() as db:
+        rows = await db.fetch(
+            "SELECT * FROM season_rewards WHERE season_id = $1 ORDER BY level, is_premium",
+            (season_id,)
+        )
+    return [dict(row) for row in rows]
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+async def set_crystal_chat_role(user_id: int, chat_id: int, role_text: str) -> None:
+    """Устанавливает кастомную роль юзера в чате."""
+    from datetime import datetime, timezone
+    async with postgres_connect() as db:
+        await db.execute(
+            """INSERT INTO crystal_chat_roles (user_id, chat_id, role_text, purchased_at)
+               VALUES ($1, $2, $3, $4)
+               ON CONFLICT (user_id, chat_id) DO UPDATE
+               SET role_text = EXCLUDED.role_text, purchased_at = EXCLUDED.purchased_at""",
+            (user_id, chat_id, role_text, datetime.now(timezone.utc)),
+        )
+        await db.commit()
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 #  🏗️ CHAT CONFIGS — конфигурация бота по чатам (multi-tenant)
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -6469,16 +7005,25 @@ async def enhance_item(user_id: int, chat_id: int, item_id: int) -> tuple[bool, 
         base_cost = 80
         cost = int(base_cost * (1.3 ** current_level))
 
-        # Check mora balance
-        async with db.execute(
-            "SELECT COALESCE(balance, 0) FROM users WHERE user_id=?",
-            (user_id,)
-        ) as c:
-            balance_row = await c.fetchone()
+        # Check if user has enhancement stones first
+        stones_count = await get_enhancement_stones(user_id)
+        using_stones = stones_count > 0
 
-        balance = balance_row[0] if balance_row else 0
-        if balance < cost:
-            return False, f"Недостаточно Моры ({balance}/{cost} 🪙)", current_level
+        if using_stones:
+            # Use free enhancement stone
+            await use_enhancement_stone(user_id)
+            balance = 0  # Not needed for error message, just set for consistency
+        else:
+            # Check mora balance
+            async with db.execute(
+                "SELECT COALESCE(balance, 0) FROM users WHERE user_id=?",
+                (user_id,)
+            ) as c:
+                balance_row = await c.fetchone()
+
+            balance = balance_row[0] if balance_row else 0
+            if balance < cost:
+                return False, f"Недостаточно Моры ({balance}/{cost} 🪙)", current_level
 
         # ─── НОВАЯ ЛОГИКА ЗАТОЧКИ ─────────────────────────────────────────
         # До +5 включительно: ВСЕГДА успешно (100%)
@@ -6512,14 +7057,15 @@ async def enhance_item(user_id: int, chat_id: int, item_id: int) -> tuple[bool, 
         else:
             success_pct, neutral_pct, fail_pct = 30, 40, 30
 
-        # Деduct мору всегда (атомарная проверка баланса)
-        cursor = await db.execute(
-            "UPDATE users SET balance = balance - ? WHERE user_id=? AND COALESCE(balance, 0) >= ?",
-            (cost, user_id, cost)
-        )
-        if cursor.rowcount == 0:
-            await db.commit()
-            return False, f"Недостаточно Моры ({balance}/{cost} 🪙)", current_level
+        if not using_stones:
+            # Deduct мору только если не используем камни
+            cursor = await db.execute(
+                "UPDATE users SET balance = balance - ? WHERE user_id=? AND COALESCE(balance, 0) >= ?",
+                (cost, user_id, cost)
+            )
+            if cursor.rowcount == 0:
+                await db.commit()
+                return False, f"Недостаточно Моры ({balance}/{cost} 🪙)", current_level
 
         roll = random.randint(1, 100)
         if roll <= success_pct:
@@ -6530,15 +7076,19 @@ async def enhance_item(user_id: int, chat_id: int, item_id: int) -> tuple[bool, 
                 (new_level, item_id)
             )
             await db.commit()
+            cost_msg = "🔮 Использован камень заточки" if using_stones else f"💸 Потрачено {cost} 🪙"
             return True, (
                 f"✨ Заточка успешна! {item[6]} → <b>+{new_level}</b>\n"
+                f"{cost_msg}\n"
                 f"Шанс успеха был: {success_pct}%"
             ), new_level
         elif roll <= success_pct + neutral_pct:
             # ⚡ Нейтрально — уровень не меняется
             await db.commit()
+            cost_msg = "🔮 Использован камень заточки" if using_stones else f"💸 Потрачено {cost} 🪙"
             return False, (
                 f"⚡ Заточка не прошла! {item[6]} остался <b>+{current_level}</b>\n"
+                f"{cost_msg}\n"
                 f"Предмет цел. Шанс успеха был: {success_pct}%"
             ), current_level
         else:
@@ -6549,8 +7099,10 @@ async def enhance_item(user_id: int, chat_id: int, item_id: int) -> tuple[bool, 
                 (new_level, item_id)
             )
             await db.commit()
+            cost_msg = "🔮 Использован камень заточки" if using_stones else f"💸 Потрачено {cost} 🪙"
             return False, (
                 f"💔 Неудача! {item[6]}: +{current_level} → <b>+{new_level}</b>\n"
+                f"{cost_msg}\n" 
                 f"Предмет цел. Шанс успеха был: {success_pct}%"
             ), new_level
 

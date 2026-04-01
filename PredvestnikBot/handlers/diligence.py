@@ -209,6 +209,14 @@ async def cb_diligence_click(callback: CallbackQuery):
 
     await callback.answer(f"⚔️ Удар! ({current_clicks + 1}/{_CLICK_LIMIT})")
 
+    # Block 4: Add season XP for diligence participation (first click only)
+    if current_clicks == 0:  # First click
+        try:
+            from database.db import add_season_xp
+            await add_season_xp(uid, 5)  # +5 season XP for participating
+        except Exception:
+            pass
+
     # Обновляем сообщение каждые 5 кликов — фоновая задача, не блокирует ответ
     if total % 5 == 0 and total < _DILIGENCE_GOAL:
         asyncio.create_task(_update_diligence_msg(callback.message, chat_id))

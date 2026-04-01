@@ -213,6 +213,7 @@ async def create_auction(
             raise ValueError("Предмет не найден в инвентаре")
 
         # 1b. 3-дневное правило владения: предмет должен быть в инвентаре ≥ 3 дня
+        # Block 3: можно обойти тратой пропуска переноса
         acquired = item.get("acquired_at") or item.get("obtained_at")
         if acquired:
             if isinstance(acquired, str):
@@ -223,7 +224,19 @@ async def create_auction(
             item_age_days = (datetime.now(timezone.utc) - acquired).total_seconds() / 86400
             if item_age_days < 3:
                 days_left = 3 - int(item_age_days)
-                raise ValueError(f"Нельзя выставить на аукцион — нужно владеть предметом ≥3 дня (ещё {days_left} дн. ✅)")
+                # Check if user has transfer passes to bypass the rule
+                from database.db import get_transfer_passes, use_transfer_pass
+                transfer_passes = await get_transfer_passes(seller_id)
+                if transfer_passes > 0:
+                    # Use a transfer pass to bypass the 3-day rule
+                    success = await use_transfer_pass(seller_id)
+                    if success:
+                        # Pass consumed successfully, continue with auction creation
+                        pass
+                    else:
+                        raise ValueError(f"Нельзя выставить на аукцион — нужно владеть предметом ≥3 дня (ещё {days_left} дн. ✅)")
+                else:
+                    raise ValueError(f"Нельзя выставить на аукцион — нужно владеть предметом ≥3 дня (ещё {days_left} дн. ✅)\n💎 Купи «Пропуск переноса» за кристаллы для обхода!")
 
         # 2. Проверяем что предмет не уже на аукционе
         existing = await db.fetchone(

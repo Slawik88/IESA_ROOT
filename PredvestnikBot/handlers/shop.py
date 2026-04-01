@@ -349,6 +349,13 @@ async def cb_shop_buy(callback: CallbackQuery):
         except Exception:
             pass
 
+        # Block 4: Add season XP for shop purchase
+        try:
+            from database.db import add_season_xp
+            await add_season_xp(uid, 1)  # +1 season XP
+        except Exception:
+            pass
+
     elif item_key == "pet_color":
         await buy_shop_item(uid, chat_id, "pet_color", "pending")
         # Предлагаем выбрать цвет

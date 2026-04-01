@@ -181,6 +181,22 @@ async def cb_gacha_roll(callback: CallbackQuery):
         except Exception:
             pass
 
+    # Block 4: Add season XP for gacha rolls
+    try:
+        from database.db import add_season_xp
+        xp_amount = 15 if count == 10 else 2 * count  # +15 for ×10, +2 per single
+        season_result = await add_season_xp(uid, xp_amount)
+        if season_result.get("level_up"):
+            name = html.escape(callback.from_user.full_name)
+            await callback.message.answer(
+                f"🌟 {name} достиг <b>уровня {season_result['new_level']}</b> в Season Pass!",
+                parse_mode="HTML",
+            )
+    except Exception:
+        pass  # Безопасно игнорируем ошибки season XP
+        except Exception:
+            pass
+
 @router.message(BotCommand("инвентарь", "предметы", "inventory", "рюкзак"))
 async def cmd_inventory(message: Message, cmd_args: str):
     if message.chat.type == "private":
