@@ -54,7 +54,7 @@ async def reroll_quest(uid: int, chat_id: int, use_coupon: bool = False) -> dict
         async with postgres_connect() as db:
             async with db.execute(
                 "SELECT id, COALESCE(stack_count, 1) FROM gacha_inventory "
-                "WHERE user_id=? AND item_key='quest_reroll' LIMIT 1",
+                "WHERE user_id=$1 AND item_key='quest_reroll' LIMIT 1",
                 (uid,),
             ) as c:
                 coupon_row = await c.fetchone()
@@ -62,10 +62,10 @@ async def reroll_quest(uid: int, chat_id: int, use_coupon: bool = False) -> dict
                 raise ValueError("Купон реролла не найден в инвентаре")
             cid, csc = coupon_row[0], coupon_row[1]
             if csc <= 1:
-                await db.execute("DELETE FROM gacha_inventory WHERE id=?", (cid,))
+                await db.execute("DELETE FROM gacha_inventory WHERE id=$1", (cid,))
             else:
                 await db.execute(
-                    "UPDATE gacha_inventory SET stack_count = stack_count - 1 WHERE id=?", (cid,)
+                    "UPDATE gacha_inventory SET stack_count = stack_count - 1 WHERE id=$1", (cid,)
                 )
             await db.commit()
         coupon_used = True
@@ -80,14 +80,14 @@ async def reroll_quest(uid: int, chat_id: int, use_coupon: bool = False) -> dict
 
         async with postgres_connect() as db:
             cursor = await db.execute(
-                "UPDATE users SET balance=balance-? WHERE user_id=? AND COALESCE(balance,0)>=?",
+                "UPDATE users SET balance=balance-$1 WHERE user_id=$2 AND COALESCE(balance,0)>=$3",
                 (QUEST_REROLL_PRICE, uid, QUEST_REROLL_PRICE),
             )
             if cursor.rowcount == 0:
                 raise ValueError("Не удалось списать Мору")
             await db.commit()
             async with db.execute(
-                "SELECT COALESCE(balance, 0) AS balance FROM users WHERE user_id=?",
+                "SELECT COALESCE(balance, 0) AS balance FROM users WHERE user_id=$1",
                 (uid,),
             ) as c:
                 row = await c.fetchone()

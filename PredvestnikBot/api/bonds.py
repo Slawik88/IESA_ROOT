@@ -49,7 +49,7 @@ async def buy_bond(uid: int, chat_id: int, bond_key: str,
         from database.postgres import connect as postgres_connect
         async with postgres_connect() as db:
             cursor = await db.execute(
-                "UPDATE users SET balance=balance-? WHERE user_id=? AND COALESCE(balance,0)>=?",
+                "UPDATE users SET balance=balance-$1 WHERE user_id=$2 AND COALESCE(balance,0)>=$3",
                 (total_cost, uid, total_cost),
             )
             if cursor.rowcount == 0:
@@ -251,7 +251,7 @@ async def get_bonds_status(uid: int, chat_id: int) -> dict:
     try:
         async with postgres_connect() as db:
             async with db.execute(
-                "SELECT trend, ticks_left FROM market_state WHERE chat_id=?",
+                "SELECT trend, ticks_left FROM market_state WHERE chat_id=$1",
                 (chat_id,),
             ) as c:
                 state_row = await c.fetchone()

@@ -52,7 +52,7 @@ async def cmd_auction_list(message: Message, cmd_args: str):
             f"[{esc(a['item_rarity'])}]\n"
             f"   💰 Текущая: <b>{a['current_price']} 🪙</b> (мин. ставка: {a['min_bid']}){buyout_str}\n"
             f"   👤 Продавец: {esc(a.get('seller_name') or 'Аноним')} "
-            f"| ⏳ Осталось: {a.get('remaining_str','?')}"
+            f"| ⏳ Осталось: {a.get('remaining_str','$1')}"
         )
 
     # Кнопки для первых 5 лотов
@@ -87,7 +87,7 @@ async def cb_auction_detail(callback: CallbackQuery):
     bids_str   = ""
     if a.get("bids_history"):
         bids_str = "\n\n<b>Последние ставки:</b>\n" + "\n".join(
-            f"  • {esc(b.get('full_name','?'))} — {b['amount']} 🪙"
+            f"  • {esc(b.get('full_name','$1'))} — {b['amount']} 🪙"
             for b in a["bids_history"][:5]
         )
 
@@ -155,7 +155,7 @@ async def cb_auction_buyout_confirm(callback: CallbackQuery):
         [InlineKeyboardButton(text="❌ Отмена", callback_data=f"auc_detail:{auction_id}")],
     ])
     await callback.message.edit_text(
-        f"💥 Подтвердить мгновенный выкуп лота #{auction_id}?\n"
+        f"💥 Подтвердить мгновенный выкуп лота #{auction_id}$1\n"
         f"📦 <b>{esc(a['item_name'])}</b>\n"
         f"💰 Цена: <b>{a['buyout_price']} 🪙</b>",
         parse_mode="HTML",
@@ -195,7 +195,7 @@ async def cb_auction_cancel_confirm(callback: CallbackQuery):
         [InlineKeyboardButton(text="Назад", callback_data=f"auc_detail:{auction_id}")],
     ])
     await callback.message.edit_text(
-        f"❌ Отменить лот #{auction_id}?\n\n"
+        f"❌ Отменить лот #{auction_id}$1\n\n"
         "⚠️ Если есть активные ставки, вы заплатите штраф 5% от стартовой цены, "
         "а ставка будет возвращена участнику.",
         reply_markup=kb
@@ -309,7 +309,7 @@ async def cmd_place_bid(message: Message, cmd_args: str):
                 next_min = result["new_price"] + 1
                 await message.bot.send_message(
                     chat_id,
-                    f"⚡ <a href='tg://user?id={outbid_uid}'>Предвестник</a>, "
+                    f"⚡ <a href='tg://user$1id={outbid_uid}'>Предвестник</a>, "
                     f"вашу ставку на <b>{esc(item_name)}</b> перебили! "
                     f"Новая цена: <b>{amount} 🪙</b>. "
                     f"Используйте <code>бот ставка {auction_id} {next_min}</code>",
@@ -365,7 +365,7 @@ async def cmd_my_auction(message: Message, cmd_args: str):
     if data["my_lots"]:
         lines.append("<b>🏷 Мои лоты:</b>")
         for a in data["my_lots"][:5]:
-            status = {"active": "✅", "sold": "🔨", "expired": "⏰", "cancelled": "❌"}.get(a["status"], "?")
+            status = {"active": "✅", "sold": "🔨", "expired": "⏰", "cancelled": "❌"}.get(a["status"], "$1")
             lines.append(f"  {status} #{a['id']} <b>{esc(a['item_name'])}</b> — {a['current_price']} 🪙 ({a['bid_count']} ставок)")
     else:
         lines.append("<i>Нет активных лотов</i>")
@@ -375,7 +375,7 @@ async def cmd_my_auction(message: Message, cmd_args: str):
         for a in data["my_bids"][:5]:
             is_winning = a.get("highest_bidder_id") == uid
             win_str = " 🏆 лидер" if is_winning else ""
-            lines.append(f"  #{a['id']} <b>{esc(a['item_name'])}</b> — моя ставка: {a.get('my_bid','?')} 🪙{win_str}")
+            lines.append(f"  #{a['id']} <b>{esc(a['item_name'])}</b> — моя ставка: {a.get('my_bid','$1')} 🪙{win_str}")
     else:
         lines.append("\n<i>Нет активных ставок</i>")
 

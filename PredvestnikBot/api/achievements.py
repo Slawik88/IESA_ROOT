@@ -84,7 +84,7 @@ for _lst in ACH_BY_TYPE.values():
 async def _get_counter(db, user_id: int, chat_id: int, col: str) -> int:
     """Получить значение счётчика из user_mora."""
     row = await db.fetchrow(
-        f"SELECT {col} FROM user_mora WHERE user_id=? AND chat_id=?",
+        f"SELECT {col} FROM user_mora WHERE user_id=$1 AND chat_id=$2",
         user_id, chat_id
     )
     return int(row[col] or 0) if row else 0
@@ -95,7 +95,7 @@ async def _award(db, user_id: int, chat_id: int, ach: dict) -> bool:
     try:
         result = await db.execute(
             """INSERT INTO user_badges (user_id, chat_id, badge_key, obtained_at)
-               VALUES (?, ?, ?, NOW()) ON CONFLICT DO NOTHING""",
+               VALUES ($1, $2, $3, NOW()) ON CONFLICT DO NOTHING""",
             user_id, chat_id, ach["key"]
         )
         # asyncpg возвращает 'INSERT 0 0' или 'INSERT 0 1'
@@ -112,12 +112,12 @@ async def _award(db, user_id: int, chat_id: int, ach: dict) -> bool:
     try:
         if ach["mora"] > 0:
             await db.execute(
-                "UPDATE user_mora SET mora = mora + ? WHERE user_id=? AND chat_id=?",
+                "UPDATE user_mora SET mora = mora + $1 WHERE user_id=$2 AND chat_id=$3",
                 ach["mora"], user_id, chat_id
             )
         if ach.get("xp", 0) > 0:
             await db.execute(
-                "UPDATE user_mora SET xp = xp + ? WHERE user_id=? AND chat_id=?",
+                "UPDATE user_mora SET xp = xp + $1 WHERE user_id=$2 AND chat_id=$3",
                 ach["xp"], user_id, chat_id
             )
     except Exception as e:
@@ -177,7 +177,7 @@ async def get_user_achievements(user_id: int, chat_id: int) -> list[dict]:
     try:
         async with postgres_connect() as db:
             rows = await db.fetch(
-                "SELECT badge_key, obtained_at FROM user_badges WHERE user_id=? AND chat_id=?",
+                "SELECT badge_key, obtained_at FROM user_badges WHERE user_id=$1 AND chat_id=$2",
                 user_id, chat_id
             )
     except Exception:
@@ -202,7 +202,7 @@ async def get_all_achievements_with_status(user_id: int, chat_id: int) -> list[d
     try:
         async with postgres_connect() as db:
             rows = await db.fetch(
-                "SELECT badge_key, obtained_at FROM user_badges WHERE user_id=? AND chat_id=?",
+                "SELECT badge_key, obtained_at FROM user_badges WHERE user_id=$1 AND chat_id=$2",
                 user_id, chat_id
             )
         earned = {row["badge_key"]: str(row.get("obtained_at", "")) for row in rows}

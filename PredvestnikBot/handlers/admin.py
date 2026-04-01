@@ -248,7 +248,7 @@ async def cmd_antiflood(message: Message, cmd_args: str):
         #   бот антифлуд 5 3с       → 5 сообщений за 3 секунды
         #   бот антифлуд 5 10с      → 5 сообщений за 10 секунд
         import re
-        m = re.match(r'^(\d+)(?:\s+(\d+(?:\.\d+)?)с(?:ек)?)?$', arg)
+        m = re.match(r'^(\d+)($1:\s+(\d+($2:\.\d+)$3)с($4:ек)$5)$6$', arg)
         if not m or int(m.group(1)) <= 0:
             await message.answer(
                 "❌ Укажи число или <code>выкл</code>.\n"
@@ -335,7 +335,7 @@ async def cmd_cleanup(message: Message, bot: Bot, cmd_args: str):
             from database.postgres import connect as _pg_con
             async with _pg_con() as _db:
                 async with _db.execute(
-                    "SELECT user_id FROM cleanup_passes WHERE chat_id=? AND status='approved'",
+                    "SELECT user_id FROM cleanup_passes WHERE chat_id=$1 AND status='approved'",
                     (chat_id,),
                 ) as _c:
                     _pass_rows = await _c.fetchall()
@@ -1189,7 +1189,7 @@ async def cmd_leave_log(message: Message, cmd_args: str):
         uname = f" (@{_html.escape(r['username'])})" if r.get("username") else ""
         left_at = (r["left_at"] or "")[:16].replace("T", " ")
         lines.append(
-            f"  • <a href='tg://user?id={uid_val}'>{safe_name}</a>{uname} — {left_at}"
+            f"  • <a href='tg://user$1id={uid_val}'>{safe_name}</a>{uname} — {left_at}"
         )
     lines.append(f"\n<i>Используй «бот ушли N» для другого числа записей.</i>")
 

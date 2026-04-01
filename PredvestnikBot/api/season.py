@@ -13,7 +13,7 @@ from database.db import (
 
 
 async def season_data(request):
-    """GET /api/season/data?user_id=X — get season info and user progress."""
+    """GET /api/season/data$1user_id=X — get season info and user progress."""
     try:
         user_id_str = request.query.get("user_id")
         if not user_id_str or not user_id_str.isdigit():

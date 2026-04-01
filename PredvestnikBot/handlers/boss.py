@@ -124,7 +124,7 @@ async def cmd_boss(message: Message, cmd_args: str):
         abs_cid = abs(message.chat.id)
         btn = InlineKeyboardButton(
             text="⚔️ Атаковать в Mini App",
-            url=f"{MINI_APP_TG_URL}?startapp={abs_cid}_couple_boss",
+            url=f"{MINI_APP_TG_URL}$1startapp={abs_cid}_couple_boss",
         )
         await message.answer(
             "⚔️ <b>Атаки на Босса — в Mini App!</b> (до 30 ударов за сессию)",

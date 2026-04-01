@@ -65,7 +65,7 @@ async def cmd_bank(message: Message, cmd_args: str):
     abs_cid = abs(message.chat.id)
     btn = InlineKeyboardButton(
         text="🏦 Банк в Mini App",
-        url=f"{MINI_APP_TG_URL}?startapp={abs_cid}_bank",
+        url=f"{MINI_APP_TG_URL}$1startapp={abs_cid}_bank",
     )
     await message.answer(
         "🏦 <b>Банк переехал в Mini App!</b>",

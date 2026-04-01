@@ -31,13 +31,13 @@ async def get_catalog(uid: int, chat_id: int) -> dict:
     async with postgres_connect() as db:
         rows = await db.fetch(
             "SELECT item_value FROM shop_items "
-            "WHERE user_id=? AND item_type='cosmetic'",
+            "WHERE user_id=$1 AND item_type='cosmetic'",
             (uid,),
         )
         owned_cosmetics = {r["item_value"] for r in rows}
 
         pet_row = await db.fetchone(
-            "SELECT color_name FROM pets_global WHERE user_id=?",
+            "SELECT color_name FROM pets_global WHERE user_id=$1",
             (uid,),
         )
         current_color = pet_row["color_name"] if pet_row else None
@@ -119,12 +119,12 @@ async def _get_themes_for_catalog(uid: int, chat_id: int) -> list:
     from database.postgres import postgres_connect
     async with postgres_connect() as db:
         rows = await db.fetch(
-            "SELECT theme_key FROM user_themes WHERE user_id=?",
+            "SELECT theme_key FROM user_themes WHERE user_id=$1",
             (uid,),
         )
         owned_keys = {r["theme_key"] for r in rows}
         mora_row = await db.fetchone(
-            "SELECT active_theme FROM user_mora WHERE user_id=? AND chat_id=?",
+            "SELECT active_theme FROM user_mora WHERE user_id=$1 AND chat_id=$2",
             (uid, chat_id),
         )
     active = (mora_row["active_theme"] if mora_row else None) or "default"
@@ -233,7 +233,7 @@ async def buy_item(
         from database.postgres import postgres_connect as _pg
         async with _pg() as _db:
             _pet_row = await _db.fetchone(
-                "SELECT color_name FROM pets_global WHERE user_id=?",
+                "SELECT color_name FROM pets_global WHERE user_id=$1",
                 (uid,),
             )
         if not _pet_row:
@@ -247,7 +247,7 @@ async def buy_item(
         from database.postgres import postgres_connect as _pgt
         async with _pgt() as _dbt:
             _theme_row = await _dbt.fetchone(
-                "SELECT 1 FROM user_themes WHERE user_id=? AND theme_key=?",
+                "SELECT 1 FROM user_themes WHERE user_id=$1 AND theme_key=$2",
                 (uid, item_key),
             )
         if _theme_row:
@@ -269,20 +269,20 @@ async def buy_item(
         from database.postgres import postgres_connect
         async with postgres_connect() as db:
             row = await db.fetchone(
-                "SELECT COALESCE(balance, 0) AS balance FROM users WHERE user_id=?",
+                "SELECT COALESCE(balance, 0) AS balance FROM users WHERE user_id=$1",
                 (uid,),
             )
             bal = row["balance"] if row else 0
             if bal < price:
                 raise ValueError(f"Недостаточно Моры ({bal}/{price})")
             cursor = await db.execute(
-                "UPDATE users SET balance = balance - ? WHERE user_id=? AND COALESCE(balance, 0) >= ?",
+                "UPDATE users SET balance = balance - $1 WHERE user_id=$2 AND COALESCE(balance, 0) >= $3",
                 (price, uid, price),
             )
             if cursor.rowcount == 0:
                 raise ValueError(f"Недостаточно Моры")
             row2 = await db.fetchone(
-                "SELECT COALESCE(balance, 0) AS balance FROM users WHERE user_id=?",
+                "SELECT COALESCE(balance, 0) AS balance FROM users WHERE user_id=$1",
                 (uid,),
             )
             new_bal = row2["balance"] if row2 else 0
@@ -304,7 +304,7 @@ async def buy_item(
         color_key = item_key.replace("pet_color_", "")
         async with _pg2() as _db2:
             await _db2.execute(
-                "UPDATE pets_global SET color_name=? WHERE user_id=?",
+                "UPDATE pets_global SET color_name=$1 WHERE user_id=$2",
                 (color_key, uid),
             )
     elif item_type == "potion":
