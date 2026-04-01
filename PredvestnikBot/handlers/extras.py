@@ -13,7 +13,7 @@ from database.db import (
     clear_pending_role, delete_filter, delete_marriage, get_channel_type,
     get_chat_members, get_chat_settings, get_filters, get_marriage,
     get_note, get_pending_role, get_senior_users_in_chat,
-    get_user_stats, is_group_allowed, is_user_in_banlist,
+    get_user_stats, is_user_in_banlist,
     log_voluntary_leave, remove_user_from_banlist,
     set_chat_active, upsert_chat, upsert_user, upsert_user_stats,
 )
@@ -159,20 +159,18 @@ async def track_bot_chat_state(event: ChatMemberUpdated):
     )
 
     if is_active and not was_active:
-        # Бот только что добавлен — отправляем приветствие (только если группа разрешена)
-        from database.db import is_group_allowed
-        if is_group_allowed(event.chat.id):
-            # Мгновенно синхронизируем известных участников (как минимум админов).
-            await _sync_chat_administrators(event.bot, event.chat.id)
-            try:
-                from config import BOT_ADDED_MSG
-                await event.bot.send_message(
-                    event.chat.id,
-                    BOT_ADDED_MSG,
-                    parse_mode="HTML",
-                )
-            except Exception:
-                pass
+        # Бот только что добавлен — отправляем приветствие
+        # Мгновенно синхронизируем известных участников (как минимум админов).
+        await _sync_chat_administrators(event.bot, event.chat.id)
+        try:
+            from config import BOT_ADDED_MSG
+            await event.bot.send_message(
+                event.chat.id,
+                BOT_ADDED_MSG,
+                parse_mode="HTML",
+            )
+        except Exception:
+            pass
     elif not is_active:
         await set_chat_active(event.chat.id, 0)
 
@@ -181,8 +179,6 @@ async def track_bot_chat_state(event: ChatMemberUpdated):
 async def track_chat_member_state(event: ChatMemberUpdated):
     """Handle all membership changes: log leaves, check bans, activate pending roles."""
     if event.chat.type not in ("group", "supergroup"):
-        return
-    if not is_group_allowed(event.chat.id):
         return
 
     member = getattr(event.new_chat_member, "user", None)

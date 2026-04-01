@@ -529,8 +529,7 @@ def _help_pages() -> dict[str, dict]:
                 "🧑‍💻 <code>бот разработчик · скан · сетюзер · прибавитьxp · сеттитул</code>\n"
                 "🕐 <code>бот таймзона [tz]</code>\n"
                 "📡 <code>бот канал правила|основной &lt;id&gt;</code> · <code>бот каналы</code>\n"
-                "🔐 <code>бот разрешить · запретить · группы</code>\n"
-                "📣 <code>бот админгруппа · удадмингруппу · админгруппы</code>\n\n"
+                " <code>бот админгруппа · удадмингруппу · админгруппы</code>\n\n"
                 "🧪 <b>Тестовые чаты (изоляция):</b>\n"
                 "  <code>бот тестчат [chat_id]</code> · <code>бот удтестчат</code> · <code>бот тестчаты</code>\n\n"
                 "🔗 <b>Привязки чатов администрации:</b>\n"
@@ -1190,7 +1189,7 @@ async def cmd_id(message: Message, cmd_args: str):
 
 @router.message(BotCommand("чатинфо", "чат", "chatinfo"))
 async def cmd_chatinfo(message: Message, cmd_args: str):
-    """Show detailed info about the current chat — useful for whitelist management."""
+    """Show detailed info about the current chat."""
     chat = message.chat
     lines = [
         "💬 <b>Информация о чате</b>\n",

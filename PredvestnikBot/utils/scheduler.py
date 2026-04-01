@@ -93,7 +93,7 @@ async def _task_inactivity_warns(bot) -> None:
         get_inactive_users_for_warn,
         add_warn_in_chat,
         set_inactivity_warned,
-        is_on_rest,
+        is_on_rest, is_isolated_chat,
     )
     from utils.helpers import user_mention
     from config import MAX_WARNS
@@ -105,6 +105,8 @@ async def _task_inactivity_warns(bot) -> None:
     now = datetime.now(timezone.utc)
     for chat_row in chats:
         chat_id = chat_row["chat_id"]
+        if is_isolated_chat(chat_id):
+            continue
         days     = chat_row.get("inactivity_warn_days") or 5
         cutoff   = now - timedelta(days=days)
 
@@ -142,12 +144,14 @@ async def _task_inactivity_warns(bot) -> None:
 # ─── Напоминание о запланированной чистке ─────────────────────────────────────
 
 async def _task_cleanup_reminders(bot) -> None:
-    from database.db import get_chats_with_scheduled_cleanup, set_cleanup_reminder_sent, get_shield_map
+    from database.db import get_chats_with_scheduled_cleanup, set_cleanup_reminder_sent, get_shield_map, is_isolated_chat
 
     now = datetime.now(timezone.utc)
     chats = await get_chats_with_scheduled_cleanup()
     for row in chats:
         chat_id      = row["chat_id"]
+        if is_isolated_chat(chat_id):
+            continue
         scheduled    = row.get("next_cleanup_at")
         already_sent = row.get("cleanup_reminder_sent", 0)
         warn_hours   = int(row.get("cleanup_warn_hours") or 48)
@@ -217,6 +221,7 @@ async def _task_marriage_anniversary(bot) -> None:
     from database.db import (
         add_mora, get_all_marriages_for_anniversary, get_user,
         is_anniversary_awarded, mark_anniversary_awarded,
+        is_isolated_chat,
     )
     from utils.helpers import user_mention, bot_today
 
@@ -229,7 +234,7 @@ async def _task_marriage_anniversary(bot) -> None:
         chat_id    = row["chat_id"]
         married_at = row.get("married_at", "")
 
-        if not married_at:
+        if not married_at or is_isolated_chat(chat_id):
             continue
 
         if isinstance(married_at, str):
@@ -280,7 +285,7 @@ async def _task_lottery_draw(bot) -> None:
     from database.db import (
         add_mora, add_to_treasury,
         get_all_lottery_chats_week, get_all_lottery_participants, get_user,
-        is_lottery_drawn, mark_lottery_drawn,
+        is_lottery_drawn, mark_lottery_drawn, is_isolated_chat,
     )
     from utils.helpers import user_mention
 
@@ -304,6 +309,9 @@ async def _task_lottery_draw(bot) -> None:
 
     chats = await get_all_lottery_chats_week(week_key)
     for chat_id in chats:
+        if is_isolated_chat(chat_id):
+            continue
+
         participants = await get_all_lottery_participants(chat_id, week_key)
 
         if not participants:
@@ -361,6 +369,7 @@ async def _task_weekly_singles_bonus(bot) -> None:
     from database.db import (
         add_mora, get_all_singles_for_weekly_bonus, get_user,
         is_singles_bonus_awarded, mark_singles_bonus_awarded,
+        is_isolated_chat,
     )
     from utils.helpers import user_mention, bot_today
 
@@ -382,7 +391,10 @@ async def _task_weekly_singles_bonus(bot) -> None:
     # Group by chat — one notification per chat, not per user
     chats: dict[int, list[int]] = {}
     for su in singles:
-        chats.setdefault(su["chat_id"], []).append(su["user_id"])
+        cid = su["chat_id"]
+        if is_isolated_chat(cid):
+            continue
+        chats.setdefault(cid, []).append(su["user_id"])
     for chat_id, uids in chats.items():
         for uid in uids:
             await add_mora(uid, chat_id, SINGLES_WEEKLY_BONUS)
@@ -424,7 +436,7 @@ async def _task_chest_event(bot) -> None:
 async def _task_expedition_notifications(bot) -> None:
     from database.db import (
         add_mora, finish_expedition, get_all_finished_expeditions,
-        get_pets_batch, get_marriages_batch,
+        get_pets_batch, get_marriages_batch, is_isolated_chat,
     )
     from config import EXPEDITION_OPTIONS
     _PET_EMOJI = {"cat": "🐱", "dog": "🐶"}
@@ -455,6 +467,9 @@ async def _task_expedition_notifications(bot) -> None:
     for exp in finished:
         uid = exp["user_id"]
         chat_id = exp["chat_id"]
+        if is_isolated_chat(chat_id):
+            await finish_expedition(uid, chat_id)
+            continue
         reward = random.randint(exp["reward_min"], exp["reward_max"])
         try:
             # Начисляем мору владельцу питомца
@@ -517,15 +532,15 @@ async def _task_bond_price_update(bot) -> None:
         except (ValueError, TypeError):
             pass
 
-    from database.db import update_bond_prices
+    from database.db import update_bond_prices, is_isolated_chat
     from database.postgres import connect as postgres_connect
 
-    # Получаем все активные chat_id из chat_settings
+    # Получаем все активные chat_id из chat_settings (исключая изолированные)
     async with postgres_connect() as db:
         async with db.execute("SELECT chat_id FROM chat_settings") as c:
             rows = await c.fetchall()
 
-    chat_ids = [r["chat_id"] for r in rows]
+    chat_ids = [r["chat_id"] for r in rows if not is_isolated_chat(r["chat_id"])]
 
     # Запоминаем время последнего обновления (используется в mini app для обнаружения изменений)
     await set_scheduler_state("bond_price_last_update", now.strftime("%Y-%m-%dT%H:%M"))
@@ -649,7 +664,7 @@ async def _task_weekly_top_rewards(bot) -> None:
     from database.db import (
         get_active_chats, get_prev_weekly_top,
         is_weekly_top_rewarded, record_weekly_top_rewards,
-        WEEKLY_TOP_REWARDS,
+        WEEKLY_TOP_REWARDS, is_isolated_chat,
     )
     from utils.helpers import user_mention
 
@@ -667,6 +682,9 @@ async def _task_weekly_top_rewards(bot) -> None:
     chats = await get_active_chats()
     for chat_row in chats:
         chat_id = chat_row["chat_id"]
+
+        if is_isolated_chat(chat_id):
+            continue
 
         if await is_weekly_top_rewarded(chat_id, prev_week_key):
             continue
