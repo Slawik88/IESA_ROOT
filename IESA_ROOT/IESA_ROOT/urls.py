@@ -80,6 +80,9 @@ from .miniapp_views import (
     miniapp_frontend_error_log,
     miniapp_convert_crystals,  # Block 3
     miniapp_user_avatar,       # Block 3
+    miniapp_season_data,
+    miniapp_season_claim,
+    miniapp_season_premium,
 )
 
 # Переопределить стандартный админ на кастомный
@@ -226,6 +229,10 @@ urlpatterns = [
     # ─── Dev: Error logs / Логи ошибок ────────────────────────────────────────
     path('api/dev/error_logs', miniapp_dev_error_logs, name='miniapp_dev_error_logs'),
     path('api/frontend_error_log', miniapp_frontend_error_log, name='miniapp_frontend_error_log'),
+    # ─── Season Pass / Боевой пропуск ────────────────────────────────────────
+    path('api/season/data', miniapp_season_data, name='miniapp_season_data'),
+    path('api/season/claim', miniapp_season_claim, name='miniapp_season_claim'),
+    path('api/season/premium', miniapp_season_premium, name='miniapp_season_premium'),
     # ──────────────────────────────────────────────────────────────────────────
     path('protected/<path:file_path>', serve_protected_media, name='serve_protected_media'),
     

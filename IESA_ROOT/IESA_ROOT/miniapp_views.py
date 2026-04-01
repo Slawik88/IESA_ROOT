@@ -5528,6 +5528,128 @@ def miniapp_dev_error_logs(request):
 
 
 @csrf_exempt
+# =============================================================================
+# SEASON PASS
+# =============================================================================
+
+@csrf_exempt
+def miniapp_season_data(request):
+    """GET /api/season/data — season pass info + user progress."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "GET":
+        return JsonResponse({"error": "GET required"}, status=405, headers=headers)
+
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+
+    try:
+        from asgiref.sync import async_to_sync as _a2s
+        from database.db import get_active_season, get_season_progress, get_season_rewards
+
+        season = _a2s(get_active_season)()
+        if not season:
+            return JsonResponse({"error": "No active season"}, status=404, headers=headers)
+
+        season_id = season["id"]
+        progress = _a2s(get_season_progress)(uid, season_id)
+        rewards = _a2s(get_season_rewards)(season_id)
+
+        season_out = {
+            "id": season["id"],
+            "name": season["name"],
+            "start_date": season["start_date"].isoformat() if season.get("start_date") else None,
+            "end_date": season["end_date"].isoformat() if season.get("end_date") else None,
+            "active": season["active"],
+        }
+
+        return JsonResponse(
+            {"season": season_out, "progress": progress, "rewards": rewards},
+            json_dumps_params={"ensure_ascii": False},
+            headers=headers,
+        )
+    except Exception:
+        logger.exception("miniapp_season_data error")
+        return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
+
+
+@csrf_exempt
+def miniapp_season_claim(request):
+    """POST /api/season/claim {season_id, level, is_premium} — claim a season reward."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=405, headers=headers)
+
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+
+    try:
+        data = json.loads(request.body)
+    except Exception:
+        return JsonResponse({"error": "bad JSON"}, status=400, headers=headers)
+
+    season_id = int(data.get("season_id", 0))
+    level = int(data.get("level", 0))
+    is_premium = bool(data.get("is_premium", False))
+
+    if not season_id or not level:
+        return JsonResponse({"error": "season_id and level required"}, status=400, headers=headers)
+
+    try:
+        from asgiref.sync import async_to_sync as _a2s
+        from database.db import claim_season_reward
+
+        result = _a2s(claim_season_reward)(uid, season_id, level, is_premium)
+        if result.get("ok"):
+            return JsonResponse(result, json_dumps_params={"ensure_ascii": False}, headers=headers)
+        else:
+            return JsonResponse(result, status=400, headers=headers)
+    except Exception:
+        logger.exception("miniapp_season_claim error")
+        return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
+
+
+@csrf_exempt
+def miniapp_season_premium(request):
+    """POST /api/season/premium {season_id} — buy season premium pass."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=405, headers=headers)
+
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+
+    try:
+        data = json.loads(request.body)
+    except Exception:
+        return JsonResponse({"error": "bad JSON"}, status=400, headers=headers)
+
+    season_id = int(data.get("season_id", 0))
+    if not season_id:
+        return JsonResponse({"error": "season_id required"}, status=400, headers=headers)
+
+    try:
+        from asgiref.sync import async_to_sync as _a2s
+        from database.db import buy_season_premium
+
+        ok = _a2s(buy_season_premium)(uid, season_id)
+        if ok:
+            return JsonResponse({"ok": True}, headers=headers)
+        else:
+            return JsonResponse({"error": "Purchase failed"}, status=400, headers=headers)
+    except Exception:
+        logger.exception("miniapp_season_premium error")
+        return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
+
+
 def miniapp_frontend_error_log(request):
     """POST /api/frontend_error_log — capture a JS error from the Mini App front-end."""
     headers = _cors_headers()
