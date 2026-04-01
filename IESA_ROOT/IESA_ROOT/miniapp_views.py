@@ -1890,8 +1890,8 @@ def miniapp_inventory(request):
                 f"SELECT id, item_key, item_name, rarity, equipped, "
                 f"COALESCE(atk,0), COALESCE(def_val,0), COALESCE(hp,0), COALESCE(crit_rate,0), slot, COALESCE(enhancement_level,0), "
                 f"COALESCE(stack_count,1), obtained_at "
-                f"FROM gacha_inventory WHERE user_id={ph} ORDER BY id DESC",
-                (uid,),
+                f"FROM gacha_inventory WHERE user_id={ph} AND chat_id={ph} ORDER BY id DESC",
+                (uid, chat_id),
             )
             items = []
             for r in cur.fetchall():

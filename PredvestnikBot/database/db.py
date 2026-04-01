@@ -1550,9 +1550,26 @@ async def init_db():
     except Exception:
         pass
 
+    # ─── Очередь событий от Mini App к боту ───────────────────────────────────
+    try:
+        async with postgres_connect() as _db:
+            await _db.execute("""
+                CREATE TABLE IF NOT EXISTS dev_event_queue (
+                    id           BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+                    chat_id      BIGINT NOT NULL,
+                    event_type   TEXT NOT NULL,
+                    requested_by BIGINT NOT NULL,
+                    created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    processed    INTEGER DEFAULT 0
+                )
+            """)
+            await _db.commit()
+    except Exception:
+        pass
+
     # ─── 🅱️ Block 4: Season Pass seed data ──────────────────────────────────
     await seed_first_season()
-    
+
     await enforce_rank_invariants()
 
 

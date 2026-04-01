@@ -595,13 +595,6 @@ async def _task_dev_event_queue(bot) -> None:
     from config import DEVELOPER_ID
     try:
         async with postgres_connect() as db:
-            # Ensure table exists (may not yet if Django hasn't created it)
-            await db.execute(
-                "CREATE TABLE IF NOT EXISTS dev_event_queue ("
-                "id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY, "
-                "chat_id BIGINT NOT NULL, event_type TEXT NOT NULL, "
-                "requested_by BIGINT NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), processed INTEGER DEFAULT 0)"
-            )
             async with db.execute(
                 "SELECT id, chat_id, event_type FROM dev_event_queue WHERE processed=0 ORDER BY id LIMIT 20"
             ) as cur:

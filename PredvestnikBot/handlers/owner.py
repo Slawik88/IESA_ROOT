@@ -321,14 +321,16 @@ async def cmd_set_user(message: Message, cmd_args: str):
         try:
             if rv.startswith("+"):
                 delta = int(rv[1:])
-                await add_mora(uid, message.chat.id, delta)
+                # chat_id=0 bypasses isolation guard for explicit admin command
+                await add_mora(uid, 0, delta)
                 await message.answer(
                     f"✅ <b>{name}</b>: мора +{delta} 🪙",
                     parse_mode="HTML",
                 )
             elif rv.startswith("-"):
                 delta = int(rv[1:])
-                await add_mora(uid, message.chat.id, -delta)
+                # chat_id=0 bypasses isolation guard for explicit admin command
+                await add_mora(uid, 0, -delta)
                 await message.answer(
                     f"✅ <b>{name}</b>: мора −{delta} 🪙",
                     parse_mode="HTML",
@@ -481,9 +483,10 @@ async def cmd_emit_mora(message: Message, cmd_args: str):
     reason = parts[2].strip() if len(parts) > 2 else "без причины"
 
     from database.db import add_mora
-    chat_id = message.chat.id
-    new_bal = await add_mora(uid, chat_id, amount)
+    # chat_id=0 bypasses isolation guard — explicit admin grant must always work
+    new_bal = await add_mora(uid, 0, amount)
 
+    chat_id = message.chat.id
     issuer = user_mention(message.from_user.id, message.from_user.full_name or str(message.from_user.id))
     await message.answer(
         f"💰 <b>Эмиссия Моры</b>\n\n"
