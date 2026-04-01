@@ -368,6 +368,19 @@ select:focus{border-color:var(--accent)}
 .bank-dep-track{height:5px;background:var(--bg3);border-radius:3px;overflow:hidden;margin:8px 0 10px}
 .bank-dep-bar{height:100%;border-radius:3px;transition:width .3s}
 .bank-dep-footer{display:flex;justify-content:space-between;align-items:center;font-size:11px;color:var(--text2);margin-bottom:10px}
+
+/* ==== SEASON PASS ==== */
+.season-rewards-container{max-height:60vh;overflow-y:auto;margin-top:8px}
+.season-row{display:grid;grid-template-columns:28px 1fr 1fr 80px;align-items:center;gap:6px;padding:7px 10px;border-radius:8px;margin-bottom:3px;border:1px solid transparent;transition:all .15s}
+.season-row.current{border-color:var(--accent);background:rgba(124,106,247,.06)}
+.season-row.claimed{opacity:.6;background:var(--bg3)}
+.season-level-num{font-size:11px;font-weight:700;color:var(--text2);text-align:center}
+.season-reward-cell{font-size:11px;color:var(--text);padding:4px}
+.season-reward-free{border-right:1px solid var(--border)}
+.season-reward-premium{border-left:1px solid var(--border);color:#a855f7}
+.season-claim-btn{font-size:10px;padding:4px 8px;border:none;border-radius:4px;cursor:pointer;background:var(--accent);color:#fff;transition:all .15s}
+.season-claim-btn:hover{background:#9333ea}
+.season-claim-btn:disabled{background:var(--bg3);color:var(--text2);cursor:not-allowed}
 .bank-dep-status.ready{color:var(--green);font-weight:700}
 .bank-plan-tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
 .bank-plan-tab{background:var(--bg3);border:2px solid var(--border);border-radius:12px;padding:12px 4px;cursor:pointer;text-align:center;color:var(--text2);transition:all .15s;font-family:inherit}
@@ -598,6 +611,7 @@ select:focus{border-color:var(--accent)}
     <button class="tab-btn" data-tab="achievements" onclick="switchTab('achievements')">🏅<span class="tab-lbl">Достиж.</span></button>
     <button class="tab-btn" data-tab="inventory" style="display:none" onclick="switchTab('inventory')">🎒<span class="tab-lbl">Инвент.</span></button>
     <button class="tab-btn" data-tab="shop" style="display:none" onclick="switchTab('shop')">🛒<span class="tab-lbl">Магазин</span></button>
+    <button class="tab-btn" data-tab="season" style="display:none" onclick="switchTab('season')">🗓<span class="tab-lbl">Сезон</span></button>
     <button class="tab-btn" data-tab="couple_boss" id="coupleBossTabBtn" style="display:none" onclick="switchTab('couple_boss')">👹<span class="tab-lbl">Пар.Босс</span></button>
     <button class="tab-btn" data-tab="quest" style="display:none" onclick="switchTab('quest')">📋<span class="tab-lbl">Задания</span></button>
     <button class="tab-btn" data-tab="expedition" style="display:none" onclick="switchTab('expedition')">🏕<span class="tab-lbl">Экспед.</span></button>
@@ -898,15 +912,96 @@ select:focus{border-color:var(--accent)}
           </div>
           <div style="margin-top:6px;font-size:10px;color:var(--text2)">💡 Покупки за кристаллы действуют <b style="color:#a78bfa">во всех чатах</b>, где есть Предвестник</div>
         </div>
+        
+        <!-- Season Pass CTA (Block 4) -->
+        <div id="seasonPassCTA" style="background:linear-gradient(135deg,rgba(168,85,247,.12),rgba(124,106,247,.08));
+          border:1.5px solid rgba(168,85,247,.3);border-radius:14px;padding:12px;margin-bottom:10px">
+          <div style="font-weight:800;font-size:14px">🗓 Сезонный Пропуск</div>
+          <div style="font-size:11px;color:var(--text2);margin:4px 0 8px">30 уровней · эксклюзивы · обновляется ежемесячно</div>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-sm" onclick="switchTab('season')" style="background:rgba(168,85,247,.15);color:#a855f7;border:1px solid rgba(168,85,247,.3);flex:1">
+              📊 Посмотреть
+            </button>
+            <button class="btn btn-sm" onclick="buySeasonPremium()" id="seasonBuyBtn" style="background:#a855f7;color:#fff;border:none;flex:1">
+              ⭐ 500 💎
+            </button>
+          </div>
+        </div>
+        
         <!-- Packs grid (2-col) -->
         <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:6px">⭐ Пополнение кристаллов</div>
-        <div id="crystalPacksGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px"></div>
+        <div id="crystalPacksGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px"></div>
+        
+        <!-- Crystal-Mora conversion (Block 3) -->
+        <div style="background:rgba(168,85,247,.08);border:1px solid rgba(168,85,247,.25);border-radius:8px;padding:10px 12px;margin-bottom:12px">
+          <div style="font-size:11px;font-weight:700;color:#a855f7;margin-bottom:6px">💰 Конвертация кристаллов</div>
+          <div style="font-size:10px;color:var(--text2);margin-bottom:8px">Обменивай кристаллы на Мору: 1💎 = 10🪙</div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <input type="number" id="convertAmount" min="1" max="1000" value="10" 
+                   style="width:60px;padding:4px 6px;border:1px solid rgba(168,85,247,.3);border-radius:4px;background:var(--bg2);color:var(--text);font-size:11px">
+            <span style="font-size:10px;color:var(--text2)">💎 →</span>
+            <span style="font-size:11px;color:#10b981;font-weight:600" id="convertPreview">100 🪙</span>
+            <button id="convertBtn" onclick="convertCrystals()" style="background:#a855f7;color:#fff;border:none;padding:4px 8px;border-radius:4px;font-size:10px;cursor:pointer;margin-left:auto">Конвертировать</button>
+          </div>
+        </div>
       </div>
       <!-- Cosmetics shop card -->
       <div class="card">
         <div class="card-title" style="color:#a78bfa">🛍 Магазин кристаллов</div>
         <div style="font-size:11px;color:var(--text2);margin-bottom:8px">Эксклюзивный контент только за 💎 · Работает во всех чатах</div>
         <div id="crystalCosmeticsGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SEASON PASS TAB -->
+<div class="tab-content" id="tab-season">
+  <div class="loading" id="seasonLoading">⏳ Загрузка…</div>
+  <div id="seasonContent" style="display:none">
+    
+    <!-- Season Header Card -->
+    <div class="card">
+      <div class="card-title">🗓️ <span id="seasonName">Season Pass</span></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <div style="text-align:left">
+          <div style="font-size:24px;font-weight:900" id="seasonXP">0 XP</div>
+          <div style="font-size:11px;color:var(--text2)">Season XP</div>
+        </div>
+        <div style="text-align:center">
+          <div style="font-size:20px;font-weight:800;color:#10b981" id="seasonLevel">0</div>
+          <div style="font-size:10px;color:var(--text2)">Уровень</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:14px;font-weight:600" id="seasonNextXP">150 XP</div>
+          <div style="font-size:10px;color:var(--text2)">Следующий ур.</div>
+        </div>
+      </div>
+      <div class="progress-bar" style="margin-bottom:8px">
+        <div class="progress-fill" id="seasonXPBar" style="width:0%"></div>
+      </div>
+      <div style="font-size:11px;color:var(--text2)" id="seasonEndDate">Заканчивается: —</div>
+    </div>
+
+    <!-- Premium Pass Card -->
+    <div class="card" id="seasonPremiumCard" style="display:none;background:linear-gradient(135deg,rgba(168,85,247,.1),rgba(124,106,247,.05));border:1px solid rgba(168,85,247,.2)">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <div style="font-weight:800;font-size:14px;color:#a855f7">⭐ Premium Pass</div>
+          <div style="font-size:11px;color:var(--text2);margin-top:2px">Удвой награды · Эксклюзивные предметы</div>
+        </div>
+        <button class="btn btn-sm" onclick="buySeasonPremium()" id="seasonPremiumBtn" 
+                style="background:#a855f7;color:#fff;border:none;padding:6px 12px;border-radius:6px">
+          500 💎
+        </button>
+      </div>
+    </div>
+    
+    <!-- Rewards List -->
+    <div class="card">
+      <div class="card-title">🎁 Награды по уровням</div>
+      <div id="seasonRewardsList" class="season-rewards-container">
+        <!-- Dynamically populated -->
       </div>
     </div>
   </div>
@@ -2102,7 +2197,7 @@ function syncCrystals(n){
 // ── Category switching ────────────────────────────────────────────────────────
 const TAB_CATS = {
   main:    ['profile','calendar','union','glory','guide','achievements'],
-  hero:    ['inventory','shop','couple_boss','quest','expedition','spy','auction'],
+  hero:    ['inventory','shop','season','couple_boss','quest','expedition','spy','auction'],
   finance: ['bank','bonds','transfers','casino'],
   admin:   ['dev'],
 };
@@ -2231,6 +2326,7 @@ function switchTab(name){
     if(name==='dev'){ loadDevStats(); loadDevItems(); loadDevTreasury(); loadModSummary(); loadCleanupConfig(); }
     if(name==='auction') loadAuctionTab();
     if(name==='achievements') loadAchievementsTab();
+    if(name==='season') loadSeasonTab();
   }
   // Start background price-check every 60s while bonds tab is active
   if(name==='bonds'&&!_bondsCheckTimer){
@@ -2250,10 +2346,14 @@ async function loadProfile(){
     document.getElementById('profileName').textContent = p.name || 'Игрок';
     document.getElementById('profileTitle').textContent = '';
     
-    // Initials-based avatar (no external network calls)
+    // Avatar: use Telegram image if unlocked, otherwise initials
     const avatarDiv = document.getElementById('profileAvatar');
-    const _initials = (p.name||'').replace(/[^а-яёa-zA-Z]/gi,'').slice(0,2).toUpperCase() || '👤';
-    avatarDiv.textContent = _initials;
+    if (p.avatar_unlocked && p.uid) {
+      avatarDiv.innerHTML = `<img src="/api/user_avatar/${p.uid}/" style="width:100%;height:100%;border-radius:50%;object-fit:cover" onerror="this.parentNode.textContent='${((p.name||'').replace(/[^а-яёa-zA-Z]/gi,'').slice(0,2).toUpperCase() || '👤')}'">`;
+    } else {
+      const _initials = (p.name||'').replace(/[^а-яёa-zA-Z]/gi,'').slice(0,2).toUpperCase() || '👤';
+      avatarDiv.textContent = _initials;
+    }
     
     document.getElementById('pLevel').textContent = p.level || 1;
     syncBalance(p.balance||0);
@@ -3223,12 +3323,33 @@ const CRYSTAL_COSMETICS_LIST = [
   {key:'stealth_mode',      emoji:'🕶️', name:'Режим тени',             price:180,  desc:'Скрыть баланс Моры от других'},
   {key:'double_pity',       emoji:'⚡', name:'Двойное везение',         price:400,  desc:'×2 скорость пити (7 дней)'},
   {key:'vip_week',          emoji:'👑', name:'VIP на 7 дней',           price:250,  desc:'VIP-статус без ограничений'},
+  // Block 3: новые предметы
+  {key:'transfer_pass',     emoji:'🎫', name:'Пропуск переноса',        price:50,   desc:'Снимает ограничение 3 дней на аукционе (1 раз)'},
+  {key:'shard_chest',       emoji:'📦', name:'Сундук осколков',         price:80,   desc:'3 редких предмета-осколка рамки'},
+  {key:'guarantee_scroll',  emoji:'📜', name:'Свиток гаранта',          price:200,  desc:'Гарантирует rare+ на следующем ×10 ролле'},
+  {key:'chat_role',         emoji:'🏷️', name:'Кастомная роль в чате',   price:300,  desc:'Уникальная роль под именем в профиле чата'},
+  {key:'telegram_avatar',   emoji:'🖼️', name:'Telegram Аватар',         price:150,  desc:'Показывает твою фото из Telegram в профиле (разовая покупка)'},
+  {key:'enhancement_stones_5',emoji:'⚒️', name:'5 камней улучшения',    price:150,  desc:'5 гарантированных заточек без затрат Моры'},
 ];
 
 function renderCrystalsShop(){
   const bal = (profileData&&profileData.crystals)||0;
   const el = document.getElementById('shopCrystalsBalance');
   if(el) el.textContent = bal + ' 💎';
+
+  // Show/hide Season Pass CTA 
+  const seasonCTA = document.getElementById('seasonPassCTA');
+  const seasonBtn = document.getElementById('seasonBuyBtn');
+  if (seasonCTA && seasonBtn) {
+    // Check if we have season data and whether premium is purchased
+    if (seasonData && seasonData.progress && seasonData.progress.premium_purchased) {
+      seasonCTA.style.display = 'none';
+    } else {
+      seasonCTA.style.display = 'block';
+      seasonBtn.disabled = bal < 500;
+      seasonBtn.style.opacity = bal < 500 ? '0.5' : '1';
+    }
+  }
 
   // Packs — opens Telegram payment invoice (BETA: disabled)
   const packsEl = document.getElementById('crystalPacksGrid');
@@ -3272,14 +3393,101 @@ async function buyCrystalPack(packKey){
 }
 
 async function buyCrystalCosmetic(key, name, price){
+  // Special handling for chat_role
+  if (key === 'chat_role') {
+    const roleText = prompt('Введите текст роли (1-50 символов):');
+    if (!roleText || roleText.trim().length === 0) {
+      toast('❌ Роль не может быть пустой', 'error');
+      return;
+    }
+    if (roleText.trim().length > 50) {
+      toast('❌ Роль слишком длинная (максимум 50 символов)', 'error'); 
+      return;
+    }
+    if (!confirm(`Потратить ${price} 💎 на роль «${roleText.trim()}»?`)) return;
+    
+    try {
+      const r = await api('/api/crystals/spend', 'POST', {
+        item_key: key, 
+        price: price,
+        chat_id: chatId,
+        role_text: roleText.trim()
+      });
+      toast(`✅ Роль установлена: ${roleText.trim()}`, 'success');
+      if(profileData) profileData.crystals = r.crystals_balance;
+      syncCrystals(r.crystals_balance);
+      renderCrystalsShop();
+      await loadProfile(chatId);  // Refresh to show new role
+    } catch(e) { 
+      toast('❌ ' + e.message, 'error'); 
+    }
+    return;
+  }
+
+  // Regular items
   if(!confirm(`Потратить ${price} 💎 на «${name}»?`)) return;
   try {
-    const r = await api('/api/crystals/spend', 'POST', {item_key: key, price});
+    const r = await api('/api/crystals/spend', 'POST', {item_key: key, price: price, chat_id: chatId});
     toast(`✅ Куплено: ${name}`, 'success');
     if(profileData) profileData.crystals = r.crystals_balance;
     syncCrystals(r.crystals_balance);
     renderCrystalsShop();
-  } catch(e) { toast('❌ ' + e.message, 'error'); }
+    
+    // Special post-purchase actions
+    if (key === 'shard_chest') {
+      toast('📦 Получены осколки рамок! Проверьте инвентарь', 'info');
+    }
+    if (key === 'telegram_avatar') {
+      toast('🖼️ Аватар разблокирован! Обновите страницу для отображения', 'info');
+    }
+  } catch(e) { 
+    toast('❌ ' + e.message, 'error'); 
+  }
+}
+
+// Block 3: Conversion functions
+function updateConvertPreview() {
+  const amount = parseInt(document.getElementById('convertAmount')?.value || '0');
+  const preview = document.getElementById('convertPreview');
+  if (preview) {
+    preview.textContent = (amount * 10) + ' 🪙';
+  }
+}
+
+// Update preview on input change
+document.addEventListener('DOMContentLoaded', () => {
+  const convertInput = document.getElementById('convertAmount');
+  if (convertInput) {
+    convertInput.addEventListener('input', updateConvertPreview);
+  }
+});
+
+async function convertCrystals() {
+  const amount = parseInt(document.getElementById('convertAmount')?.value || '0');
+  if (amount <= 0 || amount > 1000) {
+    toast('❌ Количество должно быть от 1 до 1000', 'error');
+    return;
+  }
+  
+  const moraToGet = amount * 10;
+  if (!confirm(`Обменять ${amount} 💎 на ${moraToGet} 🪙?`)) return;
+  
+  try {
+    const r = await api('/api/convert_crystals', 'POST', {amount: amount});
+    toast(`✅ Конвертировано: ${amount} 💎 → ${moraToGet} 🪙`, 'success');
+    if(profileData) {
+      profileData.crystals = r.crystals_balance;
+      profileData.balance = (profileData.balance || 0) + moraToGet;
+    }
+    syncCrystals(r.crystals_balance);
+    syncBalance(profileData.balance);
+    
+    // Reset input
+    document.getElementById('convertAmount').value = '10';
+    updateConvertPreview();
+  } catch(e) {
+    toast('❌ ' + e.message, 'error');
+  }
 }
 
 async function buyPetColor(key, label, price) {
@@ -3468,7 +3676,14 @@ async function rollGacha(count){
       tabLoaded['quest']=false;
       setTimeout(()=>toast('🎉 Задание выполнено! +'+r.quest_xp+' XP  +'+r.quest_mora+' 🪙','success'),1800);
     }
-  } catch(e){toast('❌ '+e.message,'error')}
+  } catch(e){
+    // Add crystal conversion hint for insufficient mora (Block 3)
+    if (e.message.includes('Недостаточно Моры') || e.message.includes('недостаточно мор')) {
+      toast('❌ ' + e.message + '\n💎 Конвертируй кристаллы в магазине!', 'error');
+    } else {
+      toast('❌ ' + e.message, 'error');
+    }
+  }
 }
 
 function flashRarity(rarity){
@@ -6602,6 +6817,167 @@ async function loadAchievementsTab(forceRefresh) {
   } catch(e) {
     progEl.textContent = '❌ Ошибка загрузки';
     listEl.innerHTML = '<div style="color:#fca5a5;text-align:center;font-size:12px">' + esc(e.message) + '</div>';
+  }
+}
+
+// ── Season Pass ───────────────────────────────────────────────────────────────
+
+let seasonData = null;
+
+async function loadSeasonTab(forceRefresh = false) {
+  if (seasonData && !forceRefresh) return renderSeasonData();
+  
+  document.getElementById('seasonLoading').style.display = '';
+  document.getElementById('seasonContent').style.display = 'none';
+  
+  try {
+    seasonData = await api(`/api/season/data?user_id=${uid}`);
+    renderSeasonData();
+  } catch (e) {
+    document.getElementById('seasonLoading').innerHTML = '❌ ' + esc(e.message);
+  }
+}
+
+function renderSeasonData() {
+  document.getElementById('seasonLoading').style.display = 'none';
+  document.getElementById('seasonContent').style.display = 'block';
+  
+  const season = seasonData.season;
+  const progress = seasonData.progress;
+  const rewards = seasonData.rewards;
+  
+  // Header
+  document.getElementById('seasonName').textContent = season.name;
+  document.getElementById('seasonXP').textContent = progress.season_xp + ' XP';
+  document.getElementById('seasonLevel').textContent = progress.level;
+  
+  const nextLevelXP = (progress.level + 1) * 150; // 150 XP per level
+  const currentLevelXP = progress.level * 150;
+  const barProgress = Math.min(100, ((progress.season_xp - currentLevelXP) / (nextLevelXP - currentLevelXP)) * 100);
+  
+  document.getElementById('seasonNextXP').textContent = (nextLevelXP - progress.season_xp) + ' XP';
+  document.getElementById('seasonXPBar').style.width = barProgress + '%';
+  
+  if (season.end_date) {
+    const endDate = new Date(season.end_date).toLocaleDateString('ru-RU');
+    document.getElementById('seasonEndDate').textContent = 'Заканчивается: ' + endDate;
+  }
+  
+  // Premium pass card
+  const premiumCard = document.getElementById('seasonPremiumCard');
+  const premiumBtn = document.getElementById('seasonPremiumBtn');
+  
+  if (progress.premium_purchased) {
+    premiumCard.style.display = 'none';
+  } else {
+    premiumCard.style.display = 'block';
+    premiumBtn.textContent = '500 💎';
+  }
+  
+  // Rewards list
+  const rewardsList = document.getElementById('seasonRewardsList');
+  const rewardsByLevel = {};
+  
+  rewards.forEach(r => {
+    if (!rewardsByLevel[r.level]) rewardsByLevel[r.level] = { free: null, premium: null };
+    if (r.is_premium) rewardsByLevel[r.level].premium = r;
+    else rewardsByLevel[r.level].free = r;
+  });
+  
+  let html = '';
+  for (let level = 1; level <= 30; level++) {
+    const levelRewards = rewardsByLevel[level] || {};
+    const freeReward = levelRewards.free;
+    const premiumReward = levelRewards.premium;
+    
+    const isUnlocked = progress.level >= level;
+    const isCurrentLevel = progress.level === level;
+    const freeClaimKey = `${level}_free`;
+    const premiumClaimKey = `${level}_premium`;
+    const freeClaimed = progress.claimed_levels.includes(freeClaimKey);
+    const premiumClaimed = progress.claimed_levels.includes(premiumClaimKey);
+    
+    const rowClass = isCurrentLevel ? 'season-row current' : (freeClaimed && premiumClaimed ? 'season-row claimed' : 'season-row');
+    
+    html += `<div class="${rowClass}">
+      <div class="season-level-num">${level}</div>
+      <div class="season-reward-cell season-reward-free">
+        ${freeReward ? formatReward(freeReward) : '—'}
+        ${isUnlocked && !freeClaimed && freeReward ? `<button class="season-claim-btn" onclick="claimReward(${level}, false)">Получить</button>` : ''}
+      </div>
+      <div class="season-reward-cell season-reward-premium">
+        ${premiumReward ? formatReward(premiumReward) : '—'}
+        ${isUnlocked && !premiumClaimed && premiumReward && progress.premium_purchased ? `<button class="season-claim-btn" onclick="claimReward(${level}, true)">Получить</button>` : ''}
+      </div>
+      <div>
+        ${isUnlocked ? '🔓' : '🔒'}
+      </div>
+    </div>`;
+  }
+  
+  rewardsList.innerHTML = html;
+}
+
+function formatReward(reward) {
+  switch (reward.reward_type) {
+    case 'mora': return reward.reward_data + ' 🪙';
+    case 'crystals': return reward.reward_data + ' 💎';
+    case 'item': 
+      if (reward.reward_data === 'gacha_ticket') return '🎫 Билет гачи';
+      if (reward.reward_data === 'enhancement_stone') return '🔮 Камень заточки';
+      return reward.reward_data;
+    case 'title': return '👑 ' + reward.reward_data;
+    default: return reward.reward_data;
+  }
+}
+
+async function claimReward(level, isPremium) {
+  try {
+    const result = await api('/api/season/claim', {
+      method: 'POST',
+      body: JSON.stringify({
+        user_id: uid,
+        season_id: seasonData.season.id,
+        level: level,
+        is_premium: isPremium
+      })
+    });
+    
+    if (result.ok) {
+      // Update progress
+      const claimKey = `${level}_${isPremium ? 'premium' : 'free'}`;
+      seasonData.progress.claimed_levels.push(claimKey);
+      renderSeasonData();
+      
+      // Show success toast
+      showToast(`Получена награда: ${formatReward(result.reward)}`, 'success');
+    }
+  } catch (e) {
+    showToast('Ошибка: ' + e.message, 'error');
+  }
+}
+
+async function buySeasonPremium() {
+  try {
+    const result = await api('/api/season/premium', {
+      method: 'POST',
+      body: JSON.stringify({
+        user_id: uid,
+        season_id: seasonData.season.id
+      })
+    });
+    
+    if (result.ok) {
+      seasonData.progress.premium_purchased = true;
+      renderSeasonData();
+      showToast('Premium Pass активирован!', 'success');
+      
+      // Update crystals balance
+      const newData = await api('/api/user_data' + (chatId ? '?chat_id=' + chatId : ''));
+      syncCrystals(newData.crystals || 0);
+    }
+  } catch (e) {
+    showToast('Ошибка покупки: ' + e.message, 'error');
   }
 }
 

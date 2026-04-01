@@ -404,6 +404,13 @@ async def _run_webserver(bot: Bot) -> None:
     app.router.add_get("/api/user_data/", handle_user_data)
     # Legacy /api/profile/{user_id} kept for backwards compat
     app.router.add_get("/api/profile/{user_id}", handle_profile)
+    
+    # Season Pass API routes
+    from api.season import season_data, claim_reward, buy_premium
+    app.router.add_get("/api/season/data", season_data)
+    app.router.add_post("/api/season/claim", claim_reward)
+    app.router.add_post("/api/season/premium", buy_premium)
+    
     # Serve static files from /web
     if _web_dir.exists():
         app.router.add_static("/static", _web_dir)

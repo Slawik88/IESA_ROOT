@@ -441,6 +441,39 @@ def miniapp_user_data(request):
             conn.rollback()
             crystals_balance = 0
 
+        # Block 3: crystal items (global)
+        transfer_passes = enhancement_stones = guarantee_scrolls = 0
+        avatar_unlocked = False
+        chat_role = None
+        try:
+            # Transfer passes
+            cur.execute(f"SELECT COALESCE(passes,0) FROM crystal_transfer_passes WHERE user_id={ph}", (uid,))
+            tp_row = cur.fetchone()
+            transfer_passes = tp_row[0] if tp_row else 0
+            
+            # Enhancement stones
+            cur.execute(f"SELECT COALESCE(stones,0) FROM crystal_enhancement_stones WHERE user_id={ph}", (uid,))
+            es_row = cur.fetchone()
+            enhancement_stones = es_row[0] if es_row else 0
+            
+            # Guarantee scrolls
+            cur.execute(f"SELECT COALESCE(scrolls,0) FROM crystal_guarantee_scrolls WHERE user_id={ph}", (uid,))
+            gs_row = cur.fetchone()
+            guarantee_scrolls = gs_row[0] if gs_row else 0
+            
+            # Avatar unlocked
+            cur.execute(f"SELECT user_id FROM crystal_avatar_unlocks WHERE user_id={ph}", (uid,))
+            avatar_unlocked = cur.fetchone() is not None
+            
+            # Chat role (if scoped to a specific chat)
+            if chat_id:
+                cur.execute(f"SELECT role_text FROM crystal_chat_roles WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
+                cr_row = cur.fetchone()
+                chat_role = cr_row[0] if cr_row else None
+                
+        except Exception:
+            conn.rollback()
+
         conn.close()
 
         computed_level = db_level if db_level > 1 else _level_for_xp(xp)
@@ -478,6 +511,12 @@ def miniapp_user_data(request):
             "warns": warns_count,
             "message_count": message_count,
             "newbie_shield_until": newbie_shield_until,
+            # Block 3: crystal items
+            "transfer_passes": transfer_passes,
+            "enhancement_stones": enhancement_stones,
+            "guarantee_scrolls": guarantee_scrolls,
+            "avatar_unlocked": avatar_unlocked,
+            "chat_role": chat_role,
         }
         return JsonResponse(payload, json_dumps_params={"ensure_ascii": False},
                             headers=headers)
@@ -4702,6 +4741,128 @@ def miniapp_chat_buff(request):
                     "active": True, "buff_type": buff_type,
                     "expires_at": exp_iso, "seconds_left": secs,
                 }, headers=headers)
+            else:
+                return JsonResponse({"active": False}, headers=headers)
+        except Exception as exc:
+            logger.exception("miniapp view error")
+            return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
+
+    elif request.method == "POST":
+        try:
+            body = json.loads(request.body or "{}")
+        except ValueError:
+            return JsonResponse({"error": "invalid JSON"}, status=400, headers=headers)
+
+        chat_id = int(str(body.get("chat_id", "0")))
+        buff_type = str(body.get("buff_type", "xp_plus10"))  # default to XP +10 buff
+
+        if not chat_id:
+            return JsonResponse({"error": "chat_id required"}, status=400, headers=headers)
+
+        try:
+            from asgiref.sync import async_to_sync as _a2s
+            from database.db import buy_chat_buff as _buy_buff
+            result = _a2s(_buy_buff)(uid, chat_id, buff_type)
+            return JsonResponse(result, json_dumps_params={"ensure_ascii": False}, headers=headers)
+        except ValueError as ve:
+            return JsonResponse({"error": str(ve)}, status=400, json_dumps_params={"ensure_ascii": False}, headers=headers)
+        except Exception as exc:
+            logger.exception("miniapp view error")
+            return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
+
+    return JsonResponse({"error": "method not allowed"}, status=405, headers=headers)
+
+
+# ── Block 3: Crystal-Mora conversion ──────────────────────────────────────────
+
+@csrf_exempt
+def miniapp_convert_crystals(request):
+    """POST /api/convert_crystals {amount} — convert crystals to mora at 1:10 rate."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=405, headers=headers)
+
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+
+    try:
+        body = json.loads(request.body or "{}")
+        amount = int(body.get("amount", 0))
+    except (json.JSONDecodeError, TypeError, ValueError):
+        return JsonResponse({"error": "invalid JSON or amount"}, status=400, headers=headers)
+
+    if amount <= 0 or amount > 1000:
+        return JsonResponse({"error": "Amount must be 1-1000 crystals"}, status=400, headers=headers)
+
+    try:
+        from asgiref.sync import async_to_sync as _a2s
+        from database.db import spend_crystals, get_crystals, add_mora
+        
+        # Spend crystals first
+        ok = _a2s(spend_crystals)(uid, amount)
+        if not ok:
+            return JsonResponse({"error": "Недостаточно кристаллов"}, status=400, headers=headers)
+        
+        # Add 10x mora globally (need chat_id=0 for global)
+        mora_added = amount * 10
+        _a2s(add_mora)(uid, 0, mora_added)
+        
+        new_crystals = _a2s(get_crystals)(uid)
+        
+        return JsonResponse({
+            "ok": True,
+            "crystals_spent": amount,
+            "mora_added": mora_added,
+            "crystals_balance": new_crystals,
+        }, json_dumps_params={"ensure_ascii": False}, headers=headers)
+        
+    except Exception as exc:
+        logger.exception("convert_crystals error")
+        return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
+
+
+# ── Block 3: Avatar serving ──────────────────────────────────────────────────
+
+@csrf_exempt
+def miniapp_user_avatar(request, user_id):
+    """GET /api/user_avatar/<user_id>/ — serve user's avatar image."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "GET":
+        return JsonResponse({"error": "GET required"}, status=405, headers=headers)
+
+    try:
+        uid_int = int(user_id)
+    except ValueError:
+        return JsonResponse({"error": "invalid user_id"}, status=400, headers=headers)
+
+    try:
+        from asgiref.sync import async_to_sync as _a2s
+        from database.db import get_avatar_path
+        from django.http import FileResponse
+        from pathlib import Path
+        
+        avatar_path = _a2s(get_avatar_path)(uid_int)
+        if not avatar_path:
+            return JsonResponse({"error": "Avatar not found"}, status=404, headers=headers)
+        
+        file_path = Path(avatar_path)
+        if not file_path.exists():
+            return JsonResponse({"error": "Avatar file not found"}, status=404, headers=headers)
+        
+        return FileResponse(
+            open(file_path, 'rb'),
+            content_type='image/jpeg',
+            headers=headers
+        )
+        
+    except Exception as exc:
+        logger.exception("user_avatar error")
+        return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
             return JsonResponse({"active": False, "buff_type": buff_type}, headers=headers)
         except Exception as exc:
             logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
@@ -5118,6 +5279,9 @@ def miniapp_crystals_spend(request):
 
     item_key = str(body.get("item_key", "")).strip()
     price_raw = body.get("price", 0)
+    chat_id = int(str(body.get("chat_id", "0")))  # Для chat_role
+    role_text = str(body.get("role_text", "")).strip()  # Для chat_role
+    
     if not item_key:
         return JsonResponse({"error": "item_key required"}, status=400, headers=headers)
     try:
@@ -5126,21 +5290,77 @@ def miniapp_crystals_spend(request):
         return JsonResponse({"error": "invalid price"}, status=400, headers=headers)
 
     # Validate item exists in catalog
-    valid_keys = {c[0]: c[3] for c in CRYSTAL_COSMETICS}
-    if item_key not in valid_keys:
+    valid_items = {c[0]: {"price": c[3], "name": c[2]} for c in CRYSTAL_COSMETICS}
+    if item_key not in valid_items:
         return JsonResponse({"error": "Товар не найден"}, status=404, headers=headers)
+    
     # Server-side price verification
-    if price != valid_keys[item_key]:
+    expected_price = valid_items[item_key]["price"]
+    if price != expected_price:
         return JsonResponse({"error": "Некорректная цена"}, status=400, headers=headers)
+
+    # Handle special item requirements
+    if item_key == "chat_role":
+        if not chat_id:
+            return JsonResponse({"error": "chat_id required for chat_role"}, status=400, headers=headers)
+        if not role_text or len(role_text) > 50:
+            return JsonResponse({"error": "Роль должна быть от 1 до 50 символов"}, status=400, headers=headers)
+    
+    if item_key == "telegram_avatar":
+        # Check if already unlocked (one-time purchase)
+        try:
+            from asgiref.sync import async_to_sync as _a2s
+            from database.db import is_avatar_unlocked
+            if _a2s(is_avatar_unlocked)(uid):
+                return JsonResponse({"error": "Аватар уже разблокирован"}, status=400, headers=headers)
+        except Exception:
+            pass
 
     try:
         import asyncpg
         from asgiref.sync import async_to_sync as _a2s
         from database.db import spend_crystals, get_crystals
+        
+        # Spend crystals first
         ok = _a2s(spend_crystals)(uid, price)
         if not ok:
             return JsonResponse({"error": "Недостаточно кристаллов"}, status=400, headers=headers)
+        
+        # Apply item effects
+        if item_key == "transfer_pass":
+            from database.db import add_transfer_passes
+            _a2s(add_transfer_passes)(uid, 1)
+            
+        elif item_key == "shard_chest":
+            # Add 3 rare-grade frame shards to gacha inventory
+            from database.db import add_gacha_item
+            frame_shards = [
+                ("shard_warrior", "🗡️ Осколок Воина", "rare"),
+                ("shard_king", "👑 Осколок Короля", "rare"),
+                ("shard_moon", "🌙 Лунный осколок", "rare"),
+            ]
+            for key, name, rarity in frame_shards:
+                _a2s(add_gacha_item)(uid, chat_id or 0, key, name, rarity)
+                
+        elif item_key == "guarantee_scroll":
+            from database.db import add_guarantee_scrolls
+            _a2s(add_guarantee_scrolls)(uid, 1)
+            
+        elif item_key == "chat_role":
+            from database.db import set_crystal_chat_role
+            _a2s(set_crystal_chat_role)(uid, chat_id, role_text)
+            
+        elif item_key == "telegram_avatar":
+            from database.db import unlock_avatar
+            # TODO: Download avatar from Telegram and save path
+            _a2s(unlock_avatar)(uid, None)
+            
+        elif item_key == "enhancement_stones_5":
+            from database.db import add_enhancement_stones
+            _a2s(add_enhancement_stones)(uid, 5)
+
         new_balance = _a2s(get_crystals)(uid)
+        
         return JsonResponse(
             {"ok": True, "item_key": item_key, "crystals_balance": new_balance},
             json_dumps_params={"ensure_ascii": False},

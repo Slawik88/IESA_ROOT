@@ -210,12 +210,25 @@ async def claim_expedition(uid: int, chat_id: int) -> dict:
     except Exception:
         pass
 
+    # Block 4: Add season XP for expedition completion
+    season_level_up = False
+    season_new_level = 0
+    try:
+        from database.db import add_season_xp
+        season_result = await add_season_xp(uid, 8)  # +8 season XP
+        season_level_up = season_result.get("level_up", False)
+        season_new_level = season_result.get("new_level", 0)
+    except Exception:
+        pass  # Безопасно игнорируем ошибки season XP
+
     return {
         "ok":           True,
         "reward_gross": reward_gross,
         "reward":       net_reward,
         "tax":          exped_tax,
         "new_balance":  new_balance,
+        "season_level_up": season_level_up,
+        "season_new_level": season_new_level,
     }
 
 

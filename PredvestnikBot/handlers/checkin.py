@@ -106,4 +106,15 @@ async def cmd_checkin(message: Message, cmd_args: str):
 
     lines += ["", f"<pre>{cal}</pre>"]
 
+    # Block 4: Add season XP for checkin
+    try:
+        from asgiref.sync import async_to_sync as _a2s
+        from database.db import add_season_xp
+        season_result = _a2s(add_season_xp)(uid, 10)  # +10 season XP
+        if season_result.get("level_up"):
+            lines.append(f"")
+            lines.append(f"🌟 <b>Season Pass: Уровень {season_result['new_level']}!</b>")
+    except Exception:
+        pass  # Безопасно игнорируем ошибки season XP
+
     await message.answer("\n".join(lines), parse_mode="HTML")
