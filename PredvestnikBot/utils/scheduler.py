@@ -27,62 +27,42 @@ log = logging.getLogger(__name__)
 
 async def run_scheduler(bot) -> None:
     """Точка входа — запускается как фоновая задача в main.py."""
+    log.info("Scheduler: waiting 60s before first run...")
     await asyncio.sleep(60)  # дать боту полностью инициализироваться
+    run_count = 0
     while True:
-        try:
-            await _task_inactivity_warns(bot)
-        except Exception as exc:
-            log.error("Scheduler [inactivity_warn] error: %s", exc, exc_info=True)
-        try:
-            await _task_cleanup_reminders(bot)
-        except Exception as exc:
-            log.error("Scheduler [cleanup_reminder] error: %s", exc, exc_info=True)
-        try:
-            await _task_marriage_anniversary(bot)
-        except Exception as exc:
-            log.error("Scheduler [anniversary] error: %s", exc, exc_info=True)
-        try:
-            await _task_lottery_draw(bot)
-        except Exception as exc:
-            log.error("Scheduler [lottery] error: %s", exc, exc_info=True)
-        try:
-            await _task_weekly_singles_bonus(bot)
-        except Exception as exc:
-            log.error("Scheduler [singles_bonus] error: %s", exc, exc_info=True)
-        try:
-            await _task_chest_event(bot)
-        except Exception as exc:
-            log.error("Scheduler [chest_event] error: %s", exc, exc_info=True)
-        try:
-            await _task_expedition_notifications(bot)
-        except Exception as exc:
-            log.error("Scheduler [expeditions] error: %s", exc, exc_info=True)
-        try:
-            await _task_bond_price_update(bot)
-        except Exception as exc:
-            log.error("Scheduler [bond_prices] error: %s", exc, exc_info=True)
-        try:
-            await _task_diligence_event(bot)
-        except Exception as exc:
-            log.error("Scheduler [diligence_event] error: %s", exc, exc_info=True)
-
-        try:
-            await _task_cleanup_left_users()
-        except Exception as exc:
-            log.error("Scheduler [cleanup_left_users] error: %s", exc, exc_info=True)
-        try:
-            await _task_weekly_top_rewards(bot)
-        except Exception as exc:
-            log.error("Scheduler [weekly_top_rewards] error: %s", exc, exc_info=True)
-        try:
-            await _task_dev_event_queue(bot)
-        except Exception as exc:
-            log.error("Scheduler [dev_event_queue] error: %s", exc, exc_info=True)
-        try:
-            await _task_auction_finalize(bot)
-        except Exception as exc:
-            log.error("Scheduler [auction_finalize] error: %s", exc, exc_info=True)
-        await asyncio.sleep(3600)  # следующий прогон через час
+        run_count += 1
+        log.info("Scheduler tick #%d starting", run_count)
+        _tasks = [
+            ("inactivity_warn",    _task_inactivity_warns),
+            ("cleanup_reminder",   _task_cleanup_reminders),
+            ("anniversary",        _task_marriage_anniversary),
+            ("lottery",            _task_lottery_draw),
+            ("singles_bonus",      _task_weekly_singles_bonus),
+            ("chest_event",        _task_chest_event),
+            ("expeditions",        _task_expedition_notifications),
+            ("bond_prices",        _task_bond_price_update),
+            ("diligence_event",    _task_diligence_event),
+            ("cleanup_left_users", _task_cleanup_left_users),
+            ("weekly_top_rewards", _task_weekly_top_rewards),
+            ("dev_event_queue",    _task_dev_event_queue),
+            ("auction_finalize",   _task_auction_finalize),
+        ]
+        for _name, _fn in _tasks:
+            _t0 = asyncio.get_event_loop().time()
+            try:
+                log.debug("Scheduler [%s] start", _name)
+                if _fn is _task_cleanup_left_users:
+                    await _fn()
+                else:
+                    await _fn(bot)
+                _ms = int((asyncio.get_event_loop().time() - _t0) * 1000)
+                log.debug("Scheduler [%s] done (%dms)", _name, _ms)
+            except Exception as exc:
+                _ms = int((asyncio.get_event_loop().time() - _t0) * 1000)
+                log.error("Scheduler [%s] error (%dms): %s", _name, _ms, exc, exc_info=True)
+        log.info("Scheduler tick #%d complete — sleeping 3600s", run_count)
+        await asyncio.sleep(3600)
 
 
 # ─── Авто-варн за неактив ─────────────────────────────────────────────────────

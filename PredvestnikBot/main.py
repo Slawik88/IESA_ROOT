@@ -15,6 +15,11 @@ from aiogram.types import ChatPermissions, MenuButtonWebApp, WebAppInfo
 from config import BOT_TOKEN, MINI_APP_URL
 from database.db import get_locked_chats, init_db, set_chat_setting
 
+# ── Logging MUST be configured before any module that uses `log = getLogger()`
+from utils.bot_logging import setup_logging
+setup_logging()
+log = logging.getLogger("main")
+
 # Время запуска бота (для игнорирования старых сообщений)
 BOT_START_TIME = datetime.now(timezone.utc)
 from handlers import (admin, auto_mod, bank, boss, casino, checkin, dev_panel, diligence, dm_roles, economy, espionage,
@@ -23,7 +28,7 @@ from handlers import (admin, auto_mod, bank, boss, casino, checkin, dev_panel, d
                      shop, stars, tax_event, user, wallet, weather)
 from handlers import auction as auction_handler
 
-logging.basicConfig(level=logging.INFO)
+# basicConfig already called by setup_logging() above — no-op duplication guard removed
 
 
 async def notify_developer(bot: Bot, text: str):

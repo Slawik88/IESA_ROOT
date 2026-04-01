@@ -1,8 +1,11 @@
 import asyncpg
+import logging
 import math
 from datetime import datetime, timedelta, date, timezone
 
 from database.postgres import connect as postgres_connect, ddl_connect, get_pg_pool
+
+_log = logging.getLogger("db")
 
 
 async def init_db():
@@ -3214,6 +3217,7 @@ async def add_xp_in_chat(user_id: int, chat_id: int, amount: int) -> tuple[int, 
     Guard: if chat_id is an isolated chat, silently skip.
     """
     if is_isolated_chat(chat_id):
+        _log.debug("add_xp_in_chat BLOCKED uid=%s chat=%s amount=%s (isolated)", user_id, chat_id, amount)
         # Return current values without modifying anything
         async with postgres_connect() as db:
             async with db.execute(
@@ -3222,6 +3226,7 @@ async def add_xp_in_chat(user_id: int, chat_id: int, amount: int) -> tuple[int, 
             ) as c:
                 row = await c.fetchone()
                 return (row[0], row[1], False) if row else (0, 1, False)
+    _log.debug("add_xp_in_chat uid=%s chat=%s amount=%+d", user_id, chat_id, amount)
     async with postgres_connect() as db:
         await db.execute(
             "INSERT INTO user_stats (user_id, chat_id) VALUES (?, ?) ON CONFLICT (user_id, chat_id) DO NOTHING",
@@ -3241,6 +3246,8 @@ async def add_xp_in_chat(user_id: int, chat_id: int, amount: int) -> tuple[int, 
             (new_xp, new_level, user_id, chat_id),
         )
         await db.commit()
+    _log.debug("add_xp_in_chat uid=%s chat=%s → xp=%d level=%d leveled_up=%s",
+               user_id, chat_id, new_xp, new_level, leveled_up)
     return new_xp, new_level, leveled_up
 
 
@@ -3300,12 +3307,14 @@ async def add_mora(user_id: int, chat_id: int, amount: int) -> int:
     """
     if chat_id and is_isolated_chat(chat_id):
         # Silently skip — return current balance without modifying it
+        _log.debug("add_mora BLOCKED uid=%s chat=%s amount=%s (isolated)", user_id, chat_id, amount)
         async with postgres_connect() as db:
             async with db.execute(
                 "SELECT COALESCE(balance, 0) FROM users WHERE user_id=?", (user_id,)
             ) as c:
                 row = await c.fetchone()
                 return row[0] if row else 0
+    _log.debug("add_mora uid=%s chat=%s amount=%+d", user_id, chat_id, amount)
     async with postgres_connect() as db:
         await db.execute(
             """UPDATE users SET
@@ -3320,7 +3329,9 @@ async def add_mora(user_id: int, chat_id: int, amount: int) -> int:
             (user_id,),
         ) as c:
             row = await c.fetchone()
-            return row[0] if row else 0
+            new_bal = row[0] if row else 0
+    _log.debug("add_mora uid=%s → balance=%d", user_id, new_bal)
+    return new_bal
 
 
 async def check_daily_mora(user_id: int, chat_id: int) -> tuple[bool, int, bool]:

@@ -4,12 +4,16 @@
 """
 
 import asyncio
+import logging
 import re
 import threading
+import time
 import asyncpg
 from datetime import datetime
 from typing import Any, List, Dict
 from config import DATABASE_PATH
+
+_log = logging.getLogger("db.postgres")
 
 
 # ─── Per-event-loop pool registry ────────────────────────────────────────────
@@ -72,6 +76,7 @@ async def get_pg_pool() -> asyncpg.Pool:
                 },
             )
             _pg_pools[loop_id] = pool
+            _log.info("PG pool created for loop %d (min=2 max=20)", loop_id)
 
     return _pg_pools[loop_id]
 
@@ -123,12 +128,28 @@ class _ExecuteContext:
         self._executed = True
         sql, params = _convert_placeholders(self._sql, self._params)
         sql_upper = sql.strip().upper()
-        if sql_upper.startswith(('SELECT', 'WITH')) or 'RETURNING' in sql_upper:
-            self._rows = list(await self._conn.fetch(sql, *params))
-            self._status = f"SELECT {len(self._rows)}"
-        else:
-            self._status = await self._conn.execute(sql, *params)  # e.g. "UPDATE 3"
-            self._rows = []
+        _t0 = time.monotonic()
+        try:
+            if sql_upper.startswith(('SELECT', 'WITH')) or 'RETURNING' in sql_upper:
+                self._rows = list(await self._conn.fetch(sql, *params))
+                self._status = f"SELECT {len(self._rows)}"
+            else:
+                self._status = await self._conn.execute(sql, *params)  # e.g. "UPDATE 3"
+                self._rows = []
+        except Exception as _exc:
+            _ms = int((time.monotonic() - _t0) * 1000)
+            _log.error(
+                "SQL ERROR (%dms) %s | params=%r | error=%s",
+                _ms, sql.split()[0].upper(), params, _exc,
+            )
+            raise
+        _ms = int((time.monotonic() - _t0) * 1000)
+        _log.debug(
+            "SQL %s (%dms) — %s | params=%r",
+            self._status, _ms,
+            sql.strip().split('\n')[0].strip()[:120],
+            params,
+        )
 
     def __await__(self):
         return self._await_impl().__await__()
