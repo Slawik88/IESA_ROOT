@@ -778,6 +778,16 @@ async def init_db():
             except Exception:
                 pass
 
+        # ─── Ограничения пользователей (муты/ограниченные) ────────────────
+        for col_def in [
+            "restrict_until TIMESTAMPTZ DEFAULT NULL",
+            "restrict_type  TEXT        DEFAULT NULL",
+        ]:
+            try:
+                await db.execute(f"ALTER TABLE user_stats ADD COLUMN IF NOT EXISTS {col_def}")
+            except Exception:
+                pass
+
         # Миграция: сделать баланс Моры видимым по умолчанию для всех
         await db.execute("UPDATE user_mora SET mora_public = 1 WHERE mora_public = 0")
 
