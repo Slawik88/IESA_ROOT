@@ -9,6 +9,7 @@ import asyncio, os, asyncpg
 
 TABLES = [
     "user_roles", "community_roles", "channel_types", "admin_groups",
+    "test_chats", "chat_admin_links",
     "rest_users", "user_stats", "allowed_groups", "marriages", "birthdays",
     "poll_votes", "polls", "user_achievements", "user_quests", "cleanup_counts",
     "rep_log", "locks", "blacklist", "chat_filters", "notes",

@@ -45,7 +45,6 @@ log = logging.getLogger(__name__)
 from filters.chat_mode import MainChatOnly
 router = Router()
 router.message.filter(MainChatOnly())
-router.callback_query.filter(MainChatOnly())
 
 
 # Хранение активных ивентов {chat_id: event_id}

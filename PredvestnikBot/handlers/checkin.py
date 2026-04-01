@@ -18,7 +18,6 @@ from shared_prices import CHECKIN_REWARDS as _REWARDS, CHECKIN_CHECKPOINTS as _C
 from filters.chat_mode import MainChatOnly
 router = Router()
 router.message.filter(MainChatOnly())
-router.callback_query.filter(MainChatOnly())
 
 
 

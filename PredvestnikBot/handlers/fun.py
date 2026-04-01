@@ -22,7 +22,6 @@ from utils.helpers import format_duration, resolve_target, user_mention
 from filters.chat_mode import MainChatOnly
 router = Router()
 router.message.filter(MainChatOnly())
-router.callback_query.filter(MainChatOnly())
 
 
 # ─── Тексты действий ──────────────────────────────────────────────────────────

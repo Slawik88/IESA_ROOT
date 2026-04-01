@@ -12,7 +12,6 @@ from utils.helpers import bot_today
 from filters.chat_mode import MainChatOnly
 router = Router()
 router.message.filter(MainChatOnly())
-router.callback_query.filter(MainChatOnly())
 
 
 

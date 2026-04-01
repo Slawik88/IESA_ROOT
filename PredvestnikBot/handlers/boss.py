@@ -26,7 +26,6 @@ from filters.bot_command import BotCommand
 from filters.chat_mode import MainChatOnly
 router = Router()
 router.message.filter(MainChatOnly())
-router.callback_query.filter(MainChatOnly())
 
 log = logging.getLogger(__name__)
 

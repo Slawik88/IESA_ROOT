@@ -20,7 +20,6 @@ from utils.ranks import rank_name
 from filters.chat_mode import MainChatOnly
 router = Router()
 router.message.filter(MainChatOnly())
-router.callback_query.filter(MainChatOnly())
 
 
 # Триггеры для выдачи репутации (+)
