@@ -39,7 +39,11 @@ from handlers.economy import deduct_wallet
 from filters.bot_command import BotCommand
 from utils.helpers import format_duration, user_mention
 
+from filters.chat_mode import MainChatOnly
 router = Router()
+router.message.filter(MainChatOnly())
+router.callback_query.filter(MainChatOnly())
+
 
 _PET_EMOJI = {"cat": "🐱", "dog": "🐶"}
 _PET_NAME  = {"cat": "Котёнок", "dog": "Щенок"}

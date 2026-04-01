@@ -25,7 +25,11 @@ from aiogram.types import (
 from filters.bot_command import BotCommand
 from utils.helpers import user_mention
 
+from filters.chat_mode import MainChatOnly
 router = Router()
+router.message.filter(MainChatOnly())
+router.callback_query.filter(MainChatOnly())
+
 
 
 def esc(s) -> str:

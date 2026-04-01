@@ -57,7 +57,11 @@ from filters.rank_filter import RankFilter
 from utils.helpers import resolve_target, user_mention
 from utils.ranks import rank_level
 
+from filters.chat_mode import MainChatOnly
 router = Router()
+router.message.filter(MainChatOnly())
+router.callback_query.filter(MainChatOnly())
+
 
 
 # ─── Утилита списания из личного/семейного кошелька ───────────────────────────

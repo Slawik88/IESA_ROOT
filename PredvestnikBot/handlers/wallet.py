@@ -27,7 +27,11 @@ from database.db import (
 from filters.bot_command import BotCommand
 from utils.helpers import resolve_target, user_mention
 
+from filters.chat_mode import MainChatOnly
 router = Router()
+router.message.filter(MainChatOnly())
+router.callback_query.filter(MainChatOnly())
+
 
 
 # ─── бот перевести @user N ─────────────────────────────────────────────────────

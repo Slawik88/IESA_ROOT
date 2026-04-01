@@ -34,7 +34,11 @@ from config import COIN_MAX_BET, DICE_MAX_BET, LOTTERY_TICKET_PRICE
 from filters.bot_command import BotCommand
 from utils.helpers import resolve_target, user_mention
 
+from filters.chat_mode import MainChatOnly
 router = Router()
+router.message.filter(MainChatOnly())
+router.callback_query.filter(MainChatOnly())
+
 
 # Защита от двойного клика: хранит (user_id, message_id) активных броскoв
 _active_coins: set[tuple] = set()

@@ -9,7 +9,11 @@ from database.db import get_mora, get_quest_progress, get_user_quest, reroll_use
 from filters.bot_command import BotCommand
 from utils.helpers import bot_today
 
+from filters.chat_mode import MainChatOnly
 router = Router()
+router.message.filter(MainChatOnly())
+router.callback_query.filter(MainChatOnly())
+
 
 
 @router.message(BotCommand("задание", "quest", "квест", "задания"))

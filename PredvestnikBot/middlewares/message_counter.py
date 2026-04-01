@@ -22,6 +22,7 @@ from database.db import (
     mark_quest_rewarded, quest_tick,
     set_newbie_shield,
     upsert_chat, upsert_user, upsert_user_stats,
+    get_admin_group_ids, is_test_chat,
 )
 from services.recent_users import remember_user
 from utils.flood import check_flood
@@ -124,11 +125,16 @@ class AutoModMiddleware(BaseMiddleware):
 
         # 0. Белый список групп — разработчик проходит всегда
         _is_admin_group = False
+        _is_isolated = False
         if event.chat.type in ("group", "supergroup"):
             if not is_group_allowed(event.chat.id) and user.id != DEVELOPER_ID:
                 return
-            from database.db import get_admin_group_ids
             _is_admin_group = event.chat.id in get_admin_group_ids()
+            _is_test_chat   = is_test_chat(event.chat.id)
+            _is_isolated    = _is_admin_group or _is_test_chat
+
+        # Inject isolation flag so all downstream filters/handlers can read it
+        data["is_isolated_chat"] = _is_isolated
 
         # 1. Регистрация / обновление пользователя
         await upsert_user(user.id, user.username or "", user.full_name or "")
@@ -178,8 +184,10 @@ class AutoModMiddleware(BaseMiddleware):
                 except Exception:
                     pass
 
-            # Чат администрации: только подсчёт сообщений, без моры/XP/квестов
-            if _is_admin_group:
+            # Изолированный чат (admin_group или test_chat):
+            # Считаем сообщения, но пропускаем мору/XP/квесты и передаём управление
+            # обработчику (который сам заблокирует экономические команды через MainChatOnly).
+            if _is_isolated:
                 return await handler(event, data)
 
             # -- Мора: первое сообщение дня (+3) и 7-дневный стрик (+50) --
