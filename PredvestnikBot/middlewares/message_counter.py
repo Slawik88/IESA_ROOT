@@ -46,6 +46,9 @@ from utils.flood import check_flood
 from utils.helpers import bot_today, notify_admins, user_mention
 from utils.ranks import rank_level
 
+import logging
+_log = logging.getLogger("middleware.automod")
+
 # в”Ђв”Ђв”Ђ Constants в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 _TZ_ZURICH = zoneinfo.ZoneInfo("Europe/Zurich")
 _URL_RE = re.compile(r"(https?://|www\.|t\.me/|tg://|telegram\.me/)", re.IGNORECASE)
@@ -219,16 +222,22 @@ class AutoModMiddleware(BaseMiddleware):
 
         # в”Ђв”Ђ Guard: skip messages from before bot restart в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
         if _bot_start_time and event.date < _bot_start_time:
+            _log.debug("SKIP pre-start msg uid=%s chat=%s", user.id, event.chat.id)
             return
 
         is_stale = (time.time() - event.date.timestamp()) > 30
         in_group = event.chat.type in ("group", "supergroup")
 
-        # в”Ђв”Ђ Detect isolation (admin group / test chat) в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
         is_isolated = in_group and (
             event.chat.id in get_admin_group_ids() or is_test_chat(event.chat.id)
         )
         data["is_isolated_chat"] = is_isolated
+
+        _log.debug(
+            "MSG uid=%s (@%s) chat=%s [%s] isolated=%s stale=%s",
+            user.id, user.username or "-", event.chat.id,
+            event.chat.type, is_isolated, is_stale,
+        )
 
         # в”Ђв”Ђ Always register user + chat в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
         await upsert_user(user.id, user.username or "", user.full_name or "")
@@ -244,6 +253,7 @@ class AutoModMiddleware(BaseMiddleware):
         # DB-level guards in add_mora/add_xp_in_chat act as an additional
         # safety net in case any code path bypasses this early return.
         if is_isolated:
+            _log.debug("ISOLATED chat=%s — economy skip for uid=%s", event.chat.id, user.id)
             return await handler(event, data)
 
         # в”Ђв”Ђ Group economy (non-isolated groups only) в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
