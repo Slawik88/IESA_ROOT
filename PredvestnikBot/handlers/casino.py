@@ -91,7 +91,7 @@ async def cmd_coin(message: Message, cmd_args: str):
     from database.postgres import connect as postgres_connect
     async with postgres_connect() as db:
         cursor = await db.execute(
-            "UPDATE users SET balance=balance-? WHERE user_id=? AND COALESCE(balance,0)>=?",
+            "UPDATE users SET balance=balance-$1 WHERE user_id=$2 AND COALESCE(balance,0)>=$3",
             (bet, uid, bet),
         )
         if cursor.rowcount == 0:
@@ -143,7 +143,7 @@ async def cb_coin_choice(callback: CallbackQuery):
             from database.postgres import connect as postgres_connect
             async with postgres_connect() as db:
                 await db.execute(
-                    "UPDATE users SET balance=COALESCE(balance,0)+? WHERE user_id=?",
+                    "UPDATE users SET balance=COALESCE(balance,0)+$1 WHERE user_id=$2",
                     (bet, uid),
                 )
             try:
@@ -259,7 +259,7 @@ async def cmd_dice(message: Message, cmd_args: str, bot):
     from database.postgres import connect as postgres_connect
     async with postgres_connect() as db:
         cursor = await db.execute(
-            "UPDATE users SET balance=balance-? WHERE user_id=? AND COALESCE(balance,0)>=?",
+            "UPDATE users SET balance=balance-$1 WHERE user_id=$2 AND COALESCE(balance,0)>=$3",
             (bet, uid, bet),
         )
         if cursor.rowcount == 0:
@@ -297,7 +297,7 @@ async def cmd_dice(message: Message, cmd_args: str, bot):
     # Обновляем msg_id в дуэли
     async with postgres_connect() as db:
         await db.execute(
-            "UPDATE casino_duels SET msg_id=? WHERE id=?",
+            "UPDATE casino_duels SET msg_id=$1 WHERE id=$2",
             (sent.message_id, duel_id),
         )
         await db.commit()
@@ -335,7 +335,7 @@ async def cb_duel_accept(callback: CallbackQuery):
     from database.postgres import connect as postgres_connect
     async with postgres_connect() as db:
         cursor = await db.execute(
-            "UPDATE users SET balance=balance-? WHERE user_id=? AND COALESCE(balance,0)>=?",
+            "UPDATE users SET balance=balance-$1 WHERE user_id=$2 AND COALESCE(balance,0)>=$3",
             (bet, target_id, bet),
         )
         if cursor.rowcount == 0:
@@ -461,7 +461,7 @@ async def cmd_lottery(message: Message, cmd_args: str):
     from database.postgres import connect as postgres_connect
     async with postgres_connect() as db:
         cursor = await db.execute(
-            "UPDATE users SET balance=balance-? WHERE user_id=? AND COALESCE(balance,0)>=?",
+            "UPDATE users SET balance=balance-$1 WHERE user_id=$2 AND COALESCE(balance,0)>=$3",
             (LOTTERY_PRICE, uid, LOTTERY_PRICE),
         )
         if cursor.rowcount == 0:

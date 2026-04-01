@@ -553,7 +553,7 @@ def _build_help_kb(page_id: str, uid: int, lvl: int, chat_id: int = 0) -> Inline
                 # Override Mini App URL to include startapp chat context
                 if chat_id and btn_url == _MINI_APP_URL:
                     abs_cid = abs(chat_id)
-                    btn_url = f"{_MINI_APP_TG_URL}?startapp={abs_cid}"
+                    btn_url = f"{_MINI_APP_TG_URL}$1startapp={abs_cid}"
                 row.append(InlineKeyboardButton(text=label, url=btn_url))
                 continue
             target_page = pages.get(target)
@@ -620,7 +620,7 @@ async def cmd_open_app(message: Message, cmd_args: str):
         return
 
     abs_cid = abs(message.chat.id)
-    app_link = f"{MINI_APP_TG_URL}?startapp={abs_cid}"
+    app_link = f"{MINI_APP_TG_URL}$1startapp={abs_cid}"
     kb = InlineKeyboardMarkup(inline_keyboard=[[
         InlineKeyboardButton(text="🚀 Открыть Mini App", url=app_link),
     ]])
@@ -762,7 +762,7 @@ def _build_top_text(
 
         place = _MEDALS[i] if i < 3 else f"{i + 1}."
 
-        raw_name = u["full_name"] if "full_name" in u.keys() else "?"
+        raw_name = u["full_name"] if "full_name" in u.keys() else "$1"
         if len(raw_name) > 18:
             raw_name = raw_name[:17] + "…"
         name = html.escape(raw_name)
@@ -926,7 +926,7 @@ async def cb_profile_nav(callback: CallbackQuery):
     if action == "rep":
         stats = await get_user_stats(uid, callback.message.chat.id)
         user = await get_user(uid)
-        name = user["full_name"] if user else "?"
+        name = user["full_name"] if user else "$1"
         rep = (stats["reputation"] or 0) if stats else 0
         text = f"⭐ <b>Репутация</b> {user_mention(uid, name)}: <b>{rep:+d}</b>"
         kb = InlineKeyboardMarkup(inline_keyboard=[[
@@ -941,7 +941,7 @@ async def cb_profile_nav(callback: CallbackQuery):
     elif action == "lvl":
         stats = await get_user_stats(uid, callback.message.chat.id)
         user = await get_user(uid)
-        name = user["full_name"] if user else "?"
+        name = user["full_name"] if user else "$1"
         xp = (stats["xp"] or 0) if stats else 0
         lvl = (stats["level"] or 1) if stats else 1
         from database.db import xp_for_level
@@ -1026,7 +1026,7 @@ async def cb_profile_nav(callback: CallbackQuery):
         marriage = await get_marriage(uid, chat_id)
         if marriage:
             partner = await get_user(marriage["partner_id"])
-            p_name = html.escape(partner["full_name"]) if partner else "?"
+            p_name = html.escape(partner["full_name"]) if partner else "$1"
             lines.append(f"💍 Партнёр: {user_mention(marriage['partner_id'], p_name)}")
             received = await get_received_gifts(uid, chat_id)
             if received:
@@ -1043,14 +1043,14 @@ async def cb_profile_nav(callback: CallbackQuery):
                 InlineKeyboardButton(text="📱 Mini App", web_app=WebAppInfo(url=_MINI_APP_URL)),
                 InlineKeyboardButton(
                     text="📋 История кошелька",
-                    web_app=WebAppInfo(url=f"{_MINI_APP_URL}?open=wallet_history"),
+                    web_app=WebAppInfo(url=f"{_MINI_APP_URL}$1open=wallet_history"),
                 ),
             ]
         else:
             abs_cid = abs(callback.message.chat.id)
             miniapp_row = [
-                InlineKeyboardButton(text="📱 Mini App", url=f"{_MINI_APP_TG_URL}?startapp={abs_cid}"),
-                InlineKeyboardButton(text="📋 История кошелька", url=f"{_MINI_APP_TG_URL}?startapp={abs_cid}"),
+                InlineKeyboardButton(text="📱 Mini App", url=f"{_MINI_APP_TG_URL}$1startapp={abs_cid}"),
+                InlineKeyboardButton(text="📋 История кошелька", url=f"{_MINI_APP_TG_URL}$1startapp={abs_cid}"),
             ]
 
         kb = InlineKeyboardMarkup(inline_keyboard=[
@@ -1346,7 +1346,7 @@ async def cmd_me(message: Message, cmd_args: str):
         marriage = await get_marriage(uid, chat_id)
         if marriage:
             partner = await get_user(marriage["partner_id"])
-            partner_name = html.escape(partner["full_name"]) if partner else "?"
+            partner_name = html.escape(partner["full_name"]) if partner else "$1"
             lines.append(f"💍 Партнёр: {user_mention(marriage['partner_id'], partner_name)}")
             received = await get_received_gifts(uid, chat_id)
             if received:
@@ -1394,14 +1394,14 @@ async def cmd_me(message: Message, cmd_args: str):
             InlineKeyboardButton(text="📱 Mini App", web_app=WebAppInfo(url=_MINI_APP_URL)),
             InlineKeyboardButton(
                 text="📋 История кошелька",
-                web_app=WebAppInfo(url=f"{_MINI_APP_URL}?open=wallet_history"),
+                web_app=WebAppInfo(url=f"{_MINI_APP_URL}$1open=wallet_history"),
             ),
         ]
     else:
         abs_cid = abs(message.chat.id)
         miniapp_row = [
-            InlineKeyboardButton(text="📱 Mini App", url=f"{_MINI_APP_TG_URL}?startapp={abs_cid}"),
-            InlineKeyboardButton(text="📋 История кошелька", url=f"{_MINI_APP_TG_URL}?startapp={abs_cid}"),
+            InlineKeyboardButton(text="📱 Mini App", url=f"{_MINI_APP_TG_URL}$1startapp={abs_cid}"),
+            InlineKeyboardButton(text="📋 История кошелька", url=f"{_MINI_APP_TG_URL}$1startapp={abs_cid}"),
         ]
     me_kb = InlineKeyboardMarkup(inline_keyboard=[
         [
@@ -1502,7 +1502,7 @@ async def cb_theme_buy(callback: CallbackQuery):
     from database.postgres import connect as postgres_connect
     async with postgres_connect() as db:
         cursor = await db.execute(
-            "UPDATE users SET balance=balance-? WHERE user_id=? AND COALESCE(balance,0)>=?",
+            "UPDATE users SET balance=balance-$1 WHERE user_id=$2 AND COALESCE(balance,0)>=$3",
             (price, uid, price),
         )
         if cursor.rowcount == 0:
@@ -1510,7 +1510,7 @@ async def cb_theme_buy(callback: CallbackQuery):
             return
         await db.commit()
         async with db.execute(
-            "SELECT COALESCE(balance, 0) AS balance FROM users WHERE user_id=?",
+            "SELECT COALESCE(balance, 0) AS balance FROM users WHERE user_id=$1",
             (uid,),
         ) as c:
             row = await c.fetchone()
@@ -1586,7 +1586,7 @@ async def cmd_info(message: Message, cmd_args: str):
         marriage = await get_marriage(uid, message.chat.id)
         if marriage:
             partner = await get_user(marriage["partner_id"])
-            partner_name = html.escape(partner["full_name"]) if partner else "?"
+            partner_name = html.escape(partner["full_name"]) if partner else "$1"
             lines.append(f"💍 Партнёр: {user_mention(marriage['partner_id'], partner_name)}")
 
     await message.answer("\n".join(lines), parse_mode="HTML")
@@ -1678,7 +1678,7 @@ async def cmd_whois(message: Message, cmd_args: str):
         marriage = await get_marriage(uid, message.chat.id)
         if marriage:
             partner = await get_user(marriage["partner_id"])
-            partner_name = html.escape(partner["full_name"]) if partner else "?"
+            partner_name = html.escape(partner["full_name"]) if partner else "$1"
             lines.append(f"💍 Партнёр: {user_mention(marriage['partner_id'], partner_name)}")
 
     if equipped_t:
@@ -1895,7 +1895,7 @@ async def cmd_creator(message: Message, bot: Bot, cmd_args: str):
     bar_filled = min(10, int((xp - xp_for_level(lvl)) / max(1, next_xp - xp_for_level(lvl)) * 10))
     bar = "█" * bar_filled + "░" * (10 - bar_filled)
 
-    contact = f'<a href="tg://user?id={DEVELOPER_ID}">{full_name}</a>'
+    contact = f'<a href="tg://user$1id={DEVELOPER_ID}">{full_name}</a>'
     lines = [f"🛠 <b>Создатель бота</b>\n"]
     lines.append(f"👤 Имя: {contact}")
     if username:

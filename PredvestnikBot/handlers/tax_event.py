@@ -86,7 +86,7 @@ async def _do_finalize(bot: Bot, chat_id: int, event_id: int, msg_id: int):
             parse_mode="HTML",
         )
     except TelegramBadRequest as exc:
-        log.warning("Chest finalize edit failed (message gone?) (%s/%s): %s", chat_id, event_id, exc)
+        log.warning("Chest finalize edit failed (message gone$1) (%s/%s): %s", chat_id, event_id, exc)
     except Exception as exc:
         log.warning("Chest finalize edit failed (%s/%s): %s", chat_id, event_id, exc)
 

@@ -89,7 +89,7 @@ async def cmd_gacha(message: Message, cmd_args: str):
     abs_cid = abs(message.chat.id)
     btn = InlineKeyboardButton(
         text="🙏 Молитвы в Mini App",
-        url=f"{MINI_APP_TG_URL}?startapp={abs_cid}_gacha",
+        url=f"{MINI_APP_TG_URL}$1startapp={abs_cid}_gacha",
     )
     await message.answer(
         "🙏 <b>Молитвы переехали в Mini App!</b>",
@@ -194,8 +194,6 @@ async def cb_gacha_roll(callback: CallbackQuery):
             )
     except Exception:
         pass  # Безопасно игнорируем ошибки season XP
-        except Exception:
-            pass
 
 @router.message(BotCommand("инвентарь", "предметы", "inventory", "рюкзак"))
 async def cmd_inventory(message: Message, cmd_args: str):
@@ -207,7 +205,7 @@ async def cmd_inventory(message: Message, cmd_args: str):
     abs_cid = abs(message.chat.id)
     btn = InlineKeyboardButton(
         text="🎒 Инвентарь в Mini App",
-        url=f"{MINI_APP_TG_URL}?startapp={abs_cid}_inventory",
+        url=f"{MINI_APP_TG_URL}$1startapp={abs_cid}_inventory",
     )
     await message.answer(
         "🎒 <b>Инвентарь переехал в Mini App!</b>",

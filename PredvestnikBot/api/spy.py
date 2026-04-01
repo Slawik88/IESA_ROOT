@@ -17,7 +17,7 @@ async def spy(uid: int, chat_id: int, target_id: int) -> dict:
 
     Costs SPY_COST mora. 30% fail chance. 1h cooldown per target.
     Raises ValueError on validation/cooldown errors.
-    Returns {ok, success, cost, new_balance, message?, target?}.
+    Returns {ok, success, cost, new_balance, message$1, target$2}.
     """
     from database.db import get_mora, get_user
     from database.postgres import connect as postgres_connect
@@ -32,7 +32,7 @@ async def spy(uid: int, chat_id: int, target_id: int) -> dict:
     async with postgres_connect() as db:
         async with db.execute(
             "SELECT attempted_at FROM espionage_log "
-            "WHERE spy_id=? AND target_id=? AND chat_id=? AND attempted_at > ? "
+            "WHERE spy_id=$1 AND target_id=$2 AND chat_id=$3 AND attempted_at > $4 "
             "ORDER BY id DESC LIMIT 1",
             (uid, target_id, chat_id, since),
         ) as c:
@@ -59,7 +59,7 @@ async def spy(uid: int, chat_id: int, target_id: int) -> dict:
     # Deduct cost
     async with postgres_connect() as db:
         cursor = await db.execute(
-            "UPDATE users SET balance=balance-? WHERE user_id=? AND COALESCE(balance,0)>=?",
+            "UPDATE users SET balance=balance-$1 WHERE user_id=$2 AND COALESCE(balance,0)>=$3",
             (SPY_COST, uid, SPY_COST),
         )
         if cursor.rowcount == 0:
@@ -81,7 +81,7 @@ async def spy(uid: int, chat_id: int, target_id: int) -> dict:
     async with postgres_connect() as db:
         await db.execute(
             "INSERT INTO espionage_log (spy_id, target_id, chat_id, success, attempted_at) "
-            "VALUES (?,?,?,?,?)",
+            "VALUES ($1,$2,$3,$4,$5)",
             (uid, target_id, chat_id, success_int, now_utc),
         )
         await db.commit()
@@ -102,8 +102,8 @@ async def spy(uid: int, chat_id: int, target_id: int) -> dict:
     async with postgres_connect() as db:
         async with db.execute(
             "SELECT COALESCE(u.balance,0) AS balance, COALESCE(um.vip,0) AS vip "
-            "FROM users u LEFT JOIN user_mora um ON um.user_id=u.user_id AND um.chat_id=? "
-            "WHERE u.user_id=?",
+            "FROM users u LEFT JOIN user_mora um ON um.user_id=u.user_id AND um.chat_id=$1 "
+            "WHERE u.user_id=$1",
             (chat_id, target_id),
         ) as c:
             t_row = await c.fetchone()

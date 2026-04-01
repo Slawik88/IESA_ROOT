@@ -4863,33 +4863,6 @@ def miniapp_user_avatar(request, user_id):
     except Exception as exc:
         logger.exception("user_avatar error")
         return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
-            return JsonResponse({"active": False, "buff_type": buff_type}, headers=headers)
-        except Exception as exc:
-            logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
-
-    if request.method == "POST":
-        try:
-            body = json.loads(request.body or b"{}")
-        except Exception:
-            return JsonResponse({"error": "bad JSON"}, status=400, headers=headers)
-
-        chat_id_raw = body.get("chat_id")
-        if not chat_id_raw:
-            return JsonResponse({"error": "chat_id required"}, status=400, headers=headers)
-        chat_id = int(str(chat_id_raw))
-        buff_type = str(body.get("buff_type", "xp_plus10"))
-
-        try:
-            from asgiref.sync import async_to_sync as _a2s
-            from api.economy import buy_chat_buff as _buy_buff
-            result = _a2s(_buy_buff)(uid, chat_id, buff_type)
-            return JsonResponse(result, json_dumps_params={"ensure_ascii": False}, headers=headers)
-        except ValueError as ve:
-            return JsonResponse({"error": str(ve)}, status=400, headers=headers)
-        except Exception as exc:
-            logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
-
-    return JsonResponse({"error": "method not allowed"}, status=405, headers=headers)
 
 
 # ─── Gifts / Подарки партнёру ─────────────────────────────────────────────────

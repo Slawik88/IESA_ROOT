@@ -9,7 +9,7 @@ async def walk_pet(uid: int, chat_id: int) -> dict:
     """Start pet walk.
 
     Thin wrapper around database.db.start_pet_walk_full.
-    Returns the same dict: {ok, error?, fatigue, fatigue_reduced, pet_name,
+    Returns the same dict: {ok, error$1, fatigue, fatigue_reduced, pet_name,
     pet_type, walk_mins, reward, mins_left}.
     """
     from database.db import start_pet_walk_full
@@ -68,14 +68,14 @@ async def feed_pet(
         from database.postgres import connect as postgres_connect
         async with postgres_connect() as db:
             cursor = await db.execute(
-                "UPDATE users SET balance=balance-? WHERE user_id=? AND COALESCE(balance,0)>=?",
+                "UPDATE users SET balance=balance-$1 WHERE user_id=$2 AND COALESCE(balance,0)>=$3",
                 (food["price"], uid, food["price"]),
             )
             if cursor.rowcount == 0:
                 raise ValueError("Не удалось списать Мору")
             await db.commit()
             async with db.execute(
-                "SELECT COALESCE(balance, 0) AS balance FROM users WHERE user_id=?",
+                "SELECT COALESCE(balance, 0) AS balance FROM users WHERE user_id=$1",
                 (uid,),
             ) as c:
                 row = await c.fetchone()
