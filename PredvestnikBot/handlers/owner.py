@@ -995,86 +995,102 @@ async def cmd_chat_status(message: Message, cmd_args: str):
     )
 
 
-# ──────────────────── Привязка основного чата к чату-администрации ──────────────────────────
-# Бот отправляет уведомления (репорты, антиспам, варны) в привязанный чат администрации.
-# Если привязка не задана — уведомления идут во все глобальные admin_groups.
+# ──────────────────── Привязка чата к чату-администрации ────────────────────────────────────
+# Каждое сообщество изолировано. Уведомления (репорты, варны, спам) идут
+# только в ЧАТ ЭТОГО СООБЩЕСТВА и никуда больше.
 #
-# Использование:
-#   1. Перейди в основной чат:
-#         бот надминчат -100YYYY
-#      или укажи оба ID:
-#         бот надминчат -100XXX -100YYY
-#   2. Бот автоматически зарегистрирует -100YYYY как admin_group.
+# Как настроить Admin-чат (пошагово):
+#   1. В ОСНОВНОМ чате:  бот привязать
+#      Бот покажет точную команду для шага 2.
+#   2. В ЧАТЕ АДМИНИСТРАЦИИ: бот принять -100XXXX
+#      Этот чат становится получателем уведомлений для основного чата.
+#
+# (Developer-only): бот привязки — посмотреть все привязки
+# (Developer-only): бот снятьнадмин [chat_id] — удалить привязку по ID
 
 
-@router.message(BotCommand("надминчат", "setadminchat", "linkadmin"), RankFilter("developer"))
-async def cmd_set_admin_chat(message: Message, cmd_args: str):
-    """Привязать основной чат к чату-администрации.
+@router.message(BotCommand("привязать", "linkadmin"), RankFilter("owner"))
+async def cmd_link_admin_step1(message: Message, cmd_args: str):
+    """Шаг 1 из 2: В ОСНОВНОМ чате — получить инструкцию для привязки."""
+    arg = cmd_args.strip()
 
-    Варианты:
-      бот надминчат -100YYYY            — [main=текущий] → [admin=-100YYYY]
-      бот надминчат -100XXX -100YYYY   — [main=-100XXX] → [admin=-100YYYY]
-    """
-    args = cmd_args.split()
-    if len(args) == 1:
-        # One arg: admin_chat_id, current chat is main
-        if message.chat.type not in ("group", "supergroup"):
-            await message.answer(
-                "❌ Вызови в основной группе или укажи оба ID:\n"
-                "<code>бот надминчат -100ОСНОВНОЙ -100АДМИН</code>",
-                parse_mode="HTML",
-            )
+    if arg:
+        try:
+            main_chat_id = int(arg)
+        except ValueError:
+            await message.answer("❌ Укажи числовой chat_id.", parse_mode="HTML")
             return
+    elif message.chat.type in ("group", "supergroup"):
         main_chat_id = message.chat.id
-        try:
-            admin_chat_id = int(args[0])
-        except ValueError:
-            await message.answer("❌ Укажи числовой chat_id админ-чата.", parse_mode="HTML")
-            return
-    elif len(args) == 2:
-        # Two args: main_chat_id admin_chat_id
-        try:
-            main_chat_id = int(args[0])
-            admin_chat_id = int(args[1])
-        except ValueError:
-            await message.answer(
-                "❌ Неверный формат.\n"
-                "Пример: <code>бот надминчат -100ОСНОВНОЙ -100АДМИН</code>",
-                parse_mode="HTML",
-            )
-            return
     else:
         await message.answer(
-            "🔗 <b>Привязка админ-чата</b>\n\n"
-            "В основном чате:\n"
-            "  <code>бот надминчат -100АДМИН</code>\n"
-            "Или по ID:\n"
-            "  <code>бот надминчат -100ОСНОВНОЙ -100АДМИН</code>",
+            "❌ Вызови в основном чате или укажи ID:\n"
+            "<code>бот привязать -100XXXX</code>",
             parse_mode="HTML",
         )
         return
 
-    # Register admin_chat as an admin_group too (so it gets global fallback & isolation)
-    await add_admin_group(admin_chat_id)
-    await set_chat_admin_link(main_chat_id, admin_chat_id)
+    # Show current binding status
+    from database.db import get_admin_chat_for
+    linked = get_admin_chat_for(main_chat_id)
+    current = f"\n\nСейчас привязан: <code>{linked}</code>" if linked else ""
 
     await message.answer(
-        f"🔗 Привязка установлена:\n"
-        f"  Основной чат: <code>{main_chat_id}</code>\n"
-        f"  Админ-чат:  <code>{admin_chat_id}</code>\n\n"
-        f"Уведомления (репорты, варны, спам) из <code>{main_chat_id}</code>\n"
-        f"будут поступать только в <code>{admin_chat_id}</code>.",
+        f"🔗 <b>Привязка чата администрации</b>{current}\n\n"
+        f"Этот чат: <code>{main_chat_id}</code>\n\n"
+        f"Перейди в свой <b>чат администрации</b> и напиши там:\n"
+        f"<code>бот принять {main_chat_id}</code>\n\n"
+        f"<i>После этого все уведомления (жалобы, варны, антиспам) "
+        f"из этого чата будут приходить только туда.</i>",
         parse_mode="HTML",
     )
 
 
-@router.message(BotCommand("снятьнадмин", "unsetadminchat", "unlinkadmin"), RankFilter("developer"))
-async def cmd_remove_admin_chat_link(message: Message, cmd_args: str):
-    """Снять привязку чата к админ-чату.
+@router.message(BotCommand("принять", "acceptlink"), RankFilter("owner"))
+async def cmd_link_admin_step2(message: Message, cmd_args: str):
+    """Шаг 2 из 2: В ЧАТЕ АДМИНИСТРАЦИИ — принять уведомления из основного чата."""
+    arg = cmd_args.strip()
+    if not arg:
+        await message.answer(
+            "❌ Укажи ID основного чата.\n"
+            "Пример: <code>бот принять -100XXXX</code>\n\n"
+            "<i>Команду нужно вводить в чате администрации, "
+            "а ID — из основного чата (команда «бот привязать»).</i>",
+            parse_mode="HTML",
+        )
+        return
 
-    Без аргумента — снимает текущий чат.
-    С аргументом — указанный chat_id.
-    """
+    try:
+        main_chat_id = int(arg)
+    except ValueError:
+        await message.answer("❌ Укажи числовой chat_id основного чата.", parse_mode="HTML")
+        return
+
+    admin_chat_id = message.chat.id if message.chat.type in ("group", "supergroup") else None
+    if admin_chat_id is None:
+        await message.answer(
+            "❌ Вызови эту команду в своём чате администрации (группе).",
+            parse_mode="HTML",
+        )
+        return
+
+    # Register this admin chat as isolated (no economy) and link it
+    await add_admin_group(admin_chat_id)
+    await set_chat_admin_link(main_chat_id, admin_chat_id)
+
+    await message.answer(
+        f"✅ <b>Готово! Привязка установлена.</b>\n\n"
+        f"📥 Этот чат теперь получает уведомления из <code>{main_chat_id}</code>.\n"
+        f"Жалобы, варны и антиспам придут сюда.\n\n"
+        f"<i>Чтобы отвязать — напиши в основном чате:\n"
+        f"<code>бот отвязать</code></i>",
+        parse_mode="HTML",
+    )
+
+
+@router.message(BotCommand("отвязать", "unlink"), RankFilter("owner"))
+async def cmd_unlink_admin(message: Message, cmd_args: str):
+    """Отвязать чат от чата администрации."""
     arg = cmd_args.strip()
     if arg:
         try:
@@ -1085,26 +1101,68 @@ async def cmd_remove_admin_chat_link(message: Message, cmd_args: str):
     elif message.chat.type in ("group", "supergroup"):
         main_chat_id = message.chat.id
     else:
-        await message.answer("❌ Укажи main chat_id или вызови в основном чате.", parse_mode="HTML")
+        await message.answer(
+            "❌ Вызови в основном чате или укажи ID:\n"
+            "<code>бот отвязать -100XXXX</code>",
+            parse_mode="HTML",
+        )
         return
 
     await remove_chat_admin_link(main_chat_id)
     await message.answer(
-        f"✅ Привязка для чата <code>{main_chat_id}</code> удалена.\n"
-        f"Уведомления будут идти во все глобальные admin_groups.",
+        f"✅ Чат <code>{main_chat_id}</code> отвязан.\n"
+        f"Уведомления теперь будут приходить прямо в этот чат.",
         parse_mode="HTML",
     )
 
 
+@router.message(BotCommand("привязка", "chatlink"), RankFilter("owner"))
+async def cmd_show_link(message: Message, cmd_args: str):
+    """Показать текущую привязку чата к чату администрации."""
+    arg = cmd_args.strip()
+    if arg:
+        try:
+            chat_id = int(arg)
+        except ValueError:
+            await message.answer("❌ Укажи числовой chat_id.", parse_mode="HTML")
+            return
+    elif message.chat.type in ("group", "supergroup"):
+        chat_id = message.chat.id
+    else:
+        await message.answer("❌ Вызови в группе или укажи chat_id.", parse_mode="HTML")
+        return
+
+    from database.db import get_admin_chat_for
+    linked = get_admin_chat_for(chat_id)
+    if linked:
+        await message.answer(
+            f"🔗 <b>Привязка чата <code>{chat_id}</code>:</b>\n\n"
+            f"Уведомления → <code>{linked}</code>\n\n"
+            f"<i>Отвязать: <code>бот отвязать</code>\n"
+            f"Изменить: <code>бот привязать</code> → <code>бот принять</code> в новом чате</i>",
+            parse_mode="HTML",
+        )
+    else:
+        await message.answer(
+            f"ℹ️ Чат <code>{chat_id}</code> не привязан к чату администрации.\n\n"
+            f"Уведомления приходят в этот же чат (администраторы их видят).\n\n"
+            f"<i>Чтобы настроить отдельный чат администрации:\n"
+            f"  <code>бот привязать</code> — в основном чате</i>",
+            parse_mode="HTML",
+        )
+
+
+# ─── Developer: управление привязками (для диагностики) ───────────────────────
+
 @router.message(BotCommand("привязки", "adminlinks", "chatlinks"), RankFilter("developer"))
 async def cmd_list_admin_links(message: Message):
-    """Показать все привязки main → admin чат."""
+    """Developer: показать все привязки main → admin чат."""
     links = get_all_chat_admin_links()
     if not links:
         await message.answer(
-            "📋 Привязки не настроены.\n"
-            "Все уведомления идут во все глобальные админ-группы.\n\n"
-            "<i>Установить: в основном чате <code>бот надминчат -100ADMIN</code></i>",
+            "📋 Привязок нет.\n"
+            "Уведомления из каждого чата идут в тот же чат.\n\n"
+            "<i>Привязать: в основном чате <code>бот привязать</code></i>",
             parse_mode="HTML",
         )
         return
@@ -1121,12 +1179,35 @@ async def cmd_list_admin_links(message: Message):
         lines.append(f"  💬 <code>{main_id}</code> {main_title}")
         lines.append(f"     → 🔔 <code>{adm_id}</code> {adm_title}")
         buttons.append([InlineKeyboardButton(
-            text=f"❌ Удалить привязку {main_title[:20]}",
+            text=f"❌ Удалить {main_title[:25]}",
             callback_data=f"rmal:{main_id}",
         )])
     lines.append("\n<i>Нажми кнопку чтобы удалить привязку.</i>")
     kb = InlineKeyboardMarkup(inline_keyboard=buttons) if buttons else None
     await message.answer("\n".join(lines), parse_mode="HTML", reply_markup=kb)
+
+
+@router.message(BotCommand("снятьнадмин", "forceunlink"), RankFilter("developer"))
+async def cmd_force_remove_admin_link(message: Message, cmd_args: str):
+    """Developer: принудительно снять привязку по chat_id."""
+    arg = cmd_args.strip()
+    if arg:
+        try:
+            main_chat_id = int(arg)
+        except ValueError:
+            await message.answer("❌ Укажи числовой chat_id.", parse_mode="HTML")
+            return
+    elif message.chat.type in ("group", "supergroup"):
+        main_chat_id = message.chat.id
+    else:
+        await message.answer("❌ Укажи main chat_id.", parse_mode="HTML")
+        return
+
+    await remove_chat_admin_link(main_chat_id)
+    await message.answer(
+        f"✅ Привязка для <code>{main_chat_id}</code> удалена.",
+        parse_mode="HTML",
+    )
 
 
 @router.callback_query(F.data.startswith("rmal:"))
@@ -1148,8 +1229,7 @@ async def cb_remove_admin_link(callback: CallbackQuery):
     if not links:
         try:
             await callback.message.edit_text(
-                "📋 Привязки не настроены.\n"
-                "Все уведомления идут во все глобальные админ-группы.",
+                "📋 Привязок нет.\nУведомления из каждого чата идут в тот же чат.",
                 parse_mode="HTML",
             )
         except Exception:
@@ -1169,7 +1249,7 @@ async def cb_remove_admin_link(callback: CallbackQuery):
         lines.append(f"  💬 <code>{main_id}</code> {main_title}")
         lines.append(f"     → 🔔 <code>{adm_id}</code> {adm_title}")
         buttons.append([InlineKeyboardButton(
-            text=f"❌ Удалить {main_title[:20]}",
+            text=f"❌ Удалить {main_title[:25]}",
             callback_data=f"rmal:{main_id}",
         )])
     kb = InlineKeyboardMarkup(inline_keyboard=buttons) if buttons else None
