@@ -1501,7 +1501,8 @@ async def init_db():
         async with postgres_connect() as _db:
             await _db.execute("""
                 INSERT INTO marriages_global (user_id, partner_id, married_at)
-                SELECT DISTINCT ON (user_id) user_id, partner_id, married_at
+                SELECT DISTINCT ON (user_id) user_id, partner_id,
+                       NULLIF(married_at, '')::TIMESTAMPTZ
                 FROM marriages ORDER BY user_id, married_at DESC
                 ON CONFLICT DO NOTHING
             """)
@@ -1517,7 +1518,8 @@ async def init_db():
                                          fatigue, walk_end_at, last_walked, adopted_at)
                 SELECT DISTINCT ON (user_id)
                        user_id, pet_type, name, color_name, emoji_status,
-                       COALESCE(fatigue, 0), walk_end_at, last_walked, adopted_at
+                       COALESCE(fatigue, 0), walk_end_at, last_walked,
+                       NULLIF(adopted_at, '')::TIMESTAMPTZ
                 FROM pets ORDER BY user_id, adopted_at DESC
                 ON CONFLICT DO NOTHING
             """)
