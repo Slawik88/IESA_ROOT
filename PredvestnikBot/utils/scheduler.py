@@ -231,10 +231,12 @@ async def _task_marriage_anniversary(bot) -> None:
     for row in marriages:
         uid        = row["user_id"]
         partner_id = row["partner_id"]
-        chat_id    = row["chat_id"]
+        chat_id    = row["chat_id"]   # may be None if no common chat found
         married_at = row.get("married_at", "")
 
-        if not married_at or is_isolated_chat(chat_id):
+        if not married_at:
+            continue
+        if chat_id and is_isolated_chat(chat_id):
             continue
 
         if isinstance(married_at, str):
@@ -252,13 +254,14 @@ async def _task_marriage_anniversary(bot) -> None:
         if days < 7 or days % 7 != 0:
             continue
 
-        # Persistent DB guard — survives restarts
-        if await is_anniversary_awarded(uid, chat_id, today_str):
+        # Persistent DB guard — survives restarts (uid-based, chat-agnostic)
+        if await is_anniversary_awarded(uid, 0, today_str):
             continue
-        await mark_anniversary_awarded(uid, chat_id, today_str)
+        await mark_anniversary_awarded(uid, 0, today_str)
 
-        await add_mora(uid, chat_id, ANNIVERSARY_MORA)
-        await add_mora(partner_id, chat_id, ANNIVERSARY_MORA)
+        # Mora is global (chat_id=0 bypasses isolation guard intentionally)
+        await add_mora(uid, 0, ANNIVERSARY_MORA)
+        await add_mora(partner_id, 0, ANNIVERSARY_MORA)
 
         user = await get_user(uid)
         partner = await get_user(partner_id)
@@ -266,16 +269,17 @@ async def _task_marriage_anniversary(bot) -> None:
         p_name = html.escape(partner["full_name"]) if partner else str(partner_id)
 
         weeks = days // 7
-        try:
-            await bot.send_message(
-                chat_id,
-                f"💍 <b>Юбилей!</b> {user_mention(uid, u_name)} и {user_mention(partner_id, p_name)} "
-                f"вместе уже <b>{weeks} нед.</b> ({days} дн.)\n"
-                f"Каждый получает <b>+{ANNIVERSARY_MORA} 🪙</b> в подарок! 🎁",
-                parse_mode="HTML",
-            )
-        except Exception as exc:
-            log.warning("Cannot send anniversary to %s: %s", chat_id, exc)
+        if chat_id:
+            try:
+                await bot.send_message(
+                    chat_id,
+                    f"💍 <b>Юбилей!</b> {user_mention(uid, u_name)} и {user_mention(partner_id, p_name)} "
+                    f"вместе уже <b>{weeks} нед.</b> ({days} дн.)\n"
+                    f"Каждый получает <b>+{ANNIVERSARY_MORA} 🪙</b> в подарок! 🎁",
+                    parse_mode="HTML",
+                )
+            except Exception as exc:
+                log.warning("Cannot send anniversary to %s: %s", chat_id, exc)
 
 
 # ─── Еженедельный розыгрыш лотереи (по воскресеньям) ─────────────────────────
