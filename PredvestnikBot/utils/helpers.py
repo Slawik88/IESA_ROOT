@@ -102,22 +102,39 @@ def format_duration(iso_str: str) -> str:
 
 
 async def notify_admins(bot, text: str, source_chat_id: int | None = None):
-    """Send a system notification to all admin groups.
-    Falls back to individual staff DMs if no admin groups are configured.
+    """Send a system notification to the appropriate admin chat.
+
+    Routing priority:
+      1. Per-chat link: if source_chat_id has an explicit admin-chat binding,
+         send ONLY to that chat.
+      2. Global admin groups: if no per-chat link, send to all global admin groups.
+      3. Staff DMs: fallback if no admin groups configured at all.
     """
-    from database.db import get_admin_group_ids, get_staff_in_chat
+    from database.db import get_admin_group_ids, get_admin_chat_for, get_staff_in_chat
     from utils.ranks import rank_level
 
-    admin_groups = get_admin_group_ids()
+    # 1. Per-chat link (highest priority)
+    if source_chat_id:
+        linked = get_admin_chat_for(source_chat_id)
+        if linked:
+            try:
+                await bot.send_message(linked, text, parse_mode="HTML", disable_web_page_preview=True)
+            except Exception:
+                pass
+            return
 
+    # 2. Global admin groups
+    admin_groups = get_admin_group_ids()
     if admin_groups:
         for gid in admin_groups:
             try:
                 await bot.send_message(gid, text, parse_mode="HTML", disable_web_page_preview=True)
             except Exception:
                 pass
-    elif source_chat_id:
-        # Fallback: DM staff from the source chat
+        return
+
+    # 3. DM fallback: send to staff of the source chat
+    if source_chat_id:
         from config import REPORT_NOTIFY_RANK
         staff = await get_staff_in_chat(source_chat_id)
         for s in staff:

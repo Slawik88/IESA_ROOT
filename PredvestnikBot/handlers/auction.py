@@ -28,7 +28,6 @@ from utils.helpers import user_mention
 from filters.chat_mode import MainChatOnly
 router = Router()
 router.message.filter(MainChatOnly())
-router.callback_query.filter(MainChatOnly())
 
 
 

@@ -333,6 +333,15 @@ async def init_db():
             )
         """)
 
+        # Привязка основного чата к конкретному чату-администрации
+        # (уведомления из main_chat_id идут в admin_chat_id)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS chat_admin_links (
+                main_chat_id  BIGINT PRIMARY KEY,
+                admin_chat_id BIGINT NOT NULL
+            )
+        """)
+
         # Таблица типов каналов (правила/основной/etc.)
         await db.execute("""
             CREATE TABLE IF NOT EXISTS channel_types (
@@ -1368,6 +1377,7 @@ async def init_db():
     await load_whitelist()
     await load_admin_groups()
     await load_test_chats()
+    await load_chat_admin_links()
     
     # ═══════════════════════════════════════════════════════════════════════════════
     #  🔄 PostgreSQL TIMESTAMPTZ миграции для TEXT полей дат
@@ -1736,6 +1746,55 @@ def get_chat_isolation_mode(chat_id: int) -> str | None:
     if chat_id in _admin_groups:
         return "admin"
     return None
+
+
+# ─── Chat → Admin-chat links (привязка чата к его чату-администрации) ─────────
+# Уведомления из конкретного основного чата идут только в СВОЙ админ-чат.
+# Если привязка не задана — используются глобальные admin_groups.
+
+_chat_admin_links: dict[int, int] = {}  # main_chat_id -> admin_chat_id
+
+
+async def load_chat_admin_links():
+    """Load chat→admin bindings from DB into memory cache."""
+    global _chat_admin_links
+    async with postgres_connect() as db:
+        async with db.execute("SELECT main_chat_id, admin_chat_id FROM chat_admin_links") as c:
+            rows = await c.fetchall()
+    _chat_admin_links = {r[0]: r[1] for r in rows}
+
+
+async def set_chat_admin_link(main_chat_id: int, admin_chat_id: int):
+    """Link a main chat to its admin chat. Upserts."""
+    async with postgres_connect() as db:
+        await db.execute(
+            """INSERT INTO chat_admin_links (main_chat_id, admin_chat_id)
+               VALUES (?, ?)
+               ON CONFLICT (main_chat_id) DO UPDATE SET admin_chat_id = EXCLUDED.admin_chat_id""",
+            (main_chat_id, admin_chat_id),
+        )
+        await db.commit()
+    _chat_admin_links[main_chat_id] = admin_chat_id
+
+
+async def remove_chat_admin_link(main_chat_id: int):
+    """Remove the admin-chat link for a main chat."""
+    async with postgres_connect() as db:
+        await db.execute(
+            "DELETE FROM chat_admin_links WHERE main_chat_id = ?", (main_chat_id,)
+        )
+        await db.commit()
+    _chat_admin_links.pop(main_chat_id, None)
+
+
+def get_admin_chat_for(main_chat_id: int) -> int | None:
+    """Sync lookup: returns admin_chat_id for a main chat, or None if not linked."""
+    return _chat_admin_links.get(main_chat_id)
+
+
+def get_all_chat_admin_links() -> dict[int, int]:
+    """Returns a copy of all main→admin chat links."""
+    return dict(_chat_admin_links)
 
 
 # ─── Rest users (отдыхающие — защита от чистки) ──────────────────────────────

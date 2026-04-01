@@ -14,7 +14,6 @@ from filters.bot_command import BotCommand
 from filters.chat_mode import MainChatOnly
 router = Router()
 router.message.filter(MainChatOnly())
-router.callback_query.filter(MainChatOnly())
 
 
 _WTTR_URL = "https://wttr.in/{city}?format=j1&lang=ru"

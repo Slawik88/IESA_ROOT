@@ -60,7 +60,6 @@ from utils.ranks import rank_level
 from filters.chat_mode import MainChatOnly
 router = Router()
 router.message.filter(MainChatOnly())
-router.callback_query.filter(MainChatOnly())
 
 
 
@@ -820,7 +819,12 @@ async def cmd_anon_message(message: Message, cmd_args: str):
         return
 
     admin_groups = get_admin_group_ids()
-    if not admin_groups:
+    # Determine which admin chats should receive this anon message:
+    # prefer a per-chat link, fall back to global admin groups.
+    from database.db import get_admin_chat_for
+    linked_admin = get_admin_chat_for(chat_id)
+    target_admins = [linked_admin] if linked_admin else list(admin_groups)
+    if not target_admins:
         await message.answer("❌ Администраторские группы не настроены. Обратись к владельцу.")
         return
 
@@ -857,7 +861,7 @@ async def cmd_anon_message(message: Message, cmd_args: str):
         )]
     ])
     
-    for ag_id in admin_groups:
+    for ag_id in target_admins:
         try:
             await bot.send_message(
                 ag_id,
@@ -891,7 +895,7 @@ async def cmd_anon_message(message: Message, cmd_args: str):
 @router.callback_query(F.data.startswith("anon_forward:"))
 async def cb_anon_forward_to_main_chat(callback: CallbackQuery):
     """Forward anonymous message to main chat."""
-    from database.db import get_channel_type, get_user_stats
+    from database.db import get_user_stats
     from utils.ranks import rank_level
     
     caller_id = callback.from_user.id
@@ -905,36 +909,30 @@ async def cb_anon_forward_to_main_chat(callback: CallbackQuery):
     
     # Extract original chat_id from callback data
     original_chat_id = int(callback.data.split(":", 1)[1])
-    
-    # Get main chat ID
-    main_chat_id = await get_channel_type("main")
-    if not main_chat_id:
-        await callback.answer("❌ Основной чат не настроен.", show_alert=True)
-        return
-    
+
     # Extract anonymous message text from current message
     current_text = callback.message.text or callback.message.caption or ""
     if "📨 Анонимное сообщение" not in current_text:
         await callback.answer("❌ Не удалось получить текст сообщения.", show_alert=True)
         return
-    
+
     # Extract just the anonymous message content (after the header)
     try:
-        lines = current_text.split("\n")
+        text_lines = current_text.split("\n")
         # Skip "📨 Анонимное сообщение", "💬 Чат: ...", and empty line
-        anon_text = "\n".join(lines[3:]) if len(lines) > 3 else ""
+        anon_text = "\n".join(text_lines[3:]) if len(text_lines) > 3 else ""
     except Exception:
         await callback.answer("❌ Ошибка обработки текста.", show_alert=True)
         return
-    
+
     if not anon_text.strip():
         await callback.answer("❌ Пустое сообщение.", show_alert=True)
         return
-    
+
     try:
-        # Send to main chat as anonymous user message  
+        # Forward back to the ORIGINAL source chat (not a generic "main" channel type)
         await callback.bot.send_message(
-            main_chat_id,
+            original_chat_id,
             f"📨 <b>Анонимное сообщение</b>\n\n{html.escape(anon_text.strip())}",
             parse_mode="HTML",
         )

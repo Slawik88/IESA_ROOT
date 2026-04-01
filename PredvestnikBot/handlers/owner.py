@@ -15,6 +15,7 @@ from database.db import (
     get_user_stats, remove_allowed_group, set_rank_in_chat, set_user_stat_in_chat,
     add_admin_group, remove_admin_group, get_admin_groups,
     add_test_chat, remove_test_chat, get_test_chat_ids, get_chat_isolation_mode,
+    set_chat_admin_link, remove_chat_admin_link, get_all_chat_admin_links, get_admin_chat_for,
     add_xp_in_chat,
     # Channel types
     set_channel_type, remove_channel_type, get_channel_type, get_all_channel_types,
@@ -992,6 +993,191 @@ async def cmd_chat_status(message: Message, cmd_args: str):
         f"📊 Статус чата <code>{chat_id}</code>:\n{label}",
         parse_mode="HTML",
     )
+
+
+# ──────────────────── Привязка основного чата к чату-администрации ──────────────────────────
+# Бот отправляет уведомления (репорты, антиспам, варны) в привязанный чат администрации.
+# Если привязка не задана — уведомления идут во все глобальные admin_groups.
+#
+# Использование:
+#   1. Перейди в основной чат:
+#         бот надминчат -100YYYY
+#      или укажи оба ID:
+#         бот надминчат -100XXX -100YYY
+#   2. Бот автоматически зарегистрирует -100YYYY как admin_group.
+
+
+@router.message(BotCommand("надминчат", "setadminchat", "linkadmin"), RankFilter("developer"))
+async def cmd_set_admin_chat(message: Message, cmd_args: str):
+    """Привязать основной чат к чату-администрации.
+
+    Варианты:
+      бот надминчат -100YYYY            — [main=текущий] → [admin=-100YYYY]
+      бот надминчат -100XXX -100YYYY   — [main=-100XXX] → [admin=-100YYYY]
+    """
+    args = cmd_args.split()
+    if len(args) == 1:
+        # One arg: admin_chat_id, current chat is main
+        if message.chat.type not in ("group", "supergroup"):
+            await message.answer(
+                "❌ Вызови в основной группе или укажи оба ID:\n"
+                "<code>бот надминчат -100ОСНОВНОЙ -100АДМИН</code>",
+                parse_mode="HTML",
+            )
+            return
+        main_chat_id = message.chat.id
+        try:
+            admin_chat_id = int(args[0])
+        except ValueError:
+            await message.answer("❌ Укажи числовой chat_id админ-чата.", parse_mode="HTML")
+            return
+    elif len(args) == 2:
+        # Two args: main_chat_id admin_chat_id
+        try:
+            main_chat_id = int(args[0])
+            admin_chat_id = int(args[1])
+        except ValueError:
+            await message.answer(
+                "❌ Неверный формат.\n"
+                "Пример: <code>бот надминчат -100ОСНОВНОЙ -100АДМИН</code>",
+                parse_mode="HTML",
+            )
+            return
+    else:
+        await message.answer(
+            "🔗 <b>Привязка админ-чата</b>\n\n"
+            "В основном чате:\n"
+            "  <code>бот надминчат -100АДМИН</code>\n"
+            "Или по ID:\n"
+            "  <code>бот надминчат -100ОСНОВНОЙ -100АДМИН</code>",
+            parse_mode="HTML",
+        )
+        return
+
+    # Register admin_chat as an admin_group too (so it gets global fallback & isolation)
+    await add_admin_group(admin_chat_id)
+    await set_chat_admin_link(main_chat_id, admin_chat_id)
+
+    await message.answer(
+        f"🔗 Привязка установлена:\n"
+        f"  Основной чат: <code>{main_chat_id}</code>\n"
+        f"  Админ-чат:  <code>{admin_chat_id}</code>\n\n"
+        f"Уведомления (репорты, варны, спам) из <code>{main_chat_id}</code>\n"
+        f"будут поступать только в <code>{admin_chat_id}</code>.",
+        parse_mode="HTML",
+    )
+
+
+@router.message(BotCommand("снятьнадмин", "unsetadminchat", "unlinkadmin"), RankFilter("developer"))
+async def cmd_remove_admin_chat_link(message: Message, cmd_args: str):
+    """Снять привязку чата к админ-чату.
+
+    Без аргумента — снимает текущий чат.
+    С аргументом — указанный chat_id.
+    """
+    arg = cmd_args.strip()
+    if arg:
+        try:
+            main_chat_id = int(arg)
+        except ValueError:
+            await message.answer("❌ Укажи числовой chat_id.", parse_mode="HTML")
+            return
+    elif message.chat.type in ("group", "supergroup"):
+        main_chat_id = message.chat.id
+    else:
+        await message.answer("❌ Укажи main chat_id или вызови в основном чате.", parse_mode="HTML")
+        return
+
+    await remove_chat_admin_link(main_chat_id)
+    await message.answer(
+        f"✅ Привязка для чата <code>{main_chat_id}</code> удалена.\n"
+        f"Уведомления будут идти во все глобальные admin_groups.",
+        parse_mode="HTML",
+    )
+
+
+@router.message(BotCommand("привязки", "adminlinks", "chatlinks"), RankFilter("developer"))
+async def cmd_list_admin_links(message: Message):
+    """Показать все привязки main → admin чат."""
+    links = get_all_chat_admin_links()
+    if not links:
+        await message.answer(
+            "📋 Привязки не настроены.\n"
+            "Все уведомления идут во все глобальные админ-группы.\n\n"
+            "<i>Установить: в основном чате <code>бот надминчат -100ADMIN</code></i>",
+            parse_mode="HTML",
+        )
+        return
+
+    from database.db import get_active_chats
+    chats = await get_active_chats()
+    chat_map = {c["chat_id"]: c["title"] for c in chats}
+
+    lines = [f"🔗 <b>Привязки main → admin ({len(links)}):</b>\n"]
+    buttons: list[list[InlineKeyboardButton]] = []
+    for main_id, adm_id in sorted(links.items()):
+        main_title = chat_map.get(main_id, str(main_id))
+        adm_title  = chat_map.get(adm_id,  str(adm_id))
+        lines.append(f"  💬 <code>{main_id}</code> {main_title}")
+        lines.append(f"     → 🔔 <code>{adm_id}</code> {adm_title}")
+        buttons.append([InlineKeyboardButton(
+            text=f"❌ Удалить привязку {main_title[:20]}",
+            callback_data=f"rmal:{main_id}",
+        )])
+    lines.append("\n<i>Нажми кнопку чтобы удалить привязку.</i>")
+    kb = InlineKeyboardMarkup(inline_keyboard=buttons) if buttons else None
+    await message.answer("\n".join(lines), parse_mode="HTML", reply_markup=kb)
+
+
+@router.callback_query(F.data.startswith("rmal:"))
+async def cb_remove_admin_link(callback: CallbackQuery):
+    if not is_developer(callback.from_user.id):
+        stats = await get_user_stats(callback.from_user.id, callback.message.chat.id)
+        if not stats or rank_level(stats["rank"]) < rank_level("developer"):
+            await callback.answer("⛔ Только для разработчика.", show_alert=True)
+            return
+    try:
+        main_chat_id = int(callback.data.split(":", 1)[1])
+    except (ValueError, IndexError):
+        await callback.answer("❌ Ошибка")
+        return
+
+    await remove_chat_admin_link(main_chat_id)
+
+    links = get_all_chat_admin_links()
+    if not links:
+        try:
+            await callback.message.edit_text(
+                "📋 Привязки не настроены.\n"
+                "Все уведомления идут во все глобальные админ-группы.",
+                parse_mode="HTML",
+            )
+        except Exception:
+            pass
+        await callback.answer("✅ Привязка удалена")
+        return
+
+    from database.db import get_active_chats
+    chats = await get_active_chats()
+    chat_map = {c["chat_id"]: c["title"] for c in chats}
+
+    lines = [f"🔗 <b>Привязки main → admin ({len(links)}):</b>\n"]
+    buttons: list[list[InlineKeyboardButton]] = []
+    for main_id, adm_id in sorted(links.items()):
+        main_title = chat_map.get(main_id, str(main_id))
+        adm_title  = chat_map.get(adm_id,  str(adm_id))
+        lines.append(f"  💬 <code>{main_id}</code> {main_title}")
+        lines.append(f"     → 🔔 <code>{adm_id}</code> {adm_title}")
+        buttons.append([InlineKeyboardButton(
+            text=f"❌ Удалить {main_title[:20]}",
+            callback_data=f"rmal:{main_id}",
+        )])
+    kb = InlineKeyboardMarkup(inline_keyboard=buttons) if buttons else None
+    try:
+        await callback.message.edit_text("\n".join(lines), parse_mode="HTML", reply_markup=kb)
+    except Exception:
+        pass
+    await callback.answer(f"✅ Привязка {main_chat_id} удалена")
 
 
 # ─────────────────────── CHANNEL TYPES ────────────────────────────────────────
