@@ -78,7 +78,7 @@ async def start_expedition(uid: int, chat_id: int, option_key: str,
             from database.postgres import connect as postgres_connect
             async with postgres_connect() as db:
                 cursor = await db.execute(
-                    "UPDATE family_wallet SET balance=balance-$1 WHERE chat_id=$2 AND user_id=$3 AND balance>=$4",
+                    "UPDATE family_wallet SET balance=balance-? WHERE chat_id=? AND user_id=? AND balance>=?",
                     (cost, chat_id, uid, cost),
                 )
                 if cursor.rowcount == 0:
@@ -89,7 +89,7 @@ async def start_expedition(uid: int, chat_id: int, option_key: str,
             from database.postgres import connect as postgres_connect
             async with postgres_connect() as db:
                 cursor = await db.execute(
-                    "UPDATE users SET balance=balance-$1 WHERE user_id=$2 AND COALESCE(balance,0)>=$3",
+                    "UPDATE users SET balance=balance-? WHERE user_id=? AND COALESCE(balance,0)>=?",
                     (cost, uid, cost),
                 )
                 if cursor.rowcount == 0:
@@ -320,7 +320,7 @@ async def boost_expedition(uid: int, chat_id: int, item_id: int) -> dict:
     async with postgres_connect() as db:
         async with db.execute(
             "SELECT id, item_key, COALESCE(stack_count, 1) FROM gacha_inventory "
-            "WHERE id=$1 AND user_id=$2",
+            "WHERE id=? AND user_id=?",
             (item_id, uid),
         ) as c:
             item_row = await c.fetchone()
@@ -359,14 +359,14 @@ async def boost_expedition(uid: int, chat_id: int, item_id: int) -> dict:
         saved_minutes = int(saved_secs / 60)
 
         await db.execute(
-            "UPDATE pet_expeditions SET started_at=$1 WHERE user_id=$2 AND chat_id=$3 AND finished=0",
+            "UPDATE pet_expeditions SET started_at=? WHERE user_id=? AND chat_id=? AND finished=0",
             (new_started_at, uid, chat_id),
         )
         if stack_count <= 1:
-            await db.execute("DELETE FROM gacha_inventory WHERE id=$1", (iid,))
+            await db.execute("DELETE FROM gacha_inventory WHERE id=?", (iid,))
         else:
             await db.execute(
-                "UPDATE gacha_inventory SET stack_count = stack_count - 1 WHERE id=$1", (iid,)
+                "UPDATE gacha_inventory SET stack_count = stack_count - 1 WHERE id=?", (iid,)
             )
         await db.commit()
         new_end_at = (new_started_at + timedelta(hours=duration_h)).isoformat()
@@ -377,8 +377,8 @@ async def boost_expedition(uid: int, chat_id: int, item_id: int) -> dict:
 async def get_status(uid: int, chat_id: int) -> dict:
     """Return current expedition status and pet info.
 
-    Returns {active, started_at$1, duration_h$2, reward_min$3, reward_max$4,
-             remaining_sec$5, pet$6}.
+    Returns {active, started_at?, duration_h?, reward_min?, reward_max?,
+             remaining_sec?, pet?}.
     """
     from database.db import get_active_expedition, get_pet
 

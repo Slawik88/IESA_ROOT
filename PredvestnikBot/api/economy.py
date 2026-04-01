@@ -19,7 +19,7 @@ async def log_wallet_tx(
             await db.execute(
                 "INSERT INTO wallet_ledger "
                 "(chat_id, user_id, direction, amount, source, description, created_at) "
-                "VALUES ($1,$2,$3,$4,$5,$6,NOW())",
+                "VALUES (?,?,?,?,?,?,NOW())",
                 (chat_id, uid, direction, amount, source, description or ""),
             )
             await db.commit()
@@ -74,8 +74,8 @@ async def transfer_mora(from_uid: int, to_uid: int, chat_id: int, amount: int,
     async with postgres_connect() as db:
         # 1. Deduct from sender (atomic check)
         cursor = await db.execute(
-            "UPDATE users SET balance = balance - $1 "
-            "WHERE user_id = $1 AND COALESCE(balance,0) >= $2",
+            "UPDATE users SET balance = balance - ? "
+            "WHERE user_id = ? AND COALESCE(balance,0) >= ?",
             (deduct_total, from_uid, deduct_total),
         )
         if cursor.rowcount == 0:
@@ -86,19 +86,19 @@ async def transfer_mora(from_uid: int, to_uid: int, chat_id: int, amount: int,
 
         # 2. Credit receiver
         await db.execute(
-            "UPDATE users SET balance=COALESCE(balance,0)+$1, total_earned=COALESCE(total_earned,0)+$2 WHERE user_id=$3",
+            "UPDATE users SET balance=COALESCE(balance,0)+?, total_earned=COALESCE(total_earned,0)+? WHERE user_id=?",
             (credit_amount, credit_amount, to_uid),
         )
 
         # 3. Tax to treasury
         await db.execute(
-            "INSERT INTO chat_treasury (chat_id, balance) VALUES ($1,$2)"
+            "INSERT INTO chat_treasury (chat_id, balance) VALUES (?,?)"
             " ON CONFLICT(chat_id) DO UPDATE SET balance = chat_treasury.balance + excluded.balance",
             (chat_id, tax),
         )
         await db.execute(
             """INSERT INTO treasury_log (chat_id, user_id, amount, source, created_at)
-               VALUES ($1,$2,$3,$4,NOW())""",
+               VALUES (?,?,?,?,NOW())""",
             (chat_id, from_uid, tax, "transfer"),
         )
 
@@ -106,14 +106,14 @@ async def transfer_mora(from_uid: int, to_uid: int, chat_id: int, amount: int,
 
         # Read final balances
         async with db.execute(
-            "SELECT COALESCE(balance, 0) FROM users WHERE user_id=$1",
+            "SELECT COALESCE(balance, 0) FROM users WHERE user_id=?",
             (from_uid,),
         ) as c:
             row = await c.fetchone()
         from_bal = row[0] if row else 0
 
         async with db.execute(
-            "SELECT COALESCE(balance, 0) FROM users WHERE user_id=$1",
+            "SELECT COALESCE(balance, 0) FROM users WHERE user_id=?",
             (to_uid,),
         ) as c:
             row = await c.fetchone()
@@ -156,8 +156,8 @@ async def wallet_history(uid: int, chat_id: int, days: int = 7) -> list:
     async with postgres_connect() as db:
         async with db.execute(
             "SELECT direction, amount, source, description, created_at "
-            "FROM wallet_ledger WHERE user_id=$1 AND chat_id=$2 "
-            "AND created_at >= $1 "
+            "FROM wallet_ledger WHERE user_id=? AND chat_id=? "
+            "AND created_at >= ? "
             "ORDER BY created_at DESC LIMIT 100",
             (uid, chat_id, cutoff),
         ) as c:
@@ -196,7 +196,7 @@ async def buy_chat_buff(uid: int, chat_id: int, buff_type: str = "xp_plus10") ->
 
     async with postgres_connect() as db:
         cursor = await db.execute(
-            "UPDATE users SET balance=balance-$1 WHERE user_id=$2 AND COALESCE(balance,0)>=$3",
+            "UPDATE users SET balance=balance-? WHERE user_id=? AND COALESCE(balance,0)>=?",
             (CHAT_BUFF_PRICE, uid, CHAT_BUFF_PRICE),
         )
         if cursor.rowcount == 0:
@@ -205,7 +205,7 @@ async def buy_chat_buff(uid: int, chat_id: int, buff_type: str = "xp_plus10") ->
             raise ValueError(f"Недостаточно Моры: {bal}/{CHAT_BUFF_PRICE} 🪙")
         await db.commit()
         async with db.execute(
-            "SELECT COALESCE(balance, 0) AS balance FROM users WHERE user_id=$1",
+            "SELECT COALESCE(balance, 0) AS balance FROM users WHERE user_id=?",
             (uid,),
         ) as c:
             row = await c.fetchone()

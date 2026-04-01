@@ -154,7 +154,7 @@ async def deposit(uid: int, chat_id: int, plan_key: str,
         async with postgres_connect() as db:
             dep_cursor = await db.execute(
                 "INSERT INTO bank_deposits (user_id, chat_id, amount, rate, created_at, matures_at)"
-                " VALUES ($1,$2,$3,$4,$5,$6) RETURNING id",
+                " VALUES (?,?,?,?,?,?) RETURNING id",
                 (uid, chat_id, amount, eff_rate,
                  now.strftime("%Y-%m-%dT%H:%M"), matures.strftime("%Y-%m-%dT%H:%M")),
             )
@@ -167,7 +167,7 @@ async def deposit(uid: int, chat_id: int, plan_key: str,
         async with postgres_connect() as db:
             # Atomic: deduct mora + create deposit in one transaction
             cursor = await db.execute(
-                "UPDATE users SET balance=balance-$1 WHERE user_id=$2 AND COALESCE(balance,0)>=$3",
+                "UPDATE users SET balance=balance-? WHERE user_id=? AND COALESCE(balance,0)>=?",
                 (amount, uid, amount),
             )
             if cursor.rowcount == 0:
@@ -179,7 +179,7 @@ async def deposit(uid: int, chat_id: int, plan_key: str,
             matures = now + timedelta(days=plan["days"])
             dep_cursor = await db.execute(
                 "INSERT INTO bank_deposits (user_id, chat_id, amount, rate, created_at, matures_at)"
-                " VALUES ($1,$2,$3,$4,$5,$6) RETURNING id",
+                " VALUES (?,?,?,?,?,?) RETURNING id",
                 (uid, chat_id, amount, eff_rate,
                  now.strftime("%Y-%m-%dT%H:%M"), matures.strftime("%Y-%m-%dT%H:%M")),
             )
@@ -188,7 +188,7 @@ async def deposit(uid: int, chat_id: int, plan_key: str,
             await db.commit()
             # Read new personal balance
             async with db.execute(
-                "SELECT COALESCE(balance, 0) FROM users WHERE user_id=$1",
+                "SELECT COALESCE(balance, 0) FROM users WHERE user_id=?",
                 (uid,),
             ) as c:
                 row = await c.fetchone()

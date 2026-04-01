@@ -18,7 +18,7 @@ async def get_leaderboard(
     If uid is provided and the user is not in the top entries, adds a
     user_rank key with {rank, score}.
 
-    Returns {type, entries, uid, user_rank$1}.
+    Returns {type, entries, uid, user_rank?}.
     entries is a list of {rank, user_id, name, score}.
     """
     from database.db import (
@@ -60,8 +60,8 @@ async def get_leaderboard(
         async with postgres_connect() as db:
             async with db.execute(
                 "SELECT u.user_id, u.full_name, COALESCE(u.balance,0) AS balance, COALESCE(um.vip,0) AS vip "
-                "FROM users u LEFT JOIN user_mora um ON um.user_id=u.user_id AND um.chat_id=$1 "
-                "WHERE u.balance IS NOT NULL ORDER BY u.balance DESC LIMIT $1",
+                "FROM users u LEFT JOIN user_mora um ON um.user_id=u.user_id AND um.chat_id=? "
+                "WHERE u.balance IS NOT NULL ORDER BY u.balance DESC LIMIT ?",
                 (chat_id, limit),
             ) as c:
                 rows = await c.fetchall()
@@ -114,15 +114,15 @@ async def _get_user_rank(uid: int, chat_id: int, lb_type: str) -> dict | None:
     async with postgres_connect() as db:
         if lb_type == "messages":
             async with db.execute(
-                "SELECT COUNT(*)+1 FROM user_stats WHERE chat_id=$1 AND message_count > "
+                "SELECT COUNT(*)+1 FROM user_stats WHERE chat_id=? AND message_count > "
                 "COALESCE((SELECT message_count FROM user_stats "
-                "          WHERE user_id=$1 AND chat_id=$2), 0)",
+                "          WHERE user_id=? AND chat_id=?), 0)",
                 (chat_id, uid, chat_id),
             ) as c:
                 rank_row = await c.fetchone()
             async with db.execute(
                 "SELECT COALESCE(message_count, 0) FROM user_stats "
-                "WHERE user_id=$1 AND chat_id=$2",
+                "WHERE user_id=? AND chat_id=?",
                 (uid, chat_id),
             ) as c:
                 score_row = await c.fetchone()
@@ -130,28 +130,28 @@ async def _get_user_rank(uid: int, chat_id: int, lb_type: str) -> dict | None:
         elif lb_type == "mora":
             async with db.execute(
                 "SELECT COUNT(*)+1 FROM users WHERE balance IS NOT NULL AND balance > "
-                "COALESCE((SELECT balance FROM users WHERE user_id=$1), 0)",
+                "COALESCE((SELECT balance FROM users WHERE user_id=?), 0)",
                 (uid,),
             ) as c:
                 rank_row = await c.fetchone()
             async with db.execute(
                 "SELECT COALESCE(balance, 0) FROM users "
-                "WHERE user_id=$1",
+                "WHERE user_id=?",
                 (uid,),
             ) as c:
                 score_row = await c.fetchone()
 
         else:  # xp
             async with db.execute(
-                "SELECT COUNT(*)+1 FROM user_stats WHERE chat_id=$1 AND xp > "
+                "SELECT COUNT(*)+1 FROM user_stats WHERE chat_id=? AND xp > "
                 "COALESCE((SELECT xp FROM user_stats "
-                "          WHERE user_id=$1 AND chat_id=$2), 0)",
+                "          WHERE user_id=? AND chat_id=?), 0)",
                 (chat_id, uid, chat_id),
             ) as c:
                 rank_row = await c.fetchone()
             async with db.execute(
                 "SELECT COALESCE(xp, 0) FROM user_stats "
-                "WHERE user_id=$1 AND chat_id=$2",
+                "WHERE user_id=? AND chat_id=?",
                 (uid, chat_id),
             ) as c:
                 score_row = await c.fetchone()

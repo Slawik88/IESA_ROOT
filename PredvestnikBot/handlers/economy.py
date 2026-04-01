@@ -194,7 +194,7 @@ async def cmd_balance(message: Message, cmd_args: str):
     abs_cid = abs(message.chat.id)
     btn = InlineKeyboardButton(
         text="💰 Мой баланс в Mini App",
-        url=f"{MINI_APP_TG_URL}$1startapp={abs_cid}_profile",
+        url=f"{MINI_APP_TG_URL}?startapp={abs_cid}_profile",
     )
     await message.answer(
         "🔒 <b>Баланс скрыт в общих чатах — открой Mini App:</b>",
@@ -723,7 +723,7 @@ async def cmd_family_deposit(message: Message, cmd_args: str):
     from database.postgres import connect as postgres_connect
     async with postgres_connect() as db:
         cursor = await db.execute(
-            "UPDATE users SET balance=balance-$1 WHERE user_id=$2 AND COALESCE(balance,0)>=$3",
+            "UPDATE users SET balance=balance-? WHERE user_id=? AND COALESCE(balance,0)>=?",
             (amount, uid, amount),
         )
         if cursor.rowcount == 0:
@@ -731,7 +731,7 @@ async def cmd_family_deposit(message: Message, cmd_args: str):
             return
         await db.commit()
         async with db.execute(
-            "SELECT COALESCE(balance, 0) AS balance FROM users WHERE user_id=$1",
+            "SELECT COALESCE(balance, 0) AS balance FROM users WHERE user_id=?",
             (uid,),
         ) as c:
             row = await c.fetchone()
@@ -833,7 +833,7 @@ async def cmd_anon_message(message: Message, cmd_args: str):
     from database.postgres import connect as postgres_connect
     async with postgres_connect() as db:
         cursor = await db.execute(
-            "UPDATE users SET balance=balance-$1 WHERE user_id=$2 AND COALESCE(balance,0)>=$3",
+            "UPDATE users SET balance=balance-? WHERE user_id=? AND COALESCE(balance,0)>=?",
             (ANON_MSG_PRICE, uid, ANON_MSG_PRICE),
         )
         if cursor.rowcount == 0:
@@ -1007,7 +1007,7 @@ async def cmd_secret_message(message: Message, cmd_args: str):
     from database.postgres import connect as postgres_connect
     async with postgres_connect() as db:
         cursor = await db.execute(
-            "UPDATE users SET balance=balance-$1 WHERE user_id=$2 AND COALESCE(balance,0)>=$3",
+            "UPDATE users SET balance=balance-? WHERE user_id=? AND COALESCE(balance,0)>=?",
             (SECRET_MSG_PRICE, uid, SECRET_MSG_PRICE),
         )
         if cursor.rowcount == 0:

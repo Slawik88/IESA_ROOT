@@ -51,7 +51,7 @@ async def cmd_checkin(message: Message, cmd_args: str):
         return
 
     # Только просмотр стрика
-    cmd_text = (message.text or "").split()[1].lower() if len((message.text or "").split()) > 1 else ""
+    cmd_text = cmd_args.strip().lower()
     if cmd_text == "стрик":
         data = await get_daily_checkin(uid, chat_id)
         streak = data["streak"]
@@ -108,10 +108,9 @@ async def cmd_checkin(message: Message, cmd_args: str):
 
     # Block 4: Add season XP for checkin
     try:
-        from asgiref.sync import async_to_sync as _a2s
         from database.db import add_season_xp
-        season_result = _a2s(add_season_xp)(uid, 10)  # +10 season XP
-        if season_result.get("level_up"):
+        season_result = await add_season_xp(uid, 10)  # +10 season XP
+        if season_result and season_result.get("level_up"):
             lines.append(f"")
             lines.append(f"🌟 <b>Season Pass: Уровень {season_result['new_level']}!</b>")
     except Exception:

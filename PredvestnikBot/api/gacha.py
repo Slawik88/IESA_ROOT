@@ -152,7 +152,7 @@ async def gacha_roll(uid: int, chat_id: int, count: int,
         from database.postgres import connect as postgres_connect
         async with postgres_connect() as db:
             cursor = await db.execute(
-                "UPDATE users SET balance=balance-$1 WHERE user_id=$2 AND COALESCE(balance,0)>=$3",
+                "UPDATE users SET balance=balance-? WHERE user_id=? AND COALESCE(balance,0)>=?",
                 (price, uid, price),
             )
             if cursor.rowcount == 0:
@@ -161,7 +161,7 @@ async def gacha_roll(uid: int, chat_id: int, count: int,
                 raise ValueError(f"Недостаточно Моры ({bal}/{price} 🪙)")
             await db.commit()
             async with db.execute(
-                "SELECT COALESCE(balance, 0) AS balance FROM users WHERE user_id=$1",
+                "SELECT COALESCE(balance, 0) AS balance FROM users WHERE user_id=?",
                 (uid,),
             ) as c:
                 row = await c.fetchone()
@@ -258,10 +258,10 @@ async def gacha_roll(uid: int, chat_id: int, count: int,
         from database.db import postgres_connect as _pg
         async with _pg() as _db:
             await _db.execute(
-                "UPDATE user_mora SET total_gacha_rolls = COALESCE(total_gacha_rolls,0) + $1 WHERE user_id=$2 AND chat_id=$3",
+                "UPDATE user_mora SET total_gacha_rolls = COALESCE(total_gacha_rolls,0) + ? WHERE user_id=? AND chat_id=?",
                 (count, uid, chat_id)
             )
-            row = await _db.fetchone("SELECT total_gacha_rolls FROM user_mora WHERE user_id=$1 AND chat_id=$2", (uid, chat_id))
+            row = await _db.fetchone("SELECT total_gacha_rolls FROM user_mora WHERE user_id=? AND chat_id=?", (uid, chat_id))
             total_rolls = int(row["total_gacha_rolls"] or 0) if row else count
         from api.achievements import check_and_award as _ach
         await _ach(uid, chat_id, "gacha_rolls", total_rolls)

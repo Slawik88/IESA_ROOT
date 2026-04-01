@@ -297,7 +297,7 @@ async def cb_pet_pay(callback: CallbackQuery):
         from database.postgres import connect as postgres_connect
         async with postgres_connect() as db:
             cursor = await db.execute(
-                "UPDATE users SET balance=balance-$1 WHERE user_id=$2 AND COALESCE(balance,0)>=$3",
+                "UPDATE users SET balance=balance-? WHERE user_id=? AND COALESCE(balance,0)>=?",
                 (PET_ADOPT_PRICE, uid, PET_ADOPT_PRICE),
             )
             if cursor.rowcount == 0:
@@ -380,7 +380,7 @@ async def cb_pet_rename_confirm(callback: CallbackQuery):
     from database.postgres import connect as postgres_connect
     async with postgres_connect() as db:
         cursor = await db.execute(
-            "UPDATE users SET balance=balance-$1 WHERE user_id=$2 AND COALESCE(balance,0)>=$3",
+            "UPDATE users SET balance=balance-? WHERE user_id=? AND COALESCE(balance,0)>=?",
             (PET_RENAME_PRICE, uid, PET_RENAME_PRICE),
         )
         if cursor.rowcount == 0:
@@ -388,7 +388,7 @@ async def cb_pet_rename_confirm(callback: CallbackQuery):
             return
         await db.commit()
         async with db.execute(
-            "SELECT COALESCE(balance, 0) AS balance FROM users WHERE user_id=$1",
+            "SELECT COALESCE(balance, 0) AS balance FROM users WHERE user_id=?",
             (uid,),
         ) as c:
             row = await c.fetchone()
@@ -461,7 +461,7 @@ async def cb_pet_skip(callback: CallbackQuery):
     from database.postgres import connect as postgres_connect
     async with postgres_connect() as db:
         cursor = await db.execute(
-            "UPDATE users SET balance=balance-$1 WHERE user_id=$2 AND COALESCE(balance,0)>=$3",
+            "UPDATE users SET balance=balance-? WHERE user_id=? AND COALESCE(balance,0)>=?",
             (PET_MORA_SKIP_PRICE, uid, PET_MORA_SKIP_PRICE),
         )
         if cursor.rowcount == 0:
@@ -469,7 +469,7 @@ async def cb_pet_skip(callback: CallbackQuery):
             return
         await db.commit()
         async with db.execute(
-            "SELECT COALESCE(balance, 0) AS balance FROM users WHERE user_id=$1",
+            "SELECT COALESCE(balance, 0) AS balance FROM users WHERE user_id=?",
             (uid,),
         ) as c:
             row = await c.fetchone()
@@ -672,7 +672,7 @@ async def cmd_change_pet_type(message: Message, cmd_args: str):
         from database.postgres import connect as postgres_connect
         async with postgres_connect() as db:
             cursor = await db.execute(
-                "UPDATE users SET balance=balance-$1 WHERE user_id=$2 AND COALESCE(balance,0)>=$3",
+                "UPDATE users SET balance=balance-? WHERE user_id=? AND COALESCE(balance,0)>=?",
                 (PET_CHANGE_TYPE_PRICE, uid, PET_CHANGE_TYPE_PRICE),
             )
             if cursor.rowcount == 0:
@@ -680,7 +680,7 @@ async def cmd_change_pet_type(message: Message, cmd_args: str):
                 return
             await db.commit()
             async with db.execute(
-                "SELECT COALESCE(balance, 0) AS balance FROM users WHERE user_id=$1",
+                "SELECT COALESCE(balance, 0) AS balance FROM users WHERE user_id=?",
                 (uid,),
             ) as c:
                 row = await c.fetchone()
@@ -689,8 +689,8 @@ async def cmd_change_pet_type(message: Message, cmd_args: str):
         await change_pet_type(uid, chat_id, new_type)
         old_emoji = _PET_EMOJI.get(pet["pet_type"], "🐾")
         new_emoji = _PET_EMOJI.get(new_type, "🐾")
-        old_name  = _PET_NAME.get(pet["pet_type"], "$1")
-        new_name  = _PET_NAME.get(new_type, "$1")
+        old_name  = _PET_NAME.get(pet["pet_type"], "?")
+        new_name  = _PET_NAME.get(new_type, "?")
         await message.answer(
             f"✅ <b>Вид питомца изменён!</b>\n\n"
             f"{old_emoji} {old_name} → {new_emoji} {new_name}\n\n"

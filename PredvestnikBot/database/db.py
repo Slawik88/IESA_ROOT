@@ -1,4 +1,4 @@
-﻿import asyncpg
+import asyncpg
 import math
 from datetime import datetime, timedelta, date, timezone
 
@@ -1351,7 +1351,7 @@ async def init_db():
         async with postgres_connect() as db:
             for cid in ALLOWED_GROUPS:
                 await db.execute(
-                    "INSERT INTO allowed_groups (chat_id) VALUES ($1) ON CONFLICT (chat_id) DO NOTHING",
+                    "INSERT INTO allowed_groups (chat_id) VALUES (?) ON CONFLICT (chat_id) DO NOTHING",
                     (cid,),
                 )
             await db.commit()
@@ -1426,14 +1426,16 @@ async def init_db():
     # Добавляем колонку acquired_at в gacha_inventory для 3-дневного правила аукциона
     # DEFAULT NOW() - INTERVAL '10 days' чтобы старые предметы сразу считались "достаточно старыми"
     try:
-        await db.execute(
-            "ALTER TABLE gacha_inventory ADD COLUMN IF NOT EXISTS "
-            "acquired_at TIMESTAMPTZ DEFAULT NOW() - INTERVAL '10 days'"
-        )
-        # Для новых вставок acquired_at = obtained_at (они синонимы)
-        await db.execute(
-            "UPDATE gacha_inventory SET acquired_at = obtained_at WHERE acquired_at IS NULL OR acquired_at < NOW() - INTERVAL '11 days'"
-        )
+        async with postgres_connect() as db:
+            await db.execute(
+                "ALTER TABLE gacha_inventory ADD COLUMN IF NOT EXISTS "
+                "acquired_at TIMESTAMPTZ DEFAULT NOW() - INTERVAL '10 days'"
+            )
+            # Для новых вставок acquired_at = obtained_at (они синонимы)
+            await db.execute(
+                "UPDATE gacha_inventory SET acquired_at = obtained_at WHERE acquired_at IS NULL OR acquired_at < NOW() - INTERVAL '11 days'"
+            )
+            await db.commit()
     except Exception:
         pass
 
@@ -1441,37 +1443,43 @@ async def init_db():
     # Добавляем колонки глобального баланса в таблицу users
     for _col_def in ["balance BIGINT DEFAULT 0", "total_earned BIGINT DEFAULT 0"]:
         try:
-            await db.execute(f"ALTER TABLE users ADD COLUMN IF NOT EXISTS {_col_def}")
+            async with postgres_connect() as db:
+                await db.execute(f"ALTER TABLE users ADD COLUMN IF NOT EXISTS {_col_def}")
+                await db.commit()
         except Exception:
             pass  # Колонка уже существует
 
     # Глобальный брак (1 на пользователя, не привязан к чату)
     try:
-        await db.execute("""
-            CREATE TABLE IF NOT EXISTS marriages_global (
-                user_id    BIGINT PRIMARY KEY,
-                partner_id BIGINT NOT NULL,
-                married_at TIMESTAMPTZ NOT NULL
-            )
-        """)
+        async with postgres_connect() as db:
+            await db.execute("""
+                CREATE TABLE IF NOT EXISTS marriages_global (
+                    user_id    BIGINT PRIMARY KEY,
+                    partner_id BIGINT NOT NULL,
+                    married_at TIMESTAMPTZ NOT NULL
+                )
+            """)
+            await db.commit()
     except Exception:
         pass
 
     # Глобальный питомец (1 на пользователя, не привязан к чату)
     try:
-        await db.execute("""
-            CREATE TABLE IF NOT EXISTS pets_global (
-                user_id      BIGINT PRIMARY KEY,
-                pet_type     TEXT    NOT NULL,
-                name         TEXT    DEFAULT NULL,
-                color_name   TEXT    DEFAULT NULL,
-                emoji_status TEXT    DEFAULT NULL,
-                fatigue      INTEGER DEFAULT 0,
-                walk_end_at  TIMESTAMPTZ DEFAULT NULL,
-                last_walked  TIMESTAMPTZ DEFAULT NULL,
-                adopted_at   TIMESTAMPTZ NOT NULL
-            )
-        """)
+        async with postgres_connect() as db:
+            await db.execute("""
+                CREATE TABLE IF NOT EXISTS pets_global (
+                    user_id      BIGINT PRIMARY KEY,
+                    pet_type     TEXT    NOT NULL,
+                    name         TEXT    DEFAULT NULL,
+                    color_name   TEXT    DEFAULT NULL,
+                    emoji_status TEXT    DEFAULT NULL,
+                    fatigue      INTEGER DEFAULT 0,
+                    walk_end_at  TIMESTAMPTZ DEFAULT NULL,
+                    last_walked  TIMESTAMPTZ DEFAULT NULL,
+                    adopted_at   TIMESTAMPTZ NOT NULL
+                )
+            """)
+            await db.commit()
     except Exception:
         pass
 
@@ -1543,7 +1551,7 @@ async def enforce_rank_invariants():
     async with postgres_connect() as db:
         if DEVELOPER_ID:
             await db.execute(
-                "UPDATE user_stats SET rank = 'owner' WHERE rank = 'developer' AND user_id <> $1",
+                "UPDATE user_stats SET rank = 'owner' WHERE rank = 'developer' AND user_id <> ?",
                 (DEVELOPER_ID,),
             )
         else:
@@ -1560,7 +1568,7 @@ async def enforce_rank_invariants():
             user_id = row[1]
             if chat_id in seen_chat:
                 await db.execute(
-                    "UPDATE user_stats SET rank = 'co_owner' WHERE chat_id = $1 AND user_id = $2 AND rank = 'owner'",
+                    "UPDATE user_stats SET rank = 'co_owner' WHERE chat_id = ? AND user_id = ? AND rank = 'owner'",
                     (chat_id, user_id),
                 )
             else:
@@ -1601,7 +1609,7 @@ async def add_allowed_group(chat_id: int):
     """Add a group to the whitelist (DB + cache)."""
     async with postgres_connect() as db:
         await db.execute(
-            "INSERT INTO allowed_groups (chat_id) VALUES ($1) ON CONFLICT (chat_id) DO NOTHING",
+            "INSERT INTO allowed_groups (chat_id) VALUES (?) ON CONFLICT (chat_id) DO NOTHING",
             (chat_id,),
         )
         await db.commit()
@@ -1612,7 +1620,7 @@ async def remove_allowed_group(chat_id: int):
     """Remove a group from the whitelist (DB + cache)."""
     async with postgres_connect() as db:
         await db.execute(
-            "DELETE FROM allowed_groups WHERE chat_id = $1",
+            "DELETE FROM allowed_groups WHERE chat_id = ?",
             (chat_id,),
         )
         await db.commit()
@@ -1641,7 +1649,7 @@ async def get_admin_groups() -> list[int]:
 async def add_admin_group(chat_id: int):
     async with postgres_connect() as db:
         await db.execute(
-            "INSERT INTO admin_groups (chat_id) VALUES ($1) ON CONFLICT (chat_id) DO NOTHING",
+            "INSERT INTO admin_groups (chat_id) VALUES (?) ON CONFLICT (chat_id) DO NOTHING",
             (chat_id,),
         )
         await db.commit()
@@ -1651,7 +1659,7 @@ async def add_admin_group(chat_id: int):
 async def remove_admin_group(chat_id: int):
     async with postgres_connect() as db:
         await db.execute(
-            "DELETE FROM admin_groups WHERE chat_id = $1", (chat_id,),
+            "DELETE FROM admin_groups WHERE chat_id = ?", (chat_id,),
         )
         await db.commit()
     _admin_groups.discard(chat_id)
@@ -1668,7 +1676,7 @@ async def add_rest_user(user_id: int, chat_id: int, days: int, added_by: int):
     async with postgres_connect() as db:
         await db.execute(
             """INSERT INTO rest_users (user_id, chat_id, days, added_at, added_by)
-               VALUES ($1, $2, $3, $4, $5)
+               VALUES (?, ?, ?, ?, ?)
                ON CONFLICT(user_id, chat_id) DO UPDATE
                SET days = excluded.days, added_at = excluded.added_at, added_by = excluded.added_by""",
             (user_id, chat_id, days, now, added_by),
@@ -1679,7 +1687,7 @@ async def add_rest_user(user_id: int, chat_id: int, days: int, added_by: int):
 async def remove_rest_user(user_id: int, chat_id: int):
     async with postgres_connect() as db:
         await db.execute(
-            "DELETE FROM rest_users WHERE user_id = $1 AND chat_id = $2",
+            "DELETE FROM rest_users WHERE user_id = ? AND chat_id = ?",
             (user_id, chat_id),
         )
         await db.commit()
@@ -1692,7 +1700,7 @@ async def get_rest_users(chat_id: int):
                       u.full_name, u.username
                FROM rest_users r
                JOIN users u ON u.user_id = r.user_id
-               WHERE r.chat_id = $1""",
+               WHERE r.chat_id = ?""",
             (chat_id,),
         ) as c:
             return await c.fetchall()
@@ -1702,7 +1710,7 @@ async def is_on_rest(user_id: int, chat_id: int) -> bool:
     """Check if user is on rest and rest hasn't expired."""
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT days, added_at FROM rest_users WHERE user_id = $1 AND chat_id = $2",
+            "SELECT days, added_at FROM rest_users WHERE user_id = ? AND chat_id = ?",
             (user_id, chat_id),
         ) as c:
             row = await c.fetchone()
@@ -1720,7 +1728,7 @@ async def get_resting_user_ids(chat_id: int) -> set[int]:
     """Return set of user_ids currently on active rest in this chat."""
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT user_id, days, added_at FROM rest_users WHERE chat_id = $1",
+            "SELECT user_id, days, added_at FROM rest_users WHERE chat_id = ?",
             (chat_id,),
         ) as c:
             rows = await c.fetchall()
@@ -1741,7 +1749,7 @@ async def get_rest_info_map(chat_id: int) -> dict[int, dict]:
     """Return {user_id: {'days': N, 'days_left': N, 'expires': datetime}} for active rest users."""
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT user_id, days, added_at FROM rest_users WHERE chat_id = $1",
+            "SELECT user_id, days, added_at FROM rest_users WHERE chat_id = ?",
             (chat_id,),
         ) as c:
             rows = await c.fetchall()
@@ -1770,8 +1778,8 @@ async def set_newbie_shield(user_id: int, chat_id: int, days: int = 3) -> None:
     async with postgres_connect() as db:
         await db.execute(
             """UPDATE user_stats
-               SET newbie_shield_until = $1
-               WHERE user_id = $2 AND chat_id = $3
+               SET newbie_shield_until = ?
+               WHERE user_id = ? AND chat_id = ?
                  AND newbie_shield_until IS NULL""",
             (until, user_id, chat_id),
         )
@@ -1785,9 +1793,9 @@ async def get_shield_map(chat_id: int) -> dict[int, object]:
         async with db.execute(
             """SELECT user_id, newbie_shield_until
                FROM user_stats
-               WHERE chat_id = $1
+               WHERE chat_id = ?
                  AND newbie_shield_until IS NOT NULL
-                 AND newbie_shield_until > $2""",
+                 AND newbie_shield_until > ?""",
             (chat_id, now),
         ) as c:
             rows = await c.fetchall()
@@ -1799,7 +1807,7 @@ async def get_shield_map(chat_id: int) -> dict[int, object]:
 async def get_user(user_id: int):
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT * FROM users WHERE user_id = $1", (user_id,)
+            "SELECT * FROM users WHERE user_id = ?", (user_id,)
         ) as cursor:
             return await cursor.fetchone()
 
@@ -1810,7 +1818,7 @@ async def get_user_by_username(username: str):
         return None
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT * FROM users WHERE LOWER(username) IN ($1, $2)",
+            "SELECT * FROM users WHERE LOWER(username) IN (?, ?)",
             (uname, f"@{uname}"),
         ) as cursor:
             return await cursor.fetchone()
@@ -1822,7 +1830,7 @@ async def upsert_user(user_id: int, username: str, full_name: str):
         await db.execute(
             """
             INSERT INTO users (user_id, username, full_name, first_seen)
-            VALUES ($1, $2, $3, $4)
+            VALUES (?, ?, ?, ?)
             ON CONFLICT(user_id) DO UPDATE SET
                 username  = CASE WHEN excluded.username  != '' THEN excluded.username  ELSE users.username  END,
                 full_name = CASE WHEN excluded.full_name != '' THEN excluded.full_name ELSE users.full_name END
@@ -1835,7 +1843,7 @@ async def upsert_user(user_id: int, username: str, full_name: str):
 async def import_users_bulk(records: list[dict], chat_id: int) -> dict:
     """
     Импортирует список пользователей в БД. Поддерживаемые форматы записей:
-      • {user_id: int, message_count/messages: int, full_name$1, username$2}  → прямая запись
+      • {user_id: int, message_count/messages: int, full_name?, username?}  → прямая запись
       • {username: "@foo", messages/message_count: int}                     → pending (применится при первом сообщении)
     Возвращает {'ok_direct': int, 'ok_pending': int, 'errors': list[str]}
     """
@@ -1858,7 +1866,7 @@ async def import_users_bulk(records: list[dict], chat_id: int) -> dict:
                     await db.execute(
                         """
                         INSERT INTO users (user_id, username, full_name, first_seen)
-                        VALUES ($1, $2, $3, $4)
+                        VALUES (?, ?, ?, ?)
                         ON CONFLICT(user_id) DO UPDATE SET
                             username  = CASE WHEN excluded.username  != '' THEN excluded.username  ELSE users.username  END,
                             full_name = CASE WHEN excluded.full_name != '' THEN excluded.full_name ELSE users.full_name END
@@ -1868,7 +1876,7 @@ async def import_users_bulk(records: list[dict], chat_id: int) -> dict:
                     await db.execute(
                         """
                         INSERT INTO user_stats (user_id, chat_id, message_count)
-                        VALUES ($1, $2, $3)
+                        VALUES (?, ?, ?)
                         ON CONFLICT(user_id, chat_id) DO UPDATE SET
                             message_count = GREATEST(user_stats.message_count, excluded.message_count)
                         """,
@@ -1896,7 +1904,7 @@ async def import_users_bulk(records: list[dict], chat_id: int) -> dict:
 async def increment_message_count(user_id: int):
     async with postgres_connect() as db:
         await db.execute(
-            "UPDATE users SET message_count = message_count + 1 WHERE user_id = $1",
+            "UPDATE users SET message_count = message_count + 1 WHERE user_id = ?",
             (user_id,),
         )
         await db.commit()
@@ -1919,7 +1927,7 @@ async def store_pending_users(records: list[dict], chat_id: int) -> dict:
                 await db.execute(
                     """
                     INSERT INTO pending_user_imports (username, chat_id, message_count)
-                    VALUES ($1, $2, $3)
+                    VALUES (?, ?, ?)
                     ON CONFLICT(username, chat_id) DO UPDATE SET
                         message_count = GREATEST(pending_user_imports.message_count, excluded.message_count)
                     """,
@@ -1939,7 +1947,7 @@ async def apply_pending_import(username: str, user_id: int, chat_id: int) -> boo
         return False
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT message_count FROM pending_user_imports WHERE username=$1 AND chat_id=$2",
+            "SELECT message_count FROM pending_user_imports WHERE username=? AND chat_id=?",
             (uname_lower, chat_id),
         ) as c:
             row = await c.fetchone()
@@ -1950,14 +1958,14 @@ async def apply_pending_import(username: str, user_id: int, chat_id: int) -> boo
         await db.execute(
             """
             INSERT INTO user_stats (user_id, chat_id, message_count)
-            VALUES ($1, $2, $3)
+            VALUES (?, ?, ?)
             ON CONFLICT(user_id, chat_id) DO UPDATE SET
                 message_count = GREATEST(user_stats.message_count, excluded.message_count)
             """,
             (user_id, chat_id, pending_count),
         )
         await db.execute(
-            "DELETE FROM pending_user_imports WHERE username=$1 AND chat_id=$2",
+            "DELETE FROM pending_user_imports WHERE username=? AND chat_id=?",
             (uname_lower, chat_id),
         )
         await db.commit()
@@ -1973,7 +1981,7 @@ async def store_pending_marriages(username1: str, username2: str, chat_id: int, 
             await db.execute(
                 """
                 INSERT INTO pending_marriage_imports (username1, username2, chat_id, married_at)
-                VALUES ($1, $2, $3, $4)
+                VALUES (?, ?, ?, ?)
                 ON CONFLICT(username1, chat_id) DO UPDATE SET
                     username2  = excluded.username2,
                     married_at = excluded.married_at
@@ -1990,7 +1998,7 @@ async def apply_pending_marriages(username: str, user_id: int, chat_id: int):
         return
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT username2, married_at FROM pending_marriage_imports WHERE username1=$1 AND chat_id=$2",
+            "SELECT username2, married_at FROM pending_marriage_imports WHERE username1=? AND chat_id=?",
             (uname_lower, chat_id),
         ) as c:
             rows = await c.fetchall()
@@ -2001,27 +2009,27 @@ async def apply_pending_marriages(username: str, user_id: int, chat_id: int):
             married_at    = row["married_at"]
             # Ищем партнёра в таблице users по username (регистрируется при первом сообщении)
             async with db.execute(
-                "SELECT user_id FROM users WHERE LOWER(username)=$1",
+                "SELECT user_id FROM users WHERE LOWER(username)=?",
                 (partner_uname,),
             ) as c2:
                 partner_row = await c2.fetchone()
             if partner_row:
                 partner_id = partner_row["user_id"]
                 await db.execute(
-                    "DELETE FROM marriages_global WHERE user_id=$1 OR user_id=$2",
+                    "DELETE FROM marriages_global WHERE user_id=? OR user_id=?",
                     (user_id, partner_id),
                 )
                 await db.execute(
-                    "INSERT INTO marriages_global (user_id, partner_id, married_at) VALUES ($1,$2,$3) ON CONFLICT (user_id) DO NOTHING",
+                    "INSERT INTO marriages_global (user_id, partner_id, married_at) VALUES (?,?,?) ON CONFLICT (user_id) DO NOTHING",
                     (user_id, partner_id, married_at),
                 )
                 await db.execute(
-                    "INSERT INTO marriages_global (user_id, partner_id, married_at) VALUES ($1,$2,$3) ON CONFLICT (user_id) DO NOTHING",
+                    "INSERT INTO marriages_global (user_id, partner_id, married_at) VALUES (?,?,?) ON CONFLICT (user_id) DO NOTHING",
                     (partner_id, user_id, married_at),
                 )
                 for u in [uname_lower, partner_uname]:
                     await db.execute(
-                        "DELETE FROM pending_marriage_imports WHERE chat_id=$1 AND username1=$2",
+                        "DELETE FROM pending_marriage_imports WHERE chat_id=? AND username1=?",
                         (chat_id, u),
                     )
         await db.commit()
@@ -2040,7 +2048,7 @@ async def upsert_chat(
         await db.execute(
             """
             INSERT INTO chats (chat_id, title, username, chat_type, is_active)
-            VALUES ($1, $2, $3, $4, $5)
+            VALUES (?, ?, ?, ?, ?)
             ON CONFLICT(chat_id) DO UPDATE SET
                 title = excluded.title,
                 username = excluded.username,
@@ -2055,11 +2063,11 @@ async def upsert_chat(
 async def set_chat_active(chat_id: int, is_active: int):
     async with postgres_connect() as db:
         await db.execute(
-            "INSERT INTO chats (chat_id, is_active) VALUES ($1, $2) ON CONFLICT (chat_id) DO NOTHING",
+            "INSERT INTO chats (chat_id, is_active) VALUES (?, ?) ON CONFLICT (chat_id) DO NOTHING",
             (chat_id, is_active),
         )
         await db.execute(
-            "UPDATE chats SET is_active = $1 WHERE chat_id = $2",
+            "UPDATE chats SET is_active = ? WHERE chat_id = ?",
             (is_active, chat_id),
         )
         await db.commit()
@@ -2093,7 +2101,7 @@ async def get_chat_settings(chat_id: int):
         return cached[1]
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT * FROM chat_settings WHERE chat_id = $1", (chat_id,)
+            "SELECT * FROM chat_settings WHERE chat_id = ?", (chat_id,)
         ) as cursor:
             row = await cursor.fetchone()
     _chat_settings_cache[chat_id] = (now, row)
@@ -2119,10 +2127,10 @@ async def set_chat_setting(chat_id: int, key: str, value):
         raise ValueError(f"Invalid chat setting key: {key!r}")
     async with postgres_connect() as db:
         await db.execute(
-            "INSERT INTO chat_settings (chat_id) VALUES ($1) ON CONFLICT (chat_id) DO NOTHING", (chat_id,)
+            "INSERT INTO chat_settings (chat_id) VALUES (?) ON CONFLICT (chat_id) DO NOTHING", (chat_id,)
         )
         await db.execute(
-            f"UPDATE chat_settings SET {key} = $1 WHERE chat_id = $2", (value, chat_id)
+            f"UPDATE chat_settings SET {key} = ? WHERE chat_id = ?", (value, chat_id)
         )
         await db.commit()
     _invalidate_chat_settings(chat_id)
@@ -2143,7 +2151,7 @@ async def save_note(chat_id: int, name: str, content: str):
     async with postgres_connect() as db:
         await db.execute(
             """
-            INSERT INTO notes (chat_id, name, content) VALUES ($1, $2, $3)
+            INSERT INTO notes (chat_id, name, content) VALUES (?, ?, ?)
             ON CONFLICT(chat_id, name) DO UPDATE SET content = excluded.content
             """,
             (chat_id, name.lower(), content),
@@ -2154,7 +2162,7 @@ async def save_note(chat_id: int, name: str, content: str):
 async def get_note(chat_id: int, name: str):
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT * FROM notes WHERE chat_id = $1 AND name = $2",
+            "SELECT * FROM notes WHERE chat_id = ? AND name = ?",
             (chat_id, name.lower()),
         ) as cursor:
             return await cursor.fetchone()
@@ -2163,7 +2171,7 @@ async def get_note(chat_id: int, name: str):
 async def list_notes(chat_id: int):
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT name FROM notes WHERE chat_id = $1 ORDER BY name", (chat_id,)
+            "SELECT name FROM notes WHERE chat_id = ? ORDER BY name", (chat_id,)
         ) as cursor:
             return await cursor.fetchall()
 
@@ -2171,7 +2179,7 @@ async def list_notes(chat_id: int):
 async def delete_note(chat_id: int, name: str) -> bool:
     async with postgres_connect() as db:
         cursor = await db.execute(
-            "DELETE FROM notes WHERE chat_id = $1 AND name = $2",
+            "DELETE FROM notes WHERE chat_id = ? AND name = ?",
             (chat_id, name.lower()),
         )
         await db.commit()
@@ -2184,7 +2192,7 @@ async def add_filter(chat_id: int, keyword: str, response: str):
     async with postgres_connect() as db:
         await db.execute(
             """
-            INSERT INTO chat_filters (chat_id, keyword, response) VALUES ($1, $2, $3)
+            INSERT INTO chat_filters (chat_id, keyword, response) VALUES (?, ?, ?)
             ON CONFLICT(chat_id, keyword) DO UPDATE SET response = excluded.response
             """,
             (chat_id, keyword.lower(), response),
@@ -2195,7 +2203,7 @@ async def add_filter(chat_id: int, keyword: str, response: str):
 async def get_filters(chat_id: int):
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT * FROM chat_filters WHERE chat_id = $1", (chat_id,)
+            "SELECT * FROM chat_filters WHERE chat_id = ?", (chat_id,)
         ) as cursor:
             return await cursor.fetchall()
 
@@ -2203,7 +2211,7 @@ async def get_filters(chat_id: int):
 async def delete_filter(chat_id: int, keyword: str) -> bool:
     async with postgres_connect() as db:
         cursor = await db.execute(
-            "DELETE FROM chat_filters WHERE chat_id = $1 AND keyword = $2",
+            "DELETE FROM chat_filters WHERE chat_id = ? AND keyword = ?",
             (chat_id, keyword.lower()),
         )
         await db.commit()
@@ -2216,7 +2224,7 @@ async def add_blacklist_word(chat_id: int, word: str) -> bool:
     async with postgres_connect() as db:
         try:
             await db.execute(
-                "INSERT INTO blacklist (chat_id, word) VALUES ($1, $2)",
+                "INSERT INTO blacklist (chat_id, word) VALUES (?, ?)",
                 (chat_id, word.lower()),
             )
             await db.commit()
@@ -2228,7 +2236,7 @@ async def add_blacklist_word(chat_id: int, word: str) -> bool:
 async def remove_blacklist_word(chat_id: int, word: str) -> bool:
     async with postgres_connect() as db:
         cursor = await db.execute(
-            "DELETE FROM blacklist WHERE chat_id = $1 AND word = $2",
+            "DELETE FROM blacklist WHERE chat_id = ? AND word = ?",
             (chat_id, word.lower()),
         )
         await db.commit()
@@ -2238,7 +2246,7 @@ async def remove_blacklist_word(chat_id: int, word: str) -> bool:
 async def get_blacklist(chat_id: int):
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT word FROM blacklist WHERE chat_id = $1 ORDER BY word", (chat_id,)
+            "SELECT word FROM blacklist WHERE chat_id = ? ORDER BY word", (chat_id,)
         ) as cursor:
             return await cursor.fetchall()
 
@@ -2248,7 +2256,7 @@ async def get_blacklist(chat_id: int):
 async def get_locks(chat_id: int):
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT * FROM locks WHERE chat_id = $1", (chat_id,)
+            "SELECT * FROM locks WHERE chat_id = ?", (chat_id,)
         ) as cursor:
             return await cursor.fetchone()
 
@@ -2258,10 +2266,10 @@ async def set_lock(chat_id: int, lock_type: str, value: int):
         raise ValueError(f"Invalid lock type: {lock_type!r}")
     async with postgres_connect() as db:
         await db.execute(
-            "INSERT INTO locks (chat_id) VALUES ($1) ON CONFLICT (chat_id) DO NOTHING", (chat_id,)
+            "INSERT INTO locks (chat_id) VALUES (?) ON CONFLICT (chat_id) DO NOTHING", (chat_id,)
         )
         await db.execute(
-            f"UPDATE locks SET {lock_type} = $1 WHERE chat_id = $2", (value, chat_id)
+            f"UPDATE locks SET {lock_type} = ? WHERE chat_id = ?", (value, chat_id)
         )
         await db.commit()
 
@@ -2274,7 +2282,7 @@ async def get_rep_count_today(from_uid: int, to_uid: int, chat_id: int) -> int:
     cutoff = today + "T00:00:00"
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT COUNT(*) FROM rep_log WHERE from_uid=$1 AND to_uid=$2 AND chat_id=$3 AND given_at>=$4",
+            "SELECT COUNT(*) FROM rep_log WHERE from_uid=? AND to_uid=? AND chat_id=? AND given_at>=?",
             (from_uid, to_uid, chat_id, cutoff),
         ) as c:
             row = await c.fetchone()
@@ -2286,7 +2294,7 @@ async def can_give_rep(from_uid: int, to_uid: int, chat_id: int) -> bool:
     cutoff = datetime.now(timezone.utc) - timedelta(hours=2)
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT COUNT(*) FROM rep_log WHERE from_uid=$1 AND to_uid=$2 AND chat_id=$3 AND given_at>$4",
+            "SELECT COUNT(*) FROM rep_log WHERE from_uid=? AND to_uid=? AND chat_id=? AND given_at>?",
             (from_uid, to_uid, chat_id, cutoff),
         ) as c:
             row = await c.fetchone()
@@ -2323,7 +2331,7 @@ async def set_user_stat(user_id: int, field: str, value) -> bool:
         return False
     async with postgres_connect() as db:
         await db.execute(
-            f"UPDATE users SET {field} = $1 WHERE user_id = $2", (value, user_id)
+            f"UPDATE users SET {field} = ? WHERE user_id = ?", (value, user_id)
         )
         await db.commit()
     return True
@@ -2342,7 +2350,7 @@ async def increment_cleanup_count(chat_id: int, user_id: int):
 
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT * FROM cleanup_counts WHERE chat_id=$1 AND user_id=$2",
+            "SELECT * FROM cleanup_counts WHERE chat_id=? AND user_id=?",
             (chat_id, user_id),
         ) as c:
             row = await c.fetchone()
@@ -2352,7 +2360,7 @@ async def increment_cleanup_count(chat_id: int, user_id: int):
                 """
                 INSERT INTO cleanup_counts
                     (chat_id, user_id, count, week_count, day_count, week_start, day_start)
-                VALUES ($1, $2, 1, 1, 1, $3, $4)
+                VALUES (?, ?, 1, 1, 1, ?, ?)
                 """,
                 (chat_id, user_id, week_key, today),
             )
@@ -2368,9 +2376,9 @@ async def increment_cleanup_count(chat_id: int, user_id: int):
             await db.execute(
                 """
                 UPDATE cleanup_counts
-                SET count=count+1, week_count=$1, day_count=$2, week_start=$3, day_start=$4,
-                    yesterday_count=$5, last_week_count=$6
-                WHERE chat_id=$7 AND user_id=$8
+                SET count=count+1, week_count=?, day_count=?, week_start=?, day_start=?,
+                    yesterday_count=?, last_week_count=?
+                WHERE chat_id=? AND user_id=?
                 """,
                 (
                     week_count, day_count,
@@ -2394,13 +2402,13 @@ async def get_activity_report(chat_id: int):
             """
             SELECT u.user_id, u.full_name, u.username, COALESCE(us.rank, u.rank) AS rank,
                    COALESCE(cc.count, 0) AS total_count,
-                   CASE WHEN cc.week_start = $1 THEN COALESCE(cc.week_count, 0) ELSE 0 END AS week_count,
-                   CASE WHEN cc.day_start  = $2 THEN COALESCE(cc.day_count,  0) ELSE 0 END AS day_count,
+                   CASE WHEN cc.week_start = ? THEN COALESCE(cc.week_count, 0) ELSE 0 END AS week_count,
+                   CASE WHEN cc.day_start  = ? THEN COALESCE(cc.day_count,  0) ELSE 0 END AS day_count,
                    us.first_active, us.last_active
             FROM cleanup_counts cc
             JOIN users u ON u.user_id = cc.user_id
             LEFT JOIN user_stats us ON us.user_id = cc.user_id AND us.chat_id = cc.chat_id
-            WHERE cc.chat_id = $3 AND COALESCE(us.is_banned, 0) = 0
+            WHERE cc.chat_id = ? AND COALESCE(us.is_banned, 0) = 0
             ORDER BY week_count DESC
             """,
             (week_key, today, chat_id),
@@ -2418,7 +2426,7 @@ async def get_inactive_users(chat_id: int, min_msgs: int):
             FROM cleanup_counts cc
             JOIN users u ON u.user_id = cc.user_id
             LEFT JOIN user_stats us ON us.user_id = cc.user_id AND us.chat_id = cc.chat_id
-            WHERE cc.chat_id = $1 AND cc.count < $2
+            WHERE cc.chat_id = ? AND cc.count < ?
               AND COALESCE(us.is_banned, 0) = 0
               AND COALESCE(us.rank, u.rank) NOT IN ('moderator','admin_junior','admin_senior','co_owner','owner','developer','helper','admin')
             ORDER BY cc.count ASC
@@ -2431,7 +2439,7 @@ async def get_inactive_users(chat_id: int, min_msgs: int):
 async def reset_cleanup_counts(chat_id: int):
     async with postgres_connect() as db:
         await db.execute(
-            "UPDATE cleanup_counts SET count = 0 WHERE chat_id = $1", (chat_id,)
+            "UPDATE cleanup_counts SET count = 0 WHERE chat_id = ?", (chat_id,)
         )
         await db.commit()
 
@@ -2444,7 +2452,7 @@ async def buy_cleanup_pass(user_id: int, chat_id: int, price: int) -> int:
     async with postgres_connect() as db:
         # Проверяем, нет ли уже активного или pending пропуска
         async with db.execute(
-            "SELECT id FROM cleanup_passes WHERE user_id=$1 AND chat_id=$2 AND status IN ('pending','approved')",
+            "SELECT id FROM cleanup_passes WHERE user_id=? AND chat_id=? AND status IN ('pending','approved')",
             (user_id, chat_id),
         ) as c:
             existing = await c.fetchone()
@@ -2452,7 +2460,7 @@ async def buy_cleanup_pass(user_id: int, chat_id: int, price: int) -> int:
             raise ValueError("У тебя уже есть активный пропуск чистки")
         cursor = await db.execute(
             "INSERT INTO cleanup_passes (user_id, chat_id, status, price, created_at) "
-            "VALUES ($1,$2,'pending',$3,$4) RETURNING id",
+            "VALUES (?,?,'pending',?,?) RETURNING id",
             (user_id, chat_id, price, now),
         )
         row = await cursor.fetchone()
@@ -2465,7 +2473,7 @@ async def resolve_cleanup_pass(pass_id: int, action: str, resolved_by: int) -> d
     now = datetime.now(timezone.utc)
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT * FROM cleanup_passes WHERE id=$1 AND status='pending'",
+            "SELECT * FROM cleanup_passes WHERE id=? AND status='pending'",
             (pass_id,),
         ) as c:
             row = await c.fetchone()
@@ -2473,7 +2481,7 @@ async def resolve_cleanup_pass(pass_id: int, action: str, resolved_by: int) -> d
             return None
         new_status = "approved" if action == "approve" else "rejected"
         await db.execute(
-            "UPDATE cleanup_passes SET status=$1, resolved_at=$2, resolved_by=$3 WHERE id=$4",
+            "UPDATE cleanup_passes SET status=?, resolved_at=?, resolved_by=? WHERE id=?",
             (new_status, now, resolved_by, pass_id),
         )
         await db.commit()
@@ -2484,7 +2492,7 @@ async def has_cleanup_pass(user_id: int, chat_id: int) -> bool:
     """Есть ли у пользователя одобренный пропуск чистки."""
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT 1 FROM cleanup_passes WHERE user_id=$1 AND chat_id=$2 AND status='approved'",
+            "SELECT 1 FROM cleanup_passes WHERE user_id=? AND chat_id=? AND status='approved'",
             (user_id, chat_id),
         ) as c:
             return bool(await c.fetchone())
@@ -2494,7 +2502,7 @@ async def use_cleanup_pass(user_id: int, chat_id: int) -> bool:
     """Использовать пропуск (пометить как used). Возвращает True если был пропуск."""
     async with postgres_connect() as db:
         cursor = await db.execute(
-            "UPDATE cleanup_passes SET status='used' WHERE user_id=$1 AND chat_id=$2 AND status='approved'",
+            "UPDATE cleanup_passes SET status='used' WHERE user_id=? AND chat_id=? AND status='approved'",
             (user_id, chat_id),
         )
         await db.commit()
@@ -2507,7 +2515,7 @@ async def get_pending_cleanup_passes(chat_id: int) -> list:
         async with db.execute(
             "SELECT cp.*, u.full_name FROM cleanup_passes cp "
             "LEFT JOIN users u ON u.user_id = cp.user_id "
-            "WHERE cp.chat_id=$1 AND cp.status='pending' ORDER BY cp.created_at",
+            "WHERE cp.chat_id=? AND cp.status='pending' ORDER BY cp.created_at",
             (chat_id,),
         ) as c:
             return [dict(r) for r in await c.fetchall()]
@@ -2579,7 +2587,7 @@ async def get_user_quest(user_id: int, chat_id: int, today_str: str) -> dict:
         await db.execute(
             """INSERT INTO user_quests
                (user_id, chat_id, quest_date, quest_type, goal, progress, completed, rewarded)
-               VALUES ($1,$2,$3,$4,$5,0,0,0)
+               VALUES (?,?,?,?,?,0,0,0)
                ON CONFLICT(user_id, chat_id, quest_date) DO NOTHING""",
             (user_id, chat_id, today_str, new_quest["type"], new_quest["goal"]),
         )
@@ -2602,14 +2610,14 @@ async def reroll_user_quest(user_id: int, chat_id: int, quest_date: str) -> dict
     new_quest = random.choice(candidates)
     async with postgres_connect() as db:
         await db.execute(
-            "DELETE FROM user_quests WHERE user_id=$1 AND chat_id=$2 AND quest_date=$3",
+            "DELETE FROM user_quests WHERE user_id=? AND chat_id=? AND quest_date=?",
             (user_id, chat_id, quest_date),
         )
         # Create fresh row with the new quest type/goal so it persists
         await db.execute(
             """INSERT INTO user_quests
                (user_id, chat_id, quest_date, quest_type, goal, progress, completed, rewarded)
-               VALUES ($1,$2,$3,$4,$5,0,0,0)""",
+               VALUES (?,?,?,?,?,0,0,0)""",
             (user_id, chat_id, quest_date, new_quest["type"], new_quest["goal"]),
         )
         await db.commit()
@@ -2619,7 +2627,7 @@ async def reroll_user_quest(user_id: int, chat_id: int, quest_date: str) -> dict
 async def get_quest_progress(user_id: int, chat_id: int, quest_date: str):
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT * FROM user_quests WHERE user_id=$1 AND chat_id=$2 AND quest_date=$3",
+            "SELECT * FROM user_quests WHERE user_id=? AND chat_id=? AND quest_date=?",
             (user_id, chat_id, quest_date),
         ) as c:
             return await c.fetchone()
@@ -2629,7 +2637,7 @@ async def quest_tick(user_id: int, chat_id: int, quest_date: str, quest_type: st
     """Ticks progress +1. Returns (new_progress, goal, just_completed). Creates row on first call."""
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT progress, goal, completed FROM user_quests WHERE user_id=$1 AND chat_id=$2 AND quest_date=$3",
+            "SELECT progress, goal, completed FROM user_quests WHERE user_id=? AND chat_id=? AND quest_date=?",
             (user_id, chat_id, quest_date),
         ) as c:
             row = await c.fetchone()
@@ -2638,7 +2646,7 @@ async def quest_tick(user_id: int, chat_id: int, quest_date: str, quest_type: st
             new_progress = 1
             just_completed = new_progress >= goal
             await db.execute(
-                """INSERT INTO user_quests (user_id, chat_id, quest_date, quest_type, goal, progress, completed) VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT DO NOTHING""",
+                """INSERT INTO user_quests (user_id, chat_id, quest_date, quest_type, goal, progress, completed) VALUES (?,?,?,?,?,?,?) ON CONFLICT DO NOTHING""",
                 (user_id, chat_id, quest_date, quest_type, goal, new_progress, 1 if just_completed else 0),
             )
             await db.commit()
@@ -2650,7 +2658,7 @@ async def quest_tick(user_id: int, chat_id: int, quest_date: str, quest_type: st
         new_progress = row["progress"] + 1
         just_completed = new_progress >= row["goal"]
         await db.execute(
-            "UPDATE user_quests SET progress=$1, completed=$2 WHERE user_id=$3 AND chat_id=$4 AND quest_date=$5",
+            "UPDATE user_quests SET progress=?, completed=? WHERE user_id=? AND chat_id=? AND quest_date=?",
             (new_progress, 1 if just_completed else 0, user_id, chat_id, quest_date),
         )
         await db.commit()
@@ -2660,7 +2668,7 @@ async def quest_tick(user_id: int, chat_id: int, quest_date: str, quest_type: st
 async def mark_quest_rewarded(user_id: int, chat_id: int, quest_date: str):
     async with postgres_connect() as db:
         await db.execute(
-            "UPDATE user_quests SET rewarded=1 WHERE user_id=$1 AND chat_id=$2 AND quest_date=$3",
+            "UPDATE user_quests SET rewarded=1 WHERE user_id=? AND chat_id=? AND quest_date=?",
             (user_id, chat_id, quest_date),
         )
         await db.commit()
@@ -2678,7 +2686,7 @@ async def mark_quest_rewarded(user_id: int, chat_id: int, quest_date: str):
 async def get_achievements(user_id: int) -> list:
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT badge, earned_at FROM user_achievements WHERE user_id=$1 ORDER BY earned_at",
+            "SELECT badge, earned_at FROM user_achievements WHERE user_id=? ORDER BY earned_at",
             (user_id,),
         ) as c:
             return await c.fetchall()
@@ -2690,7 +2698,7 @@ async def award_achievement(user_id: int, badge: str) -> bool:
     async with postgres_connect() as db:
         try:
             await db.execute(
-                "INSERT INTO user_achievements (user_id, badge, earned_at) VALUES ($1,$2,$3)",
+                "INSERT INTO user_achievements (user_id, badge, earned_at) VALUES (?,?,?)",
                 (user_id, badge, now),
             )
             await db.commit()
@@ -2709,13 +2717,13 @@ async def get_weekly_top(chat_id: int, limit: int = 10) -> list:
     async with postgres_connect() as db:
         async with db.execute(
             """SELECT u.user_id, u.full_name, u.username,
-                      CASE WHEN cc.week_start=$1 THEN COALESCE(cc.week_count,0) ELSE 0 END AS wc
+                      CASE WHEN cc.week_start=? THEN COALESCE(cc.week_count,0) ELSE 0 END AS wc
                FROM cleanup_counts cc
                JOIN users u ON u.user_id=cc.user_id
                LEFT JOIN user_stats us ON us.user_id=cc.user_id AND us.chat_id=cc.chat_id
-               WHERE cc.chat_id=$2 AND COALESCE(us.is_banned,0)=0
-                 AND CASE WHEN cc.week_start=$3 THEN COALESCE(cc.week_count,0) ELSE 0 END >= 1
-               ORDER BY wc DESC LIMIT $4""",
+               WHERE cc.chat_id=? AND COALESCE(us.is_banned,0)=0
+                 AND CASE WHEN cc.week_start=? THEN COALESCE(cc.week_count,0) ELSE 0 END >= 1
+               ORDER BY wc DESC LIMIT ?""",
             (week_key, chat_id, week_key, limit),
         ) as c:
             return await c.fetchall()
@@ -2727,13 +2735,13 @@ async def get_daily_top(chat_id: int, limit: int = 10) -> list:
     async with postgres_connect() as db:
         async with db.execute(
             """SELECT u.user_id, u.full_name, u.username,
-                      CASE WHEN cc.day_start=$1 THEN COALESCE(cc.day_count,0) ELSE 0 END AS dc
+                      CASE WHEN cc.day_start=? THEN COALESCE(cc.day_count,0) ELSE 0 END AS dc
                FROM cleanup_counts cc
                JOIN users u ON u.user_id=cc.user_id
                LEFT JOIN user_stats us ON us.user_id=cc.user_id AND us.chat_id=cc.chat_id
-               WHERE cc.chat_id=$2 AND COALESCE(us.is_banned,0)=0
-                 AND CASE WHEN cc.day_start=$3 THEN COALESCE(cc.day_count,0) ELSE 0 END >= 1
-               ORDER BY dc DESC LIMIT $4""",
+               WHERE cc.chat_id=? AND COALESCE(us.is_banned,0)=0
+                 AND CASE WHEN cc.day_start=? THEN COALESCE(cc.day_count,0) ELSE 0 END >= 1
+               ORDER BY dc DESC LIMIT ?""",
             (today, chat_id, today, limit),
         ) as c:
             return await c.fetchall()
@@ -2758,20 +2766,20 @@ async def get_prev_weekly_top(chat_id: int, limit: int = 10) -> list:
             # If the user hasn't written this week yet → week_start=prev_week, week_count is prev
             """SELECT u.user_id, u.full_name, u.username,
                       CASE
-                        WHEN cc.week_start=$1 THEN COALESCE(cc.last_week_count,0)
-                        WHEN cc.week_start=$2 THEN COALESCE(cc.week_count,0)
+                        WHEN cc.week_start=? THEN COALESCE(cc.last_week_count,0)
+                        WHEN cc.week_start=? THEN COALESCE(cc.week_count,0)
                         ELSE 0
                       END AS wc
                FROM cleanup_counts cc
                JOIN users u ON u.user_id=cc.user_id
                LEFT JOIN user_stats us ON us.user_id=cc.user_id AND us.chat_id=cc.chat_id
-               WHERE cc.chat_id=$3 AND COALESCE(us.is_banned,0)=0
+               WHERE cc.chat_id=? AND COALESCE(us.is_banned,0)=0
                  AND CASE
-                       WHEN cc.week_start=$4 THEN COALESCE(cc.last_week_count,0)
-                       WHEN cc.week_start=$5 THEN COALESCE(cc.week_count,0)
+                       WHEN cc.week_start=? THEN COALESCE(cc.last_week_count,0)
+                       WHEN cc.week_start=? THEN COALESCE(cc.week_count,0)
                        ELSE 0
                      END >= 1
-               ORDER BY wc DESC LIMIT $6""",
+               ORDER BY wc DESC LIMIT ?""",
             (this_week_key, prev_week_key, chat_id,
              this_week_key, prev_week_key, limit),
         ) as c:
@@ -2793,20 +2801,20 @@ async def get_yesterday_top(chat_id: int, limit: int = 10) -> list:
             # If user hasn't written today → day_start=yesterday, day_count is yesterday's value
             """SELECT u.user_id, u.full_name, u.username,
                       CASE
-                        WHEN cc.day_start=$1 THEN COALESCE(cc.yesterday_count,0)
-                        WHEN cc.day_start=$2 THEN COALESCE(cc.day_count,0)
+                        WHEN cc.day_start=? THEN COALESCE(cc.yesterday_count,0)
+                        WHEN cc.day_start=? THEN COALESCE(cc.day_count,0)
                         ELSE 0
                       END AS dc
                FROM cleanup_counts cc
                JOIN users u ON u.user_id=cc.user_id
                LEFT JOIN user_stats us ON us.user_id=cc.user_id AND us.chat_id=cc.chat_id
-               WHERE cc.chat_id=$3 AND COALESCE(us.is_banned,0)=0
+               WHERE cc.chat_id=? AND COALESCE(us.is_banned,0)=0
                  AND CASE
-                       WHEN cc.day_start=$4 THEN COALESCE(cc.yesterday_count,0)
-                       WHEN cc.day_start=$5 THEN COALESCE(cc.day_count,0)
+                       WHEN cc.day_start=? THEN COALESCE(cc.yesterday_count,0)
+                       WHEN cc.day_start=? THEN COALESCE(cc.day_count,0)
                        ELSE 0
                      END >= 1
-               ORDER BY dc DESC LIMIT $6""",
+               ORDER BY dc DESC LIMIT ?""",
             (today, yesterday, chat_id, today, yesterday, limit),
         ) as c:
             return await c.fetchall()
@@ -2819,7 +2827,7 @@ async def get_chat_members(chat_id: int, ranks: list[str] | None = None) -> list
                FROM cleanup_counts cc
                JOIN users u ON u.user_id = cc.user_id
                LEFT JOIN user_stats us ON us.user_id = cc.user_id AND us.chat_id = cc.chat_id
-               WHERE cc.chat_id = $1 AND COALESCE(us.is_banned, 0) = 0
+               WHERE cc.chat_id = ? AND COALESCE(us.is_banned, 0) = 0
                ORDER BY u.full_name""",
             (chat_id,),
         ) as c:
@@ -2834,7 +2842,7 @@ async def get_chat_members(chat_id: int, ranks: list[str] | None = None) -> list
 async def get_marriage(user_id: int, chat_id: int):
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT * FROM marriages_global WHERE user_id=$1",
+            "SELECT * FROM marriages_global WHERE user_id=?",
             (user_id,),
         ) as c:
             return await c.fetchone()
@@ -2844,15 +2852,15 @@ async def create_marriage(user_a: int, user_b: int, chat_id: int):
     now = datetime.now(timezone.utc)
     async with postgres_connect() as db:
         await db.execute(
-            "DELETE FROM marriages_global WHERE user_id=$1 OR user_id=$2",
+            "DELETE FROM marriages_global WHERE user_id=? OR user_id=?",
             (user_a, user_b),
         )
         await db.execute(
-            "INSERT INTO marriages_global (user_id, partner_id, married_at) VALUES ($1,$2,$3)",
+            "INSERT INTO marriages_global (user_id, partner_id, married_at) VALUES (?,?,?)",
             (user_a, user_b, now.isoformat()),
         )
         await db.execute(
-            "INSERT INTO marriages_global (user_id, partner_id, married_at) VALUES ($1,$2,$3)",
+            "INSERT INTO marriages_global (user_id, partner_id, married_at) VALUES (?,?,?)",
             (user_b, user_a, now.isoformat()),
         )
         await db.commit()
@@ -2868,14 +2876,14 @@ async def create_marriage(user_a: int, user_b: int, chat_id: int):
 async def delete_marriage(user_id: int, chat_id: int):
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT partner_id FROM marriages_global WHERE user_id=$1",
+            "SELECT partner_id FROM marriages_global WHERE user_id=?",
             (user_id,),
         ) as c:
             row = await c.fetchone()
         if row:
             partner_id = row[0]
             await db.execute(
-                "DELETE FROM marriages_global WHERE user_id=$1 OR user_id=$2",
+                "DELETE FROM marriages_global WHERE user_id=? OR user_id=?",
                 (user_id, partner_id),
             )
             await db.commit()
@@ -2885,15 +2893,15 @@ async def import_marriage_with_date(user_a: int, user_b: int, chat_id: int, marr
     """Создаёт/обновляет брак с указанной датой (для импорта из JSON)."""
     async with postgres_connect() as db:
         await db.execute(
-            "DELETE FROM marriages_global WHERE user_id=$1 OR user_id=$2",
+            "DELETE FROM marriages_global WHERE user_id=? OR user_id=?",
             (user_a, user_b),
         )
         await db.execute(
-            "INSERT INTO marriages_global (user_id, partner_id, married_at) VALUES ($1,$2,$3)",
+            "INSERT INTO marriages_global (user_id, partner_id, married_at) VALUES (?,?,?)",
             (user_a, user_b, married_at),
         )
         await db.execute(
-            "INSERT INTO marriages_global (user_id, partner_id, married_at) VALUES ($1,$2,$3)",
+            "INSERT INTO marriages_global (user_id, partner_id, married_at) VALUES (?,?,?)",
             (user_b, user_a, married_at),
         )
         await db.commit()
@@ -2903,20 +2911,20 @@ async def get_migration_stats(chat_id: int) -> dict:
     """Возвращает статистику по данным в БД для данного чата (для команды бот скан)."""
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT COUNT(*) AS cnt FROM user_stats WHERE chat_id=$1", (chat_id,)
+            "SELECT COUNT(*) AS cnt FROM user_stats WHERE chat_id=?", (chat_id,)
         ) as c:
             row = await c.fetchone()
             users_total = row["cnt"] if row else 0
 
         async with db.execute(
-            "SELECT COUNT(*) AS cnt FROM user_stats WHERE chat_id=$1 AND message_count > 0",
+            "SELECT COUNT(*) AS cnt FROM user_stats WHERE chat_id=? AND message_count > 0",
             (chat_id,),
         ) as c:
             row = await c.fetchone()
             users_with_msgs = row["cnt"] if row else 0
 
         async with db.execute(
-            "SELECT COALESCE(SUM(message_count), 0) AS total FROM user_stats WHERE chat_id=$1",
+            "SELECT COALESCE(SUM(message_count), 0) AS total FROM user_stats WHERE chat_id=?",
             (chat_id,),
         ) as c:
             row = await c.fetchone()
@@ -2924,7 +2932,7 @@ async def get_migration_stats(chat_id: int) -> dict:
 
         async with db.execute(
             """SELECT COUNT(*) AS cnt FROM marriages_global mg
-               WHERE mg.user_id IN (SELECT user_id FROM user_stats WHERE chat_id=$1)""",
+               WHERE mg.user_id IN (SELECT user_id FROM user_stats WHERE chat_id=?)""",
             (chat_id,)
         ) as c:
             row = await c.fetchone()
@@ -2934,7 +2942,7 @@ async def get_migration_stats(chat_id: int) -> dict:
             """SELECT us.user_id, u.full_name, u.username, us.message_count
                FROM user_stats us
                LEFT JOIN users u ON u.user_id = us.user_id
-               WHERE us.chat_id=$1 AND us.message_count > 0
+               WHERE us.chat_id=? AND us.message_count > 0
                ORDER BY us.message_count DESC LIMIT 5""",
             (chat_id,),
         ) as c:
@@ -2954,7 +2962,7 @@ async def get_migration_stats(chat_id: int) -> dict:
 async def get_user_stats(user_id: int, chat_id: int):
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT * FROM user_stats WHERE user_id = $1 AND chat_id = $2",
+            "SELECT * FROM user_stats WHERE user_id = ? AND chat_id = ?",
             (user_id, chat_id),
         ) as cursor:
             return await cursor.fetchone()
@@ -2964,7 +2972,7 @@ async def upsert_user_stats(user_id: int, chat_id: int):
     """Ensure a row exists in user_stats for this user+chat."""
     async with postgres_connect() as db:
         await db.execute(
-            "INSERT INTO user_stats (user_id, chat_id) VALUES ($1, $2) ON CONFLICT (user_id, chat_id) DO NOTHING",
+            "INSERT INTO user_stats (user_id, chat_id) VALUES (?, ?) ON CONFLICT (user_id, chat_id) DO NOTHING",
             (user_id, chat_id),
         )
         await db.commit()
@@ -2976,7 +2984,7 @@ async def increment_message_count_chat(user_id: int, chat_id: int) -> int:
     async with postgres_connect() as db:
         await db.execute(
             """INSERT INTO user_stats (user_id, chat_id, message_count, first_active, last_active)
-               VALUES ($1, $2, 1, $3, $4)
+               VALUES (?, ?, 1, ?, ?)
                ON CONFLICT(user_id, chat_id) DO UPDATE SET
                    message_count = user_stats.message_count + 1,
                    first_active = COALESCE(user_stats.first_active, EXCLUDED.first_active),
@@ -2985,7 +2993,7 @@ async def increment_message_count_chat(user_id: int, chat_id: int) -> int:
         )
         await db.commit()
         async with db.execute(
-            "SELECT message_count FROM user_stats WHERE user_id=$1 AND chat_id=$2",
+            "SELECT message_count FROM user_stats WHERE user_id=? AND chat_id=?",
             (user_id, chat_id),
         ) as c:
             row = await c.fetchone()
@@ -3033,18 +3041,18 @@ async def set_rank_in_chat(user_id: int, chat_id: int, rank: str):
             if not DEVELOPER_ID or user_id != DEVELOPER_ID:
                 raise ValueError("Только указанный DEVELOPER_ID может иметь ранг developer.")
             await db.execute(
-                "UPDATE user_stats SET rank = 'owner' WHERE rank = 'developer' AND user_id <> $1",
+                "UPDATE user_stats SET rank = 'owner' WHERE rank = 'developer' AND user_id <> ?",
                 (user_id,),
             )
 
         if rank == "owner":
             await db.execute(
-                "UPDATE user_stats SET rank = 'co_owner' WHERE chat_id = $1 AND rank = 'owner' AND user_id <> $2",
+                "UPDATE user_stats SET rank = 'co_owner' WHERE chat_id = ? AND rank = 'owner' AND user_id <> ?",
                 (chat_id, user_id),
             )
 
         await db.execute(
-            """INSERT INTO user_stats (user_id, chat_id, rank) VALUES ($1, $2, $3)
+            """INSERT INTO user_stats (user_id, chat_id, rank) VALUES (?, ?, ?)
                ON CONFLICT(user_id, chat_id) DO UPDATE SET rank = excluded.rank""",
             (user_id, chat_id, rank),
         )
@@ -3054,7 +3062,7 @@ async def set_rank_in_chat(user_id: int, chat_id: int, rank: str):
 async def ban_user_in_chat(user_id: int, chat_id: int, reason: str = None):
     async with postgres_connect() as db:
         await db.execute(
-            """INSERT INTO user_stats (user_id, chat_id, is_banned, ban_reason) VALUES ($1, $2, 1, $3)
+            """INSERT INTO user_stats (user_id, chat_id, is_banned, ban_reason) VALUES (?, ?, 1, ?)
                ON CONFLICT(user_id, chat_id) DO UPDATE SET is_banned = 1, ban_reason = excluded.ban_reason""",
             (user_id, chat_id, reason),
         )
@@ -3064,7 +3072,7 @@ async def ban_user_in_chat(user_id: int, chat_id: int, reason: str = None):
 async def unban_user_in_chat(user_id: int, chat_id: int):
     async with postgres_connect() as db:
         await db.execute(
-            "UPDATE user_stats SET is_banned = 0, ban_reason = NULL WHERE user_id = $1 AND chat_id = $2",
+            "UPDATE user_stats SET is_banned = 0, ban_reason = NULL WHERE user_id = ? AND chat_id = ?",
             (user_id, chat_id),
         )
         await db.commit()
@@ -3073,13 +3081,13 @@ async def unban_user_in_chat(user_id: int, chat_id: int):
 async def add_warn_in_chat(user_id: int, chat_id: int) -> int:
     async with postgres_connect() as db:
         await db.execute(
-            """INSERT INTO user_stats (user_id, chat_id, warns) VALUES ($1, $2, 1)
+            """INSERT INTO user_stats (user_id, chat_id, warns) VALUES (?, ?, 1)
                ON CONFLICT(user_id, chat_id) DO UPDATE SET warns = user_stats.warns + 1""",
             (user_id, chat_id),
         )
         await db.commit()
         async with db.execute(
-            "SELECT warns FROM user_stats WHERE user_id = $1 AND chat_id = $2",
+            "SELECT warns FROM user_stats WHERE user_id = ? AND chat_id = ?",
             (user_id, chat_id),
         ) as cursor:
             row = await cursor.fetchone()
@@ -3089,12 +3097,12 @@ async def add_warn_in_chat(user_id: int, chat_id: int) -> int:
 async def remove_warn_in_chat(user_id: int, chat_id: int) -> int:
     async with postgres_connect() as db:
         await db.execute(
-            "UPDATE user_stats SET warns = GREATEST(0, warns - 1) WHERE user_id = $1 AND chat_id = $2",
+            "UPDATE user_stats SET warns = GREATEST(0, warns - 1) WHERE user_id = ? AND chat_id = ?",
             (user_id, chat_id),
         )
         await db.commit()
         async with db.execute(
-            "SELECT warns FROM user_stats WHERE user_id = $1 AND chat_id = $2",
+            "SELECT warns FROM user_stats WHERE user_id = ? AND chat_id = ?",
             (user_id, chat_id),
         ) as cursor:
             row = await cursor.fetchone()
@@ -3109,7 +3117,7 @@ async def get_warned_users(chat_id: int) -> list[dict]:
                       u.username, us.warns
                FROM user_stats us
                LEFT JOIN users u ON u.user_id = us.user_id
-               WHERE us.chat_id = $1 AND us.warns > 0
+               WHERE us.chat_id = ? AND us.warns > 0
                ORDER BY us.warns DESC, us.user_id""",
             (chat_id,),
         ) as cursor:
@@ -3123,7 +3131,7 @@ async def get_staff_in_chat(chat_id: int):
             SELECT us.*, u.username, u.full_name
             FROM user_stats us
             JOIN users u ON u.user_id = us.user_id
-            WHERE us.chat_id = $1 AND us.rank NOT IN ('user', 'vip', 'helper')
+            WHERE us.chat_id = ? AND us.rank NOT IN ('user', 'vip', 'helper')
             ORDER BY CASE us.rank
                 WHEN 'developer'    THEN 6
                 WHEN 'owner'        THEN 5
@@ -3145,11 +3153,11 @@ async def add_xp_in_chat(user_id: int, chat_id: int, amount: int) -> tuple[int, 
     """Add XP in a specific chat. Returns (new_xp, new_level, leveled_up)."""
     async with postgres_connect() as db:
         await db.execute(
-            "INSERT INTO user_stats (user_id, chat_id) VALUES ($1, $2) ON CONFLICT (user_id, chat_id) DO NOTHING",
+            "INSERT INTO user_stats (user_id, chat_id) VALUES (?, ?) ON CONFLICT (user_id, chat_id) DO NOTHING",
             (user_id, chat_id),
         )
         async with db.execute(
-            "SELECT xp, level FROM user_stats WHERE user_id = $1 AND chat_id = $2",
+            "SELECT xp, level FROM user_stats WHERE user_id = ? AND chat_id = ?",
             (user_id, chat_id),
         ) as c:
             row = await c.fetchone()
@@ -3158,7 +3166,7 @@ async def add_xp_in_chat(user_id: int, chat_id: int, amount: int) -> tuple[int, 
         new_level = level_for_xp(new_xp)
         leveled_up = new_level > old_level
         await db.execute(
-            "UPDATE user_stats SET xp = $1, level = $2 WHERE user_id = $3 AND chat_id = $4",
+            "UPDATE user_stats SET xp = ?, level = ? WHERE user_id = ? AND chat_id = ?",
             (new_xp, new_level, user_id, chat_id),
         )
         await db.commit()
@@ -3180,10 +3188,10 @@ async def get_mora(user_id: int, chat_id: int):
                       um.last_daily,
                       COALESCE(um.rep_given_count, 0) AS rep_given_count,
                       um.active_theme, um.gacha_display,
-                      $1 AS chat_id
+                      ? AS chat_id
                FROM users u
-               LEFT JOIN user_mora um ON um.user_id = u.user_id AND um.chat_id = $2
-               WHERE u.user_id = $3""",
+               LEFT JOIN user_mora um ON um.user_id = u.user_id AND um.chat_id = ?
+               WHERE u.user_id = ?""",
             (chat_id, chat_id, user_id),
         ) as c:
             return await c.fetchone()
@@ -3193,7 +3201,7 @@ async def get_mora_batch(user_ids: list[int], chat_id: int) -> dict[int, dict]:
     """Fetch global mora + per-chat data for multiple users. Returns dict user_id → dict."""
     if not user_ids:
         return {}
-    placeholders = ",".join("$1" * len(user_ids))
+    placeholders = ",".join("?" * len(user_ids))
     async with postgres_connect() as db:
         async with db.execute(
             f"""SELECT u.user_id, COALESCE(u.balance, 0) AS balance,
@@ -3205,7 +3213,7 @@ async def get_mora_batch(user_ids: list[int], chat_id: int) -> dict[int, dict]:
                         um.last_daily,
                         COALESCE(um.rep_given_count, 0) AS rep_given_count
                 FROM users u
-                LEFT JOIN user_mora um ON um.user_id = u.user_id AND um.chat_id = $1
+                LEFT JOIN user_mora um ON um.user_id = u.user_id AND um.chat_id = ?
                 WHERE u.user_id IN ({placeholders})""",
             (chat_id, *user_ids),
         ) as c:
@@ -3218,14 +3226,14 @@ async def add_mora(user_id: int, chat_id: int, amount: int) -> int:
     async with postgres_connect() as db:
         await db.execute(
             """UPDATE users SET
-                   balance      = GREATEST(0, COALESCE(balance, 0) + $1),
-                   total_earned = COALESCE(total_earned, 0) + CASE WHEN $2 > 0 THEN $3 ELSE 0 END
-               WHERE user_id = $4""",
+                   balance      = GREATEST(0, COALESCE(balance, 0) + ?),
+                   total_earned = COALESCE(total_earned, 0) + CASE WHEN ? > 0 THEN ? ELSE 0 END
+               WHERE user_id = ?""",
             (amount, amount, amount, user_id),
         )
         await db.commit()
         async with db.execute(
-            "SELECT COALESCE(balance, 0) FROM users WHERE user_id=$1",
+            "SELECT COALESCE(balance, 0) FROM users WHERE user_id=?",
             (user_id,),
         ) as c:
             row = await c.fetchone()
@@ -3241,14 +3249,14 @@ async def check_daily_mora(user_id: int, chat_id: int) -> tuple[bool, int, bool]
     yesterday = (date.today() - timedelta(days=1)).isoformat()
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT last_daily, streak_days FROM user_mora WHERE user_id=$1 AND chat_id=$2",
+            "SELECT last_daily, streak_days FROM user_mora WHERE user_id=? AND chat_id=?",
             (user_id, chat_id),
         ) as c:
             row = await c.fetchone()
 
         if row is None:
             await db.execute(
-                """INSERT INTO user_mora (user_id, chat_id, last_daily, streak_days) VALUES ($1, $2, $3, 1) ON CONFLICT DO NOTHING""",
+                """INSERT INTO user_mora (user_id, chat_id, last_daily, streak_days) VALUES (?, ?, ?, 1) ON CONFLICT DO NOTHING""",
                 (user_id, chat_id, today),
             )
             await db.commit()
@@ -3271,7 +3279,7 @@ async def check_daily_mora(user_id: int, chat_id: int) -> tuple[bool, int, bool]
 
         await db.execute(
             """INSERT INTO user_mora (user_id, chat_id, last_daily, streak_days)
-               VALUES ($1, $2, $3, $4)
+               VALUES (?, ?, ?, ?)
                ON CONFLICT(user_id, chat_id) DO UPDATE SET
                    last_daily  = excluded.last_daily,
                    streak_days = excluded.streak_days""",
@@ -3286,7 +3294,7 @@ async def set_mora_public(user_id: int, chat_id: int, public: int):
     async with postgres_connect() as db:
         await db.execute(
             """INSERT INTO user_mora (user_id, chat_id, mora_public)
-               VALUES ($1, $2, $3)
+               VALUES (?, ?, ?)
                ON CONFLICT(user_id, chat_id) DO UPDATE SET mora_public = excluded.mora_public""",
             (user_id, chat_id, public),
         )
@@ -3298,20 +3306,20 @@ async def deduct_mora(user_id: int, chat_id: int, amount: int) -> tuple[bool, in
     async with postgres_connect() as db:
         cursor = await db.execute(
             """UPDATE users
-               SET balance = balance - $1
-               WHERE user_id = $2 AND COALESCE(balance, 0) >= $3""",
+               SET balance = balance - ?
+               WHERE user_id = ? AND COALESCE(balance, 0) >= ?""",
             (amount, user_id, amount),
         )
         if cursor.rowcount == 0:
             async with db.execute(
-                "SELECT COALESCE(balance, 0) FROM users WHERE user_id=$1",
+                "SELECT COALESCE(balance, 0) FROM users WHERE user_id=?",
                 (user_id,),
             ) as c:
                 row = await c.fetchone()
             return False, (row[0] if row else 0)
         await db.commit()
         async with db.execute(
-            "SELECT COALESCE(balance, 0) FROM users WHERE user_id=$1",
+            "SELECT COALESCE(balance, 0) FROM users WHERE user_id=?",
             (user_id,),
         ) as c:
             row = await c.fetchone()
@@ -3322,7 +3330,7 @@ async def get_vip(user_id: int, chat_id: int) -> int:
     """Returns 1 if user has active (non-expired) VIP in this chat, else 0."""
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT vip, vip_expires_at FROM user_mora WHERE user_id=$1 AND chat_id=$2",
+            "SELECT vip, vip_expires_at FROM user_mora WHERE user_id=? AND chat_id=?",
             (user_id, chat_id),
         ) as c:
             row = await c.fetchone()
@@ -3339,7 +3347,7 @@ async def set_vip(user_id: int, chat_id: int, value: int):
     expires_at = (datetime.now(timezone.utc) + timedelta(days=30)) if value else None
     async with postgres_connect() as db:
         await db.execute(
-            """INSERT INTO user_mora (user_id, chat_id, vip, vip_expires_at) VALUES ($1, $2, $3, $4)
+            """INSERT INTO user_mora (user_id, chat_id, vip, vip_expires_at) VALUES (?, ?, ?, ?)
                ON CONFLICT(user_id, chat_id) DO UPDATE
                SET vip = excluded.vip, vip_expires_at = excluded.vip_expires_at""",
             (user_id, chat_id, value, expires_at),
@@ -3351,7 +3359,7 @@ async def get_xp_boost_active(user_id: int, chat_id: int) -> bool:
     """Returns True if user has an active XP boost right now."""
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT xp_boost_until FROM user_mora WHERE user_id=$1 AND chat_id=$2",
+            "SELECT xp_boost_until FROM user_mora WHERE user_id=? AND chat_id=?",
             (user_id, chat_id),
         ) as c:
             row = await c.fetchone()
@@ -3372,7 +3380,7 @@ async def set_xp_boost(user_id: int, chat_id: int, until_iso: str):
     """Set XP boost expiry for user."""
     async with postgres_connect() as db:
         await db.execute(
-            """INSERT INTO user_mora (user_id, chat_id, xp_boost_until) VALUES ($1, $2, $3)
+            """INSERT INTO user_mora (user_id, chat_id, xp_boost_until) VALUES (?, ?, ?)
                ON CONFLICT(user_id, chat_id) DO UPDATE SET xp_boost_until = excluded.xp_boost_until""",
             (user_id, chat_id, until_iso),
         )
@@ -3383,7 +3391,7 @@ async def get_top_frame(user_id: int, chat_id: int) -> str | None:
     """Returns the active top frame key for user, or None."""
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT top_frame FROM user_mora WHERE user_id=$1 AND chat_id=$2",
+            "SELECT top_frame FROM user_mora WHERE user_id=? AND chat_id=?",
             (user_id, chat_id),
         ) as c:
             row = await c.fetchone()
@@ -3394,7 +3402,7 @@ async def set_top_frame(user_id: int, chat_id: int, frame: str | None):
     """Set top frame for user."""
     async with postgres_connect() as db:
         await db.execute(
-            """INSERT INTO user_mora (user_id, chat_id, top_frame) VALUES ($1, $2, $3)
+            """INSERT INTO user_mora (user_id, chat_id, top_frame) VALUES (?, ?, ?)
                ON CONFLICT(user_id, chat_id) DO UPDATE SET top_frame = excluded.top_frame""",
             (user_id, chat_id, frame),
         )
@@ -3409,7 +3417,7 @@ async def create_duel(chat_id: int, challenger_id: int, target_id: int, bet: int
     async with postgres_connect() as db:
         cursor = await db.execute(
             """INSERT INTO casino_duels (chat_id, challenger_id, target_id, bet, status, msg_id, created_at)
-               VALUES ($1, $2, $3, $4, 'pending', $5, $6) RETURNING id""",
+               VALUES (?, ?, ?, ?, 'pending', ?, ?) RETURNING id""",
             (chat_id, challenger_id, target_id, bet, msg_id, now),
         )
         row = await cursor.fetchone()
@@ -3420,7 +3428,7 @@ async def create_duel(chat_id: int, challenger_id: int, target_id: int, bet: int
 async def get_duel(duel_id: int):
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT * FROM casino_duels WHERE id=$1", (duel_id,)
+            "SELECT * FROM casino_duels WHERE id=?", (duel_id,)
         ) as c:
             return await c.fetchone()
 
@@ -3428,7 +3436,7 @@ async def get_duel(duel_id: int):
 async def set_duel_status(duel_id: int, status: str):
     async with postgres_connect() as db:
         await db.execute(
-            "UPDATE casino_duels SET status=$1 WHERE id=$2",
+            "UPDATE casino_duels SET status=? WHERE id=?",
             (status, duel_id),
         )
         await db.commit()
@@ -3439,7 +3447,7 @@ async def cancel_expired_duels():
     cutoff = datetime.now(timezone.utc) - timedelta(minutes=5)
     async with postgres_connect() as db:
         await db.execute(
-            "UPDATE casino_duels SET status='expired' WHERE status='pending' AND created_at < $1",
+            "UPDATE casino_duels SET status='expired' WHERE status='pending' AND created_at < ?",
             (cutoff,),
         )
         await db.commit()
@@ -3449,7 +3457,7 @@ async def get_pending_duels_for_chat(chat_id: int, challenger_id: int) -> list:
     """Return pending duels by this challenger in this chat (to prevent spam)."""
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT * FROM casino_duels WHERE chat_id=$1 AND challenger_id=$2 AND status='pending'",
+            "SELECT * FROM casino_duels WHERE chat_id=? AND challenger_id=? AND status='pending'",
             (chat_id, challenger_id),
         ) as c:
             return await c.fetchall()
@@ -3460,14 +3468,14 @@ async def buy_lottery_ticket(chat_id: int, user_id: int, week_key: str):
     async with postgres_connect() as db:
         await db.execute(
             """INSERT INTO casino_lottery (chat_id, user_id, week_key, tickets)
-               VALUES ($1, $2, $3, 1)
+               VALUES (?, ?, ?, 1)
                ON CONFLICT(chat_id, user_id, week_key) DO UPDATE SET
                    tickets = casino_lottery.tickets + 1""",
             (chat_id, user_id, week_key),
         )
         await db.commit()
         async with db.execute(
-            "SELECT tickets FROM casino_lottery WHERE chat_id=$1 AND user_id=$2 AND week_key=$3",
+            "SELECT tickets FROM casino_lottery WHERE chat_id=? AND user_id=? AND week_key=?",
             (chat_id, user_id, week_key),
         ) as c:
             row = await c.fetchone()
@@ -3477,7 +3485,7 @@ async def buy_lottery_ticket(chat_id: int, user_id: int, week_key: str):
 async def get_lottery_tickets(chat_id: int, user_id: int, week_key: str) -> int:
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT tickets FROM casino_lottery WHERE chat_id=$1 AND user_id=$2 AND week_key=$3",
+            "SELECT tickets FROM casino_lottery WHERE chat_id=? AND user_id=? AND week_key=?",
             (chat_id, user_id, week_key),
         ) as c:
             row = await c.fetchone()
@@ -3488,7 +3496,7 @@ async def get_all_lottery_participants(chat_id: int, week_key: str) -> list:
     """Return all (user_id, tickets) rows for this chat and week."""
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT user_id, tickets FROM casino_lottery WHERE chat_id=$1 AND week_key=$2",
+            "SELECT user_id, tickets FROM casino_lottery WHERE chat_id=? AND week_key=?",
             (chat_id, week_key),
         ) as c:
             return await c.fetchall()
@@ -3498,7 +3506,7 @@ async def get_all_lottery_chats_week(week_key: str) -> list[int]:
     """Return distinct chat_ids that have tickets for this week."""
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT DISTINCT chat_id FROM casino_lottery WHERE week_key=$1",
+            "SELECT DISTINCT chat_id FROM casino_lottery WHERE week_key=?",
             (week_key,),
         ) as c:
             return [r[0] for r in await c.fetchall()]
@@ -3510,7 +3518,7 @@ async def get_family_wallet(chat_id: int, user_id: int) -> int:
     """Returns the shared family wallet balance, or 0 if not found."""
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT balance FROM family_wallet WHERE chat_id=$1 AND user_id=$2",
+            "SELECT balance FROM family_wallet WHERE chat_id=? AND user_id=?",
             (chat_id, user_id),
         ) as c:
             row = await c.fetchone()
@@ -3522,14 +3530,14 @@ async def add_to_family_wallet(chat_id: int, user_id: int, amount: int) -> int:
     async with postgres_connect() as db:
         await db.execute(
             """INSERT INTO family_wallet (chat_id, user_id, balance)
-               VALUES ($1, $2, GREATEST(0, $3))
+               VALUES (?, ?, GREATEST(0, ?))
                ON CONFLICT(chat_id, user_id) DO UPDATE SET
-                   balance = GREATEST(0, family_wallet.balance + $4)""",
+                   balance = GREATEST(0, family_wallet.balance + ?)""",
             (chat_id, user_id, amount, amount),
         )
         await db.commit()
         async with db.execute(
-            "SELECT balance FROM family_wallet WHERE chat_id=$1 AND user_id=$2",
+            "SELECT balance FROM family_wallet WHERE chat_id=? AND user_id=?",
             (chat_id, user_id),
         ) as c:
             row = await c.fetchone()
@@ -3548,7 +3556,7 @@ async def get_total_family_balance(chat_id: int, user_id: int) -> tuple[int, int
     async with postgres_connect() as db:
         # Получаем partner_id из глобальной таблицы браков
         async with db.execute(
-            "SELECT partner_id FROM marriages_global WHERE user_id=$1",
+            "SELECT partner_id FROM marriages_global WHERE user_id=?",
             (user_id,),
         ) as c:
             marriage = await c.fetchone()
@@ -3556,7 +3564,7 @@ async def get_total_family_balance(chat_id: int, user_id: int) -> tuple[int, int
         partner_id: int | None = marriage["partner_id"] if marriage else None
 
         async with db.execute(
-            "SELECT balance FROM family_wallet WHERE chat_id=$1 AND user_id=$2",
+            "SELECT balance FROM family_wallet WHERE chat_id=? AND user_id=?",
             (chat_id, user_id),
         ) as c:
             my_row = await c.fetchone()
@@ -3565,7 +3573,7 @@ async def get_total_family_balance(chat_id: int, user_id: int) -> tuple[int, int
         partner_balance = 0
         if partner_id:
             async with db.execute(
-                "SELECT balance FROM family_wallet WHERE chat_id=$1 AND user_id=$2",
+                "SELECT balance FROM family_wallet WHERE chat_id=? AND user_id=?",
                 (chat_id, partner_id),
             ) as c:
                 p_row = await c.fetchone()
@@ -3585,10 +3593,10 @@ async def deduct_family_pool(
 
         # Блокируем строки обоих партнёров FOR UPDATE — защита от параллельных снятий
         uids = [user_id] + ([partner_id] if partner_id else [])
-        placeholders = ",".join("$1" for _ in uids)
+        placeholders = ",".join("?" for _ in uids)
         async with db.execute(
             f"SELECT user_id, balance FROM family_wallet "
-            f"WHERE chat_id=$1 AND user_id IN ({placeholders}) FOR UPDATE",
+            f"WHERE chat_id=? AND user_id IN ({placeholders}) FOR UPDATE",
             (chat_id, *uids),
         ) as c:
             rows = await c.fetchall()
@@ -3603,18 +3611,18 @@ async def deduct_family_pool(
         if my_bal >= amount:
             # Всё списывается с моего вклада
             await db.execute(
-                "UPDATE family_wallet SET balance=balance-$1 WHERE chat_id=$2 AND user_id=$3",
+                "UPDATE family_wallet SET balance=balance-? WHERE chat_id=? AND user_id=?",
                 (amount, chat_id, user_id),
             )
         elif partner_id:
             # Списываем полностью мой вклад, остаток — с партнёра
             rest = amount - my_bal
             await db.execute(
-                "UPDATE family_wallet SET balance=0 WHERE chat_id=$1 AND user_id=$2",
+                "UPDATE family_wallet SET balance=0 WHERE chat_id=? AND user_id=?",
                 (chat_id, user_id),
             )
             await db.execute(
-                "UPDATE family_wallet SET balance=GREATEST(0,balance-$1) WHERE chat_id=$2 AND user_id=$3",
+                "UPDATE family_wallet SET balance=GREATEST(0,balance-?) WHERE chat_id=? AND user_id=?",
                 (rest, chat_id, partner_id),
             )
 
@@ -3624,7 +3632,7 @@ async def deduct_family_pool(
         total = 0
         for uid_check in uids:
             async with db.execute(
-                "SELECT balance FROM family_wallet WHERE chat_id=$1 AND user_id=$2",
+                "SELECT balance FROM family_wallet WHERE chat_id=? AND user_id=?",
                 (chat_id, uid_check),
             ) as c:
                 row = await c.fetchone()
@@ -3642,7 +3650,7 @@ async def log_family_transaction(
     async with postgres_connect() as db:
         await db.execute(
             "INSERT INTO family_wallet_log (chat_id, user_id, action, amount, description, created_at) "
-            "VALUES ($1,$2,$3,$4,$5,$6)",
+            "VALUES (?,?,?,?,?,?)",
             (chat_id, user_id, action, amount, description, now),
         )
         await db.commit()
@@ -3656,8 +3664,8 @@ async def get_family_wallet_log(chat_id: int, uid: int, partner_id: int | None, 
                 "SELECT fw.*, u.full_name "
                 "FROM family_wallet_log fw "
                 "LEFT JOIN users u ON u.user_id = fw.user_id "
-                "WHERE fw.chat_id=$1 AND fw.user_id IN ($2,$3) "
-                "ORDER BY fw.created_at DESC LIMIT $1",
+                "WHERE fw.chat_id=? AND fw.user_id IN (?,?) "
+                "ORDER BY fw.created_at DESC LIMIT ?",
                 (chat_id, uid, partner_id, limit),
             ) as c:
                 rows = await c.fetchall()
@@ -3666,8 +3674,8 @@ async def get_family_wallet_log(chat_id: int, uid: int, partner_id: int | None, 
                 "SELECT fw.*, u.full_name "
                 "FROM family_wallet_log fw "
                 "LEFT JOIN users u ON u.user_id = fw.user_id "
-                "WHERE fw.chat_id=$1 AND fw.user_id=$2 "
-                "ORDER BY fw.created_at DESC LIMIT $1",
+                "WHERE fw.chat_id=? AND fw.user_id=? "
+                "ORDER BY fw.created_at DESC LIMIT ?",
                 (chat_id, uid, limit),
             ) as c:
                 rows = await c.fetchall()
@@ -3687,7 +3695,7 @@ async def is_anniversary_awarded(user_id: int, chat_id: int, date_str: str) -> b
     """True если юбилейная Мора уже была начислена этому пользователю сегодня."""
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT 1 FROM anniversary_log WHERE user_id=$1 AND chat_id=$2 AND date_str=$3",
+            "SELECT 1 FROM anniversary_log WHERE user_id=? AND chat_id=? AND date_str=?",
             (user_id, chat_id, date_str),
         ) as c:
             return (await c.fetchone()) is not None
@@ -3697,14 +3705,14 @@ async def mark_anniversary_awarded(user_id: int, chat_id: int, date_str: str):
     """Записать факт начисления юбилейной Моры."""
     async with postgres_connect() as db:
         await db.execute(
-            "INSERT INTO anniversary_log (user_id, chat_id, date_str) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING",
+            "INSERT INTO anniversary_log (user_id, chat_id, date_str) VALUES (?,?,?) ON CONFLICT DO NOTHING",
             (user_id, chat_id, date_str),
         )
         await db.commit()
         # Автоочистка: удаляем записи старше 90 дней
         cutoff = (datetime.now(timezone.utc).date().isoformat()[:7])  # "YYYY-MM"
         await db.execute(
-            "DELETE FROM anniversary_log WHERE date_str < $1",
+            "DELETE FROM anniversary_log WHERE date_str < ?",
             (cutoff + "-01",),
         )
         await db.commit()
@@ -3716,7 +3724,7 @@ async def is_singles_bonus_awarded(week_key: str) -> bool:
     """Check if singles bonus has been awarded for this week."""
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT 1 FROM singles_bonus_log WHERE week_key=$1", (week_key,)
+            "SELECT 1 FROM singles_bonus_log WHERE week_key=?", (week_key,)
         ) as c:
             return bool(await c.fetchone())
 
@@ -3725,7 +3733,7 @@ async def mark_singles_bonus_awarded(week_key: str):
     """Mark singles bonus as awarded for this week and cleanup old records."""
     async with postgres_connect() as db:
         await db.execute(
-            "INSERT INTO singles_bonus_log (week_key) VALUES ($1) ON CONFLICT DO NOTHING", (week_key,)
+            "INSERT INTO singles_bonus_log (week_key) VALUES (?) ON CONFLICT DO NOTHING", (week_key,)
         )
         
         # Auto-cleanup: remove records older than 12 weeks
@@ -3733,7 +3741,7 @@ async def mark_singles_bonus_awarded(week_key: str):
         if week_key.startswith(str(cutoff_year)) and int(week_key[-2:]) <= 12:
             cutoff_year -= 1
         await db.execute(
-            "DELETE FROM singles_bonus_log WHERE week_key < $1", (f"{cutoff_year}-W01",)
+            "DELETE FROM singles_bonus_log WHERE week_key < ?", (f"{cutoff_year}-W01",)
         )
         await db.commit()
 
@@ -3760,7 +3768,7 @@ async def is_lottery_drawn(week_key: str) -> bool:
     """True если розыгрыш лотереи уже был проведён на этой неделе (выживает перезапуск)."""
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT 1 FROM lottery_draws WHERE week_key=$1", (week_key,)
+            "SELECT 1 FROM lottery_draws WHERE week_key=?", (week_key,)
         ) as c:
             return (await c.fetchone()) is not None
 
@@ -3769,13 +3777,13 @@ async def mark_lottery_drawn(week_key: str):
     """Записать факт проведения розыгрыша лотереи на этой неделе."""
     async with postgres_connect() as db:
         await db.execute(
-            "INSERT INTO lottery_draws (week_key) VALUES ($1) ON CONFLICT DO NOTHING", (week_key,)
+            "INSERT INTO lottery_draws (week_key) VALUES (?) ON CONFLICT DO NOTHING", (week_key,)
         )
         await db.commit()
         # Автоочистка: удаляем записи старше 12 недель
         cutoff_year = datetime.now(timezone.utc).year - 1
         await db.execute(
-            "DELETE FROM lottery_draws WHERE week_key < $1", (f"{cutoff_year}-W01",)
+            "DELETE FROM lottery_draws WHERE week_key < ?", (f"{cutoff_year}-W01",)
         )
         await db.commit()
 
@@ -3787,7 +3795,7 @@ async def set_mora_balance(user_id: int, chat_id: int, new_balance: int):
     new_balance = max(0, new_balance)
     async with postgres_connect() as db:
         await db.execute(
-            "UPDATE users SET balance = $1 WHERE user_id = $2",
+            "UPDATE users SET balance = ? WHERE user_id = ?",
             (new_balance, user_id),
         )
         await db.commit()
@@ -3800,31 +3808,31 @@ async def transfer_mora(from_uid: int, to_uid: int, chat_id: int, amount: int) -
     async with postgres_connect() as db:
         # Atomic deduction with balance guard
         cursor = await db.execute(
-            "UPDATE users SET balance = balance - $1 WHERE user_id=$2 AND COALESCE(balance, 0) >= $3",
+            "UPDATE users SET balance = balance - ? WHERE user_id=? AND COALESCE(balance, 0) >= ?",
             (amount, from_uid, amount),
         )
         if cursor.rowcount == 0:
             async with db.execute(
-                "SELECT COALESCE(balance, 0) FROM users WHERE user_id=$1",
+                "SELECT COALESCE(balance, 0) FROM users WHERE user_id=?",
                 (from_uid,),
             ) as c:
                 row = await c.fetchone()
             return False, (row[0] if row else 0), 0
 
         await db.execute(
-            "UPDATE users SET balance = COALESCE(balance, 0) + $1,"
-            " total_earned = COALESCE(total_earned, 0) + $1 WHERE user_id=$2",
+            "UPDATE users SET balance = COALESCE(balance, 0) + ?,"
+            " total_earned = COALESCE(total_earned, 0) + ? WHERE user_id=?",
             (amount, amount, to_uid),
         )
         await db.commit()
 
         async with db.execute(
-            "SELECT COALESCE(balance, 0) FROM users WHERE user_id=$1", (from_uid,)
+            "SELECT COALESCE(balance, 0) FROM users WHERE user_id=?", (from_uid,)
         ) as c:
             row = await c.fetchone()
         from_new_bal = row[0] if row else 0
         async with db.execute(
-            "SELECT COALESCE(balance, 0) FROM users WHERE user_id=$1", (to_uid,)
+            "SELECT COALESCE(balance, 0) FROM users WHERE user_id=?", (to_uid,)
         ) as c:
             row = await c.fetchone()
         to_new_bal = row[0] if row else 0
@@ -3841,24 +3849,24 @@ async def create_loan(lender_id: int, borrower_id: int, chat_id: int, amount: in
 
         # Atomic deduction with balance guard
         cursor = await db.execute(
-            "UPDATE users SET balance = balance - $1 WHERE user_id=$2 AND COALESCE(balance, 0) >= $3",
+            "UPDATE users SET balance = balance - ? WHERE user_id=? AND COALESCE(balance, 0) >= ?",
             (amount, lender_id, amount),
         )
         if cursor.rowcount == 0:
             async with db.execute(
-                "SELECT COALESCE(balance, 0) FROM users WHERE user_id=$1",
+                "SELECT COALESCE(balance, 0) FROM users WHERE user_id=?",
                 (lender_id,),
             ) as c:
                 row = await c.fetchone()
             return False, (row[0] if row else 0), 0
 
         await db.execute(
-            "UPDATE users SET balance = COALESCE(balance, 0) + $1,"
-            " total_earned = COALESCE(total_earned, 0) + $1 WHERE user_id=$2",
+            "UPDATE users SET balance = COALESCE(balance, 0) + ?,"
+            " total_earned = COALESCE(total_earned, 0) + ? WHERE user_id=?",
             (amount, amount, borrower_id),
         )
         cursor = await db.execute(
-            "INSERT INTO mora_loans (lender_id, borrower_id, chat_id, amount, loaned_at) VALUES ($1,$2,$3,$4,$5) RETURNING id",
+            "INSERT INTO mora_loans (lender_id, borrower_id, chat_id, amount, loaned_at) VALUES (?,?,?,?,?) RETURNING id",
             (lender_id, borrower_id, chat_id, amount, now),
         )
         row = await cursor.fetchone()
@@ -3866,7 +3874,7 @@ async def create_loan(lender_id: int, borrower_id: int, chat_id: int, amount: in
         await db.commit()
 
         async with db.execute(
-            "SELECT COALESCE(balance, 0) FROM users WHERE user_id=$1",
+            "SELECT COALESCE(balance, 0) FROM users WHERE user_id=?",
             (lender_id,),
         ) as c:
             row = await c.fetchone()
@@ -3879,7 +3887,7 @@ async def get_active_loans_as_lender(user_id: int, chat_id: int) -> list:
     async with postgres_connect() as db:
         async with db.execute(
             """SELECT * FROM mora_loans
-               WHERE lender_id=$1 AND chat_id=$2 AND repaid_at IS NULL
+               WHERE lender_id=? AND chat_id=? AND repaid_at IS NULL
                ORDER BY loaned_at ASC""",
             (user_id, chat_id),
         ) as c:
@@ -3891,7 +3899,7 @@ async def get_active_loans_as_borrower(user_id: int, chat_id: int) -> list:
     async with postgres_connect() as db:
         async with db.execute(
             """SELECT * FROM mora_loans
-               WHERE borrower_id=$1 AND chat_id=$2 AND repaid_at IS NULL
+               WHERE borrower_id=? AND chat_id=? AND repaid_at IS NULL
                ORDER BY loaned_at ASC""",
             (user_id, chat_id),
         ) as c:
@@ -3902,7 +3910,7 @@ async def repay_loan(loan_id: int, borrower_id: int, chat_id: int) -> tuple[bool
     """Полностью погашает заём (глобальный баланс). Возвращает (ok, borrower_new_bal)."""
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT * FROM mora_loans WHERE id=$1 AND chat_id=$2 AND borrower_id=$3 AND repaid_at IS NULL AND COALESCE(status,'accepted')='accepted'",
+            "SELECT * FROM mora_loans WHERE id=? AND chat_id=? AND borrower_id=? AND repaid_at IS NULL AND COALESCE(status,'accepted')='accepted'",
             (loan_id, chat_id, borrower_id),
         ) as c:
             loan = await c.fetchone()
@@ -3916,29 +3924,29 @@ async def repay_loan(loan_id: int, borrower_id: int, chat_id: int) -> tuple[bool
 
         # Atomic deduction with balance guard
         cursor = await db.execute(
-            "UPDATE users SET balance = balance - $1 WHERE user_id=$2 AND COALESCE(balance, 0) >= $3",
+            "UPDATE users SET balance = balance - ? WHERE user_id=? AND COALESCE(balance, 0) >= ?",
             (amount, borrower_id, amount),
         )
         if cursor.rowcount == 0:
             async with db.execute(
-                "SELECT COALESCE(balance, 0) FROM users WHERE user_id=$1",
+                "SELECT COALESCE(balance, 0) FROM users WHERE user_id=?",
                 (borrower_id,),
             ) as c:
                 row = await c.fetchone()
             return False, (row[0] if row else 0)
 
         await db.execute(
-            "UPDATE users SET balance = COALESCE(balance, 0) + $1 WHERE user_id=$2",
+            "UPDATE users SET balance = COALESCE(balance, 0) + ? WHERE user_id=?",
             (amount, lender_id),
         )
         await db.execute(
-            "UPDATE mora_loans SET repaid_at=$1 WHERE id=$2",
+            "UPDATE mora_loans SET repaid_at=? WHERE id=?",
             (now, loan_id),
         )
         await db.commit()
 
         async with db.execute(
-            "SELECT COALESCE(balance, 0) FROM users WHERE user_id=$1",
+            "SELECT COALESCE(balance, 0) FROM users WHERE user_id=?",
             (borrower_id,),
         ) as c:
             row = await c.fetchone()
@@ -3951,23 +3959,23 @@ async def change_pet_type(user_id: int, chat_id: int, new_type: str) -> bool:
     """Меняет вид глобального питомца (user + партнёр). Возвращает True если питомец найден."""
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT 1 FROM pets_global WHERE user_id=$1",
+            "SELECT 1 FROM pets_global WHERE user_id=?",
             (user_id,),
         ) as c:
             if not await c.fetchone():
                 return False
         await db.execute(
-            "UPDATE pets_global SET pet_type=$1 WHERE user_id=$2",
+            "UPDATE pets_global SET pet_type=? WHERE user_id=?",
             (new_type, user_id),
         )
         async with db.execute(
-            "SELECT partner_id FROM marriages_global WHERE user_id=$1",
+            "SELECT partner_id FROM marriages_global WHERE user_id=?",
             (user_id,),
         ) as c:
             row = await c.fetchone()
         if row:
             await db.execute(
-                "UPDATE pets_global SET pet_type=$1 WHERE user_id=$2",
+                "UPDATE pets_global SET pet_type=? WHERE user_id=?",
                 (new_type, row[0]),
             )
         await db.commit()
@@ -3978,7 +3986,7 @@ async def reset_user_quest(user_id: int, chat_id: int, quest_date: str):
     """Delete today's quest progress so it will be re-assigned fresh."""
     async with postgres_connect() as db:
         await db.execute(
-            "DELETE FROM user_quests WHERE user_id=$1 AND chat_id=$2 AND quest_date=$3",
+            "DELETE FROM user_quests WHERE user_id=? AND chat_id=? AND quest_date=?",
             (user_id, chat_id, quest_date),
         )
         await db.commit()
@@ -3989,31 +3997,31 @@ async def add_reputation_in_chat(from_uid: int, to_uid: int, chat_id: int, amoun
     now = datetime.now(timezone.utc)
     async with postgres_connect() as db:
         await db.execute(
-            "INSERT INTO rep_log (from_uid, to_uid, chat_id, amount, given_at) VALUES ($1,$2,$3,$4,$5)",
+            "INSERT INTO rep_log (from_uid, to_uid, chat_id, amount, given_at) VALUES (?,?,?,?,?)",
             (from_uid, to_uid, chat_id, amount, now),
         )
         await db.execute(
-            "INSERT INTO user_stats (user_id, chat_id) VALUES ($1, $2) ON CONFLICT (user_id, chat_id) DO NOTHING",
+            "INSERT INTO user_stats (user_id, chat_id) VALUES (?, ?) ON CONFLICT (user_id, chat_id) DO NOTHING",
             (to_uid, chat_id),
         )
         await db.execute(
-            "UPDATE user_stats SET reputation = reputation + $1 WHERE user_id = $2 AND chat_id = $3",
+            "UPDATE user_stats SET reputation = reputation + ? WHERE user_id = ? AND chat_id = ?",
             (amount, to_uid, chat_id),
         )
         # Increment rep_given counter for the giver
         await db.execute(
-            "UPDATE user_mora SET rep_given_count = COALESCE(rep_given_count,0) + 1 WHERE user_id=$1 AND chat_id=$2",
+            "UPDATE user_mora SET rep_given_count = COALESCE(rep_given_count,0) + 1 WHERE user_id=? AND chat_id=?",
             (from_uid, chat_id),
         )
         await db.commit()
         async with db.execute(
-            "SELECT reputation FROM user_stats WHERE user_id = $1 AND chat_id = $2",
+            "SELECT reputation FROM user_stats WHERE user_id = ? AND chat_id = ?",
             (to_uid, chat_id),
         ) as c:
             row = await c.fetchone()
             rep_new = row[0] if row else 0
         async with db.execute(
-            "SELECT rep_given_count FROM user_mora WHERE user_id=$1 AND chat_id=$2",
+            "SELECT rep_given_count FROM user_mora WHERE user_id=? AND chat_id=?",
             (from_uid, chat_id),
         ) as c:
             row2 = await c.fetchone()
@@ -4035,7 +4043,7 @@ async def get_banned_in_chat(chat_id: int):
             """SELECT us.user_id, us.ban_reason, u.full_name, u.username
                FROM user_stats us
                JOIN users u ON u.user_id = us.user_id
-               WHERE us.chat_id = $1 AND us.is_banned = 1""",
+               WHERE us.chat_id = ? AND us.is_banned = 1""",
             (chat_id,),
         ) as c:
             return await c.fetchall()
@@ -4063,19 +4071,19 @@ async def get_top_by_messages_in_chat(
                 """SELECT us.*, u.full_name, u.username
                    FROM user_stats us
                    JOIN users u ON u.user_id = us.user_id
-                   WHERE us.chat_id = $1 AND us.is_banned = 0 AND us.message_count >= 1
-                   ORDER BY us.message_count DESC LIMIT $2""",
+                   WHERE us.chat_id = ? AND us.is_banned = 0 AND us.message_count >= 1
+                   ORDER BY us.message_count DESC LIMIT ?""",
                 (chat_id, limit),
             ) as c:
                 return await c.fetchall()
 
         pending_user_ids = list(pending_for_chat.keys())
-        placeholders = ", ".join("$1" for _ in pending_user_ids)
+        placeholders = ", ".join("?" for _ in pending_user_ids)
         async with db.execute(
             f"""SELECT us.*, u.full_name, u.username
                   FROM user_stats us
                   JOIN users u ON u.user_id = us.user_id
-                  WHERE us.chat_id = $1 AND us.is_banned = 0
+                  WHERE us.chat_id = ? AND us.is_banned = 0
                     AND (us.message_count >= 1 OR us.user_id IN ({placeholders}))""",
             (chat_id, *pending_user_ids),
         ) as c:
@@ -4099,8 +4107,8 @@ async def get_top_by_xp_in_chat(chat_id: int, limit: int = 10):
             """SELECT us.*, u.full_name, u.username
                FROM user_stats us
                JOIN users u ON u.user_id = us.user_id
-               WHERE us.chat_id = $1 AND us.is_banned = 0
-               ORDER BY us.xp DESC LIMIT $2""",
+               WHERE us.chat_id = ? AND us.is_banned = 0
+               ORDER BY us.xp DESC LIMIT ?""",
             (chat_id, limit),
         ) as c:
             return await c.fetchall()
@@ -4112,8 +4120,8 @@ async def get_top_reputation_in_chat(chat_id: int, limit: int = 10):
             """SELECT us.*, u.full_name, u.username
                FROM user_stats us
                JOIN users u ON u.user_id = us.user_id
-               WHERE us.chat_id = $1 AND us.is_banned = 0
-               ORDER BY us.reputation DESC LIMIT $2""",
+               WHERE us.chat_id = ? AND us.is_banned = 0
+               ORDER BY us.reputation DESC LIMIT ?""",
             (chat_id, limit),
         ) as c:
             return await c.fetchall()
@@ -4122,19 +4130,19 @@ async def get_top_reputation_in_chat(chat_id: int, limit: int = 10):
 async def get_chat_stats_for_chat(chat_id: int):
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT COUNT(*) FROM user_stats WHERE chat_id = $1", (chat_id,)
+            "SELECT COUNT(*) FROM user_stats WHERE chat_id = ?", (chat_id,)
         ) as c:
             total = (await c.fetchone())[0]
         async with db.execute(
-            "SELECT COUNT(*) FROM user_stats WHERE chat_id = $1 AND is_banned = 1", (chat_id,)
+            "SELECT COUNT(*) FROM user_stats WHERE chat_id = ? AND is_banned = 1", (chat_id,)
         ) as c:
             banned = (await c.fetchone())[0]
         async with db.execute(
-            "SELECT SUM(message_count) FROM user_stats WHERE chat_id = $1", (chat_id,)
+            "SELECT SUM(message_count) FROM user_stats WHERE chat_id = ?", (chat_id,)
         ) as c:
             messages = (await c.fetchone())[0] or 0
         async with db.execute(
-            "SELECT COUNT(*) FROM user_stats WHERE chat_id = $1 AND rank NOT IN ('user', 'vip')",
+            "SELECT COUNT(*) FROM user_stats WHERE chat_id = ? AND rank NOT IN ('user', 'vip')",
             (chat_id,),
         ) as c:
             staff = (await c.fetchone())[0]
@@ -4144,7 +4152,7 @@ async def get_chat_stats_for_chat(chat_id: int):
 async def set_bio_in_chat(user_id: int, chat_id: int, bio: str | None):
     async with postgres_connect() as db:
         await db.execute(
-            """INSERT INTO user_stats (user_id, chat_id, bio) VALUES ($1, $2, $3)
+            """INSERT INTO user_stats (user_id, chat_id, bio) VALUES (?, ?, ?)
                ON CONFLICT(user_id, chat_id) DO UPDATE SET bio = excluded.bio""",
             (user_id, chat_id, bio),
         )
@@ -4155,7 +4163,7 @@ async def get_rep_last_time(from_uid: int, to_uid: int, chat_id: int) -> str | N
     """Get ISO timestamp of last rep given from_uid to to_uid in chat."""
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT given_at FROM rep_log WHERE from_uid=$1 AND to_uid=$2 AND chat_id=$3 ORDER BY given_at DESC LIMIT 1",
+            "SELECT given_at FROM rep_log WHERE from_uid=? AND to_uid=? AND chat_id=? ORDER BY given_at DESC LIMIT 1",
             (from_uid, to_uid, chat_id),
         ) as c:
             row = await c.fetchone()
@@ -4173,7 +4181,7 @@ async def set_user_stat_in_chat(user_id: int, chat_id: int, field: str, value) -
         return False
     async with postgres_connect() as db:
         await db.execute(
-            f"UPDATE user_stats SET {field} = $1 WHERE user_id = $2 AND chat_id = $3",
+            f"UPDATE user_stats SET {field} = ? WHERE user_id = ? AND chat_id = ?",
             (value, user_id, chat_id),
         )
         await db.commit()
@@ -4188,8 +4196,8 @@ async def set_user_stat_in_chat(user_id: int, chat_id: int, field: str, value) -
 async def set_channel_type(type_name: str, chat_id: int):
     async with postgres_connect() as db:
         await db.execute(
-            "INSERT INTO channel_types (type, chat_id) VALUES ($1, $2) "
-            "ON CONFLICT (type, chat_id) DO UPDATE SET type = EXCLUDED.type, chat_id = EXCLUDED.chat_id",
+            "INSERT INTO channel_types (type, chat_id) VALUES (?, ?) "
+            "ON CONFLICT (type) DO UPDATE SET chat_id = EXCLUDED.chat_id",
             (type_name, chat_id),
         )
         await db.commit()
@@ -4197,14 +4205,14 @@ async def set_channel_type(type_name: str, chat_id: int):
 
 async def remove_channel_type(type_name: str):
     async with postgres_connect() as db:
-        await db.execute("DELETE FROM channel_types WHERE type = $1", (type_name,))
+        await db.execute("DELETE FROM channel_types WHERE type = ?", (type_name,))
         await db.commit()
 
 
 async def get_channel_type(type_name: str) -> int | None:
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT chat_id FROM channel_types WHERE type = $1", (type_name,)
+            "SELECT chat_id FROM channel_types WHERE type = ?", (type_name,)
         ) as c:
             row = await c.fetchone()
             return row[0] if row else None
@@ -4224,7 +4232,7 @@ async def add_community_role(name: str, emoji: str = "", description: str = "") 
     async with postgres_connect() as db:
         try:
             await db.execute(
-                "INSERT INTO community_roles (name, emoji, description, created_at) VALUES ($1, $2, $3, $4)",
+                "INSERT INTO community_roles (name, emoji, description, created_at) VALUES (?, ?, ?, ?)",
                 (name, emoji, description, now),
             )
             await db.commit()
@@ -4237,12 +4245,12 @@ async def remove_community_role(name: str) -> bool:
     """Remove a community role by name. Returns False if not found."""
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT id FROM community_roles WHERE name = $1", (name,)
+            "SELECT id FROM community_roles WHERE name = ?", (name,)
         ) as c:
             row = await c.fetchone()
         if not row:
             return False
-        await db.execute("DELETE FROM community_roles WHERE id = $1", (row[0],))
+        await db.execute("DELETE FROM community_roles WHERE id = ?", (row[0],))
         await db.commit()
         return True
 
@@ -4268,7 +4276,7 @@ async def get_user_community_roles(user_id: int) -> list[dict]:
             """SELECT r.name, r.emoji, r.description
                FROM user_roles ur
                JOIN community_roles r ON r.id = ur.role_id
-               WHERE ur.user_id = $1
+               WHERE ur.user_id = ?
                ORDER BY r.name""",
             (user_id,),
         ) as c:
@@ -4288,7 +4296,7 @@ async def assign_community_role(user_id: int, role_name: str) -> str:
     """
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT id FROM community_roles WHERE name = $1", (role_name,)
+            "SELECT id FROM community_roles WHERE name = ?", (role_name,)
         ) as c:
             row = await c.fetchone()
         if not row:
@@ -4297,7 +4305,7 @@ async def assign_community_role(user_id: int, role_name: str) -> str:
 
         # Check if the role is already assigned to anyone
         async with db.execute(
-            "SELECT user_id FROM user_roles WHERE role_id = $1", (role_id,)
+            "SELECT user_id FROM user_roles WHERE role_id = ?", (role_id,)
         ) as c:
             existing = await c.fetchone()
 
@@ -4308,7 +4316,7 @@ async def assign_community_role(user_id: int, role_name: str) -> str:
             return "taken"
 
         await db.execute(
-            "INSERT INTO user_roles (role_id, user_id) VALUES ($1, $2)",
+            "INSERT INTO user_roles (role_id, user_id) VALUES (?, ?)",
             (role_id, user_id),
         )
         await db.commit()
@@ -4319,13 +4327,13 @@ async def revoke_community_role(user_id: int, role_name: str) -> bool:
     """Remove a role from a user. Returns False if user didn't have it."""
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT id FROM community_roles WHERE name = $1", (role_name,)
+            "SELECT id FROM community_roles WHERE name = ?", (role_name,)
         ) as c:
             row = await c.fetchone()
         if not row:
             return False
         result = await db.execute(
-            "DELETE FROM user_roles WHERE role_id = $1 AND user_id = $2",
+            "DELETE FROM user_roles WHERE role_id = ? AND user_id = ?",
             (row[0], user_id),
         )
         await db.commit()
@@ -4340,7 +4348,7 @@ async def get_role_holders(role_name: str) -> list[dict]:
                FROM user_roles ur
                JOIN community_roles r ON r.id = ur.role_id
                JOIN users u ON u.user_id = ur.user_id
-               WHERE r.name = $1
+               WHERE r.name = ?
                ORDER BY u.full_name""",
             (role_name,),
         ) as c:
@@ -4358,7 +4366,7 @@ async def force_assign_community_role(user_id: int, role_name: str) -> tuple[str
     """
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT id FROM community_roles WHERE name = $1", (role_name,)
+            "SELECT id FROM community_roles WHERE name = ?", (role_name,)
         ) as c:
             row = await c.fetchone()
         if not row:
@@ -4366,7 +4374,7 @@ async def force_assign_community_role(user_id: int, role_name: str) -> tuple[str
         role_id = row[0]
 
         async with db.execute(
-            "SELECT user_id FROM user_roles WHERE role_id = $1", (role_id,)
+            "SELECT user_id FROM user_roles WHERE role_id = ?", (role_id,)
         ) as c:
             existing = await c.fetchone()
 
@@ -4375,11 +4383,11 @@ async def force_assign_community_role(user_id: int, role_name: str) -> tuple[str
             holder_id = existing[0]
             if holder_id == user_id:
                 return ("already", None)
-            await db.execute("DELETE FROM user_roles WHERE role_id = $1", (role_id,))
+            await db.execute("DELETE FROM user_roles WHERE role_id = ?", (role_id,))
             evicted_id = holder_id
 
         await db.execute(
-            "INSERT INTO user_roles (role_id, user_id) VALUES ($1, $2)",
+            "INSERT INTO user_roles (role_id, user_id) VALUES (?, ?)",
             (role_id, user_id),
         )
         await db.commit()
@@ -4391,7 +4399,7 @@ async def log_voluntary_leave(chat_id: int, user_id: int, full_name: str, userna
     now = datetime.now(timezone.utc)
     async with postgres_connect() as db:
         await db.execute(
-            "INSERT INTO leave_log (chat_id, user_id, full_name, username, left_at) VALUES ($1, $2, $3, $4, $5)",
+            "INSERT INTO leave_log (chat_id, user_id, full_name, username, left_at) VALUES (?, ?, ?, ?, ?)",
             (chat_id, user_id, full_name, username, now),
         )
         await db.commit()
@@ -4402,8 +4410,8 @@ async def get_voluntary_leaves(chat_id: int, limit: int = 20) -> list[dict]:
     async with postgres_connect() as db:
         async with db.execute(
             """SELECT user_id, full_name, username, left_at
-               FROM leave_log WHERE chat_id = $1
-               ORDER BY left_at DESC LIMIT $2""",
+               FROM leave_log WHERE chat_id = ?
+               ORDER BY left_at DESC LIMIT ?""",
             (chat_id, limit),
         ) as c:
             return [dict(r) for r in await c.fetchall()]
@@ -4421,7 +4429,7 @@ async def cleanup_left_inactive_users(cutoff_days: int = 7) -> int:
     cleaned = 0
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT DISTINCT user_id, chat_id FROM leave_log WHERE left_at < $1",
+            "SELECT DISTINCT user_id, chat_id FROM leave_log WHERE left_at < ?",
             (cutoff,),
         ) as c:
             rows = await c.fetchall()
@@ -4429,10 +4437,10 @@ async def cleanup_left_inactive_users(cutoff_days: int = 7) -> int:
             uid, cid = row["user_id"], row["chat_id"]
             # Remove per-chat economy and stats rows only
             await db.execute(
-                "DELETE FROM user_stats WHERE user_id = $1 AND chat_id = $2", (uid, cid)
+                "DELETE FROM user_stats WHERE user_id = ? AND chat_id = ?", (uid, cid)
             )
             await db.execute(
-                "DELETE FROM user_mora WHERE user_id = $1 AND chat_id = $2", (uid, cid)
+                "DELETE FROM user_mora WHERE user_id = ? AND chat_id = ?", (uid, cid)
             )
             cleaned += 1
         if cleaned:
@@ -4451,7 +4459,7 @@ async def add_user_to_banlist(
         try:
             await db.execute(
                 "INSERT INTO user_banlist (chat_id, user_id, added_by, reason, added_at)"
-                " VALUES ($1, $2, $3, $4, $5)",
+                " VALUES (?, ?, ?, ?, ?)",
                 (chat_id, user_id, added_by, reason, now),
             )
             await db.commit()
@@ -4464,7 +4472,7 @@ async def remove_user_from_banlist(chat_id: int, user_id: int) -> bool:
     """Remove a user from the chat banlist. Returns True if removed."""
     async with postgres_connect() as db:
         result = await db.execute(
-            "DELETE FROM user_banlist WHERE chat_id = $1 AND user_id = $2",
+            "DELETE FROM user_banlist WHERE chat_id = ? AND user_id = ?",
             (chat_id, user_id),
         )
         await db.commit()
@@ -4475,7 +4483,7 @@ async def is_user_in_banlist(chat_id: int, user_id: int) -> bool:
     """Check if a user is in the chat banlist."""
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT 1 FROM user_banlist WHERE chat_id = $1 AND user_id = $2 LIMIT 1",
+            "SELECT 1 FROM user_banlist WHERE chat_id = ? AND user_id = ? LIMIT 1",
             (chat_id, user_id),
         ) as c:
             return (await c.fetchone()) is not None
@@ -4489,8 +4497,8 @@ async def get_chat_banlist_users(chat_id: int, limit: int = 50) -> list[dict]:
                       u.full_name, u.username
                FROM user_banlist ub
                LEFT JOIN users u ON u.user_id = ub.user_id
-               WHERE ub.chat_id = $1
-               ORDER BY ub.added_at DESC LIMIT $2""",
+               WHERE ub.chat_id = ?
+               ORDER BY ub.added_at DESC LIMIT ?""",
             (chat_id, limit),
         ) as c:
             return [dict(r) for r in await c.fetchall()]
@@ -4503,7 +4511,7 @@ async def get_senior_users_in_chat(chat_id: int) -> list[dict]:
             """SELECT us.user_id, u.full_name, u.username
                FROM user_stats us
                JOIN users u ON u.user_id = us.user_id
-               WHERE us.chat_id = $1 AND us.rank IN ('co_owner', 'owner', 'developer')
+               WHERE us.chat_id = ? AND us.rank IN ('co_owner', 'owner', 'developer')
                ORDER BY CASE us.rank
                    WHEN 'developer' THEN 3
                    WHEN 'owner'     THEN 2
@@ -4522,7 +4530,7 @@ async def set_pending_role(user_id: int, role_name: str) -> None:
     async with postgres_connect() as db:
         await db.execute(
             """INSERT INTO pending_roles (user_id, role_name, reserved_at)
-               VALUES ($1, $2, $3)
+               VALUES (?, ?, ?)
                ON CONFLICT(user_id) DO UPDATE SET
                    role_name   = excluded.role_name,
                    reserved_at = excluded.reserved_at""",
@@ -4535,7 +4543,7 @@ async def get_pending_role(user_id: int) -> str | None:
     """Return the pending role name for a user, or None."""
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT role_name FROM pending_roles WHERE user_id = $1",
+            "SELECT role_name FROM pending_roles WHERE user_id = ?",
             (user_id,),
         ) as c:
             row = await c.fetchone()
@@ -4545,7 +4553,7 @@ async def get_pending_role(user_id: int) -> str | None:
 async def clear_pending_role(user_id: int) -> None:
     """Remove any pending role for a user."""
     async with postgres_connect() as db:
-        await db.execute("DELETE FROM pending_roles WHERE user_id = $1", (user_id,))
+        await db.execute("DELETE FROM pending_roles WHERE user_id = ?", (user_id,))
         await db.commit()
 
 
@@ -4578,11 +4586,11 @@ async def get_inactive_users_for_warn(chat_id: int, cutoff_iso: str) -> list[dic
                    us.inactivity_warned_at
             FROM user_stats us
             LEFT JOIN users u ON u.user_id = us.user_id
-            WHERE us.chat_id = $1
+            WHERE us.chat_id = ?
               AND us.is_banned = 0
               AND us.rank IN ('user', 'vip')
               AND COALESCE(us.last_active, us.first_active) IS NOT NULL
-              AND COALESCE(us.last_active, us.first_active) < $2
+              AND COALESCE(us.last_active, us.first_active) < ?
               AND (
                   us.inactivity_warned_at IS NULL
                   OR us.last_active > us.inactivity_warned_at
@@ -4607,13 +4615,13 @@ async def get_inactive_users_24h(chat_id: int, limit: int = 50) -> list[dict]:
                    COALESCE(us.message_count, 0) AS message_count
             FROM user_stats us
             LEFT JOIN users u ON u.user_id = us.user_id
-            WHERE us.chat_id = $1
+            WHERE us.chat_id = ?
               AND us.is_banned = 0
               AND COALESCE(us.rank, 'user') IN ('user', 'vip')
               AND COALESCE(us.last_active, us.first_active) IS NOT NULL
               AND COALESCE(us.last_active, us.first_active) < NOW() - INTERVAL '24 hours'
             ORDER BY COALESCE(us.last_active, us.first_active) ASC
-            LIMIT $2
+            LIMIT ?
             """,
             (chat_id, limit),
         ) as c:
@@ -4625,7 +4633,7 @@ async def set_inactivity_warned(user_id: int, chat_id: int, when_iso: str) -> No
     async with postgres_connect() as db:
         await db.execute(
             """INSERT INTO user_stats (user_id, chat_id, inactivity_warned_at)
-               VALUES ($1, $2, $3)
+               VALUES (?, ?, ?)
                ON CONFLICT(user_id, chat_id)
                DO UPDATE SET inactivity_warned_at = excluded.inactivity_warned_at""",
             (user_id, chat_id, when_iso),
@@ -4659,7 +4667,7 @@ async def get_cleanup_config(chat_id: int) -> dict:
             """SELECT next_cleanup_at, cleanup_reminder_sent,
                       COALESCE(cleanup_message_norm, 70) AS cleanup_message_norm,
                       COALESCE(cleanup_warn_hours, 48)   AS cleanup_warn_hours
-               FROM chat_settings WHERE chat_id = $1""",
+               FROM chat_settings WHERE chat_id = ?""",
             (chat_id,),
         ) as c:
             row = await c.fetchone()
@@ -4682,7 +4690,7 @@ async def set_cleanup_config(
     """Update one or more cleanup config fields for a chat."""
     async with postgres_connect() as db:
         await db.execute(
-            "INSERT INTO chat_settings (chat_id) VALUES ($1) ON CONFLICT (chat_id) DO NOTHING",
+            "INSERT INTO chat_settings (chat_id) VALUES (?) ON CONFLICT (chat_id) DO NOTHING",
             (chat_id,),
         )
         if next_cleanup_at is not None:
@@ -4708,17 +4716,17 @@ async def set_cleanup_config(
             elif hasattr(_nc, 'tzinfo') and _nc.tzinfo is None:
                 _nc = _nc.replace(tzinfo=_tz.utc)
             await db.execute(
-                "UPDATE chat_settings SET next_cleanup_at = $1, cleanup_reminder_sent = 0 WHERE chat_id = $2",
+                "UPDATE chat_settings SET next_cleanup_at = ?, cleanup_reminder_sent = 0 WHERE chat_id = ?",
                 (_nc.isoformat(), chat_id),
             )
         if cleanup_message_norm is not None:
             await db.execute(
-                "UPDATE chat_settings SET cleanup_message_norm = $1 WHERE chat_id = $2",
+                "UPDATE chat_settings SET cleanup_message_norm = ? WHERE chat_id = ?",
                 (cleanup_message_norm, chat_id),
             )
         if cleanup_warn_hours is not None:
             await db.execute(
-                "UPDATE chat_settings SET cleanup_warn_hours = $1 WHERE chat_id = $2",
+                "UPDATE chat_settings SET cleanup_warn_hours = ? WHERE chat_id = ?",
                 (cleanup_warn_hours, chat_id),
             )
         await db.commit()
@@ -4742,7 +4750,7 @@ async def activate_chat_buff(
         await db.execute(
             """INSERT INTO chat_global_buffs
                    (chat_id, buff_type, activated_by, activated_at, expires_at)
-               VALUES ($1, $2, $3, $4, $5)
+               VALUES (?, ?, ?, ?, ?)
                ON CONFLICT (chat_id, buff_type) DO UPDATE
                    SET activated_by  = EXCLUDED.activated_by,
                        activated_at  = EXCLUDED.activated_at,
@@ -4760,7 +4768,7 @@ async def get_active_chat_buff(chat_id: int, buff_type: str) -> dict | None:
         async with db.execute(
             "SELECT buff_type, activated_by, activated_at, expires_at "
             "FROM chat_global_buffs "
-            "WHERE chat_id = $1 AND buff_type = $2 AND expires_at > NOW()",
+            "WHERE chat_id = ? AND buff_type = ? AND expires_at > NOW()",
             (chat_id, buff_type),
         ) as c:
             row = await c.fetchone()
@@ -4779,7 +4787,7 @@ async def cleanup_expired_chat_buffs() -> None:
 async def get_pet(user_id: int, chat_id: int) -> dict | None:
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT * FROM pets_global WHERE user_id = $1",
+            "SELECT * FROM pets_global WHERE user_id = ?",
             (user_id,),
         ) as c:
             row = await c.fetchone()
@@ -4792,7 +4800,7 @@ async def get_pets_batch(pairs: list[tuple[int, int]]) -> dict[tuple[int, int], 
     if not pairs:
         return {}
     user_ids = list({uid for uid, _ in pairs})
-    placeholders = ",".join("$1" * len(user_ids))
+    placeholders = ",".join("?" * len(user_ids))
     async with postgres_connect() as db:
         async with db.execute(
             f"SELECT * FROM pets_global WHERE user_id IN ({placeholders})",
@@ -4809,7 +4817,7 @@ async def get_marriages_batch(pairs: list[tuple[int, int]]) -> dict[tuple[int, i
     if not pairs:
         return {}
     user_ids = list({uid for uid, _ in pairs})
-    placeholders = ",".join("$1" * len(user_ids))
+    placeholders = ",".join("?" * len(user_ids))
     async with postgres_connect() as db:
         async with db.execute(
             f"SELECT * FROM marriages_global WHERE user_id IN ({placeholders})",
@@ -4827,7 +4835,7 @@ async def adopt_pet(user_id: int, partner_id: int, chat_id: int, pet_type: str) 
         for uid in (user_id, partner_id):
             await db.execute(
                 """INSERT INTO pets_global (user_id, pet_type, adopted_at)
-                   VALUES ($1, $2, $3)
+                   VALUES (?, ?, ?)
                    ON CONFLICT(user_id) DO NOTHING""",
                 (uid, pet_type, now),
             )
@@ -4847,24 +4855,24 @@ async def rename_pet(user_id: int, chat_id: int, name: str) -> bool:
     async with postgres_connect() as db:
         # Обновляем имя у самого юзера
         await db.execute(
-            "UPDATE pets_global SET name = $1 WHERE user_id = $2",
+            "UPDATE pets_global SET name = ? WHERE user_id = ?",
             (name, user_id),
         )
         # Обновляем имя и у партнёра (питомец общий на двоих)
         async with db.execute(
-            "SELECT partner_id FROM marriages_global WHERE user_id = $1",
+            "SELECT partner_id FROM marriages_global WHERE user_id = ?",
             (user_id,),
         ) as c:
             marriage_row = await c.fetchone()
         if marriage_row:
             partner_id = marriage_row[0]
             await db.execute(
-                "UPDATE pets_global SET name = $1 WHERE user_id = $2",
+                "UPDATE pets_global SET name = ? WHERE user_id = ?",
                 (name, partner_id),
             )
         await db.commit()
         async with db.execute(
-            "SELECT user_id FROM pets_global WHERE user_id = $1",
+            "SELECT user_id FROM pets_global WHERE user_id = ?",
             (user_id,),
         ) as c:
             return await c.fetchone() is not None
@@ -4878,7 +4886,7 @@ async def start_expedition(user_id: int, chat_id: int, duration_h: int,
     now = datetime.now(timezone.utc)
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT 1 FROM pet_expeditions WHERE user_id=$1 AND chat_id=$2 AND finished=0",
+            "SELECT 1 FROM pet_expeditions WHERE user_id=? AND chat_id=? AND finished=0",
             (user_id, chat_id),
         ) as c:
             if await c.fetchone():
@@ -4886,7 +4894,7 @@ async def start_expedition(user_id: int, chat_id: int, duration_h: int,
         await db.execute(
             """INSERT INTO pet_expeditions (user_id, chat_id, started_at, duration_h,
                                            reward_min, reward_max, finished)
-               VALUES ($1, $2, $3, $4, $5, $6, 0)
+               VALUES (?, ?, ?, ?, ?, ?, 0)
                ON CONFLICT(user_id, chat_id) DO UPDATE SET
                    started_at=excluded.started_at, duration_h=excluded.duration_h,
                    reward_min=excluded.reward_min, reward_max=excluded.reward_max, finished=0""",
@@ -4900,7 +4908,7 @@ async def get_active_expedition(user_id: int, chat_id: int):
     """Возвращает активную экспедицию или None."""
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT * FROM pet_expeditions WHERE user_id=$1 AND chat_id=$2 AND finished=0",
+            "SELECT * FROM pet_expeditions WHERE user_id=? AND chat_id=? AND finished=0",
             (user_id, chat_id),
         ) as c:
             return await c.fetchone()
@@ -4930,7 +4938,7 @@ async def finish_expedition(user_id: int, chat_id: int):
     """Пометить экспедицию как завершённую."""
     async with postgres_connect() as db:
         await db.execute(
-            "UPDATE pet_expeditions SET finished=1 WHERE user_id=$1 AND chat_id=$2",
+            "UPDATE pet_expeditions SET finished=1 WHERE user_id=? AND chat_id=?",
             (user_id, chat_id),
         )
         await db.commit()
@@ -4943,10 +4951,10 @@ async def get_gacha_pity(user_id: int, chat_id: int) -> int:
     async with postgres_connect() as db:
         async with db.execute(
             """SELECT COUNT(*) FROM gacha_inventory
-               WHERE user_id=$1 AND chat_id=$2
+               WHERE user_id=? AND chat_id=?
                AND id > COALESCE(
                    (SELECT MAX(id) FROM gacha_inventory
-                    WHERE user_id=$3 AND chat_id=$4 AND rarity='legendary'), 0)""",
+                    WHERE user_id=? AND chat_id=? AND rarity='legendary'), 0)""",
             (user_id, chat_id, user_id, chat_id),
         ) as c:
             row = await c.fetchone()
@@ -4962,14 +4970,14 @@ async def add_gacha_item(user_id: int, chat_id: int, item_key: str,
         if atk == 0 and def_val == 0 and hp == 0 and crit_rate == 0.0:
             async with db.execute(
                 "SELECT id, stack_count FROM gacha_inventory "
-                "WHERE user_id=$1 AND item_key=$2 AND equipped=0 "
+                "WHERE user_id=? AND item_key=? AND equipped=0 "
                 "AND COALESCE(enhancement_level,0)=0 ORDER BY id LIMIT 1",
                 (user_id, item_key),
             ) as c:
                 existing = await c.fetchone()
             if existing and existing[1] < 99:
                 await db.execute(
-                    "UPDATE gacha_inventory SET stack_count = stack_count + 1 WHERE id=$1",
+                    "UPDATE gacha_inventory SET stack_count = stack_count + 1 WHERE id=?",
                     (existing[0],),
                 )
                 await db.commit()
@@ -4977,7 +4985,7 @@ async def add_gacha_item(user_id: int, chat_id: int, item_key: str,
         await db.execute(
             """INSERT INTO gacha_inventory
                (user_id, chat_id, item_key, item_name, rarity, obtained_at, atk, def_val, hp, crit_rate, slot, stack_count)
-               VALUES ($1, $2, $3, $4, $5, NOW(), $6, $7, $8, $9, $10, 1)""",
+               VALUES (?, ?, ?, ?, ?, NOW(), ?, ?, ?, ?, ?, 1)""",
             (user_id, chat_id, item_key, item_name, rarity, atk, def_val, hp, crit_rate, slot),
         )
         await db.commit()
@@ -4987,7 +4995,7 @@ async def get_gacha_inventory(user_id: int, chat_id: int) -> list:
     """Global inventory — chat_id param kept for backward compat but ignored."""
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT * FROM gacha_inventory WHERE user_id=$1 ORDER BY id DESC",
+            "SELECT * FROM gacha_inventory WHERE user_id=? ORDER BY id DESC",
             (user_id,),
         ) as c:
             return await c.fetchall()
@@ -4997,7 +5005,7 @@ async def sell_gacha_junk(user_id: int, chat_id: int) -> tuple[int, int]:
     """Продать весь мусор (rarity='junk'). Возвращает (count, total_mora)."""
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT COALESCE(stack_count, 1) FROM gacha_inventory WHERE user_id=$1 AND rarity='junk'",
+            "SELECT COALESCE(stack_count, 1) FROM gacha_inventory WHERE user_id=? AND rarity='junk'",
             (user_id,),
         ) as c:
             rows = await c.fetchall()
@@ -5005,7 +5013,7 @@ async def sell_gacha_junk(user_id: int, chat_id: int) -> tuple[int, int]:
         if count == 0:
             return 0, 0
         await db.execute(
-            "DELETE FROM gacha_inventory WHERE user_id=$1 AND rarity='junk'",
+            "DELETE FROM gacha_inventory WHERE user_id=? AND rarity='junk'",
             (user_id,),
         )
         await db.commit()
@@ -5019,7 +5027,7 @@ async def equip_gacha_item(user_id: int, chat_id: int, item_id: int) -> bool:
     """Экипировать лего-предмет (обновить gacha_display). Возвращает False если не найден/не лего."""
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT * FROM gacha_inventory WHERE id=$1 AND user_id=$2",
+            "SELECT * FROM gacha_inventory WHERE id=? AND user_id=?",
             (item_id, user_id),
         ) as c:
             item = await c.fetchone()
@@ -5027,15 +5035,15 @@ async def equip_gacha_item(user_id: int, chat_id: int, item_id: int) -> bool:
             return False
         # Убираем экипировку с других предметов
         await db.execute(
-            "UPDATE gacha_inventory SET equipped=0 WHERE user_id=$1 AND equipped=1",
+            "UPDATE gacha_inventory SET equipped=0 WHERE user_id=? AND equipped=1",
             (user_id,),
         )
         await db.execute(
-            "UPDATE gacha_inventory SET equipped=1 WHERE id=$1", (item_id,),
+            "UPDATE gacha_inventory SET equipped=1 WHERE id=?", (item_id,),
         )
         # Обновляем gacha_display в user_mora
         await db.execute(
-            """INSERT INTO user_mora (user_id, chat_id, gacha_display) VALUES ($1, $2, $3)
+            """INSERT INTO user_mora (user_id, chat_id, gacha_display) VALUES (?, ?, ?)
                ON CONFLICT(user_id, chat_id) DO UPDATE SET gacha_display = excluded.gacha_display""",
             (user_id, chat_id, item["item_name"]),
         )
@@ -5053,7 +5061,7 @@ async def create_deposit(user_id: int, chat_id: int, amount: int,
     async with postgres_connect() as db:
         cursor = await db.execute(
             """INSERT INTO bank_deposits (user_id, chat_id, amount, rate, created_at, matures_at)
-               VALUES ($1, $2, $3, $4, $5, $6) RETURNING id""",
+               VALUES (?, ?, ?, ?, ?, ?) RETURNING id""",
             (user_id, chat_id, amount, rate, now, matures),
         )
         row = await cursor.fetchone()
@@ -5065,7 +5073,7 @@ async def get_user_deposits(user_id: int, chat_id: int) -> list:
     """Вернуть все активные (не снятые) вклады пользователя."""
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT * FROM bank_deposits WHERE user_id=$1 AND chat_id=$2 AND withdrawn=0 ORDER BY id",
+            "SELECT * FROM bank_deposits WHERE user_id=? AND chat_id=? AND withdrawn=0 ORDER BY id",
             (user_id, chat_id),
         ) as c:
             return await c.fetchall()
@@ -5075,14 +5083,14 @@ async def withdraw_deposit(deposit_id: int) -> dict | None:
     """Снять вклад. Возвращает dict с инфо о вкладе или None."""
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT * FROM bank_deposits WHERE id=$1 AND withdrawn=0",
+            "SELECT * FROM bank_deposits WHERE id=? AND withdrawn=0",
             (deposit_id,),
         ) as c:
             dep = await c.fetchone()
         if not dep:
             return None
         await db.execute(
-            "UPDATE bank_deposits SET withdrawn=1 WHERE id=$1", (deposit_id,),
+            "UPDATE bank_deposits SET withdrawn=1 WHERE id=?", (deposit_id,),
         )
         await db.commit()
         return dict(dep)
@@ -5097,7 +5105,7 @@ async def buy_shop_item(user_id: int, chat_id: int, item_type: str,
     async with postgres_connect() as db:
         cursor = await db.execute(
             """INSERT INTO shop_items (user_id, chat_id, item_type, item_value, purchased_at)
-               VALUES ($1, $2, $3, $4, $5) RETURNING id""",
+               VALUES (?, ?, ?, ?, ?) RETURNING id""",
             (user_id, chat_id, item_type, item_value, now),
         )
         row = await cursor.fetchone()
@@ -5111,13 +5119,13 @@ async def has_shop_item(user_id: int, chat_id: int, item_type: str,
     async with postgres_connect() as db:
         if item_value is not None:
             async with db.execute(
-                "SELECT 1 FROM shop_items WHERE user_id=$1 AND item_type=$2 AND item_value=$3",
+                "SELECT 1 FROM shop_items WHERE user_id=? AND item_type=? AND item_value=?",
                 (user_id, item_type, item_value),
             ) as c:
                 return await c.fetchone() is not None
         else:
             async with db.execute(
-                "SELECT 1 FROM shop_items WHERE user_id=$1 AND item_type=$2",
+                "SELECT 1 FROM shop_items WHERE user_id=? AND item_type=?",
                 (user_id, item_type),
             ) as c:
                 return await c.fetchone() is not None
@@ -5127,7 +5135,7 @@ async def get_user_owned_frames(user_id: int, chat_id: int) -> set[str]:
     """Вернуть set ключей рамок, которые юзер уже купил. Global — chat_id ignored."""
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT item_value FROM shop_items WHERE user_id=$1 AND item_type='frame'",
+            "SELECT item_value FROM shop_items WHERE user_id=? AND item_type='frame'",
             (user_id,),
         ) as c:
             rows = await c.fetchall()
@@ -5138,18 +5146,18 @@ async def set_pet_color(user_id: int, chat_id: int, color_name: str):
     """Установить цвет имени глобального питомца."""
     async with postgres_connect() as db:
         await db.execute(
-            "UPDATE pets_global SET color_name=$1 WHERE user_id=$2",
+            "UPDATE pets_global SET color_name=? WHERE user_id=?",
             (color_name, user_id),
         )
         # Обновить и у партнёра
         async with db.execute(
-            "SELECT partner_id FROM marriages_global WHERE user_id=$1",
+            "SELECT partner_id FROM marriages_global WHERE user_id=?",
             (user_id,),
         ) as c:
             m = await c.fetchone()
         if m:
             await db.execute(
-                "UPDATE pets_global SET color_name=$1 WHERE user_id=$2",
+                "UPDATE pets_global SET color_name=? WHERE user_id=?",
                 (color_name, m[0]),
             )
         await db.commit()
@@ -5159,17 +5167,17 @@ async def set_pet_emoji_status(user_id: int, chat_id: int, emoji_status: str):
     """Установить эмодзи-статус глобального питомца."""
     async with postgres_connect() as db:
         await db.execute(
-            "UPDATE pets_global SET emoji_status=$1 WHERE user_id=$2",
+            "UPDATE pets_global SET emoji_status=? WHERE user_id=?",
             (emoji_status, user_id),
         )
         async with db.execute(
-            "SELECT partner_id FROM marriages_global WHERE user_id=$1",
+            "SELECT partner_id FROM marriages_global WHERE user_id=?",
             (user_id,),
         ) as c:
             m = await c.fetchone()
         if m:
             await db.execute(
-                "UPDATE pets_global SET emoji_status=$1 WHERE user_id=$2",
+                "UPDATE pets_global SET emoji_status=? WHERE user_id=?",
                 (emoji_status, m[0]),
             )
         await db.commit()
@@ -5179,7 +5187,7 @@ async def set_custom_title_in_chat(user_id: int, chat_id: int, title: str):
     """Установить кастомный титул."""
     async with postgres_connect() as db:
         await db.execute(
-            """INSERT INTO user_stats (user_id, chat_id, custom_title) VALUES ($1, $2, $3)
+            """INSERT INTO user_stats (user_id, chat_id, custom_title) VALUES (?, ?, ?)
                ON CONFLICT(user_id, chat_id) DO UPDATE SET custom_title = excluded.custom_title""",
             (user_id, chat_id, title),
         )
@@ -5194,7 +5202,7 @@ async def give_gift(from_user: int, to_user: int, chat_id: int,
     async with postgres_connect() as db:
         await db.execute(
             """INSERT INTO marriage_gifts (from_user, to_user, chat_id, gift_key, gift_name, gift_price, gifted_at)
-               VALUES ($1, $2, $3, $4, $5, $6, $7)""",
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
             (from_user, to_user, chat_id, gift_key, gift_name, gift_price, now),
         )
         await db.commit()
@@ -5206,8 +5214,8 @@ async def get_gifts_summary(user_id: int, partner_id: int, chat_id: int) -> tupl
         async with db.execute(
             """SELECT COUNT(*), COALESCE(SUM(gift_price), 0)
                FROM marriage_gifts
-               WHERE chat_id=$1 AND (
-                   (from_user=$2 AND to_user=$3) OR (from_user=$4 AND to_user=$5)
+               WHERE chat_id=? AND (
+                   (from_user=? AND to_user=?) OR (from_user=? AND to_user=?)
                )""",
             (chat_id, user_id, partner_id, partner_id, user_id),
         ) as c:
@@ -5221,7 +5229,7 @@ async def get_received_gifts(user_id: int, chat_id: int) -> list[dict]:
         async with db.execute(
             """SELECT gift_key, gift_name, COUNT(*) as cnt
                FROM marriage_gifts
-               WHERE to_user=$1 AND chat_id=$2
+               WHERE to_user=? AND chat_id=?
                GROUP BY gift_key, gift_name
                ORDER BY cnt DESC""",
             (user_id, chat_id),
@@ -5238,7 +5246,7 @@ async def add_buff(user_id: int, chat_id: int, buff_type: str,
     async with postgres_connect() as db:
         await db.execute(
             """INSERT INTO active_buffs (user_id, chat_id, buff_type, expires_at, source)
-               VALUES ($1, $2, $3, $4, $5)""",
+               VALUES (?, ?, ?, ?, ?)""",
             (user_id, chat_id, buff_type, expires, source),
         )
         await db.commit()
@@ -5249,7 +5257,7 @@ async def get_active_buffs(user_id: int, chat_id: int) -> list:
     now = datetime.now(timezone.utc)
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT * FROM active_buffs WHERE user_id=$1 AND chat_id=$2 AND expires_at > $3",
+            "SELECT * FROM active_buffs WHERE user_id=? AND chat_id=? AND expires_at > ?",
             (user_id, chat_id, now),
         ) as c:
             return await c.fetchall()
@@ -5289,7 +5297,7 @@ async def get_user_themes(user_id: int, chat_id: int) -> list:
     """Вернуть все темы, которыми владеет юзер. Global — chat_id ignored."""
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT DISTINCT ON (theme_key) * FROM user_themes WHERE user_id=$1 ORDER BY theme_key, obtained_at",
+            "SELECT DISTINCT ON (theme_key) * FROM user_themes WHERE user_id=? ORDER BY theme_key, obtained_at",
             (user_id,),
         ) as c:
             return await c.fetchall()
@@ -5301,8 +5309,8 @@ async def add_user_theme(user_id: int, chat_id: int, theme_key: str, source: str
     async with postgres_connect() as db:
         await db.execute(
             """INSERT INTO user_themes (user_id, chat_id, theme_key, source, obtained_at)
-               SELECT $1, $2, $3, $4, $5
-               WHERE NOT EXISTS (SELECT 1 FROM user_themes WHERE user_id=$6 AND theme_key=$7)""",
+               SELECT ?, ?, ?, ?, ?
+               WHERE NOT EXISTS (SELECT 1 FROM user_themes WHERE user_id=? AND theme_key=?)""",
             (user_id, chat_id, theme_key, source, now, user_id, theme_key),
         )
         await db.commit()
@@ -5313,8 +5321,8 @@ async def set_active_theme(user_id: int, chat_id: int, theme_key: str):
     async with postgres_connect() as db:
         await db.execute(
             """INSERT INTO user_mora (user_id, chat_id, active_theme)
-               VALUES ($1, $2, $3)
-               ON CONFLICT(user_id, chat_id) DO UPDATE SET active_theme=$4""",
+               VALUES (?, ?, ?)
+               ON CONFLICT(user_id, chat_id) DO UPDATE SET active_theme=?""",
             (user_id, chat_id, theme_key, theme_key),
         )
         await db.commit()
@@ -5336,7 +5344,7 @@ async def get_user_badges(user_id: int, chat_id: int) -> list:
     """Вернуть все бейджи юзера."""
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT badge_key FROM user_badges WHERE user_id=$1 AND chat_id=$2",
+            "SELECT badge_key FROM user_badges WHERE user_id=? AND chat_id=?",
             (user_id, chat_id),
         ) as c:
             return [r["badge_key"] for r in await c.fetchall()]
@@ -5346,7 +5354,7 @@ async def award_badge(user_id: int, chat_id: int, badge_key: str):
     """Дать бейдж юзеру (если ещё нет)."""
     async with postgres_connect() as db:
         await db.execute(
-            """INSERT INTO user_badges (user_id, chat_id, badge_key, obtained_at) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING""",
+            """INSERT INTO user_badges (user_id, chat_id, badge_key, obtained_at) VALUES (?, ?, ?, ?) ON CONFLICT DO NOTHING""",
             (user_id, chat_id, badge_key, datetime.now(timezone.utc)),
         )
         await db.commit()
@@ -5360,7 +5368,7 @@ async def get_user_greeting(user_id: int, chat_id: int):
     """Вернуть строку greeting (template_key) или None."""
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT * FROM user_greetings WHERE user_id=$1 AND chat_id=$2",
+            "SELECT * FROM user_greetings WHERE user_id=? AND chat_id=?",
             (user_id, chat_id),
         ) as c:
             return await c.fetchone()
@@ -5371,8 +5379,8 @@ async def set_user_greeting(user_id: int, chat_id: int, template_key: str, sourc
     async with postgres_connect() as db:
         await db.execute(
             """INSERT INTO user_greetings (user_id, chat_id, template_key, source, obtained_at)
-               VALUES ($1, $2, $3, $4, $5)
-               ON CONFLICT(user_id, chat_id) DO UPDATE SET template_key=$6, source=$7""",
+               VALUES (?, ?, ?, ?, ?)
+               ON CONFLICT(user_id, chat_id) DO UPDATE SET template_key=?, source=?""",
             (user_id, chat_id, template_key, source, datetime.now(timezone.utc),
              template_key, source),
         )
@@ -5383,7 +5391,7 @@ async def check_greeting_today(user_id: int, chat_id: int, today_str: str) -> bo
     """True если приветствие уже показано сегодня."""
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT last_greeting_date FROM user_stats WHERE user_id=$1 AND chat_id=$2",
+            "SELECT last_greeting_date FROM user_stats WHERE user_id=? AND chat_id=?",
             (user_id, chat_id),
         ) as c:
             row = await c.fetchone()
@@ -5396,7 +5404,7 @@ async def mark_greeting_shown(user_id: int, chat_id: int, today_str: str):
     """Отметить что приветствие показано сегодня."""
     async with postgres_connect() as db:
         await db.execute(
-            "UPDATE user_stats SET last_greeting_date=$1 WHERE user_id=$2 AND chat_id=$3",
+            "UPDATE user_stats SET last_greeting_date=? WHERE user_id=? AND chat_id=?",
             (today_str, user_id, chat_id),
         )
         await db.commit()
@@ -5413,7 +5421,7 @@ async def create_chest_event(chat_id: int, duration_sec: int = 60) -> int:
     async with postgres_connect() as db:
         cur = await db.execute(
             """INSERT INTO chest_events (chat_id, started_at, expires_at)
-               VALUES ($1, $2, $3) RETURNING id""",
+               VALUES (?, ?, ?) RETURNING id""",
             (chat_id, now, expires),
         )
         row = await cur.fetchone()
@@ -5430,7 +5438,7 @@ async def get_chest_event_winners(event_id: int) -> list:
                    u.username, u.full_name
             FROM chest_event_clicks c
             LEFT JOIN users u ON u.user_id = c.user_id
-            WHERE c.event_id = $1
+            WHERE c.event_id = ?
             ORDER BY c.position
             """,
             (event_id,),
@@ -5443,7 +5451,7 @@ async def get_expired_unfinished_chest_events() -> list:
     now = datetime.now(timezone.utc)
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT id, chat_id, message_id FROM chest_events WHERE finished=0 AND expires_at < $1",
+            "SELECT id, chat_id, message_id FROM chest_events WHERE finished=0 AND expires_at < ?",
             (now,),
         ) as cur:
             return await cur.fetchall()
@@ -5453,7 +5461,7 @@ async def is_user_single(user_id: int, chat_id: int) -> bool:
     """Вернуть True если у пользователя нет активного брака (глобально)."""
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT 1 FROM marriages_global WHERE user_id=$1",
+            "SELECT 1 FROM marriages_global WHERE user_id=?",
             (user_id,),
         ) as cur:
             return (await cur.fetchone()) is None
@@ -5463,7 +5471,7 @@ async def set_chest_event_message(event_id: int, message_id: int):
     """Обновить message_id ивента сундука."""
     async with postgres_connect() as db:
         await db.execute(
-            "UPDATE chest_events SET message_id=$1 WHERE id=$2",
+            "UPDATE chest_events SET message_id=? WHERE id=?",
             (message_id, event_id),
         )
         await db.commit()
@@ -5475,7 +5483,7 @@ async def add_chest_click(event_id: int, user_id: int, position: int, reward: in
         async with postgres_connect() as db:
             await db.execute(
                 """INSERT INTO chest_event_clicks (event_id, user_id, clicked_at, position, reward)
-                   VALUES ($1, $2, $3, $4, $5)""",
+                   VALUES (?, ?, ?, ?, ?)""",
                 (event_id, user_id, datetime.now(timezone.utc), position, reward),
             )
             await db.commit()
@@ -5488,7 +5496,7 @@ async def get_chest_click_count(event_id: int) -> int:
     """Количество кликов по сундуку."""
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT COUNT(*) FROM chest_event_clicks WHERE event_id=$1",
+            "SELECT COUNT(*) FROM chest_event_clicks WHERE event_id=?",
             (event_id,),
         ) as c:
             return (await c.fetchone())[0]
@@ -5498,7 +5506,7 @@ async def finish_chest_event(event_id: int):
     """Пометить ивент как завершённый."""
     async with postgres_connect() as db:
         await db.execute(
-            "UPDATE chest_events SET finished=1 WHERE id=$1", (event_id,),
+            "UPDATE chest_events SET finished=1 WHERE id=?", (event_id,),
         )
         await db.commit()
 
@@ -5507,7 +5515,7 @@ async def get_equipped_legendary(user_id: int, chat_id: int):
     """Вернуть экипированный легендарный предмет или None."""
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT item_name, item_key FROM gacha_inventory WHERE user_id=$1 AND equipped=1 LIMIT 1",
+            "SELECT item_name, item_key FROM gacha_inventory WHERE user_id=? AND equipped=1 LIMIT 1",
             (user_id,),
         ) as c:
             return await c.fetchone()
@@ -5519,12 +5527,12 @@ async def increment_tracker(user_id: int, chat_id: int, field: str, amount: int 
         return
     async with postgres_connect() as db:
         await db.execute(
-            f"UPDATE user_mora SET {field} = COALESCE({field}, 0) + $1 WHERE user_id=$2 AND chat_id=$3",
+            f"UPDATE user_mora SET {field} = COALESCE({field}, 0) + ? WHERE user_id=? AND chat_id=?",
             (amount, user_id, chat_id),
         )
         await db.commit()
         async with db.execute(
-            f"SELECT {field} FROM user_mora WHERE user_id=$1 AND chat_id=$2",
+            f"SELECT {field} FROM user_mora WHERE user_id=? AND chat_id=?",
             (user_id, chat_id),
         ) as c:
             row = await c.fetchone()
@@ -5544,7 +5552,7 @@ async def log_espionage(spy_id: int, target_id: int, chat_id: int, success: bool
     now = datetime.now(timezone.utc)
     async with postgres_connect() as db:
         await db.execute(
-            "INSERT INTO espionage_log (spy_id, target_id, chat_id, success, attempted_at) VALUES ($1,$2,$3,$4,$5)",
+            "INSERT INTO espionage_log (spy_id, target_id, chat_id, success, attempted_at) VALUES (?,?,?,?,?)",
             (spy_id, target_id, chat_id, 1 if success else 0, now),
         )
         await db.commit()
@@ -5556,7 +5564,7 @@ async def get_espionage_cooldown(spy_id: int, target_id: int, chat_id: int) -> i
     since = datetime.now(timezone.utc) - timedelta(seconds=cooldown_sec)
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT COUNT(*) FROM espionage_log WHERE spy_id=$1 AND target_id=$2 AND chat_id=$3 AND attempted_at > $4",
+            "SELECT COUNT(*) FROM espionage_log WHERE spy_id=? AND target_id=? AND chat_id=? AND attempted_at > ?",
             (spy_id, target_id, chat_id, since),
         ) as c:
             count = (await c.fetchone())[0]
@@ -5565,7 +5573,7 @@ async def get_espionage_cooldown(spy_id: int, target_id: int, chat_id: int) -> i
     # Find the most recent attempt to calculate remaining cooldown
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT attempted_at FROM espionage_log WHERE spy_id=$1 AND target_id=$2 AND chat_id=$3 ORDER BY id DESC LIMIT 1",
+            "SELECT attempted_at FROM espionage_log WHERE spy_id=? AND target_id=? AND chat_id=? ORDER BY id DESC LIMIT 1",
             (spy_id, target_id, chat_id),
         ) as c:
             row = await c.fetchone()
@@ -5590,7 +5598,7 @@ async def get_bond_prices(chat_id: int) -> dict:
     """Вернуть текущие цены облигаций {key: price}."""
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT bond_key, price FROM bond_prices WHERE chat_id=$1",
+            "SELECT bond_key, price FROM bond_prices WHERE chat_id=?",
             (chat_id,),
         ) as c:
             rows = await c.fetchall()
@@ -5621,7 +5629,7 @@ async def update_bond_prices(chat_id: int):
     # ── 1. Load / advance bull/bear state ────────────────────────────────────
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT trend, ticks_left FROM market_state WHERE chat_id=$1",
+            "SELECT trend, ticks_left FROM market_state WHERE chat_id=?",
             (chat_id,),
         ) as c:
             state_row = await c.fetchone()
@@ -5687,21 +5695,21 @@ async def update_bond_prices(chat_id: int):
 
             await db.execute(
                 """INSERT INTO bond_prices (bond_key, chat_id, price, updated_at)
-                   VALUES ($1,$2,$3,$4)
+                   VALUES (?,?,?,?)
                    ON CONFLICT(bond_key, chat_id) DO UPDATE
                    SET price=excluded.price, updated_at=excluded.updated_at""",
                 (key, chat_id, new_price, now),
             )
             await db.execute(
-                "INSERT INTO bond_price_history (chat_id, bond_key, price, recorded_at) VALUES ($1,$2,$3,$4)",
+                "INSERT INTO bond_price_history (chat_id, bond_key, price, recorded_at) VALUES (?,?,?,?)",
                 (chat_id, key, new_price, now),
             )
             # Prune history — keep last 120 ticks per asset (~15 days at 3h intervals)
             await db.execute(
                 """DELETE FROM bond_price_history
-                   WHERE chat_id=$1 AND bond_key=$2 AND id NOT IN (
+                   WHERE chat_id=? AND bond_key=? AND id NOT IN (
                        SELECT id FROM bond_price_history
-                       WHERE chat_id=$3 AND bond_key=$4
+                       WHERE chat_id=? AND bond_key=?
                        ORDER BY id DESC LIMIT 120
                    )""",
                 (chat_id, key, chat_id, key),
@@ -5710,7 +5718,7 @@ async def update_bond_prices(chat_id: int):
         # Persist updated market state
         await db.execute(
             """INSERT INTO market_state (chat_id, trend, ticks_left, updated_at)
-               VALUES ($1,$2,$3,$4)
+               VALUES (?,?,?,?)
                ON CONFLICT(chat_id) DO UPDATE
                SET trend=excluded.trend, ticks_left=excluded.ticks_left, updated_at=excluded.updated_at""",
             (chat_id, trend, ticks_left, now),
@@ -5723,7 +5731,7 @@ async def update_bond_prices(chat_id: int):
 async def get_user_bonds(user_id: int, chat_id: int) -> list[dict]:
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT * FROM user_bonds WHERE user_id=$1 AND chat_id=$2",
+            "SELECT * FROM user_bonds WHERE user_id=? AND chat_id=?",
             (user_id, chat_id),
         ) as c:
             return [dict(r) for r in await c.fetchall()]
@@ -5734,8 +5742,8 @@ async def get_bond_price_history(chat_id: int, bond_key: str, limit: int = 30) -
     async with postgres_connect() as db:
         async with db.execute(
             """SELECT price, recorded_at FROM bond_price_history
-               WHERE chat_id=$1 AND bond_key=$2
-               ORDER BY id DESC LIMIT $3""",
+               WHERE chat_id=? AND bond_key=?
+               ORDER BY id DESC LIMIT ?""",
             (chat_id, bond_key, limit),
         ) as c:
             rows = [dict(r) for r in await c.fetchall()]
@@ -5749,9 +5757,9 @@ async def get_singles(chat_id: int, limit: int = 20) -> list[dict]:
             """SELECT s.user_id, u.full_name, s.xp, s.level
                FROM user_stats s
                LEFT JOIN users u ON u.user_id = s.user_id
-               WHERE s.chat_id = $1
+               WHERE s.chat_id = ?
                  AND s.user_id NOT IN (SELECT user_id FROM marriages_global)
-               ORDER BY s.xp DESC LIMIT $2""",
+               ORDER BY s.xp DESC LIMIT ?""",
             (chat_id, limit),
         ) as c:
             return [dict(r) for r in await c.fetchall()]
@@ -5761,7 +5769,7 @@ async def get_rpg_stats(user_id: int, chat_id: int) -> dict:
     """Return combined RPG stats: base + equipped item bonuses."""
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT * FROM user_rpg_stats WHERE user_id=$1 AND chat_id=$2",
+            "SELECT * FROM user_rpg_stats WHERE user_id=? AND chat_id=?",
             (user_id, chat_id),
         ) as c:
             row = await c.fetchone()
@@ -5775,7 +5783,7 @@ async def get_rpg_stats(user_id: int, chat_id: int) -> dict:
             iid = base.get(slot_col)
             if iid:
                 async with db.execute(
-                    "SELECT atk, def_val, hp, crit_rate FROM gacha_inventory WHERE id=$1",
+                    "SELECT atk, def_val, hp, crit_rate FROM gacha_inventory WHERE id=?",
                     (iid,),
                 ) as ci:
                     item = await ci.fetchone()
@@ -5806,7 +5814,7 @@ async def equip_item(user_id: int, chat_id: int, item_id: int, slot: str) -> str
     async with postgres_connect() as db:
         # Verify item belongs to user and fetch its name
         async with db.execute(
-            "SELECT id, item_name FROM gacha_inventory WHERE id=$1 AND user_id=$2",
+            "SELECT id, item_name FROM gacha_inventory WHERE id=? AND user_id=?",
             (item_id, user_id),
         ) as c:
             row = await c.fetchone()
@@ -5815,7 +5823,7 @@ async def equip_item(user_id: int, chat_id: int, item_id: int, slot: str) -> str
         item_name = row["item_name"]
         await db.execute(
             f"""INSERT INTO user_rpg_stats (user_id, chat_id, {col})
-                VALUES ($1,$2,$3)
+                VALUES (?,?,?)
                 ON CONFLICT(user_id, chat_id) DO UPDATE SET {col}=excluded.{col}""",
             (user_id, chat_id, item_id),
         )
@@ -5832,13 +5840,13 @@ async def buy_bonds(user_id: int, chat_id: int, bond_key: str, amount: int, pric
         # Record individual lot for per-lot tracking (FIFO sell)
         await db.execute(
             """INSERT INTO user_bond_lots (user_id, chat_id, bond_key, quantity, price_per, bought_at)
-               VALUES ($1,$2,$3,$4,$5,$6)""",
+               VALUES (?,?,?,?,?,?)""",
             (user_id, chat_id, bond_key, amount, price_per, now),
         )
         # Keep aggregate table in sync for display compatibility
         await db.execute(
             """INSERT INTO user_bonds (user_id, chat_id, bond_key, amount, invested)
-               VALUES ($1,$2,$3,$4,$5)
+               VALUES (?,?,?,?,?)
                ON CONFLICT(user_id, chat_id, bond_key)
                DO UPDATE SET amount   = user_bonds.amount   + excluded.amount,
                              invested = user_bonds.invested + excluded.invested""",
@@ -5853,7 +5861,7 @@ async def sell_bonds(user_id: int, chat_id: int, bond_key: str, amount: int) -> 
     async with postgres_connect() as db:
         # Verify total holding
         async with db.execute(
-            "SELECT COALESCE(SUM(quantity),0) AS total FROM user_bond_lots WHERE user_id=$1 AND chat_id=$2 AND bond_key=$3",
+            "SELECT COALESCE(SUM(quantity),0) AS total FROM user_bond_lots WHERE user_id=? AND chat_id=? AND bond_key=?",
             (user_id, chat_id, bond_key),
         ) as c:
             row = await c.fetchone()
@@ -5862,7 +5870,7 @@ async def sell_bonds(user_id: int, chat_id: int, bond_key: str, amount: int) -> 
             # Data inconsistency: aggregate may have bonds bought before lot tracking.
             # Check user_bonds aggregate and synthesize missing lots if needed.
             async with db.execute(
-                "SELECT amount, invested FROM user_bonds WHERE user_id=$1 AND chat_id=$2 AND bond_key=$3",
+                "SELECT amount, invested FROM user_bonds WHERE user_id=? AND chat_id=? AND bond_key=?",
                 (user_id, chat_id, bond_key),
             ) as c:
                 agg_row = await c.fetchone()
@@ -5875,14 +5883,14 @@ async def sell_bonds(user_id: int, chat_id: int, bond_key: str, amount: int) -> 
                 avg_price = int(agg_row["invested"] / agg_amount) if agg_amount > 0 else 0
                 await db.execute(
                     "INSERT INTO user_bond_lots (user_id, chat_id, bond_key, quantity, price_per, bought_at)"
-                    " VALUES ($1,$2,$3,$4,$5,NOW())",
+                    " VALUES (?,?,?,?,?,NOW())",
                     (user_id, chat_id, bond_key, missing_qty, avg_price),
                 )
             total_held = agg_amount
 
         # Fetch lots oldest-first (FIFO)
         async with db.execute(
-            "SELECT id, quantity FROM user_bond_lots WHERE user_id=$1 AND chat_id=$2 AND bond_key=$3 ORDER BY bought_at ASC, id ASC",
+            "SELECT id, quantity FROM user_bond_lots WHERE user_id=? AND chat_id=? AND bond_key=? ORDER BY bought_at ASC, id ASC",
             (user_id, chat_id, bond_key),
         ) as c:
             lots = [dict(r) for r in await c.fetchall()]
@@ -5893,19 +5901,19 @@ async def sell_bonds(user_id: int, chat_id: int, bond_key: str, amount: int) -> 
                 break
             if lot["quantity"] <= remaining:
                 # Consume this lot entirely
-                await db.execute("DELETE FROM user_bond_lots WHERE id=$1", (lot["id"],))
+                await db.execute("DELETE FROM user_bond_lots WHERE id=?", (lot["id"],))
                 remaining -= lot["quantity"]
             else:
                 # Partially consume this lot
                 await db.execute(
-                    "UPDATE user_bond_lots SET quantity = quantity - $1 WHERE id=$2",
+                    "UPDATE user_bond_lots SET quantity = quantity - ? WHERE id=?",
                     (remaining, lot["id"]),
                 )
                 remaining = 0
 
         # Update aggregate; proportionally reduce invested
         async with db.execute(
-            "SELECT amount, invested FROM user_bonds WHERE user_id=$1 AND chat_id=$2 AND bond_key=$3",
+            "SELECT amount, invested FROM user_bonds WHERE user_id=? AND chat_id=? AND bond_key=?",
             (user_id, chat_id, bond_key),
         ) as c:
             agg = await c.fetchone()
@@ -5913,14 +5921,14 @@ async def sell_bonds(user_id: int, chat_id: int, bond_key: str, amount: int) -> 
             new_amount = agg["amount"] - amount
             if new_amount <= 0:
                 await db.execute(
-                    "DELETE FROM user_bonds WHERE user_id=$1 AND chat_id=$2 AND bond_key=$3",
+                    "DELETE FROM user_bonds WHERE user_id=? AND chat_id=? AND bond_key=?",
                     (user_id, chat_id, bond_key),
                 )
             else:
                 frac = amount / agg["amount"]
                 new_invested = max(0, int(agg["invested"] * (1 - frac)))
                 await db.execute(
-                    "UPDATE user_bonds SET amount=$1, invested=$2 WHERE user_id=$3 AND chat_id=$4 AND bond_key=$5",
+                    "UPDATE user_bonds SET amount=?, invested=? WHERE user_id=? AND chat_id=? AND bond_key=?",
                     (new_amount, new_invested, user_id, chat_id, bond_key),
                 )
         await db.commit()
@@ -5932,7 +5940,7 @@ async def sell_bonds(user_id: int, chat_id: int, bond_key: str, amount: int) -> 
 async def get_treasury(chat_id: int) -> int:
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT balance FROM chat_treasury WHERE chat_id=$1", (chat_id,)
+            "SELECT balance FROM chat_treasury WHERE chat_id=?", (chat_id,)
         ) as c:
             row = await c.fetchone()
     return row[0] if row else 0
@@ -5947,19 +5955,19 @@ async def add_to_treasury(
     """Добавляет amount в казну чата и логирует НДС-транзакцию. Возвращает новый баланс."""
     async with postgres_connect() as db:
         await db.execute(
-            "INSERT INTO chat_treasury (chat_id, balance) VALUES ($1,$2)"
+            "INSERT INTO chat_treasury (chat_id, balance) VALUES (?,?)"
             " ON CONFLICT(chat_id) DO UPDATE SET balance = chat_treasury.balance + excluded.balance",
             (chat_id, amount),
         )
         if source or user_id:
             await db.execute(
                 """INSERT INTO treasury_log (chat_id, user_id, amount, source, created_at)
-                   VALUES ($1,$2,$3,$4,NOW())""",
+                   VALUES (?,?,?,?,NOW())""",
                 (chat_id, user_id, amount, source),
             )
         await db.commit()
         async with db.execute(
-            "SELECT balance FROM chat_treasury WHERE chat_id=$1", (chat_id,)
+            "SELECT balance FROM chat_treasury WHERE chat_id=?", (chat_id,)
         ) as c:
             row = await c.fetchone()
     return row[0] if row else amount
@@ -5968,7 +5976,7 @@ async def add_to_treasury(
 async def reset_treasury(chat_id: int):
     async with postgres_connect() as db:
         await db.execute(
-            "UPDATE chat_treasury SET balance = 0 WHERE chat_id=$1", (chat_id,)
+            "UPDATE chat_treasury SET balance = 0 WHERE chat_id=?", (chat_id,)
         )
         await db.commit()
 
@@ -5979,7 +5987,7 @@ async def get_scheduler_state(task_key: str) -> str | None:
     """Получить сохранённое значение для задачи планировщика."""
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT value FROM scheduler_state WHERE task_key=$1",
+            "SELECT value FROM scheduler_state WHERE task_key=?",
             (task_key,),
         ) as c:
             row = await c.fetchone()
@@ -5990,7 +5998,7 @@ async def set_scheduler_state(task_key: str, value: str) -> None:
     """Сохранить значение для задачи планировщика (upsert)."""
     async with postgres_connect() as db:
         await db.execute(
-            "INSERT INTO scheduler_state (task_key, value, updated_at) VALUES ($1,$2,NOW()) "
+            "INSERT INTO scheduler_state (task_key, value, updated_at) VALUES (?,?,NOW()) "
             "ON CONFLICT(task_key) DO UPDATE SET value=excluded.value, updated_at=NOW()",
             (task_key, value),
         )
@@ -6002,7 +6010,7 @@ async def set_scheduler_state(task_key: str, value: str) -> None:
 async def get_pet_fatigue(user_id: int, chat_id: int) -> int:
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT fatigue FROM pets_global WHERE user_id=$1",
+            "SELECT fatigue FROM pets_global WHERE user_id=?",
             (user_id,),
         ) as c:
             row = await c.fetchone()
@@ -6013,7 +6021,7 @@ async def add_pet_fatigue(user_id: int, chat_id: int, amount: int):
     """Увеличивает усталость глобального питомца (max 100)."""
     async with postgres_connect() as db:
         await db.execute(
-            "UPDATE pets_global SET fatigue = LEAST(100, COALESCE(fatigue,0) + $1) WHERE user_id=$2",
+            "UPDATE pets_global SET fatigue = LEAST(100, COALESCE(fatigue,0) + ?) WHERE user_id=?",
             (amount, user_id),
         )
         await db.commit()
@@ -6023,7 +6031,7 @@ async def reduce_pet_fatigue(user_id: int, chat_id: int, amount: int):
     """Уменьшает усталость глобального питомца (min 0)."""
     async with postgres_connect() as db:
         await db.execute(
-            "UPDATE pets_global SET fatigue = GREATEST(0, COALESCE(fatigue,0) - $1) WHERE user_id=$2",
+            "UPDATE pets_global SET fatigue = GREATEST(0, COALESCE(fatigue,0) - ?) WHERE user_id=?",
             (amount, user_id),
         )
         await db.commit()
@@ -6062,7 +6070,7 @@ async def start_pet_walk_full(user_id: int, chat_id: int) -> dict:
         # 1. Читаем глобального питомца
         async with db.execute(
             "SELECT pet_type, name, COALESCE(fatigue,0) AS fatigue, walk_end_at "
-            "FROM pets_global WHERE user_id=$1",
+            "FROM pets_global WHERE user_id=?",
             (user_id,),
         ) as c:
             pet = await c.fetchone()
@@ -6092,29 +6100,29 @@ async def start_pet_walk_full(user_id: int, chat_id: int) -> dict:
         new_fatigue = max(0, pet["fatigue"] - WALK_FATIGUE_REDUCTION)
         walk_end_dt = now + timedelta(hours=WALK_DURATION_HOURS)
         await db.execute(
-            "UPDATE pets_global SET fatigue=$1, walk_end_at=$2 WHERE user_id=$3",
+            "UPDATE pets_global SET fatigue=?, walk_end_at=? WHERE user_id=?",
             (new_fatigue, walk_end_dt, user_id),
         )
 
         # 4. Начисляем Мору хозяину (глобальный баланс)
         await db.execute(
-            "UPDATE users SET balance = COALESCE(balance,0) + $1,"
-            " total_earned = COALESCE(total_earned,0) + $1 WHERE user_id=$2",
+            "UPDATE users SET balance = COALESCE(balance,0) + ?,"
+            " total_earned = COALESCE(total_earned,0) + ? WHERE user_id=?",
             (WALK_MORA_REWARD, WALK_MORA_REWARD, user_id),
         )
 
         # 5. Начисляем Мору партнёру (если есть глобальный брак)
         partner_id: int | None = None
         async with db.execute(
-            "SELECT partner_id FROM marriages_global WHERE user_id=$1",
+            "SELECT partner_id FROM marriages_global WHERE user_id=?",
             (user_id,),
         ) as c:
             marriage = await c.fetchone()
         if marriage:
             partner_id = marriage["partner_id"]
             await db.execute(
-                "UPDATE users SET balance = COALESCE(balance,0) + $1,"
-                " total_earned = COALESCE(total_earned,0) + $1 WHERE user_id=$2",
+                "UPDATE users SET balance = COALESCE(balance,0) + ?,"
+                " total_earned = COALESCE(total_earned,0) + ? WHERE user_id=?",
                 (WALK_MORA_REWARD, WALK_MORA_REWARD, partner_id),
             )
 
@@ -6141,7 +6149,7 @@ async def get_crystals(user_id: int) -> int:
     """Возвращает текущий баланс кристаллов пользователя."""
     async with postgres_connect() as db:
         row = await db.fetchone(
-            "SELECT balance FROM user_crystals WHERE user_id=$1", (user_id,)
+            "SELECT balance FROM user_crystals WHERE user_id=?", (user_id,)
         )
     return row["balance"] if row else 0
 
@@ -6151,14 +6159,14 @@ async def add_crystals(user_id: int, amount: int) -> int:
     async with postgres_connect() as db:
         await db.execute(
             """INSERT INTO user_crystals (user_id, balance, total_purchased)
-               VALUES ($1, $2, $2)
+               VALUES (?, ?, ?)
                ON CONFLICT(user_id) DO UPDATE
                SET balance         = user_crystals.balance + EXCLUDED.balance,
                    total_purchased = user_crystals.total_purchased + EXCLUDED.total_purchased""",
-            (user_id, amount),
+            (user_id, amount, amount),
         )
         row = await db.fetchone(
-            "SELECT balance FROM user_crystals WHERE user_id=$1", (user_id,)
+            "SELECT balance FROM user_crystals WHERE user_id=?", (user_id,)
         )
         await db.commit()
     return row["balance"] if row else amount
@@ -6168,13 +6176,13 @@ async def spend_crystals(user_id: int, amount: int) -> bool:
     """Списывает кристаллы. Возвращает True при успехе, False — недостаточно средств."""
     async with postgres_connect() as db:
         row = await db.fetchone(
-            "SELECT balance FROM user_crystals WHERE user_id=$1", (user_id,)
+            "SELECT balance FROM user_crystals WHERE user_id=?", (user_id,)
         )
         balance = row["balance"] if row else 0
         if balance < amount:
             return False
         await db.execute(
-            "UPDATE user_crystals SET balance = balance - $1 WHERE user_id = $2",
+            "UPDATE user_crystals SET balance = balance - ? WHERE user_id = ?",
             (amount, user_id),
         )
         await db.commit()
@@ -6191,7 +6199,7 @@ async def log_stars_purchase(
         await db.execute(
             """INSERT INTO stars_purchases
                (user_id, stars_amount, crystals_amount, pack_key, telegram_charge_id, purchased_at)
-               VALUES ($1, $2, $3, $4, $5, $6)""",
+               VALUES (?, ?, ?, ?, ?, ?)""",
             (user_id, stars_amount, crystals_amount, pack_key,
              telegram_charge_id, datetime.now(timezone.utc)),
         )
@@ -6204,7 +6212,7 @@ async def get_transfer_passes(user_id: int) -> int:
     """Возвращает количество пропусков переноса (для обхода 3-дневного правила)."""
     async with postgres_connect() as db:
         row = await db.fetchone(
-            "SELECT passes FROM crystal_transfer_passes WHERE user_id=$1", (user_id,)
+            "SELECT passes FROM crystal_transfer_passes WHERE user_id=?", (user_id,)
         )
     return int(row["passes"]) if row else 0
 
@@ -6214,7 +6222,7 @@ async def use_transfer_pass(user_id: int) -> bool:
     async with postgres_connect() as db:
         cursor = await db.execute(
             "UPDATE crystal_transfer_passes SET passes = passes - 1 "
-            "WHERE user_id=$1 AND passes >= 1",
+            "WHERE user_id=? AND passes >= 1",
             (user_id,),
         )
         await db.commit()
@@ -6226,11 +6234,11 @@ async def add_transfer_passes(user_id: int, amount: int) -> int:
     async with postgres_connect() as db:
         row = await db.fetchone(
             """INSERT INTO crystal_transfer_passes (user_id, passes)
-               VALUES ($1, $2)
+               VALUES (?, ?)
                ON CONFLICT (user_id) DO UPDATE
-               SET passes = crystal_transfer_passes.passes + $2
+               SET passes = crystal_transfer_passes.passes + ?
                RETURNING passes""",
-            (user_id, amount),
+            (user_id, amount, amount),
         )
         await db.commit()
     return int(row["passes"]) if row else amount
@@ -6240,7 +6248,7 @@ async def get_guarantee_scrolls(user_id: int) -> int:
     """Возвращает количество свитков гаранта."""
     async with postgres_connect() as db:
         row = await db.fetchone(
-            "SELECT scrolls FROM crystal_guarantee_scrolls WHERE user_id=$1", (user_id,)
+            "SELECT scrolls FROM crystal_guarantee_scrolls WHERE user_id=?", (user_id,)
         )
     return int(row["scrolls"]) if row else 0
 
@@ -6250,11 +6258,11 @@ async def add_guarantee_scrolls(user_id: int, amount: int) -> int:
     async with postgres_connect() as db:
         row = await db.fetchone(
             """INSERT INTO crystal_guarantee_scrolls (user_id, scrolls)
-               VALUES ($1, $2)
+               VALUES (?, ?)
                ON CONFLICT (user_id) DO UPDATE
-               SET scrolls = crystal_guarantee_scrolls.scrolls + $2
+               SET scrolls = crystal_guarantee_scrolls.scrolls + ?
                RETURNING scrolls""",
-            (user_id, amount),
+            (user_id, amount, amount),
         )
         await db.commit()
     return int(row["scrolls"]) if row else amount
@@ -6265,7 +6273,7 @@ async def use_guarantee_scroll(user_id: int) -> bool:
     async with postgres_connect() as db:
         cursor = await db.execute(
             "UPDATE crystal_guarantee_scrolls SET scrolls = scrolls - 1 "
-            "WHERE user_id=$1 AND scrolls >= 1",
+            "WHERE user_id=? AND scrolls >= 1",
             (user_id,),
         )
         await db.commit()
@@ -6276,7 +6284,7 @@ async def get_enhancement_stones(user_id: int) -> int:
     """Возвращает количество камней улучшения."""
     async with postgres_connect() as db:
         row = await db.fetchone(
-            "SELECT stones FROM crystal_enhancement_stones WHERE user_id=$1", (user_id,)
+            "SELECT stones FROM crystal_enhancement_stones WHERE user_id=?", (user_id,)
         )
     return int(row["stones"]) if row else 0
 
@@ -6286,11 +6294,11 @@ async def add_enhancement_stones(user_id: int, amount: int) -> int:
     async with postgres_connect() as db:
         row = await db.fetchone(
             """INSERT INTO crystal_enhancement_stones (user_id, stones)
-               VALUES ($1, $2)
+               VALUES (?, ?)
                ON CONFLICT (user_id) DO UPDATE
-               SET stones = crystal_enhancement_stones.stones + $2
+               SET stones = crystal_enhancement_stones.stones + ?
                RETURNING stones""",
-            (user_id, amount),
+            (user_id, amount, amount),
         )
         await db.commit()
     return int(row["stones"]) if row else amount
@@ -6301,7 +6309,7 @@ async def use_enhancement_stone(user_id: int) -> bool:
     async with postgres_connect() as db:
         cursor = await db.execute(
             "UPDATE crystal_enhancement_stones SET stones = stones - 1 "
-            "WHERE user_id=$1 AND stones >= 1",
+            "WHERE user_id=? AND stones >= 1",
             (user_id,),
         )
         await db.commit()
@@ -6312,7 +6320,7 @@ async def is_avatar_unlocked(user_id: int) -> bool:
     """Возвращает True если аватар уже разблокирован."""
     async with postgres_connect() as db:
         row = await db.fetchone(
-            "SELECT user_id FROM crystal_avatar_unlocks WHERE user_id=$1", (user_id,)
+            "SELECT user_id FROM crystal_avatar_unlocks WHERE user_id=?", (user_id,)
         )
     return row is not None
 
@@ -6323,7 +6331,7 @@ async def unlock_avatar(user_id: int, avatar_path: str | None = None) -> None:
     async with postgres_connect() as db:
         await db.execute(
             """INSERT INTO crystal_avatar_unlocks (user_id, avatar_path, unlocked_at)
-               VALUES ($1, $2, $3)
+               VALUES (?, ?, ?)
                ON CONFLICT (user_id) DO UPDATE
                SET avatar_path = EXCLUDED.avatar_path""",
             (user_id, avatar_path, datetime.now(timezone.utc)),
@@ -6335,7 +6343,7 @@ async def get_avatar_path(user_id: int) -> str | None:
     """Возвращает путь к аватару или None."""
     async with postgres_connect() as db:
         row = await db.fetchone(
-            "SELECT avatar_path FROM crystal_avatar_unlocks WHERE user_id=$1", (user_id,)
+            "SELECT avatar_path FROM crystal_avatar_unlocks WHERE user_id=?", (user_id,)
         )
     return row["avatar_path"] if row else None
 
@@ -6344,7 +6352,7 @@ async def get_crystal_chat_role(user_id: int, chat_id: int) -> str | None:
     """Возвращает кастомную роль юзера в чате или None."""
     async with postgres_connect() as db:
         row = await db.fetchone(
-            "SELECT role_text FROM crystal_chat_roles WHERE user_id=$1 AND chat_id=$2",
+            "SELECT role_text FROM crystal_chat_roles WHERE user_id=? AND chat_id=?",
             (user_id, chat_id),
         )
     return row["role_text"] if row else None
@@ -6369,7 +6377,7 @@ async def seed_first_season():
         
         season_row = await db.fetchone(
             "INSERT INTO seasons (name, start_date, end_date, active) "
-            "VALUES ($1, $2, $3, $4) RETURNING id",
+            "VALUES (?, ?, ?, ?) RETURNING id",
             ("Сезон Предвестника", start_date, end_date, True)
         )
         season_id = season_row["id"]
@@ -6399,7 +6407,7 @@ async def seed_first_season():
         for season_id, level, is_premium, reward_type, reward_data in rewards:
             await db.execute(
                 "INSERT INTO season_rewards (season_id, level, is_premium, reward_type, reward_data) "
-                "VALUES ($1, $2, $3, $4, $5)",
+                "VALUES (?, ?, ?, ?, ?)",
                 (season_id, level, is_premium, reward_type, reward_data)
             )
         
@@ -6413,9 +6421,9 @@ async def get_active_season() -> dict | None:
     async with postgres_connect() as db:
         row = await db.fetchone(
             "SELECT * FROM seasons WHERE active = TRUE "
-            "AND start_date <= $1 AND end_date >= $1 "
+            "AND start_date <= ? AND end_date >= ? "
             "ORDER BY start_date DESC LIMIT 1",
-            (datetime.now(timezone.utc),)
+            (datetime.now(timezone.utc), datetime.now(timezone.utc))
         )
     return dict(row) if row else None
 
@@ -6426,7 +6434,7 @@ async def get_season_progress(user_id: int, season_id: int) -> dict:
     
     async with postgres_connect() as db:
         row = await db.fetchone(
-            "SELECT * FROM season_progress WHERE user_id = $1 AND season_id = $2",
+            "SELECT * FROM season_progress WHERE user_id = ? AND season_id = ?",
             (user_id, season_id)
         )
     
@@ -6459,7 +6467,7 @@ async def add_season_xp(user_id: int, xp_amount: int) -> dict:
     async with postgres_connect() as db:
         # Get or create progress record
         row = await db.fetchone(
-            "SELECT * FROM season_progress WHERE user_id = $1 AND season_id = $2",
+            "SELECT * FROM season_progress WHERE user_id = ? AND season_id = ?",
             (user_id, season_id)
         )
         
@@ -6484,10 +6492,10 @@ async def add_season_xp(user_id: int, xp_amount: int) -> dict:
         # Update or insert progress
         await db.execute(
             """INSERT INTO season_progress (user_id, season_id, season_xp, level, claimed_levels, premium_purchased)
-               VALUES ($1, $2, $3, $4, $5, $6)
+               VALUES (?, ?, ?, ?, ?, ?)
                ON CONFLICT (user_id, season_id) DO UPDATE
-               SET season_xp = $3, level = $4""",
-            (user_id, season_id, new_xp, new_level, json.dumps(claimed_levels), premium_purchased)
+               SET season_xp = ?, level = ?""",
+            (user_id, season_id, new_xp, new_level, json.dumps(claimed_levels), premium_purchased, new_xp, new_level)
         )
         await db.commit()
         
@@ -6506,7 +6514,7 @@ async def claim_season_reward(user_id: int, season_id: int, level: int, is_premi
     async with postgres_connect() as db:
         # Get progress
         progress_row = await db.fetchone(
-            "SELECT * FROM season_progress WHERE user_id = $1 AND season_id = $2",
+            "SELECT * FROM season_progress WHERE user_id = ? AND season_id = ?",
             (user_id, season_id)
         )
         
@@ -6532,7 +6540,7 @@ async def claim_season_reward(user_id: int, season_id: int, level: int, is_premi
         
         # Get reward data
         reward_row = await db.fetchone(
-            "SELECT * FROM season_rewards WHERE season_id = $1 AND level = $2 AND is_premium = $3",
+            "SELECT * FROM season_rewards WHERE season_id = ? AND level = ? AND is_premium = ?",
             (season_id, level, is_premium)
         )
         
@@ -6544,7 +6552,7 @@ async def claim_season_reward(user_id: int, season_id: int, level: int, is_premi
         
         # Apply reward
         if reward_type == "mora":
-            await add_mora(user_id, int(reward_data))
+            await add_mora(user_id, 0, int(reward_data))
         elif reward_type == "crystals":
             await add_crystals(user_id, int(reward_data))
         elif reward_type == "item":
@@ -6559,7 +6567,7 @@ async def claim_season_reward(user_id: int, season_id: int, level: int, is_premi
         # Mark as claimed
         claimed_levels.append(claim_key)
         await db.execute(
-            "UPDATE season_progress SET claimed_levels = $1 WHERE user_id = $2 AND season_id = $3",
+            "UPDATE season_progress SET claimed_levels = ? WHERE user_id = ? AND season_id = ?",
             (json.dumps(claimed_levels), user_id, season_id)
         )
         await db.commit()
@@ -6587,7 +6595,7 @@ async def buy_season_premium(user_id: int, season_id: int) -> bool:
     async with postgres_connect() as db:
         # Check if already purchased
         progress_row = await db.fetchone(
-            "SELECT premium_purchased FROM season_progress WHERE user_id = $1 AND season_id = $2",
+            "SELECT premium_purchased FROM season_progress WHERE user_id = ? AND season_id = ?",
             (user_id, season_id)
         )
         
@@ -6602,14 +6610,14 @@ async def buy_season_premium(user_id: int, season_id: int) -> bool:
         # Mark premium as purchased
         if progress_row:
             await db.execute(
-                "UPDATE season_progress SET premium_purchased = TRUE WHERE user_id = $1 AND season_id = $2",
+                "UPDATE season_progress SET premium_purchased = TRUE WHERE user_id = ? AND season_id = ?",
                 (user_id, season_id)
             )
         else:
             # Create new progress record with premium
             await db.execute(
                 """INSERT INTO season_progress (user_id, season_id, season_xp, level, claimed_levels, premium_purchased)
-                   VALUES ($1, $2, 0, 0, '[]', TRUE)""",
+                   VALUES (?, ?, 0, 0, '[]', TRUE)""",
                 (user_id, season_id)
             )
         
@@ -6621,7 +6629,7 @@ async def get_season_rewards(season_id: int) -> list[dict]:
     """Get all rewards for a season."""
     async with postgres_connect() as db:
         rows = await db.fetch(
-            "SELECT * FROM season_rewards WHERE season_id = $1 ORDER BY level, is_premium",
+            "SELECT * FROM season_rewards WHERE season_id = ? ORDER BY level, is_premium",
             (season_id,)
         )
     return [dict(row) for row in rows]
@@ -6636,7 +6644,7 @@ async def set_crystal_chat_role(user_id: int, chat_id: int, role_text: str) -> N
     async with postgres_connect() as db:
         await db.execute(
             """INSERT INTO crystal_chat_roles (user_id, chat_id, role_text, purchased_at)
-               VALUES ($1, $2, $3, $4)
+               VALUES (?, ?, ?, ?)
                ON CONFLICT (user_id, chat_id) DO UPDATE
                SET role_text = EXCLUDED.role_text, purchased_at = EXCLUDED.purchased_at""",
             (user_id, chat_id, role_text, datetime.now(timezone.utc)),
@@ -6665,7 +6673,7 @@ async def get_chat_config(chat_id: int) -> dict:
     """Возвращает конфигурацию чата; если не задана — возвращает дефолты."""
     async with postgres_connect() as db:
         row = await db.fetchone(
-            "SELECT * FROM chat_configs WHERE chat_id=$1", (chat_id,)
+            "SELECT * FROM chat_configs WHERE chat_id=?", (chat_id,)
         )
     if not row:
         return dict(_CHAT_CONFIG_DEFAULTS)
@@ -6697,12 +6705,12 @@ async def upsert_chat_config(chat_id: int, **kwargs) -> None:
 
     async with postgres_connect() as db:
         await db.execute(
-            "INSERT INTO chat_configs (chat_id) VALUES ($1) ON CONFLICT DO NOTHING",
+            "INSERT INTO chat_configs (chat_id) VALUES (?) ON CONFLICT DO NOTHING",
             (chat_id,),
         )
         for key, value in kwargs.items():
             await db.execute(
-                f"UPDATE chat_configs SET {key}=$1 WHERE chat_id=$2",
+                f"UPDATE chat_configs SET {key}=? WHERE chat_id=?",
                 (value, chat_id),
             )
         await db.commit()
@@ -6721,9 +6729,9 @@ async def get_weekly_top_users(chat_id: int, limit: int = 10) -> list[int]:
         async with db.execute(
             """SELECT user_id, SUM(message_count) as cnt
                FROM user_stats
-               WHERE chat_id=$1
+               WHERE chat_id=?
                GROUP BY user_id
-               ORDER BY cnt DESC LIMIT $2""",
+               ORDER BY cnt DESC LIMIT ?""",
             (chat_id, limit),
         ) as c:
             rows = await c.fetchall()
@@ -6740,7 +6748,7 @@ async def is_weekly_top_rewarded(chat_id: int, week_key: str) -> bool:
     """True if rewards for this chat+week were already distributed."""
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT 1 FROM weekly_top_reward_log WHERE chat_id=$1 AND week_key=$2 LIMIT 1",
+            "SELECT 1 FROM weekly_top_reward_log WHERE chat_id=? AND week_key=? LIMIT 1",
             (chat_id, week_key),
         ) as c:
             return (await c.fetchone()) is not None
@@ -6756,7 +6764,7 @@ async def record_weekly_top_rewards(chat_id: int, week_key: str,
             await db.execute(
                 """INSERT INTO weekly_top_reward_log
                        (chat_id, week_key, user_id, place, amount, full_name)
-                   VALUES ($1, $2, $3, $4, $5, $6)
+                   VALUES (?, ?, ?, ?, ?, ?)
                    ON CONFLICT DO NOTHING""",
                 (chat_id, week_key, uid, place, amount, fname),
             )
@@ -6772,7 +6780,7 @@ async def get_weekly_top_reward_history(chat_id: int, week_key: str) -> list:
         async with db.execute(
             """SELECT user_id, place, amount, full_name
                FROM weekly_top_reward_log
-               WHERE chat_id=$1 AND week_key=$2
+               WHERE chat_id=? AND week_key=?
                ORDER BY place ASC""",
             (chat_id, week_key),
         ) as c:
@@ -6784,8 +6792,8 @@ async def get_vip_users(chat_id: int) -> list[int]:
     now = datetime.now(timezone.utc)
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT user_id FROM user_mora WHERE chat_id=$1 AND vip=1 "
-            "AND (vip_expires_at IS NULL OR vip_expires_at > $1)",
+            "SELECT user_id FROM user_mora WHERE chat_id=? AND vip=1 "
+            "AND (vip_expires_at IS NULL OR vip_expires_at > ?)",
             (chat_id, now),
         ) as c:
             rows = await c.fetchall()
@@ -6813,7 +6821,7 @@ async def get_daily_checkin(user_id: int, chat_id: int) -> dict:
     """Вернуть данные ежедневного чекина юзера."""
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT * FROM daily_checkin WHERE user_id=$1 AND chat_id=$2",
+            "SELECT * FROM daily_checkin WHERE user_id=? AND chat_id=?",
             (user_id, chat_id),
         ) as c:
             row = await c.fetchone()
@@ -6829,7 +6837,7 @@ async def perform_checkin(user_id: int, chat_id: int) -> dict:
 
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT * FROM daily_checkin WHERE user_id=$1 AND chat_id=$2",
+            "SELECT * FROM daily_checkin WHERE user_id=? AND chat_id=?",
             (user_id, chat_id),
         ) as c:
             row = await c.fetchone()
@@ -6859,7 +6867,7 @@ async def perform_checkin(user_id: int, chat_id: int) -> dict:
 
         await db.execute("""
             INSERT INTO daily_checkin (user_id, chat_id, streak, total_days, last_checkin, checkpoint)
-            VALUES ($1, $2, $3, $4, $5, $6)
+            VALUES (?, ?, ?, ?, ?, ?)
             ON CONFLICT(user_id, chat_id) DO UPDATE SET
                 streak=excluded.streak, total_days=excluded.total_days,
                 last_checkin=excluded.last_checkin, checkpoint=excluded.checkpoint
@@ -6885,7 +6893,7 @@ async def add_boss_damage(user_id: int, chat_id: int, damage: int):
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     async with postgres_connect() as db:
         await db.execute(
-            "INSERT INTO boss_damage_log (user_id, chat_id, damage, session_date) VALUES ($1, $2, $3, $4)",
+            "INSERT INTO boss_damage_log (user_id, chat_id, damage, session_date) VALUES (?, ?, ?, ?)",
             (user_id, chat_id, damage, today),
         )
         await db.commit()
@@ -6898,7 +6906,7 @@ async def get_boss_daily_user_damage(user_id: int, chat_id: int) -> int:
     async with postgres_connect() as db:
         async with db.execute(
             "SELECT COALESCE(SUM(damage), 0) FROM boss_damage_log "
-            "WHERE user_id=$1 AND chat_id=$2 AND session_date=$3",
+            "WHERE user_id=? AND chat_id=? AND session_date=?",
             (user_id, chat_id, today),
         ) as c:
             row = await c.fetchone()
@@ -6912,7 +6920,7 @@ async def get_boss_chat_damage_today(chat_id: int) -> int:
     async with postgres_connect() as db:
         async with db.execute(
             "SELECT COALESCE(SUM(damage), 0) FROM boss_damage_log "
-            "WHERE chat_id=$1 AND session_date=$2",
+            "WHERE chat_id=? AND session_date=?",
             (chat_id, today),
         ) as c:
             row = await c.fetchone()
@@ -6926,9 +6934,9 @@ async def get_boss_leaderboard(chat_id: int, limit: int = 10) -> list[dict]:
             """SELECT b.user_id, u.full_name, SUM(b.damage) as total_damage
                FROM boss_damage_log b
                LEFT JOIN users u ON u.user_id = b.user_id
-               WHERE b.chat_id = $1
+               WHERE b.chat_id = ?
                GROUP BY b.user_id
-               ORDER BY total_damage DESC LIMIT $2""",
+               ORDER BY total_damage DESC LIMIT ?""",
             (chat_id, limit),
         ) as c:
             rows = await c.fetchall()
@@ -6939,7 +6947,7 @@ async def get_boss_my_damage(user_id: int, chat_id: int) -> int:
     """Вернуть суммарный урон конкретного юзера по боссу в чате."""
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT COALESCE(SUM(damage), 0) FROM boss_damage_log WHERE user_id=$1 AND chat_id=$2",
+            "SELECT COALESCE(SUM(damage), 0) FROM boss_damage_log WHERE user_id=? AND chat_id=?",
             (user_id, chat_id),
         ) as c:
             row = await c.fetchone()
@@ -6958,7 +6966,7 @@ async def get_leaderboard_xp(chat_id: int, limit: int = 10) -> list[dict]:
                LEFT JOIN users u ON u.user_id = s.user_id
                LEFT JOIN pets p ON p.user_id = s.user_id AND p.chat_id = s.chat_id
                LEFT JOIN user_mora m ON m.user_id = s.user_id AND m.chat_id = s.chat_id
-               WHERE s.chat_id = $1 ORDER BY s.xp DESC LIMIT $2""",
+               WHERE s.chat_id = ? ORDER BY s.xp DESC LIMIT ?""",
             (chat_id, limit),
         ) as c:
             rows = await c.fetchall()
@@ -6975,7 +6983,7 @@ async def get_leaderboard_messages(chat_id: int, limit: int = 10) -> list[dict]:
                LEFT JOIN users u ON u.user_id = s.user_id
                LEFT JOIN pets_global p ON p.user_id = s.user_id
                LEFT JOIN user_mora m ON m.user_id = s.user_id AND m.chat_id = s.chat_id
-               WHERE s.chat_id = $1 ORDER BY s.message_count DESC LIMIT $2""",
+               WHERE s.chat_id = ? ORDER BY s.message_count DESC LIMIT ?""",
             (chat_id, limit),
         ) as c:
             rows = await c.fetchall()
@@ -6990,7 +6998,7 @@ async def enhance_item(user_id: int, chat_id: int, item_id: int) -> tuple[bool, 
     async with postgres_connect() as db:
         async with db.execute(
             "SELECT slot, enhancement_level, atk, def_val, hp, crit_rate, item_name FROM gacha_inventory "
-            "WHERE id=$1 AND user_id=$2 AND chat_id=$3 AND slot IN ('weapon', 'armor', 'artifact')",
+            "WHERE id=? AND user_id=? AND chat_id=? AND slot IN ('weapon', 'armor', 'artifact')",
             (item_id, user_id, chat_id),
         ) as c:
             item = await c.fetchone()
@@ -7017,7 +7025,7 @@ async def enhance_item(user_id: int, chat_id: int, item_id: int) -> tuple[bool, 
         else:
             # Check mora balance
             async with db.execute(
-                "SELECT COALESCE(balance, 0) FROM users WHERE user_id=$1",
+                "SELECT COALESCE(balance, 0) FROM users WHERE user_id=?",
                 (user_id,)
             ) as c:
                 balance_row = await c.fetchone()
@@ -7061,7 +7069,7 @@ async def enhance_item(user_id: int, chat_id: int, item_id: int) -> tuple[bool, 
         if not using_stones:
             # Deduct мору только если не используем камни
             cursor = await db.execute(
-                "UPDATE users SET balance = balance - $1 WHERE user_id=$2 AND COALESCE(balance, 0) >= $3",
+                "UPDATE users SET balance = balance - ? WHERE user_id=? AND COALESCE(balance, 0) >= ?",
                 (cost, user_id, cost)
             )
             if cursor.rowcount == 0:
@@ -7073,7 +7081,7 @@ async def enhance_item(user_id: int, chat_id: int, item_id: int) -> tuple[bool, 
             # ✅ Успех — +1 уровень
             new_level = current_level + 1
             await db.execute(
-                "UPDATE gacha_inventory SET enhancement_level=$1 WHERE id=$2",
+                "UPDATE gacha_inventory SET enhancement_level=? WHERE id=?",
                 (new_level, item_id)
             )
             await db.commit()
@@ -7096,7 +7104,7 @@ async def enhance_item(user_id: int, chat_id: int, item_id: int) -> tuple[bool, 
             # 💔 Неудача — уровень понижается на 1 (но не ниже 0), предмет НЕ ломается
             new_level = max(0, current_level - 1)
             await db.execute(
-                "UPDATE gacha_inventory SET enhancement_level=$1 WHERE id=$2",
+                "UPDATE gacha_inventory SET enhancement_level=? WHERE id=?",
                 (new_level, item_id)
             )
             await db.commit()
@@ -7116,10 +7124,10 @@ async def get_active_buffs(user_id: int, chat_id: int) -> list[dict]:
         # Clean expired buffs first
         now = datetime.now(timezone.utc)
         await db.execute(
-            "DELETE FROM active_buffs WHERE expires_at < $1", (now,)
+            "DELETE FROM active_buffs WHERE expires_at < ?", (now,)
         )
         async with db.execute(
-            "SELECT * FROM active_buffs WHERE user_id=$1 AND chat_id=$2 AND expires_at > $3",
+            "SELECT * FROM active_buffs WHERE user_id=? AND chat_id=? AND expires_at > ?",
             (user_id, chat_id, now)
         ) as c:
             rows = await c.fetchall()
@@ -7131,7 +7139,7 @@ async def get_active_buffs(user_id: int, chat_id: int) -> list[dict]:
 async def get_user_name(user_id: int) -> str | None:
     """Get user's full name from database."""
     async with postgres_connect() as db:
-        async with db.execute("SELECT full_name FROM users WHERE user_id=$1", (user_id,)) as c:
+        async with db.execute("SELECT full_name FROM users WHERE user_id=?", (user_id,)) as c:
             row = await c.fetchone()
         return row[0] if row else None
 
@@ -7143,7 +7151,7 @@ async def consume_potion(user_id: int, chat_id: int, item_id: int) -> tuple[bool
     async with postgres_connect() as db:
         async with db.execute(
             "SELECT item_key, item_name, slot FROM gacha_inventory "
-            "WHERE id=$1 AND user_id=$2 AND chat_id=$3 AND slot='potion'",
+            "WHERE id=? AND user_id=? AND chat_id=? AND slot='potion'",
             (item_id, user_id, chat_id)
         ) as c:
             item = await c.fetchone()
@@ -7162,19 +7170,19 @@ async def consume_potion(user_id: int, chat_id: int, item_id: int) -> tuple[bool
         
         # Remove any existing buff of the same type (refreshes timer)
         await db.execute(
-            "DELETE FROM active_buffs WHERE user_id=$1 AND chat_id=$2 AND buff_type=$3",
+            "DELETE FROM active_buffs WHERE user_id=? AND chat_id=? AND buff_type=?",
             (user_id, chat_id, potion_data["buff_type"])
         )
         
         # Add new buff
         await db.execute(
             "INSERT INTO active_buffs (user_id, chat_id, buff_type, expires_at, source) "
-            "VALUES ($1,$2,$3,$4,$5)",
+            "VALUES (?,?,?,?,?)",
             (user_id, chat_id, potion_data["buff_type"], expires_at, f"potion:{item[0]}")
         )
         
         # Remove consumed potion from inventory
-        await db.execute("DELETE FROM gacha_inventory WHERE id=$1", (item_id,))
+        await db.execute("DELETE FROM gacha_inventory WHERE id=?", (item_id,))
         
         await db.commit()
         
@@ -7195,10 +7203,10 @@ async def batch_sell_items(
         total_mora = 0
         sold_count = 0
 
-        placeholders = ",".join(["$1"] * len(item_ids))
+        placeholders = ",".join(["?"] * len(item_ids))
         async with db.execute(
             f"SELECT id, item_key, COALESCE(stack_count, 1) FROM gacha_inventory "
-            f"WHERE id IN ({placeholders}) AND user_id=$1 AND chat_id=$2",
+            f"WHERE id IN ({placeholders}) AND user_id=? AND chat_id=?",
             (*item_ids, user_id, chat_id)
         ) as c:
             items = await c.fetchall()
@@ -7224,17 +7232,17 @@ async def batch_sell_items(
             sold_count += qty
 
             if qty >= stack_count:
-                await db.execute("DELETE FROM gacha_inventory WHERE id=$1", (item_id,))
+                await db.execute("DELETE FROM gacha_inventory WHERE id=?", (item_id,))
             else:
                 await db.execute(
-                    "UPDATE gacha_inventory SET stack_count = stack_count - $1 WHERE id=$2",
+                    "UPDATE gacha_inventory SET stack_count = stack_count - ? WHERE id=?",
                     (qty, item_id),
                 )
 
         if sold_count > 0:
             await db.execute(
-                "UPDATE users SET balance = COALESCE(balance, 0) + $1,"
-                " total_earned = COALESCE(total_earned, 0) + $1 WHERE user_id=$2",
+                "UPDATE users SET balance = COALESCE(balance, 0) + ?,"
+                " total_earned = COALESCE(total_earned, 0) + ? WHERE user_id=?",
                 (total_mora, total_mora, user_id)
             )
 
@@ -7256,7 +7264,7 @@ async def get_couple_boss_session(user_a_id: int, user_b_id: int, chat_id: int) 
     async with postgres_connect() as db:
         async with db.execute(
             """SELECT * FROM couple_boss_sessions 
-               WHERE user_a_id=$1 AND user_b_id=$2 AND chat_id=$3 AND session_date=$4 AND is_completed=0""",
+               WHERE user_a_id=? AND user_b_id=? AND chat_id=? AND session_date=? AND is_completed=0""",
             (user_a_id, user_b_id, chat_id, today),
         ) as c:
             row = await c.fetchone()
@@ -7286,7 +7294,7 @@ async def create_couple_boss_session(user_a_id: int, user_b_id: int, chat_id: in
             """INSERT INTO couple_boss_sessions 
                (user_a_id, user_b_id, chat_id, boss_level, boss_max_hp, boss_current_hp, 
                 is_repeat, session_date)
-               VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id""",
+               VALUES (?,?,?,?,?,?,?,?) RETURNING id""",
             (user_a_id, user_b_id, chat_id, boss_level, boss_max_hp, boss_max_hp, 
              1 if is_repeat else 0, today),
         )
@@ -7381,10 +7389,10 @@ async def apply_couple_boss_damage(user_id: int, session: dict, damage: int, use
     async with postgres_connect() as db:
         await db.execute(
             """UPDATE couple_boss_sessions SET 
-               boss_current_hp=$1, user_a_damage=$2, user_a_hits=$3, user_a_aggro=$4,
-               user_b_damage=$5, user_b_hits=$6, user_b_aggro=$7, is_completed=$8,
-               completed_at=CASE WHEN $9 THEN NOW() ELSE completed_at END
-               WHERE id=$10""",
+               boss_current_hp=?, user_a_damage=?, user_a_hits=?, user_a_aggro=?,
+               user_b_damage=?, user_b_hits=?, user_b_aggro=?, is_completed=?,
+               completed_at=CASE WHEN ? THEN NOW() ELSE completed_at END
+               WHERE id=?""",
             (new_hp, *user_values, 1 if is_defeated else 0, is_defeated, session_id),
         )
         
@@ -7412,7 +7420,7 @@ async def get_couple_boss_progress(user_a_id: int, user_b_id: int, chat_id: int)
         
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT * FROM couple_boss_progress WHERE user_a_id=$1 AND user_b_id=$2 AND chat_id=$3",
+            "SELECT * FROM couple_boss_progress WHERE user_a_id=? AND user_b_id=? AND chat_id=?",
             (user_a_id, user_b_id, chat_id),
         ) as c:
             row = await c.fetchone()
@@ -7428,9 +7436,9 @@ async def update_couple_boss_progress(user_a_id: int, user_b_id: int, chat_id: i
     async with postgres_connect() as db:
         await db.execute(
             """INSERT INTO couple_boss_progress (user_a_id, user_b_id, chat_id, max_level, last_completed)
-               VALUES ($1,$2,$3,$4,NOW())
+               VALUES (?,?,?,?,NOW())
                ON CONFLICT(user_a_id, user_b_id, chat_id) DO UPDATE SET
-               max_level=MAX(max_level, excluded.max_level),
+               max_level=GREATEST(couple_boss_progress.max_level, EXCLUDED.max_level),
                last_completed=NOW()""",
             (user_a_id, user_b_id, chat_id, completed_level),
         )
@@ -7466,7 +7474,7 @@ async def create_marriage_proposal(from_user_id: int, to_user_id: int, chat_id: 
     async with postgres_connect() as db:
         cursor = await db.execute(
             """INSERT INTO marriage_proposals (from_user_id, to_user_id, chat_id)
-               VALUES ($1, $2, $3) ON CONFLICT(from_user_id, to_user_id, chat_id) DO UPDATE
+               VALUES (?, ?, ?) ON CONFLICT(from_user_id, to_user_id, chat_id) DO UPDATE
                SET status='pending', created_at=NOW()
                RETURNING id""",
             (from_user_id, to_user_id, chat_id),
@@ -7483,7 +7491,7 @@ async def get_pending_proposals(to_user_id: int, chat_id: int) -> list:
             """SELECT mp.id, mp.from_user_id, u.full_name as from_name, mp.created_at
                FROM marriage_proposals mp
                JOIN users u ON u.user_id = mp.from_user_id
-               WHERE mp.to_user_id=$1 AND mp.chat_id=$2 AND mp.status='pending'
+               WHERE mp.to_user_id=? AND mp.chat_id=? AND mp.status='pending'
                ORDER BY mp.created_at DESC""",
             (to_user_id, chat_id),
         ) as c:
@@ -7495,7 +7503,7 @@ async def respond_to_proposal(proposal_id: int, status: str) -> dict | None:
     """Accept or decline a proposal. Returns proposal data if found."""
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT * FROM marriage_proposals WHERE id=$1 AND status='pending'",
+            "SELECT * FROM marriage_proposals WHERE id=? AND status='pending'",
             (proposal_id,),
         ) as c:
             row = await c.fetchone()
@@ -7503,7 +7511,7 @@ async def respond_to_proposal(proposal_id: int, status: str) -> dict | None:
             return None
         proposal = dict(row)
         await db.execute(
-            "UPDATE marriage_proposals SET status=$1 WHERE id=$2",
+            "UPDATE marriage_proposals SET status=? WHERE id=?",
             (status, proposal_id),
         )
         await db.commit()
@@ -7518,7 +7526,7 @@ async def get_solo_boss_session(user_id: int, chat_id: int) -> dict | None:
     async with postgres_connect() as db:
         async with db.execute(
             """SELECT * FROM solo_boss_sessions
-               WHERE user_id=$1 AND chat_id=$2 AND session_date=$3 AND is_completed=0""",
+               WHERE user_id=? AND chat_id=? AND session_date=? AND is_completed=0""",
             (user_id, chat_id, today),
         ) as c:
             row = await c.fetchone()
@@ -7528,7 +7536,7 @@ async def get_solo_boss_session(user_id: int, chat_id: int) -> dict | None:
 async def get_solo_boss_progress(user_id: int, chat_id: int) -> dict | None:
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT * FROM solo_boss_progress WHERE user_id=$1 AND chat_id=$2",
+            "SELECT * FROM solo_boss_progress WHERE user_id=? AND chat_id=?",
             (user_id, chat_id),
         ) as c:
             row = await c.fetchone()
@@ -7546,7 +7554,7 @@ async def create_solo_boss_session(user_id: int, chat_id: int, boss_level: int =
         cursor = await db.execute(
             """INSERT INTO solo_boss_sessions
                (user_id, chat_id, boss_level, boss_max_hp, boss_current_hp, is_repeat, session_date)
-               VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id""",
+               VALUES (?,?,?,?,?,?,?) RETURNING id""",
             (user_id, chat_id, boss_level, boss_max_hp, boss_max_hp, 1 if is_repeat else 0, today),
         )
         row = await cursor.fetchone()
@@ -7576,21 +7584,21 @@ async def apply_solo_boss_damage(user_id: int, session: dict, damage: int) -> di
     new_hp = max(0, current_hp - actual_damage)
     is_defeated = new_hp == 0
 
-    update_fields = "boss_current_hp=$1, user_damage=user_damage+$2, user_hits=user_hits+1"
+    update_fields = "boss_current_hp=?, user_damage=user_damage+?, user_hits=user_hits+1"
     params: list = [new_hp, actual_damage]
     if is_defeated:
         update_fields += ", is_completed=1, completed_at=NOW()"
 
     async with postgres_connect() as db:
         await db.execute(
-            f"UPDATE solo_boss_sessions SET {update_fields} WHERE id=$1",
+            f"UPDATE solo_boss_sessions SET {update_fields} WHERE id=?",
             (*params, session_id),
         )
         if is_defeated:
             boss_level = session["boss_level"]
             await db.execute(
                 """INSERT INTO solo_boss_progress (user_id, chat_id, max_level, last_completed)
-                   VALUES ($1,$2,$3,NOW()::text)
+                   VALUES (?,?,?,NOW()::text)
                    ON CONFLICT(user_id, chat_id) DO UPDATE
                    SET max_level=GREATEST(solo_boss_progress.max_level, excluded.max_level),
                        last_completed=excluded.last_completed""",
@@ -7615,7 +7623,7 @@ async def log_app_error(source: str, context: str, error_msg: str, traceback_tex
         async with postgres_connect() as db:
             await db.execute(
                 "INSERT INTO app_error_logs (source, context, error_msg, traceback, user_id, chat_id) "
-                "VALUES ($1,$2,$3,$4,$5,$6)",
+                "VALUES (?,?,?,?,?,?)",
                 (source, context[:200], error_msg[:500], traceback_text[:8000], user_id, chat_id),
             )
             await db.commit()
@@ -7628,7 +7636,7 @@ async def get_app_error_logs(limit: int = 200) -> list:
     async with postgres_connect() as db:
         async with db.execute(
             "SELECT id, source, context, error_msg, traceback, user_id, chat_id, created_at "
-            "FROM app_error_logs ORDER BY created_at DESC LIMIT $1",
+            "FROM app_error_logs ORDER BY created_at DESC LIMIT ?",
             (limit,),
         ) as c:
             rows = await c.fetchall()

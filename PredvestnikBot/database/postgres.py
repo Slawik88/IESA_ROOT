@@ -1,4 +1,4 @@
-﻿"""
+"""
 Прямая работа с PostgreSQL без слоя совместимости
 Совместимость с aiosqlite API: поддерживает и await, и async with db.execute()
 """

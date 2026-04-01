@@ -70,7 +70,7 @@ async def cmd_food_shop(message: Message):
     abs_cid = abs(message.chat.id)
     btn = InlineKeyboardButton(
         text="🍖 Кормить в Mini App",
-        url=f"{MINI_APP_TG_URL}$1startapp={abs_cid}_union",
+        url=f"{MINI_APP_TG_URL}?startapp={abs_cid}_union",
     )
     await message.answer(
         "🍖 <b>Кормление питомца переехало в Mini App!</b>",
@@ -154,7 +154,7 @@ async def cb_buy_food(callback: CallbackQuery):
     from database.postgres import connect as postgres_connect
     async with postgres_connect() as db:
         cursor = await db.execute(
-            "UPDATE users SET balance=balance-$1 WHERE user_id=$2 AND COALESCE(balance,0)>=$3",
+            "UPDATE users SET balance=balance-? WHERE user_id=? AND COALESCE(balance,0)>=?",
             (item["price"], uid, item["price"]),
         )
         if cursor.rowcount == 0:
@@ -225,7 +225,7 @@ async def cmd_buy_food_text(message: Message, cmd_args: str):
     from database.postgres import connect as postgres_connect
     async with postgres_connect() as db:
         cursor = await db.execute(
-            "UPDATE users SET balance=balance-$1 WHERE user_id=$2 AND COALESCE(balance,0)>=$3",
+            "UPDATE users SET balance=balance-? WHERE user_id=? AND COALESCE(balance,0)>=?",
             (item["price"], uid, item["price"]),
         )
         if cursor.rowcount == 0:
