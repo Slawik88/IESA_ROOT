@@ -18,7 +18,6 @@ from database.db import (
     check_daily_mora, get_blacklist, get_chat_settings, get_filters, get_locks,
     get_todays_quest, get_user_stats, increment_cleanup_count,
     increment_message_count_chat,
-    is_group_allowed,
     mark_quest_rewarded, quest_tick,
     set_newbie_shield,
     upsert_chat, upsert_user, upsert_user_stats,
@@ -123,12 +122,10 @@ class AutoModMiddleware(BaseMiddleware):
         _msg_age_secs = time.time() - event.date.timestamp()
         _is_stale_msg = _msg_age_secs > 30
 
-        # 0. Белый список групп — разработчик проходит всегда
+        # 0. Определяем изоляцию (admin_group / test_chat)
         _is_admin_group = False
         _is_isolated = False
         if event.chat.type in ("group", "supergroup"):
-            if not is_group_allowed(event.chat.id) and user.id != DEVELOPER_ID:
-                return
             _is_admin_group = event.chat.id in get_admin_group_ids()
             _is_test_chat   = is_test_chat(event.chat.id)
             _is_isolated    = _is_admin_group or _is_test_chat
@@ -149,7 +146,14 @@ class AutoModMiddleware(BaseMiddleware):
 
         in_group = event.chat.type in ("group", "supergroup")
 
-        # 2. Per-chat profile + подсчёт сообщений (только в группах)
+        # 2. Изолированный чат (admin_group / test_chat) —
+        # Регистрируем пользователя, но полностью пропускаем:
+        # подсчёт сообщений, XP, мору, квесты, достижения, pending imports.
+        # Экономику блокирует MainChatOnly на уровне хендлеров.
+        if in_group and _is_isolated:
+            return await handler(event, data)
+
+        # 3. Per-chat profile + подсчёт сообщений (только в основных группах)
         if in_group:
             await upsert_user_stats(user.id, event.chat.id)
 
@@ -183,12 +187,6 @@ class AutoModMiddleware(BaseMiddleware):
                     await _ach_check(user.id, event.chat.id, "messages", _msg_count)
                 except Exception:
                     pass
-
-            # Изолированный чат (admin_group или test_chat):
-            # Считаем сообщения, но пропускаем мору/XP/квесты и передаём управление
-            # обработчику (который сам заблокирует экономические команды через MainChatOnly).
-            if _is_isolated:
-                return await handler(event, data)
 
             # -- Мора: первое сообщение дня (+3) и 7-дневный стрик (+50) --
             from utils.helpers import bot_today as _bot_today

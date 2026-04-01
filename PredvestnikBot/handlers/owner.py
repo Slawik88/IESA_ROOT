@@ -11,8 +11,8 @@ from aiogram.types import (
 )
 
 from database.db import (
-    add_allowed_group, get_allowed_groups, get_chat_members, get_user,
-    get_user_stats, remove_allowed_group, set_rank_in_chat, set_user_stat_in_chat,
+    get_chat_members, get_user,
+    get_user_stats, set_rank_in_chat, set_user_stat_in_chat,
     add_admin_group, remove_admin_group, get_admin_groups,
     add_test_chat, remove_test_chat, get_test_chat_ids, get_chat_isolation_mode,
     set_chat_admin_link, remove_chat_admin_link, get_all_chat_admin_links, get_admin_chat_for,
@@ -30,28 +30,6 @@ from utils.helpers import resolve_target, user_mention
 from utils.ranks import is_developer, rank_level, rank_name
 
 _CONFIG_PATH = pathlib.Path(__file__).parent.parent / "config.py"
-
-
-def _write_whitelist_to_config(groups: list[int]) -> bool:
-    """Overwrite the ALLOWED_GROUPS line in config.py. Returns True on success."""
-    try:
-        content = _CONFIG_PATH.read_text(encoding="utf-8")
-        if groups:
-            ids_str = ", ".join(str(g) for g in sorted(groups))
-            new_val = f"ALLOWED_GROUPS: set[int] = {{{ids_str}}}"
-        else:
-            new_val = "ALLOWED_GROUPS: set[int] = set()"
-        new_content, n = re.subn(
-            r"ALLOWED_GROUPS\s*:\s*set\[int\]\s*=\s*[^\n]*",
-            new_val,
-            content,
-        )
-        if n == 0:
-            return False
-        _CONFIG_PATH.write_text(new_content, encoding="utf-8")
-        return True
-    except Exception:
-        return False
 
 
 def _write_timezone_to_config(tz_name: str) -> bool:
@@ -227,141 +205,6 @@ async def cmd_developer(message: Message, cmd_args: str):
         f"👮 Администраторов: {stats['staff']}",
         parse_mode="HTML",
     )
-
-
-# ─── Белый список групп (developer only) ──────────────────────────────────────
-
-@router.message(BotCommand("разрешить", "allow", "whitelist"), RankFilter("developer"))
-async def cmd_allow_group(message: Message, cmd_args: str):
-    """Добавить группу в белый список. Без аргумента — текущую группу."""
-    arg = cmd_args.strip()
-    if arg:
-        try:
-            chat_id = int(arg)
-        except ValueError:
-            await message.answer("❌ Укажи числовой chat_id или вызови без аргумента в нужной группе.")
-            return
-    elif message.chat.type in ("group", "supergroup"):
-        chat_id = message.chat.id
-    else:
-        await message.answer("❌ Укажи chat_id группы: <code>бот разрешить -100123456</code>", parse_mode="HTML")
-        return
-
-    await add_allowed_group(chat_id)
-    all_groups = await get_allowed_groups()
-    saved = _write_whitelist_to_config(all_groups)
-    saved_note = " (сохранено в config.py)" if saved else ""
-    await message.answer(
-        f"✅ Группа <code>{chat_id}</code> добавлена в белый список{saved_note}.",
-        parse_mode="HTML",
-    )
-
-
-@router.message(BotCommand("запретить", "disallow", "unwhitelist"), RankFilter("developer"))
-async def cmd_disallow_group(message: Message, cmd_args: str):
-    """Убрать группу из белого списка. Без аргумента — текущую группу."""
-    arg = cmd_args.strip()
-    if arg:
-        try:
-            chat_id = int(arg)
-        except ValueError:
-            await message.answer("❌ Укажи числовой chat_id.")
-            return
-    elif message.chat.type in ("group", "supergroup"):
-        chat_id = message.chat.id
-    else:
-        await message.answer("❌ Укажи chat_id группы: <code>бот запретить -100123456</code>", parse_mode="HTML")
-        return
-
-    await remove_allowed_group(chat_id)
-    all_groups = await get_allowed_groups()
-    saved = _write_whitelist_to_config(all_groups)
-    saved_note = " (сохранено в config.py)" if saved else ""
-    await message.answer(
-        f"🚫 Группа <code>{chat_id}</code> убрана из белого списка{saved_note}.",
-        parse_mode="HTML",
-    )
-
-
-@router.message(BotCommand("группы", "groups", "whitelist_list"), RankFilter("developer"))
-async def cmd_list_groups(message: Message, cmd_args: str):
-    """Показать все разрешённые группы."""
-    groups = await get_allowed_groups()
-    if not groups:
-        await message.answer(
-            "📋 Белый список пуст — бот работает во <b>всех</b> группах.\n\n"
-            "<i>Добавить текущую: <code>бот разрешить</code>\n"
-            "Добавить по ID: <code>бот разрешить -100123456</code></i>",
-            parse_mode="HTML",
-        )
-        return
-
-    from database.db import get_active_chats
-    chats = await get_active_chats()
-    chat_map = {c["chat_id"]: c["title"] for c in chats}
-
-    lines = [f"📋 <b>Разрешённые группы ({len(groups)}):</b>\n"]
-    buttons: list[list[InlineKeyboardButton]] = []
-    for cid in sorted(groups):
-        title = chat_map.get(cid, "—")
-        lines.append(f"  • <code>{cid}</code>  {title}")
-        buttons.append([InlineKeyboardButton(
-            text=f"❌ {title[:25] if title != '—' else str(cid)}",
-            callback_data=f"rmg:{cid}",
-        )])
-
-    lines.append("\n<i>бот запретить — убрать текущую группу из списка</i>")
-    kb = InlineKeyboardMarkup(inline_keyboard=buttons) if buttons else None
-    await message.answer("\n".join(lines), parse_mode="HTML", reply_markup=kb)
-
-
-@router.callback_query(F.data.startswith("rmg:"))
-async def cb_remove_group(callback: CallbackQuery):
-    if not is_developer(callback.from_user.id):
-        caller_stats = await get_user_stats(callback.from_user.id, callback.message.chat.id)
-        caller_rank = caller_stats["rank"] if caller_stats else "user"
-        if rank_level(caller_rank) < rank_level("developer"):
-            await callback.answer("❌ Недостаточно прав.", show_alert=True)
-            return
-
-    chat_id = int(callback.data.split(":")[1])
-    await remove_allowed_group(chat_id)
-    all_groups = await get_allowed_groups()
-    _write_whitelist_to_config(all_groups)
-
-    await callback.answer(f"✅ Группа {chat_id} убрана")
-
-    # Обновить список
-    if not all_groups:
-        try:
-            await callback.message.edit_text(
-                "📋 Белый список пуст — бот работает во <b>всех</b> группах.",
-                parse_mode="HTML",
-            )
-        except Exception:
-            pass
-        return
-
-    from database.db import get_active_chats
-    chats = await get_active_chats()
-    chat_map = {c["chat_id"]: c["title"] for c in chats}
-
-    lines = [f"📋 <b>Разрешённые группы ({len(all_groups)}):</b>\n"]
-    buttons: list[list[InlineKeyboardButton]] = []
-    for cid in sorted(all_groups):
-        title = chat_map.get(cid, "—")
-        lines.append(f"  • <code>{cid}</code>  {title}")
-        buttons.append([InlineKeyboardButton(
-            text=f"❌ {title[:25] if title != '—' else str(cid)}",
-            callback_data=f"rmg:{cid}",
-        )])
-
-    lines.append("\n<i>бот запретить — убрать текущую группу из списка</i>")
-    kb = InlineKeyboardMarkup(inline_keyboard=buttons) if buttons else None
-    try:
-        await callback.message.edit_text("\n".join(lines), parse_mode="HTML", reply_markup=kb)
-    except Exception:
-        pass
 
 
 # ─── Developer: редактор данных пользователей ──────────────────────────────

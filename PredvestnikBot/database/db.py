@@ -204,12 +204,6 @@ async def init_db():
             )
         """)
 
-        await db.execute("""
-            CREATE TABLE IF NOT EXISTS allowed_groups (
-                chat_id BIGINT PRIMARY KEY
-            )
-        """)
-
         # ─── Профили пользователей привязанные к конкретному чату ─────────────
         await db.execute("""
             CREATE TABLE IF NOT EXISTS user_stats (
@@ -1304,7 +1298,6 @@ async def init_db():
         ("marriages",         "user_id"),
         ("marriages",         "chat_id"),
         ("marriages",         "partner_id"),
-        ("allowed_groups",    "chat_id"),
         ("user_stats",        "user_id"),
         ("user_stats",        "chat_id"),
         ("rest_users",        "user_id"),
@@ -1362,19 +1355,7 @@ async def init_db():
         except Exception:
             pass
 
-    # Seed allowed_groups from config (if any)
-    from config import ALLOWED_GROUPS
-    if ALLOWED_GROUPS:
-        async with postgres_connect() as db:
-            for cid in ALLOWED_GROUPS:
-                await db.execute(
-                    "INSERT INTO allowed_groups (chat_id) VALUES (?) ON CONFLICT (chat_id) DO NOTHING",
-                    (cid,),
-                )
-            await db.commit()
-
-    # Load whitelist into memory
-    await load_whitelist()
+    # Load isolation caches into memory
     await load_admin_groups()
     await load_test_chats()
     await load_chat_admin_links()
@@ -1594,56 +1575,6 @@ async def enforce_rank_invariants():
                 seen_chat.add(chat_id)
 
         await db.commit()
-
-
-# ─── Whitelist (белый список групп) ───────────────────────────────────────────
-
-_whitelist: set[int] = set()
-
-
-async def load_whitelist():
-    """Load allowed groups from DB into the in-memory cache."""
-    global _whitelist
-    async with postgres_connect() as db:
-        async with db.execute("SELECT chat_id FROM allowed_groups") as c:
-            rows = await c.fetchall()
-    _whitelist = {r[0] for r in rows}
-
-
-def is_group_allowed(chat_id: int) -> bool:
-    """Check if a group is in the whitelist. Empty whitelist = allow all."""
-    if not _whitelist:
-        return True
-    return chat_id in _whitelist
-
-
-async def get_allowed_groups() -> list[int]:
-    """Return list of all whitelisted chat_ids from DB."""
-    async with postgres_connect() as db:
-        async with db.execute("SELECT chat_id FROM allowed_groups") as c:
-            return [r[0] for r in await c.fetchall()]
-
-
-async def add_allowed_group(chat_id: int):
-    """Add a group to the whitelist (DB + cache)."""
-    async with postgres_connect() as db:
-        await db.execute(
-            "INSERT INTO allowed_groups (chat_id) VALUES (?) ON CONFLICT (chat_id) DO NOTHING",
-            (chat_id,),
-        )
-        await db.commit()
-    _whitelist.add(chat_id)
-
-
-async def remove_allowed_group(chat_id: int):
-    """Remove a group from the whitelist (DB + cache)."""
-    async with postgres_connect() as db:
-        await db.execute(
-            "DELETE FROM allowed_groups WHERE chat_id = ?",
-            (chat_id,),
-        )
-        await db.commit()
-    _whitelist.discard(chat_id)
 
 
 # ─── Admin groups (группы администрации) ──────────────────────────────────────
@@ -5409,12 +5340,13 @@ async def get_mora_boost_pct(user_id: int, chat_id: int) -> float:
 # ─── Активные чаты для налоговых/scheduler ивентов ────────────────────────────
 
 async def get_active_group_chat_ids() -> list[int]:
-    """Вернуть все активные групповые чаты."""
+    """Вернуть все активные групповые чаты (исключая изолированные: admin_groups + test_chats)."""
     async with postgres_connect() as db:
         async with db.execute(
             "SELECT chat_id FROM chats WHERE is_active=1 AND chat_type IN ('group','supergroup')"
         ) as c:
-            return [r[0] for r in await c.fetchall()]
+            ids = [r[0] for r in await c.fetchall()]
+    return [cid for cid in ids if not is_isolated_chat(cid)]
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -6929,13 +6861,13 @@ async def get_vip_users(chat_id: int) -> list[int]:
 
 
 async def get_all_active_chats() -> list[int]:
-    """Все чаты где бот активен (is_active=1)."""
+    """Все основные чаты где бот активен (исключая изолированные: admin_groups + test_chats)."""
     async with postgres_connect() as db:
         async with db.execute(
             "SELECT chat_id FROM chats WHERE is_active=1"
         ) as c:
             rows = await c.fetchall()
-    return [r[0] for r in rows]
+    return [r[0] for r in rows if not is_isolated_chat(r[0])]
 
 
 

@@ -3,7 +3,7 @@ Smart Join Cache — merge in-memory cache with database queries.
 Caches frequently used data with TTL, ensuring 100% up-to-date display
 by merging cached + pending data on read.
 
-Used for: user rank (cached), chat whitelist status (cached), etc.
+Used for: user rank (cached), etc.
 
 Public API
 ----------
@@ -46,30 +46,6 @@ def invalidate_user_rank(user_id: int, chat_id: int) -> None:
     _rank_cache.pop((user_id, chat_id), None)
 
 
-# (chat_id,) → (is_allowed: bool, timestamp)
-_chat_whitelist_cache: dict[int, tuple[bool, float]] = {}
-_WHITELIST_TTL = 600.0  # 10 minutes
-
-
-def cache_chat_whitelist(chat_id: int, is_allowed: bool) -> None:
-    """Cache whether chat is whitelisted."""
-    _chat_whitelist_cache[chat_id] = (is_allowed, _time.monotonic())
-
-
-def get_cached_chat_whitelist(chat_id: int) -> bool | None:
-    """Get whitelist status from cache if fresh, else None."""
-    if chat_id in _chat_whitelist_cache:
-        is_allowed, ts = _chat_whitelist_cache[chat_id]
-        if _time.monotonic() - ts < _WHITELIST_TTL:
-            return is_allowed
-    return None
-
-
-def invalidate_chat_whitelist(chat_id: int) -> None:
-    """Drop whitelist cache (e.g., after whitelist update)."""
-    _chat_whitelist_cache.pop(chat_id, None)
-
-
 # Optional cleanup for memory (every 1 hour, Remove entries older than 24h)
 _last_cleanup = _time.monotonic()
 _CLEANUP_INTERVAL = 3600
@@ -87,12 +63,8 @@ def _maybe_cleanup() -> None:
     for k in old_keys:
         del _rank_cache[k]
     
-    old_wl = [k for k, (_, ts) in _chat_whitelist_cache.items() if ts < cutoff]
-    for k in old_wl:
-        del _chat_whitelist_cache[k]
-    
-    if old_keys or old_wl:
-        logger.debug(f"smart_cache: cleaned up {len(old_keys)} rank + {len(old_wl)} whitelist entries")
+    if old_keys:
+        logger.debug(f"smart_cache: cleaned up {len(old_keys)} rank entries")
 
 
 # Call cleanup every 10K operations
