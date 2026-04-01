@@ -104,43 +104,28 @@ def format_duration(iso_str: str) -> str:
 async def notify_admins(bot, text: str, source_chat_id: int | None = None):
     """Send a system notification to the appropriate admin chat.
 
-    Routing priority:
-      1. Per-chat link: if source_chat_id has an explicit admin-chat binding,
-         send ONLY to that chat.
-      2. Global admin groups: if no per-chat link, send to all global admin groups.
-      3. Staff DMs: fallback if no admin groups configured at all.
+    Multi-tenant routing — each community is isolated:
+      1. Per-chat link: if source_chat_id has a linked admin chat, send ONLY there.
+      2. No link → send to the SOURCE CHAT itself.
+         (Admins are in that chat and will see it. No cross-community leakage.)
+      3. No source_chat_id (system-wide) → global admin_groups (dev's own setup).
     """
-    from database.db import get_admin_group_ids, get_admin_chat_for, get_staff_in_chat
-    from utils.ranks import rank_level
+    from database.db import get_admin_chat_for, get_admin_group_ids
 
-    # 1. Per-chat link (highest priority)
     if source_chat_id:
+        # 1. Per-chat link
         linked = get_admin_chat_for(source_chat_id)
-        if linked:
-            try:
-                await bot.send_message(linked, text, parse_mode="HTML", disable_web_page_preview=True)
-            except Exception:
-                pass
-            return
-
-    # 2. Global admin groups
-    admin_groups = get_admin_group_ids()
-    if admin_groups:
-        for gid in admin_groups:
-            try:
-                await bot.send_message(gid, text, parse_mode="HTML", disable_web_page_preview=True)
-            except Exception:
-                pass
+        target = linked if linked else source_chat_id
+        try:
+            await bot.send_message(target, text, parse_mode="HTML", disable_web_page_preview=True)
+        except Exception:
+            pass
         return
 
-    # 3. DM fallback: send to staff of the source chat
-    if source_chat_id:
-        from config import REPORT_NOTIFY_RANK
-        staff = await get_staff_in_chat(source_chat_id)
-        for s in staff:
-            if rank_level(s["rank"]) >= rank_level(REPORT_NOTIFY_RANK):
-                try:
-                    await bot.send_message(s["user_id"], text, parse_mode="HTML",
-                                           disable_web_page_preview=True)
-                except Exception:
-                    pass
+    # 3. System-wide (no source): use global admin_groups (bot owner's setup)
+    admin_groups = get_admin_group_ids()
+    for gid in admin_groups:
+        try:
+            await bot.send_message(gid, text, parse_mode="HTML", disable_web_page_preview=True)
+        except Exception:
+            pass
