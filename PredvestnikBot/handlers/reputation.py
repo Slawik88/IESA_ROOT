@@ -17,7 +17,11 @@ from filters.bot_command import BotCommand
 from utils.helpers import resolve_target, user_mention
 from utils.ranks import rank_name
 
+from filters.chat_mode import MainChatOnly
 router = Router()
+router.message.filter(MainChatOnly())
+router.callback_query.filter(MainChatOnly())
+
 
 # Триггеры для выдачи репутации (+)
 _PLUS_TRIGGERS = REP_PLUS_TRIGGERS

@@ -15,7 +15,11 @@ from api.checkin import do_checkin
 from filters.bot_command import BotCommand
 from shared_prices import CHECKIN_REWARDS as _REWARDS, CHECKIN_CHECKPOINTS as _CHECKPOINTS
 
+from filters.chat_mode import MainChatOnly
 router = Router()
+router.message.filter(MainChatOnly())
+router.callback_query.filter(MainChatOnly())
+
 
 
 def _render_calendar(streak: int) -> str:

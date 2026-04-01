@@ -23,7 +23,11 @@ from config import MINI_APP_TG_URL
 from database.db import add_boss_damage, add_mora, get_boss_leaderboard, get_boss_my_damage
 from filters.bot_command import BotCommand
 
+from filters.chat_mode import MainChatOnly
 router = Router()
+router.message.filter(MainChatOnly())
+router.callback_query.filter(MainChatOnly())
+
 log = logging.getLogger(__name__)
 
 # ─── In-memory состояние босса ────────────────────────────────────────────────

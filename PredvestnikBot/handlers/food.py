@@ -26,7 +26,11 @@ from filters.bot_command import BotCommand
 from config import MINI_APP_TG_URL
 from utils.helpers import user_mention
 
+from filters.chat_mode import MainChatOnly
 router = Router()
+router.message.filter(MainChatOnly())
+router.callback_query.filter(MainChatOnly())
+
 
 # ─── Каталог еды ──────────────────────────────────────────────────────────────
 FOOD_CATALOG: dict[str, dict] = {

@@ -19,7 +19,11 @@ from database.db import create_marriage, delete_marriage, get_gifts_summary, get
 from filters.bot_command import BotCommand, PlainCommand
 from utils.helpers import format_duration, resolve_target, user_mention
 
+from filters.chat_mode import MainChatOnly
 router = Router()
+router.message.filter(MainChatOnly())
+router.callback_query.filter(MainChatOnly())
+
 
 # ─── Тексты действий ──────────────────────────────────────────────────────────
 

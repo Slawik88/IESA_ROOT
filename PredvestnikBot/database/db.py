@@ -325,6 +325,14 @@ async def init_db():
             )
         """)
 
+        # Таблица тестовых чатов (изоляция от основной экономики)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS test_chats (
+                chat_id BIGINT PRIMARY KEY,
+                set_by  BIGINT NOT NULL DEFAULT 0
+            )
+        """)
+
         # Таблица типов каналов (правила/основной/etc.)
         await db.execute("""
             CREATE TABLE IF NOT EXISTS channel_types (
@@ -1359,6 +1367,7 @@ async def init_db():
     # Load whitelist into memory
     await load_whitelist()
     await load_admin_groups()
+    await load_test_chats()
     
     # ═══════════════════════════════════════════════════════════════════════════════
     #  🔄 PostgreSQL TIMESTAMPTZ миграции для TEXT полей дат
@@ -1667,6 +1676,66 @@ async def remove_admin_group(chat_id: int):
 
 def get_admin_group_ids() -> set[int]:
     return _admin_groups
+
+
+# ─── Test chats (тестовые чаты — изоляция от основной экономики) ──────────────
+# Только DEVELOPER может назначать тестовые чаты.
+# В тестовых чатах и в admin_groups полностью блокируются все экономические/игровые команды.
+
+_test_chats: set[int] = set()
+
+
+async def load_test_chats():
+    """Load test chat ids from DB into the in-memory cache."""
+    global _test_chats
+    async with postgres_connect() as db:
+        async with db.execute("SELECT chat_id FROM test_chats") as c:
+            rows = await c.fetchall()
+    _test_chats = {r[0] for r in rows}
+
+
+def is_test_chat(chat_id: int) -> bool:
+    """Sync check — True if this chat is marked as a test chat."""
+    return chat_id in _test_chats
+
+
+def get_test_chat_ids() -> set[int]:
+    return _test_chats
+
+
+async def add_test_chat(chat_id: int, set_by: int):
+    """Mark a chat as a test chat (developer-only). Updates DB + cache."""
+    async with postgres_connect() as db:
+        await db.execute(
+            "INSERT INTO test_chats (chat_id, set_by) VALUES (?, ?) ON CONFLICT (chat_id) DO UPDATE SET set_by = EXCLUDED.set_by",
+            (chat_id, set_by),
+        )
+        await db.commit()
+    _test_chats.add(chat_id)
+
+
+async def remove_test_chat(chat_id: int):
+    """Unmark a test chat. Updates DB + cache."""
+    async with postgres_connect() as db:
+        await db.execute("DELETE FROM test_chats WHERE chat_id = ?", (chat_id,))
+        await db.commit()
+    _test_chats.discard(chat_id)
+
+
+def is_isolated_chat(chat_id: int) -> bool:
+    """Returns True if this chat is isolated from main economy.
+    Includes both admin_groups and test_chats.
+    Economy and game commands must be blocked in isolated chats."""
+    return chat_id in _admin_groups or chat_id in _test_chats
+
+
+def get_chat_isolation_mode(chat_id: int) -> str | None:
+    """Returns 'admin', 'test', or None (= main chat)."""
+    if chat_id in _test_chats:
+        return "test"
+    if chat_id in _admin_groups:
+        return "admin"
+    return None
 
 
 # ─── Rest users (отдыхающие — защита от чистки) ──────────────────────────────

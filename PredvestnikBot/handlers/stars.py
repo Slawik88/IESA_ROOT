@@ -25,7 +25,11 @@ from database.db import add_crystals, get_crystals, log_stars_purchase
 from filters.bot_command import BotCommand
 from shared_prices import CRYSTAL_PACKS
 
+from filters.chat_mode import MainChatOnly
 router = Router()
+router.message.filter(MainChatOnly())
+router.callback_query.filter(MainChatOnly())
+
 
 log = logging.getLogger(__name__)
 

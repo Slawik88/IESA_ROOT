@@ -45,7 +45,11 @@ from database.db import (
 from filters.bot_command import BotCommand
 from handlers.economy import TOP_FRAMES, XP_BOOST_OPTIONS, deduct_wallet
 
+from filters.chat_mode import MainChatOnly
 router = Router()
+router.message.filter(MainChatOnly())
+router.callback_query.filter(MainChatOnly())
+
 
 _PET_COLORS = {
     "red":    "🔴 Красный",

@@ -14,6 +14,7 @@ from database.db import (
     add_allowed_group, get_allowed_groups, get_chat_members, get_user,
     get_user_stats, remove_allowed_group, set_rank_in_chat, set_user_stat_in_chat,
     add_admin_group, remove_admin_group, get_admin_groups,
+    add_test_chat, remove_test_chat, get_test_chat_ids, get_chat_isolation_mode,
     add_xp_in_chat,
     # Channel types
     set_channel_type, remove_channel_type, get_channel_type, get_all_channel_types,
@@ -878,6 +879,119 @@ async def cb_remove_admin_group(callback: CallbackQuery):
     except Exception:
         pass
     await callback.answer(f"✅ Группа {chat_id} удалена")
+
+
+# ──────────────────────── TEST CHATS ─────────────────────────────────────────
+# бот тестчат [chat_id]   — добавить тестовый чат (только developer)
+# бот удтестчат [chat_id] — убрать тестовый чат
+# бот тестчаты            — список тестовых чатов
+# бот чатстатус           — показать режим текущего чата
+
+
+@router.message(BotCommand("тестчат", "testchat", "test_chat"), RankFilter("developer"))
+async def cmd_add_test_chat(message: Message, cmd_args: str):
+    """Пометить чат как тестовый — все игровые команды там блокируются."""
+    arg = cmd_args.strip()
+    if arg:
+        try:
+            chat_id = int(arg)
+        except ValueError:
+            await message.answer(
+                "❌ Укажи числовой chat_id.\n"
+                "Пример: <code>бот тестчат -100123456</code>",
+                parse_mode="HTML",
+            )
+            return
+    elif message.chat.type in ("group", "supergroup"):
+        chat_id = message.chat.id
+    else:
+        await message.answer(
+            "❌ Укажи chat_id или вызови команду в нужной группе.",
+            parse_mode="HTML",
+        )
+        return
+
+    await add_test_chat(chat_id, set_by=message.from_user.id)
+    await message.answer(
+        f"🧪 Чат <code>{chat_id}</code> помечен как <b>тестовый</b>.\n"
+        f"Все игровые и экономические команды в нём заблокированы.\n"
+        f"XP и Мора за сообщения не начисляются.",
+        parse_mode="HTML",
+    )
+
+
+@router.message(BotCommand("удтестчат", "removetestchat", "remove_test_chat"), RankFilter("developer"))
+async def cmd_remove_test_chat(message: Message, cmd_args: str):
+    """Снять метку тестового чата."""
+    arg = cmd_args.strip()
+    if arg:
+        try:
+            chat_id = int(arg)
+        except ValueError:
+            await message.answer("❌ Укажи числовой chat_id.", parse_mode="HTML")
+            return
+    elif message.chat.type in ("group", "supergroup"):
+        chat_id = message.chat.id
+    else:
+        await message.answer("❌ Укажи chat_id группы.", parse_mode="HTML")
+        return
+
+    await remove_test_chat(chat_id)
+    await message.answer(
+        f"✅ Чат <code>{chat_id}</code> переведён в обычный режим.",
+        parse_mode="HTML",
+    )
+
+
+@router.message(BotCommand("тестчаты", "testchats", "test_chats"), RankFilter("developer"))
+async def cmd_list_test_chats(message: Message):
+    """Показать все тестовые чаты."""
+    ids = get_test_chat_ids()
+    if not ids:
+        await message.answer(
+            "📋 Тестовые чаты не настроены.\n"
+            "<i>Добавить: <code>бот тестчат</code> (в нужной группе)</i>",
+            parse_mode="HTML",
+        )
+        return
+
+    from database.db import get_active_chats
+    chats = await get_active_chats()
+    chat_map = {c["chat_id"]: c["title"] for c in chats}
+
+    lines = [f"🧪 <b>Тестовые чаты ({len(ids)}):</b>\n"]
+    for cid in sorted(ids):
+        title = chat_map.get(cid, "—")
+        lines.append(f"  • <code>{cid}</code>  {title}")
+    lines.append("\n<i>В этих чатах все игровые/экономические команды заблокированы.</i>")
+    await message.answer("\n".join(lines), parse_mode="HTML")
+
+
+@router.message(BotCommand("чатстатус", "chatstatus", "chat_status"), RankFilter("developer"))
+async def cmd_chat_status(message: Message, cmd_args: str):
+    """Показать режим изоляции текущего/указанного чата."""
+    arg = cmd_args.strip()
+    if arg:
+        try:
+            chat_id = int(arg)
+        except ValueError:
+            await message.answer("❌ Укажи числовой chat_id.", parse_mode="HTML")
+            return
+    else:
+        chat_id = message.chat.id
+
+    mode = get_chat_isolation_mode(chat_id)
+    if mode == "admin":
+        label = "🔔 <b>Админ-чат</b> — системные уведомления, игровые команды заблокированы."
+    elif mode == "test":
+        label = "🧪 <b>Тестовый чат</b> — все игровые команды заблокированы."
+    else:
+        label = "✅ <b>Обычный чат</b> — все функции активны."
+
+    await message.answer(
+        f"📊 Статус чата <code>{chat_id}</code>:\n{label}",
+        parse_mode="HTML",
+    )
 
 
 # ─────────────────────── CHANNEL TYPES ────────────────────────────────────────
