@@ -81,6 +81,10 @@ async def main():
     set_bot_start_time(BOT_START_TIME)  # Защита от обработки старых сообщений
     dp.message.outer_middleware(AutoModMiddleware())
 
+    # Middleware: блокировка callback-кнопок экономики в изолированных чатах
+    from middlewares.callback_isolation import CallbackIsolationMiddleware
+    dp.callback_query.outer_middleware(CallbackIsolationMiddleware())
+
     # Роутеры — от специфичных к общим (extras должен быть последним!)
     dp.include_router(owner.router)
     dp.include_router(admin.router)

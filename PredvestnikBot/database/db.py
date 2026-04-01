@@ -6619,7 +6619,7 @@ async def claim_season_reward(user_id: int, season_id: int, level: int, is_premi
             # Handle specific items
             if reward_data == "gacha_ticket":
                 # Give free gacha ticket (not implemented yet, just give mora equivalent)
-                await add_mora(user_id, 120)
+                await add_mora(user_id, 0, 120)
             elif reward_data == "enhancement_stone":
                 await add_enhancement_stones(user_id, 1)
         # title rewards are cosmetic only
