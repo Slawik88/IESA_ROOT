@@ -1120,19 +1120,41 @@ async def cmd_rest(message: Message, cmd_args: str):
 
     # Список отдыхающих
     if parts[0].lower() in ("список", "list", "лист"):
+        from datetime import timedelta
         rest_list = await get_rest_users(chat_id)
-        if not rest_list:
-            await message.answer("😴 Список отдыхающих пуст.")
-            return
-        lines = ["😴 <b>На отдыхе:</b>\n"]
+        shield_map = await get_shield_map(chat_id)
+        now = _dt.now(timezone.utc)
+
+        lines = ["😴 <b>На отдыхе / со щитом:</b>\n"]
+        rest_ids: set[int] = set()
         for r in rest_list:
-            added = _dt.fromisoformat(r["added_at"])
-            expires = added + __import__("datetime").timedelta(days=r["days"])
+            added = r["added_at"]
+            if not isinstance(added, _dt):
+                added = _dt.fromisoformat(str(added))
+            if added.tzinfo is None:
+                added = added.replace(tzinfo=timezone.utc)
+            expires = added + timedelta(days=r["days"])
+            if expires < now:
+                continue  # пропускаем истёкший отдых
+            rest_ids.add(r["user_id"])
             lines.append(
-                f"  • {user_mention(r['user_id'], r['full_name'])} — "
+                f"  😴 {user_mention(r['user_id'], r['full_name'])} — "
                 f"{r['days']} дн. (до {expires.strftime('%d.%m.%Y')})"
             )
-        await message.answer("\n".join(lines), parse_mode="HTML")
+
+        for uid, shield_until in shield_map.items():
+            if uid in rest_ids:
+                continue
+            if hasattr(shield_until, "strftime"):
+                until_str = shield_until.strftime("%d.%m.%Y %H:%M")
+            else:
+                until_str = str(shield_until)[:16]
+            lines.append(f"  🛡 <code>{uid}</code> — щит новичка до {until_str}")
+
+        if len(lines) == 1:
+            await message.answer("😴 Список отдыхающих и щитов пуст.")
+        else:
+            await message.answer("\n".join(lines), parse_mode="HTML")
         return
 
     # Снять отдых
