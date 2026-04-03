@@ -25,24 +25,27 @@ body[data-theme="sakura"]{--bg:#0b0710;--bg2:#140e22;--bg3:#1c1430;--accent:#f47
 
 /* ==== RESET ==== */
 *{box-sizing:border-box;margin:0;padding:0}
-body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:14px;min-height:100vh;overflow-x:hidden;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;padding-bottom:calc(56px + env(safe-area-inset-bottom,4px))}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:14px;min-height:100vh;overflow-x:hidden;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;padding-top:44px;padding-bottom:calc(64px + env(safe-area-inset-bottom,0px))}
 
-/* ==== CATEGORY BAR ==== */
-.cat-bar{display:flex;background:var(--bg2);border-bottom:1.5px solid var(--border);position:sticky;top:0;z-index:102;padding:0 4px}
-.cat-btn{flex:1;padding:7px 2px 5px;border:none;background:none;cursor:pointer;font-size:17px;line-height:1.1;color:var(--text2);border-bottom:2.5px solid transparent;transition:all .2s;min-height:44px;display:flex;flex-direction:column;align-items:center;gap:1px;position:relative}
-.cat-btn span{display:block;font-size:9px;font-weight:700;letter-spacing:.3px;text-transform:uppercase;transition:color .2s}
-.cat-btn.active{color:var(--accent);border-bottom-color:var(--accent)}
-.cat-btn.active span{color:var(--accent)}
-.cat-btn:active{transform:scale(.9)}
+/* ==== GLOBAL BALANCE BAR (fixed top) ==== */
+.balance-bar{display:flex;align-items:center;justify-content:center;gap:0;padding:0 12px;height:44px;background:rgba(9,9,15,.97);border-bottom:1px solid var(--border);font-size:14px;font-weight:800;color:var(--gold);position:fixed;top:0;left:0;right:0;z-index:201;letter-spacing:.2px;backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);box-shadow:0 2px 18px rgba(0,0,0,.4)}
+.bal-pill{display:flex;align-items:center;gap:5px;padding:0 12px;height:100%}
+.bal-pill+.bal-pill{border-left:1px solid var(--border)}
+.bal-val{font-variant-numeric:tabular-nums;min-width:36px}
 
-/* ==== TAB BAR ==== */
-.tabs{display:flex;background:var(--bg2);border-bottom:1.5px solid var(--border);overflow-x:auto;position:sticky;top:48px;z-index:100;scrollbar-width:none;padding:6px 8px;gap:5px}
+/* ==== TAB BAR (sticky, below balance bar) ==== */
+.tabs{display:flex;background:var(--bg2);border-bottom:1.5px solid var(--border);overflow-x:auto;position:sticky;top:44px;z-index:100;scrollbar-width:none;padding:6px 8px;gap:5px}
 .tabs::-webkit-scrollbar{display:none}
-.tab-btn{flex:0 0 auto;padding:5px 12px;font-size:12px;font-weight:600;color:var(--text2);border:1.5px solid transparent;background:none;cursor:pointer;white-space:nowrap;border-radius:20px;transition:all .2s;line-height:1.4}
+.tab-btn{flex:0 0 auto;padding:5px 12px;font-size:12px;font-weight:600;color:var(--text2);border:1.5px solid transparent;background:none;cursor:pointer;white-space:nowrap;border-radius:20px;transition:all .2s;line-height:1.4;-webkit-tap-highlight-color:transparent}
 .tab-btn.active{background:rgba(124,106,247,.16);color:var(--accent);border-color:rgba(124,106,247,.38);font-weight:700}
 
-/* ==== GLOBAL BALANCE BAR ==== */
-.balance-bar{display:flex;align-items:center;justify-content:flex-end;gap:5px;padding:5px 14px;background:var(--bg2);border-bottom:1px solid var(--border);font-size:13px;font-weight:800;color:var(--gold);position:sticky;top:86px;z-index:90;letter-spacing:.2px}
+/* ==== CATEGORY BAR (fixed bottom, mobile app style) ==== */
+.cat-bar{display:flex;background:rgba(9,9,15,.97);border-top:1px solid var(--border);position:fixed;bottom:0;left:0;right:0;z-index:200;padding:0;padding-bottom:env(safe-area-inset-bottom,0px);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);box-shadow:0 -4px 28px rgba(0,0,0,.45)}
+.cat-btn{flex:1;padding:8px 2px 7px;border:none;border-top:2px solid transparent;background:none;cursor:pointer;font-size:21px;line-height:1.1;color:var(--text2);transition:all .2s cubic-bezier(.4,0,.2,1);min-height:56px;display:flex;flex-direction:column;align-items:center;gap:2px;position:relative;-webkit-tap-highlight-color:transparent}
+.cat-btn span{display:block;font-size:9px;font-weight:700;letter-spacing:.3px;text-transform:uppercase;transition:color .2s;margin-top:1px}
+.cat-btn.active{color:var(--accent);border-top-color:var(--accent)}
+.cat-btn.active span{color:var(--accent)}
+.cat-btn:active{transform:scale(.85)}
 
 /* ==== TAB CONTENT ==== */
 .tab-content{display:none;padding:10px;padding-bottom:16px;max-width:480px;margin:0 auto}
@@ -51,7 +54,7 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 
 /* ==== CARDS ==== */
 .card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:12px;margin-bottom:8px;animation:fade-in .3s ease backwards;transition:box-shadow .2s,transform .2s}
-.card:hover{transform:translateY(-1px);box-shadow:0 6px 28px rgba(0,0,0,.38)}
+.card:hover{transform:translateY(-1px) scale(1.004);box-shadow:0 8px 32px rgba(0,0,0,.44)}
 .tab-content.active .card:nth-child(1){animation-delay:0s}
 .tab-content.active .card:nth-child(2){animation-delay:.05s}
 .tab-content.active .card:nth-child(3){animation-delay:.1s}
@@ -126,7 +129,7 @@ select{background:var(--bg3);border:1.5px solid var(--border);border-radius:10px
 select:focus{border-color:var(--accent)}
 
 /* ==== TOAST ==== */
-.toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%) translateY(20px);background:rgba(14,16,32,.96);border:1px solid var(--border);border-radius:14px;padding:11px 20px;color:var(--text);font-size:13px;font-weight:600;opacity:0;transition:all .3s;z-index:9999;pointer-events:none;max-width:min(360px,88vw);text-align:center;white-space:pre-wrap;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);box-shadow:0 8px 28px rgba(0,0,0,.5)}
+.toast{position:fixed;bottom:calc(74px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%) translateY(20px);background:rgba(14,16,32,.97);border:1px solid var(--border);border-radius:14px;padding:11px 20px;color:var(--text);font-size:13px;font-weight:600;opacity:0;transition:all .3s;z-index:9999;pointer-events:none;max-width:min(360px,88vw);text-align:center;white-space:pre-wrap;backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);box-shadow:0 8px 32px rgba(0,0,0,.55)}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 .toast.error{border-color:var(--red);color:#fca5a5;background:rgba(28,8,8,.95)}
 .toast.success{border-color:var(--green);color:#86efac;background:rgba(8,22,12,.95)}
@@ -188,13 +191,13 @@ select:focus{border-color:var(--accent)}
 @keyframes coin-land-win{0%{transform:scale(1)}50%{transform:scale(1.4)}100%{transform:scale(1)}}
 @keyframes coin-land-lose{0%{transform:scale(1)}50%{transform:scale(.7);opacity:.5}100%{transform:scale(1);opacity:1}}
 #coinEmoji{display:inline-block;font-size:52px;transition:transform .3s}
-@keyframes fade-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
-.tab-content.active{animation:fade-in .28s ease}
+@keyframes fade-in{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.tab-content.active{animation:fade-in .3s cubic-bezier(.4,0,.2,1)}
 @keyframes fade-backdrop{from{opacity:0}to{opacity:1}}
 @keyframes slide-up{from{transform:translateY(100%)}to{transform:translateY(0)}}
 @keyframes sheet-slide-up{from{transform:translateY(30px);opacity:0}to{transform:translateY(0);opacity:1}}
-@keyframes bal-flash{0%{transform:scale(1)}30%{transform:scale(1.12)}100%{transform:scale(1)}}
-.bal-update{animation:bal-flash .3s ease}
+@keyframes bal-flash{0%{transform:scale(1);color:var(--gold)}35%{transform:scale(1.18);color:#facc15;filter:drop-shadow(0 0 6px rgba(244,197,66,.5))}100%{transform:scale(1);color:var(--gold)}}
+.bal-update{animation:bal-flash .35s ease}
 @keyframes flash-success{0%{box-shadow:0 0 0 0 rgba(34,197,94,0)}35%{box-shadow:0 0 0 8px rgba(34,197,94,.4)}100%{box-shadow:0 0 0 0 rgba(34,197,94,0)}}
 .flash-success{animation:flash-success .6s ease}
 @keyframes item-pulse{0%{box-shadow:0 0 0 0 rgba(168,85,247,.3)}70%{box-shadow:0 0 0 10px rgba(168,85,247,0)}100%{box-shadow:0 0 0 0 rgba(168,85,247,0)}}
@@ -583,38 +586,42 @@ select:focus{border-color:var(--accent)}
   <span onclick="this.parentElement.style.display='none'" style="margin-left:8px;cursor:pointer;opacity:.7;font-size:14px;line-height:1">✕</span>
 </div>
 
-<!-- Category navigation bar (fixed bottom) -->
+<!-- Category navigation bar (fixed bottom, mobile-app style) -->
 <div class="cat-bar" id="catBar">
-  <button class="cat-btn active" data-cat="main" onclick="switchCategory('main')">🏠<span>Главная</span></button>
+  <button class="cat-btn active" data-cat="home" onclick="switchCategory('home')">🏠<span>Главная</span></button>
   <button class="cat-btn" data-cat="hero" onclick="switchCategory('hero')">⚔️<span>Герой</span></button>
-  <button class="cat-btn" data-cat="social" onclick="switchCategory('social')">❤️<span>Союз</span></button>
-  <button class="cat-btn" data-cat="adventure" onclick="switchCategory('adventure')">🏕<span>Поход</span></button>
-  <button class="cat-btn" data-cat="market" onclick="switchCategory('market')">🏪<span>Рынок</span></button>
-  <button class="cat-btn cat-btn-crystal" id="catBtnCrystal" onclick="goCrystals()">💎<span>Кристаллы</span></button>
+  <button class="cat-btn" data-cat="social" onclick="switchCategory('social')">💕<span>Союз</span></button>
+  <button class="cat-btn" data-cat="world" onclick="switchCategory('world')">🌍<span>Мир</span></button>
+  <button class="cat-btn" data-cat="market" onclick="switchCategory('market')">💰<span>Рынок</span></button>
   <button class="cat-btn" data-cat="admin" id="catBtnAdmin" onclick="switchCategory('admin')" style="display:none">🛡<span>Управление</span></button>
 </div>
 
 <!-- Sticky nav wrapper: balance bar + section grid -->
 <div id="sticky-nav">
-  <!-- Global balance bar -->
-  <div class="balance-bar" id="globalBalanceBar" style="display:none">
-    💰 <span id="globalBalance">0</span> 🪙
-    <span style="margin-left:10px;color:var(--accent)">|</span>
-    <span style="margin-left:10px;color:#a78bfa;font-weight:800">💎 <span id="globalCrystals">0</span></span>
+  <!-- Global balance bar (fixed top, always visible) -->
+  <div class="balance-bar" id="globalBalanceBar">
+    <div class="bal-pill">
+      <span>🪙</span>
+      <span class="bal-val" id="globalBalance">—</span>
+    </div>
+    <div class="bal-pill" style="color:#a78bfa">
+      <span>💎</span>
+      <span class="bal-val" id="globalCrystals">—</span>
+    </div>
   </div>
 
   <!-- Section nav grid -->
   <div class="tabs">
     <button class="tab-btn active" data-tab="profile" onclick="switchTab('profile')">🏰<span class="tab-lbl">Профиль</span></button>
-    <button class="tab-btn" data-tab="calendar" onclick="switchTab('calendar')">📅<span class="tab-lbl">Календарь</span></button>
-    <button class="tab-btn" data-tab="union" onclick="switchTab('union')">🤝<span class="tab-lbl">Узы</span></button>
-    <button class="tab-btn" data-tab="glory" onclick="switchTab('glory')">🏆<span class="tab-lbl">Слава</span></button>
+    <button class="tab-btn" data-tab="calendar" onclick="switchTab('calendar')">📅<span class="tab-lbl">Чекин</span></button>
+    <button class="tab-btn" data-tab="union" style="display:none" onclick="switchTab('union')">🤝<span class="tab-lbl">Узы</span></button>
+    <button class="tab-btn" data-tab="couple_boss" id="coupleBossTabBtn" style="display:none" onclick="switchTab('couple_boss')">👹<span class="tab-lbl">Пар.Босс</span></button>
+    <button class="tab-btn" data-tab="glory" style="display:none" onclick="switchTab('glory')">🏆<span class="tab-lbl">Слава</span></button>
     <button class="tab-btn" data-tab="guide" onclick="switchTab('guide')">📖<span class="tab-lbl">Гайд</span></button>
     <button class="tab-btn" data-tab="achievements" onclick="switchTab('achievements')">🏅<span class="tab-lbl">Достиж.</span></button>
-    <button class="tab-btn" data-tab="inventory" style="display:none" onclick="switchTab('inventory')">🎒<span class="tab-lbl">Инвент.</span></button>
+    <button class="tab-btn" data-tab="inventory" style="display:none" onclick="switchTab('inventory')">🎒<span class="tab-lbl">Инвентарь</span></button>
     <button class="tab-btn" data-tab="shop" style="display:none" onclick="switchTab('shop')">🛒<span class="tab-lbl">Магазин</span></button>
     <button class="tab-btn" data-tab="season" style="display:none" onclick="switchTab('season')">🗓<span class="tab-lbl">Сезон</span></button>
-    <button class="tab-btn" data-tab="couple_boss" id="coupleBossTabBtn" style="display:none" onclick="switchTab('couple_boss')">👹<span class="tab-lbl">Пар.Босс</span></button>
     <button class="tab-btn" data-tab="quest" style="display:none" onclick="switchTab('quest')">📋<span class="tab-lbl">Задания</span></button>
     <button class="tab-btn" data-tab="expedition" style="display:none" onclick="switchTab('expedition')">🏕<span class="tab-lbl">Экспед.</span></button>
     <button class="tab-btn" data-tab="spy" style="display:none" onclick="switchTab('spy')">🕵️<span class="tab-lbl">Шпион</span></button>
@@ -623,7 +630,7 @@ select:focus{border-color:var(--accent)}
     <button class="tab-btn" data-tab="bonds" style="display:none" onclick="switchTab('bonds')">📈<span class="tab-lbl">Биржа</span></button>
     <button class="tab-btn" data-tab="transfers" style="display:none" onclick="switchTab('transfers')">💸<span class="tab-lbl">Переводы</span></button>
     <button class="tab-btn" data-tab="casino" style="display:none" onclick="switchTab('casino')">🎰<span class="tab-lbl">Казино</span></button>
-    <button class="tab-btn" data-tab="dev" id="devTabBtn" style="display:none" onclick="switchTab('dev')">🛠<span class="tab-lbl">Панель</span></button>
+    <button class="tab-btn" data-tab="dev" id="devTabBtn" style="display:none" onclick="switchTab('dev')">🛠<span class="tab-lbl">Управление</span></button>
   </div>
 </div>
 
@@ -889,6 +896,17 @@ select:focus{border-color:var(--accent)}
           <span style="color:var(--text2)">⏳ Загрузка…</span>
         </div>
         <button class="btn btn-gold" id="chatBuffBuyBtn" onclick="buyChatBuff()" style="width:100%">⚡ Активировать — 1 500 🪙</button>
+      </div>
+
+      <div class="card" id="cleanupPassCard">
+        <div class="card-title">🎫 Откуп от чистки</div>
+        <div id="cleanupPassStatus" style="text-align:center;font-size:12px;min-height:22px;margin-bottom:6px"></div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:10px;line-height:1.6">
+          🛡 Защищает от одной чистки<br>
+          ⏳ Требует одобрения владельца/разраба<br>
+          💸 Мора возвращается при отказе
+        </div>
+        <button class="btn btn-gold" id="cleanupPassBuyBtn" onclick="buyCleanupPass()" style="width:100%">🎫 Откуп — 4 000 🪙</button>
       </div>
     </div>
 
@@ -1985,6 +2003,24 @@ select:focus{border-color:var(--accent)}
     <div id="devCleanupMsg" style="margin-top:8px;font-size:12px;min-height:18px"></div>
   </div>
 
+  <!-- 🕐 Timezone management (developer only) -->
+  <div class="card" id="devTimezoneCard" style="display:none">
+    <div class="card-title">🕐 Часовой пояс бота</div>
+    <div id="devTimezoneInfo" style="font-size:12px;color:var(--text2);margin-bottom:8px">Загрузка…</div>
+    <select id="devTimezoneSelect" style="background:var(--bg3,var(--card2));color:var(--text);border:1px solid var(--border);border-radius:8px;padding:7px 10px;font-size:13px;width:100%;margin-bottom:8px">
+      <option value="Europe/Zurich">Europe/Zurich (Цюрих, UTC+1/+2)</option>
+      <option value="Europe/Moscow">Europe/Moscow (Москва, UTC+3)</option>
+      <option value="Europe/London">Europe/London (Лондон)</option>
+      <option value="UTC">UTC</option>
+      <option value="Asia/Almaty">Asia/Almaty (Алматы, UTC+5)</option>
+      <option value="Asia/Yekaterinburg">Asia/Yekaterinburg (Екатеринбург, UTC+5)</option>
+      <option value="Asia/Novosibirsk">Asia/Novosibirsk (Новосибирск, UTC+7)</option>
+      <option value="America/New_York">America/New_York (Нью-Йорк)</option>
+    </select>
+    <button class="btn btn-primary" onclick="saveTimezone()" style="margin-top:4px">💾 Сохранить часовой пояс</button>
+    <div id="devTimezoneMsg" style="margin-top:8px;font-size:12px;min-height:18px"></div>
+  </div>
+
   </div><!-- /dev-subtab-settings -->
 
 </div><!-- /tab-dev -->
@@ -2228,19 +2264,17 @@ function syncCrystals(n){
 
 // ── Category switching ────────────────────────────────────────────────────────
 const TAB_CATS = {
-  main:      ['profile','calendar','achievements','glory','guide'],
-  hero:      ['inventory','shop','season'],
-  social:    ['union','couple_boss'],
-  adventure: ['quest','expedition','spy'],
-  market:    ['auction','bank','bonds','transfers','casino'],
-  admin:     ['dev'],
+  home:   ['profile','calendar','achievements','guide'],
+  hero:   ['inventory','shop','season','glory'],
+  social: ['union','couple_boss'],
+  world:  ['quest','expedition','spy'],
+  market: ['auction','bank','bonds','transfers','casino'],
+  admin:  ['dev'],
 };
-let _currentCat = 'main';
+let _currentCat = 'home';
 
 function switchCategory(cat) {
   _currentCat = cat;
-  const crystalBtn = document.getElementById('catBtnCrystal');
-  if (crystalBtn) crystalBtn.classList.remove('active');
   document.querySelectorAll('.cat-btn[data-cat]').forEach(b => b.classList.toggle('active', b.dataset.cat === cat));
   const allowed = TAB_CATS[cat] || [];
   // Update every tab button's visibility in one pass
@@ -2266,9 +2300,6 @@ function goCrystals() {
   switchCategory('hero');
   switchTab('shop');
   setTimeout(() => switchShopSubtab('crystals'), 120);
-  document.querySelectorAll('.cat-btn[data-cat]').forEach(b => b.classList.remove('active'));
-  const crystalBtn = document.getElementById('catBtnCrystal');
-  if (crystalBtn) crystalBtn.classList.add('active');
 }
 
 // ── User picker ───────────────────────────────────────────────────────────────
@@ -2392,7 +2423,6 @@ async function loadProfile(){
     document.getElementById('pLevel').textContent = p.level || 1;
     syncBalance(p.balance||0);
     syncCrystals(p.crystals||0);
-    document.getElementById('globalBalanceBar').style.display = '';
     applyTheme(p.active_theme || '');
     const RANK_LABELS = {developer:'💻 Разработчик', owner:'👑 Владелец', co_owner:'⭐ Со-владелец', moderator:'🛡 Модератор', user:'👤 Участник'};
     document.getElementById('pRank').textContent = RANK_LABELS[p.rank] || p.rank || '—';
@@ -2429,6 +2459,7 @@ async function loadProfile(){
       // Full panel visible to developer
       document.querySelectorAll('#tab-dev .card').forEach(c=>{ c.style.display=''; });
       _devBtns(true); switchDevSubtab('users');
+      loadTimezone();
     } else if(p.rank === 'owner' || p.rank === 'co_owner') {
       // Owner/co_owner: crystal grant + events + warnlist + banlist + mod overview + treasury + cleanup config
       const devBtn = document.getElementById('devTabBtn');
@@ -2555,7 +2586,7 @@ async function checkCoupleBossAvailability() {
       // Пользователь женат - показываем кнопку couple boss
       const cbBtn = document.getElementById('coupleBossTabBtn');
       cbBtn.setAttribute('data-unlocked','1');
-      if(_currentCat === 'hero') cbBtn.style.display = '';
+      if(_currentCat === 'social') cbBtn.style.display = '';
       return r; // Возвращаем данные для использования в других функциях
     }
     return null;
@@ -3166,6 +3197,42 @@ async function buyChatBuff(){
   }
 }
 
+// ── Cleanup Pass ──────────────────────────────────────────────────────────────
+async function loadCleanupPassStatus(){
+  if(!chatId) return;
+  const btn = document.getElementById('cleanupPassBuyBtn');
+  const st  = document.getElementById('cleanupPassStatus');
+  if(!btn || !st) return;
+  try{
+    const r = await api('/api/cleanup_pass?chat_id='+chatId);
+    if(r.exists){
+      const statusMap = {pending:'⏳ Ожидает одобрения', approved:'✅ Одобрен — ты защищён!', used:'✔️ Использован'};
+      st.innerHTML = `<span style="color:var(--gold)">${statusMap[r.status]||r.status}</span>`;
+      btn.disabled = (r.status==='pending'||r.status==='approved');
+      btn.textContent = r.status==='pending'?'⏳ Ожидает одобрения':r.status==='approved'?'✅ Пропуск активен':'🎫 Откуп — 4 000 🪙';
+    } else {
+      st.textContent='';
+      btn.disabled=false;
+      btn.textContent='🎫 Откуп — 4 000 🪙';
+    }
+  } catch(e){ /* ignore */ }
+}
+
+async function buyCleanupPass(){
+  if(!chatId){ toast('chat_id не задан','error'); return; }
+  const btn=document.getElementById('cleanupPassBuyBtn');
+  if(btn){ btn.disabled=true; btn.textContent='⏳ Отправка…'; }
+  try{
+    const r=await api('/api/cleanup_pass','POST',{chat_id:chatId});
+    toast('✅ Заявка отправлена! Ожидай одобрения владельца.','success');
+    if(r.new_balance!=null) syncBalance(r.new_balance);
+    await loadCleanupPassStatus();
+  } catch(e){
+    toast('❌ '+e.message,'error');
+    if(btn){ btn.disabled=false; btn.textContent='🎫 Откуп — 4 000 🪙'; }
+  }
+}
+
 // ── Shop ──────────────────────────────────────────────────────────────────────
 async function loadShop(){
   document.getElementById('shopLoading').style.display='block';
@@ -3176,6 +3243,7 @@ async function loadShop(){
     document.getElementById('shopContent').style.display='block';
     renderShop(shopData);
     loadChatBuff();
+    loadCleanupPassStatus();
   } catch(e){
     document.getElementById('shopLoading').textContent='⚠️ '+e.message;
   }
@@ -5072,6 +5140,39 @@ async function loadCleanupConfig(){
   }
 }
 
+// ── Timezone ──────────────────────────────────────────────────────────────────
+async function loadTimezone(){
+  const card = document.getElementById('devTimezoneCard');
+  if(!card || card.style.display==='none') return;
+  try{
+    const r = await api('/api/timezone');
+    document.getElementById('devTimezoneInfo').textContent = '🌍 Текущий: ' + r.timezone;
+    const sel = document.getElementById('devTimezoneSelect');
+    if(sel) sel.value = r.timezone;
+  } catch(e){
+    document.getElementById('devTimezoneInfo').textContent = '❌ ' + e.message;
+  }
+}
+
+async function saveTimezone(){
+  const sel = document.getElementById('devTimezoneSelect');
+  const msg = document.getElementById('devTimezoneMsg');
+  if(!sel||!msg) return;
+  const tz = sel.value;
+  msg.textContent='⏳ Сохранение…';
+  try{
+    const r = await api('/api/timezone','POST',{tz});
+    msg.style.color='var(--green,#4ade80)';
+    msg.textContent='✅ Обновлён: '+r.timezone;
+    document.getElementById('devTimezoneInfo').textContent='🌍 Текущий: '+r.timezone;
+    setTimeout(()=>{ msg.textContent=''; },4000);
+  } catch(e){
+    msg.style.color='#f87171';
+    msg.textContent='❌ '+e.message;
+  }
+}
+
+// ── Cleanup Config ─────────────────────────────────────────────────────────────
 async function saveCleanupConfig(){
   if(!chatId){toast('chat_id не задан','error');return;}
   const msgEl = document.getElementById('devCleanupMsg');
@@ -5629,7 +5730,7 @@ async function loadCoupleBoss() {
     // Show couple boss tab
     const cbBtn = document.getElementById('coupleBossTabBtn');
     cbBtn.setAttribute('data-unlocked','1');
-    if(_currentCat === 'hero') cbBtn.style.display = '';
+    if(_currentCat === 'social') cbBtn.style.display = '';
 
     // Also load solo boss for married users
     loadSoloBoss();

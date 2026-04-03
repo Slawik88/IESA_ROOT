@@ -7,6 +7,7 @@ from zoneinfo import ZoneInfo
 from aiogram import Bot, F, Router
 from aiogram.types import ChatPermissions, InlineKeyboardButton, InlineKeyboardMarkup, Message
 
+import config as _bot_config
 from config import DEVELOPER_ID
 from database.db import (
     get_activity_report, get_chat_banlist_users, get_chat_settings, get_chat_stats_for_chat,
@@ -573,8 +574,9 @@ async def cmd_cleanup_date(message: Message, cmd_args: str):
         sched = settings["next_cleanup_at"] if settings else None
         if sched:
             try:
+                _tz = _get_tz()
                 dt = _dt.fromisoformat(sched).replace(tzinfo=timezone.utc)
-                fmt = dt.astimezone(_ZURICH).strftime("%d.%m.%Y %H:%M (Цюрих)")
+                fmt = dt.astimezone(_tz).strftime(f"%d.%m.%Y %H:%M ({_bot_config.BOT_TIMEZONE})")
             except Exception:
                 fmt = sched
             await message.answer(
@@ -602,7 +604,7 @@ async def cmd_cleanup_date(message: Message, cmd_args: str):
     dt_local = None
     for fmt in ("%d.%m.%Y %H:%M", "%d.%m.%Y"):
         try:
-            dt_local = _dt.strptime(raw, fmt).replace(tzinfo=_ZURICH)
+            dt_local = _dt.strptime(raw, fmt).replace(tzinfo=_get_tz())
             break
         except ValueError:
             pass
@@ -615,7 +617,7 @@ async def cmd_cleanup_date(message: Message, cmd_args: str):
         )
         return
 
-    if dt_local < _dt.now(_ZURICH):
+    if dt_local < _dt.now(_get_tz()):
         await message.answer("❌ Дата уже в прошлом. Укажи будущую дату.")
         return
 
@@ -786,7 +788,12 @@ _MARRIAGES_HELP = (
     "<code>бот загрузить браки [{\"user1\":123,\"user2\":456,\"since\":\"01.01.2025\"}]</code>"
 )
 
-_ZURICH = ZoneInfo("Europe/Zurich")
+def _get_tz() -> ZoneInfo:
+    """Return the bot's configured timezone (reads from config at call time for hot-reload support)."""
+    try:
+        return ZoneInfo(_bot_config.BOT_TIMEZONE)
+    except Exception:
+        return ZoneInfo("Europe/Zurich")
 
 
 async def _resolve_uid(bot: Bot, chat_id: int, ref) -> int | None:
@@ -822,7 +829,7 @@ async def _process_marriages_json(message: Message, bot: Bot, raw: str) -> None:
     pending_pairs: list[str] = []
     fail_pairs: list[str]    = []
 
-    today_utc = _dt.now(_ZURICH).astimezone(timezone.utc).replace(tzinfo=None).isoformat()
+    today_utc = _dt.now(_get_tz()).astimezone(timezone.utc).replace(tzinfo=None).isoformat()
 
     for idx, entry in enumerate(data, 1):
         if not isinstance(entry, dict):
@@ -852,7 +859,7 @@ async def _process_marriages_json(message: Message, bot: Bot, raw: str) -> None:
         if since_raw:
             for fmt in ("%d.%m.%Y %H:%M", "%d.%m.%Y"):
                 try:
-                    dt_local = _dt.strptime(str(since_raw), fmt).replace(tzinfo=_ZURICH)
+                    dt_local = _dt.strptime(str(since_raw), fmt).replace(tzinfo=_get_tz())
                     married_at = dt_local.astimezone(timezone.utc).replace(tzinfo=None).isoformat()
                     break
                 except ValueError:

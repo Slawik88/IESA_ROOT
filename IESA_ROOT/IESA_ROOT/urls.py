@@ -68,6 +68,8 @@ from .miniapp_views import (
     miniapp_expeditions_boost,
     miniapp_pets_rename,
     miniapp_cleanup_config,
+    miniapp_cleanup_pass,
+    miniapp_timezone,
     miniapp_chat_buff,
     miniapp_gifts_catalog,
     miniapp_gifts_send,
@@ -210,6 +212,9 @@ urlpatterns = [
     path('api/pets/rename', miniapp_pets_rename, name='miniapp_pets_rename'),
     # ─── Cleanup config / Настройка чистки ────────────────────────────────────
     path('api/cleanup_config', miniapp_cleanup_config, name='miniapp_cleanup_config'),
+    path('api/cleanup_pass', miniapp_cleanup_pass, name='miniapp_cleanup_pass'),
+    # ─── Timezone / Часовой пояс ──────────────────────────────────────────────
+    path('api/timezone', miniapp_timezone, name='miniapp_timezone'),
     # ─── Chat buff / Глобальный баф чата (Block 8) ────────────────────────────
     path('api/chat_buff', miniapp_chat_buff, name='miniapp_chat_buff'),
     # ─── Gifts / Подарки партнёру ─────────────────────────────────────────────

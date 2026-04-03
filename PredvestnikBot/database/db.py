@@ -4842,31 +4842,33 @@ async def set_cleanup_config(
             (chat_id,),
         )
         if next_cleanup_at is not None:
-            # Ensure asyncpg receives a timezone-aware datetime for TIMESTAMPTZ.
-            # _maybe_datetime in the postgres wrapper auto-converts ISO strings but may
-            # produce naive datetimes (or fail on "...000Z" format on Python ≤3.10).
-            # We normalise here explicitly so the value is always tz-aware.
+            # Normalise to a tz-aware ISO string.
+            # NOTE: the postgres wrapper (_maybe_datetime) converts ISO strings back to
+            # datetime objects, which asyncpg then rejects for the TEXT column
+            # next_cleanup_at.  We bypass the wrapper by using the raw asyncpg pool
+            # so that the isoformat() string is passed through unchanged.
             from datetime import datetime as _dt, timezone as _tz
             _nc = next_cleanup_at
             if isinstance(_nc, str):
                 _s = _nc.replace('Z', '+00:00')
-                # Python ≤3.10 fromisoformat doesn't handle fractional seconds + offset;
-                # strip the fractional part if present.
                 try:
                     _parsed = _dt.fromisoformat(_s)
                 except ValueError:
-                    if '.' in _s and ('+' in _s or _s.endswith('00')):
+                    if '.' in _s and ('+' in _s[_s.index('.'):] or _s.endswith('00')):
                         dot = _s.index('.')
-                        off = _s.index('+', dot if '+' in _s[dot:] else 0) if '+' in _s[dot:] else len(_s)
+                        off = _s.index('+', dot) if '+' in _s[dot:] else len(_s)
                         _s = _s[:dot] + _s[off:]
                     _parsed = _dt.fromisoformat(_s)
                 _nc = _parsed if _parsed.tzinfo else _parsed.replace(tzinfo=_tz.utc)
             elif hasattr(_nc, 'tzinfo') and _nc.tzinfo is None:
                 _nc = _nc.replace(tzinfo=_tz.utc)
-            await db.execute(
-                "UPDATE chat_settings SET next_cleanup_at = ?, cleanup_reminder_sent = 0 WHERE chat_id = ?",
-                (_nc.isoformat(), chat_id),
-            )
+            # Use raw pool to bypass _maybe_datetime which would re-convert the string
+            _pool = await get_pg_pool()
+            async with _pool.acquire() as _raw_conn:
+                await _raw_conn.execute(
+                    "UPDATE chat_settings SET next_cleanup_at = $1, cleanup_reminder_sent = 0 WHERE chat_id = $2",
+                    _nc.isoformat(), chat_id,
+                )
         if cleanup_message_norm is not None:
             await db.execute(
                 "UPDATE chat_settings SET cleanup_message_norm = ? WHERE chat_id = ?",
