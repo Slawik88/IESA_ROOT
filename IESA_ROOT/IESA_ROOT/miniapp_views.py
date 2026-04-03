@@ -5886,6 +5886,250 @@ def miniapp_season_premium(request):
         return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
 
 
+# ─── Cleanup pass shop (пропуск чистки) ──────────────────────────────────────────
+
+def _send_tg_notification(chat_id_or_user: int, text: str, reply_markup: dict | None = None) -> None:
+    """Fire-and-forget Telegram message from Django using the bot token."""
+    if not _BOT_TOKEN:
+        return
+    try:
+        import requests as _req
+        payload: dict = {"chat_id": chat_id_or_user, "text": text, "parse_mode": "HTML"}
+        if reply_markup:
+            payload["reply_markup"] = json.dumps(reply_markup)
+        _req.post(
+            f"https://api.telegram.org/bot{_BOT_TOKEN}/sendMessage",
+            json=payload,
+            timeout=5,
+        )
+    except Exception:
+        pass
+
+
+@csrf_exempt
+def miniapp_cleanup_pass(request):
+    """
+    GET  /api/cleanup_pass?chat_id=X  → {status, pass_id, price, created_at}
+    POST /api/cleanup_pass {chat_id}  → buy pass: deduct mora, create pending, notify admins
+    """
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+
+    if request.method == "GET":
+        chat_id_str = request.GET.get("chat_id", "")
+        if not chat_id_str.lstrip("-").isdigit():
+            return JsonResponse({"error": "chat_id required"}, status=400, headers=headers)
+        chat_id = int(chat_id_str)
+        try:
+            conn, db_type = _get_bot_db_connection()
+            ph = "%s" if db_type == "pg" else "?"
+            cur = conn.cursor()
+            cur.execute(
+                f"SELECT id, status, price, created_at FROM cleanup_passes "
+                f"WHERE user_id={ph} AND chat_id={ph} AND status IN ('pending','approved') "
+                f"ORDER BY created_at DESC LIMIT 1",
+                (uid, chat_id),
+            )
+            row = cur.fetchone()
+            conn.close()
+            if row:
+                return JsonResponse(
+                    {"exists": True, "pass_id": row[0], "status": row[1],
+                     "price": row[2], "created_at": str(row[3])},
+                    headers=headers,
+                )
+            return JsonResponse({"exists": False}, headers=headers)
+        except Exception:
+            logger.exception("miniapp_cleanup_pass GET error")
+            return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
+
+    if request.method == "POST":
+        try:
+            body = json.loads(request.body)
+        except Exception:
+            return JsonResponse({"error": "bad JSON"}, status=400, headers=headers)
+
+        chat_id_raw = body.get("chat_id")
+        if not chat_id_raw:
+            return JsonResponse({"error": "chat_id required"}, status=400, headers=headers)
+        chat_id = int(str(chat_id_raw))
+
+        from shared_prices import CLEANUP_PASS_PRICE as _PASS_PRICE
+
+        try:
+            from asgiref.sync import async_to_sync as _a2s
+            from database.db import (
+                deduct_mora as _deduct,
+                buy_cleanup_pass as _buy_pass,
+                get_admin_groups as _get_admin_groups,
+                get_staff_in_chat as _get_staff,
+            )
+            from database.db import get_mora as _get_mora
+
+            # Check current balance
+            mora = _a2s(_get_mora)(uid, chat_id)
+            bal = mora["balance"] if mora else 0
+            if bal < _PASS_PRICE:
+                return JsonResponse(
+                    {"error": f"Недостаточно моры. Нужно {_PASS_PRICE} 🪙, у тебя {bal} 🪙"},
+                    status=400,
+                    headers=headers,
+                )
+
+            # Check existing pass
+            conn2, db_type2 = _get_bot_db_connection()
+            ph2 = "%s" if db_type2 == "pg" else "?"
+            cur2 = conn2.cursor()
+            cur2.execute(
+                f"SELECT id FROM cleanup_passes WHERE user_id={ph2} AND chat_id={ph2} "
+                f"AND status IN ('pending','approved')",
+                (uid, chat_id),
+            )
+            existing = cur2.fetchone()
+            conn2.close()
+            if existing:
+                return JsonResponse(
+                    {"error": "У тебя уже есть активный или ожидающий пропуск чистки"},
+                    status=400,
+                    headers=headers,
+                )
+
+            # Deduct mora
+            ok, new_bal = _a2s(_deduct)(uid, chat_id, _PASS_PRICE)
+            if not ok:
+                return JsonResponse({"error": "Не удалось списать мору"}, status=400, headers=headers)
+
+            # Create pass record
+            pass_id = _a2s(_buy_pass)(uid, chat_id, _PASS_PRICE)
+
+            # Get buyer name for notification
+            conn3, db_type3 = _get_bot_db_connection()
+            ph3 = "%s" if db_type3 == "pg" else "?"
+            cur3 = conn3.cursor()
+            cur3.execute(f"SELECT full_name FROM users WHERE user_id={ph3}", (uid,))
+            urow = cur3.fetchone()
+            user_name = html.escape(urow[0] if urow else str(uid))
+            # Get chat title
+            cur3.execute(f"SELECT title FROM chat_settings WHERE chat_id={ph3}", (chat_id,))
+            crow = cur3.fetchone()
+            chat_title = html.escape(str(crow[0]) if crow and crow[0] else str(chat_id))
+            conn3.close()
+
+            # Notification markup
+            kb = {
+                "inline_keyboard": [[
+                    {"text": "✅ Одобрить", "callback_data": f"cpass:approve:{pass_id}:{uid}:{chat_id}"},
+                    {"text": "❌ Отклонить", "callback_data": f"cpass:reject:{pass_id}:{uid}:{chat_id}"},
+                ]]
+            }
+            notify_text = (
+                f"🎫 <b>Заявка на пропуск чистки</b>\n\n"
+                f"👤 {user_name} (<code>{uid}</code>)\n"
+                f"💬 {chat_title}\n"
+                f"💰 Оплачено: <b>{_PASS_PRICE} 🪙</b>\n"
+                f"📋 Заявка #{pass_id}"
+            )
+
+            # Notify admin groups
+            admin_groups = _a2s(_get_admin_groups)()
+            for ag in admin_groups:
+                _send_tg_notification(ag, notify_text, kb)
+
+            # Notify owner/developer in this chat + global developer
+            notified: set = set(admin_groups)
+            staff = _a2s(_get_staff)(chat_id)
+            for s in staff:
+                if s["rank"] in ("owner",) and s["user_id"] not in notified:
+                    _send_tg_notification(s["user_id"], notify_text, kb)
+                    notified.add(s["user_id"])
+            if _DEVELOPER_ID not in notified:
+                _send_tg_notification(_DEVELOPER_ID, notify_text, kb)
+
+            return JsonResponse(
+                {"ok": True, "pass_id": pass_id, "new_balance": new_bal, "price": _PASS_PRICE},
+                headers=headers,
+            )
+        except Exception:
+            logger.exception("miniapp_cleanup_pass POST error")
+            return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
+
+    return JsonResponse({"error": "method not allowed"}, status=405, headers=headers)
+
+
+# ─── Bot timezone management ──────────────────────────────────────────────────
+
+@csrf_exempt
+def miniapp_timezone(request):
+    """
+    GET  /api/timezone         → {timezone}
+    POST /api/timezone {tz}    → set timezone (developer only)
+    """
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+
+    if request.method == "GET":
+        try:
+            import pathlib, re as _re
+            cfg_path = pathlib.Path(__file__).resolve().parent.parent.parent / "PredvestnikBot" / "config.py"
+            content = cfg_path.read_text(encoding="utf-8")
+            m = _re.search(r'BOT_TIMEZONE\s*=\s*"([^"]+)"', content)
+            tz_val = m.group(1) if m else "Europe/Zurich"
+            return JsonResponse({"timezone": tz_val}, headers=headers)
+        except Exception:
+            return JsonResponse({"timezone": "Europe/Zurich"}, headers=headers)
+
+    if request.method == "POST":
+        # Only developer can change timezone
+        if uid != _DEVELOPER_ID:
+            return JsonResponse({"error": "forbidden"}, status=403, headers=headers)
+
+        try:
+            body = json.loads(request.body)
+        except Exception:
+            return JsonResponse({"error": "bad JSON"}, status=400, headers=headers)
+
+        tz_name = str(body.get("tz", "")).strip()
+        if not tz_name:
+            return JsonResponse({"error": "tz required"}, status=400, headers=headers)
+
+        # Validate IANA timezone name
+        try:
+            from zoneinfo import ZoneInfo
+            ZoneInfo(tz_name)
+        except Exception:
+            return JsonResponse({"error": f"Неизвестный часовой пояс: {tz_name}"}, status=400, headers=headers)
+
+        # Write to config.py
+        try:
+            import pathlib, re as _re
+            cfg_path = pathlib.Path(__file__).resolve().parent.parent.parent / "PredvestnikBot" / "config.py"
+            content = cfg_path.read_text(encoding="utf-8")
+            new_content, n = _re.subn(
+                r'BOT_TIMEZONE\s*=\s*"[^"]*"',
+                f'BOT_TIMEZONE = "{tz_name}"',
+                content,
+            )
+            if n == 0:
+                return JsonResponse({"error": "Не удалось найти BOT_TIMEZONE в config.py"}, status=500, headers=headers)
+            cfg_path.write_text(new_content, encoding="utf-8")
+            return JsonResponse({"ok": True, "timezone": tz_name}, headers=headers)
+        except Exception:
+            logger.exception("miniapp_timezone POST error")
+            return JsonResponse({"error": "Не удалось записать настройку"}, status=500, headers=headers)
+
+    return JsonResponse({"error": "method not allowed"}, status=405, headers=headers)
+
+
 def miniapp_frontend_error_log(request):
     """POST /api/frontend_error_log — capture a JS error from the Mini App front-end."""
     headers = _cors_headers()
