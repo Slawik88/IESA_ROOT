@@ -1,0 +1,58 @@
+========== ШАГ 1: создать файл ==========
+nano ~/rollback.py
+
+========== ШАГ 2: вставить код ниже, сохранить Ctrl+O Enter Ctrl+X ==========
+
+========== ШАГ 3: запустить ==========
+python3 ~/rollback.py
+
+========== КОД ДЛЯ ВСТАВКИ В NANO ==========
+
+import asyncio, asyncpg, os
+from datetime import datetime, timezone
+
+DB = os.environ.get("PREDVESTNIK_DATABASE_URL") or os.environ.get("DATABASE_URL")
+
+async def main():
+    c = await asyncpg.connect(DB)
+
+    print('=== user_mora balance>0 ===')
+    for r in await c.fetch('SELECT user_id,chat_id,balance FROM user_mora WHERE balance>0 ORDER BY balance DESC LIMIT 20'):
+        print(f'  uid={r[0]} chat={r[1]} bal={r[2]}')
+
+    adm = [r[0] for r in await c.fetch('SELECT chat_id FROM admin_groups')]
+    tst = [r[0] for r in await c.fetch('SELECT chat_id FROM test_chats')]
+    print(f'admin_groups: {adm}')
+    print(f'test_chats: {tst}')
+
+    print('=== users top-10 ===')
+    for r in await c.fetch('SELECT user_id,balance FROM users ORDER BY balance DESC LIMIT 10'):
+        print(f'  uid={r[0]} bal={r[1]}')
+
+    print('=== DRY-RUN ===')
+    rows = await c.fetch("""
+        WITH iso AS (
+            SELECT chat_id FROM admin_groups
+            UNION SELECT chat_id FROM test_chats
+        ),
+        cl AS (
+            SELECT user_id, COALESCE(SUM(balance),0) AS cb
+            FROM user_mora
+            WHERE chat_id NOT IN (SELECT chat_id FROM iso)
+            GROUP BY user_id
+        )
+        SELECT u.user_id, u.balance, cl.cb, u.balance-cl.cb AS deduct
+        FROM users u
+        JOIN cl ON u.user_id = cl.user_id
+        WHERE u.balance > cl.cb
+        ORDER BY deduct DESC
+    """)
+    if not rows:
+        print('Нечего откатывать')
+    for r in rows:
+        print(f'  uid={r[0]} {r[1]}->{r[2]} (-{r[3]})')
+
+    await c.close()
+
+asyncio.run(main())
+PYEOF

@@ -217,6 +217,11 @@ async def buy_item(
     else:
         raise ValueError("item_type должен быть frame/cosmetic/vip/potion/pet_color/profile_theme")
 
+    # Block cosmetic/frame/vip purchases in isolated test chats
+    from database.db import is_isolated_chat
+    if item_type in ("frame", "cosmetic", "vip") and is_isolated_chat(chat_id):
+        raise ValueError("В тестовых чатах нельзя покупать косметику, рамки и VIP")
+
     # Check ownership (frame/cosmetic only) — equip if already owned
     if item_type in ("frame", "cosmetic"):
         already_owned = await has_shop_item(uid, chat_id, item_type, item_key)

@@ -1,0 +1,50 @@
+========== ШАГ 1: создать файл ==========
+nano ~/rollback.py
+
+========== ШАГ 2: вставить КОД НИЖЕ целиком, сохранить Ctrl+O, Enter, Ctrl+X ==========
+
+========== ШАГ 3: запустить ==========
+python3 ~/rollback.py
+
+========== КОД ДЛЯ ВСТАВКИ В NANO ==========
+
+import asyncio, asyncpg, os
+from datetime import datetime, timezone
+
+DB = os.environ.get("PREDVESTNIK_DATABASE_URL") or os.environ.get("DATABASE_URL")
+
+async def main():
+    c = await asyncpg.connect(DB)
+    rows = await c.fetch("""
+        WITH iso AS (
+            SELECT chat_id FROM admin_groups
+            UNION SELECT chat_id FROM test_chats
+        ),
+        cl AS (
+            SELECT user_id, COALESCE(SUM(balance),0) AS cb
+            FROM user_mora
+            WHERE chat_id NOT IN (SELECT chat_id FROM iso)
+            GROUP BY user_id
+        )
+        SELECT u.user_id, u.balance AS cur, cl.cb, u.balance-cl.cb AS deduct
+        FROM users u
+        JOIN cl ON u.user_id = cl.user_id
+        WHERE u.balance > cl.cb
+        ORDER BY deduct DESC
+    """)
+    if not rows:
+        print('Нечего откатывать')
+        await c.close()
+        return
+    now = datetime.now(timezone.utc)
+    for r in rows:
+        async with c.transaction():
+            await c.execute('UPDATE users SET balance=$1 WHERE user_id=$2', r['cb'], r['user_id'])
+            await c.execute(
+                "INSERT INTO wallet_ledger(chat_id,user_id,direction,amount,source,description,created_at) VALUES(0,$1,'out',$2,'rollback_test_balance','Откат тест/admin баланса',$3)",
+                r['user_id'], r['deduct'], now
+            )
+        print(f'OK uid={r["user_id"]} {r["cur"]}->{r["cb"]} (-{r["deduct"]})')
+    await c.close()
+
+asyncio.run(main())

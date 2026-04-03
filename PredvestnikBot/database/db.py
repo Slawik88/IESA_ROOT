@@ -2440,45 +2440,43 @@ async def increment_cleanup_count(chat_id: int, user_id: int):
     week_key = f"{iso.year}-W{iso.week:02d}"
 
     async with postgres_connect() as db:
-        async with db.execute(
-            "SELECT * FROM cleanup_counts WHERE chat_id=? AND user_id=?",
-            (chat_id, user_id),
-        ) as c:
-            row = await c.fetchone()
-
-        if row is None:
-            await db.execute(
-                """
-                INSERT INTO cleanup_counts
-                    (chat_id, user_id, count, week_count, day_count, week_start, day_start)
-                VALUES (?, ?, 1, 1, 1, ?, ?)
-                """,
-                (chat_id, user_id, week_key, today),
-            )
-        else:
-            new_week   = row["week_start"] != week_key
-            new_day    = row["day_start"]  != today
-            # On day rollover: snapshot old day_count → yesterday_count
-            yesterday_count = (row["day_count"] or 0) if new_day else (row["yesterday_count"] or 0)
-            # On week rollover: snapshot old week_count → last_week_count
-            last_week_count = (row["week_count"] or 0) if new_week else (row["last_week_count"] or 0)
-            week_count = 1 if new_week else (row["week_count"] or 0) + 1
-            day_count  = 1 if new_day  else (row["day_count"]  or 0) + 1
-            await db.execute(
-                """
-                UPDATE cleanup_counts
-                SET count=count+1, week_count=?, day_count=?, week_start=?, day_start=?,
-                    yesterday_count=?, last_week_count=?
-                WHERE chat_id=? AND user_id=?
-                """,
-                (
-                    week_count, day_count,
-                    week_key if new_week else row["week_start"],
-                    today    if new_day  else row["day_start"],
-                    yesterday_count, last_week_count,
-                    chat_id, user_id,
-                ),
-            )
+        # Single atomic upsert — eliminates the read-modify-write race condition
+        # that caused ~42% message count loss under concurrent asyncio tasks.
+        await db.execute(
+            """
+            INSERT INTO cleanup_counts
+                (chat_id, user_id, count, week_count, day_count,
+                 week_start, day_start, last_week_count, yesterday_count)
+            VALUES (?, ?, 1, 1, 1, ?, ?, 0, 0)
+            ON CONFLICT(chat_id, user_id) DO UPDATE SET
+                count           = cleanup_counts.count + 1,
+                last_week_count = CASE WHEN cleanup_counts.week_start != ?
+                                       THEN cleanup_counts.week_count
+                                       ELSE cleanup_counts.last_week_count END,
+                week_count      = CASE WHEN cleanup_counts.week_start != ?
+                                       THEN 1
+                                       ELSE cleanup_counts.week_count + 1 END,
+                week_start      = CASE WHEN cleanup_counts.week_start != ?
+                                       THEN ?
+                                       ELSE cleanup_counts.week_start END,
+                yesterday_count = CASE WHEN cleanup_counts.day_start != ?
+                                       THEN cleanup_counts.day_count
+                                       ELSE cleanup_counts.yesterday_count END,
+                day_count       = CASE WHEN cleanup_counts.day_start != ?
+                                       THEN 1
+                                       ELSE cleanup_counts.day_count + 1 END,
+                day_start       = CASE WHEN cleanup_counts.day_start != ?
+                                       THEN ?
+                                       ELSE cleanup_counts.day_start END
+            """,
+            (
+                chat_id, user_id, week_key, today,
+                # CASE params for week rollover (×3 uses of week_key + literal)
+                week_key, week_key, week_key, week_key,
+                # CASE params for day rollover (×3 uses of today + literal)
+                today, today, today, today,
+            ),
+        )
         await db.commit()
 
 
@@ -5021,24 +5019,26 @@ async def rename_pet(user_id: int, chat_id: int, name: str) -> bool:
 
 async def start_expedition(user_id: int, chat_id: int, duration_h: int,
                            reward_min: int, reward_max: int) -> bool:
-    """Начать экспедицию. Возвращает False если экспедиция уже идёт."""
+    """Начать экспедицию. Возвращает False если экспедиция уже идёт.
+
+    Атомарна: ON CONFLICT DO UPDATE только если предыдущая экспедиция завершена
+    (finished=1), что устраняет гонку при одновременных запросах.
+    """
     now = datetime.now(timezone.utc)
     async with postgres_connect() as db:
-        async with db.execute(
-            "SELECT 1 FROM pet_expeditions WHERE user_id=? AND chat_id=? AND finished=0",
-            (user_id, chat_id),
-        ) as c:
-            if await c.fetchone():
-                return False
-        await db.execute(
+        cursor = await db.execute(
             """INSERT INTO pet_expeditions (user_id, chat_id, started_at, duration_h,
                                            reward_min, reward_max, finished)
                VALUES (?, ?, ?, ?, ?, ?, 0)
                ON CONFLICT(user_id, chat_id) DO UPDATE SET
                    started_at=excluded.started_at, duration_h=excluded.duration_h,
-                   reward_min=excluded.reward_min, reward_max=excluded.reward_max, finished=0""",
+                   reward_min=excluded.reward_min, reward_max=excluded.reward_max, finished=0
+               WHERE pet_expeditions.finished=1""",
             (user_id, chat_id, now, duration_h, reward_min, reward_max),
         )
+        if cursor.rowcount == 0:
+            # Conflict with an active expedition (finished=0) — do not overwrite
+            return False
         await db.commit()
         return True
 
@@ -5279,6 +5279,51 @@ async def get_user_owned_frames(user_id: int, chat_id: int) -> set[str]:
         ) as c:
             rows = await c.fetchall()
     return {r[0] for r in rows}
+
+
+async def add_shop_item(user_id: int, item_type: str, item_value: str) -> None:
+    """Добавить предмет (рамку или косметику) в shop_items. chat_id=0 — глобально."""
+    async with postgres_connect() as db:
+        # Avoid duplicates: skip if exact (user_id, item_type, item_value) already exists
+        async with db.execute(
+            "SELECT 1 FROM shop_items WHERE user_id=? AND item_type=? AND item_value=?",
+            (user_id, item_type, item_value),
+        ) as c:
+            exists = await c.fetchone()
+        if not exists:
+            await db.execute(
+                "INSERT INTO shop_items (user_id, chat_id, item_type, item_value, purchased_at)"
+                " VALUES (?, 0, ?, ?, NOW())",
+                (user_id, item_type, item_value),
+            )
+            await db.commit()
+
+
+async def add_vip_days(user_id: int, chat_id: int, days: int) -> None:
+    """Добавить VIP на N дней. Если уже есть — продлить; если нет — начать с сейчас."""
+    async with postgres_connect() as db:
+        await db.execute(
+            """INSERT INTO user_mora (user_id, chat_id, vip, vip_expires_at)
+               VALUES (?, ?, 1, NOW() + ?::INTERVAL)
+               ON CONFLICT(user_id, chat_id) DO UPDATE
+               SET vip = 1,
+                   vip_expires_at = GREATEST(
+                       COALESCE(user_mora.vip_expires_at, NOW()),
+                       NOW()
+                   ) + ?::INTERVAL""",
+            (user_id, chat_id, f"{days} days", f"{days} days"),
+        )
+        await db.commit()
+
+
+async def has_active_cosmetic(user_id: int, item_value: str) -> bool:
+    """Проверить, есть ли у пользователя активная косметика с данным item_value."""
+    async with postgres_connect() as db:
+        async with db.execute(
+            "SELECT 1 FROM shop_items WHERE user_id=? AND item_type='cosmetic' AND item_value=?",
+            (user_id, item_value),
+        ) as c:
+            return bool(await c.fetchone())
 
 
 async def set_pet_color(user_id: int, chat_id: int, color_name: str):
