@@ -1263,7 +1263,7 @@ async def cmd_user_banlist(message: Message, cmd_args: str):
     for r in rows:
         name = _html.escape(r.get("full_name") or "")
         uname = f" @{_html.escape(r['username'])}" if r.get("username") else ""
-        added = (r.get("added_at") or "")[:10]
+        added = str(r.get("added_at") or "")[:10]
         display = f"{name}{uname}".strip() or "—"
         lines.append(f"  • <code>{r['user_id']}</code> {display} — {added}")
 

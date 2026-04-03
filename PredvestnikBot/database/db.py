@@ -1395,6 +1395,7 @@ async def init_db():
         ("pets",                "last_walked"),
         ("pets",                "walk_end_at"),
         # Round 2 — global audit: every table where datetime is passed as query param
+        ("marriages_global",    "married_at"),
         ("rest_users",          "added_at"),
         ("user_achievements",   "earned_at"),
         ("rep_log",             "given_at"),

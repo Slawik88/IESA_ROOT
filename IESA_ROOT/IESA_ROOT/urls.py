@@ -52,6 +52,7 @@ from .miniapp_views import (
     miniapp_members,
     miniapp_warnlist,
     miniapp_admin_chat_summary,
+    miniapp_admin_roster,
     miniapp_transfer,
     miniapp_loans,
     miniapp_loans_create,
@@ -188,6 +189,7 @@ urlpatterns = [
     path('api/warnlist', miniapp_warnlist, name='miniapp_warnlist'),
     path('api/chat_banlist', miniapp_chat_banlist, name='miniapp_chat_banlist'),
     path('api/admin/chat_summary', miniapp_admin_chat_summary, name='miniapp_admin_chat_summary'),
+    path('api/admin/roster', miniapp_admin_roster, name='miniapp_admin_roster'),
     # ─── Transfers / Переводы ─────────────────────────────────────────────────
     path('api/transfer', miniapp_transfer, name='miniapp_transfer'),
     # ─── Loans / Долги ────────────────────────────────────────────────────────

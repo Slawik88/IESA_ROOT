@@ -3976,6 +3976,183 @@ def miniapp_admin_chat_summary(request):
         logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
 
 
+# ─── Admin roster (combined moderation overview) ──────────────────────────────
+@csrf_exempt
+def miniapp_admin_roster(request):
+    """GET /api/admin/roster?chat_id=X — full moderation roster: stats, warns, userbans, bans, voluntary leavers."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "GET":
+        return JsonResponse({"error": "GET required"}, status=405, headers=headers)
+
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+
+    chat_id_str = request.GET.get("chat_id", "")
+    if not chat_id_str.lstrip("-").isdigit():
+        return JsonResponse({"error": "chat_id required"}, status=400, headers=headers)
+    chat_id = int(chat_id_str)
+
+    _RANK_LEVELS = {
+        "user": 0, "moderator": 1, "admin_junior": 2, "admin_senior": 3,
+        "co_owner": 4, "owner": 5, "developer": 6, "helper": 1,
+    }
+
+    try:
+        conn, db_type = _get_bot_db_connection()
+    except Exception as exc:
+        return JsonResponse({"error": f"DB: {exc}"}, status=503, headers=headers)
+
+    ph = "%s" if db_type == "pg" else "?"
+
+    try:
+        cur = conn.cursor()
+
+        # ── Auth: moderator+ or developer ─────────────────────────────────────
+        if uid != _DEVELOPER_ID:
+            cur.execute(
+                f"SELECT rank FROM user_stats WHERE user_id={ph} AND chat_id={ph}",
+                (uid, chat_id),
+            )
+            row = cur.fetchone()
+            caller_rank = row[0] if row else "user"
+            if _RANK_LEVELS.get(caller_rank, 0) < _RANK_LEVELS["moderator"]:
+                conn.close()
+                return JsonResponse({"error": "forbidden"}, status=403, headers=headers)
+
+        # ── 1. General stats ──────────────────────────────────────────────────
+        cur.execute(f"SELECT COUNT(*) FROM user_stats WHERE chat_id={ph}", (chat_id,))
+        total_members = (cur.fetchone() or [0])[0]
+
+        if db_type == "pg":
+            cur.execute(
+                "SELECT COUNT(*) FROM user_stats WHERE chat_id=%s "
+                "AND last_active >= NOW() - INTERVAL '1 day'", (chat_id,)
+            )
+        else:
+            cur.execute(
+                "SELECT COUNT(*) FROM user_stats WHERE chat_id=? "
+                "AND last_active >= datetime('now', '-1 day')", (chat_id,)
+            )
+        active_today = (cur.fetchone() or [0])[0]
+
+        cur.execute(
+            f"SELECT COUNT(*), COALESCE(SUM(warns), 0) FROM user_stats "
+            f"WHERE chat_id={ph} AND warns > 0", (chat_id,)
+        )
+        row = cur.fetchone() or (0, 0)
+        warned_count, total_warns = row[0], int(row[1])
+
+        try:
+            if db_type == "pg":
+                cur.execute(
+                    "SELECT COUNT(*) FROM user_stats WHERE chat_id=%s "
+                    "AND restrict_until IS NOT NULL AND restrict_until > NOW()", (chat_id,)
+                )
+            else:
+                cur.execute(
+                    "SELECT COUNT(*) FROM user_stats WHERE chat_id=? "
+                    "AND restrict_until IS NOT NULL", (chat_id,)
+                )
+            muted_count = (cur.fetchone() or [0])[0]
+        except Exception:
+            try: conn.rollback()
+            except Exception: pass
+            muted_count = 0
+
+        cur.execute(
+            f"SELECT rank, COUNT(*) FROM user_stats WHERE chat_id={ph} "
+            f"GROUP BY rank ORDER BY COUNT(*) DESC", (chat_id,)
+        )
+        rank_breakdown = [{"rank": r[0], "count": r[1]} for r in cur.fetchall()]
+
+        # ── 2. Users with warns ───────────────────────────────────────────────
+        cur.execute(
+            f"SELECT s.user_id, COALESCE(u.full_name, CAST(s.user_id AS TEXT)) AS name, "
+            f"u.username, s.warns "
+            f"FROM user_stats s LEFT JOIN users u ON u.user_id=s.user_id "
+            f"WHERE s.chat_id={ph} AND s.warns > 0 ORDER BY s.warns DESC LIMIT 100",
+            (chat_id,),
+        )
+        warned = [{"user_id": r[0], "name": r[1], "username": r[2], "warns": r[3]}
+                  for r in cur.fetchall()]
+
+        # ── 3. Bot-level userbans (user_banlist table) ────────────────────────
+        try:
+            cur.execute(
+                f"SELECT ub.user_id, COALESCE(u.full_name, CAST(ub.user_id AS TEXT)) AS name, "
+                f"u.username, ub.reason, ub.added_at "
+                f"FROM user_banlist ub LEFT JOIN users u ON u.user_id=ub.user_id "
+                f"WHERE ub.chat_id={ph} ORDER BY ub.added_at DESC LIMIT 100",
+                (chat_id,),
+            )
+            userbans = [{"user_id": r[0], "name": r[1], "username": r[2],
+                         "reason": r[3] or "", "added_at": str(r[4] or "")[:10]}
+                        for r in cur.fetchall()]
+        except Exception:
+            try: conn.rollback()
+            except Exception: pass
+            userbans = []
+
+        # ── 4. Telegram-banned / kicked (user_stats restrict_type='ban') ──────
+        try:
+            cur.execute(
+                f"SELECT s.user_id, COALESCE(u.full_name, CAST(s.user_id AS TEXT)) AS name, "
+                f"u.username, s.restrict_until "
+                f"FROM user_stats s LEFT JOIN users u ON u.user_id=s.user_id "
+                f"WHERE s.chat_id={ph} AND s.restrict_type = 'ban' "
+                f"ORDER BY s.restrict_until DESC NULLS LAST LIMIT 100",
+                (chat_id,),
+            )
+            tg_banned = [{"user_id": r[0], "name": r[1], "username": r[2],
+                          "until": str(r[3] or "")[:19] if r[3] else None}
+                         for r in cur.fetchall()]
+        except Exception:
+            try: conn.rollback()
+            except Exception: pass
+            tg_banned = []
+
+        # ── 5. Voluntary leavers (leave_log) ─────────────────────────────────
+        try:
+            cur.execute(
+                f"SELECT user_id, COALESCE(full_name, CAST(user_id AS TEXT)) AS name, "
+                f"username, left_at "
+                f"FROM leave_log WHERE chat_id={ph} "
+                f"ORDER BY left_at DESC LIMIT 100",
+                (chat_id,),
+            )
+            left_chat = [{"user_id": r[0], "name": r[1], "username": r[2],
+                          "left_at": str(r[3] or "")[:10]}
+                         for r in cur.fetchall()]
+        except Exception:
+            try: conn.rollback()
+            except Exception: pass
+            left_chat = []
+
+        conn.close()
+        return JsonResponse({
+            "stats": {
+                "total_members": total_members,
+                "active_today": active_today,
+                "warned_count": warned_count,
+                "total_warns": total_warns,
+                "muted_count": muted_count,
+                "rank_breakdown": rank_breakdown,
+            },
+            "warned": warned,
+            "userbans": userbans,
+            "tg_banned": tg_banned,
+            "left_chat": left_chat,
+        }, json_dumps_params={"ensure_ascii": False}, headers=headers)
+    except Exception:
+        try: conn.close()
+        except Exception: pass
+        logger.exception("miniapp_admin_roster error")
+        return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
+
+
 # SPY / ШПИОНАЖ
 # =============================================================================
 
