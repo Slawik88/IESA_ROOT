@@ -53,6 +53,7 @@ _RARITY_EMOJI = {
     "common":    "🟢",
     "rare":      "🟣",
     "legendary": "🟡",
+    "coupon":    "🎫",
 }
 
 _RARITY_LABEL = {
@@ -60,6 +61,7 @@ _RARITY_LABEL = {
     "common":    "Обычный",
     "rare":      "Редкий",
     "legendary": "Легендарный",
+    "coupon":    "Купоны",
 }
 
 
@@ -260,7 +262,7 @@ async def _inv_items(uid: int, chat_id: int) -> str:
         by_rarity.setdefault(r, []).append(item)
 
     lines = ["📦 <b>Предметы</b>\n"]
-    order = ["legendary", "rare", "common", "junk"]
+    order = ["legendary", "rare", "common", "coupon", "junk"]
     for rarity in order:
         group = by_rarity.get(rarity)
         if not group:

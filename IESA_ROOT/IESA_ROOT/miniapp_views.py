@@ -5290,6 +5290,20 @@ def miniapp_crystals_spend(request):
         except Exception:
             pass
 
+    # Block cosmetic/frame items in isolated test chats
+    _COSMETIC_CRYSTAL_ITEMS = {
+        "crystal_aura", "dark_matter_frame", "herald_frame", "rainbow_title",
+        "crystal_pet_skin", "stealth_mode",
+    }
+    if item_key in _COSMETIC_CRYSTAL_ITEMS and chat_id:
+        from database.db import is_isolated_chat
+        if is_isolated_chat(chat_id):
+            return JsonResponse(
+                {"error": "В тестовых чатах нельзя покупать косметику и рамки"},
+                status=403,
+                headers=headers,
+            )
+
     try:
         import asyncpg
         from asgiref.sync import async_to_sync as _a2s
@@ -5332,6 +5346,51 @@ def miniapp_crystals_spend(request):
         elif item_key == "enhancement_stones_5":
             from database.db import add_enhancement_stones
             _a2s(add_enhancement_stones)(uid, 5)
+
+        # ── Crystal-exclusive cosmetics / frames ──────────────────────────────
+        elif item_key in ("crystal_aura", "rainbow_title", "stealth_mode", "crystal_pet_skin"):
+            from database.db import add_shop_item, has_active_cosmetic
+            if _a2s(has_active_cosmetic)(uid, item_key):
+                # Already owned — refund crystals and return error
+                from database.db import add_crystals
+                _a2s(add_crystals)(uid, price)
+                return JsonResponse(
+                    {"error": "Этот предмет у вас уже есть"},
+                    status=400,
+                    headers=headers,
+                )
+            _a2s(add_shop_item)(uid, "cosmetic", item_key)
+
+        elif item_key in ("dark_matter_frame", "herald_frame"):
+            from database.db import add_shop_item, get_user_owned_frames
+            owned = _a2s(get_user_owned_frames)(uid, 0)
+            if item_key in owned:
+                from database.db import add_crystals
+                _a2s(add_crystals)(uid, price)
+                return JsonResponse(
+                    {"error": "Эта рамка у вас уже есть"},
+                    status=400,
+                    headers=headers,
+                )
+            _a2s(add_shop_item)(uid, "frame", item_key)
+
+        elif item_key == "double_pity":
+            import time
+            expires_ts = int(time.time()) + 7 * 86400
+            from database.db import add_shop_item
+            _a2s(add_shop_item)(uid, "cosmetic", f"double_pity_{expires_ts}")
+
+        elif item_key == "vip_week":
+            if not chat_id:
+                from database.db import add_crystals
+                _a2s(add_crystals)(uid, price)
+                return JsonResponse(
+                    {"error": "chat_id required для VIP"},
+                    status=400,
+                    headers=headers,
+                )
+            from database.db import add_vip_days
+            _a2s(add_vip_days)(uid, chat_id, 7)
 
         new_balance = _a2s(get_crystals)(uid)
         
