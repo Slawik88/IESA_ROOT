@@ -1796,34 +1796,64 @@ select:focus{border-color:var(--accent)}
     <div id="devBanList" style="max-height:180px;overflow-y:auto"></div>
   </div>
 
-  <!-- ⚠️ Варн-лист (видим всем админам) -->
-  <div class="card" id="warnlistCard" style="display:none">
-    <div class="card-title">⚠️ Варн-лист</div>
-    <button class="btn btn-primary" onclick="loadWarnlist()" style="margin-bottom:6px">📋 Загрузить</button>
-    <div id="warnlistContent" style="max-height:260px;overflow-y:auto"></div>
-  </div>
-
-  <!-- ⛔ Список забаненных в чате (admin_junior+) -->
-  <div class="card" id="chatBanlistCard" style="display:none">
-    <div class="card-title">⛔ Забаненные в чате</div>
-    <button class="btn btn-primary" onclick="loadChatBanlist()" style="margin-bottom:6px">📋 Загрузить</button>
-    <div id="chatBanlistContent" style="max-height:260px;overflow-y:auto"></div>
-  </div>
-
-  <!-- 🛡 Обзор модерации (admin_junior+) -->
-  <div class="card" id="modSummaryCard" style="display:none">
-    <div class="card-title">🛡 Обзор чата</div>
-    <div id="modSummaryGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
-      <div class="stat-row"><span class="stat-label">👥 Участников</span><span class="stat-value" id="modTotalMembers">—</span></div>
-      <div class="stat-row"><span class="stat-label">💬 Активных сегодня</span><span class="stat-value" id="modActiveToday">—</span></div>
-      <div class="stat-row"><span class="stat-label">⚠️ С варнами</span><span class="stat-value" id="modWarnedCount">—</span></div>
-      <div class="stat-row"><span class="stat-label">🔇 Замьючено</span><span class="stat-value" id="modMutedCount">—</span></div>
+  <!-- ⚠️ Варн-лист / ⛔ Баны / 🚫 Юзбаны / 👋 Ушли (единый ростер модерации) -->
+  <div class="card" id="rosterCard">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div class="card-title" style="margin:0">📋 Ростер чата</div>
+      <button class="btn btn-primary" onclick="loadRoster()" style="font-size:11px;padding:4px 10px">🔄 Обновить</button>
     </div>
-    <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:4px">ТОП НАРУШИТЕЛЕЙ</div>
-    <div id="modTopWarned" style="max-height:160px;overflow-y:auto;margin-bottom:8px"></div>
-    <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:4px">СОСТАВ ЧАТА</div>
-    <div id="modRankBreakdown" style="font-size:12px"></div>
-    <button class="btn btn-primary" onclick="loadModSummary()" style="margin-top:8px">🔄 Обновить</button>
+    <!-- inner tab bar -->
+    <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:10px" id="rosterTabBar">
+      <button class="subtab-btn active" id="rosterTab-stats"    onclick="switchRosterTab('stats')"   style="font-size:11px;padding:4px 8px">📊 Обзор</button>
+      <button class="subtab-btn"        id="rosterTab-warns"    onclick="switchRosterTab('warns')"   style="font-size:11px;padding:4px 8px">⚠️ Варны</button>
+      <button class="subtab-btn"        id="rosterTab-userbans" onclick="switchRosterTab('userbans')"style="font-size:11px;padding:4px 8px">🚫 Юзбаны</button>
+      <button class="subtab-btn"        id="rosterTab-banned"   onclick="switchRosterTab('banned')"  style="font-size:11px;padding:4px 8px">⛔ Баны/Кики</button>
+      <button class="subtab-btn"        id="rosterTab-left"     onclick="switchRosterTab('left')"    style="font-size:11px;padding:4px 8px">👋 Ушли сами</button>
+    </div>
+    <div id="rosterLoading" style="color:var(--text2);font-size:12px;padding:6px;display:none">Загрузка…</div>
+
+    <!-- 📊 Обзор -->
+    <div id="rosterPanel-stats">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px" id="rosterStatsGrid">
+        <div class="stat-row"><span class="stat-label">👥 Участников</span><span class="stat-value" id="rTotalMembers">—</span></div>
+        <div class="stat-row"><span class="stat-label">💬 Активных сегодня</span><span class="stat-value" id="rActiveToday">—</span></div>
+        <div class="stat-row"><span class="stat-label">⚠️ С варнами</span><span class="stat-value" id="rWarnedCount">—</span></div>
+        <div class="stat-row"><span class="stat-label">🔇 Замьючено</span><span class="stat-value" id="rMutedCount">—</span></div>
+      </div>
+      <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:4px">СОСТАВ ПО РАНГАМ</div>
+      <div id="rRankBreakdown" style="font-size:12px;color:var(--text2)">—</div>
+    </div>
+
+    <!-- ⚠️ Варны -->
+    <div id="rosterPanel-warns" style="display:none">
+      <div id="rWarnedList" style="max-height:280px;overflow-y:auto">
+        <div style="color:var(--text2);font-size:12px;padding:6px">Нажми «Обновить»</div>
+      </div>
+    </div>
+
+    <!-- 🚫 Юзбаны (user_banlist) -->
+    <div id="rosterPanel-userbans" style="display:none">
+      <div style="font-size:11px;color:var(--text2);margin-bottom:6px">Пользователи в ЧС бота для этого чата (бот не отвечает им)</div>
+      <div id="rUserbanList" style="max-height:280px;overflow-y:auto">
+        <div style="color:var(--text2);font-size:12px;padding:6px">Нажми «Обновить»</div>
+      </div>
+    </div>
+
+    <!-- ⛔ Баны/Кики (Telegram restrict_type='ban') -->
+    <div id="rosterPanel-banned" style="display:none">
+      <div style="font-size:11px;color:var(--text2);margin-bottom:6px">Участники, выгнанные из чата через бота</div>
+      <div id="rBannedList" style="max-height:280px;overflow-y:auto">
+        <div style="color:var(--text2);font-size:12px;padding:6px">Нажми «Обновить»</div>
+      </div>
+    </div>
+
+    <!-- 👋 Ушли сами (leave_log) -->
+    <div id="rosterPanel-left" style="display:none">
+      <div style="font-size:11px;color:var(--text2);margin-bottom:6px">Участники, покинувшие чат добровольно</div>
+      <div id="rLeftList" style="max-height:280px;overflow-y:auto">
+        <div style="color:var(--text2);font-size:12px;padding:6px">Нажми «Обновить»</div>
+      </div>
+    </div>
   </div>
 
   </div><!-- /dev-subtab-moderation -->
@@ -2323,7 +2353,7 @@ function switchTab(name){
     if(name==='transfers') loadTransfersTab();
     if(name==='spy') renderSpyTab();
     if(name==='glory') loadLB('xp');
-    if(name==='dev'){ loadDevStats(); loadDevItems(); loadDevTreasury(); loadModSummary(); loadCleanupConfig(); }
+    if(name==='dev'){ loadDevStats(); loadDevItems(); loadDevTreasury(); loadRoster(); loadCleanupConfig(); }
     if(name==='auction') loadAuctionTab();
     if(name==='achievements') loadAchievementsTab();
     if(name==='season') loadSeasonTab();
@@ -2403,9 +2433,7 @@ async function loadProfile(){
       document.getElementById('catBtnAdmin').style.display = '';
       document.querySelectorAll('#tab-dev .card').forEach(c=>{ c.style.display='none'; });
       document.getElementById('devCrystalsCard').style.display='';
-      document.getElementById('warnlistCard').style.display='';
-      document.getElementById('chatBanlistCard').style.display='';
-      document.getElementById('modSummaryCard').style.display='';
+      document.getElementById('rosterCard').style.display='';
       document.getElementById('devEventCard').style.display='';
       document.getElementById('devTreasuryCard').style.display='';       // treasury balance + log
       document.getElementById('devTreasuryPayoutCard').style.display=''; // treasury payouts
@@ -2419,21 +2447,17 @@ async function loadProfile(){
       if(_currentCat === 'admin') devBtn.style.display = '';
       document.getElementById('catBtnAdmin').style.display = '';
       document.querySelectorAll('#tab-dev .card').forEach(c=>{ c.style.display='none'; });
-      document.getElementById('warnlistCard').style.display='';
-      document.getElementById('chatBanlistCard').style.display='';
-      document.getElementById('modSummaryCard').style.display='';
+      document.getElementById('rosterCard').style.display='';
       _devBtns(false); document.getElementById('devSubtabModBtn').style.display='';
       switchDevSubtab('moderation');
     } else if(['admin_junior','moderator'].includes(p.rank)) {
-      // Junior admins / moderators: warnlist + banlist + mod overview only (no treasury)
+      // Junior admins / moderators: roster card only (no treasury)
       const devBtn = document.getElementById('devTabBtn');
       devBtn.setAttribute('data-unlocked','1');
       if(_currentCat === 'admin') devBtn.style.display = '';
       document.getElementById('catBtnAdmin').style.display = '';
       document.querySelectorAll('#tab-dev .card').forEach(c=>{ c.style.display='none'; });
-      document.getElementById('warnlistCard').style.display='';
-      document.getElementById('chatBanlistCard').style.display='';
-      document.getElementById('modSummaryCard').style.display='';
+      document.getElementById('rosterCard').style.display='';
       _devBtns(false); document.getElementById('devSubtabModBtn').style.display='';
       switchDevSubtab('moderation');
     }
@@ -2631,6 +2655,10 @@ async function loadUnion(){
   document.getElementById('unionLoading').style.display='none';
   document.getElementById('unionContent').style.display='block';
   const p = profileData;
+  if(!p){
+    toast('❌ Не удалось загрузить данные профиля','error');
+    return;
+  }
   if(p.has_partner){
     document.getElementById('familyWalletCard').style.display='block';
     document.getElementById('famTotal').textContent=(p.family_balance||0)+' 🪙';
@@ -4685,6 +4713,93 @@ async function showPubProfile(userId){
   } catch(e){
     document.getElementById('pubProfileLoading').style.display='block';
     document.getElementById('pubProfileLoading').textContent='⚠️ '+e.message;
+  }
+}
+
+// ── Admin roster (new unified moderation tab) ─────────────────────────────────
+
+let _rosterData = null;
+let _rosterActiveTab = 'stats';
+
+const _RANK_LABELS_ROSTER = {
+  developer:'💻 Разработчик', owner:'👑 Владелец', co_owner:'⭐ Со-владелец',
+  admin_senior:'🔱 Ст.Админ', admin_junior:'⚡ Мл.Админ', moderator:'🛡 Модератор',
+  user:'👤 Участник', helper:'🔧 Помощник',
+};
+
+function switchRosterTab(name){
+  _rosterActiveTab = name;
+  ['stats','warns','userbans','banned','left'].forEach(t=>{
+    document.getElementById('rosterPanel-'+t).style.display = t===name ? '' : 'none';
+    const btn = document.getElementById('rosterTab-'+t);
+    if(btn) btn.classList.toggle('active', t===name);
+  });
+  if(_rosterData) _renderRoster(_rosterData);
+}
+
+function _renderRoster(d){
+  const s = d.stats || {};
+  // Stats panel
+  document.getElementById('rTotalMembers').textContent = s.total_members ?? '—';
+  document.getElementById('rActiveToday').textContent  = s.active_today  ?? '—';
+  document.getElementById('rWarnedCount').textContent  = (s.warned_count ?? 0) + ' (∑' + (s.total_warns ?? 0) + ')';
+  document.getElementById('rMutedCount').textContent   = s.muted_count   ?? '—';
+  const rb = s.rank_breakdown || [];
+  document.getElementById('rRankBreakdown').innerHTML = rb.length
+    ? rb.map(r=>`<div style="display:flex;justify-content:space-between;padding:2px 0"><span>${esc(_RANK_LABELS_ROSTER[r.rank]||r.rank)}</span><span style="font-weight:700">${r.count}</span></div>`).join('')
+    : '<span style="color:var(--text2)">Нет данных</span>';
+
+  // Warns panel
+  const warned = d.warned || [];
+  document.getElementById('rWarnedList').innerHTML = warned.length
+    ? warned.map(w=>`<div class="dev-ban-row" onclick="showPubProfile(${w.user_id})" style="cursor:pointer">
+        <span><b>${esc(w.name||'?')}</b><span style="color:var(--text2);font-size:11px"> @${esc(w.username||'')} #${w.user_id}</span></span>
+        <span style="color:var(--red);font-weight:700;margin-left:auto;white-space:nowrap">⚠️ ${w.warns}/4</span>
+      </div>`).join('')
+    : '<div style="color:var(--text2);font-size:12px;padding:6px">✅ Нарушителей нет</div>';
+
+  // Userbans panel
+  const ub = d.userbans || [];
+  document.getElementById('rUserbanList').innerHTML = ub.length
+    ? ub.map(b=>`<div class="dev-ban-row" onclick="showPubProfile(${b.user_id})" style="cursor:pointer">
+        <span><b>${esc(b.name||'?')}</b><span style="color:var(--text2);font-size:11px"> @${esc(b.username||'')} #${b.user_id}</span></span>
+        <div style="margin-left:auto;text-align:right;font-size:11px">
+          <div style="color:#ef4444">🚫 ${esc(b.reason||'без причины')}</div>
+          <div style="color:var(--text2)">${esc(b.added_at||'')}</div>
+        </div>
+      </div>`).join('')
+    : '<div style="color:var(--text2);font-size:12px;padding:6px">✅ Юзбанов нет</div>';
+
+  // TG-banned / kicked panel
+  const tb = d.tg_banned || [];
+  document.getElementById('rBannedList').innerHTML = tb.length
+    ? tb.map(b=>`<div class="dev-ban-row" onclick="showPubProfile(${b.user_id})" style="cursor:pointer">
+        <span><b>${esc(b.name||'?')}</b><span style="color:var(--text2);font-size:11px"> @${esc(b.username||'')} #${b.user_id}</span></span>
+        <span style="color:#ef4444;font-weight:700;margin-left:auto;font-size:11px">⛔ ${b.until?'до '+b.until.slice(0,10):'навсегда'}</span>
+      </div>`).join('')
+    : '<div style="color:var(--text2);font-size:12px;padding:6px">✅ Банов/киков нет</div>';
+
+  // Left voluntarily panel
+  const lc = d.left_chat || [];
+  document.getElementById('rLeftList').innerHTML = lc.length
+    ? lc.map(l=>`<div class="dev-ban-row" onclick="showPubProfile(${l.user_id})" style="cursor:pointer">
+        <span><b>${esc(l.name||'?')}</b><span style="color:var(--text2);font-size:11px"> @${esc(l.username||'')} #${l.user_id}</span></span>
+        <span style="color:var(--text2);margin-left:auto;font-size:11px">👋 ${esc(l.left_at||'')}</span>
+      </div>`).join('')
+    : '<div style="color:var(--text2);font-size:12px;padding:6px">Нет данных о выходах</div>';
+}
+
+async function loadRoster(){
+  if(!chatId){toast('chat_id не задан','error');return;}
+  document.getElementById('rosterLoading').style.display='block';
+  try{
+    const d = await api('/api/admin/roster?chat_id='+chatId);
+    _rosterData = d;
+    _renderRoster(d);
+  } catch(e){
+    toast('❌ '+e.message,'error');
+  } finally {
+    document.getElementById('rosterLoading').style.display='none';
   }
 }
 
