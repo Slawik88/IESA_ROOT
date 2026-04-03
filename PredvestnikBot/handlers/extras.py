@@ -10,7 +10,7 @@ import html as _html
 
 from database.db import (
     add_filter, add_user_to_banlist, assign_community_role,
-    clear_pending_role, delete_filter, delete_marriage, get_channel_type,
+    clear_leave_log, clear_pending_role, delete_filter, delete_marriage, get_channel_type,
     get_chat_members, get_chat_settings, get_filters, get_marriage,
     get_note, get_pending_role, get_senior_users_in_chat,
     get_user_stats, is_user_in_banlist,
@@ -213,7 +213,17 @@ async def track_chat_member_state(event: ChatMemberUpdated):
         await _handle_banned_join(event.bot, event.chat.id, member)
         return
 
+    # Проверить внутренний бан (user_stats.is_banned)
+    stats = await get_user_stats(member.id, event.chat.id)
+    if stats and stats.get("is_banned"):
+        await _handle_banned_join(event.bot, event.chat.id, member)
+        return
+
+    # Зарегистрировать / обновить участника в БД
     await _register_member_in_chat(event.chat.id, member)
+
+    # Очистить запись об уходе — пользователь вернулся
+    await clear_leave_log(event.chat.id, member.id)
 
     # Активировать ожидающую роль, если юзер вступил в основной чат
     main_chat_id = await get_channel_type("main")

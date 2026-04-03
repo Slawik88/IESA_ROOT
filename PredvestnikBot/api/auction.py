@@ -762,7 +762,7 @@ async def get_user_auctions(user_id: int, chat_id: int) -> dict:
     """Мои лоты и мои ставки."""
     async with postgres_connect() as db:
         my_lots = await db.fetch(
-            "SELECT * FROM auctions WHERE seller_id=? AND chat_id=? ORDER BY created_at DESC LIMIT 10",
+            "SELECT * FROM auctions WHERE seller_id=? AND chat_id=? AND status='active' ORDER BY created_at DESC LIMIT 10",
             (user_id, chat_id)
         )
         my_bids = await db.fetch(

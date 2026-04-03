@@ -29,8 +29,8 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 
 /* ==== CATEGORY BAR ==== */
 .cat-bar{display:flex;background:var(--bg2);border-bottom:1.5px solid var(--border);position:sticky;top:0;z-index:102;padding:0 4px}
-.cat-btn{flex:1;padding:8px 4px 6px;border:none;background:none;cursor:pointer;font-size:19px;line-height:1.1;color:var(--text2);border-bottom:2.5px solid transparent;transition:all .2s;min-height:48px;display:flex;flex-direction:column;align-items:center;gap:2px;position:relative}
-.cat-btn span{display:block;font-size:10px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;transition:color .2s}
+.cat-btn{flex:1;padding:7px 2px 5px;border:none;background:none;cursor:pointer;font-size:17px;line-height:1.1;color:var(--text2);border-bottom:2.5px solid transparent;transition:all .2s;min-height:44px;display:flex;flex-direction:column;align-items:center;gap:1px;position:relative}
+.cat-btn span{display:block;font-size:9px;font-weight:700;letter-spacing:.3px;text-transform:uppercase;transition:color .2s}
 .cat-btn.active{color:var(--accent);border-bottom-color:var(--accent)}
 .cat-btn.active span{color:var(--accent)}
 .cat-btn:active{transform:scale(.9)}
@@ -587,7 +587,9 @@ select:focus{border-color:var(--accent)}
 <div class="cat-bar" id="catBar">
   <button class="cat-btn active" data-cat="main" onclick="switchCategory('main')">🏠<span>Главная</span></button>
   <button class="cat-btn" data-cat="hero" onclick="switchCategory('hero')">⚔️<span>Герой</span></button>
-  <button class="cat-btn" data-cat="finance" onclick="switchCategory('finance')">💰<span>Финансы</span></button>
+  <button class="cat-btn" data-cat="social" onclick="switchCategory('social')">❤️<span>Союз</span></button>
+  <button class="cat-btn" data-cat="adventure" onclick="switchCategory('adventure')">🏕<span>Поход</span></button>
+  <button class="cat-btn" data-cat="market" onclick="switchCategory('market')">🏪<span>Рынок</span></button>
   <button class="cat-btn cat-btn-crystal" id="catBtnCrystal" onclick="goCrystals()">💎<span>Кристаллы</span></button>
   <button class="cat-btn" data-cat="admin" id="catBtnAdmin" onclick="switchCategory('admin')" style="display:none">🛡<span>Управление</span></button>
 </div>
@@ -2226,10 +2228,12 @@ function syncCrystals(n){
 
 // ── Category switching ────────────────────────────────────────────────────────
 const TAB_CATS = {
-  main:    ['profile','calendar','union','glory','guide','achievements'],
-  hero:    ['inventory','shop','season','couple_boss','quest','expedition','spy','auction'],
-  finance: ['bank','bonds','transfers','casino'],
-  admin:   ['dev'],
+  main:      ['profile','calendar','achievements','glory','guide'],
+  hero:      ['inventory','shop','season'],
+  social:    ['union','couple_boss'],
+  adventure: ['quest','expedition','spy'],
+  market:    ['auction','bank','bonds','transfers','casino'],
+  admin:     ['dev'],
 };
 let _currentCat = 'main';
 
@@ -6781,7 +6785,7 @@ function renderAuctionLot(l) {
     '</div>' +
     (!isMine
       ? '<button class="btn btn-sm" style="background:var(--accent);color:#fff;font-size:11px;white-space:nowrap" onclick="openBidModal(' + l.id + ',' + l.current_price + ',' + (l.min_bid||0) + ')">⬆️ Ставка</button>'
-      : '<span style="font-size:10px;color:var(--text2);white-space:nowrap">Мой лот</span>') +
+      : '<button class="btn btn-sm" style="background:#f87171;color:#fff;font-size:11px;white-space:nowrap" onclick="cancelLot(' + l.id + ')">✕ Забрать</button>') +
     '</div>';
   if (hasBuyout && !isMine) {
     html += '<button class="btn" style="width:100%;margin-top:6px;background:#10b981;color:#fff;font-size:12px" onclick="doBuyout(' + l.id + ',' + l.buyout_price + ')">💰 Выкупить за ' + l.buyout_price + '🪙</button>';

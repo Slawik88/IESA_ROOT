@@ -4543,6 +4543,16 @@ async def log_voluntary_leave(chat_id: int, user_id: int, full_name: str, userna
         await db.commit()
 
 
+async def clear_leave_log(chat_id: int, user_id: int) -> None:
+    """Remove leave_log entries for a user who has rejoined the chat."""
+    async with postgres_connect() as db:
+        await db.execute(
+            "DELETE FROM leave_log WHERE chat_id = ? AND user_id = ?",
+            (chat_id, user_id),
+        )
+        await db.commit()
+
+
 async def get_voluntary_leaves(chat_id: int, limit: int = 20) -> list[dict]:
     """Return recent voluntary leaves for a chat, newest first."""
     async with postgres_connect() as db:
