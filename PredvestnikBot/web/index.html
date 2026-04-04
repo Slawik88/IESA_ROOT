@@ -1750,6 +1750,63 @@ select:focus{border-color:var(--accent)}
     <div id="devCrystalMsg" style="font-size:12px;min-height:18px;margin-top:6px"></div>
   </div>
 
+  <!-- 📥 Import users from chat history JSON -->
+  <div class="card" id="devImportCard" style="display:none">
+    <div class="card-title">📥 Импорт истории чата</div>
+
+    <!-- Chat selector -->
+    <label style="font-size:12px;color:var(--text2);margin-bottom:4px;display:block">Чат для импорта</label>
+    <div style="display:flex;gap:6px;margin-bottom:8px">
+      <select id="devImportChatSel" style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text)">
+        <option value="">— выберите чат —</option>
+      </select>
+      <button class="btn" style="padding:8px 10px;flex:0 0 auto" title="Загрузить список чатов"
+              onclick="loadDevChatsDropdown()">🔄</button>
+    </div>
+
+    <!-- Min messages filter -->
+    <div style="display:flex;gap:6px;align-items:center;margin-bottom:8px">
+      <label style="font-size:12px;color:var(--text2);white-space:nowrap">Мин. сообщений:</label>
+      <input type="number" id="devImportMinMsg" value="1" min="1" max="9999"
+             style="width:80px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:6px;color:var(--text)"/>
+    </div>
+
+    <!-- File picker -->
+    <div style="display:flex;gap:6px;align-items:center;margin-bottom:8px">
+      <label class="btn" style="flex:1;text-align:center;padding:8px;cursor:pointer;margin:0" for="devImportFileInput">
+        📂 Выбрать файл JSON
+      </label>
+      <input type="file" id="devImportFileInput" accept=".json" style="display:none" onchange="devImportFileChanged(this)">
+    </div>
+    <div id="devImportFileName" style="font-size:11px;color:var(--text2);margin-bottom:4px;text-align:center"></div>
+    <div style="font-size:10px;color:var(--text2);text-align:center;margin-bottom:8px">
+      Поддерживается <b>result.json</b> (экспорт Telegram Desktop) и <b>import_data.json</b>
+    </div>
+
+    <!-- Preview table -->
+    <div id="devImportPreview" style="display:none">
+      <div style="font-size:12px;color:var(--text2);margin-bottom:4px" id="devImportPreviewSummary"></div>
+      <div style="max-height:200px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;margin-bottom:8px">
+        <table style="width:100%;border-collapse:collapse;font-size:11px">
+          <thead>
+            <tr style="background:var(--bg3);position:sticky;top:0">
+              <th style="padding:5px 6px;text-align:left;color:var(--text2);font-weight:600">#</th>
+              <th style="padding:5px 6px;text-align:left;color:var(--text2);font-weight:600">Имя</th>
+              <th style="padding:5px 6px;text-align:left;color:var(--text2);font-weight:600">User ID</th>
+              <th style="padding:5px 6px;text-align:right;color:var(--text2);font-weight:600">Сообщ.</th>
+            </tr>
+          </thead>
+          <tbody id="devImportPreviewTbody"></tbody>
+        </table>
+      </div>
+      <button class="btn btn-gold" onclick="devRunImport()" id="devImportBtn" style="width:100%">
+        📥 Импортировать
+      </button>
+    </div>
+
+    <div id="devImportMsg" style="font-size:12px;min-height:18px;margin-top:6px"></div>
+  </div>
+
   </div><!-- /dev-subtab-users -->
 
   <!-- 🛡 Moderation sub-tab: Chat mgmt + Logs + Blacklist + Warnlist + Mod Summary -->
@@ -2504,6 +2561,7 @@ async function loadProfile(){
       document.getElementById('devCleanupCard').style.display='';        // cleanup config
       document.getElementById('devAf2Card').style.display='';            // AF2 antiflood config
       loadAf2Config();
+      document.getElementById('devImportCard').style.display='';         // JSON import
       _devBtns(true); switchDevSubtab('users');
     } else if(['admin_senior'].includes(p.rank)) {
       // Senior admins: warnlist + banlist + mod overview only (no treasury)
@@ -4495,6 +4553,129 @@ async function devGiveCrystals(){
   }
 }
 
+// ── Chat history JSON import ──────────────────────────────────────────────────
+
+let _devImportRecords = []; // parsed records ready to send
+
+/** Parse either a raw Telegram Desktop result.json OR a pre-converted import_data.json */
+function devParseImportJson(raw) {
+  // Pre-converted format: top-level array of records
+  if (Array.isArray(raw)) {
+    return raw.filter(r => typeof r === 'object' && r !== null && (r.user_id || r.username));
+  }
+  // Telegram Desktop export: {messages: [...]}
+  if (raw && raw.messages && Array.isArray(raw.messages)) {
+    const counts = {};
+    const names  = {};
+    for (const msg of raw.messages) {
+      if (msg.type !== 'message') continue;
+      const fromId = String(msg.from_id || '').trim();
+      if (!fromId) continue;
+      // Parse "user123" → 123, skip channels/bots
+      let uid = null;
+      if (fromId.startsWith('user')) {
+        const numeric = fromId.slice(4);
+        if (/^\d+$/.test(numeric)) uid = parseInt(numeric, 10);
+      } else if (/^\d+$/.test(fromId)) {
+        uid = parseInt(fromId, 10);
+      }
+      // skip channel..., bot..., chat...
+      if (uid === null) continue;
+      counts[uid] = (counts[uid] || 0) + 1;
+      if (!names[uid] && msg.from) names[uid] = String(msg.from).trim();
+    }
+    return Object.entries(counts).map(([uid, msgs]) => ({
+      user_id: parseInt(uid, 10),
+      messages: msgs,
+      ...(names[uid] ? {full_name: names[uid]} : {}),
+    }));
+  }
+  throw new Error('Неизвестный формат файла. Ожидается result.json или import_data.json');
+}
+
+function devImportFileChanged(input) {
+  const file = input.files && input.files[0];
+  if (!file) return;
+  document.getElementById('devImportFileName').textContent = '📄 ' + file.name;
+  document.getElementById('devImportPreview').style.display = 'none';
+  document.getElementById('devImportMsg').textContent = '';
+  _devImportRecords = [];
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const raw = JSON.parse(e.target.result);
+      const minMsg = parseInt(document.getElementById('devImportMinMsg').value || '1', 10) || 1;
+      const all = devParseImportJson(raw);
+      _devImportRecords = all.filter(r => (r.messages || r.message_count || 0) >= minMsg)
+                             .sort((a,b) => (b.messages||0) - (a.messages||0));
+      devRenderImportPreview();
+    } catch(err) {
+      document.getElementById('devImportMsg').textContent = '❌ ' + err.message;
+      document.getElementById('devImportMsg').style.color = '#f87171';
+    }
+  };
+  reader.readAsText(file, 'utf-8');
+}
+
+function devRenderImportPreview() {
+  const tbody = document.getElementById('devImportPreviewTbody');
+  const summary = document.getElementById('devImportPreviewSummary');
+  const preview = document.getElementById('devImportPreview');
+  if (!_devImportRecords.length) {
+    summary.textContent = 'Нет записей для импорта (возможно, слишком высокий фильтр мин. сообщений)';
+    tbody.innerHTML = '';
+    preview.style.display = '';
+    return;
+  }
+  const totalMsgs = _devImportRecords.reduce((s,r)=>s+(r.messages||0),0);
+  summary.textContent = `Найдено: ${_devImportRecords.length} чел., ${totalMsgs.toLocaleString('ru')} сообщений`;
+  // Show up to 200 rows in preview
+  const rows = _devImportRecords.slice(0, 200).map((r, i) => {
+    const name = esc(r.full_name || r.username || ('id' + (r.user_id||'?')));
+    const uid  = r.user_id ? r.user_id : (r.username ? ('@'+r.username) : '—');
+    return `<tr style="border-top:1px solid var(--border)">
+      <td style="padding:4px 6px;color:var(--text2)">${i+1}</td>
+      <td style="padding:4px 6px">${name}</td>
+      <td style="padding:4px 6px;color:var(--text2);font-size:10px">${uid}</td>
+      <td style="padding:4px 6px;text-align:right">${(r.messages||0).toLocaleString('ru')}</td>
+    </tr>`;
+  });
+  if (_devImportRecords.length > 200) rows.push(`<tr><td colspan="4" style="padding:4px 6px;color:var(--text2);text-align:center">…и ещё ${_devImportRecords.length-200}</td></tr>`);
+  tbody.innerHTML = rows.join('');
+  preview.style.display = '';
+}
+
+async function devRunImport() {
+  const chatSel = document.getElementById('devImportChatSel');
+  const chatId  = parseInt(chatSel.value || '0', 10);
+  if (!chatId) { toast('Выбери чат', 'error'); return; }
+  if (!_devImportRecords.length) { toast('Нет записей для импорта', 'error'); return; }
+
+  const btn = document.getElementById('devImportBtn');
+  const msg = document.getElementById('devImportMsg');
+  btn.disabled = true;
+  btn.textContent = '⏳ Импорт…';
+  msg.textContent = '';
+
+  try {
+    const r = await api('/api/dev/import_users', 'POST', {
+      chat_id: chatId,
+      records: _devImportRecords,
+    });
+    msg.textContent = `✅ Напрямую: ${r.ok_direct}, отложено: ${r.ok_pending}` +
+                      (r.errors && r.errors.length ? ` ⚠️ Ошибок: ${r.errors.length}` : '');
+    msg.style.color = '#4ade80';
+    toast('Импорт завершён', 'success');
+  } catch(e) {
+    msg.textContent = '❌ ' + e.message;
+    msg.style.color = '#f87171';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '📥 Импортировать';
+  }
+}
+
 // ── Chat management ───────────────────────────────────────────────────────────
 
 async function loadDevChats(){
@@ -4566,6 +4747,12 @@ async function loadDevChatsDropdown(){
     // Populate event trigger select too
     const evSel = document.getElementById('devEventChatSel');
     if(evSel) evSel.innerHTML = devChatsCache.map(c=>`<option value="${c.chat_id}">${esc(c.title)} (${c.chat_id})</option>`).join('');
+    // Populate import chat selector
+    const importSel = document.getElementById('devImportChatSel');
+    if(importSel){
+      importSel.innerHTML = '<option value="">— выберите чат —</option>' +
+        devChatsCache.map(c=>`<option value="${c.chat_id}">${esc(c.title||String(c.chat_id))} (${c.chat_id})</option>`).join('');
+    }
     toast('✅ Загружено чатов: '+devChatsCache.length,'success');
     // Listen to selection
     sel.onchange = function(){
@@ -5737,6 +5924,14 @@ function switchDevSubtab(name) {
     const el = document.getElementById('dev-subtab-'+n);
     if(el) el.style.display = n===name ? '' : 'none';
   });
+  // Auto-populate import chat selector when switching to users tab
+  if(name === 'users') {
+    const importSel = document.getElementById('devImportChatSel');
+    if(importSel && devChatsCache && devChatsCache.length && importSel.options.length < 2){
+      importSel.innerHTML = '<option value="">— выберите чат —</option>' +
+        devChatsCache.map(c=>`<option value="${c.chat_id}">${esc(c.title||String(c.chat_id))} (${c.chat_id})</option>`).join('');
+    }
+  }
 }
 
 function applyTheme(key) {
