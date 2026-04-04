@@ -1597,17 +1597,28 @@ select:focus{border-color:var(--accent)}
     </div>
 
     <div class="card">
-      <div class="card-title">👑 Функции владельца/разработчика</div>
+      <div class="card-title">� Функции владельца</div>
       <div style="font-size:12px;line-height:1.7;color:var(--text)">
         <div style="display:grid;grid-template-columns:auto 1fr;gap:4px 8px;font-size:11px">
-          <code>бот выдать N @user</code><span>Выдать Мору</span>
+          <code>бот казна дать @user N</code><span>Выдать Мору <b>из казны</b></span>
+          <code>бот казна забрать @user N</code><span>Вернуть Мору в казну</span>
+          <code>бот казна</code><span>Баланс казны</span>
           <code>бот выдать xp N @user</code><span>Выдать XP</span>
-          <code>бот сетбаланс N @user</code><span>Установить баланс</span>
-          <code>бот датьпредмет key @user</code><span>Выдать предмет</span>
           <code>бот колл #все текст</code><span>Массовая рассылка</span>
           <code>бот совладелец @user</code><span>Назначить со-владельца</span>
         </div>
-        <p style="margin-top:8px;font-size:11px;color:var(--text2)">Полная CRM-панель разработчика — вкладка «🛠 Дев» в Mini App</p>
+        <p style="margin-top:8px;font-size:11px;color:var(--text2)">⚠️ Мора выдаётся только из казны. Пополните казну через налоги.</p>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">🛠 Функции разработчика</div>
+      <div style="font-size:12px;line-height:1.7;color:var(--text)">
+        <div style="display:grid;grid-template-columns:auto 1fr;gap:4px 8px;font-size:11px">
+          <code>бот выдать N @user</code><span>Эмиссия Моры (без казны)</span>
+          <code>бот сетбаланс N @user</code><span>Установить баланс напрямую</span>
+          <code>бот датьпредмет key @user</code><span>Выдать предмет</span>
+        </div>
+        <p style="margin-top:8px;font-size:11px;color:var(--text2)">Только разработчик. Полная CRM-панель — вкладка «🛠 Дев» в Mini App</p>
       </div>
     </div>
   </div>
