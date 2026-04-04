@@ -513,6 +513,28 @@ async def init_db():
             "DELETE FROM family_wallet_log WHERE created_at < NOW() - INTERVAL '60 days'"
         )
 
+        # Миграция: семейный кошелёк становится глобальным (chat_id=0).
+        # Суммируем все per-chat вклады в глобальную строку chat_id=0.
+        await db.execute("""
+            INSERT INTO family_wallet (chat_id, user_id, balance)
+            SELECT 0, user_id, SUM(balance)
+            FROM family_wallet
+            WHERE chat_id != 0
+            GROUP BY user_id
+            ON CONFLICT(chat_id, user_id) DO UPDATE
+                SET balance = family_wallet.balance + EXCLUDED.balance
+        """)
+        await db.execute("DELETE FROM family_wallet WHERE chat_id != 0")
+        await db.execute("""
+            INSERT INTO family_wallet_log (chat_id, user_id, action, amount, description, created_at)
+            SELECT 0, user_id, action, amount, description, created_at
+            FROM family_wallet_log
+            WHERE chat_id != 0
+            ON CONFLICT DO NOTHING
+        """)
+        await db.execute("DELETE FROM family_wallet_log WHERE chat_id != 0")
+        await db.commit()
+
         # Персональный ledger кошелька (зарплаты, админ-правки, доходы/расходы)
         await db.execute("""
             CREATE TABLE IF NOT EXISTS wallet_ledger (
@@ -3741,30 +3763,32 @@ async def get_all_lottery_chats_week(week_key: str) -> list[int]:
 # ─── Семейный кошелёк ─────────────────────────────────────────────────────────
 
 async def get_family_wallet(chat_id: int, user_id: int) -> int:
-    """Returns the shared family wallet balance, or 0 if not found."""
+    """Returns the shared family wallet balance, or 0 if not found.
+    Семейный кошелёк ГЛОБАЛЕН (брак един на все чаты) — chat_id игнорируется."""
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT balance FROM family_wallet WHERE chat_id=? AND user_id=?",
-            (chat_id, user_id),
+            "SELECT balance FROM family_wallet WHERE chat_id=0 AND user_id=?",
+            (user_id,),
         ) as c:
             row = await c.fetchone()
     return (row["balance"] or 0) if row else 0
 
 
 async def add_to_family_wallet(chat_id: int, user_id: int, amount: int) -> int:
-    """Add or subtract from family wallet. Returns new balance."""
+    """Add or subtract from family wallet. Returns new balance.
+    Семейный кошелёк ГЛОБАЛЕН (брак един на все чаты) — chat_id игнорируется."""
     async with postgres_connect() as db:
         await db.execute(
             """INSERT INTO family_wallet (chat_id, user_id, balance)
-               VALUES (?, ?, GREATEST(0, ?))
+               VALUES (0, ?, GREATEST(0, ?))
                ON CONFLICT(chat_id, user_id) DO UPDATE SET
                    balance = GREATEST(0, family_wallet.balance + ?)""",
-            (chat_id, user_id, amount, amount),
+            (user_id, amount, amount),
         )
         await db.commit()
         async with db.execute(
-            "SELECT balance FROM family_wallet WHERE chat_id=? AND user_id=?",
-            (chat_id, user_id),
+            "SELECT balance FROM family_wallet WHERE chat_id=0 AND user_id=?",
+            (user_id,),
         ) as c:
             row = await c.fetchone()
         return (row["balance"] or 0) if row else 0
@@ -3778,7 +3802,8 @@ async def add_to_family_wallet(chat_id: int, user_id: int, amount: int) -> int:
 async def get_total_family_balance(chat_id: int, user_id: int) -> tuple[int, int, int | None]:
     """Returns (total_balance, my_balance, partner_id).
     total_balance = сумма вкладов обоих партнёров.
-    partner_id = None если брак не найден."""
+    partner_id = None если брак не найден.
+    Семейный кошелёк ГЛОБАЛЕН — chat_id игнорируется."""
     async with postgres_connect() as db:
         # Получаем partner_id из глобальной таблицы браков
         async with db.execute(
@@ -3790,8 +3815,8 @@ async def get_total_family_balance(chat_id: int, user_id: int) -> tuple[int, int
         partner_id: int | None = marriage["partner_id"] if marriage else None
 
         async with db.execute(
-            "SELECT balance FROM family_wallet WHERE chat_id=? AND user_id=?",
-            (chat_id, user_id),
+            "SELECT balance FROM family_wallet WHERE chat_id=0 AND user_id=?",
+            (user_id,),
         ) as c:
             my_row = await c.fetchone()
         my_balance = (my_row["balance"] or 0) if my_row else 0
@@ -3799,8 +3824,8 @@ async def get_total_family_balance(chat_id: int, user_id: int) -> tuple[int, int
         partner_balance = 0
         if partner_id:
             async with db.execute(
-                "SELECT balance FROM family_wallet WHERE chat_id=? AND user_id=?",
-                (chat_id, partner_id),
+                "SELECT balance FROM family_wallet WHERE chat_id=0 AND user_id=?",
+                (partner_id,),
             ) as c:
                 p_row = await c.fetchone()
             partner_balance = (p_row["balance"] or 0) if p_row else 0
@@ -3814,7 +3839,8 @@ async def deduct_family_pool(
     """Списать amount из семейного пула (вклад обоих партнёров).
     Сначала списывает с вклада user_id, затем — с вклада partner_id.
     Возвращает новый суммарный баланс.
-    Атомарная операция: FOR UPDATE блокирует строки на время транзакции."""
+    Атомарная операция: FOR UPDATE блокирует строки на время транзакции.
+    Семейный кошелёк ГЛОБАЛЕН — chat_id игнорируется."""
     async with postgres_connect() as db:
 
         # Блокируем строки обоих партнёров FOR UPDATE — защита от параллельных снятий
@@ -3822,8 +3848,8 @@ async def deduct_family_pool(
         placeholders = ",".join("?" for _ in uids)
         async with db.execute(
             f"SELECT user_id, balance FROM family_wallet "
-            f"WHERE chat_id=? AND user_id IN ({placeholders}) FOR UPDATE",
-            (chat_id, *uids),
+            f"WHERE chat_id=0 AND user_id IN ({placeholders}) FOR UPDATE",
+            (*uids,),
         ) as c:
             rows = await c.fetchall()
 
@@ -3837,19 +3863,19 @@ async def deduct_family_pool(
         if my_bal >= amount:
             # Всё списывается с моего вклада
             await db.execute(
-                "UPDATE family_wallet SET balance=balance-? WHERE chat_id=? AND user_id=?",
-                (amount, chat_id, user_id),
+                "UPDATE family_wallet SET balance=balance-? WHERE chat_id=0 AND user_id=?",
+                (amount, user_id),
             )
         elif partner_id:
             # Списываем полностью мой вклад, остаток — с партнёра
             rest = amount - my_bal
             await db.execute(
-                "UPDATE family_wallet SET balance=0 WHERE chat_id=? AND user_id=?",
-                (chat_id, user_id),
+                "UPDATE family_wallet SET balance=0 WHERE chat_id=0 AND user_id=?",
+                (user_id,),
             )
             await db.execute(
-                "UPDATE family_wallet SET balance=GREATEST(0,balance-?) WHERE chat_id=? AND user_id=?",
-                (rest, chat_id, partner_id),
+                "UPDATE family_wallet SET balance=GREATEST(0,balance-?) WHERE chat_id=0 AND user_id=?",
+                (rest, partner_id),
             )
 
         await db.commit()
@@ -3858,8 +3884,8 @@ async def deduct_family_pool(
         total = 0
         for uid_check in uids:
             async with db.execute(
-                "SELECT balance FROM family_wallet WHERE chat_id=? AND user_id=?",
-                (chat_id, uid_check),
+                "SELECT balance FROM family_wallet WHERE chat_id=0 AND user_id=?",
+                (uid_check,),
             ) as c:
                 row = await c.fetchone()
             total += (row["balance"] or 0) if row else 0
@@ -3871,28 +3897,30 @@ async def log_family_transaction(
     chat_id: int, user_id: int, action: str, amount: int, description: str = ""
 ) -> None:
     """Записать транзакцию в журнал семейного кошелька.
-    action: 'deposit' | 'withdraw' | 'purchase'"""
+    action: 'deposit' | 'withdraw' | 'purchase'
+    Семейный кошелёк ГЛОБАЛЕН — chat_id игнорируется (хранится как 0)."""
     now = datetime.now(timezone.utc)
     async with postgres_connect() as db:
         await db.execute(
             "INSERT INTO family_wallet_log (chat_id, user_id, action, amount, description, created_at) "
-            "VALUES (?,?,?,?,?,?)",
-            (chat_id, user_id, action, amount, description, now),
+            "VALUES (0,?,?,?,?,?)",
+            (user_id, action, amount, description, now),
         )
         await db.commit()
 
 
 async def get_family_wallet_log(chat_id: int, uid: int, partner_id: int | None, limit: int = 30) -> list:
-    """Последние транзакции семейного кошелька для конкретной пары (uid + partner_id)."""
+    """Последние транзакции семейного кошелька для конкретной пары (uid + partner_id).
+    Семейный кошелёк ГЛОБАЛЕН — chat_id игнорируется."""
     async with postgres_connect() as db:
         if partner_id and partner_id != uid:
             async with db.execute(
                 "SELECT fw.*, u.full_name "
                 "FROM family_wallet_log fw "
                 "LEFT JOIN users u ON u.user_id = fw.user_id "
-                "WHERE fw.chat_id=? AND fw.user_id IN (?,?) "
+                "WHERE fw.chat_id=0 AND fw.user_id IN (?,?) "
                 "ORDER BY fw.created_at DESC LIMIT ?",
-                (chat_id, uid, partner_id, limit),
+                (uid, partner_id, limit),
             ) as c:
                 rows = await c.fetchall()
         else:
@@ -3900,9 +3928,9 @@ async def get_family_wallet_log(chat_id: int, uid: int, partner_id: int | None, 
                 "SELECT fw.*, u.full_name "
                 "FROM family_wallet_log fw "
                 "LEFT JOIN users u ON u.user_id = fw.user_id "
-                "WHERE fw.chat_id=? AND fw.user_id=? "
+                "WHERE fw.chat_id=0 AND fw.user_id=? "
                 "ORDER BY fw.created_at DESC LIMIT ?",
-                (chat_id, uid, limit),
+                (uid, limit),
             ) as c:
                 rows = await c.fetchall()
     return [dict(r) for r in rows]
@@ -7796,7 +7824,9 @@ async def get_couple_boss_rewards(session: dict) -> dict:
 # ─── Marriage proposals ───────────────────────────────────────────────────────
 
 async def create_marriage_proposal(from_user_id: int, to_user_id: int, chat_id: int) -> int | None:
-    """Create a marriage proposal. Returns new proposal id, or None if duplicate."""
+    """Create a marriage proposal. Returns new proposal id, or None if duplicate.
+    Предложения глобальны — chat_id сохраняется для показа откуда пришло предложение,
+    но уникальность проверяется только по паре (from, to)."""
     async with postgres_connect() as db:
         cursor = await db.execute(
             """INSERT INTO marriage_proposals (from_user_id, to_user_id, chat_id)
@@ -7811,15 +7841,15 @@ async def create_marriage_proposal(from_user_id: int, to_user_id: int, chat_id: 
 
 
 async def get_pending_proposals(to_user_id: int, chat_id: int) -> list:
-    """Return incoming pending proposals for a user in a chat."""
+    """Return incoming pending proposals for a user — globally (ignores chat_id scope)."""
     async with postgres_connect() as db:
         async with db.execute(
             """SELECT mp.id, mp.from_user_id, u.full_name as from_name, mp.created_at
                FROM marriage_proposals mp
                JOIN users u ON u.user_id = mp.from_user_id
-               WHERE mp.to_user_id=? AND mp.chat_id=? AND mp.status='pending'
+               WHERE mp.to_user_id=? AND mp.status='pending'
                ORDER BY mp.created_at DESC""",
-            (to_user_id, chat_id),
+            (to_user_id,),
         ) as c:
             rows = await c.fetchall()
     return [dict(r) for r in rows]

@@ -10,8 +10,8 @@ import html as _html
 
 from database.db import (
     add_filter, add_user_to_banlist, assign_community_role,
-    clear_leave_log, clear_pending_role, delete_filter, delete_marriage, get_channel_type,
-    get_chat_members, get_chat_settings, get_filters, get_marriage,
+    clear_leave_log, clear_pending_role, delete_filter, get_channel_type,
+    get_chat_members, get_chat_settings, get_filters,
     get_note, get_pending_role, get_senior_users_in_chat,
     get_user_stats, is_user_in_banlist,
     log_voluntary_leave, remove_user_from_banlist,
@@ -194,10 +194,8 @@ async def track_chat_member_state(event: ChatMemberUpdated):
                 event.chat.id, member.id,
                 member.full_name or "", member.username or "",
             )
-        # Авто-развод при выходе из группы
-        marriage = await get_marriage(member.id, event.chat.id)
-        if marriage:
-            await delete_marriage(member.id, event.chat.id)
+        # Брак глобальный — выход из одного чата не должен разрывать его.
+        # Авто-развод при выходе намеренно отключён для мультичатовой модели.
         # Предложить добавить в чёрный список по ID
         if not (await is_user_in_banlist(event.chat.id, member.id)):
             await _send_banlist_prompt(event.bot, event.chat.id, member, new_status)
@@ -454,7 +452,7 @@ async def on_leave(message: Message):
     if member.is_bot:
         return
 
-    await delete_marriage(member.id, message.chat.id)
+    # Брак глобальный — уход из чата его не разрывает.
 
     safe_name = _html.escape(member.full_name)
     safe_username = f"@{member.username}" if member.username else safe_name
