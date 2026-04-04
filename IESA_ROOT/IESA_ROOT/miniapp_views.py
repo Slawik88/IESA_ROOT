@@ -5813,6 +5813,7 @@ _AF2_KEYS = {
     "regular_sticker_window": ("AF2_REGULAR_STICKER_WINDOW", 0.5, 60.0),
     "regular_sticker_mute":   ("AF2_REGULAR_STICKER_MUTE",   60, 86400),
     "antispam_limit":         ("AF2_ANTISPAM_LIMIT",          1, 50),
+    "delete_window":          ("AF2_DELETE_WINDOW",           60, 86400 * 30),
 }
 
 
