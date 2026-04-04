@@ -144,15 +144,20 @@ AF2_NEWCOMER_MIXED_LIMIT  = 6
 AF2_NEWCOMER_MIXED_WINDOW = 4.0
 AF2_NEWCOMER_MIXED_MUTE   = 0        # 0 = permanent (until manual unmute)
 
-# Trusted: emotional burst (stickers)
+# Trusted: emotional burst (stickers / GIFs) — now mutes + notifies admins
 AF2_TRUSTED_STICKER_LIMIT  = 5
 AF2_TRUSTED_STICKER_WINDOW = 10.0
-# no mute — just delete excess + warning
+AF2_TRUSTED_STICKER_MUTE   = 10 * 60  # 10 min (разблокируется вручную через Размут)
 
 # Trusted: suspected hack (media burst)
 AF2_TRUSTED_MEDIA_LIMIT   = 4
 AF2_TRUSTED_MEDIA_WINDOW  = 3.0
 AF2_TRUSTED_MEDIA_MUTE    = 60 * 60  # 1 hour quarantine
+
+# Regular: sticker / GIF raid — new check added (raiders abuse these)
+AF2_REGULAR_STICKER_LIMIT  = 5
+AF2_REGULAR_STICKER_WINDOW = 10.0
+AF2_REGULAR_STICKER_MUTE   = 10 * 60  # 10 min
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

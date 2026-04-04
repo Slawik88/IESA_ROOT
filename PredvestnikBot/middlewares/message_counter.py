@@ -363,10 +363,11 @@ class AutoModMiddleware(BaseMiddleware):
 
         af_enabled = settings["antiflood_enabled"] if settings else int(DEFAULT_ANTIFLOOD_ENABLED)
 
-        # ── Smart Antiflood 2.0 ──────────────────────────────────────────
+        # ── Smart Antiflood 2.0 ──────────────────────────────────────────────
         if af_enabled:
             _is_text = bool(event.text and not (event.text or "").strip().lower().startswith("бот "))
-            _is_media = bool(event.photo or event.video or event.document or event.animation)
+            _is_media = bool(event.photo or event.video or event.document)
+            _is_animation = bool(event.animation)  # GIFs — separate from media, tracked as stickers
             _is_sticker = bool(event.sticker)
             _msg_count = stats["message_count"] if stats else 0
 
@@ -376,17 +377,18 @@ class AutoModMiddleware(BaseMiddleware):
                 is_text=_is_text,
                 is_media=_is_media,
                 is_sticker=_is_sticker,
+                is_animation=_is_animation,
                 media_group_id=event.media_group_id,
             )
 
             if sv.action == "warn" and not is_stale:
-                # Sticker burst (trusted users) — delete the excess sticker, no mute
+                # Legacy warn kept for any future warn-only verdicts
                 try:
                     await event.delete()
                     await bot_.send_message(
                         chat_id,
                         f"💬 {user_mention(user.id, user.full_name)}"
-                        f" полегче со стикерами 😊",
+                        f" полегче со стикерами/гифками 😊",
                         parse_mode="HTML",
                     )
                 except Exception:
@@ -503,6 +505,19 @@ class AutoModMiddleware(BaseMiddleware):
                             f"⚡ {user_mention(user.id, user.full_name)}"
                             f" заглушен на {label} за флуд.",
                             parse_mode="HTML",
+                        )
+                        trust_label = {"newcomer": "🆕 Новичок", "regular": "👤 Обычный", "trusted": "⭐ Доверенный"}.get(
+                            (stats["rank"] if stats else "user"), "👤 Обычный"
+                        )
+                        await notify_admins(
+                            bot_,
+                            f"⚡ <b>Антифлуд (легаси)</b>\n\n"
+                            f"👤 {user_mention(user.id, user.full_name)}"
+                            f" (<code>{user.id}</code>)\n"
+                            f"📊 {trust_label}\n"
+                            f"🔇 Мут: {label}\n"
+                            f"💬 Чат: <code>{chat_id}</code>",
+                            source_chat_id=chat_id,
                         )
                     except Exception:
                         pass
