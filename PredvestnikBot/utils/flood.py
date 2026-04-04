@@ -11,6 +11,7 @@ from config import (
     AF2_TRUSTED_STICKER_LIMIT, AF2_TRUSTED_STICKER_WINDOW, AF2_TRUSTED_STICKER_MUTE,
     AF2_TRUSTED_MEDIA_LIMIT, AF2_TRUSTED_MEDIA_WINDOW, AF2_TRUSTED_MEDIA_MUTE,
     AF2_REGULAR_STICKER_LIMIT, AF2_REGULAR_STICKER_WINDOW, AF2_REGULAR_STICKER_MUTE,
+    AF2_DELETE_WINDOW,
 )
 
 # ── Dynamic AF2 config (overrides from miniapp dev panel, stored in DB) ──────
@@ -109,7 +110,7 @@ class _UserFloodState:
     sticker_ts: list[float] = field(default_factory=list)   # stickers + GIFs/animations
     all_ts: list[float] = field(default_factory=list)
     seen_albums: dict[str, float] = field(default_factory=dict)  # media_group_id → first_seen
-    recent_msg_ids: list[int] = field(default_factory=list)  # for bulk delete
+    recent_msgs: list[tuple[int, float]] = field(default_factory=list)  # (msg_id, monotonic_ts) for bulk delete
     last_activity: float = 0.0
 
 
@@ -192,12 +193,18 @@ def check_smart_flood(
     _R_STICK_LIM  = int(_af2("regular_sticker_limit",   AF2_REGULAR_STICKER_LIMIT))
     _R_STICK_WIN  =     _af2("regular_sticker_window",  AF2_REGULAR_STICKER_WINDOW)
     _R_STICK_MUT  = int(_af2("regular_sticker_mute",    AF2_REGULAR_STICKER_MUTE))
+    _DELETE_WIN   = float(_af2("delete_window",          AF2_DELETE_WINDOW))
 
-    # Track message ID for potential bulk delete
+    def _ids_for_delete() -> list[int]:
+        """Return msg IDs from the rolling buffer that fall within the delete window."""
+        cutoff = now - _DELETE_WIN
+        return [mid for mid, ts in state.recent_msgs if ts >= cutoff]
+
+    # Track message ID (with timestamp) for potential bulk delete
     if message_id:
-        state.recent_msg_ids.append(message_id)
-        if len(state.recent_msg_ids) > 50:
-            state.recent_msg_ids = state.recent_msg_ids[-50:]
+        state.recent_msgs.append((message_id, now))
+        if len(state.recent_msgs) > 200:
+            state.recent_msgs = state.recent_msgs[-200:]
 
     # ── Album deduplication ──────────────────────────────────────────────
     if media_group_id:
@@ -236,10 +243,10 @@ def check_smart_flood(
             verdict.action = "mute"
             verdict.mute_seconds = _N_MIXED_MUT
             verdict.delete_all = True
-            verdict.delete_msg_ids = list(state.recent_msg_ids)
+            verdict.delete_msg_ids = _ids_for_delete()
             verdict.notify_admins = True
             verdict.reason = "mixed_attack"
-            state.recent_msg_ids.clear()
+            state.recent_msgs.clear()
             return verdict
 
         # Media raid
@@ -248,10 +255,10 @@ def check_smart_flood(
             verdict.action = "mute"
             verdict.mute_seconds = _N_MEDIA_MUT
             verdict.delete_all = True
-            verdict.delete_msg_ids = list(state.recent_msg_ids)
+            verdict.delete_msg_ids = _ids_for_delete()
             verdict.notify_admins = True
             verdict.reason = "media_raid"
-            state.recent_msg_ids.clear()
+            state.recent_msgs.clear()
             return verdict
 
         # Sticker/GIF raid (newcomers cannot burst stickers)
@@ -260,10 +267,10 @@ def check_smart_flood(
             verdict.action = "mute"
             verdict.mute_seconds = _N_STICK_MUT
             verdict.delete_all = True
-            verdict.delete_msg_ids = list(state.recent_msg_ids)
+            verdict.delete_msg_ids = _ids_for_delete()
             verdict.notify_admins = True
             verdict.reason = "media_raid"
-            state.recent_msg_ids.clear()
+            state.recent_msgs.clear()
             return verdict
 
         # Text spam
@@ -272,10 +279,10 @@ def check_smart_flood(
             verdict.action = "mute"
             verdict.mute_seconds = _N_TEXT_MUT
             verdict.delete_all = True
-            verdict.delete_msg_ids = list(state.recent_msg_ids)
+            verdict.delete_msg_ids = _ids_for_delete()
             verdict.notify_admins = True
             verdict.reason = "text_spam"
-            state.recent_msg_ids.clear()
+            state.recent_msgs.clear()
             return verdict
 
     # ── Trusted checks (relaxed) ─────────────────────────────────────────
@@ -286,10 +293,10 @@ def check_smart_flood(
             verdict.action = "mute"
             verdict.mute_seconds = _T_MEDIA_MUT
             verdict.delete_all = True
-            verdict.delete_msg_ids = list(state.recent_msg_ids)
+            verdict.delete_msg_ids = _ids_for_delete()
             verdict.notify_admins = True
             verdict.reason = "suspected_hack"
-            state.recent_msg_ids.clear()
+            state.recent_msgs.clear()
             return verdict
 
         # Sticker/GIF raid — now mutes + notifies admins (raiders exploit this)
@@ -298,10 +305,10 @@ def check_smart_flood(
             verdict.action = "mute"
             verdict.mute_seconds = _T_STICK_MUT
             verdict.delete_all = True
-            verdict.delete_msg_ids = list(state.recent_msg_ids)
+            verdict.delete_msg_ids = _ids_for_delete()
             verdict.notify_admins = True
             verdict.reason = "sticker_gif_raid"
-            state.recent_msg_ids.clear()
+            state.recent_msgs.clear()
             return verdict
 
     # ── Regular users — sticker/GIF raid check + legacy antiflood ────────
@@ -311,10 +318,10 @@ def check_smart_flood(
             verdict.action = "mute"
             verdict.mute_seconds = _R_STICK_MUT
             verdict.delete_all = True
-            verdict.delete_msg_ids = list(state.recent_msg_ids)
+            verdict.delete_msg_ids = _ids_for_delete()
             verdict.notify_admins = True
             verdict.reason = "sticker_gif_raid"
-            state.recent_msg_ids.clear()
+            state.recent_msgs.clear()
             return verdict
         # Fallback: middleware will apply legacy check_flood()
 
