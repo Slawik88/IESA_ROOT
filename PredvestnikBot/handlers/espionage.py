@@ -19,7 +19,7 @@ from aiogram.types import (
 )
 
 from database.db import (
-    add_mora, get_mora, get_user,
+    add_mora, get_mora, get_user, get_user_stats,
     log_espionage, get_espionage_cooldown,
     get_bond_prices, get_bond_price_history, get_user_bonds, buy_bonds, sell_bonds,
     BOND_DEFAULTS,
@@ -63,6 +63,12 @@ async def cmd_spy(message: Message, cmd_args: str):
 
     if target_id == uid:
         await message.answer("🤦 Зачем шпионить за самим собой?")
+        return
+
+    # Цель должна быть участником этого сообщества
+    target_stats = await get_user_stats(target_id, chat_id)
+    if not target_stats:
+        await message.answer("❌ Этот пользователь не является участником данного сообщества.")
         return
 
     # Кулдаун: нельзя следить за одним человеком чаще раза в час

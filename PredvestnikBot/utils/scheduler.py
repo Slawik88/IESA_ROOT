@@ -214,6 +214,11 @@ async def _task_marriage_anniversary(bot) -> None:
         chat_id    = row["chat_id"]   # may be None if no common chat found
         married_at = row.get("married_at", "")
 
+        # marriages_global хранит ДВЕ строки на пару (A→B и B→A).
+        # Обрабатываем только одну из них, чтобы не начислить мору дважды.
+        if uid >= partner_id:
+            continue
+
         if not married_at:
             continue
         if chat_id and is_isolated_chat(chat_id):
@@ -372,16 +377,21 @@ async def _task_weekly_singles_bonus(bot) -> None:
     await mark_singles_bonus_awarded(week_key)
 
     singles = await get_all_singles_for_weekly_bonus()
-    # Group by chat — one notification per chat, not per user
+    # Дедупликация по user_id — мора глобальна, начислять нужно ОДИН РАЗ,
+    # независимо от того, сколько чатов у пользователя.
+    seen_uids: set[int] = set()
     chats: dict[int, list[int]] = {}
     for su in singles:
         cid = su["chat_id"]
+        uid = su["user_id"]
         if is_isolated_chat(cid):
             continue
-        chats.setdefault(cid, []).append(su["user_id"])
+        chats.setdefault(cid, [])
+        if uid not in seen_uids:
+            seen_uids.add(uid)
+            await add_mora(uid, 0, SINGLES_WEEKLY_BONUS)  # chat_id=0 — глобальный
+        chats[cid].append(uid)
     for chat_id, uids in chats.items():
-        for uid in uids:
-            await add_mora(uid, chat_id, SINGLES_WEEKLY_BONUS)
         try:
             count = len(uids)
             text = (
