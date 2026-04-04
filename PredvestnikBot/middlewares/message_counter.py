@@ -20,6 +20,7 @@ from datetime import datetime, timedelta
 from typing import Any, Awaitable, Callable, Dict
 
 from aiogram import BaseMiddleware, Bot
+from aiogram.exceptions import TelegramBadRequest
 from aiogram.types import ChatPermissions, Message
 
 from config import (
@@ -455,34 +456,68 @@ class AutoModMiddleware(BaseMiddleware):
                     else:
                         await event.delete()
 
-                    # Apply mute
-                    if sv.mute_seconds > 0:
-                        until = datetime.now() + timedelta(seconds=sv.mute_seconds)
-                        await bot_.restrict_chat_member(
-                            chat_id, user.id,
-                            permissions=ChatPermissions(can_send_messages=False),
-                            until_date=until,
-                        )
-                        await bot_.send_message(
-                            chat_id,
-                            f"🛡 {user_mention(user.id, user.full_name)}"
-                            f" заглушен на {mute_label} — {reason_label}.",
-                            parse_mode="HTML",
-                        )
-                    else:
-                        await bot_.restrict_chat_member(
-                            chat_id, user.id,
-                            permissions=ChatPermissions(can_send_messages=False),
-                        )
-                        await bot_.send_message(
-                            chat_id,
-                            f"🛡 {user_mention(user.id, user.full_name)}"
-                            f" заглушен бессрочно — {reason_label}.",
-                            parse_mode="HTML",
-                        )
+                    # Apply mute — handle Telegram admins/owners gracefully
+                    _restricted_ok = True
+                    try:
+                        if sv.mute_seconds > 0:
+                            until = datetime.now() + timedelta(seconds=sv.mute_seconds)
+                            await bot_.restrict_chat_member(
+                                chat_id, user.id,
+                                permissions=ChatPermissions(can_send_messages=False),
+                                until_date=until,
+                            )
+                        else:
+                            await bot_.restrict_chat_member(
+                                chat_id, user.id,
+                                permissions=ChatPermissions(can_send_messages=False),
+                            )
+                    except TelegramBadRequest as _tg_err:
+                        _tg_msg = str(_tg_err).lower()
+                        if (
+                            "can't remove chat owner" in _tg_msg
+                            or "not enough rights" in _tg_msg
+                            or "user is an administrator" in _tg_msg
+                        ):
+                            # Telegram-level admin/owner — cannot restrict; send alert
+                            _restricted_ok = False
+                            from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+                            _ha_kb = InlineKeyboardMarkup(inline_keyboard=[[
+                                InlineKeyboardButton(text="🚫 Бан по ID", callback_data=f"af2:ban:{chat_id}:{user.id}"),
+                                InlineKeyboardButton(text="👢 Кик", callback_data=f"af2:kick:{chat_id}:{user.id}"),
+                            ]])
+                            await notify_admins(
+                                bot_,
+                                f"🚨 <b>ФЛУД ОТ АДМИНИСТРАТОРА</b>\n\n"
+                                f"👤 {user_mention(user.id, user.full_name)}"
+                                f" (<code>{user.id}</code>)\n"
+                                f"⚠️ Паттерн: <b>{reason_label}</b>\n"
+                                f"📊 Уровень доверия: {trust_label}\n"
+                                f"💬 Чат: <code>{chat_id}</code>\n\n"
+                                f"<i>Бот не смог заглушить — Telegram-администратор чата. Проверьте вручную!</i>",
+                                source_chat_id=chat_id,
+                                reply_markup=_ha_kb,
+                            )
+                        else:
+                            raise  # re-raise unexpected errors to outer except
 
-                    # Admin notification with inline buttons
-                    if sv.notify_admins:
+                    if _restricted_ok:
+                        if sv.mute_seconds > 0:
+                            await bot_.send_message(
+                                chat_id,
+                                f"🛡 {user_mention(user.id, user.full_name)}"
+                                f" заглушен на {mute_label} — {reason_label}.",
+                                parse_mode="HTML",
+                            )
+                        else:
+                            await bot_.send_message(
+                                chat_id,
+                                f"🛡 {user_mention(user.id, user.full_name)}"
+                                f" заглушен бессрочно — {reason_label}.",
+                                parse_mode="HTML",
+                            )
+
+                    # Admin notification with inline buttons (only when mute succeeded)
+                    if _restricted_ok and sv.notify_admins:
                         from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
                         admin_text = (
                             f"🛡 <b>Антифлуд 2.0</b>\n\n"

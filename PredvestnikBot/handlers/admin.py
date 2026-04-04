@@ -315,6 +315,11 @@ async def cb_antiflood_action(callback: CallbackQuery):
         await callback.answer("❌ Только со-владелец+ может использовать эти кнопки", show_alert=True)
         return
 
+    # Security: prevent self-action (hacker on compromised account clicking unmute on themselves)
+    if caller.id == target_id:
+        await callback.answer("❌ Нельзя применить это действие к себе", show_alert=True)
+        return
+
     bot_ = callback.bot
     target_name = f"<code>{target_id}</code>"
     try:
