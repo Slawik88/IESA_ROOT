@@ -78,11 +78,15 @@ def bot_today() -> str:
         return datetime.now(timezone.utc).date().isoformat()
 
 
-def format_duration(iso_str: str) -> str:
-    """Форматирует ISO-datetime строку как 'X дн. Y ч. Z мин.' относительно текущего UTC времени."""
+def format_duration(iso_str) -> str:
+    """Форматирует ISO-datetime строку или datetime-объект как 'X дн. Y ч. Z мин.' относительно текущего UTC времени."""
     from datetime import datetime, timezone
     try:
-        dt = datetime.fromisoformat(iso_str)
+        if hasattr(iso_str, 'timetuple'):
+            # Already a datetime object (e.g. from asyncpg)
+            dt = iso_str if iso_str.tzinfo else iso_str.replace(tzinfo=timezone.utc)
+        else:
+            dt = datetime.fromisoformat(str(iso_str))
         if dt.tzinfo is None:
             dt = dt.replace(tzinfo=timezone.utc)
         total_seconds = max(0, int((datetime.now(timezone.utc) - dt).total_seconds()))

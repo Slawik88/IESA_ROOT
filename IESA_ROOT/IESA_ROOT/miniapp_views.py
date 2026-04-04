@@ -5819,8 +5819,8 @@ _AF2_KEYS = {
 
 @csrf_exempt
 def miniapp_dev_af2_config(request):
-    """GET /api/dev/af2_config  — read current AF2 config (developer only).
-       POST /api/dev/af2_config — update AF2 config key(s) (developer only)."""
+    """GET /api/dev/af2_config  — read current AF2 config (developer or owner).
+       POST /api/dev/af2_config — update AF2 config key(s) (developer or owner)."""
     headers = _cors_headers()
     if request.method == "OPTIONS":
         return HttpResponse("", status=204, headers=headers)
@@ -5828,8 +5828,23 @@ def miniapp_dev_af2_config(request):
     uid, err = _require_auth(request, headers)
     if err:
         return err
+    # Allow developer by ID, or owner/co_owner in any chat
     if uid != _DEVELOPER_ID:
-        return JsonResponse({"error": "Forbidden"}, status=403, headers=headers)
+        try:
+            conn, db_type = _get_bot_db_connection()
+            cur = conn.cursor()
+            ph = "%s" if db_type == "pg" else "?"
+            cur.execute(
+                f"SELECT rank FROM user_stats WHERE user_id={ph} AND rank IN ('owner', 'co_owner') LIMIT 1",
+                (uid,),
+            )
+            row = cur.fetchone()
+            conn.close()
+            is_privileged = bool(row)
+        except Exception:
+            is_privileged = False
+        if not is_privileged:
+            return JsonResponse({"error": "Forbidden"}, status=403, headers=headers)
 
     from asgiref.sync import async_to_sync as _a2s
 
