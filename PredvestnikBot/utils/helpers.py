@@ -110,7 +110,7 @@ async def notify_admins(bot, text: str, source_chat_id: int | None = None, reply
          (Admins are in that chat and will see it. No cross-community leakage.)
       3. No source_chat_id (system-wide) → global admin_groups (dev's own setup).
     """
-    from database.db import get_admin_chat_for, get_admin_group_ids
+    from database.db import get_admin_chat_for, get_admin_group_ids, get_admin_chat_ids
 
     if source_chat_id:
         # 1. Per-chat link
@@ -123,8 +123,13 @@ async def notify_admins(bot, text: str, source_chat_id: int | None = None, reply
         return
 
     # 3. System-wide (no source): use global admin_groups (bot owner's setup)
+    # Exclude community admin chats — they are linked to specific communities only,
+    # not to the developer's own infrastructure.
+    community_admin_ids = get_admin_chat_ids()
     admin_groups = get_admin_group_ids()
     for gid in admin_groups:
+        if gid in community_admin_ids:
+            continue  # skip — this is a community admin group, not a dev group
         try:
             await bot.send_message(gid, text, parse_mode="HTML", disable_web_page_preview=True, reply_markup=reply_markup)
         except Exception:
