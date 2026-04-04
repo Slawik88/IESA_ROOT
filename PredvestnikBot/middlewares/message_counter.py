@@ -42,7 +42,7 @@ from database.db import (
 )
 from services.antispam import check_spam
 from services.recent_users import remember_user
-from utils.flood import check_flood
+from utils.flood import check_flood, check_smart_flood
 from utils.helpers import bot_today, notify_admins, user_mention
 from utils.ranks import rank_level
 
@@ -353,28 +353,151 @@ class AutoModMiddleware(BaseMiddleware):
             return
 
         af_enabled = settings["antiflood_enabled"] if settings else int(DEFAULT_ANTIFLOOD_ENABLED)
-        af_limit   = settings["antiflood_limit"]   if settings else DEFAULT_ANTIFLOOD_LIMIT
-        af_window  = (settings.get("antiflood_window") if settings else None) or FLOOD_WINDOW
-        if af_enabled and af_limit > 0 and check_flood(chat_id, user.id, af_limit, af_window):
-            try:
-                await event.delete()
-                until = datetime.now() + timedelta(seconds=DEFAULT_FLOOD_MUTE)
-                await bot_.restrict_chat_member(
-                    chat_id, user.id,
-                    permissions=ChatPermissions(can_send_messages=False),
-                    until_date=until,
-                )
-                mins = DEFAULT_FLOOD_MUTE // 60
-                label = f"{mins} РјРёРЅ." if mins < 60 else f"{mins // 60} С‡."
-                await bot_.send_message(
-                    chat_id,
-                    f"вљЎ {user_mention(user.id, user.full_name)}"
-                    f" Р·Р°РіР»СѓС€РµРЅ РЅР° {label} Р·Р° С„Р»СѓРґ.",
-                    parse_mode="HTML",
-                )
-            except Exception:
-                pass
-            return
+
+        # ── Smart Antiflood 2.0 ──────────────────────────────────────────
+        if af_enabled:
+            _is_text = bool(event.text and not (event.text or "").strip().lower().startswith("бот "))
+            _is_media = bool(event.photo or event.video or event.document or event.animation)
+            _is_sticker = bool(event.sticker)
+            _msg_count = stats["message_count"] if stats else 0
+
+            sv = check_smart_flood(
+                chat_id, user.id, _msg_count,
+                message_id=event.message_id,
+                is_text=_is_text,
+                is_media=_is_media,
+                is_sticker=_is_sticker,
+                media_group_id=event.media_group_id,
+            )
+
+            if sv.action == "warn" and not is_stale:
+                # Sticker burst (trusted users) — delete the excess sticker, no mute
+                try:
+                    await event.delete()
+                    await bot_.send_message(
+                        chat_id,
+                        f"💬 {user_mention(user.id, user.full_name)}"
+                        f" полегче со стикерами 😊",
+                        parse_mode="HTML",
+                    )
+                except Exception:
+                    pass
+                return
+
+            if sv.action == "mute" and not is_stale:
+                _reason_labels = {
+                    "text_spam": "текстовый спам",
+                    "media_raid": "медиа-рейд",
+                    "mixed_attack": "смешанная атака",
+                    "suspected_hack": "подозрение на взлом",
+                }
+                reason_label = _reason_labels.get(sv.reason, "флуд")
+                try:
+                    # Bulk-delete recent messages
+                    if sv.delete_msg_ids:
+                        try:
+                            await bot_.delete_messages(chat_id, sv.delete_msg_ids)
+                        except Exception:
+                            # Fallback: delete one by one
+                            for mid in sv.delete_msg_ids[-20:]:
+                                try:
+                                    await bot_.delete_message(chat_id, mid)
+                                except Exception:
+                                    pass
+                    else:
+                        await event.delete()
+
+                    # Apply mute
+                    if sv.mute_seconds > 0:
+                        until = datetime.now() + timedelta(seconds=sv.mute_seconds)
+                        await bot_.restrict_chat_member(
+                            chat_id, user.id,
+                            permissions=ChatPermissions(can_send_messages=False),
+                            until_date=until,
+                        )
+                        if sv.mute_seconds >= 3600:
+                            label = f"{sv.mute_seconds // 3600} ч."
+                        else:
+                            label = f"{sv.mute_seconds // 60} мин."
+                        await bot_.send_message(
+                            chat_id,
+                            f"🛡 {user_mention(user.id, user.full_name)}"
+                            f" заглушен на {label} — {reason_label}.",
+                            parse_mode="HTML",
+                        )
+                    else:
+                        # Permanent mute (0 seconds = no until_date)
+                        await bot_.restrict_chat_member(
+                            chat_id, user.id,
+                            permissions=ChatPermissions(can_send_messages=False),
+                        )
+                        await bot_.send_message(
+                            chat_id,
+                            f"🛡 {user_mention(user.id, user.full_name)}"
+                            f" заглушен бессрочно — {reason_label}.",
+                            parse_mode="HTML",
+                        )
+
+                    # Admin notification with inline buttons
+                    if sv.notify_admins:
+                        from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+                        trust_label = {"newcomer": "🆕 Новичок", "regular": "👤 Обычный", "trusted": "⭐ Доверенный"}.get(sv.trust, sv.trust)
+                        if sv.mute_seconds > 0:
+                            if sv.mute_seconds >= 3600:
+                                mute_label = f"{sv.mute_seconds // 3600} ч."
+                            else:
+                                mute_label = f"{sv.mute_seconds // 60} мин."
+                        else:
+                            mute_label = "бессрочно"
+                        admin_text = (
+                            f"🛡 <b>Антифлуд 2.0</b>\n\n"
+                            f"👤 {user_mention(user.id, user.full_name)}"
+                            f" (<code>{user.id}</code>)\n"
+                            f"📊 Уровень: {trust_label} ({_msg_count} сообщ.)\n"
+                            f"⚠️ Причина: <b>{reason_label}</b>\n"
+                            f"🔇 Мут: {mute_label}\n"
+                            f"💬 Чат: <code>{chat_id}</code>"
+                        )
+                        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+                            [
+                                InlineKeyboardButton(text="👢 Кик", callback_data=f"af2:kick:{chat_id}:{user.id}"),
+                                InlineKeyboardButton(text="🚫 Бан по ID", callback_data=f"af2:ban:{chat_id}:{user.id}"),
+                                InlineKeyboardButton(text="🔊 Размут", callback_data=f"af2:unmute:{chat_id}:{user.id}"),
+                            ]
+                        ])
+                        await notify_admins(
+                            bot_, admin_text,
+                            source_chat_id=chat_id,
+                            reply_markup=keyboard,
+                        )
+                except Exception:
+                    _log.exception("Smart antiflood action failed chat=%s uid=%s", chat_id, user.id)
+                return
+
+            # ── Fallback: legacy configurable antiflood for regular users ─
+            if sv.action == "allow" and sv.trust == "regular":
+                af_limit = settings["antiflood_limit"] if settings else DEFAULT_ANTIFLOOD_LIMIT
+                af_window = (settings.get("antiflood_window") if settings else None) or FLOOD_WINDOW
+                if af_limit > 0 and check_flood(chat_id, user.id, af_limit, af_window):
+                    try:
+                        await event.delete()
+                        until = datetime.now() + timedelta(seconds=DEFAULT_FLOOD_MUTE)
+                        await bot_.restrict_chat_member(
+                            chat_id, user.id,
+                            permissions=ChatPermissions(can_send_messages=False),
+                            until_date=until,
+                        )
+                        mins = DEFAULT_FLOOD_MUTE // 60
+                        label = f"{mins} мин." if mins < 60 else f"{mins // 60} ч."
+                        await bot_.send_message(
+                            chat_id,
+                            f"⚡ {user_mention(user.id, user.full_name)}"
+                            f" заглушен на {label} за флуд.",
+                            parse_mode="HTML",
+                        )
+                    except Exception:
+                        pass
+                    return
 
         # Locks
         locks = await get_locks(chat_id)

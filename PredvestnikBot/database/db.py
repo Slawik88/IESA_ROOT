@@ -1703,6 +1703,28 @@ def is_isolated_chat(chat_id: int) -> bool:
     return chat_id in _admin_groups or chat_id in _test_chats
 
 
+async def is_isolated_chat_db(chat_id: int) -> bool:
+    """DB-level check: True if chat is admin_group or test_chat.
+
+    Unlike ``is_isolated_chat`` this does NOT rely on in-memory caches
+    and is safe to call from processes that never ran ``load_admin_groups``
+    (e.g. the Django miniapp server).
+    """
+    if not chat_id:
+        return False
+    # Fast path: if caches were loaded, trust them
+    if _admin_groups or _test_chats:
+        return chat_id in _admin_groups or chat_id in _test_chats
+    async with postgres_connect() as db:
+        async with db.execute(
+            "SELECT 1 FROM admin_groups WHERE chat_id=? "
+            "UNION ALL "
+            "SELECT 1 FROM test_chats WHERE chat_id=?",
+            (chat_id, chat_id),
+        ) as c:
+            return await c.fetchone() is not None
+
+
 def get_chat_isolation_mode(chat_id: int) -> str | None:
     """Returns 'admin', 'test', or None (= main chat)."""
     if chat_id in _test_chats:
@@ -2908,6 +2930,29 @@ async def get_yesterday_top(chat_id: int, limit: int = 10) -> list:
             (today, yesterday, chat_id, today, yesterday, limit),
         ) as c:
             return await c.fetchall()
+
+
+async def get_user_activity(user_id: int, chat_id: int) -> dict:
+    """Return per-user message counts: today, this week, all-time."""
+    from utils.helpers import bot_today as _bot_today
+    from zoneinfo import ZoneInfo
+    from datetime import datetime as _dt
+    today = _bot_today()
+    iso = _dt.now(ZoneInfo("Europe/Zurich")).isocalendar()
+    week_key = f"{iso.year}-W{iso.week:02d}"
+    async with postgres_connect() as db:
+        async with db.execute(
+            """SELECT COALESCE(cc.count, 0) AS total,
+                      CASE WHEN cc.day_start=? THEN COALESCE(cc.day_count,0) ELSE 0 END AS today,
+                      CASE WHEN cc.week_start=? THEN COALESCE(cc.week_count,0) ELSE 0 END AS week
+               FROM cleanup_counts cc
+               WHERE cc.chat_id=? AND cc.user_id=?""",
+            (today, week_key, chat_id, user_id),
+        ) as c:
+            row = await c.fetchone()
+    if row:
+        return {"today": row["today"], "week": row["week"], "total": row["total"]}
+    return {"today": 0, "week": 0, "total": 0}
 
 
 async def get_chat_members(chat_id: int, ranks: list[str] | None = None) -> list:

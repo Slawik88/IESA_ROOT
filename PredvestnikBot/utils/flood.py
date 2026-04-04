@@ -1,5 +1,17 @@
 import time
 from collections import defaultdict
+from dataclasses import dataclass, field
+
+from config import (
+    TRUST_NEWCOMER_THRESHOLD, TRUST_TRUSTED_THRESHOLD,
+    AF2_NEWCOMER_TEXT_LIMIT, AF2_NEWCOMER_TEXT_WINDOW, AF2_NEWCOMER_TEXT_MUTE,
+    AF2_NEWCOMER_MEDIA_LIMIT, AF2_NEWCOMER_MEDIA_WINDOW, AF2_NEWCOMER_MEDIA_MUTE,
+    AF2_NEWCOMER_MIXED_LIMIT, AF2_NEWCOMER_MIXED_WINDOW, AF2_NEWCOMER_MIXED_MUTE,
+    AF2_TRUSTED_STICKER_LIMIT, AF2_TRUSTED_STICKER_WINDOW,
+    AF2_TRUSTED_MEDIA_LIMIT, AF2_TRUSTED_MEDIA_WINDOW, AF2_TRUSTED_MEDIA_MUTE,
+)
+
+# ── Legacy stores (kept for backward compat with check_spam / check_flood) ───
 
 # Раздельные словари для спам-детекции и настраиваемого антифлуда,
 # чтобы не было двойного подсчёта при двух проверках на сообщение.
@@ -44,3 +56,209 @@ def cleanup_flood_data():
                 empty_chats.append(cid)
         for cid in empty_chats:
             del store[cid]
+    # Also cleanup smart antiflood
+    _cleanup_smart_data()
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  Умный Антифлуд 2.0
+# ══════════════════════════════════════════════════════════════════════════════
+
+
+def get_trust_level(message_count: int) -> str:
+    """Return 'newcomer', 'regular', or 'trusted' based on message count."""
+    if message_count < TRUST_NEWCOMER_THRESHOLD:
+        return "newcomer"
+    if message_count >= TRUST_TRUSTED_THRESHOLD:
+        return "trusted"
+    return "regular"
+
+
+# ── Per-user event tracking for Smart Antiflood ──────────────────────────────
+
+@dataclass
+class _UserFloodState:
+    """Tracks message timestamps by type for one user in one chat."""
+    text_ts: list[float] = field(default_factory=list)
+    media_ts: list[float] = field(default_factory=list)
+    sticker_ts: list[float] = field(default_factory=list)
+    all_ts: list[float] = field(default_factory=list)
+    seen_albums: dict[str, float] = field(default_factory=dict)  # media_group_id → first_seen
+    recent_msg_ids: list[int] = field(default_factory=list)  # for bulk delete
+    last_activity: float = 0.0
+
+
+# chat_id → user_id → state
+_smart_state: dict[int, dict[int, _UserFloodState]] = defaultdict(dict)
+
+
+def _get_state(chat_id: int, user_id: int) -> _UserFloodState:
+    users = _smart_state[chat_id]
+    if user_id not in users:
+        users[user_id] = _UserFloodState()
+    return users[user_id]
+
+
+def _prune(timestamps: list[float], window: float, now: float) -> list[float]:
+    """Remove entries older than *window* seconds."""
+    cutoff = now - window
+    return [t for t in timestamps if t > cutoff]
+
+
+@dataclass
+class FloodVerdict:
+    """What the middleware should do after smart antiflood check."""
+    action: str = "allow"   # allow | warn | delete | mute
+    mute_seconds: int = 0   # 0 = permanent (until manual unmute)
+    delete_all: bool = False # delete all recent messages from user
+    delete_msg_ids: list[int] = field(default_factory=list)
+    notify_admins: bool = False
+    reason: str = ""
+    trust: str = "regular"
+    is_album: bool = False   # message is part of album (may skip counting)
+
+
+def _count_in_window(timestamps: list[float], window: float, now: float) -> int:
+    cutoff = now - window
+    return sum(1 for t in timestamps if t > cutoff)
+
+
+def check_smart_flood(
+    chat_id: int,
+    user_id: int,
+    message_count: int,
+    *,
+    message_id: int = 0,
+    is_text: bool = False,
+    is_media: bool = False,
+    is_sticker: bool = False,
+    media_group_id: str | None = None,
+) -> FloodVerdict:
+    """Smart Antiflood 2.0 — trust-level-aware flood detection.
+
+    Returns a FloodVerdict telling the middleware what action to take.
+    """
+    now = time.monotonic()
+    state = _get_state(chat_id, user_id)
+    state.last_activity = now
+    trust = get_trust_level(message_count)
+    verdict = FloodVerdict(trust=trust)
+
+    # Track message ID for potential bulk delete
+    if message_id:
+        state.recent_msg_ids.append(message_id)
+        if len(state.recent_msg_ids) > 50:
+            state.recent_msg_ids = state.recent_msg_ids[-50:]
+
+    # ── Album deduplication ──────────────────────────────────────────────
+    if media_group_id:
+        # Clean old album IDs (> 30 seconds)
+        state.seen_albums = {
+            k: v for k, v in state.seen_albums.items() if now - v < 30
+        }
+        if media_group_id in state.seen_albums:
+            # Already counted this album — skip entirely
+            verdict.is_album = True
+            return verdict
+        state.seen_albums[media_group_id] = now
+
+    # ── Record timestamp by type ─────────────────────────────────────────
+    max_window = 15.0  # keep up to 15s of history
+    state.all_ts = _prune(state.all_ts, max_window, now)
+    state.all_ts.append(now)
+
+    if is_text:
+        state.text_ts = _prune(state.text_ts, max_window, now)
+        state.text_ts.append(now)
+    if is_media:
+        state.media_ts = _prune(state.media_ts, max_window, now)
+        state.media_ts.append(now)
+    if is_sticker:
+        state.sticker_ts = _prune(state.sticker_ts, max_window, now)
+        state.sticker_ts.append(now)
+
+    # ── Newcomer checks (strict) ─────────────────────────────────────────
+    if trust == "newcomer":
+        # Mixed attack: text + media together
+        mixed_count = _count_in_window(state.all_ts, AF2_NEWCOMER_MIXED_WINDOW, now)
+        has_text = _count_in_window(state.text_ts, AF2_NEWCOMER_MIXED_WINDOW, now) > 0
+        has_media = _count_in_window(state.media_ts, AF2_NEWCOMER_MIXED_WINDOW, now) > 0
+        if mixed_count >= AF2_NEWCOMER_MIXED_LIMIT and has_text and has_media:
+            verdict.action = "mute"
+            verdict.mute_seconds = AF2_NEWCOMER_MIXED_MUTE
+            verdict.delete_all = True
+            verdict.delete_msg_ids = list(state.recent_msg_ids)
+            verdict.notify_admins = True
+            verdict.reason = "mixed_attack"
+            state.recent_msg_ids.clear()
+            return verdict
+
+        # Media raid
+        media_count = _count_in_window(state.media_ts, AF2_NEWCOMER_MEDIA_WINDOW, now)
+        if media_count >= AF2_NEWCOMER_MEDIA_LIMIT:
+            verdict.action = "mute"
+            verdict.mute_seconds = AF2_NEWCOMER_MEDIA_MUTE
+            verdict.delete_all = True
+            verdict.delete_msg_ids = list(state.recent_msg_ids)
+            verdict.notify_admins = True
+            verdict.reason = "media_raid"
+            state.recent_msg_ids.clear()
+            return verdict
+
+        # Text spam
+        text_count = _count_in_window(state.text_ts, AF2_NEWCOMER_TEXT_WINDOW, now)
+        if text_count >= AF2_NEWCOMER_TEXT_LIMIT:
+            verdict.action = "mute"
+            verdict.mute_seconds = AF2_NEWCOMER_TEXT_MUTE
+            verdict.delete_all = True
+            verdict.delete_msg_ids = list(state.recent_msg_ids)
+            verdict.notify_admins = True
+            verdict.reason = "text_spam"
+            state.recent_msg_ids.clear()
+            return verdict
+
+    # ── Trusted checks (relaxed) ─────────────────────────────────────────
+    elif trust == "trusted":
+        # Suspected hack / compromised account
+        media_count = _count_in_window(state.media_ts, AF2_TRUSTED_MEDIA_WINDOW, now)
+        if media_count >= AF2_TRUSTED_MEDIA_LIMIT:
+            verdict.action = "mute"
+            verdict.mute_seconds = AF2_TRUSTED_MEDIA_MUTE
+            verdict.delete_all = True
+            verdict.delete_msg_ids = list(state.recent_msg_ids)
+            verdict.notify_admins = True
+            verdict.reason = "suspected_hack"
+            state.recent_msg_ids.clear()
+            return verdict
+
+        # Emotional burst (stickers)
+        sticker_count = _count_in_window(state.sticker_ts, AF2_TRUSTED_STICKER_WINDOW, now)
+        if sticker_count >= AF2_TRUSTED_STICKER_LIMIT:
+            verdict.action = "warn"
+            verdict.reason = "sticker_burst"
+            return verdict
+
+    # ── Regular users — use default antiflood (legacy) ────────────────────
+    # The middleware will still apply the old check_flood() for regular users.
+
+    return verdict
+
+
+def reset_smart_flood(chat_id: int, user_id: int):
+    """Clear smart flood state for a user (e.g. on unmute)."""
+    if chat_id in _smart_state:
+        _smart_state[chat_id].pop(user_id, None)
+
+
+def _cleanup_smart_data():
+    """Remove stale smart antiflood entries (> 5 min idle)."""
+    now = time.monotonic()
+    empty_chats = []
+    for cid, users in _smart_state.items():
+        stale = [uid for uid, st in users.items() if now - st.last_activity > 300]
+        for uid in stale:
+            del users[uid]
+        if not users:
+            empty_chats.append(cid)
+    for cid in empty_chats:
+        del _smart_state[cid]

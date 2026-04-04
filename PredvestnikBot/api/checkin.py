@@ -35,7 +35,11 @@ async def do_checkin(uid: int, chat_id: int) -> dict:
     today, otherwise {ok, already_done, mora, streak, total_days,
     is_checkpoint, free_gacha}.
     """
-    from database.db import perform_checkin, add_mora
+    from database.db import perform_checkin, add_mora, is_isolated_chat_db
+
+    # Block checkin in isolated (admin / test) chats
+    if chat_id and await is_isolated_chat_db(chat_id):
+        return {"ok": False, "error": "isolated_chat", "already_done": False}
 
     result = await perform_checkin(uid, chat_id)
     if result.get("already_done"):

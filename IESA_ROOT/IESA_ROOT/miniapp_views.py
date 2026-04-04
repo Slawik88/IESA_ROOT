@@ -612,6 +612,8 @@ def miniapp_checkin(request):
         # POST: perform check-in
         from api.checkin import do_checkin
         result = _a2s(do_checkin)(uid, chat_id)
+        if result.get("error") == "isolated_chat":
+            return JsonResponse({"error": "Чекин недоступен в этом чате"}, status=403, headers=headers)
         if result.get("already_done"):
             return JsonResponse(result, headers=headers)
 

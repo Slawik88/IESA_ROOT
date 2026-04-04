@@ -123,6 +123,38 @@ DEFAULT_ANTIFLOOD_LIMIT = 5
 DEFAULT_ANTIFLOOD_ACTION = "mute"
 
 
+# ── Умный Антифлуд 2.0 ───────────────────────────────────────────────────────
+
+# Trust-level thresholds (message count)
+TRUST_NEWCOMER_THRESHOLD = 300   # < 300 = newcomer (strict rules)
+TRUST_TRUSTED_THRESHOLD  = 1000  # > 1000 = trusted (relaxed rules)
+
+# Newcomer: text spam
+AF2_NEWCOMER_TEXT_LIMIT   = 5        # messages
+AF2_NEWCOMER_TEXT_WINDOW  = 3.0      # seconds
+AF2_NEWCOMER_TEXT_MUTE    = 20 * 60  # 20 min
+
+# Newcomer: media raid
+AF2_NEWCOMER_MEDIA_LIMIT  = 3        # media messages (albums = 1)
+AF2_NEWCOMER_MEDIA_WINDOW = 4.0      # seconds
+AF2_NEWCOMER_MEDIA_MUTE   = 60 * 60  # 1 hour
+
+# Newcomer: mixed attack (text + media together)
+AF2_NEWCOMER_MIXED_LIMIT  = 6
+AF2_NEWCOMER_MIXED_WINDOW = 4.0
+AF2_NEWCOMER_MIXED_MUTE   = 0        # 0 = permanent (until manual unmute)
+
+# Trusted: emotional burst (stickers)
+AF2_TRUSTED_STICKER_LIMIT  = 5
+AF2_TRUSTED_STICKER_WINDOW = 10.0
+# no mute — just delete excess + warning
+
+# Trusted: suspected hack (media burst)
+AF2_TRUSTED_MEDIA_LIMIT   = 4
+AF2_TRUSTED_MEDIA_WINDOW  = 3.0
+AF2_TRUSTED_MEDIA_MUTE    = 60 * 60  # 1 hour quarantine
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 #  👋  Приветствие и прощание
 # ═══════════════════════════════════════════════════════════════════════════════

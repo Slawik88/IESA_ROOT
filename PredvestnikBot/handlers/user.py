@@ -1678,6 +1678,14 @@ async def cmd_whois(message: Message, cmd_args: str):
         f"🟢 Первая активность: {_fmt_dt(stats['first_active'] if stats else None)}",
         f"🔵 Последняя активность: {_fmt_dt(stats['last_active'] if stats else None)}",
     ]
+
+    # Activity breakdown (today / week / all-time)
+    if is_group_w:
+        from database.db import get_user_activity
+        act = await get_user_activity(uid, message.chat.id)
+        lines.append("")
+        lines.append(f"📈 <b>Активность</b>")
+        lines.append(f"   Сегодня: <b>{act['today']}</b>  |  Неделя: <b>{act['week']}</b>  |  Всего: <b>{act['total']}</b>")
     if bio:
         lines.append(f"\n📝 Bio: <i>{html.escape(bio)}</i>")
 
