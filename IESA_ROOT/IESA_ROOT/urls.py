@@ -86,6 +86,7 @@ from .miniapp_views import (
     miniapp_season_data,
     miniapp_season_claim,
     miniapp_season_premium,
+    miniapp_dev_af2_config,
 )
 
 # Переопределить стандартный админ на кастомный
@@ -236,6 +237,7 @@ urlpatterns = [
     # ─── Dev: Error logs / Логи ошибок ────────────────────────────────────────
     path('api/dev/error_logs', miniapp_dev_error_logs, name='miniapp_dev_error_logs'),
     path('api/frontend_error_log', miniapp_frontend_error_log, name='miniapp_frontend_error_log'),
+    path('api/dev/af2_config', miniapp_dev_af2_config, name='miniapp_dev_af2_config'),
     # ─── Season Pass / Боевой пропуск ────────────────────────────────────────
     path('api/season/data', miniapp_season_data, name='miniapp_season_data'),
     path('api/season/claim', miniapp_season_claim, name='miniapp_season_claim'),

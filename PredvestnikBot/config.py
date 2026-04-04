@@ -159,6 +159,14 @@ AF2_REGULAR_STICKER_LIMIT  = 5
 AF2_REGULAR_STICKER_WINDOW = 10.0
 AF2_REGULAR_STICKER_MUTE   = 10 * 60  # 10 min
 
+# Newcomer: sticker/GIF raid (новички не должны слать пачки стикеров)
+AF2_NEWCOMER_STICKER_LIMIT  = 3
+AF2_NEWCOMER_STICKER_WINDOW = 4.0
+AF2_NEWCOMER_STICKER_MUTE   = 60 * 60  # 1 hour
+
+# Simple token-bucket antispam: порог сообщений за 1 секунду
+AF2_ANTISPAM_LIMIT = 5
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 #  👋  Приветствие и прощание
