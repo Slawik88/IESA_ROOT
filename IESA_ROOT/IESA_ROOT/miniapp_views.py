@@ -523,7 +523,7 @@ def miniapp_user_data(request):
             "pity": pity,
             "streak": streak,
             "rank": user_rank,
-            "is_dev": user_rank in ('developer', 'owner'),
+            "is_dev": user_rank == 'developer',
             "custom_title": custom_title or "",
             "first_active": first_active,
             "last_active": last_active,
