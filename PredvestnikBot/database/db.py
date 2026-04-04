@@ -2943,7 +2943,11 @@ async def get_yesterday_top(chat_id: int, limit: int = 10) -> list:
 
 
 async def get_user_activity(user_id: int, chat_id: int) -> dict:
-    """Return per-user message counts: today, this week, all-time."""
+    """Return per-user message counts: today, this week, all-time.
+
+    'total' uses GREATEST(cleanup_counts.count, user_stats.message_count) so
+    that historically-imported data in user_stats is not hidden.
+    """
     from utils.helpers import bot_today as _bot_today
     from zoneinfo import ZoneInfo
     from datetime import datetime as _dt
@@ -2952,16 +2956,27 @@ async def get_user_activity(user_id: int, chat_id: int) -> dict:
     week_key = f"{iso.year}-W{iso.week:02d}"
     async with postgres_connect() as db:
         async with db.execute(
-            """SELECT COALESCE(cc.count, 0) AS total,
+            """SELECT GREATEST(COALESCE(cc.count, 0),
+                               COALESCE(us.message_count, 0)) AS total,
                       CASE WHEN cc.day_start=? THEN COALESCE(cc.day_count,0) ELSE 0 END AS today,
                       CASE WHEN cc.week_start=? THEN COALESCE(cc.week_count,0) ELSE 0 END AS week
                FROM cleanup_counts cc
+               LEFT JOIN user_stats us ON us.user_id=cc.user_id AND us.chat_id=cc.chat_id
                WHERE cc.chat_id=? AND cc.user_id=?""",
             (today, week_key, chat_id, user_id),
         ) as c:
             row = await c.fetchone()
     if row:
         return {"today": row["today"], "week": row["week"], "total": row["total"]}
+    # Fallback: no cleanup_counts row yet — try user_stats directly
+    async with postgres_connect() as db:
+        async with db.execute(
+            "SELECT COALESCE(message_count,0) AS total FROM user_stats WHERE user_id=? AND chat_id=?",
+            (user_id, chat_id),
+        ) as c:
+            row2 = await c.fetchone()
+    if row2:
+        return {"today": 0, "week": 0, "total": row2["total"]}
     return {"today": 0, "week": 0, "total": 0}
 
 
