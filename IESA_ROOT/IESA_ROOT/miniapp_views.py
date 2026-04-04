@@ -5787,6 +5787,111 @@ def miniapp_dev_error_logs(request):
     return JsonResponse({"error": "Method not allowed"}, status=405, headers=headers)
 
 
+# ─── AF2 dynamic config ──────────────────────────────────────────────────────
+
+# Mapping: miniapp key → (config constant name, min, max)
+_AF2_KEYS = {
+    "newcomer_text_limit":    ("AF2_NEWCOMER_TEXT_LIMIT",    1, 30),
+    "newcomer_text_window":   ("AF2_NEWCOMER_TEXT_WINDOW",   0.5, 30.0),
+    "newcomer_text_mute":     ("AF2_NEWCOMER_TEXT_MUTE",     60, 86400),
+    "newcomer_media_limit":   ("AF2_NEWCOMER_MEDIA_LIMIT",   1, 20),
+    "newcomer_media_window":  ("AF2_NEWCOMER_MEDIA_WINDOW",  0.5, 30.0),
+    "newcomer_media_mute":    ("AF2_NEWCOMER_MEDIA_MUTE",    60, 86400),
+    "newcomer_sticker_limit": ("AF2_NEWCOMER_STICKER_LIMIT", 1, 20),
+    "newcomer_sticker_window":("AF2_NEWCOMER_STICKER_WINDOW",0.5, 30.0),
+    "newcomer_sticker_mute":  ("AF2_NEWCOMER_STICKER_MUTE",  60, 86400),
+    "newcomer_mixed_limit":   ("AF2_NEWCOMER_MIXED_LIMIT",   1, 30),
+    "newcomer_mixed_window":  ("AF2_NEWCOMER_MIXED_WINDOW",  0.5, 30.0),
+    "newcomer_mixed_mute":    ("AF2_NEWCOMER_MIXED_MUTE",    0, 86400),
+    "trusted_sticker_limit":  ("AF2_TRUSTED_STICKER_LIMIT",  1, 30),
+    "trusted_sticker_window": ("AF2_TRUSTED_STICKER_WINDOW", 0.5, 60.0),
+    "trusted_sticker_mute":   ("AF2_TRUSTED_STICKER_MUTE",   60, 86400),
+    "trusted_media_limit":    ("AF2_TRUSTED_MEDIA_LIMIT",    1, 20),
+    "trusted_media_window":   ("AF2_TRUSTED_MEDIA_WINDOW",   0.5, 30.0),
+    "trusted_media_mute":     ("AF2_TRUSTED_MEDIA_MUTE",     60, 86400),
+    "regular_sticker_limit":  ("AF2_REGULAR_STICKER_LIMIT",  1, 30),
+    "regular_sticker_window": ("AF2_REGULAR_STICKER_WINDOW", 0.5, 60.0),
+    "regular_sticker_mute":   ("AF2_REGULAR_STICKER_MUTE",   60, 86400),
+    "antispam_limit":         ("AF2_ANTISPAM_LIMIT",          1, 50),
+}
+
+
+@csrf_exempt
+def miniapp_dev_af2_config(request):
+    """GET /api/dev/af2_config  — read current AF2 config (developer only).
+       POST /api/dev/af2_config — update AF2 config key(s) (developer only)."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+    if uid != _DEVELOPER_ID:
+        return JsonResponse({"error": "Forbidden"}, status=403, headers=headers)
+
+    from asgiref.sync import async_to_sync as _a2s
+
+    if request.method == "GET":
+        try:
+            import sys, os
+            sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'PredvestnikBot'))
+            import importlib
+            cfg_mod = importlib.import_module("config")
+            db_mod = importlib.import_module("database.db")
+
+            # Load defaults from config constants
+            defaults = {}
+            for key, (const_name, _mn, _mx) in _AF2_KEYS.items():
+                defaults[key] = getattr(cfg_mod, const_name, None)
+
+            # Load DB overrides
+            overrides = _a2s(db_mod.get_af2_config)()
+
+            # Merge: DB value wins over default
+            merged = {k: overrides.get(k, defaults[k]) for k in _AF2_KEYS}
+            return JsonResponse(
+                {"ok": True, "config": merged, "defaults": defaults},
+                json_dumps_params={"ensure_ascii": False},
+                headers=headers,
+            )
+        except Exception:
+            logger.exception("miniapp_dev_af2_config GET error")
+            return JsonResponse({"error": "Internal error"}, status=500, headers=headers)
+
+    if request.method == "POST":
+        try:
+            import json as _json, sys, os
+            body = _json.loads(request.body)
+            if not isinstance(body, dict):
+                return JsonResponse({"error": "JSON object required"}, status=400, headers=headers)
+
+            sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'PredvestnikBot'))
+            import importlib
+            db_mod = importlib.import_module("database.db")
+
+            validated = {}
+            for key, raw_value in body.items():
+                if key not in _AF2_KEYS:
+                    return JsonResponse({"error": f"Unknown key: {key}"}, status=400, headers=headers)
+                _, mn, mx = _AF2_KEYS[key]
+                try:
+                    v = float(raw_value)
+                except (TypeError, ValueError):
+                    return JsonResponse({"error": f"Value for {key} must be a number"}, status=400, headers=headers)
+                if v < mn or v > mx:
+                    return JsonResponse({"error": f"{key} must be between {mn} and {mx}"}, status=400, headers=headers)
+                validated[key] = v
+
+            _a2s(db_mod.set_af2_config)(validated)
+            return JsonResponse({"ok": True, "saved": list(validated.keys())}, headers=headers)
+        except Exception:
+            logger.exception("miniapp_dev_af2_config POST error")
+            return JsonResponse({"error": "Internal error"}, status=500, headers=headers)
+
+    return JsonResponse({"error": "Method not allowed"}, status=405, headers=headers)
+
+
 @csrf_exempt
 # =============================================================================
 # SEASON PASS

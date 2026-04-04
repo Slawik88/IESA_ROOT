@@ -29,6 +29,7 @@ from config import (
     LEVEL_UP_ANNOUNCE, XP_COOLDOWN, XP_PER_MESSAGE, BLACKLIST_USE_MORPHOLOGY,
     MORA_DAILY_BONUS, MORA_LEVELUP_BONUS, MORA_MSG_CHANCE, MORA_MSG_COOLDOWN,
     MORA_MSG_MAX, MORA_MSG_MIN, MORA_QUEST_REWARD, MORA_STREAK_BONUS,
+    AF2_ANTISPAM_LIMIT,
 )
 from database.db import (
     add_mora, add_xp_in_chat,
@@ -43,7 +44,7 @@ from database.db import (
 )
 from services.antispam import check_spam
 from services.recent_users import remember_user
-from utils.flood import check_flood, check_smart_flood
+from utils.flood import check_flood, check_smart_flood, is_af2_cfg_stale, set_af2_cfg
 from utils.helpers import bot_today, notify_admins, user_mention
 from utils.ranks import rank_level
 
@@ -101,9 +102,10 @@ async def _delete_after(msg, delay: int = 5) -> None:
         pass
 
 
-def _antispam_type(event: Message) -> str:
+def _is_bot_command(event: Message) -> bool:
+    """Return True if this message is a bot command ('бот ...')."""
     text = (event.text or event.caption or "").strip().lower()
-    return "command" if text.startswith("Р±РѕС‚ ") else "message"
+    return text.startswith("бот ")
 
 
 async def _process_economy(user_id: int, chat_id: int, event: Message) -> None:
@@ -123,8 +125,8 @@ async def _process_economy(user_id: int, chat_id: int, event: Message) -> None:
                 await add_mora(user_id, chat_id, MORA_STREAK_BONUS)
                 try:
                     await event.answer(
-                        f"рџ”Ґ {user_mention(user_id, event.from_user.full_name)}"
-                        f" вЂ” 7-РґРЅРµРІРЅС‹Р№ СЃС‚СЂРёРє! <b>+{MORA_STREAK_BONUS} РњРѕСЂС‹</b> рџЄ™",
+                        f"🔥 {user_mention(user_id, event.from_user.full_name)}"
+                        f" — 7-дневный стрик! <b>+{MORA_STREAK_BONUS} Моры</b> 🪙",
                         parse_mode="HTML",
                     )
                 except Exception:
@@ -157,9 +159,9 @@ async def _process_economy(user_id: int, chat_id: int, event: Message) -> None:
             await mark_quest_rewarded(user_id, chat_id, today)
             try:
                 await event.answer(
-                    f"рџЋ‰ {user_mention(user_id, event.from_user.full_name)}"
-                    f" РІС‹РїРѕР»РЅРёР» РµР¶РµРґРЅРµРІРЅРѕРµ Р·Р°РґР°РЅРёРµ!"
-                    f" <b>+{quest['xp']} XP</b>  <b>+{mora_reward} РњРѕСЂС‹</b> рџЄ™",
+                    f"🎉 {user_mention(user_id, event.from_user.full_name)}"
+                    f" выполнил ежедневное задание!"
+                    f" <b>+{quest['xp']} XP</b>  <b>+{mora_reward} Моры</b> 🪙",
                     parse_mode="HTML",
                 )
             except Exception:
@@ -197,9 +199,9 @@ async def _process_xp(user_id: int, chat_id: int, event: Message) -> None:
         if LEVEL_UP_ANNOUNCE:
             try:
                 await event.answer(
-                    f"рџЊџ {user_mention(user_id, event.from_user.full_name)}"
-                    f" РґРѕСЃС‚РёРі <b>{new_level} СѓСЂРѕРІРЅСЏ</b>!"
-                    f" (XP: {new_xp}) <b>+{MORA_LEVELUP_BONUS} РњРѕСЂС‹</b> рџЄ™",
+                    f"🌟 {user_mention(user_id, event.from_user.full_name)}"
+                    f" достиг <b>{new_level} уровня</b>!"
+                    f" (XP: {new_xp}) <b>+{MORA_LEVELUP_BONUS} Моры</b> 🪙",
                     parse_mode="HTML",
                 )
             except Exception:
@@ -332,7 +334,8 @@ class AutoModMiddleware(BaseMiddleware):
                 _feat_antispam = True
 
         # Antispam — Token Bucket (owner/developer skip mute but get hack-alert below)
-        if _feat_antispam and not _is_hack_detection and check_spam(user.id, chat_id, _antispam_type(event)):
+        _is_bot_cmd = _is_bot_command(event)
+        if _feat_antispam and not _is_hack_detection and not _is_bot_cmd and check_spam(chat_id, user.id, AF2_ANTISPAM_LIMIT):
             if not is_stale:
                 try:
                     await event.delete()
@@ -343,19 +346,19 @@ class AutoModMiddleware(BaseMiddleware):
                         until_date=until,
                     )
                     mins = DEFAULT_FLOOD_MUTE // 60
-                    label = f"{mins} РјРёРЅ." if mins < 60 else f"{mins // 60} С‡."
+                    label = f"{mins} мин." if mins < 60 else f"{mins // 60} ч."
                     await bot_.send_message(
                         chat_id,
-                        f"рџљ« {user_mention(user.id, user.full_name)}"
-                        f" Р·Р°РіР»СѓС€РµРЅ РЅР° {label} Р·Р° СЃРїР°Рј.",
+                        f"🚫 {user_mention(user.id, user.full_name)}"
+                        f" заглушен на {label} за спам.",
                         parse_mode="HTML",
                     )
                     await notify_admins(
                         bot_,
-                        f"рџљ« <b>РђРІС‚Рѕ-Р°РЅС‚РёСЃРїР°Рј</b>\n"
-                        f"рџ‘¤ {user_mention(user.id, user.full_name)}"
+                        f"🚫 <b>Авто-антиспам</b>\n"
+                        f"👤 {user_mention(user.id, user.full_name)}"
                         f" (<code>{user.id}</code>)\n"
-                        f"рџ’¬ Р—Р°РіР»СѓС€РµРЅ РЅР° {label} Р·Р° СЃРїР°Рј.",
+                        f"💬 Заглушен на {label} за спам.",
                         source_chat_id=chat_id,
                     )
                 except Exception:
@@ -370,10 +373,16 @@ class AutoModMiddleware(BaseMiddleware):
                 pass
             return
 
-        af_enabled = settings["antiflood_enabled"] if settings else int(DEFAULT_ANTIFLOOD_ENABLED)
+        # ── Smart Antiflood 2.0 — always active when antispam feature is on ────
+        # Refresh dynamic AF2 config from DB if TTL expired (cross-process miniapp update)
+        if is_af2_cfg_stale():
+            try:
+                from database.db import get_af2_config as _gaf2
+                set_af2_cfg(await _gaf2())
+            except Exception:
+                pass
 
-        # ── Smart Antiflood 2.0 ──────────────────────────────────────────────
-        if af_enabled:
+        if _feat_antispam:
             _is_text = bool(event.text and not (event.text or "").strip().lower().startswith("бот "))
             _is_media = bool(event.photo or event.video or event.document)
             _is_animation = bool(event.animation)  # GIFs — separate from media, tracked as stickers
@@ -550,9 +559,10 @@ class AutoModMiddleware(BaseMiddleware):
 
             # ── Fallback: legacy configurable antiflood for regular users ─
             if sv.action == "allow" and sv.trust == "regular" and not _is_hack_detection:
+                af_enabled = settings["antiflood_enabled"] if settings else int(DEFAULT_ANTIFLOOD_ENABLED)
                 af_limit = settings["antiflood_limit"] if settings else DEFAULT_ANTIFLOOD_LIMIT
                 af_window = (settings.get("antiflood_window") if settings else None) or FLOOD_WINDOW
-                if af_limit > 0 and check_flood(chat_id, user.id, af_limit, af_window):
+                if af_enabled and af_limit > 0 and check_flood(chat_id, user.id, af_limit, af_window):
                     try:
                         await event.delete()
                         until = datetime.now() + timedelta(seconds=DEFAULT_FLOOD_MUTE)
@@ -591,28 +601,28 @@ class AutoModMiddleware(BaseMiddleware):
         if locks:
             reason: str | None = None
             if locks["links"] and event.text and _URL_RE.search(event.text):
-                reason = "СЃСЃС‹Р»РєРё"
+                reason = "ссылки"
             elif locks["stickers"] and event.sticker:
-                reason = "СЃС‚РёРєРµСЂС‹"
+                reason = "стикеры"
             elif locks["gifs"] and event.animation:
-                reason = "РіРёС„РєРё"
+                reason = "гифки"
             elif locks["forwards"] and event.forward_origin:
-                reason = "РїРµСЂРµСЃС‹Р»РєР°"
+                reason = "пересылку"
             elif locks["voice"] and event.voice:
-                reason = "РіРѕР»РѕСЃРѕРІС‹Рµ"
+                reason = "голосовые"
             elif locks["video"] and event.video_note:
-                reason = "РєСЂСѓР¶РѕС‡РєРё"
+                reason = "кружочки"
             elif locks["photo"] and event.photo:
-                reason = "С„РѕС‚Рѕ"
+                reason = "фото"
             elif locks["audio"] and event.audio:
-                reason = "Р°СѓРґРёРѕ"
+                reason = "аудио"
 
             if reason:
                 try:
                     await event.delete()
                     msg = await bot_.send_message(
                         chat_id,
-                        f"рџ”’ РЎРѕРѕР±С‰РµРЅРёРµ СѓРґР°Р»РµРЅРѕ вЂ” РІ С‡Р°С‚Рµ Р·Р°Р±Р»РѕРєРёСЂРѕРІР°РЅС‹: {reason}.",
+                        f"🔒 Сообщение удалено — в чате заблокированы: {reason}.",
                     )
                     asyncio.create_task(_delete_after(msg))
                 except Exception:
@@ -641,8 +651,8 @@ class AutoModMiddleware(BaseMiddleware):
                         await event.delete()
                         msg = await bot_.send_message(
                             chat_id,
-                            f"вљ пёЏ РЎРѕРѕР±С‰РµРЅРёРµ {user_mention(user.id, user.full_name)}"
-                            f" СѓРґР°Р»РµРЅРѕ (Р·Р°РїСЂРµС‰С‘РЅРЅРѕРµ СЃР»РѕРІРѕ).",
+                            f"⚠️ Сообщение {user_mention(user.id, user.full_name)}"
+                            f" удалено (запрещённое слово).",
                             parse_mode="HTML",
                         )
                         asyncio.create_task(_delete_after(msg))

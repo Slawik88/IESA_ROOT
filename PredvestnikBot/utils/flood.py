@@ -6,11 +6,35 @@ from config import (
     TRUST_NEWCOMER_THRESHOLD, TRUST_TRUSTED_THRESHOLD,
     AF2_NEWCOMER_TEXT_LIMIT, AF2_NEWCOMER_TEXT_WINDOW, AF2_NEWCOMER_TEXT_MUTE,
     AF2_NEWCOMER_MEDIA_LIMIT, AF2_NEWCOMER_MEDIA_WINDOW, AF2_NEWCOMER_MEDIA_MUTE,
+    AF2_NEWCOMER_STICKER_LIMIT, AF2_NEWCOMER_STICKER_WINDOW, AF2_NEWCOMER_STICKER_MUTE,
     AF2_NEWCOMER_MIXED_LIMIT, AF2_NEWCOMER_MIXED_WINDOW, AF2_NEWCOMER_MIXED_MUTE,
     AF2_TRUSTED_STICKER_LIMIT, AF2_TRUSTED_STICKER_WINDOW, AF2_TRUSTED_STICKER_MUTE,
     AF2_TRUSTED_MEDIA_LIMIT, AF2_TRUSTED_MEDIA_WINDOW, AF2_TRUSTED_MEDIA_MUTE,
     AF2_REGULAR_STICKER_LIMIT, AF2_REGULAR_STICKER_WINDOW, AF2_REGULAR_STICKER_MUTE,
 )
+
+# ── Dynamic AF2 config (overrides from miniapp dev panel, stored in DB) ──────
+_af2_cfg: dict = {}
+_af2_cfg_ts: float = 0.0
+_AF2_CFG_TTL = 30.0  # seconds between DB refreshes
+
+
+def _af2(key: str, default):
+    """Return AF2 metric: DB override if present, else config constant."""
+    v = _af2_cfg.get(key)
+    return type(default)(v) if v is not None else default
+
+
+def set_af2_cfg(cfg: dict) -> None:
+    """Update in-memory AF2 config (called by middleware after DB read)."""
+    global _af2_cfg, _af2_cfg_ts
+    _af2_cfg = {k: float(v) for k, v in cfg.items() if v is not None}
+    _af2_cfg_ts = time.monotonic()
+
+
+def is_af2_cfg_stale() -> bool:
+    """True when in-memory config is older than TTL — middleware should refresh."""
+    return time.monotonic() - _af2_cfg_ts > _AF2_CFG_TTL
 
 # ── Legacy stores (kept for backward compat with check_spam / check_flood) ───
 
@@ -146,6 +170,29 @@ def check_smart_flood(
     trust = get_trust_level(message_count)
     verdict = FloodVerdict(trust=trust)
 
+    # Dynamic overrides (from DB miniapp panel; fall back to config constants)
+    _N_MIXED_LIM  = int(_af2("newcomer_mixed_limit",    AF2_NEWCOMER_MIXED_LIMIT))
+    _N_MIXED_WIN  =     _af2("newcomer_mixed_window",   AF2_NEWCOMER_MIXED_WINDOW)
+    _N_MIXED_MUT  = int(_af2("newcomer_mixed_mute",     AF2_NEWCOMER_MIXED_MUTE))
+    _N_MEDIA_LIM  = int(_af2("newcomer_media_limit",    AF2_NEWCOMER_MEDIA_LIMIT))
+    _N_MEDIA_WIN  =     _af2("newcomer_media_window",   AF2_NEWCOMER_MEDIA_WINDOW)
+    _N_MEDIA_MUT  = int(_af2("newcomer_media_mute",     AF2_NEWCOMER_MEDIA_MUTE))
+    _N_STICK_LIM  = int(_af2("newcomer_sticker_limit",  AF2_NEWCOMER_STICKER_LIMIT))
+    _N_STICK_WIN  =     _af2("newcomer_sticker_window", AF2_NEWCOMER_STICKER_WINDOW)
+    _N_STICK_MUT  = int(_af2("newcomer_sticker_mute",   AF2_NEWCOMER_STICKER_MUTE))
+    _N_TEXT_LIM   = int(_af2("newcomer_text_limit",     AF2_NEWCOMER_TEXT_LIMIT))
+    _N_TEXT_WIN   =     _af2("newcomer_text_window",    AF2_NEWCOMER_TEXT_WINDOW)
+    _N_TEXT_MUT   = int(_af2("newcomer_text_mute",      AF2_NEWCOMER_TEXT_MUTE))
+    _T_MEDIA_LIM  = int(_af2("trusted_media_limit",     AF2_TRUSTED_MEDIA_LIMIT))
+    _T_MEDIA_WIN  =     _af2("trusted_media_window",    AF2_TRUSTED_MEDIA_WINDOW)
+    _T_MEDIA_MUT  = int(_af2("trusted_media_mute",      AF2_TRUSTED_MEDIA_MUTE))
+    _T_STICK_LIM  = int(_af2("trusted_sticker_limit",   AF2_TRUSTED_STICKER_LIMIT))
+    _T_STICK_WIN  =     _af2("trusted_sticker_window",  AF2_TRUSTED_STICKER_WINDOW)
+    _T_STICK_MUT  = int(_af2("trusted_sticker_mute",    AF2_TRUSTED_STICKER_MUTE))
+    _R_STICK_LIM  = int(_af2("regular_sticker_limit",   AF2_REGULAR_STICKER_LIMIT))
+    _R_STICK_WIN  =     _af2("regular_sticker_window",  AF2_REGULAR_STICKER_WINDOW)
+    _R_STICK_MUT  = int(_af2("regular_sticker_mute",    AF2_REGULAR_STICKER_MUTE))
+
     # Track message ID for potential bulk delete
     if message_id:
         state.recent_msg_ids.append(message_id)
@@ -182,12 +229,12 @@ def check_smart_flood(
     # ── Newcomer checks (strict) ─────────────────────────────────────────
     if trust == "newcomer":
         # Mixed attack: text + media together
-        mixed_count = _count_in_window(state.all_ts, AF2_NEWCOMER_MIXED_WINDOW, now)
-        has_text = _count_in_window(state.text_ts, AF2_NEWCOMER_MIXED_WINDOW, now) > 0
-        has_media = _count_in_window(state.media_ts, AF2_NEWCOMER_MIXED_WINDOW, now) > 0
-        if mixed_count >= AF2_NEWCOMER_MIXED_LIMIT and has_text and has_media:
+        mixed_count = _count_in_window(state.all_ts, _N_MIXED_WIN, now)
+        has_text = _count_in_window(state.text_ts, _N_MIXED_WIN, now) > 0
+        has_media = _count_in_window(state.media_ts, _N_MIXED_WIN, now) > 0
+        if mixed_count >= _N_MIXED_LIM and has_text and has_media:
             verdict.action = "mute"
-            verdict.mute_seconds = AF2_NEWCOMER_MIXED_MUTE
+            verdict.mute_seconds = _N_MIXED_MUT
             verdict.delete_all = True
             verdict.delete_msg_ids = list(state.recent_msg_ids)
             verdict.notify_admins = True
@@ -196,10 +243,22 @@ def check_smart_flood(
             return verdict
 
         # Media raid
-        media_count = _count_in_window(state.media_ts, AF2_NEWCOMER_MEDIA_WINDOW, now)
-        if media_count >= AF2_NEWCOMER_MEDIA_LIMIT:
+        media_count = _count_in_window(state.media_ts, _N_MEDIA_WIN, now)
+        if media_count >= _N_MEDIA_LIM:
             verdict.action = "mute"
-            verdict.mute_seconds = AF2_NEWCOMER_MEDIA_MUTE
+            verdict.mute_seconds = _N_MEDIA_MUT
+            verdict.delete_all = True
+            verdict.delete_msg_ids = list(state.recent_msg_ids)
+            verdict.notify_admins = True
+            verdict.reason = "media_raid"
+            state.recent_msg_ids.clear()
+            return verdict
+
+        # Sticker/GIF raid (newcomers cannot burst stickers)
+        sticker_count = _count_in_window(state.sticker_ts, _N_STICK_WIN, now)
+        if sticker_count >= _N_STICK_LIM:
+            verdict.action = "mute"
+            verdict.mute_seconds = _N_STICK_MUT
             verdict.delete_all = True
             verdict.delete_msg_ids = list(state.recent_msg_ids)
             verdict.notify_admins = True
@@ -208,10 +267,10 @@ def check_smart_flood(
             return verdict
 
         # Text spam
-        text_count = _count_in_window(state.text_ts, AF2_NEWCOMER_TEXT_WINDOW, now)
-        if text_count >= AF2_NEWCOMER_TEXT_LIMIT:
+        text_count = _count_in_window(state.text_ts, _N_TEXT_WIN, now)
+        if text_count >= _N_TEXT_LIM:
             verdict.action = "mute"
-            verdict.mute_seconds = AF2_NEWCOMER_TEXT_MUTE
+            verdict.mute_seconds = _N_TEXT_MUT
             verdict.delete_all = True
             verdict.delete_msg_ids = list(state.recent_msg_ids)
             verdict.notify_admins = True
@@ -222,10 +281,10 @@ def check_smart_flood(
     # ── Trusted checks (relaxed) ─────────────────────────────────────────
     elif trust == "trusted":
         # Suspected hack / compromised account
-        media_count = _count_in_window(state.media_ts, AF2_TRUSTED_MEDIA_WINDOW, now)
-        if media_count >= AF2_TRUSTED_MEDIA_LIMIT:
+        media_count = _count_in_window(state.media_ts, _T_MEDIA_WIN, now)
+        if media_count >= _T_MEDIA_LIM:
             verdict.action = "mute"
-            verdict.mute_seconds = AF2_TRUSTED_MEDIA_MUTE
+            verdict.mute_seconds = _T_MEDIA_MUT
             verdict.delete_all = True
             verdict.delete_msg_ids = list(state.recent_msg_ids)
             verdict.notify_admins = True
@@ -234,10 +293,10 @@ def check_smart_flood(
             return verdict
 
         # Sticker/GIF raid — now mutes + notifies admins (raiders exploit this)
-        sticker_count = _count_in_window(state.sticker_ts, AF2_TRUSTED_STICKER_WINDOW, now)
-        if sticker_count >= AF2_TRUSTED_STICKER_LIMIT:
+        sticker_count = _count_in_window(state.sticker_ts, _T_STICK_WIN, now)
+        if sticker_count >= _T_STICK_LIM:
             verdict.action = "mute"
-            verdict.mute_seconds = AF2_TRUSTED_STICKER_MUTE
+            verdict.mute_seconds = _T_STICK_MUT
             verdict.delete_all = True
             verdict.delete_msg_ids = list(state.recent_msg_ids)
             verdict.notify_admins = True
@@ -247,10 +306,10 @@ def check_smart_flood(
 
     # ── Regular users — sticker/GIF raid check + legacy antiflood ────────
     else:  # trust == "regular"
-        sticker_count = _count_in_window(state.sticker_ts, AF2_REGULAR_STICKER_WINDOW, now)
-        if sticker_count >= AF2_REGULAR_STICKER_LIMIT:
+        sticker_count = _count_in_window(state.sticker_ts, _R_STICK_WIN, now)
+        if sticker_count >= _R_STICK_LIM:
             verdict.action = "mute"
-            verdict.mute_seconds = AF2_REGULAR_STICKER_MUTE
+            verdict.mute_seconds = _R_STICK_MUT
             verdict.delete_all = True
             verdict.delete_msg_ids = list(state.recent_msg_ids)
             verdict.notify_admins = True

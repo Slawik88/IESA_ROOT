@@ -2032,6 +2032,21 @@ select:focus{border-color:var(--accent)}
     <div id="devTimezoneMsg" style="margin-top:8px;font-size:12px;min-height:18px"></div>
   </div>
 
+  <!-- 🛡 AF2 Dynamic Config (developer only) -->
+  <div class="card" id="devAf2Card" style="display:none">
+    <div class="card-title">🛡 Антифлуд 2.0 — метрики</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:10px">Изменения сохраняются в БД и применяются ботом в течение 30 секунд.</div>
+    <div id="devAf2Loading" style="font-size:12px;color:var(--text2)">⏳ Загрузка…</div>
+    <div id="devAf2Fields" style="display:none">
+      <!-- Fields injected by loadAf2Config() -->
+    </div>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button class="btn btn-primary" style="flex:1" onclick="saveAf2Config()">💾 Сохранить</button>
+      <button class="btn" style="background:var(--bg3);color:var(--text2);border:1px solid var(--border)" onclick="resetAf2Config()">↩️ Сбросить</button>
+    </div>
+    <div id="devAf2Msg" style="margin-top:8px;font-size:12px;min-height:18px"></div>
+  </div>
+
   </div><!-- /dev-subtab-settings -->
 
 </div><!-- /tab-dev -->
@@ -2471,6 +2486,8 @@ async function loadProfile(){
       document.querySelectorAll('#tab-dev .card').forEach(c=>{ c.style.display=''; });
       _devBtns(true); switchDevSubtab('users');
       loadTimezone();
+      document.getElementById('devAf2Card').style.display='';
+      loadAf2Config();
     } else if(p.rank === 'owner' || p.rank === 'co_owner') {
       // Owner/co_owner: crystal grant + events + warnlist + banlist + mod overview + treasury + cleanup config
       const devBtn = document.getElementById('devTabBtn');
@@ -5233,6 +5250,102 @@ async function _devApiDelete(url, body){
 // Deprecated stubs kept for any residual references
 async function loadDevUsers(){}
 async function devGiveItem_legacy(){}
+
+// ── AF2 Dynamic Config ────────────────────────────────────────────────────────
+const AF2_META = [
+  // [key, label, step, unit]
+  ['newcomer_text_limit',    'Новичок: лимит текста (msgs)',      1,    'сообщ.'],
+  ['newcomer_text_window',   'Новичок: окно текста (сек)',         0.5,  'с'],
+  ['newcomer_text_mute',     'Новичок: мут за текст (сек)',        60,   'с'],
+  ['newcomer_media_limit',   'Новичок: лимит медиа (msgs)',        1,    'сообщ.'],
+  ['newcomer_media_window',  'Новичок: окно медиа (сек)',          0.5,  'с'],
+  ['newcomer_media_mute',    'Новичок: мут за медиа (сек)',        60,   'с'],
+  ['newcomer_sticker_limit', 'Новичок: лимит стикеров (msgs)',     1,    'сообщ.'],
+  ['newcomer_sticker_window','Новичок: окно стикеров (сек)',       0.5,  'с'],
+  ['newcomer_sticker_mute',  'Новичок: мут за стикеры (сек)',      60,   'с'],
+  ['newcomer_mixed_limit',   'Новичок: лимит смешанных (msgs)',    1,    'сообщ.'],
+  ['newcomer_mixed_window',  'Новичок: окно смешанных (сек)',      0.5,  'с'],
+  ['newcomer_mixed_mute',    'Новичок: мут смешанных (сек, 0=∞)',  60,   'с'],
+  ['trusted_sticker_limit',  'Доверенный: лимит стикеров',        1,    'сообщ.'],
+  ['trusted_sticker_window', 'Доверенный: окно стикеров (сек)',   0.5,  'с'],
+  ['trusted_sticker_mute',   'Доверенный: мут за стикеры (сек)', 60,   'с'],
+  ['trusted_media_limit',    'Доверенный: лимит медиа',           1,    'сообщ.'],
+  ['trusted_media_window',   'Доверенный: окно медиа (сек)',      0.5,  'с'],
+  ['trusted_media_mute',     'Доверенный: мут за медиа (сек)',    60,   'с'],
+  ['regular_sticker_limit',  'Обычный: лимит стикеров',           1,    'сообщ.'],
+  ['regular_sticker_window', 'Обычный: окно стикеров (сек)',      0.5,  'с'],
+  ['regular_sticker_mute',   'Обычный: мут за стикеры (сек)',     60,   'с'],
+  ['antispam_limit',         'Антиспам: лимит (msgs/сек)',         1,    'сообщ.'],
+];
+
+let _af2Defaults = {};
+
+async function loadAf2Config(){
+  const loadEl = document.getElementById('devAf2Loading');
+  const fieldsEl = document.getElementById('devAf2Fields');
+  if(!loadEl) return;
+  loadEl.style.display='';
+  fieldsEl.style.display='none';
+  try{
+    const r = await api('/api/dev/af2_config');
+    _af2Defaults = r.defaults || {};
+    fieldsEl.innerHTML = AF2_META.map(([key, label, step, unit])=>{
+      const val = r.config[key] ?? '';
+      const def = r.defaults[key] ?? '';
+      return `<div style="margin-bottom:8px">
+        <label style="font-size:11px;color:var(--text2);display:block;margin-bottom:2px">
+          ${label} <span style="color:var(--text3,#888)">(по умолч.: ${def} ${unit})</span>
+        </label>
+        <input type="number" id="af2_${key}" value="${val}" step="${step}"
+          style="background:var(--card2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:13px;width:100%;box-sizing:border-box">
+      </div>`;
+    }).join('');
+    loadEl.style.display='none';
+    fieldsEl.style.display='';
+  } catch(e){
+    loadEl.textContent='❌ Ошибка загрузки: '+e.message;
+  }
+}
+
+async function saveAf2Config(){
+  const msg = document.getElementById('devAf2Msg');
+  msg.textContent='⏳ Сохранение…';
+  const body = {};
+  for(const [key] of AF2_META){
+    const el = document.getElementById('af2_'+key);
+    if(el && el.value !== '') body[key] = parseFloat(el.value);
+  }
+  try{
+    await api('/api/dev/af2_config','POST', body);
+    msg.style.color='var(--success,#4ade80)';
+    msg.textContent='✅ Сохранено! Бот применит через ~30 сек.';
+    setTimeout(()=>{ msg.textContent=''; }, 4000);
+  } catch(e){
+    msg.style.color='#f87171';
+    msg.textContent='❌ '+e.message;
+  }
+}
+
+async function resetAf2Config(){
+  if(!confirm('Сбrosить все метрики AF2 к значениям из config.py?')) return;
+  const msg = document.getElementById('devAf2Msg');
+  msg.textContent='⏳ Сброс…';
+  // Post defaults back
+  const body = {};
+  for(const [key] of AF2_META){
+    if(_af2Defaults[key] !== undefined) body[key] = _af2Defaults[key];
+  }
+  try{
+    await api('/api/dev/af2_config','POST', body);
+    msg.style.color='var(--success,#4ade80)';
+    msg.textContent='✅ Сброшено к значениям по умолчанию.';
+    await loadAf2Config();
+    setTimeout(()=>{ msg.textContent=''; }, 3000);
+  } catch(e){
+    msg.style.color='#f87171';
+    msg.textContent='❌ '+e.message;
+  }
+}
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 loadProfile().then(() => {

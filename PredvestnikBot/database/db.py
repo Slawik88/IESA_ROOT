@@ -1288,6 +1288,14 @@ async def init_db():
             )
         """)
 
+        # ─── Динамическая конфигурация AF2 (настраивается через мини апп) ──────
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS af2_config (
+                key   TEXT PRIMARY KEY,
+                value REAL NOT NULL
+            )
+        """)
+
         # DDL соединение не поддерживает транзакции - commit() не нужен
 
     # PostgreSQL: widen all Telegram ID columns from int32 (INTEGER) → int64 (BIGINT).
@@ -7921,6 +7929,27 @@ async def log_app_error(source: str, context: str, error_msg: str, traceback_tex
             await db.commit()
     except Exception:
         pass
+
+
+async def get_af2_config() -> dict:
+    """Return all AF2 config overrides stored in the database."""
+    async with postgres_connect() as db:
+        try:
+            rows = await db.fetch("SELECT key, value FROM af2_config")
+            return {row["key"]: float(row["value"]) for row in (rows or [])}
+        except Exception:
+            return {}
+
+
+async def set_af2_config(cfg: dict) -> None:
+    """Upsert AF2 config key-value pairs into the database."""
+    async with postgres_connect() as db:
+        for key, value in cfg.items():
+            await db.execute(
+                "INSERT INTO af2_config (key, value) VALUES ($1, $2) "
+                "ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value",
+                key, float(value),
+            )
 
 
 async def get_app_error_logs(limit: int = 200) -> list:
