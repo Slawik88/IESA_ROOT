@@ -300,13 +300,15 @@ class AutoModMiddleware(BaseMiddleware):
         if not in_group:
             return await handler(event, data)
 
-        if DEVELOPER_ID and user.id == DEVELOPER_ID:
-            return await handler(event, data)
-
         stats = await get_user_stats(user.id, event.chat.id)
         user_rank = (stats["rank"] if stats else None) or "user"
-        if rank_level(user_rank) >= rank_level("moderator"):
-            return await handler(event, data)
+
+        # owner / developer — hack-detection mode: check patterns but never mute,
+        # only send a 🚨 priority alert to admins if anomaly detected.
+        _is_hack_detection = (
+            (DEVELOPER_ID and user.id == DEVELOPER_ID)
+            or rank_level(user_rank) >= rank_level("owner")
+        )
 
         bot_: Bot = data["bot"]
         chat_id = event.chat.id
@@ -322,8 +324,8 @@ class AutoModMiddleware(BaseMiddleware):
             except (KeyError, IndexError):
                 _feat_antispam = True
 
-        # Antispam — Token Bucket (gated by feat_antispam flag)
-        if _feat_antispam and check_spam(user.id, chat_id, _antispam_type(event)):
+        # Antispam — Token Bucket (owner/developer skip mute but get hack-alert below)
+        if _feat_antispam and not _is_hack_detection and check_spam(user.id, chat_id, _antispam_type(event)):
             if not is_stale:
                 try:
                     await event.delete()
@@ -401,15 +403,50 @@ class AutoModMiddleware(BaseMiddleware):
                     "media_raid": "медиа-рейд",
                     "mixed_attack": "смешанная атака",
                     "suspected_hack": "подозрение на взлом",
+                    "sticker_gif_raid": "стикер/гиф-рейд",
                 }
                 reason_label = _reason_labels.get(sv.reason, "флуд")
+                trust_label = {
+                    "newcomer": "🆕 Новичок",
+                    "regular": "👤 Обычный",
+                    "trusted": "⭐ Доверенный",
+                }.get(sv.trust, sv.trust)
+                if sv.mute_seconds > 0:
+                    mute_label = f"{sv.mute_seconds // 3600} ч." if sv.mute_seconds >= 3600 else f"{sv.mute_seconds // 60} мин."
+                else:
+                    mute_label = "бессрочно"
+
+                if _is_hack_detection:
+                    # — owner / developer: ALERT ONLY, bot cannot restrict chat admins —
+                    rank_label = {"owner": "🔱 Владелец", "developer": "🛠 Разработчик"}.get(user_rank, f"🔱 {user_rank}")
+                    try:
+                        from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+                        keyboard = InlineKeyboardMarkup(inline_keyboard=[[
+                            InlineKeyboardButton(text="🚫 Бан по ID", callback_data=f"af2:ban:{chat_id}:{user.id}"),
+                            InlineKeyboardButton(text="👢 Кик", callback_data=f"af2:kick:{chat_id}:{user.id}"),
+                        ]])
+                        await notify_admins(
+                            bot_,
+                            f"🚨 <b>ВОЗМОЖНЫЙ ВЗЛОМ АККАУНТА</b>\n\n"
+                            f"{rank_label} {user_mention(user.id, user.full_name)}"
+                            f" (<code>{user.id}</code>)\n"
+                            f"⚠️ Паттерн: <b>{reason_label}</b>\n"
+                            f"📊 Уровень доверия: {trust_label}\n"
+                            f"💬 Чат: <code>{chat_id}</code>\n\n"
+                            f"<i>Бот не может заглушить администратора ({mute_label}). Проверьте аккаунт вручную!</i>",
+                            source_chat_id=chat_id,
+                            reply_markup=keyboard,
+                        )
+                    except Exception:
+                        _log.exception("Hack-detection alert failed chat=%s uid=%s", chat_id, user.id)
+                    return  # let the message through — cannot restrict admins
+
                 try:
                     # Bulk-delete recent messages
                     if sv.delete_msg_ids:
                         try:
                             await bot_.delete_messages(chat_id, sv.delete_msg_ids)
                         except Exception:
-                            # Fallback: delete one by one
                             for mid in sv.delete_msg_ids[-20:]:
                                 try:
                                     await bot_.delete_message(chat_id, mid)
@@ -426,18 +463,13 @@ class AutoModMiddleware(BaseMiddleware):
                             permissions=ChatPermissions(can_send_messages=False),
                             until_date=until,
                         )
-                        if sv.mute_seconds >= 3600:
-                            label = f"{sv.mute_seconds // 3600} ч."
-                        else:
-                            label = f"{sv.mute_seconds // 60} мин."
                         await bot_.send_message(
                             chat_id,
                             f"🛡 {user_mention(user.id, user.full_name)}"
-                            f" заглушен на {label} — {reason_label}.",
+                            f" заглушен на {mute_label} — {reason_label}.",
                             parse_mode="HTML",
                         )
                     else:
-                        # Permanent mute (0 seconds = no until_date)
                         await bot_.restrict_chat_member(
                             chat_id, user.id,
                             permissions=ChatPermissions(can_send_messages=False),
@@ -452,14 +484,6 @@ class AutoModMiddleware(BaseMiddleware):
                     # Admin notification with inline buttons
                     if sv.notify_admins:
                         from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-                        trust_label = {"newcomer": "🆕 Новичок", "regular": "👤 Обычный", "trusted": "⭐ Доверенный"}.get(sv.trust, sv.trust)
-                        if sv.mute_seconds > 0:
-                            if sv.mute_seconds >= 3600:
-                                mute_label = f"{sv.mute_seconds // 3600} ч."
-                            else:
-                                mute_label = f"{sv.mute_seconds // 60} мин."
-                        else:
-                            mute_label = "бессрочно"
                         admin_text = (
                             f"🛡 <b>Антифлуд 2.0</b>\n\n"
                             f"👤 {user_mention(user.id, user.full_name)}"
@@ -469,13 +493,11 @@ class AutoModMiddleware(BaseMiddleware):
                             f"🔇 Мут: {mute_label}\n"
                             f"💬 Чат: <code>{chat_id}</code>"
                         )
-                        keyboard = InlineKeyboardMarkup(inline_keyboard=[
-                            [
-                                InlineKeyboardButton(text="👢 Кик", callback_data=f"af2:kick:{chat_id}:{user.id}"),
-                                InlineKeyboardButton(text="🚫 Бан по ID", callback_data=f"af2:ban:{chat_id}:{user.id}"),
-                                InlineKeyboardButton(text="🔊 Размут", callback_data=f"af2:unmute:{chat_id}:{user.id}"),
-                            ]
-                        ])
+                        keyboard = InlineKeyboardMarkup(inline_keyboard=[[
+                            InlineKeyboardButton(text="👢 Кик", callback_data=f"af2:kick:{chat_id}:{user.id}"),
+                            InlineKeyboardButton(text="🚫 Бан по ID", callback_data=f"af2:ban:{chat_id}:{user.id}"),
+                            InlineKeyboardButton(text="🔊 Размут", callback_data=f"af2:unmute:{chat_id}:{user.id}"),
+                        ]])
                         await notify_admins(
                             bot_, admin_text,
                             source_chat_id=chat_id,
@@ -486,7 +508,7 @@ class AutoModMiddleware(BaseMiddleware):
                 return
 
             # ── Fallback: legacy configurable antiflood for regular users ─
-            if sv.action == "allow" and sv.trust == "regular":
+            if sv.action == "allow" and sv.trust == "regular" and not _is_hack_detection:
                 af_limit = settings["antiflood_limit"] if settings else DEFAULT_ANTIFLOOD_LIMIT
                 af_window = (settings.get("antiflood_window") if settings else None) or FLOOD_WINDOW
                 if af_limit > 0 and check_flood(chat_id, user.id, af_limit, af_window):
