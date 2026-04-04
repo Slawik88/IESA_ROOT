@@ -101,7 +101,7 @@ def format_duration(iso_str: str) -> str:
         return "?"
 
 
-async def notify_admins(bot, text: str, source_chat_id: int | None = None):
+async def notify_admins(bot, text: str, source_chat_id: int | None = None, reply_markup=None):
     """Send a system notification to the appropriate admin chat.
 
     Multi-tenant routing — each community is isolated:
@@ -117,7 +117,7 @@ async def notify_admins(bot, text: str, source_chat_id: int | None = None):
         linked = get_admin_chat_for(source_chat_id)
         target = linked if linked else source_chat_id
         try:
-            await bot.send_message(target, text, parse_mode="HTML", disable_web_page_preview=True)
+            await bot.send_message(target, text, parse_mode="HTML", disable_web_page_preview=True, reply_markup=reply_markup)
         except Exception:
             pass
         return
@@ -126,6 +126,6 @@ async def notify_admins(bot, text: str, source_chat_id: int | None = None):
     admin_groups = get_admin_group_ids()
     for gid in admin_groups:
         try:
-            await bot.send_message(gid, text, parse_mode="HTML", disable_web_page_preview=True)
+            await bot.send_message(gid, text, parse_mode="HTML", disable_web_page_preview=True, reply_markup=reply_markup)
         except Exception:
             pass

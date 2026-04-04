@@ -5,7 +5,7 @@ from datetime import datetime as _dt, timezone
 from zoneinfo import ZoneInfo
 
 from aiogram import Bot, F, Router
-from aiogram.types import ChatPermissions, InlineKeyboardButton, InlineKeyboardMarkup, Message
+from aiogram.types import CallbackQuery, ChatPermissions, InlineKeyboardButton, InlineKeyboardMarkup, Message
 
 import config as _bot_config
 from config import DEVELOPER_ID
@@ -283,6 +283,89 @@ async def cmd_antiflood(message: Message, cmd_args: str):
             f"Выключить: <code>бот антифлуд выкл</code>",
             parse_mode="HTML",
         )
+
+
+# ── Antiflood 2.0 inline button callbacks ────────────────────────────────────
+
+@router.callback_query(F.data.startswith("af2:"))
+async def cb_antiflood_action(callback: CallbackQuery):
+    """Handle [Кик] / [Бан по ID] / [Размут] buttons from antiflood notifications."""
+    # Only co_owner+ can use these buttons
+    caller = callback.from_user
+    parts = callback.data.split(":")
+    if len(parts) != 4:
+        await callback.answer("❌ Неверные данные", show_alert=True)
+        return
+
+    action, chat_id_str, target_id_str = parts[1], parts[2], parts[3]
+    try:
+        chat_id = int(chat_id_str)
+        target_id = int(target_id_str)
+    except ValueError:
+        await callback.answer("❌ Неверные данные", show_alert=True)
+        return
+
+    # Check caller rank
+    caller_stats = await get_user_stats(caller.id, chat_id)
+    caller_rank = (caller_stats["rank"] if caller_stats else None) or "user"
+    if DEVELOPER_ID and caller.id == DEVELOPER_ID:
+        caller_rank = "developer"
+    if rank_level(caller_rank) < rank_level("co_owner"):
+        await callback.answer("❌ Только со-владелец+ может использовать эти кнопки", show_alert=True)
+        return
+
+    bot_ = callback.bot
+    target_name = f"<code>{target_id}</code>"
+    try:
+        member = await bot_.get_chat_member(chat_id, target_id)
+        if member and member.user:
+            target_name = user_mention(target_id, member.user.full_name)
+    except Exception:
+        pass
+
+    result_text = ""
+    try:
+        if action == "kick":
+            await bot_.ban_chat_member(chat_id, target_id)
+            await bot_.unban_chat_member(chat_id, target_id)  # unban to allow re-join
+            result_text = f"👢 {target_name} кикнут из чата"
+
+        elif action == "ban":
+            await bot_.ban_chat_member(chat_id, target_id)
+            result_text = f"🚫 {target_name} забанен по ID"
+
+        elif action == "unmute":
+            from utils.flood import reset_smart_flood
+            await bot_.restrict_chat_member(
+                chat_id, target_id,
+                permissions=ChatPermissions(
+                    can_send_messages=True,
+                    can_send_media_messages=True,
+                    can_send_other_messages=True,
+                    can_add_web_page_previews=True,
+                ),
+            )
+            reset_smart_flood(chat_id, target_id)
+            result_text = f"🔊 {target_name} размучен"
+
+        else:
+            await callback.answer("❌ Неизвестное действие", show_alert=True)
+            return
+
+    except Exception as e:
+        await callback.answer(f"❌ Ошибка: {e}", show_alert=True)
+        return
+
+    # Update the message to show what action was taken
+    caller_mention = user_mention(caller.id, caller.full_name)
+    try:
+        old_text = callback.message.text or callback.message.caption or ""
+        new_text = f"{old_text}\n\n✅ {result_text}\n👮 Выполнил: {caller_mention}"
+        await callback.message.edit_text(new_text, parse_mode="HTML")
+    except Exception:
+        pass
+
+    await callback.answer(result_text, show_alert=False)
 
 
 @router.message(BotCommand("тег входа", "коллприветствие", "welcomecall"), RankFilter("co_owner"))
