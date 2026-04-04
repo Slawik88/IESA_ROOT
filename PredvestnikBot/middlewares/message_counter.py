@@ -229,9 +229,11 @@ class AutoModMiddleware(BaseMiddleware):
         is_stale = (time.time() - event.date.timestamp()) > 30
         in_group = event.chat.type in ("group", "supergroup")
 
-        is_isolated = in_group and (
-            event.chat.id in get_admin_group_ids() or is_test_chat(event.chat.id)
-        )
+        # is_admin_chat: dedicated admin/ops chats — fully isolated (no economy, no automod)
+        is_admin_chat = in_group and event.chat.id in get_admin_group_ids()
+        # is_test_chat: flood-test polygons — skip economy, but STILL run automod
+        is_test_polygon = in_group and is_test_chat(event.chat.id)
+        is_isolated = is_admin_chat or is_test_polygon
         data["is_isolated_chat"] = is_isolated
 
         _log.debug(
@@ -253,12 +255,16 @@ class AutoModMiddleware(BaseMiddleware):
         # в”Ђв”Ђ Isolated chats: skip economy, pass to handler в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
         # DB-level guards in add_mora/add_xp_in_chat act as an additional
         # safety net in case any code path bypasses this early return.
-        if is_isolated:
-            _log.debug("ISOLATED chat=%s — economy skip for uid=%s", event.chat.id, user.id)
+        if is_admin_chat:
+            _log.debug("ADMIN_CHAT chat=%s — fully isolated for uid=%s", event.chat.id, user.id)
             return await handler(event, data)
 
+        # Test polygon chats: skip economy only — automod still runs below
+        if is_test_polygon:
+            _log.debug("TEST_POLYGON chat=%s — economy skip for uid=%s", event.chat.id, user.id)
+
         # в”Ђв”Ђ Group economy (non-isolated groups only) в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
-        if in_group:
+        if in_group and not is_isolated:
             await upsert_user_stats(user.id, event.chat.id)
 
             # Resolve pending username imports + marriages (once per session)
