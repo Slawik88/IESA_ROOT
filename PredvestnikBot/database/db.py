@@ -6055,17 +6055,30 @@ async def update_bond_prices(chat_id: int):
                 reversion = -math.copysign(min(abs(deviation) * 0.30, vol * 2), deviation)
                 delta += reversion
 
-            # Hard price floor = 15% of base price (prevents trivial buy-the-dip exploit)
-            floor_price = max(10, int(base_price * 0.15))
+            # Soft price floor = 12% of base price (no absolute minimum — meme coins can tank to 1)
+            floor_price = max(1, int(base_price * 0.12))
 
-            # Near-floor rebound: if price is within 30% above floor, add bullish bias
-            # This makes it stochastic, not guaranteed — discourages systematic floor-buying
-            if old_price <= int(floor_price * 1.3):
-                # Only 50% chance of rebound to keep it uncertain
-                if random.random() < 0.50:
-                    delta += vol * random.uniform(0.3, 0.8)
+            # Near-floor zone: price within 40% above floor → add noise but NOT guaranteed rebound
+            # Buying at floor is risky: 35% chance price continues to drop further
+            if old_price <= int(floor_price * 1.4):
+                r = random.random()
+                if r < 0.35:
+                    # Continued drop — punishes floor-buyers
+                    delta -= vol * random.uniform(0.2, 0.6)
+                elif r < 0.65:
+                    # Mild rebound
+                    delta += vol * random.uniform(0.2, 0.5)
+                # else: neutral (remaining ~35%) — stays near floor
 
-            new_price = max(floor_price, int(old_price * (1 + delta)))
+            raw_price = int(old_price * (1 + delta))
+            # Soft floor: 70% bounce back to floor, 30% can pierce through (goes to 1)
+            if raw_price < floor_price:
+                if random.random() < 0.70:
+                    new_price = floor_price
+                else:
+                    new_price = max(1, raw_price)
+            else:
+                new_price = raw_price
             new_price = min(new_price, base_price * cap_mult)
             new_prices[key] = new_price
 
@@ -8056,7 +8069,7 @@ async def set_af2_config(cfg: dict) -> None:
             )
 
 
-async def get_app_error_logs(limit: int = 200) -> list:
+async def get_app_error_logs(limit: int = 1000) -> list:
     """Return the most recent error log entries (newest first)."""
     async with postgres_connect() as db:
         async with db.execute(

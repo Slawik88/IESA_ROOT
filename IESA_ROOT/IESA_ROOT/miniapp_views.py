@@ -5764,7 +5764,7 @@ def miniapp_dev_error_logs(request):
     if request.method == "GET":
         try:
             from database.db import get_app_error_logs
-            logs = _a2s(get_app_error_logs)(200)
+            logs = _a2s(get_app_error_logs)(1000)
             # Convert datetime objects to ISO strings for JSON serialisation
             for entry in logs:
                 for k, v in entry.items():

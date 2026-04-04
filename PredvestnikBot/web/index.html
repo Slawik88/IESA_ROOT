@@ -4511,10 +4511,56 @@ async function loadDevChatsDropdown(){
     const r = await api('/api/dev/chats');
     devChatsCache = [...(r.groups||[]), ...(r.admin_chats||[])];
     const sel = document.getElementById('devChatSelector');
-    sel.innerHTML = '<option value="">— выбери чат —</option>' +
-      devChatsCache.map(c=>`<option value="${c.chat_id}" data-title="${esc(c.title)}" data-members="${c.members||0}" data-type="${c.chat_type||''}">
-        ${(c.chat_type==='group'||c.chat_type==='supergroup')?'👥':'💬'} ${esc(c.title)} · ${c.members||0} чел.
-      </option>`).join('');
+
+    // Group by ecosystem
+    const ecoMap = new Map(); // ecosystem_id → {label, chats[]}
+    const standalone = [];
+    for(const c of devChatsCache){
+      if(c.ecosystem_id){
+        if(!ecoMap.has(c.ecosystem_id))
+          ecoMap.set(c.ecosystem_id, {label: c.ecosystem_label || String(c.ecosystem_id), chats: []});
+        // Mark admin chats visually
+        const displayTitle = c.ecosystem_role==='admin'
+          ? `🔔 ${esc(c.title)}`
+          : `📢 ${esc(c.title)}`;
+        ecoMap.get(c.ecosystem_id).chats.push({...c, displayTitle});
+      } else {
+        const icon = (c.chat_type==='group'||c.chat_type==='supergroup')?'👥':'💬';
+        standalone.push({...c, displayTitle: `${icon} ${esc(c.title)}`});
+      }
+    }
+
+    const optHtml = (c) =>
+      `<option value="${c.chat_id}" data-title="${esc(c.title)}" data-members="${c.members||0}" data-type="${c.chat_type||''}">
+        ${c.displayTitle} · ${c.members||0} чел.
+      </option>`;
+
+    let html = '<option value="">— выбери чат —</option>';
+    // Sorted ecosystems (by member count of main chat, desc)
+    const sortedEcos = [...ecoMap.entries()].sort((a,b)=>{
+      const aMain = a[1].chats.find(c=>c.ecosystem_role==='main');
+      const bMain = b[1].chats.find(c=>c.ecosystem_role==='main');
+      return (bMain?.members||0) - (aMain?.members||0);
+    });
+    for(const [, eco] of sortedEcos){
+      html += `<optgroup label="🌐 ${esc(eco.label)}">`;
+      // Sort: main first, then admin, then by members
+      eco.chats.sort((a,b)=>{
+        if(a.ecosystem_role==='main' && b.ecosystem_role!=='main') return -1;
+        if(b.ecosystem_role==='main' && a.ecosystem_role!=='main') return 1;
+        return (b.members||0)-(a.members||0);
+      });
+      html += eco.chats.map(optHtml).join('');
+      html += '</optgroup>';
+    }
+    if(standalone.length){
+      standalone.sort((a,b)=>(b.members||0)-(a.members||0));
+      html += `<optgroup label="— Без экосистемы —">`;
+      html += standalone.map(optHtml).join('');
+      html += '</optgroup>';
+    }
+    sel.innerHTML = html;
+
     // Populate event trigger select too
     const evSel = document.getElementById('devEventChatSel');
     if(evSel) evSel.innerHTML = devChatsCache.map(c=>`<option value="${c.chat_id}">${esc(c.title)} (${c.chat_id})</option>`).join('');

@@ -362,7 +362,7 @@ async def search_users(chat_id: int, q: str = "") -> dict:
 # ─── Chat list ────────────────────────────────────────────────────────────────
 
 async def get_chats() -> dict:
-    """Return all group/channel chats with member counts."""
+    """Return all group/channel chats with member counts and ecosystem grouping."""
     from database.postgres import connect as postgres_connect
 
     async with postgres_connect() as db:
@@ -374,10 +374,33 @@ async def get_chats() -> dict:
         ) as c:
             rows = await c.fetchall()
 
+        # Load ecosystem links: main_chat_id → admin_chat_id
+        async with db.execute("SELECT main_chat_id, admin_chat_id FROM chat_admin_links") as c:
+            link_rows = await c.fetchall()
+
+    # Build lookup: chat_id → (ecosystem_main_id, role)
+    eco_map: dict[int, tuple[int, str]] = {}
+    for lr in link_rows:
+        main_id, adm_id = lr[0], lr[1]
+        eco_map[main_id] = (main_id, "main")
+        eco_map[adm_id]  = (main_id, "admin")
+
+    # Build title map for ecosystem labels
+    title_map: dict[int, str] = {r[0]: (r[1] or f"chat_{r[0]}") for r in rows}
+
     groups, admin_chats = [], []
     for r in rows:
         ctype = (r[2] or "").lower()
-        obj = {"chat_id": r[0], "title": r[1] or f"chat_{r[0]}", "chat_type": ctype, "members": r[3]}
+        eco_info = eco_map.get(r[0])
+        obj = {
+            "chat_id": r[0],
+            "title": r[1] or f"chat_{r[0]}",
+            "chat_type": ctype,
+            "members": r[3],
+            "ecosystem_id":    eco_info[0] if eco_info else None,
+            "ecosystem_label": title_map.get(eco_info[0], str(eco_info[0])) if eco_info else None,
+            "ecosystem_role":  eco_info[1] if eco_info else None,
+        }
         if ctype in ("group", "supergroup"):
             groups.append(obj)
         else:
