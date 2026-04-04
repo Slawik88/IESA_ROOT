@@ -16,6 +16,7 @@ from database.db import (
     add_admin_group, remove_admin_group, get_admin_groups,
     add_test_chat, remove_test_chat, get_test_chat_ids, get_chat_isolation_mode,
     set_chat_admin_link, remove_chat_admin_link, get_all_chat_admin_links, get_admin_chat_for,
+    get_main_chat_for, is_community_admin_chat,
     add_xp_in_chat,
     # Channel types
     set_channel_type, remove_channel_type, get_channel_type, get_all_channel_types,
@@ -998,17 +999,66 @@ async def cmd_show_link(message: Message, cmd_args: str):
         )
 
 
-# ─── Developer: управление привязками (для диагностики) ───────────────────────
+# ─── Привязки: экосистема текущего чата и глобальный список (developer) ────────
 
-@router.message(BotCommand("привязки", "adminlinks", "chatlinks"), RankFilter("developer"))
+@router.message(BotCommand("привязки", "adminlinks", "chatlinks"), RankFilter("owner"))
 async def cmd_list_admin_links(message: Message):
-    """Developer: показать все привязки main → admin чат."""
+    """Показать экосистему текущего чата (кто с кем связан)."""
+    if message.chat.type not in ("group", "supergroup"):
+        await message.answer("❌ Вызови в группе.", parse_mode="HTML")
+        return
+
+    chat_id = message.chat.id
+    admin_chat = get_admin_chat_for(chat_id)
+    main_chat  = get_main_chat_for(chat_id)
+
+    if admin_chat:
+        # Этот чат — основной, привязан к чату администрации
+        text = (
+            f"🔗 <b>Экосистема этого чата:</b>\n\n"
+            f"  📢 Основной чат: <code>{chat_id}</code> <i>(этот)</i>\n"
+            f"  🔔 Чат администрации: <code>{admin_chat}</code>\n\n"
+            f"<i>Жалобы, варны, антиспам → идут в чат администрации.\n"
+            f"Отвязать: <code>бот отвязать</code></i>"
+        )
+        kb = None
+        if is_developer(message.from_user.id):
+            kb = InlineKeyboardMarkup(inline_keyboard=[[
+                InlineKeyboardButton(text="❌ Удалить привязку", callback_data=f"rmal:{chat_id}")
+            ]])
+        await message.answer(text, parse_mode="HTML", reply_markup=kb)
+
+    elif main_chat:
+        # Этот чат — чат администрации для другого основного чата
+        text = (
+            f"🔗 <b>Экосистема этого чата:</b>\n\n"
+            f"  🔔 Чат администрации: <code>{chat_id}</code> <i>(этот)</i>\n"
+            f"  📢 Основной чат: <code>{main_chat}</code>\n\n"
+            f"<i>Этот чат получает уведомления из основного чата.\n"
+            f"Отвязать: <code>бот отвязать {main_chat}</code> — в основном чате</i>"
+        )
+        kb = None
+        if is_developer(message.from_user.id):
+            kb = InlineKeyboardMarkup(inline_keyboard=[[
+                InlineKeyboardButton(text="❌ Удалить привязку", callback_data=f"rmal:{main_chat}")
+            ]])
+        await message.answer(text, parse_mode="HTML", reply_markup=kb)
+
+    else:
+        await message.answer(
+            f"ℹ️ Чат <code>{chat_id}</code> не входит ни в одну экосистему.\n\n"
+            f"<i>Создать привязку: <code>бот привязать</code></i>",
+            parse_mode="HTML",
+        )
+
+
+@router.message(BotCommand("экосистемы", "allchatlinks", "allecosystems"), RankFilter("developer"))
+async def cmd_list_all_ecosystems(message: Message):
+    """Developer: показать ВСЕ экосистемы (все привязки main → admin)."""
     links = get_all_chat_admin_links()
     if not links:
         await message.answer(
-            "📋 Привязок нет.\n"
-            "Уведомления из каждого чата идут в тот же чат.\n\n"
-            "<i>Привязать: в основном чате <code>бот привязать</code></i>",
+            "📋 Привязок нет.\n\n<i>Привязать: в основном чате <code>бот привязать</code></i>",
             parse_mode="HTML",
         )
         return
@@ -1017,12 +1067,12 @@ async def cmd_list_admin_links(message: Message):
     chats = await get_active_chats()
     chat_map = {c["chat_id"]: c["title"] for c in chats}
 
-    lines = [f"🔗 <b>Привязки main → admin ({len(links)}):</b>\n"]
+    lines = [f"🌐 <b>Все экосистемы ({len(links)}):</b>\n"]
     buttons: list[list[InlineKeyboardButton]] = []
     for main_id, adm_id in sorted(links.items()):
         main_title = chat_map.get(main_id, str(main_id))
         adm_title  = chat_map.get(adm_id,  str(adm_id))
-        lines.append(f"  💬 <code>{main_id}</code> {main_title}")
+        lines.append(f"  📢 <code>{main_id}</code> {main_title}")
         lines.append(f"     → 🔔 <code>{adm_id}</code> {adm_title}")
         buttons.append([InlineKeyboardButton(
             text=f"❌ Удалить {main_title[:25]}",
