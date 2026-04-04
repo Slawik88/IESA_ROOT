@@ -6318,3 +6318,93 @@ def _log_error_to_db_frontend(context: str, message: str, stack: str, uid=None):
         conn.close()
     except Exception:
         pass
+
+
+# ─── Dev: bulk import users from JSON ─────────────────────────────────────────
+
+@csrf_exempt
+def miniapp_dev_import_users(request):
+    """POST /api/dev/import_users — import message-count records into a chat.
+    Body: {chat_id: int, records: [{user_id?, username?, messages: int, full_name?}, ...]}
+    Auth: developer or owner/co_owner.
+    """
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=405, headers=headers)
+
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+
+    # Allow developer by UID, or any owner/co_owner rank
+    if uid != _DEVELOPER_ID:
+        try:
+            conn, db_type = _get_bot_db_connection()
+            cur = conn.cursor()
+            ph = "%s" if db_type == "pg" else "?"
+            cur.execute(
+                f"SELECT rank FROM user_stats WHERE user_id={ph} AND rank IN ('owner', 'co_owner') LIMIT 1",
+                (uid,),
+            )
+            row = cur.fetchone()
+            conn.close()
+            is_privileged = bool(row)
+        except Exception:
+            is_privileged = False
+        if not is_privileged:
+            return JsonResponse({"error": "Forbidden"}, status=403, headers=headers)
+
+    try:
+        body = json.loads(request.body)
+        chat_id = int(str(body.get("chat_id", "0") or "0"))
+        records = body.get("records")
+    except Exception:
+        return JsonResponse({"error": "Invalid JSON"}, status=400, headers=headers)
+
+    if not chat_id:
+        return JsonResponse({"error": "chat_id required"}, status=400, headers=headers)
+    if not isinstance(records, list) or not records:
+        return JsonResponse({"error": "records must be a non-empty list"}, status=400, headers=headers)
+
+    # Sanitise and cap records
+    MAX_RECORDS = 10_000
+    clean: list[dict] = []
+    for rec in records[:MAX_RECORDS]:
+        if not isinstance(rec, dict):
+            continue
+        entry: dict = {"messages": int(rec.get("messages") or rec.get("message_count") or 0)}
+        raw_uid = rec.get("user_id")
+        if raw_uid is not None:
+            try:
+                entry["user_id"] = int(raw_uid)
+            except (ValueError, TypeError):
+                pass
+        raw_name = str(rec.get("full_name") or "").strip()
+        if raw_name:
+            entry["full_name"] = raw_name[:200]
+        raw_uname = str(rec.get("username") or "").strip()
+        if raw_uname:
+            entry["username"] = raw_uname[:64]
+        if entry["messages"] > 0:
+            clean.append(entry)
+
+    if not clean:
+        return JsonResponse({"error": "No valid records after sanitisation"}, status=400, headers=headers)
+
+    try:
+        from asgiref.sync import async_to_sync as _a2s
+        import sys, os
+        sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'PredvestnikBot'))
+        from database.db import import_users_bulk as _import_users_bulk
+        result = _a2s(_import_users_bulk)(clean, chat_id)
+        return JsonResponse(
+            {"ok": True, "ok_direct": result["ok_direct"], "ok_pending": result["ok_pending"],
+             "errors": result["errors"][:50]},
+            json_dumps_params={"ensure_ascii": False},
+            headers=headers,
+        )
+    except Exception:
+        logger.exception("miniapp_dev_import_users error")
+        return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
