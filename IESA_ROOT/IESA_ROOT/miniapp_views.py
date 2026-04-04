@@ -210,6 +210,25 @@ def miniapp_user_data(request):
         return JsonResponse({"error": "Сервис временно недоступен"}, status=503,
                             headers=headers)
 
+    # ── feat_website gate: check if miniapp is enabled for this chat ─────
+    if specific_chat_id:
+        try:
+            _cur_fw = conn.cursor()
+            _ph_fw = "%s" if db_type == "pg" else "?"
+            _cur_fw.execute(
+                f"SELECT COALESCE(feat_website, 1) FROM chat_settings WHERE chat_id={_ph_fw}",
+                (specific_chat_id,),
+            )
+            _fw_row = _cur_fw.fetchone()
+            if _fw_row is not None and _fw_row[0] == 0:
+                conn.close()
+                return JsonResponse(
+                    {"error": "miniapp_disabled", "message": "Мини-приложение отключено администрацией чата."},
+                    status=403, headers=headers,
+                )
+        except Exception:
+            pass  # if we can't check, allow access (fail open)
+
     try:
         if db_type == "pg":
             cur = conn.cursor()

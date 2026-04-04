@@ -7,8 +7,9 @@ from config import (
     AF2_NEWCOMER_TEXT_LIMIT, AF2_NEWCOMER_TEXT_WINDOW, AF2_NEWCOMER_TEXT_MUTE,
     AF2_NEWCOMER_MEDIA_LIMIT, AF2_NEWCOMER_MEDIA_WINDOW, AF2_NEWCOMER_MEDIA_MUTE,
     AF2_NEWCOMER_MIXED_LIMIT, AF2_NEWCOMER_MIXED_WINDOW, AF2_NEWCOMER_MIXED_MUTE,
-    AF2_TRUSTED_STICKER_LIMIT, AF2_TRUSTED_STICKER_WINDOW,
+    AF2_TRUSTED_STICKER_LIMIT, AF2_TRUSTED_STICKER_WINDOW, AF2_TRUSTED_STICKER_MUTE,
     AF2_TRUSTED_MEDIA_LIMIT, AF2_TRUSTED_MEDIA_WINDOW, AF2_TRUSTED_MEDIA_MUTE,
+    AF2_REGULAR_STICKER_LIMIT, AF2_REGULAR_STICKER_WINDOW, AF2_REGULAR_STICKER_MUTE,
 )
 
 # ── Legacy stores (kept for backward compat with check_spam / check_flood) ───
@@ -81,7 +82,7 @@ class _UserFloodState:
     """Tracks message timestamps by type for one user in one chat."""
     text_ts: list[float] = field(default_factory=list)
     media_ts: list[float] = field(default_factory=list)
-    sticker_ts: list[float] = field(default_factory=list)
+    sticker_ts: list[float] = field(default_factory=list)   # stickers + GIFs/animations
     all_ts: list[float] = field(default_factory=list)
     seen_albums: dict[str, float] = field(default_factory=dict)  # media_group_id → first_seen
     recent_msg_ids: list[int] = field(default_factory=list)  # for bulk delete
@@ -132,6 +133,7 @@ def check_smart_flood(
     is_text: bool = False,
     is_media: bool = False,
     is_sticker: bool = False,
+    is_animation: bool = False,   # GIFs — treated same as stickers (raid vector)
     media_group_id: str | None = None,
 ) -> FloodVerdict:
     """Smart Antiflood 2.0 — trust-level-aware flood detection.
@@ -173,7 +175,7 @@ def check_smart_flood(
     if is_media:
         state.media_ts = _prune(state.media_ts, max_window, now)
         state.media_ts.append(now)
-    if is_sticker:
+    if is_sticker or is_animation:  # GIFs tracked alongside stickers — both are raid vectors
         state.sticker_ts = _prune(state.sticker_ts, max_window, now)
         state.sticker_ts.append(now)
 
@@ -231,15 +233,31 @@ def check_smart_flood(
             state.recent_msg_ids.clear()
             return verdict
 
-        # Emotional burst (stickers)
+        # Sticker/GIF raid — now mutes + notifies admins (raiders exploit this)
         sticker_count = _count_in_window(state.sticker_ts, AF2_TRUSTED_STICKER_WINDOW, now)
         if sticker_count >= AF2_TRUSTED_STICKER_LIMIT:
-            verdict.action = "warn"
-            verdict.reason = "sticker_burst"
+            verdict.action = "mute"
+            verdict.mute_seconds = AF2_TRUSTED_STICKER_MUTE
+            verdict.delete_all = True
+            verdict.delete_msg_ids = list(state.recent_msg_ids)
+            verdict.notify_admins = True
+            verdict.reason = "sticker_gif_raid"
+            state.recent_msg_ids.clear()
             return verdict
 
-    # ── Regular users — use default antiflood (legacy) ────────────────────
-    # The middleware will still apply the old check_flood() for regular users.
+    # ── Regular users — sticker/GIF raid check + legacy antiflood ────────
+    else:  # trust == "regular"
+        sticker_count = _count_in_window(state.sticker_ts, AF2_REGULAR_STICKER_WINDOW, now)
+        if sticker_count >= AF2_REGULAR_STICKER_LIMIT:
+            verdict.action = "mute"
+            verdict.mute_seconds = AF2_REGULAR_STICKER_MUTE
+            verdict.delete_all = True
+            verdict.delete_msg_ids = list(state.recent_msg_ids)
+            verdict.notify_admins = True
+            verdict.reason = "sticker_gif_raid"
+            state.recent_msg_ids.clear()
+            return verdict
+        # Fallback: middleware will apply legacy check_flood()
 
     return verdict
 
