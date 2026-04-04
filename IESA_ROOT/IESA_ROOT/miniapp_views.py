@@ -4631,11 +4631,14 @@ def miniapp_expeditions_start(request):
 
     chat_id = int(data.get("chat_id", 0))
     option_key = str(data.get("option_key", ""))
+    wallet_type = str(data.get("wallet_type", "personal")).lower()
+    if wallet_type not in ("personal", "family"):
+        wallet_type = "personal"
 
     from api.expeditions import start_expedition as _api_start
     from asgiref.sync import async_to_sync as _a2s
     try:
-        result = _a2s(_api_start)(uid, chat_id, option_key)
+        result = _a2s(_api_start)(uid, chat_id, option_key, wallet_type)
     except ValueError as e:
         return JsonResponse({"error": str(e)}, status=400, headers=headers)
     except Exception as exc:
