@@ -1388,7 +1388,6 @@ async def cmd_me(message: Message, cmd_args: str):
         pet_for_walk = await get_pet(uid, chat_id)
         if pet_for_walk and pet_for_walk.get("walk_end_at"):
             try:
-                from datetime import timezone
                 end_dt = datetime.fromisoformat(str(pet_for_walk["walk_end_at"]))
                 if end_dt.tzinfo is None:
                     end_dt = end_dt.replace(tzinfo=timezone.utc)

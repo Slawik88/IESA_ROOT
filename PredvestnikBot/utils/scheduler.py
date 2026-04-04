@@ -527,16 +527,8 @@ async def _task_bond_price_update(bot) -> None:
             pass
 
     from database.db import update_bond_prices, is_isolated_chat
-    from database.postgres import connect as postgres_connect
 
-    # Получаем все активные chat_id из chat_settings (исключая изолированные)
-    async with postgres_connect() as db:
-        async with db.execute("SELECT chat_id FROM chat_settings") as c:
-            rows = await c.fetchall()
-
-    chat_ids = [r["chat_id"] for r in rows if not is_isolated_chat(r["chat_id"])]
-
-    # Запоминаем время последнего обновления (используется в mini app для обнаружения изменений)
+    # Биржа глобальная — обновляем один раз с chat_id=0, не по каждому чату.
     await set_scheduler_state("bond_price_last_update", now.strftime("%Y-%m-%dT%H:%M"))
     await set_scheduler_state("bond_price_last_updated_at", now.strftime("%Y-%m-%dT%H:%M"))
 
@@ -545,23 +537,15 @@ async def _task_bond_price_update(bot) -> None:
     next_time = now + timedelta(seconds=delay_secs)
     await set_scheduler_state("bond_price_next_update", next_time.strftime("%Y-%m-%dT%H:%M"))
 
-    trend_summary: dict[str, str] = {}
-    for chat_id in chat_ids:
-        try:
-            result = await update_bond_prices(chat_id)
-            if isinstance(result, dict):
-                trend_summary[str(chat_id)] = result.get("trend", "?")
-        except Exception as exc:
-            log.warning("Bond price update for chat %s: %s", chat_id, exc)
-
-    if chat_ids:
-        trends = ", ".join(f"{cid}:{t}" for cid, t in trend_summary.items()) or "—"
+    try:
+        result = await update_bond_prices(0)
+        trend = result.get("trend", "?") if isinstance(result, dict) else "?"
         log.info(
-            "Bond prices updated for %d chats at %s UTC (next in %dm) | trends: %s",
-            len(chat_ids), now.strftime("%H:%M"), delay_secs // 60, trends,
+            "Bond prices updated (global) at %s UTC (next in %dm) | trend: %s",
+            now.strftime("%H:%M"), delay_secs // 60, trend,
         )
-    else:
-        log.info("Bond price update: no chats in chat_settings yet")
+    except Exception as exc:
+        log.warning("Bond price update failed: %s", exc)
 
 
 # ─── Пятница 20:00 Zurich — Дилижанс ─────────────────────────────────────────
