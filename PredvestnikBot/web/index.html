@@ -53,7 +53,7 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 .tab-content.active{display:block}
 
 /* ==== CARDS ==== */
-.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:12px;margin-bottom:8px;animation:fade-in .3s ease backwards;transition:box-shadow .2s,transform .2s}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:12px;margin-bottom:8px;animation:fade-in .3s ease backwards;transition:box-shadow .2s,transform .2s;word-break:break-word;overflow-wrap:anywhere;min-width:0}
 .card:hover{transform:translateY(-1px) scale(1.004);box-shadow:0 8px 32px rgba(0,0,0,.44)}
 .tab-content.active .card:nth-child(1){animation-delay:0s}
 .tab-content.active .card:nth-child(2){animation-delay:.05s}
@@ -5411,7 +5411,7 @@ function renderPotionsInventory(potions) {
       </div>
       ${!canSelectItem(i) ? 
         `<button class="btn btn-sm btn-green" onclick="consumePotion(${i.id})" style="width:auto;min-width:68px">
-          ⚗️ Выпить
+          ${i.slot==='consume'?'✨ Использовать':'⚗️ Выпить'}
         </button>` : ''}
     </div>`
   ).join('') : '<div style="color:var(--text2);text-align:center;padding:20px">Нет зелий</div>';
@@ -5621,7 +5621,11 @@ async function consumePotion(itemId) {
   const item = window.inventoryItems.find(i => i.id === itemId);
   if (!item) return;
 
-  const confirmed = confirm(`Выпить ${item.name}?\n\nПосле этого предмет исчезнет и даст вам временный эффект.`);
+  const isConsume = item.slot === 'consume';
+  const confirmMsg = isConsume
+    ? `Использовать ${item.name}?\n\nПредмет исчезнет и сразу даст эффект.`
+    : `Выпить ${item.name}?\n\nПосле этого предмет исчезнет и даст вам временный эффект.`;
+  const confirmed = confirm(confirmMsg);
   if (!confirmed) return;
 
   try {
@@ -6367,7 +6371,7 @@ async function loadExpeditionTab(){
 }
 function renderExpeditionTab(){
   if(!expedData) return;
-  const {pet, expedition, balance, options} = expedData;
+  const {pet, expedition, balance, family_balance, options} = expedData;
   let html = '';
 
   if(!pet){
@@ -6386,7 +6390,8 @@ function renderExpeditionTab(){
       <div class="card-title">${petEmoji} ${petNameHtml}</div>
       <div class="stat-row"><span class="stat-label">😓 Усталость</span><span class="stat-value" style="color:${fatColor}">${pet.fatigue}/100</span></div>
       <div class="progress-bar"><div class="progress-fill" style="width:${pet.fatigue}%;background:${fatColor}"></div></div>
-      <div class="stat-row" style="margin-top:6px"><span class="stat-label">💰 Баланс</span><span class="stat-value">${balance} 🪙</span></div>
+      <div class="stat-row" style="margin-top:6px"><span class="stat-label">💰 Личный баланс</span><span class="stat-value">${balance} 🪙</span></div>
+      ${(family_balance||0)>0?`<div class="stat-row"><span class="stat-label">💑 Семейный баланс</span><span class="stat-value" style="color:#a78bfa">${family_balance} 🪙</span></div>`:''}
     </div>`;
 
     // Walk button — shown when pet is not on expedition
@@ -6443,8 +6448,21 @@ function renderExpeditionTab(){
       </div></div>`;
     } else if(pet.fatigue < 100){
       html += `<div class="card"><div class="card-title">🗺 Выбери экспедицию</div>`;
+      // Wallet selector (only for married users with family wallet)
+      const hasFamilyWallet = (family_balance||0) > 0;
+      const walletToggleHtml = hasFamilyWallet ? `
+        <div style="display:flex;gap:6px;margin-bottom:10px">
+          <button id="expedWalletPersonal" class="btn btn-sm" onclick="setExpedWallet('personal')"
+            style="flex:1;background:var(--accent);color:#fff;font-size:11px;padding:5px 8px">💰 Личный</button>
+          <button id="expedWalletFamily" class="btn btn-sm" onclick="setExpedWallet('family')"
+            style="flex:1;background:var(--bg3);color:var(--text2);font-size:11px;padding:5px 8px">💑 Семейный</button>
+        </div>` : '';
+      html += walletToggleHtml;
+      window._expedWalletType = 'personal';
       Object.entries(options||{}).forEach(([key, opt]) => {
-        const canAfford = opt.cost === 0 || balance >= opt.cost;
+        const canAffordPersonal = opt.cost === 0 || balance >= opt.cost;
+        const canAffordFamily   = (family_balance||0) >= opt.cost;
+        const canAfford = canAffordPersonal || (hasFamilyWallet && canAffordFamily);
         const profit_min = opt.reward_min - opt.cost;
         const profit_max = opt.reward_max - opt.cost;
         const durationIcon = opt.hours <= 2 ? '⚡' : opt.hours <= 4 ? '🕓' : '🌙';
@@ -6472,6 +6490,16 @@ function renderExpeditionTab(){
   }
   document.getElementById('expedContent').innerHTML = html;
 }
+function setExpedWallet(type){
+  window._expedWalletType = type;
+  const pBtn = document.getElementById('expedWalletPersonal');
+  const fBtn = document.getElementById('expedWalletFamily');
+  if(!pBtn||!fBtn) return;
+  pBtn.style.background = type==='personal'?'var(--accent)':'var(--bg3)';
+  pBtn.style.color = type==='personal'?'#fff':'var(--text2)';
+  fBtn.style.background = type==='family'?'#7c3aed':'var(--bg3)';
+  fBtn.style.color = type==='family'?'#fff':'var(--text2)';
+}
 async function doExpedStart(key){
   try{
     const btn = event && event.target;
@@ -6480,7 +6508,8 @@ async function doExpedStart(key){
       btn.style.animation='exped-depart .6s ease-in forwards';
     }
     if(tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
-    await api('/api/expeditions/start','POST',{chat_id:chatId,option_key:key});
+    const walletType = window._expedWalletType || 'personal';
+    await api('/api/expeditions/start','POST',{chat_id:chatId,option_key:key,wallet_type:walletType});
     toast('🏕 Экспедиция начата!','success');
     tabLoaded['expedition']=false;
     setTimeout(()=>loadExpeditionTab(),500);

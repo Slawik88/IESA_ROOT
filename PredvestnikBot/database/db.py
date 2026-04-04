@@ -7349,18 +7349,42 @@ async def consume_potion(user_id: int, chat_id: int, item_id: int) -> tuple[bool
     async with postgres_connect() as db:
         async with db.execute(
             "SELECT item_key, item_name, slot FROM gacha_inventory "
-            "WHERE id=? AND user_id=? AND chat_id=? AND slot='potion'",
+            "WHERE id=? AND user_id=? AND chat_id=? AND slot IN ('potion','consume')",
             (item_id, user_id, chat_id)
         ) as c:
             item = await c.fetchone()
         
         if not item:
-            return False, "Зелье не найдено"
-        
+            return False, "Предмет не найден"
+
+        item_key2, item_name2, item_slot2 = item[0], item[1], item[2]
+
+        # ── Consume (instant-effect) items ───────────────────────────────────
+        if item_slot2 == 'consume':
+            _CONSUME_EFFECTS = {
+                'cmn_xp_shard':    ('xp',   25,  '+25 XP'),
+                'cmn_herb':        ('mora', 15,  '+15 🪙'),
+                'rare_xp_crystal': ('xp',  150, '+150 XP'),
+                'rare_mora_bag':   ('mora', 120, '+120 🪙'),
+                'rare_mora_chest': ('mora', 250, '+250 🪙'),
+            }
+            effect = _CONSUME_EFFECTS.get(item_key2)
+            if not effect:
+                return False, 'Неизвестный тип расходника'
+            eff_type, eff_val, eff_desc = effect
+            await db.execute('DELETE FROM gacha_inventory WHERE id=?', (item_id,))
+            await db.commit()
+            if eff_type == 'xp':
+                await add_xp_in_chat(user_id, chat_id, eff_val)
+            else:
+                await add_mora(user_id, chat_id, eff_val)
+            return True, f'✨ {item_name2} использован! {eff_desc}'
+
+        # ── Potion (timed buff) items ────────────────────────────────────────────
         from shared_prices import POTIONS_CATALOG
-        potion_data = POTIONS_CATALOG.get(item[0])
+        potion_data = POTIONS_CATALOG.get(item_key2)
         if not potion_data:
-            return False, "Неизвестный тип зелья"
+            return False, 'Неизвестный тип зелья'
         
         # Calculate expiration time
         now = datetime.now(timezone.utc)
@@ -7376,7 +7400,7 @@ async def consume_potion(user_id: int, chat_id: int, item_id: int) -> tuple[bool
         await db.execute(
             "INSERT INTO active_buffs (user_id, chat_id, buff_type, expires_at, source) "
             "VALUES (?,?,?,?,?)",
-            (user_id, chat_id, potion_data["buff_type"], expires_at, f"potion:{item[0]}")
+            (user_id, chat_id, potion_data["buff_type"], expires_at, f"potion:{item_key2}")
         )
         
         # Remove consumed potion from inventory
@@ -7385,7 +7409,7 @@ async def consume_potion(user_id: int, chat_id: int, item_id: int) -> tuple[bool
         await db.commit()
         
         duration_text = f"{potion_data['duration']//60}ч {potion_data['duration']%60}м" if potion_data['duration'] >= 60 else f"{potion_data['duration']}м"
-        return True, f"🧪 {item[1]} выпито! {potion_data['desc'].split(':')[1]} ({duration_text})"
+        return True, f"🧪 {item_name2} выпито! {potion_data['desc'].split(':')[1]} ({duration_text})"
 
 
 async def batch_sell_items(

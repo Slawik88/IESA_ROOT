@@ -298,11 +298,21 @@ async def get_expedition_status(uid: int, chat_id: int) -> dict:
     mora_row = await get_mora(uid, chat_id)
     balance = mora_row["balance"] if mora_row else 0
 
+    # Family wallet balance (0 if user is single)
+    family_balance = 0
+    try:
+        from database.db import get_family_wallet, is_user_single
+        if not await is_user_single(uid, chat_id):
+            family_balance = await get_family_wallet(chat_id, uid)
+    except Exception:
+        pass
+
     return {
         "ok": True,
         "pet": pet,
         "expedition": expedition,
         "balance": balance,
+        "family_balance": family_balance,
         "options": {
             k: {
                 "hours": v["hours"],

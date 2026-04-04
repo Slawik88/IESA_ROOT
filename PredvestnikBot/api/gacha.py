@@ -207,17 +207,7 @@ async def gacha_roll(uid: int, chat_id: int, count: int,
             crit_rate=meta.get("crit_rate", 0.0),
             slot=meta.get("slot"),
         )
-        # Instant-grant items — apply effect immediately
-        if key == "cmn_xp_shard":
-            await add_xp_in_chat(uid, chat_id, 25)
-        elif key == "cmn_herb":
-            await add_mora(uid, chat_id, 15)
-        elif key == "rare_xp_crystal":
-            await add_xp_in_chat(uid, chat_id, 150)
-        elif key == "rare_mora_bag":
-            await add_mora(uid, chat_id, 120)
-        elif key == "rare_mora_chest":
-            await add_mora(uid, chat_id, 250)
+        # Consume-slot items stay in inventory; user activates from inventory tab.
         pity = 0 if rarity == "legendary" else pity + 1
         results.append({
             "key": key, "name": name, "rarity": rarity, "desc": desc,
