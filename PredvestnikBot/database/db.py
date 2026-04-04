@@ -533,6 +533,52 @@ async def init_db():
             ON CONFLICT DO NOTHING
         """)
         await db.execute("DELETE FROM family_wallet_log WHERE chat_id != 0")
+
+        # Миграция: биржа (облигации) становится глобальной (chat_id=0).
+        # Суммируем per-chat holdings в глобальную строку.
+        await db.execute("""
+            INSERT INTO bond_prices (bond_key, chat_id, price, updated_at)
+            SELECT bond_key, 0, price, updated_at
+            FROM bond_prices
+            WHERE chat_id != 0
+            ON CONFLICT(bond_key, chat_id) DO NOTHING
+        """)
+        await db.execute("DELETE FROM bond_prices WHERE chat_id != 0")
+        await db.execute("""
+            INSERT INTO market_state (chat_id, trend, ticks_left, updated_at)
+            SELECT 0, trend, ticks_left, updated_at
+            FROM market_state
+            WHERE chat_id != 0
+            ON CONFLICT(chat_id) DO NOTHING
+        """)
+        await db.execute("DELETE FROM market_state WHERE chat_id != 0")
+        await db.execute("""
+            INSERT INTO user_bonds (user_id, chat_id, bond_key, amount, invested)
+            SELECT user_id, 0, bond_key, SUM(amount), SUM(invested)
+            FROM user_bonds
+            WHERE chat_id != 0
+            GROUP BY user_id, bond_key
+            ON CONFLICT(user_id, chat_id, bond_key) DO UPDATE
+                SET amount   = user_bonds.amount   + EXCLUDED.amount,
+                    invested = user_bonds.invested + EXCLUDED.invested
+        """)
+        await db.execute("DELETE FROM user_bonds WHERE chat_id != 0")
+        await db.execute("""
+            INSERT INTO user_bond_lots (user_id, chat_id, bond_key, quantity, price_per, bought_at)
+            SELECT user_id, 0, bond_key, quantity, price_per, bought_at
+            FROM user_bond_lots
+            WHERE chat_id != 0
+            ON CONFLICT DO NOTHING
+        """)
+        await db.execute("DELETE FROM user_bond_lots WHERE chat_id != 0")
+        await db.execute("""
+            INSERT INTO bond_price_history (chat_id, bond_key, price, recorded_at)
+            SELECT 0, bond_key, price, recorded_at
+            FROM bond_price_history
+            WHERE chat_id != 0
+            ON CONFLICT DO NOTHING
+        """)
+        await db.execute("DELETE FROM bond_price_history WHERE chat_id != 0")
         await db.commit()
 
         # Персональный ledger кошелька (зарплаты, админ-правки, доходы/расходы)
@@ -5925,11 +5971,11 @@ from shared_prices import BOND_DEFAULTS
 
 
 async def get_bond_prices(chat_id: int) -> dict:
-    """Вернуть текущие цены облигаций {key: price}."""
+    """Вернуть текущие цены облигаций {key: price}.
+    Биржа ГЛОБАЛЬНАЯ — цены едины во всех чатах (chat_id игнорируется)."""
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT bond_key, price FROM bond_prices WHERE chat_id=?",
-            (chat_id,),
+            "SELECT bond_key, price FROM bond_prices WHERE chat_id=0",
         ) as c:
             rows = await c.fetchall()
     prices = {r["bond_key"]: r["price"] for r in rows}
@@ -5948,19 +5994,19 @@ async def update_bond_prices(chat_id: int):
       • Mean reversion        (if price > 40% off base, 60% chance to pull back)
       • Volatility spikes     (1% chance per asset — "black swan" σ × 5-10×)
       • Bull / Bear trend     (10% chance per tick to enter; lasts 2-3 ticks; ±5% mood bias)
-      • History pruning       (keep only last 24 records per (chat_id, bond_key))
+      • History pruning       (keep only last 24 records)
+    Биржа ГЛОБАЛЬНАЯ — chat_id игнорируется, всегда используется chat_id=0.
     """
     import random
     import math
 
-    current = await get_bond_prices(chat_id)
+    current = await get_bond_prices(0)
     now = datetime.now(timezone.utc)
 
     # ── 1. Load / advance bull/bear state ────────────────────────────────────
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT trend, ticks_left FROM market_state WHERE chat_id=?",
-            (chat_id,),
+            "SELECT trend, ticks_left FROM market_state WHERE chat_id=0",
         ) as c:
             state_row = await c.fetchone()
 
@@ -6025,33 +6071,33 @@ async def update_bond_prices(chat_id: int):
 
             await db.execute(
                 """INSERT INTO bond_prices (bond_key, chat_id, price, updated_at)
-                   VALUES (?,?,?,?)
+                   VALUES (?,0,?,?)
                    ON CONFLICT(bond_key, chat_id) DO UPDATE
                    SET price=excluded.price, updated_at=excluded.updated_at""",
-                (key, chat_id, new_price, now),
+                (key, new_price, now),
             )
             await db.execute(
-                "INSERT INTO bond_price_history (chat_id, bond_key, price, recorded_at) VALUES (?,?,?,?)",
-                (chat_id, key, new_price, now),
+                "INSERT INTO bond_price_history (chat_id, bond_key, price, recorded_at) VALUES (0,?,?,?)",
+                (key, new_price, now),
             )
             # Prune history — keep last 120 ticks per asset (~15 days at 3h intervals)
             await db.execute(
                 """DELETE FROM bond_price_history
-                   WHERE chat_id=? AND bond_key=? AND id NOT IN (
+                   WHERE chat_id=0 AND bond_key=? AND id NOT IN (
                        SELECT id FROM bond_price_history
-                       WHERE chat_id=? AND bond_key=?
+                       WHERE chat_id=0 AND bond_key=?
                        ORDER BY id DESC LIMIT 120
                    )""",
-                (chat_id, key, chat_id, key),
+                (key, key),
             )
 
         # Persist updated market state
         await db.execute(
             """INSERT INTO market_state (chat_id, trend, ticks_left, updated_at)
-               VALUES (?,?,?,?)
+               VALUES (0,?,?,?)
                ON CONFLICT(chat_id) DO UPDATE
                SET trend=excluded.trend, ticks_left=excluded.ticks_left, updated_at=excluded.updated_at""",
-            (chat_id, trend, ticks_left, now),
+            (trend, ticks_left, now),
         )
         await db.commit()
 
@@ -6059,22 +6105,23 @@ async def update_bond_prices(chat_id: int):
 
 
 async def get_user_bonds(user_id: int, chat_id: int) -> list[dict]:
+    """Returns user's bond holdings globally (chat_id ignored — bonds are global market)."""
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT * FROM user_bonds WHERE user_id=? AND chat_id=?",
-            (user_id, chat_id),
+            "SELECT * FROM user_bonds WHERE user_id=? AND chat_id=0",
+            (user_id,),
         ) as c:
             return [dict(r) for r in await c.fetchall()]
 
 
 async def get_bond_price_history(chat_id: int, bond_key: str, limit: int = 30) -> list[dict]:
-    """Return recent price history for a bond in a chat (oldest first)."""
+    """Return recent price history for a bond (global market — chat_id ignored)."""
     async with postgres_connect() as db:
         async with db.execute(
             """SELECT price, recorded_at FROM bond_price_history
-               WHERE chat_id=? AND bond_key=?
+               WHERE chat_id=0 AND bond_key=?
                ORDER BY id DESC LIMIT ?""",
-            (chat_id, bond_key, limit),
+            (bond_key, limit),
         ) as c:
             rows = [dict(r) for r in await c.fetchall()]
     return list(reversed(rows))  # return oldest first
@@ -6163,36 +6210,37 @@ async def equip_item(user_id: int, chat_id: int, item_id: int, slot: str) -> str
 
 
 async def buy_bonds(user_id: int, chat_id: int, bond_key: str, amount: int, price_per: int) -> bool:
-    """Купить облигации. Записывает лот в user_bond_lots и обновляет агрегат user_bonds."""
+    """Купить облигации. Биржа глобальна — chat_id игнорируется (используется 0)."""
     total_invested = amount * price_per
     now = datetime.now(timezone.utc)
     async with postgres_connect() as db:
         # Record individual lot for per-lot tracking (FIFO sell)
         await db.execute(
             """INSERT INTO user_bond_lots (user_id, chat_id, bond_key, quantity, price_per, bought_at)
-               VALUES (?,?,?,?,?,?)""",
-            (user_id, chat_id, bond_key, amount, price_per, now),
+               VALUES (?,0,?,?,?,?)""",
+            (user_id, bond_key, amount, price_per, now),
         )
         # Keep aggregate table in sync for display compatibility
         await db.execute(
             """INSERT INTO user_bonds (user_id, chat_id, bond_key, amount, invested)
-               VALUES (?,?,?,?,?)
+               VALUES (?,0,?,?,?)
                ON CONFLICT(user_id, chat_id, bond_key)
                DO UPDATE SET amount   = user_bonds.amount   + excluded.amount,
                              invested = user_bonds.invested + excluded.invested""",
-            (user_id, chat_id, bond_key, amount, total_invested),
+            (user_id, bond_key, amount, total_invested),
         )
         await db.commit()
     return True
 
 
 async def sell_bonds(user_id: int, chat_id: int, bond_key: str, amount: int) -> tuple[bool, int]:
-    """Продать облигации методом FIFO по лотам. Возвращает (success, actual_amount_sold)."""
+    """Продать облигации методом FIFO по лотам. Биржа глобальная — chat_id игнорируется (используется 0).
+    Возвращает (success, actual_amount_sold)."""
     async with postgres_connect() as db:
         # Verify total holding
         async with db.execute(
-            "SELECT COALESCE(SUM(quantity),0) AS total FROM user_bond_lots WHERE user_id=? AND chat_id=? AND bond_key=?",
-            (user_id, chat_id, bond_key),
+            "SELECT COALESCE(SUM(quantity),0) AS total FROM user_bond_lots WHERE user_id=? AND chat_id=0 AND bond_key=?",
+            (user_id, bond_key),
         ) as c:
             row = await c.fetchone()
         total_held = row["total"] if row else 0
@@ -6200,8 +6248,8 @@ async def sell_bonds(user_id: int, chat_id: int, bond_key: str, amount: int) -> 
             # Data inconsistency: aggregate may have bonds bought before lot tracking.
             # Check user_bonds aggregate and synthesize missing lots if needed.
             async with db.execute(
-                "SELECT amount, invested FROM user_bonds WHERE user_id=? AND chat_id=? AND bond_key=?",
-                (user_id, chat_id, bond_key),
+                "SELECT amount, invested FROM user_bonds WHERE user_id=? AND chat_id=0 AND bond_key=?",
+                (user_id, bond_key),
             ) as c:
                 agg_row = await c.fetchone()
             agg_amount = agg_row["amount"] if agg_row else 0
@@ -6213,15 +6261,15 @@ async def sell_bonds(user_id: int, chat_id: int, bond_key: str, amount: int) -> 
                 avg_price = int(agg_row["invested"] / agg_amount) if agg_amount > 0 else 0
                 await db.execute(
                     "INSERT INTO user_bond_lots (user_id, chat_id, bond_key, quantity, price_per, bought_at)"
-                    " VALUES (?,?,?,?,?,NOW())",
-                    (user_id, chat_id, bond_key, missing_qty, avg_price),
+                    " VALUES (?,0,?,?,?,NOW())",
+                    (user_id, bond_key, missing_qty, avg_price),
                 )
             total_held = agg_amount
 
         # Fetch lots oldest-first (FIFO)
         async with db.execute(
-            "SELECT id, quantity FROM user_bond_lots WHERE user_id=? AND chat_id=? AND bond_key=? ORDER BY bought_at ASC, id ASC",
-            (user_id, chat_id, bond_key),
+            "SELECT id, quantity FROM user_bond_lots WHERE user_id=? AND chat_id=0 AND bond_key=? ORDER BY bought_at ASC, id ASC",
+            (user_id, bond_key),
         ) as c:
             lots = [dict(r) for r in await c.fetchall()]
 
@@ -6243,23 +6291,23 @@ async def sell_bonds(user_id: int, chat_id: int, bond_key: str, amount: int) -> 
 
         # Update aggregate; proportionally reduce invested
         async with db.execute(
-            "SELECT amount, invested FROM user_bonds WHERE user_id=? AND chat_id=? AND bond_key=?",
-            (user_id, chat_id, bond_key),
+            "SELECT amount, invested FROM user_bonds WHERE user_id=? AND chat_id=0 AND bond_key=?",
+            (user_id, bond_key),
         ) as c:
             agg = await c.fetchone()
         if agg:
             new_amount = agg["amount"] - amount
             if new_amount <= 0:
                 await db.execute(
-                    "DELETE FROM user_bonds WHERE user_id=? AND chat_id=? AND bond_key=?",
-                    (user_id, chat_id, bond_key),
+                    "DELETE FROM user_bonds WHERE user_id=? AND chat_id=0 AND bond_key=?",
+                    (user_id, bond_key),
                 )
             else:
                 frac = amount / agg["amount"]
                 new_invested = max(0, int(agg["invested"] * (1 - frac)))
                 await db.execute(
-                    "UPDATE user_bonds SET amount=?, invested=? WHERE user_id=? AND chat_id=? AND bond_key=?",
-                    (new_amount, new_invested, user_id, chat_id, bond_key),
+                    "UPDATE user_bonds SET amount=?, invested=? WHERE user_id=? AND chat_id=0 AND bond_key=?",
+                    (new_amount, new_invested, user_id, bond_key),
                 )
         await db.commit()
     return (True, amount)
