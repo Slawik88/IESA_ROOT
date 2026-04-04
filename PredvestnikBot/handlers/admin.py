@@ -20,6 +20,7 @@ from database.db import (
     import_marriage_with_date, get_migration_stats, import_users_bulk,
     store_pending_marriages,
     get_inactive_users_24h,
+    _invalidate_chat_settings,
 )
 from filters.bot_command import BotCommand
 from filters.rank_filter import RankFilter
@@ -1380,3 +1381,121 @@ async def cmd_user_banlist(message: Message, cmd_args: str):
         lines.append(f"  • <code>{r['user_id']}</code> {display} — {added}")
 
     await message.answer("\n".join(lines), parse_mode="HTML")
+
+
+# ─── Настройки чата (Feature Flags) ──────────────────────────────────────────
+
+_FLAGS: dict[str, tuple[str, str]] = {
+    "website":       ("🌐", "Мини-приложение"),
+    "antispam":      ("🛡", "Анти-спам / Антифлуд"),
+    "marriages":     ("💍", "Браки и разводы"),
+    "pets":          ("🐾", "Питомцы"),
+    "casino":        ("🎰", "Казино"),
+    "random_events": ("🎁", "Случайные события"),
+}
+
+
+def _build_feat_keyboard(states: dict[str, bool], chat_id: int) -> InlineKeyboardMarkup:
+    """Inline keyboard with one toggle button per feature flag."""
+    buttons = []
+    for key, (emoji, label) in _FLAGS.items():
+        on = states.get(key, True)
+        status = "🟢" if on else "🔴"
+        buttons.append(
+            InlineKeyboardButton(
+                text=f"{status} {emoji} {label}",
+                callback_data=f"feat:toggle:{key}:{chat_id}",
+            )
+        )
+    return InlineKeyboardMarkup(inline_keyboard=[[b] for b in buttons])
+
+
+def _feat_states_from_settings(settings) -> dict[str, bool]:
+    result = {}
+    for key in _FLAGS:
+        db_key = f"feat_{key}"
+        try:
+            val = settings[db_key] if settings else 1
+        except (KeyError, IndexError, TypeError):
+            val = 1
+        result[key] = (val != 0)
+    return result
+
+
+@router.message(BotCommand("настройки", "модули", "features", "functions"), RankFilter("co_owner"))
+async def cmd_chat_settings(message: Message, cmd_args: str):
+    """Показать и переключить модули чата (feature flags)."""
+    chat_id = message.chat.id
+    settings = await get_chat_settings(chat_id)
+    states = _feat_states_from_settings(settings)
+
+    lines = ["⚙️ <b>Настройки модулей чата</b>\n"]
+    for key, (emoji, label) in _FLAGS.items():
+        status = "🟢 Вкл" if states[key] else "🔴 Выкл"
+        lines.append(f"  {emoji} <b>{label}</b>: {status}")
+
+    await message.answer(
+        "\n".join(lines),
+        parse_mode="HTML",
+        reply_markup=_build_feat_keyboard(states, chat_id),
+    )
+
+
+@router.callback_query(F.data.startswith("feat:"))
+async def cb_feature_toggle(callback: CallbackQuery):
+    """Toggle a feature flag via inline button."""
+    parts = callback.data.split(":")
+    if len(parts) != 4 or parts[1] != "toggle":
+        await callback.answer("❌ Неверные данные", show_alert=True)
+        return
+
+    _, _, flag, chat_id_str = parts
+    if flag not in _FLAGS:
+        await callback.answer("❌ Неизвестный флаг", show_alert=True)
+        return
+    try:
+        chat_id = int(chat_id_str)
+    except ValueError:
+        await callback.answer("❌ Неверные данные", show_alert=True)
+        return
+
+    # Only co_owner+ can toggle
+    caller = callback.from_user
+    caller_stats = await get_user_stats(caller.id, chat_id)
+    caller_rank = (caller_stats["rank"] if caller_stats else None) or "user"
+    if DEVELOPER_ID and caller.id == DEVELOPER_ID:
+        caller_rank = "developer"
+    if rank_level(caller_rank) < rank_level("co_owner"):
+        await callback.answer("❌ Только со-владелец+ может изменять настройки", show_alert=True)
+        return
+
+    settings = await get_chat_settings(chat_id)
+    db_key = f"feat_{flag}"
+    try:
+        current = settings[db_key] if settings else 1
+    except (KeyError, IndexError, TypeError):
+        current = 1
+    new_val = 0 if current != 0 else 1
+    await set_chat_setting(chat_id, db_key, new_val)
+    _invalidate_chat_settings(chat_id)
+
+    # Rebuild keyboard with updated state
+    settings2 = await get_chat_settings(chat_id)
+    states = _feat_states_from_settings(settings2)
+    emoji, label = _FLAGS[flag]
+    status_str = "включён" if new_val else "отключён"
+    await callback.answer(f"{emoji} {label} {status_str}", show_alert=False)
+
+    try:
+        lines = ["⚙️ <b>Настройки модулей чата</b>\n"]
+        for key, (emj, lbl) in _FLAGS.items():
+            st = "🟢 Вкл" if states[key] else "🔴 Выкл"
+            lines.append(f"  {emj} <b>{lbl}</b>: {st}")
+        await callback.message.edit_text(
+            "\n".join(lines),
+            parse_mode="HTML",
+            reply_markup=_build_feat_keyboard(states, chat_id),
+        )
+    except Exception:
+        pass
+

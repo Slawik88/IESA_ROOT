@@ -270,6 +270,13 @@ async def init_db():
             "antiflood_window  REAL    DEFAULT 2.0",
             "cleanup_message_norm INTEGER DEFAULT 70",
             "cleanup_warn_hours   INTEGER DEFAULT 48",
+            # ── Feature Flags (1 = enabled / 0 = disabled) ──────────────
+            "feat_website       INTEGER DEFAULT 1",
+            "feat_antispam      INTEGER DEFAULT 1",
+            "feat_marriages     INTEGER DEFAULT 1",
+            "feat_pets          INTEGER DEFAULT 1",
+            "feat_casino        INTEGER DEFAULT 1",
+            "feat_random_events INTEGER DEFAULT 1",
         ]:
             try:
                 await db.execute(
@@ -2232,6 +2239,9 @@ _ALLOWED_CHAT_SETTING_KEYS = {
     "inactivity_warn_enabled", "inactivity_warn_days",
     "next_cleanup_at", "cleanup_reminder_sent",
     "cleanup_message_norm", "cleanup_warn_hours",
+    # Feature Flags
+    "feat_website", "feat_antispam", "feat_marriages",
+    "feat_pets", "feat_casino", "feat_random_events",
 }
 _ALLOWED_LOCK_TYPES = {"links", "stickers", "gifs", "forwards", "voice", "video", "photo", "audio"}
 

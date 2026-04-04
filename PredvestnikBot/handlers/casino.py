@@ -62,6 +62,9 @@ async def cmd_coin(message: Message, cmd_args: str):
     if message.chat.type not in ("group", "supergroup"):
         await message.answer("❌ Казино доступно только в группах.")
         return
+    from filters.feature_flag import feature_enabled
+    if not await feature_enabled(message, "casino"):
+        return
 
     arg = (cmd_args or "").strip()
     if not arg.isdigit() or int(arg) <= 0:
@@ -211,6 +214,9 @@ async def cb_coin_choice(callback: CallbackQuery):
 async def cmd_dice(message: Message, cmd_args: str, bot):
     if message.chat.type not in ("group", "supergroup"):
         await message.answer("❌ Казино доступно только в группах.")
+        return
+    from filters.feature_flag import feature_enabled
+    if not await feature_enabled(message, "casino"):
         return
 
     args = (cmd_args or "").strip().split()
@@ -441,6 +447,9 @@ async def cb_duel_decline(callback: CallbackQuery):
 async def cmd_lottery(message: Message, cmd_args: str):
     if message.chat.type not in ("group", "supergroup"):
         await message.answer("❌ Казино доступно только в группах.")
+        return
+    from filters.feature_flag import feature_enabled
+    if not await feature_enabled(message, "casino"):
         return
 
     uid     = message.from_user.id

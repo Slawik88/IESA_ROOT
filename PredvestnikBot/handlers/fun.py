@@ -226,6 +226,9 @@ async def cmd_marry(message: Message, cmd_args: str):
     if message.chat.type not in ("group", "supergroup"):
         await message.answer("💍 Брак доступен только в группах.")
         return
+    from filters.feature_flag import feature_enabled
+    if not await feature_enabled(message, "marriages"):
+        return
 
     uid, name, _ = await resolve_target(message, cmd_args)
     if uid is None:
@@ -386,6 +389,9 @@ async def on_marry_callback(callback: CallbackQuery):
 async def cmd_divorce(message: Message, cmd_args: str):
     if message.chat.type not in ("group", "supergroup"):
         await message.answer("💔 Эта команда доступна только в группах.")
+        return
+    from filters.feature_flag import feature_enabled
+    if not await feature_enabled(message, "marriages"):
         return
 
     me_id = message.from_user.id

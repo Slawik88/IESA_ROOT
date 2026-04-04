@@ -609,6 +609,9 @@ async def cmd_help(message: Message, cmd_args: str):
 
 @router.message(BotCommand("app", "miniapp", "миниапп", "сайт", "открыть app"))
 async def cmd_open_app(message: Message, cmd_args: str):
+    from filters.feature_flag import feature_enabled
+    if not await feature_enabled(message, "website"):
+        return
     from config import MINI_APP_URL, MINI_APP_TG_URL
 
     if message.chat.type == "private":
@@ -1661,6 +1664,10 @@ async def cmd_whois(message: Message, cmd_args: str):
     sep_t = theme_t["separator"]
     vip_tag_t = " 💎" if vip_t else ""
 
+    from utils.flood import get_trust_level
+    _trust = get_trust_level(msgs)
+    _trust_badge = {"newcomer": "🆕 Новичок (<300)", "regular": "👤 Обычный", "trusted": "⭐ Доверенный (>1000)"}.get(_trust, "👤")
+
     lines = [
         f"{theme_t['header']}{vip_tag_t}",
         sep_t,
@@ -1671,6 +1678,7 @@ async def cmd_whois(message: Message, cmd_args: str):
         f"🆔 ID: <code>{user['user_id']}</code>",
         f"🎖 Ранг: {rank_name(rank, title)}",
         f"💬 Сообщений: {msgs}",
+        f"🔐 Уровень доверия: {_trust_badge}",
         f"⭐ Репутация: <b>{rep:+d}</b>",
         f"🌟 Уровень: <b>{lvl}</b>  |  {xp}/{next_xp} XP",
         f"⚠️ Предупреждения: {warns_line}",

@@ -85,6 +85,9 @@ async def cmd_pet(message: Message, cmd_args: str):
     if message.chat.type == "private":
         await message.answer("❌ Питомцы доступны только в группах.")
         return
+    from filters.feature_flag import feature_enabled
+    if not await feature_enabled(message, "pets"):
+        return
 
     uid     = message.from_user.id
     chat_id = message.chat.id

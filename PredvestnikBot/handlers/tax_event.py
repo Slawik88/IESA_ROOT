@@ -236,7 +236,25 @@ async def run_chest_events_cycle(bot: Bot):
     chat_ids = await get_active_group_chat_ids()
     if not chat_ids:
         return
-    chat_id = random.choice(chat_ids)
+
+    # Фильтруем чаты, где random_events отключён
+    from database.db import get_chat_settings
+    eligible = []
+    for cid in chat_ids:
+        s = await get_chat_settings(cid)
+        if s is None or not hasattr(s, "__getitem__"):
+            eligible.append(cid)
+            continue
+        try:
+            flag = s["feat_random_events"]
+        except (KeyError, IndexError):
+            flag = 1
+        if flag != 0:
+            eligible.append(cid)
+
+    if not eligible:
+        return
+    chat_id = random.choice(eligible)
     if chat_id in _active_events:
         return
     await launch_chest_event(bot, chat_id)

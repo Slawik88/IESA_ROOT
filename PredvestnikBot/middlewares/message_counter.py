@@ -311,8 +311,19 @@ class AutoModMiddleware(BaseMiddleware):
         bot_: Bot = data["bot"]
         chat_id = event.chat.id
 
-        # Antispam вЂ” Token Bucket (always enabled)
-        if check_spam(user.id, chat_id, _antispam_type(event)):
+        # Antiflood (configurable) — load settings once for this message
+        settings = await get_chat_settings(chat_id)
+
+        # Feature flag: feat_antispam (gates both Token-Bucket antispam and Smart Antiflood 2.0)
+        _feat_antispam = True
+        if settings is not None:
+            try:
+                _feat_antispam = bool(settings["feat_antispam"] != 0)
+            except (KeyError, IndexError):
+                _feat_antispam = True
+
+        # Antispam — Token Bucket (gated by feat_antispam flag)
+        if _feat_antispam and check_spam(user.id, chat_id, _antispam_type(event)):
             if not is_stale:
                 try:
                     await event.delete()
@@ -342,9 +353,7 @@ class AutoModMiddleware(BaseMiddleware):
                     pass
             return
 
-        # Antiflood (configurable)
-        settings = await get_chat_settings(chat_id)
-
+        # Antiflood (configurable) — settings already loaded above
         if settings and settings.get("cleanup_locked"):
             try:
                 await event.delete()
