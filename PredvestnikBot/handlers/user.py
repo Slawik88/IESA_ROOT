@@ -1666,7 +1666,7 @@ async def cmd_whois(message: Message, cmd_args: str):
 
     from utils.flood import get_trust_level
     _trust = get_trust_level(msgs)
-    _trust_badge = {"newcomer": "🆕 Новичок (<300)", "regular": "👤 Обычный", "trusted": "⭐ Доверенный (>1000)"}.get(_trust, "👤")
+    _trust_badge = {"newcomer": "🆕 Новичок (&lt;300)", "regular": "👤 Обычный", "trusted": "⭐ Доверенный (&gt;1000)"}.get(_trust, "👤")
 
     lines = [
         f"{theme_t['header']}{vip_tag_t}",
