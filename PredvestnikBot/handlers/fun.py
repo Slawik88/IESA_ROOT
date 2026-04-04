@@ -433,7 +433,9 @@ async def cmd_partner(message: Message, cmd_args: str):
     partner = await get_user(marriage["partner_id"])
     p_name = partner["full_name"] if partner else "?"
     p_id = marriage["partner_id"]
-    married_at_iso = marriage["married_at"] or ""
+    _mat = marriage["married_at"]
+    # married_at may come back as a datetime object from asyncpg; normalise to ISO string
+    married_at_iso = _mat.isoformat() if hasattr(_mat, 'isoformat') else str(_mat or "")
     married_at_date = married_at_iso[:10]
     together = format_duration(married_at_iso) if married_at_iso else "?"
 

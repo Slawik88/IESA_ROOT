@@ -366,6 +366,11 @@ async def _run_webserver(bot: Bot) -> None:
                 (uid,),
             ) as c:
                 pet_row = await c.fetchone()
+            async with db.execute(
+                "SELECT partner_id, married_at FROM marriages_global WHERE user_id=?",
+                (uid,),
+            ) as c:
+                marriage_row = await c.fetchone()
 
         chat_id = mora["chat_id"] if mora else 0
         balance = mora["balance"] if mora else 0
@@ -388,6 +393,18 @@ async def _run_webserver(bot: Bot) -> None:
             pet_info = {"type": pet_row[0], "name": pet_row[1] or "безымянный",
                         "emoji": emoji, "fatigue": pet_row[2]}
 
+        partner_info = None
+        if marriage_row:
+            from database.db import get_user as _gu
+            partner_user = await _gu(marriage_row["partner_id"])
+            _mat = marriage_row["married_at"]
+            married_iso = _mat.isoformat() if hasattr(_mat, 'isoformat') else str(_mat or "")
+            partner_info = {
+                "partner_id": marriage_row["partner_id"],
+                "partner_name": partner_user["full_name"] if partner_user else "?",
+                "married_at": married_iso,
+            }
+
         payload = {
             "name": user["full_name"],
             "balance": balance,
@@ -398,6 +415,7 @@ async def _run_webserver(bot: Bot) -> None:
             "bonds": bonds_data,
             "items": items,
             "pet": pet_info,
+            "partner": partner_info,
         }
         return _web.Response(
             text=json.dumps(payload, ensure_ascii=False),

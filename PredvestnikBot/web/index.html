@@ -2502,6 +2502,8 @@ async function loadProfile(){
       document.getElementById('devTreasuryPayoutCard').style.display=''; // treasury payouts
       document.getElementById('devWalletCard').style.display='';         // wallet history
       document.getElementById('devCleanupCard').style.display='';        // cleanup config
+      document.getElementById('devAf2Card').style.display='';            // AF2 antiflood config
+      loadAf2Config();
       _devBtns(true); switchDevSubtab('users');
     } else if(['admin_senior'].includes(p.rank)) {
       // Senior admins: warnlist + banlist + mod overview only (no treasury)
@@ -5368,9 +5370,8 @@ async function loadAf2Config() {
     const cfg = r.config || {};
     const _I = 'background:var(--card2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:4px 6px;font-size:12px;box-sizing:border-box;text-align:center';
 
-    // Две колонки: слева — Новичок, справа — Обычный + Доверенный (стопкой)
-    const leftHtml  = _renderAf2Group(AF2_GROUPS[0], cfg, _af2Defaults);
-    const rightHtml = AF2_GROUPS.slice(1).map(g => _renderAf2Group(g, cfg, _af2Defaults)).join('<div style="height:8px"></div>');
+    // Одна колонка — все группы стопкой (2-col layout слишком узкий на мобиле)
+    const groupsHtml = AF2_GROUPS.map(g => _renderAf2Group(g, cfg, _af2Defaults)).join('<div style="height:8px"></div>');
 
     // Окно удаления: секунды → удобная единица
     const dwSecs = cfg.delete_window ?? (_af2Defaults.delete_window ?? 300);
@@ -5385,9 +5386,8 @@ async function loadAf2Config() {
     const dwDef = _af2Defaults.delete_window ?? 300;
 
     fieldsEl.innerHTML = `
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
-        <div>${leftHtml}</div>
-        <div style="display:flex;flex-direction:column;gap:8px">${rightHtml}</div>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:8px">
+        ${groupsHtml}
       </div>
       <div style="background:var(--bg3);border-radius:10px;padding:9px;display:flex;flex-direction:column;gap:7px">
         <div style="display:flex;align-items:center;gap:6px">
