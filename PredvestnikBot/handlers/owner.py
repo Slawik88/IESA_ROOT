@@ -455,9 +455,9 @@ async def cmd_emit_xp(message: Message, cmd_args: str):
             pass
 
 
-@router.message(BotCommand("выдать", "give", "emit"), RankFilter("owner"))
+@router.message(BotCommand("выдать", "give", "emit"), RankFilter("developer"))
 async def cmd_emit_mora(message: Message, cmd_args: str):
-    """Owner+: начислить мору пользователю.
+    """Developer-only: начислить мору напрямую (без казны). Владелец — используй 'бот казна дать'.
     бот выдать [кол-во] @user [причина]
     """
     parts = (cmd_args or "").split(maxsplit=2)

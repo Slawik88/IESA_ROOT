@@ -491,8 +491,10 @@ def _help_pages() -> dict[str, dict]:
                 "🎭 <code>бот добавить роль · убрать роль · сменить роль</code>\n\n"
                 "📣 <b>Рассылка:</b>\n"
                 "  <code>бот колл [#все|#юзеры|#стафф|#модеры|#админы] [текст]</code>\n\n"
-                "💰 <b>Эмиссия:</b>\n"
-                "  <code>бот выдать [N] @user [причина]</code> — начислить мору\n"
+                "💰 <b>Казна (выдача только из казны):</b>\n"
+                "  <code>бот казна</code> — баланс казны\n"
+                "  <code>бот казна дать @user N</code> — выдать игроку из казны\n"
+                "  <code>бот казна забрать @user N</code> — вернуть в казну\n"
                 "  <code>бот выдать xp [N] @user [причина]</code> — начислить XP\n\n"
                 "🔔 <b>Чат администрации (уведомления):</b>\n"
                 "  1️⃣ В осн. чате: <code>бот привязать</code>\n"
@@ -538,7 +540,9 @@ def _help_pages() -> dict[str, dict]:
                 "🎮 <b>Принудительный запуск ивентов:</b>\n"
                 "  <code>бот эвент сундук</code> · <code>бот эвент дилижанс</code>\n"
                 "  <code>бот эвент торговец</code>\n\n"
-                "💰 <code>бот сетбаланс [сумма] [@user]</code>"
+                "💰 <b>Эмиссия (только разработчик, без казны):</b>\n"
+                "  <code>бот выдать [N] @user [причина]</code> — начислить мору напрямую\n"
+                "  <code>бот сетбаланс [сумма] [@user]</code> — установить баланс"
             ),
             "buttons": [[("🔙 Назад", "management")]],
             "min_rank": "developer",
@@ -1673,7 +1677,7 @@ async def cmd_whois(message: Message, cmd_args: str):
         sep_t,
         "",
         f"🔍 <b>Досье</b>",
-        f"🏷 Имя: {user_mention(user['user_id'], user['full_name'])}",
+        f"🏷 Имя: {user_mention(user['user_id'], user['full_name'] or str(user['user_id']))}",
         f"📛 Username: @{user['username'] or 'скрыт'}",
         f"🆔 ID: <code>{user['user_id']}</code>",
         f"🎖 Ранг: {rank_name(rank, title)}",
