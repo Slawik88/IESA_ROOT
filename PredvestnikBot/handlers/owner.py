@@ -920,8 +920,8 @@ async def cmd_link_admin_step2(message: Message, cmd_args: str):
         )
         return
 
-    # Register this admin chat as isolated (no economy) and link it
-    await add_admin_group(admin_chat_id)
+    # Link this admin chat to the main chat (no global admin_groups registration —
+    # community admin chats are isolated via chat_admin_links, not admin_groups)
     await set_chat_admin_link(main_chat_id, admin_chat_id)
 
     await message.answer(

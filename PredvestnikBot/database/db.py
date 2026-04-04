@@ -1713,13 +1713,12 @@ async def remove_test_chat(chat_id: int):
 
 def is_isolated_chat(chat_id: int) -> bool:
     """Returns True if this chat is isolated from main economy.
-    Includes both admin_groups and test_chats.
-    Economy and game commands must be blocked in isolated chats."""
-    return chat_id in _admin_groups or chat_id in _test_chats
+    Includes admin_groups, test_chats, and community admin chats (via chat_admin_links)."""
+    return chat_id in _admin_groups or chat_id in _test_chats or chat_id in _admin_chat_ids
 
 
 async def is_isolated_chat_db(chat_id: int) -> bool:
-    """DB-level check: True if chat is admin_group or test_chat.
+    """DB-level check: True if chat is admin_group, test_chat, or community admin chat.
 
     Unlike ``is_isolated_chat`` this does NOT rely on in-memory caches
     and is safe to call from processes that never ran ``load_admin_groups``
@@ -1728,24 +1727,28 @@ async def is_isolated_chat_db(chat_id: int) -> bool:
     if not chat_id:
         return False
     # Fast path: if caches were loaded, trust them
-    if _admin_groups or _test_chats:
-        return chat_id in _admin_groups or chat_id in _test_chats
+    if _admin_groups or _test_chats or _admin_chat_ids:
+        return chat_id in _admin_groups or chat_id in _test_chats or chat_id in _admin_chat_ids
     async with postgres_connect() as db:
         async with db.execute(
             "SELECT 1 FROM admin_groups WHERE chat_id=? "
             "UNION ALL "
-            "SELECT 1 FROM test_chats WHERE chat_id=?",
-            (chat_id, chat_id),
+            "SELECT 1 FROM test_chats WHERE chat_id=? "
+            "UNION ALL "
+            "SELECT 1 FROM chat_admin_links WHERE admin_chat_id=?",
+            (chat_id, chat_id, chat_id),
         ) as c:
             return await c.fetchone() is not None
 
 
 def get_chat_isolation_mode(chat_id: int) -> str | None:
-    """Returns 'admin', 'test', or None (= main chat)."""
+    """Returns 'admin', 'community_admin', 'test', or None (= main chat)."""
     if chat_id in _test_chats:
         return "test"
     if chat_id in _admin_groups:
         return "admin"
+    if chat_id in _admin_chat_ids:
+        return "community_admin"
     return None
 
 
@@ -1754,15 +1757,17 @@ def get_chat_isolation_mode(chat_id: int) -> str | None:
 # Если привязка не задана — используются глобальные admin_groups.
 
 _chat_admin_links: dict[int, int] = {}  # main_chat_id -> admin_chat_id
+_admin_chat_ids: set[int] = set()       # admin_chat_id values (community admin groups)
 
 
 async def load_chat_admin_links():
     """Load chat→admin bindings from DB into memory cache."""
-    global _chat_admin_links
+    global _chat_admin_links, _admin_chat_ids
     async with postgres_connect() as db:
         async with db.execute("SELECT main_chat_id, admin_chat_id FROM chat_admin_links") as c:
             rows = await c.fetchall()
     _chat_admin_links = {r[0]: r[1] for r in rows}
+    _admin_chat_ids = set(_chat_admin_links.values())
 
 
 async def set_chat_admin_link(main_chat_id: int, admin_chat_id: int):
@@ -1776,6 +1781,7 @@ async def set_chat_admin_link(main_chat_id: int, admin_chat_id: int):
         )
         await db.commit()
     _chat_admin_links[main_chat_id] = admin_chat_id
+    _admin_chat_ids.add(admin_chat_id)
 
 
 async def remove_chat_admin_link(main_chat_id: int):
@@ -1786,6 +1792,8 @@ async def remove_chat_admin_link(main_chat_id: int):
         )
         await db.commit()
     _chat_admin_links.pop(main_chat_id, None)
+    _admin_chat_ids.clear()
+    _admin_chat_ids.update(_chat_admin_links.values())
 
 
 def get_admin_chat_for(main_chat_id: int) -> int | None:
@@ -1796,6 +1804,24 @@ def get_admin_chat_for(main_chat_id: int) -> int | None:
 def get_all_chat_admin_links() -> dict[int, int]:
     """Returns a copy of all main→admin chat links."""
     return dict(_chat_admin_links)
+
+
+def get_admin_chat_ids() -> set[int]:
+    """Returns the set of all admin_chat_id values (community admin groups)."""
+    return _admin_chat_ids
+
+
+def get_main_chat_for(admin_chat_id: int) -> int | None:
+    """Sync reverse lookup: returns main_chat_id for an admin chat, or None if not linked."""
+    for main_id, adm_id in _chat_admin_links.items():
+        if adm_id == admin_chat_id:
+            return main_id
+    return None
+
+
+def is_community_admin_chat(chat_id: int) -> bool:
+    """True if this chat is an admin group for some linked community."""
+    return chat_id in _admin_chat_ids
 
 
 # ─── Rest users (отдыхающие — защита от чистки) ──────────────────────────────
