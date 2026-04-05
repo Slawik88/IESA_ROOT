@@ -5814,6 +5814,8 @@ _AF2_KEYS = {
     "regular_sticker_mute":   ("AF2_REGULAR_STICKER_MUTE",   60, 86400),
     "antispam_limit":         ("AF2_ANTISPAM_LIMIT",          1, 50),
     "delete_window":          ("AF2_DELETE_WINDOW",           60, 86400 * 30),
+    "newcomer_threshold":     ("TRUST_NEWCOMER_THRESHOLD",    10, 5000),
+    "trusted_threshold":      ("TRUST_TRUSTED_THRESHOLD",     100, 50000),
 }
 
 
@@ -6071,9 +6073,11 @@ def miniapp_cleanup_pass(request):
             return JsonResponse({"error": "chat_id required"}, status=400, headers=headers)
         chat_id = int(chat_id_str)
         try:
+            from shared_prices import CLEANUP_PASS_COOLDOWN_DAYS
             conn, db_type = _get_bot_db_connection()
             ph = "%s" if db_type == "pg" else "?"
             cur = conn.cursor()
+            # Active/pending pass
             cur.execute(
                 f"SELECT id, status, price, created_at FROM cleanup_passes "
                 f"WHERE user_id={ph} AND chat_id={ph} AND status IN ('pending','approved') "
@@ -6081,14 +6085,38 @@ def miniapp_cleanup_pass(request):
                 (uid, chat_id),
             )
             row = cur.fetchone()
-            conn.close()
             if row:
+                conn.close()
                 return JsonResponse(
                     {"exists": True, "pass_id": row[0], "status": row[1],
                      "price": row[2], "created_at": str(row[3])},
                     headers=headers,
                 )
-            return JsonResponse({"exists": False}, headers=headers)
+            # Check cooldown (last purchase of any status)
+            cur.execute(
+                f"SELECT created_at FROM cleanup_passes WHERE user_id={ph} AND chat_id={ph} "
+                f"ORDER BY created_at DESC LIMIT 1",
+                (uid, chat_id),
+            )
+            last_row = cur.fetchone()
+            conn.close()
+            if last_row:
+                from datetime import datetime as _dt, timezone as _tz, timedelta as _td
+                last_dt = last_row[0]
+                if isinstance(last_dt, str):
+                    last_dt = _dt.fromisoformat(last_dt.replace("Z", "+00:00"))
+                if last_dt.tzinfo is None:
+                    last_dt = last_dt.replace(tzinfo=_tz.utc)
+                cooldown_until = last_dt + _td(days=CLEANUP_PASS_COOLDOWN_DAYS)
+                now_utc = _dt.now(_tz.utc)
+                if cooldown_until > now_utc:
+                    remaining = cooldown_until - now_utc
+                    remaining_days = remaining.days + (1 if remaining.seconds > 0 else 0)
+                    return JsonResponse(
+                        {"exists": False, "on_cooldown": True, "cooldown_days": remaining_days},
+                        headers=headers,
+                    )
+            return JsonResponse({"exists": False, "on_cooldown": False}, headers=headers)
         except Exception:
             logger.exception("miniapp_cleanup_pass GET error")
             return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
@@ -6136,6 +6164,33 @@ def miniapp_cleanup_pass(request):
                 (uid, chat_id),
             )
             existing = cur2.fetchone()
+            if not existing:
+                # Check 12-day cooldown
+                from shared_prices import CLEANUP_PASS_COOLDOWN_DAYS
+                cur2.execute(
+                    f"SELECT created_at FROM cleanup_passes WHERE user_id={ph2} AND chat_id={ph2} "
+                    f"ORDER BY created_at DESC LIMIT 1",
+                    (uid, chat_id),
+                )
+                last_pur = cur2.fetchone()
+                if last_pur:
+                    from datetime import datetime as _dt2, timezone as _tz2, timedelta as _td2
+                    ld = last_pur[0]
+                    if isinstance(ld, str):
+                        ld = _dt2.fromisoformat(ld.replace("Z", "+00:00"))
+                    if ld.tzinfo is None:
+                        ld = ld.replace(tzinfo=_tz2.utc)
+                    cooldown_until = ld + _td2(days=CLEANUP_PASS_COOLDOWN_DAYS)
+                    now_check = _dt2.now(_tz2.utc)
+                    if cooldown_until > now_check:
+                        conn2.close()
+                        rem = cooldown_until - now_check
+                        rem_days = rem.days + (1 if rem.seconds > 0 else 0)
+                        return JsonResponse(
+                            {"error": f"Пропуск на кулдауне: следующая покупка через {rem_days} дн."},
+                            status=400,
+                            headers=headers,
+                        )
             conn2.close()
             if existing:
                 return JsonResponse(
