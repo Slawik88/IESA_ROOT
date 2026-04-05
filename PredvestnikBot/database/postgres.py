@@ -307,6 +307,9 @@ class PostgresDDLConnection:
         sql, params = _convert_placeholders(sql, params)
         return await self._conn.execute(sql, *params)
 
+    async def commit(self):
+        pass  # asyncpg auto-commits outside explicit transactions
+
 
 ddl_connect = PostgresDDLConnection
 
