@@ -5744,7 +5744,7 @@ const AF2_GROUPS = [
       { e: '✉️', l: 'Текст',    k: ['newcomer_text_limit',    'newcomer_text_window',    'newcomer_text_mute'] },
       { e: '🖼', l: 'Медиа',    k: ['newcomer_media_limit',   'newcomer_media_window',   'newcomer_media_mute'] },
       { e: '🎭', l: 'Стикеры', k: ['newcomer_sticker_limit', 'newcomer_sticker_window', 'newcomer_sticker_mute'] },
-      { e: '⚔️', l: 'Атака',   k: ['newcomer_mixed_limit',   'newcomer_mixed_window',   'newcomer_mixed_mute'],   hint: '0=∞' },
+      { e: '⚔️', l: 'Общий флуд',  k: ['newcomer_mixed_limit',   'newcomer_mixed_window',   'newcomer_mixed_mute'],   hint: '0=выкл', desc: 'Суммарная скорость: считаются все сообщения любого типа вместе. 0 в поле «Лим.» — правило отключено.' },
     ]
   },
   {
@@ -5772,11 +5772,15 @@ function _renderAf2Group(g, cfg, defs) {
     const lv = cfg[lk] ?? '', wv = cfg[wk] ?? '', mv = cfg[mk] ?? '';
     const ld = defs[lk] ?? '?', wd = defs[wk] ?? '?', md = defs[mk] ?? '?';
     const hint = row.hint ? ` <span style="font-size:9px;color:#f87171">${row.hint}</span>` : '';
-    return `<div style="display:grid;grid-template-columns:1fr 40px 40px 48px;gap:3px;align-items:center;padding:2px 0;border-bottom:1px solid var(--border)">
-      <span style="font-size:11px;color:var(--text)">${row.e} ${row.l}${hint}</span>
-      <input type="number" id="af2_${lk}" value="${lv}" step="1" min="1" title="по ум.: ${ld}" style="${_I}">
-      <input type="number" id="af2_${wk}" value="${wv}" step="0.5" title="по ум.: ${wd} с" style="${_I}">
-      <input type="number" id="af2_${mk}" value="${mv}" step="60" title="по ум.: ${md} с | 0=∞" style="${_I}">
+    const desc = row.desc ? `<div style="font-size:9px;color:var(--text3);padding:1px 0 3px;line-height:1.35">${row.desc}</div>` : '';
+    return `<div style="border-bottom:1px solid var(--border);padding:2px 0 0">
+      <div style="display:grid;grid-template-columns:1fr 40px 40px 48px;gap:3px;align-items:center;padding:2px 0">
+        <span style="font-size:11px;color:var(--text)">${row.e} ${row.l}${hint}</span>
+        <input type="number" id="af2_${lk}" value="${lv}" step="1" min="0" title="Лимит сообщений. По умолч.: ${ld}. 0 = правило выключено" style="${_I}">
+        <input type="number" id="af2_${wk}" value="${wv}" step="0.5" title="Окно наблюдения (секунды). По умолч.: ${wd} с" style="${_I}">
+        <input type="number" id="af2_${mk}" value="${mv}" step="60" title="Время мьюта (секунды). По умолч.: ${md} с. 0 = бессрочно" style="${_I}">
+      </div>
+      ${desc}
     </div>`;
   }).join('');
   // Threshold editor row (only for newcomer & trusted groups)
@@ -5798,9 +5802,9 @@ function _renderAf2Group(g, cfg, defs) {
     </div>
     <div style="display:grid;grid-template-columns:1fr 40px 40px 48px;gap:3px;padding:0 0 3px">
       <span></span>
-      <span style="font-size:9px;color:var(--text3);text-align:center">Лим.</span>
-      <span style="font-size:9px;color:var(--text3);text-align:center">Окно</span>
-      <span style="font-size:9px;color:var(--text3);text-align:center">Мут(с)</span>
+      <span style="font-size:9px;color:var(--text3);text-align:center" title="Кол-во сообщений за окно до срабатывания. 0 = выключено">Лим.<br><span style="font-size:8px;opacity:.7">сообщ.</span></span>
+      <span style="font-size:9px;color:var(--text3);text-align:center" title="Период наблюдения в секундах">Окно<br><span style="font-size:8px;opacity:.7">сек.</span></span>
+      <span style="font-size:9px;color:var(--text3);text-align:center" title="Длительность мьюта в секундах. 0 = бессрочно">Мут<br><span style="font-size:8px;opacity:.7">сек. 0=∞</span></span>
     </div>
     ${rows}
     ${thresholdRow}

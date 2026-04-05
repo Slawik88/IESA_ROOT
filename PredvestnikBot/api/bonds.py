@@ -106,7 +106,7 @@ async def sell_bond(uid: int, chat_id: int, bond_key: str, amount: int) -> dict:
     Returns {ok, bond_key, sold, price_per, revenue, profit, tax, remaining, balance}
     """
     from database.db import (
-        add_mora, add_to_treasury, get_bond_prices, get_user_bonds, sell_bonds,
+        add_to_treasury, get_bond_prices, get_mora, get_user_bonds, sell_bonds,
     )
 
     try:
@@ -142,11 +142,13 @@ async def sell_bond(uid: int, chat_id: int, bond_key: str, amount: int) -> dict:
         bond_tax = int(profit * 0.40)
     net_revenue = revenue - bond_tax
 
-    ok, _ = await sell_bonds(uid, chat_id, bond_key, amount)
+    ok, _ = await sell_bonds(uid, chat_id, bond_key, amount, credit_mora=net_revenue)
     if not ok:
         raise ValueError("Не удалось оформить продажу")
 
-    new_balance = await add_mora(uid, chat_id, net_revenue)
+    # mora already credited atomically inside sell_bonds; fetch current balance
+    _m = await get_mora(uid, chat_id)
+    new_balance = _m["balance"] if _m else 0
     if bond_tax > 0:
         await add_to_treasury(chat_id, bond_tax, "bonds", uid)
 
