@@ -6310,8 +6310,10 @@ async def buy_bonds(user_id: int, chat_id: int, bond_key: str, amount: int, pric
     return True
 
 
-async def sell_bonds(user_id: int, chat_id: int, bond_key: str, amount: int) -> tuple[bool, int]:
+async def sell_bonds(user_id: int, chat_id: int, bond_key: str, amount: int,
+                     credit_mora: int = 0) -> tuple[bool, int]:
     """Продать облигации методом FIFO по лотам. Биржа глобальная — chat_id игнорируется (используется 0).
+    Если credit_mora > 0, начисляет эту сумму пользователю В ТОЙ ЖЕ транзакции (атомарно).
     Возвращает (success, actual_amount_sold)."""
     async with postgres_connect() as db:
         # Verify total holding
@@ -6387,6 +6389,17 @@ async def sell_bonds(user_id: int, chat_id: int, bond_key: str, amount: int) -> 
                     (new_amount, new_invested, user_id, bond_key),
                 )
         await db.commit()
+
+        if credit_mora > 0:
+            await db.execute(
+                """UPDATE users SET
+                       balance      = GREATEST(0, COALESCE(balance, 0) + ?),
+                       total_earned = COALESCE(total_earned, 0) + ?
+                   WHERE user_id = ?""",
+                (credit_mora, credit_mora, user_id),
+            )
+            await db.commit()
+
     return (True, amount)
 
 

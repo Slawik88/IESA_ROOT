@@ -210,7 +210,7 @@ async def respond_to_loan(uid: int, chat_id: int, loan_id: int, action: str) -> 
     Raises ValueError on error.
     Returns {ok, action, loan_id, amount, new_balance?}.
     """
-    from database.db import add_mora, get_mora
+    from database.db import get_mora
     from database.postgres import connect as postgres_connect
 
     if action not in ("accept", "reject"):
@@ -254,15 +254,26 @@ async def respond_to_loan(uid: int, chat_id: int, loan_id: int, action: str) -> 
             lender_bal = mora_row["balance"] if mora_row else 0
             raise ValueError(f"У кредитора недостаточно Моры ({lender_bal}/{amount} 🪙)")
 
+        # Credit borrower IN THE SAME TRANSACTION so lender deduction and
+        # borrower credit are atomic — no money can disappear if one side fails.
+        await db.execute(
+            """UPDATE users SET
+                   balance      = GREATEST(0, COALESCE(balance, 0) + ?),
+                   total_earned = COALESCE(total_earned, 0) + ?
+               WHERE user_id = ?""",
+            (amount, amount, uid),
+        )
+
         await db.execute(
             "UPDATE mora_loans SET status='accepted' WHERE id=?",
             (loan_id,),
         )
 
-    await add_mora(uid, chat_id, amount)
-
-    new_mora = await get_mora(uid, chat_id)
-    new_balance = new_mora["balance"] if new_mora else 0
+        async with db.execute(
+            "SELECT COALESCE(balance, 0) FROM users WHERE user_id=?", (uid,)
+        ) as c:
+            bal_row = await c.fetchone()
+        new_balance = bal_row[0] if bal_row else 0
 
     # Log loan acceptance
     try:

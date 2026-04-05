@@ -147,19 +147,134 @@ async def _try_set_custom_title(bot: Bot, user_id: int, title: str) -> None:
 
 @router.message(CommandStart(), F.chat.type == "private")
 async def cmd_start_dm(message: Message) -> None:
-    """/start в личном чате — показывает правила и кнопку выбора роли."""
+    """/start в личном чате — краткое приветствие с навигационным меню."""
     user = message.from_user
-    rules = await _get_rules_text()
-
     await message.answer(
         f"👋 Привет, <b>{html.escape(user.first_name or '')}</b>!\n\n"
-        f"<b>📜 Правила нашего сообщества:</b>\n\n"
-        f"{html.escape(rules)}\n\n"
-        "<i>Ознакомься с правилами и выбери себе роль 👇</i>",
-        reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
-            InlineKeyboardButton(text="🎭 Выбрать роль", callback_data="dr:list"),
-        ]]),
+        "Я — бот-помощник для Telegram-сообщества. Помогаю управлять чатами, "
+        "защищать их от флуда и спама, а также веду внутреннюю экономику.\n\n"
+        "Выбери раздел 👇",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="📜 Правила и выбор роли", callback_data="dr:start_rules")],
+            [InlineKeyboardButton(text="❓ Возможности бота",     callback_data="dr:features")],
+            [InlineKeyboardButton(text="⚙️ Настройка для администратора", callback_data="dr:admin_guide")],
+        ]),
     )
+
+
+@router.callback_query(F.data == "dr:home")
+async def cb_dm_home(callback: CallbackQuery) -> None:
+    """Главное меню ЛС."""
+    user = callback.from_user
+    try:
+        await callback.message.edit_text(
+            f"👋 Привет, <b>{html.escape(user.first_name or '')}</b>!\n\n"
+            "Выбери раздел 👇",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="📜 Правила и выбор роли", callback_data="dr:start_rules")],
+                [InlineKeyboardButton(text="❓ Возможности бота",     callback_data="dr:features")],
+                [InlineKeyboardButton(text="⚙️ Настройка для администратора", callback_data="dr:admin_guide")],
+            ]),
+        )
+    except Exception:
+        pass
+    await callback.answer()
+
+
+@router.callback_query(F.data == "dr:start_rules")
+async def cb_start_rules(callback: CallbackQuery) -> None:
+    """Показывает правила сообщества и кнопку выбора роли."""
+    rules = await _get_rules_text()
+    try:
+        await callback.message.edit_text(
+            f"<b>📜 Правила сообщества:</b>\n\n"
+            f"{html.escape(rules)}\n\n"
+            "<i>Ознакомься с правилами и выбери себе роль 👇</i>",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="🎭 Выбрать роль", callback_data="dr:list")],
+                [InlineKeyboardButton(text="◀️ Назад",        callback_data="dr:home")],
+            ]),
+        )
+    except Exception:
+        pass
+    await callback.answer()
+
+
+@router.callback_query(F.data == "dr:features")
+async def cb_features(callback: CallbackQuery) -> None:
+    """Описание возможностей бота."""
+    try:
+        await callback.message.edit_text(
+            "🤖 <b>Возможности бота</b>\n\n"
+            "💰 <b>Экономика Мора</b>\n"
+            "  Зарабатывай внутреннюю валюту за активность в чате: ежедневные "
+            "бонусы, стрики, повышение уровня. Переводи Мору другим участникам, "
+            "создавай займы, участвуй в аукционах.\n\n"
+            "📈 <b>Облигации и биржа</b>\n"
+            "  Покупай и продавай виртуальные ценные бумаги. Цены меняются каждые "
+            "1–3 часа на основе случайного блуждания с возвратом к среднему. "
+            "Прогрессивный налог на прибыль уходит в казну чата.\n\n"
+            "🎰 <b>Казино и рулетка</b>\n"
+            "  Ставки на красное/чёрное, чётное/нечётное, конкретные числа. "
+            "Система pity: после 3+ проигрышей подряд вероятность выигрыша растёт.\n\n"
+            "🛡 <b>Антифлуд 2.0</b>\n"
+            "  Три уровня доверия (Новичок / Обычный / Доверенный) с раздельными "
+            "лимитами для текста, медиа, стикеров и общей скорости. "
+            "Настраивается прямо из мини-приложения без перезапуска бота.\n\n"
+            "💑 <b>Социальная система</b>\n"
+            "  Браки, питомцы, экспедиции, рейды на боссов. Сезонные рейтинги "
+            "по Море, активности и рангу с таблицами лидеров.\n\n"
+            "🎭 <b>Роли сообщества</b>\n"
+            "  Уникальные роли (каждую может занять только один участник). "
+            "Выбираются через это ЛС и автоматически активируются при вступлении в чат.",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="🎭 Выбрать роль", callback_data="dr:list")],
+                [InlineKeyboardButton(text="◀️ Назад",        callback_data="dr:home")],
+            ]),
+        )
+    except Exception:
+        pass
+    await callback.answer()
+
+
+@router.callback_query(F.data == "dr:admin_guide")
+async def cb_admin_guide(callback: CallbackQuery) -> None:
+    """Краткая инструкция по настройке бота для администраторов."""
+    try:
+        await callback.message.edit_text(
+            "⚙️ <b>Настройка бота — инструкция для администратора</b>\n\n"
+            "<b>1. Добавь бота в группу</b>\n"
+            "Пригласи бота в чат и выдай права администратора: "
+            "<i>удаление сообщений</i> и <i>ограничение участников</i> (мьют).\n\n"
+            "<b>2. Назначь владельца бота</b>\n"
+            "В чате отправь команду:\n"
+            "<code>/setrank @username Владелец</code>\n"
+            "Только владелец видит полную панель управления.\n\n"
+            "<b>3. Открой панель управления</b>\n"
+            "Нажми кнопку бота под полем ввода → <b>⚙️ Панель</b>.\n"
+            "Там доступны все настройки: Антифлуд, магазин, экономика, роли.\n\n"
+            "<b>4. Настрой Антифлуд 2.0</b>\n"
+            "Панель → <b>🛡 Антифлуд 2.0</b>.\n"
+            "Выставь лимиты сообщений и время мьюта для каждого уровня доверия. "
+            "По умолчанию используются безопасные значения — можно не трогать.\n\n"
+            "<b>5. Настрой экономику</b>\n"
+            "Панель → <b>💰 Магазин</b> — добавь предметы с ценами.\n"
+            "Панель → <b>⚙️ Настройки</b> — множители Моры, бонусы за уровень.\n\n"
+            "<b>6. Настрой роли (опционально)</b>\n"
+            "Панель → <b>🎭 Роли</b> — создай роли с эмодзи и названиями. "
+            "Участники выберут их через это ЛС бота.\n\n"
+            "📌 <b>Полезные команды в чате:</b>\n"
+            "  <code>/help</code> — список всех команд\n"
+            "  <code>/mora</code> — баланс Моры\n"
+            "  <code>/top</code> — таблица лидеров\n"
+            "  <code>/stats</code> — статистика чата",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="◀️ Назад", callback_data="dr:home")],
+            ]),
+        )
+    except Exception:
+        pass
+    await callback.answer()
 
 
 @router.callback_query(F.data == "dr:list")
