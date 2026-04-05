@@ -6494,30 +6494,36 @@ async def miniapp_dev_scan_members(request):
                 )
                 data = resp.json()
                 if data.get("ok"):
-                    status = data["result"].get("status", "left")
-                    return uid, status in _ACTIVE_STATUSES
-                # Bot can't see this user — treat as inactive
-                return uid, False
+                    result = data["result"]
+                    status = result.get("status", "left")
+                    is_member = status in _ACTIVE_STATUSES
+                    is_bot = result.get("user", {}).get("is_bot", False)
+                    return uid, is_member, is_bot
+                # Bot can't see this user — treat as inactive, not a bot
+                return uid, False, False
             except Exception:
-                return uid, None  # None = network/timeout error
+                return uid, None, False  # None = network/timeout error
 
     active = []
     inactive = []
+    bots = []
     err_count = 0
 
     async with _httpx.AsyncClient() as client:
         results = await asyncio.gather(*[_check(client, u) for u in user_ids])
 
-    for uid, result in results:
-        if result is True:
-            active.append(uid)
-        elif result is False:
-            inactive.append(uid)
-        else:
+    for uid, is_member, is_bot in results:
+        if is_member is None:
             err_count += 1
+        elif is_bot:
+            bots.append(uid)
+        elif is_member:
+            active.append(uid)
+        else:
+            inactive.append(uid)
 
     return JsonResponse(
-        {"active": active, "inactive": inactive, "errors": err_count},
+        {"active": active, "inactive": inactive, "bots": bots, "errors": err_count},
         headers=headers,
     )
 
