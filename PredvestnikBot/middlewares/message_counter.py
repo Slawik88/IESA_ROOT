@@ -367,11 +367,17 @@ class AutoModMiddleware(BaseMiddleware):
 
         # Antiflood (configurable) — settings already loaded above
         if settings and settings.get("cleanup_locked"):
-            try:
-                await event.delete()
-            except Exception:
-                pass
-            return
+            # co_owner / owner / developer can still write during cleanup — never delete their messages
+            _privileged_during_lock = (
+                (DEVELOPER_ID and user.id == DEVELOPER_ID)
+                or rank_level(user_rank) >= rank_level("co_owner")
+            )
+            if not _privileged_during_lock:
+                try:
+                    await event.delete()
+                except Exception:
+                    pass
+                return
 
         # ── Smart Antiflood 2.0 — always active when antispam feature is on ────
         # Refresh dynamic AF2 config from DB if TTL expired (cross-process miniapp update)
