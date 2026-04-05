@@ -6058,9 +6058,10 @@ async def update_bond_prices(chat_id: int):
             # Soft price floor = 12% of base price (no absolute minimum — meme coins can tank to 1)
             floor_price = max(1, int(base_price * 0.12))
 
-            # Near-floor zone: price within 40% above floor → add noise but NOT guaranteed rebound
+            # Near-floor zone: price within bottom 25% of base → add noise but NOT guaranteed rebound
             # Buying at floor is risky: 35% chance price continues to drop further
-            if old_price <= int(floor_price * 1.4):
+            # Threshold is based on base_price (not floor) so it works for low-base meme coins too
+            if old_price <= max(int(base_price * 0.20), floor_price + 1):
                 r = random.random()
                 if r < 0.35:
                     # Continued drop — punishes floor-buyers
@@ -6070,7 +6071,7 @@ async def update_bond_prices(chat_id: int):
                     delta += vol * random.uniform(0.2, 0.5)
                 # else: neutral (remaining ~35%) — stays near floor
 
-            raw_price = int(old_price * (1 + delta))
+            raw_price = round(old_price * (1 + delta))
             # Soft floor: 70% bounce back to floor, 30% can pierce through (goes to 1)
             if raw_price < floor_price:
                 if random.random() < 0.70:
