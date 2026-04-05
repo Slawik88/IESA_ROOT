@@ -4675,10 +4675,17 @@ async function devScanMembers() {
   msg.textContent = '';
 
   try {
-    const r = await api('/api/dev/scan_members', 'POST', {
-      chat_id: chatId,
-      user_ids: checkable.map(x => x.user_id),
+    const ctrl = new AbortController();
+    const _t = setTimeout(() => ctrl.abort(), 90000);
+    const resp = await fetch(BASE + '/api/dev/scan_members', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json', 'X-Telegram-Init-Data': window.Telegram?.WebApp?.initData || ''},
+      body: JSON.stringify({chat_id: chatId, user_ids: checkable.map(x => x.user_id)}),
+      signal: ctrl.signal,
     });
+    clearTimeout(_t);
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const r = await resp.json();
 
     const activeSet = new Set(r.active);
 

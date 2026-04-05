@@ -250,8 +250,22 @@ async def _task_marriage_anniversary(bot) -> None:
 
         user = await get_user(uid)
         partner = await get_user(partner_id)
-        u_name = html.escape(user["full_name"]) if user else str(uid)
-        p_name = html.escape(partner["full_name"]) if partner else str(partner_id)
+
+        # Prefer real-time Telegram name over DB (which may be set from JSON import)
+        async def _tg_name(tg_uid: int, db_user) -> str:
+            try:
+                chat_obj = await bot.get_chat(tg_uid)
+                name = chat_obj.full_name or ""
+                if name:
+                    return html.escape(name)
+            except Exception:
+                pass
+            if db_user:
+                return html.escape(db_user["full_name"] or str(tg_uid))
+            return str(tg_uid)
+
+        u_name = await _tg_name(uid, user)
+        p_name = await _tg_name(partner_id, partner)
 
         weeks = days // 7
         if chat_id:
