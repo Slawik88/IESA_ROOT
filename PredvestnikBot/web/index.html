@@ -4692,33 +4692,37 @@ async function devScanMembers() {
     if (!resp.ok) throw new Error('HTTP ' + resp.status);
     const r = await resp.json();
 
-    const activeSet = new Set(r.active);
+    const activeSet   = new Set(r.active);
+    const botSet      = new Set(r.bots || []);
 
     // Tag each record with scan result
     for (const rec of _devImportRecords) {
       if (rec.user_id) {
-        rec._scan = activeSet.has(rec.user_id);
+        rec._bot  = botSet.has(rec.user_id);
+        rec._scan = !rec._bot && activeSet.has(rec.user_id);
       }
     }
 
     const activeCount  = r.active.length;
     const leftCount    = r.inactive.length;
+    const botCount     = (r.bots || []).length;
     const errCount     = r.errors || 0;
 
-    msg.textContent = `✅ В чате: ${activeCount} чел., покинули: ${leftCount}` + (errCount ? `, ошибок: ${errCount}` : '');
+    msg.textContent = `✅ В чате: ${activeCount} чел., покинули: ${leftCount}, ботов: ${botCount}` + (errCount ? `, ошибок: ${errCount}` : '');
     msg.style.color = '#4ade80';
 
     devRenderImportPreview();
     // Show a note that only active members import
     document.getElementById('devImportPreviewSummary').textContent =
-      `Итого: ${_devImportRecords.length} записей · В чате сейчас: ${activeCount} · Покинули: ${leftCount}`;
+      `Итого: ${_devImportRecords.length} записей · В чате сейчас: ${activeCount} · Покинули: ${leftCount} · Ботов: ${botCount}`;
 
-    // Show purge button if there are inactive users
+    // Show purge button if there are inactive users or bots
     const purgeWrap = document.getElementById('devPurgeBtnWrap');
     const purgeBtn  = document.getElementById('devPurgeBtn');
-    if (leftCount > 0) {
+    const purgeTotal = leftCount + botCount;
+    if (purgeTotal > 0) {
       purgeWrap.style.display = '';
-      purgeBtn.textContent = `🗑️ Удалить ${leftCount} неактивных из базы бота`;
+      purgeBtn.textContent = `🗑️ Удалить ${purgeTotal} из базы бота (${leftCount} ушедших + ${botCount} ботов)`;
     } else {
       purgeWrap.style.display = 'none';
     }
@@ -4739,21 +4743,23 @@ async function devPurgeChatNonMembers() {
   const scanned = _devImportRecords.some(r => '_scan' in r);
   if (!scanned) { toast('Сначала выполни скан', 'error'); return; }
 
-  const inactiveIds = _devImportRecords
-    .filter(r => r._scan === false && r.user_id)
+  const purgeIds = _devImportRecords
+    .filter(r => (r._scan === false || r._bot) && r.user_id)
     .map(r => r.user_id);
+  const botIds      = _devImportRecords.filter(r => r._bot && r.user_id).map(r => r.user_id);
+  const inactiveIds = _devImportRecords.filter(r => r._scan === false && !r._bot && r.user_id).map(r => r.user_id);
 
-  if (!inactiveIds.length) { toast('Нет неактивных записей для удаления', 'info'); return; }
+  if (!purgeIds.length) { toast('Нет записей для удаления', 'info'); return; }
 
-  if (!confirm(`Удалить из базы бота данные ${inactiveIds.length} пользователей, которых нет в чате?\n\nЭто удалит их stats, мору, задания и счётчики В ЭТОМ ЧАТЕ. Глобальные данные сохранятся.`)) return;
+  if (!confirm(`Удалить из базы бота: ${inactiveIds.length} ушедших + ${botIds.length} ботов = ${purgeIds.length} записей?\n\nУдалятся stats, мора, задания и счётчики В ЭТОМ ЧАТЕ. Глобальные данные сохранятся.`)) return;
 
   const btn = document.getElementById('devPurgeBtn');
   const msg = document.getElementById('devImportMsg');
   btn.disabled = true;
-  btn.textContent = `⏳ Удаляем ${inactiveIds.length}…`;
+  btn.textContent = `⏳ Удаляем ${purgeIds.length}…`;
 
   try {
-    const resp = await api('/api/dev/purge_chat_nonmembers', 'POST', {chat_id: chatId, user_ids: inactiveIds});
+    const resp = await api('/api/dev/purge_chat_nonmembers', 'POST', {chat_id: chatId, user_ids: purgeIds});
     const r = resp;
     if (r.error) throw new Error(r.error);
 
@@ -4779,7 +4785,7 @@ async function devRunImport() {
   // If scan was done, only send records that are in the chat (or @username ones where scan is N/A)
   const scanned = _devImportRecords.some(r => '_scan' in r);
   const toSend = scanned
-    ? _devImportRecords.filter(r => r._scan !== false)  // exclude confirmed-left members
+    ? _devImportRecords.filter(r => r._scan !== false && !r._bot)  // exclude confirmed-left members
     : _devImportRecords;
 
   if (!toSend.length) { toast('После скана нет активных участников для импорта', 'error'); return; }
