@@ -92,10 +92,13 @@ def cleanup_flood_data():
 
 
 def get_trust_level(message_count: int) -> str:
-    """Return 'newcomer', 'regular', or 'trusted' based on message count."""
-    if message_count < TRUST_NEWCOMER_THRESHOLD:
+    """Return 'newcomer', 'regular', or 'trusted' based on message count.
+    Uses dynamic thresholds from AF2 DB config if set, otherwise falls back to config constants."""
+    newcomer_thresh = int(_af2("newcomer_threshold", TRUST_NEWCOMER_THRESHOLD))
+    trusted_thresh  = int(_af2("trusted_threshold",  TRUST_TRUSTED_THRESHOLD))
+    if message_count < newcomer_thresh:
         return "newcomer"
-    if message_count >= TRUST_TRUSTED_THRESHOLD:
+    if message_count >= trusted_thresh:
         return "trusted"
     return "regular"
 
