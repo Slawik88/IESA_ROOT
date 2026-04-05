@@ -6387,6 +6387,14 @@ def miniapp_dev_import_users(request):
         raw_uname = str(rec.get("username") or "").strip()
         if raw_uname:
             entry["username"] = raw_uname[:64]
+        # Pass through per-period message counts from the JSON parser
+        for _cnt_field in ("week_count", "day_count", "yesterday_count", "last_week_count"):
+            _cnt_val = rec.get(_cnt_field)
+            if _cnt_val is not None:
+                try:
+                    entry[_cnt_field] = max(0, int(_cnt_val))
+                except (ValueError, TypeError):
+                    pass
         if entry["messages"] > 0:
             clean.append(entry)
 
