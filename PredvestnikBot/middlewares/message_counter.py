@@ -259,6 +259,22 @@ class AutoModMiddleware(BaseMiddleware):
         # safety net in case any code path bypasses this early return.
         if is_admin_chat:
             _log.debug("ADMIN_CHAT chat=%s — fully isolated for uid=%s", event.chat.id, user.id)
+            # Cleanup mode: delete messages from non-privileged users even in admin chats.
+            # (set_chat_permissions is NOT used for locking — restrictChatMember(all_true)
+            # reverts the user to the group default, so Telegram-level locking broke staff.
+            # Now only the DB flag + middleware deletion are used.)
+            _ac_settings = await get_chat_settings(event.chat.id)
+            if _ac_settings and _ac_settings.get("cleanup_locked"):
+                _ac_privileged = bool(DEVELOPER_ID and user.id == DEVELOPER_ID)
+                if not _ac_privileged:
+                    _ac_stats = await get_user_stats(user.id, event.chat.id)
+                    _ac_rank = (_ac_stats["rank"] if _ac_stats else None) or "user"
+                    if rank_level(_ac_rank) < rank_level("co_owner"):
+                        try:
+                            await event.delete()
+                        except Exception:
+                            pass
+                        return
             return await handler(event, data)
 
         # Test polygon chats: skip economy only — automod still runs below

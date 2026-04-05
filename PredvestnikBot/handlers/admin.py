@@ -453,56 +453,20 @@ async def cmd_cleanup(message: Message, bot: Bot, cmd_args: str):
         val = settings["cleanup_threshold"] if settings else None
         min_msgs = val if val is not None else 10
 
-    # Заблокировать чат (Telegram-администраторы автоматически обходят блокировку,
-    # но мы всё равно явно восстанавливаем их, чтобы покрыть пограничные случаи)
-    locked = False
-    try:
-        await bot.set_chat_permissions(chat_id, ChatPermissions(can_send_messages=False))
-        locked = True
-        await set_chat_setting(chat_id, "cleanup_locked", 1)
-
-        # Собираем всех, кому нужно явно вернуть права
-        must_unlock: set[int] = set()
-
-        # 1. DB-стафф (moderator и выше)
-        staff = await get_staff_in_chat(chat_id)
-        for s in staff:
-            if rank_level(s["rank"]) >= rank_level("moderator"):
-                must_unlock.add(s["user_id"])
-
-        # 2. DEVELOPER_ID — всегда, независимо от DB (может не иметь строки для этого чата)
-        if DEVELOPER_ID:
-            must_unlock.add(DEVELOPER_ID)
-
-        # 3. Telegram-администраторы чата (у них права и так восстанавливаются автоматически,
-        #    но явный вызов устраняет крайние случаи в некоторых типах чатов)
-        try:
-            tg_admins = await bot.get_chat_administrators(chat_id)
-            for adm in tg_admins:
-                if not adm.user.is_bot:
-                    must_unlock.add(adm.user.id)
-        except Exception:
-            pass
-
-        # Восстанавливаем права каждому из списка
-        for uid in must_unlock:
-            try:
-                await bot.restrict_chat_member(
-                    chat_id, uid,
-                    permissions=_FULL_PERMISSIONS,
-                )
-            except Exception:
-                # restrict_chat_member на Telegram-администраторов всегда падает с ошибкой —
-                # это нормально, у них права уже есть.
-                pass
-    except Exception:
-        pass
+    # Активируем режим чистки через DB-флаг.
+    # Telegram-блокировка (set_chat_permissions) больше не используется:
+    # restrictChatMember(all_true) в Telegram означает «снять ограничение»,
+    # а значит пользователь возвращается к дефолту чата (can_send=False) —
+    # именно поэтому владелец/разработчик оставались заблокированными.
+    # Вместо этого middleware удаляет сообщения от непривилегированных пользователей
+    # (cleanup_locked=1 в chat_settings), а стафф/владелец/разработчик пишут свободно.
+    await set_chat_setting(chat_id, "cleanup_locked", 1)
+    locked = True
 
     users = await get_activity_report(chat_id)
     if not users:
-        if locked:
-            await bot.set_chat_permissions(chat_id, _FULL_PERMISSIONS)
-            await set_chat_setting(chat_id, "cleanup_locked", 0)
+        await set_chat_setting(chat_id, "cleanup_locked", 0)
+        locked = False
         await message.answer("ℹ️ Нет данных об активности за эту неделю.")
         return
 
