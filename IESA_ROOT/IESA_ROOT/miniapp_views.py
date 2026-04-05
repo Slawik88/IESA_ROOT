@@ -6408,3 +6408,108 @@ def miniapp_dev_import_users(request):
     except Exception:
         logger.exception("miniapp_dev_import_users error")
         return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
+
+
+# ─── Dev: scan which user_ids are currently in a chat ─────────────────────────
+
+@csrf_exempt
+def miniapp_dev_scan_members(request):
+    """POST /api/dev/scan_members — check Telegram membership for a list of user_ids.
+    Body: {chat_id: int, user_ids: [int, ...]}
+    Returns: {active: [int, ...], inactive: [int, ...], errors: int}
+    Auth: developer or owner/co_owner.
+    """
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=405, headers=headers)
+
+    auth_uid, err = _require_auth(request, headers)
+    if err:
+        return err
+
+    if auth_uid != _DEVELOPER_ID:
+        try:
+            conn, db_type = _get_bot_db_connection()
+            cur = conn.cursor()
+            ph = "%s" if db_type == "pg" else "?"
+            cur.execute(
+                f"SELECT rank FROM user_stats WHERE user_id={ph} AND rank IN ('owner', 'co_owner') LIMIT 1",
+                (auth_uid,),
+            )
+            row = cur.fetchone()
+            conn.close()
+            is_privileged = bool(row)
+        except Exception:
+            is_privileged = False
+        if not is_privileged:
+            return JsonResponse({"error": "Forbidden"}, status=403, headers=headers)
+
+    if not _BOT_TOKEN:
+        return JsonResponse({"error": "Bot token not configured"}, status=500, headers=headers)
+
+    try:
+        body = json.loads(request.body)
+        chat_id = int(str(body.get("chat_id", "0") or "0"))
+        raw_ids = body.get("user_ids", [])
+    except Exception:
+        return JsonResponse({"error": "Invalid JSON"}, status=400, headers=headers)
+
+    if not chat_id:
+        return JsonResponse({"error": "chat_id required"}, status=400, headers=headers)
+    if not isinstance(raw_ids, list):
+        return JsonResponse({"error": "user_ids must be a list"}, status=400, headers=headers)
+
+    # Sanitise and cap
+    user_ids = []
+    for x in raw_ids[:2000]:
+        try:
+            user_ids.append(int(x))
+        except (TypeError, ValueError):
+            pass
+
+    if not user_ids:
+        return JsonResponse({"active": [], "inactive": [], "errors": 0}, headers=headers)
+
+    import concurrent.futures
+    import requests as _req
+
+    _ACTIVE_STATUSES = {"member", "administrator", "creator", "restricted"}
+    _tg_url = f"https://api.telegram.org/bot{_BOT_TOKEN}/getChatMember"
+
+    def _check(uid_check):
+        try:
+            resp = _req.get(
+                _tg_url,
+                params={"chat_id": str(chat_id), "user_id": str(uid_check)},
+                timeout=8,
+            )
+            data = resp.json()
+            if data.get("ok"):
+                status = data["result"].get("status", "left")
+                return uid_check, status in _ACTIVE_STATUSES
+            # Bot can't see this user — treat as inactive, not error
+            return uid_check, False
+        except Exception:
+            return uid_check, None  # None = network/timeout error
+
+    active = []
+    inactive = []
+    err_count = 0
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=25) as pool:
+        futures = {pool.submit(_check, u): u for u in user_ids}
+        for fut in concurrent.futures.as_completed(futures):
+            checked_uid, result = fut.result()
+            if result is True:
+                active.append(checked_uid)
+            elif result is False:
+                inactive.append(checked_uid)
+            else:
+                err_count += 1
+
+    return JsonResponse(
+        {"active": active, "inactive": inactive, "errors": err_count},
+        headers=headers,
+    )
