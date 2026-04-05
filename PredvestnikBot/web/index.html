@@ -102,7 +102,7 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 .btn-row{display:flex;gap:8px}
 .btn-row .btn{flex:1}
 /* guide nav pill grid */
-.guide-nav{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;padding-bottom:2px}
+.guide-nav{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;padding-bottom:2px;overflow-x:auto}
 
 /* ==== PROGRESS BARS ==== */
 .progress-bar{height:6px;background:var(--bg3);border-radius:3px;overflow:hidden;margin:6px 0}
@@ -1455,7 +1455,7 @@ select:focus{border-color:var(--accent)}
     <div class="card">
       <div class="card-title">📈 Биржа облигаций</div>
       <div style="font-size:12px;line-height:1.7;color:var(--text)">
-        <p>11 акций с реальной динамикой цен. Цены обновляются каждые 3 часа.</p>
+        <p>11 акций с реальной динамикой цен. Цены обновляются каждые 1–3 часа случайно.</p>
         <p style="margin-top:8px"><b>Уровни риска:</b></p>
         <ul style="margin:4px 0 4px 16px;padding:0">
           <li>🔵 <b>Blue chips</b> — низкая волатильность, потолок ×3</li>
@@ -1463,7 +1463,23 @@ select:focus{border-color:var(--accent)}
           <li>🔴 <b>High-risk</b> — 35% колебания, потолок ×8</li>
           <li>🃏 <b>Мем-коины</b> — 45–50% качели, потолок ×15–20!</li>
         </ul>
-        <p style="margin-top:4px;font-size:11px;color:var(--text2)">Графики цен доступны прямо в Mini App на вкладке «📈 Биржа»</p>
+        <p style="margin-top:4px;font-size:11px;color:var(--text2)">Графики цен и история — вкладка «📈 Биржа» в Mini App</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🏪 Аукцион</div>
+      <div style="font-size:12px;line-height:1.7;color:var(--text)">
+        <p>Торгуй предметами из инвентаря с другими Предвестниками прямо в чате!</p>
+        <ul style="margin:4px 0 4px 16px;padding:0">
+          <li>📦 Выставь предмет на торги — укажи стартовую цену и цену выкупа</li>
+          <li>⏱ Лот активен <b>24 часа</b></li>
+          <li>🏆 Побеждает тот, кто сделал последнюю ставку выше предыдущей</li>
+          <li>💰 Немедленный выкуп — по цене «выкуп» без ожидания</li>
+          <li>⏳ Новые предметы доступны для аукциона через <b>3 дня</b> после получения</li>
+          <li>🎫 Пропуск переноса (50 🪙 в магазине) снимает ограничение 3 дней</li>
+        </ul>
+        <p style="margin-top:4px;font-size:11px;color:var(--text2)">Открыть: вкладка «🏪 Аукцион» (категория 💰 Рынок в Mini App)</p>
       </div>
     </div>
 
@@ -1533,6 +1549,24 @@ select:focus{border-color:var(--accent)}
         <p style="margin-top:4px"><code>бот чекин</code> — отметиться. Визуальный календарь в Mini App!</p>
       </div>
     </div>
+
+    <div class="card">
+      <div class="card-title">🎖 Сезонный Пропуск (Battle Pass)</div>
+      <div style="font-size:12px;line-height:1.7;color:var(--text)">
+        <p>Сезонный Pass — система долгосрочных наград. Играй — прокачивай уровень — получай призы!</p>
+        <p style="margin-top:8px"><b>Как получать Season XP:</b></p>
+        <ul style="margin:4px 0 4px 16px;padding:0">
+          <li>📅 Чекин — <b>+10 XP</b></li>
+          <li>📋 Выполнить квест дня — <b>+20 XP</b></li>
+          <li>🏕 Экспедиция питомца — <b>+8 XP</b></li>
+          <li>✨ Гача — XP за каждый ролл (зависит от количества)</li>
+          <li>🏪 Покупки в магазине — небольшой бонус</li>
+        </ul>
+        <p style="margin-top:8px"><b>Награды (каждые несколько уровней):</b> Мора 🪙, кристаллы 💎, особые предметы, эксклюзивные титулы</p>
+        <p style="margin-top:4px"><b>Премиум-трек:</b> 500 💎 → дополнительная линейка наград на каждом уровне</p>
+        <p style="margin-top:4px;font-size:11px;color:var(--text2)">Прогресс и награды — вкладка «🎖 Сезон» в Mini App</p>
+      </div>
+    </div>
   </div>
 
   <!-- 👮 Admin -->
@@ -1557,14 +1591,33 @@ select:focus{border-color:var(--accent)}
       <div class="card-title">🤖 Авто-модерация</div>
       <div style="font-size:12px;line-height:1.7;color:var(--text)">
         <div style="display:grid;grid-template-columns:auto 1fr;gap:4px 8px;font-size:11px">
-          <code>бот замок ссылки</code><span>Заблокировать ссылки (возможен любой тип контента)</span>
-          <code>бот открыть ссылки</code><span>Разблокировать</span>
-          <code>бот блок слово</code><span>Добавить в чёрный список (с морфологией!)</span>
-          <code>бот разблок слово</code><span>Убрать из ЧС</span>
-          <code>бот фильтрмат вкл</code><span>Включить фильтр мата</span>
-          <code>бот антифлуд 5</code><span>Антифлуд: макс 5 сообщений за 2 сек</span>
+          <code>бот замок ссылки</code><span>Заблокировать ссылки в чате</span>
+          <code>бот открыть ссылки</code><span>Разблокировать ссылки</span>
+          <code>бот блок слово</code><span>Добавить слово в чёрный список (с морфологией)</span>
+          <code>бот разблок слово</code><span>Убрать слово из чёрного списка</span>
+          <code>бот фильтрмат вкл/выкл</code><span>Фильтр нецензурных выражений</span>
         </div>
         <p style="margin-top:8px"><b>Типы контент-замков:</b> ссылки, стикеры, гифки, пересылки, голосовые, видео, фото, аудио</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🛡 Антифлуд и Антиспам</div>
+      <div style="font-size:12px;line-height:1.7;color:var(--text)">
+        <p>Бот оснащён двухуровневой системой защиты от флуда и спама.</p>
+        <p style="margin-top:8px"><b>Классический антифлуд (настраивается владельцем):</b></p>
+        <div style="display:grid;grid-template-columns:auto 1fr;gap:4px 8px;font-size:11px;margin-top:4px">
+          <code>бот антифлуд 5</code><span>Ограничить до 5 сообщений за короткий период</span>
+          <code>бот антифлуд 0</code><span>Выключить классический антифлуд</span>
+        </div>
+        <p style="margin-top:8px"><b>Умная антиспам-система:</b></p>
+        <ul style="margin:4px 0 4px 16px;padding:0">
+          <li>Работает автоматически в фоне — настройка не нужна</li>
+          <li>При срабатывании участник получает временный мут с уведомлением</li>
+          <li>Не затрагивает модераторов, администраторов и выше</li>
+          <li>Во время <code>бот чистка</code> сообщения удаляются автоматически для всех (кроме стаффа)</li>
+        </ul>
+        <p style="margin-top:4px;font-size:11px;color:var(--text2)">Подробные настройки антиспама доступны владельцу и разработчику через Mini App.</p>
       </div>
     </div>
 
@@ -1630,11 +1683,12 @@ select:focus{border-color:var(--accent)}
       <div style="font-size:12px;line-height:1.7;color:var(--text)">
         <p><b>🚀 Быстрый старт:</b></p>
         <ol style="margin:4px 0 4px 16px;padding:0">
-          <li>Начни с <code>бот чекин</code> каждый день — стрик = бесплатная Мора</li>
-          <li>Выполняй квест дня — стабильные +20 🪙</li>
+          <li>Начни с <code>бот чекин</code> каждый день — стрик даёт до 1000 🪙 + Season XP</li>
+          <li>Выполняй квест дня — <b>+3–12 🪙 + 30–120 XP + 20 Season XP</b></li>
           <li>Не забывай про ивенты (Сундук) — реакция > всё!</li>
-          <li>Копи на ×10 гачу (1000 🪙) — выгоднее поштучной</li>
+          <li>Копи на ×10 гачу (700 🪙) — выгоднее поштучной</li>
           <li>Экипируй лучшие предметы для Босса — больше урона = больше Моры</li>
+          <li>Следи за Сезонным Пропуском — уровни дают Мору, кристаллы и эксклюзивы</li>
         </ol>
         <p style="margin-top:8px"><b>💰 Как разбогатеть:</b></p>
         <ul style="margin:4px 0 4px 16px;padding:0">
@@ -2369,6 +2423,7 @@ let _currentCat = 'home';
 
 function switchCategory(cat) {
   _currentCat = cat;
+  window.scrollTo(0, 0);
   document.querySelectorAll('.cat-btn[data-cat]').forEach(b => b.classList.toggle('active', b.dataset.cat === cat));
   const allowed = TAB_CATS[cat] || [];
   // Update every tab button's visibility in one pass
@@ -4568,7 +4623,26 @@ async function devGiveCrystals(){
 
 let _devImportRecords = []; // parsed records ready to send
 
-/** Parse either a raw Telegram Desktop result.json OR a pre-converted import_data.json */
+// ── Date helpers used by the JSON parser ─────────────────────────────────────
+function _localIsoDate(d) {
+  // Returns "YYYY-MM-DD" in the CLIENT'S local timezone
+  return d.getFullYear() + '-' +
+    String(d.getMonth() + 1).padStart(2, '0') + '-' +
+    String(d.getDate()).padStart(2, '0');
+}
+function _isoWeekKey(d) {
+  // Returns ISO 8601 week key "YYYY-Www" (Monday-based, Thursday-in-week rule)
+  const dt = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  const day = dt.getUTCDay() || 7; // Sun → 7
+  dt.setUTCDate(dt.getUTCDate() + 4 - day);
+  const yearStart = new Date(Date.UTC(dt.getUTCFullYear(), 0, 1));
+  const wk = Math.ceil((((dt - yearStart) / 86400000) + 1) / 7);
+  return `${dt.getUTCFullYear()}-W${String(wk).padStart(2, '0')}`;
+}
+
+/** Parse either a raw Telegram Desktop result.json OR a pre-converted import_data.json.
+ *  From result.json, also computes week_count / day_count / yesterday_count / last_week_count
+ *  by parsing the "date" field on each message. */
 function devParseImportJson(raw) {
   // Pre-converted format: top-level array of records
   if (Array.isArray(raw)) {
@@ -4576,8 +4650,17 @@ function devParseImportJson(raw) {
   }
   // Telegram Desktop export: {messages: [...]}
   if (raw && raw.messages && Array.isArray(raw.messages)) {
+    // Reference dates in local timezone (same as what Telegram Desktop typically exports)
+    const _now       = new Date();
+    const _todayStr  = _localIsoDate(_now);
+    const _yesterStr = _localIsoDate(new Date(_now - 86400000));
+    const _thisWeek  = _isoWeekKey(_now);
+    const _lastWeek  = _isoWeekKey(new Date(_now - 7 * 86400000));
+
     const counts = {};
     const names  = {};
+    const byDate = {}; // uid → { "YYYY-MM-DD" → count }
+
     for (const msg of raw.messages) {
       if (msg.type !== 'message') continue;
       const fromId = String(msg.from_id || '').trim();
@@ -4594,12 +4677,35 @@ function devParseImportJson(raw) {
       if (uid === null) continue;
       counts[uid] = (counts[uid] || 0) + 1;
       if (!names[uid] && msg.from) names[uid] = String(msg.from).trim();
+      // Bucket message by date (first 10 chars of ISO date string: "YYYY-MM-DD")
+      const msgDate = String(msg.date || '').slice(0, 10);
+      if (msgDate.length === 10) {
+        if (!byDate[uid]) byDate[uid] = {};
+        byDate[uid][msgDate] = (byDate[uid][msgDate] || 0) + 1;
+      }
     }
-    return Object.entries(counts).map(([uid, msgs]) => ({
-      user_id: parseInt(uid, 10),
-      messages: msgs,
-      ...(names[uid] ? {full_name: names[uid]} : {}),
-    }));
+
+    return Object.entries(counts).map(([uidStr, total]) => {
+      const uid  = parseInt(uidStr, 10);
+      const dmap = byDate[uid] || {};
+      let week_count = 0, last_week_count = 0;
+      for (const [d, cnt] of Object.entries(dmap)) {
+        const wk = _isoWeekKey(new Date(d + 'T12:00:00'));
+        if (wk === _thisWeek)       week_count      += cnt;
+        else if (wk === _lastWeek)  last_week_count += cnt;
+      }
+      const day_count       = dmap[_todayStr]  || 0;
+      const yesterday_count = dmap[_yesterStr] || 0;
+      return {
+        user_id: uid,
+        messages: total,
+        week_count,
+        day_count,
+        yesterday_count,
+        last_week_count,
+        ...(names[uidStr] ? {full_name: names[uidStr]} : {}),
+      };
+    });
   }
   throw new Error('Неизвестный формат файла. Ожидается result.json или import_data.json');
 }
@@ -7419,6 +7525,7 @@ function showGuideSection(name) {
     b.className = 'btn btn-sm ' + (isActive ? 'btn-primary' : 'btn-ghost');
     b.style.cssText = '';
   });
+  window.scrollTo(0, 0);
 }
 
 // ── Auction / Аукцион ─────────────────────────────────────────────────────────

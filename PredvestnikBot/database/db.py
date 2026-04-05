@@ -2068,12 +2068,20 @@ async def import_users_bulk(records: list[dict], chat_id: int) -> dict:
     Импортирует список пользователей в БД. Поддерживаемые форматы записей:
       • {user_id: int, message_count/messages: int, full_name?, username?}  → прямая запись
       • {username: "@foo", messages/message_count: int}                     → pending (применится при первом сообщении)
+    Поддерживает также week_count, day_count, yesterday_count, last_week_count для cleanup_counts.
     Возвращает {'ok_direct': int, 'ok_pending': int, 'errors': list[str]}
     """
     now = datetime.now(timezone.utc)
     ok_direct = 0
     errors: list[str] = []
     pending_records: list[dict] = []
+
+    # Pre-compute date keys for cleanup_counts period import
+    from utils.helpers import bot_today as _bot_today
+    from zoneinfo import ZoneInfo as _ZI
+    _today    = _bot_today()
+    _iso_wk   = datetime.now(_ZI("Europe/Zurich")).isocalendar()
+    _week_key = f"{_iso_wk.year}-W{_iso_wk.week:02d}"
 
     async with postgres_connect() as db:
         for idx, rec in enumerate(records, 1):
@@ -2104,6 +2112,39 @@ async def import_users_bulk(records: list[dict], chat_id: int) -> dict:
                             message_count = GREATEST(user_stats.message_count, excluded.message_count)
                         """,
                         (uid, chat_id, msg_count),
+                    )
+                    # Also populate cleanup_counts with per-period counts from the JSON parser
+                    _w  = int(rec.get("week_count")      or 0)
+                    _d  = int(rec.get("day_count")        or 0)
+                    _yd = int(rec.get("yesterday_count")  or 0)
+                    _lw = int(rec.get("last_week_count")  or 0)
+                    await db.execute(
+                        """
+                        INSERT INTO cleanup_counts
+                            (chat_id, user_id, count, week_count, day_count,
+                             week_start, day_start, last_week_count, yesterday_count)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        ON CONFLICT(chat_id, user_id) DO UPDATE SET
+                            count           = GREATEST(cleanup_counts.count, excluded.count),
+                            week_count      = CASE WHEN ? > 0
+                                                  THEN GREATEST(cleanup_counts.week_count, excluded.week_count)
+                                                  ELSE cleanup_counts.week_count END,
+                            week_start      = CASE WHEN ? > 0 THEN excluded.week_start
+                                                  ELSE cleanup_counts.week_start END,
+                            day_count       = CASE WHEN ? > 0
+                                                  THEN GREATEST(cleanup_counts.day_count, excluded.day_count)
+                                                  ELSE cleanup_counts.day_count END,
+                            day_start       = CASE WHEN ? > 0 THEN excluded.day_start
+                                                  ELSE cleanup_counts.day_start END,
+                            last_week_count = CASE WHEN ? > 0
+                                                  THEN GREATEST(cleanup_counts.last_week_count, excluded.last_week_count)
+                                                  ELSE cleanup_counts.last_week_count END,
+                            yesterday_count = CASE WHEN ? > 0
+                                                  THEN GREATEST(cleanup_counts.yesterday_count, excluded.yesterday_count)
+                                                  ELSE cleanup_counts.yesterday_count END
+                        """,
+                        (chat_id, uid, msg_count, _w, _d, _week_key, _today, _lw, _yd,
+                         _w, _w, _d, _d, _lw, _yd),
                     )
                     ok_direct += 1
                 except Exception as exc:
