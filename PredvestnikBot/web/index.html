@@ -904,9 +904,10 @@ select:focus{border-color:var(--accent)}
         <div style="font-size:12px;color:var(--text2);margin-bottom:10px;line-height:1.6">
           🛡 Защищает от одной чистки<br>
           ⏳ Требует одобрения владельца/разраба<br>
-          💸 Мора возвращается при отказе
+          💸 Мора возвращается при отказе<br>
+          🔁 Кулдаун: 12 дней после покупки
         </div>
-        <button class="btn btn-gold" id="cleanupPassBuyBtn" onclick="buyCleanupPass()" style="width:100%">🎫 Откуп — 4 000 🪙</button>
+        <button class="btn btn-gold" id="cleanupPassBuyBtn" onclick="buyCleanupPass()" style="width:100%">🎫 Откуп — 2 000 🪙</button>
       </div>
     </div>
 
@@ -3363,11 +3364,15 @@ async function loadCleanupPassStatus(){
       const statusMap = {pending:'⏳ Ожидает одобрения', approved:'✅ Одобрен — ты защищён!', used:'✔️ Использован'};
       st.innerHTML = `<span style="color:var(--gold)">${statusMap[r.status]||r.status}</span>`;
       btn.disabled = (r.status==='pending'||r.status==='approved');
-      btn.textContent = r.status==='pending'?'⏳ Ожидает одобрения':r.status==='approved'?'✅ Пропуск активен':'🎫 Откуп — 4 000 🪙';
+      btn.textContent = r.status==='pending'?'⏳ Ожидает одобрения':r.status==='approved'?'✅ Пропуск активен':'🎫 Откуп — 2 000 🪙';
+    } else if(r.on_cooldown){
+      st.innerHTML = `<span style="color:#f87171">⏳ Кулдаун: ещё ${r.cooldown_days} дн.</span>`;
+      btn.disabled = true;
+      btn.textContent = `🔁 Доступно через ${r.cooldown_days} дн.`;
     } else {
       st.textContent='';
       btn.disabled=false;
-      btn.textContent='🎫 Откуп — 4 000 🪙';
+      btn.textContent='🎫 Откуп — 2 000 🪙';
     }
   } catch(e){ /* ignore */ }
 }
@@ -3383,7 +3388,7 @@ async function buyCleanupPass(){
     await loadCleanupPassStatus();
   } catch(e){
     toast('❌ '+e.message,'error');
-    if(btn){ btn.disabled=false; btn.textContent='🎫 Откуп — 4 000 🪙'; }
+    await loadCleanupPassStatus(); // refresh to show cooldown if applicable
   }
 }
 
@@ -5734,7 +5739,7 @@ async function devGiveItem_legacy(){}
 // Группы метрик AF2; каждая row: {e, l, k:[limit,window,mute], hint?}
 const AF2_GROUPS = [
   {
-    id: 'newcomer', badge: '🆕', label: 'Новичок', color: '#60a5fa', note: '< 300 сообщ.',
+    id: 'newcomer', badge: '🆕', label: 'Новичок', color: '#60a5fa', noteKey: 'newcomer_threshold', noteDefault: 300, noteFmt: n => `< ${n} сообщ.`,
     rows: [
       { e: '✉️', l: 'Текст',    k: ['newcomer_text_limit',    'newcomer_text_window',    'newcomer_text_mute'] },
       { e: '🖼', l: 'Медиа',    k: ['newcomer_media_limit',   'newcomer_media_window',   'newcomer_media_mute'] },
@@ -5743,13 +5748,13 @@ const AF2_GROUPS = [
     ]
   },
   {
-    id: 'regular', badge: '👤', label: 'Обычный', color: '#a78bfa', note: '300 – 1000',
+    id: 'regular', badge: '👤', label: 'Обычный', color: '#a78bfa', noteKey: null, noteDefault: null, noteFmt: null,
     rows: [
       { e: '🎭', l: 'Стикеры', k: ['regular_sticker_limit', 'regular_sticker_window', 'regular_sticker_mute'] },
     ]
   },
   {
-    id: 'trusted', badge: '⭐', label: 'Доверенный', color: '#fbbf24', note: '> 1000',
+    id: 'trusted', badge: '⭐', label: 'Доверенный', color: '#fbbf24', noteKey: 'trusted_threshold', noteDefault: 1000, noteFmt: n => `≥ ${n} сообщ.`,
     rows: [
       { e: '🖼', l: 'Медиа',    k: ['trusted_media_limit',    'trusted_media_window',    'trusted_media_mute'] },
       { e: '🎭', l: 'Стикеры', k: ['trusted_sticker_limit',  'trusted_sticker_window',  'trusted_sticker_mute'] },
@@ -5774,10 +5779,22 @@ function _renderAf2Group(g, cfg, defs) {
       <input type="number" id="af2_${mk}" value="${mv}" step="60" title="по ум.: ${md} с | 0=∞" style="${_I}">
     </div>`;
   }).join('');
+  // Threshold editor row (only for newcomer & trusted groups)
+  let thresholdRow = '';
+  if (g.noteKey) {
+    const tv = cfg[g.noteKey] ?? g.noteDefault;
+    const td = defs[g.noteKey] ?? g.noteDefault;
+    thresholdRow = `<div style="display:flex;align-items:center;gap:6px;margin-top:6px;padding-top:5px;border-top:1px dashed var(--border)">
+      <span style="font-size:10px;color:var(--text2);flex:1">📊 Порог (сообщений)</span>
+      <input type="number" id="af2_${g.noteKey}" value="${tv}" step="10" min="10" max="50000"
+        title="по ум.: ${td}" style="background:var(--card2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:3px 2px;font-size:12px;width:60px;text-align:center">
+    </div>`;
+  }
+  const noteStr = g.noteFmt ? g.noteFmt(cfg[g.noteKey] ?? g.noteDefault) : '300–1000 сообщ.';
   return `<div style="background:var(--bg3);border-radius:10px;padding:9px">
     <div style="display:flex;align-items:baseline;gap:5px;margin-bottom:5px">
       <span style="font-size:10px;font-weight:700;color:${g.color};text-transform:uppercase;letter-spacing:.4px">${g.badge} ${g.label}</span>
-      <span style="font-size:9px;color:var(--text3)">${g.note}</span>
+      <span style="font-size:9px;color:var(--text3)">${noteStr}</span>
     </div>
     <div style="display:grid;grid-template-columns:1fr 40px 40px 48px;gap:3px;padding:0 0 3px">
       <span></span>
@@ -5786,6 +5803,7 @@ function _renderAf2Group(g, cfg, defs) {
       <span style="font-size:9px;color:var(--text3);text-align:center">Мут(с)</span>
     </div>
     ${rows}
+    ${thresholdRow}
   </div>`;
 }
 
@@ -5821,18 +5839,18 @@ async function loadAf2Config() {
         ${groupsHtml}
       </div>
       <div style="background:var(--bg3);border-radius:10px;padding:9px;display:flex;flex-direction:column;gap:7px">
-        <div style="display:flex;align-items:center;gap:6px">
-          <span style="font-size:11px;color:var(--text);flex:1">⚡ Антиспам: лимит сообщ./сек</span>
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+          <span style="font-size:11px;color:var(--text);min-width:0;flex:1 1 140px">⚡ Антиспам: лимит сообщ./сек</span>
           <input type="number" id="af2_antispam_limit" value="${asVal}" step="1" min="1" max="50"
             title="по ум.: ${asDef} сообщ/с"
             style="${_I};width:56px;flex:none">
         </div>
-        <div style="display:flex;align-items:center;gap:6px">
-          <span style="font-size:11px;color:var(--text);flex:1">🗑 Удалять сообщения рейдера за</span>
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+          <span style="font-size:11px;color:var(--text);width:100%">🗑 Удалять сообщения рейдера за</span>
           <input type="number" id="af2_dw_value" value="${dwVal}" step="1" min="1" max="9999"
             title="по ум.: ${dwDef} с"
-            style="${_I};width:56px;flex:none">
-          <select id="af2_dw_unit" style="background:var(--card2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:4px 3px;font-size:11px">
+            style="${_I};width:72px;flex:none">
+          <select id="af2_dw_unit" style="background:var(--card2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:4px 3px;font-size:11px;flex:1">
             <option value="1"     ${dwUnit===1?'selected':''}>сек.</option>
             <option value="60"    ${dwUnit===60?'selected':''}>мин.</option>
             <option value="3600"  ${dwUnit===3600?'selected':''}>часов</option>
@@ -5852,7 +5870,7 @@ async function saveAf2Config() {
   const msg = document.getElementById('devAf2Msg');
   msg.textContent = '⏳ Сохранение…';
   const body = {};
-  for (const key of AF2_GROUP_KEYS) {
+  for (const key of [...AF2_GROUP_KEYS, 'newcomer_threshold', 'trusted_threshold']) {
     const el = document.getElementById('af2_' + key);
     if (el && el.value !== '') body[key] = parseFloat(el.value);
   }
@@ -5879,7 +5897,7 @@ async function resetAf2Config() {
   const msg = document.getElementById('devAf2Msg');
   msg.textContent = '⏳ Сброс…';
   const body = {};
-  for (const key of [...AF2_GROUP_KEYS, 'antispam_limit', 'delete_window']) {
+  for (const key of [...AF2_GROUP_KEYS, 'newcomer_threshold', 'trusted_threshold', 'antispam_limit', 'delete_window']) {
     if (_af2Defaults[key] !== undefined) body[key] = _af2Defaults[key];
   }
   try {

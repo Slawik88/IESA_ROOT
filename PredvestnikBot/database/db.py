@@ -2713,7 +2713,9 @@ async def reset_cleanup_counts(chat_id: int):
 
 async def buy_cleanup_pass(user_id: int, chat_id: int, price: int) -> int:
     """Создать заявку на пропуск чистки. Возвращает id заявки."""
+    from shared_prices import CLEANUP_PASS_COOLDOWN_DAYS
     now = datetime.now(timezone.utc)
+    cooldown_cutoff = now - timedelta(days=CLEANUP_PASS_COOLDOWN_DAYS)
     async with postgres_connect() as db:
         # Проверяем, нет ли уже активного или pending пропуска
         async with db.execute(
@@ -2723,6 +2725,26 @@ async def buy_cleanup_pass(user_id: int, chat_id: int, price: int) -> int:
             existing = await c.fetchone()
         if existing:
             raise ValueError("У тебя уже есть активный пропуск чистки")
+        # Проверяем КД: любая покупка в этом чате за последние 12 дней
+        async with db.execute(
+            "SELECT created_at FROM cleanup_passes WHERE user_id=? AND chat_id=? "
+            "ORDER BY created_at DESC LIMIT 1",
+            (user_id, chat_id),
+        ) as c:
+            last_row = await c.fetchone()
+        if last_row:
+            last_dt = last_row[0]
+            if isinstance(last_dt, str):
+                from datetime import datetime as _dt
+                last_dt = _dt.fromisoformat(last_dt.replace("Z", "+00:00"))
+            if last_dt.tzinfo is None:
+                last_dt = last_dt.replace(tzinfo=timezone.utc)
+            if last_dt >= cooldown_cutoff:
+                remaining = last_dt + timedelta(days=CLEANUP_PASS_COOLDOWN_DAYS) - now
+                remaining_days = max(1, remaining.days + (1 if remaining.seconds > 0 else 0))
+                raise ValueError(
+                    f"Пропуск чистки на кулдауне: следующая покупка доступна через {remaining_days} дн."
+                )
         cursor = await db.execute(
             "INSERT INTO cleanup_passes (user_id, chat_id, status, price, created_at) "
             "VALUES (?,?,'pending',?,?) RETURNING id",

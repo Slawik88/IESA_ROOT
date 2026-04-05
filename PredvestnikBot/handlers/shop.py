@@ -108,6 +108,7 @@ def _section_keyboard(uid: int, active: str, owned_keys: set[str] | None = None)
 
 
 def _shop_text(section: str, bal: int) -> str:
+    from shared_prices import CLEANUP_PASS_PRICE
     boost_prices = " · ".join(f"{label}={price} 🪙" for _key, _hours, price, label in XP_BOOST_OPTIONS)
     frame_lines = "\n".join(
         f"  • {emoji} <b>{name}</b> — {price} 🪙"
@@ -133,6 +134,7 @@ def _shop_text(section: str, bal: int) -> str:
             f"💰 Твой баланс: <b>{bal} 🪙</b>\n\n"
             "🪙 <b>Экономика</b>\n"
             f"  • VIP — <b>{VIP_PRICE} 🪙</b> · <code>бот купить вип</code>\n"
+            f"  • Откуп от чистки — <b>{CLEANUP_PASS_PRICE} 🪙</b> · КД: 12 дн. · <code>бот откуп</code>\n"
             f"  • Буст XP ×2 — {boost_prices} · <code>бот купить буст</code>\n"
             "  • Рамки профиля — <code>бот рамки</code> / <code>бот купить рамку</code>\n"
             f"  • Анонимка — <b>{ANON_MSG_PRICE} 🪙</b> · <code>бот анонимка текст</code>\n"
@@ -163,7 +165,7 @@ def _shop_text(section: str, bal: int) -> str:
             "🪙 <b>Магазин</b> › <b>Экономика</b>\n\n"
             f"💰 Баланс: <b>{bal} 🪙</b>\n\n"
             f"💎 VIP — <b>{VIP_PRICE} 🪙</b>\n  <code>бот купить вип</code>\n\n"
-            f"🎫 Откуп от чистки — <b>1500 🪙</b>\n  <code>бот откуп</code>\n\n"
+            f"🎫 Откуп от чистки — <b>{CLEANUP_PASS_PRICE} 🪙</b> · КД: 12 дн.\n  <code>бот откуп</code>\n\n"
             f"⚡ Буст XP ×2\n  {boost_prices}\n  <code>бот купить буст</code>\n\n"
             "🖼 Рамки профиля\n"
             f"{frame_lines}\n"
