@@ -1808,6 +1808,11 @@ select:focus{border-color:var(--accent)}
           📥 Импортировать
         </button>
       </div>
+      <div style="margin-top:6px" id="devPurgeBtnWrap" style="display:none">
+        <button class="btn" id="devPurgeBtn" onclick="devPurgeChatNonMembers()" style="width:100%;background:#7f1d1d;border-color:#991b1b;color:#fca5a5">
+          🗑️ Удалить неактивных из базы бота
+        </button>
+      </div>
     </div>
 
     <div id="devImportMsg" style="font-size:12px;min-height:18px;margin-top:6px"></div>
@@ -4707,12 +4712,64 @@ async function devScanMembers() {
     // Show a note that only active members import
     document.getElementById('devImportPreviewSummary').textContent =
       `Итого: ${_devImportRecords.length} записей · В чате сейчас: ${activeCount} · Покинули: ${leftCount}`;
+
+    // Show purge button if there are inactive users
+    const purgeWrap = document.getElementById('devPurgeBtnWrap');
+    const purgeBtn  = document.getElementById('devPurgeBtn');
+    if (leftCount > 0) {
+      purgeWrap.style.display = '';
+      purgeBtn.textContent = `🗑️ Удалить ${leftCount} неактивных из базы бота`;
+    } else {
+      purgeWrap.style.display = 'none';
+    }
   } catch(e) {
     msg.textContent = '❌ ' + e.message;
     msg.style.color = '#f87171';
   } finally {
     btn.disabled = false;
     btn.textContent = '🔍 Кто в чате?';
+  }
+}
+
+async function devPurgeChatNonMembers() {
+  const chatSel = document.getElementById('devImportChatSel');
+  const chatId  = parseInt(chatSel.value || '0', 10);
+  if (!chatId) { toast('Выбери чат', 'error'); return; }
+
+  const scanned = _devImportRecords.some(r => '_scan' in r);
+  if (!scanned) { toast('Сначала выполни скан', 'error'); return; }
+
+  const inactiveIds = _devImportRecords
+    .filter(r => r._scan === false && r.user_id)
+    .map(r => r.user_id);
+
+  if (!inactiveIds.length) { toast('Нет неактивных записей для удаления', 'info'); return; }
+
+  if (!confirm(`Удалить из базы бота данные ${inactiveIds.length} пользователей, которых нет в чате?\n\nЭто удалит их stats, мору, задания и счётчики В ЭТОМ ЧАТЕ. Глобальные данные сохранятся.`)) return;
+
+  const btn = document.getElementById('devPurgeBtn');
+  const msg = document.getElementById('devImportMsg');
+  btn.disabled = true;
+  btn.textContent = `⏳ Удаляем ${inactiveIds.length}…`;
+
+  try {
+    const resp = await api('/api/dev/purge_chat_nonmembers', {
+      method: 'POST',
+      body: JSON.stringify({chat_id: chatId, user_ids: inactiveIds}),
+    });
+    const r = await resp.json();
+    if (!resp.ok) throw new Error(r.error || 'HTTP ' + resp.status);
+
+    msg.textContent = `🗑️ Удалено: ${r.deleted} записей успешно`;
+    msg.style.color = '#4ade80';
+    btn.style.display = 'none';
+    document.getElementById('devPurgeBtnWrap').style.display = 'none';
+    toast(`Удалено ${r.deleted} пользователей из базы чата`, 'success');
+  } catch(e) {
+    msg.textContent = '❌ ' + e.message;
+    msg.style.color = '#f87171';
+    btn.disabled = false;
+    btn.textContent = `🗑️ Удалить ${inactiveIds.length} неактивных из базы бота`;
   }
 }
 

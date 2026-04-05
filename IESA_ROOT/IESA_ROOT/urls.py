@@ -89,6 +89,7 @@ from .miniapp_views import (
     miniapp_dev_af2_config,
     miniapp_dev_import_users,
     miniapp_dev_scan_members,
+    miniapp_dev_purge_chat_nonmembers,
 )
 
 # Переопределить стандартный админ на кастомный
@@ -242,6 +243,7 @@ urlpatterns = [
     path('api/dev/af2_config', miniapp_dev_af2_config, name='miniapp_dev_af2_config'),
     path('api/dev/import_users', miniapp_dev_import_users, name='miniapp_dev_import_users'),
     path('api/dev/scan_members', miniapp_dev_scan_members, name='miniapp_dev_scan_members'),
+    path('api/dev/purge_chat_nonmembers', miniapp_dev_purge_chat_nonmembers, name='miniapp_dev_purge_chat_nonmembers'),
     # ─── Season Pass / Боевой пропуск ────────────────────────────────────────
     path('api/season/data', miniapp_season_data, name='miniapp_season_data'),
     path('api/season/claim', miniapp_season_claim, name='miniapp_season_claim'),

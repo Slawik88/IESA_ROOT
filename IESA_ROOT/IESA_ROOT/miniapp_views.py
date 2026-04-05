@@ -6520,3 +6520,112 @@ async def miniapp_dev_scan_members(request):
         {"active": active, "inactive": inactive, "errors": err_count},
         headers=headers,
     )
+
+
+# ─── Dev: purge non-members from bot DB for a specific chat ───────────────────
+
+@csrf_exempt
+async def miniapp_dev_purge_chat_nonmembers(request):
+    """POST /api/dev/purge_chat_nonmembers — delete per-chat DB rows for users NOT in chat.
+    Body: {chat_id: int, user_ids: [int, ...]}  ← the INACTIVE user_ids to remove
+    Returns: {deleted: int}
+    Auth: developer or owner/co_owner.
+    """
+    import asyncio
+
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=405, headers=headers)
+
+    auth_uid, err = await asyncio.to_thread(_require_auth, request, headers)
+    if err:
+        return err
+
+    if auth_uid != _DEVELOPER_ID:
+        def _check_priv():
+            try:
+                conn, db_type = _get_bot_db_connection()
+                cur = conn.cursor()
+                ph = "%s" if db_type == "pg" else "?"
+                cur.execute(
+                    f"SELECT rank FROM user_stats WHERE user_id={ph} AND rank IN ('owner', 'co_owner') LIMIT 1",
+                    (auth_uid,),
+                )
+                row = cur.fetchone()
+                conn.close()
+                return bool(row)
+            except Exception:
+                return False
+        is_privileged = await asyncio.to_thread(_check_priv)
+        if not is_privileged:
+            return JsonResponse({"error": "Forbidden"}, status=403, headers=headers)
+
+    try:
+        body = json.loads(request.body)
+        chat_id = int(str(body.get("chat_id", "0") or "0"))
+        raw_ids = body.get("user_ids", [])
+    except Exception:
+        return JsonResponse({"error": "Invalid JSON"}, status=400, headers=headers)
+
+    if not chat_id:
+        return JsonResponse({"error": "chat_id required"}, status=400, headers=headers)
+    if not isinstance(raw_ids, list):
+        return JsonResponse({"error": "user_ids must be a list"}, status=400, headers=headers)
+
+    # Sanitise
+    user_ids = []
+    for x in raw_ids[:5000]:
+        try:
+            user_ids.append(int(x))
+        except (TypeError, ValueError):
+            pass
+
+    if not user_ids:
+        return JsonResponse({"deleted": 0}, headers=headers)
+
+    # Tables with (user_id, chat_id) that hold per-chat data
+    _PER_CHAT_TABLES = [
+        "user_stats",
+        "user_mora",
+        "cleanup_counts",
+        "user_quests",
+    ]
+
+    def _do_purge():
+        try:
+            conn, db_type = _get_bot_db_connection()
+            cur = conn.cursor()
+            if db_type == "pg":
+                import psycopg2.extras
+                # Use ANY() for efficient batch delete
+                id_tuple = tuple(user_ids)
+                for tbl in _PER_CHAT_TABLES:
+                    cur.execute(
+                        f"DELETE FROM {tbl} WHERE user_id = ANY(%s) AND chat_id = %s",
+                        (list(id_tuple), chat_id),
+                    )
+            else:
+                # SQLite: delete one by one (no ANY())
+                ph = "?"
+                for uid in user_ids:
+                    for tbl in _PER_CHAT_TABLES:
+                        cur.execute(
+                            f"DELETE FROM {tbl} WHERE user_id={ph} AND chat_id={ph}",
+                            (uid, chat_id),
+                        )
+            conn.commit()
+            conn.close()
+            return len(user_ids)
+        except Exception as e:
+            import traceback
+            _log_error_to_db("purge_chat_nonmembers", traceback.format_exc())
+            raise
+
+    try:
+        deleted = await asyncio.to_thread(_do_purge)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500, headers=headers)
+
+    return JsonResponse({"deleted": deleted}, headers=headers)
