@@ -1785,7 +1785,7 @@ select:focus{border-color:var(--accent)}
 
     <!-- Preview table -->
     <div id="devImportPreview" style="display:none">
-      <div style="font-size:12px;color:var(--text2);margin-bottom:4px" id="devImportPreviewSummary"></div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:6px" id="devImportPreviewSummary"></div>
       <div style="max-height:200px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;margin-bottom:8px">
         <table style="width:100%;border-collapse:collapse;font-size:11px">
           <thead>
@@ -1794,14 +1794,20 @@ select:focus{border-color:var(--accent)}
               <th style="padding:5px 6px;text-align:left;color:var(--text2);font-weight:600">Имя</th>
               <th style="padding:5px 6px;text-align:left;color:var(--text2);font-weight:600">User ID</th>
               <th style="padding:5px 6px;text-align:right;color:var(--text2);font-weight:600">Сообщ.</th>
+              <th style="padding:5px 6px;text-align:center;color:var(--text2);font-weight:600" id="devImportColScan" title="Статус в чате (после скана)">В чате</th>
             </tr>
           </thead>
           <tbody id="devImportPreviewTbody"></tbody>
         </table>
       </div>
-      <button class="btn btn-gold" onclick="devRunImport()" id="devImportBtn" style="width:100%">
-        📥 Импортировать
-      </button>
+      <div style="display:flex;gap:6px;margin-bottom:0">
+        <button class="btn" id="devScanBtn" onclick="devScanMembers()" style="flex:1">
+          🔍 Кто в чате?
+        </button>
+        <button class="btn btn-gold" onclick="devRunImport()" id="devImportBtn" style="flex:1">
+          📥 Импортировать
+        </button>
+      </div>
     </div>
 
     <div id="devImportMsg" style="font-size:12px;min-height:18px;margin-top:6px"></div>
@@ -4629,21 +4635,78 @@ function devRenderImportPreview() {
     return;
   }
   const totalMsgs = _devImportRecords.reduce((s,r)=>s+(r.messages||0),0);
+  const scanned = _devImportRecords.some(r => '_scan' in r);
   summary.textContent = `Найдено: ${_devImportRecords.length} чел., ${totalMsgs.toLocaleString('ru')} сообщений`;
   // Show up to 200 rows in preview
   const rows = _devImportRecords.slice(0, 200).map((r, i) => {
     const name = esc(r.full_name || r.username || ('id' + (r.user_id||'?')));
     const uid  = r.user_id ? r.user_id : (r.username ? ('@'+r.username) : '—');
-    return `<tr style="border-top:1px solid var(--border)">
+    let scanCell = '<td style="padding:4px 6px;text-align:center;color:var(--text2)">—</td>';
+    if ('_scan' in r) {
+      scanCell = r._scan
+        ? '<td style="padding:4px 6px;text-align:center">✅</td>'
+        : '<td style="padding:4px 6px;text-align:center;color:#f87171">❌</td>';
+    }
+    return `<tr style="border-top:1px solid var(--border)${r._scan===false?';opacity:.45':''}">
       <td style="padding:4px 6px;color:var(--text2)">${i+1}</td>
       <td style="padding:4px 6px">${name}</td>
       <td style="padding:4px 6px;color:var(--text2);font-size:10px">${uid}</td>
       <td style="padding:4px 6px;text-align:right">${(r.messages||0).toLocaleString('ru')}</td>
+      ${scanCell}
     </tr>`;
   });
-  if (_devImportRecords.length > 200) rows.push(`<tr><td colspan="4" style="padding:4px 6px;color:var(--text2);text-align:center">…и ещё ${_devImportRecords.length-200}</td></tr>`);
+  if (_devImportRecords.length > 200) rows.push(`<tr><td colspan="5" style="padding:4px 6px;color:var(--text2);text-align:center">…и ещё ${_devImportRecords.length-200}</td></tr>`);
   tbody.innerHTML = rows.join('');
   preview.style.display = '';
+}
+
+async function devScanMembers() {
+  const chatSel = document.getElementById('devImportChatSel');
+  const chatId  = parseInt(chatSel.value || '0', 10);
+  if (!chatId) { toast('Выбери чат', 'error'); return; }
+
+  const checkable = _devImportRecords.filter(r => r.user_id);
+  if (!checkable.length) { toast('Нет записей с user_id для проверки', 'error'); return; }
+
+  const btn = document.getElementById('devScanBtn');
+  const msg = document.getElementById('devImportMsg');
+  btn.disabled = true;
+  btn.textContent = `⏳ Проверяем ${checkable.length}…`;
+  msg.textContent = '';
+
+  try {
+    const r = await api('/api/dev/scan_members', 'POST', {
+      chat_id: chatId,
+      user_ids: checkable.map(x => x.user_id),
+    });
+
+    const activeSet = new Set(r.active);
+
+    // Tag each record with scan result
+    for (const rec of _devImportRecords) {
+      if (rec.user_id) {
+        rec._scan = activeSet.has(rec.user_id);
+      }
+    }
+
+    const activeCount  = r.active.length;
+    const leftCount    = r.inactive.length;
+    const errCount     = r.errors || 0;
+
+    msg.textContent = `✅ В чате: ${activeCount} чел., покинули: ${leftCount}` + (errCount ? `, ошибок: ${errCount}` : '');
+    msg.style.color = '#4ade80';
+
+    devRenderImportPreview();
+    // Show a note that only active members import
+    document.getElementById('devImportPreviewSummary').textContent =
+      `Итого: ${_devImportRecords.length} записей · В чате сейчас: ${activeCount} · Покинули: ${leftCount}`;
+  } catch(e) {
+    msg.textContent = '❌ ' + e.message;
+    msg.style.color = '#f87171';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '🔍 Кто в чате?';
+  }
 }
 
 async function devRunImport() {
@@ -4651,6 +4714,14 @@ async function devRunImport() {
   const chatId  = parseInt(chatSel.value || '0', 10);
   if (!chatId) { toast('Выбери чат', 'error'); return; }
   if (!_devImportRecords.length) { toast('Нет записей для импорта', 'error'); return; }
+
+  // If scan was done, only send records that are in the chat (or @username ones where scan is N/A)
+  const scanned = _devImportRecords.some(r => '_scan' in r);
+  const toSend = scanned
+    ? _devImportRecords.filter(r => r._scan !== false)  // exclude confirmed-left members
+    : _devImportRecords;
+
+  if (!toSend.length) { toast('После скана нет активных участников для импорта', 'error'); return; }
 
   const btn = document.getElementById('devImportBtn');
   const msg = document.getElementById('devImportMsg');
@@ -4661,7 +4732,7 @@ async function devRunImport() {
   try {
     const r = await api('/api/dev/import_users', 'POST', {
       chat_id: chatId,
-      records: _devImportRecords,
+      records: toSend,
     });
     msg.textContent = `✅ Напрямую: ${r.ok_direct}, отложено: ${r.ok_pending}` +
                       (r.errors && r.errors.length ? ` ⚠️ Ошибок: ${r.errors.length}` : '');
