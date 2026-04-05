@@ -6413,36 +6413,43 @@ def miniapp_dev_import_users(request):
 # ─── Dev: scan which user_ids are currently in a chat ─────────────────────────
 
 @csrf_exempt
-def miniapp_dev_scan_members(request):
+async def miniapp_dev_scan_members(request):
     """POST /api/dev/scan_members — check Telegram membership for a list of user_ids.
     Body: {chat_id: int, user_ids: [int, ...]}
     Returns: {active: [int, ...], inactive: [int, ...], errors: int}
     Auth: developer or owner/co_owner.
+    Async view: uses httpx.AsyncClient + asyncio.gather so it never blocks Daphne.
     """
+    import asyncio
+    import httpx as _httpx
+
     headers = _cors_headers()
     if request.method == "OPTIONS":
         return HttpResponse("", status=204, headers=headers)
     if request.method != "POST":
         return JsonResponse({"error": "POST required"}, status=405, headers=headers)
 
-    auth_uid, err = _require_auth(request, headers)
+    # _require_auth is sync — run in thread to avoid blocking event loop
+    auth_uid, err = await asyncio.to_thread(_require_auth, request, headers)
     if err:
         return err
 
     if auth_uid != _DEVELOPER_ID:
-        try:
-            conn, db_type = _get_bot_db_connection()
-            cur = conn.cursor()
-            ph = "%s" if db_type == "pg" else "?"
-            cur.execute(
-                f"SELECT rank FROM user_stats WHERE user_id={ph} AND rank IN ('owner', 'co_owner') LIMIT 1",
-                (auth_uid,),
-            )
-            row = cur.fetchone()
-            conn.close()
-            is_privileged = bool(row)
-        except Exception:
-            is_privileged = False
+        def _check_priv():
+            try:
+                conn, db_type = _get_bot_db_connection()
+                cur = conn.cursor()
+                ph = "%s" if db_type == "pg" else "?"
+                cur.execute(
+                    f"SELECT rank FROM user_stats WHERE user_id={ph} AND rank IN ('owner', 'co_owner') LIMIT 1",
+                    (auth_uid,),
+                )
+                row = cur.fetchone()
+                conn.close()
+                return bool(row)
+            except Exception:
+                return False
+        is_privileged = await asyncio.to_thread(_check_priv)
         if not is_privileged:
             return JsonResponse({"error": "Forbidden"}, status=403, headers=headers)
 
@@ -6472,42 +6479,42 @@ def miniapp_dev_scan_members(request):
     if not user_ids:
         return JsonResponse({"active": [], "inactive": [], "errors": 0}, headers=headers)
 
-    import concurrent.futures
-    import requests as _req
-
     _ACTIVE_STATUSES = {"member", "administrator", "creator", "restricted"}
     _tg_url = f"https://api.telegram.org/bot{_BOT_TOKEN}/getChatMember"
+    # Semaphore limits concurrent Telegram API calls to avoid rate-limiting
+    sem = asyncio.Semaphore(30)
 
-    def _check(uid_check):
-        try:
-            resp = _req.get(
-                _tg_url,
-                params={"chat_id": str(chat_id), "user_id": str(uid_check)},
-                timeout=8,
-            )
-            data = resp.json()
-            if data.get("ok"):
-                status = data["result"].get("status", "left")
-                return uid_check, status in _ACTIVE_STATUSES
-            # Bot can't see this user — treat as inactive, not error
-            return uid_check, False
-        except Exception:
-            return uid_check, None  # None = network/timeout error
+    async def _check(client, uid):
+        async with sem:
+            try:
+                resp = await client.get(
+                    _tg_url,
+                    params={"chat_id": str(chat_id), "user_id": str(uid)},
+                    timeout=5.0,
+                )
+                data = resp.json()
+                if data.get("ok"):
+                    status = data["result"].get("status", "left")
+                    return uid, status in _ACTIVE_STATUSES
+                # Bot can't see this user — treat as inactive
+                return uid, False
+            except Exception:
+                return uid, None  # None = network/timeout error
 
     active = []
     inactive = []
     err_count = 0
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=25) as pool:
-        futures = {pool.submit(_check, u): u for u in user_ids}
-        for fut in concurrent.futures.as_completed(futures):
-            checked_uid, result = fut.result()
-            if result is True:
-                active.append(checked_uid)
-            elif result is False:
-                inactive.append(checked_uid)
-            else:
-                err_count += 1
+    async with _httpx.AsyncClient() as client:
+        results = await asyncio.gather(*[_check(client, u) for u in user_ids])
+
+    for uid, result in results:
+        if result is True:
+            active.append(uid)
+        elif result is False:
+            inactive.append(uid)
+        else:
+            err_count += 1
 
     return JsonResponse(
         {"active": active, "inactive": inactive, "errors": err_count},
