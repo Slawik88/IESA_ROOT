@@ -3842,9 +3842,9 @@ def miniapp_members(request):
         cur.execute(
             f"SELECT s.user_id, u.full_name "
             f"FROM user_stats s LEFT JOIN users u ON u.user_id=s.user_id "
-            f"WHERE s.chat_id={ph} AND s.user_id != {ph} "
+            f"WHERE s.chat_id={ph} "
             f"ORDER BY s.xp DESC LIMIT 60",
-            (chat_id, uid),
+            (chat_id,),
         )
         rows = cur.fetchall()
         conn.close()
@@ -5889,6 +5889,8 @@ def miniapp_dev_af2_config(request):
 
     if request.method == "GET":
         try:
+            chat_id_param = request.GET.get("chat_id", "0")
+            req_chat_id = int(chat_id_param) if chat_id_param.lstrip("-").isdigit() else 0
             import sys, os
             sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'PredvestnikBot'))
             import importlib
@@ -5900,8 +5902,8 @@ def miniapp_dev_af2_config(request):
             for key, (const_name, _mn, _mx) in _AF2_KEYS.items():
                 defaults[key] = getattr(cfg_mod, const_name, None)
 
-            # Load DB overrides
-            overrides = _a2s(db_mod.get_af2_config)()
+            # Load DB overrides for the specific chat
+            overrides = _a2s(db_mod.get_af2_config)(req_chat_id)
 
             # Merge: DB value wins over default
             merged = {k: overrides.get(k, defaults[k]) for k in _AF2_KEYS}
@@ -5921,6 +5923,8 @@ def miniapp_dev_af2_config(request):
             if not isinstance(body, dict):
                 return JsonResponse({"error": "JSON object required"}, status=400, headers=headers)
 
+            req_chat_id = int(body.pop("chat_id", 0) or 0)
+
             sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'PredvestnikBot'))
             import importlib
             db_mod = importlib.import_module("database.db")
@@ -5938,7 +5942,7 @@ def miniapp_dev_af2_config(request):
                     return JsonResponse({"error": f"{key} must be between {mn} and {mx}"}, status=400, headers=headers)
                 validated[key] = v
 
-            _a2s(db_mod.set_af2_config)(validated)
+            _a2s(db_mod.set_af2_config)(validated, req_chat_id)
             return JsonResponse({"ok": True, "saved": list(validated.keys())}, headers=headers)
         except Exception:
             logger.exception("miniapp_dev_af2_config POST error")
