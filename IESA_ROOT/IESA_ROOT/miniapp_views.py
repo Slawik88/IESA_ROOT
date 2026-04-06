@@ -5884,6 +5884,8 @@ def miniapp_dev_error_logs(request):
 
 # Mapping: miniapp key → (config constant name, min, max)
 _AF2_KEYS = {
+    "af2_enabled":            ("AF2_ENABLED",              0, 1),
+    "antispam_enabled":       ("AF2_ANTISPAM_ENABLED",     0, 1),
     "newcomer_text_limit":    ("AF2_NEWCOMER_TEXT_LIMIT",    0, 30),
     "newcomer_text_window":   ("AF2_NEWCOMER_TEXT_WINDOW",   0.5, 30.0),
     "newcomer_text_mute":     ("AF2_NEWCOMER_TEXT_MUTE",     0, 86400),
