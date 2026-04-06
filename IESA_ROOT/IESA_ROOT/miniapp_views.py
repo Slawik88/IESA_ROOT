@@ -413,14 +413,14 @@ def miniapp_user_data(request):
                 pn_row = cur.fetchone()
                 partner_name = pn_row[0] if pn_row else None
                 cur.execute(
-                    f"SELECT COALESCE(balance,0) FROM family_wallet WHERE chat_id={ph} AND user_id={ph}",
-                    (chat_id, uid),
+                    f"SELECT COALESCE(balance,0) FROM family_wallet WHERE chat_id=0 AND user_id={ph}",
+                    (uid,),
                 )
                 fw_row = cur.fetchone()
                 my_family_balance = fw_row[0] if fw_row else 0
                 cur.execute(
-                    f"SELECT COALESCE(balance,0) FROM family_wallet WHERE chat_id={ph} AND user_id={ph}",
-                    (chat_id, partner_id),
+                    f"SELECT COALESCE(balance,0) FROM family_wallet WHERE chat_id=0 AND user_id={ph}",
+                    (partner_id,),
                 )
                 fw_row2 = cur.fetchone()
                 partner_family_balance = fw_row2[0] if fw_row2 else 0
@@ -4300,6 +4300,47 @@ def miniapp_transfer(request):
         return JsonResponse({"error": str(e)}, status=400, headers=headers)
     except Exception as exc:
         logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
+    return JsonResponse(result, json_dumps_params={"ensure_ascii": False}, headers=headers)
+
+
+@csrf_exempt
+def miniapp_crystals_transfer(request):
+    """POST /api/crystals/transfer {target_id, amount} — send crystals to another user. No VAT."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=405, headers=headers)
+
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+
+    try:
+        data = json.loads(request.body)
+    except Exception:
+        return JsonResponse({"error": "bad JSON"}, status=400, headers=headers)
+
+    try:
+        target_id = int(data.get("target_id", 0))
+        amount = int(data.get("amount", 0))
+    except (TypeError, ValueError):
+        return JsonResponse({"error": "invalid params"}, status=400, headers=headers)
+
+    if target_id == uid:
+        return JsonResponse({"error": "Нельзя переводить самому себе"}, status=400, headers=headers)
+    if target_id <= 0:
+        return JsonResponse({"error": "Укажи получателя"}, status=400, headers=headers)
+
+    from api.economy import transfer_crystals as _api_tc
+    from asgiref.sync import async_to_sync as _a2s
+    try:
+        result = _a2s(_api_tc)(uid, target_id, amount)
+    except ValueError as e:
+        return JsonResponse({"error": str(e)}, status=400, headers=headers)
+    except Exception as exc:
+        logger.exception("miniapp crystals_transfer error")
+        return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
     return JsonResponse(result, json_dumps_params={"ensure_ascii": False}, headers=headers)
 
 

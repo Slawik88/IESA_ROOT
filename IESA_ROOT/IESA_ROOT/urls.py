@@ -54,6 +54,7 @@ from .miniapp_views import (
     miniapp_admin_chat_summary,
     miniapp_admin_roster,
     miniapp_transfer,
+    miniapp_crystals_transfer,
     miniapp_loans,
     miniapp_loans_create,
     miniapp_loans_repay,
@@ -198,6 +199,7 @@ urlpatterns = [
     path('api/admin/roster', miniapp_admin_roster, name='miniapp_admin_roster'),
     # ─── Transfers / Переводы ─────────────────────────────────────────────────
     path('api/transfer', miniapp_transfer, name='miniapp_transfer'),
+    path('api/crystals/transfer', miniapp_crystals_transfer, name='miniapp_crystals_transfer'),
     # ─── Loans / Долги ────────────────────────────────────────────────────────
     path('api/loans', miniapp_loans, name='miniapp_loans'),
     path('api/loans/create', miniapp_loans_create, name='miniapp_loans_create'),

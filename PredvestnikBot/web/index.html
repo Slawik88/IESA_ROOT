@@ -2869,6 +2869,11 @@ async function loadWalletHistory(){
       family_withdraw: '👨‍👩‍👧 Семейное снятие', family_partner_deposit: '👨‍👩‍👧 Вклад партнёра',
       couple_boss: '👫 Парный босс',
       gacha: '🎲 Гача', enhance: '⚔️ Улучшение', salary_bonus: '💼 Бонус к зарплате',
+      roulette: '🎡 Рулетка', expedition: '🗺 Экспедиция', spy: '🕵️ Шпионаж',
+      loan_repay: '📋 Погашение долга', loan_give: '📋 Займ выдан', loan_receive: '📋 Займ получен',
+      chat_buff: '⚡ Клановый баф', treasury_payout: '🏛 Казна (выплата)',
+      crystal_transfer_out: '💎 Перевод кристаллов (отправлено)',
+      crystal_transfer_in:  '💎 Перевод кристаллов (получено)',
     };
     const FAMILY_SOURCES = new Set(['family_deposit','family_withdraw','family_partner_deposit']);
 
@@ -5358,6 +5363,11 @@ async function loadDevWalletUser(){
       family_withdraw:'👨‍👩‍👧 Семейное снятие',family_partner_deposit:'👨‍👩‍👧 Вклад партнёра',
       couple_boss:'👫 Парный босс',gacha:'🎲 Гача',enhance:'⚔️ Улучшение',
       salary_bonus:'💼 Бонус к зарплате',
+      roulette:'🎡 Рулетка',expedition:'🗺 Экспедиция',spy:'🕵️ Шпионаж',
+      loan_repay:'📋 Погашение долга',loan_give:'📋 Займ выдан',loan_receive:'📋 Займ получен',
+      chat_buff:'⚡ Клановый баф',treasury_payout:'🏛 Казна (выплата)',
+      crystal_transfer_out:'💎 Перевод кристаллов (отправлено)',
+      crystal_transfer_in:'💎 Перевод кристаллов (получено)',
     };
     let totalIn = 0, totalOut = 0;
     const rows = hist.map(h => {
@@ -7527,7 +7537,28 @@ function renderTransfersTab(){
       <div id="transferResult" style="margin-top:8px;font-weight:700;text-align:center"></div>
     </div>
     <div class="card">
-      <div class="card-title">📋 Дать в долг</div>
+      <div class="card-title">� Перевод Кристаллов</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:6px">Отправь 💎 другому участнику — <b>без НДС</b>: отправил 150 💎 → получатель получил ровно 150 💎.</div>
+      <div style="font-size:12px;color:#a78bfa;margin-bottom:8px">💎 Твои кристаллы: <b id="xferCrystalsBal">${profileData?.crystals||0}</b></div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:4px">Получатель:</div>
+      <div class="selected-user-btn" style="margin-bottom:8px" onclick="openUserPicker('💎 Выбери получателя', function(id,n){ _setCrystalTarget(id,n) })">
+        <span id="crystalTargetLabel" style="color:var(--text2);flex:1">👆 Выбери из списка…</span>
+        <span style="color:var(--text2);font-size:11px">▼</span>
+      </div>
+      <input type="hidden" id="crystalTarget" value=""/>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:4px">Кол-во 💎:</div>
+      <div class="amt-presets" id="crystalAmtPresets">
+        <div class="amt-chip" onclick="_setCrystalAmt(50)">50</div>
+        <div class="amt-chip" onclick="_setCrystalAmt(100)">100</div>
+        <div class="amt-chip" onclick="_setCrystalAmt(300)">300</div>
+        <div class="amt-chip" onclick="_setCrystalAmt(500)">500</div>
+      </div>
+      <input type="number" id="crystalAmt" placeholder="Или введи вручную (1–10000)" class="input-field" style="margin-bottom:8px" oninput="_clearAmtChips('crystalAmtPresets')"/>
+      <button class="btn btn-primary" style="width:100%;background:linear-gradient(135deg,#7c3aed,#a855f7)" onclick="doTransferCrystals()">💎 Перевести кристаллы</button>
+      <div id="crystalTransferResult" style="margin-top:8px;font-weight:700;text-align:center"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">�📋 Дать в долг</div>
       <div style="font-size:12px;color:var(--text2);margin-bottom:8px">Заёмщик обязан вернуть. Макс. долг: 2000 🪙, до 5 займов.</div>
       <div style="font-size:12px;color:var(--text2);margin-bottom:4px">Заёмщик:</div>
       <div class="selected-user-btn" style="margin-bottom:8px" onclick="openUserPicker('📋 Выбери заёмщика', function(id,n){ _setLoanTarget(id,n) })">
@@ -7597,6 +7628,10 @@ function _setTransferTarget(id, name) {
   document.getElementById('transferTarget').value = id;
   document.getElementById('transferTargetLabel').innerHTML = `<b>${esc(name)}</b> <span style="color:var(--text2);font-size:11px">ID: ${id}</span>`;
 }
+function _setCrystalTarget(id, name) {
+  document.getElementById('crystalTarget').value = id;
+  document.getElementById('crystalTargetLabel').innerHTML = `<b>${esc(name)}</b> <span style="color:var(--text2);font-size:11px">ID: ${id}</span>`;
+}
 function _setLoanTarget(id, name) {
   document.getElementById('loanTarget').value = id;
   document.getElementById('loanTargetLabel').innerHTML = `<b>${esc(name)}</b> <span style="color:var(--text2);font-size:11px">ID: ${id}</span>`;
@@ -7605,12 +7640,36 @@ function _setTransferAmt(v) {
   document.getElementById('transferAmt').value = v;
   document.querySelectorAll('#transferAmtPresets .amt-chip').forEach(c => c.classList.toggle('sel', parseInt(c.textContent.replace(/\s/g,'')) === v));
 }
+function _setCrystalAmt(v) {
+  document.getElementById('crystalAmt').value = v;
+  document.querySelectorAll('#crystalAmtPresets .amt-chip').forEach(c => c.classList.toggle('sel', parseInt(c.textContent.replace(/\s/g,'')) === v));
+}
 function _setLoanAmt(v) {
   document.getElementById('loanAmt').value = v;
   document.querySelectorAll('#loanAmtPresets .amt-chip').forEach(c => c.classList.toggle('sel', parseInt(c.textContent.replace(/\s/g,'')) === v));
 }
 function _clearAmtChips(id) {
   document.querySelectorAll('#'+id+' .amt-chip').forEach(c => c.classList.remove('sel'));
+}
+async function doTransferCrystals(){
+  const target=parseInt(document.getElementById('crystalTarget').value||0);
+  const amt=parseInt(document.getElementById('crystalAmt').value||0);
+  const el=document.getElementById('crystalTransferResult');
+  if(!target){el.innerHTML='<span style="color:#f87171">❌ Выбери получателя</span>';return;}
+  if(!amt||amt<=0){el.innerHTML='<span style="color:#f87171">❌ Введи количество кристаллов</span>';return;}
+  return withBusy('crystalTransfer',async()=>{
+    try{
+      const r=await api('/api/crystals/transfer','POST',{target_id:target,amount:amt});
+      el.innerHTML=`<span style="color:#a78bfa">✅ Отправлено ${r.amount} 💎 (без комиссии). Ваш баланс: ${r.from_crystals} 💎</span>`;
+      document.getElementById('crystalAmt').value='';
+      _clearAmtChips('crystalAmtPresets');
+      // Sync crystals balance everywhere
+      syncCrystals(r.from_crystals);
+      if(profileData) profileData.crystals = r.from_crystals;
+      const xb = document.getElementById('xferCrystalsBal');
+      if(xb) xb.textContent = r.from_crystals;
+    }catch(e){el.innerHTML=`<span style="color:#f87171">❌ ${esc(e.message)}</span>`;}
+  });
 }
 async function doTransfer(){
   const target=parseInt(document.getElementById('transferTarget').value||0);
