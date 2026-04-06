@@ -470,33 +470,17 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;
   background:radial-gradient(ellipse 60% 50% at 20% 30%,rgba(124,106,247,.07) 0%,transparent 70%),
              radial-gradient(ellipse 50% 60% at 80% 20%,rgba(168,85,247,.05) 0%,transparent 60%),
              radial-gradient(ellipse 70% 40% at 50% 85%,rgba(59,130,246,.04) 0%,transparent 60%),
-             radial-gradient(ellipse 40% 50% at 90% 70%,rgba(244,197,66,.03) 0%,transparent 60%);
-  animation:meshDrift 25s ease-in-out infinite alternate}
-@keyframes meshDrift{
-  0%{filter:hue-rotate(0deg) brightness(1)}
-  50%{filter:hue-rotate(12deg) brightness(1.15)}
-  100%{filter:hue-rotate(-8deg) brightness(1.05)}}
+             radial-gradient(ellipse 40% 50% at 90% 70%,rgba(244,197,66,.03) 0%,transparent 60%)}
 
 /* ── Glass cards ──────────────────────────────────────────────────────────── */
-.card{background:rgba(17,20,38,.6);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
-  border:1px solid rgba(124,106,247,.1);box-shadow:0 4px 24px rgba(0,0,0,.3),inset 0 1px 0 rgba(255,255,255,.04)}
-.card:hover{transform:translateY(-2px) scale(1.005);box-shadow:0 12px 40px rgba(0,0,0,.5),0 0 0 1px rgba(124,106,247,.2),inset 0 1px 0 rgba(255,255,255,.06)}
-.card::before{content:'';position:absolute;inset:0;border-radius:inherit;background:linear-gradient(135deg,rgba(255,255,255,.03) 0%,transparent 50%);pointer-events:none;z-index:0}
-.card{position:relative;overflow:hidden}
-.card>*{position:relative;z-index:1}
+.card{background:var(--card);
+  border:1px solid rgba(124,106,247,.12);box-shadow:0 2px 12px rgba(0,0,0,.25)}
+.card:hover{transform:translateY(-1px);box-shadow:0 4px 20px rgba(0,0,0,.35),0 0 0 1px rgba(124,106,247,.2)}
 
 /* ── Enhanced profile hero ────────────────────────────────────────────────── */
 .profile-hero{background:linear-gradient(145deg,rgba(124,106,247,.12) 0%,rgba(168,85,247,.06) 40%,rgba(59,130,246,.04) 100%);
   border-color:rgba(124,106,247,.2);box-shadow:0 8px 32px rgba(124,106,247,.12),inset 0 1px 0 rgba(255,255,255,.06)}
-.profile-avatar{box-shadow:0 0 24px rgba(124,106,247,.4),0 0 48px rgba(124,106,247,.15);
-  animation:avatarGlow 3s ease-in-out infinite alternate}
-@keyframes avatarGlow{
-  0%{box-shadow:0 0 22px rgba(124,106,247,.35),0 0 44px rgba(124,106,247,.12)}
-  100%{box-shadow:0 0 30px rgba(168,85,247,.5),0 0 60px rgba(168,85,247,.2)}}
-.profile-name{background:linear-gradient(90deg,var(--text),rgba(168,85,247,.7));
-  background-clip:text;-webkit-background-clip:text;-webkit-text-fill-color:transparent;
-  background-size:200% 100%;animation:nameShimmer 4s ease-in-out infinite alternate}
-@keyframes nameShimmer{0%{background-position:0% 50%}100%{background-position:100% 50%}}
+.profile-avatar{box-shadow:0 0 24px rgba(124,106,247,.4),0 0 48px rgba(124,106,247,.15)}
 
 /* ── Premium balance bar ──────────────────────────────────────────────────── */
 .balance-bar{background:rgba(9,9,15,.92);
@@ -525,18 +509,9 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;
   box-shadow:0 2px 12px rgba(124,106,247,.2)}
 
 /* ── Better progress bars with glow ───────────────────────────────────────── */
-.progress-fill{box-shadow:0 0 8px rgba(124,106,247,.4),0 0 16px rgba(124,106,247,.15);
-  position:relative}
-.progress-fill::after{content:'';position:absolute;top:0;right:0;width:30px;height:100%;
-  background:linear-gradient(90deg,transparent,rgba(255,255,255,.25));
-  border-radius:inherit;animation:progressShine 2.5s ease-in-out infinite}
-@keyframes progressShine{0%,100%{opacity:0;transform:translateX(0)}50%{opacity:1;transform:translateX(-4px)}}
+.progress-fill{box-shadow:0 0 8px rgba(124,106,247,.4),0 0 16px rgba(124,106,247,.15)}
 
-/* ── Button shine sweep on hover ──────────────────────────────────────────── */
-.btn-primary::after,.btn-green::after,.btn-gold::after{content:'';position:absolute;top:0;left:-100%;
-  width:60%;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.12),transparent);
-  transition:left .5s ease;pointer-events:none}
-.btn-primary:hover::after,.btn-green:hover::after,.btn-gold:hover::after{left:120%}
+/* ── Button glow ─────────────────────────────────────────────────────────── */
 .btn-primary{box-shadow:0 4px 20px rgba(124,106,247,.35),0 0 0 1px rgba(124,106,247,.15)}
 .btn-primary:hover{box-shadow:0 6px 28px rgba(124,106,247,.5),0 0 0 1px rgba(124,106,247,.25);transform:translateY(-1px)}
 
@@ -551,21 +526,21 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;
 .stat-row:hover{background:rgba(124,106,247,.06);border-bottom-color:transparent}
 
 /* ── Better cards shadow and border on focus ──────────────────────────────── */
-.scard{background:rgba(22,26,42,.7);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+.scard{background:rgba(22,26,42,.9);
   border:1px solid rgba(124,106,247,.1);transition:all .2s cubic-bezier(.4,0,.2,1)}
 .scard:hover{box-shadow:0 6px 24px rgba(124,106,247,.18);border-color:rgba(124,106,247,.35);transform:translateY(-2px)}
 
 /* ── Better shop items ────────────────────────────────────────────────────── */
-.shop-item{transition:all .2s cubic-bezier(.4,0,.2,1);backdrop-filter:blur(8px);background:rgba(22,26,42,.6)}
+.shop-item{transition:all .2s cubic-bezier(.4,0,.2,1);background:rgba(22,26,42,.9)}
 .shop-item:hover{transform:translateY(-3px);box-shadow:0 8px 24px rgba(0,0,0,.4),0 0 0 1px rgba(124,106,247,.3)}
 
 /* ── Better leaderboard ───────────────────────────────────────────────────── */
-.lb-entry{background:rgba(22,26,42,.5);backdrop-filter:blur(8px);transition:all .2s}
+.lb-entry{background:rgba(22,26,42,.8);transition:all .2s}
 .lb-entry:hover{border-color:rgba(124,106,247,.35);transform:translateX(3px)}
 .lb-entry .lb-rank.top3{text-shadow:0 0 10px rgba(244,197,66,.5)}
 
 /* ── Better inventory items ───────────────────────────────────────────────── */
-.inv-item{background:rgba(22,26,42,.6);backdrop-filter:blur(8px);transition:all .2s}
+.inv-item{background:rgba(22,26,42,.8);transition:all .2s}
 .inv-item:hover{transform:translateX(3px);box-shadow:0 4px 16px rgba(0,0,0,.3)}
 
 /* ── Better toasts ────────────────────────────────────────────────────────── */
@@ -583,7 +558,7 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;
 .badge-rare{box-shadow:0 0 10px rgba(139,92,246,.15)}
 
 /* ── Subtab buttons ───────────────────────────────────────────────────────── */
-.subtab-btn{backdrop-filter:blur(8px);transition:all .2s cubic-bezier(.4,0,.2,1)}
+.subtab-btn{transition:all .2s cubic-bezier(.4,0,.2,1)}
 .subtab-btn.active{box-shadow:0 4px 16px rgba(124,106,247,.35);transform:translateY(-1px)}
 
 /* ── Better tab transitions ───────────────────────────────────────────────── */
@@ -602,15 +577,15 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;
 .tab-content.active .card:nth-child(8){animation-delay:.35s}
 
 /* ── Calendar enhancements ────────────────────────────────────────────────── */
-.cal-day{backdrop-filter:blur(8px);background:rgba(22,26,42,.5);transition:all .2s}
+.cal-day{background:rgba(22,26,42,.8);transition:all .2s}
 .cal-day.today{box-shadow:0 0 16px rgba(124,106,247,.3);animation:todayPulse 2s ease-in-out infinite alternate}
 @keyframes todayPulse{0%{box-shadow:0 0 12px rgba(124,106,247,.25)}100%{box-shadow:0 0 20px rgba(124,106,247,.45)}}
 .cal-day.done{background:rgba(34,197,94,.07);border-color:rgba(34,197,94,.3)}
 
 /* ── Bank enhancements ────────────────────────────────────────────────────── */
-.bank-balance-cell{backdrop-filter:blur(12px);background:rgba(22,26,42,.5);transition:all .2s}
+.bank-balance-cell{background:rgba(22,26,42,.8);transition:all .2s}
 .bank-balance-val{text-shadow:0 0 12px rgba(244,197,66,.3)}
-.bank-plan-tab{backdrop-filter:blur(8px);background:rgba(22,26,42,.5);transition:all .2s}
+.bank-plan-tab{background:rgba(22,26,42,.8);transition:all .2s}
 .bank-plan-tab.active{box-shadow:0 4px 16px rgba(124,106,247,.2)}
 
 /* ── Gacha card enhancements ──────────────────────────────────────────────── */
@@ -619,12 +594,19 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;
 @keyframes legendary-shake{0%,100%{transform:rotate(0)}25%{transform:rotate(-1deg)}75%{transform:rotate(1deg)}}
 
 /* ── Wallet option cards ──────────────────────────────────────────────────── */
-.wallet-opt{backdrop-filter:blur(12px);background:rgba(22,26,42,.6);transition:all .2s}
+.wallet-opt{background:rgba(22,26,42,.8);transition:all .2s}
 .wallet-opt:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(0,0,0,.3)}
 
 /* ── Dev panel enhancements ───────────────────────────────────────────────── */
-.dev-event-btn{backdrop-filter:blur(8px);background:rgba(22,26,42,.5);transition:all .2s}
+.dev-event-btn{background:rgba(22,26,42,.8);transition:all .2s}
 .dev-event-btn:hover{transform:translateY(-2px);box-shadow:0 6px 18px rgba(0,0,0,.3)}
+
+/* ── Rank badge chips (dev panel) ─────────────────────────────────────────── */
+.rank-chip{display:inline-block;font-size:9px;font-weight:700;letter-spacing:.3px;
+  padding:2px 7px;border-radius:10px;margin-left:6px;vertical-align:middle;opacity:.85}
+.rank-chip-dev{background:rgba(239,68,68,.15);color:#f87171;border:1px solid rgba(239,68,68,.3)}
+.rank-chip-owner{background:rgba(244,197,66,.12);color:#f4c542;border:1px solid rgba(244,197,66,.25)}
+.rank-chip-all{background:rgba(124,106,247,.12);color:#a78bfa;border:1px solid rgba(124,106,247,.25)}
 
 /* ── Entrance splash ──────────────────────────────────────────────────────── */
 #appSplash{position:fixed;inset:0;z-index:99999;
@@ -1006,11 +988,11 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;
   <!-- Batch Sell Controls -->
   <div class="card" id="batchSellCard" style="display:none">
     <div class="card-title">📦 Пакетная продажа</div>
-    <div class="btn-row">
-      <button class="btn btn-ghost btn-sm" onclick="selectAllItems()">✓ Все</button>
-      <button class="btn btn-ghost btn-sm" onclick="clearSelection()">✗ Ничего</button>
-      <button class="btn btn-gold btn-sm" onclick="confirmBatchSell()">🪙 Продать выбранное</button>
+    <div style="display:flex;gap:6px;margin-bottom:8px">
+      <button class="btn btn-ghost btn-sm" style="flex:1" onclick="selectAllItems()">✓ Все</button>
+      <button class="btn btn-ghost btn-sm" style="flex:1" onclick="clearSelection()">✗ Ничего</button>
     </div>
+    <button class="btn btn-gold" style="width:100%" onclick="confirmBatchSell()">🪙 Продать выбранное</button>
   </div>
 </div>
 
@@ -2317,14 +2299,14 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;
 
   <!-- ① DB Stats -->
   <div class="card" id="devStatsCard">
-    <div class="card-title">📊 Состояние БД</div>
+    <div class="card-title">📊 Состояние БД<span class="rank-chip rank-chip-all">👤 Все адм.</span></div>
     <div id="devStatsGrid"></div>
     <button class="btn btn-primary" onclick="loadDevStats()" style="margin-top:8px">🔄 Обновить</button>
   </div>
 
   <!-- ⑧ Настройка чистки (доступно developer и owner) -->
   <div class="card" id="devCleanupCard" style="display:none">
-    <div class="card-title">🧹 Настройка чистки</div>
+    <div class="card-title">🧹 Настройка чистки<span class="rank-chip rank-chip-owner">👑 Владелец+</span></div>
     <div id="devCleanupCurrent" style="font-size:12px;color:var(--text2);margin-bottom:10px">Загрузка…</div>
     <div style="display:flex;flex-direction:column;gap:8px">
       <label style="font-size:12px;color:var(--text2)">📅 Дата чистки (по Цюриху)</label>
@@ -2340,7 +2322,7 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;
 
   <!-- 🕐 Timezone management (developer only) -->
   <div class="card" id="devTimezoneCard" style="display:none">
-    <div class="card-title">🕐 Часовой пояс бота</div>
+    <div class="card-title">🕐 Часовой пояс бота<span class="rank-chip rank-chip-dev">💻 Разраб.</span></div>
     <div id="devTimezoneInfo" style="font-size:12px;color:var(--text2);margin-bottom:8px">Загрузка…</div>
     <select id="devTimezoneSelect" style="background:var(--bg3,var(--card2));color:var(--text);border:1px solid var(--border);border-radius:8px;padding:7px 10px;font-size:13px;width:100%;margin-bottom:8px">
       <option value="Europe/Zurich">Europe/Zurich (Цюрих, UTC+1/+2)</option>
@@ -2358,7 +2340,7 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;
 
   <!-- 🛡 AF2 Dynamic Config (developer only) -->
   <div class="card" id="devAf2Card" style="display:none">
-    <div class="card-title">🛡 Антифлуд 2.0 — метрики</div>
+    <div class="card-title">🛡 Антифлуд 2.0 — метрики<span class="rank-chip rank-chip-dev">💻 Разраб.</span></div>
     <div style="font-size:11px;color:var(--text2);margin-bottom:10px"><b>Лим.</b> — макс сообщений &nbsp;·&nbsp; <b>Окно</b> — за сколько секунд &nbsp;·&nbsp; <b>Мут</b> — применяется сразу. Применяются за ~30 сек. Подсказки — значения по умолчанию.</div>
     <div id="devAf2Loading" style="font-size:12px;color:var(--text2)">⏳ Загрузка…</div>
     <div id="devAf2Fields" style="display:none">
@@ -2829,8 +2811,6 @@ async function loadProfile(){
       document.getElementById('devTreasuryPayoutCard').style.display=''; // treasury payouts
       document.getElementById('devWalletCard').style.display='';         // wallet history
       document.getElementById('devCleanupCard').style.display='';        // cleanup config
-      document.getElementById('devAf2Card').style.display='';            // AF2 antiflood config
-      loadAf2Config();
       document.getElementById('devImportCard').style.display='';         // JSON import
       _devBtns(true); switchDevSubtab('users');
     } else if(['admin_senior'].includes(p.rank)) {
@@ -4633,7 +4613,8 @@ async function loadLB(type){
     const myUid=r.uid||uid;
     const ranks=['🥇','🥈','🥉'];
     const petColorMap={'red':'#ef4444','blue':'#3b82f6','gold':'#f59e0b','green':'#22c55e','purple':'#a855f7','white':'#f0f0f0'};
-    document.getElementById('lbList').innerHTML=entries.map((e,i)=>{
+    const displayEntries=entries.filter(e=>e.user_id!==myUid);
+    document.getElementById('lbList').innerHTML=displayEntries.map((e,i)=>{
       const petColor=petColorMap[e.color_name]||'';
       const petDot=petColor?`<span style="color:${petColor};font-size:9px;vertical-align:middle;margin-right:2px">●</span>`:'';
       const vipTag=e.vip?`<span style="color:#f59e0b;font-size:10px;margin-right:2px">💎</span>`:'';
@@ -6317,10 +6298,9 @@ function renderPotionsInventory(potions) {
         </div>
         ${i.desc ? `<div style="font-size:10px;color:var(--text2);margin-top:2px;font-style:italic">${esc(i.desc)}</div>` : ''}
       </div>
-      ${!canSelectItem(i) ? 
-        `<button class="btn btn-sm btn-green" onclick="consumePotion(${i.id})" style="width:auto;min-width:68px">
-          ${i.slot==='consume'?'✨ Использовать':'⚗️ Выпить'}
-        </button>` : ''}
+      <button class="btn btn-sm btn-green" onclick="consumePotion(${i.id})" style="width:auto;min-width:68px">
+        ${i.slot==='consume'?'✨ Использовать':'⚗️ Выпить'}
+      </button>
     </div>`
   ).join('') : '<div style="color:var(--text2);text-align:center;padding:20px">Нет зелий</div>';
   
