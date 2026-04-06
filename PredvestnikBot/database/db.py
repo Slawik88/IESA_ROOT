@@ -1367,8 +1367,10 @@ async def init_db():
         # ─── Динамическая конфигурация AF2 (настраивается через мини апп) ──────
         await db.execute("""
             CREATE TABLE IF NOT EXISTS af2_config (
-                key   TEXT PRIMARY KEY,
-                value REAL NOT NULL
+                chat_id BIGINT  NOT NULL DEFAULT 0,
+                key     TEXT    NOT NULL,
+                value   REAL    NOT NULL,
+                PRIMARY KEY (chat_id, key)
             )
         """)
 
@@ -1458,6 +1460,27 @@ async def init_db():
                 )
         except Exception:
             pass
+
+    # АF2: migrate af2_config to per-chat storage (add chat_id column + update PK)
+    try:
+        async with postgres_connect() as db:
+            await db.execute("ALTER TABLE af2_config ADD COLUMN IF NOT EXISTS chat_id BIGINT DEFAULT 0")
+            await db.commit()
+    except Exception:
+        pass
+    try:
+        async with postgres_connect() as db:
+            await db.execute("UPDATE af2_config SET chat_id = 0 WHERE chat_id IS NULL")
+            await db.commit()
+    except Exception:
+        pass
+    try:
+        async with postgres_connect() as db:
+            await db.execute("ALTER TABLE af2_config DROP CONSTRAINT IF EXISTS af2_config_pkey")
+            await db.execute("ALTER TABLE af2_config ADD PRIMARY KEY (chat_id, key)")
+            await db.commit()
+    except Exception:
+        pass
 
     # Load isolation caches into memory
     await load_admin_groups()
@@ -8169,25 +8192,26 @@ async def log_app_error(source: str, context: str, error_msg: str, traceback_tex
         pass
 
 
-async def get_af2_config() -> dict:
-    """Return all AF2 config overrides stored in the database."""
+async def get_af2_config(chat_id: int = 0) -> dict:
+    """Return AF2 config overrides for a specific chat (chat_id=0 for global fallback)."""
     async with postgres_connect() as db:
         try:
-            rows = await db.fetch("SELECT key, value FROM af2_config")
+            rows = await db.fetch("SELECT key, value FROM af2_config WHERE chat_id=?", (chat_id,))
             return {row["key"]: float(row["value"]) for row in (rows or [])}
         except Exception:
             return {}
 
 
-async def set_af2_config(cfg: dict) -> None:
-    """Upsert AF2 config key-value pairs into the database."""
+async def set_af2_config(cfg: dict, chat_id: int = 0) -> None:
+    """Upsert AF2 config key-value pairs for a specific chat into the database."""
     async with postgres_connect() as db:
         for key, value in cfg.items():
             await db.execute(
-                "INSERT INTO af2_config (key, value) VALUES (?, ?) "
-                "ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value",
-                (key, float(value)),
+                "INSERT INTO af2_config (chat_id, key, value) VALUES (?, ?, ?) "
+                "ON CONFLICT (chat_id, key) DO UPDATE SET value = EXCLUDED.value",
+                (chat_id, key, float(value)),
             )
+        await db.commit()
 
 
 async def get_app_error_logs(limit: int = 1000) -> list:

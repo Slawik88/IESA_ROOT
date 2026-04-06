@@ -1972,7 +1972,7 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;
 
   <!-- 💎 Give crystals card -->
   <div class="card" id="devCrystalsCard">
-    <div class="card-title">💎 Начислить кристаллы</div>
+    <div class="card-title">💎 Начислить кристаллы<span class="rank-chip rank-chip-dev">💻 Разраб.</span></div>
     <button class="btn" style="width:100%;margin-bottom:8px;background:var(--bg3);border:1px solid var(--border);color:var(--text)"
             onclick="openUserPicker('💎 Выдать кристаллы', function(id,n){ devCrystalSelectUser(id,n) })">👥 Выбрать участника…</button>
     <div class="dev-sel-badge" id="devCrystalSelBadge">
@@ -1990,7 +1990,7 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;
 
   <!-- 📥 Import users from chat history JSON -->
   <div class="card" id="devImportCard" style="display:none">
-    <div class="card-title">📥 Импорт истории чата</div>
+    <div class="card-title">📥 Импорт истории чата<span class="rank-chip rank-chip-owner">👑 Владелец+</span></div>
 
     <!-- Chat selector -->
     <label style="font-size:12px;color:var(--text2);margin-bottom:4px;display:block">Чат для импорта</label>
@@ -2062,8 +2062,8 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;
   <div id="dev-subtab-moderation" style="display:none">
 
   <!-- ③ Chat management -->
-  <div class="card">
-    <div class="card-title">💬 Управление чатами</div>
+  <div class="card" id="devChatMgmtCard">
+    <div class="card-title">💬 Управление чатами<span class="rank-chip rank-chip-dev">💻 Разраб.</span></div>
     <div style="display:flex;gap:6px;margin-bottom:8px;align-items:center">
       <select id="devChatSelector" style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text);font-size:13px">
         <option value="">— нажми «Загрузить» —</option>
@@ -2101,16 +2101,16 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;
   </div>
 
   <!-- ④ Логи и Чёрный список -->
-  <div class="card">
-    <div class="card-title">📋 Логи выходов</div>
+  <div class="card" id="devLeaveLogCard">
+    <div class="card-title">📋 Логи выходов<span class="rank-chip rank-chip-owner">👑 Владелец+</span></div>
     <button class="btn btn-primary" onclick="loadDevLogs()" style="margin-bottom:8px">🔄 Загрузить</button>
     <div style="font-size:11px;color:var(--text2);margin-bottom:4px">ПОКИНУЛИ ЧАТ (последние 20)</div>
     <div id="devLeaveLog" style="max-height:160px;overflow-y:auto"></div>
   </div>
 
   <!-- ④b Логи ошибок (DB) -->
-  <div class="card">
-    <div class="card-title">🐛 Логи ошибок</div>
+  <div class="card" id="devErrorLogCard">
+    <div class="card-title">🐛 Логи ошибок<span class="rank-chip rank-chip-dev">💻 Разраб.</span></div>
     <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap">
       <button class="btn btn-sm btn-primary" onclick="loadAppErrorLogs()">🔄 Загрузить</button>
       <button class="btn btn-sm" id="copyErrLogsBtn" style="background:var(--bg3);color:var(--text)" onclick="copyAppErrorLogs()">📋 Копировать</button>
@@ -2120,8 +2120,8 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;
   </div>
 
   <!-- ⑤ Чёрный список (глобальный бан) -->
-  <div class="card">
-    <div class="card-title">🚫 Чёрный список</div>
+  <div class="card" id="devBanlistCard">
+    <div class="card-title">🚫 Чёрный список<span class="rank-chip rank-chip-owner">👑 Владелец+</span></div>
     <div style="display:flex;gap:6px;margin-bottom:8px">
       <input type="number" id="devBanUid" placeholder="User ID"
              style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text)"/>
@@ -2136,7 +2136,7 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;
   <!-- ⚠️ Варн-лист / ⛔ Баны / 🚫 Юзбаны / 👋 Ушли (единый ростер модерации) -->
   <div class="card" id="rosterCard">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-      <div class="card-title" style="margin:0">📋 Ростер чата</div>
+      <div class="card-title" style="margin:0">📋 Ростер чата<span class="rank-chip rank-chip-owner">👑 Владелец+</span></div>
       <button class="btn btn-primary" onclick="loadRoster()" style="font-size:11px;padding:4px 10px">🔄 Обновить</button>
     </div>
     <!-- inner tab bar -->
@@ -2239,7 +2239,7 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;
 
   <!-- 💸 Выплата из казны (доступно developer и owner) -->
   <div class="card" id="devTreasuryPayoutCard" style="display:none">
-    <div class="card-title">💸 Выплата из казны</div>
+    <div class="card-title">💸 Выплата из казны<span class="rank-chip rank-chip-owner">👑 Владелец+</span></div>
     <div style="display:flex;flex-direction:column;gap:8px">
       <label style="font-size:12px;color:var(--text2)">👤 Получатель</label>
       <div style="display:flex;gap:6px;align-items:center">
@@ -2269,7 +2269,7 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;
 
   <!-- 💸 История кошелька участника (доступно developer и owner) -->
   <div class="card" id="devWalletCard" style="display:none">
-    <div class="card-title">💸 История кошелька участника</div>
+    <div class="card-title">💸 История кошелька участника<span class="rank-chip rank-chip-dev">💻 Разраб.</span></div>
     <button class="btn" style="width:100%;margin-bottom:8px;background:var(--bg3);border:1px solid var(--border);color:var(--text)"
             onclick="openUserPicker('💸 История кошелька', function(id,n){ devWalletSelectUser(id,n) })">👥 Выбрать участника…</button>
     <div class="dev-sel-badge" id="devWalletSelBadge">
@@ -2299,7 +2299,7 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;
 
   <!-- ① DB Stats -->
   <div class="card" id="devStatsCard">
-    <div class="card-title">📊 Состояние БД<span class="rank-chip rank-chip-all">👤 Все адм.</span></div>
+    <div class="card-title">📊 Состояние БД<span class="rank-chip rank-chip-dev">💻 Разраб.</span></div>
     <div id="devStatsGrid"></div>
     <button class="btn btn-primary" onclick="loadDevStats()" style="margin-top:8px">🔄 Обновить</button>
   </div>
@@ -2340,7 +2340,7 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;
 
   <!-- 🛡 AF2 Dynamic Config (developer only) -->
   <div class="card" id="devAf2Card" style="display:none">
-    <div class="card-title">🛡 Антифлуд 2.0 — метрики<span class="rank-chip rank-chip-dev">💻 Разраб.</span></div>
+    <div class="card-title">🛡 Антифлуд 2.0 — метрики<span class="rank-chip rank-chip-owner">👑 Владелец+</span></div>
     <div style="font-size:11px;color:var(--text2);margin-bottom:10px"><b>Лим.</b> — макс сообщений &nbsp;·&nbsp; <b>Окно</b> — за сколько секунд &nbsp;·&nbsp; <b>Мут</b> — применяется сразу. Применяются за ~30 сек. Подсказки — значения по умолчанию.</div>
     <div id="devAf2Loading" style="font-size:12px;color:var(--text2)">⏳ Загрузка…</div>
     <div id="devAf2Fields" style="display:none">
@@ -2795,24 +2795,24 @@ async function loadProfile(){
       document.querySelectorAll('#tab-dev .card').forEach(c=>{ c.style.display=''; });
       _devBtns(true); switchDevSubtab('users');
       loadTimezone();
-      document.getElementById('devAf2Card').style.display='';
       loadAf2Config();
     } else if(p.rank === 'owner' || p.rank === 'co_owner') {
-      // Owner/co_owner: crystal grant + events + warnlist + banlist + mod overview + treasury + cleanup config
+      // Owner/co_owner: import + leave logs + blacklist + roster + treasury + payouts + cleanup + AF2
       const devBtn = document.getElementById('devTabBtn');
       devBtn.setAttribute('data-unlocked','1');
       if(_currentCat === 'admin') devBtn.style.display = '';
       document.getElementById('catBtnAdmin').style.display = '';
       document.querySelectorAll('#tab-dev .card').forEach(c=>{ c.style.display='none'; });
-      document.getElementById('devCrystalsCard').style.display='';
-      document.getElementById('rosterCard').style.display='';
-      document.getElementById('devEventCard').style.display='';
-      document.getElementById('devTreasuryCard').style.display='';       // treasury balance + log
-      document.getElementById('devTreasuryPayoutCard').style.display=''; // treasury payouts
-      document.getElementById('devWalletCard').style.display='';         // wallet history
-      document.getElementById('devCleanupCard').style.display='';        // cleanup config
-      document.getElementById('devImportCard').style.display='';         // JSON import
-      _devBtns(true); switchDevSubtab('users');
+      document.getElementById('devImportCard').style.display='';          // JSON import
+      document.getElementById('devLeaveLogCard').style.display='';        // leave logs
+      document.getElementById('devBanlistCard').style.display='';         // blacklist
+      document.getElementById('rosterCard').style.display='';             // roster
+      document.getElementById('devTreasuryCard').style.display='';        // treasury balance + log
+      document.getElementById('devTreasuryPayoutCard').style.display='';  // treasury payouts
+      document.getElementById('devCleanupCard').style.display='';         // cleanup config
+      document.getElementById('devAf2Card').style.display='';             // AF2 metrics
+      loadAf2Config();
+      _devBtns(true); switchDevSubtab('moderation');
     } else if(['admin_senior'].includes(p.rank)) {
       // Senior admins: warnlist + banlist + mod overview only (no treasury)
       const devBtn = document.getElementById('devTabBtn');
@@ -4335,13 +4335,13 @@ function bondCard(b){
   ${(b.amount||0)>0?`<div class="stat-row"><span class="stat-label">📈 П/У</span><span class="stat-value" style="color:${pnlColor}">${pnlSign}${pnlM} 🪙 (${pnlSign}${pnlP}%)</span></div>`:''}
   <div style="margin-top:10px">
     <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
-      <input type="number" id="moraBuy_${b.key}" placeholder="Мора 🪙" min="1" oninput="calcShares('${b.key}')" style="flex:1;font-size:13px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text);outline:none"/>
+      <input type="number" id="moraBuy_${b.key}" placeholder="Мора 🪙" min="1" oninput="calcShares('${b.key}')" style="flex:1;min-width:0;box-sizing:border-box;font-size:13px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text);outline:none"/>
       <span style="color:var(--text2);font-size:13px;font-weight:700">⇄</span>
-      <input type="number" id="sharesBuy_${b.key}" placeholder="Шт." min="1" oninput="calcMora('${b.key}')" style="flex:1;font-size:13px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text);outline:none"/>
+      <input type="number" id="sharesBuy_${b.key}" placeholder="Шт." min="1" oninput="calcMora('${b.key}')" style="flex:1;min-width:0;box-sizing:border-box;font-size:13px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text);outline:none"/>
     </div>
     <button class="btn btn-green" onclick="buyBondsWithWallet('${b.key}')">🛒 Купить</button>
     <div style="display:flex;gap:8px;margin-top:6px">
-      <input type="number" id="sellAmt_${b.key}" placeholder="Кол-во для продажи" min="1" style="flex:1;font-size:13px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text);outline:none"/>
+      <input type="number" id="sellAmt_${b.key}" placeholder="Кол-во для продажи" min="1" style="flex:1;min-width:0;box-sizing:border-box;font-size:13px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text);outline:none"/>
       <button class="btn btn-red" style="flex:1;margin:0" onclick="sellBonds('${b.key}')">📤 Продать</button>
     </div>
   </div>
@@ -6007,7 +6007,7 @@ async function loadAf2Config() {
   loadEl.style.display = '';
   fieldsEl.style.display = 'none';
   try {
-    const r = await api('/api/dev/af2_config');
+    const r = await api('/api/dev/af2_config?chat_id='+(chatId||0));
     _af2Defaults = r.defaults || {};
     const cfg = r.config || {};
     const _I = 'background:var(--card2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:4px 6px;font-size:12px;box-sizing:border-box;text-align:center';
@@ -6074,6 +6074,7 @@ async function saveAf2Config() {
   if (dwValEl && dwValEl.value !== '' && dwUnitEl) {
     body.delete_window = parseFloat(dwValEl.value) * parseInt(dwUnitEl.value);
   }
+  body.chat_id = chatId || 0;
   try {
     await api('/api/dev/af2_config', 'POST', body);
     msg.style.color = 'var(--success,#4ade80)';
@@ -6093,6 +6094,7 @@ async function resetAf2Config() {
   for (const key of [...AF2_GROUP_KEYS, 'newcomer_threshold', 'trusted_threshold', 'antispam_limit', 'delete_window']) {
     if (_af2Defaults[key] !== undefined) body[key] = _af2Defaults[key];
   }
+  body.chat_id = chatId || 0;
   try {
     await api('/api/dev/af2_config', 'POST', body);
     msg.style.color = 'var(--success,#4ade80)';
