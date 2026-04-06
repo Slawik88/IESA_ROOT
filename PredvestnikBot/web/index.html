@@ -4812,19 +4812,35 @@ let _devImportRecords = []; // parsed records ready to send
 
 // ── Date helpers used by the JSON parser ─────────────────────────────────────
 function _localIsoDate(d) {
-  // Returns "YYYY-MM-DD" in the CLIENT'S local timezone
+  // Returns "YYYY-MM-DD" in the CLIENT'S local timezone (kept for backward compat)
   return d.getFullYear() + '-' +
     String(d.getMonth() + 1).padStart(2, '0') + '-' +
     String(d.getDate()).padStart(2, '0');
 }
 function _isoWeekKey(d) {
   // Returns ISO 8601 week key "YYYY-Www" (Monday-based, Thursday-in-week rule)
-  const dt = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  // Uses UTC date parts — pass a Date whose UTC date equals the calendar date you want.
+  const dt = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
   const day = dt.getUTCDay() || 7; // Sun → 7
   dt.setUTCDate(dt.getUTCDate() + 4 - day);
   const yearStart = new Date(Date.UTC(dt.getUTCFullYear(), 0, 1));
   const wk = Math.ceil((((dt - yearStart) / 86400000) + 1) / 7);
   return `${dt.getUTCFullYear()}-W${String(wk).padStart(2, '0')}`;
+}
+// Returns "YYYY-MM-DD" in Europe/Zurich timezone (matches server-side bot tracking).
+function _zurichDateStr(d) {
+  try {
+    return d.toLocaleDateString('en-CA', { timeZone: 'Europe/Zurich' });
+  } catch (_) {
+    return d.toISOString().slice(0, 10); // UTC fallback for very old browsers
+  }
+}
+// Returns ISO week key for d in Europe/Zurich timezone.
+function _zurichWeekKey(d) {
+  // Convert d to its calendar date in Zurich, then get a UTC-noon Date for that date.
+  // That UTC-noon Date has the correct UTC parts regardless of the viewer's local timezone.
+  const utcNoon = new Date(_zurichDateStr(d) + 'T12:00:00Z');
+  return _isoWeekKey(utcNoon);
 }
 
 /** Parse either a raw Telegram Desktop result.json OR a pre-converted import_data.json.
@@ -4837,16 +4853,16 @@ function devParseImportJson(raw) {
   }
   // Telegram Desktop export: {messages: [...]}
   if (raw && raw.messages && Array.isArray(raw.messages)) {
-    // Reference dates in local timezone (same as what Telegram Desktop typically exports)
+    // Reference dates in Europe/Zurich timezone — must match server-side bot tracking.
     const _now       = new Date();
-    const _todayStr  = _localIsoDate(_now);
-    const _yesterStr = _localIsoDate(new Date(_now - 86400000));
-    const _thisWeek  = _isoWeekKey(_now);
-    const _lastWeek  = _isoWeekKey(new Date(_now - 7 * 86400000));
+    const _todayStr  = _zurichDateStr(_now);
+    const _yesterStr = _zurichDateStr(new Date(_now.getTime() - 86400000));
+    const _thisWeek  = _zurichWeekKey(_now);
+    const _lastWeek  = _zurichWeekKey(new Date(_now.getTime() - 7 * 86400000));
 
     const counts = {};
     const names  = {};
-    const byDate = {}; // uid → { "YYYY-MM-DD" → count }
+    const byDate = {}; // uid → { "YYYY-MM-DD" (Zurich) → count }
 
     for (const msg of raw.messages) {
       if (msg.type !== 'message') continue;
@@ -4864,11 +4880,28 @@ function devParseImportJson(raw) {
       if (uid === null) continue;
       counts[uid] = (counts[uid] || 0) + 1;
       if (!names[uid] && msg.from) names[uid] = String(msg.from).trim();
-      // Bucket message by date (first 10 chars of ISO date string: "YYYY-MM-DD")
-      const msgDate = String(msg.date || '').slice(0, 10);
-      if (msgDate.length === 10) {
+
+      // Parse message date and convert to Zurich calendar date.
+      // Telegram Desktop exports dates as UTC ISO strings (e.g. "2026-04-05T23:30:00");
+      // some API exports use Unix timestamps (integer seconds).
+      let msgZurichDate = '';
+      const rawDate = msg.date;
+      if (rawDate) {
+        let d;
+        if (typeof rawDate === 'number') {
+          d = new Date(rawDate * 1000); // Unix seconds → ms
+        } else {
+          const s = String(rawDate).trim().replace(' ', 'T');
+          // If no timezone suffix, treat as UTC (Telegram Desktop export convention).
+          const hasZone = /Z$|[+\-]\d{2}:?\d{2}$/.test(s);
+          d = new Date(hasZone ? s : s + 'Z');
+        }
+        if (!isNaN(d.getTime())) msgZurichDate = _zurichDateStr(d);
+      }
+
+      if (msgZurichDate) {
         if (!byDate[uid]) byDate[uid] = {};
-        byDate[uid][msgDate] = (byDate[uid][msgDate] || 0) + 1;
+        byDate[uid][msgZurichDate] = (byDate[uid][msgZurichDate] || 0) + 1;
       }
     }
 
@@ -4877,7 +4910,8 @@ function devParseImportJson(raw) {
       const dmap = byDate[uid] || {};
       let week_count = 0, last_week_count = 0;
       for (const [d, cnt] of Object.entries(dmap)) {
-        const wk = _isoWeekKey(new Date(d + 'T12:00:00'));
+        // d is already a Zurich calendar date; create a UTC-noon Date for stable week key.
+        const wk = _zurichWeekKey(new Date(d + 'T12:00:00Z'));
         if (wk === _thisWeek)       week_count      += cnt;
         else if (wk === _lastWeek)  last_week_count += cnt;
       }
