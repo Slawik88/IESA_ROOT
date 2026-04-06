@@ -1,14 +1,14 @@
-# api/achievements.py — Система достижений/титулов
+# api/achievements.py — Система достижений/титулов (бесконечные ранги)
 # Использует таблицу user_badges (user_id, chat_id, badge_key, obtained_at)
-# Счётчики хранятся в user_mora (expeditions_sent, chests_opened, casino_wins,
-#   roulette_losses, total_gacha_rolls, total_coinflip, rep_given_count)
-# Уровень/сообщения — из user_mora (level, message_count)
-# Брак — из marriages; питомец — из pets; чекин — из daily_checkin
-# Босс-урон — SUM из boss_damage_log
+# Счётчики: user_mora, user_stats, boss_damage_log, daily_checkin,
+#   marriages_global, pets_global, auctions, espionage_log, bank_deposits,
+#   user_bond_lots, wallet_ledger
 
 from __future__ import annotations
 import asyncio
 import logging
+import math
+from datetime import datetime, timezone
 from typing import Optional
 from database.db import postgres_connect
 
@@ -115,6 +115,197 @@ for _a in ACHIEVEMENTS:
     ACH_BY_TYPE.setdefault(_a["type"], []).append(_a)
 for _lst in ACH_BY_TYPE.values():
     _lst.sort(key=lambda x: x["threshold"])
+
+# ---------------------------------------------------------------------------
+# Метаданные типов для отображения в UI
+# ---------------------------------------------------------------------------
+TYPE_META: dict[str, dict] = {
+    "messages":       {"label": "Сообщения",        "emoji": "🗣",  "order": 1},
+    "level":          {"label": "Уровень",           "emoji": "⭐",  "order": 2},
+    "gacha_rolls":    {"label": "Крутки гачи",      "emoji": "🎰",  "order": 3},
+    "coinflip":       {"label": "Монетка",           "emoji": "🪙",  "order": 4},
+    "roulette":       {"label": "Рулетка",           "emoji": "🎡",  "order": 5},
+    "boss_damage":    {"label": "Урон боссам",       "emoji": "⚔️",  "order": 6},
+    "checkin_streak": {"label": "Стрик чекина",      "emoji": "📅",  "order": 7},
+    "expeditions":    {"label": "Экспедиции",        "emoji": "🗺",  "order": 8},
+    "chests":         {"label": "Сундуки",           "emoji": "🧳",  "order": 9},
+    "rep_given":      {"label": "Репутация",          "emoji": "💚",  "order": 10},
+    "married":        {"label": "Брак",              "emoji": "💍",  "order": 11},
+    "has_pet":        {"label": "Питомец",           "emoji": "🐾",  "order": 12},
+    "mora_balance":   {"label": "Баланс моры",       "emoji": "💰",  "order": 13},
+    "total_earned":   {"label": "Заработок",         "emoji": "⛏",   "order": 14},
+    "transfers":      {"label": "Переводы",          "emoji": "💸",  "order": 15},
+    "deposits":       {"label": "Вклады",            "emoji": "🏧",  "order": 16},
+    "bond_trades":    {"label": "Облигации",         "emoji": "📈",  "order": 17},
+    "auction_sell":   {"label": "Продажи (аукцион)", "emoji": "🏪",  "order": 18},
+    "auction_win":    {"label": "Покупки (аукцион)", "emoji": "🔨",  "order": 19},
+    "spy_missions":   {"label": "Шпионаж",           "emoji": "🕵️",  "order": 20},
+}
+
+BOOL_TYPES = frozenset({"married", "has_pet"})
+
+
+# ---------------------------------------------------------------------------
+# Счётчики прогресса — сбор всех значений за один вызов
+# ---------------------------------------------------------------------------
+
+async def get_all_counters(db, user_id: int, chat_id: int) -> dict[str, int]:
+    """Fetch all achievement progress counters from various tables."""
+    c: dict[str, int] = {}
+
+    # ── user_mora (batch) ─────────────────────────────────────────────
+    try:
+        row = await db.fetchone(
+            "SELECT COALESCE(total_gacha_rolls,0) AS gacha_rolls, "
+            "COALESCE(total_coinflip,0) AS coinflip, "
+            "COALESCE(rep_given_count,0) AS rep_given, "
+            "COALESCE(expeditions_sent,0) AS expeditions, "
+            "COALESCE(chests_opened,0) AS chests, "
+            "COALESCE(balance,0) AS mora_balance, "
+            "COALESCE(total_earned,0) AS total_earned "
+            "FROM user_mora WHERE user_id=? AND chat_id=?",
+            (user_id, chat_id),
+        )
+        if row:
+            for k in ("gacha_rolls", "coinflip", "rep_given",
+                       "expeditions", "chests", "mora_balance", "total_earned"):
+                c[k] = int(row[k])
+    except Exception:
+        pass
+
+    # ── user_stats (level, messages) ──────────────────────────────────
+    try:
+        row = await db.fetchone(
+            "SELECT COALESCE(message_count,0) AS messages, "
+            "COALESCE(level,1) AS level "
+            "FROM user_stats WHERE user_id=? AND chat_id=?",
+            (user_id, chat_id),
+        )
+        if row:
+            c["messages"] = int(row["messages"])
+            c["level"] = int(row["level"])
+    except Exception:
+        pass
+
+    # ── boss damage (aggregate) ───────────────────────────────────────
+    try:
+        row = await db.fetchone(
+            "SELECT COALESCE(SUM(damage),0) AS total "
+            "FROM boss_damage_log WHERE user_id=? AND chat_id=?",
+            (user_id, chat_id),
+        )
+        c["boss_damage"] = int(row["total"]) if row else 0
+    except Exception:
+        pass
+
+    # ── checkin streak ────────────────────────────────────────────────
+    try:
+        row = await db.fetchone(
+            "SELECT COALESCE(streak,0) AS s "
+            "FROM daily_checkin WHERE user_id=? AND chat_id=?",
+            (user_id, chat_id),
+        )
+        c["checkin_streak"] = int(row["s"]) if row else 0
+    except Exception:
+        pass
+
+    # ── boolean: married ──────────────────────────────────────────────
+    try:
+        row = await db.fetchone(
+            "SELECT COUNT(*) AS c FROM marriages_global WHERE user_id=?",
+            (user_id,),
+        )
+        c["married"] = min(1, int(row["c"])) if row else 0
+    except Exception:
+        pass
+
+    # ── boolean: has_pet ──────────────────────────────────────────────
+    try:
+        row = await db.fetchone(
+            "SELECT COUNT(*) AS c FROM pets_global WHERE user_id=?",
+            (user_id,),
+        )
+        c["has_pet"] = min(1, int(row["c"])) if row else 0
+    except Exception:
+        pass
+
+    # ── auction sell ──────────────────────────────────────────────────
+    try:
+        row = await db.fetchone(
+            "SELECT COUNT(*) AS c FROM auctions WHERE seller_id=? AND chat_id=?",
+            (user_id, chat_id),
+        )
+        c["auction_sell"] = int(row["c"]) if row else 0
+    except Exception:
+        pass
+
+    # ── auction win ───────────────────────────────────────────────────
+    try:
+        row = await db.fetchone(
+            "SELECT COUNT(*) AS c FROM auctions "
+            "WHERE highest_bidder_id=? AND chat_id=? AND status='sold'",
+            (user_id, chat_id),
+        )
+        c["auction_win"] = int(row["c"]) if row else 0
+    except Exception:
+        pass
+
+    # ── roulette (count txs) ─────────────────────────────────────────
+    try:
+        row = await db.fetchone(
+            "SELECT COUNT(*) AS c FROM wallet_ledger "
+            "WHERE user_id=? AND chat_id=? AND source='roulette'",
+            (user_id, chat_id),
+        )
+        c["roulette"] = int(row["c"]) if row else 0
+    except Exception:
+        pass
+
+    # ── spy missions ──────────────────────────────────────────────────
+    try:
+        row = await db.fetchone(
+            "SELECT COUNT(*) AS c FROM espionage_log "
+            "WHERE spy_id=? AND chat_id=?",
+            (user_id, chat_id),
+        )
+        c["spy_missions"] = int(row["c"]) if row else 0
+    except Exception:
+        pass
+
+    # ── deposits ──────────────────────────────────────────────────────
+    try:
+        row = await db.fetchone(
+            "SELECT COUNT(*) AS c FROM bank_deposits "
+            "WHERE user_id=? AND chat_id=?",
+            (user_id, chat_id),
+        )
+        c["deposits"] = int(row["c"]) if row else 0
+    except Exception:
+        pass
+
+    # ── bond trades ───────────────────────────────────────────────────
+    try:
+        row = await db.fetchone(
+            "SELECT COUNT(*) AS c FROM user_bond_lots "
+            "WHERE user_id=? AND chat_id=?",
+            (user_id, chat_id),
+        )
+        c["bond_trades"] = int(row["c"]) if row else 0
+    except Exception:
+        pass
+
+    # ── transfers ─────────────────────────────────────────────────────
+    try:
+        row = await db.fetchone(
+            "SELECT COUNT(*) AS c FROM wallet_ledger "
+            "WHERE user_id=? AND chat_id=? AND source='transfer_out'",
+            (user_id, chat_id),
+        )
+        c["transfers"] = int(row["c"]) if row else 0
+    except Exception:
+        pass
+
+    return c
 
 
 # ---------------------------------------------------------------------------
@@ -239,25 +430,124 @@ async def get_user_achievements(user_id: int, chat_id: int) -> list[dict]:
     return result
 
 
-async def get_all_achievements_with_status(user_id: int, chat_id: int) -> list[dict]:
+async def get_all_achievements_with_status(user_id: int, chat_id: int) -> dict:
     """
-    Вернуть все 32 достижения с флагом unlocked=True/False.
-    Используется для Mini App.
+    Вернуть категории достижений с прогрессом, рангами и бесконечным масштабированием.
+    Автоматически выдаёт заслуженные, но ещё не полученные достижения.
     """
     try:
         async with postgres_connect() as db:
             rows = await db.fetch(
                 "SELECT badge_key, obtained_at FROM user_badges WHERE user_id=? AND chat_id=?",
-                (user_id, chat_id)
+                (user_id, chat_id),
             )
-        earned = {row["badge_key"]: str(row.get("obtained_at", "")) for row in rows}
+            earned: dict[str, str] = {
+                row["badge_key"]: str(row.get("obtained_at", "")) for row in rows
+            }
+            counters = await get_all_counters(db, user_id, chat_id)
+
+            # ── Auto-award missing achievements ──────────────────────
+            for ach_type, tiers in ACH_BY_TYPE.items():
+                value = counters.get(ach_type, 0)
+                if value <= 0:
+                    continue
+                for ach in tiers:
+                    if value >= ach["threshold"] and ach["key"] not in earned:
+                        if await _award(db, user_id, chat_id, ach):
+                            earned[ach["key"]] = str(datetime.now(timezone.utc))
     except Exception:
         earned = {}
+        counters = {}
 
-    result = []
-    for ach in ACHIEVEMENTS:
-        entry = dict(ach)
-        entry["unlocked"] = ach["key"] in earned
-        entry["obtained_at"] = earned.get(ach["key"], None)
-        result.append(entry)
-    return result
+    categories: list[dict] = []
+    total_unlocked = 0
+    total_ranks = 0
+
+    for ach_type, tiers in ACH_BY_TYPE.items():
+        meta = TYPE_META.get(ach_type, {"label": ach_type, "emoji": "🏅", "order": 99})
+        current_value = counters.get(ach_type, 0)
+        is_bool = ach_type in BOOL_TYPES
+
+        # ── Build ranks list ──────────────────────────────────────────
+        ranks: list[dict] = []
+        unlocked_count = 0
+        for i, ach in enumerate(tiers):
+            unlocked = ach["key"] in earned
+            if unlocked:
+                unlocked_count += 1
+            ranks.append({
+                "rank": i + 1,
+                "key": ach["key"],
+                "title": ach["title"],
+                "emoji": ach["emoji"],
+                "description": ach["description"],
+                "threshold": ach["threshold"],
+                "mora": ach["mora"],
+                "xp": ach.get("xp", 0),
+                "unlocked": unlocked,
+                "obtained_at": earned.get(ach["key"]),
+            })
+
+        # ── Infinite tier (auto-generated beyond last defined) ────────
+        next_rank = None
+        if not is_bool and unlocked_count >= len(tiers) and len(tiers) > 0:
+            last = tiers[-1]
+            extra = 1
+            threshold = int(last["threshold"] * 2)
+            mora_r = max(1, int(last["mora"] * math.log2(extra + 2)))
+            xp_r = max(1, int(last.get("xp", 0) * math.log2(extra + 2)))
+            next_rank = {
+                "rank": len(tiers) + 1,
+                "key": f"{ach_type}_inf_{len(tiers) + 1}",
+                "title": f"{last['title']} +",
+                "threshold": threshold,
+                "mora": mora_r,
+                "xp": xp_r,
+                "unlocked": False,
+                "auto": True,
+            }
+            ranks.append(next_rank)
+        elif not is_bool and unlocked_count < len(tiers):
+            for r in ranks:
+                if not r["unlocked"]:
+                    next_rank = r
+                    break
+
+        # ── Progress percentage toward next rank ──────────────────────
+        if is_bool:
+            progress_pct = 100 if current_value >= 1 else 0
+        elif next_rank:
+            prev_t = (ranks[next_rank["rank"] - 2]["threshold"]
+                       if next_rank["rank"] > 1 else 0)
+            next_t = next_rank["threshold"]
+            rng = next_t - prev_t
+            progress_pct = min(100, max(0, int(
+                (current_value - prev_t) / rng * 100
+            ))) if rng > 0 else 100
+        else:
+            progress_pct = 100
+
+        total_unlocked += unlocked_count
+        total_ranks += len(tiers)
+
+        categories.append({
+            "type": ach_type,
+            "label": meta["label"],
+            "emoji": meta["emoji"],
+            "order": meta["order"],
+            "current_value": current_value,
+            "current_rank": unlocked_count,
+            "total_defined": len(tiers),
+            "next_threshold": next_rank["threshold"] if next_rank else None,
+            "next_title": next_rank.get("title") if next_rank else None,
+            "progress_pct": progress_pct,
+            "is_bool": is_bool,
+            "ranks": ranks,
+        })
+
+    categories.sort(key=lambda x: x["order"])
+    return {
+        "categories": categories,
+        "total_unlocked": total_unlocked,
+        "total_ranks": total_ranks,
+    }

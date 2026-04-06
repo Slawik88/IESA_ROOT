@@ -5301,6 +5301,22 @@ def miniapp_gifts_send(request):
         except Exception:
             pass
 
+        # Quest tick: gift
+        try:
+            from database.db import get_user_quest, quest_tick, mark_quest_rewarded, add_xp_in_chat, add_mora
+            from utils.helpers import bot_today
+            today = bot_today()
+            quest = _a2s(get_user_quest)(uid, chat_id, today)
+            if quest and quest["type"] == "gift":
+                new_p, goal, just_done = _a2s(quest_tick)(uid, chat_id, today, quest["type"], quest["goal"])
+                if just_done:
+                    _mr = quest.get("mora", 5)
+                    _a2s(add_xp_in_chat)(uid, chat_id, quest["xp"])
+                    _a2s(add_mora)(uid, chat_id, _mr)
+                    _a2s(mark_quest_rewarded)(uid, chat_id, today)
+        except Exception:
+            pass
+
         return JsonResponse(resp, json_dumps_params={"ensure_ascii": False}, headers=headers)
 
     except ValueError as ve:
@@ -5502,9 +5518,8 @@ def miniapp_achievements(request):
         from asgiref.sync import async_to_sync as _a2s
         from api.achievements import get_all_achievements_with_status
         data = _a2s(get_all_achievements_with_status)(uid, chat_id)
-        unlocked = sum(1 for a in data if a.get("unlocked"))
         return JsonResponse(
-            {"achievements": data, "total": len(data), "unlocked": unlocked},
+            data,
             json_dumps_params={"ensure_ascii": False},
             headers=headers
         )
