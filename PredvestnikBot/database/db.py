@@ -322,6 +322,14 @@ async def init_db():
             )
         """)
 
+        # Таблица онлайн-статуса mini app
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS miniapp_online (
+                user_id    BIGINT PRIMARY KEY,
+                last_seen  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """)
+
         # Таблица админ-групп (для системных уведомлений)
         await db.execute("""
             CREATE TABLE IF NOT EXISTS admin_groups (
@@ -6672,6 +6680,42 @@ async def log_stars_purchase(
              telegram_charge_id, datetime.now(timezone.utc)),
         )
         await db.commit()
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  🟢 ONLINE STATUS — mini app heartbeat
+# ═══════════════════════════════════════════════════════════════════════════════
+
+async def touch_miniapp_online(user_id: int) -> None:
+    """Update last_seen for the mini app online indicator."""
+    async with postgres_connect() as db:
+        await db.execute(
+            """INSERT INTO miniapp_online (user_id, last_seen)
+               VALUES (?, NOW())
+               ON CONFLICT(user_id) DO UPDATE SET last_seen = NOW()""",
+            (user_id,),
+        )
+        await db.commit()
+
+
+async def get_online_status(user_id: int) -> dict:
+    """Return online status for a single user."""
+    async with postgres_connect() as db:
+        row = await db.fetchone(
+            "SELECT last_seen FROM miniapp_online WHERE user_id=?", (user_id,),
+        )
+    if not row:
+        return {"online": False, "status": "offline", "last_seen": None}
+    from datetime import datetime, timezone
+    last = row["last_seen"]
+    if last.tzinfo is None:
+        last = last.replace(tzinfo=timezone.utc)
+    diff = (datetime.now(timezone.utc) - last).total_seconds()
+    if diff < 90:
+        return {"online": True, "status": "online", "last_seen": str(last)}
+    elif diff < 300:
+        return {"online": False, "status": "recently", "last_seen": str(last)}
+    return {"online": False, "status": "offline", "last_seen": str(last)}
 
 
 # ── Block 3: Crystal shop item helpers ────────────────────────────────────────

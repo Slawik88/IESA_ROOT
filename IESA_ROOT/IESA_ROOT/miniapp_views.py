@@ -537,6 +537,21 @@ def miniapp_user_data(request):
             "avatar_unlocked": avatar_unlocked,
             "chat_role": chat_role,
         }
+
+        # ── Heartbeat: update mini app online status ─────────────────────
+        try:
+            _hb_cur = conn.cursor()
+            _hb_ph = "%s" if db_type == "pg" else "?"
+            _hb_cur.execute(
+                f"INSERT INTO miniapp_online (user_id, last_seen) VALUES ({_hb_ph}, NOW()) "
+                f"ON CONFLICT(user_id) DO UPDATE SET last_seen = NOW()",
+                (uid,),
+            )
+            conn.commit()
+            _hb_cur.close()
+        except Exception:
+            pass  # non-critical
+
         return JsonResponse(payload, json_dumps_params={"ensure_ascii": False},
                             headers=headers)
 
@@ -2897,6 +2912,27 @@ def miniapp_public_profile(request):
                 "emoji": emoji, "fatigue": pfatigue, "on_walk": on_walk,
             }
 
+        # Online status indicator
+        online_status = "offline"
+        try:
+            cur.execute(
+                f"SELECT last_seen FROM miniapp_online WHERE user_id={ph}",
+                (target_id,),
+            )
+            _ol_row = cur.fetchone()
+            if _ol_row and _ol_row[0]:
+                from datetime import datetime as _dt_ol, timezone as _tz_ol
+                _ls = _ol_row[0]
+                if hasattr(_ls, 'tzinfo') and _ls.tzinfo is None:
+                    _ls = _ls.replace(tzinfo=_tz_ol.utc)
+                _diff = (_dt_ol.now(_tz_ol.utc) - _ls).total_seconds()
+                if _diff < 90:
+                    online_status = "online"
+                elif _diff < 300:
+                    online_status = "recently"
+        except Exception:
+            pass
+
         conn.close()
         return JsonResponse({
             "uid": target_id,
@@ -2923,6 +2959,7 @@ def miniapp_public_profile(request):
             "last_active": pub_last_active,
             "warns": pub_warns,
             "message_count": pub_message_count,
+            "online_status": online_status,
         }, json_dumps_params={"ensure_ascii": False}, headers=headers)
     except Exception as exc:
         try:

@@ -461,6 +461,203 @@ select:focus{border-color:var(--accent)}
 /* ==== MISC ==== */
 .separator{height:1px;background:var(--border);margin:14px 0}
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   DESIGN OVERHAUL v2.0 — «Ethereal Glass» Premium Gaming UI
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Animated background mesh ─────────────────────────────────────────────── */
+body::before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;
+  background:radial-gradient(ellipse 60% 50% at 20% 30%,rgba(124,106,247,.07) 0%,transparent 70%),
+             radial-gradient(ellipse 50% 60% at 80% 20%,rgba(168,85,247,.05) 0%,transparent 60%),
+             radial-gradient(ellipse 70% 40% at 50% 85%,rgba(59,130,246,.04) 0%,transparent 60%),
+             radial-gradient(ellipse 40% 50% at 90% 70%,rgba(244,197,66,.03) 0%,transparent 60%);
+  animation:meshDrift 25s ease-in-out infinite alternate}
+@keyframes meshDrift{
+  0%{filter:hue-rotate(0deg) brightness(1)}
+  50%{filter:hue-rotate(12deg) brightness(1.15)}
+  100%{filter:hue-rotate(-8deg) brightness(1.05)}}
+
+/* ── Glass cards ──────────────────────────────────────────────────────────── */
+.card{background:rgba(17,20,38,.6);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+  border:1px solid rgba(124,106,247,.1);box-shadow:0 4px 24px rgba(0,0,0,.3),inset 0 1px 0 rgba(255,255,255,.04)}
+.card:hover{transform:translateY(-2px) scale(1.005);box-shadow:0 12px 40px rgba(0,0,0,.5),0 0 0 1px rgba(124,106,247,.2),inset 0 1px 0 rgba(255,255,255,.06)}
+.card::before{content:'';position:absolute;inset:0;border-radius:inherit;background:linear-gradient(135deg,rgba(255,255,255,.03) 0%,transparent 50%);pointer-events:none;z-index:0}
+.card{position:relative;overflow:hidden}
+.card>*{position:relative;z-index:1}
+
+/* ── Enhanced profile hero ────────────────────────────────────────────────── */
+.profile-hero{background:linear-gradient(145deg,rgba(124,106,247,.12) 0%,rgba(168,85,247,.06) 40%,rgba(59,130,246,.04) 100%);
+  border-color:rgba(124,106,247,.2);box-shadow:0 8px 32px rgba(124,106,247,.12),inset 0 1px 0 rgba(255,255,255,.06)}
+.profile-avatar{box-shadow:0 0 24px rgba(124,106,247,.4),0 0 48px rgba(124,106,247,.15);
+  animation:avatarGlow 3s ease-in-out infinite alternate}
+@keyframes avatarGlow{
+  0%{box-shadow:0 0 22px rgba(124,106,247,.35),0 0 44px rgba(124,106,247,.12)}
+  100%{box-shadow:0 0 30px rgba(168,85,247,.5),0 0 60px rgba(168,85,247,.2)}}
+.profile-name{background:linear-gradient(90deg,var(--text),rgba(168,85,247,.7));
+  background-clip:text;-webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  background-size:200% 100%;animation:nameShimmer 4s ease-in-out infinite alternate}
+@keyframes nameShimmer{0%{background-position:0% 50%}100%{background-position:100% 50%}}
+
+/* ── Premium balance bar ──────────────────────────────────────────────────── */
+.balance-bar{background:rgba(9,9,15,.92);
+  border-bottom:none;box-shadow:0 2px 20px rgba(0,0,0,.5),0 1px 0 rgba(124,106,247,.15)}
+.balance-bar::after{content:'';position:absolute;bottom:0;left:8%;right:8%;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(124,106,247,.4),rgba(168,85,247,.3),transparent)}
+.bal-pill{transition:transform .2s}
+.bal-pill:active{transform:scale(.95)}
+
+/* ── Premium category bar ─────────────────────────────────────────────────── */
+.cat-bar{background:rgba(9,9,15,.88);border-top:none;
+  box-shadow:0 -6px 32px rgba(0,0,0,.6),0 -1px 0 rgba(124,106,247,.12)}
+.cat-btn{border-top:none;transition:all .25s cubic-bezier(.4,0,.2,1)}
+.cat-btn.active{border-top:none;color:var(--accent);text-shadow:0 0 16px rgba(124,106,247,.5)}
+.cat-btn.active::after{content:'';position:absolute;top:-1px;left:50%;transform:translateX(-50%);
+  width:40%;height:3px;border-radius:0 0 4px 4px;
+  background:linear-gradient(90deg,var(--accent),var(--accent2));
+  box-shadow:0 2px 12px rgba(124,106,247,.5);
+  animation:catPillIn .25s ease-out}
+@keyframes catPillIn{from{width:0;opacity:0}to{width:40%;opacity:1}}
+.cat-btn:active{transform:scale(.88) translateY(1px)}
+
+/* ── Better tab buttons ───────────────────────────────────────────────────── */
+.tab-btn{border-radius:22px;transition:all .22s cubic-bezier(.4,0,.2,1)}
+.tab-btn.active{background:rgba(124,106,247,.18);border-color:rgba(124,106,247,.4);
+  box-shadow:0 2px 12px rgba(124,106,247,.2)}
+
+/* ── Better progress bars with glow ───────────────────────────────────────── */
+.progress-fill{box-shadow:0 0 8px rgba(124,106,247,.4),0 0 16px rgba(124,106,247,.15);
+  position:relative}
+.progress-fill::after{content:'';position:absolute;top:0;right:0;width:30px;height:100%;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.25));
+  border-radius:inherit;animation:progressShine 2.5s ease-in-out infinite}
+@keyframes progressShine{0%,100%{opacity:0;transform:translateX(0)}50%{opacity:1;transform:translateX(-4px)}}
+
+/* ── Button shine sweep on hover ──────────────────────────────────────────── */
+.btn-primary::after,.btn-green::after,.btn-gold::after{content:'';position:absolute;top:0;left:-100%;
+  width:60%;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.12),transparent);
+  transition:left .5s ease;pointer-events:none}
+.btn-primary:hover::after,.btn-green:hover::after,.btn-gold:hover::after{left:120%}
+.btn-primary{box-shadow:0 4px 20px rgba(124,106,247,.35),0 0 0 1px rgba(124,106,247,.15)}
+.btn-primary:hover{box-shadow:0 6px 28px rgba(124,106,247,.5),0 0 0 1px rgba(124,106,247,.25);transform:translateY(-1px)}
+
+/* ── Glass modals ─────────────────────────────────────────────────────────── */
+.wallet-modal,.user-picker-modal,.pub-profile-overlay,.rates-modal-overlay{backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+.wallet-sheet,.rates-sheet,.pub-profile-sheet,.user-picker-sheet{
+  background:rgba(14,16,32,.92);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);
+  border-top:1px solid rgba(124,106,247,.15)}
+
+/* ── Better stat rows ─────────────────────────────────────────────────────── */
+.stat-row{transition:all .15s ease;border-radius:6px;padding:8px 6px;margin:0 -6px}
+.stat-row:hover{background:rgba(124,106,247,.06);border-bottom-color:transparent}
+
+/* ── Better cards shadow and border on focus ──────────────────────────────── */
+.scard{background:rgba(22,26,42,.7);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  border:1px solid rgba(124,106,247,.1);transition:all .2s cubic-bezier(.4,0,.2,1)}
+.scard:hover{box-shadow:0 6px 24px rgba(124,106,247,.18);border-color:rgba(124,106,247,.35);transform:translateY(-2px)}
+
+/* ── Better shop items ────────────────────────────────────────────────────── */
+.shop-item{transition:all .2s cubic-bezier(.4,0,.2,1);backdrop-filter:blur(8px);background:rgba(22,26,42,.6)}
+.shop-item:hover{transform:translateY(-3px);box-shadow:0 8px 24px rgba(0,0,0,.4),0 0 0 1px rgba(124,106,247,.3)}
+
+/* ── Better leaderboard ───────────────────────────────────────────────────── */
+.lb-entry{background:rgba(22,26,42,.5);backdrop-filter:blur(8px);transition:all .2s}
+.lb-entry:hover{border-color:rgba(124,106,247,.35);transform:translateX(3px)}
+.lb-entry .lb-rank.top3{text-shadow:0 0 10px rgba(244,197,66,.5)}
+
+/* ── Better inventory items ───────────────────────────────────────────────── */
+.inv-item{background:rgba(22,26,42,.6);backdrop-filter:blur(8px);transition:all .2s}
+.inv-item:hover{transform:translateX(3px);box-shadow:0 4px 16px rgba(0,0,0,.3)}
+
+/* ── Better toasts ────────────────────────────────────────────────────────── */
+.toast{backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);
+  background:rgba(14,16,32,.92);border:1px solid rgba(124,106,247,.2);
+  box-shadow:0 12px 40px rgba(0,0,0,.6),0 0 0 1px rgba(255,255,255,.05)}
+
+/* ── Better inputs ────────────────────────────────────────────────────────── */
+.input-field:focus,.input-group input:focus,.bank-amount-inp:focus{
+  border-color:var(--accent);box-shadow:0 0 0 3px rgba(124,106,247,.15),0 0 16px rgba(124,106,247,.1)}
+
+/* ── Better badges with glass ─────────────────────────────────────────────── */
+.badge-legendary{background:rgba(245,158,11,.15);box-shadow:0 0 12px rgba(245,158,11,.2);
+  text-shadow:0 0 8px rgba(245,158,11,.3)}
+.badge-rare{box-shadow:0 0 10px rgba(139,92,246,.15)}
+
+/* ── Subtab buttons ───────────────────────────────────────────────────────── */
+.subtab-btn{backdrop-filter:blur(8px);transition:all .2s cubic-bezier(.4,0,.2,1)}
+.subtab-btn.active{box-shadow:0 4px 16px rgba(124,106,247,.35);transform:translateY(-1px)}
+
+/* ── Better tab transitions ───────────────────────────────────────────────── */
+@keyframes fade-in{from{opacity:0;transform:translateY(8px) scale(.995)}to{opacity:1;transform:translateY(0) scale(1)}}
+
+/* ── Card stagger with better easing ──────────────────────────────────────── */
+.tab-content.active .card{animation:cardReveal .4s cubic-bezier(.16,1,.3,1) backwards}
+@keyframes cardReveal{from{opacity:0;transform:translateY(16px) scale(.97)}to{opacity:1;transform:translateY(0) scale(1)}}
+.tab-content.active .card:nth-child(1){animation-delay:0s}
+.tab-content.active .card:nth-child(2){animation-delay:.06s}
+.tab-content.active .card:nth-child(3){animation-delay:.12s}
+.tab-content.active .card:nth-child(4){animation-delay:.17s}
+.tab-content.active .card:nth-child(5){animation-delay:.22s}
+.tab-content.active .card:nth-child(6){animation-delay:.27s}
+.tab-content.active .card:nth-child(7){animation-delay:.31s}
+.tab-content.active .card:nth-child(8){animation-delay:.35s}
+
+/* ── Calendar enhancements ────────────────────────────────────────────────── */
+.cal-day{backdrop-filter:blur(8px);background:rgba(22,26,42,.5);transition:all .2s}
+.cal-day.today{box-shadow:0 0 16px rgba(124,106,247,.3);animation:todayPulse 2s ease-in-out infinite alternate}
+@keyframes todayPulse{0%{box-shadow:0 0 12px rgba(124,106,247,.25)}100%{box-shadow:0 0 20px rgba(124,106,247,.45)}}
+.cal-day.done{background:rgba(34,197,94,.07);border-color:rgba(34,197,94,.3)}
+
+/* ── Bank enhancements ────────────────────────────────────────────────────── */
+.bank-balance-cell{backdrop-filter:blur(12px);background:rgba(22,26,42,.5);transition:all .2s}
+.bank-balance-val{text-shadow:0 0 12px rgba(244,197,66,.3)}
+.bank-plan-tab{backdrop-filter:blur(8px);background:rgba(22,26,42,.5);transition:all .2s}
+.bank-plan-tab.active{box-shadow:0 4px 16px rgba(124,106,247,.2)}
+
+/* ── Gacha card enhancements ──────────────────────────────────────────────── */
+.gacha-card-front{box-shadow:0 4px 20px rgba(79,70,229,.3)}
+.gacha-card-back.legendary{animation:legendary-glow 1.5s ease-in-out infinite alternate,legendary-shake .15s ease-in-out 3}
+@keyframes legendary-shake{0%,100%{transform:rotate(0)}25%{transform:rotate(-1deg)}75%{transform:rotate(1deg)}}
+
+/* ── Wallet option cards ──────────────────────────────────────────────────── */
+.wallet-opt{backdrop-filter:blur(12px);background:rgba(22,26,42,.6);transition:all .2s}
+.wallet-opt:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(0,0,0,.3)}
+
+/* ── Dev panel enhancements ───────────────────────────────────────────────── */
+.dev-event-btn{backdrop-filter:blur(8px);background:rgba(22,26,42,.5);transition:all .2s}
+.dev-event-btn:hover{transform:translateY(-2px);box-shadow:0 6px 18px rgba(0,0,0,.3)}
+
+/* ── Entrance splash ──────────────────────────────────────────────────────── */
+#appSplash{position:fixed;inset:0;z-index:99999;
+  background:radial-gradient(ellipse at center,#0e1024 0%,#09090f 100%);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  transition:opacity .5s ease,visibility .5s ease}
+#appSplash.hidden{opacity:0;visibility:hidden;pointer-events:none}
+.splash-icon{font-size:64px;animation:splashPulse 1.5s ease-in-out infinite alternate,splashFloat 3s ease-in-out infinite}
+@keyframes splashPulse{0%{filter:drop-shadow(0 0 12px rgba(124,106,247,.4))}100%{filter:drop-shadow(0 0 28px rgba(168,85,247,.7))}}
+@keyframes splashFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+.splash-title{margin-top:18px;font-size:22px;font-weight:900;letter-spacing:2px;
+  background:linear-gradient(135deg,#a855f7,#7c6af7,#f4c542);background-size:200% 200%;
+  background-clip:text;-webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  animation:splashGradient 2s ease infinite}
+@keyframes splashGradient{0%,100%{background-position:0% 50%}50%{background-position:100% 50%}}
+.splash-sub{margin-top:8px;font-size:12px;color:var(--text2);letter-spacing:1px;animation:loading-pulse 1.5s ease-in-out infinite}
+.splash-bar{width:140px;height:3px;background:var(--bg3);border-radius:3px;margin-top:20px;overflow:hidden}
+.splash-bar-fill{height:100%;width:0%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:3px;animation:splashLoad 1.8s ease-out forwards}
+@keyframes splashLoad{0%{width:0}40%{width:60%}80%{width:90%}100%{width:100%}}
+
+/* ── Scrollbar styling (WebKit) ───────────────────────────────────────────── */
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(124,106,247,.25);border-radius:4px}
+::-webkit-scrollbar-thumb:hover{background:rgba(124,106,247,.4)}
+
+/* ── Online status indicator ──────────────────────────────────────────────── */
+.online-dot{position:absolute;bottom:2px;right:-2px;width:12px;height:12px;border-radius:50%;
+  border:2px solid var(--bg2);transition:background .3s}
+.online-online{background:#22c55e;box-shadow:0 0 8px rgba(34,197,94,.6)}
+.online-recently{background:#fb923c;box-shadow:0 0 6px rgba(251,146,60,.4)}
+.online-offline{background:#6b7280;box-shadow:none}
+
 /* ==== MOBILE ==== */
 @media(max-width:420px){
   .dev-member-head{display:none}
@@ -481,6 +678,14 @@ select:focus{border-color:var(--accent)}
 </style>
 </head>
 <body>
+<!-- ── Entrance splash screen ─────────────────────────────────────────── -->
+<div id="appSplash">
+  <div class="splash-icon">⚔️</div>
+  <div class="splash-title">ПРЕДВЕСТНИК</div>
+  <div class="splash-sub">загрузка мира…</div>
+  <div class="splash-bar"><div class="splash-bar-fill"></div></div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <!-- Gacha overlay -->
@@ -568,7 +773,7 @@ select:focus{border-color:var(--accent)}
     <div id="pubProfileLoading" style="text-align:center;padding:20px">⏳ Загрузка…</div>
     <div id="pubProfileContent" style="display:none">
       <div class="pub-profile-header">
-        <div style="font-size:40px" id="pubAvatar">👤</div>
+        <div style="font-size:40px;position:relative" id="pubAvatar">👤<span id="pubOnlineStatus" class="online-dot online-offline"></span></div>
         <div>
           <div id="pubName" style="font-size:16px;font-weight:800"></div>
           <div id="pubTitle" style="font-size:12px;color:var(--accent);margin-top:2px"></div>
@@ -2270,6 +2475,8 @@ const _tgUnsafe = (tg && tg.initDataUnsafe) || {};
 const _startParam = _tgUnsafe.start_param || qp.get('tgWebAppStartParam') || '';
 let chatId = 0;
 let _deepTab = '';  // tab to open after init (from deep link)
+// Splash failsafe — dismiss after 4s even if loading fails
+setTimeout(() => { const s = document.getElementById('appSplash'); if(s) { s.classList.add('hidden'); setTimeout(()=>s.remove(), 600); }}, 4000);
 if (_startParam) {
   // Format: "{abs_cid}" or "{abs_cid}_{tab_name}"
   const _spParts = _startParam.split('_');
@@ -5253,6 +5460,13 @@ async function showPubProfile(userId){
     document.getElementById('pubAvatar').textContent = p.vip ? '💎' : '👤';
     document.getElementById('pubName').textContent = (p.name||'Игрок')+(p.vip?' 💎':'');
     document.getElementById('pubTitle').textContent = p.custom_title || '';
+    // Online status indicator
+    const _olDot = document.getElementById('pubOnlineStatus');
+    if(_olDot){
+      const _ols = p.online_status || 'offline';
+      _olDot.className = 'online-dot online-' + _ols;
+      _olDot.title = _ols === 'online' ? 'В сети' : _ols === 'recently' ? 'Недавно' : 'Не в сети';
+    }
     let html = '';
     html += `<div class="stat-row"><span class="stat-label">💠 Уровень</span><span class="stat-value">${p.level||1}</span></div>`;
     html += `<div class="stat-row"><span class="stat-label">📊 XP</span><span class="stat-value">${p.xp||0}/${p.xp_max||100}</span></div>`;
@@ -5916,6 +6130,12 @@ loadProfile().then(() => {
   // Deep link: navigate to specific tab if startapp included a tab name
   if (_deepTab) {
     try { switchTab(_deepTab); } catch(e) {}
+  }
+  // Dismiss splash screen
+  const splash = document.getElementById('appSplash');
+  if (splash) {
+    setTimeout(() => { splash.classList.add('hidden'); }, 400);
+    setTimeout(() => { splash.remove(); }, 1000);
   }
 });
 
