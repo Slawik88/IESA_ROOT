@@ -11,31 +11,35 @@ from config import (
     AF2_TRUSTED_STICKER_LIMIT, AF2_TRUSTED_STICKER_WINDOW, AF2_TRUSTED_STICKER_MUTE,
     AF2_TRUSTED_MEDIA_LIMIT, AF2_TRUSTED_MEDIA_WINDOW, AF2_TRUSTED_MEDIA_MUTE,
     AF2_REGULAR_STICKER_LIMIT, AF2_REGULAR_STICKER_WINDOW, AF2_REGULAR_STICKER_MUTE,
-    AF2_DELETE_WINDOW,
+    AF2_DELETE_WINDOW, AF2_ENABLED, AF2_ANTISPAM_ENABLED,
 )
 
-# ── Dynamic AF2 config (overrides from miniapp dev panel, stored in DB) ──────
-_af2_cfg: dict = {}
-_af2_cfg_ts: float = 0.0
-_AF2_CFG_TTL = 30.0  # seconds between DB refreshes
+# ── Dynamic AF2 config per chat (overrides from miniapp dev panel, stored in DB) ─
+_af2_cfg: dict[int, dict] = {}       # chat_id → {key: float value}
+_af2_cfg_ts: dict[int, float] = {}   # chat_id → last refresh (monotonic)
+_AF2_CFG_TTL = 30.0                  # seconds between DB refreshes
 
 
-def _af2(key: str, default):
-    """Return AF2 metric: DB override if present, else config constant."""
-    v = _af2_cfg.get(key)
+def _af2(key: str, default, chat_id: int = 0):
+    """Return AF2 metric for a chat: DB override if present, else config constant."""
+    v = _af2_cfg.get(chat_id, {}).get(key)
     return type(default)(v) if v is not None else default
 
 
-def set_af2_cfg(cfg: dict) -> None:
-    """Update in-memory AF2 config (called by middleware after DB read)."""
-    global _af2_cfg, _af2_cfg_ts
-    _af2_cfg = {k: float(v) for k, v in cfg.items() if v is not None}
-    _af2_cfg_ts = time.monotonic()
+def set_af2_cfg(chat_id: int, cfg: dict) -> None:
+    """Update in-memory AF2 config for a specific chat (called by middleware after DB read)."""
+    _af2_cfg[chat_id] = {k: float(v) for k, v in cfg.items() if v is not None}
+    _af2_cfg_ts[chat_id] = time.monotonic()
 
 
-def is_af2_cfg_stale() -> bool:
-    """True when in-memory config is older than TTL — middleware should refresh."""
-    return time.monotonic() - _af2_cfg_ts > _AF2_CFG_TTL
+def is_af2_cfg_stale(chat_id: int) -> bool:
+    """True when in-memory config for this chat is older than TTL."""
+    return time.monotonic() - _af2_cfg_ts.get(chat_id, 0.0) > _AF2_CFG_TTL
+
+
+def get_af2_flag(key: str, default, chat_id: int = 0):
+    """Public helper — read a single AF2 config flag for a chat (used from middleware)."""
+    return _af2(key, default, chat_id)
 
 # ── Legacy stores (kept for backward compat with check_spam / check_flood) ───
 
@@ -91,11 +95,11 @@ def cleanup_flood_data():
 # ══════════════════════════════════════════════════════════════════════════════
 
 
-def get_trust_level(message_count: int) -> str:
+def get_trust_level(message_count: int, chat_id: int = 0) -> str:
     """Return 'newcomer', 'regular', or 'trusted' based on message count.
     Uses dynamic thresholds from AF2 DB config if set, otherwise falls back to config constants."""
-    newcomer_thresh = int(_af2("newcomer_threshold", TRUST_NEWCOMER_THRESHOLD))
-    trusted_thresh  = int(_af2("trusted_threshold",  TRUST_TRUSTED_THRESHOLD))
+    newcomer_thresh = int(_af2("newcomer_threshold", TRUST_NEWCOMER_THRESHOLD, chat_id))
+    trusted_thresh  = int(_af2("trusted_threshold",  TRUST_TRUSTED_THRESHOLD,  chat_id))
     if message_count < newcomer_thresh:
         return "newcomer"
     if message_count >= trusted_thresh:
@@ -171,32 +175,40 @@ def check_smart_flood(
     now = time.monotonic()
     state = _get_state(chat_id, user_id)
     state.last_activity = now
-    trust = get_trust_level(message_count)
+
+    # Per-chat config helper — uses this chat's DB overrides, falls back to constants
+    _a = lambda k, d: _af2(k, d, chat_id)  # noqa: E731
+
+    # Fast path: AF2 completely disabled for this chat
+    if not int(_a("af2_enabled", AF2_ENABLED)):
+        return FloodVerdict(trust=get_trust_level(message_count, chat_id))
+
+    trust = get_trust_level(message_count, chat_id)
     verdict = FloodVerdict(trust=trust)
 
     # Dynamic overrides (from DB miniapp panel; fall back to config constants)
-    _N_MIXED_LIM  = int(_af2("newcomer_mixed_limit",    AF2_NEWCOMER_MIXED_LIMIT))
-    _N_MIXED_WIN  =     _af2("newcomer_mixed_window",   AF2_NEWCOMER_MIXED_WINDOW)
-    _N_MIXED_MUT  = int(_af2("newcomer_mixed_mute",     AF2_NEWCOMER_MIXED_MUTE))
-    _N_MEDIA_LIM  = int(_af2("newcomer_media_limit",    AF2_NEWCOMER_MEDIA_LIMIT))
-    _N_MEDIA_WIN  =     _af2("newcomer_media_window",   AF2_NEWCOMER_MEDIA_WINDOW)
-    _N_MEDIA_MUT  = int(_af2("newcomer_media_mute",     AF2_NEWCOMER_MEDIA_MUTE))
-    _N_STICK_LIM  = int(_af2("newcomer_sticker_limit",  AF2_NEWCOMER_STICKER_LIMIT))
-    _N_STICK_WIN  =     _af2("newcomer_sticker_window", AF2_NEWCOMER_STICKER_WINDOW)
-    _N_STICK_MUT  = int(_af2("newcomer_sticker_mute",   AF2_NEWCOMER_STICKER_MUTE))
-    _N_TEXT_LIM   = int(_af2("newcomer_text_limit",     AF2_NEWCOMER_TEXT_LIMIT))
-    _N_TEXT_WIN   =     _af2("newcomer_text_window",    AF2_NEWCOMER_TEXT_WINDOW)
-    _N_TEXT_MUT   = int(_af2("newcomer_text_mute",      AF2_NEWCOMER_TEXT_MUTE))
-    _T_MEDIA_LIM  = int(_af2("trusted_media_limit",     AF2_TRUSTED_MEDIA_LIMIT))
-    _T_MEDIA_WIN  =     _af2("trusted_media_window",    AF2_TRUSTED_MEDIA_WINDOW)
-    _T_MEDIA_MUT  = int(_af2("trusted_media_mute",      AF2_TRUSTED_MEDIA_MUTE))
-    _T_STICK_LIM  = int(_af2("trusted_sticker_limit",   AF2_TRUSTED_STICKER_LIMIT))
-    _T_STICK_WIN  =     _af2("trusted_sticker_window",  AF2_TRUSTED_STICKER_WINDOW)
-    _T_STICK_MUT  = int(_af2("trusted_sticker_mute",    AF2_TRUSTED_STICKER_MUTE))
-    _R_STICK_LIM  = int(_af2("regular_sticker_limit",   AF2_REGULAR_STICKER_LIMIT))
-    _R_STICK_WIN  =     _af2("regular_sticker_window",  AF2_REGULAR_STICKER_WINDOW)
-    _R_STICK_MUT  = int(_af2("regular_sticker_mute",    AF2_REGULAR_STICKER_MUTE))
-    _DELETE_WIN   = float(_af2("delete_window",          AF2_DELETE_WINDOW))
+    _N_MIXED_LIM  = int(_a("newcomer_mixed_limit",    AF2_NEWCOMER_MIXED_LIMIT))
+    _N_MIXED_WIN  =     _a("newcomer_mixed_window",   AF2_NEWCOMER_MIXED_WINDOW)
+    _N_MIXED_MUT  = int(_a("newcomer_mixed_mute",     AF2_NEWCOMER_MIXED_MUTE))
+    _N_MEDIA_LIM  = int(_a("newcomer_media_limit",    AF2_NEWCOMER_MEDIA_LIMIT))
+    _N_MEDIA_WIN  =     _a("newcomer_media_window",   AF2_NEWCOMER_MEDIA_WINDOW)
+    _N_MEDIA_MUT  = int(_a("newcomer_media_mute",     AF2_NEWCOMER_MEDIA_MUTE))
+    _N_STICK_LIM  = int(_a("newcomer_sticker_limit",  AF2_NEWCOMER_STICKER_LIMIT))
+    _N_STICK_WIN  =     _a("newcomer_sticker_window", AF2_NEWCOMER_STICKER_WINDOW)
+    _N_STICK_MUT  = int(_a("newcomer_sticker_mute",   AF2_NEWCOMER_STICKER_MUTE))
+    _N_TEXT_LIM   = int(_a("newcomer_text_limit",     AF2_NEWCOMER_TEXT_LIMIT))
+    _N_TEXT_WIN   =     _a("newcomer_text_window",    AF2_NEWCOMER_TEXT_WINDOW)
+    _N_TEXT_MUT   = int(_a("newcomer_text_mute",      AF2_NEWCOMER_TEXT_MUTE))
+    _T_MEDIA_LIM  = int(_a("trusted_media_limit",     AF2_TRUSTED_MEDIA_LIMIT))
+    _T_MEDIA_WIN  =     _a("trusted_media_window",    AF2_TRUSTED_MEDIA_WINDOW)
+    _T_MEDIA_MUT  = int(_a("trusted_media_mute",      AF2_TRUSTED_MEDIA_MUTE))
+    _T_STICK_LIM  = int(_a("trusted_sticker_limit",   AF2_TRUSTED_STICKER_LIMIT))
+    _T_STICK_WIN  =     _a("trusted_sticker_window",  AF2_TRUSTED_STICKER_WINDOW)
+    _T_STICK_MUT  = int(_a("trusted_sticker_mute",    AF2_TRUSTED_STICKER_MUTE))
+    _R_STICK_LIM  = int(_a("regular_sticker_limit",   AF2_REGULAR_STICKER_LIMIT))
+    _R_STICK_WIN  =     _a("regular_sticker_window",  AF2_REGULAR_STICKER_WINDOW)
+    _R_STICK_MUT  = int(_a("regular_sticker_mute",    AF2_REGULAR_STICKER_MUTE))
+    _DELETE_WIN   = float(_a("delete_window",          AF2_DELETE_WINDOW))
 
     def _ids_for_delete() -> list[int]:
         """Return msg IDs from the rolling buffer that fall within the delete window."""

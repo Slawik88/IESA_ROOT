@@ -6033,7 +6033,34 @@ async function loadAf2Config() {
     const asDef = _af2Defaults.antispam_limit ?? '?';
     const dwDef = _af2Defaults.delete_window ?? 300;
 
+    // ON/OFF toggles
+    const af2On      = (cfg.af2_enabled      ?? 1) != 0;
+    const antispamOn = (cfg.antispam_enabled  ?? 1) != 0;
+
+    const _toggleStyle = (on) =>
+      `display:inline-block;width:36px;height:20px;border-radius:10px;cursor:pointer;` +
+      `background:${on?'#4ade80':'#475569'};transition:background .2s;vertical-align:middle;position:relative`;
+    const _knobStyle = (on) =>
+      `position:absolute;top:2px;${on?'right:2px':'left:2px'};width:16px;height:16px;` +
+      `border-radius:50%;background:#fff;transition:left .2s,right .2s`;
+
     fieldsEl.innerHTML = `
+      <div style="background:var(--bg3);border-radius:10px;padding:9px;margin-bottom:8px;display:flex;flex-direction:column;gap:7px">
+        <div style="font-size:10px;font-weight:700;color:#a78bfa;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px">🔘 Включение / Отключение</div>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+          <span style="${_toggleStyle(af2On)}" id="tog_af2_enabled" data-val="${af2On?'1':'0'}" onclick="toggleAf2('af2_enabled',this)">
+            <span style="${_knobStyle(af2On)}" id="knob_af2_enabled"></span>
+          </span>
+          <span style="font-size:12px;color:var(--text)">🛡 <b>Антифлуд 2.0</b> — trust-level проверки (текст, медиа, стикеры)</span>
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+          <span style="${_toggleStyle(antispamOn)}" id="tog_antispam_enabled" data-val="${antispamOn?'1':'0'}" onclick="toggleAf2('antispam_enabled',this)">
+            <span style="${_knobStyle(antispamOn)}" id="knob_antispam_enabled"></span>
+          </span>
+          <span style="font-size:12px;color:var(--text)">⚡ <b>Антиспам</b> — жёсткий лимит сообщений в секунду (токен-бакет)</span>
+        </label>
+      </div>
+      <div id="af2MetricsBlock" style="${af2On?'':'opacity:.4;pointer-events:none'}">
       <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:8px">
         ${groupsHtml}
       </div>
@@ -6056,7 +6083,8 @@ async function loadAf2Config() {
             <option value="86400" ${dwUnit===86400?'selected':''}>дней</option>
           </select>
         </div>
-      </div>`;
+      </div>
+      </div>`;  /* closes af2MetricsBlock */
 
     loadEl.style.display = 'none';
     fieldsEl.style.display = '';
@@ -6069,6 +6097,12 @@ async function saveAf2Config() {
   const msg = document.getElementById('devAf2Msg');
   msg.textContent = '⏳ Сохранение…';
   const body = {};
+  // ON/OFF toggles
+  const af2TogEl  = document.getElementById('tog_af2_enabled');
+  const asTogEl   = document.getElementById('tog_antispam_enabled');
+  if (af2TogEl)  body.af2_enabled      = af2TogEl.dataset.val  === '1' ? 1 : 0;
+  if (asTogEl)   body.antispam_enabled = asTogEl.dataset.val   === '1' ? 1 : 0;
+  // Metrics
   for (const key of [...AF2_GROUP_KEYS, 'newcomer_threshold', 'trusted_threshold']) {
     const el = document.getElementById('af2_' + key);
     if (el && el.value !== '') body[key] = parseFloat(el.value);
@@ -6092,12 +6126,31 @@ async function saveAf2Config() {
   }
 }
 
+function toggleAf2(key, togEl) {
+  const knob = document.getElementById('knob_' + key);
+  const isOn = togEl.dataset.val !== '0';  // current state
+  const newOn = !isOn;
+  togEl.dataset.val = newOn ? '1' : '0';
+  togEl.style.background = newOn ? '#4ade80' : '#475569';
+  if (knob) {
+    knob.style.left  = newOn ? '' : '2px';
+    knob.style.right = newOn ? '2px' : '';
+  }
+  // Dim/enable the metrics block when AF2 itself is toggled
+  if (key === 'af2_enabled') {
+    const block = document.getElementById('af2MetricsBlock');
+    if (block) block.style.cssText = newOn
+      ? 'opacity:1;pointer-events:auto'
+      : 'opacity:.4;pointer-events:none';
+  }
+}
+
 async function resetAf2Config() {
   if (!confirm('Сбросить все метрики AF2 к значениям из config.py?')) return;
   const msg = document.getElementById('devAf2Msg');
   msg.textContent = '⏳ Сброс…';
   const body = {};
-  for (const key of [...AF2_GROUP_KEYS, 'newcomer_threshold', 'trusted_threshold', 'antispam_limit', 'delete_window']) {
+  for (const key of [...AF2_GROUP_KEYS, 'newcomer_threshold', 'trusted_threshold', 'antispam_limit', 'delete_window', 'af2_enabled', 'antispam_enabled']) {
     if (_af2Defaults[key] !== undefined) body[key] = _af2Defaults[key];
   }
   body.chat_id = chatId || 0;

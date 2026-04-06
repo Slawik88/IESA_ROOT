@@ -44,7 +44,7 @@ from database.db import (
 )
 from services.antispam import check_spam
 from services.recent_users import remember_user
-from utils.flood import check_flood, check_smart_flood, is_af2_cfg_stale, set_af2_cfg
+from utils.flood import check_flood, check_smart_flood, get_af2_flag, is_af2_cfg_stale, set_af2_cfg
 from utils.helpers import bot_today, notify_admins, user_mention
 from utils.ranks import rank_level
 
@@ -351,7 +351,8 @@ class AutoModMiddleware(BaseMiddleware):
 
         # Antispam — Token Bucket (owner/developer skip mute but get hack-alert below)
         _is_bot_cmd = _is_bot_command(event)
-        if _feat_antispam and not _is_hack_detection and not _is_bot_cmd and check_spam(chat_id, user.id, AF2_ANTISPAM_LIMIT):
+        _antispam_on = bool(get_af2_flag("antispam_enabled", 1.0, chat_id))
+        if _feat_antispam and _antispam_on and not _is_hack_detection and not _is_bot_cmd and check_spam(chat_id, user.id, AF2_ANTISPAM_LIMIT):
             if not is_stale:
                 try:
                     await event.delete()
@@ -397,10 +398,10 @@ class AutoModMiddleware(BaseMiddleware):
 
         # ── Smart Antiflood 2.0 — always active when antispam feature is on ────
         # Refresh dynamic AF2 config from DB if TTL expired (cross-process miniapp update)
-        if is_af2_cfg_stale():
+        if is_af2_cfg_stale(chat_id):
             try:
                 from database.db import get_af2_config as _gaf2
-                set_af2_cfg(await _gaf2())
+                set_af2_cfg(chat_id, await _gaf2(chat_id))
             except Exception:
                 pass
 
@@ -628,7 +629,11 @@ class AutoModMiddleware(BaseMiddleware):
                 reason = "стикеры"
             elif locks["gifs"] and event.animation:
                 reason = "гифки"
-            elif locks["forwards"] and event.forward_origin:
+            elif locks["forwards"] and (
+                event.forward_origin is not None
+                or getattr(event, 'forward_from_chat', None) is not None
+                or getattr(event, 'forward_from', None) is not None
+            ):
                 reason = "пересылку"
             elif locks["voice"] and event.voice:
                 reason = "голосовые"
