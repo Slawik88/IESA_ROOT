@@ -149,8 +149,8 @@ async def get_balance(uid: int, chat_id: int) -> int:
     return mora_row["balance"] if mora_row else 0
 
 
-async def wallet_history(uid: int, chat_id: int, days: int = 7) -> list:
-    """Returns up to 100 wallet-ledger entries from the last N days."""
+async def wallet_history(uid: int, chat_id: int, days: int = 30) -> list:
+    """Returns up to 200 wallet-ledger entries from the last N days."""
     from database.postgres import connect as postgres_connect
     cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
     async with postgres_connect() as db:
@@ -158,7 +158,7 @@ async def wallet_history(uid: int, chat_id: int, days: int = 7) -> list:
             "SELECT direction, amount, source, description, created_at "
             "FROM wallet_ledger WHERE user_id=? AND chat_id=? "
             "AND created_at >= ? "
-            "ORDER BY created_at DESC LIMIT 100",
+            "ORDER BY created_at DESC LIMIT 200",
             (uid, chat_id, cutoff),
         ) as c:
             rows = await c.fetchall()
@@ -172,6 +172,80 @@ async def wallet_history(uid: int, chat_id: int, days: int = 7) -> list:
         }
         for r in rows
     ]
+
+
+async def transfer_crystals(from_uid: int, to_uid: int, amount: int) -> dict:
+    """
+    Transfer crystals (💎) between players without any commission.
+    Raises ValueError with a Russian message on any error.
+    Returns {ok, amount, from_crystals, to_crystals}
+    """
+    from database.postgres import connect as postgres_connect
+
+    if from_uid == to_uid:
+        raise ValueError("Нельзя переводить самому себе")
+    if amount < 1:
+        raise ValueError("Минимальная сумма перевода: 1 💎")
+    if amount > 10_000:
+        raise ValueError("Максимальный перевод: 10 000 💎")
+
+    async with postgres_connect() as db:
+        # Deduct from sender (atomic — only if balance is sufficient)
+        cursor = await db.execute(
+            "UPDATE user_crystals SET balance = balance - ? "
+            "WHERE user_id = ? AND COALESCE(balance, 0) >= ?",
+            (amount, from_uid, amount),
+        )
+        if cursor.rowcount == 0:
+            async with db.execute(
+                "SELECT COALESCE(balance, 0) FROM user_crystals WHERE user_id=?",
+                (from_uid,),
+            ) as c:
+                row = await c.fetchone()
+            bal = row[0] if row else 0
+            raise ValueError(f"Недостаточно Кристаллов ({bal}/{amount} 💎)")
+
+        # Credit receiver (upsert)
+        await db.execute(
+            "INSERT INTO user_crystals (user_id, balance) VALUES (?, ?)"
+            " ON CONFLICT (user_id) DO UPDATE SET balance = user_crystals.balance + ?",
+            (to_uid, amount, amount),
+        )
+        await db.commit()
+
+        async with db.execute(
+            "SELECT COALESCE(balance, 0) FROM user_crystals WHERE user_id=?",
+            (from_uid,),
+        ) as c:
+            row = await c.fetchone()
+        from_crystals = row[0] if row else 0
+
+        async with db.execute(
+            "SELECT COALESCE(balance, 0) FROM user_crystals WHERE user_id=?",
+            (to_uid,),
+        ) as c:
+            row = await c.fetchone()
+        to_crystals = row[0] if row else 0
+
+    # Log to wallet ledger (fire-and-forget)
+    try:
+        from database.db import get_user_name
+        to_name   = await get_user_name(to_uid)   or str(to_uid)
+        from_name = await get_user_name(from_uid) or str(from_uid)
+    except Exception:
+        to_name, from_name = str(to_uid), str(from_uid)
+
+    await log_wallet_tx(from_uid, 0, "expense", amount, "crystal_transfer_out",
+                        f"→ {to_name} −{amount}💎")
+    await log_wallet_tx(to_uid, 0, "income", amount, "crystal_transfer_in",
+                        f"← {from_name} +{amount}💎")
+
+    return {
+        "ok":            True,
+        "amount":        amount,
+        "from_crystals": from_crystals,
+        "to_crystals":   to_crystals,
+    }
 
 
 # ─── Chat-global XP buff ──────────────────────────────────────────────────────
