@@ -170,8 +170,8 @@ async def get_all_counters(db, user_id: int, chat_id: int) -> dict[str, int]:
             for k in ("gacha_rolls", "coinflip", "rep_given",
                        "expeditions", "chests", "mora_balance", "total_earned"):
                 c[k] = int(row[k])
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning("get_all_counters user_mora failed for %s/%s: %s", user_id, chat_id, e)
 
     # ── user_stats (level, messages) ──────────────────────────────────
     try:
@@ -184,8 +184,8 @@ async def get_all_counters(db, user_id: int, chat_id: int) -> dict[str, int]:
         if row:
             c["messages"] = int(row["messages"])
             c["level"] = int(row["level"])
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning("get_all_counters user_stats failed for %s/%s: %s", user_id, chat_id, e)
 
     # ── boss damage (aggregate) ───────────────────────────────────────
     try:
@@ -195,8 +195,8 @@ async def get_all_counters(db, user_id: int, chat_id: int) -> dict[str, int]:
             (user_id, chat_id),
         )
         c["boss_damage"] = int(row["total"]) if row else 0
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning("get_all_counters boss_damage_log failed for %s/%s: %s", user_id, chat_id, e)
 
     # ── checkin streak ────────────────────────────────────────────────
     try:
@@ -206,8 +206,8 @@ async def get_all_counters(db, user_id: int, chat_id: int) -> dict[str, int]:
             (user_id, chat_id),
         )
         c["checkin_streak"] = int(row["s"]) if row else 0
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning("get_all_counters daily_checkin failed for %s/%s: %s", user_id, chat_id, e)
 
     # ── boolean: married ──────────────────────────────────────────────
     try:
@@ -216,8 +216,8 @@ async def get_all_counters(db, user_id: int, chat_id: int) -> dict[str, int]:
             (user_id,),
         )
         c["married"] = min(1, int(row["c"])) if row else 0
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning("get_all_counters marriages_global failed for %s: %s", user_id, e)
 
     # ── boolean: has_pet ──────────────────────────────────────────────
     try:
@@ -226,8 +226,8 @@ async def get_all_counters(db, user_id: int, chat_id: int) -> dict[str, int]:
             (user_id,),
         )
         c["has_pet"] = min(1, int(row["c"])) if row else 0
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning("get_all_counters pets_global failed for %s: %s", user_id, e)
 
     # ── auction sell ──────────────────────────────────────────────────
     try:
@@ -236,8 +236,8 @@ async def get_all_counters(db, user_id: int, chat_id: int) -> dict[str, int]:
             (user_id, chat_id),
         )
         c["auction_sell"] = int(row["c"]) if row else 0
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning("get_all_counters auctions(sell) failed for %s/%s: %s", user_id, chat_id, e)
 
     # ── auction win ───────────────────────────────────────────────────
     try:
@@ -247,8 +247,8 @@ async def get_all_counters(db, user_id: int, chat_id: int) -> dict[str, int]:
             (user_id, chat_id),
         )
         c["auction_win"] = int(row["c"]) if row else 0
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning("get_all_counters auctions(win) failed for %s/%s: %s", user_id, chat_id, e)
 
     # ── roulette (count txs) ─────────────────────────────────────────
     try:
@@ -258,8 +258,8 @@ async def get_all_counters(db, user_id: int, chat_id: int) -> dict[str, int]:
             (user_id, chat_id),
         )
         c["roulette"] = int(row["c"]) if row else 0
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning("get_all_counters wallet_ledger(roulette) failed for %s/%s: %s", user_id, chat_id, e)
 
     # ── spy missions ──────────────────────────────────────────────────
     try:
@@ -269,8 +269,8 @@ async def get_all_counters(db, user_id: int, chat_id: int) -> dict[str, int]:
             (user_id, chat_id),
         )
         c["spy_missions"] = int(row["c"]) if row else 0
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning("get_all_counters espionage_log failed for %s/%s: %s", user_id, chat_id, e)
 
     # ── deposits ──────────────────────────────────────────────────────
     try:
@@ -280,8 +280,8 @@ async def get_all_counters(db, user_id: int, chat_id: int) -> dict[str, int]:
             (user_id, chat_id),
         )
         c["deposits"] = int(row["c"]) if row else 0
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning("get_all_counters bank_deposits failed for %s/%s: %s", user_id, chat_id, e)
 
     # ── bond trades ───────────────────────────────────────────────────
     try:
@@ -291,8 +291,8 @@ async def get_all_counters(db, user_id: int, chat_id: int) -> dict[str, int]:
             (user_id, chat_id),
         )
         c["bond_trades"] = int(row["c"]) if row else 0
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning("get_all_counters user_bond_lots failed for %s/%s: %s", user_id, chat_id, e)
 
     # ── transfers ─────────────────────────────────────────────────────
     try:
@@ -302,36 +302,15 @@ async def get_all_counters(db, user_id: int, chat_id: int) -> dict[str, int]:
             (user_id, chat_id),
         )
         c["transfers"] = int(row["c"]) if row else 0
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning("get_all_counters wallet_ledger(transfers) failed for %s/%s: %s", user_id, chat_id, e)
 
     return c
 
 
 # ---------------------------------------------------------------------------
 # Вспомогательные функции
-# ---------------------------------------------------------------------------
-
-# Allowed counter columns (whitelist for safe f-string usage)
-_COUNTER_COLS = frozenset({
-    'expeditions_sent', 'chests_opened', 'casino_wins',
-    'roulette_losses', 'total_gacha_rolls', 'total_coinflip',
-    'rep_given_count', 'level', 'message_count',
-})
-
-
-async def _get_counter(db, user_id: int, chat_id: int, col: str) -> int:
-    """Получить значение счётчика из user_mora."""
-    if col not in _COUNTER_COLS:
-        return 0
-    row = await db.fetchone(
-        f"SELECT {col} FROM user_mora WHERE user_id=? AND chat_id=?",
-        (user_id, chat_id)
-    )
-    return int(row[col] or 0) if row else 0
-
-
-async def _award(db, user_id: int, chat_id: int, ach: dict) -> bool:
+# ---------------------------------------------------------------------------async def _award(db, user_id: int, chat_id: int, ach: dict) -> bool:
     """Выдать достижение. Возвращает True если это новое достижение."""
     try:
         result = await db.execute(
@@ -455,10 +434,48 @@ async def get_all_achievements_with_status(user_id: int, chat_id: int) -> dict:
                     if value >= ach["threshold"] and ach["key"] not in earned:
                         if await _award(db, user_id, chat_id, ach):
                             earned[ach["key"]] = str(datetime.now(timezone.utc))
-    except Exception:
+                            newly_awarded.append({"title": ach["title"], "emoji": ach["emoji"], "mora": ach["mora"], "xp": ach.get("xp", 0)})
+
+            # ── Auto-award infinite tiers if threshold reached ────────
+            for ach_type, tiers in ACH_BY_TYPE.items():
+                if ach_type in BOOL_TYPES or not tiers:
+                    continue
+                value = counters.get(ach_type, 0)
+                last_defined = tiers[-1]
+                # Check if all defined tiers are earned
+                all_defined_earned = all(a["key"] in earned for a in tiers)
+                if not all_defined_earned:
+                    continue
+                # Award any missing infinite tiers that are reachable
+                inf_n = len(tiers)
+                for ie in range(50):  # cap at 50 extra tiers
+                    inf_n = len(tiers) + ie + 1
+                    inf_key = f"{ach_type}_inf_{inf_n}"
+                    inf_threshold = int(last_defined["threshold"] * (2 ** (ie + 1)))
+                    if inf_key in earned:
+                        continue
+                    if value >= inf_threshold:
+                        inf_mora = max(1, int(last_defined["mora"] * math.log2(ie + 3)))
+                        inf_xp = max(1, int(last_defined.get("xp", 0) * math.log2(ie + 3)))
+                        inf_ach = {
+                            "key": inf_key,
+                            "title": f"{last_defined['title']} +{ie + 1}",
+                            "emoji": last_defined["emoji"],
+                            "description": "",
+                            "mora": inf_mora,
+                            "xp": inf_xp,
+                        }
+                        if await _award(db, user_id, chat_id, inf_ach):
+                            earned[inf_key] = str(datetime.now(timezone.utc))
+                            newly_awarded.append({"title": inf_ach["title"], "emoji": inf_ach["emoji"], "mora": inf_mora, "xp": inf_xp})
+                    else:
+                        break
+    except Exception as e:
+        logger.warning("get_all_achievements_with_status DB error: %s", e)
         earned = {}
         counters = {}
 
+    newly_awarded: list[dict] = []
     categories: list[dict] = []
     total_unlocked = 0
     total_ranks = 0
@@ -488,21 +505,50 @@ async def get_all_achievements_with_status(user_id: int, chat_id: int) -> dict:
                 "obtained_at": earned.get(ach["key"]),
             })
 
-        # ── Infinite tier (auto-generated beyond last defined) ────────
+        # ── Infinite tiers (auto-generated beyond last defined) ──────
+        # Find how many inf tiers user already has in user_badges
         next_rank = None
         if not is_bool and unlocked_count >= len(tiers) and len(tiers) > 0:
-            last = tiers[-1]
-            extra = 1
-            threshold = int(last["threshold"] * 2)
-            mora_r = max(1, int(last["mora"] * math.log2(extra + 2)))
-            xp_r = max(1, int(last.get("xp", 0) * math.log2(extra + 2)))
+            last_defined = tiers[-1]
+            # Count already earned infinite tiers from earned keys
+            inf_earned = 0
+            while True:
+                inf_key = f"{ach_type}_inf_{len(tiers) + inf_earned + 1}"
+                if inf_key in earned:
+                    inf_earned += 1
+                else:
+                    break
+            # Build all earned infinite tiers for display
+            for ie in range(inf_earned):
+                inf_n = len(tiers) + ie + 1
+                inf_threshold = int(last_defined["threshold"] * (2 ** (ie + 1)))
+                inf_mora = max(1, int(last_defined["mora"] * math.log2(ie + 3)))
+                inf_xp = max(1, int(last_defined.get("xp", 0) * math.log2(ie + 3)))
+                inf_key = f"{ach_type}_inf_{inf_n}"
+                ranks.append({
+                    "rank": inf_n,
+                    "key": inf_key,
+                    "title": f"{last_defined['title']} +{ie + 1}",
+                    "threshold": inf_threshold,
+                    "mora": inf_mora,
+                    "xp": inf_xp,
+                    "unlocked": True,
+                    "obtained_at": earned.get(inf_key),
+                    "auto": True,
+                })
+                unlocked_count += 1
+            # Generate the NEXT uneearned infinite tier
+            next_inf_n = len(tiers) + inf_earned + 1
+            next_threshold = int(last_defined["threshold"] * (2 ** (inf_earned + 1)))
+            next_mora = max(1, int(last_defined["mora"] * math.log2(inf_earned + 3)))
+            next_xp = max(1, int(last_defined.get("xp", 0) * math.log2(inf_earned + 3)))
             next_rank = {
-                "rank": len(tiers) + 1,
-                "key": f"{ach_type}_inf_{len(tiers) + 1}",
-                "title": f"{last['title']} +",
-                "threshold": threshold,
-                "mora": mora_r,
-                "xp": xp_r,
+                "rank": next_inf_n,
+                "key": f"{ach_type}_inf_{next_inf_n}",
+                "title": f"{last_defined['title']} +{inf_earned + 1}",
+                "threshold": next_threshold,
+                "mora": next_mora,
+                "xp": next_xp,
                 "unlocked": False,
                 "auto": True,
             }
@@ -550,4 +596,5 @@ async def get_all_achievements_with_status(user_id: int, chat_id: int) -> dict:
         "categories": categories,
         "total_unlocked": total_unlocked,
         "total_ranks": total_ranks,
+        "newly_awarded": newly_awarded,
     }
