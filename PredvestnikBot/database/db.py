@@ -8140,9 +8140,9 @@ async def set_af2_config(cfg: dict) -> None:
     async with postgres_connect() as db:
         for key, value in cfg.items():
             await db.execute(
-                "INSERT INTO af2_config (key, value) VALUES ($1, $2) "
+                "INSERT INTO af2_config (key, value) VALUES (?, ?) "
                 "ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value",
-                key, float(value),
+                (key, float(value)),
             )
 
 

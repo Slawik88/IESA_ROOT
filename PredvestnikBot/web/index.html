@@ -580,11 +580,7 @@ select:focus{border-color:var(--accent)}
   </div>
 </div>
 
-<!-- Beta notice banner -->
-<div id="betaBanner" style="background:rgba(251,146,60,.1);border-bottom:1px solid rgba(251,146,60,.25);padding:7px 14px;font-size:11px;color:#fb923c;text-align:center;display:flex;align-items:center;justify-content:center;gap:6px">
-  <span>🔒 Закрытое бета-тестирование · Возможны баги · Покупка кристаллов временно недоступна</span>
-  <span onclick="this.parentElement.style.display='none'" style="margin-left:8px;cursor:pointer;opacity:.7;font-size:14px;line-height:1">✕</span>
-</div>
+<!-- Beta notice banner (removed — purchases unlocked) -->
 
 <!-- Category navigation bar (fixed bottom, mobile-app style) -->
 <div class="cat-bar" id="catBar">
@@ -1929,9 +1925,9 @@ select:focus{border-color:var(--accent)}
   <div class="card">
     <div class="card-title">🐛 Логи ошибок</div>
     <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap">
-      <button class="btn btn-primary" onclick="loadAppErrorLogs()">🔄 Загрузить</button>
-      <button class="btn" id="copyErrLogsBtn" style="background:var(--bg3);color:var(--text)" onclick="copyAppErrorLogs()">📋 Копировать</button>
-      <button class="btn" style="background:#dc2626;color:#fff" onclick="clearAppErrorLogs()">🗑 Очистить</button>
+      <button class="btn btn-sm btn-primary" onclick="loadAppErrorLogs()">🔄 Загрузить</button>
+      <button class="btn btn-sm" id="copyErrLogsBtn" style="background:var(--bg3);color:var(--text)" onclick="copyAppErrorLogs()">📋 Копировать</button>
+      <button class="btn btn-sm" style="background:#dc2626;color:#fff" onclick="clearAppErrorLogs()">🗑 Очистить</button>
     </div>
     <div id="devAppErrorLog" style="max-height:500px;overflow-y:auto;font-size:11px;font-family:monospace"></div>
   </div>
@@ -2165,7 +2161,7 @@ select:focus{border-color:var(--accent)}
     </div>
     <div style="display:flex;gap:8px;margin-top:10px">
       <button class="btn btn-primary" style="flex:1" onclick="saveAf2Config()">💾 Сохранить</button>
-      <button class="btn" style="background:var(--bg3);color:var(--text2);border:1px solid var(--border)" onclick="resetAf2Config()">↩️ Сброс</button>
+      <button class="btn" style="flex:1;background:var(--bg3);color:var(--text2);border:1px solid var(--border)" onclick="resetAf2Config()">↩️ Сброс</button>
     </div>
     <div id="devAf2Msg" style="margin-top:8px;font-size:12px;min-height:18px"></div>
   </div>
@@ -3610,19 +3606,17 @@ function renderCrystalsShop(){
     }
   }
 
-  // Packs — opens Telegram payment invoice (BETA: disabled)
+  // Packs — opens Telegram Stars payment invoice
   const packsEl = document.getElementById('crystalPacksGrid');
-  if(packsEl) packsEl.innerHTML = `<div style="background:rgba(251,146,60,.08);border:1px solid rgba(251,146,60,.25);border-radius:8px;padding:10px 12px;margin-bottom:8px;font-size:11px;color:#fb923c;text-align:center">
-    🔒 <b>Покупка кристаллов временно недоступна</b><br><span style="color:var(--text2)">Бот в режиме закрытого бета-теста. Покупки будут открыты после релиза.</span>
-  </div>` + CRYSTAL_PACKS.map(p=>{
+  if(packsEl) packsEl.innerHTML = CRYSTAL_PACKS.map(p=>{
     const bonusLabel = p.bonus ? `<span style="color:#4ade80;font-size:10px;margin-left:3px">+${p.bonus}% бонус</span>` : '';
-    return `<div class="scard" style="opacity:.45;pointer-events:none;border:1px solid rgba(124,58,237,.2)">
+    return `<div class="scard" onclick="buyCrystalPack('${p.key}')" style="cursor:pointer;border:1px solid rgba(124,58,237,.2)">
       <div class="scard-accent" style="background:linear-gradient(180deg,#7c3aed,#6d28d9)"></div>
       <div class="scard-icon">⭐</div>
       <div class="scard-body">
         <div class="scard-name">${p.label} ${bonusLabel}</div>
         <div class="scard-desc" style="color:#a78bfa;font-weight:700">${p.crystals} 💎</div>
-        <div class="scard-footer"><span class="sbadge" style="background:rgba(100,116,139,.12);color:#94a3b8;border:1px solid rgba(100,116,139,.3)">${p.stars} ⭐ · Скоро</span></div>
+        <div class="scard-footer"><span class="sbadge" style="background:rgba(124,58,237,.15);color:#a78bfa;border:1px solid rgba(124,58,237,.3)">${p.stars} ⭐</span></div>
       </div></div>`;
   }).join('');
 

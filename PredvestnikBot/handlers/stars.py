@@ -164,6 +164,10 @@ async def pre_checkout(pq: PreCheckoutQuery):
     # Проверяем что payload содержит правильный формат
     parts = pq.invoice_payload.split(":")
     if len(parts) == 3 and parts[0] == "crystals" and parts[1] in CRYSTAL_PACKS:
+        # Verify the user_id in payload matches the payer
+        if int(parts[2]) != pq.from_user.id:
+            await pq.answer(ok=False, error_message="Несоответствие пользователя.")
+            return
         await pq.answer(ok=True)
     else:
         await pq.answer(ok=False, error_message="Неверные данные платежа.")
