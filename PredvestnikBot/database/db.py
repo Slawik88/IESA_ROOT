@@ -7123,9 +7123,9 @@ async def buy_season_premium(user_id: int, season_id: int) -> bool:
     """Buy premium pass for season. Returns True if successful."""
     import json
     
-    # Check crystal balance (500 crystals for premium)
+    # Check crystal balance (299 crystals for premium/month)
     crystals = await get_crystals(user_id)
-    if crystals < 500:
+    if crystals < 299:
         return False
     
     async with postgres_connect() as db:
@@ -7139,7 +7139,7 @@ async def buy_season_premium(user_id: int, season_id: int) -> bool:
             return False  # Already purchased
         
         # Spend crystals
-        ok = await spend_crystals(user_id, 500)
+        ok = await spend_crystals(user_id, 299)
         if not ok:
             return False
         

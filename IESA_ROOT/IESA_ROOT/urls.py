@@ -93,6 +93,7 @@ from .miniapp_views import (
     miniapp_dev_purge_chat_nonmembers,
     miniapp_dev_user_inventory,
     miniapp_dev_delete_inventory_item,
+    miniapp_dev_feature_toggle,
     miniapp_save_avatar,
 )
 
@@ -251,6 +252,7 @@ urlpatterns = [
     path('api/dev/purge_chat_nonmembers', miniapp_dev_purge_chat_nonmembers, name='miniapp_dev_purge_chat_nonmembers'),
     path('api/dev/user_inventory', miniapp_dev_user_inventory, name='miniapp_dev_user_inventory'),
     path('api/dev/delete_inventory_item', miniapp_dev_delete_inventory_item, name='miniapp_dev_delete_inventory_item'),
+    path('api/dev/feature_toggle', miniapp_dev_feature_toggle, name='miniapp_dev_feature_toggle'),
     # ─── Avatar save ──────────────────────────────────────────────────────────
     path('api/save_avatar', miniapp_save_avatar, name='miniapp_save_avatar'),
     # ─── Season Pass / Боевой пропуск ────────────────────────────────────────

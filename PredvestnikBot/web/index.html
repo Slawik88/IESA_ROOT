@@ -220,7 +220,7 @@ body.no-tabs{padding-top:48px}
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:12px 20px;border:none;border-radius:14px;cursor:pointer;font-size:13px;font-weight:700;transition:all .2s cubic-bezier(.4,0,.2,1);width:100%;margin-top:6px;letter-spacing:.3px;position:relative;overflow:hidden;-webkit-tap-highlight-color:transparent}
 .btn:active{transform:scale(.96)}
 .btn:hover:not(:disabled){filter:brightness(1.1)}
-.btn-primary{background:linear-gradient(135deg,#6c5fe0,#9b4dca);color:#fff;box-shadow:0 4px 20px rgba(124,106,247,.35),0 0 0 1px rgba(124,106,247,.12)}
+.btn-primary{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;box-shadow:0 4px 20px rgba(124,106,247,.35),0 0 0 1px rgba(124,106,247,.12)}
 .btn-primary:hover{box-shadow:0 6px 28px rgba(124,106,247,.5),0 0 0 1px rgba(124,106,247,.25);transform:translateY(-1px)}
 .btn-green{background:linear-gradient(135deg,#15813d,#1da04d);color:#fff;box-shadow:0 4px 16px rgba(34,197,94,.28)}
 .btn-green:hover{box-shadow:0 6px 22px rgba(34,197,94,.4);transform:translateY(-1px)}
@@ -634,11 +634,14 @@ select:focus{border-color:var(--accent)}
 
 /* ── Responsive container for very wide screens ───────────────────────────── */
 @media(min-width:900px){
-  .balance-bar,.tabs,.cat-bar{max-width:900px;left:50%;right:auto;transform:translateX(-50%);border-radius:0 0 16px 16px}
-  .balance-bar{border-radius:0 0 16px 16px}
-  .cat-bar{border-radius:16px 16px 0 0}
-  .toast{bottom:calc(80px + env(safe-area-inset-bottom,0px))}
   body{max-width:900px;margin:0 auto}
+  .toast{bottom:calc(80px + env(safe-area-inset-bottom,0px))}
+}
+/* Desktop sidebar: restore correct fixed positioning after the 900px block above */
+@media(min-width:768px){
+  .cat-bar{left:0;right:auto;transform:none;max-width:none;border-radius:0}
+  .balance-bar{left:var(--sidebar-w);right:0;transform:none;max-width:none;border-radius:0}
+  .tabs{left:0;right:0;transform:none;max-width:none}
 }
 
 /* ── Animated background mesh ─────────────────────────────────────────────── */
@@ -1206,7 +1209,7 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;
               📊 Посмотреть
             </button>
             <button class="btn btn-sm" onclick="buySeasonPremium()" id="seasonBuyBtn" style="background:#a855f7;color:#fff;border:none;flex:1">
-              ⭐ 500 💎
+              ⭐ 299 💎/мес
             </button>
           </div>
         </div>
@@ -1271,11 +1274,11 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;
       <div style="display:flex;align-items:center;justify-content:space-between">
         <div>
           <div style="font-weight:800;font-size:14px;color:#a855f7">⭐ Premium Pass</div>
-          <div style="font-size:11px;color:var(--text2);margin-top:2px">Удвой награды · Эксклюзивные предметы</div>
+          <div style="font-size:11px;color:var(--text2);margin-top:2px">Ежемесячная подписка · Удвой награды · Эксклюзивные предметы</div>
         </div>
         <button class="btn btn-sm" onclick="buySeasonPremium()" id="seasonPremiumBtn" 
                 style="background:#a855f7;color:#fff;border:none;padding:6px 12px;border-radius:6px">
-          500 💎
+          299 💎/мес
         </button>
       </div>
     </div>
@@ -1283,6 +1286,13 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;
     <!-- Rewards List -->
     <div class="card">
       <div class="card-title">🎁 Награды по уровням</div>
+      <!-- Track header -->
+      <div style="display:grid;grid-template-columns:32px 1fr 1fr 20px;gap:4px;padding:4px 0 8px;border-bottom:1px solid var(--border);margin-bottom:4px">
+        <div></div>
+        <div style="font-size:10px;font-weight:700;color:var(--text2);text-align:center">🆓 БЕСПЛАТНО</div>
+        <div style="font-size:10px;font-weight:700;color:#a855f7;text-align:center">⭐ ПОДПИСКА</div>
+        <div></div>
+      </div>
       <div id="seasonRewardsList" class="season-rewards-container">
         <!-- Dynamically populated -->
       </div>
@@ -1826,7 +1836,7 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;
           <li>🏪 Покупки в магазине — небольшой бонус</li>
         </ul>
         <p style="margin-top:8px"><b>Награды (каждые несколько уровней):</b> Мора 🪙, кристаллы 💎, особые предметы, эксклюзивные титулы</p>
-        <p style="margin-top:4px"><b>Премиум-трек:</b> 500 💎 → дополнительная линейка наград на каждом уровне</p>
+        <p style="margin-top:4px"><b>Премиум-трек:</b> 299 💎/мес → дополнительная линейка наград на каждом уровне</p>
         <p style="margin-top:4px;font-size:11px;color:var(--text2)">Прогресс и награды — вкладка «🎖 Сезон» в Mini App</p>
       </div>
     </div>
@@ -2202,12 +2212,12 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;
   <!-- ⑤ Чёрный список (глобальный бан) -->
   <div class="card" id="devBanlistCard">
     <div class="card-title">🚫 Чёрный список<span class="rank-chip rank-chip-owner">👑 Владелец+</span></div>
-    <div style="display:flex;gap:6px;margin-bottom:8px">
+    <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap">
       <input type="number" id="devBanUid" placeholder="User ID"
-             style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text)"/>
+             style="flex:1;min-width:80px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text)"/>
       <input type="text" id="devBanReason" placeholder="Причина"
-             style="flex:2;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text)"/>
-      <button class="btn" style="background:#dc2626;color:#fff;flex:0 0 auto" onclick="devBanUser()">🚫 Бан</button>
+             style="flex:2;min-width:120px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text)"/>
+      <button class="btn" style="background:#dc2626;color:#fff;flex:0 0 auto;width:auto;margin-top:0" onclick="devBanUser()">🚫 Бан</button>
     </div>
     <button class="btn btn-primary" onclick="loadDevBanlist()" style="margin-bottom:6px">📋 Список</button>
     <div id="devBanList" style="max-height:180px;overflow-y:auto"></div>
@@ -2448,6 +2458,21 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;
       <button class="btn" style="flex:1;background:var(--bg3);color:var(--text2);border:1px solid var(--border)" onclick="resetAf2Config()">↩️ Сброс</button>
     </div>
     <div id="devAf2Msg" style="margin-top:8px;font-size:12px;min-height:18px"></div>
+  </div>
+
+  <!-- 🔧 Feature Toggles per chat (developer only) -->
+  <div class="card" id="devFeatureToggleCard" style="display:none">
+    <div class="card-title">🔧 Функции чата<span class="rank-chip rank-chip-dev">💻 Разраб.</span></div>
+    <div style="font-size:11px;color:var(--text2);margin-bottom:8px">Включение/отключение модулей для выбранного чата</div>
+    <div style="display:flex;gap:6px;margin-bottom:8px">
+      <select id="devFeatChatSel" style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text);font-size:13px">
+        <option value="">— выберите чат —</option>
+      </select>
+      <button class="btn btn-primary" onclick="loadDevFeatFlags()" style="flex:0 0 auto">🔄</button>
+    </div>
+    <div id="devFeatFlagsGrid" style="display:none;display:grid;gap:6px">
+    </div>
+    <div id="devFeatMsg" style="font-size:12px;min-height:18px;margin-top:6px"></div>
   </div>
 
   </div><!-- /dev-subtab-settings -->
@@ -4524,16 +4549,24 @@ function bondCard(b){
   ${(b.amount||0)>0?`<div class="stat-row"><span class="stat-label">📊 Ср. цена входа</span><span class="stat-value">${b.avg_price||0} 🪙</span></div>`:''}
   ${(b.amount||0)>0?`<div class="stat-row"><span class="stat-label">📈 П/У</span><span class="stat-value" style="color:${pnlColor}">${pnlSign}${pnlM} 🪙 (${pnlSign}${pnlP}%)</span></div>`:''}
   <div style="margin-top:10px">
-    <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:4px">
       <input type="number" id="moraBuy_${b.key}" placeholder="Мора 🪙" min="1" oninput="calcShares('${b.key}')" style="flex:1;min-width:0;box-sizing:border-box;font-size:13px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text);outline:none"/>
       <span style="color:var(--text2);font-size:13px;font-weight:700">⇄</span>
       <input type="number" id="sharesBuy_${b.key}" placeholder="Шт." min="1" oninput="calcMora('${b.key}')" style="flex:1;min-width:0;box-sizing:border-box;font-size:13px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text);outline:none"/>
+    </div>
+    <div style="display:flex;gap:4px;margin-bottom:6px;flex-wrap:wrap">
+      ${[1,5,10,50].map(n=>`<button class="btn btn-sm" style="font-size:10px;padding:3px 8px;background:rgba(34,197,94,.12);color:#22c55e;border:1px solid rgba(34,197,94,.3)" onclick="setBuyShares('${b.key}',${n})">×${n}</button>`).join('')}
+      <button class="btn btn-sm" style="font-size:10px;padding:3px 8px;background:rgba(34,197,94,.2);color:#22c55e;border:1px solid rgba(34,197,94,.4)" onclick="setMaxBuyByBalance('${b.key}')">MAX💰</button>
     </div>
     <button class="btn btn-green" onclick="buyBondsWithWallet('${b.key}')">🛒 Купить</button>
     <div style="display:flex;gap:8px;margin-top:6px">
       <input type="number" id="sellAmt_${b.key}" placeholder="Кол-во для продажи" min="1" style="flex:1;min-width:0;box-sizing:border-box;font-size:13px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text);outline:none"/>
       <button class="btn btn-red" style="flex:1;margin:0" onclick="sellBonds('${b.key}')">📤 Продать</button>
     </div>
+    ${(b.amount||0)>0?`<div style="display:flex;gap:4px;margin-top:4px;flex-wrap:wrap">
+      ${[1,5,10].map(n=>`<button class="btn btn-sm" style="font-size:10px;padding:3px 8px;background:rgba(239,68,68,.1);color:#ef4444;border:1px solid rgba(239,68,68,.25)" onclick="setSellAmt('${b.key}',${n})">−${n}</button>`).join('')}
+      <button class="btn btn-sm" style="font-size:10px;padding:3px 8px;background:rgba(239,68,68,.18);color:#ef4444;border:1px solid rgba(239,68,68,.4)" onclick="setSellAmt('${b.key}',${b.amount||0})">Всё (${b.amount})</button>
+    </div>`:''}
   </div>
 </div>`;}
 
@@ -4553,6 +4586,29 @@ function calcMora(key){
   const m=document.getElementById('moraBuy_'+key);
   if(!m) return;
   m.value=sh>0?sh*bond.price:'';
+}
+
+function setBuyShares(key, n) {
+  const bond = bondsData.find(b => b.key === key);
+  if (!bond) return;
+  const s = document.getElementById('sharesBuy_' + key);
+  const m = document.getElementById('moraBuy_' + key);
+  if (s) s.value = n;
+  if (m) m.value = n * bond.price;
+}
+
+function setMaxBuyByBalance(key) {
+  const bond = bondsData.find(b => b.key === key);
+  if (!bond || !bond.price) return;
+  const balance = profileData ? (profileData.balance || 0) : 0;
+  const maxShares = Math.floor(balance / bond.price);
+  if (maxShares <= 0) { toast('Недостаточно Моры', 'error'); return; }
+  setBuyShares(key, maxShares);
+}
+
+function setSellAmt(key, n) {
+  const s = document.getElementById('sellAmt_' + key);
+  if (s) s.value = n;
 }
 
 async function buyBondsWithWallet(key){
@@ -5456,6 +5512,12 @@ async function loadDevChatsDropdown(){
     const importSel = document.getElementById('devImportChatSel');
     if(importSel){
       importSel.innerHTML = '<option value="">— выберите чат —</option>' +
+        devChatsCache.map(c=>`<option value="${c.chat_id}">${esc(c.title||String(c.chat_id))} (${c.chat_id})</option>`).join('');
+    }
+    // Populate feature toggle chat selector
+    const featSel2 = document.getElementById('devFeatChatSel');
+    if(featSel2) {
+      featSel2.innerHTML = '<option value="">— выберите чат —</option>' +
         devChatsCache.map(c=>`<option value="${c.chat_id}">${esc(c.title||String(c.chat_id))} (${c.chat_id})</option>`).join('');
     }
     toast('✅ Загружено чатов: '+devChatsCache.length,'success');
@@ -6445,6 +6507,69 @@ async function resetAf2Config() {
   }
 }
 
+// ── Dev: Feature Toggles per chat ─────────────────────────────────────────────
+const _FEAT_LABELS = {
+  feat_website: '🌐 Мини-приложение',
+  feat_antispam: '🛡 Антиспам',
+  feat_marriages: '💍 Браки',
+  feat_pets: '🐾 Питомцы',
+  feat_casino: '🎰 Казино',
+  feat_random_events: '🎲 Рандом-ивенты',
+};
+
+async function loadDevFeatFlags() {
+  const sel = document.getElementById('devFeatChatSel');
+  const grid = document.getElementById('devFeatFlagsGrid');
+  const msg = document.getElementById('devFeatMsg');
+  const selChatId = sel ? sel.value : '';
+  if (!selChatId) { if (msg) msg.textContent = 'Выбери чат'; return; }
+  if (msg) msg.textContent = '⏳ Загрузка…';
+  try {
+    const r = await api('/api/dev/feature_toggle?chat_id=' + selChatId);
+    const flags = r.flags || {};
+    if (grid) {
+      grid.style.display = 'grid';
+      grid.innerHTML = Object.entries(_FEAT_LABELS).map(([key, label]) => {
+        const on = flags[key] !== false;
+        return `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border)">
+          <span style="font-size:13px">${label}</span>
+          <div class="tog" id="featTog_${key}" data-val="${on?'1':'0'}" data-chat="${selChatId}" data-feat="${key}"
+               style="background:${on?'#4ade80':'#475569'};width:44px;height:24px;border-radius:12px;position:relative;cursor:pointer"
+               onclick="toggleFeat(this)">
+            <div style="position:absolute;top:3px;${on?'right:3px':'left:3px'};width:18px;height:18px;border-radius:9px;background:#fff;transition:left .15s,right .15s"></div>
+          </div>
+        </div>`;
+      }).join('');
+    }
+    if (msg) msg.textContent = '';
+  } catch(e) {
+    if (msg) msg.textContent = '❌ ' + e.message;
+  }
+}
+
+async function toggleFeat(togEl) {
+  const key = togEl.dataset.feat;
+  const selChatId = togEl.dataset.chat;
+  const isOn = togEl.dataset.val === '1';
+  const newOn = !isOn;
+  // Optimistic UI update
+  togEl.dataset.val = newOn ? '1' : '0';
+  togEl.style.background = newOn ? '#4ade80' : '#475569';
+  const knob = togEl.querySelector('div');
+  if (knob) { knob.style.left = newOn ? '' : '3px'; knob.style.right = newOn ? '3px' : ''; }
+  const msg = document.getElementById('devFeatMsg');
+  try {
+    await api('/api/dev/feature_toggle', 'POST', { chat_id: parseInt(selChatId), feature: key, enabled: newOn });
+    if (msg) { msg.style.color = 'var(--success,#4ade80)'; msg.textContent = '✅ ' + _FEAT_LABELS[key] + ': ' + (newOn ? 'вкл' : 'выкл'); setTimeout(() => { msg.textContent = ''; }, 2500); }
+  } catch(e) {
+    // Revert on error
+    togEl.dataset.val = isOn ? '1' : '0';
+    togEl.style.background = isOn ? '#4ade80' : '#475569';
+    if (knob) { knob.style.left = isOn ? '' : '3px'; knob.style.right = isOn ? '3px' : ''; }
+    if (msg) { msg.style.color = '#f87171'; msg.textContent = '❌ ' + e.message; }
+  }
+}
+
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 loadProfile().then(() => {
@@ -6747,6 +6872,14 @@ function switchDevSubtab(name) {
     const evSel = document.getElementById('devEventChatSel');
     if(evSel && devChatsCache && devChatsCache.length) {
       evSel.innerHTML = devChatsCache.map(c=>`<option value="${c.chat_id}">${esc(c.title||String(c.chat_id))} (${c.chat_id})</option>`).join('');
+    }
+  }
+  // Auto-populate feature toggle chat selector when switching to settings tab
+  if(name === 'settings') {
+    const featSel = document.getElementById('devFeatChatSel');
+    if(featSel && devChatsCache && devChatsCache.length && featSel.options.length < 2) {
+      featSel.innerHTML = '<option value="">— выберите чат —</option>' +
+        devChatsCache.map(c=>`<option value="${c.chat_id}">${esc(c.title||String(c.chat_id))} (${c.chat_id})</option>`).join('');
     }
   }
 }
@@ -8211,11 +8344,12 @@ function renderAuctionLot(l) {
   const myUid = profileData ? profileData.uid : 0;
   const isMine = l.seller_id == myUid;
   const hasBuyout = l.buyout_price && l.buyout_price > 0;
+  const chatBadge = l.seller_chat_name ? `<span style="font-size:9px;background:rgba(124,106,247,.15);color:var(--accent);border-radius:6px;padding:1px 6px;margin-left:4px">${esc(l.seller_chat_name)}</span>` : '';
   let html = '<div style="padding:10px 4px;border-bottom:1px solid var(--border)">' +
     '<div style="display:flex;gap:8px;align-items:flex-start">' +
     '<span style="font-size:22px;min-width:32px;text-align:center">' + esc(l.item_emoji) + '</span>' +
     '<div style="flex:1;min-width:0">' +
-    '<div style="font-weight:700;font-size:13px">' + esc(l.item_name) + '</div>' +
+    '<div style="font-weight:700;font-size:13px">' + esc(l.item_name) + chatBadge + '</div>' +
     '<div style="font-size:11px;color:var(--text2)">🪙 <strong style="color:var(--accent)">' + l.current_price + '</strong> · ' + l.bid_count + ' ставок · ⏰ ' + esc(l.remaining_str||'—') + '</div>' +
     (hasBuyout ? '<div style="font-size:11px;color:#10b981">🟢 Выкуп: ' + l.buyout_price + '🪙</div>' : '') +
     '</div>' +
@@ -8487,7 +8621,7 @@ function renderSeasonData() {
     premiumCard.style.display = 'none';
   } else {
     premiumCard.style.display = 'block';
-    premiumBtn.textContent = '500 💎';
+    premiumBtn.textContent = '299 💎/мес';
   }
   
   // Rewards list
