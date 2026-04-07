@@ -12,7 +12,10 @@
   --border:#1a1f3a;--accent:#7c6af7;--accent2:#a855f7;
   --gold:#f4c542;--green:#22c55e;--red:#ef4444;--red2:#dc2626;
   --text:#eaecf6;--text2:#6e76a0;--radius:18px;
-  --glass:rgba(13,16,34,.72);--glow-sm:0 0 12px rgba(124,106,247,.15);--glow-md:0 0 24px rgba(124,106,247,.22)
+  --glass:rgba(13,16,34,.72);--glow-sm:0 0 12px rgba(124,106,247,.15);--glow-md:0 0 24px rgba(124,106,247,.22);
+  --shadow-card:0 4px 24px rgba(0,0,0,.38),0 0 0 1px rgba(255,255,255,.045);
+  --shadow-card-hover:0 12px 52px rgba(0,0,0,.58),0 0 0 1px rgba(124,106,247,.18);
+  --sidebar-w:200px
 }
 
 /* ==== THEMES ==== */
@@ -26,7 +29,7 @@ body[data-theme="sakura"]{--bg:#0b0710;--bg2:#140e22;--bg3:#1c1430;--accent:#f47
 
 /* ==== RESET ==== */
 *{box-sizing:border-box;margin:0;padding:0}
-body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:14px;min-height:100vh;overflow-x:hidden;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;padding-top:calc(48px + 45px);padding-bottom:calc(68px + env(safe-area-inset-bottom,0px));transition:padding-top .15s}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:14px;min-height:100vh;overflow-x:hidden;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;padding-top:calc(48px + 45px);padding-bottom:calc(68px + env(safe-area-inset-bottom,0px));transition:background .46s ease,color .3s ease,padding-top .15s}
 /* When tabs are hidden via .single class, body padding reduces to just balance-bar height */
 body.no-tabs{padding-top:48px}
 
@@ -61,10 +64,104 @@ body.no-tabs{padding-top:48px}
 @keyframes catPillIn{from{width:0;opacity:0}to{width:40%;opacity:1}}
 .cat-btn:active .cat-icon{transform:scale(.82) translateY(1px)}
 
+/* ─── DESKTOP SIDEBAR ───────────────────────────────────────────────── */
+@media(min-width:768px){
+  :root{--sidebar-w:200px}
+  body{padding-left:var(--sidebar-w);padding-bottom:0}
+  body.no-tabs{padding-left:var(--sidebar-w);padding-bottom:0}
+  .balance-bar{left:var(--sidebar-w)}
+  .cat-bar{
+    width:var(--sidebar-w);height:100dvh;
+    top:0;left:0;right:auto;bottom:auto;
+    flex-direction:column;align-items:stretch;justify-content:flex-start;
+    padding:94px 8px 28px;
+    box-shadow:1px 0 0 rgba(124,106,247,.08),2px 0 40px rgba(0,0,0,.5);
+    border-top:none;border-right:1px solid rgba(124,106,247,.07);
+    overflow-y:auto;overflow-x:hidden
+  }
+  .cat-bar::before{
+    top:85px;left:12px;right:12px;bottom:auto;
+    width:auto;height:1px
+  }
+  .cat-btn{
+    flex:0 0 auto;min-height:48px;flex-direction:row;justify-content:flex-start;
+    align-items:center;padding:11px 14px;gap:12px;font-size:21px;
+    border-radius:14px;margin:1px 0;width:100%;box-sizing:border-box;text-align:left
+  }
+  .cat-btn span{font-size:13px;font-weight:600;letter-spacing:0;text-transform:none;opacity:1}
+  .cat-btn.active{background:rgba(124,106,247,.12)}
+  .cat-btn.active .cat-icon{transform:none;filter:drop-shadow(0 0 7px rgba(124,106,247,.55))}
+  .cat-btn.active::after{
+    top:18%;bottom:18%;left:0;right:auto;
+    transform:none;width:3px;height:auto;
+    border-radius:0 4px 4px 0;
+    background:linear-gradient(180deg,var(--accent),var(--accent2));
+    box-shadow:2px 0 14px rgba(124,106,247,.5);
+    animation:none
+  }
+  .cat-btn:active .cat-icon{transform:scale(.9)}
+  .cat-badge{top:50%;transform:translateY(-50%);right:10px;left:auto}
+  .tab-content{padding-bottom:28px}
+  .two-col-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start}
+  .two-col-grid>.card{margin-bottom:0}
+  /* toast shifts to centre of main content area */
+  .toast{
+    bottom:28px;
+    left:calc(var(--sidebar-w) + (100vw - var(--sidebar-w)) / 2);
+    transform:translateX(-50%) translateY(20px)
+  }
+  .toast.show{transform:translateX(-50%) translateY(0)}
+  @keyframes toast-in{
+    0%{opacity:0;transform:translateX(-50%) translateY(30px) scale(.9)}
+    60%{transform:translateX(-50%) translateY(-4px) scale(1.02)}
+    100%{opacity:1;transform:translateX(-50%) translateY(0) scale(1)}
+  }
+}
+
+/* ─── THEME PALETTE PICKER ─────────────────────────────────────────────── */
+.theme-palette-grid{
+  display:grid;grid-template-columns:repeat(4,1fr);gap:12px;padding:4px 0 10px
+}
+@media(min-width:440px){.theme-palette-grid{grid-template-columns:repeat(7,1fr);gap:8px}}
+.theme-palette-item{
+  display:flex;flex-direction:column;align-items:center;gap:7px;
+  cursor:pointer;-webkit-tap-highlight-color:transparent;
+  transition:transform .22s cubic-bezier(.34,1.56,.64,1)
+}
+.theme-palette-item:hover{transform:scale(1.12)}
+.theme-palette-item:active{transform:scale(.92)}
+.theme-palette-swatch{
+  width:52px;height:52px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  position:relative;
+  box-shadow:0 4px 18px rgba(0,0,0,.48);
+  transition:box-shadow .25s,transform .25s;
+  border:3px solid transparent
+}
+.theme-palette-item.theme-palette-active .theme-palette-swatch{
+  box-shadow:0 0 0 3px var(--accent),0 6px 24px rgba(0,0,0,.5);
+  transform:scale(1.08)
+}
+.theme-palette-emoji{font-size:24px;line-height:1;pointer-events:none}
+.theme-palette-check{
+  position:absolute;bottom:-4px;right:-4px;
+  width:18px;height:18px;border-radius:50%;
+  background:var(--accent);color:#fff;font-size:10px;font-weight:900;
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 2px 8px rgba(0,0,0,.45);border:2px solid var(--bg)
+}
+.theme-palette-name{
+  font-size:10px;font-weight:600;color:var(--text2);
+  text-align:center;white-space:nowrap;line-height:1;transition:color .2s
+}
+.theme-palette-item.theme-palette-active .theme-palette-name{
+  color:var(--accent);font-weight:700
+}
+
 /* ==== TAB CONTENT ==== */
-.tab-content{display:none;padding:12px;padding-bottom:20px;max-width:520px;margin:0 auto;animation:tabReveal .22s ease both}
+.tab-content{display:none;padding:12px;padding-bottom:28px;max-width:1000px;margin:0 auto;animation:tabReveal .28s cubic-bezier(.16,1,.3,1) both}
 @keyframes tabReveal{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
-@media(min-width:600px){.tab-content{max-width:min(940px,98vw);padding:20px 24px}}
+@media(min-width:600px){.tab-content{max-width:min(1000px,96vw);padding:18px 20px}}
 .tab-content.active{display:block}
 /* Wide-screen 2-column layout for cards */
 @media(min-width:680px){
@@ -79,8 +176,8 @@ body.no-tabs{padding-top:48px}
 .section-title::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,rgba(124,106,247,.2),transparent)}
 
 /* ==== CARDS ==== */
-.card{background:var(--glass);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid rgba(124,106,247,.1);border-radius:var(--radius);padding:14px;margin-bottom:10px;transition:transform .22s cubic-bezier(.4,0,.2,1),box-shadow .22s;word-break:break-word;overflow-wrap:anywhere;min-width:0;box-shadow:0 2px 16px rgba(0,0,0,.28),inset 0 1px 0 rgba(255,255,255,.04)}
-.card:hover{transform:translateY(-2px) scale(1.003);box-shadow:0 8px 36px rgba(0,0,0,.4),0 0 0 1px rgba(124,106,247,.18)}
+.card{background:var(--glass);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,.05);border-radius:20px;padding:16px;margin-bottom:10px;transition:transform .22s cubic-bezier(.4,0,.2,1),box-shadow .22s;word-break:break-word;overflow-wrap:anywhere;min-width:0;box-shadow:var(--shadow-card)}
+.card:hover{transform:translateY(-2px) scale(1.003);box-shadow:var(--shadow-card-hover)}
 /* Cascade card reveal when tab becomes active */
 @keyframes cardIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
 .tab-content.active .card{animation:cardIn .3s cubic-bezier(.16,1,.3,1) backwards}
@@ -240,7 +337,7 @@ select:focus{border-color:var(--accent)}
 #rarityFlash{position:fixed;inset:0;z-index:8995;pointer-events:none;opacity:0;transition:opacity .12s}
 
 /* ==== LEADERBOARD ==== */
-.lb-entry{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:14px;margin-bottom:5px;background:rgba(20,23,40,.75);border:1px solid rgba(124,106,247,.08);transition:all .2s cubic-bezier(.4,0,.2,1)}
+.lb-entry{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:16px;margin-bottom:5px;background:rgba(20,23,40,.7);border:1px solid rgba(255,255,255,.04);transition:all .2s cubic-bezier(.4,0,.2,1);box-shadow:0 2px 12px rgba(0,0,0,.25)}
 .lb-entry:hover{border-color:rgba(124,106,247,.28);transform:translateX(3px)}
 .lb-entry.highlight{background:rgba(244,197,66,.06);border-color:rgba(244,197,66,.22)}
 .lb-rank{width:26px;text-align:center;font-weight:800;font-size:14px;color:var(--text2)}
@@ -3373,20 +3470,34 @@ async function loadThemes(){
 }
 
 function renderInvThemes(){
+  const THEME_CONF = {
+    default: {accent:'#7c6af7',bg:'#06060c',name:'Стандарт',emoji:'🌑'},
+    fire:    {accent:'#f97316',bg:'#100600',name:'Огонь',emoji:'🔥'},
+    ice:     {accent:'#38bdf8',bg:'#030c18',name:'Лёд',emoji:'❄️'},
+    neon:    {accent:'#a855f7',bg:'#07000f',name:'Неон',emoji:'⚡'},
+    royal:   {accent:'#f4c542',bg:'#0a0700',name:'Рояль',emoji:'👑'},
+    abyss:   {accent:'#818cf8',bg:'#06060f',name:'Бездна',emoji:'🌌'},
+    sakura:  {accent:'#f472b6',bg:'#0b0710',name:'Сакура',emoji:'🌸'},
+  };
   const owned = themesData.filter(t => t.owned);
-  if(!owned.length){ document.getElementById('invThemesList').innerHTML=''; return; }
-  const tierEmoji = {common:'⚪',rare:'💜',epic:'🔮',legendary:'⭐'};
+  const activeKey = (profileData && profileData.active_theme) || 'default';
+  // Always show default + all owned
+  const allThemes = [{key:'default',owned:true},...owned.filter(t=>t.key!=='default')];
   document.getElementById('invThemesList').innerHTML =
-    `<div style="font-size:11px;color:var(--text2);margin:8px 0 4px">🎨 Темы профиля</div>`+
-    owned.map(t=>`
-    <div class="inv-item">
-      <div class="ii-emoji">${tierEmoji[t.tier]||'🎨'}</div>
-      <div class="ii-info">
-        <div class="ii-name">${esc(t.name)}</div>
-        <div class="ii-rarity">${t.active?'<span class="badge" style="background:#451a03;color:#fbbf24">Активна</span>':t.tier}</div>
-      </div>
-      <button class="btn btn-sm btn-primary" onclick="setTheme('${t.key}')" style="width:auto">${t.active?'✓':'Надеть'}</button>
-    </div>`).join('');
+    '<div style="font-size:11px;color:var(--text2);margin:8px 0 12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px">🎨 Тема приложения</div>'+
+    '<div class="theme-palette-grid">'+
+    allThemes.map(t=>{
+      const p=THEME_CONF[t.key]||{accent:'#888',bg:'#111',name:t.name||t.key,emoji:'🎨'};
+      const isActive=(t.key===activeKey)||(t.key==='default'&&(!activeKey||activeKey==='default'));
+      return `<div class="theme-palette-item${isActive?' theme-palette-active':''}" onclick="setTheme('${t.key}')" title="${esc(p.name)}">`+
+        `<div class="theme-palette-swatch" style="background:radial-gradient(circle at 38% 32%,${p.accent}99,${p.bg} 72%)">`+
+        `<span class="theme-palette-emoji">${p.emoji}</span>`+
+        (isActive?'<div class="theme-palette-check">✓</div>':'')+
+        '</div>'+
+        `<div class="theme-palette-name">${esc(p.name)}</div>`+
+        '</div>';
+    }).join('')+
+    '</div>';
 }
 
 async function setTheme(key){
@@ -3593,31 +3704,34 @@ function renderShop(d){
       </div></div>`;
   }).join('');
 
-  // Profile Themes
-  const themeAccents={fire:'#f97316',ice:'#38bdf8',royal:'#d4af37',abyss:'#6366f1',neon:'#d946ef',sakura:'#f472b6'};
-  const themeEmoji={fire:'🔥',ice:'❄️',royal:'👑',abyss:'🌌',neon:'⚡',sakura:'🌸'};
-  const activeTheme=(profileData&&profileData.active_theme)||'';
-  document.getElementById('themesShopGrid').innerHTML=(d.themes||[]).map(t=>{
-    const accent=themeAccents[t.key]||'var(--accent)';
-    const emoji=themeEmoji[t.key]||'🎨';
+  // Profile Themes – palette card grid
+  const THEME_SHOP_CONF = {
+    default: {accent:'#7c6af7',bg:'#06060c',name:'Стандарт',emoji:'🌑'},
+    fire:    {accent:'#f97316',bg:'#100600',name:'Огонь',emoji:'🔥'},
+    ice:     {accent:'#38bdf8',bg:'#030c18',name:'Лёд',emoji:'❄️'},
+    neon:    {accent:'#a855f7',bg:'#07000f',name:'Неон',emoji:'⚡'},
+    royal:   {accent:'#f4c542',bg:'#0a0700',name:'Рояль',emoji:'👑'},
+    abyss:   {accent:'#818cf8',bg:'#06060f',name:'Бездна',emoji:'🌌'},
+    sakura:  {accent:'#f472b6',bg:'#0b0710',name:'Сакура',emoji:'🌸'},
+  };
+  const activeTheme=(profileData&&profileData.active_theme)||'default';
+  // Palette swatches in shop: show price/owned state below swatch
+  document.getElementById('themesShopGrid').innerHTML='<div class="theme-palette-grid" style="grid-template-columns:repeat(4,1fr)">'+(d.themes||[]).map(t=>{
+    const p=THEME_SHOP_CONF[t.key]||{accent:'#888',bg:'#111',name:t.name,emoji:'🎨'};
+    const isActive=t.key===activeTheme;
     const isGacha=t.source==='gacha';
-    return `<div class="scard${t.owned?' owned':''}${t.key===activeTheme?' scard-active':''}" ${isGacha||t.owned?'':'onclick="buyProfileTheme(\''+t.key+'\')"'}>
-      <div class="scard-accent" style="background:${accent}"></div>
-      <div class="scard-icon">${emoji}</div>
-      <div class="scard-body">
-        <div class="scard-name">${esc(t.name)}</div>
-        <div class="cosmetic-preview" style="display:flex;gap:3px">
-          <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${themeAccents[t.key]||'#888'};flex-shrink:0;margin-top:2px"></span>
-          <span style="font-size:10px;color:var(--text2)">меняет весь дизайн приложения</span>
-        </div>
-        <div class="scard-footer">
-          ${isGacha?'<span class="sbadge" style="background:rgba(168,85,247,.15);color:#a855f7;border:1px solid rgba(168,85,247,.3)">🎰 Только гача</span>':
-            t.owned?(t.key===activeTheme?'<span class="sbadge sbadge-active">✓ Активна</span>':
-              `<span class="sbadge sbadge-owned" onclick="activateTheme('${t.key}')" style="cursor:pointer">✓ Надеть</span>`):
-            '<span class="sbadge sbadge-price">'+t.price+' 🪙</span>'}
-        </div>
-      </div></div>`;
-  }).join('')||'<div style="font-size:12px;color:var(--text2);text-align:center;padding:12px">Темы не загружены</div>';
+    const clickAttr=(!isGacha&&!t.owned)?`onclick="buyProfileTheme('${t.key}')"`:'';
+    const ownedClickAttr=(t.owned&&!isActive)?`onclick="activateTheme('${t.key}')"`:'';
+    return `<div class="theme-palette-item${isActive?' theme-palette-active':''}" ${clickAttr||ownedClickAttr} title="${esc(t.name)}">`+
+      `<div class="theme-palette-swatch" style="background:radial-gradient(circle at 38% 32%,${p.accent}99,${p.bg} 72%)">`+
+      `<span class="theme-palette-emoji">${p.emoji}</span>`+
+      (isActive?'<div class="theme-palette-check">✓</div>':'')+
+      '</div>'+
+      `<div class="theme-palette-name">${esc(p.name)}</div>`+
+      `<div style="font-size:9px;margin-top:-2px;font-weight:700;text-align:center">`+
+      (isGacha?'<span style="color:#a855f7">🎰</span>':isActive?'<span style="color:var(--accent)">✓</span>':t.owned?'<span style="color:#4ade80">✓</span>':`<span style="color:var(--text2)">${t.price}🪙</span>`)+
+      '</div></div>';
+  }).join('')+'</div>'||'<div style="font-size:12px;color:var(--text2);text-align:center;padding:12px">Темы не загружены</div>';
 
   // VIP — show perks clearly
   document.getElementById('shopVipContent').innerHTML=d.has_vip
@@ -6458,7 +6572,10 @@ function switchDevSubtab(name) {
 }
 
 function applyTheme(key) {
-  document.body.dataset.theme = (key && key !== 'default') ? key : '';
+  const body = document.body;
+  body.style.transition = 'background .46s ease, color .3s ease';
+  body.dataset.theme = (key && key !== 'default') ? key : '';
+  setTimeout(() => { body.style.transition = ''; }, 520);
 }
 
 function _devBtns(show) {
