@@ -11,10 +11,10 @@ async def get_checkin_status(uid: int, chat_id: int) -> dict:
     Returns {streak, total_days, last_checkin, checkpoint, today_done}.
     """
     from database.db import get_daily_checkin
-    from datetime import datetime, timezone
+    from utils.helpers import bot_today
 
     data = await get_daily_checkin(uid, chat_id)
-    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    today = bot_today()
 
     return {
         "streak":       data["streak"],

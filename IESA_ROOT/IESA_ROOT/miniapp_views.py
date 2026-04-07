@@ -5180,6 +5180,10 @@ def miniapp_gifts_catalog(request):
         count, total = _a2s(get_gifts_summary)(uid, partner_id, chat_id)
         received = _a2s(get_received_gifts)(uid, chat_id)
 
+        from database.db import get_mora
+        mora = _a2s(get_mora)(uid, chat_id)
+        balance = mora["balance"] if mora else 0
+
         catalog = []
         for key, gift in MARRIAGE_GIFTS.items():
             buff = gift.get("buff")
@@ -5197,6 +5201,7 @@ def miniapp_gifts_catalog(request):
             "catalog":        catalog,
             "summary":        {"count": count, "total": total},
             "received":       received,
+            "balance":        balance,
         }, json_dumps_params={"ensure_ascii": False}, headers=headers)
     except Exception as exc:
         logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)

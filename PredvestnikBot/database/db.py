@@ -7367,8 +7367,8 @@ async def get_daily_checkin(user_id: int, chat_id: int) -> dict:
 
 async def perform_checkin(user_id: int, chat_id: int) -> dict:
     """Выполнить чекин. Возвращает {ok, mora, streak, total_days, is_checkpoint, free_gacha, already_done}."""
-    from datetime import timezone
-    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    from utils.helpers import bot_today
+    today = bot_today()
 
     async with postgres_connect() as db:
         async with db.execute(
