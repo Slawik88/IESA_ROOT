@@ -6223,11 +6223,12 @@ async def get_user_bonds(user_id: int, chat_id: int) -> list[dict]:
 
 
 async def get_bond_price_history(chat_id: int, bond_key: str, limit: int = 30) -> list[dict]:
-    """Return recent price history for a bond (global market — chat_id ignored)."""
+    """Return recent price history for a bond (global market — chat_id ignored). Limited to last 7 days."""
     async with postgres_connect() as db:
         async with db.execute(
             """SELECT price, recorded_at FROM bond_price_history
                WHERE chat_id=0 AND bond_key=?
+                 AND recorded_at >= NOW() - INTERVAL '7 days'
                ORDER BY id DESC LIMIT ?""",
             (bond_key, limit),
         ) as c:

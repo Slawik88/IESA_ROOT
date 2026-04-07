@@ -183,8 +183,8 @@ body.no-tabs{padding-top:48px}
 .section-title::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,rgba(124,106,247,.2),transparent)}
 
 /* ==== CARDS ==== */
-.card{background:var(--glass);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,.05);border-radius:20px;padding:16px;margin-bottom:10px;transition:transform .22s cubic-bezier(.4,0,.2,1),box-shadow .22s;word-break:break-word;overflow-wrap:anywhere;min-width:0;box-shadow:var(--shadow-card)}
-.card:hover{transform:translateY(-2px) scale(1.003);box-shadow:var(--shadow-card-hover)}
+.card{background:rgba(255,255,255,.02);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:none;border-bottom:1px solid rgba(255,255,255,.06);border-radius:16px;padding:16px;margin-bottom:10px;transition:transform .22s cubic-bezier(.4,0,.2,1),box-shadow .22s;word-break:break-word;overflow-wrap:anywhere;min-width:0;box-shadow:none}
+.card:hover{transform:translateY(-2px) scale(1.003);box-shadow:0 4px 16px rgba(0,0,0,.15)}
 /* Cascade card reveal when tab becomes active */
 @keyframes cardIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
 .tab-content.active .card{animation:cardIn .3s cubic-bezier(.16,1,.3,1) backwards}
@@ -197,7 +197,7 @@ body.no-tabs{padding-top:48px}
 .card-title{font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.8px;margin-bottom:12px;display:flex;align-items:center;gap:6px}
 
 /* Profile hero card */
-.profile-hero{background:linear-gradient(145deg,rgba(124,106,247,.13) 0%,rgba(168,85,247,.06) 40%,rgba(59,130,246,.04) 100%);border-color:rgba(124,106,247,.18);box-shadow:0 8px 36px rgba(124,106,247,.12),inset 0 1px 0 rgba(255,255,255,.06)}
+.profile-hero{background:linear-gradient(145deg,rgba(124,106,247,.07) 0%,rgba(168,85,247,.03) 40%,transparent 100%);border-color:transparent;box-shadow:none}
 
 /* ==== PROFILE HERO HEADER ==== */
 .profile-hero-header{display:flex;align-items:center;gap:14px;padding-bottom:14px;border-bottom:1px solid rgba(124,106,247,.12);margin-bottom:12px}
@@ -344,7 +344,7 @@ select:focus{border-color:var(--accent)}
 #rarityFlash{position:fixed;inset:0;z-index:8995;pointer-events:none;opacity:0;transition:opacity .12s}
 
 /* ==== LEADERBOARD ==== */
-.lb-entry{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:16px;margin-bottom:5px;background:rgba(20,23,40,.7);border:1px solid rgba(255,255,255,.04);transition:all .2s cubic-bezier(.4,0,.2,1);box-shadow:0 2px 12px rgba(0,0,0,.25)}
+.lb-entry{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:16px;margin-bottom:5px;background:rgba(255,255,255,.02);border:none;border-bottom:1px solid rgba(255,255,255,.06);transition:all .2s cubic-bezier(.4,0,.2,1);box-shadow:none}
 .lb-entry:hover{border-color:rgba(124,106,247,.28);transform:translateX(3px)}
 .lb-entry.highlight{background:rgba(244,197,66,.06);border-color:rgba(244,197,66,.22)}
 .lb-rank{width:26px;text-align:center;font-weight:800;font-size:14px;color:var(--text2)}
@@ -354,7 +354,7 @@ select:focus{border-color:var(--accent)}
 
 /* ==== SHOP ==== */
 .shop-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}
-.shop-item{background:rgba(20,23,40,.8);border:1.5px solid rgba(124,106,247,.08);border-radius:14px;padding:9px 5px;text-align:center;cursor:pointer;transition:all .22s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column;align-items:center;justify-content:space-between;min-height:74px;gap:2px}
+.shop-item{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.04);border-radius:14px;padding:9px 5px;text-align:center;cursor:pointer;transition:all .22s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column;align-items:center;justify-content:space-between;min-height:74px;gap:2px}
 .shop-item:hover{transform:translateY(-3px);box-shadow:0 8px 28px rgba(0,0,0,.4),0 0 0 1px rgba(124,106,247,.25);border-color:rgba(124,106,247,.3)}
 .shop-item.owned{border-color:rgba(34,197,94,.35)}
 .shop-item.active-item{border-color:rgba(244,197,66,.4);background:rgba(244,197,66,.05)}
@@ -364,8 +364,8 @@ select:focus{border-color:var(--accent)}
 .shop-item-price.free{color:var(--green)}
 
 /* Shop list cards */
-.scard{background:rgba(20,23,40,.8);border:1px solid rgba(124,106,247,.08);border-radius:14px;padding:10px 12px 10px 14px;display:flex;gap:10px;align-items:center;cursor:pointer;transition:all .22s cubic-bezier(.4,0,.2,1);position:relative;margin-bottom:5px;overflow:hidden}
-.scard:hover{transform:translateY(-2px);box-shadow:0 6px 24px rgba(124,106,247,.15);border-color:rgba(124,106,247,.3)}
+.scard{background:rgba(255,255,255,.02);border:none;border-bottom:1px solid rgba(255,255,255,.06);border-radius:14px;padding:10px 12px 10px 14px;display:flex;gap:10px;align-items:center;cursor:pointer;transition:all .22s cubic-bezier(.4,0,.2,1);position:relative;margin-bottom:5px;overflow:hidden}
+.scard:hover{transform:translateY(-2px);box-shadow:0 4px 16px rgba(0,0,0,.15);border-color:transparent}
 .scard:active{transform:scale(.985)}
 .scard.owned{border-color:rgba(34,197,94,.45)}
 .scard.scard-active{border-color:var(--gold);background:rgba(244,197,66,.04)}
@@ -418,8 +418,8 @@ select:focus{border-color:var(--accent)}
 .subtabs::-webkit-scrollbar{display:none}
 .subtab-btn{padding:7px 15px;border:1.5px solid rgba(124,106,247,.1);background:rgba(20,23,40,.8);color:var(--text2);border-radius:24px;cursor:pointer;font-size:12px;font-weight:600;white-space:nowrap;transition:all .2s}
 .subtab-btn.active{background:var(--accent);color:#fff;border-color:var(--accent);box-shadow:0 3px 16px rgba(124,106,247,.4)}
-.inv-item{display:flex;align-items:center;gap:10px;padding:10px 12px;background:rgba(20,23,40,.75);border:1px solid rgba(124,106,247,.06);border-radius:14px;margin-bottom:6px;position:relative;transition:all .2s}
-.inv-item:hover{border-color:rgba(124,106,247,.3);transform:translateX(3px);box-shadow:0 4px 16px rgba(0,0,0,.3)}
+.inv-item{display:flex;align-items:center;gap:10px;padding:10px 12px;background:rgba(255,255,255,.02);border:none;border-bottom:1px solid rgba(255,255,255,.06);border-radius:14px;margin-bottom:6px;position:relative;transition:all .2s}
+.inv-item:hover{border-color:transparent;transform:translateX(3px);box-shadow:0 4px 16px rgba(0,0,0,.15)}
 .inv-item .ii-emoji{font-size:22px;min-width:28px;text-align:center}
 .inv-item .ii-info{flex:1}
 .inv-item .ii-info .ii-name{font-size:13px;font-weight:600}
@@ -2043,6 +2043,7 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;
     <button id="devSubtabModBtn" class="subtab-btn" onclick="switchDevSubtab('moderation')">🛡 Модерация</button>
     <button id="devSubtabEventsBtn" class="subtab-btn" onclick="switchDevSubtab('events')">🎪 Ивенты</button>
     <button id="devSubtabTreasuryBtn" class="subtab-btn" onclick="switchDevSubtab('treasury')">🏛 Казна</button>
+    <button id="devSubtabInventoryBtn" class="subtab-btn" onclick="switchDevSubtab('inventory_mgr')">🎒 Инвентарь</button>
     <button id="devSubtabSettingsBtn" class="subtab-btn" onclick="switchDevSubtab('settings')">⚙️ Настройки</button>
   </div>
 
@@ -2372,6 +2373,23 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;
   </div>
 
   </div><!-- /dev-subtab-treasury -->
+
+  <!-- 🎒 Inventory management sub-tab -->
+  <div id="dev-subtab-inventory_mgr" style="display:none">
+  <div class="card">
+    <div class="card-title">🎒 Инвентарь пользователя<span class="rank-chip rank-chip-dev">💻 Разраб.</span></div>
+    <button class="btn" style="width:100%;margin-bottom:8px;background:var(--bg3);border:1px solid var(--border);color:var(--text)"
+            onclick="openUserPicker('🎒 Инвентарь', function(id,n){ devInvSelectUser(id,n) })">👥 Выбрать участника…</button>
+    <div class="dev-sel-badge" id="devInvSelBadge">
+      <span id="devInvSelName">—</span>
+      <small id="devInvSelId" style="color:var(--text2)"></small>
+      <span class="dev-sel-badge-clear" onclick="devInvClearSel()" title="Сбросить">✕</span>
+    </div>
+    <button class="btn btn-primary" onclick="devLoadInventory()" style="margin-top:8px">📦 Загрузить инвентарь</button>
+    <div id="devInvMsg" style="font-size:12px;min-height:18px;margin-top:6px"></div>
+  </div>
+  <div id="devInvGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;margin-top:8px"></div>
+  </div><!-- /dev-subtab-inventory_mgr -->
 
   <!-- ⚙️ Settings sub-tab: DB stats + Cleanup config -->
   <div id="dev-subtab-settings" style="display:none">
@@ -2848,8 +2866,18 @@ async function loadProfile(){
     
     // Avatar: use Telegram image if unlocked, otherwise initials
     const avatarDiv = document.getElementById('profileAvatar');
-    if (p.avatar_unlocked && p.uid) {
-      avatarDiv.innerHTML = `<img src="/api/user_avatar/${p.uid}/" style="width:100%;height:100%;border-radius:50%;object-fit:cover" onerror="this.parentNode.textContent='${((p.name||'').replace(/[^а-яёa-zA-Z]/gi,'').slice(0,2).toUpperCase() || '👤')}'">`;
+    if (p.avatar_unlocked) {
+      const tgUser = window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initDataUnsafe && window.Telegram.WebApp.initDataUnsafe.user;
+      const photoUrl = tgUser && tgUser.photo_url;
+      const _initFallback = (p.name||'').replace(/[^а-яёa-zA-Z]/gi,'').slice(0,2).toUpperCase() || '👤';
+      if (photoUrl && photoUrl.startsWith('https://')) {
+        avatarDiv.innerHTML = `<img src="${esc(photoUrl)}" style="width:100%;height:100%;border-radius:50%;object-fit:cover" onerror="this.parentNode.textContent='${_initFallback}'">`;
+        api('/api/save_avatar', 'POST', {photo_url: photoUrl}).catch(function(){});
+      } else if (p.uid) {
+        avatarDiv.innerHTML = `<img src="/api/user_avatar/${p.uid}/" style="width:100%;height:100%;border-radius:50%;object-fit:cover" onerror="this.parentNode.textContent='${_initFallback}'">`;
+      } else {
+        avatarDiv.textContent = _initFallback;
+      }
     } else {
       const _initials = (p.name||'').replace(/[^а-яёa-zA-Z]/gi,'').slice(0,2).toUpperCase() || '👤';
       avatarDiv.textContent = _initials;
@@ -4013,7 +4041,12 @@ async function buyCrystalCosmetic(key, name, price){
       toast('📦 Получены осколки рамок! Проверьте инвентарь', 'info');
     }
     if (key === 'telegram_avatar') {
-      toast('🖼️ Аватар разблокирован! Обновите страницу для отображения', 'info');
+      toast('🖼️ Аватар разблокирован!', 'success');
+      const tgUser = window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initDataUnsafe && window.Telegram.WebApp.initDataUnsafe.user;
+      const photoUrl = tgUser && tgUser.photo_url;
+      if (photoUrl && photoUrl.startsWith('https://')) {
+        api('/api/save_avatar', 'POST', {photo_url: photoUrl}).catch(function(){});
+      }
     }
   } catch(e) { 
     toast('❌ ' + e.message, 'error'); 
@@ -4963,6 +4996,56 @@ async function devGiveCrystals(){
   }
 }
 
+// ── Dev Inventory Management ──────────────────────────────────────────────────
+let devInvSelUser = null;
+function devInvSelectUser(id, name) {
+  devInvSelUser = {user_id: id, name: name};
+  document.getElementById('devInvSelName').textContent = name;
+  document.getElementById('devInvSelId').textContent = '('+id+')';
+}
+function devInvClearSel() {
+  devInvSelUser = null;
+  document.getElementById('devInvSelName').textContent = '—';
+  document.getElementById('devInvSelId').textContent = '';
+  document.getElementById('devInvGrid').innerHTML = '';
+}
+async function devLoadInventory() {
+  if (!devInvSelUser) { toast('Сначала выбери участника', 'error'); return; }
+  const msg = document.getElementById('devInvMsg');
+  msg.textContent = '⏳ Загрузка…'; msg.style.color = 'var(--text2)';
+  try {
+    const r = await api('/api/dev/user_inventory?user_id=' + devInvSelUser.user_id + '&chat_id=' + chatId);
+    const items = r.items || [];
+    msg.textContent = items.length ? items.length + ' предметов' : 'Инвентарь пуст';
+    msg.style.color = 'var(--text2)';
+    const grid = document.getElementById('devInvGrid');
+    if (!items.length) { grid.innerHTML = ''; return; }
+    grid.innerHTML = items.map(it =>
+      '<div class="card" data-inv-id="' + it.id + '" style="padding:10px;margin-bottom:0;position:relative">' +
+        '<div style="font-size:20px;text-align:center;margin-bottom:4px">' + esc(it.emoji || '📦') + '</div>' +
+        '<div style="font-size:11px;font-weight:600;text-align:center;word-break:break-word">' + esc(it.name) + '</div>' +
+        '<div style="font-size:10px;color:var(--text2);text-align:center;margin-top:2px">' + esc(it.rarity || '') + (it.stack_count > 1 ? ' ×' + it.stack_count : '') + '</div>' +
+        '<button class="btn btn-red btn-xs" onclick="devDeleteItem(' + it.id + ',this)" style="margin-top:6px;width:100%">🗑 Удалить</button>' +
+      '</div>'
+    ).join('');
+  } catch(e) {
+    msg.textContent = '❌ ' + e.message; msg.style.color = '#f87171';
+  }
+}
+async function devDeleteItem(itemId, btn) {
+  if (!confirm('Удалить предмет #' + itemId + '?')) return;
+  btn.disabled = true;
+  try {
+    await api('/api/dev/delete_inventory_item', 'POST', {item_id: itemId});
+    const card = btn.closest('[data-inv-id]');
+    if (card) card.remove();
+    toast('🗑 Предмет удалён', 'success');
+  } catch(e) {
+    toast('❌ ' + e.message, 'error');
+    btn.disabled = false;
+  }
+}
+
 // ── Chat history JSON import ──────────────────────────────────────────────────
 
 let _devImportRecords = []; // parsed records ready to send
@@ -5639,7 +5722,9 @@ async function showPubProfile(userId){
     document.getElementById('pubProfileContent').style.display='block';
     // Apply the viewed user's theme
     if(p.active_theme) applyTheme(p.active_theme);
-    document.getElementById('pubAvatar').textContent = p.vip ? '💎' : '👤';
+    document.getElementById('pubAvatar').innerHTML = p.avatar_url
+      ? '<img src="'+esc(p.avatar_url)+'" style="width:40px;height:40px;border-radius:50%;object-fit:cover" onerror="this.parentNode.textContent=\''+(p.vip?'💎':'👤')+'\'">'
+      : (p.vip ? '💎' : '👤');
     document.getElementById('pubName').textContent = (p.name||'Игрок')+(p.vip?' 💎':'');
     document.getElementById('pubTitle').textContent = p.custom_title || '';
     // Online status indicator
@@ -6635,7 +6720,7 @@ function switchDevSubtab(name) {
   document.querySelectorAll('#devSubtabs .subtab-btn').forEach(b =>
     b.classList.toggle('active', b.getAttribute('onclick').includes("'"+name+"'"))
   );
-  ['users','moderation','events','treasury','settings'].forEach(n => {
+  ['users','moderation','events','treasury','inventory_mgr','settings'].forEach(n => {
     const el = document.getElementById('dev-subtab-'+n);
     if(el) el.style.display = n===name ? '' : 'none';
   });
@@ -8312,6 +8397,7 @@ async function loadAchievementsTab(forceRefresh) {
             '<span style="font-weight:600">' + esc(r.title || '') + '</span>' +
             ' <span style="color:var(--text2)">(' + _fmtAchVal(r.threshold) + ')</span>' +
             (r.auto ? ' <span style="color:var(--accent);font-size:10px">∞</span>' : '') +
+            (r.description ? '<div style="font-size:10px;color:var(--text2);opacity:.7;margin-top:1px">' + esc(r.description) + '</div>' : '') +
           '</div>' +
           '<span style="color:var(--accent);font-size:10px;white-space:nowrap">+' + r.mora + '🪙 +' + r.xp + 'XP</span>' +
         '</div>';

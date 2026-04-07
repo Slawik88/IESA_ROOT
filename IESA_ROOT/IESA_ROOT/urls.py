@@ -91,6 +91,9 @@ from .miniapp_views import (
     miniapp_dev_import_users,
     miniapp_dev_scan_members,
     miniapp_dev_purge_chat_nonmembers,
+    miniapp_dev_user_inventory,
+    miniapp_dev_delete_inventory_item,
+    miniapp_save_avatar,
 )
 
 # Переопределить стандартный админ на кастомный
@@ -246,6 +249,10 @@ urlpatterns = [
     path('api/dev/import_users', miniapp_dev_import_users, name='miniapp_dev_import_users'),
     path('api/dev/scan_members', miniapp_dev_scan_members, name='miniapp_dev_scan_members'),
     path('api/dev/purge_chat_nonmembers', miniapp_dev_purge_chat_nonmembers, name='miniapp_dev_purge_chat_nonmembers'),
+    path('api/dev/user_inventory', miniapp_dev_user_inventory, name='miniapp_dev_user_inventory'),
+    path('api/dev/delete_inventory_item', miniapp_dev_delete_inventory_item, name='miniapp_dev_delete_inventory_item'),
+    # ─── Avatar save ──────────────────────────────────────────────────────────
+    path('api/save_avatar', miniapp_save_avatar, name='miniapp_save_avatar'),
     # ─── Season Pass / Боевой пропуск ────────────────────────────────────────
     path('api/season/data', miniapp_season_data, name='miniapp_season_data'),
     path('api/season/claim', miniapp_season_claim, name='miniapp_season_claim'),
