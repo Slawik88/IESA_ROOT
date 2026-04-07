@@ -32,6 +32,7 @@ _ADMIN_PREFIXES = (
     "top:",           # user: top pages
     "pn:",            # user: pagination
     "dr:",            # dm_roles: DM role onboarding
+    "anon_forward:",  # economy: forward anonymous message to main chat
 )
 
 
