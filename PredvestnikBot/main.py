@@ -61,6 +61,8 @@ async def main():
         token=BOT_TOKEN,
         default=DefaultBotProperties(parse_mode=ParseMode.HTML),
     )
+    from utils.bot_instance import set_bot
+    set_bot(bot)
     dp = Dispatcher()
 
     # Инициализация базы данных

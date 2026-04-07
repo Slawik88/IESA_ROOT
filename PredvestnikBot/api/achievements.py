@@ -310,7 +310,10 @@ async def get_all_counters(db, user_id: int, chat_id: int) -> dict[str, int]:
 
 # ---------------------------------------------------------------------------
 # Вспомогательные функции
-# ---------------------------------------------------------------------------async def _award(db, user_id: int, chat_id: int, ach: dict) -> bool:
+# ---------------------------------------------------------------------------
+
+
+async def _award(db, user_id: int, chat_id: int, ach: dict) -> bool:
     """Выдать достижение. Возвращает True если это новое достижение."""
     try:
         result = await db.execute(
@@ -323,18 +326,16 @@ async def get_all_counters(db, user_id: int, chat_id: int) -> dict[str, int]:
     except Exception:
         return False
 
-    # Применяем награду
+    # Применяем награду через правильные функции (правильные таблицы/колонки)
     try:
-        if ach["mora"] > 0:
-            await db.execute(
-                "UPDATE user_mora SET mora = mora + ? WHERE user_id=? AND chat_id=?",
-                (ach["mora"], user_id, chat_id)
-            )
-        if ach.get("xp", 0) > 0:
-            await db.execute(
-                "UPDATE user_mora SET xp = xp + ? WHERE user_id=? AND chat_id=?",
-                (ach["xp"], user_id, chat_id)
-            )
+        from database.db import add_mora as _add_mora, add_xp_in_chat as _add_xp
+        mora = ach.get("mora", 0)
+        xp = ach.get("xp", 0)
+        if mora > 0:
+            # chat_id=0 → обходит проверку изоляции; мора - глобальный баланс (users.balance)
+            await _add_mora(user_id, 0, mora)
+        if xp > 0:
+            await _add_xp(user_id, chat_id, xp)
     except Exception as e:
         logger.warning("Achievement reward failed for %s: %s", ach["key"], e)
 
@@ -368,6 +369,13 @@ async def check_and_award(
     except Exception as e:
         logger.warning("check_and_award error (%s, %s, %s): %s", user_id, chat_id, ach_type, e)
         return []
+
+    if newly_awarded and not bot:
+        try:
+            from utils.bot_instance import get_bot
+            bot = get_bot()
+        except Exception:
+            pass
 
     if newly_awarded and bot:
         try:
@@ -414,6 +422,9 @@ async def get_all_achievements_with_status(user_id: int, chat_id: int) -> dict:
     Вернуть категории достижений с прогрессом, рангами и бесконечным масштабированием.
     Автоматически выдаёт заслуженные, но ещё не полученные достижения.
     """
+    newly_awarded: list[dict] = []
+    earned: dict[str, str] = {}
+    counters: dict[str, int] = {}
     try:
         async with postgres_connect() as db:
             rows = await db.fetch(
@@ -472,10 +483,8 @@ async def get_all_achievements_with_status(user_id: int, chat_id: int) -> dict:
                         break
     except Exception as e:
         logger.warning("get_all_achievements_with_status DB error: %s", e)
-        earned = {}
-        counters = {}
+        # earned/counters/newly_awarded already initialized above — keep partial results
 
-    newly_awarded: list[dict] = []
     categories: list[dict] = []
     total_unlocked = 0
     total_ranks = 0
