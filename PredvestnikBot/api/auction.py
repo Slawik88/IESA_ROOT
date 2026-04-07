@@ -730,6 +730,13 @@ async def finalize_expired_auctions(bot=None) -> list[dict]:
                 except Exception:
                     pass
 
+                # Season XP за выигрыш аукциона
+                try:
+                    from database.db import add_season_xp
+                    await add_season_xp(winner_id, 5)  # +5 season XP
+                except Exception:
+                    pass
+
             except Exception as e:
                 logger.error("Auction finalize error #%s: %s", auction_id, e)
 

@@ -532,16 +532,35 @@ select:focus{border-color:var(--accent)}
 
 /* ==== SEASON PASS ==== */
 .season-rewards-container{max-height:60vh;overflow-y:auto;margin-top:8px}
-.season-row{display:grid;grid-template-columns:28px 1fr 1fr 80px;align-items:center;gap:6px;padding:8px 10px;border-radius:10px;margin-bottom:3px;border:1px solid transparent;transition:all .15s}
-.season-row.current{border-color:rgba(124,106,247,.25);background:rgba(124,106,247,.05)}
-.season-row.claimed{opacity:.55;background:rgba(20,23,40,.5)}
+.season-row{display:grid;grid-template-columns:28px 1fr 1fr 80px;align-items:center;gap:6px;padding:8px 10px;border-radius:10px;margin-bottom:3px;border:1px solid transparent;transition:border-color .15s,background .15s,opacity .15s}
+.season-row.current{border-color:rgba(124,106,247,.35);background:rgba(124,106,247,.08)}
+.season-row.claimable{border-color:rgba(16,185,129,.3);background:rgba(16,185,129,.05)}
+.season-row.claimed{opacity:.45;background:rgba(20,23,40,.5)}
 .season-level-num{font-size:11px;font-weight:700;color:var(--text2);text-align:center}
 .season-reward-cell{font-size:11px;color:var(--text);padding:4px}
 .season-reward-free{border-right:1px solid var(--border)}
 .season-reward-premium{border-left:1px solid var(--border);color:#a855f7}
-.season-claim-btn{font-size:10px;padding:4px 8px;border:none;border-radius:4px;cursor:pointer;background:var(--accent);color:#fff;transition:all .15s}
+.season-claim-btn{font-size:10px;padding:4px 8px;border:none;border-radius:4px;cursor:pointer;background:var(--accent);color:#fff;transition:background .15s,box-shadow .15s}
 .season-claim-btn:hover{background:#9333ea}
 .season-claim-btn:disabled{background:var(--bg3);color:var(--text2);cursor:not-allowed}
+.season-claim-btn.pulsing{animation:claimPulse 2s ease-in-out infinite}
+@keyframes claimPulse{0%,100%{box-shadow:0 0 0 0 rgba(16,185,129,.5)}60%{box-shadow:0 0 0 7px rgba(16,185,129,0)}}
+/* Unclaimed badge */
+.season-badge{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:18px;background:#10b981;color:#fff;border-radius:9px;font-size:10px;font-weight:800;padding:0 5px;margin-left:6px;vertical-align:middle}
+/* Level progress track */
+.season-track-wrap{margin:12px 0 4px}
+.season-track{position:relative;height:10px;background:var(--bg3);border-radius:10px;overflow:visible}
+.season-track-fill{height:100%;background:linear-gradient(90deg,var(--accent) 0%,#10b981 100%);border-radius:10px;transition:width .5s ease;min-width:0}
+.season-track-dot{position:absolute;top:50%;transform:translate(-50%,-50%);width:10px;height:10px;border-radius:50%;background:var(--bg3);border:2px solid var(--border);z-index:1}
+.season-track-dot.reached{background:var(--accent);border-color:var(--accent)}
+.season-track-dot.current{background:#10b981;border-color:#10b981;box-shadow:0 0 0 3px rgba(16,185,129,.3)}
+.season-track-labels{display:flex;justify-content:space-between;font-size:9px;color:var(--text2);margin-top:6px;padding:0 0 2px}
+/* XP sources grid */
+.season-xp-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px}
+.season-xp-item{background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:8px;padding:8px 4px;text-align:center}
+.season-xp-icon{font-size:20px;line-height:1;margin-bottom:3px}
+.season-xp-label{font-size:10px;color:var(--text2);line-height:1.3;margin-bottom:2px}
+.season-xp-amt{font-size:12px;font-weight:700;color:#10b981}
 .bank-dep-status.ready{color:var(--green);font-weight:700}
 .bank-plan-tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
 .bank-plan-tab{background:rgba(20,23,40,.8);border:2px solid rgba(124,106,247,.08);border-radius:14px;padding:12px 4px;cursor:pointer;text-align:center;color:var(--text2);transition:all .2s;font-family:inherit}
@@ -1296,37 +1315,46 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;
     <!-- Season Header Card -->
     <div class="card">
       <div class="card-title">🗓️ <span id="seasonName">Season Pass</span></div>
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
         <div style="text-align:left">
-          <div style="font-size:24px;font-weight:900" id="seasonXP">0 XP</div>
-          <div style="font-size:11px;color:var(--text2)">Season XP</div>
+          <div style="font-size:22px;font-weight:900" id="seasonXP">0 XP</div>
+          <div style="font-size:10px;color:var(--text2)">Всего XP</div>
         </div>
         <div style="text-align:center">
-          <div style="font-size:20px;font-weight:800;color:#10b981" id="seasonLevel">0</div>
+          <div style="font-size:28px;font-weight:900;color:#10b981;line-height:1" id="seasonLevel">0</div>
           <div style="font-size:10px;color:var(--text2)">Уровень</div>
         </div>
         <div style="text-align:right">
-          <div style="font-size:14px;font-weight:600" id="seasonNextXP">150 XP</div>
-          <div style="font-size:10px;color:var(--text2)">Следующий ур.</div>
+          <div style="font-size:13px;font-weight:700" id="seasonNextXP">150 XP</div>
+          <div style="font-size:10px;color:var(--text2)">До след. ур.</div>
         </div>
       </div>
-      <div class="progress-bar" style="margin-bottom:8px">
+      <!-- XP within current level -->
+      <div style="font-size:10px;color:var(--text2);margin-bottom:4px;display:flex;justify-content:space-between">
+        <span id="seasonLevelProgress">0 / 150 XP на уровне</span>
+        <span id="seasonLevelPct" style="color:var(--accent);font-weight:600">0%</span>
+      </div>
+      <div class="progress-bar" style="margin-bottom:10px">
         <div class="progress-fill" id="seasonXPBar" style="width:0%"></div>
       </div>
-      <div style="font-size:11px;color:var(--text2)" id="seasonEndDate">Заканчивается: —</div>
+      <!-- Visual 30-level track -->
+      <div class="season-track-wrap" id="seasonLevelTrack"></div>
+      <div style="font-size:11px;color:var(--text2);margin-top:6px" id="seasonEndDate">Заканчивается: —</div>
     </div>
 
     <!-- XP Sources Info Card -->
     <div class="card" style="background:rgba(124,106,247,.06);border:1px solid rgba(124,106,247,.18)">
-      <div style="font-size:12px;font-weight:800;color:var(--accent);margin-bottom:8px">⚡ Как получать Season XP?</div>
-      <div style="display:grid;grid-template-columns:auto 1fr auto;gap:4px 10px;align-items:center;font-size:12px">
-        <span>📅</span><span style="color:var(--text)">Ежедневный чекин</span><span style="color:#10b981;font-weight:700">+10 XP</span>
-        <span>📋</span><span style="color:var(--text)">Дневное задание</span><span style="color:#10b981;font-weight:700">+20 XP</span>
-        <span>🏕</span><span style="color:var(--text)">Экспедиция питомца</span><span style="color:#10b981;font-weight:700">+8 XP</span>
-        <span>✨</span><span style="color:var(--text)">Гача (каждые 10 роллов)</span><span style="color:#10b981;font-weight:700">+5 XP</span>
-        <span>🛒</span><span style="color:var(--text)">Покупки в магазине</span><span style="color:#10b981;font-weight:700">+2 XP</span>
-        <span>🏪</span><span style="color:var(--text)">Выиграл аукцион</span><span style="color:#10b981;font-weight:700">+3 XP</span>
-        <span>💍</span><span style="color:var(--text)">Участник первого брака</span><span style="color:#10b981;font-weight:700">+15 XP</span>
+      <div style="font-size:12px;font-weight:800;color:var(--accent);margin-bottom:4px">⚡ Как получать Season XP?</div>
+      <div class="season-xp-grid">
+        <div class="season-xp-item"><div class="season-xp-icon">📅</div><div class="season-xp-label">Ежедн. чекин</div><div class="season-xp-amt">+10 XP</div></div>
+        <div class="season-xp-item"><div class="season-xp-icon">📋</div><div class="season-xp-label">Дневное задание</div><div class="season-xp-amt">+20 XP</div></div>
+        <div class="season-xp-item"><div class="season-xp-icon">🏕</div><div class="season-xp-label">Экспедиция</div><div class="season-xp-amt">+8 XP</div></div>
+        <div class="season-xp-item"><div class="season-xp-icon">✨</div><div class="season-xp-label">Гача ×10</div><div class="season-xp-amt">+15 XP</div></div>
+        <div class="season-xp-item"><div class="season-xp-icon">✨</div><div class="season-xp-label">Гача ×1</div><div class="season-xp-amt">+2 XP</div></div>
+        <div class="season-xp-item"><div class="season-xp-icon">🎮</div><div class="season-xp-label">Стойкость</div><div class="season-xp-amt">+5 XP</div></div>
+        <div class="season-xp-item"><div class="season-xp-icon">🛒</div><div class="season-xp-label">Магазин</div><div class="season-xp-amt">+2 XP</div></div>
+        <div class="season-xp-item"><div class="season-xp-icon">🔨</div><div class="season-xp-label">Выигрыш аукц.</div><div class="season-xp-amt">+5 XP</div></div>
+        <div class="season-xp-item"><div class="season-xp-icon">💍</div><div class="season-xp-label">Первый брак</div><div class="season-xp-amt">+15 XP</div></div>
       </div>
       <div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(124,106,247,.15);font-size:11px;color:var(--text2)">
         150 XP = 1 уровень · Всего 30 уровней за сезон
@@ -1349,7 +1377,7 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;
     
     <!-- Rewards List -->
     <div class="card">
-      <div class="card-title">🎁 Награды по уровням</div>
+      <div class="card-title">🎁 Награды по уровням<span class="season-badge" id="seasonUnclaimedBadge" style="display:none"></span></div>
       <!-- Track header -->
       <div style="display:grid;grid-template-columns:32px 1fr 1fr 20px;gap:4px;padding:4px 0 8px;border-bottom:1px solid var(--border);margin-bottom:4px">
         <div></div>
@@ -8929,12 +8957,39 @@ function renderSeasonData() {
   document.getElementById('seasonXP').textContent = progress.season_xp + ' XP';
   document.getElementById('seasonLevel').textContent = progress.level;
   
-  const nextLevelXP = (progress.level + 1) * 150; // 150 XP per level
-  const currentLevelXP = progress.level * 150;
-  const barProgress = Math.min(100, ((progress.season_xp - currentLevelXP) / (nextLevelXP - currentLevelXP)) * 100);
-  
-  document.getElementById('seasonNextXP').textContent = (nextLevelXP - progress.season_xp) + ' XP';
+  const XP_PER_LEVEL = 150;
+  const currentLevelXP = progress.level * XP_PER_LEVEL;
+  const nextLevelXP    = (progress.level + 1) * XP_PER_LEVEL;
+  const xpInLevel      = progress.season_xp - currentLevelXP;
+  const barProgress    = progress.level >= 30 ? 100 : Math.min(100, (xpInLevel / XP_PER_LEVEL) * 100);
+
+  // Update header values
+  document.getElementById('seasonNextXP').textContent = progress.level >= 30 ? 'MAX' : (nextLevelXP - progress.season_xp) + ' XP';
   document.getElementById('seasonXPBar').style.width = barProgress + '%';
+  document.getElementById('seasonLevelProgress').textContent = progress.level >= 30
+    ? 'Максимальный уровень достигнут'
+    : `${xpInLevel} / ${XP_PER_LEVEL} XP на уровне`;
+  document.getElementById('seasonLevelPct').textContent = Math.round(barProgress) + '%';
+
+  // Visual 30-level track
+  const trackEl = document.getElementById('seasonLevelTrack');
+  const trackPct = Math.min(100, (progress.level / 30) * 100);
+  const marks = [0, 10, 20, 30];
+  const dots = marks.map(m => {
+    const pct = (m / 30) * 100;
+    const isReached = progress.level >= m;
+    const isCurrent = progress.level === m && m > 0;
+    const cls = isCurrent ? 'season-track-dot current' : (isReached ? 'season-track-dot reached' : 'season-track-dot');
+    return `<div class="${cls}" style="left:${pct}%" title="Ур. ${m}"></div>`;
+  }).join('');
+  trackEl.innerHTML = `
+    <div class="season-track">
+      <div class="season-track-fill" style="width:${trackPct}%"></div>
+      ${dots}
+    </div>
+    <div class="season-track-labels">
+      <span>Ур. 0</span><span>Ур. 10</span><span>Ур. 20</span><span>Ур. 30</span>
+    </div>`;
   
   if (season.end_date) {
     const endDate = new Date(season.end_date).toLocaleDateString('ru-RU');
@@ -8944,7 +8999,6 @@ function renderSeasonData() {
   // Premium pass card
   const premiumCard = document.getElementById('seasonPremiumCard');
   const premiumBtn = document.getElementById('seasonPremiumBtn');
-  
   if (progress.premium_purchased) {
     premiumCard.style.display = 'none';
   } else {
@@ -8952,10 +9006,9 @@ function renderSeasonData() {
     premiumBtn.textContent = '299 💎/мес';
   }
   
-  // Rewards list
+  // Build rewards list
   const rewardsList = document.getElementById('seasonRewardsList');
   const rewardsByLevel = {};
-  
   rewards.forEach(r => {
     if (!rewardsByLevel[r.level]) rewardsByLevel[r.level] = { free: null, premium: null };
     if (r.is_premium) rewardsByLevel[r.level].premium = r;
@@ -8963,37 +9016,73 @@ function renderSeasonData() {
   });
   
   let html = '';
+  let unclaimedCount = 0;
+  let currentLevelRowIndex = -1;
+
   for (let level = 1; level <= 30; level++) {
-    const levelRewards = rewardsByLevel[level] || {};
-    const freeReward = levelRewards.free;
+    const levelRewards  = rewardsByLevel[level] || {};
+    const freeReward    = levelRewards.free;
     const premiumReward = levelRewards.premium;
     
-    const isUnlocked = progress.level >= level;
+    const isUnlocked     = progress.level >= level;
     const isCurrentLevel = progress.level === level;
-    const freeClaimKey = `${level}_free`;
-    const premiumClaimKey = `${level}_premium`;
-    const freeClaimed = progress.claimed_levels.includes(freeClaimKey);
-    const premiumClaimed = progress.claimed_levels.includes(premiumClaimKey);
+    const freeClaimed    = progress.claimed_levels.includes(`${level}_free`);
+    const premiumClaimed = progress.claimed_levels.includes(`${level}_premium`);
     
-    const rowClass = isCurrentLevel ? 'season-row current' : (freeClaimed && premiumClaimed ? 'season-row claimed' : 'season-row');
+    const freeClaimable    = isUnlocked && !freeClaimed && freeReward;
+    const premiumClaimable = isUnlocked && !premiumClaimed && premiumReward && progress.premium_purchased;
+    const hasClaimable     = freeClaimable || premiumClaimable;
+
+    if (freeClaimable)    unclaimedCount++;
+    if (premiumClaimable) unclaimedCount++;
+    if (isCurrentLevel)   currentLevelRowIndex = level - 1;
+
+    const allClaimed = (!freeReward || freeClaimed) && (!premiumReward || !progress.premium_purchased || premiumClaimed);
+    const rowClass = isCurrentLevel  ? 'season-row current'
+                   : hasClaimable    ? 'season-row claimable'
+                   : allClaimed      ? 'season-row claimed'
+                   : 'season-row';
     
-    html += `<div class="${rowClass}">
+    const freeBtnHtml    = freeClaimable    ? `<button class="season-claim-btn pulsing" onclick="claimReward(${level}, false)">Получить</button>` : '';
+    const premBtnHtml    = premiumClaimable ? `<button class="season-claim-btn pulsing" onclick="claimReward(${level}, true)">Получить</button>`  : '';
+    const lockIcon       = isUnlocked ? (isCurrentLevel ? '▶' : '✓') : '🔒';
+    const lockColor      = isUnlocked ? (isCurrentLevel ? 'color:#10b981' : 'color:var(--text2)') : '';
+
+    html += `<div class="${rowClass}" id="season-row-${level}">
       <div class="season-level-num">${level}</div>
       <div class="season-reward-cell season-reward-free">
         ${freeReward ? formatReward(freeReward) : '—'}
-        ${isUnlocked && !freeClaimed && freeReward ? `<button class="season-claim-btn" onclick="claimReward(${level}, false)">Получить</button>` : ''}
+        ${freeBtnHtml}
       </div>
       <div class="season-reward-cell season-reward-premium">
         ${premiumReward ? formatReward(premiumReward) : '—'}
-        ${isUnlocked && !premiumClaimed && premiumReward && progress.premium_purchased ? `<button class="season-claim-btn" onclick="claimReward(${level}, true)">Получить</button>` : ''}
+        ${premBtnHtml}
       </div>
-      <div>
-        ${isUnlocked ? '🔓' : '🔒'}
-      </div>
+      <div style="text-align:center;font-size:13px;${lockColor}">${lockIcon}</div>
     </div>`;
   }
   
   rewardsList.innerHTML = html;
+
+  // Update unclaimed badge
+  const badge = document.getElementById('seasonUnclaimedBadge');
+  if (unclaimedCount > 0) {
+    badge.textContent = unclaimedCount;
+    badge.style.display = '';
+  } else {
+    badge.style.display = 'none';
+  }
+
+  // Auto-scroll to current level row
+  if (progress.level > 0) {
+    const targetLevel = Math.max(1, progress.level);
+    const targetRow = document.getElementById(`season-row-${targetLevel}`);
+    if (targetRow) {
+      requestAnimationFrame(() => {
+        targetRow.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      });
+    }
+  }
 }
 
 function formatReward(reward) {

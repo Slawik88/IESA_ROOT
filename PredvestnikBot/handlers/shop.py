@@ -357,7 +357,7 @@ async def cb_shop_buy(callback: CallbackQuery):
         # Block 4: Add season XP for shop purchase
         try:
             from database.db import add_season_xp
-            await add_season_xp(uid, 1)  # +1 season XP
+            await add_season_xp(uid, 2)  # +2 season XP
         except Exception:
             pass
 
