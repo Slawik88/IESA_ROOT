@@ -5,12 +5,15 @@ Injects `is_isolated_chat` into handler data for every callback query.
 When the callback originates from an admin-group or test-chat,
 silently answers the callback and prevents handler execution
 (except for admin/moderation callbacks that must work in those chats).
+
+Also enforces the per-chat `bot_disabled` kill-switch for callbacks.
 """
 from typing import Any, Awaitable, Callable, Dict
 
 from aiogram import BaseMiddleware
 from aiogram.types import CallbackQuery
 
+from config import DEVELOPER_ID
 from database.db import get_admin_group_ids, is_test_chat
 
 # Callback prefixes that should work in isolated chats (admin/mod/non-economy).
@@ -52,6 +55,23 @@ class CallbackIsolationMiddleware(BaseMiddleware):
             )
 
         data["is_isolated_chat"] = is_isolated
+
+        # ── Bot kill-switch: if bot_disabled=1, silently ignore all callbacks ──
+        # Developer always bypasses so the mini-app toggle can still be re-enabled.
+        if chat and chat.type in ("group", "supergroup"):
+            uid = event.from_user.id if event.from_user else None
+            if not (DEVELOPER_ID and uid == DEVELOPER_ID):
+                from database.db import get_chat_settings
+                try:
+                    settings = await get_chat_settings(chat.id)
+                    if settings and bool(settings.get("bot_disabled")):
+                        try:
+                            await event.answer()
+                        except Exception:
+                            pass
+                        return  # Bot fully disabled — drop callback silently
+                except Exception:
+                    pass
 
         if is_isolated:
             cb_data = event.data or ""
