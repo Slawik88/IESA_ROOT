@@ -277,6 +277,8 @@ async def init_db():
             "feat_pets          INTEGER DEFAULT 1",
             "feat_casino        INTEGER DEFAULT 1",
             "feat_random_events INTEGER DEFAULT 1",
+            # bot_disabled=1 → bot is completely silent in this chat
+            "bot_disabled       INTEGER DEFAULT 0",
         ]:
             try:
                 await db.execute(
@@ -2416,6 +2418,7 @@ _ALLOWED_CHAT_SETTING_KEYS = {
     # Feature Flags
     "feat_website", "feat_antispam", "feat_marriages",
     "feat_pets", "feat_casino", "feat_random_events",
+    "bot_disabled",
 }
 _ALLOWED_LOCK_TYPES = {"links", "stickers", "gifs", "forwards", "voice", "video", "photo", "audio"}
 
@@ -7526,8 +7529,13 @@ async def get_leaderboard_messages(chat_id: int, limit: int = 10) -> list[dict]:
     return [dict(r) for r in rows]
 
 # ─── Enhancement System ──────────────────────────────────────────────────────
-async def enhance_item(user_id: int, chat_id: int, item_id: int) -> tuple[bool, str, int]:
-    """Enhance an RPG item. Returns (success, message, new_enhancement_level)."""
+async def enhance_item(user_id: int, chat_id: int, item_id: int, *, use_stone: bool | None = None) -> tuple[bool, str, int]:
+    """Enhance an RPG item. Returns (success, message, new_enhancement_level).
+    
+    use_stone=True  → guaranteed 100% success, consumes 1 stone
+    use_stone=False → use mora only (never consume stone)
+    use_stone=None  → auto: use stone if available (100% guaranteed), else mora
+    """
     import random
     from datetime import datetime
     
@@ -7550,43 +7558,43 @@ async def enhance_item(user_id: int, chat_id: int, item_id: int) -> tuple[bool, 
         base_cost = 80
         cost = int(base_cost * (1.3 ** current_level))
 
-        # Check if user has enhancement stones first
+        # ── Determine payment method ──────────────────────────────────────
         stones_count = await get_enhancement_stones(user_id)
-        using_stones = stones_count > 0
 
-        if using_stones:
-            # Use free enhancement stone
+        if use_stone is True:
+            # Explicitly requested stone
+            if stones_count < 1:
+                return False, "Нет камней заточки! Купи в Магазине кристаллов 🔮", current_level
             await use_enhancement_stone(user_id)
-            balance = 0  # Not needed for error message, just set for consistency
-        else:
-            # Check mora balance
-            async with db.execute(
-                "SELECT COALESCE(balance, 0) FROM users WHERE user_id=?",
-                (user_id,)
-            ) as c:
+            using_stones = True
+        elif use_stone is False:
+            # Explicitly requested mora only
+            using_stones = False
+            async with db.execute("SELECT COALESCE(balance, 0) FROM users WHERE user_id=?", (user_id,)) as c:
                 balance_row = await c.fetchone()
-
             balance = balance_row[0] if balance_row else 0
             if balance < cost:
                 return False, f"Недостаточно Моры ({balance}/{cost} 🪙)", current_level
+        else:
+            # Auto (use_stone=None): use stone if available, else mora
+            if stones_count > 0:
+                await use_enhancement_stone(user_id)
+                using_stones = True
+            else:
+                using_stones = False
+                async with db.execute("SELECT COALESCE(balance, 0) FROM users WHERE user_id=?", (user_id,)) as c:
+                    balance_row = await c.fetchone()
+                balance = balance_row[0] if balance_row else 0
+                if balance < cost:
+                    return False, f"Недостаточно Моры ({balance}/{cost} 🪙)", current_level
 
-        # ─── НОВАЯ ЛОГИКА ЗАТОЧКИ ─────────────────────────────────────────
-        # До +5 включительно: ВСЕГДА успешно (100%)
-        # После +5: может не пройти (остаться на уровне) или с малым шансом упасть
-        #
-        # Таблица при current_level < 5 (будет +1 100%)
-        # +5  → 85% успех, 12% нейтрально, 3% понижение
-        # +6  → 80% успех, 14% нейтрально, 6% понижение
-        # +7  → 70% успех, 18% нейтрально, 12% понижение
-        # +8  → 60% успех, 22% нейтрально, 18% понижение
-        # +9  → 50% успех, 25% нейтрально, 25% понижение
-        # +10 → 40% успех, 30% нейтрально, 30% понижение
-        # +11–20 → 30% успех, 40% нейтрально, 30% понижение
-
-        if current_level < 5:
-            success_pct = 100
-            neutral_pct = 0
-            fail_pct = 0
+        # ─── Таблица шансов заточки ──────────────────────────────────────
+        # Камень заточки → всегда 100% успех (гарант)
+        # Мора → стандартные шансы (риск понижения)
+        if using_stones:
+            success_pct, neutral_pct, fail_pct = 100, 0, 0
+        elif current_level < 5:
+            success_pct, neutral_pct, fail_pct = 100, 0, 0
         elif current_level == 5:
             success_pct, neutral_pct, fail_pct = 85, 12, 3
         elif current_level == 6:
@@ -7602,15 +7610,15 @@ async def enhance_item(user_id: int, chat_id: int, item_id: int) -> tuple[bool, 
         else:
             success_pct, neutral_pct, fail_pct = 30, 40, 30
 
+        # Deduct mora if not using stones
         if not using_stones:
-            # Deduct мору только если не используем камни
             cursor = await db.execute(
                 "UPDATE users SET balance = balance - ? WHERE user_id=? AND COALESCE(balance, 0) >= ?",
                 (cost, user_id, cost)
             )
             if cursor.rowcount == 0:
                 await db.commit()
-                return False, f"Недостаточно Моры ({balance}/{cost} 🪙)", current_level
+                return False, f"Недостаточно Моры ({cost} 🪙 нужно)", current_level
 
         roll = random.randint(1, 100)
         if roll <= success_pct:

@@ -207,6 +207,10 @@ body.no-tabs{padding-top:48px}
 .profile-title-line{font-size:12px;color:var(--accent);margin-top:3px;font-weight:600}
 .profile-level-pill{display:inline-flex;align-items:center;gap:4px;background:rgba(124,106,247,.14);border:1px solid rgba(124,106,247,.25);border-radius:24px;padding:4px 12px;font-size:11px;font-weight:700;color:var(--accent);margin-top:6px}
 
+/* ==== RAINBOW TITLE ==== */
+@keyframes rainbowShift{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
+.rainbow-title{background:linear-gradient(90deg,#f87171,#fb923c,#fbbf24,#4ade80,#60a5fa,#a78bfa,#f472b6,#f87171);background-size:300% 100%;background-clip:text;-webkit-background-clip:text;-webkit-text-fill-color:transparent;animation:rainbowShift 3s ease infinite;font-weight:800}
+
 /* ==== STAT ROWS ==== */
 .stat-row{display:flex;justify-content:space-between;align-items:center;padding:8px 6px;margin:0 -6px;border-bottom:1px solid rgba(255,255,255,.04);transition:all .15s ease;border-radius:8px}
 /* Stat group visual separator (no bottom border on last in group) */
@@ -870,6 +874,8 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;
     <div class="bal-pill" style="color:#a78bfa">
       <span>💎</span>
       <span class="bal-val" id="globalCrystals">—</span>
+      <button onclick="switchTab('shop');setTimeout(()=>switchShopSubtab('crystals'),60)" title="Купить кристаллы"
+              style="margin-left:4px;background:rgba(168,85,247,.25);border:1px solid rgba(168,85,247,.5);border-radius:10px;color:#a78bfa;font-size:11px;font-weight:800;line-height:1;padding:0 5px;height:18px;cursor:pointer;vertical-align:middle">+</button>
     </div>
   </div>
 
@@ -937,6 +943,18 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;
       </div>
     </div>
     </div><!-- /two-col-grid -->
+
+    <!-- Newbie welcome hint — only shown for new players -->
+    <div id="newbieHintCard" style="display:none;background:linear-gradient(135deg,rgba(124,106,247,.12),rgba(168,85,247,.06));border:1.5px solid rgba(124,106,247,.35);border-radius:14px;padding:14px;margin-top:4px">
+      <div style="font-size:16px;font-weight:800;margin-bottom:6px">👋 Добро пожаловать!</div>
+      <div style="font-size:12px;color:var(--text2);line-height:1.6;margin-bottom:10px">Ты только начинаешь путь Предвестника. Вот как быстро разбогатеть:</div>
+      <div style="display:grid;gap:6px;font-size:12px">
+        <div style="display:flex;align-items:center;gap:8px"><span style="font-size:16px">📅</span><span>Делай ежедневный <b>чекин</b> — получай 100–1000 🪙</span></div>
+        <div style="display:flex;align-items:center;gap:8px"><span style="font-size:16px">💬</span><span>Пиши в чате — каждое сообщение даёт <b>+2 XP</b> и шанс на 🪙</span></div>
+        <div style="display:flex;align-items:center;gap:8px"><span style="font-size:16px">🎲</span><span>Накопи 80 🪙 и <b>крути гачу</b> — получай оружие и бонусы!</span></div>
+      </div>
+      <button onclick="switchTab('calendar');document.getElementById('newbieHintCard').style.display='none'" style="margin-top:10px;width:100%;background:rgba(124,106,247,.2);border:1px solid rgba(124,106,247,.4);border-radius:8px;color:var(--text);padding:8px;font-size:12px;font-weight:700;cursor:pointer">📅 Сделать чекин сейчас</button>
+    </div>
   </div>
 </div>
 
@@ -962,6 +980,10 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;
     <div class="card" id="familyWalletCard" style="display:none">
       <div class="card-title">🏦 Семейный банк</div>
       <div class="stat-row"><span class="stat-label">💰 Общий баланс</span><span class="stat-value" id="famTotal">—</span></div>
+      <div id="famBreakdownRow" style="display:none;margin-top:2px;margin-bottom:4px">
+        <div class="stat-row" style="font-size:11px"><span class="stat-label" style="color:var(--text2)">👤 Мой вклад</span><span class="stat-value" style="color:var(--text2)" id="famMyBal">—</span></div>
+        <div class="stat-row" style="font-size:11px"><span class="stat-label" style="color:var(--text2)">💑 Партнёр</span><span class="stat-value" style="color:var(--text2)" id="famPartnerBal">—</span></div>
+      </div>
       <div class="input-group">
         <input type="number" id="famAmount" placeholder="Сумма" min="1"/>
       </div>
@@ -1021,6 +1043,7 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;
     <button class="subtab-btn" onclick="switchSubtab('armor')">🛡 Броня</button>
     <button class="subtab-btn" onclick="switchSubtab('potions')">🧪 Зелья</button>
     <button class="subtab-btn" onclick="switchSubtab('junk')">🪨 Хлам</button>
+    <button class="subtab-btn" onclick="switchSubtab('other')">📦 Прочее</button>
   </div>
   <div class="loading" id="invLoading">⏳ Загрузка…</div>
   
@@ -1065,6 +1088,11 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;
   <!-- 🪨 Хлам -->
   <div id="subtab-junk" style="display:none">
     <div id="invJunkList"></div>
+  </div>
+  
+  <!-- 📦 Прочее -->
+  <div id="subtab-other" style="display:none">
+    <div id="invOtherList"></div>
   </div>
   
   <!-- Batch Sell Controls -->
@@ -1221,7 +1249,7 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;
         <!-- Crystal-Mora conversion (Block 3) -->
         <div style="background:rgba(168,85,247,.08);border:1px solid rgba(168,85,247,.25);border-radius:8px;padding:10px 12px;margin-bottom:12px">
           <div style="font-size:11px;font-weight:700;color:#a855f7;margin-bottom:6px">💰 Конвертация кристаллов</div>
-          <div style="font-size:10px;color:var(--text2);margin-bottom:8px">Обменивай кристаллы на Мору: 1💎 = 10🪙</div>
+          <div style="font-size:10px;color:var(--text2);margin-bottom:8px">Обменивай кристаллы на Мору: 1💎 = 30🪙</div>
           <div style="display:flex;align-items:center;gap:8px">
             <input type="number" id="convertAmount" min="1" max="1000" value="10" 
                    style="width:60px;padding:4px 6px;border:1px solid rgba(168,85,247,.3);border-radius:4px;background:var(--bg2);color:var(--text);font-size:11px">
@@ -1267,6 +1295,23 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;
         <div class="progress-fill" id="seasonXPBar" style="width:0%"></div>
       </div>
       <div style="font-size:11px;color:var(--text2)" id="seasonEndDate">Заканчивается: —</div>
+    </div>
+
+    <!-- XP Sources Info Card -->
+    <div class="card" style="background:rgba(124,106,247,.06);border:1px solid rgba(124,106,247,.18)">
+      <div style="font-size:12px;font-weight:800;color:var(--accent);margin-bottom:8px">⚡ Как получать Season XP?</div>
+      <div style="display:grid;grid-template-columns:auto 1fr auto;gap:4px 10px;align-items:center;font-size:12px">
+        <span>📅</span><span style="color:var(--text)">Ежедневный чекин</span><span style="color:#10b981;font-weight:700">+10 XP</span>
+        <span>📋</span><span style="color:var(--text)">Дневное задание</span><span style="color:#10b981;font-weight:700">+20 XP</span>
+        <span>🏕</span><span style="color:var(--text)">Экспедиция питомца</span><span style="color:#10b981;font-weight:700">+8 XP</span>
+        <span>✨</span><span style="color:var(--text)">Гача (каждые 10 роллов)</span><span style="color:#10b981;font-weight:700">+5 XP</span>
+        <span>🛒</span><span style="color:var(--text)">Покупки в магазине</span><span style="color:#10b981;font-weight:700">+2 XP</span>
+        <span>🏪</span><span style="color:var(--text)">Выиграл аукцион</span><span style="color:#10b981;font-weight:700">+3 XP</span>
+        <span>💍</span><span style="color:var(--text)">Участник первого брака</span><span style="color:#10b981;font-weight:700">+15 XP</span>
+      </div>
+      <div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(124,106,247,.15);font-size:11px;color:var(--text2)">
+        150 XP = 1 уровень · Всего 30 уровней за сезон
+      </div>
     </div>
 
     <!-- Premium Pass Card -->
@@ -2889,6 +2934,16 @@ async function loadProfile(){
     document.getElementById('profileName').textContent = p.name || 'Игрок';
     document.getElementById('profileTitle').textContent = '';
     
+    // Apply rainbow title if owned
+    const titleEl = document.getElementById('currentTitle');
+    if (titleEl) {
+      titleEl.className = 'stat-value' + (p.has_rainbow_title ? ' rainbow-title' : '');
+    }
+    if (p.has_rainbow_title) {
+      // Also style the public profile title element
+      document.getElementById('pubTitle') && (document.getElementById('pubTitle').className = 'rainbow-title');
+    }
+    
     // Avatar: use Telegram image if unlocked, otherwise initials
     const avatarDiv = document.getElementById('profileAvatar');
     if (p.avatar_unlocked) {
@@ -2933,6 +2988,13 @@ async function loadProfile(){
     document.getElementById('pXp').textContent = xp;
     document.getElementById('pXpMax').textContent = xpMax;
     document.getElementById('pXpBar').style.width = Math.min(100,Math.round(xp/xpMax*100))+'%';
+
+    // Show newbie hint for brand-new players (level 1-2 and fewer than 50 messages)
+    const newbieCard = document.getElementById('newbieHintCard');
+    if (newbieCard) {
+      const isNewbie = (p.level||1) <= 2 && (p.message_count||0) < 50;
+      newbieCard.style.display = isNewbie ? 'block' : 'none';
+    }
     if(p.partner_name){
       const pnEl = document.getElementById('partnerName');
       pnEl.textContent = p.partner_name;
@@ -2957,6 +3019,14 @@ async function loadProfile(){
       document.getElementById('catBtnAdmin').style.display = '';
       document.querySelectorAll('#tab-dev .card').forEach(c=>{ c.style.display='none'; });
       document.getElementById('devImportCard').style.display='';          // JSON import
+      // Auto-fill the chat selector with the current chat (launched from)
+      (function(){
+        const impSel = document.getElementById('devImportChatSel');
+        if(impSel && chatId && impSel.options.length < 2){
+          impSel.innerHTML = `<option value="${chatId}">📢 Этот чат (${chatId})</option>`;
+          impSel.value = chatId;
+        }
+      })();
       document.getElementById('devLeaveLogCard').style.display='';        // leave logs
       document.getElementById('devBanlistCard').style.display='';         // blacklist
       document.getElementById('rosterCard').style.display='';             // roster
@@ -3192,6 +3262,15 @@ async function loadUnion(){
   if(p.has_partner){
     document.getElementById('familyWalletCard').style.display='block';
     document.getElementById('famTotal').textContent=(p.family_balance||0)+' 🪙';
+    // Show per-member breakdown if data available
+    const myBal = p.my_family_balance;
+    const partnerBal = p.partner_family_balance;
+    const breakRow = document.getElementById('famBreakdownRow');
+    if(myBal !== undefined && partnerBal !== undefined && breakRow) {
+      breakRow.style.display = '';
+      document.getElementById('famMyBal').textContent = myBal + ' 🪙';
+      document.getElementById('famPartnerBal').textContent = partnerBal + ' 🪙';
+    }
     // Show family log card and trigger load
     document.getElementById('familyLogCard').style.display='block';
     loadFamilyLog();
@@ -3348,18 +3427,35 @@ async function loadFamilyLog(){
       el.innerHTML='<div style="color:var(--text2);text-align:center;padding:10px">Транзакций ещё нет</div>';
       return;
     }
-    const ACTION_ICON = {deposit:'📥', withdraw:'📤', purchase:'🛍'};
-    const ACTION_COLOR = {deposit:'var(--green)', withdraw:'var(--red)', purchase:'var(--gold)'};
+    const myUid = profileData ? profileData.uid : 0;
     el.innerHTML = log.map(t => {
       const dt = t.created_at ? new Date(t.created_at).toLocaleString('ru-RU',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '';
-      const icon = ACTION_ICON[t.action] || '💸';
-      const color = ACTION_COLOR[t.action] || 'var(--text)';
-      const sign = t.action === 'deposit' ? '+' : '-';
-      const label = t.action === 'deposit'
-        ? `+${t.amount} 🪙 → Сем. кошелёк от ${esc(t.user_name||'')}`
-        : `−${t.amount} 🪙 ← Сем. кошелёк — ${esc(t.user_name||'')}`;
-      return `<div style="display:flex;justify-content:space-between;align-items:flex-start;padding:5px 0;border-bottom:1px solid var(--border);gap:6px">
-        <span style="flex:1;min-width:0;word-break:break-word;font-size:12px">${icon} <b style="color:${color}">${label}</b></span>
+      const isMine = t.user_id == myUid;
+      let icon, color, amtStr, labelText;
+      if (t.action === 'deposit') {
+        icon = '📥'; color = 'var(--green)';
+        amtStr = '+' + t.amount;
+        labelText = (isMine ? 'Ты внёс' : esc(t.user_name||'Партнёр')+' внёс') + ' в общий кошелёк';
+      } else if (t.action === 'withdraw') {
+        icon = '📤'; color = 'var(--red)';
+        amtStr = '−' + t.amount;
+        labelText = (isMine ? 'Ты снял' : esc(t.user_name||'Партнёр')+' снял') + ' из общего кошелька';
+      } else if (t.action === 'purchase') {
+        icon = '🛍'; color = 'var(--gold,#f59e0b)';
+        amtStr = '−' + t.amount;
+        const desc = t.description ? ' · ' + esc(t.description) : '';
+        labelText = (isMine ? 'Ты купил' : esc(t.user_name||'Партнёр')+' купил') + desc;
+      } else {
+        icon = '💸'; color = 'var(--text)';
+        amtStr = t.amount;
+        labelText = esc(t.action) + ' · ' + esc(t.user_name||'');
+      }
+      return `<div style="display:flex;justify-content:space-between;align-items:flex-start;padding:6px 0;border-bottom:1px solid var(--border);gap:6px">
+        <span style="font-size:16px;flex-shrink:0">${icon}</span>
+        <span style="flex:1;min-width:0;font-size:12px">
+          <b style="color:${color}">${amtStr} 🪙</b>
+          <span style="color:var(--text2)"> ${labelText}</span>
+        </span>
         <span style="color:var(--text2);font-size:11px;white-space:nowrap;flex-shrink:0">${dt}</span>
       </div>`;
     }).join('');
@@ -3390,6 +3486,7 @@ async function familyAction(action){
     document.getElementById('famAmount').value='';
     // Refresh full balance from server
     tabLoaded['union'] = false;
+    await loadProfile();
     loadUnion();
     // Refresh log
     loadFamilyLog();
@@ -3445,12 +3542,38 @@ async function loadInventory(){
       activeBuffs = buffsResponse.active_buffs || [];
     } catch(e) {}
 
-    // Split by new categories: cosmetics, weapons, armor, potions
-    const cosmetics = items.filter(i => i.slot === 'cosmetic' || i.slot === 'flair' || i.key.startsWith('rare_') || i.key.startsWith('lego_flair_') || i.key.startsWith('frame_') || i.key.startsWith('theme_'));
-    const weapons = items.filter(i => i.slot === 'weapon' || (i.slot && i.atk > 0 && !i.key.startsWith('rare_')));
-    const armor = items.filter(i => i.slot === 'armor' || (i.slot && (i.def_val > 0 || i.hp > 0) && !i.key.startsWith('rare_')));
-    const potions = items.filter(i => i.slot === 'potion' || i.slot === 'consume' || i.key.includes('potion') || i.key.includes('_shard') || i.key.includes('_crystal') || i.key.includes('_bag'));
+    // Split by categories — use a Set to track assigned items (each item goes to exactly ONE section)
+    const assignedIds = new Set();
+    const catMatch = (i, ...cats) => cats.includes(i.slot);
+
     const junk = items.filter(i => i.rarity === 'junk' || i.key.startsWith('junk_'));
+    junk.forEach(i => assignedIds.add(i.id));
+
+    const cosmetics = items.filter(i => !assignedIds.has(i.id) && (
+      i.slot === 'cosmetic' || i.slot === 'flair' || i.is_cosmetic ||
+      i.key.startsWith('rare_') || i.key.startsWith('lego_flair_') ||
+      i.key.startsWith('frame_') || i.key.startsWith('theme_')
+    ));
+    cosmetics.forEach(i => assignedIds.add(i.id));
+
+    const weapons = items.filter(i => !assignedIds.has(i.id) && i.slot === 'weapon');
+    weapons.forEach(i => assignedIds.add(i.id));
+
+    const armor = items.filter(i => !assignedIds.has(i.id) && (
+      i.slot === 'armor' || i.slot === 'artifact'
+    ));
+    armor.forEach(i => assignedIds.add(i.id));
+
+    const potions = items.filter(i => !assignedIds.has(i.id) && (
+      i.slot === 'potion' || i.slot === 'consume' ||
+      i.key.includes('potion') || i.key.includes('_shard') ||
+      i.key.includes('_crystal') || i.key.includes('_bag') ||
+      i.key.includes('elixir') || i.key.includes('scroll')
+    ));
+    potions.forEach(i => assignedIds.add(i.id));
+
+    // Catch-all: everything not assigned to any section
+    const other = items.filter(i => !assignedIds.has(i.id));
     
     // Compute total equipped stats (for cosmetics tab display)
     const allEquipped = items.filter(i => i.equipped);
@@ -3491,6 +3614,9 @@ async function loadInventory(){
     
     // 🪨 Junk tab
     renderJunkInventory(junk);
+
+    // 📦 Other (catch-all)
+    renderOtherInventory(other);
     
     // Load additional cosmetic data
     if(shopData) renderInvFramesCosmetics();
@@ -3998,6 +4124,16 @@ function renderCrystalsShop(){
   // Crystal cosmetics — 2-column compact cards
   const cosEl = document.getElementById('crystalCosmeticsGrid');
   if(cosEl) cosEl.innerHTML = CRYSTAL_COSMETICS_LIST.map(c=>{
+    const ownedCosmetics = (profileData && profileData.crystal_cosmetics_owned) || [];
+    const isOwned = ownedCosmetics.includes(c.key);
+    if (isOwned) {
+      return `<div style="background:var(--bg3);border:1px solid rgba(34,197,94,.35);border-radius:10px;padding:10px;cursor:default;opacity:.85;transition:.15s">
+        <div style="font-size:22px;margin-bottom:4px">${c.emoji}</div>
+        <div style="font-size:12px;font-weight:700;color:var(--text);line-height:1.2;margin-bottom:2px">${esc(c.name)}</div>
+        <div style="font-size:10px;color:var(--text2);margin-bottom:6px;line-height:1.3">${esc(c.desc)}</div>
+        <div style="font-size:11px;font-weight:700;color:#4ade80">✓ Куплено</div>
+      </div>`;
+    }
     const canBuy = bal >= c.price;
     return `<div onclick="${canBuy?`buyCrystalCosmetic('${c.key}','${c.name}',${c.price})`:''}" style="background:var(--bg3);border:1px solid ${canBuy?'rgba(124,58,237,.35)':'var(--border)'};border-radius:10px;padding:10px;cursor:${canBuy?'pointer':'default'};opacity:${canBuy?'1':'.45'};transition:.15s">
       <div style="font-size:22px;margin-bottom:4px">${c.emoji}</div>
@@ -4056,8 +4192,14 @@ async function buyCrystalCosmetic(key, name, price){
   if(!confirm(`Потратить ${price} 💎 на «${name}»?`)) return;
   try {
     const r = await api('/api/crystals/spend', 'POST', {item_key: key, price: price, chat_id: chatId});
+    const _tga = window.Telegram && window.Telegram.WebApp;
+    if (_tga && _tga.HapticFeedback) _tga.HapticFeedback.notificationOccurred('success');
     toast(`✅ Куплено: ${name}`, 'success');
-    if(profileData) profileData.crystals = r.crystals_balance;
+    if(profileData) {
+      profileData.crystals = r.crystals_balance;
+      if (!profileData.crystal_cosmetics_owned) profileData.crystal_cosmetics_owned = [];
+      if (!profileData.crystal_cosmetics_owned.includes(key)) profileData.crystal_cosmetics_owned.push(key);
+    }
     syncCrystals(r.crystals_balance);
     renderCrystalsShop();
     
@@ -4083,7 +4225,7 @@ function updateConvertPreview() {
   const amount = parseInt(document.getElementById('convertAmount')?.value || '0');
   const preview = document.getElementById('convertPreview');
   if (preview) {
-    preview.textContent = (amount * 10) + ' 🪙';
+    preview.textContent = (amount * 30) + ' 🪙';
   }
 }
 
@@ -4102,7 +4244,7 @@ async function convertCrystals() {
     return;
   }
   
-  const moraToGet = amount * 10;
+  const moraToGet = amount * 30;
   if (!confirm(`Обменять ${amount} 💎 на ${moraToGet} 🪙?`)) return;
   
   try {
@@ -6515,6 +6657,7 @@ const _FEAT_LABELS = {
   feat_pets: '🐾 Питомцы',
   feat_casino: '🎰 Казино',
   feat_random_events: '🎲 Рандом-ивенты',
+  bot_disabled: '🤖 БОТ АКТИВЕН (выкл = отключить полностью)',
 };
 
 async function loadDevFeatFlags() {
@@ -6530,9 +6673,14 @@ async function loadDevFeatFlags() {
     if (grid) {
       grid.style.display = 'grid';
       grid.innerHTML = Object.entries(_FEAT_LABELS).map(([key, label]) => {
-        const on = flags[key] !== false;
-        return `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border)">
-          <span style="font-size:13px">${label}</span>
+        // bot_disabled is inverted: DB=0 means bot active (toggle ON), DB=1 means bot off
+        const on = key === 'bot_disabled' ? !flags[key] : flags[key] !== false;
+        const rowStyle = (key === 'bot_disabled' && !on)
+          ? 'background:rgba(239,68,68,.08);border-radius:6px;padding:6px 6px;margin:2px 0;border-bottom:none'
+          : 'padding:6px 0;border-bottom:1px solid var(--border)';
+        const labelColor = (key === 'bot_disabled' && !on) ? 'color:#f87171;font-weight:700' : '';
+        return `<div style="display:flex;justify-content:space-between;align-items:center;${rowStyle}">
+          <span style="font-size:13px;${labelColor}">${label}</span>
           <div class="tog" id="featTog_${key}" data-val="${on?'1':'0'}" data-chat="${selChatId}" data-feat="${key}"
                style="background:${on?'#4ade80':'#475569'};width:44px;height:24px;border-radius:12px;position:relative;cursor:pointer"
                onclick="toggleFeat(this)">
@@ -6559,8 +6707,19 @@ async function toggleFeat(togEl) {
   if (knob) { knob.style.left = newOn ? '' : '3px'; knob.style.right = newOn ? '3px' : ''; }
   const msg = document.getElementById('devFeatMsg');
   try {
-    await api('/api/dev/feature_toggle', 'POST', { chat_id: parseInt(selChatId), feature: key, enabled: newOn });
-    if (msg) { msg.style.color = 'var(--success,#4ade80)'; msg.textContent = '✅ ' + _FEAT_LABELS[key] + ': ' + (newOn ? 'вкл' : 'выкл'); setTimeout(() => { msg.textContent = ''; }, 2500); }
+    // bot_disabled is inverted: visual "on" (bot active) means DB bot_disabled=0 → send enabled=false
+    const enabledVal = key === 'bot_disabled' ? !newOn : newOn;
+    await api('/api/dev/feature_toggle', 'POST', { chat_id: parseInt(selChatId), feature: key, enabled: enabledVal });
+    if (msg) {
+      msg.style.color = 'var(--success,#4ade80)';
+      const statusLabel = key === 'bot_disabled'
+        ? (newOn ? '🤖 бот активен' : '🔕 бот ОТКЛЮЧЁН')
+        : (newOn ? 'вкл' : 'выкл');
+      msg.textContent = '✅ ' + _FEAT_LABELS[key] + ': ' + statusLabel;
+      setTimeout(() => { msg.textContent = ''; }, 2500);
+    }
+    // Re-render grid so bot_disabled row updates its danger styling
+    if (key === 'bot_disabled') loadDevFeatFlags();
   } catch(e) {
     // Revert on error
     togEl.dataset.val = isOn ? '1' : '0';
@@ -6596,7 +6755,8 @@ function _startBgTimers() {
     try {
       const r = await api('/api/user_data?chat_id=' + chatId);
       if (r.balance !== undefined) syncBalance(r.balance);
-      if (profileData) { profileData.balance = r.balance; }
+      if (r.crystals !== undefined) syncCrystals(r.crystals);
+      if (profileData) { profileData.balance = r.balance; profileData.crystals = r.crystals; }
       if (r.xp !== undefined) {
         const xp = r.xp, xpMax = r.xp_max || 100;
         const xpEl = document.getElementById('pXp');
@@ -6682,15 +6842,15 @@ function renderCosmeticsInventory(cosmetics, allItems) {
           ${i.equipped?'✓ Снять':'Надеть'}
         </button>` : ''}
     </div>`
-  ).join('') : '<div style="color:var(--text2);text-align:center;padding:20px">Нет косметики</div>';
+  ).join('') : '<div style="color:var(--text2);text-align:center;padding:28px"><div style="font-size:36px;margin-bottom:8px">✨</div><div style="font-weight:700;margin-bottom:4px">Нет косметики</div><div style="font-size:12px">Крути гачу — там попадается редкая косметика!</div></div>';
   
   updateBatchSellUI();
 }
 
 function renderWeaponsInventory(weapons) {
   document.getElementById('invWeaponsList').innerHTML = weapons.length ? '<div class="inv-grid">'+weapons.map(i => 
-    `<div class="inv-item ${canSelectItem(i) ? 'selectable' : ''}" id="item-${i.id}">
-      ${canSelectItem(i) ? `<input type="checkbox" class="inv-item-select" onchange="toggleItemSelection(${i.id}, this.checked)">` : ''}
+    `<div class="inv-item ${canSelectItem(i) ? 'selectable' : ''}" id="item-${i.id}" onclick="showItemModal(${i.id})" style="cursor:pointer">
+      ${canSelectItem(i) ? `<input type="checkbox" class="inv-item-select" onclick="event.stopPropagation()" onchange="toggleItemSelection(${i.id}, this.checked)">` : ''}
       <div class="ii-emoji">${rarityEmoji(i.rarity)}</div>
       <div class="ii-info">
         <div class="ii-name">
@@ -6699,34 +6859,31 @@ function renderWeaponsInventory(weapons) {
         </div>
         <div class="ii-rarity">
           <span class="badge badge-${i.rarity}">${rarityLabel(i.rarity)}</span>
-          ${i.slot ? ' · '+esc(i.slot) : ''}
+          ${i.equipped ? ' <span class="badge" style="background:rgba(251,191,36,.15);color:#fbbf24">✓ Надето</span>' : ''}
           ${!i.can_auction && i.days_until_auctionable ? `<span style="font-size:10px;color:#f59e0b;margin-left:4px">⏳ аукцион через ${i.days_until_auctionable} дн.</span>` : ''}
-          ${canSelectItem(i) ? `<span style="font-size:10px;color:var(--text2)"> · ${i.stack_count>1?`<input type="number" id="qty-${i.id}" min="1" max="${i.stack_count}" value="${i.stack_count}" style="width:28px;background:var(--card2);border:1px solid #555;border-radius:3px;color:var(--text);font-size:9px;text-align:center;padding:1px" oninput="setSellQty(${i.id},this.value,${i.sell_price||0})"> из ${i.stack_count} · `:''}Продать: <span id="sellval-${i.id}">${(i.stack_count||1)*Math.max(1,Math.floor((i.sell_price||0)/2))}</span> 🪙</span>` : ''}
         </div>
         ${i.atk ? `<div style="font-size:10px;color:var(--text2);margin-top:2px">ATK+${i.atk}${i.crit_rate ? ` Crit+${Math.round(i.crit_rate*100)}%` : ''}</div>` : ''}
-        ${i.equipped && i.enhancement_level >= 0 ? getEnhancementInfo(i) : ''}
-        ${i.desc ? `<div style="font-size:10px;color:var(--text2);margin-top:2px;font-style:italic">${esc(i.desc)}</div>` : ''}
       </div>
-      <div style="display:flex;gap:4px;align-items:center">
+      <div style="display:flex;gap:4px;align-items:center" onclick="event.stopPropagation()">
         ${!canSelectItem(i) ? 
           `<button class="btn btn-sm ${i.equipped?'btn-gold':'btn-primary'}" onclick="toggleEquip(${i.id})" style="width:auto;min-width:68px">
             ${i.equipped?'✓ Снять':'Надеть'}
           </button>` : ''}
         ${i.equipped ? 
           `<button class="btn btn-sm" style="background:var(--gold);color:#000;width:auto" onclick="enhanceItem(${i.id})">
-            ⚡ Заточка
+            ⚡
           </button>` : ''}
       </div>
     </div>`
-  ).join('')+'</div>' : '<div style="color:var(--text2);text-align:center;padding:20px">Нет оружия</div>';
+  ).join('')+'</div>' : '<div style="color:var(--text2);text-align:center;padding:28px"><div style="font-size:36px;margin-bottom:8px">🗡️</div><div style="font-weight:700;margin-bottom:4px">Нет оружия</div><div style="font-size:12px">Используй гача-автомат чтобы получить оружие</div></div>';
   
   updateBatchSellUI();
 }
 
 function renderArmorInventory(armor) {
   document.getElementById('invArmorList').innerHTML = armor.length ? '<div class="inv-grid">'+armor.map(i => 
-    `<div class="inv-item ${canSelectItem(i) ? 'selectable' : ''}" id="item-${i.id}">
-      ${canSelectItem(i) ? `<input type="checkbox" class="inv-item-select" onchange="toggleItemSelection(${i.id}, this.checked)">` : ''}
+    `<div class="inv-item ${canSelectItem(i) ? 'selectable' : ''}" id="item-${i.id}" onclick="showItemModal(${i.id})" style="cursor:pointer">
+      ${canSelectItem(i) ? `<input type="checkbox" class="inv-item-select" onclick="event.stopPropagation()" onchange="toggleItemSelection(${i.id}, this.checked)">` : ''}
       <div class="ii-emoji">${rarityEmoji(i.rarity)}</div>
       <div class="ii-info">
         <div class="ii-name">
@@ -6735,26 +6892,23 @@ function renderArmorInventory(armor) {
         </div>
         <div class="ii-rarity">
           <span class="badge badge-${i.rarity}">${rarityLabel(i.rarity)}</span>
-          ${i.slot ? ' · '+esc(i.slot) : ''}
+          ${i.equipped ? ' <span class="badge" style="background:rgba(251,191,36,.15);color:#fbbf24">✓ Надето</span>' : ''}
           ${!i.can_auction && i.days_until_auctionable ? `<span style="font-size:10px;color:#f59e0b;margin-left:4px">⏳ аукцион через ${i.days_until_auctionable} дн.</span>` : ''}
-          ${canSelectItem(i) ? `<span style="font-size:10px;color:var(--text2)"> · ${i.stack_count>1?`<input type="number" id="qty-${i.id}" min="1" max="${i.stack_count}" value="${i.stack_count}" style="width:28px;background:var(--card2);border:1px solid #555;border-radius:3px;color:var(--text);font-size:9px;text-align:center;padding:1px" oninput="setSellQty(${i.id},this.value,${i.sell_price||0})"> из ${i.stack_count} · `:''}Продать: <span id="sellval-${i.id}">${(i.stack_count||1)*Math.max(1,Math.floor((i.sell_price||0)/2))}</span> 🪙</span>` : ''}
         </div>
         ${(i.def_val||i.hp) ? `<div style="font-size:10px;color:var(--text2);margin-top:2px">${i.def_val?'DEF+'+i.def_val:''}${i.def_val&&i.hp?' ':''}${i.hp?'HP+'+i.hp:''}</div>` : ''}
-        ${i.equipped && i.enhancement_level >= 0 ? getEnhancementInfo(i) : ''}
-        ${i.desc ? `<div style="font-size:10px;color:var(--text2);margin-top:2px;font-style:italic">${esc(i.desc)}</div>` : ''}
       </div>
-      <div style="display:flex;gap:4px;align-items:center">
+      <div style="display:flex;gap:4px;align-items:center" onclick="event.stopPropagation()">
         ${!canSelectItem(i) ? 
           `<button class="btn btn-sm ${i.equipped?'btn-gold':'btn-primary'}" onclick="toggleEquip(${i.id})" style="width:auto;min-width:68px">
             ${i.equipped?'✓ Снять':'Надеть'}
           </button>` : ''}
         ${i.equipped ? 
           `<button class="btn btn-sm" style="background:var(--gold);color:#000;width:auto" onclick="enhanceItem(${i.id})">
-            ⚡ Заточка
+            ⚡
           </button>` : ''}
       </div>
     </div>`
-  ).join('')+'</div>' : '<div style="color:var(--text2);text-align:center;padding:20px">Нет брони</div>';
+  ).join('')+'</div>' : '<div style="color:var(--text2);text-align:center;padding:28px"><div style="font-size:36px;margin-bottom:8px">🛡️</div><div style="font-weight:700;margin-bottom:4px">Нет брони</div><div style="font-size:12px">Броня выпадает из гача-автомата — попробуй своё везение!</div></div>';
   
   updateBatchSellUI();
 }
@@ -6777,28 +6931,103 @@ function renderPotionsInventory(potions) {
         ${i.slot==='consume'?'✨ Использовать':'⚗️ Выпить'}
       </button>
     </div>`
-  ).join('') : '<div style="color:var(--text2);text-align:center;padding:20px">Нет зелий</div>';
+  ).join('') : '<div style="color:var(--text2);text-align:center;padding:28px"><div style="font-size:36px;margin-bottom:8px">🧪</div><div style="font-weight:700;margin-bottom:4px">Нет зелий</div><div style="font-size:12px">Зелья можно получить в гаче или за активность в чате</div></div>';
   
   updateBatchSellUI();
 }
 
 function renderJunkInventory(junkItems) {
   document.getElementById('invJunkList').innerHTML = junkItems.length ? '<div class="inv-grid">'+junkItems.map(i =>
-    `<div class="inv-item selectable" id="item-${i.id}">
-      <input type="checkbox" class="inv-item-select" onchange="toggleItemSelection(${i.id}, this.checked)">
+    `<div class="inv-item selectable" id="item-${i.id}" onclick="showItemModal(${i.id})">
+      <input type="checkbox" class="inv-item-select" onclick="event.stopPropagation()" onchange="toggleItemSelection(${i.id}, this.checked)">
       <div class="ii-emoji">${rarityEmoji(i.rarity)}</div>
       <div class="ii-info">
         <div class="ii-name">${esc(i.name)}${i.stack_count>1?` <b style="color:var(--accent)">\u00d7${i.stack_count}</b>`:''}</div>
         <div class="ii-rarity">
           <span class="badge badge-junk">💤 Хлам</span>
-          <span style="font-size:10px;color:var(--text2)"> · ${i.stack_count>1?`<input type="number" id="qty-${i.id}" min="1" max="${i.stack_count}" value="${i.stack_count}" style="width:28px;background:var(--card2);border:1px solid #555;border-radius:3px;color:var(--text);font-size:9px;text-align:center;padding:1px" oninput="setSellQty(${i.id},this.value,${i.sell_price||0})"> из ${i.stack_count} · `:''}Продать: <span id="sellval-${i.id}">${(i.stack_count||1)*Math.max(1,Math.floor((i.sell_price||0)/2))}</span> 🪙</span>
+          <span style="font-size:10px;color:var(--text2)"> · ${i.stack_count>1?`<input type="number" id="qty-${i.id}" min="1" max="${i.stack_count}" value="${i.stack_count}" style="width:28px;background:var(--card2);border:1px solid #555;border-radius:3px;color:var(--text);font-size:9px;text-align:center;padding:1px" onclick="event.stopPropagation()" oninput="setSellQty(${i.id},this.value,${i.sell_price||0})"> из ${i.stack_count} · `:''}Продать: <span id="sellval-${i.id}">${(i.stack_count||1)*Math.max(1,Math.floor((i.sell_price||0)/2))}</span> 🪙</span>
         </div>
-        ${i.desc ? `<div style="font-size:10px;color:var(--text2);margin-top:2px;font-style:italic">${esc(i.desc)}</div>` : ''}
       </div>
     </div>`
   ).join('')+'</div>' : '<div style="color:var(--text2);text-align:center;padding:20px">🪨 Нет хлама — вам везёт!</div>';
   
   updateBatchSellUI();
+}
+
+function renderOtherInventory(others) {
+  const el = document.getElementById('invOtherList');
+  if (!el) return;
+  el.innerHTML = others.length ? others.map(i =>
+    `<div class="inv-item" id="item-other-${i.id}" onclick="showItemModal(${i.id})" style="cursor:pointer">
+      <div class="ii-emoji">${rarityEmoji(i.rarity)}</div>
+      <div class="ii-info">
+        <div class="ii-name">${esc(i.name)}${i.stack_count>1?` <b style="color:var(--accent)">\u00d7${i.stack_count}</b>`:''}</div>
+        <div class="ii-rarity">
+          <span class="badge badge-${i.rarity}">${rarityLabel(i.rarity)}</span>
+          ${i.slot ? ` · <span style="color:var(--text2)">${esc(i.slot)}</span>` : ''}
+        </div>
+        ${i.desc ? `<div style="font-size:10px;color:var(--text2);margin-top:2px;font-style:italic">${esc(i.desc)}</div>` : ''}
+      </div>
+    </div>`
+  ).join('') : '<div style="color:var(--text2);text-align:center;padding:20px">📦 Нет предметов вне категорий</div>';
+}
+
+// ── Item detail modal ─────────────────────────────────────────────────────────
+function showItemModal(itemId) {
+  const item = window.inventoryItems ? window.inventoryItems.find(i => i.id === itemId) : null;
+  if (!item) return;
+  const modal = document.getElementById('itemDetailModal');
+  if (!modal) return;
+
+  document.getElementById('itemModalIcon').textContent = rarityEmoji(item.rarity);
+  document.getElementById('itemModalName').textContent = item.name + (item.stack_count > 1 ? ` ×${item.stack_count}` : '');
+
+  const rarityEl = document.getElementById('itemModalRarity');
+  rarityEl.innerHTML = `<span class="badge badge-${item.rarity}">${rarityLabel(item.rarity)}</span>` +
+    (item.slot ? ` <span style="font-size:11px;color:var(--text2)">${esc(item.slot)}</span>` : '') +
+    (item.enhancement_level > 0 ? ` <span class="enhance-level">+${item.enhancement_level}</span>` : '') +
+    (item.equipped ? ` <span class="badge" style="background:rgba(251,191,36,.15);color:#fbbf24">✓ Надето</span>` : '');
+
+  // Stats
+  const statsEl = document.getElementById('itemModalStats');
+  const statsLines = [];
+  if (item.atk)        statsLines.push(`⚔️ ATK: <b>+${item.atk}</b>`);
+  if (item.def_val)    statsLines.push(`🛡 DEF: <b>+${item.def_val}</b>`);
+  if (item.hp)         statsLines.push(`❤️ HP: <b>+${item.hp}</b>`);
+  if (item.crit_rate)  statsLines.push(`🎯 Крит: <b>+${Math.round(item.crit_rate*100)}%</b>`);
+  if (item.enhancement_level > 0) statsLines.push(`⚡ Заточка: <b>+${item.enhancement_level}</b>`);
+  if (statsLines.length > 0) {
+    statsEl.innerHTML = statsLines.join(' &nbsp;·&nbsp; ');
+    statsEl.style.display = 'block';
+  } else {
+    statsEl.style.display = 'none';
+  }
+
+  document.getElementById('itemModalDesc').textContent = item.desc || 'Нет описания';
+
+  // Actions
+  const actionsEl = document.getElementById('itemModalActions');
+  let acts = '';
+  if (item.slot === 'weapon' || item.slot === 'armor' || item.slot === 'artifact') {
+    acts += `<button class="btn btn-sm ${item.equipped ? 'btn-gold' : 'btn-primary'}" onclick="toggleEquip(${item.id});closeItemModal()" style="flex:1">${item.equipped ? '✓ Снять' : '⚔️ Надеть'}</button>`;
+    if (item.equipped) acts += `<button class="btn btn-sm" style="background:var(--gold);color:#000;flex:1" onclick="closeItemModal();enhanceItem(${item.id})">⚡ Заточить</button>`;
+  } else if (item.slot === 'cosmetic' || item.slot === 'flair') {
+    acts += `<button class="btn btn-sm ${item.equipped ? 'btn-gold' : 'btn-primary'}" onclick="toggleEquip(${item.id});closeItemModal()" style="flex:1">${item.equipped ? '✓ Снять' : '🎨 Надеть'}</button>`;
+  } else if (item.slot === 'potion' || item.slot === 'consume') {
+    acts += `<button class="btn btn-sm btn-green" onclick="closeItemModal();consumePotion(${item.id})" style="flex:1">${item.slot === 'consume' ? '✨ Использовать' : '⚗️ Выпить'}</button>`;
+  }
+  if (canSelectItem(item)) {
+    acts += `<button class="btn btn-sm" style="background:var(--bg3);color:var(--text2);flex:1" onclick="closeItemModal()">Продать за ${Math.max(1, Math.floor((item.sell_price||0)/2))} 🪙</button>`;
+  }
+  acts += `<button class="btn btn-sm btn-ghost" onclick="closeItemModal()" style="flex:1">Закрыть</button>`;
+  actionsEl.innerHTML = acts;
+
+  modal.style.display = 'flex';
+}
+
+function closeItemModal() {
+  const modal = document.getElementById('itemDetailModal');
+  if (modal) modal.style.display = 'none';
 }
 
 function canSelectItem(item) {
@@ -6836,7 +7065,7 @@ function getEnhancementInfo(item) {
 
 function switchSubtab(name) {
   document.querySelectorAll('.subtab-btn').forEach(b => b.classList.toggle('active', b.getAttribute('onclick').includes("'"+name+"'")));
-  ['cosmetics','weapons','armor','potions','junk'].forEach(n =>
+  ['cosmetics','weapons','armor','potions','junk','other'].forEach(n =>
     document.getElementById('subtab-'+n).style.display = n === name ? 'block' : 'none'
   );
 }
@@ -6963,6 +7192,14 @@ function updateBatchSellUI() {
   }
 }
 
+let _enhanceTargetId = null;
+
+function closeEnhanceChoice() {
+  const m = document.getElementById('enhanceChoiceModal');
+  if (m) m.style.display = 'none';
+  _enhanceTargetId = null;
+}
+
 async function enhanceItem(itemId) {
   const item = window.inventoryItems.find(i => i.id === itemId);
   if (!item) return;
@@ -6972,32 +7209,70 @@ async function enhanceItem(itemId) {
 
   const cost = Math.floor(80 * Math.pow(1.3, level));
   const ch = getEnhanceChances(level);
+  const stones = (profileData && profileData.enhancement_stones) || 0;
 
-  let chanceText = `✅ ${ch.success}% — успех (+1)`;
-  if (ch.neutral > 0) chanceText += `\n⚡ ${ch.neutral}% — нейтрально (уровень не меняется)`;
-  if (ch.fail > 0)    chanceText += `\n💔 ${ch.fail}% — понижение (−1, предмет цел)`;
+  // Show choice modal
+  _enhanceTargetId = itemId;
+  const modal = document.getElementById('enhanceChoiceModal');
+  document.getElementById('enhChoiceTitle').textContent = `⚡ Заточка ${item.name} → +${level+1}`;
 
-  const confirmed = confirm(
-    `⚡ Заточить ${item.name} до +${level+1}?\n\n`+
-    `Стоимость: ${cost} 🪙\n\n`+
-    `${chanceText}\n\n`+
-    `Предметы никогда не уничтожаются.`
-  );
-  if (!confirmed) return;
+  const stonesBtn = document.getElementById('enhChoiceStoneBtn');
+  const stoneDesc = document.getElementById('enhChoiceStoneDesc');
+  if (stones > 0) {
+    stoneDesc.textContent = `У вас ${stones} 🔮 | Успех: 100% гарантия, предмет никогда не ломается`;
+    stonesBtn.disabled = false;
+    stonesBtn.style.opacity = '1';
+  } else {
+    stoneDesc.textContent = `У вас 0 🔮 | Купи в Магазине кристаллов`;
+    stonesBtn.disabled = true;
+    stonesBtn.style.opacity = '0.45';
+  }
+
+  const moraBalance = (profileData && profileData.balance) || 0;
+  document.getElementById('enhChoiceMoraChance').textContent = `${ch.success}% успех`;
+  const failDesc = ch.fail > 0 ? ` · ${ch.fail}% понижение −1` : '';
+  const neutralDesc = ch.neutral > 0 ? ` · ${ch.neutral}% без изменений` : '';
+  document.getElementById('enhChoiceMoraDesc').textContent =
+    `Стоимость: ${cost} 🪙 (у вас: ${moraBalance})${neutralDesc}${failDesc}`;
+
+  const moraBtn = document.getElementById('enhChoiceMoraBtn');
+  if (moraBalance < cost) {
+    moraBtn.disabled = true;
+    moraBtn.style.opacity = '0.45';
+  } else {
+    moraBtn.disabled = false;
+    moraBtn.style.opacity = '1';
+  }
+
+  modal.style.display = 'flex';
+}
+
+async function doEnhance(useStone) {
+  closeEnhanceChoice();
+  const itemId = _enhanceTargetId;
+  if (!itemId) return;
+  const item = window.inventoryItems.find(i => i.id === itemId);
+  if (!item) return;
 
   try {
-    const r = await api('/api/enhance', 'POST', {chat_id: chatId, item_id: itemId});
+    const tgApp = window.Telegram && window.Telegram.WebApp;
+    const r = await api('/api/enhance', 'POST', {chat_id: chatId, item_id: itemId, use_stone: useStone});
+    const prevLevel = item.enhancement_level || 0;
 
     if (r.success) {
       toast(`✨ Заточка успешна! ${item.name} → +${r.enhancement_level}`, 'success');
+      if (tgApp && tgApp.HapticFeedback) tgApp.HapticFeedback.notificationOccurred('success');
+    } else if (r.enhancement_level < prevLevel) {
+      toast(`💔 Неудача! Уровень понижен: +${prevLevel} → +${r.enhancement_level}`, 'error');
+      if (tgApp && tgApp.HapticFeedback) tgApp.HapticFeedback.notificationOccurred('error');
     } else {
-      toast(`⚡ ${r.message || 'Заточка не прошла'}`, 'info');
+      toast(`⚡ Заточка не прошла. ${item.name} остался +${r.enhancement_level}`, 'info');
     }
 
-    // Update balance
+    // Update balance & stones
     if (r.balance !== undefined) syncBalance(r.balance);
+    if (useStone && profileData) profileData.enhancement_stones = Math.max(0, (profileData.enhancement_stones || 0) - 1);
 
-    // Reload inventory
     tabLoaded['inventory'] = false;
     loadInventory();
 
@@ -8739,6 +9014,40 @@ async function buySeasonPremium() {
     <div id="userPickerList" style="overflow-y:auto;flex:1;min-height:120px">
       <div style="text-align:center;padding:24px;color:var(--text2)">⏳</div>
     </div>
+  </div>
+</div>
+
+<!-- Item detail modal -->
+<div id="itemDetailModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9600;align-items:flex-end;backdrop-filter:blur(8px)" onclick="if(event.target===this)closeItemModal()">
+  <div style="background:var(--bg);border-radius:20px 20px 0 0;padding:20px;max-height:70vh;overflow-y:auto;width:100%;box-sizing:border-box;border-top:1px solid var(--border)">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">
+      <span id="itemModalIcon" style="font-size:40px;line-height:1">🗡️</span>
+      <button onclick="closeItemModal()" style="background:none;border:none;color:var(--text2);font-size:24px;cursor:pointer;padding:4px;line-height:1;margin-left:auto">✕</button>
+    </div>
+    <div id="itemModalName" style="font-size:18px;font-weight:800;color:var(--text);margin-bottom:4px"></div>
+    <div id="itemModalRarity" style="margin-bottom:10px"></div>
+    <div id="itemModalStats" style="background:var(--bg3);border-radius:10px;padding:12px;margin-bottom:10px;font-size:13px;display:none"></div>
+    <div id="itemModalDesc" style="font-size:13px;color:var(--text2);line-height:1.5;margin-bottom:14px"></div>
+    <div id="itemModalActions" style="display:flex;gap:8px;flex-wrap:wrap"></div>
+  </div>
+</div>
+
+<!-- Enhancement choice modal -->
+<div id="enhanceChoiceModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9600;align-items:center;justify-content:center;backdrop-filter:blur(8px)" onclick="if(event.target===this)closeEnhanceChoice()">
+  <div style="background:var(--bg);border-radius:16px;padding:20px;max-width:320px;width:90%;border:1px solid var(--border)">
+    <div style="font-size:16px;font-weight:800;color:var(--text);margin-bottom:6px" id="enhChoiceTitle">⚡ Заточка предмета</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:16px" id="enhChoiceSubtitle"></div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <button id="enhChoiceStoneBtn" onclick="doEnhance(true)" style="background:linear-gradient(135deg,rgba(124,58,237,.3),rgba(168,85,247,.2));border:1px solid rgba(168,85,247,.5);border-radius:10px;padding:12px;color:var(--text);cursor:pointer;text-align:left">
+        <div style="font-weight:700;margin-bottom:2px">🔮 Камень заточки — <span style="color:#4ade80">100% успех</span></div>
+        <div style="font-size:11px;color:var(--text2)" id="enhChoiceStoneDesc"></div>
+      </button>
+      <button id="enhChoiceMoraBtn" onclick="doEnhance(false)" style="background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.35);border-radius:10px;padding:12px;color:var(--text);cursor:pointer;text-align:left">
+        <div style="font-weight:700;margin-bottom:2px">🪙 Мора — <span id="enhChoiceMoraChance" style="color:var(--gold)">85% успех</span></div>
+        <div style="font-size:11px;color:var(--text2)" id="enhChoiceMoraDesc"></div>
+      </button>
+    </div>
+    <button onclick="closeEnhanceChoice()" style="margin-top:12px;width:100%;background:none;border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text2);cursor:pointer">Отмена</button>
   </div>
 </div>
 </body>
