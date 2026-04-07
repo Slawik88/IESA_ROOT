@@ -34,14 +34,11 @@ if str(_BOT_DIR) not in sys.path:
 from shared_prices import (  # noqa: E402
     GACHA_SINGLE_PRICE as _GACHA_SINGLE_PRICE,
     GACHA_MULTI_PRICE as _GACHA_MULTI_PRICE,
-    GACHA_SINGLES_SINGLE as _GACHA_SINGLES_SINGLE,
-    GACHA_SINGLES_MULTI as _GACHA_SINGLES_MULTI,
     GACHA_PITY_MAX as _GACHA_PITY_MAX,
     PRICE_VIP as _PRICE_VIP,
     FRAMES_CATALOG as _FRAMES_CATALOG,
     COSMETICS_CATALOG as _COSMETICS_CATALOG,
     FOOD_ITEMS as _FOOD_ITEMS,
-    POTIONS_CATALOG as _POTIONS_CATALOG,
     BOND_DEFAULTS as _BOND_DEFAULTS_SYNC,
     BANK_PLANS as _BANK_PLANS_SYNC,
     BANK_MIN_DEPOSIT as _BANK_MIN_DEPOSIT,
@@ -2210,29 +2207,36 @@ def miniapp_shop_set_title(request):
         ph = "%s" if db_type == "pg" else "?"
         if wallet_type == "family":
             cur.execute(f"SELECT partner_id FROM marriages_global WHERE user_id={ph}", (uid,))
-            if not cur.fetchone():
+            marriage_row = cur.fetchone()
+            if not marriage_row:
                 conn.close()
                 return JsonResponse({"error": "Нет семейного кошелька"}, status=400, headers=headers)
-            cur.execute(f"SELECT balance FROM family_wallet WHERE chat_id={ph} AND user_id={ph}", (chat_id, uid))
-            fam_bal = (cur.fetchone() or [0])[0]
-            if fam_bal < _CUSTOM_TITLE_PRICE:
+            partner_id = marriage_row[0]
+            # Total family balance = user contribution + partner contribution (chat_id=0 — global)
+            cur.execute(
+                f"SELECT COALESCE(SUM(balance), 0) FROM family_wallet WHERE chat_id=0 AND user_id IN ({ph},{ph})",
+                (uid, partner_id),
+            )
+            total_fam_bal = (cur.fetchone() or [0])[0]
+            if total_fam_bal < _CUSTOM_TITLE_PRICE:
                 conn.close()
-                return JsonResponse({"error": f"Недостаточно моры. Нужно {_CUSTOM_TITLE_PRICE} 🪙"}, status=400, headers=headers)
-            cur.execute(f"UPDATE family_wallet SET balance=balance-{ph} WHERE chat_id={ph} AND user_id={ph} AND balance>={ph}", (_CUSTOM_TITLE_PRICE, chat_id, uid, _CUSTOM_TITLE_PRICE))
-            if cur.rowcount == 0:
+                return JsonResponse({"error": f"Недостаточно моры в семейном кошельке. Нужно {_CUSTOM_TITLE_PRICE} 🪙, есть {total_fam_bal} 🪙"}, status=400, headers=headers)
+            # Atomic deduction: deduct from user's contribution first, then partner's
+            from asgiref.sync import async_to_sync as _a2s
+            from database.db import deduct_family_pool
+            try:
+                _a2s(deduct_family_pool)(0, uid, partner_id, _CUSTOM_TITLE_PRICE)
+            except ValueError:
                 conn.close()
-                return JsonResponse({"error": f"Недостаточно моры (race)"}, status=400, headers=headers)
+                return JsonResponse({"error": f"Недостаточно моры в семейном кошельке (race)"}, status=400, headers=headers)
         else:
-            cur.execute(f"SELECT COALESCE(balance, 0) FROM users WHERE user_id={ph}", (uid,))
-            row = cur.fetchone()
-            balance = row[0] if row else 0
-            if balance < _CUSTOM_TITLE_PRICE:
-                conn.close()
-                return JsonResponse({"error": f"Недостаточно моры. Нужно {_CUSTOM_TITLE_PRICE} 🪙"}, status=400, headers=headers)
             cur.execute(
                 f"UPDATE users SET balance=balance-{ph} WHERE user_id={ph} AND COALESCE(balance,0)>={ph}",
                 (_CUSTOM_TITLE_PRICE, uid, _CUSTOM_TITLE_PRICE),
             )
+            if cur.rowcount == 0:
+                conn.close()
+                return JsonResponse({"error": f"Недостаточно моры. Нужно {_CUSTOM_TITLE_PRICE} 🪙"}, status=400, headers=headers)
         if db_type == "pg":
             cur.execute(
                 f"INSERT INTO user_stats (user_id, chat_id, custom_title) VALUES ({ph},{ph},{ph}) "
