@@ -493,6 +493,16 @@ def miniapp_user_data(request):
         except Exception:
             conn.rollback()
 
+        # Crystal cosmetics owned (rainbow_title, crystal_aura, stealth_mode, etc.)
+        crystal_cosmetics_owned = []
+        has_rainbow_title = False
+        try:
+            cur.execute(f"SELECT item_value FROM shop_items WHERE user_id={ph} AND item_type='cosmetic'", (uid,))
+            crystal_cosmetics_owned = [row[0] for row in cur.fetchall()]
+            has_rainbow_title = 'rainbow_title' in crystal_cosmetics_owned
+        except Exception:
+            conn.rollback()
+
         computed_level = db_level if db_level > 1 else _level_for_xp(xp)
         xp_max = _xp_for_level(computed_level + 1)
 
@@ -534,6 +544,8 @@ def miniapp_user_data(request):
             "guarantee_scrolls": guarantee_scrolls,
             "avatar_unlocked": avatar_unlocked,
             "chat_role": chat_role,
+            "crystal_cosmetics_owned": crystal_cosmetics_owned,
+            "has_rainbow_title": has_rainbow_title,
         }
 
         # ── Heartbeat: update mini app online status ─────────────────────
@@ -1951,7 +1963,7 @@ def miniapp_inventory(request):
                         can_auction = False
                 items.append({
                     "id": r[0], "key": r[1], "name": r[2], "rarity": r[3], "equipped": bool(r[4]),
-                    "atk": r[5], "def": r[6], "hp": r[7], "crit": r[8], "slot": r[9],
+                    "atk": r[5], "def_val": r[6], "hp": r[7], "crit_rate": r[8], "slot": r[9],
                     "enhancement_level": r[10],
                     "stack_count": r[11],
                     "is_cosmetic": meta.get("slot") == "flair",
@@ -3010,6 +3022,7 @@ def miniapp_enhance_item(request):
 
     item_id = data.get("item_id")
     chat_id = data.get("chat_id")
+    use_stone = data.get("use_stone")  # True=use stone (100%), False=use mora, None=auto
 
     if not item_id or not chat_id:
         return JsonResponse({"error": "item_id and chat_id required"}, status=400, headers=headers)
@@ -3019,7 +3032,7 @@ def miniapp_enhance_item(request):
         from api.economy import get_balance
         from asgiref.sync import async_to_sync as _a2s
 
-        success, message, new_level = _a2s(enhance_item)(uid, chat_id, item_id)
+        success, message, new_level = _a2s(enhance_item)(uid, chat_id, item_id, use_stone=use_stone)
 
         balance = _a2s(get_balance)(uid, chat_id)
 
@@ -5074,7 +5087,7 @@ def miniapp_chat_buff(request):
 
 @csrf_exempt
 def miniapp_convert_crystals(request):
-    """POST /api/convert_crystals {amount} — convert crystals to mora at 1:10 rate."""
+    """POST /api/convert_crystals {amount} — convert crystals to mora at 1:30 rate."""
     headers = _cors_headers()
     if request.method == "OPTIONS":
         return HttpResponse("", status=204, headers=headers)
@@ -5103,8 +5116,8 @@ def miniapp_convert_crystals(request):
         if not ok:
             return JsonResponse({"error": "Недостаточно кристаллов"}, status=400, headers=headers)
         
-        # Add 10x mora globally (need chat_id=0 for global)
-        mora_added = amount * 10
+        # Add 30x mora globally (1 crystal = 30 mora)
+        mora_added = amount * 30
         _a2s(add_mora)(uid, 0, mora_added)
         
         new_crystals = _a2s(get_crystals)(uid)
@@ -6936,6 +6949,7 @@ def miniapp_dev_delete_inventory_item(request):
 _ALLOWED_FEATURE_KEYS = frozenset({
     "feat_website", "feat_antispam", "feat_marriages",
     "feat_pets", "feat_casino", "feat_random_events",
+    "bot_disabled",
 })
 
 @csrf_exempt

@@ -344,6 +344,15 @@ class AutoModMiddleware(BaseMiddleware):
         # Antiflood (configurable) — load settings once for this message
         settings = await get_chat_settings(chat_id)
 
+        # ── Bot kill-switch: if bot_disabled=1, silently ignore all messages ──
+        # Developer always bypasses this to allow re-enabling via commands.
+        if (
+            settings is not None
+            and bool(settings.get("bot_disabled"))
+            and not (DEVELOPER_ID and user.id == DEVELOPER_ID)
+        ):
+            return  # Bot fully disabled for this chat — skip all processing
+
         # Feature flag: feat_antispam (gates both Token-Bucket antispam and Smart Antiflood 2.0)
         _feat_antispam = True
         if settings is not None:
