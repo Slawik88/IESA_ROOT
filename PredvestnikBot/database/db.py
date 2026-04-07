@@ -1687,6 +1687,31 @@ async def init_db():
     # ─── 🅱️ Block 4: Season Pass seed data ──────────────────────────────────
     await seed_first_season()
 
+    # ─── Миграция: mora balance → NUMERIC(15,2) для дробных значений ──────────
+    for _tbl_col in [
+        ("users",         "balance"),
+        ("users",         "total_earned"),
+        ("family_wallet", "balance"),
+        ("chat_treasury", "balance"),
+    ]:
+        try:
+            async with postgres_connect() as _db:
+                _tbl, _col = _tbl_col
+                # Only alter if currently not NUMERIC type
+                _chk = await _db.fetchone(
+                    "SELECT data_type FROM information_schema.columns "
+                    "WHERE table_name=$1 AND column_name=$2",
+                    (_tbl, _col),
+                )
+                if _chk and _chk[0] not in ("numeric", "double precision", "real"):
+                    await _db.execute(
+                        f"ALTER TABLE {_tbl} ALTER COLUMN {_col} "
+                        f"TYPE NUMERIC(15,2) USING {_col}::NUMERIC(15,2)"
+                    )
+                    await _db.commit()
+        except Exception:
+            pass  # Already NUMERIC or column doesn't exist yet
+
     await enforce_rank_invariants()
 
 
@@ -3595,7 +3620,7 @@ async def get_mora_batch(user_ids: list[int], chat_id: int) -> dict[int, dict]:
     return {row["user_id"]: dict(row) for row in rows}
 
 
-async def add_mora(user_id: int, chat_id: int, amount: int) -> int:
+async def add_mora(user_id: int, chat_id: int, amount: float | int) -> float:
     """Add (or subtract) Мора globally. Balance never goes below 0. Returns new balance.
 
     Guard: if chat_id is an isolated chat (admin group / test chat), this is a no-op.

@@ -257,7 +257,7 @@ async def create_auction(
             raise ValueError("Предмет не найден в инвентаре")
 
         # 1b. 3-дневное правило владения: предмет должен быть в инвентаре ≥ 3 дня
-        # Block 3: можно обойти тратой пропуска переноса
+        # Block 3: можно обойти тратой пропуска переноса или с Premium Pass
         acquired = item.get("acquired_at") or item.get("obtained_at")
         if acquired:
             if isinstance(acquired, str):
@@ -268,19 +268,27 @@ async def create_auction(
             item_age_days = (datetime.now(timezone.utc) - acquired).total_seconds() / 86400
             if item_age_days < 3:
                 days_left = 3 - int(item_age_days)
-                # Check if user has transfer passes to bypass the rule
-                from database.db import get_transfer_passes, use_transfer_pass
-                transfer_passes = await get_transfer_passes(seller_id)
-                if transfer_passes > 0:
-                    # Use a transfer pass to bypass the 3-day rule
-                    success = await use_transfer_pass(seller_id)
-                    if success:
-                        # Pass consumed successfully, continue with auction creation
-                        pass
-                    else:
-                        raise ValueError(f"Нельзя выставить на аукцион — нужно владеть предметом ≥3 дня (ещё {days_left} дн. ✅)")
+                # Check if user has Premium Pass (bypasses 3-day rule completely)
+                has_premium = await db.fetchone(
+                    "SELECT premium_purchased FROM season_progress WHERE user_id = ? AND premium_purchased = TRUE LIMIT 1",
+                    (seller_id,)
+                )
+                if has_premium:
+                    pass  # Premium pass holders skip 3-day rule
                 else:
-                    raise ValueError(f"Нельзя выставить на аукцион — нужно владеть предметом ≥3 дня (ещё {days_left} дн. ✅)\n💎 Купи «Пропуск переноса» за кристаллы для обхода!")
+                    # Check if user has transfer passes to bypass the rule
+                    from database.db import get_transfer_passes, use_transfer_pass
+                    transfer_passes = await get_transfer_passes(seller_id)
+                    if transfer_passes > 0:
+                        # Use a transfer pass to bypass the 3-day rule
+                        success = await use_transfer_pass(seller_id)
+                        if success:
+                            # Pass consumed successfully, continue with auction creation
+                            pass
+                        else:
+                            raise ValueError(f"Нельзя выставить на аукцион — нужно владеть предметом ≥3 дня (ещё {days_left} дн. ✅)")
+                    else:
+                        raise ValueError(f"Нельзя выставить на аукцион — нужно владеть предметом ≥3 дня (ещё {days_left} дн. ✅)\n💎 Купи «Пропуск переноса» за кристаллы для обхода!")
 
         # 2. Проверяем что предмет не уже на аукционе
         existing = await db.fetchone(
@@ -766,7 +774,7 @@ async def get_active_auctions(chat_id: int = 0, limit: int = 50, offset: int = 0
                       COALESCE(cs.title, CAST(a.chat_id AS TEXT)) AS seller_chat_name
                FROM auctions a
                LEFT JOIN users u ON u.user_id = a.seller_id
-               LEFT JOIN chat_settings cs ON cs.chat_id = a.chat_id
+               LEFT JOIN chats cs ON cs.chat_id = a.chat_id
                WHERE a.status='active'
                ORDER BY a.created_at DESC
                LIMIT ? OFFSET ?""",
@@ -828,7 +836,7 @@ async def get_user_auctions(user_id: int, chat_id: int = 0) -> dict:
                       COALESCE(cs.title, CAST(a.chat_id AS TEXT)) AS seller_chat_name,
                       (SELECT MAX(amount) FROM auction_bids WHERE auction_id=a.id AND bidder_id=?) AS my_bid
                FROM auctions a
-               LEFT JOIN chat_settings cs ON cs.chat_id = a.chat_id
+               LEFT JOIN chats cs ON cs.chat_id = a.chat_id
                WHERE a.status='active' AND EXISTS (
                    SELECT 1 FROM auction_bids WHERE auction_id=a.id AND bidder_id=?
                )

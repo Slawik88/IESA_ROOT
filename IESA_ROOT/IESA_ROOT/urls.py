@@ -95,6 +95,7 @@ from .miniapp_views import (
     miniapp_dev_delete_inventory_item,
     miniapp_dev_feature_toggle,
     miniapp_save_avatar,
+    miniapp_use_transfer_pass,
 )
 
 # Переопределить стандартный админ на кастомный
@@ -204,6 +205,7 @@ urlpatterns = [
     # ─── Transfers / Переводы ─────────────────────────────────────────────────
     path('api/transfer', miniapp_transfer, name='miniapp_transfer'),
     path('api/crystals/transfer', miniapp_crystals_transfer, name='miniapp_crystals_transfer'),
+    path('api/transfer_pass/use', miniapp_use_transfer_pass, name='miniapp_use_transfer_pass'),
     # ─── Loans / Долги ────────────────────────────────────────────────────────
     path('api/loans', miniapp_loans, name='miniapp_loans'),
     path('api/loans/create', miniapp_loans_create, name='miniapp_loans_create'),

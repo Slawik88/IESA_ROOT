@@ -35,16 +35,21 @@ async def buy_bond(uid: int, chat_id: int, bond_key: str,
     price_per = prices.get(bond_key, BOND_DEFAULTS[bond_key]["base_price"])
     total_cost = price_per * amount
 
-    # ── Exchange limit: a single user cannot invest more than 10 000 Mora total ──
-    EXCHANGE_LIMIT = 10_000
+    # ── Per-crypto limit: max 50 coins of one bond type ──────────────────────
+    COIN_LIMIT = 50
     user_bonds_now = await get_user_bonds(uid, chat_id)
-    total_already_invested = sum(b["invested"] for b in user_bonds_now)
-    if total_already_invested + total_cost > EXCHANGE_LIMIT:
-        remaining = max(0, EXCHANGE_LIMIT - total_already_invested)
+    bond_record_now = next((b for b in user_bonds_now if b["bond_key"] == bond_key), None)
+    already_have = bond_record_now["amount"] if bond_record_now else 0
+    if already_have + amount > COIN_LIMIT:
+        can_buy = max(0, COIN_LIMIT - already_have)
+        if can_buy == 0:
+            raise ValueError(
+                f"Лимит Биржи: максимум {COIN_LIMIT} монет одного типа. "
+                f"У вас уже {already_have} шт. 📊"
+            )
         raise ValueError(
-            f"Лимит Биржи: нельзя вложить суммарно более {EXCHANGE_LIMIT} 🪙. "
-            f"Уже вложено: {total_already_invested} 🪙. "
-            f"Доступно ещё: {remaining} 🪙."
+            f"Лимит Биржи: максимум {COIN_LIMIT} монет одного типа. "
+            f"У вас: {already_have} шт. Можно докупить ещё: {can_buy} шт."
         )
 
     if wallet == "family":
