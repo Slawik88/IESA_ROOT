@@ -7105,26 +7105,24 @@ def miniapp_use_transfer_pass(request):
         cur = conn.cursor()
         ph = "%s" if db_type == "pg" else "?"
 
-        # Check user has transfer passes
-        cur.execute(f"SELECT COALESCE(passes, 0) FROM crystal_transfer_passes WHERE user_id={ph}", (uid,))
-        row = cur.fetchone()
-        passes = row[0] if row else 0
-        if passes <= 0:
+        # Atomic pass deduction: deduct 1 pass only if passes > 0
+        cur.execute(
+            f"UPDATE crystal_transfer_passes SET passes = passes - 1 WHERE user_id={ph} AND COALESCE(passes, 0) > 0",
+            (uid,),
+        )
+        if cur.rowcount == 0:
+            conn.close()
             return JsonResponse({"error": "У вас нет Пропусков переноса 🎫"}, status=400, headers=headers)
 
-        # Check item belongs to user and is locked (<3 days old)
-        if db_type == "pg":
-            cur.execute(
-                f"SELECT id, obtained_at FROM gacha_inventory WHERE id={ph} AND user_id={ph} AND chat_id={ph}",
-                (item_id, uid, chat_id),
-            )
-        else:
-            cur.execute(
-                f"SELECT id, obtained_at FROM gacha_inventory WHERE id={ph} AND user_id={ph} AND chat_id={ph}",
-                (item_id, uid, chat_id),
-            )
+        # Check item belongs to user
+        cur.execute(
+            f"SELECT id FROM gacha_inventory WHERE id={ph} AND user_id={ph} AND chat_id={ph}",
+            (item_id, uid, chat_id),
+        )
         item_row = cur.fetchone()
         if not item_row:
+            conn.rollback()
+            conn.close()
             return JsonResponse({"error": "Предмет не найден в вашем инвентаре"}, status=404, headers=headers)
 
         # Unlock item by backdating obtained_at to 4 days ago
@@ -7133,18 +7131,10 @@ def miniapp_use_transfer_pass(request):
                 f"UPDATE gacha_inventory SET obtained_at = NOW() - INTERVAL '4 days' WHERE id={ph} AND user_id={ph}",
                 (item_id, uid),
             )
-            cur.execute(
-                f"UPDATE crystal_transfer_passes SET passes = passes - 1 WHERE user_id={ph}",
-                (uid,),
-            )
         else:
             cur.execute(
                 f"UPDATE gacha_inventory SET obtained_at = datetime('now', '-4 days') WHERE id={ph} AND user_id={ph}",
                 (item_id, uid),
-            )
-            cur.execute(
-                f"UPDATE crystal_transfer_passes SET passes = passes - 1 WHERE user_id={ph}",
-                (uid,),
             )
         conn.commit()
 
@@ -7152,6 +7142,7 @@ def miniapp_use_transfer_pass(request):
         cur.execute(f"SELECT COALESCE(passes, 0) FROM crystal_transfer_passes WHERE user_id={ph}", (uid,))
         row2 = cur.fetchone()
         remaining = row2[0] if row2 else 0
+        conn.close()
 
         return JsonResponse({"ok": True, "remaining_passes": remaining}, headers=headers)
 

@@ -2916,7 +2916,7 @@ function switchTab(name){
     if(name==='transfers') loadTransfersTab();
     if(name==='spy') renderSpyTab();
     if(name==='glory') loadLB('xp');
-    if(name==='dev'){ loadDevStats(); loadDevItems(); loadDevTreasury(); loadRoster(); loadCleanupConfig(); }
+    if(name==='dev'){ loadDevStats(); loadDevTreasury(); loadRoster(); loadCleanupConfig(); }
     if(name==='auction') loadAuctionTab();
     if(name==='achievements') loadAchievementsTab();
     if(name==='season') loadSeasonTab();
@@ -3313,7 +3313,7 @@ async function loadSinglesAndProposals(){
     } else {
       el.innerHTML = '<div style="text-align:center;color:var(--text2);font-size:12px;padding:6px">Нет доступных кандидатов</div>';
     }
-  } catch(e){ /* ignore */ }
+  } catch(e){ console.warn('marriage candidates:', e); }
 
   // Load incoming proposals
   try {
@@ -3331,7 +3331,7 @@ async function loadSinglesAndProposals(){
         </div>
       </div>`).join('');
     }
-  } catch(e){ /* ignore */ }
+  } catch(e){ console.warn('marriage proposals:', e); }
 }
 
 async function sendProposal(targetId){
@@ -3545,7 +3545,7 @@ async function loadInventory(){
     try {
       const buffsResponse = await api('/api/user_data?chat_id='+chatId);
       activeBuffs = buffsResponse.active_buffs || [];
-    } catch(e) {}
+    } catch(e) { console.warn('active buffs:', e); }
 
     // Split by categories — use a Set to track assigned items (each item goes to exactly ONE section)
     const assignedIds = new Set();
@@ -3693,7 +3693,7 @@ async function loadThemes(){
     const r = await api('/api/themes?chat_id='+chatId);
     themesData = r.themes||[];
     renderInvThemes();
-  } catch(e){ /* silent */ }
+  } catch(e){ console.warn('loadThemes:', e); }
 }
 
 function renderInvThemes(){
@@ -3871,7 +3871,7 @@ async function loadCleanupPassStatus(){
       btn.disabled=false;
       btn.textContent='🎫 Откуп — 2 000 🪙';
     }
-  } catch(e){ /* ignore */ }
+  } catch(e){ console.warn('cleanupPass:', e); }
 }
 
 async function buyCleanupPass(){
@@ -5053,60 +5053,7 @@ async function loadLB(type){
 // ── Dev ───────────────────────────────────────────────────────────────────────
 // ── Dev Panel ─────────────────────────────────────────────────────────────────
 
-// State for selectedUser
-let devSelUser = null;  // {user_id, name}
-let devAllUsers = [];   // cached list for current chat
 let devChatsCache = []; // {chat_id, title, chat_type, members}
-
-function _devCid(){
-  const v = parseInt(document.getElementById('devCtrlCid').value||'0')||chatId;
-  return v;
-}
-
-// ── User search / picker ──────────────────────────────────────────────────────
-
-async function devSearchUsers(q){
-  const dd = document.getElementById('devUserDropdown');
-  if(!q && devAllUsers.length===0){
-    try{
-      const r = await api('/api/dev/users?chat_id='+chatId+'&q=');
-      devAllUsers = r.users||[];
-    } catch(e){ return; }
-  }
-  const list = q
-    ? devAllUsers.filter(u=>(u.name||'').toLowerCase().includes(q.toLowerCase())||String(u.user_id).includes(q))
-    : devAllUsers;
-  if(!list.length){ dd.classList.remove('open'); return; }
-  dd.innerHTML = list.slice(0,15).map(u=>
-    `<div class="dev-dd-item" onmousedown="devSelectUser(${u.user_id},${JSON.stringify(u.name||'?').replace(/"/g,'&quot;')})">
-       ${esc(u.name||'?')}<span class="dd-uid">#${u.user_id}</span>
-     </div>`
-  ).join('');
-  dd.classList.add('open');
-}
-
-function devSelectUser(uid_sel, name){
-  devSelUser = {user_id: uid_sel, name};
-  document.getElementById('devUserSearch').value = '';
-  document.getElementById('devUserDropdown').classList.remove('open');
-  const badge = document.getElementById('devSelBadge');
-  document.getElementById('devSelName').textContent = name;
-  document.getElementById('devSelId').textContent = '#'+uid_sel;
-  badge.classList.add('show');
-}
-
-function devClearSel(){
-  devSelUser = null;
-  document.getElementById('devSelBadge').classList.remove('show');
-  document.getElementById('devUserSearch').value='';
-}
-
-document.addEventListener('click', e=>{
-  const dd = document.getElementById('devUserDropdown');
-  if(dd && !dd.contains(e.target) && e.target.id!=='devUserSearch'){
-    dd.classList.remove('open');
-  }
-});
 
 // ── Stats ─────────────────────────────────────────────────────────────────────
 
@@ -5127,72 +5074,7 @@ async function loadDevStats(){
   } catch(e){toast('❌ '+e.message,'error')}
 }
 
-// ── Items dropdown (preload on tab open) ──────────────────────────────────────
 
-async function loadDevItems(){
-  try{
-    const r = await api('/api/dev/items');
-    const sel = document.getElementById('devItemSelect');
-    sel.innerHTML = (r.items||[]).map(it=>
-      `<option value="${it.key}|${encodeURIComponent(it.name)}|${it.rarity}">${it.rarity_emoji} ${it.name}</option>`
-    ).join('');
-  } catch(e){ /* silent */ }
-}
-
-// ── User controls ─────────────────────────────────────────────────────────────
-
-async function devSetBalance(){
-  if(!devSelUser){toast('Сначала выбери участника','error');return;}
-  const amt=parseInt(document.getElementById('devMoraAmt').value||'0');
-  const cid=_devCid();
-  try{
-    const r=await api('/api/dev/setbalance','POST',{target_id:devSelUser.user_id,balance:amt,chat_id:cid});
-    toast('✅ Баланс установлен: '+r.balance+' 🪙','success');
-  } catch(e){toast('❌ '+e.message,'error')}
-}
-
-async function devAddMora(){
-  if(!devSelUser){toast('Сначала выбери участника','error');return;}
-  const amt=parseInt(document.getElementById('devMoraAmt').value||'0');
-  const cid=_devCid();
-  try{
-    const r=await api('/api/dev/add_mora','POST',{target_id:devSelUser.user_id,amount:amt,chat_id:cid});
-    toast('✅ Баланс: '+r.new_balance+' 🪙','success');
-  } catch(e){toast('❌ '+e.message,'error')}
-}
-
-async function devAddXp(){
-  if(!devSelUser){toast('Сначала выбери участника','error');return;}
-  const amt=parseInt(document.getElementById('devXpAmt').value||'0');
-  const cid=_devCid();
-  try{
-    const r=await api('/api/dev/add_xp','POST',{target_id:devSelUser.user_id,amount:amt,chat_id:cid});
-    toast('✅ +'+amt+' XP → LVL '+(r.new_level||'?'),'success');
-  } catch(e){toast('❌ '+e.message,'error')}
-}
-
-async function devSetXp(){
-  if(!devSelUser){toast('Сначала выбери участника','error');return;}
-  const amt=parseInt(document.getElementById('devXpAmt').value||'0');
-  const cid=_devCid();
-  try{
-    const r=await api('/api/dev/add_xp','POST',{target_id:devSelUser.user_id,amount:amt,chat_id:cid,set_mode:true});
-    toast('✅ XP = '+r.xp+' → LVL '+(r.new_level||'?'),'success');
-  } catch(e){toast('❌ '+e.message,'error')}
-}
-
-async function devGiveItem(){
-  if(!devSelUser){toast('Сначала выбери участника','error');return;}
-  const selVal = document.getElementById('devItemSelect').value;
-  if(!selVal){toast('Выбери предмет','error');return;}
-  const [key, encName, rarity] = selVal.split('|');
-  const item_name = decodeURIComponent(encName);
-  const cid=_devCid();
-  try{
-    const r=await api('/api/dev/give_item','POST',{target_id:devSelUser.user_id,item_key:key,item_name,rarity,chat_id:cid});
-    toast('✅ '+r.item_name+' выдан ('+r.rarity+')','success');
-  } catch(e){toast('❌ '+e.message,'error')}
-}
 
 // ── Crystal grant (dev) ───────────────────────────────────────────────────────
 
@@ -5618,7 +5500,7 @@ async function loadDevChats(){
     // Populate event trigger select
     const evSel = document.getElementById('devEventChatSel');
     if(evSel) evSel.innerHTML = devChatsCache.map(c=>`<option value="${c.chat_id}">${esc(c.title)} (${c.chat_id})</option>`).join('');
-  } catch(e){/* silent */}
+  } catch(e){ console.warn('loadDevChats:', e); }
 }
 
 async function loadDevChatsDropdown(){
@@ -5760,34 +5642,7 @@ async function devSaveMember(cid, userId){
   }
 }
 
-// ── Salary user picker ────────────────────────────────────────────────────────
-let devSalaryUser = null;
-function devSalarySelectUser(id, name){
-  devSalaryUser = {user_id: id, full_name: name};
-  document.getElementById('devSalarySelName').textContent = name;
-  document.getElementById('devSalarySelId').textContent = '#'+id;
-}
-function devSalaryClearSel(){
-  devSalaryUser = null;
-  document.getElementById('devSalarySelName').textContent = '—';
-  document.getElementById('devSalarySelId').textContent = '';
-}
 
-async function devIssueSalary(){
-  if(!devSalaryUser){toast('Сначала выбери получателя','error');return;}
-  const cid = _devCid();
-  const days = parseInt(document.getElementById('devSalaryDays').value||'1')||1;
-  const amount = parseInt(document.getElementById('devSalaryAmt').value||'0')||0;
-  const reason = (document.getElementById('devSalaryReason').value||'').trim();
-  if(amount <= 0){toast('Укажи сумму зарплаты','error');return;}
-  try{
-    const r = await api('/api/dev/salary','POST',{target_id:devSalaryUser.user_id,chat_id:cid,days,amount,reason});
-    toast('✅ Зарплата выдана. Баланс: '+r.new_balance+' 🪙','success');
-    loadWalletHistory();
-  } catch(e){
-    toast('❌ '+e.message,'error');
-  }
-}
 
 // ── Dev: wallet history for any user ─────────────────────────────────────────
 
