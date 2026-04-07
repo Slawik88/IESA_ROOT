@@ -2463,11 +2463,11 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;
     <div id="devCleanupCurrent" style="font-size:12px;color:var(--text2);margin-bottom:10px">Загрузка…</div>
     <div style="display:flex;flex-direction:column;gap:8px">
       <label style="font-size:12px;color:var(--text2)">📅 Дата чистки (по Цюриху)</label>
-      <input type="datetime-local" id="devCleanupDate" style="background:var(--card2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:7px 10px;font-size:13px">
+      <input type="datetime-local" id="devCleanupDate" style="background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:7px 10px;font-size:13px">
       <label style="font-size:12px;color:var(--text2)">📊 Норма сообщений (за неделю)</label>
-      <input type="number" id="devCleanupNorm" min="1" max="9999" placeholder="70" style="background:var(--card2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:7px 10px;font-size:13px;width:100%">
+      <input type="number" id="devCleanupNorm" min="1" max="9999" placeholder="70" style="background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:7px 10px;font-size:13px;width:100%">
       <label style="font-size:12px;color:var(--text2)">🔔 Предупреждение за N часов</label>
-      <input type="number" id="devCleanupWarn" min="1" max="720" placeholder="48" style="background:var(--card2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:7px 10px;font-size:13px;width:100%">
+      <input type="number" id="devCleanupWarn" min="1" max="720" placeholder="48" style="background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:7px 10px;font-size:13px;width:100%">
       <button class="btn btn-primary" onclick="saveCleanupConfig()" style="margin-top:4px">💾 Сохранить</button>
     </div>
     <div id="devCleanupMsg" style="margin-top:8px;font-size:12px;min-height:18px"></div>
@@ -2477,7 +2477,7 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;
   <div class="card" id="devTimezoneCard" style="display:none">
     <div class="card-title">🕐 Часовой пояс бота<span class="rank-chip rank-chip-dev">💻 Разраб.</span></div>
     <div id="devTimezoneInfo" style="font-size:12px;color:var(--text2);margin-bottom:8px">Загрузка…</div>
-    <select id="devTimezoneSelect" style="background:var(--bg3,var(--card2));color:var(--text);border:1px solid var(--border);border-radius:8px;padding:7px 10px;font-size:13px;width:100%;margin-bottom:8px">
+    <select id="devTimezoneSelect" style="background:var(--bg3,var(--card));color:var(--text);border:1px solid var(--border);border-radius:8px;padding:7px 10px;font-size:13px;width:100%;margin-bottom:8px">
       <option value="Europe/Zurich">Europe/Zurich (Цюрих, UTC+1/+2)</option>
       <option value="Europe/Moscow">Europe/Moscow (Москва, UTC+3)</option>
       <option value="Europe/London">Europe/London (Лондон)</option>
@@ -6439,10 +6439,6 @@ async function _devApiDelete(url, body){
   return data;
 }
 
-// Deprecated stubs kept for any residual references
-async function loadDevUsers(){}
-async function devGiveItem_legacy(){}
-
 // ── AF2 Dynamic Config ────────────────────────────────────────────────────────
 // Группы метрик AF2; каждая row: {e, l, k:[limit,window,mute], hint?}
 const AF2_GROUPS = [
@@ -6474,7 +6470,7 @@ const AF2_GROUP_KEYS = AF2_GROUPS.flatMap(g => g.rows.flatMap(r => r.k));
 let _af2Defaults = {};
 
 function _renderAf2Group(g, cfg, defs) {
-  const _I = 'background:var(--card2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:4px 6px;font-size:12px;box-sizing:border-box;text-align:center;width:48px';
+  const _I = 'background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:4px 6px;font-size:12px;box-sizing:border-box;text-align:center;width:48px';
   const rows = g.rows.map(row => {
     const [lk, wk, mk] = row.k;
     const lv = cfg[lk] ?? '', wv = cfg[wk] ?? '', mv = cfg[mk] ?? '';
@@ -6504,7 +6500,7 @@ function _renderAf2Group(g, cfg, defs) {
     thresholdRow = `<div style="display:flex;align-items:center;gap:6px;margin-top:6px;padding-top:5px;border-top:1px dashed var(--border)">
       <span style="font-size:10px;color:var(--text2);flex:1">📊 Порог (сообщений)</span>
       <input type="number" id="af2_${g.noteKey}" value="${tv}" step="10" min="10" max="50000"
-        title="по ум.: ${td}" style="background:var(--card2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:3px 2px;font-size:12px;width:60px;text-align:center">
+        title="по ум.: ${td}" style="background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:3px 2px;font-size:12px;width:60px;text-align:center">
     </div>`;
   }
   const noteStr = g.noteFmt ? g.noteFmt(cfg[g.noteKey] ?? g.noteDefault) : '300–1000 сообщ.';
@@ -6528,7 +6524,7 @@ async function loadAf2Config() {
     const r = await api('/api/dev/af2_config?chat_id='+(chatId||0));
     _af2Defaults = r.defaults || {};
     const cfg = r.config || {};
-    const _I = 'background:var(--card2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:4px 6px;font-size:12px;box-sizing:border-box;text-align:center';
+    const _I = 'background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:4px 6px;font-size:12px;box-sizing:border-box;text-align:center';
 
     // Одна колонка — все группы стопкой (2-col layout слишком узкий на мобиле)
     const groupsHtml = AF2_GROUPS.map(g => _renderAf2Group(g, cfg, _af2Defaults)).join('<div style="height:8px"></div>');
@@ -6588,7 +6584,7 @@ async function loadAf2Config() {
           <input type="number" id="af2_dw_value" value="${dwVal}" step="1" min="1" max="9999"
             title="по ум.: ${dwDef} с"
             style="${_I};width:72px;flex:none">
-          <select id="af2_dw_unit" style="background:var(--card2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:4px 3px;font-size:11px;flex:1">
+          <select id="af2_dw_unit" style="background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:4px 3px;font-size:11px;flex:1">
             <option value="1"     ${dwUnit===1?'selected':''}>сек.</option>
             <option value="60"    ${dwUnit===60?'selected':''}>мин.</option>
             <option value="3600"  ${dwUnit===3600?'selected':''}>часов</option>
@@ -6862,7 +6858,7 @@ function renderCosmeticsInventory(cosmetics, allItems) {
         <div class="ii-rarity">
           <span class="badge badge-${i.rarity}">${rarityLabel(i.rarity)}</span>  
           ${i.slot ? ' \u00b7 '+esc(i.slot) : ''}
-          ${canSelectItem(i) ? `<span style="font-size:10px;color:var(--text2)"> \u00b7 ${i.stack_count>1?`<input type="number" id="qty-${i.id}" min="1" max="${i.stack_count}" value="${i.stack_count}" style="width:28px;background:var(--card2);border:1px solid #555;border-radius:3px;color:var(--text);font-size:9px;text-align:center;padding:1px" oninput="setSellQty(${i.id},this.value,${i.sell_price||0})"> \u0438\u0437 ${i.stack_count} \u00b7 `:''}\u041f\u0440\u043e\u0434\u0430\u0442\u044c: <span id="sellval-${i.id}">${(i.stack_count||1)*Math.max(1,Math.floor((i.sell_price||0)/2))}</span> \ud83e\ude99</span>` : ''}
+          ${canSelectItem(i) ? `<span style="font-size:10px;color:var(--text2)"> \u00b7 ${i.stack_count>1?`<input type="number" id="qty-${i.id}" min="1" max="${i.stack_count}" value="${i.stack_count}" style="width:28px;background:var(--card);border:1px solid #555;border-radius:3px;color:var(--text);font-size:9px;text-align:center;padding:1px" oninput="setSellQty(${i.id},this.value,${i.sell_price||0})"> \u0438\u0437 ${i.stack_count} \u00b7 `:''}\u041f\u0440\u043e\u0434\u0430\u0442\u044c: <span id="sellval-${i.id}">${(i.stack_count||1)*Math.max(1,Math.floor((i.sell_price||0)/2))}</span> \ud83e\ude99</span>` : ''}
         </div>
         ${i.desc ? `<div style="font-size:10px;color:var(--text2);margin-top:2px;font-style:italic">${esc(i.desc)}</div>` : ''}
       </div>
@@ -6954,7 +6950,7 @@ function renderPotionsInventory(potions) {
         <div class="ii-rarity">
           <span class="badge badge-${i.rarity}">${rarityLabel(i.rarity)}</span>
           ${i.slot ? ' · '+esc(i.slot) : ''}  
-          ${canSelectItem(i) ? `<span style="font-size:10px;color:var(--text2)"> · ${i.stack_count>1?`<input type="number" id="qty-${i.id}" min="1" max="${i.stack_count}" value="${i.stack_count}" style="width:28px;background:var(--card2);border:1px solid #555;border-radius:3px;color:var(--text);font-size:9px;text-align:center;padding:1px" oninput="setSellQty(${i.id},this.value,${i.sell_price||0})"> из ${i.stack_count} · `:''}Продать: <span id="sellval-${i.id}">${(i.stack_count||1)*Math.max(1,Math.floor((i.sell_price||0)/2))}</span> 🪙</span>` : ''}
+          ${canSelectItem(i) ? `<span style="font-size:10px;color:var(--text2)"> · ${i.stack_count>1?`<input type="number" id="qty-${i.id}" min="1" max="${i.stack_count}" value="${i.stack_count}" style="width:28px;background:var(--card);border:1px solid #555;border-radius:3px;color:var(--text);font-size:9px;text-align:center;padding:1px" oninput="setSellQty(${i.id},this.value,${i.sell_price||0})"> из ${i.stack_count} · `:''}Продать: <span id="sellval-${i.id}">${(i.stack_count||1)*Math.max(1,Math.floor((i.sell_price||0)/2))}</span> 🪙</span>` : ''}
         </div>
         ${i.desc ? `<div style="font-size:10px;color:var(--text2);margin-top:2px;font-style:italic">${esc(i.desc)}</div>` : ''}
       </div>
@@ -6976,7 +6972,7 @@ function renderJunkInventory(junkItems) {
         <div class="ii-name">${esc(i.name)}${i.stack_count>1?` <b style="color:var(--accent)">\u00d7${i.stack_count}</b>`:''}</div>
         <div class="ii-rarity">
           <span class="badge badge-junk">💤 Хлам</span>
-          <span style="font-size:10px;color:var(--text2)"> · ${i.stack_count>1?`<input type="number" id="qty-${i.id}" min="1" max="${i.stack_count}" value="${i.stack_count}" style="width:28px;background:var(--card2);border:1px solid #555;border-radius:3px;color:var(--text);font-size:9px;text-align:center;padding:1px" onclick="event.stopPropagation()" oninput="setSellQty(${i.id},this.value,${i.sell_price||0})"> из ${i.stack_count} · `:''}Продать: <span id="sellval-${i.id}">${(i.stack_count||1)*Math.max(1,Math.floor((i.sell_price||0)/2))}</span> 🪙</span>
+          <span style="font-size:10px;color:var(--text2)"> · ${i.stack_count>1?`<input type="number" id="qty-${i.id}" min="1" max="${i.stack_count}" value="${i.stack_count}" style="width:28px;background:var(--card);border:1px solid #555;border-radius:3px;color:var(--text);font-size:9px;text-align:center;padding:1px" onclick="event.stopPropagation()" oninput="setSellQty(${i.id},this.value,${i.sell_price||0})"> из ${i.stack_count} · `:''}Продать: <span id="sellval-${i.id}">${(i.stack_count||1)*Math.max(1,Math.floor((i.sell_price||0)/2))}</span> 🪙</span>
         </div>
       </div>
     </div>`
