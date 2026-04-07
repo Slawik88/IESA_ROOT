@@ -2562,7 +2562,7 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;
       </select>
       <button class="btn btn-primary" onclick="loadDevFeatFlags()" style="flex:0 0 auto">🔄</button>
     </div>
-    <div id="devFeatFlagsGrid" style="display:none;display:grid;gap:6px">
+    <div id="devFeatFlagsGrid" style="display:grid;gap:6px">
     </div>
     <div id="devFeatMsg" style="font-size:12px;min-height:18px;margin-top:6px"></div>
   </div>
@@ -5642,6 +5642,8 @@ async function loadDevChatsDropdown(){
     if(featSel2) {
       featSel2.innerHTML = '<option value="">— выберите чат —</option>' +
         devChatsCache.map(c=>`<option value="${c.chat_id}">${esc(c.title||String(c.chat_id))} (${c.chat_id})</option>`).join('');
+      // Auto-reload flags whenever a different chat is selected
+      featSel2.onchange = () => loadDevFeatFlags();
     }
     toast('✅ Загружено чатов: '+devChatsCache.length,'success');
     // Listen to selection
@@ -6615,13 +6617,18 @@ async function loadDevFeatFlags() {
   const grid = document.getElementById('devFeatFlagsGrid');
   const msg = document.getElementById('devFeatMsg');
   const selChatId = sel ? sel.value : '';
-  if (!selChatId) { if (msg) msg.textContent = 'Выбери чат'; return; }
+  if (!selChatId) {
+    if (msg) msg.textContent = 'Выбери чат';
+    if (grid) grid.innerHTML = '';
+    return;
+  }
   if (msg) msg.textContent = '⏳ Загрузка…';
+  // Clear stale data from previous chat immediately
+  if (grid) grid.innerHTML = `<div style="color:var(--text2);font-size:12px;padding:8px 0">⏳ Загрузка флагов…</div>`;
   try {
     const r = await api('/api/dev/feature_toggle?chat_id=' + selChatId);
     const flags = r.flags || {};
     if (grid) {
-      grid.style.display = 'grid';
       grid.innerHTML = Object.entries(_FEAT_LABELS).map(([key, label]) => {
         // bot_disabled is inverted: DB=0 means bot active (toggle ON), DB=1 means bot off
         const on = key === 'bot_disabled' ? !flags[key] : flags[key] !== false;
@@ -6641,7 +6648,8 @@ async function loadDevFeatFlags() {
     }
     if (msg) msg.textContent = '';
   } catch(e) {
-    if (msg) msg.textContent = '❌ ' + e.message;
+    if (grid) grid.innerHTML = `<div style="color:#f87171;font-size:12px;padding:8px 0">❌ Не удалось загрузить: ${esc(e.message)}</div>`;
+    if (msg) msg.textContent = '❌ ' + esc(e.message);
   }
 }
 
@@ -6669,7 +6677,12 @@ async function toggleFeat(togEl) {
       setTimeout(() => { msg.textContent = ''; }, 2500);
     }
     // Re-render grid so bot_disabled row updates its danger styling
-    if (key === 'bot_disabled') loadDevFeatFlags();
+    // Use the toggle's own data-chat (not sel.value) to avoid mismatch after quick selector switch
+    if (key === 'bot_disabled') {
+      const sel2 = document.getElementById('devFeatChatSel');
+      if (sel2 && sel2.value === selChatId) loadDevFeatFlags();
+      // else: user already switched to a different chat — don't reload
+    }
   } catch(e) {
     // Revert on error
     togEl.dataset.val = isOn ? '1' : '0';
@@ -7168,7 +7181,10 @@ function switchDevSubtab(name) {
     if(featSel && devChatsCache && devChatsCache.length && featSel.options.length < 2) {
       featSel.innerHTML = '<option value="">— выберите чат —</option>' +
         devChatsCache.map(c=>`<option value="${c.chat_id}">${esc(c.title||String(c.chat_id))} (${c.chat_id})</option>`).join('');
+      featSel.onchange = () => loadDevFeatFlags();
     }
+    // Auto-load flags for whichever chat is already selected
+    if(featSel && featSel.value) loadDevFeatFlags();
   }
 }
 
