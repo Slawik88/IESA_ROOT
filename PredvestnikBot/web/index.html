@@ -595,6 +595,9 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;
   #familyLogList{font-size:11px}
   .tab-content{padding:10px}
   .card{padding:13px}
+  /* Admin panel: prevent button overflow on narrow screens */
+  #devCrystalsCard .btn,#devImportCard .btn,#devChatMgmtCard .btn{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+  #devCrystalsCard [style*="display:flex"],#devImportCard [style*="display:flex"],#devChatMgmtCard [style*="display:flex"]{flex-wrap:wrap}
 }
 </style>
 </head>
@@ -1924,7 +1927,7 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;
     <div style="display:flex;gap:6px;margin-top:8px;align-items:center">
       <input type="number" id="devCrystalAmt" placeholder="Кол-во 💎" min="1"
              style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text)"/>
-      <button class="btn btn-gold" onclick="devGiveCrystals()" style="flex:0 0 auto">💎 Начислить</button>
+      <button class="btn btn-gold" onclick="devGiveCrystals()" style="flex:0 0 auto;white-space:nowrap">💎 Начислить</button>
     </div>
     <div id="devCrystalMsg" style="font-size:12px;min-height:18px;margin-top:6px"></div>
   </div>
@@ -2897,7 +2900,6 @@ async function checkCoupleBossAvailability() {
     return null;
   } catch (e) {
     // Не женат или другая ошибка - кнопка остаётся скрытой
-    console.log('Couple boss not available:', e.message);
     return null;
   }
 }
@@ -3113,7 +3115,7 @@ async function loadGifts(){
         </div>
         <button class="btn btn-sm" style="${canAfford?'background:var(--accent);color:#fff':'background:var(--bg3);color:var(--text2)'};font-size:11px;padding:4px 10px"
                 ${canAfford?'':'disabled'} onclick="sendGift('${g.key}',${g.price})">
-          ${canAfford?'🎁 Подарить':'💔'}
+          ${canAfford?'🎁 Подарить':'Мало 🪙'}
         </button>
       </div>`;
     }).join('');
@@ -3304,7 +3306,7 @@ async function loadInventory(){
     
     // Load additional cosmetic data
     if(shopData) renderInvFramesCosmetics();
-    else api('/api/shop/catalog?chat_id='+chatId).then(d=>{shopData=d;renderInvFramesCosmetics();}).catch(()=>{});
+    else api('/api/shop/catalog?chat_id='+chatId).then(d=>{shopData=d;renderInvFramesCosmetics();}).catch(e=>{toast('\u274c \u041e\u0448\u0438\u0431\u043a\u0430 \u0437\u0430\u0433\u0440\u0443\u0437\u043a\u0438 \u043a\u043e\u0441\u043c\u0435\u0442\u0438\u043a\u0438','error');});
     loadThemes();
     
   } catch(e){
@@ -3648,20 +3650,19 @@ function renderShop(d){
     'pet_emoji_status': `🐱 <span style="background:rgba(249,115,22,.12);border-radius:4px;padding:1px 5px">😎</span> <span>Лапка</span>`,
     'custom_title':     `<span style="background:rgba(168,85,247,.15);border:1px solid rgba(168,85,247,.4);border-radius:4px;padding:0 6px;font-size:11px;color:#a855f7">🏷 Титул</span> <span>${myName}</span>`,
   };
-  document.getElementById('cosmeticsSection').innerHTML=(d.cosmetics||[]).map(c=>{
-    const preview=cosPreviews[c.key]?`<div class="cosmetic-preview">${cosPreviews[c.key]}</div>`:'';
-    return `<div class="scard${c.owned?' owned':''}" ${c.owned?'':('onclick="buyShopItem(\'cosmetic\',\''+c.key+'\')"')}>
-      <div class="scard-accent" style="background:${cosAccents[c.key]||'var(--accent)'}"></div>
-      <div class="scard-icon">${c.emoji}</div>
-      <div class="scard-body">
-        <div class="scard-name">${esc(c.name)}</div>
-        <div class="scard-desc">${esc(c.desc||'')}</div>
-        ${preview}
-        <div class="scard-footer">
-          ${c.owned?'<span class="sbadge sbadge-owned">✓ Куплено</span>':'<span class="sbadge sbadge-price">'+c.price+' 🪙</span>'}
-        </div>
-      </div></div>`;
-  }).join('');
+  document.getElementById('cosmeticsSection').innerHTML='<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">'+(d.cosmetics||[]).map(c=>{
+    const accent=cosAccents[c.key]||'var(--accent)';
+    return `<div class="scard${c.owned?' owned':''}" style="flex-direction:column;align-items:stretch;gap:4px;padding:8px 10px;margin-bottom:0" ${c.owned?'':('onclick="buyShopItem(\'cosmetic\',\''+c.key+'\')"')}>
+      <div style="display:flex;align-items:center;gap:6px">
+        <span style="font-size:16px">${c.emoji}</span>
+        <span class="scard-name" style="margin:0;font-size:11px">${esc(c.name)}</span>
+      </div>
+      <div style="font-size:10px;color:var(--text2);line-height:1.2;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">${esc(c.desc||'')}</div>
+      <div class="scard-footer" style="margin-top:auto">
+        ${c.owned?'<span class="sbadge sbadge-owned">✓</span>':'<span class="sbadge sbadge-price">'+c.price+' 🪙</span>'}
+      </div>
+    </div>`;
+  }).join('')+'</div>';
 
   // Pet colors — with colored name preview
   const petColorMap={'red':'#ef4444','blue':'#3b82f6','gold':'#f59e0b','green':'#22c55e','purple':'#a855f7','white':'#f0f0f0'};
@@ -3676,14 +3677,15 @@ function renderShop(d){
         <div style="width:16px;height:16px;border-radius:50%;background:${hex};border:2px solid rgba(255,255,255,.15);flex-shrink:0"></div>
         <div>
           <span style="font-size:12px">${esc(c.label)}</span>
-          ${c.active?'<span class="sbadge sbadge-owned" style="margin-left:4px">\u2713</span>':''}
+          ${c.active?'<span class="sbadge sbadge-owned" style="margin-left:4px">\u2713</span>':(c.owned?'<span class="sbadge sbadge-owned" style="margin-left:4px">\u2713</span>':'')}
           <div style="font-size:10px;color:var(--text2)">${petEmoji} <span style="color:${hex};font-weight:600">${esc(petName)}</span></div>
         </div>
       </div>
       <div style="flex-shrink:0">
         ${c.active?'<span style="font-size:11px;color:var(--text2)">\u2713</span>':
           (!hasPet?'<span style="font-size:10px;color:var(--text2)">\u041d\u0435\u0442 \u043f\u0435\u0442\u0430</span>':
-            `<button class="btn btn-sm" style="background:${hex};color:#fff;border:none;margin:0" onclick="buyPetColor('${c.key}','${esc(c.label)}',${c.price})">${c.price}\ud83e\ude99</button>`)}
+            (c.owned?`<button class="btn btn-sm" style="background:${hex};color:#fff;border:none;margin:0" onclick="buyPetColor('${c.key}','${esc(c.label)}',0)">\u041d\u0430\u0434\u0435\u0442\u044c</button>`:
+            `<button class="btn btn-sm" style="background:${hex};color:#fff;border:none;margin:0" onclick="buyPetColor('${c.key}','${esc(c.label)}',${c.price})">${c.price}\ud83e\ude99</button>`))}
       </div>
     </div>`;
   }).join('')||'<div style="font-size:11px;color:var(--text2)">\u041d\u0435\u0442 \u043f\u0438\u0442\u043e\u043c\u0446\u0430</div>';
@@ -3898,13 +3900,14 @@ async function convertCrystals() {
 }
 
 async function buyPetColor(key, label, price) {
-  let wallet;
-  try { 
-    wallet = await pickWallet('🎨 ' + label, price); 
-  } catch(e) { 
-    // Исправлено: заменено ≠ на !==
-    if ((e.message || '') !== 'cancelled') toast('❌ ' + e.message, 'error'); 
-    return; 
+  let wallet = 'personal';
+  if (price > 0) {
+    try { 
+      wallet = await pickWallet('🎨 ' + label, price); 
+    } catch(e) { 
+      if ((e.message || '') !== 'cancelled') toast('❌ ' + e.message, 'error'); 
+      return; 
+    }
   }
   
   try {
@@ -5961,19 +5964,24 @@ const AF2_GROUP_KEYS = AF2_GROUPS.flatMap(g => g.rows.flatMap(r => r.k));
 let _af2Defaults = {};
 
 function _renderAf2Group(g, cfg, defs) {
-  const _I = 'background:var(--card2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:3px 2px;font-size:12px;width:100%;box-sizing:border-box;text-align:center';
+  const _I = 'background:var(--card2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:4px 6px;font-size:12px;box-sizing:border-box;text-align:center;width:48px';
   const rows = g.rows.map(row => {
     const [lk, wk, mk] = row.k;
     const lv = cfg[lk] ?? '', wv = cfg[wk] ?? '', mv = cfg[mk] ?? '';
     const ld = defs[lk] ?? '?', wd = defs[wk] ?? '?', md = defs[mk] ?? '?';
-    const hint = row.hint ? ` <span style="font-size:9px;color:#f87171">${row.hint}</span>` : '';
-    const desc = row.desc ? `<div style="font-size:9px;color:var(--text3);padding:1px 0 3px;line-height:1.35">${row.desc}</div>` : '';
-    return `<div style="border-bottom:1px solid var(--border);padding:2px 0 0">
-      <div style="display:grid;grid-template-columns:1fr 40px 40px 48px;gap:3px;align-items:center;padding:2px 0">
-        <span style="font-size:11px;color:var(--text)">${row.e} ${row.l}${hint}</span>
-        <input type="number" id="af2_${lk}" value="${lv}" step="1" min="0" title="Лимит сообщений. По умолч.: ${ld}. 0 = правило выключено" style="${_I}">
-        <input type="number" id="af2_${wk}" value="${wv}" step="0.5" title="Окно наблюдения (секунды). По умолч.: ${wd} с" style="${_I}">
-        <input type="number" id="af2_${mk}" value="${mv}" step="60" title="Время мьюта (секунды). По умолч.: ${md} с. 0 = бессрочно" style="${_I}">
+    const hint = row.hint ? ` <span style="font-size:9px;color:#f87171">${row.hint}</span>` : '';
+    const desc = row.desc ? `<div style="font-size:9px;color:var(--text3);padding:2px 0 4px;line-height:1.35">${row.desc}</div>` : '';
+    return `<div style="background:var(--bg2);border-radius:8px;padding:8px;margin-bottom:4px">
+      <div style="font-size:11px;color:var(--text);line-height:1.6;display:flex;flex-wrap:wrap;align-items:center;gap:3px">
+        <span>${row.e}</span>
+        <span style="color:var(--text2)">Если больше</span>
+        <input type="number" id="af2_${lk}" value="${lv}" step="1" min="0" title="Лимит (по ум.: ${ld}). 0 = выкл" style="${_I}">
+        <span style="color:var(--text2)">${row.l.toLowerCase()} за</span>
+        <input type="number" id="af2_${wk}" value="${wv}" step="0.5" title="Окно (по ум.: ${wd} сек)" style="${_I}">
+        <span style="color:var(--text2)">сек &#10148;</span>
+        <span style="color:#f87171;font-weight:600">Мут</span>
+        <input type="number" id="af2_${mk}" value="${mv}" step="60" title="Мут (по ум.: ${md} сек). 0 = навсегда" style="${_I}">
+        <span style="color:var(--text2)">сек${hint}</span>
       </div>
       ${desc}
     </div>`;
@@ -5991,15 +5999,9 @@ function _renderAf2Group(g, cfg, defs) {
   }
   const noteStr = g.noteFmt ? g.noteFmt(cfg[g.noteKey] ?? g.noteDefault) : '300–1000 сообщ.';
   return `<div style="background:var(--bg3);border-radius:10px;padding:9px">
-    <div style="display:flex;align-items:baseline;gap:5px;margin-bottom:5px">
-      <span style="font-size:10px;font-weight:700;color:${g.color};text-transform:uppercase;letter-spacing:.4px">${g.badge} ${g.label}</span>
+    <div style="display:flex;align-items:baseline;gap:5px;margin-bottom:6px">
+      <span style="font-size:10px;font-weight:700;color:${g.color};text-transform:uppercase;letter-spacing:.4px">${g.badge} ${g.label}</span>
       <span style="font-size:9px;color:var(--text3)">${noteStr}</span>
-    </div>
-    <div style="display:grid;grid-template-columns:1fr 40px 40px 48px;gap:3px;padding:0 0 3px">
-      <span></span>
-      <span style="font-size:9px;color:var(--text3);text-align:center" title="Кол-во сообщений за окно до срабатывания. 0 = выключено">Лим.<br><span style="font-size:8px;opacity:.7">сообщ.</span></span>
-      <span style="font-size:9px;color:var(--text3);text-align:center" title="Период наблюдения в секундах">Окно<br><span style="font-size:8px;opacity:.7">сек.</span></span>
-      <span style="font-size:9px;color:var(--text3);text-align:center" title="Длительность мьюта в секундах. 0 = бессрочно">Мут<br><span style="font-size:8px;opacity:.7">сек. 0=∞</span></span>
     </div>
     ${rows}
     ${thresholdRow}
@@ -8266,34 +8268,31 @@ async function claimReward(level, isPremium) {
       renderSeasonData();
       
       // Show success toast
-      showToast(`Получена награда: ${formatReward(result.reward)}`, 'success');
+      toast(`Получена награда: ${formatReward(result.reward)}`, 'success');
     }
   } catch (e) {
-    showToast('Ошибка: ' + e.message, 'error');
+    toast('Ошибка: ' + e.message, 'error');
   }
 }
 
 async function buySeasonPremium() {
   try {
-    const result = await api('/api/season/premium', {
-      method: 'POST',
-      body: JSON.stringify({
-        user_id: uid,
-        season_id: seasonData.season.id
-      })
+    const result = await api('/api/season/premium', 'POST', {
+      user_id: uid,
+      season_id: seasonData.season.id
     });
     
     if (result.ok) {
       seasonData.progress.premium_purchased = true;
       renderSeasonData();
-      showToast('Premium Pass активирован!', 'success');
+      toast('⭐ Premium Pass активирован!', 'success');
       
       // Update crystals balance
       const newData = await api('/api/user_data' + (chatId ? '?chat_id=' + chatId : ''));
       syncCrystals(newData.crystals || 0);
     }
   } catch (e) {
-    showToast('Ошибка покупки: ' + e.message, 'error');
+    toast('❌ Ошибка покупки: ' + e.message, 'error');
   }
 }
 

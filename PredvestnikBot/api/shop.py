@@ -36,6 +36,14 @@ async def get_catalog(uid: int, chat_id: int) -> dict:
         )
         owned_cosmetics = {r["item_value"] for r in rows}
 
+        # Pet color ownership
+        rows_pc = await db.fetch(
+            "SELECT item_value FROM shop_items "
+            "WHERE user_id=? AND item_type='pet_color'",
+            (uid,),
+        )
+        owned_pet_colors = {r["item_value"] for r in rows_pc}
+
         pet_row = await db.fetchone(
             "SELECT color_name FROM pets_global WHERE user_id=?",
             (uid,),
@@ -69,6 +77,7 @@ async def get_catalog(uid: int, chat_id: int) -> dict:
             "key":    key,
             "label":  label,
             "price":  price,
+            "owned":  key in owned_pet_colors or current_color == key.replace("pet_color_", ""),
             "active": current_color == key.replace("pet_color_", ""),
         }
         for key, label, price in PET_COLOR_CATALOG
@@ -234,7 +243,6 @@ async def buy_item(
                 "equipped":      item_type == "frame" and equip,
             }
     if item_type == "pet_color":
-        # Cannot buy the same color that is already active
         from database.postgres import postgres_connect as _pg
         async with _pg() as _db:
             _pet_row = await _db.fetchone(
@@ -246,6 +254,15 @@ async def buy_item(
         color_key = item_key.replace("pet_color_", "")
         if _pet_row["color_name"] == color_key:
             raise ValueError("Этот цвет уже установлен у питомца")
+        # If already owned — re-apply for free (no payment)
+        _already_owned_color = await has_shop_item(uid, 0, "pet_color", item_key)
+        if _already_owned_color:
+            async with _pg() as _db3:
+                await _db3.execute(
+                    "UPDATE pets_global SET color_name=? WHERE user_id=?",
+                    (color_key, uid),
+                )
+            return {"ok": True, "already_owned": True, "equipped": True}
 
     if item_type == "profile_theme":
         # Check if already owned — if so, just activate
@@ -312,6 +329,8 @@ async def buy_item(
                 "UPDATE pets_global SET color_name=? WHERE user_id=?",
                 (color_key, uid),
             )
+        # Track ownership in shop_items so the color persists even after switching
+        await buy_shop_item(uid, chat_id, "pet_color", item_key)
     elif item_type == "potion":
         from shared_prices import POTIONS_CATALOG, ITEM_METADATA
         from database.db import add_gacha_item
