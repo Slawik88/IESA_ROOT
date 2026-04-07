@@ -108,6 +108,15 @@ async def respond_to_proposal_api(uid: int, chat_id: int, proposal_id: int, acti
         await create_marriage(from_uid, uid, chat_id)
         partner = await get_user(from_uid)
         partner_name = partner["full_name"] if partner else f"user_{from_uid}"
+
+        # Season XP за регистрацию брака (обоим партнёрам)
+        try:
+            from database.db import add_season_xp
+            await add_season_xp(from_uid, 15)  # +15 XP инициатору
+            await add_season_xp(uid, 15)        # +15 XP принявшему
+        except Exception:
+            pass
+
         return {
             "ok": True,
             "action": "accepted",
