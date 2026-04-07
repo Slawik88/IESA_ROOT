@@ -198,11 +198,23 @@ async def successful_payment(msg: Message):
     new_balance = await add_crystals(user_id, crystals)
     await log_stars_purchase(user_id, stars, crystals, pack_key, charge_id)
 
+    # First top-up: auto-grant exclusive frame
+    first_topup_msg = ""
+    try:
+        from database.db import has_shop_item, buy_shop_item
+        has_first = await has_shop_item(user_id, 0, "frame", "first_topup")
+        if not has_first:
+            await buy_shop_item(user_id, 0, "frame", "first_topup")
+            first_topup_msg = "\n🌟 <b>Бонус первого пополнения!</b> Получена эксклюзивная рамка «Первое пополнение»!"
+    except Exception:
+        pass
+
     await msg.answer(
         f"✅ <b>Оплата прошла успешно!</b>\n\n"
         f"⭐ Потрачено: <b>{stars} Stars</b>\n"
         f"💎 Начислено: <b>{crystals} кристаллов</b>\n"
-        f"💎 Баланс: <b>{new_balance}</b>\n\n"
+        f"💎 Баланс: <b>{new_balance}</b>"
+        f"{first_topup_msg}\n\n"
         f"Тратьте кристаллы в Mini App → Магазин → Кристаллы."
     )
     log.info(
