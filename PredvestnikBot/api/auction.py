@@ -31,12 +31,46 @@ logger = logging.getLogger(__name__)
 AUCTION_DURATION_HOURS = 24        # Срок аукциона
 COMMISSION_RATE        = 0.10      # 10% комиссия при продаже
 MIN_START_PRICE        = 10        # Минимальная стартовая цена
-MAX_ACTIVE_PER_USER    = 3         # Максимум активных лотов у одного продавца
+MAX_ACTIVE_PER_USER    = 4         # Максимум активных лотов у одного продавца (глобально)
 
 # ─── Вспомогательные ──────────────────────────────────────────────────────────
 
 def _min_increment(current_price: int) -> int:
     return max(5, int(current_price * 0.10))
+
+
+async def _notify_all_chats_new_lot(
+    seller_id: int, item_name: str, item_emoji: str,
+    start_price: int, buyout_price, auction_id: int
+) -> None:
+    """Отправить уведомление во все активные чаты о новом лоте на аукционе."""
+    import os, aiohttp
+    bot_token = os.environ.get("BOT_TOKEN", "")
+    if not bot_token:
+        return
+    async with postgres_connect() as db:
+        rows = await db.fetch(
+            "SELECT DISTINCT chat_id FROM chat_settings WHERE chat_id < 0 LIMIT 30"
+        )
+    chats = [r["chat_id"] for r in rows]
+    text = (
+        f"🔨 <b>Новый лот на аукционе!</b>\n\n"
+        f"{item_emoji} <b>{item_name}</b>\n"
+        f"📊 Начальная цена: <b>{start_price} 🪙</b>"
+    )
+    if buyout_price:
+        text += f"\n⚡ Мгновенный выкуп: <b>{buyout_price} 🪙</b>"
+    text += f"\n\n<i>Выставил: <a href='tg://user?id={seller_id}'>Предвестник</a></i>"
+    async with aiohttp.ClientSession() as session:
+        for cid in chats:
+            try:
+                await session.post(
+                    f"https://api.telegram.org/bot{bot_token}/sendMessage",
+                    json={"chat_id": cid, "text": text, "parse_mode": "HTML"},
+                    timeout=aiohttp.ClientTimeout(total=5),
+                )
+            except Exception:
+                pass
 
 
 async def _get_item(db, item_id: int, user_id: int, chat_id: int) -> dict | None:
@@ -145,16 +179,16 @@ async def create_cosmetic_auction(
 
         # 2. Проверяем что не уже на аукционе
         existing = await db.fetchone(
-            "SELECT id FROM auctions WHERE item_id=0 AND item_key=? AND seller_id=? AND chat_id=? AND status='active'",
-            (item_key, seller_id, chat_id)
+            "SELECT id FROM auctions WHERE item_id=0 AND item_key=? AND seller_id=? AND status='active'",
+            (item_key, seller_id)
         )
         if existing:
             raise ValueError("Этот предмет уже выставлен на аукцион")
 
-        # 3. Проверяем лимит активных лотов
+        # 3. Проверяем лимит активных лотов (глобально)
         active_count = await db.fetchone(
-            "SELECT COUNT(*) AS cnt FROM auctions WHERE seller_id=? AND chat_id=? AND status='active'",
-            (seller_id, chat_id)
+            "SELECT COUNT(*) AS cnt FROM auctions WHERE seller_id=? AND status='active'",
+            (seller_id,)
         )
         if active_count and int(active_count["cnt"] or 0) >= MAX_ACTIVE_PER_USER:
             raise ValueError(f"Максимум {MAX_ACTIVE_PER_USER} активных лота одновременно")
@@ -179,6 +213,16 @@ async def create_cosmetic_auction(
              now, ends_at)
         )
         auction_id = row["id"]
+
+    # Уведомляем все чаты о новом лоте
+    try:
+        await _notify_all_chats_new_lot(
+            seller_id=seller_id, item_name=item_name,
+            item_emoji=emoji, start_price=start_price,
+            buyout_price=buyout_price, auction_id=auction_id
+        )
+    except Exception:
+        pass
 
     return {
         "ok":         True,
@@ -240,16 +284,16 @@ async def create_auction(
 
         # 2. Проверяем что предмет не уже на аукционе
         existing = await db.fetchone(
-            "SELECT id FROM auctions WHERE item_id=? AND seller_id=? AND chat_id=? AND status='active'",
-            (item_id, seller_id, chat_id)
+            "SELECT id FROM auctions WHERE item_id=? AND seller_id=? AND status='active'",
+            (item_id, seller_id)
         )
         if existing:
             raise ValueError("Этот предмет уже выставлен на аукцион")
 
-        # 3. Проверяем лимит активных лотов
+        # 3. Проверяем лимит активных лотов (глобально)
         active_count = await db.fetchone(
-            "SELECT COUNT(*) AS cnt FROM auctions WHERE seller_id=? AND chat_id=? AND status='active'",
-            (seller_id, chat_id)
+            "SELECT COUNT(*) AS cnt FROM auctions WHERE seller_id=? AND status='active'",
+            (seller_id,)
         )
         if active_count and int(active_count["cnt"] or 0) >= MAX_ACTIVE_PER_USER:
             raise ValueError(f"Максимум {MAX_ACTIVE_PER_USER} активных лота одновременно")
@@ -296,6 +340,17 @@ async def create_auction(
     except Exception:
         pass
 
+    # Уведомляем все чаты о новом лоте
+    try:
+        item_emoji_str = _rarity_emoji(item.get("rarity", "common"))
+        await _notify_all_chats_new_lot(
+            seller_id=seller_id, item_name=item["item_name"],
+            item_emoji=item_emoji_str, start_price=start_price,
+            buyout_price=buyout_price, auction_id=auction_id
+        )
+    except Exception:
+        pass
+
     return {
         "ok":        True,
         "auction_id": auction_id,
@@ -332,8 +387,8 @@ async def place_bid(
     async with postgres_connect() as db:
         # FOR UPDATE: блокируем строку от гонок
         auction = await db.fetchone(
-            "SELECT * FROM auctions WHERE id=? AND chat_id=? FOR UPDATE",
-            (auction_id, chat_id)
+            "SELECT * FROM auctions WHERE id=? FOR UPDATE",
+            (auction_id,)
         )
         if not auction:
             raise ValueError("Аукцион не найден")
@@ -406,8 +461,8 @@ async def buyout_auction(buyer_id: int, chat_id: int, auction_id: int) -> dict:
     """
     async with postgres_connect() as db:
         auction = await db.fetchone(
-            "SELECT * FROM auctions WHERE id=? AND chat_id=? FOR UPDATE",
-            (auction_id, chat_id)
+            "SELECT * FROM auctions WHERE id=? FOR UPDATE",
+            (auction_id,)
         )
         if not auction:
             raise ValueError("Аукцион не найден")
@@ -513,8 +568,8 @@ async def cancel_auction(seller_id: int, chat_id: int, auction_id: int) -> dict:
     """
     async with postgres_connect() as db:
         auction = await db.fetchone(
-            "SELECT * FROM auctions WHERE id=? AND seller_id=? AND chat_id=? FOR UPDATE",
-            (auction_id, seller_id, chat_id)
+            "SELECT * FROM auctions WHERE id=? AND seller_id=? FOR UPDATE",
+            (auction_id, seller_id)
         )
         if not auction:
             raise ValueError("Аукцион не найден или не принадлежит вам")
@@ -703,17 +758,19 @@ async def finalize_expired_auctions(bot=None) -> list[dict]:
 
 # ─── Просмотр активных аукционов ──────────────────────────────────────────────
 
-async def get_active_auctions(chat_id: int, limit: int = 20, offset: int = 0) -> list[dict]:
-    """Вернуть активные аукционы в чате."""
+async def get_active_auctions(chat_id: int = 0, limit: int = 50, offset: int = 0) -> list[dict]:
+    """Вернуть ВСЕ активные аукционы глобально (межчатовый аукцион)."""
     async with postgres_connect() as db:
         rows = await db.fetch(
-            """SELECT a.*, u.full_name AS seller_name
+            """SELECT a.*, u.full_name AS seller_name,
+                      COALESCE(cs.title, CAST(a.chat_id AS TEXT)) AS seller_chat_name
                FROM auctions a
                LEFT JOIN users u ON u.user_id = a.seller_id
-               WHERE a.chat_id=? AND a.status='active'
-               ORDER BY a.ends_at ASC
+               LEFT JOIN chat_settings cs ON cs.chat_id = a.chat_id
+               WHERE a.status='active'
+               ORDER BY a.created_at DESC
                LIMIT ? OFFSET ?""",
-            (chat_id, limit, offset)
+            (limit, offset)
         )
     result = []
     for row in rows:
@@ -758,25 +815,38 @@ async def get_auction_detail(auction_id: int, chat_id: int) -> dict | None:
     return d
 
 
-async def get_user_auctions(user_id: int, chat_id: int) -> dict:
-    """Мои лоты и мои ставки."""
+async def get_user_auctions(user_id: int, chat_id: int = 0) -> dict:
+    """Мои лоты и мои ставки — глобально по всем чатам."""
     async with postgres_connect() as db:
         my_lots = await db.fetch(
-            "SELECT * FROM auctions WHERE seller_id=? AND chat_id=? AND status='active' ORDER BY created_at DESC LIMIT 10",
-            (user_id, chat_id)
+            "SELECT * FROM auctions WHERE seller_id=? AND status='active' ORDER BY created_at DESC LIMIT 10",
+            (user_id,)
         )
         my_bids = await db.fetch(
-            """SELECT a.id, a.item_name, a.current_price, a.status, a.ends_at,
-                      a.highest_bidder_id,
+            """SELECT a.id, a.item_name, a.item_emoji, a.current_price, a.status, a.ends_at,
+                      a.highest_bidder_id, a.chat_id,
+                      COALESCE(cs.title, CAST(a.chat_id AS TEXT)) AS seller_chat_name,
                       (SELECT MAX(amount) FROM auction_bids WHERE auction_id=a.id AND bidder_id=?) AS my_bid
                FROM auctions a
-               WHERE a.chat_id=? AND EXISTS (
+               LEFT JOIN chat_settings cs ON cs.chat_id = a.chat_id
+               WHERE a.status='active' AND EXISTS (
                    SELECT 1 FROM auction_bids WHERE auction_id=a.id AND bidder_id=?
                )
                ORDER BY a.created_at DESC LIMIT 10""",
-            (user_id, chat_id, user_id)
+            (user_id, user_id)
         )
+    lots_result = []
+    for r in my_lots:
+        d = dict(r)
+        ea = d.get("ends_at")
+        if ea:
+            now = datetime.now(timezone.utc)
+            ea_aware = ea.replace(tzinfo=timezone.utc) if hasattr(ea, "replace") and ea.tzinfo is None else ea
+            rem = max(0, int((ea_aware - now).total_seconds()))
+            h, m_rem = divmod(rem, 3600)
+            d["remaining_str"] = f"{h}ч {m_rem//60}м" if h else f"{m_rem//60}м"
+        lots_result.append(d)
     return {
-        "my_lots": [dict(r) for r in my_lots],
+        "my_lots": lots_result,
         "my_bids": [dict(r) for r in my_bids],
     }

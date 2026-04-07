@@ -5378,8 +5378,8 @@ def miniapp_auction_list(request):
     try:
         from asgiref.sync import async_to_sync as _a2s
         from api.auction import get_active_auctions, get_user_auctions
-        lots = _a2s(get_active_auctions)(chat_id)
-        my   = _a2s(get_user_auctions)(uid, chat_id)
+        lots = _a2s(get_active_auctions)()          # global — no chat_id filter
+        my   = _a2s(get_user_auctions)(uid, chat_id)  # user's lots/bids globally
         for lot in lots:
             for k, v in lot.items():
                 if hasattr(v, 'isoformat'):
@@ -5389,7 +5389,11 @@ def miniapp_auction_list(request):
                 for k, v in item.items():
                     if hasattr(v, 'isoformat'):
                         item[k] = v.isoformat()
-        return JsonResponse({"lots": lots, "my": my}, json_dumps_params={"ensure_ascii": False}, headers=headers)
+        return JsonResponse({
+            "lots": lots,
+            "my_lots": my.get("my_lots", []),
+            "my_bids": my.get("my_bids", []),
+        }, json_dumps_params={"ensure_ascii": False}, headers=headers)
     except Exception as exc:
         logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
 
@@ -6872,6 +6876,7 @@ def miniapp_dev_user_inventory(request):
         _RARITY_EMOJI = {"junk": "⚪", "common": "🔵", "rare": "🟣", "legendary": "🟡"}
         for it in items:
             it["emoji"] = _RARITY_EMOJI.get(it.get("rarity", ""), "📦")
+            it["name"] = it.get("item_name") or it.get("item_key") or "❓"
 
         return JsonResponse({"items": items}, json_dumps_params={"ensure_ascii": False}, headers=headers)
     except Exception as exc:
@@ -6924,6 +6929,72 @@ def miniapp_dev_delete_inventory_item(request):
             pass
         logger.exception("dev_delete_inventory_item error")
         return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
+
+
+# ─── Dev: feature toggle per chat ────────────────────────────────────────────
+
+_ALLOWED_FEATURE_KEYS = frozenset({
+    "feat_website", "feat_antispam", "feat_marriages",
+    "feat_pets", "feat_casino", "feat_random_events",
+})
+
+@csrf_exempt
+def miniapp_dev_feature_toggle(request):
+    """POST /api/dev/feature_toggle {chat_id, feature, enabled} — developer only."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method not in ("GET", "POST"):
+        return JsonResponse({"error": "GET/POST required"}, status=405, headers=headers)
+
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+    if uid != _DEVELOPER_ID:
+        return JsonResponse({"error": "Forbidden"}, status=403, headers=headers)
+
+    if request.method == "GET":
+        # Return current feature flags for a chat
+        try:
+            chat_id = int(request.GET.get("chat_id", 0) or 0)
+            conn, db_type = _get_bot_db_connection()
+            cur = conn.cursor()
+            ph = "%s" if db_type == "pg" else "?"
+            cur.execute(
+                f"SELECT feat_website, feat_antispam, feat_marriages, feat_pets, feat_casino, feat_random_events "
+                f"FROM chat_settings WHERE chat_id={ph}",
+                (chat_id,),
+            )
+            row = cur.fetchone()
+            conn.close()
+            if row:
+                keys = ["feat_website", "feat_antispam", "feat_marriages", "feat_pets", "feat_casino", "feat_random_events"]
+                flags = {k: bool(v if v is not None else 1) for k, v in zip(keys, row)}
+            else:
+                flags = {k: True for k in ["feat_website", "feat_antispam", "feat_marriages", "feat_pets", "feat_casino", "feat_random_events"]}
+            return JsonResponse({"ok": True, "flags": flags}, headers=headers)
+        except Exception:
+            logger.exception("miniapp_dev_feature_toggle GET error")
+            return JsonResponse({"error": "Internal error"}, status=500, headers=headers)
+
+    # POST
+    try:
+        body = json.loads(request.body)
+        chat_id = int(body.get("chat_id") or 0)
+        feature = str(body.get("feature") or "")
+        enabled = bool(body.get("enabled", True))
+        if feature not in _ALLOWED_FEATURE_KEYS:
+            return JsonResponse({"error": f"Unknown feature: {feature!r}"}, status=400, headers=headers)
+        import sys as _sys, os as _os
+        _sys.path.insert(0, _os.path.join(_os.path.dirname(__file__), '..', '..', 'PredvestnikBot'))
+        import importlib as _importlib
+        _db = _importlib.import_module("database.db")
+        from asgiref.sync import async_to_sync as _a2s
+        _a2s(_db.set_chat_setting)(chat_id, feature, 1 if enabled else 0)
+        return JsonResponse({"ok": True, "feature": feature, "enabled": enabled}, headers=headers)
+    except Exception:
+        logger.exception("miniapp_dev_feature_toggle POST error")
+        return JsonResponse({"error": "Internal error"}, status=500, headers=headers)
 
 
 # ─── Save avatar URL ──────────────────────────────────────────────────────────
