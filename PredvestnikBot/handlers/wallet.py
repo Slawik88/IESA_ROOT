@@ -63,7 +63,11 @@ async def cmd_transfer(message: Message, cmd_args: str):
         return
 
     amount_str = (rest or "").strip()
-    if not amount_str.isdigit() or int(amount_str) <= 0:
+    try:
+        amount = round(float(amount_str.replace(',', '.')), 2)
+        if amount <= 0:
+            raise ValueError
+    except (ValueError, AttributeError):
         await message.answer(
             "❌ Укажи сумму числом.\n"
             "Пример: <code>бот перевести @user 100</code>",
@@ -71,7 +75,6 @@ async def cmd_transfer(message: Message, cmd_args: str):
         )
         return
 
-    amount = int(amount_str)
     if amount < MORA_TRANSFER_MIN:
         await message.answer(
             f"❌ Минимальная сумма перевода: <b>{MORA_TRANSFER_MIN} 🪙</b>", parse_mode="HTML"
@@ -130,7 +133,11 @@ async def cmd_give_loan(message: Message, cmd_args: str):
         return
 
     amount_str = (rest or "").strip()
-    if not amount_str.isdigit() or int(amount_str) <= 0:
+    try:
+        amount = round(float(amount_str.replace(',', '.')), 2)
+        if amount <= 0:
+            raise ValueError
+    except (ValueError, AttributeError):
         await message.answer(
             "❌ Укажи сумму числом.\n"
             "Пример: <code>бот дать в долг @user 200</code>",
@@ -138,7 +145,6 @@ async def cmd_give_loan(message: Message, cmd_args: str):
         )
         return
 
-    amount = int(amount_str)
     if amount > LOAN_MAX_AMOUNT:
         await message.answer(
             f"❌ Максимальная сумма займа: <b>{LOAN_MAX_AMOUNT} 🪙</b>", parse_mode="HTML"

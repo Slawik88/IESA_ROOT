@@ -712,11 +712,13 @@ async def cmd_family_deposit(message: Message, cmd_args: str):
         return
 
     arg = (cmd_args or "").strip()
-    if not arg.isdigit() or int(arg) <= 0:
+    try:
+        amount = round(float(arg.replace(',', '.')), 2)
+        if amount <= 0:
+            raise ValueError
+    except (ValueError, AttributeError):
         await message.answer("❌ Укажи сумму.\nПример: <code>бот пополнить семью 100</code>", parse_mode="HTML")
         return
-
-    amount = int(arg)
     mora = await get_mora(uid, chat_id)
     bal = mora["balance"] if mora else 0
     if bal < amount:
@@ -762,11 +764,13 @@ async def cmd_family_withdraw(message: Message, cmd_args: str):
         return
 
     arg = (cmd_args or "").strip()
-    if not arg.isdigit() or int(arg) <= 0:
+    try:
+        amount = round(float(arg.replace(',', '.')), 2)
+        if amount <= 0:
+            raise ValueError
+    except (ValueError, AttributeError):
         await message.answer("❌ Укажи сумму.\nПример: <code>бот снять семью 100</code>", parse_mode="HTML")
         return
-
-    amount = int(arg)
     total_bal, my_bal, _ = await get_total_family_balance(chat_id, uid)
     if total_bal < amount:
         await message.answer(

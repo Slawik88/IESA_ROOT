@@ -35,8 +35,8 @@ async def buy_bond(uid: int, chat_id: int, bond_key: str,
     price_per = prices.get(bond_key, BOND_DEFAULTS[bond_key]["base_price"])
     total_cost = price_per * amount
 
-    # ── Per-crypto limit: max 50 coins of one bond type ──────────────────────
-    COIN_LIMIT = 50
+    # ── Per-crypto limit: max 55 coins of one bond type ──────────────────────
+    COIN_LIMIT = 55
     user_bonds_now = await get_user_bonds(uid, chat_id)
     bond_record_now = next((b for b in user_bonds_now if b["bond_key"] == bond_key), None)
     already_have = bond_record_now["amount"] if bond_record_now else 0

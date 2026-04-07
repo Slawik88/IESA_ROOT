@@ -4029,9 +4029,9 @@ async def deduct_family_pool(
             raise ValueError(f"В семейном кошельке {total_available} 🪙 (нужно {amount})")
 
         if my_bal >= amount:
-            # Всё списывается с моего вклада
+            # Всё списывается с моего вклада; GREATEST(0) защита от float-ошибок
             await db.execute(
-                "UPDATE family_wallet SET balance=balance-? WHERE chat_id=0 AND user_id=?",
+                "UPDATE family_wallet SET balance=GREATEST(0, balance-?) WHERE chat_id=0 AND user_id=?",
                 (amount, user_id),
             )
         elif partner_id:
