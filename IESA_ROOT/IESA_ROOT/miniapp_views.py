@@ -237,10 +237,27 @@ def miniapp_user_data(request):
             cur = conn.cursor()
             ph = "?"
 
-        # User full_name
+        # User full_name — sync from initData if available (picks up TG renames)
+        _tg_name: str | None = None
+        if init_data:
+            try:
+                _ip = dict(parse_qsl(init_data, keep_blank_values=True))
+                _ud = json.loads(_ip.get("user", "{}"))
+                _fn = (_ud.get("first_name") or "").strip()
+                _ln = (_ud.get("last_name") or "").strip()
+                if _fn:
+                    _tg_name = (_fn + (" " + _ln if _ln else "")).strip()
+            except Exception:
+                pass
+        if _tg_name:
+            try:
+                cur.execute(f"UPDATE users SET full_name={ph} WHERE user_id={ph}", (_tg_name, uid))
+                conn.commit()
+            except Exception:
+                conn.rollback()
         cur.execute(f"SELECT full_name FROM users WHERE user_id={ph}", (uid,))
         user_row = cur.fetchone()
-        full_name = user_row[0] if user_row else str(uid)
+        full_name = _tg_name or (user_row[0] if user_row else str(uid))
 
         # Mora row: use specific chat if provided, otherwise any chat row
         if specific_chat_id:
@@ -1948,6 +1965,7 @@ def miniapp_inventory(request):
                 # 3-day auction eligibility
                 days_owned = None
                 can_auction = True
+                hours_until_auctionable = None
                 if acquired:
                     import datetime as _dt
                     if hasattr(acquired, 'date'):  # datetime object
@@ -1959,7 +1977,9 @@ def miniapp_inventory(request):
                         except Exception:
                             age_days = 999
                     if age_days < 3:
-                        days_owned = max(0, 3 - int(age_days))
+                        hours_left = max(0.0, 72.0 - age_days * 24)
+                        days_owned = max(0, int(hours_left / 24) + (1 if hours_left % 24 > 0 else 0))
+                        hours_until_auctionable = int(hours_left) + (1 if hours_left % 1 > 0 else 0)
                         can_auction = False
                 items.append({
                     "id": r[0], "key": r[1], "name": r[2], "rarity": r[3], "equipped": bool(r[4]),
@@ -1971,6 +1991,7 @@ def miniapp_inventory(request):
                     "sell_price": meta.get("sell", 0),
                     "can_auction": can_auction,
                     "days_until_auctionable": days_owned,
+                    "hours_until_auctionable": hours_until_auctionable,
                 })
 
             # RPG stats (base + equipped bonuses)
@@ -7049,4 +7070,87 @@ def miniapp_save_avatar(request):
         return JsonResponse({"ok": True}, headers=headers)
     except Exception as exc:
         logger.exception("save_avatar error")
+        return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
+
+
+@csrf_exempt
+def miniapp_use_transfer_pass(request):
+    """POST /api/transfer_pass/use {chat_id, item_id} — consume a transfer pass to unlock a locked inventory item."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=405, headers=headers)
+
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+
+    try:
+        body = json.loads(request.body)
+        chat_id = int(str(body.get("chat_id", "0")))
+        item_id = int(str(body.get("item_id", "0")))
+    except Exception:
+        return JsonResponse({"error": "invalid JSON"}, status=400, headers=headers)
+
+    if not chat_id or not item_id:
+        return JsonResponse({"error": "chat_id and item_id required"}, status=400, headers=headers)
+
+    try:
+        conn, db_type = _get_bot_db_connection()
+        cur = conn.cursor()
+        ph = "%s" if db_type == "pg" else "?"
+
+        # Check user has transfer passes
+        cur.execute(f"SELECT COALESCE(passes, 0) FROM crystal_transfer_passes WHERE user_id={ph}", (uid,))
+        row = cur.fetchone()
+        passes = row[0] if row else 0
+        if passes <= 0:
+            return JsonResponse({"error": "У вас нет Пропусков переноса 🎫"}, status=400, headers=headers)
+
+        # Check item belongs to user and is locked (<3 days old)
+        if db_type == "pg":
+            cur.execute(
+                f"SELECT id, obtained_at FROM gacha_inventory WHERE id={ph} AND user_id={ph} AND chat_id={ph}",
+                (item_id, uid, chat_id),
+            )
+        else:
+            cur.execute(
+                f"SELECT id, obtained_at FROM gacha_inventory WHERE id={ph} AND user_id={ph} AND chat_id={ph}",
+                (item_id, uid, chat_id),
+            )
+        item_row = cur.fetchone()
+        if not item_row:
+            return JsonResponse({"error": "Предмет не найден в вашем инвентаре"}, status=404, headers=headers)
+
+        # Unlock item by backdating obtained_at to 4 days ago
+        if db_type == "pg":
+            cur.execute(
+                f"UPDATE gacha_inventory SET obtained_at = NOW() - INTERVAL '4 days' WHERE id={ph} AND user_id={ph}",
+                (item_id, uid),
+            )
+            cur.execute(
+                f"UPDATE crystal_transfer_passes SET passes = passes - 1 WHERE user_id={ph}",
+                (uid,),
+            )
+        else:
+            cur.execute(
+                f"UPDATE gacha_inventory SET obtained_at = datetime('now', '-4 days') WHERE id={ph} AND user_id={ph}",
+                (item_id, uid),
+            )
+            cur.execute(
+                f"UPDATE crystal_transfer_passes SET passes = passes - 1 WHERE user_id={ph}",
+                (uid,),
+            )
+        conn.commit()
+
+        # Get remaining passes
+        cur.execute(f"SELECT COALESCE(passes, 0) FROM crystal_transfer_passes WHERE user_id={ph}", (uid,))
+        row2 = cur.fetchone()
+        remaining = row2[0] if row2 else 0
+
+        return JsonResponse({"ok": True, "remaining_passes": remaining}, headers=headers)
+
+    except Exception as exc:
+        logger.exception("use_transfer_pass error")
         return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
