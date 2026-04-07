@@ -2677,8 +2677,8 @@ def miniapp_themes(request):
             cur = conn.cursor()
             ph = "%s" if db_type == "pg" else "?"
             cur.execute(
-                f"SELECT theme_key FROM user_themes WHERE user_id={ph} AND chat_id={ph}",
-                (uid, chat_id),
+                f"SELECT theme_key FROM user_themes WHERE user_id={ph}",
+                (uid,),
             )
             owned_keys = {r[0] for r in cur.fetchall()}
             owned_keys.add("default")
@@ -2729,8 +2729,8 @@ def miniapp_themes(request):
             ph = "%s" if db_type == "pg" else "?"
             if theme_key != "default":
                 cur.execute(
-                    f"SELECT 1 FROM user_themes WHERE user_id={ph} AND chat_id={ph} AND theme_key={ph}",
-                    (uid, chat_id, theme_key),
+                    f"SELECT 1 FROM user_themes WHERE user_id={ph} AND theme_key={ph}",
+                    (uid, theme_key),
                 )
                 if not cur.fetchone():
                     conn.close()
