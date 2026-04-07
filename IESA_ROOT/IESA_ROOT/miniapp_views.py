@@ -493,8 +493,6 @@ def miniapp_user_data(request):
         except Exception:
             conn.rollback()
 
-        conn.close()
-
         computed_level = db_level if db_level > 1 else _level_for_xp(xp)
         xp_max = _xp_for_level(computed_level + 1)
 
@@ -551,6 +549,8 @@ def miniapp_user_data(request):
             _hb_cur.close()
         except Exception:
             pass  # non-critical
+
+        conn.close()
 
         return JsonResponse(payload, json_dumps_params={"ensure_ascii": False},
                             headers=headers)
@@ -2185,7 +2185,10 @@ def miniapp_shop_set_title(request):
             if fam_bal < _CUSTOM_TITLE_PRICE:
                 conn.close()
                 return JsonResponse({"error": f"Недостаточно моры. Нужно {_CUSTOM_TITLE_PRICE} 🪙"}, status=400, headers=headers)
-            cur.execute(f"UPDATE family_wallet SET balance=balance-{ph} WHERE chat_id={ph} AND user_id={ph}", (_CUSTOM_TITLE_PRICE, chat_id, uid))
+            cur.execute(f"UPDATE family_wallet SET balance=balance-{ph} WHERE chat_id={ph} AND user_id={ph} AND balance>={ph}", (_CUSTOM_TITLE_PRICE, chat_id, uid, _CUSTOM_TITLE_PRICE))
+            if cur.rowcount == 0:
+                conn.close()
+                return JsonResponse({"error": f"Недостаточно моры (race)"}, status=400, headers=headers)
         else:
             cur.execute(f"SELECT COALESCE(balance, 0) FROM users WHERE user_id={ph}", (uid,))
             row = cur.fetchone()
@@ -5142,8 +5145,13 @@ def miniapp_user_avatar(request, user_id):
         if not avatar_path:
             return JsonResponse({"error": "Avatar not found"}, status=404, headers=headers)
         
-        # If avatar_path is a URL, redirect to it
+        # If avatar_path is a URL, redirect to it (whitelist Telegram CDN domains)
         if avatar_path.startswith("http://") or avatar_path.startswith("https://"):
+            from urllib.parse import urlparse
+            _allowed_avatar_hosts = {"t.me", "telegram.org", "cdn4.telegram-cdn.org", "cdn5.telegram-cdn.org"}
+            parsed = urlparse(avatar_path)
+            if parsed.hostname not in _allowed_avatar_hosts:
+                return JsonResponse({"error": "Avatar URL domain not allowed"}, status=400, headers=headers)
             from django.http import HttpResponseRedirect
             return HttpResponseRedirect(avatar_path)
         
@@ -6888,7 +6896,10 @@ def miniapp_dev_delete_inventory_item(request):
     if uid != _DEVELOPER_ID:
         return JsonResponse({"error": "forbidden"}, status=403, headers=headers)
 
-    body = _parse_body(request)
+    try:
+        body = json.loads(request.body)
+    except Exception:
+        return JsonResponse({"error": "invalid JSON"}, status=400, headers=headers)
     item_id = body.get("item_id")
     if not item_id:
         return JsonResponse({"error": "item_id required"}, status=400, headers=headers)
@@ -6907,6 +6918,10 @@ def miniapp_dev_delete_inventory_item(request):
         conn.close()
         return JsonResponse({"ok": True}, headers=headers)
     except Exception as exc:
+        try:
+            conn.close()
+        except Exception:
+            pass
         logger.exception("dev_delete_inventory_item error")
         return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
 
@@ -6926,10 +6941,19 @@ def miniapp_save_avatar(request):
     if err:
         return err
 
-    body = _parse_body(request)
+    try:
+        body = json.loads(request.body)
+    except Exception:
+        return JsonResponse({"error": "invalid JSON"}, status=400, headers=headers)
     photo_url = (body.get("photo_url") or "").strip()
     if not photo_url or not photo_url.startswith("https://"):
         return JsonResponse({"error": "valid https photo_url required"}, status=400, headers=headers)
+    # Whitelist Telegram CDN domains to prevent storing arbitrary URLs
+    from urllib.parse import urlparse as _urlparse
+    _allowed_hosts = {"t.me", "telegram.org", "cdn4.telegram-cdn.org", "cdn5.telegram-cdn.org"}
+    _parsed = _urlparse(photo_url)
+    if _parsed.hostname not in _allowed_hosts:
+        return JsonResponse({"error": "Only Telegram avatar URLs are allowed"}, status=400, headers=headers)
 
     try:
         from asgiref.sync import async_to_sync as _a2s

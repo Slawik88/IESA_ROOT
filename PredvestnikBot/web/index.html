@@ -36,7 +36,7 @@ body[data-theme="crane"]{--bg:#0a0a0a;--bg2:#141414;--bg3:#1e1e1e;--accent:#ef44
 
 /* ==== RESET ==== */
 *{box-sizing:border-box;margin:0;padding:0}
-body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:14px;min-height:100vh;overflow-x:hidden;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;padding-top:calc(48px + 45px);padding-bottom:calc(68px + env(safe-area-inset-bottom,0px));transition:background .46s ease,color .3s ease,padding-top .15s}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:14px;min-height:100vh;overflow-x:hidden;overscroll-behavior:none;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;padding-top:calc(48px + 45px);padding-bottom:calc(68px + env(safe-area-inset-bottom,0px));transition:background .46s ease,color .3s ease,padding-top .15s}
 /* When tabs are hidden via .single class, body padding reduces to just balance-bar height */
 body.no-tabs{padding-top:48px}
 
@@ -68,7 +68,7 @@ body.no-tabs{padding-top:48px}
 .cat-btn.active .cat-icon{filter:drop-shadow(0 0 8px rgba(124,106,247,.6));transform:translateY(-2px)}
 .cat-icon{transition:transform .25s cubic-bezier(.34,1.56,.64,1),filter .25s}
 .cat-btn.active::after{content:'';position:absolute;top:0;left:50%;transform:translateX(-50%);width:40%;height:2.5px;border-radius:0 0 8px 8px;background:linear-gradient(90deg,var(--accent),var(--accent2));box-shadow:0 2px 12px rgba(124,106,247,.6);animation:catPillIn .22s ease-out}
-@keyframes catPillIn{from{width:0;opacity:0}to{width:40%;opacity:1}}
+@keyframes catPillIn{from{transform:translateX(-50%) scaleX(0);opacity:0}to{transform:translateX(-50%) scaleX(1);opacity:1}}
 .cat-btn:active .cat-icon{transform:scale(.82) translateY(1px)}
 
 /* ─── DESKTOP SIDEBAR ───────────────────────────────────────────────── */
@@ -183,7 +183,7 @@ body.no-tabs{padding-top:48px}
 .section-title::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,rgba(124,106,247,.2),transparent)}
 
 /* ==== CARDS ==== */
-.card{background:rgba(255,255,255,.02);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:none;border-bottom:1px solid rgba(255,255,255,.06);border-radius:16px;padding:16px;margin-bottom:10px;transition:transform .22s cubic-bezier(.4,0,.2,1),box-shadow .22s;word-break:break-word;overflow-wrap:anywhere;min-width:0;box-shadow:none}
+.card{background:rgba(255,255,255,.02);border:none;border-bottom:1px solid rgba(255,255,255,.06);border-radius:16px;padding:16px;margin-bottom:10px;transition:transform .22s cubic-bezier(.4,0,.2,1),box-shadow .22s;word-break:break-word;overflow-wrap:anywhere;min-width:0;box-shadow:none;will-change:transform}
 .card:hover{transform:translateY(-2px) scale(1.003);box-shadow:0 4px 16px rgba(0,0,0,.15)}
 /* Cascade card reveal when tab becomes active */
 @keyframes cardIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
@@ -6460,58 +6460,68 @@ loadProfile().then(() => {
   }
 });
 
-// ── Dynamic background refresh ────────────────────────────────────────────────
-// Silently refresh balance, XP, level, streak, rank every 30 seconds
-setInterval(async () => {
-  if (!chatId) return;
-  try {
-    const r = await api('/api/user_data?chat_id=' + chatId);
-    if (r.balance !== undefined) syncBalance(r.balance);
-    if (profileData) { profileData.balance = r.balance; }
-    if (r.xp !== undefined) {
-      const xp = r.xp, xpMax = r.xp_max || 100;
-      const xpEl = document.getElementById('pXp');
-      const xpMaxEl = document.getElementById('pXpMax');
-      const xpBar = document.getElementById('pXpBar');
-      if (xpEl) xpEl.textContent = xp;
-      if (xpMaxEl) xpMaxEl.textContent = xpMax;
-      if (xpBar) xpBar.style.width = Math.min(100, Math.round(xp / xpMax * 100)) + '%';
+// ── Dynamic background refresh (visibility-aware) ─────────────────────────────
+// Pause all polling timers when the page/miniapp is hidden to save resources
+const _bgTimers = [];
+function _startBgTimers() {
+  if (_bgTimers.length) return; // already running
+  // Balance / XP / level / streak / rank — every 30s
+  _bgTimers.push(setInterval(async () => {
+    if (!chatId) return;
+    try {
+      const r = await api('/api/user_data?chat_id=' + chatId);
+      if (r.balance !== undefined) syncBalance(r.balance);
+      if (profileData) { profileData.balance = r.balance; }
+      if (r.xp !== undefined) {
+        const xp = r.xp, xpMax = r.xp_max || 100;
+        const xpEl = document.getElementById('pXp');
+        const xpMaxEl = document.getElementById('pXpMax');
+        const xpBar = document.getElementById('pXpBar');
+        if (xpEl) xpEl.textContent = xp;
+        if (xpMaxEl) xpMaxEl.textContent = xpMax;
+        if (xpBar) xpBar.style.width = Math.min(100, Math.round(xp / xpMax * 100)) + '%';
+      }
+      if (r.level !== undefined) {
+        const lvlEl = document.getElementById('pLevel');
+        if (lvlEl) lvlEl.textContent = r.level;
+      }
+      if (r.streak !== undefined) {
+        const streakEl = document.getElementById('pStreak');
+        if (streakEl) streakEl.textContent = (r.streak || 0) + ' дн.';
+      }
+      if (r.rank !== undefined) {
+        const RANK_LABELS = {developer:'💻 Разработчик', owner:'👑 Владелец', co_owner:'⭐ Со-владелец', moderator:'🛡 Модератор', user:'👤 Участник'};
+        const rankEl = document.getElementById('pRank');
+        if (rankEl) rankEl.textContent = RANK_LABELS[r.rank] || r.rank || '—';
+      }
+    } catch(e) {}
+  }, 30000));
+  // Expedition tab — every 60s when visible
+  _bgTimers.push(setInterval(() => {
+    const el = document.getElementById('tab-expedition');
+    if (el && el.classList.contains('active')) {
+      tabLoaded['expedition'] = false;
+      loadExpeditionTab();
     }
-    if (r.level !== undefined) {
-      const lvlEl = document.getElementById('pLevel');
-      if (lvlEl) lvlEl.textContent = r.level;
-    }
-    if (r.streak !== undefined) {
-      const streakEl = document.getElementById('pStreak');
-      if (streakEl) streakEl.textContent = (r.streak || 0) + ' дн.';
-    }
-    if (r.rank !== undefined) {
-      const RANK_LABELS = {developer:'💻 Разработчик', owner:'👑 Владелец', co_owner:'⭐ Со-владелец', moderator:'🛡 Модератор', user:'👤 Участник'};
-      const rankEl = document.getElementById('pRank');
-      if (rankEl) rankEl.textContent = RANK_LABELS[r.rank] || r.rank || '—';
-    }
-  } catch(e) {}
-}, 30000);
-
-// Auto-refresh expedition tab data every 60 seconds when it's visible
-setInterval(() => {
-  const el = document.getElementById('tab-expedition');
-  if (el && el.classList.contains('active')) {
-    tabLoaded['expedition'] = false;
-    loadExpeditionTab();
-  }
-}, 60000);
-
-// Auto-refresh couple boss tab every 15 seconds when it's visible and there's an active session
-setInterval(async () => {
-  const el = document.getElementById('tab-couple_boss');
-  if (!el || !el.classList.contains('active')) return;
-  if (!window.currentBossSession) return;
-  try {
-    const r = await api('/api/couple_boss/status?chat_id=' + chatId);
-    if (r && r.has_active_session) renderActiveBossSession(r);
-  } catch(e) {}
-}, 15000);
+  }, 60000));
+  // Couple boss — every 15s when visible & active session
+  _bgTimers.push(setInterval(async () => {
+    const el = document.getElementById('tab-couple_boss');
+    if (!el || !el.classList.contains('active')) return;
+    if (!window.currentBossSession) return;
+    try {
+      const r = await api('/api/couple_boss/status?chat_id=' + chatId);
+      if (r && r.has_active_session) renderActiveBossSession(r);
+    } catch(e) {}
+  }, 15000));
+}
+function _stopBgTimers() {
+  while (_bgTimers.length) clearInterval(_bgTimers.pop());
+}
+_startBgTimers();
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) _stopBgTimers(); else _startBgTimers();
+});
 
 // ▓▓ Enhanced Inventory Functions ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
 
