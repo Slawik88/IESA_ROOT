@@ -1712,6 +1712,67 @@ async def init_db():
         except Exception:
             pass  # Already NUMERIC or column doesn't exist yet
 
+    # ─── Блок 2: Шарды, Таланты, Квест новичка ────────────────────────────────
+
+    # Хранилище шардов игрока (глобальное, не привязано к чату)
+    try:
+        async with postgres_connect() as _db:
+            await _db.execute("""
+                CREATE TABLE IF NOT EXISTS item_shard_stash (
+                    user_id   BIGINT NOT NULL,
+                    shard_key TEXT   NOT NULL,
+                    amount    INTEGER NOT NULL DEFAULT 0,
+                    PRIMARY KEY (user_id, shard_key)
+                )
+            """)
+            await _db.commit()
+    except Exception:
+        pass
+
+    # Таланты игрока (глобальные, не привязаны к чату)
+    try:
+        async with postgres_connect() as _db:
+            await _db.execute("""
+                CREATE TABLE IF NOT EXISTS user_talents (
+                    user_id          BIGINT PRIMARY KEY,
+                    talent_points    INTEGER NOT NULL DEFAULT 0,
+                    talents_json     TEXT    NOT NULL DEFAULT '{}'
+                )
+            """)
+            await _db.commit()
+    except Exception:
+        pass
+
+    # Незакрытый уровень, с которого выдавались очки талантов (идемпотентный контроль)
+    try:
+        async with postgres_connect() as _db:
+            await _db.execute("""
+                ALTER TABLE user_talents
+                    ADD COLUMN IF NOT EXISTS last_awarded_level INTEGER NOT NULL DEFAULT 0
+            """)
+            await _db.commit()
+    except Exception:
+        pass
+
+    # Квест новичка: трекер 100 сообщений за 7 дней
+    try:
+        async with postgres_connect() as _db:
+            await _db.execute("""
+                CREATE TABLE IF NOT EXISTS newbie_quests (
+                    user_id    BIGINT NOT NULL,
+                    chat_id    BIGINT NOT NULL,
+                    started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    deadline   TIMESTAMPTZ NOT NULL,
+                    messages   INTEGER NOT NULL DEFAULT 0,
+                    completed  INTEGER NOT NULL DEFAULT 0,
+                    rewarded   INTEGER NOT NULL DEFAULT 0,
+                    PRIMARY KEY (user_id, chat_id)
+                )
+            """)
+            await _db.commit()
+    except Exception:
+        pass
+
     await enforce_rank_invariants()
 
 
@@ -3018,6 +3079,13 @@ async def mark_quest_rewarded(user_id: int, chat_id: int, quest_date: str):
             (user_id, chat_id, quest_date),
         )
         await db.commit()
+
+    # Блок 2: выдать осколок за ежедневный квест
+    try:
+        from shared_prices import SHARD_QUEST_REWARD
+        await add_shards(user_id, SHARD_QUEST_REWARD[0], SHARD_QUEST_REWARD[1])
+    except Exception:
+        pass
 
     # Block 4: Add season XP for quest completion
     try:
@@ -7230,6 +7298,395 @@ _CHAT_CONFIG_DEFAULTS = {
 }
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
+#  🔷 БЛОК 2: Шарды, Таланты, Квест новичка
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# ─── Шарды ────────────────────────────────────────────────────────────────────
+
+async def get_shard_stash(user_id: int) -> dict[str, int]:
+    """Возвращает словарь shard_key → amount для пользователя."""
+    async with postgres_connect() as db:
+        rows = await db.fetch(
+            "SELECT shard_key, amount FROM item_shard_stash WHERE user_id = ? AND amount > 0",
+            (user_id,),
+        )
+    return {r["shard_key"]: r["amount"] for r in rows}
+
+
+async def add_shards(user_id: int, shard_key: str, amount: int) -> int:
+    """Добавляет шарды, возвращает новый итоговый запас."""
+    async with postgres_connect() as db:
+        await db.execute(
+            """INSERT INTO item_shard_stash (user_id, shard_key, amount)
+               VALUES (?, ?, ?)
+               ON CONFLICT (user_id, shard_key) DO UPDATE
+               SET amount = item_shard_stash.amount + EXCLUDED.amount""",
+            (user_id, shard_key, amount),
+        )
+        await db.commit()
+        async with db.execute(
+            "SELECT amount FROM item_shard_stash WHERE user_id = ? AND shard_key = ?",
+            (user_id, shard_key),
+        ) as c:
+            row = await c.fetchone()
+    return row["amount"] if row else 0
+
+
+async def award_level_shards(user_id: int, chat_id: int, new_level: int) -> list[dict]:
+    """Выдаёт шарды за достижение уровня (кратного 10). Идемпотентно.
+    Возвращает список выданных наград [{shard_key, amount, name, emoji}]."""
+    from shared_prices import SHARD_LEVEL_REWARDS, SHARD_CATALOG
+    rewards_this_level = SHARD_LEVEL_REWARDS.get(new_level, [])
+    if not rewards_this_level:
+        return []
+    # Проверяем таблицу талантов, чтобы не выдавать повторно
+    async with postgres_connect() as db:
+        async with db.execute(
+            "SELECT last_awarded_level FROM user_talents WHERE user_id = ?",
+            (user_id,),
+        ) as c:
+            row = await c.fetchone()
+        last = row["last_awarded_level"] if row else 0
+        if new_level <= last:
+            return []
+        # Создаём/обновляем строку
+        await db.execute(
+            """INSERT INTO user_talents (user_id, talent_points, talents_json, last_awarded_level)
+               VALUES (?, 0, '{}', ?)
+               ON CONFLICT (user_id) DO UPDATE SET last_awarded_level = EXCLUDED.last_awarded_level""",
+            (user_id, new_level),
+        )
+        await db.commit()
+    given = []
+    for shard_key, amount in rewards_this_level:
+        await add_shards(user_id, shard_key, amount)
+        meta = SHARD_CATALOG.get(shard_key, {})
+        given.append({"shard_key": shard_key, "amount": amount,
+                       "name": meta.get("name", shard_key), "emoji": meta.get("emoji", "🔷")})
+    return given
+
+
+async def craft_from_shards(user_id: int, chat_id: int, shard_key: str) -> dict:
+    """Попытка скрафтить предмет из шардов.
+    Возвращает {ok, message, item_key?, item_name?}."""
+    from shared_prices import SHARD_CATALOG, ITEM_METADATA, FRAMES_CATALOG
+    meta = SHARD_CATALOG.get(shard_key)
+    if not meta:
+        return {"ok": False, "message": "Неизвестный тип осколка"}
+    needed = meta["craft_amount"]
+    async with postgres_connect() as db:
+        # FOR UPDATE lock prevents two concurrent crafts from both seeing sufficient shards
+        row = await db.fetchone(
+            "SELECT amount FROM item_shard_stash WHERE user_id = ? AND shard_key = ? FOR UPDATE",
+            (user_id, shard_key),
+        )
+        current = row["amount"] if row else 0
+        if current < needed:
+            return {"ok": False, "message": f"Нужно {needed} осколков, у тебя {current}"}
+        # Списываем шарды (atomic SQL guard prevents negative balance)
+        cursor = await db.execute(
+            "UPDATE item_shard_stash SET amount = amount - ? WHERE user_id = ? AND shard_key = ? AND amount >= ?",
+            (needed, user_id, shard_key, needed),
+        )
+        if cursor.rowcount == 0:
+            return {"ok": False, "message": f"Нужно {needed} осколков, у тебя недостаточно"}
+        craft_item = meta.get("craft_into")
+        craft_frame = meta.get("craft_frame")
+        if craft_item:
+            item_meta = ITEM_METADATA.get(craft_item, {})
+            item_name = craft_item
+            for k, v in ITEM_METADATA.items():
+                if k == craft_item:
+                    item_name = v.get("desc", craft_item).split(":")[0]
+            rarity = "rare" if craft_item.startswith("rare_") else ("legendary" if craft_item.startswith("lego_") else "common")
+            from utils.helpers import bot_today
+            now_dt = datetime.now(timezone.utc)
+            await db.execute(
+                """INSERT INTO gacha_inventory
+                   (user_id, chat_id, item_key, item_name, rarity, slot, acquired_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                (user_id, chat_id, craft_item,
+                 item_meta.get("desc", craft_item).split(":")[0],
+                 rarity, item_meta.get("slot", ""), now_dt),
+            )
+        elif craft_frame:
+            # Разблокируем рамку через user_mora
+            await db.execute(
+                """INSERT INTO user_mora (user_id, chat_id, top_frame)
+                   VALUES (?, ?, ?)
+                   ON CONFLICT (user_id, chat_id) DO UPDATE
+                   SET top_frame = EXCLUDED.top_frame""",
+                (user_id, chat_id, craft_frame),
+            )
+        await db.commit()
+    item_label = meta.get("craft_into") or meta.get("craft_frame") or ""
+    return {"ok": True, "message": f"✅ Скрафтил {meta['emoji']} из {needed} осколков!",
+            "item_key": craft_item, "frame_key": craft_frame}
+
+
+# ─── Таланты ──────────────────────────────────────────────────────────────────
+
+async def get_user_talents(user_id: int) -> dict:
+    """Возвращает {talent_points, talents: {talent_id: level}, last_awarded_level}."""
+    import json
+    async with postgres_connect() as db:
+        async with db.execute(
+            "SELECT talent_points, talents_json, last_awarded_level FROM user_talents WHERE user_id = ?",
+            (user_id,),
+        ) as c:
+            row = await c.fetchone()
+    if not row:
+        return {"talent_points": 0, "talents": {}, "last_awarded_level": 0}
+    try:
+        talents = json.loads(row["talents_json"] or "{}")
+    except Exception:
+        talents = {}
+    return {"talent_points": row["talent_points"], "talents": talents,
+            "last_awarded_level": row["last_awarded_level"]}
+
+
+async def award_talent_points(user_id: int, new_level: int) -> int:
+    """Выдаёт 1 очко таланта за каждые 10 уровней (идемпотентно).
+    Возвращает количество выданных очков (0 если уже было)."""
+    points_due = new_level // 10  # ровно по 1 очку за каждые 10 уровней
+    async with postgres_connect() as db:
+        async with db.execute(
+            "SELECT talent_points, last_awarded_level FROM user_talents WHERE user_id = ?",
+            (user_id,),
+        ) as c:
+            row = await c.fetchone()
+        if row is None:
+            # Новая строка
+            await db.execute(
+                "INSERT INTO user_talents (user_id, talent_points, talents_json, last_awarded_level) VALUES (?, ?, '{}', ?)",
+                (user_id, 1 if new_level >= 10 else 0, new_level),
+            )
+            await db.commit()
+            return 1 if new_level >= 10 else 0
+        # Уже существует — считаем, сколько очков ещё не выдано
+        already_awarded = row["last_awarded_level"] // 10
+        new_points = points_due - already_awarded
+        if new_points <= 0:
+            return 0
+        await db.execute(
+            """UPDATE user_talents
+               SET talent_points = talent_points + ?,
+                   last_awarded_level = ?
+               WHERE user_id = ?""",
+            (new_points, new_level, user_id),
+        )
+        await db.commit()
+    return new_points
+
+
+async def upgrade_talent(user_id: int, talent_id: str) -> dict:
+    """Тратит 1 очко таланта на апгрейд. Возвращает {ok, message, new_level}."""
+    import json
+    from shared_prices import TALENT_TREE
+    talent = TALENT_TREE.get(talent_id)
+    if not talent:
+        return {"ok": False, "message": "Неизвестный талант"}
+    # Single transaction with FOR UPDATE to prevent TOCTOU race condition
+    async with postgres_connect() as db:
+        row = await db.fetchone(
+            "SELECT talent_points, talents_json FROM user_talents WHERE user_id = ? FOR UPDATE",
+            (user_id,),
+        )
+        if not row or row["talent_points"] < 1:
+            return {"ok": False, "message": "Недостаточно очков таланта"}
+        try:
+            talents = json.loads(row["talents_json"] or "{}")
+        except Exception:
+            talents = {}
+        current_level = talents.get(talent_id, 0)
+        if current_level >= talent["max_level"]:
+            return {"ok": False, "message": f"Талант «{talent['name']}» уже на максимальном уровне"}
+        # Проверяем требование тира
+        tier = talent["tier"]
+        if tier == 2:
+            t1_total = sum(talents.get(tid, 0) for tid, t in TALENT_TREE.items() if t["tier"] == 1)
+            if t1_total < 2:
+                return {"ok": False, "message": "Нужно вложить 2+ очка в таланты 1-го тира"}
+        elif tier == 3:
+            t12_total = sum(talents.get(tid, 0) for tid, t in TALENT_TREE.items() if t["tier"] in (1, 2))
+            if t12_total < 5:
+                return {"ok": False, "message": "Нужно вложить 5+ очков в таланты 1-го и 2-го тиров"}
+        talents[talent_id] = current_level + 1
+        cursor = await db.execute(
+            "UPDATE user_talents SET talent_points = talent_points - 1, talents_json = ? "
+            "WHERE user_id = ? AND talent_points > 0",
+            (json.dumps(talents), user_id),
+        )
+        if cursor.rowcount == 0:
+            return {"ok": False, "message": "Недостаточно очков таланта"}
+        await db.commit()
+    return {"ok": True, "message": f"✅ Талант «{talent['name']}» улучшен до ур. {current_level + 1}",
+            "new_level": current_level + 1}
+
+
+async def get_talent_effect(user_id: int, effect_key: str) -> int:
+    """Возвращает суммарный эффект таланта по ключу (0 если не прокачан)."""
+    import json
+    from shared_prices import TALENT_TREE
+    async with postgres_connect() as db:
+        async with db.execute(
+            "SELECT talents_json FROM user_talents WHERE user_id = ?",
+            (user_id,),
+        ) as c:
+            row = await c.fetchone()
+    if not row:
+        return 0
+    try:
+        talents = json.loads(row["talents_json"] or "{}")
+    except Exception:
+        return 0
+    total = 0
+    for tid, t in TALENT_TREE.items():
+        if t["effect_key"] == effect_key:
+            lvl = talents.get(tid, 0)
+            total += lvl * t["effect_per_level"]
+    return total
+
+
+# ─── Квест новичка ────────────────────────────────────────────────────────────
+
+async def start_newbie_quest(user_id: int, chat_id: int) -> bool:
+    """Запускает квест новичка (7 дней × 100 сообщений). Идемпотентен.
+    Возвращает True если квест был создан (False если уже существовал)."""
+    now = datetime.now(timezone.utc)
+    deadline = now + timedelta(days=7)
+    async with postgres_connect() as db:
+        async with db.execute(
+            "SELECT user_id FROM newbie_quests WHERE user_id = ? AND chat_id = ?",
+            (user_id, chat_id),
+        ) as c:
+            existing = await c.fetchone()
+        if existing:
+            return False
+        await db.execute(
+            """INSERT INTO newbie_quests (user_id, chat_id, started_at, deadline, messages, completed, rewarded)
+               VALUES (?, ?, ?, ?, 0, 0, 0)""",
+            (user_id, chat_id, now, deadline),
+        )
+        await db.commit()
+    return True
+
+
+async def tick_newbie_quest(user_id: int, chat_id: int) -> dict | None:
+    """Прибавляет сообщение к квесту новичка.
+    Возвращает None если квест не активен, иначе {messages, completed, just_completed}.
+    just_completed=True только в тот момент, когда квест выполнен впервые."""
+    now = datetime.now(timezone.utc)
+    async with postgres_connect() as db:
+        async with db.execute(
+            "SELECT messages, completed, rewarded, deadline FROM newbie_quests "
+            "WHERE user_id = ? AND chat_id = ?",
+            (user_id, chat_id),
+        ) as c:
+            row = await c.fetchone()
+        if not row:
+            return None
+        if row["completed"] or now > row["deadline"]:
+            return {"messages": row["messages"], "completed": bool(row["completed"]),
+                    "just_completed": False}
+        new_msgs = row["messages"] + 1
+        just_completed = new_msgs >= 100
+        await db.execute(
+            "UPDATE newbie_quests SET messages = ?, completed = ? WHERE user_id = ? AND chat_id = ?",
+            (new_msgs, 1 if just_completed else 0, user_id, chat_id),
+        )
+        await db.commit()
+    return {"messages": new_msgs, "completed": just_completed, "just_completed": just_completed}
+
+
+async def claim_newbie_quest_reward(user_id: int, chat_id: int) -> dict:
+    """Выдаёт награду за квест новичка и продлевает chat XP бафф.
+    Возвращает {ok, message, chat_buff_extended}."""
+    async with postgres_connect() as db:
+        async with db.execute(
+            "SELECT completed, rewarded FROM newbie_quests WHERE user_id = ? AND chat_id = ?",
+            (user_id, chat_id),
+        ) as c:
+            row = await c.fetchone()
+        if not row or not row["completed"]:
+            return {"ok": False, "message": "Квест ещё не выполнен"}
+        if row["rewarded"]:
+            return {"ok": False, "message": "Награда уже получена"}
+        await db.execute(
+            "UPDATE newbie_quests SET rewarded = 1 WHERE user_id = ? AND chat_id = ?",
+            (user_id, chat_id),
+        )
+        await db.commit()
+    # Награда новичку: шарды + мора + XP
+    await add_mora(user_id, chat_id, 200)
+    await add_xp_in_chat(user_id, chat_id, 300)
+    await add_shards(user_id, "shard_essence", 5)
+    # Продлить (или создать) chat XP бафф на 24 часа (силу НЕ стекируем, только время)
+    chat_buff_extended = await _extend_chat_xp_buff(chat_id, user_id, extra_hours=24)
+    return {"ok": True, "message": "🎉 Квест выполнен! +200 🪙 +300 XP +5 осколков",
+            "chat_buff_extended": chat_buff_extended}
+
+
+async def _extend_chat_xp_buff(chat_id: int, activated_by: int, extra_hours: int = 24) -> str:
+    """Продлевает существующий chat XP бафф на extra_hours, либо создаёт новый.
+    КЛЮЧЕВОЕ ПРАВИЛО: сила баффа фиксирована (+10% XP), стекируется только время.
+    Возвращает ISO-строку нового expires_at."""
+    now = datetime.now(timezone.utc)
+    async with postgres_connect() as db:
+        async with db.execute(
+            "SELECT expires_at FROM chat_global_buffs WHERE chat_id = ? AND buff_type = 'xp_plus10'",
+            (chat_id,),
+        ) as c:
+            row = await c.fetchone()
+        if row and row["expires_at"] > now:
+            # Уже активен — только продлеваем (к существующему expires_at + extra_hours)
+            new_expires = row["expires_at"] + timedelta(hours=extra_hours)
+        else:
+            # Не активен — создаём на extra_hours с сейчас
+            new_expires = now + timedelta(hours=extra_hours)
+        await db.execute(
+            """INSERT INTO chat_global_buffs
+                   (chat_id, buff_type, activated_by, activated_at, expires_at)
+               VALUES (?, 'xp_plus10', ?, ?, ?)
+               ON CONFLICT (chat_id, buff_type) DO UPDATE
+                   SET activated_by = EXCLUDED.activated_by,
+                       activated_at = EXCLUDED.activated_at,
+                       expires_at   = EXCLUDED.expires_at""",
+            (chat_id, activated_by, now, new_expires),
+        )
+        await db.commit()
+    return new_expires.isoformat()
+
+
+async def get_newbie_quest_status(user_id: int, chat_id: int) -> dict | None:
+    """Возвращает статус квеста новичка или None."""
+    now = datetime.now(timezone.utc)
+    async with postgres_connect() as db:
+        async with db.execute(
+            "SELECT messages, completed, rewarded, started_at, deadline FROM newbie_quests "
+            "WHERE user_id = ? AND chat_id = ?",
+            (user_id, chat_id),
+        ) as c:
+            row = await c.fetchone()
+    if not row:
+        return None
+    deadline_dt = row["deadline"]
+    if hasattr(deadline_dt, "replace") and deadline_dt.tzinfo is None:
+        deadline_dt = deadline_dt.replace(tzinfo=timezone.utc)
+    expired = now > deadline_dt and not row["completed"]
+    remaining_secs = max(0, int((deadline_dt - now).total_seconds())) if not expired else 0
+    return {
+        "messages":      row["messages"],
+        "goal":          100,
+        "completed":     bool(row["completed"]),
+        "rewarded":      bool(row["rewarded"]),
+        "expired":       expired,
+        "remaining_secs": remaining_secs,
+        "deadline":      deadline_dt.isoformat(),
+    }
+
+
 async def get_chat_config(chat_id: int) -> dict:
     """Возвращает конфигурацию чата; если не задана — возвращает дефолты."""
     async with postgres_connect() as db:
@@ -7715,17 +8172,17 @@ async def consume_potion(user_id: int, chat_id: int, item_id: int) -> tuple[bool
     from datetime import datetime, timezone, timedelta
     
     async with postgres_connect() as db:
-        async with db.execute(
+        # FOR UPDATE lock prevents two concurrent requests from both consuming the same item
+        item = await db.fetchone(
             "SELECT item_key, item_name, slot FROM gacha_inventory "
-            "WHERE id=? AND user_id=? AND chat_id=? AND slot IN ('potion','consume')",
-            (item_id, user_id, chat_id)
-        ) as c:
-            item = await c.fetchone()
-        
+            "WHERE id=? AND user_id=? AND chat_id=? AND slot IN ('potion','consume') FOR UPDATE",
+            (item_id, user_id, chat_id),
+        )
+
         if not item:
             return False, "Предмет не найден"
 
-        item_key2, item_name2, item_slot2 = item[0], item[1], item[2]
+        item_key2, item_name2, item_slot2 = item["item_key"], item["item_name"], item["slot"]
 
         # ── Consume (instant-effect) items ───────────────────────────────────
         if item_slot2 == 'consume':
@@ -7777,7 +8234,7 @@ async def consume_potion(user_id: int, chat_id: int, item_id: int) -> tuple[bool
         await db.commit()
         
         duration_text = f"{potion_data['duration']//60}ч {potion_data['duration']%60}м" if potion_data['duration'] >= 60 else f"{potion_data['duration']}м"
-        return True, f"🧪 {item_name2} выпито! {potion_data['desc'].split(':')[1]} ({duration_text})"
+        return True, f"🧪 {item_name2} выпито! {potion_data['desc']} ({duration_text})"
 
 
 async def batch_sell_items(

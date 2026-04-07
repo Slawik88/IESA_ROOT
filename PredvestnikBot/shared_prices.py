@@ -250,3 +250,97 @@ CHECKIN_REWARDS = {
 }
 # Дни-чекпоинты (стрик сохраняется при пропуске)
 CHECKIN_CHECKPOINTS = {5, 10, 15, 20}
+
+# ─── Шарды (осколки для крафта) ──────────────────────────────────────────────
+# Формат: shard_key → {name, emoji, desc, craft_into, craft_amount}
+# craft_into: что получается при крафте (item_key из gacha_inventory)
+# craft_amount: сколько шардов нужно для крафта
+SHARD_CATALOG = {
+    # Осколки снаряжения
+    "shard_sword":    {"name": "Осколок клинка",   "emoji": "⚔️",  "desc": "Фрагмент острого клинка. Собери 10 — скрафти Редкое Копьё.",
+                       "craft_into": "rare_lance",    "craft_amount": 10},
+    "shard_gem":      {"name": "Осколок самоцвета", "emoji": "💎",  "desc": "Кристаллический обломок. Собери 10 — скрафти Редкий Самоцвет.",
+                       "craft_into": "rare_gem",      "craft_amount": 10},
+    "shard_cloth":    {"name": "Осколок ткани",     "emoji": "🧵",  "desc": "Артефактная ткань. Собери 10 — скрафти Редкий Плащ.",
+                       "craft_into": "rare_cape",     "craft_amount": 10},
+    # Осколки зелий
+    "shard_essence":  {"name": "Капля эссенции",    "emoji": "🧪",  "desc": "Магическая эссенция. Собери 5 — скрафти Зелье Силы.",
+                       "craft_into": "str_potion",    "craft_amount": 5},
+    "shard_crystal":  {"name": "Кристалл духа",     "emoji": "🔮",  "desc": "Духовный кристалл. Собери 5 — скрафти Зелье Защиты.",
+                       "craft_into": "def_potion",    "craft_amount": 5},
+    # Осколки косметики
+    "shard_starlight":{"name": "Фрагмент звезды",   "emoji": "🌟",  "desc": "Звёздный осколок. Собери 15 — скрафти Рамку Звёздный.",
+                       "craft_into": None,            "craft_amount": 15,  # рамки через отдельный механизм
+                       "craft_frame": "star"},
+    "shard_sakura":   {"name": "Лепесток сакуры",   "emoji": "🌸",  "desc": "Магический лепесток. Собери 20 — скрафти Рамку Сакура.",
+                       "craft_into": None,            "craft_amount": 20,
+                       "craft_frame": "sakura"},
+}
+
+# Таблица выдачи шардов по уровням (каждые 10 уровней)
+# уровень → [(shard_key, amount), ...]
+SHARD_LEVEL_REWARDS = {
+    10:  [("shard_essence", 3)],
+    20:  [("shard_essence", 3), ("shard_sword", 2)],
+    30:  [("shard_cloth", 2), ("shard_crystal", 3)],
+    40:  [("shard_gem", 3), ("shard_sword", 2)],
+    50:  [("shard_essence", 5), ("shard_crystal", 5)],
+    60:  [("shard_starlight", 5), ("shard_cloth", 3)],
+    70:  [("shard_sword", 5), ("shard_gem", 4)],
+    80:  [("shard_sakura", 5), ("shard_starlight", 5)],
+    90:  [("shard_crystal", 6), ("shard_cloth", 6)],
+    100: [("shard_sakura", 10), ("shard_starlight", 10)],
+}
+
+# Шарды за выполнение ежедневного квеста (раз в день)
+SHARD_QUEST_REWARD = ("shard_essence", 1)
+
+# Шарды за достижения (achievement badge → [(shard_key, amount)])
+SHARD_ACHIEVEMENT_REWARDS = {
+    "msg_100":   [("shard_essence", 2)],
+    "msg_500":   [("shard_sword", 2)],
+    "msg_1000":  [("shard_gem", 2)],
+    "lvl_5":     [("shard_essence", 3)],
+    "lvl_10":    [("shard_crystal", 3)],
+    "lvl_20":    [("shard_cloth", 3)],
+    "lvl_30":    [("shard_starlight", 5)],
+    "streak_7":  [("shard_crystal", 2)],
+    "streak_30": [("shard_starlight", 3)],
+}
+
+# ─── Дерево Талантов ──────────────────────────────────────────────────────────
+# Формат: talent_id → {name, emoji, desc, tier, max_level, effect_key, effect_per_level}
+# effect_key: внутренний ключ эффекта (используется в логике)
+# effect_per_level: изменение параметра за 1 уровень таланта
+TALENT_TREE = {
+    # Tier 1 — базовые (доступны с 1 очка)
+    "pet_endurance":   {"name": "Выносливость питомца",    "emoji": "🐾",  "tier": 1, "max_level": 3,
+                        "desc": "Снижает прирост усталости питомца при прогулке.",
+                        "effect_key": "pet_fatigue_reduction", "effect_per_level": 5},
+    "expedition_haste":{"name": "Ускорение экспедиций",    "emoji": "🗺️",  "tier": 1, "max_level": 3,
+                        "desc": "Снижает минимальное время экспедиции.",
+                        "effect_key": "expedition_cd_minutes", "effect_per_level": 5},
+    "reputation_flow": {"name": "Репутационный поток",     "emoji": "⭐",  "tier": 1, "max_level": 3,
+                        "desc": "Снижает кулдаун выдачи/принятия репутации.",
+                        "effect_key": "rep_cd_hours",          "effect_per_level": 1},
+    # Tier 2 — продвинутые (требуют 2+ вложенных очка в tier1)
+    "potion_luck":     {"name": "Зельевая удача",          "emoji": "🧪",  "tier": 2, "max_level": 3,
+                        "desc": "Малый шанс получить бесплатное зелье при покупке в магазине.",
+                        "effect_key": "free_potion_chance",    "effect_per_level": 2},
+    "spy_instinct":    {"name": "Инстинкт шпиона",         "emoji": "🕵️",  "tier": 2, "max_level": 3,
+                        "desc": "Снижает кулдаун шпионажа.",
+                        "effect_key": "spy_cd_hours",          "effect_per_level": 1},
+    "quest_streaker":  {"name": "Квест-марафонец",         "emoji": "📋",  "tier": 2, "max_level": 2,
+                        "desc": "Выполняя квесты подряд, получаешь на 1 шард больше с 3-го дня.",
+                        "effect_key": "quest_bonus_shard_day", "effect_per_level": 1},
+    # Tier 3 — мастерские (требуют 5+ вложенных очков в tier1+2)
+    "craft_mastery":   {"name": "Мастерство крафта",       "emoji": "⚒️",  "tier": 3, "max_level": 2,
+                        "desc": "Снижает количество шардов, необходимых для крафта.",
+                        "effect_key": "craft_shard_discount",  "effect_per_level": 1},
+    "pity_memory":     {"name": "Память пустоты",          "emoji": "🎴",  "tier": 3, "max_level": 2,
+                        "desc": "Снижает порог пити гачи на 1 за каждый уровень.",
+                        "effect_key": "gacha_pity_reduction",  "effect_per_level": 1},
+    "shield_renewal":  {"name": "Обновление щита",         "emoji": "🛡️",  "tier": 3, "max_level": 1,
+                        "desc": "Новичковый щит после прокачки до 30+ уровня можно активировать повторно (1 раз).",
+                        "effect_key": "shield_renewal",        "effect_per_level": 1},
+}

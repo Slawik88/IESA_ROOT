@@ -4326,14 +4326,17 @@ def miniapp_transfer(request):
 
     try:
         data = json.loads(request.body)
-    except Exception:
-        return JsonResponse({"error": "bad JSON"}, status=400, headers=headers)
+        chat_id = int(data.get("chat_id", 0))
+        target_id = int(data.get("target_id", 0))
+        amount = int(data.get("amount", 0))
+        cover_vat = bool(data.get("cover_vat", True))
+    except (json.JSONDecodeError, ValueError, TypeError):
+        return JsonResponse({"error": "invalid JSON or params"}, status=400, headers=headers)
 
-    chat_id = int(data.get("chat_id", 0))
-    target_id = int(data.get("target_id", 0))
-    amount = int(data.get("amount", 0))
-    cover_vat = bool(data.get("cover_vat", True))
-
+    if not chat_id:
+        return JsonResponse({"error": "chat_id required"}, status=400, headers=headers)
+    if not target_id:
+        return JsonResponse({"error": "target_id required"}, status=400, headers=headers)
     if target_id == uid:
         return JsonResponse({"error": "Нельзя переводить самому себе"}, status=400, headers=headers)
 
@@ -4445,12 +4448,18 @@ def miniapp_loans_create(request):
 
     try:
         data = json.loads(request.body)
-    except Exception:
-        return JsonResponse({"error": "bad JSON"}, status=400, headers=headers)
+        chat_id = int(data.get("chat_id", 0))
+        target_id = int(data.get("target_id", 0))
+        amount = int(data.get("amount", 0))
+    except (json.JSONDecodeError, ValueError, TypeError):
+        return JsonResponse({"error": "invalid JSON or params"}, status=400, headers=headers)
 
-    chat_id = int(data.get("chat_id", 0))
-    target_id = int(data.get("target_id", 0))
-    amount = int(data.get("amount", 0))
+    if not chat_id:
+        return JsonResponse({"error": "chat_id required"}, status=400, headers=headers)
+    if not target_id:
+        return JsonResponse({"error": "target_id required"}, status=400, headers=headers)
+    if amount <= 0:
+        return JsonResponse({"error": "amount must be positive"}, status=400, headers=headers)
 
     try:
         from asgiref.sync import async_to_sync as _a2s
@@ -4583,12 +4592,11 @@ def miniapp_casino_roulette(request):
 
     try:
         data = json.loads(request.body)
-    except Exception:
-        return JsonResponse({"error": "bad JSON"}, status=400, headers=headers)
-
-    chat_id  = int(data.get("chat_id", 0))
-    bet_type = str(data.get("bet_type", ""))
-    amount   = int(data.get("amount", 0))
+        chat_id  = int(data.get("chat_id", 0))
+        bet_type = str(data.get("bet_type", ""))
+        amount   = int(data.get("amount", 0))
+    except (json.JSONDecodeError, ValueError, TypeError):
+        return JsonResponse({"error": "invalid JSON or params"}, status=400, headers=headers)
 
     if not chat_id:
         return JsonResponse({"error": "chat_id required"}, status=400, headers=headers)
@@ -4664,11 +4672,10 @@ def miniapp_casino_coin(request):
 
     try:
         data = json.loads(request.body)
-    except Exception:
-        return JsonResponse({"error": "bad JSON"}, status=400, headers=headers)
-
-    chat_id = int(data.get("chat_id", 0))
-    amount  = int(data.get("amount", 0))
+        chat_id = int(data.get("chat_id", 0))
+        amount  = int(data.get("amount", 0))
+    except (json.JSONDecodeError, ValueError, TypeError):
+        return JsonResponse({"error": "invalid JSON or params"}, status=400, headers=headers)
 
     if not chat_id:
         return JsonResponse({"error": "chat_id required"}, status=400, headers=headers)
@@ -5982,6 +5989,15 @@ _AF2_KEYS = {
     "regular_sticker_limit":  ("AF2_REGULAR_STICKER_LIMIT",  0, 30),
     "regular_sticker_window": ("AF2_REGULAR_STICKER_WINDOW", 0.5, 60.0),
     "regular_sticker_mute":   ("AF2_REGULAR_STICKER_MUTE",   0, 86400),
+    "regular_text_limit":     ("AF2_REGULAR_TEXT_LIMIT",      0, 30),
+    "regular_text_window":    ("AF2_REGULAR_TEXT_WINDOW",     0.5, 60.0),
+    "regular_text_mute":      ("AF2_REGULAR_TEXT_MUTE",       0, 86400),
+    "trusted_text_limit":     ("AF2_TRUSTED_TEXT_LIMIT",      0, 30),
+    "trusted_text_window":    ("AF2_TRUSTED_TEXT_WINDOW",     0.5, 60.0),
+    "trusted_text_mute":      ("AF2_TRUSTED_TEXT_MUTE",       0, 86400),
+    "newcomer_rate_limit":    ("AF2_NEWCOMER_RATE_LIMIT",     0, 50),
+    "newcomer_rate_window":   ("AF2_NEWCOMER_RATE_WINDOW",    1.0, 120.0),
+    "newcomer_rate_mute":     ("AF2_NEWCOMER_RATE_MUTE",      0, 86400),
     "antispam_limit":         ("AF2_ANTISPAM_LIMIT",          1, 50),
     "delete_window":          ("AF2_DELETE_WINDOW",           60, 86400 * 30),
     "newcomer_threshold":     ("TRUST_NEWCOMER_THRESHOLD",    10, 5000),
@@ -6000,15 +6016,28 @@ def miniapp_dev_af2_config(request):
     uid, err = _require_auth(request, headers)
     if err:
         return err
-    # Allow developer by ID, or owner/co_owner in any chat
+    # Developer has unrestricted access (including chat_id=0 global config).
+    # Owner/co_owner can only configure their OWN chat — global config is dev-only.
     if uid != _DEVELOPER_ID:
+        try:
+            import json as _jt
+            if request.method in ("GET", "OPTIONS"):
+                _cc = request.GET.get("chat_id", "0")
+                _req_cid = int(_cc) if _cc.lstrip("-").isdigit() else 0
+            else:
+                # request.body is cached in Django, safe to read here
+                _req_cid = int(_jt.loads(request.body or b"{}").get("chat_id", 0) or 0)
+        except Exception:
+            _req_cid = 0
+        if _req_cid == 0:
+            return JsonResponse({"error": "Forbidden"}, status=403, headers=headers)
         try:
             conn, db_type = _get_bot_db_connection()
             cur = conn.cursor()
             ph = "%s" if db_type == "pg" else "?"
             cur.execute(
-                f"SELECT rank FROM user_stats WHERE user_id={ph} AND rank IN ('owner', 'co_owner') LIMIT 1",
-                (uid,),
+                f"SELECT rank FROM user_stats WHERE user_id={ph} AND chat_id={ph} AND rank IN ('owner', 'co_owner')",
+                (uid, _req_cid),
             )
             row = cur.fetchone()
             conn.close()
@@ -7151,4 +7180,189 @@ def miniapp_use_transfer_pass(request):
 
     except Exception as exc:
         logger.exception("use_transfer_pass error")
+        return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
+
+
+# ─── Shards — осколки предметов ──────────────────────────────────────────────
+
+@csrf_exempt
+def miniapp_shards(request):
+    """GET /api/shards?chat_id=X — return shard stash + catalog."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "GET":
+        return JsonResponse({"error": "GET required"}, status=405, headers=headers)
+
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+
+    try:
+        from asgiref.sync import async_to_sync as _a2s
+        from database.db import get_shard_stash
+        from shared_prices import SHARD_CATALOG
+
+        stash = _a2s(get_shard_stash)(uid)
+        # Enrich catalog with current amounts
+        catalog_out = {}
+        for key, info in SHARD_CATALOG.items():
+            catalog_out[key] = {
+                "name": info["name"],
+                "emoji": info["emoji"],
+                "craft_into": info.get("craft_into"),
+                "craft_frame": info.get("craft_frame"),
+                "craft_amount": info["craft_amount"],
+                "owned": stash.get(key, 0),
+            }
+        return JsonResponse(
+            {"stash": stash, "catalog": catalog_out},
+            json_dumps_params={"ensure_ascii": False},
+            headers=headers,
+        )
+    except Exception:
+        logger.exception("miniapp_shards error")
+        return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
+
+
+@csrf_exempt
+def miniapp_shards_craft(request):
+    """POST /api/shards/craft {chat_id, shard_key} — craft item/frame from shards."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=405, headers=headers)
+
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+
+    try:
+        body = json.loads(request.body)
+    except Exception:
+        return JsonResponse({"error": "bad JSON"}, status=400, headers=headers)
+
+    shard_key = str(body.get("shard_key", "")).strip()
+    chat_id_raw = body.get("chat_id")
+    if not shard_key:
+        return JsonResponse({"error": "shard_key required"}, status=400, headers=headers)
+    chat_id = int(str(chat_id_raw)) if chat_id_raw else 0
+
+    try:
+        from asgiref.sync import async_to_sync as _a2s
+        from database.db import craft_from_shards
+        from shared_prices import SHARD_CATALOG
+
+        if shard_key not in SHARD_CATALOG:
+            return JsonResponse({"error": "Неизвестный тип осколка"}, status=400, headers=headers)
+
+        result = _a2s(craft_from_shards)(uid, chat_id, shard_key)
+        if result.get("ok"):
+            return JsonResponse(result, json_dumps_params={"ensure_ascii": False}, headers=headers)
+        return JsonResponse(result, status=400, json_dumps_params={"ensure_ascii": False}, headers=headers)
+    except Exception:
+        logger.exception("miniapp_shards_craft error")
+        return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
+
+
+# ─── Talents — древо талантов ─────────────────────────────────────────────────
+
+@csrf_exempt
+def miniapp_talents(request):
+    """GET /api/talents — return talent data + tree definition."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "GET":
+        return JsonResponse({"error": "GET required"}, status=405, headers=headers)
+
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+
+    try:
+        from asgiref.sync import async_to_sync as _a2s
+        from database.db import get_user_talents
+        from shared_prices import TALENT_TREE
+
+        data = _a2s(get_user_talents)(uid)
+        return JsonResponse(
+            {"talent_points": data["talent_points"], "talents": data["talents"], "tree": TALENT_TREE},
+            json_dumps_params={"ensure_ascii": False},
+            headers=headers,
+        )
+    except Exception:
+        logger.exception("miniapp_talents error")
+        return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
+
+
+@csrf_exempt
+def miniapp_talents_upgrade(request):
+    """POST /api/talents/upgrade {talent_id} — spend a talent point to upgrade a talent."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=405, headers=headers)
+
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+
+    try:
+        body = json.loads(request.body)
+    except Exception:
+        return JsonResponse({"error": "bad JSON"}, status=400, headers=headers)
+
+    talent_id = str(body.get("talent_id", "")).strip()
+    if not talent_id:
+        return JsonResponse({"error": "talent_id required"}, status=400, headers=headers)
+
+    try:
+        from asgiref.sync import async_to_sync as _a2s
+        from database.db import upgrade_talent, get_user_talents
+
+        result = _a2s(upgrade_talent)(uid, talent_id)
+        if result.get("ok"):
+            # Return updated points too
+            data = _a2s(get_user_talents)(uid)
+            result["talent_points"] = data["talent_points"]
+            return JsonResponse(result, json_dumps_params={"ensure_ascii": False}, headers=headers)
+        return JsonResponse(result, status=400, json_dumps_params={"ensure_ascii": False}, headers=headers)
+    except Exception:
+        logger.exception("miniapp_talents_upgrade error")
+        return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
+
+
+# ─── Newbie quest status ──────────────────────────────────────────────────────
+
+@csrf_exempt
+def miniapp_newbie_quest(request):
+    """GET /api/newbie_quest?chat_id=X — return newcomer quest status for the user."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "GET":
+        return JsonResponse({"error": "GET required"}, status=405, headers=headers)
+
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+
+    chat_id_str = request.GET.get("chat_id", "")
+    if not chat_id_str.lstrip("-").isdigit():
+        return JsonResponse({"error": "chat_id required"}, status=400, headers=headers)
+    chat_id = int(chat_id_str)
+
+    try:
+        from asgiref.sync import async_to_sync as _a2s
+        from database.db import get_newbie_quest_status
+
+        status = _a2s(get_newbie_quest_status)(uid, chat_id)
+        if status is None:
+            return JsonResponse({"active": False}, headers=headers)
+        return JsonResponse({"active": True, **status}, json_dumps_params={"ensure_ascii": False}, headers=headers)
+    except Exception:
+        logger.exception("miniapp_newbie_quest error")
         return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)

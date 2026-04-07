@@ -5,12 +5,15 @@ from dataclasses import dataclass, field
 from config import (
     TRUST_NEWCOMER_THRESHOLD, TRUST_TRUSTED_THRESHOLD,
     AF2_NEWCOMER_TEXT_LIMIT, AF2_NEWCOMER_TEXT_WINDOW, AF2_NEWCOMER_TEXT_MUTE,
+    AF2_NEWCOMER_RATE_LIMIT, AF2_NEWCOMER_RATE_WINDOW, AF2_NEWCOMER_RATE_MUTE,
     AF2_NEWCOMER_MEDIA_LIMIT, AF2_NEWCOMER_MEDIA_WINDOW, AF2_NEWCOMER_MEDIA_MUTE,
     AF2_NEWCOMER_STICKER_LIMIT, AF2_NEWCOMER_STICKER_WINDOW, AF2_NEWCOMER_STICKER_MUTE,
     AF2_NEWCOMER_MIXED_LIMIT, AF2_NEWCOMER_MIXED_WINDOW, AF2_NEWCOMER_MIXED_MUTE,
     AF2_TRUSTED_STICKER_LIMIT, AF2_TRUSTED_STICKER_WINDOW, AF2_TRUSTED_STICKER_MUTE,
     AF2_TRUSTED_MEDIA_LIMIT, AF2_TRUSTED_MEDIA_WINDOW, AF2_TRUSTED_MEDIA_MUTE,
+    AF2_TRUSTED_TEXT_LIMIT, AF2_TRUSTED_TEXT_WINDOW, AF2_TRUSTED_TEXT_MUTE,
     AF2_REGULAR_STICKER_LIMIT, AF2_REGULAR_STICKER_WINDOW, AF2_REGULAR_STICKER_MUTE,
+    AF2_REGULAR_TEXT_LIMIT, AF2_REGULAR_TEXT_WINDOW, AF2_REGULAR_TEXT_MUTE,
     AF2_DELETE_WINDOW, AF2_ENABLED, AF2_ANTISPAM_ENABLED,
 )
 
@@ -199,15 +202,24 @@ def check_smart_flood(
     _N_TEXT_LIM   = int(_a("newcomer_text_limit",     AF2_NEWCOMER_TEXT_LIMIT))
     _N_TEXT_WIN   =     _a("newcomer_text_window",    AF2_NEWCOMER_TEXT_WINDOW)
     _N_TEXT_MUT   = int(_a("newcomer_text_mute",      AF2_NEWCOMER_TEXT_MUTE))
+    _N_RATE_LIM   = int(_a("newcomer_rate_limit",     AF2_NEWCOMER_RATE_LIMIT))
+    _N_RATE_WIN   =     _a("newcomer_rate_window",    AF2_NEWCOMER_RATE_WINDOW)
+    _N_RATE_MUT   = int(_a("newcomer_rate_mute",      AF2_NEWCOMER_RATE_MUTE))
     _T_MEDIA_LIM  = int(_a("trusted_media_limit",     AF2_TRUSTED_MEDIA_LIMIT))
     _T_MEDIA_WIN  =     _a("trusted_media_window",    AF2_TRUSTED_MEDIA_WINDOW)
     _T_MEDIA_MUT  = int(_a("trusted_media_mute",      AF2_TRUSTED_MEDIA_MUTE))
     _T_STICK_LIM  = int(_a("trusted_sticker_limit",   AF2_TRUSTED_STICKER_LIMIT))
     _T_STICK_WIN  =     _a("trusted_sticker_window",  AF2_TRUSTED_STICKER_WINDOW)
     _T_STICK_MUT  = int(_a("trusted_sticker_mute",    AF2_TRUSTED_STICKER_MUTE))
+    _T_TEXT_LIM   = int(_a("trusted_text_limit",      AF2_TRUSTED_TEXT_LIMIT))
+    _T_TEXT_WIN   =     _a("trusted_text_window",     AF2_TRUSTED_TEXT_WINDOW)
+    _T_TEXT_MUT   = int(_a("trusted_text_mute",       AF2_TRUSTED_TEXT_MUTE))
     _R_STICK_LIM  = int(_a("regular_sticker_limit",   AF2_REGULAR_STICKER_LIMIT))
     _R_STICK_WIN  =     _a("regular_sticker_window",  AF2_REGULAR_STICKER_WINDOW)
     _R_STICK_MUT  = int(_a("regular_sticker_mute",    AF2_REGULAR_STICKER_MUTE))
+    _R_TEXT_LIM   = int(_a("regular_text_limit",      AF2_REGULAR_TEXT_LIMIT))
+    _R_TEXT_WIN   =     _a("regular_text_window",     AF2_REGULAR_TEXT_WINDOW)
+    _R_TEXT_MUT   = int(_a("regular_text_mute",       AF2_REGULAR_TEXT_MUTE))
     _DELETE_WIN   = float(_a("delete_window",          AF2_DELETE_WINDOW))
 
     def _ids_for_delete() -> list[int]:
@@ -234,7 +246,8 @@ def check_smart_flood(
         state.seen_albums[media_group_id] = now
 
     # ── Record timestamp by type ─────────────────────────────────────────
-    max_window = 15.0  # keep up to 15s of history
+    # max_window must cover the longest possible check window so history is retained
+    max_window = max(15.0, _N_RATE_WIN, _R_TEXT_WIN, _T_TEXT_WIN)
     state.all_ts = _prune(state.all_ts, max_window, now)
     state.all_ts.append(now)
 
@@ -250,6 +263,20 @@ def check_smart_flood(
 
     # ── Newcomer checks (strict) ─────────────────────────────────────────
     if trust == "newcomer":
+        # ── Broad rate check: catches slow deliberate flooding (e.g. 7 dots at 1/sec)
+        # This is the PRIMARY guard for the "7 messages in N seconds" pattern.
+        # Must come first so slow-but-persistent spam is always caught.
+        rate_count = _count_in_window(state.all_ts, _N_RATE_WIN, now)
+        if rate_count >= _N_RATE_LIM:
+            verdict.action = "mute"
+            verdict.mute_seconds = _N_RATE_MUT
+            verdict.delete_all = True
+            verdict.delete_msg_ids = _ids_for_delete()
+            verdict.notify_admins = True
+            verdict.reason = "rate_exceeded"
+            state.recent_msgs.clear()
+            return verdict
+
         # Mixed attack: text + media together
         mixed_count = _count_in_window(state.all_ts, _N_MIXED_WIN, now)
         has_text = _count_in_window(state.text_ts, _N_MIXED_WIN, now) > 0
@@ -288,7 +315,8 @@ def check_smart_flood(
             state.recent_msgs.clear()
             return verdict
 
-        # Text spam
+        # Fast text spam (e.g. copy-paste flooding at >1 msg/sec)
+        # Window is wider now (5s) so math works at 1 msg/sec rate.
         text_count = _count_in_window(state.text_ts, _N_TEXT_WIN, now)
         if text_count >= _N_TEXT_LIM:
             verdict.action = "mute"
@@ -326,7 +354,19 @@ def check_smart_flood(
             state.recent_msgs.clear()
             return verdict
 
-    # ── Regular users — sticker/GIF raid check + legacy antiflood ────────
+        # Text spam — slow flood protection for trusted users (suspected compromise)
+        text_count = _count_in_window(state.text_ts, _T_TEXT_WIN, now)
+        if text_count >= _T_TEXT_LIM:
+            verdict.action = "mute"
+            verdict.mute_seconds = _T_TEXT_MUT
+            verdict.delete_all = True
+            verdict.delete_msg_ids = _ids_for_delete()
+            verdict.notify_admins = True
+            verdict.reason = "text_spam"
+            state.recent_msgs.clear()
+            return verdict
+
+    # ── Regular users — sticker/GIF raid check + text spam + legacy antiflood ──
     else:  # trust == "regular"
         sticker_count = _count_in_window(state.sticker_ts, _R_STICK_WIN, now)
         if sticker_count >= _R_STICK_LIM:
@@ -336,6 +376,18 @@ def check_smart_flood(
             verdict.delete_msg_ids = _ids_for_delete()
             verdict.notify_admins = True
             verdict.reason = "sticker_gif_raid"
+            state.recent_msgs.clear()
+            return verdict
+
+        # Text spam for regular users — fills the gap when legacy antiflood is disabled
+        text_count = _count_in_window(state.text_ts, _R_TEXT_WIN, now)
+        if text_count >= _R_TEXT_LIM:
+            verdict.action = "mute"
+            verdict.mute_seconds = _R_TEXT_MUT
+            verdict.delete_all = True
+            verdict.delete_msg_ids = _ids_for_delete()
+            verdict.notify_admins = True
+            verdict.reason = "text_spam"
             state.recent_msgs.clear()
             return verdict
         # Fallback: middleware will apply legacy check_flood()
