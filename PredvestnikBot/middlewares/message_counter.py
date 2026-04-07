@@ -168,7 +168,7 @@ async def _process_economy(user_id: int, chat_id: int, event: Message) -> None:
                 pass
 
 
-async def _process_xp(user_id: int, chat_id: int, event: Message) -> None:
+async def _process_xp(user_id: int, chat_id: int, event: Message, bot=None) -> None:
     """Award per-message XP (once per cooldown). Announce level-ups."""
     now = time.monotonic()
     key = (user_id, chat_id)
@@ -193,7 +193,8 @@ async def _process_xp(user_id: int, chat_id: int, event: Message) -> None:
         await add_mora(user_id, chat_id, MORA_LEVELUP_BONUS)
         try:
             from api.achievements import check_and_award as _ach
-            await _ach(user_id, chat_id, "level", new_level)
+            await _ach(user_id, chat_id, "level", new_level, bot=bot,
+                       username=event.from_user.full_name if event.from_user else "")
         except Exception:
             pass
         if LEVEL_UP_ANNOUNCE:
@@ -311,7 +312,9 @@ class AutoModMiddleware(BaseMiddleware):
             if msg_count % 100 == 0:
                 try:
                     from api.achievements import check_and_award as _ach
-                    await _ach(user.id, event.chat.id, "messages", msg_count)
+                    _bot_for_ach = data.get("bot")
+                    await _ach(user.id, event.chat.id, "messages", msg_count,
+                               bot=_bot_for_ach, username=user.full_name or "")
                 except Exception:
                     pass
 
@@ -319,7 +322,7 @@ class AutoModMiddleware(BaseMiddleware):
             await _process_economy(user.id, event.chat.id, event)
 
             # XP + level-up
-            await _process_xp(user.id, event.chat.id, event)
+            await _process_xp(user.id, event.chat.id, event, bot=data.get("bot"))
 
         # в”Ђв”Ђ Automod (groups only) в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
         if not in_group:
