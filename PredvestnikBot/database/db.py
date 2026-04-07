@@ -6701,18 +6701,15 @@ async def add_crystals(user_id: int, amount: int) -> int:
 
 
 async def spend_crystals(user_id: int, amount: int) -> bool:
-    """Списывает кристаллы. Возвращает True при успехе, False — недостаточно средств."""
+    """Списывает кристаллы. Возвращает True при успехе, False — недостаточно средств.
+    Атомарная операция: проверка и списание в одном UPDATE."""
     async with postgres_connect() as db:
-        row = await db.fetchone(
-            "SELECT balance FROM user_crystals WHERE user_id=?", (user_id,)
+        cursor = await db.execute(
+            "UPDATE user_crystals SET balance = balance - ? WHERE user_id = ? AND COALESCE(balance, 0) >= ?",
+            (amount, user_id, amount),
         )
-        balance = row["balance"] if row else 0
-        if balance < amount:
+        if cursor.rowcount == 0:
             return False
-        await db.execute(
-            "UPDATE user_crystals SET balance = balance - ? WHERE user_id = ?",
-            (amount, user_id),
-        )
         await db.commit()
     return True
 
