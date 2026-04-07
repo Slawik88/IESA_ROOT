@@ -2242,7 +2242,7 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;
   <!-- ⑥ Запуск ивентов -->
   <div class="card" id="devEventCard">
     <div class="card-title">🎪 Запуск ивентов</div>
-    <div style="font-size:12px;color:var(--text2);margin-bottom:4px">Выбери чат и запусти ивент вручную</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:8px">Выбери чат и запусти ивент вручную. Если список пуст — сначала загрузи чаты через <b>«Участники»</b>.</div>
     <select id="devEventChatSel" style="margin-bottom:8px">
       <option value="">— сначала загрузи чаты (секция выше) —</option>
     </select>
@@ -3201,7 +3201,7 @@ async function loadGifts(){
     }
     const catalog = r.catalog || [];
     if(r.summary) badge.textContent = `${r.summary.count} подарков, ${r.summary.total}🪙`;
-    const bal = profileData ? profileData.balance : 0;
+    const bal = (r.balance != null) ? r.balance : (profileData ? profileData.balance : 0);
     el.innerHTML = catalog.map(g => {
       const canAfford = bal >= g.price;
       const buffTag = g.buff ? `<span style="font-size:10px;color:var(--accent)"> 🔥+${g.buff.pct}% мора ${g.buff.hours}ч</span>` : '';
@@ -6569,6 +6569,13 @@ function switchDevSubtab(name) {
         devChatsCache.map(c=>`<option value="${c.chat_id}">${esc(c.title||String(c.chat_id))} (${c.chat_id})</option>`).join('');
     }
   }
+  // Auto-populate event chat selector when switching to events tab
+  if(name === 'events') {
+    const evSel = document.getElementById('devEventChatSel');
+    if(evSel && devChatsCache && devChatsCache.length) {
+      evSel.innerHTML = devChatsCache.map(c=>`<option value="${c.chat_id}">${esc(c.title||String(c.chat_id))} (${c.chat_id})</option>`).join('');
+    }
+  }
 }
 
 function applyTheme(key) {
@@ -8368,14 +8375,11 @@ function formatReward(reward) {
 
 async function claimReward(level, isPremium) {
   try {
-    const result = await api('/api/season/claim', {
-      method: 'POST',
-      body: JSON.stringify({
-        user_id: uid,
-        season_id: seasonData.season.id,
-        level: level,
-        is_premium: isPremium
-      })
+    const result = await api('/api/season/claim', 'POST', {
+      user_id: uid,
+      season_id: seasonData.season.id,
+      level: level,
+      is_premium: isPremium
     });
     
     if (result.ok) {
