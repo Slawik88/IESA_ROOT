@@ -7000,17 +7000,20 @@ def miniapp_dev_feature_toggle(request):
             cur = conn.cursor()
             ph = "%s" if db_type == "pg" else "?"
             cur.execute(
-                f"SELECT feat_website, feat_antispam, feat_marriages, feat_pets, feat_casino, feat_random_events "
+                f"SELECT feat_website, feat_antispam, feat_marriages, feat_pets, feat_casino, feat_random_events, bot_disabled "
                 f"FROM chat_settings WHERE chat_id={ph}",
                 (chat_id,),
             )
             row = cur.fetchone()
             conn.close()
             if row:
-                keys = ["feat_website", "feat_antispam", "feat_marriages", "feat_pets", "feat_casino", "feat_random_events"]
-                flags = {k: bool(v if v is not None else 1) for k, v in zip(keys, row)}
+                keys = ["feat_website", "feat_antispam", "feat_marriages", "feat_pets", "feat_casino", "feat_random_events", "bot_disabled"]
+                # For feat_* columns default is 1 (enabled); for bot_disabled default is 0 (not disabled)
+                feat_defaults = {"bot_disabled": 0}
+                flags = {k: bool(v if v is not None else feat_defaults.get(k, 1)) for k, v in zip(keys, row)}
             else:
                 flags = {k: True for k in ["feat_website", "feat_antispam", "feat_marriages", "feat_pets", "feat_casino", "feat_random_events"]}
+                flags["bot_disabled"] = False
             return JsonResponse({"ok": True, "flags": flags}, headers=headers)
         except Exception:
             logger.exception("miniapp_dev_feature_toggle GET error")
