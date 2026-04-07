@@ -20,12 +20,19 @@
 
 /* ==== THEMES ==== */
 @keyframes themeGradShift{0%,100%{background-position:0% 50%}50%{background-position:100% 50%}}
+@keyframes premiumBorder{0%{border-color:rgba(168,85,247,.6)}25%{border-color:rgba(236,72,153,.6)}50%{border-color:rgba(59,130,246,.6)}75%{border-color:rgba(250,204,21,.6)}100%{border-color:rgba(168,85,247,.6)}}
+@keyframes premiumGlow{0%,100%{box-shadow:0 0 8px rgba(168,85,247,.3)}50%{box-shadow:0 0 20px rgba(168,85,247,.5),0 0 40px rgba(168,85,247,.2)}}
 body[data-theme="fire"]{--bg:#100600;--bg2:#180c00;--bg3:#231200;--accent:#fb923c;--accent2:#f97316;--gold:#fbbf24;--card:#160900;--border:#5c2000;--text:#fff0e6;--text2:#d97020;background:#100600}
 body[data-theme="ice"]{--bg:#030c18;--bg2:#05111e;--bg3:#0a1a2e;--accent:#38bdf8;--accent2:#7dd3fc;--gold:#93c5fd;--card:#040d18;--border:#163a58;--text:#e8f4fd;--text2:#5090c0;background:#030c18}
 body[data-theme="neon"]{--bg:#07000f;--bg2:#0d001b;--bg3:#150028;--accent:#a855f7;--accent2:#7dd3fc;--card:#0a0016;--border:#3d0080;--text:#f0e8ff;--text2:#9060d0;background:linear-gradient(-45deg,#07000f,#0f001e,#07000f,#130024);background-size:400% 400%;animation:themeGradShift 12s ease infinite}
 body[data-theme="royal"]{--bg:#0a0700;--bg2:#140e00;--bg3:#1e1500;--accent:#f4c542;--accent2:#fbbf24;--gold:#ffd700;--card:#0f0a00;--border:#5a4200;--text:#fff5c8;--text2:#c09020;background:linear-gradient(-45deg,#0a0700,#181000,#0a0700,#1a1100);background-size:400% 400%;animation:themeGradShift 14s ease infinite}
 body[data-theme="abyss"]{--bg:#06060f;--bg2:#0a0a1c;--bg3:#101024;--accent:#818cf8;--accent2:#a5b4fc;--card:#070716;--border:#1e1e48;--text:#e4e4ff;--text2:#6060a8;background:linear-gradient(-45deg,#060610,#0a0a1e,#06060f,#0d0d22);background-size:400% 400%;animation:themeGradShift 18s ease infinite}
 body[data-theme="sakura"]{--bg:#0b0710;--bg2:#140e22;--bg3:#1c1430;--accent:#f472b6;--accent2:#e879b0;--gold:#f9a8d4;--card:#0f081e;--border:#481240;--text:#ffe4f5;--text2:#b04888;background:linear-gradient(-45deg,#0b0710,#130c20,#0b0710,#150d1c);background-size:400% 400%;animation:themeGradShift 16s ease infinite}
+body[data-theme="bamboo"]{--bg:#040d04;--bg2:#081808;--bg3:#0e240e;--accent:#4ade80;--accent2:#86efac;--gold:#a3e635;--card:#051005;--border:#1a4a1a;--text:#e8f5e8;--text2:#4a9a4a;background:linear-gradient(-45deg,#040d04,#081a06,#040d04,#0a1e08);background-size:400% 400%;animation:themeGradShift 18s ease infinite}
+body[data-theme="torii"]{--bg:#100202;--bg2:#1a0404;--bg3:#280808;--accent:#dc2626;--accent2:#f87171;--gold:#fbbf24;--card:#120303;--border:#5c1010;--text:#fff0f0;--text2:#b03030;background:linear-gradient(-45deg,#100202,#180606,#100202,#1c0404);background-size:400% 400%;animation:themeGradShift 14s ease infinite}
+body[data-theme="lotus"]{--bg:#0f0810;--bg2:#1a101c;--bg3:#241828;--accent:#f9a8d4;--accent2:#fbcfe8;--gold:#fda4af;--card:#12091a;--border:#4a1a4a;--text:#fff0f8;--text2:#c06090;background:linear-gradient(-45deg,#0f0810,#140c18,#0f0810,#180e1c);background-size:400% 400%;animation:themeGradShift 20s ease infinite}
+body[data-theme="fuji"]{--bg:#030810;--bg2:#061020;--bg3:#0a1830;--accent:#60a5fa;--accent2:#93c5fd;--gold:#e0f2fe;--card:#040a18;--border:#1a3060;--text:#e8f0ff;--text2:#5080b0;background:linear-gradient(-45deg,#030810,#061428,#030810,#081830);background-size:400% 400%;animation:themeGradShift 22s ease infinite}
+body[data-theme="crane"]{--bg:#0a0a0a;--bg2:#141414;--bg3:#1e1e1e;--accent:#ef4444;--accent2:#fca5a5;--gold:#f5f5f5;--card:#0e0e0e;--border:#333;--text:#fafafa;--text2:#888;background:#0a0a0a}
 
 /* ==== RESET ==== */
 *{box-sizing:border-box;margin:0;padding:0}
@@ -579,6 +586,37 @@ select:focus{border-color:var(--accent)}
 .dev-event-btn{padding:12px 6px;border-radius:12px;background:var(--bg3);border:1px solid var(--border);font-size:20px;text-align:center;cursor:pointer;transition:all .15s}
 .dev-event-btn:hover{background:rgba(244,197,66,.07);border-color:var(--gold)}
 .dev-event-btn .dev-event-label{font-size:11px;color:var(--text2);margin-top:4px}
+/* Shop grid layouts */
+.shop-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.shop-grid .scard{margin-bottom:0;flex-direction:column;align-items:stretch;min-height:120px}
+.shop-grid .scard .scard-accent{position:absolute;top:0;left:0;right:0;height:3px;border-radius:12px 12px 0 0}
+.shop-grid .scard .scard-icon{font-size:22px;text-align:center;margin:4px 0 2px}
+.shop-grid .scard .scard-body{text-align:center}
+.shop-grid .scard .scard-name{font-size:11px}
+.shop-grid .scard .scard-desc{display:none}
+.shop-grid .scard .scard-footer{justify-content:center}
+@media(min-width:600px){.shop-grid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}}
+/* Inventory grid */
+.inv-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.inv-grid .inv-item{flex-direction:column;align-items:stretch;padding:10px;gap:6px}
+.inv-grid .inv-item .ii-emoji{font-size:20px;text-align:center}
+.inv-grid .inv-item .ii-info{text-align:center}
+.inv-grid .inv-item .ii-name{font-size:11px}
+.inv-grid .inv-item button{width:100%;margin-top:4px}
+@media(min-width:600px){.inv-grid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}}
+/* Scrollable subtabs */
+.subtabs{overflow-x:auto;white-space:nowrap;-webkit-overflow-scrolling:touch;scrollbar-width:none;-ms-overflow-style:none}
+.subtabs::-webkit-scrollbar{display:none}
+/* Frame overlay on avatars */
+.avatar-frame-wrap{position:relative;display:inline-block}
+.avatar-frame-wrap img{border-radius:50%;display:block}
+.avatar-frame-ring{position:absolute;inset:-3px;border-radius:50%;border:3px solid var(--accent);pointer-events:none}
+.avatar-frame-ring.premium{animation:premiumBorder 3s linear infinite,premiumGlow 2s ease-in-out infinite}
+/* Premium item effects */
+.scard.premium-item{border:1.5px solid rgba(168,85,247,.5);animation:premiumGlow 3s ease-in-out infinite}
+.inv-item.premium-item{border:1.5px solid rgba(168,85,247,.4);animation:premiumGlow 4s ease-in-out infinite}
+/* First top-up frame badge */
+.first-topup-badge{background:linear-gradient(135deg,#f59e0b,#ef4444);color:#fff;font-size:9px;padding:2px 6px;border-radius:4px;font-weight:700;display:inline-block}
 .dev-log-entry{font-size:11px;line-height:1.5;padding:4px 0;border-bottom:1px solid var(--border);word-break:break-all}
 .dev-log-entry:last-child{border:none}
 .dev-log-ts{color:var(--text2);margin-right:6px}
@@ -3478,6 +3516,11 @@ function renderInvThemes(){
     royal:   {accent:'#f4c542',bg:'#0a0700',name:'Рояль',emoji:'👑'},
     abyss:   {accent:'#818cf8',bg:'#06060f',name:'Бездна',emoji:'🌌'},
     sakura:  {accent:'#f472b6',bg:'#0b0710',name:'Сакура',emoji:'🌸'},
+    bamboo:  {accent:'#4ade80',bg:'#040d04',name:'Бамбук',emoji:'🎋'},
+    torii:   {accent:'#dc2626',bg:'#100202',name:'Тории',emoji:'⛩️'},
+    lotus:   {accent:'#f9a8d4',bg:'#0f0810',name:'Лотос',emoji:'🪷'},
+    fuji:    {accent:'#60a5fa',bg:'#030810',name:'Фудзи',emoji:'🗻'},
+    crane:   {accent:'#ef4444',bg:'#0a0a0a',name:'Журавль',emoji:'🏯'},
   };
   const owned = themesData.filter(t => t.owned);
   const activeKey = (profileData && profileData.active_theme) || 'default';
@@ -3685,24 +3728,28 @@ function renderShop(d){
     'default':'#6b7280','warrior':'#dc2626','king':'#d97706','moon':'#4338ca',
     'fire':'#ea580c','diamond':'#06b6d4','star':'#fbbf24','sakura':'#fb7185',
     'abyss':'#1e1b4b','fatui':'#f59e0b','angel':'#7dd3fc','champion':'#f97316',
-    'celestia':'#8b5cf6',
+    'celestia':'#8b5cf6','dark_matter_frame':'#7c3aed','herald_frame':'#f59e0b',
+    'first_topup':'#f59e0b',
   };
-  document.getElementById('framesGrid').innerHTML=(d.frames||[]).map(f=>{
+  const isPremiumFrame=k=>['dark_matter_frame','herald_frame','first_topup'].includes(k);
+  document.getElementById('framesGrid').innerHTML='<div class="shop-grid">'+(d.frames||[]).filter(f=>f.price!==99999||f.owned).map(f=>{
     const accent=frameAccents[f.key]||'var(--accent)';
-    return `<div class="scard${f.owned?' owned':''}${f.active?' scard-active':''}" onclick="buyShopItem('frame','${f.key}')">
+    const prem=isPremiumFrame(f.key);
+    return `<div class="scard${f.owned?' owned':''}${f.active?' scard-active':''}${prem?' premium-item':''}" onclick="buyShopItem('frame','${f.key}')" style="position:relative">
       <div class="scard-accent" style="background:${accent}"></div>
       <div class="scard-icon">${f.emoji}</div>
       <div class="scard-body">
         <div class="scard-name">${esc(f.name)}</div>
-        <div class="cosmetic-preview">${f.emoji} <strong>${myName}</strong> <span style="color:var(--text2);font-size:11px">— рядом с именем в профиле</span></div>
+        ${f.key==='first_topup'?'<div class="first-topup-badge">Первое пополнение</div>':''}
         <div class="scard-footer">
           ${f.price===0?'<span class="sbadge sbadge-free">Бесплатно</span>':
             f.owned?(f.active?'<span class="sbadge sbadge-active">✓ Активна</span>':
               '<span class="sbadge sbadge-owned">✓ Надеть</span>'):
-            '<span class="sbadge sbadge-price">'+f.price+' 🪙</span>'}
+            (f.price===99999?'<span class="sbadge" style="background:#7c3aed22;color:#a78bfa">💎</span>':
+            '<span class="sbadge sbadge-price">'+f.price+' 🪙</span>')}
         </div>
       </div></div>`;
-  }).join('');
+  }).join('')+'</div>';
 
   // Profile Themes – palette card grid
   const THEME_SHOP_CONF = {
@@ -3713,10 +3760,15 @@ function renderShop(d){
     royal:   {accent:'#f4c542',bg:'#0a0700',name:'Рояль',emoji:'👑'},
     abyss:   {accent:'#818cf8',bg:'#06060f',name:'Бездна',emoji:'🌌'},
     sakura:  {accent:'#f472b6',bg:'#0b0710',name:'Сакура',emoji:'🌸'},
+    bamboo:  {accent:'#4ade80',bg:'#040d04',name:'Бамбук',emoji:'🎋'},
+    torii:   {accent:'#dc2626',bg:'#100202',name:'Тории',emoji:'⛩️'},
+    lotus:   {accent:'#f9a8d4',bg:'#0f0810',name:'Лотос',emoji:'🪷'},
+    fuji:    {accent:'#60a5fa',bg:'#030810',name:'Фудзи',emoji:'🗻'},
+    crane:   {accent:'#ef4444',bg:'#0a0a0a',name:'Журавль',emoji:'🏯'},
   };
   const activeTheme=(profileData&&profileData.active_theme)||'default';
   // Palette swatches in shop: show price/owned state below swatch
-  document.getElementById('themesShopGrid').innerHTML='<div class="theme-palette-grid" style="grid-template-columns:repeat(4,1fr)">'+(d.themes||[]).map(t=>{
+  document.getElementById('themesShopGrid').innerHTML='<div class="theme-palette-grid" style="grid-template-columns:repeat(auto-fill,minmax(64px,1fr))">'+(d.themes||[]).map(t=>{
     const p=THEME_SHOP_CONF[t.key]||{accent:'#888',bg:'#111',name:t.name,emoji:'🎨'};
     const isActive=t.key===activeTheme;
     const isGacha=t.source==='gacha';
@@ -3806,7 +3858,7 @@ function renderShop(d){
 
   // Potions
   const potAccent={atk:'#ef4444',def:'#3b82f6',hp:'#22c55e'};
-  document.getElementById('potionsSection').innerHTML=(d.potions||[]).map(p=>`
+  document.getElementById('potionsSection').innerHTML='<div class="shop-grid">'+(d.potions||[]).map(p=>`
     <div class="scard" onclick="buyPotion('${p.key}','${p.price}','${p.emoji} ${p.name}')">
       <div class="scard-accent" style="background:${potAccent[p.buff_type]||'var(--accent)'}"></div>
       <div class="scard-icon">${p.emoji}</div>
@@ -3814,7 +3866,7 @@ function renderShop(d){
         <div class="scard-name">${esc(p.name)}</div>
         <div class="scard-desc">${esc(p.desc)}</div>
         <div class="scard-footer"><span class="sbadge sbadge-price">${p.price} 🪙</span></div>
-      </div></div>`).join('');
+      </div></div>`).join('')+'</div>';
 
   // Food
   document.getElementById('foodSection').innerHTML=(d.food||[]).map(f=>`
@@ -4128,8 +4180,29 @@ function showGachaRates() {
 async function buyShopItem(type, key){
   let price=0, label=key;
   if(shopData){
-    if(type==='frame'){const f=(shopData.frames||[]).find(x=>x.key===key);if(f){price=f.price;label=f.emoji+' '+f.name;}}
-    else if(type==='cosmetic'){const c=(shopData.cosmetics||[]).find(x=>x.key===key);if(c){price=c.price;label=c.emoji+' '+c.name;}}
+    if(type==='frame'){
+      const f=(shopData.frames||[]).find(x=>x.key===key);
+      if(f){
+        if(f.owned){
+          // Already owned — just equip
+          try{
+            const r=await api('/api/shop/buy','POST',{chat_id:chatId,item_type:'frame',item_key:key,equip:true});
+            toast(r.equipped?'✅ Рамка активирована':'✅ Уже куплено','success');
+            shopData=null; await loadShop(); renderInvFramesCosmetics();
+          }catch(e){toast('❌ '+e.message,'error');}
+          return;
+        }
+        if(f.price===99999){toast('💎 Эта рамка недоступна для покупки','info');return;}
+        price=f.price;label=f.emoji+' '+f.name;
+      }
+    }
+    else if(type==='cosmetic'){
+      const c=(shopData.cosmetics||[]).find(x=>x.key===key);
+      if(c){
+        if(c.owned){toast('✅ Эта косметика уже куплена','info');return;}
+        price=c.price;label=c.emoji+' '+c.name;
+      }
+    }
     else if(type==='vip'){price=2000;label='👑 VIP статус';}
   }
   let wallet;
@@ -5548,10 +5621,13 @@ async function clearAppErrorLogs(){
 // ── Public Profile ────────────────────────────────────────────────────────────
 function closePubProfile(){
   document.getElementById('pubProfileOverlay').classList.remove('open');
+  if(_savedTheme!==null){applyTheme(_savedTheme);_savedTheme=null;}
 }
 
+let _savedTheme = null;
 async function showPubProfile(userId){
   if(!userId) return;
+  _savedTheme = document.body.dataset.theme || '';
   const overlay = document.getElementById('pubProfileOverlay');
   document.getElementById('pubProfileContent').style.display='none';
   document.getElementById('pubProfileLoading').style.display='block';
@@ -5561,6 +5637,8 @@ async function showPubProfile(userId){
     const p = await api('/api/public_profile?user_id='+userId+'&chat_id='+chatId);
     document.getElementById('pubProfileLoading').style.display='none';
     document.getElementById('pubProfileContent').style.display='block';
+    // Apply the viewed user's theme
+    if(p.active_theme) applyTheme(p.active_theme);
     document.getElementById('pubAvatar').textContent = p.vip ? '💎' : '👤';
     document.getElementById('pubName').textContent = (p.name||'Игрок')+(p.vip?' 💎':'');
     document.getElementById('pubTitle').textContent = p.custom_title || '';
@@ -5583,7 +5661,7 @@ async function showPubProfile(userId){
       html += `<div style="font-size:11px;color:var(--text2);margin:8px 0 4px">⚔️ Снаряжение:</div>`;
       p.equipped_items.forEach(i=>{ html += `<div style="font-size:12px;padding:2px 0">• ${esc(i.name)} <span style="color:var(--text2)">(${i.rarity})</span></div>`; });
     }
-    const _FRAME_NAMES={'default':'🔰 Стандарт','warrior':'⚔️ Воин','king':'👑 Король','moon':'🌙 Ночной','fire':'🔥 Огненный','diamond':'💎 Алмазный','star':'⭐ Звёздный','sakura':'🌸 Сакура','abyss':'🌀 Бездна','fatui':'⚡ Предвестник','angel':'🕊️ Крылья ветра','champion':'🏆 Чемпион','celestia':'🏰 Целестия'};
+    const _FRAME_NAMES={'default':'🔰 Стандарт','warrior':'⚔️ Воин','king':'👑 Король','moon':'🌙 Ночной','fire':'🔥 Огненный','diamond':'💎 Алмазный','star':'⭐ Звёздный','sakura':'🌸 Сакура','abyss':'🌀 Бездна','fatui':'⚡ Предвестник','angel':'🕊️ Крылья ветра','champion':'🏆 Чемпион','celestia':'🏰 Целестия','dark_matter_frame':'🌑 Тёмная материя','herald_frame':'📯 Вестник','first_topup':'🌟 Первое пополнение'};
     if(p.active_frame && p.active_frame!=='default'){
       const _fname=_FRAME_NAMES[p.active_frame]||p.active_frame;
       html += `<div class="stat-row"><span class="stat-label">🖼 Рамка</span><span class="stat-value">${esc(_fname)}</span></div>`;
@@ -6390,7 +6468,7 @@ function renderCosmeticsInventory(cosmetics, allItems) {
 }
 
 function renderWeaponsInventory(weapons) {
-  document.getElementById('invWeaponsList').innerHTML = weapons.length ? weapons.map(i => 
+  document.getElementById('invWeaponsList').innerHTML = weapons.length ? '<div class="inv-grid">'+weapons.map(i => 
     `<div class="inv-item ${canSelectItem(i) ? 'selectable' : ''}" id="item-${i.id}">
       ${canSelectItem(i) ? `<input type="checkbox" class="inv-item-select" onchange="toggleItemSelection(${i.id}, this.checked)">` : ''}
       <div class="ii-emoji">${rarityEmoji(i.rarity)}</div>
@@ -6420,13 +6498,13 @@ function renderWeaponsInventory(weapons) {
           </button>` : ''}
       </div>
     </div>`
-  ).join('') : '<div style="color:var(--text2);text-align:center;padding:20px">Нет оружия</div>';
+  ).join('')+'</div>' : '<div style="color:var(--text2);text-align:center;padding:20px">Нет оружия</div>';
   
   updateBatchSellUI();
 }
 
 function renderArmorInventory(armor) {
-  document.getElementById('invArmorList').innerHTML = armor.length ? armor.map(i => 
+  document.getElementById('invArmorList').innerHTML = armor.length ? '<div class="inv-grid">'+armor.map(i => 
     `<div class="inv-item ${canSelectItem(i) ? 'selectable' : ''}" id="item-${i.id}">
       ${canSelectItem(i) ? `<input type="checkbox" class="inv-item-select" onchange="toggleItemSelection(${i.id}, this.checked)">` : ''}
       <div class="ii-emoji">${rarityEmoji(i.rarity)}</div>
@@ -6456,7 +6534,7 @@ function renderArmorInventory(armor) {
           </button>` : ''}
       </div>
     </div>`
-  ).join('') : '<div style="color:var(--text2);text-align:center;padding:20px">Нет брони</div>';
+  ).join('')+'</div>' : '<div style="color:var(--text2);text-align:center;padding:20px">Нет брони</div>';
   
   updateBatchSellUI();
 }
@@ -6485,7 +6563,7 @@ function renderPotionsInventory(potions) {
 }
 
 function renderJunkInventory(junkItems) {
-  document.getElementById('invJunkList').innerHTML = junkItems.length ? junkItems.map(i =>
+  document.getElementById('invJunkList').innerHTML = junkItems.length ? '<div class="inv-grid">'+junkItems.map(i =>
     `<div class="inv-item selectable" id="item-${i.id}">
       <input type="checkbox" class="inv-item-select" onchange="toggleItemSelection(${i.id}, this.checked)">
       <div class="ii-emoji">${rarityEmoji(i.rarity)}</div>
@@ -6498,7 +6576,7 @@ function renderJunkInventory(junkItems) {
         ${i.desc ? `<div style="font-size:10px;color:var(--text2);margin-top:2px;font-style:italic">${esc(i.desc)}</div>` : ''}
       </div>
     </div>`
-  ).join('') : '<div style="color:var(--text2);text-align:center;padding:20px">🪨 Нет хлама — вам везёт!</div>';
+  ).join('')+'</div>' : '<div style="color:var(--text2);text-align:center;padding:20px">🪨 Нет хлама — вам везёт!</div>';
   
   updateBatchSellUI();
 }

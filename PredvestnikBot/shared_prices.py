@@ -39,6 +39,8 @@ FRAMES_CATALOG = [
     # Crystal-exclusive frames (price = 99999, not obtainable via mora shop)
     ("dark_matter_frame","🌑",  "Рамка «Тёмная материя»", 99999),
     ("herald_frame",     "📯",  "Рамка «Вестник»",        99999),
+    # First top-up exclusive (auto-granted on first crystal purchase)
+    ("first_topup",      "🌟",  "Первое пополнение",      99999),
 ]
 
 # ─── Магазин: Косметика ───────────────────────────────────────────────────────

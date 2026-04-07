@@ -232,8 +232,11 @@ async def buy_item(
         raise ValueError("В тестовых чатах нельзя покупать косметику, рамки и VIP")
 
     # Check ownership (frame/cosmetic only) — equip if already owned
+    # Check both per-chat and global (chat_id=0) ownership
     if item_type in ("frame", "cosmetic"):
         already_owned = await has_shop_item(uid, chat_id, item_type, item_key)
+        if not already_owned:
+            already_owned = await has_shop_item(uid, 0, item_type, item_key)
         if already_owned:
             if item_type == "frame" and equip:
                 await set_top_frame(uid, chat_id, item_key)
@@ -269,7 +272,7 @@ async def buy_item(
         from database.postgres import postgres_connect as _pgt
         async with _pgt() as _dbt:
             _theme_row = await _dbt.fetchone(
-                "SELECT 1 FROM user_themes WHERE user_id=? AND theme_key=?",
+                "SELECT 1 FROM user_themes WHERE user_id=? AND theme_key=? LIMIT 1",
                 (uid, item_key),
             )
         if _theme_row:
@@ -317,6 +320,12 @@ async def buy_item(
 
     if item_type in ("frame", "cosmetic"):
         await buy_shop_item(uid, chat_id, item_type, item_key)
+        # Also track globally so ownership works cross-chat
+        if chat_id != 0:
+            try:
+                await buy_shop_item(uid, 0, item_type, item_key)
+            except Exception:
+                pass  # ignore duplicate key on global row
         if item_type == "frame" and equip:
             await set_top_frame(uid, chat_id, item_key)
     elif item_type == "vip":
@@ -329,8 +338,13 @@ async def buy_item(
                 "UPDATE pets_global SET color_name=? WHERE user_id=?",
                 (color_key, uid),
             )
-        # Track ownership in shop_items so the color persists even after switching
-        await buy_shop_item(uid, chat_id, "pet_color", item_key)
+        # Track ownership globally (chat_id=0) so color persists cross-chat
+        await buy_shop_item(uid, 0, "pet_color", item_key)
+        if chat_id != 0:
+            try:
+                await buy_shop_item(uid, chat_id, "pet_color", item_key)
+            except Exception:
+                pass
     elif item_type == "potion":
         from shared_prices import POTIONS_CATALOG, ITEM_METADATA
         from database.db import add_gacha_item
@@ -345,6 +359,12 @@ async def buy_item(
     elif item_type == "profile_theme":
         from database.db import add_user_theme, set_active_theme
         await add_user_theme(uid, chat_id, item_key, source="shop")
+        # Store globally for cross-chat ownership
+        if chat_id != 0:
+            try:
+                await add_user_theme(uid, 0, item_key, source="shop")
+            except Exception:
+                pass
         if equip:
             await set_active_theme(uid, chat_id, item_key)
 
