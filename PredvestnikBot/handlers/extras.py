@@ -423,6 +423,23 @@ async def on_join(message: Message):
         except Exception:
             pass
 
+        # Блок 2: запустить квест новичка
+        try:
+            from database.db import start_newbie_quest
+            started = await start_newbie_quest(member.id, message.chat.id)
+            if started:
+                try:
+                    await message.answer(
+                        f"📋 {user_mention(member.id, member.full_name)} — у тебя есть 7 дней,"
+                        f" чтобы написать 100 сообщений и получить стартовый бонус!\n"
+                        f"Подсказка: открой Мини-Апп → Задания → Квест Новичка.",
+                        parse_mode="HTML",
+                    )
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
     # Колл всех участников если включён
     call_enabled = (settings["welcome_call"] if settings else 0) or DEFAULT_WELCOME_CALL
     if call_enabled:

@@ -96,6 +96,11 @@ from .miniapp_views import (
     miniapp_dev_feature_toggle,
     miniapp_save_avatar,
     miniapp_use_transfer_pass,
+    miniapp_shards,
+    miniapp_shards_craft,
+    miniapp_talents,
+    miniapp_talents_upgrade,
+    miniapp_newbie_quest,
 )
 
 # Переопределить стандартный админ на кастомный
@@ -261,6 +266,14 @@ urlpatterns = [
     path('api/season/data', miniapp_season_data, name='miniapp_season_data'),
     path('api/season/claim', miniapp_season_claim, name='miniapp_season_claim'),
     path('api/season/premium', miniapp_season_premium, name='miniapp_season_premium'),
+    # ─── Shards / Осколки ────────────────────────────────────────────────────
+    path('api/shards', miniapp_shards, name='miniapp_shards'),
+    path('api/shards/craft', miniapp_shards_craft, name='miniapp_shards_craft'),
+    # ─── Talents / Таланты ───────────────────────────────────────────────────
+    path('api/talents', miniapp_talents, name='miniapp_talents'),
+    path('api/talents/upgrade', miniapp_talents_upgrade, name='miniapp_talents_upgrade'),
+    # ─── Newbie Quest / Квест новичка ────────────────────────────────────────
+    path('api/newbie_quest', miniapp_newbie_quest, name='miniapp_newbie_quest'),
     # ──────────────────────────────────────────────────────────────────────────
     path('protected/<path:file_path>', serve_protected_media, name='serve_protected_media'),
     

@@ -1081,6 +1081,8 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;
     <button class="subtab-btn" onclick="switchSubtab('potions')">🧪 Зелья</button>
     <button class="subtab-btn" onclick="switchSubtab('junk')">🪨 Хлам</button>
     <button class="subtab-btn" onclick="switchSubtab('other')">📦 Прочее</button>
+    <button class="subtab-btn" onclick="switchSubtab('shards')">🔷 Осколки</button>
+    <button class="subtab-btn" onclick="switchSubtab('talents')">🎯 Таланты</button>
   </div>
   <div class="loading" id="invLoading">⏳ Загрузка…</div>
   
@@ -1131,6 +1133,18 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;
   <div id="subtab-other" style="display:none">
     <div id="invTransferPassCard"></div>
     <div id="invOtherList"></div>
+  </div>
+
+  <!-- 🔷 Осколки -->
+  <div id="subtab-shards" style="display:none">
+    <div id="shardsLoading" style="text-align:center;padding:20px;color:var(--text2)" class="loading">⏳ Загрузка…</div>
+    <div id="shardsContent" style="display:none"></div>
+  </div>
+
+  <!-- 🎯 Таланты -->
+  <div id="subtab-talents" style="display:none">
+    <div id="talentsLoading" style="text-align:center;padding:20px;color:var(--text2)" class="loading">⏳ Загрузка…</div>
+    <div id="talentsContent" style="display:none"></div>
   </div>
   
   <!-- Batch Sell Controls -->
@@ -3683,6 +3697,192 @@ async function loadInventory(){
   } catch(e){
     document.getElementById('invLoading').textContent='⚠️ '+e.message;
   }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// SHARDS — Осколки предметов
+// ═══════════════════════════════════════════════════════════════════
+let shardsData = null;
+async function loadShardsSubtab(force=false){
+  if(shardsData && !force) { renderShardsSubtab(); return; }
+  const loading = document.getElementById('shardsLoading');
+  const content = document.getElementById('shardsContent');
+  loading.style.display='block'; content.style.display='none';
+  try{
+    shardsData = await api('/api/shards?chat_id='+chatId);
+    loading.style.display='none'; content.style.display='block';
+    renderShardsSubtab();
+  } catch(e){
+    loading.textContent='⚠️ '+e.message;
+  }
+}
+function renderShardsSubtab(){
+  const el = document.getElementById('shardsContent');
+  if(!shardsData){ el.innerHTML=''; return; }
+  const { catalog } = shardsData;
+  const keys = Object.keys(catalog||{});
+  if(!keys.length){ el.innerHTML='<div class="card" style="text-align:center;padding:20px;color:var(--text2)">У тебя ещё нет осколков.<br>Получай их за уровни, квесты и достижения!</div>'; return; }
+
+  el.innerHTML = `
+    <div class="card" style="margin-bottom:8px;padding:10px 14px;font-size:12px;color:var(--text2)">
+      🔷 <b>Осколки</b> — собирай фрагменты и крафти редкие предметы, зелья и рамки профиля.
+    </div>
+    ${keys.map(key=>{
+      const s = catalog[key];
+      const pct = s.craft_amount > 0 ? Math.min(100, Math.round(s.owned/s.craft_amount*100)) : 0;
+      const canCraft = s.owned >= s.craft_amount;
+      const craftTarget = s.craft_into
+        ? `предмет <b>${esc(s.craft_into)}</b>`
+        : `рамку <b>${esc(s.craft_frame||'')}</b>`;
+      return `<div class="card" style="margin-bottom:6px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+          <span style="font-size:26px">${s.emoji}</span>
+          <div style="flex:1">
+            <div style="font-weight:700;font-size:14px">${esc(s.name)}</div>
+            <div style="font-size:11px;color:var(--text2)">Крафт: ${craftTarget} · нужно ${s.craft_amount}шт</div>
+          </div>
+          <div style="font-size:20px;font-weight:800;color:var(--accent)">${s.owned}</div>
+        </div>
+        <div class="progress-bar" style="margin-bottom:8px"><div class="progress-fill" style="width:${pct}%"></div></div>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:12px;color:var(--text2)">${s.owned}/${s.craft_amount}</span>
+          <button class="btn btn-primary btn-sm" ${canCraft?'':'disabled'} style="${canCraft?'':'opacity:.45;cursor:not-allowed'}" onclick="craftShard('${key}')">
+            ⚒️ Скрафтить
+          </button>
+        </div>
+      </div>`;
+    }).join('')}
+  `;
+}
+async function craftShard(key){
+  try{
+    const r = await api('/api/shards/craft','POST',{chat_id:chatId, shard_key:key});
+    if(r.ok){
+      let msg = '⚒️ Скрафтлено!';
+      if(r.item_key) msg += ` Получен предмет: ${r.item_key}`;
+      else if(r.frame_key) msg += ` Получена рамка: ${r.frame_key}`;
+      toast(msg);
+      shardsData = null;
+      loadShardsSubtab(true);
+    } else {
+      toast('❌ '+(r.message||'Ошибка крафта'),'error');
+    }
+  } catch(e){ toast('❌ '+e.message,'error'); }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// TALENTS — Древо талантов
+// ═══════════════════════════════════════════════════════════════════
+let talentsData = null;
+const TALENT_TIER_LABELS = {1:'Базовые', 2:'Продвинутые', 3:'Элитные'};
+const TALENT_TIER_REQ = {1:0, 2:2, 3:5};
+const TALENT_EFFECT_LABELS = {
+  pet_fatigue_reduction:'−% усталости питомца',
+  expedition_cd_minutes:'−мин. кулдаун экспедиций',
+  rep_cd_hours:'−ч. кулдаун репутации',
+  free_potion_chance:'+% шанс бесплатного зелья',
+  spy_cd_hours:'−ч. кулдаун шпионажа',
+  quest_bonus_shard_day:'+осколок к квесту/день',
+  craft_shard_discount:'−осколок при крафте',
+  gacha_pity_reduction:'−броски к гаранту',
+  shield_renewal:'Авто-обновление щита',
+};
+async function loadTalentsSubtab(force=false){
+  if(talentsData && !force){ renderTalentsSubtab(); return; }
+  const loading = document.getElementById('talentsLoading');
+  const content = document.getElementById('talentsContent');
+  loading.style.display='block'; content.style.display='none';
+  try{
+    talentsData = await api('/api/talents');
+    loading.style.display='none'; content.style.display='block';
+    renderTalentsSubtab();
+  } catch(e){
+    loading.textContent='⚠️ '+e.message;
+  }
+}
+function renderTalentsSubtab(){
+  const el = document.getElementById('talentsContent');
+  if(!talentsData){ el.innerHTML=''; return; }
+  const { talent_points, talents, tree } = talentsData;
+  const pts = talent_points || 0;
+
+  // Compute tier totals for req checking
+  const tierTotals = {1:0, 2:0, 3:0};
+  Object.entries(talents||{}).forEach(([id,lvl]) => {
+    const t = tree[id]; if(t) tierTotals[t.tier] = (tierTotals[t.tier]||0) + lvl;
+  });
+  const totalSpent = tierTotals[1]+tierTotals[2]+tierTotals[3];
+
+  // Group tree by tier
+  const byTier = {};
+  Object.entries(tree||{}).forEach(([id,info]) => {
+    const tier = info.tier||1;
+    if(!byTier[tier]) byTier[tier]=[];
+    byTier[tier].push({id, ...info});
+  });
+
+  const tierOrder = [1,2,3];
+  const tiersHtml = tierOrder.map(tier => {
+    const items = byTier[tier]||[];
+    if(!items.length) return '';
+    const req = TALENT_TIER_REQ[tier]||0;
+    const prevTierTotal = tier > 1 ? tierTotals[tier-1] : 999;
+    const tierUnlocked = tier===1 || prevTierTotal >= req;
+    const reqText = tier > 1 ? ` (нужно ${req}+ в тире ${tier-1})` : '';
+    return `
+      <div class="card" style="margin-bottom:8px;padding:10px 14px">
+        <div style="font-size:12px;font-weight:700;color:var(--accent);margin-bottom:8px">
+          ${'⭐'.repeat(tier)} Тир ${tier}: ${TALENT_TIER_LABELS[tier]||''}${reqText}
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+        ${items.map(t => {
+          const curLvl = (talents||{})[t.id]||0;
+          const maxed = curLvl >= t.max_level;
+          const canUpgrade = tierUnlocked && !maxed && pts > 0;
+          const effectLabel = TALENT_EFFECT_LABELS[t.effect_key]||t.effect_key;
+          const totalEffect = curLvl * t.effect_per_level;
+          return `<div style="background:var(--bg3);border:1px solid ${curLvl>0?'rgba(124,106,247,.4)':'var(--border)'};border-radius:12px;padding:10px;text-align:center;display:flex;flex-direction:column;gap:4px">
+            <div style="font-size:22px;margin-bottom:2px">${curLvl>0&&maxed?'✨':'🎯'}</div>
+            <div style="font-size:11px;font-weight:700;line-height:1.3">${esc(t.id.replace(/_/g,' '))}</div>
+            <div style="font-size:10px;color:var(--text2);line-height:1.3">${effectLabel}</div>
+            ${totalEffect > 0 ? `<div style="font-size:10px;color:#10b981;font-weight:700">+${totalEffect}</div>` : ''}
+            <div style="font-size:10px;color:var(--text2)">${curLvl}/${t.max_level}</div>
+            <button class="btn btn-primary btn-sm" style="font-size:10px;padding:4px 6px;margin-top:4px;${canUpgrade?'':'opacity:.4;cursor:not-allowed'}" ${canUpgrade?'':'disabled'} onclick="upgradeTalent('${t.id}')">
+              ${maxed?'✓ MAX':'Прокачать'}
+            </button>
+          </div>`;
+        }).join('')}
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  el.innerHTML = `
+    <div class="card" style="margin-bottom:8px;padding:10px 14px;display:flex;align-items:center;justify-content:space-between">
+      <div>
+        <div style="font-weight:700;font-size:15px">🎯 Древо талантов</div>
+        <div style="font-size:11px;color:var(--text2);margin-top:2px">Таланты влияют на кулдауны и вероятности, не на добычу Моры</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:18px;font-weight:800;color:var(--accent)">${pts}</div>
+        <div style="font-size:10px;color:var(--text2)">очков</div>
+      </div>
+    </div>
+    ${pts < 1 && totalSpent === 0 ? '<div class="card" style="text-align:center;padding:16px;color:var(--text2);font-size:12px">🎯 Очки талантов начисляются каждые 10 уровней.</div>' : ''}
+    ${tiersHtml}
+  `;
+}
+async function upgradeTalent(talentId){
+  try{
+    const r = await api('/api/talents/upgrade','POST',{talent_id:talentId});
+    if(r.ok){
+      toast(`⬆️ Талант прокачан! Уровень ${r.new_level}`);
+      talentsData = null;
+      loadTalentsSubtab(true);
+    } else {
+      toast('❌ '+(r.message||'Ошибка'),'error');
+    }
+  } catch(e){ toast('❌ '+e.message,'error'); }
 }
 
 function renderInvFramesCosmetics(){
@@ -6372,23 +6572,26 @@ const AF2_GROUPS = [
   {
     id: 'newcomer', badge: '🆕', label: 'Новичок', color: '#60a5fa', noteKey: 'newcomer_threshold', noteDefault: 300, noteFmt: n => `< ${n} сообщ.`,
     rows: [
-      { e: '✉️', l: 'Текст',    k: ['newcomer_text_limit',    'newcomer_text_window',    'newcomer_text_mute'] },
-      { e: '🖼', l: 'Медиа',    k: ['newcomer_media_limit',   'newcomer_media_window',   'newcomer_media_mute'] },
-      { e: '🎭', l: 'Стикеры', k: ['newcomer_sticker_limit', 'newcomer_sticker_window', 'newcomer_sticker_mute'] },
-      { e: '⚔️', l: 'Общий флуд',  k: ['newcomer_mixed_limit',   'newcomer_mixed_window',   'newcomer_mixed_mute'],   hint: '0=выкл', desc: 'Суммарная скорость: считаются все сообщения любого типа вместе. 0 в поле «Лим.» — правило отключено.' },
+      { e: '🐢', l: 'Медленный флуд', k: ['newcomer_rate_limit',    'newcomer_rate_window',    'newcomer_rate_mute'],    hint: 'PRIMARY', desc: 'Любые сообщения за широкое окно. Поймает «7 точек» и любой медленный флуд. Срабатывает ПЕРВЫМ.' },
+      { e: '✉️', l: 'Текст (быстрый)', k: ['newcomer_text_limit',    'newcomer_text_window',    'newcomer_text_mute'] },
+      { e: '🖼', l: 'Медиа',           k: ['newcomer_media_limit',   'newcomer_media_window',   'newcomer_media_mute'] },
+      { e: '🎭', l: 'Стикеры/GIF',    k: ['newcomer_sticker_limit', 'newcomer_sticker_window', 'newcomer_sticker_mute'] },
+      { e: '⚔️', l: 'Смешанный флуд', k: ['newcomer_mixed_limit',   'newcomer_mixed_window',   'newcomer_mixed_mute'],   hint: '0=выкл', desc: 'Текст + медиа одновременно. 0 в поле «Лим.» — правило отключено.' },
     ]
   },
   {
     id: 'regular', badge: '👤', label: 'Обычный', color: '#a78bfa', noteKey: null, noteDefault: null, noteFmt: null,
     rows: [
-      { e: '🎭', l: 'Стикеры', k: ['regular_sticker_limit', 'regular_sticker_window', 'regular_sticker_mute'] },
+      { e: '✉️', l: 'Текст',    k: ['regular_text_limit',    'regular_text_window',    'regular_text_mute'],    desc: 'Текстовый спам. Работает независимо от legacy-антифлуда.' },
+      { e: '🎭', l: 'Стикеры/GIF', k: ['regular_sticker_limit', 'regular_sticker_window', 'regular_sticker_mute'] },
     ]
   },
   {
     id: 'trusted', badge: '⭐', label: 'Доверенный', color: '#fbbf24', noteKey: 'trusted_threshold', noteDefault: 1000, noteFmt: n => `≥ ${n} сообщ.`,
     rows: [
-      { e: '🖼', l: 'Медиа',    k: ['trusted_media_limit',    'trusted_media_window',    'trusted_media_mute'] },
-      { e: '🎭', l: 'Стикеры', k: ['trusted_sticker_limit',  'trusted_sticker_window',  'trusted_sticker_mute'] },
+      { e: '✉️', l: 'Текст',       k: ['trusted_text_limit',    'trusted_text_window',    'trusted_text_mute'],    desc: 'Защита на случай взлома/компрометации аккаунта.' },
+      { e: '🖼', l: 'Медиа',       k: ['trusted_media_limit',   'trusted_media_window',   'trusted_media_mute'] },
+      { e: '🎭', l: 'Стикеры/GIF', k: ['trusted_sticker_limit', 'trusted_sticker_window', 'trusted_sticker_mute'] },
     ]
   },
 ];
@@ -7137,9 +7340,11 @@ function getEnhancementInfo(item) {
 
 function switchSubtab(name) {
   document.querySelectorAll('.subtab-btn').forEach(b => b.classList.toggle('active', b.getAttribute('onclick').includes("'"+name+"'")));
-  ['cosmetics','weapons','armor','potions','junk','other'].forEach(n =>
+  ['cosmetics','weapons','armor','potions','junk','other','shards','talents'].forEach(n =>
     document.getElementById('subtab-'+n).style.display = n === name ? 'block' : 'none'
   );
+  if(name === 'shards') loadShardsSubtab();
+  if(name === 'talents') loadTalentsSubtab();
 }
 
 function switchShopSubtab(name) {
@@ -7782,12 +7987,40 @@ async function loadQuestTab(){
   document.getElementById('questContent').style.display='none';
   try{
     questData = await api('/api/quest?chat_id='+chatId);
+    // Also load newbie quest (non-critical)
+    try { window.newbieQuestData = await api('/api/newbie_quest?chat_id='+chatId); }
+    catch(e){ window.newbieQuestData = null; }
     document.getElementById('questLoading').style.display='none';
     document.getElementById('questContent').style.display='block';
     renderQuestTab();
   } catch(e){
     document.getElementById('questLoading').textContent='⚠️ '+e.message;
   }
+}
+function renderNewbieQuestCard(){
+  const nq = window.newbieQuestData;
+  if(!nq || !nq.active) return '';
+  const { messages, goal, completed, rewarded, expired, remaining_secs } = nq;
+  const pct = goal > 0 ? Math.min(100, Math.round(messages/goal*100)) : 0;
+  let timeStr = '';
+  if(!completed && !expired && remaining_secs > 0){
+    const days = Math.floor(remaining_secs/86400);
+    const hrs  = Math.floor((remaining_secs%86400)/3600);
+    timeStr = days > 0 ? `${days}д ${hrs}ч` : `${hrs}ч`;
+  }
+  let statusHtml = '';
+  if(rewarded)         statusHtml = '<div style="color:var(--green);font-weight:700">✅ Награда получена!</div>';
+  else if(completed)   statusHtml = '<div style="color:var(--green);font-weight:700">🎉 Задание выполнено! Награда выдана автоматически.</div>';
+  else if(expired)     statusHtml = '<div style="color:#ef4444;font-weight:700">⏰ Время вышло</div>';
+  else                 statusHtml = `<div style="color:var(--text2);font-size:12px">⏳ Прогресс: ${messages}/${goal} · Осталось: ${timeStr}</div>`;
+  return `
+    <div class="card" style="margin-bottom:8px;border:1px solid rgba(124,106,247,.3)">
+      <div class="card-title">🌟 Командный квест новичка</div>
+      <div style="font-size:13px;margin-bottom:8px">Напишите <b>${goal} сообщений</b> за 7 дней — получи стартовый бонус, а чат получит +10% XP на 24ч.</div>
+      <div class="progress-bar" style="margin-bottom:6px"><div class="progress-fill" style="width:${pct}%"></div></div>
+      ${statusHtml}
+    </div>
+  `;
 }
 function renderQuestTab(){
   if(!questData) return;
@@ -7808,6 +8041,7 @@ function renderQuestTab(){
       <span style="color:var(--text2);font-size:13px">💰 Твой баланс</span>
       <span style="font-weight:700;color:var(--gold)">${profileData?.balance||0} 🪙</span>
     </div>
+    ${renderNewbieQuestCard()}
     <div class="card">
       <div class="card-title">📋 Ежедневное задание</div>
       <div style="font-size:15px;font-weight:700;margin-bottom:8px">${esc(quest.desc)}</div>
@@ -8661,6 +8895,7 @@ async function loadAuctionTab(forceRefresh) {
   try {
     const r = await api('/api/auction/list?chat_id=' + chatId);
     const lots = r.lots || [];
+    window.auctionLots = lots;
     loEl.style.display = 'none';
     lisEl.style.display = '';
     if (!lots.length) {
@@ -8713,11 +8948,13 @@ function renderAuctionLot(l) {
   const chatBadge = l.seller_chat_name ? `<span style="font-size:9px;background:rgba(124,106,247,.15);color:var(--accent);border-radius:6px;padding:1px 6px;margin-left:4px">${esc(l.seller_chat_name)}</span>` : '';
   let html = '<div style="padding:10px 4px;border-bottom:1px solid var(--border)">' +
     '<div style="display:flex;gap:8px;align-items:flex-start">' +
+    '<div style="display:flex;gap:8px;align-items:flex-start;flex:1;min-width:0;cursor:pointer" onclick="showAuctionItemDetail(' + l.id + ')">' +
     '<span style="font-size:22px;min-width:32px;text-align:center">' + esc(l.item_emoji) + '</span>' +
     '<div style="flex:1;min-width:0">' +
     '<div style="font-weight:700;font-size:13px">' + esc(l.item_name) + chatBadge + '</div>' +
     '<div style="font-size:11px;color:var(--text2)">🪙 <strong style="color:var(--accent)">' + l.current_price + '</strong> · ' + l.bid_count + ' ставок · ⏰ ' + esc(l.remaining_str||'—') + '</div>' +
     (hasBuyout ? '<div style="font-size:11px;color:#10b981">🟢 Выкуп: ' + l.buyout_price + '🪙</div>' : '') +
+    '</div>' +
     '</div>' +
     (!isMine
       ? '<button class="btn btn-sm" style="background:var(--accent);color:#fff;font-size:11px;white-space:nowrap" onclick="openBidModal(' + l.id + ',' + l.current_price + ',' + (l.min_bid||0) + ')">⬆️ Ставка</button>'
@@ -8728,6 +8965,46 @@ function renderAuctionLot(l) {
   }
   html += '</div>';
   return html;
+}
+
+function showAuctionItemDetail(auctionId) {
+  const l = (window.auctionLots || []).find(x => x.id == auctionId);
+  if (!l) return;
+  const modal = document.getElementById('itemDetailModal');
+  if (!modal) return;
+
+  document.getElementById('itemModalIcon').textContent = l.item_emoji || '🎴';
+  document.getElementById('itemModalName').textContent = l.item_name || '—';
+
+  const rarityEl = document.getElementById('itemModalRarity');
+  rarityEl.innerHTML = `<span class="badge badge-${l.item_rarity||'common'}">${rarityLabel(l.item_rarity||'common')}</span>` +
+    (l.seller_name ? ` <span style="font-size:11px;color:var(--text2)">от ${esc(l.seller_name)}</span>` : '') +
+    (l.seller_chat_name ? ` <span style="font-size:9px;background:rgba(124,106,247,.15);color:var(--accent);border-radius:6px;padding:1px 5px">${esc(l.seller_chat_name)}</span>` : '');
+
+  const statsEl = document.getElementById('itemModalStats');
+  let statsHtml = `💰 Цена: <b>${l.current_price}🪙</b>`;
+  if (l.buyout_price) statsHtml += ` &nbsp;·&nbsp; 🟢 Выкуп: <b>${l.buyout_price}🪙</b>`;
+  statsHtml += ` &nbsp;·&nbsp; 📊 Ставок: <b>${l.bid_count}</b> &nbsp;·&nbsp; ⏰ <b>${esc(l.remaining_str||'—')}</b>`;
+  statsEl.innerHTML = statsHtml;
+  statsEl.style.display = 'block';
+
+  const invItem = (window.inventoryItems||[]).find(i => i.item_key === l.item_key);
+  document.getElementById('itemModalDesc').textContent = invItem ? (invItem.desc || 'Нет описания') : 'Нет описания';
+
+  const myUid = profileData ? profileData.uid : 0;
+  const isMine = l.seller_id == myUid;
+  const actionsEl = document.getElementById('itemModalActions');
+  let acts = '';
+  if (!isMine) {
+    acts += `<button class="btn btn-sm" style="background:var(--accent);color:#fff;flex:1" onclick="closeItemModal();openBidModal(${l.id},${l.current_price},${l.min_bid||0})">⬆️ Ставка</button>`;
+    if (l.buyout_price) acts += `<button class="btn btn-sm" style="background:#10b981;color:#fff;flex:1" onclick="closeItemModal();doBuyout(${l.id},${l.buyout_price})">💰 Выкупить</button>`;
+  } else {
+    acts += `<button class="btn btn-sm" style="background:#f87171;color:#fff;flex:1" onclick="closeItemModal();cancelLot(${l.id})">✕ Забрать лот</button>`;
+  }
+  acts += `<button class="btn btn-sm btn-ghost" onclick="closeItemModal()" style="flex:1">Закрыть</button>`;
+  actionsEl.innerHTML = acts;
+
+  modal.style.display = 'flex';
 }
 
 let _bidAuctionId = 0, _bidMinAmount = 0;

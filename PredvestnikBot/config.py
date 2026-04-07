@@ -131,8 +131,14 @@ TRUST_TRUSTED_THRESHOLD  = 1000  # > 1000 = trusted (relaxed rules)
 
 # Newcomer: text spam
 AF2_NEWCOMER_TEXT_LIMIT   = 5        # messages
-AF2_NEWCOMER_TEXT_WINDOW  = 3.0      # seconds
+AF2_NEWCOMER_TEXT_WINDOW  = 5.0      # seconds  ← was 3.0: math proof: at 1 msg/sec the 3s window
+                                      #   only holds ≤3 timestamps — limit of 5 was unreachable!
 AF2_NEWCOMER_TEXT_MUTE    = 20 * 60  # 20 min
+
+# Newcomer: broad rate check (catches slow deliberate flooding, e.g. 7 dots at 1/sec)
+AF2_NEWCOMER_RATE_LIMIT   = 7        # any-type messages in the rate window
+AF2_NEWCOMER_RATE_WINDOW  = 12.0     # seconds
+AF2_NEWCOMER_RATE_MUTE    = 20 * 60  # 20 min
 
 # Newcomer: media raid
 AF2_NEWCOMER_MEDIA_LIMIT  = 3        # media messages (albums = 1)
@@ -141,7 +147,7 @@ AF2_NEWCOMER_MEDIA_MUTE   = 60 * 60  # 1 hour
 
 # Newcomer: mixed attack (text + media together)
 AF2_NEWCOMER_MIXED_LIMIT  = 6
-AF2_NEWCOMER_MIXED_WINDOW = 4.0
+AF2_NEWCOMER_MIXED_WINDOW = 6.0      # was 4.0 — same narrow-window issue as text
 AF2_NEWCOMER_MIXED_MUTE   = 0        # 0 = permanent (until manual unmute)
 
 # Trusted: emotional burst (stickers / GIFs) — now mutes + notifies admins
@@ -154,10 +160,20 @@ AF2_TRUSTED_MEDIA_LIMIT   = 4
 AF2_TRUSTED_MEDIA_WINDOW  = 3.0
 AF2_TRUSTED_MEDIA_MUTE    = 60 * 60  # 1 hour quarantine
 
+# Trusted: text spam (suspected compromised account / slow flood)
+AF2_TRUSTED_TEXT_LIMIT    = 8
+AF2_TRUSTED_TEXT_WINDOW   = 6.0
+AF2_TRUSTED_TEXT_MUTE     = 10 * 60  # 10 min
+
 # Regular: sticker / GIF raid — new check added (raiders abuse these)
 AF2_REGULAR_STICKER_LIMIT  = 5
 AF2_REGULAR_STICKER_WINDOW = 10.0
 AF2_REGULAR_STICKER_MUTE   = 10 * 60  # 10 min
+
+# Regular: text spam (independent of legacy configurable flood)
+AF2_REGULAR_TEXT_LIMIT    = 8
+AF2_REGULAR_TEXT_WINDOW   = 8.0
+AF2_REGULAR_TEXT_MUTE     = 5 * 60   # 5 min
 
 # Newcomer: sticker/GIF raid (новички не должны слать пачки стикеров)
 AF2_NEWCOMER_STICKER_LIMIT  = 3

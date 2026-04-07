@@ -42,9 +42,9 @@ from database.db import (
     upsert_chat, upsert_user, upsert_user_stats,
     get_admin_group_ids, is_test_chat,
 )
-from services.antispam import check_spam
+from services.antispam import check_spam as _check_spam_token_bucket  # token-bucket (kept for potential future use)
 from services.recent_users import remember_user
-from utils.flood import check_flood, check_smart_flood, get_af2_flag, is_af2_cfg_stale, set_af2_cfg
+from utils.flood import check_flood, check_spam, check_smart_flood, get_af2_flag, is_af2_cfg_stale, set_af2_cfg
 from utils.helpers import bot_today, notify_admins, user_mention
 from utils.ranks import rank_level
 
@@ -191,6 +191,14 @@ async def _process_xp(user_id: int, chat_id: int, event: Message, bot=None) -> N
     new_xp, new_level, leveled_up = await add_xp_in_chat(user_id, chat_id, xp)
     if leveled_up:
         await add_mora(user_id, chat_id, MORA_LEVELUP_BONUS)
+        # Блок 2: выдать очки таланта и шарды за уровень
+        try:
+            from database.db import award_talent_points, award_level_shards
+            tp_gained = await award_talent_points(user_id, new_level)
+            shards_given = await award_level_shards(user_id, chat_id, new_level)
+        except Exception:
+            tp_gained = 0
+            shards_given = []
         try:
             from api.achievements import check_and_award as _ach
             await _ach(user_id, chat_id, "level", new_level, bot=bot,
@@ -198,11 +206,15 @@ async def _process_xp(user_id: int, chat_id: int, event: Message, bot=None) -> N
         except Exception:
             pass
         if LEVEL_UP_ANNOUNCE:
+            shard_str = ""
+            if shards_given:
+                shard_str = "  " + "  ".join(f"+{s['amount']} {s['emoji']}" for s in shards_given)
+            tp_str = f"  <b>+{tp_gained} TP 🎯</b>" if tp_gained else ""
             try:
                 await event.answer(
                     f"🌟 {user_mention(user_id, event.from_user.full_name)}"
                     f" достиг <b>{new_level} уровня</b>!"
-                    f" (XP: {new_xp}) <b>+{MORA_LEVELUP_BONUS} Моры</b> 🪙",
+                    f" (XP: {new_xp}) <b>+{MORA_LEVELUP_BONUS} Моры</b> 🪙{tp_str}{shard_str}",
                     parse_mode="HTML",
                 )
             except Exception:
@@ -323,6 +335,26 @@ class AutoModMiddleware(BaseMiddleware):
 
             # XP + level-up
             await _process_xp(user.id, event.chat.id, event, bot=data.get("bot"))
+
+            # Блок 2: тик квеста новичка
+            try:
+                from database.db import tick_newbie_quest, claim_newbie_quest_reward
+                nq = await tick_newbie_quest(user.id, event.chat.id)
+                if nq and nq.get("just_completed"):
+                    result = await claim_newbie_quest_reward(user.id, event.chat.id)
+                    if result.get("ok"):
+                        try:
+                            await event.answer(
+                                f"🎉 {user_mention(user.id, event.from_user.full_name)}"
+                                f" выполнил Квест Новичка — 100 сообщений за 7 дней!\n"
+                                f"<b>+200 🪙 +300 XP +5 осколков</b>\n"
+                                f"⚡ Весь чат получил бафф +10% XP на 24 часа!",
+                                parse_mode="HTML",
+                            )
+                        except Exception:
+                            pass
+            except Exception:
+                pass
 
         # в”Ђв”Ђ Automod (groups only) в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
         if not in_group:
@@ -451,6 +483,7 @@ class AutoModMiddleware(BaseMiddleware):
             if sv.action == "mute" and not is_stale:
                 _reason_labels = {
                     "text_spam": "текстовый спам",
+                    "rate_exceeded": "слишком много сообщений подряд",
                     "media_raid": "медиа-рейд",
                     "mixed_attack": "смешанная атака",
                     "suspected_hack": "подозрение на взлом",
