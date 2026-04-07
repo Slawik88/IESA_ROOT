@@ -252,10 +252,10 @@ async def get_bonds_status(uid: int, chat_id: int) -> dict:
     user_bonds = await get_user_bonds(uid, chat_id)
     holdings = {b["bond_key"]: {"amount": b["amount"], "invested": b["invested"]} for b in user_bonds}
 
-    # Price history (last 120 ticks per bond, oldest first)
+    # Price history (last 7 days per bond, oldest first)
     history = {}
     for bk in bond_keys:
-        rows = await get_bond_price_history(chat_id, bk, limit=120)
+        rows = await get_bond_price_history(chat_id, bk, limit=48)
         history[bk] = [{"price": r["price"], "ts": str(r["recorded_at"])} for r in rows]
 
     # Market trend

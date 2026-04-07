@@ -2933,6 +2933,19 @@ def miniapp_public_profile(request):
         except Exception:
             pass
 
+        # Avatar URL for public display
+        avatar_url = None
+        try:
+            cur.execute(
+                f"SELECT avatar_path FROM crystal_avatar_unlocks WHERE user_id={ph}",
+                (target_id,),
+            )
+            av_row = cur.fetchone()
+            if av_row and av_row[0]:
+                avatar_url = f"/api/user_avatar/{target_id}/"
+        except Exception:
+            pass
+
         conn.close()
         return JsonResponse({
             "uid": target_id,
@@ -2960,6 +2973,7 @@ def miniapp_public_profile(request):
             "warns": pub_warns,
             "message_count": pub_message_count,
             "online_status": online_status,
+            "avatar_url": avatar_url,
         }, json_dumps_params={"ensure_ascii": False}, headers=headers)
     except Exception as exc:
         try:
@@ -5108,7 +5122,7 @@ def miniapp_convert_crystals(request):
 
 @csrf_exempt
 def miniapp_user_avatar(request, user_id):
-    """GET /api/user_avatar/<user_id>/ — serve user's avatar image."""
+    """GET /api/user_avatar/<user_id>/ — serve user's avatar image or redirect to URL."""
     headers = _cors_headers()
     if request.method == "OPTIONS":
         return HttpResponse("", status=204, headers=headers)
@@ -5123,13 +5137,19 @@ def miniapp_user_avatar(request, user_id):
     try:
         from asgiref.sync import async_to_sync as _a2s
         from database.db import get_avatar_path
-        from django.http import FileResponse
-        from pathlib import Path
         
         avatar_path = _a2s(get_avatar_path)(uid_int)
         if not avatar_path:
             return JsonResponse({"error": "Avatar not found"}, status=404, headers=headers)
         
+        # If avatar_path is a URL, redirect to it
+        if avatar_path.startswith("http://") or avatar_path.startswith("https://"):
+            from django.http import HttpResponseRedirect
+            return HttpResponseRedirect(avatar_path)
+        
+        # Otherwise serve as file
+        from django.http import FileResponse
+        from pathlib import Path
         file_path = Path(avatar_path)
         if not file_path.exists():
             return JsonResponse({"error": "Avatar file not found"}, status=404, headers=headers)
@@ -6802,3 +6822,122 @@ async def miniapp_dev_purge_chat_nonmembers(request):
         return JsonResponse({"error": str(e)}, status=500, headers=headers)
 
     return JsonResponse({"deleted": deleted}, headers=headers)
+
+
+# ─── Dev: user inventory viewer ───────────────────────────────────────────────
+
+@csrf_exempt
+def miniapp_dev_user_inventory(request):
+    """GET /api/dev/user_inventory?user_id=X&chat_id=Y — developer only: list user inventory."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "GET":
+        return JsonResponse({"error": "GET required"}, status=405, headers=headers)
+
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+    if uid != _DEVELOPER_ID:
+        return JsonResponse({"error": "forbidden"}, status=403, headers=headers)
+
+    target_id = request.GET.get("user_id", "")
+    chat_id_str = request.GET.get("chat_id", "")
+    if not target_id.isdigit():
+        return JsonResponse({"error": "user_id required"}, status=400, headers=headers)
+    target_id = int(target_id)
+
+    try:
+        conn, db_type = _get_bot_db_connection()
+        cur = conn.cursor()
+        ph = "%s" if db_type == "pg" else "?"
+        cur.execute(
+            f"SELECT id, item_key, item_name, rarity, equipped, "
+            f"COALESCE(stack_count,1) AS stack_count, slot "
+            f"FROM gacha_inventory WHERE user_id={ph} ORDER BY id DESC",
+            (target_id,),
+        )
+        cols = [d[0] for d in cur.description]
+        items = [dict(zip(cols, row)) for row in cur.fetchall()]
+        conn.close()
+
+        _RARITY_EMOJI = {"junk": "⚪", "common": "🔵", "rare": "🟣", "legendary": "🟡"}
+        for it in items:
+            it["emoji"] = _RARITY_EMOJI.get(it.get("rarity", ""), "📦")
+
+        return JsonResponse({"items": items}, json_dumps_params={"ensure_ascii": False}, headers=headers)
+    except Exception as exc:
+        logger.exception("dev_user_inventory error")
+        return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
+
+
+# ─── Dev: delete inventory item ───────────────────────────────────────────────
+
+@csrf_exempt
+def miniapp_dev_delete_inventory_item(request):
+    """POST /api/dev/delete_inventory_item {item_id: int} — developer only: delete an item."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=405, headers=headers)
+
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+    if uid != _DEVELOPER_ID:
+        return JsonResponse({"error": "forbidden"}, status=403, headers=headers)
+
+    body = _parse_body(request)
+    item_id = body.get("item_id")
+    if not item_id:
+        return JsonResponse({"error": "item_id required"}, status=400, headers=headers)
+
+    try:
+        item_id = int(item_id)
+    except (TypeError, ValueError):
+        return JsonResponse({"error": "invalid item_id"}, status=400, headers=headers)
+
+    try:
+        conn, db_type = _get_bot_db_connection()
+        cur = conn.cursor()
+        ph = "%s" if db_type == "pg" else "?"
+        cur.execute(f"DELETE FROM gacha_inventory WHERE id={ph}", (item_id,))
+        conn.commit()
+        conn.close()
+        return JsonResponse({"ok": True}, headers=headers)
+    except Exception as exc:
+        logger.exception("dev_delete_inventory_item error")
+        return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
+
+
+# ─── Save avatar URL ──────────────────────────────────────────────────────────
+
+@csrf_exempt
+def miniapp_save_avatar(request):
+    """POST /api/save_avatar {photo_url: str} — save Telegram avatar URL for the user."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=405, headers=headers)
+
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+
+    body = _parse_body(request)
+    photo_url = (body.get("photo_url") or "").strip()
+    if not photo_url or not photo_url.startswith("https://"):
+        return JsonResponse({"error": "valid https photo_url required"}, status=400, headers=headers)
+
+    try:
+        from asgiref.sync import async_to_sync as _a2s
+        from database.db import is_avatar_unlocked, unlock_avatar
+        if not _a2s(is_avatar_unlocked)(uid):
+            return JsonResponse({"error": "Avatar not unlocked"}, status=403, headers=headers)
+        _a2s(unlock_avatar)(uid, photo_url)
+        return JsonResponse({"ok": True}, headers=headers)
+    except Exception as exc:
+        logger.exception("save_avatar error")
+        return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
