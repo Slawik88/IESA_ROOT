@@ -25,7 +25,9 @@ _GACHA_POOL = {
                   ("rare_xp_crystal", "💠 Кристалл Опыта XL"), ("rare_mora_bag", "💰 Мешок Моры"),
                   ("rare_amulet", "📿 Кармин змеи"), ("rare_mora_chest", "🧧 Красный конверт"),
                   ("rare_lance", "⚡ Лазурное копьё"),
-                  ("exp_boost_md", "🗺️✨ Ускорение экспедиции M"), ("pet_rename", "✏️ Купон переименования питомца")],
+                  ("exp_boost_md", "🗺️✨ Ускорение экспедиции M"), ("pet_rename", "✏️ Купон переименования питомца"),
+                  ("frame_warrior", "⚔️ Рамка «Воин»"), ("frame_moon", "🌙 Рамка «Ночной»"),
+                  ("frame_fire", "🔥 Рамка «Огненный»"), ("frame_star", "⭐ Рамка «Звёздный»")],
     "legendary": [("lego_gnosis", "✨ Гнозис Балладеера"), ("lego_scepter", "🏛 Скипетр Дендро Архонта"),
                   ("lego_pantalone", "🎩 Маска Панталоне"), ("lego_abyss", "🌀 Корона Бездны"),
                   ("lego_fatui", "⚡ Перст Предвестника"),
@@ -33,7 +35,12 @@ _GACHA_POOL = {
                   ("lego_flair_flame", "🔥 Пламя Предвестника"), ("lego_flair_arch", "🌸 Благодать Архонта"),
                   ("str_superior", "⚔️✨ Зелье Силы Superior"), ("def_superior", "🛡️✨ Зелье Защиты Superior"),
                   ("lego_raiden", "⚡ Клинок Ей"), ("lego_jade", "🏯 Нефритовое зерцало"),
-                  ("exp_boost_lg", "🗺️⚡ Ускорение экспедиции L")],
+                  ("exp_boost_lg", "🗺️⚡ Ускорение экспедиции L"),
+                  ("frame_diamond", "💎 Рамка «Алмазный»"), ("frame_champion", "🏆 Рамка «Чемпион»"),
+                  ("frame_sakura", "🌸 Рамка «Сакура»"), ("frame_abyss", "🌀 Рамка «Бездна»"),
+                  ("theme_royal", "👑 Тема «Королевский»"), ("theme_abyss", "🌀 Тема «Бездна»"),
+                  ("theme_sakura", "🌸 Тема «Сакура»"), ("theme_neon", "💜 Тема «Неоновый»"),
+                  ("theme_fuji", "🗻 Тема «Гора Фудзи»"), ("theme_crane", "🏯 Тема «Журавль»")],
 }
 
 

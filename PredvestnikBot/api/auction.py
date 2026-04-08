@@ -39,6 +39,23 @@ def _min_increment(current_price: int) -> int:
     return max(5, int(current_price * 0.10))
 
 
+async def _dm_user(user_id: int, text: str) -> None:
+    """Отправить личное сообщение пользователю через Telegram Bot API."""
+    import os, aiohttp
+    bot_token = os.environ.get("BOT_TOKEN", "")
+    if not bot_token:
+        return
+    try:
+        async with aiohttp.ClientSession() as session:
+            await session.post(
+                f"https://api.telegram.org/bot{bot_token}/sendMessage",
+                json={"chat_id": user_id, "text": text, "parse_mode": "HTML"},
+                timeout=aiohttp.ClientTimeout(total=5),
+            )
+    except Exception:
+        pass
+
+
 async def _notify_all_chats_new_lot(
     seller_id: int, item_name: str, item_emoji: str,
     start_price: int, buyout_price, auction_id: int
@@ -451,6 +468,26 @@ async def place_bid(
             "INSERT INTO auction_bids (auction_id, bidder_id, chat_id, amount) VALUES (?,?,?,?)",
             (auction_id, bidder_id, chat_id, amount)
         )
+        seller_id_for_notify = auction["seller_id"]
+        item_name_for_notify = auction["item_name"]
+
+    # Личные уведомления (не блокируют основной поток)
+    try:
+        await _dm_user(
+            seller_id_for_notify,
+            f"🔨 На ваш лот <b>{item_name_for_notify}</b> сделана ставка <b>{amount} 🪙</b>",
+        )
+    except Exception:
+        pass
+    if outbid_user_id and outbid_user_id != bidder_id and outbid_amount > 0:
+        try:
+            await _dm_user(
+                outbid_user_id,
+                f"⚠️ Ваша ставка <b>{outbid_amount} 🪙</b> на «<b>{item_name_for_notify}</b>» перебита!\n"
+                f"Деньги возвращены на ваш счёт.",
+            )
+        except Exception:
+            pass
 
     return {
         "ok":             True,
@@ -548,6 +585,33 @@ async def buyout_auction(buyer_id: int, chat_id: int, auction_id: int) -> dict:
         await _ach(buyer_id, chat_id, "auction_win", wins)
     except Exception:
         pass
+
+    # Личные уведомления
+    try:
+        await _dm_user(
+            auction["seller_id"],
+            f"💰 Ваш лот «<b>{auction['item_name']}</b>» выкуплен за <b>{buyout} 🪙</b>!\n"
+            f"Вы получили: <b>{seller_gets} 🪙</b> (−10% комиссия)",
+        )
+    except Exception:
+        pass
+    try:
+        await _dm_user(
+            buyer_id,
+            f"🎉 Вы выкупили «<b>{auction['item_name']}</b>» за <b>{buyout} 🪙</b>!\n"
+            f"Предмет добавлен в ваш инвентарь.",
+        )
+    except Exception:
+        pass
+    if prev_bidder and prev_bidder != buyer_id and prev_amount > 0:
+        try:
+            await _dm_user(
+                prev_bidder,
+                f"⚠️ Лот «<b>{auction['item_name']}</b>» выкуплен другим игроком.\n"
+                f"Ваша ставка <b>{prev_amount} 🪙</b> возвращена.",
+            )
+        except Exception:
+            pass
 
     return {
         "ok":              True,
@@ -767,6 +831,32 @@ async def finalize_expired_auctions(bot=None) -> list[dict]:
                     )
             except Exception as e:
                 logger.debug("Auction notify error: %s", e)
+
+    # Личные DM-уведомления участникам (независимо от наличия bot)
+    for a in finalized:
+        try:
+            item_name = a.get("item_name", "?")
+            if a["result"] == "sold":
+                winner_id = a.get("winner_id")
+                seller_gets = a.get("seller_gets", 0)
+                await _dm_user(
+                    a["seller_id"],
+                    f"💰 Ваш лот «<b>{item_name}</b>» продан!\n"
+                    f"Вы получили: <b>{seller_gets} 🪙</b>",
+                )
+                await _dm_user(
+                    winner_id,
+                    f"🏆 Вы выиграли аукцион «<b>{item_name}</b>»!\n"
+                    f"Предмет добавлен в ваш инвентарь.",
+                )
+            elif a["result"] == "expired_no_bids":
+                await _dm_user(
+                    a["seller_id"],
+                    f"📦 Ваш лот «<b>{item_name}</b>» истёк без ставок.\n"
+                    f"Предмет возвращён в ваш инвентарь.",
+                )
+        except Exception:
+            pass
 
     return finalized
 

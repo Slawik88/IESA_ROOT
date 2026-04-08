@@ -54,7 +54,12 @@ _RARE_ITEMS = [
     ("rare_mora_bag",   "💰 Мешок Моры",                   "Мгновенно +120 🪙"),
     ("rare_mora_chest", "🧧 Красный конверт",               "Мгновенно +250 🪙"),
     ("exp_boost_md",    "🗺️✨ Ускорение экспедиции M",     "−2 часа от текущей экспедиции"),
-    ("pet_rename",      "✏️ Купон переименования питомца",  "Переименовать питомца 1 раз"),]
+    ("pet_rename",      "✏️ Купон переименования питомца",  "Переименовать питомца 1 раз"),
+    ("frame_warrior",   "⚔️ Рамка «Воин»",                 "Рамка профиля: боевой стиль"),
+    ("frame_moon",      "🌙 Рамка «Ночной»",                "Рамка профиля: лунное сияние"),
+    ("frame_fire",      "🔥 Рамка «Огненный»",              "Рамка профиля: огненное обрамление"),
+    ("frame_star",      "⭐ Рамка «Звёздный»",              "Рамка профиля: звёздный блеск"),
+]
 
 _LEGENDARY_ITEMS = [
     ("lego_gnosis",    "✨ Гнозис Балладеера",        "Экипировка: уникальный символ Предвестника в профиле"),
@@ -69,8 +74,22 @@ _LEGENDARY_ITEMS = [
     ("str_superior",   "⚔️✨ Зелье Силы Superior",    "Расходник: +30 ATK на 2 часа (редкое!)"),
     ("def_superior",   "🛡️✨ Зелье Защиты Superior",  "Расходник: +40 DEF на 2 часа (редкое!)"),
     ("lego_raiden",    "⚡ Клинок Ей",                "Экипировка: лучший ATK (+80), 12% крит"),
-    ("lego_jade",      "🏯 Нефритовое зерцало",       "Экипировка: баланс ATK/DEF/CRIT (+20/+40/15%)"),    # Instant-grant coupon (was missing from pool)
-    ("exp_boost_lg",   "🗺️⚡ Ускорение экспедиции L", "Убирает 50% оставшегося времени"),]
+    ("lego_jade",      "🏯 Нефритовое зерцало",       "Экипировка: баланс ATK/DEF/CRIT (+20/+40/15%)"),
+    # Instant-grant coupon (was missing from pool)
+    ("exp_boost_lg",   "🗺️⚡ Ускорение экспедиции L", "Убирает 50% оставшегося времени"),
+    # Gacha-exclusive frames
+    ("frame_diamond",  "💎 Рамка «Алмазный»",          "Рамка профиля: элитный алмазный стиль"),
+    ("frame_champion", "🏆 Рамка «Чемпион»",            "Рамка профиля: чемпионский кубок"),
+    ("frame_sakura",   "🌸 Рамка «Сакура»",             "Рамка профиля: цветение сакуры"),
+    ("frame_abyss",    "🌀 Рамка «Бездна»",             "Рамка профиля: тьма бездны"),
+    # Gacha-exclusive themes
+    ("theme_royal",    "👑 Тема «Королевский»",          "Тема профиля: королевская роскошь"),
+    ("theme_abyss",    "🌀 Тема «Бездна»",               "Тема профиля: мрачная бездна"),
+    ("theme_sakura",   "🌸 Тема «Сакура»",               "Тема профиля: нежная сакура"),
+    ("theme_neon",     "💜 Тема «Неоновый»",             "Тема профиля: неоновое свечение"),
+    ("theme_fuji",     "🗻 Тема «Гора Фудзи»",           "Тема профиля: величественная вершина"),
+    ("theme_crane",    "🏯 Тема «Журавль»",              "Тема профиля: изящный журавль"),
+]
 
 
 def roll_one(pity: int) -> tuple[str, str, str, str]:
@@ -199,14 +218,43 @@ async def gacha_roll(uid: int, chat_id: int, count: int,
                 guaranteed_rare_used = True
         
         meta = ITEM_METADATA.get(key, {})
-        await add_gacha_item(
-            uid, chat_id, key, name, rarity,
-            atk=meta.get("atk", 0),
-            def_val=meta.get("def_val", 0),
-            hp=meta.get("hp", 0),
-            crit_rate=meta.get("crit_rate", 0.0),
-            slot=meta.get("slot"),
-        )
+        if key.startswith("frame_"):
+            # Frames go to shop_items (type='frame'), strip prefix to get frame key
+            frame_key = key[len("frame_"):]
+            from database.postgres import connect as _pg_connect
+            async with _pg_connect() as _db:
+                existing = await _db.fetchone(
+                    "SELECT id FROM shop_items WHERE user_id=? AND item_type='frame' AND item_value=? LIMIT 1",
+                    (uid, frame_key),
+                )
+                if not existing:
+                    await _db.execute(
+                        "INSERT INTO shop_items (user_id, item_type, item_value, chat_id, purchased_at, active) VALUES (?,?,?,?,NOW(),1)",
+                        (uid, "frame", frame_key, chat_id),
+                    )
+        elif key.startswith("theme_"):
+            # Themes go to user_themes table, strip prefix to get theme key
+            theme_key = key[len("theme_"):]
+            from database.postgres import connect as _pg_connect
+            async with _pg_connect() as _db:
+                existing = await _db.fetchone(
+                    "SELECT 1 FROM user_themes WHERE user_id=? AND chat_id=? AND theme_key=? LIMIT 1",
+                    (uid, chat_id, theme_key),
+                )
+                if not existing:
+                    await _db.execute(
+                        "INSERT INTO user_themes (user_id, chat_id, theme_key, source, obtained_at) VALUES (?,?,?,?,NOW())",
+                        (uid, chat_id, theme_key, "gacha"),
+                    )
+        else:
+            await add_gacha_item(
+                uid, chat_id, key, name, rarity,
+                atk=meta.get("atk", 0),
+                def_val=meta.get("def_val", 0),
+                hp=meta.get("hp", 0),
+                crit_rate=meta.get("crit_rate", 0.0),
+                slot=meta.get("slot"),
+            )
         # Consume-slot items stay in inventory; user activates from inventory tab.
         pity = 0 if rarity == "legendary" else pity + 1
         results.append({
