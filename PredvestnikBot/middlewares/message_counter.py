@@ -68,6 +68,13 @@ _CHECKED_TTL             = 3600.0
 _PENDING_RESOLVED_LIMIT  = 5_000
 _SHIELD_CHECKED_LIMIT    = 10_000
 
+# ── Telegram admin cache (avoids repeated getChatAdministrators calls) ────────
+_tg_admin_cache: dict[int, tuple[frozenset, float]] = {}  # chat_id → (ids, expires_at)
+_TG_ADMIN_CACHE_TTL = 300.0  # 5 minutes
+
+# ── Admin soft-mute state (simulated mute for TG admins bot cannot restrict) ─
+_admin_soft_mute: dict[tuple[int, int], float] = {}  # (chat_id, user_id) → until_ts
+
 # в”Ђв”Ђв”Ђ Bot start-time guard в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 _bot_start_time: datetime | None = None
 
@@ -106,6 +113,26 @@ def _is_bot_command(event: Message) -> bool:
     """Return True if this message is a bot command ('бот ...')."""
     text = (event.text or event.caption or "").strip().lower()
     return text.startswith("бот ")
+
+
+async def _get_tg_admins(bot: Bot, chat_id: int) -> frozenset:
+    """Return cached frozenset of non-bot Telegram admin user IDs for chat_id.
+
+    Uses a 5-minute in-memory TTL cache to avoid repeated API calls per message.
+    On failure returns the stale cache entry (if any) or an empty frozenset.
+    """
+    now = time.time()
+    cached = _tg_admin_cache.get(chat_id)
+    if cached and cached[1] > now:
+        return cached[0]
+    try:
+        members = await bot.get_chat_administrators(chat_id)
+        ids = frozenset(m.user.id for m in members if not m.user.is_bot)
+        _tg_admin_cache[chat_id] = (ids, now + _TG_ADMIN_CACHE_TTL)
+        return ids
+    except Exception:
+        _log.debug("get_chat_administrators failed chat=%s", chat_id)
+        return cached[0] if cached else frozenset()
 
 
 async def _process_economy(user_id: int, chat_id: int, event: Message) -> None:
@@ -393,6 +420,20 @@ class AutoModMiddleware(BaseMiddleware):
             except (KeyError, IndexError):
                 _feat_antispam = True
 
+        # ── Telegram admin check (cached, 5 min TTL) + soft-mute enforcement ──────
+        _tg_admins = await _get_tg_admins(bot_, chat_id)
+        _is_tg_admin = user.id in _tg_admins
+
+        # Enforce an active admin soft-mute: delete their message and drop processing
+        _soft_until = _admin_soft_mute.get((chat_id, user.id), 0)
+        if _soft_until > time.time():
+            if not is_stale:
+                try:
+                    await event.delete()
+                except Exception:
+                    pass
+            return
+
         # Antispam — Token Bucket (owner/developer skip mute but get hack-alert below)
         _is_bot_cmd = _is_bot_command(event)
         _antispam_on = bool(get_af2_flag("antispam_enabled", 1.0, chat_id))
@@ -523,7 +564,55 @@ class AutoModMiddleware(BaseMiddleware):
                         )
                     except Exception:
                         _log.exception("Hack-detection alert failed chat=%s uid=%s", chat_id, user.id)
-                    return  # let the message through — cannot restrict admins
+                    return await handler(event, data)  # let the message through — cannot restrict admins
+
+                if _is_tg_admin:
+                    # Telegram admin: cannot restrict via API — simulate mute via message deletion
+                    # Delete the flood burst
+                    if sv.delete_msg_ids:
+                        try:
+                            await bot_.delete_messages(chat_id, sv.delete_msg_ids)
+                        except Exception:
+                            for mid in sv.delete_msg_ids[-20:]:
+                                try:
+                                    await bot_.delete_message(chat_id, mid)
+                                except Exception:
+                                    pass
+                    try:
+                        await event.delete()
+                    except Exception:
+                        pass
+                    # Register soft-mute so future messages are deleted until window expires
+                    if sv.mute_seconds > 0:
+                        _admin_soft_mute[(chat_id, user.id)] = time.time() + sv.mute_seconds
+                        # Prune expired entries occasionally
+                        if len(_admin_soft_mute) > 500:
+                            _now_sm = time.time()
+                            for _k in [k for k, v in _admin_soft_mute.items() if v <= _now_sm]:
+                                del _admin_soft_mute[_k]
+                    try:
+                        from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+                        _ha_kb = InlineKeyboardMarkup(inline_keyboard=[[
+                            InlineKeyboardButton(text="🚫 Бан по ID", callback_data=f"af2:ban:{chat_id}:{user.id}"),
+                            InlineKeyboardButton(text="👢 Кик", callback_data=f"af2:kick:{chat_id}:{user.id}"),
+                        ]])
+                        await notify_admins(
+                            bot_,
+                            f"🚨 <b>ФЛУД ОТ АДМИНИСТРАТОРА</b>\n\n"
+                            f"👤 {user_mention(user.id, user.full_name)}"
+                            f" (<code>{user.id}</code>)\n"
+                            f"⚠️ Паттерн: <b>{reason_label}</b>\n"
+                            f"📊 Уровень доверия: {trust_label}\n"
+                            f"💬 Чат: <code>{chat_id}</code>\n"
+                            f"🔇 Мут: {mute_label} (удаление сообщений)\n\n"
+                            f"<i>Telegram не позволяет ограничить администратора. "
+                            f"Сообщения удаляются автоматически на {mute_label}.</i>",
+                            source_chat_id=chat_id,
+                            reply_markup=_ha_kb,
+                        )
+                    except Exception:
+                        _log.exception("TG-admin flood alert failed chat=%s uid=%s", chat_id, user.id)
+                    return
 
                 try:
                     # Bulk-delete recent messages
@@ -561,13 +650,21 @@ class AutoModMiddleware(BaseMiddleware):
                             or "not enough rights" in _tg_msg
                             or "user is an administrator" in _tg_msg
                         ):
-                            # Telegram-level admin/owner — cannot restrict; send alert
+                            # Stale cache or late-promoted admin — set soft-mute as fallback
                             _restricted_ok = False
+                            _is_owner_err = "can't remove chat owner" in _tg_msg
+                            if sv.mute_seconds > 0 and not _is_owner_err:
+                                _admin_soft_mute[(chat_id, user.id)] = time.time() + sv.mute_seconds
                             from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
                             _ha_kb = InlineKeyboardMarkup(inline_keyboard=[[
                                 InlineKeyboardButton(text="🚫 Бан по ID", callback_data=f"af2:ban:{chat_id}:{user.id}"),
                                 InlineKeyboardButton(text="👢 Кик", callback_data=f"af2:kick:{chat_id}:{user.id}"),
                             ]])
+                            _fallback_note = (
+                                "<i>Бот не смог заглушить владельца чата. Проверьте вручную!</i>"
+                                if _is_owner_err else
+                                f"<i>Кэш прав устарел — сообщения удаляются на {mute_label}.</i>"
+                            )
                             await notify_admins(
                                 bot_,
                                 f"🚨 <b>ФЛУД ОТ АДМИНИСТРАТОРА</b>\n\n"
@@ -576,7 +673,7 @@ class AutoModMiddleware(BaseMiddleware):
                                 f"⚠️ Паттерн: <b>{reason_label}</b>\n"
                                 f"📊 Уровень доверия: {trust_label}\n"
                                 f"💬 Чат: <code>{chat_id}</code>\n\n"
-                                f"<i>Бот не смог заглушить — Telegram-администратор чата. Проверьте вручную!</i>",
+                                + _fallback_note,
                                 source_chat_id=chat_id,
                                 reply_markup=_ha_kb,
                             )
