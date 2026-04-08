@@ -32,12 +32,14 @@ async def get_leaderboard(
         rows = await get_leaderboard_messages(chat_id, limit=limit)
         entries = [
             {
-                "rank":       i + 1,
-                "user_id":    r["user_id"],
-                "name":       r["full_name"] or f"user_{r['user_id']}",
-                "score":      r["message_count"] or 0,
-                "color_name": r.get("color_name") or "",
-                "vip":        bool(r.get("vip")),
+                "rank":         i + 1,
+                "user_id":      r["user_id"],
+                "name":         r["full_name"] or f"user_{r['user_id']}",
+                "score":        r["message_count"] or 0,
+                "color_name":   r.get("color_name") or "",
+                "vip":          bool(r.get("vip")),
+                "active_theme": r.get("active_theme") or "",
+                "level":        r.get("level") or 0,
             }
             for i, r in enumerate(rows)
         ]
@@ -82,12 +84,14 @@ async def get_leaderboard(
         rows = await get_leaderboard_xp(chat_id, limit=limit)
         entries = [
             {
-                "rank":       i + 1,
-                "user_id":    r["user_id"],
-                "name":       r["full_name"] or f"user_{r['user_id']}",
-                "score":      r["xp"] or 0,
-                "color_name": r.get("color_name") or "",
-                "vip":        bool(r.get("vip")),
+                "rank":         i + 1,
+                "user_id":      r["user_id"],
+                "name":         r["full_name"] or f"user_{r['user_id']}",
+                "score":        r["xp"] or 0,
+                "color_name":   r.get("color_name") or "",
+                "vip":          bool(r.get("vip")),
+                "active_theme": r.get("active_theme") or "",
+                "level":        r.get("level") or 0,
             }
             for i, r in enumerate(rows)
         ]
