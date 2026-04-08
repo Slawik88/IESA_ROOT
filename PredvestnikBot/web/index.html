@@ -4784,6 +4784,8 @@ async function rollGacha(count){
     showGachaOverlay(r.items||[]);
     if(wallet==='family'){ syncFamilyBalance(r.family_balance); }
     else { syncBalance(r.balance); }
+    // Invalidate shop so owned frames/themes show correctly after gacha
+    shopData=null; tabLoaded['shop']=false;
     if(r.quest_done){
       tabLoaded['quest']=false;
       setTimeout(()=>toast('🎉 Задание выполнено! +'+r.quest_xp+' XP  +'+r.quest_mora+' 🪙','success'),1800);
@@ -4846,11 +4848,13 @@ function showGachaOverlay(items){
     const nameParts=item.name.split(' ');
     const emoji=nameParts[0]||'❓';
     const name=nameParts.slice(1).join(' ');
+    const dupBadge = item.duplicate ? `<div style="font-size:10px;color:#fbbf24;margin-top:3px">🔁 Дубль +${item.comp_mora}🪙</div>` : '';
     card.innerHTML=`<div class="gacha-card-inner">
       <div class="gacha-card-front">🌀</div>
       <div class="gacha-card-back ${item.rarity}">
         <div class="card-emoji">${emoji}</div>
         <div class="card-name">${esc(name)}</div>
+        ${dupBadge}
       </div>
     </div>`;
     card._gachaItem = item;
@@ -7582,8 +7586,8 @@ async function enhanceItem(itemId) {
 }
 
 async function doEnhance(useStone) {
-  closeEnhanceChoice();
   const itemId = _enhanceTargetId;
+  closeEnhanceChoice();
   if (!itemId) return;
   const item = window.inventoryItems.find(i => i.id === itemId);
   if (!item) return;
@@ -8418,6 +8422,10 @@ async function loadExpeditionTab(){
   document.getElementById('expedContent').style.display='none';
   try{
     expedData = await api('/api/expeditions?chat_id='+chatId);
+    // Sync pet fatigue to profileData so union tab shows current value
+    if(expedData.pet && profileData && profileData.pet) {
+      profileData.pet.fatigue = expedData.pet.fatigue;
+    }
     document.getElementById('expedLoading').style.display='none';
     document.getElementById('expedContent').style.display='block';
     renderExpeditionTab();
@@ -8427,7 +8435,7 @@ async function loadExpeditionTab(){
 }
 function renderExpeditionTab(){
   if(!expedData) return;
-  const {pet, expedition, balance, family_balance, options} = expedData;
+  const {pet, expedition, partner_expedition, balance, family_balance, options} = expedData;
   let html = '';
 
   if(!pet){
@@ -8449,6 +8457,20 @@ function renderExpeditionTab(){
       <div class="stat-row" style="margin-top:6px"><span class="stat-label">💰 Личный баланс</span><span class="stat-value">${balance} 🪙</span></div>
       ${(family_balance||0)>0?`<div class="stat-row"><span class="stat-label">💑 Семейный баланс</span><span class="stat-value" style="color:#a78bfa">${family_balance} 🪙</span></div>`:''}
     </div>`;
+
+    // Partner expedition — show info if partner is on expedition
+    if(partner_expedition && !expedition) {
+      const ptStr = partner_expedition.time_left_h > 0
+        ? `${partner_expedition.time_left_h}ч ${partner_expedition.time_left_m}мин`
+        : `${partner_expedition.time_left_m}мин`;
+      html += `<div class="card">
+        <div class="card-title">💑 Партнёр в экспедиции</div>
+        ${partner_expedition.done
+          ? `<div style="font-size:13px;color:#4ade80;font-weight:700">✅ Экспедиция партнёра завершена!</div>`
+          : `<div class="stat-row"><span class="stat-label">⏳ Осталось</span><span class="stat-value">${ptStr}</span></div>`}
+        <div class="stat-row"><span class="stat-label">🎁 Награда партнёра</span><span class="stat-value">${partner_expedition.reward_min}–${partner_expedition.reward_max} 🪙</span></div>
+      </div>`;
+    }
 
     // Walk button — shown when pet is not on expedition
     if(!expedition) {

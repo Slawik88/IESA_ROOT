@@ -308,10 +308,33 @@ async def get_expedition_status(uid: int, chat_id: int) -> dict:
 
     # Family wallet balance (0 if user is single)
     family_balance = 0
+    partner_expedition = None
     try:
-        from database.db import get_family_wallet, is_user_single
+        from database.db import get_family_wallet, is_user_single, get_marriage, get_active_expedition as _get_exp
         if not await is_user_single(uid, chat_id):
             family_balance = await get_family_wallet(chat_id, uid)
+            marriage = await get_marriage(uid, chat_id)
+            if marriage:
+                partner_id = marriage["partner_id"]
+                partner_active = await _get_exp(partner_id, chat_id)
+                if partner_active:
+                    p_started = partner_active["started_at"]
+                    p_duration_h = partner_active["duration_h"]
+                    if isinstance(p_started, str):
+                        p_started = datetime.fromisoformat(p_started.replace("Z", "+00:00"))
+                    if p_started.tzinfo is None:
+                        p_started = p_started.replace(tzinfo=timezone.utc)
+                    p_end = p_started + timedelta(hours=p_duration_h)
+                    p_done = datetime.now(timezone.utc) >= p_end
+                    p_secs = max(0, (p_end - datetime.now(timezone.utc)).total_seconds())
+                    partner_expedition = {
+                        "duration_h": p_duration_h,
+                        "reward_min": partner_active["reward_min"],
+                        "reward_max": partner_active["reward_max"],
+                        "done": p_done,
+                        "time_left_h": int(p_secs // 3600),
+                        "time_left_m": int((p_secs % 3600) // 60),
+                    }
     except Exception:
         pass
 
@@ -319,6 +342,7 @@ async def get_expedition_status(uid: int, chat_id: int) -> dict:
         "ok": True,
         "pet": pet,
         "expedition": expedition,
+        "partner_expedition": partner_expedition,
         "balance": balance,
         "family_balance": family_balance,
         "options": {

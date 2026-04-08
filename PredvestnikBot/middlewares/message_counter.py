@@ -142,7 +142,13 @@ async def _process_economy(user_id: int, chat_id: int, event: Message) -> None:
 
     # Daily bonus + 7-day streak
     if len(_mora_daily_checked) > 2_000:
-        _mora_daily_checked.clear()
+        stale = [k for k, v in _mora_daily_checked.items() if v != today]
+        for k in stale:
+            del _mora_daily_checked[k]
+        # If still too large (everyone active today), just trim oldest half
+        if len(_mora_daily_checked) > 2_000:
+            for k in list(_mora_daily_checked)[:1_000]:
+                del _mora_daily_checked[k]
     if _mora_daily_checked.get(key) != today:
         _mora_daily_checked[key] = today
         is_daily, _streak, streak_bonus = await check_daily_mora(user_id, chat_id)
