@@ -92,9 +92,9 @@ _LEGENDARY_ITEMS = [
 ]
 
 
-def roll_one(pity: int) -> tuple[str, str, str, str]:
+def roll_one(pity: int, pity_max: int = GACHA_PITY_MAX) -> tuple[str, str, str, str]:
     """Single gacha roll. Returns (item_key, item_name, rarity, description)."""
-    if pity >= GACHA_PITY_MAX - 1:
+    if pity >= pity_max - 1:
         key, name, desc = random.choice(_LEGENDARY_ITEMS)
         return key, name, "legendary", desc
 
@@ -192,6 +192,15 @@ async def gacha_roll(uid: int, chat_id: int, count: int,
             await use_guarantee_scroll(uid)
 
     pity    = await get_gacha_pity(uid, chat_id)
+    # Talent: pity_memory reduces the guaranteed legendary threshold
+    pity_max = GACHA_PITY_MAX
+    try:
+        from database.db import get_talent_effect as _gte
+        _pity_red = await _gte(uid, "gacha_pity_reduction")
+        if _pity_red > 0:
+            pity_max = max(10, GACHA_PITY_MAX - _pity_red)
+    except Exception:
+        pass
     results = []
     guaranteed_rare_used = False
     for i in range(count):
@@ -204,7 +213,7 @@ async def gacha_roll(uid: int, chat_id: int, count: int,
             rarity = "rare"
             guaranteed_rare_used = True
         else:
-            key, name, rarity, desc = roll_one(pity)
+            key, name, rarity, desc = roll_one(pity, pity_max)
             if rarity in ["rare", "legendary"]:
                 guaranteed_rare_used = True
         

@@ -8029,7 +8029,7 @@ async def get_leaderboard_xp(chat_id: int, limit: int = 10) -> list[dict]:
     async with postgres_connect() as db:
         async with db.execute(
             """SELECT s.user_id, u.full_name, s.xp, s.level,
-                      p.color_name, m.vip
+                      p.color_name, m.vip, m.active_theme
                FROM user_stats s
                LEFT JOIN users u ON u.user_id = s.user_id
                LEFT JOIN pets p ON p.user_id = s.user_id AND p.chat_id = s.chat_id
@@ -8045,8 +8045,8 @@ async def get_leaderboard_messages(chat_id: int, limit: int = 10) -> list[dict]:
     """Топ по сообщениям в чате."""
     async with postgres_connect() as db:
         async with db.execute(
-            """SELECT s.user_id, u.full_name, s.message_count,
-                      p.color_name, m.vip
+            """SELECT s.user_id, u.full_name, s.message_count, s.level,
+                      p.color_name, m.vip, m.active_theme
                FROM user_stats s
                LEFT JOIN users u ON u.user_id = s.user_id
                LEFT JOIN pets_global p ON p.user_id = s.user_id

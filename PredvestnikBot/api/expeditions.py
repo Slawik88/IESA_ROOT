@@ -189,6 +189,14 @@ async def claim_expedition(uid: int, chat_id: int) -> dict:
 
     now    = datetime.now(timezone.utc)
     end_at = started_at + timedelta(hours=duration_h)
+    # Talent: expedition_haste reduces cooldown by N minutes
+    try:
+        from database.db import get_talent_effect as _gte
+        _cd_red = await _gte(uid, "expedition_cd_minutes")
+        if _cd_red > 0:
+            end_at -= timedelta(minutes=_cd_red)
+    except Exception:
+        pass
     if now < end_at:
         secs_left = int((end_at - now).total_seconds())
         h_left = secs_left // 3600

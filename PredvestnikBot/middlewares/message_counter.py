@@ -164,6 +164,14 @@ async def _process_economy(user_id: int, chat_id: int, event: Message) -> None:
     if now - _mora_cooldown.get(key, 0) >= MORA_MSG_COOLDOWN:
         single   = await is_user_single(user_id, chat_id)
         chance   = 0.20 if single else MORA_MSG_CHANCE
+        # Talent: mora_harvest adds % chance
+        try:
+            from database.db import get_talent_effect as _gte
+            _mora_bonus = await _gte(user_id, "mora_drop_chance")
+            if _mora_bonus > 0:
+                chance = min(chance + _mora_bonus / 100.0, 0.90)
+        except Exception:
+            pass
         min_drop = MORA_MSG_MIN + (1 if single else 0)
         max_drop = MORA_MSG_MAX + (1 if single else 0)
         if random.random() < chance:

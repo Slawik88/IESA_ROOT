@@ -1585,9 +1585,11 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;
 
 <!-- GLORY TAB -->
 <div class="tab-content" id="tab-glory">
-  <div style="display:flex;gap:8px;margin-bottom:12px">
+  <div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap">
     <button class="btn btn-primary btn-sm" onclick="loadLB('xp')" id="lbXpBtn">🏅 XP</button>
     <button class="btn btn-ghost btn-sm" onclick="loadLB('messages')" id="lbMsgBtn">💬 Сообщения</button>
+    <button class="btn btn-ghost btn-sm" onclick="loadLB('mora')" id="lbMoraBtn">🪙 Мора</button>
+    <button class="btn btn-ghost btn-sm" onclick="loadLB('boss')" id="lbBossBtn">🐲 Босс</button>
   </div>
   <div class="loading" id="lbLoading">⏳ Загрузка…</div>
   <div id="lbList"></div>
@@ -3859,9 +3861,11 @@ function renderTalentsSubtab(){
           const canUpgrade = tierUnlocked && !maxed && pts > 0;
           const effectLabel = TALENT_EFFECT_LABELS[t.effect_key]||t.effect_key;
           const totalEffect = curLvl * t.effect_per_level;
+          const talentEmoji = t.emoji || '🎯';
+          const talentName = t.name || t.id.replace(/_/g,' ');
           return `<div style="background:var(--bg3);border:1px solid ${curLvl>0?'rgba(124,106,247,.4)':'var(--border)'};border-radius:12px;padding:10px;text-align:center;display:flex;flex-direction:column;gap:4px">
-            <div style="font-size:22px;margin-bottom:2px">${curLvl>0&&maxed?'✨':'🎯'}</div>
-            <div style="font-size:11px;font-weight:700;line-height:1.3">${esc(t.id.replace(/_/g,' '))}</div>
+            <div style="font-size:22px;margin-bottom:2px">${maxed?'✨':talentEmoji}</div>
+            <div style="font-size:11px;font-weight:700;line-height:1.3">${esc(talentName)}</div>
             <div style="font-size:10px;color:var(--text2);line-height:1.3">${effectLabel}</div>
             ${totalEffect > 0 ? `<div style="font-size:10px;color:#10b981;font-weight:700">+${totalEffect}</div>` : ''}
             <div style="font-size:10px;color:var(--text2)">${curLvl}/${t.max_level}</div>
@@ -3886,7 +3890,7 @@ function renderTalentsSubtab(){
         <div style="font-size:10px;color:var(--text2)">очков</div>
       </div>
     </div>
-    ${pts < 1 && totalSpent === 0 ? '<div class="card" style="text-align:center;padding:16px;color:var(--text2);font-size:12px">🎯 Очки талантов начисляются каждые 10 уровней.</div>' : ''}
+    ${pts < 1 && totalSpent === 0 ? '<div class="card" style="text-align:center;padding:16px;color:var(--text2);font-size:12px">🎯 Очки талантов начисляются за каждый уровень (1 очко = 1 уровень).</div>' : ''}
     ${tiersHtml}
   `;
 }
@@ -5315,10 +5319,12 @@ function initBondChart(b){
 // ── Leaderboard ───────────────────────────────────────────────────────────────
 async function loadLB(type){
   currentLbType=type;
-  document.getElementById('lbXpBtn').className='btn btn-sm'+(type==='xp'?' btn-primary':' btn-ghost');
-  document.getElementById('lbMsgBtn').className='btn btn-sm'+(type==='messages'?' btn-primary':' btn-ghost');
-  document.getElementById('lbXpBtn').style.cssText='';
-  document.getElementById('lbMsgBtn').style.cssText='';
+  ['lbXpBtn','lbMsgBtn','lbMoraBtn','lbBossBtn'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.className='btn btn-sm btn-ghost';
+  });
+  const activeId={xp:'lbXpBtn',messages:'lbMsgBtn',mora:'lbMoraBtn',boss:'lbBossBtn'}[type];
+  if(activeId){const el=document.getElementById(activeId);if(el)el.className='btn btn-sm btn-primary';}
   document.getElementById('lbLoading').style.display='block';
   document.getElementById('lbList').innerHTML='';
   document.getElementById('lbUserRankCard').style.display='none';
@@ -5329,20 +5335,23 @@ async function loadLB(type){
     const myUid=r.uid||uid;
     const ranks=['🥇','🥈','🥉'];
     const petColorMap={'red':'#ef4444','blue':'#3b82f6','gold':'#f59e0b','green':'#22c55e','purple':'#a855f7','white':'#f0f0f0'};
-    const displayEntries=entries.filter(e=>e.user_id!==myUid);
-    document.getElementById('lbList').innerHTML=displayEntries.map((e,i)=>{
+    document.getElementById('lbList').innerHTML=entries.map(e=>{
+      const rankIdx=(e.rank||1)-1;
       const petColor=petColorMap[e.color_name]||'';
       const petDot=petColor?`<span style="color:${petColor};font-size:9px;vertical-align:middle;margin-right:2px">●</span>`:'';
       const vipTag=e.vip?`<span style="color:#f59e0b;font-size:10px;margin-right:2px">💎</span>`:'';
-      return `<div class="lb-entry ${e.user_id===myUid?'highlight':''}" onclick="showPubProfile(${e.user_id})" style="cursor:pointer">
-        <div class="lb-rank ${i<3?'top3':''}">${ranks[i]||('#'+(i+1))}</div>
-        <div class="lb-name">${vipTag}${petDot}${esc(e.name||'???')}</div>
+      const themeTag=e.active_theme&&e.active_theme!=='default'?`<span style="font-size:10px;margin-right:2px" title="Активная тема">✨</span>`:'';
+      const levelTag=e.level?`<span style="font-size:10px;color:var(--text2);margin-left:3px">лв.${e.level}</span>`:'';
+      const isSelf=e.user_id===myUid;
+      return `<div class="lb-entry ${isSelf?'highlight':''}" onclick="showPubProfile(${e.user_id})" style="cursor:pointer">
+        <div class="lb-rank ${rankIdx<3?'top3':''}">${ranks[rankIdx]||('#'+e.rank)}</div>
+        <div class="lb-name">${themeTag}${vipTag}${petDot}${esc(e.name||'???')}${levelTag}</div>
         <div class="lb-score">${e.score==null?'——':e.score||0}</div>
       </div>`;
     }).join('');
     if(r.user_rank){
       document.getElementById('lbUserRankCard').style.display='block';
-      document.getElementById('lbUserRankText').textContent='#'+r.user_rank.rank+' — '+r.user_rank.score+' очков';
+      document.getElementById('lbUserRankText').textContent='#'+r.user_rank.rank+' — '+r.user_rank.score;
     }
   } catch(e){
     document.getElementById('lbLoading').textContent='⚠️ '+e.message;
