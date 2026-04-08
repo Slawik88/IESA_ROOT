@@ -282,12 +282,13 @@ async def buy_item(
             return {"ok": True, "already_owned": True, "equipped": equip}
 
     # Deduct payment
+    new_family_bal: int | None = None
     if wallet_type == "family":
         marriage = await get_marriage(uid, chat_id)
         if not marriage:
             raise ValueError("Нет семейного кошелька")
         partner_id = marriage["partner_id"]
-        await deduct_family_pool(chat_id, uid, partner_id, price)
+        new_family_bal = await deduct_family_pool(chat_id, uid, partner_id, price)
         mora = await get_mora(uid, chat_id)
         new_bal = mora["balance"] if mora else 0
     else:
@@ -378,11 +379,12 @@ async def buy_item(
         pass
 
     return {
-        "ok":            True,
-        "already_owned": False,
-        "equipped":      equip,
-        "item_type":     item_type,
-        "item_key":      item_key,
-        "price":         price,
-        "balance":       new_bal,
+        "ok":              True,
+        "already_owned":   False,
+        "equipped":        equip,
+        "item_type":       item_type,
+        "item_key":        item_key,
+        "price":           price,
+        "balance":         new_bal,
+        "family_balance":  new_family_bal,
     }
