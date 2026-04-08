@@ -241,6 +241,22 @@ async def roulette_spin(
     except Exception:
         pass
 
+    # Achievement tracking for roulette spins (count only expense entries = one per spin)
+    try:
+        from database.postgres import connect as _pg_conn
+        async with _pg_conn() as _db:
+            _row = await _db.fetchone(
+                "SELECT COUNT(*) AS c FROM wallet_ledger "
+                "WHERE user_id=? AND chat_id=? AND source='roulette' AND type='expense'",
+                (uid, chat_id),
+            )
+        _spin_count = int(_row["c"]) if _row else 1
+        from api.achievements import check_and_award as _ach
+        import asyncio
+        asyncio.create_task(_ach(uid, chat_id, "roulette", _spin_count))
+    except Exception:
+        pass
+
     return {
         "ok":          True,
         "number":      number,

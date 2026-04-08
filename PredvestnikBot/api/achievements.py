@@ -81,8 +81,11 @@ ACHIEVEMENTS: list[dict] = [
     {"key": "sell_10",     "title": "Барыга",           "emoji": "📦",  "description": "Продать 10 лотов на аукционе",       "mora": 300,  "xp": 200,  "type": "auction_sell",   "threshold": 10},
     {"key": "win_10",      "title": "Коллекционер",     "emoji": "🎁",  "description": "Выиграть 10 аукционов",              "mora": 400,  "xp": 300,  "type": "auction_win",    "threshold": 10},
     # ─── Казино: рулетка ──────────────────────────────────────────────
-    {"key": "roulette_10", "title": "Рискующий",        "emoji": "🎡",  "description": "Сыграть 10 раз в рулетку",           "mora": 50,   "xp": 50,   "type": "roulette",       "threshold": 10},
-    {"key": "roulette_50", "title": "Крупье",           "emoji": "🎰",  "description": "Сыграть 50 раз в рулетку",           "mora": 200,  "xp": 200,  "type": "roulette",       "threshold": 50},
+    {"key": "roulette_10",  "title": "Рискующий",        "emoji": "🎡",  "description": "Сыграть 10 раз в рулетку",           "mora": 50,   "xp": 50,   "type": "roulette",       "threshold": 10},
+    {"key": "roulette_50",  "title": "Крупье",           "emoji": "🎰",  "description": "Сыграть 50 раз в рулетку",           "mora": 200,  "xp": 200,  "type": "roulette",       "threshold": 50},
+    {"key": "roulette_100", "title": "Игрок",            "emoji": "🎲",  "description": "Сыграть 100 раз в рулетку",          "mora": 500,  "xp": 400,  "type": "roulette",       "threshold": 100},
+    {"key": "roulette_200", "title": "Мастер рулетки",   "emoji": "♠️",  "description": "Сыграть 200 раз в рулетку",          "mora": 1200, "xp": 800,  "type": "roulette",       "threshold": 200},
+    {"key": "roulette_500", "title": "Рулеточный Бог",   "emoji": "👑",  "description": "Сыграть 500 раз в рулетку",          "mora": 3000, "xp": 2000, "type": "roulette",       "threshold": 500},
     # ─── Шпионаж ──────────────────────────────────────────────────────
     {"key": "spy_1",       "title": "Первая Разведка",  "emoji": "🕵️", "description": "Провести первую шпионскую миссию",   "mora": 50,   "xp": 50,   "type": "spy_missions",   "threshold": 1},
     {"key": "spy_10",      "title": "Агент 007",        "emoji": "🔍",  "description": "Провести 10 шпионских миссий",       "mora": 200,  "xp": 200,  "type": "spy_missions",   "threshold": 10},
@@ -91,8 +94,11 @@ ACHIEVEMENTS: list[dict] = [
     {"key": "deposit_1",   "title": "Вкладчик",         "emoji": "🏧",  "description": "Открыть первый банковский вклад",    "mora": 30,   "xp": 30,   "type": "deposits",       "threshold": 1},
     {"key": "deposit_10",  "title": "Инвестор",         "emoji": "📊",  "description": "Открыть 10 банковских вкладов",      "mora": 250,  "xp": 200,  "type": "deposits",       "threshold": 10},
     # ─── Облигации / акции ────────────────────────────────────────────
-    {"key": "bonds_1",     "title": "Брокер",           "emoji": "📈",  "description": "Совершить первую покупку облигаций", "mora": 50,   "xp": 50,   "type": "bond_trades",    "threshold": 1},
-    {"key": "bonds_20",    "title": "Волк с Уолл-Стрит","emoji": "🐺",  "description": "Совершить 20 сделок с облигациями",  "mora": 500,  "xp": 400,  "type": "bond_trades",    "threshold": 20},
+    {"key": "bonds_1",     "title": "Брокер",             "emoji": "📈",  "description": "Совершить первую покупку облигаций", "mora": 50,   "xp": 50,   "type": "bond_trades",    "threshold": 1},
+    {"key": "bonds_20",    "title": "Волк с Уолл-Стрит",  "emoji": "🐺",  "description": "Совершить 20 сделок с облигациями",  "mora": 500,  "xp": 400,  "type": "bond_trades",    "threshold": 20},
+    {"key": "bonds_50",    "title": "Финансист",           "emoji": "💼",  "description": "Совершить 50 сделок с облигациями",  "mora": 1000, "xp": 800,  "type": "bond_trades",    "threshold": 50},
+    {"key": "bonds_100",   "title": "Инвестиционный Гуру", "emoji": "📊",  "description": "Совершить 100 сделок с облигациями", "mora": 2500, "xp": 1500, "type": "bond_trades",    "threshold": 100},
+    {"key": "bonds_250",   "title": "Магнат Биржи",        "emoji": "🏦",  "description": "Совершить 250 сделок с облигациями", "mora": 6000, "xp": 3000, "type": "bond_trades",    "threshold": 250},
     # ─── Переводы ─────────────────────────────────────────────────────
     {"key": "transfer_1",  "title": "Щедрый",           "emoji": "💸",  "description": "Перевести мору другому игроку",      "mora": 20,   "xp": 20,   "type": "transfers",      "threshold": 1},
     {"key": "transfer_25", "title": "Филантроп",        "emoji": "🤝",  "description": "Совершить 25 переводов моры",        "mora": 300,  "xp": 250,  "type": "transfers",      "threshold": 25},

@@ -1754,6 +1754,36 @@ async def init_db():
     except Exception:
         pass
 
+    # Retroactive talent-point migration: 1 point per level rule
+    # Idempotent: WHERE filters to users whose last_awarded_level < their current max level.
+    # After the first run, last_awarded_level = max_level for all users → WHERE is always false.
+    try:
+        async with postgres_connect() as _db:
+            await _db.execute("""
+                UPDATE user_talents ut
+                SET talent_points = talent_points + GREATEST(0, (
+                        COALESCE((
+                            SELECT MAX(s.level)
+                            FROM user_stats s
+                            WHERE s.user_id = ut.user_id
+                        ), 0)
+                        - ut.last_awarded_level
+                    )),
+                    last_awarded_level = GREATEST(last_awarded_level, COALESCE((
+                        SELECT MAX(s.level)
+                        FROM user_stats s
+                        WHERE s.user_id = ut.user_id
+                    ), 0))
+                WHERE COALESCE((
+                    SELECT MAX(s.level)
+                    FROM user_stats s
+                    WHERE s.user_id = ut.user_id
+                ), 0) > ut.last_awarded_level
+            """)
+            await _db.commit()
+    except Exception:
+        pass
+
     # Квест новичка: трекер 100 сообщений за 7 дней
     try:
         async with postgres_connect() as _db:
@@ -7114,8 +7144,8 @@ async def add_season_xp(user_id: int, xp_amount: int) -> dict:
         # Add XP
         new_xp = current_xp + xp_amount
         
-        # Calculate new level (150 XP per level, max level 30)
-        new_level = min(30, new_xp // 150)
+        # Calculate new level (80 XP per level, max level 30)
+        new_level = min(30, new_xp // 80)
         level_up = new_level > current_level
         
         # Update or insert progress
@@ -7249,9 +7279,29 @@ async def buy_season_premium(user_id: int, season_id: int) -> bool:
                    VALUES (?, ?, 0, 0, '[]', TRUE)""",
                 (user_id, season_id)
             )
-        
+
         await db.commit()
-        return True
+
+    # Give BP Premium cosmetics: badge + golden frame
+    try:
+        async with postgres_connect() as db:
+            # Award BP badge (global, chat_id=0)
+            await db.execute(
+                """INSERT INTO user_badges (user_id, chat_id, badge_key, obtained_at)
+                   VALUES (?, 0, 'bp_premium', NOW()) ON CONFLICT DO NOTHING""",
+                (user_id,)
+            )
+            # Set top_frame = 'bp_gold' in every chat where user has a user_mora row
+            # (only if they don't already have a better frame by XP ranking)
+            await db.execute(
+                """UPDATE user_mora SET top_frame = 'bp_gold'
+                   WHERE user_id = ? AND (top_frame IS NULL OR top_frame = '')""",
+                (user_id,)
+            )
+            await db.commit()
+    except Exception:
+        pass
+    return True
 
 
 async def get_season_rewards(season_id: int) -> list[dict]:
@@ -7447,9 +7497,9 @@ async def get_user_talents(user_id: int) -> dict:
 
 
 async def award_talent_points(user_id: int, new_level: int) -> int:
-    """Выдаёт 1 очко таланта за каждые 10 уровней (идемпотентно).
+    """Выдаёт 1 очко таланта за каждый уровень (1 point per level, идемпотентно).
     Возвращает количество выданных очков (0 если уже было)."""
-    points_due = new_level // 10  # ровно по 1 очку за каждые 10 уровней
+    points_due = new_level  # 1 очко за каждый уровень
     async with postgres_connect() as db:
         async with db.execute(
             "SELECT talent_points, last_awarded_level FROM user_talents WHERE user_id = ?",
@@ -7457,15 +7507,15 @@ async def award_talent_points(user_id: int, new_level: int) -> int:
         ) as c:
             row = await c.fetchone()
         if row is None:
-            # Новая строка
+            # Новая строка — сразу выдаём points_due очков
             await db.execute(
                 "INSERT INTO user_talents (user_id, talent_points, talents_json, last_awarded_level) VALUES (?, ?, '{}', ?)",
-                (user_id, 1 if new_level >= 10 else 0, new_level),
+                (user_id, new_level, new_level),
             )
             await db.commit()
-            return 1 if new_level >= 10 else 0
+            return new_level
         # Уже существует — считаем, сколько очков ещё не выдано
-        already_awarded = row["last_awarded_level"] // 10
+        already_awarded = row["last_awarded_level"]  # last_awarded_level = exact level, not bracket
         new_points = points_due - already_awarded
         if new_points <= 0:
             return 0
@@ -7502,16 +7552,16 @@ async def upgrade_talent(user_id: int, talent_id: str) -> dict:
         current_level = talents.get(talent_id, 0)
         if current_level >= talent["max_level"]:
             return {"ok": False, "message": f"Талант «{talent['name']}» уже на максимальном уровне"}
-        # Проверяем требование тира
+        # Проверяем требование тира (обновлённые пороги: T2=5, T3=12)
         tier = talent["tier"]
         if tier == 2:
             t1_total = sum(talents.get(tid, 0) for tid, t in TALENT_TREE.items() if t["tier"] == 1)
-            if t1_total < 2:
-                return {"ok": False, "message": "Нужно вложить 2+ очка в таланты 1-го тира"}
+            if t1_total < 5:
+                return {"ok": False, "message": "Нужно вложить 5+ очков в таланты 1-го тира"}
         elif tier == 3:
             t12_total = sum(talents.get(tid, 0) for tid, t in TALENT_TREE.items() if t["tier"] in (1, 2))
-            if t12_total < 5:
-                return {"ok": False, "message": "Нужно вложить 5+ очков в таланты 1-го и 2-го тиров"}
+            if t12_total < 12:
+                return {"ok": False, "message": "Нужно вложить 12+ очков в таланты 1-го и 2-го тиров"}
         talents[talent_id] = current_level + 1
         cursor = await db.execute(
             "UPDATE user_talents SET talent_points = talent_points - 1, talents_json = ? "
