@@ -232,6 +232,17 @@ async def gacha_roll(uid: int, chat_id: int, count: int,
                         "INSERT INTO shop_items (user_id, item_type, item_value, chat_id, purchased_at, active) VALUES (?,?,?,?,NOW(),1)",
                         (uid, "frame", frame_key, chat_id),
                     )
+                else:
+                    comp = random.randint(20, 200)
+                    await add_mora(uid, chat_id, comp)
+                    results.append({
+                        "key": key, "name": name, "rarity": rarity, "desc": desc,
+                        "atk": 0, "def_val": 0, "hp": 0, "crit_rate": 0.0,
+                        "slot": None, "sell": 0,
+                        "duplicate": True, "comp_mora": comp,
+                    })
+                    pity = 0 if rarity == "legendary" else pity + 1
+                    continue
         elif key.startswith("theme_"):
             # Themes go to user_themes table, strip prefix to get theme key
             theme_key = key[len("theme_"):]
@@ -246,6 +257,17 @@ async def gacha_roll(uid: int, chat_id: int, count: int,
                         "INSERT INTO user_themes (user_id, chat_id, theme_key, source, obtained_at) VALUES (?,?,?,?,NOW())",
                         (uid, chat_id, theme_key, "gacha"),
                     )
+                else:
+                    comp = random.randint(20, 200)
+                    await add_mora(uid, chat_id, comp)
+                    results.append({
+                        "key": key, "name": name, "rarity": rarity, "desc": desc,
+                        "atk": 0, "def_val": 0, "hp": 0, "crit_rate": 0.0,
+                        "slot": None, "sell": 0,
+                        "duplicate": True, "comp_mora": comp,
+                    })
+                    pity = 0 if rarity == "legendary" else pity + 1
+                    continue
         else:
             await add_gacha_item(
                 uid, chat_id, key, name, rarity,

@@ -8003,7 +8003,7 @@ async def get_boss_leaderboard(chat_id: int, limit: int = 10) -> list[dict]:
                FROM boss_damage_log b
                LEFT JOIN users u ON u.user_id = b.user_id
                WHERE b.chat_id = ?
-               GROUP BY b.user_id
+               GROUP BY b.user_id, u.full_name
                ORDER BY total_damage DESC LIMIT ?""",
             (chat_id, limit),
         ) as c:
