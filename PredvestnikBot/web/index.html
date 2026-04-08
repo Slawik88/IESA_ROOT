@@ -648,6 +648,9 @@ select:focus{border-color:var(--accent)}
 /* Scrollable subtabs */
 .subtabs{overflow-x:auto;white-space:nowrap;-webkit-overflow-scrolling:touch;scrollbar-width:none;-ms-overflow-style:none}
 .subtabs::-webkit-scrollbar{display:none}
+@media(min-width:600px){
+  .subtabs{flex-wrap:wrap;overflow-x:visible;white-space:normal}
+}
 /* Frame overlay on avatars */
 .avatar-frame-wrap{position:relative;display:inline-block}
 .avatar-frame-wrap img{border-radius:50%;display:block}
@@ -3622,7 +3625,7 @@ async function loadInventory(){
 
     const cosmetics = items.filter(i => !assignedIds.has(i.id) && (
       i.slot === 'cosmetic' || i.slot === 'flair' || i.is_cosmetic ||
-      i.key.startsWith('rare_') || i.key.startsWith('lego_flair_') ||
+      i.key.startsWith('lego_flair_') ||
       i.key.startsWith('frame_') || i.key.startsWith('theme_')
     ));
     cosmetics.forEach(i => assignedIds.add(i.id));
@@ -7310,7 +7313,7 @@ async function confirmUseTransferPass() {
 }
 
 function canSelectItem(item) {
-  return !item.equipped && !item.is_cosmetic && (item.key.startsWith('junk_') || item.sell_price > 0);
+  return !item.equipped && !item.is_cosmetic && item.rarity !== 'legendary' && (item.key.startsWith('junk_') || item.sell_price > 0);
 }
 
 // Таблица шансов заточки — должна совпадать с бэкендом

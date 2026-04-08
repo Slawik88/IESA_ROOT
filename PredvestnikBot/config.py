@@ -562,8 +562,8 @@ PROFILE_THEMES: dict[str, dict] = {
     },
     "neon": {
         "name": "💜 Неоновый",
-        "source": "shop",
-        "price": 3000,
+        "source": "gacha",
+        "price": 0,
         "tier": "epic",
         "header": "💜⚡ <b>N E O N</b> ⚡💜",
         "separator": "─💜─💙─💜─💙─💜─💙─💜─💙─",
@@ -607,8 +607,8 @@ PROFILE_THEMES: dict[str, dict] = {
     },
     "fuji": {
         "name": "🗻 Гора Фудзи",
-        "source": "shop",
-        "price": 4500,
+        "source": "gacha",
+        "price": 0,
         "tier": "legendary",
         "header": "🗻❄ <b>ПРОФИЛЬ</b> ❄🗻",
         "separator": "═🗻═══════════════🗻═",
@@ -616,8 +616,8 @@ PROFILE_THEMES: dict[str, dict] = {
     },
     "crane": {
         "name": "🏯 Журавль",
-        "source": "shop",
-        "price": 5000,
+        "source": "gacha",
+        "price": 0,
         "tier": "legendary",
         "header": "🏯🔴 <b>ПРОФИЛЬ</b> 🔴🏯",
         "separator": "──🏯──────────────🏯──",
