@@ -3775,17 +3775,20 @@ async function craftShard(key){
 // ═══════════════════════════════════════════════════════════════════
 let talentsData = null;
 const TALENT_TIER_LABELS = {1:'Базовые', 2:'Продвинутые', 3:'Элитные'};
-const TALENT_TIER_REQ = {1:0, 2:2, 3:5};
+const TALENT_TIER_REQ = {1:0, 2:5, 3:12};
 const TALENT_EFFECT_LABELS = {
-  pet_fatigue_reduction:'−% усталости питомца',
-  expedition_cd_minutes:'−мин. кулдаун экспедиций',
-  rep_cd_hours:'−ч. кулдаун репутации',
-  free_potion_chance:'+% шанс бесплатного зелья',
-  spy_cd_hours:'−ч. кулдаун шпионажа',
-  quest_bonus_shard_day:'+осколок к квесту/день',
-  craft_shard_discount:'−осколок при крафте',
-  gacha_pity_reduction:'−броски к гаранту',
-  shield_renewal:'Авто-обновление щита',
+  mora_drop_chance:       '+% шанс выпадения моры',
+  drop_luck_pct:          '+% удача дропа',
+  atk_bonus:              '+ATK в бою',
+  expedition_cd_minutes:  '−мин. кулдаун экспедиций',
+  rep_cd_hours:           '−ч. кулдаун репутации',
+  coinflip_win_pct:       '+% шанс выигрыша монетки',
+  free_potion_chance:     '+% шанс бесплатного зелья',
+  hp_potion_bonus:        '+HP при использовании зелья',
+  gacha_pity_reduction:   '−броски к гаранту гачи',
+  craft_shard_discount:   '−осколок при крафте',
+  gacha_shard_bonus:      '+шарды в гаче',
+  shield_renewal:         'Авто-обновление щита',
 };
 async function loadTalentsSubtab(force=false){
   if(talentsData && !force){ renderTalentsSubtab(); return; }
@@ -3826,9 +3829,10 @@ function renderTalentsSubtab(){
     const items = byTier[tier]||[];
     if(!items.length) return '';
     const req = TALENT_TIER_REQ[tier]||0;
-    const prevTierTotal = tier > 1 ? tierTotals[tier-1] : 999;
-    const tierUnlocked = tier===1 || prevTierTotal >= req;
-    const reqText = tier > 1 ? ` (нужно ${req}+ в тире ${tier-1})` : '';
+    // Tier 2 unlocks with T1 total >= req; Tier 3 unlocks with T1+T2 total >= req
+    const cumulativeTotal = tier === 3 ? tierTotals[1] + tierTotals[2] : tierTotals[tier-1];
+    const tierUnlocked = tier===1 || cumulativeTotal >= req;
+    const reqText = tier === 2 ? ` (нужно ${req}+ в тире 1)` : tier === 3 ? ` (нужно ${req}+ тир 1+2)` : '';
     return `
       <div class="card" style="margin-bottom:8px;padding:10px 14px">
         <div style="font-size:12px;font-weight:700;color:var(--accent);margin-bottom:8px">

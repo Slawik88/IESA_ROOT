@@ -163,11 +163,20 @@ async def cb_gacha_roll(callback: CallbackQuery):
     ])
 
     try:
+        # Talent: pity_memory reduces the pity threshold
+        _talent_pity_note = ""
+        try:
+            from database.db import get_talent_effect as _gte
+            _pity_red = await _gte(uid, "gacha_pity_reduction")
+            if _pity_red > 0:
+                _talent_pity_note = f" <i>(−{_pity_red} от таланта «Память пустоты»)</i>"
+        except Exception:
+            pass
         await callback.message.edit_text(
             f"{header} <b>Результат молитвы (x{count})</b>\n\n"
             f"{result_text}\n\n"
             f"💰 Баланс: <b>{new_bal} 🪙</b>\n"
-            f"🔄 До гаранта: <b>{GACHA_PITY_COUNT - pity}</b>{discount_note}",
+            f"🔄 До гаранта: <b>{GACHA_PITY_COUNT - pity}</b>{_talent_pity_note}{discount_note}",
             parse_mode="HTML",
             reply_markup=kb,
         )

@@ -641,6 +641,7 @@ BADGE_DEFINITIONS: dict[str, dict] = {
     "social":       {"emoji": "💬", "name": "Душа компании", "desc": "5000+ сообщений"},
     "vip":          {"emoji": "💎", "name": "VIP", "desc": "Купил VIP-статус"},
     "gambler":      {"emoji": "🎰", "name": "Азартный", "desc": "Выиграл 50+ раз в казино"},
+    "bp_premium":   {"emoji": "🎖️", "name": "Батл Пасс Премиум", "desc": "Владелец Премиум Батл Пасса"},
 }
 
 

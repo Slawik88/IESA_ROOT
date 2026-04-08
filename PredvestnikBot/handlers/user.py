@@ -1356,6 +1356,20 @@ async def cmd_me(message: Message, cmd_args: str):
     if bio:
         lines.append(f"\n📝 <i>{html.escape(bio)}</i>")
 
+    # Community roles (tags)
+    if is_group:
+        try:
+            from database.db import get_user_community_roles
+            c_roles = await get_user_community_roles(uid)
+            if c_roles:
+                roles_str = "  ".join(
+                    f"{r.get('emoji', '')} {html.escape(r['name'])}".strip()
+                    for r in c_roles
+                )
+                lines.append(f"🎭 Роль: {roles_str}")
+        except Exception:
+            pass
+
     # Брак
     if is_group:
         marriage = await get_marriage(uid, chat_id)
@@ -1371,16 +1385,93 @@ async def cmd_me(message: Message, cmd_args: str):
                 )
                 lines.append(f"🎁 Подарки: {gifts_str}")
 
-    # Active potion buffs
+    # Active potion buffs — визуальное отображение с реальными характеристиками
     if is_group:
         from database.db import get_active_buffs
+        from datetime import timezone as _tz
         active_buffs = await get_active_buffs(uid, chat_id)
         if active_buffs:
-            buffs_text = ", ".join([
-                f"{buff['name']} ({buff['minutes_left']}м)"
-                for buff in active_buffs
-            ])
-            lines.append(f"💫 Эффекты: {buffs_text}")
+            # Map buff_type → (emoji, label, stat_value)
+            _BUFF_MAP = {
+                "atk":           ("⚔️", "ATK",         "+15"),
+                "def":           ("🛡️", "DEF",         "+20"),
+                "hp":            ("❤️", "HP",           "+50"),
+                "mora_boost_10": ("🪙", "Мора",         "+10%"),
+                "mora_boost_15": ("🪙", "Мора",         "+15%"),
+                "mora_boost_20": ("🪙", "Мора",         "+20%"),
+            }
+            now_utc = datetime.now(timezone.utc)
+            lines.append("")
+            lines.append("━━━━━━━━━━━━━━━━━━━━")
+            lines.append("💫 <b>Активные эффекты</b>")
+            for buff in active_buffs:
+                btype = buff.get("buff_type") or buff.get("type", "")
+                exp = buff.get("expires_at")
+                mins_left = 0
+                if exp:
+                    try:
+                        exp_dt = exp if hasattr(exp, "tzinfo") else datetime.fromisoformat(str(exp))
+                        if exp_dt.tzinfo is None:
+                            exp_dt = exp_dt.replace(tzinfo=timezone.utc)
+                        mins_left = max(0, int((exp_dt - now_utc).total_seconds() / 60))
+                    except Exception:
+                        pass
+                emoji, label, val = _BUFF_MAP.get(btype, ("✨", btype, ""))
+                time_str = f"{mins_left // 60}ч {mins_left % 60}м" if mins_left >= 60 else f"{mins_left}м"
+                lines.append(f"  {emoji} {label}: <b>{val}</b>  ⏱ {time_str}")
+
+    # Talent summary — показываем активные бонусы из талантов
+    if is_group:
+        try:
+            from database.db import get_user_talents
+            from shared_prices import TALENT_TREE
+            tal_data = await get_user_talents(uid)
+            _invested = tal_data.get("talents", {})
+            _tp_left  = tal_data.get("talent_points", 0)
+            _talent_lines = []
+            _TALENT_STAT_LABELS = {
+                "mora_drop_chance":    ("🌾", "Мора дроп",     "%"),
+                "drop_luck_pct":       ("🍀", "Удача дропа",   "%"),
+                "atk_bonus":           ("⚔️", "ATK",           ""),
+                "free_potion_chance":  ("🧪", "Зелье бесплатно", "%"),
+                "hp_potion_bonus":     ("❤️", "HP от зелья",   ""),
+                "gacha_pity_reduction":("🎴", "Гача пити",     "−"),
+                "coinflip_win_pct":    ("🎲", "Монетка шанс",  "%"),
+                "expedition_cd_minutes":("🗺️","Экспедиция",  " мин"),
+                "rep_cd_hours":        ("⭐", "Репа кулдаун",  " ч"),
+                "craft_shard_discount":("⚒️", "Крафт −осколок",""),
+                "gacha_shard_bonus":   ("💎", "Гача +шарды",   ""),
+            }
+            effect_totals: dict[str, int] = {}
+            for tid, t in TALENT_TREE.items():
+                lvl = _invested.get(tid, 0)
+                if lvl > 0:
+                    ek = t["effect_key"]
+                    effect_totals[ek] = effect_totals.get(ek, 0) + lvl * t["effect_per_level"]
+            if effect_totals:
+                for ek, total in effect_totals.items():
+                    if ek == "shield_renewal":
+                        continue
+                    info = _TALENT_STAT_LABELS.get(ek)
+                    if not info:
+                        continue
+                    em, lab, unit = info
+                    if unit == "−":
+                        _talent_lines.append(f"  {em} {lab}: <b>−{total}</b>")
+                    elif unit.startswith(" "):
+                        _talent_lines.append(f"  {em} {lab}: <b>−{total}{unit}</b>")
+                    else:
+                        _talent_lines.append(f"  {em} {lab}: <b>+{total}{unit}</b>")
+            if _talent_lines or _tp_left > 0:
+                lines.append("")
+                lines.append("━━━━━━━━━━━━━━━━━━━━")
+                tp_note = f"  <i>({_tp_left} очков доступно)</i>" if _tp_left > 0 else ""
+                lines.append(f"🎯 <b>Таланты</b>{tp_note}")
+                lines.extend(_talent_lines)
+                if not _talent_lines:
+                    lines.append("  <i>Таланты не прокачаны — открой Mini App</i>")
+        except Exception:
+            pass
 
     # Pet walk status
     if is_group:

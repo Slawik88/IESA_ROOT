@@ -85,6 +85,21 @@ async def buy_bond(uid: int, chat_id: int, bond_key: str,
     except Exception:
         pass
 
+    # Achievement tracking for bond trades
+    try:
+        from database.postgres import connect as _pg_conn
+        async with _pg_conn() as _db:
+            _row = await _db.fetchone(
+                "SELECT COUNT(*) AS c FROM user_bond_lots WHERE user_id=? AND chat_id=?",
+                (uid, chat_id),
+            )
+        _trade_count = int(_row["c"]) if _row else 1
+        from api.achievements import check_and_award as _ach
+        import asyncio
+        asyncio.create_task(_ach(uid, chat_id, "bond_trades", _trade_count))
+    except Exception:
+        pass
+
     # Return updated balances
     mora_row    = await get_mora(uid, chat_id)
     personal    = mora_row["balance"] if mora_row else 0
