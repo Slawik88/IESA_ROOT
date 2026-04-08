@@ -1980,7 +1980,7 @@ def miniapp_inventory(request):
                         can_auction = False
                 items.append({
                     "id": r[0], "key": r[1], "name": r[2], "rarity": r[3], "equipped": bool(r[4]),
-                    "atk": r[5], "def_val": r[6], "hp": r[7], "crit_rate": r[8], "slot": r[9],
+                    "atk": r[5], "def_val": r[6], "hp": r[7], "crit_rate": r[8], "slot": r[9] or meta.get("slot"),
                     "enhancement_level": r[10],
                     "stack_count": r[11],
                     "is_cosmetic": meta.get("slot") == "flair",
@@ -2317,6 +2317,7 @@ def miniapp_gacha_roll(request):
             "ok":         True,
             "items":      result["items"],
             "balance":    result["new_balance"],
+            "family_balance": result.get("new_family_bal"),
             "pity":       result["pity"],
             "spent":      result["spent"],
             "quest_done": result["quest_done"],

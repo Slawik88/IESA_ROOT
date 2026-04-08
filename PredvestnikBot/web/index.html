@@ -1703,7 +1703,7 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;
           <span>💜</span><span style="color:#8b5cf6"><b>7%</b></span><span>Редкий (11 предметов) — сильная экипировка</span>
           <span>⭐</span><span style="color:#f59e0b"><b>3%</b></span><span>Легендарный (14 предметов) — лучшее в игре</span>
         </div>
-        <p style="margin-top:8px"><b>Пити-система:</b> Гарантия легендарки каждые <b>40</b> круток.</p>
+        <p style="margin-top:8px"><b>Пити-система:</b> Гарантия легендарки каждые <b>50</b> круток.</p>
         <p style="margin-top:8px"><b>Цены:</b></p>
         <ul style="margin:4px 0 4px 16px;padding:0">
           <li>🌟 ×1 — <b>80 🪙</b> (одиночная, 70 для холостяков)</li>
@@ -2827,6 +2827,16 @@ function syncBalance(n){
     _balanceCurrent = n;
   }
 }
+function syncFamilyBalance(n){
+  if(n == null) return;
+  n = parseInt(n) || 0;
+  if(profileData) profileData.family_balance = n;
+  const el = document.getElementById('famTotal');
+  if(el) el.textContent = n + ' 🪙';
+  // Update wallet modal display if open
+  const wFamBal = document.getElementById('wFamilyBal');
+  if(wFamBal) wFamBal.textContent = n + ' 🪙';
+}
 function syncCrystals(n){
   n = n || 0;
   if(profileData) profileData.crystals = n;
@@ -3639,9 +3649,10 @@ async function loadInventory(){
     armor.forEach(i => assignedIds.add(i.id));
 
     const potions = items.filter(i => !assignedIds.has(i.id) && (
-      i.slot === 'potion' || i.slot === 'consume' ||
+      i.slot === 'potion' || i.slot === 'consume' || i.slot === 'coupon' ||
       i.key.includes('potion') || i.key.includes('_shard') ||
       i.key.includes('_crystal') || i.key.includes('_bag') ||
+      i.key.includes('_chest') ||
       i.key.includes('elixir') || i.key.includes('scroll')
     ));
     potions.forEach(i => assignedIds.add(i.id));
@@ -4658,7 +4669,7 @@ function showGachaRates() {
   const pctL=(2/LEGO.length).toFixed(2);
   function rows(arr,pct){return arr.map(([em,nm,desc])=>`<div class="rates-row"><span class="rates-row-icon">${em}</span><span class="rates-row-name"><b>${esc(nm)}</b><br><span style="font-size:10px;color:var(--text2)">${esc(desc)}</span></span><span class="rates-row-pct">${pct}%</span></div>`).join('');}
   document.getElementById('gachaRatesBody').innerHTML=
-    `<div style="font-size:11px;color:var(--text2);padding:6px 0 12px;text-align:center">Гарантия легендарки каждые <b>40</b> круток (пити-система)</div>
+    `<div style="font-size:11px;color:var(--text2);padding:6px 0 12px;text-align:center">Гарантия легендарки каждые <b>50</b> круток (пити-система)</div>
     <div class="rarity-section"><div class="rarity-section-hdr junk">💤 Мусор — 75%</div>${rows(JUNK,pctJ)}</div>
     <div class="rarity-section"><div class="rarity-section-hdr common">⚔️ Обычный — 17%</div>${rows(COMMON,pctC)}</div>
     <div class="rarity-section"><div class="rarity-section-hdr rare">💜 Редкий — 6%</div>${rows(RARE,pctR)}</div>
@@ -4702,9 +4713,14 @@ async function buyShopItem(type, key){
     if(r.already_owned){
       toast(r.equipped?'✅ Рамка активирована':'✅ Уже куплено','success');
     } else {
-      toast('✅ Куплено! Баланс: '+r.balance+' 🪙','success');
+      if(wallet==='family'){
+        syncFamilyBalance(r.family_balance);
+        toast('✅ Куплено из семейного кошелька! Семейный баланс: '+(r.family_balance??'?')+' 🪙','success');
+      } else {
+        syncBalance(r.balance);
+        toast('✅ Куплено! Баланс: '+r.balance+' 🪙','success');
+      }
       flashEl(document.querySelector('#tab-shop .tab-content.active .card, #tab-shop .card'));
-      syncBalance(r.balance);
     }
     shopData=null;
     await loadShop();
@@ -4724,8 +4740,13 @@ async function buyProfileTheme(key){
     if(r.already_owned){
       toast('✅ Тема уже куплена','success');
     } else {
-      toast('✅ Тема куплена! Баланс: '+r.balance+' 🪙','success');
-      syncBalance(r.balance);
+      if(wallet==='family'){
+        syncFamilyBalance(r.family_balance);
+        toast('✅ Тема куплена из семейного кошелька! Семейный баланс: '+(r.family_balance??'?')+' 🪙','success');
+      } else {
+        syncBalance(r.balance);
+        toast('✅ Тема куплена! Баланс: '+r.balance+' 🪙','success');
+      }
       if(profileData) profileData.active_theme=key;
       applyTheme(key);
     }
@@ -4757,7 +4778,8 @@ async function rollGacha(count){
   try{
     const r=await api('/api/gacha/roll','POST',{chat_id:chatId,count,wallet_type:wallet});
     showGachaOverlay(r.items||[]);
-    syncBalance(r.balance);
+    if(wallet==='family'){ syncFamilyBalance(r.family_balance); }
+    else { syncBalance(r.balance); }
     if(r.quest_done){
       tabLoaded['quest']=false;
       setTimeout(()=>toast('🎉 Задание выполнено! +'+r.quest_xp+' XP  +'+r.quest_mora+' 🪙','success'),1800);
@@ -7102,8 +7124,8 @@ function renderPotionsInventory(potions) {
         </div>
         ${i.desc ? `<div style="font-size:10px;color:var(--text2);margin-top:2px;font-style:italic">${esc(i.desc)}</div>` : ''}
       </div>
-      <button class="btn btn-sm btn-green" onclick="consumePotion(${i.id})" style="width:auto;min-width:68px">
-        ${i.slot==='consume'?'✨ Использовать':'⚗️ Выпить'}
+      <button class="btn btn-sm btn-green" onclick="activateInventoryItem(${i.id},'${i.slot||''}','${i.key||''}')" style="width:auto;min-width:68px">
+        ${i.slot==='coupon'?'🎟️ Применить':i.slot==='consume'?'✨ Использовать':'⚗️ Выпить'}
       </button>
     </div>`
   ).join('') : '<div style="color:var(--text2);text-align:center;padding:28px"><div style="font-size:36px;margin-bottom:8px">🧪</div><div style="font-weight:700;margin-bottom:4px">Нет зелий</div><div style="font-size:12px">Зелья можно получить в гаче или за активность в чате</div></div>';
@@ -7302,7 +7324,7 @@ async function confirmUseTransferPass() {
       // Re-render inventory
       renderWeaponsInventory((window.inventoryItems||[]).filter(i=>i.slot==='weapon'));
       renderArmorInventory((window.inventoryItems||[]).filter(i=>i.slot==='armor'));
-      renderOtherInventory((window.inventoryItems||[]).filter(i=>!['weapon','armor','artifact','potion','consume','cosmetic','flair'].includes(i.slot)));
+      renderOtherInventory((window.inventoryItems||[]).filter(i=>!['weapon','armor','artifact','potion','consume','coupon','cosmetic','flair'].includes(i.slot)));
     }
   } catch(e) {
     toast('❌ ' + e.message, 'error');
@@ -7584,6 +7606,35 @@ async function doEnhance(useStone) {
   }
 }
 
+async function activateInventoryItem(itemId, slot, key) {
+  if (slot === 'consume' || slot === 'potion') {
+    return consumePotion(itemId);
+  }
+  if (slot === 'coupon') {
+    if (key.startsWith('exp_boost_')) {
+      if (!confirm('Применить ускорение экспедиции?\n\nВремя активной экспедиции будет сокращено.')) return;
+      try {
+        const r = await api('/api/expeditions/boost', 'POST', {chat_id: chatId, item_id: itemId});
+        toast('✈️ ' + (r.message || 'Экспедиция ускорена!'), 'success');
+        tabLoaded['inventory'] = false;
+        loadInventory();
+        if (tabLoaded['expedition'] !== undefined) tabLoaded['expedition'] = false;
+      } catch(e) { toast('❌ ' + e.message, 'error'); }
+    } else if (key === 'quest_reroll') {
+      if (!confirm('Использовать купон на реролл задания?\n\nТекущее задание сбросится и будет выдано новое.')) return;
+      try {
+        const r = await api('/api/quest/reroll', 'POST', {chat_id: chatId, use_coupon: true});
+        toast('🔄 ' + (r.message || 'Задание сброшено!'), 'success');
+        tabLoaded['inventory'] = false;
+        loadInventory();
+        tabLoaded['quest'] = false;
+      } catch(e) { toast('❌ ' + e.message, 'error'); }
+    } else {
+      toast('🎟️ Перейди в нужный раздел для активации этого купона', 'info');
+    }
+  }
+}
+
 async function consumePotion(itemId) {  
   const item = window.inventoryItems.find(i => i.id === itemId);
   if (!item) return;
@@ -7597,7 +7648,7 @@ async function consumePotion(itemId) {
 
   try {
     const r = await api('/api/consume_potion', 'POST', {chat_id: chatId, item_id: itemId});
-    toast(`⚗️ Выпито! ${r.message}`, 'success');
+    toast((isConsume ? '✨ Использовано! ' : '⚗️ Выпито! ') + r.message, 'success');
 
     // Reload inventory
     tabLoaded['inventory'] = false;

@@ -126,7 +126,7 @@ async def gacha_roll(uid: int, chat_id: int, count: int,
     """
     from database.db import (
         add_gacha_item, add_mora, add_to_treasury,
-        get_family_wallet, get_gacha_pity, get_mora, get_vip, is_user_single,
+        get_gacha_pity, get_mora, get_vip, is_user_single,
         get_user_quest, quest_tick, mark_quest_rewarded, add_xp_in_chat,
     )
     from utils.helpers import bot_today
@@ -146,25 +146,16 @@ async def gacha_roll(uid: int, chat_id: int, count: int,
         price = GACHA_SINGLES_SINGLE if use_cheap_price else GACHA_SINGLE_PRICE
 
     # ── Deduct cost ────────────────────────────────────────────────────────────
+    new_family_bal: int | None = None
     if wallet_type == "family":
         if single:
             raise ValueError("Нет семейного кошелька")
-        from database.db import get_marriage as _get_marriage
+        from database.db import get_marriage as _get_marriage, deduct_family_pool as _deduct_fam
         marriage = await _get_marriage(uid, chat_id)
         if not marriage:
             raise ValueError("Нет семейного кошелька")
-        partner_id  = marriage["partner_id"]
-        my_fam      = await get_family_wallet(chat_id, uid)
-        partner_fam = await get_family_wallet(chat_id, partner_id)
-        total_fam   = my_fam + partner_fam
-        if total_fam < price:
-            raise ValueError(f"Недостаточно в семейном ({total_fam}/{price} 🪙)")
-        from database.db import add_to_family_wallet as _add_fam
-        deduct_me      = min(my_fam, price)
-        deduct_partner = price - deduct_me
-        await _add_fam(chat_id, uid, -deduct_me)
-        if deduct_partner > 0:
-            await _add_fam(chat_id, partner_id, -deduct_partner)
+        partner_id = marriage["partner_id"]
+        new_family_bal = await _deduct_fam(chat_id, uid, partner_id, price)
         mora_row = await get_mora(uid, chat_id)
         new_bal  = mora_row["balance"] if mora_row else 0
     else:
@@ -307,13 +298,14 @@ async def gacha_roll(uid: int, chat_id: int, count: int,
         pass
 
     return {
-        "ok":          True,
-        "items":       results,
-        "new_balance": new_bal,
-        "pity":        pity,
-        "spent":       price,
-        "is_single":   single,
-        "quest_done":  bool(quest_done),
-        "quest_xp":    int(quest_xp),
-        "quest_mora":  int(quest_mora),
+        "ok":              True,
+        "items":           results,
+        "new_balance":     new_bal,
+        "new_family_bal":  new_family_bal,
+        "pity":            pity,
+        "spent":           price,
+        "is_single":       single,
+        "quest_done":      bool(quest_done),
+        "quest_xp":        int(quest_xp),
+        "quest_mora":      int(quest_mora),
     }
