@@ -174,6 +174,29 @@ async def sell_bond(uid: int, chat_id: int, bond_key: str, amount: int) -> dict:
         bond_tax = int(profit * 0.40)
     net_revenue = revenue - bond_tax
 
+    # Talent: bonds_broker adds % bonus to profit payout
+    try:
+        from database.db import get_talent_effect as _gte
+        _broker_bonus = await _gte(uid, "bonds_profit_pct")
+        if _broker_bonus > 0 and profit > 0:
+            bonus_mora = max(1, int(profit * _broker_bonus / 100.0))
+            net_revenue += bonus_mora
+    except Exception:
+        pass
+
+    # Talent: bonds_resilience reduces loss when selling below buy price
+    avg_buy_price = avg_buy  # already computed above
+    if price_per < avg_buy_price:
+        try:
+            from database.db import get_talent_effect as _gte
+            _resilience = await _gte(uid, "bonds_loss_pct")
+            if _resilience > 0:
+                loss = int((avg_buy_price - price_per) * amount)
+                recovery = max(1, int(loss * min(_resilience, 20) / 100.0))
+                net_revenue += recovery
+        except Exception:
+            pass
+
     ok, _ = await sell_bonds(uid, chat_id, bond_key, amount, credit_mora=net_revenue)
     if not ok:
         raise ValueError("Не удалось оформить продажу")

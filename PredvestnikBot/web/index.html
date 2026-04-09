@@ -354,6 +354,12 @@ select:focus{border-color:var(--accent)}
 @keyframes fade-backdrop{from{opacity:0}to{opacity:1}}
 @keyframes slide-up{from{transform:translateY(100%)}to{transform:translateY(0)}}
 @keyframes sheet-slide-up{from{transform:translateY(30px);opacity:0}to{transform:translateY(0);opacity:1}}
+@keyframes tab-switch-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.tab-switching{animation:tab-switch-in .22s ease}
+@keyframes enhance-success-flash{0%,100%{box-shadow:0 0 0 0 rgba(124,106,247,0)}40%{box-shadow:0 0 0 12px rgba(124,106,247,.5);background:rgba(124,106,247,.15)}80%{box-shadow:0 0 0 6px rgba(34,197,94,.35)}}
+.enhance-success-anim{animation:enhance-success-flash .7s ease}
+@keyframes legendary-burst{0%{filter:brightness(1) saturate(1)}30%{filter:brightness(2.4) saturate(3)}60%{filter:brightness(1.6) saturate(2)}100%{filter:brightness(1) saturate(1)}}
+.legendary-burst{animation:legendary-burst .8s ease}
 @keyframes bal-flash{0%{transform:scale(1);color:var(--gold)}35%{transform:scale(1.18);color:#facc15;filter:drop-shadow(0 0 6px rgba(244,197,66,.5))}100%{transform:scale(1);color:var(--gold)}}
 .bal-update{animation:bal-flash .35s ease}
 @keyframes flash-success{0%{box-shadow:0 0 0 0 rgba(34,197,94,0)}35%{box-shadow:0 0 0 8px rgba(34,197,94,.4)}100%{box-shadow:0 0 0 0 rgba(34,197,94,0)}}
@@ -446,8 +452,9 @@ select:focus{border-color:var(--accent)}
 .inv-item .ii-info{flex:1}
 .inv-item .ii-info .ii-name{font-size:13px;font-weight:600}
 .inv-item .ii-info .ii-rarity{font-size:11px;color:var(--text2);margin-top:1px}
-.inv-item-select{position:absolute;top:10px;left:10px;width:18px;height:18px;z-index:10}
+.inv-item-select{position:absolute;top:10px;left:10px;width:18px;height:18px;z-index:10;opacity:0;pointer-events:none;transition:opacity .15s}
 .inv-item.selectable{padding-left:38px}
+.inv-item.selectable:hover .inv-item-select,.inv-item.selected .inv-item-select{opacity:1;pointer-events:auto}
 .inv-item.selected{background:rgba(124,106,247,.1);border-color:rgba(124,106,247,.48)}
 .enhance-level{display:inline-block;background:var(--gold);color:#000;font-size:10px;font-weight:800;padding:2px 7px;border-radius:10px;margin-left:6px}
 .enhance-cost{font-size:11px;color:var(--text2);margin-top:2px}
@@ -477,6 +484,12 @@ select:focus{border-color:var(--accent)}
 .wallet-opt-balance{font-size:15px;font-weight:800}
 .wallet-cancel{width:100%;background:transparent;border:1.5px solid rgba(124,106,247,.12);border-radius:14px;padding:11px;color:var(--text2);cursor:pointer;font-size:13px;font-weight:600;font-family:inherit;transition:all .15s}
 .wallet-cancel:hover{border-color:rgba(239,68,68,.35);color:#fca5a5}
+
+/* ==== TALENT DETAIL MODAL ==== */
+.talent-modal{position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:9300;display:none;align-items:flex-end;justify-content:center;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+.talent-modal.open{display:flex;animation:fade-backdrop .2s ease}
+.talent-sheet{background:rgba(11,13,26,.96);backdrop-filter:blur(28px);-webkit-backdrop-filter:blur(28px);border-top:1px solid rgba(124,106,247,.15);border-radius:24px 24px 0 0;padding:24px 20px max(env(safe-area-inset-bottom,0px),28px);width:100%;max-width:480px;box-shadow:0 -12px 56px rgba(0,0,0,.75)}
+.talent-modal.open .talent-sheet{animation:slide-up .3s cubic-bezier(.34,1.2,.64,1)}
 
 /* ==== USER PICKER ==== */
 .user-picker-modal{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9500;display:none;align-items:flex-end;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
@@ -954,6 +967,7 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;
         <div class="profile-info">
           <div id="profileName" class="profile-name"></div>
           <div id="profileTitle" class="profile-title-line"></div>
+          <div id="profileBioLine" style="font-size:11px;color:var(--text2);margin-top:3px;font-style:italic;display:none"></div>
           <div class="profile-level-pill">💠 <span id="pLevel">—</span></div>
         </div>
       </div>
@@ -968,6 +982,21 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;
       <div class="stat-row"><span class="stat-label">🟢 Первая активность</span><span class="stat-value" id="pFirstActive">—</span></div>
       <div class="stat-row"><span class="stat-label">🔵 Последняя активность</span><span class="stat-value" id="pLastActive">—</span></div>
       <div class="stat-row" id="pShieldRow" style="display:none"><span class="stat-label">🛡 Щит новичка</span><span class="stat-value" id="pShield">—</span></div>
+      <div style="margin-top:10px;border-top:1px solid rgba(255,255,255,.07);padding-top:10px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+          <span style="font-size:12px;color:var(--text2)">📝 О себе</span>
+          <button id="bioEditBtn" onclick="toggleBioEdit()" style="background:none;border:none;color:var(--accent);cursor:pointer;font-size:11px;padding:0">✏️ Изменить</button>
+        </div>
+        <div id="bioDisplay" style="font-size:12px;color:var(--text);font-style:italic;min-height:16px">—</div>
+        <div id="bioEditArea" style="display:none;margin-top:6px">
+          <textarea id="bioTextarea" maxlength="200" placeholder="Напиши что-нибудь о себе… (до 200 символов)" style="width:100%;box-sizing:border-box;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.15);border-radius:8px;color:var(--text);font-size:12px;padding:8px;resize:vertical;min-height:60px;outline:none"></textarea>
+          <div style="display:flex;gap:6px;margin-top:4px">
+            <button onclick="saveBio()" style="flex:1;background:var(--accent);border:none;border-radius:8px;color:#fff;font-size:12px;padding:6px;cursor:pointer">💾 Сохранить</button>
+            <button onclick="cancelBioEdit()" style="background:rgba(255,255,255,.08);border:none;border-radius:8px;color:var(--text2);font-size:12px;padding:6px 10px;cursor:pointer">✕</button>
+          </div>
+          <div id="bioSaveStatus" style="font-size:11px;margin-top:4px;text-align:center"></div>
+        </div>
+      </div>
     </div>
     <div class="card" id="partnersCard" style="display:none">
       <div class="card-title">💕 Партнёр</div>
@@ -1106,6 +1135,7 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;
       <div id="activeBuffsList"></div>
     </div>
     
+    <div id="invFlairItemsList"></div>
     <div id="invCosmeticsList"></div>
     <div id="invPetColorsList"></div>
     <div id="invFramesList"></div>
@@ -2647,14 +2677,53 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;
   <div class="card" style="padding:12px 16px">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
       <div class="card-title" style="margin-bottom:0">🏅 Достижения</div>
-      <button onclick="loadAchievementsTab(true)" style="background:rgba(124,106,247,.12);border:1px solid rgba(124,106,247,.2);color:var(--accent);font-size:11px;font-weight:700;border-radius:10px;padding:5px 11px;cursor:pointer">↻ Обновить</button>
+      <div style="display:flex;gap:6px;align-items:center">
+        <button id="achTabMy" onclick="switchAchView('my')" style="background:rgba(124,106,247,.25);border:1px solid rgba(124,106,247,.4);color:var(--accent);font-size:11px;font-weight:700;border-radius:10px;padding:5px 11px;cursor:pointer">🏅 Мои</button>
+        <button id="achTabTop" onclick="switchAchView('top')" style="background:transparent;border:1px solid rgba(255,255,255,.1);color:var(--text2);font-size:11px;font-weight:700;border-radius:10px;padding:5px 11px;cursor:pointer">🌍 Топ</button>
+        <button onclick="loadAchievementsTab(true)" style="background:rgba(124,106,247,.12);border:1px solid rgba(124,106,247,.2);color:var(--accent);font-size:11px;font-weight:700;border-radius:10px;padding:5px 11px;cursor:pointer">↻</button>
+      </div>
     </div>
     <div id="achProgress" style="font-size:13px;color:var(--text2);margin-bottom:8px">⏳ Загрузка…</div>
-    <div style="background:rgba(20,23,40,.9);border-radius:6px;height:7px;overflow:hidden;border:1px solid rgba(124,106,247,.08)">
+    <div id="achProgressBarWrap" style="background:rgba(20,23,40,.9);border-radius:6px;height:7px;overflow:hidden;border:1px solid rgba(124,106,247,.08)">
       <div id="achProgressBar" style="height:100%;width:0%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:6px;transition:width .5s cubic-bezier(.4,0,.2,1);box-shadow:0 0 8px rgba(124,106,247,.3)"></div>
     </div>
   </div>
   <div id="achList"></div>
+  <div id="achGlobalLB" style="display:none"></div>
+</div>
+
+<!-- TALENT DETAIL MODAL -->
+<div class="talent-modal" id="talentDetailModal" onclick="if(event.target===this)closeTalentModal()">
+  <div class="talent-sheet">
+    <div style="text-align:center;margin-bottom:16px">
+      <div id="tdEmoji" style="font-size:52px;line-height:1;margin-bottom:8px"></div>
+      <div id="tdName" style="font-size:18px;font-weight:800;margin-bottom:4px"></div>
+      <div id="tdTier" style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.6px;font-weight:700"></div>
+    </div>
+    <div id="tdDesc" style="font-size:14px;color:var(--text2);text-align:center;line-height:1.6;padding:0 8px;margin-bottom:16px"></div>
+    <div style="background:rgba(124,106,247,.07);border:1px solid rgba(124,106,247,.12);border-radius:14px;padding:14px;margin-bottom:16px">
+      <div style="display:flex;justify-content:space-around;text-align:center">
+        <div>
+          <div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Уровень</div>
+          <div id="tdLevel" style="font-size:20px;font-weight:800;color:var(--accent)"></div>
+        </div>
+        <div style="width:1px;background:var(--border)"></div>
+        <div>
+          <div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Эффект/ур.</div>
+          <div id="tdEffectPer" style="font-size:20px;font-weight:800;color:#10b981"></div>
+        </div>
+        <div style="width:1px;background:var(--border)"></div>
+        <div>
+          <div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Итого</div>
+          <div id="tdTotal" style="font-size:20px;font-weight:800;color:var(--gold)"></div>
+        </div>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px">
+      <button class="btn" style="flex:1;background:var(--bg3);color:var(--text2);border:1px solid var(--border)" onclick="closeTalentModal()">Закрыть</button>
+      <button class="btn btn-primary" id="tdUpgradeBtn" style="flex:2" onclick="upgradeTalentFromModal()">⬆️ Прокачать</button>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -2977,6 +3046,8 @@ function switchTab(name){
   if(next){
     const firstOpen = !tabLoaded[name];
     next.classList.add('active');
+    next.classList.add('tab-switching');
+    setTimeout(()=>next.classList.remove('tab-switching'), 300);
     if(firstOpen){
       next.classList.add('animating');
       setTimeout(()=>next.classList.remove('animating'), 600);
@@ -3018,7 +3089,7 @@ async function loadProfile(){
     document.getElementById('profileLoading').style.display='none';
     document.getElementById('profileContent').style.display='block';
     document.getElementById('profileName').textContent = p.name || 'Игрок';
-    document.getElementById('profileTitle').textContent = '';
+    document.getElementById('profileTitle').textContent = p.custom_title || '';
     
     // Apply rainbow title if owned
     const titleEl = document.getElementById('currentTitle');
@@ -3053,6 +3124,13 @@ async function loadProfile(){
     syncBalance(p.balance||0);
     syncCrystals(p.crystals||0);
     applyTheme(p.active_theme || '');
+    // Bio
+    const bio = p.bio || '';
+    document.getElementById('bioDisplay').textContent = bio || '—';
+    document.getElementById('bioDisplay').style.fontStyle = bio ? 'italic' : 'normal';
+    const bioLineEl = document.getElementById('profileBioLine');
+    if(bio){ bioLineEl.textContent='«'+bio+'»'; bioLineEl.style.display=''; }
+    else { bioLineEl.textContent=''; bioLineEl.style.display='none'; }
     const RANK_LABELS = {developer:'💻 Разработчик', owner:'👑 Владелец', co_owner:'⭐ Со-владелец', moderator:'🛡 Модератор', user:'👤 Участник'};
     document.getElementById('pRank').textContent = RANK_LABELS[p.rank] || p.rank || '—';
     document.getElementById('pMsgCount').textContent = (p.message_count||0).toLocaleString();
@@ -3154,6 +3232,47 @@ async function loadProfile(){
     
   } catch(e){
     document.getElementById('profileLoading').textContent = '⚠️ '+e.message;
+  }
+}
+
+function toggleBioEdit(){
+  const area = document.getElementById('bioEditArea');
+  const textarea = document.getElementById('bioTextarea');
+  const disp = document.getElementById('bioDisplay');
+  if(area.style.display==='none'){
+    textarea.value = (profileData && profileData.bio) || '';
+    area.style.display='block';
+    document.getElementById('bioSaveStatus').textContent='';
+    textarea.focus();
+  } else {
+    area.style.display='none';
+  }
+}
+
+function cancelBioEdit(){
+  document.getElementById('bioEditArea').style.display='none';
+  document.getElementById('bioSaveStatus').textContent='';
+}
+
+async function saveBio(){
+  const bio = document.getElementById('bioTextarea').value.trim();
+  const statusEl = document.getElementById('bioSaveStatus');
+  statusEl.textContent='Сохранение…';
+  statusEl.style.color='var(--text2)';
+  try{
+    await api('/api/profile/bio','POST',{bio});
+    if(profileData) profileData.bio=bio;
+    const disp=document.getElementById('bioDisplay');
+    disp.textContent=bio||'—';
+    disp.style.fontStyle=bio?'italic':'normal';
+    const bioLine=document.getElementById('profileBioLine');
+    if(bio){ bioLine.textContent='«'+bio+'»'; bioLine.style.display=''; }
+    else { bioLine.textContent=''; bioLine.style.display='none'; }
+    document.getElementById('bioEditArea').style.display='none';
+    statusEl.textContent='';
+  }catch(e){
+    statusEl.style.color='#f87171';
+    statusEl.textContent='Ошибка: '+e.message;
   }
 }
 
@@ -3793,18 +3912,23 @@ let talentsData = null;
 const TALENT_TIER_LABELS = {1:'Базовые', 2:'Продвинутые', 3:'Элитные'};
 const TALENT_TIER_REQ = {1:0, 2:5, 3:12};
 const TALENT_EFFECT_LABELS = {
-  mora_drop_chance:       '+% шанс выпадения моры',
-  drop_luck_pct:          '+% удача дропа',
-  atk_bonus:              '+ATK в бою',
-  expedition_cd_minutes:  '−мин. кулдаун экспедиций',
-  rep_cd_hours:           '−ч. кулдаун репутации',
-  coinflip_win_pct:       '+% шанс выигрыша монетки',
-  free_potion_chance:     '+% шанс бесплатного зелья',
-  hp_potion_bonus:        '+HP при использовании зелья',
-  gacha_pity_reduction:   '−броски к гаранту гачи',
-  craft_shard_discount:   '−осколок при крафте',
-  gacha_shard_bonus:      '+шарды в гаче',
-  shield_renewal:         'Авто-обновление щита',
+  mora_drop_chance:        '+% шанс выпадения моры',
+  drop_luck_pct:           '+% удача дропа',
+  atk_bonus:               '+ATK в бою',
+  expedition_cd_minutes:   '−мин. кулдаун экспедиций',
+  rep_cd_hours:            '−ч. кулдаун репутации',
+  xp_bonus_pct:            '+% XP за сообщения',
+  checkin_mora_bonus:      '+мора к ежедневному чекину',
+  bonds_profit_pct:        '+% к прибыли на облигациях',
+  expedition_reward_pct:   '+% к награде экспедиций',
+  free_potion_chance:      '+% шанс бесплатного зелья',
+  hp_potion_bonus:         '+HP при использовании зелья',
+  gacha_pity_reduction:    '−броски к гаранту гачи',
+  craft_shard_discount:    '−осколок при крафте',
+  gacha_shard_bonus:       '+шарды в гаче',
+  bonds_loss_pct:          '−% потери при продаже в убыток',
+  auction_tax_discount:    '−% комиссия аукциона',
+  shield_renewal:          'Авто-обновление щита',
 };
 async function loadTalentsSubtab(force=false){
   if(talentsData && !force){ renderTalentsSubtab(); return; }
@@ -3863,13 +3987,13 @@ function renderTalentsSubtab(){
           const totalEffect = curLvl * t.effect_per_level;
           const talentEmoji = t.emoji || '🎯';
           const talentName = t.name || t.id.replace(/_/g,' ');
-          return `<div style="background:var(--bg3);border:1px solid ${curLvl>0?'rgba(124,106,247,.4)':'var(--border)'};border-radius:12px;padding:10px;text-align:center;display:flex;flex-direction:column;gap:4px">
+          return `<div style="background:var(--bg3);border:1px solid ${curLvl>0?'rgba(124,106,247,.4)':'var(--border)'};border-radius:12px;padding:10px;text-align:center;display:flex;flex-direction:column;gap:4px;cursor:pointer;active:opacity:.8" onclick="showTalentDetail('${t.id}')">
             <div style="font-size:22px;margin-bottom:2px">${maxed?'✨':talentEmoji}</div>
             <div style="font-size:11px;font-weight:700;line-height:1.3">${esc(talentName)}</div>
             <div style="font-size:10px;color:var(--text2);line-height:1.3">${effectLabel}</div>
             ${totalEffect > 0 ? `<div style="font-size:10px;color:#10b981;font-weight:700">+${totalEffect}</div>` : ''}
             <div style="font-size:10px;color:var(--text2)">${curLvl}/${t.max_level}</div>
-            <button class="btn btn-primary btn-sm" style="font-size:10px;padding:4px 6px;margin-top:4px;${canUpgrade?'':'opacity:.4;cursor:not-allowed'}" ${canUpgrade?'':'disabled'} onclick="upgradeTalent('${t.id}')">
+            <button class="btn btn-primary btn-sm" style="font-size:10px;padding:4px 6px;margin-top:4px;${canUpgrade?'':'opacity:.4;cursor:not-allowed'}" ${canUpgrade?'':'disabled'} onclick="event.stopPropagation();upgradeTalent('${t.id}')">
               ${maxed?'✓ MAX':'Прокачать'}
             </button>
           </div>`;
@@ -3900,6 +4024,58 @@ async function upgradeTalent(talentId){
     if(r.ok){
       toast(`⬆️ Талант прокачан! Уровень ${r.new_level}`);
       talentsData = null;
+      loadTalentsSubtab(true);
+    } else {
+      toast('❌ '+(r.message||'Ошибка'),'error');
+    }
+  } catch(e){ toast('❌ '+e.message,'error'); }
+}
+let _tdCurrentId = null;
+function showTalentDetail(talentId){
+  if(!talentsData) return;
+  const {talent_points, talents, tree} = talentsData;
+  const t = tree[talentId]; if(!t) return;
+  _tdCurrentId = talentId;
+  const pts = talent_points||0;
+  const curLvl = (talents||{})[talentId]||0;
+  const maxed = curLvl >= t.max_level;
+
+  // Compute tier unlock
+  const tierTotals = {1:0,2:0,3:0};
+  Object.entries(talents||{}).forEach(([id,lvl]) => { const ti = tree[id]; if(ti) tierTotals[ti.tier]=(tierTotals[ti.tier]||0)+lvl; });
+  const TALENT_TIER_REQ2 = {1:0,2:5,3:12};
+  const req = TALENT_TIER_REQ2[t.tier]||0;
+  const cum = t.tier===3 ? tierTotals[1]+tierTotals[2] : tierTotals[(t.tier||1)-1]||0;
+  const tierUnlocked = t.tier===1 || cum>=req;
+  const canUp = tierUnlocked && !maxed && pts>0;
+  const tierLabels = {1:'⭐ Тир 1 — Базовый',2:'⭐⭐ Тир 2 — Продвинутый',3:'⭐⭐⭐ Тир 3 — Элитный'};
+  const totalEffect = curLvl * t.effect_per_level;
+  const effectLabel = TALENT_EFFECT_LABELS[t.effect_key]||t.effect_key;
+
+  document.getElementById('tdEmoji').textContent = maxed ? '✨' : (t.emoji||'🎯');
+  document.getElementById('tdName').textContent = t.name||talentId;
+  document.getElementById('tdTier').textContent = tierLabels[t.tier]||'';
+  document.getElementById('tdDesc').textContent = t.desc||effectLabel;
+  document.getElementById('tdLevel').textContent = `${curLvl} / ${t.max_level}`;
+  document.getElementById('tdEffectPer').textContent = `+${t.effect_per_level}`;
+  document.getElementById('tdTotal').textContent = totalEffect > 0 ? `+${totalEffect}` : '—';
+  const btn = document.getElementById('tdUpgradeBtn');
+  if(maxed){ btn.textContent='✓ MAX'; btn.disabled=true; btn.style.opacity='.45'; }
+  else if(!tierUnlocked){ btn.textContent='🔒 Тир закрыт'; btn.disabled=true; btn.style.opacity='.45'; }
+  else if(pts<1){ btn.textContent='❌ Нет очков'; btn.disabled=true; btn.style.opacity='.45'; }
+  else { btn.textContent='⬆️ Прокачать'; btn.disabled=false; btn.style.opacity='1'; }
+  document.getElementById('talentDetailModal').classList.add('open');
+}
+function closeTalentModal(){ document.getElementById('talentDetailModal').classList.remove('open'); _tdCurrentId=null; }
+async function upgradeTalentFromModal(){
+  if(!_tdCurrentId) return;
+  const id = _tdCurrentId;
+  try{
+    const r = await api('/api/talents/upgrade','POST',{talent_id:id});
+    if(r.ok){
+      toast(`⬆️ Талант прокачан! Уровень ${r.new_level}`);
+      talentsData = null;
+      closeTalentModal();
       loadTalentsSubtab(true);
     } else {
       toast('❌ '+(r.message||'Ошибка'),'error');
@@ -4053,6 +4229,11 @@ async function toggleEquip(itemId){
     tabLoaded['inventory']=false;
     loadInventory();
   } catch(e){toast('❌ '+e.message,'error')}
+}
+
+function usePetRenameItem(itemId){
+  // Pet rename coupon - open pet tab to use it
+  toast('✏️ Перейди во вкладку Питомец (союз) чтобы переименовать питомца, затем купон применится автоматически','info',4000);
 }
 
 async function sellJunk(){
@@ -4806,6 +4987,11 @@ function flashRarity(rarity){
   el.style.background=cols[rarity]||'#fff';
   el.style.opacity='0.55';
   setTimeout(()=>{ el.style.opacity='0'; }, 180);
+  if(rarity==='legendary'){
+    // Extra burst effect on the overlay background
+    const ov=document.getElementById('gachaOverlay');
+    if(ov){ ov.classList.add('legendary-burst'); setTimeout(()=>ov.classList.remove('legendary-burst'),800); }
+  }
   if(tg&&tg.HapticFeedback){
     if(rarity==='legendary') tg.HapticFeedback.notificationOccurred('success');
     else tg.HapticFeedback.impactOccurred('light');
@@ -6129,14 +6315,15 @@ async function showPubProfile(userId){
       : (p.vip ? '💎' : '👤');
     document.getElementById('pubName').textContent = (p.name||'Игрок')+(p.vip?' 💎':'');
     document.getElementById('pubTitle').textContent = p.custom_title || '';
-    // Online status indicator
+    // Bio display
+    let html = '';
+    if(p.bio){ html += `<div style="font-size:12px;color:var(--text2);font-style:italic;margin-bottom:8px;padding:6px 8px;background:rgba(255,255,255,.04);border-radius:6px;border-left:2px solid var(--accent)">«${esc(p.bio)}»</div>`; }
     const _olDot = document.getElementById('pubOnlineStatus');
     if(_olDot){
       const _ols = p.online_status || 'offline';
       _olDot.className = 'online-dot online-' + _ols;
       _olDot.title = _ols === 'online' ? 'В сети' : _ols === 'recently' ? 'Недавно' : 'Не в сети';
     }
-    let html = '';
     html += `<div class="stat-row"><span class="stat-label">💠 Уровень</span><span class="stat-value">${p.level||1}</span></div>`;
     html += `<div class="stat-row"><span class="stat-label">📊 XP</span><span class="stat-value">${p.xp||0}/${p.xp_max||100}</span></div>`;
     if(p.rpg){
@@ -7030,9 +7217,13 @@ function formatBuffTime(expiresAt) {
 }
 
 function renderCosmeticsInventory(cosmetics, allItems) {
-  const cosmeticItems = cosmetics.concat(allItems.filter(i => i.key.startsWith('junk_') && i.rarity !== 'junk'));
+  // Flair items from gacha (lego_flair_*, pet_rename, etc.) go into invFlairItemsList
+  // so they don't get overwritten by renderInvFramesCosmetics which also uses invCosmeticsList
+  const cosmeticItems = cosmetics.filter(i => !i.key.startsWith('junk_'));
+  const flairEl = document.getElementById('invFlairItemsList');
+  if (!flairEl) { document.getElementById('invCosmeticsList').innerHTML = ''; return; }
   
-  document.getElementById('invCosmeticsList').innerHTML = cosmeticItems.length ? cosmeticItems.map(i => 
+  flairEl.innerHTML = cosmeticItems.length ? '<div class="card" style="padding:14px;margin-bottom:6px"><div class="card-title" style="margin-bottom:10px">✨ Предметы из гачи</div>' + cosmeticItems.map(i => 
     `<div class="inv-item ${canSelectItem(i) ? 'selectable' : ''}" id="item-${i.id}">
       ${canSelectItem(i) ? `<input type="checkbox" class="inv-item-select" onchange="toggleItemSelection(${i.id}, this.checked)">` : ''}
       <div class="ii-emoji">${rarityEmoji(i.rarity)}</div>
@@ -7045,12 +7236,14 @@ function renderCosmeticsInventory(cosmetics, allItems) {
         </div>
         ${i.desc ? `<div style="font-size:10px;color:var(--text2);margin-top:2px;font-style:italic">${esc(i.desc)}</div>` : ''}
       </div>
-      ${!canSelectItem(i) && (i.slot === 'cosmetic' || i.slot === 'flair' || i.key.startsWith('rare_') || i.key.startsWith('lego_flair_')) ? 
-        `<button class="btn btn-sm ${i.equipped?'btn-gold':'btn-primary'}" onclick="toggleEquip(${i.id})" style="width:auto;min-width:68px">
-          ${i.equipped?'✓ Снять':'Надеть'}
-        </button>` : ''}
+      ${i.key === 'pet_rename' ? 
+        `<button class="btn btn-sm btn-primary" onclick="usePetRenameItem(${i.id})" style="width:auto;min-width:68px">✏️ Применить</button>` :
+        (!canSelectItem(i) && (i.slot === 'cosmetic' || i.slot === 'flair' || i.key.startsWith('lego_flair_')) ? 
+          `<button class="btn btn-sm ${i.equipped?'btn-gold':'btn-primary'}" onclick="toggleEquip(${i.id})" style="width:auto;min-width:68px">
+            ${i.equipped?'✓ Снять':'Надеть'}
+          </button>` : '')}
     </div>`
-  ).join('') : '<div style="color:var(--text2);text-align:center;padding:28px"><div style="font-size:36px;margin-bottom:8px">✨</div><div style="font-weight:700;margin-bottom:4px">Нет косметики</div><div style="font-size:12px">Крути гачу — там попадается редкая косметика!</div></div>';
+  ).join('') + '</div>' : '';
   
   updateBatchSellUI();
 }
@@ -7600,6 +7793,9 @@ async function doEnhance(useStone) {
     if (r.success) {
       toast(`✨ Заточка успешна! ${item.name} → +${r.enhancement_level}`, 'success');
       if (tgApp && tgApp.HapticFeedback) tgApp.HapticFeedback.notificationOccurred('success');
+      // Flash animation on the item card
+      const itemEl = document.getElementById('item-'+itemId);
+      if(itemEl){ itemEl.classList.add('enhance-success-anim'); setTimeout(()=>itemEl.classList.remove('enhance-success-anim'),700); }
     } else if (r.enhancement_level < prevLevel) {
       toast(`💔 Неудача! Уровень понижен: +${prevLevel} → +${r.enhancement_level}`, 'error');
       if (tgApp && tgApp.HapticFeedback) tgApp.HapticFeedback.notificationOccurred('error');
@@ -9221,11 +9417,58 @@ function _fmtAchVal(n) {
   return String(n);
 }
 
+function switchAchView(mode, noReload){
+  const myBtn = document.getElementById('achTabMy');
+  const topBtn = document.getElementById('achTabTop');
+  const listEl = document.getElementById('achList');
+  const lbEl = document.getElementById('achGlobalLB');
+  const barWrap = document.getElementById('achProgressBarWrap');
+  if(mode==='top'){
+    if(myBtn) { myBtn.style.background='transparent'; myBtn.style.borderColor='rgba(255,255,255,.1)'; myBtn.style.color='var(--text2)'; }
+    if(topBtn) { topBtn.style.background='rgba(124,106,247,.25)'; topBtn.style.borderColor='rgba(124,106,247,.4)'; topBtn.style.color='var(--accent)'; }
+    if(listEl) listEl.style.display='none';
+    if(barWrap) barWrap.style.display='none';
+    if(lbEl) lbEl.style.display='block';
+    if(!noReload) loadAchLeaderboard();
+  } else {
+    if(myBtn) { myBtn.style.background='rgba(124,106,247,.25)'; myBtn.style.borderColor='rgba(124,106,247,.4)'; myBtn.style.color='var(--accent)'; }
+    if(topBtn) { topBtn.style.background='transparent'; topBtn.style.borderColor='rgba(255,255,255,.1)'; topBtn.style.color='var(--text2)'; }
+    if(listEl) listEl.style.display='block';
+    if(barWrap) barWrap.style.display='block';
+    if(lbEl) lbEl.style.display='none';
+  }
+}
+async function loadAchLeaderboard(){
+  const lbEl = document.getElementById('achGlobalLB');
+  if(!lbEl) return;
+  lbEl.innerHTML = '<div class="loading">⏳ Загрузка лидеров…</div>';
+  try {
+    const r = await api('/api/achievements?chat_id='+chatId+'&mode=leaderboard');
+    const lb = r.leaderboard || [];
+    if(!lb.length){ lbEl.innerHTML='<div style="text-align:center;padding:24px;color:var(--text2);font-size:13px">🏔️ Нет данных</div>'; return; }
+    const medals = ['🥇','🥈','🥉'];
+    lbEl.innerHTML = '<div class="card" style="overflow:hidden;padding:0">' +
+      lb.map((u,i) => {
+        const medal = medals[i] || `<span style="font-size:12px;color:var(--text2);font-weight:700">#${i+1}</span>`;
+        const isMe = u.user_id == uid;
+        return `<div style="display:flex;align-items:center;gap:12px;padding:11px 14px;border-bottom:1px solid var(--border);${isMe?'background:rgba(124,106,247,.08)':''}">
+          <div style="width:28px;text-align:center;font-size:18px">${medal}</div>
+          <div style="flex:1;font-size:13px;font-weight:${isMe?'800':'600'};color:${isMe?'var(--accent)':'var(--text)'}">${esc(u.full_name||'Игрок')}</div>
+          <div style="font-size:13px;font-weight:700;color:var(--gold)">${u.badge_count} 🏅</div>
+        </div>`;
+      }).join('') +
+    '</div>';
+  } catch(e) {
+    lbEl.innerHTML = '<div style="text-align:center;padding:16px;color:#fca5a5;font-size:12px">❌ '+esc(e.message)+'</div>';
+  }
+}
 async function loadAchievementsTab(forceRefresh) {
   const listEl = document.getElementById('achList');
   const progEl = document.getElementById('achProgress');
   const barEl = document.getElementById('achProgressBar');
   if(!forceRefresh) { listEl.innerHTML=''; progEl.textContent='⏳ Загрузка…'; }
+  // Reset to "my" view on refresh
+  switchAchView('my', /*noReload*/true);
   try {
     const r = await api('/api/achievements?chat_id=' + chatId);
     // Show toast for newly auto-awarded achievements

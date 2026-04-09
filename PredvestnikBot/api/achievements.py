@@ -105,11 +105,66 @@ ACHIEVEMENTS: list[dict] = [
     # ─── Сундуки ──────────────────────────────────────────────────────
     {"key": "chest_5",     "title": "Охотник за Сундуками","emoji":"🧳","description": "Открыть 5 сундуков",                "mora": 50,   "xp": 50,   "type": "chests",         "threshold": 5},
     {"key": "chest_25",    "title": "Кладоискатель",    "emoji": "🏴‍☠️","description": "Открыть 25 сундуков",               "mora": 200,  "xp": 200,  "type": "chests",         "threshold": 25},
-    {"key": "chest_100",   "title": "Мастер Клада",     "emoji": "💎",  "description": "Открыть 100 сундуков",               "mora": 800,  "xp": 600,  "type": "chests",         "threshold": 100},
+    {"key": "chest_100",   "title": "Мастер Клада",       "emoji": "💎",  "description": "Открыть 100 сундуков",               "mora": 800,   "xp": 600,   "type": "chests",         "threshold": 100},
+    {"key": "chest_500",   "title": "Охотник за Реликвиями","emoji":"🗝️","description":"Открыть 500 сундуков",                "mora": 3000,  "xp": 2000,  "type": "chests",         "threshold": 500},
     # ─── Общий total_earned ───────────────────────────────────────────
-    {"key": "earned_10k",  "title": "Трудяга",          "emoji": "⛏",  "description": "Заработать 10 000 моры за всё время", "mora": 100,  "xp": 100,  "type": "total_earned",   "threshold": 10000},
-    {"key": "earned_50k",  "title": "Золотая Жила",     "emoji": "⚗️",  "description": "Заработать 50 000 моры за всё время", "mora": 500,  "xp": 400,  "type": "total_earned",   "threshold": 50000},
-    {"key": "earned_250k", "title": "Легенда Экономики","emoji": "🏛",  "description": "Заработать 250 000 моры за всё время","mora": 3000, "xp": 2000, "type": "total_earned",   "threshold": 250000},
+    {"key": "earned_10k",  "title": "Трудяга",            "emoji": "⛏",  "description": "Заработать 10 000 моры за всё время",  "mora": 100,   "xp": 100,   "type": "total_earned",   "threshold": 10000},
+    {"key": "earned_50k",  "title": "Золотая Жила",       "emoji": "⚗️",  "description": "Заработать 50 000 моры за всё время",  "mora": 500,   "xp": 400,   "type": "total_earned",   "threshold": 50000},
+    {"key": "earned_250k", "title": "Легенда Экономики",  "emoji": "🏛",  "description": "Заработать 250 000 моры за всё время", "mora": 3000,  "xp": 2000,  "type": "total_earned",   "threshold": 250000},
+    {"key": "earned_1m",   "title": "Миллионер",          "emoji": "💸",  "description": "Заработать 1 000 000 моры за всё время","mora": 10000, "xp": 7000,  "type": "total_earned",   "threshold": 1000000},
+    {"key": "earned_5m",   "title": "Повелитель Экономики","emoji":"🌍",  "description": "Заработать 5 000 000 моры за всё время","mora": 50000, "xp": 25000, "type": "total_earned",   "threshold": 5000000},
+    # ─── Дополнительные ранги: сообщения ──────────────────────────────────────
+    {"key": "chat_100k",   "title": "Вечный Голос",       "emoji": "🌊",  "description": "Отправить 100 000 сообщений",          "mora": 10000, "xp": 8000,  "type": "messages",       "threshold": 100000},
+    {"key": "chat_250k",   "title": "Бессмертный Оратор",  "emoji": "🔱", "description": "Отправить 250 000 сообщений",          "mora": 25000, "xp": 20000, "type": "messages",       "threshold": 250000},
+    {"key": "chat_500k",   "title": "Хранитель Слова",     "emoji": "📖", "description": "Отправить 500 000 сообщений",          "mora": 75000, "xp": 50000, "type": "messages",       "threshold": 500000},
+    # ─── Дополнительные ранги: уровень ───────────────────────────────────────
+    {"key": "level_150",   "title": "Полубог",            "emoji": "🌟",  "description": "Достичь 150 уровня",                  "mora": 5000,  "xp": 0,     "type": "level",          "threshold": 150},
+    {"key": "level_300",   "title": "Архонт",             "emoji": "🏰",  "description": "Достичь 300 уровня",                  "mora": 15000, "xp": 0,     "type": "level",          "threshold": 300},
+    {"key": "level_500",   "title": "Вечный Предвестник", "emoji": "👁️",  "description": "Достичь 500 уровня",                  "mora": 50000, "xp": 0,     "type": "level",          "threshold": 500},
+    # ─── Дополнительные ранги: гача ──────────────────────────────────────────
+    {"key": "gacha_2500",  "title": "Поглощённый Пустотой","emoji":"🌌",  "description": "Сделать 2 500 круток гачи",            "mora": 5000,  "xp": 3000,  "type": "gacha_rolls",    "threshold": 2500},
+    {"key": "gacha_5000",  "title": "Сам Пустота",        "emoji": "♾️",  "description": "Сделать 5 000 круток гачи",            "mora": 20000, "xp": 10000, "type": "gacha_rolls",    "threshold": 5000},
+    # ─── Дополнительные ранги: урон боссу ────────────────────────────────────
+    {"key": "boss_1m",     "title": "Разрушитель Миров",  "emoji": "💥",  "description": "Нанести 1 000 000 урона боссам",       "mora": 8000,  "xp": 5000,  "type": "boss_damage",    "threshold": 1000000},
+    {"key": "boss_3m",     "title": "Первичная Сила",     "emoji": "🌀",  "description": "Нанести 3 000 000 урона боссам",       "mora": 20000, "xp": 12000, "type": "boss_damage",    "threshold": 3000000},
+    {"key": "boss_10m",    "title": "Воплощение Хаоса",   "emoji": "👹",  "description": "Нанести 10 000 000 урона боссам",      "mora": 75000, "xp": 40000, "type": "boss_damage",    "threshold": 10000000},
+    # ─── Дополнительные ранги: стрик чекина ──────────────────────────────────
+    {"key": "streak_200",  "title": "Несгибаемый",        "emoji": "🔩",  "description": "Чекин 200 дней подряд",               "mora": 5000,  "xp": 3000,  "type": "checkin_streak", "threshold": 200},
+    {"key": "streak_365",  "title": "Хранитель Года",     "emoji": "🎖️",  "description": "Чекин 365 дней подряд",               "mora": 20000, "xp": 10000, "type": "checkin_streak", "threshold": 365},
+    # ─── Дополнительные ранги: монетка ───────────────────────────────────────
+    {"key": "coin_1000",   "title": "Хозяин Монеты",      "emoji": "🌕",  "description": "Сыграть в монетку 1 000 раз",          "mora": 2000,  "xp": 1200,  "type": "coinflip",       "threshold": 1000},
+    {"key": "coin_2500",   "title": "Вечный Игрок",       "emoji": "⏳",  "description": "Сыграть в монетку 2 500 раз",          "mora": 8000,  "xp": 4000,  "type": "coinflip",       "threshold": 2500},
+    # ─── Дополнительные ранги: рулетка ───────────────────────────────────────
+    {"key": "roulette_1000","title": "Мастер Удачи",      "emoji": "🎰",  "description": "Сыграть 1 000 раз в рулетку",          "mora": 5000,  "xp": 3000,  "type": "roulette",       "threshold": 1000},
+    {"key": "roulette_2500","title": "Вечный Крупье",     "emoji": "👑",  "description": "Сыграть 2 500 раз в рулетку",          "mora": 15000, "xp": 8000,  "type": "roulette",       "threshold": 2500},
+    # ─── Дополнительные ранги: экспедиции ────────────────────────────────────
+    {"key": "exped_200",   "title": "Мастер Странствий",  "emoji": "🌍",  "description": "Отправить 200 экспедиций",             "mora": 3000,  "xp": 2000,  "type": "expeditions",    "threshold": 200},
+    {"key": "exped_500",   "title": "Властелин Путей",    "emoji": "🗺️",  "description": "Отправить 500 экспедиций",             "mora": 10000, "xp": 6000,  "type": "expeditions",    "threshold": 500},
+    {"key": "exped_1000",  "title": "Вечный Странник",    "emoji": "🌌",  "description": "Отправить 1 000 экспедиций",           "mora": 30000, "xp": 18000, "type": "expeditions",    "threshold": 1000},
+    # ─── Дополнительные ранги: богатство ─────────────────────────────────────
+    {"key": "mora_500k",   "title": "Архив Богатства",    "emoji": "🏦",  "description": "Накопить 500 000 моры",                "mora": 5000,  "xp": 3000,  "type": "mora_balance",   "threshold": 500000},
+    {"key": "mora_1m",     "title": "Повелитель Моры",    "emoji": "💰",  "description": "Накопить 1 000 000 моры",              "mora": 20000, "xp": 10000, "type": "mora_balance",   "threshold": 1000000},
+    # ─── Дополнительные ранги: облигации ─────────────────────────────────────
+    {"key": "bonds_500",   "title": "Волшебник Биржи",    "emoji": "🧙",  "description": "Совершить 500 сделок с облигациями",   "mora": 12000, "xp": 7000,  "type": "bond_trades",    "threshold": 500},
+    {"key": "bonds_1000",  "title": "Легенда Биржи",      "emoji": "🌠",  "description": "Совершить 1 000 сделок с облигациями", "mora": 35000, "xp": 18000, "type": "bond_trades",    "threshold": 1000},
+    # ─── Дополнительные ранги: шпионаж ───────────────────────────────────────
+    {"key": "spy_50",      "title": "Призрак",            "emoji": "👻",  "description": "Провести 50 шпионских миссий",         "mora": 1000,  "xp": 800,   "type": "spy_missions",   "threshold": 50},
+    {"key": "spy_100",     "title": "Оперативный Аналитик","emoji": "🦅", "description": "Провести 100 шпионских миссий",        "mora": 3000,  "xp": 2000,  "type": "spy_missions",   "threshold": 100},
+    {"key": "spy_250",     "title": "Архитектор Теней",   "emoji": "🌑",  "description": "Провести 250 шпионских миссий",        "mora": 12000, "xp": 8000,  "type": "spy_missions",   "threshold": 250},
+    # ─── Дополнительные ранги: репутация ──────────────────────────────────────
+    {"key": "rep_250",     "title": "Столп Общества",     "emoji": "🏛️",  "description": "Дать репутацию 250 игрокам",           "mora": 1000,  "xp": 700,   "type": "rep_given",      "threshold": 250},
+    {"key": "rep_500",     "title": "Живой Орден",        "emoji": "⚜️",  "description": "Дать репутацию 500 игрокам",           "mora": 4000,  "xp": 2500,  "type": "rep_given",      "threshold": 500},
+    # ─── Дополнительные ранги: переводы ──────────────────────────────────────
+    {"key": "transfer_100","title": "Щедрый Архонт",      "emoji": "✨",  "description": "Совершить 100 переводов моры",         "mora": 1000,  "xp": 700,   "type": "transfers",      "threshold": 100},
+    {"key": "transfer_500","title": "Поток Моры",         "emoji": "🌊",  "description": "Совершить 500 переводов моры",         "mora": 6000,  "xp": 4000,  "type": "transfers",      "threshold": 500},
+    # ─── Дополнительные ранги: аукцион ───────────────────────────────────────
+    {"key": "sell_50",     "title": "Оптовик",            "emoji": "📦",  "description": "Продать 50 лотов на аукционе",         "mora": 1000,  "xp": 600,   "type": "auction_sell",   "threshold": 50},
+    {"key": "sell_100",    "title": "Торговый Барон",     "emoji": "💼",  "description": "Продать 100 лотов на аукционе",        "mora": 3000,  "xp": 1800,  "type": "auction_sell",   "threshold": 100},
+    {"key": "win_25",      "title": "Мастер Торгов",      "emoji": "🔨",  "description": "Выиграть 25 аукционов",                "mora": 800,   "xp": 500,   "type": "auction_win",    "threshold": 25},
+    {"key": "win_50",      "title": "Легенда Аукциона",   "emoji": "🏆",  "description": "Выиграть 50 аукционов",                "mora": 2500,  "xp": 1500,  "type": "auction_win",    "threshold": 50},
+    # ─── Вклады (дополнительно) ───────────────────────────────────────────────
+    {"key": "deposit_25",  "title": "Опытный Вкладчик",   "emoji": "🏧",  "description": "Открыть 25 банковских вкладов",        "mora": 600,   "xp": 400,   "type": "deposits",       "threshold": 25},
+    {"key": "deposit_50",  "title": "Банкир",             "emoji": "🏦",  "description": "Открыть 50 банковских вкладов",        "mora": 2000,  "xp": 1200,  "type": "deposits",       "threshold": 50},
 ]
 
 # быстрый dict для поиска по ключу
@@ -613,3 +668,27 @@ async def get_all_achievements_with_status(user_id: int, chat_id: int) -> dict:
         "total_ranks": total_ranks,
         "newly_awarded": newly_awarded,
     }
+
+
+async def get_global_achievements_leaderboard(chat_id: int, limit: int = 20) -> list[dict]:
+    """Return top users by unlocked achievement count in the given chat."""
+    from database.postgres import connect as postgres_connect
+    try:
+        async with postgres_connect() as db:
+            rows = await db.fetch(
+                """SELECT ub.user_id, COUNT(ub.badge_key) AS badge_count,
+                          u.full_name
+                   FROM user_badges ub
+                   LEFT JOIN users u ON u.user_id = ub.user_id
+                   WHERE ub.chat_id = ?
+                   GROUP BY ub.user_id, u.full_name
+                   ORDER BY badge_count DESC
+                   LIMIT ?""",
+                (chat_id, limit),
+            )
+        return [
+            {"user_id": r["user_id"], "full_name": r["full_name"] or f"user_{r['user_id']}", "badge_count": int(r["badge_count"])}
+            for r in rows
+        ]
+    except Exception:
+        return []
