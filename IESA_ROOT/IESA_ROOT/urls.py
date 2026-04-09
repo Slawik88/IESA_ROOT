@@ -105,6 +105,7 @@ from .miniapp_views import (
     miniapp_settings_local,
     miniapp_settings_global,
     miniapp_chat_tags,
+    miniapp_tag_definitions,
 )
 
 # Переопределить стандартный админ на кастомный
@@ -284,6 +285,7 @@ urlpatterns = [
     path('api/settings/global', miniapp_settings_global, name='miniapp_settings_global'),
     # ─── Chat Tags / Теги пользователей ──────────────────────────────────────
     path('api/chat_tags', miniapp_chat_tags, name='miniapp_chat_tags'),
+    path('api/tag_definitions', miniapp_tag_definitions, name='miniapp_tag_definitions'),
     # ──────────────────────────────────────────────────────────────────────────
     path('protected/<path:file_path>', serve_protected_media, name='serve_protected_media'),
     

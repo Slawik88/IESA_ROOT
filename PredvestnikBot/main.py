@@ -27,6 +27,7 @@ from handlers import (admin, auto_mod, bank, boss, casino, checkin, dev_panel, d
                      moderator, notes, owner, pets, quests, reputation,
                      shop, stars, tax_event, user, wallet, weather)
 from handlers import auction as auction_handler
+from handlers import join_flow
 
 # basicConfig already called by setup_logging() above — no-op duplication guard removed
 
@@ -118,6 +119,7 @@ async def main():
     dp.include_router(dev_panel.router)    # панель разработчика
     dp.include_router(shop.router)         # магазин
     dp.include_router(stars.router)        # Telegram Stars (кристаллы)
+    dp.include_router(join_flow.router)    # вступление по тегам (deep link перед dm_roles)
     dp.include_router(gifts.router)        # подарки партнёру
     dp.include_router(tax_event.router)    # налоговая инспекция
     dp.include_router(weather.router)      # погода

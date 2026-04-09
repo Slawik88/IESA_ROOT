@@ -7465,6 +7465,83 @@ def miniapp_chat_tags(request):
     return JsonResponse({"error": "Method not allowed"}, status=405, headers=headers)
 
 
+# ─── Tag Definitions ─────────────────────────────────────────────────────────
+
+@csrf_exempt
+def miniapp_tag_definitions(request):
+    """
+    GET    /api/tag_definitions?chat_id=X       → list all tag definitions with holder info
+    POST   /api/tag_definitions  {chat_id, name, description, color, emoji}  → create (co_owner+)
+    PATCH  /api/tag_definitions  {chat_id, name, description, color, emoji}  → update (co_owner+)
+    DELETE /api/tag_definitions  {chat_id, name}                             → delete (co_owner+)
+    """
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+
+    import sys as _sys, os as _os
+    _sys.path.insert(0, _os.path.join(_os.path.dirname(__file__), '..', '..', 'PredvestnikBot'))
+    import importlib as _importlib
+    _db = _importlib.import_module("database.db")
+    from asgiref.sync import async_to_sync as _a2s
+
+    if request.method == "GET":
+        try:
+            chat_id = int(request.GET.get("chat_id", 0) or 0)
+            if not chat_id:
+                return JsonResponse({"error": "chat_id required"}, status=400, headers=headers)
+            defs = _a2s(_db.get_tag_definitions)(chat_id)
+            return JsonResponse({"ok": True, "definitions": defs}, headers=headers)
+        except Exception:
+            logger.exception("miniapp_tag_definitions GET error")
+            return JsonResponse({"error": "Internal error"}, status=500, headers=headers)
+
+    if request.method in ("POST", "PATCH", "DELETE"):
+        try:
+            body = json.loads(request.body)
+            chat_id = int(body.get("chat_id") or 0)
+            if not chat_id:
+                return JsonResponse({"error": "chat_id required"}, status=400, headers=headers)
+
+            # Require co_owner+ rank
+            caller_rank, rank_err = _check_rank(uid, chat_id, "co_owner", headers)
+            if rank_err:
+                return rank_err
+
+            if request.method == "DELETE":
+                name = str(body.get("name") or "").strip()
+                if not name:
+                    return JsonResponse({"error": "name required"}, status=400, headers=headers)
+                deleted = _a2s(_db.delete_tag_definition)(chat_id, name)
+                return JsonResponse({"ok": True, "deleted": deleted}, headers=headers)
+
+            name = str(body.get("name") or "").strip()
+            if not name:
+                return JsonResponse({"error": "name required"}, status=400, headers=headers)
+            description = str(body.get("description") or "").strip()
+            color = str(body.get("color") or "#7c6af7").strip()
+            emoji = str(body.get("emoji") or "").strip()
+
+            if request.method == "POST":
+                new_id = _a2s(_db.create_tag_definition)(chat_id, name, description, color, emoji, uid)
+                if new_id is None:
+                    return JsonResponse({"error": "Тег с таким именем уже существует"}, status=409, headers=headers)
+                return JsonResponse({"ok": True, "id": new_id, "name": name}, headers=headers)
+
+            if request.method == "PATCH":
+                updated = _a2s(_db.update_tag_definition)(chat_id, name, description, color, emoji)
+                return JsonResponse({"ok": True, "updated": updated}, headers=headers)
+
+        except Exception:
+            logger.exception("miniapp_tag_definitions POST/PATCH/DELETE error")
+            return JsonResponse({"error": "Internal error"}, status=500, headers=headers)
+
+    return JsonResponse({"error": "Method not allowed"}, status=405, headers=headers)
+
+
 # ─── Save avatar URL ──────────────────────────────────────────────────────────
 
 @csrf_exempt

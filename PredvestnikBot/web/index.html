@@ -760,6 +760,10 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;
   padding:2px 7px;border-radius:10px;margin-left:6px;vertical-align:middle;opacity:.85}
 .rank-chip-dev{background:rgba(239,68,68,.12);color:#f87171;border:1px solid rgba(239,68,68,.25)}
 .rank-chip-owner{background:rgba(244,197,66,.1);color:#f4c542;border:1px solid rgba(244,197,66,.2)}
+.rank-chip-coowner{background:rgba(20,184,166,.12);color:#2dd4bf;border:1px solid rgba(20,184,166,.25)}
+.rank-chip-senior{background:rgba(59,130,246,.12);color:#60a5fa;border:1px solid rgba(59,130,246,.25)}
+.rank-chip-junior{background:rgba(99,102,241,.10);color:#818cf8;border:1px solid rgba(99,102,241,.2)}
+.rank-chip-mod{background:rgba(34,197,94,.1);color:#4ade80;border:1px solid rgba(34,197,94,.2)}
 .rank-chip-all{background:rgba(124,106,247,.1);color:#a78bfa;border:1px solid rgba(124,106,247,.2)}
 
 /* ── Entrance splash ──────────────────────────────────────────────────────── */
@@ -2661,7 +2665,7 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;
 
   <!-- ⚙️ Local chat settings (feature toggles) -->
   <div class="card" id="settingsLocalCard">
-    <div class="card-title">⚙️ Настройки чата</div>
+    <div class="card-title">⚙️ Настройки чата<span class="rank-chip rank-chip-mod">🛡 Мод.+</span></div>
     <div id="settingsLocalLoading" style="text-align:center;color:var(--text2);font-size:13px;padding:12px">⏳ Загрузка…</div>
     <div id="settingsLocalGrid" style="display:none"></div>
     <div id="settingsLocalMsg" style="font-size:12px;min-height:18px;margin-top:6px"></div>
@@ -2669,14 +2673,54 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;
 
   <!-- 🏷 Chat tags -->
   <div class="card" id="settingsTagsCard">
-    <div class="card-title">🏷 Теги участников</div>
-    <div style="font-size:11px;color:var(--text2);margin-bottom:8px">Роли/метки возле ника в чате. Доступно модератору+</div>
-    <div style="display:flex;gap:6px;margin-bottom:8px">
-      <input type="text" id="tagUserSearch" placeholder="User ID или @username" style="flex:1;background:var(--bg3,var(--card));color:var(--text);border:1px solid var(--border);border-radius:8px;padding:7px 10px;font-size:13px">
-      <input type="text" id="tagValue" placeholder="Тег (роль)" style="flex:1;background:var(--bg3,var(--card));color:var(--text);border:1px solid var(--border);border-radius:8px;padding:7px 10px;font-size:13px">
-      <button class="btn btn-primary" onclick="setTag()" style="flex:0 0 auto;font-size:13px">💾</button>
+    <div class="card-title">🏷 Теги участников<span class="rank-chip rank-chip-coowner">🔑 Совлад.+</span></div>
+
+    <!-- Catalogue of tag definitions -->
+    <div style="font-size:12px;color:var(--text2);margin-bottom:8px">Каталог тегов — свободные/занятые. Выберите тег при вступлении через ссылку.</div>
+    <div id="tagDefsGrid" style="display:grid;gap:6px;margin-bottom:12px">
+      <div style="color:var(--text2);font-size:12px;padding:6px">⏳ Загрузка…</div>
     </div>
-    <div id="tagsGrid" style="display:grid;gap:4px;max-height:300px;overflow-y:auto"></div>
+
+    <!-- Create/Edit tag (co_owner+) -->
+    <div id="tagCreateSection" style="display:none;border-top:1px solid var(--border);padding-top:12px;margin-top:4px">
+      <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px">Создать тег</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px">
+        <input type="text" id="newTagName" placeholder="Название (макс. 30)" maxlength="30"
+          style="background:var(--bg3,var(--card));color:var(--text);border:1px solid var(--border);border-radius:8px;padding:7px 10px;font-size:13px">
+        <input type="text" id="newTagEmoji" placeholder="Эмодзи (необяз.)" maxlength="8"
+          style="background:var(--bg3,var(--card));color:var(--text);border:1px solid var(--border);border-radius:8px;padding:7px 10px;font-size:13px">
+      </div>
+      <input type="text" id="newTagDesc" placeholder="Описание (необяз.)" maxlength="200"
+        style="width:100%;box-sizing:border-box;background:var(--bg3,var(--card));color:var(--text);border:1px solid var(--border);border-radius:8px;padding:7px 10px;font-size:13px;margin-bottom:6px">
+      <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
+        <label style="font-size:12px;color:var(--text2)">Цвет:</label>
+        <input type="color" id="newTagColor" value="#7c6af7"
+          style="width:36px;height:28px;border:none;border-radius:6px;cursor:pointer;background:none">
+        <span id="newTagColorHex" style="font-size:12px;color:var(--text2)">#7c6af7</span>
+      </div>
+      <button class="btn btn-primary" onclick="createTagDef()" style="width:100%">➕ Создать тег</button>
+      <div id="tagCreateMsg" style="font-size:12px;min-height:16px;margin-top:6px"></div>
+    </div>
+
+    <!-- Join link (co_owner+) -->
+    <div id="tagJoinLinkSection" style="display:none;border-top:1px solid var(--border);padding-top:12px;margin-top:4px">
+      <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px">Ссылка вступления</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:8px">Поделитесь ссылкой — пользователи выберут тег и подадут заявку.</div>
+      <button class="btn" onclick="copyJoinLink()" style="width:100%;background:rgba(124,106,247,.12);border:1px solid rgba(124,106,247,.25);color:var(--accent)">📋 Скопировать ссылку вступления</button>
+      <div id="tagJoinLinkMsg" style="font-size:12px;min-height:16px;margin-top:6px;text-align:center"></div>
+    </div>
+
+    <!-- Separator -->
+    <div style="border-top:1px solid var(--border);padding-top:12px;margin-top:8px">
+      <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px">Прямое назначение тега<span class="rank-chip rank-chip-mod" style="margin-left:6px">🛡 Мод.+</span></div>
+      <div style="display:flex;gap:6px;margin-bottom:8px">
+        <input type="text" id="tagUserSearch" placeholder="User ID или @username" style="flex:1;background:var(--bg3,var(--card));color:var(--text);border:1px solid var(--border);border-radius:8px;padding:7px 10px;font-size:13px">
+        <input type="text" id="tagValue" placeholder="Имя тега" style="flex:1;background:var(--bg3,var(--card));color:var(--text);border:1px solid var(--border);border-radius:8px;padding:7px 10px;font-size:13px">
+        <button class="btn btn-primary" onclick="setTag()" style="flex:0 0 auto;font-size:13px">💾</button>
+      </div>
+      <div id="tagsGrid" style="display:grid;gap:4px;max-height:220px;overflow-y:auto"></div>
+    </div>
+
     <div id="tagsMsg" style="font-size:12px;min-height:18px;margin-top:6px"></div>
   </div>
 
@@ -7286,6 +7330,10 @@ const _SETTINGS_RANK_NAMES = {
   user:'👤 Участник', moderator:'🛡 Модератор', admin_junior:'⚡ Мл.Админ',
   admin_senior:'🔱 Ст.Админ', co_owner:'⭐ Со-владелец', owner:'👑 Владелец', developer:'💻 Разработчик'
 };
+const _SETTINGS_RANK_CHIP_CLASS = {
+  user:'rank-chip-all', moderator:'rank-chip-mod', admin_junior:'rank-chip-junior',
+  admin_senior:'rank-chip-senior', co_owner:'rank-chip-coowner', owner:'rank-chip-owner', developer:'rank-chip-dev'
+};
 const _GLOBAL_LABELS = {
   maintenance_mode: {label:'🔧 Техобслуживание', type:'toggle'},
   announcement:     {label:'📢 Объявление', type:'text'},
@@ -7311,6 +7359,12 @@ async function loadSettingsTab(){
 
   // Load tags
   loadChatTags();
+  loadTagDefinitions();
+  // Show/hide co_owner+ sections in tags card
+  const isCoOwner = (_SETTINGS_RANK_LEVELS[_settingsUserRank]||0) >= 4;
+  const el = id=>document.getElementById(id);
+  if(el('tagCreateSection')) el('tagCreateSection').style.display = isCoOwner ? '' : 'none';
+  if(el('tagJoinLinkSection')) el('tagJoinLinkSection').style.display = isCoOwner ? '' : 'none';
 
   // Global settings (developer only)
   if(profileData && (profileData.rank==='developer'||profileData.is_dev||uid===DEV_UID)){
@@ -7335,11 +7389,12 @@ function renderLocalSettings(settings, userRank, rankMap){
     const opacity = allowed ? '1' : '0.5';
     const cursor = allowed ? 'cursor:pointer' : 'cursor:not-allowed';
     const reqLabel = _SETTINGS_RANK_NAMES[reqRank] || reqRank;
+    const chipClass = _SETTINGS_RANK_CHIP_CLASS[reqRank] || 'rank-chip-all';
 
     html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);opacity:${opacity}">
       <div>
         <span style="font-size:13px">${meta.label}${lockIcon}</span>
-        ${!allowed ? `<div style="font-size:10px;color:var(--text2)">Требуется: ${reqLabel}</div>` : ''}
+        <span class="rank-chip ${chipClass}" style="font-size:10px;margin-left:6px;vertical-align:middle">${reqLabel}</span>
       </div>
       <div class="stog" data-key="${key}" data-val="${isOn?'1':'0'}" data-allowed="${allowed?'1':'0'}"
            style="background:${isOn?'#4ade80':'#475569'};width:44px;height:24px;border-radius:12px;position:relative;${cursor};flex-shrink:0"
@@ -7386,12 +7441,11 @@ async function toggleLocalSetting(el){
 // ── Chat Tags ─────────────────────────────────────────────────────────────────
 async function loadChatTags(){
   const grid = document.getElementById('tagsGrid');
-  const msg = document.getElementById('tagsMsg');
   try {
     const r = await api('/api/chat_tags?chat_id='+chatId);
     const tags = r.tags || [];
     if(!tags.length){
-      grid.innerHTML='<div style="color:var(--text2);font-size:12px;padding:6px">Тегов пока нет</div>';
+      grid.innerHTML='<div style="color:var(--text2);font-size:12px;padding:6px">Никому тег не назначен</div>';
       return;
     }
     grid.innerHTML = tags.map(t=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border)">
@@ -7405,6 +7459,98 @@ async function loadChatTags(){
     grid.innerHTML=`<div style="color:#f87171;font-size:12px">❌ ${esc(e.message)}</div>`;
   }
 }
+
+async function loadTagDefinitions(){
+  const grid = document.getElementById('tagDefsGrid');
+  try {
+    const r = await api('/api/tag_definitions?chat_id='+chatId);
+    const defs = r.definitions || [];
+    if(!defs.length){
+      grid.innerHTML='<div style="color:var(--text2);font-size:12px;padding:6px">Теги ещё не созданы. Создайте первый тег ниже.</div>';
+      return;
+    }
+    grid.innerHTML = defs.map(d=>{
+      const free = !d.holder_user_id;
+      const color = d.color || '#7c6af7';
+      const emoji = d.emoji ? d.emoji+' ' : '';
+      const badge = free
+        ? '<span style="font-size:10px;font-weight:700;background:rgba(34,197,94,.15);color:#4ade80;border:1px solid rgba(34,197,94,.3);border-radius:8px;padding:2px 7px">🟢 Свободен</span>'
+        : `<span style="font-size:10px;font-weight:700;background:rgba(239,68,68,.12);color:#f87171;border:1px solid rgba(239,68,68,.25);border-radius:8px;padding:2px 7px">🔴 ${esc(d.holder_name||'Занят')}</span>`;
+      const delBtn = (_SETTINGS_RANK_LEVELS[_settingsUserRank]||0) >= 4
+        ? `<button onclick="deleteTagDef('${esc(d.name)}')" style="background:none;border:none;color:#f87171;cursor:pointer;font-size:14px;padding:2px 4px" title="Удалить тег">🗑</button>` : '';
+      return `<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:10px;border-left:3px solid ${esc(color)};background:rgba(255,255,255,.03)">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:700">${emoji}${esc(d.name)}</div>
+          ${d.description?`<div style="font-size:11px;color:var(--text2);margin-top:2px">${esc(d.description)}</div>`:''}
+        </div>
+        ${badge}
+        ${delBtn}
+      </div>`;
+    }).join('');
+  } catch(e) {
+    grid.innerHTML=`<div style="color:#f87171;font-size:12px">❌ ${esc(e.message)}</div>`;
+  }
+}
+
+async function createTagDef(){
+  const name = document.getElementById('newTagName').value.trim();
+  const emoji = document.getElementById('newTagEmoji').value.trim();
+  const desc  = document.getElementById('newTagDesc').value.trim();
+  const color = document.getElementById('newTagColor').value || '#7c6af7';
+  const msg   = document.getElementById('tagCreateMsg');
+  if(!name){toast('Введи название тега','error');return;}
+  try {
+    await api('/api/tag_definitions','POST',{chat_id:chatId, name, description:desc, color, emoji});
+    msg.style.color='#4ade80';
+    msg.textContent='✅ Тег создан!';
+    document.getElementById('newTagName').value='';
+    document.getElementById('newTagEmoji').value='';
+    document.getElementById('newTagDesc').value='';
+    loadTagDefinitions();
+    setTimeout(()=>{msg.textContent=''},3000);
+  } catch(e) {
+    msg.style.color='#f87171';
+    msg.textContent='❌ '+e.message;
+  }
+}
+
+async function deleteTagDef(name){
+  if(!confirm(`Удалить тег «${name}»?`))return;
+  try {
+    await api('/api/tag_definitions','DELETE',{chat_id:chatId, name});
+    toast('✅ Тег удалён','success');
+    loadTagDefinitions();
+    loadChatTags();
+  } catch(e) {
+    toast('❌ '+e.message,'error');
+  }
+}
+
+function copyJoinLink(){
+  const BOT_USERNAME = 'IIIPredvestnikIIIBot';
+  const link = `https://t.me/${BOT_USERNAME}?start=join_${chatId}`;
+  const msg = document.getElementById('tagJoinLinkMsg');
+  if(navigator.clipboard){
+    navigator.clipboard.writeText(link).then(()=>{
+      msg.style.color='#4ade80';
+      msg.textContent='✅ Скопировано: '+link;
+      setTimeout(()=>{msg.textContent=''},5000);
+    }).catch(()=>{
+      msg.style.color='var(--text2)';
+      msg.textContent=link;
+    });
+  } else {
+    msg.style.color='var(--text2)';
+    msg.textContent=link;
+  }
+}
+
+// ── init color picker hex preview
+document.addEventListener('DOMContentLoaded',()=>{
+  const cp = document.getElementById('newTagColor');
+  const hex = document.getElementById('newTagColorHex');
+  if(cp && hex) cp.addEventListener('input',()=>{hex.textContent=cp.value;});
+});
 
 async function setTag(){
   const userInput = document.getElementById('tagUserSearch').value.trim();
