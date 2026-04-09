@@ -399,7 +399,7 @@ async def cmd_cleanup_config(message: Message, cmd_args: str):
 
 @router.message(BotCommand("казна дать", "treasury give", "казна выдать"))
 async def cmd_treasury_give(message: Message, cmd_args: str):
-    """Выдать мору из казны пользователю. Доступно owner+ и developer."""
+    """Выдать мору из казны пользователю. Доступно co_owner+ и developer."""
     from database.db import get_user_stats as _gs
     from database.postgres import connect as postgres_connect
     from utils.ranks import rank_level as _rl
@@ -414,8 +414,8 @@ async def cmd_treasury_give(message: Message, cmd_args: str):
     if not _dev_only(uid):
         stats = await _gs(uid, chat_id)
         rank = stats["rank"] if stats else "user"
-        if _rl(rank) < _rl("owner"):
-            await message.answer("🔒 Только Владелец и Разработчик могут управлять казной.")
+        if _rl(rank) < _rl("co_owner"):
+            await message.answer("🔒 Только Совладелец, Владелец и Разработчик могут управлять казной.")
             return
 
     target_id, target_name, rest = await resolve_target(message, cmd_args or "")
@@ -471,7 +471,7 @@ async def cmd_treasury_give(message: Message, cmd_args: str):
 
 @router.message(BotCommand("казна забрать", "treasury take", "казна собрать"))
 async def cmd_treasury_take(message: Message, cmd_args: str):
-    """Забрать мору у пользователя в казну. Доступно owner+ и developer."""
+    """Забрать мору у пользователя в казну. Доступно co_owner+ и developer."""
     from database.db import get_user_stats as _gs
     from database.postgres import connect as postgres_connect
     from utils.ranks import rank_level as _rl
@@ -486,8 +486,8 @@ async def cmd_treasury_take(message: Message, cmd_args: str):
     if not _dev_only(uid):
         stats = await _gs(uid, chat_id)
         rank = stats["rank"] if stats else "user"
-        if _rl(rank) < _rl("owner"):
-            await message.answer("🔒 Только Владелец и Разработчик могут управлять казной.")
+        if _rl(rank) < _rl("co_owner"):
+            await message.answer("🔒 Только Совладелец, Владелец и Разработчик могут управлять казной.")
             return
 
     target_id, target_name, rest = await resolve_target(message, cmd_args or "")

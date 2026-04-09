@@ -65,6 +65,8 @@ async def cmd_coin(message: Message, cmd_args: str):
     from filters.feature_flag import feature_enabled
     if not await feature_enabled(message, "casino"):
         return
+    if not await feature_enabled(message, "coin_flip"):
+        return
 
     arg = (cmd_args or "").strip()
     if not arg.isdigit() or int(arg) <= 0:

@@ -279,6 +279,13 @@ async def init_db():
             "feat_random_events INTEGER DEFAULT 1",
             # bot_disabled=1 → bot is completely silent in this chat
             "bot_disabled       INTEGER DEFAULT 0",
+            # ── Granular game toggles (Block 2 settings refactor) ────────
+            "feat_roulette     INTEGER DEFAULT 1",
+            "feat_chest        INTEGER DEFAULT 1",
+            "feat_coin_flip    INTEGER DEFAULT 1",
+            "feat_xp_gain      INTEGER DEFAULT 1",
+            "feat_auto_welcome INTEGER DEFAULT 1",
+            "antiflood_mode    TEXT    DEFAULT 'soft'",
         ]:
             try:
                 await db.execute(
@@ -329,6 +336,28 @@ async def init_db():
             CREATE TABLE IF NOT EXISTS miniapp_online (
                 user_id    BIGINT PRIMARY KEY,
                 last_seen  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """)
+
+        # ── Глобальные настройки бота (key-value) ─────────────────────────────
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS global_settings (
+                key        TEXT PRIMARY KEY,
+                value      TEXT NOT NULL DEFAULT '',
+                updated_by BIGINT DEFAULT 0,
+                updated_at TIMESTAMPTZ DEFAULT NOW()
+            )
+        """)
+
+        # ── Теги (роли) пользователей в чатах ─────────────────────────────────
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS chat_tags (
+                user_id BIGINT NOT NULL,
+                chat_id BIGINT NOT NULL,
+                tag     TEXT   NOT NULL DEFAULT '',
+                set_by  BIGINT DEFAULT 0,
+                set_at  TIMESTAMPTZ DEFAULT NOW(),
+                PRIMARY KEY (user_id, chat_id)
             )
         """)
 
@@ -2314,15 +2343,6 @@ async def import_users_bulk(records: list[dict], chat_id: int) -> dict:
     return {"ok_direct": ok_direct, "ok_pending": ok_pending, "errors": errors}
 
 
-async def increment_message_count(user_id: int):
-    async with postgres_connect() as db:
-        await db.execute(
-            "UPDATE users SET message_count = message_count + 1 WHERE user_id = ?",
-            (user_id,),
-        )
-        await db.commit()
-
-
 # ─── Pending imports ───────────────────────────────────────────────────────────────────────
 
 async def store_pending_users(records: list[dict], chat_id: int) -> dict:
@@ -2535,6 +2555,9 @@ _ALLOWED_CHAT_SETTING_KEYS = {
     "feat_website", "feat_antispam", "feat_marriages",
     "feat_pets", "feat_casino", "feat_random_events",
     "bot_disabled",
+    # Granular game toggles (Block 2)
+    "feat_roulette", "feat_chest", "feat_coin_flip",
+    "feat_xp_gain", "feat_auto_welcome", "antiflood_mode",
 }
 _ALLOWED_LOCK_TYPES = {"links", "stickers", "gifs", "forwards", "voice", "video", "photo", "audio"}
 
@@ -2560,6 +2583,112 @@ async def get_locked_chats() -> list[int]:
             "SELECT chat_id FROM chat_settings WHERE cleanup_locked = 1"
         ) as c:
             return [r[0] for r in await c.fetchall()]
+
+
+# ─── Global Settings (bot-wide key-value) ─────────────────────────────────────
+
+_global_settings_cache: dict[str, tuple[float, str]] = {}
+_GLOBAL_SETTINGS_TTL = 30.0  # seconds
+
+
+async def get_global_setting(key: str, default: str = "") -> str:
+    """Get a single global setting by key (with TTL cache)."""
+    now = _time.monotonic()
+    cached = _global_settings_cache.get(key)
+    if cached and now - cached[0] < _GLOBAL_SETTINGS_TTL:
+        return cached[1]
+    async with postgres_connect() as db:
+        async with db.execute(
+            "SELECT value FROM global_settings WHERE key = ?", (key,)
+        ) as c:
+            row = await c.fetchone()
+    val = row[0] if row else default
+    _global_settings_cache[key] = (now, val)
+    return val
+
+
+async def set_global_setting(key: str, value: str, updated_by: int = 0) -> None:
+    """Upsert a global setting."""
+    async with postgres_connect() as db:
+        await db.execute(
+            "INSERT INTO global_settings (key, value, updated_by, updated_at) "
+            "VALUES (?, ?, ?, NOW()) "
+            "ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value, updated_by=EXCLUDED.updated_by, updated_at=NOW()",
+            (key, value, updated_by),
+        )
+        await db.commit()
+    _global_settings_cache.pop(key, None)
+
+
+async def get_all_global_settings() -> dict[str, str]:
+    """Return all global settings as {key: value} dict."""
+    async with postgres_connect() as db:
+        async with db.execute("SELECT key, value FROM global_settings") as c:
+            rows = await c.fetchall()
+    return {r[0]: r[1] for r in rows}
+
+
+async def is_maintenance_mode() -> bool:
+    """Check if the bot is in maintenance mode."""
+    val = await get_global_setting("maintenance_mode", "0")
+    return val == "1"
+
+
+# ─── Chat Tags (per-user roles in chat) ──────────────────────────────────────
+
+async def get_chat_tag(user_id: int, chat_id: int) -> str | None:
+    """Get user's tag/role in a chat."""
+    async with postgres_connect() as db:
+        async with db.execute(
+            "SELECT tag FROM chat_tags WHERE user_id = ? AND chat_id = ?",
+            (user_id, chat_id),
+        ) as c:
+            row = await c.fetchone()
+    return row[0] if row else None
+
+
+async def set_chat_tag(user_id: int, chat_id: int, tag: str, set_by: int = 0) -> None:
+    """Set or update a user's tag/role in a chat."""
+    tag = tag.strip()[:50]  # limit length
+    async with postgres_connect() as db:
+        await db.execute(
+            "INSERT INTO chat_tags (user_id, chat_id, tag, set_by, set_at) "
+            "VALUES (?, ?, ?, ?, NOW()) "
+            "ON CONFLICT (user_id, chat_id) DO UPDATE SET tag=EXCLUDED.tag, set_by=EXCLUDED.set_by, set_at=NOW()",
+            (user_id, chat_id, tag, set_by),
+        )
+        await db.commit()
+
+
+async def remove_chat_tag(user_id: int, chat_id: int) -> bool:
+    """Remove a user's tag from a chat. Returns True if tag existed."""
+    async with postgres_connect() as db:
+        async with db.execute(
+            "DELETE FROM chat_tags WHERE user_id = ? AND chat_id = ? RETURNING user_id",
+            (user_id, chat_id),
+        ) as c:
+            removed = await c.fetchone()
+        await db.commit()
+    return removed is not None
+
+
+async def get_all_chat_tags(chat_id: int) -> list[dict]:
+    """Get all tags for a chat. Returns [{user_id, tag, set_by, set_at}, ...]."""
+    async with postgres_connect() as db:
+        async with db.execute(
+            "SELECT ct.user_id, ct.tag, ct.set_by, ct.set_at, "
+            "COALESCE(u.full_name, '') AS full_name, COALESCE(u.username, '') AS username "
+            "FROM chat_tags ct "
+            "LEFT JOIN users u ON u.user_id = ct.user_id "
+            "WHERE ct.chat_id = ? ORDER BY ct.set_at DESC",
+            (chat_id,),
+        ) as c:
+            rows = await c.fetchall()
+    return [
+        {"user_id": r[0], "tag": r[1], "set_by": r[2], "set_at": str(r[3]) if r[3] else None,
+         "full_name": r[4], "username": r[5]}
+        for r in rows
+    ]
 
 
 # ─── Notes ────────────────────────────────────────────────────────────────────
@@ -2827,26 +2956,6 @@ async def get_activity_report(chat_id: int):
             ORDER BY week_count DESC
             """,
             (week_key, today, chat_id),
-        ) as c:
-            return await c.fetchall()
-
-
-async def get_inactive_users(chat_id: int, min_msgs: int):
-    """Возвращает пользователей с кол-вом сообщений < min_msgs с момента последнего сброса."""
-    async with postgres_connect() as db:
-        async with db.execute(
-            """
-            SELECT u.user_id, u.full_name, u.username, COALESCE(us.rank, u.rank) AS rank, COALESCE(us.warns, u.warns) AS warns,
-                   COALESCE(cc.count, 0) AS chat_count
-            FROM cleanup_counts cc
-            JOIN users u ON u.user_id = cc.user_id
-            LEFT JOIN user_stats us ON us.user_id = cc.user_id AND us.chat_id = cc.chat_id
-            WHERE cc.chat_id = ? AND cc.count < ?
-              AND COALESCE(us.is_banned, 0) = 0
-              AND COALESCE(us.rank, u.rank) NOT IN ('moderator','admin_junior','admin_senior','co_owner','owner','developer','helper','admin')
-            ORDER BY cc.count ASC
-            """,
-            (chat_id, min_msgs),
         ) as c:
             return await c.fetchall()
 
@@ -8225,8 +8334,8 @@ async def consume_potion(user_id: int, chat_id: int, item_id: int) -> tuple[bool
         # FOR UPDATE lock prevents two concurrent requests from both consuming the same item
         item = await db.fetchone(
             "SELECT item_key, item_name, slot FROM gacha_inventory "
-            "WHERE id=? AND user_id=? AND chat_id=? AND slot IN ('potion','consume') FOR UPDATE",
-            (item_id, user_id, chat_id),
+            "WHERE id=? AND user_id=? AND slot IN ('potion','consume') FOR UPDATE",
+            (item_id, user_id),
         )
 
         if not item:
@@ -8303,8 +8412,8 @@ async def batch_sell_items(
         placeholders = ",".join(["?"] * len(item_ids))
         async with db.execute(
             f"SELECT id, item_key, COALESCE(stack_count, 1) FROM gacha_inventory "
-            f"WHERE id IN ({placeholders}) AND user_id=? AND chat_id=?",
-            (*item_ids, user_id, chat_id)
+            f"WHERE id IN ({placeholders}) AND user_id=?",
+            (*item_ids, user_id)
         ) as c:
             items = await c.fetchall()
 
@@ -8316,9 +8425,9 @@ async def batch_sell_items(
         for row in items:
             item_id, item_key, stack_count = row[0], row[1], row[2]
             meta = ITEM_METADATA.get(item_key, {})
-            sell_price = meta.get("sell", 0)
+            sell_price = max(1, meta.get("sell", 0) // 2)
 
-            if sell_price == 0:  # Skip unsellable items (legendaries, cosmetics)
+            if meta.get("sell", 0) == 0:  # Skip unsellable items (legendaries, cosmetics)
                 continue
 
             # Qty to sell: from sell_qtys or default to full stack

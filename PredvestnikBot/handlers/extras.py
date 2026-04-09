@@ -371,6 +371,14 @@ async def cb_del_filter(callback: CallbackQuery):
 async def on_join(message: Message):
     from config import DEFAULT_WELCOME_ENABLED, DEFAULT_WELCOME_TEXT, DEFAULT_WELCOME_CALL, BROADCAST_BATCH
     settings = await get_chat_settings(message.chat.id)
+
+    # Check feat_auto_welcome toggle
+    try:
+        if settings and settings["feat_auto_welcome"] == 0:
+            return
+    except (KeyError, IndexError):
+        pass
+
     custom_text = settings["welcome_text"] if settings else None
 
     # Use custom text if set; otherwise fall back to config defaults

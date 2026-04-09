@@ -397,9 +397,9 @@ async def cb_setuser_field_hint(callback: CallbackQuery):
         await callback.answer("Неизвестное поле", show_alert=True)
 
 
-@router.message(BotCommand("выдать xp", "выдатьxp", "give xp", "givexp"), RankFilter("owner"))
+@router.message(BotCommand("выдать xp", "выдатьxp", "give xp", "givexp"), RankFilter("developer"))
 async def cmd_emit_xp(message: Message, cmd_args: str):
-    """Owner+: начислить XP пользователю.
+    """Developer-only: начислить XP пользователю из воздуха.
     бот выдать xp [кол-во] @user [причина]
     """
     parts = (cmd_args or "").split(maxsplit=2)
@@ -423,9 +423,6 @@ async def cmd_emit_xp(message: Message, cmd_args: str):
         await message.answer(name)
         return
     reason = parts[2].strip() if len(parts) > 2 else "без причины"
-
-    chat_id = message.chat.id
-    user_stats = await get_user_stats(uid, chat_id)
     old_xp = (user_stats["xp"] or 0) if user_stats else 0
     new_xp = old_xp + amount
     await set_user_stat_in_chat(uid, chat_id, "xp", new_xp)
