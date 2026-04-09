@@ -249,8 +249,8 @@ async def gacha_roll(uid: int, chat_id: int, count: int,
             from database.postgres import connect as _pg_connect
             async with _pg_connect() as _db:
                 existing = await _db.fetchone(
-                    "SELECT 1 FROM user_themes WHERE user_id=? AND chat_id=? AND theme_key=? LIMIT 1",
-                    (uid, chat_id, theme_key),
+                    "SELECT 1 FROM user_themes WHERE user_id=? AND theme_key=? LIMIT 1",
+                    (uid, theme_key),
                 )
                 if not existing:
                     await _db.execute(
@@ -269,6 +269,26 @@ async def gacha_roll(uid: int, chat_id: int, count: int,
                     pity = 0 if rarity == "legendary" else pity + 1
                     continue
         else:
+            # For lego_flair_* items: check for duplicates and pay compensation.
+            # These are zero-stat cosmetic items; owning multiple copies is pointless.
+            if key.startswith("lego_flair_"):
+                from database.postgres import connect as _pg_connect
+                async with _pg_connect() as _db:
+                    _existing_flair = await _db.fetchone(
+                        "SELECT id FROM gacha_inventory WHERE user_id=? AND item_key=? LIMIT 1",
+                        (uid, key),
+                    )
+                if _existing_flair:
+                    comp = random.randint(50, 400)
+                    await add_mora(uid, chat_id, comp)
+                    results.append({
+                        "key": key, "name": name, "rarity": rarity, "desc": desc,
+                        "atk": 0, "def_val": 0, "hp": 0, "crit_rate": 0.0,
+                        "slot": meta.get("slot"), "sell": meta.get("sell", 0),
+                        "duplicate": True, "comp_mora": comp,
+                    })
+                    pity = 0 if rarity == "legendary" else pity + 1
+                    continue
             await add_gacha_item(
                 uid, chat_id, key, name, rarity,
                 atk=meta.get("atk", 0),

@@ -252,9 +252,10 @@ def miniapp_user_data(request):
                 conn.commit()
             except Exception:
                 conn.rollback()
-        cur.execute(f"SELECT full_name FROM users WHERE user_id={ph}", (uid,))
+        cur.execute(f"SELECT full_name, COALESCE(bio,'') FROM users WHERE user_id={ph}", (uid,))
         user_row = cur.fetchone()
         full_name = _tg_name or (user_row[0] if user_row else str(uid))
+        user_bio = user_row[1] if user_row else ''
 
         # Mora row: use specific chat if provided, otherwise any chat row
         if specific_chat_id:
@@ -547,6 +548,7 @@ def miniapp_user_data(request):
             "rank": user_rank,
             "is_dev": user_rank == 'developer',
             "custom_title": custom_title or "",
+            "bio": user_bio,
             "first_active": first_active,
             "last_active": last_active,
             "warns": warns_count,
@@ -1952,8 +1954,8 @@ def miniapp_inventory(request):
                 f"SELECT id, item_key, item_name, rarity, equipped, "
                 f"COALESCE(atk,0), COALESCE(def_val,0), COALESCE(hp,0), COALESCE(crit_rate,0), slot, COALESCE(enhancement_level,0), "
                 f"COALESCE(stack_count,1), obtained_at "
-                f"FROM gacha_inventory WHERE user_id={ph} AND chat_id={ph} ORDER BY id DESC",
-                (uid, chat_id),
+                f"FROM gacha_inventory WHERE user_id={ph} ORDER BY id DESC",
+                (uid,),
             )
             items = []
             for r in cur.fetchall():
@@ -2254,6 +2256,51 @@ def miniapp_shop_set_title(request):
         new_bal = (cur.fetchone() or [0])[0]
         conn.close()
         return JsonResponse({"ok": True, "title": title, "balance": new_bal}, headers=headers)
+    except Exception as exc:
+        try:
+            conn.close()
+        except Exception:
+            pass
+        logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
+
+
+# ─── Profile Bio ──────────────────────────────────────────────────────────────
+
+@csrf_exempt
+def miniapp_set_bio(request):
+    """POST /api/profile/bio — update the user's 'О себе' bio text."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=405, headers=headers)
+
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+
+    try:
+        body = json.loads(request.body)
+    except Exception:
+        return JsonResponse({"error": "Invalid JSON"}, status=400, headers=headers)
+
+    bio = str(body.get("bio", "")).strip()
+    if len(bio) > 200:
+        return JsonResponse({"error": "Биография не должна превышать 200 символов"}, status=400, headers=headers)
+
+    try:
+        conn, db_type = _get_bot_db_connection()
+    except Exception as exc:
+        return JsonResponse({"error": f"DB: {exc}"}, status=503, headers=headers)
+
+    try:
+        cur = conn.cursor()
+        ph = "%s" if db_type == "pg" else "?"
+        cur.execute(f"UPDATE users SET bio={ph} WHERE user_id={ph}", (bio or None, uid))
+        cur.execute(f"UPDATE user_stats SET bio={ph} WHERE user_id={ph}", (bio or None, uid))
+        conn.commit()
+        conn.close()
+        return JsonResponse({"ok": True, "bio": bio}, headers=headers)
     except Exception as exc:
         try:
             conn.close()
@@ -2828,12 +2875,13 @@ def miniapp_public_profile(request):
         ph = "%s" if db_type == "pg" else "?"
 
         # Basic user info
-        cur.execute(f"SELECT full_name FROM users WHERE user_id={ph}", (target_id,))
+        cur.execute(f"SELECT full_name, COALESCE(bio,'') FROM users WHERE user_id={ph}", (target_id,))
         user_row = cur.fetchone()
         if not user_row:
             conn.close()
             return JsonResponse({"error": "User not found"}, status=404, headers=headers)
         full_name = user_row[0]
+        pub_bio = user_row[1]
 
         # Stats (level, xp, rank, custom_title, activity, warns, messages)
         cur.execute(
@@ -2997,6 +3045,7 @@ def miniapp_public_profile(request):
             "rank": rank,
             "vip": vip,
             "custom_title": custom_title or "",
+            "bio": pub_bio,
             "active_frame": active_frame,
             "active_theme": active_theme,
             "theme_header": theme_header,
@@ -5584,7 +5633,9 @@ def miniapp_auction_cancel(request):
 
 @csrf_exempt
 def miniapp_achievements(request):
-    """GET /api/achievements?chat_id=X — все достижения с флагом unlocked."""
+    """GET /api/achievements?chat_id=X — все достижения с флагом unlocked.
+       GET /api/achievements?chat_id=X&mode=leaderboard — топ по достижениям в чате.
+    """
     headers = _cors_headers()
     if request.method == "OPTIONS":
         return HttpResponse("", status=204, headers=headers)
@@ -5597,8 +5648,13 @@ def miniapp_achievements(request):
     if not chat_id_str.lstrip("-").isdigit():
         return JsonResponse({"error": "chat_id required"}, status=400, headers=headers)
     chat_id = int(chat_id_str)
+    mode = request.GET.get("mode", "")
     try:
         from asgiref.sync import async_to_sync as _a2s
+        if mode == "leaderboard":
+            from api.achievements import get_global_achievements_leaderboard
+            data = _a2s(get_global_achievements_leaderboard)(chat_id)
+            return JsonResponse({"ok": True, "leaderboard": data}, json_dumps_params={"ensure_ascii": False}, headers=headers)
         from api.achievements import get_all_achievements_with_status
         data = _a2s(get_all_achievements_with_status)(uid, chat_id)
         return JsonResponse(
@@ -6419,7 +6475,7 @@ def miniapp_cleanup_pass(request):
             urow = cur3.fetchone()
             user_name = html.escape(urow[0] if urow else str(uid))
             # Get chat title
-            cur3.execute(f"SELECT title FROM chat_settings WHERE chat_id={ph3}", (chat_id,))
+            cur3.execute(f"SELECT title FROM chats WHERE chat_id={ph3}", (chat_id,))
             crow = cur3.fetchone()
             chat_title = html.escape(str(crow[0]) if crow and crow[0] else str(chat_id))
             conn3.close()

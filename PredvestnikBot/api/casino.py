@@ -24,17 +24,7 @@ async def coin_flip_resolve(uid: int, chat_id: int, bet: int) -> dict:
     )
     from utils.helpers import bot_today
 
-    # Talent: lucky_strike adds % win chance
-    win_rate = COIN_WIN_RATE
-    try:
-        from database.db import get_talent_effect as _gte
-        _cf_bonus = await _gte(uid, "coinflip_win_pct")
-        if _cf_bonus > 0:
-            win_rate = min(win_rate + _cf_bonus / 100.0, 0.75)
-    except Exception:
-        pass
-
-    win     = random.random() < win_rate
+    win     = random.random() < COIN_WIN_RATE
     win_tax = 0
     prize   = 0
 
