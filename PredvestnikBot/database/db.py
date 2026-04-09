@@ -1832,6 +1832,54 @@ async def init_db():
     except Exception:
         pass
 
+    # ─── Каталог тегов чата (определения: имя, описание, цвет, эмодзи) ────────
+    try:
+        async with postgres_connect() as _db:
+            await _db.execute("""
+                CREATE TABLE IF NOT EXISTS chat_tag_definitions (
+                    id          SERIAL PRIMARY KEY,
+                    chat_id     BIGINT NOT NULL,
+                    name        TEXT   NOT NULL,
+                    description TEXT   NOT NULL DEFAULT '',
+                    color       TEXT   NOT NULL DEFAULT '#7c6af7',
+                    emoji       TEXT   NOT NULL DEFAULT '',
+                    created_by  BIGINT NOT NULL DEFAULT 0,
+                    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    UNIQUE (chat_id, name)
+                )
+            """)
+            await _db.commit()
+    except Exception:
+        pass
+
+    # ─── Заявки на вступление ──────────────────────────────────────────────────
+    try:
+        async with postgres_connect() as _db:
+            await _db.execute("""
+                CREATE TABLE IF NOT EXISTS join_requests (
+                    id            BIGSERIAL PRIMARY KEY,
+                    chat_id       BIGINT NOT NULL,
+                    user_id       BIGINT NOT NULL,
+                    tag_name      TEXT   NOT NULL DEFAULT '',
+                    status        TEXT   NOT NULL DEFAULT 'pending',
+                    invite_link   TEXT   DEFAULT NULL,
+                    created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    processed_by  BIGINT DEFAULT NULL,
+                    processed_at  TIMESTAMPTZ DEFAULT NULL
+                )
+            """)
+            await _db.execute(
+                "CREATE INDEX IF NOT EXISTS idx_join_requests_chat_status "
+                "ON join_requests(chat_id, status)"
+            )
+            await _db.execute(
+                "CREATE INDEX IF NOT EXISTS idx_join_requests_user_chat "
+                "ON join_requests(user_id, chat_id)"
+            )
+            await _db.commit()
+    except Exception:
+        pass
+
     await enforce_rank_invariants()
 
 
@@ -2689,6 +2737,156 @@ async def get_all_chat_tags(chat_id: int) -> list[dict]:
          "full_name": r[4], "username": r[5]}
         for r in rows
     ]
+
+
+# ─── Tag Definitions (per-chat tag catalogue) ─────────────────────────────────
+
+async def get_tag_definitions(chat_id: int) -> list[dict]:
+    """All tag definitions for a chat, with holder info (user_id of who holds each tag)."""
+    async with postgres_connect() as db:
+        async with db.execute(
+            """SELECT d.id, d.name, d.description, d.color, d.emoji,
+                      d.created_by, d.created_at,
+                      ct.user_id AS holder_user_id,
+                      COALESCE(u.full_name, '') AS holder_name,
+                      COALESCE(u.username, '') AS holder_username
+               FROM chat_tag_definitions d
+               LEFT JOIN chat_tags ct ON ct.tag = d.name AND ct.chat_id = d.chat_id
+               LEFT JOIN users u ON u.user_id = ct.user_id
+               WHERE d.chat_id = ?
+               ORDER BY d.name""",
+            (chat_id,),
+        ) as c:
+            rows = await c.fetchall()
+    return [dict(r) for r in rows]
+
+
+async def create_tag_definition(
+    chat_id: int, name: str, description: str, color: str, emoji: str, created_by: int
+) -> int | None:
+    """Create a new tag definition. Returns new id, or None if name already exists."""
+    async with postgres_connect() as db:
+        try:
+            async with db.execute(
+                "INSERT INTO chat_tag_definitions (chat_id, name, description, color, emoji, created_by) "
+                "VALUES (?, ?, ?, ?, ?, ?) RETURNING id",
+                (chat_id, name.strip()[:50], description.strip()[:200],
+                 color.strip()[:20], emoji.strip()[:10], created_by),
+            ) as c:
+                row = await c.fetchone()
+            await db.commit()
+            return row[0] if row else None
+        except Exception:
+            return None
+
+
+async def delete_tag_definition(chat_id: int, name: str) -> bool:
+    """Delete a tag definition. Returns True if deleted."""
+    async with postgres_connect() as db:
+        async with db.execute(
+            "DELETE FROM chat_tag_definitions WHERE chat_id = ? AND name = ? RETURNING id",
+            (chat_id, name),
+        ) as c:
+            row = await c.fetchone()
+        await db.commit()
+    return row is not None
+
+
+async def update_tag_definition(
+    chat_id: int, name: str, description: str, color: str, emoji: str
+) -> bool:
+    """Update description/color/emoji of an existing tag definition. Returns True if updated."""
+    async with postgres_connect() as db:
+        cursor = await db.execute(
+            "UPDATE chat_tag_definitions SET description=?, color=?, emoji=? WHERE chat_id=? AND name=?",
+            (description.strip()[:200], color.strip()[:20], emoji.strip()[:10], chat_id, name),
+        )
+        await db.commit()
+    return cursor.rowcount > 0
+
+
+# ─── Join Requests ─────────────────────────────────────────────────────────────
+
+async def create_join_request(chat_id: int, user_id: int, tag_name: str) -> int:
+    """Create a pending join request. Returns request id."""
+    async with postgres_connect() as db:
+        async with db.execute(
+            "INSERT INTO join_requests (chat_id, user_id, tag_name, status) "
+            "VALUES (?, ?, ?, 'pending') RETURNING id",
+            (chat_id, user_id, tag_name),
+        ) as c:
+            row = await c.fetchone()
+        await db.commit()
+    return row[0]
+
+
+async def get_join_request(req_id: int) -> dict | None:
+    """Get a single join request by id."""
+    async with postgres_connect() as db:
+        async with db.execute(
+            "SELECT * FROM join_requests WHERE id = ?", (req_id,)
+        ) as c:
+            row = await c.fetchone()
+    return dict(row) if row else None
+
+
+async def get_pending_join_requests(chat_id: int) -> list[dict]:
+    """Get all pending requests for a chat (with user info)."""
+    async with postgres_connect() as db:
+        async with db.execute(
+            """SELECT jr.*, u.full_name, u.username
+               FROM join_requests jr
+               LEFT JOIN users u ON u.user_id = jr.user_id
+               WHERE jr.chat_id = ? AND jr.status = 'pending'
+               ORDER BY jr.created_at ASC""",
+            (chat_id,),
+        ) as c:
+            rows = await c.fetchall()
+    return [dict(r) for r in rows]
+
+
+async def update_join_request(
+    req_id: int, status: str, processed_by: int | None, invite_link: str | None = None
+) -> bool:
+    """Update request status, optionally set invite_link. Returns True if updated."""
+    now = datetime.now(timezone.utc)
+    async with postgres_connect() as db:
+        if invite_link is not None:
+            cursor = await db.execute(
+                "UPDATE join_requests SET status=?, processed_by=?, processed_at=?, invite_link=? WHERE id=?",
+                (status, processed_by, now, invite_link, req_id),
+            )
+        else:
+            cursor = await db.execute(
+                "UPDATE join_requests SET status=?, processed_by=?, processed_at=? WHERE id=?",
+                (status, processed_by, now, req_id),
+            )
+        await db.commit()
+    return cursor.rowcount > 0
+
+
+async def get_user_active_join_request(user_id: int, chat_id: int) -> dict | None:
+    """Get user's pending or accepted request for a chat (to prevent duplicates)."""
+    async with postgres_connect() as db:
+        async with db.execute(
+            "SELECT * FROM join_requests WHERE user_id=? AND chat_id=? AND status IN ('pending','accepted') "
+            "ORDER BY created_at DESC LIMIT 1",
+            (user_id, chat_id),
+        ) as c:
+            row = await c.fetchone()
+    return dict(row) if row else None
+
+
+async def get_accepted_join_request(user_id: int, chat_id: int) -> dict | None:
+    """Get accepted (not yet joined) request for a user in a chat."""
+    async with postgres_connect() as db:
+        async with db.execute(
+            "SELECT * FROM join_requests WHERE user_id=? AND chat_id=? AND status='accepted' "
+            "ORDER BY created_at DESC LIMIT 1",
+            (user_id, chat_id),
+        ) as c:
+            row = await c.fetchone()
+    return dict(row) if row else None
 
 
 # ─── Notes ────────────────────────────────────────────────────────────────────

@@ -448,6 +448,16 @@ async def on_join(message: Message):
         except Exception:
             pass
 
+        # Блок 3: присвоить тег при вступлении через join flow
+        try:
+            from database.db import get_accepted_join_request, set_chat_tag, update_join_request
+            req = await get_accepted_join_request(member.id, message.chat.id)
+            if req:
+                await set_chat_tag(member.id, message.chat.id, req["tag_name"], req.get("processed_by") or 0)
+                await update_join_request(req["id"], "joined", None)
+        except Exception:
+            pass
+
     # Колл всех участников если включён
     call_enabled = (settings["welcome_call"] if settings else 0) or DEFAULT_WELCOME_CALL
     if call_enabled:
