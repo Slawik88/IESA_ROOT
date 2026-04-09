@@ -948,10 +948,23 @@ async def get_user_auctions(user_id: int, chat_id: int = 0) -> dict:
             now = datetime.now(timezone.utc)
             ea_aware = ea.replace(tzinfo=timezone.utc) if hasattr(ea, "replace") and ea.tzinfo is None else ea
             rem = max(0, int((ea_aware - now).total_seconds()))
+            d["remaining_seconds"] = rem
             h, m_rem = divmod(rem, 3600)
             d["remaining_str"] = f"{h}ч {m_rem//60}м" if h else f"{m_rem//60}м"
         lots_result.append(d)
+    bids_result = []
+    for r in my_bids:
+        d = dict(r)
+        ea = d.get("ends_at")
+        if ea:
+            now = datetime.now(timezone.utc)
+            ea_aware = ea.replace(tzinfo=timezone.utc) if hasattr(ea, "replace") and ea.tzinfo is None else ea
+            rem = max(0, int((ea_aware - now).total_seconds()))
+            d["remaining_seconds"] = rem
+            h, m_rem = divmod(rem, 3600)
+            d["remaining_str"] = f"{h}ч {m_rem//60}м" if h else f"{m_rem//60}м"
+        bids_result.append(d)
     return {
         "my_lots": lots_result,
-        "my_bids": [dict(r) for r in my_bids],
+        "my_bids": bids_result,
     }

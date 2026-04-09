@@ -102,6 +102,9 @@ from .miniapp_views import (
     miniapp_talents,
     miniapp_talents_upgrade,
     miniapp_newbie_quest,
+    miniapp_settings_local,
+    miniapp_settings_global,
+    miniapp_chat_tags,
 )
 
 # Переопределить стандартный админ на кастомный
@@ -276,6 +279,11 @@ urlpatterns = [
     path('api/talents/upgrade', miniapp_talents_upgrade, name='miniapp_talents_upgrade'),
     # ─── Newbie Quest / Квест новичка ────────────────────────────────────────
     path('api/newbie_quest', miniapp_newbie_quest, name='miniapp_newbie_quest'),
+    # ─── Settings / Настройки ────────────────────────────────────────────────
+    path('api/settings/local', miniapp_settings_local, name='miniapp_settings_local'),
+    path('api/settings/global', miniapp_settings_global, name='miniapp_settings_global'),
+    # ─── Chat Tags / Теги пользователей ──────────────────────────────────────
+    path('api/chat_tags', miniapp_chat_tags, name='miniapp_chat_tags'),
     # ──────────────────────────────────────────────────────────────────────────
     path('protected/<path:file_path>', serve_protected_media, name='serve_protected_media'),
     

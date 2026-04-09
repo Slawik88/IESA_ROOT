@@ -38,7 +38,8 @@ from database.db import (
     get_active_chat_buff, get_blacklist, get_chat_settings, get_locks,
     get_user_quest, get_user_stats, get_xp_boost_active,
     increment_cleanup_count, increment_message_count_chat,
-    is_user_single, mark_quest_rewarded, quest_tick, set_newbie_shield,
+    is_maintenance_mode, is_user_single, mark_quest_rewarded,
+    quest_tick, set_newbie_shield,
     upsert_chat, upsert_user, upsert_user_stats,
     get_admin_group_ids, is_test_chat,
 )
@@ -154,8 +155,18 @@ async def _process_economy(user_id: int, chat_id: int, event: Message) -> None:
         is_daily, _streak, streak_bonus = await check_daily_mora(user_id, chat_id)
         if is_daily:
             await add_mora(user_id, chat_id, MORA_DAILY_BONUS)
+            try:
+                from api.economy import log_wallet_tx as _lwt
+                await _lwt(user_id, chat_id, 'in', MORA_DAILY_BONUS, 'daily_bonus', '📅 Ежедневный бонус')
+            except Exception:
+                pass
             if streak_bonus:
                 await add_mora(user_id, chat_id, MORA_STREAK_BONUS)
+                try:
+                    from api.economy import log_wallet_tx as _lwt
+                    await _lwt(user_id, chat_id, 'in', MORA_STREAK_BONUS, 'streak_bonus', '🔥 7-дневный стрик')
+                except Exception:
+                    pass
                 try:
                     await event.answer(
                         f"🔥 {user_mention(user_id, event.from_user.full_name)}"
@@ -186,6 +197,11 @@ async def _process_economy(user_id: int, chat_id: int, event: Message) -> None:
             if 0 <= datetime.now(_TZ_ZURICH).hour < 6:
                 drop *= 2  # night bonus
             await add_mora(user_id, chat_id, drop)
+            try:
+                from api.economy import log_wallet_tx as _lwt
+                await _lwt(user_id, chat_id, 'in', drop, 'msg_drop', '💬 Случайный дроп')
+            except Exception:
+                pass
 
     # Message-type quest progress
     quest = await get_user_quest(user_id, chat_id, today)
@@ -197,6 +213,11 @@ async def _process_economy(user_id: int, chat_id: int, event: Message) -> None:
             mora_reward = quest.get("mora", MORA_QUEST_REWARD)
             await add_xp_in_chat(user_id, chat_id, quest["xp"])
             await add_mora(user_id, chat_id, mora_reward)
+            try:
+                from api.economy import log_wallet_tx as _lwt
+                await _lwt(user_id, chat_id, 'in', mora_reward, 'daily_quest', '🎯 Ежедневное задание')
+            except Exception:
+                pass
             await mark_quest_rewarded(user_id, chat_id, today)
             try:
                 await event.answer(
@@ -211,6 +232,14 @@ async def _process_economy(user_id: int, chat_id: int, event: Message) -> None:
 
 async def _process_xp(user_id: int, chat_id: int, event: Message, bot=None) -> None:
     """Award per-message XP (once per cooldown). Announce level-ups."""
+    # Check feat_xp_gain toggle
+    try:
+        _xp_settings = await get_chat_settings(chat_id)
+        if _xp_settings and _xp_settings.get("feat_xp_gain") == 0:
+            return
+    except Exception:
+        pass
+
     now = time.monotonic()
     key = (user_id, chat_id)
 
@@ -232,6 +261,11 @@ async def _process_xp(user_id: int, chat_id: int, event: Message, bot=None) -> N
     new_xp, new_level, leveled_up = await add_xp_in_chat(user_id, chat_id, xp)
     if leveled_up:
         await add_mora(user_id, chat_id, MORA_LEVELUP_BONUS)
+        try:
+            from api.economy import log_wallet_tx as _lwt
+            await _lwt(user_id, chat_id, 'in', MORA_LEVELUP_BONUS, 'level_up', f'💠 Бонус за уровень {new_level}')
+        except Exception:
+            pass
         # Блок 2: выдать очки таланта и шарды за уровень
         try:
             from database.db import award_talent_points, award_level_shards
@@ -335,7 +369,23 @@ class AutoModMiddleware(BaseMiddleware):
         if is_test_polygon:
             _log.debug("TEST_POLYGON chat=%s — economy skip for uid=%s", event.chat.id, user.id)
 
-        # в”Ђв”Ђ Group economy (non-isolated groups only) в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
+        # ── Maintenance mode: count messages but skip economy/games ──────
+        _in_maintenance = False
+        if in_group and not is_isolated:
+            try:
+                _in_maintenance = await is_maintenance_mode()
+            except Exception:
+                pass
+            if _in_maintenance and not (DEVELOPER_ID and user.id == DEVELOPER_ID):
+                _log.debug("MAINTENANCE uid=%s chat=%s — metrics only", user.id, event.chat.id)
+                await upsert_user_stats(user.id, event.chat.id)
+                from services.message_buffer import buffer_message
+                buffer_message(user.id, event.chat.id)
+                await increment_message_count_chat(user.id, event.chat.id)
+                await increment_cleanup_count(event.chat.id, user.id)
+                return await handler(event, data)
+
+        # ── Group economy (non-isolated groups only) ───────────────────────
         if in_group and not is_isolated:
             await upsert_user_stats(user.id, event.chat.id)
 

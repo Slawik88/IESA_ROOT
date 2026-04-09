@@ -237,7 +237,7 @@ async def run_chest_events_cycle(bot: Bot):
     if not chat_ids:
         return
 
-    # Фильтруем чаты, где random_events отключён
+    # Фильтруем чаты, где random_events или chest отключён
     from database.db import get_chat_settings
     eligible = []
     for cid in chat_ids:
@@ -249,7 +249,11 @@ async def run_chest_events_cycle(bot: Bot):
             flag = s["feat_random_events"]
         except (KeyError, IndexError):
             flag = 1
-        if flag != 0:
+        try:
+            chest_flag = s["feat_chest"]
+        except (KeyError, IndexError):
+            chest_flag = 1
+        if flag != 0 and chest_flag != 0:
             eligible.append(cid)
 
     if not eligible:

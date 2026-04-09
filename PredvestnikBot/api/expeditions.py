@@ -150,6 +150,19 @@ async def start_expedition(uid: int, chat_id: int, option_key: str,
     except Exception:
         logging.getLogger(__name__).warning("quest_tick failed uid=%s chat=%s", uid, chat_id, exc_info=True)
 
+    # Return current balance after cost deduction
+    from database.db import get_mora as _get_mora, get_family_wallet as _get_fam_wal
+    new_balance = None
+    new_family_balance = None
+    try:
+        if wallet_type == "family":
+            new_family_balance = await _get_fam_wal(chat_id, uid)
+        else:
+            _m = await _get_mora(uid, chat_id)
+            new_balance = _m["balance"] if _m else 0
+    except Exception:
+        pass
+
     return {
         "ok":          True,
         "option":      option_key,
@@ -160,6 +173,8 @@ async def start_expedition(uid: int, chat_id: int, option_key: str,
         "quest_done":  bool(quest_done),
         "quest_xp":    int(quest_xp),
         "quest_mora":  int(quest_mora),
+        "new_balance": new_balance,
+        "new_family_balance": new_family_balance,
     }
 
 
@@ -360,13 +375,19 @@ async def get_expedition_status(uid: int, chat_id: int) -> dict:
 
 async def boost_expedition(uid: int, chat_id: int, item_id: int) -> dict:
     """Apply an expedition boost coupon. Returns {ok, new_end_at, saved_minutes}."""
-    from database.db import get_active_expedition
     from database.postgres import connect as postgres_connect
     from shared_prices import ITEM_METADATA
 
-    active = await get_active_expedition(uid, chat_id)
+    # Look up active expedition globally (any chat), so mini-app chat context doesn't matter
+    async with postgres_connect() as db:
+        async with db.execute(
+            "SELECT * FROM pet_expeditions WHERE user_id=? AND finished=0",
+            (uid,),
+        ) as c:
+            active = await c.fetchone()
     if not active:
         raise ValueError("Нет активной экспедиции")
+    expedition_chat_id = active["chat_id"]
 
     async with postgres_connect() as db:
         async with db.execute(
@@ -411,7 +432,7 @@ async def boost_expedition(uid: int, chat_id: int, item_id: int) -> dict:
 
         await db.execute(
             "UPDATE pet_expeditions SET started_at=? WHERE user_id=? AND chat_id=? AND finished=0",
-            (new_started_at, uid, chat_id),
+            (new_started_at, uid, expedition_chat_id),
         )
         if stack_count <= 1:
             await db.execute("DELETE FROM gacha_inventory WHERE id=?", (iid,))

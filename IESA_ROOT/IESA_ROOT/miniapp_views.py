@@ -15,6 +15,7 @@ import math
 import os
 import sqlite3
 import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import parse_qsl
@@ -64,13 +65,23 @@ def _level_for_xp(xp: int) -> int:
     return max(1, int((1 + math.sqrt(1 + xp / 25)) / 2))
 
 
+_INIT_DATA_MAX_AGE = 86400  # 24 hours — reject replayed/captured initData
+
+
 def _validate_init_data(init_data: str) -> int | None:
-    """Validate Telegram WebApp initData HMAC. Returns user_id (int) if valid, else None."""
+    """Validate Telegram WebApp initData HMAC and freshness. Returns user_id (int) if valid, else None."""
     if not _BOT_TOKEN or not init_data:
         return None
     params = dict(parse_qsl(init_data, keep_blank_values=True))
     received_hash = params.pop("hash", None)
     if not received_hash:
+        return None
+    # Reject initData older than 24 h to prevent replay attacks
+    try:
+        auth_date = int(params.get("auth_date", 0))
+        if abs(time.time() - auth_date) > _INIT_DATA_MAX_AGE:
+            return None
+    except (ValueError, TypeError):
         return None
     data_check_string = "\n".join(sorted(f"{k}={v}" for k, v in params.items()))
     secret_key = hmac.new(b"WebAppData", _BOT_TOKEN.encode(), hashlib.sha256).digest()
@@ -764,6 +775,43 @@ def miniapp_boss_damage(request):
 
 # ─── Developer ID ─────────────────────────────────────────────────────────────
 _DEVELOPER_ID = 1460945748
+
+# ─── Rank levels (single source of truth for miniapp) ────────────────────────
+_RANK_LEVELS = {
+    "user": 0, "moderator": 1, "admin_junior": 2, "admin_senior": 3,
+    "co_owner": 4, "owner": 5, "developer": 6,
+    # Backward compat
+    "helper": 1, "vip": 0, "admin": 2,
+}
+
+_RANK_NAMES_RU = {
+    "user": "👤 Участник", "moderator": "🛡 Модератор",
+    "admin_junior": "⚡ Админ Младший", "admin_senior": "💎 Админ Старший",
+    "co_owner": "👑 Совладелец", "owner": "🔱 Владелец", "developer": "🛠 Разработчик",
+}
+
+
+def _check_rank(uid, chat_id, min_rank, headers):
+    """Check if user has at least min_rank in chat. Returns (rank_str, None) or (None, JsonResponse)."""
+    if uid == _DEVELOPER_ID:
+        return "developer", None
+    try:
+        conn, db_type = _get_bot_db_connection()
+        cur = conn.cursor()
+        ph = "%s" if db_type == "pg" else "?"
+        cur.execute(f"SELECT rank FROM user_stats WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
+        row = cur.fetchone()
+        conn.close()
+        rank = row[0] if row else "user"
+        if _RANK_LEVELS.get(rank, 0) < _RANK_LEVELS.get(min_rank, 0):
+            return None, JsonResponse(
+                {"error": "forbidden", "required_rank": min_rank,
+                 "required_rank_name": _RANK_NAMES_RU.get(min_rank, min_rank)},
+                status=403, headers=headers,
+            )
+        return rank, None
+    except Exception:
+        return None, JsonResponse({"error": "DB error"}, status=503, headers=headers)
 
 
 def _require_auth(request, headers):
@@ -3544,6 +3592,12 @@ def miniapp_couple_boss_attack(request):
                     "xp": rewards["xp_each"],
                     "is_repeat": rewards["is_repeat"],
                 }
+                # Return attacker's new balance for frontend sync
+                try:
+                    new_bal = async_to_sync(get_mora)(uid, chat_id)
+                    response["new_balance"] = new_bal["balance"] if new_bal else 0
+                except Exception:
+                    pass
                 
             except Exception as e:
                 response["rewards_error"] = str(e)
@@ -3722,10 +3776,16 @@ def miniapp_solo_boss_attack(request):
         mora_reward = 500 + (session["boss_level"] - 1) * 200
         xp_reward = 300 + (session["boss_level"] - 1) * 100
         try:
-            from database.db import add_mora, add_xp_in_chat
+            from database.db import add_mora, add_xp_in_chat, get_mora
             async_to_sync(add_mora)(uid, chat_id, mora_reward)
             async_to_sync(add_xp_in_chat)(uid, chat_id, xp_reward)
             response["rewards"] = {"mora": mora_reward, "xp": xp_reward}
+            # Return new balance for frontend sync
+            try:
+                new_bal = async_to_sync(get_mora)(uid, chat_id)
+                response["new_balance"] = new_bal["balance"] if new_bal else 0
+            except Exception:
+                pass
         except Exception as e:
             response["rewards_error"] = str(e)
 
@@ -4036,11 +4096,6 @@ def miniapp_admin_chat_summary(request):
     except Exception as exc:
         return JsonResponse({"error": f"DB: {exc}"}, status=503, headers=headers)
 
-    _RANK_LEVELS = {
-        "user": 0, "moderator": 1, "admin_junior": 2, "admin_senior": 3,
-        "co_owner": 4, "owner": 5, "developer": 6, "helper": 1,
-    }
-
     try:
         cur = conn.cursor()
         ph = "%s" if db_type == "pg" else "?"
@@ -4157,11 +4212,6 @@ def miniapp_admin_roster(request):
     if not chat_id_str.lstrip("-").isdigit():
         return JsonResponse({"error": "chat_id required"}, status=400, headers=headers)
     chat_id = int(chat_id_str)
-
-    _RANK_LEVELS = {
-        "user": 0, "moderator": 1, "admin_junior": 2, "admin_senior": 3,
-        "co_owner": 4, "owner": 5, "developer": 6, "helper": 1,
-    }
 
     try:
         conn, db_type = _get_bot_db_connection()
@@ -4650,6 +4700,16 @@ def miniapp_casino_roulette(request):
 
     if not chat_id:
         return JsonResponse({"error": "chat_id required"}, status=400, headers=headers)
+
+    # Check feat_roulette toggle
+    try:
+        from database.db import get_chat_settings as _gcs
+        from asgiref.sync import async_to_sync as _a2s_set
+        _r_settings = _a2s_set(_gcs)(chat_id)
+        if _r_settings and _r_settings.get("feat_roulette") == 0:
+            return JsonResponse({"error": "Рулетка отключена в этом чате"}, status=403, headers=headers)
+    except Exception:
+        pass
 
     try:
         from api.roulette import roulette_spin
@@ -5904,11 +5964,6 @@ def miniapp_chat_banlist(request):
         return JsonResponse({"error": "chat_id required"}, status=400, headers=headers)
     chat_id = int(chat_id_str)
 
-    _RANK_LEVELS = {
-        "user": 0, "moderator": 1, "admin_junior": 2, "admin_senior": 3,
-        "co_owner": 4, "owner": 5, "developer": 6, "helper": 1,
-    }
-
     try:
         conn, db_type = _get_bot_db_connection()
     except Exception as exc:
@@ -7061,6 +7116,9 @@ _ALLOWED_FEATURE_KEYS = frozenset({
     "feat_website", "feat_antispam", "feat_marriages",
     "feat_pets", "feat_casino", "feat_random_events",
     "bot_disabled",
+    # Granular toggles
+    "feat_roulette", "feat_chest", "feat_coin_flip",
+    "feat_xp_gain", "feat_auto_welcome", "antiflood_mode",
 })
 
 @csrf_exempt
@@ -7123,6 +7181,288 @@ def miniapp_dev_feature_toggle(request):
     except Exception:
         logger.exception("miniapp_dev_feature_toggle POST error")
         return JsonResponse({"error": "Internal error"}, status=500, headers=headers)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  SETTINGS: Local (per-chat) with rank-based access control
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Maps each setting key → minimum rank required to change it
+_SETTING_RANK_MAP = {
+    # Feature toggles — admin_senior (raised from junior: can affect whole chat economy/UX)
+    "feat_roulette":     "admin_senior",
+    "feat_chest":        "admin_senior",
+    "feat_coin_flip":    "admin_senior",
+    "feat_auto_welcome": "admin_senior",
+    "feat_casino":       "admin_senior",
+    "feat_random_events":"admin_senior",
+    "feat_marriages":    "admin_senior",
+    "feat_pets":         "admin_senior",
+    "feat_website":      "admin_senior",
+    "feat_antispam":     "admin_senior",
+    # XP / economy — co_owner only (disabling XP gain is a chat-wide economic impact)
+    "feat_xp_gain":      "co_owner",
+    # Antiflood — on/off is junior; destructive settings (kick/limit) require senior
+    "antiflood_enabled": "admin_junior",
+    "antiflood_limit":   "admin_senior",
+    "antiflood_action":  "admin_senior",
+    "antiflood_window":  "admin_senior",
+    "antiflood_mode":    "admin_senior",
+    # Welcome — raised to senior to prevent phishing link injection
+    "welcome_text":      "admin_senior",
+    "farewell_text":     "admin_senior",
+    "welcome_call":      "admin_junior",
+    # Content
+    "rules_text":        "admin_senior",
+    "blacklist_enabled": "admin_junior",
+    # Cleanup
+    "cleanup_threshold":     "co_owner",
+    "cleanup_message_norm":  "co_owner",
+    "cleanup_warn_hours":    "co_owner",
+    "inactivity_warn_enabled":"co_owner",
+    "inactivity_warn_days":  "co_owner",
+    # Full control
+    "bot_disabled":      "owner",
+}
+
+
+@csrf_exempt
+def miniapp_settings_local(request):
+    """
+    GET  /api/settings/local?chat_id=X  → returns all per-chat settings + user rank + rank map
+    POST /api/settings/local  {chat_id, key, value}  → rank-checked update
+    """
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+
+    import sys as _sys, os as _os
+    _sys.path.insert(0, _os.path.join(_os.path.dirname(__file__), '..', '..', 'PredvestnikBot'))
+    import importlib as _importlib
+    _db = _importlib.import_module("database.db")
+    from asgiref.sync import async_to_sync as _a2s
+
+    if request.method == "GET":
+        try:
+            chat_id = int(request.GET.get("chat_id", 0) or 0)
+            if not chat_id:
+                return JsonResponse({"error": "chat_id required"}, status=400, headers=headers)
+
+            # Get user rank
+            caller_rank, rank_err = _check_rank(uid, chat_id, "user", headers)
+            if rank_err:
+                return rank_err
+
+            settings_row = _a2s(_db.get_chat_settings)(chat_id)
+
+            # Build settings dict
+            _SETTING_KEYS = [
+                "antiflood_enabled", "antiflood_limit", "antiflood_action", "antiflood_window",
+                "antiflood_mode", "blacklist_enabled", "welcome_call",
+                "feat_website", "feat_antispam", "feat_marriages", "feat_pets",
+                "feat_casino", "feat_random_events", "bot_disabled",
+                "feat_roulette", "feat_chest", "feat_coin_flip",
+                "feat_xp_gain", "feat_auto_welcome",
+                "cleanup_threshold", "cleanup_message_norm", "cleanup_warn_hours",
+                "inactivity_warn_enabled", "inactivity_warn_days",
+            ]
+            settings = {}
+            for k in _SETTING_KEYS:
+                if settings_row:
+                    val = settings_row.get(k) if hasattr(settings_row, 'get') else getattr(settings_row, k, None)
+                    if val is None:
+                        # Defaults for feat_* = 1, numeric = their default
+                        val = 1 if k.startswith("feat_") else 0
+                    settings[k] = val
+                else:
+                    settings[k] = 1 if k.startswith("feat_") else 0
+            if settings_row and not settings.get("antiflood_mode"):
+                settings["antiflood_mode"] = "soft"
+
+            # Return rank map so frontend knows what's locked
+            rank_map = {}
+            for sk, sr in _SETTING_RANK_MAP.items():
+                rank_map[sk] = {
+                    "min_rank": sr,
+                    "min_rank_level": _RANK_LEVELS.get(sr, 0),
+                    "min_rank_name": _RANK_NAMES_RU.get(sr, sr),
+                }
+
+            return JsonResponse({
+                "ok": True,
+                "settings": settings,
+                "user_rank": caller_rank,
+                "user_rank_level": _RANK_LEVELS.get(caller_rank, 0),
+                "rank_map": rank_map,
+            }, headers=headers)
+        except Exception:
+            logger.exception("miniapp_settings_local GET error")
+            return JsonResponse({"error": "Internal error"}, status=500, headers=headers)
+
+    # POST — update a setting
+    if request.method != "POST":
+        return JsonResponse({"error": "GET/POST required"}, status=405, headers=headers)
+
+    try:
+        body = json.loads(request.body)
+        chat_id = int(body.get("chat_id") or 0)
+        key = str(body.get("key") or "")
+        value = body.get("value")
+        if not chat_id or not key:
+            return JsonResponse({"error": "chat_id and key required"}, status=400, headers=headers)
+
+        # Check required rank for this setting
+        required_rank = _SETTING_RANK_MAP.get(key, "owner")
+        caller_rank, rank_err = _check_rank(uid, chat_id, required_rank, headers)
+        if rank_err:
+            return rank_err
+
+        _a2s(_db.set_chat_setting)(chat_id, key, value)
+        return JsonResponse({"ok": True, "key": key, "value": value}, headers=headers)
+    except ValueError as exc:
+        return JsonResponse({"error": str(exc)}, status=400, headers=headers)
+    except Exception:
+        logger.exception("miniapp_settings_local POST error")
+        return JsonResponse({"error": "Internal error"}, status=500, headers=headers)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  SETTINGS: Global (bot-wide) — developer only (+ maintenance_mode for owner)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+_GLOBAL_SETTING_KEYS = {
+    "maintenance_mode":    "developer",  # 0/1
+    "bond_limit_per_user": "developer",  # integer
+    "shop_enabled":        "developer",  # 0/1
+    "gacha_enabled":       "developer",  # 0/1
+    "auction_enabled":     "developer",  # 0/1
+}
+
+
+@csrf_exempt
+def miniapp_settings_global(request):
+    """
+    GET  /api/settings/global  → returns all global settings
+    POST /api/settings/global  {key, value}  → developer only
+    """
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+
+    import sys as _sys, os as _os
+    _sys.path.insert(0, _os.path.join(_os.path.dirname(__file__), '..', '..', 'PredvestnikBot'))
+    import importlib as _importlib
+    _db = _importlib.import_module("database.db")
+    from asgiref.sync import async_to_sync as _a2s
+
+    if request.method == "GET":
+        try:
+            all_settings = _a2s(_db.get_all_global_settings)()
+            return JsonResponse({
+                "ok": True,
+                "settings": all_settings,
+                "is_dev": uid == _DEVELOPER_ID,
+            }, headers=headers)
+        except Exception:
+            logger.exception("miniapp_settings_global GET error")
+            return JsonResponse({"error": "Internal error"}, status=500, headers=headers)
+
+    if request.method != "POST":
+        return JsonResponse({"error": "GET/POST required"}, status=405, headers=headers)
+
+    try:
+        body = json.loads(request.body)
+        key = str(body.get("key") or "")
+        value = str(body.get("value", ""))
+        if key not in _GLOBAL_SETTING_KEYS:
+            return JsonResponse({"error": f"Unknown global setting: {key!r}"}, status=400, headers=headers)
+
+        required_rank = _GLOBAL_SETTING_KEYS[key]
+        if uid != _DEVELOPER_ID:
+            # For now, all global settings require developer
+            return JsonResponse(
+                {"error": "forbidden", "required_rank": required_rank,
+                 "required_rank_name": _RANK_NAMES_RU.get(required_rank, required_rank)},
+                status=403, headers=headers,
+            )
+
+        _a2s(_db.set_global_setting)(key, value, uid)
+        return JsonResponse({"ok": True, "key": key, "value": value}, headers=headers)
+    except Exception:
+        logger.exception("miniapp_settings_global POST error")
+        return JsonResponse({"error": "Internal error"}, status=500, headers=headers)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  CHAT TAGS — per-user role labels in chat
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@csrf_exempt
+def miniapp_chat_tags(request):
+    """
+    GET    /api/chat_tags?chat_id=X          → list all tags
+    POST   /api/chat_tags  {chat_id, user_id, tag}  → set tag (moderator+)
+    DELETE /api/chat_tags  {chat_id, user_id}        → remove tag (moderator+)
+    """
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+
+    import sys as _sys, os as _os
+    _sys.path.insert(0, _os.path.join(_os.path.dirname(__file__), '..', '..', 'PredvestnikBot'))
+    import importlib as _importlib
+    _db = _importlib.import_module("database.db")
+    from asgiref.sync import async_to_sync as _a2s
+
+    if request.method == "GET":
+        try:
+            chat_id = int(request.GET.get("chat_id", 0) or 0)
+            if not chat_id:
+                return JsonResponse({"error": "chat_id required"}, status=400, headers=headers)
+            tags = _a2s(_db.get_all_chat_tags)(chat_id)
+            return JsonResponse({"ok": True, "tags": tags}, headers=headers)
+        except Exception:
+            logger.exception("miniapp_chat_tags GET error")
+            return JsonResponse({"error": "Internal error"}, status=500, headers=headers)
+
+    if request.method in ("POST", "DELETE"):
+        try:
+            body = json.loads(request.body)
+            chat_id = int(body.get("chat_id") or 0)
+            target_uid = int(body.get("user_id") or 0)
+            if not chat_id or not target_uid:
+                return JsonResponse({"error": "chat_id and user_id required"}, status=400, headers=headers)
+
+            # Require moderator+ rank
+            caller_rank, rank_err = _check_rank(uid, chat_id, "moderator", headers)
+            if rank_err:
+                return rank_err
+
+            if request.method == "DELETE" or body.get("_action") == "delete":
+                removed = _a2s(_db.remove_chat_tag)(target_uid, chat_id)
+                return JsonResponse({"ok": True, "removed": removed}, headers=headers)
+            else:
+                tag = str(body.get("tag") or "").strip()
+                if not tag:
+                    return JsonResponse({"error": "tag is required"}, status=400, headers=headers)
+                if len(tag) > 50:
+                    return JsonResponse({"error": "tag too long (max 50)"}, status=400, headers=headers)
+                _a2s(_db.set_chat_tag)(target_uid, chat_id, tag, uid)
+                return JsonResponse({"ok": True, "user_id": target_uid, "tag": tag}, headers=headers)
+        except Exception:
+            logger.exception("miniapp_chat_tags POST/DELETE error")
+            return JsonResponse({"error": "Internal error"}, status=500, headers=headers)
+
+    return JsonResponse({"error": "Method not allowed"}, status=405, headers=headers)
 
 
 # ─── Save avatar URL ──────────────────────────────────────────────────────────
