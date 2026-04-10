@@ -182,8 +182,8 @@ class _ExecuteContext:
             row = self._rows[0]
             try:
                 return row['id']
-            except (KeyError, IndexError, TypeError):
-                pass
+            except (KeyError, IndexError, TypeError) as _e:
+                _log.debug("%s", _e)
         return None
 
     @property
@@ -192,8 +192,8 @@ class _ExecuteContext:
         if self._status:
             try:
                 return int(str(self._status).split()[-1])
-            except (IndexError, ValueError):
-                pass
+            except (IndexError, ValueError) as _e:
+                _log.debug("%s", _e)
         return len(self._rows) if self._rows else 0
 
     def __iter__(self):

@@ -76,8 +76,8 @@ async def _finish_event(bot, chat_id: int, reason: str):
     if not participants or total == 0:
         try:
             await bot.send_message(chat_id, "🚚 Дилижанс уехал без боя — никто не атаковал!")
-        except Exception:
-            pass
+        except Exception as _e:
+            _log.debug("%s", _e)
         return
 
     # Если цель НЕ достигнута — участники получают лишь 10% награды
@@ -94,8 +94,8 @@ async def _finish_event(bot, chat_id: int, reason: str):
             try:
                 from api.economy import log_wallet_tx
                 await log_wallet_tx(uid, chat_id, "income", share, "event", "🚚 Дилижанс")
-            except Exception:
-                pass
+            except Exception as _e:
+                _log.debug("%s", _e)
 
     # Топ-5 для итогового сообщения
     top = sorted(rewards, key=lambda x: x[1], reverse=True)[:5]
@@ -111,8 +111,8 @@ async def _finish_event(bot, chat_id: int, reason: str):
         msg_id = _DILIGENCE_MSG_ID.get(chat_id)
         if msg_id:
             await bot.edit_message_reply_markup(chat_id, msg_id, reply_markup=None)
-    except Exception:
-        pass
+    except Exception as _e:
+        _log.debug("%s", _e)
     try:
         await bot.send_message(chat_id, "\n".join(lines), parse_mode="HTML")
     except Exception as e:
@@ -185,8 +185,8 @@ async def _update_diligence_msg(message, chat_id: int):
             parse_mode="HTML",
             reply_markup=_event_keyboard(chat_id),
         )
-    except Exception:
-        pass
+    except Exception as _e:
+        _log.debug("%s", _e)
 
 
 # ─── Callback: клик по кнопке ─────────────────────────────────────────────────
@@ -217,8 +217,8 @@ async def cb_diligence_click(callback: CallbackQuery):
         try:
             from database.db import add_season_xp
             await add_season_xp(uid, 5)  # +5 season XP for participating
-        except Exception:
-            pass
+        except Exception as _e:
+            _log.debug("%s", _e)
 
     # Обновляем сообщение каждые 5 кликов — фоновая задача, не блокирует ответ
     if total % 5 == 0 and total < _DILIGENCE_GOAL:

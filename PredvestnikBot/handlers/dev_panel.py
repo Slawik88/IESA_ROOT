@@ -346,8 +346,8 @@ async def cmd_cleanup_config(message: Message, cmd_args: str):
         try:
             dt_local = _dt.strptime(raw, fmt).replace(tzinfo=_ZURICH)
             break
-        except ValueError:
-            pass
+        except ValueError as _e:
+            _log.debug("%s", _e)
 
     if dt_local is not None:
         if dt_local < _dt.now(_ZURICH):

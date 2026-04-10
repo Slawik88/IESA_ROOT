@@ -1,3 +1,5 @@
+import logging
+_log = logging.getLogger(__name__)
 """
 api/checkin.py — daily check-in operations.
 
@@ -72,7 +74,7 @@ async def do_checkin(uid: int, chat_id: int) -> dict:
     try:
         from api.achievements import check_and_award as _ach
         await _ach(uid, chat_id, "checkin_streak", result.get("streak", 1))
-    except Exception:
-        pass
+    except Exception as _e:
+        _log.debug("%s", _e)
 
     return result

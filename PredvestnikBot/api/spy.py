@@ -70,8 +70,8 @@ async def spy(uid: int, chat_id: int, target_id: int) -> dict:
     try:
         from api.economy import log_wallet_tx
         await log_wallet_tx(uid, chat_id, "expense", SPY_COST, "spy", "Шпионаж")
-    except Exception:
-        pass
+    except Exception as _e:
+        _log.debug("%s", _e)
 
     # Roll success/fail
     failed = random.random() < SPY_FAIL_CHANCE

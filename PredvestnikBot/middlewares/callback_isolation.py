@@ -15,6 +15,8 @@ from aiogram.types import CallbackQuery
 
 from config import DEVELOPER_ID
 from database.db import get_admin_group_ids, is_test_chat
+import logging
+_log = logging.getLogger(__name__)
 
 # Callback prefixes that should work in isolated chats (admin/mod/non-economy).
 _ADMIN_PREFIXES = (
@@ -67,11 +69,11 @@ class CallbackIsolationMiddleware(BaseMiddleware):
                     if settings and bool(settings.get("bot_disabled")):
                         try:
                             await event.answer()
-                        except Exception:
-                            pass
+                        except Exception as _e:
+                            _log.debug("%s", _e)
                         return  # Bot fully disabled — drop callback silently
-                except Exception:
-                    pass
+                except Exception as _e:
+                    _log.debug("%s", _e)
 
         if is_isolated:
             cb_data = event.data or ""
@@ -81,8 +83,8 @@ class CallbackIsolationMiddleware(BaseMiddleware):
                     await event.answer(
                         "\u26d4 Экономика отключена в этом чате.", show_alert=False,
                     )
-                except Exception:
-                    pass
+                except Exception as _e:
+                    _log.debug("%s", _e)
                 return  # block handler
 
         return await handler(event, data)

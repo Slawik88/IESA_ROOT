@@ -31,6 +31,8 @@ from filters.bot_command import BotCommand
 from handlers.economy import deduct_wallet
 
 from filters.chat_mode import MainChatOnly
+import logging
+_log = logging.getLogger(__name__)
 router = Router()
 router.message.filter(MainChatOnly())
 
@@ -337,6 +339,6 @@ async def cb_bank_withdraw(callback: CallbackQuery):
 
     try:
         await callback.message.edit_text(text, parse_mode="HTML")
-    except Exception:
-        pass
+    except Exception as _e:
+        _log.debug("%s", _e)
     await callback.answer()

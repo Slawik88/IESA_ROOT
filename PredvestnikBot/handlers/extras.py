@@ -68,8 +68,8 @@ async def _send_banlist_prompt(bot: Bot, chat_id: int, member, action: str) -> N
                 InlineKeyboardButton(text="❌ Пропустить", callback_data=f"ban_u:skip:{member.id}"),
             ]]),
         )
-    except Exception:
-        pass
+    except Exception as _e:
+        _log.debug("%s", _e)
 
 
 async def _handle_banned_join(bot: Bot, chat_id: int, member) -> None:
@@ -79,8 +79,8 @@ async def _handle_banned_join(bot: Bot, chat_id: int, member) -> None:
     except Exception:
         try:
             await bot.kick_chat_member(chat_id, member.id)
-        except Exception:
-            pass
+        except Exception as _e:
+            _log.debug("%s", _e)
 
     seniors = await get_senior_users_in_chat(chat_id)
     if seniors:
@@ -104,8 +104,8 @@ async def _handle_banned_join(bot: Bot, chat_id: int, member) -> None:
             f"🔔 {mentions}",
             parse_mode="HTML",
         )
-    except Exception:
-        pass
+    except Exception as _e:
+        _log.debug("%s", _e)
 
 
 async def _activate_pending_role(bot: Bot, chat_id: int, member, role_name: str) -> None:
@@ -121,13 +121,13 @@ async def _activate_pending_role(bot: Bot, chat_id: int, member, role_name: str)
                 f"Твоя роль <b>{_html.escape(role_name)}</b> теперь активна ✅",
                 parse_mode="HTML",
             )
-        except Exception:
-            pass
+        except Exception as _e:
+            _log.debug("%s", _e)
         try:
             from handlers.dm_roles import _try_set_custom_title
             await _try_set_custom_title(bot, member.id, role_name)
-        except Exception:
-            pass
+        except Exception as _e:
+            _log.debug("%s", _e)
     elif result == "taken":
         try:
             await bot.send_message(
@@ -137,8 +137,8 @@ async def _activate_pending_role(bot: Bot, chat_id: int, member, role_name: str)
                 "Выбери другую роль — напиши мне /start.",
                 parse_mode="HTML",
             )
-        except Exception:
-            pass
+        except Exception as _e:
+            _log.debug("%s", _e)
 
 
 @router.my_chat_member()
@@ -169,8 +169,8 @@ async def track_bot_chat_state(event: ChatMemberUpdated):
                 BOT_ADDED_MSG,
                 parse_mode="HTML",
             )
-        except Exception:
-            pass
+        except Exception as _e:
+            _log.debug("%s", _e)
     elif not is_active:
         await set_chat_active(event.chat.id, 0)
 
@@ -335,8 +335,8 @@ async def cb_del_filter(callback: CallbackQuery):
     if not filters_list:
         try:
             await callback.message.edit_text("📋 Фильтров нет.")
-        except Exception:
-            pass
+        except Exception as _e:
+            _log.debug("%s", _e)
         return
 
     lines = ["📋 <b>Активные фильтры:</b>\n"]
@@ -361,8 +361,8 @@ async def cb_del_filter(callback: CallbackQuery):
             parse_mode="HTML",
             reply_markup=kb,
         )
-    except Exception:
-        pass
+    except Exception as _e:
+        _log.debug("%s", _e)
 
 
 # ─── Приветствие / прощание ───────────────────────────────────────────────────
@@ -376,8 +376,8 @@ async def on_join(message: Message):
     try:
         if settings and settings["feat_auto_welcome"] == 0:
             return
-    except (KeyError, IndexError):
-        pass
+    except (KeyError, IndexError) as _e:
+        _log.debug("%s", _e)
 
     custom_text = settings["welcome_text"] if settings else None
 
@@ -398,8 +398,8 @@ async def on_join(message: Message):
                 await message.bot.ban_chat_member(message.chat.id, member.id)
                 try:
                     await message.delete()
-                except Exception:
-                    pass
+                except Exception as _e:
+                    _log.debug("%s", _e)
                 # Уведомить admin+ 
                 chat_title = _html.escape(getattr(message.chat, "title", "") or str(message.chat.id))
                 from utils.helpers import notify_admins
@@ -409,8 +409,8 @@ async def on_join(message: Message):
                     f"попытался войти в <b>{chat_title}</b> и был автоматически кикнут.",
                     source_chat_id=message.chat.id,
                 )
-            except Exception:
-                pass
+            except Exception as _e:
+                _log.debug("%s", _e)
             continue
 
         safe_name = _html.escape(member.full_name)
@@ -428,8 +428,8 @@ async def on_join(message: Message):
                 f"👋 {user_mention(member.id, member.full_name)}, {text}",
                 parse_mode="HTML",
             )
-        except Exception:
-            pass
+        except Exception as _e:
+            _log.debug("%s", _e)
 
         # Блок 2: запустить квест новичка
         try:
@@ -443,10 +443,10 @@ async def on_join(message: Message):
                         f"Подсказка: открой Мини-Апп → Задания → Квест Новичка.",
                         parse_mode="HTML",
                     )
-                except Exception:
-                    pass
-        except Exception:
-            pass
+                except Exception as _e:
+                    _log.debug("%s", _e)
+        except Exception as _e:
+            _log.debug("%s", _e)
 
         # Блок 3: присвоить тег при вступлении через join flow
         try:
@@ -455,8 +455,8 @@ async def on_join(message: Message):
             if req:
                 await set_chat_tag(member.id, message.chat.id, req["tag_name"], req.get("processed_by") or 0)
                 await update_join_request(req["id"], "joined", None)
-        except Exception:
-            pass
+        except Exception as _e:
+            _log.debug("%s", _e)
 
     # Колл всех участников если включён
     call_enabled = (settings["welcome_call"] if settings else 0) or DEFAULT_WELCOME_CALL
@@ -468,8 +468,8 @@ async def on_join(message: Message):
                 mentions = " ".join(user_mention(u["user_id"], u["full_name"]) for u in batch)
                 try:
                     await message.answer(mentions, parse_mode="HTML")
-                except Exception:
-                    pass
+                except Exception as _e:
+                    _log.debug("%s", _e)
 
 
 @router.message(lambda m: m.left_chat_member is not None)
@@ -498,8 +498,8 @@ async def on_leave(message: Message):
     )
     try:
         await message.answer(text, parse_mode="HTML")
-    except Exception:
-        pass
+    except Exception as _e:
+        _log.debug("%s", _e)
 
 
 # ─── Чёрный список по ID: обработка кнопок ───────────────────────────────────
@@ -514,8 +514,8 @@ async def cb_user_banlist(callback: CallbackQuery):
     if action == "skip":
         try:
             await callback.message.delete()
-        except Exception:
-            pass
+        except Exception as _e:
+            _log.debug("%s", _e)
         await callback.answer("Пропущено.")
         return
 
@@ -538,8 +538,8 @@ async def cb_user_banlist(callback: CallbackQuery):
                 parse_mode="HTML",
                 reply_markup=None,
             )
-        except Exception:
-            pass
+        except Exception as _e:
+            _log.debug("%s", _e)
         await callback.answer("✅ Добавлен в ЧС по ID.")
     else:
         await callback.answer("⚠️ Уже в чёрном списке.", show_alert=True)

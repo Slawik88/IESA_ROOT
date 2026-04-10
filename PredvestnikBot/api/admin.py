@@ -532,8 +532,8 @@ async def get_logs(chat_id: int = 0) -> dict:
                     if any(kw in l.lower() for kw in ("error", "exception", "traceback"))
                 ][-5:]
                 break
-            except Exception:
-                pass
+            except Exception as _e:
+                _log.debug("%s", _e)
 
     return {"leave_log": leave_log, "server_errors": error_lines}
 

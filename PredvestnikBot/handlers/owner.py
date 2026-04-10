@@ -29,6 +29,8 @@ from filters.bot_command import BotCommand
 from filters.rank_filter import RankFilter
 from utils.helpers import resolve_target, user_mention
 from utils.ranks import is_developer, rank_level, rank_name
+import logging
+_log = logging.getLogger(__name__)
 
 _CONFIG_PATH = pathlib.Path(__file__).parent.parent / "config.py"
 

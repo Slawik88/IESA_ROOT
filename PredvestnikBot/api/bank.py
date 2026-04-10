@@ -4,6 +4,8 @@ api/bank.py — unified bank deposit/withdraw operations.
 All functions are async; the mini app wraps them with async_to_sync.
 """
 from datetime import datetime, timezone
+import logging
+_log = logging.getLogger(__name__)
 
 # +2% rate bonus for single (unmarried) players
 SINGLES_BANK_BONUS = 0.02
@@ -273,8 +275,8 @@ async def withdraw(uid: int, chat_id: int, deposit_id: int) -> dict:
         from api.economy import log_wallet_tx
         desc = f"Досрочно, штраф {amount - payout}🪙" if early else f"Прибыль {int(amount * rate)}🪙"
         await log_wallet_tx(uid, chat_id, "income", payout, "bank_withdraw", desc)
-    except Exception:
-        pass
+    except Exception as _e:
+        _log.debug("%s", _e)
 
     return {
         "ok":           True,

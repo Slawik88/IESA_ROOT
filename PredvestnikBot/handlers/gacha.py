@@ -39,6 +39,8 @@ from database.db import (
 from filters.bot_command import BotCommand
 
 from filters.chat_mode import MainChatOnly
+import logging
+_log = logging.getLogger(__name__)
 router = Router()
 router.message.filter(MainChatOnly())
 

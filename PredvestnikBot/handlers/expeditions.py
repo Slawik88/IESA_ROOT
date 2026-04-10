@@ -36,6 +36,8 @@ from handlers.economy import deduct_wallet
 from utils.helpers import user_mention
 
 from filters.chat_mode import MainChatOnly
+import logging
+_log = logging.getLogger(__name__)
 router = Router()
 router.message.filter(MainChatOnly())
 
@@ -310,8 +312,8 @@ async def cb_expedition_start(callback: CallbackQuery):
             f"<i>Питомец вернётся автоматически. Уведомление придёт в чат.</i>",
             parse_mode="HTML",
         )
-    except Exception:
-        pass
+    except Exception as _e:
+        _log.debug("%s", _e)
     await callback.answer(f"🗺 Экспедиция на {opt['label']} начата!")
 
     # Quest chat notification
@@ -323,5 +325,5 @@ async def cb_expedition_start(callback: CallbackQuery):
                 f"<b>+{res['quest_xp']} XP</b>  <b>+{res['quest_mora']} Моры</b> 🪙",
                 parse_mode="HTML",
             )
-        except Exception:
-            pass
+        except Exception as _e:
+            _log.debug("%s", _e)

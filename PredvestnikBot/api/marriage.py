@@ -114,8 +114,8 @@ async def respond_to_proposal_api(uid: int, chat_id: int, proposal_id: int, acti
             from database.db import add_season_xp
             await add_season_xp(from_uid, 15)  # +15 XP инициатору
             await add_season_xp(uid, 15)        # +15 XP принявшему
-        except Exception:
-            pass
+        except Exception as _e:
+            _log.debug("%s", _e)
 
         return {
             "ok": True,
@@ -168,8 +168,8 @@ async def family_deposit(uid: int, chat_id: int, amount: int) -> dict:
         from api.economy import log_wallet_tx
         await log_wallet_tx(uid, chat_id, "expense", amount, "family_deposit",
                             "Вклад в семейный кошелёк")
-    except Exception:
-        pass
+    except Exception as _e:
+        _log.debug("%s", _e)
 
     new_mora = await get_mora(uid, chat_id)
     personal_balance = new_mora["balance"] if new_mora else 0
@@ -216,8 +216,8 @@ async def family_withdraw(uid: int, chat_id: int, amount: int) -> dict:
         from api.economy import log_wallet_tx
         await log_wallet_tx(uid, chat_id, "income", amount, "family_withdraw",
                             "Снятие из семейного кошелька")
-    except Exception:
-        pass
+    except Exception as _e:
+        _log.debug("%s", _e)
 
     new_mora = await get_mora(uid, chat_id)
     personal_balance = new_mora["balance"] if new_mora else 0

@@ -30,11 +30,13 @@ from database.db import (
     get_user,
     set_duel_status,
 )
-from config import COIN_MAX_BET, DICE_MAX_BET, LOTTERY_TICKET_PRICE
+from config import COIN_MAX_BET, COIN_MIN_BET_CHAT, DICE_MAX_BET, LOTTERY_TICKET_PRICE
 from filters.bot_command import BotCommand
 from utils.helpers import resolve_target, user_mention
 
 from filters.chat_mode import MainChatOnly
+import logging
+_log = logging.getLogger(__name__)
 router = Router()
 router.message.filter(MainChatOnly())
 
@@ -80,8 +82,8 @@ async def cmd_coin(message: Message, cmd_args: str):
         return
 
     bet = int(arg)
-    if bet < 200:
-        await message.answer("❌ Минимальная ставка в чате: <b>200 🪙</b>\nМеньшие ставки доступны в 🎲 Mini App.", parse_mode="HTML")
+    if bet < COIN_MIN_BET_CHAT:
+        await message.answer(f"❌ Минимальная ставка в чате: <b>{COIN_MIN_BET_CHAT} 🪙</b>\nМеньшие ставки доступны в 🎲 Mini App.", parse_mode="HTML")
         return
     if bet > COIN_MAX_BET:
         await message.answer(f"❌ Максимальная ставка: <b>{COIN_MAX_BET} 🪙</b>", parse_mode="HTML")

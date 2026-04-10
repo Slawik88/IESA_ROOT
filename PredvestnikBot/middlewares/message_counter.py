@@ -106,8 +106,8 @@ async def _delete_after(msg, delay: int = 5) -> None:
     await asyncio.sleep(delay)
     try:
         await msg.delete()
-    except Exception:
-        pass
+    except Exception as _e:
+        _log.debug("%s", _e)
 
 
 def _is_bot_command(event: Message) -> bool:
@@ -158,23 +158,23 @@ async def _process_economy(user_id: int, chat_id: int, event: Message) -> None:
             try:
                 from api.economy import log_wallet_tx as _lwt
                 await _lwt(user_id, chat_id, 'in', MORA_DAILY_BONUS, 'daily_bonus', '📅 Ежедневный бонус')
-            except Exception:
-                pass
+            except Exception as _e:
+                _log.debug("%s", _e)
             if streak_bonus:
                 await add_mora(user_id, chat_id, MORA_STREAK_BONUS)
                 try:
                     from api.economy import log_wallet_tx as _lwt
                     await _lwt(user_id, chat_id, 'in', MORA_STREAK_BONUS, 'streak_bonus', '🔥 7-дневный стрик')
-                except Exception:
-                    pass
+                except Exception as _e:
+                    _log.debug("%s", _e)
                 try:
                     await event.answer(
                         f"🔥 {user_mention(user_id, event.from_user.full_name)}"
                         f" — 7-дневный стрик! <b>+{MORA_STREAK_BONUS} Моры</b> 🪙",
                         parse_mode="HTML",
                     )
-                except Exception:
-                    pass
+                except Exception as _e:
+                    _log.debug("%s", _e)
 
     # Random Mora drop (with per-user cooldown)
     now = time.monotonic()
@@ -187,8 +187,8 @@ async def _process_economy(user_id: int, chat_id: int, event: Message) -> None:
             _mora_bonus = await _gte(user_id, "mora_drop_chance")
             if _mora_bonus > 0:
                 chance = min(chance + _mora_bonus / 100.0, 0.90)
-        except Exception:
-            pass
+        except Exception as _e:
+            _log.debug("%s", _e)
         min_drop = MORA_MSG_MIN + (1 if single else 0)
         max_drop = MORA_MSG_MAX + (1 if single else 0)
         if random.random() < chance:
@@ -200,8 +200,8 @@ async def _process_economy(user_id: int, chat_id: int, event: Message) -> None:
             try:
                 from api.economy import log_wallet_tx as _lwt
                 await _lwt(user_id, chat_id, 'in', drop, 'msg_drop', '💬 Случайный дроп')
-            except Exception:
-                pass
+            except Exception as _e:
+                _log.debug("%s", _e)
 
     # Message-type quest progress
     quest = await get_user_quest(user_id, chat_id, today)
@@ -216,8 +216,8 @@ async def _process_economy(user_id: int, chat_id: int, event: Message) -> None:
             try:
                 from api.economy import log_wallet_tx as _lwt
                 await _lwt(user_id, chat_id, 'in', mora_reward, 'daily_quest', '🎯 Ежедневное задание')
-            except Exception:
-                pass
+            except Exception as _e:
+                _log.debug("%s", _e)
             await mark_quest_rewarded(user_id, chat_id, today)
             try:
                 await event.answer(
@@ -226,8 +226,8 @@ async def _process_economy(user_id: int, chat_id: int, event: Message) -> None:
                     f" <b>+{quest['xp']} XP</b>  <b>+{mora_reward} Моры</b> 🪙",
                     parse_mode="HTML",
                 )
-            except Exception:
-                pass
+            except Exception as _e:
+                _log.debug("%s", _e)
 
 
 async def _process_xp(user_id: int, chat_id: int, event: Message, bot=None) -> None:
@@ -237,8 +237,8 @@ async def _process_xp(user_id: int, chat_id: int, event: Message, bot=None) -> N
         _xp_settings = await get_chat_settings(chat_id)
         if _xp_settings and _xp_settings.get("feat_xp_gain") == 0:
             return
-    except Exception:
-        pass
+    except Exception as _e:
+        _log.debug("%s", _e)
 
     now = time.monotonic()
     key = (user_id, chat_id)
@@ -264,8 +264,8 @@ async def _process_xp(user_id: int, chat_id: int, event: Message, bot=None) -> N
         try:
             from api.economy import log_wallet_tx as _lwt
             await _lwt(user_id, chat_id, 'in', MORA_LEVELUP_BONUS, 'level_up', f'💠 Бонус за уровень {new_level}')
-        except Exception:
-            pass
+        except Exception as _e:
+            _log.debug("%s", _e)
         # Блок 2: выдать очки таланта и шарды за уровень
         try:
             from database.db import award_talent_points, award_level_shards
@@ -278,8 +278,8 @@ async def _process_xp(user_id: int, chat_id: int, event: Message, bot=None) -> N
             from api.achievements import check_and_award as _ach
             await _ach(user_id, chat_id, "level", new_level, bot=bot,
                        username=event.from_user.full_name if event.from_user else "")
-        except Exception:
-            pass
+        except Exception as _e:
+            _log.debug("%s", _e)
         if LEVEL_UP_ANNOUNCE:
             shard_str = ""
             if shards_given:
@@ -292,8 +292,8 @@ async def _process_xp(user_id: int, chat_id: int, event: Message, bot=None) -> N
                     f" (XP: {new_xp}) <b>+{MORA_LEVELUP_BONUS} Моры</b> 🪙{tp_str}{shard_str}",
                     parse_mode="HTML",
                 )
-            except Exception:
-                pass
+            except Exception as _e:
+                _log.debug("%s", _e)
 
 
 # в”Ђв”Ђв”Ђ Middleware в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
@@ -360,8 +360,8 @@ class AutoModMiddleware(BaseMiddleware):
                     if rank_level(_ac_rank) < rank_level("co_owner"):
                         try:
                             await event.delete()
-                        except Exception:
-                            pass
+                        except Exception as _e:
+                            _log.debug("%s", _e)
                         return
             return await handler(event, data)
 
@@ -374,8 +374,8 @@ class AutoModMiddleware(BaseMiddleware):
         if in_group and not is_isolated:
             try:
                 _in_maintenance = await is_maintenance_mode()
-            except Exception:
-                pass
+            except Exception as _e:
+                _log.debug("%s", _e)
             if _in_maintenance and not (DEVELOPER_ID and user.id == DEVELOPER_ID):
                 _log.debug("MAINTENANCE uid=%s chat=%s — metrics only", user.id, event.chat.id)
                 await upsert_user_stats(user.id, event.chat.id)
@@ -418,8 +418,8 @@ class AutoModMiddleware(BaseMiddleware):
                     _bot_for_ach = data.get("bot")
                     await _ach(user.id, event.chat.id, "messages", msg_count,
                                bot=_bot_for_ach, username=user.full_name or "")
-                except Exception:
-                    pass
+                except Exception as _e:
+                    _log.debug("%s", _e)
 
             # Mora + quests
             await _process_economy(user.id, event.chat.id, event)
@@ -442,10 +442,10 @@ class AutoModMiddleware(BaseMiddleware):
                                 f"⚡ Весь чат получил бафф +10% XP на 24 часа!",
                                 parse_mode="HTML",
                             )
-                        except Exception:
-                            pass
-            except Exception:
-                pass
+                        except Exception as _e:
+                            _log.debug("%s", _e)
+            except Exception as _e:
+                _log.debug("%s", _e)
 
         # в”Ђв”Ђ Automod (groups only) в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
         if not in_group:
@@ -494,8 +494,8 @@ class AutoModMiddleware(BaseMiddleware):
             if not is_stale:
                 try:
                     await event.delete()
-                except Exception:
-                    pass
+                except Exception as _e:
+                    _log.debug("%s", _e)
             return
 
         # Antispam — Token Bucket (owner/developer skip mute but get hack-alert below)
@@ -527,8 +527,8 @@ class AutoModMiddleware(BaseMiddleware):
                         f"💬 Заглушен на {label} за спам.",
                         source_chat_id=chat_id,
                     )
-                except Exception:
-                    pass
+                except Exception as _e:
+                    _log.debug("%s", _e)
             return
 
         # Antiflood (configurable) — settings already loaded above
@@ -541,8 +541,8 @@ class AutoModMiddleware(BaseMiddleware):
             if not _privileged_during_lock:
                 try:
                     await event.delete()
-                except Exception:
-                    pass
+                except Exception as _e:
+                    _log.debug("%s", _e)
                 return
 
         # ── Smart Antiflood 2.0 — always active when antispam feature is on ────
@@ -551,8 +551,8 @@ class AutoModMiddleware(BaseMiddleware):
             try:
                 from database.db import get_af2_config as _gaf2
                 set_af2_cfg(chat_id, await _gaf2(chat_id))
-            except Exception:
-                pass
+            except Exception as _e:
+                _log.debug("%s", _e)
 
         if _feat_antispam:
             _is_text = bool(event.text and not (event.text or "").strip().lower().startswith("бот "))
@@ -581,8 +581,8 @@ class AutoModMiddleware(BaseMiddleware):
                         f" полегче со стикерами/гифками 😊",
                         parse_mode="HTML",
                     )
-                except Exception:
-                    pass
+                except Exception as _e:
+                    _log.debug("%s", _e)
                 return
 
             if sv.action == "mute" and not is_stale:
@@ -640,12 +640,12 @@ class AutoModMiddleware(BaseMiddleware):
                             for mid in sv.delete_msg_ids[-20:]:
                                 try:
                                     await bot_.delete_message(chat_id, mid)
-                                except Exception:
-                                    pass
+                                except Exception as _e:
+                                    _log.debug("%s", _e)
                     try:
                         await event.delete()
-                    except Exception:
-                        pass
+                    except Exception as _e:
+                        _log.debug("%s", _e)
                     # Register soft-mute so future messages are deleted until window expires
                     if sv.mute_seconds > 0:
                         _admin_soft_mute[(chat_id, user.id)] = time.time() + sv.mute_seconds
@@ -687,8 +687,8 @@ class AutoModMiddleware(BaseMiddleware):
                             for mid in sv.delete_msg_ids[-20:]:
                                 try:
                                     await bot_.delete_message(chat_id, mid)
-                                except Exception:
-                                    pass
+                                except Exception as _e:
+                                    _log.debug("%s", _e)
                     else:
                         await event.delete()
 
@@ -821,8 +821,8 @@ class AutoModMiddleware(BaseMiddleware):
                             f"💬 Чат: <code>{chat_id}</code>",
                             source_chat_id=chat_id,
                         )
-                    except Exception:
-                        pass
+                    except Exception as _e:
+                        _log.debug("%s", _e)
                     return
 
         # Locks
@@ -858,8 +858,8 @@ class AutoModMiddleware(BaseMiddleware):
                         f"🔒 Сообщение удалено — в чате заблокированы: {reason}.",
                     )
                     asyncio.create_task(_delete_after(msg))
-                except Exception:
-                    pass
+                except Exception as _e:
+                    _log.debug("%s", _e)
                 return
 
         # Blacklist
@@ -889,8 +889,8 @@ class AutoModMiddleware(BaseMiddleware):
                             parse_mode="HTML",
                         )
                         asyncio.create_task(_delete_after(msg))
-                    except Exception:
-                        pass
+                    except Exception as _e:
+                        _log.debug("%s", _e)
                     return
 
         return await handler(event, data)

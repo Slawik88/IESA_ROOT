@@ -7,10 +7,10 @@ ROULETTE_PRIZE_POOL (pet food, buff potions, coupons, consumables).
 Called by both Telegram bot handlers and the mini app views.
 All public functions are async; the mini app wraps them with async_to_sync.
 """
-import logging
 import random
-
+import logging
 _log = logging.getLogger(__name__)
+
 
 # European roulette number sets
 _RED   = {1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36}
@@ -66,8 +66,8 @@ def _bet_gross(bet_type: str, number: int, bet_amount: int) -> int:
         try:
             target = int(bet_type[7:])
             return bet_amount * 35 if number == target else 0
-        except ValueError:
-            pass
+        except ValueError as _e:
+            _log.debug("%s", _e)
     raise ValueError(f"Неизвестный тип ставки: {bet_type!r}")
 
 
@@ -238,8 +238,8 @@ async def roulette_spin(
         await log_wallet_tx(uid, chat_id, "expense", bet_amount, "roulette", f"Ставка рулетки {bet_amount}🪙")
         if win and net_prize > 0:
             await log_wallet_tx(uid, chat_id, "income", net_prize, "roulette", f"Выигрыш рулетки {net_prize}🪙")
-    except Exception:
-        pass
+    except Exception as _e:
+        _log.debug("%s", _e)
 
     # Achievement tracking for roulette spins (count only expense entries = one per spin)
     try:
@@ -254,8 +254,8 @@ async def roulette_spin(
         from api.achievements import check_and_award as _ach
         import asyncio
         asyncio.create_task(_ach(uid, chat_id, "roulette", _spin_count))
-    except Exception:
-        pass
+    except Exception as _e:
+        _log.debug("%s", _e)
 
     return {
         "ok":          True,

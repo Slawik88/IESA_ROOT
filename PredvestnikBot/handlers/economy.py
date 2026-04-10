@@ -58,6 +58,8 @@ from utils.helpers import resolve_target, user_mention
 from utils.ranks import rank_level
 
 from filters.chat_mode import MainChatOnly
+import logging
+_log = logging.getLogger(__name__)
 router = Router()
 router.message.filter(MainChatOnly())
 

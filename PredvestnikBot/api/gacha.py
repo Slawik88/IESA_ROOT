@@ -4,7 +4,6 @@ api/gacha.py — unified gacha roll logic.
 Called by both the Telegram bot handlers and the mini app views.
 All public functions are async; the mini app wraps them with async_to_sync.
 """
-import logging
 import random
 
 from shared_prices import (
@@ -15,6 +14,8 @@ from shared_prices import (
     GACHA_PITY_MAX,
     ITEM_METADATA,
 )
+import logging
+_log = logging.getLogger(__name__)
 
 # ── Item pools (identical to handlers/gacha.py) ────────────────────────────────
 _JUNK_ITEMS = [
@@ -345,8 +346,8 @@ async def gacha_roll(uid: int, chat_id: int, count: int,
             total_rolls = int(row["total_gacha_rolls"] or 0) if row else count
         from api.achievements import check_and_award as _ach
         await _ach(uid, chat_id, "gacha_rolls", total_rolls)
-    except Exception:
-        pass
+    except Exception as _e:
+        _log.debug("%s", _e)
 
     return {
         "ok":              True,

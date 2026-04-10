@@ -435,8 +435,8 @@ async def check_and_award(
         try:
             from utils.bot_instance import get_bot
             bot = get_bot()
-        except Exception:
-            pass
+        except Exception as _e:
+            _log.debug("%s", _e)
 
     if newly_awarded and bot:
         try:

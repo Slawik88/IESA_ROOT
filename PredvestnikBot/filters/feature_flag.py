@@ -15,6 +15,8 @@ Available features: website, antispam, marriages, pets, casino, random_events.
 
 import time
 from aiogram.types import Message
+import logging
+_log = logging.getLogger(__name__)
 
 # Anti-spam cooldown for "feature disabled" replies:
 # don't repeat the message if the same user triggered it within N seconds.
