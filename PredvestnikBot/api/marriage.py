@@ -72,61 +72,6 @@ async def propose(uid: int, target_id: int, chat_id: int) -> dict:
         "proposal_id": proposal_id,
         "message":     f"Предложение отправлено игроку {_html.escape(to_name)}!",
     }
-
-
-async def respond_to_proposal_api(uid: int, chat_id: int, proposal_id: int, action: str) -> dict:
-    """Accept or reject a proposal as the recipient.
-
-    On accept, creates the marriage.
-    Raises ValueError on error.
-    Returns {ok, action, partner_id?, partner_name?}.
-    """
-    from database.db import (
-        respond_to_proposal, create_marriage, get_user, get_pending_proposals,
-    )
-
-    if action not in ("accept", "reject"):
-        raise ValueError("action must be accept or reject")
-
-    # Verify this proposal is for the current user
-    proposals = await get_pending_proposals(uid, chat_id)
-    proposal = None
-    for p in proposals:
-        if p.get("id") == proposal_id:
-            proposal = p
-            break
-    if not proposal:
-        raise ValueError("Предложение не найдено или уже обработано")
-
-    status = "accepted" if action == "accept" else "rejected"
-    result = await respond_to_proposal(proposal_id, status)
-    if not result:
-        raise ValueError("Не удалось обработать предложение")
-
-    if action == "accept":
-        from_uid = result["from_user_id"]
-        await create_marriage(from_uid, uid, chat_id)
-        partner = await get_user(from_uid)
-        partner_name = partner["full_name"] if partner else f"user_{from_uid}"
-
-        # Season XP за регистрацию брака (обоим партнёрам)
-        try:
-            from database.db import add_season_xp
-            await add_season_xp(from_uid, 15)  # +15 XP инициатору
-            await add_season_xp(uid, 15)        # +15 XP принявшему
-        except Exception as _e:
-            _log.debug("%s", _e)
-
-        return {
-            "ok": True,
-            "action": "accepted",
-            "partner_id": from_uid,
-            "partner_name": partner_name,
-        }
-
-    return {"ok": True, "action": "rejected"}
-
-
 async def family_deposit(uid: int, chat_id: int, amount: int) -> dict:
     """Deposit mora into the family wallet.
 

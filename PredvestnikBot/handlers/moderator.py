@@ -215,8 +215,8 @@ async def cmd_purge(message: Message, bot: Bot, cmd_args: str):
             await bot.delete_messages(chat_id, chunk)
             # batch API не сообщает сколько реально удалено —
             # пробуем поштучно чтобы точно посчитать
-        except Exception:
-            pass
+        except Exception as _e:
+            _log.debug("%s", _e)
         # Поштучный подсчёт: пробуем удалить каждое, считаем успехи
         # Но batch уже удалил что мог — пересчитывать нельзя.
         # Вместо этого просто прибавляем размер чанка (batch удалил что мог)
@@ -230,10 +230,8 @@ async def cmd_purge(message: Message, bot: Bot, cmd_args: str):
     await asyncio.sleep(3)
     try:
         await note.delete()
-    except Exception:
-        pass
-
-
+    except Exception as _e:
+        _log.debug("%s", _e)
 @router.message(BotCommand("предупреждения", "варны", "warns"), RankFilter("admin_junior"))
 async def cmd_warns(message: Message, cmd_args: str):
     uid, name, _ = await resolve_target(message, cmd_args)
@@ -314,9 +312,8 @@ async def cb_unban(callback: CallbackQuery, bot: Bot):
 
     try:
         await bot.unban_chat_member(callback.message.chat.id, uid, only_if_banned=True)
-    except Exception:
-        pass
-
+    except Exception as _e:
+        _log.debug("%s", _e)
     await callback.answer(f"✅ {name} разбанен!", show_alert=True)
 
     # Обновить список
@@ -324,8 +321,8 @@ async def cb_unban(callback: CallbackQuery, bot: Bot):
     if not banned:
         try:
             await callback.message.edit_text("📋 В этом чате нет заблокированных пользователей.")
-        except Exception:
-            pass
+        except Exception as _e:
+            _log.debug("%s", _e)
         return
 
     lines = [f"⛔ <b>Заблокированные ({len(banned)}):</b>\n"]
@@ -340,10 +337,8 @@ async def cb_unban(callback: CallbackQuery, bot: Bot):
     kb = InlineKeyboardMarkup(inline_keyboard=buttons2) if buttons2 else None
     try:
         await callback.message.edit_text("\n".join(lines), parse_mode="HTML", reply_markup=kb)
-    except Exception:
-        pass
-
-
+    except Exception as _e:
+        _log.debug("%s", _e)
 @router.callback_query(F.data.startswith("uw:"))
 async def cb_unwarn(callback: CallbackQuery):
     if not is_developer(callback.from_user.id):

@@ -84,9 +84,8 @@ async def buy_bond(uid: int, chat_id: int, bond_key: str,
         from api.economy import log_wallet_tx
         await log_wallet_tx(uid, chat_id, "expense", total_cost, "bonds_buy",
                             f"{bond_key} ×{amount} по {price_per}🪙")
-    except Exception:
-        pass
-
+    except Exception as _e:
+        _log.debug("%s", _e)
     # Achievement tracking for bond trades
     try:
         from database.postgres import connect as _pg_conn
@@ -99,9 +98,8 @@ async def buy_bond(uid: int, chat_id: int, bond_key: str,
         from api.achievements import check_and_award as _ach
         import asyncio
         asyncio.create_task(_ach(uid, chat_id, "bond_trades", _trade_count))
-    except Exception:
-        pass
-
+    except Exception as _e:
+        _log.debug("%s", _e)
     # Return updated balances
     mora_row    = await get_mora(uid, chat_id)
     personal    = mora_row["balance"] if mora_row else 0
@@ -110,9 +108,8 @@ async def buy_bond(uid: int, chat_id: int, bond_key: str,
         from database.db import get_total_family_balance
         total_fbal, _my, _pid = await get_total_family_balance(chat_id, uid)
         family = total_fbal
-    except Exception:
-        pass
-
+    except Exception as _e:
+        _log.debug("%s", _e)
     # Holdings after purchase
     user_bonds  = await get_user_bonds(uid, chat_id)
     bond_record = next((b for b in user_bonds if b["bond_key"] == bond_key), None)
@@ -183,9 +180,8 @@ async def sell_bond(uid: int, chat_id: int, bond_key: str, amount: int) -> dict:
         if _broker_bonus > 0 and profit > 0:
             bonus_mora = max(1, int(profit * _broker_bonus / 100.0))
             net_revenue += bonus_mora
-    except Exception:
-        pass
-
+    except Exception as _e:
+        _log.debug("%s", _e)
     # Talent: bonds_resilience reduces loss when selling below buy price
     avg_buy_price = avg_buy  # already computed above
     if price_per < avg_buy_price:
@@ -196,9 +192,8 @@ async def sell_bond(uid: int, chat_id: int, bond_key: str, amount: int) -> dict:
                 loss = int((avg_buy_price - price_per) * amount)
                 recovery = max(1, int(loss * min(_resilience, 20) / 100.0))
                 net_revenue += recovery
-        except Exception:
-            pass
-
+        except Exception as _e:
+            _log.debug("%s", _e)
     ok, _ = await sell_bonds(uid, chat_id, bond_key, amount, credit_mora=net_revenue)
     if not ok:
         raise ValueError("Не удалось оформить продажу")
@@ -214,9 +209,8 @@ async def sell_bond(uid: int, chat_id: int, bond_key: str, amount: int) -> dict:
         from api.economy import log_wallet_tx
         await log_wallet_tx(uid, chat_id, "income", net_revenue, "bonds_sell",
                             f"{bond_key} ×{amount} по {price_per}🪙")
-    except Exception:
-        pass
-
+    except Exception as _e:
+        _log.debug("%s", _e)
     remaining = have - amount
 
     return {
@@ -230,52 +224,6 @@ async def sell_bond(uid: int, chat_id: int, bond_key: str, amount: int) -> dict:
         "remaining":  remaining,
         "balance":    new_balance,
     }
-
-
-async def get_portfolio(uid: int, chat_id: int) -> dict:
-    """
-    Returns the user's bond portfolio with current prices and unrealised P&L.
-    """
-    from database.db import get_bond_prices, get_user_bonds
-
-    try:
-        from config import BOND_DEFAULTS
-    except Exception:
-        from shared_prices import BOND_DEFAULTS
-
-    user_bonds = await get_user_bonds(uid, chat_id)
-    prices     = await get_bond_prices(chat_id)
-
-    holdings = []
-    for b in user_bonds:
-        if b["amount"] <= 0:
-            continue
-        key       = b["bond_key"]
-        cur_price = prices.get(key, BOND_DEFAULTS.get(key, {}).get("base_price", 0))
-        cur_val   = cur_price * b["amount"]
-        pnl       = cur_val - b["invested"]
-        holdings.append({
-            "bond_key":       key,
-            "amount":         b["amount"],
-            "invested":       b["invested"],
-            "current_value":  cur_val,
-            "current_price":  cur_price,
-            "pnl":            pnl,
-        })
-
-    all_prices = {
-        k: {"price": prices.get(k, v["base_price"]),
-            "label": v.get("label", k),
-            "base_price": v["base_price"]}
-        for k, v in BOND_DEFAULTS.items()
-    }
-
-    return {
-        "holdings":   holdings,
-        "prices":     all_prices,
-    }
-
-
 async def get_bonds_status(uid: int, chat_id: int) -> dict:
     """Full bonds page payload: prices, user holdings, history, market trend.
 
@@ -317,9 +265,8 @@ async def get_bonds_status(uid: int, chat_id: int) -> dict:
         if state_row:
             market_trend = state_row["trend"]
             market_ticks = state_row["ticks_left"]
-    except Exception:
-        pass
-
+    except Exception as _e:
+        _log.debug("%s", _e)
     bonds_out = []
     for bk in bond_keys:
         current_price = prices.get(bk, BOND_DEFAULTS[bk]["base_price"])

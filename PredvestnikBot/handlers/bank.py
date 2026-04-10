@@ -5,7 +5,7 @@
   бот банк / бот вклад   — меню банка (создать вклад / просмотр / снять)
 """
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 
 from aiogram import Router
 from aiogram.types import (
@@ -17,18 +17,12 @@ from aiogram.types import (
 
 from config import BANK_EARLY_PENALTY_PCT, BANK_MAX_DEPOSIT, BANK_MIN_DEPOSIT, BANK_PLANS, MINI_APP_TG_URL
 from database.db import (
-    add_mora,
-    add_to_family_wallet,
-    create_deposit,
-    get_family_wallet,
     get_mora,
     get_total_family_balance,
     get_user_deposits,
     is_user_single,
-    withdraw_deposit,
 )
 from filters.bot_command import BotCommand
-from handlers.economy import deduct_wallet
 
 from filters.chat_mode import MainChatOnly
 import logging
@@ -175,8 +169,8 @@ async def cb_bank_open(callback: CallbackQuery):
             parse_mode="HTML",
             reply_markup=kb,
         )
-    except Exception:
-        pass
+    except Exception as _e:
+        _log.debug("%s", _e)
     await callback.answer()
 
 
@@ -238,8 +232,8 @@ async def cb_bank_source_select(callback: CallbackQuery):
             parse_mode="HTML",
             reply_markup=kb,
         )
-    except Exception:
-        pass
+    except Exception as _e:
+        _log.debug("%s", _e)
     await callback.answer()
 
 
@@ -287,8 +281,8 @@ async def cb_bank_confirm(callback: CallbackQuery):
             f"📊 Доход: +{res['reward']} 🪙 через {p['days']} д.{singles_line}\n",
             parse_mode="HTML",
         )
-    except Exception:
-        pass
+    except Exception as _e:
+        _log.debug("%s", _e)
     await callback.answer("✅ Вклад создан!")
 
 

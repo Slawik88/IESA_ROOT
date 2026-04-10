@@ -40,7 +40,6 @@ from database.db import (
     get_join_request,
     get_tag_definitions,
     get_user_active_join_request,
-    set_chat_tag,
     update_join_request,
 )
 from filters.bot_command import BotCommand

@@ -16,8 +16,7 @@ from database.db import (
     add_admin_group, remove_admin_group, get_admin_groups,
     add_test_chat, remove_test_chat, get_test_chat_ids, get_chat_isolation_mode,
     set_chat_admin_link, remove_chat_admin_link, get_all_chat_admin_links, get_admin_chat_for,
-    get_main_chat_for, is_community_admin_chat,
-    add_xp_in_chat,
+    get_main_chat_for,
     # Channel types
     set_channel_type, remove_channel_type, get_channel_type, get_all_channel_types,
     # Community roles
@@ -186,16 +185,13 @@ async def cmd_broadcast(message: Message, bot: Bot, cmd_args: str):
         chunk = f"{header}\n\n{mentions}" if i == 0 else mentions
         try:
             await message.answer(chunk, parse_mode="HTML")
-        except Exception:
-            pass
-
+        except Exception as _e:
+            _log.debug("%s", _e)
     # Удаляем исходную команду чтобы не засорять чат (не критично, игнорируем ошибку)
     try:
         await message.delete()
-    except Exception:
-        pass
-
-
+    except Exception as _e:
+        _log.debug("%s", _e)
 @router.message(BotCommand("разработчик", "developer", "devinfo"), RankFilter("developer"))
 async def cmd_developer(message: Message, cmd_args: str):
     from database.db import get_chat_stats_for_chat
@@ -451,10 +447,8 @@ async def cmd_emit_xp(message: Message, cmd_args: str):
                 f"Причина: {html.escape(reason)}",
                 parse_mode="HTML",
             )
-        except Exception:
-            pass
-
-
+        except Exception as _e:
+            _log.debug("%s", _e)
 @router.message(BotCommand("выдать", "give", "emit"), RankFilter("developer"))
 async def cmd_emit_mora(message: Message, cmd_args: str):
     """Developer-only: начислить мору напрямую (без казны). Владелец — используй 'бот казна дать'.
@@ -509,10 +503,8 @@ async def cmd_emit_mora(message: Message, cmd_args: str):
                 f"Причина: {html.escape(reason)}",
                 parse_mode="HTML",
             )
-        except Exception:
-            pass
-
-
+        except Exception as _e:
+            _log.debug("%s", _e)
 @router.message(BotCommand("прибавитьxp", "addxp"), RankFilter("developer"))
 async def cmd_add_xp_dev(message: Message, cmd_args: str):
     """Developer-only: add XP to user (positive or negative).
@@ -700,8 +692,8 @@ async def cb_remove_admin_group(callback: CallbackQuery):
                 "Системные уведомления будут приходить в личку администраторам.",
                 parse_mode="HTML",
             )
-        except Exception:
-            pass
+        except Exception as _e:
+            _log.debug("%s", _e)
         await callback.answer("✅ Удалена")
         return
 
@@ -723,8 +715,8 @@ async def cb_remove_admin_group(callback: CallbackQuery):
     kb = InlineKeyboardMarkup(inline_keyboard=buttons) if buttons else None
     try:
         await callback.message.edit_text("\n".join(lines), parse_mode="HTML", reply_markup=kb)
-    except Exception:
-        pass
+    except Exception as _e:
+        _log.debug("%s", _e)
     await callback.answer(f"✅ Группа {chat_id} удалена")
 
 
@@ -1127,8 +1119,8 @@ async def cb_remove_admin_link(callback: CallbackQuery):
                 "📋 Привязок нет.\nУведомления из каждого чата идут в тот же чат.",
                 parse_mode="HTML",
             )
-        except Exception:
-            pass
+        except Exception as _e:
+            _log.debug("%s", _e)
         await callback.answer("✅ Привязка удалена")
         return
 
@@ -1150,8 +1142,8 @@ async def cb_remove_admin_link(callback: CallbackQuery):
     kb = InlineKeyboardMarkup(inline_keyboard=buttons) if buttons else None
     try:
         await callback.message.edit_text("\n".join(lines), parse_mode="HTML", reply_markup=kb)
-    except Exception:
-        pass
+    except Exception as _e:
+        _log.debug("%s", _e)
     await callback.answer(f"✅ Привязка {main_chat_id} удалена")
 
 
@@ -1279,8 +1271,8 @@ async def cb_remove_channel_type(callback: CallbackQuery) -> None:
     if not channels:
         try:
             await callback.message.edit_text("ℹ️ Все каналы удалены.", parse_mode="HTML")
-        except Exception:
-            pass
+        except Exception as _e:
+            _log.debug("%s", _e)
         await callback.answer(f"✅ {label} удалён")
         return
 
@@ -1294,8 +1286,8 @@ async def cb_remove_channel_type(callback: CallbackQuery) -> None:
     kb = InlineKeyboardMarkup(inline_keyboard=buttons)
     try:
         await callback.message.edit_text("\n".join(lines), parse_mode="HTML", reply_markup=kb)
-    except Exception:
-        pass
+    except Exception as _e:
+        _log.debug("%s", _e)
     await callback.answer(f"✅ {label} удалён")
 
 
@@ -1332,8 +1324,8 @@ async def cmd_group_chats(message: Message) -> None:
         try:
             chat = await message.bot.get_chat(chat_id)
             chat_info = f"{chat.title} (<code>{chat_id}</code>)"
-        except Exception:
-            pass
+        except Exception as _e:
+            _log.debug("%s", _e)
         lines.append(f"{i}. {chat_info}")
     
     await message.reply("\n".join(lines), parse_mode="HTML")
@@ -1439,8 +1431,8 @@ async def cb_role_holders(callback: CallbackQuery) -> None:
 
     try:
         await callback.message.reply("\n".join(lines), parse_mode="HTML")
-    except Exception:
-        pass
+    except Exception as _e:
+        _log.debug("%s", _e)
     await callback.answer()
 
 
@@ -1643,9 +1635,8 @@ async def _try_set_custom_title(bot, chat_id: int, user_id: int, title: str) -> 
     try:
         await bot.set_chat_administrator_custom_title(chat_id, user_id, title_short)
         return
-    except Exception:
-        pass
-
+    except Exception as _e:
+        _log.debug("%s", _e)
     # Пользователь не администратор — повышаем с нулевыми правами
     try:
         from aiogram.types import ChatAdministratorRights

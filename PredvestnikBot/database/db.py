@@ -2111,13 +2111,6 @@ def get_main_chat_for(admin_chat_id: int) -> int | None:
         if adm_id == admin_chat_id:
             return main_id
     return None
-
-
-def is_community_admin_chat(chat_id: int) -> bool:
-    """True if this chat is an admin group for some linked community."""
-    return chat_id in _admin_chat_ids
-
-
 # ─── Rest users (отдыхающие — защита от чистки) ──────────────────────────────
 
 async def add_rest_user(user_id: int, chat_id: int, days: int, added_by: int):
@@ -2171,29 +2164,6 @@ async def is_on_rest(user_id: int, chat_id: int) -> bool:
     if added.tzinfo is None:
         added = added.replace(tzinfo=timezone.utc)
     return (datetime.now(timezone.utc) - added).days < row["days"]
-
-
-async def get_resting_user_ids(chat_id: int) -> set[int]:
-    """Return set of user_ids currently on active rest in this chat."""
-    async with postgres_connect() as db:
-        async with db.execute(
-            "SELECT user_id, days, added_at FROM rest_users WHERE chat_id = ?",
-            (chat_id,),
-        ) as c:
-            rows = await c.fetchall()
-    result: set[int] = set()
-    now = datetime.now(timezone.utc)
-    for r in rows:
-        added = r["added_at"]
-        if isinstance(added, str):
-            added = datetime.fromisoformat(added)
-        if added.tzinfo is None:
-            added = added.replace(tzinfo=timezone.utc)
-        if (now - added).days < r["days"]:
-            result.add(r["user_id"])
-    return result
-
-
 async def get_rest_info_map(chat_id: int) -> dict[int, dict]:
     """Return {user_id: {'days': N, 'days_left': N, 'expires': datetime}} for active rest users."""
     async with postgres_connect() as db:
@@ -2683,18 +2653,6 @@ async def is_maintenance_mode() -> bool:
 
 
 # ─── Chat Tags (per-user roles in chat) ──────────────────────────────────────
-
-async def get_chat_tag(user_id: int, chat_id: int) -> str | None:
-    """Get user's tag/role in a chat."""
-    async with postgres_connect() as db:
-        async with db.execute(
-            "SELECT tag FROM chat_tags WHERE user_id = ? AND chat_id = ?",
-            (user_id, chat_id),
-        ) as c:
-            row = await c.fetchone()
-    return row[0] if row else None
-
-
 async def set_chat_tag(user_id: int, chat_id: int, tag: str, set_by: int = 0) -> None:
     """Set or update a user's tag/role in a chat."""
     tag = tag.strip()[:50]  # limit length
@@ -2828,23 +2786,6 @@ async def get_join_request(req_id: int) -> dict | None:
         ) as c:
             row = await c.fetchone()
     return dict(row) if row else None
-
-
-async def get_pending_join_requests(chat_id: int) -> list[dict]:
-    """Get all pending requests for a chat (with user info)."""
-    async with postgres_connect() as db:
-        async with db.execute(
-            """SELECT jr.*, u.full_name, u.username
-               FROM join_requests jr
-               LEFT JOIN users u ON u.user_id = jr.user_id
-               WHERE jr.chat_id = ? AND jr.status = 'pending'
-               ORDER BY jr.created_at ASC""",
-            (chat_id,),
-        ) as c:
-            rows = await c.fetchall()
-    return [dict(r) for r in rows]
-
-
 async def update_join_request(
     req_id: int, status: str, processed_by: int | None, invite_link: str | None = None
 ) -> bool:
@@ -3031,22 +2972,6 @@ async def get_rep_count_today(from_uid: int, to_uid: int, chat_id: int) -> int:
         ) as c:
             row = await c.fetchone()
             return row[0] if row else 0
-
-
-async def can_give_rep(from_uid: int, to_uid: int, chat_id: int) -> bool:
-    """Обратная совместимость: проверяет 2-часовой кулдаун (устарела, используй get_rep_count_today)."""
-    cutoff = datetime.now(timezone.utc) - timedelta(hours=2)
-    async with postgres_connect() as db:
-        async with db.execute(
-            "SELECT COUNT(*) FROM rep_log WHERE from_uid=? AND to_uid=? AND chat_id=? AND given_at>?",
-            (from_uid, to_uid, chat_id, cutoff),
-        ) as c:
-            row = await c.fetchone()
-            return row[0] == 0
-
-
-
-
 # ─── XP / Levels ──────────────────────────────────────────────────────────────
 
 def xp_for_level(level: int) -> int:
@@ -3156,16 +3081,6 @@ async def get_activity_report(chat_id: int):
             (week_key, today, chat_id),
         ) as c:
             return await c.fetchall()
-
-
-async def reset_cleanup_counts(chat_id: int):
-    async with postgres_connect() as db:
-        await db.execute(
-            "UPDATE cleanup_counts SET count = 0 WHERE chat_id = ?", (chat_id,)
-        )
-        await db.commit()
-
-
 # ─── Пропуск чистки ──────────────────────────────────────────────────────────
 
 async def buy_cleanup_pass(user_id: int, chat_id: int, price: int) -> int:
@@ -3251,20 +3166,6 @@ async def use_cleanup_pass(user_id: int, chat_id: int) -> bool:
         )
         await db.commit()
         return cursor.rowcount > 0
-
-
-async def get_pending_cleanup_passes(chat_id: int) -> list:
-    """Все заявки со статусом pending в чате."""
-    async with postgres_connect() as db:
-        async with db.execute(
-            "SELECT cp.*, u.full_name FROM cleanup_passes cp "
-            "LEFT JOIN users u ON u.user_id = cp.user_id "
-            "WHERE cp.chat_id=? AND cp.status='pending' ORDER BY cp.created_at",
-            (chat_id,),
-        ) as c:
-            return [dict(r) for r in await c.fetchall()]
-
-
 # ─── Quests ───────────────────────────────────────────────────────────────────
 
 DAILY_QUESTS: list[dict] = [
@@ -3294,18 +3195,6 @@ DAILY_QUESTS: list[dict] = [
     {"type": "messages", "goal": 40, "xp": 90,  "mora": 9, "desc": "✍️ Написать 40 сообщений в чате"},
     {"type": "rep",      "goal": 1,  "xp": 35,  "mora": 3, "desc": "⭐ Выдать репутацию 1 раз"},
 ]
-
-
-def get_todays_quest(today_str: str | None = None) -> dict:
-    """Возвращает задание для указанного дня (YYYY-MM-DD) или для сегодня по таймзоне бота."""
-    if today_str is None:
-        from utils.helpers import bot_today
-        today_str = bot_today()
-    d = date.fromisoformat(today_str)
-    idx = d.toordinal() % len(DAILY_QUESTS)
-    return DAILY_QUESTS[idx]
-
-
 async def get_user_quest(user_id: int, chat_id: int, today_str: str) -> dict:
     """Return the user's actual quest for today (randomly assigned on first look, persisted)."""
     import random
@@ -3433,33 +3322,6 @@ async def mark_quest_rewarded(user_id: int, chat_id: int, quest_date: str):
 
 
 # ─── Achievements ─────────────────────────────────────────────────────────────
-
-async def get_achievements(user_id: int) -> list:
-    async with postgres_connect() as db:
-        async with db.execute(
-            "SELECT badge, earned_at FROM user_achievements WHERE user_id=? ORDER BY earned_at",
-            (user_id,),
-        ) as c:
-            return await c.fetchall()
-
-
-async def award_achievement(user_id: int, badge: str) -> bool:
-    """Awards achievement. Returns True if newly awarded."""
-    now = datetime.now(timezone.utc)
-    async with postgres_connect() as db:
-        try:
-            await db.execute(
-                "INSERT INTO user_achievements (user_id, badge, earned_at) VALUES (?,?,?)",
-                (user_id, badge, now),
-            )
-            await db.commit()
-            return True
-        except asyncpg.UniqueViolationError:
-            return False
-
-
-# ─── Weekly / Daily top ───────────────────────────────────────────────────────
-
 async def get_weekly_top(chat_id: int, limit: int = 10) -> list:
     from zoneinfo import ZoneInfo
     from datetime import datetime as _dt
@@ -4108,20 +3970,6 @@ async def check_daily_mora(user_id: int, chat_id: int) -> tuple[bool, int, bool]
         )
         await db.commit()
         return True, new_streak, streak_bonus
-
-
-async def set_mora_public(user_id: int, chat_id: int, public: int):
-    """Set whether this user's Мора balance is visible to others in this chat."""
-    async with postgres_connect() as db:
-        await db.execute(
-            """INSERT INTO user_mora (user_id, chat_id, mora_public)
-               VALUES (?, ?, ?)
-               ON CONFLICT(user_id, chat_id) DO UPDATE SET mora_public = excluded.mora_public""",
-            (user_id, chat_id, public),
-        )
-        await db.commit()
-
-
 async def deduct_mora(user_id: int, chat_id: int, amount: int) -> tuple[bool, int]:
     """Deduct Мора globally if balance is sufficient. Atomic UPDATE prevents race conditions."""
     async with postgres_connect() as db:
@@ -4261,19 +4109,6 @@ async def set_duel_status(duel_id: int, status: str):
             (status, duel_id),
         )
         await db.commit()
-
-
-async def cancel_expired_duels():
-    """Cancel duels older than 5 minutes that are still pending."""
-    cutoff = datetime.now(timezone.utc) - timedelta(minutes=5)
-    async with postgres_connect() as db:
-        await db.execute(
-            "UPDATE casino_duels SET status='expired' WHERE status='pending' AND created_at < ?",
-            (cutoff,),
-        )
-        await db.commit()
-
-
 async def get_pending_duels_for_chat(chat_id: int, challenger_id: int) -> list:
     """Return pending duels by this challenger in this chat (to prevent spam)."""
     async with postgres_connect() as db:
@@ -4823,18 +4658,6 @@ async def change_pet_type(user_id: int, chat_id: int, new_type: str) -> bool:
             )
         await db.commit()
         return True
-
-
-async def reset_user_quest(user_id: int, chat_id: int, quest_date: str):
-    """Delete today's quest progress so it will be re-assigned fresh."""
-    async with postgres_connect() as db:
-        await db.execute(
-            "DELETE FROM user_quests WHERE user_id=? AND chat_id=? AND quest_date=?",
-            (user_id, chat_id, quest_date),
-        )
-        await db.commit()
-
-
 async def add_reputation_in_chat(from_uid: int, to_uid: int, chat_id: int, amount: int = 1) -> int:
     """Add reputation in chat. Returns new rep value."""
     now = datetime.now(timezone.utc)
@@ -5000,19 +4823,6 @@ async def set_bio_in_chat(user_id: int, chat_id: int, bio: str | None):
             (user_id, chat_id, bio),
         )
         await db.commit()
-
-
-async def get_rep_last_time(from_uid: int, to_uid: int, chat_id: int) -> str | None:
-    """Get ISO timestamp of last rep given from_uid to to_uid in chat."""
-    async with postgres_connect() as db:
-        async with db.execute(
-            "SELECT given_at FROM rep_log WHERE from_uid=? AND to_uid=? AND chat_id=? ORDER BY given_at DESC LIMIT 1",
-            (from_uid, to_uid, chat_id),
-        ) as c:
-            row = await c.fetchone()
-            return row[0] if row else None
-
-
 _EDITABLE_STATS_FIELDS = {
     "message_count", "xp", "level", "reputation", "warns",
     "bio", "custom_title", "is_banned",
@@ -5628,15 +5438,6 @@ async def get_active_chat_buff(chat_id: int, buff_type: str) -> dict | None:
         ) as c:
             row = await c.fetchone()
     return dict(row) if row else None
-
-
-async def cleanup_expired_chat_buffs() -> None:
-    """Housekeeping: delete all expired buff rows."""
-    async with postgres_connect() as db:
-        await db.execute("DELETE FROM chat_global_buffs WHERE expires_at <= NOW()")
-        await db.commit()
-
-
 # ─── Питомцы ──────────────────────────────────────────────────────────────────
 
 async def get_pet(user_id: int, chat_id: int) -> dict | None:
@@ -5909,23 +5710,6 @@ async def equip_gacha_item(user_id: int, chat_id: int, item_id: int) -> bool:
 
 
 # ─── Банк Северного Королевства ───────────────────────────────────────────────
-
-async def create_deposit(user_id: int, chat_id: int, amount: int,
-                         rate: float, days: int) -> int:
-    """Создать вклад. Возвращает id вклада."""
-    now = datetime.now(timezone.utc)
-    matures = now + timedelta(days=days)
-    async with postgres_connect() as db:
-        cursor = await db.execute(
-            """INSERT INTO bank_deposits (user_id, chat_id, amount, rate, created_at, matures_at)
-               VALUES (?, ?, ?, ?, ?, ?) RETURNING id""",
-            (user_id, chat_id, amount, rate, now, matures),
-        )
-        row = await cursor.fetchone()
-        await db.commit()
-        return row[0] if row else cursor.lastrowid
-
-
 async def get_user_deposits(user_id: int, chat_id: int) -> list:
     """Вернуть все активные (не снятые) вклады пользователя."""
     async with postgres_connect() as db:
@@ -6163,23 +5947,6 @@ async def get_active_buffs(user_id: int, chat_id: int) -> list:
             (user_id, chat_id, now),
         ) as c:
             return await c.fetchall()
-
-
-async def get_mora_boost_pct(user_id: int, chat_id: int) -> float:
-    """Вернуть суммарный процент бонуса к добыче моры из баффов (0.0 – 1.0)."""
-    buffs = await get_active_buffs(user_id, chat_id)
-    pct = 0.0
-    for b in buffs:
-        bt = b["buff_type"]
-        if bt == "mora_boost_10":
-            pct += 0.10
-        elif bt == "mora_boost_15":
-            pct += 0.15
-        elif bt == "mora_boost_20":
-            pct += 0.20
-    return pct
-
-
 # ─── Активные чаты для налоговых/scheduler ивентов ────────────────────────────
 
 async def get_active_group_chat_ids() -> list[int]:
@@ -6251,74 +6018,9 @@ async def get_user_badges(user_id: int, chat_id: int) -> list:
             (user_id, chat_id),
         ) as c:
             return [r["badge_key"] for r in await c.fetchall()]
-
-
-async def award_badge(user_id: int, chat_id: int, badge_key: str):
-    """Дать бейдж юзеру (если ещё нет)."""
-    async with postgres_connect() as db:
-        await db.execute(
-            """INSERT INTO user_badges (user_id, chat_id, badge_key, obtained_at) VALUES (?, ?, ?, ?) ON CONFLICT DO NOTHING""",
-            (user_id, chat_id, badge_key, datetime.now(timezone.utc)),
-        )
-        await db.commit()
-
-
 # ═══════════════════════════════════════════════════════════════════════════════
 #  👋  Личные приветствия
 # ═══════════════════════════════════════════════════════════════════════════════
-
-async def get_user_greeting(user_id: int, chat_id: int):
-    """Вернуть строку greeting (template_key) или None."""
-    async with postgres_connect() as db:
-        async with db.execute(
-            "SELECT * FROM user_greetings WHERE user_id=? AND chat_id=?",
-            (user_id, chat_id),
-        ) as c:
-            return await c.fetchone()
-
-
-async def set_user_greeting(user_id: int, chat_id: int, template_key: str, source: str = "gacha"):
-    """Назначить или сменить приветствие юзеру."""
-    async with postgres_connect() as db:
-        await db.execute(
-            """INSERT INTO user_greetings (user_id, chat_id, template_key, source, obtained_at)
-               VALUES (?, ?, ?, ?, ?)
-               ON CONFLICT(user_id, chat_id) DO UPDATE SET template_key=?, source=?""",
-            (user_id, chat_id, template_key, source, datetime.now(timezone.utc),
-             template_key, source),
-        )
-        await db.commit()
-
-
-async def check_greeting_today(user_id: int, chat_id: int, today_str: str) -> bool:
-    """True если приветствие уже показано сегодня."""
-    async with postgres_connect() as db:
-        async with db.execute(
-            "SELECT last_greeting_date FROM user_stats WHERE user_id=? AND chat_id=?",
-            (user_id, chat_id),
-        ) as c:
-            row = await c.fetchone()
-            if row and row["last_greeting_date"] == today_str:
-                return True
-    return False
-
-
-async def mark_greeting_shown(user_id: int, chat_id: int, today_str: str):
-    """Отметить что приветствие показано сегодня."""
-    async with postgres_connect() as db:
-        await db.execute(
-            "UPDATE user_stats SET last_greeting_date=? WHERE user_id=? AND chat_id=?",
-            (today_str, user_id, chat_id),
-        )
-        await db.commit()
-
-
-# ═══════════════════════════════════════════════════════════════════════════════
-#  ✨  Богатый сундук (замена налогового ивента)
-# ═══════════════════════════════════════════════════════════════════════════════
-
-async def create_chest_event(chat_id: int, duration_sec: int = 60) -> int:
-    """Создать ивент сундука. Возвращает event_id."""
     now = datetime.now(timezone.utc)
     expires = now + timedelta(seconds=duration_sec)
     async with postgres_connect() as db:
@@ -6682,46 +6384,6 @@ async def get_singles(chat_id: int, limit: int = 20) -> list[dict]:
             (chat_id, limit),
         ) as c:
             return [dict(r) for r in await c.fetchall()]
-
-
-async def get_rpg_stats(user_id: int, chat_id: int) -> dict:
-    """Return combined RPG stats: base + equipped item bonuses."""
-    async with postgres_connect() as db:
-        async with db.execute(
-            "SELECT * FROM user_rpg_stats WHERE user_id=? AND chat_id=?",
-            (user_id, chat_id),
-        ) as c:
-            row = await c.fetchone()
-        base = dict(row) if row else {
-            "base_hp": 150, "base_atk": 75, "base_def": 30, "base_crit": 0.08,  # РЕБАЛАНС: увеличены базовые статы
-            "weapon_id": None, "armor_id": None, "artifact_id": None,
-        }
-        # Sum bonuses from equipped gacha items
-        bonus_atk = bonus_def = bonus_hp = bonus_crit = 0.0
-        for slot_col in ("weapon_id", "armor_id", "artifact_id"):
-            iid = base.get(slot_col)
-            if iid:
-                async with db.execute(
-                    "SELECT atk, def_val, hp, crit_rate FROM gacha_inventory WHERE id=?",
-                    (iid,),
-                ) as ci:
-                    item = await ci.fetchone()
-                if item:
-                    bonus_atk  += item["atk"] or 0
-                    bonus_def  += item["def_val"] or 0
-                    bonus_hp   += item["hp"] or 0
-                    bonus_crit += item["crit_rate"] or 0.0
-    return {
-        "hp":        base["base_hp"] + int(bonus_hp),
-        "atk":       base["base_atk"] + int(bonus_atk),
-        "def":       base["base_def"] + int(bonus_def),
-        "crit_rate": round(base["base_crit"] + bonus_crit, 3),
-        "weapon_id": base.get("weapon_id"),
-        "armor_id":  base.get("armor_id"),
-        "artifact_id": base.get("artifact_id"),
-    }
-
-
 async def equip_item(user_id: int, chat_id: int, item_id: int, slot: str) -> str | None:
     """Equip a gacha item into a slot (weapon/armor/artifact).
 
@@ -6904,16 +6566,6 @@ async def add_to_treasury(
         ) as c:
             row = await c.fetchone()
     return row[0] if row else amount
-
-
-async def reset_treasury(chat_id: int):
-    async with postgres_connect() as db:
-        await db.execute(
-            "UPDATE chat_treasury SET balance = 0 WHERE chat_id=?", (chat_id,)
-        )
-        await db.commit()
-
-
 # ─── Персистентное состояние планировщика ─────────────────────────────────────
 
 async def get_scheduler_state(task_key: str) -> str | None:
@@ -7139,41 +6791,6 @@ async def log_stars_purchase(
 # ═══════════════════════════════════════════════════════════════════════════════
 #  🟢 ONLINE STATUS — mini app heartbeat
 # ═══════════════════════════════════════════════════════════════════════════════
-
-async def touch_miniapp_online(user_id: int) -> None:
-    """Update last_seen for the mini app online indicator."""
-    async with postgres_connect() as db:
-        await db.execute(
-            """INSERT INTO miniapp_online (user_id, last_seen)
-               VALUES (?, NOW())
-               ON CONFLICT(user_id) DO UPDATE SET last_seen = NOW()""",
-            (user_id,),
-        )
-        await db.commit()
-
-
-async def get_online_status(user_id: int) -> dict:
-    """Return online status for a single user."""
-    async with postgres_connect() as db:
-        row = await db.fetchone(
-            "SELECT last_seen FROM miniapp_online WHERE user_id=?", (user_id,),
-        )
-    if not row:
-        return {"online": False, "status": "offline", "last_seen": None}
-    from datetime import datetime, timezone
-    last = row["last_seen"]
-    if last.tzinfo is None:
-        last = last.replace(tzinfo=timezone.utc)
-    diff = (datetime.now(timezone.utc) - last).total_seconds()
-    if diff < 90:
-        return {"online": True, "status": "online", "last_seen": str(last)}
-    elif diff < 300:
-        return {"online": False, "status": "recently", "last_seen": str(last)}
-    return {"online": False, "status": "offline", "last_seen": str(last)}
-
-
-# ── Block 3: Crystal shop item helpers ────────────────────────────────────────
-
 async def get_transfer_passes(user_id: int) -> int:
     """Возвращает количество пропусков переноса (для обхода 3-дневного правила)."""
     async with postgres_connect() as db:
@@ -7312,18 +6929,6 @@ async def get_avatar_path(user_id: int) -> str | None:
             "SELECT avatar_path FROM crystal_avatar_unlocks WHERE user_id=?", (user_id,)
         )
     return row["avatar_path"] if row else None
-
-
-async def get_crystal_chat_role(user_id: int, chat_id: int) -> str | None:
-    """Возвращает кастомную роль юзера в чате или None."""
-    async with postgres_connect() as db:
-        row = await db.fetchone(
-            "SELECT role_text FROM crystal_chat_roles WHERE user_id=? AND chat_id=?",
-            (user_id, chat_id),
-        )
-    return row["role_text"] if row else None
-
-
 # ─── 🅱️ Block 4: Season Pass functions ──────────────────────────────────────
 
 async def seed_first_season():
@@ -7727,7 +7332,7 @@ async def award_level_shards(user_id: int, chat_id: int, new_level: int) -> list
 async def craft_from_shards(user_id: int, chat_id: int, shard_key: str) -> dict:
     """Попытка скрафтить предмет из шардов.
     Возвращает {ok, message, item_key?, item_name?}."""
-    from shared_prices import SHARD_CATALOG, ITEM_METADATA, FRAMES_CATALOG
+    from shared_prices import SHARD_CATALOG, ITEM_METADATA
     meta = SHARD_CATALOG.get(shard_key)
     if not meta:
         return {"ok": False, "message": "Неизвестный тип осколка"}
@@ -8043,78 +7648,6 @@ async def get_newbie_quest_status(user_id: int, chat_id: int) -> dict | None:
         "deadline":      deadline_dt.isoformat(),
     }
 
-
-async def get_chat_config(chat_id: int) -> dict:
-    """Возвращает конфигурацию чата; если не задана — возвращает дефолты."""
-    async with postgres_connect() as db:
-        row = await db.fetchone(
-            "SELECT * FROM chat_configs WHERE chat_id=?", (chat_id,)
-        )
-    if not row:
-        return dict(_CHAT_CONFIG_DEFAULTS)
-    import json
-    return {
-        "display_name":   row["display_name"],
-        "theme_pack":     row["theme_pack"],
-        "currency_name":  row["currency_name"],
-        "currency_emoji": row["currency_emoji"],
-        "gacha_enabled":  bool(row["gacha_enabled"]),
-        "casino_enabled": bool(row["casino_enabled"]),
-        "boss_enabled":   bool(row["boss_enabled"]),
-        "custom_config":  json.loads(row["custom_config"] or "{}"),
-        "owner_user_id":  row["owner_user_id"],
-    }
-
-
-async def upsert_chat_config(chat_id: int, **kwargs) -> None:
-    """Обновляет (или создаёт) конфигурацию чата."""
-    import json
-    allowed = {
-        "display_name", "theme_pack", "currency_name", "currency_emoji",
-        "gacha_enabled", "casino_enabled", "boss_enabled",
-        "custom_config", "owner_user_id",
-    }
-    kwargs = {k: v for k, v in kwargs.items() if k in allowed}
-    if "custom_config" in kwargs and isinstance(kwargs["custom_config"], dict):
-        kwargs["custom_config"] = json.dumps(kwargs["custom_config"], ensure_ascii=False)
-
-    async with postgres_connect() as db:
-        await db.execute(
-            "INSERT INTO chat_configs (chat_id) VALUES (?) ON CONFLICT DO NOTHING",
-            (chat_id,),
-        )
-        for key, value in kwargs.items():
-            await db.execute(
-                f"UPDATE chat_configs SET {key}=? WHERE chat_id=?",
-                (value, chat_id),
-            )
-        await db.commit()
-
-
-
-# ─── Топ-10 по недельной активности (для дивидендов) ─────────────────────────
-
-async def get_weekly_top_users(chat_id: int, limit: int = 10) -> list[int]:
-    """Возвращает list user_id по убыванию сообщений за текущую неделю."""
-    from datetime import date
-    week_start = date.today().strftime("%Y-%m-") + str(
-        date.today().day - date.today().weekday()
-    ).zfill(2)
-    async with postgres_connect() as db:
-        async with db.execute(
-            """SELECT user_id, SUM(message_count) as cnt
-               FROM user_stats
-               WHERE chat_id=?
-               GROUP BY user_id
-               ORDER BY cnt DESC LIMIT ?""",
-            (chat_id, limit),
-        ) as c:
-            rows = await c.fetchall()
-    return [r[0] for r in rows]
-
-
-# ─── Weekly top-10 message rewards ───────────────────────────────────────────
-
 WEEKLY_TOP_REWARDS = {1: 500, 2: 450, 3: 400, 4: 350, 5: 300,
                       6: 250, 7: 200, 8: 150, 9: 100, 10: 50}
 
@@ -8160,21 +7693,6 @@ async def get_weekly_top_reward_history(chat_id: int, week_key: str) -> list:
             (chat_id, week_key),
         ) as c:
             return await c.fetchall()
-
-
-async def get_vip_users(chat_id: int) -> list[int]:
-    """Возвращает list user_id у кого активный (не истёкший) vip=1 в данном чате."""
-    now = datetime.now(timezone.utc)
-    async with postgres_connect() as db:
-        async with db.execute(
-            "SELECT user_id FROM user_mora WHERE chat_id=? AND vip=1 "
-            "AND (vip_expires_at IS NULL OR vip_expires_at > ?)",
-            (chat_id, now),
-        ) as c:
-            rows = await c.fetchall()
-    return [r[0] for r in rows]
-
-
 async def get_all_active_chats() -> list[int]:
     """Все основные чаты где бот активен (исключая изолированные: admin_groups + test_chats)."""
     async with postgres_connect() as db:
@@ -8655,26 +8173,6 @@ async def batch_sell_items(
     return sold_count, total_mora
 
 # --- Couple Boss System (Married Pairs) --------------------------------------
-
-async def get_couple_boss_session(user_a_id: int, user_b_id: int, chat_id: int) -> dict | None:
-    """Get active couple boss session for married pair."""
-    from datetime import timezone
-    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    
-    # Ensure user_a_id < user_b_id for consistency
-    if user_a_id > user_b_id:
-        user_a_id, user_b_id = user_b_id, user_a_id
-    
-    async with postgres_connect() as db:
-        async with db.execute(
-            """SELECT * FROM couple_boss_sessions 
-               WHERE user_a_id=? AND user_b_id=? AND chat_id=? AND session_date=? AND is_completed=0""",
-            (user_a_id, user_b_id, chat_id, today),
-        ) as c:
-            row = await c.fetchone()
-    return dict(row) if row else None
-
-
 async def create_couple_boss_session(user_a_id: int, user_b_id: int, chat_id: int, boss_level: int = 1) -> dict:
     """Create new couple boss session."""
     from datetime import timezone

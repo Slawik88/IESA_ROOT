@@ -1,7 +1,6 @@
 """
 Season Pass API endpoints.
 """
-import json
 from aiohttp import web
 from database.db import (
     get_active_season,

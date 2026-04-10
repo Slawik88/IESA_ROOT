@@ -37,8 +37,8 @@ async def coin_flip_resolve(uid: int, chat_id: int, bet: int) -> dict:
         try:
             from api.economy import log_wallet_tx
             await log_wallet_tx(uid, chat_id, "income", prize, "casino", f"Выигрыш {prize}🪙")
-        except Exception:
-            pass
+        except Exception as _e:
+            _log.debug("%s", _e)
     else:
         mora_row = await get_mora(uid, chat_id)
         new_bal  = mora_row["balance"] if mora_row else 0
@@ -72,9 +72,8 @@ async def coin_flip_resolve(uid: int, chat_id: int, bet: int) -> dict:
             total_cf = int(row["total_coinflip"] or 0) if row else 1
         from api.achievements import check_and_award as _ach
         await _ach(uid, chat_id, "coinflip", total_cf)
-    except Exception:
-        pass
-
+    except Exception as _e:
+        _log.debug("%s", _e)
     return {
         "ok":          True,
         "win":         win,
@@ -125,9 +124,8 @@ async def coin_flip(uid: int, chat_id: int, bet: int) -> dict:
     try:
         from api.economy import log_wallet_tx
         await log_wallet_tx(uid, chat_id, "expense", bet, "casino", f"Ставка {bet}🪙")
-    except Exception:
-        pass
-
+    except Exception as _e:
+        _log.debug("%s", _e)
     return await coin_flip_resolve(uid, chat_id, bet)
 
 

@@ -346,8 +346,8 @@ async def buy_item(
         if chat_id != 0:
             try:
                 await buy_shop_item(uid, chat_id, "pet_color", item_key)
-            except Exception:
-                pass
+            except Exception as _e:
+                _log.debug("%s", _e)
     elif item_type == "potion":
         from shared_prices import POTIONS_CATALOG, ITEM_METADATA
         from database.db import add_gacha_item
@@ -366,8 +366,8 @@ async def buy_item(
         if chat_id != 0:
             try:
                 await add_user_theme(uid, 0, item_key, source="shop")
-            except Exception:
-                pass
+            except Exception as _e:
+                _log.debug("%s", _e)
         if equip:
             await set_active_theme(uid, chat_id, item_key)
 

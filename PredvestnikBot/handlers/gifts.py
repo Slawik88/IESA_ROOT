@@ -21,8 +21,6 @@ from aiogram.types import (
 from config import MARRIAGE_GIFTS, MINI_APP_TG_URL
 from database.db import (
     add_buff,
-    add_to_family_wallet,
-    get_family_wallet,
     get_marriage,
     get_mora,
     get_total_family_balance,
@@ -192,8 +190,8 @@ async def cb_gift(callback: CallbackQuery):
             f"📊 Всего подарков паре: {count} (на {total} 🪙)",
             parse_mode="HTML",
         )
-    except Exception:
-        pass
+    except Exception as _e:
+        _log.debug("%s", _e)
     await callback.answer("🎁 Подарок отправлен!")
 
     # Quest tick: gift

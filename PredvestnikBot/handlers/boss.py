@@ -9,18 +9,16 @@
   POST /api/boss/submit_damage  — принять урон из Mini App (батч, с анти-читом)
 """
 
-import asyncio
 import html
 import logging
 import random
 import time
-from datetime import datetime, timezone
 
 from aiogram import Router
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message
 
 from config import MINI_APP_TG_URL
-from database.db import add_boss_damage, add_mora, get_boss_leaderboard, get_boss_my_damage
+from database.db import add_boss_damage, get_boss_leaderboard, get_boss_my_damage
 from filters.bot_command import BotCommand
 
 from filters.chat_mode import MainChatOnly

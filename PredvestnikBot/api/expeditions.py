@@ -59,9 +59,8 @@ async def start_expedition(uid: int, chat_id: int, option_key: str,
                 raise ValueError(f"Питомец ещё на прогулке! Осталось {mins} мин.")
         except ValueError:
             raise
-        except Exception:
-            pass
-
+        except Exception as _e:
+            _log.debug("%s", _e)
     active = await get_active_expedition(uid, chat_id)
     if active:
         raise ValueError("Питомец уже в экспедиции")
@@ -126,9 +125,8 @@ async def start_expedition(uid: int, chat_id: int, option_key: str,
             from api.economy import log_wallet_tx
             await log_wallet_tx(uid, chat_id, "expense", cost, "expedition",
                                 f"Экспедиция {opt['hours']}ч")
-        except Exception:
-            pass
-
+        except Exception as _e:
+            _log.debug("%s", _e)
     await add_pet_fatigue(uid, chat_id, 20)
 
     # Quest tick
@@ -162,9 +160,8 @@ async def start_expedition(uid: int, chat_id: int, option_key: str,
         else:
             _m = await _get_mora(uid, chat_id)
             new_balance = _m["balance"] if _m else 0
-    except Exception:
-        pass
-
+    except Exception as _e:
+        _log.debug("%s", _e)
     return {
         "ok":          True,
         "option":      option_key,
@@ -212,8 +209,8 @@ async def claim_expedition(uid: int, chat_id: int) -> dict:
         _cd_red = await _gte(uid, "expedition_cd_minutes")
         if _cd_red > 0:
             end_at -= timedelta(minutes=_cd_red)
-    except Exception:
-        pass
+    except Exception as _e:
+        _log.debug("%s", _e)
     if now < end_at:
         secs_left = int((end_at - now).total_seconds())
         h_left = secs_left // 3600
@@ -241,9 +238,8 @@ async def claim_expedition(uid: int, chat_id: int) -> dict:
         from api.economy import log_wallet_tx
         await log_wallet_tx(uid, chat_id, "income", net_reward, "expedition",
                             f"Награда экспедиции ({reward_gross}🪙 - {exped_tax}🪙 налог)")
-    except Exception:
-        pass
-
+    except Exception as _e:
+        _log.debug("%s", _e)
     # Block 4: Add season XP for expedition completion
     season_level_up = False
     season_new_level = 0
@@ -294,9 +290,8 @@ async def get_expedition_status(uid: int, chat_id: int) -> dict:
                     secs = (walk_end - datetime.now(timezone.utc)).total_seconds()
                     pet["walking"] = True
                     pet["walk_mins_left"] = int(secs / 60) + 1
-            except Exception:
-                pass
-
+            except Exception as _e:
+                _log.debug("%s", _e)
     active = await get_active_expedition(uid, chat_id)
     expedition = None
     if active:
@@ -352,9 +347,8 @@ async def get_expedition_status(uid: int, chat_id: int) -> dict:
                         "time_left_h": int(p_secs // 3600),
                         "time_left_m": int((p_secs % 3600) // 60),
                     }
-    except Exception:
-        pass
-
+    except Exception as _e:
+        _log.debug("%s", _e)
     return {
         "ok": True,
         "pet": pet,

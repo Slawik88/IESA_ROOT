@@ -6,7 +6,7 @@ from aiogram.types import (
     Message,
 )
 
-from database.db import delete_note, get_note, get_user_stats, list_notes, save_note
+from database.db import delete_note, get_user_stats, list_notes, save_note
 from utils.ranks import rank_level
 from filters.bot_command import BotCommand
 from filters.rank_filter import RankFilter

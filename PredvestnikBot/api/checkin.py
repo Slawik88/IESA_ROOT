@@ -56,9 +56,8 @@ async def do_checkin(uid: int, chat_id: int) -> dict:
             mora = int(mora * 1.15)
             result["mora"] = mora
             result["vip_bonus"] = True
-    except Exception:
-        pass
-
+    except Exception as _e:
+        _log.debug("%s", _e)
     await add_mora(uid, chat_id, mora)
 
     # Log to wallet ledger
@@ -67,9 +66,8 @@ async def do_checkin(uid: int, chat_id: int) -> dict:
         streak = result.get("streak", 1)
         await log_wallet_tx(uid, chat_id, "income", mora, "checkin",
                             f"Стрик {streak} {'день' if streak == 1 else 'дней'}")
-    except Exception:
-        pass
-
+    except Exception as _e:
+        _log.debug("%s", _e)
     # Check streak achievements (fire-and-forget)
     try:
         from api.achievements import check_and_award as _ach

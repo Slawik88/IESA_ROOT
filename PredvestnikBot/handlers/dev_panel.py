@@ -21,10 +21,8 @@ from config import DEVELOPER_ID
 from database.db import (
     add_mora,
     add_to_treasury,
-    get_all_active_chats,
     get_mora,
     get_treasury,
-    get_user,
     set_mora_balance,
     add_gacha_item,
     get_user_stats,
@@ -150,7 +148,6 @@ async def cmd_dev_setbalance(message: Message, cmd_args: str):
 @router.message(BotCommand("казна", "treasury"))
 async def cmd_treasury(message: Message):
     """Показать баланс казны. Доступно admin_senior+."""
-    from filters.rank_filter import RankFilter
     from database.db import get_user_stats as _gs
     from utils.ranks import rank_level as _rl
 

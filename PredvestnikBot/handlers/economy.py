@@ -14,7 +14,6 @@
   бот анонимка [текст]    — анонимное сообщение в чат администрации (50 Мора)
 """
 import html
-import random
 from datetime import datetime, timedelta, timezone
 
 from aiogram import F, Router
@@ -32,12 +31,10 @@ from database.db import (
     get_admin_group_ids,
     get_family_wallet,
     get_mora,
-    get_top_frame,
     get_user,
     get_user_owned_frames,
     get_vip,
     get_xp_boost_active,
-    set_mora_public,
     set_top_frame,
     set_vip,
     set_xp_boost,
@@ -217,8 +214,8 @@ async def cb_mora_close(callback: CallbackQuery):
         return
     try:
         await callback.message.delete()
-    except Exception:
-        pass
+    except Exception as _e:
+        _log.debug("%s", _e)
     await callback.answer()
 
 
@@ -322,8 +319,8 @@ async def cb_buy_vip(callback: CallbackQuery):
             f"Значок 💎 теперь отображается в профиле и топе.",
             parse_mode="HTML",
         )
-    except Exception:
-        pass
+    except Exception as _e:
+        _log.debug("%s", _e)
     await callback.answer("💎 VIP активирован!")
 
 
@@ -367,8 +364,8 @@ async def cb_buy_cancel(callback: CallbackQuery):
         return
     try:
         await callback.message.delete()
-    except Exception:
-        pass
+    except Exception as _e:
+        _log.debug("%s", _e)
     await callback.answer("Отменено.")
 
 
@@ -467,8 +464,8 @@ async def cb_boost_buy(callback: CallbackQuery):
             f"Баланс: <b>{new_bal} 🪙</b>",
             parse_mode="HTML",
         )
-    except Exception:
-        pass
+    except Exception as _e:
+        _log.debug("%s", _e)
     await callback.answer(f"⚡ Буст на {label} активирован!")
 
 
@@ -606,8 +603,8 @@ async def cb_frame_page(callback: CallbackQuery):
         await callback.message.edit_reply_markup(
             reply_markup=_frame_keyboard(uid, current_frame, owned, page)
         )
-    except Exception:
-        pass
+    except Exception as _e:
+        _log.debug("%s", _e)
     await callback.answer()
 
 
@@ -659,8 +656,8 @@ async def cb_frame_buy(callback: CallbackQuery):
             f"💰 Баланс: <b>{new_bal} 🪙</b>",
             parse_mode="HTML",
         )
-    except Exception:
-        pass
+    except Exception as _e:
+        _log.debug("%s", _e)
     await callback.answer(f"{emoji} Рамка «{fname}» активирована!")
 
 
@@ -879,14 +876,13 @@ async def cmd_anon_message(message: Message, cmd_args: str):
                 reply_markup=keyboard,
             )
             sent_count += 1
-        except Exception:
-            pass
-
+        except Exception as _e:
+            _log.debug("%s", _e)
     if sent_count:
         try:
             await message.delete()
-        except Exception:
-            pass
+        except Exception as _e:
+            _log.debug("%s", _e)
         await message.answer(
             f"✅ Анонимное сообщение отправлено администрации. (<b>{ANON_MSG_PRICE} 🪙</b> списано)",
             parse_mode="HTML",
@@ -1052,9 +1048,8 @@ async def cmd_secret_message(message: Message, cmd_args: str):
     try:
         # Delete original command
         await message.delete()
-    except Exception:
-        pass
-    
+    except Exception as _e:
+        _log.debug("%s", _e)
     # Send secret message prompt
     await message.answer(
         f"📨 <b>Секретное сообщение</b>\n"

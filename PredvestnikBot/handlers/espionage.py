@@ -125,8 +125,8 @@ async def cmd_spy(message: Message, cmd_args: str):
                 f"Агент {spy_mention} пытался разведать твой баланс, но <b>провалился</b>.",
                 parse_mode="HTML",
             )
-        except Exception:
-            pass
+        except Exception as _e:
+            _log.debug("%s", _e)
         await message.answer(
             f"💥 <b>Провал!</b> Агент обнаружен.\n"
             f"Жертва уведомлена. -{_SPY_COST} 🪙 потрачено.",
@@ -325,8 +325,8 @@ async def cb_bond_buy(callback: CallbackQuery):
             f"💳 Кошелёк: {wallet_label} | Остаток: {new_bal} 🪙",
             parse_mode="HTML",
         )
-    except Exception:
-        pass
+    except Exception as _e:
+        _log.debug("%s", _e)
     await callback.answer("✅ Куплено!")
 
 

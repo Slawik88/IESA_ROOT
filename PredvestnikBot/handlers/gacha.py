@@ -9,8 +9,6 @@
 """
 
 import html
-import random
-from datetime import datetime
 
 from aiogram import Router
 from aiogram.types import (
@@ -26,14 +24,12 @@ from api.gacha import (
     _JUNK_ITEMS, _COMMON_ITEMS, _RARE_ITEMS, _LEGENDARY_ITEMS,
 )
 from database.db import (
-    add_mora,
     get_gacha_inventory,
     get_mora,
     get_received_gifts,
     get_top_frame,
     get_user_owned_frames,
     get_user_themes,
-    is_user_single,
     sell_gacha_junk,
 )
 from filters.bot_command import BotCommand
@@ -173,8 +169,8 @@ async def cb_gacha_roll(callback: CallbackQuery):
             _pity_red = await _gte(uid, "gacha_pity_reduction")
             if _pity_red > 0:
                 _talent_pity_note = f" <i>(−{_pity_red} от таланта «Память пустоты»)</i>"
-        except Exception:
-            pass
+        except Exception as _e:
+            _log.debug("%s", _e)
         _effective_pity_max = max(10, GACHA_PITY_COUNT - _pity_red)
         await callback.message.edit_text(
             f"{header} <b>Результат молитвы (x{count})</b>\n\n"
@@ -184,8 +180,8 @@ async def cb_gacha_roll(callback: CallbackQuery):
             parse_mode="HTML",
             reply_markup=kb,
         )
-    except Exception:
-        pass
+    except Exception as _e:
+        _log.debug("%s", _e)
     await callback.answer()
 
     if res.get("quest_done"):
@@ -196,9 +192,8 @@ async def cb_gacha_roll(callback: CallbackQuery):
                 f"<b>+{res['quest_xp']} XP</b>  <b>+{res['quest_mora']} Моры</b> 🪙",
                 parse_mode="HTML",
             )
-        except Exception:
-            pass
-
+        except Exception as _e:
+            _log.debug("%s", _e)
     # Block 4: Add season XP for gacha rolls
     try:
         from database.db import add_season_xp
@@ -378,8 +373,8 @@ async def cb_inventory_tab(callback: CallbackQuery):
     text, kb = await _build_inventory_page(owner, chat_id, section)
     try:
         await callback.message.edit_text(text, parse_mode="HTML", reply_markup=kb)
-    except Exception:
-        pass
+    except Exception as _e:
+        _log.debug("%s", _e)
     await callback.answer()
 
 

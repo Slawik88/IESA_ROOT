@@ -19,21 +19,14 @@ from aiogram.types import (
 
 from config import EXPEDITION_OPTIONS, MINI_APP_TG_URL
 from database.db import (
-    add_mora,
-    add_pet_fatigue,
-    add_to_family_wallet,
     get_active_expedition,
-    get_family_wallet,
     get_marriage,
     get_mora,
     get_pet,
     get_pet_fatigue,
     get_total_family_balance,
-    start_expedition,
 )
 from filters.bot_command import BotCommand
-from handlers.economy import deduct_wallet
-from utils.helpers import user_mention
 
 from filters.chat_mode import MainChatOnly
 import logging
@@ -261,8 +254,8 @@ async def cb_expedition_wallet_choice(callback: CallbackQuery):
                 parse_mode="HTML",
                 reply_markup=kb,
             )
-        except Exception:
-            pass
+        except Exception as _e:
+            _log.debug("%s", _e)
         await callback.answer()
         return
     
@@ -290,7 +283,6 @@ async def cb_expedition_start(callback: CallbackQuery):
         await callback.answer("❌ Неизвестный вариант.", show_alert=True)
         return
 
-    from api.expeditions import start_expedition as _api_start
     try:
         res = await _api_start(uid, chat_id, key, wallet_type)
     except ValueError as e:

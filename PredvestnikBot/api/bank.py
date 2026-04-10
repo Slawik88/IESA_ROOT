@@ -36,9 +36,8 @@ async def get_bank_info(uid: int, chat_id: int) -> dict:
         from database.db import get_total_family_balance
         total_fbal, _my, _pid = await get_total_family_balance(chat_id, uid)
         family_balance = total_fbal
-    except Exception:
-        pass
-
+    except Exception as _e:
+        _log.debug("%s", _e)
     # Deposits
     raw_deps   = await get_user_deposits(uid, chat_id)
     single     = await is_user_single(uid, chat_id)
@@ -202,9 +201,8 @@ async def deposit(uid: int, chat_id: int, plan_key: str,
         from api.economy import log_wallet_tx
         await log_wallet_tx(uid, chat_id, "expense", amount, "bank_deposit",
                             f"Вклад {plan_key} {plan['days']}д")
-    except Exception:
-        pass
-
+    except Exception as _e:
+        _log.debug("%s", _e)
     return {
         "ok":            True,
         "deposit_id":    dep_id,

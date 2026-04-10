@@ -14,7 +14,6 @@ from aiogram.types import Message
 
 from config import LOAN_MAX_ACTIVE, LOAN_MAX_AMOUNT, MORA_TRANSFER_MAX, MORA_TRANSFER_MIN
 from database.db import (
-    add_to_treasury,
     create_loan,
     get_active_loans_as_borrower,
     get_active_loans_as_lender,
@@ -22,7 +21,6 @@ from database.db import (
     get_user,
     get_user_by_username,
     repay_loan,
-    transfer_mora,
 )
 from filters.bot_command import BotCommand
 from utils.helpers import resolve_target, user_mention
@@ -86,7 +84,6 @@ async def cmd_transfer(message: Message, cmd_args: str):
         )
         return
 
-    from api.economy import transfer_mora as _api_transfer
     try:
         res = await _api_transfer(uid, target_id, chat_id, amount)
     except ValueError as e:

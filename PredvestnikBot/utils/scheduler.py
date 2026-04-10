@@ -600,7 +600,6 @@ async def _task_diligence_event(bot) -> None:
 async def _task_dev_event_queue(bot) -> None:
     """Process pending dev_event_queue rows left by the Mini App's /api/dev/trigger_event."""
     from database.postgres import connect as postgres_connect
-    from config import DEVELOPER_ID
     try:
         async with postgres_connect() as db:
             async with db.execute(

@@ -10,7 +10,6 @@ import threading
 import time
 import asyncpg
 from datetime import datetime
-from typing import Any, List, Dict
 from config import DATABASE_PATH
 
 _log = logging.getLogger("db.postgres")
@@ -79,19 +78,6 @@ async def get_pg_pool() -> asyncpg.Pool:
             _log.info("PG pool created for loop %d (min=2 max=20)", loop_id)
 
     return _pg_pools[loop_id]
-
-
-async def close_pg_pool():
-    """Close the pool bound to the currently running event loop."""
-    loop = asyncio.get_running_loop()
-    loop_id = id(loop)
-    pool = _pg_pools.pop(loop_id, None)
-    if pool:
-        await pool.close()
-    with _pg_meta_lock:
-        _pg_pool_locks.pop(loop_id, None)
-
-
 def _convert_placeholders(sql, params):
     if params is None:
         params_list = []
@@ -246,48 +232,12 @@ class PostgresConnection:
             raise RuntimeError("Соединение не установлено")
         sql, params = _convert_placeholders(sql, params)
         return await self._conn.fetchval(sql, *params)
-
-    async def executemany(self, sql, params_list):
-        if not self._conn:
-            raise RuntimeError("Соединение не установлено")
-        for params in params_list:
-            sql_conv, params_conv = _convert_placeholders(sql, params)
-            await self._conn.execute(sql_conv, *params_conv)
-
     async def commit(self):
         pass  # auto-commit in __aexit__
 
     async def rollback(self):
         if self._tx:
             await self._tx.rollback()
-
-
-async def execute_query(sql, *params):
-    async with PostgresConnection() as db:
-        return await db.execute(sql, list(params) if params else None)
-
-
-async def fetch_all(sql, *params):
-    async with PostgresConnection() as db:
-        return await db.fetch(sql, list(params) if params else None)
-
-
-async def fetch_one(sql, *params):
-    async with PostgresConnection() as db:
-        return await db.fetchone(sql, list(params) if params else None)
-
-
-async def fetch_value(sql, *params):
-    async with PostgresConnection() as db:
-        return await db.fetchval(sql, list(params) if params else None)
-
-
-connect = PostgresConnection
-postgres_connect = PostgresConnection  # alias used in api/* modules
-
-
-class PostgresDDLConnection:
-    def __init__(self):
         self._conn = None
 
     async def __aenter__(self):

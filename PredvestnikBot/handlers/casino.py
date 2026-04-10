@@ -8,7 +8,7 @@
 """
 import html
 import random
-from datetime import date, datetime
+from datetime import date
 
 from aiogram import F, Router
 from aiogram.types import (
@@ -161,8 +161,8 @@ async def cb_coin_choice(callback: CallbackQuery):
                     f"🔄 Бот перезапускался — ставка <b>{bet} 🪙</b> возвращена.",
                     parse_mode="HTML",
                 )
-            except Exception:
-                pass
+            except Exception as _e:
+                _log.debug("%s", _e)
             await callback.answer(f"Ставка {bet} 🪙 возвращена (перезапуск бота).", show_alert=True)
         return
     _active_coins.discard(key)
@@ -202,8 +202,8 @@ async def cb_coin_choice(callback: CallbackQuery):
             + result,
             parse_mode="HTML",
         )
-    except Exception:
-        pass
+    except Exception as _e:
+        _log.debug("%s", _e)
     await callback.answer()
 
     if res.get("quest_done"):
@@ -440,8 +440,8 @@ async def cb_duel_decline(callback: CallbackQuery):
             f"Ставка возвращена {user_mention(challenger_id, challenger_name)}.",
             parse_mode="HTML",
         )
-    except Exception:
-        pass
+    except Exception as _e:
+        _log.debug("%s", _e)
     await callback.answer("Ты отказался от дуэли.")
 
 

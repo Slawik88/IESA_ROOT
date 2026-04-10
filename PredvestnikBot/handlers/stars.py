@@ -35,12 +35,14 @@ log = logging.getLogger(__name__)
 
 # ─── Deep-link: /start buycrystals_PACK ──────────────────────────────────────
 
-@router.message(CommandStart(deep_link=True, deep_link_encoded=False), F.chat.type == "private")
+@router.message(
+    CommandStart(deep_link=True, deep_link_encoded=False),
+    F.chat.type == "private",
+    lambda m: bool(m.text and len(m.text.split(maxsplit=1)) > 1 and m.text.split(maxsplit=1)[1].startswith("buycrystals_")),
+)
 async def cmd_start_buy_crystals(msg: Message):
     """Handle /start buycrystals_{pack_key} deep link from Mini App."""
-    payload = msg.text.split(maxsplit=1)[1] if msg.text and " " in msg.text else ""
-    if not payload.startswith("buycrystals_"):
-        return  # let dm_roles handle other /start payloads
+    payload = msg.text.split(maxsplit=1)[1]
 
     pack_key = payload[len("buycrystals_"):]
     pack = CRYSTAL_PACKS.get(pack_key)

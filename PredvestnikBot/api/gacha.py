@@ -200,8 +200,8 @@ async def gacha_roll(uid: int, chat_id: int, count: int,
         _pity_red = await _gte(uid, "gacha_pity_reduction")
         if _pity_red > 0:
             pity_max = max(10, GACHA_PITY_MAX - _pity_red)
-    except Exception:
-        pass
+    except Exception as _e:
+        _log.debug("%s", _e)
     results = []
     guaranteed_rare_used = False
     for i in range(count):
@@ -331,9 +331,8 @@ async def gacha_roll(uid: int, chat_id: int, count: int,
         from api.economy import log_wallet_tx
         label = f"Гача ×{count}" if count > 1 else "Гача ×1"
         await log_wallet_tx(uid, chat_id, "expense", price, "gacha", label)
-    except Exception:
-        pass
-
+    except Exception as _e:
+        _log.debug("%s", _e)
     # Increment gacha roll counter & check achievements (fire-and-forget)
     try:
         from database.db import postgres_connect as _pg

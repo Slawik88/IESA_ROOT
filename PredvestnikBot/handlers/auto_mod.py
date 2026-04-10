@@ -241,8 +241,8 @@ async def cb_lock_toggle(callback: CallbackQuery):
     action = "🔒 Заблокировано" if new_val else "🔓 Разблокировано"
     try:
         await callback.message.edit_text(text, parse_mode="HTML", reply_markup=kb)
-    except Exception:
-        pass
+    except Exception as _e:
+        _log.debug("%s", _e)
     await callback.answer(f"{action}: {LOCK_LABELS[lock_type]}")
 
 
@@ -270,10 +270,8 @@ async def cb_del_blacklist_word(callback: CallbackQuery):
     text, kb = _blacklist_text_and_kb(words, enabled)
     try:
         await callback.message.edit_text(text, parse_mode="HTML", reply_markup=kb)
-    except Exception:
-        pass
-
-
+    except Exception as _e:
+        _log.debug("%s", _e)
 @router.callback_query(F.data.startswith("blt:"))
 async def cb_blacklist_toggle(callback: CallbackQuery):
     from utils.ranks import rank_level, is_developer

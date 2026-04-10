@@ -71,25 +71,6 @@ def _send_disabled_notice(message: Message, feature: str):
             await message.reply(
                 "⚠️ Эта функция отключена администрацией чата.",
             )
-        except Exception:
-            pass
-
+        except Exception as _e:
+            _log.debug("%s", _e)
     asyncio.create_task(_reply())
-
-
-async def get_feature_states(chat_id: int) -> dict[str, bool]:
-    """Return {feature: bool} for all feature flags in a chat."""
-    from database.db import get_chat_settings
-    settings = await get_chat_settings(chat_id)
-    flags = ["website", "antispam", "marriages", "pets", "casino", "random_events"]
-    result = {}
-    for flag in flags:
-        col = f"feat_{flag}"
-        if settings is not None:
-            try:
-                result[flag] = bool(settings[col] != 0)
-            except (KeyError, IndexError):
-                result[flag] = True
-        else:
-            result[flag] = True
-    return result

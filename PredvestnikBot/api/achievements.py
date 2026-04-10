@@ -5,11 +5,9 @@
 #   user_bond_lots, wallet_ledger
 
 from __future__ import annotations
-import asyncio
 import logging
 import math
 from datetime import datetime, timezone
-from typing import Optional
 from database.db import postgres_connect
 
 logger = logging.getLogger(__name__)
@@ -454,30 +452,6 @@ async def check_and_award(
             logger.debug("Achievement notify failed: %s", e)
 
     return newly_awarded
-
-
-async def get_user_achievements(user_id: int, chat_id: int) -> list[dict]:
-    """Вернуть список всех выданных достижений пользователя с деталями."""
-    try:
-        async with postgres_connect() as db:
-            rows = await db.fetch(
-                "SELECT badge_key, obtained_at FROM user_badges WHERE user_id=? AND chat_id=?",
-                (user_id, chat_id)
-            )
-    except Exception:
-        return []
-
-    result = []
-    for row in rows:
-        key = row["badge_key"]
-        if key in ACH_BY_KEY:
-            ach = dict(ACH_BY_KEY[key])
-            ach["obtained_at"] = str(row.get("obtained_at", ""))
-            result.append(ach)
-    result.sort(key=lambda x: x.get("obtained_at", ""), reverse=True)
-    return result
-
-
 async def get_all_achievements_with_status(user_id: int, chat_id: int) -> dict:
     """
     Вернуть категории достижений с прогрессом, рангами и бесконечным масштабированием.

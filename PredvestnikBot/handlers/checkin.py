@@ -6,7 +6,6 @@
   бот стрик              — посмотреть текущий стрик без отметки
 """
 
-import html
 from aiogram import Router
 from aiogram.types import Message
 
