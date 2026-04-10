@@ -259,7 +259,7 @@ async def _task_marriage_anniversary(bot) -> None:
                 if name:
                     return html.escape(name)
             except Exception as _e:
-                _log.debug("%s", _e)
+                log.debug("%s", _e)
             if db_user:
                 return html.escape(db_user["full_name"] or str(tg_uid))
             return str(tg_uid)
@@ -538,7 +538,7 @@ async def _task_bond_price_update(bot) -> None:
             if now < next_update:
                 return
         except (ValueError, TypeError) as _e:
-            _log.debug("%s", _e)
+            log.debug("%s", _e)
 
     from database.db import update_bond_prices, is_isolated_chat
 
