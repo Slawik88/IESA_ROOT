@@ -928,7 +928,11 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;
   </div>
 </div>
 
-<!-- Beta notice banner (removed — purchases unlocked) -->
+<!-- Beta notice banner -->
+<div id="betaBanner" style="position:fixed;top:0;left:0;right:0;z-index:9999;background:linear-gradient(90deg,#7c3aed,#6d28d9);color:#fff;font-size:12px;font-weight:700;text-align:center;padding:7px 36px 7px 12px;letter-spacing:.2px;box-shadow:0 2px 12px rgba(0,0,0,.4)">
+  🧪 Закрытое бета-тестирование &mdash; возможны баги. Сообщай о проблемах в чат!
+  <button onclick="closeBetaBanner()" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,.15);border:none;color:#fff;font-size:16px;line-height:1;width:24px;height:24px;border-radius:50%;cursor:pointer">&times;</button>
+</div>
 
 <!-- Category navigation bar (fixed bottom, mobile-app style) -->
 <div class="cat-bar" id="catBar">
@@ -2704,14 +2708,9 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;
       <div id="tagJoinLinkMsg" style="font-size:12px;min-height:16px;margin-top:6px;text-align:center"></div>
     </div>
 
-    <!-- Separator -->
+    <!-- Assigned tags list -->
     <div style="border-top:1px solid var(--border);padding-top:12px;margin-top:8px">
-      <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px">Прямое назначение тега<span class="rank-chip rank-chip-mod" style="margin-left:6px">🛡 Мод.+</span></div>
-      <div style="display:flex;gap:6px;margin-bottom:8px">
-        <input type="text" id="tagUserSearch" placeholder="User ID или @username" style="flex:1;background:var(--bg3,var(--card));color:var(--text);border:1px solid var(--border);border-radius:8px;padding:7px 10px;font-size:13px">
-        <input type="text" id="tagValue" placeholder="Имя тега" style="flex:1;background:var(--bg3,var(--card));color:var(--text);border:1px solid var(--border);border-radius:8px;padding:7px 10px;font-size:13px">
-        <button class="btn btn-primary" onclick="setTag()" style="flex:0 0 auto;font-size:13px">💾</button>
-      </div>
+      <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px">Назначенные теги</div>
       <div id="tagsGrid" style="display:grid;gap:4px;max-height:220px;overflow-y:auto"></div>
     </div>
 
@@ -7470,19 +7469,80 @@ async function loadTagDefinitions(){
       const badge = free
         ? '<span style="font-size:10px;font-weight:700;background:rgba(34,197,94,.15);color:#4ade80;border:1px solid rgba(34,197,94,.3);border-radius:8px;padding:2px 7px">🟢 Свободен</span>'
         : `<span style="font-size:10px;font-weight:700;background:rgba(239,68,68,.12);color:#f87171;border:1px solid rgba(239,68,68,.25);border-radius:8px;padding:2px 7px">🔴 ${esc(d.holder_name||'Занят')}</span>`;
+      const assignBtn = free
+        ? `<button onclick="toggleTagAssignPanel(${JSON.stringify(d.name)},this)" style="background:rgba(124,106,247,.15);border:1px solid rgba(124,106,247,.3);color:var(--accent);border-radius:8px;padding:3px 9px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">Назначить →</button>` : '';
       const delBtn = (_SETTINGS_RANK_LEVELS[_settingsUserRank]||0) >= 4
         ? `<button onclick="deleteTagDef(${JSON.stringify(d.name)})" style="background:none;border:none;color:#f87171;cursor:pointer;font-size:14px;padding:2px 4px" title="Удалить тег">🗑</button>` : '';
-      return `<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:10px;border-left:3px solid ${esc(color)};background:rgba(255,255,255,.03)">
-        <div style="flex:1;min-width:0">
-          <div style="font-size:13px;font-weight:700">${emoji}${esc(d.name)}</div>
-          ${d.description?`<div style="font-size:11px;color:var(--text2);margin-top:2px">${esc(d.description)}</div>`:''}
+      const assignPanel = free ? `<div id="tagAssignPanel_${CSS.escape(d.name)}" style="display:none;margin-top:8px;padding:8px;background:rgba(124,106,247,.06);border-radius:8px;border:1px solid rgba(124,106,247,.15)">
+        <div style="font-size:11px;color:var(--text2);margin-bottom:6px">Кому назначить тег <strong style="color:var(--accent)">${esc(d.name)}</strong>?</div>
+        <div style="display:flex;gap:6px;align-items:center">
+          <select id="tagAssignUser_${CSS.escape(d.name)}" style="flex:1;background:var(--bg3,var(--card));color:var(--text);border:1px solid var(--border);border-radius:8px;padding:7px 8px;font-size:12px">
+            <option value="">⏳ Загрузка участников…</option>
+          </select>
+          <button onclick="confirmTagAssign(${JSON.stringify(d.name)})" class="btn btn-primary" style="font-size:12px;padding:7px 12px;white-space:nowrap">✓ Назначить</button>
+          <button onclick="toggleTagAssignPanel(${JSON.stringify(d.name)},null,true)" style="background:none;border:none;color:var(--text2);cursor:pointer;font-size:18px;line-height:1;padding:0 4px">&times;</button>
         </div>
-        ${badge}
-        ${delBtn}
+      </div>` : '';
+      return `<div style="padding:8px 10px;border-radius:10px;border-left:3px solid ${esc(color)};background:rgba(255,255,255,.03)">
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13px;font-weight:700">${emoji}${esc(d.name)}</div>
+            ${d.description?`<div style="font-size:11px;color:var(--text2);margin-top:2px">${esc(d.description)}</div>`:''}
+          </div>
+          ${badge}
+          ${assignBtn}
+          ${delBtn}
+        </div>
+        ${assignPanel}
       </div>`;
     }).join('');
   } catch(e) {
     grid.innerHTML=`<div style="color:#f87171;font-size:12px">❌ ${esc(e.message)}</div>`;
+  }
+}
+
+let _tagMembersCache = null;
+async function _loadTagMembers(){
+  if(_tagMembersCache) return _tagMembersCache;
+  const r = await api('/api/members?chat_id='+chatId);
+  _tagMembersCache = r.members || [];
+  return _tagMembersCache;
+}
+
+async function toggleTagAssignPanel(tagName, btn, forceClose){
+  const panelId = 'tagAssignPanel_'+CSS.escape(tagName);
+  const panel = document.getElementById(panelId);
+  if(!panel) return;
+  const isOpen = panel.style.display !== 'none';
+  if(isOpen || forceClose){
+    panel.style.display = 'none';
+    return;
+  }
+  panel.style.display = 'block';
+  const sel = document.getElementById('tagAssignUser_'+CSS.escape(tagName));
+  if(sel && sel.options.length <= 1){
+    sel.innerHTML = '<option value="">⏳ Загрузка…</option>';
+    try {
+      const members = await _loadTagMembers();
+      sel.innerHTML = '<option value="">— Выбери участника —</option>'
+        + members.map(m=>`<option value="${m.user_id}">${esc(m.name)}</option>`).join('');
+    } catch(e) {
+      sel.innerHTML = '<option value="">❌ Ошибка загрузки</option>';
+    }
+  }
+}
+
+async function confirmTagAssign(tagName){
+  const sel = document.getElementById('tagAssignUser_'+CSS.escape(tagName));
+  if(!sel || !sel.value){ toast('Выбери участника','error'); return; }
+  try {
+    await api('/api/chat_tags','POST',{chat_id:chatId, user_id:sel.value, tag:tagName});
+    toast('✅ Тег «'+tagName+'» назначен','success');
+    _tagMembersCache = null;
+    loadTagDefinitions();
+    loadChatTags();
+  } catch(e) {
+    toast('❌ '+e.message,'error');
   }
 }
 
@@ -7545,22 +7605,6 @@ document.addEventListener('DOMContentLoaded',()=>{
   const hex = document.getElementById('newTagColorHex');
   if(cp && hex) cp.addEventListener('input',()=>{hex.textContent=cp.value;});
 });
-
-async function setTag(){
-  const userInput = document.getElementById('tagUserSearch').value.trim();
-  const tag = document.getElementById('tagValue').value.trim();
-  const msg = document.getElementById('tagsMsg');
-  if(!userInput||!tag){toast('Укажи User ID и тег','error');return;}
-  try {
-    await api('/api/chat_tags','POST',{chat_id:chatId, user_id:userInput, tag:tag});
-    toast('✅ Тег установлен','success');
-    document.getElementById('tagUserSearch').value='';
-    document.getElementById('tagValue').value='';
-    loadChatTags();
-  } catch(e) {
-    toast('❌ '+e.message,'error');
-  }
-}
 
 async function removeTag(userId){
   try {
@@ -10344,6 +10388,26 @@ async function buySeasonPremium() {
     toast('❌ Ошибка покупки: ' + e.message, 'error');
   }
 }
+
+// ── Beta banner: close + layout adjustment ──────────────────────────────────
+function _applyBannerOffset(h){
+  const bar = document.querySelector('.balance-bar');
+  const tabs = document.querySelector('.tabs');
+  if(bar) bar.style.top = h ? h+'px' : '';
+  if(tabs) tabs.style.top = h ? (48+h)+'px' : '';
+  document.body.style.paddingTop = h ? 'calc(48px + 45px + '+h+'px)' : '';
+}
+function closeBetaBanner(){
+  const b = document.getElementById('betaBanner');
+  if(!b) return;
+  b.style.display = 'none';
+  _applyBannerOffset(0);
+}
+document.addEventListener('DOMContentLoaded', function(){
+  const b = document.getElementById('betaBanner');
+  if(!b || b.style.display==='none') return;
+  _applyBannerOffset(b.offsetHeight || 32);
+});
 
 </script>
 <!-- User picker bottom sheet modal -->

@@ -87,8 +87,8 @@ async def start_expedition(uid: int, chat_id: int, option_key: str,
             from database.postgres import connect as postgres_connect
             async with postgres_connect() as db:
                 cursor = await db.execute(
-                    "UPDATE family_wallet SET balance=balance-? WHERE chat_id=? AND user_id=? AND balance>=?",
-                    (cost, chat_id, uid, cost),
+                    "UPDATE family_wallet SET balance=balance-? WHERE chat_id=0 AND user_id=? AND balance>=?",
+                    (cost, uid, cost),
                 )
                 if cursor.rowcount == 0:
                     fam_bal2 = await get_family_wallet(chat_id, uid)
