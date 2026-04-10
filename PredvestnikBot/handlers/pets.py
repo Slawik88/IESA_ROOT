@@ -23,15 +23,12 @@ from aiogram.types import (
 
 from config import PET_ADOPT_PRICE, PET_CHANGE_TYPE_PRICE, PET_MIN_MARRIAGE_DAYS, PET_MORA_SKIP_PRICE, PET_RENAME_PRICE
 from database.db import (
-    add_to_family_wallet,
     adopt_pet,
     add_mora,
     change_pet_type,
-    get_family_wallet,
     get_marriage,
     get_mora,
     get_pet,
-    get_total_family_balance,
     get_user,
     rename_pet,
 )
@@ -257,8 +254,8 @@ async def cb_pet_adopt(callback: CallbackQuery):
                 f"Дайте ему имя: <code>бот назвать питомца Мурзик</code>",
                 parse_mode="HTML",
             )
-        except Exception:
-            pass
+        except Exception as _e:
+            _log.debug("%s", _e)
         await callback.answer(f"{emoji} Питомец заведён!")
         return
 
@@ -340,8 +337,8 @@ async def cb_pet_pay(callback: CallbackQuery):
             f"Дайте ему имя: <code>бот назвать питомца Мурзик</code>",
             parse_mode="HTML",
         )
-    except Exception:
-        pass
+    except Exception as _e:
+        _log.debug("%s", _e)
     await callback.answer(f"{emoji} Питомец заведён!")
 
 
@@ -357,8 +354,8 @@ async def cb_pet_cancel(callback: CallbackQuery):
 
     try:
         await callback.message.edit_text("❌ Заведение питомца отменено.")
-    except Exception:
-        pass
+    except Exception as _e:
+        _log.debug("%s", _e)
     await callback.answer()
 
 
@@ -410,8 +407,8 @@ async def cb_pet_rename_confirm(callback: CallbackQuery):
                 f"Твой баланс: <b>{new_bal} 🪙</b>",
                 parse_mode="HTML",
             )
-        except Exception:
-            pass
+        except Exception as _e:
+            _log.debug("%s", _e)
         await callback.answer("✅ Переименование завершено!")
     else:
         # Возвращаем деньги, если не удалось переименовать
@@ -431,8 +428,8 @@ async def cb_pet_rename_cancel(callback: CallbackQuery):
 
     try:
         await callback.message.edit_text("❌ Переименование питомца отменено.")
-    except Exception:
-        pass
+    except Exception as _e:
+        _log.debug("%s", _e)
     await callback.answer()
 
 
@@ -495,8 +492,8 @@ async def cb_pet_skip(callback: CallbackQuery):
             parse_mode="HTML",
             reply_markup=kb,
         )
-    except Exception:
-        pass
+    except Exception as _e:
+        _log.debug("%s", _e)
     await callback.answer("✅ Мора списана, выбирай питомца!")
 
 
@@ -544,8 +541,8 @@ async def cb_pet_adopt_after_skip(callback: CallbackQuery):
             f"Дайте ему имя: <code>бот назвать питомца Мурзик</code>",
             parse_mode="HTML",
         )
-    except Exception:
-        pass
+    except Exception as _e:
+        _log.debug("%s", _e)
     await callback.answer(f"{emoji} Питомец заведён!")
 
 

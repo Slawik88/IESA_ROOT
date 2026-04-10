@@ -14,7 +14,7 @@ from database.db import (
     get_chat_members, get_chat_settings, get_filters,
     get_note, get_pending_role, get_senior_users_in_chat,
     get_user_stats, is_user_in_banlist,
-    log_voluntary_leave, remove_user_from_banlist,
+    log_voluntary_leave,
     set_chat_active, upsert_chat, upsert_user, upsert_user_stats,
 )
 from filters.bot_command import BotCommand

@@ -3,20 +3,6 @@ api/pets.py — pet operations (walk, feed).
 
 All functions are async; the mini app wraps them with async_to_sync.
 """
-
-
-async def walk_pet(uid: int, chat_id: int) -> dict:
-    """Start pet walk.
-
-    Thin wrapper around database.db.start_pet_walk_full.
-    Returns the same dict: {ok, error?, fatigue, fatigue_reduced, pet_name,
-    pet_type, walk_mins, reward, mins_left}.
-    """
-    from database.db import start_pet_walk_full
-
-    return await start_pet_walk_full(uid, chat_id)
-
-
 async def feed_pet(
     uid: int,
     chat_id: int,

@@ -4,12 +4,11 @@ from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 import html
 
-from config import REPORT_NOTIFY_RANK
 from database.db import (
     get_active_theme, get_daily_top, get_equipped_legendary, get_marriage, get_mora,
-    get_mora_batch, get_prev_weekly_top, get_received_gifts, get_staff_in_chat, get_top_by_messages_in_chat,
-    get_top_by_xp_in_chat, get_user, get_user_badges, get_user_stats,
-    get_user_themes, get_weekly_top, get_yesterday_top, set_bio_in_chat,
+    get_mora_batch, get_prev_weekly_top, get_received_gifts, get_top_by_messages_in_chat,
+    get_user, get_user_badges, get_user_stats,
+    get_user_themes, get_weekly_top, get_yesterday_top,
     get_xp_boost_active, add_user_theme, set_active_theme,
     get_weekly_top_reward_history, WEEKLY_TOP_REWARDS,
 )
@@ -671,8 +670,8 @@ async def cb_help(callback: CallbackQuery):
     if page_id == "close":
         try:
             await callback.message.delete()
-        except Exception:
-            pass
+        except Exception as _e:
+            _log.debug("%s", _e)
         await callback.answer()
         return
 
@@ -689,8 +688,8 @@ async def cb_help(callback: CallbackQuery):
     kb = _build_help_kb(page_id, owner_id, lvl, chat_id=callback.message.chat.id)
     try:
         await callback.message.edit_text(page["text"], parse_mode="HTML", reply_markup=kb)
-    except Exception:
-        pass
+    except Exception as _e:
+        _log.debug("%s", _e)
     await callback.answer()
 
 
@@ -850,8 +849,8 @@ async def cb_top(callback: CallbackQuery):
     if period == "close":
         try:
             await callback.message.delete()
-        except Exception:
-            pass
+        except Exception as _e:
+            _log.debug("%s", _e)
         await callback.answer()
         return
 
@@ -885,8 +884,8 @@ async def cb_top(callback: CallbackQuery):
                 "📊 Статистика пока пуста.",
                 reply_markup=_top_keyboard(period, owner_id),
             )
-        except Exception:
-            pass
+        except Exception as _e:
+            _log.debug("%s", _e)
         await callback.answer()
         return
 
@@ -914,11 +913,11 @@ async def cb_top(callback: CallbackQuery):
         else:
             try:
                 await callback.message.delete()
-            except Exception:
-                pass
+            except Exception as _e:
+                _log.debug("%s", _e)
             await _send_long_html(callback.message, text, reply_markup=_top_keyboard(period, owner_id))
-    except Exception:
-        pass
+    except Exception as _e:
+        _log.debug("%s", _e)
     await callback.answer()
 
 
@@ -935,8 +934,8 @@ async def cb_profile_nav(callback: CallbackQuery):
     if action == "close":
         try:
             await callback.message.delete()
-        except Exception:
-            pass
+        except Exception as _e:
+            _log.debug("%s", _e)
         await callback.answer()
         return
 
@@ -952,9 +951,8 @@ async def cb_profile_nav(callback: CallbackQuery):
         ]])
         try:
             await callback.message.edit_text(text, parse_mode="HTML", reply_markup=kb)
-        except Exception:
-            pass
-
+        except Exception as _e:
+            _log.debug("%s", _e)
     elif action == "lvl":
         stats = await get_user_stats(uid, callback.message.chat.id)
         user = await get_user(uid)
@@ -979,9 +977,8 @@ async def cb_profile_nav(callback: CallbackQuery):
         ]])
         try:
             await callback.message.edit_text(text, parse_mode="HTML", reply_markup=kb)
-        except Exception:
-            pass
-
+        except Exception as _e:
+            _log.debug("%s", _e)
     elif action == "me":
         user = await get_user(uid)
         if not user:
@@ -1086,9 +1083,8 @@ async def cb_profile_nav(callback: CallbackQuery):
         ])
         try:
             await callback.message.edit_text("\n".join(lines), parse_mode="HTML", reply_markup=kb)
-        except Exception:
-            pass
-
+        except Exception as _e:
+            _log.debug("%s", _e)
     elif action == "themes":
         from config import PROFILE_THEMES, COSMETIC_TIER_LABELS
         chat_id = callback.message.chat.id
@@ -1123,9 +1119,8 @@ async def cb_profile_nav(callback: CallbackQuery):
         try:
             await callback.message.edit_text("\n".join(lines), parse_mode="HTML",
                                              reply_markup=InlineKeyboardMarkup(inline_keyboard=btns))
-        except Exception:
-            pass
-
+        except Exception as _e:
+            _log.debug("%s", _e)
     elif action == "badges":
         from config import BADGE_DEFINITIONS
         chat_id = callback.message.chat.id
@@ -1144,9 +1139,8 @@ async def cb_profile_nav(callback: CallbackQuery):
         ])
         try:
             await callback.message.edit_text("\n".join(lines), parse_mode="HTML", reply_markup=kb)
-        except Exception:
-            pass
-
+        except Exception as _e:
+            _log.debug("%s", _e)
     await callback.answer()
 
 
@@ -1369,9 +1363,8 @@ async def cmd_me(message: Message, cmd_args: str):
                     for r in c_roles
                 )
                 lines.append(f"🎭 Роль: {roles_str}")
-        except Exception:
-            pass
-
+        except Exception as _e:
+            _log.debug("%s", _e)
     # Брак
     if is_group:
         marriage = await get_marriage(uid, chat_id)
@@ -1416,8 +1409,8 @@ async def cmd_me(message: Message, cmd_args: str):
                         if exp_dt.tzinfo is None:
                             exp_dt = exp_dt.replace(tzinfo=timezone.utc)
                         mins_left = max(0, int((exp_dt - now_utc).total_seconds() / 60))
-                    except Exception:
-                        pass
+                    except Exception as _e:
+                        _log.debug("%s", _e)
                 emoji, label, val = _BUFF_MAP.get(btype, ("✨", btype, ""))
                 time_str = f"{mins_left // 60}ч {mins_left % 60}м" if mins_left >= 60 else f"{mins_left}м"
                 lines.append(f"  {emoji} {label}: <b>{val}</b>  ⏱ {time_str}")
@@ -1472,9 +1465,8 @@ async def cmd_me(message: Message, cmd_args: str):
                 lines.extend(_talent_lines)
                 if not _talent_lines:
                     lines.append("  <i>Таланты не прокачаны — открой Mini App</i>")
-        except Exception:
-            pass
-
+        except Exception as _e:
+            _log.debug("%s", _e)
     # Pet walk status
     if is_group:
         from database.db import get_pet
@@ -1488,9 +1480,8 @@ async def cmd_me(message: Message, cmd_args: str):
                 if mins > 0:
                     pet_emoji = {"cat": "🐱", "dog": "🐶"}.get(pet_for_walk.get("pet_type", ""), "🐾")
                     lines.append(f"{pet_emoji} На прогулке (осталось {mins} мин)")
-            except Exception:
-                pass
-
+            except Exception as _e:
+                _log.debug("%s", _e)
     if theme["footer"]:
         lines.append(f"\n{theme['footer']}")
 
@@ -1583,10 +1574,8 @@ async def cb_theme_set(callback: CallbackQuery):
     await callback.answer(f"✅ Тема «{key}» активирована!")
     try:
         await callback.message.delete()
-    except Exception:
-        pass
-
-
+    except Exception as _e:
+        _log.debug("%s", _e)
 @router.callback_query(F.data.startswith("theme_buy:"))
 async def cb_theme_buy(callback: CallbackQuery):
     from config import PROFILE_THEMES
@@ -1627,10 +1616,8 @@ async def cb_theme_buy(callback: CallbackQuery):
     await callback.answer(f"✅ Тема «{theme['name']}» куплена и активирована!")
     try:
         await callback.message.delete()
-    except Exception:
-        pass
-
-
+    except Exception as _e:
+        _log.debug("%s", _e)
 @router.callback_query(F.data.startswith("theme_locked:"))
 async def cb_theme_locked(callback: CallbackQuery):
     parts = callback.data.split(":")
@@ -1931,9 +1918,8 @@ async def cmd_report(message: Message, bot: Bot, cmd_args: str):
     # Удаляем сообщение из чата — никакого публичного следа
     try:
         await message.delete()
-    except Exception:
-        pass
-
+    except Exception as _e:
+        _log.debug("%s", _e)
     # Уведомляем репортёра в ЛС (тихо — никто в чате не видит)
     try:
         await bot.send_message(

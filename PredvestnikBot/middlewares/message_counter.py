@@ -43,7 +43,6 @@ from database.db import (
     upsert_chat, upsert_user, upsert_user_stats,
     get_admin_group_ids, is_test_chat,
 )
-from services.antispam import check_spam as _check_spam_token_bucket  # token-bucket (kept for potential future use)
 from services.recent_users import remember_user
 from utils.flood import check_flood, check_spam, check_smart_flood, get_af2_flag, is_af2_cfg_stale, set_af2_cfg
 from utils.helpers import bot_today, notify_admins, user_mention
@@ -788,8 +787,8 @@ class AutoModMiddleware(BaseMiddleware):
 
             # ── Fallback: legacy configurable antiflood for regular users ─
             if sv.action == "allow" and sv.trust == "regular" and not _is_hack_detection:
-                af_enabled = settings["antiflood_enabled"] if settings else int(DEFAULT_ANTIFLOOD_ENABLED)
-                af_limit = settings["antiflood_limit"] if settings else DEFAULT_ANTIFLOOD_LIMIT
+                af_enabled = settings.get("antiflood_enabled", int(DEFAULT_ANTIFLOOD_ENABLED)) if settings else int(DEFAULT_ANTIFLOOD_ENABLED)
+                af_limit = settings.get("antiflood_limit", DEFAULT_ANTIFLOOD_LIMIT) if settings else DEFAULT_ANTIFLOOD_LIMIT
                 af_window = (settings.get("antiflood_window") if settings else None) or FLOOD_WINDOW
                 if af_enabled and af_limit > 0 and check_flood(chat_id, user.id, af_limit, af_window):
                     try:
@@ -809,7 +808,7 @@ class AutoModMiddleware(BaseMiddleware):
                             parse_mode="HTML",
                         )
                         trust_label = {"newcomer": "🆕 Новичок", "regular": "👤 Обычный", "trusted": "⭐ Доверенный"}.get(
-                            (stats["rank"] if stats else "user"), "👤 Обычный"
+                            sv.trust, "👤 Обычный"
                         )
                         await notify_admins(
                             bot_,

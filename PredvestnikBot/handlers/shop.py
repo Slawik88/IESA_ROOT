@@ -13,7 +13,6 @@ from aiogram.types import (
     InlineKeyboardButton,
     InlineKeyboardMarkup,
     Message,
-    WebAppInfo,
 )
 
 from config import (
@@ -34,8 +33,6 @@ from config import (
 )
 from database.db import (
     buy_shop_item,
-    get_family_wallet,
-    get_marriage,
     get_mora,
     has_shop_item,
     set_pet_color,
@@ -306,8 +303,8 @@ async def cb_shop_nav(callback: CallbackQuery):
             parse_mode="HTML",
             reply_markup=_section_keyboard(owner, section, owned),
         )
-    except Exception:
-        pass
+    except Exception as _e:
+        _log.debug("%s", _e)
     await callback.answer()
 
 
@@ -353,16 +350,14 @@ async def cb_shop_buy(callback: CallbackQuery):
                 f"💰 Баланс: {new_bal} 🪙",
                 parse_mode="HTML",
             )
-        except Exception:
-            pass
-
+        except Exception as _e:
+            _log.debug("%s", _e)
         # Block 4: Add season XP for shop purchase
         try:
             from database.db import add_season_xp
             await add_season_xp(uid, 2)  # +2 season XP
-        except Exception:
-            pass
-
+        except Exception as _e:
+            _log.debug("%s", _e)
     elif item_key == "pet_color":
         await buy_shop_item(uid, chat_id, "pet_color", "pending")
         # Предлагаем выбрать цвет
@@ -385,9 +380,8 @@ async def cb_shop_buy(callback: CallbackQuery):
                 parse_mode="HTML",
                 reply_markup=kb,
             )
-        except Exception:
-            pass
-
+        except Exception as _e:
+            _log.debug("%s", _e)
     elif item_key == "pet_emoji_status":
         await buy_shop_item(uid, chat_id, "pet_emoji_status", "pending")
         try:
@@ -398,9 +392,8 @@ async def cb_shop_buy(callback: CallbackQuery):
                 f"💰 Баланс: {new_bal} 🪙",
                 parse_mode="HTML",
             )
-        except Exception:
-            pass
-
+        except Exception as _e:
+            _log.debug("%s", _e)
     else:
         # Неизвестный товар — возвращаем деньги
         from database.db import add_mora
@@ -438,10 +431,8 @@ async def cb_shop_color(callback: CallbackQuery):
             f"✅ Цвет имени питомца изменён на {_PET_COLORS[color]}!",
             parse_mode="HTML",
         )
-    except Exception:
-        pass
-
-
+    except Exception as _e:
+        _log.debug("%s", _e)
 # ─── Пропуск чистки ──────────────────────────────────────────────────────────
 
 @router.message(BotCommand("откуп", "пропуск чистки", "cleanup_pass"))
@@ -479,12 +470,10 @@ async def cmd_buy_cleanup_pass(message: Message, bot, cmd_args: str):
     # Log to wallet ledger
     try:
         from api.economy import log_wallet_tx
-        import asyncio
         await log_wallet_tx(uid, chat_id, "expense", CLEANUP_PASS_PRICE, "cleanup_pass",
                             "Откуп от чистки")
-    except Exception:
-        pass
-
+    except Exception as _e:
+        _log.debug("%s", _e)
     user_name = html.escape(message.from_user.full_name)
     chat_title = html.escape(message.chat.title or "чат")
 
@@ -521,15 +510,13 @@ async def cmd_buy_cleanup_pass(message: Message, bot, cmd_args: str):
             try:
                 await bot.send_message(s["user_id"], notify_text, parse_mode="HTML", reply_markup=kb)
                 notified.add(s["user_id"])
-            except Exception:
-                pass
+            except Exception as _e:
+                _log.debug("%s", _e)
     if DEVELOPER_ID and DEVELOPER_ID not in notified:
         try:
             await bot.send_message(DEVELOPER_ID, notify_text, parse_mode="HTML", reply_markup=kb)
-        except Exception:
-            pass
-
-
+        except Exception as _e:
+            _log.debug("%s", _e)
 @router.callback_query(lambda c: c.data and c.data.startswith("cpass:"))
 async def cb_cleanup_pass(callback: CallbackQuery):
     """Обработка одобрения/отклонения пропуска чистки."""
@@ -567,8 +554,8 @@ async def cb_cleanup_pass(callback: CallbackQuery):
                 callback.message.text + "\n\n✅ <b>Одобрено</b>",
                 parse_mode="HTML",
             )
-        except Exception:
-            pass
+        except Exception as _e:
+            _log.debug("%s", _e)
         # Уведомить покупателя
         try:
             await callback.bot.send_message(
@@ -577,8 +564,8 @@ async def cb_cleanup_pass(callback: CallbackQuery):
                 f"При следующей чистке ты будешь защищён.",
                 parse_mode="HTML",
             )
-        except Exception:
-            pass
+        except Exception as _e:
+            _log.debug("%s", _e)
         await callback.answer("✅ Пропуск одобрен!", show_alert=True)
     else:
         # Вернуть деньги

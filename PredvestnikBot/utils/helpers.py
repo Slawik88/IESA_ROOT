@@ -1,4 +1,4 @@
-from aiogram.types import Message
+from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 import html
 from database.db import get_user, get_user_by_username
 from services.recent_users import get_recent_user, get_recent_user_by_username
@@ -140,3 +140,47 @@ async def notify_admins(bot, text: str, source_chat_id: int | None = None, reply
             await bot.send_message(gid, text, parse_mode="HTML", disable_web_page_preview=True, reply_markup=reply_markup)
         except Exception as _e:
             _log.debug("%s", _e)
+
+
+# ---------------------------------------------------------------------------
+# Keyboard helpers (DRY for 15+ copy-pasted grid/single-button patterns)
+# ---------------------------------------------------------------------------
+
+def kb_grid(
+    buttons: list[InlineKeyboardButton],
+    cols: int = 2,
+    footer: list[InlineKeyboardButton] | None = None,
+) -> InlineKeyboardMarkup:
+    """Build an InlineKeyboardMarkup arranging *buttons* in a grid of *cols* columns.
+
+    Optional *footer* row is appended as the last row (e.g. a "Back" button).
+    """
+    rows = [buttons[i : i + cols] for i in range(0, len(buttons), cols)]
+    if footer:
+        rows.append(footer)
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def kb_single(text: str, callback_data: str) -> InlineKeyboardMarkup:
+    """One-button keyboard (saves the verbose 3-line pattern)."""
+    return InlineKeyboardMarkup(
+        inline_keyboard=[[InlineKeyboardButton(text=text, callback_data=callback_data)]]
+    )
+
+
+async def not_your_button(
+    callback: CallbackQuery,
+    owner_id: int,
+    msg: str = "❌ Это не твоя кнопка!",
+) -> bool:
+    """Return True (and answer the callback) if *callback* sender ≠ *owner_id*.
+
+    Usage::
+
+        if await not_your_button(callback, uid):
+            return
+    """
+    if callback.from_user.id != owner_id:
+        await callback.answer(msg, show_alert=True)
+        return True
+    return False

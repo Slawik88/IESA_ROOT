@@ -12,7 +12,6 @@ handlers/auction.py — Команды аукциона.
 """
 
 import html
-from datetime import datetime, timezone
 
 from aiogram import Router
 from aiogram.types import (
@@ -23,7 +22,6 @@ from aiogram.types import (
 )
 
 from filters.bot_command import BotCommand
-from utils.helpers import user_mention
 
 from filters.chat_mode import MainChatOnly
 import logging
@@ -322,8 +320,8 @@ async def cmd_place_bid(message: Message, cmd_args: str):
                     f"Используйте <code>бот ставка {auction_id} {next_min}</code>",
                     parse_mode="HTML"
                 )
-            except Exception:
-                pass
+            except Exception as _e:
+                _log.debug("%s", _e)
     except ValueError as e:
         await message.answer(f"❌ {e}")
 

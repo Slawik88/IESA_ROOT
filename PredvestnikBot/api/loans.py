@@ -194,9 +194,8 @@ async def repay_loan(uid: int, chat_id: int, loan_id: int) -> dict:
                             f"Погашение долга #{loan_id}")
         await log_wallet_tx(lender_id, chat_id, "income", amount, "loan_repay",
                             f"Возврат долга #{loan_id}")
-    except Exception:
-        pass
-
+    except Exception as _e:
+        _log.debug("%s", _e)
     return {
         "ok": True,
         "loan_id": loan_id,
@@ -284,9 +283,8 @@ async def respond_to_loan(uid: int, chat_id: int, loan_id: int, action: str) -> 
                             f"Выдан заём #{loan_id}")
         await log_wallet_tx(uid, chat_id, "income", amount, "loan_receive",
                             f"Получен заём #{loan_id}")
-    except Exception:
-        pass
-
+    except Exception as _e:
+        _log.debug("%s", _e)
     return {
         "ok": True,
         "action": "accepted",

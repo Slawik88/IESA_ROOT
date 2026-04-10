@@ -2,7 +2,6 @@
 Репутация, уровни XP и биография пользователя.
 """
 import html as _html
-from datetime import datetime
 
 from aiogram import Router
 from aiogram.types import Message
@@ -10,12 +9,11 @@ from aiogram.types import Message
 from config import BIO_MAX_LENGTH, REP_DAILY_LIMIT, REP_MORA_REWARD_FROM, REP_MORA_REWARD_TO, REP_PLUS_TRIGGERS, TOP_LIMIT
 from database.db import (
     add_mora, add_reputation_in_chat, get_rep_count_today,
-    get_top_by_xp_in_chat, get_top_reputation_in_chat, get_user,
-    get_user_stats, set_bio_in_chat, level_for_xp, xp_for_level,
+    get_top_by_xp_in_chat, get_top_reputation_in_chat,
+    get_user_stats, xp_for_level,
 )
 from filters.bot_command import BotCommand
 from utils.helpers import resolve_target, user_mention
-from utils.ranks import rank_name
 
 from filters.chat_mode import MainChatOnly
 import logging
@@ -90,10 +88,8 @@ async def handle_rep_plus(message: Message):
                     f"выполнил ежедневное задание! <b>+{quest['xp']} XP</b>  <b>+{_mora_reward} Моры</b> 🪙",
                     parse_mode="HTML",
                 )
-            except Exception:
-                pass
-
-
+            except Exception as _e:
+                _log.debug("%s", _e)
 # ─── Команды репутации ────────────────────────────────────────────────────────
 
 @router.message(BotCommand("репутация", "репа", "rep"))

@@ -24,7 +24,6 @@ from database.db import (
 )
 from filters.bot_command import BotCommand
 from config import MINI_APP_TG_URL
-from utils.helpers import user_mention
 
 from filters.chat_mode import MainChatOnly
 import logging
@@ -185,10 +184,8 @@ async def cb_buy_food(callback: CallbackQuery):
             f"💸 Потрачено: <b>{item['price']} 🪙</b>",
             parse_mode="HTML",
         )
-    except Exception:
-        pass
-
-
+    except Exception as _e:
+        _log.debug("%s", _e)
 # ─── CMD: бот купить еду [блюдо] (текстовый алиас) ──────────────────────────
 
 @router.message(BotCommand("купить еду", "накормить"))
