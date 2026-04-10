@@ -261,6 +261,7 @@ class PostgresConnection:
         pass  # asyncpg auto-commits outside explicit transactions
 
 
-ddl_connect = PostgresDDLConnection
+connect = PostgresConnection
+ddl_connect = PostgresConnection
 
 Row = asyncpg.Record
