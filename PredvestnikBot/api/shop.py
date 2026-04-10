@@ -1,3 +1,5 @@
+import logging
+_log = logging.getLogger(__name__)
 """
 api/shop.py — shop catalog and purchase operations.
 
@@ -375,8 +377,8 @@ async def buy_item(
         if price > 0:
             await log_wallet_tx(uid, chat_id, "expense", price, "shop_buy",
                                 f"{item_type}:{item_key}")
-    except Exception:
-        pass
+    except Exception as _e:
+        _log.debug("%s", _e)
 
     return {
         "ok":              True,

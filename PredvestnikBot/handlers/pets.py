@@ -40,6 +40,8 @@ from filters.bot_command import BotCommand
 from utils.helpers import format_duration, user_mention
 
 from filters.chat_mode import MainChatOnly
+import logging
+_log = logging.getLogger(__name__)
 router = Router()
 router.message.filter(MainChatOnly())
 

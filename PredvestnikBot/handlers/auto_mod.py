@@ -13,6 +13,8 @@ from database.db import (
 )
 from filters.bot_command import BotCommand
 from filters.rank_filter import RankFilter
+import logging
+_log = logging.getLogger(__name__)
 
 router = Router()
 
@@ -291,5 +293,5 @@ async def cb_blacklist_toggle(callback: CallbackQuery):
     text, kb = _blacklist_text_and_kb(words, new_val)
     try:
         await callback.message.edit_text(text, parse_mode="HTML", reply_markup=kb)
-    except Exception:
-        pass
+    except Exception as _e:
+        _log.debug("%s", _e)

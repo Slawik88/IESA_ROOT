@@ -32,6 +32,8 @@ from database.db import (
     revoke_community_role,
     set_pending_role,
 )
+import logging
+_log = logging.getLogger(__name__)
 
 router = Router()
 
@@ -124,8 +126,8 @@ async def _main_chat_button(bot: Bot) -> list[InlineKeyboardButton] | None:
             url = f"https://t.me/{chat.username}"
         if url:
             return [InlineKeyboardButton(text="💬 Перейти в основной чат", url=url)]
-    except Exception:
-        pass
+    except Exception as _e:
+        _log.debug("%s", _e)
     return None
 
 
@@ -139,8 +141,8 @@ async def _try_set_custom_title(bot: Bot, user_id: int, title: str) -> None:
     title_short = title[:16]  # Telegram limit
     try:
         await bot.set_chat_administrator_custom_title(chat_id, user_id, title_short)
-    except Exception:
-        pass  # Пользователь не админ или нет прав — тихо пропускаем
+    except Exception as _e:
+        _log.debug("%s", _e)  # Пользователь не админ или нет прав — тихо пропускаем
 
 
 # ─── Handlers ────────────────────────────────────────────────────────────────
@@ -176,8 +178,8 @@ async def cb_dm_home(callback: CallbackQuery) -> None:
                 [InlineKeyboardButton(text="⚙️ Настройка для администратора", callback_data="dr:admin_guide")],
             ]),
         )
-    except Exception:
-        pass
+    except Exception as _e:
+        _log.debug("%s", _e)
     await callback.answer()
 
 
@@ -195,8 +197,8 @@ async def cb_start_rules(callback: CallbackQuery) -> None:
                 [InlineKeyboardButton(text="◀️ Назад",        callback_data="dr:home")],
             ]),
         )
-    except Exception:
-        pass
+    except Exception as _e:
+        _log.debug("%s", _e)
     await callback.answer()
 
 
@@ -232,8 +234,8 @@ async def cb_features(callback: CallbackQuery) -> None:
                 [InlineKeyboardButton(text="◀️ Назад",        callback_data="dr:home")],
             ]),
         )
-    except Exception:
-        pass
+    except Exception as _e:
+        _log.debug("%s", _e)
     await callback.answer()
 
 
@@ -272,8 +274,8 @@ async def cb_admin_guide(callback: CallbackQuery) -> None:
                 [InlineKeyboardButton(text="◀️ Назад", callback_data="dr:home")],
             ]),
         )
-    except Exception:
-        pass
+    except Exception as _e:
+        _log.debug("%s", _e)
     await callback.answer()
 
 
@@ -358,8 +360,8 @@ async def cb_role_pick(callback: CallbackQuery, bot: Bot) -> None:
                     ],
                 ]),
             )
-        except Exception:
-            pass
+        except Exception as _e:
+            _log.debug("%s", _e)
         await callback.answer()
         return
 
@@ -402,8 +404,8 @@ async def _do_assign_role(callback: CallbackQuery, bot: Bot, role_name: str) -> 
             cm = await bot.get_chat_member(main_chat_id, user.id)
             if cm.status in ("member", "administrator", "creator", "restricted"):
                 already_in_chat = True
-        except Exception:
-            pass
+        except Exception as _e:
+            _log.debug("%s", _e)
 
     # ─── Прямое назначение (в чате или основного чата нет) ───────────────
     if not main_chat_id or already_in_chat:
@@ -416,8 +418,8 @@ async def _do_assign_role(callback: CallbackQuery, bot: Bot, role_name: str) -> 
             kb = await _build_role_keyboard(user.id)
             try:
                 await callback.message.edit_text(_roles_caption(first_name), reply_markup=kb)
-            except Exception:
-                pass
+            except Exception as _e:
+                _log.debug("%s", _e)
             return
 
         if result == "taken":
@@ -428,8 +430,8 @@ async def _do_assign_role(callback: CallbackQuery, bot: Bot, role_name: str) -> 
             kb = await _build_role_keyboard(user.id)
             try:
                 await callback.message.edit_text(_roles_caption(first_name), reply_markup=kb)
-            except Exception:
-                pass
+            except Exception as _e:
+                _log.debug("%s", _e)
             return
 
         # Успешно назначено
@@ -446,8 +448,8 @@ async def _do_assign_role(callback: CallbackQuery, bot: Bot, role_name: str) -> 
                 f"Добро пожаловать в сообщество 🎉",
                 reply_markup=kb,
             )
-        except Exception:
-            pass
+        except Exception as _e:
+            _log.debug("%s", _e)
         await _try_set_custom_title(bot, user.id, role_name)
         await callback.answer(f"✅ Роль «{role_name}» активирована!")
         return
@@ -469,6 +471,6 @@ async def _do_assign_role(callback: CallbackQuery, bot: Bot, role_name: str) -> 
             "Первый вступивший в чат получает её.</i>",
             reply_markup=kb_p,
         )
-    except Exception:
-        pass
+    except Exception as _e:
+        _log.debug("%s", _e)
     await callback.answer(f"⏳ Роль «{role_name}» зарезервирована — зайди в чат!")

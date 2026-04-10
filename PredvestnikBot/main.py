@@ -38,8 +38,8 @@ async def notify_developer(bot: Bot, text: str):
         return
     try:
         await bot.send_message(DEVELOPER_ID, text)
-    except Exception:
-        pass
+    except Exception as _e:
+        _log.debug("%s", _e)
 
 
 async def configure_mini_app_menu_button(bot: Bot):

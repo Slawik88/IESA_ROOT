@@ -27,6 +27,8 @@ from config import MINI_APP_TG_URL
 from utils.helpers import user_mention
 
 from filters.chat_mode import MainChatOnly
+import logging
+_log = logging.getLogger(__name__)
 router = Router()
 router.message.filter(MainChatOnly())
 

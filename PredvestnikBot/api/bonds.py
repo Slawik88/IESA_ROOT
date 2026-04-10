@@ -1,3 +1,5 @@
+import logging
+_log = logging.getLogger(__name__)
 """
 api/bonds.py — unified bond trading operations.
 
@@ -35,20 +37,20 @@ async def buy_bond(uid: int, chat_id: int, bond_key: str,
     price_per = prices.get(bond_key, BOND_DEFAULTS[bond_key]["base_price"])
     total_cost = price_per * amount
 
-    # ── Per-crypto limit: max 55 coins of one bond type ──────────────────────
-    COIN_LIMIT = 55
+    # ── Per-crypto limit (see config.BOND_MAX_PER_TYPE) ────────────────────────
+    from config import BOND_MAX_PER_TYPE
     user_bonds_now = await get_user_bonds(uid, chat_id)
     bond_record_now = next((b for b in user_bonds_now if b["bond_key"] == bond_key), None)
     already_have = bond_record_now["amount"] if bond_record_now else 0
-    if already_have + amount > COIN_LIMIT:
-        can_buy = max(0, COIN_LIMIT - already_have)
+    if already_have + amount > BOND_MAX_PER_TYPE:
+        can_buy = max(0, BOND_MAX_PER_TYPE - already_have)
         if can_buy == 0:
             raise ValueError(
-                f"Лимит Биржи: максимум {COIN_LIMIT} монет одного типа. "
+                f"Лимит Биржи: максимум {BOND_MAX_PER_TYPE} монет одного типа. "
                 f"У вас уже {already_have} шт. 📊"
             )
         raise ValueError(
-            f"Лимит Биржи: максимум {COIN_LIMIT} монет одного типа. "
+            f"Лимит Биржи: максимум {BOND_MAX_PER_TYPE} монет одного типа. "
             f"У вас: {already_have} шт. Можно докупить ещё: {can_buy} шт."
         )
 
@@ -346,8 +348,8 @@ async def get_bonds_status(uid: int, chat_id: int) -> dict:
     try:
         from database.db import get_scheduler_state
         prices_updated_at = await get_scheduler_state("bond_price_last_updated_at") or ""
-    except Exception:
-        pass
+    except Exception as _e:
+        _log.debug("%s", _e)
 
     return {
         "bonds":              bonds_out,

@@ -10,6 +10,8 @@ from database.db import delete_note, get_note, get_user_stats, list_notes, save_
 from utils.ranks import rank_level
 from filters.bot_command import BotCommand
 from filters.rank_filter import RankFilter
+import logging
+_log = logging.getLogger(__name__)
 
 router = Router()
 
@@ -118,8 +120,8 @@ async def cb_del_note(callback: CallbackQuery):
     if not notes:
         try:
             await callback.message.edit_text("📝 Нет сохранённых заметок.")
-        except Exception:
-            pass
+        except Exception as _e:
+            _log.debug("%s", _e)
         return
 
     names = " | ".join(f"<code>#{n['name']}</code>" for n in notes)
@@ -144,5 +146,5 @@ async def cb_del_note(callback: CallbackQuery):
             parse_mode="HTML",
             reply_markup=kb,
         )
-    except Exception:
-        pass
+    except Exception as _e:
+        _log.debug("%s", _e)

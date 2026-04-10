@@ -3,9 +3,10 @@ api/expeditions.py — unified expedition operations.
 
 All functions are async; the mini app wraps them with async_to_sync.
 """
-import logging
 import random
 from datetime import datetime, timedelta, timezone
+import logging
+_log = logging.getLogger(__name__)
 
 
 async def start_expedition(uid: int, chat_id: int, option_key: str,
@@ -41,9 +42,10 @@ async def start_expedition(uid: int, chat_id: int, option_key: str,
     if not pet:
         raise ValueError("У тебя нет питомца")
 
+    from config import PET_FATIGUE_MAX
     fatigue = pet.get("fatigue") or 0
-    if fatigue >= 100:
-        raise ValueError("Питомец слишком устал (100/100). Покорми его!")
+    if fatigue >= PET_FATIGUE_MAX:
+        raise ValueError(f"Питомец слишком устал ({PET_FATIGUE_MAX}/{PET_FATIGUE_MAX}). Покорми его!")
 
     walk_end = pet.get("walk_end_at")
     if walk_end:

@@ -129,8 +129,8 @@ async def cmd_start_join(message: Message, bot: Bot) -> None:
                 "Возвращайся в чат — ждём тебя 😊",
             )
             return
-    except Exception:
-        pass  # Can't check — proceed anyway
+    except Exception as _e:
+        _log.debug("%s", _e)  # Can't check — proceed anyway
 
     # Notify admin channel that user opened the link
     from database.db import get_admin_chat_for
@@ -150,8 +150,8 @@ async def cmd_start_join(message: Message, bot: Bot) -> None:
                 f"Заявка ещё не отправлена.",
                 parse_mode="HTML",
             )
-        except Exception:
-            pass
+        except Exception as _e:
+            _log.debug("%s", _e)
 
     # Check existing active request
     existing = await get_user_active_join_request(user_id, chat_id)
@@ -218,8 +218,8 @@ async def cb_noop(callback: CallbackQuery) -> None:
 async def cb_cancel(callback: CallbackQuery) -> None:
     try:
         await callback.message.edit_text("❌ Вступление отменено.")
-    except Exception:
-        pass
+    except Exception as _e:
+        _log.debug("%s", _e)
     await callback.answer()
 
 
@@ -257,8 +257,8 @@ async def cb_pick_tag(callback: CallbackQuery) -> None:
             await callback.message.edit_reply_markup(
                 reply_markup=_build_tags_keyboard(chat_id, tags)
             )
-        except Exception:
-            pass
+        except Exception as _e:
+            _log.debug("%s", _e)
         return
 
     emoji = (tag.get("emoji") or "").strip()
@@ -290,8 +290,8 @@ async def cb_back_to_tags(callback: CallbackQuery) -> None:
             "Выбери тег, который хочешь занять при вступлении 👇",
             reply_markup=_build_tags_keyboard(chat_id, tags),
         )
-    except Exception:
-        pass
+    except Exception as _e:
+        _log.debug("%s", _e)
     await callback.answer()
 
 
@@ -337,8 +337,8 @@ async def cb_confirm_tag(callback: CallbackQuery, bot: Bot) -> None:
                 parse_mode="HTML",
                 reply_markup=_build_tags_keyboard(chat_id, tags),
             )
-        except Exception:
-            pass
+        except Exception as _e:
+            _log.debug("%s", _e)
         return
 
     # Create the join request
@@ -353,8 +353,8 @@ async def cb_confirm_tag(callback: CallbackQuery, bot: Bot) -> None:
             "Администраторы рассмотрят заявку и пришлют ответ в этот чат.",
             parse_mode="HTML",
         )
-    except Exception:
-        pass
+    except Exception as _e:
+        _log.debug("%s", _e)
     await callback.answer("Заявка отправлена!")
 
     # Build admin notification
@@ -449,8 +449,8 @@ async def cb_admin_accept(callback: CallbackQuery, bot: Bot) -> None:
     try:
         old = html.escape(callback.message.text or "")
         await callback.message.edit_text(old + f"\n\n✅ <b>Одобрено</b> — {admin_name}", parse_mode="HTML")
-    except Exception:
-        pass
+    except Exception as _e:
+        _log.debug("%s", _e)
     await callback.answer("✅ Заявка одобрена, ссылка отправлена пользователю.")
 
 
@@ -480,15 +480,15 @@ async def cb_admin_reject(callback: CallbackQuery, bot: Bot) -> None:
             "Если есть вопросы — свяжитесь с администратором сообщества.",
             parse_mode="HTML",
         )
-    except Exception:
-        pass
+    except Exception as _e:
+        _log.debug("%s", _e)
 
     admin_name = html.escape(admin.full_name or "Администратор")
     try:
         old = html.escape(callback.message.text or "")
         await callback.message.edit_text(old + f"\n\n❌ <b>Отклонено</b> — {admin_name}", parse_mode="HTML")
-    except Exception:
-        pass
+    except Exception as _e:
+        _log.debug("%s", _e)
     await callback.answer("❌ Заявка отклонена.")
 
 
@@ -519,6 +519,6 @@ async def cb_admin_postpone(callback: CallbackQuery, bot: Bot) -> None:
     try:
         old = html.escape(callback.message.text or "")
         await callback.message.edit_text(old + f"\n\n⏳ <b>Отложено</b> — {admin_name}", parse_mode="HTML", reply_markup=new_kb)
-    except Exception:
-        pass
+    except Exception as _e:
+        _log.debug("%s", _e)
     await callback.answer("⏳ Заявка отложена.")

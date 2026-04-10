@@ -2,6 +2,8 @@ from aiogram.types import Message
 import html
 from database.db import get_user, get_user_by_username
 from services.recent_users import get_recent_user, get_recent_user_by_username
+import logging
+_log = logging.getLogger(__name__)
 
 
 async def resolve_target(message: Message, cmd_args: str) -> tuple:
@@ -122,8 +124,8 @@ async def notify_admins(bot, text: str, source_chat_id: int | None = None, reply
         target = linked if linked else source_chat_id
         try:
             await bot.send_message(target, text, parse_mode="HTML", disable_web_page_preview=True, reply_markup=reply_markup)
-        except Exception:
-            pass
+        except Exception as _e:
+            _log.debug("%s", _e)
         return
 
     # 3. System-wide (no source): use global admin_groups (bot owner's setup)
@@ -136,5 +138,5 @@ async def notify_admins(bot, text: str, source_chat_id: int | None = None, reply
             continue  # skip — this is a community admin group, not a dev group
         try:
             await bot.send_message(gid, text, parse_mode="HTML", disable_web_page_preview=True, reply_markup=reply_markup)
-        except Exception:
-            pass
+        except Exception as _e:
+            _log.debug("%s", _e)

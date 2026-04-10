@@ -4,6 +4,8 @@ api/loans.py — unified loan (долг) operations.
 All functions are async; the mini app wraps them with async_to_sync.
 """
 from datetime import datetime, timezone
+import logging
+_log = logging.getLogger(__name__)
 
 
 async def get_loans(uid: int, chat_id: int) -> dict:

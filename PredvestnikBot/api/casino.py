@@ -4,8 +4,9 @@ api/casino.py — unified coin flip logic.
 Called by both the Telegram bot handlers and the mini app views.
 All public functions are async; the mini app wraps them with async_to_sync.
 """
-import logging
 import random
+import logging
+_log = logging.getLogger(__name__)
 
 # House win rate — single source of truth
 COIN_WIN_RATE = 0.50  # 50% chance of winning

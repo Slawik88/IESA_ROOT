@@ -23,8 +23,8 @@ async def log_wallet_tx(
                 (chat_id, uid, direction, amount, source, description or ""),
             )
             await db.commit()
-    except Exception:
-        pass  # Never break transactions because of ledger
+    except Exception as _e:
+        _log.debug("%s", _e)  # Never break transactions because of ledger
 
 
 async def transfer_mora(from_uid: int, to_uid: int, chat_id: int, amount: int,
@@ -150,15 +150,16 @@ async def get_balance(uid: int, chat_id: int) -> int:
 
 
 async def wallet_history(uid: int, chat_id: int, days: int = 30) -> list:
-    """Returns up to 200 wallet-ledger entries from the last N days."""
+    """Returns up to WALLET_HISTORY_LIMIT wallet-ledger entries from the last N days."""
     from database.postgres import connect as postgres_connect
+    from config import WALLET_HISTORY_LIMIT
     cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
     async with postgres_connect() as db:
         async with db.execute(
             "SELECT direction, amount, source, description, created_at "
             "FROM wallet_ledger WHERE user_id=? AND chat_id=? "
             "AND created_at >= ? "
-            "ORDER BY created_at DESC LIMIT 200",
+            f"ORDER BY created_at DESC LIMIT {WALLET_HISTORY_LIMIT}",
             (uid, chat_id, cutoff),
         ) as c:
             rows = await c.fetchall()
@@ -186,8 +187,9 @@ async def transfer_crystals(from_uid: int, to_uid: int, amount: int) -> dict:
         raise ValueError("Нельзя переводить самому себе")
     if amount < 1:
         raise ValueError("Минимальная сумма перевода: 1 💎")
-    if amount > 10_000:
-        raise ValueError("Максимальный перевод: 10 000 💎")
+    from config import CRYSTAL_TRANSFER_MAX
+    if amount > CRYSTAL_TRANSFER_MAX:
+        raise ValueError(f"Максимальный перевод: {CRYSTAL_TRANSFER_MAX:,} 💎".replace(',', ' '))
 
     async with postgres_connect() as db:
         # Deduct from sender (atomic — only if balance is sufficient)

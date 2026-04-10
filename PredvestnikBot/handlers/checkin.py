@@ -16,6 +16,8 @@ from filters.bot_command import BotCommand
 from shared_prices import CHECKIN_REWARDS as _REWARDS, CHECKIN_CHECKPOINTS as _CHECKPOINTS
 
 from filters.chat_mode import MainChatOnly
+import logging
+_log = logging.getLogger(__name__)
 router = Router()
 router.message.filter(MainChatOnly())
 
@@ -116,7 +118,7 @@ async def cmd_checkin(message: Message, cmd_args: str):
         if season_result and season_result.get("level_up"):
             lines.append(f"")
             lines.append(f"🌟 <b>Season Pass: Уровень {season_result['new_level']}!</b>")
-    except Exception:
-        pass  # Безопасно игнорируем ошибки season XP
+    except Exception as _e:
+        _log.debug("%s", _e)  # Безопасно игнорируем ошибки season XP
 
     await message.answer("\n".join(lines), parse_mode="HTML")

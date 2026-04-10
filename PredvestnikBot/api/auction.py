@@ -52,8 +52,8 @@ async def _dm_user(user_id: int, text: str) -> None:
                 json={"chat_id": user_id, "text": text, "parse_mode": "HTML"},
                 timeout=aiohttp.ClientTimeout(total=5),
             )
-    except Exception:
-        pass
+    except Exception as _e:
+        _log.debug("%s", _e)
 
 
 async def _notify_all_chats_new_lot(
@@ -86,8 +86,8 @@ async def _notify_all_chats_new_lot(
                     json={"chat_id": cid, "text": text, "parse_mode": "HTML"},
                     timeout=aiohttp.ClientTimeout(total=5),
                 )
-            except Exception:
-                pass
+            except Exception as _e:
+                _log.debug("%s", _e)
 
 
 async def _get_item(db, item_id: int, user_id: int, chat_id: int) -> dict | None:
@@ -238,8 +238,8 @@ async def create_cosmetic_auction(
             item_emoji=emoji, start_price=start_price,
             buyout_price=buyout_price, auction_id=auction_id
         )
-    except Exception:
-        pass
+    except Exception as _e:
+        _log.debug("%s", _e)
 
     return {
         "ok":         True,
@@ -362,8 +362,8 @@ async def create_auction(
         from api.achievements import check_and_award as _ach
         active_lots = await _count_user_auctions_total(seller_id, chat_id)
         await _ach(seller_id, chat_id, "auction_sell", active_lots)
-    except Exception:
-        pass
+    except Exception as _e:
+        _log.debug("%s", _e)
 
     # Уведомляем все чаты о новом лоте
     try:
@@ -373,8 +373,8 @@ async def create_auction(
             item_emoji=item_emoji_str, start_price=start_price,
             buyout_price=buyout_price, auction_id=auction_id
         )
-    except Exception:
-        pass
+    except Exception as _e:
+        _log.debug("%s", _e)
 
     return {
         "ok":        True,
@@ -477,8 +477,8 @@ async def place_bid(
             seller_id_for_notify,
             f"🔨 На ваш лот <b>{item_name_for_notify}</b> сделана ставка <b>{amount} 🪙</b>",
         )
-    except Exception:
-        pass
+    except Exception as _e:
+        _log.debug("%s", _e)
     if outbid_user_id and outbid_user_id != bidder_id and outbid_amount > 0:
         try:
             await _dm_user(
@@ -486,8 +486,8 @@ async def place_bid(
                 f"⚠️ Ваша ставка <b>{outbid_amount} 🪙</b> на «<b>{item_name_for_notify}</b>» перебита!\n"
                 f"Деньги возвращены на ваш счёт.",
             )
-        except Exception:
-            pass
+        except Exception as _e:
+            _log.debug("%s", _e)
 
     return {
         "ok":             True,
@@ -583,8 +583,8 @@ async def buyout_auction(buyer_id: int, chat_id: int, auction_id: int) -> dict:
         from api.achievements import check_and_award as _ach
         wins = await _count_user_wins(buyer_id, chat_id)
         await _ach(buyer_id, chat_id, "auction_win", wins)
-    except Exception:
-        pass
+    except Exception as _e:
+        _log.debug("%s", _e)
 
     # Личные уведомления
     try:
@@ -593,16 +593,16 @@ async def buyout_auction(buyer_id: int, chat_id: int, auction_id: int) -> dict:
             f"💰 Ваш лот «<b>{auction['item_name']}</b>» выкуплен за <b>{buyout} 🪙</b>!\n"
             f"Вы получили: <b>{seller_gets} 🪙</b> (−10% комиссия)",
         )
-    except Exception:
-        pass
+    except Exception as _e:
+        _log.debug("%s", _e)
     try:
         await _dm_user(
             buyer_id,
             f"🎉 Вы выкупили «<b>{auction['item_name']}</b>» за <b>{buyout} 🪙</b>!\n"
             f"Предмет добавлен в ваш инвентарь.",
         )
-    except Exception:
-        pass
+    except Exception as _e:
+        _log.debug("%s", _e)
     if prev_bidder and prev_bidder != buyer_id and prev_amount > 0:
         try:
             await _dm_user(
@@ -610,8 +610,8 @@ async def buyout_auction(buyer_id: int, chat_id: int, auction_id: int) -> dict:
                 f"⚠️ Лот «<b>{auction['item_name']}</b>» выкуплен другим игроком.\n"
                 f"Ваша ставка <b>{prev_amount} 🪙</b> возвращена.",
             )
-        except Exception:
-            pass
+        except Exception as _e:
+            _log.debug("%s", _e)
 
     return {
         "ok":              True,
@@ -791,15 +791,15 @@ async def finalize_expired_auctions(bot=None) -> list[dict]:
                     from api.achievements import check_and_award as _ach
                     wins = await _count_user_wins(winner_id, chat_id)
                     await _ach(winner_id, chat_id, "auction_win", wins)
-                except Exception:
-                    pass
+                except Exception as _e:
+                    _log.debug("%s", _e)
 
                 # Season XP за выигрыш аукциона
                 try:
                     from database.db import add_season_xp
                     await add_season_xp(winner_id, 5)  # +5 season XP
-                except Exception:
-                    pass
+                except Exception as _e:
+                    _log.debug("%s", _e)
 
             except Exception as e:
                 logger.error("Auction finalize error #%s: %s", auction_id, e)
@@ -855,8 +855,8 @@ async def finalize_expired_auctions(bot=None) -> list[dict]:
                     f"📦 Ваш лот «<b>{item_name}</b>» истёк без ставок.\n"
                     f"Предмет возвращён в ваш инвентарь.",
                 )
-        except Exception:
-            pass
+        except Exception as _e:
+            _log.debug("%s", _e)
 
     return finalized
 

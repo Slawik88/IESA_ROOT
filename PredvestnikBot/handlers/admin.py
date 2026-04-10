@@ -326,8 +326,8 @@ async def cb_antiflood_action(callback: CallbackQuery):
         member = await bot_.get_chat_member(chat_id, target_id)
         if member and member.user:
             target_name = user_mention(target_id, member.user.full_name)
-    except Exception:
-        pass
+    except Exception as _e:
+        _log.debug("%s", _e)
 
     result_text = ""
     try:
@@ -368,8 +368,8 @@ async def cb_antiflood_action(callback: CallbackQuery):
         old_text = callback.message.text or callback.message.caption or ""
         new_text = f"{old_text}\n\n✅ {result_text}\n👮 Выполнил: {caller_mention}"
         await callback.message.edit_text(new_text, parse_mode="HTML")
-    except Exception:
-        pass
+    except Exception as _e:
+        _log.debug("%s", _e)
 
     await callback.answer(result_text, show_alert=False)
 
@@ -684,8 +684,8 @@ async def cmd_cleanup_date(message: Message, cmd_args: str):
         try:
             dt_local = _dt.strptime(raw, fmt).replace(tzinfo=_get_tz())
             break
-        except ValueError:
-            pass
+        except ValueError as _e:
+            _log.debug("%s", _e)
 
     if dt_local is None:
         await message.answer(
@@ -940,8 +940,8 @@ async def _process_marriages_json(message: Message, bot: Bot, raw: str) -> None:
                     dt_local = _dt.strptime(str(since_raw), fmt).replace(tzinfo=_get_tz())
                     married_at = dt_local.astimezone(timezone.utc).replace(tzinfo=None).isoformat()
                     break
-                except ValueError:
-                    pass
+                except ValueError as _e:
+                    _log.debug("%s", _e)
 
         if uid1 is not None and uid2 is not None:
             # Оба ID известны — пишем напрямую
@@ -1490,6 +1490,6 @@ async def cb_feature_toggle(callback: CallbackQuery):
             parse_mode="HTML",
             reply_markup=_build_feat_keyboard(states, chat_id),
         )
-    except Exception:
-        pass
+    except Exception as _e:
+        _log.debug("%s", _e)
 

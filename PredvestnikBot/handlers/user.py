@@ -20,6 +20,8 @@ from utils.ranks import rank_level, rank_name
 # Module-level constants to avoid repeated local imports
 from config import MINI_APP_URL as _MINI_APP_URL
 from config import MINI_APP_TG_URL as _MINI_APP_TG_URL
+import logging
+_log = logging.getLogger(__name__)
 
 router = Router()
 

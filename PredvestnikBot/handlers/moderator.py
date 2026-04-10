@@ -18,6 +18,8 @@ from filters.bot_command import BotCommand
 from filters.rank_filter import RankFilter
 from utils.helpers import resolve_target, user_mention
 from utils.ranks import is_developer, rank_level
+import logging
+_log = logging.getLogger(__name__)
 
 router = Router()
 
@@ -368,8 +370,8 @@ async def cb_unwarn(callback: CallbackQuery):
             parse_mode="HTML",
             reply_markup=kb,
         )
-    except Exception:
-        pass
+    except Exception as _e:
+        _log.debug("%s", _e)
     await callback.answer(f"✅ Варн снят. Осталось: {warns}/{MAX_WARNS}", show_alert=True)
 
 

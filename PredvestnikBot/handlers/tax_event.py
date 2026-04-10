@@ -123,8 +123,8 @@ async def launch_chest_event(bot: Bot, chat_id: int) -> int | None:
         log.error("create_chest_event returned None for chat %s — aborting", chat_id)
         try:
             await bot.delete_message(chat_id, msg.message_id)
-        except TelegramBadRequest:
-            pass
+        except TelegramBadRequest as _e:
+            _log.debug("%s", _e)
         return None
     await set_chest_event_message(event_id, msg.message_id)
     _active_events[chat_id] = event_id
@@ -140,8 +140,8 @@ async def launch_chest_event(bot: Bot, chat_id: int) -> int | None:
         await bot.edit_message_reply_markup(
             chat_id=chat_id, message_id=msg.message_id, reply_markup=new_kb,
         )
-    except Exception:
-        pass
+    except Exception as _e:
+        _log.debug("%s", _e)
 
     # Таймер в памяти (для нормального процесса)
     asyncio.create_task(_finalize_after_delay(bot, chat_id, event_id, msg.message_id))
@@ -212,15 +212,15 @@ async def cb_chest_click(callback: CallbackQuery):
     try:
         from api.economy import log_wallet_tx
         await log_wallet_tx(uid, chat_id, "income", reward, "event", "💰 Богатый сундук")
-    except Exception:
-        pass
+    except Exception as _e:
+        _log.debug("%s", _e)
 
     emoji = _PLACE_EMOJI[position - 1] if position <= len(_PLACE_EMOJI) else f"#{position}"
     name = html.escape(callback.from_user.full_name or "")
     try:
         await callback.answer(f"{emoji} {name}, ты получил +{reward} 🪙!", show_alert=True)
-    except TelegramBadRequest:
-        pass
+    except TelegramBadRequest as _e:
+        _log.debug("%s", _e)
 
     # Если последний слот — сразу закрываем не дожидаясь таймера
     if position >= len(CHEST_REWARDS):

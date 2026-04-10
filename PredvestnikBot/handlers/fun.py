@@ -324,8 +324,8 @@ async def on_marry_callback(callback: CallbackQuery):
         await callback.answer("⏳ Предложение истекло.", show_alert=True)
         try:
             await callback.message.edit_text("⏳ Предложение истекло.")
-        except Exception:
-            pass
+        except Exception as _e:
+            _log.debug("%s", _e)
         return
 
     _proposals.pop(key, None)
@@ -340,8 +340,8 @@ async def on_marry_callback(callback: CallbackQuery):
         if await get_marriage(proposer_id, chat_id) or await get_marriage(target_id, chat_id):
             try:
                 await callback.message.edit_text("❌ Один из участников уже состоит в браке.")
-            except Exception:
-                pass
+            except Exception as _e:
+                _log.debug("%s", _e)
             await callback.answer()
             return
 
@@ -356,8 +356,8 @@ async def on_marry_callback(callback: CallbackQuery):
                 from database.db import log_app_error
                 await log_app_error("bot", "on_marry_callback/create_marriage", str(_err), _tb_text,
                                     user_id=target_id, chat_id=chat_id)
-            except Exception:
-                pass
+            except Exception as _e:
+                _log.debug("%s", _e)
             await callback.answer("❌ Произошла ошибка при регистрации брака. Попробуйте снова.", show_alert=True)
             return
         icon = random.choice(["💍", "💒", "🥂", "💖", "🎊"])
@@ -369,8 +369,8 @@ async def on_marry_callback(callback: CallbackQuery):
                 f"Желаем счастья и любви! 💕",
                 parse_mode="HTML",
             )
-        except Exception:
-            pass
+        except Exception as _e:
+            _log.debug("%s", _e)
     else:
         try:
             await callback.message.edit_text(
@@ -379,8 +379,8 @@ async def on_marry_callback(callback: CallbackQuery):
                 f"<i>Может быть, в другой раз.</i>",
                 parse_mode="HTML",
             )
-        except Exception:
-            pass
+        except Exception as _e:
+            _log.debug("%s", _e)
 
     await callback.answer()
 
@@ -499,8 +499,8 @@ async def cb_divorce(callback: CallbackQuery):
     if action == "n":
         try:
             await callback.message.edit_text("💕 Развод отменён. Любовь побеждает! ❤️")
-        except Exception:
-            pass
+        except Exception as _e:
+            _log.debug("%s", _e)
         await callback.answer()
         return
 
@@ -523,8 +523,8 @@ async def cb_divorce(callback: CallbackQuery):
                 parse_mode="HTML",
                 reply_markup=kb,
             )
-        except Exception:
-            pass
+        except Exception as _e:
+            _log.debug("%s", _e)
         await callback.answer()
         return
 
@@ -534,8 +534,8 @@ async def cb_divorce(callback: CallbackQuery):
         await callback.answer("🤷 Ты уже не в браке.", show_alert=True)
         try:
             await callback.message.edit_text("🤷 Ты уже не в браке.")
-        except Exception:
-            pass
+        except Exception as _e:
+            _log.debug("%s", _e)
         return
 
     partner = await get_user(marriage["partner_id"])
@@ -548,8 +548,8 @@ async def cb_divorce(callback: CallbackQuery):
             f"<i>Ничто не вечно.</i>",
             parse_mode="HTML",
         )
-    except Exception:
-        pass
+    except Exception as _e:
+        _log.debug("%s", _e)
     await callback.answer()
 
 

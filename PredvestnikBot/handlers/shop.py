@@ -46,6 +46,8 @@ from filters.bot_command import BotCommand
 from handlers.economy import TOP_FRAMES, XP_BOOST_OPTIONS, deduct_wallet
 
 from filters.chat_mode import MainChatOnly
+import logging
+_log = logging.getLogger(__name__)
 router = Router()
 router.message.filter(MainChatOnly())
 
@@ -587,15 +589,15 @@ async def cb_cleanup_pass(callback: CallbackQuery):
             from api.economy import log_wallet_tx
             await log_wallet_tx(buyer_uid, chat_id, "income", price, "cleanup_pass_refund",
                                 "Возврат за отклонённый пропуск чистки")
-        except Exception:
-            pass
+        except Exception as _e:
+            _log.debug("%s", _e)
         try:
             await callback.message.edit_text(
                 callback.message.text + "\n\n❌ <b>Отклонено</b> (деньги возвращены)",
                 parse_mode="HTML",
             )
-        except Exception:
-            pass
+        except Exception as _e:
+            _log.debug("%s", _e)
         # Уведомить покупателя
         try:
             await callback.bot.send_message(
@@ -604,8 +606,8 @@ async def cb_cleanup_pass(callback: CallbackQuery):
                 f"Возврат: <b>{price} 🪙</b>",
                 parse_mode="HTML",
             )
-        except Exception:
-            pass
+        except Exception as _e:
+            _log.debug("%s", _e)
         await callback.answer("❌ Заявка отклонена, деньги возвращены.", show_alert=True)
     await callback.answer()
 
