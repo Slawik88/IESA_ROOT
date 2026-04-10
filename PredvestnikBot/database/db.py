@@ -2527,7 +2527,7 @@ async def set_chat_active(chat_id: int, is_active: int):
 async def get_active_chats():
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT * FROM chats WHERE is_active = 1"
+            "SELECT * FROM chats WHERE is_active = 1 AND chat_type IN ('group','supergroup')"
         ) as cursor:
             return await cursor.fetchall()
 
