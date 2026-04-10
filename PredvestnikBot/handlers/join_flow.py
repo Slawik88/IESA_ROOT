@@ -98,13 +98,20 @@ async def cmd_join_link(message: Message):
 
 # ─── Deep link: /start join_{chat_id} ────────────────────────────────────────
 
-@router.message(CommandStart(deep_link=True, deep_link_encoded=False), F.chat.type == "private")
+def _is_join_payload(message: Message) -> bool:
+    """Pre-filter: only fire for /start join_{digits} deep links."""
+    if not message.text:
+        return False
+    parts = message.text.split(maxsplit=1)
+    if len(parts) < 2:
+        return False
+    return parts[1].startswith(_JOIN_LINK_PREFIX)
+
+
+@router.message(CommandStart(), F.chat.type == "private", _is_join_payload)
 async def cmd_start_join(message: Message, bot: Bot) -> None:
     """Handle /start join_{chat_id} deep link in DM."""
-    payload = message.text.split(maxsplit=1)[1] if message.text and " " in message.text else ""
-    if not payload.startswith(_JOIN_LINK_PREFIX):
-        return  # pass to dm_roles or other handlers
-
+    payload = message.text.split(maxsplit=1)[1]
     try:
         chat_id = int(payload[len(_JOIN_LINK_PREFIX):])
     except ValueError:
@@ -278,8 +285,10 @@ async def cb_back_to_tags(callback: CallbackQuery) -> None:
     chat_id = int(callback.data.split(":")[2])
     tags = await get_tag_definitions(chat_id)
     try:
-        await callback.message.edit_reply_markup(
-            reply_markup=_build_tags_keyboard(chat_id, tags)
+        await callback.message.edit_text(
+            "Ниже показаны все теги сообщества. 🟢 свободен, 🔴 занят.\n"
+            "Выбери тег, который хочешь занять при вступлении 👇",
+            reply_markup=_build_tags_keyboard(chat_id, tags),
         )
     except Exception:
         pass
@@ -438,8 +447,8 @@ async def cb_admin_accept(callback: CallbackQuery, bot: Bot) -> None:
     # Update admin notification
     admin_name = html.escape(admin.full_name or "Администратор")
     try:
-        new_text = (callback.message.text or "") + f"\n\n✅ <b>Одобрено</b> — {admin_name}"
-        await callback.message.edit_text(new_text, parse_mode="HTML")
+        old = html.escape(callback.message.text or "")
+        await callback.message.edit_text(old + f"\n\n✅ <b>Одобрено</b> — {admin_name}", parse_mode="HTML")
     except Exception:
         pass
     await callback.answer("✅ Заявка одобрена, ссылка отправлена пользователю.")
@@ -476,8 +485,8 @@ async def cb_admin_reject(callback: CallbackQuery, bot: Bot) -> None:
 
     admin_name = html.escape(admin.full_name or "Администратор")
     try:
-        new_text = (callback.message.text or "") + f"\n\n❌ <b>Отклонено</b> — {admin_name}"
-        await callback.message.edit_text(new_text, parse_mode="HTML")
+        old = html.escape(callback.message.text or "")
+        await callback.message.edit_text(old + f"\n\n❌ <b>Отклонено</b> — {admin_name}", parse_mode="HTML")
     except Exception:
         pass
     await callback.answer("❌ Заявка отклонена.")
@@ -508,8 +517,8 @@ async def cb_admin_postpone(callback: CallbackQuery, bot: Bot) -> None:
         ],
     ])
     try:
-        new_text = (callback.message.text or "") + f"\n\n⏳ <b>Отложено</b> — {admin_name}"
-        await callback.message.edit_text(new_text, parse_mode="HTML", reply_markup=new_kb)
+        old = html.escape(callback.message.text or "")
+        await callback.message.edit_text(old + f"\n\n⏳ <b>Отложено</b> — {admin_name}", parse_mode="HTML", reply_markup=new_kb)
     except Exception:
         pass
     await callback.answer("⏳ Заявка отложена.")

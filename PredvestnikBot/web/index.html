@@ -194,8 +194,7 @@ body.lite-mode .tab-content.animating .card{animation:none}
 }
 
 /* ==== TAB CONTENT ==== */
-.tab-content{display:none;padding:12px;padding-bottom:28px;max-width:1000px;margin:0 auto;animation:tabReveal .28s cubic-bezier(.16,1,.3,1) both}
-@keyframes tabReveal{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.tab-content{display:none;padding:12px;padding-bottom:28px;max-width:1000px;margin:0 auto}
 @media(min-width:600px){.tab-content{max-width:min(1000px,96vw);padding:18px 20px}}
 .tab-content.active{display:block}
 /* Wide-screen 2-column layout for cards */
@@ -211,8 +210,8 @@ body.lite-mode .tab-content.animating .card{animation:none}
 .section-title::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,rgba(124,106,247,.2),transparent)}
 
 /* ==== CARDS ==== */
-.card{background:rgba(255,255,255,.02);border:none;border-bottom:1px solid rgba(255,255,255,.06);border-radius:16px;padding:16px;margin-bottom:10px;transition:transform .22s cubic-bezier(.4,0,.2,1),box-shadow .22s;word-break:break-word;overflow-wrap:anywhere;min-width:0;box-shadow:none}
-.card:hover{transform:translateY(-2px) scale(1.003);box-shadow:0 4px 16px rgba(0,0,0,.15)}
+.card{background:rgba(255,255,255,.02);border:none;border-bottom:1px solid rgba(255,255,255,.06);border-radius:16px;padding:16px;margin-bottom:10px;transition:box-shadow .18s;word-break:break-word;overflow-wrap:anywhere;min-width:0;box-shadow:none;contain:layout style}
+.card:hover{box-shadow:0 4px 20px rgba(0,0,0,.22)}
 /* Card reveal only when tab first opens (.animating) — not on every switch back */
 @keyframes cardIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
 .tab-content.animating .card{animation:cardIn .25s cubic-bezier(.16,1,.3,1) backwards}
@@ -365,8 +364,7 @@ select:focus{border-color:var(--accent)}
 @keyframes coin-land-win{0%{transform:scale(1)}50%{transform:scale(1.4)}100%{transform:scale(1)}}
 @keyframes coin-land-lose{0%{transform:scale(1)}50%{transform:scale(.7);opacity:.5}100%{transform:scale(1);opacity:1}}
 #coinEmoji{display:inline-block;font-size:52px;transition:transform .3s}
-@keyframes fade-in{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
-.tab-content.active{animation:fade-in .3s cubic-bezier(.4,0,.2,1)}
+
 @keyframes fade-backdrop{from{opacity:0}to{opacity:1}}
 @keyframes slide-up{from{transform:translateY(100%)}to{transform:translateY(0)}}
 @keyframes sheet-slide-up{from{transform:translateY(30px);opacity:0}to{transform:translateY(0);opacity:1}}
@@ -733,10 +731,6 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;
              radial-gradient(ellipse 45% 55% at 82% 18%,rgba(168,85,247,.06) 0%,transparent 60%),
              radial-gradient(ellipse 65% 35% at 50% 88%,rgba(59,130,246,.04) 0%,transparent 60%),
              radial-gradient(ellipse 35% 45% at 92% 72%,rgba(244,197,66,.03) 0%,transparent 55%)}
-
-/* ── Enhanced card reveal animation ───────────────────────────────────────── */
-@keyframes cardReveal{from{opacity:0;transform:translateY(18px) scale(.97)}to{opacity:1;transform:translateY(0) scale(1)}}
-.tab-content.active .card{animation:cardReveal .4s cubic-bezier(.16,1,.3,1) backwards}
 
 /* ── Calendar today pulse ─────────────────────────────────────────────────── */
 .cal-day.today{animation:todayPulse 2.5s ease-in-out infinite alternate}
@@ -7477,7 +7471,7 @@ async function loadTagDefinitions(){
         ? '<span style="font-size:10px;font-weight:700;background:rgba(34,197,94,.15);color:#4ade80;border:1px solid rgba(34,197,94,.3);border-radius:8px;padding:2px 7px">🟢 Свободен</span>'
         : `<span style="font-size:10px;font-weight:700;background:rgba(239,68,68,.12);color:#f87171;border:1px solid rgba(239,68,68,.25);border-radius:8px;padding:2px 7px">🔴 ${esc(d.holder_name||'Занят')}</span>`;
       const delBtn = (_SETTINGS_RANK_LEVELS[_settingsUserRank]||0) >= 4
-        ? `<button onclick="deleteTagDef('${esc(d.name)}')" style="background:none;border:none;color:#f87171;cursor:pointer;font-size:14px;padding:2px 4px" title="Удалить тег">🗑</button>` : '';
+        ? `<button onclick="deleteTagDef(${JSON.stringify(d.name)})" style="background:none;border:none;color:#f87171;cursor:pointer;font-size:14px;padding:2px 4px" title="Удалить тег">🗑</button>` : '';
       return `<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:10px;border-left:3px solid ${esc(color)};background:rgba(255,255,255,.03)">
         <div style="flex:1;min-width:0">
           <div style="font-size:13px;font-weight:700">${emoji}${esc(d.name)}</div>
