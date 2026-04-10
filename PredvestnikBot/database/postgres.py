@@ -240,6 +240,17 @@ class PostgresConnection:
             await self._tx.rollback()
         self._conn = None
 
+
+class PostgresDDLConnection:
+    """Connection without explicit transaction — each statement auto-commits.
+
+    Used for DDL operations (CREATE TABLE IF NOT EXISTS, ALTER TABLE …) where
+    individual statement failures must not roll back previously applied DDL.
+    """
+
+    def __init__(self):
+        self._conn = None
+
     async def __aenter__(self):
         pool = await get_pg_pool()
         self._conn = await pool.acquire()
@@ -251,17 +262,16 @@ class PostgresConnection:
             await pool.release(self._conn)
             self._conn = None
 
-    async def execute(self, sql, params=None):
+    def execute(self, sql, params=None):
         if not self._conn:
             raise RuntimeError("Соединение не установлено")
-        sql, params = _convert_placeholders(sql, params)
-        return await self._conn.execute(sql, *params)
+        return _ExecuteContext(self._conn, sql, params)
 
     async def commit(self):
         pass  # asyncpg auto-commits outside explicit transactions
 
 
 connect = PostgresConnection
-ddl_connect = PostgresConnection
+ddl_connect = PostgresDDLConnection
 
 Row = asyncpg.Record

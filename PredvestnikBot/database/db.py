@@ -6018,9 +6018,10 @@ async def get_user_badges(user_id: int, chat_id: int) -> list:
             (user_id, chat_id),
         ) as c:
             return [r["badge_key"] for r in await c.fetchall()]
-# ═══════════════════════════════════════════════════════════════════════════════
-#  👋  Личные приветствия
-# ═══════════════════════════════════════════════════════════════════════════════
+
+
+async def create_chest_event(chat_id: int, duration_sec: int) -> int | None:
+    """Создать запись о событии сундука и вернуть его ID."""
     now = datetime.now(timezone.utc)
     expires = now + timedelta(seconds=duration_sec)
     async with postgres_connect() as db:
