@@ -364,9 +364,9 @@ def miniapp_user_data(request):
         pet_info = None
         if chat_id:
             cur.execute(
-                f"SELECT pet_type, name, COALESCE(fatigue,0), walk_end_at, color_name FROM pets "
-                f"WHERE user_id={ph} AND chat_id={ph}",
-                (uid, chat_id),
+                f"SELECT pet_type, name, COALESCE(fatigue,0), walk_end_at, color_name FROM pets_global "
+                f"WHERE user_id={ph}",
+                (uid,),
             )
             pet_row = cur.fetchone()
             if pet_row:

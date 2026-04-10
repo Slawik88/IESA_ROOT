@@ -26,6 +26,7 @@ from aiogram.types import (
 from database.db import add_mora
 from filters.bot_command import BotCommand
 from filters.rank_filter import RankFilter
+from services.recent_users import get_recent_user
 from utils.helpers import user_mention
 
 from filters.chat_mode import MainChatOnly
@@ -103,7 +104,9 @@ async def _finish_event(bot, chat_id: int, reason: str):
              f"🏆 <b>Общий котёл: {effective_reward} 🪙</b>{'' if goal_reached else ' (штраф: цель не достигнута)'}\n",
              f"<b>Топ участников:</b>"]
     for uid, mora in top:
-        lines.append(f"  ⚔️ {user_mention(uid, str(uid))} — <b>+{mora} 🪙</b>")
+        _cached = get_recent_user(uid)
+        _name = _cached["full_name"] if _cached else str(uid)
+        lines.append(f"  ⚔️ {user_mention(uid, _name)} — <b>+{mora} 🪙</b>")
     lines.append(f"\n👥 Всего участников: {len(participants)}")
 
     try:
