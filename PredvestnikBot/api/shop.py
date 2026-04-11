@@ -13,7 +13,7 @@ async def get_catalog(uid: int, chat_id: int) -> dict:
     Returns {balance, frames, cosmetics, food, potions, has_vip, active_frame}.
     """
     from database.db import get_mora, get_user_owned_frames, is_user_single
-    from database.postgres import postgres_connect
+    from database.postgres import connect as postgres_connect
     from shared_prices import FRAMES_CATALOG, COSMETICS_CATALOG, FOOD_ITEMS, POTIONS_CATALOG, PET_COLOR_CATALOG
     from shared_prices import GACHA_SINGLE_PRICE, GACHA_MULTI_PRICE, GACHA_SINGLES_SINGLE, GACHA_SINGLES_MULTI
 
@@ -127,7 +127,7 @@ async def get_catalog(uid: int, chat_id: int) -> dict:
 async def _get_themes_for_catalog(uid: int, chat_id: int) -> list:
     """Return all non-default profile themes with ownership status."""
     from config import PROFILE_THEMES
-    from database.postgres import postgres_connect
+    from database.postgres import connect as postgres_connect
     async with postgres_connect() as db:
         rows = await db.fetch(
             "SELECT theme_key FROM user_themes WHERE user_id=?",
@@ -248,7 +248,7 @@ async def buy_item(
                 "equipped":      item_type == "frame" and equip,
             }
     if item_type == "pet_color":
-        from database.postgres import postgres_connect as _pg
+        from database.postgres import connect as _pg
         async with _pg() as _db:
             _pet_row = await _db.fetchone(
                 "SELECT color_name FROM pets_global WHERE user_id=?",
@@ -271,7 +271,7 @@ async def buy_item(
 
     if item_type == "profile_theme":
         # Check if already owned — if so, just activate
-        from database.postgres import postgres_connect as _pgt
+        from database.postgres import connect as _pgt
         async with _pgt() as _dbt:
             _theme_row = await _dbt.fetchone(
                 "SELECT 1 FROM user_themes WHERE user_id=? AND theme_key=? LIMIT 1",
@@ -294,7 +294,7 @@ async def buy_item(
         mora = await get_mora(uid, chat_id)
         new_bal = mora["balance"] if mora else 0
     else:
-        from database.postgres import postgres_connect
+        from database.postgres import connect as postgres_connect
         async with postgres_connect() as db:
             row = await db.fetchone(
                 "SELECT COALESCE(balance, 0) AS balance FROM users WHERE user_id=?",
@@ -334,7 +334,7 @@ async def buy_item(
     elif item_type == "vip":
         await set_vip(uid, chat_id, 1)
     elif item_type == "pet_color":
-        from database.postgres import postgres_connect as _pg2
+        from database.postgres import connect as _pg2
         color_key = item_key.replace("pet_color_", "")
         async with _pg2() as _db2:
             await _db2.execute(
