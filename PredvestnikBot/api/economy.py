@@ -133,6 +133,21 @@ async def transfer_mora(from_uid: int, to_uid: int, chat_id: int, amount: int,
     await log_wallet_tx(to_uid, chat_id, "income", credit_amount, "transfer_in",
                         f"← {from_name}")
 
+    # Check transfers achievement
+    try:
+        from api.achievements import check_and_award as _ach
+        from database.postgres import connect as _pg
+        async with _pg() as _db:
+            async with _db.execute(
+                "SELECT COUNT(*) FROM wallet_ledger "
+                "WHERE user_id=? AND chat_id=? AND source='transfer_out'",
+                (from_uid, chat_id),
+            ) as _c:
+                _row = await _c.fetchone()
+        await _ach(from_uid, chat_id, "transfers", int(_row[0]) if _row else 1)
+    except Exception as _e:
+        _log.debug("transfers achievement failed: %s", _e)
+
     return {
         "ok":           True,
         "amount":       credit_amount,

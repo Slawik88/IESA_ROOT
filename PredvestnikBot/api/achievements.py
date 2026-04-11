@@ -212,17 +212,20 @@ async def get_all_counters(db, user_id: int, chat_id: int) -> dict[str, int]:
     """Fetch all achievement progress counters from various tables."""
     c: dict[str, int] = {}
 
-    # ── user_mora (batch) ─────────────────────────────────────────────
+    # ── user_mora (per-chat counters) + users (global balance) ───────
+    # NOTE: balance and total_earned live in users (global), not user_mora (legacy per-chat)
     try:
         row = await db.fetchone(
-            "SELECT COALESCE(total_gacha_rolls,0) AS gacha_rolls, "
-            "COALESCE(total_coinflip,0) AS coinflip, "
-            "COALESCE(rep_given_count,0) AS rep_given, "
-            "COALESCE(expeditions_sent,0) AS expeditions, "
-            "COALESCE(chests_opened,0) AS chests, "
-            "COALESCE(balance,0) AS mora_balance, "
-            "COALESCE(total_earned,0) AS total_earned "
-            "FROM user_mora WHERE user_id=? AND chat_id=?",
+            "SELECT COALESCE(um.total_gacha_rolls,0) AS gacha_rolls, "
+            "COALESCE(um.total_coinflip,0) AS coinflip, "
+            "COALESCE(um.rep_given_count,0) AS rep_given, "
+            "COALESCE(um.expeditions_sent,0) AS expeditions, "
+            "COALESCE(um.chests_opened,0) AS chests, "
+            "COALESCE(u.balance,0) AS mora_balance, "
+            "COALESCE(u.total_earned,0) AS total_earned "
+            "FROM user_mora um "
+            "JOIN users u ON u.user_id = um.user_id "
+            "WHERE um.user_id=? AND um.chat_id=?",
             (user_id, chat_id),
         )
         if row:

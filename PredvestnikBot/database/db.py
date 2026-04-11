@@ -3914,12 +3914,21 @@ async def add_mora(user_id: int, chat_id: int, amount: float | int) -> float:
         )
         await db.commit()
         async with db.execute(
-            "SELECT COALESCE(balance, 0) FROM users WHERE user_id=?",
+            "SELECT COALESCE(balance, 0) AS bal, COALESCE(total_earned, 0) AS te FROM users WHERE user_id=?",
             (user_id,),
         ) as c:
             row = await c.fetchone()
-            new_bal = row[0] if row else 0
+            new_bal = int(row["bal"]) if row else 0
+            new_te  = int(row["te"])  if row else 0
     _log.debug("add_mora uid=%s → balance=%d", user_id, new_bal)
+    # Check mora_balance and total_earned achievements (only for real chat events)
+    if amount > 0 and chat_id != 0:
+        try:
+            from api.achievements import check_and_award as _ach
+            await _ach(user_id, chat_id, "mora_balance", new_bal)
+            await _ach(user_id, chat_id, "total_earned", new_te)
+        except Exception as _e:
+            _log.debug("mora achievements failed: %s", _e)
     return new_bal
 
 
@@ -6153,6 +6162,18 @@ async def log_espionage(spy_id: int, target_id: int, chat_id: int, success: bool
             (spy_id, target_id, chat_id, 1 if success else 0, now),
         )
         await db.commit()
+    # Check spy_missions achievement
+    try:
+        from api.achievements import check_and_award as _ach
+        async with postgres_connect() as _db:
+            async with _db.execute(
+                "SELECT COUNT(*) FROM espionage_log WHERE spy_id=? AND chat_id=?",
+                (spy_id, chat_id),
+            ) as _c:
+                _row = await _c.fetchone()
+        await _ach(spy_id, chat_id, "spy_missions", int(_row[0]) if _row else 1)
+    except Exception as _e:
+        _log.debug("spy_missions achievement failed: %s", _e)
 
 
 async def get_espionage_cooldown(spy_id: int, target_id: int, chat_id: int) -> int:
@@ -7782,6 +7803,18 @@ async def add_boss_damage(user_id: int, chat_id: int, damage: int):
             (user_id, chat_id, damage, today),
         )
         await db.commit()
+    # Check boss_damage achievement
+    try:
+        from api.achievements import check_and_award as _ach
+        async with postgres_connect() as _db:
+            async with _db.execute(
+                "SELECT COALESCE(SUM(damage), 0) FROM boss_damage_log WHERE user_id=? AND chat_id=?",
+                (user_id, chat_id),
+            ) as _c:
+                _row = await _c.fetchone()
+        await _ach(user_id, chat_id, "boss_damage", int(_row[0]) if _row else damage)
+    except Exception as _e:
+        _log.debug("boss_damage achievement failed: %s", _e)
 
 
 async def get_boss_daily_user_damage(user_id: int, chat_id: int) -> int:
