@@ -375,20 +375,29 @@ async def get_all_counters(db, user_id: int, chat_id: int) -> dict[str, int]:
 # ---------------------------------------------------------------------------
 
 
-async def _award(db, user_id: int, chat_id: int, ach: dict) -> bool:
-    """Выдать достижение. Возвращает True если это новое достижение."""
+async def _award(user_id: int, chat_id: int, ach: dict) -> bool:
+    """Выдать достижение атомарно: сначала коммитит бейдж, потом начисляет мору.
+    Возвращает True если достижение было новым и выдано.
+
+    КРИТИЧНО: бейдж коммитится в СВОЁМ соединении ДО начисления моры.
+    Это предотвращает ситуацию «мора выдана, бейдж откатан» при любом сбое.
+    """
+    # Шаг 1: записать бейдж в своей транзакции, сразу коммит
     try:
-        result = await db.execute(
-            """INSERT INTO user_badges (user_id, chat_id, badge_key, obtained_at)
-               VALUES (?, ?, ?, NOW()) ON CONFLICT DO NOTHING""",
-            (user_id, chat_id, ach["key"])
-        )
-        if result.rowcount == 0:
-            return False
-    except Exception:
+        async with postgres_connect() as db:
+            result = await db.execute(
+                """INSERT INTO user_badges (user_id, chat_id, badge_key, obtained_at)
+                   VALUES (?, ?, ?, NOW()) ON CONFLICT DO NOTHING""",
+                (user_id, chat_id, ach["key"])
+            )
+            if result.rowcount == 0:
+                return False   # бейдж уже есть — ничего не делаем
+        # соединение закрылось → транзакция закоммичена
+    except Exception as e:
+        logger.warning("_award INSERT failed for %s: %s", ach.get("key"), e)
         return False
 
-    # Применяем награду через правильные функции (правильные таблицы/колонки)
+    # Шаг 2: бейдж гарантированно сохранён — теперь начисляем награду
     try:
         from database.db import add_mora as _add_mora, add_xp_in_chat as _add_xp
         mora = ach.get("mora", 0)
@@ -399,7 +408,8 @@ async def _award(db, user_id: int, chat_id: int, ach: dict) -> bool:
         if xp > 0:
             await _add_xp(user_id, chat_id, xp)
     except Exception as e:
-        logger.warning("Achievement reward failed for %s: %s", ach["key"], e)
+        logger.warning("Achievement reward payout failed for %s: %s", ach.get("key"), e)
+        # бейдж уже сохранён — повторного начисления не будет; просто логируем
 
     return True
 
@@ -423,11 +433,10 @@ async def check_and_award(
 
     newly_awarded: list[dict] = []
     try:
-        async with postgres_connect() as db:
-            for ach in candidates:
-                if value >= ach["threshold"]:
-                    if await _award(db, user_id, chat_id, ach):
-                        newly_awarded.append(ach)
+        for ach in candidates:
+            if value >= ach["threshold"]:
+                if await _award(user_id, chat_id, ach):
+                    newly_awarded.append(ach)
     except Exception as e:
         logger.warning("check_and_award error (%s, %s, %s): %s", user_id, chat_id, ach_type, e)
         return []
@@ -463,65 +472,65 @@ async def get_all_achievements_with_status(user_id: int, chat_id: int) -> dict:
     newly_awarded: list[dict] = []
     earned: dict[str, str] = {}
     counters: dict[str, int] = {}
+    # ── Шаг 1: один READ-ONLY запрос — получить earned + counters ────
     try:
         async with postgres_connect() as db:
             rows = await db.fetch(
                 "SELECT badge_key, obtained_at FROM user_badges WHERE user_id=? AND chat_id=?",
                 (user_id, chat_id),
             )
-            earned: dict[str, str] = {
-                row["badge_key"]: str(row.get("obtained_at", "")) for row in rows
-            }
+            earned = {row["badge_key"]: str(row.get("obtained_at", "")) for row in rows}
             counters = await get_all_counters(db, user_id, chat_id)
-
-            # ── Auto-award missing achievements ──────────────────────
-            for ach_type, tiers in ACH_BY_TYPE.items():
-                value = counters.get(ach_type, 0)
-                if value <= 0:
-                    continue
-                for ach in tiers:
-                    if value >= ach["threshold"] and ach["key"] not in earned:
-                        if await _award(db, user_id, chat_id, ach):
-                            earned[ach["key"]] = str(datetime.now(timezone.utc))
-                            newly_awarded.append({"title": ach["title"], "emoji": ach["emoji"], "mora": ach["mora"], "xp": ach.get("xp", 0)})
-
-            # ── Auto-award infinite tiers if threshold reached ────────
-            for ach_type, tiers in ACH_BY_TYPE.items():
-                if ach_type in BOOL_TYPES or not tiers:
-                    continue
-                value = counters.get(ach_type, 0)
-                last_defined = tiers[-1]
-                # Check if all defined tiers are earned
-                all_defined_earned = all(a["key"] in earned for a in tiers)
-                if not all_defined_earned:
-                    continue
-                # Award any missing infinite tiers that are reachable
-                inf_n = len(tiers)
-                for ie in range(50):  # cap at 50 extra tiers
-                    inf_n = len(tiers) + ie + 1
-                    inf_key = f"{ach_type}_inf_{inf_n}"
-                    inf_threshold = int(last_defined["threshold"] * (2 ** (ie + 1)))
-                    if inf_key in earned:
-                        continue
-                    if value >= inf_threshold:
-                        inf_mora = max(1, int(last_defined["mora"] * math.log2(ie + 3)))
-                        inf_xp = max(1, int(last_defined.get("xp", 0) * math.log2(ie + 3)))
-                        inf_ach = {
-                            "key": inf_key,
-                            "title": f"{last_defined['title']} +{ie + 1}",
-                            "emoji": last_defined["emoji"],
-                            "description": "",
-                            "mora": inf_mora,
-                            "xp": inf_xp,
-                        }
-                        if await _award(db, user_id, chat_id, inf_ach):
-                            earned[inf_key] = str(datetime.now(timezone.utc))
-                            newly_awarded.append({"title": inf_ach["title"], "emoji": inf_ach["emoji"], "mora": inf_mora, "xp": inf_xp})
-                    else:
-                        break
     except Exception as e:
-        logger.warning("get_all_achievements_with_status DB error: %s", e)
-        # earned/counters/newly_awarded already initialized above — keep partial results
+        logger.warning("get_all_achievements_with_status READ error: %s", e)
+
+    # ── Шаг 2: award loop — каждый _award открывает своё соединение ──
+    try:
+        # ── Auto-award missing achievements ──────────────────────
+        for ach_type, tiers in ACH_BY_TYPE.items():
+            value = counters.get(ach_type, 0)
+            if value <= 0:
+                continue
+            for ach in tiers:
+                if value >= ach["threshold"] and ach["key"] not in earned:
+                    if await _award(user_id, chat_id, ach):
+                        earned[ach["key"]] = str(datetime.now(timezone.utc))
+                        newly_awarded.append({"title": ach["title"], "emoji": ach["emoji"], "mora": ach["mora"], "xp": ach.get("xp", 0)})
+
+        # ── Auto-award infinite tiers if threshold reached ────────
+        for ach_type, tiers in ACH_BY_TYPE.items():
+            if ach_type in BOOL_TYPES or not tiers:
+                continue
+            value = counters.get(ach_type, 0)
+            last_defined = tiers[-1]
+            all_defined_earned = all(a["key"] in earned for a in tiers)
+            if not all_defined_earned:
+                continue
+            inf_n = len(tiers)
+            for ie in range(50):  # cap at 50 extra tiers
+                inf_n = len(tiers) + ie + 1
+                inf_key = f"{ach_type}_inf_{inf_n}"
+                inf_threshold = int(last_defined["threshold"] * (2 ** (ie + 1)))
+                if inf_key in earned:
+                    continue
+                if value >= inf_threshold:
+                    inf_mora = max(1, int(last_defined["mora"] * math.log2(ie + 3)))
+                    inf_xp = max(1, int(last_defined.get("xp", 0) * math.log2(ie + 3)))
+                    inf_ach = {
+                        "key": inf_key,
+                        "title": f"{last_defined['title']} +{ie + 1}",
+                        "emoji": last_defined["emoji"],
+                        "description": "",
+                        "mora": inf_mora,
+                        "xp": inf_xp,
+                    }
+                    if await _award(user_id, chat_id, inf_ach):
+                        earned[inf_key] = str(datetime.now(timezone.utc))
+                        newly_awarded.append({"title": inf_ach["title"], "emoji": inf_ach["emoji"], "mora": inf_mora, "xp": inf_xp})
+                else:
+                    break
+    except Exception as e:
+        logger.warning("get_all_achievements_with_status award error: %s", e)
 
     categories: list[dict] = []
     total_unlocked = 0
