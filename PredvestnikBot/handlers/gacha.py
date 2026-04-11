@@ -205,8 +205,8 @@ async def cb_gacha_roll(callback: CallbackQuery):
                 f"🌟 {name} достиг <b>уровня {season_result['new_level']}</b> в Season Pass!",
                 parse_mode="HTML",
             )
-    except Exception:
-        pass  # Безопасно игнорируем ошибки season XP
+    except Exception as _e:
+        _log.debug("season_xp gacha failed: %s", _e)
 
 @router.message(BotCommand("инвентарь", "предметы", "inventory", "рюкзак"))
 async def cmd_inventory(message: Message, cmd_args: str):

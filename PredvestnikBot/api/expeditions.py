@@ -248,8 +248,8 @@ async def claim_expedition(uid: int, chat_id: int) -> dict:
         season_result = await add_season_xp(uid, 8)  # +8 season XP
         season_level_up = season_result.get("level_up", False)
         season_new_level = season_result.get("new_level", 0)
-    except Exception:
-        pass  # Безопасно игнорируем ошибки season XP
+    except Exception as _e:
+        _log.debug("season_xp expedition failed: %s", _e)
 
     return {
         "ok":           True,
