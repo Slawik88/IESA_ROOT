@@ -49,6 +49,16 @@ async def do_checkin(uid: int, chat_id: int) -> dict:
 
     mora = result["mora"]
 
+    # Talent: checkin_mora_bonus — extra mora per talent level
+    try:
+        from database.db import get_talent_effect as _gte
+        _checkin_bonus = await _gte(uid, "checkin_mora_bonus")
+        if _checkin_bonus > 0:
+            mora += _checkin_bonus
+            result["mora"] = mora
+    except Exception as _e:
+        _log.debug("checkin_mora_bonus: %s", _e)
+
     # VIP bonus: +15% to checkin reward
     try:
         from database.db import get_vip

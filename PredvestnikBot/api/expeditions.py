@@ -251,6 +251,13 @@ async def claim_expedition(uid: int, chat_id: int) -> dict:
     except Exception as _e:
         _log.debug("season_xp expedition failed: %s", _e)
 
+    # Track expedition achievement counter
+    try:
+        from database.db import increment_tracker
+        await increment_tracker(uid, chat_id, "expeditions_sent")
+    except Exception as _e:
+        _log.debug("expedition tracker failed: %s", _e)
+
     return {
         "ok":           True,
         "reward_gross": reward_gross,

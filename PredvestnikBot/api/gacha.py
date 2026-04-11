@@ -326,6 +326,19 @@ async def gacha_roll(uid: int, chat_id: int, count: int,
     except Exception:
         logging.getLogger(__name__).warning("quest_tick failed uid=%s chat=%s", uid, chat_id, exc_info=True)
 
+    # ── Талант: gacha_shard_bonus — бонусные осколки при каждом ×10 ролле ──
+    shard_bonus_given = 0
+    if count == 10:
+        try:
+            from database.db import get_talent_effect as _gte
+            _shard_bonus = await _gte(uid, "gacha_shard_bonus")
+            if _shard_bonus > 0:
+                from database.db import add_shards
+                await add_shards(uid, chat_id, "universal", _shard_bonus)
+                shard_bonus_given = _shard_bonus
+        except Exception as _e:
+            _log.debug("gacha_shard_bonus: %s", _e)
+
     # Log to wallet ledger
     try:
         from api.economy import log_wallet_tx
@@ -359,4 +372,5 @@ async def gacha_roll(uid: int, chat_id: int, count: int,
         "quest_done":      bool(quest_done),
         "quest_xp":        int(quest_xp),
         "quest_mora":      int(quest_mora),
+        "shard_bonus":     shard_bonus_given,
     }

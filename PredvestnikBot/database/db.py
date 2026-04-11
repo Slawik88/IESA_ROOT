@@ -5938,15 +5938,6 @@ async def add_buff(user_id: int, chat_id: int, buff_type: str,
         await db.commit()
 
 
-async def get_active_buffs(user_id: int, chat_id: int) -> list:
-    """Вернуть все активные (не истёкшие) баффы."""
-    now = datetime.now(timezone.utc)
-    async with postgres_connect() as db:
-        async with db.execute(
-            "SELECT * FROM active_buffs WHERE user_id=? AND chat_id=? AND expires_at > ?",
-            (user_id, chat_id, now),
-        ) as c:
-            return await c.fetchall()
 # ─── Активные чаты для налоговых/scheduler ивентов ────────────────────────────
 
 async def get_active_group_chat_ids() -> list[int]:

@@ -7,7 +7,7 @@
 
 from datetime import datetime, timezone
 
-from aiogram import Router
+from aiogram import F, Router
 from aiogram.types import (
     CallbackQuery,
     InlineKeyboardButton,
@@ -333,3 +333,9 @@ async def cb_bank_withdraw(callback: CallbackQuery):
     except Exception as _e:
         _log.debug("%s", _e)
     await callback.answer()
+
+
+@router.callback_query(F.data == "disabled")
+async def cb_disabled(callback: CallbackQuery):
+    """Заглушка для кнопок «недостаточно средств» — гасит спиннер Telegram."""
+    await callback.answer("❌ Недостаточно средств", show_alert=False)

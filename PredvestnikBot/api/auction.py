@@ -544,8 +544,16 @@ async def buyout_auction(buyer_id: int, chat_id: int, auction_id: int) -> dict:
                 (prev_amount, prev_bidder)
             )
 
-        # 10% комиссия → казна
-        commission = max(1, int(buyout * COMMISSION_RATE))
+        # 10% комиссия → казна (с учётом таланта auction_tax_discount)
+        _eff_rate = COMMISSION_RATE
+        try:
+            from database.db import get_talent_effect as _gte
+            _tax_disc = await _gte(auction["seller_id"], "auction_tax_discount")
+            if _tax_disc > 0:
+                _eff_rate = max(0.01, COMMISSION_RATE - _tax_disc / 100.0)
+        except Exception as _e:
+            _log.debug("auction_tax_discount talent failed: %s", _e)
+        commission = max(1, int(buyout * _eff_rate))
         seller_gets = buyout - commission
         from database.db import add_to_treasury
         await add_to_treasury(chat_id, commission, "auction", buyer_id)
@@ -736,7 +744,16 @@ async def finalize_expired_auctions(bot=None) -> list[dict]:
             # Есть ставки — передача предмета победителю
             winner_id = auction["highest_bidder_id"]
             final_price = int(auction["current_price"])
-            commission  = max(1, int(final_price * COMMISSION_RATE))
+            # Талант seller: auction_tax_discount
+            _eff_rate2 = COMMISSION_RATE
+            try:
+                from database.db import get_talent_effect as _gte
+                _tax_disc2 = await _gte(auction["seller_id"], "auction_tax_discount")
+                if _tax_disc2 > 0:
+                    _eff_rate2 = max(0.01, COMMISSION_RATE - _tax_disc2 / 100.0)
+            except Exception as _e:
+                _log.debug("auction_tax_discount talent failed: %s", _e)
+            commission  = max(1, int(final_price * _eff_rate2))
             seller_gets = final_price - commission
 
             try:
