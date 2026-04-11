@@ -51,7 +51,7 @@ from config import (
 )
 from filters.bot_command import BotCommand
 from filters.rank_filter import RankFilter
-from utils.helpers import resolve_target, user_mention
+from utils.helpers import not_your_button, resolve_target, user_mention
 from utils.ranks import rank_level
 
 from filters.chat_mode import MainChatOnly
@@ -209,8 +209,7 @@ async def cmd_balance(message: Message, cmd_args: str):
 @router.callback_query(F.data.startswith("mora_close:"))
 async def cb_mora_close(callback: CallbackQuery):
     uid = int(callback.data.split(":")[1])
-    if callback.from_user.id != uid:
-        await callback.answer("🚫 Это не твоё меню!", show_alert=True)
+    if await not_your_button(callback, uid, "🚫 Это не твоё меню!"):
         return
     try:
         await callback.message.delete()
@@ -294,8 +293,7 @@ async def cb_buy_vip(callback: CallbackQuery):
     uid = int(parts[1])
     wallet = parts[2] if len(parts) > 2 else "personal"
 
-    if callback.from_user.id != uid:
-        await callback.answer("🚫 Это не твоя кнопка!", show_alert=True)
+    if await not_your_button(callback, uid):
         return
 
     chat_id = callback.message.chat.id
@@ -359,8 +357,8 @@ async def cmd_admin_vip(message: Message, cmd_args: str):
 
 @router.callback_query(F.data.startswith("buy_cancel:"))
 async def cb_buy_cancel(callback: CallbackQuery):
-    if callback.from_user.id != int(callback.data.split(":")[1]):
-        await callback.answer("🚫", show_alert=True)
+    uid = int(callback.data.split(":")[1])
+    if await not_your_button(callback, uid):
         return
     try:
         await callback.message.delete()
@@ -432,8 +430,7 @@ async def cb_boost_buy(callback: CallbackQuery):
     key = parts[2]
     wallet = parts[3] if len(parts) > 3 else "personal"
 
-    if callback.from_user.id != uid:
-        await callback.answer("🚫 Это не твоя кнопка!", show_alert=True)
+    if await not_your_button(callback, uid):
         return
 
     chat_id = callback.message.chat.id
@@ -591,8 +588,7 @@ async def cb_frame_page(callback: CallbackQuery):
     parts = callback.data.split(":")
     uid = int(parts[1])
     page = int(parts[2])
-    if callback.from_user.id != uid:
-        await callback.answer("🚫 Это не твоя кнопка!", show_alert=True)
+    if await not_your_button(callback, uid):
         return
     chat_id = callback.message.chat.id
     mora = await get_mora(uid, chat_id)
@@ -614,8 +610,7 @@ async def cb_frame_buy(callback: CallbackQuery):
     uid = int(parts[1])
     key = parts[2]
 
-    if callback.from_user.id != uid:
-        await callback.answer("🚫 Это не твоя кнопка!", show_alert=True)
+    if await not_your_button(callback, uid):
         return
 
     chat_id = callback.message.chat.id

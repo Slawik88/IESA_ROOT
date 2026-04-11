@@ -33,6 +33,7 @@ from database.db import (
     sell_gacha_junk,
 )
 from filters.bot_command import BotCommand
+from utils.helpers import not_your_button
 
 from filters.chat_mode import MainChatOnly
 import logging
@@ -107,8 +108,7 @@ async def cb_gacha_roll(callback: CallbackQuery):
     owner = int(parts[1])
     count = int(parts[2])
 
-    if callback.from_user.id != owner:
-        await callback.answer("❌ Это не твоя молитва!", show_alert=True)
+    if await not_your_button(callback, owner, "❌ Это не твоя молитва!"):
         return
 
     uid = owner
@@ -366,8 +366,7 @@ async def cb_inventory_tab(callback: CallbackQuery):
     owner = int(owner_str)
     chat_id = int(chat_str)
 
-    if callback.from_user.id != owner:
-        await callback.answer("❌ Это не твой инвентарь.", show_alert=True)
+    if await not_your_button(callback, owner, "❌ Это не твой инвентарь."):
         return
 
     text, kb = await _build_inventory_page(owner, chat_id, section)

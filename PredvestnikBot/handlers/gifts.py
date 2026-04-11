@@ -28,6 +28,7 @@ from database.db import (
     get_gifts_summary,
 )
 from filters.bot_command import BotCommand
+from utils.helpers import not_your_button
 from handlers.economy import deduct_wallet
 
 from filters.chat_mode import MainChatOnly
@@ -112,8 +113,7 @@ async def cb_gift(callback: CallbackQuery):
     gift_key = parts[2]
     wallet = parts[3] if len(parts) > 3 else "personal"
 
-    if callback.from_user.id != owner:
-        await callback.answer("❌ Это не для тебя!", show_alert=True)
+    if await not_your_button(callback, owner, "❌ Это не для тебя!"):
         return
 
     gift_info = MARRIAGE_GIFTS.get(gift_key)
