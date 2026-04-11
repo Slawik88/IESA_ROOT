@@ -26,7 +26,6 @@ async def get_leaderboard(
         get_leaderboard_messages,
         get_boss_leaderboard,
     )
-    from database.postgres import postgres_connect
 
     if lb_type == "messages":
         rows = await get_leaderboard_messages(chat_id, limit=limit)
@@ -59,6 +58,7 @@ async def get_leaderboard(
         ]
 
     elif lb_type == "mora":
+        from database.postgres import connect as postgres_connect
         async with postgres_connect() as db:
             async with db.execute(
                 "SELECT u.user_id, u.full_name, COALESCE(u.balance,0) AS balance, COALESCE(um.vip,0) AS vip "
@@ -113,7 +113,7 @@ async def _get_user_rank(uid: int, chat_id: int, lb_type: str) -> dict | None:
     """Return {rank, score} for uid in the given leaderboard type.
     Returns None for boss type (GROUP BY rank is too expensive here).
     """
-    from database.postgres import postgres_connect
+    from database.postgres import connect as postgres_connect
 
     async with postgres_connect() as db:
         if lb_type == "messages":

@@ -1150,7 +1150,7 @@ async def init_db():
                 ALTER TABLE gacha_inventory
                 ALTER COLUMN obtained_at TYPE TIMESTAMPTZ
                 USING CASE
-                    WHEN obtained_at ~ '^\\d{4}-\\d{2}-\\d{2}' THEN obtained_at::TIMESTAMPTZ
+                    WHEN obtained_at::text ~ '^\\d{4}-\\d{2}-\\d{2}' THEN obtained_at::text::TIMESTAMPTZ
                     ELSE NOW()
                 END
             """)
