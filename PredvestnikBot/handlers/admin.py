@@ -21,6 +21,7 @@ from database.db import (
     store_pending_marriages,
     get_inactive_users_24h,
     _invalidate_chat_settings,
+    get_global_setting, set_global_setting,
 )
 from filters.bot_command import BotCommand
 from filters.rank_filter import RankFilter
@@ -1485,6 +1486,88 @@ async def cb_feature_toggle(callback: CallbackQuery):
             "\n".join(lines),
             parse_mode="HTML",
             reply_markup=_build_feat_keyboard(states, chat_id),
+        )
+    except Exception as _e:
+        _log.debug("%s", _e)
+
+
+# ─── Глобальные модули (только разработчик) ──────────────────────────────────
+
+def _build_global_feat_keyboard(states: dict[str, bool]) -> InlineKeyboardMarkup:
+    """Inline keyboard для глобальных флагов модулей."""
+    buttons = []
+    for key, (emoji, label) in _FLAGS.items():
+        on = states.get(key, True)
+        status = "🟢" if on else "🔴"
+        buttons.append(
+            InlineKeyboardButton(
+                text=f"{status} {emoji} {label}",
+                callback_data=f"gfeat:toggle:{key}",
+            )
+        )
+    return InlineKeyboardMarkup(inline_keyboard=[[b] for b in buttons])
+
+
+async def _get_global_feat_states() -> dict[str, bool]:
+    result = {}
+    for key in _FLAGS:
+        val = await get_global_setting(f"global_feat_{key}", "1")
+        result[key] = (val != "0")
+    return result
+
+
+@router.message(BotCommand("глобальные", "gmodules", "global_modules"))
+async def cmd_global_modules(message: Message, cmd_args: str):
+    """Показать и переключить глобальные модули бота (только разработчик)."""
+    if not (DEVELOPER_ID and message.from_user and message.from_user.id == DEVELOPER_ID):
+        return
+    states = await _get_global_feat_states()
+    lines = ["🌍 <b>Глобальные модули бота</b>\n",
+             "<i>Глобальное отключение распространяется на ВСЕ чаты.</i>\n"]
+    for key, (emoji, label) in _FLAGS.items():
+        status = "🟢 Вкл" if states[key] else "🔴 Выкл"
+        lines.append(f"  {emoji} <b>{label}</b>: {status}")
+    await message.answer(
+        "\n".join(lines),
+        parse_mode="HTML",
+        reply_markup=_build_global_feat_keyboard(states),
+    )
+
+
+@router.callback_query(F.data.startswith("gfeat:"))
+async def cb_global_feature_toggle(callback: CallbackQuery):
+    """Toggle a global feature flag (developer only)."""
+    if not (DEVELOPER_ID and callback.from_user.id == DEVELOPER_ID):
+        await callback.answer("❌ Только разработчик может управлять глобальными модулями", show_alert=True)
+        return
+    parts = callback.data.split(":")
+    if len(parts) != 3 or parts[1] != "toggle":
+        await callback.answer("❌ Неверные данные", show_alert=True)
+        return
+    _, _, flag = parts
+    if flag not in _FLAGS:
+        await callback.answer("❌ Неизвестный флаг", show_alert=True)
+        return
+
+    current = await get_global_setting(f"global_feat_{flag}", "1")
+    new_val = "0" if current != "0" else "1"
+    await set_global_setting(f"global_feat_{flag}", new_val, updated_by=callback.from_user.id)
+
+    emoji, label = _FLAGS[flag]
+    status_str = "включён" if new_val == "1" else "отключён"
+    await callback.answer(f"{emoji} {label} глобально {status_str}", show_alert=False)
+
+    states = await _get_global_feat_states()
+    try:
+        lines = ["🌍 <b>Глобальные модули бота</b>\n",
+                 "<i>Глобальное отключение распространяется на ВСЕ чаты.</i>\n"]
+        for key, (emj, lbl) in _FLAGS.items():
+            st = "🟢 Вкл" if states[key] else "🔴 Выкл"
+            lines.append(f"  {emj} <b>{lbl}</b>: {st}")
+        await callback.message.edit_text(
+            "\n".join(lines),
+            parse_mode="HTML",
+            reply_markup=_build_global_feat_keyboard(states),
         )
     except Exception as _e:
         _log.debug("%s", _e)
