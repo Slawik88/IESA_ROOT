@@ -40,6 +40,7 @@ from database.db import (
     set_custom_title_in_chat,
 )
 from filters.bot_command import BotCommand
+from utils.helpers import not_your_button
 from handlers.economy import TOP_FRAMES, XP_BOOST_OPTIONS, deduct_wallet
 
 from filters.chat_mode import MainChatOnly
@@ -288,8 +289,7 @@ async def cb_shop_nav(callback: CallbackQuery):
     _prefix, owner_str, section = callback.data.split(":", 2)
     owner = int(owner_str)
 
-    if callback.from_user.id != owner:
-        await callback.answer("❌ Это не твой магазин!", show_alert=True)
+    if await not_your_button(callback, owner, "❌ Это не твой магазин!"):
         return
 
     chat_id = callback.message.chat.id
@@ -317,8 +317,7 @@ async def cb_shop_buy(callback: CallbackQuery):
     item_key = parts[2]
     wallet = parts[3] if len(parts) > 3 else "personal"
 
-    if callback.from_user.id != owner:
-        await callback.answer("❌ Это не твой магазин!", show_alert=True)
+    if await not_your_button(callback, owner, "❌ Это не твой магазин!"):
         return
 
     item = SHOP_ITEMS.get(item_key)
@@ -412,8 +411,7 @@ async def cb_shop_color(callback: CallbackQuery):
     owner = int(parts[1])
     color = parts[2]
 
-    if callback.from_user.id != owner:
-        await callback.answer("❌ Не для тебя!", show_alert=True)
+    if await not_your_button(callback, owner, "❌ Не для тебя!"):
         return
 
     if color not in _PET_COLORS:

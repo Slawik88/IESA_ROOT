@@ -34,7 +34,7 @@ from database.db import (
 )
 from handlers.economy import deduct_wallet
 from filters.bot_command import BotCommand
-from utils.helpers import format_duration, user_mention
+from utils.helpers import format_duration, kb_single, user_mention
 
 from filters.chat_mode import MainChatOnly
 import logging
@@ -47,9 +47,13 @@ _PET_EMOJI = {"cat": "🐱", "dog": "🐶"}
 _PET_NAME  = {"cat": "Котёнок", "dog": "Щенок"}
 
 
-def _marriage_age_days(married_at_iso: str) -> int:
+def _marriage_age_days(married_at) -> int:
+    """Accept either an ISO string or a datetime object (asyncpg returns TIMESTAMPTZ as datetime)."""
     try:
-        dt = datetime.fromisoformat(married_at_iso)
+        if hasattr(married_at, 'timetuple'):
+            dt = married_at
+        else:
+            dt = datetime.fromisoformat(str(married_at))
         if dt.tzinfo is None:
             dt = dt.replace(tzinfo=timezone.utc)
         return (datetime.now(timezone.utc) - dt).days
@@ -116,10 +120,7 @@ async def cmd_pet(message: Message, cmd_args: str):
         age = _marriage_age_days(marriage["married_at"]) if marriage else 0
         left = max(0, PET_MIN_MARRIAGE_DAYS - age)
         age_bar = "█" * min(10, age) + "░" * max(0, 10 - age)
-        kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(
-            text=f"🐾 Взять сейчас за {PET_MORA_SKIP_PRICE} 🪙",
-            callback_data=f"pet_skip:{uid}",
-        )]])
+        kb = kb_single(f"🐾 Взять сейчас за {PET_MORA_SKIP_PRICE} 🪙", f"pet_skip:{uid}")
         await message.answer(
             f"🐾 <b>Питомец</b>\n\n"
             f"📋 <b>Условие:</b>\n"
@@ -185,10 +186,7 @@ async def cmd_adopt_pet(message: Message, cmd_args: str):
         age = _marriage_age_days(marriage["married_at"])
         left = max(0, PET_MIN_MARRIAGE_DAYS - age)
         age_bar = "█" * min(10, age) + "░" * max(0, 10 - age)
-        kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(
-            text=f"🐾 Взять сейчас за {PET_MORA_SKIP_PRICE} 🪙",
-            callback_data=f"pet_skip:{uid}",
-        )]])
+        kb = kb_single(f"🐾 Взять сейчас за {PET_MORA_SKIP_PRICE} 🪙", f"pet_skip:{uid}")
         await message.answer(
             f"❌ <b>Нельзя завести питомца.</b>\n\n"
             f"📝 Возраст брака: <b>{age}</b> / {PET_MIN_MARRIAGE_DAYS} дн.  [{age_bar}]\n"

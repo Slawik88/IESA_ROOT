@@ -27,6 +27,7 @@ from database.db import (
     get_total_family_balance,
 )
 from filters.bot_command import BotCommand
+from utils.helpers import not_your_button
 
 from filters.chat_mode import MainChatOnly
 import logging
@@ -217,8 +218,7 @@ async def cb_expedition_wallet_choice(callback: CallbackQuery):
     owner = int(parts[1])
     choice = parts[2]
     
-    if callback.from_user.id != owner:
-        await callback.answer("❌ Это не твоя кнопка!", show_alert=True)
+    if await not_your_button(callback, owner):
         return
     
     if choice == "back":
@@ -271,8 +271,7 @@ async def cb_expedition_start(callback: CallbackQuery):
     key = parts[2]
     wallet_type = parts[3] if len(parts) > 3 else "personal"
 
-    if callback.from_user.id != owner:
-        await callback.answer("❌ Это не твоя кнопка!", show_alert=True)
+    if await not_your_button(callback, owner):
         return
 
     chat_id = callback.message.chat.id

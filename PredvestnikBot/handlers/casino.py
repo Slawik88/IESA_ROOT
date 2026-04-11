@@ -32,7 +32,7 @@ from database.db import (
 )
 from config import COIN_MAX_BET, COIN_MIN_BET_CHAT, DICE_MAX_BET, LOTTERY_TICKET_PRICE
 from filters.bot_command import BotCommand
-from utils.helpers import resolve_target, user_mention
+from utils.helpers import not_your_button, resolve_target, user_mention
 
 from filters.chat_mode import MainChatOnly
 import logging
@@ -138,8 +138,7 @@ async def cb_coin_choice(callback: CallbackQuery):
     bet      = int(bet_str)
 
     # Только владелец может нажимать
-    if callback.from_user.id != uid:
-        await callback.answer("❌ Это не твоя монетка!", show_alert=True)
+    if await not_your_button(callback, uid, "❌ Это не твоя монетка!"):
         return
 
     # Защита от двойного клика (или перезапуска бота)
@@ -322,8 +321,7 @@ async def cb_duel_accept(callback: CallbackQuery):
     duel_id   = int(parts[1])
     target_id = int(parts[2])
 
-    if callback.from_user.id != target_id:
-        await callback.answer("🚫 Этот вызов предназначен не тебе!", show_alert=True)
+    if await not_your_button(callback, target_id, "🚫 Этот вызов предназначен не тебе!"):
         return
 
     duel = await get_duel(duel_id)
@@ -415,8 +413,7 @@ async def cb_duel_decline(callback: CallbackQuery):
     duel_id   = int(parts[1])
     target_id = int(parts[2])
 
-    if callback.from_user.id != target_id:
-        await callback.answer("🚫 Этот вызов предназначен не тебе!", show_alert=True)
+    if await not_your_button(callback, target_id, "🚫 Этот вызов предназначен не тебе!"):
         return
 
     duel = await get_duel(duel_id)

@@ -13,7 +13,7 @@ from database.db import (
     get_weekly_top_reward_history, WEEKLY_TOP_REWARDS,
 )
 from filters.bot_command import BotCommand
-from utils.helpers import resolve_target, user_mention
+from utils.helpers import not_your_button, resolve_target, user_mention
 from utils.ranks import rank_level, rank_name
 
 # Module-level constants to avoid repeated local imports
@@ -663,8 +663,7 @@ async def cb_help(callback: CallbackQuery):
         await callback.answer()
         return
 
-    if callback.from_user.id != owner_id:
-        await callback.answer("🚫 Это меню не твоё. Напиши «бот помощь».", show_alert=True)
+    if await not_your_button(callback, owner_id, "🚫 Это меню не твоё. Напиши «бот помощь»."):
         return
 
     if page_id == "close":
@@ -841,8 +840,7 @@ async def cb_top(callback: CallbackQuery):
     except ValueError:
         await callback.answer()
         return
-    if callback.from_user.id != owner_id:
-        await callback.answer("🚫 Это меню не твоё. Напиши «бот топ».", show_alert=True)
+    if await not_your_button(callback, owner_id, "🚫 Это меню не твоё. Напиши «бот топ»."):
         return
     chat_id = callback.message.chat.id
 
@@ -927,8 +925,7 @@ async def cb_profile_nav(callback: CallbackQuery):
     action = parts[1]
     uid = int(parts[2])
 
-    if callback.from_user.id != uid:
-        await callback.answer("🚫 Это меню не твоё. Напиши «бот профиль».", show_alert=True)
+    if await not_your_button(callback, uid, "🚫 Это меню не твоё. Напиши «бот профиль»."):
         return
 
     if action == "close":
@@ -1088,8 +1085,7 @@ async def cb_profile_nav(callback: CallbackQuery):
     elif action == "themes":
         from config import PROFILE_THEMES, COSMETIC_TIER_LABELS
         chat_id = callback.message.chat.id
-        if callback.from_user.id != uid:
-            await callback.answer("🚫 Не твоё меню.", show_alert=True)
+        if await not_your_button(callback, uid, "🚫 Не твоё меню."):
             return
         owned = {t["theme_key"] for t in await get_user_themes(uid, chat_id)}
         owned.add("default")
@@ -1567,8 +1563,7 @@ async def cmd_themes(message: Message, cmd_args: str):
 async def cb_theme_set(callback: CallbackQuery):
     parts = callback.data.split(":")
     uid, key = int(parts[1]), parts[2]
-    if callback.from_user.id != uid:
-        await callback.answer("🚫 Не твоё меню.", show_alert=True)
+    if await not_your_button(callback, uid, "🚫 Не твоё меню."):
         return
     await set_active_theme(uid, callback.message.chat.id, key)
     await callback.answer(f"✅ Тема «{key}» активирована!")
@@ -1581,8 +1576,7 @@ async def cb_theme_buy(callback: CallbackQuery):
     from config import PROFILE_THEMES
     parts = callback.data.split(":")
     uid, key = int(parts[1]), parts[2]
-    if callback.from_user.id != uid:
-        await callback.answer("🚫 Не твоё меню.", show_alert=True)
+    if await not_your_button(callback, uid, "🚫 Не твоё меню."):
         return
     theme = PROFILE_THEMES.get(key)
     if not theme or theme["source"] != "shop":

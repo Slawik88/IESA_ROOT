@@ -25,7 +25,7 @@ from database.db import (
     BOND_DEFAULTS,
 )
 from filters.bot_command import BotCommand
-from utils.helpers import resolve_target, user_mention
+from utils.helpers import not_your_button, resolve_target, user_mention
 
 from filters.chat_mode import MainChatOnly
 import logging
@@ -293,8 +293,7 @@ async def cb_bond_buy(callback: CallbackQuery):
     chat_id = int(chat_str)
     amount = int(amount_str)
 
-    if callback.from_user.id != owner:
-        await callback.answer("❌ Не твоя кнопка.", show_alert=True)
+    if await not_your_button(callback, owner, "❌ Не твоя кнопка."):
         return
 
     if bond_key not in BOND_DEFAULTS:

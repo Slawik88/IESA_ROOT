@@ -438,9 +438,10 @@ async def on_join(message: Message):
             if started:
                 try:
                     await message.answer(
-                        f"📋 {user_mention(member.id, member.full_name)} — у тебя есть 7 дней,"
-                        f" чтобы написать 100 сообщений и получить стартовый бонус!\n"
-                        f"Подсказка: открой Мини-Апп → Задания → Квест Новичка.",
+                        f"� {user_mention(member.id, member.full_name)}, добро пожаловать!\n\n"
+                        f"Осваивайся и общайся — здесь рады новым лицам 😊\n"
+                        f"Кстати, в Мини-Апп есть <b>Квест Новичка</b>: 100 сообщений за 7 дней "
+                        f"— и тебя ждёт приятный стартовый бонус 🎁",
                         parse_mode="HTML",
                     )
                 except Exception as _e:

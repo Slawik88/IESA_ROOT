@@ -23,6 +23,7 @@ from database.db import (
     is_user_single,
 )
 from filters.bot_command import BotCommand
+from utils.helpers import not_your_button
 
 from filters.chat_mode import MainChatOnly
 import logging
@@ -140,8 +141,7 @@ async def cb_bank_open(callback: CallbackQuery):
     owner = int(parts[1])
     plan_key = parts[2]
 
-    if callback.from_user.id != owner:
-        await callback.answer("❌ Это не твой банк!", show_alert=True)
+    if await not_your_button(callback, owner, "❌ Это не твой банк!"):
         return
 
     p = BANK_PLANS.get(plan_key)
@@ -183,8 +183,7 @@ async def cb_bank_source_select(callback: CallbackQuery):
     plan_key = parts[2]
     amount = int(parts[3])
 
-    if callback.from_user.id != owner:
-        await callback.answer("❌ Это не твой банк!", show_alert=True)
+    if await not_your_button(callback, owner, "❌ Это не твой банк!"):
         return
 
     uid = owner
@@ -247,8 +246,7 @@ async def cb_bank_confirm(callback: CallbackQuery):
     amount = int(parts[3])
     source = parts[4] if len(parts) > 4 else "personal"  # backward compat
 
-    if callback.from_user.id != owner:
-        await callback.answer("❌ Это не твой банк!", show_alert=True)
+    if await not_your_button(callback, owner, "❌ Это не твой банк!"):
         return
 
     uid = owner
@@ -293,8 +291,7 @@ async def cb_bank_withdraw(callback: CallbackQuery):
     parts = callback.data.split(":")
     owner = int(parts[1])
 
-    if callback.from_user.id != owner:
-        await callback.answer("❌ Это не твой банк!", show_alert=True)
+    if await not_your_button(callback, owner, "❌ Это не твой банк!"):
         return
 
     uid = owner

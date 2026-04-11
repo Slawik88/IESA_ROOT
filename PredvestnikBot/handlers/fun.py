@@ -17,7 +17,7 @@ from aiogram.types import (
 from config import MARRIAGE_PROPOSAL_TIMEOUT
 from database.db import create_marriage, delete_marriage, get_gifts_summary, get_marriage, get_mora, get_pet, get_user
 from filters.bot_command import BotCommand, PlainCommand
-from utils.helpers import format_duration, resolve_target, user_mention
+from utils.helpers import format_duration, not_your_button, resolve_target, user_mention
 
 from filters.chat_mode import MainChatOnly
 router = Router()
@@ -312,8 +312,7 @@ async def on_marry_callback(callback: CallbackQuery):
     chat_id = callback.message.chat.id
 
     # Только цель может ответить
-    if callback.from_user.id != target_id:
-        await callback.answer("❌ Это предложение не для тебя!", show_alert=True)
+    if await not_your_button(callback, target_id, "❌ Это предложение не для тебя!"):
         return
 
     key = (proposer_id, target_id, chat_id)
@@ -490,8 +489,7 @@ async def cb_divorce(callback: CallbackQuery):
     action = parts[1]
     uid = int(parts[2])
 
-    if callback.from_user.id != uid:
-        await callback.answer("❌ Это не твой развод!", show_alert=True)
+    if await not_your_button(callback, uid, "❌ Это не твой развод!"):
         return
 
     chat_id = callback.message.chat.id
@@ -557,8 +555,7 @@ async def cb_divorce(callback: CallbackQuery):
 async def cb_pair_pet(callback: CallbackQuery):
     """Show pet status from the couple view."""
     uid = int(callback.data.split(":")[2])
-    if callback.from_user.id != uid:
-        await callback.answer("🚫 Это не твой профиль!", show_alert=True)
+    if await not_your_button(callback, uid, "🚫 Это не твой профиль!"):
         return
     chat_id = callback.message.chat.id
     pet = await get_pet(uid, chat_id)
