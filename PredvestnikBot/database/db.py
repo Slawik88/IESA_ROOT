@@ -3920,12 +3920,13 @@ async def get_mora_batch(user_ids: list[int], chat_id: int) -> dict[int, dict]:
     return {row["user_id"]: dict(row) for row in rows}
 
 
-async def add_mora(user_id: int, chat_id: int, amount: float | int) -> float:
+async def add_mora(user_id: int, chat_id: int, amount: float | int, *, update_earned: bool = True) -> float:
     """Add (or subtract) Мора globally. Balance never goes below 0. Returns new balance.
 
     Guard: if chat_id is an isolated chat (admin group / test chat), this is a no-op.
     This is the final safety net — no code path can bypass it.
     Pass chat_id=0 for purely global rewards (e.g. season rewards).
+    update_earned=False: не обновлять total_earned (например, награды за достижения).
     """
     if chat_id and is_isolated_chat(chat_id):
         # Silently skip — return current balance without modifying it
@@ -3937,14 +3938,23 @@ async def add_mora(user_id: int, chat_id: int, amount: float | int) -> float:
                 row = await c.fetchone()
                 return row[0] if row else 0
     _log.debug("add_mora uid=%s chat=%s amount=%+d", user_id, chat_id, amount)
+    # chat_id=0 (выплата за достижения) не должна наполнять total_earned
+    _do_update_earned = update_earned and chat_id != 0
+    earned_expr = "COALESCE(total_earned, 0) + CASE WHEN ? > 0 THEN ? ELSE 0 END" if _do_update_earned else "COALESCE(total_earned, 0)"
     async with postgres_connect() as db:
-        await db.execute(
-            """UPDATE users SET
-                   balance      = GREATEST(0, COALESCE(balance, 0) + ?),
-                   total_earned = COALESCE(total_earned, 0) + CASE WHEN ? > 0 THEN ? ELSE 0 END
-               WHERE user_id = ?""",
-            (amount, amount, amount, user_id),
-        )
+        if _do_update_earned:
+            await db.execute(
+                f"""UPDATE users SET
+                       balance      = GREATEST(0, COALESCE(balance, 0) + ?),
+                       total_earned = {earned_expr}
+                   WHERE user_id = ?""",
+                (amount, amount, amount, user_id),
+            )
+        else:
+            await db.execute(
+                """UPDATE users SET balance = GREATEST(0, COALESCE(balance, 0) + ?) WHERE user_id = ?""",
+                (amount, user_id),
+            )
         await db.commit()
         async with db.execute(
             "SELECT COALESCE(balance, 0) AS bal, COALESCE(total_earned, 0) AS te FROM users WHERE user_id=?",

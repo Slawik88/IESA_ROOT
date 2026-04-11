@@ -410,7 +410,9 @@ async def _award(user_id: int, chat_id: int, ach: dict, *, silent: bool = False)
             xp = ach.get("xp", 0)
             if mora > 0:
                 # chat_id=0 → обходит проверку изоляции; мора - глобальный баланс (users.balance)
-                await _add_mora(user_id, 0, mora)
+                # update_earned=False: награды за достижения не считаются "заработанными"
+                # (total_earned — только за активность в чате, иначе раздуется catch-up loop)
+                await _add_mora(user_id, 0, mora, update_earned=False)
             if xp > 0:
                 await _add_xp(user_id, chat_id, xp)
         except Exception as e:
