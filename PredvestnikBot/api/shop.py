@@ -327,8 +327,8 @@ async def buy_item(
         if chat_id != 0:
             try:
                 await buy_shop_item(uid, 0, item_type, item_key)
-            except Exception:
-                pass  # ignore duplicate key on global row
+            except Exception as _e:
+                _log.debug("global shop row duplicate (expected): %s", _e)
         if item_type == "frame" and equip:
             await set_top_frame(uid, chat_id, item_key)
     elif item_type == "vip":

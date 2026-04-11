@@ -947,8 +947,8 @@ async def cb_anon_forward_to_main_chat(callback: CallbackQuery):
                 current_text + f"\n\n✅ <i>Переслано в основной чат администратором {html.escape(caller_name)}</i>",
                 parse_mode="HTML",
             )
-        except Exception:
-            pass  # Ignore if can't edit (message too old, etc.)
+        except Exception as _e:
+            _log.debug("edit anon msg failed (expected): %s", _e)
             
         await callback.answer("✅ Сообщение переслано в основной чат!")
         
