@@ -53,6 +53,10 @@ from shared_prices import (  # noqa: E402
 _INDEX_HTML = _BOT_DIR / "web" / "index.html"
 _BOT_DB_URL = os.environ.get("PREDVESTNIK_DATABASE_URL", "")
 _BOT_TOKEN = os.environ.get("PREDVESTNIK_BOT_TOKEN") or os.environ.get("BOT_TOKEN", "")
+try:
+    from config import DEVELOPER_ID as _DEVELOPER_ID  # noqa: E402
+except Exception:
+    _DEVELOPER_ID = None
 
 
 def _xp_for_level(level: int) -> int:
@@ -219,7 +223,9 @@ def miniapp_user_data(request):
                             headers=headers)
 
     # ── feat_website gate: check if miniapp is enabled for this chat ─────
-    if specific_chat_id:
+    # Разработчик всегда обходит флаг — чтобы не терять доступ.
+    _is_developer = _DEVELOPER_ID is not None and uid == _DEVELOPER_ID
+    if specific_chat_id and not _is_developer:
         try:
             _cur_fw = conn.cursor()
             _ph_fw = "%s" if db_type == "pg" else "?"
