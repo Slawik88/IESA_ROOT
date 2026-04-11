@@ -203,6 +203,19 @@ async def deposit(uid: int, chat_id: int, plan_key: str,
                             f"Вклад {plan_key} {plan['days']}д")
     except Exception as _e:
         _log.debug("%s", _e)
+    # Check deposits achievement
+    try:
+        from api.achievements import check_and_award as _ach
+        from database.postgres import connect as _pg
+        async with _pg() as _db:
+            async with _db.execute(
+                "SELECT COUNT(*) FROM bank_deposits WHERE user_id=? AND chat_id=?",
+                (uid, chat_id),
+            ) as _c:
+                _row = await _c.fetchone()
+        await _ach(uid, chat_id, "deposits", int(_row[0]) if _row else 1)
+    except Exception as _e:
+        _log.debug("deposits achievement failed: %s", _e)
     return {
         "ok":            True,
         "deposit_id":    dep_id,
