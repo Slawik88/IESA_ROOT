@@ -195,6 +195,20 @@ async def _process_economy(user_id: int, chat_id: int, event: Message) -> None:
             drop = random.randint(min_drop, max_drop)
             if 0 <= datetime.now(_TZ_ZURICH).hour < 6:
                 drop *= 2  # night bonus
+            # ── Бафф mora_boost от подарков (trip/crown/castle) ─────────
+            try:
+                from database.db import get_active_buffs as _gab
+                _buffs = await _gab(user_id, chat_id)
+                for _b in _buffs:
+                    _bt = _b.get("buff_type") or _b.get("type", "")
+                    if _bt == "mora_boost_20":
+                        drop = int(drop * 1.20); break
+                    elif _bt == "mora_boost_15":
+                        drop = int(drop * 1.15); break
+                    elif _bt == "mora_boost_10":
+                        drop = int(drop * 1.10); break
+            except Exception as _e:
+                _log.debug("mora_boost check: %s", _e)
             await add_mora(user_id, chat_id, drop)
             try:
                 from api.economy import log_wallet_tx as _lwt
@@ -256,6 +270,14 @@ async def _process_xp(user_id: int, chat_id: int, event: Message, bot=None) -> N
     xp = XP_PER_MESSAGE * 2 if await get_xp_boost_active(user_id, chat_id) else XP_PER_MESSAGE
     if await get_active_chat_buff(chat_id, "xp_plus10"):
         xp = max(1, int(xp * 1.1))
+    # ── Талант: xp_bonus_pct увеличивает XP за сообщения ──────────
+    try:
+        from database.db import get_talent_effect as _gte
+        _xp_pct = await _gte(user_id, "xp_bonus_pct")
+        if _xp_pct > 0:
+            xp = max(1, int(xp * (1 + _xp_pct / 100.0)))
+    except Exception as _e:
+        _log.debug("xp_bonus_pct: %s", _e)
 
     new_xp, new_level, leveled_up = await add_xp_in_chat(user_id, chat_id, xp)
     if leveled_up:

@@ -47,10 +47,19 @@ async def handle_rep_plus(message: Message):
         return
 
     count_today = await get_rep_count_today(message.from_user.id, target.id, message.chat.id)
-    if count_today >= REP_DAILY_LIMIT:
+    # ── Талант: rep_cd_hours увеличивает дневной лимит репутации ──
+    effective_limit = REP_DAILY_LIMIT
+    try:
+        from database.db import get_talent_effect as _gte
+        _rep_bonus = await _gte(message.from_user.id, "rep_cd_hours")
+        if _rep_bonus > 0:
+            effective_limit = REP_DAILY_LIMIT + _rep_bonus
+    except Exception as _e:
+        _log.debug("rep_cd_hours: %s", _e)
+    if count_today >= effective_limit:
         await message.reply(
             f"⏳ Достигнут дневной лимит репутации для этого пользователя "
-            f"(<b>{count_today}/{REP_DAILY_LIMIT}</b>). Сбросится в полночь UTC.",
+            f"(<b>{count_today}/{effective_limit}</b>). Сбросится в полночь UTC.",
             parse_mode="HTML",
         )
         return
@@ -60,7 +69,7 @@ async def handle_rep_plus(message: Message):
     await message.reply(
         f"⬆️ {user_mention(target.id, target.full_name)} получил +1 репутацию! "
         f"Теперь: <b>{new_rep:+d}</b>  "
-        f"<i>({count_today}/{REP_DAILY_LIMIT} сегодня)</i>",
+        f"<i>({count_today}/{effective_limit} сегодня)</i>",
         parse_mode="HTML",
     )
 

@@ -17,6 +17,9 @@ from database.db import (
     get_boss_chat_damage_today,
 )
 from .exceptions import BossLimitError
+import logging
+
+_log = logging.getLogger(__name__)
 
 # Must match _BOSS_DAILY_DAMAGE_LIMIT in miniapp_views.py
 BOSS_DAILY_DAMAGE_LIMIT = 50_000
@@ -57,6 +60,15 @@ async def record_miniapp_damage(
     today_total = await get_boss_daily_user_damage(user_id, chat_id)
     if today_total + damage > daily_limit:
         raise BossLimitError(daily_limit)
+
+    # ── Талант: atk_bonus увеличивает урон боссу ──────────────────
+    try:
+        from database.db import get_talent_effect as _gte
+        _atk_bonus = await _gte(user_id, "atk_bonus")
+        if _atk_bonus > 0:
+            damage = int(damage * (1 + _atk_bonus / 100.0))
+    except Exception as _e:
+        _log.debug("atk_bonus talent failed: %s", _e)
 
     await add_boss_damage(user_id, chat_id, damage)
 

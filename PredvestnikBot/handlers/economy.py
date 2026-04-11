@@ -1098,3 +1098,11 @@ async def cb_read_secret_message(callback: CallbackQuery):
     except (ValueError, IndexError) as e:
         await callback.answer("❌ Некорректные данные.", show_alert=True)
 
+
+# ─── Заглушка для кнопок-индикаторов ───────────────────────────
+
+@router.callback_query(F.data == "noop")
+async def cb_noop(callback: CallbackQuery):
+    """Заглушка для кнопок-индикаторов (номер страницы и т.п.)."""
+    await callback.answer()
+
