@@ -500,7 +500,7 @@ async def cmd_buy_cleanup_pass(message: Message, bot, cmd_args: str):
         f"📋 Заявка #{pass_id}"
     )
 
-    # Уведомить владельцев чата + разработчика
+    # Уведомить владельцев чата + разработчика (в ЛС)
     notified = set()
     staff = await get_staff_in_chat(chat_id)
     for s in staff:
@@ -509,12 +509,27 @@ async def cmd_buy_cleanup_pass(message: Message, bot, cmd_args: str):
                 await bot.send_message(s["user_id"], notify_text, parse_mode="HTML", reply_markup=kb)
                 notified.add(s["user_id"])
             except Exception as _e:
-                _log.debug("%s", _e)
+                _log.debug("cleanup_pass DM failed uid=%s: %s", s["user_id"], _e)
     if DEVELOPER_ID and DEVELOPER_ID not in notified:
         try:
             await bot.send_message(DEVELOPER_ID, notify_text, parse_mode="HTML", reply_markup=kb)
+            notified.add(DEVELOPER_ID)
         except Exception as _e:
-            _log.debug("%s", _e)
+            _log.debug("cleanup_pass DM to DEV failed: %s", _e)
+
+    # Гарантированный фолбэк: отправить прямо в чат (видно всем владельцам)
+    # если никто не получил ЛС (бот не запустили в личке) или в любом случае для надёжности
+    if not notified:
+        try:
+            await bot.send_message(
+                chat_id,
+                f"📢 <b>Владельцам чата:</b>\n{notify_text}\n\n"
+                f"⚠️ Не удалось отправить уведомление в личку. Одобрите заявку здесь:",
+                parse_mode="HTML",
+                reply_markup=kb,
+            )
+        except Exception as _e:
+            _log.debug("cleanup_pass chat fallback failed: %s", _e)
 @router.callback_query(lambda c: c.data and c.data.startswith("cpass:"))
 async def cb_cleanup_pass(callback: CallbackQuery):
     """Обработка одобрения/отклонения пропуска чистки."""
@@ -597,9 +612,56 @@ async def cb_cleanup_pass(callback: CallbackQuery):
     await callback.answer()
 
 
-# ─── бот титул (установка кастомного титула) ──────────────────────────────────
+# ─── бот пропуски — список ожидающих заявок (для админов) ─────────────────────
 
-@router.message(BotCommand("титул", "title"))
+@router.message(BotCommand("пропуски", "заявки_чистки"))
+async def cmd_list_passes(message: Message):
+    """Показать все pending заявки на пропуск чистки. Только owner/developer."""
+    if message.chat.type == "private":
+        await message.answer("❌ Команда работает только в чате.")
+        return
+    from utils.ranks import is_developer as _is_dev
+    from database.db import get_user_stats, postgres_connect as _pg
+    uid = message.from_user.id
+    chat_id = message.chat.id
+    stats = await get_user_stats(uid, chat_id)
+    rank = stats["rank"] if stats else None
+    if rank not in ("owner", "co_owner", "developer") and not _is_dev(uid):
+        await message.answer("❌ Недостаточно прав.")
+        return
+
+    from database.postgres import connect as _pgc
+    async with _pgc() as db:
+        async with db.execute(
+            "SELECT cp.id, cp.user_id, cp.price, cp.created_at, u.full_name "
+            "FROM cleanup_passes cp LEFT JOIN users u ON u.user_id = cp.user_id "
+            "WHERE cp.chat_id=? AND cp.status='pending' ORDER BY cp.created_at",
+            (chat_id,),
+        ) as c:
+            rows = await c.fetchall()
+
+    if not rows:
+        await message.answer("✅ Нет ожидающих заявок на пропуск чистки.")
+        return
+
+    from config import CLEANUP_PASS_PRICE as _CPP
+    for row in rows:
+        pid, buyer_uid, price, created_at, full_name = row[0], row[1], row[2], row[3], row[4]
+        name = html.escape(full_name or str(buyer_uid))
+        kb = InlineKeyboardMarkup(inline_keyboard=[[
+            InlineKeyboardButton(text="✅ Одобрить", callback_data=f"cpass:approve:{pid}:{buyer_uid}:{chat_id}"),
+            InlineKeyboardButton(text="❌ Отклонить", callback_data=f"cpass:reject:{pid}:{buyer_uid}:{chat_id}"),
+        ]])
+        await message.answer(
+            f"🎫 <b>Заявка #{pid}</b>\n"
+            f"👤 {name} (<code>{buyer_uid}</code>)\n"
+            f"💰 Оплачено: <b>{price} 🪙</b>\n"
+            f"📅 {str(created_at)[:16]}",
+            parse_mode="HTML",
+            reply_markup=kb,
+        )
+
+
 async def cmd_set_title(message: Message, cmd_args: str):
     if message.chat.type == "private":
         return
