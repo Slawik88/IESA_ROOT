@@ -1147,24 +1147,27 @@ body::before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;
     <button class="subtab-btn" onclick="switchSubtab('talents')">🎯 Таланты</button>
   </div>
   <div class="loading" id="invLoading">⏳ Загрузка…</div>
-  
-  <!-- 🎨 Косметика -->
-  <div id="subtab-cosmetics">
-    <!-- RPG stats card -->
-    <div class="card" id="rpgStatsCard" style="display:none;margin-bottom:8px">
-      <div class="card-title">⚔️ Боевые характеристики</div>
+
+  <!-- RPG stats card (shown above all subtabs) -->
+  <div class="card" id="rpgStatsCard" style="display:none;margin-bottom:8px">
+    <div class="card-title">⚔️ Боевые характеристики</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 12px">
       <div class="stat-row"><span class="stat-label">❤️ HP</span><span class="stat-value" id="rpgHp">—</span></div>
       <div class="stat-row"><span class="stat-label">⚔️ ATK</span><span class="stat-value" id="rpgAtk">—</span></div>
       <div class="stat-row"><span class="stat-label">🛡 DEF</span><span class="stat-value" id="rpgDef">—</span></div>
       <div class="stat-row"><span class="stat-label">🎯 Крит</span><span class="stat-value" id="rpgCrit">—</span></div>
     </div>
-    
-    <!-- Active Buffs Card -->
-    <div class="card" id="activeBuffsCard" style="display:none;margin-bottom:8px">
-      <div class="card-title">💫 Активные эффекты</div>
-      <div id="activeBuffsList"></div>
-    </div>
-    
+    <div id="rpgEquipGrid" style="display:none;margin-top:10px;border-top:1px solid rgba(124,106,247,.12);padding-top:8px"></div>
+  </div>
+
+  <!-- Active Buffs Card -->
+  <div class="card" id="activeBuffsCard" style="display:none;margin-bottom:8px">
+    <div class="card-title">💫 Активные эффекты</div>
+    <div id="activeBuffsList"></div>
+  </div>
+
+  <!-- 🎨 Косметика -->
+  <div id="subtab-cosmetics">
     <div id="invFlairItemsList"></div>
     <div id="invCosmeticsList"></div>
     <div id="invPetColorsList"></div>
@@ -3891,6 +3894,7 @@ async function loadInventory(){
   document.getElementById('invLoading').style.display='block';
   document.getElementById('invLoading').innerHTML=skelCards(4);
   document.getElementById('rpgStatsCard').style.display='none';
+  const _ge=document.getElementById('rpgEquipGrid'); if(_ge){_ge.style.display='none';_ge.innerHTML='';}
   document.getElementById('activeBuffsCard').style.display='none';
   document.getElementById('batchSellCard').style.display='none';
   try{
@@ -3957,6 +3961,19 @@ async function loadInventory(){
     document.getElementById('rpgDef').textContent = totDef;
     document.getElementById('rpgCrit').textContent = totCrit + '%';
     document.getElementById('rpgStatsCard').style.display = 'block';
+
+    // Per-slot equipment grid
+    const _eqSlotOrder = ['weapon','helmet','armor','boots','artifact'];
+    const _eqSlotLabel = {weapon:'⚔️ Оружие',helmet:'⛑️ Шлем',armor:'🛡 Броня',boots:'👢 Сапоги',artifact:'🔮 Артефакт'};
+    const _gridHTML = _eqSlotOrder.map(s => {
+      const e = allEquipped.find(i=>i.slot===s) || null;
+      return `<div style="display:flex;justify-content:space-between;font-size:11px;padding:2px 0">` +
+        `<span style="color:var(--text2)">${_eqSlotLabel[s]}</span>` +
+        `<span style="color:${e?'var(--text)':'rgba(255,255,255,.25)'};max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${e ? esc(e.name)+(e.enhancement_level>0?` <b>+${e.enhancement_level}</b>`:'') : '—'}</span>` +
+        `</div>`;
+    }).join('');
+    const _gridEl = document.getElementById('rpgEquipGrid');
+    if(_gridEl){ _gridEl.innerHTML = _gridHTML; _gridEl.style.display = 'block'; }
     
     // Show active buffs if any
     if(activeBuffs.length > 0) {
@@ -4387,8 +4404,19 @@ async function equipFrame(key){
 
 async function toggleEquip(itemId){
   try{
-    const r=await api('/api/inventory','POST',{chat_id:chatId,item_id:itemId});
-    toast(r.equipped?'★ Надето!':'Снято','success');
+    const item = (window.inventoryItems||[]).find(i=>i.id===itemId);
+    const rpgSlots = ['weapon','helmet','armor','boots','artifact'];
+    let r;
+    if(item && rpgSlots.includes(item.slot)){
+      if(item.equipped){
+        r = await api('/api/inventory','POST',{chat_id:chatId,item_id:itemId});
+      } else {
+        r = await api('/api/equip','POST',{chat_id:chatId,item_id:itemId,slot:item.slot});
+      }
+    } else {
+      r = await api('/api/inventory','POST',{chat_id:chatId,item_id:itemId});
+    }
+    toast(r.equipped||r.ok?'★ Надето!':'Снято','success');
     tabLoaded['inventory']=false;
     loadInventory();
   } catch(e){toast('❌ '+e.message,'error')}
@@ -5249,8 +5277,9 @@ function showGachaOverlay(items){
   }, summonDuration-XFADE);
 }
 
+const SLOT_LABELS={weapon:'⚔️ Оружие',helmet:'⛑️ Шлем',armor:'🛡 Броня',boots:'👢 Сапоги',artifact:'🔮 Артефакт',potion:'🧪 Зелье',flair:'✨ Косметика',consume:'⚡ Расходник',coupon:'🎫 Купон'};
+
 function showGachaItemDetail(item){
-  const SLOT_LABELS={weapon:'⚔️ Оружие',helmet:'⛑️ Шлем',armor:'🛡 Броня',boots:'👢 Сапоги',artifact:'🔮 Артефакт',potion:'🧪 Зелье',flair:'✨ Косметика',consume:'⚡ Расходник',coupon:'🎫 Купон'};
   const RARITY_LABELS={junk:'💀 Мусор',common:'📦 Обычный',rare:'💠 Редкий',legendary:'💛 Легендарный'};
   const RARITY_COLORS={junk:'#6b7280',common:'#3b82f6',rare:'#818cf8',legendary:'#f59e0b'};
   const nameParts=(item.name||'').split(' ');
@@ -6506,7 +6535,8 @@ async function showPubProfile(userId){
     }
     if(p.equipped_items && p.equipped_items.length){
       html += `<div style="font-size:11px;color:var(--text2);margin:8px 0 4px">⚔️ Снаряжение:</div>`;
-      p.equipped_items.forEach(i=>{ html += `<div style="font-size:12px;padding:2px 0">• ${esc(i.name)} <span style="color:var(--text2)">(${i.rarity})</span></div>`; });
+      const _SLP={weapon:'⚔️',helmet:'⛑️',armor:'🛡',boots:'👢',artifact:'🔮'};
+      p.equipped_items.forEach(i=>{ html += `<div style="font-size:12px;padding:2px 0">${_SLP[i.slot]||'🎒'} ${esc(i.name)} <span style="color:var(--text2)">(${i.rarity})</span></div>`; });
     }
     const _FRAME_NAMES={'default':'🔰 Стандарт','warrior':'⚔️ Воин','king':'👑 Король','moon':'🌙 Ночной','fire':'🔥 Огненный','diamond':'💎 Алмазный','star':'⭐ Звёздный','sakura':'🌸 Сакура','abyss':'🌀 Бездна','fatui':'⚡ Предвестник','angel':'🕊️ Крылья ветра','champion':'🏆 Чемпион','celestia':'🏰 Целестия','dark_matter_frame':'🌑 Тёмная материя','herald_frame':'📯 Вестник','first_topup':'🌟 Первое пополнение'};
     if(p.active_frame && p.active_frame!=='default'){
@@ -7795,7 +7825,7 @@ function renderCosmeticsInventory(cosmetics, allItems) {
         <div class="ii-name">${esc(i.name)}${i.stack_count>1?` <b style="color:var(--accent)">\u00d7${i.stack_count}</b>`:''}</div>
         <div class="ii-rarity">
           <span class="badge badge-${i.rarity}">${rarityLabel(i.rarity)}</span>  
-          ${i.slot ? ' \u00b7 '+esc(i.slot) : ''}
+          ${i.slot ? ' · '+(SLOT_LABELS[i.slot]||esc(i.slot)) : ''}
           ${canSelectItem(i) ? `<span style="font-size:10px;color:var(--text2)"> \u00b7 ${i.stack_count>1?`<input type="number" id="qty-${i.id}" min="1" max="${i.stack_count}" value="${i.stack_count}" style="width:28px;background:var(--card);border:1px solid #555;border-radius:3px;color:var(--text);font-size:9px;text-align:center;padding:1px" oninput="setSellQty(${i.id},this.value,${i.sell_price||0})"> \u0438\u0437 ${i.stack_count} \u00b7 `:''}\u041f\u0440\u043e\u0434\u0430\u0442\u044c: <span id="sellval-${i.id}">${(i.stack_count||1)*Math.max(1,Math.floor((i.sell_price||0)/2))}</span> \ud83e\ude99</span>` : ''}
         </div>
         ${i.desc ? `<div style="font-size:10px;color:var(--text2);margin-top:2px;font-style:italic">${esc(i.desc)}</div>` : ''}
@@ -7825,6 +7855,7 @@ function renderWeaponsInventory(weapons) {
         </div>
         <div class="ii-rarity">
           <span class="badge badge-${i.rarity}">${rarityLabel(i.rarity)}</span>
+          <span style="font-size:10px;color:var(--text2);margin-left:4px">⚔️ Оружие</span>
           ${i.equipped ? ' <span class="badge" style="background:rgba(251,191,36,.15);color:#fbbf24">✓ Надето</span>' : ''}
           ${!isPremium && !i.can_auction && i.hours_until_auctionable ? `<span style="font-size:10px;color:#f59e0b;margin-left:4px">⏳ аукцион через ${fmtLock(i.hours_until_auctionable)}</span>` : ''}
         </div>
@@ -7848,35 +7879,56 @@ function renderWeaponsInventory(weapons) {
 
 function renderArmorInventory(armor) {
   const isPremium = !!(seasonData && seasonData.progress && seasonData.progress.premium_purchased);
-  document.getElementById('invArmorList').innerHTML = armor.length ? '<div class="inv-grid">'+armor.map(i => 
-    `<div class="inv-item ${canSelectItem(i) ? 'selectable' : ''}" id="item-${i.id}" onclick="showItemModal(${i.id})" style="cursor:pointer">
-      ${canSelectItem(i) ? `<input type="checkbox" class="inv-item-select" onclick="event.stopPropagation()" onchange="toggleItemSelection(${i.id}, this.checked)">` : ''}
-      <div class="ii-emoji">${rarityEmoji(i.rarity)}</div>
-      <div class="ii-info">
-        <div class="ii-name">
-          ${esc(i.name)}${i.stack_count>1?` <b style="color:var(--accent)">\u00d7${i.stack_count}</b>`:''}
-          ${i.equipped && i.enhancement_level > 0 ? `<span class="enhance-level">+${i.enhancement_level}</span>` : ''}
+  const ARMOR_SLOT_ORDER = ['helmet','armor','boots','artifact'];
+  const ARMOR_SLOT_HEADER = {helmet:'⛑️ Шлем',armor:'🛡 Броня',boots:'👢 Сапоги',artifact:'🔮 Артефакт'};
+
+  if(!armor.length){
+    document.getElementById('invArmorList').innerHTML = '<div style="color:var(--text2);text-align:center;padding:28px"><div style="font-size:36px;margin-bottom:8px">🛡️</div><div style="font-weight:700;margin-bottom:4px">Нет брони</div><div style="font-size:12px">Броня выпадает из гача-автомата — попробуй своё везение!</div></div>';
+    updateBatchSellUI();
+    return;
+  }
+
+  // Group by slot
+  const groups = {helmet:[],armor:[],boots:[],artifact:[]};
+  armor.forEach(i => { if(groups[i.slot]) groups[i.slot].push(i); else groups['armor'].push(i); });
+
+  let html = '';
+  ARMOR_SLOT_ORDER.forEach(slot => {
+    const slotItems = groups[slot];
+    if(!slotItems.length) return;
+    html += `<div style="font-size:11px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.5px;margin:${html?'14px':0} 0 6px;padding:0 2px">${ARMOR_SLOT_HEADER[slot]}</div>`;
+    html += '<div class="inv-grid">' + slotItems.map(i =>
+      `<div class="inv-item ${canSelectItem(i) ? 'selectable' : ''}" id="item-${i.id}" onclick="showItemModal(${i.id})" style="cursor:pointer">
+        ${canSelectItem(i) ? `<input type="checkbox" class="inv-item-select" onclick="event.stopPropagation()" onchange="toggleItemSelection(${i.id}, this.checked)">` : ''}
+        <div class="ii-emoji">${rarityEmoji(i.rarity)}</div>
+        <div class="ii-info">
+          <div class="ii-name">
+            ${esc(i.name)}${i.stack_count>1?` <b style="color:var(--accent)">×${i.stack_count}</b>`:''}
+            ${i.equipped && i.enhancement_level > 0 ? `<span class="enhance-level">+${i.enhancement_level}</span>` : ''}
+          </div>
+          <div class="ii-rarity">
+            <span class="badge badge-${i.rarity}">${rarityLabel(i.rarity)}</span>
+            <span style="font-size:10px;color:var(--text2);margin-left:4px">${ARMOR_SLOT_HEADER[i.slot]||i.slot}</span>
+            ${i.equipped ? ' <span class="badge" style="background:rgba(251,191,36,.15);color:#fbbf24">✓ Надето</span>' : ''}
+            ${!isPremium && !i.can_auction && i.hours_until_auctionable ? `<span style="font-size:10px;color:#f59e0b;margin-left:4px">⏳ аукцион через ${fmtLock(i.hours_until_auctionable)}</span>` : ''}
+          </div>
+          ${(i.atk||i.def_val||i.hp||i.crit_rate) ? `<div style="font-size:10px;color:var(--text2);margin-top:2px">${[i.atk?'ATK+'+i.atk:'',i.def_val?'DEF+'+i.def_val:'',i.hp?'HP+'+i.hp:'',i.crit_rate?'Crit+'+Math.round(i.crit_rate*100)+'%':''].filter(Boolean).join(' ')}</div>` : ''}
         </div>
-        <div class="ii-rarity">
-          <span class="badge badge-${i.rarity}">${rarityLabel(i.rarity)}</span>
-          ${i.equipped ? ' <span class="badge" style="background:rgba(251,191,36,.15);color:#fbbf24">✓ Надето</span>' : ''}
-          ${!isPremium && !i.can_auction && i.hours_until_auctionable ? `<span style="font-size:10px;color:#f59e0b;margin-left:4px">⏳ аукцион через ${fmtLock(i.hours_until_auctionable)}</span>` : ''}
+        <div style="display:flex;gap:4px;align-items:center" onclick="event.stopPropagation()">
+          ${!canSelectItem(i) ?
+            `<button class="btn btn-sm ${i.equipped?'btn-gold':'btn-primary'}" onclick="toggleEquip(${i.id})" style="width:auto;min-width:68px">
+              ${i.equipped?'✓ Снять':'Надеть'}
+            </button>` : ''}
+          ${i.equipped ?
+            `<button class="btn btn-sm" style="background:var(--gold);color:#000;width:auto" onclick="enhanceItem(${i.id})">
+              ⚡
+            </button>` : ''}
         </div>
-        ${(i.def_val||i.hp) ? `<div style="font-size:10px;color:var(--text2);margin-top:2px">${i.def_val?'DEF+'+i.def_val:''}${i.def_val&&i.hp?' ':''}${i.hp?'HP+'+i.hp:''}</div>` : ''}
-      </div>
-      <div style="display:flex;gap:4px;align-items:center" onclick="event.stopPropagation()">
-        ${!canSelectItem(i) ? 
-          `<button class="btn btn-sm ${i.equipped?'btn-gold':'btn-primary'}" onclick="toggleEquip(${i.id})" style="width:auto;min-width:68px">
-            ${i.equipped?'✓ Снять':'Надеть'}
-          </button>` : ''}
-        ${i.equipped ? 
-          `<button class="btn btn-sm" style="background:var(--gold);color:#000;width:auto" onclick="enhanceItem(${i.id})">
-            ⚡
-          </button>` : ''}
-      </div>
-    </div>`
-  ).join('')+'</div>' : '<div style="color:var(--text2);text-align:center;padding:28px"><div style="font-size:36px;margin-bottom:8px">🛡️</div><div style="font-weight:700;margin-bottom:4px">Нет брони</div><div style="font-size:12px">Броня выпадает из гача-автомата — попробуй своё везение!</div></div>';
-  
+      </div>`
+    ).join('') + '</div>';
+  });
+
+  document.getElementById('invArmorList').innerHTML = html;
   updateBatchSellUI();
 }
 
@@ -7889,7 +7941,7 @@ function renderPotionsInventory(potions) {
         <div class="ii-name">${esc(i.name)}${i.stack_count>1?` <b style="color:var(--accent)">\u00d7${i.stack_count}</b>`:''}</div>
         <div class="ii-rarity">
           <span class="badge badge-${i.rarity}">${rarityLabel(i.rarity)}</span>
-          ${i.slot ? ' · '+esc(i.slot) : ''}  
+          ${i.slot ? ' · '+(SLOT_LABELS[i.slot]||esc(i.slot)) : ''}  
           ${canSelectItem(i) ? `<span style="font-size:10px;color:var(--text2)"> · ${i.stack_count>1?`<input type="number" id="qty-${i.id}" min="1" max="${i.stack_count}" value="${i.stack_count}" style="width:28px;background:var(--card);border:1px solid #555;border-radius:3px;color:var(--text);font-size:9px;text-align:center;padding:1px" oninput="setSellQty(${i.id},this.value,${i.sell_price||0})"> из ${i.stack_count} · `:''}Продать: <span id="sellval-${i.id}">${(i.stack_count||1)*Math.max(1,Math.floor((i.sell_price||0)/2))}</span> 🪙</span>` : ''}
         </div>
         ${i.desc ? `<div style="font-size:10px;color:var(--text2);margin-top:2px;font-style:italic">${esc(i.desc)}</div>` : ''}
@@ -7931,7 +7983,7 @@ function renderOtherInventory(others) {
         <div class="ii-name">${esc(i.name)}${i.stack_count>1?` <b style="color:var(--accent)">\u00d7${i.stack_count}</b>`:''}</div>
         <div class="ii-rarity">
           <span class="badge badge-${i.rarity}">${rarityLabel(i.rarity)}</span>
-          ${i.slot ? ` · <span style="color:var(--text2)">${esc(i.slot)}</span>` : ''}
+          ${i.slot ? ` · <span style="color:var(--text2)">${esc(SLOT_LABELS[i.slot]||i.slot)}</span>` : ''}
         </div>
         ${i.desc ? `<div style="font-size:10px;color:var(--text2);margin-top:2px;font-style:italic">${esc(i.desc)}</div>` : ''}
       </div>
@@ -7971,7 +8023,7 @@ function showItemModal(itemId) {
 
   const rarityEl = document.getElementById('itemModalRarity');
   rarityEl.innerHTML = `<span class="badge badge-${item.rarity}">${rarityLabel(item.rarity)}</span>` +
-    (item.slot ? ` <span style="font-size:11px;color:var(--text2)">${esc(item.slot)}</span>` : '') +
+    (item.slot ? ` <span style="font-size:11px;color:var(--text2)">${esc(SLOT_LABELS[item.slot]||item.slot)}</span>` : '') +
     (item.enhancement_level > 0 ? ` <span class="enhance-level">+${item.enhancement_level}</span>` : '') +
     (item.equipped ? ` <span class="badge" style="background:rgba(251,191,36,.15);color:#fbbf24">✓ Надето</span>` : '');
 
@@ -7996,7 +8048,7 @@ function showItemModal(itemId) {
   const actionsEl = document.getElementById('itemModalActions');
   let acts = '';
   if (item.slot === 'weapon' || item.slot === 'helmet' || item.slot === 'armor' || item.slot === 'boots' || item.slot === 'artifact') {
-    acts += `<button class="btn btn-sm ${item.equipped ? 'btn-gold' : 'btn-primary'}" onclick="toggleEquip(${item.id});closeItemModal()" style="flex:1">${item.equipped ? '✓ Снять' : '⚔️ Надеть'}</button>`;
+    acts += `<button class="btn btn-sm ${item.equipped ? 'btn-gold' : 'btn-primary'}" onclick="toggleEquip(${item.id});closeItemModal()" style="flex:1">${item.equipped ? '✓ Снять' : ({'weapon':'⚔️','helmet':'⛑️','armor':'🛡','boots':'👢','artifact':'🔮'}[item.slot]||'⚔️')+' Надеть'}</button>`;
     if (item.equipped) acts += `<button class="btn btn-sm" style="background:var(--gold);color:#000;flex:1" onclick="closeItemModal();enhanceItem(${item.id})">⚡ Заточить</button>`;
   } else if (item.slot === 'cosmetic' || item.slot === 'flair') {
     acts += `<button class="btn btn-sm ${item.equipped ? 'btn-gold' : 'btn-primary'}" onclick="toggleEquip(${item.id});closeItemModal()" style="flex:1">${item.equipped ? '✓ Снять' : '🎨 Надеть'}</button>`;
