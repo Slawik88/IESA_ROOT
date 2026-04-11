@@ -39,6 +39,13 @@ async def feature_enabled(message: Message, feature: str) -> bool:
     if DEVELOPER_ID and message.from_user and message.from_user.id == DEVELOPER_ID:
         return True
 
+    # Глобальное отключение модуля разработчиком (для всех чатов сразу).
+    from database.db import get_global_setting
+    global_val = await get_global_setting(f"global_feat_{feature}", "1")
+    if global_val == "0":
+        _send_disabled_notice(message, feature)
+        return False
+
     chat_id = message.chat.id
     if message.chat.type not in ("group", "supergroup"):
         # Always allow in private / channels
