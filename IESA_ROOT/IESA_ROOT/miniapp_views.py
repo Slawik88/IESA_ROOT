@@ -401,14 +401,14 @@ def miniapp_user_data(request):
         rpg = {"hp": 100, "atk": 50, "def": 20, "crit": 0.05}
         if chat_id:
             cur.execute(
-                f"SELECT base_hp, base_atk, base_def, base_crit, weapon_id, armor_id, artifact_id "
+                f"SELECT base_hp, base_atk, base_def, base_crit, weapon_id, helmet_id, armor_id, boots_id, artifact_id "
                 f"FROM user_rpg_stats WHERE user_id={ph} AND chat_id={ph}",
                 (uid, chat_id),
             )
             rpg_row = cur.fetchone()
             if rpg_row:
                 rpg = {"hp": rpg_row[0], "atk": rpg_row[1], "def": rpg_row[2], "crit": rpg_row[3]}
-                equip_ids = [eid for eid in [rpg_row[4], rpg_row[5], rpg_row[6]] if eid]
+                equip_ids = [eid for eid in [rpg_row[4], rpg_row[5], rpg_row[6], rpg_row[7], rpg_row[8]] if eid]
                 if equip_ids:
                     placeholders = ",".join(ph for _ in equip_ids)
                     cur.execute(
@@ -1179,8 +1179,8 @@ def miniapp_equip(request):
     except (json.JSONDecodeError, ValueError, AttributeError):
         return JsonResponse({"error": "invalid JSON body"}, status=400, headers=headers)
 
-    if slot not in ("weapon", "armor", "artifact"):
-        return JsonResponse({"error": "slot must be weapon/armor/artifact"}, status=400, headers=headers)
+    if slot not in ("weapon", "helmet", "armor", "boots", "artifact"):
+        return JsonResponse({"error": "slot must be weapon/helmet/armor/boots/artifact"}, status=400, headers=headers)
 
     try:
         from asgiref.sync import async_to_sync
@@ -2043,14 +2043,14 @@ def miniapp_inventory(request):
 
             # RPG stats (base + equipped bonuses)
             cur.execute(
-                f"SELECT base_hp, base_atk, base_def, base_crit, weapon_id, armor_id, artifact_id "
+                f"SELECT base_hp, base_atk, base_def, base_crit, weapon_id, helmet_id, armor_id, boots_id, artifact_id "
                 f"FROM user_rpg_stats WHERE user_id={ph} AND chat_id={ph}",
                 (uid, chat_id),
             )
             rpg_row = cur.fetchone()
             if rpg_row:
                 rpg = {"hp": rpg_row[0], "atk": rpg_row[1], "def": rpg_row[2], "crit": rpg_row[3]}
-                equip_ids = [eid for eid in [rpg_row[4], rpg_row[5], rpg_row[6]] if eid]
+                equip_ids = [eid for eid in [rpg_row[4], rpg_row[5], rpg_row[6], rpg_row[7], rpg_row[8]] if eid]
                 if equip_ids:
                     placeholders = ",".join(ph for _ in equip_ids)
                     cur.execute(
@@ -2115,7 +2115,7 @@ def miniapp_inventory(request):
 
             currently_equipped = bool(irow[1])
             slot = irow[2]  # "weapon"|"armor"|"artifact"|None
-            slot_col = {"weapon": "weapon_id", "armor": "armor_id", "artifact": "artifact_id"}.get(slot or "")
+            slot_col = {"weapon": "weapon_id", "helmet": "helmet_id", "armor": "armor_id", "boots": "boots_id", "artifact": "artifact_id"}.get(slot or "")
 
             if currently_equipped:
                 cur.execute(f"UPDATE gacha_inventory SET equipped=0 WHERE id={ph}", (item_id,))
@@ -2977,14 +2977,14 @@ def miniapp_public_profile(request):
         rpg = {"hp": 100, "atk": 50, "def": 20, "crit": 0.05}
         equipped_items = []
         cur.execute(
-            f"SELECT base_hp, base_atk, base_def, base_crit, weapon_id, armor_id, artifact_id "
+            f"SELECT base_hp, base_atk, base_def, base_crit, weapon_id, helmet_id, armor_id, boots_id, artifact_id "
             f"FROM user_rpg_stats WHERE user_id={ph} AND chat_id={ph}",
             (target_id, chat_id),
         )
         rpg_row = cur.fetchone()
         if rpg_row:
             rpg = {"hp": rpg_row[0], "atk": rpg_row[1], "def": rpg_row[2], "crit": rpg_row[3]}
-            eq_ids = [eid for eid in [rpg_row[4], rpg_row[5], rpg_row[6]] if eid]
+            eq_ids = [eid for eid in [rpg_row[4], rpg_row[5], rpg_row[6], rpg_row[7], rpg_row[8]] if eid]
             if eq_ids:
                 placeholders = ",".join([ph] * len(eq_ids))
                 cur.execute(

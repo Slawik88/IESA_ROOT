@@ -180,7 +180,7 @@ CUSTOM_TITLE_PRICE = 4_000  # мора за установку/смену кас
 
 # ─── Метаданные предметов гачи ────────────────────────────────────────────────
 # Формат: item_key → {slot, atk, def_val, hp, crit_rate, desc, sell}
-# slot: "weapon" | "armor" | "artifact" | None
+# slot: "weapon" | "helmet" | "armor" | "boots" | "artifact" | "potion" | "consume" | "coupon" | "flair" | None
 # sell: цена утилизации (0 = легендарку нельзя продать)
 ITEM_METADATA = {
     # Мусор (📦 Разное)
@@ -195,17 +195,23 @@ ITEM_METADATA = {
     "cmn_book":       {"slot": "artifact", "atk": 8,  "def_val": 0,  "hp": 0,   "crit_rate": 0.03, "desc": "Потрёпанный, с заклинанием на удачу",     "sell": 22},  # было: 5 ATK, 2% CRIT
     "cmn_ring":       {"slot": "armor",    "atk": 0,  "def_val": 15, "hp": 30,  "crit_rate": 0.0,  "desc": "Дешёвый, но надёжный",                    "sell": 20},  # было: 10 DEF, 20 HP
     "cmn_shield":     {"slot": "armor",    "atk": 0,  "def_val": 20, "hp": 0,   "crit_rate": 0.0,  "desc": "Ржавый, но блокирует удары",              "sell": 25},  # было: 15 DEF
+    "cmn_helm":       {"slot": "helmet",   "atk": 0,  "def_val": 12, "hp": 50,  "crit_rate": 0.01, "desc": "Потрёпанный шлем новичка",                 "sell": 22},
+    "cmn_boots":      {"slot": "boots",    "atk": 10, "def_val": 0,  "hp": 20,  "crit_rate": 0.02, "desc": "Стоптанные сапоги странника",              "sell": 18},
     # Редкие (🎨 Кастомизация) [РЕБАЛАНС: статы увеличены для значимого прыжка в силе]
-    "rare_crown":     {"slot": "artifact", "atk": 25, "def_val": 15, "hp": 0,   "crit_rate": 0.04, "desc": "Позолоченная корона — власть и сила",     "sell": 100}, # было: 15 ATK, 10 DEF
+    "rare_crown":     {"slot": "helmet",   "atk": 25, "def_val": 15, "hp": 0,   "crit_rate": 0.04, "desc": "Позолоченная корона — власть и сила",     "sell": 100},
     "rare_catalyst":  {"slot": "weapon",   "atk": 30, "def_val": 0,  "hp": 0,   "crit_rate": 0.04, "desc": "Магический катализатор с рунами",         "sell": 90},  # было: 20 ATK, 3% CRIT
     "rare_cape":      {"slot": "armor",    "atk": 0,  "def_val": 25, "hp": 80,  "crit_rate": 0.0,  "desc": "Алый плащ с защитными чарами",            "sell": 95},  # было: 20 DEF, 50 HP
     "rare_gem":       {"slot": "artifact", "atk": 0,  "def_val": 20, "hp": 0,   "crit_rate": 0.06, "desc": "Сапфир полуночи — усиливает крит",        "sell": 80},  # было: 15 DEF, 5% CRIT
+    "rare_helm":      {"slot": "helmet",   "atk": 0,  "def_val": 30, "hp": 90,  "crit_rate": 0.04, "desc": "Железный шлем рыцаря",                   "sell": 88},
+    "rare_boots":     {"slot": "boots",    "atk": 22, "def_val": 8,  "hp": 60,  "crit_rate": 0.05, "desc": "Сапоги вихря — скорость и натиск",       "sell": 85},
     # Легендарные (⚔️ Снаряжение — лучшее) [РЕБАЛАНС: конечная мощь для эндгейма]
     "lego_gnosis":    {"slot": "weapon",   "atk": 60, "def_val": 0,  "hp": 0,   "crit_rate": 0.08, "desc": "Гнозис Балладеера — мощь Архонта",        "sell": 0},  # было: 50 ATK, 5% CRIT
     "lego_scepter":   {"slot": "weapon",   "atk": 70, "def_val": 15, "hp": 0,   "crit_rate": 0.06, "desc": "Скипетр Дендро Архонта",                  "sell": 0},  # было: 60 ATK, 10 DEF
     "lego_pantalone": {"slot": "armor",    "atk": 0,  "def_val": 60, "hp": 300, "crit_rate": 0.0,  "desc": "Маска Панталоне — абсолютная защита",     "sell": 0},  # было: 50 DEF, 200 HP
     "lego_abyss":     {"slot": "artifact", "atk": 45, "def_val": 0,  "hp": 0,   "crit_rate": 0.12, "desc": "Корона Бездны — усиливает крит",          "sell": 0},  # было: 30 ATK, 10% CRIT
     "lego_fatui":     {"slot": "weapon",   "atk": 55, "def_val": 0,  "hp": 150, "crit_rate": 0.10, "desc": "Перст Предвестника — несёт смерть врагам","sell": 0},  # было: 45 ATK, 100 HP, 8% CRIT
+    "lego_helm":      {"slot": "helmet",   "atk": 0,  "def_val": 55, "hp": 250, "crit_rate": 0.06, "desc": "Корона Небесных Врат",                    "sell": 0},
+    "lego_boots":     {"slot": "boots",    "atk": 45, "def_val": 20, "hp": 120, "crit_rate": 0.10, "desc": "Сапоги Странника Вечности",               "sell": 0},
     # Зелья (🧪 Расходники)
     "str_potion":     {"slot": "potion",    "atk": 0,  "def_val": 0,  "hp": 0,   "crit_rate": 0.0,  "desc": "Зелье Силы: +15 ATK на 1 час",           "sell": 50},
     "def_potion":     {"slot": "potion",    "atk": 0,  "def_val": 0,  "hp": 0,   "crit_rate": 0.0,  "desc": "Зелье Защиты: +20 DEF на 1 час",        "sell": 40},
@@ -239,6 +245,23 @@ ITEM_METADATA = {
     "quest_reroll":    {"slot": "coupon",   "atk": 0,  "def_val": 0,  "hp": 0,   "crit_rate": 0.0,  "desc": "Сбросить и получить новый квест",          "sell": 25},
     "pet_rename":      {"slot": "flair",    "atk": 0,  "def_val": 0,  "hp": 0,   "crit_rate": 0.0,  "desc": "Переименовать питомца бесплатно 1 раз",    "sell": 0},
 }
+
+
+def get_item_category(slot: str | None) -> str:
+    """Derive the logical category of an item from its slot value.
+
+    Returns one of: 'equipment', 'consumable', 'coupon', 'cosmetic', 'junk'
+    """
+    if slot in ("weapon", "helmet", "armor", "boots", "artifact"):
+        return "equipment"
+    if slot in ("potion", "consume"):
+        return "consumable"
+    if slot == "coupon":
+        return "coupon"
+    if slot == "flair":
+        return "cosmetic"
+    return "junk"
+
 
 # ─── Ежедневный чекин ────────────────────────────────────────────────────────
 # День (1-20) → награда в мора [РЕБАЛАНС: увеличены в 3-4 раза для сбалансированной экономики]

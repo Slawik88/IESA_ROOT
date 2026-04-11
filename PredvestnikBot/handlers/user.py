@@ -6,7 +6,7 @@ import html
 
 from database.db import (
     get_active_theme, get_active_expedition, get_crystals, get_daily_top,
-    get_equipped_legendary, get_marriage, get_mora,
+    get_all_equipped_items, get_equipped_legendary, get_marriage, get_mora,
     get_mora_batch, get_pet, get_prev_weekly_top, get_received_gifts,
     get_shard_stash, get_top_by_messages_in_chat,
     get_user, get_user_badges, get_user_stats,
@@ -1206,7 +1206,7 @@ async def cb_profile_nav(callback: CallbackQuery):
         badges_str = " ".join(
             BADGE_DEFINITIONS[bk]["emoji"] for bk in badge_keys if bk in BADGE_DEFINITIONS
         )
-        equipped = await get_equipped_legendary(uid, chat_id)
+        equipped = await get_all_equipped_items(uid, chat_id)
 
         from database.db import xp_for_level
         next_xp = xp_for_level(lvl_val + 1)
@@ -1231,7 +1231,11 @@ async def cb_profile_nav(callback: CallbackQuery):
             tier_label = COSMETIC_TIER_LABELS.get(theme.get("tier", "common"), "")
             lines.append(f"🎨 Тема: {theme['name']} [{tier_label}]")
         if equipped:
-            lines.append(f"⚔️ Экипировка: {equipped['item_name']}")
+            equip_str = "  ".join(
+                f"{i['emoji']} {i['item_name']}" + (f" +{i['enhancement_level']}" if i['enhancement_level'] else "")
+                for i in equipped
+            )
+            lines.append(f"⚔️ Снаряжение: {equip_str}")
         if frame_key:
             frame_label = next((f[2] for f in TOP_FRAMES if f[0] == frame_key), None)
             if frame_label:
@@ -1487,7 +1491,7 @@ async def cmd_me(message: Message, cmd_args: str):
     )
 
     # Equipped legendary
-    equipped = await get_equipped_legendary(uid, chat_id) if is_group else None
+    equipped = await get_all_equipped_items(uid, chat_id) if is_group else []
 
     # ── XP progress bar ───────────────────────────────────────────────────
     lvl_xp   = xp_for_level(lvl_val)
@@ -1553,7 +1557,11 @@ async def cmd_me(message: Message, cmd_args: str):
         tier_label = COSMETIC_TIER_LABELS.get(theme.get("tier", "common"), "")
         lines.append(f"🎨 Тема: {theme['name']} [{tier_label}]")
     if equipped:
-        lines.append(f"⚔️ Снаряжение: {equipped['item_name']}")
+        equip_str = "  ".join(
+            f"{i['emoji']} {i['item_name']}" + (f" +{i['enhancement_level']}" if i['enhancement_level'] else "")
+            for i in equipped
+        )
+        lines.append(f"⚔️ Снаряжение: {equip_str}")
 
     # ── Блок 4: Отношения ─────────────────────────────────────────────────
     if is_group:
@@ -2016,7 +2024,7 @@ async def cmd_whois(message: Message, cmd_args: str):
     vip_t = (mora_row_t["vip"] or 0) if mora_row_t else 0
     theme_key_t = await get_active_theme(uid, message.chat.id) if is_group_w else "default"
     theme_t = PROFILE_THEMES.get(theme_key_t, PROFILE_THEMES["default"])
-    equipped_t = await get_equipped_legendary(uid, message.chat.id) if is_group_w else None
+    equipped_t = await get_all_equipped_items(uid, message.chat.id) if is_group_w else []
     sep_t = theme_t["separator"]
     vip_tag_t = " 💎" if vip_t else ""
 
@@ -2062,7 +2070,11 @@ async def cmd_whois(message: Message, cmd_args: str):
             lines.append(f"💍 Партнёр: {user_mention(marriage['partner_id'], partner_name)}")
 
     if equipped_t:
-        lines.append(f"⚔️ Экипировка: {equipped_t['item_name']}")
+        equip_str_t = "  ".join(
+            f"{i['emoji']} {i['item_name']}" + (f" +{i['enhancement_level']}" if i['enhancement_level'] else "")
+            for i in equipped_t
+        )
+        lines.append(f"⚔️ Экипировка: {equip_str_t}")
     if frame_key_t:
         frame_label_t = next((f[2] for f in TOP_FRAMES if f[0] == frame_key_t), None)
         if frame_label_t:
