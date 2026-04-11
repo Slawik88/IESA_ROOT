@@ -1453,14 +1453,10 @@ async def cb_feature_toggle(callback: CallbackQuery):
         await callback.answer("❌ Неверные данные", show_alert=True)
         return
 
-    # Only co_owner+ can toggle
+    # Только разработчик может включать/выключать модули глобально
     caller = callback.from_user
-    caller_stats = await get_user_stats(caller.id, chat_id)
-    caller_rank = (caller_stats["rank"] if caller_stats else None) or "user"
-    if DEVELOPER_ID and caller.id == DEVELOPER_ID:
-        caller_rank = "developer"
-    if rank_level(caller_rank) < rank_level("co_owner"):
-        await callback.answer("❌ Только со-владелец+ может изменять настройки", show_alert=True)
+    if not (DEVELOPER_ID and caller.id == DEVELOPER_ID):
+        await callback.answer("❌ Только разработчик может включать/отключать модули глобально", show_alert=True)
         return
 
     settings = await get_chat_settings(chat_id)
