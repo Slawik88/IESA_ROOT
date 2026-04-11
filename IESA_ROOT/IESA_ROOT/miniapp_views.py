@@ -6645,6 +6645,7 @@ def miniapp_timezone(request):
     return JsonResponse({"error": "method not allowed"}, status=405, headers=headers)
 
 
+@csrf_exempt
 def miniapp_frontend_error_log(request):
     """POST /api/frontend_error_log — capture a JS error from the Mini App front-end."""
     headers = _cors_headers()
