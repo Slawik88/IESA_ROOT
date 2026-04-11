@@ -375,9 +375,13 @@ async def get_all_counters(db, user_id: int, chat_id: int) -> dict[str, int]:
 # ---------------------------------------------------------------------------
 
 
-async def _award(user_id: int, chat_id: int, ach: dict) -> bool:
+async def _award(user_id: int, chat_id: int, ach: dict, *, silent: bool = False) -> bool:
     """Выдать достижение атомарно: сначала коммитит бейдж, потом начисляет мору.
     Возвращает True если достижение было новым и выдано.
+
+    silent=True: бейдж сохраняется, но XP и мора НЕ начисляются.
+    Используется при ретроактивном catch-up (открытие вкладки достижений),
+    чтобы не дублировать награды за события, которые уже произошли ранее.
 
     КРИТИЧНО: бейдж коммитится в СВОЁМ соединении ДО начисления моры.
     Это предотвращает ситуацию «мора выдана, бейдж откатан» при любом сбое.
@@ -398,18 +402,20 @@ async def _award(user_id: int, chat_id: int, ach: dict) -> bool:
         return False
 
     # Шаг 2: бейдж гарантированно сохранён — теперь начисляем награду
-    try:
-        from database.db import add_mora as _add_mora, add_xp_in_chat as _add_xp
-        mora = ach.get("mora", 0)
-        xp = ach.get("xp", 0)
-        if mora > 0:
-            # chat_id=0 → обходит проверку изоляции; мора - глобальный баланс (users.balance)
-            await _add_mora(user_id, 0, mora)
-        if xp > 0:
-            await _add_xp(user_id, chat_id, xp)
-    except Exception as e:
-        logger.warning("Achievement reward payout failed for %s: %s", ach.get("key"), e)
-        # бейдж уже сохранён — повторного начисления не будет; просто логируем
+    # При silent=True пропускаем выплату (ретроактивный catch-up)
+    if not silent:
+        try:
+            from database.db import add_mora as _add_mora, add_xp_in_chat as _add_xp
+            mora = ach.get("mora", 0)
+            xp = ach.get("xp", 0)
+            if mora > 0:
+                # chat_id=0 → обходит проверку изоляции; мора - глобальный баланс (users.balance)
+                await _add_mora(user_id, 0, mora)
+            if xp > 0:
+                await _add_xp(user_id, chat_id, xp)
+        except Exception as e:
+            logger.warning("Achievement reward payout failed for %s: %s", ach.get("key"), e)
+            # бейдж уже сохранён — повторного начисления не будет; просто логируем
 
     return True
 
@@ -486,18 +492,21 @@ async def get_all_achievements_with_status(user_id: int, chat_id: int) -> dict:
 
     # ── Шаг 2: award loop — каждый _award открывает своё соединение ──
     try:
-        # ── Auto-award missing achievements ──────────────────────
+        # ── Auto-award missing achievements (catch-up, silent — без XP/моры) ──
+        # silent=True: бейдж фиксируется, но XP/мора не выплачивается.
+        # Это предотвращает «лавину наград» при первом открытии вкладки достижений
+        # после запуска бота, когда badges ранее не коммитились.
         for ach_type, tiers in ACH_BY_TYPE.items():
             value = counters.get(ach_type, 0)
             if value <= 0:
                 continue
             for ach in tiers:
                 if value >= ach["threshold"] and ach["key"] not in earned:
-                    if await _award(user_id, chat_id, ach):
+                    if await _award(user_id, chat_id, ach, silent=True):
                         earned[ach["key"]] = str(datetime.now(timezone.utc))
                         newly_awarded.append({"title": ach["title"], "emoji": ach["emoji"], "mora": ach["mora"], "xp": ach.get("xp", 0)})
 
-        # ── Auto-award infinite tiers if threshold reached ────────
+        # ── Auto-award infinite tiers if threshold reached (silent) ────────────
         for ach_type, tiers in ACH_BY_TYPE.items():
             if ach_type in BOOL_TYPES or not tiers:
                 continue
@@ -524,7 +533,7 @@ async def get_all_achievements_with_status(user_id: int, chat_id: int) -> dict:
                         "mora": inf_mora,
                         "xp": inf_xp,
                     }
-                    if await _award(user_id, chat_id, inf_ach):
+                    if await _award(user_id, chat_id, inf_ach, silent=True):
                         earned[inf_key] = str(datetime.now(timezone.utc))
                         newly_awarded.append({"title": inf_ach["title"], "emoji": inf_ach["emoji"], "mora": inf_mora, "xp": inf_xp})
                 else:

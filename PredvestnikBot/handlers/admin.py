@@ -1572,3 +1572,77 @@ async def cb_global_feature_toggle(callback: CallbackQuery):
     except Exception as _e:
         _log.debug("%s", _e)
 
+
+# ─── Developer: откат XP/уровня пользователя ─────────────────────────────────
+
+@router.message(BotCommand("fixlevel", "fix_level", "setlevel", "откатxp", "fixuser"))
+async def cmd_fix_level(message: Message, cmd_args: str):
+    """Откатить XP и уровень пользователя. Только для разработчика.
+
+    Использование:
+        /fixlevel <user_id> <chat_id> <target_level>
+        /fixlevel <user_id> <chat_id> xp=<raw_xp>
+
+    Примеры:
+        /fixlevel 123456789 -1001234567890 7
+        /fixlevel 123456789 -1001234567890 xp=4200
+    """
+    if not (DEVELOPER_ID and message.from_user and message.from_user.id == DEVELOPER_ID):
+        return
+
+    parts = cmd_args.strip().split()
+    if len(parts) < 3:
+        await message.reply(
+            "⚙️ <b>Использование:</b>\n"
+            "<code>/fixlevel &lt;user_id&gt; &lt;chat_id&gt; &lt;level&gt;</code>\n"
+            "<code>/fixlevel &lt;user_id&gt; &lt;chat_id&gt; xp=&lt;raw_xp&gt;</code>\n\n"
+            "Пример: <code>/fixlevel 123456789 -1001234 7</code>",
+            parse_mode="HTML",
+        )
+        return
+
+    try:
+        uid = int(parts[0])
+        cid = int(parts[1])
+    except ValueError:
+        await message.reply("❌ user_id и chat_id должны быть числами.", parse_mode="HTML")
+        return
+
+    from database.db import level_for_xp, xp_for_level, set_chat_setting as _scs
+    try:
+        if parts[2].startswith("xp="):
+            new_xp = int(parts[2][3:])
+            new_level = level_for_xp(new_xp)
+        else:
+            new_level = int(parts[2])
+            new_xp = xp_for_level(new_level)
+    except ValueError:
+        await message.reply("❌ Неверный формат уровня/XP.", parse_mode="HTML")
+        return
+
+    from database.db import postgres_connect as _pg
+    async with _pg() as db:
+        async with db.execute(
+            "SELECT xp, level FROM user_stats WHERE user_id=? AND chat_id=?",
+            (uid, cid),
+        ) as c:
+            row = await c.fetchone()
+        if not row:
+            await message.reply(f"❌ Пользователь <code>{uid}</code> не найден в чате <code>{cid}</code>.", parse_mode="HTML")
+            return
+        old_xp, old_level = row[0], row[1]
+        await db.execute(
+            "UPDATE user_stats SET xp=?, level=? WHERE user_id=? AND chat_id=?",
+            (new_xp, new_level, uid, cid),
+        )
+        await db.commit()
+
+    _invalidate_chat_settings(cid)
+    await message.reply(
+        f"✅ <b>XP/уровень скорректированы</b>\n"
+        f"👤 user: <code>{uid}</code> | chat: <code>{cid}</code>\n"
+        f"📉 Было: уровень <b>{old_level}</b> / XP <b>{old_xp}</b>\n"
+        f"📈 Стало: уровень <b>{new_level}</b> / XP <b>{new_xp}</b>",
+        parse_mode="HTML",
+    )
+
