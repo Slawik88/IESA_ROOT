@@ -3928,7 +3928,7 @@ async function loadInventory(){
     weapons.forEach(i => assignedIds.add(i.id));
 
     const armor = items.filter(i => !assignedIds.has(i.id) && (
-      i.slot === 'armor' || i.slot === 'artifact'
+      i.slot === 'armor' || i.slot === 'helmet' || i.slot === 'boots' || i.slot === 'artifact'
     ));
     armor.forEach(i => assignedIds.add(i.id));
 
@@ -5250,7 +5250,7 @@ function showGachaOverlay(items){
 }
 
 function showGachaItemDetail(item){
-  const SLOT_LABELS={weapon:'⚔️ Оружие',armor:'🛡 Броня',artifact:'🔮 Артефакт',potion:'🧪 Зелье',flair:'✨ Косметика',consume:'⚡ Расходник',coupon:'🎫 Купон'};
+  const SLOT_LABELS={weapon:'⚔️ Оружие',helmet:'⛑️ Шлем',armor:'🛡 Броня',boots:'👢 Сапоги',artifact:'🔮 Артефакт',potion:'🧪 Зелье',flair:'✨ Косметика',consume:'⚡ Расходник',coupon:'🎫 Купон'};
   const RARITY_LABELS={junk:'💀 Мусор',common:'📦 Обычный',rare:'💠 Редкий',legendary:'💛 Легендарный'};
   const RARITY_COLORS={junk:'#6b7280',common:'#3b82f6',rare:'#818cf8',legendary:'#f59e0b'};
   const nameParts=(item.name||'').split(' ');
@@ -7995,7 +7995,7 @@ function showItemModal(itemId) {
   // Actions
   const actionsEl = document.getElementById('itemModalActions');
   let acts = '';
-  if (item.slot === 'weapon' || item.slot === 'armor' || item.slot === 'artifact') {
+  if (item.slot === 'weapon' || item.slot === 'helmet' || item.slot === 'armor' || item.slot === 'boots' || item.slot === 'artifact') {
     acts += `<button class="btn btn-sm ${item.equipped ? 'btn-gold' : 'btn-primary'}" onclick="toggleEquip(${item.id});closeItemModal()" style="flex:1">${item.equipped ? '✓ Снять' : '⚔️ Надеть'}</button>`;
     if (item.equipped) acts += `<button class="btn btn-sm" style="background:var(--gold);color:#000;flex:1" onclick="closeItemModal();enhanceItem(${item.id})">⚡ Заточить</button>`;
   } else if (item.slot === 'cosmetic' || item.slot === 'flair') {
@@ -8093,8 +8093,8 @@ async function confirmUseTransferPass() {
       toast(`✅ Пропуск использован! Предмет теперь доступен для аукциона. Осталось: ${r.remaining_passes} шт.`, 'success');
       // Re-render inventory
       renderWeaponsInventory((window.inventoryItems||[]).filter(i=>i.slot==='weapon'));
-      renderArmorInventory((window.inventoryItems||[]).filter(i=>i.slot==='armor'));
-      renderOtherInventory((window.inventoryItems||[]).filter(i=>!['weapon','armor','artifact','potion','consume','coupon','cosmetic','flair'].includes(i.slot)));
+      renderArmorInventory((window.inventoryItems||[]).filter(i=>['armor','helmet','boots','artifact'].includes(i.slot)));
+      renderOtherInventory((window.inventoryItems||[]).filter(i=>!['weapon','helmet','armor','boots','artifact','potion','consume','coupon','cosmetic','flair'].includes(i.slot)));
     }
   } catch(e) {
     toast('❌ ' + e.message, 'error');

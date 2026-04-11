@@ -1115,7 +1115,9 @@ async def init_db():
                 base_def    INTEGER DEFAULT 30,   -- РЕБАЛАНС: было 20
                 base_crit   REAL    DEFAULT 0.08, -- РЕБАЛАНС: было 0.05
                 weapon_id   INTEGER DEFAULT NULL,
+                helmet_id   INTEGER DEFAULT NULL,
                 armor_id    INTEGER DEFAULT NULL,
+                boots_id    INTEGER DEFAULT NULL,
                 artifact_id INTEGER DEFAULT NULL,
                 PRIMARY KEY (user_id, chat_id)
             )
@@ -1594,6 +1596,37 @@ async def init_db():
             await db.execute(
                 "UPDATE gacha_inventory SET acquired_at = obtained_at WHERE acquired_at IS NULL OR acquired_at < NOW() - INTERVAL '11 days'"
             )
+            await db.commit()
+    except Exception as _e:
+        _log.debug("%s", _e)
+
+    # ─── Миграция: 5 слотов снаряжения (helmet_id, boots_id) ──────────────────
+    for _col_def in [
+        "helmet_id INTEGER DEFAULT NULL",
+        "boots_id  INTEGER DEFAULT NULL",
+    ]:
+        try:
+            async with postgres_connect() as db:
+                await db.execute(f"ALTER TABLE user_rpg_stats ADD COLUMN IF NOT EXISTS {_col_def}")
+                await db.commit()
+        except Exception as _e:
+            _log.debug("%s", _e)
+
+    # Мигрируем rare_crown: slot artifact → helmet в gacha_inventory
+    try:
+        async with postgres_connect() as db:
+            await db.execute(
+                "UPDATE gacha_inventory SET slot = 'helmet' WHERE item_key = 'rare_crown' AND slot = 'artifact'"
+            )
+            # Если rare_crown была в artifact_id слоте — перенести в helmet_id, очистить artifact_id
+            await db.execute("""
+                UPDATE user_rpg_stats urs
+                SET helmet_id   = gi.id,
+                    artifact_id = NULL
+                FROM gacha_inventory gi
+                WHERE gi.id = urs.artifact_id
+                  AND gi.item_key = 'rare_crown'
+            """)
             await db.commit()
     except Exception as _e:
         _log.debug("%s", _e)
@@ -6127,6 +6160,72 @@ async def get_equipped_legendary(user_id: int, chat_id: int):
             return await c.fetchone()
 
 
+_SLOT_ORDER = ("weapon", "helmet", "armor", "boots", "artifact")
+_SLOT_EMOJIS = {
+    "weapon":   "⚔️",
+    "helmet":   "🪖",
+    "armor":    "🛡",
+    "boots":    "👟",
+    "artifact": "🔮",
+}
+_SLOT_COLS = {
+    "weapon":   "weapon_id",
+    "helmet":   "helmet_id",
+    "armor":    "armor_id",
+    "boots":    "boots_id",
+    "artifact": "artifact_id",
+}
+
+
+async def get_all_equipped_items(user_id: int, chat_id: int) -> list[dict]:
+    """Return all equipped items across all 5 RPG slots (occupied slots only).
+
+    Each entry: {slot, emoji, item_name, item_key, enhancement_level}
+    """
+    async with postgres_connect() as db:
+        async with db.execute(
+            "SELECT weapon_id, helmet_id, armor_id, boots_id, artifact_id "
+            "FROM user_rpg_stats WHERE user_id=? AND chat_id=?",
+            (user_id, chat_id),
+        ) as c:
+            row = await c.fetchone()
+    if not row:
+        return []
+    slot_ids = {
+        "weapon":   row["weapon_id"],
+        "helmet":   row["helmet_id"],
+        "armor":    row["armor_id"],
+        "boots":    row["boots_id"],
+        "artifact": row["artifact_id"],
+    }
+    item_ids = [(s, iid) for s, iid in slot_ids.items() if iid]
+    if not item_ids:
+        return []
+    id_to_slot = {iid: s for s, iid in item_ids}
+    placeholders = ",".join("?" for _ in item_ids)
+    async with postgres_connect() as db:
+        async with db.execute(
+            f"SELECT id, item_name, item_key, COALESCE(enhancement_level, 0) "
+            f"FROM gacha_inventory WHERE id IN ({placeholders})",
+            [iid for _, iid in item_ids],
+        ) as c:
+            rows = await c.fetchall()
+    result = []
+    for r in rows:
+        slot = id_to_slot.get(r["id"])
+        if not slot:
+            continue
+        result.append({
+            "slot":              slot,
+            "emoji":             _SLOT_EMOJIS[slot],
+            "item_name":         r["item_name"],
+            "item_key":          r["item_key"],
+            "enhancement_level": r[3],
+        })
+    result.sort(key=lambda x: _SLOT_ORDER.index(x["slot"]))
+    return result
+
+
 async def increment_tracker(user_id: int, chat_id: int, field: str, amount: int = 1):
     """Инкрементировать один из трекинг-счётчиков в user_mora."""
     if field not in ("expeditions_sent", "chests_opened", "casino_wins"):
@@ -6398,11 +6497,18 @@ async def get_singles(chat_id: int, limit: int = 20) -> list[dict]:
         ) as c:
             return [dict(r) for r in await c.fetchall()]
 async def equip_item(user_id: int, chat_id: int, item_id: int, slot: str) -> str | None:
-    """Equip a gacha item into a slot (weapon/armor/artifact).
+    """Equip a gacha item into a slot (weapon/helmet/armor/boots/artifact).
 
+    Auto-unequips the previous item in the same slot.
     Returns the item_name on success, or None if the item wasn't found / slot invalid.
     """
-    col = {"weapon": "weapon_id", "armor": "armor_id", "artifact": "artifact_id"}.get(slot)
+    col = {
+        "weapon":   "weapon_id",
+        "helmet":   "helmet_id",
+        "armor":    "armor_id",
+        "boots":    "boots_id",
+        "artifact": "artifact_id",
+    }.get(slot)
     if not col:
         return None
     async with postgres_connect() as db:
@@ -6415,6 +6521,23 @@ async def equip_item(user_id: int, chat_id: int, item_id: int, slot: str) -> str
         if not row:
             return None
         item_name = row["item_name"]
+        # Auto-unequip: clear equipped flag on the item previously in this slot
+        async with db.execute(
+            f"SELECT {col} FROM user_rpg_stats WHERE user_id=? AND chat_id=?",
+            (user_id, chat_id),
+        ) as c:
+            stats_row = await c.fetchone()
+        if stats_row:
+            old_id = stats_row[col]
+            if old_id and old_id != item_id:
+                await db.execute(
+                    "UPDATE gacha_inventory SET equipped=0 WHERE id=? AND equipped=1",
+                    (old_id,),
+                )
+        # Set the new item as equipped (display flag)
+        await db.execute(
+            "UPDATE gacha_inventory SET equipped=1 WHERE id=?", (item_id,)
+        )
         await db.execute(
             f"""INSERT INTO user_rpg_stats (user_id, chat_id, {col})
                 VALUES (?,?,?)
@@ -7921,7 +8044,7 @@ async def enhance_item(user_id: int, chat_id: int, item_id: int, *, use_stone: b
     async with postgres_connect() as db:
         async with db.execute(
             "SELECT slot, enhancement_level, atk, def_val, hp, crit_rate, item_name FROM gacha_inventory "
-            "WHERE id=? AND user_id=? AND chat_id=? AND slot IN ('weapon', 'armor', 'artifact')",
+            "WHERE id=? AND user_id=? AND chat_id=? AND slot IN ('weapon', 'helmet', 'armor', 'boots', 'artifact')",
             (item_id, user_id, chat_id),
         ) as c:
             item = await c.fetchone()

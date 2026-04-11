@@ -32,11 +32,11 @@ async def equip_legendary(user_id: int, chat_id: int, item_id: int) -> None:
 
 
 async def equip_rpg_slot(user_id: int, chat_id: int, item_id: int, slot: str) -> str:
-    """Equip a gacha item into an RPG slot (weapon / armor / artifact).
+    """Equip a gacha item into an RPG slot (weapon / helmet / armor / boots / artifact).
 
     Parameters
     ----------
-    slot : One of ``"weapon"``, ``"armor"``, ``"artifact"``.
+    slot : One of ``"weapon"``, ``"helmet"``, ``"armor"``, ``"boots"``, ``"artifact"``.
 
     Returns
     -------
@@ -44,11 +44,11 @@ async def equip_rpg_slot(user_id: int, chat_id: int, item_id: int, slot: str) ->
 
     Raises
     ------
-    ValueError         If *slot* is not one of the three valid values.
+    ValueError         If *slot* is not one of the five valid values.
     ItemNotFoundError  If the item doesn't exist or doesn't belong to the user.
     """
-    if slot not in ("weapon", "armor", "artifact"):
-        raise ValueError(f"Invalid slot '{slot}'. Must be weapon/armor/artifact.")
+    if slot not in ("weapon", "helmet", "armor", "boots", "artifact"):
+        raise ValueError(f"Invalid slot '{slot}'. Must be weapon/helmet/armor/boots/artifact.")
     item_name = await equip_item(user_id, chat_id, item_id, slot)
     if item_name is None:
         raise ItemNotFoundError("Предмет не найден или не принадлежит тебе")
