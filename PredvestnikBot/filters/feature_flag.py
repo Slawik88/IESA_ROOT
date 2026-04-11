@@ -34,6 +34,11 @@ async def feature_enabled(message: Message, feature: str) -> bool:
     If disabled, sends a throttled warning reply and returns False.
     The caller should simply ``return`` after a False result.
     """
+    # Разработчик всегда обходит все флаги — чтобы не потерять доступ.
+    from config import DEVELOPER_ID
+    if DEVELOPER_ID and message.from_user and message.from_user.id == DEVELOPER_ID:
+        return True
+
     chat_id = message.chat.id
     if message.chat.type not in ("group", "supergroup"):
         # Always allow in private / channels
