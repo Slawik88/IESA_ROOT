@@ -1646,3 +1646,77 @@ async def cmd_fix_level(message: Message, cmd_args: str):
         parse_mode="HTML",
     )
 
+
+@router.message(BotCommand("fixbalance", "fix_balance", "setbalance", "откатмора", "fixmora"))
+async def cmd_fix_balance(message: Message, cmd_args: str):
+    """Скорректировать баланс и total_earned пользователя. Только для разработчика.
+
+    Использование:
+        /fixbalance <user_id> balance=<N> [earned=<M>]
+
+    Пример:
+        /fixbalance 123456789 balance=500 earned=1500
+    """
+    if not (DEVELOPER_ID and message.from_user and message.from_user.id == DEVELOPER_ID):
+        return
+
+    parts = cmd_args.strip().split()
+    if len(parts) < 2:
+        await message.reply(
+            "⚙️ <b>Использование:</b>\n"
+            "<code>/fixbalance &lt;user_id&gt; balance=&lt;N&gt; [earned=&lt;M&gt;]</code>\n\n"
+            "Пример: <code>/fixbalance 123456789 balance=500 earned=1500</code>",
+            parse_mode="HTML",
+        )
+        return
+
+    try:
+        uid = int(parts[0])
+    except ValueError:
+        await message.reply("❌ user_id должен быть числом.", parse_mode="HTML")
+        return
+
+    new_balance: int | None = None
+    new_earned: int | None = None
+    for p in parts[1:]:
+        if p.startswith("balance="):
+            try:
+                new_balance = max(0, int(p[8:]))
+            except ValueError:
+                pass
+        elif p.startswith("earned="):
+            try:
+                new_earned = max(0, int(p[7:]))
+            except ValueError:
+                pass
+
+    if new_balance is None:
+        await message.reply("❌ Укажи balance=N (и опционально earned=M).", parse_mode="HTML")
+        return
+
+    from database.db import postgres_connect as _pg
+    async with _pg() as db:
+        async with db.execute(
+            "SELECT COALESCE(balance,0) AS b, COALESCE(total_earned,0) AS te FROM users WHERE user_id=?",
+            (uid,),
+        ) as c:
+            row = await c.fetchone()
+        if not row:
+            await message.reply(f"❌ Пользователь <code>{uid}</code> не найден.", parse_mode="HTML")
+            return
+        old_bal, old_te = int(row["b"]), int(row["te"])
+        set_earned = new_earned if new_earned is not None else old_te
+        await db.execute(
+            "UPDATE users SET balance=?, total_earned=? WHERE user_id=?",
+            (new_balance, set_earned, uid),
+        )
+        await db.commit()
+
+    await message.reply(
+        f"✅ <b>Баланс скорректирован</b>\n"
+        f"👤 user: <code>{uid}</code>\n"
+        f"📉 Было: balance=<b>{old_bal}</b> | total_earned=<b>{old_te}</b>\n"
+        f"📈 Стало: balance=<b>{new_balance}</b> | total_earned=<b>{set_earned}</b>",
+        parse_mode="HTML",
+    )
+
