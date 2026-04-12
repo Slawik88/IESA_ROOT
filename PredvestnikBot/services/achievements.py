@@ -191,13 +191,13 @@ async def _try_insert_badge(user_id: int, chat_id: int, badge_key: str) -> bool:
     """
     async with postgres_connect() as db:
         result = await db.execute(
-            """INSERT INTO user_badges (user_id, chat_id, badge_key, obtained_at)
-               VALUES ($1, $2, $3, NOW())
-               ON CONFLICT (user_id, chat_id, badge_key) DO NOTHING""",
-            user_id, chat_id, badge_key,
+            "INSERT INTO user_badges (user_id, chat_id, badge_key, obtained_at) "
+            "VALUES (?, ?, ?, NOW()) "
+            "ON CONFLICT (user_id, chat_id, badge_key) DO NOTHING",
+            (user_id, chat_id, badge_key),
         )
-        # asyncpg: result — строка вида "INSERT 0 1" или "INSERT 0 0"
-        return result.endswith(" 1")
+        # PostgresConnection.execute → _ExecuteContext; rowcount=1 if inserted
+        return result.rowcount == 1
 
 
 async def _pay_reward(user_id: int, chat_id: int, mora: int, xp: int) -> None:

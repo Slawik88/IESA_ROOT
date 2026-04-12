@@ -42,7 +42,16 @@ export default function App() {
   useEffect(() => {
     if (!chatId) return;
     fetchUserData(chatId)
-      .then((d) => setIsDev(!!d.is_dev))
+      .then((d) => {
+        setIsDev(!!d.is_dev);
+        // Динамическая тема: применяем active_theme к <html>
+        const theme = d.active_theme ?? "default";
+        if (theme && theme !== "default") {
+          document.documentElement.setAttribute("data-theme", theme);
+        } else {
+          document.documentElement.removeAttribute("data-theme");
+        }
+      })
       .catch(() => { /* ignore */ });
   }, [chatId]);
 

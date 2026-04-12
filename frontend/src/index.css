@@ -16,6 +16,107 @@
   --header-bg: var(--tg-theme-header-bg-color, #f8f8f8);
 }
 
+/* ── Темы профиля: data-theme на <html> переопределяет CSS переменные ── */
+[data-theme="fire"] {
+  --bg-primary: #1a0a00;
+  --bg-secondary: #2a1200;
+  --text-primary: #ffd6aa;
+  --text-hint: #b37a47;
+  --accent: #f97316;
+  --accent-text: #ffffff;
+  --border: #44280e;
+}
+[data-theme="ice"] {
+  --bg-primary: #0a0f1a;
+  --bg-secondary: #0e1a2e;
+  --text-primary: #c8ddf8;
+  --text-hint: #6b8abc;
+  --accent: #38bdf8;
+  --accent-text: #ffffff;
+  --border: #1a2a44;
+}
+[data-theme="royal"] {
+  --bg-primary: #0f0a1a;
+  --bg-secondary: #1a1030;
+  --text-primary: #e8d5ff;
+  --text-hint: #9b7cc8;
+  --accent: #a855f7;
+  --accent-text: #ffffff;
+  --border: #2a1a44;
+}
+[data-theme="abyss"] {
+  --bg-primary: #050508;
+  --bg-secondary: #0a0a12;
+  --text-primary: #a8a8c8;
+  --text-hint: #555580;
+  --accent: #6366f1;
+  --accent-text: #ffffff;
+  --border: #1a1a2e;
+}
+[data-theme="neon"] {
+  --bg-primary: #0a0012;
+  --bg-secondary: #140020;
+  --text-primary: #e0c0ff;
+  --text-hint: #9060cc;
+  --accent: #d946ef;
+  --accent-text: #ffffff;
+  --border: #2a0040;
+}
+[data-theme="sakura"] {
+  --bg-primary: #1a0a10;
+  --bg-secondary: #2a1020;
+  --text-primary: #ffd6e8;
+  --text-hint: #b3708a;
+  --accent: #f472b6;
+  --accent-text: #ffffff;
+  --border: #3a1530;
+}
+[data-theme="bamboo"] {
+  --bg-primary: #060d06;
+  --bg-secondary: #0d1a0d;
+  --text-primary: #c8e8c8;
+  --text-hint: #6b9b6b;
+  --accent: #22c55e;
+  --accent-text: #ffffff;
+  --border: #1a2e1a;
+}
+[data-theme="torii"] {
+  --bg-primary: #100505;
+  --bg-secondary: #1a0a0a;
+  --text-primary: #f0c0c0;
+  --text-hint: #a06060;
+  --accent: #ef4444;
+  --accent-text: #ffffff;
+  --border: #2e1010;
+}
+[data-theme="lotus"] {
+  --bg-primary: #0d0812;
+  --bg-secondary: #1a1020;
+  --text-primary: #e8d0f0;
+  --text-hint: #9870b0;
+  --accent: #c084fc;
+  --accent-text: #ffffff;
+  --border: #2a1840;
+}
+[data-theme="fuji"] {
+  --bg-primary: #080c14;
+  --bg-secondary: #0e1420;
+  --text-primary: #d0e0f0;
+  --text-hint: #7090b0;
+  --accent: #60a5fa;
+  --accent-text: #ffffff;
+  --border: #152030;
+}
+[data-theme="crane"] {
+  --bg-primary: #100808;
+  --bg-secondary: #1c1010;
+  --text-primary: #f0d8d0;
+  --text-hint: #a08078;
+  --accent: #fb923c;
+  --accent-text: #ffffff;
+  --border: #2e1810;
+}
+
 html, body, #root {
   margin: 0;
   padding: 0;
@@ -107,6 +208,29 @@ html, body, #root {
 /* ── Скрыть полосу прокрутки, но оставить прокрутку ── */
 .hide-scrollbar { scrollbar-width: none; }
 .hide-scrollbar::-webkit-scrollbar { display: none; }
+
+/* ── Gacha анимации ── */
+@keyframes gachaRaysSpin {
+  from { transform: translate(-50%, -50%) rotate(0deg); }
+  to   { transform: translate(-50%, -50%) rotate(360deg); }
+}
+@keyframes gachaOrbPulse {
+  0%, 100% { transform: scale(1); opacity: 0.8; }
+  50%      { transform: scale(1.15); opacity: 1; }
+}
+@keyframes gachaParticleOrbit {
+  0%, 100% { transform: scale(1); opacity: 0.6; }
+  50%      { transform: scale(1.8); opacity: 1; }
+}
+@keyframes legendaryFlash {
+  0%   { opacity: 0; }
+  15%  { opacity: 1; }
+  100% { opacity: 0; }
+}
+@keyframes legendaryGlow {
+  0%, 100% { box-shadow: 0 0 30px 10px #f59e0b66; }
+  50%      { box-shadow: 0 0 60px 20px #f59e0baa; }
+}
 
 /* ── Плавные переходы для кнопок ── */
 button { transition: opacity 0.15s ease, transform 0.1s ease; }
