@@ -14,6 +14,11 @@ interface TelegramWebApp {
       username?: string;
       language_code?: string;
     };
+    chat?: {
+      id: number;
+      type: string;
+      title?: string;
+    };
     start_param?: string;
   };
   colorScheme: "light" | "dark";

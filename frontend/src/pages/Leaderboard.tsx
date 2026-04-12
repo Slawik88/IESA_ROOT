@@ -19,10 +19,10 @@ const TABS: { key: LBType; label: string }[] = [
 const MEDAL: Record<number, string> = { 1: "🥇", 2: "🥈", 3: "🥉" };
 
 interface Props {
-  userId: number;
+  chatId: number;
 }
 
-export default function Leaderboard({ userId }: Props) {
+export default function Leaderboard({ chatId }: Props) {
   const [tab, setTab]     = useState<LBType>("xp");
   const [data, setData]   = useState<LeaderboardResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -31,15 +31,15 @@ export default function Leaderboard({ userId }: Props) {
   const load = useCallback((type: LBType) => {
     setLoading(true);
     setError("");
-    fetchLeaderboard(userId, type)
+    fetchLeaderboard(chatId, type)
       .then(setData)
       .catch((e: Error) => setError(e.message))
       .finally(() => setLoading(false));
-  }, [userId]);
+  }, [chatId]);
 
   useEffect(() => { load(tab); }, [tab, load]);
 
-  if (userId === 0) {
+  if (chatId === 0) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3 p-6 text-center"
         style={{ color: "var(--text-hint)" }}>

@@ -84,9 +84,9 @@ export function fetchBadges(
   );
 }
 
-/** Данные Season Pass */
-export function fetchSeasonData(userId: number): Promise<SeasonDataResponse> {
-  return request<SeasonDataResponse>(`/api/season/data?user_id=${userId}`);
+/** Данные Season Pass (uid берётся бэкендом из initData-заголовка) */
+export function fetchSeasonData(): Promise<SeasonDataResponse> {
+  return request<SeasonDataResponse>("/api/season/data");
 }
 
 /** Статус чекина (GET) */
