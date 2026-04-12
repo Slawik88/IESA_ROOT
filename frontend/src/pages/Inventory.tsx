@@ -53,7 +53,8 @@ export default function Inventory({ userId: _userId, chatId }: Props) {
   const [selected, setSelected] = useState<InventoryItem | null>(null);
   const [busy, setBusy]         = useState<string | null>(null);
   const [toast, setToast]       = useState<string | null>(null);
-  const [filter, setFilter]     = useState<"all" | "equipped" | "junk">("all");
+  const [rarityF, setRarityF]   = useState<"all" | "junk" | "common" | "rare" | "legendary">("all");
+  const [slotF, setSlotF]       = useState<"all" | "equipped" | "weapon" | "helmet" | "armor" | "boots" | "artifact" | "consumable" | "flair">("all");
   const [statsOpen, setStatsOpen] = useState(false);
 
   const showToast = useCallback((msg: string) => {
@@ -152,11 +153,17 @@ export default function Inventory({ userId: _userId, chatId }: Props) {
 
   const { items, rpg, pity } = data;
 
-  const filtered = items.filter(it => {
-    if (filter === "equipped") return it.equipped;
-    if (filter === "junk")     return it.rarity === "junk";
-    return true;
-  });
+  const RARITY_ORDER: Record<string, number> = { legendary: 4, rare: 3, common: 2, junk: 1 };
+
+  const filtered = items
+    .filter(it => {
+      if (rarityF !== "all" && it.rarity !== rarityF) return false;
+      if (slotF === "equipped") return it.equipped;
+      if (slotF === "consumable") return isConsumable(it);
+      if (slotF !== "all") return it.slot === slotF;
+      return true;
+    })
+    .sort((a, b) => (RARITY_ORDER[b.rarity] ?? 0) - (RARITY_ORDER[a.rarity] ?? 0));
 
   const junkCount = items.filter(i => i.rarity === "junk").length;
 
@@ -216,19 +223,36 @@ export default function Inventory({ userId: _userId, chatId }: Props) {
         </button>
       </div>
 
-      {/* ── Фильтры ── */}
-      <div className="flex gap-2 px-4 pb-3 overflow-x-auto">
-        {(["all", "equipped", "junk"] as const).map(f => (
+      {/* ── Фильтры по редкости ── */}
+      <div className="flex gap-2 px-4 pb-1.5 overflow-x-auto hide-scrollbar">
+        {(["all", "legendary", "rare", "common", "junk"] as const).map(f => (
           <button
             key={f}
-            onClick={() => setFilter(f)}
-            className="px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap"
+            onClick={() => setRarityF(f)}
+            className="px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-all"
             style={{
-              backgroundColor: filter === f ? "var(--accent)" : "var(--bg-secondary)",
-              color:            filter === f ? "#fff"          : "var(--text-hint)",
+              backgroundColor: rarityF === f ? (f === "all" ? "var(--accent)" : (RARITY_COLOR[f] ?? "var(--accent)")) : "var(--bg-secondary)",
+              color: rarityF === f ? "#fff" : "var(--text-hint)",
             }}
           >
-            {{ all: "Все", equipped: "Экипировано", junk: "Хлам" }[f]}
+            {{ all: "Все", legendary: "✨ Легенд.", rare: "💙 Редкие", common: "⬜ Обычные", junk: "🗑 Хлам" }[f]}
+          </button>
+        ))}
+      </div>
+
+      {/* ── Фильтры по слоту ── */}
+      <div className="flex gap-2 px-4 pb-3 overflow-x-auto hide-scrollbar">
+        {(["all", "equipped", "weapon", "helmet", "armor", "boots", "artifact", "consumable", "flair"] as const).map(f => (
+          <button
+            key={f}
+            onClick={() => setSlotF(f)}
+            className="px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-all"
+            style={{
+              backgroundColor: slotF === f ? "var(--accent)" : "var(--bg-secondary)",
+              color: slotF === f ? "#fff" : "var(--text-hint)",
+            }}
+          >
+            {{ all: "Все типы", equipped: "★ Надетые", weapon: "⚔️ Оружие", helmet: "⛑ Шлем", armor: "🛡 Броня", boots: "👢 Сапоги", artifact: "💎 Артефакт", consumable: "⚗️ Расходники", flair: "🎨 Косметика" }[f]}
           </button>
         ))}
       </div>
