@@ -2,13 +2,13 @@
    Profile.tsx — Полный профиль пользователя
    Показывает ВСЕ поля из /api/user_data Django-бэкенда
    ────────────────────────────────────────────────────────────── */
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import {
   Coins, Star, Heart, PawPrint, TrendingUp, Shield, Swords,
-  MessageSquare, Gem,
+  MessageSquare, Gem, CalendarCheck, CheckCircle2, Flame,
 } from "lucide-react";
-import { fetchUserData } from "../lib/api";
-import type { UserData, BondInfo } from "../types";
+import { fetchUserData, fetchCheckinStatus, doCheckin } from "../lib/api";
+import type { UserData, BondInfo, CheckinStatus } from "../types";
 
 interface Props {
   userId: number;
@@ -31,14 +31,54 @@ const RANK_LABEL: Record<string, string> = {
 };
 
 export default function Profile({ chatId }: Props) {
-  const [data, setData] = useState<UserData | null>(null);
-  const [error, setError] = useState("");
+  const [data, setData]             = useState<UserData | null>(null);
+  const [error, setError]           = useState("");
+  const [checkin, setCheckin]       = useState<CheckinStatus | null>(null);
+  const [checkinLoading, setCiLoad] = useState(false);
+  const [toast, setToast]           = useState<string | null>(null);
+
+  const showToast = useCallback((msg: string) => {
+    setToast(msg);
+    setTimeout(() => setToast(null), 3500);
+  }, []);
 
   useEffect(() => {
     fetchUserData(chatId)
       .then(setData)
       .catch((e: Error) => setError(e.message));
+    if (chatId) {
+      fetchCheckinStatus(chatId)
+        .then(setCheckin)
+        .catch(() => { /* не критично */ });
+    }
   }, [chatId]);
+
+  const handleCheckin = useCallback(async () => {
+    if (checkinLoading || checkin?.today_done || !chatId) return;
+    setCiLoad(true);
+    try {
+      const res = await doCheckin(chatId);
+      if (res.already_done) {
+        showToast("Вы уже получили ежедневную награду сегодня ✅");
+        setCheckin(prev => prev ? { ...prev, today_done: true } : prev);
+      } else if (res.ok) {
+        let msg = `+${res.mora?.toLocaleString("ru-RU")} 🪙  Стрик: ${res.streak} дн. 🔥`;
+        if (res.vip_bonus) msg += " (+VIP бонус)";
+        if (res.is_checkpoint) msg += " ✨ Чекпоинт!";
+        if (res.free_gacha) msg += " 🎁 Бесплатная гача!";
+        showToast(msg);
+        setCheckin(prev => prev ? { ...prev, today_done: true, streak: res.streak, total_days: res.total_days } : prev);
+        // обновляем баланс в профиле
+        setData(prev => prev && res.mora ? { ...prev, balance: prev.balance + res.mora } : prev);
+      } else {
+        showToast(res.error ?? "Ошибка чекина");
+      }
+    } catch (e: unknown) {
+      showToast(e instanceof Error ? e.message : "Ошибка");
+    } finally {
+      setCiLoad(false);
+    }
+  }, [chatId, checkin, checkinLoading, showToast]);
 
   if (error) return <ErrorBox message={error} />;
   if (!data)  return <ProfileSkeleton />;
@@ -211,6 +251,49 @@ export default function Profile({ chatId }: Props) {
         <p className="text-[11px] text-center" style={{ color: "var(--text-hint)" }}>
           Пити: {data.pity} роллов без legendary
         </p>
+      )}
+
+      {/* ── Чекин ─────────────────────────────────────────────── */}
+      {chatId > 0 && (
+        <div
+          className="rounded-xl p-3 flex items-center justify-between gap-3"
+          style={{ backgroundColor: "var(--bg-secondary)" }}
+        >
+          <div className="flex items-center gap-2">
+            <Flame size={18} style={{ color: checkin?.today_done ? "#6b7280" : "#f59e0b" }} />
+            <div>
+              <p className="text-sm font-medium">
+                {checkin?.today_done ? "Уже получено" : "Ежедневная награда"}
+              </p>
+              <p className="text-[11px]" style={{ color: "var(--text-hint)" }}>
+                Стрик: {checkin?.streak ?? data.streak} дн.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={handleCheckin}
+            disabled={checkinLoading || !!checkin?.today_done}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold transition-opacity disabled:opacity-40"
+            style={{
+              backgroundColor: checkin?.today_done ? "var(--border)" : "var(--accent)",
+              color: checkin?.today_done ? "var(--text-hint)" : "#fff",
+            }}
+          >
+            {checkin?.today_done
+              ? <><CheckCircle2 size={14} /> Готово</>
+              : <><CalendarCheck size={14} /> {checkinLoading ? "..." : "Отметиться"}</>}
+          </button>
+        </div>
+      )}
+
+      {/* ── Тост ──────────────────────────────────────────────── */}
+      {toast && (
+        <div
+          className="fixed top-4 left-1/2 -translate-x-1/2 z-50 max-w-[90vw] px-4 py-2.5 rounded-xl text-sm font-medium shadow-lg pointer-events-none"
+          style={{ backgroundColor: "var(--bg-secondary)", color: "var(--text-primary)", border: "1px solid var(--accent)" }}
+        >
+          {toast}
+        </div>
       )}
 
     </div>

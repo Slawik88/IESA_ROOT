@@ -126,8 +126,156 @@ export interface SeasonInfo {
   active: boolean;
 }
 
+export interface SeasonReward {
+  level: number;
+  free_reward: string | null;
+  premium_reward: string | null;
+  free_mora: number;
+  premium_mora: number;
+  free_xp: number;
+  premium_xp: number;
+}
+
+export interface SeasonProgress {
+  level: number;
+  xp: number;
+  has_premium: boolean;
+  claimed_free: number[];
+  claimed_premium: number[];
+}
+
 export interface SeasonDataResponse {
   season: SeasonInfo;
-  progress: Record<string, unknown>;
-  rewards: Record<string, unknown>[];
+  progress: SeasonProgress;
+  rewards: SeasonReward[];
+}
+
+// ── /api/checkin ──────────────────────────────────────────────
+export interface CheckinStatus {
+  streak: number;
+  total_days: number;
+  last_checkin: string | null;
+  checkpoint: number;
+  today_done: boolean;
+}
+
+export interface CheckinResult {
+  ok: boolean;
+  already_done: boolean;
+  streak: number;
+  total_days: number;
+  mora?: number;
+  is_checkpoint?: boolean;
+  free_gacha?: boolean;
+  vip_bonus?: boolean;
+  error?: string;
+}
+
+// ── /api/quest ────────────────────────────────────────────────
+export interface QuestInfo {
+  type: string;
+  goal: number;
+  desc: string;
+  xp: number;
+  mora: number;
+}
+
+export interface QuestData {
+  ok: boolean;
+  quest: QuestInfo;
+  progress: number;
+  completed: boolean;
+  rewarded: boolean;
+  today: string;
+}
+
+export interface QuestRerollResult {
+  ok: boolean;
+  quest: QuestInfo;
+  cost: number;
+  new_balance: number;
+  used_coupon: boolean;
+}
+
+// ── /api/leaderboard ─────────────────────────────────────────
+export interface LeaderboardEntry {
+  rank: number;
+  user_id: number;
+  name: string;
+  score: number | null;
+  color_name?: string;
+  vip?: boolean;
+  active_theme?: string;
+  level?: number;
+}
+
+export interface LeaderboardResponse {
+  type: string;
+  entries: LeaderboardEntry[];
+  uid: number | null;
+  user_rank?: { rank: number; score: number };
+}
+
+// ── /api/inventory ────────────────────────────────────────────
+export interface InventoryItem {
+  id: number;
+  key: string;
+  name: string;
+  rarity: string;
+  equipped: boolean;
+  atk: number;
+  def_val: number;
+  hp: number;
+  crit_rate: number;
+  slot: string | null;
+  enhancement_level: number;
+  stack_count: number;
+  is_cosmetic: boolean;
+  desc: string;
+  sell_price: number;
+  can_auction: boolean;
+  days_until_auctionable: number | null;
+  hours_until_auctionable: number | null;
+}
+
+export interface InventoryRpg {
+  hp: number;
+  atk: number;
+  def: number;
+  crit: number;
+}
+
+export interface InventoryResponse {
+  items: InventoryItem[];
+  rpg: InventoryRpg;
+  pity: number;
+}
+
+// ── /api/gacha/roll ───────────────────────────────────────────
+export interface GachaItem {
+  id?: number;
+  key: string;
+  name: string;
+  rarity: string;
+  desc: string;
+  atk?: number;
+  def_val?: number;
+  hp?: number;
+  crit_rate?: number;
+  slot?: string;
+  enhancement_level?: number;
+  is_new?: boolean;
+}
+
+export interface GachaRollResult {
+  ok: boolean;
+  items: GachaItem[];
+  balance: number;
+  family_balance?: number;
+  pity: number;
+  spent: number;
+  quest_done: boolean;
+  quest_xp?: number;
+  quest_mora?: number;
+  error?: string;
 }

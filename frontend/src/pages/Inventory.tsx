@@ -1,109 +1,457 @@
 /* ──────────────────────────────────────────────────────────────
-   Inventory.tsx — Инвентарь (гача-предметы пользователя)
+   Inventory.tsx v2 — Интерактивный инвентарь
+   GET  /api/inventory?chat_id=X
+   POST /api/equip            — экипировать в слот
+   POST /api/inventory        — снять (toggle unequip)
+   POST /api/batch_sell       — продать конкретный предмет
+   POST /api/inventory/sell_junk — продать весь хлам
+   POST /api/enhance_item     — улучшить
+   POST /api/consume_potion   — использовать расходник
    ────────────────────────────────────────────────────────────── */
-import { useEffect, useState } from "react";
-import { Backpack, Sparkles } from "lucide-react";
-import { fetchUserData } from "../lib/api";
+import { useEffect, useState, useCallback } from "react";
+import {
+  Backpack, Trash2, ChevronUp, ChevronDown, Loader2,
+  Shield, Swords, Heart, Crosshair, X, Sparkles, RefreshCw,
+} from "lucide-react";
+import {
+  fetchInventory, equipItem, toggleEquip,
+  sellJunk, batchSell, enhanceItem, consumePotion,
+} from "../lib/api";
+import type { InventoryItem, InventoryRpg } from "../types";
+import { RARITY_COLOR } from "./Gacha";
+
+const RARITY_LABEL: Record<string, string> = {
+  junk: "Хлам", common: "Обычный", rare: "Редкий", legendary: "Легендарный",
+};
+
+const SLOT_LABEL: Record<string, string> = {
+  weapon: "Оружие", helmet: "Шлем", armor: "Броня",
+  boots: "Сапоги", artifact: "Артефакт", flair: "Косметика",
+};
+
+const EQUIPPABLE_SLOTS = ["weapon", "helmet", "armor", "boots", "artifact"];
+
+function isConsumable(item: InventoryItem): boolean {
+  if (!item.slot || item.slot === "flair") {
+    return !item.is_cosmetic && !item.key.startsWith("junk_");
+  }
+  return false;
+}
+
+function isEquippable(item: InventoryItem): boolean {
+  return !item.is_cosmetic && !!item.slot && EQUIPPABLE_SLOTS.includes(item.slot);
+}
 
 interface Props {
   userId: number;
+  chatId: number;
 }
 
-const RARITY_COLORS: Record<string, string> = {
-  common:    "#9ca3af",
-  uncommon:  "#22c55e",
-  rare:      "#3b82f6",
-  epic:      "#a855f7",
-  legendary: "#f59e0b",
-};
+export default function Inventory({ userId: _userId, chatId }: Props) {
+  const [data, setData]         = useState<{ items: InventoryItem[]; rpg: InventoryRpg; pity: number } | null>(null);
+  const [error, setError]       = useState("");
+  const [selected, setSelected] = useState<InventoryItem | null>(null);
+  const [busy, setBusy]         = useState<string | null>(null);
+  const [toast, setToast]       = useState<string | null>(null);
+  const [filter, setFilter]     = useState<"all" | "equipped" | "junk">("all");
+  const [statsOpen, setStatsOpen] = useState(false);
 
-/** Парсит строку вида "★Кинжал (rare)" */
-function parseItem(raw: string): { name: string; rarity: string; equipped: boolean } {
-  const equipped = raw.startsWith("★");
-  const clean = equipped ? raw.slice(1) : raw;
-  const match = clean.match(/^(.+?)\s*\((\w+)\)$/);
-  if (match) {
-    return { name: match[1].trim(), rarity: match[2].toLowerCase(), equipped };
-  }
-  return { name: clean, rarity: "common", equipped };
-}
+  const showToast = useCallback((msg: string) => {
+    setToast(msg);
+    setTimeout(() => setToast(null), 3500);
+  }, []);
 
-export default function Inventory({ userId }: Props) {
-  const [items, setItems] = useState<string[] | null>(null);
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    if (!userId) return;
-    fetchUserData(userId)
-      .then((d) => setItems(d.items))
+  const load = useCallback(() => {
+    if (!chatId) return;
+    setError("");
+    fetchInventory(chatId)
+      .then(setData)
       .catch((e: Error) => setError(e.message));
-  }, [userId]);
+  }, [chatId]);
 
+  useEffect(() => { load(); }, [load]);
+
+  /* ── Действия ── */
+  const doEquip = useCallback(async (item: InventoryItem) => {
+    if (!item.slot) return;
+    setBusy("equip");
+    try {
+      if (item.equipped) {
+        const res = await toggleEquip(chatId, item.id);
+        showToast(res.ok ? `Снято: ${item.name}` : (res.error ?? "Ошибка"));
+      } else {
+        const res = await equipItem(chatId, item.id, item.slot);
+        showToast(res.ok ? `Экипировано: ${res.equipped} → ${SLOT_LABEL[res.slot] ?? res.slot}` : (res.error ?? "Ошибка"));
+      }
+      setSelected(null);
+      load();
+    } catch (e: unknown) {
+      showToast(e instanceof Error ? extractApiError(e.message) : "Ошибка");
+    } finally { setBusy(null); }
+  }, [chatId, load, showToast]);
+
+  const doSell = useCallback(async (item: InventoryItem) => {
+    setBusy("sell");
+    try {
+      const res = await batchSell(chatId, [{ id: item.id, qty: 1 }]);
+      showToast(`Продано за +${res.mora} 🪙 (баланс: ${res.balance} 🪙)`);
+      setSelected(null);
+      load();
+    } catch (e: unknown) {
+      showToast(e instanceof Error ? extractApiError(e.message) : "Ошибка");
+    } finally { setBusy(null); }
+  }, [chatId, load, showToast]);
+
+  const doSellAllJunk = useCallback(async () => {
+    setBusy("sell_junk");
+    try {
+      const res = await sellJunk(chatId);
+      showToast(res.sold > 0 ? `Продано ${res.sold} хлама за +${res.mora} 🪙` : "Хлам не найден");
+      load();
+    } catch (e: unknown) {
+      showToast(e instanceof Error ? e.message : "Ошибка");
+    } finally { setBusy(null); }
+  }, [chatId, load, showToast]);
+
+  const doEnhance = useCallback(async (item: InventoryItem) => {
+    setBusy("enhance");
+    try {
+      const res = await enhanceItem(chatId, item.id);
+      showToast(res.success ? `${res.message} (ур. ${res.enhancement_level})` : res.message);
+      setSelected(null);
+      load();
+    } catch (e: unknown) {
+      showToast(e instanceof Error ? extractApiError(e.message) : "Ошибка");
+    } finally { setBusy(null); }
+  }, [chatId, load, showToast]);
+
+  const doConsume = useCallback(async (item: InventoryItem) => {
+    setBusy("consume");
+    try {
+      const res = await consumePotion(chatId, item.id);
+      showToast(res.success ? res.message : res.message);
+      setSelected(null);
+      load();
+    } catch (e: unknown) {
+      showToast(e instanceof Error ? extractApiError(e.message) : "Ошибка");
+    } finally { setBusy(null); }
+  }, [chatId, load, showToast]);
+
+  /* ── Error & Loading ── */
   if (error) {
     return (
       <div className="p-4 text-center" style={{ color: "#e74c3c" }}>
         <p className="font-medium">Ошибка</p>
-        <p className="text-sm mt-1">{error}</p>
+        <p className="text-sm mt-1 break-all">{error}</p>
+        <button onClick={load} className="mt-3 text-sm underline" style={{ color: "var(--accent)" }}>Обновить</button>
       </div>
     );
   }
 
-  if (!items) {
-    return (
-      <div className="p-4 space-y-3 animate-pulse">
-        {Array.from({ length: 6 }).map((_, i) => (
-          <div key={i} className="skeleton h-14 rounded-xl" />
-        ))}
-      </div>
-    );
-  }
+  if (!data) return <InvSkeleton />;
 
-  if (items.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3" style={{ color: "var(--text-hint)" }}>
-        <Backpack size={48} strokeWidth={1.2} />
-        <p className="text-sm">Инвентарь пуст</p>
-      </div>
-    );
-  }
+  const { items, rpg, pity } = data;
 
-  const parsed = items.map(parseItem);
+  const filtered = items.filter(it => {
+    if (filter === "equipped") return it.equipped;
+    if (filter === "junk")     return it.rarity === "junk";
+    return true;
+  });
+
+  const junkCount = items.filter(i => i.rarity === "junk").length;
 
   return (
-    <div className="animate-fadeIn p-4">
-      <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
-        <Backpack size={20} />
-        Инвентарь
-        <span className="text-sm font-normal" style={{ color: "var(--text-hint)" }}>
-          ({parsed.length})
-        </span>
-      </h2>
-
-      <div className="space-y-2">
-        {parsed.map((item, i) => (
-          <div
-            key={i}
-            className="rounded-xl p-3 flex items-center gap-3"
-            style={{ backgroundColor: "var(--bg-secondary)" }}
+    <div className="animate-fadeIn pb-24">
+      {/* ── Заголовок + RPG-статы ── */}
+      <div className="p-4 pb-2">
+        <div className="rounded-2xl p-3" style={{ backgroundColor: "var(--bg-secondary)" }}>
+          <button
+            className="w-full flex items-center justify-between"
+            onClick={() => setStatsOpen(v => !v)}
           >
-            <div
-              className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
-              style={{ backgroundColor: RARITY_COLORS[item.rarity] + "22", color: RARITY_COLORS[item.rarity] }}
-            >
-              <Sparkles size={16} />
+            <span className="text-sm font-semibold flex items-center gap-2">
+              <Backpack size={16} style={{ color: "var(--accent)" }} />
+              Инвентарь
+              <span className="text-xs font-normal" style={{ color: "var(--text-hint)" }}>
+                ({items.length}) · Pity: {pity}
+              </span>
+            </span>
+            {statsOpen
+              ? <ChevronUp size={16} style={{ color: "var(--text-hint)" }} />
+              : <ChevronDown size={16} style={{ color: "var(--text-hint)" }} />}
+          </button>
+
+          {statsOpen && (
+            <div className="mt-3 grid grid-cols-4 gap-2">
+              <StatBadge icon={<Swords size={14} />}    label="ATK"  value={rpg.atk}  color="#ef4444" />
+              <StatBadge icon={<Shield size={14} />}    label="DEF"  value={rpg.def}  color="#3b82f6" />
+              <StatBadge icon={<Heart size={14} />}     label="HP"   value={rpg.hp}   color="#22c55e" />
+              <StatBadge icon={<Crosshair size={14} />} label="CRIT" value={`${(rpg.crit * 100).toFixed(1)}%`} color="#f59e0b" />
             </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium truncate">
-                {item.equipped && <span className="text-amber-400 mr-1">★</span>}
-                {item.name}
-              </p>
-              <p className="text-[11px] capitalize" style={{ color: RARITY_COLORS[item.rarity] }}>
-                {item.rarity}
-              </p>
+          )}
+        </div>
+      </div>
+
+      {/* ── Быстрые действия ── */}
+      <div className="flex items-center gap-2 px-4 py-2">
+        {junkCount > 0 && (
+          <button
+            onClick={doSellAllJunk}
+            disabled={busy === "sell_junk"}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-50"
+            style={{ backgroundColor: "#e74c3c22", color: "#e74c3c", border: "1px solid #e74c3c44" }}
+          >
+            {busy === "sell_junk"
+              ? <Loader2 size={12} className="animate-spin" />
+              : <Trash2 size={12} />}
+            Продать хлам ({junkCount})
+          </button>
+        )}
+        <button
+          onClick={load}
+          className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs ml-auto"
+          style={{ color: "var(--text-hint)" }}
+        >
+          <RefreshCw size={12} />
+        </button>
+      </div>
+
+      {/* ── Фильтры ── */}
+      <div className="flex gap-2 px-4 pb-3 overflow-x-auto">
+        {(["all", "equipped", "junk"] as const).map(f => (
+          <button
+            key={f}
+            onClick={() => setFilter(f)}
+            className="px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap"
+            style={{
+              backgroundColor: filter === f ? "var(--accent)" : "var(--bg-secondary)",
+              color:            filter === f ? "#fff"          : "var(--text-hint)",
+            }}
+          >
+            {{ all: "Все", equipped: "Экипировано", junk: "Хлам" }[f]}
+          </button>
+        ))}
+      </div>
+
+      {/* ── Пустой инвентарь ── */}
+      {filtered.length === 0 && (
+        <div className="flex flex-col items-center mt-12 gap-3" style={{ color: "var(--text-hint)" }}>
+          <Backpack size={44} strokeWidth={1.2} />
+          <p className="text-sm">Пусто</p>
+        </div>
+      )}
+
+      {/* ── Сетка предметов ── */}
+      <div className="grid grid-cols-2 gap-3 px-4">
+        {filtered.map(item => (
+          <ItemTile key={item.id} item={item} onClick={() => setSelected(item)} />
+        ))}
+      </div>
+
+      {/* ── BottomSheet ── */}
+      {selected && (
+        <BottomSheet
+          item={selected}
+          busy={busy}
+          onClose={() => setSelected(null)}
+          onEquip={doEquip}
+          onSell={doSell}
+          onEnhance={doEnhance}
+          onConsume={doConsume}
+        />
+      )}
+
+      {/* ── Тост ── */}
+      {toast && (
+        <div
+          className="fixed top-4 left-1/2 -translate-x-1/2 z-50 max-w-[90vw] px-4 py-2.5 rounded-xl text-sm font-medium shadow-lg pointer-events-none"
+          style={{ backgroundColor: "var(--bg-secondary)", color: "var(--text-primary)", border: "1px solid var(--accent)" }}
+        >
+          {toast}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── Плитка предмета ── */
+function ItemTile({ item, onClick }: { item: InventoryItem; onClick: () => void }) {
+  const color = RARITY_COLOR[item.rarity] ?? "#9ca3af";
+  return (
+    <button
+      onClick={onClick}
+      className="rounded-xl p-3 text-left transition-all active:scale-95 relative"
+      style={{ backgroundColor: "var(--bg-secondary)", border: `1.5px solid ${item.equipped ? color : "transparent"}` }}
+    >
+      {item.equipped && (
+        <span className="absolute top-1.5 right-1.5 text-[9px] px-1 py-0.5 rounded font-bold"
+          style={{ backgroundColor: color + "33", color }}>★</span>
+      )}
+      {item.stack_count > 1 && (
+        <span className="absolute top-1.5 left-1.5 text-[9px] px-1 py-0.5 rounded font-bold"
+          style={{ backgroundColor: "var(--border)", color: "var(--text-hint)" }}>×{item.stack_count}</span>
+      )}
+      <div className="w-8 h-8 rounded-lg flex items-center justify-center mb-2"
+        style={{ backgroundColor: color + "22", color }}>
+        <Sparkles size={16} />
+      </div>
+      <p className="text-xs font-semibold leading-tight truncate" style={{ color: "var(--text-primary)" }}>
+        {item.name}
+      </p>
+      <p className="text-[10px] mt-0.5 capitalize" style={{ color }}>
+        {RARITY_LABEL[item.rarity] ?? item.rarity}
+        {item.enhancement_level > 0 && ` +${item.enhancement_level}`}
+      </p>
+    </button>
+  );
+}
+
+/* ── BottomSheet ── */
+interface BSProps {
+  item: InventoryItem;
+  busy: string | null;
+  onClose: () => void;
+  onEquip: (item: InventoryItem) => void;
+  onSell:  (item: InventoryItem) => void;
+  onEnhance: (item: InventoryItem) => void;
+  onConsume: (item: InventoryItem) => void;
+}
+
+function BottomSheet({ item, busy, onClose, onEquip, onSell, onEnhance, onConsume }: BSProps) {
+  const color = RARITY_COLOR[item.rarity] ?? "#9ca3af";
+  const stats: { label: string; value: string | number }[] = [];
+  if (item.atk)              stats.push({ label: "ATK",    value: `+${item.atk}` });
+  if (item.def_val)          stats.push({ label: "DEF",    value: `+${item.def_val}` });
+  if (item.hp)               stats.push({ label: "HP",     value: `+${item.hp}` });
+  if (item.crit_rate)        stats.push({ label: "CRIT",   value: `+${item.crit_rate}%` });
+  if (item.enhancement_level > 0) stats.push({ label: "Улучш.", value: `+${item.enhancement_level}` });
+
+  const canEquip   = isEquippable(item);
+  const canConsume = isConsumable(item);
+  const canSell    = item.sell_price > 0;
+
+  return (
+    <>
+      <div className="fixed inset-0 z-40 bg-black/50" onClick={onClose} />
+      <div
+        className="fixed bottom-0 inset-x-0 z-50 rounded-t-2xl pb-8 animate-slideUp"
+        style={{ backgroundColor: "var(--bg-primary)", maxHeight: "85vh", overflowY: "auto" }}
+      >
+        <div className="flex justify-center pt-3 pb-1">
+          <div className="w-10 h-1 rounded-full" style={{ backgroundColor: "var(--border)" }} />
+        </div>
+
+        <div className="flex items-start justify-between px-4 pb-3 pt-1">
+          <div className="flex-1 min-w-0 pr-3">
+            <h2 className="font-bold text-base" style={{ color: "var(--text-primary)" }}>{item.name}</h2>
+            <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+              <span className="text-xs font-semibold capitalize" style={{ color }}>
+                {item.rarity === "legendary" && "✨ "}{RARITY_LABEL[item.rarity] ?? item.rarity}
+              </span>
+              {item.slot && (
+                <span className="text-xs" style={{ color: "var(--text-hint)" }}>
+                  {SLOT_LABEL[item.slot] ?? item.slot}
+                </span>
+              )}
+              {item.equipped && (
+                <span className="text-xs font-bold px-1.5 py-0.5 rounded"
+                  style={{ backgroundColor: color + "22", color }}>Экипировано ★</span>
+              )}
             </div>
           </div>
+          <button onClick={onClose} style={{ color: "var(--text-hint)" }}><X size={20} /></button>
+        </div>
+
+        {item.desc && (
+          <p className="px-4 text-sm mb-3" style={{ color: "var(--text-hint)" }}>{item.desc}</p>
+        )}
+
+        {stats.length > 0 && (
+          <div className="flex flex-wrap gap-2 px-4 mb-4">
+            {stats.map(s => (
+              <div key={s.label} className="px-2.5 py-1 rounded-lg text-xs font-semibold"
+                style={{ backgroundColor: color + "22", color }}>
+                {s.label}: {s.value}
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="px-4 pb-6 space-y-2">
+          {canEquip && (
+            <ActionBtn loading={busy === "equip"} onClick={() => onEquip(item)}
+              label={item.equipped ? "Снять" : `Экипировать (${SLOT_LABEL[item.slot!] ?? item.slot})`}
+              color={item.equipped ? "#6b7280" : color} />
+          )}
+          {canEquip && (
+            <ActionBtn loading={busy === "enhance"} onClick={() => onEnhance(item)}
+              label={`Улучшить${item.enhancement_level > 0 ? ` (ур. ${item.enhancement_level})` : ""} 🔨`}
+              color="#f59e0b" />
+          )}
+          {canConsume && (
+            <ActionBtn loading={busy === "consume"} onClick={() => onConsume(item)}
+              label="Использовать ⚡" color="#22c55e" />
+          )}
+          {canSell && !item.equipped && (
+            <ActionBtn loading={busy === "sell"} onClick={() => onSell(item)}
+              label={`Продать за ${item.sell_price} 🪙`} color="#e74c3c" outline />
+          )}
+          {!canEquip && !canConsume && !canSell && (
+            <p className="text-center text-xs py-2" style={{ color: "var(--text-hint)" }}>Нет доступных действий</p>
+          )}
+        </div>
+      </div>
+    </>
+  );
+}
+
+/* ── Action Button ── */
+function ActionBtn({
+  label, color, loading, onClick, outline = false,
+}: {
+  label: string; color: string; loading: boolean; onClick: () => void; outline?: boolean;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={loading}
+      className="w-full py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-50 transition-all active:scale-95"
+      style={outline
+        ? { border: `1.5px solid ${color}`, color, backgroundColor: "transparent" }
+        : { backgroundColor: color, color: "#fff" }}
+    >
+      {loading ? <Loader2 size={16} className="animate-spin" /> : label}
+    </button>
+  );
+}
+
+/* ── Stat Badge ── */
+function StatBadge({ icon, label, value, color }: {
+  icon: React.ReactNode; label: string; value: string | number; color: string;
+}) {
+  return (
+    <div className="flex flex-col items-center gap-1 p-2 rounded-xl" style={{ backgroundColor: color + "18" }}>
+      <div style={{ color }}>{icon}</div>
+      <span className="text-[10px] font-semibold tabular-nums" style={{ color: "var(--text-primary)" }}>{value}</span>
+      <span className="text-[9px]" style={{ color: "var(--text-hint)" }}>{label}</span>
+    </div>
+  );
+}
+
+/* ── Skeleton ── */
+function InvSkeleton() {
+  return (
+    <div className="p-4 space-y-3 animate-pulse">
+      <div className="skeleton h-14 rounded-2xl" />
+      <div className="grid grid-cols-2 gap-3 mt-3">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div key={i} className="skeleton h-24 rounded-xl" />
         ))}
       </div>
     </div>
   );
+}
+
+function extractApiError(msg: string): string {
+  try { return JSON.parse(msg.split(": ").slice(1).join(": ")).error ?? msg; } catch { return msg; }
 }

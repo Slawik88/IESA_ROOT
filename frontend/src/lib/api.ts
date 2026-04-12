@@ -8,6 +8,13 @@ import type {
   AchievementsResponse,
   BadgesResponse,
   SeasonDataResponse,
+  CheckinStatus,
+  CheckinResult,
+  QuestData,
+  QuestRerollResult,
+  LeaderboardResponse,
+  InventoryResponse,
+  GachaRollResult,
 } from "../types";
 
 // Глобальное хранилище initData — заполняется в useTelegram при старте.
@@ -74,4 +81,157 @@ export function fetchBadges(
 /** Данные Season Pass */
 export function fetchSeasonData(userId: number): Promise<SeasonDataResponse> {
   return request<SeasonDataResponse>(`/api/season/data?user_id=${userId}`);
+}
+
+/** Статус чекина (GET) */
+export function fetchCheckinStatus(chatId: number): Promise<CheckinStatus> {
+  const qs = chatId ? `?chat_id=${chatId}` : "";
+  return request<CheckinStatus>(`/api/checkin${qs}`);
+}
+
+/** Выполнить чекин (POST) */
+export function doCheckin(chatId: number): Promise<CheckinResult> {
+  return request<CheckinResult>("/api/checkin", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId }),
+  });
+}
+
+/** Текущее задание */
+export function fetchQuest(chatId: number): Promise<QuestData> {
+  const qs = chatId ? `?chat_id=${chatId}` : "";
+  return request<QuestData>(`/api/quest${qs}`);
+}
+
+/** Перебросить задание */
+export function rerollQuest(chatId: number, useCoupon = false): Promise<QuestRerollResult> {
+  return request<QuestRerollResult>("/api/quest/reroll", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId, use_coupon: useCoupon }),
+  });
+}
+
+/** Лидерборд */
+export function fetchLeaderboard(
+  chatId: number,
+  type: "xp" | "messages" | "boss" | "mora" = "xp",
+): Promise<LeaderboardResponse> {
+  return request<LeaderboardResponse>(`/api/leaderboard?chat_id=${chatId}&type=${type}`);
+}
+
+/** Забрать награду Season Pass */
+export function claimSeasonReward(
+  seasonId: number,
+  level: number,
+  isPremium: boolean,
+): Promise<{ ok: boolean; error?: string }> {
+  return request("/api/season/claim", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ season_id: seasonId, level, is_premium: isPremium }),
+  });
+}
+
+/** Купить премиум Season Pass */
+export function buySeasonPremium(seasonId: number): Promise<{ ok: boolean; error?: string }> {
+  return request("/api/season/premium", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ season_id: seasonId }),
+  });
+}
+
+// ── Gacha ─────────────────────────────────────────────────────
+
+/** Крутка гачи */
+export function rollGacha(
+  chatId: number,
+  count: 1 | 10 | 50,
+  walletType: "personal" | "family" = "personal",
+): Promise<GachaRollResult> {
+  return request<GachaRollResult>("/api/gacha/roll", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId, count, wallet_type: walletType }),
+  });
+}
+
+// ── Inventory ─────────────────────────────────────────────────
+
+/** Полный инвентарь с деталями */
+export function fetchInventory(chatId: number): Promise<InventoryResponse> {
+  return request<InventoryResponse>(`/api/inventory?chat_id=${chatId}`);
+}
+
+/** Экипировать предмет в слот */
+export function equipItem(
+  chatId: number,
+  itemId: number,
+  slot: string,
+): Promise<{ ok: boolean; equipped: string; slot: string; error?: string }> {
+  return request("/api/equip", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId, item_id: itemId, slot }),
+  });
+}
+
+/** Переключить экипировку (снять) через POST /api/inventory */
+export function toggleEquip(
+  chatId: number,
+  itemId: number,
+): Promise<{ ok: boolean; equipped: boolean; error?: string }> {
+  return request("/api/inventory", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId, item_id: itemId }),
+  });
+}
+
+/** Продать весь хлам */
+export function sellJunk(chatId: number): Promise<{ ok: boolean; sold: number; mora: number; balance: number }> {
+  return request("/api/inventory/sell_junk", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId }),
+  });
+}
+
+/** Продать конкретные предметы */
+export function batchSell(
+  chatId: number,
+  items: { id: number; qty: number }[],
+): Promise<{ sold: number; mora: number; balance: number }> {
+  return request("/api/batch_sell", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId, items }),
+  });
+}
+
+/** Улучшить предмет */
+export function enhanceItem(
+  chatId: number,
+  itemId: number,
+  useStone?: boolean,
+): Promise<{ success: boolean; message: string; enhancement_level: number; balance: number }> {
+  return request("/api/enhance_item", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId, item_id: itemId, use_stone: useStone ?? null }),
+  });
+}
+
+/** Использовать зелье/расходник */
+export function consumePotion(
+  chatId: number,
+  itemId: number,
+): Promise<{ success: boolean; message: string }> {
+  return request("/api/consume_potion", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId, item_id: itemId }),
+  });
 }
