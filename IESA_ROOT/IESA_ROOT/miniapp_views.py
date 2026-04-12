@@ -7919,3 +7919,77 @@ def miniapp_newbie_quest(request):
     except Exception:
         logger.exception("miniapp_newbie_quest error")
         return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
+
+
+# ─── Telegram Stars: create invoice link ─────────────────────────────────────
+
+@csrf_exempt
+def miniapp_stars_invoice(request):
+    """POST /api/stars/invoice {pack_key, chat_id}
+    Creates a Telegram Stars invoice link for purchasing crystals.
+    Returns {ok, link, pack: {stars, crystals, label, bonus_pct}}.
+    """
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=405, headers=headers)
+
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+
+    try:
+        body = json.loads(request.body or b"{}")
+        pack_key = str(body.get("pack_key") or "")
+    except Exception:
+        return JsonResponse({"error": "invalid JSON"}, status=400, headers=headers)
+
+    try:
+        import sys as _sys, os as _os
+        _sys.path.insert(0, _os.path.join(_os.path.dirname(__file__), '..', '..', 'PredvestnikBot'))
+        from shared_prices import CRYSTAL_PACKS
+    except Exception as e:
+        return JsonResponse({"error": f"Config error: {e}"}, status=500, headers=headers)
+
+    pack = CRYSTAL_PACKS.get(pack_key)
+    if not pack:
+        return JsonResponse({"error": f"Unknown pack: {pack_key!r}"}, status=400, headers=headers)
+
+    if not _BOT_TOKEN:
+        return JsonResponse({"error": "Bot token not configured"}, status=503, headers=headers)
+
+    stars = pack["stars"]
+    crystals = pack["crystals"]
+    bonus_pct = pack.get("bonus_pct", 0)
+    label = pack.get("label", "💎 Кристаллы")
+    bonus_text = f" (+{bonus_pct}% бонус)" if bonus_pct else ""
+    desc = f"{crystals} 💎 кристаллов{bonus_text}"
+
+    try:
+        import urllib.request as _urllib_req
+        payload_data = json.dumps({
+            "title": label,
+            "description": desc,
+            "payload": f"crystals:{pack_key}:{uid}",
+            "currency": "XTR",
+            "prices": [{"label": f"{crystals} 💎", "amount": stars}],
+        }).encode("utf-8")
+        req = _urllib_req.Request(
+            f"https://api.telegram.org/bot{_BOT_TOKEN}/createInvoiceLink",
+            data=payload_data,
+            headers={"Content-Type": "application/json"},
+        )
+        with _urllib_req.urlopen(req, timeout=10) as resp:
+            result = json.loads(resp.read())
+        if not result.get("ok"):
+            return JsonResponse({"error": result.get("description", "Telegram API error")}, status=502, headers=headers)
+        link = result["result"]
+        return JsonResponse({
+            "ok": True,
+            "link": link,
+            "pack": {"stars": stars, "crystals": crystals, "label": label, "bonus_pct": bonus_pct},
+        }, headers=headers)
+    except Exception:
+        logger.exception("miniapp_stars_invoice error")
+        return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)

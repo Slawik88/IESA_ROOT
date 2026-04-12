@@ -44,6 +44,8 @@ import type {
   RouletteResult,
   LotteryStatusResult,
   LotteryBuyResult,
+  PublicProfileResponse,
+  StarsInvoiceResult,
 } from "../types";
 
 // Глобальное хранилище initData — заполняется в useTelegram при старте.
@@ -579,6 +581,24 @@ export function collectExpedition(chatId: number): Promise<ExpeditionCollectResu
 /** История кошелька */
 export function fetchWalletHistory(chatId: number): Promise<WalletHistoryResponse> {
   return request<WalletHistoryResponse>(`/api/wallet/history?chat_id=${chatId}`);
+}
+
+// ── Public profile ────────────────────────────────────────────
+
+/** Публичный профиль другого игрока */
+export function fetchPublicProfile(targetUserId: number, chatId: number): Promise<PublicProfileResponse> {
+  return request<PublicProfileResponse>(`/api/public_profile?user_id=${targetUserId}&chat_id=${chatId}`);
+}
+
+// ── Stars shop ────────────────────────────────────────────────
+
+/** Создать Telegram Stars инвойс для покупки кристаллов */
+export function createStarsInvoice(packKey: string, chatId: number): Promise<StarsInvoiceResult> {
+  return request<StarsInvoiceResult>("/api/stars/invoice", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ pack_key: packKey, chat_id: chatId }),
+  });
 }
 
 // ── Casino ────────────────────────────────────────────────────

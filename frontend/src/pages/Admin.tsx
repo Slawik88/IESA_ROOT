@@ -83,7 +83,17 @@ const ITEM_DB = [
 
 export default function Admin({ chatId: defaultChatId, userId, isDev }: Props) {
   const [tab, setTab]                   = useState<AdminTab>("users");
-  const [activeChatId, setActiveChatId] = useState(defaultChatId);
+  const [activeChatId, setActiveChatIdRaw] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem("admin_active_chat_id");
+      return saved ? Number(saved) : defaultChatId;
+    } catch { return defaultChatId; }
+  });
+
+  const setActiveChatId = (id: number) => {
+    setActiveChatIdRaw(id);
+    try { localStorage.setItem("admin_active_chat_id", String(id)); } catch { /* ignore */ }
+  };
 
   /* ── Чат-селектор из БД ── */
   const [chats, setChats]         = useState<DevChat[]>([]);
