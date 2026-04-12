@@ -1,10 +1,10 @@
 /* ──────────────────────────────────────────────────────────────
    Shop.tsx — Магазин
-   Вкладки: Рамки | Косметика | Питомцы | Еда | Зелья
+   Вкладки: Рамки | Косметика | Питомцы | Еда | Зелья | Темы
    ────────────────────────────────────────────────────────────── */
 import { useEffect, useState, useCallback } from "react";
-import { ShoppingBag, CheckCircle2 } from "lucide-react";
-import { fetchShopCatalog, buyShopItem } from "../lib/api";
+import { ShoppingBag, CheckCircle2, Palette, Loader2 } from "lucide-react";
+import { fetchShopCatalog, buyShopItem, fetchThemes, activateTheme } from "../lib/api";
 import type {
   ShopCatalog,
   ShopFrame,
@@ -12,6 +12,8 @@ import type {
   ShopPetColor,
   ShopFood,
   ShopPotion,
+  ProfileTheme,
+  ThemesResponse,
 } from "../types";
 
 interface Props {
@@ -19,7 +21,7 @@ interface Props {
   chatId: number;
 }
 
-type ShopTab = "frames" | "cosmetics" | "pets" | "food" | "potions";
+type ShopTab = "frames" | "cosmetics" | "pets" | "food" | "potions" | "themes";
 
 const fmt = (n: number) => n.toLocaleString("ru-RU");
 
@@ -31,6 +33,10 @@ export default function Shop({ chatId }: Props) {
   const [toast, setToast]         = useState<string | null>(null);
   const [toastError, setToastErr] = useState<string | null>(null);
 
+  // Themes tab state
+  const [themesData, setThemesData]     = useState<ThemesResponse | null>(null);
+  const [activatingTheme, setActivating] = useState<string | null>(null);
+
   const showOk  = useCallback((msg: string) => { setToast(msg);    setTimeout(() => setToast(null), 3500); }, []);
   const showErr = useCallback((msg: string) => { setToastErr(msg); setTimeout(() => setToastErr(null), 4000); }, []);
 
@@ -40,6 +46,15 @@ export default function Shop({ chatId }: Props) {
   }, [chatId]);
 
   useEffect(() => { reload(); }, [reload]);
+
+  const loadThemes = useCallback(() => {
+    if (!chatId) return;
+    fetchThemes(chatId).then(setThemesData).catch(() => { /* ignore */ });
+  }, [chatId]);
+
+  useEffect(() => {
+    if (tab === "themes") loadThemes();
+  }, [tab, loadThemes]);
 
   const buy = useCallback(async (
     itemType: "frame" | "cosmetic" | "pet_color" | "potion",
@@ -62,6 +77,28 @@ export default function Shop({ chatId }: Props) {
       setBuying(null);
     }
   }, [buying, chatId, showOk, showErr, reload]);
+
+  const doActivateTheme = useCallback(async (theme: ProfileTheme) => {
+    if (activatingTheme) return;
+    setActivating(theme.key);
+    try {
+      if (!theme.owned) {
+        // Purchase via shop catalog
+        const r = await buyShopItem(chatId, "profile_theme", theme.key, true);
+        if (r.ok) { showOk(`Тема «${theme.name}» куплена и активирована!`); }
+        else      { showErr(r.error ?? "Ошибка покупки"); }
+      } else {
+        const r = await activateTheme(chatId, theme.key);
+        if (r.ok) { showOk(`Тема «${theme.name}» активирована`); }
+        else      { showErr(r.error ?? "Ошибка"); }
+      }
+      loadThemes();
+    } catch (e: unknown) {
+      showErr(e instanceof Error ? e.message : "Ошибка");
+    } finally {
+      setActivating(null);
+    }
+  }, [activatingTheme, chatId, showOk, showErr, loadThemes]);
 
   if (!chatId) {
     return (
@@ -102,6 +139,7 @@ export default function Shop({ chatId }: Props) {
     { key: "pets",      label: "Питомцы" },
     { key: "food",      label: "Еда" },
     { key: "potions",   label: "Зелья" },
+    { key: "themes",    label: "🎨 Темы" },
   ];
 
   return (
@@ -152,6 +190,7 @@ export default function Shop({ chatId }: Props) {
       {tab === "pets"      && <PetColorList petColors={data.pet_colors}    buying={buying} onBuy={buy} />}
       {tab === "food"      && <FoodList     food={data.food}               buying={buying} onBuy={buy} />}
       {tab === "potions"   && <PotionList   potions={data.potions}         buying={buying} onBuy={buy} />}
+      {tab === "themes"    && <ThemeList    themes={themesData} activating={activatingTheme} onActivate={doActivateTheme} />}
 
       {/* ── Тосты ─────────────────────────────────────────────── */}
       {toast && (
@@ -385,6 +424,104 @@ function ShopCard({ emoji, name, price, owned, active, buying, onBuy, badge, des
           {buying ? "..." : `${fmt(price)} 🪙`}
         </button>
       )}
+    </div>
+  );
+}
+
+/* ── ThemeList ────────────────────────────────────────────────── */
+
+function ThemeList({
+  themes, activating, onActivate,
+}: {
+  themes: ThemesResponse | null;
+  activating: string | null;
+  onActivate: (theme: ProfileTheme) => void;
+}) {
+  if (!themes) {
+    return (
+      <div className="space-y-2 animate-pulse">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="skeleton h-20 rounded-xl" />
+        ))}
+      </div>
+    );
+  }
+
+  if (themes.themes.length === 0) {
+    return (
+      <div className="rounded-xl p-6 text-center" style={{ backgroundColor: "var(--bg-secondary)" }}>
+        <Palette size={28} strokeWidth={1.2} className="mx-auto mb-2" style={{ color: "var(--text-hint)" }} />
+        <p className="text-sm" style={{ color: "var(--text-hint)" }}>Темы не найдены</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      {(themes.crystals ?? 0) > 0 && (
+        <div
+          className="rounded-xl p-3 flex items-center justify-between"
+          style={{ backgroundColor: "var(--bg-secondary)" }}
+        >
+          <span className="text-sm" style={{ color: "var(--text-hint)" }}>Кристаллы</span>
+          <span className="text-base font-bold">{themes.crystals} 💎</span>
+        </div>
+      )}
+      {themes.themes.map((t) => (
+        <div
+          key={t.key}
+          className="rounded-xl p-3 flex items-center gap-3"
+          style={{
+            backgroundColor: "var(--bg-secondary)",
+            border: t.active ? "1px solid var(--accent)" : "1px solid transparent",
+          }}
+        >
+          {/* Theme preview */}
+          <div
+            className="w-10 shrink-0 text-center"
+            style={{ color: "var(--accent)", fontSize: 18, lineHeight: 1 }}
+          >
+            {t.header || "🎨"}
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold truncate">{t.name}</p>
+            <p className="text-[11px]" style={{ color: "var(--text-hint)" }}>
+              {t.tier} · {t.source}
+              {t.price > 0 && !t.owned && (
+                <span style={{ color: "#a78bfa" }}> · {t.price} 💎</span>
+              )}
+            </p>
+          </div>
+          {t.active ? (
+            <div
+              className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold"
+              style={{ backgroundColor: "var(--accent)", color: "#fff" }}
+            >
+              <CheckCircle2 size={11} /> Активна
+            </div>
+          ) : t.owned ? (
+            <button
+              onClick={() => onActivate(t)}
+              disabled={!!activating}
+              className="px-2.5 py-1 rounded-lg text-xs font-semibold transition-opacity disabled:opacity-50 flex items-center gap-1"
+              style={{ border: "1px solid var(--accent)", color: "var(--accent)" }}
+            >
+              {activating === t.key ? <Loader2 size={11} className="animate-spin" /> : "Применить"}
+            </button>
+          ) : (
+            <button
+              onClick={() => onActivate(t)}
+              disabled={!!activating}
+              className="px-2.5 py-1 rounded-lg text-xs font-semibold transition-opacity disabled:opacity-50 flex items-center gap-1"
+              style={{ backgroundColor: "#7c3aed", color: "#fff" }}
+            >
+              {activating === t.key
+                ? <Loader2 size={11} className="animate-spin" />
+                : t.price > 0 ? `${t.price} 💎` : "Бесплатно"}
+            </button>
+          )}
+        </div>
+      ))}
     </div>
   );
 }

@@ -5,7 +5,8 @@
 import { useEffect, useState, useCallback } from "react";
 import { Landmark, ArrowRightLeft, TrendingUp, Clock, CheckCircle2, CircleDollarSign } from "lucide-react";
 import { fetchBankInfo, openDeposit, withdrawDeposit, transferMora } from "../lib/api";
-import type { BankInfoResponse, BankDeposit, BankPlan } from "../types";
+import type { BankInfoResponse, BankDeposit, BankPlan, ChatMember } from "../types";
+import UserPicker from "../components/UserPicker";
 
 interface Props {
   userId: number;
@@ -437,15 +438,15 @@ const TRANSFER_MIN = 1;
 const TRANSFER_MAX = 5000;
 
 function Transfer({ balance, chatId, loading, setLoading, showOk, showErr, reload }: TransferProps) {
-  const [targetId, setTargetId] = useState("");
+  const [selectedMember, setSelectedMember] = useState<ChatMember | null>(null);
   const [amount, setAmount]     = useState("");
   const [coverVat, setCoverVat] = useState(true);
 
   const handleTransfer = async () => {
-    const tid = parseInt(targetId, 10);
+    const tid = selectedMember?.user_id ?? 0;
     const amt = parseInt(amount, 10);
 
-    if (!tid || tid <= 0) return showErr("Укажите ID получателя");
+    if (!tid || tid <= 0) return showErr("Выберите получателя");
     if (tid === chatId)   return showErr("Нельзя переводить самому себе");
     if (!amt || amt < TRANSFER_MIN || amt > TRANSFER_MAX)
       return showErr(`Сумма от ${TRANSFER_MIN} до ${fmt(TRANSFER_MAX)} 🪙`);
@@ -456,7 +457,7 @@ function Transfer({ balance, chatId, loading, setLoading, showOk, showErr, reloa
       const res = await transferMora(chatId, tid, amt, coverVat);
       if (res.ok) {
         showOk(`Переведено ${fmt(res.amount ?? amt)} 🪙  Баланс: ${fmt(res.sender_balance ?? 0)} 🪙`);
-        setTargetId("");
+        setSelectedMember(null);
         setAmount("");
         reload();
       } else {
@@ -477,13 +478,10 @@ function Transfer({ balance, chatId, loading, setLoading, showOk, showErr, reloa
           Перевод Моры
         </div>
         <div className="space-y-2">
-          <input
-            type="number"
-            value={targetId}
-            onChange={(e) => setTargetId(e.target.value)}
-            placeholder="ID получателя (Telegram user ID)"
-            className="w-full rounded-lg px-3 py-2 text-sm bg-transparent border outline-none"
-            style={{ borderColor: "var(--border)", color: "var(--text-primary)" }}
+          <UserPicker
+            chatId={chatId}
+            selected={selectedMember}
+            onSelect={setSelectedMember}
           />
           <input
             type="number"
@@ -514,7 +512,7 @@ function Transfer({ balance, chatId, loading, setLoading, showOk, showErr, reloa
 
       <button
         onClick={handleTransfer}
-        disabled={loading || !targetId || !amount}
+        disabled={loading || !selectedMember || !amount}
         className="w-full py-3 rounded-xl font-semibold text-sm transition-opacity disabled:opacity-40"
         style={{ backgroundColor: "var(--accent)", color: "#fff" }}
       >
