@@ -7128,11 +7128,12 @@ async def get_active_season() -> dict | None:
     from datetime import datetime, timezone
     
     async with postgres_connect() as db:
+        now = datetime.now(timezone.utc)
         row = await db.fetchone(
             "SELECT * FROM seasons WHERE active = TRUE "
             "AND start_date <= ? AND end_date >= ? "
             "ORDER BY start_date DESC LIMIT 1",
-            (datetime.now(timezone.utc), datetime.now(timezone.utc))
+            now, now,
         )
     return dict(row) if row else None
 

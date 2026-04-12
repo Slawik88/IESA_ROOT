@@ -1388,6 +1388,9 @@ def miniapp_dev_member_update(request):
         balance = int(body.get("balance", 0))
         xp = int(body.get("xp", 0))
         rank = str(body.get("rank", "user")).strip().lower()
+        reputation = body.get("reputation")
+        if reputation is not None:
+            reputation = max(-10000, min(10000, int(reputation)))
         # Message count fields (None means "not provided — don't update")
         msg_count        = body.get("message_count")     # user_stats.message_count
         day_count        = body.get("day_count")         # cleanup_counts.day_count
@@ -1418,6 +1421,7 @@ def miniapp_dev_member_update(request):
         from api.admin import member_update as _member_update
         result = _a2s(_member_update)(
             uid, target_id, chat_id, balance, xp, rank,
+            reputation=reputation,
             msg_count=msg_count, day_count=day_count, week_count=week_count,
             total_count=total_count, yesterday_count=yesterday_count,
             last_week_count=last_week_count,
@@ -7202,20 +7206,32 @@ def miniapp_dev_feature_toggle(request):
             cur = conn.cursor()
             ph = "%s" if db_type == "pg" else "?"
             cur.execute(
-                f"SELECT feat_website, feat_antispam, feat_marriages, feat_pets, feat_casino, feat_random_events, bot_disabled "
+                f"SELECT feat_website, feat_antispam, feat_marriages, feat_pets, feat_casino, feat_random_events, "
+                f"bot_disabled, feat_roulette, feat_chest, feat_coin_flip, feat_xp_gain, feat_auto_welcome, antiflood_mode "
                 f"FROM chat_settings WHERE chat_id={ph}",
                 (chat_id,),
             )
             row = cur.fetchone()
             conn.close()
             if row:
-                keys = ["feat_website", "feat_antispam", "feat_marriages", "feat_pets", "feat_casino", "feat_random_events", "bot_disabled"]
-                # For feat_* columns default is 1 (enabled); for bot_disabled default is 0 (not disabled)
+                int_keys = ["feat_website", "feat_antispam", "feat_marriages", "feat_pets", "feat_casino",
+                            "feat_random_events", "bot_disabled", "feat_roulette", "feat_chest",
+                            "feat_coin_flip", "feat_xp_gain", "feat_auto_welcome"]
+                text_keys = ["antiflood_mode"]
+                all_keys = int_keys + text_keys
                 feat_defaults = {"bot_disabled": 0}
-                flags = {k: bool(v if v is not None else feat_defaults.get(k, 1)) for k, v in zip(keys, row)}
+                flags = {}
+                for k, v in zip(all_keys, row):
+                    if k == "antiflood_mode":
+                        flags[k] = (v or "soft") != "disabled"
+                    else:
+                        flags[k] = bool(v if v is not None else feat_defaults.get(k, 1))
             else:
-                flags = {k: True for k in ["feat_website", "feat_antispam", "feat_marriages", "feat_pets", "feat_casino", "feat_random_events"]}
+                flags = {k: True for k in ["feat_website", "feat_antispam", "feat_marriages", "feat_pets",
+                                            "feat_casino", "feat_random_events", "feat_roulette", "feat_chest",
+                                            "feat_coin_flip", "feat_xp_gain", "feat_auto_welcome"]}
                 flags["bot_disabled"] = False
+                flags["antiflood_mode"] = True
             return JsonResponse({"ok": True, "flags": flags}, headers=headers)
         except Exception:
             logger.exception("miniapp_dev_feature_toggle GET error")
@@ -7234,7 +7250,12 @@ def miniapp_dev_feature_toggle(request):
         import importlib as _importlib
         _db = _importlib.import_module("database.db")
         from asgiref.sync import async_to_sync as _a2s
-        _a2s(_db.set_chat_setting)(chat_id, feature, 1 if enabled else 0)
+        # antiflood_mode is a TEXT column ('soft' | 'disabled'), not an integer flag
+        if feature == "antiflood_mode":
+            value = "soft" if enabled else "disabled"
+        else:
+            value = 1 if enabled else 0
+        _a2s(_db.set_chat_setting)(chat_id, feature, value)
         return JsonResponse({"ok": True, "feature": feature, "enabled": enabled}, headers=headers)
     except Exception:
         logger.exception("miniapp_dev_feature_toggle POST error")

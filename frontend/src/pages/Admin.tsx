@@ -239,12 +239,13 @@ function UsersSection({ chatId }: { chatId: number }) {
   const [loading, setLoading] = useState(false);
   const [selected, setSelected] = useState<DevUserEntry | null>(null);
 
-  const [balance, setBalance]   = useState("");
-  const [xp, setXp]             = useState("");
-  const [rank, setRank]         = useState("");
-  const [crystals, setCrystals] = useState("");
-  const [saving, setSaving]     = useState(false);
-  const [toast, setToast]       = useState<string | null>(null);
+  const [balance, setBalance]     = useState("");
+  const [xp, setXp]               = useState("");
+  const [rank, setRank]           = useState("");
+  const [crystals, setCrystals]   = useState("");
+  const [reputation, setReputation] = useState("");
+  const [saving, setSaving]       = useState(false);
+  const [toast, setToast]         = useState<string | null>(null);
 
   const showOk = (m: string) => { setToast(m); setTimeout(() => setToast(null), 3000); };
 
@@ -264,13 +265,14 @@ function UsersSection({ chatId }: { chatId: number }) {
     setXp(String(u.xp ?? 0));
     setRank(u.rank ?? "user");
     setCrystals("0");
+    setReputation(String(u.reputation ?? 0));
   };
 
   const save = async () => {
     if (!selected) return;
     setSaving(true);
     try {
-      const r = await devMemberUpdate(chatId, selected.user_id, parseFloat(balance), parseInt(xp), rank);
+      const r = await devMemberUpdate(chatId, selected.user_id, parseFloat(balance), parseInt(xp), rank, parseInt(reputation));
       if (r.ok) {
         showOk("✅ " + (r.message ?? "Сохранено"));
         search();
@@ -342,7 +344,7 @@ function UsersSection({ chatId }: { chatId: number }) {
                   </span>
                 </div>
                 <p className="text-[11px] opacity-70">
-                  🪙{u.balance} · Ур.{u.level ?? "?"} · XP:{u.xp}
+                  🪙{u.balance} · Ур.{u.level ?? "?"} · XP:{u.xp} · 💬{u.message_count ?? 0}
                 </p>
               </div>
             </button>
@@ -372,6 +374,7 @@ function UsersSection({ chatId }: { chatId: number }) {
             <InputField icon={<Coins size={10} />} label="Баланс" value={balance} onChange={setBalance} type="number" />
             <InputField icon={<Zap size={10} />} label="XP" value={xp} onChange={setXp} type="number" />
             <InputField icon={<Gem size={10} />} label="Кристаллы (±)" value={crystals} onChange={setCrystals} type="number" />
+            <InputField icon={<ArrowRightLeft size={10} />} label="Репутация" value={reputation} onChange={setReputation} type="number" />
             <div>
               <label className="text-[11px] font-medium flex items-center gap-1" style={{ color: "var(--text-hint)" }}>
                 <Star size={10} />Ранг
@@ -389,6 +392,11 @@ function UsersSection({ chatId }: { chatId: number }) {
                 </select>
                 <ChevronDown size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: "var(--text-hint)" }} />
               </div>
+            </div>
+            <div className="col-span-2 rounded-lg px-2.5 py-1.5 text-xs"
+              style={{ backgroundColor: "var(--bg-primary)", border: "1px solid var(--border)", color: "var(--text-hint)" }}>
+              💬 Сообщений: <span className="font-semibold" style={{ color: "var(--text-primary)" }}>{selected?.message_count ?? 0}</span>
+              {" · "}⭐ Репутация: <span className="font-semibold" style={{ color: "var(--text-primary)" }}>{selected?.reputation ?? 0}</span>
             </div>
           </div>
 
@@ -653,25 +661,39 @@ function FeaturesSection({ chatId }: { chatId: number }) {
         return (
           <div
             key={key}
-            className="flex items-center justify-between rounded-xl px-3 py-2.5"
-            style={{ backgroundColor: "var(--bg-secondary)" }}
+            className="flex items-center justify-between rounded-xl px-3 py-2.5 transition-colors"
+            style={{
+              backgroundColor: on ? "#22c55e18" : "var(--bg-secondary)",
+              border: `1px solid ${on ? "#22c55e44" : "transparent"}`,
+            }}
           >
             <div>
               <p className="text-sm font-medium">{label}</p>
               <p className="text-[11px]" style={{ color: "var(--text-hint)" }}>{desc}</p>
             </div>
-            <button
-              onClick={() => toggle(key)}
-              disabled={!!busy}
-              className="transition-opacity disabled:opacity-50"
-              style={{ color: on ? "#22c55e" : "var(--text-hint)" }}
-            >
-              {busy === key
-                ? <Loader2 size={22} className="animate-spin" />
-                : on
-                ? <ToggleRight size={28} />
-                : <ToggleLeft  size={28} />}
-            </button>
+            <div className="flex items-center gap-2 shrink-0">
+              <span
+                className="text-[10px] font-bold px-1.5 py-0.5 rounded"
+                style={{
+                  backgroundColor: on ? "#22c55e22" : "var(--bg-primary)",
+                  color: on ? "#22c55e" : "var(--text-hint)",
+                }}
+              >
+                {on ? "ВКЛ" : "ВЫКЛ"}
+              </span>
+              <button
+                onClick={() => toggle(key)}
+                disabled={!!busy}
+                className="transition-opacity disabled:opacity-50"
+                style={{ color: on ? "#22c55e" : "var(--text-hint)" }}
+              >
+                {busy === key
+                  ? <Loader2 size={22} className="animate-spin" />
+                  : on
+                  ? <ToggleRight size={28} />
+                  : <ToggleLeft  size={28} />}
+              </button>
+            </div>
           </div>
         );
       })}

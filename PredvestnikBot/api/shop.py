@@ -34,7 +34,7 @@ async def get_catalog(uid: int, chat_id: int) -> dict:
         rows = await db.fetch(
             "SELECT item_value FROM shop_items "
             "WHERE user_id=? AND item_type='cosmetic'",
-            (uid,),
+            uid,
         )
         owned_cosmetics = {r["item_value"] for r in rows}
 
@@ -42,13 +42,13 @@ async def get_catalog(uid: int, chat_id: int) -> dict:
         rows_pc = await db.fetch(
             "SELECT item_value FROM shop_items "
             "WHERE user_id=? AND item_type='pet_color'",
-            (uid,),
+            uid,
         )
         owned_pet_colors = {r["item_value"] for r in rows_pc}
 
         pet_row = await db.fetchone(
             "SELECT color_name FROM pets_global WHERE user_id=?",
-            (uid,),
+            uid,
         )
         current_color = pet_row["color_name"] if pet_row else None
 

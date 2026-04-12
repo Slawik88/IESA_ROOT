@@ -193,6 +193,7 @@ async def member_update(
     actor_id: int, target_id: int, chat_id: int,
     balance: int, xp: int, rank: str,
     *,
+    reputation: int | None = None,
     msg_count: int | None = None,
     day_count: int | None = None,
     week_count: int | None = None,
@@ -237,6 +238,12 @@ async def member_update(
             await db.execute(
                 "UPDATE user_stats SET message_count=? WHERE user_id=? AND chat_id=?",
                 (msg_count, target_id, chat_id),
+            )
+
+        if reputation is not None:
+            await db.execute(
+                "UPDATE user_stats SET reputation=? WHERE user_id=? AND chat_id=?",
+                (reputation, target_id, chat_id),
             )
 
         cc_fields = (day_count, week_count, total_count, yesterday_count, last_week_count)
@@ -340,30 +347,48 @@ async def give_item(actor_id: int, target_id: int, chat_id: int,
 # ─── User search ──────────────────────────────────────────────────────────────
 
 async def search_users(chat_id: int, q: str = "") -> dict:
-    """Search users in a chat by name or user_id. Returns {users}."""
+    """Search users in a chat by name or user_id. Returns {users} with extended stats."""
     from database.postgres import connect as postgres_connect
+
+    base_select = (
+        "SELECT s.user_id, u.full_name, s.xp, s.level, s.rank, s.message_count, "
+        "s.reputation, COALESCE(u.balance, 0) AS balance "
+        "FROM user_stats s "
+        "LEFT JOIN users u ON u.user_id=s.user_id "
+        "WHERE s.chat_id=?"
+    )
 
     async with postgres_connect() as db:
         if q:
             like = f"%{q}%"
             async with db.execute(
-                "SELECT s.user_id, u.full_name FROM user_stats s "
-                "LEFT JOIN users u ON u.user_id=s.user_id "
-                "WHERE s.chat_id=? AND (u.full_name LIKE ? OR CAST(s.user_id AS TEXT) LIKE ?) "
+                base_select + " AND (u.full_name LIKE ? OR CAST(s.user_id AS TEXT) LIKE ?) "
                 "ORDER BY s.xp DESC LIMIT 20",
                 (chat_id, like, like),
             ) as c:
                 rows = await c.fetchall()
         else:
             async with db.execute(
-                "SELECT s.user_id, u.full_name FROM user_stats s "
-                "LEFT JOIN users u ON u.user_id=s.user_id "
-                "WHERE s.chat_id=? ORDER BY s.xp DESC LIMIT 20",
+                base_select + " ORDER BY s.xp DESC LIMIT 20",
                 (chat_id,),
             ) as c:
                 rows = await c.fetchall()
 
-    return {"users": [{"user_id": r[0], "name": r[1] or f"user_{r[0]}"} for r in rows]}
+    return {
+        "users": [
+            {
+                "user_id":       r[0],
+                "name":          r[1] or f"user_{r[0]}",
+                "xp":            r[2] or 0,
+                "level":         r[3] or 1,
+                "rank":          r[4] or "user",
+                "message_count": r[5] or 0,
+                "reputation":    r[6] or 0,
+                "balance":       r[7] or 0,
+            }
+            for r in rows
+        ]
+    }
 
 
 # ─── Chat list ────────────────────────────────────────────────────────────────
