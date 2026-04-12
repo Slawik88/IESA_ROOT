@@ -1,9 +1,7 @@
 import asyncio
-import json
 import logging
 import os
 from datetime import datetime, timezone
-from pathlib import Path
 
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
@@ -64,10 +62,16 @@ async def main():
     )
     from utils.bot_instance import set_bot
     set_bot(bot)
-    dp = Dispatcher()
+
+    # FSM-хранилище: PostgreSQL вместо MemoryStorage (диалоги переживают перезапуск)
+    from database.pg_fsm_storage import PostgresStorage
+    fsm_storage = PostgresStorage()
+    dp = Dispatcher(storage=fsm_storage)
 
     # Инициализация базы данных
     await init_db()
+    # Создание таблицы fsm_data (если нет)
+    await fsm_storage.init_table()
 
     # Авто-разблокировка чатов, которые остались заблокированы после "бот чистка"
     _full_perms = ChatPermissions(
@@ -132,41 +136,20 @@ async def main():
     await notify_developer(bot, BOT_STARTED_MSG)
     await configure_mini_app_menu_button(bot)
 
-    # Фоновый планировщик (авто-варн, напоминания о чистке)
-    from utils.scheduler import run_scheduler
-    asyncio.create_task(run_scheduler(bot))
+    # Фоновые задачи (планировщик, boss flush, dev_event_poll) стартуют
+    # автоматически через FastAPI lifespan в web_app.py
 
-    # Boss damage buffer flush (every 60s)
-    async def _boss_flush_loop():
-        while True:
-            await asyncio.sleep(60)
-            try:
-                await boss.flush_damage_buffer()
-            except Exception as _e:
-                logging.warning("boss flush error: %s", _e)
-    asyncio.create_task(_boss_flush_loop())
+    # ─────────────────────────────────────────────────────────────────────────
+    #  FastAPI веб-сервер (webhook + Mini App API + статика)
+    # ─────────────────────────────────────────────────────────────────────────
+    from web_app import app as fastapi_app, set_bot_and_dp
+    set_bot_and_dp(bot, dp)
 
-    # Dev event queue — fast poll every 30 seconds so events from Mini App fire quickly
-    async def _dev_event_fast_poll():
-        await asyncio.sleep(10)
-        from utils.scheduler import _task_dev_event_queue
-        while True:
-            try:
-                await _task_dev_event_queue(bot)
-            except Exception as _e:
-                logging.warning("dev_event_queue fast poll error: %s", _e)
-            await asyncio.sleep(30)
-    asyncio.create_task(_dev_event_fast_poll())
-
-    # Mini App веб-сервер (aiohttp)
-    asyncio.create_task(_run_webserver(bot))
+    import uvicorn
+    port = int(os.environ.get("BOT_WEB_PORT", 8081))
 
     # ─────────────────────────────────────────────────────────────────────────
     # WEBHOOK vs POLLING GUARD — двухуровневая защита от TelegramConflictError
-    #
-    # Уровень 1: env-переменная (быстро, без сети)
-    # Уровень 2: Telegram API — если у бота зарегистрирован webhook, поллинг
-    #            КАТЕГОРИЧЕСКИ запрещён независимо от env-переменных.
     # ─────────────────────────────────────────────────────────────────────────
     _webhook_url = (
         os.getenv("BOT_WEBHOOK_URL") or
@@ -174,293 +157,72 @@ async def main():
         ""
     ).strip()
 
-    # Уровень 2: спросить Telegram, есть ли активный webhook
     _registered_webhook = ""
     try:
         _whi = await bot.get_webhook_info()
         _registered_webhook = (_whi.url or "").strip()
     except Exception as _whi_exc:
-        logging.warning("Could not fetch webhook info from Telegram: %s", _whi_exc)
-        # Fail-safe: if we can't query Telegram AND either the webhook URL env var is
-        # set or DATABASE_URL is present (production indicator), assume a webhook IS
-        # active and refuse to fall through to polling — avoids TelegramConflictError.
+        logging.warning("Не удалось получить webhook info: %s", _whi_exc)
         if _webhook_url or os.getenv("DATABASE_URL"):
             _registered_webhook = "assumed-active (get_webhook_info failed)"
 
     _use_webhook = bool(_webhook_url or _registered_webhook)
 
     if _use_webhook:
+        # ── Webhook-режим: FastAPI принимает апдейты через POST /webhook ──
         active = _webhook_url or _registered_webhook
-        logging.info("⛔ POLLING DISABLED — webhook mode active: %s", active)
-        try:
-            await asyncio.Event().wait()
-        finally:
+        logging.info("🔗 WEBHOOK режим: %s — FastAPI на порту %d", active, port)
+
+        # Регистрируем webhook в Telegram (если URL задан и отличается)
+        if _webhook_url and _webhook_url != _registered_webhook:
+            secret = os.getenv("WEBHOOK_SECRET", "")
             try:
-                await notify_developer(bot, BOT_STOPPED_MSG)
-            finally:
-                await bot.session.close()
+                await bot.set_webhook(
+                    url=_webhook_url + "/webhook",
+                    secret_token=secret or None,
+                    drop_pending_updates=True,
+                )
+                logging.info("Webhook зарегистрирован: %s/webhook", _webhook_url)
+            except Exception as _sw_exc:
+                logging.error("Не удалось установить webhook: %s", _sw_exc)
+
+        config = uvicorn.Config(
+            fastapi_app, host="0.0.0.0", port=port,
+            log_level="info", access_log=False,
+        )
+        server = uvicorn.Server(config)
+        try:
+            await server.serve()
+        finally:
+            await notify_developer(bot, BOT_STOPPED_MSG)
         return
 
-    # ── Polling-режим (только локальная разработка без webhook) ───────────────
-    logging.info("📡 No webhook registered — starting polling mode (local dev only).")
+    # ── Polling-режим (локальная разработка) + FastAPI в фоне ────────────────
+    logging.info("📡 Polling + FastAPI на порту %d (локальная разработка).", port)
     try:
         await bot.delete_webhook(drop_pending_updates=True)
     except Exception as _wh_exc:
-        logging.warning("Could not delete webhook before polling: %s", _wh_exc)
+        logging.warning("Не удалось удалить webhook: %s", _wh_exc)
+
+    # Запускаем FastAPI в фоне (Mini App API работает и при поллинге)
+    config = uvicorn.Config(
+        fastapi_app, host="0.0.0.0", port=port,
+        log_level="info", access_log=False,
+    )
+    server = uvicorn.Server(config)
+    asyncio.create_task(server.serve())
 
     try:
         await dp.start_polling(bot, drop_pending_updates=True)
     except TelegramConflictError:
         logging.critical(
-            "TelegramConflictError: another bot instance is already running! "
-            "Ensure only one process polls at a time. Exiting."
+            "TelegramConflictError: другой экземпляр бота уже запущен! "
+            "Убедитесь, что поллинг идёт только из одного процесса."
         )
         raise
     finally:
-        try:
-            await notify_developer(bot, BOT_STOPPED_MSG)
-        finally:
-            await bot.session.close()
+        await notify_developer(bot, BOT_STOPPED_MSG)
 
-
-async def _run_webserver(bot: Bot) -> None:
-    """Запускает aiohttp-сервер для Mini App."""
-    try:
-        from aiohttp import web as _web
-    except ImportError:
-        logging.warning("aiohttp not installed — Mini App web server disabled.")
-        return
-
-    from database.db import get_mora, get_user, get_user_bonds, get_bond_prices, get_gacha_inventory, BOND_DEFAULTS
-
-    _web_dir = Path(__file__).parent / "web"
-
-    async def handle_index(request: _web.Request) -> _web.Response:
-        index_file = _web_dir / "index.html"
-        if not index_file.exists():
-            raise _web.HTTPNotFound()
-        return _web.Response(
-            body=index_file.read_bytes(),
-            content_type="text/html",
-        )
-
-    async def handle_profile(request: _web.Request) -> _web.Response:
-        try:
-            uid = int(request.match_info["user_id"])
-        except (ValueError, KeyError):
-            return _web.Response(status=400, text="bad user_id")
-
-        user = await get_user(uid)
-        if not user:
-            return _web.Response(status=404, text="user not found")
-
-        # Find a group chat for this user (use first mora row)
-        from database.postgres import connect as postgres_connect
-        async with postgres_connect() as db:
-            async with db.execute(
-                """SELECT um.chat_id, COALESCE(u.balance, 0) AS balance,
-                          COALESCE(u.total_earned, 0) AS total_earned,
-                          um.vip, um.vip_expires_at, um.top_frame, um.mora_public
-                   FROM user_mora um
-                   JOIN users u ON u.user_id = um.user_id
-                   WHERE um.user_id=? ORDER BY um.balance DESC LIMIT 1""",
-                (uid,),
-            ) as c:
-                mora = await c.fetchone()
-            async with db.execute(
-                "SELECT xp FROM user_stats WHERE user_id=? ORDER BY xp DESC LIMIT 1",
-                (uid,),
-            ) as c:
-                xp_row = await c.fetchone()
-
-        chat_id = mora["chat_id"] if mora else 0
-        balance = mora["balance"] if mora else 0
-        vip = bool(mora and mora["vip"])
-        active_frame = mora["top_frame"] if mora else None
-        active_theme = mora.get("active_theme") if mora else None
-
-        xp = xp_row["xp"] if xp_row else 0
-
-        # Bonds
-        bonds_data = []
-        if chat_id:
-            bond_prices = await get_bond_prices(chat_id)
-            user_bond_rows = await get_user_bonds(uid, chat_id)
-            for b in user_bond_rows:
-                bkey = b["bond_key"]
-                price = bond_prices.get(bkey, 0)
-                bonds_data.append({
-                    "name": BOND_DEFAULTS.get(bkey, {}).get("name", bkey),
-                    "amount": b["amount"],
-                    "value": b["amount"] * price,
-                })
-
-        # Items
-        items_names: list[str] = []
-        if chat_id:
-            inv = await get_gacha_inventory(uid, chat_id)
-            items_names = [
-                f"{i['item_name']} ({'★Экип.' if i.get('equipped') else i['rarity']})"
-                for i in inv
-            ]
-
-        payload = {
-            "name": user["full_name"],
-            "balance": balance,
-            "xp": xp,
-            "vip": vip,
-            "active_frame": active_frame or "default",
-            "active_theme": active_theme or "default",
-            "bonds": bonds_data,
-            "items": items_names,
-        }
-        return _web.Response(
-            text=json.dumps(payload, ensure_ascii=False),
-            content_type="application/json",
-            headers={"Access-Control-Allow-Origin": "*"},
-        )
-
-    async def handle_user_data(request: _web.Request) -> _web.Response:
-        """Alias for /api/user_data?user_id=N (standalone bot mode)."""
-        try:
-            uid = int(request.rel_url.query.get("user_id", "0"))
-        except ValueError:
-            return _web.Response(status=400, text="bad user_id")
-        if not uid:
-            return _web.Response(status=400, text="missing user_id")
-
-        user = await get_user(uid)
-        if not user:
-            return _web.Response(status=404, text="user not found")
-
-        from database.postgres import connect as postgres_connect
-        async with postgres_connect() as db:
-            async with db.execute(
-                """SELECT um.chat_id, COALESCE(u.balance, 0) AS balance,
-                          COALESCE(u.total_earned, 0) AS total_earned,
-                          um.vip, um.vip_expires_at, um.top_frame, um.mora_public
-                   FROM user_mora um
-                   JOIN users u ON u.user_id = um.user_id
-                   WHERE um.user_id=? ORDER BY um.balance DESC LIMIT 1""",
-                (uid,),
-            ) as c:
-                mora = await c.fetchone()
-            async with db.execute(
-                "SELECT xp FROM user_stats WHERE user_id=? ORDER BY xp DESC LIMIT 1",
-                (uid,),
-            ) as c:
-                xp_row = await c.fetchone()
-            async with db.execute(
-                "SELECT b.bond_key, b.amount, COALESCE(p.price,100) as price "
-                "FROM user_bonds b "
-                "LEFT JOIN bond_prices p ON p.bond_key=b.bond_key AND p.chat_id=b.chat_id "
-                "WHERE b.user_id=? AND b.chat_id=?",
-                (uid, mora["chat_id"] if mora else 0),
-            ) as c:
-                bond_rows = await c.fetchall()
-            async with db.execute(
-                "SELECT item_name, rarity, equipped FROM gacha_inventory "
-                "WHERE user_id=? AND chat_id=? LIMIT 20",
-                (uid, mora["chat_id"] if mora else 0),
-            ) as c:
-                inv_rows = await c.fetchall()
-            async with db.execute(
-                "SELECT pet_type, name, COALESCE(fatigue,0) FROM pets_global "
-                "WHERE user_id=?",
-                (uid,),
-            ) as c:
-                pet_row = await c.fetchone()
-            async with db.execute(
-                "SELECT partner_id, married_at FROM marriages_global WHERE user_id=?",
-                (uid,),
-            ) as c:
-                marriage_row = await c.fetchone()
-
-        chat_id = mora["chat_id"] if mora else 0
-        balance = mora["balance"] if mora else 0
-        vip = bool(mora and mora["vip"])
-        active_frame = mora["top_frame"] if mora else None
-        active_theme = mora.get("active_theme") if mora else None
-        xp = xp_row["xp"] if xp_row else 0
-
-        bonds_data = [
-            {"name": r["bond_key"], "amount": r["amount"], "value": r["amount"] * r["price"]}
-            for r in bond_rows
-        ]
-        items = [
-            f"{'★' if r['equipped'] else ''}{r['item_name']} ({r['rarity']})"
-            for r in inv_rows
-        ]
-        pet_info = None
-        if pet_row:
-            emoji = {"cat": "🐱", "dog": "🐶"}.get(pet_row[0], "🐾")
-            pet_info = {"type": pet_row[0], "name": pet_row[1] or "безымянный",
-                        "emoji": emoji, "fatigue": pet_row[2]}
-
-        partner_info = None
-        if marriage_row:
-            from database.db import get_user as _gu
-            partner_user = await _gu(marriage_row["partner_id"])
-            _mat = marriage_row["married_at"]
-            married_iso = _mat.isoformat() if hasattr(_mat, 'isoformat') else str(_mat or "")
-            partner_info = {
-                "partner_id": marriage_row["partner_id"],
-                "partner_name": partner_user["full_name"] if partner_user else "?",
-                "married_at": married_iso,
-            }
-
-        payload = {
-            "name": user["full_name"],
-            "balance": balance,
-            "xp": xp,
-            "vip": vip,
-            "active_frame": active_frame or "default",
-            "active_theme": active_theme or "default",
-            "bonds": bonds_data,
-            "items": items,
-            "pet": pet_info,
-            "partner": partner_info,
-        }
-        return _web.Response(
-            text=json.dumps(payload, ensure_ascii=False),
-            content_type="application/json",
-            headers={"Access-Control-Allow-Origin": "*"},
-        )
-
-    app = _web.Application()
-    app.router.add_get("/", handle_index)
-    app.router.add_get("/app", handle_index)
-    app.router.add_get("/app/", handle_index)
-    app.router.add_get("/api/user_data", handle_user_data)
-    app.router.add_get("/api/user_data/", handle_user_data)
-    # Legacy /api/profile/{user_id} kept for backwards compat
-    app.router.add_get("/api/profile/{user_id}", handle_profile)
-    
-    # Season Pass API routes
-    from api.season import season_data, claim_reward, buy_premium
-    app.router.add_get("/api/season/data", season_data)
-    app.router.add_post("/api/season/claim", claim_reward)
-    app.router.add_post("/api/season/premium", buy_premium)
-    
-    # Serve static files from /web
-    if _web_dir.exists():
-        app.router.add_static("/static", _web_dir)
-
-    # Use BOT_WEB_PORT (default 8081) to avoid conflicting with Django/Daphne on PORT=8080
-    # Use BOT_WEB_PORT only — never inherit PORT (Daphne/Gunicorn holds that).
-    port = int(os.environ.get("BOT_WEB_PORT", 8081))
-    runner = _web.AppRunner(app)
-    await runner.setup()
-    site = _web.TCPSite(runner, "0.0.0.0", port)
-    try:
-        await site.start()
-        logging.info("Mini App web server started on port %d", port)
-    except OSError as _port_err:
-        logging.error(
-            "Mini App web server could not bind to port %d: %s. "
-            "Set BOT_WEB_PORT to a free port. Bot continues without web server.",
-            port, _port_err,
-        )
 
 
 if __name__ == "__main__":

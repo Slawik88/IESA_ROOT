@@ -219,6 +219,15 @@ async def claim_expedition(uid: int, chat_id: int) -> dict:
 
     reward_gross = random.randint(reward_min, reward_max)
 
+    # Талант: expedition_bounty — +N% к награде за экспедицию
+    try:
+        from database.db import get_talent_effect as _gte
+        _exp_bonus = await _gte(uid, "expedition_reward_pct")
+        if _exp_bonus > 0:
+            reward_gross = int(reward_gross * (1 + _exp_bonus / 100.0))
+    except Exception as _e:
+        _log.debug("%s", _e)
+
     # Tax by duration
     if duration_h <= 2:
         exped_tax = 0

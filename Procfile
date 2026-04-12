@@ -1,2 +1,2 @@
 web: cd IESA_ROOT && sh start.sh
-predvestnik: cd PredvestnikBot && python main.py
+predvestnik: cd PredvestnikBot && bash run.sh

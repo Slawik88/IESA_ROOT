@@ -7475,6 +7475,13 @@ async def craft_from_shards(user_id: int, chat_id: int, shard_key: str) -> dict:
     if not meta:
         return {"ok": False, "message": "Неизвестный тип осколка"}
     needed = meta["craft_amount"]
+    # Талант: craft_mastery — снижает стоимость крафта на N шардов
+    try:
+        _discount = await get_talent_effect(user_id, "craft_shard_discount")
+        if _discount > 0:
+            needed = max(1, needed - _discount)
+    except Exception:
+        pass
     async with postgres_connect() as db:
         # FOR UPDATE lock prevents two concurrent crafts from both seeing sufficient shards
         row = await db.fetchone(
@@ -7621,6 +7628,20 @@ async def upgrade_talent(user_id: int, talent_id: str) -> dict:
         if cursor.rowcount == 0:
             return {"ok": False, "message": "Недостаточно очков таланта"}
         await db.commit()
+
+    # Талант shield_renewal — при покупке сразу активирует щит новичка
+    if talent_id == "shield_renewal":
+        try:
+            from datetime import datetime, timezone, timedelta
+            async with postgres_connect() as db2:
+                await db2.execute(
+                    "UPDATE user_mora SET newbie_shield_until = ? WHERE user_id = ?",
+                    (datetime.now(timezone.utc) + timedelta(days=3), user_id),
+                )
+                await db2.commit()
+        except Exception:
+            pass  # неудача щита не должна ломать апгрейд
+
     return {"ok": True, "message": f"✅ Талант «{talent['name']}» улучшен до ур. {current_level + 1}",
             "new_level": current_level + 1}
 
@@ -8164,26 +8185,6 @@ async def enhance_item(user_id: int, chat_id: int, item_id: int, *, use_stone: b
             ), new_level
 
 
-async def get_active_buffs(user_id: int, chat_id: int) -> list[dict]:
-    """Get active potion buffs for user."""
-    from datetime import datetime, timezone
-    
-    async with postgres_connect() as db:
-        # Clean expired buffs first
-        now = datetime.now(timezone.utc)
-        await db.execute(
-            "DELETE FROM active_buffs WHERE expires_at < ?", (now,)
-        )
-        async with db.execute(
-            "SELECT * FROM active_buffs WHERE user_id=? AND chat_id=? AND expires_at > ?",
-            (user_id, chat_id, now)
-        ) as c:
-            rows = await c.fetchall()
-        await db.commit()
-    
-    return [dict(r) for r in rows]
-
-
 async def get_user_name(user_id: int) -> str | None:
     """Get user's full name from database."""
     async with postgres_connect() as db:
@@ -8235,6 +8236,16 @@ async def consume_potion(user_id: int, chat_id: int, item_id: int) -> tuple[bool
         potion_data = POTIONS_CATALOG.get(item_key2)
         if not potion_data:
             return False, 'Неизвестный тип зелья'
+
+        # Талант: vital_flow — +N HP к зельям здоровья
+        buff_amount = potion_data["buff_amount"]
+        if potion_data["buff_type"] == "hp":
+            try:
+                _hp_bonus = await get_talent_effect(user_id, "hp_potion_bonus")
+                if _hp_bonus > 0:
+                    buff_amount += _hp_bonus
+            except Exception:
+                pass
         
         # Calculate expiration time
         now = datetime.now(timezone.utc)
@@ -8250,7 +8261,8 @@ async def consume_potion(user_id: int, chat_id: int, item_id: int) -> tuple[bool
         await db.execute(
             "INSERT INTO active_buffs (user_id, chat_id, buff_type, expires_at, source) "
             "VALUES (?,?,?,?,?)",
-            (user_id, chat_id, potion_data["buff_type"], expires_at, f"potion:{item_key2}")
+            (user_id, chat_id, potion_data["buff_type"], expires_at,
+             f"potion:{item_key2}:amt={buff_amount}")
         )
         
         # Remove consumed potion from inventory
@@ -8259,7 +8271,10 @@ async def consume_potion(user_id: int, chat_id: int, item_id: int) -> tuple[bool
         await db.commit()
         
         duration_text = f"{potion_data['duration']//60}ч {potion_data['duration']%60}м" if potion_data['duration'] >= 60 else f"{potion_data['duration']}м"
-        return True, f"🧪 {item_name2} выпито! {potion_data['desc']} ({duration_text})"
+        desc = potion_data['desc']
+        if buff_amount != potion_data["buff_amount"]:
+            desc = f"+{buff_amount} HP на {duration_text} (талант: +{buff_amount - potion_data['buff_amount']})"
+        return True, f"🧪 {item_name2} выпито! {desc} ({duration_text})"
 
 
 async def batch_sell_items(

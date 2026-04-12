@@ -5,7 +5,7 @@
 """
 import html
 
-import aiohttp
+import httpx
 from aiogram import Router
 from aiogram.types import Message
 
@@ -50,21 +50,21 @@ async def cmd_weather(message: Message, cmd_args: str):
         return
 
     try:
-        async with aiohttp.ClientSession() as session:
+        async with httpx.AsyncClient(timeout=8.0) as client:
             url = _WTTR_URL.format(city=city)
-            async with session.get(url, timeout=aiohttp.ClientTimeout(total=8)) as resp:
-                if resp.status == 404:
-                    await message.answer("❌ Город не найден. Проверь название.")
-                    return
-                if resp.status != 200:
-                    await message.answer("⚠️ Сервис недоступен, попробуй позже.")
-                    return
-                try:
-                    data = await resp.json(content_type=None)
-                except Exception:
-                    await message.answer("⚠️ Сервис вернул неожиданный ответ.")
-                    return
-    except aiohttp.ClientError:
+            resp = await client.get(url)
+            if resp.status_code == 404:
+                await message.answer("❌ Город не найден. Проверь название.")
+                return
+            if resp.status_code != 200:
+                await message.answer("⚠️ Сервис недоступен, попробуй позже.")
+                return
+            try:
+                data = resp.json()
+            except Exception:
+                await message.answer("⚠️ Сервис вернул неожиданный ответ.")
+                return
+    except httpx.HTTPError:
         await message.answer("⚠️ Не удалось подключиться к сервису погоды.")
         return
 

@@ -47,8 +47,8 @@ from config import (
     ANON_MSG_PRICE,
     MINI_APP_TG_URL,
     SECRET_MSG_PRICE,
-    VIP_PRICE,
 )
+from shared_prices import PRICE_VIP
 from filters.bot_command import BotCommand
 from filters.rank_filter import RankFilter
 from utils.helpers import not_your_button, resolve_target, user_mention
@@ -258,23 +258,23 @@ async def cmd_buy_vip(message: Message, cmd_args: str):
             ),
         ])
     else:
-        if personal_bal < VIP_PRICE:
+        if personal_bal < PRICE_VIP:
             await message.answer(
-                f"💎 <b>VIP статус</b> стоит <b>{VIP_PRICE} Моры</b>.\n\n"
+                f"💎 <b>VIP статус</b> стоит <b>{PRICE_VIP} Моры</b>.\n\n"
                 f"У тебя: <b>{personal_bal} 🪙</b> — недостаточно.\n"
                 f"Зарабатывай Мору, общаясь в чате!",
                 parse_mode="HTML",
             )
             return
         buttons.append([
-            InlineKeyboardButton(text=f"✅ Купить за {VIP_PRICE} Моры", callback_data=f"buy_vip:{uid}:personal"),
+            InlineKeyboardButton(text=f"✅ Купить за {PRICE_VIP} Моры", callback_data=f"buy_vip:{uid}:personal"),
             InlineKeyboardButton(text="❌ Отмена", callback_data=f"buy_cancel:{uid}"),
         ])
 
     kb = InlineKeyboardMarkup(inline_keyboard=buttons)
     await message.answer(
         f"💎 <b>VIP Статус</b>\n\n"
-        f"Стоимость: <b>{VIP_PRICE} 🪙</b>\n"
+        f"Стоимость: <b>{PRICE_VIP} 🪙</b>\n"
         f"💰 Личный: <b>{personal_bal} 🪙</b>\n\n"
         f"Что даёт VIP:\n"
         f"  💎 Золотой значок рядом с именем (профиль + таблица лидеров)\n"
@@ -302,9 +302,9 @@ async def cb_buy_vip(callback: CallbackQuery):
         await callback.answer("💎 У тебя уже есть VIP!", show_alert=True)
         return
 
-    ok, new_bal = await deduct_wallet(uid, chat_id, VIP_PRICE, wallet)
+    ok, new_bal = await deduct_wallet(uid, chat_id, PRICE_VIP, wallet)
     if not ok:
-        await callback.answer(f"❌ Недостаточно Моры! ({new_bal} / {VIP_PRICE})", show_alert=True)
+        await callback.answer(f"❌ Недостаточно Моры! ({new_bal} / {PRICE_VIP})", show_alert=True)
         return
 
     await set_vip(uid, chat_id, 1)

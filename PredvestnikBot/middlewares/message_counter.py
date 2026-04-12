@@ -197,10 +197,18 @@ async def _process_economy(user_id: int, chat_id: int, event: Message) -> None:
                 drop *= 2  # night bonus
             # ── Бафф mora_boost от подарков (trip/crown/castle) ─────────
             try:
-                from database.db import get_active_buffs as _gab
-                _buffs = await _gab(user_id, chat_id)
-                for _b in _buffs:
-                    _bt = _b.get("buff_type") or _b.get("type", "")
+                from database.postgres import connect as _pg_connect
+                from datetime import timezone as _tz_utc
+                _now_utc = datetime.now(_tz_utc.utc)
+                async with _pg_connect() as _db:
+                    async with _db.execute(
+                        "SELECT buff_type FROM active_buffs "
+                        "WHERE user_id=? AND chat_id=? AND expires_at > ?",
+                        (user_id, chat_id, _now_utc),
+                    ) as _c:
+                        _buff_rows = await _c.fetchall()
+                for _b in _buff_rows:
+                    _bt = _b["buff_type"] if hasattr(_b, "__getitem__") else _b[0]
                     if _bt == "mora_boost_20":
                         drop = int(drop * 1.20); break
                     elif _bt == "mora_boost_15":
