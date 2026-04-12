@@ -1,0 +1,525 @@
+/* ──────────────────────────────────────────────────────────────
+   Bank.tsx — Банк и переводы
+   Вкладки: Вклады | Новый вклад | Перевод
+   ────────────────────────────────────────────────────────────── */
+import { useEffect, useState, useCallback } from "react";
+import { Landmark, ArrowRightLeft, TrendingUp, Clock, CheckCircle2, CircleDollarSign } from "lucide-react";
+import { fetchBankInfo, openDeposit, withdrawDeposit, transferMora } from "../lib/api";
+import type { BankInfoResponse, BankDeposit, BankPlan } from "../types";
+
+interface Props {
+  userId: number;
+  chatId: number;
+}
+
+type SubTab = "deposits" | "new" | "transfer";
+
+const fmt = (n: number) => n.toLocaleString("ru-RU");
+
+export default function Bank({ chatId }: Props) {
+  const [data, setData]           = useState<BankInfoResponse | null>(null);
+  const [error, setError]         = useState("");
+  const [tab, setTab]             = useState<SubTab>("deposits");
+  const [loading, setLoading]     = useState(false);
+  const [toast, setToast]         = useState<string | null>(null);
+  const [toastError, setToastErr] = useState<string | null>(null);
+
+  const showOk  = useCallback((msg: string) => { setToast(msg);    setTimeout(() => setToast(null), 3500); }, []);
+  const showErr = useCallback((msg: string) => { setToastErr(msg); setTimeout(() => setToastErr(null), 4000); }, []);
+
+  const reload = useCallback(() => {
+    if (!chatId) return;
+    fetchBankInfo(chatId).then(setData).catch((e: Error) => setError(e.message));
+  }, [chatId]);
+
+  useEffect(() => { reload(); }, [reload]);
+
+  if (!chatId) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 p-6 text-center">
+        <Landmark size={48} strokeWidth={1.2} style={{ color: "var(--text-hint)" }} />
+        <div>
+          <p className="font-semibold">Нет контекста чата</p>
+          <p className="text-sm mt-1" style={{ color: "var(--text-hint)" }}>
+            Откройте Mini App из чата группы.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-4 text-center" style={{ color: "#e74c3c" }}>
+        <p className="font-medium">Ошибка загрузки банка</p>
+        <p className="text-sm mt-1 break-all">{error}</p>
+      </div>
+    );
+  }
+
+  if (!data) {
+    return (
+      <div className="p-4 space-y-3 animate-pulse">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="skeleton h-20 rounded-xl" />
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div className="animate-fadeIn p-4 space-y-3 pb-2">
+
+      {/* ── Заголовок ──────────────────────────────────────────── */}
+      <div
+        className="rounded-2xl p-4 flex items-center justify-between"
+        style={{ backgroundColor: "var(--bg-secondary)" }}
+      >
+        <div className="flex items-center gap-2">
+          <Landmark size={20} style={{ color: "var(--accent)" }} />
+          <span className="font-bold text-base">Банк</span>
+        </div>
+        <div className="text-right">
+          <p className="text-lg font-bold tabular-nums">{fmt(data.balance)} 🪙</p>
+          {data.family_balance > 0 && (
+            <p className="text-[11px]" style={{ color: "var(--text-hint)" }}>
+              Семья: {fmt(data.family_balance)} 🪙
+            </p>
+          )}
+        </div>
+      </div>
+
+      {/* ── Под-вкладки ────────────────────────────────────────── */}
+      <div className="flex gap-1 rounded-xl p-1" style={{ backgroundColor: "var(--bg-secondary)" }}>
+        {(["deposits", "new", "transfer"] as SubTab[]).map((t) => {
+          const labels: Record<SubTab, string> = { deposits: "Вклады", new: "Вложить", transfer: "Перевод" };
+          const active = tab === t;
+          return (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              className="flex-1 py-1.5 text-sm font-medium rounded-lg transition-colors"
+              style={{
+                backgroundColor: active ? "var(--accent)" : "transparent",
+                color: active ? "#fff" : "var(--text-hint)",
+              }}
+            >
+              {labels[t]}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* ── Вклады ────────────────────────────────────────────── */}
+      {tab === "deposits" && (
+        <DepositList
+          deposits={data.deposits}
+          earlyPenaltyPct={data.early_penalty_pct}
+          chatId={chatId}
+          loading={loading}
+          setLoading={setLoading}
+          showOk={showOk}
+          showErr={showErr}
+          reload={reload}
+        />
+      )}
+
+      {/* ── Новый вклад ─────────────────────────────────────────── */}
+      {tab === "new" && (
+        <NewDeposit
+          plans={data.plans}
+          balance={data.balance}
+          familyBalance={data.family_balance}
+          chatId={chatId}
+          loading={loading}
+          setLoading={setLoading}
+          showOk={showOk}
+          showErr={showErr}
+          reload={() => { reload(); setTab("deposits"); }}
+        />
+      )}
+
+      {/* ── Перевод ────────────────────────────────────────────── */}
+      {tab === "transfer" && (
+        <Transfer
+          balance={data.balance}
+          chatId={chatId}
+          loading={loading}
+          setLoading={setLoading}
+          showOk={showOk}
+          showErr={showErr}
+          reload={reload}
+        />
+      )}
+
+      {/* ── Тосты ─────────────────────────────────────────────── */}
+      {toast && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 max-w-[90vw] px-4 py-2.5 rounded-xl text-sm font-medium shadow-lg pointer-events-none"
+          style={{ backgroundColor: "var(--bg-secondary)", color: "var(--text-primary)", border: "1px solid var(--accent)" }}>
+          {toast}
+        </div>
+      )}
+      {toastError && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 max-w-[90vw] px-4 py-2.5 rounded-xl text-sm font-medium shadow-lg pointer-events-none"
+          style={{ backgroundColor: "#450a0a", color: "#fca5a5", border: "1px solid #ef4444" }}>
+          {toastError}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── DepositList ──────────────────────────────────────────────── */
+
+interface DepositListProps {
+  deposits: BankDeposit[];
+  earlyPenaltyPct: number;
+  chatId: number;
+  loading: boolean;
+  setLoading: (v: boolean) => void;
+  showOk: (m: string) => void;
+  showErr: (m: string) => void;
+  reload: () => void;
+}
+
+function DepositList({ deposits, earlyPenaltyPct, chatId, loading, setLoading, showOk, showErr, reload }: DepositListProps) {
+  const handleWithdraw = async (deposit: BankDeposit) => {
+    if (loading) return;
+    const earlyMsg = !deposit.mature
+      ? `\nДосрочно: штраф ${earlyPenaltyPct}% от процентов. Продолжить?`
+      : "";
+    if (earlyMsg && !window.confirm(`Закрыть вклад?${earlyMsg}`)) return;
+
+    setLoading(true);
+    try {
+      const res = await withdrawDeposit(chatId, deposit.id);
+      if (res.ok) {
+        const earlyNote = res.early ? " (досрочно)" : "";
+        showOk(`+${fmt(res.payout)} 🪙${earlyNote}  Новый баланс: ${fmt(res.new_balance)} 🪙`);
+        reload();
+      } else {
+        showErr(res.error ?? "Ошибка вывода");
+      }
+    } catch (e: unknown) {
+      showErr(e instanceof Error ? e.message : "Ошибка");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (deposits.length === 0) {
+    return (
+      <div className="rounded-xl p-6 text-center" style={{ backgroundColor: "var(--bg-secondary)" }}>
+        <TrendingUp size={32} strokeWidth={1.2} className="mx-auto mb-2" style={{ color: "var(--text-hint)" }} />
+        <p className="text-sm" style={{ color: "var(--text-hint)" }}>Нет активных вкладов</p>
+        <p className="text-xs mt-1" style={{ color: "var(--text-hint)" }}>Перейдите во вкладку «Вложить»</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      {deposits.map((d) => (
+        <div
+          key={d.id}
+          className="rounded-xl p-3"
+          style={{ backgroundColor: "var(--bg-secondary)" }}
+        >
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1.5">
+                {d.mature
+                  ? <CheckCircle2 size={14} style={{ color: "#22c55e" }} />
+                  : <Clock size={14} style={{ color: "#f59e0b" }} />
+                }
+                <span className="text-sm font-medium">{fmt(d.amount)} 🪙 · {d.plan_days} дн.</span>
+                <span className="text-xs px-1.5 py-0.5 rounded" style={{
+                  backgroundColor: d.mature ? "#14532d" : "var(--bg-primary)",
+                  color: d.mature ? "#86efac" : "var(--text-hint)",
+                }}>
+                  {d.rate_pct}%
+                </span>
+              </div>
+              <p className="text-[11px] mt-1" style={{ color: "var(--text-hint)" }}>
+                Доход: +{fmt(d.reward)} 🪙
+                {!d.mature && ` · осталось ${d.time_left_h}ч ${d.time_left_m}м`}
+                {d.mature && " · Готово!"}
+              </p>
+              {/* Прогресс-бар */}
+              <div className="mt-2 h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: "var(--border)" }}>
+                <div
+                  className="h-full rounded-full transition-all duration-500"
+                  style={{
+                    width: `${d.progress_pct}%`,
+                    backgroundColor: d.mature ? "#22c55e" : "var(--accent)",
+                  }}
+                />
+              </div>
+            </div>
+            <button
+              onClick={() => handleWithdraw(d)}
+              disabled={loading}
+              className="shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold transition-opacity disabled:opacity-40"
+              style={{
+                backgroundColor: d.mature ? "#22c55e" : "var(--border)",
+                color: d.mature ? "#fff" : "var(--text-primary)",
+              }}
+            >
+              {d.mature ? "Забрать" : "Досрочно"}
+            </button>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* ── NewDeposit ──────────────────────────────────────────────── */
+
+interface NewDepositProps {
+  plans: BankPlan[];
+  balance: number;
+  familyBalance: number;
+  chatId: number;
+  loading: boolean;
+  setLoading: (v: boolean) => void;
+  showOk: (m: string) => void;
+  showErr: (m: string) => void;
+  reload: () => void;
+}
+
+function NewDeposit({ plans, balance, familyBalance, chatId, loading, setLoading, showOk, showErr, reload }: NewDepositProps) {
+  const [selectedPlan, setSelectedPlan] = useState<BankPlan | null>(plans[0] ?? null);
+  const [amount, setAmount]             = useState<string>("");
+  const [wallet, setWallet]             = useState<"personal" | "family">("personal");
+
+  const maxBalance = wallet === "family" ? familyBalance : balance;
+  const reward     = selectedPlan && Number(amount) > 0
+    ? Math.floor(Number(amount) * selectedPlan.rate_pct / 100)
+    : 0;
+
+  const handleSubmit = async () => {
+    const amt = parseInt(amount, 10);
+    if (!selectedPlan || !amt || amt <= 0) return showErr("Укажите сумму");
+    if (amt > maxBalance) return showErr("Недостаточно средств");
+
+    setLoading(true);
+    try {
+      const res = await openDeposit(chatId, selectedPlan.key, amt, wallet);
+      if (res.ok) {
+        showOk(`Вклад открыт: ${fmt(amt)} 🪙 на ${res.days} дн. Доход: +${fmt(res.reward)} 🪙`);
+        setAmount("");
+        reload();
+      } else {
+        showErr(res.error ?? "Ошибка открытия вклада");
+      }
+    } catch (e: unknown) {
+      showErr(e instanceof Error ? e.message : "Ошибка");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="space-y-3">
+      {/* Выбор плана */}
+      <div className="rounded-xl p-3 space-y-2" style={{ backgroundColor: "var(--bg-secondary)" }}>
+        <p className="text-xs font-medium" style={{ color: "var(--text-hint)" }}>Срок вклада</p>
+        <div className="grid grid-cols-3 gap-2">
+          {plans.map((p) => {
+            const active = selectedPlan?.key === p.key;
+            return (
+              <button
+                key={p.key}
+                onClick={() => setSelectedPlan(p)}
+                className="rounded-lg p-2 text-center transition-colors"
+                style={{
+                  backgroundColor: active ? "var(--accent)" : "var(--bg-primary)",
+                  color: active ? "#fff" : "var(--text-primary)",
+                  border: active ? "none" : "1px solid var(--border)",
+                }}
+              >
+                <p className="text-base font-bold">{p.days} дн.</p>
+                <p className="text-xs font-semibold mt-0.5" style={{ color: active ? "rgba(255,255,255,0.8)" : "#22c55e" }}>
+                  +{p.rate_pct}%
+                </p>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Выбор кошелька */}
+      {familyBalance > 0 && (
+        <div className="flex gap-1 rounded-xl p-1" style={{ backgroundColor: "var(--bg-secondary)" }}>
+          {(["personal", "family"] as const).map((w) => {
+            const labels = { personal: "Личный", family: "Семейный" };
+            const active = wallet === w;
+            return (
+              <button
+                key={w}
+                onClick={() => setWallet(w)}
+                className="flex-1 py-1.5 text-sm font-medium rounded-lg transition-colors"
+                style={{
+                  backgroundColor: active ? "var(--accent)" : "transparent",
+                  color: active ? "#fff" : "var(--text-hint)",
+                }}
+              >
+                {labels[w]}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Быстрые суммы */}
+      {selectedPlan && (
+        <div className="rounded-xl p-3 space-y-2" style={{ backgroundColor: "var(--bg-secondary)" }}>
+          <p className="text-xs font-medium" style={{ color: "var(--text-hint)" }}>Сумма</p>
+          <div className="flex flex-wrap gap-1.5">
+            {selectedPlan.amounts.filter((a) => a <= maxBalance).map((a) => (
+              <button
+                key={a}
+                onClick={() => setAmount(String(a))}
+                className="px-2.5 py-1 rounded-lg text-xs font-medium transition-colors"
+                style={{
+                  backgroundColor: amount === String(a) ? "var(--accent)" : "var(--bg-primary)",
+                  color: amount === String(a) ? "#fff" : "var(--text-primary)",
+                }}
+              >
+                {fmt(a)}
+              </button>
+            ))}
+          </div>
+          <input
+            type="number"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            placeholder={`Или введите сумму (макс ${fmt(maxBalance)})`}
+            min={1}
+            max={maxBalance}
+            className="w-full rounded-lg px-3 py-2 text-sm bg-transparent border outline-none"
+            style={{ borderColor: "var(--border)", color: "var(--text-primary)" }}
+          />
+          {reward > 0 && (
+            <p className="text-xs" style={{ color: "#22c55e" }}>
+              Доход через {selectedPlan.days} дн.: +{fmt(reward)} 🪙
+            </p>
+          )}
+        </div>
+      )}
+
+      <button
+        onClick={handleSubmit}
+        disabled={loading || !amount || Number(amount) <= 0}
+        className="w-full py-3 rounded-xl font-semibold text-sm transition-opacity disabled:opacity-40"
+        style={{ backgroundColor: "var(--accent)", color: "#fff" }}
+      >
+        {loading ? "Открываю..." : "Открыть вклад"}
+      </button>
+    </div>
+  );
+}
+
+/* ── Transfer ─────────────────────────────────────────────────── */
+
+interface TransferProps {
+  balance: number;
+  chatId: number;
+  loading: boolean;
+  setLoading: (v: boolean) => void;
+  showOk: (m: string) => void;
+  showErr: (m: string) => void;
+  reload: () => void;
+}
+
+const TRANSFER_MIN = 1;
+const TRANSFER_MAX = 5000;
+
+function Transfer({ balance, chatId, loading, setLoading, showOk, showErr, reload }: TransferProps) {
+  const [targetId, setTargetId] = useState("");
+  const [amount, setAmount]     = useState("");
+  const [coverVat, setCoverVat] = useState(true);
+
+  const handleTransfer = async () => {
+    const tid = parseInt(targetId, 10);
+    const amt = parseInt(amount, 10);
+
+    if (!tid || tid <= 0) return showErr("Укажите ID получателя");
+    if (tid === chatId)   return showErr("Нельзя переводить самому себе");
+    if (!amt || amt < TRANSFER_MIN || amt > TRANSFER_MAX)
+      return showErr(`Сумма от ${TRANSFER_MIN} до ${fmt(TRANSFER_MAX)} 🪙`);
+    if (amt > balance) return showErr("Недостаточно средств");
+
+    setLoading(true);
+    try {
+      const res = await transferMora(chatId, tid, amt, coverVat);
+      if (res.ok) {
+        showOk(`Переведено ${fmt(res.amount ?? amt)} 🪙  Баланс: ${fmt(res.sender_balance ?? 0)} 🪙`);
+        setTargetId("");
+        setAmount("");
+        reload();
+      } else {
+        showErr(res.error ?? "Ошибка перевода");
+      }
+    } catch (e: unknown) {
+      showErr(e instanceof Error ? e.message : "Ошибка");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="rounded-xl p-3 space-y-3" style={{ backgroundColor: "var(--bg-secondary)" }}>
+        <div className="flex items-center gap-1.5 text-sm font-medium">
+          <ArrowRightLeft size={15} style={{ color: "var(--accent)" }} />
+          Перевод Моры
+        </div>
+        <div className="space-y-2">
+          <input
+            type="number"
+            value={targetId}
+            onChange={(e) => setTargetId(e.target.value)}
+            placeholder="ID получателя (Telegram user ID)"
+            className="w-full rounded-lg px-3 py-2 text-sm bg-transparent border outline-none"
+            style={{ borderColor: "var(--border)", color: "var(--text-primary)" }}
+          />
+          <input
+            type="number"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            placeholder={`Сумма (${TRANSFER_MIN}–${fmt(TRANSFER_MAX)}) · баланс: ${fmt(balance)}`}
+            min={TRANSFER_MIN}
+            max={Math.min(TRANSFER_MAX, balance)}
+            className="w-full rounded-lg px-3 py-2 text-sm bg-transparent border outline-none"
+            style={{ borderColor: "var(--border)", color: "var(--text-primary)" }}
+          />
+        </div>
+        {/* VAT-опция */}
+        <label className="flex items-center gap-2 cursor-pointer text-sm">
+          <input
+            type="checkbox"
+            checked={coverVat}
+            onChange={(e) => setCoverVat(e.target.checked)}
+            className="rounded"
+          />
+          <span style={{ color: "var(--text-hint)" }}>Учесть НДС (вычтется из суммы)</span>
+        </label>
+        <div className="flex items-center gap-1.5 p-2 rounded-lg text-xs" style={{ backgroundColor: "var(--bg-primary)", color: "var(--text-hint)" }}>
+          <CircleDollarSign size={13} />
+          Лимит: {TRANSFER_MIN}–{fmt(TRANSFER_MAX)} 🪙 за раз
+        </div>
+      </div>
+
+      <button
+        onClick={handleTransfer}
+        disabled={loading || !targetId || !amount}
+        className="w-full py-3 rounded-xl font-semibold text-sm transition-opacity disabled:opacity-40"
+        style={{ backgroundColor: "var(--accent)", color: "#fff" }}
+      >
+        {loading ? "Переводю..." : "Отправить"}
+      </button>
+    </div>
+  );
+}

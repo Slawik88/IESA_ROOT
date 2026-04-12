@@ -279,3 +279,146 @@ export interface GachaRollResult {
   quest_mora?: number;
   error?: string;
 }
+
+// ── /api/bank ─────────────────────────────────────────────────
+export interface BankDeposit {
+  id: number;
+  amount: number;
+  rate: number;
+  rate_pct: number;
+  reward: number;
+  mature: boolean;
+  time_left_h: number;
+  time_left_m: number;
+  progress_pct: number;
+  plan_days: number;
+  matures_at_iso: string;
+}
+
+export interface BankPlan {
+  key: string;
+  days: number;
+  rate_pct: number;
+  label: string;
+  amounts: number[];
+}
+
+export interface BankInfoResponse {
+  balance: number;
+  family_balance: number;
+  deposits: BankDeposit[];
+  plans: BankPlan[];
+  min_deposit: number;
+  max_deposit: number;
+  early_penalty_pct: number;
+  singles_bonus: boolean;
+}
+
+export interface BankDepositResult {
+  ok: boolean;
+  deposit_id: number;
+  amount: number;
+  rate_pct: number;
+  reward: number;
+  days: number;
+  new_balance: number;
+  wallet: string;
+  singles_bonus: boolean;
+  error?: string;
+}
+
+export interface BankWithdrawResult {
+  ok: boolean;
+  deposit_id: number;
+  payout: number;
+  early: boolean;
+  interest_tax: number;
+  new_balance: number;
+  error?: string;
+}
+
+// ── /api/shop/catalog ─────────────────────────────────────────
+export interface ShopFrame {
+  key: string;
+  emoji: string;
+  name: string;
+  price: number;
+  owned: boolean;
+  active: boolean;
+}
+
+export interface ShopCosmetic {
+  key: string;
+  emoji: string;
+  name: string;
+  price: number;
+  desc: string;
+  owned: boolean;
+}
+
+export interface ShopPetColor {
+  key: string;
+  label: string;
+  price: number;
+  owned: boolean;
+  active: boolean;
+}
+
+export interface ShopFood {
+  key: string;
+  name: string;
+  emoji: string;
+  price: number;
+  fatigue: number;
+}
+
+export interface ShopPotion {
+  key: string;
+  name: string;
+  emoji: string;
+  price: number;
+  buff_type: string;
+  buff_amount: number;
+  duration: number;
+  desc: string;
+}
+
+export interface ShopTheme {
+  key: string;
+  name: string;
+  tier: string;
+  price: number;
+  owned: boolean;
+  active: boolean;
+}
+
+export interface ShopCatalog {
+  balance: number;
+  frames: ShopFrame[];
+  cosmetics: ShopCosmetic[];
+  pet_colors: ShopPetColor[];
+  current_color: string | null;
+  food: ShopFood[];
+  potions: ShopPotion[];
+  has_vip: boolean;
+  active_frame: string;
+  gacha_p1: number;
+  gacha_p10: number;
+  themes: ShopTheme[];
+}
+
+export interface ShopBuyResult {
+  ok: boolean;
+  balance?: number;
+  error?: string;
+}
+
+// ── /api/transfer ─────────────────────────────────────────────
+export interface TransferResult {
+  ok: boolean;
+  sender_balance?: number;
+  receiver_balance?: number;
+  amount?: number;
+  vat?: number;
+  error?: string;
+}

@@ -56,10 +56,32 @@ export function useTelegram(): UseTelegramResult {
     setInitData(initData);
 
     const user = tg.initDataUnsafe?.user as TgUser | undefined;
-    const startParam = tg.initDataUnsafe?.start_param ?? "";
-    const chatId = startParam.startsWith("chat_")
-      ? parseInt(startParam.slice(5), 10) || 0
-      : 0;
+    const unsafe = tg.initDataUnsafe as Record<string, unknown> | undefined;
+
+    // Priority 1: direct chat object (Mini App opened from a group chat)
+    let chatId = 0;
+    const chatObj = unsafe?.chat as { id?: number } | undefined;
+    if (chatObj?.id) {
+      chatId = chatObj.id;
+    }
+    // Priority 2: start_param "chat_-100XXXXXXXXXX" (deep-link context)
+    if (!chatId) {
+      const startParam = (unsafe?.start_param as string) ?? "";
+      if (startParam.startsWith("chat_")) {
+        chatId = parseInt(startParam.slice(5), 10) || 0;
+      }
+    }
+    // Priority 3: parse "chat" key from the raw signed initData string
+    if (!chatId && tg.initData) {
+      try {
+        const params = new URLSearchParams(tg.initData);
+        const chatRaw = params.get("chat");
+        if (chatRaw) {
+          const parsed = JSON.parse(chatRaw) as { id?: number };
+          chatId = parsed.id ?? 0;
+        }
+      } catch { /* ignore */ }
+    }
 
     setState({
       ready: true,
