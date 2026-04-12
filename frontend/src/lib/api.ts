@@ -15,6 +15,12 @@ import type {
   LeaderboardResponse,
   InventoryResponse,
   GachaRollResult,
+  BankInfoResponse,
+  BankDepositResult,
+  BankWithdrawResult,
+  ShopCatalog,
+  ShopBuyResult,
+  TransferResult,
 } from "../types";
 
 // Глобальное хранилище initData — заполняется в useTelegram при старте.
@@ -233,5 +239,76 @@ export function consumePotion(
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ chat_id: chatId, item_id: itemId }),
+  });
+}
+
+// ── Bank ──────────────────────────────────────────────────────
+
+/** Информация о банке: баланс, вклады, планы */
+export function fetchBankInfo(chatId: number): Promise<BankInfoResponse> {
+  return request<BankInfoResponse>(`/api/bank?chat_id=${chatId}`);
+}
+
+/** Открыть вклад */
+export function openDeposit(
+  chatId: number,
+  planKey: string,
+  amount: number,
+  wallet: "personal" | "family" = "personal",
+): Promise<BankDepositResult> {
+  return request<BankDepositResult>("/api/bank/deposit", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId, plan_key: planKey, amount, wallet }),
+  });
+}
+
+/** Забрать/досрочно закрыть вклад */
+export function withdrawDeposit(
+  chatId: number,
+  depositId: number,
+): Promise<BankWithdrawResult> {
+  return request<BankWithdrawResult>("/api/bank/withdraw", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId, deposit_id: depositId }),
+  });
+}
+
+// ── Shop ──────────────────────────────────────────────────────
+
+/** Каталог магазина */
+export function fetchShopCatalog(chatId: number): Promise<ShopCatalog> {
+  return request<ShopCatalog>(`/api/shop/catalog?chat_id=${chatId}`);
+}
+
+/** Купить предмет в магазине */
+export function buyShopItem(
+  chatId: number,
+  itemType: "frame" | "cosmetic" | "vip" | "potion" | "pet_color" | "profile_theme",
+  itemKey: string,
+  equip = true,
+  walletType: "personal" | "family" = "personal",
+): Promise<ShopBuyResult> {
+  return request<ShopBuyResult>("/api/shop/buy", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId, item_type: itemType, item_key: itemKey, equip, wallet_type: walletType }),
+  });
+}
+
+// ── Transfer ─────────────────────────────────────────────────
+
+/** Перевести мору другому пользователю */
+export function transferMora(
+  chatId: number,
+  targetId: number,
+  amount: number,
+  coverVat = true,
+): Promise<TransferResult> {
+  return request<TransferResult>("/api/transfer", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId, target_id: targetId, amount, cover_vat: coverVat }),
   });
 }

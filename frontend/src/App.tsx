@@ -1,9 +1,9 @@
 /* ──────────────────────────────────────────────────────────────
    App.tsx — корневой компонент Mini App
-   Навигация: Профиль | Гача | Инвентарь | Задания | Топ | Сезон | Ачивки
+   Навигация: Профиль | Гача | Инвентарь | Банк | Магазин | Задания | Топ | Сезон | Ачивки
    ────────────────────────────────────────────────────────────── */
 import { useState } from "react";
-import { User, Sparkles, Backpack, ScrollText, Trophy, Medal, Star } from "lucide-react";
+import { User, Sparkles, Backpack, ScrollText, Trophy, Medal, Star, Landmark, ShoppingBag } from "lucide-react";
 import { useTelegram } from "./hooks/useTelegram";
 import Profile from "./pages/Profile";
 import Gacha from "./pages/Gacha";
@@ -12,14 +12,18 @@ import Achievements from "./pages/Achievements";
 import Quests from "./pages/Quests";
 import Leaderboard from "./pages/Leaderboard";
 import Season from "./pages/Season";
+import Bank from "./pages/Bank";
+import Shop from "./pages/Shop";
 import NotInTelegram from "./pages/NotInTelegram";
 
-type Tab = "profile" | "gacha" | "inventory" | "quests" | "leaderboard" | "season" | "achievements";
+type Tab = "profile" | "gacha" | "inventory" | "bank" | "shop" | "quests" | "leaderboard" | "season" | "achievements";
 
 const TABS: { key: Tab; label: string; Icon: typeof User }[] = [
   { key: "profile",      label: "Профиль",  Icon: User },
   { key: "gacha",        label: "Гача",     Icon: Sparkles },
   { key: "inventory",    label: "Сумка",    Icon: Backpack },
+  { key: "bank",         label: "Банк",     Icon: Landmark },
+  { key: "shop",         label: "Магазин",  Icon: ShoppingBag },
   { key: "quests",       label: "Задания",  Icon: ScrollText },
   { key: "leaderboard",  label: "Топ",      Icon: Trophy },
   { key: "season",       label: "Сезон",    Icon: Star },
@@ -49,13 +53,15 @@ export default function App() {
         {tab === "profile"      && <Profile      userId={userId} chatId={chatId} />}
         {tab === "gacha"        && <Gacha        userId={userId} chatId={chatId} />}
         {tab === "inventory"    && <Inventory    userId={userId} chatId={chatId} />}
+        {tab === "bank"         && <Bank         userId={userId} chatId={chatId} />}
+        {tab === "shop"         && <Shop         userId={userId} chatId={chatId} />}
         {tab === "quests"       && <Quests       userId={userId} chatId={chatId} />}
         {tab === "leaderboard"  && <Leaderboard  userId={userId} />}
         {tab === "season"       && <Season       userId={userId} />}
         {tab === "achievements" && <Achievements userId={userId} chatId={chatId} />}
       </main>
 
-      {/* ── Нижняя навигация (скролл при 7 табах) ───── */}
+      {/* ── Нижняя навигация (скролл при 9 табах) ───── */}
       <nav
         className="fixed bottom-0 inset-x-0 flex overflow-x-auto border-t"
         style={{
