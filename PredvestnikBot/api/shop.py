@@ -285,6 +285,7 @@ async def buy_item(
 
     # Deduct payment
     new_family_bal: int | None = None
+    _bonus_potion = False
     if wallet_type == "family":
         marriage = await get_marriage(uid, chat_id)
         if not marriage:
@@ -351,6 +352,7 @@ async def buy_item(
     elif item_type == "potion":
         from shared_prices import POTIONS_CATALOG, ITEM_METADATA
         from database.db import add_gacha_item
+        import random as _rnd
         pot_data = POTIONS_CATALOG.get(item_key, {})
         meta = ITEM_METADATA.get(item_key, {})
         await add_gacha_item(
@@ -359,6 +361,20 @@ async def buy_item(
             hp=meta.get("hp", 0), crit_rate=meta.get("crit_rate", 0.0),
             slot=meta.get("slot"),
         )
+        # Талант: potion_luck — шанс получить бесплатное второе зелье
+        try:
+            from database.db import get_talent_effect as _gte
+            _free_chance = await _gte(uid, "free_potion_chance")
+            if _free_chance > 0 and _rnd.random() < _free_chance / 100.0:
+                await add_gacha_item(
+                    uid, chat_id, item_key, pot_data.get("name", item_key) + " (бонус)",
+                    "common", atk=meta.get("atk", 0), def_val=meta.get("def_val", 0),
+                    hp=meta.get("hp", 0), crit_rate=meta.get("crit_rate", 0.0),
+                    slot=meta.get("slot"),
+                )
+                _bonus_potion = True
+        except Exception as _e:
+            _log.debug("potion_luck: %s", _e)
     elif item_type == "profile_theme":
         from database.db import add_user_theme, set_active_theme
         await add_user_theme(uid, chat_id, item_key, source="shop")
@@ -389,4 +405,5 @@ async def buy_item(
         "price":           price,
         "balance":         new_bal,
         "family_balance":  new_family_bal,
+        "bonus_potion":    _bonus_potion,
     }

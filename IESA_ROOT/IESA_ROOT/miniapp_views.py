@@ -5736,7 +5736,23 @@ def miniapp_achievements(request):
 @csrf_exempt
 def miniapp_crystals_spend(request):
     """POST /api/crystals/spend {item_key, price} — spend crystals on cosmetic."""
-    from shared_prices import CRYSTAL_COSMETICS
+    # Каталог кристальной косметики (локальная копия, не зависит от PredvestnikBot)
+    _CRYSTAL_COSMETICS = [
+        ("crystal_aura",          "🔮", "Кристальная аура",             200, "Анимированный ореол профиля (Mini App)"),
+        ("dark_matter_frame",     "🌑", "Рамка «Тёмная материя»",       350, "Эксклюзивная рамка только за кристаллы"),
+        ("herald_frame",          "📯", "Рамка «Вестник»",              500, "Легендарная рамка Предвестника"),
+        ("rainbow_title",         "🌈", "Радужный титул",               150, "Переливающиеся цвета в имени"),
+        ("crystal_pet_skin",      "✨", "Кристальный облик питомца",    300, "Уникальный внешний вид питомца"),
+        ("stealth_mode",          "🕶️", "Режим тени",                  180, "Скрыть баланс моры от других игроков"),
+        ("double_pity",           "⚡", "Двойное везение",              400, "×2 к скорости накопления пити (7 дней)"),
+        ("vip_week",              "👑", "VIP на 7 дней",                250, "VIP-статус без ограничений (неделя)"),
+        ("transfer_pass",         "🎫", "Пропуск переноса",              50, "Снимает ограничение 3 дней на аукционе (1 раз)"),
+        ("shard_chest",           "📦", "Сундук осколков",               80, "3 редких предмета-осколка рамки"),
+        ("guarantee_scroll",      "📜", "Свиток гаранта",               200, "Гарантирует rare+ на следующем ×10 ролле"),
+        ("chat_role",             "🏷️", "Кастомная роль в чате",        300, "Уникальная роль под именем в профиле чата"),
+        ("telegram_avatar",       "🖼️", "Telegram Аватар",              150, "Показывает твою фото из Telegram в профиле (разовая покупка)"),
+        ("enhancement_stones_5",  "⚒️", "5 камней улучшения",           150, "5 гарантированных заточек без затрат Моры"),
+    ]
     headers = _cors_headers()
     if request.method == "OPTIONS":
         return HttpResponse("", status=204, headers=headers)
@@ -5763,7 +5779,7 @@ def miniapp_crystals_spend(request):
         return JsonResponse({"error": "invalid price"}, status=400, headers=headers)
 
     # Validate item exists in catalog
-    valid_items = {c[0]: {"price": c[3], "name": c[2]} for c in CRYSTAL_COSMETICS}
+    valid_items = {c[0]: {"price": c[3], "name": c[2]} for c in _CRYSTAL_COSMETICS}
     if item_key not in valid_items:
         return JsonResponse({"error": "Товар не найден"}, status=404, headers=headers)
     

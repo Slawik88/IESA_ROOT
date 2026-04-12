@@ -29,8 +29,8 @@ from config import (
     QUEST_REROLL_PRICE,
     SECRET_MSG_PRICE,
     SHOP_ITEMS,
-    VIP_PRICE,
 )
+from shared_prices import PRICE_VIP
 from database.db import (
     buy_shop_item,
     get_mora,
@@ -133,7 +133,7 @@ def _shop_text(section: str, bal: int) -> str:
             "🛍 <b>Единый магазин Предвестника</b>\n\n"
             f"💰 Твой баланс: <b>{bal} 🪙</b>\n\n"
             "🪙 <b>Экономика</b>\n"
-            f"  • VIP — <b>{VIP_PRICE} 🪙</b> · <code>бот купить вип</code>\n"
+            f"  • VIP — <b>{PRICE_VIP} 🪙</b> · <code>бот купить вип</code>\n"
             f"  • Откуп от чистки — <b>{CLEANUP_PASS_PRICE} 🪙</b> · КД: 12 дн. · <code>бот откуп</code>\n"
             f"  • Буст XP ×2 — {boost_prices} · <code>бот купить буст</code>\n"
             "  • Рамки профиля — <code>бот рамки</code> / <code>бот купить рамку</code>\n"
@@ -164,7 +164,7 @@ def _shop_text(section: str, bal: int) -> str:
         "economy": (
             "🪙 <b>Магазин</b> › <b>Экономика</b>\n\n"
             f"💰 Баланс: <b>{bal} 🪙</b>\n\n"
-            f"💎 VIP — <b>{VIP_PRICE} 🪙</b>\n  <code>бот купить вип</code>\n\n"
+            f"💎 VIP — <b>{PRICE_VIP} 🪙</b>\n  <code>бот купить вип</code>\n\n"
             f"🎫 Откуп от чистки — <b>{CLEANUP_PASS_PRICE} 🪙</b> · КД: 12 дн.\n  <code>бот откуп</code>\n\n"
             f"⚡ Буст XP ×2\n  {boost_prices}\n  <code>бот купить буст</code>\n\n"
             "🖼 Рамки профиля\n"

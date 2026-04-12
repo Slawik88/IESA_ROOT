@@ -89,14 +89,14 @@ def _help_pages() -> dict[str, dict]:
     from config import (
         ANON_MSG_PRICE, GACHA_SINGLE_PRICE, GACHA_MULTI_PRICE,
         MINI_APP_URL, MAX_WARNS, PET_MORA_SKIP_PRICE, PET_RENAME_PRICE,
-        PET_CHANGE_TYPE_PRICE, QUEST_REROLL_PRICE, SECRET_MSG_PRICE, VIP_PRICE,
+        PET_CHANGE_TYPE_PRICE, QUEST_REROLL_PRICE, SECRET_MSG_PRICE,
         LOTTERY_TICKET_PRICE, COIN_MIN_BET_CHAT, COIN_MAX_BET, DICE_MAX_BET,
         MORA_TRANSFER_MIN, MORA_TRANSFER_MAX, LOAN_MAX_AMOUNT, LOAN_MAX_ACTIVE,
         WALK_MORA_REWARD, WALK_DURATION_HOURS,
     )
     from shared_prices import (
         GACHA_PITY_MAX, BANK_PLANS, CUSTOM_TITLE_PRICE,
-        ROULETTE_MIN_BET, ROULETTE_MAX_BET,
+        ROULETTE_MIN_BET, ROULETTE_MAX_BET, PRICE_VIP,
     )
     _bp = BANK_PLANS
 
@@ -160,7 +160,7 @@ def _help_pages() -> dict[str, dict]:
                 f"  <code>бот баланс</code> — мора, VIP, рамка, буст XP\n"
                 f"  <code>бот магазин</code> — полный каталог покупок\n\n"
                 f"👑 <b>Покупки за мору:</b>\n"
-                f"  <code>бот купить вип</code> — VIP-статус ({VIP_PRICE:,} 🪙)\n"
+                f"  <code>бот купить вип</code> — VIP-статус ({PRICE_VIP:,} 🪙)\n"
                 f"  <code>бот купить буст</code> — ×2 XP на 24 часа\n"
                 f"  <code>бот рамки</code> — рамки для топа (от 250 🪙)\n"
                 f"  <code>бот тема</code> — темы оформления профиля (от 2000 🪙)\n"
@@ -1448,7 +1448,8 @@ async def cmd_me(message: Message, cmd_args: str):
     from config import DEVELOPER_ID, PROFILE_THEMES, MAX_WARNS
     from services.achievements import ACH_BY_KEY
     from handlers.economy import TOP_FRAMES, _frame_emoji
-    from database.db import xp_for_level, get_active_buffs, get_user_community_roles, get_user_talents
+    from database.db import xp_for_level, get_user_community_roles, get_user_talents
+    from database.postgres import connect as _pg_connect
     from shared_prices import TALENT_TREE
 
     uid = message.from_user.id
@@ -1651,7 +1652,14 @@ async def cmd_me(message: Message, cmd_args: str):
             "mora_boost_20": ("🪙", "Мора",   "+20%"),
         }
         try:
-            active_buffs = await get_active_buffs(uid, chat_id)
+            _now_utc = datetime.now(timezone.utc)
+            async with _pg_connect() as _db:
+                async with _db.execute(
+                    "SELECT buff_type, expires_at, source FROM active_buffs "
+                    "WHERE user_id=? AND chat_id=? AND expires_at > ?",
+                    (uid, chat_id, _now_utc),
+                ) as _c:
+                    active_buffs = [dict(r) for r in await _c.fetchall()]
             if active_buffs:
                 now_utc = datetime.now(timezone.utc)
                 lines.append("")
@@ -1671,6 +1679,14 @@ async def cmd_me(message: Message, cmd_args: str):
                         except Exception as _e:
                             _log.debug("%s", _e)
                     em, lab, val = _BUFF_MAP.get(btype, ("✨", btype, ""))
+                    # vital_flow: показать реальную сумму HP из source
+                    src = buff.get("source", "")
+                    if btype == "hp" and "amt=" in src:
+                        try:
+                            _amt = int(src.split("amt=")[1])
+                            val = f"+{_amt}"
+                        except Exception:
+                            pass
                     t_str = f"{mins_left // 60}ч {mins_left % 60}м" if mins_left >= 60 else f"{mins_left}м"
                     buff_parts.append(f"  {em} {lab}: <b>{val}</b>  ⏱ {t_str}")
                 lines.extend(buff_parts)

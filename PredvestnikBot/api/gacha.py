@@ -99,23 +99,25 @@ _LEGENDARY_ITEMS = [
 ]
 
 
-def roll_one(pity: int, pity_max: int = GACHA_PITY_MAX) -> tuple[str, str, str, str]:
-    """Single gacha roll. Returns (item_key, item_name, rarity, description)."""
+def roll_one(pity: int, pity_max: int = GACHA_PITY_MAX, luck_bonus: int = 0) -> tuple[str, str, str, str]:
+    """Single gacha roll. Returns (item_key, item_name, rarity, description).
+    luck_bonus — бонус из таланта drop_luck (+N% к шансу непожитка)."""
     if pity >= pity_max - 1:
         key, name, desc = random.choice(_LEGENDARY_ITEMS)
         return key, name, "legendary", desc
 
+    bonus = luck_bonus / 100.0
     r = random.random()
-    if r < 0.02:   # 2% legendary (was 3%)
+    if r < 0.02 + bonus * 0.3:      # легендарка: ~2% + 30% от luck_bonus
         key, name, desc = random.choice(_LEGENDARY_ITEMS)
         return key, name, "legendary", desc
-    elif r < 0.08:  # 6% rare (was 7%)
+    elif r < 0.08 + bonus * 0.5:    # rare: ~6% + 50% от luck_bonus
         key, name, desc = random.choice(_RARE_ITEMS)
         return key, name, "rare", desc
-    elif r < 0.25:  # 17% common (was 20%)
+    elif r < 0.25 + bonus * 0.2:    # common: ~17% + 20% от luck_bonus
         key, name, desc = random.choice(_COMMON_ITEMS)
         return key, name, "common", desc
-    else:           # 75% junk (was 70%)
+    else:
         key, name, desc = random.choice(_JUNK_ITEMS)
         return key, name, "junk", desc
 
@@ -199,13 +201,16 @@ async def gacha_roll(uid: int, chat_id: int, count: int,
             await use_guarantee_scroll(uid)
 
     pity    = await get_gacha_pity(uid, chat_id)
-    # Talent: pity_memory reduces the guaranteed legendary threshold
+    # Талант: pity_memory — уменьшает порог гарантированной легендарки
     pity_max = GACHA_PITY_MAX
+    _luck_bonus = 0
     try:
         from database.db import get_talent_effect as _gte
         _pity_red = await _gte(uid, "gacha_pity_reduction")
         if _pity_red > 0:
             pity_max = max(10, GACHA_PITY_MAX - _pity_red)
+        # Талант: drop_luck — +N% к шансу выпасть предметам
+        _luck_bonus = await _gte(uid, "drop_luck_pct")
     except Exception as _e:
         _log.debug("%s", _e)
     results = []
@@ -220,7 +225,7 @@ async def gacha_roll(uid: int, chat_id: int, count: int,
             rarity = "rare"
             guaranteed_rare_used = True
         else:
-            key, name, rarity, desc = roll_one(pity, pity_max)
+            key, name, rarity, desc = roll_one(pity, pity_max, _luck_bonus)
             if rarity in ["rare", "legendary"]:
                 guaranteed_rare_used = True
         
