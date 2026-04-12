@@ -128,7 +128,7 @@ export default function Season() {
               style={{ backgroundColor: "#f59e0b", color: "#000" }}
             >
               {busy === "premium" ? <Loader2 size={14} className="animate-spin" /> : <Crown size={14} />}
-              Premium
+              Premium 💎
             </button>
           )}
           {hasPremium && (
@@ -151,6 +151,18 @@ export default function Season() {
             className="h-full rounded-full transition-all duration-700"
             style={{ width: `${Math.min(100, ((progress.xp ?? 0) % 100))}%`, backgroundColor: "var(--accent)" }}
           />
+        </div>
+      </div>
+
+      {/* ── Легенда треков ── */}
+      <div className="flex items-center gap-3 px-1">
+        <div className="flex items-center gap-1.5 text-xs" style={{ color: "var(--text-hint)" }}>
+          <Gift size={12} style={{ color: "#22c55e" }} />
+          <span>Бесплатный</span>
+        </div>
+        <div className="flex items-center gap-1.5 text-xs" style={{ color: "var(--text-hint)" }}>
+          <Crown size={12} style={{ color: "#f59e0b" }} />
+          <span>Премиум (💎 Кристаллы)</span>
         </div>
       </div>
 
@@ -201,72 +213,104 @@ function RewardRow({ reward, userLevel, hasPremium, claimedFree, claimedPremium,
   const freeKey        = `claim:${reward.level}:free`;
   const premKey        = `claim:${reward.level}:prem`;
 
+  // Safe labels: avoid "+undefined 🪙" when mora is null/undefined
+  const freeMora  = reward.free_mora  ?? 0;
+  const premMora  = reward.premium_mora ?? 0;
+  const freeXp    = reward.free_xp    ?? 0;
+  const premXp    = reward.premium_xp ?? 0;
+
+  const freeLabel = reward.free_reward
+    ? reward.free_reward
+    : freeMora > 0 ? `+${freeMora} 🪙` : null;
+
+  const premLabel = reward.premium_reward
+    ? reward.premium_reward
+    : premMora > 0 ? `+${premMora} 🪙` : null;
+
+  const hasPremReward = premLabel != null || premXp > 0;
+
   return (
     <div
-      className={`rounded-xl p-3 flex items-center gap-3 ${!unlocked ? "opacity-50" : ""}`}
+      className={`rounded-xl overflow-hidden ${!unlocked ? "opacity-55" : ""}`}
       style={{ backgroundColor: "var(--bg-secondary)" }}
     >
-      {/* Номер уровня */}
-      <div
-        className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold shrink-0"
-        style={{
-          backgroundColor: unlocked ? "var(--accent)" : "var(--border)",
-          color: unlocked ? "#fff" : "var(--text-hint)",
-        }}
-      >
-        {reward.level}
+      {/* Заголовок строки */}
+      <div className="flex items-center gap-3 px-3 pt-3 pb-2">
+        <div
+          className="w-7 h-7 rounded-lg flex items-center justify-center text-[11px] font-bold shrink-0"
+          style={{
+            backgroundColor: unlocked ? "var(--accent)" : "var(--border)",
+            color: unlocked ? "#fff" : "var(--text-hint)",
+          }}
+        >
+          {reward.level}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: "var(--text-hint)" }}>
+              Уровень {reward.level}
+            </span>
+            {!unlocked && <Lock size={10} style={{ color: "var(--text-hint)" }} />}
+            {unlocked && freeClaimed && (!hasPremReward || !hasPremium || premClaimed) && (
+              <CheckCircle2 size={12} style={{ color: "#22c55e" }} />
+            )}
+          </div>
+        </div>
       </div>
 
-      {/* Награды */}
-      <div className="flex-1 min-w-0">
-        {/* Free */}
-        <div className="flex items-center justify-between gap-2">
-          <p className="text-xs truncate" style={{ color: "var(--text-hint)" }}>
-            🆓 {reward.free_reward || `+${reward.free_mora} 🪙`}
-            {reward.free_xp > 0 && ` · +${reward.free_xp} XP`}
-          </p>
-          {unlocked && !freeClaimed && (
-            <button
-              onClick={() => onClaim(reward.level, false)}
-              disabled={!!busy}
-              className="text-[10px] font-semibold px-1.5 py-0.5 rounded transition-opacity disabled:opacity-50"
-              style={{ backgroundColor: "var(--accent)", color: "#fff" }}
-            >
-              {busy === freeKey ? <Loader2 size={10} className="animate-spin inline" /> : "Взять"}
-            </button>
-          )}
-          {freeClaimed && <CheckCircle2 size={14} className="shrink-0" style={{ color: "#22c55e" }} />}
-        </div>
+      <div className="px-3 pb-3 space-y-1.5">
+        {/* Трек: Бесплатный */}
+        {freeLabel && (
+          <div className="flex items-center justify-between gap-2 rounded-lg px-2.5 py-2"
+            style={{ backgroundColor: "var(--bg-primary)" }}>
+            <div className="flex items-center gap-1.5 min-w-0">
+              <Gift size={13} style={{ color: "#22c55e" }} />
+              <p className="text-xs truncate" style={{ color: "var(--text-primary)" }}>
+                {freeLabel}
+                {freeXp > 0 && <span style={{ color: "var(--text-hint)" }}>{` · +${freeXp} XP`}</span>}
+              </p>
+            </div>
+            {unlocked && !freeClaimed && (
+              <button
+                onClick={() => onClaim(reward.level, false)}
+                disabled={!!busy}
+                className="text-[10px] font-semibold px-2 py-0.5 rounded-md transition-opacity disabled:opacity-50 shrink-0"
+                style={{ backgroundColor: "#22c55e", color: "#fff" }}
+              >
+                {busy === freeKey ? <Loader2 size={10} className="animate-spin inline" /> : "Взять"}
+              </button>
+            )}
+            {freeClaimed && <CheckCircle2 size={13} className="shrink-0" style={{ color: "#22c55e" }} />}
+          </div>
+        )}
 
-        {/* Premium */}
-        {(reward.premium_reward || reward.premium_mora > 0 || reward.premium_xp > 0) && (
-          <div className="flex items-center justify-between gap-2 mt-1">
-            <p className="text-xs truncate" style={{ color: hasPremium ? "#f59e0b" : "var(--text-hint)" }}>
-              {hasPremium ? "👑" : <Lock size={10} className="inline" />}
-              {" "}{reward.premium_reward || `+${reward.premium_mora} 🪙`}
-              {reward.premium_xp > 0 && ` · +${reward.premium_xp} XP`}
-            </p>
+        {/* Трек: Премиум (Кристаллы) */}
+        {hasPremReward && (
+          <div className="flex items-center justify-between gap-2 rounded-lg px-2.5 py-2"
+            style={{ backgroundColor: "var(--bg-primary)", opacity: hasPremium ? 1 : 0.6 }}>
+            <div className="flex items-center gap-1.5 min-w-0">
+              {hasPremium
+                ? <Crown size={13} style={{ color: "#f59e0b" }} />
+                : <Lock size={13} style={{ color: "var(--text-hint)" }} />}
+              <p className="text-xs truncate" style={{ color: hasPremium ? "#f59e0b" : "var(--text-hint)" }}>
+                {premLabel ?? "—"}
+                {premXp > 0 && <span style={{ color: hasPremium ? "#f59e0b88" : "var(--border)" }}>{` · +${premXp} XP`}</span>}
+              </p>
+            </div>
             {unlocked && hasPremium && !premClaimed && (
               <button
                 onClick={() => onClaim(reward.level, true)}
                 disabled={!!busy}
-                className="text-[10px] font-semibold px-1.5 py-0.5 rounded transition-opacity disabled:opacity-50"
+                className="text-[10px] font-semibold px-2 py-0.5 rounded-md transition-opacity disabled:opacity-50 shrink-0"
                 style={{ backgroundColor: "#f59e0b", color: "#000" }}
               >
                 {busy === premKey ? <Loader2 size={10} className="animate-spin inline" /> : "Взять"}
               </button>
             )}
-            {premClaimed && <CheckCircle2 size={14} className="shrink-0" style={{ color: "#f59e0b" }} />}
+            {premClaimed && <CheckCircle2 size={13} className="shrink-0" style={{ color: "#f59e0b" }} />}
           </div>
         )}
       </div>
-
-      {/* Иконка закрыто */}
-      {!unlocked && <Lock size={14} className="shrink-0" style={{ color: "var(--text-hint)" }} />}
-      {/* Иконка открыто */}
-      {unlocked && freeClaimed && (!hasPremium || premClaimed) && (
-        <Gift size={14} className="shrink-0" style={{ color: "#22c55e" }} />
-      )}
     </div>
   );
 }

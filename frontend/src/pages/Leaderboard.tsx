@@ -3,7 +3,7 @@
    GET /api/leaderboard?chat_id=X&type=xp|messages|boss|mora
    ────────────────────────────────────────────────────────────── */
 import { useEffect, useState, useCallback } from "react";
-import { Trophy, AlertCircle } from "lucide-react";
+import { Trophy, AlertCircle, X, Crown, Star } from "lucide-react";
 import { fetchLeaderboard } from "../lib/api";
 import type { LeaderboardResponse, LeaderboardEntry } from "../types";
 
@@ -27,6 +27,7 @@ export default function Leaderboard({ chatId }: Props) {
   const [data, setData]   = useState<LeaderboardResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [profileEntry, setProfileEntry] = useState<{ entry: LeaderboardEntry; tab: LBType } | null>(null);
 
   const load = useCallback((type: LBType) => {
     setLoading(true);
@@ -111,6 +112,7 @@ export default function Leaderboard({ chatId }: Props) {
                   entry={entry}
                   isSelf={entry.user_id === data.uid}
                   tab={tab}
+                  onProfile={() => setProfileEntry({ entry, tab })}
                 />
               ))}
             </div>
@@ -131,12 +133,22 @@ export default function Leaderboard({ chatId }: Props) {
                   }}
                   isSelf
                   tab={tab}
+                  onProfile={null}
                 />
               </div>
             )}
           </>
         )}
       </div>
+
+      {/* ── Профиль пользователя ── */}
+      {profileEntry && (
+        <UserProfileSheet
+          entry={profileEntry.entry}
+          tab={profileEntry.tab}
+          onClose={() => setProfileEntry(null)}
+        />
+      )}
     </div>
   );
 }
@@ -146,16 +158,19 @@ function EntryRow({
   entry,
   isSelf,
   tab,
+  onProfile,
 }: {
   entry: LeaderboardEntry;
   isSelf: boolean;
   tab: LBType;
+  onProfile: (() => void) | null;
 }) {
   const medal = MEDAL[entry.rank];
 
   return (
     <div
-      className="flex items-center gap-3 rounded-xl px-3 py-2.5"
+      onClick={onProfile ?? undefined}
+      className={`flex items-center gap-3 rounded-xl px-3 py-2.5 transition-all ${onProfile ? "cursor-pointer active:scale-[0.98] hover:brightness-105" : ""}`}
       style={{
         backgroundColor: isSelf ? "var(--accent)22" : "var(--bg-secondary)",
         border:          isSelf ? "1px solid var(--accent)" : "1px solid transparent",
@@ -206,5 +221,98 @@ function LBSkeleton() {
         <div key={i} className="skeleton h-12 rounded-xl" />
       ))}
     </div>
+  );
+}
+
+/* ── Профиль пользователя (BottomSheet) ── */
+const SCORE_LABEL: Record<LBType, string> = {
+  xp: "XP", messages: "Сообщений", boss: "Босс-урон", mora: "Мора 🪙",
+};
+
+function UserProfileSheet({
+  entry,
+  tab,
+  onClose,
+}: {
+  entry: LeaderboardEntry;
+  tab: LBType;
+  onClose: () => void;
+}) {
+  const medal = MEDAL[entry.rank];
+  const initials = entry.name.slice(0, 2).toUpperCase();
+
+  return (
+    <>
+      <div className="fixed inset-0 z-40 bg-black/50" onClick={onClose} />
+      <div
+        className="fixed bottom-0 inset-x-0 z-50 rounded-t-2xl pb-8 animate-slideUp"
+        style={{ backgroundColor: "var(--bg-primary)", maxHeight: "75vh", overflowY: "auto" }}
+      >
+        <div className="flex justify-center pt-3 pb-1">
+          <div className="w-10 h-1 rounded-full" style={{ backgroundColor: "var(--border)" }} />
+        </div>
+
+        <div className="flex items-start justify-between px-4 pb-2 pt-2">
+          <h3 className="font-semibold text-base" style={{ color: "var(--text-primary)" }}>Профиль игрока</h3>
+          <button onClick={onClose} style={{ color: "var(--text-hint)" }}><X size={20} /></button>
+        </div>
+
+        {/* Аватар + имя */}
+        <div className="flex flex-col items-center gap-3 pt-2 pb-4">
+          <div
+            className="w-16 h-16 rounded-full flex items-center justify-center text-xl font-bold"
+            style={{ backgroundColor: "var(--accent)22", color: "var(--accent)" }}
+          >
+            {initials}
+          </div>
+          <div className="text-center">
+            <p className="text-base font-bold flex items-center justify-center gap-1.5">
+              {entry.name}
+              {entry.vip && (
+                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ backgroundColor: "#f59e0b22", color: "#f59e0b" }}>
+                  VIP
+                </span>
+              )}
+            </p>
+            {entry.level !== undefined && (
+              <p className="text-xs mt-0.5" style={{ color: "var(--text-hint)" }}>Уровень {entry.level}</p>
+            )}
+          </div>
+        </div>
+
+        {/* Статы */}
+        <div className="grid grid-cols-2 gap-3 px-4 pb-4">
+          <div className="rounded-xl p-3 text-center" style={{ backgroundColor: "var(--bg-secondary)" }}>
+            <p className="text-lg font-bold">{medal ?? `#${entry.rank}`}</p>
+            <p className="text-[11px] mt-0.5" style={{ color: "var(--text-hint)" }}>Место в рейтинге</p>
+          </div>
+          <div className="rounded-xl p-3 text-center" style={{ backgroundColor: "var(--bg-secondary)" }}>
+            <p className="text-lg font-bold tabular-nums">
+              {entry.score != null ? entry.score.toLocaleString("ru-RU") : "—"}
+            </p>
+            <p className="text-[11px] mt-0.5" style={{ color: "var(--text-hint)" }}>{SCORE_LABEL[tab]}</p>
+          </div>
+        </div>
+
+        {/* Категория */}
+        <div className="px-4">
+          <div className="flex items-center gap-2 p-3 rounded-xl" style={{ backgroundColor: "var(--bg-secondary)" }}>
+            <Star size={16} style={{ color: "var(--accent)" }} />
+            <div>
+              <p className="text-xs font-medium">Категория</p>
+              <p className="text-sm font-semibold" style={{ color: "var(--accent)" }}>
+                {TABS.find(t => t.key === tab)?.label ?? tab}
+              </p>
+            </div>
+            {entry.vip && (
+              <div className="ml-auto flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-full"
+                style={{ backgroundColor: "#f59e0b22", color: "#f59e0b" }}>
+                <Crown size={12} /> VIP
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </>
   );
 }

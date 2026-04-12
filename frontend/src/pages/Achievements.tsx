@@ -65,6 +65,19 @@ export default function Achievements({ userId, chatId }: Props) {
   const toggle = (type: string) =>
     setExpanded((prev) => (prev === type ? null : type));
 
+  // Считаем суммарные награды за все разблокированные ранги
+  const totalMora = data.categories
+    .flatMap(c => c.ranks)
+    .filter(r => r.unlocked)
+    .reduce((acc, r) => acc + (r.mora ?? 0), 0);
+  const totalXp = data.categories
+    .flatMap(c => c.ranks)
+    .filter(r => r.unlocked)
+    .reduce((acc, r) => acc + (r.xp ?? 0), 0);
+  const overallPct = data.total_defined > 0
+    ? Math.round((data.total_unlocked / data.total_defined) * 100)
+    : 0;
+
   return (
     <div className="animate-fadeIn p-4">
       {/* ── Заголовок с общим прогрессом ─────── */}
@@ -76,6 +89,34 @@ export default function Achievements({ userId, chatId }: Props) {
         <span className="text-sm font-medium" style={{ color: "var(--accent)" }}>
           {data.total_unlocked}/{data.total_defined}
         </span>
+      </div>
+
+      {/* ── Карточка общего прогресса ─────── */}
+      <div className="rounded-2xl p-4 mb-4" style={{ backgroundColor: "var(--bg-secondary)" }}>
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-sm font-medium">Общий прогресс</span>
+          <span className="text-sm font-bold tabular-nums" style={{ color: "var(--accent)" }}>{overallPct}%</span>
+        </div>
+        <div className="h-2.5 rounded-full overflow-hidden mb-3" style={{ backgroundColor: "var(--border)" }}>
+          <div
+            className="h-full rounded-full transition-all duration-700"
+            style={{ width: `${overallPct}%`, backgroundColor: overallPct === 100 ? "#22c55e" : "var(--accent)" }}
+          />
+        </div>
+        <div className="grid grid-cols-3 gap-2 text-center">
+          <div className="rounded-xl p-2" style={{ backgroundColor: "var(--bg-primary)" }}>
+            <p className="text-sm font-bold tabular-nums">{data.total_unlocked}</p>
+            <p className="text-[10px] mt-0.5" style={{ color: "var(--text-hint)" }}>Разблокировано</p>
+          </div>
+          <div className="rounded-xl p-2" style={{ backgroundColor: "var(--bg-primary)" }}>
+            <p className="text-sm font-bold tabular-nums">{totalMora.toLocaleString("ru")}</p>
+            <p className="text-[10px] mt-0.5" style={{ color: "var(--text-hint)" }}>Мора 🪙</p>
+          </div>
+          <div className="rounded-xl p-2" style={{ backgroundColor: "var(--bg-primary)" }}>
+            <p className="text-sm font-bold tabular-nums">{totalXp.toLocaleString("ru")}</p>
+            <p className="text-[10px] mt-0.5" style={{ color: "var(--text-hint)" }}>Опыт XP</p>
+          </div>
+        </div>
       </div>
 
       {/* ── Список категорий ─────────────────── */}
