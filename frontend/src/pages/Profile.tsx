@@ -6,16 +6,17 @@ import { useEffect, useState, useCallback } from "react";
 import {
   Coins, Star, Heart, PawPrint, TrendingUp, Shield, Swords,
   MessageSquare, Gem, CalendarCheck, CheckCircle2, Flame,
-  ArrowUpCircle, ArrowDownCircle, Compass, Loader2, ScrollText,
+  ArrowUpCircle, ArrowDownCircle, Compass, Loader2, ScrollText, History,
 } from "lucide-react";
 import {
   fetchUserData, fetchCheckinStatus, doCheckin, petWalk,
   familyDeposit, familyWithdraw, fetchFamilyLog,
   fetchExpeditions, startExpedition, collectExpedition,
+  fetchWalletHistory,
 } from "../lib/api";
 import type {
   UserData, BondInfo, CheckinStatus,
-  FamilyLogEntry, ExpeditionsResponse,
+  FamilyLogEntry, ExpeditionsResponse, WalletHistoryEntry,
 } from "../types";
 
 interface Props {
@@ -59,6 +60,11 @@ export default function Profile({ chatId }: Props) {
   const [familyBusy, setFamilyBusy]    = useState(false);
   const [familyLog, setFamilyLog]      = useState<FamilyLogEntry[]>([]);
   const [familyLogOpen, setFLogOpen]   = useState(false);
+
+  // Wallet history
+  const [walletHist, setWalletHist]   = useState<WalletHistoryEntry[]>([]);
+  const [walletHistOpen, setWHistOpen] = useState(false);
+  const [walletHistLoading, setWHistLoad] = useState(false);
 
   // Expeditions
   const [expData, setExpData]     = useState<ExpeditionsResponse | null>(null);
@@ -185,7 +191,7 @@ export default function Profile({ chatId }: Props) {
     if (familyBusy || !chatId || !familyAmount) return;
     setFamilyBusy(true);
     try {
-      const r = await familyDeposit(chatId, parseInt(familyAmount));
+      const r = await familyDeposit(chatId, Math.round(Number(familyAmount)));
       if (r.ok) {
         showToast(`✅ Внесено в семейный кошелёк! Личный: ${r.personal} · Семейный: ${r.family}`);
         setData(prev => prev ? { ...prev, balance: r.personal, family_balance: r.family } : prev);
@@ -204,7 +210,7 @@ export default function Profile({ chatId }: Props) {
     if (familyBusy || !chatId || !familyAmount) return;
     setFamilyBusy(true);
     try {
-      const r = await familyWithdraw(chatId, parseInt(familyAmount));
+      const r = await familyWithdraw(chatId, Math.round(Number(familyAmount)));
       if (r.ok) {
         showToast(`✅ Снято из семейного кошелька! Личный: ${r.personal} · Семейный: ${r.family}`);
         setData(prev => prev ? { ...prev, balance: r.personal, family_balance: r.family } : prev);
@@ -228,6 +234,19 @@ export default function Profile({ chatId }: Props) {
         .catch(() => {});
     }
   }, [chatId, familyLogOpen]);
+
+  const handleWalletHistory = useCallback(async () => {
+    if (!chatId) return;
+    const nextOpen = !walletHistOpen;
+    setWHistOpen(nextOpen);
+    if (nextOpen && walletHist.length === 0) {
+      setWHistLoad(true);
+      fetchWalletHistory(chatId)
+        .then(r => setWalletHist(r.history ?? []))
+        .catch(() => {})
+        .finally(() => setWHistLoad(false));
+    }
+  }, [chatId, walletHistOpen, walletHist.length]);
 
   if (error) return <ErrorBox message={error} />;
   if (!data)  return <ProfileSkeleton />;
@@ -449,6 +468,8 @@ export default function Profile({ chatId }: Props) {
                 value={familyAmount}
                 onChange={e => setFamilyAmt(e.target.value)}
                 placeholder="Сумма"
+                min="1"
+                step="1"
                 className="flex-1 rounded-lg px-2.5 py-1.5 text-sm bg-transparent outline-none"
                 style={{ border: "1px solid var(--border)", color: "var(--text-primary)" }}
               />
@@ -565,6 +586,52 @@ export default function Profile({ chatId }: Props) {
               : <><CalendarCheck size={14} /> {checkinLoading ? "..." : "Отметиться"}</>}
           </button>
         </div>
+      )}
+
+      {/* ── История транзакций ────────────────────────────────── */}
+      {chatId > 0 && (
+        <Card>
+          <button
+            onClick={handleWalletHistory}
+            className="w-full flex items-center justify-between"
+          >
+            <SectionTitle icon={<History size={15} />} label="История транзакций" />
+            <span className="text-xs" style={{ color: "var(--text-hint)" }}>
+              {walletHistOpen ? "Скрыть" : "Показать"}
+            </span>
+          </button>
+          {walletHistOpen && (
+            <div className="mt-2">
+              {walletHistLoading ? (
+                <div className="space-y-1 animate-pulse">
+                  {Array.from({length: 4}).map((_, i) => (
+                    <div key={i} className="skeleton h-8 rounded-lg" />
+                  ))}
+                </div>
+              ) : walletHist.length === 0 ? (
+                <p className="text-[11px] text-center py-2" style={{ color: "var(--text-hint)" }}>
+                  Нет транзакций за последние 30 дней
+                </p>
+              ) : (
+                <div className="space-y-0.5 max-h-52 overflow-y-auto">
+                  {walletHist.map((entry, i) => (
+                    <div key={i} className="flex justify-between items-center py-1.5 px-1 text-[11px]"
+                      style={{ borderBottom: "1px solid var(--border)" }}>
+                      <div className="flex-1 min-w-0">
+                        <p className="truncate" style={{ color: "var(--text-primary)" }}>{entry.description}</p>
+                        <p style={{ color: "var(--text-hint)" }}>{entry.ts}</p>
+                      </div>
+                      <span className="shrink-0 ml-2 font-semibold tabular-nums"
+                        style={{ color: entry.amount >= 0 ? "#22c55e" : "#ef4444" }}>
+                        {entry.amount >= 0 ? "+" : ""}{entry.amount.toLocaleString("ru-RU")} 🪙
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </Card>
       )}
 
       {/* ── Тост ──────────────────────────────────────────────── */}

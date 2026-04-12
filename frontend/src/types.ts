@@ -628,6 +628,45 @@ export interface WalletHistoryResponse {
   history: WalletHistoryEntry[];
 }
 
+// ── /api/public_profile ───────────────────────────────────────
+export interface PublicProfileResponse {
+  uid: number;
+  name: string;
+  level: number;
+  xp: number;
+  xp_max: number;
+  rank: string;
+  vip: boolean;
+  custom_title?: string;
+  bio?: string;
+  active_frame?: string;
+  active_theme?: string;
+  theme_name?: string;
+  rpg?: { hp: number; atk: number; def: number; crit: number };
+  equipped_items?: { name: string; rarity: string; slot: string }[];
+  partner_name?: string | null;
+  pet?: { type: string; name: string; emoji: string; fatigue: number; on_walk: boolean } | null;
+  is_own?: boolean;
+  message_count?: number;
+  warns?: number;
+  online_status?: string;
+  avatar_url?: string | null;
+  error?: string;
+}
+
+// ── /api/stars/invoice ────────────────────────────────────────
+export interface StarsInvoiceResult {
+  ok: boolean;
+  link: string;
+  pack: {
+    stars: number;
+    crystals: number;
+    label: string;
+    bonus_pct: number;
+  };
+  error?: string;
+}
+
 // ── /api/casino ───────────────────────────────────────────────
 export interface CoinFlipResult {
   ok: boolean;

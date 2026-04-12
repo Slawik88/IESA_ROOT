@@ -107,6 +107,7 @@ from .miniapp_views import (
     miniapp_settings_global,
     miniapp_chat_tags,
     miniapp_tag_definitions,
+    miniapp_stars_invoice,
 )
 
 # Переопределить стандартный админ на кастомный
@@ -287,6 +288,8 @@ urlpatterns = [
     # ─── Chat Tags / Теги пользователей ──────────────────────────────────────
     path('api/chat_tags', miniapp_chat_tags, name='miniapp_chat_tags'),
     path('api/tag_definitions', miniapp_tag_definitions, name='miniapp_tag_definitions'),
+    # ─── Stars / Покупка кристаллов за Telegram Stars ─────────────────────────
+    path('api/stars/invoice', miniapp_stars_invoice, name='miniapp_stars_invoice'),
     # ──────────────────────────────────────────────────────────────────────────
     path('protected/<path:file_path>', serve_protected_media, name='serve_protected_media'),
     

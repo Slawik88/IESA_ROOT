@@ -3,9 +3,9 @@
    GET /api/leaderboard?chat_id=X&type=xp|messages|boss|mora
    ────────────────────────────────────────────────────────────── */
 import { useEffect, useState, useCallback } from "react";
-import { Trophy, AlertCircle, X, Crown, Star } from "lucide-react";
-import { fetchLeaderboard } from "../lib/api";
-import type { LeaderboardResponse, LeaderboardEntry } from "../types";
+import { Trophy, AlertCircle, X, Swords, Shield, Heart, PawPrint } from "lucide-react";
+import { fetchLeaderboard, fetchPublicProfile } from "../lib/api";
+import type { LeaderboardResponse, LeaderboardEntry, PublicProfileResponse } from "../types";
 
 type LBType = "xp" | "messages" | "boss" | "mora";
 
@@ -146,6 +146,7 @@ export default function Leaderboard({ chatId }: Props) {
         <UserProfileSheet
           entry={profileEntry.entry}
           tab={profileEntry.tab}
+          chatId={chatId}
           onClose={() => setProfileEntry(null)}
         />
       )}
@@ -229,24 +230,52 @@ const SCORE_LABEL: Record<LBType, string> = {
   xp: "XP", messages: "Сообщений", boss: "Босс-урон", mora: "Мора 🪙",
 };
 
+const RANK_LABEL: Record<string, string> = {
+  developer: "Разработчик", owner: "Владелец", co_owner: "Совладелец",
+  admin_senior: "Ст. Администратор", admin_junior: "Мл. Администратор",
+  admin: "Администратор", moderator: "Модератор", vip: "VIP", user: "Участник",
+};
+const RANK_COLOR: Record<string, string> = {
+  developer: "#ff4757", owner: "#f59e0b", co_owner: "#a855f7",
+  admin_senior: "#e84393", admin_junior: "#3b82f6", admin: "#ffa502",
+  moderator: "#2ed573", vip: "#7bed9f", user: "var(--text-hint)",
+};
+
 function UserProfileSheet({
   entry,
   tab,
+  chatId,
   onClose,
 }: {
   entry: LeaderboardEntry;
   tab: LBType;
+  chatId: number;
   onClose: () => void;
 }) {
   const medal = MEDAL[entry.rank];
   const initials = entry.name.slice(0, 2).toUpperCase();
+  const [profile, setProfile] = useState<PublicProfileResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!entry.user_id || !chatId) { setLoading(false); return; }
+    setLoading(true);
+    fetchPublicProfile(entry.user_id, chatId)
+      .then(setProfile)
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [entry.user_id, chatId]);
+
+  const xpPct = profile && profile.xp_max > 0
+    ? Math.min(100, Math.round((profile.xp / profile.xp_max) * 100))
+    : 0;
 
   return (
     <>
       <div className="fixed inset-0 z-40 bg-black/50" onClick={onClose} />
       <div
         className="fixed bottom-0 inset-x-0 z-50 rounded-t-2xl pb-8 animate-slideUp"
-        style={{ backgroundColor: "var(--bg-primary)", maxHeight: "75vh", overflowY: "auto" }}
+        style={{ backgroundColor: "var(--bg-primary)", maxHeight: "82vh", overflowY: "auto" }}
       >
         <div className="flex justify-center pt-3 pb-1">
           <div className="w-10 h-1 rounded-full" style={{ backgroundColor: "var(--border)" }} />
@@ -257,61 +286,133 @@ function UserProfileSheet({
           <button onClick={onClose} style={{ color: "var(--text-hint)" }}><X size={20} /></button>
         </div>
 
-        {/* Аватар + имя */}
-        <div className="flex flex-col items-center gap-3 pt-2 pb-4">
-          <div
-            className="w-16 h-16 rounded-full flex items-center justify-center text-xl font-bold"
-            style={{ backgroundColor: "var(--accent)22", color: "var(--accent)" }}
-          >
-            {initials}
-          </div>
-          <div className="text-center">
-            <p className="text-base font-bold flex items-center justify-center gap-1.5">
-              {entry.name}
-              {entry.vip && (
-                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ backgroundColor: "#f59e0b22", color: "#f59e0b" }}>
-                  VIP
-                </span>
-              )}
-            </p>
-            {entry.level !== undefined && (
-              <p className="text-xs mt-0.5" style={{ color: "var(--text-hint)" }}>Уровень {entry.level}</p>
-            )}
-          </div>
-        </div>
-
-        {/* Статы */}
-        <div className="grid grid-cols-2 gap-3 px-4 pb-4">
-          <div className="rounded-xl p-3 text-center" style={{ backgroundColor: "var(--bg-secondary)" }}>
-            <p className="text-lg font-bold">{medal ?? `#${entry.rank}`}</p>
-            <p className="text-[11px] mt-0.5" style={{ color: "var(--text-hint)" }}>Место в рейтинге</p>
-          </div>
-          <div className="rounded-xl p-3 text-center" style={{ backgroundColor: "var(--bg-secondary)" }}>
-            <p className="text-lg font-bold tabular-nums">
-              {entry.score != null ? entry.score.toLocaleString("ru-RU") : "—"}
-            </p>
-            <p className="text-[11px] mt-0.5" style={{ color: "var(--text-hint)" }}>{SCORE_LABEL[tab]}</p>
-          </div>
-        </div>
-
-        {/* Категория */}
-        <div className="px-4">
-          <div className="flex items-center gap-2 p-3 rounded-xl" style={{ backgroundColor: "var(--bg-secondary)" }}>
-            <Star size={16} style={{ color: "var(--accent)" }} />
-            <div>
-              <p className="text-xs font-medium">Категория</p>
-              <p className="text-sm font-semibold" style={{ color: "var(--accent)" }}>
-                {TABS.find(t => t.key === tab)?.label ?? tab}
-              </p>
+        {loading ? (
+          <div className="px-4 space-y-3 pb-4 animate-pulse">
+            <div className="flex flex-col items-center gap-3 pt-2">
+              <div className="w-16 h-16 rounded-full skeleton" />
+              <div className="skeleton h-5 w-32 rounded" />
             </div>
-            {entry.vip && (
-              <div className="ml-auto flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-full"
-                style={{ backgroundColor: "#f59e0b22", color: "#f59e0b" }}>
-                <Crown size={12} /> VIP
+            <div className="skeleton h-16 rounded-xl" />
+            <div className="grid grid-cols-2 gap-3"><div className="skeleton h-20 rounded-xl" /><div className="skeleton h-20 rounded-xl" /></div>
+          </div>
+        ) : (
+          <>
+            {/* Аватар + имя */}
+            <div className="flex flex-col items-center gap-2 pt-2 pb-3">
+              {profile?.avatar_url ? (
+                <img src={profile.avatar_url} alt="" className="w-16 h-16 rounded-full object-cover"
+                  style={{ border: "2px solid var(--accent)" }} />
+              ) : (
+                <div
+                  className="w-16 h-16 rounded-full flex items-center justify-center text-xl font-bold"
+                  style={{ backgroundColor: "var(--accent)22", color: "var(--accent)" }}
+                >
+                  {initials}
+                </div>
+              )}
+              <div className="text-center">
+                <p className="text-base font-bold flex items-center justify-center gap-1.5">
+                  {profile?.name ?? entry.name}
+                  {(profile?.vip ?? entry.vip) && (
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ backgroundColor: "#f59e0b22", color: "#f59e0b" }}>VIP</span>
+                  )}
+                  {profile?.online_status === "online" && (
+                    <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: "#22c55e" }} />
+                  )}
+                </p>
+                {profile?.custom_title && (
+                  <p className="text-xs mt-0.5 font-medium" style={{ color: "var(--accent)" }}>{profile.custom_title}</p>
+                )}
+                <p className="text-xs mt-0.5" style={{ color: RANK_COLOR[profile?.rank ?? "user"] ?? "var(--text-hint)" }}>
+                  {RANK_LABEL[profile?.rank ?? "user"] ?? profile?.rank}
+                </p>
+              </div>
+            </div>
+
+            {/* Bio */}
+            {profile?.bio && (
+              <div className="mx-4 mb-3 p-2.5 rounded-xl text-xs" style={{ backgroundColor: "var(--bg-secondary)", color: "var(--text-primary)" }}>
+                {profile.bio}
               </div>
             )}
-          </div>
-        </div>
+
+            {/* Уровень + XP */}
+            {profile && (
+              <div className="mx-4 mb-3 rounded-xl p-3" style={{ backgroundColor: "var(--bg-secondary)" }}>
+                <div className="flex justify-between text-xs mb-1.5">
+                  <span className="font-semibold">Уровень {profile.level}</span>
+                  <span style={{ color: "var(--text-hint)" }}>{profile.xp.toLocaleString("ru-RU")} / {profile.xp_max.toLocaleString("ru-RU")} XP</span>
+                </div>
+                <div className="h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: "var(--border)" }}>
+                  <div className="h-full rounded-full transition-all" style={{ width: `${xpPct}%`, backgroundColor: "var(--accent)" }} />
+                </div>
+              </div>
+            )}
+
+            {/* Статы рейтинга */}
+            <div className="grid grid-cols-2 gap-3 px-4 mb-3">
+              <div className="rounded-xl p-3 text-center" style={{ backgroundColor: "var(--bg-secondary)" }}>
+                <p className="text-lg font-bold">{medal ?? `#${entry.rank}`}</p>
+                <p className="text-[11px] mt-0.5" style={{ color: "var(--text-hint)" }}>Место в рейтинге</p>
+              </div>
+              <div className="rounded-xl p-3 text-center" style={{ backgroundColor: "var(--bg-secondary)" }}>
+                <p className="text-lg font-bold tabular-nums">
+                  {entry.score != null ? entry.score.toLocaleString("ru-RU") : "—"}
+                </p>
+                <p className="text-[11px] mt-0.5" style={{ color: "var(--text-hint)" }}>{SCORE_LABEL[tab]}</p>
+              </div>
+            </div>
+
+            {/* RPG статы */}
+            {profile?.rpg && (
+              <div className="mx-4 mb-3 grid grid-cols-4 gap-2">
+                {[
+                  { icon: <Swords size={12} />, label: "АТК", val: profile.rpg.atk, color: "#ef4444" },
+                  { icon: <Shield size={12} />, label: "ЗЩТ", val: profile.rpg.def, color: "#3b82f6" },
+                  { icon: "❤️", label: "HP", val: profile.rpg.hp, color: "#22c55e" },
+                  { icon: "⚡", label: "КРИТ", val: `${(profile.rpg.crit * 100).toFixed(0)}%`, color: "#f59e0b" },
+                ].map(s => (
+                  <div key={s.label} className="rounded-xl p-2 text-center" style={{ backgroundColor: "var(--bg-secondary)" }}>
+                    <p className="text-base font-bold tabular-nums" style={{ color: s.color }}>{s.val}</p>
+                    <p className="text-[10px]" style={{ color: "var(--text-hint)" }}>{s.label}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Партнёр + питомец */}
+            {(profile?.partner_name || profile?.pet) && (
+              <div className="grid grid-cols-2 gap-3 px-4 mb-3">
+                {profile.partner_name && (
+                  <div className="rounded-xl p-3 flex items-center gap-2" style={{ backgroundColor: "var(--bg-secondary)" }}>
+                    <Heart size={14} style={{ color: "#e84393" }} />
+                    <div className="min-w-0">
+                      <p className="text-[10px]" style={{ color: "var(--text-hint)" }}>Партнёр</p>
+                      <p className="text-xs font-semibold truncate">{profile.partner_name}</p>
+                    </div>
+                  </div>
+                )}
+                {profile.pet && (
+                  <div className="rounded-xl p-3 flex items-center gap-2" style={{ backgroundColor: "var(--bg-secondary)" }}>
+                    <PawPrint size={14} style={{ color: "#a855f7" }} />
+                    <div className="min-w-0">
+                      <p className="text-[10px]" style={{ color: "var(--text-hint)" }}>Питомец</p>
+                      <p className="text-xs font-semibold truncate">{profile.pet.emoji} {profile.pet.name}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Сообщения */}
+            {(profile?.message_count ?? 0) > 0 && (
+              <div className="mx-4 mb-3 p-3 rounded-xl flex justify-between" style={{ backgroundColor: "var(--bg-secondary)" }}>
+                <span className="text-xs" style={{ color: "var(--text-hint)" }}>Сообщений</span>
+                <span className="text-xs font-bold">{profile!.message_count!.toLocaleString("ru-RU")}</span>
+              </div>
+            )}
+          </>
+        )}
       </div>
     </>
   );
