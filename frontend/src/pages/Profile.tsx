@@ -6,9 +6,17 @@ import { useEffect, useState, useCallback } from "react";
 import {
   Coins, Star, Heart, PawPrint, TrendingUp, Shield, Swords,
   MessageSquare, Gem, CalendarCheck, CheckCircle2, Flame,
+  ArrowUpCircle, ArrowDownCircle, Compass, Loader2, ScrollText,
 } from "lucide-react";
-import { fetchUserData, fetchCheckinStatus, doCheckin, petWalk } from "../lib/api";
-import type { UserData, BondInfo, CheckinStatus } from "../types";
+import {
+  fetchUserData, fetchCheckinStatus, doCheckin, petWalk,
+  familyDeposit, familyWithdraw, fetchFamilyLog,
+  fetchExpeditions, startExpedition, collectExpedition,
+} from "../lib/api";
+import type {
+  UserData, BondInfo, CheckinStatus,
+  FamilyLogEntry, ExpeditionsResponse,
+} from "../types";
 
 interface Props {
   userId: number;
@@ -16,18 +24,26 @@ interface Props {
 }
 
 const RANK_COLOR: Record<string, string> = {
-  developer: "#ff4757",
-  admin:     "#ffa502",
-  moderator: "#2ed573",
-  vip:       "#7bed9f",
-  user:      "var(--text-hint)",
+  developer:    "#ff4757",
+  owner:        "#f59e0b",
+  co_owner:     "#a855f7",
+  admin_senior: "#e84393",
+  admin_junior: "#3b82f6",
+  admin:        "#ffa502",
+  moderator:    "#2ed573",
+  vip:          "#7bed9f",
+  user:         "var(--text-hint)",
 };
 const RANK_LABEL: Record<string, string> = {
-  developer: "Разработчик",
-  admin:     "Администратор",
-  moderator: "Модератор",
-  vip:       "VIP",
-  user:      "Участник",
+  developer:    "Разработчик",
+  owner:        "Владелец",
+  co_owner:     "Совладелец",
+  admin_senior: "Стар. Администратор",
+  admin_junior: "Мл. Администратор",
+  admin:        "Администратор",
+  moderator:    "Модератор",
+  vip:          "VIP",
+  user:         "Участник",
 };
 
 export default function Profile({ chatId }: Props) {
@@ -37,6 +53,17 @@ export default function Profile({ chatId }: Props) {
   const [checkinLoading, setCiLoad] = useState(false);
   const [toast, setToast]           = useState<string | null>(null);
   const [petLoading, setPetLoading] = useState(false);
+
+  // Family wallet
+  const [familyAmount, setFamilyAmt]   = useState("");
+  const [familyBusy, setFamilyBusy]    = useState(false);
+  const [familyLog, setFamilyLog]      = useState<FamilyLogEntry[]>([]);
+  const [familyLogOpen, setFLogOpen]   = useState(false);
+
+  // Expeditions
+  const [expData, setExpData]     = useState<ExpeditionsResponse | null>(null);
+  const [expBusy, setExpBusy]     = useState(false);
+  const [expLoading, setExpLoad]  = useState(false);
 
   const showToast = useCallback((msg: string) => {
     setToast(msg);
@@ -98,6 +125,109 @@ export default function Profile({ chatId }: Props) {
       setPetLoading(false);
     }
   }, [chatId, data, petLoading, showToast]);
+
+  // Load expeditions
+  const loadExpeditions = useCallback(() => {
+    if (!chatId) return;
+    setExpLoad(true);
+    fetchExpeditions(chatId)
+      .then(setExpData)
+      .catch(() => {})
+      .finally(() => setExpLoad(false));
+  }, [chatId]);
+
+  useEffect(() => { loadExpeditions(); }, [loadExpeditions]);
+
+  const handleStartExpedition = useCallback(async (optionKey: string) => {
+    if (expBusy || !chatId) return;
+    setExpBusy(true);
+    try {
+      const r = await startExpedition(chatId, optionKey);
+      if (r.ok) {
+        showToast(`🧭 Экспедиция начата! (${r.mins ?? "?"} мин)`);
+        loadExpeditions();
+      } else {
+        showToast(r.error ?? "Ошибка");
+      }
+    } catch (e: unknown) {
+      showToast(e instanceof Error ? e.message : "Ошибка");
+    } finally {
+      setExpBusy(false);
+    }
+  }, [chatId, expBusy, showToast, loadExpeditions]);
+
+  const handleCollectExpedition = useCallback(async () => {
+    if (expBusy || !chatId) return;
+    setExpBusy(true);
+    try {
+      const r = await collectExpedition(chatId);
+      if (r.ok) {
+        let msg = "🎉 Экспедиция завершена!";
+        if (r.mora) msg += ` +${r.mora} 🪙`;
+        if (r.xp) msg += ` +${r.xp} XP`;
+        if (r.items?.length) msg += ` 📦 ${r.items.join(", ")}`;
+        showToast(msg);
+        loadExpeditions();
+        // Refresh profile
+        fetchUserData(chatId).then(setData).catch(() => {});
+      } else {
+        showToast(r.error ?? "Ошибка");
+      }
+    } catch (e: unknown) {
+      showToast(e instanceof Error ? e.message : "Ошибка");
+    } finally {
+      setExpBusy(false);
+    }
+  }, [chatId, expBusy, showToast, loadExpeditions]);
+
+  // Family wallet handlers
+  const handleFamilyDeposit = useCallback(async () => {
+    if (familyBusy || !chatId || !familyAmount) return;
+    setFamilyBusy(true);
+    try {
+      const r = await familyDeposit(chatId, parseInt(familyAmount));
+      if (r.ok) {
+        showToast(`✅ Внесено в семейный кошелёк! Личный: ${r.personal} · Семейный: ${r.family}`);
+        setData(prev => prev ? { ...prev, balance: r.personal, family_balance: r.family } : prev);
+        setFamilyAmt("");
+      } else {
+        showToast(r.error ?? "Ошибка");
+      }
+    } catch (e: unknown) {
+      showToast(e instanceof Error ? e.message : "Ошибка");
+    } finally {
+      setFamilyBusy(false);
+    }
+  }, [chatId, familyAmount, familyBusy, showToast]);
+
+  const handleFamilyWithdraw = useCallback(async () => {
+    if (familyBusy || !chatId || !familyAmount) return;
+    setFamilyBusy(true);
+    try {
+      const r = await familyWithdraw(chatId, parseInt(familyAmount));
+      if (r.ok) {
+        showToast(`✅ Снято из семейного кошелька! Личный: ${r.personal} · Семейный: ${r.family}`);
+        setData(prev => prev ? { ...prev, balance: r.personal, family_balance: r.family } : prev);
+        setFamilyAmt("");
+      } else {
+        showToast(r.error ?? "Ошибка");
+      }
+    } catch (e: unknown) {
+      showToast(e instanceof Error ? e.message : "Ошибка");
+    } finally {
+      setFamilyBusy(false);
+    }
+  }, [chatId, familyAmount, familyBusy, showToast]);
+
+  const handleLoadFamilyLog = useCallback(async () => {
+    if (!chatId) return;
+    setFLogOpen(!familyLogOpen);
+    if (!familyLogOpen) {
+      fetchFamilyLog(chatId)
+        .then(r => setFamilyLog(r.entries ?? []))
+        .catch(() => {});
+    }
+  }, [chatId, familyLogOpen]);
 
   if (error) return <ErrorBox message={error} />;
   if (!data)  return <ProfileSkeleton />;
@@ -239,7 +369,68 @@ export default function Profile({ chatId }: Props) {
         </Card>
       )}
 
-      {/* ── Партнёр ────────────────────────────────────────────── */}
+      {/* ── Экспедиции ─────────────────────────────────────────── */}
+      {data.pet && (
+        <Card>
+          <SectionTitle icon={<Compass size={15} />} label="Экспедиции" />
+          {expLoading ? (
+            <div className="flex items-center justify-center py-4">
+              <Loader2 size={18} className="animate-spin" style={{ color: "var(--text-hint)" }} />
+            </div>
+          ) : expData?.active ? (
+            <div className="mt-2 space-y-2">
+              <div className="rounded-lg p-2.5" style={{ backgroundColor: "var(--bg-primary)" }}>
+                <p className="text-sm font-medium">🧭 {expData.active.label}</p>
+                <p className="text-[11px]" style={{ color: "var(--text-hint)" }}>
+                  {expData.active.finished
+                    ? "✅ Завершена — можно собрать награду!"
+                    : `⏳ Осталось: ${expData.active.mins_left} мин`}
+                </p>
+              </div>
+              {expData.active.finished && (
+                <button
+                  onClick={handleCollectExpedition}
+                  disabled={expBusy}
+                  className="w-full py-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-opacity disabled:opacity-40"
+                  style={{ backgroundColor: "#22c55e", color: "#fff" }}
+                >
+                  {expBusy ? <Loader2 size={12} className="animate-spin" /> : "🎁 Забрать награду"}
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="mt-2 space-y-1.5">
+              {(expData?.options ?? []).length === 0 ? (
+                <p className="text-[11px] text-center py-2" style={{ color: "var(--text-hint)" }}>
+                  Нет доступных экспедиций
+                </p>
+              ) : (
+                (expData?.options ?? []).map(opt => (
+                  <div key={opt.key} className="flex items-center justify-between rounded-lg p-2"
+                    style={{ backgroundColor: "var(--bg-primary)" }}>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium">{opt.label}</p>
+                      <p className="text-[10px]" style={{ color: "var(--text-hint)" }}>
+                        {opt.duration_min} мин · {opt.rewards_desc}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => handleStartExpedition(opt.key)}
+                      disabled={expBusy}
+                      className="shrink-0 ml-2 px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-opacity disabled:opacity-40"
+                      style={{ backgroundColor: "var(--accent)", color: "#fff" }}
+                    >
+                      {expBusy ? "..." : opt.cost > 0 ? `${fmt(opt.cost)} 🪙` : "Бесплатно"}
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+        </Card>
+      )}
+
+      {/* ── Партнёр + Семейный кошелёк ─────────────────────────── */}
       {data.has_partner && data.partner_name && (
         <Card>
           <SectionTitle icon={<Heart size={15} style={{ color: "#e84393" }} />} label="Партнёр" />
@@ -249,6 +440,61 @@ export default function Profile({ chatId }: Props) {
               <p>Семейный счёт</p>
               <p className="font-semibold" style={{ color: "var(--accent)" }}>{fmt(data.family_balance)} 🪙</p>
             </div>
+          </div>
+          {/* Family wallet controls */}
+          <div className="mt-3 space-y-2">
+            <div className="flex gap-2">
+              <input
+                type="number"
+                value={familyAmount}
+                onChange={e => setFamilyAmt(e.target.value)}
+                placeholder="Сумма"
+                className="flex-1 rounded-lg px-2.5 py-1.5 text-sm bg-transparent outline-none"
+                style={{ border: "1px solid var(--border)", color: "var(--text-primary)" }}
+              />
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={handleFamilyDeposit}
+                disabled={familyBusy || !familyAmount}
+                className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg text-xs font-semibold transition-opacity disabled:opacity-40"
+                style={{ backgroundColor: "#22c55e", color: "#fff" }}
+              >
+                {familyBusy ? <Loader2 size={11} className="animate-spin" /> : <><ArrowUpCircle size={12} /> Внести</>}
+              </button>
+              <button
+                onClick={handleFamilyWithdraw}
+                disabled={familyBusy || !familyAmount}
+                className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg text-xs font-semibold transition-opacity disabled:opacity-40"
+                style={{ backgroundColor: "#ef4444", color: "#fff" }}
+              >
+                {familyBusy ? <Loader2 size={11} className="animate-spin" /> : <><ArrowDownCircle size={12} /> Снять</>}
+              </button>
+            </div>
+            <button
+              onClick={handleLoadFamilyLog}
+              className="w-full flex items-center justify-center gap-1 py-1.5 rounded-lg text-xs font-medium transition-opacity"
+              style={{ backgroundColor: "var(--bg-primary)", color: "var(--text-hint)" }}
+            >
+              <ScrollText size={12} /> {familyLogOpen ? "Скрыть историю" : "История операций"}
+            </button>
+            {familyLogOpen && familyLog.length > 0 && (
+              <div className="space-y-1 max-h-40 overflow-y-auto">
+                {familyLog.map((e, i) => (
+                  <div key={i} className="flex justify-between items-center text-[11px] py-1"
+                    style={{ borderBottom: "1px solid var(--border)" }}>
+                    <span className="truncate flex-1">{e.description}</span>
+                    <span className="tabular-nums shrink-0 ml-2 font-medium"
+                      style={{ color: e.amount > 0 ? "#22c55e" : "#ef4444" }}>
+                      {e.amount > 0 ? "+" : ""}{fmt(e.amount)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+            {familyLogOpen && familyLog.length === 0 && (
+              <p className="text-[11px] text-center" style={{ color: "var(--text-hint)" }}>Нет операций</p>
+            )}
           </div>
         </Card>
       )}

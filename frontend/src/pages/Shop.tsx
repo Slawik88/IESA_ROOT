@@ -86,11 +86,17 @@ export default function Shop({ chatId }: Props) {
         // Purchase via shop catalog
         const r = await buyShopItem(chatId, "profile_theme", theme.key, true);
         if (r.ok) { showOk(`Тема «${theme.name}» куплена и активирована!`); }
-        else      { showErr(r.error ?? "Ошибка покупки"); }
+        else      { showErr(r.error ?? "Ошибка покупки"); setActivating(null); return; }
       } else {
         const r = await activateTheme(chatId, theme.key);
         if (r.ok) { showOk(`Тема «${theme.name}» активирована`); }
-        else      { showErr(r.error ?? "Ошибка"); }
+        else      { showErr(r.error ?? "Ошибка"); setActivating(null); return; }
+      }
+      // Instant apply: update data-theme on <html> without page reload
+      if (theme.key && theme.key !== "default") {
+        document.documentElement.setAttribute("data-theme", theme.key);
+      } else {
+        document.documentElement.removeAttribute("data-theme");
       }
       loadThemes();
     } catch (e: unknown) {

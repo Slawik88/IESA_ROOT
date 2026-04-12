@@ -1,19 +1,23 @@
 /* ──────────────────────────────────────────────────────────────
-   Admin.tsx — God Mode Panel v2
-   Иерархия: User < Moderator < Jr.Admin < Admin < Sr.Admin < Co-owner < Owner < Developer
-   Кросс-чат: переключение chat_id для управления любым чатом
+   Admin.tsx — God Mode Panel v3
+   Ranks synced with backend utils/ranks.py:
+     user(0) < moderator(1) < admin_junior(2) < admin_senior(3) < co_owner(4) < owner(5) < developer(6)
+   Chat selector from /api/dev/chats (ecosystem grouping)
+   Feature toggles load current DB state on mount
+   Treasury tab with payout
    ────────────────────────────────────────────────────────────── */
 import { useEffect, useState, useCallback } from "react";
 import {
   ShieldAlert, Search, ChevronDown, X, Loader2,
   Coins, Star, Users, Zap, ToggleLeft, ToggleRight,
-  Crown, Gem, Hash,
+  Crown, Gem, Landmark, ArrowRightLeft,
 } from "lucide-react";
 import {
   fetchDevUsers, devMemberUpdate, devAddMora, devAddXp,
-  devGiveItem, devFeatureToggle,
+  devGiveItem, devFeatureToggle, fetchDevChats, fetchFeatureFlags,
+  fetchTreasury, treasuryPayout, fetchMembers,
 } from "../lib/api";
-import type { DevUserEntry } from "../types";
+import type { DevUserEntry, DevChat, TreasuryResponse, ChatMember } from "../types";
 
 interface Props {
   userId: number;
@@ -21,29 +25,34 @@ interface Props {
   isDev?: boolean;
 }
 
-type AdminTab = "users" | "give" | "features";
+type AdminTab = "users" | "give" | "features" | "treasury";
 
-/* ── Жёсткая иерархия рангов ── */
+/* ── Жёсткая иерархия рангов (синхронизировано с utils/ranks.py) ── */
 const RANK_HIERARCHY = [
-  { key: "user",         label: "User",         color: "var(--text-hint)", level: 0 },
-  { key: "moderator",    label: "Moderator",    color: "#2ed573", level: 1 },
-  { key: "jr_admin",     label: "Junior Admin", color: "#3b82f6", level: 2 },
-  { key: "admin",        label: "Admin",        color: "#ffa502", level: 3 },
-  { key: "sr_admin",     label: "Senior Admin", color: "#e84393", level: 4 },
-  { key: "co_owner",     label: "Co-owner",     color: "#a855f7", level: 5 },
-  { key: "owner",        label: "Owner",        color: "#f59e0b", level: 6 },
-  { key: "developer",    label: "Developer",    color: "#ef4444", level: 7 },
+  { key: "user",          label: "User",         color: "var(--text-hint)", level: 0 },
+  { key: "moderator",     label: "Moderator",    color: "#2ed573", level: 1 },
+  { key: "admin_junior",  label: "Junior Admin", color: "#3b82f6", level: 2 },
+  { key: "admin_senior",  label: "Senior Admin", color: "#e84393", level: 3 },
+  { key: "co_owner",      label: "Co-owner",     color: "#a855f7", level: 4 },
+  { key: "owner",         label: "Owner",        color: "#f59e0b", level: 5 },
+  { key: "developer",     label: "Developer",    color: "#ef4444", level: 6 },
 ];
 
+/* ── Backend _ALLOWED_FEATURE_KEYS (synced with miniapp_views.py) ── */
 const FEATURE_LIST = [
-  { key: "feat_exchange",  label: "Биржа",     desc: "Облигации и торговля" },
-  { key: "feat_gacha",     label: "Гача",      desc: "Система призыва" },
-  { key: "feat_website",   label: "Сайт",      desc: "Ссылка на сайт" },
-  { key: "feat_miniapp",   label: "Mini App",  desc: "Telegram Mini App" },
-  { key: "feat_boss",      label: "Боссы",     desc: "Мировые боссы" },
-  { key: "feat_casino",    label: "Казино",    desc: "Дуэли и лотерея" },
-  { key: "feat_shop",      label: "Магазин",   desc: "Покупки за мору" },
-  { key: "feat_bank",      label: "Банк",      desc: "Вклады и проценты" },
+  { key: "feat_website",       label: "Сайт",           desc: "Ссылка на сайт" },
+  { key: "feat_antispam",      label: "Антиспам",       desc: "Автомодерация" },
+  { key: "feat_marriages",     label: "Браки",          desc: "Система браков" },
+  { key: "feat_pets",          label: "Питомцы",        desc: "Система питомцев" },
+  { key: "feat_casino",        label: "Казино",         desc: "Дуэли и лотерея" },
+  { key: "feat_random_events", label: "Ивенты",         desc: "Случайные события" },
+  { key: "feat_roulette",      label: "Рулетка",        desc: "Рулетка за мору" },
+  { key: "feat_chest",         label: "Сундуки",        desc: "Случайные сундуки" },
+  { key: "feat_coin_flip",     label: "Монетка",        desc: "Орёл/решка" },
+  { key: "feat_xp_gain",       label: "XP Gain",        desc: "Начисление опыта" },
+  { key: "feat_auto_welcome",  label: "Автоприветствие", desc: "Welcome-сообщение" },
+  { key: "bot_disabled",       label: "Бот отключён",   desc: "Полностью отключить бота" },
+  { key: "antiflood_mode",     label: "Антифлуд",       desc: "Режим антифлуда" },
 ];
 
 function getRankInfo(key: string) {
@@ -75,7 +84,21 @@ const ITEM_DB = [
 export default function Admin({ chatId: defaultChatId, userId, isDev }: Props) {
   const [tab, setTab]                   = useState<AdminTab>("users");
   const [activeChatId, setActiveChatId] = useState(defaultChatId);
-  const [chatIdInput, setChatIdInput]   = useState(String(defaultChatId));
+
+  /* ── Чат-селектор из БД ── */
+  const [chats, setChats]         = useState<DevChat[]>([]);
+  const [chatsLoading, setChatsL] = useState(false);
+  const [chatOpen, setChatOpen]   = useState(false);
+
+  useEffect(() => {
+    setChatsL(true);
+    fetchDevChats()
+      .then(r => setChats([...(r.groups ?? []), ...(r.admin_chats ?? [])]))
+      .catch(() => {})
+      .finally(() => setChatsL(false));
+  }, []);
+
+  const currentChatTitle = chats.find(c => c.chat_id === activeChatId)?.title ?? String(activeChatId);
 
   if (!isDev) {
     return (
@@ -95,12 +118,8 @@ export default function Admin({ chatId: defaultChatId, userId, isDev }: Props) {
     { key: "users",    label: "👤 Участники"  },
     { key: "give",     label: "🎁 Выдать"     },
     { key: "features", label: "⚙️ Функции"    },
+    { key: "treasury", label: "🏦 Казна"      },
   ];
-
-  const handleChatSwitch = () => {
-    const val = parseInt(chatIdInput, 10);
-    if (val && val !== 0) setActiveChatId(val);
-  };
 
   return (
     <div className="animate-fadeIn p-4 space-y-3 pb-24">
@@ -120,30 +139,45 @@ export default function Admin({ chatId: defaultChatId, userId, isDev }: Props) {
           <Crown size={16} style={{ color: "#f59e0b" }} className="ml-auto" />
         </div>
 
-        {/* Кросс-чат селектор */}
-        <div className="flex gap-2 mt-2">
-          <div className="flex items-center gap-1.5 flex-1 rounded-lg px-2.5 py-1.5"
-            style={{ backgroundColor: "#0a0505", border: "1px solid #ef444433" }}>
-            <Hash size={12} style={{ color: "#ef4444" }} />
-            <input
-              type="number"
-              value={chatIdInput}
-              onChange={e => setChatIdInput(e.target.value)}
-              className="flex-1 bg-transparent text-sm outline-none tabular-nums"
-              placeholder="Chat ID"
-              style={{ color: "var(--text-primary)" }}
-            />
-          </div>
+        {/* Chat selector dropdown */}
+        <div className="relative mt-2">
           <button
-            onClick={handleChatSwitch}
-            className="px-3 py-1.5 rounded-lg text-xs font-semibold shrink-0"
-            style={{ backgroundColor: "#ef4444", color: "#fff" }}
+            onClick={() => setChatOpen(!chatOpen)}
+            className="w-full flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm"
+            style={{ backgroundColor: "#0a0505", border: "1px solid #ef444433", color: "var(--text-primary)" }}
           >
-            Перейти
+            <span className="truncate">
+              {chatsLoading ? "Загрузка чатов..." : currentChatTitle}
+            </span>
+            <ChevronDown size={14} style={{ color: "#ef4444", transform: chatOpen ? "rotate(180deg)" : "none", transition: "transform 0.2s" }} />
           </button>
+          {chatOpen && chats.length > 0 && (
+            <div className="absolute left-0 right-0 top-full mt-1 z-20 max-h-60 overflow-y-auto rounded-lg"
+              style={{ backgroundColor: "var(--bg-primary)", border: "1px solid var(--border)" }}>
+              {chats.map(c => (
+                <button
+                  key={c.chat_id}
+                  onClick={() => { setActiveChatId(c.chat_id); setChatOpen(false); }}
+                  className="w-full text-left px-3 py-2 text-sm flex items-center justify-between gap-2 transition-colors"
+                  style={{
+                    backgroundColor: c.chat_id === activeChatId ? "#ef444422" : "transparent",
+                    borderBottom: "1px solid var(--border)",
+                  }}
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-medium">{c.title}</p>
+                    <p className="text-[10px]" style={{ color: "var(--text-hint)" }}>
+                      {c.chat_type} · {c.members} уч.
+                      {c.ecosystem_role && ` · ${c.ecosystem_role === "main" ? "🏠 Основной" : "🛡 Админ-чат"}`}
+                    </p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
         <p className="text-[10px] mt-1.5 tabular-nums" style={{ color: "#ef444488" }}>
-          Активный чат: {activeChatId}
+          ID: {activeChatId}
         </p>
       </div>
 
@@ -173,6 +207,7 @@ export default function Admin({ chatId: defaultChatId, userId, isDev }: Props) {
       {tab === "users"    && <UsersSection    chatId={activeChatId} />}
       {tab === "give"     && <GiveSection     chatId={activeChatId} />}
       {tab === "features" && <FeaturesSection chatId={activeChatId} />}
+      {tab === "treasury" && <TreasurySection chatId={activeChatId} />}
     </div>
   );
 }
@@ -567,10 +602,22 @@ function GiveSection({ chatId }: { chatId: number }) {
   );
 }
 
-/* ── Раздел функций ──────────────────────────────────────────────── */
+/* ── Раздел функций (загружает текущее состояние из БД) ────────── */
 function FeaturesSection({ chatId }: { chatId: number }) {
   const [states, setStates] = useState<Record<string, boolean>>({});
   const [busy, setBusy]     = useState<string | null>(null);
+  const [loading, setLoad]  = useState(true);
+
+  useEffect(() => {
+    if (!chatId) return;
+    setLoad(true);
+    fetchFeatureFlags(chatId)
+      .then(r => {
+        if (r.ok && r.flags) setStates(r.flags);
+      })
+      .catch(() => {})
+      .finally(() => setLoad(false));
+  }, [chatId]);
 
   const toggle = async (key: string) => {
     if (busy) return;
@@ -582,6 +629,16 @@ function FeaturesSection({ chatId }: { chatId: number }) {
     } catch { /* ignore */ }
     finally { setBusy(null); }
   };
+
+  if (loading) {
+    return (
+      <div className="space-y-2 animate-pulse">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div key={i} className="skeleton h-14 rounded-xl" />
+        ))}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-2">
@@ -618,6 +675,138 @@ function FeaturesSection({ chatId }: { chatId: number }) {
           </div>
         );
       })}
+    </div>
+  );
+}
+
+/* ── Раздел казны ──────────────────────────────────────────────── */
+function TreasurySection({ chatId }: { chatId: number }) {
+  const [data, setData]       = useState<TreasuryResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [members, setMembers] = useState<ChatMember[]>([]);
+  const [targetId, setTarget] = useState("");
+  const [amount, setAmount]   = useState("");
+  const [reason, setReason]   = useState("");
+  const [busy, setBusy]       = useState(false);
+  const [toast, setToast]     = useState<string | null>(null);
+
+  const showToast = (m: string) => { setToast(m); setTimeout(() => setToast(null), 3500); };
+
+  const reload = useCallback(() => {
+    if (!chatId) return;
+    setLoading(true);
+    fetchTreasury(chatId)
+      .then(setData)
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [chatId]);
+
+  useEffect(() => { reload(); }, [reload]);
+
+  useEffect(() => {
+    if (!chatId) return;
+    fetchMembers(chatId).then(r => setMembers(r.members ?? [])).catch(() => {});
+  }, [chatId]);
+
+  const doPayout = async () => {
+    if (busy || !targetId || !amount) return;
+    setBusy(true);
+    try {
+      const r = await treasuryPayout(chatId, parseInt(targetId), parseInt(amount), reason || "Выплата");
+      if (r.ok) {
+        showToast("✅ Выплачено! Баланс казны: " + (r.new_balance ?? "?"));
+        reload();
+      } else {
+        showToast("⚠️ " + (r.error ?? "Ошибка"));
+      }
+    } catch (e: unknown) {
+      showToast("⚠️ " + (e instanceof Error ? e.message : "Ошибка"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="space-y-3 animate-pulse">
+        <div className="skeleton h-24 rounded-xl" />
+        <div className="skeleton h-32 rounded-xl" />
+      </div>
+    );
+  }
+
+  const fmt = (n: number) => (n ?? 0).toLocaleString("ru-RU");
+
+  return (
+    <div className="space-y-3">
+      {toast && (
+        <div className="rounded-xl px-3 py-2 text-sm font-medium animate-fadeIn"
+          style={{ backgroundColor: "var(--bg-secondary)", border: "1px solid var(--accent)" }}>
+          {toast}
+        </div>
+      )}
+
+      {/* Balance card */}
+      <div className="rounded-xl p-4" style={{ backgroundColor: "var(--bg-secondary)" }}>
+        <div className="flex items-center gap-2 mb-2">
+          <Landmark size={18} style={{ color: "#f59e0b" }} />
+          <span className="text-sm font-semibold">Казна чата</span>
+        </div>
+        <p className="text-2xl font-bold tabular-nums">{fmt(data?.balance ?? 0)} 🪙</p>
+        {data?.total_collected != null && (
+          <p className="text-[11px] mt-1" style={{ color: "var(--text-hint)" }}>
+            Всего собрано: {fmt(data.total_collected)}
+          </p>
+        )}
+      </div>
+
+      {/* Payout form */}
+      <div className="rounded-xl p-3 space-y-2" style={{ backgroundColor: "var(--bg-secondary)" }}>
+        <p className="text-sm font-semibold flex items-center gap-1.5">
+          <ArrowRightLeft size={14} style={{ color: "#ef4444" }} /> Выплата из казны
+        </p>
+        <div>
+          <label className="text-[11px] font-medium" style={{ color: "var(--text-hint)" }}>Получатель</label>
+          <select
+            value={targetId}
+            onChange={e => setTarget(e.target.value)}
+            className="w-full mt-1 rounded-lg px-2.5 py-1.5 text-sm appearance-none outline-none"
+            style={{ backgroundColor: "var(--bg-primary)", border: "1px solid var(--border)", color: "var(--text-primary)" }}
+          >
+            <option value="">Выберите...</option>
+            {members.map(m => (
+              <option key={m.user_id} value={m.user_id}>{m.name} (#{m.user_id})</option>
+            ))}
+          </select>
+        </div>
+        <InputField icon={<Coins size={10} />} label="Сумма" value={amount} onChange={setAmount} type="number" />
+        <InputField icon={<Star size={10} />} label="Причина" value={reason} onChange={setReason} />
+        <button
+          onClick={doPayout}
+          disabled={busy || !targetId || !amount}
+          className="w-full py-2 rounded-lg text-sm font-semibold flex items-center justify-center gap-2 transition-opacity disabled:opacity-50"
+          style={{ backgroundColor: "#ef4444", color: "#fff" }}
+        >
+          {busy ? <Loader2 size={14} className="animate-spin" /> : "💸 Выплатить"}
+        </button>
+      </div>
+
+      {/* Recent transactions */}
+      {data?.recent && data.recent.length > 0 && (
+        <div className="rounded-xl p-3 space-y-1.5" style={{ backgroundColor: "var(--bg-secondary)" }}>
+          <p className="text-xs font-semibold uppercase" style={{ color: "var(--text-hint)" }}>Последние операции</p>
+          {data.recent.map((e, i) => (
+            <div key={i} className="flex justify-between items-center text-sm py-1"
+              style={{ borderBottom: "1px solid var(--border)" }}>
+              <span className="truncate flex-1">{e.description}</span>
+              <span className="tabular-nums shrink-0 ml-2 font-medium"
+                style={{ color: e.amount > 0 ? "#22c55e" : "#ef4444" }}>
+                {e.amount > 0 ? "+" : ""}{fmt(e.amount)}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
