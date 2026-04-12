@@ -21,6 +21,15 @@ import type {
   ShopCatalog,
   ShopBuyResult,
   TransferResult,
+  MembersResponse,
+  BondsResponse,
+  BondTradeResult,
+  TreasuryResponse,
+  TreasuryPayoutResult,
+  ThemesResponse,
+  ThemeActivateResult,
+  DevUsersResponse,
+  DevUpdateResult,
 } from "../types";
 
 // Глобальное хранилище initData — заполняется в useTelegram при старте.
@@ -310,5 +319,160 @@ export function transferMora(
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ chat_id: chatId, target_id: targetId, amount, cover_vat: coverVat }),
+  });
+}
+
+// ── Members ───────────────────────────────────────────────────
+
+/** Список участников чата (для визуального выбора получателя) */
+export function fetchMembers(chatId: number): Promise<MembersResponse> {
+  return request<MembersResponse>(`/api/members?chat_id=${chatId}`);
+}
+
+// ── Bonds / Биржа ─────────────────────────────────────────────
+
+/** Состояние биржи: цены облигаций + портфель текущего пользователя */
+export function fetchBonds(chatId: number): Promise<BondsResponse> {
+  return request<BondsResponse>(`/api/bonds?chat_id=${chatId}`);
+}
+
+/** Купить облигации */
+export function buyBond(
+  chatId: number,
+  bondKey: string,
+  amount: number,
+  wallet: "personal" | "family" = "personal",
+): Promise<BondTradeResult> {
+  return request<BondTradeResult>("/api/bonds/buy", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId, bond_key: bondKey, amount, wallet }),
+  });
+}
+
+/** Продать облигации */
+export function sellBond(
+  chatId: number,
+  bondKey: string,
+  amount: number,
+): Promise<BondTradeResult> {
+  return request<BondTradeResult>("/api/bonds/sell", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId, bond_key: bondKey, amount }),
+  });
+}
+
+// ── Treasury / Казна ──────────────────────────────────────────
+
+/** Казна чата (только dev/owner) */
+export function fetchTreasury(chatId: number): Promise<TreasuryResponse> {
+  return request<TreasuryResponse>(`/api/treasury?chat_id=${chatId}`);
+}
+
+/** Выплата из казны (только dev) */
+export function treasuryPayout(
+  chatId: number,
+  targetId: number,
+  amount: number,
+  reason: string,
+): Promise<TreasuryPayoutResult> {
+  return request<TreasuryPayoutResult>("/api/treasury/payout", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId, target_id: targetId, amount, reason }),
+  });
+}
+
+// ── Themes / Темы профиля ─────────────────────────────────────
+
+/** Список тем профиля с состоянием владения */
+export function fetchThemes(chatId: number): Promise<ThemesResponse> {
+  return request<ThemesResponse>(`/api/themes?chat_id=${chatId}`);
+}
+
+/** Активировать тему профиля */
+export function activateTheme(chatId: number, themeKey: string): Promise<ThemeActivateResult> {
+  return request<ThemeActivateResult>("/api/themes", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId, theme_key: themeKey }),
+  });
+}
+
+// ── Admin (God Mode) ──────────────────────────────────────────
+
+/** Поиск пользователей в чате (только dev) */
+export function fetchDevUsers(chatId: number, q = ""): Promise<DevUsersResponse> {
+  return request<DevUsersResponse>(
+    `/api/dev/users?chat_id=${chatId}&q=${encodeURIComponent(q)}`,
+  );
+}
+
+/** Обновить профиль пользователя: баланс, XP, ранг (только dev) */
+export function devMemberUpdate(
+  chatId: number,
+  targetId: number,
+  balance: number,
+  xp: number,
+  rank: string,
+): Promise<DevUpdateResult> {
+  return request<DevUpdateResult>("/api/dev/member_update", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId, target_id: targetId, balance, xp, rank }),
+  });
+}
+
+/** Начислить/списать мору (только dev) */
+export function devAddMora(
+  chatId: number,
+  targetId: number,
+  amount: number,
+): Promise<DevUpdateResult> {
+  return request<DevUpdateResult>("/api/dev/add_mora", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId, target_id: targetId, amount }),
+  });
+}
+
+/** Добавить XP пользователю (только dev) */
+export function devAddXp(
+  chatId: number,
+  targetId: number,
+  amount: number,
+): Promise<DevUpdateResult> {
+  return request<DevUpdateResult>("/api/dev/add_xp", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId, target_id: targetId, amount }),
+  });
+}
+
+/** Выдать предмет пользователю (только dev) */
+export function devGiveItem(
+  chatId: number,
+  targetId: number,
+  itemName: string,
+  rarity: string,
+): Promise<DevUpdateResult> {
+  return request<DevUpdateResult>("/api/dev/give_item", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId, target_id: targetId, item_name: itemName, rarity }),
+  });
+}
+
+/** Переключить фичу (включить/выключить) для чата (только dev) */
+export function devFeatureToggle(
+  chatId: number,
+  feature: string,
+  enabled: boolean,
+): Promise<DevUpdateResult> {
+  return request<DevUpdateResult>("/api/dev/feature_toggle", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId, feature, enabled }),
   });
 }

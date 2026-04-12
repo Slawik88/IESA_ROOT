@@ -422,3 +422,100 @@ export interface TransferResult {
   vat?: number;
   error?: string;
 }
+
+// ── /api/members ──────────────────────────────────────────────
+export interface ChatMember {
+  user_id: number;
+  name: string;
+}
+export interface MembersResponse {
+  members: ChatMember[];
+}
+
+// ── /api/bonds ────────────────────────────────────────────────
+export interface BondPrice {
+  key: string;
+  name: string;
+  description?: string;
+  current_price: number;
+  prev_price?: number;
+  price_history?: number[];
+}
+export interface UserBond {
+  bond_key: string;
+  amount: number;
+  current_price: number;
+  total_value: number;
+}
+export interface BondsResponse {
+  bonds: BondPrice[];
+  holdings: UserBond[];
+  balance: number;
+  family_balance?: number;
+}
+export interface BondTradeResult {
+  ok: boolean;
+  new_balance?: number;
+  amount_traded?: number;
+  error?: string;
+}
+
+// ── /api/treasury ─────────────────────────────────────────────
+export interface TreasuryEntry {
+  description: string;
+  amount: number;
+  ts: string;
+}
+export interface TreasuryResponse {
+  ok?: boolean;
+  balance: number;
+  total_collected?: number;
+  recent?: TreasuryEntry[];
+  error?: string;
+}
+export interface TreasuryPayoutResult {
+  ok: boolean;
+  new_balance?: number;
+  error?: string;
+}
+
+// ── /api/themes ───────────────────────────────────────────────
+export interface ProfileTheme {
+  key: string;
+  name: string;
+  tier: string;
+  source: string;
+  price: number;
+  header: string;
+  separator: string;
+  footer: string;
+  owned: boolean;
+  active: boolean;
+}
+export interface ThemesResponse {
+  themes: ProfileTheme[];
+  crystals?: number;
+}
+export interface ThemeActivateResult {
+  ok: boolean;
+  error?: string;
+}
+
+// ── /api/dev/users ────────────────────────────────────────────
+export interface DevUserEntry {
+  user_id: number;
+  name: string;
+  balance: number;
+  xp: number;
+  rank: string;
+  level?: number;
+}
+export interface DevUsersResponse {
+  users: DevUserEntry[];
+}
+export interface DevUpdateResult {
+  ok: boolean;
+  message?: string;
+  new_balance?: number;
+  error?: string;
+}
