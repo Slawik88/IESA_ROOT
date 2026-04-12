@@ -1185,7 +1185,8 @@ async def cb_profile_nav(callback: CallbackQuery):
         if not user:
             await callback.answer("❌ Не найден", show_alert=True)
             return
-        from config import PROFILE_THEMES, BADGE_DEFINITIONS
+        from config import PROFILE_THEMES
+        from services.achievements import ACH_BY_KEY
         from handlers.economy import TOP_FRAMES, _frame_emoji
         chat_id = callback.message.chat.id
         stats = await get_user_stats(uid, chat_id)
@@ -1204,7 +1205,7 @@ async def cb_profile_nav(callback: CallbackQuery):
         theme = PROFILE_THEMES.get(theme_key, PROFILE_THEMES["default"])
         badge_keys = await get_user_badges(uid, chat_id)
         badges_str = " ".join(
-            BADGE_DEFINITIONS[bk]["emoji"] for bk in badge_keys if bk in BADGE_DEFINITIONS
+            ACH_BY_KEY[bk]["emoji"] for bk in badge_keys if bk in ACH_BY_KEY
         )
         equipped = await get_all_equipped_items(uid, chat_id)
 
@@ -1326,15 +1327,15 @@ async def cb_profile_nav(callback: CallbackQuery):
         except Exception as _e:
             _log.debug("%s", _e)
     elif action == "badges":
-        from config import BADGE_DEFINITIONS
+        from services.achievements import ACH_BY_KEY
         chat_id = callback.message.chat.id
         badge_keys = await get_user_badges(uid, chat_id)
         lines = ["🏅 <b>Бейджи</b>\n━━━━━━━━━━━━━━━━━━━━\n"]
         if badge_keys:
             for bk in badge_keys:
-                bd = BADGE_DEFINITIONS.get(bk)
+                bd = ACH_BY_KEY.get(bk)
                 if bd:
-                    lines.append(f"{bd['emoji']} <b>{bd['name']}</b> — <i>{bd['desc']}</i>")
+                    lines.append(f"{bd['emoji']} <b>{bd['title']}</b> — <i>{bd['description']}</i>")
         else:
             lines.append("<i>Пока нет бейджей. Играй и зарабатывай!</i>")
         lines.append("\n━━━━━━━━━━━━━━━━━━━━")
@@ -1444,7 +1445,8 @@ async def cmd_time(message: Message, cmd_args: str):
 
 @router.message(BotCommand("я", "профиль", "me", "мой профиль"))
 async def cmd_me(message: Message, cmd_args: str):
-    from config import DEVELOPER_ID, PROFILE_THEMES, BADGE_DEFINITIONS, MAX_WARNS
+    from config import DEVELOPER_ID, PROFILE_THEMES, MAX_WARNS
+    from services.achievements import ACH_BY_KEY
     from handlers.economy import TOP_FRAMES, _frame_emoji
     from database.db import xp_for_level, get_active_buffs, get_user_community_roles, get_user_talents
     from shared_prices import TALENT_TREE
@@ -1487,7 +1489,7 @@ async def cmd_me(message: Message, cmd_args: str):
     # Badges
     badge_keys = await get_user_badges(uid, chat_id) if is_group else []
     badges_str = " ".join(
-        BADGE_DEFINITIONS[bk]["emoji"] for bk in badge_keys if bk in BADGE_DEFINITIONS
+        ACH_BY_KEY[bk]["emoji"] for bk in badge_keys if bk in ACH_BY_KEY
     )
 
     # Equipped legendary
