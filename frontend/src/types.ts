@@ -539,3 +539,89 @@ export interface PetFeedResult {
   reduced?: number;
   error?: string;
 }
+
+// ── /api/dev/chats ────────────────────────────────────────────
+export interface DevChat {
+  chat_id: number;
+  title: string;
+  chat_type: string;
+  members: number;
+  ecosystem_id: number | null;
+  ecosystem_label: string | null;
+  ecosystem_role: string | null;
+}
+export interface DevChatsResponse {
+  groups: DevChat[];
+  admin_chats: DevChat[];
+}
+
+// ── /api/dev/feature_toggle GET ───────────────────────────────
+export interface FeatureFlagsResponse {
+  ok: boolean;
+  flags: Record<string, boolean>;
+}
+
+// ── /api/family ───────────────────────────────────────────────
+export interface FamilyTransferResult {
+  ok: boolean;
+  personal: number;
+  family: number;
+  error?: string;
+}
+
+export interface FamilyLogEntry {
+  description: string;
+  amount: number;
+  ts: string;
+}
+export interface FamilyLogResponse {
+  entries: FamilyLogEntry[];
+}
+
+// ── /api/expeditions ──────────────────────────────────────────
+export interface ExpeditionOption {
+  key: string;
+  label: string;
+  duration_min: number;
+  cost: number;
+  rewards_desc: string;
+}
+export interface ActiveExpedition {
+  option_key: string;
+  label: string;
+  started_at: string;
+  ends_at: string;
+  mins_left: number;
+  finished: boolean;
+}
+export interface ExpeditionsResponse {
+  ok: boolean;
+  active: ActiveExpedition | null;
+  options: ExpeditionOption[];
+  has_pet: boolean;
+  error?: string;
+}
+export interface ExpeditionStartResult {
+  ok: boolean;
+  ends_at?: string;
+  mins?: number;
+  error?: string;
+}
+export interface ExpeditionCollectResult {
+  ok: boolean;
+  rewards?: string;
+  mora?: number;
+  xp?: number;
+  items?: string[];
+  error?: string;
+}
+
+// ── /api/wallet/history ───────────────────────────────────────
+export interface WalletHistoryEntry {
+  description: string;
+  amount: number;
+  ts: string;
+}
+export interface WalletHistoryResponse {
+  history: WalletHistoryEntry[];
+}

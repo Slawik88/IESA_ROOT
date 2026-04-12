@@ -32,6 +32,14 @@ import type {
   DevUpdateResult,
   PetWalkResult,
   PetFeedResult,
+  DevChatsResponse,
+  FeatureFlagsResponse,
+  FamilyTransferResult,
+  FamilyLogResponse,
+  ExpeditionsResponse,
+  ExpeditionStartResult,
+  ExpeditionCollectResult,
+  WalletHistoryResponse,
 } from "../types";
 
 // Глобальное хранилище initData — заполняется в useTelegram при старте.
@@ -497,4 +505,73 @@ export function petFeed(chatId: number, foodKey: string, walletType: "personal" 
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ chat_id: chatId, food_key: foodKey, wallet_type: walletType }),
   });
+}
+
+// ── Dev: chats & feature flags ────────────────────────────────
+
+/** Список чатов бота (только dev) */
+export function fetchDevChats(): Promise<DevChatsResponse> {
+  return request<DevChatsResponse>("/api/dev/chats");
+}
+
+/** Текущие флаги функций для чата (только dev) */
+export function fetchFeatureFlags(chatId: number): Promise<FeatureFlagsResponse> {
+  return request<FeatureFlagsResponse>(`/api/dev/feature_toggle?chat_id=${chatId}`);
+}
+
+// ── Family wallet ─────────────────────────────────────────────
+
+/** Пополнить семейный кошелёк */
+export function familyDeposit(chatId: number, amount: number): Promise<FamilyTransferResult> {
+  return request<FamilyTransferResult>("/api/family/deposit", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId, amount }),
+  });
+}
+
+/** Снять из семейного кошелька */
+export function familyWithdraw(chatId: number, amount: number): Promise<FamilyTransferResult> {
+  return request<FamilyTransferResult>("/api/family/withdraw", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId, amount }),
+  });
+}
+
+/** Лог семейного кошелька */
+export function fetchFamilyLog(chatId: number): Promise<FamilyLogResponse> {
+  return request<FamilyLogResponse>(`/api/family/log?chat_id=${chatId}`);
+}
+
+// ── Expeditions ───────────────────────────────────────────────
+
+/** Текущая экспедиция + опции */
+export function fetchExpeditions(chatId: number): Promise<ExpeditionsResponse> {
+  return request<ExpeditionsResponse>(`/api/expeditions?chat_id=${chatId}`);
+}
+
+/** Начать экспедицию */
+export function startExpedition(chatId: number, optionKey: string, walletType: "personal" | "family" = "personal"): Promise<ExpeditionStartResult> {
+  return request<ExpeditionStartResult>("/api/expeditions/start", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId, option_key: optionKey, wallet_type: walletType }),
+  });
+}
+
+/** Забрать награду экспедиции */
+export function collectExpedition(chatId: number): Promise<ExpeditionCollectResult> {
+  return request<ExpeditionCollectResult>("/api/expeditions/collect", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId }),
+  });
+}
+
+// ── Wallet history ────────────────────────────────────────────
+
+/** История кошелька */
+export function fetchWalletHistory(chatId: number): Promise<WalletHistoryResponse> {
+  return request<WalletHistoryResponse>(`/api/wallet/history?chat_id=${chatId}`);
 }

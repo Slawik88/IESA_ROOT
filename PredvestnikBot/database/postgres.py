@@ -215,21 +215,30 @@ class PostgresConnection:
             raise RuntimeError("Соединение не установлено")
         return _ExecuteContext(self._conn, sql, params)
 
-    async def fetch(self, sql, params=None):
+    async def fetch(self, sql, *args, params=None):
         if not self._conn:
             raise RuntimeError("Соединение не установлено")
+        if args and params is None:
+            params = args
         sql, params = _convert_placeholders(sql, params)
         return await self._conn.fetch(sql, *params)
 
-    async def fetchone(self, sql, params=None):
+    async def fetchone(self, sql, *args, params=None):
         if not self._conn:
             raise RuntimeError("Соединение не установлено")
+        if args and params is None:
+            params = args
         sql, params = _convert_placeholders(sql, params)
         return await self._conn.fetchrow(sql, *params)
 
-    async def fetchval(self, sql, params=None):
+    # Alias for code that uses raw asyncpg calling convention
+    fetchrow = fetchone
+
+    async def fetchval(self, sql, *args, params=None):
         if not self._conn:
             raise RuntimeError("Соединение не установлено")
+        if args and params is None:
+            params = args
         sql, params = _convert_placeholders(sql, params)
         return await self._conn.fetchval(sql, *params)
     async def commit(self):
