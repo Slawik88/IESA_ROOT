@@ -5718,11 +5718,11 @@ def miniapp_achievements(request):
     try:
         from asgiref.sync import async_to_sync as _a2s
         if mode == "leaderboard":
-            from api.achievements import get_global_achievements_leaderboard
-            data = _a2s(get_global_achievements_leaderboard)(chat_id)
+            from services.achievements import get_leaderboard
+            data = _a2s(get_leaderboard)(chat_id)
             return JsonResponse({"ok": True, "leaderboard": data}, json_dumps_params={"ensure_ascii": False}, headers=headers)
-        from api.achievements import get_all_achievements_with_status
-        data = _a2s(get_all_achievements_with_status)(uid, chat_id)
+        from services.achievements import get_user_achievements
+        data = _a2s(get_user_achievements)(uid, chat_id)
         return JsonResponse(
             data,
             json_dumps_params={"ensure_ascii": False},
