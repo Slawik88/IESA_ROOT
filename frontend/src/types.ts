@@ -509,6 +509,8 @@ export interface DevUserEntry {
   xp: number;
   rank: string;
   level?: number;
+  message_count?: number;
+  reputation?: number;
 }
 export interface DevUsersResponse {
   users: DevUserEntry[];
@@ -624,4 +626,48 @@ export interface WalletHistoryEntry {
 }
 export interface WalletHistoryResponse {
   history: WalletHistoryEntry[];
+}
+
+// ── /api/casino ───────────────────────────────────────────────
+export interface CoinFlipResult {
+  ok: boolean;
+  win: boolean;
+  bet: number;
+  prize: number;
+  win_tax: number;
+  new_balance: number;
+  quest_done: boolean;
+}
+
+export interface RouletteItemPrize {
+  item_key: string;
+  item_name: string;
+  item_type: string;
+  effect: string;
+}
+
+export interface RouletteResult {
+  ok: boolean;
+  number: number;
+  color: "red" | "black" | "green";
+  win: boolean;
+  gross_profit: number;
+  win_tax: number;
+  net_prize: number;
+  new_balance: number;
+  item_prize: RouletteItemPrize | null;
+}
+
+export interface LotteryStatusResult {
+  ok: boolean;
+  tickets: number;
+  week: string;
+  ticket_price: number;
+}
+
+export interface LotteryBuyResult {
+  ok: boolean;
+  tickets: number;
+  ticket_price: number;
+  new_balance: number;
 }

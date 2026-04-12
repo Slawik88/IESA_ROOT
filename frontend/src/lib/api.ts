@@ -40,6 +40,10 @@ import type {
   ExpeditionStartResult,
   ExpeditionCollectResult,
   WalletHistoryResponse,
+  CoinFlipResult,
+  RouletteResult,
+  LotteryStatusResult,
+  LotteryBuyResult,
 } from "../types";
 
 // Глобальное хранилище initData — заполняется в useTelegram при старте.
@@ -426,11 +430,12 @@ export function devMemberUpdate(
   balance: number,
   xp: number,
   rank: string,
+  reputation?: number,
 ): Promise<DevUpdateResult> {
   return request<DevUpdateResult>("/api/dev/member_update", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ chat_id: chatId, target_id: targetId, balance, xp, rank }),
+    body: JSON.stringify({ chat_id: chatId, target_id: targetId, balance, xp, rank, reputation }),
   });
 }
 
@@ -574,4 +579,38 @@ export function collectExpedition(chatId: number): Promise<ExpeditionCollectResu
 /** История кошелька */
 export function fetchWalletHistory(chatId: number): Promise<WalletHistoryResponse> {
   return request<WalletHistoryResponse>(`/api/wallet/history?chat_id=${chatId}`);
+}
+
+// ── Casino ────────────────────────────────────────────────────
+
+/** Орёл или решка */
+export function casinoCoinFlip(chatId: number, amount: number): Promise<CoinFlipResult> {
+  return request<CoinFlipResult>("/api/casino/coin", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId, amount }),
+  });
+}
+
+/** Рулетка */
+export function casinoRoulette(chatId: number, betType: string, amount: number): Promise<RouletteResult> {
+  return request<RouletteResult>("/api/casino/roulette", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId, bet_type: betType, amount }),
+  });
+}
+
+/** Статус лотереи */
+export function fetchLotteryStatus(chatId: number): Promise<LotteryStatusResult> {
+  return request<LotteryStatusResult>(`/api/casino/lottery?chat_id=${chatId}`);
+}
+
+/** Купить лотерейный билет */
+export function buyLotteryTicket(chatId: number): Promise<LotteryBuyResult> {
+  return request<LotteryBuyResult>("/api/casino/lottery", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId }),
+  });
 }

@@ -229,7 +229,7 @@ async def get_bonds_status(uid: int, chat_id: int) -> dict:
 
     Returns the same shape the miniapp_bonds GET view expects.
     """
-    from database.db import get_bond_price_history, get_bond_prices, get_user_bonds
+    from database.db import get_bond_price_history, get_bond_prices, get_user_bonds, get_mora
 
     try:
         from config import BOND_DEFAULTS
@@ -278,16 +278,17 @@ async def get_bonds_status(uid: int, chat_id: int) -> dict:
         pnl_mora = amount * current_price - invested if amount > 0 else 0
         pnl_pct = round(pnl_mora / invested * 100, 1) if invested > 0 else 0
         bonds_out.append({
-            "key":       bk,
-            "name":      bname,
-            "price":     current_price,
-            "amount":    amount,
-            "invested":  invested,
-            "avg_price": avg_price,
-            "pnl_mora":  pnl_mora,
-            "pnl_pct":   pnl_pct,
-            "value":     amount * current_price,
-            "history":   history.get(bk, []),
+            "key":           bk,
+            "name":          bname,
+            "price":         current_price,
+            "current_price": current_price,
+            "amount":        amount,
+            "invested":      invested,
+            "avg_price":     avg_price,
+            "pnl_mora":      pnl_mora,
+            "pnl_pct":       pnl_pct,
+            "value":         amount * current_price,
+            "history":       history.get(bk, []),
         })
 
     # Timestamp of last price update — used by the mini app to detect price changes
@@ -298,8 +299,30 @@ async def get_bonds_status(uid: int, chat_id: int) -> dict:
     except Exception as _e:
         _log.debug("%s", _e)
 
+    # User mora balance
+    user_balance = 0
+    try:
+        mora = await get_mora(uid, chat_id)
+        user_balance = mora["balance"] if mora else 0
+    except Exception as _e:
+        _log.debug("get_mora: %s", _e)
+
+    # Holdings array for frontend (UserBond[])
+    holdings_out = [
+        {
+            "bond_key":     b["key"],
+            "amount":       b["amount"],
+            "current_price": b["current_price"],
+            "total_value":  b["value"],
+        }
+        for b in bonds_out if b["amount"] > 0
+    ]
+
     return {
         "bonds":              bonds_out,
+        "holdings":           holdings_out,
+        "balance":            user_balance,
+        "family_balance":     0,
         "market_trend":       market_trend,
         "market_ticks":       market_ticks,
         "prices_updated_at":  prices_updated_at,

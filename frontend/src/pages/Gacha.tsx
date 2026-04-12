@@ -10,6 +10,7 @@ import type { GachaItem, GachaRollResult } from "../types";
 
 const SINGLE_PRICE = 80;
 const MULTI_PRICE  = 700;
+const BULK_PRICE   = 3500;
 
 export const RARITY_COLOR: Record<string, string> = {
   junk:      "#9ca3af",
@@ -51,7 +52,7 @@ export default function Gacha({ chatId }: Props) {
     setTimeout(() => setToast(null), 3500);
   }, []);
 
-  const handleRoll = useCallback(async (count: 1 | 10) => {
+  const handleRoll = useCallback(async (count: 1 | 10 | 50) => {
     if (!chatId) { showToast("Нет chat_id"); return; }
     setPhase("rolling");
     try {
@@ -121,6 +122,13 @@ export default function Gacha({ chatId }: Props) {
               accent="#a855f7"
               discount="-13%"
               onClick={() => handleRoll(10)}
+            />
+            <RollButton
+              label="Крутить 50 раз"
+              price={BULK_PRICE}
+              accent="#f59e0b"
+              discount="-13%"
+              onClick={() => handleRoll(50)}
             />
           </div>
 

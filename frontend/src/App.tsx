@@ -3,7 +3,7 @@
    Навигация: Профиль | Гача | Инвентарь | Банк | Магазин | Задания | Топ | Сезон | Ачивки | Биржа | [Адм.]
    ────────────────────────────────────────────────────────────── */
 import { useState, useEffect, Component, type ReactNode, type ErrorInfo } from "react";
-import { User, Sparkles, Backpack, ScrollText, Trophy, Medal, Star, Landmark, ShoppingBag, TrendingUp, ShieldAlert } from "lucide-react";
+import { User, Sparkles, Backpack, ScrollText, Trophy, Medal, Star, Landmark, ShoppingBag, TrendingUp, ShieldAlert, Dices } from "lucide-react";
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
   constructor(props: { children: ReactNode }) {
@@ -49,10 +49,11 @@ import Season from "./pages/Season";
 import Bank from "./pages/Bank";
 import Shop from "./pages/Shop";
 import Exchange from "./pages/Exchange";
+import Casino from "./pages/Casino";
 import Admin from "./pages/Admin";
 import NotInTelegram from "./pages/NotInTelegram";
 
-type Tab = "profile" | "gacha" | "inventory" | "bank" | "shop" | "quests" | "leaderboard" | "season" | "achievements" | "exchange" | "admin";
+type Tab = "profile" | "gacha" | "inventory" | "bank" | "shop" | "quests" | "leaderboard" | "season" | "achievements" | "exchange" | "casino" | "admin";
 
 const BASE_TABS: { key: Tab; label: string; Icon: typeof User }[] = [
   { key: "profile",      label: "Профиль",  Icon: User },
@@ -61,6 +62,7 @@ const BASE_TABS: { key: Tab; label: string; Icon: typeof User }[] = [
   { key: "bank",         label: "Банк",     Icon: Landmark },
   { key: "shop",         label: "Магазин",  Icon: ShoppingBag },
   { key: "exchange",     label: "Биржа",    Icon: TrendingUp },
+  { key: "casino",       label: "Казино",   Icon: Dices },
   { key: "quests",       label: "Задания",  Icon: ScrollText },
   { key: "leaderboard",  label: "Топ",      Icon: Trophy },
   { key: "season",       label: "Сезон",    Icon: Star },
@@ -115,6 +117,7 @@ export default function App() {
           {tab === "bank"         && <Bank         userId={userId} chatId={chatId} />}
           {tab === "shop"         && <Shop         userId={userId} chatId={chatId} />}
           {tab === "exchange"     && <Exchange     userId={userId} chatId={chatId} isDev={isDev} />}
+          {tab === "casino"       && <Casino        userId={userId} chatId={chatId} />}
           {tab === "quests"       && <Quests       userId={userId} chatId={chatId} />}
           {tab === "leaderboard"  && <Leaderboard  chatId={chatId} />}
           {tab === "season"       && <Season />}
