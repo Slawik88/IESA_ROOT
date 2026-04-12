@@ -4,7 +4,7 @@
    Prices: single=80🪙  multi=700🪙
    ────────────────────────────────────────────────────────────── */
 import { useState, useCallback } from "react";
-import { Sparkles, Star, AlertCircle, ChevronLeft } from "lucide-react";
+import { Sparkles, Star, AlertCircle, ChevronLeft, Info, X } from "lucide-react";
 import { rollGacha } from "../lib/api";
 import type { GachaItem, GachaRollResult } from "../types";
 
@@ -44,6 +44,7 @@ export default function Gacha({ chatId }: Props) {
   const [result, setResult]     = useState<GachaRollResult | null>(null);
   const [toast, setToast]       = useState<string | null>(null);
   const [legendaryOverlay, setLegendaryOverlay] = useState(false);
+  const [showOdds, setShowOdds] = useState(false);
 
   const showToast = useCallback((msg: string) => {
     setToast(msg);
@@ -128,6 +129,16 @@ export default function Gacha({ chatId }: Props) {
               <p>⚪ Хлам · 🟢 Обычный · 🔵 Редкий · 🟡 Легендарный</p>
               <p>Pity счётчик защищает от длинной полосы неудач</p>
             </div>
+          </div>
+
+          <div className="px-4 mt-3">
+            <button
+              onClick={() => setShowOdds(true)}
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium"
+              style={{ backgroundColor: "var(--bg-secondary)", color: "var(--text-hint)" }}
+            >
+              <Info size={15} /> Шансы выпадения
+            </button>
           </div>
         </div>
       )}
@@ -302,6 +313,68 @@ export default function Gacha({ chatId }: Props) {
           </div>
         );
       })()}
+
+      {/* ── Модалка шансов ── */}
+      {showOdds && (
+        <>
+          <div className="fixed inset-0 z-50 bg-black/60" onClick={() => setShowOdds(false)} />
+          <div
+            className="fixed inset-x-4 top-8 bottom-8 z-[51] rounded-2xl overflow-y-auto"
+            style={{ backgroundColor: "var(--bg-primary)" }}
+          >
+            <div className="sticky top-0 flex items-center justify-between p-4 rounded-t-2xl" style={{ backgroundColor: "var(--bg-primary)", borderBottom: "1px solid var(--border)" }}>
+              <h3 className="font-bold text-base">Шансы выпадения</h3>
+              <button onClick={() => setShowOdds(false)} style={{ color: "var(--text-hint)" }}><X size={20} /></button>
+            </div>
+            <div className="p-4 space-y-4">
+              {/* Общие шансы */}
+              <div className="space-y-2">
+                <p className="text-xs font-semibold uppercase" style={{ color: "var(--text-hint)" }}>Вероятность по редкости</p>
+                {[
+                  { rarity: "legendary", label: "✨ Легендарный", pct: "2%", color: "#f59e0b" },
+                  { rarity: "rare", label: "💙 Редкий", pct: "13%", color: "#3b82f6" },
+                  { rarity: "common", label: "🟢 Обычный", pct: "50%", color: "#22c55e" },
+                  { rarity: "junk", label: "⚪ Хлам", pct: "35%", color: "#9ca3af" },
+                ].map(r => (
+                  <div key={r.rarity} className="flex items-center justify-between rounded-lg p-2.5" style={{ backgroundColor: "var(--bg-secondary)" }}>
+                    <span className="text-sm font-medium">{r.label}</span>
+                    <span className="text-sm font-bold tabular-nums" style={{ color: r.color }}>{r.pct}</span>
+                  </div>
+                ))}
+              </div>
+              {/* Pity */}
+              <div className="rounded-xl p-3" style={{ backgroundColor: "var(--bg-secondary)" }}>
+                <p className="text-sm font-semibold mb-1">🛡 Pity-система</p>
+                <p className="text-xs" style={{ color: "var(--text-hint)" }}>
+                  Гарантированный легендарный предмет каждые 90 роллов без legendary-дропа.
+                  При Pity 75+ шанс legendary плавно увеличивается (soft pity).
+                </p>
+              </div>
+              {/* Категории предметов */}
+              <div className="space-y-2">
+                <p className="text-xs font-semibold uppercase" style={{ color: "var(--text-hint)" }}>Типы предметов в пуле</p>
+                {[
+                  { icon: "⚔️", name: "Оружие", desc: "ATK-статы, слот weapon" },
+                  { icon: "⛑", name: "Шлемы", desc: "DEF-статы, слот helmet" },
+                  { icon: "🛡", name: "Броня", desc: "HP / DEF статы, слот armor" },
+                  { icon: "👢", name: "Сапоги", desc: "Бонусы скорости, слот boots" },
+                  { icon: "💎", name: "Артефакты", desc: "CRIT-статы, слот artifact" },
+                  { icon: "⚗️", name: "Расходники", desc: "Зелья, бафы, камни заточки" },
+                  { icon: "🎨", name: "Косметика", desc: "Рамки, эффекты, облики" },
+                ].map(c => (
+                  <div key={c.name} className="flex items-center gap-3 rounded-lg p-2.5" style={{ backgroundColor: "var(--bg-secondary)" }}>
+                    <span className="text-lg">{c.icon}</span>
+                    <div>
+                      <p className="text-sm font-medium">{c.name}</p>
+                      <p className="text-[11px]" style={{ color: "var(--text-hint)" }}>{c.desc}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* ── Тост ── */}
       {toast && (
