@@ -43,6 +43,7 @@ export default function Gacha({ chatId }: Props) {
   const [phase, setPhase]       = useState<Phase>("idle");
   const [result, setResult]     = useState<GachaRollResult | null>(null);
   const [toast, setToast]       = useState<string | null>(null);
+  const [legendaryOverlay, setLegendaryOverlay] = useState(false);
 
   const showToast = useCallback((msg: string) => {
     setToast(msg);
@@ -55,6 +56,7 @@ export default function Gacha({ chatId }: Props) {
     try {
       const res = await rollGacha(chatId, count);
       setResult(res);
+      if (res.items.some(i => i.rarity === "legendary")) setLegendaryOverlay(true);
       setPhase("result");
       if (res.quest_done) showToast(`🎯 Квест выполнен! +${res.quest_xp} XP +${res.quest_mora} 🪙`);
     } catch (e: unknown) {
@@ -130,33 +132,50 @@ export default function Gacha({ chatId }: Props) {
         </div>
       )}
 
-      {/* ── Состояние: ROLLING — анимация ── */}
+      {/* ── Состояние: ROLLING — улучшенная анимация ── */}
       {phase === "rolling" && (
-        <div className="flex-1 flex flex-col items-center justify-center gap-6 p-8">
+        <div className="flex-1 flex flex-col items-center justify-center gap-6 p-8 relative overflow-hidden">
+          {/* Фоновые лучи */}
           <div
-            className="w-32 h-32 rounded-full flex items-center justify-center animate-orb"
+            className="absolute inset-0 opacity-30"
             style={{
-              background: "radial-gradient(circle, #f59e0b44 0%, #a855f744 50%, #3b82f644 100%)",
-              border: "2px solid #f59e0b66",
-              boxShadow: "0 0 40px #f59e0b44",
+              background: "conic-gradient(from 0deg at 50% 50%, #f59e0b00, #f59e0b33, #a855f733, #3b82f633, #f59e0b00)",
+              animation: "gachaRaysSpin 3s linear infinite",
+            }}
+          />
+          {/* Центральный орб */}
+          <div
+            className="relative w-36 h-36 rounded-full flex items-center justify-center z-10"
+            style={{
+              background: "radial-gradient(circle, #f59e0b44 0%, #a855f744 40%, transparent 70%)",
+              animation: "gachaOrbPulse 1.5s ease-in-out infinite",
             }}
           >
-            <Star size={52} style={{ color: "#f59e0b" }} className="animate-spin" />
+            <div
+              className="w-24 h-24 rounded-full flex items-center justify-center"
+              style={{
+                background: "radial-gradient(circle, #f59e0b88 0%, #a855f744 100%)",
+                border: "2px solid #f59e0b88",
+                boxShadow: "0 0 60px #f59e0b44, 0 0 120px #a855f722",
+              }}
+            >
+              <Star size={44} style={{ color: "#f59e0b" }} className="animate-spin" />
+            </div>
           </div>
-          <p className="text-lg font-semibold" style={{ color: "var(--text-hint)" }}>
+          <p className="text-lg font-semibold z-10" style={{ color: "var(--text-hint)" }}>
             Призываю...
           </p>
-          {/* Частицы */}
-          {[...Array(8)].map((_, i) => (
+          {/* Орбитальные частицы */}
+          {[...Array(12)].map((_, i) => (
             <div
               key={i}
-              className="absolute w-2 h-2 rounded-full"
+              className="absolute w-1.5 h-1.5 rounded-full"
               style={{
-                backgroundColor: ["#f59e0b","#3b82f6","#a855f7","#22c55e"][i % 4],
-                animation: `orbPulse ${0.8 + i * 0.15}s ease-in-out infinite`,
-                animationDelay: i * 0.1 + "s",
-                left: `${15 + i * 10}%`,
-                top: `${40 + (i % 3) * 10}%`,
+                backgroundColor: ["#f59e0b", "#3b82f6", "#a855f7", "#22c55e", "#f472b6", "#ef4444"][i % 6],
+                animation: `gachaParticleOrbit ${2 + i * 0.3}s ease-in-out infinite`,
+                animationDelay: `${i * 0.15}s`,
+                left: `${50 + Math.cos((i * Math.PI * 2) / 12) * 40}%`,
+                top: `${50 + Math.sin((i * Math.PI * 2) / 12) * 40}%`,
               }}
             />
           ))}
@@ -224,6 +243,65 @@ export default function Gacha({ chatId }: Props) {
           )}
         </div>
       )}
+
+      {/* ── Легендарный оверлей ── */}
+      {legendaryOverlay && result && (() => {
+        const legendaryItem = result.items.find(i => i.rarity === "legendary");
+        if (!legendaryItem) return null;
+        return (
+          <div
+            className="fixed inset-0 z-50 flex flex-col items-center justify-center"
+            style={{ backgroundColor: "rgba(0,0,0,0.92)" }}
+            onClick={() => setLegendaryOverlay(false)}
+          >
+            {/* Золотая вспышка */}
+            <div
+              className="absolute inset-0 pointer-events-none"
+              style={{
+                background: "radial-gradient(circle, #f59e0b44 0%, transparent 70%)",
+                animation: "legendaryFlash 1.5s ease-out forwards",
+              }}
+            />
+            {/* Лучи */}
+            <div
+              className="absolute pointer-events-none"
+              style={{
+                width: "150vw", height: "150vw",
+                left: "50%", top: "50%",
+                background: "conic-gradient(from 0deg, transparent, #f59e0b22, transparent, #f59e0b22, transparent, #f59e0b22, transparent, #f59e0b22, transparent)",
+                animation: "gachaRaysSpin 6s linear infinite",
+                borderRadius: "50%",
+              }}
+            />
+            {/* Карточка */}
+            <div
+              className="relative z-10 animate-bounceIn rounded-2xl p-6 flex flex-col items-center gap-3 w-72"
+              style={{
+                backgroundColor: "#f59e0b18",
+                border: "2px solid #f59e0b88",
+                animation: "bounceIn 0.6s cubic-bezier(0.34,1.56,0.64,1) both, legendaryGlow 2s ease-in-out infinite",
+              }}
+            >
+              <span className="text-5xl">{"⭐"}</span>
+              <p className="text-xl font-bold" style={{ color: "#f59e0b" }}>{legendaryItem.name}</p>
+              <span
+                className="text-[11px] font-bold px-2 py-0.5 rounded-full"
+                style={{ backgroundColor: "#f59e0b30", color: "#f59e0b" }}
+              >
+                ★ ЛЕГЕНДАРНЫЙ ★
+              </span>
+              {(legendaryItem.atk || legendaryItem.def_val || legendaryItem.hp) ? (
+                <div className="flex gap-3 text-xs mt-1" style={{ color: "var(--text-hint)" }}>
+                  {(legendaryItem.atk ?? 0) > 0 && <span>+{legendaryItem.atk} ATK</span>}
+                  {(legendaryItem.def_val ?? 0) > 0 && <span>+{legendaryItem.def_val} DEF</span>}
+                  {(legendaryItem.hp ?? 0) > 0 && <span>+{legendaryItem.hp} HP</span>}
+                </div>
+              ) : null}
+            </div>
+            <p className="text-xs mt-6 z-10" style={{ color: "#f59e0b88" }}>Нажмите, чтобы продолжить</p>
+          </div>
+        );
+      })()}
 
       {/* ── Тост ── */}
       {toast && (

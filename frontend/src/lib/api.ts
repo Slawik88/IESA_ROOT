@@ -30,6 +30,8 @@ import type {
   ThemeActivateResult,
   DevUsersResponse,
   DevUpdateResult,
+  PetWalkResult,
+  PetFeedResult,
 } from "../types";
 
 // Глобальное хранилище initData — заполняется в useTelegram при старте.
@@ -232,7 +234,7 @@ export function enhanceItem(
   itemId: number,
   useStone?: boolean,
 ): Promise<{ success: boolean; message: string; enhancement_level: number; balance: number }> {
-  return request("/api/enhance_item", {
+  return request("/api/enhance", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ chat_id: chatId, item_id: itemId, use_stone: useStone ?? null }),
@@ -474,5 +476,25 @@ export function devFeatureToggle(
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ chat_id: chatId, feature, enabled }),
+  });
+}
+
+// ── Pet ───────────────────────────────────────────────────────
+
+/** Отправить питомца на прогулку */
+export function petWalk(chatId: number): Promise<PetWalkResult> {
+  return request<PetWalkResult>("/api/pet/walk", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId }),
+  });
+}
+
+/** Покормить питомца */
+export function petFeed(chatId: number, foodKey: string, walletType: "personal" | "family" = "personal"): Promise<PetFeedResult> {
+  return request<PetFeedResult>("/api/pet/feed", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId, food_key: foodKey, wallet_type: walletType }),
   });
 }

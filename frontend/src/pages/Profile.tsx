@@ -7,7 +7,7 @@ import {
   Coins, Star, Heart, PawPrint, TrendingUp, Shield, Swords,
   MessageSquare, Gem, CalendarCheck, CheckCircle2, Flame,
 } from "lucide-react";
-import { fetchUserData, fetchCheckinStatus, doCheckin } from "../lib/api";
+import { fetchUserData, fetchCheckinStatus, doCheckin, petWalk } from "../lib/api";
 import type { UserData, BondInfo, CheckinStatus } from "../types";
 
 interface Props {
@@ -36,6 +36,7 @@ export default function Profile({ chatId }: Props) {
   const [checkin, setCheckin]       = useState<CheckinStatus | null>(null);
   const [checkinLoading, setCiLoad] = useState(false);
   const [toast, setToast]           = useState<string | null>(null);
+  const [petLoading, setPetLoading] = useState(false);
 
   const showToast = useCallback((msg: string) => {
     setToast(msg);
@@ -79,6 +80,24 @@ export default function Profile({ chatId }: Props) {
       setCiLoad(false);
     }
   }, [chatId, checkin, checkinLoading, showToast]);
+
+  const handlePetWalk = useCallback(async () => {
+    if (petLoading || !chatId || !data?.pet || data.pet.on_walk || data.pet.fatigue >= 100) return;
+    setPetLoading(true);
+    try {
+      const res = await petWalk(chatId);
+      if (res.ok) {
+        showToast(`${res.pet_emoji} ${res.pet_name} отправлен на прогулку! (${res.walk_mins} мин)`);
+        setData(prev => prev && prev.pet ? { ...prev, pet: { ...prev.pet, on_walk: true, walk_mins_left: res.walk_mins ?? 30 } } : prev);
+      } else {
+        showToast(res.error ?? "Ошибка");
+      }
+    } catch (e: unknown) {
+      showToast(e instanceof Error ? e.message : "Ошибка");
+    } finally {
+      setPetLoading(false);
+    }
+  }, [chatId, data, petLoading, showToast]);
 
   if (error) return <ErrorBox message={error} />;
   if (!data)  return <ProfileSkeleton />;
@@ -201,6 +220,22 @@ export default function Profile({ chatId }: Props) {
               }
             </div>
           </div>
+          {/* Кнопки действий */}
+          <div className="flex gap-2 mt-3">
+            <button
+              onClick={handlePetWalk}
+              disabled={petLoading || data.pet.on_walk || data.pet.fatigue >= 100}
+              className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold transition-opacity disabled:opacity-40"
+              style={{ backgroundColor: "var(--accent)", color: "#fff" }}
+            >
+              🐾 {data.pet.on_walk ? "На прогулке..." : petLoading ? "..." : "Прогулка"}
+            </button>
+          </div>
+          {data.pet.fatigue >= 100 && !data.pet.on_walk && (
+            <p className="text-[10px] mt-1.5 text-center" style={{ color: "#ef4444" }}>
+              Питомец устал — покормите его в магазине 🍖
+            </p>
+          )}
         </Card>
       )}
 

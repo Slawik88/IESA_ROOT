@@ -519,3 +519,23 @@ export interface DevUpdateResult {
   new_balance?: number;
   error?: string;
 }
+
+// ── /api/pet ──────────────────────────────────────────────────
+export interface PetWalkResult {
+  ok: boolean;
+  fatigue?: number;
+  reduced?: number;
+  pet_emoji?: string;
+  pet_name?: string;
+  walk_mins?: number;
+  reward?: number;
+  error?: string;
+}
+export interface PetFeedResult {
+  ok: boolean;
+  pet_emoji?: string;
+  pet_name?: string;
+  food_name?: string;
+  reduced?: number;
+  error?: string;
+}
