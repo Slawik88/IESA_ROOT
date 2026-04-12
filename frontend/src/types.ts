@@ -438,20 +438,35 @@ export interface BondPrice {
   name: string;
   description?: string;
   current_price: number;
+  price: number;
   prev_price?: number;
   price_history?: number[];
+  history?: { price: number; ts: string }[];
+  amount: number;
+  invested: number;
+  avg_price: number;
+  pnl_mora: number;
+  pnl_pct: number;
+  value: number;
 }
 export interface UserBond {
   bond_key: string;
   amount: number;
   current_price: number;
   total_value: number;
+  invested?: number;
+  avg_price?: number;
+  pnl_mora?: number;
+  pnl_pct?: number;
 }
 export interface BondsResponse {
   bonds: BondPrice[];
   holdings: UserBond[];
   balance: number;
   family_balance?: number;
+  market_trend?: string;
+  market_ticks?: number;
+  prices_updated_at?: string;
 }
 export interface BondTradeResult {
   ok: boolean;

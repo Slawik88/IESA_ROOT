@@ -1,17 +1,17 @@
 /* ──────────────────────────────────────────────────────────────
-   Exchange.tsx — Биржа (облигации) + Казна
-   GET /api/bonds?chat_id=X
+   Exchange.tsx — Биржа 2.0 (спарклайны + шторка покупки/продажи)
+   GET  /api/bonds?chat_id=X
    POST /api/bonds/buy  { chat_id, bond_key, amount, wallet }
    POST /api/bonds/sell { chat_id, bond_key, amount }
-   GET /api/treasury?chat_id=X  (только admin/dev)
+   GET  /api/treasury?chat_id=X  (только admin/dev)
    ────────────────────────────────────────────────────────────── */
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import {
   TrendingUp, TrendingDown, Minus, RefreshCw, Landmark,
-  ArrowUpCircle, ArrowDownCircle, Wallet, AlertCircle, Loader2,
+  Wallet, AlertCircle, Loader2, X, ChevronUp, ChevronDown,
 } from "lucide-react";
 import { fetchBonds, buyBond, sellBond, fetchTreasury } from "../lib/api";
-import type { BondsResponse, BondPrice, UserBond, TreasuryResponse } from "../types";
+import type { BondsResponse, BondPrice, TreasuryResponse } from "../types";
 
 interface Props {
   userId: number;
@@ -20,58 +20,418 @@ interface Props {
 }
 
 type ExTab = "market" | "portfolio" | "treasury";
-
+const BOND_MAX = 50;
 const fmt = (n: number) => n.toLocaleString("ru-RU");
 
+// ── Sparkline SVG ─────────────────────────────────────────────
+function Sparkline({ data, color, width = 80, height = 32 }: {
+  data: number[];
+  color: string;
+  width?: number;
+  height?: number;
+}) {
+  if (data.length < 2) return <div style={{ width, height }} />;
+  const min = Math.min(...data);
+  const max = Math.max(...data);
+  const range = max - min || 1;
+  const px = (v: number) => ((v - min) / range) * (height - 4) + 2;
+  const xi = (i: number) => (i / (data.length - 1)) * (width - 2) + 1;
+  const pts = data.map((v, i) => `${xi(i)},${height - px(v)}`).join(" ");
+  const fillId = `sg${color.replace(/[^a-z0-9]/gi, "")}${width}`;
+  return (
+    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} fill="none">
+      <defs>
+        <linearGradient id={fillId} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={color} stopOpacity="0.25" />
+          <stop offset="100%" stopColor={color} stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <polygon points={`1,${height} ${pts} ${xi(data.length - 1)},${height}`} fill={`url(#${fillId})`} />
+      <polyline points={pts} stroke={color} strokeWidth={1.5} strokeLinejoin="round" strokeLinecap="round" fill="none" />
+    </svg>
+  );
+}
+
+// ── Toast hook ────────────────────────────────────────────────
+function useToast() {
+  const [ok, setOk]   = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const showOk  = useCallback((m: string) => { setOk(m);  setTimeout(() => setOk(null),  3500); }, []);
+  const showErr = useCallback((m: string) => { setErr(m); setTimeout(() => setErr(null), 4000); }, []);
+  return { ok, err, showOk, showErr };
+}
+
+function extractErr(e: unknown): string {
+  if (!(e instanceof Error)) return "Ошибка";
+  const match = e.message.match(/API \d+: (.*)/s);
+  if (match) {
+    try { return (JSON.parse(match[1]) as { error?: string }).error ?? match[1]; }
+    catch { return match[1]; }
+  }
+  return e.message;
+}
+
+// ── Trade Bottom Sheet ────────────────────────────────────────
+interface TradeSheetProps {
+  bond: BondPrice;
+  balance: number;
+  onClose: () => void;
+  onDone: () => void;
+  chatId: number;
+}
+function TradeSheet({ bond, balance, onClose, onDone, chatId }: TradeSheetProps) {
+  const [amount, setAmount] = useState("1");
+  const [busy, setBusy]     = useState<"buy" | "sell" | null>(null);
+  const { ok, err, showOk, showErr } = useToast();
+
+  const histPrices = (bond.history ?? []).map(h => h.price);
+  const isUp = histPrices.length >= 2
+    ? histPrices[histPrices.length - 1] >= histPrices[histPrices.length - 2]
+    : true;
+  const color = isUp ? "#22c55e" : "#ef4444";
+
+  const amt     = Math.max(1, Math.min(BOND_MAX, Math.round(Number(amount)) || 1));
+  const totalCost = amt * bond.current_price;
+  const canBuy  = balance >= totalCost;
+  const canSell = bond.amount > 0;
+  const maxBuy  = Math.min(BOND_MAX - bond.amount, Math.floor(balance / bond.current_price));
+
+  const doBuy = async () => {
+    if (busy || amt <= 0 || !canBuy) return;
+    setBusy("buy");
+    try {
+      const res = await buyBond(chatId, bond.key, amt);
+      if (res.ok) {
+        showOk(`✅ Куплено ${amt} шт. «${bond.name}»`);
+        setTimeout(() => { onDone(); onClose(); }, 1200);
+      } else {
+        showErr((res as { error?: string }).error ?? "Ошибка покупки");
+      }
+    } catch (e) { showErr(extractErr(e)); }
+    finally { setBusy(null); }
+  };
+
+  const doSell = async () => {
+    if (busy || !canSell) return;
+    const sellAmt = Math.min(amt, bond.amount);
+    setBusy("sell");
+    try {
+      const res = await sellBond(chatId, bond.key, sellAmt);
+      if (res.ok) {
+        showOk(`💰 Продано ${sellAmt} шт.`);
+        setTimeout(() => { onDone(); onClose(); }, 1200);
+      } else {
+        showErr((res as { error?: string }).error ?? "Ошибка продажи");
+      }
+    } catch (e) { showErr(extractErr(e)); }
+    finally { setBusy(null); }
+  };
+
+  return (
+    <>
+      <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <div
+        className="fixed bottom-0 inset-x-0 z-50 rounded-t-3xl p-5 space-y-4 animate-slideUp"
+        style={{ backgroundColor: "var(--bg-secondary)", border: "1px solid var(--border)", maxHeight: "90vh", overflowY: "auto" }}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-lg font-bold">{bond.name}</p>
+            <p className="text-sm tabular-nums font-bold" style={{ color }}>
+              {fmt(bond.current_price)} 🪙
+              {bond.amount > 0 && bond.pnl_pct !== 0 && (
+                <span className="ml-2 text-xs">
+                  ({bond.pnl_pct > 0 ? "+" : ""}{bond.pnl_pct}%)
+                </span>
+              )}
+            </p>
+          </div>
+          <button onClick={onClose} className="p-2 rounded-xl" style={{ color: "var(--text-hint)" }}>
+            <X size={20} />
+          </button>
+        </div>
+
+        {/* Big sparkline */}
+        {histPrices.length >= 2 && (
+          <div className="rounded-2xl p-3 flex items-center justify-center"
+            style={{ backgroundColor: "var(--bg-primary)" }}>
+            <Sparkline data={histPrices} color={color} width={280} height={80} />
+          </div>
+        )}
+
+        {/* Portfolio stats if holding */}
+        {bond.amount > 0 && (
+          <div className="rounded-xl p-3 grid grid-cols-3 gap-2 text-center"
+            style={{ backgroundColor: "var(--bg-primary)" }}>
+            <div>
+              <p className="text-xs" style={{ color: "var(--text-hint)" }}>Кол-во</p>
+              <p className="text-sm font-bold tabular-nums">{bond.amount} шт.</p>
+            </div>
+            <div>
+              <p className="text-xs" style={{ color: "var(--text-hint)" }}>Ср. цена</p>
+              <p className="text-sm font-bold tabular-nums">{fmt(bond.avg_price)} 🪙</p>
+            </div>
+            <div>
+              <p className="text-xs" style={{ color: "var(--text-hint)" }}>PNL</p>
+              <p className="text-sm font-bold tabular-nums"
+                style={{ color: bond.pnl_mora >= 0 ? "#22c55e" : "#ef4444" }}>
+                {bond.pnl_mora >= 0 ? "+" : ""}{fmt(bond.pnl_mora)}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Amount input */}
+        <div>
+          <p className="text-xs font-medium mb-1.5" style={{ color: "var(--text-hint)" }}>
+            Количество (макс. {BOND_MAX})
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setAmount(String(Math.max(1, amt - 1)))}
+              className="w-8 h-8 rounded-lg flex items-center justify-center"
+              style={{ backgroundColor: "var(--bg-primary)" }}>
+              <ChevronDown size={16} />
+            </button>
+            <input
+              type="number" value={amount}
+              onChange={e => setAmount(e.target.value)}
+              min={1} max={BOND_MAX}
+              className="flex-1 text-center rounded-xl px-3 py-2 text-base font-bold outline-none"
+              style={{ backgroundColor: "var(--bg-primary)", border: "1px solid var(--border)", color: "var(--text-primary)" }}
+            />
+            <button
+              onClick={() => setAmount(String(Math.min(BOND_MAX, amt + 1)))}
+              className="w-8 h-8 rounded-lg flex items-center justify-center"
+              style={{ backgroundColor: "var(--bg-primary)" }}>
+              <ChevronUp size={16} />
+            </button>
+          </div>
+          {/* Quick buttons */}
+          <div className="flex gap-2 mt-2">
+            {[1, 5, 10, 25].map(n => (
+              <button key={n}
+                onClick={() => setAmount(String(n))}
+                className="flex-1 py-1 rounded-lg text-xs font-semibold"
+                style={{ backgroundColor: amt === n ? "var(--accent)" : "var(--bg-primary)", color: amt === n ? "#fff" : "var(--text-hint)" }}>
+                {n}
+              </button>
+            ))}
+            <button
+              onClick={() => maxBuy > 0 && setAmount(String(maxBuy))}
+              className="flex-1 py-1 rounded-lg text-xs font-semibold"
+              style={{ backgroundColor: "var(--bg-primary)", color: "var(--text-hint)" }}>
+              MAX
+            </button>
+          </div>
+        </div>
+
+        {/* Total cost */}
+        <div className="flex items-center justify-between rounded-xl p-3"
+          style={{ backgroundColor: "var(--bg-primary)" }}>
+          <span className="text-sm" style={{ color: "var(--text-hint)" }}>Стоимость</span>
+          <span className="text-base font-bold tabular-nums">{fmt(totalCost)} 🪙</span>
+        </div>
+
+        {/* Buy / Sell */}
+        <div className="grid grid-cols-2 gap-3 pb-2">
+          <button
+            onClick={doBuy}
+            disabled={!!busy || !canBuy || maxBuy <= 0}
+            className="py-3 rounded-xl text-sm font-bold disabled:opacity-40 flex items-center justify-center gap-2"
+            style={{ backgroundColor: "#16a34a", color: "#fff" }}>
+            {busy === "buy" ? <Loader2 size={16} className="animate-spin" /> : <><TrendingUp size={16} /> Купить</>}
+          </button>
+          <button
+            onClick={doSell}
+            disabled={!!busy || !canSell}
+            className="py-3 rounded-xl text-sm font-bold disabled:opacity-40 flex items-center justify-center gap-2"
+            style={{ backgroundColor: "#dc2626", color: "#fff" }}>
+            {busy === "sell" ? <Loader2 size={16} className="animate-spin" /> : <><TrendingDown size={16} /> Продать</>}
+          </button>
+        </div>
+
+        {ok && (
+          <div className="rounded-xl px-4 py-3 text-sm font-medium"
+            style={{ backgroundColor: "#14532d", color: "#86efac" }}>{ok}</div>
+        )}
+        {err && (
+          <div className="rounded-xl px-4 py-3 text-sm font-medium"
+            style={{ backgroundColor: "#450a0a", color: "#fca5a5" }}>{err}</div>
+        )}
+      </div>
+    </>
+  );
+}
+
+// ── Market card ───────────────────────────────────────────────
+function BondCard({ bond, onClick }: { bond: BondPrice; onClick: () => void }) {
+  const histPrices = (bond.history ?? []).map(h => h.price);
+  const isFlat = histPrices.length >= 2
+    && histPrices[histPrices.length - 1] === histPrices[histPrices.length - 2];
+  const isUp = histPrices.length >= 2
+    ? histPrices[histPrices.length - 1] > histPrices[histPrices.length - 2]
+    : true;
+  const color = isFlat ? "#9ca3af" : isUp ? "#22c55e" : "#ef4444";
+  const pctChange = histPrices.length >= 2
+    ? ((histPrices[histPrices.length - 1] - histPrices[0]) / histPrices[0] * 100)
+    : 0;
+
+  return (
+    <div
+      className="rounded-2xl p-4 flex items-center gap-3 cursor-pointer transition-transform active:scale-[0.98]"
+      style={{ backgroundColor: "var(--bg-secondary)", border: "1px solid var(--border)" }}
+      onClick={onClick}
+    >
+      <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
+        style={{ backgroundColor: `${color}22` }}>
+        {isFlat ? <Minus size={20} color={color} />
+          : isUp ? <TrendingUp size={20} color={color} />
+          : <TrendingDown size={20} color={color} />}
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-semibold truncate">{bond.name}</p>
+        <p className="text-base font-bold tabular-nums" style={{ color }}>
+          {fmt(bond.current_price)} 🪙
+        </p>
+        {Math.abs(pctChange) > 0.1 && (
+          <p className="text-[11px] font-medium tabular-nums" style={{ color }}>
+            {pctChange >= 0 ? "+" : ""}{pctChange.toFixed(1)}% за период
+          </p>
+        )}
+      </div>
+      {histPrices.length >= 2 && (
+        <Sparkline data={histPrices} color={color} width={72} height={36} />
+      )}
+      {bond.amount > 0 && (
+        <div className="shrink-0 px-2 py-0.5 rounded-lg text-[11px] font-bold"
+          style={{ backgroundColor: "var(--accent)", color: "#fff" }}>
+          {bond.amount} шт.
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Portfolio tab ─────────────────────────────────────────────
+function PortfolioTab({ bonds, onOpenTrade }: { bonds: BondPrice[]; onOpenTrade: (b: BondPrice) => void }) {
+  const heldBonds = bonds.filter(b => b.amount > 0);
+  if (heldBonds.length === 0) {
+    return (
+      <div className="rounded-2xl p-8 text-center" style={{ backgroundColor: "var(--bg-secondary)" }}>
+        <Wallet size={40} strokeWidth={1.2} className="mx-auto mb-3" style={{ color: "var(--text-hint)" }} />
+        <p className="font-semibold">Портфель пуст</p>
+        <p className="text-sm mt-1" style={{ color: "var(--text-hint)" }}>
+          Перейдите на вкладку Рынок, чтобы купить облигации
+        </p>
+      </div>
+    );
+  }
+
+  const totalValue    = heldBonds.reduce((s, b) => s + b.value, 0);
+  const totalInvested = heldBonds.reduce((s, b) => s + b.invested, 0);
+  const totalPnl      = totalValue - totalInvested;
+  const totalPnlPct   = totalInvested > 0 ? (totalPnl / totalInvested * 100) : 0;
+  const summaryColor  = totalPnl >= 0 ? "#22c55e" : "#ef4444";
+
+  return (
+    <div className="space-y-3">
+      {/* Summary */}
+      <div className="rounded-2xl p-4 grid grid-cols-3 gap-3 text-center"
+        style={{ backgroundColor: "var(--bg-secondary)", border: "1px solid var(--border)" }}>
+        <div>
+          <p className="text-xs mb-1" style={{ color: "var(--text-hint)" }}>Стоимость</p>
+          <p className="text-sm font-bold tabular-nums">{fmt(totalValue)} 🪙</p>
+        </div>
+        <div>
+          <p className="text-xs mb-1" style={{ color: "var(--text-hint)" }}>Вложено</p>
+          <p className="text-sm font-bold tabular-nums">{fmt(totalInvested)} 🪙</p>
+        </div>
+        <div>
+          <p className="text-xs mb-1" style={{ color: "var(--text-hint)" }}>PNL</p>
+          <p className="text-sm font-bold tabular-nums" style={{ color: summaryColor }}>
+            {totalPnl >= 0 ? "+" : ""}{fmt(totalPnl)}
+          </p>
+          <p className="text-[11px] tabular-nums" style={{ color: summaryColor }}>
+            {totalPnlPct >= 0 ? "+" : ""}{totalPnlPct.toFixed(1)}%
+          </p>
+        </div>
+      </div>
+
+      {heldBonds.map(b => {
+        const pnlColor = b.pnl_mora >= 0 ? "#22c55e" : "#ef4444";
+        const histPrices = (b.history ?? []).map(h => h.price);
+        return (
+          <div key={b.key}
+            className="rounded-2xl p-4 flex items-center gap-3 cursor-pointer active:scale-[0.98] transition-transform"
+            style={{ backgroundColor: "var(--bg-secondary)", border: "1px solid var(--border)" }}
+            onClick={() => onOpenTrade(b)}>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold">{b.name}</p>
+              <p className="text-xs mt-0.5 tabular-nums" style={{ color: "var(--text-hint)" }}>
+                {b.amount} шт. · ср. {fmt(b.avg_price)} · тек. {fmt(b.current_price)} 🪙
+              </p>
+            </div>
+            {histPrices.length >= 2 && (
+              <Sparkline data={histPrices} color={pnlColor} width={60} height={30} />
+            )}
+            <div className="text-right shrink-0">
+              <p className="text-sm font-bold tabular-nums">{fmt(b.value)} 🪙</p>
+              <p className="text-xs tabular-nums font-semibold" style={{ color: pnlColor }}>
+                {b.pnl_mora >= 0 ? "+" : ""}{fmt(b.pnl_mora)}
+                {" "}({b.pnl_pct >= 0 ? "+" : ""}{b.pnl_pct}%)
+              </p>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── Main ──────────────────────────────────────────────────────
 export default function Exchange({ chatId, isDev }: Props) {
   const [data, setData]         = useState<BondsResponse | null>(null);
   const [treasury, setTreasury] = useState<TreasuryResponse | null>(null);
   const [error, setError]       = useState("");
   const [tab, setTab]           = useState<ExTab>("market");
-  const [busy, setBusy]         = useState<string | null>(null);
-  const [toast, setToast]       = useState<string | null>(null);
-  const [toastErr, setToastErr] = useState<string | null>(null);
-
-  const showOk  = useCallback((m: string) => { setToast(m);    setTimeout(() => setToast(null), 3500); }, []);
-  const showErr = useCallback((m: string) => { setToastErr(m); setTimeout(() => setToastErr(null), 4000); }, []);
+  const [selected, setSelected] = useState<BondPrice | null>(null);
+  const loadRef = useRef(0);
 
   const load = useCallback(() => {
     if (!chatId) return;
     setError("");
-    fetchBonds(chatId).then(setData).catch((e: Error) => setError(e.message));
+    const seq = ++loadRef.current;
+    fetchBonds(chatId)
+      .then(d => { if (loadRef.current === seq) setData(d); })
+      .catch((e: Error) => { if (loadRef.current === seq) setError(e.message); });
   }, [chatId]);
 
   const loadTreasury = useCallback(() => {
     if (!chatId) return;
-    fetchTreasury(chatId).then(setTreasury).catch(() => { /* not accessible */ });
+    fetchTreasury(chatId).then(setTreasury).catch(() => {});
   }, [chatId]);
 
   useEffect(() => { load(); }, [load]);
-  useEffect(() => {
-    if (tab === "treasury") loadTreasury();
-  }, [tab, loadTreasury]);
+  useEffect(() => { if (tab === "treasury") loadTreasury(); }, [tab, loadTreasury]);
 
   if (!chatId) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 p-6 text-center">
         <TrendingUp size={48} strokeWidth={1.2} style={{ color: "var(--text-hint)" }} />
-        <div>
-          <p className="font-semibold">Нет контекста чата</p>
-          <p className="text-sm mt-1" style={{ color: "var(--text-hint)" }}>
-            Откройте Mini App из чата группы.
-          </p>
-        </div>
+        <p className="font-semibold">Нет контекста чата</p>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="p-4 text-center" style={{ color: "#e74c3c" }}>
-        <AlertCircle size={32} className="mx-auto mb-2" />
+      <div className="p-6 text-center">
+        <AlertCircle size={32} className="mx-auto mb-2" style={{ color: "#ef4444" }} />
         <p className="font-medium">Ошибка загрузки биржи</p>
-        <p className="text-sm mt-1 break-all">{error}</p>
-        <button onClick={load} className="mt-3 text-sm underline" style={{ color: "var(--accent)" }}>
+        <p className="text-sm mt-1 mb-3 break-all" style={{ color: "var(--text-hint)" }}>{error}</p>
+        <button onClick={load} className="text-sm underline" style={{ color: "var(--accent)" }}>
           Повторить
         </button>
       </div>
@@ -82,73 +442,37 @@ export default function Exchange({ chatId, isDev }: Props) {
     return (
       <div className="p-4 space-y-3 animate-pulse">
         {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="skeleton h-20 rounded-xl" />
+          <div key={i} className="skeleton h-20 rounded-2xl" />
         ))}
       </div>
     );
   }
 
+  const trend = data.market_trend ?? "neutral";
+  const trendColor = trend === "bull" ? "#22c55e" : trend === "bear" ? "#ef4444" : "#9ca3af";
+  const trendLabel = trend === "bull" ? "📈 Бычий рынок" : trend === "bear" ? "📉 Медвежий рынок" : "➡️ Нейтральный рынок";
+
   const tabs: { key: ExTab; label: string }[] = [
     { key: "market",    label: "📈 Рынок" },
     { key: "portfolio", label: "💼 Портфель" },
-    ...(isDev || treasury ? [{ key: "treasury" as ExTab, label: "🏛 Казна" }] : []),
+    ...(isDev ? [{ key: "treasury" as ExTab, label: "🏛 Казна" }] : []),
   ];
-
-  const doBuy = async (bond: BondPrice) => {
-    if (busy) return;
-    const amtStr = window.prompt(`Купить облигацию «${bond.name}»\nЦена: ${fmt(bond.current_price)} 🪙/шт.\nКоличество:`);
-    const amt = parseInt(amtStr ?? "", 10);
-    if (!amt || amt <= 0) return;
-    setBusy(bond.key + ":buy");
-    try {
-      const res = await buyBond(chatId, bond.key, amt);
-      if (res.ok) {
-        showOk(`Куплено ${amt} шт. «${bond.name}». Баланс: ${fmt(res.new_balance ?? 0)} 🪙`);
-        load();
-      } else {
-        showErr(res.error ?? "Ошибка покупки");
-      }
-    } catch (e: unknown) {
-      showErr(e instanceof Error ? e.message : "Ошибка");
-    } finally {
-      setBusy(null);
-    }
-  };
-
-  const doSell = async (holding: UserBond) => {
-    if (busy) return;
-    const amtStr = window.prompt(
-      `Продать облигацию «${holding.bond_key}»\nУ вас: ${holding.amount} шт.\nКоличество:`,
-    );
-    const amt = parseInt(amtStr ?? "", 10);
-    if (!amt || amt <= 0) return;
-    setBusy(holding.bond_key + ":sell");
-    try {
-      const res = await sellBond(chatId, holding.bond_key, amt);
-      if (res.ok) {
-        showOk(`Продано ${amt} шт. Баланс: ${fmt(res.new_balance ?? 0)} 🪙`);
-        load();
-      } else {
-        showErr(res.error ?? "Ошибка продажи");
-      }
-    } catch (e: unknown) {
-      showErr(e instanceof Error ? e.message : "Ошибка");
-    } finally {
-      setBusy(null);
-    }
-  };
 
   return (
     <div className="animate-fadeIn p-4 space-y-3 pb-24">
 
-      {/* ── Заголовок ── */}
-      <div
-        className="rounded-2xl p-4 flex items-center justify-between"
-        style={{ backgroundColor: "var(--bg-secondary)" }}
-      >
-        <div className="flex items-center gap-2">
-          <TrendingUp size={20} style={{ color: "var(--accent)" }} />
-          <span className="font-bold text-base">Биржа</span>
+      {/* Header */}
+      <div className="rounded-2xl p-4 flex items-center justify-between"
+        style={{ backgroundColor: "var(--bg-secondary)", border: "1px solid var(--border)" }}>
+        <div>
+          <div className="flex items-center gap-2">
+            <TrendingUp size={18} style={{ color: "var(--accent)" }} />
+            <span className="font-bold">Биржа</span>
+          </div>
+          <p className="text-[11px] mt-0.5 font-medium" style={{ color: trendColor }}>
+            {trendLabel}
+            {(data.market_ticks ?? 0) > 0 && ` · ${data.market_ticks} тика`}
+          </p>
         </div>
         <div className="flex items-center gap-3">
           <div className="text-right">
@@ -159,221 +483,69 @@ export default function Exchange({ chatId, isDev }: Props) {
               </p>
             )}
           </div>
-          <button onClick={load} style={{ color: "var(--text-hint)" }}>
+          <button onClick={load} className="p-2 rounded-xl"
+            style={{ color: "var(--text-hint)", backgroundColor: "var(--bg-primary)" }}>
             <RefreshCw size={15} />
           </button>
         </div>
       </div>
 
-      {/* ── Вкладки ── */}
-      <div
-        className="flex gap-1 rounded-xl p-1 overflow-x-auto hide-scrollbar"
-        style={{ backgroundColor: "var(--bg-secondary)" }}
-      >
-        {tabs.map(({ key, label }) => {
-          const active = tab === key;
-          return (
-            <button
-              key={key}
-              onClick={() => setTab(key)}
-              className="flex-none px-3 py-1.5 text-sm font-medium rounded-lg transition-colors whitespace-nowrap"
-              style={{
-                backgroundColor: active ? "var(--accent)" : "transparent",
-                color: active ? "#fff" : "var(--text-hint)",
-              }}
-            >
-              {label}
-            </button>
-          );
-        })}
+      {/* Tabs */}
+      <div className="flex gap-1 rounded-xl p-1 overflow-x-auto hide-scrollbar"
+        style={{ backgroundColor: "var(--bg-secondary)" }}>
+        {tabs.map(({ key, label }) => (
+          <button key={key} onClick={() => setTab(key)}
+            className="flex-none px-3 py-1.5 text-sm font-medium rounded-lg transition-colors whitespace-nowrap"
+            style={{
+              backgroundColor: tab === key ? "var(--accent)" : "transparent",
+              color: tab === key ? "#fff" : "var(--text-hint)",
+            }}>
+            {label}
+          </button>
+        ))}
       </div>
 
-      {/* ── Рынок ── */}
+      {/* Market */}
       {tab === "market" && (
-        <BondMarket bonds={data.bonds} busy={busy} onBuy={doBuy} />
+        <div className="space-y-2">
+          {data.bonds.length === 0 ? (
+            <div className="rounded-2xl p-6 text-center" style={{ backgroundColor: "var(--bg-secondary)" }}>
+              <p className="text-sm" style={{ color: "var(--text-hint)" }}>Нет активных облигаций</p>
+            </div>
+          ) : (
+            data.bonds.map(b => (
+              <BondCard key={b.key} bond={b} onClick={() => setSelected(b)} />
+            ))
+          )}
+        </div>
       )}
 
-      {/* ── Портфель ── */}
+      {/* Portfolio */}
       {tab === "portfolio" && (
-        <Portfolio holdings={data.holdings} busy={busy} onSell={doSell} />
+        <PortfolioTab bonds={data.bonds} onOpenTrade={setSelected} />
       )}
 
-      {/* ── Казна ── */}
+      {/* Treasury */}
       {tab === "treasury" && (
         <TreasuryPanel treasury={treasury} onLoad={loadTreasury} />
       )}
 
-      {/* ── Тосты ── */}
-      {toast && (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 max-w-[90vw] px-4 py-2.5 rounded-xl text-sm font-medium shadow-lg pointer-events-none"
-          style={{ backgroundColor: "var(--bg-secondary)", color: "var(--text-primary)", border: "1px solid var(--accent)" }}>
-          {toast}
-        </div>
-      )}
-      {toastErr && (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 max-w-[90vw] px-4 py-2.5 rounded-xl text-sm font-medium shadow-lg pointer-events-none"
-          style={{ backgroundColor: "#450a0a", color: "#fca5a5", border: "1px solid #ef4444" }}>
-          {toastErr}
-        </div>
+      {/* Trade bottom sheet */}
+      {selected && (
+        <TradeSheet
+          bond={selected}
+          balance={data.balance}
+          chatId={chatId}
+          onClose={() => setSelected(null)}
+          onDone={() => { load(); setSelected(null); }}
+        />
       )}
     </div>
   );
 }
 
-/* ── Список облигаций на рынке ────────────────────────────────── */
-function BondMarket({
-  bonds, busy, onBuy,
-}: {
-  bonds: BondPrice[];
-  busy: string | null;
-  onBuy: (bond: BondPrice) => void;
-}) {
-  if (bonds.length === 0) {
-    return (
-      <div className="rounded-xl p-6 text-center" style={{ backgroundColor: "var(--bg-secondary)" }}>
-        <p className="text-sm" style={{ color: "var(--text-hint)" }}>Нет активных облигаций</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-2">
-      {bonds.map((b) => {
-        const trend = b.prev_price == null
-          ? null
-          : b.current_price > b.prev_price
-          ? "up"
-          : b.current_price < b.prev_price
-          ? "down"
-          : "flat";
-
-        return (
-          <div
-            key={b.key}
-            className="rounded-xl p-3 flex items-center justify-between gap-3"
-            style={{ backgroundColor: "var(--bg-secondary)" }}
-          >
-            <div className="flex items-center gap-3 min-w-0 flex-1">
-              {/* Trend icon */}
-              <div
-                className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-                style={{
-                  backgroundColor:
-                    trend === "up" ? "#14532d" : trend === "down" ? "#450a0a" : "var(--bg-primary)",
-                }}
-              >
-                {trend === "up"   && <TrendingUp   size={18} style={{ color: "#22c55e" }} />}
-                {trend === "down" && <TrendingDown size={18} style={{ color: "#ef4444" }} />}
-                {(trend === "flat" || trend === null) && (
-                  <Minus size={18} style={{ color: "var(--text-hint)" }} />
-                )}
-              </div>
-              <div className="min-w-0">
-                <p className="text-sm font-semibold truncate">{b.name ?? b.key}</p>
-                {b.description && (
-                  <p className="text-[11px] truncate" style={{ color: "var(--text-hint)" }}>
-                    {b.description}
-                  </p>
-                )}
-                <p className="text-xs tabular-nums font-bold mt-0.5" style={{ color: "var(--accent)" }}>
-                  {fmt(b.current_price)} 🪙/шт.
-                  {trend === "up" && (
-                    <span style={{ color: "#22c55e" }}> ↑</span>
-                  )}
-                  {trend === "down" && (
-                    <span style={{ color: "#ef4444" }}> ↓</span>
-                  )}
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={() => onBuy(b)}
-              disabled={!!busy}
-              className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-opacity disabled:opacity-40"
-              style={{ backgroundColor: "#22c55e", color: "#fff" }}
-            >
-              {busy === b.key + ":buy"
-                ? <Loader2 size={12} className="animate-spin" />
-                : <><ArrowUpCircle size={12} /> Купить</>}
-            </button>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-/* ── Портфель пользователя ────────────────────────────────────── */
-function Portfolio({
-  holdings, busy, onSell,
-}: {
-  holdings: UserBond[];
-  busy: string | null;
-  onSell: (h: UserBond) => void;
-}) {
-  if (holdings.length === 0) {
-    return (
-      <div className="rounded-xl p-6 text-center" style={{ backgroundColor: "var(--bg-secondary)" }}>
-        <Wallet size={32} strokeWidth={1.2} className="mx-auto mb-2" style={{ color: "var(--text-hint)" }} />
-        <p className="text-sm" style={{ color: "var(--text-hint)" }}>У вас нет облигаций</p>
-        <p className="text-xs mt-1" style={{ color: "var(--text-hint)" }}>
-          Перейдите на вкладку «Рынок» чтобы купить
-        </p>
-      </div>
-    );
-  }
-
-  const totalValue = holdings.reduce((s, h) => s + h.total_value, 0);
-
-  return (
-    <div className="space-y-2">
-      {/* Итого */}
-      <div
-        className="rounded-xl p-3 flex items-center justify-between"
-        style={{ backgroundColor: "var(--bg-secondary)" }}
-      >
-        <span className="text-sm font-medium" style={{ color: "var(--text-hint)" }}>Итого портфель</span>
-        <span className="text-base font-bold tabular-nums">{fmt(totalValue)} 🪙</span>
-      </div>
-
-      {holdings.map((h) => (
-        <div
-          key={h.bond_key}
-          className="rounded-xl p-3 flex items-center justify-between gap-3"
-          style={{ backgroundColor: "var(--bg-secondary)" }}
-        >
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold truncate">{h.bond_key}</p>
-            <p className="text-[11px]" style={{ color: "var(--text-hint)" }}>
-              {h.amount} шт. × {fmt(h.current_price)} 🪙
-            </p>
-            <p className="text-xs font-bold mt-0.5" style={{ color: "var(--accent)" }}>
-              = {fmt(h.total_value)} 🪙
-            </p>
-          </div>
-          <button
-            onClick={() => onSell(h)}
-            disabled={!!busy}
-            className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-opacity disabled:opacity-40"
-            style={{ backgroundColor: "#ef4444", color: "#fff" }}
-          >
-            {busy === h.bond_key + ":sell"
-              ? <Loader2 size={12} className="animate-spin" />
-              : <><ArrowDownCircle size={12} /> Продать</>}
-          </button>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-/* ── Казна ──────────────────────────────────────────────────────── */
-function TreasuryPanel({
-  treasury, onLoad,
-}: {
-  treasury: TreasuryResponse | null;
-  onLoad: () => void;
-}) {
+// ── Treasury panel ────────────────────────────────────────────
+function TreasuryPanel({ treasury, onLoad }: { treasury: TreasuryResponse | null; onLoad: () => void }) {
   if (!treasury) {
     return (
       <div className="space-y-3 animate-pulse">
@@ -383,63 +555,49 @@ function TreasuryPanel({
       </div>
     );
   }
-
   if (treasury.error) {
     return (
-      <div className="rounded-xl p-4 text-center" style={{ backgroundColor: "var(--bg-secondary)" }}>
-        <Landmark size={28} strokeWidth={1.2} className="mx-auto mb-2" style={{ color: "var(--text-hint)" }} />
+      <div className="rounded-2xl p-6 text-center" style={{ backgroundColor: "var(--bg-secondary)" }}>
+        <Landmark size={32} strokeWidth={1.2} className="mx-auto mb-2" style={{ color: "var(--text-hint)" }} />
         <p className="text-sm font-medium">Доступ ограничен</p>
-        <p className="text-xs mt-1" style={{ color: "var(--text-hint)" }}>
+        <p className="text-xs mt-1 mb-3" style={{ color: "var(--text-hint)" }}>
           Только администраторы чата могут просматривать казну
         </p>
-        <button onClick={onLoad} className="mt-3 text-xs underline" style={{ color: "var(--accent)" }}>
+        <button onClick={onLoad} className="text-xs underline" style={{ color: "var(--accent)" }}>
           Попробовать снова
         </button>
       </div>
     );
   }
-
   return (
-    <div className="space-y-2">
-      {/* Баланс */}
-      <div
-        className="rounded-xl p-4 text-center"
-        style={{ backgroundColor: "var(--bg-secondary)" }}
-      >
-        <Landmark size={24} className="mx-auto mb-1" style={{ color: "var(--accent)" }} />
-        <p className="text-2xl font-bold tabular-nums">{fmt(treasury.balance)} 🪙</p>
-        <p className="text-xs mt-0.5" style={{ color: "var(--text-hint)" }}>Баланс казны</p>
+    <div className="space-y-3">
+      <div className="rounded-2xl p-5 text-center" style={{ backgroundColor: "var(--bg-secondary)" }}>
+        <Landmark size={28} className="mx-auto mb-2" style={{ color: "var(--accent)" }} />
+        <p className="text-3xl font-bold tabular-nums">{fmt(treasury.balance)} 🪙</p>
+        <p className="text-xs mt-1" style={{ color: "var(--text-hint)" }}>Баланс казны</p>
         {treasury.total_collected != null && (
           <p className="text-[11px] mt-1" style={{ color: "var(--text-hint)" }}>
             Всего собрано: {fmt(treasury.total_collected)} 🪙
           </p>
         )}
       </div>
-
-      {/* История транзакций */}
       {(treasury.recent ?? []).length > 0 && (
-        <div
-          className="rounded-xl p-3 space-y-1.5"
-          style={{ backgroundColor: "var(--bg-secondary)" }}
-        >
-          <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: "var(--text-hint)" }}>
+        <div className="rounded-2xl p-4" style={{ backgroundColor: "var(--bg-secondary)" }}>
+          <p className="text-xs font-semibold uppercase tracking-wide mb-3" style={{ color: "var(--text-hint)" }}>
             Последние операции
           </p>
-          {treasury.recent!.map((entry, idx) => (
-            <div
-              key={idx}
-              className="flex items-center justify-between gap-2 rounded-lg px-2.5 py-1.5"
-              style={{ backgroundColor: "var(--bg-primary)" }}
-            >
-              <p className="text-xs truncate flex-1">{entry.description}</p>
-              <p
-                className="text-xs font-bold tabular-nums shrink-0"
-                style={{ color: entry.amount >= 0 ? "#22c55e" : "#ef4444" }}
-              >
-                {entry.amount >= 0 ? "+" : ""}{fmt(entry.amount)} 🪙
-              </p>
-            </div>
-          ))}
+          <div className="space-y-2">
+            {treasury.recent!.map((entry, idx) => (
+              <div key={idx} className="flex items-center justify-between gap-2 rounded-xl px-3 py-2"
+                style={{ backgroundColor: "var(--bg-primary)" }}>
+                <p className="text-xs truncate flex-1">{entry.description}</p>
+                <p className="text-xs font-bold tabular-nums shrink-0"
+                  style={{ color: entry.amount >= 0 ? "#22c55e" : "#ef4444" }}>
+                  {entry.amount >= 0 ? "+" : ""}{fmt(entry.amount)} 🪙
+                </p>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>

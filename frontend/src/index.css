@@ -128,6 +128,27 @@ html, body, #root {
   overflow-x: hidden;
 }
 
+/* ── Animated mesh gradient background ─── */
+@keyframes meshMove {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse at 15% 40%, rgba(var(--mesh-c1, 120, 40, 200), 0.09) 0%, transparent 55%),
+    radial-gradient(ellipse at 85% 15%, rgba(var(--mesh-c2, 40,  80, 220), 0.08) 0%, transparent 55%),
+    radial-gradient(ellipse at 50% 85%, rgba(var(--mesh-c3, 200, 40, 100), 0.07) 0%, transparent 55%);
+  background-size: 200% 200%;
+  animation: meshMove 12s ease-in-out infinite;
+}
+#root { position: relative; z-index: 1; }
+
 /* ── Утилитарные классы для Telegram-палитры ─── */
 .bg-tg { background-color: var(--bg-primary); }
 .bg-tg-secondary { background-color: var(--bg-secondary); }

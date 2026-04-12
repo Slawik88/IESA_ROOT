@@ -108,16 +108,16 @@ def roll_one(pity: int, pity_max: int = GACHA_PITY_MAX, luck_bonus: int = 0) -> 
 
     bonus = luck_bonus / 100.0
     r = random.random()
-    if r < 0.02 + bonus * 0.3:      # легендарка: ~2% + 30% от luck_bonus
+    if r < 0.02 + bonus * 0.3:          # легендарка: 2% + 30% от luck_bonus
         key, name, desc = random.choice(_LEGENDARY_ITEMS)
         return key, name, "legendary", desc
-    elif r < 0.08 + bonus * 0.5:    # rare: ~6% + 50% от luck_bonus
+    elif r < 0.15 + bonus * 0.5:        # rare: 13% + 50% от luck_bonus  (0.02..0.15)
         key, name, desc = random.choice(_RARE_ITEMS)
         return key, name, "rare", desc
-    elif r < 0.25 + bonus * 0.2:    # common: ~17% + 20% от luck_bonus
+    elif r < 0.50 + bonus * 0.2:        # common: 35% + 20% от luck_bonus (0.15..0.50)
         key, name, desc = random.choice(_COMMON_ITEMS)
         return key, name, "common", desc
-    else:
+    else:                                # junk: 50%
         key, name, desc = random.choice(_JUNK_ITEMS)
         return key, name, "junk", desc
 
