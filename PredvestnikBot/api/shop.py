@@ -131,12 +131,12 @@ async def _get_themes_for_catalog(uid: int, chat_id: int) -> list:
     async with postgres_connect() as db:
         rows = await db.fetch(
             "SELECT theme_key FROM user_themes WHERE user_id=?",
-            (uid,),
+            uid,
         )
         owned_keys = {r["theme_key"] for r in rows}
         mora_row = await db.fetchone(
             "SELECT active_theme FROM user_mora WHERE user_id=? AND chat_id=?",
-            (uid, chat_id),
+            uid, chat_id,
         )
     active = (mora_row["active_theme"] if mora_row else None) or "default"
     return [
@@ -252,7 +252,7 @@ async def buy_item(
         async with _pg() as _db:
             _pet_row = await _db.fetchone(
                 "SELECT color_name FROM pets_global WHERE user_id=?",
-                (uid,),
+                uid,
             )
         if not _pet_row:
             raise ValueError("У тебя нет питомца — цвет применить не к чему")
@@ -275,7 +275,7 @@ async def buy_item(
         async with _pgt() as _dbt:
             _theme_row = await _dbt.fetchone(
                 "SELECT 1 FROM user_themes WHERE user_id=? AND theme_key=? LIMIT 1",
-                (uid, item_key),
+                uid, item_key,
             )
         if _theme_row:
             if equip:
@@ -299,7 +299,7 @@ async def buy_item(
         async with postgres_connect() as db:
             row = await db.fetchone(
                 "SELECT COALESCE(balance, 0) AS balance FROM users WHERE user_id=?",
-                (uid,),
+                uid,
             )
             bal = row["balance"] if row else 0
             if bal < price:
@@ -312,7 +312,7 @@ async def buy_item(
                 raise ValueError(f"Недостаточно Моры")
             row2 = await db.fetchone(
                 "SELECT COALESCE(balance, 0) AS balance FROM users WHERE user_id=?",
-                (uid,),
+                uid,
             )
             new_bal = row2["balance"] if row2 else 0
 
