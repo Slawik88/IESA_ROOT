@@ -2,8 +2,41 @@
    App.tsx — корневой компонент Mini App
    Навигация: Профиль | Гача | Инвентарь | Банк | Магазин | Задания | Топ | Сезон | Ачивки | Биржа | [Адм.]
    ────────────────────────────────────────────────────────────── */
-import { useState, useEffect } from "react";
+import { useState, useEffect, Component, type ReactNode, type ErrorInfo } from "react";
 import { User, Sparkles, Backpack, ScrollText, Trophy, Medal, Star, Landmark, ShoppingBag, TrendingUp, ShieldAlert } from "lucide-react";
+
+class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
+  constructor(props: { children: ReactNode }) {
+    super(props);
+    this.state = { error: null };
+  }
+  static getDerivedStateFromError(error: Error) { return { error }; }
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    fetch("/api/frontend_error_log", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ error: error.message, stack: info.componentStack?.slice(0, 2000) }),
+    }).catch(() => {});
+  }
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="p-6 text-center" style={{ color: "var(--text-primary)" }}>
+          <p className="text-lg font-semibold mb-2">Что-то пошло не так 😓</p>
+          <p className="text-sm mb-4" style={{ color: "var(--text-hint)" }}>{this.state.error.message}</p>
+          <button
+            onClick={() => this.setState({ error: null })}
+            className="px-4 py-2 rounded-xl text-sm font-semibold"
+            style={{ backgroundColor: "var(--accent)", color: "#fff" }}
+          >
+            Попробовать снова
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 import { useTelegram } from "./hooks/useTelegram";
 import { fetchUserData } from "./lib/api";
 import Profile from "./pages/Profile";
@@ -75,17 +108,19 @@ export default function App() {
     <div className="flex flex-col min-h-screen pb-16">
       {/* ── Контент ──────────────────────────────── */}
       <main className="flex-1 overflow-y-auto">
-        {tab === "profile"      && <Profile      userId={userId} chatId={chatId} />}
-        {tab === "gacha"        && <Gacha        userId={userId} chatId={chatId} />}
-        {tab === "inventory"    && <Inventory    userId={userId} chatId={chatId} />}
-        {tab === "bank"         && <Bank         userId={userId} chatId={chatId} />}
-        {tab === "shop"         && <Shop         userId={userId} chatId={chatId} />}
-        {tab === "exchange"     && <Exchange     userId={userId} chatId={chatId} isDev={isDev} />}
-        {tab === "quests"       && <Quests       userId={userId} chatId={chatId} />}
-        {tab === "leaderboard"  && <Leaderboard  chatId={chatId} />}
-        {tab === "season"       && <Season />}
-        {tab === "achievements" && <Achievements userId={userId} chatId={chatId} />}
-        {tab === "admin"        && <Admin        userId={userId} chatId={chatId} isDev={isDev} />}
+        <ErrorBoundary>
+          {tab === "profile"      && <Profile      userId={userId} chatId={chatId} />}
+          {tab === "gacha"        && <Gacha        userId={userId} chatId={chatId} />}
+          {tab === "inventory"    && <Inventory    userId={userId} chatId={chatId} />}
+          {tab === "bank"         && <Bank         userId={userId} chatId={chatId} />}
+          {tab === "shop"         && <Shop         userId={userId} chatId={chatId} />}
+          {tab === "exchange"     && <Exchange     userId={userId} chatId={chatId} isDev={isDev} />}
+          {tab === "quests"       && <Quests       userId={userId} chatId={chatId} />}
+          {tab === "leaderboard"  && <Leaderboard  chatId={chatId} />}
+          {tab === "season"       && <Season />}
+          {tab === "achievements" && <Achievements userId={userId} chatId={chatId} />}
+          {tab === "admin"        && <Admin        userId={userId} chatId={chatId} isDev={isDev} />}
+        </ErrorBoundary>
       </main>
 
       {/* ── Нижняя навигация (скролл при 9+ табах) ───── */}

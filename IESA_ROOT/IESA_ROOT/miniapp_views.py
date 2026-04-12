@@ -4880,8 +4880,43 @@ def miniapp_expeditions(request):
     try:
         from asgiref.sync import async_to_sync as _a2s
         from api.expeditions import get_expedition_status
-        result = _a2s(get_expedition_status)(uid, chat_id)
-        return JsonResponse(result, json_dumps_params={"ensure_ascii": False}, headers=headers)
+        raw = _a2s(get_expedition_status)(uid, chat_id)
+
+        # Transform raw response to match frontend ExpeditionsResponse type:
+        # - options: dict → ExpeditionOption[] array
+        # - expedition → active (with renamed/computed fields)
+        raw_opts = raw.get("options") or {}
+        options_list = [
+            {
+                "key": k,
+                "label": v.get("label", k),
+                "duration_min": int((v.get("hours") or 0) * 60),
+                "cost": v.get("cost", 0),
+                "rewards_desc": f"{v.get('reward_min', 0)}–{v.get('reward_max', 0)} 🪙",
+            }
+            for k, v in (raw_opts.items() if isinstance(raw_opts, dict) else [])
+        ]
+
+        raw_exp = raw.get("expedition")
+        active = None
+        if raw_exp:
+            mins_left = int((raw_exp.get("time_left_h") or 0) * 60 + (raw_exp.get("time_left_m") or 0))
+            active = {
+                "option_key": "",
+                "label": f"Экспедиция {raw_exp.get('duration_h', '?')}ч",
+                "started_at": raw_exp.get("started_at", ""),
+                "ends_at": "",
+                "mins_left": mins_left,
+                "finished": bool(raw_exp.get("done")),
+            }
+
+        payload = {
+            "ok": True,
+            "active": active,
+            "options": options_list,
+            "has_pet": bool(raw.get("pet")),
+        }
+        return JsonResponse(payload, json_dumps_params={"ensure_ascii": False}, headers=headers)
     except ValueError as exc:
         return JsonResponse({"error": str(exc)}, status=400, headers=headers)
     except Exception as exc:
