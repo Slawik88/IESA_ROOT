@@ -22,6 +22,7 @@ from aiogram.types import Update
 
 _log = logging.getLogger("web_app")
 
+
 # Глобальные ссылки — инициализируются при запуске
 _bot: Bot | None = None
 _dp: Dispatcher | None = None
