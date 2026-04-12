@@ -2,6 +2,7 @@
    Хук useTelegram — инициализация Telegram WebApp SDK
    ────────────────────────────────────────────────────────────── */
 import { useEffect, useState } from "react";
+import { setInitData } from "../lib/api";
 
 interface TgUser {
   id: number;
@@ -13,6 +14,8 @@ interface TgUser {
 
 interface UseTelegramResult {
   ready: boolean;
+  /** true если запущено внутри Telegram WebApp */
+  isInsideTelegram: boolean;
   userId: number;
   chatId: number;
   user: TgUser | null;
@@ -22,11 +25,13 @@ interface UseTelegramResult {
 
 /**
  * Инициализирует Telegram WebApp и возвращает данные пользователя.
+ * Автоматически записывает initData в API-клиент (X-Telegram-Init-Data).
  * chatId берётся из start_param (формат: "chat_<id>") или 0.
  */
 export function useTelegram(): UseTelegramResult {
   const [state, setState] = useState<UseTelegramResult>({
     ready: false,
+    isInsideTelegram: false,
     userId: 0,
     chatId: 0,
     user: null,
@@ -36,13 +41,19 @@ export function useTelegram(): UseTelegramResult {
 
   useEffect(() => {
     const tg = window.Telegram?.WebApp;
-    if (!tg) {
-      // Фоллбэк для разработки вне Telegram
-      setState((s) => ({ ...s, ready: true, userId: 1, chatId: 1 }));
+
+    if (!tg || !tg.initData) {
+      // Открыто вне Telegram — помечаем как не-Telegram среду
+      setState((s) => ({ ...s, ready: true, isInsideTelegram: false }));
       return;
     }
+
     tg.ready();
     tg.expand();
+
+    const initData = tg.initData;
+    // Записываем в глобальный API-клиент — все запросы получат заголовок автоматически
+    setInitData(initData);
 
     const user = tg.initDataUnsafe?.user as TgUser | undefined;
     const startParam = tg.initDataUnsafe?.start_param ?? "";
@@ -52,10 +63,11 @@ export function useTelegram(): UseTelegramResult {
 
     setState({
       ready: true,
+      isInsideTelegram: true,
       userId: user?.id ?? 0,
       chatId,
       user: user ?? null,
-      initData: tg.initData ?? "",
+      initData,
       colorScheme: tg.colorScheme ?? "dark",
     });
   }, []);

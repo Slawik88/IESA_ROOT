@@ -1,3 +1,5 @@
+/// <reference types="vite/client" />
+
 /* Глобальная типизация Telegram WebApp SDK */
 interface TelegramWebApp {
   ready(): void;
