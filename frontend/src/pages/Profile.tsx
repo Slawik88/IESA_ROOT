@@ -1,139 +1,268 @@
 /* ──────────────────────────────────────────────────────────────
-   Profile.tsx — Профиль пользователя
-   Баланс · XP · VIP · Питомец · Партнёр · Облигации
+   Profile.tsx — Полный профиль пользователя
+   Показывает ВСЕ поля из /api/user_data Django-бэкенда
    ────────────────────────────────────────────────────────────── */
 import { useEffect, useState } from "react";
-import { Coins, Star, Heart, PawPrint, TrendingUp } from "lucide-react";
+import {
+  Coins, Star, Heart, PawPrint, TrendingUp, Shield, Swords,
+  MessageSquare, Gem,
+} from "lucide-react";
 import { fetchUserData } from "../lib/api";
-import type { UserData } from "../types";
+import type { UserData, BondInfo } from "../types";
 
 interface Props {
   userId: number;
+  chatId: number;
 }
 
-export default function Profile({ userId }: Props) {
+const RANK_COLOR: Record<string, string> = {
+  developer: "#ff4757",
+  admin:     "#ffa502",
+  moderator: "#2ed573",
+  vip:       "#7bed9f",
+  user:      "var(--text-hint)",
+};
+const RANK_LABEL: Record<string, string> = {
+  developer: "Разработчик",
+  admin:     "Администратор",
+  moderator: "Модератор",
+  vip:       "VIP",
+  user:      "Участник",
+};
+
+export default function Profile({ chatId }: Props) {
   const [data, setData] = useState<UserData | null>(null);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    if (!userId) return;
-    fetchUserData(userId)
+    fetchUserData(chatId)
       .then(setData)
       .catch((e: Error) => setError(e.message));
-  }, [userId]);
+  }, [chatId]);
 
-  if (error) {
-    return <ErrorBox message={error} />;
-  }
-  if (!data) {
-    return <ProfileSkeleton />;
-  }
+  if (error) return <ErrorBox message={error} />;
+  if (!data)  return <ProfileSkeleton />;
 
-  const level = Math.floor(data.xp / 1000);
+  const xpPct = data.xp_max > 0 ? Math.min(100, Math.round((data.xp / data.xp_max) * 100)) : 0;
+  const rankColor = RANK_COLOR[data.rank] ?? RANK_COLOR.user;
+  const rankLabel = RANK_LABEL[data.rank] ?? data.rank;
 
   return (
-    <div className="animate-fadeIn p-4 space-y-4">
-      {/* ── Шапка ──────────────────────────────── */}
-      <header className="flex items-center gap-3">
+    <div className="animate-fadeIn p-4 space-y-3 pb-2">
+
+      {/* ── Шапка ──────────────────────────────────────────────── */}
+      <header
+        className="rounded-2xl p-4 flex items-center gap-3"
+        style={{ backgroundColor: "var(--bg-secondary)" }}
+      >
         <div
           className="w-14 h-14 rounded-full flex items-center justify-center text-2xl font-bold shrink-0"
-          style={{ backgroundColor: "var(--bg-secondary)", color: "var(--accent)" }}
+          style={{ backgroundColor: "var(--bg-primary)", color: "var(--accent)" }}
         >
           {data.name.charAt(0).toUpperCase()}
         </div>
-        <div className="min-w-0">
-          <h1 className="text-lg font-semibold truncate">{data.name}</h1>
-          <div className="flex items-center gap-2 text-sm" style={{ color: "var(--text-hint)" }}>
-            <span>Ур. {level}</span>
-            {data.vip && (
-              <span
-                className="px-1.5 py-0.5 rounded text-[10px] font-bold"
-                style={{ backgroundColor: "var(--accent)", color: "var(--accent-text)" }}
-              >
-                VIP
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <h1 className="text-lg font-bold truncate max-w-[160px]">{data.name}</h1>
+            {data.vip && <VipBadge />}
+            {data.is_dev && (
+              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ backgroundColor: "#ff4757", color: "#fff" }}>
+                DEV
               </span>
             )}
+          </div>
+          {data.custom_title && (
+            <p className="text-xs truncate mt-0.5" style={{ color: "var(--accent)" }}>{data.custom_title}</p>
+          )}
+          {data.chat_role && (
+            <p className="text-xs truncate" style={{ color: "#a29bfe" }}>{data.chat_role}</p>
+          )}
+          <div className="flex items-center gap-1.5 mt-1">
+            <span className="text-xs font-medium" style={{ color: rankColor }}>{rankLabel}</span>
+            <span className="text-xs" style={{ color: "var(--text-hint)" }}>· Ур. {data.level}</span>
           </div>
         </div>
       </header>
 
-      {/* ── Баланс / XP ───────────────────────── */}
-      <div className="grid grid-cols-2 gap-3">
-        <StatCard icon={<Coins size={18} />} label="Баланс" value={fmt(data.balance)} />
-        <StatCard icon={<Star size={18} />} label="XP" value={fmt(data.xp)} />
+      {/* ── Bio ────────────────────────────────────────────────── */}
+      {data.bio && (
+        <p className="text-sm px-1" style={{ color: "var(--text-hint)" }}>{data.bio}</p>
+      )}
+
+      {/* ── XP прогресс ────────────────────────────────────────── */}
+      <Card>
+        <div className="flex items-center justify-between mb-1.5">
+          <div className="flex items-center gap-1.5 text-sm">
+            <Star size={15} style={{ color: "var(--accent)" }} />
+            <span className="font-medium">Опыт</span>
+          </div>
+          <span className="text-xs tabular-nums" style={{ color: "var(--text-hint)" }}>
+            {fmt(data.xp)} / {fmt(data.xp_max)} XP
+          </span>
+        </div>
+        <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: "var(--border)" }}>
+          <div
+            className="h-full rounded-full transition-all duration-700"
+            style={{ width: `${xpPct}%`, backgroundColor: "var(--accent)" }}
+          />
+        </div>
+        <p className="text-[11px] mt-1" style={{ color: "var(--text-hint)" }}>
+          {xpPct}% до уровня {data.level + 1}
+        </p>
+      </Card>
+
+      {/* ── Основные валюты ────────────────────────────────────── */}
+      <div className="grid grid-cols-2 gap-2">
+        <StatCard icon={<Coins size={16} />} label="Мора"       value={fmt(data.balance)}  color="#f59e0b" />
+        <StatCard icon={<Gem   size={16} />} label="Кристаллы" value={fmt(data.crystals)} color="#a855f7" />
       </div>
 
-      {/* ── Питомец ────────────────────────────── */}
+      {/* ── Активность ─────────────────────────────────────────── */}
+      <Card>
+        <SectionTitle icon={<MessageSquare size={15} />} label="Активность" />
+        <div className="grid grid-cols-3 gap-1 mt-2">
+          <MiniStat label="Сообщений"  value={fmt(data.message_count)} />
+          <MiniStat label="Стрик"      value={`${data.streak} дн.`} />
+          <MiniStat label="Варны"      value={`${data.warns} / 4`} accent={data.warns > 0} />
+        </div>
+      </Card>
+
+      {/* ── RPG боёвка (если не дефолт) ────────────────────────── */}
+      {(data.rpg.hp !== 100 || data.rpg.atk !== 50) && (
+        <Card>
+          <SectionTitle icon={<Swords size={15} />} label="Боевые характеристики" />
+          <div className="grid grid-cols-4 gap-1 mt-2">
+            <MiniStat label="HP"   value={String(data.rpg.hp)} />
+            <MiniStat label="ATK"  value={String(data.rpg.atk)} color="#ef4444" />
+            <MiniStat label="DEF"  value={String(data.rpg.def)} color="#3b82f6" />
+            <MiniStat label="Крит" value={`${Math.round(data.rpg.crit * 100)}%`} color="#f59e0b" />
+          </div>
+        </Card>
+      )}
+
+      {/* ── Питомец ────────────────────────────────────────────── */}
       {data.pet && (
         <Card>
-          <div className="flex items-center gap-2">
-            <PawPrint size={18} style={{ color: "var(--accent)" }} />
-            <span className="font-medium">Питомец</span>
+          <SectionTitle icon={<PawPrint size={15} />} label="Питомец" />
+          <div className="flex items-center justify-between mt-2">
+            <div className="flex items-center gap-2">
+              <span className="text-2xl">{data.pet.emoji}</span>
+              <div>
+                <p className="text-sm font-medium">{data.pet.name}</p>
+                <p className="text-[11px]" style={{ color: "var(--text-hint)" }}>
+                  {data.pet.type}{data.pet.color_name ? ` · ${data.pet.color_name}` : ""}
+                </p>
+              </div>
+            </div>
+            <div className="text-right">
+              {data.pet.on_walk
+                ? <p className="text-[11px]" style={{ color: "#22c55e" }}>На прогулке · {data.pet.walk_mins_left} мин</p>
+                : <p className="text-[11px]" style={{ color: "var(--text-hint)" }}>Усталость: {data.pet.fatigue}%</p>
+              }
+            </div>
           </div>
-          <p className="mt-1 text-sm" style={{ color: "var(--text-hint)" }}>
-            {data.pet.emoji} {data.pet.name} ({data.pet.type}) · Усталость: {data.pet.fatigue}%
-          </p>
         </Card>
       )}
 
-      {/* ── Партнёр ────────────────────────────── */}
-      {data.partner && (
+      {/* ── Партнёр ────────────────────────────────────────────── */}
+      {data.has_partner && data.partner_name && (
         <Card>
-          <div className="flex items-center gap-2">
-            <Heart size={18} style={{ color: "#e84393" }} />
-            <span className="font-medium">Партнёр</span>
+          <SectionTitle icon={<Heart size={15} style={{ color: "#e84393" }} />} label="Партнёр" />
+          <div className="flex items-center justify-between mt-2">
+            <p className="text-sm font-medium">{data.partner_name}</p>
+            <div className="text-right text-[11px]" style={{ color: "var(--text-hint)" }}>
+              <p>Семейный счёт</p>
+              <p className="font-semibold" style={{ color: "var(--accent)" }}>{fmt(data.family_balance)} 🪙</p>
+            </div>
           </div>
-          <p className="mt-1 text-sm" style={{ color: "var(--text-hint)" }}>
-            {data.partner.partner_name} · с {new Date(data.partner.married_at).toLocaleDateString()}
-          </p>
         </Card>
       )}
 
-      {/* ── Облигации ──────────────────────────── */}
+      {/* ── Кристальные предметы ───────────────────────────────── */}
+      {(data.transfer_passes > 0 || data.enhancement_stones > 0 || data.guarantee_scrolls > 0) && (
+        <Card>
+          <SectionTitle icon={<Shield size={15} />} label="Кристальные предметы" />
+          <div className="grid grid-cols-3 gap-1 mt-2">
+            {data.transfer_passes  > 0 && <MiniStat label="🎫 Пропуска" value={String(data.transfer_passes)} />}
+            {data.enhancement_stones > 0 && <MiniStat label="⚒️ Камни"   value={String(data.enhancement_stones)} />}
+            {data.guarantee_scrolls > 0 && <MiniStat label="📜 Свитки"  value={String(data.guarantee_scrolls)} />}
+          </div>
+        </Card>
+      )}
+
+      {/* ── Облигации ──────────────────────────────────────────── */}
       {data.bonds.length > 0 && (
         <Card>
-          <div className="flex items-center gap-2 mb-2">
-            <TrendingUp size={18} style={{ color: "var(--accent)" }} />
-            <span className="font-medium">Облигации</span>
-          </div>
-          <div className="space-y-1">
-            {data.bonds.map((b) => (
-              <div key={b.name} className="flex justify-between text-sm">
-                <span>{b.name} ×{b.amount}</span>
-                <span style={{ color: "var(--text-hint)" }}>{fmt(b.value)} 🪙</span>
+          <SectionTitle icon={<TrendingUp size={15} />} label="Облигации" />
+          <div className="space-y-1.5 mt-2">
+            {data.bonds.map((b: BondInfo) => (
+              <div key={b.name} className="flex justify-between items-center text-sm">
+                <span className="truncate">{b.name} ×{b.amount}</span>
+                <span className="tabular-nums shrink-0 ml-2" style={{ color: "var(--text-hint)" }}>
+                  {fmt(b.value)} 🪙
+                </span>
               </div>
             ))}
           </div>
         </Card>
       )}
+
+      {data.pity > 0 && (
+        <p className="text-[11px] text-center" style={{ color: "var(--text-hint)" }}>
+          Пити: {data.pity} роллов без legendary
+        </p>
+      )}
+
     </div>
   );
 }
 
 /* ── Вспомогательные компоненты ───────────────────────────────── */
 
-function StatCard({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+function VipBadge() {
   return (
-    <div
-      className="rounded-xl p-3 flex flex-col gap-1"
-      style={{ backgroundColor: "var(--bg-secondary)" }}
-    >
-      <div className="flex items-center gap-1.5 text-xs" style={{ color: "var(--text-hint)" }}>
-        {icon}
-        {label}
-      </div>
-      <span className="text-xl font-bold">{value}</span>
-    </div>
+    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0"
+      style={{ backgroundColor: "#f59e0b", color: "#000" }}>VIP</span>
   );
 }
 
 function Card({ children }: { children: React.ReactNode }) {
   return (
-    <div
-      className="rounded-xl p-3"
-      style={{ backgroundColor: "var(--bg-secondary)" }}
-    >
+    <div className="rounded-xl p-3" style={{ backgroundColor: "var(--bg-secondary)" }}>
       {children}
+    </div>
+  );
+}
+
+function SectionTitle({ icon, label }: { icon: React.ReactNode; label: string }) {
+  return (
+    <div className="flex items-center gap-1.5 text-sm font-medium">
+      <span style={{ color: "var(--accent)" }}>{icon}</span>
+      {label}
+    </div>
+  );
+}
+
+function StatCard({ icon, label, value, color }: { icon: React.ReactNode; label: string; value: string; color: string }) {
+  return (
+    <div className="rounded-xl p-3 flex flex-col gap-1" style={{ backgroundColor: "var(--bg-secondary)" }}>
+      <div className="flex items-center gap-1.5 text-xs" style={{ color: "var(--text-hint)" }}>
+        <span style={{ color }}>{icon}</span>
+        {label}
+      </div>
+      <span className="text-xl font-bold tabular-nums">{value}</span>
+    </div>
+  );
+}
+
+function MiniStat({ label, value, color, accent }: { label: string; value: string; color?: string; accent?: boolean }) {
+  return (
+    <div className="rounded-lg p-2 text-center" style={{ backgroundColor: "var(--bg-primary)" }}>
+      <p className="text-xs font-bold tabular-nums"
+        style={{ color: accent ? "#ef4444" : (color ?? "var(--text-primary)") }}>
+        {value}
+      </p>
+      <p className="text-[10px] mt-0.5 leading-tight" style={{ color: "var(--text-hint)" }}>{label}</p>
     </div>
   );
 }
@@ -141,30 +270,32 @@ function Card({ children }: { children: React.ReactNode }) {
 function ErrorBox({ message }: { message: string }) {
   return (
     <div className="p-4 text-center" style={{ color: "#e74c3c" }}>
-      <p className="font-medium">Ошибка</p>
-      <p className="text-sm mt-1">{message}</p>
+      <p className="font-medium">Ошибка загрузки профиля</p>
+      <p className="text-sm mt-1 break-all">{message}</p>
     </div>
   );
 }
 
 function ProfileSkeleton() {
   return (
-    <div className="p-4 space-y-4 animate-pulse">
-      <div className="flex items-center gap-3">
+    <div className="p-4 space-y-3 animate-pulse">
+      <div className="rounded-2xl p-4 flex items-center gap-3" style={{ backgroundColor: "var(--bg-secondary)" }}>
         <div className="skeleton w-14 h-14 rounded-full" />
         <div className="space-y-2 flex-1">
           <div className="skeleton h-4 w-32 rounded" />
           <div className="skeleton h-3 w-20 rounded" />
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="skeleton h-16 rounded-xl" />
+      <div className="grid grid-cols-2 gap-2">
         <div className="skeleton h-20 rounded-xl" />
         <div className="skeleton h-20 rounded-xl" />
       </div>
+      <div className="skeleton h-20 rounded-xl" />
     </div>
   );
 }
 
 function fmt(n: number): string {
-  return n.toLocaleString("ru-RU");
+  return (n ?? 0).toLocaleString("ru-RU");
 }

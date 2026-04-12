@@ -8,6 +8,7 @@ import { useTelegram } from "./hooks/useTelegram";
 import Profile from "./pages/Profile";
 import Inventory from "./pages/Inventory";
 import Achievements from "./pages/Achievements";
+import NotInTelegram from "./pages/NotInTelegram";
 
 type Tab = "profile" | "inventory" | "achievements";
 
@@ -18,7 +19,7 @@ const TABS: { key: Tab; label: string; Icon: typeof User }[] = [
 ];
 
 export default function App() {
-  const { ready, userId, chatId } = useTelegram();
+  const { ready, isInsideTelegram, userId, chatId } = useTelegram();
   const [tab, setTab] = useState<Tab>("profile");
 
   if (!ready) {
@@ -29,11 +30,15 @@ export default function App() {
     );
   }
 
+  if (!isInsideTelegram) {
+    return <NotInTelegram />;
+  }
+
   return (
     <div className="flex flex-col min-h-screen pb-16">
       {/* ── Контент ──────────────────────────────── */}
       <main className="flex-1 overflow-y-auto">
-        {tab === "profile"      && <Profile userId={userId} />}
+        {tab === "profile"      && <Profile userId={userId} chatId={chatId} />}
         {tab === "inventory"    && <Inventory userId={userId} />}
         {tab === "achievements" && <Achievements userId={userId} chatId={chatId} />}
       </main>

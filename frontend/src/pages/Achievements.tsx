@@ -3,7 +3,7 @@
    Категории · Прогресс · Ранги · Разблокированные / заблокированные
    ────────────────────────────────────────────────────────────── */
 import { useEffect, useState } from "react";
-import { Trophy, Lock, ChevronDown, ChevronUp } from "lucide-react";
+import { Trophy, Lock, ChevronDown, ChevronUp, MessagesSquare } from "lucide-react";
 import { fetchAchievements } from "../lib/api";
 import type { AchievementsResponse, AchievementCategory, AchievementRank } from "../types";
 
@@ -18,17 +18,36 @@ export default function Achievements({ userId, chatId }: Props) {
   const [expanded, setExpanded] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!userId || !chatId) return;
+    // CRITICAL: chatId=0 → не делаем запрос, бэкенд вернёт 400
+    if (!userId || !chatId) {
+      setError(chatId === 0 ? "__no_chat__" : "__no_user__");
+      return;
+    }
     fetchAchievements(userId, chatId)
       .then(setData)
       .catch((e: Error) => setError(e.message));
   }, [userId, chatId]);
 
+  // chatId=0: показываем понятное сообщение вместо вечного спиннера
+  if (error === "__no_chat__") {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 p-6 text-center">
+        <MessagesSquare size={48} strokeWidth={1.2} style={{ color: "var(--text-hint)" }} />
+        <div>
+          <p className="font-semibold">Нет контекста чата</p>
+          <p className="text-sm mt-1" style={{ color: "var(--text-hint)" }}>
+            Откройте Mini App из чата группы, чтобы посмотреть достижения.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   if (error) {
     return (
       <div className="p-4 text-center" style={{ color: "#e74c3c" }}>
-        <p className="font-medium">Ошибка</p>
-        <p className="text-sm mt-1">{error}</p>
+        <p className="font-medium">Ошибка загрузки достижений</p>
+        <p className="text-sm mt-1 break-all">{error}</p>
       </div>
     );
   }
