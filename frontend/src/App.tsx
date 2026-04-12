@@ -56,8 +56,8 @@ export default function App() {
         {tab === "bank"         && <Bank         userId={userId} chatId={chatId} />}
         {tab === "shop"         && <Shop         userId={userId} chatId={chatId} />}
         {tab === "quests"       && <Quests       userId={userId} chatId={chatId} />}
-        {tab === "leaderboard"  && <Leaderboard  userId={userId} />}
-        {tab === "season"       && <Season       userId={userId} />}
+        {tab === "leaderboard"  && <Leaderboard  chatId={chatId} />}
+        {tab === "season"       && <Season />}
         {tab === "achievements" && <Achievements userId={userId} chatId={chatId} />}
       </main>
 

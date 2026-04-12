@@ -9,11 +9,7 @@ import { Gift, Crown, Lock, CheckCircle2, Loader2, AlertCircle, Star } from "luc
 import { fetchSeasonData, claimSeasonReward, buySeasonPremium } from "../lib/api";
 import type { SeasonDataResponse, SeasonReward } from "../types";
 
-interface Props {
-  userId: number;
-}
-
-export default function Season({ userId }: Props) {
+export default function Season() {
   const [data, setData]       = useState<SeasonDataResponse | null>(null);
   const [error, setError]     = useState("");
   const [busy, setBusy]       = useState<string | null>(null); // "claim:5:free" | "premium"
@@ -25,11 +21,10 @@ export default function Season({ userId }: Props) {
   }, []);
 
   useEffect(() => {
-    if (!userId) return;
-    fetchSeasonData(userId)
+    fetchSeasonData()
       .then(setData)
       .catch((e: Error) => setError(e.message));
-  }, [userId]);
+  }, []);
 
   const handleClaim = useCallback(async (level: number, isPremium: boolean) => {
     if (!data || busy) return;
