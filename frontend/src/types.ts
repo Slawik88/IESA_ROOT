@@ -1,8 +1,9 @@
 /* ──────────────────────────────────────────────────────────────
-   Типы данных API — соответствуют ответам FastAPI-бэкенда
+   Типы данных API — точное соответствие Django miniapp_views.py
    ────────────────────────────────────────────────────────────── */
 
 // ── /api/user_data ────────────────────────────────────────────
+
 export interface BondInfo {
   name: string;
   amount: number;
@@ -14,24 +15,66 @@ export interface PetInfo {
   name: string;
   emoji: string;
   fatigue: number;
+  on_walk: boolean;
+  walk_mins_left: number;
+  walk_end_at: string | null;
+  color_name: string | null;
 }
 
-export interface PartnerInfo {
-  partner_id: number;
-  partner_name: string;
-  married_at: string;
+export interface RpgStats {
+  hp: number;
+  atk: number;
+  def: number;
+  crit: number;
 }
 
 export interface UserData {
+  // Идентификаторы
+  uid: number;
+  chat_id: number;
+  // Основное
   name: string;
   balance: number;
+  crystals: number;
   xp: number;
+  level: number;
+  xp_max: number;
   vip: boolean;
   active_frame: string;
+  active_theme: string;
+  // Ранг / статус
+  rank: string;
+  is_dev: boolean;
+  custom_title: string;
+  bio: string;
+  chat_role: string | null;
+  // Активность
+  message_count: number;
+  streak: number;
+  warns: number;
+  first_active: string | null;
+  last_active: string | null;
+  newbie_shield_until: string | null;
+  // Партнёр / семья
+  has_partner: boolean;
+  partner_name: string | null;
+  partner_id: number | null;
+  family_balance: number;
+  my_family_balance: number;
+  partner_family_balance: number;
+  // Инвентарь / игровые данные
   bonds: BondInfo[];
   items: string[];
   pet: PetInfo | null;
-  partner: PartnerInfo | null;
+  rpg: RpgStats;
+  pity: number;
+  // Кристальные предметы
+  transfer_passes: number;
+  enhancement_stones: number;
+  guarantee_scrolls: number;
+  avatar_unlocked: boolean;
+  crystal_cosmetics_owned: string[];
+  has_rainbow_title: boolean;
 }
 
 // ── /api/achievements ─────────────────────────────────────────

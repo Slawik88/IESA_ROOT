@@ -1,6 +1,6 @@
 /* ──────────────────────────────────────────────────────────────
-   API-клиент — простая обёртка над fetch (без axios)
-   Все запросы идут на тот же хост (относительные пути)
+   API-клиент — fetch-обёртка с авторизацией через initData.
+   Бэкенд ożидает заголовок: X-Telegram-Init-Data: <initData>
    ────────────────────────────────────────────────────────────── */
 
 import type {
@@ -10,10 +10,32 @@ import type {
   SeasonDataResponse,
 } from "../types";
 
-const BASE = "";  // пустой = относительные пути (единый хост)
+// Глобальное хранилище initData — заполняется в useTelegram при старте.
+// Все запросы автоматически получают этот заголовок.
+let _initData = "";
 
-async function request<T>(path: string): Promise<T> {
-  const res = await fetch(`${BASE}${path}`);
+/** Вызывается из useTelegram сразу после tg.ready(). */
+export function setInitData(initData: string): void {
+  _initData = initData;
+}
+
+/** Возвращает текущий initData (для отладки). */
+export function getInitData(): string {
+  return _initData;
+}
+
+async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const headers: Record<string, string> = {
+    ...(options.headers as Record<string, string> | undefined),
+  };
+
+  // Добавляем initData в каждый запрос — бэкенд требует X-Telegram-Init-Data
+  if (_initData) {
+    headers["X-Telegram-Init-Data"] = _initData;
+  }
+
+  const res = await fetch(path, { ...options, headers });
+
   if (!res.ok) {
     const text = await res.text().catch(() => "");
     throw new Error(`API ${res.status}: ${text}`);
@@ -21,9 +43,12 @@ async function request<T>(path: string): Promise<T> {
   return res.json();
 }
 
-/** Профиль пользователя */
-export function fetchUserData(userId: number): Promise<UserData> {
-  return request<UserData>(`/api/user_data?user_id=${userId}`);
+/** Профиль пользователя.
+ *  uid берётся из initData на сервере — здесь нужен только chat_id для скопирования данных по чату.
+ */
+export function fetchUserData(chatId: number): Promise<UserData> {
+  const qs = chatId ? `?chat_id=${chatId}` : "";
+  return request<UserData>(`/api/user_data${qs}`);
 }
 
 /** Достижения пользователя */
