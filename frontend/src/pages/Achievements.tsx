@@ -1,9 +1,9 @@
 /* ──────────────────────────────────────────────────────────────
    Achievements.tsx — Достижения пользователя
-   Категории · Прогресс · Ранги · Разблокированные / заблокированные
+   Категории · Прогресс · Ранги · Синхронизация с бэкендом
    ────────────────────────────────────────────────────────────── */
-import { useEffect, useState } from "react";
-import { Trophy, Lock, ChevronDown, ChevronUp, MessagesSquare } from "lucide-react";
+import { useEffect, useState, useCallback } from "react";
+import { Trophy, Lock, ChevronDown, ChevronUp, MessagesSquare, RefreshCw } from "lucide-react";
 import { fetchAchievements } from "../lib/api";
 import type { AchievementsResponse, AchievementCategory, AchievementRank } from "../types";
 
@@ -16,17 +16,28 @@ export default function Achievements({ userId, chatId }: Props) {
   const [data, setData] = useState<AchievementsResponse | null>(null);
   const [error, setError] = useState("");
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [syncing, setSyncing] = useState(false);
+  const [lastSync, setLastSync] = useState<Date | null>(null);
 
-  useEffect(() => {
-    // CRITICAL: chatId=0 → не делаем запрос, бэкенд вернёт 400
+  const load = useCallback(() => {
     if (!userId || !chatId) {
       setError(chatId === 0 ? "__no_chat__" : "__no_user__");
       return;
     }
     fetchAchievements(userId, chatId)
-      .then(setData)
+      .then((d) => { setData(d); setLastSync(new Date()); })
       .catch((e: Error) => setError(e.message));
   }, [userId, chatId]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const doSync = () => {
+    setSyncing(true);
+    fetchAchievements(userId, chatId)
+      .then((d) => { setData(d); setLastSync(new Date()); })
+      .catch(() => {})
+      .finally(() => setSyncing(false));
+  };
 
   // chatId=0: показываем понятное сообщение вместо вечного спиннера
   if (error === "__no_chat__") {
@@ -86,10 +97,26 @@ export default function Achievements({ userId, chatId }: Props) {
           <Trophy size={20} />
           Достижения
         </h2>
-        <span className="text-sm font-medium" style={{ color: "var(--accent)" }}>
-          {data.total_unlocked}/{data.total_defined}
-        </span>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={doSync}
+            disabled={syncing}
+            className="p-1.5 rounded-lg transition-opacity disabled:opacity-50"
+            style={{ backgroundColor: "var(--bg-secondary)" }}
+          >
+            <RefreshCw size={14} className={syncing ? "animate-spin" : ""} style={{ color: "var(--text-hint)" }} />
+          </button>
+          <span className="text-sm font-medium" style={{ color: "var(--accent)" }}>
+            {data.total_unlocked}/{data.total_defined}
+          </span>
+        </div>
       </div>
+
+      {lastSync && (
+        <p className="text-[10px] -mt-3 mb-3" style={{ color: "var(--text-hint)" }}>
+          Синхронизировано: {lastSync.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}
+        </p>
+      )}
 
       {/* ── Карточка общего прогресса ─────── */}
       <div className="rounded-2xl p-4 mb-4" style={{ backgroundColor: "var(--bg-secondary)" }}>

@@ -235,3 +235,51 @@ html, body, #root {
 /* ── Плавные переходы для кнопок ── */
 button { transition: opacity 0.15s ease, transform 0.1s ease; }
 button:active:not(:disabled) { transform: scale(0.97); }
+
+/* ── Glassmorphism utilities ── */
+.glass {
+  backdrop-filter: blur(12px) saturate(1.6);
+  -webkit-backdrop-filter: blur(12px) saturate(1.6);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.glass-heavy {
+  backdrop-filter: blur(24px) saturate(1.8);
+  -webkit-backdrop-filter: blur(24px) saturate(1.8);
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* ── Legendary item shimmer border ── */
+@keyframes legendaryBorderShift {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+.border-legendary {
+  position: relative;
+  overflow: hidden;
+}
+.border-legendary::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1.5px;
+  background: linear-gradient(135deg, #f59e0b, #ef4444, #a855f7, #3b82f6, #f59e0b);
+  background-size: 300% 300%;
+  animation: legendaryBorderShift 4s ease infinite;
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  -webkit-mask-composite: xor;
+  pointer-events: none;
+}
+
+/* ── Rare card glow ── */
+.glow-rare {
+  box-shadow: 0 0 12px 2px #3b82f633, inset 0 1px 0 #3b82f611;
+}
+.glow-legendary {
+  box-shadow: 0 0 20px 4px #f59e0b33, inset 0 1px 0 #f59e0b11;
+}

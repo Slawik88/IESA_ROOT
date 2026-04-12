@@ -1,17 +1,14 @@
 /* ──────────────────────────────────────────────────────────────
-   Inventory.tsx v2 — Интерактивный инвентарь
+   Inventory.tsx v3 — Полноценный RPG-инвентарь
    GET  /api/inventory?chat_id=X
-   POST /api/equip            — экипировать в слот
-   POST /api/inventory        — снять (toggle unequip)
-   POST /api/batch_sell       — продать конкретный предмет
-   POST /api/inventory/sell_junk — продать весь хлам
-   POST /api/enhance_item     — улучшить
-   POST /api/consume_potion   — использовать расходник
+   POST /api/equip, /api/inventory, /api/batch_sell,
+   POST /api/inventory/sell_junk, /api/enhance, /api/consume_potion
    ────────────────────────────────────────────────────────────── */
 import { useEffect, useState, useCallback } from "react";
 import {
   Backpack, Trash2, ChevronUp, ChevronDown, Loader2,
-  Shield, Swords, Heart, Crosshair, X, Sparkles, RefreshCw,
+  Shield, Swords, Heart, Crosshair, X, RefreshCw,
+  AlertTriangle,
 } from "lucide-react";
 import {
   fetchInventory, equipItem, toggleEquip,
@@ -27,7 +24,24 @@ const RARITY_LABEL: Record<string, string> = {
 const SLOT_LABEL: Record<string, string> = {
   weapon: "Оружие", helmet: "Шлем", armor: "Броня",
   boots: "Сапоги", artifact: "Артефакт", flair: "Косметика",
+  consumable: "Расходник",
 };
+
+const SLOT_ICON: Record<string, string> = {
+  weapon: "⚔️", helmet: "⛑", armor: "🛡",
+  boots: "👢", artifact: "💎", flair: "🎨",
+  consumable: "⚗️",
+};
+
+function getEnhanceChance(level: number, useStone: boolean): number {
+  if (useStone) return 100;
+  if (level < 5) return 100;
+  return Math.max(10, 100 - (level - 4) * 15);
+}
+
+function getEnhanceCost(level: number): number {
+  return 50 + level * 30;
+}
 
 const EQUIPPABLE_SLOTS = ["weapon", "helmet", "armor", "boots", "artifact"];
 
@@ -91,7 +105,16 @@ export default function Inventory({ userId: _userId, chatId }: Props) {
     } finally { setBusy(null); }
   }, [chatId, load, showToast]);
 
+  const [sellConfirm, setSellConfirm] = useState<InventoryItem | null>(null);
+  const [enhanceDetail, setEnhanceDetail] = useState<InventoryItem | null>(null);
+
   const doSell = useCallback(async (item: InventoryItem) => {
+    // Для предметов rare и legendary — требуется подтверждение!
+    if ((item.rarity === "rare" || item.rarity === "legendary") && !sellConfirm) {
+      setSellConfirm(item);
+      return;
+    }
+    setSellConfirm(null);
     setBusy("sell");
     try {
       const res = await batchSell(chatId, [{ id: item.id, qty: 1 }]);
@@ -101,7 +124,7 @@ export default function Inventory({ userId: _userId, chatId }: Props) {
     } catch (e: unknown) {
       showToast(e instanceof Error ? extractApiError(e.message) : "Ошибка");
     } finally { setBusy(null); }
-  }, [chatId, load, showToast]);
+  }, [chatId, load, showToast, sellConfirm]);
 
   const doSellAllJunk = useCallback(async () => {
     setBusy("sell_junk");
@@ -114,11 +137,12 @@ export default function Inventory({ userId: _userId, chatId }: Props) {
     } finally { setBusy(null); }
   }, [chatId, load, showToast]);
 
-  const doEnhance = useCallback(async (item: InventoryItem) => {
+  const doEnhance = useCallback(async (item: InventoryItem, useStone = false) => {
     setBusy("enhance");
     try {
-      const res = await enhanceItem(chatId, item.id);
-      showToast(res.success ? `${res.message} (ур. ${res.enhancement_level})` : res.message);
+      const res = await enhanceItem(chatId, item.id, useStone);
+      showToast(res.success ? `✅ ${res.message} (ур. ${res.enhancement_level})` : `❌ ${res.message}`);
+      setEnhanceDetail(null);
       setSelected(null);
       load();
     } catch (e: unknown) {
@@ -280,9 +304,99 @@ export default function Inventory({ userId: _userId, chatId }: Props) {
           onClose={() => setSelected(null)}
           onEquip={doEquip}
           onSell={doSell}
-          onEnhance={doEnhance}
+          onEnhance={(item) => setEnhanceDetail(item)}
           onConsume={doConsume}
         />
+      )}
+
+      {/* ── Confirm Sell Modal (rare+) ── */}
+      {sellConfirm && (
+        <>
+          <div className="fixed inset-0 z-[60] bg-black/60" onClick={() => setSellConfirm(null)} />
+          <div className="fixed inset-x-4 top-1/2 -translate-y-1/2 z-[61] rounded-2xl p-5" style={{ backgroundColor: "var(--bg-primary)" }}>
+            <div className="flex items-center gap-2 mb-3">
+              <AlertTriangle size={20} style={{ color: "#ef4444" }} />
+              <h3 className="font-bold text-base">Подтверждение продажи</h3>
+            </div>
+            <p className="text-sm mb-1" style={{ color: "var(--text-hint)" }}>
+              Вы действительно хотите продать
+            </p>
+            <div className="rounded-xl p-3 my-3 flex items-center gap-2" style={{ backgroundColor: "var(--bg-secondary)" }}>
+              <span className="text-xl">{SLOT_ICON[sellConfirm.slot ?? ""] ?? "📦"}</span>
+              <div>
+                <p className="text-sm font-semibold" style={{ color: RARITY_COLOR[sellConfirm.rarity] }}>
+                  {sellConfirm.rarity === "legendary" && "✨ "}{sellConfirm.name}
+                  {sellConfirm.enhancement_level > 0 && ` +${sellConfirm.enhancement_level}`}
+                </p>
+                <p className="text-xs" style={{ color: "var(--text-hint)" }}>за {sellConfirm.sell_price} 🪙</p>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => setSellConfirm(null)}
+                className="flex-1 py-2.5 rounded-xl text-sm font-semibold"
+                style={{ backgroundColor: "var(--bg-secondary)", color: "var(--text-hint)" }}>Отмена</button>
+              <button onClick={() => doSell(sellConfirm)}
+                className="flex-1 py-2.5 rounded-xl text-sm font-semibold"
+                style={{ backgroundColor: "#ef4444", color: "#fff" }}>Продать</button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* ── Enhance Detail Panel ── */}
+      {enhanceDetail && (
+        <>
+          <div className="fixed inset-0 z-[60] bg-black/60" onClick={() => setEnhanceDetail(null)} />
+          <div className="fixed inset-x-4 top-1/2 -translate-y-1/2 z-[61] rounded-2xl p-5" style={{ backgroundColor: "var(--bg-primary)" }}>
+            <h3 className="font-bold text-base mb-3 flex items-center gap-2">
+              🔨 Заточка: {enhanceDetail.name}
+              {enhanceDetail.enhancement_level > 0 && <span style={{ color: "#f59e0b" }}>+{enhanceDetail.enhancement_level}</span>}
+            </h3>
+            <div className="space-y-2 mb-4">
+              <div className="flex justify-between text-sm">
+                <span style={{ color: "var(--text-hint)" }}>Текущий уровень</span>
+                <span className="font-bold">+{enhanceDetail.enhancement_level}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span style={{ color: "var(--text-hint)" }}>Шанс успеха</span>
+                <span className="font-bold" style={{ color: getEnhanceChance(enhanceDetail.enhancement_level, false) === 100 ? "#22c55e" : "#f59e0b" }}>
+                  {getEnhanceChance(enhanceDetail.enhancement_level, false)}%
+                </span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span style={{ color: "var(--text-hint)" }}>Стоимость</span>
+                <span className="font-bold">{getEnhanceCost(enhanceDetail.enhancement_level)} 🪙</span>
+              </div>
+              {enhanceDetail.enhancement_level >= 5 && (
+                <div className="rounded-lg p-2 text-xs" style={{ backgroundColor: "#f59e0b18", color: "#f59e0b" }}>
+                  ⚠️ При неудаче уровень снижается на 1
+                </div>
+              )}
+            </div>
+            {/* Progress bar visual */}
+            <div className="h-2 rounded-full overflow-hidden mb-4" style={{ backgroundColor: "var(--border)" }}>
+              <div className="h-full rounded-full transition-all" style={{
+                width: `${getEnhanceChance(enhanceDetail.enhancement_level, false)}%`,
+                backgroundColor: getEnhanceChance(enhanceDetail.enhancement_level, false) >= 70 ? "#22c55e" : getEnhanceChance(enhanceDetail.enhancement_level, false) >= 40 ? "#f59e0b" : "#ef4444",
+              }} />
+            </div>
+            <div className="space-y-2">
+              <button onClick={() => doEnhance(enhanceDetail, false)} disabled={busy === "enhance"}
+                className="w-full py-3 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-50"
+                style={{ backgroundColor: "#f59e0b", color: "#fff" }}>
+                {busy === "enhance" ? <Loader2 size={14} className="animate-spin" /> : `Заточить за ${getEnhanceCost(enhanceDetail.enhancement_level)} 🪙`}
+              </button>
+              <button onClick={() => doEnhance(enhanceDetail, true)} disabled={busy === "enhance"}
+                className="w-full py-3 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-50"
+                style={{ backgroundColor: "#8b5cf6", color: "#fff" }}>
+                {busy === "enhance" ? <Loader2 size={14} className="animate-spin" /> : "⚒️ Камень заточки (100%)"}
+              </button>
+              <button onClick={() => setEnhanceDetail(null)}
+                className="w-full py-2 rounded-xl text-sm font-medium"
+                style={{ color: "var(--text-hint)" }}>Отмена</button>
+            </div>
+          </div>
+        </>
       )}
 
       {/* ── Тост ── */}
@@ -315,9 +429,9 @@ function ItemTile({ item, onClick }: { item: InventoryItem; onClick: () => void 
         <span className="absolute top-1.5 left-1.5 text-[9px] px-1 py-0.5 rounded font-bold"
           style={{ backgroundColor: "var(--border)", color: "var(--text-hint)" }}>×{item.stack_count}</span>
       )}
-      <div className="w-8 h-8 rounded-lg flex items-center justify-center mb-2"
-        style={{ backgroundColor: color + "22", color }}>
-        <Sparkles size={16} />
+      <div className="w-8 h-8 rounded-lg flex items-center justify-center mb-2 text-sm"
+        style={{ backgroundColor: color + "22" }}>
+        {SLOT_ICON[item.slot ?? ""] ?? "📦"}
       </div>
       <p className="text-xs font-semibold leading-tight truncate" style={{ color: "var(--text-primary)" }}>
         {item.name}
