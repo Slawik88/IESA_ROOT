@@ -3,7 +3,7 @@
    Вкладки: Рамки | Косметика | Питомцы | Еда | Зелья | Темы
    ────────────────────────────────────────────────────────────── */
 import { useEffect, useState, useCallback } from "react";
-import { ShoppingBag, CheckCircle2, Palette, Loader2 } from "lucide-react";
+import { ShoppingBag, CheckCircle2, Palette, Loader2, Lock } from "lucide-react";
 import { fetchShopCatalog, buyShopItem, fetchThemes, activateTheme } from "../lib/api";
 import type {
   ShopCatalog,
@@ -414,11 +414,15 @@ function ShopCard({ emoji, name, price, owned, active, buying, onBuy, badge, des
           <p className="text-[11px] mt-0.5 line-clamp-2" style={{ color: "var(--text-hint)" }}>{desc}</p>
         )}
       </div>
+      {/* Always show price tag */}
+      <p className="text-[11px] font-semibold tabular-nums" style={{ color: "var(--text-hint)" }}>
+        {price === 0 ? "Бесплатно" : `${fmt(price)} 🪙`}
+      </p>
       {owned ? (
         <div className="flex items-center justify-center gap-1 py-1.5 rounded-lg text-xs font-medium"
           style={{ backgroundColor: "var(--bg-primary)", color: "var(--text-hint)" }}>
           <CheckCircle2 size={13} />
-          Куплено
+          {active ? "Активна" : "Куплено"}
         </div>
       ) : (
         <button
@@ -427,7 +431,7 @@ function ShopCard({ emoji, name, price, owned, active, buying, onBuy, badge, des
           className="py-1.5 rounded-lg text-xs font-semibold transition-opacity disabled:opacity-40"
           style={{ backgroundColor: "var(--accent)", color: "#fff" }}
         >
-          {buying ? "..." : `${fmt(price)} 🪙`}
+          {buying ? "..." : price === 0 ? "Применить" : `${fmt(price)} 🪙`}
         </button>
       )}
     </div>
@@ -435,6 +439,31 @@ function ShopCard({ emoji, name, price, owned, active, buying, onBuy, badge, des
 }
 
 /* ── ThemeList ────────────────────────────────────────────────── */
+
+/** Strip HTML tags from theme header string (e.g. "👑✨ <b>КОРОЛЕВСКИЙ</b>" → "👑✨ КОРОЛЕВСКИЙ") */
+function stripHtml(s: string): string {
+  return s.replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
+}
+
+const TIER_LABEL: Record<string, string> = {
+  common: "Обычная",
+  rare: "Редкая",
+  epic: "Эпическая",
+  legendary: "Легендарная",
+};
+
+const SOURCE_LABEL: Record<string, string> = {
+  shop:    "🛒 Магазин",
+  gacha:   "🎰 Только гача",
+  default: "По умолчанию",
+};
+
+const TIER_COLOR: Record<string, string> = {
+  common:    "#9ca3af",
+  rare:      "#60a5fa",
+  epic:      "#c084fc",
+  legendary: "#f59e0b",
+};
 
 function ThemeList({
   themes, activating, onActivate,
@@ -473,61 +502,81 @@ function ThemeList({
           <span className="text-base font-bold">{themes.crystals} 💎</span>
         </div>
       )}
-      {themes.themes.map((t) => (
-        <div
-          key={t.key}
-          className="rounded-xl p-3 flex items-center gap-3"
-          style={{
-            backgroundColor: "var(--bg-secondary)",
-            border: t.active ? "1px solid var(--accent)" : "1px solid transparent",
-          }}
-        >
-          {/* Theme preview */}
+      {themes.themes.map((t) => {
+        const isGachaOnly = t.source === "gacha" && !t.owned;
+        const tierColor = TIER_COLOR[t.tier] ?? "var(--text-hint)";
+        return (
           <div
-            className="w-10 shrink-0 text-center"
-            style={{ color: "var(--accent)", fontSize: 18, lineHeight: 1 }}
+            key={t.key}
+            className="rounded-xl p-3 flex items-center gap-3"
+            style={{
+              backgroundColor: "var(--bg-secondary)",
+              border: t.active ? `1px solid ${tierColor}` : "1px solid transparent",
+            }}
           >
-            {t.header || "🎨"}
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold truncate">{t.name}</p>
-            <p className="text-[11px]" style={{ color: "var(--text-hint)" }}>
-              {t.tier} · {t.source}
-              {t.price > 0 && !t.owned && (
-                <span style={{ color: "#a78bfa" }}> · {t.price} 💎</span>
-              )}
-            </p>
-          </div>
-          {t.active ? (
+            {/* Emoji preview — strip HTML from header */}
             <div
-              className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold"
-              style={{ backgroundColor: "var(--accent)", color: "#fff" }}
+              className="w-11 h-11 rounded-xl flex items-center justify-center text-xl shrink-0"
+              style={{ backgroundColor: `${tierColor}22`, border: `1px solid ${tierColor}44` }}
             >
-              <CheckCircle2 size={11} /> Активна
+              {stripHtml(t.header ?? "").match(/(\p{Emoji})/u)?.[0] ?? "🎨"}
             </div>
-          ) : t.owned ? (
-            <button
-              onClick={() => onActivate(t)}
-              disabled={!!activating}
-              className="px-2.5 py-1 rounded-lg text-xs font-semibold transition-opacity disabled:opacity-50 flex items-center gap-1"
-              style={{ border: "1px solid var(--accent)", color: "var(--accent)" }}
-            >
-              {activating === t.key ? <Loader2 size={11} className="animate-spin" /> : "Применить"}
-            </button>
-          ) : (
-            <button
-              onClick={() => onActivate(t)}
-              disabled={!!activating}
-              className="px-2.5 py-1 rounded-lg text-xs font-semibold transition-opacity disabled:opacity-50 flex items-center gap-1"
-              style={{ backgroundColor: "#7c3aed", color: "#fff" }}
-            >
-              {activating === t.key
-                ? <Loader2 size={11} className="animate-spin" />
-                : t.price > 0 ? `${t.price} 💎` : "Бесплатно"}
-            </button>
-          )}
-        </div>
-      ))}
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold truncate">{t.name}</p>
+              <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                <span className="text-[10px] font-bold px-1 py-0.5 rounded" style={{ backgroundColor: `${tierColor}22`, color: tierColor }}>
+                  {TIER_LABEL[t.tier] ?? t.tier}
+                </span>
+                <span className="text-[10px]" style={{ color: "var(--text-hint)" }}>
+                  {SOURCE_LABEL[t.source] ?? t.source}
+                </span>
+                {/* Always show price */}
+                {t.price > 0 && (
+                  <span className="text-[10px] font-semibold" style={{ color: "#a78bfa" }}>
+                    {t.price} 🪙
+                  </span>
+                )}
+              </div>
+            </div>
+            {t.active ? (
+              <div
+                className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold shrink-0"
+                style={{ backgroundColor: tierColor, color: "#000" }}
+              >
+                <CheckCircle2 size={11} /> Активна
+              </div>
+            ) : t.owned ? (
+              <button
+                onClick={() => onActivate(t)}
+                disabled={!!activating}
+                className="px-2.5 py-1 rounded-lg text-xs font-semibold transition-opacity disabled:opacity-50 flex items-center gap-1 shrink-0"
+                style={{ border: `1px solid ${tierColor}`, color: tierColor }}
+              >
+                {activating === t.key ? <Loader2 size={11} className="animate-spin" /> : "Применить"}
+              </button>
+            ) : isGachaOnly ? (
+              // Gacha-only — not purchasable in shop
+              <div
+                className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold shrink-0"
+                style={{ backgroundColor: "var(--bg-primary)", color: "var(--text-hint)" }}
+              >
+                <Lock size={11} /> Гача
+              </div>
+            ) : (
+              <button
+                onClick={() => onActivate(t)}
+                disabled={!!activating}
+                className="px-2.5 py-1 rounded-lg text-xs font-semibold transition-opacity disabled:opacity-50 flex items-center gap-1 shrink-0"
+                style={{ backgroundColor: tierColor, color: "#000" }}
+              >
+                {activating === t.key
+                  ? <Loader2 size={11} className="animate-spin" />
+                  : `${t.price} 🪙`}
+              </button>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
