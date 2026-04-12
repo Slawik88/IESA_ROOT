@@ -1,5 +1,6 @@
 from django.contrib import admin
-from django.urls import path, include
+from django.urls import path, include, re_path
+from django.views.static import serve as _static_serve
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib.sitemaps.views import sitemap
@@ -325,6 +326,18 @@ urlpatterns = [
     path('ckeditor5/', include('django_ckeditor_5.urls')),
     # Favicon shortcut to static asset
     path('favicon.ico', RedirectView.as_view(url=static_static('img/favicon.png'), permanent=True)),
+
+    # ─── React Mini App — Vite-ассеты (JS/CSS с хешированными именами) ─────────
+    # Vite собирает в PredvestnikBot/web/assets/ с абсолютными путями /assets/...
+    re_path(
+        r'^assets/(?P<path>.+)$',
+        _static_serve,
+        {'document_root': str(Path(__file__).resolve().parent.parent.parent / 'PredvestnikBot' / 'web' / 'assets')},
+        name='miniapp_assets',
+    ),
+
+    # ─── SPA-фоллбэк: /app/<anything> → index.html (клиентская навигация) ──────
+    re_path(r'^app/.*$', miniapp_index, name='miniapp_spa_fallback'),
 ]
 
 # Добавляем маршруты для медиа-файлов и static файлов
