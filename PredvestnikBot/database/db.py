@@ -8837,7 +8837,8 @@ async def create_solo_boss_session(user_id: int, chat_id: int, boss_level: int =
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     progress = await get_solo_boss_progress(user_id, chat_id)
     is_repeat = progress and progress.get("max_level", 0) >= boss_level
-    boss_max_hp = 300_000 + (boss_level - 1) * 150_000
+    # REBALANCE: 2000 HP base (+1500 per level) — player deals ~50-300 damage per hit
+    boss_max_hp = 2_000 + (boss_level - 1) * 1_500
 
     async with postgres_connect() as db:
         cursor = await db.execute(

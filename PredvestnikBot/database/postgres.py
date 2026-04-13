@@ -215,19 +215,40 @@ class PostgresConnection:
             raise RuntimeError("Соединение не установлено")
         return _ExecuteContext(self._conn, sql, params)
 
+    @staticmethod
+    def _resolve_params(args, params):
+        """Normalise *args / params keyword so callers may use either:
+
+        Both of these are equivalent:
+            fetchone(sql, user_id, chat_id)       # individual positional args
+            fetchone(sql, (user_id, chat_id))     # pre-packed tuple / list
+
+        Without this helper, passing a single tuple creates a double-wrap:
+            args = ((user_id, chat_id),)   →  params_list = [(user_id, chat_id)]
+        which causes asyncpg to receive a tuple instead of individual scalars —
+        that is the root cause of the 'tuple object cannot be interpreted as int'
+        and 'server expects 2 arguments, 1 was passed' family of errors.
+        """
+        if params is not None:
+            return params
+        if not args:
+            return None
+        # Single positional argument that is itself a sequence → unwrap
+        if len(args) == 1 and isinstance(args[0], (tuple, list)):
+            return args[0]
+        return args  # multiple scalar positional args
+
     async def fetch(self, sql, *args, params=None):
         if not self._conn:
             raise RuntimeError("Соединение не установлено")
-        if args and params is None:
-            params = args
+        params = self._resolve_params(args, params)
         sql, params = _convert_placeholders(sql, params)
         return await self._conn.fetch(sql, *params)
 
     async def fetchone(self, sql, *args, params=None):
         if not self._conn:
             raise RuntimeError("Соединение не установлено")
-        if args and params is None:
-            params = args
+        params = self._resolve_params(args, params)
         sql, params = _convert_placeholders(sql, params)
         return await self._conn.fetchrow(sql, *params)
 
@@ -237,8 +258,7 @@ class PostgresConnection:
     async def fetchval(self, sql, *args, params=None):
         if not self._conn:
             raise RuntimeError("Соединение не установлено")
-        if args and params is None:
-            params = args
+        params = self._resolve_params(args, params)
         sql, params = _convert_placeholders(sql, params)
         return await self._conn.fetchval(sql, *params)
     async def commit(self):

@@ -194,8 +194,8 @@ function TradeSheet({ bond, balance, onClose, onDone, chatId }: TradeSheetProps)
     <>
       <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm" onClick={onClose} />
       <div
-        className="fixed bottom-0 inset-x-0 z-50 rounded-t-3xl p-5 space-y-4 animate-slideUp"
-        style={{ backgroundColor: "var(--bg-secondary)", border: "1px solid var(--border)", maxHeight: "90vh", overflowY: "auto" }}
+        className="fixed bottom-0 inset-x-0 z-50 rounded-t-3xl p-5 space-y-4 animate-slideUp glass-card"
+        style={{ maxHeight: "90vh", overflowY: "auto" }}
       >
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -346,8 +346,7 @@ function BondCard({ bond, onClick }: { bond: BondPrice; onClick: () => void }) {
 
   return (
     <div
-      className="rounded-2xl p-4 flex items-center gap-3 cursor-pointer transition-transform active:scale-[0.98]"
-      style={{ backgroundColor: "var(--bg-secondary)", border: "1px solid var(--border)" }}
+      className="rounded-2xl p-4 flex items-center gap-3 cursor-pointer transition-transform active:scale-[0.98] glass-card glass-card-hover"
       onClick={onClick}
     >
       <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"

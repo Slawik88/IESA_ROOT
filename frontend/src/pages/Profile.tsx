@@ -260,8 +260,7 @@ export default function Profile({ chatId }: Props) {
 
       {/* ── Шапка ──────────────────────────────────────────────── */}
       <header
-        className="rounded-2xl p-4 flex items-center gap-3"
-        style={{ backgroundColor: "var(--bg-secondary)" }}
+        className="rounded-2xl p-4 flex items-center gap-3 glass-card"
       >
         <div
           className="w-14 h-14 rounded-full flex items-center justify-center text-2xl font-bold shrink-0 overflow-hidden"
@@ -581,8 +580,7 @@ export default function Profile({ chatId }: Props) {
       {/* ── Чекин ─────────────────────────────────────────────── */}
       {chatId !== 0 && (
         <div
-          className="rounded-xl p-3 flex items-center justify-between gap-3"
-          style={{ backgroundColor: "var(--bg-secondary)" }}
+          className="rounded-xl p-3 flex items-center justify-between gap-3 glass-card"
         >
           <div className="flex items-center gap-2">
             <Flame size={18} style={{ color: checkin?.today_done ? "#6b7280" : "#f59e0b" }} />
@@ -682,7 +680,7 @@ function VipBadge() {
 
 function Card({ children }: { children: React.ReactNode }) {
   return (
-    <div className="rounded-xl p-3" style={{ backgroundColor: "var(--bg-secondary)" }}>
+    <div className="rounded-xl p-3 glass-card">
       {children}
     </div>
   );
@@ -699,7 +697,7 @@ function SectionTitle({ icon, label }: { icon: React.ReactNode; label: string })
 
 function StatCard({ icon, label, value, color }: { icon: React.ReactNode; label: string; value: string; color: string }) {
   return (
-    <div className="rounded-xl p-3 flex flex-col gap-1" style={{ backgroundColor: "var(--bg-secondary)" }}>
+    <div className="rounded-xl p-3 flex flex-col gap-1 glass-card">
       <div className="flex items-center gap-1.5 text-xs" style={{ color: "var(--text-hint)" }}>
         <span style={{ color }}>{icon}</span>
         {label}

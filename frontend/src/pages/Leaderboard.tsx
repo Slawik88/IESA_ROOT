@@ -171,10 +171,9 @@ function EntryRow({
   return (
     <div
       onClick={onProfile ?? undefined}
-      className={`flex items-center gap-3 rounded-xl px-3 py-2.5 transition-all ${onProfile ? "cursor-pointer active:scale-[0.98] hover:brightness-105" : ""}`}
+      className={`flex items-center gap-3 rounded-xl px-3 py-2.5 transition-all glass-card ${isSelf ? "" : ""} ${onProfile ? "cursor-pointer active:scale-[0.98] glass-card-hover" : ""}`}
       style={{
-        backgroundColor: isSelf ? "var(--accent)22" : "var(--bg-secondary)",
-        border:          isSelf ? "1px solid var(--accent)" : "1px solid transparent",
+        border: isSelf ? "1px solid var(--accent)" : undefined,
       }}
     >
       {/* Место */}
@@ -274,8 +273,8 @@ function UserProfileSheet({
     <>
       <div className="fixed inset-0 z-40 bg-black/50" onClick={onClose} />
       <div
-        className="fixed bottom-0 inset-x-0 z-50 rounded-t-2xl pb-8 animate-slideUp"
-        style={{ backgroundColor: "var(--bg-primary)", maxHeight: "82vh", overflowY: "auto" }}
+        className="fixed bottom-0 inset-x-0 z-50 rounded-t-2xl pb-8 animate-slideUp glass-card"
+        style={{ maxHeight: "82vh", overflowY: "auto" }}
       >
         <div className="flex justify-center pt-3 pb-1">
           <div className="w-10 h-1 rounded-full" style={{ backgroundColor: "var(--border)" }} />
