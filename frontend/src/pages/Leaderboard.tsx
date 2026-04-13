@@ -273,8 +273,14 @@ function UserProfileSheet({
     <>
       <div className="fixed inset-0 z-40 bg-black/50" onClick={onClose} />
       <div
-        className="fixed bottom-0 inset-x-0 z-50 rounded-t-2xl pb-8 animate-slideUp glass-card"
-        style={{ maxHeight: "82vh", overflowY: "auto" }}
+        className="fixed bottom-0 inset-x-0 z-50 rounded-t-2xl pb-8 animate-slideUp"
+        style={{
+          maxHeight: "82vh",
+          overflowY: "auto",
+          backgroundColor: "var(--bg-primary)",
+          borderTop: "1px solid var(--border)",
+          boxShadow: "0 -4px 32px -4px rgba(0,0,0,0.4)",
+        }}
       >
         <div className="flex justify-center pt-3 pb-1">
           <div className="w-10 h-1 rounded-full" style={{ backgroundColor: "var(--border)" }} />
@@ -311,7 +317,12 @@ function UserProfileSheet({
               )}
               <div className="text-center">
                 <p className="text-base font-bold flex items-center justify-center gap-1.5">
-                  {profile?.name ?? entry.name}
+                  {profile?.crystal_cosmetics_owned?.includes("neon_prefix") && (
+                    <span className="neon-prefix text-sm shrink-0">◈</span>
+                  )}
+                  <span className={profile?.has_rainbow_title ? "rainbow-text" : ""}>
+                    {profile?.name ?? entry.name}
+                  </span>
                   {(profile?.vip ?? entry.vip) && (
                     <span className="text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ backgroundColor: "#f59e0b22", color: "#f59e0b" }}>VIP</span>
                   )}
@@ -320,7 +331,10 @@ function UserProfileSheet({
                   )}
                 </p>
                 {profile?.custom_title && (
-                  <p className="text-xs mt-0.5 font-medium" style={{ color: "var(--accent)" }}>{profile.custom_title}</p>
+                  <p className={`text-xs mt-0.5 font-medium ${profile.has_rainbow_title ? "rainbow-text" : ""}`}
+                    style={profile.has_rainbow_title ? undefined : { color: "var(--accent)" }}>
+                    {profile.custom_title}
+                  </p>
                 )}
                 <p className="text-xs mt-0.5" style={{ color: RANK_COLOR[profile?.rank ?? "user"] ?? "var(--text-hint)" }}>
                   {RANK_LABEL[profile?.rank ?? "user"] ?? profile?.rank}
