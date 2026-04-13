@@ -719,8 +719,9 @@ export default function Profile({ chatId }: Props) {
       {/* ── Чекин ─────────────────────────────────────────────── */}
       {chatId !== 0 && (() => {
         const streak = checkin?.streak ?? data.streak;
-        const dayInWeek = streak % 7;            // 0..6
-        const nextMilestone = 7 - dayInWeek;     // days until 7-day bonus
+        const isFullWeek = streak > 0 && streak % 7 === 0;
+        const dayInWeek = isFullWeek ? 7 : streak % 7; // 0..7
+        const nextMilestone = 7 - dayInWeek;           // 0..7
         const milestonePct = (dayInWeek / 7) * 100;
         const DAYS = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
 
@@ -759,7 +760,7 @@ export default function Profile({ chatId }: Props) {
             <div className="grid grid-cols-7 gap-1.5">
               {DAYS.map((d, i) => {
                 const done = i < dayInWeek;
-                const isToday = i === dayInWeek;
+                const isToday = !isFullWeek && i === dayInWeek && streak >= 0;
                 return (
                   <div key={d}
                     className={`flex flex-col items-center gap-0.5 py-1.5 rounded-lg transition-all ${done ? "animate-streak-pop" : ""}`}
@@ -783,7 +784,7 @@ export default function Profile({ chatId }: Props) {
               <div className="flex items-center justify-between text-[11px]" style={{ color: "var(--text-hint)" }}>
                 <span>До бонуса × 7:</span>
                 <span className="font-bold" style={{ color: milestonePct >= 85 ? "#f59e0b" : "var(--text-secondary)" }}>
-                  {nextMilestone === 7 ? "✨ Сегодня!" : `${nextMilestone} дн.`}
+                  {nextMilestone === 0 ? "🎉 Неделя!" : `${nextMilestone} дн.`}
                 </span>
               </div>
               <div className="progress-bar">

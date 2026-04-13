@@ -262,13 +262,15 @@ function UserProfileSheet({
   const initials = entry.name.slice(0, 2).toUpperCase();
   const [profile, setProfile] = useState<PublicProfileResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [profileError, setProfileError] = useState("");
 
   useEffect(() => {
     if (!entry.user_id || !chatId) { setLoading(false); return; }
     setLoading(true);
+    setProfileError("");
     fetchPublicProfile(entry.user_id, chatId)
       .then(setProfile)
-      .catch(() => {})
+      .catch((e: Error) => setProfileError(e.message))
       .finally(() => setLoading(false));
   }, [entry.user_id, chatId]);
 
@@ -306,6 +308,15 @@ function UserProfileSheet({
             </div>
             <div className="skeleton h-16 rounded-xl" />
             <div className="grid grid-cols-2 gap-3"><div className="skeleton h-20 rounded-xl" /><div className="skeleton h-20 rounded-xl" /></div>
+          </div>
+        ) : profileError ? (
+          <div className="px-4 py-6 text-center" style={{ color: "#e74c3c" }}>
+            <p className="text-sm font-medium">Ошибка загрузки профиля</p>
+            <p className="text-xs mt-1 break-all">{profileError}</p>
+            <button
+              onClick={() => { setLoading(true); setProfileError(""); fetchPublicProfile(entry.user_id, chatId).then(setProfile).catch((e: Error) => setProfileError(e.message)).finally(() => setLoading(false)); }}
+              className="mt-3 text-sm underline" style={{ color: "var(--accent)" }}
+            >Повторить</button>
           </div>
         ) : (
           <>

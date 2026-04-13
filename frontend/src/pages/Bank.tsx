@@ -446,7 +446,6 @@ function Transfer({ balance, chatId, loading, setLoading, showOk, showErr, reloa
     const amt = parseInt(amount, 10);
 
     if (!tid || tid <= 0) return showErr("Выберите получателя");
-    if (tid === chatId)   return showErr("Нельзя переводить самому себе");
     if (!amt || amt < TRANSFER_MIN || amt > TRANSFER_MAX)
       return showErr(`Сумма от ${TRANSFER_MIN} до ${fmt(TRANSFER_MAX)} 🪙`);
     if (amt > balance) return showErr("Недостаточно средств");
@@ -515,7 +514,7 @@ function Transfer({ balance, chatId, loading, setLoading, showOk, showErr, reloa
         className="w-full py-3 rounded-xl font-semibold text-sm transition-opacity disabled:opacity-40"
         style={{ backgroundColor: "var(--accent)", color: "#fff" }}
       >
-        {loading ? "Переводю..." : "Отправить"}
+        {loading ? "Перевожу..." : "Отправить"}
       </button>
     </div>
   );

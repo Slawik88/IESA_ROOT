@@ -181,7 +181,7 @@ function TradeSheet({ bond, balance, onClose, onDone, chatId }: TradeSheetProps)
     try {
       const res = await sellBond(chatId, bond.key, sellAmt);
       if (res.ok) {
-        showOk(`💰 Продано ${sellAmt} шт.`);
+        showOk(`💰 Продано ${sellAmt} шт. · Баланс: ${(res.new_balance ?? 0).toLocaleString("ru-RU")} 🪙`);
         setTimeout(() => { onDone(); onClose(); }, 1200);
       } else {
         showErr((res as { error?: string }).error ?? "Ошибка продажи");

@@ -147,7 +147,7 @@ export default function Season() {
         <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: "var(--border)" }}>
           <div
             className="h-full rounded-full transition-all duration-700"
-            style={{ width: `${Math.min(100, ((progress.xp ?? 0) % 100))}%`, backgroundColor: "var(--accent)" }}
+            style={{ width: `${Math.min(100, Math.round(((progress.xp ?? 0) % (progress.xp_per_level ?? 100)) / (progress.xp_per_level ?? 100) * 100))}%`, backgroundColor: "var(--accent)" }}
           />
         </div>
       </div>

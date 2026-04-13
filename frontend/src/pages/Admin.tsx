@@ -631,7 +631,7 @@ function GiveSection({ chatId }: { chatId: number }) {
 
           <button
             onClick={doGive}
-            disabled={busy}
+            disabled={busy || (giveTab !== "item" ? !amount : !itemName.trim())}
             className="w-full py-2 rounded-lg text-sm font-semibold flex items-center justify-center gap-2 transition-opacity disabled:opacity-50"
             style={{ backgroundColor: "#ef4444", color: "#fff" }}
           >
@@ -648,15 +648,19 @@ function FeaturesSection({ chatId }: { chatId: number }) {
   const [states, setStates] = useState<Record<string, boolean>>({});
   const [busy, setBusy]     = useState<string | null>(null);
   const [loading, setLoad]  = useState(true);
+  const [flagsError, setFlagsError] = useState("");
+  const [toggleError, setToggleError] = useState("");
 
   useEffect(() => {
     if (!chatId) return;
     setLoad(true);
+    setFlagsError("");
     fetchFeatureFlags(chatId)
       .then(r => {
         if (r.ok && r.flags) setStates(r.flags);
+        else setFlagsError("Не удалось загрузить флаги");
       })
-      .catch(() => {})
+      .catch((e: Error) => setFlagsError(e.message))
       .finally(() => setLoad(false));
   }, [chatId]);
 
@@ -664,11 +668,14 @@ function FeaturesSection({ chatId }: { chatId: number }) {
     if (busy) return;
     const next = !states[key];
     setBusy(key);
+    setToggleError("");
     try {
       const r = await devFeatureToggle(chatId, key, next);
       if (r.ok) setStates((s) => ({ ...s, [key]: next }));
-    } catch { /* ignore */ }
-    finally { setBusy(null); }
+      else setToggleError(`Ошибка переключения «${key}»: ${r.error ?? "неизвестная ошибка"}`);
+    } catch (e: Error | unknown) {
+      setToggleError(e instanceof Error ? e.message : "Ошибка сети");
+    } finally { setBusy(null); }
   };
 
   if (loading) {
@@ -681,6 +688,19 @@ function FeaturesSection({ chatId }: { chatId: number }) {
     );
   }
 
+  if (flagsError) {
+    return (
+      <div className="rounded-xl px-3 py-3 text-sm font-medium animate-fadeIn"
+        style={{ backgroundColor: "#ef444418", color: "#ef4444", border: "1px solid #ef444450" }}>
+        ⚠️ {flagsError}
+        <button
+          onClick={() => { setLoad(true); setFlagsError(""); fetchFeatureFlags(chatId).then(r => { if (r.ok && r.flags) setStates(r.flags); }).catch((e: Error) => setFlagsError(e.message)).finally(() => setLoad(false)); }}
+          className="ml-2 underline text-xs"
+        >Повторить</button>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-2">
       <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--text-hint)" }}>
@@ -689,6 +709,12 @@ function FeaturesSection({ chatId }: { chatId: number }) {
       <p className="text-[10px]" style={{ color: "#ef444488" }}>
         ⚠️ Developer имеет иммунитет — отключение Mini App не блокирует доступ
       </p>
+      {toggleError && (
+        <div className="rounded-xl px-3 py-2 text-xs font-medium animate-fadeIn"
+          style={{ backgroundColor: "#ef444418", color: "#ef4444", border: "1px solid #ef444450" }}>
+          ⚠️ {toggleError}
+        </div>
+      )}
       {FEATURE_LIST.map(({ key, label, desc }) => {
         const on = !!states[key];
         return (

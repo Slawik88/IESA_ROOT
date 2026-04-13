@@ -152,6 +152,7 @@ export interface SeasonReward {
 export interface SeasonProgress {
   level: number;
   xp: number;
+  xp_per_level?: number;
   has_premium: boolean;
   claimed_free: number[];
   claimed_premium: number[];
