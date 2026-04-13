@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import {
   fetchInventory, equipItem, toggleEquip,
-  sellJunk, batchSell, enhanceItem, consumePotion,
+  sellJunk, batchSell, enhanceItem, consumePotion, activateTheme,
 } from "../lib/api";
 import type { InventoryItem, InventoryRpg } from "../types";
 import { RARITY_COLOR } from "./Gacha";
@@ -162,6 +162,24 @@ export default function Inventory({ userId: _userId, chatId }: Props) {
     } finally { setBusy(null); }
   }, [chatId, load, showToast]);
 
+  const doActivateTheme = useCallback(async (item: InventoryItem) => {
+    if (item.equipped) return; // already active
+    setBusy("theme");
+    try {
+      const res = await activateTheme(chatId, item.key);
+      if (res.ok) {
+        showToast(`🎨 Тема «${item.name}» активирована!`);
+        document.documentElement.setAttribute("data-theme", item.key);
+      } else {
+        showToast((res as { error?: string }).error ?? "Ошибка");
+      }
+      setSelected(null);
+      load();
+    } catch (e: unknown) {
+      showToast(e instanceof Error ? e.message : "Ошибка");
+    } finally { setBusy(null); }
+  }, [chatId, load, showToast]);
+
   /* ── Error & Loading ── */
   if (error) {
     return (
@@ -187,7 +205,11 @@ export default function Inventory({ userId: _userId, chatId }: Props) {
       if (slotF !== "all") return it.slot === slotF;
       return true;
     })
-    .sort((a, b) => (RARITY_ORDER[b.rarity] ?? 0) - (RARITY_ORDER[a.rarity] ?? 0));
+    .sort((a, b) => {
+      const rarityDiff = (RARITY_ORDER[b.rarity] ?? 0) - (RARITY_ORDER[a.rarity] ?? 0);
+      if (rarityDiff !== 0) return rarityDiff;
+      return b.enhancement_level - a.enhancement_level;
+    });
 
   const junkCount = items.filter(i => i.rarity === "junk").length;
 
@@ -306,6 +328,7 @@ export default function Inventory({ userId: _userId, chatId }: Props) {
           onSell={doSell}
           onEnhance={(item) => setEnhanceDetail(item)}
           onConsume={doConsume}
+          onActivateTheme={doActivateTheme}
         />
       )}
 
@@ -453,9 +476,10 @@ interface BSProps {
   onSell:  (item: InventoryItem) => void;
   onEnhance: (item: InventoryItem) => void;
   onConsume: (item: InventoryItem) => void;
+  onActivateTheme: (item: InventoryItem) => void;
 }
 
-function BottomSheet({ item, busy, onClose, onEquip, onSell, onEnhance, onConsume }: BSProps) {
+function BottomSheet({ item, busy, onClose, onEquip, onSell, onEnhance, onConsume, onActivateTheme }: BSProps) {
   const color = RARITY_COLOR[item.rarity] ?? "#9ca3af";
   const stats: { label: string; value: string | number }[] = [];
   if (item.atk)              stats.push({ label: "ATK",    value: `+${item.atk}` });
@@ -464,9 +488,10 @@ function BottomSheet({ item, busy, onClose, onEquip, onSell, onEnhance, onConsum
   if (item.crit_rate)        stats.push({ label: "CRIT",   value: `+${item.crit_rate}%` });
   if (item.enhancement_level > 0) stats.push({ label: "Улучш.", value: `+${item.enhancement_level}` });
 
-  const canEquip   = isEquippable(item);
-  const canConsume = isConsumable(item);
-  const canSell    = item.sell_price > 0;
+  const canEquip        = isEquippable(item);
+  const canConsume      = isConsumable(item);
+  const canSell         = item.sell_price > 0;
+  const canActivateTheme = item.is_cosmetic && item.slot === "flair";
 
   return (
     <>
@@ -526,6 +551,11 @@ function BottomSheet({ item, busy, onClose, onEquip, onSell, onEnhance, onConsum
               label={`Улучшить${item.enhancement_level > 0 ? ` (ур. ${item.enhancement_level})` : ""} 🔨`}
               color="#f59e0b" />
           )}
+          {canActivateTheme && (
+            <ActionBtn loading={busy === "theme"} onClick={() => onActivateTheme(item)}
+              label={item.equipped ? "✅ Активная тема" : "🎨 Применить тему"}
+              color={item.equipped ? "#6b7280" : "#a855f7"} />
+          )}
           {canConsume && (
             <ActionBtn loading={busy === "consume"} onClick={() => onConsume(item)}
               label="Использовать ⚡" color="#22c55e" />
@@ -534,7 +564,7 @@ function BottomSheet({ item, busy, onClose, onEquip, onSell, onEnhance, onConsum
             <ActionBtn loading={busy === "sell"} onClick={() => onSell(item)}
               label={`Продать за ${item.sell_price} 🪙`} color="#e74c3c" outline />
           )}
-          {!canEquip && !canConsume && !canSell && (
+          {!canEquip && !canConsume && !canSell && !canActivateTheme && (
             <p className="text-center text-xs py-2" style={{ color: "var(--text-hint)" }}>Нет доступных действий</p>
           )}
         </div>

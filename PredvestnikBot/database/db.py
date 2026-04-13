@@ -1916,6 +1916,40 @@ async def init_db():
     await enforce_rank_invariants()
 
 
+async def init_promocodes_table():
+    """Create promocodes tables — called from init_db."""
+    try:
+        async with postgres_connect() as _db:
+            await _db.execute("""
+                CREATE TABLE IF NOT EXISTS promocodes (
+                    id           BIGSERIAL PRIMARY KEY,
+                    code         TEXT    NOT NULL UNIQUE,
+                    payload      JSONB   NOT NULL DEFAULT '{}',
+                    max_uses     INTEGER DEFAULT NULL,
+                    uses         INTEGER NOT NULL DEFAULT 0,
+                    expires_at   TIMESTAMPTZ DEFAULT NULL,
+                    created_by   BIGINT  NOT NULL DEFAULT 0,
+                    created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    is_active    BOOLEAN NOT NULL DEFAULT TRUE
+                )
+            """)
+            await _db.execute("""
+                CREATE TABLE IF NOT EXISTS promocode_uses (
+                    id           BIGSERIAL PRIMARY KEY,
+                    code         TEXT    NOT NULL,
+                    user_id      BIGINT  NOT NULL,
+                    used_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    UNIQUE (code, user_id)
+                )
+            """)
+            await _db.execute(
+                "CREATE INDEX IF NOT EXISTS idx_promocodes_code ON promocodes(code)"
+            )
+            await _db.commit()
+    except Exception as _e:
+        _log.debug("init_promocodes_table: %s", _e)
+
+
 async def enforce_rank_invariants():
     """Normalize rank data invariants:
     - developer: only DEVELOPER_ID (global)
@@ -7036,7 +7070,7 @@ async def get_enhancement_stones(user_id: int) -> int:
     """Возвращает количество камней улучшения."""
     async with postgres_connect() as db:
         row = await db.fetchone(
-            "SELECT stones FROM crystal_enhancement_stones WHERE user_id=?", (user_id,)
+            "SELECT stones FROM crystal_enhancement_stones WHERE user_id=?", user_id
         )
     return int(row["stones"]) if row else 0
 
@@ -7072,7 +7106,7 @@ async def is_avatar_unlocked(user_id: int) -> bool:
     """Возвращает True если аватар уже разблокирован."""
     async with postgres_connect() as db:
         row = await db.fetchone(
-            "SELECT user_id FROM crystal_avatar_unlocks WHERE user_id=?", (user_id,)
+            "SELECT user_id FROM crystal_avatar_unlocks WHERE user_id=?", user_id
         )
     return row is not None
 
@@ -7095,7 +7129,7 @@ async def get_avatar_path(user_id: int) -> str | None:
     """Возвращает путь к аватару или None."""
     async with postgres_connect() as db:
         row = await db.fetchone(
-            "SELECT avatar_path FROM crystal_avatar_unlocks WHERE user_id=?", (user_id,)
+            "SELECT avatar_path FROM crystal_avatar_unlocks WHERE user_id=?", user_id
         )
     return row["avatar_path"] if row else None
 # ─── 🅱️ Block 4: Season Pass functions ──────────────────────────────────────
@@ -7841,6 +7875,160 @@ async def get_newbie_quest_status(user_id: int, chat_id: int) -> dict | None:
 
 WEEKLY_TOP_REWARDS = {1: 500, 2: 450, 3: 400, 4: 350, 5: 300,
                       6: 250, 7: 200, 8: 150, 9: 100, 10: 50}
+
+
+# ─── Промокоды ───────────────────────────────────────────────────────────────
+
+async def create_promocode(
+    code: str,
+    payload: dict,
+    max_uses: int | None,
+    expires_at,
+    created_by: int,
+) -> dict:
+    """Создать новый промокод. Вернуть его запись."""
+    import json as _json
+    async with postgres_connect() as db:
+        cursor = await db.execute(
+            """INSERT INTO promocodes (code, payload, max_uses, expires_at, created_by)
+               VALUES (?, ?::jsonb, ?, ?, ?) RETURNING id, code, payload, max_uses, uses, expires_at, is_active""",
+            (code.upper(), _json.dumps(payload), max_uses, expires_at, created_by),
+        )
+        row = await cursor.fetchone()
+        await db.commit()
+    return dict(row) if row else {}
+
+
+async def activate_promocode(code: str, user_id: int, chat_id: int) -> dict:
+    """
+    Атомарная активация промокода.
+    Возвращает {'ok': True, 'payload': {...}} или {'ok': False, 'error': '...'}.
+    """
+    from datetime import datetime as _dt, timezone as _tz
+    import json as _json
+    now = _dt.now(_tz.utc)
+
+    async with postgres_connect() as db:
+        # Lock the row to prevent race conditions
+        async with db.execute(
+            """SELECT id, payload, max_uses, uses, expires_at, is_active
+               FROM promocodes WHERE code = ? FOR UPDATE""",
+            (code.upper(),)
+        ) as c:
+            row = await c.fetchone()
+
+        if not row:
+            return {"ok": False, "error": "Промокод не найден"}
+        if not row["is_active"]:
+            return {"ok": False, "error": "Промокод неактивен"}
+        if row["expires_at"] and row["expires_at"] < now:
+            return {"ok": False, "error": "Срок действия промокода истёк"}
+        if row["max_uses"] is not None and row["uses"] >= row["max_uses"]:
+            return {"ok": False, "error": "Промокод уже использован максимальное количество раз"}
+
+        # Check already used by this user (unique constraint but check explicitly)
+        async with db.execute(
+            "SELECT id FROM promocode_uses WHERE code = ? AND user_id = ?",
+            (code.upper(), user_id)
+        ) as c2:
+            already = await c2.fetchone()
+        if already:
+            return {"ok": False, "error": "Ты уже активировал этот промокод"}
+
+        # Record usage
+        await db.execute(
+            "INSERT INTO promocode_uses (code, user_id) VALUES (?, ?)",
+            (code.upper(), user_id)
+        )
+        await db.execute(
+            "UPDATE promocodes SET uses = uses + 1 WHERE id = ?",
+            (row["id"],)
+        )
+        await db.commit()
+
+    payload = _json.loads(row["payload"]) if isinstance(row["payload"], str) else dict(row["payload"])
+    return {"ok": True, "payload": payload}
+
+
+async def apply_promocode_rewards(user_id: int, chat_id: int, payload: dict) -> list[str]:
+    """Apply all rewards from a promocode payload. Returns list of reward descriptions."""
+    rewards = []
+    mora = int(payload.get("mora", 0))
+    if mora:
+        await add_mora(user_id, chat_id, mora)
+        rewards.append(f"+{mora:,} 🪙 Мора".replace(",", " "))
+
+    crystals = int(payload.get("crystals", 0))
+    if crystals:
+        await add_crystals(user_id, crystals)
+        rewards.append(f"+{crystals} 💎 Кристаллы")
+
+    xp = int(payload.get("xp", 0))
+    if xp:
+        await add_xp_in_chat(user_id, chat_id, xp)
+        rewards.append(f"+{xp} ⚡ XP")
+
+    enhancement_stones = int(payload.get("enhancement_stones", 0))
+    if enhancement_stones:
+        await add_enhancement_stones(user_id, enhancement_stones)
+        rewards.append(f"+{enhancement_stones} ⚒️ Камней заточки")
+
+    theme_key = str(payload.get("theme", "")).strip()
+    if theme_key:
+        async with postgres_connect() as db:
+            await db.execute(
+                "INSERT INTO user_themes (user_id, theme_key) VALUES (?, ?) ON CONFLICT DO NOTHING",
+                (user_id, theme_key)
+            )
+            await db.commit()
+        rewards.append(f"🎨 Тема «{theme_key}»")
+
+    item_name = str(payload.get("item_name", "")).strip()
+    item_rarity = str(payload.get("item_rarity", "common")).strip()
+    if item_name:
+        await add_gacha_item(user_id, chat_id, item_name.lower().replace(" ", "_"), item_name, item_rarity)
+        rewards.append(f"🎲 Предмет «{item_name}»")
+
+    # Random item by rarity
+    random_rarity = str(payload.get("random_item_rarity", "")).strip()
+    if random_rarity:
+        import random as _rnd
+        _items_by_rarity = {
+            "common": [("wooden_sword","Деревянный меч"),("cloth_vest","Тряпичный жилет")],
+            "rare":   [("iron_sword","Стальной меч"),("iron_shield","Стальной щит")],
+            "epic":   [("crystal_blade","Кристальный клинок"),("magic_robe","Магический плащ")],
+            "legendary": [("dragon_fang","Клык Дракона"),("aurora_mantle","Мантия Авроры")],
+        }
+        pool = _items_by_rarity.get(random_rarity, _items_by_rarity["common"])
+        key, name = _rnd.choice(pool)
+        await add_gacha_item(user_id, chat_id, key, name, random_rarity)
+        rewards.append(f"🎲 Случайный {random_rarity} предмет: «{name}»")
+
+    return rewards
+
+
+async def list_promocodes(limit: int = 50) -> list[dict]:
+    """Return recent promocodes for admin panel."""
+    async with postgres_connect() as db:
+        async with db.execute(
+            """SELECT id, code, payload, max_uses, uses, expires_at, is_active, created_at
+               FROM promocodes ORDER BY created_at DESC LIMIT ?""",
+            (limit,)
+        ) as c:
+            rows = await c.fetchall()
+    return [dict(r) for r in rows]
+
+
+async def deactivate_promocode(code: str) -> bool:
+    """Deactivate a promocode by code."""
+    async with postgres_connect() as db:
+        cursor = await db.execute(
+            "UPDATE promocodes SET is_active = FALSE WHERE code = ? RETURNING id",
+            (code.upper(),)
+        )
+        row = await cursor.fetchone()
+        await db.commit()
+    return row is not None
 
 
 async def is_weekly_top_rewarded(chat_id: int, week_key: str) -> bool:

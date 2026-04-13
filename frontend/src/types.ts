@@ -73,6 +73,7 @@ export interface UserData {
   enhancement_stones: number;
   guarantee_scrolls: number;
   avatar_unlocked: boolean;
+  avatar_url?: string | null;
   crystal_cosmetics_owned: string[];
   has_rainbow_title: boolean;
 }

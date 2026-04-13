@@ -3,8 +3,8 @@
    Вкладки: Рамки | Косметика | Питомцы | Еда | Зелья | Темы
    ────────────────────────────────────────────────────────────── */
 import { useEffect, useState, useCallback } from "react";
-import { ShoppingBag, CheckCircle2, Palette, Loader2, Lock } from "lucide-react";
-import { fetchShopCatalog, buyShopItem, fetchThemes, activateTheme } from "../lib/api";
+import { ShoppingBag, CheckCircle2, Palette, Loader2, Lock, Gem } from "lucide-react";
+import { fetchShopCatalog, buyShopItem, fetchThemes, activateTheme, buyCrystalItem, saveAvatar, fetchUserData } from "../lib/api";
 import type {
   ShopCatalog,
   ShopFrame,
@@ -21,7 +21,7 @@ interface Props {
   chatId: number;
 }
 
-type ShopTab = "frames" | "cosmetics" | "pets" | "food" | "potions" | "themes";
+type ShopTab = "frames" | "cosmetics" | "pets" | "food" | "potions" | "themes" | "donate";
 
 const fmt = (n: number) => n.toLocaleString("ru-RU");
 
@@ -36,6 +36,9 @@ export default function Shop({ chatId }: Props) {
   // Themes tab state
   const [themesData, setThemesData]     = useState<ThemesResponse | null>(null);
   const [activatingTheme, setActivating] = useState<string | null>(null);
+
+  // Donate tab state
+  const [crystalBalance, setCrystalBalance] = useState<number | null>(null);
 
   const showOk  = useCallback((msg: string) => { setToast(msg);    setTimeout(() => setToast(null), 3500); }, []);
   const showErr = useCallback((msg: string) => { setToastErr(msg); setTimeout(() => setToastErr(null), 4000); }, []);
@@ -54,7 +57,8 @@ export default function Shop({ chatId }: Props) {
 
   useEffect(() => {
     if (tab === "themes") loadThemes();
-  }, [tab, loadThemes]);
+    if (tab === "donate") fetchUserData(chatId).then(d => setCrystalBalance(d.crystals ?? 0)).catch(() => {});
+  }, [tab, loadThemes, chatId]);
 
   const buy = useCallback(async (
     itemType: "frame" | "cosmetic" | "pet_color" | "potion",
@@ -146,6 +150,7 @@ export default function Shop({ chatId }: Props) {
     { key: "food",      label: "Еда" },
     { key: "potions",   label: "Зелья" },
     { key: "themes",    label: "🎨 Темы" },
+    { key: "donate",    label: "💎 Донат" },
   ];
 
   return (
@@ -197,6 +202,7 @@ export default function Shop({ chatId }: Props) {
       {tab === "food"      && <FoodList     food={data.food}               buying={buying} onBuy={buy} />}
       {tab === "potions"   && <PotionList   potions={data.potions}         buying={buying} onBuy={buy} />}
       {tab === "themes"    && <ThemeList    themes={themesData} activating={activatingTheme} onActivate={doActivateTheme} />}
+      {tab === "donate"    && <DonateTab    chatId={chatId} balance={crystalBalance} onRefresh={() => fetchUserData(chatId).then(d => setCrystalBalance(d.crystals ?? 0)).catch(() => {})} showOk={showOk} showErr={showErr} />}
 
       {/* ── Тосты ─────────────────────────────────────────────── */}
       {toast && (
@@ -577,6 +583,113 @@ function ThemeList({
           </div>
         );
       })}
+    </div>
+  );
+}
+
+/* ── DonateTab ────────────────────────────────────────────────── */
+
+interface CrystalItem {
+  key: string;
+  emoji: string;
+  name: string;
+  price: number;
+  desc: string;
+  oneTime?: boolean;
+}
+
+const CRYSTAL_CATALOG: CrystalItem[] = [
+  { key: "telegram_avatar",      emoji: "🖼️", name: "Telegram Аватар",     price: 150, desc: "Показывает фото из Telegram в профиле", oneTime: true },
+  { key: "enhancement_stones_5", emoji: "⚒️", name: "5 камней заточки",     price: 150, desc: "5 гарантированных заточек без Моры" },
+  { key: "enhancement_stones_1", emoji: "🔩", name: "1 камень заточки",      price: 50,  desc: "1 гарантированная заточка без Моры" },
+];
+
+function DonateTab({ chatId, balance, onRefresh, showOk, showErr }: {
+  chatId: number;
+  balance: number | null;
+  onRefresh: () => void;
+  showOk: (m: string) => void;
+  showErr: (m: string) => void;
+}) {
+  const [buying, setBuying] = useState<string | null>(null);
+
+  const handleBuy = useCallback(async (item: CrystalItem) => {
+    if (buying) return;
+    setBuying(item.key);
+    try {
+      const res = await buyCrystalItem(chatId, item.key, item.price);
+      if (!res.ok) { showErr(res.error ?? "Ошибка покупки"); return; }
+
+      // For telegram_avatar: also save the avatar URL
+      if (item.key === "telegram_avatar") {
+        const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user as { photo_url?: string } | undefined;
+        const photoUrl = tgUser?.photo_url;
+        if (photoUrl) {
+          const sv = await saveAvatar(photoUrl);
+          if (!sv.ok) showErr("Аватар куплен, но фото не сохранилось: " + (sv.error ?? ""));
+        }
+      }
+
+      showOk(`${item.emoji} ${item.name} куплено!`);
+      onRefresh();
+    } catch (e: unknown) {
+      showErr(e instanceof Error ? e.message : "Ошибка");
+    } finally {
+      setBuying(null);
+    }
+  }, [buying, chatId, showOk, showErr, onRefresh]);
+
+  return (
+    <div className="space-y-3">
+      {/* Balance */}
+      <div
+        className="rounded-xl p-3 flex items-center justify-between"
+        style={{ backgroundColor: "var(--bg-secondary)" }}
+      >
+        <div className="flex items-center gap-2">
+          <Gem size={16} style={{ color: "#a78bfa" }} />
+          <span className="text-sm font-medium">Кристаллы</span>
+        </div>
+        <span className="font-bold tabular-nums">
+          {balance === null ? "..." : `${fmt(balance)} 💎`}
+        </span>
+      </div>
+
+      {/* Catalog */}
+      <div className="space-y-2">
+        {CRYSTAL_CATALOG.map((item) => (
+          <div
+            key={item.key}
+            className="rounded-xl p-3 flex items-center gap-3"
+            style={{ backgroundColor: "var(--bg-secondary)" }}
+          >
+            <span className="text-2xl shrink-0">{item.emoji}</span>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium">{item.name}</p>
+              <p className="text-[11px] mt-0.5" style={{ color: "var(--text-hint)" }}>{item.desc}</p>
+              {item.oneTime && (
+                <span className="text-[10px] font-bold px-1 rounded" style={{ backgroundColor: "#a78bfa22", color: "#a78bfa" }}>
+                  Разовая покупка
+                </span>
+              )}
+            </div>
+            <button
+              onClick={() => handleBuy(item)}
+              disabled={!!buying}
+              className="shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold transition-opacity disabled:opacity-40 flex items-center gap-1"
+              style={{ backgroundColor: "#7c3aed", color: "#fff" }}
+            >
+              {buying === item.key
+                ? <Loader2 size={12} className="animate-spin" />
+                : <>{item.price} 💎</>}
+            </button>
+          </div>
+        ))}
+      </div>
+
+      <p className="text-[11px] text-center" style={{ color: "var(--text-hint)" }}>
+        Пополнить кристаллы можно через раздел «⭐ Stars»
+      </p>
     </div>
   );
 }

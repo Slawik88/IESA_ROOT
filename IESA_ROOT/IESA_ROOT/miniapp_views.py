@@ -513,8 +513,10 @@ def miniapp_user_data(request):
             guarantee_scrolls = gs_row[0] if gs_row else 0
             
             # Avatar unlocked
-            cur.execute(f"SELECT user_id FROM crystal_avatar_unlocks WHERE user_id={ph}", (uid,))
-            avatar_unlocked = cur.fetchone() is not None
+            cur.execute(f"SELECT avatar_path FROM crystal_avatar_unlocks WHERE user_id={ph}", (uid,))
+            av_row = cur.fetchone()
+            avatar_unlocked = av_row is not None
+            avatar_url = f"/api/user_avatar/{uid}/" if (av_row and av_row[0]) else None
             
             # Chat role (if scoped to a specific chat)
             if chat_id:
@@ -576,6 +578,7 @@ def miniapp_user_data(request):
             "enhancement_stones": enhancement_stones,
             "guarantee_scrolls": guarantee_scrolls,
             "avatar_unlocked": avatar_unlocked,
+            "avatar_url": avatar_url,
             "chat_role": chat_role,
             "crystal_cosmetics_owned": crystal_cosmetics_owned,
             "has_rainbow_title": has_rainbow_title,
@@ -2084,6 +2087,43 @@ def miniapp_inventory(request):
                 (uid, chat_id, uid, chat_id),
             )
             pity = (cur.fetchone() or [0])[0]
+
+            # Append owned profile themes as pseudo-items (slot=flair, is_cosmetic=True)
+            try:
+                from config import PROFILE_THEMES
+                cur.execute(f"SELECT theme_key FROM user_themes WHERE user_id={ph}", (uid,))
+                owned_theme_keys = {r[0] for r in cur.fetchall()}
+                cur.execute(
+                    f"SELECT COALESCE(um.active_theme,'default') FROM user_mora um "
+                    f"WHERE um.user_id={ph} AND um.chat_id={ph} LIMIT 1",
+                    (uid, chat_id),
+                )
+                active_row = cur.fetchone()
+                active_theme = active_row[0] if active_row else "default"
+                _tier_to_rarity = {"common": "common", "rare": "rare", "epic": "rare", "legendary": "legendary"}
+                for idx, theme_key in enumerate(owned_theme_keys):
+                    if theme_key == "default":
+                        continue
+                    t = PROFILE_THEMES.get(theme_key, {})
+                    items.append({
+                        "id": -(idx + 1),
+                        "key": theme_key,
+                        "name": t.get("name", theme_key),
+                        "rarity": _tier_to_rarity.get(t.get("tier", "common"), "common"),
+                        "equipped": (active_theme == theme_key),
+                        "atk": 0, "def_val": 0, "hp": 0, "crit_rate": 0,
+                        "slot": "flair",
+                        "enhancement_level": 0,
+                        "stack_count": 1,
+                        "is_cosmetic": True,
+                        "desc": t.get("footer", ""),
+                        "sell_price": 0,
+                        "can_auction": False,
+                        "days_until_auctionable": None,
+                        "hours_until_auctionable": None,
+                    })
+            except Exception:
+                pass
 
             conn.close()
             return JsonResponse({
@@ -5803,6 +5843,7 @@ def miniapp_crystals_spend(request):
         ("chat_role",             "🏷️", "Кастомная роль в чате",        300, "Уникальная роль под именем в профиле чата"),
         ("telegram_avatar",       "🖼️", "Telegram Аватар",              150, "Показывает твою фото из Telegram в профиле (разовая покупка)"),
         ("enhancement_stones_5",  "⚒️", "5 камней улучшения",           150, "5 гарантированных заточек без затрат Моры"),
+        ("enhancement_stones_1",  "🔩", "1 камень улучшения",            50,  "1 камень заточки без затрат Моры"),
     ]
     headers = _cors_headers()
     if request.method == "OPTIONS":
@@ -5913,6 +5954,10 @@ def miniapp_crystals_spend(request):
             from database.db import add_enhancement_stones
             _a2s(add_enhancement_stones)(uid, 5)
 
+        elif item_key == "enhancement_stones_1":
+            from database.db import add_enhancement_stones
+            _a2s(add_enhancement_stones)(uid, 1)
+
         # ── Crystal-exclusive cosmetics / frames ──────────────────────────────
         elif item_key in ("crystal_aura", "rainbow_title", "stealth_mode", "crystal_pet_skin"):
             from database.db import add_shop_item, has_active_cosmetic
@@ -6015,9 +6060,209 @@ def miniapp_dev_give_crystals(request):
         return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-#  Chat ban list (admin view — users banned in a specific chat)
-# ──────────────────────────────────────────────────────────────────────────────
+# ─── Promocode endpoints ──────────────────────────────────────────────────────
+
+@csrf_exempt
+def miniapp_promo_activate(request):
+    """POST /api/promo/activate {code} — activate a promocode (authenticated user)."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=405, headers=headers)
+
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+
+    try:
+        body = json.loads(request.body or "{}")
+    except ValueError:
+        return JsonResponse({"error": "Invalid JSON"}, status=400, headers=headers)
+
+    code = str(body.get("code", "")).strip().upper()
+    chat_id = int(str(body.get("chat_id", "0")))
+    if not code:
+        return JsonResponse({"error": "code required"}, status=400, headers=headers)
+
+    try:
+        from asgiref.sync import async_to_sync as _a2s
+        from database.db import activate_promocode, apply_promocode_rewards
+
+        result = _a2s(activate_promocode)(code, uid, chat_id)
+        if not result["ok"]:
+            return JsonResponse({"ok": False, "error": result["error"]},
+                                json_dumps_params={"ensure_ascii": False}, headers=headers)
+
+        rewards = _a2s(apply_promocode_rewards)(uid, chat_id, result["payload"])
+        return JsonResponse({"ok": True, "rewards": rewards, "payload": result["payload"]},
+                            json_dumps_params={"ensure_ascii": False}, headers=headers)
+    except Exception:
+        logger.exception("promo_activate error")
+        return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
+
+
+@csrf_exempt
+def miniapp_promo_create(request):
+    """POST /api/dev/promo/create — create a promocode (developer only)."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=405, headers=headers)
+
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+
+    # Developer-only guard
+    try:
+        conn, db_type = _get_bot_db_connection()
+        cur = conn.cursor()
+        ph = "%s" if db_type == "pg" else "?"
+        cur.execute(f"SELECT rank FROM users WHERE user_id={ph} LIMIT 1", (uid,))
+        row = cur.fetchone()
+        conn.close()
+        if not row or row[0] not in ("developer", "owner"):
+            return JsonResponse({"error": "Forbidden"}, status=403, headers=headers)
+    except Exception:
+        return JsonResponse({"error": "Forbidden"}, status=403, headers=headers)
+
+    try:
+        body = json.loads(request.body or "{}")
+    except ValueError:
+        return JsonResponse({"error": "Invalid JSON"}, status=400, headers=headers)
+
+    code = str(body.get("code", "")).strip().upper()
+    if not code or len(code) < 3 or len(code) > 32:
+        return JsonResponse({"error": "code must be 3-32 chars"}, status=400, headers=headers)
+
+    payload = body.get("payload", {})
+    if not isinstance(payload, dict):
+        return JsonResponse({"error": "payload must be object"}, status=400, headers=headers)
+
+    max_uses = body.get("max_uses")
+    if max_uses is not None:
+        try:
+            max_uses = int(max_uses)
+        except (TypeError, ValueError):
+            return JsonResponse({"error": "invalid max_uses"}, status=400, headers=headers)
+
+    expires_at = None
+    expires_str = str(body.get("expires_at", "")).strip()
+    if expires_str:
+        from datetime import datetime as _dt, timezone as _tz
+        try:
+            expires_at = _dt.fromisoformat(expires_str.replace("Z", "+00:00"))
+            if expires_at.tzinfo is None:
+                expires_at = expires_at.replace(tzinfo=_tz.utc)
+        except ValueError:
+            return JsonResponse({"error": "invalid expires_at (ISO 8601)"}, status=400, headers=headers)
+
+    try:
+        from asgiref.sync import async_to_sync as _a2s
+        from database.db import create_promocode
+
+        promo = _a2s(create_promocode)(code, payload, max_uses, expires_at, uid)
+        return JsonResponse({"ok": True, "promo": promo},
+                            json_dumps_params={"ensure_ascii": False}, headers=headers)
+    except Exception as exc:
+        if "unique" in str(exc).lower():
+            return JsonResponse({"error": "Промокод с таким кодом уже существует"}, status=409, headers=headers)
+        logger.exception("promo_create error")
+        return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
+
+
+@csrf_exempt
+def miniapp_promo_list(request):
+    """GET /api/dev/promo/list — list all promocodes (developer only)."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "GET":
+        return JsonResponse({"error": "GET required"}, status=405, headers=headers)
+
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+
+    try:
+        conn, db_type = _get_bot_db_connection()
+        cur = conn.cursor()
+        ph = "%s" if db_type == "pg" else "?"
+        cur.execute(f"SELECT rank FROM users WHERE user_id={ph} LIMIT 1", (uid,))
+        row = cur.fetchone()
+        conn.close()
+        if not row or row[0] not in ("developer", "owner"):
+            return JsonResponse({"error": "Forbidden"}, status=403, headers=headers)
+    except Exception:
+        return JsonResponse({"error": "Forbidden"}, status=403, headers=headers)
+
+    try:
+        from asgiref.sync import async_to_sync as _a2s
+        from database.db import list_promocodes
+
+        promos = _a2s(list_promocodes)()
+        # Serialize datetime fields
+        result = []
+        for p in promos:
+            d = dict(p)
+            for k in ("expires_at", "created_at"):
+                if d.get(k) and hasattr(d[k], "isoformat"):
+                    d[k] = d[k].isoformat()
+            if hasattr(d.get("payload"), "items"):
+                pass  # already dict (asyncpg jsonb)
+            result.append(d)
+        return JsonResponse({"ok": True, "promos": result},
+                            json_dumps_params={"ensure_ascii": False}, headers=headers)
+    except Exception:
+        logger.exception("promo_list error")
+        return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
+
+
+@csrf_exempt
+def miniapp_promo_deactivate(request):
+    """POST /api/dev/promo/deactivate {code} — disable a promocode (developer only)."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=405, headers=headers)
+
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+
+    try:
+        conn, db_type = _get_bot_db_connection()
+        cur = conn.cursor()
+        ph = "%s" if db_type == "pg" else "?"
+        cur.execute(f"SELECT rank FROM users WHERE user_id={ph} LIMIT 1", (uid,))
+        row = cur.fetchone()
+        conn.close()
+        if not row or row[0] not in ("developer", "owner"):
+            return JsonResponse({"error": "Forbidden"}, status=403, headers=headers)
+    except Exception:
+        return JsonResponse({"error": "Forbidden"}, status=403, headers=headers)
+
+    try:
+        body = json.loads(request.body or "{}")
+        code = str(body.get("code", "")).strip().upper()
+    except ValueError:
+        return JsonResponse({"error": "Invalid JSON"}, status=400, headers=headers)
+
+    if not code:
+        return JsonResponse({"error": "code required"}, status=400, headers=headers)
+
+    try:
+        from asgiref.sync import async_to_sync as _a2s
+        from database.db import deactivate_promocode
+
+        ok = _a2s(deactivate_promocode)(code)
+        return JsonResponse({"ok": ok}, headers=headers)
+    except Exception:
+        logger.exception("promo_deactivate error")
+        return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
 
 @csrf_exempt
 def miniapp_chat_banlist(request):

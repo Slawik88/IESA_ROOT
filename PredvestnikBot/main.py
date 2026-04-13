@@ -11,7 +11,7 @@ from aiogram.exceptions import TelegramConflictError
 
 from aiogram.types import ChatPermissions, MenuButtonWebApp, WebAppInfo
 from config import BOT_TOKEN, MINI_APP_URL
-from database.db import get_locked_chats, init_db, set_chat_setting
+from database.db import get_locked_chats, init_db, set_chat_setting, init_promocodes_table
 
 # ── Logging MUST be configured before any module that uses `log = getLogger()`
 from utils.bot_logging import setup_logging
@@ -70,6 +70,7 @@ async def main():
 
     # Инициализация базы данных
     await init_db()
+    await init_promocodes_table()
     # Создание таблицы fsm_data (если нет)
     await fsm_storage.init_table()
 
@@ -129,6 +130,7 @@ async def main():
     dp.include_router(dev_panel.router)    # панель разработчика
     dp.include_router(shop.router)         # магазин
     dp.include_router(stars.router)        # Telegram Stars (кристаллы)
+    dp.include_router(stars.payment_router)  # Payment callbacks (no MainChatOnly filter)
     dp.include_router(join_flow.router)    # вступление по тегам (deep link перед dm_roles)
     dp.include_router(gifts.router)        # подарки партнёру
     dp.include_router(tax_event.router)    # налоговая инспекция

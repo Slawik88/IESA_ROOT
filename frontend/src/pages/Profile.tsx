@@ -264,10 +264,13 @@ export default function Profile({ chatId }: Props) {
         style={{ backgroundColor: "var(--bg-secondary)" }}
       >
         <div
-          className="w-14 h-14 rounded-full flex items-center justify-center text-2xl font-bold shrink-0"
+          className="w-14 h-14 rounded-full flex items-center justify-center text-2xl font-bold shrink-0 overflow-hidden"
           style={{ backgroundColor: "var(--bg-primary)", color: "var(--accent)" }}
         >
-          {data.name.charAt(0).toUpperCase()}
+          {data.avatar_url
+            ? <img src={data.avatar_url} alt={data.name} className="w-full h-full object-cover" />
+            : data.name.charAt(0).toUpperCase()
+          }
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5 flex-wrap">

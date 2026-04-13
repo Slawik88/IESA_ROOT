@@ -180,11 +180,9 @@ async def wallet_history(uid: int, chat_id: int, days: int = 30) -> list:
             rows = await c.fetchall()
     return [
         {
-            "direction":   r[0],
-            "amount":      r[1],
-            "source":      r[2],
-            "description": r[3] or "",
-            "created_at":  str(r[4]),
+            "description": (r[3] or r[2] or ""),
+            "amount":      r[1] if r[0] == "income" else -r[1],
+            "ts":          str(r[4]),
         }
         for r in rows
     ]
