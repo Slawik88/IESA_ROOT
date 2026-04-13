@@ -273,7 +273,10 @@ export default function Profile({ chatId }: Props) {
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5 flex-wrap">
-            <h1 className="text-lg font-bold truncate max-w-[160px]">{data.name}</h1>
+            {data.crystal_cosmetics_owned?.includes("neon_prefix") && (
+              <span className="neon-prefix text-sm shrink-0">◈</span>
+            )}
+            <h1 className={`text-lg font-bold truncate max-w-[160px] ${data.has_rainbow_title ? "rainbow-text" : ""}`}>{data.name}</h1>
             {data.vip && <VipBadge />}
             {data.is_dev && (
               <span className="text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ backgroundColor: "#ff4757", color: "#fff" }}>
@@ -282,7 +285,10 @@ export default function Profile({ chatId }: Props) {
             )}
           </div>
           {data.custom_title && (
-            <p className="text-xs truncate mt-0.5" style={{ color: "var(--accent)" }}>{data.custom_title}</p>
+            <p className={`text-xs truncate mt-0.5 ${data.has_rainbow_title ? "rainbow-text" : ""}`}
+               style={data.has_rainbow_title ? undefined : { color: "var(--accent)" }}>
+              {data.custom_title}
+            </p>
           )}
           {data.chat_role && (
             <p className="text-xs truncate" style={{ color: "#a29bfe" }}>{data.chat_role}</p>

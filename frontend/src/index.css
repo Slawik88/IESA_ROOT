@@ -18,103 +18,136 @@
 
 /* ── Темы профиля: data-theme на <html> переопределяет CSS переменные ── */
 [data-theme="fire"] {
-  --bg-primary: #1a0a00;
-  --bg-secondary: #2a1200;
-  --text-primary: #ffd6aa;
-  --text-hint: #b37a47;
+  --bg-primary: #120500;
+  --bg-secondary: #1e0900;
+  --text-primary: #ffe8c8;
+  --text-hint: #c98850;
   --accent: #f97316;
   --accent-text: #ffffff;
-  --border: #44280e;
+  --border: #3d1e05;
+  --mesh-c1: 249, 115, 22;
+  --mesh-c2: 220, 38, 38;
+  --mesh-c3: 234, 179, 8;
 }
 [data-theme="ice"] {
-  --bg-primary: #0a0f1a;
-  --bg-secondary: #0e1a2e;
-  --text-primary: #c8ddf8;
-  --text-hint: #6b8abc;
+  --bg-primary: #04080f;
+  --bg-secondary: #080f1c;
+  --text-primary: #d6eeff;
+  --text-hint: #6089b8;
   --accent: #38bdf8;
   --accent-text: #ffffff;
-  --border: #1a2a44;
+  --border: #0f1f38;
+  --mesh-c1: 56, 189, 248;
+  --mesh-c2: 99, 102, 241;
+  --mesh-c3: 147, 197, 253;
 }
 [data-theme="royal"] {
-  --bg-primary: #0f0a1a;
-  --bg-secondary: #1a1030;
-  --text-primary: #e8d5ff;
+  --bg-primary: #090515;
+  --bg-secondary: #110a24;
+  --text-primary: #eedcff;
   --text-hint: #9b7cc8;
   --accent: #a855f7;
   --accent-text: #ffffff;
-  --border: #2a1a44;
+  --border: #22104a;
+  --mesh-c1: 168, 85, 247;
+  --mesh-c2: 217, 70, 239;
+  --mesh-c3: 99, 102, 241;
 }
 [data-theme="abyss"] {
-  --bg-primary: #050508;
-  --bg-secondary: #0a0a12;
-  --text-primary: #a8a8c8;
-  --text-hint: #555580;
+  --bg-primary: #030305;
+  --bg-secondary: #07080f;
+  --text-primary: #b4b4d8;
+  --text-hint: #505078;
   --accent: #6366f1;
   --accent-text: #ffffff;
-  --border: #1a1a2e;
+  --border: #14142a;
+  --mesh-c1: 99, 102, 241;
+  --mesh-c2: 79, 70, 229;
+  --mesh-c3: 139, 92, 246;
 }
 [data-theme="neon"] {
-  --bg-primary: #0a0012;
-  --bg-secondary: #140020;
-  --text-primary: #e0c0ff;
+  --bg-primary: #060010;
+  --bg-secondary: #0d0020;
+  --text-primary: #e8c8ff;
   --text-hint: #9060cc;
   --accent: #d946ef;
   --accent-text: #ffffff;
-  --border: #2a0040;
+  --border: #220050;
+  --mesh-c1: 217, 70, 239;
+  --mesh-c2: 192, 38, 211;
+  --mesh-c3: 168, 85, 247;
 }
 [data-theme="sakura"] {
-  --bg-primary: #1a0a10;
-  --bg-secondary: #2a1020;
-  --text-primary: #ffd6e8;
+  --bg-primary: #120609;
+  --bg-secondary: #1e0c14;
+  --text-primary: #ffdaea;
   --text-hint: #b3708a;
   --accent: #f472b6;
   --accent-text: #ffffff;
-  --border: #3a1530;
+  --border: #351025;
+  --mesh-c1: 244, 114, 182;
+  --mesh-c2: 236, 72, 153;
+  --mesh-c3: 251, 113, 133;
 }
 [data-theme="bamboo"] {
-  --bg-primary: #060d06;
-  --bg-secondary: #0d1a0d;
-  --text-primary: #c8e8c8;
+  --bg-primary: #020a02;
+  --bg-secondary: #071407;
+  --text-primary: #d0f0d0;
   --text-hint: #6b9b6b;
   --accent: #22c55e;
   --accent-text: #ffffff;
-  --border: #1a2e1a;
+  --border: #0f2810;
+  --mesh-c1: 34, 197, 94;
+  --mesh-c2: 74, 222, 128;
+  --mesh-c3: 16, 185, 129;
 }
 [data-theme="torii"] {
-  --bg-primary: #100505;
-  --bg-secondary: #1a0a0a;
-  --text-primary: #f0c0c0;
+  --bg-primary: #0c0202;
+  --bg-secondary: #160606;
+  --text-primary: #f8d0d0;
   --text-hint: #a06060;
   --accent: #ef4444;
   --accent-text: #ffffff;
-  --border: #2e1010;
+  --border: #2c0808;
+  --mesh-c1: 239, 68, 68;
+  --mesh-c2: 220, 38, 38;
+  --mesh-c3: 249, 115, 22;
 }
 [data-theme="lotus"] {
-  --bg-primary: #0d0812;
-  --bg-secondary: #1a1020;
-  --text-primary: #e8d0f0;
+  --bg-primary: #070410;
+  --bg-secondary: #10081e;
+  --text-primary: #ecd6f8;
   --text-hint: #9870b0;
   --accent: #c084fc;
   --accent-text: #ffffff;
-  --border: #2a1840;
+  --border: #1e1038;
+  --mesh-c1: 192, 132, 252;
+  --mesh-c2: 168, 85, 247;
+  --mesh-c3: 232, 121, 249;
 }
 [data-theme="fuji"] {
-  --bg-primary: #080c14;
-  --bg-secondary: #0e1420;
-  --text-primary: #d0e0f0;
+  --bg-primary: #040710;
+  --bg-secondary: #08101c;
+  --text-primary: #d8eaf8;
   --text-hint: #7090b0;
   --accent: #60a5fa;
   --accent-text: #ffffff;
-  --border: #152030;
+  --border: #0e1c30;
+  --mesh-c1: 96, 165, 250;
+  --mesh-c2: 59, 130, 246;
+  --mesh-c3: 147, 197, 253;
 }
 [data-theme="crane"] {
-  --bg-primary: #100808;
-  --bg-secondary: #1c1010;
-  --text-primary: #f0d8d0;
-  --text-hint: #a08078;
+  --bg-primary: #0e0504;
+  --bg-secondary: #180c08;
+  --text-primary: #f8e0d4;
+  --text-hint: #b08070;
   --accent: #fb923c;
   --accent-text: #ffffff;
-  --border: #2e1810;
+  --border: #2c1408;
+  --mesh-c1: 251, 146, 60;
+  --mesh-c2: 249, 115, 22;
+  --mesh-c3: 252, 211, 77;
 }
 
 html, body, #root {
@@ -126,6 +159,38 @@ html, body, #root {
   color: var(--text-primary);
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
+}
+
+/* ── Crystal cosmetic effects ─── */
+@keyframes rainbowShift {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+.rainbow-text {
+  background: linear-gradient(90deg,
+    #ff4444 0%, #ff8c00 14%, #ffd700 28%,
+    #00e676 42%, #00b0ff 57%, #aa00ff 71%,
+    #ff4488 85%, #ff4444 100%);
+  background-size: 300% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: rainbowShift 3s linear infinite;
+}
+
+@keyframes neonFlicker {
+  0%, 95%, 100% { opacity: 1; }
+  96%, 98%      { opacity: 0.7; }
+}
+.neon-prefix {
+  color: var(--accent);
+  text-shadow:
+    0 0 6px var(--accent),
+    0 0 12px color-mix(in srgb, var(--accent) 60%, transparent),
+    0 0 24px color-mix(in srgb, var(--accent) 30%, transparent);
+  animation: neonFlicker 4s ease-in-out infinite;
+  font-weight: 700;
 }
 
 /* ── Animated mesh gradient background ─── */

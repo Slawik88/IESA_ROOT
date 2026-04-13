@@ -8543,12 +8543,14 @@ async def get_user_name(user_id: int) -> str | None:
 async def consume_potion(user_id: int, chat_id: int, item_id: int) -> tuple[bool, str]:
     """Consume a potion item to gain buff."""
     from datetime import datetime, timezone, timedelta
+    from shared_prices import POTIONS_CATALOG, ITEM_METADATA
     
     async with postgres_connect() as db:
         # FOR UPDATE lock prevents two concurrent requests from both consuming the same item
+        # Note: no slot filter — some old items have slot=NULL but are still consumable
         item = await db.fetchone(
             "SELECT item_key, item_name, slot FROM gacha_inventory "
-            "WHERE id=? AND user_id=? AND slot IN ('potion','consume') FOR UPDATE",
+            "WHERE id=? AND user_id=? FOR UPDATE",
             (item_id, user_id),
         )
 
@@ -8556,6 +8558,13 @@ async def consume_potion(user_id: int, chat_id: int, item_id: int) -> tuple[bool
             return False, "Предмет не найден"
 
         item_key2, item_name2, item_slot2 = item["item_key"], item["item_name"], item["slot"]
+
+        # Resolve effective slot from ITEM_METADATA if the stored slot is NULL
+        if not item_slot2:
+            item_slot2 = ITEM_METADATA.get(item_key2, {}).get("slot")
+
+        if item_slot2 not in ('potion', 'consume'):
+            return False, "Этот предмет нельзя использовать"
 
         # ── Consume (instant-effect) items ───────────────────────────────────
         if item_slot2 == 'consume':
