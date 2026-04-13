@@ -1816,7 +1816,14 @@ async def cmd_me(message: Message, cmd_args: str):
             InlineKeyboardButton(text="❌ Закрыть", callback_data=f"pn:close:{uid}"),
         ],
     ])
-    await message.answer("\n".join(lines), parse_mode="HTML", reply_markup=me_kb)
+    try:
+        await message.answer("\n".join(lines), parse_mode="HTML", reply_markup=me_kb)
+    except Exception as _send_err:
+        _log.exception("cmd_me send failed uid=%s chat=%s: %s", uid, message.chat.id, _send_err)
+        try:
+            await message.answer(f"❌ Ошибка отправки профиля: {type(_send_err).__name__}: {_send_err}")
+        except Exception:
+            pass
 
 
 @router.message(BotCommand("тема", "темы", "theme"))

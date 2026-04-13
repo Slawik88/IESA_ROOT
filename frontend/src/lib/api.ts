@@ -6,6 +6,7 @@
 import type {
   UserData,
   AchievementsResponse,
+  AchLeaderboardResponse,
   BadgesResponse,
   SeasonDataResponse,
   CheckinStatus,
@@ -96,6 +97,13 @@ export function fetchAchievements(
 ): Promise<AchievementsResponse> {
   return request<AchievementsResponse>(
     `/api/achievements?user_id=${userId}&chat_id=${chatId}`,
+  );
+}
+
+/** Глобальный топ-100 по достижениям */
+export function fetchGlobalLeaderboard(): Promise<AchLeaderboardResponse> {
+  return request<AchLeaderboardResponse>(
+    `/api/achievements?mode=global_leaderboard`,
   );
 }
 

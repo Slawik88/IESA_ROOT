@@ -112,6 +112,18 @@ export interface AchievementsResponse {
   total_defined: number;
 }
 
+// ── /api/achievements?mode=global_leaderboard ─────────────────
+export interface AchLeaderboardEntry {
+  rank: number;
+  user_id: number;
+  full_name: string;
+  badge_count: number;
+}
+
+export interface AchLeaderboardResponse {
+  leaderboard: AchLeaderboardEntry[];
+}
+
 // ── /api/achievements/badges ──────────────────────────────────
 export interface BadgesResponse {
   badges: string[];
@@ -614,6 +626,7 @@ export interface ActiveExpedition {
 export interface ExpeditionsResponse {
   ok: boolean;
   active: ActiveExpedition | null;
+  partner_active: { label: string; mins_left: number; finished: boolean } | null;
   options: ExpeditionOption[];
   has_pet: boolean;
   error?: string;

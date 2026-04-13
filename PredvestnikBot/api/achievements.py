@@ -22,6 +22,7 @@ from services.achievements import (           # noqa: F401 — публичны�
     check_and_grant,
     get_user_achievements,
     get_leaderboard,
+    get_global_leaderboard,
     get_user_badge_keys,
 )
 
