@@ -3,7 +3,7 @@
    Навигация: Профиль | Гача | Инвентарь | Банк | Магазин | Задания | Топ | Сезон | Ачивки | Биржа | [Адм.]
    ────────────────────────────────────────────────────────────── */
 import { useState, Component, type ReactNode, type ErrorInfo } from "react";
-import { User, Sparkles, Backpack, ScrollText, Trophy, Medal, Star, Landmark, ShoppingBag, TrendingUp, ShieldAlert, Dices, Gem, Swords } from "lucide-react";
+import { User, Sparkles, Backpack, ScrollText, Trophy, Medal, Star, Landmark, ShoppingBag, TrendingUp, ShieldAlert, Dices, Gem, Swords, Ticket } from "lucide-react";
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
   constructor(props: { children: ReactNode }) {
@@ -67,7 +67,7 @@ const BASE_TABS: { key: Tab; label: string; Icon: typeof User }[] = [
   { key: "exchange",     label: "Биржа",    Icon: TrendingUp },
   { key: "casino",       label: "Казино",   Icon: Dices },
   { key: "stars",        label: "Stars",    Icon: Gem },
-  { key: "promo",        label: "Промо",    Icon: Gem },
+  { key: "promo",        label: "Промо",    Icon: Ticket },
   { key: "boss",         label: "Босс",     Icon: Swords },
   { key: "quests",       label: "Задания",  Icon: ScrollText },
   { key: "leaderboard",  label: "Топ",      Icon: Trophy },
