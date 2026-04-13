@@ -261,7 +261,7 @@ function LeaderboardTab({
                 className="w-8 text-center text-sm font-bold tabular-nums shrink-0"
                 style={{ color: medal ? undefined : "var(--text-hint)" }}
               >
-                {medal ?? `#${e.rank}`}
+                {medal ?? (e.rank != null ? `#${e.rank}` : "—")}
               </span>
               <span className="flex-1 text-sm font-medium truncate">
                 {e.full_name}

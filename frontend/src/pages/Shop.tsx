@@ -15,6 +15,7 @@ import type {
   ProfileTheme,
   ThemesResponse,
 } from "../types";
+import { useAppContext } from "../AppContext";
 
 interface Props {
   userId: number;
@@ -26,6 +27,7 @@ type ShopTab = "frames" | "cosmetics" | "pets" | "food" | "potions" | "themes" |
 const fmt = (n: number) => n.toLocaleString("ru-RU");
 
 export default function Shop({ chatId }: Props) {
+  const { refreshUserData } = useAppContext();
   const [data, setData]           = useState<ShopCatalog | null>(null);
   const [error, setError]         = useState("");
   const [tab, setTab]             = useState<ShopTab>("frames");
@@ -72,6 +74,7 @@ export default function Shop({ chatId }: Props) {
       if (res.ok) {
         showOk(`${label} куплено! ${res.balance !== undefined ? `Баланс: ${fmt(res.balance)} 🪙` : ""}`);
         reload();
+        refreshUserData(); // синхронизируем глобальный контекст
       } else {
         showErr(res.error ?? "Ошибка покупки");
       }

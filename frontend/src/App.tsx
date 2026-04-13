@@ -2,7 +2,7 @@
    App.tsx — корневой компонент Mini App
    Навигация: Профиль | Гача | Инвентарь | Банк | Магазин | Задания | Топ | Сезон | Ачивки | Биржа | [Адм.]
    ────────────────────────────────────────────────────────────── */
-import { useState, useEffect, Component, type ReactNode, type ErrorInfo } from "react";
+import { useState, Component, type ReactNode, type ErrorInfo } from "react";
 import { User, Sparkles, Backpack, ScrollText, Trophy, Medal, Star, Landmark, ShoppingBag, TrendingUp, ShieldAlert, Dices, Gem, Swords } from "lucide-react";
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
@@ -38,7 +38,7 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
   }
 }
 import { useTelegram } from "./hooks/useTelegram";
-import { fetchUserData } from "./lib/api";
+import { AppProvider, useAppContext } from "./AppContext";
 import Profile from "./pages/Profile";
 import Gacha from "./pages/Gacha";
 import Inventory from "./pages/Inventory";
@@ -77,24 +77,6 @@ const BASE_TABS: { key: Tab; label: string; Icon: typeof User }[] = [
 
 export default function App() {
   const { ready, isInsideTelegram, userId, chatId } = useTelegram();
-  const [tab, setTab] = useState<Tab>("profile");
-  const [isDev, setIsDev] = useState(false);
-
-  useEffect(() => {
-    if (!chatId) return;
-    fetchUserData(chatId)
-      .then((d) => {
-        setIsDev(!!d.is_dev);
-        // Динамическая тема: применяем active_theme к <html>
-        const theme = d.active_theme ?? "default";
-        if (theme && theme !== "default") {
-          document.documentElement.setAttribute("data-theme", theme);
-        } else {
-          document.documentElement.removeAttribute("data-theme");
-        }
-      })
-      .catch(() => { /* ignore */ });
-  }, [chatId]);
 
   if (!ready) {
     return (
@@ -107,6 +89,17 @@ export default function App() {
   if (!isInsideTelegram) {
     return <NotInTelegram />;
   }
+
+  return (
+    <AppProvider chatId={chatId}>
+      <AppContent userId={userId} chatId={chatId} />
+    </AppProvider>
+  );
+}
+
+function AppContent({ userId, chatId }: { userId: number; chatId: number }) {
+  const { isDev } = useAppContext();
+  const [tab, setTab] = useState<Tab>("profile");
 
   const TABS = isDev
     ? [...BASE_TABS, { key: "admin" as Tab, label: "Адм.", Icon: ShieldAlert }]

@@ -18,6 +18,7 @@ import type {
   UserData, BondInfo, CheckinStatus,
   FamilyLogEntry, ExpeditionsResponse, WalletHistoryEntry,
 } from "../types";
+import { useAppContext } from "../AppContext";
 
 interface Props {
   userId: number;
@@ -48,7 +49,8 @@ const RANK_LABEL: Record<string, string> = {
 };
 
 export default function Profile({ chatId }: Props) {
-  const [data, setData]             = useState<UserData | null>(null);
+  const { userData: ctxUserData, refreshUserData } = useAppContext();
+  const [data, setData]             = useState<UserData | null>(ctxUserData);
   const [error, setError]           = useState("");
   const [checkin, setCheckin]       = useState<CheckinStatus | null>(null);
   const [checkinLoading, setCiLoad] = useState(false);
@@ -104,6 +106,7 @@ export default function Profile({ chatId }: Props) {
         setCheckin(prev => prev ? { ...prev, today_done: true, streak: res.streak, total_days: res.total_days } : prev);
         // обновляем баланс в профиле
         setData(prev => prev && res.mora ? { ...prev, balance: prev.balance + res.mora } : prev);
+        refreshUserData(); // синхронизируем глобальный контекст
       } else {
         showToast(res.error ?? "Ошибка чекина");
       }

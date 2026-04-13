@@ -682,6 +682,8 @@ export interface PublicProfileResponse {
   online_status?: string;
   avatar_url?: string | null;
   error?: string;
+  crystal_cosmetics_owned?: string[];
+  has_rainbow_title?: boolean;
 }
 
 // ── /api/stars/invoice ────────────────────────────────────────
