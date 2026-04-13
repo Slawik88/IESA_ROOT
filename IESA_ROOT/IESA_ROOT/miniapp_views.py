@@ -3842,6 +3842,56 @@ def miniapp_solo_boss_attack(request):
     return JsonResponse(response, json_dumps_params={"ensure_ascii": False}, headers=headers)
 
 
+@csrf_exempt
+def miniapp_solo_boss_forfeit(request):
+    """POST /api/solo_boss/forfeit — forfeit (surrender) the active boss session."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=405, headers=headers)
+
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+
+    try:
+        body = json.loads(request.body)
+        chat_id = int(body.get("chat_id", 0))
+    except Exception:
+        return JsonResponse({"error": "invalid JSON"}, status=400, headers=headers)
+
+    if not chat_id:
+        return JsonResponse({"error": "chat_id required"}, status=400, headers=headers)
+
+    from database.db import get_solo_boss_session
+    from asgiref.sync import async_to_sync
+
+    session = async_to_sync(get_solo_boss_session)(uid, chat_id)
+    if not session:
+        return JsonResponse({"error": "Нет активной битвы", "already_done": True},
+                            status=400, json_dumps_params={"ensure_ascii": False}, headers=headers)
+
+    # Mark session as completed (forfeit)
+    try:
+        conn, db_type = _get_bot_db_connection()
+        cur = conn.cursor()
+        ph = "%s" if db_type == "pg" else "?"
+        cur.execute(
+            f"UPDATE solo_boss_sessions SET is_completed=1, completed_at=NOW() WHERE id={ph}",
+            (session["id"],),
+        )
+        conn.commit()
+        conn.close()
+    except Exception:
+        try: conn.close()
+        except Exception: pass
+        return JsonResponse({"error": "DB error"}, status=500, headers=headers)
+
+    return JsonResponse({"ok": True, "forfeited": True},
+                        json_dumps_params={"ensure_ascii": False}, headers=headers)
+
+
 # ─── НОВЫЕ ФУНКЦИИ: Аватарки из Telegram ─────────────────────────────────────
 
 def get_telegram_avatar_url(user_id: int) -> str | None:
@@ -6115,18 +6165,19 @@ def miniapp_promo_create(request):
     if err:
         return err
 
-    # Developer-only guard
-    try:
-        conn, db_type = _get_bot_db_connection()
-        cur = conn.cursor()
-        ph = "%s" if db_type == "pg" else "?"
-        cur.execute(f"SELECT rank FROM users WHERE user_id={ph} LIMIT 1", (uid,))
-        row = cur.fetchone()
-        conn.close()
-        if not row or row[0] not in ("developer", "owner"):
+    # Developer-only guard (bypass for hardcoded DEVELOPER_ID)
+    if uid != _DEVELOPER_ID:
+        try:
+            conn, db_type = _get_bot_db_connection()
+            cur = conn.cursor()
+            ph = "%s" if db_type == "pg" else "?"
+            cur.execute(f"SELECT rank FROM users WHERE user_id={ph} LIMIT 1", (uid,))
+            row = cur.fetchone()
+            conn.close()
+            if not row or row[0] not in ("developer", "owner"):
+                return JsonResponse({"error": "Forbidden"}, status=403, headers=headers)
+        except Exception:
             return JsonResponse({"error": "Forbidden"}, status=403, headers=headers)
-    except Exception:
-        return JsonResponse({"error": "Forbidden"}, status=403, headers=headers)
 
     try:
         body = json.loads(request.body or "{}")
@@ -6186,17 +6237,19 @@ def miniapp_promo_list(request):
     if err:
         return err
 
-    try:
-        conn, db_type = _get_bot_db_connection()
-        cur = conn.cursor()
-        ph = "%s" if db_type == "pg" else "?"
-        cur.execute(f"SELECT rank FROM users WHERE user_id={ph} LIMIT 1", (uid,))
-        row = cur.fetchone()
-        conn.close()
-        if not row or row[0] not in ("developer", "owner"):
+    # Developer-only guard (bypass for hardcoded DEVELOPER_ID)
+    if uid != _DEVELOPER_ID:
+        try:
+            conn, db_type = _get_bot_db_connection()
+            cur = conn.cursor()
+            ph = "%s" if db_type == "pg" else "?"
+            cur.execute(f"SELECT rank FROM users WHERE user_id={ph} LIMIT 1", (uid,))
+            row = cur.fetchone()
+            conn.close()
+            if not row or row[0] not in ("developer", "owner"):
+                return JsonResponse({"error": "Forbidden"}, status=403, headers=headers)
+        except Exception:
             return JsonResponse({"error": "Forbidden"}, status=403, headers=headers)
-    except Exception:
-        return JsonResponse({"error": "Forbidden"}, status=403, headers=headers)
 
     try:
         from asgiref.sync import async_to_sync as _a2s
@@ -6233,17 +6286,19 @@ def miniapp_promo_deactivate(request):
     if err:
         return err
 
-    try:
-        conn, db_type = _get_bot_db_connection()
-        cur = conn.cursor()
-        ph = "%s" if db_type == "pg" else "?"
-        cur.execute(f"SELECT rank FROM users WHERE user_id={ph} LIMIT 1", (uid,))
-        row = cur.fetchone()
-        conn.close()
-        if not row or row[0] not in ("developer", "owner"):
+    # Developer-only guard (bypass for hardcoded DEVELOPER_ID)
+    if uid != _DEVELOPER_ID:
+        try:
+            conn, db_type = _get_bot_db_connection()
+            cur = conn.cursor()
+            ph = "%s" if db_type == "pg" else "?"
+            cur.execute(f"SELECT rank FROM users WHERE user_id={ph} LIMIT 1", (uid,))
+            row = cur.fetchone()
+            conn.close()
+            if not row or row[0] not in ("developer", "owner"):
+                return JsonResponse({"error": "Forbidden"}, status=403, headers=headers)
+        except Exception:
             return JsonResponse({"error": "Forbidden"}, status=403, headers=headers)
-    except Exception:
-        return JsonResponse({"error": "Forbidden"}, status=403, headers=headers)
 
     try:
         body = json.loads(request.body or "{}")

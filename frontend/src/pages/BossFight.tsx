@@ -4,7 +4,7 @@
    ────────────────────────────────────────────────────────────── */
 import { useState, useEffect, useRef, useCallback } from "react";
 import {
-  fetchBossStatus, startBoss, attackBoss, fetchInventory, consumePotion,
+  fetchBossStatus, startBoss, attackBoss, forfeitBoss, fetchInventory, consumePotion,
   type BossSession, type BossProgress,
 } from "../lib/api";
 import type { InventoryItem } from "../types";
@@ -427,10 +427,14 @@ export default function BossFight({ userId: _userId, chatId }: Props) {
                 <Play size={16} /> Продолжить
               </button>
               <button
-                onClick={() => {
+                onClick={async () => {
                   setPaused(false);
-                  setPlayerHp(0); // Counts as defeat
+                  if (chatId) {
+                    try { await forfeitBoss(chatId); } catch {}
+                  }
+                  setPlayerHp(0);
                   showToast("🏳️ Ты сдался...");
+                  loadStatus();
                 }}
                 className="flex items-center gap-2 px-6 py-3 rounded-2xl font-semibold text-sm"
                 style={{ backgroundColor: "#ef444420", color: "#ef4444", border: "1px solid #ef444450" }}

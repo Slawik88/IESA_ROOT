@@ -771,3 +771,11 @@ export function attackBoss(chatId: number): Promise<BossAttackResult> {
     body: JSON.stringify({ chat_id: chatId }),
   });
 }
+
+export function forfeitBoss(chatId: number): Promise<{ ok: boolean; forfeited: boolean }> {
+  return request<{ ok: boolean; forfeited: boolean }>("/api/solo_boss/forfeit", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId }),
+  });
+}
