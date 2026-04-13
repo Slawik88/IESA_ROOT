@@ -416,9 +416,29 @@ export default function Profile({ chatId }: Props) {
                   {expBusy ? <Loader2 size={12} className="animate-spin" /> : "🎁 Забрать награду"}
                 </button>
               )}
+              {expData.partner_active && (
+                <div className="rounded-lg p-2.5" style={{ backgroundColor: "var(--bg-primary)" }}>
+                  <p className="text-sm font-medium">👫 {expData.partner_active.label}</p>
+                  <p className="text-[11px]" style={{ color: "var(--text-hint)" }}>
+                    {expData.partner_active.finished
+                      ? "✅ Завершена"
+                      : `⏳ Осталось: ${expData.partner_active.mins_left} мин`}
+                  </p>
+                </div>
+              )}
             </div>
           ) : (
             <div className="mt-2 space-y-1.5">
+              {expData?.partner_active && (
+                <div className="rounded-lg p-2.5 mb-2" style={{ backgroundColor: "var(--bg-primary)" }}>
+                  <p className="text-sm font-medium">👫 {expData.partner_active.label}</p>
+                  <p className="text-[11px]" style={{ color: "var(--text-hint)" }}>
+                    {expData.partner_active.finished
+                      ? "✅ Завершена"
+                      : `⏳ Осталось: ${expData.partner_active.mins_left} мин`}
+                  </p>
+                </div>
+              )}
               {(expData?.options ?? []).length === 0 ? (
                 <p className="text-[11px] text-center py-2" style={{ color: "var(--text-hint)" }}>
                   Нет доступных экспедиций
@@ -556,7 +576,7 @@ export default function Profile({ chatId }: Props) {
       )}
 
       {/* ── Чекин ─────────────────────────────────────────────── */}
-      {chatId > 0 && (
+      {chatId !== 0 && (
         <div
           className="rounded-xl p-3 flex items-center justify-between gap-3"
           style={{ backgroundColor: "var(--bg-secondary)" }}
@@ -589,7 +609,7 @@ export default function Profile({ chatId }: Props) {
       )}
 
       {/* ── История транзакций ────────────────────────────────── */}
-      {chatId > 0 && (
+      {chatId !== 0 && (
         <Card>
           <button
             onClick={handleWalletHistory}

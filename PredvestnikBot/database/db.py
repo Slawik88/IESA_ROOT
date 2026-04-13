@@ -5616,6 +5616,16 @@ async def get_active_expedition(user_id: int, chat_id: int):
             return await c.fetchone()
 
 
+async def get_any_active_expedition(user_id: int):
+    """Возвращает любую активную экспедицию пользователя (любой чат) или None."""
+    async with postgres_connect() as db:
+        async with db.execute(
+            "SELECT * FROM pet_expeditions WHERE user_id=? AND finished=0 LIMIT 1",
+            (user_id,),
+        ) as c:
+            return await c.fetchone()
+
+
 async def get_all_finished_expeditions() -> list:
     """Вернуть все незавершённые экспедиции, время которых истекло."""
     now = datetime.now(timezone.utc)
@@ -6819,6 +6829,27 @@ async def start_pet_walk_full(user_id: int, chat_id: int) -> dict:
             except Exception as _e:
                 _log.debug("%s", _e)
 
+        # 2b. Проверяем активную экспедицию (любой чат)
+        async with db.execute(
+            "SELECT started_at, duration_h FROM pet_expeditions WHERE user_id=? AND finished=0 LIMIT 1",
+            (user_id,),
+        ) as c:
+            active_exp = await c.fetchone()
+        if active_exp:
+            try:
+                exp_start = datetime.fromisoformat(str(active_exp["started_at"]))
+                if exp_start.tzinfo is None:
+                    exp_start = exp_start.replace(tzinfo=timezone.utc)
+                exp_end = exp_start + timedelta(hours=active_exp["duration_h"])
+                mins_left = max(1, int((exp_end - now).total_seconds() / 60) + 1)
+            except Exception:
+                mins_left = 0
+            return {
+                "ok": False,
+                "error": f"Питомец в экспедиции. Осталось {mins_left} мин.",
+                "mins_left": mins_left,
+            }
+
         # 3. Обновляем глобального питомца
         new_fatigue = max(0, pet["fatigue"] - WALK_FATIGUE_REDUCTION)
         walk_end_dt = now + timedelta(hours=WALK_DURATION_HOURS)
@@ -7145,7 +7176,7 @@ async def get_season_progress(user_id: int, season_id: int) -> dict:
     async with postgres_connect() as db:
         row = await db.fetchone(
             "SELECT * FROM season_progress WHERE user_id = ? AND season_id = ?",
-            (user_id, season_id)
+            user_id, season_id,
         )
     
     if row:
@@ -7178,7 +7209,7 @@ async def add_season_xp(user_id: int, xp_amount: int) -> dict:
         # Get or create progress record
         row = await db.fetchone(
             "SELECT * FROM season_progress WHERE user_id = ? AND season_id = ?",
-            (user_id, season_id)
+            user_id, season_id,
         )
         
         if row:
@@ -7225,7 +7256,7 @@ async def claim_season_reward(user_id: int, season_id: int, level: int, is_premi
         # Get progress
         progress_row = await db.fetchone(
             "SELECT * FROM season_progress WHERE user_id = ? AND season_id = ?",
-            (user_id, season_id)
+            user_id, season_id,
         )
         
         if not progress_row:
@@ -7251,7 +7282,7 @@ async def claim_season_reward(user_id: int, season_id: int, level: int, is_premi
         # Get reward data
         reward_row = await db.fetchone(
             "SELECT * FROM season_rewards WHERE season_id = ? AND level = ? AND is_premium = ?",
-            (season_id, level, is_premium)
+            season_id, level, is_premium,
         )
         
         if not reward_row:
@@ -7306,7 +7337,7 @@ async def buy_season_premium(user_id: int, season_id: int) -> bool:
         # Check if already purchased
         progress_row = await db.fetchone(
             "SELECT premium_purchased FROM season_progress WHERE user_id = ? AND season_id = ?",
-            (user_id, season_id)
+            user_id, season_id,
         )
         
         if progress_row and progress_row["premium_purchased"]:
@@ -7360,7 +7391,7 @@ async def get_season_rewards(season_id: int) -> list[dict]:
     async with postgres_connect() as db:
         rows = await db.fetch(
             "SELECT * FROM season_rewards WHERE season_id = ? ORDER BY level, is_premium",
-            (season_id,)
+            season_id,
         )
     return [dict(row) for row in rows]
 

@@ -364,11 +364,15 @@ async def achievements_route(user_id: int = 0, chat_id: int = 0, mode: str = "")
     """Достижения игрока или лидерборд.
 
     Параметры:
-        mode=leaderboard  → GET /api/achievements?chat_id=X&mode=leaderboard
-        (по умолчанию)    → GET /api/achievements?user_id=X&chat_id=Y
+        mode=leaderboard         → GET /api/achievements?chat_id=X&mode=leaderboard
+        mode=global_leaderboard  → GET /api/achievements?mode=global_leaderboard
+        (по умолчанию)           → GET /api/achievements?user_id=X&chat_id=Y
     """
-    from services.achievements import get_user_achievements, get_leaderboard
+    from services.achievements import get_user_achievements, get_leaderboard, get_global_leaderboard
     try:
+        if mode == "global_leaderboard":
+            data = await get_global_leaderboard(limit=100)
+            return JSONResponse({"leaderboard": data})
         if mode == "leaderboard":
             if not chat_id:
                 return JSONResponse({"error": "chat_id required"}, status_code=400)

@@ -545,6 +545,35 @@ async def get_leaderboard(chat_id: int, limit: int = 20) -> list[dict]:
         return []
 
 
+async def get_global_leaderboard(limit: int = 100) -> list[dict]:
+    """Топ пользователей по количеству уникальных достижений (глобально, все чаты)."""
+    try:
+        async with postgres_connect() as db:
+            rows = await db.fetch(
+                """SELECT ub.user_id,
+                          COUNT(DISTINCT ub.badge_key) AS badge_count,
+                          u.full_name
+                   FROM user_badges ub
+                   LEFT JOIN users u ON u.user_id = ub.user_id
+                   GROUP BY ub.user_id, u.full_name
+                   ORDER BY badge_count DESC
+                   LIMIT $1""",
+                limit,
+            )
+        return [
+            {
+                "rank":        idx + 1,
+                "user_id":     r["user_id"],
+                "full_name":   r["full_name"] or f"user_{r['user_id']}",
+                "badge_count": int(r["badge_count"]),
+            }
+            for idx, r in enumerate(rows)
+        ]
+    except Exception as e:
+        _log.warning("get_global_leaderboard: %s", e)
+        return []
+
+
 async def get_user_badge_keys(user_id: int, chat_id: int) -> list[str]:
     """Вернуть список ключей бейджей пользователя (для отображения в профиле)."""
     try:

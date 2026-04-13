@@ -24,12 +24,17 @@ const BOND_MAX = 50;
 const fmt = (n: number) => n.toLocaleString("ru-RU");
 
 // ── Sparkline SVG ─────────────────────────────────────────────
-function Sparkline({ data, color, width = 80, height = 32 }: {
+function Sparkline({ data, color, width = 80, height = 32, timestamps, interactive }: {
   data: number[];
   color: string;
   width?: number;
   height?: number;
+  timestamps?: string[];
+  interactive?: boolean;
 }) {
+  const svgRef = useRef<SVGSVGElement>(null);
+  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
+
   if (data.length < 2) return <div style={{ width, height }} />;
   const min = Math.min(...data);
   const max = Math.max(...data);
@@ -38,17 +43,71 @@ function Sparkline({ data, color, width = 80, height = 32 }: {
   const xi = (i: number) => (i / (data.length - 1)) * (width - 2) + 1;
   const pts = data.map((v, i) => `${xi(i)},${height - px(v)}`).join(" ");
   const fillId = `sg${color.replace(/[^a-z0-9]/gi, "")}${width}`;
+
+  const getIdxFromX = (clientX: number): number | null => {
+    const svg = svgRef.current;
+    if (!svg) return null;
+    const rect = svg.getBoundingClientRect();
+    const relX = clientX - rect.left;
+    const pct = relX / rect.width;
+    const idx = Math.round(pct * (data.length - 1));
+    return Math.max(0, Math.min(data.length - 1, idx));
+  };
+
+  const handleMove = (clientX: number) => {
+    if (!interactive) return;
+    setHoverIdx(getIdxFromX(clientX));
+  };
+  const handleLeave = () => setHoverIdx(null);
+
+  const hVal = hoverIdx !== null ? data[hoverIdx] : null;
+  const hTs = hoverIdx !== null && timestamps?.[hoverIdx] ? timestamps[hoverIdx] : null;
+  const hX = hoverIdx !== null ? xi(hoverIdx) : 0;
+  const hY = hoverIdx !== null ? height - px(data[hoverIdx]) : 0;
+
   return (
-    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} fill="none">
-      <defs>
-        <linearGradient id={fillId} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={color} stopOpacity="0.25" />
-          <stop offset="100%" stopColor={color} stopOpacity="0" />
-        </linearGradient>
-      </defs>
-      <polygon points={`1,${height} ${pts} ${xi(data.length - 1)},${height}`} fill={`url(#${fillId})`} />
-      <polyline points={pts} stroke={color} strokeWidth={1.5} strokeLinejoin="round" strokeLinecap="round" fill="none" />
-    </svg>
+    <div className="relative" style={{ width, height: interactive ? height + 28 : height }}>
+      {interactive && hoverIdx !== null && hVal !== null && (
+        <div
+          className="absolute -top-1 text-[10px] font-bold tabular-nums px-1.5 py-0.5 rounded-md whitespace-nowrap pointer-events-none z-10"
+          style={{
+            left: Math.max(0, Math.min(width - 80, hX - 40)),
+            backgroundColor: "var(--bg-secondary)",
+            color,
+            border: "1px solid var(--border)",
+          }}
+        >
+          {fmt(hVal)} 🪙{hTs ? ` · ${hTs}` : ""}
+        </div>
+      )}
+      <svg
+        ref={svgRef}
+        width={width}
+        height={height}
+        viewBox={`0 0 ${width} ${height}`}
+        fill="none"
+        style={{ marginTop: interactive ? 24 : 0, touchAction: "none" }}
+        onMouseMove={interactive ? (e) => handleMove(e.clientX) : undefined}
+        onMouseLeave={interactive ? handleLeave : undefined}
+        onTouchMove={interactive ? (e) => { e.preventDefault(); handleMove(e.touches[0].clientX); } : undefined}
+        onTouchEnd={interactive ? handleLeave : undefined}
+      >
+        <defs>
+          <linearGradient id={fillId} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={color} stopOpacity="0.25" />
+            <stop offset="100%" stopColor={color} stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        <polygon points={`1,${height} ${pts} ${xi(data.length - 1)},${height}`} fill={`url(#${fillId})`} />
+        <polyline points={pts} stroke={color} strokeWidth={1.5} strokeLinejoin="round" strokeLinecap="round" fill="none" />
+        {interactive && hoverIdx !== null && (
+          <>
+            <line x1={hX} y1={0} x2={hX} y2={height} stroke={color} strokeWidth={0.75} strokeDasharray="2,2" opacity={0.6} />
+            <circle cx={hX} cy={hY} r={3} fill={color} stroke="#fff" strokeWidth={1} />
+          </>
+        )}
+      </svg>
+    </div>
   );
 }
 
@@ -85,6 +144,10 @@ function TradeSheet({ bond, balance, onClose, onDone, chatId }: TradeSheetProps)
   const { ok, err, showOk, showErr } = useToast();
 
   const histPrices = (bond.history ?? []).map(h => h.price);
+  const histTimestamps = (bond.history ?? []).map(h => {
+    try { return new Date(h.ts).toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }); }
+    catch { return ""; }
+  });
   const isUp = histPrices.length >= 2
     ? histPrices[histPrices.length - 1] >= histPrices[histPrices.length - 2]
     : true;
@@ -152,11 +215,11 @@ function TradeSheet({ bond, balance, onClose, onDone, chatId }: TradeSheetProps)
           </button>
         </div>
 
-        {/* Big sparkline */}
+        {/* Big sparkline — interactive */}
         {histPrices.length >= 2 && (
           <div className="rounded-2xl p-3 flex items-center justify-center"
             style={{ backgroundColor: "var(--bg-primary)" }}>
-            <Sparkline data={histPrices} color={color} width={280} height={80} />
+            <Sparkline data={histPrices} color={color} width={280} height={80} timestamps={histTimestamps} interactive />
           </div>
         )}
 
@@ -305,9 +368,17 @@ function BondCard({ bond, onClick }: { bond: BondPrice; onClick: () => void }) {
         <Sparkline data={histPrices} color={color} width={72} height={36} />
       )}
       {bond.amount > 0 && (
-        <div className="shrink-0 px-2 py-0.5 rounded-lg text-[11px] font-bold"
-          style={{ backgroundColor: "var(--accent)", color: "#fff" }}>
-          {bond.amount} шт.
+        <div className="shrink-0 text-right">
+          <div className="px-2 py-0.5 rounded-lg text-[11px] font-bold"
+            style={{ backgroundColor: "var(--accent)", color: "#fff" }}>
+            {bond.amount} шт.
+          </div>
+          {bond.pnl_mora !== 0 && (
+            <p className="text-[10px] font-bold tabular-nums mt-0.5"
+              style={{ color: bond.pnl_mora >= 0 ? "#22c55e" : "#ef4444" }}>
+              {bond.pnl_mora >= 0 ? "+" : ""}{fmt(bond.pnl_mora)} 🪙
+            </p>
+          )}
         </div>
       )}
     </div>

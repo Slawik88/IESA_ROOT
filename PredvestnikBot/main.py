@@ -97,6 +97,12 @@ async def main():
     from middlewares.callback_isolation import CallbackIsolationMiddleware
     dp.callback_query.outer_middleware(CallbackIsolationMiddleware())
 
+    # ── Global error handler: catch unhandled exceptions and log them ──
+    @dp.errors()
+    async def _global_error_handler(event, exception):
+        logging.exception("Unhandled error in handler: %s", exception)
+        return True
+
     # Роутеры — от специфичных к общим (extras должен быть последним!)
     dp.include_router(owner.router)
     dp.include_router(admin.router)

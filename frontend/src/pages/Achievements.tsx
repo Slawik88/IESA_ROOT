@@ -1,11 +1,11 @@
 /* ──────────────────────────────────────────────────────────────
    Achievements.tsx — Достижения пользователя
-   Категории · Прогресс · Ранги · Синхронизация с бэкендом
+   Категории · Прогресс · Ранги · Глобальный топ-100 · Синхронизация
    ────────────────────────────────────────────────────────────── */
 import { useEffect, useState, useCallback } from "react";
-import { Trophy, Lock, ChevronDown, ChevronUp, MessagesSquare, RefreshCw } from "lucide-react";
-import { fetchAchievements } from "../lib/api";
-import type { AchievementsResponse, AchievementCategory, AchievementRank } from "../types";
+import { Trophy, Lock, ChevronDown, ChevronUp, MessagesSquare, RefreshCw, Crown } from "lucide-react";
+import { fetchAchievements, fetchGlobalLeaderboard } from "../lib/api";
+import type { AchievementsResponse, AchievementCategory, AchievementRank, AchLeaderboardEntry } from "../types";
 
 interface Props {
   userId: number;
@@ -13,7 +13,9 @@ interface Props {
 }
 
 export default function Achievements({ userId, chatId }: Props) {
+  const [tab, setTab] = useState<"my" | "top">("my");
   const [data, setData] = useState<AchievementsResponse | null>(null);
+  const [leaderboard, setLeaderboard] = useState<AchLeaderboardEntry[] | null>(null);
   const [error, setError] = useState("");
   const [expanded, setExpanded] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
@@ -29,7 +31,14 @@ export default function Achievements({ userId, chatId }: Props) {
       .catch((e: Error) => setError(e.message));
   }, [userId, chatId]);
 
+  const loadLeaderboard = useCallback(() => {
+    fetchGlobalLeaderboard()
+      .then((d) => setLeaderboard(d.leaderboard))
+      .catch(() => {});
+  }, []);
+
   useEffect(() => { load(); }, [load]);
+  useEffect(() => { if (tab === "top" && !leaderboard) loadLeaderboard(); }, [tab, leaderboard, loadLeaderboard]);
 
   const doSync = () => {
     setSyncing(true);
@@ -98,25 +107,50 @@ export default function Achievements({ userId, chatId }: Props) {
           Достижения
         </h2>
         <div className="flex items-center gap-2">
-          <button
-            onClick={doSync}
-            disabled={syncing}
-            className="p-1.5 rounded-lg transition-opacity disabled:opacity-50"
-            style={{ backgroundColor: "var(--bg-secondary)" }}
-          >
-            <RefreshCw size={14} className={syncing ? "animate-spin" : ""} style={{ color: "var(--text-hint)" }} />
-          </button>
-          <span className="text-sm font-medium" style={{ color: "var(--accent)" }}>
-            {data.total_unlocked}/{data.total_defined}
-          </span>
+          {tab === "my" && (
+            <button
+              onClick={doSync}
+              disabled={syncing}
+              className="p-1.5 rounded-lg transition-opacity disabled:opacity-50"
+              style={{ backgroundColor: "var(--bg-secondary)" }}
+            >
+              <RefreshCw size={14} className={syncing ? "animate-spin" : ""} style={{ color: "var(--text-hint)" }} />
+            </button>
+          )}
+          {tab === "my" && (
+            <span className="text-sm font-medium" style={{ color: "var(--accent)" }}>
+              {data.total_unlocked}/{data.total_defined}
+            </span>
+          )}
         </div>
       </div>
 
-      {lastSync && (
-        <p className="text-[10px] -mt-3 mb-3" style={{ color: "var(--text-hint)" }}>
-          Синхронизировано: {lastSync.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}
-        </p>
-      )}
+      {/* ── Табы ─────── */}
+      <div className="flex gap-2 mb-4">
+        {(["my", "top"] as const).map((t) => (
+          <button
+            key={t}
+            onClick={() => setTab(t)}
+            className="flex-1 py-2 rounded-xl text-sm font-medium transition-colors"
+            style={{
+              backgroundColor: tab === t ? "var(--accent)" : "var(--bg-secondary)",
+              color: tab === t ? "#fff" : "var(--text-secondary)",
+            }}
+          >
+            {t === "my" ? "📋 Мои" : "🏆 Топ-100"}
+          </button>
+        ))}
+      </div>
+
+      {tab === "top" ? (
+        <LeaderboardTab entries={leaderboard} userId={userId} onRefresh={loadLeaderboard} />
+      ) : (
+        <>
+          {lastSync && (
+            <p className="text-[10px] mb-3" style={{ color: "var(--text-hint)" }}>
+              Синхронизировано: {lastSync.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}
+            </p>
+          )}
 
       {/* ── Карточка общего прогресса ─────── */}
       <div className="rounded-2xl p-4 mb-4" style={{ backgroundColor: "var(--bg-secondary)" }}>
@@ -156,6 +190,92 @@ export default function Achievements({ userId, chatId }: Props) {
             onToggle={() => toggle(cat.type)}
           />
         ))}
+      </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+/* ── Глобальный топ-100 ─────────────────────────────────────── */
+
+function LeaderboardTab({
+  entries,
+  userId,
+  onRefresh,
+}: {
+  entries: AchLeaderboardEntry[] | null;
+  userId: number;
+  onRefresh: () => void;
+}) {
+  if (!entries) {
+    return (
+      <div className="space-y-2 animate-pulse">
+        {Array.from({ length: 8 }).map((_, i) => (
+          <div key={i} className="skeleton h-14 rounded-xl" />
+        ))}
+      </div>
+    );
+  }
+
+  if (entries.length === 0) {
+    return (
+      <div className="text-center py-10" style={{ color: "var(--text-hint)" }}>
+        <Crown size={36} className="mx-auto mb-2" />
+        <p className="text-sm">Пока нет данных</p>
+      </div>
+    );
+  }
+
+  const medalEmoji = (rank: number) =>
+    rank === 1 ? "🥇" : rank === 2 ? "🥈" : rank === 3 ? "🥉" : null;
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-xs" style={{ color: "var(--text-hint)" }}>
+          Глобальный рейтинг по уникальным достижениям
+        </p>
+        <button
+          onClick={onRefresh}
+          className="p-1.5 rounded-lg"
+          style={{ backgroundColor: "var(--bg-secondary)" }}
+        >
+          <RefreshCw size={14} style={{ color: "var(--text-hint)" }} />
+        </button>
+      </div>
+      <div className="space-y-1.5">
+        {entries.map((e) => {
+          const isMe = e.user_id === userId;
+          const medal = medalEmoji(e.rank);
+          return (
+            <div
+              key={e.user_id}
+              className="flex items-center gap-3 rounded-xl px-3 py-2.5"
+              style={{
+                backgroundColor: isMe ? "color-mix(in srgb, var(--accent) 12%, var(--bg-secondary))" : "var(--bg-secondary)",
+                border: isMe ? "1px solid var(--accent)" : "1px solid transparent",
+              }}
+            >
+              <span
+                className="w-8 text-center text-sm font-bold tabular-nums shrink-0"
+                style={{ color: medal ? undefined : "var(--text-hint)" }}
+              >
+                {medal ?? `#${e.rank}`}
+              </span>
+              <span className="flex-1 text-sm font-medium truncate">
+                {e.full_name}
+                {isMe && <span style={{ color: "var(--accent)" }}> (вы)</span>}
+              </span>
+              <span
+                className="text-sm font-bold tabular-nums shrink-0"
+                style={{ color: "var(--accent)" }}
+              >
+                {e.badge_count} 🏆
+              </span>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

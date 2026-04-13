@@ -4914,9 +4914,21 @@ def miniapp_expeditions(request):
                 "finished": bool(raw_exp.get("done")),
             }
 
+        # Partner expedition (shared pet — show partner's timer too)
+        raw_partner = raw.get("partner_expedition")
+        partner_active = None
+        if raw_partner:
+            p_mins = int((raw_partner.get("time_left_h") or 0) * 60 + (raw_partner.get("time_left_m") or 0))
+            partner_active = {
+                "label": f"Экспедиция партнёра {raw_partner.get('duration_h', '?')}ч",
+                "mins_left": p_mins,
+                "finished": bool(raw_partner.get("done")),
+            }
+
         payload = {
             "ok": True,
             "active": active,
+            "partner_active": partner_active,
             "options": options_list,
             "has_pet": bool(raw.get("pet")),
         }
@@ -6324,8 +6336,41 @@ def miniapp_season_data(request):
             "active": season["active"],
         }
 
+        # Transform progress to match frontend SeasonProgress type
+        claimed = progress.get("claimed_levels") or []
+        progress_out = {
+            "level": progress.get("level", 0),
+            "xp": progress.get("season_xp", 0),
+            "has_premium": bool(progress.get("premium_purchased", False)),
+            "claimed_free": [int(c.split("_")[0]) for c in claimed if c.endswith("_free")],
+            "claimed_premium": [int(c.split("_")[0]) for c in claimed if c.endswith("_premium")],
+        }
+
+        # Transform rewards to match frontend SeasonReward type
+        rewards_out = []
+        # Group rewards by level
+        rewards_by_level: dict = {}
+        for r in rewards:
+            lvl = r.get("level", 0)
+            if lvl not in rewards_by_level:
+                rewards_by_level[lvl] = {"level": lvl, "free_reward": None, "premium_reward": None,
+                                          "free_mora": 0, "premium_mora": 0, "free_xp": 0, "premium_xp": 0}
+            is_prem = r.get("is_premium", False)
+            rtype = r.get("reward_type", "")
+            rdata = r.get("reward_data", "")
+            label = rtype if rtype != "mora" else f"{rdata} 🪙"
+            if is_prem:
+                rewards_by_level[lvl]["premium_reward"] = label
+                if rtype == "mora":
+                    rewards_by_level[lvl]["premium_mora"] = int(rdata or 0)
+            else:
+                rewards_by_level[lvl]["free_reward"] = label
+                if rtype == "mora":
+                    rewards_by_level[lvl]["free_mora"] = int(rdata or 0)
+        rewards_out = sorted(rewards_by_level.values(), key=lambda x: x["level"])
+
         return JsonResponse(
-            {"season": season_out, "progress": progress, "rewards": rewards},
+            {"season": season_out, "progress": progress_out, "rewards": rewards_out},
             json_dumps_params={"ensure_ascii": False},
             headers=headers,
         )
