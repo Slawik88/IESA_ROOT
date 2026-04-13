@@ -160,36 +160,35 @@ export default function Shop({ chatId }: Props) {
     <div className="animate-fadeIn p-4 space-y-3 pb-2">
 
       {/* ── Заголовок с балансом ────────────────────────────────── */}
-      <div
-        className="rounded-2xl p-4 flex items-center justify-between"
-        style={{ backgroundColor: "var(--bg-secondary)" }}
-      >
-        <div className="flex items-center gap-2">
-          <ShoppingBag size={20} style={{ color: "var(--accent)" }} />
-          <span className="font-bold text-base">Магазин</span>
-          {data.has_vip && (
-            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded"
-              style={{ backgroundColor: "#f59e0b", color: "#000" }}>VIP</span>
-          )}
+      <div className="glass-hero p-5 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-xl" style={{ backgroundColor: "var(--accent-soft)" }}>
+            <ShoppingBag size={22} style={{ color: "var(--accent)" }} />
+          </div>
+          <div>
+            <span className="font-bold text-base">Магазин</span>
+            {data.has_vip && <span className="badge badge-gold ml-2">VIP</span>}
+          </div>
         </div>
-        <p className="text-lg font-bold tabular-nums">{fmt(data.balance)} 🪙</p>
+        <div className="text-right">
+          <p className="text-2xl font-extrabold tabular-nums stat-value">{fmt(data.balance)}</p>
+          <p className="text-[10px]" style={{ color: "var(--text-hint)" }}>🪙 мора</p>
+        </div>
       </div>
 
-      {/* ── Под-вкладки (горизонтальный скролл) ────────────────── */}
-      <div
-        className="flex gap-1 overflow-x-auto rounded-xl p-1"
-        style={{ backgroundColor: "var(--bg-secondary)", scrollbarWidth: "none" }}
-      >
+      {/* ── Под-вкладки ────────────────── */}
+      <div className="flex gap-1.5 overflow-x-auto rounded-2xl p-1.5 glass-card tab-scroll">
         {shopTabs.map(({ key, label }) => {
           const active = tab === key;
           return (
             <button
               key={key}
               onClick={() => setTab(key)}
-              className="flex-none px-3 py-1.5 text-sm font-medium rounded-lg transition-colors whitespace-nowrap"
+              className="flex-none px-3.5 py-2 text-sm font-semibold rounded-xl transition-all whitespace-nowrap"
               style={{
                 backgroundColor: active ? "var(--accent)" : "transparent",
                 color: active ? "#fff" : "var(--text-hint)",
+                boxShadow: active ? "0 4px 12px -2px var(--accent-glow)" : "none",
               }}
             >
               {label}

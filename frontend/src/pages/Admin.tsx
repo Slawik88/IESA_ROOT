@@ -18,10 +18,12 @@ import {
   fetchTreasury, treasuryPayout, fetchMembers,
   fetchPromocodes, createPromocode, deactivatePromocode,
   fetchMegaphones, reviewMegaphone,
+  fetchErrorLogs, clearErrorLogs,
   type MegaphoneMessage,
 } from "../lib/api";
 import type { DevUserEntry, DevChat, TreasuryResponse, ChatMember } from "../types";
 import type { PromoRecord } from "../lib/api";
+import type { ErrorLogEntry } from "../types";
 
 interface Props {
   userId: number;
@@ -29,7 +31,7 @@ interface Props {
   isDev?: boolean;
 }
 
-type AdminTab = "users" | "give" | "features" | "treasury" | "promos" | "megaphone";
+type AdminTab = "users" | "give" | "features" | "treasury" | "promos" | "megaphone" | "error_logs";
 
 /* ── Жёсткая иерархия рангов (синхронизировано с utils/ranks.py) ── */
 const RANK_HIERARCHY = [
@@ -135,17 +137,17 @@ export default function Admin({ chatId: defaultChatId, userId, isDev }: Props) {
     { key: "megaphone",  label: "📢 Рупор"      },
     { key: "features",   label: "⚙️ Функции"    },
     { key: "treasury",   label: "🏦 Казна"      },
+    { key: "error_logs", label: "📋 Ошибки"     },
   ];
 
   return (
     <div className="animate-fadeIn p-4 space-y-3 pb-24">
       {/* Header */}
-      <div
-        className="rounded-2xl p-4"
-        style={{ backgroundColor: "#1a0a0a", border: "1px solid #ef444466" }}
-      >
-        <div className="flex items-center gap-2 mb-2">
-          <ShieldAlert size={20} style={{ color: "#ef4444" }} />
+      <div className="glass-hero p-4" style={{ borderColor: "#ef444444" }}>
+        <div className="flex items-center gap-2.5 mb-2">
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: "#ef444422" }}>
+            <ShieldAlert size={18} style={{ color: "#ef4444" }} />
+          </div>
           <div>
             <p className="font-bold text-base" style={{ color: "#ef4444" }}>God Mode</p>
             <p className="text-[11px]" style={{ color: "var(--text-hint)" }}>
@@ -198,20 +200,18 @@ export default function Admin({ chatId: defaultChatId, userId, isDev }: Props) {
       </div>
 
       {/* Tabs */}
-      <div
-        className="flex gap-1 rounded-xl p-1 overflow-x-auto hide-scrollbar"
-        style={{ backgroundColor: "var(--bg-secondary)" }}
-      >
+      <div className="glass-card tab-scroll flex gap-1 rounded-xl p-1 overflow-x-auto">
         {tabs.map(({ key, label }) => {
           const active = tab === key;
           return (
             <button
               key={key}
               onClick={() => setTab(key)}
-              className="flex-none px-3 py-1.5 text-sm font-medium rounded-lg transition-colors whitespace-nowrap"
+              className="flex-none px-3 py-1.5 text-sm font-semibold rounded-lg transition-all whitespace-nowrap"
               style={{
                 backgroundColor: active ? "#ef4444" : "transparent",
                 color: active ? "#fff" : "var(--text-hint)",
+                boxShadow: active ? "0 0 12px #ef444444" : "none",
               }}
             >
               {label}
@@ -226,6 +226,7 @@ export default function Admin({ chatId: defaultChatId, userId, isDev }: Props) {
       {tab === "megaphone" && <MegaphoneSection />}
       {tab === "features" && <FeaturesSection chatId={activeChatId} />}
       {tab === "treasury" && <TreasurySection chatId={activeChatId} />}
+      {tab === "error_logs" && <ErrorLogsSection />}
     </div>
   );
 }
@@ -859,6 +860,150 @@ function TreasurySection({ chatId }: { chatId: number }) {
               </span>
             </div>
           ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── ErrorLogsSection ────────────────────────────────────────── */
+function ErrorLogsSection() {
+  const [logs, setLogs] = useState<ErrorLogEntry[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [filter, setFilter] = useState("");
+  const [expanded, setExpanded] = useState<Set<number>>(new Set());
+  const [toast, setToast] = useState<string | null>(null);
+
+  const showToast = useCallback((msg: string) => {
+    setToast(msg);
+    setTimeout(() => setToast(null), 3000);
+  }, []);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetchErrorLogs();
+      setLogs(res.logs ?? []);
+    } catch {
+      showToast("⚠️ Ошибка загрузки логов");
+    } finally {
+      setLoading(false);
+    }
+  }, [showToast]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const handleClear = async () => {
+    if (!confirm("Очистить ВСЕ логи ошибок?")) return;
+    try {
+      await clearErrorLogs();
+      setLogs([]);
+      showToast("🗑️ Логи очищены");
+    } catch {
+      showToast("⚠️ Ошибка при очистке");
+    }
+  };
+
+  const toggle = (id: number) =>
+    setExpanded(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+
+  const filtered = logs.filter(l =>
+    !filter ||
+    l.source.toLowerCase().includes(filter.toLowerCase()) ||
+    l.error_msg.toLowerCase().includes(filter.toLowerCase()) ||
+    l.context.toLowerCase().includes(filter.toLowerCase())
+  );
+
+  const SOURCE_COLORS: Record<string, string> = {
+    frontend: "#60a5fa",
+    backend: "#f97316",
+    bot: "#a78bfa",
+    views: "#22c55e",
+  };
+
+  return (
+    <div className="space-y-3">
+      {toast && <div className="glass-card rounded-xl px-3 py-2 text-sm font-medium animate-fadeIn">{toast}</div>}
+
+      {/* Controls */}
+      <div className="flex gap-2">
+        <div className="flex-1 relative">
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "var(--text-hint)" }} />
+          <input
+            className="input-field w-full pl-8 text-sm"
+            placeholder="Фильтр по source / ошибке..."
+            value={filter}
+            onChange={e => setFilter(e.target.value)}
+          />
+        </div>
+        <button onClick={load} disabled={loading} className="px-3 py-2 rounded-xl text-xs font-bold btn-ghost disabled:opacity-40">
+          {loading ? <Loader2 size={14} className="animate-spin" /> : "🔄"}
+        </button>
+        <button onClick={handleClear} className="px-3 py-2 rounded-xl text-xs font-bold btn-danger" disabled={logs.length === 0}>
+          🗑️ Clear
+        </button>
+      </div>
+
+      {/* Stats */}
+      <div className="flex gap-2 text-[11px]" style={{ color: "var(--text-hint)" }}>
+        <span>Всего: <b style={{ color: "var(--text-primary)" }}>{logs.length}</b></span>
+        <span>·</span>
+        <span>Показано: <b style={{ color: "var(--text-primary)" }}>{filtered.length}</b></span>
+      </div>
+
+      {/* Logs */}
+      {loading && logs.length === 0 ? (
+        <div className="flex justify-center py-8"><Loader2 size={24} className="animate-spin" style={{ color: "var(--accent)" }} /></div>
+      ) : filtered.length === 0 ? (
+        <p className="text-sm text-center py-6" style={{ color: "var(--text-hint)" }}>Логи пусты 🎉</p>
+      ) : (
+        <div className="space-y-2">
+          {filtered.map(log => {
+            const isOpen = expanded.has(log.id);
+            const srcColor = SOURCE_COLORS[log.source] ?? "var(--text-hint)";
+            return (
+              <div key={log.id} className="glass-card p-3 space-y-1.5">
+                <div className="flex items-start justify-between gap-2 cursor-pointer" onClick={() => toggle(log.id)}>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5 mb-0.5">
+                      <span className="badge text-[10px] px-1.5 py-0.5" style={{ color: srcColor, borderColor: srcColor + "44", background: srcColor + "15" }}>
+                        {log.source}
+                      </span>
+                      {log.context && (
+                        <span className="text-[10px] truncate" style={{ color: "var(--text-hint)" }}>{log.context}</span>
+                      )}
+                    </div>
+                    <p className="text-xs font-medium truncate" style={{ color: "#ef4444" }}>{log.error_msg}</p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="text-[10px] tabular-nums" style={{ color: "var(--text-hint)" }}>
+                      {new Date(log.created_at).toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                    </p>
+                    <span className="text-[9px]" style={{ color: "var(--text-hint)" }}>{isOpen ? "▲" : "▼"}</span>
+                  </div>
+                </div>
+                {isOpen && (
+                  <div className="space-y-1.5 pt-1.5" style={{ borderTop: "1px solid var(--border)" }}>
+                    {log.user_id && (
+                      <p className="text-[10px]" style={{ color: "var(--text-hint)" }}>
+                        user_id: {log.user_id} · chat_id: {log.chat_id}
+                      </p>
+                    )}
+                    {log.traceback && (
+                      <pre className="text-[10px] p-2 rounded-lg overflow-x-auto whitespace-pre-wrap break-all"
+                        style={{ background: "var(--bg-primary)", color: "#ef4444cc", fontFamily: "monospace" }}>
+                        {log.traceback}
+                      </pre>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

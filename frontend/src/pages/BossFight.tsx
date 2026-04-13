@@ -52,17 +52,7 @@ function fmt(n: number) {
   return String(n);
 }
 
-function HpBar({ current, max, color }: { current: number; max: number; color: string }) {
-  const pct = Math.max(0, Math.min(100, (current / max) * 100));
-  return (
-    <div className="w-full rounded-full overflow-hidden h-3" style={{ backgroundColor: "var(--bg-secondary)" }}>
-      <div
-        className="h-full rounded-full transition-all duration-300"
-        style={{ width: `${pct}%`, backgroundColor: color }}
-      />
-    </div>
-  );
-}
+// ── Constants ──────────────────────────────────────────────────
 
 // ─── Component ────────────────────────────────────────────────
 export default function BossFight({ userId: _userId, chatId }: Props) {
@@ -95,9 +85,10 @@ export default function BossFight({ userId: _userId, chatId }: Props) {
   const [floats, setFloats] = useState<FloatText[]>([]);
   const nextFid = useRef(0);
 
-  // Pause + potions
+  // Pause + potions + equipment
   const [paused, setPaused]     = useState(false);
   const [potions, setPotions]   = useState<InventoryItem[]>([]);
+  const [equipped, setEquipped] = useState<InventoryItem[]>([]);
   const [usingPotion, setUsingPotion] = useState<number | null>(null);
   const [showPotions, setShowPotions] = useState(false);
 
@@ -146,6 +137,7 @@ export default function BossFight({ userId: _userId, chatId }: Props) {
     try {
       const inv = await fetchInventory(chatId);
       setPotions(inv.items.filter(i => i.slot === "potion" || i.slot === "consume"));
+      setEquipped(inv.items.filter(i => i.equipped));
     } catch { /* ignore */ }
   }, [chatId]);
 
@@ -353,29 +345,31 @@ export default function BossFight({ userId: _userId, chatId }: Props) {
   const completed = session?.is_completed === 1 || playerHp <= 0;
   const canStart  = !session || completed;
 
+  const SLOT_EMOJI: Record<string, string> = { weapon: "⚔️", armor: "🛡️", helmet: "🪖", boots: "👢", artifact: "💎" };
+
   return (
     <div className="min-h-screen flex flex-col" style={{ backgroundColor: "var(--bg-primary)" }}>
       {/* Header */}
-      <div className="px-4 pt-safe pb-2 border-b" style={{ borderColor: "var(--border)" }}>
+      <div className="px-4 pt-safe pb-2 glass-heavy" style={{ borderBottom: "1px solid var(--border-accent)" }}>
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>⚔️ Соло Босс</h1>
             {progress && (
-              <p className="text-xs" style={{ color: "var(--text-hint)" }}>
+              <p className="text-[11px]" style={{ color: "var(--text-hint)" }}>
                 Макс. уровень: {progress.max_level}
               </p>
             )}
           </div>
-          <div className="text-xs px-2 py-1 rounded-lg glass-card">
-            <span style={{ color: "var(--text-hint)" }}>Следующий: </span>
-            <span className="font-bold" style={{ color: "var(--accent)" }}>Ур. {nextLevel}</span>
+          <div className="badge badge-accent text-xs px-3 py-1">
+            Ур. {nextLevel}
           </div>
         </div>
       </div>
 
       {/* Toast */}
       {toast && (
-        <div className="mx-4 mt-2 px-3 py-2 rounded-xl text-sm font-medium glass-card animate-fadeIn text-center" style={{ color: "var(--text-primary)" }}>
+        <div className="mx-4 mt-2 px-4 py-2.5 glass-card animate-fadeIn text-center text-sm font-medium"
+          style={{ color: "var(--text-primary)" }}>
           {toast}
         </div>
       )}
@@ -383,25 +377,24 @@ export default function BossFight({ userId: _userId, chatId }: Props) {
       {/* ── No session / completed ── */}
       {canStart && (
         <div className="flex-1 flex flex-col items-center justify-center gap-6 px-4">
-          <div className="text-center space-y-2">
-            <div className="text-7xl">{bossArt(nextLevel)}</div>
+          <div className="text-center space-y-3">
+            <div className="text-8xl drop-shadow-lg animate-orb">{bossArt(nextLevel)}</div>
             <p className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>{bossName(nextLevel)}</p>
             <p className="text-sm" style={{ color: "var(--text-hint)" }}>
               HP: {fmt(2_000 + (nextLevel - 1) * 1_500)}
             </p>
             {session?.is_completed === 1 && (
-              <p className="text-sm font-semibold" style={{ color: "#22c55e" }}>✅ Побеждён сегодня!</p>
+              <p className="badge badge-success text-sm px-4 py-1">✅ Побеждён сегодня!</p>
             )}
             {playerHp <= 0 && !session?.is_completed && (
-              <p className="text-sm font-semibold" style={{ color: "#ef4444" }}>💀 Ты пал в бою</p>
+              <p className="badge badge-danger text-sm px-4 py-1">💀 Ты пал в бою</p>
             )}
           </div>
           {session?.is_completed !== 1 && (
             <button
               onClick={doStart}
               disabled={starting}
-              className="px-8 py-3 rounded-2xl text-base font-bold flex items-center gap-2 disabled:opacity-50 transition-transform active:scale-95 btn-press"
-              style={{ backgroundColor: "var(--accent)", color: "#fff" }}
+              className="px-8 py-3.5 rounded-2xl text-base font-bold flex items-center gap-2 disabled:opacity-50 btn-primary"
             >
               {starting ? <Loader2 size={18} className="animate-spin" /> : <Swords size={18} />}
               {starting ? "Вызов..." : "Начать битву"}
@@ -412,17 +405,15 @@ export default function BossFight({ userId: _userId, chatId }: Props) {
 
       {/* ── Active fight ── */}
       {!canStart && fightActive && (
-        <div className="flex-1 flex flex-col gap-3 px-4 pt-3 pb-4 relative">
+        <div className="flex-1 flex flex-col gap-2.5 px-4 pt-3 pb-4 relative">
 
           {/* Pause overlay */}
           {paused && (
-            <div className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-5 rounded-2xl"
-              style={{ backgroundColor: "rgba(0,0,0,0.75)", backdropFilter: "blur(6px)" }}>
+            <div className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-5 rounded-2xl glass-heavy">
               <p className="text-2xl font-bold" style={{ color: "#fff" }}>⏸️ Пауза</p>
               <button
                 onClick={() => setPaused(false)}
-                className="flex items-center gap-2 px-6 py-3 rounded-2xl font-bold text-sm"
-                style={{ backgroundColor: "var(--accent)", color: "#fff" }}
+                className="flex items-center gap-2 px-6 py-3 btn-primary rounded-2xl text-sm"
               >
                 <Play size={16} /> Продолжить
               </button>
@@ -436,8 +427,7 @@ export default function BossFight({ userId: _userId, chatId }: Props) {
                   showToast("🏳️ Ты сдался...");
                   loadStatus();
                 }}
-                className="flex items-center gap-2 px-6 py-3 rounded-2xl font-semibold text-sm"
-                style={{ backgroundColor: "#ef444420", color: "#ef4444", border: "1px solid #ef444450" }}
+                className="flex items-center gap-2 px-6 py-3 rounded-2xl font-semibold text-sm btn-danger"
               >
                 <Flag size={16} /> Сдаться
               </button>
@@ -445,9 +435,9 @@ export default function BossFight({ userId: _userId, chatId }: Props) {
           )}
 
           {/* Boss info */}
-          <div className={`glass-card rounded-2xl p-3 ${telegraphing ? "animate-danger" : ""}`}>
+          <div className={`glass-card p-4 ${telegraphing ? "animate-danger" : ""}`}>
             <div className="flex items-center gap-3">
-              <div className="text-4xl relative">
+              <div className="text-5xl relative shrink-0">
                 {bossArt(session!.boss_level)}
                 {/* Weak spots */}
                 {weakSpots.map(ws => (
@@ -456,7 +446,7 @@ export default function BossFight({ userId: _userId, chatId }: Props) {
                     onClick={e => doClickWeakspot(ws.id, e)}
                     className="absolute rounded-full border-2 border-yellow-400 animate-weakspot-ripple"
                     style={{
-                      width: 24, height: 24,
+                      width: 28, height: 28,
                       left: `${ws.x}%`, top: `${ws.y}%`,
                       transform: "translate(-50%,-50%)",
                       backgroundColor: "#facc1540",
@@ -464,28 +454,30 @@ export default function BossFight({ userId: _userId, chatId }: Props) {
                   />
                 ))}
               </div>
-              <div className="flex-1 space-y-1">
+              <div className="flex-1 space-y-1.5">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>{bossName(session!.boss_level)}</span>
                   <div className="flex items-center gap-2">
-                    <span className="text-xs tabular-nums" style={{ color: "var(--text-hint)" }}>
+                    <span className="text-xs tabular-nums font-semibold" style={{ color: "var(--text-hint)" }}>
                       {fmt(bossHp)} / {fmt(bossMaxHp)}
                     </span>
                     <button
                       onClick={() => setPaused(true)}
-                      className="p-1 rounded-lg"
-                      style={{ color: "var(--text-hint)", backgroundColor: "var(--bg-secondary)" }}
+                      className="p-1.5 rounded-lg glass-card-sm"
+                      style={{ color: "var(--text-hint)" }}
                     >
                       <Pause size={14} />
                     </button>
                   </div>
                 </div>
-                <HpBar current={bossHp} max={bossMaxHp} color="var(--accent)" />
+                <div className="progress-bar">
+                  <div className="progress-bar-fill" style={{ width: `${Math.max(0, (bossHp / bossMaxHp) * 100)}%` }} />
+                </div>
                 {/* Telegraph bar */}
                 {telegraphing && (
                   <div className="space-y-0.5">
-                    <p className="text-[11px] font-semibold text-red-400 animate-pulse">⚠️ АТАКА БОССА — БЛОК!</p>
-                    <div className="w-full rounded-full overflow-hidden h-1.5" style={{ backgroundColor: "#ef444430" }}>
+                    <p className="text-[11px] font-bold text-red-400 animate-pulse">⚠️ АТАКА БОССА — БЛОК!</p>
+                    <div className="h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: "#ef444430" }}>
                       <div
                         className="h-full rounded-full transition-none"
                         style={{ width: `${telegraphPct}%`, backgroundColor: "#ef4444" }}
@@ -508,8 +500,7 @@ export default function BossFight({ userId: _userId, chatId }: Props) {
                   top: `${f.y}%`,
                   color: f.color,
                   transform: "translate(-50%, -50%)",
-                  "--fly-x": "0px",
-                  "--fly-y": "-30px",
+                  textShadow: `0 0 8px ${f.color}`,
                 } as React.CSSProperties}
               >
                 {f.text}
@@ -517,53 +508,70 @@ export default function BossFight({ userId: _userId, chatId }: Props) {
             ))}
           </div>
 
-          {/* Player status */}
-          <div className="glass-card rounded-2xl p-3 space-y-2">
+          {/* Player status — HP + Stamina */}
+          <div className="glass-card p-3 space-y-2">
             <div className="flex items-center justify-between text-xs" style={{ color: "var(--text-hint)" }}>
-              <span>❤️ Ваш HP</span><span className="tabular-nums">{playerHp}</span>
+              <span>❤️ HP</span><span className="tabular-nums font-bold">{playerHp}/100</span>
             </div>
-            <HpBar current={playerHp} max={100} color="#22c55e" />
+            <div className="progress-bar">
+              <div className="h-full rounded-full transition-all duration-300"
+                style={{ width: `${playerHp}%`, background: "linear-gradient(90deg, #22c55e, #4ade80)", boxShadow: "0 0 8px #22c55e55" }} />
+            </div>
 
             <div className="flex items-center justify-between text-xs" style={{ color: "var(--text-hint)" }}>
               <span className="animate-stamina">⚡ Выносливость</span>
-              <span className="tabular-nums">{Math.round(stamina)} / {STAMINA_MAX}</span>
+              <span className="tabular-nums font-bold">{Math.round(stamina)} / {STAMINA_MAX}</span>
             </div>
-            <div className="w-full rounded-full overflow-hidden h-3 relative" style={{ backgroundColor: "var(--bg-secondary)" }}>
-              <div
-                className="h-full rounded-full transition-all duration-500"
-                style={{ width: `${(stamina / STAMINA_MAX) * 100}%`, backgroundColor: "#3b82f6" }}
-              />
+            <div className="progress-bar">
+              <div className="h-full rounded-full transition-all duration-500"
+                style={{ width: `${(stamina / STAMINA_MAX) * 100}%`, background: "linear-gradient(90deg, #3b82f6, #60a5fa)", boxShadow: "0 0 8px #3b82f655" }} />
             </div>
 
             {blocking && (
-              <p className="text-xs font-semibold text-center animate-pulse" style={{ color: "#60a5fa" }}>
+              <p className="text-xs font-bold text-center animate-pulse" style={{ color: "#60a5fa" }}>
                 🛡️ Блок активен…
               </p>
             )}
           </div>
 
+          {/* ─ Equipment strip — always visible ─ */}
+          {equipped.length > 0 && (
+            <div className="flex gap-1.5 overflow-x-auto tab-scroll">
+              {equipped.map(eq => (
+                <div key={eq.id} className="glass-card-sm flex items-center gap-1.5 px-2.5 py-1.5 shrink-0"
+                  style={{ fontSize: 11 }}>
+                  <span>{SLOT_EMOJI[eq.slot ?? ""] ?? "📦"}</span>
+                  <span className="font-semibold truncate max-w-[80px]" style={{
+                    color: eq.rarity === "legendary" ? "#f59e0b" : eq.rarity === "rare" ? "#60a5fa" : "var(--text-secondary)",
+                  }}>{eq.name}</span>
+                  {eq.enhancement_level > 0 && <span style={{ color: "#22c55e" }}>+{eq.enhancement_level}</span>}
+                </div>
+              ))}
+            </div>
+          )}
+
           {/* Skills */}
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-3 gap-2.5">
             {/* Fast attack */}
             <button
               onClick={doFast}
               disabled={stamina < SKILL_FAST_COST || attacking || paused}
-              className="glass-card rounded-2xl p-3 flex flex-col items-center gap-1 disabled:opacity-40 btn-press transition-transform active:scale-95"
+              className="glass-card p-3 flex flex-col items-center gap-1.5 disabled:opacity-40 btn-press transition-transform active:scale-95"
             >
-              <Sword size={22} style={{ color: "var(--accent)" }} />
-              <span className="text-[11px] font-semibold" style={{ color: "var(--text-primary)" }}>Быстро</span>
-              <span className="text-[10px]" style={{ color: "var(--text-hint)" }}>{SKILL_FAST_COST}⚡</span>
+              <Sword size={24} style={{ color: "var(--accent)" }} />
+              <span className="text-[11px] font-bold" style={{ color: "var(--text-primary)" }}>Быстро</span>
+              <span className="text-[10px] font-semibold" style={{ color: "var(--text-hint)" }}>{SKILL_FAST_COST}⚡</span>
             </button>
 
             {/* Heavy blow */}
             <button
               onClick={doHeavy}
               disabled={stamina < SKILL_HEAVY_COST || heavyCd > 0 || attacking || paused}
-              className="glass-card rounded-2xl p-3 flex flex-col items-center gap-1 disabled:opacity-40 btn-press transition-transform active:scale-95"
+              className="glass-card p-3 flex flex-col items-center gap-1.5 disabled:opacity-40 btn-press transition-transform active:scale-95"
             >
-              <Swords size={22} style={{ color: heavyCd > 0 ? "var(--text-hint)" : "#f97316" }} />
-              <span className="text-[11px] font-semibold" style={{ color: "var(--text-primary)" }}>Удар</span>
-              <span className="text-[10px]" style={{ color: "var(--text-hint)" }}>
+              <Swords size={24} style={{ color: heavyCd > 0 ? "var(--text-hint)" : "#f97316" }} />
+              <span className="text-[11px] font-bold" style={{ color: "var(--text-primary)" }}>Удар</span>
+              <span className="text-[10px] font-semibold" style={{ color: "var(--text-hint)" }}>
                 {heavyCd > 0 ? `${(heavyCd / 1000).toFixed(1)}s` : `${SKILL_HEAVY_COST}⚡`}
               </span>
             </button>
@@ -572,37 +580,57 @@ export default function BossFight({ userId: _userId, chatId }: Props) {
             <button
               onClick={doBlock}
               disabled={stamina < SKILL_BLOCK_COST || blocking || paused}
-              className={`glass-card rounded-2xl p-3 flex flex-col items-center gap-1 disabled:opacity-40 btn-press transition-transform active:scale-95 ${telegraphing ? "glow-accent" : ""}`}
+              className={`glass-card p-3 flex flex-col items-center gap-1.5 disabled:opacity-40 btn-press transition-transform active:scale-95 ${telegraphing ? "animate-accent-glow" : ""}`}
             >
-              <Shield size={22} style={{ color: blocking ? "#60a5fa" : telegraphing ? "#facc15" : "var(--text-primary)" }} />
-              <span className="text-[11px] font-semibold" style={{ color: "var(--text-primary)" }}>Блок</span>
-              <span className="text-[10px]" style={{ color: "var(--text-hint)" }}>
+              <Shield size={24} style={{ color: blocking ? "#60a5fa" : telegraphing ? "#facc15" : "var(--text-primary)" }} />
+              <span className="text-[11px] font-bold" style={{ color: "var(--text-primary)" }}>Блок</span>
+              <span className="text-[10px] font-semibold" style={{ color: "var(--text-hint)" }}>
                 {blocking ? "✓ БЛОК" : `${SKILL_BLOCK_COST}⚡`}
               </span>
             </button>
           </div>
 
-          {/* ─ Potion tray ─ */}
-          <div className="glass-card rounded-2xl p-3">
-            <button
-              className="w-full flex items-center justify-between text-xs font-semibold mb-2"
-              onClick={() => setShowPotions(v => !v)}
-              style={{ color: "var(--text-primary)" }}
-            >
-              <span className="flex items-center gap-1.5"><FlaskConical size={13} style={{ color: "#a78bfa" }} /> Зелья ({potions.length})</span>
-              <span style={{ color: "var(--text-hint)" }}>{showPotions ? "▲" : "▼"}</span>
-            </button>
+          {/* ─ Potion quick-bar — ALWAYS visible ─ */}
+          <div className="glass-card p-3">
+            <div className="flex items-center justify-between mb-2">
+              <span className="flex items-center gap-1.5 text-xs font-bold" style={{ color: "var(--text-primary)" }}>
+                <FlaskConical size={14} style={{ color: "#a78bfa" }} /> Зелья
+                <span className="badge badge-accent">{potions.length}</span>
+              </span>
+              <button onClick={() => setShowPotions(v => !v)} className="text-[11px] font-semibold" style={{ color: "var(--text-hint)" }}>
+                {showPotions ? "Свернуть ▲" : "Развернуть ▼"}
+              </button>
+            </div>
+            {/* Quick-use row (always visible: first 3 potions) */}
+            {!showPotions && potions.length > 0 && (
+              <div className="flex gap-2">
+                {potions.slice(0, 3).map(p => (
+                  <button
+                    key={p.id}
+                    disabled={usingPotion === p.id}
+                    onClick={() => doUsePotion(p)}
+                    className="flex-1 flex items-center justify-center gap-1 px-2 py-2 rounded-xl text-xs font-semibold disabled:opacity-50 btn-press"
+                    style={{ background: "#a78bfa15", color: "#c4b5fd", border: "1px solid #a78bfa30" }}
+                  >
+                    {usingPotion === p.id ? <Loader2 size={12} className="animate-spin" /> : "🧪"}
+                    <span className="truncate">{p.name}</span>
+                    {p.stack_count > 1 && <span className="opacity-60">×{p.stack_count}</span>}
+                  </button>
+                ))}
+              </div>
+            )}
+            {/* Expanded view */}
             {showPotions && (
               potions.length === 0
-                ? <p className="text-xs text-center py-1" style={{ color: "var(--text-hint)" }}>Зельи не найдены</p>
+                ? <p className="text-xs text-center py-2" style={{ color: "var(--text-hint)" }}>Зельи не найдены</p>
                 : <div className="flex flex-wrap gap-2">
                     {potions.map(p => (
                       <button
                         key={p.id}
                         disabled={usingPotion === p.id}
                         onClick={() => doUsePotion(p)}
-                        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-medium disabled:opacity-50 transition-all active:scale-95"
-                        style={{ backgroundColor: "#a78bfa22", color: "#a78bfa", border: "1px solid #a78bfa44" }}
+                        className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold disabled:opacity-50 btn-press"
+                        style={{ background: "#a78bfa15", color: "#c4b5fd", border: "1px solid #a78bfa30" }}
                       >
                         {usingPotion === p.id
                           ? <Loader2 size={11} className="animate-spin" />
@@ -619,7 +647,7 @@ export default function BossFight({ userId: _userId, chatId }: Props) {
           <div className="flex gap-2 text-[11px] justify-end" style={{ color: "var(--text-hint)" }}>
             <span>Нанесено: {fmt(session!.boss_max_hp - bossHp)}</span>
             <span>·</span>
-            <span>Урон/атака: ~50-150</span>
+            <span>Урон/удар: ~50-150</span>
             {attacking && <Zap size={11} className="animate-spin" style={{ color: "var(--accent)" }} />}
           </div>
         </div>

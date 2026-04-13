@@ -535,11 +535,12 @@ export default function Exchange({ chatId, isDev }: Props) {
     <div className="animate-fadeIn p-4 space-y-3 pb-24">
 
       {/* Header */}
-      <div className="rounded-2xl p-4 flex items-center justify-between"
-        style={{ backgroundColor: "var(--bg-secondary)", border: "1px solid var(--border)" }}>
+      <div className="glass-hero p-4 flex items-center justify-between">
         <div>
-          <div className="flex items-center gap-2">
-            <TrendingUp size={18} style={{ color: "var(--accent)" }} />
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: "var(--accent-soft)" }}>
+              <TrendingUp size={18} style={{ color: "var(--accent)" }} />
+            </div>
             <span className="font-bold">Биржа</span>
           </div>
           <p className="text-[11px] mt-0.5 font-medium" style={{ color: trendColor }}>
@@ -564,18 +565,21 @@ export default function Exchange({ chatId, isDev }: Props) {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 rounded-xl p-1 overflow-x-auto hide-scrollbar"
-        style={{ backgroundColor: "var(--bg-secondary)" }}>
-        {tabs.map(({ key, label }) => (
-          <button key={key} onClick={() => setTab(key)}
-            className="flex-none px-3 py-1.5 text-sm font-medium rounded-lg transition-colors whitespace-nowrap"
-            style={{
-              backgroundColor: tab === key ? "var(--accent)" : "transparent",
-              color: tab === key ? "#fff" : "var(--text-hint)",
-            }}>
-            {label}
-          </button>
-        ))}
+      <div className="glass-card tab-scroll flex gap-1 rounded-xl p-1 overflow-x-auto">
+        {tabs.map(({ key, label }) => {
+          const active = tab === key;
+          return (
+            <button key={key} onClick={() => setTab(key)}
+              className="flex-none px-3 py-1.5 text-sm font-semibold rounded-lg transition-all whitespace-nowrap"
+              style={{
+                backgroundColor: active ? "var(--accent)" : "transparent",
+                color: active ? "#fff" : "var(--text-hint)",
+                boxShadow: active ? "0 0 12px var(--accent-glow)" : "none",
+              }}>
+              {label}
+            </button>
+          );
+        })}
       </div>
 
       {/* Market */}

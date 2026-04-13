@@ -117,29 +117,28 @@ export default function Stars({ chatId }: Props) {
 
       {/* ── Header ──────────────────────────────── */}
       <div
-        className="rounded-2xl p-5 flex flex-col items-center text-center gap-2"
+        className="glass-hero p-5 flex flex-col items-center text-center gap-2"
         style={{
-          background: "linear-gradient(135deg, #7c3aed 0%, #4f46e5 50%, #2563eb 100%)",
-          color: "#fff",
+          background: "linear-gradient(135deg, rgba(124,58,237,0.3) 0%, rgba(79,70,229,0.25) 50%, rgba(37,99,235,0.2) 100%)",
+          borderColor: "#7c3aed44",
         }}
       >
-        <div className="flex items-center gap-2 text-2xl font-bold">
+        <div className="flex items-center gap-2 text-2xl font-bold" style={{ color: "var(--text-primary)" }}>
           <Star size={28} fill="#fbbf24" color="#fbbf24" />
           <span>Кристаллы</span>
-          <Gem size={28} className="opacity-90" />
+          <Gem size={28} style={{ color: "#a78bfa" }} />
         </div>
-        <p className="text-sm opacity-80 max-w-xs">
+        <p className="text-sm max-w-xs" style={{ color: "var(--text-secondary)" }}>
           Покупай кристаллы 💎 за Telegram Stars ⭐ и трать на темы, рамки и другие премиум-возможности
         </p>
 
         {/* Crystal balance */}
         {crystals !== null && (
           <div
-            className="mt-2 flex items-center gap-2 rounded-xl px-4 py-2 text-base font-semibold"
-            style={{ backgroundColor: "rgba(255,255,255,0.15)", backdropFilter: "blur(6px)" }}
+            className="mt-2 flex items-center gap-2 rounded-xl px-4 py-2 text-base font-bold glass-card-sm"
           >
-            <Gem size={18} />
-            <span>Баланс: {fmt(crystals)} 💎</span>
+            <Gem size={18} style={{ color: "#a78bfa" }} />
+            <span className="stat-value">Баланс: {fmt(crystals)} 💎</span>
           </div>
         )}
       </div>
