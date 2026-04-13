@@ -134,10 +134,11 @@ export default function BossFight({ userId: _userId, chatId }: Props) {
 
   const loadPotions = useCallback(async () => {
     if (!chatId) return;
+    const COMBAT_SLOTS = ["weapon", "armor", "helmet", "boots", "artifact"];
     try {
       const inv = await fetchInventory(chatId);
       setPotions(inv.items.filter(i => i.slot === "potion" || i.slot === "consume"));
-      setEquipped(inv.items.filter(i => i.equipped));
+      setEquipped(inv.items.filter(i => i.equipped && COMBAT_SLOTS.includes(i.slot ?? "")));
     } catch { /* ignore */ }
   }, [chatId]);
 
@@ -191,6 +192,9 @@ export default function BossFight({ userId: _userId, chatId }: Props) {
             setPlayerHp(hp => {
               const next = Math.max(0, hp - dmg);
               addFloat(`-${dmg}`, 50, 40, "#f87171");
+              if (next === 0 && chatId) {
+                forfeitBoss(chatId).catch(() => {});
+              }
               return next;
             });
             scheduleNext();
@@ -399,6 +403,16 @@ export default function BossFight({ userId: _userId, chatId }: Props) {
             >
               {starting ? <Loader2 size={18} className="animate-spin" /> : <Swords size={18} />}
               {starting ? "Вызов..." : "Начать битву"}
+            </button>
+          )}
+          {session?.is_completed === 1 && (
+            <button
+              onClick={doStart}
+              disabled={starting}
+              className="px-8 py-3.5 rounded-2xl text-base font-bold flex items-center gap-2 disabled:opacity-50 btn-primary"
+            >
+              {starting ? <Loader2 size={18} className="animate-spin" /> : <Swords size={18} />}
+              {starting ? "Вызов..." : "Следующий уровень →"}
             </button>
           )}
         </div>

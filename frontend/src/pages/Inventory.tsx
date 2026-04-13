@@ -70,7 +70,7 @@ export default function Inventory({ userId: _userId, chatId }: Props) {
   const [busy, setBusy]         = useState<string | null>(null);
   const [toast, setToast]       = useState<string | null>(null);
   const [rarityF, setRarityF]   = useState<"all" | "junk" | "common" | "rare" | "legendary">("all");
-  const [slotF, setSlotF]       = useState<"all" | "equipped" | "weapon" | "helmet" | "armor" | "boots" | "artifact" | "consumable" | "flair">("all");
+  const [slotF, setSlotF]       = useState<"all" | "equipped" | "weapon" | "helmet" | "armor" | "boots" | "artifact" | "consumable" | "flair" | "coupon">("all");
   const [statsOpen, setStatsOpen] = useState(false);
 
   const showToast = useCallback((msg: string) => {
@@ -157,7 +157,7 @@ export default function Inventory({ userId: _userId, chatId }: Props) {
     setBusy("consume");
     try {
       const res = await consumePotion(chatId, item.id);
-      showToast(res.success ? res.message : res.message);
+      showToast(res.success ? "✅ " + res.message : "❌ " + res.message);
       setSelected(null);
       load();
     } catch (e: unknown) {
@@ -218,6 +218,7 @@ export default function Inventory({ userId: _userId, chatId }: Props) {
       if (rarityF !== "all" && it.rarity !== rarityF) return false;
       if (slotF === "equipped") return it.equipped;
       if (slotF === "consumable") return isConsumable(it);
+      if (slotF === "coupon") return it.slot === "coupon";
       if (slotF !== "all") return it.slot === slotF;
       return true;
     })
@@ -304,7 +305,7 @@ export default function Inventory({ userId: _userId, chatId }: Props) {
 
       {/* ── Фильтры по слоту ── */}
       <div className="flex gap-2 px-4 pb-3 overflow-x-auto hide-scrollbar">
-        {(["all", "equipped", "weapon", "helmet", "armor", "boots", "artifact", "consumable", "flair"] as const).map(f => (
+        {(["all", "equipped", "weapon", "helmet", "armor", "boots", "artifact", "consumable", "flair", "coupon"] as const).map(f => (
           <button
             key={f}
             onClick={() => setSlotF(f)}
@@ -314,7 +315,7 @@ export default function Inventory({ userId: _userId, chatId }: Props) {
               color: slotF === f ? "#fff" : "var(--text-hint)",
             }}
           >
-            {{ all: "Все типы", equipped: "★ Надетые", weapon: "⚔️ Оружие", helmet: "⛑ Шлем", armor: "🛡 Броня", boots: "👢 Сапоги", artifact: "💎 Артефакт", consumable: "⚗️ Расходники", flair: "🎨 Косметика" }[f]}
+            {{ all: "Все типы", equipped: "★ Надетые", weapon: "⚔️ Оружие", helmet: "⛑ Шлем", armor: "🛡 Броня", boots: "👢 Сапоги", artifact: "💎 Артефакт", consumable: "⚗️ Расходники", flair: "🎨 Косметика", coupon: "🎫 Купоны" }[f]}
           </button>
         ))}
       </div>
@@ -581,9 +582,10 @@ function BottomSheet({ item, busy, onClose, onEquip, onSell, onEnhance, onConsum
               color="#f59e0b" />
           )}
           {canActivateTheme && (
-            <ActionBtn loading={busy === "theme"} onClick={() => onActivateTheme(item)}
+            <ActionBtn loading={busy === "theme"} onClick={() => !item.equipped && onActivateTheme(item)}
               label={item.equipped ? "✅ Активная тема" : "🎨 Применить тему"}
-              color={item.equipped ? "#6b7280" : "#a855f7"} />
+              color={item.equipped ? "#6b7280" : "#a855f7"}
+              disabled={item.equipped} />
           )}
           {canRename && (
             <ActionBtn loading={busy === "rename"} onClick={() => onRename(item)}
@@ -608,14 +610,14 @@ function BottomSheet({ item, busy, onClose, onEquip, onSell, onEnhance, onConsum
 
 /* ── Action Button ── */
 function ActionBtn({
-  label, color, loading, onClick, outline = false,
+  label, color, loading, onClick, outline = false, disabled = false,
 }: {
-  label: string; color: string; loading: boolean; onClick: () => void; outline?: boolean;
+  label: string; color: string; loading: boolean; onClick: () => void; outline?: boolean; disabled?: boolean;
 }) {
   return (
     <button
       onClick={onClick}
-      disabled={loading}
+      disabled={loading || disabled}
       className="w-full py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-50 transition-all active:scale-95"
       style={outline
         ? { border: `1.5px solid ${color}`, color, backgroundColor: "transparent" }
@@ -677,6 +679,7 @@ function RenameModal({
           type="text"
           value={name}
           onChange={e => setName(e.target.value.slice(0, 24))}
+          onKeyDown={e => { if (e.key === "Enter" && name.trim() && !busy) onConfirm(name.trim()); }}
           placeholder="Новое имя питомца"
           maxLength={24}
           className="w-full px-3 py-2.5 rounded-xl text-sm mb-4 outline-none"

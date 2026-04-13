@@ -16,6 +16,7 @@ export default function Achievements({ userId, chatId }: Props) {
   const [tab, setTab] = useState<"my" | "top">("my");
   const [data, setData] = useState<AchievementsResponse | null>(null);
   const [leaderboard, setLeaderboard] = useState<AchLeaderboardEntry[] | null>(null);
+  const [leaderboardError, setLeaderboardError] = useState("");
   const [error, setError] = useState("");
   const [expanded, setExpanded] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
@@ -32,19 +33,20 @@ export default function Achievements({ userId, chatId }: Props) {
   }, [userId, chatId]);
 
   const loadLeaderboard = useCallback(() => {
+    setLeaderboardError("");
     fetchGlobalLeaderboard(chatId)
       .then((d) => setLeaderboard(d.leaderboard))
-      .catch(() => {});
+      .catch((e: Error) => setLeaderboardError(e.message));
   }, [chatId]);
 
   useEffect(() => { load(); }, [load]);
-  useEffect(() => { if (tab === "top" && !leaderboard) loadLeaderboard(); }, [tab, leaderboard, loadLeaderboard]);
+  useEffect(() => { if (tab === "top" && !leaderboard && !leaderboardError) loadLeaderboard(); }, [tab, leaderboard, leaderboardError, loadLeaderboard]);
 
   const doSync = () => {
     setSyncing(true);
     fetchAchievements(userId, chatId)
       .then((d) => { setData(d); setLastSync(new Date()); })
-      .catch(() => {})
+      .catch((e: Error) => setError(e.message))
       .finally(() => setSyncing(false));
   };
 
@@ -145,7 +147,17 @@ export default function Achievements({ userId, chatId }: Props) {
     </div>
 
       {tab === "top" ? (
-        <LeaderboardTab entries={leaderboard} userId={userId} onRefresh={loadLeaderboard} />
+        leaderboardError ? (
+          <div className="p-4 text-center" style={{ color: "#e74c3c" }}>
+            <p className="font-medium text-sm">Ошибка загрузки</p>
+            <p className="text-xs mt-1 break-all">{leaderboardError}</p>
+            <button onClick={loadLeaderboard} className="mt-3 text-sm underline" style={{ color: "var(--accent)" }}>
+              Попробовать снова
+            </button>
+          </div>
+        ) : (
+          <LeaderboardTab entries={leaderboard} userId={userId} onRefresh={loadLeaderboard} />
+        )
       ) : (
         <>
           {lastSync && (

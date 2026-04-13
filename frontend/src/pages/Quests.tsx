@@ -67,7 +67,12 @@ export default function Quests({ chatId }: Props) {
         ? "Задание заменено (купон использован)!"
         : `Задание заменено. Списано: ${res.cost.toLocaleString("ru-RU")} 🪙`;
       showToast(costMsg);
-      if (res.used_coupon) setHasCoupon(false);
+      if (res.used_coupon) {
+        // Re-fetch inventory to get accurate remaining coupon count
+        fetchInventory(chatId)
+          .then(inv => setHasCoupon(inv.items.some(i => i.key === "quest_reroll" && i.stack_count > 0)))
+          .catch(() => setHasCoupon(false));
+      }
     } catch (e: unknown) {
       showToast(e instanceof Error ? e.message : "Ошибка реролла");
     } finally {
