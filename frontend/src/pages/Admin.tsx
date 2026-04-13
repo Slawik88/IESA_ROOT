@@ -1059,8 +1059,8 @@ function PromosSection() {
           <InputField icon="🔑" label="Код" value={code} onChange={setCode} />
           <InputField icon="♾️" label="Макс. активаций (пусто=∞)" value={maxUses} onChange={setMaxUses} type="number" />
           <div className="col-span-2">
-            <label className="text-[11px] font-medium" style={{ color: "var(--text-hint)" }}>📅 Срок (ISO, пусто=∞)</label>
-            <input type="datetime-local" value={expiresAt} onChange={e => setExpiresAt(e.target.value ? new Date(e.target.value).toISOString() : "")}
+            <label className="text-[11px] font-medium" style={{ color: "var(--text-hint)" }}>📅 Срок (пусто=∞)</label>
+            <input type="datetime-local" value={expiresAt} onChange={e => setExpiresAt(e.target.value)}
               className="w-full mt-0.5 rounded-lg px-2 py-1.5 text-xs" style={{ backgroundColor: "var(--bg-primary)", color: "var(--text-primary)", border: "1px solid var(--border)" }}
             />
           </div>

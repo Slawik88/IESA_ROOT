@@ -107,9 +107,9 @@ export function fetchAchievements(
 }
 
 /** Глобальный топ-100 по достижениям */
-export function fetchGlobalLeaderboard(): Promise<AchLeaderboardResponse> {
+export function fetchGlobalLeaderboard(chatId: number): Promise<AchLeaderboardResponse> {
   return request<AchLeaderboardResponse>(
-    `/api/achievements?mode=global_leaderboard`,
+    `/api/achievements?mode=leaderboard&chat_id=${chatId}`,
   );
 }
 

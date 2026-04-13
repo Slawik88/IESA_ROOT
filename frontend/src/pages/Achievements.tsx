@@ -32,10 +32,10 @@ export default function Achievements({ userId, chatId }: Props) {
   }, [userId, chatId]);
 
   const loadLeaderboard = useCallback(() => {
-    fetchGlobalLeaderboard()
+    fetchGlobalLeaderboard(chatId)
       .then((d) => setLeaderboard(d.leaderboard))
       .catch(() => {});
-  }, []);
+  }, [chatId]);
 
   useEffect(() => { load(); }, [load]);
   useEffect(() => { if (tab === "top" && !leaderboard) loadLeaderboard(); }, [tab, leaderboard, loadLeaderboard]);
