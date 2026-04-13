@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import {
   fetchInventory, equipItem, toggleEquip,
-  sellJunk, batchSell, enhanceItem, consumePotion, activateTheme,
+  sellJunk, batchSell, enhanceItem, consumePotion, activateTheme, renamePet,
 } from "../lib/api";
 import type { InventoryItem, InventoryRpg } from "../types";
 import { RARITY_COLOR } from "./Gacha";
@@ -46,6 +46,8 @@ function getEnhanceCost(level: number): number {
 const EQUIPPABLE_SLOTS = ["weapon", "helmet", "armor", "boots", "artifact"];
 
 function isConsumable(item: InventoryItem): boolean {
+  if (item.slot === "potion" || item.slot === "consume") return true;
+  if (item.slot === "coupon" && item.key !== "pet_rename") return true;
   if (!item.slot || item.slot === "flair") {
     return !item.is_cosmetic && !item.key.startsWith("junk_");
   }
@@ -107,6 +109,7 @@ export default function Inventory({ userId: _userId, chatId }: Props) {
 
   const [sellConfirm, setSellConfirm] = useState<InventoryItem | null>(null);
   const [enhanceDetail, setEnhanceDetail] = useState<InventoryItem | null>(null);
+  const [renameItem, setRenameItem] = useState<InventoryItem | null>(null);
 
   const doSell = useCallback(async (item: InventoryItem) => {
     // Для предметов rare и legendary — требуется подтверждение!
@@ -155,6 +158,19 @@ export default function Inventory({ userId: _userId, chatId }: Props) {
     try {
       const res = await consumePotion(chatId, item.id);
       showToast(res.success ? res.message : res.message);
+      setSelected(null);
+      load();
+    } catch (e: unknown) {
+      showToast(e instanceof Error ? extractApiError(e.message) : "Ошибка");
+    } finally { setBusy(null); }
+  }, [chatId, load, showToast]);
+
+  const doRename = useCallback(async (item: InventoryItem, newName: string) => {
+    setBusy("rename");
+    try {
+      const res = await renamePet(chatId, newName, item.id);
+      showToast(res.ok ? `✏️ Питомец переименован в «${newName}»!` : (res.error ?? "Ошибка"));
+      setRenameItem(null);
       setSelected(null);
       load();
     } catch (e: unknown) {
@@ -329,6 +345,17 @@ export default function Inventory({ userId: _userId, chatId }: Props) {
           onEnhance={(item) => setEnhanceDetail(item)}
           onConsume={doConsume}
           onActivateTheme={doActivateTheme}
+          onRename={(item) => setRenameItem(item)}
+        />
+      )}
+
+      {/* ── Rename Modal ── */}
+      {renameItem && (
+        <RenameModal
+          item={renameItem}
+          busy={busy === "rename"}
+          onClose={() => setRenameItem(null)}
+          onConfirm={(name) => doRename(renameItem, name)}
         />
       )}
 
@@ -477,9 +504,10 @@ interface BSProps {
   onEnhance: (item: InventoryItem) => void;
   onConsume: (item: InventoryItem) => void;
   onActivateTheme: (item: InventoryItem) => void;
+  onRename: (item: InventoryItem) => void;
 }
 
-function BottomSheet({ item, busy, onClose, onEquip, onSell, onEnhance, onConsume, onActivateTheme }: BSProps) {
+function BottomSheet({ item, busy, onClose, onEquip, onSell, onEnhance, onConsume, onActivateTheme, onRename }: BSProps) {
   const color = RARITY_COLOR[item.rarity] ?? "#9ca3af";
   const stats: { label: string; value: string | number }[] = [];
   if (item.atk)              stats.push({ label: "ATK",    value: `+${item.atk}` });
@@ -492,6 +520,7 @@ function BottomSheet({ item, busy, onClose, onEquip, onSell, onEnhance, onConsum
   const canConsume      = isConsumable(item);
   const canSell         = item.sell_price > 0;
   const canActivateTheme = item.is_cosmetic && item.slot === "flair";
+  const canRename       = item.key === "pet_rename";
 
   return (
     <>
@@ -556,6 +585,10 @@ function BottomSheet({ item, busy, onClose, onEquip, onSell, onEnhance, onConsum
               label={item.equipped ? "✅ Активная тема" : "🎨 Применить тему"}
               color={item.equipped ? "#6b7280" : "#a855f7"} />
           )}
+          {canRename && (
+            <ActionBtn loading={busy === "rename"} onClick={() => onRename(item)}
+              label="✏️ Переименовать питомца" color="#8b5cf6" />
+          )}
           {canConsume && (
             <ActionBtn loading={busy === "consume"} onClick={() => onConsume(item)}
               label="Использовать ⚡" color="#22c55e" />
@@ -564,7 +597,7 @@ function BottomSheet({ item, busy, onClose, onEquip, onSell, onEnhance, onConsum
             <ActionBtn loading={busy === "sell"} onClick={() => onSell(item)}
               label={`Продать за ${item.sell_price} 🪙`} color="#e74c3c" outline />
           )}
-          {!canEquip && !canConsume && !canSell && !canActivateTheme && (
+          {!canEquip && !canConsume && !canSell && !canActivateTheme && !canRename && (
             <p className="text-center text-xs py-2" style={{ color: "var(--text-hint)" }}>Нет доступных действий</p>
           )}
         </div>
@@ -622,4 +655,48 @@ function InvSkeleton() {
 
 function extractApiError(msg: string): string {
   try { return JSON.parse(msg.split(": ").slice(1).join(": ")).error ?? msg; } catch { return msg; }
+}
+
+/* ── Rename Modal ── */
+function RenameModal({
+  item, busy, onClose, onConfirm,
+}: {
+  item: InventoryItem;
+  busy: boolean;
+  onClose: () => void;
+  onConfirm: (name: string) => void;
+}) {
+  const [name, setName] = useState("");
+  return (
+    <>
+      <div className="fixed inset-0 z-[60] bg-black/60" onClick={onClose} />
+      <div className="fixed inset-x-4 top-1/2 -translate-y-1/2 z-[61] rounded-2xl p-5" style={{ backgroundColor: "var(--bg-primary)" }}>
+        <h3 className="font-bold text-base mb-1 flex items-center gap-2">✏️ Переименовать питомца</h3>
+        <p className="text-xs mb-4" style={{ color: "var(--text-hint)" }}>Купон: {item.name} будет использован</p>
+        <input
+          type="text"
+          value={name}
+          onChange={e => setName(e.target.value.slice(0, 24))}
+          placeholder="Новое имя питомца"
+          maxLength={24}
+          className="w-full px-3 py-2.5 rounded-xl text-sm mb-4 outline-none"
+          style={{ backgroundColor: "var(--bg-secondary)", color: "var(--text-primary)", border: "1px solid var(--border)" }}
+          autoFocus
+        />
+        <div className="flex gap-2">
+          <button onClick={onClose}
+            className="flex-1 py-2.5 rounded-xl text-sm font-semibold"
+            style={{ backgroundColor: "var(--bg-secondary)", color: "var(--text-hint)" }}>Отмена</button>
+          <button
+            onClick={() => name.trim() && onConfirm(name.trim())}
+            disabled={!name.trim() || busy}
+            className="flex-1 py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-50"
+            style={{ backgroundColor: "#8b5cf6", color: "#fff" }}
+          >
+            {busy ? <Loader2 size={14} className="animate-spin" /> : "Сохранить"}
+          </button>
+        </div>
+      </div>
+    </>
+  );
 }

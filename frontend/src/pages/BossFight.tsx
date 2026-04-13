@@ -4,10 +4,11 @@
    ────────────────────────────────────────────────────────────── */
 import { useState, useEffect, useRef, useCallback } from "react";
 import {
-  fetchBossStatus, startBoss, attackBoss,
+  fetchBossStatus, startBoss, attackBoss, fetchInventory, consumePotion,
   type BossSession, type BossProgress,
 } from "../lib/api";
-import { Loader2, Shield, Zap, Sword, Swords } from "lucide-react";
+import type { InventoryItem } from "../types";
+import { Loader2, Shield, Zap, Sword, Swords, Pause, Play, Flag, FlaskConical } from "lucide-react";
 
 // ─── Constants ────────────────────────────────────────────────
 const STAMINA_MAX         = 100;
@@ -94,6 +95,12 @@ export default function BossFight({ userId: _userId, chatId }: Props) {
   const [floats, setFloats] = useState<FloatText[]>([]);
   const nextFid = useRef(0);
 
+  // Pause + potions
+  const [paused, setPaused]     = useState(false);
+  const [potions, setPotions]   = useState<InventoryItem[]>([]);
+  const [usingPotion, setUsingPotion] = useState<number | null>(null);
+  const [showPotions, setShowPotions] = useState(false);
+
   // Fight active flag
   const fightActive = session != null && !session.is_completed && playerHp > 0;
 
@@ -134,16 +141,24 @@ export default function BossFight({ userId: _userId, chatId }: Props) {
     finally { setLoading(false); }
   }, [chatId]);
 
+  const loadPotions = useCallback(async () => {
+    if (!chatId) return;
+    try {
+      const inv = await fetchInventory(chatId);
+      setPotions(inv.items.filter(i => i.slot === "potion" || i.slot === "consume"));
+    } catch { /* ignore */ }
+  }, [chatId]);
+
   useEffect(() => { loadStatus(); }, [loadStatus]);
 
   // ── Stamina regen ───────────────────────────────────────────
   useEffect(() => {
-    if (!fightActive) return;
+    if (!fightActive || paused) return;
     const id = setInterval(() => {
       setStamina(s => Math.min(STAMINA_MAX, s + STAMINA_REGEN));
     }, 1000);
     return () => clearInterval(id);
-  }, [fightActive]);
+  }, [fightActive, paused]);
 
   // ── Heavy cooldown ticker ───────────────────────────────────
   useEffect(() => {
@@ -156,7 +171,7 @@ export default function BossFight({ userId: _userId, chatId }: Props) {
 
   // ── Boss telegraph (random interval 6-14s) ──────────────────
   useEffect(() => {
-    if (!fightActive) return;
+    if (!fightActive || paused) return;
 
     let telegraphTimeout: ReturnType<typeof setTimeout>;
     let warningInterval: ReturnType<typeof setInterval>;
@@ -197,11 +212,11 @@ export default function BossFight({ userId: _userId, chatId }: Props) {
       clearInterval(warningInterval);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fightActive]);
+  }, [fightActive, paused]);
 
   // ── Weak spots (random interval 5-10s) ─────────────────────
   useEffect(() => {
-    if (!fightActive) return;
+    if (!fightActive || paused) return;
     const schedule = () => {
       const delay = 5000 + Math.random() * 5000;
       return setTimeout(() => {
@@ -224,9 +239,7 @@ export default function BossFight({ userId: _userId, chatId }: Props) {
     }, 8000);
     return () => { clearTimeout(t); clearInterval(repeat); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fightActive]);
-
-  // ── Start boss  ─────────────────────────────────────────────
+  }, [fightActive, paused]);
   const doStart = async () => {
     if (!chatId) return;
     setStarting(true);
@@ -241,10 +254,36 @@ export default function BossFight({ userId: _userId, chatId }: Props) {
       setHeavyCd(0);
       setBlocking(false);
       setWeakSpots([]);
+      setPaused(false);
+      loadPotions();
     } catch (e: unknown) {
       showToast("⚠️ " + (e instanceof Error ? e.message : "Ошибка"));
     } finally { setStarting(false); }
   };
+
+  // ── Use potion during fight ──────────────────────────────────
+  const doUsePotion = useCallback(async (item: InventoryItem) => {
+    if (!chatId) return;
+    setUsingPotion(item.id);
+    try {
+      const r = await consumePotion(chatId, item.id);
+      if (r.success) {
+        // Apply local HP heal for hp_potion
+        if (item.key === "hp_potion" || item.key === "hp_potion_superior") {
+          setPlayerHp(hp => Math.min(100, hp + 50));
+          addFloat("+50 ❤️", 20, 60, "#22c55e");
+        } else {
+          addFloat("⚡ " + item.name, 20, 60, "#a78bfa");
+        }
+        showToast(r.message);
+        loadPotions(); // refresh list (consumed one)
+      } else {
+        showToast("❌ " + r.message);
+      }
+    } catch (e: unknown) {
+      showToast(e instanceof Error ? e.message : "Ошибка");
+    } finally { setUsingPotion(null); }
+  }, [chatId, addFloat, showToast, loadPotions]);
 
   // ── Attack backend ──────────────────────────────────────────
   const doAttackBackend = useCallback(async (isCrit?: boolean) => {
@@ -348,7 +387,7 @@ export default function BossFight({ userId: _userId, chatId }: Props) {
             <div className="text-7xl">{bossArt(nextLevel)}</div>
             <p className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>{bossName(nextLevel)}</p>
             <p className="text-sm" style={{ color: "var(--text-hint)" }}>
-              HP: {fmt(300_000 + (nextLevel - 1) * 150_000)}
+              HP: {fmt(2_000 + (nextLevel - 1) * 1_500)}
             </p>
             {session?.is_completed === 1 && (
               <p className="text-sm font-semibold" style={{ color: "#22c55e" }}>✅ Побеждён сегодня!</p>
@@ -373,7 +412,33 @@ export default function BossFight({ userId: _userId, chatId }: Props) {
 
       {/* ── Active fight ── */}
       {!canStart && fightActive && (
-        <div className="flex-1 flex flex-col gap-3 px-4 pt-3 pb-4">
+        <div className="flex-1 flex flex-col gap-3 px-4 pt-3 pb-4 relative">
+
+          {/* Pause overlay */}
+          {paused && (
+            <div className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-5 rounded-2xl"
+              style={{ backgroundColor: "rgba(0,0,0,0.75)", backdropFilter: "blur(6px)" }}>
+              <p className="text-2xl font-bold" style={{ color: "#fff" }}>⏸️ Пауза</p>
+              <button
+                onClick={() => setPaused(false)}
+                className="flex items-center gap-2 px-6 py-3 rounded-2xl font-bold text-sm"
+                style={{ backgroundColor: "var(--accent)", color: "#fff" }}
+              >
+                <Play size={16} /> Продолжить
+              </button>
+              <button
+                onClick={() => {
+                  setPaused(false);
+                  setPlayerHp(0); // Counts as defeat
+                  showToast("🏳️ Ты сдался...");
+                }}
+                className="flex items-center gap-2 px-6 py-3 rounded-2xl font-semibold text-sm"
+                style={{ backgroundColor: "#ef444420", color: "#ef4444", border: "1px solid #ef444450" }}
+              >
+                <Flag size={16} /> Сдаться
+              </button>
+            </div>
+          )}
 
           {/* Boss info */}
           <div className={`glass-card rounded-2xl p-3 ${telegraphing ? "animate-danger" : ""}`}>
@@ -398,9 +463,18 @@ export default function BossFight({ userId: _userId, chatId }: Props) {
               <div className="flex-1 space-y-1">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>{bossName(session!.boss_level)}</span>
-                  <span className="text-xs tabular-nums" style={{ color: "var(--text-hint)" }}>
-                    {fmt(bossHp)} / {fmt(bossMaxHp)}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs tabular-nums" style={{ color: "var(--text-hint)" }}>
+                      {fmt(bossHp)} / {fmt(bossMaxHp)}
+                    </span>
+                    <button
+                      onClick={() => setPaused(true)}
+                      className="p-1 rounded-lg"
+                      style={{ color: "var(--text-hint)", backgroundColor: "var(--bg-secondary)" }}
+                    >
+                      <Pause size={14} />
+                    </button>
+                  </div>
                 </div>
                 <HpBar current={bossHp} max={bossMaxHp} color="var(--accent)" />
                 {/* Telegraph bar */}
@@ -469,7 +543,7 @@ export default function BossFight({ userId: _userId, chatId }: Props) {
             {/* Fast attack */}
             <button
               onClick={doFast}
-              disabled={stamina < SKILL_FAST_COST || attacking}
+              disabled={stamina < SKILL_FAST_COST || attacking || paused}
               className="glass-card rounded-2xl p-3 flex flex-col items-center gap-1 disabled:opacity-40 btn-press transition-transform active:scale-95"
             >
               <Sword size={22} style={{ color: "var(--accent)" }} />
@@ -480,7 +554,7 @@ export default function BossFight({ userId: _userId, chatId }: Props) {
             {/* Heavy blow */}
             <button
               onClick={doHeavy}
-              disabled={stamina < SKILL_HEAVY_COST || heavyCd > 0 || attacking}
+              disabled={stamina < SKILL_HEAVY_COST || heavyCd > 0 || attacking || paused}
               className="glass-card rounded-2xl p-3 flex flex-col items-center gap-1 disabled:opacity-40 btn-press transition-transform active:scale-95"
             >
               <Swords size={22} style={{ color: heavyCd > 0 ? "var(--text-hint)" : "#f97316" }} />
@@ -493,7 +567,7 @@ export default function BossFight({ userId: _userId, chatId }: Props) {
             {/* Block */}
             <button
               onClick={doBlock}
-              disabled={stamina < SKILL_BLOCK_COST || blocking}
+              disabled={stamina < SKILL_BLOCK_COST || blocking || paused}
               className={`glass-card rounded-2xl p-3 flex flex-col items-center gap-1 disabled:opacity-40 btn-press transition-transform active:scale-95 ${telegraphing ? "glow-accent" : ""}`}
             >
               <Shield size={22} style={{ color: blocking ? "#60a5fa" : telegraphing ? "#facc15" : "var(--text-primary)" }} />
@@ -502,6 +576,39 @@ export default function BossFight({ userId: _userId, chatId }: Props) {
                 {blocking ? "✓ БЛОК" : `${SKILL_BLOCK_COST}⚡`}
               </span>
             </button>
+          </div>
+
+          {/* ─ Potion tray ─ */}
+          <div className="glass-card rounded-2xl p-3">
+            <button
+              className="w-full flex items-center justify-between text-xs font-semibold mb-2"
+              onClick={() => setShowPotions(v => !v)}
+              style={{ color: "var(--text-primary)" }}
+            >
+              <span className="flex items-center gap-1.5"><FlaskConical size={13} style={{ color: "#a78bfa" }} /> Зелья ({potions.length})</span>
+              <span style={{ color: "var(--text-hint)" }}>{showPotions ? "▲" : "▼"}</span>
+            </button>
+            {showPotions && (
+              potions.length === 0
+                ? <p className="text-xs text-center py-1" style={{ color: "var(--text-hint)" }}>Зельи не найдены</p>
+                : <div className="flex flex-wrap gap-2">
+                    {potions.map(p => (
+                      <button
+                        key={p.id}
+                        disabled={usingPotion === p.id}
+                        onClick={() => doUsePotion(p)}
+                        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-medium disabled:opacity-50 transition-all active:scale-95"
+                        style={{ backgroundColor: "#a78bfa22", color: "#a78bfa", border: "1px solid #a78bfa44" }}
+                      >
+                        {usingPotion === p.id
+                          ? <Loader2 size={11} className="animate-spin" />
+                          : "🧪"}
+                        {p.name}
+                        {p.stack_count > 1 && <span style={{ color: "var(--text-hint)" }}>×{p.stack_count}</span>}
+                      </button>
+                    ))}
+                  </div>
+            )}
           </div>
 
           {/* Hits info */}

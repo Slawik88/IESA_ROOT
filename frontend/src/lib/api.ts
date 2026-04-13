@@ -281,6 +281,19 @@ export function consumePotion(
   });
 }
 
+/** Переименовать питомца (с купоном или без) */
+export function renamePet(
+  chatId: number,
+  name: string,
+  couponItemId?: number,
+): Promise<{ ok: boolean; error?: string }> {
+  return request("/api/pets/rename", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId, name, use_coupon: couponItemId != null ? true : undefined, item_id: couponItemId }),
+  });
+}
+
 // ── Bank ──────────────────────────────────────────────────────
 
 /** Информация о банке: баланс, вклады, планы */

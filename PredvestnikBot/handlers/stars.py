@@ -201,8 +201,34 @@ async def successful_payment(msg: Message):
     stars = pack["stars"]
     charge_id = sp.telegram_payment_charge_id or ""
 
-    new_balance = await add_crystals(user_id, crystals)
-    await log_stars_purchase(user_id, stars, crystals, pack_key, charge_id)
+    # ── Critical: add crystals with explicit error capture ────────────────────
+    new_balance = 0
+    try:
+        new_balance = await add_crystals(user_id, crystals)
+        log.info(
+            "Stars payment OK: user=%s pack=%s stars=%s crystals=%s new_balance=%s charge=%s",
+            user_id, pack_key, stars, crystals, new_balance, charge_id,
+        )
+    except Exception as _e:
+        # Log the error so we can trace exact failure — do NOT re-raise (payment already taken)
+        log.critical(
+            "STARS PAYMENT CRYSTAL CREDIT FAILED! user=%s pack=%s stars=%s crystals=%s charge=%s | %r",
+            user_id, pack_key, stars, crystals, charge_id, _e,
+        )
+        try:
+            await msg.answer(
+                f"⚠️ <b>Технический сбой при зачислении кристаллов.</b>\n\n"
+                f"Платёж принят (charge_id: <code>{charge_id}</code>), но кристаллы не зачислены.\n"
+                f"Обратитесь к администратору с этим ID для ручного зачисления."
+            )
+        except Exception:
+            pass
+        return
+
+    try:
+        await log_stars_purchase(user_id, stars, crystals, pack_key, charge_id)
+    except Exception as _e:
+        log.warning("log_stars_purchase failed (non-critical): %r", _e)
 
     # First top-up: auto-grant exclusive frame
     first_topup_msg = ""
