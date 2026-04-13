@@ -8571,3 +8571,6 @@ def miniapp_stars_invoice(request):
     except Exception:
         logger.exception("miniapp_stars_invoice error")
         return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
+
+
+
