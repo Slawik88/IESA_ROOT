@@ -29,6 +29,10 @@ from filters.chat_mode import MainChatOnly
 router = Router()
 router.message.filter(MainChatOnly())
 
+# Separate router for payment events — must NOT have MainChatOnly,
+# because successful_payment arrives in the private bot chat.
+payment_router = Router()
+
 
 log = logging.getLogger(__name__)
 
@@ -161,7 +165,7 @@ async def cb_stars_buy(cb: CallbackQuery):
 
 # ─── PreCheckoutQuery: одобряем все платежи ──────────────────────────────────
 
-@router.pre_checkout_query()
+@payment_router.pre_checkout_query()
 async def pre_checkout(pq: PreCheckoutQuery):
     # Проверяем что payload содержит правильный формат
     parts = pq.invoice_payload.split(":")
@@ -177,7 +181,7 @@ async def pre_checkout(pq: PreCheckoutQuery):
 
 # ─── SuccessfulPayment: начисляем кристаллы ──────────────────────────────────
 
-@router.message(F.successful_payment)
+@payment_router.message(F.successful_payment)
 async def successful_payment(msg: Message):
     sp = msg.successful_payment
     payload = sp.invoice_payload  # "crystals:{pack_key}:{user_id}"

@@ -14,10 +14,12 @@ import {
 } from "lucide-react";
 import {
   fetchDevUsers, devMemberUpdate, devAddMora, devAddXp,
-  devGiveItem, devFeatureToggle, fetchDevChats, fetchFeatureFlags,
+  devGiveItem, devGiveCrystals, devFeatureToggle, fetchDevChats, fetchFeatureFlags,
   fetchTreasury, treasuryPayout, fetchMembers,
+  fetchPromocodes, createPromocode, deactivatePromocode,
 } from "../lib/api";
 import type { DevUserEntry, DevChat, TreasuryResponse, ChatMember } from "../types";
+import type { PromoRecord } from "../lib/api";
 
 interface Props {
   userId: number;
@@ -25,7 +27,7 @@ interface Props {
   isDev?: boolean;
 }
 
-type AdminTab = "users" | "give" | "features" | "treasury";
+type AdminTab = "users" | "give" | "features" | "treasury" | "promos";
 
 /* ── Жёсткая иерархия рангов (синхронизировано с utils/ranks.py) ── */
 const RANK_HIERARCHY = [
@@ -127,6 +129,7 @@ export default function Admin({ chatId: defaultChatId, userId, isDev }: Props) {
   const tabs: { key: AdminTab; label: string }[] = [
     { key: "users",    label: "👤 Участники"  },
     { key: "give",     label: "🎁 Выдать"     },
+    { key: "promos",   label: "🎟️ Промокоды" },
     { key: "features", label: "⚙️ Функции"    },
     { key: "treasury", label: "🏦 Казна"      },
   ];
@@ -216,6 +219,7 @@ export default function Admin({ chatId: defaultChatId, userId, isDev }: Props) {
 
       {tab === "users"    && <UsersSection    chatId={activeChatId} />}
       {tab === "give"     && <GiveSection     chatId={activeChatId} />}
+      {tab === "promos"   && <PromosSection />}
       {tab === "features" && <FeaturesSection chatId={activeChatId} />}
       {tab === "treasury" && <TreasurySection chatId={activeChatId} />}
     </div>
@@ -283,12 +287,20 @@ function UsersSection({ chatId }: { chatId: number }) {
     setSaving(true);
     try {
       const r = await devMemberUpdate(chatId, selected.user_id, parseFloat(balance), parseInt(xp), rank, parseInt(reputation));
-      if (r.ok) {
-        showOk("✅ " + (r.message ?? "Сохранено"));
-        search();
-      } else {
+      if (!r.ok) {
         showOk("⚠️ " + (r.error ?? "Ошибка"));
+        return;
       }
+      const crystalDelta = parseInt(crystals);
+      if (crystalDelta !== 0 && !isNaN(crystalDelta)) {
+        const cr = await devGiveCrystals(chatId, selected.user_id, crystalDelta);
+        if (!cr.ok) {
+          showOk("⚠️ Кристаллы: " + (cr.error ?? "Ошибка"));
+          return;
+        }
+      }
+      showOk("✅ " + (r.message ?? "Сохранено"));
+      search();
     } catch (e: unknown) {
       showOk("⚠️ " + (e instanceof Error ? e.message : "Ошибка"));
     } finally {
@@ -839,6 +851,164 @@ function TreasurySection({ chatId }: { chatId: number }) {
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+/* ── PromosSection ──────────────────────────────────────────────── */
+function PromosSection() {
+  const [promos, setPromos] = useState<PromoRecord[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+
+  // Create form
+  const [code, setCode] = useState("");
+  const [maxUses, setMaxUses] = useState("");
+  const [expiresAt, setExpiresAt] = useState("");
+  // Payload fields
+  const [mora, setMora] = useState("");
+  const [crystals, setCrystals] = useState("");
+  const [xp, setXp] = useState("");
+  const [stones, setStones] = useState("");
+  const [themeKey, setThemeKey] = useState("");
+  const [itemName, setItemName] = useState("");
+  const [itemRarity, setItemRarity] = useState("common");
+  const [randRarity, setRandRarity] = useState("");
+  const [creating, setCreating] = useState(false);
+
+  const showToast = (m: string) => { setToast(m); setTimeout(() => setToast(null), 3000); };
+
+  const load = useCallback(() => {
+    setLoading(true);
+    fetchPromocodes()
+      .then(r => { if (r.ok) setPromos(r.promos ?? []); })
+      .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const doCreate = async () => {
+    if (!code.trim()) { showToast("⚠️ Введи код"); return; }
+    setCreating(true);
+    const payload: Record<string, unknown> = {};
+    if (mora)     payload.mora     = parseInt(mora);
+    if (crystals) payload.crystals = parseInt(crystals);
+    if (xp)       payload.xp       = parseInt(xp);
+    if (stones)   payload.enhancement_stones = parseInt(stones);
+    if (themeKey) payload.theme    = themeKey;
+    if (itemName) { payload.item_name = itemName; payload.item_rarity = itemRarity; }
+    if (randRarity) payload.random_item_rarity = randRarity;
+    try {
+      const r = await createPromocode({
+        code: code.trim().toUpperCase(),
+        payload,
+        max_uses: maxUses ? parseInt(maxUses) : null,
+        expires_at: expiresAt || null,
+      });
+      if (r.ok) {
+        showToast("✅ Промокод создан");
+        setCode(""); setMaxUses(""); setExpiresAt(""); setMora(""); setCrystals(""); setXp(""); setStones(""); setThemeKey(""); setItemName(""); setRandRarity("");
+        load();
+      } else { showToast("⚠️ " + (r.error ?? "Ошибка")); }
+    } catch (e: unknown) { showToast("⚠️ " + (e instanceof Error ? e.message : "Ошибка")); }
+    finally { setCreating(false); }
+  };
+
+  const doDeactivate = async (c: string) => {
+    try {
+      await deactivatePromocode(c);
+      showToast("🔴 Деактивирован");
+      load();
+    } catch { showToast("⚠️ Ошибка"); }
+  };
+
+  return (
+    <div className="space-y-3">
+      {toast && <div className="rounded-xl px-3 py-2 text-sm font-medium animate-fadeIn glass-card">{toast}</div>}
+
+      {/* Create form */}
+      <div className="rounded-xl p-3 space-y-2 glass-card">
+        <p className="text-sm font-semibold" style={{ color: "var(--accent)" }}>🎟️ Создать промокод</p>
+        <div className="grid grid-cols-2 gap-2">
+          <InputField icon="🔑" label="Код" value={code} onChange={setCode} />
+          <InputField icon="♾️" label="Макс. активаций (пусто=∞)" value={maxUses} onChange={setMaxUses} type="number" />
+          <div className="col-span-2">
+            <label className="text-[11px] font-medium" style={{ color: "var(--text-hint)" }}>📅 Срок (ISO, пусто=∞)</label>
+            <input type="datetime-local" value={expiresAt} onChange={e => setExpiresAt(e.target.value ? new Date(e.target.value).toISOString() : "")}
+              className="w-full mt-0.5 rounded-lg px-2 py-1.5 text-xs" style={{ backgroundColor: "var(--bg-primary)", color: "var(--text-primary)", border: "1px solid var(--border)" }}
+            />
+          </div>
+        </div>
+        <p className="text-[10px] font-semibold uppercase mt-1" style={{ color: "var(--text-hint)" }}>Награды (payload)</p>
+        <div className="grid grid-cols-2 gap-2">
+          <InputField icon="🪙" label="Мора"     value={mora}     onChange={setMora}     type="number" />
+          <InputField icon="💎" label="Кристаллы" value={crystals} onChange={setCrystals} type="number" />
+          <InputField icon="⚡" label="XP"        value={xp}       onChange={setXp}       type="number" />
+          <InputField icon="⚒️" label="Камни заточки" value={stones} onChange={setStones} type="number" />
+          <InputField icon="🎨" label="Тема (ключ)" value={themeKey} onChange={setThemeKey} />
+          <InputField icon="🎲" label="Предмет (имя)" value={itemName} onChange={setItemName} />
+        </div>
+        <div className="flex gap-2 items-center">
+          <label className="text-[11px]" style={{ color: "var(--text-hint)" }}>Редкость предмета:</label>
+          {(["common","rare","epic","legendary"] as const).map(r => (
+            <button key={r} onClick={() => setItemRarity(r)}
+              className="text-[10px] px-1.5 py-0.5 rounded"
+              style={{ backgroundColor: itemRarity === r ? "var(--accent)" : "var(--bg-primary)", color: itemRarity === r ? "#fff" : "var(--text-hint)" }}>
+              {r}
+            </button>
+          ))}
+        </div>
+        <div className="flex gap-2 items-center">
+          <label className="text-[11px]" style={{ color: "var(--text-hint)" }}>Случайный предмет редкости:</label>
+          {["", "common","rare","epic","legendary"].map(r => (
+            <button key={r} onClick={() => setRandRarity(r)}
+              className="text-[10px] px-1.5 py-0.5 rounded"
+              style={{ backgroundColor: randRarity === r ? "var(--accent)" : "var(--bg-primary)", color: randRarity === r ? "#fff" : "var(--text-hint)" }}>
+              {r || "—"}
+            </button>
+          ))}
+        </div>
+        <button onClick={doCreate} disabled={creating}
+          className="w-full py-2 rounded-lg text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-50"
+          style={{ backgroundColor: "var(--accent)", color: "#fff" }}>
+          {creating ? <Loader2 size={14} className="animate-spin" /> : "✨ Создать"}
+        </button>
+      </div>
+
+      {/* Existing promos */}
+      <div className="space-y-2">
+        <p className="text-xs font-semibold uppercase" style={{ color: "var(--text-hint)" }}>
+          Все промокоды {loading && <Loader2 size={11} className="inline animate-spin ml-1" />}
+        </p>
+        {promos.map(p => (
+          <div key={p.id} className="rounded-xl p-3 space-y-1 glass-card">
+            <div className="flex items-center justify-between gap-2">
+              <span className="font-mono font-bold text-sm" style={{ color: "var(--accent)" }}>{p.code}</span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded font-bold"
+                style={{ backgroundColor: p.is_active ? "#22c55e22" : "#ef444422", color: p.is_active ? "#22c55e" : "#ef4444" }}>
+                {p.is_active ? "АКТИВЕН" : "ВЫКЛ"}
+              </span>
+            </div>
+            <div className="text-[11px]" style={{ color: "var(--text-hint)" }}>
+              Использований: {p.uses}{p.max_uses ? ` / ${p.max_uses}` : " / ∞"}
+              {p.expires_at && ` · До ${new Date(p.expires_at).toLocaleDateString("ru-RU")}`}
+            </div>
+            <div className="text-[11px] font-mono break-all" style={{ color: "var(--text-hint)" }}>
+              {JSON.stringify(p.payload)}
+            </div>
+            {p.is_active && (
+              <button onClick={() => doDeactivate(p.code)}
+                className="text-[11px] px-2 py-0.5 rounded"
+                style={{ backgroundColor: "#ef444422", color: "#ef4444" }}>
+                Деактивировать
+              </button>
+            )}
+          </div>
+        ))}
+        {!loading && promos.length === 0 && (
+          <p className="text-sm text-center py-4" style={{ color: "var(--text-hint)" }}>Промокодов нет</p>
+        )}
+      </div>
     </div>
   );
 }

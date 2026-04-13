@@ -282,7 +282,10 @@ function TradeSheet({ bond, balance, onClose, onDone, chatId }: TradeSheetProps)
               </button>
             ))}
             <button
-              onClick={() => maxBuy > 0 && setAmount(String(maxBuy))}
+              onClick={() => {
+                const target = maxBuy > 0 ? maxBuy : bond.amount;
+                if (target > 0) setAmount(String(target));
+              }}
               className="flex-1 py-1 rounded-lg text-xs font-semibold"
               style={{ backgroundColor: "var(--bg-primary)", color: "var(--text-hint)" }}>
               MAX

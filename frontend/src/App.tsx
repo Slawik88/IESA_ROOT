@@ -3,7 +3,7 @@
    Навигация: Профиль | Гача | Инвентарь | Банк | Магазин | Задания | Топ | Сезон | Ачивки | Биржа | [Адм.]
    ────────────────────────────────────────────────────────────── */
 import { useState, useEffect, Component, type ReactNode, type ErrorInfo } from "react";
-import { User, Sparkles, Backpack, ScrollText, Trophy, Medal, Star, Landmark, ShoppingBag, TrendingUp, ShieldAlert, Dices, Gem } from "lucide-react";
+import { User, Sparkles, Backpack, ScrollText, Trophy, Medal, Star, Landmark, ShoppingBag, TrendingUp, ShieldAlert, Dices, Gem, Swords } from "lucide-react";
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
   constructor(props: { children: ReactNode }) {
@@ -52,9 +52,11 @@ import Exchange from "./pages/Exchange";
 import Casino from "./pages/Casino";
 import Stars from "./pages/Stars";
 import Admin from "./pages/Admin";
+import Promo from "./pages/Promo";
+import BossFight from "./pages/BossFight";
 import NotInTelegram from "./pages/NotInTelegram";
 
-type Tab = "profile" | "gacha" | "inventory" | "bank" | "shop" | "quests" | "leaderboard" | "season" | "achievements" | "exchange" | "casino" | "stars" | "admin";
+type Tab = "profile" | "gacha" | "inventory" | "bank" | "shop" | "quests" | "leaderboard" | "season" | "achievements" | "exchange" | "casino" | "stars" | "promo" | "boss" | "admin";
 
 const BASE_TABS: { key: Tab; label: string; Icon: typeof User }[] = [
   { key: "profile",      label: "Профиль",  Icon: User },
@@ -65,6 +67,8 @@ const BASE_TABS: { key: Tab; label: string; Icon: typeof User }[] = [
   { key: "exchange",     label: "Биржа",    Icon: TrendingUp },
   { key: "casino",       label: "Казино",   Icon: Dices },
   { key: "stars",        label: "Stars",    Icon: Gem },
+  { key: "promo",        label: "Промо",    Icon: Gem },
+  { key: "boss",         label: "Босс",     Icon: Swords },
   { key: "quests",       label: "Задания",  Icon: ScrollText },
   { key: "leaderboard",  label: "Топ",      Icon: Trophy },
   { key: "season",       label: "Сезон",    Icon: Star },
@@ -125,6 +129,8 @@ export default function App() {
           {tab === "leaderboard"  && <Leaderboard  chatId={chatId} />}
           {tab === "season"       && <Season />}
           {tab === "achievements" && <Achievements userId={userId} chatId={chatId} />}
+          {tab === "promo"        && <Promo        userId={userId} chatId={chatId} />}
+          {tab === "boss"         && <BossFight    userId={userId} chatId={chatId} />}
           {tab === "admin"        && <Admin        userId={userId} chatId={chatId} isDev={isDev} />}
         </ErrorBoundary>
       </main>

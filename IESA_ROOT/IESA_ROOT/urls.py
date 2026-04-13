@@ -108,6 +108,10 @@ from .miniapp_views import (
     miniapp_chat_tags,
     miniapp_tag_definitions,
     miniapp_stars_invoice,
+    miniapp_promo_activate,
+    miniapp_promo_create,
+    miniapp_promo_list,
+    miniapp_promo_deactivate,
 )
 
 # Переопределить стандартный админ на кастомный
@@ -290,6 +294,11 @@ urlpatterns = [
     path('api/tag_definitions', miniapp_tag_definitions, name='miniapp_tag_definitions'),
     # ─── Stars / Покупка кристаллов за Telegram Stars ─────────────────────────
     path('api/stars/invoice', miniapp_stars_invoice, name='miniapp_stars_invoice'),
+    # ─── Промокоды ────────────────────────────────────────────────────────────
+    path('api/promo/activate',      miniapp_promo_activate,   name='miniapp_promo_activate'),
+    path('api/dev/promo/create',    miniapp_promo_create,     name='miniapp_promo_create'),
+    path('api/dev/promo/list',      miniapp_promo_list,       name='miniapp_promo_list'),
+    path('api/dev/promo/deactivate',miniapp_promo_deactivate, name='miniapp_promo_deactivate'),
     # ──────────────────────────────────────────────────────────────────────────
     path('protected/<path:file_path>', serve_protected_media, name='serve_protected_media'),
     

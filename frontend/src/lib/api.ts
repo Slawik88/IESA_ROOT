@@ -49,6 +49,12 @@ import type {
   StarsInvoiceResult,
 } from "../types";
 
+// ── Promo types (inline — no need for types.ts) ───────────────
+export interface PromoActivateResult { ok: boolean; rewards?: string[]; payload?: Record<string, unknown>; error?: string; }
+export interface PromoRecord { id: number; code: string; payload: Record<string, unknown>; max_uses: number | null; uses: number; expires_at: string | null; is_active: boolean; created_at: string; }
+export interface PromoListResult  { ok: boolean; promos?: PromoRecord[]; error?: string; }
+export interface PromoCreateResult { ok: boolean; promo?: PromoRecord; error?: string; }
+
 // Глобальное хранилище initData — заполняется в useTelegram при старте.
 // Все запросы автоматически получают этот заголовок.
 let _initData = "";
@@ -475,6 +481,19 @@ export function devAddXp(
   });
 }
 
+/** Начислить кристаллы пользователю (только dev). Отрицательное amount — списать. */
+export function devGiveCrystals(
+  chatId: number,
+  targetId: number,
+  amount: number,
+): Promise<DevUpdateResult> {
+  return request<DevUpdateResult>("/api/dev/give_crystals", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId, target_id: targetId, amount }),
+  });
+}
+
 /** Выдать предмет пользователю (только dev) */
 export function devGiveItem(
   chatId: number,
@@ -609,6 +628,28 @@ export function createStarsInvoice(packKey: string, chatId: number): Promise<Sta
   });
 }
 
+/** Потратить кристаллы на предмет из донат-магазина */
+export function buyCrystalItem(
+  chatId: number,
+  itemKey: string,
+  price: number,
+): Promise<{ ok: boolean; new_balance?: number; error?: string }> {
+  return request<{ ok: boolean; new_balance?: number; error?: string }>("/api/crystals/spend", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId, item_key: itemKey, price }),
+  });
+}
+
+/** Сохранить URL аватара из Telegram в профиле */
+export function saveAvatar(photoUrl: string): Promise<{ ok: boolean; error?: string }> {
+  return request<{ ok: boolean; error?: string }>("/api/save_avatar", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ photo_url: photoUrl }),
+  });
+}
+
 // ── Casino ────────────────────────────────────────────────────
 
 /** Орёл или решка */
@@ -637,6 +678,81 @@ export function fetchLotteryStatus(chatId: number): Promise<LotteryStatusResult>
 /** Купить лотерейный билет */
 export function buyLotteryTicket(chatId: number): Promise<LotteryBuyResult> {
   return request<LotteryBuyResult>("/api/casino/lottery", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId }),
+  });
+}
+
+// ── Promoccodes ───────────────────────────────────────────────
+
+/** Активировать промокод */
+export function activatePromocode(chatId: number, code: string): Promise<PromoActivateResult> {
+  return request<PromoActivateResult>("/api/promo/activate", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId, code }),
+  });
+}
+
+/** [DEV] Список промокодов */
+export function fetchPromocodes(): Promise<PromoListResult> {
+  return request<PromoListResult>("/api/dev/promo/list");
+}
+
+/** [DEV] Создать промокод */
+export function createPromocode(data: {
+  code: string;
+  payload: Record<string, unknown>;
+  max_uses: number | null;
+  expires_at: string | null;
+}): Promise<PromoCreateResult> {
+  return request<PromoCreateResult>("/api/dev/promo/create", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+}
+
+/** [DEV] Деактивировать промокод */
+export function deactivatePromocode(code: string): Promise<{ ok: boolean }> {
+  return request<{ ok: boolean }>("/api/dev/promo/deactivate", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ code }),
+  });
+}
+
+// ── Solo Boss ─────────────────────────────────────────────────
+
+export interface BossSession {
+  id: number;
+  boss_level: number;
+  boss_max_hp: number;
+  boss_current_hp: number;
+  user_damage: number;
+  user_hits: number;
+  is_completed: 0 | 1;
+  is_repeat: 0 | 1;
+}
+export interface BossProgress { max_level: number; last_completed: string | null; }
+export interface BossStatusResult { session: BossSession | null; progress: BossProgress | null; next_level: number; }
+export interface BossAttackResult { ok: boolean; damage_dealt: number; crit: boolean; boss_hp: number; boss_defeated: boolean; rewards?: { mora: number; xp: number }; new_balance?: number; }
+
+export function fetchBossStatus(chatId: number): Promise<BossStatusResult> {
+  return request<BossStatusResult>(`/api/solo_boss/status?chat_id=${chatId}`);
+}
+
+export function startBoss(chatId: number): Promise<{ ok: boolean; session: BossSession; error?: string }> {
+  return request<{ ok: boolean; session: BossSession; error?: string }>("/api/solo_boss/start", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId }),
+  });
+}
+
+export function attackBoss(chatId: number): Promise<BossAttackResult> {
+  return request<BossAttackResult>("/api/solo_boss/attack", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ chat_id: chatId }),
