@@ -742,3 +742,15 @@ export interface LotteryBuyResult {
   ticket_price: number;
   new_balance: number;
 }
+
+// ── Error Logs ────────────────────────────────────────────────
+export interface ErrorLogEntry {
+  id: number;
+  source: string;
+  context: string;
+  error_msg: string;
+  traceback: string;
+  user_id: number | null;
+  chat_id: number | null;
+  created_at: string;
+}

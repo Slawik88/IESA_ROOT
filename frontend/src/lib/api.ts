@@ -823,3 +823,15 @@ export function forfeitBoss(chatId: number): Promise<{ ok: boolean; forfeited: b
     body: JSON.stringify({ chat_id: chatId }),
   });
 }
+
+// ── Error Logs (DEV) ─────────────────────────────────────────
+
+/** [DEV] Получить логи ошибок */
+export function fetchErrorLogs(): Promise<{ logs: import("../types").ErrorLogEntry[] }> {
+  return request<{ logs: import("../types").ErrorLogEntry[] }>("/api/dev/error_logs");
+}
+
+/** [DEV] Очистить все логи ошибок */
+export function clearErrorLogs(): Promise<{ ok: boolean }> {
+  return request<{ ok: boolean }>("/api/dev/error_logs", { method: "DELETE" });
+}

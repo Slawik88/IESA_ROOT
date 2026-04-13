@@ -55,28 +55,35 @@ export default function Leaderboard({ chatId }: Props) {
     <div className="animate-fadeIn flex flex-col min-h-screen pb-24">
 
       {/* ── Заголовок ── */}
-      <div className="p-4 pb-0">
-        <h1 className="text-xl font-bold flex items-center gap-2">
-          <Trophy size={20} style={{ color: "var(--accent)" }} />
+      <div className="px-4 pt-4 pb-2">
+        <h1 className="text-xl font-bold flex items-center gap-2.5">
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: "var(--accent-soft)" }}>
+            <Trophy size={18} style={{ color: "var(--accent)" }} />
+          </div>
           Таблица лидеров
         </h1>
       </div>
 
       {/* ── Табы ── */}
-      <div className="flex gap-2 p-4 overflow-x-auto">
-        {TABS.map(t => (
-          <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
-            className="px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-all"
-            style={{
-              backgroundColor: tab === t.key ? "var(--accent)" : "var(--bg-secondary)",
-              color:            tab === t.key ? "#fff"          : "var(--text-secondary)",
-            }}
-          >
-            {t.label}
-          </button>
-        ))}
+      <div className="flex gap-2 px-4 pb-3 overflow-x-auto tab-scroll">
+        {TABS.map(t => {
+          const active = tab === t.key;
+          return (
+            <button
+              key={t.key}
+              onClick={() => setTab(t.key)}
+              className="px-3 py-1.5 rounded-xl text-sm font-semibold whitespace-nowrap transition-all"
+              style={{
+                backgroundColor: active ? "var(--accent)" : "transparent",
+                color: active ? "#fff" : "var(--text-secondary)",
+                border: active ? "1px solid var(--accent)" : "1px solid var(--border)",
+                boxShadow: active ? "0 0 12px var(--accent-glow)" : "none",
+              }}
+            >
+              {t.label}
+            </button>
+          );
+        })}
       </div>
 
       {/* ── Контент ── */}

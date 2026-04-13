@@ -72,16 +72,15 @@ export default function Bank({ chatId }: Props) {
     <div className="animate-fadeIn p-4 space-y-3 pb-2">
 
       {/* ── Заголовок ──────────────────────────────────────────── */}
-      <div
-        className="rounded-2xl p-4 flex items-center justify-between"
-        style={{ backgroundColor: "var(--bg-secondary)" }}
-      >
-        <div className="flex items-center gap-2">
-          <Landmark size={20} style={{ color: "var(--accent)" }} />
+      <div className="glass-hero p-4 flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: "var(--accent-soft)" }}>
+            <Landmark size={18} style={{ color: "var(--accent)" }} />
+          </div>
           <span className="font-bold text-base">Банк</span>
         </div>
         <div className="text-right">
-          <p className="text-lg font-bold tabular-nums">{fmt(data.balance)} 🪙</p>
+          <p className="text-lg font-bold tabular-nums stat-value">{fmt(data.balance)} 🪙</p>
           {data.family_balance > 0 && (
             <p className="text-[11px]" style={{ color: "var(--text-hint)" }}>
               Семья: {fmt(data.family_balance)} 🪙

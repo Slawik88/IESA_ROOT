@@ -102,45 +102,47 @@ export default function Achievements({ userId, chatId }: Props) {
     <div className="animate-fadeIn p-4">
       {/* ── Заголовок с общим прогрессом ─────── */}
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold flex items-center gap-2">
-          <Trophy size={20} />
-          Достижения
-        </h2>
-        <div className="flex items-center gap-2">
-          {tab === "my" && (
-            <button
-              onClick={doSync}
-              disabled={syncing}
-              className="p-1.5 rounded-lg transition-opacity disabled:opacity-50"
-              style={{ backgroundColor: "var(--bg-secondary)" }}
-            >
-              <RefreshCw size={14} className={syncing ? "animate-spin" : ""} style={{ color: "var(--text-hint)" }} />
-            </button>
-          )}
-          {tab === "my" && (
-            <span className="text-sm font-medium" style={{ color: "var(--accent)" }}>
-              {data.total_unlocked}/{data.total_defined}
-            </span>
-          )}
+      <h2 className="text-lg font-bold flex items-center gap-2.5">
+        <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: "var(--accent-soft)" }}>
+          <Trophy size={18} style={{ color: "var(--accent)" }} />
         </div>
-      </div>
-
-      {/* ── Табы ─────── */}
-      <div className="flex gap-2 mb-4">
-        {(["my", "top"] as const).map((t) => (
+        Достижения
+      </h2>
+      <div className="flex items-center gap-2">
+        {tab === "my" && (
           <button
-            key={t}
-            onClick={() => setTab(t)}
-            className="flex-1 py-2 rounded-xl text-sm font-medium transition-colors"
-            style={{
-              backgroundColor: tab === t ? "var(--accent)" : "var(--bg-secondary)",
-              color: tab === t ? "#fff" : "var(--text-secondary)",
-            }}
+            onClick={doSync}
+            disabled={syncing}
+            className="p-1.5 rounded-lg glass-card-sm transition-opacity disabled:opacity-50"
           >
-            {t === "my" ? "📋 Мои" : "🏆 Топ-100"}
+            <RefreshCw size={14} className={syncing ? "animate-spin" : ""} style={{ color: "var(--text-hint)" }} />
           </button>
-        ))}
+        )}
+        {tab === "my" && (
+          <span className="badge badge-accent text-sm font-bold">
+            {data.total_unlocked}/{data.total_defined}
+          </span>
+        )}
       </div>
+    </div>
+
+    {/* ── Табы ─────── */}
+    <div className="flex gap-2 mb-4 glass-card tab-scroll p-1 rounded-xl">
+      {(["my", "top"] as const).map((t) => (
+        <button
+          key={t}
+          onClick={() => setTab(t)}
+          className="flex-1 py-2 rounded-xl text-sm font-semibold transition-all"
+          style={{
+            backgroundColor: tab === t ? "var(--accent)" : "transparent",
+            color: tab === t ? "#fff" : "var(--text-secondary)",
+            boxShadow: tab === t ? "0 0 12px var(--accent-glow)" : "none",
+          }}
+        >
+          {t === "my" ? "📋 Мои" : "🏆 Топ-100"}
+        </button>
+      ))}
+    </div>
 
       {tab === "top" ? (
         <LeaderboardTab entries={leaderboard} userId={userId} onRefresh={loadLeaderboard} />
@@ -153,15 +155,15 @@ export default function Achievements({ userId, chatId }: Props) {
           )}
 
       {/* ── Карточка общего прогресса ─────── */}
-      <div className="rounded-2xl p-4 mb-4" style={{ backgroundColor: "var(--bg-secondary)" }}>
+      <div className="glass-hero p-4 mb-4">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-sm font-medium">Общий прогресс</span>
-          <span className="text-sm font-bold tabular-nums" style={{ color: "var(--accent)" }}>{overallPct}%</span>
+          <span className="text-sm font-semibold">Общий прогресс</span>
+          <span className="text-sm font-bold tabular-nums stat-value">{overallPct}%</span>
         </div>
-        <div className="h-2.5 rounded-full overflow-hidden mb-3" style={{ backgroundColor: "var(--border)" }}>
+        <div className="progress-bar mb-3">
           <div
-            className="h-full rounded-full transition-all duration-700"
-            style={{ width: `${overallPct}%`, backgroundColor: overallPct === 100 ? "#22c55e" : "var(--accent)" }}
+            className="progress-bar-fill transition-all duration-700"
+            style={{ width: `${overallPct}%`, background: overallPct === 100 ? "#22c55e" : undefined }}
           />
         </div>
         <div className="grid grid-cols-3 gap-2 text-center">

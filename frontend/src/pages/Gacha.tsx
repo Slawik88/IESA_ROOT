@@ -78,9 +78,9 @@ export default function Gacha({ chatId }: Props) {
         <div className="animate-fadeIn flex flex-col flex-1">
           {/* Баннер */}
           <div
-            className="relative overflow-hidden mx-4 mt-4 rounded-2xl p-6 flex flex-col items-center gap-2"
+            className="relative overflow-hidden mx-4 mt-4 glass-hero p-6 flex flex-col items-center gap-2"
             style={{
-              background: "linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)",
+              background: "linear-gradient(135deg, rgba(26,26,46,0.6) 0%, rgba(22,33,62,0.5) 50%, rgba(15,52,96,0.4) 100%)",
               minHeight: 180,
             }}
           >

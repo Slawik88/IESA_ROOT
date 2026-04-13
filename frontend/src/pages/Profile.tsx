@@ -261,13 +261,15 @@ export default function Profile({ chatId }: Props) {
   return (
     <div className="animate-fadeIn p-4 space-y-3 pb-2">
 
-      {/* ── Шапка ──────────────────────────────────────────────── */}
-      <header
-        className="rounded-2xl p-4 flex items-center gap-3 glass-card"
-      >
+      {/* ── Шапка — Hero Card ──────────────────────────────────── */}
+      <header className="glass-hero rounded-2xl p-5 flex items-center gap-4">
         <div
-          className="w-14 h-14 rounded-full flex items-center justify-center text-2xl font-bold shrink-0 overflow-hidden"
-          style={{ backgroundColor: "var(--bg-primary)", color: "var(--accent)" }}
+          className="w-16 h-16 rounded-2xl flex items-center justify-center text-2xl font-bold shrink-0 overflow-hidden"
+          style={{
+            background: `linear-gradient(135deg, var(--accent-soft), color-mix(in srgb, var(--accent) 8%, var(--bg-primary)))`,
+            border: "2px solid var(--border-accent)",
+            color: "var(--accent)",
+          }}
         >
           {data.avatar_url
             ? <img src={data.avatar_url} alt={data.name} className="w-full h-full object-cover" />
@@ -282,9 +284,7 @@ export default function Profile({ chatId }: Props) {
             <h1 className={`text-lg font-bold truncate max-w-[160px] ${data.has_rainbow_title ? "rainbow-text" : ""}`}>{data.name}</h1>
             {data.vip && <VipBadge />}
             {data.is_dev && (
-              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ backgroundColor: "#ff4757", color: "#fff" }}>
-                DEV
-              </span>
+              <span className="badge badge-danger">DEV</span>
             )}
           </div>
           {data.custom_title && (
@@ -296,9 +296,9 @@ export default function Profile({ chatId }: Props) {
           {data.chat_role && (
             <p className="text-xs truncate" style={{ color: "#a29bfe" }}>{data.chat_role}</p>
           )}
-          <div className="flex items-center gap-1.5 mt-1">
-            <span className="text-xs font-medium" style={{ color: rankColor }}>{rankLabel}</span>
-            <span className="text-xs" style={{ color: "var(--text-hint)" }}>· Ур. {data.level}</span>
+          <div className="flex items-center gap-1.5 mt-1.5">
+            <span className="badge" style={{ background: `${rankColor}20`, color: rankColor }}>{rankLabel}</span>
+            <span className="text-[11px]" style={{ color: "var(--text-hint)" }}>Ур. {data.level}</span>
           </div>
         </div>
       </header>
@@ -310,7 +310,7 @@ export default function Profile({ chatId }: Props) {
 
       {/* ── XP прогресс ────────────────────────────────────────── */}
       <Card>
-        <div className="flex items-center justify-between mb-1.5">
+        <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-1.5 text-sm">
             <Star size={15} style={{ color: "var(--accent)" }} />
             <span className="font-medium">Опыт</span>
@@ -319,21 +319,18 @@ export default function Profile({ chatId }: Props) {
             {fmt(data.xp)} / {fmt(data.xp_max)} XP
           </span>
         </div>
-        <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: "var(--border)" }}>
-          <div
-            className="h-full rounded-full transition-all duration-700"
-            style={{ width: `${xpPct}%`, backgroundColor: "var(--accent)" }}
-          />
+        <div className="progress-bar">
+          <div className="progress-bar-fill" style={{ width: `${xpPct}%` }} />
         </div>
-        <p className="text-[11px] mt-1" style={{ color: "var(--text-hint)" }}>
+        <p className="text-[11px] mt-1.5" style={{ color: "var(--text-hint)" }}>
           {xpPct}% до уровня {data.level + 1}
         </p>
       </Card>
 
       {/* ── Основные валюты ────────────────────────────────────── */}
-      <div className="grid grid-cols-2 gap-2">
-        <StatCard icon={<Coins size={16} />} label="Мора"       value={fmt(data.balance)}  color="#f59e0b" />
-        <StatCard icon={<Gem   size={16} />} label="Кристаллы" value={fmt(data.crystals)} color="#a855f7" />
+      <div className="grid grid-cols-2 gap-3">
+        <StatCard icon={<Coins size={18} />} label="Мора"       value={fmt(data.balance)}  color="#f59e0b" />
+        <StatCard icon={<Gem   size={18} />} label="Кристаллы" value={fmt(data.crystals)} color="#a855f7" />
       </div>
 
       {/* ── Активность ─────────────────────────────────────────── */}
@@ -587,36 +584,87 @@ export default function Profile({ chatId }: Props) {
       )}
 
       {/* ── Чекин ─────────────────────────────────────────────── */}
-      {chatId !== 0 && (
-        <div
-          className="rounded-xl p-3 flex items-center justify-between gap-3 glass-card"
-        >
-          <div className="flex items-center gap-2">
-            <Flame size={18} style={{ color: checkin?.today_done ? "#6b7280" : "#f59e0b" }} />
-            <div>
-              <p className="text-sm font-medium">
-                {checkin?.today_done ? "Уже получено" : "Ежедневная награда"}
-              </p>
-              <p className="text-[11px]" style={{ color: "var(--text-hint)" }}>
-                Стрик: {checkin?.streak ?? data.streak} дн.
-              </p>
+      {chatId !== 0 && (() => {
+        const streak = checkin?.streak ?? data.streak;
+        const dayInWeek = streak % 7;            // 0..6
+        const nextMilestone = 7 - dayInWeek;     // days until 7-day bonus
+        const milestonePct = (dayInWeek / 7) * 100;
+        const DAYS = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
+
+        return (
+          <div className="glass-hero p-4 space-y-3">
+            {/* Title row */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${checkin?.today_done ? "" : "animate-claim-glow"}`}
+                  style={{ background: checkin?.today_done ? "#22c55e22" : "linear-gradient(135deg, #f59e0b33, #ef444433)" }}>
+                  <Flame size={18} style={{ color: checkin?.today_done ? "#22c55e" : "#f59e0b" }} />
+                </div>
+                <div>
+                  <p className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>
+                    Ежедневная награда
+                  </p>
+                  <p className="text-[11px]" style={{ color: "var(--text-hint)" }}>
+                    Стрик: <span className="font-bold" style={{ color: "#f59e0b" }}>{streak} дн.</span>
+                    {streak >= 7 && " 🔥"}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={handleCheckin}
+                disabled={checkinLoading || !!checkin?.today_done}
+                className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold transition-all disabled:opacity-40 ${checkin?.today_done ? "" : "btn-primary animate-streak-pop"}`}
+                style={checkin?.today_done ? { background: "#22c55e22", color: "#22c55e" } : undefined}
+              >
+                {checkin?.today_done
+                  ? <><CheckCircle2 size={14} /> Готово</>
+                  : <><CalendarCheck size={14} /> {checkinLoading ? "..." : "Отметиться"}</>}
+              </button>
             </div>
+
+            {/* 7-day streak calendar */}
+            <div className="grid grid-cols-7 gap-1.5">
+              {DAYS.map((d, i) => {
+                const done = i < dayInWeek;
+                const isToday = i === dayInWeek;
+                return (
+                  <div key={d}
+                    className={`flex flex-col items-center gap-0.5 py-1.5 rounded-lg transition-all ${done ? "animate-streak-pop" : ""}`}
+                    style={{
+                      background: done ? "#22c55e18" : isToday ? "var(--accent-soft)" : "var(--bg-elevated)",
+                      border: isToday ? "1.5px solid var(--accent)" : "1px solid transparent",
+                    }}>
+                    <span className="text-[10px] font-semibold" style={{ color: done ? "#22c55e" : isToday ? "var(--accent)" : "var(--text-hint)" }}>
+                      {d}
+                    </span>
+                    <span className="text-xs">
+                      {done ? "✅" : isToday ? "🔥" : "·"}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Milestone progress */}
+            <div className="space-y-1">
+              <div className="flex items-center justify-between text-[11px]" style={{ color: "var(--text-hint)" }}>
+                <span>До бонуса × 7:</span>
+                <span className="font-bold" style={{ color: milestonePct >= 85 ? "#f59e0b" : "var(--text-secondary)" }}>
+                  {nextMilestone === 7 ? "✨ Сегодня!" : `${nextMilestone} дн.`}
+                </span>
+              </div>
+              <div className="progress-bar">
+                <div className="progress-bar-fill" style={{ width: `${milestonePct}%` }} />
+              </div>
+            </div>
+
+            {/* Total days */}
+            <p className="text-[10px] text-center" style={{ color: "var(--text-hint)" }}>
+              Всего отмечено: {checkin?.total_days ?? 0} дн.
+            </p>
           </div>
-          <button
-            onClick={handleCheckin}
-            disabled={checkinLoading || !!checkin?.today_done}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold transition-opacity disabled:opacity-40"
-            style={{
-              backgroundColor: checkin?.today_done ? "var(--border)" : "var(--accent)",
-              color: checkin?.today_done ? "var(--text-hint)" : "#fff",
-            }}
-          >
-            {checkin?.today_done
-              ? <><CheckCircle2 size={14} /> Готово</>
-              : <><CalendarCheck size={14} /> {checkinLoading ? "..." : "Отметиться"}</>}
-          </button>
-        </div>
-      )}
+        );
+      })()}
 
       {/* ── История транзакций ────────────────────────────────── */}
       {chatId !== 0 && (
@@ -682,14 +730,13 @@ export default function Profile({ chatId }: Props) {
 
 function VipBadge() {
   return (
-    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0"
-      style={{ backgroundColor: "#f59e0b", color: "#000" }}>VIP</span>
+    <span className="badge badge-gold">VIP</span>
   );
 }
 
 function Card({ children }: { children: React.ReactNode }) {
   return (
-    <div className="rounded-xl p-3 glass-card">
+    <div className="glass-card p-4">
       {children}
     </div>
   );
@@ -697,7 +744,7 @@ function Card({ children }: { children: React.ReactNode }) {
 
 function SectionTitle({ icon, label }: { icon: React.ReactNode; label: string }) {
   return (
-    <div className="flex items-center gap-1.5 text-sm font-medium">
+    <div className="flex items-center gap-2 text-sm font-semibold">
       <span style={{ color: "var(--accent)" }}>{icon}</span>
       {label}
     </div>
@@ -706,12 +753,12 @@ function SectionTitle({ icon, label }: { icon: React.ReactNode; label: string })
 
 function StatCard({ icon, label, value, color }: { icon: React.ReactNode; label: string; value: string; color: string }) {
   return (
-    <div className="rounded-xl p-3 flex flex-col gap-1 glass-card">
-      <div className="flex items-center gap-1.5 text-xs" style={{ color: "var(--text-hint)" }}>
-        <span style={{ color }}>{icon}</span>
-        {label}
+    <div className="glass-card p-4 flex flex-col gap-2">
+      <div className="flex items-center gap-2 text-xs" style={{ color: "var(--text-hint)" }}>
+        <span className="p-1.5 rounded-lg" style={{ backgroundColor: `${color}15`, color }}>{icon}</span>
+        <span className="font-medium">{label}</span>
       </div>
-      <span className="text-xl font-bold tabular-nums">{value}</span>
+      <span className="text-2xl font-extrabold tabular-nums stat-value">{value}</span>
     </div>
   );
 }

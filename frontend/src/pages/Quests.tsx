@@ -97,23 +97,22 @@ export default function Quests({ chatId }: Props) {
   return (
     <div className="animate-fadeIn p-4 space-y-3 pb-2">
 
-      <h2 className="text-lg font-bold flex items-center gap-2">
-        <ScrollText size={20} style={{ color: "var(--accent)" }} />
+      <h2 className="text-lg font-bold flex items-center gap-2.5">
+        <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: "var(--accent-soft)" }}>
+          <ScrollText size={18} style={{ color: "var(--accent)" }} />
+        </div>
         Задание дня
       </h2>
 
       {/* ── Основная карточка ── */}
-      <div
-        className="rounded-2xl p-4 space-y-3"
-        style={{ backgroundColor: "var(--bg-secondary)" }}
-      >
+      <div className="glass-hero p-4 space-y-3">
         {/* Статус */}
         <div className="flex items-center justify-between">
-          <span className="text-xs font-semibold px-2 py-0.5 rounded-full"
-            style={{
-              backgroundColor: data.completed ? "#22c55e22" : "var(--bg-primary)",
-              color: data.completed ? "#22c55e" : "var(--text-hint)",
-            }}>
+          <span className={`badge text-xs ${data.completed ? "badge-success" : ""}`}
+            style={!data.completed ? {
+              backgroundColor: "var(--bg-elevated)",
+              color: "var(--text-hint)",
+            } : undefined}>
             {data.completed ? "✅ Выполнено" : "В процессе"}
           </span>
           <span className="text-xs tabular-nums" style={{ color: "var(--text-hint)" }}>

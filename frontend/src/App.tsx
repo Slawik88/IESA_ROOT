@@ -128,13 +128,12 @@ function AppContent({ userId, chatId }: { userId: number; chatId: number }) {
         </ErrorBoundary>
       </main>
 
-      {/* ── Нижняя навигация (скролл при 9+ табах) ───── */}
+      {/* ── Нижняя навигация ───── */}
       <nav
-        className="fixed bottom-0 inset-x-0 flex overflow-x-auto border-t"
+        className="fixed bottom-0 inset-x-0 flex overflow-x-auto glass-heavy tab-scroll"
         style={{
-          backgroundColor: "var(--bg-primary)",
-          borderColor: "var(--border)",
-          scrollbarWidth: "none",
+          borderTop: "1px solid var(--border-accent)",
+          paddingBottom: "env(safe-area-inset-bottom, 0px)",
         }}
       >
         {TABS.map(({ key, label, Icon }) => {
@@ -143,9 +142,12 @@ function AppContent({ userId, chatId }: { userId: number; chatId: number }) {
             <button
               key={key}
               onClick={() => setTab(key)}
-              className="flex-none flex flex-col items-center gap-0.5 py-2 px-3 min-w-[52px] transition-colors"
+              className="flex-none flex flex-col items-center gap-0.5 py-2 px-3 min-w-[52px] transition-all relative"
               style={{ color: active ? "var(--accent)" : "var(--text-hint)" }}
             >
+              {active && (
+                <span className="absolute top-0 left-1/2 -translate-x-1/2 w-6 h-0.5 rounded-full" style={{ backgroundColor: "var(--accent)" }} />
+              )}
               <Icon size={19} strokeWidth={active ? 2.5 : 1.8} />
               <span className="text-[10px] font-medium whitespace-nowrap">{label}</span>
             </button>

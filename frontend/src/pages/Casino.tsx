@@ -544,11 +544,14 @@ export default function Casino({ userId: _userId, chatId }: Props) {
     <div className="min-h-screen flex flex-col" style={{ backgroundColor: "var(--bg-primary)" }}>
       {/* Header */}
       <div
-        className="px-4 pt-4 pb-3"
-        style={{ borderBottom: "1px solid var(--border)" }}
+        className="px-4 pt-4 pb-3 glass-heavy"
+        style={{ borderBottom: "1px solid var(--border-accent)" }}
       >
-        <h1 className="text-xl font-bold mb-3" style={{ color: "var(--text-primary)" }}>
-          🎰 Казино
+        <h1 className="text-xl font-bold mb-3 flex items-center gap-2.5" style={{ color: "var(--text-primary)" }}>
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: "linear-gradient(135deg, #f59e0b22, #ef444422)" }}>
+            🎰
+          </div>
+          Казино
         </h1>
         {/* Sub-tabs */}
         <div className="flex gap-2">
@@ -560,9 +563,10 @@ export default function Casino({ userId: _userId, chatId }: Props) {
                 onClick={() => setSub(key)}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-semibold transition-all"
                 style={{
-                  backgroundColor: active ? "var(--accent)" : "var(--bg-secondary)",
+                  backgroundColor: active ? "var(--accent)" : "transparent",
                   color: active ? "#fff" : "var(--text-hint)",
-                  border: "1px solid var(--border)",
+                  border: active ? "1px solid var(--accent)" : "1px solid var(--border)",
+                  boxShadow: active ? "0 0 12px var(--accent-glow)" : "none",
                 }}
               >
                 <Icon size={14} />

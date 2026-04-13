@@ -104,14 +104,13 @@ export default function Season() {
     <div className="animate-fadeIn p-4 space-y-3 pb-2">
 
       {/* ── Шапка сезона ── */}
-      <div
-        className="rounded-2xl p-4"
-        style={{ backgroundColor: "var(--bg-secondary)" }}
-      >
+      <div className="glass-hero p-4">
         <div className="flex items-center justify-between mb-2">
           <div>
-            <h2 className="text-lg font-bold flex items-center gap-2">
-              <Star size={18} style={{ color: "var(--accent)" }} />
+            <h2 className="text-lg font-bold flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: "var(--accent-soft)" }}>
+                <Star size={16} style={{ color: "var(--accent)" }} />
+              </div>
               {season.name}
             </h2>
             {season.end_date && (
@@ -124,8 +123,7 @@ export default function Season() {
             <button
               onClick={handleBuyPremium}
               disabled={busy === "premium"}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold transition-opacity disabled:opacity-50"
-              style={{ backgroundColor: "#f59e0b", color: "#000" }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-bold transition-opacity disabled:opacity-50 btn-primary"
             >
               {busy === "premium" ? <Loader2 size={14} className="animate-spin" /> : <Crown size={14} />}
               Premium 💎

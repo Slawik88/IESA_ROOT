@@ -209,7 +209,7 @@ export default function Inventory({ userId: _userId, chatId }: Props) {
 
   if (!data) return <InvSkeleton />;
 
-  const { items, rpg, pity } = data;
+  const { items, rpg } = data;
 
   const RARITY_ORDER: Record<string, number> = { legendary: 4, rare: 3, common: 2, junk: 1 };
 
@@ -233,17 +233,17 @@ export default function Inventory({ userId: _userId, chatId }: Props) {
     <div className="animate-fadeIn pb-24">
       {/* ── Заголовок + RPG-статы ── */}
       <div className="p-4 pb-2">
-        <div className="rounded-2xl p-3" style={{ backgroundColor: "var(--bg-secondary)" }}>
+        <div className="glass-hero p-3">
           <button
             className="w-full flex items-center justify-between"
             onClick={() => setStatsOpen(v => !v)}
           >
-            <span className="text-sm font-semibold flex items-center gap-2">
-              <Backpack size={16} style={{ color: "var(--accent)" }} />
+            <span className="text-sm font-bold flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: "var(--accent-soft)" }}>
+                <Backpack size={14} style={{ color: "var(--accent)" }} />
+              </div>
               Инвентарь
-              <span className="text-xs font-normal" style={{ color: "var(--text-hint)" }}>
-                ({items.length}) · Pity: {pity}
-              </span>
+              <span className="badge badge-accent text-[10px]">{items.length}</span>
             </span>
             {statsOpen
               ? <ChevronUp size={16} style={{ color: "var(--text-hint)" }} />

@@ -71,8 +71,11 @@ export default function Promo({ userId: _userId, chatId }: Props) {
   return (
     <div className="min-h-screen flex flex-col" style={{ backgroundColor: "var(--bg-primary)" }}>
       {/* Header */}
-      <div className="px-4 pt-safe pb-2 border-b" style={{ borderColor: "var(--border)" }}>
-        <h1 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>🎟️ Промокод</h1>
+      <div className="px-4 pt-safe pb-2 glass-heavy" style={{ borderBottom: "1px solid var(--border-accent)" }}>
+        <h1 className="text-lg font-bold flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
+          <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: "var(--accent-soft)" }}>🎟️</div>
+          Промокод
+        </h1>
         <p className="text-xs mt-0.5" style={{ color: "var(--text-hint)" }}>Введи код и получи награды</p>
       </div>
 
