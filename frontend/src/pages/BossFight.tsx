@@ -142,6 +142,7 @@ export default function BossFight({ userId: _userId, chatId }: Props) {
   }, [chatId]);
 
   useEffect(() => { loadStatus(); }, [loadStatus]);
+  useEffect(() => { loadPotions(); }, [loadPotions]);
 
   // ── Stamina regen ───────────────────────────────────────────
   useEffect(() => {

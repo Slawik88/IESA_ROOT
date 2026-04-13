@@ -616,6 +616,42 @@ export function collectExpedition(chatId: number): Promise<ExpeditionCollectResu
   });
 }
 
+/** Ускорить экспедицию купоном */
+export function boostExpedition(chatId: number, itemId: number): Promise<{ ok: boolean; mins_left?: number; error?: string }> {
+  return request<{ ok: boolean; mins_left?: number; error?: string }>("/api/expeditions/boost", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId, item_id: itemId }),
+  });
+}
+
+// ── Gifts (marriage) ──────────────────────────────────────────
+
+export interface GiftCatalogItem { key: string; name: string; price: number; buff: { pct: string; hours: number } | null; }
+export interface GiftsCatalogResponse {
+  ok: boolean; married: boolean; partner_id?: number;
+  catalog: GiftCatalogItem[]; summary?: { count: number; total: number };
+  received?: number; balance?: number;
+}
+export interface GiftSendResult {
+  ok: boolean; gift_name?: string; price?: number;
+  new_balance?: number; buff?: { pct: string; hours: number }; error?: string;
+}
+
+/** Каталог подарков для партнёра */
+export function fetchGiftsCatalog(chatId: number): Promise<GiftsCatalogResponse> {
+  return request<GiftsCatalogResponse>(`/api/gifts/catalog?chat_id=${chatId}`);
+}
+
+/** Отправить подарок партнёру */
+export function sendGift(chatId: number, giftKey: string, wallet: "personal" | "family" = "personal"): Promise<GiftSendResult> {
+  return request<GiftSendResult>("/api/gifts/send", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId, gift_key: giftKey, wallet }),
+  });
+}
+
 // ── Wallet history ────────────────────────────────────────────
 
 /** История кошелька */

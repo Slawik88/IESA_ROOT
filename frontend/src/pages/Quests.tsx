@@ -4,7 +4,7 @@
    ────────────────────────────────────────────────────────────── */
 import { useEffect, useState, useCallback } from "react";
 import { ScrollText, RefreshCw, CheckCircle2, Loader2, AlertCircle } from "lucide-react";
-import { fetchQuest, rerollQuest } from "../lib/api";
+import { fetchQuest, rerollQuest, fetchInventory } from "../lib/api";
 import type { QuestData, QuestInfo } from "../types";
 
 interface Props {
@@ -34,6 +34,7 @@ export default function Quests({ chatId }: Props) {
   const [error, setError]         = useState("");
   const [rerolling, setRerolling] = useState(false);
   const [toast, setToast]         = useState<string | null>(null);
+  const [hasCoupon, setHasCoupon] = useState(false);
 
   const showToast = useCallback((msg: string) => {
     setToast(msg);
@@ -49,16 +50,24 @@ export default function Quests({ chatId }: Props) {
 
   useEffect(() => { loadQuest(); }, [loadQuest]);
 
+  useEffect(() => {
+    if (!chatId) return;
+    fetchInventory(chatId)
+      .then(inv => setHasCoupon(inv.items.some(i => i.key === "quest_reroll" && i.stack_count > 0)))
+      .catch(() => {});
+  }, [chatId]);
+
   const handleReroll = useCallback(async () => {
     if (rerolling || data?.quest == null) return;
     setRerolling(true);
     try {
-      const res = await rerollQuest(chatId);
+      const res = await rerollQuest(chatId, hasCoupon);
       setData(prev => prev ? { ...prev, quest: res.quest, progress: 0, completed: false, rewarded: false } : prev);
       const costMsg = res.used_coupon
         ? "Задание заменено (купон использован)!"
         : `Задание заменено. Списано: ${res.cost.toLocaleString("ru-RU")} 🪙`;
       showToast(costMsg);
+      if (res.used_coupon) setHasCoupon(false);
     } catch (e: unknown) {
       showToast(e instanceof Error ? e.message : "Ошибка реролла");
     } finally {
@@ -160,8 +169,8 @@ export default function Quests({ chatId }: Props) {
         >
           <div>
             <p className="text-sm font-medium">Заменить задание</p>
-            <p className="text-[11px] mt-0.5" style={{ color: "var(--text-hint)" }}>
-              Стоимость: несколько Моры или купон из инвентаря
+            <p className="text-[11px] mt-0.5" style={{ color: hasCoupon ? "#22c55e" : "var(--text-hint)" }}>
+              {hasCoupon ? "🎫 Доступен купон — замена бесплатна!" : "Стоимость: несколько Моры"}
             </p>
           </div>
           <button

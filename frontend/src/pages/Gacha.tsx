@@ -46,6 +46,7 @@ export default function Gacha({ chatId }: Props) {
   const [toast, setToast]       = useState<string | null>(null);
   const [legendaryOverlay, setLegendaryOverlay] = useState(false);
   const [showOdds, setShowOdds] = useState(false);
+  const [lastCount, setLastCount] = useState<1 | 10 | 50>(10);
 
   const showToast = useCallback((msg: string) => {
     setToast(msg);
@@ -55,6 +56,7 @@ export default function Gacha({ chatId }: Props) {
   const handleRoll = useCallback(async (count: 1 | 10 | 50) => {
     if (!chatId) { showToast("Нет chat_id"); return; }
     setPhase("rolling");
+    setLastCount(count);
     try {
       const res = await rollGacha(chatId, count);
       setResult(res);
@@ -238,7 +240,7 @@ export default function Gacha({ chatId }: Props) {
           {/* Кнопки */}
           <div className="px-4 space-y-2 mt-2">
             <button
-              onClick={() => handleRoll(result.items.length === 1 ? 1 : 10)}
+              onClick={() => handleRoll(lastCount)}
               className="w-full py-3 rounded-xl font-semibold text-sm"
               style={{ backgroundColor: "var(--accent)", color: "#fff" }}
             >

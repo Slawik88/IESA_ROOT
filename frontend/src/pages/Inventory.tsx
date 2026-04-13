@@ -24,13 +24,13 @@ const RARITY_LABEL: Record<string, string> = {
 const SLOT_LABEL: Record<string, string> = {
   weapon: "Оружие", helmet: "Шлем", armor: "Броня",
   boots: "Сапоги", artifact: "Артефакт", flair: "Косметика",
-  consumable: "Расходник",
+  consumable: "Расходник", potion: "Зелье", consume: "Расходник", coupon: "Купон",
 };
 
 const SLOT_ICON: Record<string, string> = {
   weapon: "⚔️", helmet: "⛑", armor: "🛡",
   boots: "👢", artifact: "💎", flair: "🎨",
-  consumable: "⚗️",
+  consumable: "⚗️", potion: "🧪", consume: "⚗️", coupon: "🎫",
 };
 
 function getEnhanceChance(level: number, useStone: boolean): number {

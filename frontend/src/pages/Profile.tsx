@@ -12,11 +12,13 @@ import {
   fetchUserData, fetchCheckinStatus, doCheckin, petWalk,
   familyDeposit, familyWithdraw, fetchFamilyLog,
   fetchExpeditions, startExpedition, collectExpedition,
-  fetchWalletHistory,
+  fetchWalletHistory, boostExpedition, fetchInventory,
+  fetchGiftsCatalog, sendGift,
+  type GiftsCatalogResponse,
 } from "../lib/api";
 import type {
   UserData, BondInfo, CheckinStatus,
-  FamilyLogEntry, ExpeditionsResponse, WalletHistoryEntry,
+  FamilyLogEntry, ExpeditionsResponse, WalletHistoryEntry, InventoryItem,
 } from "../types";
 import { useAppContext } from "../AppContext";
 
@@ -72,6 +74,15 @@ export default function Profile({ chatId }: Props) {
   const [expData, setExpData]     = useState<ExpeditionsResponse | null>(null);
   const [expBusy, setExpBusy]     = useState(false);
   const [expLoading, setExpLoad]  = useState(false);
+
+  // Expedition boost coupons
+  const [boostCoupons, setBoostCoupons] = useState<InventoryItem[]>([]);
+  const [boostBusy, setBoostBusy]       = useState(false);
+
+  // Gifts
+  const [giftData, setGiftData]         = useState<GiftsCatalogResponse | null>(null);
+  const [giftBusy, setGiftBusy]         = useState(false);
+  const [giftOpen, setGiftOpen]         = useState(false);
 
   const showToast = useCallback((msg: string) => {
     setToast(msg);
@@ -188,6 +199,70 @@ export default function Profile({ chatId }: Props) {
       setExpBusy(false);
     }
   }, [chatId, expBusy, showToast, loadExpeditions]);
+
+  // Load boost coupons for expedition
+  useEffect(() => {
+    if (!chatId) return;
+    fetchInventory(chatId)
+      .then(inv => setBoostCoupons(inv.items.filter(i => i.key?.startsWith("exp_boost"))))
+      .catch(() => {});
+  }, [chatId]);
+
+  const handleBoostExpedition = useCallback(async (coupon: InventoryItem) => {
+    if (boostBusy || !chatId) return;
+    setBoostBusy(true);
+    try {
+      const r = await boostExpedition(chatId, coupon.id);
+      if (r.ok) {
+        showToast(`⚡ Экспедиция ускорена! Осталось: ${r.mins_left ?? 0} мин`);
+        loadExpeditions();
+        setBoostCoupons(prev => {
+          const idx = prev.findIndex(c => c.id === coupon.id);
+          if (idx < 0) return prev;
+          const copy = [...prev];
+          if (copy[idx].stack_count > 1) {
+            copy[idx] = { ...copy[idx], stack_count: copy[idx].stack_count - 1 };
+          } else {
+            copy.splice(idx, 1);
+          }
+          return copy;
+        });
+      } else {
+        showToast(r.error ?? "Ошибка");
+      }
+    } catch (e: unknown) {
+      showToast(e instanceof Error ? e.message : "Ошибка");
+    } finally {
+      setBoostBusy(false);
+    }
+  }, [chatId, boostBusy, showToast, loadExpeditions]);
+
+  // Load gifts catalog for partner
+  useEffect(() => {
+    if (!chatId || !data?.has_partner) return;
+    fetchGiftsCatalog(chatId).then(setGiftData).catch(() => {});
+  }, [chatId, data?.has_partner]);
+
+  const handleSendGift = useCallback(async (giftKey: string) => {
+    if (giftBusy || !chatId) return;
+    setGiftBusy(true);
+    try {
+      const r = await sendGift(chatId, giftKey);
+      if (r.ok) {
+        let msg = `🎁 Подарок «${r.gift_name}» отправлен!`;
+        if (r.buff) msg += ` +${r.buff.pct}% моры на ${r.buff.hours}ч`;
+        showToast(msg);
+        setData(prev => prev ? { ...prev, balance: r.new_balance ?? prev.balance } : prev);
+        fetchGiftsCatalog(chatId).then(setGiftData).catch(() => {});
+      } else {
+        showToast(r.error ?? "Ошибка");
+      }
+    } catch (e: unknown) {
+      showToast(e instanceof Error ? e.message : "Ошибка");
+    } finally {
+      setGiftBusy(false);
+    }
+  }, [chatId, giftBusy, showToast]);
 
   // Family wallet handlers
   const handleFamilyDeposit = useCallback(async () => {
@@ -424,6 +499,26 @@ export default function Profile({ chatId }: Props) {
                   {expBusy ? <Loader2 size={12} className="animate-spin" /> : "🎁 Забрать награду"}
                 </button>
               )}
+              {!expData.active.finished && boostCoupons.length > 0 && (
+                <div className="space-y-1.5">
+                  <p className="text-[11px] font-semibold" style={{ color: "var(--accent)" }}>⚡ Ускорить экспедицию:</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {boostCoupons.map(c => (
+                      <button
+                        key={c.id}
+                        disabled={boostBusy}
+                        onClick={() => handleBoostExpedition(c)}
+                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold transition-opacity disabled:opacity-40"
+                        style={{ backgroundColor: "var(--accent-soft)", color: "var(--accent)", border: "1px solid var(--border)" }}
+                      >
+                        {boostBusy ? <Loader2 size={10} className="animate-spin" /> : "🎫"}
+                        {c.name}
+                        {c.stack_count > 1 && <span className="opacity-60">×{c.stack_count}</span>}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
               {expData.partner_active && (
                 <div className="rounded-lg p-2.5" style={{ backgroundColor: "var(--bg-primary)" }}>
                   <p className="text-sm font-medium">👫 {expData.partner_active.label}</p>
@@ -488,6 +583,44 @@ export default function Profile({ chatId }: Props) {
               <p className="font-semibold" style={{ color: "var(--accent)" }}>{fmt(data.family_balance)} 🪙</p>
             </div>
           </div>
+          {/* Gift section */}
+          {giftData?.married && giftData.catalog.length > 0 && (
+            <div className="mt-3 space-y-2">
+              <button
+                onClick={() => setGiftOpen(v => !v)}
+                className="w-full flex items-center justify-between text-xs font-semibold"
+                style={{ color: "var(--text-hint)" }}
+              >
+                <span>🎁 Подарки ({giftData.summary?.count ?? 0} отправлено)</span>
+                <span>{giftOpen ? "Скрыть ▲" : "Показать ▼"}</span>
+              </button>
+              {giftOpen && (
+                <div className="space-y-1.5">
+                  {giftData.catalog.map(g => (
+                    <div key={g.key} className="flex items-center justify-between rounded-lg p-2"
+                      style={{ backgroundColor: "var(--bg-primary)" }}>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium">{g.name}</p>
+                        {g.buff && (
+                          <p className="text-[10px]" style={{ color: "var(--text-hint)" }}>
+                            +{g.buff.pct}% моры на {g.buff.hours}ч
+                          </p>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => handleSendGift(g.key)}
+                        disabled={giftBusy}
+                        className="shrink-0 ml-2 px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-opacity disabled:opacity-40"
+                        style={{ backgroundColor: "#e84393", color: "#fff" }}
+                      >
+                        {giftBusy ? "..." : `${g.price.toLocaleString("ru-RU")} 🪙`}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
           {/* Family wallet controls */}
           <div className="mt-3 space-y-2">
             <div className="flex gap-2">
