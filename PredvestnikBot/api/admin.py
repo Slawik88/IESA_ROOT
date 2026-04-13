@@ -352,9 +352,11 @@ async def search_users(chat_id: int, q: str = "") -> dict:
 
     base_select = (
         "SELECT s.user_id, u.full_name, s.xp, s.level, s.rank, s.message_count, "
-        "s.reputation, COALESCE(u.balance, 0) AS balance "
+        "s.reputation, COALESCE(u.balance, 0) AS balance, "
+        "COALESCE(cr.balance, 0) AS crystals "
         "FROM user_stats s "
         "LEFT JOIN users u ON u.user_id=s.user_id "
+        "LEFT JOIN user_crystals cr ON cr.user_id=s.user_id "
         "WHERE s.chat_id=?"
     )
 
@@ -385,6 +387,7 @@ async def search_users(chat_id: int, q: str = "") -> dict:
                 "message_count": r[5] or 0,
                 "reputation":    r[6] or 0,
                 "balance":       r[7] or 0,
+                "crystals":      r[8] or 0,
             }
             for r in rows
         ]

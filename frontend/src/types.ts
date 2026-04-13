@@ -539,6 +539,7 @@ export interface DevUserEntry {
   level?: number;
   message_count?: number;
   reputation?: number;
+  crystals?: number;
 }
 export interface DevUsersResponse {
   users: DevUserEntry[];

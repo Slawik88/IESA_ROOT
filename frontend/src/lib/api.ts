@@ -646,11 +646,55 @@ export function buyCrystalItem(
   chatId: number,
   itemKey: string,
   price: number,
-): Promise<{ ok: boolean; new_balance?: number; error?: string }> {
-  return request<{ ok: boolean; new_balance?: number; error?: string }>("/api/crystals/spend", {
+  extra?: { role_text?: string; megaphone_text?: string },
+): Promise<{ ok: boolean; crystals_balance?: number; error?: string }> {
+  return request<{ ok: boolean; crystals_balance?: number; error?: string }>("/api/crystals/spend", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ chat_id: chatId, item_key: itemKey, price }),
+    body: JSON.stringify({ chat_id: chatId, item_key: itemKey, price, ...extra }),
+  });
+}
+
+/** Каталог кристальных товаров с состоянием «куплено» */
+export interface CrystalCatalogItem {
+  key: string;
+  emoji: string;
+  name: string;
+  price: number;
+  desc: string;
+  category: "aesthetic" | "gameplay" | "social" | "pets";
+  oneTime: boolean;
+  owned: boolean;
+}
+export interface CrystalCatalogResponse {
+  ok: boolean;
+  balance: number;
+  first_deposit_available: boolean;
+  items: CrystalCatalogItem[];
+}
+export function fetchCrystalCatalog(chatId: number): Promise<CrystalCatalogResponse> {
+  return request<CrystalCatalogResponse>(`/api/crystals/catalog?chat_id=${chatId}`);
+}
+
+/** Список рупоров для модерации (dev only) */
+export interface MegaphoneMessage {
+  id: number;
+  user_id: number;
+  message: string;
+  status: string;
+  created_at: string;
+  user_name: string;
+}
+export function fetchMegaphones(status?: string): Promise<{ ok: boolean; messages: MegaphoneMessage[] }> {
+  return request<{ ok: boolean; messages: MegaphoneMessage[] }>(`/api/dev/megaphone/list?status=${status ?? "pending"}`);
+}
+
+/** Одобрить/отклонить рупор (dev only) */
+export function reviewMegaphone(id: number, action: "approve" | "reject"): Promise<{ ok: boolean }> {
+  return request<{ ok: boolean }>("/api/dev/megaphone/review", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id, action }),
   });
 }
 
