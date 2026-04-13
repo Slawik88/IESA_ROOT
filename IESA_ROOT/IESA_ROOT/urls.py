@@ -113,6 +113,9 @@ from .miniapp_views import (
     miniapp_promo_create,
     miniapp_promo_list,
     miniapp_promo_deactivate,
+    miniapp_crystals_catalog,
+    miniapp_megaphone_list,
+    miniapp_megaphone_review,
 )
 
 # Переопределить стандартный админ на кастомный
@@ -260,6 +263,7 @@ urlpatterns = [
     # ─── Achievements / Достижения ────────────────────────────────────────────
     path('api/achievements', miniapp_achievements, name='miniapp_achievements'),
     # ─── Crystals / Кристаллы ─────────────────────────────────────────────────
+    path('api/crystals/catalog', miniapp_crystals_catalog, name='miniapp_crystals_catalog'),
     path('api/crystals/spend', miniapp_crystals_spend, name='miniapp_crystals_spend'),
     path('api/convert_crystals', miniapp_convert_crystals, name='miniapp_convert_crystals'),
     # ─── Avatar serving / Аватары ─────────────────────────────────────────────
@@ -301,6 +305,9 @@ urlpatterns = [
     path('api/dev/promo/create',    miniapp_promo_create,     name='miniapp_promo_create'),
     path('api/dev/promo/list',      miniapp_promo_list,       name='miniapp_promo_list'),
     path('api/dev/promo/deactivate',miniapp_promo_deactivate, name='miniapp_promo_deactivate'),
+    # ─── Megaphone / Рупор ────────────────────────────────────────────────────
+    path('api/dev/megaphone/list',   miniapp_megaphone_list,   name='miniapp_megaphone_list'),
+    path('api/dev/megaphone/review', miniapp_megaphone_review, name='miniapp_megaphone_review'),
     # ──────────────────────────────────────────────────────────────────────────
     path('protected/<path:file_path>', serve_protected_media, name='serve_protected_media'),
     

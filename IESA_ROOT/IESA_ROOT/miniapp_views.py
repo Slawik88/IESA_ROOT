@@ -5873,27 +5873,131 @@ def miniapp_achievements(request):
         logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
 
 
+# ─── Crystal catalog (GET /api/crystals/catalog) ──────────────────────────────
+@csrf_exempt
+def miniapp_crystals_catalog(request):
+    """GET /api/crystals/catalog?chat_id=X — crystal shop catalog with owned state & first deposit."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "GET":
+        return JsonResponse({"error": "GET required"}, status=405, headers=headers)
+
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+
+    try:
+        from asgiref.sync import async_to_sync as _a2s
+        from database.db import (
+            get_crystals, get_user_crystal_items, is_avatar_unlocked,
+            is_first_crystal_deposit,
+        )
+
+        balance = _a2s(get_crystals)(uid)
+        owned_items = _a2s(get_user_crystal_items)(uid)
+        avatar_unlocked = _a2s(is_avatar_unlocked)(uid)
+        first_deposit = _a2s(is_first_crystal_deposit)(uid)
+
+        if avatar_unlocked:
+            owned_items.add("telegram_avatar")
+
+        # Category order for frontend
+        CATALOG = [
+            # (key, emoji, name, price, desc, category, oneTime)
+            ("crystal_aura",          "🔮", "Кристальная аура",          200, "Анимированный ореол профиля",              "aesthetic", True),
+            ("dark_matter_frame",     "🌑", "Рамка «Тёмная материя»",    350, "Эксклюзивная рамка только за кристаллы",  "aesthetic", True),
+            ("herald_frame",          "📯", "Рамка «Вестник»",           500, "Легендарная рамка Предвестника",           "aesthetic", True),
+            ("rainbow_title",         "🌈", "Радужный титул",            150, "Переливающиеся цвета в имени",            "aesthetic", True),
+            ("neon_prefix",           "💫", "Неоновый префикс",          250, "Светящийся префикс перед ником",          "aesthetic", True),
+            ("animated_profile_bg",   "🎆", "Анимированный фон профиля", 400, "Движущийся космический фон в профиле",    "aesthetic", True),
+            ("golden_border",         "✨", "Золотая обводка аватара",    300, "Сверкающая золотая рамка вокруг аватара", "aesthetic", True),
+            ("telegram_avatar",       "🖼️", "Telegram Аватар",           150, "Показывает фото из Telegram в профиле",   "aesthetic", True),
+            ("enhancement_stones_5",  "⚒️", "5 камней улучшения",        150, "5 гарантированных заточек",               "gameplay", False),
+            ("enhancement_stones_1",  "🔩", "1 камень улучшения",         50, "1 камень заточки",                        "gameplay", False),
+            ("guarantee_scroll",      "📜", "Свиток гаранта",            200, "Гарантирует rare+ на ×10 ролле",          "gameplay", False),
+            ("shard_chest",           "📦", "Сундук осколков",            80, "3 редких осколка рамки",                   "gameplay", False),
+            ("double_pity",           "⚡", "Двойное везение",           400, "×2 накопление пити (7 дней)",              "gameplay", False),
+            ("vip_week",              "👑", "VIP на 7 дней",             250, "VIP-статус (неделя)",                      "gameplay", False),
+            ("boss_cd_reset",         "⏳", "Сброс КД босса",            120, "Мгновенный сброс кулдауна босса",         "gameplay", False),
+            ("xp_boost_24h",          "📈", "XP Буст ×1.5 (24ч)",       180, "Полуторный XP на сутки",                  "gameplay", False),
+            ("mora_boost_24h",        "💰", "Мора Буст ×1.5 (24ч)",     180, "Полуторная Мора на сутки",                "gameplay", False),
+            ("lucky_amulet",          "🍀", "Амулет удачи",              300, "+15% шанс на редкость в Гаче (7д)",       "gameplay", False),
+            ("vip_lottery_ticket",    "🎟️", "VIP-билет лотереи",         100, "Участие в VIP-лотерее ×3 призы",          "gameplay", False),
+            ("stealth_mode",          "🕶️", "Режим тени",               180, "Скрыть баланс от других",                 "social",   True),
+            ("chat_role",             "🏷️", "Кастомная роль",            300, "Уникальная роль в профиле чата",          "social",   True),
+            ("transfer_pass",         "🎫", "Пропуск переноса",           50, "Обход 3-дневного правила аукциона",       "social",   False),
+            ("megaphone",             "📢", "Глобальный рупор",          500, "Сообщение во все чаты (модерация)",       "social",   False),
+            ("crystal_pet_skin",      "✨", "Кристальный облик питомца", 300, "Уникальный блестящий вид питомца",        "pets",     True),
+            ("pet_xp_feed",           "🦴", "Корм «XP Буст»",           100, "+50% XP питомцу на 24ч",                  "pets",     False),
+            ("pet_mora_feed",         "🐟", "Корм «Мора Буст»",         100, "+50% Мора питомцу на 24ч",                "pets",     False),
+            ("pet_rare_treat",        "🍖", "Элитный корм",              200, "Снимает усталость + бафф",                "pets",     False),
+        ]
+
+        items = []
+        for key, emoji, name, price, desc, category, one_time in CATALOG:
+            items.append({
+                "key": key,
+                "emoji": emoji,
+                "name": name,
+                "price": price,
+                "desc": desc,
+                "category": category,
+                "oneTime": one_time,
+                "owned": key in owned_items,
+            })
+
+        return JsonResponse({
+            "ok": True,
+            "balance": balance,
+            "first_deposit_available": first_deposit,
+            "items": items,
+        }, json_dumps_params={"ensure_ascii": False}, headers=headers)
+    except Exception as exc:
+        logger.exception("crystals_catalog error")
+        return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
+
+
 # ─── Crystals spend (POST /api/crystals/spend) ────────────────────────────────
 @csrf_exempt
 def miniapp_crystals_spend(request):
     """POST /api/crystals/spend {item_key, price} — spend crystals on cosmetic."""
-    # Каталог кристальной косметики (локальная копия, не зависит от PredvestnikBot)
+    # Каталог кристальной косметики — (key, emoji, name, price, desc, category, oneTime)
     _CRYSTAL_COSMETICS = [
-        ("crystal_aura",          "🔮", "Кристальная аура",             200, "Анимированный ореол профиля (Mini App)"),
-        ("dark_matter_frame",     "🌑", "Рамка «Тёмная материя»",       350, "Эксклюзивная рамка только за кристаллы"),
-        ("herald_frame",          "📯", "Рамка «Вестник»",              500, "Легендарная рамка Предвестника"),
-        ("rainbow_title",         "🌈", "Радужный титул",               150, "Переливающиеся цвета в имени"),
-        ("crystal_pet_skin",      "✨", "Кристальный облик питомца",    300, "Уникальный внешний вид питомца"),
-        ("stealth_mode",          "🕶️", "Режим тени",                  180, "Скрыть баланс моры от других игроков"),
-        ("double_pity",           "⚡", "Двойное везение",              400, "×2 к скорости накопления пити (7 дней)"),
-        ("vip_week",              "👑", "VIP на 7 дней",                250, "VIP-статус без ограничений (неделя)"),
-        ("transfer_pass",         "🎫", "Пропуск переноса",              50, "Снимает ограничение 3 дней на аукционе (1 раз)"),
-        ("shard_chest",           "📦", "Сундук осколков",               80, "3 редких предмета-осколка рамки"),
-        ("guarantee_scroll",      "📜", "Свиток гаранта",               200, "Гарантирует rare+ на следующем ×10 ролле"),
-        ("chat_role",             "🏷️", "Кастомная роль в чате",        300, "Уникальная роль под именем в профиле чата"),
-        ("telegram_avatar",       "🖼️", "Telegram Аватар",              150, "Показывает твою фото из Telegram в профиле (разовая покупка)"),
-        ("enhancement_stones_5",  "⚒️", "5 камней улучшения",           150, "5 гарантированных заточек без затрат Моры"),
-        ("enhancement_stones_1",  "🔩", "1 камень улучшения",            50,  "1 камень заточки без затрат Моры"),
+        # ── Эстетика ──
+        ("crystal_aura",          "🔮", "Кристальная аура",             200, "Анимированный ореол профиля",                  "aesthetic", True),
+        ("dark_matter_frame",     "🌑", "Рамка «Тёмная материя»",       350, "Эксклюзивная рамка только за кристаллы",       "aesthetic", True),
+        ("herald_frame",          "📯", "Рамка «Вестник»",              500, "Легендарная рамка Предвестника",                "aesthetic", True),
+        ("rainbow_title",         "🌈", "Радужный титул",               150, "Переливающиеся цвета в имени",                 "aesthetic", True),
+        ("neon_prefix",           "💫", "Неоновый префикс",             250, "Светящийся префикс перед ником",               "aesthetic", True),
+        ("animated_profile_bg",   "🎆", "Анимированный фон профиля",    400, "Движущийся космический фон в профиле",         "aesthetic", True),
+        ("golden_border",         "✨", "Золотая обводка аватара",       300, "Сверкающая золотая рамка вокруг аватара",      "aesthetic", True),
+        ("telegram_avatar",       "🖼️", "Telegram Аватар",              150, "Показывает фото из Telegram в профиле",        "aesthetic", True),
+
+        # ── Геймплей ──
+        ("enhancement_stones_5",  "⚒️", "5 камней улучшения",           150, "5 гарантированных заточек без затрат Моры",    "gameplay", False),
+        ("enhancement_stones_1",  "🔩", "1 камень улучшения",            50, "1 камень заточки без затрат Моры",              "gameplay", False),
+        ("guarantee_scroll",      "📜", "Свиток гаранта",               200, "Гарантирует rare+ на следующем ×10 ролле",     "gameplay", False),
+        ("shard_chest",           "📦", "Сундук осколков",               80, "3 редких предмета-осколка рамки",               "gameplay", False),
+        ("double_pity",           "⚡", "Двойное везение",              400, "×2 к скорости накопления пити (7 дней)",        "gameplay", False),
+        ("vip_week",              "👑", "VIP на 7 дней",                250, "VIP-статус без ограничений (неделя)",           "gameplay", False),
+        ("boss_cd_reset",         "⏳", "Сброс КД босса",               120, "Мгновенный сброс кулдауна босса",              "gameplay", False),
+        ("xp_boost_24h",          "📈", "XP Буст ×1.5 (24ч)",          180, "Полуторный опыт за все действия на сутки",     "gameplay", False),
+        ("mora_boost_24h",        "💰", "Мора Буст ×1.5 (24ч)",        180, "Полуторный доход Моры на сутки",               "gameplay", False),
+        ("lucky_amulet",          "🍀", "Амулет удачи",                 300, "+15% шанс на редкость в Гаче (7 дней)",        "gameplay", False),
+        ("vip_lottery_ticket",    "🎟️", "VIP-билет лотереи",            100, "Участие в VIP-лотерее с ×3 призами",           "gameplay", False),
+
+        # ── Социалка ──
+        ("stealth_mode",          "🕶️", "Режим тени",                  180, "Скрыть баланс моры от других",                 "social", True),
+        ("chat_role",             "🏷️", "Кастомная роль",               300, "Уникальная роль в профиле чата",               "social", True),
+        ("transfer_pass",         "🎫", "Пропуск переноса",              50, "Снимает ограничение 3 дней на аукционе",       "social", False),
+        ("megaphone",             "📢", "Глобальный рупор",             500, "Сообщение во все чаты (модерация)",            "social", False),
+
+        # ── Питомцы ──
+        ("crystal_pet_skin",      "✨", "Кристальный облик питомца",    300, "Уникальный блестящий вид питомца",             "pets", True),
+        ("pet_xp_feed",           "🦴", "Корм «XP Буст»",              100, "Даёт питомцу +50% XP на 24 часа",              "pets", False),
+        ("pet_mora_feed",         "🐟", "Корм «Мора Буст»",            100, "Даёт питомцу +50% дохода Моры на 24ч",         "pets", False),
+        ("pet_rare_treat",        "🍖", "Элитный корм",                 200, "Полностью снимает усталость + бафф",           "pets", False),
     ]
     headers = _cors_headers()
     if request.method == "OPTIONS":
@@ -6009,10 +6113,10 @@ def miniapp_crystals_spend(request):
             _a2s(add_enhancement_stones)(uid, 1)
 
         # ── Crystal-exclusive cosmetics / frames ──────────────────────────────
-        elif item_key in ("crystal_aura", "rainbow_title", "stealth_mode", "crystal_pet_skin"):
+        elif item_key in ("crystal_aura", "rainbow_title", "stealth_mode", "crystal_pet_skin",
+                          "neon_prefix", "animated_profile_bg", "golden_border"):
             from database.db import add_shop_item, has_active_cosmetic
             if _a2s(has_active_cosmetic)(uid, item_key):
-                # Already owned — refund crystals and return error
                 from database.db import add_crystals
                 _a2s(add_crystals)(uid, price)
                 return JsonResponse(
@@ -6052,6 +6156,55 @@ def miniapp_crystals_spend(request):
                 )
             from database.db import add_vip_days
             _a2s(add_vip_days)(uid, chat_id, 7)
+
+        elif item_key == "boss_cd_reset":
+            from database.db import add_boss_cooldown_reset
+            _a2s(add_boss_cooldown_reset)(uid)
+
+        elif item_key == "xp_boost_24h":
+            from database.db import add_xp_boost
+            _a2s(add_xp_boost)(uid, chat_id or 0, 1.5, 24)
+
+        elif item_key == "mora_boost_24h":
+            from database.db import add_mora_boost
+            _a2s(add_mora_boost)(uid, chat_id or 0, 1.5, 24)
+
+        elif item_key == "lucky_amulet":
+            from database.db import add_shop_item
+            import time
+            expires_ts = int(time.time()) + 7 * 86400
+            _a2s(add_shop_item)(uid, "cosmetic", f"lucky_amulet_{expires_ts}")
+
+        elif item_key == "vip_lottery_ticket":
+            from database.db import add_gacha_item
+            _a2s(add_gacha_item)(uid, chat_id or 0, "vip_lottery_ticket", "🎟️ VIP-билет лотереи", "rare")
+
+        elif item_key == "megaphone":
+            megaphone_text = str(body.get("megaphone_text", "")).strip()
+            if not megaphone_text or len(megaphone_text) > 500:
+                from database.db import add_crystals
+                _a2s(add_crystals)(uid, price)
+                return JsonResponse(
+                    {"error": "Текст рупора от 1 до 500 символов"},
+                    status=400,
+                    headers=headers,
+                )
+            from database.db import create_megaphone
+            msg_id = _a2s(create_megaphone)(uid, megaphone_text)
+            # Crystals already spent — will be refunded if rejected
+
+        elif item_key == "pet_xp_feed":
+            from database.db import add_xp_boost
+            _a2s(add_xp_boost)(uid, chat_id or 0, 1.5, 24)
+
+        elif item_key == "pet_mora_feed":
+            from database.db import add_mora_boost
+            _a2s(add_mora_boost)(uid, chat_id or 0, 1.5, 24)
+
+        elif item_key == "pet_rare_treat":
+            from database.db import add_xp_boost, add_mora_boost
+            _a2s(add_xp_boost)(uid, chat_id or 0, 1.5, 24)
+            _a2s(add_mora_boost)(uid, chat_id or 0, 1.5, 24)
 
         new_balance = _a2s(get_crystals)(uid)
         
@@ -6096,8 +6249,8 @@ def miniapp_dev_give_crystals(request):
 
     if not target_id:
         return JsonResponse({"error": "target_id required"}, status=400, headers=headers)
-    if amount < 1 or amount > 100000:
-        return JsonResponse({"error": "amount must be 1-100000"}, status=400, headers=headers)
+    if amount == 0 or amount < -100000 or amount > 100000:
+        return JsonResponse({"error": "amount must be -100000..100000, non-zero"}, status=400, headers=headers)
 
     try:
         from asgiref.sync import async_to_sync as _a2s
@@ -6107,6 +6260,86 @@ def miniapp_dev_give_crystals(request):
                             json_dumps_params={"ensure_ascii": False}, headers=headers)
     except Exception as exc:
         logger.exception("miniapp_dev_give_crystals error")
+        return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
+
+
+# ─── Megaphone moderation (developer only) ────────────────────────────────────
+
+@csrf_exempt
+def miniapp_megaphone_list(request):
+    """GET /api/dev/megaphone/list?status=pending — list megaphone messages for moderation."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "GET":
+        return JsonResponse({"error": "GET required"}, status=405, headers=headers)
+
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+    if uid != _DEVELOPER_ID:
+        return JsonResponse({"error": "Forbidden"}, status=403, headers=headers)
+
+    status_filter = request.GET.get("status", "pending")
+    try:
+        from asgiref.sync import async_to_sync as _a2s
+        from database.db import list_megaphones
+        messages = _a2s(list_megaphones)(status_filter)
+        return JsonResponse({"ok": True, "messages": messages},
+                            json_dumps_params={"ensure_ascii": False}, headers=headers)
+    except Exception as exc:
+        logger.exception("megaphone_list error")
+        return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
+
+
+@csrf_exempt
+def miniapp_megaphone_review(request):
+    """POST /api/dev/megaphone/review {id, action} — approve/reject a megaphone message."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=405, headers=headers)
+
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+    if uid != _DEVELOPER_ID:
+        return JsonResponse({"error": "Forbidden"}, status=403, headers=headers)
+
+    try:
+        body = json.loads(request.body or b"{}")
+        msg_id = int(body.get("id", 0))
+        action = str(body.get("action", "")).strip()
+    except Exception:
+        return JsonResponse({"error": "invalid JSON"}, status=400, headers=headers)
+
+    if not msg_id or action not in ("approve", "reject"):
+        return JsonResponse({"error": "id and action (approve/reject) required"}, status=400, headers=headers)
+
+    try:
+        from asgiref.sync import async_to_sync as _a2s
+        from database.db import review_megaphone
+
+        status = "approved" if action == "approve" else "rejected"
+        ok = _a2s(review_megaphone)(msg_id, status, uid)
+
+        # If rejected — refund crystals (megaphone costs 500)
+        if action == "reject" and ok:
+            from database.db import add_crystals
+            # Get the user_id from the message
+            conn, db_type = _get_bot_db_connection()
+            cur = conn.cursor()
+            ph = "%s" if db_type == "pg" else "?"
+            cur.execute(f"SELECT user_id FROM megaphone_messages WHERE id={ph}", (msg_id,))
+            row = cur.fetchone()
+            conn.close()
+            if row:
+                _a2s(add_crystals)(row[0], 500)
+
+        return JsonResponse({"ok": ok}, json_dumps_params={"ensure_ascii": False}, headers=headers)
+    except Exception as exc:
+        logger.exception("megaphone_review error")
         return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
 
 

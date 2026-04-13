@@ -17,6 +17,8 @@ import {
   devGiveItem, devGiveCrystals, devFeatureToggle, fetchDevChats, fetchFeatureFlags,
   fetchTreasury, treasuryPayout, fetchMembers,
   fetchPromocodes, createPromocode, deactivatePromocode,
+  fetchMegaphones, reviewMegaphone,
+  type MegaphoneMessage,
 } from "../lib/api";
 import type { DevUserEntry, DevChat, TreasuryResponse, ChatMember } from "../types";
 import type { PromoRecord } from "../lib/api";
@@ -27,7 +29,7 @@ interface Props {
   isDev?: boolean;
 }
 
-type AdminTab = "users" | "give" | "features" | "treasury" | "promos";
+type AdminTab = "users" | "give" | "features" | "treasury" | "promos" | "megaphone";
 
 /* ── Жёсткая иерархия рангов (синхронизировано с utils/ranks.py) ── */
 const RANK_HIERARCHY = [
@@ -127,11 +129,12 @@ export default function Admin({ chatId: defaultChatId, userId, isDev }: Props) {
   }
 
   const tabs: { key: AdminTab; label: string }[] = [
-    { key: "users",    label: "👤 Участники"  },
-    { key: "give",     label: "🎁 Выдать"     },
-    { key: "promos",   label: "🎟️ Промокоды" },
-    { key: "features", label: "⚙️ Функции"    },
-    { key: "treasury", label: "🏦 Казна"      },
+    { key: "users",      label: "👤 Участники"  },
+    { key: "give",       label: "🎁 Выдать"     },
+    { key: "promos",     label: "🎟️ Промокоды" },
+    { key: "megaphone",  label: "📢 Рупор"      },
+    { key: "features",   label: "⚙️ Функции"    },
+    { key: "treasury",   label: "🏦 Казна"      },
   ];
 
   return (
@@ -220,6 +223,7 @@ export default function Admin({ chatId: defaultChatId, userId, isDev }: Props) {
       {tab === "users"    && <UsersSection    chatId={activeChatId} />}
       {tab === "give"     && <GiveSection     chatId={activeChatId} />}
       {tab === "promos"   && <PromosSection />}
+      {tab === "megaphone" && <MegaphoneSection />}
       {tab === "features" && <FeaturesSection chatId={activeChatId} />}
       {tab === "treasury" && <TreasurySection chatId={activeChatId} />}
     </div>
@@ -278,7 +282,7 @@ function UsersSection({ chatId }: { chatId: number }) {
     setBalance(String(u.balance ?? 0));
     setXp(String(u.xp ?? 0));
     setRank(u.rank ?? "user");
-    setCrystals("0");
+    setCrystals(String(u.crystals ?? 0));
     setReputation(String(u.reputation ?? 0));
   };
 
@@ -288,21 +292,23 @@ function UsersSection({ chatId }: { chatId: number }) {
     try {
       const r = await devMemberUpdate(chatId, selected.user_id, parseFloat(balance), parseInt(xp), rank, parseInt(reputation));
       if (!r.ok) {
-        showOk("⚠️ " + (r.error ?? "Ошибка"));
+        showOk("❌ " + (r.error ?? "Ошибка"));
         return;
       }
-      const crystalDelta = parseInt(crystals);
-      if (crystalDelta !== 0 && !isNaN(crystalDelta)) {
+      const newCrystals = parseInt(crystals) || 0;
+      const oldCrystals = selected.crystals ?? 0;
+      const crystalDelta = newCrystals - oldCrystals;
+      if (crystalDelta !== 0) {
         const cr = await devGiveCrystals(chatId, selected.user_id, crystalDelta);
         if (!cr.ok) {
-          showOk("⚠️ Кристаллы: " + (cr.error ?? "Ошибка"));
+          showOk("❌ Кристаллы: " + (cr.error ?? "Ошибка"));
           return;
         }
       }
-      showOk("✅ " + (r.message ?? "Сохранено"));
+      showOk("✅ Сохранено");
       search();
     } catch (e: unknown) {
-      showOk("⚠️ " + (e instanceof Error ? e.message : "Ошибка"));
+      showOk("❌ " + (e instanceof Error ? e.message : "Ошибка сети"));
     } finally {
       setSaving(false);
     }
@@ -312,7 +318,11 @@ function UsersSection({ chatId }: { chatId: number }) {
     <div className="space-y-3">
       {toast && (
         <div className="rounded-xl px-3 py-2 text-sm font-medium animate-fadeIn"
-          style={{ backgroundColor: "var(--bg-secondary)", color: "var(--text-primary)", border: "1px solid var(--accent)" }}>
+          style={{
+            backgroundColor: toast.startsWith("✅") ? "#22c55e18" : "#ef444418",
+            color: toast.startsWith("✅") ? "#22c55e" : "#ef4444",
+            border: `1px solid ${toast.startsWith("✅") ? "#22c55e50" : "#ef444450"}`,
+          }}>
           {toast}
         </div>
       )}
@@ -395,7 +405,7 @@ function UsersSection({ chatId }: { chatId: number }) {
           <div className="grid grid-cols-2 gap-2">
             <InputField icon={<Coins size={10} />} label="Баланс" value={balance} onChange={setBalance} type="number" />
             <InputField icon={<Zap size={10} />} label="XP" value={xp} onChange={setXp} type="number" />
-            <InputField icon={<Gem size={10} />} label="Кристаллы (±)" value={crystals} onChange={setCrystals} type="number" />
+            <InputField icon={<Gem size={10} />} label="Кристаллы" value={crystals} onChange={setCrystals} type="number" />
             <InputField icon={<ArrowRightLeft size={10} />} label="Репутация" value={reputation} onChange={setReputation} type="number" />
             <div>
               <label className="text-[11px] font-medium flex items-center gap-1" style={{ color: "var(--text-hint)" }}>
@@ -851,6 +861,122 @@ function TreasurySection({ chatId }: { chatId: number }) {
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+/* ── MegaphoneSection ────────────────────────────────────────── */
+function MegaphoneSection() {
+  const [messages, setMessages] = useState<MegaphoneMessage[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [toast, setToast]     = useState<string | null>(null);
+  const [filter, setFilter]   = useState<"pending" | "approved" | "rejected">("pending");
+  const [acting, setActing]   = useState<number | null>(null);
+
+  const showOk = (m: string) => { setToast(m); setTimeout(() => setToast(null), 3000); };
+
+  const load = useCallback(() => {
+    setLoading(true);
+    fetchMegaphones(filter)
+      .then(r => setMessages(r.messages ?? []))
+      .catch(() => showOk("❌ Ошибка загрузки"))
+      .finally(() => setLoading(false));
+  }, [filter]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const handleReview = async (id: number, action: "approve" | "reject") => {
+    setActing(id);
+    try {
+      const r = await reviewMegaphone(id, action);
+      if (r.ok) {
+        showOk(action === "approve" ? "✅ Рупор одобрен" : "🔄 Рупор отклонён, 💎 возвращены");
+        load();
+      } else {
+        showOk("❌ Ошибка");
+      }
+    } catch {
+      showOk("❌ Ошибка сети");
+    } finally {
+      setActing(null);
+    }
+  };
+
+  return (
+    <div className="space-y-3">
+      {toast && (
+        <div className="rounded-xl px-3 py-2 text-sm font-medium animate-fadeIn"
+          style={{
+            backgroundColor: toast.startsWith("✅") ? "#22c55e18" : toast.startsWith("🔄") ? "#3b82f618" : "#ef444418",
+            color: toast.startsWith("✅") ? "#22c55e" : toast.startsWith("🔄") ? "#60a5fa" : "#ef4444",
+            border: `1px solid ${toast.startsWith("✅") ? "#22c55e50" : toast.startsWith("🔄") ? "#3b82f650" : "#ef444450"}`,
+          }}>
+          {toast}
+        </div>
+      )}
+
+      {/* Filter tabs */}
+      <div className="flex gap-1 rounded-lg p-1" style={{ backgroundColor: "var(--bg-secondary)" }}>
+        {(["pending", "approved", "rejected"] as const).map(f => (
+          <button
+            key={f}
+            onClick={() => setFilter(f)}
+            className="flex-1 px-2 py-1 text-xs font-medium rounded-md transition-colors"
+            style={{
+              backgroundColor: filter === f ? "#ef4444" : "transparent",
+              color: filter === f ? "#fff" : "var(--text-hint)",
+            }}
+          >
+            {f === "pending" ? "⏳ Ожидают" : f === "approved" ? "✅ Одобрены" : "❌ Отклонены"}
+          </button>
+        ))}
+      </div>
+
+      {loading && <Loader2 size={16} className="animate-spin mx-auto" style={{ color: "var(--text-hint)" }} />}
+
+      {!loading && messages.length === 0 && (
+        <div className="rounded-xl p-6 text-center" style={{ backgroundColor: "var(--bg-secondary)" }}>
+          <p className="text-sm" style={{ color: "var(--text-hint)" }}>
+            {filter === "pending" ? "Нет рупоров на модерации 🎉" : "Пусто"}
+          </p>
+        </div>
+      )}
+
+      {messages.map(msg => (
+        <div key={msg.id} className="rounded-xl p-3 space-y-2" style={{ backgroundColor: "var(--bg-secondary)" }}>
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-medium">
+              {msg.user_name} <span className="text-[10px]" style={{ color: "var(--text-hint)" }}>#{msg.user_id}</span>
+            </p>
+            <span className="text-[10px]" style={{ color: "var(--text-hint)" }}>
+              {new Date(msg.created_at).toLocaleString("ru")}
+            </span>
+          </div>
+          <div className="rounded-lg p-2 text-sm" style={{ backgroundColor: "var(--bg-primary)", color: "var(--text-primary)" }}>
+            {msg.message}
+          </div>
+          {filter === "pending" && (
+            <div className="flex gap-2">
+              <button
+                onClick={() => handleReview(msg.id, "approve")}
+                disabled={acting === msg.id}
+                className="flex-1 py-1.5 rounded-lg text-xs font-semibold transition-opacity disabled:opacity-50"
+                style={{ backgroundColor: "#22c55e", color: "#fff" }}
+              >
+                {acting === msg.id ? "..." : "✅ Одобрить"}
+              </button>
+              <button
+                onClick={() => handleReview(msg.id, "reject")}
+                disabled={acting === msg.id}
+                className="flex-1 py-1.5 rounded-lg text-xs font-semibold transition-opacity disabled:opacity-50"
+                style={{ backgroundColor: "#ef4444", color: "#fff" }}
+              >
+                {acting === msg.id ? "..." : "❌ Отклонить (возврат 💎)"}
+              </button>
+            </div>
+          )}
+        </div>
+      ))}
     </div>
   );
 }

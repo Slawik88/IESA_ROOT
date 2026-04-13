@@ -3,8 +3,8 @@
    Вкладки: Рамки | Косметика | Питомцы | Еда | Зелья | Темы
    ────────────────────────────────────────────────────────────── */
 import { useEffect, useState, useCallback } from "react";
-import { ShoppingBag, CheckCircle2, Palette, Loader2, Lock, Gem } from "lucide-react";
-import { fetchShopCatalog, buyShopItem, fetchThemes, activateTheme, buyCrystalItem, saveAvatar, fetchUserData } from "../lib/api";
+import { ShoppingBag, CheckCircle2, Palette, Loader2, Lock, Gem, Sparkles } from "lucide-react";
+import { fetchShopCatalog, buyShopItem, fetchThemes, activateTheme, buyCrystalItem, saveAvatar, fetchCrystalCatalog, type CrystalCatalogItem, type CrystalCatalogResponse } from "../lib/api";
 import type {
   ShopCatalog,
   ShopFrame,
@@ -38,7 +38,7 @@ export default function Shop({ chatId }: Props) {
   const [activatingTheme, setActivating] = useState<string | null>(null);
 
   // Donate tab state
-  const [crystalBalance, setCrystalBalance] = useState<number | null>(null);
+  const [crystalCatalog, setCrystalCatalog] = useState<CrystalCatalogResponse | null>(null);
 
   const showOk  = useCallback((msg: string) => { setToast(msg);    setTimeout(() => setToast(null), 3500); }, []);
   const showErr = useCallback((msg: string) => { setToastErr(msg); setTimeout(() => setToastErr(null), 4000); }, []);
@@ -57,7 +57,7 @@ export default function Shop({ chatId }: Props) {
 
   useEffect(() => {
     if (tab === "themes") loadThemes();
-    if (tab === "donate") fetchUserData(chatId).then(d => setCrystalBalance(d.crystals ?? 0)).catch(() => {});
+    if (tab === "donate") fetchCrystalCatalog(chatId).then(setCrystalCatalog).catch(() => {});
   }, [tab, loadThemes, chatId]);
 
   const buy = useCallback(async (
@@ -202,7 +202,7 @@ export default function Shop({ chatId }: Props) {
       {tab === "food"      && <FoodList     food={data.food}               buying={buying} onBuy={buy} />}
       {tab === "potions"   && <PotionList   potions={data.potions}         buying={buying} onBuy={buy} />}
       {tab === "themes"    && <ThemeList    themes={themesData} activating={activatingTheme} onActivate={doActivateTheme} />}
-      {tab === "donate"    && <DonateTab    chatId={chatId} balance={crystalBalance} onRefresh={() => fetchUserData(chatId).then(d => setCrystalBalance(d.crystals ?? 0)).catch(() => {})} showOk={showOk} showErr={showErr} />}
+      {tab === "donate"    && <DonateTab    chatId={chatId} catalog={crystalCatalog} onRefresh={() => fetchCrystalCatalog(chatId).then(setCrystalCatalog).catch(() => {})} showOk={showOk} showErr={showErr} />}
 
       {/* ── Тосты ─────────────────────────────────────────────── */}
       {toast && (
@@ -589,59 +589,94 @@ function ThemeList({
 
 /* ── DonateTab ────────────────────────────────────────────────── */
 
-interface CrystalItem {
-  key: string;
-  emoji: string;
-  name: string;
-  price: number;
-  desc: string;
-  oneTime?: boolean;
-}
+const CATEGORY_META: Record<string, { label: string; emoji: string }> = {
+  aesthetic: { label: "✨ Эстетика",  emoji: "✨" },
+  gameplay:  { label: "⚔️ Геймплей",  emoji: "⚔️" },
+  social:    { label: "💬 Социалка",  emoji: "💬" },
+  pets:      { label: "🐾 Питомцы",  emoji: "🐾" },
+};
 
-const CRYSTAL_CATALOG: CrystalItem[] = [
-  { key: "telegram_avatar",      emoji: "🖼️", name: "Telegram Аватар",     price: 150, desc: "Показывает фото из Telegram в профиле", oneTime: true },
-  { key: "enhancement_stones_5", emoji: "⚒️", name: "5 камней заточки",     price: 150, desc: "5 гарантированных заточек без Моры" },
-  { key: "enhancement_stones_1", emoji: "🔩", name: "1 камень заточки",      price: 50,  desc: "1 гарантированная заточка без Моры" },
-];
+type DonateSubTab = "all" | "aesthetic" | "gameplay" | "social" | "pets";
 
-function DonateTab({ chatId, balance, onRefresh, showOk, showErr }: {
+function DonateTab({ chatId, catalog, onRefresh, showOk, showErr }: {
   chatId: number;
-  balance: number | null;
+  catalog: CrystalCatalogResponse | null;
   onRefresh: () => void;
   showOk: (m: string) => void;
   showErr: (m: string) => void;
 }) {
   const [buying, setBuying] = useState<string | null>(null);
+  const [subTab, setSubTab] = useState<DonateSubTab>("all");
+  const [megaphoneText, setMegaphoneText] = useState("");
 
-  const handleBuy = useCallback(async (item: CrystalItem) => {
+  const handleBuy = useCallback(async (item: CrystalCatalogItem) => {
     if (buying) return;
+    if (item.oneTime && item.owned) return;
+
+    // Megaphone needs text
+    if (item.key === "megaphone") {
+      if (!megaphoneText.trim() || megaphoneText.length > 500) {
+        showErr("Введите текст рупора (1-500 символов)");
+        return;
+      }
+    }
+
     setBuying(item.key);
     try {
-      const res = await buyCrystalItem(chatId, item.key, item.price);
+      const extra: Record<string, string> = {};
+      if (item.key === "megaphone") extra.megaphone_text = megaphoneText.trim();
+
+      const res = await buyCrystalItem(chatId, item.key, item.price, extra);
       if (!res.ok) { showErr(res.error ?? "Ошибка покупки"); return; }
 
-      // For telegram_avatar: also save the avatar URL
       if (item.key === "telegram_avatar") {
         const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user as { photo_url?: string } | undefined;
         const photoUrl = tgUser?.photo_url;
         if (photoUrl) {
           const sv = await saveAvatar(photoUrl);
-          if (!sv.ok) showErr("Аватар куплен, но фото не сохранилось: " + (sv.error ?? ""));
+          if (!sv.ok) showErr("Аватар куплен, но фото не сохранилось");
         }
       }
 
-      showOk(`${item.emoji} ${item.name} куплено!`);
+      if (item.key === "megaphone") {
+        showOk("📢 Рупор отправлен на модерацию!");
+        setMegaphoneText("");
+      } else {
+        showOk(`${item.emoji} ${item.name} куплено!`);
+      }
       onRefresh();
     } catch (e: unknown) {
       showErr(e instanceof Error ? e.message : "Ошибка");
     } finally {
       setBuying(null);
     }
-  }, [buying, chatId, showOk, showErr, onRefresh]);
+  }, [buying, chatId, showOk, showErr, onRefresh, megaphoneText]);
+
+  if (!catalog) {
+    return (
+      <div className="space-y-2 animate-pulse">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="skeleton h-16 rounded-xl" />
+        ))}
+      </div>
+    );
+  }
+
+  const filteredItems = subTab === "all"
+    ? catalog.items
+    : catalog.items.filter(i => i.category === subTab);
+
+  const subTabs: { key: DonateSubTab; label: string }[] = [
+    { key: "all",       label: "Все" },
+    { key: "aesthetic",  label: "✨" },
+    { key: "gameplay",   label: "⚔️" },
+    { key: "social",     label: "💬" },
+    { key: "pets",       label: "🐾" },
+  ];
 
   return (
     <div className="space-y-3">
-      {/* Balance */}
+      {/* Balance + First Deposit Badge */}
       <div
         className="rounded-xl p-3 flex items-center justify-between"
         style={{ backgroundColor: "var(--bg-secondary)" }}
@@ -650,46 +685,166 @@ function DonateTab({ chatId, balance, onRefresh, showOk, showErr }: {
           <Gem size={16} style={{ color: "#a78bfa" }} />
           <span className="text-sm font-medium">Кристаллы</span>
         </div>
-        <span className="font-bold tabular-nums">
-          {balance === null ? "..." : `${fmt(balance)} 💎`}
-        </span>
+        <div className="flex items-center gap-2">
+          {catalog.first_deposit_available && (
+            <span
+              className="text-[10px] font-bold px-1.5 py-0.5 rounded-full animate-pulse"
+              style={{
+                background: "linear-gradient(135deg, #f59e0b, #ef4444)",
+                color: "#fff",
+                boxShadow: "0 0 12px rgba(245, 158, 11, 0.5)",
+              }}
+            >
+              ×2 First Bonus!
+            </span>
+          )}
+          <span className="font-bold tabular-nums">
+            {fmt(catalog.balance)} 💎
+          </span>
+        </div>
       </div>
 
-      {/* Catalog */}
-      <div className="space-y-2">
-        {CRYSTAL_CATALOG.map((item) => (
-          <div
-            key={item.key}
-            className="rounded-xl p-3 flex items-center gap-3"
-            style={{ backgroundColor: "var(--bg-secondary)" }}
+      {/* Category sub-tabs */}
+      <div
+        className="flex gap-1 rounded-lg p-1"
+        style={{ backgroundColor: "var(--bg-secondary)" }}
+      >
+        {subTabs.map(({ key, label }) => (
+          <button
+            key={key}
+            onClick={() => setSubTab(key)}
+            className="flex-1 px-2 py-1 text-xs font-medium rounded-md transition-colors"
+            style={{
+              backgroundColor: subTab === key ? "#7c3aed" : "transparent",
+              color: subTab === key ? "#fff" : "var(--text-hint)",
+            }}
           >
-            <span className="text-2xl shrink-0">{item.emoji}</span>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium">{item.name}</p>
-              <p className="text-[11px] mt-0.5" style={{ color: "var(--text-hint)" }}>{item.desc}</p>
-              {item.oneTime && (
-                <span className="text-[10px] font-bold px-1 rounded" style={{ backgroundColor: "#a78bfa22", color: "#a78bfa" }}>
-                  Разовая покупка
-                </span>
-              )}
-            </div>
-            <button
-              onClick={() => handleBuy(item)}
-              disabled={!!buying}
-              className="shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold transition-opacity disabled:opacity-40 flex items-center gap-1"
-              style={{ backgroundColor: "#7c3aed", color: "#fff" }}
-            >
-              {buying === item.key
-                ? <Loader2 size={12} className="animate-spin" />
-                : <>{item.price} 💎</>}
-            </button>
-          </div>
+            {label}
+          </button>
         ))}
+      </div>
+
+      {/* Items grid */}
+      <div className="space-y-2">
+        {subTab === "all" && Object.entries(CATEGORY_META).map(([catKey, meta]) => {
+          const catItems = catalog.items.filter(i => i.category === catKey);
+          if (catItems.length === 0) return null;
+          return (
+            <div key={catKey}>
+              <p className="text-xs font-bold mb-1.5 mt-2" style={{ color: "var(--text-hint)" }}>
+                {meta.label}
+              </p>
+              {catItems.map(item => (
+                <CrystalItemCard
+                  key={item.key}
+                  item={item}
+                  buying={buying === item.key}
+                  onBuy={() => handleBuy(item)}
+                  megaphoneText={megaphoneText}
+                  onMegaphoneChange={setMegaphoneText}
+                />
+              ))}
+            </div>
+          );
+        })}
+        {subTab !== "all" && filteredItems.map(item => (
+          <CrystalItemCard
+            key={item.key}
+            item={item}
+            buying={buying === item.key}
+            onBuy={() => handleBuy(item)}
+            megaphoneText={megaphoneText}
+            onMegaphoneChange={setMegaphoneText}
+          />
+        ))}
+        {filteredItems.length === 0 && (
+          <div className="rounded-xl p-6 text-center" style={{ backgroundColor: "var(--bg-secondary)" }}>
+            <Sparkles size={24} className="mx-auto mb-2" style={{ color: "var(--text-hint)" }} />
+            <p className="text-sm" style={{ color: "var(--text-hint)" }}>Нет товаров</p>
+          </div>
+        )}
       </div>
 
       <p className="text-[11px] text-center" style={{ color: "var(--text-hint)" }}>
         Пополнить кристаллы можно через раздел «⭐ Stars»
       </p>
+    </div>
+  );
+}
+
+/* ── CrystalItemCard ──────────────────────────────────────────── */
+
+function CrystalItemCard({ item, buying, onBuy, megaphoneText, onMegaphoneChange }: {
+  item: CrystalCatalogItem;
+  buying: boolean;
+  onBuy: () => void;
+  megaphoneText: string;
+  onMegaphoneChange: (v: string) => void;
+}) {
+  const isDisabled = (item.oneTime && item.owned) || buying;
+
+  return (
+    <div
+      className="rounded-xl p-3 flex items-center gap-3 mb-1.5"
+      style={{
+        backgroundColor: "var(--bg-secondary)",
+        border: item.owned && item.oneTime ? "1px solid #22c55e30" : "1px solid transparent",
+        opacity: item.oneTime && item.owned ? 0.7 : 1,
+      }}
+    >
+      <span className="text-2xl shrink-0">{item.emoji}</span>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-1.5">
+          <p className="text-sm font-medium truncate">{item.name}</p>
+          {item.oneTime && item.owned && (
+            <span className="text-[9px] font-bold px-1 py-0.5 rounded flex items-center gap-0.5"
+              style={{ backgroundColor: "#22c55e22", color: "#22c55e" }}>
+              <CheckCircle2 size={9} /> В коллекции
+            </span>
+          )}
+        </div>
+        <p className="text-[11px] mt-0.5" style={{ color: "var(--text-hint)" }}>{item.desc}</p>
+        {item.oneTime && !item.owned && (
+          <span className="text-[9px] font-bold px-1 rounded"
+            style={{ backgroundColor: "#a78bfa22", color: "#a78bfa" }}>
+            Разовая покупка
+          </span>
+        )}
+        {/* Megaphone text input */}
+        {item.key === "megaphone" && !item.owned && (
+          <textarea
+            value={megaphoneText}
+            onChange={e => onMegaphoneChange(e.target.value)}
+            placeholder="Текст рупора (до 500 символов)..."
+            maxLength={500}
+            rows={2}
+            className="w-full mt-1.5 rounded-lg px-2 py-1 text-xs bg-transparent outline-none resize-none"
+            style={{ border: "1px solid var(--border)", color: "var(--text-primary)" }}
+          />
+        )}
+      </div>
+      <div className="shrink-0 flex flex-col items-end gap-1">
+        <span className="text-[11px] font-bold tabular-nums" style={{ color: "#a78bfa" }}>
+          {item.price} 💎
+        </span>
+        {item.oneTime && item.owned ? (
+          <div className="px-2 py-1 rounded-lg text-[10px] font-medium"
+            style={{ backgroundColor: "var(--bg-primary)", color: "var(--text-hint)" }}>
+            Куплено
+          </div>
+        ) : (
+          <button
+            onClick={onBuy}
+            disabled={!!isDisabled}
+            className="px-3 py-1 rounded-lg text-[11px] font-semibold transition-opacity disabled:opacity-40 flex items-center gap-1"
+            style={{ backgroundColor: "#7c3aed", color: "#fff" }}
+          >
+            {buying
+              ? <Loader2 size={11} className="animate-spin" />
+              : "Купить"}
+          </button>
+        )}
+      </div>
     </div>
   );
 }

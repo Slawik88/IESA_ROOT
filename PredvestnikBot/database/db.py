@@ -1397,6 +1397,31 @@ async def init_db():
             )
         """)
 
+        # ─── Бусты (XP / Мора) ───────────────────────────────────────────
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS user_boosts (
+                user_id     BIGINT  NOT NULL,
+                chat_id     BIGINT  NOT NULL DEFAULT 0,
+                boost_type  TEXT    NOT NULL DEFAULT 'xp',
+                multiplier  REAL    NOT NULL DEFAULT 1.5,
+                expires_at  TIMESTAMPTZ NOT NULL,
+                PRIMARY KEY (user_id, chat_id, boost_type)
+            )
+        """)
+
+        # ─── Глобальный рупор (модерируемые сообщения) ────────────────────
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS megaphone_messages (
+                id          SERIAL PRIMARY KEY,
+                user_id     BIGINT  NOT NULL,
+                message     TEXT    NOT NULL,
+                status      TEXT    NOT NULL DEFAULT 'pending',
+                created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                reviewed_at TIMESTAMPTZ DEFAULT NULL,
+                reviewed_by BIGINT  DEFAULT NULL
+            )
+        """)
+
         # ─── Динамическая конфигурация AF2 (настраивается через мини апп) ──────
         await db.execute("""
             CREATE TABLE IF NOT EXISTS af2_config (
@@ -6989,6 +7014,108 @@ async def log_stars_purchase(
              telegram_charge_id, datetime.now(timezone.utc)),
         )
         await db.commit()
+
+
+async def is_first_crystal_deposit(user_id: int) -> bool:
+    """Проверяет, является ли это первым пополнением кристаллов (total_purchased == 0)."""
+    async with postgres_connect() as db:
+        row = await db.fetchone(
+            "SELECT total_purchased FROM user_crystals WHERE user_id=?", (user_id,)
+        )
+    return row is None or row["total_purchased"] == 0
+
+
+async def get_user_crystal_items(user_id: int) -> set[str]:
+    """Возвращает set ключей всех купленных кристальных предметов (shop_items)."""
+    async with postgres_connect() as db:
+        async with db.execute(
+            "SELECT item_value FROM shop_items WHERE user_id=? AND (item_type='cosmetic' OR item_type='frame')",
+            (user_id,),
+        ) as c:
+            rows = await c.fetchall()
+    return {r[0] for r in rows}
+
+
+async def add_boss_cooldown_reset(user_id: int) -> None:
+    """Сбросить КД босса — удалить сегодняшнюю завершенную сессию."""
+    async with postgres_connect() as db:
+        await db.execute(
+            "UPDATE solo_boss_sessions SET is_completed=1 WHERE user_id=? AND is_completed=0",
+            (user_id,),
+        )
+        await db.commit()
+
+
+async def add_xp_boost(user_id: int, chat_id: int, multiplier: float, hours: int) -> None:
+    """Добавить временный буст XP."""
+    async with postgres_connect() as db:
+        await db.execute(
+            """INSERT INTO user_boosts (user_id, chat_id, boost_type, multiplier, expires_at)
+               VALUES (?, ?, 'xp', ?, NOW() + ?::INTERVAL)
+               ON CONFLICT(user_id, chat_id, boost_type) DO UPDATE
+               SET multiplier = EXCLUDED.multiplier,
+                   expires_at = GREATEST(COALESCE(user_boosts.expires_at, NOW()), NOW()) + ?::INTERVAL""",
+            (user_id, chat_id, multiplier, f"{hours} hours", f"{hours} hours"),
+        )
+        await db.commit()
+
+
+async def add_mora_boost(user_id: int, chat_id: int, multiplier: float, hours: int) -> None:
+    """Добавить временный буст Моры."""
+    async with postgres_connect() as db:
+        await db.execute(
+            """INSERT INTO user_boosts (user_id, chat_id, boost_type, multiplier, expires_at)
+               VALUES (?, ?, 'mora', ?, NOW() + ?::INTERVAL)
+               ON CONFLICT(user_id, chat_id, boost_type) DO UPDATE
+               SET multiplier = EXCLUDED.multiplier,
+                   expires_at = GREATEST(COALESCE(user_boosts.expires_at, NOW()), NOW()) + ?::INTERVAL""",
+            (user_id, chat_id, multiplier, f"{hours} hours", f"{hours} hours"),
+        )
+        await db.commit()
+
+
+async def create_megaphone(user_id: int, message: str) -> int:
+    """Создать запрос на глобальный рупор. Возвращает id записи."""
+    async with postgres_connect() as db:
+        await db.execute(
+            "INSERT INTO megaphone_messages (user_id, message) VALUES (?, ?)",
+            (user_id, message),
+        )
+        row = await db.fetchone(
+            "SELECT id FROM megaphone_messages WHERE user_id=? ORDER BY id DESC LIMIT 1",
+            (user_id,),
+        )
+        await db.commit()
+    return row["id"] if row else 0
+
+
+async def list_megaphones(status: str = "pending") -> list[dict]:
+    """Список рупоров для модерации."""
+    async with postgres_connect() as db:
+        async with db.execute(
+            "SELECT m.id, m.user_id, m.message, m.status, m.created_at, "
+            "COALESCE(u.full_name, 'user_' || m.user_id) AS user_name "
+            "FROM megaphone_messages m LEFT JOIN users u ON u.user_id=m.user_id "
+            "WHERE m.status=? ORDER BY m.created_at DESC LIMIT 50",
+            (status,),
+        ) as c:
+            rows = await c.fetchall()
+    return [
+        {"id": r[0], "user_id": r[1], "message": r[2], "status": r[3],
+         "created_at": str(r[4]), "user_name": r[5]}
+        for r in rows
+    ]
+
+
+async def review_megaphone(msg_id: int, status: str, reviewer_id: int) -> bool:
+    """Принять или отклонить рупор. status = 'approved' | 'rejected'."""
+    async with postgres_connect() as db:
+        c = await db.execute(
+            "UPDATE megaphone_messages SET status=?, reviewed_at=NOW(), reviewed_by=? WHERE id=? AND status='pending'",
+            (status, reviewer_id, msg_id),
+        )
+        await db.commit()
+    return c.rowcount > 0
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
