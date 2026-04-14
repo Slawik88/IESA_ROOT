@@ -134,6 +134,7 @@ function AppContent({ userId, chatId }: { userId: number; chatId: number }) {
         style={{
           borderTop: "1px solid var(--border-accent)",
           paddingBottom: "env(safe-area-inset-bottom, 0px)",
+          backgroundColor: "var(--bg-primary)",
         }}
       >
         {TABS.map(({ key, label, Icon }) => {

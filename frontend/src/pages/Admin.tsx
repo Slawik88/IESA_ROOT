@@ -1200,7 +1200,7 @@ function PromosSection() {
         code: code.trim().toUpperCase(),
         payload,
         max_uses: maxUses ? parseInt(maxUses) : null,
-        expires_at: expiresAt || null,
+        expires_at: expiresAt ? (expiresAt.length === 16 ? expiresAt + ":00" : expiresAt) : null,
       });
       if (r.ok) {
         showToast("✅ Промокод создан");

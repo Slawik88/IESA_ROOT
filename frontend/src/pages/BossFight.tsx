@@ -137,7 +137,7 @@ export default function BossFight({ userId: _userId, chatId }: Props) {
     const COMBAT_SLOTS = ["weapon", "armor", "helmet", "boots", "artifact"];
     try {
       const inv = await fetchInventory(chatId);
-      setPotions(inv.items.filter(i => i.slot === "potion" || i.slot === "consume"));
+      setPotions(inv.items.filter(i => i.slot === "potion"));
       setEquipped(inv.items.filter(i => i.equipped && COMBAT_SLOTS.includes(i.slot ?? "")));
     } catch { /* ignore */ }
   }, [chatId]);

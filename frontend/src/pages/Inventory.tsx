@@ -93,9 +93,10 @@ export default function Inventory({ userId: _userId, chatId }: Props) {
     if (!item.slot) return;
     setBusy("equip");
     try {
-      if (item.equipped) {
+      if (item.equipped || item.slot === "flair") {
+        // Flair (crystal cosmetics) and unequip always use toggleEquip
         const res = await toggleEquip(chatId, item.id);
-        showToast(res.ok ? `Снято: ${item.name}` : (res.error ?? "Ошибка"));
+        showToast(res.ok ? (item.equipped ? `Снято: ${item.name}` : `Надето: ${item.name}`) : (res.error ?? "Ошибка"));
       } else {
         const res = await equipItem(chatId, item.id, item.slot);
         showToast(res.ok ? `Экипировано: ${res.equipped} → ${SLOT_LABEL[res.slot] ?? res.slot}` : (res.error ?? "Ошибка"));
@@ -520,7 +521,10 @@ function BottomSheet({ item, busy, onClose, onEquip, onSell, onEnhance, onConsum
   const canEquip        = isEquippable(item);
   const canConsume      = isConsumable(item);
   const canSell         = item.sell_price > 0;
-  const canActivateTheme = item.is_cosmetic && item.slot === "flair";
+  // Profile themes are pseudo-items with negative IDs (from user_themes table)
+  const canActivateTheme = item.is_cosmetic && item.slot === "flair" && item.id < 0;
+  // Crystal flair cosmetics (lego_flair_*) use regular equip/unequip
+  const canEquipFlair   = item.is_cosmetic && item.slot === "flair" && item.id > 0 && item.key !== "pet_rename";
   const canRename       = item.key === "pet_rename";
 
   return (
@@ -587,6 +591,11 @@ function BottomSheet({ item, busy, onClose, onEquip, onSell, onEnhance, onConsum
               color={item.equipped ? "#6b7280" : "#a855f7"}
               disabled={item.equipped} />
           )}
+          {canEquipFlair && (
+            <ActionBtn loading={busy === "equip"} onClick={() => onEquip(item)}
+              label={item.equipped ? "✨ Снять косметику" : "✨ Надеть косметику"}
+              color={item.equipped ? "#6b7280" : "#a855f7"} />
+          )}
           {canRename && (
             <ActionBtn loading={busy === "rename"} onClick={() => onRename(item)}
               label="✏️ Переименовать питомца" color="#8b5cf6" />
@@ -599,7 +608,7 @@ function BottomSheet({ item, busy, onClose, onEquip, onSell, onEnhance, onConsum
             <ActionBtn loading={busy === "sell"} onClick={() => onSell(item)}
               label={`Продать за ${item.sell_price} 🪙`} color="#e74c3c" outline />
           )}
-          {!canEquip && !canConsume && !canSell && !canActivateTheme && !canRename && (
+          {!canEquip && !canEquipFlair && !canConsume && !canSell && !canActivateTheme && !canRename && (
             <p className="text-center text-xs py-2" style={{ color: "var(--text-hint)" }}>Нет доступных действий</p>
           )}
         </div>
