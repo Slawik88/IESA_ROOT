@@ -531,3 +531,146 @@ async def cmd_treasury_take(message: Message, cmd_args: str):
         parse_mode="HTML",
     )
 
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Архив / Мёртвые души  («бот архив»)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@router.message(BotCommand("архив", "archive"))
+async def cmd_dev_archive(message: Message, cmd_args: str):
+    """
+    бот архив                         — список всех архивированных пользователей
+    бот архив [uid]                   — детали одного пользователя
+    бот архив восстановить [uid]      — восстановить из архива
+    бот архив удалить [uid]           — хард-удалить из базы
+    """
+    if not _dev_only(message.from_user.id):
+        return
+
+    from database.db import (
+        get_archived_users,
+        get_archived_user_details,
+        unarchive_user,
+        hard_delete_user,
+        DELETE_AFTER_DAYS,
+    )
+    from datetime import datetime, timedelta, timezone
+
+    parts = (cmd_args or "").strip().split()
+    sub = parts[0].lower() if parts else ""
+
+    # ── бот архив восстановить [uid] ─────────────────────────────────────────
+    if sub in ("восстановить", "restore", "unarchive"):
+        if len(parts) < 2 or not parts[1].lstrip("-").isdigit():
+            await message.answer(
+                "❌ Укажи user_id.\nПример: <code>бот архив восстановить 123456789</code>",
+                parse_mode="HTML",
+            )
+            return
+        uid = int(parts[1])
+        info = await get_archived_user_details(uid)
+        if not info or not info.get("archived_at"):
+            await message.answer(f"❌ Пользователь {uid} не найден в архиве.")
+            return
+        await unarchive_user(uid)
+        fname = html.escape(info.get("full_name") or str(uid))
+        await message.answer(
+            f"✅ <b>{fname}</b> (<code>{uid}</code>) восстановлен из архива.",
+            parse_mode="HTML",
+        )
+        await _log_to_dev(
+            message.bot,
+            f"ARCHIVE RESTORE: {uid} ({fname}) by {message.from_user.id}",
+        )
+        return
+
+    # ── бот архив удалить [uid] ──────────────────────────────────────────────
+    if sub in ("удалить", "delete", "purge"):
+        if len(parts) < 2 or not parts[1].lstrip("-").isdigit():
+            await message.answer(
+                "❌ Укажи user_id.\nПример: <code>бот архив удалить 123456789</code>",
+                parse_mode="HTML",
+            )
+            return
+        uid = int(parts[1])
+        info = await get_archived_user_details(uid)
+        if not info:
+            await message.answer(f"❌ Пользователь {uid} не найден.")
+            return
+        fname = html.escape(info.get("full_name") or str(uid))
+        await hard_delete_user(uid)
+        await message.answer(
+            f"🗑 <b>{fname}</b> (<code>{uid}</code>) полностью удалён из базы.",
+            parse_mode="HTML",
+        )
+        await _log_to_dev(
+            message.bot,
+            f"ARCHIVE HARD DELETE: {uid} ({fname}) by {message.from_user.id}",
+        )
+        return
+
+    # ── бот архив [uid] — детали одного пользователя ─────────────────────────
+    if sub and sub.lstrip("-").isdigit():
+        uid = int(sub)
+        info = await get_archived_user_details(uid)
+        if not info:
+            await message.answer(f"❌ Пользователь {uid} не найден.")
+            return
+        now = datetime.now(timezone.utc)
+        archived_at = info.get("archived_at")
+        if archived_at and archived_at.tzinfo is None:
+            archived_at = archived_at.replace(tzinfo=timezone.utc)
+        days_until_del = (
+            (archived_at + timedelta(days=DELETE_AFTER_DAYS) - now).days
+            if archived_at else None
+        )
+        fname = html.escape(info.get("full_name") or str(uid))
+        uname = f"@{info['username']}" if info.get("username") else "—"
+        await message.answer(
+            f"👤 <b>{fname}</b> ({uname})\n"
+            f"<code>id: {uid}</code>\n"
+            f"💰 Мора: {info.get('mora_balance', 0)}\n"
+            f"💬 Чатов в трекере: {info.get('chat_count', 0)}\n"
+            f"🕰 Последняя активность: {info.get('last_active') or '—'}\n"
+            f"📦 В архиве с: {archived_at or '—'}\n"
+            f"⏳ Удаление через: {days_until_del if days_until_del is not None else '?'} д.\n\n"
+            f"<code>бот архив восстановить {uid}</code>\n"
+            f"<code>бот архив удалить {uid}</code>",
+            parse_mode="HTML",
+        )
+        return
+
+    # ── бот архив — список всех архивированных ────────────────────────────────
+    users = await get_archived_users()
+    if not users:
+        await message.answer("📭 Архив пуст — архивированных пользователей нет.")
+        return
+
+    now = datetime.now(timezone.utc)
+    lines = [f"📦 <b>Архив мёртвых душ</b> ({len(users)} чел.)\n"]
+    for u in users[:30]:
+        uid = u["user_id"]
+        fname = html.escape((u.get("full_name") or str(uid))[:25])
+        uname = f" @{u['username']}" if u.get("username") else ""
+        archived_at = u.get("archived_at")
+        if archived_at and archived_at.tzinfo is None:
+            archived_at = archived_at.replace(tzinfo=timezone.utc)
+        days_left = (
+            (archived_at + timedelta(days=DELETE_AFTER_DAYS) - now).days
+            if archived_at else "?"
+        )
+        lines.append(
+            f"• <code>{uid}</code> {fname}{uname} — ⏳{days_left}д. 💰{u.get('mora_balance', 0)}"
+        )
+
+    if len(users) > 30:
+        lines.append(f"\n…и ещё {len(users) - 30} чел. Используй uid для деталей.")
+
+    lines.append(
+        "\n<code>бот архив [uid]</code> — детали\n"
+        "<code>бот архив восстановить [uid]</code>\n"
+        "<code>бот архив удалить [uid]</code>"
+    )
+    await message.answer("\n".join(lines), parse_mode="HTML")
+
+

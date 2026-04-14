@@ -1480,6 +1480,13 @@ async def cmd_me(message: Message, cmd_args: str):
     frame_key    = mora_row["top_frame"]         if mora_row else None
     boost_active = await get_xp_boost_active(uid, chat_id) if is_group else False
 
+    # Stealth mode — check if user owns the stealth_mode crystal item
+    stealth_active = False
+    if is_group:
+        from database.db import get_user_crystal_items
+        _crystal_items = await get_user_crystal_items(uid)
+        stealth_active = "stealth_mode" in _crystal_items
+
     # Crystals balance (global, all contexts)
     crystals = await get_crystals(uid)
 
@@ -1540,7 +1547,10 @@ async def cmd_me(message: Message, cmd_args: str):
     lines.append(sep)
     res_parts: list[str] = []
     if is_group:
-        res_parts.append(f"🪙 Мора: <b>{mora_bal:,}</b>")
+        if stealth_active:
+            res_parts.append("🪙 Мора: <b>🕶 [скрыт]</b>")
+        else:
+            res_parts.append(f"🪙 Мора: <b>{mora_bal:,}</b>")
     res_parts.append(f"💎 Кристаллы: <b>{crystals:,}</b>")
     lines.append("   ".join(res_parts))
 
