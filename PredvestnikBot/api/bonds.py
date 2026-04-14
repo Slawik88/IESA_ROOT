@@ -91,8 +91,8 @@ async def buy_bond(uid: int, chat_id: int, bond_key: str,
         from database.postgres import connect as _pg_conn
         async with _pg_conn() as _db:
             _row = await _db.fetchone(
-                "SELECT COUNT(*) AS c FROM user_bond_lots WHERE user_id=? AND chat_id=?",
-                (uid, chat_id),
+                "SELECT COUNT(*) AS c FROM user_bond_lots WHERE user_id=? AND chat_id=0",
+                (uid,),
             )
         _trade_count = int(_row["c"]) if _row else 1
         from api.achievements import check_and_award as _ach

@@ -610,6 +610,7 @@ function DonateTab({ chatId, catalog, onRefresh, showOk, showErr }: {
   const [buying, setBuying] = useState<string | null>(null);
   const [subTab, setSubTab] = useState<DonateSubTab>("all");
   const [megaphoneText, setMegaphoneText] = useState("");
+  const [chatRoleText, setChatRoleText] = useState("");
 
   const handleBuy = useCallback(async (item: CrystalCatalogItem) => {
     if (buying) return;
@@ -623,10 +624,19 @@ function DonateTab({ chatId, catalog, onRefresh, showOk, showErr }: {
       }
     }
 
+    // Custom role needs text
+    if (item.key === "chat_role") {
+      if (!chatRoleText.trim() || chatRoleText.length > 50) {
+        showErr("Введите название роли (1-50 символов)");
+        return;
+      }
+    }
+
     setBuying(item.key);
     try {
       const extra: Record<string, string> = {};
       if (item.key === "megaphone") extra.megaphone_text = megaphoneText.trim();
+      if (item.key === "chat_role") extra.role_text = chatRoleText.trim();
 
       const res = await buyCrystalItem(chatId, item.key, item.price, extra);
       if (!res.ok) { showErr(res.error ?? "Ошибка покупки"); return; }
@@ -643,6 +653,9 @@ function DonateTab({ chatId, catalog, onRefresh, showOk, showErr }: {
       if (item.key === "megaphone") {
         showOk("📢 Рупор отправлен на модерацию!");
         setMegaphoneText("");
+      } else if (item.key === "chat_role") {
+        showOk(`🏷️ Роль «${chatRoleText.trim()}» установлена!`);
+        setChatRoleText("");
       } else {
         showOk(`${item.emoji} ${item.name} куплено!`);
       }
@@ -652,7 +665,7 @@ function DonateTab({ chatId, catalog, onRefresh, showOk, showErr }: {
     } finally {
       setBuying(null);
     }
-  }, [buying, chatId, showOk, showErr, onRefresh, megaphoneText]);
+  }, [buying, chatId, showOk, showErr, onRefresh, megaphoneText, chatRoleText]);
 
   if (!catalog) {
     return (
@@ -744,6 +757,8 @@ function DonateTab({ chatId, catalog, onRefresh, showOk, showErr }: {
                   onBuy={() => handleBuy(item)}
                   megaphoneText={megaphoneText}
                   onMegaphoneChange={setMegaphoneText}
+                  chatRoleText={chatRoleText}
+                  onChatRoleChange={setChatRoleText}
                 />
               ))}
             </div>
@@ -757,6 +772,8 @@ function DonateTab({ chatId, catalog, onRefresh, showOk, showErr }: {
             onBuy={() => handleBuy(item)}
             megaphoneText={megaphoneText}
             onMegaphoneChange={setMegaphoneText}
+            chatRoleText={chatRoleText}
+            onChatRoleChange={setChatRoleText}
           />
         ))}
         {filteredItems.length === 0 && (
@@ -776,12 +793,14 @@ function DonateTab({ chatId, catalog, onRefresh, showOk, showErr }: {
 
 /* ── CrystalItemCard ──────────────────────────────────────────── */
 
-function CrystalItemCard({ item, buying, onBuy, megaphoneText, onMegaphoneChange }: {
+function CrystalItemCard({ item, buying, onBuy, megaphoneText, onMegaphoneChange, chatRoleText, onChatRoleChange }: {
   item: CrystalCatalogItem;
   buying: boolean;
   onBuy: () => void;
   megaphoneText: string;
   onMegaphoneChange: (v: string) => void;
+  chatRoleText: string;
+  onChatRoleChange: (v: string) => void;
 }) {
   const isDisabled = (item.oneTime && item.owned) || buying;
 
@@ -821,6 +840,18 @@ function CrystalItemCard({ item, buying, onBuy, megaphoneText, onMegaphoneChange
             maxLength={500}
             rows={2}
             className="w-full mt-1.5 rounded-lg px-2 py-1 text-xs bg-transparent outline-none resize-none"
+            style={{ border: "1px solid var(--border)", color: "var(--text-primary)" }}
+          />
+        )}
+        {/* Custom role text input */}
+        {item.key === "chat_role" && !item.owned && (
+          <input
+            type="text"
+            value={chatRoleText}
+            onChange={e => onChatRoleChange(e.target.value)}
+            placeholder="Название роли (до 50 символов)..."
+            maxLength={50}
+            className="w-full mt-1.5 rounded-lg px-2 py-1 text-xs bg-transparent outline-none"
             style={{ border: "1px solid var(--border)", color: "var(--text-primary)" }}
           />
         )}

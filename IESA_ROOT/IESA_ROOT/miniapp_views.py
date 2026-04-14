@@ -3743,9 +3743,27 @@ def miniapp_solo_boss_start(request):
     from database.db import get_solo_boss_session, get_solo_boss_progress, create_solo_boss_session
     from asgiref.sync import async_to_sync
 
-    # Check no active session today
-    existing = async_to_sync(get_solo_boss_session)(uid, chat_id)
-    if existing and not existing.get("is_completed"):
+    # Check for any existing session today (active OR completed)
+    conn, db_type = _get_bot_db_connection()
+    try:
+        cur = conn.cursor()
+        ph = "%s" if db_type == "pg" else "?"
+        today_str = __import__("datetime").date.today().isoformat()
+        cur.execute(
+            f"SELECT is_completed FROM solo_boss_sessions "
+            f"WHERE user_id={ph} AND chat_id={ph} AND session_date={ph} LIMIT 1",
+            (uid, chat_id, today_str),
+        )
+        today_row = cur.fetchone()
+    finally:
+        conn.close()
+
+    if today_row is not None:
+        if today_row[0]:  # is_completed = True
+            return JsonResponse({"error": "Ты уже победил босса сегодня! Возвращайся завтра. 🌙"},
+                                status=400, json_dumps_params={"ensure_ascii": False}, headers=headers)
+        # Incomplete session exists — return it
+        existing = async_to_sync(get_solo_boss_session)(uid, chat_id)
         return JsonResponse({"error": "У тебя уже есть активная битва с боссом сегодня!",
                              "session": existing},
                             status=400, json_dumps_params={"ensure_ascii": False}, headers=headers)
@@ -6323,6 +6341,54 @@ def miniapp_megaphone_review(request):
 
         status = "approved" if action == "approve" else "rejected"
         ok = _a2s(review_megaphone)(msg_id, status, uid)
+
+        # If approved — broadcast to all active chats
+        if action == "approve" and ok and _BOT_TOKEN:
+            try:
+                conn_mg, db_type_mg = _get_bot_db_connection()
+                cur_mg = conn_mg.cursor()
+                ph_mg = "%s" if db_type_mg == "pg" else "?"
+                cur_mg.execute(
+                    f"SELECT m.message, COALESCE(u.full_name, 'Аноним') AS uname "
+                    f"FROM megaphone_messages m LEFT JOIN users u ON u.user_id=m.user_id "
+                    f"WHERE m.id={ph_mg}",
+                    (msg_id,),
+                )
+                mg_row = cur_mg.fetchone()
+                conn_mg.close()
+
+                if mg_row:
+                    mg_text, mg_author = mg_row
+                    from database.db import get_all_active_chats
+                    chat_ids = _a2s(get_all_active_chats)()
+                    broadcast_text = (
+                        f"📢 <b>Глобальный рупор</b>\n\n"
+                        f"{html.escape(mg_text)}\n\n"
+                        f"<i>— {html.escape(mg_author)}</i>"
+                    )
+                    import threading, urllib.request as _urlreq
+                    def _do_broadcast(bot_token, chats, text):
+                        import time, urllib.parse, json as _json
+                        url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+                        for cid in chats:
+                            try:
+                                payload = _json.dumps({
+                                    "chat_id": cid,
+                                    "text": text,
+                                    "parse_mode": "HTML",
+                                }).encode()
+                                req = _urlreq.Request(url, data=payload,
+                                                      headers={"Content-Type": "application/json"})
+                                _urlreq.urlopen(req, timeout=5)
+                            except Exception:
+                                pass
+                            time.sleep(0.05)  # ~20 msgs/sec to stay under limit
+                    t = threading.Thread(target=_do_broadcast,
+                                         args=(_BOT_TOKEN, chat_ids, broadcast_text),
+                                         daemon=True)
+                    t.start()
+            except Exception:
+                logger.exception("megaphone_broadcast error")
 
         # If rejected — refund crystals (megaphone costs 500)
         if action == "reject" and ok:

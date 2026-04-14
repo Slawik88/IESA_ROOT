@@ -47,6 +47,8 @@ async def run_scheduler(bot) -> None:
             ("weekly_top_rewards", _task_weekly_top_rewards),
             ("dev_event_queue",    _task_dev_event_queue),
             ("auction_finalize",   _task_auction_finalize),
+            ("archive_inactive",   _task_archive_inactive),
+            ("archive_warnings",   _task_archive_warnings),
         ]
         for _name, _fn in _tasks:
             _t0 = asyncio.get_event_loop().time()
@@ -719,3 +721,152 @@ async def _task_auction_finalize(bot) -> None:
             log.info("Scheduler [auction_finalize]: finalized %d auctions", len(finalized))
     except Exception as exc:
         log.warning("_task_auction_finalize error: %s", exc)
+
+
+# ─── Этап 1: Архивация неактивных пользователей ───────────────────────────────
+
+async def _task_archive_inactive(bot) -> None:
+    """
+    Переводит в архив пользователей, которые:
+      • не состоят ни в одном чате с ботом (нет записей в user_chats)
+      • неактивны дольше ARCHIVE_AFTER_DAYS дней (last_active устарел или NULL)
+
+    Запускается каждый час, но фактически срабатывает не часто — только
+    когда находит новых кандидатов.
+    """
+    try:
+        from database.db import get_users_for_archiving, archive_user, ARCHIVE_AFTER_DAYS
+
+        candidates = await get_users_for_archiving()
+        if not candidates:
+            return
+
+        for user in candidates:
+            uid = user["user_id"]
+            try:
+                await archive_user(uid)
+                log.info(
+                    "archive_inactive: archived user %d (@%s, last_active=%s)",
+                    uid, user.get("username"), user.get("last_active"),
+                )
+            except Exception as exc:
+                log.warning("archive_inactive: failed to archive user %d: %s", uid, exc)
+
+        log.info(
+            "Scheduler [archive_inactive]: archived %d users (threshold=%dd)",
+            len(candidates), ARCHIVE_AFTER_DAYS,
+        )
+    except Exception as exc:
+        log.error("_task_archive_inactive error: %s", exc, exc_info=True)
+
+
+# ─── Этап 2: Предупреждения и хард-удаление из архива ─────────────────────────
+
+async def _task_archive_warnings(bot) -> None:
+    """
+    Для каждого архивированного пользователя:
+      1. Если осталось ≤ N дней до удаления и предупреждение ещё не отправлялось —
+         отправить уведомление в личку (N ∈ {20, 10, 5, 1}).
+      2. Если days_until_delete ≤ 0 — выполнить hard_delete_user().
+    """
+    try:
+        from database.db import (
+            get_archived_users_for_warnings,
+            set_archive_warn,
+            hard_delete_user,
+            unarchive_user,
+        )
+
+        entries = await get_archived_users_for_warnings()
+        if not entries:
+            return
+
+        deleted = 0
+        warned = 0
+
+        for entry in entries:
+            uid         = entry["user_id"]
+            uname       = entry.get("username") or ""
+            fname       = entry.get("full_name") or str(uid)
+            days_left   = entry["days_until_delete"]
+            should_del  = entry["should_delete"]
+            warn_days   = entry["warn_needed"]
+
+            # ── Хард-удаление ────────────────────────────────────────────────
+            if should_del:
+                try:
+                    await hard_delete_user(uid)
+                    deleted += 1
+                    log.info(
+                        "archive_warnings: hard-deleted user %d (@%s) — past deadline",
+                        uid, uname,
+                    )
+                    # Финальное уведомление в личку (best effort)
+                    try:
+                        await bot.send_message(
+                            uid,
+                            "⚰️ <b>Ваши данные удалены.</b>\n\n"
+                            "Вы не состояли ни в одном чате бота и не проявляли активность "
+                            "в течение длительного времени.\n\n"
+                            "Если вы вернётесь в один из чатов с ботом, "
+                            "ваш аккаунт будет создан заново.",
+                            parse_mode="HTML",
+                        )
+                    except Exception:
+                        pass  # пользователь мог заблокировать бота — это нормально
+                except Exception as exc:
+                    log.error("archive_warnings: hard_delete_user(%d) failed: %s", uid, exc)
+                continue  # не отправляем предупреждение уже удалённому
+
+            # ── Предупреждение ────────────────────────────────────────────────
+            if warn_days is not None:
+                _TEXTS = {
+                    20: (
+                        "⚠️ <b>Предупреждение об архивации</b>\n\n"
+                        "Вы не состоите ни в одном чате с нашим ботом уже давно.\n"
+                        f"Ваш аккаунт будет <b>удалён через ~{int(days_left)} дней</b>.\n\n"
+                        "Вступите в любой чат с ботом, чтобы отменить удаление."
+                    ),
+                    10: (
+                        "⚠️ <b>Ваши данные будут удалены через ~10 дней</b>\n\n"
+                        "Последний шанс сохранить аккаунт — вступите в чат с ботом."
+                    ),
+                    5: (
+                        "🚨 <b>Удаление через ~5 дней!</b>\n\n"
+                        "Вступите в чат с ботом, чтобы не потерять данные."
+                    ),
+                    1: (
+                        "🚨🚨 <b>УДАЛЕНИЕ ЗАВТРА!</b>\n\n"
+                        "Это последнее предупреждение. Аккаунт будет удалён менее чем через сутки.\n"
+                        "Вступите в любой чат с ботом прямо сейчас, чтобы отменить удаление."
+                    ),
+                }
+                text = _TEXTS.get(warn_days, f"⚠️ Ваши данные будут удалены через {int(days_left)} дней.")
+                try:
+                    await bot.send_message(uid, text, parse_mode="HTML")
+                    await set_archive_warn(uid, warn_days)
+                    warned += 1
+                    log.info(
+                        "archive_warnings: sent %dd-warn to user %d (@%s)",
+                        warn_days, uid, uname,
+                    )
+                except Exception as exc:
+                    # Пользователь заблокировал бота — отмечаем предупреждение отправленным,
+                    # чтобы не спамить при каждом тике
+                    log.debug(
+                        "archive_warnings: cannot DM user %d (%s) — marking warn_%d sent anyway",
+                        uid, exc, warn_days,
+                    )
+                    try:
+                        await set_archive_warn(uid, warn_days)
+                    except Exception:
+                        pass
+
+        if deleted or warned:
+            log.info(
+                "Scheduler [archive_warnings]: warned=%d, hard-deleted=%d",
+                warned, deleted,
+            )
+
+    except Exception as exc:
+        log.error("_task_archive_warnings error: %s", exc, exc_info=True)

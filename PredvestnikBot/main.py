@@ -26,6 +26,7 @@ from handlers import (admin, auto_mod, bank, boss, casino, checkin, dev_panel, d
                      shop, stars, tax_event, user, wallet, weather)
 from handlers import auction as auction_handler
 from handlers import join_flow
+from handlers import chat_tracker
 
 # basicConfig already called by setup_logging() above — no-op duplication guard removed
 
@@ -132,6 +133,7 @@ async def main():
     dp.include_router(stars.router)        # Telegram Stars (кристаллы)
     dp.include_router(stars.payment_router)  # Payment callbacks (no MainChatOnly filter)
     dp.include_router(join_flow.router)    # вступление по тегам (deep link перед dm_roles)
+    dp.include_router(chat_tracker.router)  # реактивный трекинг чатов (chat_member)
     dp.include_router(gifts.router)        # подарки партнёру
     dp.include_router(tax_event.router)    # налоговая инспекция
     dp.include_router(weather.router)      # погода
@@ -189,6 +191,7 @@ async def main():
                     url=_webhook_url + "/webhook",
                     secret_token=secret or None,
                     drop_pending_updates=True,
+                    allowed_updates=["message", "callback_query", "chat_member", "my_chat_member"],
                 )
                 logging.info("Webhook зарегистрирован: %s/webhook", _webhook_url)
             except Exception as _sw_exc:
@@ -221,7 +224,11 @@ async def main():
     asyncio.create_task(server.serve())
 
     try:
-        await dp.start_polling(bot, drop_pending_updates=True)
+        await dp.start_polling(
+            bot,
+            drop_pending_updates=True,
+            allowed_updates=["message", "callback_query", "chat_member", "my_chat_member"],
+        )
     except TelegramConflictError:
         logging.critical(
             "TelegramConflictError: другой экземпляр бота уже запущен! "

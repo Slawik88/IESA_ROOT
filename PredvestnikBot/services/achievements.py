@@ -408,8 +408,8 @@ async def _fetch_counters(db, user_id: int, chat_id: int) -> dict[str, int]:
     # bond_trades
     try:
         row = await db.fetchrow(
-            "SELECT COUNT(*) c FROM user_bond_lots WHERE user_id=$1 AND chat_id=$2",
-            user_id, chat_id,
+            "SELECT COUNT(*) c FROM user_bond_lots WHERE user_id=$1 AND chat_id=0",
+            user_id,
         )
         c["bond_trades"] = int(row["c"]) if row else 0
     except Exception as e:
