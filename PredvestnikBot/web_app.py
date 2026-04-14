@@ -405,6 +405,55 @@ async def badges_route(user_id: int = 0, chat_id: int = 0):
 #  Статика из /web  (Vite build: /assets/*.js, /assets/*.css)
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#  Telemetry — /api/telemetry  (no auth, aggregated counters only)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+@app.post("/api/telemetry")
+async def api_telemetry(request: Request):
+    try:
+        data = await request.json()
+        events = data.get("events", [])
+        if not isinstance(events, list) or len(events) > 200:
+            return JSONResponse({"ok": False, "error": "invalid"}, status_code=400)
+        from database.db import upsert_telemetry_batch
+        await upsert_telemetry_batch(events)
+        return JSONResponse({"ok": True})
+    except Exception as exc:
+        _log.warning("api_telemetry error: %s", exc)
+        return JSONResponse({"ok": False}, status_code=500)
+
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#  Dev Analytics — /api/dev/analytics  (dev only)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+@app.get("/api/dev/analytics")
+async def api_dev_analytics(request: Request, period: str = "week"):
+    init_data_header = request.headers.get("X-Telegram-Init-Data", "")
+    if not init_data_header:
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    try:
+        from utils.tg_auth import validate_init_data
+        user_info = validate_init_data(init_data_header)
+        if not user_info:
+            return JSONResponse({"error": "unauthorized"}, status_code=401)
+        from utils.ranks import is_developer
+        if not is_developer(user_info.get("id", 0)):
+            return JSONResponse({"error": "forbidden"}, status_code=403)
+    except Exception:
+        pass  # allow in dev/no-auth setups
+    if period not in ("day", "week", "month"):
+        period = "week"
+    from database.db import get_telemetry_analytics
+    result = await get_telemetry_analytics(period)
+    return JSONResponse(result)
+
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#  Статика из /web  (Vite build: /assets/*.js, /assets/*.css)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 if _WEB_DIR.exists():
     # Vite кладёт бандлы в /assets/ — монтируем если директория есть
     _assets_dir = _WEB_DIR / "assets"

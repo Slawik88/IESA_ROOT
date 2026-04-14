@@ -1940,6 +1940,84 @@ async def init_db():
 
     await enforce_rank_invariants()
 
+    # ─── БЛОК 1: Реактивный трекинг чатов ─────────────────────────────────────
+    # user_chats: связующая таблица — какой пользователь в каком чате с ботом
+    try:
+        async with postgres_connect() as _db:
+            await _db.execute("""
+                CREATE TABLE IF NOT EXISTS user_chats (
+                    user_id   BIGINT NOT NULL,
+                    chat_id   BIGINT NOT NULL,
+                    joined_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    PRIMARY KEY (user_id, chat_id)
+                )
+            """)
+            await _db.execute(
+                "CREATE INDEX IF NOT EXISTS idx_user_chats_user_id ON user_chats(user_id)"
+            )
+            await _db.execute(
+                "CREATE INDEX IF NOT EXISTS idx_user_chats_chat_id ON user_chats(chat_id)"
+            )
+            await _db.commit()
+    except Exception as _e:
+        _log.debug("%s", _e)
+
+    # ─── БЛОК 2: Колонки архива в таблице users ────────────────────────────────
+    for _col_def in [
+        "is_archived        INTEGER     DEFAULT 0",
+        "archived_at        TIMESTAMPTZ DEFAULT NULL",
+        "last_active        TIMESTAMPTZ DEFAULT NULL",
+        "archive_warn_20    TIMESTAMPTZ DEFAULT NULL",    # предупреждение за 20 дней
+        "archive_warn_10    TIMESTAMPTZ DEFAULT NULL",    # предупреждение за 10 дней
+        "archive_warn_5     TIMESTAMPTZ DEFAULT NULL",    # предупреждение за 5 дней
+        "archive_warn_1     TIMESTAMPTZ DEFAULT NULL",    # предупреждение за 1 день
+    ]:
+        try:
+            async with postgres_connect() as _db:
+                await _db.execute(
+                    f"ALTER TABLE users ADD COLUMN IF NOT EXISTS {_col_def}"
+                )
+                await _db.commit()
+        except Exception as _e:
+            _log.debug("%s", _e)
+
+    # Индекс для быстрого поиска архивированных пользователей
+    try:
+        async with postgres_connect() as _db:
+            await _db.execute(
+                "CREATE INDEX IF NOT EXISTS idx_users_is_archived ON users(is_archived) WHERE is_archived = 1"
+            )
+            await _db.execute(
+                "CREATE INDEX IF NOT EXISTS idx_users_last_active ON users(last_active)"
+            )
+            await _db.commit()
+    except Exception as _e:
+        _log.debug("%s", _e)
+
+    # ─── БЛОК 3: Телеметрия Mini App ──────────────────────────────────────────
+    try:
+        async with postgres_connect() as _db:
+            await _db.execute("""
+                CREATE TABLE IF NOT EXISTS telemetry_counters (
+                    id          BIGSERIAL PRIMARY KEY,
+                    event_type  VARCHAR(60)  NOT NULL,
+                    event_key   VARCHAR(120) NOT NULL,
+                    count       BIGINT       NOT NULL DEFAULT 0,
+                    seconds     BIGINT       NOT NULL DEFAULT 0,
+                    date_bucket DATE         NOT NULL DEFAULT CURRENT_DATE,
+                    UNIQUE(event_type, event_key, date_bucket)
+                )
+            """)
+            await _db.execute(
+                "CREATE INDEX IF NOT EXISTS idx_tele_date ON telemetry_counters(date_bucket)"
+            )
+            await _db.execute(
+                "CREATE INDEX IF NOT EXISTS idx_tele_type_key ON telemetry_counters(event_type, event_key)"
+            )
+            await _db.commit()
+    except Exception as _e:
+        _log.debug("%s", _e)
+
 
 async def init_promocodes_table():
     """Create promocodes tables — called from init_db."""
@@ -2340,13 +2418,20 @@ async def upsert_user(user_id: int, username: str, full_name: str):
     async with postgres_connect() as db:
         await db.execute(
             """
-            INSERT INTO users (user_id, username, full_name, first_seen)
-            VALUES (?, ?, ?, ?)
+            INSERT INTO users (user_id, username, full_name, first_seen, last_active)
+            VALUES (?, ?, ?, ?, ?)
             ON CONFLICT(user_id) DO UPDATE SET
-                username  = CASE WHEN excluded.username  != '' THEN excluded.username  ELSE users.username  END,
-                full_name = CASE WHEN excluded.full_name != '' THEN excluded.full_name ELSE users.full_name END
+                username    = CASE WHEN excluded.username  != '' THEN excluded.username  ELSE users.username  END,
+                full_name   = CASE WHEN excluded.full_name != '' THEN excluded.full_name ELSE users.full_name END,
+                last_active = excluded.last_active,
+                is_archived = 0,
+                archived_at = CASE WHEN users.is_archived = 1 THEN NULL ELSE users.archived_at END,
+                archive_warn_20 = CASE WHEN users.is_archived = 1 THEN NULL ELSE users.archive_warn_20 END,
+                archive_warn_10 = CASE WHEN users.is_archived = 1 THEN NULL ELSE users.archive_warn_10 END,
+                archive_warn_5  = CASE WHEN users.is_archived = 1 THEN NULL ELSE users.archive_warn_5  END,
+                archive_warn_1  = CASE WHEN users.is_archived = 1 THEN NULL ELSE users.archive_warn_1  END
             """,
-            (user_id, username, full_name, now),
+            (user_id, username, full_name, now, now),
         )
         await db.commit()
 
@@ -9096,3 +9181,464 @@ async def clear_app_error_logs():
     async with postgres_connect() as db:
         await db.execute("DELETE FROM app_error_logs")
         await db.commit()
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  БЛОК 1: Реактивный трекинг чатов (user_chats)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+async def upsert_user_chat(user_id: int, chat_id: int) -> None:
+    """Зафиксировать вступление пользователя в чат. Если запись уже есть — игнорировать."""
+    async with postgres_connect() as db:
+        await db.execute(
+            "INSERT INTO user_chats (user_id, chat_id, joined_at) VALUES (?, ?, NOW()) "
+            "ON CONFLICT (user_id, chat_id) DO NOTHING",
+            (user_id, chat_id),
+        )
+        await db.commit()
+
+
+async def remove_user_chat(user_id: int, chat_id: int) -> None:
+    """Удалить запись о нахождении пользователя в чате (выход / кик)."""
+    async with postgres_connect() as db:
+        await db.execute(
+            "DELETE FROM user_chats WHERE user_id = ? AND chat_id = ?",
+            (user_id, chat_id),
+        )
+        await db.commit()
+
+
+async def get_user_chat_count(user_id: int) -> int:
+    """Вернуть количество чатов, в которых состоит пользователь."""
+    async with postgres_connect() as db:
+        async with db.execute(
+            "SELECT COUNT(*) FROM user_chats WHERE user_id = ?",
+            (user_id,),
+        ) as cur:
+            row = await cur.fetchone()
+    return int((row or [0])[0])
+
+
+async def get_user_chats_list(user_id: int) -> list[dict]:
+    """Вернуть список чатов пользователя (user_id, chat_id, joined_at)."""
+    async with postgres_connect() as db:
+        async with db.execute(
+            "SELECT user_id, chat_id, joined_at FROM user_chats WHERE user_id = ? ORDER BY joined_at",
+            (user_id,),
+        ) as cur:
+            rows = await cur.fetchall()
+    return [dict(r) for r in rows]
+
+
+async def update_user_global_last_active(user_id: int) -> None:
+    """Обновить глобальный last_active в таблице users."""
+    now = datetime.now(timezone.utc)
+    async with postgres_connect() as db:
+        await db.execute(
+            "UPDATE users SET last_active = ? WHERE user_id = ?",
+            (now, user_id),
+        )
+        await db.commit()
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  БЛОК 2: Двухэтапная очистка — Архив и Хард-Делит
+# ══════════════════════════════════════════════════════════════════════════════
+
+# Пороговые значения (дней)
+ARCHIVE_AFTER_DAYS   = 30   # ни в одном чате + N дней неактива → архив
+DELETE_AFTER_DAYS    = 30   # в архиве + M дней без активности → удаление
+ARCHIVE_WARN_DAYS    = (20, 10, 5, 1)  # за сколько дней до удаления слать предупреждения
+
+
+async def get_users_for_archiving() -> list[dict]:
+    """
+    Вернуть пользователей, которые подлежат архивации:
+      - не состоят ни в одном чате с ботом (нет строк в user_chats)
+      - не архивированы (is_archived = 0)
+      - last_active устарел более чем на ARCHIVE_AFTER_DAYS дней
+        (или last_active IS NULL — аккаунт был создан, но ни разу не активен)
+    """
+    cutoff = datetime.now(timezone.utc) - timedelta(days=ARCHIVE_AFTER_DAYS)
+    async with postgres_connect() as db:
+        async with db.execute(
+            """
+            SELECT u.user_id, u.username, u.full_name, u.last_active
+            FROM users u
+            WHERE u.is_archived = 0
+              AND NOT EXISTS (SELECT 1 FROM user_chats uc WHERE uc.user_id = u.user_id)
+              AND (u.last_active IS NULL OR u.last_active < ?)
+            """,
+            (cutoff,),
+        ) as cur:
+            rows = await cur.fetchall()
+    return [dict(r) for r in rows]
+
+
+async def archive_user(user_id: int) -> None:
+    """Переводит пользователя в архив: скрывает из лидербордов, сохраняет данные."""
+    now = datetime.now(timezone.utc)
+    async with postgres_connect() as db:
+        await db.execute(
+            """UPDATE users SET is_archived = 1, archived_at = ?
+               WHERE user_id = ?""",
+            (now, user_id),
+        )
+        await db.commit()
+
+
+async def unarchive_user(user_id: int) -> None:
+    """Восстановить пользователя из архива, сбросить все флаги предупреждений."""
+    async with postgres_connect() as db:
+        await db.execute(
+            """UPDATE users SET
+                   is_archived   = 0,
+                   archived_at   = NULL,
+                   archive_warn_20 = NULL,
+                   archive_warn_10 = NULL,
+                   archive_warn_5  = NULL,
+                   archive_warn_1  = NULL
+               WHERE user_id = ?""",
+            (user_id,),
+        )
+        await db.commit()
+
+
+async def get_archived_users() -> list[dict]:
+    """Вернуть всех архивированных пользователей с полной информацией."""
+    async with postgres_connect() as db:
+        async with db.execute(
+            """
+            SELECT u.user_id, u.username, u.full_name, u.last_active, u.archived_at,
+                   u.archive_warn_20, u.archive_warn_10, u.archive_warn_5, u.archive_warn_1,
+                   COALESCE(um.balance, u.balance, 0) AS mora_balance
+            FROM users u
+            LEFT JOIN (
+                SELECT user_id, SUM(balance) AS balance
+                FROM user_mora GROUP BY user_id
+            ) um ON um.user_id = u.user_id
+            WHERE u.is_archived = 1
+            ORDER BY u.archived_at DESC NULLS LAST
+            """,
+        ) as cur:
+            rows = await cur.fetchall()
+    return [dict(r) for r in rows]
+
+
+async def get_archived_user_details(user_id: int) -> dict:
+    """Полная информация об архивированном пользователе для Dev Panel."""
+    async with postgres_connect() as db:
+        async with db.execute(
+            """
+            SELECT u.user_id, u.username, u.full_name, u.last_active, u.archived_at,
+                   u.archive_warn_20, u.archive_warn_10, u.archive_warn_5, u.archive_warn_1,
+                   COALESCE(um.balance, u.balance, 0) AS mora_balance,
+                   COALESCE(uc_cnt.cnt, 0) AS chat_count
+            FROM users u
+            LEFT JOIN (
+                SELECT user_id, SUM(balance) AS balance
+                FROM user_mora GROUP BY user_id
+            ) um ON um.user_id = u.user_id
+            LEFT JOIN (
+                SELECT user_id, COUNT(*) AS cnt
+                FROM user_chats GROUP BY user_id
+            ) uc_cnt ON uc_cnt.user_id = u.user_id
+            WHERE u.user_id = ?
+            """,
+            (user_id,),
+        ) as cur:
+            row = await cur.fetchone()
+    return dict(row) if row else {}
+
+
+async def get_archived_users_for_warnings() -> list[dict]:
+    """
+    Вернуть архивированных пользователей, которым нужно отправить предупреждение
+    об удалении или которых пора удалить.
+    Возвращает записи с полем `days_until_delete` и `warn_needed`.
+    """
+    now = datetime.now(timezone.utc)
+    async with postgres_connect() as db:
+        async with db.execute(
+            """
+            SELECT user_id, username, full_name, archived_at,
+                   archive_warn_20, archive_warn_10, archive_warn_5, archive_warn_1
+            FROM users
+            WHERE is_archived = 1 AND archived_at IS NOT NULL
+            """,
+        ) as cur:
+            rows = await cur.fetchall()
+
+    result = []
+    delete_threshold = timedelta(days=DELETE_AFTER_DAYS)
+    for row in rows:
+        r = dict(row)
+        archived_at = r["archived_at"]
+        if not archived_at:
+            continue
+        if archived_at.tzinfo is None:
+            archived_at = archived_at.replace(tzinfo=timezone.utc)
+
+        delete_at = archived_at + delete_threshold
+        days_left = (delete_at - now).total_seconds() / 86400
+
+        # Определяем какое предупреждение нужно отправить
+        warn_needed = None
+        for warn_days in ARCHIVE_WARN_DAYS:
+            if days_left <= warn_days:
+                col = f"archive_warn_{warn_days}"
+                if r.get(col) is None:
+                    warn_needed = warn_days
+                    break  # отправляем только самое близкое непосланное
+
+        r["days_until_delete"] = max(0.0, days_left)
+        r["delete_at"] = delete_at
+        r["warn_needed"] = warn_needed
+        r["should_delete"] = days_left <= 0
+        result.append(r)
+
+    return result
+
+
+async def set_archive_warn(user_id: int, warn_days: int) -> None:
+    """Пометить предупреждение `warn_days` дней как отправленное."""
+    col = f"archive_warn_{warn_days}"
+    now = datetime.now(timezone.utc)
+    async with postgres_connect() as db:
+        await db.execute(
+            f"UPDATE users SET {col} = ? WHERE user_id = ?",
+            (now, user_id),
+        )
+        await db.commit()
+
+
+async def hard_delete_user(user_id: int) -> None:
+    """
+    Полностью удалить пользователя из всех таблиц.
+    Таблицы с ON DELETE CASCADE сработают автоматически через FK.
+    Для остальных — явное удаление.
+    """
+    tables_to_clean = [
+        ("user_mora",                  "user_id"),
+        ("user_stats",                 "user_id"),
+        ("user_chats",                 "user_id"),
+        ("gacha_inventory",            "user_id"),
+        ("bank_deposits",              "user_id"),
+        ("pet_expeditions",            "user_id"),
+        ("pets",                       "user_id"),
+        ("pets_global",                "user_id"),
+        ("daily_checkin",              "user_id"),
+        ("user_quests",                "user_id"),
+        ("user_achievements",          "user_id"),
+        ("active_buffs",               "user_id"),
+        ("user_bonds",                 "user_id"),
+        ("user_bond_lots",             "user_id"),
+        ("user_themes",                "user_id"),
+        ("user_badges",                "user_id"),
+        ("user_greetings",             "user_id"),
+        ("user_rpg_stats",             "user_id"),
+        ("user_boosts",                "user_id"),
+        ("user_crystals",              "user_id"),
+        ("user_talents",               "user_id"),
+        ("item_shard_stash",           "user_id"),
+        ("season_progress",            "user_id"),
+        ("marriages_global",           "user_id"),
+        ("marriages",                  "user_id"),
+        ("marriages",                  "partner_id"),
+        ("marriages_global",           "partner_id"),
+        ("rep_log",                    "from_uid"),
+        ("rep_log",                    "to_uid"),
+        ("cleanup_counts",             "user_id"),
+        ("boss_damage_log",            "user_id"),
+        ("solo_boss_sessions",         "user_id"),
+        ("solo_boss_progress",         "user_id"),
+        ("couple_boss_sessions",       "user_a_id"),
+        ("couple_boss_sessions",       "user_b_id"),
+        ("couple_boss_progress",       "user_a_id"),
+        ("couple_boss_progress",       "user_b_id"),
+        ("weekly_top_reward_log",      "user_id"),
+        ("family_wallet",              "user_id"),
+        ("family_wallet_log",          "user_id"),
+        ("wallet_ledger",              "user_id"),
+        ("rest_users",                 "user_id"),
+        ("newbie_quests",              "user_id"),
+        ("birthdays",                  "user_id"),
+        ("chat_tags",                  "user_id"),
+        ("user_banlist",               "user_id"),
+        ("pending_roles",              "user_id"),
+        ("crystal_chat_roles",         "user_id"),
+        ("crystal_transfer_passes",    "user_id"),
+        ("crystal_guarantee_scrolls",  "user_id"),
+        ("crystal_enhancement_stones", "user_id"),
+        ("crystal_avatar_unlocks",     "user_id"),
+    ]
+    async with postgres_connect() as db:
+        for table, col in tables_to_clean:
+            try:
+                await db.execute(f"DELETE FROM {table} WHERE {col} = ?", (user_id,))
+            except Exception:
+                pass  # таблица может не существовать в старых схемах
+        # Финальное удаление из users
+        await db.execute("DELETE FROM users WHERE user_id = ?", (user_id,))
+        await db.commit()
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  БЛОК 3: Телеметрия Mini App
+# ═══════════════════════════════════════════════════════════════════════════════
+
+async def upsert_telemetry_batch(events: list[dict]) -> None:
+    """
+    Атомарно инкрементирует счётчики телеметрии для пачки событий.
+    Каждый event: { event_type: str, event_key: str, count: int, seconds: int }
+    Используем INSERT ... ON CONFLICT DO UPDATE — один round-trip на запись.
+    """
+    if not events:
+        return
+    try:
+        async with postgres_connect() as db:
+            for ev in events:
+                etype   = str(ev.get("event_type", ""))[:60]
+                ekey    = str(ev.get("event_key", ""))[:120]
+                cnt     = int(ev.get("count", 1))
+                secs    = int(ev.get("seconds", 0))
+                if not etype or not ekey:
+                    continue
+                await db.execute(
+                    """
+                    INSERT INTO telemetry_counters (event_type, event_key, count, seconds, date_bucket)
+                    VALUES (?, ?, ?, ?, CURRENT_DATE)
+                    ON CONFLICT (event_type, event_key, date_bucket)
+                    DO UPDATE SET
+                        count   = telemetry_counters.count   + EXCLUDED.count,
+                        seconds = telemetry_counters.seconds + EXCLUDED.seconds
+                    """,
+                    (etype, ekey, cnt, secs),
+                )
+            await db.commit()
+    except Exception as _e:
+        _log.warning("upsert_telemetry_batch: %s", _e)
+
+
+async def get_telemetry_analytics(period: str = "week") -> dict:
+    """
+    Возвращает агрегированную аналитику за период: 'day', 'week', 'month'.
+    Структура ответа:
+      {
+        period, date_from, date_to,
+        top_tabs:        [{key, label, seconds, sessions}],
+        top_clicks:      [{key, count}],
+        total_sessions:  int,
+        avg_session_sec: float,
+        daily_sessions:  [{date, count}],
+      }
+    """
+    _period_days = {"day": 1, "week": 7, "month": 30}
+    days = _period_days.get(period, 7)
+    date_from = (datetime.now(timezone.utc).date() - timedelta(days=days - 1))
+
+    _TAB_LABELS = {
+        "profile": "👤 Профиль", "gacha": "🎰 Гача", "inventory": "🎒 Инвентарь",
+        "bank": "🏦 Банк", "shop": "🛍 Магазин", "exchange": "📊 Биржа",
+        "casino": "🎲 Казино", "stars": "💎 Stars", "promo": "🎟 Промо",
+        "boss": "⚔️ Босс", "quests": "📋 Задания",
+        "leaderboard": "🏆 Топ", "season": "🌟 Сезон", "achievements": "🏅 Ачивки",
+        "admin": "🛠 Адм.",
+    }
+
+    try:
+        async with postgres_connect() as db:
+            # Топ вкладок по времени (тип: tab_time)
+            async with db.execute(
+                """
+                SELECT event_key, SUM(seconds) AS total_sec, SUM(count) AS sessions
+                FROM telemetry_counters
+                WHERE event_type = 'tab_time' AND date_bucket >= ?
+                GROUP BY event_key
+                ORDER BY total_sec DESC
+                LIMIT 10
+                """,
+                (date_from,),
+            ) as cur:
+                tab_rows = await cur.fetchall()
+
+            # Топ кликов
+            async with db.execute(
+                """
+                SELECT event_key, SUM(count) AS total_count
+                FROM telemetry_counters
+                WHERE event_type = 'click' AND date_bucket >= ?
+                GROUP BY event_key
+                ORDER BY total_count DESC
+                LIMIT 15
+                """,
+                (date_from,),
+            ) as cur:
+                click_rows = await cur.fetchall()
+
+            # Общее количество сессий + avg длительность
+            async with db.execute(
+                """
+                SELECT COALESCE(SUM(count), 0) AS total_sessions,
+                       COALESCE(SUM(seconds), 0) AS total_seconds
+                FROM telemetry_counters
+                WHERE event_type = 'session' AND date_bucket >= ?
+                """,
+                (date_from,),
+            ) as cur:
+                sess_row = await cur.fetchone()
+
+            # Ежедневная динамика сессий
+            async with db.execute(
+                """
+                SELECT date_bucket, SUM(count) AS sessions
+                FROM telemetry_counters
+                WHERE event_type = 'session' AND date_bucket >= ?
+                GROUP BY date_bucket
+                ORDER BY date_bucket
+                """,
+                (date_from,),
+            ) as cur:
+                daily_rows = await cur.fetchall()
+
+        total_sessions = int((sess_row or [0, 0])[0])
+        total_seconds  = int((sess_row or [0, 0])[1])
+        avg_session    = round(total_seconds / total_sessions, 1) if total_sessions > 0 else 0.0
+
+        top_tabs = [
+            {
+                "key": r["event_key"],
+                "label": _TAB_LABELS.get(r["event_key"], r["event_key"]),
+                "seconds": int(r["total_sec"]),
+                "sessions": int(r["sessions"]),
+            }
+            for r in tab_rows
+        ]
+        top_clicks = [
+            {"key": r["event_key"], "count": int(r["total_count"])}
+            for r in click_rows
+        ]
+        daily_sessions = [
+            {"date": str(r["date_bucket"]), "count": int(r["sessions"])}
+            for r in daily_rows
+        ]
+
+        return {
+            "period": period,
+            "date_from": str(date_from),
+            "date_to": str(datetime.now(timezone.utc).date()),
+            "top_tabs": top_tabs,
+            "top_clicks": top_clicks,
+            "total_sessions": total_sessions,
+            "avg_session_sec": avg_session,
+            "daily_sessions": daily_sessions,
+        }
+
+    except Exception as _e:
+        _log.warning("get_telemetry_analytics: %s", _e)
+        return {
+            "period": period, "date_from": str(date_from),
+            "date_to": "", "top_tabs": [], "top_clicks": [],
+            "total_sessions": 0, "avg_session_sec": 0.0, "daily_sessions": [],
+        }
+

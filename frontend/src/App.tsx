@@ -38,6 +38,7 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
   }
 }
 import { useTelegram } from "./hooks/useTelegram";
+import { useTelemetry } from "./hooks/useTelemetry";
 import { AppProvider, useAppContext } from "./AppContext";
 import Profile from "./pages/Profile";
 import Gacha from "./pages/Gacha";
@@ -100,6 +101,7 @@ export default function App() {
 function AppContent({ userId, chatId }: { userId: number; chatId: number }) {
   const { isDev } = useAppContext();
   const [tab, setTab] = useState<Tab>("profile");
+  useTelemetry(tab);
 
   const TABS = isDev
     ? [...BASE_TABS, { key: "admin" as Tab, label: "Адм.", Icon: ShieldAlert }]

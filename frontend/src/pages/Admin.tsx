@@ -21,6 +21,7 @@ import {
   fetchErrorLogs, clearErrorLogs,
   type MegaphoneMessage,
 } from "../lib/api";
+import Analytics from "./Analytics";
 import type { DevUserEntry, DevChat, TreasuryResponse, ChatMember } from "../types";
 import type { PromoRecord } from "../lib/api";
 import type { ErrorLogEntry } from "../types";
@@ -31,7 +32,7 @@ interface Props {
   isDev?: boolean;
 }
 
-type AdminTab = "users" | "give" | "features" | "treasury" | "promos" | "megaphone" | "error_logs";
+type AdminTab = "users" | "give" | "features" | "treasury" | "promos" | "megaphone" | "error_logs" | "analytics";
 
 /* ── Жёсткая иерархия рангов (синхронизировано с utils/ranks.py) ── */
 const RANK_HIERARCHY = [
@@ -138,6 +139,7 @@ export default function Admin({ chatId: defaultChatId, userId, isDev }: Props) {
     { key: "features",   label: "⚙️ Функции"    },
     { key: "treasury",   label: "🏦 Казна"      },
     { key: "error_logs", label: "📋 Ошибки"     },
+    { key: "analytics",  label: "📊 Аналитика"  },
   ];
 
   return (
@@ -227,6 +229,7 @@ export default function Admin({ chatId: defaultChatId, userId, isDev }: Props) {
       {tab === "features" && <FeaturesSection chatId={activeChatId} />}
       {tab === "treasury" && <TreasurySection chatId={activeChatId} />}
       {tab === "error_logs" && <ErrorLogsSection />}
+      {tab === "analytics"  && <Analytics userId={userId} />}
     </div>
   );
 }

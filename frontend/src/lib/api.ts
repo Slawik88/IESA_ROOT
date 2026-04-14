@@ -871,3 +871,37 @@ export function fetchErrorLogs(): Promise<{ logs: import("../types").ErrorLogEnt
 export function clearErrorLogs(): Promise<{ ok: boolean }> {
   return request<{ ok: boolean }>("/api/dev/error_logs", { method: "DELETE" });
 }
+
+// ── Telemetry ─────────────────────────────────────────────────────────────────
+
+export interface TelemetryEvent {
+  event_type: "tab_time" | "click" | "session";
+  event_key: string;
+  count: number;
+  seconds: number;
+}
+
+export interface AnalyticsResponse {
+  period: string;
+  date_from: string;
+  date_to: string;
+  top_tabs: { key: string; label: string; seconds: number; sessions: number }[];
+  top_clicks: { key: string; count: number }[];
+  total_sessions: number;
+  avg_session_sec: number;
+  daily_sessions: { date: string; count: number }[];
+}
+
+/** Отправить батч событий телеметрии */
+export function submitTelemetry(events: TelemetryEvent[]): Promise<{ ok: boolean }> {
+  return request<{ ok: boolean }>("/api/telemetry", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ events }),
+  });
+}
+
+/** [DEV] Получить аналитику за период (day / week / month) */
+export function fetchAnalytics(period: string = "week"): Promise<AnalyticsResponse> {
+  return request<AnalyticsResponse>(`/api/dev/analytics?period=${period}`);
+}
