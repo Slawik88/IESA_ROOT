@@ -11,10 +11,11 @@ import {
   cancelAuction,
   createAuction,
   fetchInventory,
+  fetchShopCatalog,
   type AuctionLot,
   type AuctionListResponse,
 } from "../lib/api";
-import type { InventoryItem } from "../types";
+import type { InventoryItem, ShopCatalog } from "../types";
 
 interface Props {
   userId: number;
@@ -337,6 +338,15 @@ function MyLots({
 
 // ── Компонент: форма нового лота ──────────────────────────────
 
+type LotSource = "gacha" | "cosmetic";
+
+interface CosmeticOption {
+  key: string;  // e.g. "frame:warrior" or "cosmetic:name_glow"
+  name: string;
+  emoji: string;
+  type: "frame" | "cosmetic";
+}
+
 function NewLotForm({
   chatId,
   onCreated,
@@ -346,75 +356,155 @@ function NewLotForm({
   onCreated: () => void;
   onError: (msg: string) => void;
 }) {
+  const [source, setSource] = useState<LotSource>("gacha");
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
-  const [invLoading, setInvLoading] = useState(true);
+  const [cosmetics, setCosmetics] = useState<CosmeticOption[]>([]);
+  const [invLoading, setInvLoading] = useState(false);
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
+  const [selectedCosmetic, setSelectedCosmetic] = useState<CosmeticOption | null>(null);
   const [startPrice, setStartPrice] = useState("");
   const [buyoutPrice, setBuyoutPrice] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    fetchInventory(chatId)
-      .then((r) => {
-        setInventory(r.items.filter((i) => i.rarity !== "junk"));
-      })
-      .catch(() => setInventory([]))
-      .finally(() => setInvLoading(false));
-  }, [chatId]);
+    if (source === "gacha") {
+      setInvLoading(true);
+      fetchInventory(chatId)
+        .then((r) => setInventory(r.items.filter((i) => i.rarity !== "junk")))
+        .catch(() => setInventory([]))
+        .finally(() => setInvLoading(false));
+    } else {
+      setInvLoading(true);
+      fetchShopCatalog(chatId)
+        .then((catalog: ShopCatalog) => {
+          const opts: CosmeticOption[] = [
+            ...catalog.frames.filter(f => f.owned).map(f => ({
+              key: `frame:${f.key}`, name: f.name, emoji: f.emoji, type: "frame" as const,
+            })),
+            ...catalog.cosmetics.filter(c => c.owned).map(c => ({
+              key: `cosmetic:${c.key}`, name: c.name, emoji: c.emoji, type: "cosmetic" as const,
+            })),
+          ];
+          setCosmetics(opts);
+        })
+        .catch(() => setCosmetics([]))
+        .finally(() => setInvLoading(false));
+    }
+    setSelectedItem(null);
+    setSelectedCosmetic(null);
+  }, [source, chatId]);
 
   const handleSubmit = () => {
-    if (!selectedItem) { onError("Выберите предмет"); return; }
     const sp = parseInt(startPrice);
     if (isNaN(sp) || sp <= 0) { onError("Стартовая цена должна быть > 0"); return; }
     const bp = buyoutPrice ? parseInt(buyoutPrice) : undefined;
     if (bp !== undefined && bp <= sp) { onError("Цена выкупа должна быть > стартовой"); return; }
 
-    setSubmitting(true);
-    createAuction(chatId, {
-      item_id: selectedItem.id,
-      item_source: "gacha",
-      start_price: sp,
-      buyout_price: bp,
-    })
-      .then(() => onCreated())
-      .catch((e: Error) => onError(extractError(e.message)))
-      .finally(() => setSubmitting(false));
+    if (source === "gacha") {
+      if (!selectedItem) { onError("Выберите предмет"); return; }
+      setSubmitting(true);
+      createAuction(chatId, {
+        item_id: selectedItem.id,
+        item_source: "gacha",
+        start_price: sp,
+        buyout_price: bp,
+      })
+        .then(() => onCreated())
+        .catch((e: Error) => onError(extractError(e.message)))
+        .finally(() => setSubmitting(false));
+    } else {
+      if (!selectedCosmetic) { onError("Выберите косметику"); return; }
+      setSubmitting(true);
+      createAuction(chatId, {
+        item_key: selectedCosmetic.key,
+        item_name: selectedCosmetic.name,
+        item_source: "shop",
+        start_price: sp,
+        buyout_price: bp,
+      })
+        .then(() => onCreated())
+        .catch((e: Error) => onError(extractError(e.message)))
+        .finally(() => setSubmitting(false));
+    }
   };
+
+  const isItemSelected = source === "gacha" ? !!selectedItem : !!selectedCosmetic;
 
   return (
     <div className="space-y-4">
+      {/* Source selector */}
+      <div className="flex gap-2">
+        {(["gacha", "cosmetic"] as LotSource[]).map((s) => (
+          <button
+            key={s}
+            onClick={() => setSource(s)}
+            className="flex-1 py-2 rounded-xl text-sm font-semibold transition-colors"
+            style={{
+              backgroundColor: source === s ? "var(--accent)" : "var(--bg-secondary)",
+              color: source === s ? "#fff" : "var(--text-hint)",
+            }}
+          >
+            {s === "gacha" ? "🎴 Инвентарь" : "✨ Косметика"}
+          </button>
+        ))}
+      </div>
+
       <p className="text-sm font-medium" style={{ color: "var(--text-hint)" }}>
-        Выставьте предмет из инвентаря на аукцион
+        {source === "gacha" ? "Выберите предмет из инвентаря" : "Выберите купленную косметику"}
       </p>
 
       {invLoading ? (
         <div className="space-y-2 animate-pulse">
           {[1, 2, 3].map((i) => <div key={i} className="skeleton h-14 rounded-xl" />)}
         </div>
-      ) : inventory.length === 0 ? (
-        <p className="text-sm text-center py-6" style={{ color: "var(--text-hint)" }}>
-          Нет предметов для выставления
-        </p>
+      ) : source === "gacha" ? (
+        inventory.length === 0 ? (
+          <p className="text-sm text-center py-6" style={{ color: "var(--text-hint)" }}>Нет предметов для выставления</p>
+        ) : (
+          <div className="space-y-2 max-h-[40vh] overflow-y-auto">
+            {inventory.map((item) => (
+              <button
+                key={item.id}
+                onClick={() => setSelectedItem(item)}
+                className="w-full rounded-xl p-3 flex items-center justify-between text-left"
+                style={{
+                  backgroundColor: selectedItem?.id === item.id ? "var(--accent-soft)" : "var(--bg-secondary)",
+                  border: `1.5px solid ${selectedItem?.id === item.id ? "var(--accent)" : "var(--border)"}`,
+                }}
+              >
+                <span className="text-sm font-medium">{item.name}</span>
+                <span className="text-xs px-2 py-0.5 rounded-full font-medium capitalize"
+                  style={{ backgroundColor: "#3b82f622", color: "#3b82f6" }}>
+                  {item.rarity}
+                </span>
+              </button>
+            ))}
+          </div>
+        )
       ) : (
-        <div className="space-y-2 max-h-[40vh] overflow-y-auto">
-          {inventory.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => setSelectedItem(item)}
-              className="w-full rounded-xl p-3 flex items-center justify-between text-left"
-              style={{
-                backgroundColor: selectedItem?.id === item.id ? "var(--accent-soft)" : "var(--bg-secondary)",
-                border: `1.5px solid ${selectedItem?.id === item.id ? "var(--accent)" : "var(--border)"}`,
-              }}
-            >
-              <span className="text-sm font-medium">{item.name}</span>
-              <span className="text-xs px-2 py-0.5 rounded-full font-medium capitalize"
-                style={{ backgroundColor: "#3b82f622", color: "#3b82f6" }}>
-                {item.rarity}
-              </span>
-            </button>
-          ))}
-        </div>
+        cosmetics.length === 0 ? (
+          <p className="text-sm text-center py-6" style={{ color: "var(--text-hint)" }}>Нет купленной косметики для выставления</p>
+        ) : (
+          <div className="space-y-2 max-h-[40vh] overflow-y-auto">
+            {cosmetics.map((item) => (
+              <button
+                key={item.key}
+                onClick={() => setSelectedCosmetic(item)}
+                className="w-full rounded-xl p-3 flex items-center justify-between text-left"
+                style={{
+                  backgroundColor: selectedCosmetic?.key === item.key ? "var(--accent-soft)" : "var(--bg-secondary)",
+                  border: `1.5px solid ${selectedCosmetic?.key === item.key ? "var(--accent)" : "var(--border)"}`,
+                }}
+              >
+                <span className="text-sm font-medium">{item.emoji} {item.name}</span>
+                <span className="text-xs px-2 py-0.5 rounded-full font-medium"
+                  style={{ backgroundColor: "#a855f722", color: "#a855f7" }}>
+                  {item.type === "frame" ? "Рамка" : "Косметика"}
+                </span>
+              </button>
+            ))}
+          </div>
+        )
       )}
 
       <div className="space-y-2">
@@ -457,11 +547,11 @@ function NewLotForm({
 
       <button
         onClick={handleSubmit}
-        disabled={submitting || !selectedItem}
+        disabled={submitting || !isItemSelected}
         className="w-full py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2"
         style={{
-          backgroundColor: selectedItem ? "var(--accent)" : "var(--bg-secondary)",
-          color: selectedItem ? "#fff" : "var(--text-hint)",
+          backgroundColor: isItemSelected ? "var(--accent)" : "var(--bg-secondary)",
+          color: isItemSelected ? "#fff" : "var(--text-hint)",
         }}
       >
         <Plus size={16} />
