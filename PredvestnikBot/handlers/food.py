@@ -32,22 +32,17 @@ router = Router()
 router.message.filter(MainChatOnly())
 
 
+from shared_prices import FOOD_ITEMS as _FOOD_ITEMS_BASE
+
 # ─── Каталог еды ──────────────────────────────────────────────────────────────
+# Описания для отображения в боте (SYNC-001: цены из shared_prices)
+_FOOD_DESCS = {
+    "краб":  "Изысканное морское блюдо. Сильно восстанавливает силы.",
+    "лапша": "Простая, но сытная еда. Умеренно снижает усталость.",
+}
 FOOD_CATALOG: dict[str, dict] = {
-    "краб": {
-        "name":    "Золотой краб",
-        "emoji":   "🦀",
-        "price":   50,
-        "fatigue": 40,
-        "desc":    "Изысканное морское блюдо. Сильно восстанавливает силы.",
-    },
-    "лапша": {
-        "name":    "Лапша путника",
-        "emoji":   "🍜",
-        "price":   25,
-        "fatigue": 20,
-        "desc":    "Простая, но сытная еда. Умеренно снижает усталость.",
-    },
+    key: {**val, "desc": _FOOD_DESCS.get(key, "")}
+    for key, val in _FOOD_ITEMS_BASE.items()
 }
 
 
@@ -132,6 +127,11 @@ async def cmd_food_shop(message: Message):
 
 @router.callback_query(lambda c: c.data and c.data.startswith("buy_food:"))
 async def cb_buy_food(callback: CallbackQuery):
+    await callback.answer("Устарело. Используй Mini App 👆", show_alert=True)
+
+
+async def _cb_buy_food_legacy_unused(callback: CallbackQuery):
+    """Сохранено для архива — логика устаревших кнопок Phase 2."""
     key = callback.data.split(":")[1]
     item = FOOD_CATALOG.get(key)
     if not item:

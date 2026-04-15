@@ -6029,6 +6029,46 @@ def miniapp_achievements(request):
         logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
 
 
+# ─── Достижения: бейджи ───────────────────────────────────────────────────────
+
+@csrf_exempt
+def miniapp_achievements_badges(request):
+    """GET /api/achievements/badges?chat_id=X — список ключей бейджей пользователя."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "GET":
+        return JsonResponse({"error": "GET required"}, status=405, headers=headers)
+
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+
+    chat_id_str = request.GET.get("chat_id", "")
+    if not chat_id_str.lstrip("-").isdigit():
+        return JsonResponse({"error": "chat_id required"}, status=400, headers=headers)
+    chat_id = int(chat_id_str)
+
+    try:
+        from asgiref.sync import async_to_sync as _a2s
+        earned = _a2s(_get_earned_badges)(uid, chat_id)
+        return JsonResponse(
+            {"badges": list(earned.keys())},
+            json_dumps_params={"ensure_ascii": False},
+            headers=headers,
+        )
+    except Exception as exc:
+        logger.exception("miniapp view error")
+        return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
+
+
+async def _get_earned_badges(user_id: int, chat_id: int) -> dict:
+    from services.achievements import _fetch_earned
+    from database.postgres import connect as postgres_connect
+    async with postgres_connect() as db:
+        return await _fetch_earned(db, user_id, chat_id)
+
+
 # ─── Crystal catalog (GET /api/crystals/catalog) ──────────────────────────────
 @csrf_exempt
 def miniapp_crystals_catalog(request):

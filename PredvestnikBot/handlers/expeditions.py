@@ -214,7 +214,7 @@ async def _show_expedition_menu(message: Message, uid: int, wallet_type: str):
 
 @router.callback_query(lambda c: c.data and c.data.startswith("exped_wallet:"))
 async def cb_expedition_wallet_choice(callback: CallbackQuery):
-    parts = callback.data.split(":")
+    await callback.answer("Устарело. Используй Mini App 👆", show_alert=True)
     owner = int(parts[1])
     choice = parts[2]
     
@@ -266,7 +266,7 @@ async def cb_expedition_wallet_choice(callback: CallbackQuery):
 
 @router.callback_query(lambda c: c.data and c.data.startswith("exped:"))
 async def cb_expedition_start(callback: CallbackQuery):
-    parts = callback.data.split(":")
+    await callback.answer("устарело. Используй Mini App 👆", show_alert=True)
     owner = int(parts[1])
     key = parts[2]
     wallet_type = parts[3] if len(parts) > 3 else "personal"
