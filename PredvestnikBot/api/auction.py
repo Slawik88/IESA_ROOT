@@ -26,7 +26,7 @@ from datetime import datetime, timezone, timedelta
 from typing import Optional
 from database.db import postgres_connect
 
-logger = logging.getLogger(__name__)
+_log = logging.getLogger(__name__)
 
 AUCTION_DURATION_HOURS = 24        # Срок аукциона
 COMMISSION_RATE        = 0.10      # 10% комиссия при продаже
@@ -42,7 +42,7 @@ def _min_increment(current_price: int) -> int:
 async def _dm_user(user_id: int, text: str) -> None:
     """Отправить личное сообщение пользователю через Telegram Bot API."""
     import os, aiohttp
-    bot_token = os.environ.get("BOT_TOKEN", "")
+    bot_token = os.environ.get("PREDVESTNIK_BOT_TOKEN") or os.environ.get("BOT_TOKEN", "")
     if not bot_token:
         return
     try:
@@ -62,7 +62,7 @@ async def _notify_all_chats_new_lot(
 ) -> None:
     """Отправить уведомление во все активные чаты о новом лоте на аукционе."""
     import os, aiohttp
-    bot_token = os.environ.get("BOT_TOKEN", "")
+    bot_token = os.environ.get("PREDVESTNIK_BOT_TOKEN") or os.environ.get("BOT_TOKEN", "")
     if not bot_token:
         return
     async with postgres_connect() as db:

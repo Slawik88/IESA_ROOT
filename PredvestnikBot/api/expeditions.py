@@ -65,15 +65,6 @@ async def start_expedition(uid: int, chat_id: int, option_key: str,
     if active:
         raise ValueError("Питомец уже в экспедиции")
 
-    # Block if partner already has an active expedition in ANY chat (couple shares ONE expedition slot)
-    from database.db import get_marriage, get_any_active_expedition
-    marriage = await get_marriage(uid, chat_id)
-    if marriage:
-        partner_id = marriage["partner_id"]
-        partner_active = await get_any_active_expedition(partner_id)
-        if partner_active:
-            raise ValueError("Питомец вашей пары уже в экспедиции")
-
     # Cost handling
     cost = opt["cost"]
     if cost > 0:

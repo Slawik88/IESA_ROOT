@@ -3,7 +3,10 @@ api/economy.py — unified economy operations (transfers, balance, ledger).
 
 All functions are async; the mini app wraps them with async_to_sync.
 """
+import logging
 from datetime import datetime, timezone, timedelta
+
+_log = logging.getLogger(__name__)
 
 
 async def log_wallet_tx(

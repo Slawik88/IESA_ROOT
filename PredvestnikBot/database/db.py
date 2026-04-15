@@ -1658,7 +1658,8 @@ async def init_db():
 
     # ─── Блок 1: Глобальная архитектура (мора, брак, питомец) ─────────────────
     # Добавляем колонки глобального баланса в таблицу users
-    for _col_def in ["balance BIGINT DEFAULT 0", "total_earned BIGINT DEFAULT 0"]:
+    for _col_def in ["balance BIGINT DEFAULT 0", "total_earned BIGINT DEFAULT 0",
+                     "free_gacha_rolls INTEGER DEFAULT 0"]:
         try:
             async with postgres_connect() as db:
                 await db.execute(f"ALTER TABLE users ADD COLUMN IF NOT EXISTS {_col_def}")
@@ -8459,6 +8460,18 @@ async def perform_checkin(user_id: int, chat_id: int) -> dict:
         """, (user_id, chat_id, streak, total_days, today, checkpoint))
         await db.commit()
 
+    # Grant free gacha roll on day-20 streak (persistent counter)
+    if free_gacha:
+        try:
+            async with postgres_connect() as _db:
+                await _db.execute(
+                    "UPDATE users SET free_gacha_rolls = COALESCE(free_gacha_rolls, 0) + 1 WHERE user_id = ?",
+                    (user_id,),
+                )
+                await _db.commit()
+        except Exception as _e:
+            _log.debug("free_gacha_rolls increment failed: %s", _e)
+
     return {
         "already_done": False,
         "ok": True,
@@ -9167,17 +9180,27 @@ async def create_solo_boss_session(user_id: int, chat_id: int, boss_level: int =
     boss_max_hp = 3_000 + (boss_level - 1) * 2_000
 
     async with postgres_connect() as db:
-        cursor = await db.execute(
+        # Use ON CONFLICT DO NOTHING to handle duplicate requests (user clicks start twice)
+        await db.execute(
             """INSERT INTO solo_boss_sessions
                (user_id, chat_id, boss_level, boss_max_hp, boss_current_hp, is_repeat, session_date)
-               VALUES (?,?,?,?,?,?,?) RETURNING id""",
+               VALUES (?,?,?,?,?,?,?)
+               ON CONFLICT(user_id, chat_id, session_date) DO NOTHING""",
             (user_id, chat_id, boss_level, boss_max_hp, boss_max_hp, 1 if is_repeat else 0, today),
         )
-        row = await cursor.fetchone()
         await db.commit()
+        # Return the session (existing or newly created)
+        async with db.execute(
+            "SELECT * FROM solo_boss_sessions WHERE user_id=? AND chat_id=? AND session_date=?",
+            (user_id, chat_id, today),
+        ) as c:
+            row = await c.fetchone()
 
+    if row:
+        return dict(row)
+    # Fallback (should never happen)
     return {
-        "id": row[0] if row else None,
+        "id": None,
         "user_id": user_id,
         "chat_id": chat_id,
         "boss_level": boss_level,
