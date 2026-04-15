@@ -119,6 +119,7 @@ from .miniapp_views import (
     miniapp_megaphone_list,
     miniapp_megaphone_review,
     miniapp_dev_analytics,
+    miniapp_telemetry,
 )
 
 # Переопределить стандартный админ на кастомный
@@ -277,6 +278,7 @@ urlpatterns = [
     # ─── Dev: Error logs / Логи ошибок ────────────────────────────────────────
     path('api/dev/error_logs', miniapp_dev_error_logs, name='miniapp_dev_error_logs'),
     path('api/dev/analytics', miniapp_dev_analytics, name='miniapp_dev_analytics'),
+    path('api/telemetry', miniapp_telemetry, name='miniapp_telemetry'),
     path('api/frontend_error_log', miniapp_frontend_error_log, name='miniapp_frontend_error_log'),
     path('api/dev/af2_config', miniapp_dev_af2_config, name='miniapp_dev_af2_config'),
     path('api/dev/import_users', miniapp_dev_import_users, name='miniapp_dev_import_users'),

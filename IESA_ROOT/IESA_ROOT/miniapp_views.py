@@ -6885,6 +6885,29 @@ def miniapp_dev_error_logs(request):
 
 
 @csrf_exempt
+def miniapp_telemetry(request):
+    """POST /api/telemetry — aggregate telemetry counters (no auth, fire-and-forget)."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=405, headers=headers)
+    try:
+        import json as _json
+        data = _json.loads(request.body)
+        events = data.get("events", [])
+        if not isinstance(events, list) or len(events) > 200:
+            return JsonResponse({"ok": False, "error": "invalid"}, status=400, headers=headers)
+        from asgiref.sync import async_to_sync as _a2s
+        from database.db import upsert_telemetry_batch
+        _a2s(upsert_telemetry_batch)(events)
+        return JsonResponse({"ok": True}, headers=headers)
+    except Exception as exc:
+        logger.warning("miniapp_telemetry error: %s", exc)
+        return JsonResponse({"ok": False}, status=500, headers=headers)
+
+
+@csrf_exempt
 def miniapp_dev_analytics(request):
     """GET /api/dev/analytics?period=day|week|month — telemetry dashboard (developer only)."""
     headers = _cors_headers()
@@ -6922,35 +6945,35 @@ def miniapp_dev_analytics(request):
 
             async with _pg_connect() as db:
                 # Top tabs by total session seconds
-                top_tabs_rows = await db.fetchall(
+                top_tabs_rows = await db.fetch(
                     "SELECT event_key, SUM(count) AS sessions, SUM(seconds) AS total_sec "
                     "FROM telemetry_counters "
                     "WHERE event_type='tab_view' AND date_bucket >= $1 "
                     "GROUP BY event_key ORDER BY total_sec DESC LIMIT 10",
-                    (date_from,),
+                    date_from,
                 )
                 # Top click events
-                top_clicks_rows = await db.fetchall(
+                top_clicks_rows = await db.fetch(
                     "SELECT event_key, SUM(count) AS total "
                     "FROM telemetry_counters "
                     "WHERE event_type='click' AND date_bucket >= $1 "
                     "GROUP BY event_key ORDER BY total DESC LIMIT 10",
-                    (date_from,),
+                    date_from,
                 )
                 # Daily session counts
-                daily_rows = await db.fetchall(
+                daily_rows = await db.fetch(
                     "SELECT date_bucket, SUM(count) AS cnt "
                     "FROM telemetry_counters "
                     "WHERE event_type='session' AND date_bucket >= $1 "
                     "GROUP BY date_bucket ORDER BY date_bucket",
-                    (date_from,),
+                    date_from,
                 )
                 # Total sessions + avg duration
                 totals_row = await db.fetchone(
                     "SELECT COALESCE(SUM(count),0) AS sessions, COALESCE(SUM(seconds),0) AS secs "
                     "FROM telemetry_counters "
                     "WHERE event_type='session' AND date_bucket >= $1",
-                    (date_from,),
+                    date_from,
                 )
 
             total_sessions = int(totals_row["sessions"]) if totals_row else 0

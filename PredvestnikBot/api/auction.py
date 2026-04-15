@@ -557,13 +557,22 @@ async def buyout_auction(buyer_id: int, chat_id: int, auction_id: int) -> dict:
             _log.debug("auction_tax_discount talent failed: %s", _e)
         commission = max(1, int(buyout * _eff_rate))
         seller_gets = buyout - commission
-        from database.db import add_to_treasury
-        await add_to_treasury(chat_id, commission, "auction", buyer_id)
 
         # Продавцу — выручка
         await db.execute(
             "UPDATE users SET balance=COALESCE(balance,0)+?, total_earned=COALESCE(total_earned,0)+? WHERE user_id=?",
             (seller_gets, seller_gets, auction["seller_id"])
+        )
+        # Комиссия → казна (внутри той же транзакции)
+        await db.execute(
+            "INSERT INTO chat_treasury (chat_id, balance) VALUES (?,?)"
+            " ON CONFLICT(chat_id) DO UPDATE SET balance = chat_treasury.balance + excluded.balance",
+            (chat_id, commission),
+        )
+        await db.execute(
+            "INSERT INTO treasury_log (chat_id, user_id, amount, source, created_at)"
+            " VALUES (?,?,?,?,NOW())",
+            (chat_id, buyer_id, commission, "auction"),
         )
 
         # Передаём предмет покупателю
@@ -741,7 +750,7 @@ async def finalize_expired_auctions(bot=None) -> list[dict]:
                     )
                 finalized.append({**auction, "result": "expired_no_bids"})
             except Exception as e:
-                logger.error("Auction finalize error (no bids) #%s: %s", auction_id, e)
+                _log.error("Auction finalize error (no bids) #%s: %s", auction_id, e)
         else:
             # Есть ставки — передача предмета победителю
             winner_id = auction["highest_bidder_id"]
@@ -792,9 +801,17 @@ async def finalize_expired_auctions(bot=None) -> list[dict]:
                         "UPDATE users SET balance=COALESCE(balance,0)+?, total_earned=COALESCE(total_earned,0)+? WHERE user_id=?",
                         (seller_gets, seller_gets, seller_id)
                     )
-                    # Комиссия → казна
-                    from database.db import add_to_treasury
-                    await add_to_treasury(chat_id, commission, "auction", winner_id)
+                    # Комиссия → казна (внутри той же транзакции)
+                    await db.execute(
+                        "INSERT INTO chat_treasury (chat_id, balance) VALUES (?,?)"
+                        " ON CONFLICT(chat_id) DO UPDATE SET balance = chat_treasury.balance + excluded.balance",
+                        (chat_id, commission),
+                    )
+                    await db.execute(
+                        "INSERT INTO treasury_log (chat_id, user_id, amount, source, created_at)"
+                        " VALUES (?,?,?,?,NOW())",
+                        (chat_id, winner_id, commission, "auction"),
+                    )
 
                     # Завершаем аукцион
                     await db.execute(
@@ -821,7 +838,7 @@ async def finalize_expired_auctions(bot=None) -> list[dict]:
                     _log.debug("%s", _e)
 
             except Exception as e:
-                logger.error("Auction finalize error #%s: %s", auction_id, e)
+                _log.error("Auction finalize error #%s: %s", auction_id, e)
 
     # Уведомления
     if bot and finalized:
@@ -849,7 +866,7 @@ async def finalize_expired_auctions(bot=None) -> list[dict]:
                         parse_mode="HTML",
                     )
             except Exception as e:
-                logger.debug("Auction notify error: %s", e)
+                _log.debug("Auction notify error: %s", e)
 
     # Личные DM-уведомления участникам (независимо от наличия bot)
     for a in finalized:
