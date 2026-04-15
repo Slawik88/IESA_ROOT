@@ -104,7 +104,7 @@ async def cmd_gacha(message: Message, cmd_args: str):
 
 @router.callback_query(lambda c: c.data and c.data.startswith("gacha:"))
 async def cb_gacha_roll(callback: CallbackQuery):
-    parts = callback.data.split(":")
+    await callback.answer("Устарело. Используй Mini App 👆", show_alert=True)
     owner = int(parts[1])
     count = int(parts[2])
 
@@ -358,7 +358,7 @@ async def _inv_gifts(uid: int, chat_id: int) -> str:
 
 @router.callback_query(lambda c: c.data and c.data.startswith("inv:"))
 async def cb_inventory_tab(callback: CallbackQuery):
-    parts = callback.data.split(":")
+    await callback.answer("Устарело. Используй Mini App 👆", show_alert=True)
     if len(parts) < 4:
         await callback.answer()
         return

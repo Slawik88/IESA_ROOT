@@ -43,7 +43,7 @@ async def cmd_quest(message: Message, cmd_args: str):
     await message.answer(
         f"📋 <b>Ежедневное задание</b>\n\n"
         f"🎯 {quest['desc']}\n"
-        f"🏆 Награда: <b>+{xp_reward} XP</b>\n\n"
+        f"🏆 Награда: <b>+{xp_reward} XP  +{quest.get('mora', 0)} 🪙</b>\n\n"
         f"[{bar}]  {progress}/{goal}\n"
         f"{status}\n\n"
         f"<i>Задание обновляется каждый день автоматически.</i>\n"
@@ -104,6 +104,6 @@ async def cmd_reroll_quest(message: Message, cmd_args: str):
         f"Твой баланс: <b>{new_bal} 🪙</b>\n\n"
         f"📋 <b>Новое задание:</b>\n"
         f"🎯 {quest['desc']}\n"
-        f"🏆 Награда: <b>+{quest['xp']} XP</b>",
+        f"🏆 Награда: <b>+{quest['xp']} XP  +{quest.get('mora', 0)} 🪙</b>",
         parse_mode="HTML",
     )

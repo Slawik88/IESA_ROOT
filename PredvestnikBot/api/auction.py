@@ -70,6 +70,12 @@ async def _notify_all_chats_new_lot(
             "SELECT DISTINCT chat_id FROM chat_settings WHERE chat_id < 0 LIMIT 30"
         )
     chats = [r["chat_id"] for r in rows]
+    async with postgres_connect() as _ndb:
+        _nrow = await _ndb.fetchone(
+            "SELECT COALESCE(NULLIF(full_name,''), 'Предвестник') AS name FROM users WHERE user_id=?",
+            (seller_id,),
+        )
+    seller_name = _nrow["name"] if _nrow else "Предвестник"
     text = (
         f"🔨 <b>Новый лот на аукционе!</b>\n\n"
         f"{item_emoji} <b>{item_name}</b>\n"
@@ -77,7 +83,7 @@ async def _notify_all_chats_new_lot(
     )
     if buyout_price:
         text += f"\n⚡ Мгновенный выкуп: <b>{buyout_price} 🪙</b>"
-    text += f"\n\n<i>Выставил: <a href='tg://user?id={seller_id}'>Предвестник</a></i>"
+    text += f"\n\n<i>Выставил: <a href='tg://user?id={seller_id}'>{seller_name}</a></i>"
     async with aiohttp.ClientSession() as session:
         for cid in chats:
             try:
@@ -850,11 +856,20 @@ async def finalize_expired_auctions(bot=None) -> list[dict]:
                     item_name  = a.get("item_name", "?")
                     s_gets     = a.get("seller_gets", 0)
                     f_price    = a.get("current_price", 0)
+                    try:
+                        async with postgres_connect() as _wdb:
+                            _wrow = await _wdb.fetchone(
+                                "SELECT COALESCE(NULLIF(full_name,''), 'Предвестник') AS name FROM users WHERE user_id=?",
+                                (winner_id,),
+                            )
+                        winner_name = _wrow["name"] if _wrow else "Предвестник"
+                    except Exception:
+                        winner_name = "Предвестник"
                     await bot.send_message(
                         cid,
                         f"🔨 <b>Аукцион завершён!</b>\n\n"
                         f"📦 <b>{item_name}</b>\n"
-                        f"🏆 Победитель: <a href='tg://user?id={winner_id}'>Предвестник</a>\n"
+                        f"🏆 Победитель: <a href='tg://user?id={winner_id}'>{winner_name}</a>\n"
                         f"💰 Продавец получил: <b>{s_gets} 🪙</b> (финальная цена {f_price} 🪙)",
                         parse_mode="HTML",
                     )

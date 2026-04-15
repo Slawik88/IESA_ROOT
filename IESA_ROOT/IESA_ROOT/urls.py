@@ -82,6 +82,7 @@ from .miniapp_views import (
     miniapp_auction_list, miniapp_auction_create,
     miniapp_auction_bid, miniapp_auction_buyout, miniapp_auction_cancel,
     miniapp_achievements,
+    miniapp_achievements_badges,
     miniapp_crystals_spend,
     miniapp_dev_give_crystals,
     miniapp_chat_banlist,
@@ -268,8 +269,7 @@ urlpatterns = [
     path('api/auction/buyout', miniapp_auction_buyout, name='miniapp_auction_buyout'),
     path('api/auction/cancel', miniapp_auction_cancel, name='miniapp_auction_cancel'),
     # ─── Achievements / Достижения ────────────────────────────────────────────
-    path('api/achievements', miniapp_achievements, name='miniapp_achievements'),
-    # ─── Crystals / Кристаллы ─────────────────────────────────────────────────
+    path('api/achievements', miniapp_achievements, name='miniapp_achievements'),    path('api/achievements/badges', miniapp_achievements_badges, name='miniapp_achievements_badges'),    # ─── Crystals / Кристаллы ─────────────────────────────────────────────────
     path('api/crystals/catalog', miniapp_crystals_catalog, name='miniapp_crystals_catalog'),
     path('api/crystals/spend', miniapp_crystals_spend, name='miniapp_crystals_spend'),
     path('api/convert_crystals', miniapp_convert_crystals, name='miniapp_convert_crystals'),

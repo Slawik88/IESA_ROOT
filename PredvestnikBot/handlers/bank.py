@@ -137,47 +137,16 @@ async def cmd_bank(message: Message, cmd_args: str):
 
 @router.callback_query(lambda c: c.data and c.data.startswith("bank_open:"))
 async def cb_bank_open(callback: CallbackQuery):
-    parts = callback.data.split(":")
-    owner = int(parts[1])
-    plan_key = parts[2]
-
-    if await not_your_button(callback, owner, "❌ Это не твой банк!"):
-        return
-
-    p = BANK_PLANS.get(plan_key)
-    if not p:
-        await callback.answer("❌ Неверный план.", show_alert=True)
-        return
-
-    # Предлагаем фиксированные суммы
-    amounts = [a for a in (100, 250, 500, 1000) if BANK_MIN_DEPOSIT <= a <= BANK_MAX_DEPOSIT]
-    buttons = []
-    for amt in amounts:
-        buttons.append(InlineKeyboardButton(
-            text=f"{amt} 🪙",
-            callback_data=f"bank_source:{owner}:{plan_key}:{amt}",
-        ))
-    kb = InlineKeyboardMarkup(inline_keyboard=[buttons[:2], buttons[2:]])
-
-    pct = int(p["rate"] * 100)
-    try:
-        await callback.message.edit_text(
-            f"🏦 <b>Открыть вклад: {_PLAN_LABELS.get(plan_key, plan_key)}</b>\n\n"
-            f"Срок: {p['days']} дней\n"
-            f"Процент: +{pct}%\n\n"
-            f"Выбери сумму вклада:",
-            parse_mode="HTML",
-            reply_markup=kb,
-        )
-    except Exception as _e:
-        _log.debug("%s", _e)
-    await callback.answer()
+    await callback.answer("Устарело. Используй Mini App 👆", show_alert=True)
 
 
 # ─── Выбор источника средств ──────────────────────────────────────────────────
 
 @router.callback_query(lambda c: c.data and c.data.startswith("bank_source:"))
-async def cb_bank_source_select(callback: CallbackQuery):
+async def cb_bank_source_select(callback: CallbackQuery):  # legacy — archived below
+    await callback.answer("Устарело. Используй Mini App 👆", show_alert=True)
+
+async def _cb_bank_source_select_legacy(callback: CallbackQuery):
     parts = callback.data.split(":")
     owner = int(parts[1])
     plan_key = parts[2]
@@ -240,7 +209,7 @@ async def cb_bank_source_select(callback: CallbackQuery):
 
 @router.callback_query(lambda c: c.data and c.data.startswith("bank_confirm:"))
 async def cb_bank_confirm(callback: CallbackQuery):
-    parts = callback.data.split(":")
+    await callback.answer("Устарело. Используй Mini App 👆", show_alert=True)
     owner = int(parts[1])
     plan_key = parts[2]
     amount = int(parts[3])
@@ -288,7 +257,7 @@ async def cb_bank_confirm(callback: CallbackQuery):
 
 @router.callback_query(lambda c: c.data and c.data.startswith("bank_withdraw:"))
 async def cb_bank_withdraw(callback: CallbackQuery):
-    parts = callback.data.split(":")
+    await callback.answer("Устарело. Используй Mini App 👆", show_alert=True)
     owner = int(parts[1])
 
     if await not_your_button(callback, owner, "❌ Это не твой банк!"):
