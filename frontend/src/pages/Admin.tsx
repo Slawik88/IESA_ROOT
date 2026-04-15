@@ -93,7 +93,11 @@ export default function Admin({ chatId: defaultChatId, userId, isDev }: Props) {
   const [activeChatId, setActiveChatIdRaw] = useState<number>(() => {
     try {
       const saved = localStorage.getItem("admin_active_chat_id");
-      return saved ? Number(saved) : defaultChatId;
+      if (saved) {
+        const n = Number(saved);
+        return isNaN(n) || n === 0 ? defaultChatId : n;
+      }
+      return defaultChatId;
     } catch { return defaultChatId; }
   });
 

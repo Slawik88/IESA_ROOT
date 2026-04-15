@@ -63,6 +63,16 @@ def setup_logging(level: int = logging.DEBUG) -> None:
 
     Call this once at the very top of main.py before any imports that log.
     """
+    try:
+        _setup_logging_inner(level)
+    except Exception:
+        logging.basicConfig(level=level, stream=sys.stderr)
+        logging.getLogger(__name__).warning(
+            "Custom logging setup failed — fell back to basicConfig", exc_info=True,
+        )
+
+
+def _setup_logging_inner(level: int) -> None:
     root = logging.getLogger()
     root.setLevel(level)
 

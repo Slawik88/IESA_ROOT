@@ -9,6 +9,7 @@
   POST /api/boss/submit_damage  — принять урон из Mini App (батч, с анти-читом)
 """
 
+import asyncio
 import html
 import logging
 import random
@@ -42,6 +43,7 @@ _attack_cooldown: dict[tuple, float] = {}
 _damage_buffer: dict[tuple, int] = {}
 _last_flush = time.time()
 _FLUSH_INTERVAL = 60  # секунд
+_flush_lock: asyncio.Lock | None = None  # инициализуется при первом вызове
 
 
 def get_boss_hp(chat_id: int) -> int:
@@ -75,18 +77,23 @@ def _hp_bar(current: int, max_hp: int = BOSS_MAX_HP, width: int = 20) -> str:
 
 async def flush_damage_buffer():
     """Сохранить накопленный урон из буфера в БД (batch)."""
-    global _last_flush
-    if not _damage_buffer:
+    global _last_flush, _flush_lock
+    if _flush_lock is None:
+        _flush_lock = asyncio.Lock()
+    if _flush_lock.locked():
+        return  # предыдущий флаш ещё не завершён — пропустить
+    async with _flush_lock:
+        if not _damage_buffer:
+            _last_flush = time.time()
+            return
+        snapshot = dict(_damage_buffer)
+        _damage_buffer.clear()
         _last_flush = time.time()
-        return
-    snapshot = dict(_damage_buffer)
-    _damage_buffer.clear()
-    _last_flush = time.time()
-    for (uid, cid), dmg in snapshot.items():
-        try:
-            await add_boss_damage(uid, cid, dmg)
-        except Exception as e:
-            log.warning("Boss buffer flush error uid=%s cid=%s: %s", uid, cid, e)
+        for (uid, cid), dmg in snapshot.items():
+            try:
+                await add_boss_damage(uid, cid, dmg)
+            except Exception as e:
+                log.warning("Boss buffer flush error uid=%s cid=%s: %s", uid, cid, e)
 
 
 def buffer_damage(user_id: int, chat_id: int, damage: int):

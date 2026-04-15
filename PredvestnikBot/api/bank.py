@@ -138,21 +138,55 @@ async def deposit(uid: int, chat_id: int, plan_key: str,
     eff_rate     = plan["rate"] + (SINGLES_BANK_BONUS if single else 0.0)
 
     if wallet == "family":
-        # Use the proper pair-aware deduction (FOR UPDATE, scoped to uid + partner_id)
-        from database.db import deduct_family_pool, get_total_family_balance
+        # BUG-039 fix: deduction + deposit INSERT in one atomic transaction
+        from database.db import get_total_family_balance
+        from database.postgres import connect as postgres_connect
         total_fbal, _my, partner_id = await get_total_family_balance(chat_id, uid)
         if total_fbal < amount:
             raise ValueError(f"Недостаточно семейных средств ({total_fbal}/{amount} 🪙)")
 
-        # Atomic deduction from the pair's pool
-        new_family_bal = await deduct_family_pool(chat_id, uid, partner_id, amount)
-
-        # Create deposit
-        from database.postgres import connect as postgres_connect
         now = datetime.now(timezone.utc)
         from datetime import timedelta
         matures = now + timedelta(days=plan["days"])
+
         async with postgres_connect() as db:
+            # Lock both partner rows FOR UPDATE
+            _uids = [uid] + ([partner_id] if partner_id else [])
+            _ph = ",".join("?" for _ in _uids)
+            async with db.execute(
+                f"SELECT user_id, balance FROM family_wallet"
+                f" WHERE chat_id=0 AND user_id IN ({_ph}) FOR UPDATE",
+                (*_uids,),
+            ) as _c:
+                _rows = await _c.fetchall()
+            _bal_map = {r["user_id"]: (r["balance"] or 0) for r in _rows}
+            _total_avail = sum(_bal_map.values())
+            if _total_avail < amount:
+                raise ValueError(f"Недостаточно семейных средств ({_total_avail}/{amount} 🪙)")
+            _my_bal = _bal_map.get(uid, 0)
+            if _my_bal >= amount:
+                await db.execute(
+                    "UPDATE family_wallet SET balance=GREATEST(0,balance-?)"
+                    " WHERE chat_id=0 AND user_id=?",
+                    (amount, uid),
+                )
+            elif partner_id:
+                _rest = amount - _my_bal
+                await db.execute(
+                    "UPDATE family_wallet SET balance=0 WHERE chat_id=0 AND user_id=?",
+                    (uid,),
+                )
+                await db.execute(
+                    "UPDATE family_wallet SET balance=GREATEST(0,balance-?)"
+                    " WHERE chat_id=0 AND user_id=?",
+                    (_rest, partner_id),
+                )
+            else:
+                await db.execute(
+                    "UPDATE family_wallet SET balance=GREATEST(0,balance-?)"
+                    " WHERE chat_id=0 AND user_id=?",
+                    (amount, uid),
+                )
             dep_cursor = await db.execute(
                 "INSERT INTO bank_deposits (user_id, chat_id, amount, rate, created_at, matures_at)"
                 " VALUES (?,?,?,?,?,?) RETURNING id",
@@ -161,8 +195,17 @@ async def deposit(uid: int, chat_id: int, plan_key: str,
             )
             dep_row = await dep_cursor.fetchone()
             dep_id = dep_row[0] if dep_row else 0
+            # Read new family balance
+            _new_total = 0
+            for _u in _uids:
+                async with db.execute(
+                    "SELECT balance FROM family_wallet WHERE chat_id=0 AND user_id=?",
+                    (_u,),
+                ) as _c2:
+                    _rr = await _c2.fetchone()
+                _new_total += (_rr[0] or 0) if _rr else 0
             await db.commit()
-        new_balance = new_family_bal
+        new_balance = _new_total
     else:
         from database.postgres import connect as postgres_connect
         async with postgres_connect() as db:
@@ -280,6 +323,8 @@ async def withdraw(uid: int, chat_id: int, deposit_id: int) -> dict:
     new_balance = await add_mora(uid, chat_id, payout)
     if interest_tax > 0:
         await add_to_treasury(chat_id, interest_tax, "bank_interest", uid)
+    if early and penalty > 0:
+        await add_to_treasury(chat_id, penalty, "bank_early_penalty", uid)
 
     # Log to wallet ledger
     try:

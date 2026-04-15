@@ -2,7 +2,7 @@
    Promo.tsx — Страница активации промокода
    Анимация: сундук открывается → награды вылетают
    ────────────────────────────────────────────────────────────── */
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { activatePromocode } from "../lib/api";
 import { useTelegram } from "../hooks/useTelegram";
 import { Loader2 } from "lucide-react";
@@ -34,6 +34,12 @@ export default function Promo({ userId: _userId, chatId }: Props) {
   const [rewards, setRewards] = useState<string[]>([]);
   const [errorMsg, setErrorMsg] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+  const focusTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  // BUG-102: cleanup setTimeout on unmount
+  useEffect(() => {
+    return () => { if (focusTimerRef.current) clearTimeout(focusTimerRef.current); };
+  }, []);
 
   const doActivate = async () => {
     if (!effectiveChatId || !code.trim()) {
@@ -65,7 +71,7 @@ export default function Promo({ userId: _userId, chatId }: Props) {
     setPhase("idle");
     setRewards([]);
     setErrorMsg("");
-    setTimeout(() => inputRef.current?.focus(), 100);
+    focusTimerRef.current = setTimeout(() => inputRef.current?.focus(), 100);
   };
 
   return (

@@ -1551,7 +1551,10 @@ async def cmd_me(message: Message, cmd_args: str):
             res_parts.append("🪙 Мора: <b>🕶 [скрыт]</b>")
         else:
             res_parts.append(f"🪙 Мора: <b>{mora_bal:,}</b>")
-    res_parts.append(f"💎 Кристаллы: <b>{crystals:,}</b>")
+    if stealth_active:
+        res_parts.append("💎 Кристаллы: <b>🕶 [скрыт]</b>")
+    else:
+        res_parts.append(f"💎 Кристаллы: <b>{crystals:,}</b>")
     lines.append("   ".join(res_parts))
 
     cosmetics: list[str] = []

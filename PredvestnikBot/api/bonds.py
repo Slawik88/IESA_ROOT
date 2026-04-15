@@ -161,6 +161,11 @@ async def sell_bond(uid: int, chat_id: int, bond_key: str, amount: int) -> dict:
     revenue   = price_per * amount
 
     # Progressive profit tax on net gain (FIFO average)
+    try:
+        from config import BOND_TAX_CAP as _cap
+    except Exception:
+        _cap = 0.40
+    # Thresholds scale with cap: 10%, 20%, 30%, then cap%
     avg_buy  = (bond_record["invested"] / bond_record["amount"]) if bond_record and bond_record["amount"] > 0 else price_per
     profit   = max(0, int((price_per - avg_buy) * amount))
     if profit <= 50:
@@ -170,7 +175,7 @@ async def sell_bond(uid: int, chat_id: int, bond_key: str, amount: int) -> dict:
     elif profit <= 1_800:
         bond_tax = int(profit * 0.30)
     else:
-        bond_tax = int(profit * 0.40)
+        bond_tax = int(profit * _cap)
     net_revenue = revenue - bond_tax
 
     # Talent: bonds_broker adds % bonus to profit payout
@@ -318,6 +323,11 @@ async def get_bonds_status(uid: int, chat_id: int) -> dict:
         for b in bonds_out if b["amount"] > 0
     ]
 
+    try:
+        from config import BOND_TAX_CAP as _bond_tax_cap
+    except Exception:
+        _bond_tax_cap = 0.40
+
     return {
         "bonds":              bonds_out,
         "holdings":           holdings_out,
@@ -326,4 +336,5 @@ async def get_bonds_status(uid: int, chat_id: int) -> dict:
         "market_trend":       market_trend,
         "market_ticks":       market_ticks,
         "prices_updated_at":  prices_updated_at,
+        "bond_tax_cap_pct":   round(_bond_tax_cap * 100),
     }

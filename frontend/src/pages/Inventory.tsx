@@ -102,7 +102,7 @@ export default function Inventory({ userId: _userId, chatId }: Props) {
         showToast(res.ok ? `Экипировано: ${res.equipped} → ${SLOT_LABEL[res.slot] ?? res.slot}` : (res.error ?? "Ошибка"));
       }
       setSelected(null);
-      load();
+      await load();
     } catch (e: unknown) {
       showToast(e instanceof Error ? extractApiError(e.message) : "Ошибка");
     } finally { setBusy(null); }
@@ -124,7 +124,7 @@ export default function Inventory({ userId: _userId, chatId }: Props) {
       const res = await batchSell(chatId, [{ id: item.id, qty: 1 }]);
       showToast(`Продано за +${res.mora} 🪙 (баланс: ${res.balance} 🪙)`);
       setSelected(null);
-      load();
+      await load();
     } catch (e: unknown) {
       showToast(e instanceof Error ? extractApiError(e.message) : "Ошибка");
     } finally { setBusy(null); }
@@ -135,7 +135,7 @@ export default function Inventory({ userId: _userId, chatId }: Props) {
     try {
       const res = await sellJunk(chatId);
       showToast(res.sold > 0 ? `Продано ${res.sold} хлама за +${res.mora} 🪙` : "Хлам не найден");
-      load();
+      await load();
     } catch (e: unknown) {
       showToast(e instanceof Error ? e.message : "Ошибка");
     } finally { setBusy(null); }
@@ -148,7 +148,7 @@ export default function Inventory({ userId: _userId, chatId }: Props) {
       showToast(res.success ? `✅ ${res.message} (ур. ${res.enhancement_level})` : `❌ ${res.message}`);
       setEnhanceDetail(null);
       setSelected(null);
-      load();
+      await load();
     } catch (e: unknown) {
       showToast(e instanceof Error ? extractApiError(e.message) : "Ошибка");
     } finally { setBusy(null); }
@@ -160,7 +160,7 @@ export default function Inventory({ userId: _userId, chatId }: Props) {
       const res = await consumePotion(chatId, item.id);
       showToast(res.success ? "✅ " + res.message : "❌ " + res.message);
       setSelected(null);
-      load();
+      await load();
     } catch (e: unknown) {
       showToast(e instanceof Error ? extractApiError(e.message) : "Ошибка");
     } finally { setBusy(null); }
@@ -173,7 +173,7 @@ export default function Inventory({ userId: _userId, chatId }: Props) {
       showToast(res.ok ? `✏️ Питомец переименован в «${newName}»!` : (res.error ?? "Ошибка"));
       setRenameItem(null);
       setSelected(null);
-      load();
+      await load();
     } catch (e: unknown) {
       showToast(e instanceof Error ? extractApiError(e.message) : "Ошибка");
     } finally { setBusy(null); }
@@ -191,7 +191,7 @@ export default function Inventory({ userId: _userId, chatId }: Props) {
         showToast((res as { error?: string }).error ?? "Ошибка");
       }
       setSelected(null);
-      load();
+      await load();
     } catch (e: unknown) {
       showToast(e instanceof Error ? e.message : "Ошибка");
     } finally { setBusy(null); }

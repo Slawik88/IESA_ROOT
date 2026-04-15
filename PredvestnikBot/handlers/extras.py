@@ -475,32 +475,51 @@ async def on_join(message: Message):
 
 @router.message(lambda m: m.left_chat_member is not None)
 async def on_leave(message: Message):
+    member = message.left_chat_member
+    if member.is_bot:
+        return
+
     from config import DEFAULT_FAREWELL_ENABLED, DEFAULT_FAREWELL_TEXT
     settings = await get_chat_settings(message.chat.id)
     custom_text = settings["farewell_text"] if settings else None
 
     if not custom_text:
         if not DEFAULT_FAREWELL_ENABLED:
-            return
-        custom_text = DEFAULT_FAREWELL_TEXT or "{name} покинул чат."
-
-    member = message.left_chat_member
-    if member.is_bot:
-        return
+            custom_text = None
+        else:
+            custom_text = DEFAULT_FAREWELL_TEXT or "{name} покинул чат."
 
     # Брак глобальный — уход из чата его не разрывает.
 
     safe_name = _html.escape(member.full_name)
     safe_username = f"@{member.username}" if member.username else safe_name
-    text = custom_text.replace(
-        "{name}", safe_name
-    ).replace(
-        "{username}", safe_username
-    )
+
+    if custom_text:
+        text = custom_text.replace(
+            "{name}", safe_name
+        ).replace(
+            "{username}", safe_username
+        )
+        try:
+            await message.answer(text, parse_mode="HTML")
+        except Exception as _e:
+            _log.debug("%s", _e)
+
+    # Prompt moderators about adding the user to the blocklist
+    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
     try:
-        await message.answer(text, parse_mode="HTML")
+        markup = InlineKeyboardMarkup(inline_keyboard=[[
+            InlineKeyboardButton(text="🚫 В ЧС по ID", callback_data=f"ban_u:add:{member.id}"),
+            InlineKeyboardButton(text="✅ Пропустить", callback_data=f"ban_u:skip:{member.id}"),
+        ]])
+        await message.answer(
+            f"⚠️ <b>{safe_name}</b> (<code>{member.id}</code>) покинул чат.\n"
+            f"Добавить в чёрный список по ID?",
+            parse_mode="HTML",
+            reply_markup=markup,
+        )
     except Exception as _e:
-        _log.debug("%s", _e)
+        _log.debug("ban_prompt: %s", _e)
 
 
 # ─── Чёрный список по ID: обработка кнопок ───────────────────────────────────

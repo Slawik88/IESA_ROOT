@@ -220,17 +220,18 @@ async def roulette_spin(
                 "WHERE user_id=? AND chat_id=?",
                 (uid, chat_id),
             )
+        await db.commit()
 
     # ── Item prize (18% chance on any win) ────────────────────────────────────
     item_prize = None
     if win and ROULETTE_PRIZE_POOL and random.random() < ROULETTE_ITEM_CHANCE:
-        weights = [w for (_, _, _, w) in ROULETTE_PRIZE_POOL]
-        choice  = random.choices(ROULETTE_PRIZE_POOL, weights=weights, k=1)[0]
-        i_key, i_name, i_type, _ = choice
         try:
+            weights = [w for (_, _, _, w) in ROULETTE_PRIZE_POOL]
+            choice  = random.choices(ROULETTE_PRIZE_POOL, weights=weights, k=1)[0]
+            i_key, i_name, i_type, _ = choice
             item_prize = await _deliver_item_prize(uid, chat_id, i_key, i_name, i_type)
         except Exception:
-            _log.warning("item prize delivery failed uid=%s key=%s", uid, i_key, exc_info=True)
+            _log.warning("item prize failed uid=%s pool_len=%d", uid, len(ROULETTE_PRIZE_POOL), exc_info=True)
 
     # Log to wallet ledger
     try:

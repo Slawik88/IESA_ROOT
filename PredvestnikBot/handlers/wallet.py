@@ -12,6 +12,7 @@ import html
 from aiogram import Router
 from aiogram.types import Message
 
+from api.economy import transfer_mora as _api_transfer
 from config import LOAN_MAX_ACTIVE, LOAN_MAX_AMOUNT, MORA_TRANSFER_MAX, MORA_TRANSFER_MIN
 from database.db import (
     create_loan,

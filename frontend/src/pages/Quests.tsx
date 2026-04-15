@@ -78,7 +78,7 @@ export default function Quests({ chatId }: Props) {
     } finally {
       setRerolling(false);
     }
-  }, [chatId, data, rerolling, showToast]);
+  }, [chatId, data, rerolling, hasCoupon, showToast]);
 
   /* ── Спецслучай: chatId = 0 ── */
   if (!chatId) {

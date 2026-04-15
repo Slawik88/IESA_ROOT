@@ -51,9 +51,9 @@ DUEL_EXPIRE_SEC = 300   # 5 минут для принятия дуэли
 
 
 def _week_key() -> str:
-    """Ключ текущей недели в формате ISO year-week, напр. '2025-W03'."""
-    today = date.today()
-    iso   = today.isocalendar()
+    """Ключ текущей недели в формате ISO year-week (UTC), напр. '2025-W03'."""
+    from datetime import datetime as _dt_wk, timezone as _tz_wk
+    iso = _dt_wk.now(_tz_wk.utc).date().isocalendar()
     return f"{iso.year}-W{iso.week:02d}"
 
 

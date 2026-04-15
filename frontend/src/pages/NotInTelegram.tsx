@@ -7,18 +7,18 @@ export default function NotInTelegram() {
   return (
     <div
       className="flex flex-col items-center justify-center min-h-screen gap-6 p-8 text-center"
-      style={{ backgroundColor: "#0f0f0f", color: "#ffffff" }}
+      style={{ backgroundColor: "var(--bg-primary)", color: "var(--text-primary)" }}
     >
       <div
         className="w-20 h-20 rounded-2xl flex items-center justify-center"
-        style={{ backgroundColor: "#1a1a2e" }}
+        style={{ backgroundColor: "var(--bg-secondary)" }}
       >
-        <Smartphone size={40} style={{ color: "#4b7bec" }} />
+        <Smartphone size={40} style={{ color: "var(--accent)" }} />
       </div>
 
       <div className="space-y-2">
         <h1 className="text-xl font-bold">Откройте в Telegram</h1>
-        <p className="text-sm" style={{ color: "#8e8e93", maxWidth: "280px" }}>
+        <p className="text-sm" style={{ color: "var(--text-hint)", maxWidth: "280px" }}>
           Это приложение работает только внутри Telegram Mini App.
           Пожалуйста, запустите его через бота.
         </p>
@@ -27,7 +27,7 @@ export default function NotInTelegram() {
       <a
         href="https://t.me/IIIPredvestnikIIIBot"
         className="px-6 py-3 rounded-xl font-semibold text-sm transition-opacity active:opacity-70"
-        style={{ backgroundColor: "#4b7bec", color: "#ffffff" }}
+        style={{ backgroundColor: "var(--accent)", color: "#ffffff" }}
       >
         Открыть бота
       </a>

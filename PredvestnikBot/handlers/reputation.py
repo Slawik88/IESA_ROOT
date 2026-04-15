@@ -10,7 +10,7 @@ from config import BIO_MAX_LENGTH, REP_DAILY_LIMIT, REP_MORA_REWARD_FROM, REP_MO
 from database.db import (
     add_mora, add_reputation_in_chat, get_rep_count_today,
     get_top_by_xp_in_chat, get_top_reputation_in_chat,
-    get_user_stats, xp_for_level,
+    get_user_stats, set_bio_in_chat, xp_for_level,
 )
 from filters.bot_command import BotCommand
 from utils.helpers import resolve_target, user_mention

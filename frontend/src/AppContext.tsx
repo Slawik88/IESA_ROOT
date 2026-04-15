@@ -10,6 +10,7 @@ import type { UserData } from "./types";
 interface AppContextValue {
   userData: UserData | null;
   userDataLoading: boolean;
+  userDataError: string | null;
   isDev: boolean;
   refreshUserData: () => Promise<void>;
 }
@@ -17,6 +18,7 @@ interface AppContextValue {
 const AppContext = createContext<AppContextValue>({
   userData: null,
   userDataLoading: true,
+  userDataError: null,
   isDev: false,
   refreshUserData: async () => {},
 });
@@ -24,9 +26,11 @@ const AppContext = createContext<AppContextValue>({
 export function AppProvider({ children, chatId }: { children: ReactNode; chatId: number }) {
   const [userData, setUserData] = useState<UserData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const refreshUserData = useCallback(async () => {
     if (!chatId) return;
+    setError(null);
     try {
       const d = await fetchUserData(chatId);
       setUserData(d);
@@ -37,8 +41,8 @@ export function AppProvider({ children, chatId }: { children: ReactNode; chatId:
       } else {
         document.documentElement.removeAttribute("data-theme");
       }
-    } catch {
-      // игнорируем — не критично
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Ошибка загрузки данных");
     } finally {
       setLoading(false);
     }
@@ -53,6 +57,7 @@ export function AppProvider({ children, chatId }: { children: ReactNode; chatId:
       value={{
         userData,
         userDataLoading: loading,
+        userDataError: error,
         isDev: !!userData?.is_dev,
         refreshUserData,
       }}

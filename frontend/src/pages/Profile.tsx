@@ -13,7 +13,7 @@ import {
   familyDeposit, familyWithdraw, fetchFamilyLog,
   fetchExpeditions, startExpedition, collectExpedition,
   fetchWalletHistory, boostExpedition, fetchInventory,
-  fetchGiftsCatalog, sendGift,
+  fetchGiftsCatalog, sendGift, divorcePartner, setBio,
   type GiftsCatalogResponse,
 } from "../lib/api";
 import type {
@@ -65,6 +65,15 @@ export default function Profile({ chatId }: Props) {
   const [familyLog, setFamilyLog]      = useState<FamilyLogEntry[]>([]);
   const [familyLogOpen, setFLogOpen]   = useState(false);
 
+  // Bio edit
+  const [bioEditOpen, setBioEditOpen] = useState(false);
+  const [bioText, setBioText]         = useState("");
+  const [bioBusy, setBioBusy]         = useState(false);
+
+  // Divorce
+  const [divorceConfirm, setDivorceConfirm] = useState(false);
+  const [divorceBusy, setDivorceBusy]       = useState(false);
+
   // Wallet history
   const [walletHist, setWalletHist]   = useState<WalletHistoryEntry[]>([]);
   const [walletHistOpen, setWHistOpen] = useState(false);
@@ -90,14 +99,16 @@ export default function Profile({ chatId }: Props) {
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
     fetchUserData(chatId)
-      .then(setData)
-      .catch((e: Error) => setError(e.message));
+      .then(d => { if (!cancelled) setData(d); })
+      .catch((e: Error) => { if (!cancelled) setError(e.message); });
     if (chatId) {
       fetchCheckinStatus(chatId)
-        .then(setCheckin)
+        .then(c => { if (!cancelled) setCheckin(c); })
         .catch(() => { /* не критично */ });
     }
+    return () => { cancelled = true; };
   }, [chatId]);
 
   const handleCheckin = useCallback(async () => {
@@ -313,6 +324,25 @@ export default function Profile({ chatId }: Props) {
     }
   }, [chatId, familyLogOpen]);
 
+  const handleDivorce = useCallback(async () => {
+    if (!chatId || divorceBusy) return;
+    setDivorceBusy(true);
+    try {
+      const r = await divorcePartner(chatId);
+      if (r.ok) {
+        showToast("Вы развелись");
+        setDivorceConfirm(false);
+        refreshUserData();
+      } else {
+        showToast(r.error ?? "Ошибка");
+      }
+    } catch (e: unknown) {
+      showToast(e instanceof Error ? e.message : "Ошибка");
+    } finally {
+      setDivorceBusy(false);
+    }
+  }, [chatId, divorceBusy, refreshUserData, showToast]);
+
   const handleWalletHistory = useCallback(async () => {
     if (!chatId) return;
     const nextOpen = !walletHistOpen;
@@ -379,9 +409,57 @@ export default function Profile({ chatId }: Props) {
       </header>
 
       {/* ── Bio ────────────────────────────────────────────────── */}
-      {data.bio && (
-        <p className="text-sm px-1" style={{ color: "var(--text-hint)" }}>{data.bio}</p>
-      )}
+      <div className="px-1">
+        {!bioEditOpen ? (
+          <div className="flex items-start gap-2">
+            <p className="text-sm flex-1" style={{ color: "var(--text-hint)" }}>
+              {data.bio || <span className="italic" style={{ opacity: 0.5 }}>О себе не заполнено</span>}
+            </p>
+            <button
+              className="text-xs shrink-0"
+              style={{ color: "var(--accent)", opacity: 0.8 }}
+              onClick={() => { setBioText(data.bio || ""); setBioEditOpen(true); }}
+            >✏️ Изменить</button>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-2">
+            <textarea
+              className="w-full rounded-lg p-2 text-sm resize-none"
+              style={{ background: "var(--surface)", color: "var(--text)", border: "1px solid var(--border)", minHeight: 72 }}
+              maxLength={200}
+              value={bioText}
+              onChange={e => setBioText(e.target.value)}
+              placeholder="Напишите о себе…"
+            />
+            <p className="text-[11px] text-right" style={{ color: "var(--text-hint)" }}>{bioText.length}/200</p>
+            <div className="flex gap-2">
+              <button
+                className="btn btn-primary flex-1 text-sm py-1.5"
+                disabled={bioBusy}
+                onClick={async () => {
+                  setBioBusy(true);
+                  try {
+                    const res = await setBio(chatId, bioText);
+                    if (res.ok) {
+                      setData(prev => prev ? { ...prev, bio: bioText } : prev);
+                      setBioEditOpen(false);
+                      showToast("✅ О себе обновлено!");
+                    } else {
+                      showToast(res.error || "Ошибка сохранения");
+                    }
+                  } catch { showToast("Ошибка сети"); }
+                  finally { setBioBusy(false); }
+                }}
+              >{bioBusy ? "Сохранение…" : "Сохранить"}</button>
+              <button
+                className="btn text-sm py-1.5"
+                style={{ background: "var(--surface)", color: "var(--text-hint)" }}
+                onClick={() => setBioEditOpen(false)}
+              >Отмена</button>
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* ── XP прогресс ────────────────────────────────────────── */}
       <Card>
@@ -677,6 +755,51 @@ export default function Profile({ chatId }: Props) {
             {familyLogOpen && familyLog.length === 0 && (
               <p className="text-[11px] text-center" style={{ color: "var(--text-hint)" }}>Нет операций</p>
             )}
+          </div>          {/* Divorce */}
+          <div className="mt-3">
+            {!divorceConfirm ? (
+              <button
+                onClick={() => setDivorceConfirm(true)}
+                className="w-full py-1.5 rounded-lg text-xs font-semibold transition-opacity"
+                style={{ backgroundColor: "#ef444422", color: "#ef4444" }}
+              >
+                💔 Развестись
+              </button>
+            ) : (
+              <div className="rounded-xl p-3 space-y-2"
+                style={{ backgroundColor: "#ef444411", border: "1px solid #ef444444" }}>
+                <p className="text-xs font-semibold text-center" style={{ color: "#ef4444" }}>
+                  Вы уверены? Это действие необратимо.
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleDivorce}
+                    disabled={divorceBusy}
+                    className="flex-1 py-1.5 rounded-lg text-xs font-semibold transition-opacity disabled:opacity-40"
+                    style={{ backgroundColor: "#ef4444", color: "#fff" }}
+                  >
+                    {divorceBusy ? <Loader2 size={11} className="animate-spin inline" /> : "Да, развестись"}
+                  </button>
+                  <button
+                    onClick={() => setDivorceConfirm(false)}
+                    disabled={divorceBusy}
+                    className="flex-1 py-1.5 rounded-lg text-xs font-semibold transition-opacity disabled:opacity-40"
+                    style={{ backgroundColor: "var(--bg-primary)", color: "var(--text-hint)" }}
+                  >
+                    Отмена
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>        </Card>
+      )}
+
+      {/* Gifts locked hint for unmarried users */}
+      {!data.has_partner && (
+        <Card>
+          <div className="rounded-lg p-3 text-center text-xs"
+            style={{ color: "var(--text-hint)" }}>
+            🔒 Подарки партнёру открываются после свадьбы
           </div>
         </Card>
       )}

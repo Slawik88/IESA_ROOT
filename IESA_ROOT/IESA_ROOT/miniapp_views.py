@@ -146,21 +146,22 @@ def miniapp_index(request):
     return HttpResponse(content, content_type="text/html")
 
 
+_MINIAPP_CORS_ORIGIN = os.environ.get("MINIAPP_CORS_ORIGIN", "https://web.telegram.org")
+
+
 def _cors_headers():
     return {
-        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Origin": _MINIAPP_CORS_ORIGIN,
         "Access-Control-Allow-Headers": "X-Telegram-Init-Data, X-Init-Data, Content-Type",
         "Cache-Control": "no-cache",
     }
 
 
 def _get_init_data(request) -> str:
-    """Return initData from supported headers (and URL fallback for webview edge cases)."""
+    """Return initData from supported headers only (never from GET params)."""
     return (
         request.headers.get("X-Telegram-Init-Data", "")
         or request.headers.get("X-Init-Data", "")
-        or request.GET.get("initData", "")
-        or request.GET.get("tgWebAppData", "")
     ).strip()
 
 
@@ -783,7 +784,7 @@ def miniapp_boss_damage(request):
 
 
 # ─── Developer ID ─────────────────────────────────────────────────────────────
-_DEVELOPER_ID = 1460945748
+# _DEVELOPER_ID is loaded from config (see top of file import)
 
 # ─── Rank levels (single source of truth for miniapp) ────────────────────────
 _RANK_LEVELS = {
@@ -1983,6 +1984,35 @@ def miniapp_family_log(request):
         logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
 
 
+@csrf_exempt
+def miniapp_divorce(request):
+    """POST /api/marriage/divorce {chat_id} — dissolve the user's marriage."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=405, headers=headers)
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+    try:
+        body = json.loads(request.body)
+        chat_id = int(str(body.get("chat_id", "0")))
+    except Exception:
+        return JsonResponse({"error": "invalid JSON"}, status=400, headers=headers)
+    if not chat_id:
+        return JsonResponse({"error": "chat_id required"}, status=400, headers=headers)
+    try:
+        from asgiref.sync import async_to_sync as _a2s
+        from api.marriage import divorce as _divorce
+        result = _a2s(_divorce)(uid, chat_id)
+        return JsonResponse(result, json_dumps_params={"ensure_ascii": False}, headers=headers)
+    except ValueError as ve:
+        return JsonResponse({"error": str(ve)}, status=400, json_dumps_params={"ensure_ascii": False}, headers=headers)
+    except Exception as exc:
+        logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
+
+
 # ─── Inventory (full, with equip/unequip) ─────────────────────────────────────
 
 @csrf_exempt
@@ -2168,7 +2198,7 @@ def miniapp_inventory(request):
             slot_col = {"weapon": "weapon_id", "helmet": "helmet_id", "armor": "armor_id", "boots": "boots_id", "artifact": "artifact_id"}.get(slot or "")
 
             if currently_equipped:
-                cur.execute(f"UPDATE gacha_inventory SET equipped=0 WHERE id={ph}", (item_id,))
+                cur.execute(f"UPDATE gacha_inventory SET equipped=0 WHERE id={ph} AND user_id={ph}", (item_id, uid))
                 if slot_col:
                     cur.execute(
                         f"UPDATE user_rpg_stats SET {slot_col}=NULL WHERE user_id={ph} AND chat_id={ph}",
@@ -2181,7 +2211,7 @@ def miniapp_inventory(request):
                         f"UPDATE gacha_inventory SET equipped=0 WHERE user_id={ph} AND slot={ph} AND equipped=1",
                         (uid, slot),
                     )
-                cur.execute(f"UPDATE gacha_inventory SET equipped=1 WHERE id={ph}", (item_id,))
+                cur.execute(f"UPDATE gacha_inventory SET equipped=1 WHERE id={ph} AND user_id={ph}", (item_id, uid))
                 if slot_col:
                     if db_type == "pg":
                         cur.execute(
@@ -3481,12 +3511,20 @@ def miniapp_couple_boss_start(request):
         import datetime
         today = datetime.datetime.now(timezone.utc).strftime("%Y-%m-%d")
         
-        cur.execute(f"""SELECT 1 FROM couple_boss_sessions 
-                     WHERE user_a_id={ph} AND user_b_id={ph} AND chat_id={ph} AND session_date={ph} AND is_completed=0""", 
+        cur.execute(f"""SELECT is_completed FROM couple_boss_sessions 
+                     WHERE user_a_id={ph} AND user_b_id={ph} AND chat_id={ph} AND session_date={ph}""", 
                      (user_a_id, user_b_id, chat_id, today))
-        if cur.fetchone():
+        today_rows = cur.fetchall()
+        completed_count = sum(1 for r in today_rows if r[0])
+        has_active = any(not r[0] for r in today_rows)
+        if has_active:
             conn.close()
-            return JsonResponse({"error": "Active boss session already exists for today"}, status=400, headers=headers)
+            return JsonResponse({"error": "Активная битва с парным боссом уже идёт!"}, status=400,
+                                json_dumps_params={"ensure_ascii": False}, headers=headers)
+        if completed_count >= 2:
+            conn.close()
+            return JsonResponse({"error": "Вы уже победили 2 парных боссов сегодня! Возвращайтесь завтра. 🌙"}, status=400,
+                                json_dumps_params={"ensure_ascii": False}, headers=headers)
         
         # Validate boss level
         if boss_level < 1 or boss_level > 50:  # Reasonable limit
@@ -3685,8 +3723,12 @@ def miniapp_solo_boss_status(request):
     from database.db import get_solo_boss_session, get_solo_boss_progress
     from asgiref.sync import async_to_sync
 
-    session = async_to_sync(get_solo_boss_session)(uid, chat_id)
-    progress = async_to_sync(get_solo_boss_progress)(uid, chat_id)
+    try:
+        session = async_to_sync(get_solo_boss_session)(uid, chat_id)
+        progress = async_to_sync(get_solo_boss_progress)(uid, chat_id)
+    except Exception:
+        session = None
+        progress = None
 
     next_level = (progress["max_level"] + 1) if progress else 1
 
@@ -3749,23 +3791,28 @@ def miniapp_solo_boss_start(request):
         cur = conn.cursor()
         ph = "%s" if db_type == "pg" else "?"
         today_str = __import__("datetime").date.today().isoformat()
+
+        # Allow up to 2 boss fights per day
         cur.execute(
             f"SELECT is_completed FROM solo_boss_sessions "
-            f"WHERE user_id={ph} AND chat_id={ph} AND session_date={ph} LIMIT 1",
+            f"WHERE user_id={ph} AND chat_id={ph} AND session_date={ph}",
             (uid, chat_id, today_str),
         )
-        today_row = cur.fetchone()
+        today_rows = cur.fetchall()
     finally:
         conn.close()
 
-    if today_row is not None:
-        if today_row[0]:  # is_completed = True
-            return JsonResponse({"error": "Ты уже победил босса сегодня! Возвращайся завтра. 🌙"},
-                                status=400, json_dumps_params={"ensure_ascii": False}, headers=headers)
-        # Incomplete session exists — return it
+    completed_count = sum(1 for r in today_rows if r[0])
+    has_active = any(not r[0] for r in today_rows)
+
+    if has_active:
         existing = async_to_sync(get_solo_boss_session)(uid, chat_id)
-        return JsonResponse({"error": "У тебя уже есть активная битва с боссом сегодня!",
+        return JsonResponse({"error": "У тебя уже есть активная битва с боссом!",
                              "session": existing},
+                            status=400, json_dumps_params={"ensure_ascii": False}, headers=headers)
+
+    if completed_count >= 2:
+        return JsonResponse({"error": "Ты уже победил 2 боссов сегодня! Возвращайся завтра. 🌙"},
                             status=400, json_dumps_params={"ensure_ascii": False}, headers=headers)
 
     progress = async_to_sync(get_solo_boss_progress)(uid, chat_id)
@@ -3841,8 +3888,8 @@ def miniapp_solo_boss_attack(request):
 
     if result["boss_defeated"]:
         # Give rewards
-        mora_reward = 500 + (session["boss_level"] - 1) * 200
-        xp_reward = 300 + (session["boss_level"] - 1) * 100
+        mora_reward = 150 + (session["boss_level"] - 1) * 50
+        xp_reward = 100 + (session["boss_level"] - 1) * 25
         try:
             from database.db import add_mora, add_xp_in_chat, get_mora
             async_to_sync(add_mora)(uid, chat_id, mora_reward)
@@ -5340,6 +5387,9 @@ def miniapp_chat_buff(request):
             return JsonResponse({"error": "chat_id required"}, status=400, headers=headers)
         chat_id = int(chat_id_str)
         buff_type = request.GET.get("buff_type", "xp_plus10")
+        _VALID_BUFF_TYPES = {"xp_plus10"}
+        if buff_type not in _VALID_BUFF_TYPES:
+            return JsonResponse({"error": "Unknown buff_type"}, status=400, headers=headers)
 
         try:
             from asgiref.sync import async_to_sync as _a2s
@@ -5372,6 +5422,9 @@ def miniapp_chat_buff(request):
 
         chat_id = int(str(body.get("chat_id", "0")))
         buff_type = str(body.get("buff_type", "xp_plus10"))  # default to XP +10 buff
+        _VALID_BUFF_TYPES = {"xp_plus10"}
+        if buff_type not in _VALID_BUFF_TYPES:
+            return JsonResponse({"error": "Unknown buff_type"}, status=400, headers=headers)
 
         if not chat_id:
             return JsonResponse({"error": "chat_id required"}, status=400, headers=headers)
@@ -6006,7 +6059,7 @@ def miniapp_crystals_spend(request):
         ("vip_lottery_ticket",    "🎟️", "VIP-билет лотереи",            100, "Участие в VIP-лотерее с ×3 призами",           "gameplay", False),
 
         # ── Социалка ──
-        ("stealth_mode",          "🕶️", "Режим тени",                  180, "Скрыть баланс моры от других",                 "social", True),
+        ("stealth_mode",          "🕶️", "Режим тени",                  180, "Скрыть баланс от других",                 "social", True),
         ("chat_role",             "🏷️", "Кастомная роль",               300, "Уникальная роль в профиле чата",               "social", True),
         ("transfer_pass",         "🎫", "Пропуск переноса",              50, "Снимает ограничение 3 дней на аукционе",       "social", False),
         ("megaphone",             "📢", "Глобальный рупор",             500, "Сообщение во все чаты (модерация)",            "social", False),

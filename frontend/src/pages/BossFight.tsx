@@ -9,6 +9,7 @@ import {
 } from "../lib/api";
 import type { InventoryItem } from "../types";
 import { Loader2, Shield, Zap, Sword, Swords, Pause, Play, Flag, FlaskConical } from "lucide-react";
+import CoupleBoss from "./CoupleBoss";
 
 // ─── Constants ────────────────────────────────────────────────
 const STAMINA_MAX         = 100;
@@ -56,6 +57,9 @@ function fmt(n: number) {
 
 // ─── Component ────────────────────────────────────────────────
 export default function BossFight({ userId: _userId, chatId }: Props) {
+  // Boss mode tabs
+  const [mode, setMode] = useState<"solo" | "couple">("solo");
+
   // Remote state
   const [session, setSession]   = useState<BossSession | null>(null);
   const [progress, setProgress] = useState<BossProgress | null>(null);
@@ -354,22 +358,55 @@ export default function BossFight({ userId: _userId, chatId }: Props) {
 
   return (
     <div className="min-h-screen flex flex-col" style={{ backgroundColor: "var(--bg-primary)" }}>
-      {/* Header */}
+      {/* Header + Mode Tabs */}
       <div className="px-4 pt-safe pb-2 glass-heavy" style={{ borderBottom: "1px solid var(--border-accent)" }}>
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>⚔️ Соло Босс</h1>
-            {progress && (
+            <h1 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>⚔️ Босс</h1>
+            {mode === "solo" && progress && (
               <p className="text-[11px]" style={{ color: "var(--text-hint)" }}>
                 Макс. уровень: {progress.max_level}
               </p>
             )}
           </div>
-          <div className="badge badge-accent text-xs px-3 py-1">
-            Ур. {nextLevel}
-          </div>
+          {mode === "solo" && (
+            <div className="badge badge-accent text-xs px-3 py-1">
+              Ур. {nextLevel}
+            </div>
+          )}
+        </div>
+        {/* Mode tabs */}
+        <div className="flex gap-2 mt-2">
+          <button
+            onClick={() => setMode("solo")}
+            className="flex-1 py-1.5 rounded-lg text-xs font-semibold transition-all"
+            style={{
+              backgroundColor: mode === "solo" ? "var(--accent)" : "var(--bg-secondary)",
+              color: mode === "solo" ? "#fff" : "var(--text-hint)",
+            }}
+          >
+            🗡️ Соло
+          </button>
+          <button
+            onClick={() => setMode("couple")}
+            className="flex-1 py-1.5 rounded-lg text-xs font-semibold transition-all"
+            style={{
+              backgroundColor: mode === "couple" ? "#e84393" : "var(--bg-secondary)",
+              color: mode === "couple" ? "#fff" : "var(--text-hint)",
+            }}
+          >
+            💞 Парный
+          </button>
         </div>
       </div>
+
+      {/* Couple boss mode */}
+      {mode === "couple" && (
+        <CoupleBoss userId={_userId} chatId={chatId} />
+      )}
+
+      {/* Solo boss mode */}
+      {mode === "solo" && <>
 
       {/* Toast */}
       {toast && (
@@ -386,7 +423,7 @@ export default function BossFight({ userId: _userId, chatId }: Props) {
             <div className="text-8xl drop-shadow-lg animate-orb">{bossArt(nextLevel)}</div>
             <p className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>{bossName(nextLevel)}</p>
             <p className="text-sm" style={{ color: "var(--text-hint)" }}>
-              HP: {fmt(2_000 + (nextLevel - 1) * 1_500)}
+              HP: {fmt(3_000 + (nextLevel - 1) * 2_000)}
             </p>
             {session?.is_completed === 1 && (
               <p className="badge badge-success text-sm px-4 py-1">✅ Побеждён сегодня!</p>
@@ -667,6 +704,7 @@ export default function BossFight({ userId: _userId, chatId }: Props) {
           </div>
         </div>
       )}
+      </>}
     </div>
   );
 }

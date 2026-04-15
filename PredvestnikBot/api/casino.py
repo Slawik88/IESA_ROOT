@@ -4,9 +4,8 @@ api/casino.py — unified coin flip logic.
 Called by both the Telegram bot handlers and the mini app views.
 All public functions are async; the mini app wraps them with async_to_sync.
 """
-import random
 import logging
-_log = logging.getLogger(__name__)
+import random
 
 # House win rate — single source of truth
 COIN_WIN_RATE = 0.50  # 50% chance of winning
@@ -37,8 +36,8 @@ async def coin_flip_resolve(uid: int, chat_id: int, bet: int) -> dict:
         try:
             from api.economy import log_wallet_tx
             await log_wallet_tx(uid, chat_id, "income", prize, "casino", f"Выигрыш {prize}🪙")
-        except Exception as _e:
-            _log.debug("%s", _e)
+        except Exception:
+            pass
     else:
         mora_row = await get_mora(uid, chat_id)
         new_bal  = mora_row["balance"] if mora_row else 0
@@ -72,8 +71,9 @@ async def coin_flip_resolve(uid: int, chat_id: int, bet: int) -> dict:
             total_cf = int(row["total_coinflip"] or 0) if row else 1
         from api.achievements import check_and_award as _ach
         await _ach(uid, chat_id, "coinflip", total_cf)
-    except Exception as _e:
-        _log.debug("%s", _e)
+    except Exception:
+        pass
+
     return {
         "ok":          True,
         "win":         win,
@@ -124,17 +124,18 @@ async def coin_flip(uid: int, chat_id: int, bet: int) -> dict:
     try:
         from api.economy import log_wallet_tx
         await log_wallet_tx(uid, chat_id, "expense", bet, "casino", f"Ставка {bet}🪙")
-    except Exception as _e:
-        _log.debug("%s", _e)
+    except Exception:
+        pass
+
     return await coin_flip_resolve(uid, chat_id, bet)
 
 
 # ─── Lottery ──────────────────────────────────────────────────────────────────
 
 def _week_key() -> str:
-    """ISO week key like '2026-W13'."""
-    from datetime import date
-    iso = date.today().isocalendar()
+    """ISO week key like '2026-W13' (UTC-based)."""
+    from datetime import datetime, timezone
+    iso = datetime.now(timezone.utc).date().isocalendar()
     return f"{iso.year}-W{iso.week:02d}"
 
 

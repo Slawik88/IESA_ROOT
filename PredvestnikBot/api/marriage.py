@@ -208,3 +208,16 @@ async def get_family_log(uid: int, chat_id: int, limit: int = 30) -> dict:
         })
 
     return {"ok": True, "log": log_entries}
+
+
+async def divorce(uid: int, chat_id: int) -> dict:
+    """Dissolve the user's marriage. Returns {ok, partner_id}."""
+    from database.db import get_marriage, delete_marriage
+
+    marriage = await get_marriage(uid, chat_id)
+    if not marriage or not marriage.get("partner_id"):
+        return {"ok": False, "error": "Вы не состоите в браке"}
+
+    partner_id = marriage["partner_id"]
+    await delete_marriage(uid, chat_id)
+    return {"ok": True, "partner_id": partner_id}
