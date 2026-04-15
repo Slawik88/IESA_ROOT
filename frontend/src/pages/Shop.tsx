@@ -132,6 +132,7 @@ export default function Shop({ chatId }: Props) {
       <div className="p-4 text-center" style={{ color: "#e74c3c" }}>
         <p className="font-medium">Ошибка загрузки магазина</p>
         <p className="text-sm mt-1 break-all">{error}</p>
+        <button onClick={reload} className="mt-3 text-sm underline" style={{ color: "var(--accent)" }}>Попробовать снова</button>
       </div>
     );
   }

@@ -652,6 +652,15 @@ export function sendGift(chatId: number, giftKey: string, wallet: "personal" | "
   });
 }
 
+/** Развестись с партнёром */
+export function divorcePartner(chatId: number): Promise<{ ok: boolean; partner_id?: number; error?: string }> {
+  return request<{ ok: boolean; partner_id?: number; error?: string }>("/api/marriage/divorce", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId }),
+  });
+}
+
 // ── Wallet history ────────────────────────────────────────────
 
 /** История кошелька */
@@ -664,6 +673,17 @@ export function fetchWalletHistory(chatId: number): Promise<WalletHistoryRespons
 /** Публичный профиль другого игрока */
 export function fetchPublicProfile(targetUserId: number, chatId: number): Promise<PublicProfileResponse> {
   return request<PublicProfileResponse>(`/api/public_profile?user_id=${targetUserId}&chat_id=${chatId}`);
+}
+
+// ── Profile bio ───────────────────────────────────────────────
+
+/** Обновить (или удалить) текст «О себе» */
+export function setBio(chatId: number, bio: string): Promise<{ ok: boolean; bio?: string; error?: string }> {
+  return request<{ ok: boolean; bio?: string; error?: string }>("/api/profile/bio", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId, bio }),
+  });
 }
 
 // ── Stars shop ────────────────────────────────────────────────
@@ -860,6 +880,59 @@ export function forfeitBoss(chatId: number): Promise<{ ok: boolean; forfeited: b
   });
 }
 
+// ── Couple Boss ───────────────────────────────────────────────
+
+export interface CoupleBossSession {
+  id: number;
+  boss_level: number;
+  boss_max_hp: number;
+  boss_current_hp: number;
+  user_a_damage: number;
+  user_b_damage: number;
+  is_completed: 0 | 1;
+  is_repeat: 0 | 1;
+}
+
+export interface CoupleBossStatusResult {
+  married: boolean;
+  partner_id?: number;
+  partner_name?: string;
+  session?: CoupleBossSession | null;
+  max_level_completed?: number;
+  available_levels?: number[];
+}
+
+export interface CoupleBossAttackResult {
+  ok: boolean;
+  damage_dealt: number;
+  crit: boolean;
+  boss_hp: number;
+  boss_defeated: boolean;
+  aggro?: boolean;
+  aggro_damage?: number;
+  rewards?: { mora: number; xp: number };
+}
+
+export function fetchCoupleBossStatus(chatId: number): Promise<CoupleBossStatusResult> {
+  return request<CoupleBossStatusResult>(`/api/couple_boss/status?chat_id=${chatId}`);
+}
+
+export function startCoupleBoss(chatId: number, bossLevel: number): Promise<{ ok: boolean; session_id: number; boss_level: number; boss_max_hp: number; is_repeat: number }> {
+  return request(`/api/couple_boss/start`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId, boss_level: bossLevel }),
+  });
+}
+
+export function attackCoupleBoss(chatId: number): Promise<CoupleBossAttackResult> {
+  return request<CoupleBossAttackResult>("/api/couple_boss/attack", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId }),
+  });
+}
+
 // ── Error Logs (DEV) ─────────────────────────────────────────
 
 /** [DEV] Получить логи ошибок */
@@ -904,4 +977,130 @@ export function submitTelemetry(events: TelemetryEvent[]): Promise<{ ok: boolean
 /** [DEV] Получить аналитику за период (day / week / month) */
 export function fetchAnalytics(period: string = "week"): Promise<AnalyticsResponse> {
   return request<AnalyticsResponse>(`/api/dev/analytics?period=${period}`);
+}
+
+// ── Auction / Аукцион ─────────────────────────────────────────
+
+export interface AuctionLot {
+  id: number;
+  seller_id: number;
+  seller_name?: string;
+  item_key?: string;
+  item_name: string;
+  item_source: string;
+  start_price: number;
+  buyout_price?: number | null;
+  current_bid: number;
+  bidder_id?: number | null;
+  bidder_name?: string | null;
+  ends_at?: string | null;
+  created_at?: string;
+  chat_id?: number;
+}
+
+export interface AuctionListResponse {
+  lots: AuctionLot[];
+  my_lots: AuctionLot[];
+  my_bids: AuctionLot[];
+}
+
+export function fetchAuctions(chatId: number): Promise<AuctionListResponse> {
+  return request<AuctionListResponse>(`/api/auction/list?chat_id=${chatId}`);
+}
+
+export function createAuction(chatId: number, data: {
+  item_id?: number;
+  item_key?: string;
+  item_name?: string;
+  item_source: "gacha" | "shop";
+  start_price: number;
+  buyout_price?: number;
+}): Promise<{ ok: boolean; lot_id?: number; error?: string }> {
+  return request<{ ok: boolean; lot_id?: number; error?: string }>("/api/auction/create", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId, ...data }),
+  });
+}
+
+export function placeBid(chatId: number, auctionId: number, amount: number): Promise<{ ok: boolean; error?: string }> {
+  return request<{ ok: boolean; error?: string }>("/api/auction/bid", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId, auction_id: auctionId, amount }),
+  });
+}
+
+export function buyoutAuction(chatId: number, auctionId: number): Promise<{ ok: boolean; error?: string }> {
+  return request<{ ok: boolean; error?: string }>("/api/auction/buyout", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId, auction_id: auctionId }),
+  });
+}
+
+export function cancelAuction(chatId: number, auctionId: number): Promise<{ ok: boolean; error?: string }> {
+  return request<{ ok: boolean; error?: string }>("/api/auction/cancel", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId, auction_id: auctionId }),
+  });
+}
+
+// ── Loans / Займы ─────────────────────────────────────────────
+
+export interface LoanRecord {
+  id: number;
+  lender_id: number;
+  borrower_id: number;
+  lender_name?: string;
+  borrower_name?: string;
+  chat_id: number;
+  amount: number;
+  loaned_at?: string;
+  due_at?: string | null;
+  repaid_at?: string | null;
+  status: "pending" | "accepted" | "repaid" | "cancelled";
+}
+
+export interface LoansResponse {
+  as_lender: LoanRecord[];
+  as_borrower: LoanRecord[];
+  pending_incoming: LoanRecord[];
+}
+
+export function fetchLoans(chatId: number): Promise<LoansResponse> {
+  return request<LoansResponse>(`/api/loans?chat_id=${chatId}`);
+}
+
+export function createLoan(chatId: number, targetId: number, amount: number): Promise<{ ok: boolean; loan_id?: number; error?: string }> {
+  return request<{ ok: boolean; loan_id?: number; error?: string }>("/api/loans/create", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId, target_id: targetId, amount }),
+  });
+}
+
+export function repayLoan(chatId: number, loanId: number): Promise<{ ok: boolean; error?: string }> {
+  return request<{ ok: boolean; error?: string }>("/api/loans/repay", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId, loan_id: loanId }),
+  });
+}
+
+export function respondLoan(chatId: number, loanId: number, action: "accept" | "reject"): Promise<{ ok: boolean; error?: string }> {
+  return request<{ ok: boolean; error?: string }>("/api/loans/respond", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId, loan_id: loanId, action }),
+  });
+}
+
+export function cancelLoan(chatId: number, loanId: number): Promise<{ ok: boolean; error?: string }> {
+  return request<{ ok: boolean; error?: string }>("/api/loans/cancel", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId, loan_id: loanId }),
+  });
 }

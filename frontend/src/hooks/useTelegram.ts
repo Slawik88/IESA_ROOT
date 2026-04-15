@@ -21,6 +21,8 @@ interface UseTelegramResult {
   user: TgUser | null;
   initData: string;
   colorScheme: "light" | "dark";
+  /** BUG-054: human-readable error when chatId could not be determined */
+  error: string | null;
 }
 
 /**
@@ -57,6 +59,7 @@ export function useTelegram(): UseTelegramResult {
     user: null,
     initData: "",
     colorScheme: "dark",
+    error: null,
   });
 
   useEffect(() => {
@@ -123,6 +126,7 @@ export function useTelegram(): UseTelegramResult {
       user: user ?? null,
       initData,
       colorScheme: tg.colorScheme ?? "dark",
+      error: chatId === 0 ? "Не удалось определить чат. Откройте приложение из группы." : null,
     });
   }, []);
 

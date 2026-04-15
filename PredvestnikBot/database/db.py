@@ -252,7 +252,7 @@ async def init_db():
             try:
                 await db.execute(f"ALTER TABLE cleanup_counts ADD COLUMN IF NOT EXISTS {col_def}")
             except Exception as _e:
-                _log.debug("%s", _e)
+                _log.debug("%s", _e, exc_info=True)
 
         # Добавляем новую колонку в chat_settings
         for col_def in [
@@ -292,7 +292,7 @@ async def init_db():
                     f"ALTER TABLE chat_settings ADD COLUMN IF NOT EXISTS {col_def}"
                 )
             except Exception as _e:
-                _log.debug("%s", _e)
+                _log.debug("%s", _e, exc_info=True)
 
         # Миграция: добавить message_count в user_stats (для обновлений БД)
         for col_def in [
@@ -305,7 +305,7 @@ async def init_db():
             try:
                 await db.execute(f"ALTER TABLE user_stats ADD COLUMN IF NOT EXISTS {col_def}")
             except Exception as _e:
-                _log.debug("%s", _e)
+                _log.debug("%s", _e, exc_info=True)
 
         # Миграция: новые колонки user_mora (VIP, буст XP, рамка топа)
         for col_def in [
@@ -317,7 +317,7 @@ async def init_db():
             try:
                 await db.execute(f"ALTER TABLE user_mora ADD COLUMN IF NOT EXISTS {col_def}")
             except Exception as _e:
-                _log.debug("%s", _e)
+                _log.debug("%s", _e, exc_info=True)
 
         # Таблица отдыхающих (защита от чистки)
         await db.execute("""
@@ -784,7 +784,7 @@ async def init_db():
             try:
                 await db.execute(f"ALTER TABLE user_mora ADD COLUMN IF NOT EXISTS {col_def}")
             except Exception as _e:
-                _log.debug("%s", _e)
+                _log.debug("%s", _e, exc_info=True)
 
         # ─── Миграция: новые колонки в pets (косметика) ───────────────────
         for col_def in [
@@ -794,7 +794,7 @@ async def init_db():
             try:
                 await db.execute(f"ALTER TABLE pets ADD COLUMN IF NOT EXISTS {col_def}")
             except Exception as _e:
-                _log.debug("%s", _e)
+                _log.debug("%s", _e, exc_info=True)
 
         # ─── Темы профиля (какие куплены/получены и какая активна) ────────
         await db.execute("""
@@ -815,7 +815,7 @@ async def init_db():
             try:
                 await db.execute(f"ALTER TABLE user_mora ADD COLUMN IF NOT EXISTS {col_def}")
             except Exception as _e:
-                _log.debug("%s", _e)
+                _log.debug("%s", _e, exc_info=True)
 
         # ─── Бейджи (значки) профиля ─────────────────────────────────────
         await db.execute("""
@@ -872,7 +872,7 @@ async def init_db():
             try:
                 await db.execute(f"ALTER TABLE user_mora ADD COLUMN IF NOT EXISTS {col_def}")
             except Exception as _e:
-                _log.debug("%s", _e)
+                _log.debug("%s", _e, exc_info=True)
 
         # ─── Рулетка: счётчик поражений подряд (пити-система) ────────────
         for col_def in [
@@ -881,7 +881,7 @@ async def init_db():
             try:
                 await db.execute(f"ALTER TABLE user_mora ADD COLUMN IF NOT EXISTS {col_def}")
             except Exception as _e:
-                _log.debug("%s", _e)
+                _log.debug("%s", _e, exc_info=True)
 
         # ─── Трекинг: юзер видел приветствие сегодня ──────────────────────
         for col_def in [
@@ -890,7 +890,7 @@ async def init_db():
             try:
                 await db.execute(f"ALTER TABLE user_stats ADD COLUMN IF NOT EXISTS {col_def}")
             except Exception as _e:
-                _log.debug("%s", _e)
+                _log.debug("%s", _e, exc_info=True)
 
         # ─── Ограничения пользователей (муты/ограниченные) ────────────────
         for col_def in [
@@ -900,7 +900,7 @@ async def init_db():
             try:
                 await db.execute(f"ALTER TABLE user_stats ADD COLUMN IF NOT EXISTS {col_def}")
             except Exception as _e:
-                _log.debug("%s", _e)
+                _log.debug("%s", _e, exc_info=True)
 
         # Миграция: сделать баланс Моры видимым по умолчанию для всех
         await db.execute("UPDATE user_mora SET mora_public = 1 WHERE mora_public = 0")
@@ -1137,14 +1137,14 @@ async def init_db():
             try:
                 await db.execute(f"ALTER TABLE gacha_inventory ADD COLUMN IF NOT EXISTS {col_def}")
             except Exception as _e:
-                _log.debug("%s", _e)
+                _log.debug("%s", _e, exc_info=True)
 
         # ─── Миграция: usталость питомца + время прогулки ──────────────────
         for col_def in ["fatigue INTEGER DEFAULT 0", "last_walked TIMESTAMPTZ DEFAULT NULL", "walk_end_at TIMESTAMPTZ DEFAULT NULL"]:
             try:
                 await db.execute(f"ALTER TABLE pets ADD COLUMN IF NOT EXISTS {col_def}")
             except Exception as _e:
-                _log.debug("%s", _e)
+                _log.debug("%s", _e, exc_info=True)
 
         # ─── Миграция: исправить тип obtained_at если он был создан как TEXT ──
         try:
@@ -1157,7 +1157,7 @@ async def init_db():
                 END
             """)
         except Exception as _e:
-            _log.debug("%s", _e)
+            _log.debug("%s", _e, exc_info=True)
 
         # ─── Миграция: исправить тип started_at в pet_expeditions если TEXT ──
         try:
@@ -1170,7 +1170,7 @@ async def init_db():
                 END
             """)
         except Exception as _e:
-            _log.debug("%s", _e)
+            _log.debug("%s", _e, exc_info=True)
 
         # ─── Донаты в казну ───────────────────────────────────────────────
         await db.execute("""
@@ -1263,7 +1263,7 @@ async def init_db():
             try:
                 await db.execute(f"ALTER TABLE user_mora ADD COLUMN IF NOT EXISTS {col_def}")
             except Exception as _e:
-                _log.debug("%s", _e)
+                _log.debug("%s", _e, exc_info=True)
 
         # ─── Премиум-валюта Кристаллы (покупается за Telegram Stars) ────────
         await db.execute("""
@@ -1517,7 +1517,7 @@ async def init_db():
                     f"ALTER TABLE {_tbl} ALTER COLUMN {_col} TYPE BIGINT"
                 )
         except Exception as _e:
-            _log.debug("%s", _e)
+            _log.debug("%s", _e, exc_info=True)
 
     # АF2: migrate af2_config to per-chat storage (add chat_id column + update PK)
     try:
@@ -1525,20 +1525,20 @@ async def init_db():
             await db.execute("ALTER TABLE af2_config ADD COLUMN IF NOT EXISTS chat_id BIGINT DEFAULT 0")
             await db.commit()
     except Exception as _e:
-        _log.debug("%s", _e)
+        _log.debug("%s", _e, exc_info=True)
     try:
         async with postgres_connect() as db:
             await db.execute("UPDATE af2_config SET chat_id = 0 WHERE chat_id IS NULL")
             await db.commit()
     except Exception as _e:
-        _log.debug("%s", _e)
+        _log.debug("%s", _e, exc_info=True)
     try:
         async with postgres_connect() as db:
             await db.execute("ALTER TABLE af2_config DROP CONSTRAINT IF EXISTS af2_config_pkey")
             await db.execute("ALTER TABLE af2_config ADD PRIMARY KEY (chat_id, key)")
             await db.commit()
     except Exception as _e:
-        _log.debug("%s", _e)
+        _log.debug("%s", _e, exc_info=True)
 
     # Load isolation caches into memory
     await load_admin_groups()
@@ -1596,7 +1596,7 @@ async def init_db():
                 await db.commit()
         except Exception as e:
             # Игнорируем ошибки миграций (колонка уже правильного типа, таблица не существует и т.д.)
-            _log.debug("%s", _e)
+            _log.debug("%s", _e, exc_info=True)
     
     # Add status column to mora_loans if not present (pending/accepted/rejected flow)
     try:
@@ -1606,7 +1606,7 @@ async def init_db():
             )
             await db.commit()
     except Exception as _e:
-        _log.debug("%s", _e)
+        _log.debug("%s", _e, exc_info=True)
 
     # ─── Блок 2: Глобальный инвентарь ─────────────────────────────────────────
     # Добавляем колонку acquired_at в gacha_inventory для 3-дневного правила аукциона
@@ -1623,7 +1623,7 @@ async def init_db():
             )
             await db.commit()
     except Exception as _e:
-        _log.debug("%s", _e)
+        _log.debug("%s", _e, exc_info=True)
 
     # ─── Миграция: 5 слотов снаряжения (helmet_id, boots_id) ──────────────────
     for _col_def in [
@@ -1635,7 +1635,7 @@ async def init_db():
                 await db.execute(f"ALTER TABLE user_rpg_stats ADD COLUMN IF NOT EXISTS {_col_def}")
                 await db.commit()
         except Exception as _e:
-            _log.debug("%s", _e)
+            _log.debug("%s", _e, exc_info=True)
 
     # Мигрируем rare_crown: slot artifact → helmet в gacha_inventory
     try:
@@ -1654,7 +1654,7 @@ async def init_db():
             """)
             await db.commit()
     except Exception as _e:
-        _log.debug("%s", _e)
+        _log.debug("%s", _e, exc_info=True)
 
     # ─── Блок 1: Глобальная архитектура (мора, брак, питомец) ─────────────────
     # Добавляем колонки глобального баланса в таблицу users
@@ -1678,7 +1678,7 @@ async def init_db():
             """)
             await db.commit()
     except Exception as _e:
-        _log.debug("%s", _e)
+        _log.debug("%s", _e, exc_info=True)
 
     # Глобальный питомец (1 на пользователя, не привязан к чату)
     try:
@@ -1698,7 +1698,7 @@ async def init_db():
             """)
             await db.commit()
     except Exception as _e:
-        _log.debug("%s", _e)
+        _log.debug("%s", _e, exc_info=True)
 
     # Миграция: браки → marriages_global (idempotent, ON CONFLICT DO NOTHING)
     try:
@@ -1712,7 +1712,7 @@ async def init_db():
             """)
             await _db.commit()
     except Exception as _e:
-        _log.debug("%s", _e)
+        _log.debug("%s", _e, exc_info=True)
 
     # Миграция: питомцы → pets_global (idempotent, ON CONFLICT DO NOTHING)
     try:
@@ -1729,7 +1729,7 @@ async def init_db():
             """)
             await _db.commit()
     except Exception as _e:
-        _log.debug("%s", _e)
+        _log.debug("%s", _e, exc_info=True)
 
     # Миграция: баланс моры user_mora → users.balance
     # Idempotent: только для юзеров у которых users.balance = 0 но есть мора в user_mora
@@ -1752,7 +1752,7 @@ async def init_db():
             """)
             await _db.commit()
     except Exception as _e:
-        _log.debug("%s", _e)
+        _log.debug("%s", _e, exc_info=True)
 
     # ─── Очередь событий от Mini App к боту ───────────────────────────────────
     try:
@@ -1769,7 +1769,7 @@ async def init_db():
             """)
             await _db.commit()
     except Exception as _e:
-        _log.debug("%s", _e)
+        _log.debug("%s", _e, exc_info=True)
 
     # ─── 🅱️ Block 4: Season Pass seed data ──────────────────────────────────
     await seed_first_season()
@@ -1814,7 +1814,7 @@ async def init_db():
             """)
             await _db.commit()
     except Exception as _e:
-        _log.debug("%s", _e)
+        _log.debug("%s", _e, exc_info=True)
 
     # Таланты игрока (глобальные, не привязаны к чату)
     try:
@@ -1828,7 +1828,7 @@ async def init_db():
             """)
             await _db.commit()
     except Exception as _e:
-        _log.debug("%s", _e)
+        _log.debug("%s", _e, exc_info=True)
 
     # Незакрытый уровень, с которого выдавались очки талантов (идемпотентный контроль)
     try:
@@ -1839,7 +1839,7 @@ async def init_db():
             """)
             await _db.commit()
     except Exception as _e:
-        _log.debug("%s", _e)
+        _log.debug("%s", _e, exc_info=True)
 
     # Retroactive talent-point migration: 1 point per level rule
     # Idempotent: WHERE filters to users whose last_awarded_level < their current max level.
@@ -1869,7 +1869,7 @@ async def init_db():
             """)
             await _db.commit()
     except Exception as _e:
-        _log.debug("%s", _e)
+        _log.debug("%s", _e, exc_info=True)
 
     # Квест новичка: трекер 100 сообщений за 7 дней
     try:
@@ -1888,7 +1888,7 @@ async def init_db():
             """)
             await _db.commit()
     except Exception as _e:
-        _log.debug("%s", _e)
+        _log.debug("%s", _e, exc_info=True)
 
     # ─── Каталог тегов чата (определения: имя, описание, цвет, эмодзи) ────────
     try:
@@ -1908,7 +1908,7 @@ async def init_db():
             """)
             await _db.commit()
     except Exception as _e:
-        _log.debug("%s", _e)
+        _log.debug("%s", _e, exc_info=True)
 
     # ─── Заявки на вступление ──────────────────────────────────────────────────
     try:
@@ -1936,7 +1936,7 @@ async def init_db():
             )
             await _db.commit()
     except Exception as _e:
-        _log.debug("%s", _e)
+        _log.debug("%s", _e, exc_info=True)
 
     await enforce_rank_invariants()
 
@@ -1960,7 +1960,7 @@ async def init_db():
             )
             await _db.commit()
     except Exception as _e:
-        _log.debug("%s", _e)
+        _log.debug("%s", _e, exc_info=True)
 
     # ─── БЛОК 2: Колонки архива в таблице users ────────────────────────────────
     for _col_def in [
@@ -1979,7 +1979,7 @@ async def init_db():
                 )
                 await _db.commit()
         except Exception as _e:
-            _log.debug("%s", _e)
+            _log.debug("%s", _e, exc_info=True)
 
     # Индекс для быстрого поиска архивированных пользователей
     try:
@@ -1992,7 +1992,7 @@ async def init_db():
             )
             await _db.commit()
     except Exception as _e:
-        _log.debug("%s", _e)
+        _log.debug("%s", _e, exc_info=True)
 
     # ─── БЛОК 3: Телеметрия Mini App ──────────────────────────────────────────
     try:
@@ -2016,7 +2016,7 @@ async def init_db():
             )
             await _db.commit()
     except Exception as _e:
-        _log.debug("%s", _e)
+        _log.debug("%s", _e, exc_info=True)
 
 
 async def init_promocodes_table():
@@ -2070,7 +2070,7 @@ async def enforce_rank_invariants():
             await db.execute("UPDATE user_stats SET rank = 'owner' WHERE rank = 'developer'")
 
         async with db.execute(
-            "SELECT chat_id, user_id FROM user_stats WHERE rank = 'owner' ORDER BY chat_id, user_id"
+            "SELECT chat_id, user_id FROM user_stats WHERE rank = 'owner' ORDER BY chat_id, message_count DESC, user_id"
         ) as c:
             rows = await c.fetchall()
 
@@ -2552,6 +2552,8 @@ async def store_pending_users(records: list[dict], chat_id: int) -> dict:
                 continue
             msg_count = int(rec.get("messages") or rec.get("message_count") or 0)
             try:
+                # BUG-076: use savepoint so one bad record doesn't poison the transaction
+                await db.execute("SAVEPOINT sp_import")
                 await db.execute(
                     """
                     INSERT INTO pending_user_imports (username, chat_id, message_count)
@@ -2561,8 +2563,13 @@ async def store_pending_users(records: list[dict], chat_id: int) -> dict:
                     """,
                     (uname, chat_id, msg_count),
                 )
+                await db.execute("RELEASE SAVEPOINT sp_import")
                 ok_count += 1
             except Exception as exc:
+                try:
+                    await db.execute("ROLLBACK TO SAVEPOINT sp_import")
+                except Exception:
+                    pass
                 errors.append(f"#{idx} @{uname}: {exc}")
         await db.commit()
     return {"ok": ok_count, "errors": errors}
@@ -2714,7 +2721,7 @@ async def get_active_chats():
 # message was expensive.  We keep a 60-second in-memory cache per chat_id.
 import time as _time
 _chat_settings_cache: dict[int, tuple[float, object]] = {}
-_CHAT_SETTINGS_TTL = 60.0  # seconds
+_CHAT_SETTINGS_TTL = 5.0  # seconds — BUG-089: fast settings propagation
 
 
 def _invalidate_chat_settings(chat_id: int) -> None:
@@ -3325,10 +3332,11 @@ async def resolve_cleanup_pass(pass_id: int, action: str, resolved_by: int) -> d
 
 
 async def has_cleanup_pass(user_id: int, chat_id: int) -> bool:
-    """Есть ли у пользователя одобренный пропуск чистки."""
+    """Есть ли у пользователя одобренный пропуск чистки (не старше 30 дней)."""
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT 1 FROM cleanup_passes WHERE user_id=? AND chat_id=? AND status='approved'",
+            "SELECT 1 FROM cleanup_passes WHERE user_id=? AND chat_id=? AND status='approved' "
+            "AND resolved_at > NOW() - INTERVAL '30 days'",
             (user_id, chat_id),
         ) as c:
             return bool(await c.fetchone())
@@ -3488,7 +3496,7 @@ async def mark_quest_rewarded(user_id: int, chat_id: int, quest_date: str):
         from shared_prices import SHARD_QUEST_REWARD
         await add_shards(user_id, SHARD_QUEST_REWARD[0], SHARD_QUEST_REWARD[1])
     except Exception as _e:
-        _log.debug("%s", _e)
+        _log.debug("%s", _e, exc_info=True)
 
     # Block 4: Add season XP for quest completion
     try:
@@ -3698,10 +3706,11 @@ async def create_marriage(user_a: int, user_b: int, chat_id: int):
         await _ach(user_a, chat_id, "married", 1)
         await _ach(user_b, chat_id, "married", 1)
     except Exception as _e:
-        _log.debug("%s", _e)
+        _log.debug("%s", _e, exc_info=True)
 
 
 async def delete_marriage(user_id: int, chat_id: int):
+    """BUG-091/078/082: Delete marriage, split family wallet 50/50, remove pets for both."""
     async with postgres_connect() as db:
         async with db.execute(
             "SELECT partner_id FROM marriages_global WHERE user_id=?",
@@ -3710,15 +3719,62 @@ async def delete_marriage(user_id: int, chat_id: int):
             row = await c.fetchone()
         if row:
             partner_id = row[0]
+
+            # BUG-082: Split family wallet 50/50 into personal wallets
+            total_balance = 0
+            for uid in (user_id, partner_id):
+                async with db.execute(
+                    "SELECT balance FROM family_wallet WHERE chat_id=0 AND user_id=?",
+                    (uid,),
+                ) as c:
+                    bal_row = await c.fetchone()
+                    total_balance += (bal_row["balance"] or 0) if bal_row else 0
+            if total_balance > 0:
+                half = total_balance // 2
+                remainder = total_balance - half * 2
+                # Give half to each; leftover cent to initiator
+                for uid in (user_id, partner_id):
+                    share = half + (remainder if uid == user_id else 0)
+                    if share > 0:
+                        await db.execute(
+                            """UPDATE user_stats SET balance = balance + ?
+                               WHERE user_id = ? AND chat_id = (
+                                   SELECT chat_id FROM user_stats WHERE user_id = ?
+                                   ORDER BY message_count DESC LIMIT 1
+                               )""",
+                            (share, uid, uid),
+                        )
+            # Zero out family wallets
+            for uid in (user_id, partner_id):
+                await db.execute(
+                    "UPDATE family_wallet SET balance = 0 WHERE chat_id=0 AND user_id=?",
+                    (uid,),
+                )
+
+            # BUG-078: Remove pets for both partners
             await db.execute(
-                "DELETE FROM marriages_global WHERE user_id=? OR user_id=?",
+                "DELETE FROM pets_global WHERE user_id=? OR user_id=?",
                 (user_id, partner_id),
+            )
+
+            # Delete marriage rows
+            await db.execute(
+                "DELETE FROM marriages_global WHERE user_id=?",
+                (user_id,),
+            )
+            await db.execute(
+                "DELETE FROM marriages_global WHERE user_id=?",
+                (partner_id,),
             )
             await db.commit()
 
 
 async def import_marriage_with_date(user_a: int, user_b: int, chat_id: int, married_at: str):
-    """Создаёт/обновляет брак с указанной датой (для импорта из JSON)."""
+    """Создаёт/обновляет брак с указанной датой (для импорта из JSON).
+    BUG-092: validates both users exist to prevent orphaned records."""
+    if user_a == user_b or not user_a or not user_b:
+        _log.warning("import_marriage: invalid user pair %s/%s", user_a, user_b)
+        return
     async with postgres_connect() as db:
         await db.execute(
             "DELETE FROM marriages_global WHERE user_id=? OR user_id=?",
@@ -3797,10 +3853,12 @@ async def get_user_stats(user_id: int, chat_id: int):
 
 
 async def upsert_user_stats(user_id: int, chat_id: int):
-    """Ensure a row exists in user_stats for this user+chat."""
+    """Ensure a row exists in user_stats for this user+chat.
+    BUG-075: use DO UPDATE to lock the row, preventing race with concurrent DELETE."""
     async with postgres_connect() as db:
         await db.execute(
-            "INSERT INTO user_stats (user_id, chat_id) VALUES (?, ?) ON CONFLICT (user_id, chat_id) DO NOTHING",
+            "INSERT INTO user_stats (user_id, chat_id) VALUES (?, ?) "
+            "ON CONFLICT (user_id, chat_id) DO UPDATE SET user_id = EXCLUDED.user_id",
             (user_id, chat_id),
         )
         await db.commit()
@@ -3810,22 +3868,19 @@ async def increment_message_count_chat(user_id: int, chat_id: int) -> int:
     """Increment message count and return the new value."""
     now = datetime.now(timezone.utc)
     async with postgres_connect() as db:
-        await db.execute(
+        async with db.execute(
             """INSERT INTO user_stats (user_id, chat_id, message_count, first_active, last_active)
                VALUES (?, ?, 1, ?, ?)
                ON CONFLICT(user_id, chat_id) DO UPDATE SET
                    message_count = user_stats.message_count + 1,
                    first_active = COALESCE(user_stats.first_active, EXCLUDED.first_active),
-                   last_active = EXCLUDED.last_active""",
+                   last_active = EXCLUDED.last_active
+               RETURNING message_count""",
             (user_id, chat_id, now, now),
-        )
-        await db.commit()
-        async with db.execute(
-            "SELECT message_count FROM user_stats WHERE user_id=? AND chat_id=?",
-            (user_id, chat_id),
         ) as c:
             row = await c.fetchone()
-            return row[0] if row else 1
+        await db.commit()
+        return row[0] if row else 1
 
 
 async def batch_increment_message_counts(counts: dict) -> None:
@@ -3846,6 +3901,11 @@ async def batch_increment_message_counts(counts: dict) -> None:
         user_ids.append(uid)
         chat_ids.append(cid)
         deltas.append(delta)
+    # BUG-060: validate parallel array lengths
+    if len(user_ids) != len(chat_ids) or len(user_ids) != len(deltas):
+        _log.error("batch_increment_message_counts: array length mismatch u=%d c=%d d=%d",
+                   len(user_ids), len(chat_ids), len(deltas))
+        return
     pool = await get_pg_pool()
     async with pool.acquire() as conn:
         await conn.execute(
@@ -4115,49 +4175,49 @@ async def check_daily_mora(user_id: int, chat_id: int) -> tuple[bool, int, bool]
     """
     Check if this is the first message today for Мора purposes.
     Updates streak and last_daily. Returns (is_first_daily, new_streak, streak_7day_bonus).
+
+    Uses a single atomic UPDATE...WHERE last_daily != today to prevent double-award
+    race conditions when two concurrent messages arrive for the same user.
     """
     today = date.today().isoformat()
     yesterday = (date.today() - timedelta(days=1)).isoformat()
     async with postgres_connect() as db:
+        # Atomic claim: exactly one concurrent caller can win the UPDATE
+        cursor = await db.execute(
+            """UPDATE user_mora
+               SET last_daily  = ?,
+                   streak_days = CASE
+                       WHEN last_daily = ? THEN
+                           CASE WHEN COALESCE(streak_days, 0) + 1 > 7 THEN 0
+                                ELSE COALESCE(streak_days, 0) + 1 END
+                       ELSE 1
+                   END
+               WHERE user_id=? AND chat_id=? AND COALESCE(last_daily, '') != ?
+               RETURNING streak_days""",
+            (today, yesterday, user_id, chat_id, today),
+        )
+        rows = await cursor.fetchall()
+        if rows:
+            new_streak = rows[0]["streak_days"]
+            streak_bonus = (new_streak == 7)
+            return True, new_streak, streak_bonus
+
+        # Row missing (first-ever) OR already claimed today
+        ins = await db.execute(
+            """INSERT INTO user_mora (user_id, chat_id, last_daily, streak_days)
+               VALUES (?, ?, ?, 1) ON CONFLICT DO NOTHING""",
+            (user_id, chat_id, today),
+        )
+        if ins.rowcount > 0:
+            return True, 1, False  # First-ever daily
+
+        # Row existed with last_daily == today: already claimed
         async with db.execute(
-            "SELECT last_daily, streak_days FROM user_mora WHERE user_id=? AND chat_id=?",
+            "SELECT COALESCE(streak_days, 0) FROM user_mora WHERE user_id=? AND chat_id=?",
             (user_id, chat_id),
         ) as c:
             row = await c.fetchone()
-
-        if row is None:
-            await db.execute(
-                """INSERT INTO user_mora (user_id, chat_id, last_daily, streak_days) VALUES (?, ?, ?, 1) ON CONFLICT DO NOTHING""",
-                (user_id, chat_id, today),
-            )
-            await db.commit()
-            return True, 1, False
-
-        last_daily = row["last_daily"]
-        streak = row["streak_days"] or 0
-
-        if last_daily == today:
-            return False, streak, False
-
-        if last_daily == yesterday:
-            new_streak = streak + 1
-        else:
-            new_streak = 1  # Streak broken
-
-        streak_bonus = (new_streak == 7)
-        if new_streak > 7:
-            new_streak = 0  # Reset after claiming 7-day bonus
-
-        await db.execute(
-            """INSERT INTO user_mora (user_id, chat_id, last_daily, streak_days)
-               VALUES (?, ?, ?, ?)
-               ON CONFLICT(user_id, chat_id) DO UPDATE SET
-                   last_daily  = excluded.last_daily,
-                   streak_days = excluded.streak_days""",
-            (user_id, chat_id, today, new_streak),
-        )
-        await db.commit()
-        return True, new_streak, streak_bonus
+        return False, (row[0] if row else 0), False
 async def deduct_mora(user_id: int, chat_id: int, amount: int) -> tuple[bool, int]:
     """Deduct Мора globally if balance is sufficient. Atomic UPDATE prevents race conditions."""
     async with postgres_connect() as db:
@@ -4372,15 +4432,25 @@ async def get_family_wallet(chat_id: int, user_id: int) -> int:
 
 async def add_to_family_wallet(chat_id: int, user_id: int, amount: int) -> int:
     """Add or subtract from family wallet. Returns new balance.
-    Семейный кошелёк ГЛОБАЛЕН (брак един на все чаты) — chat_id игнорируется."""
+    Семейный кошелёк ГЛОБАЛЕН (брак един на все чаты) — chat_id игнорируется.
+    BUG-082 fix: allow withdrawals (negative amount) but clamp result at 0."""
     async with postgres_connect() as db:
-        await db.execute(
-            """INSERT INTO family_wallet (chat_id, user_id, balance)
-               VALUES (0, ?, GREATEST(0, ?))
-               ON CONFLICT(chat_id, user_id) DO UPDATE SET
-                   balance = GREATEST(0, family_wallet.balance + ?)""",
-            (user_id, amount, amount),
-        )
+        if amount >= 0:
+            await db.execute(
+                """INSERT INTO family_wallet (chat_id, user_id, balance)
+                   VALUES (0, ?, ?)
+                   ON CONFLICT(chat_id, user_id) DO UPDATE SET
+                       balance = family_wallet.balance + ?""",
+                (user_id, amount, amount),
+            )
+        else:
+            # Withdrawal: clamp at 0, don't allow negative balance
+            await db.execute(
+                """UPDATE family_wallet
+                   SET balance = GREATEST(0, balance + ?)
+                   WHERE chat_id = 0 AND user_id = ?""",
+                (amount, user_id),
+            )
         await db.commit()
         async with db.execute(
             "SELECT balance FROM family_wallet WHERE chat_id=0 AND user_id=?",
@@ -4671,38 +4741,45 @@ async def set_mora_balance(user_id: int, chat_id: int, new_balance: int):
 
 async def transfer_mora(from_uid: int, to_uid: int, chat_id: int, amount: int) -> tuple[bool, int, int]:
     """Атомарный перевод Моры (глобально). Возвращает (ok, from_new_bal, to_new_bal)."""
-    async with postgres_connect() as db:
-        # Atomic deduction with balance guard
-        cursor = await db.execute(
-            "UPDATE users SET balance = balance - ? WHERE user_id=? AND COALESCE(balance, 0) >= ?",
-            (amount, from_uid, amount),
-        )
-        if cursor.rowcount == 0:
+    try:
+        async with postgres_connect() as db:
+            # Atomic deduction with balance guard
+            cursor = await db.execute(
+                "UPDATE users SET balance = balance - ? WHERE user_id=? AND COALESCE(balance, 0) >= ?",
+                (amount, from_uid, amount),
+            )
+            if cursor.rowcount == 0:
+                async with db.execute(
+                    "SELECT COALESCE(balance, 0) FROM users WHERE user_id=?",
+                    (from_uid,),
+                ) as c:
+                    row = await c.fetchone()
+                return False, (row[0] if row else 0), 0
+
+            rcv_cur = await db.execute(
+                "UPDATE users SET balance = COALESCE(balance, 0) + ?,"
+                " total_earned = COALESCE(total_earned, 0) + ? WHERE user_id=?",
+                (amount, amount, to_uid),
+            )
+            if rcv_cur.rowcount == 0:
+                # Receiver does not exist — raise to trigger auto-rollback of the deduction
+                raise ValueError("receiver_not_found")
+
             async with db.execute(
-                "SELECT COALESCE(balance, 0) FROM users WHERE user_id=?",
-                (from_uid,),
+                "SELECT COALESCE(balance, 0) FROM users WHERE user_id=?", (from_uid,)
             ) as c:
                 row = await c.fetchone()
-            return False, (row[0] if row else 0), 0
-
-        await db.execute(
-            "UPDATE users SET balance = COALESCE(balance, 0) + ?,"
-            " total_earned = COALESCE(total_earned, 0) + ? WHERE user_id=?",
-            (amount, amount, to_uid),
-        )
-        await db.commit()
-
-        async with db.execute(
-            "SELECT COALESCE(balance, 0) FROM users WHERE user_id=?", (from_uid,)
-        ) as c:
-            row = await c.fetchone()
-        from_new_bal = row[0] if row else 0
-        async with db.execute(
-            "SELECT COALESCE(balance, 0) FROM users WHERE user_id=?", (to_uid,)
-        ) as c:
-            row = await c.fetchone()
-        to_new_bal = row[0] if row else 0
-        return True, from_new_bal, to_new_bal
+            from_new_bal = row[0] if row else 0
+            async with db.execute(
+                "SELECT COALESCE(balance, 0) FROM users WHERE user_id=?", (to_uid,)
+            ) as c:
+                row = await c.fetchone()
+            to_new_bal = row[0] if row else 0
+            return True, from_new_bal, to_new_bal
+    except ValueError as _exc:
+        if "receiver_not_found" in str(_exc):
+            return False, 0, 0
+        raise
 
 
 # ─── Долги (займы) ────────────────────────────────────────────────────────────
@@ -4886,7 +4963,7 @@ async def add_reputation_in_chat(from_uid: int, to_uid: int, chat_id: int, amoun
         from api.achievements import check_and_award as _ach
         await _ach(from_uid, chat_id, "rep_given", rgc)
     except Exception as _e:
-        _log.debug("%s", _e)
+        _log.debug("%s", _e, exc_info=True)
 
     return rep_new
 
@@ -4955,30 +5032,26 @@ async def get_top_by_messages_in_chat(
     return merged[:limit]
 
 
-async def get_top_by_xp_in_chat(chat_id: int, limit: int = 10):
+async def _get_top_in_chat(chat_id: int, order_col: str, limit: int = 10):
+    """Generic top-N query helper for user_stats, sorted by *order_col* DESC."""
     async with postgres_connect() as db:
         async with db.execute(
-            """SELECT us.*, u.full_name, u.username
+            f"""SELECT us.*, u.full_name, u.username
                FROM user_stats us
                JOIN users u ON u.user_id = us.user_id
                WHERE us.chat_id = ? AND us.is_banned = 0
-               ORDER BY us.xp DESC LIMIT ?""",
+               ORDER BY us.{order_col} DESC LIMIT ?""",
             (chat_id, limit),
         ) as c:
             return await c.fetchall()
+
+
+async def get_top_by_xp_in_chat(chat_id: int, limit: int = 10):
+    return await _get_top_in_chat(chat_id, "xp", limit)
 
 
 async def get_top_reputation_in_chat(chat_id: int, limit: int = 10):
-    async with postgres_connect() as db:
-        async with db.execute(
-            """SELECT us.*, u.full_name, u.username
-               FROM user_stats us
-               JOIN users u ON u.user_id = us.user_id
-               WHERE us.chat_id = ? AND us.is_banned = 0
-               ORDER BY us.reputation DESC LIMIT ?""",
-            (chat_id, limit),
-        ) as c:
-            return await c.fetchall()
+    return await _get_top_in_chat(chat_id, "reputation", limit)
 
 
 async def get_chat_stats_for_chat(chat_id: int):
@@ -5673,7 +5746,20 @@ async def get_marriages_batch(pairs: list[tuple[int, int]]) -> dict[tuple[int, i
 
 
 async def adopt_pet(user_id: int, partner_id: int, chat_id: int, pet_type: str) -> None:
-    """Создаёт глобального питомца для обоих партнёров."""
+    """Создаёт глобального питомца для обоих партнёров.
+    BUG-078: validates marriage exists and partner_id is valid."""
+    if not partner_id or partner_id == user_id:
+        _log.warning("adopt_pet: invalid partner_id=%s for user=%s", partner_id, user_id)
+        return
+    # Verify marriage exists
+    async with postgres_connect() as db:
+        async with db.execute(
+            "SELECT 1 FROM marriages_global WHERE user_id=? AND partner_id=?",
+            (user_id, partner_id),
+        ) as c:
+            if not await c.fetchone():
+                _log.warning("adopt_pet: no marriage between %s and %s", user_id, partner_id)
+                return
     now = datetime.now(timezone.utc).isoformat()
     async with postgres_connect() as db:
         for uid in (user_id, partner_id):
@@ -5691,7 +5777,7 @@ async def adopt_pet(user_id: int, partner_id: int, chat_id: int, pet_type: str) 
         if partner_id != user_id:
             await _ach(partner_id, chat_id, "has_pet", 1)
     except Exception as _e:
-        _log.debug("%s", _e)
+        _log.debug("%s", _e, exc_info=True)
 
 
 async def rename_pet(user_id: int, chat_id: int, name: str) -> bool:
@@ -5764,7 +5850,7 @@ async def get_any_active_expedition(user_id: int):
     """Возвращает любую активную экспедицию пользователя (любой чат) или None."""
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT * FROM pet_expeditions WHERE user_id=? AND finished=0 LIMIT 1",
+            "SELECT * FROM pet_expeditions WHERE user_id=? AND finished=0 ORDER BY id DESC LIMIT 1",
             (user_id,),
         ) as c:
             return await c.fetchone()
@@ -5781,10 +5867,14 @@ async def get_all_finished_expeditions() -> list:
     result = []
     for r in rows:
         started = r["started_at"]
-        if isinstance(started, str):
-            started = datetime.fromisoformat(started)
-        if started.tzinfo is None:
-            started = started.replace(tzinfo=timezone.utc)
+        try:
+            if isinstance(started, str):
+                started = datetime.fromisoformat(started.replace("Z", "+00:00"))
+            if started.tzinfo is None:
+                started = started.replace(tzinfo=timezone.utc)
+        except (ValueError, AttributeError) as _e:
+            _log.warning("corrupt expedition started_at: %s", _e)
+            continue
         if now >= started + timedelta(hours=r["duration_h"]):
             result.append(r)
     return result
@@ -5823,7 +5913,8 @@ async def add_gacha_item(user_id: int, chat_id: int, item_key: str,
                          crit_rate: float = 0.0, slot=None):
     async with postgres_connect() as db:
         # Stack non-equipment items (no combat stats) up to 99 per stack
-        if atk == 0 and def_val == 0 and hp == 0 and crit_rate == 0.0:
+        # BUG-049 fix: use truthiness check so None, 0, 0.0 all correctly evaluate to "no stats"
+        if not (atk or def_val or hp or crit_rate):
             async with db.execute(
                 "SELECT id, stack_count FROM gacha_inventory "
                 "WHERE user_id=? AND item_key=? AND equipped=0 "
@@ -5831,7 +5922,7 @@ async def add_gacha_item(user_id: int, chat_id: int, item_key: str,
                 (user_id, item_key),
             ) as c:
                 existing = await c.fetchone()
-            if existing and existing[1] < 99:
+            if existing and existing[1] < 100:
                 await db.execute(
                     "UPDATE gacha_inventory SET stack_count = stack_count + 1 WHERE id=?",
                     (existing[0],),
@@ -6297,13 +6388,14 @@ async def get_chest_click_count(event_id: int) -> int:
             return (await c.fetchone())[0]
 
 
-async def finish_chest_event(event_id: int):
-    """Пометить ивент как завершённый."""
+async def finish_chest_event(event_id: int) -> bool:
+    """Пометить ивент как завершённый. Возвращает True только если состояние изменилось."""
     async with postgres_connect() as db:
-        await db.execute(
-            "UPDATE chest_events SET finished=1 WHERE id=?", (event_id,),
+        cursor = await db.execute(
+            "UPDATE chest_events SET finished=1 WHERE id=? AND finished=0", (event_id,),
         )
         await db.commit()
+        return cursor.rowcount > 0
 
 
 async def get_equipped_legendary(user_id: int, chat_id: int):
@@ -6382,18 +6474,27 @@ async def get_all_equipped_items(user_id: int, chat_id: int) -> list[dict]:
     return result
 
 
+# Safe mapping: column names are constant literals, never user input.
+_TRACKER_FIELD_SQL: dict[str, str] = {
+    "expeditions_sent": "expeditions_sent",
+    "chests_opened":    "chests_opened",
+    "casino_wins":      "casino_wins",
+}
+
+
 async def increment_tracker(user_id: int, chat_id: int, field: str, amount: int = 1):
     """Инкрементировать один из трекинг-счётчиков в user_mora."""
-    if field not in ("expeditions_sent", "chests_opened", "casino_wins"):
+    safe_col = _TRACKER_FIELD_SQL.get(field)
+    if safe_col is None:
         return
     async with postgres_connect() as db:
         await db.execute(
-            f"UPDATE user_mora SET {field} = COALESCE({field}, 0) + ? WHERE user_id=? AND chat_id=?",
+            f"UPDATE user_mora SET {safe_col} = COALESCE({safe_col}, 0) + ? WHERE user_id=? AND chat_id=?",
             (amount, user_id, chat_id),
         )
         await db.commit()
         async with db.execute(
-            f"SELECT {field} FROM user_mora WHERE user_id=? AND chat_id=?",
+            f"SELECT {safe_col} FROM user_mora WHERE user_id=? AND chat_id=?",
             (user_id, chat_id),
         ) as c:
             row = await c.fetchone()
@@ -6404,7 +6505,7 @@ async def increment_tracker(user_id: int, chat_id: int, field: str, amount: int 
             from api.achievements import check_and_award as _ach
             await _ach(user_id, chat_id, "expeditions", new_val)
         except Exception as _e:
-            _log.debug("%s", _e)
+            _log.debug("%s", _e, exc_info=True)
 
 
 # ─── Шпионаж ──────────────────────────────────────────────────────────────────
@@ -6971,7 +7072,7 @@ async def start_pet_walk_full(user_id: int, chat_id: int) -> dict:
                         "mins_left": mins_left,
                     }
             except Exception as _e:
-                _log.debug("%s", _e)
+                _log.debug("%s", _e, exc_info=True)
 
         # 2b. Проверяем активную экспедицию (любой чат)
         async with db.execute(
@@ -7122,10 +7223,10 @@ async def get_user_crystal_items(user_id: int) -> set[str]:
 
 
 async def add_boss_cooldown_reset(user_id: int) -> None:
-    """Сбросить КД босса — удалить сегодняшнюю завершенную сессию."""
+    """Сбросить КД босса — удалить сегодняшнюю сессию, чтобы пользователь мог начать заново."""
     async with postgres_connect() as db:
         await db.execute(
-            "UPDATE solo_boss_sessions SET is_completed=1 WHERE user_id=? AND is_completed=0",
+            "DELETE FROM solo_boss_sessions WHERE user_id=? AND session_date=CURRENT_DATE",
             (user_id,),
         )
         await db.commit()
@@ -7628,7 +7729,7 @@ async def buy_season_premium(user_id: int, season_id: int) -> bool:
             )
             await db.commit()
     except Exception as _e:
-        _log.debug("%s", _e)
+        _log.debug("%s", _e, exc_info=True)
     return True
 
 
@@ -8790,8 +8891,8 @@ async def create_couple_boss_session(user_a_id: int, user_b_id: int, chat_id: in
     if user_a_id > user_b_id:
         user_a_id, user_b_id = user_b_id, user_a_id
         
-    # Boss HP scales with level: base 500k + 250k per level
-    boss_max_hp = 500_000 + (boss_level - 1) * 250_000
+    # Boss HP scales with level: base 5000 + 3000 per level
+    boss_max_hp = 5_000 + (boss_level - 1) * 3_000
     
     # Check if this is a repeat (already cleared this level today)
     progress = await get_couple_boss_progress(user_a_id, user_b_id, chat_id)
@@ -8982,6 +9083,10 @@ async def create_marriage_proposal(from_user_id: int, to_user_id: int, chat_id: 
     Предложения глобальны — chat_id сохраняется для показа откуда пришло предложение,
     но уникальность проверяется только по паре (from, to)."""
     async with postgres_connect() as db:
+        # Clean up expired pending proposals (older than 24h)
+        await db.execute(
+            "DELETE FROM marriage_proposals WHERE status='pending' AND created_at < NOW() - INTERVAL '24 hours'",
+        )
         cursor = await db.execute(
             """INSERT INTO marriage_proposals (from_user_id, to_user_id, chat_id)
                VALUES (?, ?, ?) ON CONFLICT(from_user_id, to_user_id, chat_id) DO UPDATE
@@ -9058,8 +9163,8 @@ async def create_solo_boss_session(user_id: int, chat_id: int, boss_level: int =
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     progress = await get_solo_boss_progress(user_id, chat_id)
     is_repeat = progress and progress.get("max_level", 0) >= boss_level
-    # REBALANCE: 2000 HP base (+1500 per level) — player deals ~50-300 damage per hit
-    boss_max_hp = 2_000 + (boss_level - 1) * 1_500
+    # REBALANCE: 3000 HP base (+2000 per level) — player deals ~50-300 damage per hit
+    boss_max_hp = 3_000 + (boss_level - 1) * 2_000
 
     async with postgres_connect() as db:
         cursor = await db.execute(
@@ -9139,7 +9244,7 @@ async def log_app_error(source: str, context: str, error_msg: str, traceback_tex
             )
             await db.commit()
     except Exception as _e:
-        _log.debug("%s", _e)
+        _log.debug("%s", _e, exc_info=True)
 
 
 async def get_af2_config(chat_id: int = 0) -> dict:

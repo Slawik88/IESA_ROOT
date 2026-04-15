@@ -65,12 +65,12 @@ async def start_expedition(uid: int, chat_id: int, option_key: str,
     if active:
         raise ValueError("Питомец уже в экспедиции")
 
-    # Block if partner already has an active expedition (couple shares ONE expedition slot)
-    from database.db import get_marriage
+    # Block if partner already has an active expedition in ANY chat (couple shares ONE expedition slot)
+    from database.db import get_marriage, get_any_active_expedition
     marriage = await get_marriage(uid, chat_id)
     if marriage:
         partner_id = marriage["partner_id"]
-        partner_active = await get_active_expedition(partner_id, chat_id)
+        partner_active = await get_any_active_expedition(partner_id)
         if partner_active:
             raise ValueError("Питомец вашей пары уже в экспедиции")
 
@@ -217,7 +217,10 @@ async def claim_expedition(uid: int, chat_id: int) -> dict:
         m_left = (secs_left % 3600) // 60
         raise ValueError(f"Экспедиция ещё не завершена. Осталось: {h_left}ч {m_left}мин")
 
-    reward_gross = random.randint(reward_min, reward_max)
+    reward_gross = random.randint(
+        min(reward_min, reward_max),
+        max(reward_min, reward_max),
+    )
 
     # Талант: expedition_bounty — +N% к награде за экспедицию
     try:

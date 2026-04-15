@@ -1,8 +1,8 @@
-"""
-Магазин Предвестника — покупка эксклюзивных товаров за мору.
+﻿"""
+РњР°РіР°Р·РёРЅ РџСЂРµРґРІРµСЃС‚РЅРёРєР° вЂ” РїРѕРєСѓРїРєР° СЌРєСЃРєР»СЋР·РёРІРЅС‹С… С‚РѕРІР°СЂРѕРІ Р·Р° РјРѕСЂСѓ.
 
-Команды:
-  бот магазин / бот лавка / бот shop  — каталог товаров
+РљРѕРјР°РЅРґС‹:
+  Р±РѕС‚ РјР°РіР°Р·РёРЅ / Р±РѕС‚ Р»Р°РІРєР° / Р±РѕС‚ shop  вЂ” РєР°С‚Р°Р»РѕРі С‚РѕРІР°СЂРѕРІ
 """
 
 import html
@@ -51,23 +51,23 @@ router.message.filter(MainChatOnly())
 
 
 _PET_COLORS = {
-    "red":    "🔴 Красный",
-    "blue":   "🔵 Синий",
-    "green":  "🟢 Зелёный",
-    "purple": "🟣 Фиолетовый",
-    "gold":   "🟡 Золотой",
-    "cyan":   "🩵 Бирюзовый",
+    "red":    "рџ”ґ РљСЂР°СЃРЅС‹Р№",
+    "blue":   "рџ”µ РЎРёРЅРёР№",
+    "green":  "рџџў Р—РµР»С‘РЅС‹Р№",
+    "purple": "рџџЈ Р¤РёРѕР»РµС‚РѕРІС‹Р№",
+    "gold":   "рџџЎ Р—РѕР»РѕС‚РѕР№",
+    "cyan":   "рџ©µ Р‘РёСЂСЋР·РѕРІС‹Р№",
 }
 
 _SHOP_SECTIONS = {
-    "all": "🧾 Всё",
-    "economy": "🪙 Экономика",
-    "pets": "🐾 Питомцы",
-    "gacha": "🎲 Молитвы",
-    "bank": "🏦 Банк",
-    "gifts": "🎁 Подарки",
-    "casino": "🎰 Казино",
-    "cosmetics": "🎨 Косметика",
+    "all": "рџ§ѕ Р’СЃС‘",
+    "economy": "рџЄ™ Р­РєРѕРЅРѕРјРёРєР°",
+    "pets": "рџђѕ РџРёС‚РѕРјС†С‹",
+    "gacha": "рџЋІ РњРѕР»РёС‚РІС‹",
+    "bank": "рџЏ¦ Р‘Р°РЅРє",
+    "gifts": "рџЋЃ РџРѕРґР°СЂРєРё",
+    "casino": "рџЋ° РљР°Р·РёРЅРѕ",
+    "cosmetics": "рџЋЁ РљРѕСЃРјРµС‚РёРєР°",
 }
 
 
@@ -76,7 +76,7 @@ def _section_keyboard(uid: int, active: str, owned_keys: set[str] | None = None)
     row = []
     for key in ("all", "economy", "pets", "gacha", "bank", "gifts", "casino", "cosmetics"):
         label = _SHOP_SECTIONS[key]
-        text = f"· {label} ·" if key == active else label
+        text = f"В· {label} В·" if key == active else label
         row.append(InlineKeyboardButton(text=text, callback_data=f"shop_nav:{uid}:{key}"))
         if len(row) == 2:
             buttons.append(row)
@@ -89,17 +89,17 @@ def _section_keyboard(uid: int, active: str, owned_keys: set[str] | None = None)
         for key, item in SHOP_ITEMS.items():
             if key in owned:
                 buttons.append([InlineKeyboardButton(
-                    text=f"✅ {item['name']} (куплено)",
+                    text=f"вњ… {item['name']} (РєСѓРїР»РµРЅРѕ)",
                     callback_data=f"shop_buy:{uid}:{key}:personal",
                 )])
             else:
                 buttons.append([
                     InlineKeyboardButton(
-                        text=f"💰 {item['name']} — {item['price']} 🪙",
+                        text=f"рџ’° {item['name']} вЂ” {item['price']} рџЄ™",
                         callback_data=f"shop_buy:{uid}:{key}:personal",
                     ),
                     InlineKeyboardButton(
-                        text="👨‍👩‍👧",
+                        text="рџ‘ЁвЂЌрџ‘©вЂЌрџ‘§",
                         callback_data=f"shop_buy:{uid}:{key}:family",
                     ),
                 ])
@@ -109,120 +109,120 @@ def _section_keyboard(uid: int, active: str, owned_keys: set[str] | None = None)
 
 def _shop_text(section: str, bal: int) -> str:
     from shared_prices import CLEANUP_PASS_PRICE
-    boost_prices = " · ".join(f"{label}={price} 🪙" for _key, _hours, price, label in XP_BOOST_OPTIONS)
+    boost_prices = " В· ".join(f"{label}={price} рџЄ™" for _key, _hours, price, label in XP_BOOST_OPTIONS)
     frame_lines = "\n".join(
-        f"  • {emoji} <b>{name}</b> — {price} 🪙"
+        f"  вЂў {emoji} <b>{name}</b> вЂ” {price} рџЄ™"
         for _key, emoji, name, price, _desc in TOP_FRAMES
         if price > 0
     )
     bank_lines = "\n".join(
-        f"  • <b>{entry['label']}</b>"
+        f"  вЂў <b>{entry['label']}</b>"
         for entry in BANK_PLANS.values()
     )
     gift_lines = "\n".join(
-        f"  • {gift['name']} — <b>{gift['price']} 🪙</b>"
+        f"  вЂў {gift['name']} вЂ” <b>{gift['price']} рџЄ™</b>"
         for gift in MARRIAGE_GIFTS.values()
     )
     cosmetics_lines = "\n".join(
-        f"  • {item['name']} — <b>{item['price']} 🪙</b>\n    <i>{item['desc']}</i>"
+        f"  вЂў {item['name']} вЂ” <b>{item['price']} рџЄ™</b>\n    <i>{item['desc']}</i>"
         for item in SHOP_ITEMS.values()
     )
 
     sections = {
         "all": (
-            "🛍 <b>Единый магазин Предвестника</b>\n\n"
-            f"💰 Твой баланс: <b>{bal} 🪙</b>\n\n"
-            "🪙 <b>Экономика</b>\n"
-            f"  • VIP — <b>{PRICE_VIP} 🪙</b> · <code>бот купить вип</code>\n"
-            f"  • Откуп от чистки — <b>{CLEANUP_PASS_PRICE} 🪙</b> · КД: 12 дн. · <code>бот откуп</code>\n"
-            f"  • Буст XP ×2 — {boost_prices} · <code>бот купить буст</code>\n"
-            "  • Рамки профиля — <code>бот рамки</code> / <code>бот купить рамку</code>\n"
-            f"  • Анонимка — <b>{ANON_MSG_PRICE} 🪙</b> · <code>бот анонимка текст</code>\n"
-            f"  • Секретное сообщение — <b>{SECRET_MSG_PRICE} 🪙</b> · <code>бот секрет @user текст</code>\n"
-            f"  • Переброс задания — <b>{QUEST_REROLL_PRICE} 🪙</b> · <code>бот перебросить задание</code>\n\n"
-            "🐾 <b>Питомцы</b>\n"
-            f"  • Завести питомца — <b>{PET_ADOPT_PRICE} 🪙</b> · <code>бот завести питомца</code>\n"
-            f"  • Пропуск ожидания брака — <b>{PET_MORA_SKIP_PRICE} 🪙</b> · <code>бот питомец</code>\n"
-            f"  • Переименование — <b>{PET_RENAME_PRICE} 🪙</b> · <code>бот назвать питомца Имя</code>\n"
-            "  • Экспедиции — <code>бот экспедиция</code>\n\n"
-            "🎲 <b>Молитвы</b>\n"
-            f"  • Крутка x1 — <b>{GACHA_SINGLE_PRICE} 🪙</b>\n"
-            f"  • Крутка x10 — <b>{GACHA_MULTI_PRICE} 🪙</b>\n"
-            "  • Инвентарь / продажа мусора — <code>бот инвентарь</code>, <code>бот продать мусор</code>\n\n"
-            "🏦 <b>Банк</b>\n"
+            "рџ›Ќ <b>Р•РґРёРЅС‹Р№ РјР°РіР°Р·РёРЅ РџСЂРµРґРІРµСЃС‚РЅРёРєР°</b>\n\n"
+            f"рџ’° РўРІРѕР№ Р±Р°Р»Р°РЅСЃ: <b>{bal} рџЄ™</b>\n\n"
+            "рџЄ™ <b>Р­РєРѕРЅРѕРјРёРєР°</b>\n"
+            f"  вЂў VIP вЂ” <b>{PRICE_VIP} рџЄ™</b> В· <code>Р±РѕС‚ РєСѓРїРёС‚СЊ РІРёРї</code>\n"
+            f"  вЂў РћС‚РєСѓРї РѕС‚ С‡РёСЃС‚РєРё вЂ” <b>{CLEANUP_PASS_PRICE} рџЄ™</b> В· РљР”: 12 РґРЅ. В· <code>Р±РѕС‚ РѕС‚РєСѓРї</code>\n"
+            f"  вЂў Р‘СѓСЃС‚ XP Г—2 вЂ” {boost_prices} В· <code>Р±РѕС‚ РєСѓРїРёС‚СЊ Р±СѓСЃС‚</code>\n"
+            "  вЂў Р Р°РјРєРё РїСЂРѕС„РёР»СЏ вЂ” <code>Р±РѕС‚ СЂР°РјРєРё</code> / <code>Р±РѕС‚ РєСѓРїРёС‚СЊ СЂР°РјРєСѓ</code>\n"
+            f"  вЂў РђРЅРѕРЅРёРјРєР° вЂ” <b>{ANON_MSG_PRICE} рџЄ™</b> В· <code>Р±РѕС‚ Р°РЅРѕРЅРёРјРєР° С‚РµРєСЃС‚</code>\n"
+            f"  вЂў РЎРµРєСЂРµС‚РЅРѕРµ СЃРѕРѕР±С‰РµРЅРёРµ вЂ” <b>{SECRET_MSG_PRICE} рџЄ™</b> В· <code>Р±РѕС‚ СЃРµРєСЂРµС‚ @user С‚РµРєСЃС‚</code>\n"
+            f"  вЂў РџРµСЂРµР±СЂРѕСЃ Р·Р°РґР°РЅРёСЏ вЂ” <b>{QUEST_REROLL_PRICE} рџЄ™</b> В· <code>Р±РѕС‚ РїРµСЂРµР±СЂРѕСЃРёС‚СЊ Р·Р°РґР°РЅРёРµ</code>\n\n"
+            "рџђѕ <b>РџРёС‚РѕРјС†С‹</b>\n"
+            f"  вЂў Р—Р°РІРµСЃС‚Рё РїРёС‚РѕРјС†Р° вЂ” <b>{PET_ADOPT_PRICE} рџЄ™</b> В· <code>Р±РѕС‚ Р·Р°РІРµСЃС‚Рё РїРёС‚РѕРјС†Р°</code>\n"
+            f"  вЂў РџСЂРѕРїСѓСЃРє РѕР¶РёРґР°РЅРёСЏ Р±СЂР°РєР° вЂ” <b>{PET_MORA_SKIP_PRICE} рџЄ™</b> В· <code>Р±РѕС‚ РїРёС‚РѕРјРµС†</code>\n"
+            f"  вЂў РџРµСЂРµРёРјРµРЅРѕРІР°РЅРёРµ вЂ” <b>{PET_RENAME_PRICE} рџЄ™</b> В· <code>Р±РѕС‚ РЅР°Р·РІР°С‚СЊ РїРёС‚РѕРјС†Р° РРјСЏ</code>\n"
+            "  вЂў Р­РєСЃРїРµРґРёС†РёРё вЂ” <code>Р±РѕС‚ СЌРєСЃРїРµРґРёС†РёСЏ</code>\n\n"
+            "рџЋІ <b>РњРѕР»РёС‚РІС‹</b>\n"
+            f"  вЂў РљСЂСѓС‚РєР° x1 вЂ” <b>{GACHA_SINGLE_PRICE} рџЄ™</b>\n"
+            f"  вЂў РљСЂСѓС‚РєР° x10 вЂ” <b>{GACHA_MULTI_PRICE} рџЄ™</b>\n"
+            "  вЂў РРЅРІРµРЅС‚Р°СЂСЊ / РїСЂРѕРґР°Р¶Р° РјСѓСЃРѕСЂР° вЂ” <code>Р±РѕС‚ РёРЅРІРµРЅС‚Р°СЂСЊ</code>, <code>Р±РѕС‚ РїСЂРѕРґР°С‚СЊ РјСѓСЃРѕСЂ</code>\n\n"
+            "рџЏ¦ <b>Р‘Р°РЅРє</b>\n"
             f"{bank_lines}\n"
-            "  • Открыть вклад — <code>бот банк</code>\n\n"
-            "🎁 <b>Пара и подарки</b>\n"
+            "  вЂў РћС‚РєСЂС‹С‚СЊ РІРєР»Р°Рґ вЂ” <code>Р±РѕС‚ Р±Р°РЅРє</code>\n\n"
+            "рџЋЃ <b>РџР°СЂР° Рё РїРѕРґР°СЂРєРё</b>\n"
             f"{gift_lines}\n"
-            "  • Купить/подарить — <code>бот подарки</code>\n\n"
-            "🎨 <b>Косметика</b>\n"
+            "  вЂў РљСѓРїРёС‚СЊ/РїРѕРґР°СЂРёС‚СЊ вЂ” <code>Р±РѕС‚ РїРѕРґР°СЂРєРё</code>\n\n"
+            "рџЋЁ <b>РљРѕСЃРјРµС‚РёРєР°</b>\n"
             f"{cosmetics_lines}\n\n"
-            "🎰 <b>Казино</b>\n"
-            f"  • Лотерейный билет — <b>{LOTTERY_TICKET_PRICE} 🪙</b> · <code>бот купить лотерею</code>\n\n"
-            "<i>Переключай категории кнопками ниже.</i>"
+            "рџЋ° <b>РљР°Р·РёРЅРѕ</b>\n"
+            f"  вЂў Р›РѕС‚РµСЂРµР№РЅС‹Р№ Р±РёР»РµС‚ вЂ” <b>{LOTTERY_TICKET_PRICE} рџЄ™</b> В· <code>Р±РѕС‚ РєСѓРїРёС‚СЊ Р»РѕС‚РµСЂРµСЋ</code>\n\n"
+            "<i>РџРµСЂРµРєР»СЋС‡Р°Р№ РєР°С‚РµРіРѕСЂРёРё РєРЅРѕРїРєР°РјРё РЅРёР¶Рµ.</i>"
         ),
         "economy": (
-            "🪙 <b>Магазин</b> › <b>Экономика</b>\n\n"
-            f"💰 Баланс: <b>{bal} 🪙</b>\n\n"
-            f"💎 VIP — <b>{PRICE_VIP} 🪙</b>\n  <code>бот купить вип</code>\n\n"
-            f"🎫 Откуп от чистки — <b>{CLEANUP_PASS_PRICE} 🪙</b> · КД: 12 дн.\n  <code>бот откуп</code>\n\n"
-            f"⚡ Буст XP ×2\n  {boost_prices}\n  <code>бот купить буст</code>\n\n"
-            "🖼 Рамки профиля\n"
+            "рџЄ™ <b>РњР°РіР°Р·РёРЅ</b> вЂє <b>Р­РєРѕРЅРѕРјРёРєР°</b>\n\n"
+            f"рџ’° Р‘Р°Р»Р°РЅСЃ: <b>{bal} рџЄ™</b>\n\n"
+            f"рџ’Ћ VIP вЂ” <b>{PRICE_VIP} рџЄ™</b>\n  <code>Р±РѕС‚ РєСѓРїРёС‚СЊ РІРёРї</code>\n\n"
+            f"рџЋ« РћС‚РєСѓРї РѕС‚ С‡РёСЃС‚РєРё вЂ” <b>{CLEANUP_PASS_PRICE} рџЄ™</b> В· РљР”: 12 РґРЅ.\n  <code>Р±РѕС‚ РѕС‚РєСѓРї</code>\n\n"
+            f"вљЎ Р‘СѓСЃС‚ XP Г—2\n  {boost_prices}\n  <code>Р±РѕС‚ РєСѓРїРёС‚СЊ Р±СѓСЃС‚</code>\n\n"
+            "рџ–ј Р Р°РјРєРё РїСЂРѕС„РёР»СЏ\n"
             f"{frame_lines}\n"
-            "  <code>бот рамки</code> · <code>бот купить рамку название</code>\n\n"
-            f"📨 Анонимка — <b>{ANON_MSG_PRICE} 🪙</b>\n  <code>бот анонимка текст</code>\n\n"
-            f"🔐 Секретное сообщение — <b>{SECRET_MSG_PRICE} 🪙</b>\n  <code>бот секрет @user текст</code>\n\n"
-            f"🎯 Переброс задания — <b>{QUEST_REROLL_PRICE} 🪙</b>\n  <code>бот перебросить задание</code>"
+            "  <code>Р±РѕС‚ СЂР°РјРєРё</code> В· <code>Р±РѕС‚ РєСѓРїРёС‚СЊ СЂР°РјРєСѓ РЅР°Р·РІР°РЅРёРµ</code>\n\n"
+            f"рџ“Ё РђРЅРѕРЅРёРјРєР° вЂ” <b>{ANON_MSG_PRICE} рџЄ™</b>\n  <code>Р±РѕС‚ Р°РЅРѕРЅРёРјРєР° С‚РµРєСЃС‚</code>\n\n"
+            f"рџ”ђ РЎРµРєСЂРµС‚РЅРѕРµ СЃРѕРѕР±С‰РµРЅРёРµ вЂ” <b>{SECRET_MSG_PRICE} рџЄ™</b>\n  <code>Р±РѕС‚ СЃРµРєСЂРµС‚ @user С‚РµРєСЃС‚</code>\n\n"
+            f"рџЋЇ РџРµСЂРµР±СЂРѕСЃ Р·Р°РґР°РЅРёСЏ вЂ” <b>{QUEST_REROLL_PRICE} рџЄ™</b>\n  <code>Р±РѕС‚ РїРµСЂРµР±СЂРѕСЃРёС‚СЊ Р·Р°РґР°РЅРёРµ</code>"
         ),
         "pets": (
-            "🐾 <b>Магазин</b> › <b>Питомцы</b>\n\n"
-            f"💰 Баланс: <b>{bal} 🪙</b>\n\n"
-            f"🐱 Завести питомца — <b>{PET_ADOPT_PRICE} 🪙</b>\n"
-            "  <code>бот завести питомца</code>\n\n"
-            f"⏩ Пропуск ожидания брака — <b>{PET_MORA_SKIP_PRICE} 🪙</b>\n"
-            "  <code>бот питомец</code>\n\n"
-            f"✏️ Переименование питомца — <b>{PET_RENAME_PRICE} 🪙</b>\n"
-            "  <code>бот назвать питомца Имя</code>\n\n"
-            "🗺 Экспедиции питомца\n"
-            "  <code>бот экспедиция</code>"
+            "рџђѕ <b>РњР°РіР°Р·РёРЅ</b> вЂє <b>РџРёС‚РѕРјС†С‹</b>\n\n"
+            f"рџ’° Р‘Р°Р»Р°РЅСЃ: <b>{bal} рџЄ™</b>\n\n"
+            f"рџђ± Р—Р°РІРµСЃС‚Рё РїРёС‚РѕРјС†Р° вЂ” <b>{PET_ADOPT_PRICE} рџЄ™</b>\n"
+            "  <code>Р±РѕС‚ Р·Р°РІРµСЃС‚Рё РїРёС‚РѕРјС†Р°</code>\n\n"
+            f"вЏ© РџСЂРѕРїСѓСЃРє РѕР¶РёРґР°РЅРёСЏ Р±СЂР°РєР° вЂ” <b>{PET_MORA_SKIP_PRICE} рџЄ™</b>\n"
+            "  <code>Р±РѕС‚ РїРёС‚РѕРјРµС†</code>\n\n"
+            f"вњЏпёЏ РџРµСЂРµРёРјРµРЅРѕРІР°РЅРёРµ РїРёС‚РѕРјС†Р° вЂ” <b>{PET_RENAME_PRICE} рџЄ™</b>\n"
+            "  <code>Р±РѕС‚ РЅР°Р·РІР°С‚СЊ РїРёС‚РѕРјС†Р° РРјСЏ</code>\n\n"
+            "рџ—є Р­РєСЃРїРµРґРёС†РёРё РїРёС‚РѕРјС†Р°\n"
+            "  <code>Р±РѕС‚ СЌРєСЃРїРµРґРёС†РёСЏ</code>"
         ),
         "gacha": (
-            "🎲 <b>Магазин</b> › <b>Молитвы</b>\n\n"
-            f"💰 Баланс: <b>{bal} 🪙</b>\n\n"
-            f"🙏 Одна молитва — <b>{GACHA_SINGLE_PRICE} 🪙</b>\n"
-            f"🙏 Десять молитв — <b>{GACHA_MULTI_PRICE} 🪙</b>\n\n"
-            "📦 Сопутствующие команды\n"
-            "  <code>бот молитва</code>\n"
-            "  <code>бот инвентарь</code>\n"
-            "  <code>бот продать мусор</code>\n"
-            "  <code>бот экипировать #ID</code>"
+            "рџЋІ <b>РњР°РіР°Р·РёРЅ</b> вЂє <b>РњРѕР»РёС‚РІС‹</b>\n\n"
+            f"рџ’° Р‘Р°Р»Р°РЅСЃ: <b>{bal} рџЄ™</b>\n\n"
+            f"рџ™Џ РћРґРЅР° РјРѕР»РёС‚РІР° вЂ” <b>{GACHA_SINGLE_PRICE} рџЄ™</b>\n"
+            f"рџ™Џ Р”РµСЃСЏС‚СЊ РјРѕР»РёС‚РІ вЂ” <b>{GACHA_MULTI_PRICE} рџЄ™</b>\n\n"
+            "рџ“¦ РЎРѕРїСѓС‚СЃС‚РІСѓСЋС‰РёРµ РєРѕРјР°РЅРґС‹\n"
+            "  <code>Р±РѕС‚ РјРѕР»РёС‚РІР°</code>\n"
+            "  <code>Р±РѕС‚ РёРЅРІРµРЅС‚Р°СЂСЊ</code>\n"
+            "  <code>Р±РѕС‚ РїСЂРѕРґР°С‚СЊ РјСѓСЃРѕСЂ</code>\n"
+            "  <code>Р±РѕС‚ СЌРєРёРїРёСЂРѕРІР°С‚СЊ #ID</code>"
         ),
         "bank": (
-            "🏦 <b>Магазин</b> › <b>Банк</b>\n\n"
-            f"💰 Баланс: <b>{bal} 🪙</b>\n\n"
-            "Вклады доступны через <code>бот банк</code>.\n\n"
+            "рџЏ¦ <b>РњР°РіР°Р·РёРЅ</b> вЂє <b>Р‘Р°РЅРє</b>\n\n"
+            f"рџ’° Р‘Р°Р»Р°РЅСЃ: <b>{bal} рџЄ™</b>\n\n"
+            "Р’РєР»Р°РґС‹ РґРѕСЃС‚СѓРїРЅС‹ С‡РµСЂРµР· <code>Р±РѕС‚ Р±Р°РЅРє</code>.\n\n"
             f"{bank_lines}\n\n"
-            "<i>Досрочное снятие уменьшает выплату.</i>"
+            "<i>Р”РѕСЃСЂРѕС‡РЅРѕРµ СЃРЅСЏС‚РёРµ СѓРјРµРЅСЊС€Р°РµС‚ РІС‹РїР»Р°С‚Сѓ.</i>"
         ),
         "gifts": (
-            "🎁 <b>Магазин</b> › <b>Подарки партнёру</b>\n\n"
-            f"💰 Баланс: <b>{bal} 🪙</b>\n\n"
+            "рџЋЃ <b>РњР°РіР°Р·РёРЅ</b> вЂє <b>РџРѕРґР°СЂРєРё РїР°СЂС‚РЅС‘СЂСѓ</b>\n\n"
+            f"рџ’° Р‘Р°Р»Р°РЅСЃ: <b>{bal} рџЄ™</b>\n\n"
             f"{gift_lines}\n\n"
-            "Купить и отправить: <code>бот подарки</code>\n"
-            "Подарки с баффами усиливают добычу моры для пары."
+            "РљСѓРїРёС‚СЊ Рё РѕС‚РїСЂР°РІРёС‚СЊ: <code>Р±РѕС‚ РїРѕРґР°СЂРєРё</code>\n"
+            "РџРѕРґР°СЂРєРё СЃ Р±Р°С„С„Р°РјРё СѓСЃРёР»РёРІР°СЋС‚ РґРѕР±С‹С‡Сѓ РјРѕСЂС‹ РґР»СЏ РїР°СЂС‹."
         ),
         "casino": (
-            "🎰 <b>Магазин</b> › <b>Казино</b>\n\n"
-            f"💰 Баланс: <b>{bal} 🪙</b>\n\n"
-            f"🎟 Лотерейный билет — <b>{LOTTERY_TICKET_PRICE} 🪙</b>\n"
-            "  <code>бот купить лотерею</code>\n\n"
-            "Монетка и кубик не продаются заранее — там ставка списывается в момент игры."
+            "рџЋ° <b>РњР°РіР°Р·РёРЅ</b> вЂє <b>РљР°Р·РёРЅРѕ</b>\n\n"
+            f"рџ’° Р‘Р°Р»Р°РЅСЃ: <b>{bal} рџЄ™</b>\n\n"
+            f"рџЋџ Р›РѕС‚РµСЂРµР№РЅС‹Р№ Р±РёР»РµС‚ вЂ” <b>{LOTTERY_TICKET_PRICE} рџЄ™</b>\n"
+            "  <code>Р±РѕС‚ РєСѓРїРёС‚СЊ Р»РѕС‚РµСЂРµСЋ</code>\n\n"
+            "РњРѕРЅРµС‚РєР° Рё РєСѓР±РёРє РЅРµ РїСЂРѕРґР°СЋС‚СЃСЏ Р·Р°СЂР°РЅРµРµ вЂ” С‚Р°Рј СЃС‚Р°РІРєР° СЃРїРёСЃС‹РІР°РµС‚СЃСЏ РІ РјРѕРјРµРЅС‚ РёРіСЂС‹."
         ),
         "cosmetics": (
-            "🎨 <b>Магазин</b> › <b>Косметика</b>\n\n"
-            f"💰 Баланс: <b>{bal} 🪙</b>\n\n"
+            "рџЋЁ <b>РњР°РіР°Р·РёРЅ</b> вЂє <b>РљРѕСЃРјРµС‚РёРєР°</b>\n\n"
+            f"рџ’° Р‘Р°Р»Р°РЅСЃ: <b>{bal} рџЄ™</b>\n\n"
             f"{cosmetics_lines}\n\n"
-            "Для покупки используй кнопки ниже."
+            "Р”Р»СЏ РїРѕРєСѓРїРєРё РёСЃРїРѕР»СЊР·СѓР№ РєРЅРѕРїРєРё РЅРёР¶Рµ."
         ),
     }
     return sections.get(section, sections["all"])
@@ -237,12 +237,12 @@ async def _get_owned_keys(uid: int, chat_id: int) -> set[str]:
     return owned
 
 
-# ─── бот магазин ──────────────────────────────────────────────────────────────
+# в”Ђв”Ђв”Ђ Р±РѕС‚ РјР°РіР°Р·РёРЅ в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
-@router.message(BotCommand("магазин", "лавка", "shop", "store", "маркет", "каталог покупок"))
+@router.message(BotCommand("РјР°РіР°Р·РёРЅ", "Р»Р°РІРєР°", "shop", "store", "РјР°СЂРєРµС‚", "РєР°С‚Р°Р»РѕРі РїРѕРєСѓРїРѕРє"))
 async def cmd_shop(message: Message, cmd_args: str):
     if message.chat.type == "private":
-        await message.answer("❌ Магазин доступен только в группах.")
+        await message.answer("вќЊ РњР°РіР°Р·РёРЅ РґРѕСЃС‚СѓРїРµРЅ С‚РѕР»СЊРєРѕ РІ РіСЂСѓРїРїР°С….")
         return
 
     uid = message.from_user.id
@@ -253,16 +253,16 @@ async def cmd_shop(message: Message, cmd_args: str):
     arg = (cmd_args or "").strip().lower()
     section = "all"
     arg_map = {
-        "все": "all",
-        "всё": "all",
-        "экономика": "economy",
-        "питомцы": "pets",
-        "молитвы": "gacha",
-        "гача": "gacha",
-        "банк": "bank",
-        "подарки": "gifts",
-        "казино": "casino",
-        "косметика": "cosmetics",
+        "РІСЃРµ": "all",
+        "РІСЃС‘": "all",
+        "СЌРєРѕРЅРѕРјРёРєР°": "economy",
+        "РїРёС‚РѕРјС†С‹": "pets",
+        "РјРѕР»РёС‚РІС‹": "gacha",
+        "РіР°С‡Р°": "gacha",
+        "Р±Р°РЅРє": "bank",
+        "РїРѕРґР°СЂРєРё": "gifts",
+        "РєР°Р·РёРЅРѕ": "casino",
+        "РєРѕСЃРјРµС‚РёРєР°": "cosmetics",
     }
     if arg in arg_map:
         section = arg_map[arg]
@@ -273,7 +273,7 @@ async def cmd_shop(message: Message, cmd_args: str):
     abs_cid = abs(message.chat.id)
     kb.inline_keyboard.append([
         InlineKeyboardButton(
-            text="📱 Открыть в Mini App",
+            text="рџ“± РћС‚РєСЂС‹С‚СЊ РІ Mini App",
             url=f"{MINI_APP_TG_URL}?startapp={abs_cid}_shop",
         )
     ])
@@ -289,7 +289,7 @@ async def cb_shop_nav(callback: CallbackQuery):
     _prefix, owner_str, section = callback.data.split(":", 2)
     owner = int(owner_str)
 
-    if await not_your_button(callback, owner, "❌ Это не твой магазин!"):
+    if await not_your_button(callback, owner, "вќЊ Р­С‚Рѕ РЅРµ С‚РІРѕР№ РјР°РіР°Р·РёРЅ!"):
         return
 
     chat_id = callback.message.chat.id
@@ -304,11 +304,11 @@ async def cb_shop_nav(callback: CallbackQuery):
             reply_markup=_section_keyboard(owner, section, owned),
         )
     except Exception as _e:
-        _log.debug("%s", _e)
+        _log.debug("%s", _e, exc_info=True)
     await callback.answer()
 
 
-# ─── Покупка ──────────────────────────────────────────────────────────────────
+# в”Ђв”Ђв”Ђ РџРѕРєСѓРїРєР° в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 @router.callback_query(lambda c: c.data and c.data.startswith("shop_buy:"))
 async def cb_shop_buy(callback: CallbackQuery):
@@ -317,12 +317,12 @@ async def cb_shop_buy(callback: CallbackQuery):
     item_key = parts[2]
     wallet = parts[3] if len(parts) > 3 else "personal"
 
-    if await not_your_button(callback, owner, "❌ Это не твой магазин!"):
+    if await not_your_button(callback, owner, "вќЊ Р­С‚Рѕ РЅРµ С‚РІРѕР№ РјР°РіР°Р·РёРЅ!"):
         return
 
     item = SHOP_ITEMS.get(item_key)
     if not item:
-        await callback.answer("❌ Товар не найден.", show_alert=True)
+        await callback.answer("вќЊ РўРѕРІР°СЂ РЅРµ РЅР°Р№РґРµРЅ.", show_alert=True)
         return
 
     uid = owner
@@ -331,35 +331,35 @@ async def cb_shop_buy(callback: CallbackQuery):
 
     already_owned = await has_shop_item(uid, chat_id, item_key)
     if already_owned:
-        await callback.answer("✅ У тебя уже есть этот товар!", show_alert=True)
+        await callback.answer("вњ… РЈ С‚РµР±СЏ СѓР¶Рµ РµСЃС‚СЊ СЌС‚РѕС‚ С‚РѕРІР°СЂ!", show_alert=True)
         return
 
     ok, new_bal = await deduct_wallet(uid, chat_id, price, wallet)
     if not ok:
-        await callback.answer(f"❌ Недостаточно Моры ({new_bal} / {price})", show_alert=True)
+        await callback.answer(f"вќЊ РќРµРґРѕСЃС‚Р°С‚РѕС‡РЅРѕ РњРѕСЂС‹ ({new_bal} / {price})", show_alert=True)
         return
 
-    # Для каждого товара — свой flow
+    # Р”Р»СЏ РєР°Р¶РґРѕРіРѕ С‚РѕРІР°СЂР° вЂ” СЃРІРѕР№ flow
     if item_key == "custom_title":
         await buy_shop_item(uid, chat_id, "custom_title", "pending")
         try:
             await callback.message.edit_text(
-                f"✅ <b>Кастомный титул куплен!</b>\n\n"
-                f"Теперь напиши: <code>бот титул &lt;текст&gt;</code>\n"
-                f"💰 Баланс: {new_bal} 🪙",
+                f"вњ… <b>РљР°СЃС‚РѕРјРЅС‹Р№ С‚РёС‚СѓР» РєСѓРїР»РµРЅ!</b>\n\n"
+                f"РўРµРїРµСЂСЊ РЅР°РїРёС€Рё: <code>Р±РѕС‚ С‚РёС‚СѓР» &lt;С‚РµРєСЃС‚&gt;</code>\n"
+                f"рџ’° Р‘Р°Р»Р°РЅСЃ: {new_bal} рџЄ™",
                 parse_mode="HTML",
             )
         except Exception as _e:
-            _log.debug("%s", _e)
+            _log.debug("%s", _e, exc_info=True)
         # Block 4: Add season XP for shop purchase
         try:
             from database.db import add_season_xp
             await add_season_xp(uid, 2)  # +2 season XP
         except Exception as _e:
-            _log.debug("%s", _e)
+            _log.debug("%s", _e, exc_info=True)
     elif item_key == "pet_color":
         await buy_shop_item(uid, chat_id, "pet_color", "pending")
-        # Предлагаем выбрать цвет
+        # РџСЂРµРґР»Р°РіР°РµРј РІС‹Р±СЂР°С‚СЊ С†РІРµС‚
         buttons = []
         row = []
         for ckey, cname in _PET_COLORS.items():
@@ -375,35 +375,35 @@ async def cb_shop_buy(callback: CallbackQuery):
         kb = InlineKeyboardMarkup(inline_keyboard=buttons)
         try:
             await callback.message.edit_text(
-                "🎨 <b>Выбери цвет имени питомца:</b>",
+                "рџЋЁ <b>Р’С‹Р±РµСЂРё С†РІРµС‚ РёРјРµРЅРё РїРёС‚РѕРјС†Р°:</b>",
                 parse_mode="HTML",
                 reply_markup=kb,
             )
         except Exception as _e:
-            _log.debug("%s", _e)
+            _log.debug("%s", _e, exc_info=True)
     elif item_key == "pet_emoji_status":
         await buy_shop_item(uid, chat_id, "pet_emoji_status", "pending")
         try:
             await callback.message.edit_text(
-                f"✅ <b>Эмодзи-статус питомца куплен!</b>\n\n"
-                f"Теперь напиши: <code>бот эмодзи-статус 🐾</code>\n"
-                f"(Укажи один эмодзи)\n"
-                f"💰 Баланс: {new_bal} 🪙",
+                f"вњ… <b>Р­РјРѕРґР·Рё-СЃС‚Р°С‚СѓСЃ РїРёС‚РѕРјС†Р° РєСѓРїР»РµРЅ!</b>\n\n"
+                f"РўРµРїРµСЂСЊ РЅР°РїРёС€Рё: <code>Р±РѕС‚ СЌРјРѕРґР·Рё-СЃС‚Р°С‚СѓСЃ рџђѕ</code>\n"
+                f"(РЈРєР°Р¶Рё РѕРґРёРЅ СЌРјРѕРґР·Рё)\n"
+                f"рџ’° Р‘Р°Р»Р°РЅСЃ: {new_bal} рџЄ™",
                 parse_mode="HTML",
             )
         except Exception as _e:
-            _log.debug("%s", _e)
+            _log.debug("%s", _e, exc_info=True)
     else:
-        # Неизвестный товар — возвращаем деньги
+        # РќРµРёР·РІРµСЃС‚РЅС‹Р№ С‚РѕРІР°СЂ вЂ” РІРѕР·РІСЂР°С‰Р°РµРј РґРµРЅСЊРіРё
         from database.db import add_mora
         await add_mora(uid, chat_id, price)
-        await callback.answer("❌ Ошибка: товар не обработан.", show_alert=True)
+        await callback.answer("вќЊ РћС€РёР±РєР°: С‚РѕРІР°СЂ РЅРµ РѕР±СЂР°Р±РѕС‚Р°РЅ.", show_alert=True)
         return
 
-    await callback.answer("✅ Покупка совершена!")
+    await callback.answer("вњ… РџРѕРєСѓРїРєР° СЃРѕРІРµСЂС€РµРЅР°!")
 
 
-# ─── Выбор цвета питомца ─────────────────────────────────────────────────────
+# в”Ђв”Ђв”Ђ Р’С‹Р±РѕСЂ С†РІРµС‚Р° РїРёС‚РѕРјС†Р° в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 @router.callback_query(lambda c: c.data and c.data.startswith("shop_color:"))
 async def cb_shop_color(callback: CallbackQuery):
@@ -411,11 +411,11 @@ async def cb_shop_color(callback: CallbackQuery):
     owner = int(parts[1])
     color = parts[2]
 
-    if await not_your_button(callback, owner, "❌ Не для тебя!"):
+    if await not_your_button(callback, owner, "вќЊ РќРµ РґР»СЏ С‚РµР±СЏ!"):
         return
 
     if color not in _PET_COLORS:
-        await callback.answer("❌ Неизвестный цвет.", show_alert=True)
+        await callback.answer("вќЊ РќРµРёР·РІРµСЃС‚РЅС‹Р№ С†РІРµС‚.", show_alert=True)
         return
 
     uid = owner
@@ -426,18 +426,18 @@ async def cb_shop_color(callback: CallbackQuery):
 
     try:
         await callback.message.edit_text(
-            f"✅ Цвет имени питомца изменён на {_PET_COLORS[color]}!",
+            f"вњ… Р¦РІРµС‚ РёРјРµРЅРё РїРёС‚РѕРјС†Р° РёР·РјРµРЅС‘РЅ РЅР° {_PET_COLORS[color]}!",
             parse_mode="HTML",
         )
     except Exception as _e:
-        _log.debug("%s", _e)
-# ─── Пропуск чистки ──────────────────────────────────────────────────────────
+        _log.debug("%s", _e, exc_info=True)
+# в”Ђв”Ђв”Ђ РџСЂРѕРїСѓСЃРє С‡РёСЃС‚РєРё в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
-@router.message(BotCommand("откуп", "пропуск чистки", "cleanup_pass"))
+@router.message(BotCommand("РѕС‚РєСѓРї", "РїСЂРѕРїСѓСЃРє С‡РёСЃС‚РєРё", "cleanup_pass"))
 async def cmd_buy_cleanup_pass(message: Message, bot, cmd_args: str):
-    """Купить откуп от 1 чистки (макс. 1 активный). Требует одобрения владельца."""
+    """РљСѓРїРёС‚СЊ РѕС‚РєСѓРї РѕС‚ 1 С‡РёСЃС‚РєРё (РјР°РєСЃ. 1 Р°РєС‚РёРІРЅС‹Р№). РўСЂРµР±СѓРµС‚ РѕРґРѕР±СЂРµРЅРёСЏ РІР»Р°РґРµР»СЊС†Р°."""
     if message.chat.type == "private":
-        await message.answer("❌ Команда работает только в чате.")
+        await message.answer("вќЊ РљРѕРјР°РЅРґР° СЂР°Р±РѕС‚Р°РµС‚ С‚РѕР»СЊРєРѕ РІ С‡Р°С‚Рµ.")
         return
 
     uid = message.from_user.id
@@ -450,7 +450,7 @@ async def cmd_buy_cleanup_pass(message: Message, bot, cmd_args: str):
     bal = mora["balance"] if mora else 0
     if bal < CLEANUP_PASS_PRICE:
         await message.answer(
-            f"❌ Недостаточно Моры. Нужно <b>{CLEANUP_PASS_PRICE} 🪙</b>, у тебя <b>{bal} 🪙</b>.",
+            f"вќЊ РќРµРґРѕСЃС‚Р°С‚РѕС‡РЅРѕ РњРѕСЂС‹. РќСѓР¶РЅРѕ <b>{CLEANUP_PASS_PRICE} рџЄ™</b>, Сѓ С‚РµР±СЏ <b>{bal} рџЄ™</b>.",
             parse_mode="HTML",
         )
         return
@@ -458,49 +458,49 @@ async def cmd_buy_cleanup_pass(message: Message, bot, cmd_args: str):
     try:
         ok, new_bal = await _dw(uid, chat_id, CLEANUP_PASS_PRICE)
         if not ok:
-            await message.answer("❌ Не удалось списать Мору.")
+            await message.answer("вќЊ РќРµ СѓРґР°Р»РѕСЃСЊ СЃРїРёСЃР°С‚СЊ РњРѕСЂСѓ.")
             return
         pass_id = await buy_cleanup_pass(uid, chat_id, CLEANUP_PASS_PRICE)
     except ValueError as ve:
-        await message.answer(f"❌ {ve}")
+        await message.answer(f"вќЊ {ve}")
         return
 
     # Log to wallet ledger
     try:
         from api.economy import log_wallet_tx
         await log_wallet_tx(uid, chat_id, "expense", CLEANUP_PASS_PRICE, "cleanup_pass",
-                            "Откуп от чистки")
+                            "РћС‚РєСѓРї РѕС‚ С‡РёСЃС‚РєРё")
     except Exception as _e:
-        _log.debug("%s", _e)
+        _log.debug("%s", _e, exc_info=True)
     user_name = html.escape(message.from_user.full_name)
-    chat_title = html.escape(message.chat.title or "чат")
+    chat_title = html.escape(message.chat.title or "С‡Р°С‚")
 
     await message.answer(
-        f"✅ Заявка на пропуск чистки отправлена!\n"
-        f"Списано: <b>{CLEANUP_PASS_PRICE} 🪙</b>\n"
-        f"Ожидай одобрения от владельца/разработчика.",
+        f"вњ… Р—Р°СЏРІРєР° РЅР° РїСЂРѕРїСѓСЃРє С‡РёСЃС‚РєРё РѕС‚РїСЂР°РІР»РµРЅР°!\n"
+        f"РЎРїРёСЃР°РЅРѕ: <b>{CLEANUP_PASS_PRICE} рџЄ™</b>\n"
+        f"РћР¶РёРґР°Р№ РѕРґРѕР±СЂРµРЅРёСЏ РѕС‚ РІР»Р°РґРµР»СЊС†Р°/СЂР°Р·СЂР°Р±РѕС‚С‡РёРєР°.",
         parse_mode="HTML",
     )
 
-    # Уведомление владельцу и разработчику
+    # РЈРІРµРґРѕРјР»РµРЅРёРµ РІР»Р°РґРµР»СЊС†Сѓ Рё СЂР°Р·СЂР°Р±РѕС‚С‡РёРєСѓ
     from config import DEVELOPER_ID
     from database.db import get_staff_in_chat
 
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [
-            InlineKeyboardButton(text="✅ Одобрить", callback_data=f"cpass:approve:{pass_id}:{uid}:{chat_id}"),
-            InlineKeyboardButton(text="❌ Отклонить", callback_data=f"cpass:reject:{pass_id}:{uid}:{chat_id}"),
+            InlineKeyboardButton(text="вњ… РћРґРѕР±СЂРёС‚СЊ", callback_data=f"cpass:approve:{pass_id}:{uid}:{chat_id}"),
+            InlineKeyboardButton(text="вќЊ РћС‚РєР»РѕРЅРёС‚СЊ", callback_data=f"cpass:reject:{pass_id}:{uid}:{chat_id}"),
         ]
     ])
     notify_text = (
-        f"🎫 <b>Заявка на пропуск чистки</b>\n\n"
-        f"👤 {user_name} (<code>{uid}</code>)\n"
-        f"💬 {chat_title}\n"
-        f"💰 Оплачено: <b>{CLEANUP_PASS_PRICE} 🪙</b>\n"
-        f"📋 Заявка #{pass_id}"
+        f"рџЋ« <b>Р—Р°СЏРІРєР° РЅР° РїСЂРѕРїСѓСЃРє С‡РёСЃС‚РєРё</b>\n\n"
+        f"рџ‘¤ {user_name} (<code>{uid}</code>)\n"
+        f"рџ’¬ {chat_title}\n"
+        f"рџ’° РћРїР»Р°С‡РµРЅРѕ: <b>{CLEANUP_PASS_PRICE} рџЄ™</b>\n"
+        f"рџ“‹ Р—Р°СЏРІРєР° #{pass_id}"
     )
 
-    # Уведомить владельцев чата + разработчика (в ЛС)
+    # РЈРІРµРґРѕРјРёС‚СЊ РІР»Р°РґРµР»СЊС†РµРІ С‡Р°С‚Р° + СЂР°Р·СЂР°Р±РѕС‚С‡РёРєР° (РІ Р›РЎ)
     notified = set()
     staff = await get_staff_in_chat(chat_id)
     for s in staff:
@@ -517,14 +517,14 @@ async def cmd_buy_cleanup_pass(message: Message, bot, cmd_args: str):
         except Exception as _e:
             _log.debug("cleanup_pass DM to DEV failed: %s", _e)
 
-    # Гарантированный фолбэк: отправить прямо в чат (видно всем владельцам)
-    # если никто не получил ЛС (бот не запустили в личке) или в любом случае для надёжности
+    # Р“Р°СЂР°РЅС‚РёСЂРѕРІР°РЅРЅС‹Р№ С„РѕР»Р±СЌРє: РѕС‚РїСЂР°РІРёС‚СЊ РїСЂСЏРјРѕ РІ С‡Р°С‚ (РІРёРґРЅРѕ РІСЃРµРј РІР»Р°РґРµР»СЊС†Р°Рј)
+    # РµСЃР»Рё РЅРёРєС‚Рѕ РЅРµ РїРѕР»СѓС‡РёР» Р›РЎ (Р±РѕС‚ РЅРµ Р·Р°РїСѓСЃС‚РёР»Рё РІ Р»РёС‡РєРµ) РёР»Рё РІ Р»СЋР±РѕРј СЃР»СѓС‡Р°Рµ РґР»СЏ РЅР°РґС‘Р¶РЅРѕСЃС‚Рё
     if not notified:
         try:
             await bot.send_message(
                 chat_id,
-                f"📢 <b>Владельцам чата:</b>\n{notify_text}\n\n"
-                f"⚠️ Не удалось отправить уведомление в личку. Одобрите заявку здесь:",
+                f"рџ“ў <b>Р’Р»Р°РґРµР»СЊС†Р°Рј С‡Р°С‚Р°:</b>\n{notify_text}\n\n"
+                f"вљ пёЏ РќРµ СѓРґР°Р»РѕСЃСЊ РѕС‚РїСЂР°РІРёС‚СЊ СѓРІРµРґРѕРјР»РµРЅРёРµ РІ Р»РёС‡РєСѓ. РћРґРѕР±СЂРёС‚Рµ Р·Р°СЏРІРєСѓ Р·РґРµСЃСЊ:",
                 parse_mode="HTML",
                 reply_markup=kb,
             )
@@ -532,13 +532,13 @@ async def cmd_buy_cleanup_pass(message: Message, bot, cmd_args: str):
             _log.debug("cleanup_pass chat fallback failed: %s", _e)
 @router.callback_query(lambda c: c.data and c.data.startswith("cpass:"))
 async def cb_cleanup_pass(callback: CallbackQuery):
-    """Обработка одобрения/отклонения пропуска чистки."""
+    """РћР±СЂР°Р±РѕС‚РєР° РѕРґРѕР±СЂРµРЅРёСЏ/РѕС‚РєР»РѕРЅРµРЅРёСЏ РїСЂРѕРїСѓСЃРєР° С‡РёСЃС‚РєРё."""
     from database.db import resolve_cleanup_pass, add_mora as _am
     from utils.ranks import is_developer as _is_dev
 
     parts = callback.data.split(":")
     if len(parts) < 5:
-        await callback.answer("❌ Некорректные данные", show_alert=True)
+        await callback.answer("вќЊ РќРµРєРѕСЂСЂРµРєС‚РЅС‹Рµ РґР°РЅРЅС‹Рµ", show_alert=True)
         return
 
     action = parts[1]  # approve / reject
@@ -548,77 +548,77 @@ async def cb_cleanup_pass(callback: CallbackQuery):
 
     admin_uid = callback.from_user.id
 
-    # Проверяем права: только owner или developer
+    # РџСЂРѕРІРµСЂСЏРµРј РїСЂР°РІР°: С‚РѕР»СЊРєРѕ owner РёР»Рё developer
     from database.db import get_user_stats
     stats = await get_user_stats(admin_uid, chat_id)
     admin_rank = stats["rank"] if stats else None
     if admin_rank not in ("owner", "co_owner") and not _is_dev(admin_uid):
-        await callback.answer("❌ Только владелец или разработчик может решать.", show_alert=True)
+        await callback.answer("вќЊ РўРѕР»СЊРєРѕ РІР»Р°РґРµР»РµС† РёР»Рё СЂР°Р·СЂР°Р±РѕС‚С‡РёРє РјРѕР¶РµС‚ СЂРµС€Р°С‚СЊ.", show_alert=True)
         return
 
     result = await resolve_cleanup_pass(pass_id, "approve" if action == "approve" else "reject", admin_uid)
     if not result:
-        await callback.answer("⚠️ Заявка уже обработана или не найдена.", show_alert=True)
+        await callback.answer("вљ пёЏ Р—Р°СЏРІРєР° СѓР¶Рµ РѕР±СЂР°Р±РѕС‚Р°РЅР° РёР»Рё РЅРµ РЅР°Р№РґРµРЅР°.", show_alert=True)
         return
 
     if action == "approve":
         try:
             await callback.message.edit_text(
-                callback.message.text + "\n\n✅ <b>Одобрено</b>",
+                callback.message.text + "\n\nвњ… <b>РћРґРѕР±СЂРµРЅРѕ</b>",
                 parse_mode="HTML",
             )
         except Exception as _e:
-            _log.debug("%s", _e)
-        # Уведомить покупателя
+            _log.debug("%s", _e, exc_info=True)
+        # РЈРІРµРґРѕРјРёС‚СЊ РїРѕРєСѓРїР°С‚РµР»СЏ
         try:
             await callback.bot.send_message(
                 buyer_uid,
-                f"✅ Твоя заявка на пропуск чистки <b>одобрена</b>!\n"
-                f"При следующей чистке ты будешь защищён.",
+                f"вњ… РўРІРѕСЏ Р·Р°СЏРІРєР° РЅР° РїСЂРѕРїСѓСЃРє С‡РёСЃС‚РєРё <b>РѕРґРѕР±СЂРµРЅР°</b>!\n"
+                f"РџСЂРё СЃР»РµРґСѓСЋС‰РµР№ С‡РёСЃС‚РєРµ С‚С‹ Р±СѓРґРµС€СЊ Р·Р°С‰РёС‰С‘РЅ.",
                 parse_mode="HTML",
             )
         except Exception as _e:
-            _log.debug("%s", _e)
-        await callback.answer("✅ Пропуск одобрен!", show_alert=True)
+            _log.debug("%s", _e, exc_info=True)
+        await callback.answer("вњ… РџСЂРѕРїСѓСЃРє РѕРґРѕР±СЂРµРЅ!", show_alert=True)
     else:
-        # Вернуть деньги
+        # Р’РµСЂРЅСѓС‚СЊ РґРµРЅСЊРіРё
         price = result["price"]
         await _am(buyer_uid, chat_id, price)
         # Log refund
         try:
             from api.economy import log_wallet_tx
             await log_wallet_tx(buyer_uid, chat_id, "income", price, "cleanup_pass_refund",
-                                "Возврат за отклонённый пропуск чистки")
+                                "Р’РѕР·РІСЂР°С‚ Р·Р° РѕС‚РєР»РѕРЅС‘РЅРЅС‹Р№ РїСЂРѕРїСѓСЃРє С‡РёСЃС‚РєРё")
         except Exception as _e:
-            _log.debug("%s", _e)
+            _log.debug("%s", _e, exc_info=True)
         try:
             await callback.message.edit_text(
-                callback.message.text + "\n\n❌ <b>Отклонено</b> (деньги возвращены)",
+                callback.message.text + "\n\nвќЊ <b>РћС‚РєР»РѕРЅРµРЅРѕ</b> (РґРµРЅСЊРіРё РІРѕР·РІСЂР°С‰РµРЅС‹)",
                 parse_mode="HTML",
             )
         except Exception as _e:
-            _log.debug("%s", _e)
-        # Уведомить покупателя
+            _log.debug("%s", _e, exc_info=True)
+        # РЈРІРµРґРѕРјРёС‚СЊ РїРѕРєСѓРїР°С‚РµР»СЏ
         try:
             await callback.bot.send_message(
                 buyer_uid,
-                f"❌ Заявка на пропуск чистки <b>отклонена</b>.\n"
-                f"Возврат: <b>{price} 🪙</b>",
+                f"вќЊ Р—Р°СЏРІРєР° РЅР° РїСЂРѕРїСѓСЃРє С‡РёСЃС‚РєРё <b>РѕС‚РєР»РѕРЅРµРЅР°</b>.\n"
+                f"Р’РѕР·РІСЂР°С‚: <b>{price} рџЄ™</b>",
                 parse_mode="HTML",
             )
         except Exception as _e:
-            _log.debug("%s", _e)
-        await callback.answer("❌ Заявка отклонена, деньги возвращены.", show_alert=True)
+            _log.debug("%s", _e, exc_info=True)
+        await callback.answer("вќЊ Р—Р°СЏРІРєР° РѕС‚РєР»РѕРЅРµРЅР°, РґРµРЅСЊРіРё РІРѕР·РІСЂР°С‰РµРЅС‹.", show_alert=True)
     await callback.answer()
 
 
-# ─── бот пропуски — список ожидающих заявок (для админов) ─────────────────────
+# в”Ђв”Ђв”Ђ Р±РѕС‚ РїСЂРѕРїСѓСЃРєРё вЂ” СЃРїРёСЃРѕРє РѕР¶РёРґР°СЋС‰РёС… Р·Р°СЏРІРѕРє (РґР»СЏ Р°РґРјРёРЅРѕРІ) в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
-@router.message(BotCommand("пропуски", "заявки_чистки"))
+@router.message(BotCommand("РїСЂРѕРїСѓСЃРєРё", "Р·Р°СЏРІРєРё_С‡РёСЃС‚РєРё"))
 async def cmd_list_passes(message: Message):
-    """Показать все pending заявки на пропуск чистки. Только owner/developer."""
+    """РџРѕРєР°Р·Р°С‚СЊ РІСЃРµ pending Р·Р°СЏРІРєРё РЅР° РїСЂРѕРїСѓСЃРє С‡РёСЃС‚РєРё. РўРѕР»СЊРєРѕ owner/developer."""
     if message.chat.type == "private":
-        await message.answer("❌ Команда работает только в чате.")
+        await message.answer("вќЊ РљРѕРјР°РЅРґР° СЂР°Р±РѕС‚Р°РµС‚ С‚РѕР»СЊРєРѕ РІ С‡Р°С‚Рµ.")
         return
     from utils.ranks import is_developer as _is_dev
     from database.db import get_user_stats, postgres_connect as _pg
@@ -627,7 +627,7 @@ async def cmd_list_passes(message: Message):
     stats = await get_user_stats(uid, chat_id)
     rank = stats["rank"] if stats else None
     if rank not in ("owner", "co_owner", "developer") and not _is_dev(uid):
-        await message.answer("❌ Недостаточно прав.")
+        await message.answer("вќЊ РќРµРґРѕСЃС‚Р°С‚РѕС‡РЅРѕ РїСЂР°РІ.")
         return
 
     from database.postgres import connect as _pgc
@@ -641,7 +641,7 @@ async def cmd_list_passes(message: Message):
             rows = await c.fetchall()
 
     if not rows:
-        await message.answer("✅ Нет ожидающих заявок на пропуск чистки.")
+        await message.answer("вњ… РќРµС‚ РѕР¶РёРґР°СЋС‰РёС… Р·Р°СЏРІРѕРє РЅР° РїСЂРѕРїСѓСЃРє С‡РёСЃС‚РєРё.")
         return
 
     from config import CLEANUP_PASS_PRICE as _CPP
@@ -649,14 +649,14 @@ async def cmd_list_passes(message: Message):
         pid, buyer_uid, price, created_at, full_name = row[0], row[1], row[2], row[3], row[4]
         name = html.escape(full_name or str(buyer_uid))
         kb = InlineKeyboardMarkup(inline_keyboard=[[
-            InlineKeyboardButton(text="✅ Одобрить", callback_data=f"cpass:approve:{pid}:{buyer_uid}:{chat_id}"),
-            InlineKeyboardButton(text="❌ Отклонить", callback_data=f"cpass:reject:{pid}:{buyer_uid}:{chat_id}"),
+            InlineKeyboardButton(text="вњ… РћРґРѕР±СЂРёС‚СЊ", callback_data=f"cpass:approve:{pid}:{buyer_uid}:{chat_id}"),
+            InlineKeyboardButton(text="вќЊ РћС‚РєР»РѕРЅРёС‚СЊ", callback_data=f"cpass:reject:{pid}:{buyer_uid}:{chat_id}"),
         ]])
         await message.answer(
-            f"🎫 <b>Заявка #{pid}</b>\n"
-            f"👤 {name} (<code>{buyer_uid}</code>)\n"
-            f"💰 Оплачено: <b>{price} 🪙</b>\n"
-            f"📅 {str(created_at)[:16]}",
+            f"рџЋ« <b>Р—Р°СЏРІРєР° #{pid}</b>\n"
+            f"рџ‘¤ {name} (<code>{buyer_uid}</code>)\n"
+            f"рџ’° РћРїР»Р°С‡РµРЅРѕ: <b>{price} рџЄ™</b>\n"
+            f"рџ“… {str(created_at)[:16]}",
             parse_mode="HTML",
             reply_markup=kb,
         )
@@ -669,29 +669,29 @@ async def cmd_set_title(message: Message, cmd_args: str):
     title = (cmd_args or "").strip()
     if not title:
         await message.answer(
-            "❌ Укажи текст титула.\nПример: <code>бот титул Архонт Мудрости</code>",
+            "вќЊ РЈРєР°Р¶Рё С‚РµРєСЃС‚ С‚РёС‚СѓР»Р°.\nРџСЂРёРјРµСЂ: <code>Р±РѕС‚ С‚РёС‚СѓР» РђСЂС…РѕРЅС‚ РњСѓРґСЂРѕСЃС‚Рё</code>",
             parse_mode="HTML",
         )
         return
     if len(title) > 30:
-        await message.answer("❌ Титул слишком длинный (макс. 30 символов).")
+        await message.answer("вќЊ РўРёС‚СѓР» СЃР»РёС€РєРѕРј РґР»РёРЅРЅС‹Р№ (РјР°РєСЃ. 30 СЃРёРјРІРѕР»РѕРІ).")
         return
 
     uid = message.from_user.id
     chat_id = message.chat.id
     if not await has_shop_item(uid, chat_id, "custom_title"):
         await message.answer(
-            "❌ Сначала купи кастомный титул в магазине: <code>бот магазин</code>",
+            "вќЊ РЎРЅР°С‡Р°Р»Р° РєСѓРїРё РєР°СЃС‚РѕРјРЅС‹Р№ С‚РёС‚СѓР» РІ РјР°РіР°Р·РёРЅРµ: <code>Р±РѕС‚ РјР°РіР°Р·РёРЅ</code>",
             parse_mode="HTML",
         )
         return
     await set_custom_title_in_chat(uid, chat_id, title)
-    await message.answer(f"✅ Титул установлен: <b>{html.escape(title)}</b>", parse_mode="HTML")
+    await message.answer(f"вњ… РўРёС‚СѓР» СѓСЃС‚Р°РЅРѕРІР»РµРЅ: <b>{html.escape(title)}</b>", parse_mode="HTML")
 
 
-# ─── бот эмодзи-статус (установка эмодзи питомца) ────────────────────────────
+# в”Ђв”Ђв”Ђ Р±РѕС‚ СЌРјРѕРґР·Рё-СЃС‚Р°С‚СѓСЃ (СѓСЃС‚Р°РЅРѕРІРєР° СЌРјРѕРґР·Рё РїРёС‚РѕРјС†Р°) в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
-@router.message(BotCommand("эмодзи-статус", "emoji-status", "эмодзи статус"))
+@router.message(BotCommand("СЌРјРѕРґР·Рё-СЃС‚Р°С‚СѓСЃ", "emoji-status", "СЌРјРѕРґР·Рё СЃС‚Р°С‚СѓСЃ"))
 async def cmd_set_emoji_status(message: Message, cmd_args: str):
     if message.chat.type == "private":
         return
@@ -699,7 +699,7 @@ async def cmd_set_emoji_status(message: Message, cmd_args: str):
     emoji = (cmd_args or "").strip()
     if not emoji or len(emoji) > 4:
         await message.answer(
-            "❌ Укажи один эмодзи.\nПример: <code>бот эмодзи-статус 🐾</code>",
+            "вќЊ РЈРєР°Р¶Рё РѕРґРёРЅ СЌРјРѕРґР·Рё.\nРџСЂРёРјРµСЂ: <code>Р±РѕС‚ СЌРјРѕРґР·Рё-СЃС‚Р°С‚СѓСЃ рџђѕ</code>",
             parse_mode="HTML",
         )
         return
@@ -708,9 +708,9 @@ async def cmd_set_emoji_status(message: Message, cmd_args: str):
     chat_id = message.chat.id
     if not await has_shop_item(uid, chat_id, "pet_emoji_status"):
         await message.answer(
-            "❌ Сначала купи эмодзи-статус в магазине: <code>бот магазин</code>",
+            "вќЊ РЎРЅР°С‡Р°Р»Р° РєСѓРїРё СЌРјРѕРґР·Рё-СЃС‚Р°С‚СѓСЃ РІ РјР°РіР°Р·РёРЅРµ: <code>Р±РѕС‚ РјР°РіР°Р·РёРЅ</code>",
             parse_mode="HTML",
         )
         return
     await set_pet_emoji_status(uid, chat_id, emoji)
-    await message.answer(f"✅ Эмодзи-статус питомца: {html.escape(emoji)}", parse_mode="HTML")
+    await message.answer(f"вњ… Р­РјРѕРґР·Рё-СЃС‚Р°С‚СѓСЃ РїРёС‚РѕРјС†Р°: {html.escape(emoji)}", parse_mode="HTML")

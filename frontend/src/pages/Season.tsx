@@ -90,6 +90,7 @@ export default function Season() {
         <AlertCircle size={32} className="mx-auto mb-2" />
         <p className="font-medium">Ошибка</p>
         <p className="text-sm mt-1 break-all">{error}</p>
+        <button onClick={() => { setError(""); fetchSeasonData().then(setData).catch((e: Error) => setError(e.message)); }} className="mt-3 text-sm underline" style={{ color: "var(--accent)" }}>Попробовать снова</button>
       </div>
     );
   }

@@ -48,6 +48,8 @@ async def do_checkin(uid: int, chat_id: int) -> dict:
         return result
 
     mora = result["mora"]
+    # BUG-041 fix: capture base mora BEFORE talent bonus, apply VIP to base only
+    base_mora = mora
 
     # Talent: checkin_mora_bonus — extra mora per talent level
     try:
@@ -59,11 +61,12 @@ async def do_checkin(uid: int, chat_id: int) -> dict:
     except Exception as _e:
         _log.debug("checkin_mora_bonus: %s", _e)
 
-    # VIP bonus: +15% to checkin reward
+    # VIP bonus: +15% to BASE checkin reward only (not stacked with talent bonus)
     try:
         from database.db import get_vip
         if await get_vip(uid, chat_id):
-            mora = int(mora * 1.15)
+            vip_addition = int(base_mora * 0.15)
+            mora += vip_addition
             result["mora"] = mora
             result["vip_bonus"] = True
     except Exception as _e:

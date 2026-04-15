@@ -65,7 +65,12 @@ export default function Gacha({ chatId }: Props) {
       if (res.quest_done) showToast(`🎯 Квест выполнен! +${res.quest_xp} XP +${res.quest_mora} 🪙`);
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Ошибка";
-      showToast(msg.includes("400:") ? extractError(msg) : msg);
+      if (msg.includes("400:") || msg.includes("API ")) {
+        const cleaned = extractError(msg);
+        showToast(typeof cleaned === "string" && cleaned.length < 200 ? cleaned : "Не удалось выполнить призыв");
+      } else {
+        showToast(msg.length < 200 ? msg : "Ошибка сервера");
+      }
       setPhase("idle");
     }
   }, [chatId, showToast]);
@@ -463,6 +468,16 @@ function ItemCard({ item, index, large }: { item: GachaItem; index: number; larg
           {item.rarity === "legendary" && "✨ "}{label}
         </p>
       </div>
+
+      {/* Дубликат — компенсация в Море */}
+      {item.duplicate && item.comp_mora != null && (
+        <div
+          className="text-xs font-semibold px-2 py-1 rounded-lg flex items-center gap-1"
+          style={{ backgroundColor: "#f59e0b22", color: "#f59e0b" }}
+        >
+          🔄 Дубликат · компенсация {item.comp_mora} 🪙
+        </div>
+      )}
 
       {/* Описание */}
       {item.desc && (

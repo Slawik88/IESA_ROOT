@@ -76,7 +76,10 @@ async def _build_results_text(event_id: int, total_clicks: int) -> str:
 
 async def _do_finalize(bot: Bot, chat_id: int, event_id: int, msg_id: int):
     """Финализирует ивент: помечает в БД, обновляет сообщение."""
-    await finish_chest_event(event_id)
+    changed = await finish_chest_event(event_id)
+    if not changed:
+        # Another concurrent call already finalized this event
+        return
     _active_events.pop(chat_id, None)
 
     try:

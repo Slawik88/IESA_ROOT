@@ -279,6 +279,8 @@ export interface GachaItem {
   slot?: string;
   enhancement_level?: number;
   is_new?: boolean;
+  duplicate?: boolean;
+  comp_mora?: number;
 }
 
 export interface GachaRollResult {
@@ -481,6 +483,7 @@ export interface BondsResponse {
   market_trend?: string;
   market_ticks?: number;
   prices_updated_at?: string;
+  bond_tax_cap_pct?: number;
 }
 export interface BondTradeResult {
   ok: boolean;

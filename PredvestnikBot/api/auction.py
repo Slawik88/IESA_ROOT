@@ -440,11 +440,13 @@ async def place_bid(
         if balance < amount:
             raise ValueError(f"Недостаточно Моры. У тебя: {balance} 🪙, нужно: {amount} 🪙")
 
-        # Списываем с покупателя
-        await db.execute(
+        # Списываем с покупателя (atomic: только если баланс ещё достаточен)
+        cur = await db.execute(
             "UPDATE users SET balance=balance-? WHERE user_id=? AND COALESCE(balance,0)>=?",
             (amount, bidder_id, amount)
         )
+        if cur.rowcount == 0:
+            raise ValueError(f"Недостаточно Моры (баланс изменился). У тебя: {balance} 🪙")
 
         outbid_user_id   = auction["highest_bidder_id"]
         outbid_amount    = auction["current_price"] if auction["bid_count"] > 0 else 0

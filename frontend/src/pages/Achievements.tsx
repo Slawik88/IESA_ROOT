@@ -70,6 +70,7 @@ export default function Achievements({ userId, chatId }: Props) {
       <div className="p-4 text-center" style={{ color: "#e74c3c" }}>
         <p className="font-medium">Ошибка загрузки достижений</p>
         <p className="text-sm mt-1 break-all">{error}</p>
+        <button onClick={() => { setError(""); load(); }} className="mt-3 text-sm underline" style={{ color: "var(--accent)" }}>Попробовать снова</button>
       </div>
     );
   }

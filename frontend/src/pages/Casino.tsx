@@ -6,12 +6,13 @@
    POST /api/casino/lottery   { chat_id }
    ────────────────────────────────────────────────────────────── */
 import { useState, useCallback, useEffect } from "react";
-import { Coins, CircleDot, Ticket, AlertCircle } from "lucide-react";
+import { Coins, CircleDot, Ticket, AlertCircle, Wallet } from "lucide-react";
 import {
   casinoCoinFlip,
   casinoRoulette,
   fetchLotteryStatus,
   buyLotteryTicket,
+  fetchUserData,
 } from "../lib/api";
 import type { CoinFlipResult, RouletteResult, LotteryStatusResult } from "../types";
 
@@ -206,8 +207,8 @@ function CoinSection({ chatId }: { chatId: number }) {
 
       {toast && (
         <div
-          className="fixed bottom-20 left-1/2 -translate-x-1/2 px-4 py-2 rounded-xl text-sm font-medium shadow-lg z-50 whitespace-nowrap"
-          style={{ backgroundColor: "var(--bg-secondary)", color: "var(--text-primary)", border: "1px solid var(--border)" }}
+          className="fixed top-4 left-1/2 -translate-x-1/2 z-50 max-w-[90vw] px-4 py-2.5 rounded-xl text-sm font-medium shadow-lg pointer-events-none"
+          style={{ backgroundColor: "var(--bg-secondary)", color: "var(--text-primary)", border: "1px solid var(--accent)" }}
         >
           {toast}
         </div>
@@ -416,8 +417,8 @@ function RouletteSection({ chatId }: { chatId: number }) {
 
       {toast && (
         <div
-          className="fixed bottom-20 left-1/2 -translate-x-1/2 px-4 py-2 rounded-xl text-sm font-medium shadow-lg z-50 whitespace-nowrap"
-          style={{ backgroundColor: "var(--bg-secondary)", color: "var(--text-primary)", border: "1px solid var(--border)" }}
+          className="fixed top-4 left-1/2 -translate-x-1/2 z-50 max-w-[90vw] px-4 py-2.5 rounded-xl text-sm font-medium shadow-lg pointer-events-none"
+          style={{ backgroundColor: "var(--bg-secondary)", color: "var(--text-primary)", border: "1px solid var(--accent)" }}
         >
           {toast}
         </div>
@@ -518,8 +519,8 @@ function LotterySection({ chatId }: { chatId: number }) {
 
       {toast && (
         <div
-          className="fixed bottom-20 left-1/2 -translate-x-1/2 px-4 py-2 rounded-xl text-sm font-medium shadow-lg z-50 whitespace-nowrap"
-          style={{ backgroundColor: "var(--bg-secondary)", color: "var(--text-primary)", border: "1px solid var(--border)" }}
+          className="fixed top-4 left-1/2 -translate-x-1/2 z-50 max-w-[90vw] px-4 py-2.5 rounded-xl text-sm font-medium shadow-lg pointer-events-none"
+          style={{ backgroundColor: "var(--bg-secondary)", color: "var(--text-primary)", border: "1px solid var(--accent)" }}
         >
           {toast}
         </div>
@@ -533,6 +534,12 @@ function LotterySection({ chatId }: { chatId: number }) {
 // ════════════════════════════════════════════
 export default function Casino({ userId: _userId, chatId }: Props) {
   const [sub, setSub] = useState<SubTab>("coin");
+  const [balance, setBalance] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!chatId) return;
+    fetchUserData(chatId).then(d => setBalance(d.balance)).catch(() => {});
+  }, [chatId]);
 
   const SUBS: { key: SubTab; label: string; Icon: typeof Coins }[] = [
     { key: "coin",     label: "Монетка", Icon: Coins     },
@@ -547,12 +554,20 @@ export default function Casino({ userId: _userId, chatId }: Props) {
         className="px-4 pt-4 pb-3 glass-heavy"
         style={{ borderBottom: "1px solid var(--border-accent)" }}
       >
-        <h1 className="text-xl font-bold mb-3 flex items-center gap-2.5" style={{ color: "var(--text-primary)" }}>
-          <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: "linear-gradient(135deg, #f59e0b22, #ef444422)" }}>
-            🎰
-          </div>
-          Казино
-        </h1>
+        <div className="flex items-center justify-between mb-3">
+          <h1 className="text-xl font-bold flex items-center gap-2.5" style={{ color: "var(--text-primary)" }}>
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: "linear-gradient(135deg, #f59e0b22, #ef444422)" }}>
+              🎰
+            </div>
+            Казино
+          </h1>
+          {balance !== null && (
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl glass-card-sm">
+              <Wallet size={14} style={{ color: "var(--accent)" }} />
+              <span className="text-sm font-bold tabular-nums stat-value">{balance.toLocaleString("ru-RU")} 🪙</span>
+            </div>
+          )}
+        </div>
         {/* Sub-tabs */}
         <div className="flex gap-2">
           {SUBS.map(({ key, label, Icon }) => {

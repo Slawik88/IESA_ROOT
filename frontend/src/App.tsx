@@ -3,7 +3,7 @@
    Навигация: Профиль | Гача | Инвентарь | Банк | Магазин | Задания | Топ | Сезон | Ачивки | Биржа | [Адм.]
    ────────────────────────────────────────────────────────────── */
 import { useState, Component, type ReactNode, type ErrorInfo } from "react";
-import { User, Sparkles, Backpack, ScrollText, Trophy, Medal, Star, Landmark, ShoppingBag, TrendingUp, ShieldAlert, Dices, Gem, Swords, Ticket } from "lucide-react";
+import { User, Sparkles, Backpack, ScrollText, Trophy, Medal, Star, Landmark, ShoppingBag, TrendingUp, ShieldAlert, Dices, Gem, Swords, Ticket, Gavel, Banknote } from "lucide-react";
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
   constructor(props: { children: ReactNode }) {
@@ -55,9 +55,11 @@ import Stars from "./pages/Stars";
 import Admin from "./pages/Admin";
 import Promo from "./pages/Promo";
 import BossFight from "./pages/BossFight";
+import Auction from "./pages/Auction";
+import Loans from "./pages/Loans";
 import NotInTelegram from "./pages/NotInTelegram";
 
-type Tab = "profile" | "gacha" | "inventory" | "bank" | "shop" | "quests" | "leaderboard" | "season" | "achievements" | "exchange" | "casino" | "stars" | "promo" | "boss" | "admin";
+type Tab = "profile" | "gacha" | "inventory" | "bank" | "shop" | "quests" | "leaderboard" | "season" | "achievements" | "exchange" | "casino" | "stars" | "promo" | "boss" | "auction" | "loans" | "admin";
 
 const BASE_TABS: { key: Tab; label: string; Icon: typeof User }[] = [
   { key: "profile",      label: "Профиль",  Icon: User },
@@ -67,6 +69,8 @@ const BASE_TABS: { key: Tab; label: string; Icon: typeof User }[] = [
   { key: "shop",         label: "Магазин",  Icon: ShoppingBag },
   { key: "exchange",     label: "Биржа",    Icon: TrendingUp },
   { key: "casino",       label: "Казино",   Icon: Dices },
+  { key: "auction",      label: "Аукцион",  Icon: Gavel },
+  { key: "loans",        label: "Займы",    Icon: Banknote },
   { key: "stars",        label: "Stars",    Icon: Gem },
   { key: "promo",        label: "Промо",    Icon: Ticket },
   { key: "boss",         label: "Босс",     Icon: Swords },
@@ -99,9 +103,28 @@ export default function App() {
 }
 
 function AppContent({ userId, chatId }: { userId: number; chatId: number }) {
-  const { isDev } = useAppContext();
+  const { isDev, userDataError, userDataLoading, refreshUserData } = useAppContext();
   const [tab, setTab] = useState<Tab>("profile");
   useTelemetry(tab);
+
+  // Show error screen if initial data load failed and no data yet
+  if (userDataError && !userDataLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen gap-4 p-6 text-center">
+        <p className="text-lg font-semibold" style={{ color: "var(--text-primary)" }}>
+          Не удалось загрузить данные 😓
+        </p>
+        <p className="text-sm" style={{ color: "var(--text-hint)" }}>{userDataError}</p>
+        <button
+          onClick={() => { void refreshUserData(); }}
+          className="px-5 py-2.5 rounded-xl text-sm font-semibold"
+          style={{ backgroundColor: "var(--accent)", color: "#fff" }}
+        >
+          Попробовать снова
+        </button>
+      </div>
+    );
+  }
 
   const TABS = isDev
     ? [...BASE_TABS, { key: "admin" as Tab, label: "Адм.", Icon: ShieldAlert }]
@@ -119,6 +142,8 @@ function AppContent({ userId, chatId }: { userId: number; chatId: number }) {
           {tab === "shop"         && <Shop         userId={userId} chatId={chatId} />}
           {tab === "exchange"     && <Exchange     userId={userId} chatId={chatId} isDev={isDev} />}
           {tab === "casino"       && <Casino        userId={userId} chatId={chatId} />}
+          {tab === "auction"      && <Auction       userId={userId} chatId={chatId} />}
+          {tab === "loans"        && <Loans         userId={userId} chatId={chatId} />}
           {tab === "stars"        && <Stars         userId={userId} chatId={chatId} />}
           {tab === "quests"       && <Quests       userId={userId} chatId={chatId} />}
           {tab === "leaderboard"  && <Leaderboard  chatId={chatId} />}

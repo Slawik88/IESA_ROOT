@@ -49,12 +49,13 @@ async def run_scheduler(bot) -> None:
             ("auction_finalize",   _task_auction_finalize),
             ("archive_inactive",   _task_archive_inactive),
             ("archive_warnings",   _task_archive_warnings),
+            ("flood_cleanup",      _task_flood_cleanup),
         ]
         for _name, _fn in _tasks:
             _t0 = asyncio.get_event_loop().time()
             try:
                 log.debug("Scheduler [%s] start", _name)
-                if _fn is _task_cleanup_left_users:
+                if _fn is _task_cleanup_left_users or _fn is _task_flood_cleanup:
                     await _fn()
                 else:
                     await _fn(bot)
@@ -65,6 +66,13 @@ async def run_scheduler(bot) -> None:
                 log.error("Scheduler [%s] error (%dms): %s", _name, _ms, exc, exc_info=True)
         log.info("Scheduler tick #%d complete — sleeping 3600s", run_count)
         await asyncio.sleep(3600)
+
+
+# ─── Flood data cleanup ───────────────────────────────────────────────────────
+
+async def _task_flood_cleanup() -> None:
+    from utils.flood import cleanup_flood_data
+    cleanup_flood_data()
 
 
 # ─── Авто-варн за неактив ─────────────────────────────────────────────────────

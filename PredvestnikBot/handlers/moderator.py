@@ -117,6 +117,19 @@ async def cmd_unmute(message: Message, bot: Bot, cmd_args: str):
         await message.answer(name)
         return
 
+    if uid == message.from_user.id:
+        await message.answer("❌ Нельзя снять мут с себя.")
+        return
+
+    target_stats = await get_user_stats(uid, message.chat.id)
+    if target_stats and _protected(target_stats["rank"]):
+        caller_stats = await get_user_stats(message.from_user.id, message.chat.id)
+        caller_rank = caller_stats["rank"] if caller_stats else "user"
+        target_rank = target_stats["rank"]
+        if rank_level(caller_rank) <= rank_level(target_rank):
+            await message.answer("❌ Нельзя снять мут у равного или вышестоящего по рангу.")
+            return
+
     try:
         await bot.restrict_chat_member(
             message.chat.id, uid,
@@ -147,6 +160,19 @@ async def cmd_unwarn(message: Message, cmd_args: str):
     if uid is None:
         await message.answer(name)
         return
+
+    if uid == message.from_user.id:
+        await message.answer("❌ Нельзя снять варн с себя.")
+        return
+
+    target_stats = await get_user_stats(uid, message.chat.id)
+    if target_stats and _protected(target_stats["rank"]):
+        caller_stats = await get_user_stats(message.from_user.id, message.chat.id)
+        caller_rank = caller_stats["rank"] if caller_stats else "user"
+        target_rank = target_stats["rank"]
+        if rank_level(caller_rank) <= rank_level(target_rank):
+            await message.answer("❌ Нельзя снять варн у равного или вышестоящего по рангу.")
+            return
 
     warns = await remove_warn_in_chat(uid, message.chat.id)
     from config import MAX_WARNS

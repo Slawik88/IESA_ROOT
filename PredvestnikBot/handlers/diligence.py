@@ -40,6 +40,7 @@ _DILIGENCE_ACTIVE: dict[int, bool] = {}        # chat_id → bool
 _DILIGENCE_CLICKS: dict[int, dict[int, int]] = defaultdict(dict)  # chat_id → {uid: clicks}
 _DILIGENCE_MSG_ID: dict[int, int] = {}         # chat_id → telegram message_id
 _DILIGENCE_START:  dict[int, float] = {}       # chat_id → unix time started
+_DILIGENCE_LOCKS:  dict[int, asyncio.Lock] = {}  # per-chat lock for state mutations
 
 _DILIGENCE_GOAL    = 500   # clicks to finish early
 _DILIGENCE_REWARD  = 2000  # total mora pool
@@ -130,11 +131,13 @@ async def _timeout_watcher(bot, chat_id: int):
 
 async def _launch_diligence(bot, chat_id: int) -> bool:
     """Запускает ивент в чате. Возвращает False если уже активен."""
-    if _DILIGENCE_ACTIVE.get(chat_id):
-        return False
-    _DILIGENCE_ACTIVE[chat_id] = True
-    _DILIGENCE_CLICKS[chat_id].clear()
-    _DILIGENCE_START[chat_id] = time.time()
+    lock = _DILIGENCE_LOCKS.setdefault(chat_id, asyncio.Lock())
+    async with lock:
+        if _DILIGENCE_ACTIVE.get(chat_id):
+            return False
+        _DILIGENCE_ACTIVE[chat_id] = True
+        _DILIGENCE_CLICKS[chat_id].clear()
+        _DILIGENCE_START[chat_id] = time.time()
 
     kb = _event_keyboard(chat_id)
     try:
@@ -227,4 +230,12 @@ async def cb_diligence_click(callback: CallbackQuery):
         asyncio.create_task(_update_diligence_msg(callback.message, chat_id))
 
     if total >= _DILIGENCE_GOAL:
-        asyncio.create_task(_finish_event(callback.message.bot, chat_id, "цель достигнута!"))
+        # Use a lock to ensure _finish_event is created only once,
+        # even if multiple concurrent clicks all reach the goal simultaneously.
+        lock = _DILIGENCE_LOCKS.setdefault(chat_id, asyncio.Lock())
+        if not lock.locked() and _DILIGENCE_ACTIVE.get(chat_id):
+            async def _once_finish():
+                async with lock:
+                    if _DILIGENCE_ACTIVE.get(chat_id):
+                        await _finish_event(callback.message.bot, chat_id, "цель достигнута!")
+            asyncio.create_task(_once_finish())

@@ -431,6 +431,79 @@ async def cb_pet_rename_cancel(callback: CallbackQuery):
     await callback.answer()
 
 
+@router.callback_query(lambda c: c.data and c.data.startswith("pet_rename_coupon:"))
+async def cb_pet_rename_coupon(callback: CallbackQuery):
+    """Бесплатное переименование питомца по купону из инвентаря."""
+    data_parts = callback.data.split(":", 2)
+    owner = int(data_parts[1])
+    name = data_parts[2]
+    uid = callback.from_user.id
+    chat_id = callback.message.chat.id
+
+    if uid != owner:
+        await callback.answer("❌ Это не твоя кнопка!", show_alert=True)
+        return
+
+    # Списать купон из инвентаря
+    from database.postgres import connect as postgres_connect
+    async with postgres_connect() as db:
+        async with db.execute(
+            "SELECT id, COALESCE(stack_count, 1) FROM gacha_inventory "
+            "WHERE user_id=? AND chat_id=? AND item_key='pet_rename' LIMIT 1",
+            (uid, chat_id),
+        ) as c:
+            row = await c.fetchone()
+        if not row:
+            await callback.answer("❌ Купон не найден в инвентаре!", show_alert=True)
+            return
+        cid, csc = row[0], row[1]
+        if csc <= 1:
+            await db.execute("DELETE FROM gacha_inventory WHERE id=?", (cid,))
+        else:
+            await db.execute(
+                "UPDATE gacha_inventory SET stack_count = stack_count - 1 WHERE id=?", (cid,)
+            )
+        await db.commit()
+
+    found = await rename_pet(uid, chat_id, name)
+    if found:
+        try:
+            await callback.message.edit_text(
+                f"✅ Питомец переименован в <b>{html.escape(name)}</b>! 🎫\n"
+                f"(Использован купон бесплатного переименования)",
+                parse_mode="HTML",
+            )
+        except Exception as _e:
+            _log.debug("%s", _e)
+        await callback.answer("✅ Переименование завершено!")
+    else:
+        # Вернуть купон, если не удалось переименовать
+        async with postgres_connect() as db:
+            async with db.execute(
+                "SELECT id FROM gacha_inventory "
+                "WHERE user_id=? AND chat_id=? AND item_key='pet_rename' LIMIT 1",
+                (uid, chat_id),
+            ) as c:
+                existing = await c.fetchone()
+            if existing:
+                await db.execute(
+                    "UPDATE gacha_inventory SET stack_count = stack_count + 1 WHERE id=?",
+                    (existing[0],),
+                )
+            else:
+                from shared_prices import ITEM_METADATA
+                meta = ITEM_METADATA.get("pet_rename", {})
+                await db.execute(
+                    "INSERT INTO gacha_inventory "
+                    "(user_id, chat_id, item_key, item_name, rarity, slot, atk, def_val, hp, crit_rate, stack_count) "
+                    "VALUES (?,?,?,?,?,?,?,?,?,?,1)",
+                    (uid, chat_id, "pet_rename", "✏️ Купон переименования питомца", "rare",
+                     meta.get("slot", "flair"), 0, 0, 0, 0.0),
+                )
+            await db.commit()
+        await callback.answer("❌ Не удалось переименовать питомца.", show_alert=True)
+
+
 @router.callback_query(lambda c: c.data and c.data.startswith("pet_skip:"))
 async def cb_pet_skip(callback: CallbackQuery):
     """Купить питомца за Мору, пропустив ожидание возраста брака."""
@@ -591,14 +664,32 @@ async def cmd_rename_pet(message: Message, cmd_args: str):
         else:
             await message.answer("❌ Не удалось дать имя питомцу. Попробуй ещё раз.")
     else:
-        # Переименование платное - показываем предупреждение
-        kb = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(
-                text=f"💰 Переименовать за {PET_RENAME_PRICE} мора", 
-                callback_data=f"pet_rename_confirm:{uid}:{name}"
-            )],
-            [InlineKeyboardButton(text="❌ Отмена", callback_data=f"pet_rename_cancel:{uid}")]
-        ])
+        # Проверяем наличие бесплатного купона переименования в инвентаре
+        has_coupon = False
+        try:
+            from database.postgres import connect as _pg_check
+            async with _pg_check() as _db_check:
+                async with _db_check.execute(
+                    "SELECT 1 FROM gacha_inventory "
+                    "WHERE user_id=? AND chat_id=? AND item_key='pet_rename' LIMIT 1",
+                    (uid, chat_id),
+                ) as _c:
+                    has_coupon = bool(await _c.fetchone())
+        except Exception as _e:
+            _log.debug("coupon check: %s", _e)
+
+        buttons = []
+        if has_coupon:
+            buttons.append([InlineKeyboardButton(
+                text="🎫 Бесплатно (купон)",
+                callback_data=f"pet_rename_coupon:{uid}:{name}"
+            )])
+        buttons.append([InlineKeyboardButton(
+            text=f"💰 Переименовать за {PET_RENAME_PRICE} мора",
+            callback_data=f"pet_rename_confirm:{uid}:{name}"
+        )])
+        buttons.append([InlineKeyboardButton(text="❌ Отмена", callback_data=f"pet_rename_cancel:{uid}")])
+        kb = InlineKeyboardMarkup(inline_keyboard=buttons)
         
         mora = await get_mora(uid, chat_id)
         bal = mora["balance"] if mora else 0
@@ -606,7 +697,9 @@ async def cmd_rename_pet(message: Message, cmd_args: str):
         current_name = html.escape(pet["name"])
         new_name = html.escape(name)
         
-        if bal < PET_RENAME_PRICE:
+        coupon_hint = "\n🎫 У тебя есть <b>купон бесплатного переименования</b>!" if has_coupon else ""
+        
+        if not has_coupon and bal < PET_RENAME_PRICE:
             await message.answer(
                 f"❌ Для переименования питомца нужно <b>{PET_RENAME_PRICE} 🪙</b>.\n"
                 f"У тебя: <b>{bal} 🪙</b>.",
@@ -618,7 +711,7 @@ async def cmd_rename_pet(message: Message, cmd_args: str):
                 f"Текущее имя: <b>{current_name}</b>\n"
                 f"Новое имя: <b>{new_name}</b>\n\n"
                 f"💰 <b>Стоимость: {PET_RENAME_PRICE} мора</b>\n"
-                f"Ваш баланс: <b>{bal} мора</b>\n\n"
+                f"Ваш баланс: <b>{bal} мора</b>{coupon_hint}\n\n"
                 f"⚠️ Переименование платное! Подтвердите операцию:",
                 parse_mode="HTML",
                 reply_markup=kb

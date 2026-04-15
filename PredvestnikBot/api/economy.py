@@ -181,7 +181,7 @@ async def wallet_history(uid: int, chat_id: int, days: int = 30) -> list:
     return [
         {
             "description": (r[3] or r[2] or ""),
-            "amount":      r[1] if r[0] == "in" else -r[1],
+            "amount":      r[1] if r[0] == "income" else -r[1],
             "ts":          str(r[4]),
         }
         for r in rows

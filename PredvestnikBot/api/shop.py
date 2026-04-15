@@ -310,6 +310,13 @@ async def buy_item(
             )
             if cursor.rowcount == 0:
                 raise ValueError(f"Недостаточно Моры")
+            # pet_color: apply color in the SAME transaction as payment
+            if item_type == "pet_color":
+                _color_key = item_key.replace("pet_color_", "")
+                await db.execute(
+                    "UPDATE pets_global SET color_name=? WHERE user_id=?",
+                    (_color_key, uid),
+                )
             row2 = await db.fetchone(
                 "SELECT COALESCE(balance, 0) AS balance FROM users WHERE user_id=?",
                 uid,
@@ -337,11 +344,7 @@ async def buy_item(
     elif item_type == "pet_color":
         from database.postgres import connect as _pg2
         color_key = item_key.replace("pet_color_", "")
-        async with _pg2() as _db2:
-            await _db2.execute(
-                "UPDATE pets_global SET color_name=? WHERE user_id=?",
-                (color_key, uid),
-            )
+        # Color update already happened atomically in the payment block
         # Track ownership globally (chat_id=0) so color persists cross-chat
         await buy_shop_item(uid, 0, "pet_color", item_key)
         if chat_id != 0:

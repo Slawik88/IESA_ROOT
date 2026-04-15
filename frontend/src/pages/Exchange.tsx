@@ -5,7 +5,7 @@
    POST /api/bonds/sell { chat_id, bond_key, amount }
    GET  /api/treasury?chat_id=X  (только admin/dev)
    ────────────────────────────────────────────────────────────── */
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import {
   TrendingUp, TrendingDown, Minus, RefreshCw, Landmark,
   Wallet, AlertCircle, Loader2, X, ChevronUp, ChevronDown,
@@ -44,7 +44,7 @@ function Sparkline({ data, color, width = 80, height = 32, timestamps, interacti
   const pts = data.map((v, i) => `${xi(i)},${height - px(v)}`).join(" ");
   const fillId = `sg${color.replace(/[^a-z0-9]/gi, "")}${width}`;
 
-  const getIdxFromX = (clientX: number): number | null => {
+  const getIdxFromX = useCallback((clientX: number): number | null => {
     const svg = svgRef.current;
     if (!svg) return null;
     const rect = svg.getBoundingClientRect();
@@ -52,18 +52,21 @@ function Sparkline({ data, color, width = 80, height = 32, timestamps, interacti
     const pct = relX / rect.width;
     const idx = Math.round(pct * (data.length - 1));
     return Math.max(0, Math.min(data.length - 1, idx));
-  };
+  }, [data.length]);
 
-  const handleMove = (clientX: number) => {
+  const handleMove = useCallback((clientX: number) => {
     if (!interactive) return;
     setHoverIdx(getIdxFromX(clientX));
-  };
-  const handleLeave = () => setHoverIdx(null);
+  }, [interactive, getIdxFromX]);
+  const handleLeave = useCallback(() => setHoverIdx(null), []);
 
   const hVal = hoverIdx !== null ? data[hoverIdx] : null;
   const hTs = hoverIdx !== null && timestamps?.[hoverIdx] ? timestamps[hoverIdx] : null;
   const hX = hoverIdx !== null ? xi(hoverIdx) : 0;
   const hY = hoverIdx !== null ? height - px(data[hoverIdx]) : 0;
+
+  const onSvgMouseMove = useMemo(() => interactive ? (e: React.MouseEvent) => handleMove(e.clientX) : undefined, [interactive, handleMove]);
+  const onSvgTouchMove = useMemo(() => interactive ? (e: React.TouchEvent) => { e.preventDefault(); handleMove(e.touches[0].clientX); } : undefined, [interactive, handleMove]);
 
   return (
     <div className="relative" style={{ width, height: interactive ? height + 28 : height }}>
@@ -87,9 +90,9 @@ function Sparkline({ data, color, width = 80, height = 32, timestamps, interacti
         viewBox={`0 0 ${width} ${height}`}
         fill="none"
         style={{ marginTop: interactive ? 24 : 0, touchAction: "none" }}
-        onMouseMove={interactive ? (e) => handleMove(e.clientX) : undefined}
+        onMouseMove={onSvgMouseMove}
         onMouseLeave={interactive ? handleLeave : undefined}
-        onTouchMove={interactive ? (e) => { e.preventDefault(); handleMove(e.touches[0].clientX); } : undefined}
+        onTouchMove={onSvgTouchMove}
         onTouchEnd={interactive ? handleLeave : undefined}
       >
         <defs>
@@ -137,8 +140,9 @@ interface TradeSheetProps {
   onClose: () => void;
   onDone: () => void;
   chatId: number;
+  taxCapPct: number;
 }
-function TradeSheet({ bond, balance, onClose, onDone, chatId }: TradeSheetProps) {
+function TradeSheet({ bond, balance, onClose, onDone, chatId, taxCapPct }: TradeSheetProps) {
   const [amount, setAmount] = useState("1");
   const [busy, setBusy]     = useState<"buy" | "sell" | null>(null);
   const { ok, err, showOk, showErr } = useToast();
@@ -299,6 +303,13 @@ function TradeSheet({ bond, balance, onClose, onDone, chatId }: TradeSheetProps)
           <span className="text-sm" style={{ color: "var(--text-hint)" }}>Стоимость</span>
           <span className="text-base font-bold tabular-nums">{fmt(totalCost)} 🪙</span>
         </div>
+
+        {/* Tax info for sell */}
+        {bond.amount > 0 && (
+          <p className="text-xs text-center" style={{ color: "var(--text-hint)" }}>
+            Прогрессивный налог на прибыль: 10–20–30–{taxCapPct}% (зависит от размера прибыли)
+          </p>
+        )}
 
         {/* Buy / Sell */}
         <div className="grid grid-cols-2 gap-3 pb-2">
@@ -613,6 +624,7 @@ export default function Exchange({ chatId, isDev }: Props) {
           bond={selected}
           balance={data.balance}
           chatId={chatId}
+          taxCapPct={data.bond_tax_cap_pct ?? 40}
           onClose={() => setSelected(null)}
           onDone={() => { load(); setSelected(null); }}
         />
