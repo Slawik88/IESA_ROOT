@@ -385,3 +385,95 @@ async def gacha_roll(uid: int, chat_id: int, count: int,
         "quest_mora":      int(quest_mora),
         "shard_bonus":     shard_bonus_given,
     }
+
+
+async def gacha_roll_free(uid: int, chat_id: int) -> dict:
+    """Use one free gacha roll from the user's free_gacha_rolls counter.
+
+    Raises ValueError with a Russian message if no free rolls available.
+    Returns same structure as gacha_roll (count=1, no mora deducted).
+    """
+    from database.postgres import connect as postgres_connect
+
+    # Atomically consume one free roll
+    async with postgres_connect() as db:
+        cursor = await db.execute(
+            "UPDATE users SET free_gacha_rolls = free_gacha_rolls - 1 "
+            "WHERE user_id = ? AND COALESCE(free_gacha_rolls, 0) >= 1",
+            (uid,),
+        )
+        if cursor.rowcount == 0:
+            raise ValueError("У тебя нет бесплатных кручений гачи 🎴")
+        await db.commit()
+        async with db.execute(
+            "SELECT COALESCE(balance, 0) AS balance, COALESCE(free_gacha_rolls, 0) AS free_gacha_rolls "
+            "FROM users WHERE user_id=?",
+            (uid,),
+        ) as c:
+            row = await c.fetchone()
+    new_bal = int(row["balance"]) if row else 0
+    remaining_free = int(row["free_gacha_rolls"]) if row else 0
+
+    # Perform a single roll (no cost deduction; reuse roll_one + save logic inline)
+    from database.db import add_gacha_item, get_gacha_pity
+    pity = await get_gacha_pity(uid, chat_id)
+    luck_bonus = 0
+    try:
+        from database.db import get_talent_bonus as _gtb
+        luck_bonus = int(await _gtb(uid, "drop_luck") or 0)
+    except Exception:
+        pass
+
+    key, name, rarity, desc = roll_one(pity, GACHA_PITY_MAX, luck_bonus)
+    from shared_prices import ITEM_METADATA
+    meta = ITEM_METADATA.get(key, {})
+    item_id = await add_gacha_item(uid, chat_id, key, name, rarity,
+                                   atk=meta.get("atk", 0),
+                                   def_val=meta.get("def_val", 0),
+                                   hp=meta.get("hp", 0),
+                                   crit_rate=meta.get("crit_rate", 0.0),
+                                   slot=meta.get("slot"),
+                                   description=desc,
+                                   stack_count=meta.get("stack_count", 1))
+    results = [{"key": key, "name": name, "rarity": rarity, "desc": desc, "id": item_id}]
+
+    # Update pity counter
+    from database.db import postgres_connect as _pg
+    new_pity = 0 if rarity in ("legendary",) else pity + 1
+    try:
+        async with _pg() as _db:
+            await _db.execute(
+                "UPDATE user_mora SET gacha_pity=? WHERE user_id=? AND chat_id=?",
+                (new_pity, uid, chat_id),
+            )
+            await _db.commit()
+    except Exception as _e:
+        _log.debug("%s", _e)
+
+    return {
+        "ok":              True,
+        "items":           results,
+        "new_balance":     new_bal,
+        "new_family_bal":  None,
+        "pity":            new_pity,
+        "spent":           0,
+        "is_single":       True,
+        "quest_done":      False,
+        "quest_xp":        0,
+        "quest_mora":      0,
+        "shard_bonus":     False,
+        "free_roll_used":  True,
+        "remaining_free_rolls": remaining_free,
+    }
+
+
+async def get_free_gacha_rolls(uid: int) -> int:
+    """Return the current free_gacha_rolls count for the user."""
+    from database.postgres import connect as postgres_connect
+    async with postgres_connect() as db:
+        async with db.execute(
+            "SELECT COALESCE(free_gacha_rolls, 0) FROM users WHERE user_id=?",
+            (uid,),
+        ) as c:
+            row = await c.fetchone()
+    return int(row[0]) if row else 0

@@ -115,56 +115,15 @@ def validate_session_damage(damage: int) -> bool:
 
 @router.message(BotCommand("босс", "boss", "мировой босс"))
 async def cmd_boss(message: Message, cmd_args: str):
-    if message.chat.type == "private":
-        await message.answer("⚔️ Босс доступен только в группах!")
-        return
-
-    uid = message.from_user.id
-    chat_id = message.chat.id
-    arg = (cmd_args or "").strip().lower()
-
-    current_hp = get_boss_hp(chat_id)
-    pct = current_hp / BOSS_MAX_HP * 100
-
-    # Атака
-    if arg in ("атака", "атаковать", "attack", "удар"):
-        # PHASE 3: Boss attack → Mini App
-        abs_cid = abs(message.chat.id)
-        btn = InlineKeyboardButton(
-            text="⚔️ Атаковать в Mini App",
-            url=f"{MINI_APP_TG_URL}?startapp={abs_cid}_couple_boss",
-        )
-        await message.answer(
-            "⚔️ <b>Атаки на Босса — в Mini App!</b> (до 30 ударов за сессию)",
-            parse_mode="HTML",
-            reply_markup=InlineKeyboardMarkup(inline_keyboard=[[btn]]),
-        )
-        return
-
-    # Статус босса
-    top = await get_boss_leaderboard(chat_id, limit=5)
-    my_dmg = await get_boss_my_damage(uid, chat_id)
-    bar = _hp_bar(current_hp)
-
-    lines = [
-        f"👹 <b>Мировой Босс</b>",
-        f"",
-        f"❤️ {bar}",
-        f"HP: {current_hp:,} / {BOSS_MAX_HP:,}",
-        f"",
-        f"⚔️ Атаковать: <code>бот босс атака</code> (раз в 30 сек)",
-        f"📱 Или бей в <b>Mini App</b> (30-сек сессии)",
-        f"",
-    ]
-
-    if top:
-        lines.append("🏆 <b>Топ урона:</b>")
-        medals = ["🥇", "🥈", "🥉", "4️⃣", "5️⃣"]
-        for i, row in enumerate(top):
-            name = html.escape(row.get("full_name") or str(row["user_id"]))
-            lines.append(f"  {medals[i]} {name} — {row['total_damage']:,}")
-
-    if my_dmg:
-        lines += ["", f"💪 Твой урон: <b>{my_dmg:,}</b>"]
-
-    await message.answer("\n".join(lines), parse_mode="HTML")
+    """Мировой Босс — только в Mini App."""
+    abs_cid = abs(message.chat.id) if message.chat.type != "private" else 0
+    btn = InlineKeyboardButton(
+        text="⚔️ Открыть Босса в Mini App",
+        url=f"{MINI_APP_TG_URL}?startapp={abs_cid}_boss",
+    )
+    await message.answer(
+        "👹 <b>Мировой Босс</b>\n\n"
+        "Атаки на Босса, лидерборд и статус HP — в <b>Mini App</b>!",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[[btn]]),
+    )

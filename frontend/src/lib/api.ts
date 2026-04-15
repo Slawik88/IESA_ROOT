@@ -203,6 +203,20 @@ export function rollGacha(
   });
 }
 
+/** Бесплатная крутка гачи (использует 1 free_gacha_roll) */
+export function rollFreeGacha(chatId: number): Promise<GachaRollResult & { remaining_free_rolls: number }> {
+  return request("/api/gacha/free_roll", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId }),
+  });
+}
+
+/** Получить кол-во бесплатных кручений гачи */
+export function getFreeGachaRolls(): Promise<{ ok: boolean; free_rolls: number }> {
+  return request("/api/gacha/free_rolls");
+}
+
 // ── Inventory ─────────────────────────────────────────────────
 
 /** Полный инвентарь с деталями */

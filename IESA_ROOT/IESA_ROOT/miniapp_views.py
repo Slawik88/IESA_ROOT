@@ -2505,6 +2505,69 @@ def miniapp_gacha_roll(request):
         logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
 
 
+@csrf_exempt
+def miniapp_gacha_free_roll(request):
+    """POST /api/gacha/free_roll — use one free gacha roll (no mora cost)."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=405, headers=headers)
+
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+
+    try:
+        body    = json.loads(request.body)
+        chat_id = int(str(body.get("chat_id", "0")))
+    except Exception:
+        return JsonResponse({"error": "invalid JSON"}, status=400, headers=headers)
+
+    if not chat_id:
+        return JsonResponse({"error": "chat_id required"}, status=400, headers=headers)
+
+    try:
+        from api.gacha import gacha_roll_free as _free_roll
+        from asgiref.sync import async_to_sync as _a2s
+        result = _a2s(_free_roll)(uid, chat_id)
+        return JsonResponse({
+            "ok":                  True,
+            "items":               result["items"],
+            "balance":             result["new_balance"],
+            "pity":                result["pity"],
+            "spent":               0,
+            "free_roll_used":      True,
+            "remaining_free_rolls": result.get("remaining_free_rolls", 0),
+        }, json_dumps_params={"ensure_ascii": False}, headers=headers)
+    except ValueError as e:
+        return JsonResponse({"error": str(e)}, status=400, headers=headers)
+    except Exception:
+        logger.exception("miniapp view error")
+        return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
+
+
+@csrf_exempt
+def miniapp_gacha_free_rolls_count(request):
+    """GET /api/gacha/free_rolls — return free_gacha_rolls count for current user."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+
+    try:
+        from api.gacha import get_free_gacha_rolls as _get_free
+        from asgiref.sync import async_to_sync as _a2s
+        count = _a2s(_get_free)(uid)
+        return JsonResponse({"ok": True, "free_rolls": count}, headers=headers)
+    except Exception:
+        logger.exception("miniapp view error")
+        return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
+
+
 # ─── Bonds Buy / Sell ─────────────────────────────────────────────────────────
 
 @csrf_exempt

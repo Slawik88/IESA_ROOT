@@ -3,9 +3,9 @@
    POST /api/gacha/roll  { chat_id, count: 1|10, wallet_type }
    Prices: single=80🪙  multi=700🪙
    ────────────────────────────────────────────────────────────── */
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Sparkles, Star, AlertCircle, ChevronLeft, Info, X } from "lucide-react";
-import { rollGacha } from "../lib/api";
+import { rollGacha, rollFreeGacha, getFreeGachaRolls } from "../lib/api";
 import type { GachaItem, GachaRollResult } from "../types";
 
 const SINGLE_PRICE = 80;
@@ -47,6 +47,13 @@ export default function Gacha({ chatId }: Props) {
   const [legendaryOverlay, setLegendaryOverlay] = useState(false);
   const [showOdds, setShowOdds] = useState(false);
   const [lastCount, setLastCount] = useState<1 | 10 | 50>(10);
+  const [freeRolls, setFreeRolls] = useState(0);
+
+  useEffect(() => {
+    getFreeGachaRolls()
+      .then(r => setFreeRolls(r.free_rolls ?? 0))
+      .catch(() => {});
+  }, []);
 
   const showToast = useCallback((msg: string) => {
     setToast(msg);
@@ -71,6 +78,24 @@ export default function Gacha({ chatId }: Props) {
       } else {
         showToast(msg.length < 200 ? msg : "Ошибка сервера");
       }
+      setPhase("idle");
+    }
+  }, [chatId, showToast]);
+
+  const handleFreeRoll = useCallback(async () => {
+    if (!chatId) { showToast("Нет chat_id"); return; }
+    setPhase("rolling");
+    setLastCount(1);
+    try {
+      const res = await rollFreeGacha(chatId);
+      setResult(res);
+      setFreeRolls((res as any).remaining_free_rolls ?? 0);
+      if (res.items.some(i => i.rarity === "legendary")) setLegendaryOverlay(true);
+      setPhase("result");
+      showToast("🎁 Бесплатный призыв использован!");
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Ошибка";
+      showToast(msg.length < 200 ? msg : "Ошибка сервера");
       setPhase("idle");
     }
   }, [chatId, showToast]);
@@ -145,6 +170,22 @@ export default function Gacha({ chatId }: Props) {
               <p>Pity счётчик защищает от длинной полосы неудач</p>
             </div>
           </div>
+
+          {freeRolls > 0 && (
+            <div className="px-4 mt-2">
+              <button
+                onClick={handleFreeRoll}
+                className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-bold"
+                style={{
+                  background: "linear-gradient(135deg, #22c55e, #16a34a)",
+                  color: "#ffffff",
+                  boxShadow: "0 4px 16px rgba(34,197,94,0.3)",
+                }}
+              >
+                🎁 Бесплатный призыв ({freeRolls})
+              </button>
+            </div>
+          )}
 
           <div className="px-4 mt-3">
             <button

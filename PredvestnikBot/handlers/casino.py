@@ -166,6 +166,8 @@ async def cb_coin_choice(callback: CallbackQuery):
         return
     _active_coins.discard(key)
     _resolved_coins.add(key)
+    if len(_resolved_coins) > 2000:
+        _resolved_coins.clear()
 
     chosen_label = "🦅 Орёл" if side == "eagle" else "🪙 Решка"
     # Реальный результат — случаен, выбор юзера только косметический
