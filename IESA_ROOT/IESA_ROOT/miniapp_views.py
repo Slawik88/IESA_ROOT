@@ -3544,11 +3544,33 @@ def miniapp_couple_boss_start(request):
         conn.close()
         
         # Create session using existing function
-        from database.db import create_couple_boss_session
+        from database.db import create_couple_boss_session, get_user
         from asgiref.sync import async_to_sync
-        
+
         session = async_to_sync(create_couple_boss_session)(user_a_id, user_b_id, chat_id, boss_level)
-        
+
+        # Notify partner via Telegram
+        try:
+            starter_row = async_to_sync(get_user)(uid)
+            starter_name = html.escape(starter_row["full_name"] if starter_row else "Партнёр")
+            if _BOT_TOKEN and partner_id:
+                import requests as _req
+                _req.post(
+                    f"https://api.telegram.org/bot{_BOT_TOKEN}/sendMessage",
+                    json={
+                        "chat_id": partner_id,
+                        "text": (
+                            f"⚔️ <b>{starter_name}</b> вызывает тебя на бой с парным боссом "
+                            f"(уровень {boss_level})!\n"
+                            f"Открой мини-приложение, чтобы присоединиться. 🔥"
+                        ),
+                        "parse_mode": "HTML",
+                    },
+                    timeout=5,
+                )
+        except Exception:
+            pass  # Notification failure must not block the response
+
         return JsonResponse({
             "ok": True,
             "session_id": session["id"],
@@ -6797,6 +6819,120 @@ def miniapp_dev_error_logs(request):
             return JsonResponse({"error": str(exc)}, status=500, headers=headers)
 
     return JsonResponse({"error": "Method not allowed"}, status=405, headers=headers)
+
+
+@csrf_exempt
+def miniapp_dev_analytics(request):
+    """GET /api/dev/analytics?period=day|week|month — telemetry dashboard (developer only)."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "GET":
+        return JsonResponse({"error": "GET required"}, status=405, headers=headers)
+
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+    if uid != _DEVELOPER_ID:
+        return JsonResponse({"error": "Forbidden"}, status=403, headers=headers)
+
+    period = request.GET.get("period", "week")
+    if period not in ("day", "week", "month"):
+        period = "week"
+
+    try:
+        from asgiref.sync import async_to_sync as _a2s
+        from database.postgres import connect as _pg_connect
+        import datetime as _dt
+
+        async def _fetch():
+            now = _dt.datetime.now(_dt.timezone.utc)
+            if period == "day":
+                days = 1
+            elif period == "week":
+                days = 7
+            else:
+                days = 30
+
+            date_from = (now - _dt.timedelta(days=days)).date()
+            date_to = now.date()
+
+            async with _pg_connect() as db:
+                # Top tabs by total session seconds
+                top_tabs_rows = await db.fetchall(
+                    "SELECT event_key, SUM(count) AS sessions, SUM(seconds) AS total_sec "
+                    "FROM telemetry_counters "
+                    "WHERE event_type='tab_view' AND date_bucket >= $1 "
+                    "GROUP BY event_key ORDER BY total_sec DESC LIMIT 10",
+                    (date_from,),
+                )
+                # Top click events
+                top_clicks_rows = await db.fetchall(
+                    "SELECT event_key, SUM(count) AS total "
+                    "FROM telemetry_counters "
+                    "WHERE event_type='click' AND date_bucket >= $1 "
+                    "GROUP BY event_key ORDER BY total DESC LIMIT 10",
+                    (date_from,),
+                )
+                # Daily session counts
+                daily_rows = await db.fetchall(
+                    "SELECT date_bucket, SUM(count) AS cnt "
+                    "FROM telemetry_counters "
+                    "WHERE event_type='session' AND date_bucket >= $1 "
+                    "GROUP BY date_bucket ORDER BY date_bucket",
+                    (date_from,),
+                )
+                # Total sessions + avg duration
+                totals_row = await db.fetchone(
+                    "SELECT COALESCE(SUM(count),0) AS sessions, COALESCE(SUM(seconds),0) AS secs "
+                    "FROM telemetry_counters "
+                    "WHERE event_type='session' AND date_bucket >= $1",
+                    (date_from,),
+                )
+
+            total_sessions = int(totals_row["sessions"]) if totals_row else 0
+            total_secs = int(totals_row["secs"]) if totals_row else 0
+            avg_sec = round(total_secs / total_sessions, 1) if total_sessions > 0 else 0.0
+
+            _TAB_LABELS = {
+                "home": "Главная", "profile": "Профиль", "shop": "Магазин",
+                "gacha": "Гача", "boss": "Босс", "auction": "Аукцион",
+                "casino": "Казино", "loans": "Займы", "bonds": "Биржа",
+                "bank": "Банк", "pet": "Питомец", "family": "Семья",
+                "quests": "Квесты", "achievements": "Достижения",
+                "admin": "Админ", "analytics": "Аналитика",
+            }
+
+            return {
+                "period": period,
+                "date_from": date_from.isoformat(),
+                "date_to": date_to.isoformat(),
+                "top_tabs": [
+                    {
+                        "key": r["event_key"],
+                        "label": _TAB_LABELS.get(r["event_key"], r["event_key"]),
+                        "seconds": int(r["total_sec"]),
+                        "sessions": int(r["sessions"]),
+                    }
+                    for r in top_tabs_rows
+                ],
+                "top_clicks": [
+                    {"key": r["event_key"], "count": int(r["total"])}
+                    for r in top_clicks_rows
+                ],
+                "total_sessions": total_sessions,
+                "avg_session_sec": avg_sec,
+                "daily_sessions": [
+                    {"date": str(r["date_bucket"]), "count": int(r["cnt"])}
+                    for r in daily_rows
+                ],
+            }
+
+        data = _a2s(_fetch)()
+        return JsonResponse(data, json_dumps_params={"ensure_ascii": False}, headers=headers)
+    except Exception:
+        logger.exception("miniapp_dev_analytics error")
+        return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
 
 
 # ─── AF2 dynamic config ──────────────────────────────────────────────────────

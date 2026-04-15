@@ -4,7 +4,7 @@
    ────────────────────────────────────────────────────────────── */
 import { useEffect, useState, useCallback } from "react";
 import { ShoppingBag, CheckCircle2, Palette, Loader2, Lock, Gem, Sparkles } from "lucide-react";
-import { fetchShopCatalog, buyShopItem, fetchThemes, activateTheme, buyCrystalItem, saveAvatar, fetchCrystalCatalog, type CrystalCatalogItem, type CrystalCatalogResponse } from "../lib/api";
+import { fetchShopCatalog, buyShopItem, fetchThemes, activateTheme, buyCrystalItem, saveAvatar, fetchCrystalCatalog, petFeed, type CrystalCatalogItem, type CrystalCatalogResponse } from "../lib/api";
 import type {
   ShopCatalog,
   ShopFrame,
@@ -202,7 +202,16 @@ export default function Shop({ chatId }: Props) {
       {tab === "frames"    && <FrameList    frames={data.frames}           buying={buying} onBuy={buy} />}
       {tab === "cosmetics" && <CosmeticList cosmetics={data.cosmetics}     buying={buying} onBuy={buy} />}
       {tab === "pets"      && <PetColorList petColors={data.pet_colors}    buying={buying} onBuy={buy} />}
-      {tab === "food"      && <FoodList     food={data.food}               buying={buying} onBuy={buy} />}
+      {tab === "food"      && <FoodList     food={data.food}               buying={buying} onBuyFood={async (key, label) => {
+          if (buying) return;
+          setBuying(key);
+          try {
+            const res = await petFeed(chatId, key);
+            if (res.ok) { showOk(`${label} куплено!`); reload(); refreshUserData(); }
+            else { showErr((res as {ok: false; error?: string}).error ?? "Ошибка покупки"); }
+          } catch (e: unknown) { showErr(e instanceof Error ? e.message : "Ошибка"); }
+          finally { setBuying(null); }
+        }} />}
       {tab === "potions"   && <PotionList   potions={data.potions}         buying={buying} onBuy={buy} />}
       {tab === "themes"    && <ThemeList    themes={themesData} activating={activatingTheme} onActivate={doActivateTheme} />}
       {tab === "donate"    && <DonateTab    chatId={chatId} catalog={crystalCatalog} onRefresh={() => fetchCrystalCatalog(chatId).then(setCrystalCatalog).catch(() => {})} showOk={showOk} showErr={showErr} />}
@@ -311,10 +320,10 @@ function PetColorList({ petColors, buying, onBuy }: {
 
 /* ── FoodList ─────────────────────────────────────────────────── */
 
-function FoodList({ food, buying, onBuy }: {
+function FoodList({ food, buying, onBuyFood }: {
   food: ShopFood[];
   buying: string | null;
-  onBuy: (type: "potion", key: string, label: string) => void;
+  onBuyFood: (key: string, label: string) => void;
 }) {
   return (
     <div className="space-y-2">
@@ -332,7 +341,7 @@ function FoodList({ food, buying, onBuy }: {
             </div>
           </div>
           <button
-            onClick={() => onBuy("potion", f.key, f.name)}
+            onClick={() => onBuyFood(f.key, f.name)}
             disabled={!!buying}
             className="shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold transition-opacity disabled:opacity-40"
             style={{ backgroundColor: "var(--accent)", color: "#fff" }}

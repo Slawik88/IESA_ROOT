@@ -8493,7 +8493,7 @@ async def add_boss_damage(user_id: int, chat_id: int, damage: int):
                 _row = await _c.fetchone()
         await _ach(user_id, chat_id, "boss_damage", int(_row[0]) if _row else damage)
     except Exception as _e:
-        _log.debug("boss_damage achievement failed: %s", _e)
+        _log.exception("boss_damage achievement failed")
 
 
 async def get_boss_daily_user_damage(user_id: int, chat_id: int) -> int:

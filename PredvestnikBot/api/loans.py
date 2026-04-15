@@ -78,8 +78,8 @@ async def get_loans(uid: int, chat_id: int) -> dict:
 
     return {
         "ok": True,
-        "borrowed": [_fmt(r, "lender") for r in borrowed_rows],
-        "lent": [_fmt(r, "borrower") for r in lent_rows],
+        "as_borrower": [_fmt(r, "lender") for r in borrowed_rows],
+        "as_lender": [_fmt(r, "borrower") for r in lent_rows],
         "pending_incoming": [_fmt(r, "lender") for r in pending_in_rows],
         "pending_outgoing": [_fmt(r, "borrower") for r in pending_out_rows],
     }
