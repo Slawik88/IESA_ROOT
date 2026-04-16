@@ -6475,6 +6475,18 @@ async def get_all_equipped_items(user_id: int, chat_id: int) -> list[dict]:
     return result
 
 
+async def get_equipped_flair(user_id: int) -> dict | None:
+    """Return the currently equipped flair item from gacha_inventory, or None."""
+    async with postgres_connect() as db:
+        async with db.execute(
+            "SELECT item_name, item_key FROM gacha_inventory "
+            "WHERE user_id=? AND slot='flair' AND equipped=1 LIMIT 1",
+            (user_id,),
+        ) as c:
+            row = await c.fetchone()
+    return dict(row) if row else None
+
+
 # Safe mapping: column names are constant literals, never user input.
 _TRACKER_FIELD_SQL: dict[str, str] = {
     "expeditions_sent": "expeditions_sent",
@@ -8451,13 +8463,17 @@ async def perform_checkin(user_id: int, chat_id: int) -> dict:
         if is_checkpoint:
             checkpoint = day_idx
 
-        await db.execute("""
+        cursor = await db.execute("""
             INSERT INTO daily_checkin (user_id, chat_id, streak, total_days, last_checkin, checkpoint)
             VALUES (?, ?, ?, ?, ?, ?)
             ON CONFLICT(user_id, chat_id) DO UPDATE SET
                 streak=excluded.streak, total_days=excluded.total_days,
                 last_checkin=excluded.last_checkin, checkpoint=excluded.checkpoint
+            WHERE daily_checkin.last_checkin != excluded.last_checkin
         """, (user_id, chat_id, streak, total_days, today, checkpoint))
+        if cursor.rowcount == 0:
+            # Concurrent request already completed today's checkin
+            return {"already_done": True, "streak": streak, "total_days": total_days}
         await db.commit()
 
     # Grant free gacha roll on day-20 streak (persistent counter)
@@ -8960,55 +8976,68 @@ async def apply_couple_boss_damage(user_id: int, session: dict, damage: int, use
     
     # Calculate actual damage with crit chance
     base_damage = damage
+    crit_triggered = False
     if random.random() < total_crit_rate:
         base_damage = int(base_damage * 1.5)
-        
-    # Apply resistance if both players are active (hit within last 5 minutes)
-    resistance = 1.0
-    if session["user_a_hits"] > 0 and session["user_b_hits"] > 0:
-        # Both partners active - boss gets 25% resistance
-        resistance = 0.75
-        
-    actual_damage = int(base_damage * resistance)
-    
-    # Update boss HP
-    new_hp = max(0, session["boss_current_hp"] - actual_damage)
-    is_defeated = (new_hp == 0)
-    
-    # Update user's stats
-    if is_user_a:
-        new_a_damage = session["user_a_damage"] + actual_damage
-        new_a_hits = session["user_a_hits"] + 1
-        new_a_aggro = session["user_a_aggro"] + 1
-        
-        # Check for aggro trigger (3-8 hits)
-        boss_retaliation = None
-        if new_a_aggro >= random.randint(3, 8):
-            # Boss attacks user A
-            boss_damage = random.randint(50, 150) + session["boss_level"] * 10
-            boss_retaliation = {"target": user_a_id, "damage": boss_damage}
-            new_a_aggro = 0  # Reset aggro
-            
-        user_values = (new_a_damage, new_a_hits, new_a_aggro, session["user_b_damage"], 
-                      session["user_b_hits"], session["user_b_aggro"])
-    else:
-        new_b_damage = session["user_b_damage"] + actual_damage
-        new_b_hits = session["user_b_hits"] + 1
-        new_b_aggro = session["user_b_aggro"] + 1
-        
-        # Check for aggro trigger (3-8 hits)
-        boss_retaliation = None
-        if new_b_aggro >= random.randint(3, 8):
-            # Boss attacks user B
-            boss_damage = random.randint(50, 150) + session["boss_level"] * 10
-            boss_retaliation = {"target": user_b_id, "damage": boss_damage}
-            new_b_aggro = 0  # Reset aggro
-            
-        user_values = (session["user_a_damage"], session["user_a_hits"], session["user_a_aggro"],
-                      new_b_damage, new_b_hits, new_b_aggro)
-    
-    # Update database
+        crit_triggered = True
+
     async with postgres_connect() as db:
+        # SELECT FOR UPDATE to lock the session row — prevents concurrent-attack race
+        locked_row = await db.fetchone(
+            "SELECT * FROM couple_boss_sessions WHERE id=? AND is_completed=0 FOR UPDATE",
+            (session_id,),
+        )
+        if not locked_row:
+            # Session was completed by a concurrent request
+            return {
+                "damage_dealt": 0,
+                "boss_hp": 0,
+                "boss_defeated": True,
+                "boss_retaliation": None,
+                "resistance_active": False,
+                "crit": False,
+            }
+
+        # Use FRESH locked data (not stale caller-provided session dict)
+        # Apply resistance if both players active
+        resistance = 1.0
+        if locked_row["user_a_hits"] > 0 and locked_row["user_b_hits"] > 0:
+            resistance = 0.75
+
+        actual_damage = int(base_damage * resistance)
+
+        # Update boss HP (using current locked value)
+        new_hp = max(0, locked_row["boss_current_hp"] - actual_damage)
+        is_defeated = (new_hp == 0)
+
+        # Update user's stats (using fresh locked values)
+        if is_user_a:
+            new_a_damage = locked_row["user_a_damage"] + actual_damage
+            new_a_hits = locked_row["user_a_hits"] + 1
+            new_a_aggro = locked_row["user_a_aggro"] + 1
+
+            boss_retaliation = None
+            if new_a_aggro >= random.randint(3, 8):
+                boss_damage = random.randint(50, 150) + locked_row["boss_level"] * 10
+                boss_retaliation = {"target": user_a_id, "damage": boss_damage}
+                new_a_aggro = 0
+
+            user_values = (new_a_damage, new_a_hits, new_a_aggro,
+                           locked_row["user_b_damage"], locked_row["user_b_hits"], locked_row["user_b_aggro"])
+        else:
+            new_b_damage = locked_row["user_b_damage"] + actual_damage
+            new_b_hits = locked_row["user_b_hits"] + 1
+            new_b_aggro = locked_row["user_b_aggro"] + 1
+
+            boss_retaliation = None
+            if new_b_aggro >= random.randint(3, 8):
+                boss_damage = random.randint(50, 150) + locked_row["boss_level"] * 10
+                boss_retaliation = {"target": user_b_id, "damage": boss_damage}
+                new_b_aggro = 0
+
+            user_values = (locked_row["user_a_damage"], locked_row["user_a_hits"], locked_row["user_a_aggro"],
+                           new_b_damage, new_b_hits, new_b_aggro)
+
         await db.execute(
             """UPDATE couple_boss_sessions SET 
                boss_current_hp=?, user_a_damage=?, user_a_hits=?, user_a_aggro=?,
@@ -9017,20 +9046,20 @@ async def apply_couple_boss_damage(user_id: int, session: dict, damage: int, use
                WHERE id=?""",
             (new_hp, *user_values, 1 if is_defeated else 0, is_defeated, session_id),
         )
-        
+
         # If boss defeated, update progress
         if is_defeated:
-            await update_couple_boss_progress(user_a_id, user_b_id, session["chat_id"], session["boss_level"])
-            
+            await update_couple_boss_progress(user_a_id, user_b_id, locked_row["chat_id"], locked_row["boss_level"])
+
         await db.commit()
-    
+
     return {
         "damage_dealt": actual_damage,
         "boss_hp": new_hp,
         "boss_defeated": is_defeated,
         "boss_retaliation": boss_retaliation,
         "resistance_active": resistance < 1.0,
-        "crit": base_damage != damage,
+        "crit": crit_triggered,
     }
 
 

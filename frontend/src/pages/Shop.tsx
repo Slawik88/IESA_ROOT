@@ -3,7 +3,7 @@
    Вкладки: Рамки | Косметика | Питомцы | Еда | Зелья | Темы
    ────────────────────────────────────────────────────────────── */
 import { useEffect, useState, useCallback } from "react";
-import { ShoppingBag, CheckCircle2, Palette, Loader2, Lock, Gem, Sparkles } from "lucide-react";
+import { ShoppingBag, CheckCircle2, Palette, Loader2, Lock, Gem, Sparkles, Crown, Star } from "lucide-react";
 import { fetchShopCatalog, buyShopItem, fetchThemes, activateTheme, buyCrystalItem, saveAvatar, fetchCrystalCatalog, petFeed, type CrystalCatalogItem, type CrystalCatalogResponse } from "../lib/api";
 import type {
   ShopCatalog,
@@ -176,6 +176,39 @@ export default function Shop({ chatId }: Props) {
           <p className="text-[10px]" style={{ color: "var(--text-hint)" }}>🪙 мора</p>
         </div>
       </div>
+
+      {/* ── VIP-покупка ────────────────────────────────────────── */}
+      {!data.has_vip && (
+        <div className="glass-card p-4 rounded-2xl flex items-center gap-3"
+             style={{ border: "1px solid var(--border-accent)" }}>
+          <Crown size={28} style={{ color: "#f59e0b", flexShrink: 0 }} />
+          <div className="flex-1 min-w-0">
+            <p className="font-semibold text-sm">VIP-статус</p>
+            <p className="text-xs mt-0.5" style={{ color: "var(--text-hint)" }}>
+              Повышенный дроп, бонусы к Морě и эксклюзивные функции
+            </p>
+          </div>
+          <button
+            disabled={!!buying}
+            onClick={async () => {
+              if (buying) return;
+              setBuying("vip");
+              try {
+                const res = await buyShopItem(chatId, "vip", "vip");
+                if (res.ok) { showOk(`👑 VIP активирован! Баланс: ${fmt(res.balance ?? 0)} 🪙`); reload(); refreshUserData(); }
+                else { showErr(res.error ?? "Ошибка покупки VIP"); }
+              } catch (e: unknown) { showErr(e instanceof Error ? e.message : "Ошибка"); }
+              finally { setBuying(null); }
+            }}
+            className="flex-none flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold disabled:opacity-50 transition-all"
+            style={{ backgroundColor: "#f59e0b", color: "#fff" }}
+          >
+            {buying === "vip"
+              ? <Loader2 size={12} className="animate-spin" />
+              : <><Star size={12} /> 2 000 🪙</>}
+          </button>
+        </div>
+      )}
 
       {/* ── Под-вкладки ────────────────── */}
       <div className="flex gap-1.5 overflow-x-auto rounded-2xl p-1.5 glass-card tab-scroll">

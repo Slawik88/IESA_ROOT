@@ -150,7 +150,7 @@ async def roulette_spin(
         ):
             raise ValueError(f"Неизвестный тип ставки: {bet_type!r}")
 
-    # ── Deduct bet atomically + read pity counter ─────────────────────────────
+    # ── Atomically read pity counter + deduct bet in ONE transaction ──────────
     async with postgres_connect() as db:
         row = await db.fetchone(
             "SELECT COALESCE(u.balance,0) AS balance, COALESCE(um.roulette_losses, 0) AS roulette_losses "
@@ -163,21 +163,19 @@ async def roulette_spin(
             raise ValueError(f"Недостаточно Моры. У тебя: {bal} 🪙")
         losses = row["roulette_losses"]
 
-    # ── Enforce pity bet cap to prevent "build pity with small bets" exploit ──
-    if losses >= 3 and bet_amount > ROULETTE_PITY_BET_CAP:
-        raise ValueError(
-            f"⚠️ Активна полоса неудач ({losses} в ряд) — "
-            f"максимальная ставка сейчас {ROULETTE_PITY_BET_CAP} 🪙"
-        )
+        # ── Enforce pity bet cap to prevent "build pity with small bets" exploit ──
+        if losses >= 3 and bet_amount > ROULETTE_PITY_BET_CAP:
+            raise ValueError(
+                f"⚠️ Активна полоса неудач ({losses} в ряд) — "
+                f"максимальная ставка сейчас {ROULETTE_PITY_BET_CAP} 🪙"
+            )
 
-    async with postgres_connect() as db:
         cursor = await db.execute(
             "UPDATE users SET balance=balance-? WHERE user_id=? AND COALESCE(balance,0)>=?",
             (bet_amount, uid, bet_amount),
         )
         if cursor.rowcount == 0:
             raise ValueError("Недостаточно Моры")
-        await db.commit()
 
     # ── Spin (with pity boost after losing streak) ────────────────────────────
     # After 3+ consecutive losses, increasingly likely to force a winning number.

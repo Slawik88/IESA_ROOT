@@ -22,6 +22,9 @@ from database.db import (
     get_user,
     get_user_by_username,
     repay_loan,
+    get_gacha_inventory,
+    get_user_themes,
+    get_active_theme,
 )
 from filters.bot_command import BotCommand
 from utils.helpers import resolve_target, user_mention
@@ -185,6 +188,18 @@ async def cmd_give_loan(message: Message, cmd_args: str):
         f"<i>Вернуть: {repay_hint}</i>",
         parse_mode="HTML",
     )
+    # MED-003: notify borrower via DM
+    try:
+        lender_name = html.escape(message.from_user.full_name)
+        await message.bot.send_message(
+            target_id,
+            f"📋 <b>Вам дали в долг!</b>\n\n"
+            f"💰 <b>{lender_name}</b> одолжил вам <b>{amount} 🪙</b> в чате {html.escape(message.chat.title or '')}\n"
+            f"<i>Верните командой: {repay_hint}</i>",
+            parse_mode="HTML",
+        )
+    except Exception:
+        pass
 
 
 # ─── бот долги ────────────────────────────────────────────────────────────────
@@ -307,3 +322,102 @@ async def cmd_repay_loan(message: Message, cmd_args: str):
         f"Твой баланс: <b>{new_bal} 🪙</b>{suffix}",
         parse_mode="HTML",
     )
+    # MED-003: notify lender via DM
+    try:
+        borrower_name = html.escape(message.from_user.full_name)
+        await message.bot.send_message(
+            loan["lender_id"],
+            f"✅ <b>Вам вернули долг!</b>\n\n"
+            f"💰 <b>{borrower_name}</b> вернул <b>{loan['amount']} 🪙</b> (чат: {html.escape(message.chat.title or '')})",
+            parse_mode="HTML",
+        )
+    except Exception:
+        pass
+
+
+# ─── бот зелья — SYNC-004 ────────────────────────────────────────────────────
+
+@router.message(BotCommand("зелья", "мои зелья", "potions", "зелье"))
+async def cmd_my_potions(message: Message, cmd_args: str):
+    """Показать имеющиеся зелья из инвентаря."""
+    uid = message.from_user.id
+    chat_id = message.chat.id
+    items = await get_gacha_inventory(uid, chat_id)
+    potions = [i for i in items if i["slot"] in ("consumable", "potion")
+               or str(i.get("item_key", "")).endswith("_potion")]
+    if not potions:
+        await message.answer(
+            "🧪 <b>Зелья</b>\n\nНет зелий в инвентаре.\n"
+            "<i>Зелья можно купить в Магазине Mini App.</i>",
+            parse_mode="HTML",
+        )
+        return
+    lines = ["🧪 <b>Твои зелья:</b>\n"]
+    for p in potions:
+        qty = p.get("stack_count") or 1
+        qty_str = f" ×{qty}" if qty > 1 else ""
+        lines.append(f"• {html.escape(p['item_name'])}{qty_str}")
+    lines.append("\n<i>Применить зелье можно в разделе «Сумка» Mini App.</i>")
+    await message.answer("\n".join(lines), parse_mode="HTML")
+
+
+# ─── бот темы — SYNC-005 ────────────────────────────────────────────────────
+
+@router.message(BotCommand("темы", "мои темы", "themes", "тема профиля"))
+async def cmd_my_themes(message: Message, cmd_args: str):
+    """Показать активную тему профиля и доступные темы."""
+    uid = message.from_user.id
+    chat_id = message.chat.id
+    themes = await get_user_themes(uid, chat_id)
+    active = await get_active_theme(uid, chat_id)
+    if not themes:
+        await message.answer(
+            "🎨 <b>Темы профиля</b>\n\nНет купленных тем.\n"
+            "<i>Темы можно купить в Магазине Mini App.</i>",
+            parse_mode="HTML",
+        )
+        return
+    lines = ["🎨 <b>Твои темы:</b>\n"]
+    for t in themes:
+        key = t.get("theme_key") or t.get("key") or ""
+        name = t.get("name") or key
+        marker = " ✅" if key == active else ""
+        lines.append(f"• {html.escape(str(name))}{marker}")
+    lines.append("\n<i>Активировать тему можно в разделе «Профиль» Mini App.</i>")
+    await message.answer("\n".join(lines), parse_mode="HTML")
+
+
+# ─── бот инвентарь — MED-012 ────────────────────────────────────────────────
+
+@router.message(BotCommand("инвентарь", "инвентарь бот", "сумка", "items", "inventory"))
+async def cmd_inventory(message: Message, cmd_args: str):
+    """Показать краткий список предметов в инвентаре."""
+    uid = message.from_user.id
+    chat_id = message.chat.id
+    items = await get_gacha_inventory(uid, chat_id)
+    if not items:
+        await message.answer(
+            "🎒 <b>Инвентарь</b>\n\nИнвентарь пуст.\n"
+            "<i>Предметы можно получить через Гача, экспедиции или на аукционе.</i>",
+            parse_mode="HTML",
+        )
+        return
+    rarity_order = {"legendary": 4, "rare": 3, "common": 2, "junk": 1}
+    items_sorted = sorted(items, key=lambda i: rarity_order.get(i.get("rarity", ""), 0), reverse=True)
+    rarity_emoji = {"legendary": "✨", "rare": "💙", "common": "⚪", "junk": "🗑"}
+    lines = [f"🎒 <b>Инвентарь</b> (<b>{len(items)}</b> предмет(ов)):\n"]
+    shown = 0
+    for item in items_sorted:
+        if shown >= 20:
+            lines.append(f"\n<i>...и ещё {len(items) - shown} предмет(ов). Полный список — в Mini App.</i>")
+            break
+        emoji = rarity_emoji.get(item.get("rarity", ""), "📦")
+        name = html.escape(item.get("item_name") or "?")
+        qty = item.get("stack_count") or 1
+        qty_str = f" ×{qty}" if qty > 1 else ""
+        enh = item.get("enhancement_level") or 0
+        enh_str = f" +{enh}" if enh else ""
+        equip_str = " [надет]" if item.get("equipped") else ""
+        lines.append(f"{emoji} {name}{enh_str}{qty_str}{equip_str}")
+        shown += 1
+    await message.answer("\n".join(lines), parse_mode="HTML")
