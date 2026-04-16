@@ -37,6 +37,7 @@ export default function CoupleBoss({ userId: _userId, chatId }: Props) {
   const [toast, setToast]         = useState<string | null>(null);
   const [bossHp, setBossHp]       = useState(0);
   const [bossMaxHp, setBossMaxHp] = useState(1);
+  const [fightTimeLeft, setFightTimeLeft] = useState<number | null>(null);
   const [lastHit, setLastHit]     = useState<{ dmg: number; crit: boolean } | null>(null);
   const hitTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
@@ -53,12 +54,26 @@ export default function CoupleBoss({ userId: _userId, chatId }: Props) {
       if (r.session && !r.session.is_completed) {
         setBossHp(r.session.boss_current_hp);
         setBossMaxHp(r.session.boss_max_hp);
+        setFightTimeLeft(r.session.fight_time_left_seconds ?? null);
+      } else {
+        setFightTimeLeft(null);
       }
     } catch { /* ignore */ }
     finally { setLoading(false); }
   }, [chatId]);
 
   useEffect(() => { loadStatus(); }, [loadStatus]);
+
+  useEffect(() => {
+    if (!status?.session || status.session.is_completed || fightTimeLeft == null) return;
+    const id = setInterval(() => {
+      setFightTimeLeft((prev) => {
+        if (prev == null) return prev;
+        return Math.max(0, prev - 1);
+      });
+    }, 1000);
+    return () => clearInterval(id);
+  }, [status?.session, fightTimeLeft]);
 
   const doStart = useCallback(async () => {
     if (!chatId || starting || !status) return;
@@ -67,8 +82,9 @@ export default function CoupleBoss({ userId: _userId, chatId }: Props) {
     try {
       const r = await startCoupleBoss(chatId, nextLevel);
       if (r.ok) {
-        setBossHp(r.boss_max_hp);
-        setBossMaxHp(r.boss_max_hp);
+        setBossHp(r.session.boss_max_hp);
+        setBossMaxHp(r.session.boss_max_hp);
+        setFightTimeLeft(r.session.fight_time_left_seconds ?? r.session.fight_timeout_seconds ?? 120);
         await loadStatus();
       }
     } catch (e) {
@@ -78,11 +94,19 @@ export default function CoupleBoss({ userId: _userId, chatId }: Props) {
 
   const doAttack = useCallback(async () => {
     if (!chatId || attacking) return;
+    if (fightTimeLeft != null && fightTimeLeft <= 0) {
+      showToast("⏳ Время парного боя вышло");
+      loadStatus();
+      return;
+    }
     setAttacking(true);
     try {
       const r: CoupleBossAttackResult = await attackCoupleBoss(chatId);
       if (r.ok) {
         setBossHp(r.boss_hp);
+        if (typeof r.fight_time_left_seconds === "number") {
+          setFightTimeLeft(r.fight_time_left_seconds);
+        }
         setLastHit({ dmg: r.damage_dealt, crit: r.crit });
         clearTimeout(hitTimer.current);
         hitTimer.current = setTimeout(() => setLastHit(null), 800);
@@ -91,6 +115,7 @@ export default function CoupleBoss({ userId: _userId, chatId }: Props) {
           showToast(`⚠️ Босс контратаковал! −${r.aggro_damage} HP`);
         }
         if (r.boss_defeated) {
+          setFightTimeLeft(0);
           showToast(`🎉 Победа! Награда: ${r.rewards?.mora ?? 0} 🪙 + ${r.rewards?.xp ?? 0} XP`);
           await loadStatus();
         }
@@ -98,7 +123,7 @@ export default function CoupleBoss({ userId: _userId, chatId }: Props) {
     } catch (e) {
       showToast(e instanceof Error ? e.message : "Ошибка");
     } finally { setAttacking(false); }
-  }, [chatId, attacking, loadStatus, showToast]);
+  }, [chatId, attacking, loadStatus, showToast, fightTimeLeft]);
 
   if (loading) {
     return (
@@ -124,6 +149,10 @@ export default function CoupleBoss({ userId: _userId, chatId }: Props) {
   const active = sess && !sess.is_completed;
   const nextLevel = (status?.max_level_completed ?? 0) + 1;
   const hpPct = bossMaxHp > 0 ? Math.max(0, (bossHp / bossMaxHp) * 100) : 0;
+  const dailyLimit = status?.daily_limit ?? 2;
+  const dailyUsed = status?.daily_used ?? 0;
+  const dailyRemaining = Math.max(0, status?.daily_remaining ?? (dailyLimit - dailyUsed));
+  const fightTimeText = fightTimeLeft == null ? null : `${Math.floor(fightTimeLeft / 60)}:${String(fightTimeLeft % 60).padStart(2, "0")}`;
 
   return (
     <div className="flex-1 flex flex-col gap-3 px-4 pt-3 pb-4">
@@ -133,8 +162,24 @@ export default function CoupleBoss({ userId: _userId, chatId }: Props) {
           <p className="text-xs font-semibold" style={{ color: "var(--text-hint)" }}>Партнёр</p>
           <p className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>{status?.partner_name ?? "?"}</p>
         </div>
-        <div className="badge badge-accent text-xs px-3 py-1">
-          Макс. ур. {status?.max_level_completed ?? 0}
+        <div className="text-right">
+          <div className="badge badge-accent text-xs px-3 py-1">
+            Макс. ур. {status?.max_level_completed ?? 0}
+          </div>
+          <p className="text-[11px] mt-1" style={{ color: "var(--text-hint)" }}>
+            Осталось: {dailyRemaining}/{dailyLimit}
+          </p>
+        </div>
+      </div>
+
+      <div className="glass-card p-3 flex items-center justify-between">
+        <div>
+          <p className="text-[11px] font-semibold" style={{ color: "var(--text-hint)" }}>Сброс попыток</p>
+          <p className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>{status?.reset_in_text ?? "--"}</p>
+        </div>
+        <div className="text-right">
+          <p className="text-[11px] font-semibold" style={{ color: "var(--text-hint)" }}>Таймер боя</p>
+          <p className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>{fightTimeText ?? "--:--"}</p>
         </div>
       </div>
 
@@ -153,7 +198,7 @@ export default function CoupleBoss({ userId: _userId, chatId }: Props) {
             <div className="text-7xl drop-shadow-lg animate-orb">{bossArt(nextLevel)}</div>
             <p className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>{bossName(nextLevel)}</p>
             <p className="text-xs" style={{ color: "var(--text-hint)" }}>
-              HP: {fmt(5_000 + (nextLevel - 1) * 3_000)} • Парный бой
+              HP: {fmt(16_000 + (nextLevel - 1) * 9_000)} • Парный бой
             </p>
             {sess?.is_completed === 1 && (
               <p className="badge badge-success text-sm px-4 py-1">✅ Побеждён!</p>
@@ -187,6 +232,10 @@ export default function CoupleBoss({ userId: _userId, chatId }: Props) {
                 <div className="progress-bar">
                   <div className="progress-bar-fill" style={{ width: `${hpPct}%` }} />
                 </div>
+                <div className="flex items-center justify-between text-[11px]" style={{ color: "var(--text-hint)" }}>
+                  <span>Осталось попыток: {dailyRemaining}/{dailyLimit}</span>
+                  <span>⏳ {fightTimeText ?? "--:--"}</span>
+                </div>
               </div>
             </div>
           </div>
@@ -204,11 +253,11 @@ export default function CoupleBoss({ userId: _userId, chatId }: Props) {
           <div className="glass-card p-3 grid grid-cols-2 gap-3">
             <div className="text-center">
               <p className="text-[10px]" style={{ color: "var(--text-hint)" }}>Мой урон</p>
-              <p className="text-sm font-bold" style={{ color: "var(--accent)" }}>{fmt(sess!.user_a_damage)}</p>
+              <p className="text-sm font-bold" style={{ color: "var(--accent)" }}>{fmt(status?.my_damage ?? 0)}</p>
             </div>
             <div className="text-center">
               <p className="text-[10px]" style={{ color: "var(--text-hint)" }}>Урон партнёра</p>
-              <p className="text-sm font-bold" style={{ color: "#e84393" }}>{fmt(sess!.user_b_damage)}</p>
+              <p className="text-sm font-bold" style={{ color: "#e84393" }}>{fmt(status?.partner_damage ?? 0)}</p>
             </div>
           </div>
 

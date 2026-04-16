@@ -410,6 +410,7 @@ export interface ShopTheme {
 
 export interface ShopCatalog {
   balance: number;
+  crystals: number;
   frames: ShopFrame[];
   cosmetics: ShopCosmetic[];
   pet_colors: ShopPetColor[];
@@ -420,12 +421,15 @@ export interface ShopCatalog {
   active_frame: string;
   gacha_p1: number;
   gacha_p10: number;
+  vip_price_crystals?: number;
+  vip_duration_days?: number;
   themes: ShopTheme[];
 }
 
 export interface ShopBuyResult {
   ok: boolean;
   balance?: number;
+  crystals_balance?: number;
   error?: string;
 }
 

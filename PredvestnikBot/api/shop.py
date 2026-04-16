@@ -12,15 +12,19 @@ async def get_catalog(uid: int, chat_id: int) -> dict:
 
     Returns {balance, frames, cosmetics, food, potions, has_vip, active_frame}.
     """
-    from database.db import get_mora, get_user_owned_frames, is_user_single
+    from database.db import get_crystals, get_mora, get_user_owned_frames, is_user_single
     from database.postgres import connect as postgres_connect
     from shared_prices import FRAMES_CATALOG, COSMETICS_CATALOG, FOOD_ITEMS, POTIONS_CATALOG, PET_COLOR_CATALOG
-    from shared_prices import GACHA_SINGLE_PRICE, GACHA_MULTI_PRICE, GACHA_SINGLES_SINGLE, GACHA_SINGLES_MULTI
+    from shared_prices import (
+        GACHA_SINGLE_PRICE, GACHA_MULTI_PRICE, GACHA_SINGLES_SINGLE, GACHA_SINGLES_MULTI,
+        PRICE_VIP_CRYSTALS, VIP_DURATION_DAYS,
+    )
 
     mora = await get_mora(uid, chat_id)
     active_frame = mora["top_frame"] if mora else None
     has_vip = bool(mora["vip"]) if mora else False
     balance = mora["balance"] if mora else 0
+    crystals = await get_crystals(uid)
 
     # Gacha pricing: VIP and singles both get the cheaper price
     single = await is_user_single(uid, chat_id)
@@ -110,6 +114,7 @@ async def get_catalog(uid: int, chat_id: int) -> dict:
     ]
     return {
         "balance":      balance,
+        "crystals":     crystals,
         "frames":       frames,
         "cosmetics":    cosmetics,
         "pet_colors":   pet_colors,
@@ -120,6 +125,8 @@ async def get_catalog(uid: int, chat_id: int) -> dict:
         "active_frame": active_frame or "default",
         "gacha_p1":     gacha_p1,
         "gacha_p10":    gacha_p10,
+        "vip_price_crystals": PRICE_VIP_CRYSTALS,
+        "vip_duration_days":  VIP_DURATION_DAYS,
         "themes":       await _get_themes_for_catalog(uid, chat_id),
     }
 
@@ -169,15 +176,15 @@ async def buy_item(
     balance is always the personal mora balance after the operation.
     """
     from database.db import (
-        get_mora, has_shop_item, buy_shop_item,
-        set_top_frame, set_vip, get_vip, get_family_wallet, add_to_family_wallet,
-        get_marriage, deduct_family_pool,
+        buy_shop_item, deduct_family_pool, get_crystals, get_marriage,
+        get_mora, get_vip, has_shop_item, set_top_frame, set_vip, spend_crystals,
     )
-    from shared_prices import FRAMES_CATALOG, COSMETICS_CATALOG, PRICE_VIP
+    from shared_prices import COSMETICS_CATALOG, FRAMES_CATALOG, PRICE_VIP_CRYSTALS, VIP_DURATION_DAYS
 
     item_type = item_type.lower()
     item_key = item_key.lower()
     wallet_type = wallet_type.lower() if wallet_type.lower() in ("personal", "family") else "personal"
+    new_crystals: int | None = None
 
     # Determine price
     if item_type == "frame":
@@ -197,7 +204,7 @@ async def buy_item(
             raise ValueError("Неизвестная косметика")
         price = cosm[3]
     elif item_type == "vip":
-        price = PRICE_VIP
+        price = PRICE_VIP_CRYSTALS
         # Check if user already has VIP
         current_vip = await get_vip(uid, chat_id)
         if current_vip:
@@ -286,7 +293,16 @@ async def buy_item(
     # Deduct payment
     new_family_bal: int | None = None
     _bonus_potion = False
-    if wallet_type == "family":
+    if item_type == "vip":
+        if wallet_type == "family":
+            raise ValueError("VIP покупается только за кристаллы")
+        if not await spend_crystals(uid, price):
+            bal = await get_crystals(uid)
+            raise ValueError(f"Недостаточно кристаллов ({bal}/{price})")
+        new_crystals = await get_crystals(uid)
+        mora = await get_mora(uid, chat_id)
+        new_bal = mora["balance"] if mora else 0
+    elif wallet_type == "family":
         marriage = await get_marriage(uid, chat_id)
         if not marriage:
             raise ValueError("Нет семейного кошелька")
@@ -326,8 +342,9 @@ async def buy_item(
     # Record purchase and apply effects
     # 5% НДС from shop purchases → treasury
     from database.db import add_to_treasury
-    shop_tax = max(1, int(price * 0.05))
-    await add_to_treasury(chat_id, shop_tax, "shop", uid)
+    if item_type != "vip":
+        shop_tax = max(1, int(price * 0.05))
+        await add_to_treasury(chat_id, shop_tax, "shop", uid)
 
     if item_type in ("frame", "cosmetic"):
         await buy_shop_item(uid, chat_id, item_type, item_key)
@@ -340,7 +357,7 @@ async def buy_item(
         if item_type == "frame" and equip:
             await set_top_frame(uid, chat_id, item_key)
     elif item_type == "vip":
-        await set_vip(uid, chat_id, 1)
+        await set_vip(uid, chat_id, 1, days=VIP_DURATION_DAYS)
     elif item_type == "pet_color":
         from database.postgres import connect as _pg2
         color_key = item_key.replace("pet_color_", "")
@@ -393,7 +410,7 @@ async def buy_item(
     # Log purchase to wallet ledger
     try:
         from api.economy import log_wallet_tx
-        if price > 0:
+        if price > 0 and item_type != "vip":
             await log_wallet_tx(uid, chat_id, "expense", price, "shop_buy",
                                 f"{item_type}:{item_key}")
     except Exception as _e:
@@ -407,6 +424,7 @@ async def buy_item(
         "item_key":        item_key,
         "price":           price,
         "balance":         new_bal,
+        "crystals_balance": new_crystals,
         "family_balance":  new_family_bal,
         "bonus_potion":    _bonus_potion,
     }

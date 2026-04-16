@@ -216,6 +216,7 @@ def miniapp_user_data(request):
         except Exception:
             pass
 
+    conn = None
     try:
         conn, db_type = _get_bot_db_connection()
     except Exception:
@@ -805,6 +806,7 @@ def _check_rank(uid, chat_id, min_rank, headers):
     """Check if user has at least min_rank in chat. Returns (rank_str, None) or (None, JsonResponse)."""
     if uid == _DEVELOPER_ID:
         return "developer", None
+    conn = None
     try:
         conn, db_type = _get_bot_db_connection()
         cur = conn.cursor()
@@ -1048,6 +1050,7 @@ def miniapp_marriage_respond(request):
     #    target user matches the authenticated user.  This single statement
     #    in PostgreSQL prevents the TOCTOU race that caused "уже обработано"
     #    on rapid double-clicks or simultaneous requests.
+    conn = None
     try:
         conn, db_type = _get_bot_db_connection()
         cur = conn.cursor()
@@ -3454,6 +3457,100 @@ def miniapp_batch_sell(request):
 
 # --- Couple Boss System (Married Pairs) --------------------------------------
 
+BOSS_DAILY_LIMIT = 2
+BOSS_FIGHT_TIMEOUT_SECONDS = 120
+
+
+def _format_boss_duration(seconds: int) -> str:
+    seconds = max(0, int(seconds))
+    hours, remainder = divmod(seconds, 3600)
+    minutes, secs = divmod(remainder, 60)
+    if hours:
+        return f"{hours} ч {minutes} мин"
+    if minutes:
+        return f"{minutes} мин {secs} сек"
+    return f"{secs} сек"
+
+
+def _boss_reset_payload() -> dict:
+    import datetime as _dt
+
+    now = _dt.datetime.now(_dt.timezone.utc)
+    reset_at = (now + _dt.timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+    reset_in_seconds = max(0, int((reset_at - now).total_seconds()))
+    return {
+        "reset_at": reset_at.isoformat(),
+        "reset_in_seconds": reset_in_seconds,
+        "reset_in_text": _format_boss_duration(reset_in_seconds),
+    }
+
+
+def _parse_boss_started_at(value):
+    import datetime as _dt
+
+    if value is None:
+        return None
+    if isinstance(value, _dt.datetime):
+        return value if value.tzinfo else value.replace(tzinfo=_dt.timezone.utc)
+    if isinstance(value, str):
+        try:
+            parsed = _dt.datetime.fromisoformat(value.replace("Z", "+00:00"))
+            return parsed if parsed.tzinfo else parsed.replace(tzinfo=_dt.timezone.utc)
+        except ValueError:
+            return None
+    return None
+
+
+def _boss_session_time_payload(session: dict | None) -> dict:
+    import datetime as _dt
+
+    started_at = _parse_boss_started_at(session.get("started_at")) if session else None
+    if not started_at:
+        return {
+            "fight_timeout_seconds": BOSS_FIGHT_TIMEOUT_SECONDS,
+            "fight_time_left_seconds": None,
+            "fight_time_left_text": None,
+            "fight_expired": False,
+            "started_at": None,
+        }
+
+    now = _dt.datetime.now(_dt.timezone.utc)
+    elapsed = max(0, int((now - started_at).total_seconds()))
+    left = max(0, BOSS_FIGHT_TIMEOUT_SECONDS - elapsed)
+    return {
+        "fight_timeout_seconds": BOSS_FIGHT_TIMEOUT_SECONDS,
+        "fight_time_left_seconds": left,
+        "fight_time_left_text": _format_boss_duration(left),
+        "fight_expired": left <= 0,
+        "started_at": started_at.isoformat(),
+    }
+
+
+def _expire_boss_session(table_name: str, session_id: int):
+    conn = None
+    try:
+        conn, db_type = _get_bot_db_connection()
+        cur = conn.cursor()
+        ph = "%s" if db_type == "pg" else "?"
+        cur.execute(
+            f"UPDATE {table_name} SET is_completed=1, completed_at=COALESCE(completed_at, CURRENT_TIMESTAMP) WHERE id={ph} AND is_completed=0",
+            (session_id,),
+        )
+        conn.commit()
+    finally:
+        try:
+            if conn:
+                conn.close()
+        except Exception:
+            pass
+
+
+def _count_boss_runs(today_rows) -> tuple[int, int, int]:
+    active_count = sum(1 for row in today_rows if not row[0])
+    completed_count = sum(1 for row in today_rows if row[0])
+    used_count = active_count + completed_count
+    return active_count, completed_count, used_count
+
 @csrf_exempt
 def miniapp_couple_boss_status(request):
     """GET /api/couple_boss/status?chat_id=X - get couple boss session status."""
@@ -3482,21 +3579,40 @@ def miniapp_couple_boss_status(request):
         marriage_row = cur.fetchone()
         if not marriage_row:
             conn.close()
-            return JsonResponse({"error": "No active marriage found in this chat"}, status=400, headers=headers)
+            return JsonResponse({"married": False, "session": None}, json_dumps_params={"ensure_ascii": False}, headers=headers)
         
         partner_id = marriage_row[0]
         user_a_id = min(uid, partner_id)
         user_b_id = max(uid, partner_id)
         
-        # Get current session
         from datetime import timezone
         import datetime
         today = datetime.datetime.now(timezone.utc).strftime("%Y-%m-%d")
-        
-        cur.execute(f"""SELECT * FROM couple_boss_sessions 
-                     WHERE user_a_id={ph} AND user_b_id={ph} AND chat_id={ph} AND session_date={ph} AND is_completed=0""", 
-                     (user_a_id, user_b_id, chat_id, today))
-        session = cur.fetchone()
+
+        cur.execute(
+            f"""SELECT * FROM couple_boss_sessions
+                 WHERE user_a_id={ph} AND user_b_id={ph} AND chat_id={ph} AND session_date={ph}
+                 ORDER BY run_index DESC, id DESC""",
+            (user_a_id, user_b_id, chat_id, today),
+        )
+        rows = cur.fetchall()
+        cols = [d[0] for d in cur.description]
+        today_sessions = [dict(zip(cols, row)) for row in rows]
+
+        active_session = next((row for row in today_sessions if int(row.get("is_completed", 0)) == 0), None)
+        active_count, completed_count, used_count = _count_boss_runs([(row.get("is_completed", 0),) for row in today_sessions])
+        expired_session = None
+        if active_session:
+            time_payload = _boss_session_time_payload(active_session)
+            if time_payload["fight_expired"]:
+                expired_session = {**active_session, "is_completed": 1, "completed_at": datetime.datetime.now(timezone.utc).isoformat()}
+                _expire_boss_session("couple_boss_sessions", int(active_session["id"]))
+                active_session = None
+                active_count = max(0, active_count - 1)
+                completed_count += 1
+
+        latest_completed = expired_session or next((row for row in today_sessions if int(row.get("is_completed", 0)) == 1), None)
+        display_session = active_session or latest_completed
         
         # Get progress
         cur.execute(f"SELECT max_level FROM couple_boss_progress WHERE user_a_id={ph} AND user_b_id={ph} AND chat_id={ph}", 
@@ -3511,6 +3627,7 @@ def miniapp_couple_boss_status(request):
         partner_name = (cur.fetchone() or ["Partner"])[0]
         
         conn.close()
+        conn = None
         
         result = {
             "married": True,
@@ -3518,46 +3635,56 @@ def miniapp_couple_boss_status(request):
             "partner_name": partner_name,
             "max_level_completed": max_level,
             "available_levels": list(range(1, max_level + 2)),  # Can challenge next level
+            "daily_limit": BOSS_DAILY_LIMIT,
+            "daily_used": used_count,
+            "daily_remaining": max(0, BOSS_DAILY_LIMIT - used_count),
+            **_boss_reset_payload(),
         }
-        
-        if session:
-            # Active session exists
-            session_data = dict(zip([
-                "id", "user_a_id", "user_b_id", "chat_id", "boss_level", "boss_max_hp", "boss_current_hp",
-                "user_a_damage", "user_b_damage", "user_a_hits", "user_b_hits", "user_a_aggro", "user_b_aggro",
-                "is_completed", "is_repeat", "session_date", "completed_at"
-            ], session))
-            
-            hp_pct = (session_data["boss_current_hp"] / session_data["boss_max_hp"]) * 100
-            
-            # Determine which user is A/B
+
+        if display_session:
+            hp_pct = (display_session["boss_current_hp"] / max(1, display_session["boss_max_hp"])) * 100
+
             if uid == user_a_id:
-                my_damage = session_data["user_a_damage"]
-                my_hits = session_data["user_a_hits"]
-                partner_damage = session_data["user_b_damage"]
-                partner_hits = session_data["user_b_hits"]
+                my_damage = int(display_session.get("user_a_damage", 0))
+                my_hits = int(display_session.get("user_a_hits", 0))
+                partner_damage = int(display_session.get("user_b_damage", 0))
+                partner_hits = int(display_session.get("user_b_hits", 0))
             else:
-                my_damage = session_data["user_b_damage"]
-                my_hits = session_data["user_b_hits"]
-                partner_damage = session_data["user_a_damage"]
-                partner_hits = session_data["user_a_hits"]
-                
-            result.update({
-                "has_active_session": True,
-                "boss_level": session_data["boss_level"],
-                "boss_max_hp": session_data["boss_max_hp"],
-                "boss_current_hp": session_data["boss_current_hp"],
+                my_damage = int(display_session.get("user_b_damage", 0))
+                my_hits = int(display_session.get("user_b_hits", 0))
+                partner_damage = int(display_session.get("user_a_damage", 0))
+                partner_hits = int(display_session.get("user_a_hits", 0))
+
+            display_session = {
+                **display_session,
                 "boss_hp_percent": round(hp_pct, 1),
+                **_boss_session_time_payload(display_session),
+            }
+
+            result.update({
+                "has_active_session": bool(active_session),
+                "session": display_session,
                 "my_damage": my_damage,
                 "my_hits": my_hits,
                 "partner_damage": partner_damage,
                 "partner_hits": partner_hits,
                 "total_damage": my_damage + partner_damage,
-                "is_repeat": session_data["is_repeat"],
-                "resistance_active": session_data["user_a_hits"] > 0 and session_data["user_b_hits"] > 0,
+                "is_repeat": display_session["is_repeat"],
+                "resistance_active": display_session.get("user_a_hits", 0) > 0 and display_session.get("user_b_hits", 0) > 0,
+                "fight_time_left_seconds": display_session.get("fight_time_left_seconds"),
+                "fight_time_left_text": display_session.get("fight_time_left_text"),
+                "fight_timeout_seconds": display_session.get("fight_timeout_seconds"),
             })
         else:
-            result["has_active_session"] = False
+            result.update({
+                "has_active_session": False,
+                "session": None,
+                "my_damage": 0,
+                "my_hits": 0,
+                "partner_damage": 0,
+                "partner_hits": 0,
+                "total_damage": 0,
+            })
         
         return JsonResponse(result, json_dumps_params={"ensure_ascii": False}, headers=headers)
         
@@ -3605,24 +3732,40 @@ def miniapp_couple_boss_start(request):
         user_a_id = min(uid, partner_id)
         user_b_id = max(uid, partner_id)
         
-        # Get current session
         from datetime import timezone
         import datetime
         today = datetime.datetime.now(timezone.utc).strftime("%Y-%m-%d")
-        
-        cur.execute(f"""SELECT is_completed FROM couple_boss_sessions 
-                     WHERE user_a_id={ph} AND user_b_id={ph} AND chat_id={ph} AND session_date={ph}""", 
-                     (user_a_id, user_b_id, chat_id, today))
-        today_rows = cur.fetchall()
-        completed_count = sum(1 for r in today_rows if r[0])
-        has_active = any(not r[0] for r in today_rows)
-        if has_active:
+
+        cur.execute(
+            f"""SELECT id, is_completed, started_at FROM couple_boss_sessions
+                 WHERE user_a_id={ph} AND user_b_id={ph} AND chat_id={ph} AND session_date={ph}
+                 ORDER BY run_index DESC, id DESC""",
+            (user_a_id, user_b_id, chat_id, today),
+        )
+        today_rows = list(cur.fetchall())
+        normalized_rows = []
+        for row in today_rows:
+            row_id, is_completed, started_at = row[0], int(row[1]), row[2]
+            if not is_completed and _boss_session_time_payload({"started_at": started_at})["fight_expired"]:
+                _expire_boss_session("couple_boss_sessions", int(row_id))
+                is_completed = 1
+            normalized_rows.append((is_completed,))
+
+        active_count, completed_count, used_count = _count_boss_runs(normalized_rows)
+        if active_count > 0:
             conn.close()
             return JsonResponse({"error": "Активная битва с парным боссом уже идёт!"}, status=400,
                                 json_dumps_params={"ensure_ascii": False}, headers=headers)
-        if completed_count >= 2:
+        if completed_count >= BOSS_DAILY_LIMIT:
+            reset_payload = _boss_reset_payload()
             conn.close()
-            return JsonResponse({"error": "Вы уже победили 2 парных боссов сегодня! Возвращайтесь завтра. 🌙"}, status=400,
+            return JsonResponse({
+                "error": f"Лимит парных боссов на сегодня исчерпан. Сброс через {reset_payload['reset_in_text']}.",
+                **reset_payload,
+                "daily_limit": BOSS_DAILY_LIMIT,
+                "daily_used": used_count,
+                "daily_remaining": 0,
+            }, status=400,
                                 json_dumps_params={"ensure_ascii": False}, headers=headers)
         
         # Validate boss level
@@ -3676,6 +3819,11 @@ def miniapp_couple_boss_start(request):
             "boss_level": session["boss_level"],
             "boss_max_hp": session["boss_max_hp"],
             "is_repeat": session["is_repeat"],
+            "session": {**session, **_boss_session_time_payload(session)},
+            "daily_limit": BOSS_DAILY_LIMIT,
+            "daily_used": used_count + 1,
+            "daily_remaining": max(0, BOSS_DAILY_LIMIT - (used_count + 1)),
+            **_boss_reset_payload(),
         }, json_dumps_params={"ensure_ascii": False}, headers=headers)
         
     except Exception as exc:
@@ -3727,9 +3875,11 @@ def miniapp_couple_boss_attack(request):
         today = datetime.datetime.now(timezone.utc).strftime("%Y-%m-%d")
         
         cur.execute(f"""SELECT * FROM couple_boss_sessions 
-                     WHERE user_a_id={ph} AND user_b_id={ph} AND chat_id={ph} AND session_date={ph} AND is_completed=0""", 
+                     WHERE user_a_id={ph} AND user_b_id={ph} AND chat_id={ph} AND session_date={ph} AND is_completed=0
+                     ORDER BY run_index DESC, id DESC LIMIT 1""", 
                      (user_a_id, user_b_id, chat_id, today))
         session_row = cur.fetchone()
+        session_cols = [d[0] for d in cur.description]
         if not session_row:
             conn.close()
             return JsonResponse({"error": "No active boss session"}, status=400, headers=headers)
@@ -3753,14 +3903,19 @@ def miniapp_couple_boss_attack(request):
         conn.close()
         
         # Convert session row to dict
-        session_data = dict(zip([
-            "id", "user_a_id", "user_b_id", "chat_id", "boss_level", "boss_max_hp", "boss_current_hp",
-            "user_a_damage", "user_b_damage", "user_a_hits", "user_b_hits", "user_a_aggro", "user_b_aggro",
-            "is_completed", "is_repeat", "session_date", "completed_at"
-        ], session_row))
+        session_data = dict(zip(session_cols, session_row))
+
+        session_time = _boss_session_time_payload(session_data)
+        if session_time["fight_expired"]:
+            _expire_boss_session("couple_boss_sessions", int(session_data["id"]))
+            return JsonResponse({
+                "error": f"Время на бой вышло. Попробуй снова после перезапуска. Остаток попыток обновлён.",
+                "fight_expired": True,
+                **_boss_reset_payload(),
+            }, status=400, json_dumps_params={"ensure_ascii": False}, headers=headers)
         
         # Apply damage using existing function
-        from database.db import apply_couple_boss_damage
+        from database.db import add_boss_damage, apply_couple_boss_damage
         from asgiref.sync import async_to_sync
         import random
         
@@ -3768,6 +3923,11 @@ def miniapp_couple_boss_attack(request):
         base_damage = random.randint(int(user_stats["atk"] * 0.8), int(user_stats["atk"] * 1.2)) + 50
         
         result = async_to_sync(apply_couple_boss_damage)(uid, session_data, base_damage, user_stats)
+
+        try:
+            async_to_sync(add_boss_damage)(uid, chat_id, result["damage_dealt"])
+        except Exception:
+            pass
         
         response = {
             "ok": True,
@@ -3776,14 +3936,20 @@ def miniapp_couple_boss_attack(request):
             "boss_defeated": result["boss_defeated"],
             "resistance_active": result["resistance_active"],
             "crit": result["crit"],
+            "fight_time_left_seconds": max(0, (session_time.get("fight_time_left_seconds") or BOSS_FIGHT_TIMEOUT_SECONDS)),
         }
         
         if result["boss_retaliation"]:
             response["boss_retaliation"] = result["boss_retaliation"]
+            response["aggro"] = True
+            response["aggro_damage"] = result["boss_retaliation"]["damage"]
             if result["boss_retaliation"]["target"] == uid:
                 response["retaliation_message"] = f"Boss attacked you for {result['boss_retaliation']['damage']} HP!"
             else:
                 response["retaliation_message"] = f"Boss attacked your partner for {result['boss_retaliation']['damage']} HP!"
+        else:
+            response["aggro"] = False
+            response["aggro_damage"] = 0
         
         if result["boss_defeated"]:
             # Calculate rewards
@@ -3841,44 +4007,62 @@ def miniapp_solo_boss_status(request):
         return JsonResponse({"error": "chat_id required"}, status=400, headers=headers)
     chat_id = int(chat_id_str)
 
-    from database.db import get_solo_boss_session, get_solo_boss_progress
-    from asgiref.sync import async_to_sync
-
+    conn = None
     try:
-        session = async_to_sync(get_solo_boss_session)(uid, chat_id)
-        progress = async_to_sync(get_solo_boss_progress)(uid, chat_id)
-    except Exception:
-        session = None
-        progress = None
-
-    next_level = (progress["max_level"] + 1) if progress else 1
-
-    # Check if user completed a session today (get_solo_boss_session only returns incomplete)
-    completed_today = None
-    if not session:
         import datetime as _dt
-        today_str = _dt.datetime.now(_dt.timezone.utc).strftime("%Y-%m-%d")
-        try:
-            conn, db_type = _get_bot_db_connection()
-            cur = conn.cursor()
-            ph = "%s" if db_type == "pg" else "?"
-            cur.execute(
-                f"SELECT * FROM solo_boss_sessions WHERE user_id={ph} AND chat_id={ph} AND session_date={ph} AND is_completed=1",
-                (uid, chat_id, today_str))
-            crow = cur.fetchone()
-            conn.close()
-            if crow:
-                cols = [d[0] for d in cur.description]
-                completed_today = dict(zip(cols, crow))
-        except Exception:
-            try: conn.close()
-            except Exception: pass
 
-    return JsonResponse({
-        "session": session or completed_today,
-        "progress": progress,
-        "next_level": next_level,
-    }, json_dumps_params={"ensure_ascii": False}, headers=headers)
+        conn, db_type = _get_bot_db_connection()
+        cur = conn.cursor()
+        ph = "%s" if db_type == "pg" else "?"
+        today_str = _dt.datetime.now(_dt.timezone.utc).strftime("%Y-%m-%d")
+
+        cur.execute(
+            f"SELECT * FROM solo_boss_sessions WHERE user_id={ph} AND chat_id={ph} AND session_date={ph} ORDER BY run_index DESC, id DESC",
+            (uid, chat_id, today_str),
+        )
+        rows = cur.fetchall()
+        cols = [d[0] for d in cur.description]
+        today_sessions = [dict(zip(cols, row)) for row in rows]
+
+        active_session = next((row for row in today_sessions if int(row.get("is_completed", 0)) == 0), None)
+        active_count, completed_count, used_count = _count_boss_runs([(row.get("is_completed", 0),) for row in today_sessions])
+        expired_session = None
+        if active_session and _boss_session_time_payload(active_session)["fight_expired"]:
+            expired_session = {**active_session, "is_completed": 1, "completed_at": _dt.datetime.now(_dt.timezone.utc).isoformat()}
+            _expire_boss_session("solo_boss_sessions", int(active_session["id"]))
+            active_session = None
+            active_count = max(0, active_count - 1)
+            completed_count += 1
+
+        latest_completed = expired_session or next((row for row in today_sessions if int(row.get("is_completed", 0)) == 1), None)
+        display_session = active_session or latest_completed
+
+        cur.execute(f"SELECT * FROM solo_boss_progress WHERE user_id={ph} AND chat_id={ph}", (uid, chat_id))
+        progress_row = cur.fetchone()
+        progress = dict(zip([d[0] for d in cur.description], progress_row)) if progress_row else None
+        conn.close()
+
+        next_level = (progress["max_level"] + 1) if progress else 1
+        session_payload = None
+        if display_session:
+            session_payload = {**display_session, **_boss_session_time_payload(display_session)}
+
+        return JsonResponse({
+            "session": session_payload,
+            "progress": progress,
+            "next_level": next_level,
+            "daily_limit": BOSS_DAILY_LIMIT,
+            "daily_used": used_count,
+            "daily_remaining": max(0, BOSS_DAILY_LIMIT - used_count),
+            **_boss_reset_payload(),
+        }, json_dumps_params={"ensure_ascii": False}, headers=headers)
+    except Exception:
+        try:
+            conn.close()
+        except Exception:
+            pass
+        logger.exception("miniapp view error")
+        return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
 
 
 @csrf_exempt
@@ -3911,36 +4095,57 @@ def miniapp_solo_boss_start(request):
     try:
         cur = conn.cursor()
         ph = "%s" if db_type == "pg" else "?"
-        today_str = __import__("datetime").date.today().isoformat()
+        today_str = __import__("datetime").datetime.now(__import__("datetime").timezone.utc).strftime("%Y-%m-%d")
 
         # Allow up to 2 boss fights per day
         cur.execute(
-            f"SELECT is_completed FROM solo_boss_sessions "
-            f"WHERE user_id={ph} AND chat_id={ph} AND session_date={ph}",
+            f"SELECT id, is_completed, started_at FROM solo_boss_sessions "
+            f"WHERE user_id={ph} AND chat_id={ph} AND session_date={ph} ORDER BY run_index DESC, id DESC",
             (uid, chat_id, today_str),
         )
         today_rows = cur.fetchall()
     finally:
         conn.close()
 
-    completed_count = sum(1 for r in today_rows if r[0])
-    has_active = any(not r[0] for r in today_rows)
+    normalized_rows = []
+    for row in today_rows:
+        row_id, is_completed, started_at = row[0], int(row[1]), row[2]
+        if not is_completed and _boss_session_time_payload({"started_at": started_at})["fight_expired"]:
+            _expire_boss_session("solo_boss_sessions", int(row_id))
+            is_completed = 1
+        normalized_rows.append((is_completed,))
 
-    if has_active:
+    active_count, completed_count, used_count = _count_boss_runs(normalized_rows)
+
+    if active_count > 0:
         existing = async_to_sync(get_solo_boss_session)(uid, chat_id)
         return JsonResponse({"error": "У тебя уже есть активная битва с боссом!",
                              "session": existing},
                             status=400, json_dumps_params={"ensure_ascii": False}, headers=headers)
 
-    if completed_count >= 2:
-        return JsonResponse({"error": "Ты уже победил 2 боссов сегодня! Возвращайся завтра. 🌙"},
+    if completed_count >= BOSS_DAILY_LIMIT:
+        reset_payload = _boss_reset_payload()
+        return JsonResponse({
+            "error": f"Лимит боёв с боссом исчерпан. Сброс через {reset_payload['reset_in_text']}.",
+            **reset_payload,
+            "daily_limit": BOSS_DAILY_LIMIT,
+            "daily_used": used_count,
+            "daily_remaining": 0,
+        },
                             status=400, json_dumps_params={"ensure_ascii": False}, headers=headers)
 
     progress = async_to_sync(get_solo_boss_progress)(uid, chat_id)
     boss_level = (progress["max_level"] + 1) if progress else 1
 
     session = async_to_sync(create_solo_boss_session)(uid, chat_id, boss_level)
-    return JsonResponse({"ok": True, "session": session},
+    return JsonResponse({
+        "ok": True,
+        "session": {**session, **_boss_session_time_payload(session)},
+        "daily_limit": BOSS_DAILY_LIMIT,
+        "daily_used": used_count + 1,
+        "daily_remaining": max(0, BOSS_DAILY_LIMIT - (used_count + 1)),
+        **_boss_reset_payload(),
+    },
                         json_dumps_params={"ensure_ascii": False}, headers=headers)
 
 
@@ -3977,6 +4182,15 @@ def miniapp_solo_boss_attack(request):
         return JsonResponse({"error": "Эта битва уже завершена."},
                             status=400, json_dumps_params={"ensure_ascii": False}, headers=headers)
 
+    session_time = _boss_session_time_payload(session)
+    if session_time["fight_expired"]:
+        _expire_boss_session("solo_boss_sessions", int(session["id"]))
+        return JsonResponse({
+            "error": "Время на бой истекло. Начни новую попытку.",
+            "fight_expired": True,
+            **_boss_reset_payload(),
+        }, status=400, json_dumps_params={"ensure_ascii": False}, headers=headers)
+
     # Get user attack stat from equipped items
     try:
         conn, db_type = _get_bot_db_connection()
@@ -3999,12 +4213,20 @@ def miniapp_solo_boss_attack(request):
 
     result = async_to_sync(apply_solo_boss_damage)(uid, session, damage)
 
+    # Track boss damage for achievements
+    try:
+        from database.db import add_boss_damage as _abd
+        async_to_sync(_abd)(uid, chat_id, result["damage_dealt"])
+    except Exception:
+        pass
+
     response = {
         "ok": True,
         "damage_dealt": result["damage_dealt"],
         "crit": result["crit"],
         "boss_hp": result["boss_hp"],
         "boss_defeated": result["boss_defeated"],
+        "fight_time_left_seconds": max(0, session_time.get("fight_time_left_seconds") or BOSS_FIGHT_TIMEOUT_SECONDS),
     }
 
     if result["boss_defeated"]:
@@ -6962,13 +7184,18 @@ def miniapp_dev_error_logs(request):
 
 @csrf_exempt
 def miniapp_telemetry(request):
-    """POST /api/telemetry — aggregate telemetry counters (no auth, fire-and-forget)."""
+    """POST /api/telemetry — aggregate telemetry counters (auth, fire-and-forget)."""
     headers = _cors_headers()
     if request.method == "OPTIONS":
         return HttpResponse("", status=204, headers=headers)
     if request.method != "POST":
         return JsonResponse({"error": "POST required"}, status=405, headers=headers)
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
     try:
+        if uid == _DEVELOPER_ID:
+            return JsonResponse({"ok": True, "ignored": True}, headers=headers)
         import json as _json
         data = _json.loads(request.body)
         events = data.get("events", [])
@@ -6976,7 +7203,7 @@ def miniapp_telemetry(request):
             return JsonResponse({"ok": False, "error": "invalid"}, status=400, headers=headers)
         from asgiref.sync import async_to_sync as _a2s
         from database.db import upsert_telemetry_batch
-        _a2s(upsert_telemetry_batch)(events)
+        _a2s(upsert_telemetry_batch)(events, user_id=uid)
         return JsonResponse({"ok": True}, headers=headers)
     except Exception as exc:
         logger.warning("miniapp_telemetry error: %s", exc)
@@ -7019,43 +7246,6 @@ def miniapp_dev_analytics(request):
             date_from = (now - _dt.timedelta(days=days)).date()
             date_to = now.date()
 
-            async with _pg_connect() as db:
-                # Top tabs by total session seconds
-                top_tabs_rows = await db.fetch(
-                    "SELECT event_key, SUM(count) AS sessions, SUM(seconds) AS total_sec "
-                    "FROM telemetry_counters "
-                    "WHERE event_type='tab_view' AND date_bucket >= $1 "
-                    "GROUP BY event_key ORDER BY total_sec DESC LIMIT 10",
-                    date_from,
-                )
-                # Top click events
-                top_clicks_rows = await db.fetch(
-                    "SELECT event_key, SUM(count) AS total "
-                    "FROM telemetry_counters "
-                    "WHERE event_type='click' AND date_bucket >= $1 "
-                    "GROUP BY event_key ORDER BY total DESC LIMIT 10",
-                    date_from,
-                )
-                # Daily session counts
-                daily_rows = await db.fetch(
-                    "SELECT date_bucket, SUM(count) AS cnt "
-                    "FROM telemetry_counters "
-                    "WHERE event_type='session' AND date_bucket >= $1 "
-                    "GROUP BY date_bucket ORDER BY date_bucket",
-                    date_from,
-                )
-                # Total sessions + avg duration
-                totals_row = await db.fetchone(
-                    "SELECT COALESCE(SUM(count),0) AS sessions, COALESCE(SUM(seconds),0) AS secs "
-                    "FROM telemetry_counters "
-                    "WHERE event_type='session' AND date_bucket >= $1",
-                    date_from,
-                )
-
-            total_sessions = int(totals_row["sessions"]) if totals_row else 0
-            total_secs = int(totals_row["secs"]) if totals_row else 0
-            avg_sec = round(total_secs / total_sessions, 1) if total_sessions > 0 else 0.0
-
             _TAB_LABELS = {
                 "home": "Главная", "profile": "Профиль", "shop": "Магазин",
                 "gacha": "Гача", "boss": "Босс", "auction": "Аукцион",
@@ -7063,7 +7253,74 @@ def miniapp_dev_analytics(request):
                 "bank": "Банк", "pet": "Питомец", "family": "Семья",
                 "quests": "Квесты", "achievements": "Достижения",
                 "admin": "Админ", "analytics": "Аналитика",
+                "talents": "Таланты", "shards": "Осколки", "settings": "Настройки",
+                "inventory": "Инвентарь",
             }
+
+            async with _pg_connect() as db:
+                top_tabs_rows = await db.fetch(
+                    "SELECT event_key, SUM(count) AS sessions, SUM(seconds) AS total_sec "
+                    "FROM telemetry_user_counters "
+                    "WHERE event_type='tab_time' AND date_bucket >= ? AND user_id <> ? "
+                    "GROUP BY event_key ORDER BY total_sec DESC LIMIT 10",
+                    date_from, _DEVELOPER_ID or 0,
+                )
+                top_clicks_rows = await db.fetch(
+                    "SELECT event_key, SUM(count) AS total "
+                    "FROM telemetry_user_counters "
+                    "WHERE event_type='click' AND date_bucket >= ? AND user_id <> ? "
+                    "GROUP BY event_key ORDER BY total DESC LIMIT 10",
+                    date_from, _DEVELOPER_ID or 0,
+                )
+                daily_rows = await db.fetch(
+                    "SELECT date_bucket, SUM(count) AS cnt "
+                    "FROM telemetry_user_counters "
+                    "WHERE event_type='session' AND date_bucket >= ? AND user_id <> ? "
+                    "GROUP BY date_bucket ORDER BY date_bucket",
+                    date_from, _DEVELOPER_ID or 0,
+                )
+                totals_row = await db.fetchone(
+                    "SELECT COALESCE(SUM(count),0) AS sessions, COALESCE(SUM(seconds),0) AS secs "
+                    "FROM telemetry_user_counters "
+                    "WHERE event_type='session' AND date_bucket >= ? AND user_id <> ?",
+                    date_from, _DEVELOPER_ID or 0,
+                )
+                user_rows = await db.fetch(
+                    "SELECT tuc.user_id, COALESCE(u.full_name, CAST(tuc.user_id AS TEXT)) AS name, "
+                    "COALESCE(SUM(tuc.seconds),0) AS total_sec "
+                    "FROM telemetry_user_counters tuc "
+                    "LEFT JOIN users u ON u.user_id=tuc.user_id "
+                    "WHERE tuc.event_type='tab_time' AND tuc.date_bucket >= ? AND tuc.user_id <> ? "
+                    "GROUP BY tuc.user_id, u.full_name "
+                    "ORDER BY total_sec DESC LIMIT 15",
+                    date_from, _DEVELOPER_ID or 0,
+                )
+                user_breakdown = []
+                for user_row in user_rows:
+                    tab_rows = await db.fetch(
+                        "SELECT event_key, SUM(seconds) AS total_sec "
+                        "FROM telemetry_user_counters "
+                        "WHERE event_type='tab_time' AND date_bucket >= ? AND user_id=? "
+                        "GROUP BY event_key ORDER BY total_sec DESC LIMIT 8",
+                        date_from, user_row["user_id"],
+                    )
+                    user_breakdown.append({
+                        "user_id": int(user_row["user_id"]),
+                        "name": user_row["name"],
+                        "seconds": int(user_row["total_sec"]),
+                        "tabs": [
+                            {
+                                "key": row["event_key"],
+                                "label": _TAB_LABELS.get(row["event_key"], row["event_key"]),
+                                "seconds": int(row["total_sec"]),
+                            }
+                            for row in tab_rows
+                        ],
+                    })
+
+            total_sessions = int(totals_row["sessions"]) if totals_row else 0
+            total_secs = int(totals_row["secs"]) if totals_row else 0
+            avg_sec = round(total_secs / total_sessions, 1) if total_sessions > 0 else 0.0
 
             return {
                 "period": period,
@@ -7088,6 +7345,7 @@ def miniapp_dev_analytics(request):
                     {"date": str(r["date_bucket"]), "count": int(r["cnt"])}
                     for r in daily_rows
                 ],
+                "user_breakdown": user_breakdown,
             }
 
         data = _a2s(_fetch)()

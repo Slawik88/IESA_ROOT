@@ -19,31 +19,49 @@ interface Props { userId: number; chatId: number; isDev?: boolean; }
 type SettingsTab = "local" | "global";
 
 const SETTING_META: Record<string, { label: string; type: "toggle" | "select" | "number"; options?: string[]; desc?: string }> = {
-  antiflood_enabled:       { label: "Антифлуд включён",           type: "toggle",  desc: "Ограничивать частоту сообщений" },
-  antiflood_limit:         { label: "Лимит антифлуда",            type: "number" },
-  antiflood_window:        { label: "Окно антифлуда (сек)",       type: "number" },
-  antiflood_action:        { label: "Действие антифлуда",         type: "select",  options: ["warn", "mute", "kick", "ban"] },
-  antiflood_mode:          { label: "Режим антифлуда",            type: "select",  options: ["soft", "hard"] },
-  blacklist_enabled:       { label: "Чёрный список",              type: "toggle" },
-  welcome_call:            { label: "Приветствие",                type: "toggle" },
-  feat_website:            { label: "Фича: Сайт",                 type: "toggle" },
-  feat_antispam:           { label: "Фича: Антиспам",             type: "toggle" },
-  feat_marriages:          { label: "Фича: Браки",                type: "toggle" },
-  feat_pets:               { label: "Фича: Питомцы",              type: "toggle" },
-  feat_casino:             { label: "Фича: Казино",               type: "toggle" },
-  feat_random_events:      { label: "Фича: Случайные события",    type: "toggle" },
-  bot_disabled:            { label: "Бот отключён",               type: "toggle" },
-  feat_roulette:           { label: "Фича: Рулетка",              type: "toggle" },
-  feat_chest:              { label: "Фича: Сундуки",              type: "toggle" },
-  feat_coin_flip:          { label: "Фича: Монетка",              type: "toggle" },
-  feat_xp_gain:            { label: "Фича: Получение XP",         type: "toggle" },
-  feat_auto_welcome:       { label: "Фича: Авто-приветствие",     type: "toggle" },
-  cleanup_threshold:       { label: "Порог очистки (дни неакт.)", type: "number" },
-  cleanup_message_norm:    { label: "Норма сообщений для очистки", type: "number" },
-  cleanup_warn_hours:      { label: "Предупреждение за (часов)",   type: "number" },
-  inactivity_warn_enabled: { label: "Предупреждение о неактивности", type: "toggle" },
-  inactivity_warn_days:    { label: "Дней неактивности",           type: "number" },
+  antiflood_enabled:       { label: "Антифлуд",                    type: "toggle", desc: "Ограничивает слишком частую отправку сообщений" },
+  antiflood_limit:         { label: "Лимит сообщений",             type: "number", desc: "Сколько сообщений можно отправить за окно антифлуда" },
+  antiflood_window:        { label: "Окно проверки, сек",          type: "number", desc: "Период, в котором считается спам" },
+  antiflood_action:        { label: "Наказание за спам",           type: "select", options: ["warn", "mute", "kick", "ban"], desc: "Что делать с нарушителем" },
+  antiflood_mode:          { label: "Жёсткость защиты",            type: "select", options: ["soft", "hard"], desc: "Мягкий или строгий режим срабатывания" },
+  blacklist_enabled:       { label: "Чёрный список",               type: "toggle", desc: "Блокировать слова и шаблоны из чёрного списка" },
+  welcome_call:            { label: "Приветствие новичков",        type: "toggle", desc: "Показывать приветственное сообщение при входе" },
+  feat_website:            { label: "Сайт",                        type: "toggle", desc: "Доступ к сайту и связанным функциям" },
+  feat_antispam:           { label: "Антиспам",                    type: "toggle", desc: "Дополнительные антиспам-функции чата" },
+  feat_marriages:          { label: "Браки",                       type: "toggle", desc: "Разрешить браки и парные механики" },
+  feat_pets:               { label: "Питомцы",                     type: "toggle", desc: "Включить систему питомцев" },
+  feat_casino:             { label: "Казино",                      type: "toggle", desc: "Открыть казино в мини-приложении" },
+  feat_random_events:      { label: "Случайные события",           type: "toggle", desc: "Запускать неожиданные активности в чате" },
+  bot_disabled:            { label: "Отключить бота",              type: "toggle", desc: "Полностью выключить активность бота в этом чате" },
+  feat_roulette:           { label: "Рулетка",                     type: "toggle", desc: "Разрешить рулетку в казино" },
+  feat_chest:              { label: "Сундуки",                     type: "toggle", desc: "Включить сундуки и награды" },
+  feat_coin_flip:          { label: "Монетка",                     type: "toggle", desc: "Разрешить игру в монетку" },
+  feat_xp_gain:            { label: "Получение XP",                type: "toggle", desc: "Игроки получают опыт за активность" },
+  feat_auto_welcome:       { label: "Авто-приветствие",            type: "toggle", desc: "Бот сам приветствует новых участников" },
+  cleanup_threshold:       { label: "Удаление после дней тишины",  type: "number", desc: "Через сколько дней неактивных пользователей считать на очистку" },
+  cleanup_message_norm:    { label: "Минимум сообщений для защиты", type: "number", desc: "Пользователи с меньшей активностью попадут под очистку быстрее" },
+  cleanup_warn_hours:      { label: "Предупредить заранее, часов", type: "number", desc: "За сколько часов бот предупреждает перед очисткой" },
+  inactivity_warn_enabled: { label: "Предупреждать о неактивности", type: "toggle", desc: "Напоминать перед автоматической чисткой" },
+  inactivity_warn_days:    { label: "Неактивность, дней",          type: "number", desc: "Через сколько дней начинать предупреждать" },
 };
+
+const LOCAL_SECTIONS: { title: string; desc: string; keys: string[] }[] = [
+  {
+    title: "Защита чата",
+    desc: "Контроль спама, флуда и нежелательных сообщений.",
+    keys: ["antiflood_enabled", "antiflood_limit", "antiflood_window", "antiflood_action", "antiflood_mode", "blacklist_enabled"],
+  },
+  {
+    title: "Сценарии и функции",
+    desc: "Что именно доступно участникам в этом чате.",
+    keys: ["welcome_call", "feat_auto_welcome", "feat_website", "feat_antispam", "feat_marriages", "feat_pets", "feat_casino", "feat_roulette", "feat_coin_flip", "feat_chest", "feat_random_events", "feat_xp_gain", "bot_disabled"],
+  },
+  {
+    title: "Чистка и неактив",
+    desc: "Автоматическая очистка и предупреждения для неактивных участников.",
+    keys: ["cleanup_threshold", "cleanup_message_norm", "cleanup_warn_hours", "inactivity_warn_enabled", "inactivity_warn_days"],
+  },
+];
 
 const GLOBAL_META: Record<string, { label: string; type: "toggle" | "number" }> = {
   maintenance_mode:    { label: "Режим обслуживания",    type: "toggle" },
@@ -138,11 +156,24 @@ export default function Settings({ chatId, isDev }: Props) {
           <p className="font-bold text-base">Настройки</p>
           {localData && (
             <p className="text-xs" style={{ color: "var(--text-hint)" }}>
-              Ранг: <span style={{ color: "var(--accent)" }}>{localData.user_rank}</span>
+              Ранг: <span style={{ color: "var(--accent)" }}>{localData.user_rank}</span> • Изменяй только то, что реально влияет на чат
             </p>
           )}
         </div>
       </div>
+
+      {tab === "local" && localData && (
+        <div className="glass-card p-4 grid grid-cols-2 gap-3">
+          <div>
+            <p className="text-[11px] font-semibold" style={{ color: "var(--text-hint)" }}>Доступ</p>
+            <p className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>{localData.user_rank}</p>
+          </div>
+          <div className="text-right">
+            <p className="text-[11px] font-semibold" style={{ color: "var(--text-hint)" }}>Разделов</p>
+            <p className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>{LOCAL_SECTIONS.length}</p>
+          </div>
+        </div>
+      )}
 
       {/* Tab switcher */}
       <div className="flex gap-2 rounded-2xl p-1.5 glass-card">
@@ -166,62 +197,74 @@ export default function Settings({ chatId, isDev }: Props) {
         !localData
           ? <div className="space-y-3 animate-pulse">{Array.from({ length: 8 }).map((_, i) => <div key={i} className="skeleton h-14 rounded-xl" />)}</div>
           : (
-            <div className="space-y-2">
-              {Object.entries(SETTING_META).map(([key, meta]) => {
-                const rawVal   = localData.settings[key];
-                const rankReq  = localData.rank_map[key];
-                const canEdit  = !rankReq || localData.user_rank_level >= rankReq.min_rank_level;
-                return (
-                  <div key={key} className="glass-card p-3 rounded-xl flex items-center gap-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5">
-                        <p className="text-sm font-medium">{meta.label}</p>
-                        {!canEdit && rankReq && (
-                          <span className="text-[10px] px-1.5 py-0.5 rounded-full"
-                                style={{ backgroundColor: "var(--bg-secondary)", color: "var(--text-hint)" }}>
-                            🔒 {rankReq.min_rank_name}
-                          </span>
-                        )}
-                      </div>
-                      {meta.desc && <p className="text-xs mt-0.5" style={{ color: "var(--text-hint)" }}>{meta.desc}</p>}
-                    </div>
-                    <div className="flex-none">
-                      {busy === key ? (
-                        <Loader2 size={14} className="animate-spin" style={{ color: "var(--accent)" }} />
-                      ) : meta.type === "toggle" ? (
-                        <button
-                          disabled={!canEdit}
-                          onClick={() => doUpdateLocal(key, rawVal ? 0 : 1)}
-                          className="w-10 h-6 rounded-full transition-all relative disabled:opacity-40"
-                          style={{ backgroundColor: rawVal ? "var(--accent)" : "var(--bg-secondary)" }}
-                        >
-                          <span className="absolute top-1 w-4 h-4 rounded-full bg-white transition-all"
-                                style={{ left: rawVal ? "calc(100% - 1.25rem)" : "0.25rem" }} />
-                        </button>
-                      ) : meta.type === "select" ? (
-                        <select
-                          disabled={!canEdit}
-                          value={String(rawVal ?? "")}
-                          onChange={e => doUpdateLocal(key, e.target.value)}
-                          className="text-xs rounded-lg px-2 py-1 border-0 disabled:opacity-40"
-                          style={{ backgroundColor: "var(--bg-secondary)", color: "var(--text-primary)" }}
-                        >
-                          {(meta.options ?? []).map(o => <option key={o} value={o}>{o}</option>)}
-                        </select>
-                      ) : (
-                        <input
-                          type="number"
-                          disabled={!canEdit}
-                          defaultValue={Number(rawVal ?? 0)}
-                          onBlur={e => doUpdateLocal(key, Number(e.target.value))}
-                          className="w-16 text-xs rounded-lg px-2 py-1 border-0 text-center disabled:opacity-40"
-                          style={{ backgroundColor: "var(--bg-secondary)", color: "var(--text-primary)" }}
-                        />
-                      )}
-                    </div>
+            <div className="space-y-4">
+              {LOCAL_SECTIONS.map((section) => (
+                <div key={section.title} className="glass-card p-4 space-y-3">
+                  <div>
+                    <p className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>{section.title}</p>
+                    <p className="text-xs mt-1" style={{ color: "var(--text-hint)" }}>{section.desc}</p>
                   </div>
-                );
-              })}
+
+                  <div className="space-y-2">
+                    {section.keys.map((key) => {
+                      const meta = SETTING_META[key];
+                      const rawVal = localData.settings[key];
+                      const rankReq = localData.rank_map[key];
+                      const canEdit = !rankReq || localData.user_rank_level >= rankReq.min_rank_level;
+                      return (
+                        <div key={key} className="rounded-2xl p-3 flex items-center gap-3" style={{ backgroundColor: "var(--bg-secondary)" }}>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <p className="text-sm font-medium">{meta.label}</p>
+                              {!canEdit && rankReq && (
+                                <span className="text-[10px] px-1.5 py-0.5 rounded-full"
+                                      style={{ backgroundColor: "var(--bg-primary)", color: "var(--text-hint)" }}>
+                                  🔒 {rankReq.min_rank_name}
+                                </span>
+                              )}
+                            </div>
+                            {meta.desc && <p className="text-xs mt-0.5" style={{ color: "var(--text-hint)" }}>{meta.desc}</p>}
+                          </div>
+                          <div className="flex-none">
+                            {busy === key ? (
+                              <Loader2 size={14} className="animate-spin" style={{ color: "var(--accent)" }} />
+                            ) : meta.type === "toggle" ? (
+                              <button
+                                disabled={!canEdit}
+                                onClick={() => doUpdateLocal(key, rawVal ? 0 : 1)}
+                                className="w-10 h-6 rounded-full transition-all relative disabled:opacity-40"
+                                style={{ backgroundColor: rawVal ? "var(--accent)" : "var(--bg-primary)" }}
+                              >
+                                <span className="absolute top-1 w-4 h-4 rounded-full bg-white transition-all"
+                                      style={{ left: rawVal ? "calc(100% - 1.25rem)" : "0.25rem" }} />
+                              </button>
+                            ) : meta.type === "select" ? (
+                              <select
+                                disabled={!canEdit}
+                                value={String(rawVal ?? "")}
+                                onChange={e => doUpdateLocal(key, e.target.value)}
+                                className="text-xs rounded-lg px-2 py-1 border-0 disabled:opacity-40"
+                                style={{ backgroundColor: "var(--bg-primary)", color: "var(--text-primary)" }}
+                              >
+                                {(meta.options ?? []).map(o => <option key={o} value={o}>{o}</option>)}
+                              </select>
+                            ) : (
+                              <input
+                                type="number"
+                                disabled={!canEdit}
+                                defaultValue={Number(rawVal ?? 0)}
+                                onBlur={e => doUpdateLocal(key, Number(e.target.value))}
+                                className="w-20 text-xs rounded-lg px-2 py-1 border-0 text-center disabled:opacity-40"
+                                style={{ backgroundColor: "var(--bg-primary)", color: "var(--text-primary)" }}
+                              />
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
             </div>
           )
       )}

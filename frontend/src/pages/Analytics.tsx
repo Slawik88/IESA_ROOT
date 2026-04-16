@@ -138,6 +138,70 @@ export default function Analytics({ userId: _userId }: Props) {
             </div>
           )}
 
+          {data.user_breakdown.length > 0 && (
+            <div className="glass-hero p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <Clock size={16} style={{ color: "var(--accent)" }} />
+                <p className="font-semibold text-sm">Время по вкладкам на пользователя</p>
+              </div>
+              <div className="space-y-3">
+                {data.user_breakdown.map((user, index) => {
+                  const maxUserTab = Math.max(...user.tabs.map(tab => tab.seconds), 1);
+                  return (
+                    <div
+                      key={user.user_id}
+                      className="rounded-2xl p-3 space-y-2"
+                      style={{ background: "var(--card-bg)", border: "1px solid var(--border)" }}
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-semibold">
+                            {index + 1}. {user.name}
+                          </p>
+                          <p className="text-[11px]" style={{ color: "var(--text-hint)" }}>
+                            ID: {user.user_id}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm font-bold">{fmtSecs(user.seconds)}</p>
+                          <p className="text-[11px]" style={{ color: "var(--text-hint)" }}>
+                            всего за период
+                          </p>
+                        </div>
+                      </div>
+
+                      {user.tabs.length > 0 ? (
+                        <div className="space-y-2">
+                          {user.tabs.map((tab) => (
+                            <div key={`${user.user_id}_${tab.key}`} className="space-y-1">
+                              <div className="flex items-center justify-between text-[11px] gap-2">
+                                <span className="truncate">{tab.label || tab.key}</span>
+                                <span style={{ color: "var(--text-hint)" }}>{fmtSecs(tab.seconds)}</span>
+                              </div>
+                              <div className="h-1.5 rounded-full" style={{ background: "var(--bg-primary)" }}>
+                                <div
+                                  className="h-full rounded-full"
+                                  style={{
+                                    width: `${(tab.seconds / maxUserTab) * 100}%`,
+                                    background: "var(--accent)",
+                                  }}
+                                />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-[11px]" style={{ color: "var(--text-hint)" }}>
+                          Нет данных по вкладкам.
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Top clicks */}
           {data.top_clicks.length > 0 && (
             <div className="glass-hero p-4 space-y-3">

@@ -1,9 +1,9 @@
 """
 Команды экономики: валюта Мора.
 
-  бот баланс              — твой баланс в этом чате
-  бот баланс @user        — баланс другого пользователя (только если открыт)
-  бот купить вип          — купить VIP статус за 1000 Мора
+    бот баланс              — твой баланс в этом чате
+    бот баланс @user        — баланс другого пользователя (только если открыт)
+    бот купить вип          — открыть Mini App для VIP за кристаллы
   бот вип @user вкл/выкл  — выдать/снять VIP (администратор+)
   бот купить буст         — купить буст XP x2 на время
   бот рамки               — доступные рамки профиля для топа
@@ -48,7 +48,6 @@ from config import (
     MINI_APP_TG_URL,
     SECRET_MSG_PRICE,
 )
-from shared_prices import PRICE_VIP
 from filters.bot_command import BotCommand
 from filters.rank_filter import RankFilter
 from utils.helpers import not_your_button, resolve_target, user_mention
@@ -239,49 +238,21 @@ async def cmd_buy_vip(message: Message, cmd_args: str):
     if await get_vip(uid, chat_id):
         await message.answer("💎 У тебя уже есть VIP статус!")
         return
-
-    mora = await get_mora(uid, chat_id)
-    personal_bal = mora["balance"] if mora else 0
-
-    marriage = await get_marriage(uid, chat_id)
-    buttons = []
-    if marriage:
-        family_bal = await get_family_wallet(chat_id, uid)
-        buttons.append([
-            InlineKeyboardButton(
-                text=f"💰 Личный ({personal_bal} 🪙)",
-                callback_data=f"buy_vip:{uid}:personal",
-            ),
-            InlineKeyboardButton(
-                text=f"👨‍👩‍👧 Семейный ({family_bal} 🪙)",
-                callback_data=f"buy_vip:{uid}:family",
-            ),
-        ])
-    else:
-        if personal_bal < PRICE_VIP:
-            await message.answer(
-                f"💎 <b>VIP статус</b> стоит <b>{PRICE_VIP} Моры</b>.\n\n"
-                f"У тебя: <b>{personal_bal} 🪙</b> — недостаточно.\n"
-                f"Зарабатывай Мору, общаясь в чате!",
-                parse_mode="HTML",
-            )
-            return
-        buttons.append([
-            InlineKeyboardButton(text=f"✅ Купить за {PRICE_VIP} Моры", callback_data=f"buy_vip:{uid}:personal"),
-            InlineKeyboardButton(text="❌ Отмена", callback_data=f"buy_cancel:{uid}"),
-        ])
-
-    kb = InlineKeyboardMarkup(inline_keyboard=buttons)
+    abs_cid = abs(chat_id)
+    kb = InlineKeyboardMarkup(inline_keyboard=[[
+        InlineKeyboardButton(text="📱 Открыть Mini App", url=f"{MINI_APP_TG_URL}?startapp={abs_cid}"),
+    ]])
     await message.answer(
         f"💎 <b>VIP Статус</b>\n\n"
-        f"Стоимость: <b>{PRICE_VIP} 🪙</b>\n"
-        f"💰 Личный: <b>{personal_bal} 🪙</b>\n\n"
+        f"Стоимость: <b>25 💎 кристаллов</b>\n"
+        f"Длительность: <b>7 дней</b>\n\n"
         f"Что даёт VIP:\n"
         f"  💎 Золотой значок рядом с именем (профиль + таблица лидеров)\n"
         f"  📅 +15% к ежедневному чекину\n"
         f"  🎰 Скидка на гача-крутки: ×1 = 70🪙, ×10 = 650🪙\n"
         f"  🖼 Разблокирует рамку «💎 Алмазный» в магазине\n"
-        f"  🏆 Питомец подсвечен цветом в Зале Славы",
+        f"  🏆 Питомец подсвечен цветом в Зале Славы\n\n"
+        f"Покупка доступна только в Mini App за кристаллы.",
         parse_mode="HTML",
         reply_markup=kb,
     )
@@ -291,35 +262,11 @@ async def cmd_buy_vip(message: Message, cmd_args: str):
 async def cb_buy_vip(callback: CallbackQuery):
     parts = callback.data.split(":")
     uid = int(parts[1])
-    wallet = parts[2] if len(parts) > 2 else "personal"
 
     if await not_your_button(callback, uid):
         return
 
-    chat_id = callback.message.chat.id
-
-    if await get_vip(uid, chat_id):
-        await callback.answer("💎 У тебя уже есть VIP!", show_alert=True)
-        return
-
-    ok, new_bal = await deduct_wallet(uid, chat_id, PRICE_VIP, wallet)
-    if not ok:
-        await callback.answer(f"❌ Недостаточно Моры! ({new_bal} / {PRICE_VIP})", show_alert=True)
-        return
-
-    await set_vip(uid, chat_id, 1)
-    wallet_label = "семейного" if wallet == "family" else "личного"
-    try:
-        await callback.message.edit_text(
-            f"💎 <b>VIP получен!</b>\n\n"
-            f"Списано из {wallet_label} кошелька.\n"
-            f"Баланс: <b>{new_bal} 🪙</b>\n\n"
-            f"Значок 💎 теперь отображается в профиле и топе.",
-            parse_mode="HTML",
-        )
-    except Exception as _e:
-        _log.debug("%s", _e)
-    await callback.answer("💎 VIP активирован!")
+    await callback.answer("VIP покупается только в Mini App за кристаллы", show_alert=True)
 
 
 @router.message(BotCommand("выдать вип", "вип выдать", "вип управление"), RankFilter("admin_junior"))

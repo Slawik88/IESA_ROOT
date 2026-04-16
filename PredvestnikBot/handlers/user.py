@@ -96,7 +96,7 @@ def _help_pages() -> dict[str, dict]:
     )
     from shared_prices import (
         GACHA_PITY_MAX, BANK_PLANS, CUSTOM_TITLE_PRICE,
-        ROULETTE_MIN_BET, ROULETTE_MAX_BET, PRICE_VIP,
+        ROULETTE_MIN_BET, ROULETTE_MAX_BET, PRICE_VIP_CRYSTALS, VIP_DURATION_DAYS,
     )
     _bp = BANK_PLANS
 
@@ -159,8 +159,8 @@ def _help_pages() -> dict[str, dict]:
                 f"🪙 <b>Основные команды:</b>\n"
                 f"  <code>бот баланс</code> — мора, VIP, рамка, буст XP\n"
                 f"  <code>бот магазин</code> — полный каталог покупок\n\n"
-                f"👑 <b>Покупки за мору:</b>\n"
-                f"  <code>бот купить вип</code> — VIP-статус ({PRICE_VIP:,} 🪙)\n"
+                f"👑 <b>Премиум:</b>\n"
+                f"  <code>бот купить вип</code> — VIP через Mini App ({PRICE_VIP_CRYSTALS} 💎 / {VIP_DURATION_DAYS} дн.)\n"
                 f"  <code>бот купить буст</code> — ×2 XP на 24 часа\n"
                 f"  <code>бот рамки</code> — рамки для топа (от 250 🪙)\n"
                 f"  <code>бот тема</code> — темы оформления профиля (от 2000 🪙)\n"

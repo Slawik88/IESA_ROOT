@@ -8,7 +8,7 @@ import logging
 import random
 
 # House win rate — single source of truth
-COIN_WIN_RATE = 0.50  # 50% chance of winning
+COIN_WIN_RATE = 0.47  # 47% chance of winning
 
 
 async def coin_flip_resolve(uid: int, chat_id: int, bet: int) -> dict:
