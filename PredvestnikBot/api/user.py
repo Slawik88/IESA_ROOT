@@ -27,7 +27,34 @@ async def get_leaderboard(
         get_boss_leaderboard,
     )
 
-    if lb_type == "messages":
+    if lb_type == "solo_boss":
+        # MED-004: Solo boss leaderboard — max boss level completed per user in chat
+        from database.postgres import connect as postgres_connect
+        async with postgres_connect() as db:
+            async with db.execute(
+                """SELECT p.user_id, u.full_name, COALESCE(p.max_level, 0) AS max_level
+                   FROM solo_boss_progress p
+                   LEFT JOIN users u ON u.user_id = p.user_id
+                   WHERE p.chat_id = ? AND p.max_level > 0
+                   ORDER BY p.max_level DESC LIMIT ?""",
+                (chat_id, limit),
+            ) as c:
+                rows = await c.fetchall()
+        entries = [
+            {
+                "rank":       i + 1,
+                "user_id":    r["user_id"],
+                "name":       r["full_name"] or f"user_{r['user_id']}",
+                "score":      r["max_level"] or 0,
+                "color_name": "",
+                "vip":        False,
+            }
+            for i, r in enumerate(rows)
+        ]
+        resp: dict = {"type": lb_type, "entries": entries, "uid": uid}
+        return resp
+
+    elif lb_type == "messages":
         rows = await get_leaderboard_messages(chat_id, limit=limit)
         entries = [
             {

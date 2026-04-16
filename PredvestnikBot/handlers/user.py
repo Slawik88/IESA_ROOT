@@ -6,7 +6,7 @@ import html
 
 from database.db import (
     get_active_theme, get_active_expedition, get_crystals, get_daily_top,
-    get_all_equipped_items, get_equipped_legendary, get_marriage, get_mora,
+    get_all_equipped_items, get_equipped_flair, get_equipped_legendary, get_marriage, get_mora,
     get_mora_batch, get_pet, get_prev_weekly_top, get_received_gifts,
     get_shard_stash, get_top_by_messages_in_chat,
     get_user, get_user_badges, get_user_stats,
@@ -1208,6 +1208,7 @@ async def cb_profile_nav(callback: CallbackQuery):
             ACH_BY_KEY[bk]["emoji"] for bk in badge_keys if bk in ACH_BY_KEY
         )
         equipped = await get_all_equipped_items(uid, chat_id)
+        flair_cb = await get_equipped_flair(uid)
 
         from database.db import xp_for_level
         next_xp = xp_for_level(lvl_val + 1)
@@ -1237,6 +1238,8 @@ async def cb_profile_nav(callback: CallbackQuery):
                 for i in equipped
             )
             lines.append(f"⚔️ Снаряжение: {equip_str}")
+        if flair_cb:
+            lines.append(f"✨ Flair: {html.escape(flair_cb['item_name'])}")
         if frame_key:
             frame_label = next((f[2] for f in TOP_FRAMES if f[0] == frame_key), None)
             if frame_label:
@@ -1502,6 +1505,7 @@ async def cmd_me(message: Message, cmd_args: str):
 
     # Equipped legendary
     equipped = await get_all_equipped_items(uid, chat_id) if is_group else []
+    flair = await get_equipped_flair(uid) if is_group else None
 
     # ── XP progress bar ───────────────────────────────────────────────────
     lvl_xp   = xp_for_level(lvl_val)
@@ -1578,6 +1582,8 @@ async def cmd_me(message: Message, cmd_args: str):
             for i in equipped
         )
         lines.append(f"⚔️ Снаряжение: {equip_str}")
+    if flair:
+        lines.append(f"✨ Flair: {html.escape(flair['item_name'])}")
 
     # ── Блок 4: Отношения ─────────────────────────────────────────────────
     if is_group:

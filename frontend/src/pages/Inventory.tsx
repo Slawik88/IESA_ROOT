@@ -12,7 +12,8 @@ import {
 } from "lucide-react";
 import {
   fetchInventory, equipItem, toggleEquip,
-  sellJunk, batchSell, enhanceItem, consumePotion, activateTheme, renamePet,
+  sellJunk, batchSell, enhanceItem, consumePotion, activateTheme, renamePet, buyShopItem,
+  boostExpedition,
 } from "../lib/api";
 import type { InventoryItem, InventoryRpg } from "../types";
 import { RARITY_COLOR } from "./Gacha";
@@ -25,13 +26,17 @@ const SLOT_LABEL: Record<string, string> = {
   weapon: "Оружие", helmet: "Шлем", armor: "Броня",
   boots: "Сапоги", artifact: "Артефакт", flair: "Косметика",
   consumable: "Расходник", potion: "Зелье", consume: "Расходник", coupon: "Купон",
+  frame: "Рамка",
 };
 
 const SLOT_ICON: Record<string, string> = {
   weapon: "⚔️", helmet: "⛑", armor: "🛡",
   boots: "👢", artifact: "💎", flair: "🎨",
   consumable: "⚗️", potion: "🧪", consume: "⚗️", coupon: "🎫",
+  frame: "🖼",
 };
+
+
 
 function getEnhanceChance(level: number, useStone: boolean): number {
   if (useStone) return 100;
@@ -70,7 +75,7 @@ export default function Inventory({ userId: _userId, chatId }: Props) {
   const [busy, setBusy]         = useState<string | null>(null);
   const [toast, setToast]       = useState<string | null>(null);
   const [rarityF, setRarityF]   = useState<"all" | "junk" | "common" | "rare" | "legendary">("all");
-  const [slotF, setSlotF]       = useState<"all" | "equipped" | "weapon" | "helmet" | "armor" | "boots" | "artifact" | "consumable" | "flair" | "coupon">("all");
+  const [slotF, setSlotF]       = useState<"all" | "equipped" | "weapon" | "helmet" | "armor" | "boots" | "artifact" | "consumable" | "flair" | "coupon" | "frame">("all");
   const [statsOpen, setStatsOpen] = useState(false);
 
   const showToast = useCallback((msg: string) => {
@@ -157,8 +162,13 @@ export default function Inventory({ userId: _userId, chatId }: Props) {
   const doConsume = useCallback(async (item: InventoryItem) => {
     setBusy("consume");
     try {
-      const res = await consumePotion(chatId, item.id);
-      showToast(res.success ? "✅ " + res.message : "❌ " + res.message);
+      if (item.key.startsWith("exp_boost_")) {
+        const res = await boostExpedition(chatId, item.id);
+        showToast(res.ok ? `✅ Экспедиция ускорена!` : `❌ ${res.error ?? "Ошибка"}`);
+      } else {
+        const res = await consumePotion(chatId, item.id);
+        showToast(res.success ? "✅ " + res.message : "❌ " + res.message);
+      }
       setSelected(null);
       await load();
     } catch (e: unknown) {
@@ -187,6 +197,23 @@ export default function Inventory({ userId: _userId, chatId }: Props) {
       if (res.ok) {
         showToast(`🎨 Тема «${item.name}» активирована!`);
         document.documentElement.setAttribute("data-theme", item.key);
+      } else {
+        showToast((res as { error?: string }).error ?? "Ошибка");
+      }
+      setSelected(null);
+      await load();
+    } catch (e: unknown) {
+      showToast(e instanceof Error ? e.message : "Ошибка");
+    } finally { setBusy(null); }
+  }, [chatId, load, showToast]);
+
+  const doActivateFrame = useCallback(async (item: InventoryItem) => {
+    if (item.equipped) return; // already active
+    setBusy("frame");
+    try {
+      const res = await buyShopItem(chatId, "frame", item.key, true, "personal");
+      if ((res as { ok?: boolean }).ok || (res as { already_owned?: boolean }).already_owned) {
+        showToast(`🖼 Рамка «${item.name}» активирована!`);
       } else {
         showToast((res as { error?: string }).error ?? "Ошибка");
       }
@@ -306,7 +333,7 @@ export default function Inventory({ userId: _userId, chatId }: Props) {
 
       {/* ── Фильтры по слоту ── */}
       <div className="flex gap-2 px-4 pb-3 overflow-x-auto hide-scrollbar">
-        {(["all", "equipped", "weapon", "helmet", "armor", "boots", "artifact", "consumable", "flair", "coupon"] as const).map(f => (
+        {(["all", "equipped", "weapon", "helmet", "armor", "boots", "artifact", "consumable", "flair", "coupon", "frame"] as const).map(f => (
           <button
             key={f}
             onClick={() => setSlotF(f)}
@@ -316,7 +343,7 @@ export default function Inventory({ userId: _userId, chatId }: Props) {
               color: slotF === f ? "#fff" : "var(--text-hint)",
             }}
           >
-            {{ all: "Все типы", equipped: "★ Надетые", weapon: "⚔️ Оружие", helmet: "⛑ Шлем", armor: "🛡 Броня", boots: "👢 Сапоги", artifact: "💎 Артефакт", consumable: "⚗️ Расходники", flair: "🎨 Косметика", coupon: "🎫 Купоны" }[f]}
+            {{ all: "Все типы", equipped: "★ Надетые", weapon: "⚔️ Оружие", helmet: "⛑ Шлем", armor: "🛡 Броня", boots: "👢 Сапоги", artifact: "💎 Артефакт", consumable: "⚗️ Расходники", flair: "🎨 Косметика", coupon: "🎫 Купоны", frame: "🖼 Рамки" }[f]}
           </button>
         ))}
       </div>
@@ -347,6 +374,7 @@ export default function Inventory({ userId: _userId, chatId }: Props) {
           onEnhance={(item) => setEnhanceDetail(item)}
           onConsume={doConsume}
           onActivateTheme={doActivateTheme}
+          onActivateFrame={doActivateFrame}
           onRename={(item) => setRenameItem(item)}
         />
       )}
@@ -506,10 +534,11 @@ interface BSProps {
   onEnhance: (item: InventoryItem) => void;
   onConsume: (item: InventoryItem) => void;
   onActivateTheme: (item: InventoryItem) => void;
+  onActivateFrame: (item: InventoryItem) => void;
   onRename: (item: InventoryItem) => void;
 }
 
-function BottomSheet({ item, busy, onClose, onEquip, onSell, onEnhance, onConsume, onActivateTheme, onRename }: BSProps) {
+function BottomSheet({ item, busy, onClose, onEquip, onSell, onEnhance, onConsume, onActivateTheme, onActivateFrame, onRename }: BSProps) {
   const color = RARITY_COLOR[item.rarity] ?? "#9ca3af";
   const stats: { label: string; value: string | number }[] = [];
   if (item.atk)              stats.push({ label: "ATK",    value: `+${item.atk}` });
@@ -523,6 +552,8 @@ function BottomSheet({ item, busy, onClose, onEquip, onSell, onEnhance, onConsum
   const canSell         = item.sell_price > 0;
   // Profile themes are pseudo-items with negative IDs (from user_themes table)
   const canActivateTheme = item.is_cosmetic && item.slot === "flair" && item.id < 0;
+  // Gacha frames are pseudo-items with slot=="frame" and id<0
+  const canActivateFrame = item.is_cosmetic && item.slot === "frame" && item.id < 0;
   // Crystal flair cosmetics (lego_flair_*) use regular equip/unequip
   const canEquipFlair   = item.is_cosmetic && item.slot === "flair" && item.id > 0 && item.key !== "pet_rename";
   const canRename       = item.key === "pet_rename";
@@ -589,6 +620,12 @@ function BottomSheet({ item, busy, onClose, onEquip, onSell, onEnhance, onConsum
             <ActionBtn loading={busy === "theme"} onClick={() => !item.equipped && onActivateTheme(item)}
               label={item.equipped ? "✅ Активная тема" : "🎨 Применить тему"}
               color={item.equipped ? "#6b7280" : "#a855f7"}
+              disabled={item.equipped} />
+          )}
+          {canActivateFrame && (
+            <ActionBtn loading={busy === "frame"} onClick={() => !item.equipped && onActivateFrame(item)}
+              label={item.equipped ? "✅ Активная рамка" : "🖼 Активировать рамку"}
+              color={item.equipped ? "#6b7280" : "#3b82f6"}
               disabled={item.equipped} />
           )}
           {canEquipFlair && (

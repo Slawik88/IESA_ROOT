@@ -2155,6 +2155,42 @@ def miniapp_inventory(request):
             except Exception:
                 pass
 
+            # Append owned gacha-frames as pseudo-items (slot=frame, is_cosmetic=True)
+            try:
+                from handlers.economy import TOP_FRAMES as _TOP_FRAMES
+                cur.execute(f"SELECT item_value FROM shop_items WHERE user_id={ph} AND item_type='frame'", (uid,))
+                owned_frame_keys = [r[0] for r in cur.fetchall()]
+                cur.execute(
+                    f"SELECT COALESCE(top_frame,'') FROM user_mora WHERE user_id={ph} AND chat_id={ph} LIMIT 1",
+                    (uid, chat_id),
+                )
+                active_frame_row = cur.fetchone()
+                active_frame = active_frame_row[0] if active_frame_row else ""
+                _fmap = {f[0]: f for f in _TOP_FRAMES}
+                for fidx, fkey in enumerate(owned_frame_keys):
+                    if fkey in ("default", "", None):
+                        continue
+                    f = _fmap.get(fkey, (fkey, "🖼", fkey, 0, ""))
+                    items.append({
+                        "id": -(1000 + fidx + 1),
+                        "key": fkey,
+                        "name": f"{f[1]} Рамка «{f[2]}»",
+                        "rarity": "rare",
+                        "equipped": (active_frame == fkey),
+                        "atk": 0, "def_val": 0, "hp": 0, "crit_rate": 0,
+                        "slot": "frame",
+                        "enhancement_level": 0,
+                        "stack_count": 1,
+                        "is_cosmetic": True,
+                        "desc": f[4] if len(f) > 4 else "",
+                        "sell_price": 0,
+                        "can_auction": False,
+                        "days_until_auctionable": None,
+                        "hours_until_auctionable": None,
+                    })
+            except Exception:
+                pass
+
             conn.close()
             return JsonResponse({
                 "items": items, "rpg": rpg, "pity": pity,

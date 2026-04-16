@@ -1118,3 +1118,73 @@ export function cancelLoan(chatId: number, loanId: number): Promise<{ ok: boolea
     body: JSON.stringify({ chat_id: chatId, loan_id: loanId }),
   });
 }
+
+// ── Talents ───────────────────────────────────────────────────
+
+export interface TalentInfo { name: string; emoji: string; tier: number; max_level: number; desc: string; effect_key: string; effect_per_level: number; }
+export interface TalentsResponse { talent_points: number; talents: Record<string, number>; tree: Record<string, TalentInfo>; }
+
+export function fetchTalents(): Promise<TalentsResponse> {
+  return request<TalentsResponse>("/api/talents");
+}
+
+export function upgradeTalent(talentId: string): Promise<{ ok: boolean; talent_points: number; error?: string }> {
+  return request<{ ok: boolean; talent_points: number; error?: string }>("/api/talents/upgrade", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ talent_id: talentId }),
+  });
+}
+
+// ── Shards ────────────────────────────────────────────────────
+
+export interface ShardCatalogEntry { name: string; emoji: string; craft_into: string | null; craft_frame: string | null; craft_amount: number; owned: number; }
+export interface ShardsResponse { stash: Record<string, number>; catalog: Record<string, ShardCatalogEntry>; }
+
+export function fetchShards(chatId: number): Promise<ShardsResponse> {
+  return request<ShardsResponse>(`/api/shards?chat_id=${chatId}`);
+}
+
+export function craftShard(chatId: number, shardKey: string): Promise<{ ok: boolean; message?: string; error?: string }> {
+  return request<{ ok: boolean; message?: string; error?: string }>("/api/shards/craft", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId, shard_key: shardKey }),
+  });
+}
+
+// ── Settings ──────────────────────────────────────────────────
+
+export interface SettingsRankEntry { min_rank: string; min_rank_level: number; min_rank_name: string; }
+export interface SettingsLocalResponse { ok: boolean; settings: Record<string, unknown>; user_rank: string; user_rank_level: number; rank_map: Record<string, SettingsRankEntry>; }
+export interface SettingsGlobalResponse { ok: boolean; settings: Record<string, unknown>; is_dev: boolean; }
+
+export function fetchSettingsLocal(chatId: number): Promise<SettingsLocalResponse> {
+  return request<SettingsLocalResponse>(`/api/settings/local?chat_id=${chatId}`);
+}
+
+export function updateSettingLocal(chatId: number, key: string, value: unknown): Promise<{ ok: boolean; key: string; value: unknown; error?: string }> {
+  return request<{ ok: boolean; key: string; value: unknown; error?: string }>("/api/settings/local", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId, key, value }),
+  });
+}
+
+export function fetchSettingsGlobal(): Promise<SettingsGlobalResponse> {
+  return request<SettingsGlobalResponse>("/api/settings/global");
+}
+
+export function updateSettingGlobal(key: string, value: string): Promise<{ ok: boolean; key: string; value: string; error?: string }> {
+  return request<{ ok: boolean; key: string; value: string; error?: string }>("/api/settings/global", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ key, value }),
+  });
+}
+
+// ── Newbie Quest ──────────────────────────────────────────────
+
+export function triggerNewbieQuest(chatId: number): Promise<{ active: boolean }> {
+  return request<{ active: boolean }>(`/api/newbie_quest?chat_id=${chatId}`);
+}

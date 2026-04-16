@@ -87,11 +87,13 @@ async def transfer_mora(from_uid: int, to_uid: int, chat_id: int, amount: int,
             hint = f"сумма + налог {tax}" if cover_vat else f"налог {tax} вычтется у получателя"
             raise ValueError(f"Недостаточно Моры. Нужно {deduct_total} 🪙 ({hint})")
 
-        # 2. Credit receiver
-        await db.execute(
+        # 2. Credit receiver (also validates receiver exists)
+        rcv_cursor = await db.execute(
             "UPDATE users SET balance=COALESCE(balance,0)+?, total_earned=COALESCE(total_earned,0)+? WHERE user_id=?",
             (credit_amount, credit_amount, to_uid),
         )
+        if rcv_cursor.rowcount == 0:
+            raise ValueError("Получатель не зарегистрирован в системе — попроси его написать боту хотя бы раз.")
 
         # 3. Tax to treasury
         await db.execute(

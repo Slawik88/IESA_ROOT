@@ -70,38 +70,35 @@ async def cmd_reroll_quest(message: Message, cmd_args: str):
         )
         return
 
-    mora = await get_mora(uid, chat_id)
-    bal = mora["balance"] if mora else 0
-    if bal < QUEST_REROLL_PRICE:
-        await message.answer(
-            f"❌ Переброс задания стоит <b>{QUEST_REROLL_PRICE} 🪙</b>.\n"
-            f"У тебя: <b>{bal} 🪙</b>.",
-            parse_mode="HTML",
-        )
-        return
-
+    # Используем api.quests.reroll_quest, которая проверяет купоны
+    from api.quests import reroll_quest
     from database.postgres import connect as postgres_connect
+
+    # Проверяем наличие купона реролла
+    has_coupon = False
     async with postgres_connect() as db:
-        cursor = await db.execute(
-            "UPDATE users SET balance=balance-? WHERE user_id=? AND COALESCE(balance,0)>=?",
-            (QUEST_REROLL_PRICE, uid, QUEST_REROLL_PRICE),
-        )
-        if cursor.rowcount == 0:
-            await message.answer("❌ Не удалось списать Мору.")
-            return
-        await db.commit()
         async with db.execute(
-            "SELECT COALESCE(balance, 0) AS balance FROM users WHERE user_id=?",
+            "SELECT id FROM gacha_inventory WHERE user_id=? AND item_key='quest_reroll' AND COALESCE(stack_count,1)>0 LIMIT 1",
             (uid,),
         ) as c:
-            row = await c.fetchone()
-        new_bal = row[0] if row else 0
+            coupon_row = await c.fetchone()
+        has_coupon = bool(coupon_row)
 
-    quest = await reroll_user_quest(uid, chat_id, today)
+    try:
+        result = await reroll_quest(uid, chat_id, use_coupon=has_coupon)
+    except ValueError as e:
+        await message.answer(f"❌ {e}", parse_mode="HTML")
+        return
+
+    quest = result["quest"]
+    if result.get("used_coupon"):
+        cost_text = "🎫 Использован купон реролла (бесплатно)"
+    else:
+        cost_text = f"Списано: <b>-{result['cost']} 🪙</b>"
 
     await message.answer(
-        f"🔄 <b>Задание сброшено!</b>  (<b>-{QUEST_REROLL_PRICE} 🪙</b>)\n"
-        f"Твой баланс: <b>{new_bal} 🪙</b>\n\n"
+        f"🔄 <b>Задание сброшено!</b>  ({cost_text})\n"
+        f"Твой баланс: <b>{result['new_balance']} 🪙</b>\n\n"
         f"📋 <b>Новое задание:</b>\n"
         f"🎯 {quest['desc']}\n"
         f"🏆 Награда: <b>+{quest['xp']} XP  +{quest.get('mora', 0)} 🪙</b>",
